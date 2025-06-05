@@ -290,6 +290,8 @@ pub enum MultiSignature {
 	Sr25519(sr25519::Signature),
 	/// An ECDSA/SECP256k1 signature.
 	Ecdsa(ecdsa::Signature),
+	/// An ECDSA/SECP256k1 signature but with a different address derivation.
+	Eth(ecdsa::Signature),
 }
 
 impl From<ed25519::Signature> for MultiSignature {
@@ -364,6 +366,13 @@ pub enum MultiSigner {
 	Sr25519(sr25519::Public),
 	/// An SECP256k1/ECDSA identity (actually, the Blake2 hash of the compressed pub key).
 	Ecdsa(ecdsa::Public),
+	/// Same as `Ecdsa` but its account id is derived based off its eth address instead of its
+	/// pubkey.
+	///
+	/// This is important so that the address matches the address to address mapping in
+	/// `pallet_revive`. This means is that the same public key controls two accounts. But
+	/// this is already the case due to `pallet_revive`'s address mapping.
+	Eth(ecdsa::Public),
 }
 
 impl FromEntropy for MultiSigner {
@@ -390,6 +399,7 @@ impl AsRef<[u8]> for MultiSigner {
 			Self::Ed25519(ref who) => who.as_ref(),
 			Self::Sr25519(ref who) => who.as_ref(),
 			Self::Ecdsa(ref who) => who.as_ref(),
+			Self::Eth(ref who) => who.as_ref(),
 		}
 	}
 }
@@ -401,6 +411,17 @@ impl traits::IdentifyAccount for MultiSigner {
 			Self::Ed25519(who) => <[u8; 32]>::from(who).into(),
 			Self::Sr25519(who) => <[u8; 32]>::from(who).into(),
 			Self::Ecdsa(who) => sp_io::hashing::blake2_256(who.as_ref()).into(),
+			Self::Eth(who) => {
+				// It is important that the account id is based off the eth address rather
+				// than its pubkey. This is because in many cases we don't know the pubkey
+				// of an eth account.
+				let eth_address = &sp_io::hashing::keccak_256(who.as_ref())[12..];
+				// This is by convention: `pallet_revive` maps eth addresses to account ids
+				// by filling up the additional 12 bytes with 0xEE.
+				let mut address = [0xEE; 32];
+				address[..20].copy_from_slice(eth_address);
+				address.into()
+			},
 		}
 	}
 }
@@ -463,6 +484,7 @@ impl std::fmt::Display for MultiSigner {
 			Self::Ed25519(who) => write!(fmt, "ed25519: {}", who),
 			Self::Sr25519(who) => write!(fmt, "sr25519: {}", who),
 			Self::Ecdsa(who) => write!(fmt, "ecdsa: {}", who),
+			Self::Eth(who) => write!(fmt, "eth: {}", who),
 		}
 	}
 }
@@ -478,6 +500,13 @@ impl Verify for MultiSignature {
 				let m = sp_io::hashing::blake2_256(msg.get());
 				sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig.as_ref(), &m)
 					.map_or(false, |pubkey| sp_io::hashing::blake2_256(&pubkey) == who)
+			},
+			Self::Eth(sig) => {
+				let m = sp_io::hashing::blake2_256(msg.get());
+				sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig.as_ref(), &m)
+					.map_or(false, |pubkey| {
+						&MultiSigner::Eth(pubkey.into()).into_account() == signer
+					})
 			},
 		}
 	}
@@ -1113,7 +1142,7 @@ mod tests {
 
 	use super::*;
 	use codec::{Decode, Encode};
-	use sp_core::crypto::Pair;
+	use sp_core::{crypto::Pair, hex2array};
 	use sp_io::TestExternalities;
 	use sp_state_machine::create_proof_check_backend;
 
@@ -1194,6 +1223,39 @@ mod tests {
 
 		let multi_signer = MultiSigner::from(pair.public());
 		assert!(multi_sig.verify(msg, &multi_signer.into_account()));
+	}
+
+	#[test]
+	fn multi_signature_eth_verify_works() {
+		let msg = &b"test-message"[..];
+		let (pair, _) = ecdsa::Pair::generate();
+
+		let signature = pair.sign(&msg);
+		assert!(ecdsa::Pair::verify(&signature, msg, &pair.public()));
+
+		let multi_sig = MultiSignature::Eth(signature);
+		let multi_signer = MultiSigner::Eth(pair.public());
+		assert!(multi_sig.verify(msg, &multi_signer.into_account()));
+
+		let multi_signer = MultiSigner::Eth(pair.public());
+		assert!(multi_sig.verify(msg, &multi_signer.into_account()));
+	}
+
+	#[test]
+	fn multi_signer_eth_address_works() {
+		let pair = ecdsa::Pair::from_seed(&[0x42; 32]);
+		let ecdsa = MultiSigner::Ecdsa(pair.public()).into_account();
+		let eth = MultiSigner::Eth(pair.public()).into_account();
+
+		assert_eq!(&<AccountId32 as AsRef<[u8; 32]>>::as_ref(&eth)[20..], &[0xEE; 12]);
+		assert_eq!(
+			ecdsa,
+			hex2array!("ff241710529476ac87c67b66ccdc42f95a14b49a896164839fe675dc6f579614").into(),
+		);
+		assert_eq!(
+			eth,
+			hex2array!("2714c48edc39bc2714729e6530760d62344d6698eeeeeeeeeeeeeeeeeeeeeeee").into(),
+		);
 	}
 
 	#[test]
