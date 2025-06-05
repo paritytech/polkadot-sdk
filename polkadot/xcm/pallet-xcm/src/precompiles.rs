@@ -33,14 +33,9 @@ use IXcm::IXcmCalls;
 
 const LOG_TARGET: &str = "xcm::precompiles";
 
-// Revert macro to handle errors in a consistent way across the precompile.
-#[macro_export]
-macro_rules! revert {
-    ($target:expr, $error:expr, $($arg:tt)*) => {{
-        let message = format!($($arg)*);
-        error!(target: $target, error = ?$error, "{}", message);
-        Error::Revert(message.into())
-    }};
+fn revert(error: &impl std::fmt::Debug, message: &str) -> Error {
+    error!(target: LOG_TARGET, ?error, "{}", message);
+    Error::Revert(message.into())
 }
 
 pub struct XcmPrecompile<T>(PhantomData<T>);
@@ -72,7 +67,7 @@ where
 
 				let final_destination = VersionedLocation::decode_all(&mut &destination[..])
 					.map_err(|error| {
-						revert!(LOG_TARGET, error, "XCM send failed: Invalid destination format")
+						revert(&error, "XCM send failed: Invalid destination format")
 					})?;
 
 				let final_message = VersionedXcm::<()>::decode_all_with_depth_limit(
@@ -80,7 +75,7 @@ where
 					&mut &message[..],
 				)
 				.map_err(|error| {
-					revert!(LOG_TARGET, error, "XCM send failed: Invalid message format")
+					revert(&error, "XCM send failed: Invalid message format")
 				})?;
 
 				crate::Pallet::<Runtime>::send(
@@ -90,9 +85,8 @@ where
 				)
 				.map(|message_id| message_id.encode())
 				.map_err(|error| {
-					revert!(
-						LOG_TARGET,
-						error,
+					revert(
+						&error,
 						"XCM send failed: destination or message format may be incompatible"
 					)
 				})
@@ -107,7 +101,7 @@ where
 					&mut &message[..],
 				)
 				.map_err(|error| {
-					revert!(LOG_TARGET, error, "XCM execute failed: Invalid message format")
+					revert(&error, "XCM execute failed: Invalid message format")
 				})?;
 
 				let result =
@@ -124,9 +118,8 @@ where
 				env.adjust_gas(charged_amount, actual_weight);
 
 				result.map(|post_dispatch_info| post_dispatch_info.encode()).map_err(|error| {
-					revert!(
-							LOG_TARGET,
-							error,
+					revert(
+							&error,
 							"XCM execute failed: message may be invalid or execution constraints not satisfied"
 						)
 				})
@@ -139,16 +132,16 @@ where
 					&mut &message[..],
 				)
 				.map_err(|error| {
-					revert!(LOG_TARGET, error, "XCM weightMessage: Invalid message format")
+					revert(&error, "XCM weightMessage: Invalid message format")
 				})?;
 
 				let mut final_message = converted_message.try_into().map_err(|error| {
-					revert!(LOG_TARGET, error, "XCM weightMessage: Conversion to Xcm failed")
+					revert(&error, "XCM weightMessage: Conversion to Xcm failed")
 				})?;
 
 				let weight = <<Runtime>::Weigher>::weight(&mut final_message, Weight::MAX)
 					.map_err(|error| {
-						revert!(LOG_TARGET, error, "XCM weightMessage: Failed to calculate weight")
+						revert(&error, "XCM weightMessage: Failed to calculate weight")
 					})?;
 
 				let final_weight =
