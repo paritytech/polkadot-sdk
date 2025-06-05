@@ -24328,6 +24328,7 @@ dependencies = [
  "clap",
  "cmd_lib",
  "docify",
+ "pretty_assertions",
  "sc-chain-spec",
  "serde",
  "serde_json",
