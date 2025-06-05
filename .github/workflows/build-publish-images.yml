@@ -50,6 +50,7 @@ jobs:
           ROCOCO_EPOCH_DURATION=10 ./polkadot/scripts/build-only-wasm.sh rococo-runtime $(pwd)/runtimes/rococo-runtime-10/
           ROCOCO_EPOCH_DURATION=100 ./polkadot/scripts/build-only-wasm.sh rococo-runtime $(pwd)/runtimes/rococo-runtime-100/
           ROCOCO_EPOCH_DURATION=600 ./polkadot/scripts/build-only-wasm.sh rococo-runtime $(pwd)/runtimes/rococo-runtime-600/
+          time ./polkadot/scripts/build-only-wasm.sh westend-runtime $(pwd)/runtimes/westend-100/
           pwd
           ls -alR runtimes
       - name: pack artifacts

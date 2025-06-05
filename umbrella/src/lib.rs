@@ -202,6 +202,10 @@ pub use cumulus_relay_chain_minimal_node;
 #[cfg(feature = "cumulus-relay-chain-rpc-interface")]
 pub use cumulus_relay_chain_rpc_interface;
 
+/// Cumulus client common relay chain streams.
+#[cfg(feature = "cumulus-relay-chain-streams")]
+pub use cumulus_relay_chain_streams;
+
 /// Mocked relay state proof builder for testing Cumulus.
 #[cfg(feature = "cumulus-test-relay-sproof-builder")]
 pub use cumulus_test_relay_sproof_builder;
@@ -209,6 +213,10 @@ pub use cumulus_test_relay_sproof_builder;
 /// Common resources for integration testing with xcm-emulator.
 #[cfg(feature = "emulated-integration-tests-common")]
 pub use emulated_integration_tests_common;
+
+/// Interfaces for Ethereum standards.
+#[cfg(feature = "ethereum-standards")]
+pub use ethereum_standards;
 
 /// Utility library for managing tree-like ordered data with logic for pruning the tree while
 /// finalizing nodes.
@@ -447,6 +455,10 @@ pub use pallet_democracy;
 #[cfg(feature = "pallet-dev-mode")]
 pub use pallet_dev_mode;
 
+/// Dummy DIM Pallet.
+#[cfg(feature = "pallet-dummy-dim")]
+pub use pallet_dummy_dim;
+
 /// PALLET multi phase+block election providers.
 #[cfg(feature = "pallet-election-provider-multi-block")]
 pub use pallet_election_provider_multi_block;
@@ -563,6 +575,10 @@ pub use pallet_offences;
 #[cfg(feature = "pallet-offences-benchmarking")]
 pub use pallet_offences_benchmarking;
 
+/// Pallet to give some execution allowance for some origins.
+#[cfg(feature = "pallet-origin-restriction")]
+pub use pallet_origin_restriction;
+
 /// FRAME pallet that provides a paged list data structure.
 #[cfg(feature = "pallet-paged-list")]
 pub use pallet_paged_list;
@@ -570,6 +586,10 @@ pub use pallet_paged_list;
 /// Pallet to store and configure parameters.
 #[cfg(feature = "pallet-parameters")]
 pub use pallet_parameters;
+
+/// Personhood-tracking pallet.
+#[cfg(feature = "pallet-people")]
+pub use pallet_people;
 
 /// FRAME pallet for storing preimages of hashes.
 #[cfg(feature = "pallet-preimage")]
@@ -603,10 +623,6 @@ pub use pallet_revive;
 /// An Ethereum JSON-RPC server for pallet-revive.
 #[cfg(feature = "pallet-revive-eth-rpc")]
 pub use pallet_revive_eth_rpc;
-
-/// A mock network for testing pallet-revive.
-#[cfg(feature = "pallet-revive-mock-network")]
-pub use pallet_revive_mock_network;
 
 /// Procedural macros used in pallet_revive.
 #[cfg(feature = "pallet-revive-proc-macro")]
@@ -976,8 +992,7 @@ pub use polkadot_runtime_metrics;
 #[cfg(feature = "polkadot-runtime-parachains")]
 pub use polkadot_runtime_parachains;
 
-/// Experimental: The single package to get you started with building frame pallets and
-/// runtimes.
+/// The single package to get you started with building frame pallets and runtimes.
 #[cfg(feature = "polkadot-sdk-frame")]
 pub use polkadot_sdk_frame;
 

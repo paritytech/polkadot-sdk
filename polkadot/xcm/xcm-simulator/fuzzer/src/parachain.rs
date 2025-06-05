@@ -237,12 +237,14 @@ pub mod mock_msg_queue {
 						max_weight,
 						Weight::zero(),
 					) {
-						Outcome::Error { error } => (Err(error), Event::Fail(Some(hash), error)),
+						Outcome::Error(InstructionError { error, .. }) =>
+							(Err(error), Event::Fail(Some(hash), error)),
 						Outcome::Complete { used } => (Ok(used), Event::Success(Some(hash))),
 						// As far as the caller is concerned, this was dispatched without error, so
 						// we just report the weight used.
-						Outcome::Incomplete { used, error } =>
-							(Ok(used), Event::Fail(Some(hash), error)),
+						Outcome::Incomplete {
+							used, error: InstructionError { error, .. }, ..
+						} => (Ok(used), Event::Fail(Some(hash), error)),
 					}
 				},
 				Err(()) => (Err(XcmError::UnhandledXcmVersion), Event::BadVersion(Some(hash))),

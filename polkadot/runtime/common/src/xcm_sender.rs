@@ -136,7 +136,13 @@ where
 		let hash = sp_io::hashing::blake2_256(&blob[..]);
 		dmp::Pallet::<T>::queue_downward_message(&config, para, blob)
 			.map(|()| hash)
-			.map_err(|_| SendError::Transport(&"Error placing into DMP queue"))
+			.map_err(|error| {
+				log::debug!(
+					target: "xcm::xcm_sender::deliver",
+					"Failed to place into DMP queue: error: {error:?}, id: {hash:?}",
+				);
+				SendError::Transport(&"Error placing into DMP queue")
+			})
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -222,6 +228,8 @@ impl<
 		dest: &Location,
 		fee_reason: xcm_executor::traits::FeeReason,
 	) -> (Option<xcm_executor::FeesMode>, Option<Assets>) {
+		use alloc::vec;
+		use xcm::{latest::MAX_ITEMS_IN_ASSETS, MAX_INSTRUCTIONS_TO_DECODE};
 		use xcm_executor::{
 			traits::{FeeManager, TransactAsset},
 			FeesMode,
@@ -249,7 +257,12 @@ impl<
 			}
 
 			// overestimate delivery fee
-			let overestimated_xcm = alloc::vec![ClearOrigin; 128].into();
+			let mut max_assets: Vec<Asset> = Vec::new();
+			for i in 0..MAX_ITEMS_IN_ASSETS {
+				max_assets.push((GeneralIndex(i as u128), 100u128).into());
+			}
+			let overestimated_xcm =
+				vec![WithdrawAsset(max_assets.into()); MAX_INSTRUCTIONS_TO_DECODE as usize].into();
 			let overestimated_fees =
 				PriceForDelivery::price_for_delivery(Parachain::get(), &overestimated_xcm);
 
@@ -289,12 +302,12 @@ mod tests {
 			FixedU128::from_rational(101, 100)
 		}
 
-		fn increase_fee_factor(_: Self::Id, _: FixedU128) -> FixedU128 {
-			FixedU128::from_rational(101, 100)
-		}
+		fn set_fee_factor(_id: Self::Id, _val: FixedU128) {}
 
-		fn decrease_fee_factor(_: Self::Id) -> FixedU128 {
-			FixedU128::from_rational(101, 100)
+		fn increase_fee_factor(_: Self::Id, _: u128) {}
+
+		fn decrease_fee_factor(_: Self::Id) -> bool {
+			true
 		}
 	}
 
