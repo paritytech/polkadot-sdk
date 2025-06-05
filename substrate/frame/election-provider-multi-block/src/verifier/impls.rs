@@ -626,8 +626,7 @@ pub(crate) mod pallet {
 impl<T: Config> Pallet<T> {
 	/// Internal method to handle verifier cleanup
 	fn stop() {
-		sublog!(warn, "verifier", "stop signal received. clearing everything.");
-
+		sublog!(warn, "verifier", "Clearing any ongoing unverified solutions.");
 		// Clear any ongoing solution that has not been verified, regardless of the current state.
 		// This cleanup should only be necessary if there was an active verification process.
 		QueuedSolution::<T>::clear_invalid_and_backings_unchecked();
