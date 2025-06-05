@@ -2,9 +2,8 @@ title: Introduce dry_execute_with for testing/emulated environment purposes
 doc:
 - audience: Runtime Dev
   description: |-
-    Within `TestExt` environment there is no possibility to mimic runtime API call, that eventually discards any modifications of storage, not making into a block akin to real-network runtime API call (no extrinsics submitting). There is a family of `dry_run_*` runtime apis that simulates execution for the purpose of learning about expected fees amount, but these still alter the storage to achieve that. In case of testing environemnt these changes are persistent as any other - which can be unexpected
+    Adds `dry_execute_with`, which behaves like `execute_with` but runs in a cloned temporary environment. The environment is discarded after execution, returning only the results without affecting original state.
 
-    This PR proposes `dry_execute_with` method, that for all practical purposes works just as `execute_with`, with the difference that `dry_execute_with` will actualy execute within temporary environment cloned from currently used one and when done, just return the results and drop the environment
 crates:
 - name: emulated-integration-tests-common
   bump: patch
