@@ -850,7 +850,8 @@ jobs:
           prefix: "polkadot"
 
   #
-  #
+  # disabled in FLAKY_TESTS
+  # TODO: reenable once problem with getting old polkadot binary for native provider is solved
   zombienet-polkadot-approved-peer-mixed-validators:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-functional-spam-statement-distribution-requests') }}
