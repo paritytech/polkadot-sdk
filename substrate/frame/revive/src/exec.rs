@@ -1665,8 +1665,6 @@ where
 		// This is for example the case when creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
 
-		if_tracing(|t| t.instantiate_code(&crate::Code::Existing(code_hash), salt));
-
 		let executable = E::from_storage(code_hash, self.gas_meter_mut())?;
 		let sender = &self.top_frame().account_id;
 		let executable = self.push_frame(
@@ -1682,6 +1680,8 @@ where
 			self.is_read_only(),
 		)?;
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
+
+		if_tracing(|t| t.instantiate_code(&crate::Code::Existing(code_hash), salt));
 		self.run(executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE), input_data)
 			.map(|_| address)
 	}

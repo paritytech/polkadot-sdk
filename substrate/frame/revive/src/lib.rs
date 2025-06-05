@@ -1068,7 +1068,6 @@ where
 			let instantiate_account = T::InstantiateOrigin::ensure_origin(origin.clone())?;
 
 			if_tracing(|t| t.instantiate_code(&code, salt.as_ref()));
-
 			let (executable, upload_deposit) = match code {
 				Code::Upload(code) => {
 					let upload_account = T::UploadOrigin::ensure_origin(origin)?;

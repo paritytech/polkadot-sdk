@@ -130,6 +130,8 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, Gas
 	}
 
 	fn exit_child_span(&mut self, output: &ExecReturnValue, gas_used: Weight) {
+		self.code_with_salt = None;
+
 		// Set the output of the current trace
 		let current_index = self.current_stack.pop().unwrap();
 
@@ -154,6 +156,8 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, Gas
 		}
 	}
 	fn exit_child_span_with_error(&mut self, error: DispatchError, gas_used: Weight) {
+		self.code_with_salt = None;
+
 		// Set the output of the current trace
 		let current_index = self.current_stack.pop().unwrap();
 
