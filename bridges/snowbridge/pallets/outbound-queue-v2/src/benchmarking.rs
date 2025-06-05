@@ -135,7 +135,7 @@ mod benchmarks {
 	#[benchmark]
 	fn process() -> Result<(), BenchmarkError> {
 		initialize_worst_case::<T>();
-		let origin = AggregateMessageOrigin::SnowbridgeV2([1; 32].into());
+		let origin = T::OriginToAggregateMessageOrigin::convert([1; 32].into());
 		let (enqueued_message, _) = build_message::<T>();
 		let message = enqueued_message.encode();
 
