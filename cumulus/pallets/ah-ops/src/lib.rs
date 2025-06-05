@@ -33,13 +33,16 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
 pub mod weights;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
 
 use codec::DecodeAll;
-use cumulus_primitives_core::ParaId;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -59,6 +62,7 @@ pub const LOG_TARGET: &str = "runtime::ah-ops";
 
 pub type BalanceOf<T> = <T as pallet_balances::Config>::Balance;
 pub type DerivationIndex = u16;
+pub type ParaId = u16;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -173,6 +177,8 @@ pub mod pallet {
 		ContributionsRemaining,
 		/// Passed account IDs are not matching unmigrated child and sibling accounts.
 		WrongSovereignTranslation,
+		/// The account is not a derived account.
+		WrongDerivedTranslation,
 		/// Account cannot be migrated since it is not a sovereign parachain account.
 		NotSovereign,
 		/// Internal error, please bug report.
@@ -193,6 +199,8 @@ pub mod pallet {
 		FailedToReserve,
 		/// Failed to unreserve the full balance.
 		CannotUnreserve,
+		/// The from and to accounts are identical.
+		AccountIdentical,
 	}
 
 	#[pallet::event]
@@ -334,11 +342,11 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			from: T::AccountId,
 			to: T::AccountId,
-			derivation_index: DerivationIndex,
+			derivation: (T::AccountId, DerivationIndex),
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			Self::do_migrate_parachain_sovereign_derived_acc(&from, &to, Some(derivation_index))
+			Self::do_migrate_parachain_sovereign_derived_acc(&from, &to, Some(derivation))
 				.map_err(Into::into)
 		}
 
@@ -446,43 +454,29 @@ pub mod pallet {
 			contrib_iter.next().is_none()
 		}
 
-		/// Errors:
-		/// - NotSovereign: The account is not a Parachain sovereign account
-		/// - NotDerived: Incorrect derivation index or account is not derived
-		pub fn check_sovereign_derivation(
-			parent: &T::AccountId,
-			child: &T::AccountId,
-			derivation: Option<DerivationIndex>,
-		) -> Result<(T::AccountId, u16, Option<DerivationIndex>), Error<T>> {
-			pallet_balances::Pallet::<T>::ensure_upgraded(parent); // prevent future headache
-
-			let (sov_acc, para_id) = try_translate_rc_sovereign_to_ah(parent)
-				.defensive()
-				.map_err(|_| Error::<T>::InternalError)?
-				.ok_or(Error::<T>::NotSovereign)?;
-
-			let to = if let Some(index) = derivation {
-				pallet_utility::derivative_account_id(sov_acc, index)
-			} else {
-				sov_acc
-			};
-
-			ensure!(to == *child, Error::<T>::WrongSovereignTranslation);
-
-			Ok((to, para_id, derivation))
-		}
-
 		pub fn do_migrate_parachain_sovereign_derived_acc(
 			from: &T::AccountId,
 			to: &T::AccountId,
-			index: Option<DerivationIndex>,
+			derivation: Option<(T::AccountId, DerivationIndex)>,
 		) -> Result<(), Error<T>> {
 			if frame_system::Account::<T>::get(from) == Default::default() {
 				// Nothing to do if the account does not exist
 				return Ok(());
 			}
+			if from == to {
+				return Err(Error::<T>::AccountIdentical);
+			}
+			pallet_balances::Pallet::<T>::ensure_upgraded(from); // prevent future headache
 
-			let (to, para_id, index) = Self::check_sovereign_derivation(&from, &to, index)?;
+			let (translated_acc, para_id, index) = if let Some((parent, index)) = derivation {
+				let (parent_translated, para_id) =
+					Self::try_rc_sovereign_derived_to_ah(from, (parent, index))?;
+				(parent_translated, para_id, Some(index))
+			} else {
+				let (translated_acc, para_id) = Self::try_translate_rc_sovereign_to_ah(from)?;
+				(translated_acc, para_id, None)
+			};
+			ensure!(translated_acc == *to, Error::<T>::WrongSovereignTranslation);
 
 			// Release all locks
 			let locks: Vec<BalanceLock<T::Balance>> =
@@ -589,7 +583,7 @@ pub mod pallet {
 			);
 
 			Self::deposit_event(Event::SovereignMigrated {
-				para_id: (para_id as u32).into(),
+				para_id,
 				from: from.clone(),
 				to: to.clone(),
 				derivation_index: index,
@@ -620,48 +614,65 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// Try to translate a Parachain sovereign account to the Parachain AH sovereign account.
+		///
+		/// Returns:
+		/// - `Ok(None)` if the account is not a Parachain sovereign account
+		/// - `Ok(Some((ah_account, para_id)))` with the translated account and the para id
+		/// - `Err(())` otherwise
+		///
+		/// The way that this normally works is through the configured
+		/// `SiblingParachainConvertsVia`: https://github.com/polkadot-fellows/runtimes/blob/7b096c14c2b16cc81ca4e2188eea9103f120b7a4/system-parachains/asset-hubs/asset-hub-polkadot/src/xcm_config.rs#L93-L94
+		/// it passes the `Sibling` type into it which has type-ID `sibl`:
+		/// https://github.com/paritytech/polkadot-sdk/blob/c10e25aaa8b8afd8665b53f0a0b02e4ea44caa77/polkadot/parachain/src/primitives.rs#L272-L274.
+		/// This type-ID gets used by the converter here:
+		/// https://github.com/paritytech/polkadot-sdk/blob/7ecf3f757a5d6f622309cea7f788e8a547a5dce8/polkadot/xcm/xcm-builder/src/location_conversion.rs#L314
+		/// and eventually ends up in the encoding here
+		/// https://github.com/paritytech/polkadot-sdk/blob/cdf107de700388a52a17b2fb852c98420c78278e/substrate/primitives/runtime/src/traits/mod.rs#L1997-L1999
+		/// The `para` conversion is likewise with `ChildParachainConvertsVia` and the `para`
+		/// type-ID https://github.com/paritytech/polkadot-sdk/blob/c10e25aaa8b8afd8665b53f0a0b02e4ea44caa77/polkadot/parachain/src/primitives.rs#L162-L164
+		pub fn try_translate_rc_sovereign_to_ah(
+			from: &AccountId32,
+		) -> Result<(AccountId32, ParaId), Error<T>> {
+			let raw = from.to_raw_vec();
+
+			// Must start with "para"
+			let Some(raw) = raw.strip_prefix(b"para") else {
+				return Err(Error::<T>::NotSovereign);
+			};
+			// Must end with 26 zero bytes
+			let Some(raw) = raw.strip_suffix(&[0u8; 26]) else {
+				return Err(Error::<T>::NotSovereign);
+			};
+			let para_id = u16::decode_all(&mut &raw[..]).map_err(|_| Error::<T>::InternalError)?;
+
+			// Translate to AH sibling account
+			let mut ah_raw = [0u8; 32];
+			ah_raw[0..4].copy_from_slice(b"sibl");
+			ah_raw[4..6].copy_from_slice(&para_id.encode());
+			let ah_acc = ah_raw.try_into().map_err(|_| Error::<T>::InternalError)?;
+
+			Ok((ah_acc, para_id))
+		}
+
+		pub fn try_rc_sovereign_derived_to_ah(
+			from: &AccountId32,
+			derivation: (AccountId32, DerivationIndex),
+		) -> Result<(AccountId32, ParaId), Error<T>> {
+			let (parent, index) = derivation;
+			// check the derivation proof
+			{
+				let derived = pallet_utility::derivative_account_id(parent.clone(), index);
+				ensure!(derived == *from, Error::<T>::WrongDerivedTranslation);
+			}
+
+			let (parent_translated, para_id) = Self::try_translate_rc_sovereign_to_ah(&parent)?;
+			let parent_translated_derived =
+				pallet_utility::derivative_account_id(parent_translated, index);
+			Ok((parent_translated_derived, para_id))
+		}
 	}
-}
-
-/// Try to translate a Parachain sovereign account to the Parachain AH sovereign account.
-///
-/// Returns:
-/// - `Ok(None)` if the account is not a Parachain sovereign account
-/// - `Ok(Some((ah_account, para_id)))` with the translated account and the para id
-/// - `Err(())` otherwise
-///
-/// The way that this normally works is through the configured `SiblingParachainConvertsVia`:
-/// https://github.com/polkadot-fellows/runtimes/blob/7b096c14c2b16cc81ca4e2188eea9103f120b7a4/system-parachains/asset-hubs/asset-hub-polkadot/src/xcm_config.rs#L93-L94
-/// it passes the `Sibling` type into it which has type-ID `sibl`:
-/// https://github.com/paritytech/polkadot-sdk/blob/c10e25aaa8b8afd8665b53f0a0b02e4ea44caa77/polkadot/parachain/src/primitives.rs#L272-L274.
-/// This type-ID gets used by the converter here:
-/// https://github.com/paritytech/polkadot-sdk/blob/7ecf3f757a5d6f622309cea7f788e8a547a5dce8/polkadot/xcm/xcm-builder/src/location_conversion.rs#L314
-/// and eventually ends up in the encoding here
-/// https://github.com/paritytech/polkadot-sdk/blob/cdf107de700388a52a17b2fb852c98420c78278e/substrate/primitives/runtime/src/traits/mod.rs#L1997-L1999
-/// The `para` conversion is likewise with `ChildParachainConvertsVia` and the `para` type-ID
-/// https://github.com/paritytech/polkadot-sdk/blob/c10e25aaa8b8afd8665b53f0a0b02e4ea44caa77/polkadot/parachain/src/primitives.rs#L162-L164
-pub fn try_translate_rc_sovereign_to_ah(
-	acc: &AccountId32,
-) -> Result<Option<(AccountId32, u16)>, ()> {
-	let raw = acc.to_raw_vec();
-
-	// Must start with "para"
-	let Some(raw) = raw.strip_prefix(b"para") else {
-		return Ok(None);
-	};
-	// Must end with 26 zero bytes
-	let Some(raw) = raw.strip_suffix(&[0u8; 26]) else {
-		return Ok(None);
-	};
-	let para_id = u16::decode_all(&mut &raw[..]).map_err(|_| ())?;
-
-	// Translate to AH sibling account
-	let mut ah_raw = [0u8; 32];
-	ah_raw[0..4].copy_from_slice(b"sibl");
-	ah_raw[4..6].copy_from_slice(&para_id.encode());
-	let ah_acc = ah_raw.try_into().map_err(|_| ()).defensive()?;
-
-	Ok(Some((ah_acc, para_id)))
 }
 
 use frame_support::traits::WithdrawReasons as LockWithdrawReasons;
