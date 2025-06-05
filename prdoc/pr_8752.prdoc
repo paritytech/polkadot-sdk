@@ -1,0 +1,12 @@
+title: transfer_assets benchmarking and weights for coretime chains
+doc:
+- audience: Runtime Dev
+  description: "Introduces implementation of `set_up_complex_asset_transfer()` to\
+    \ correctly benchmark weights for `transfer_assets` extrinsics on Rococo Coretime\
+    \ and Westend Coretime. Introducing also test scenarios to cover common xcm teleport\
+    \ use cases\r\n"
+crates:
+- name: coretime-rococo-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
