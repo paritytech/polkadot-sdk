@@ -2629,7 +2629,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-westend-runtime"
-version = "0.16.1"
+version = "0.16.2"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -3668,7 +3668,7 @@ dependencies = [
 
 [[package]]
 name = "coretime-rococo-runtime"
-version = "0.15.1"
+version = "0.15.2"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -3768,7 +3768,7 @@ dependencies = [
 
 [[package]]
 name = "coretime-westend-runtime"
-version = "0.15.1"
+version = "0.15.2"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -4217,7 +4217,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-consensus-aura"
-version = "0.22.0"
+version = "0.22.1"
 dependencies = [
  "async-trait",
  "cumulus-client-collator",
@@ -4763,7 +4763,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-relay-chain-inprocess-interface"
-version = "0.23.0"
+version = "0.23.1"
 dependencies = [
  "async-trait",
  "cumulus-primitives-core",
@@ -4808,7 +4808,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-relay-chain-minimal-node"
-version = "0.23.1"
+version = "0.23.2"
 dependencies = [
  "array-bytes",
  "async-trait",
@@ -11584,7 +11584,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-broker"
-version = "0.19.1"
+version = "0.19.2"
 dependencies = [
  "bitvec",
  "frame-benchmarking",
@@ -15200,7 +15200,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-omni-node-lib"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "assert_cmd",
  "async-trait",
@@ -16096,7 +16096,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-service"
-version = "23.0.0"
+version = "23.1.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -18775,7 +18775,7 @@ dependencies = [
 
 [[package]]
 name = "sc-cli"
-version = "0.51.0"
+version = "0.51.1"
 dependencies = [
  "array-bytes",
  "chrono",
@@ -19443,7 +19443,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network"
-version = "0.49.1"
+version = "0.49.2"
 dependencies = [
  "array-bytes",
  "assert_matches",
@@ -19663,7 +19663,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network-types"
-version = "0.15.3"
+version = "0.15.4"
 dependencies = [
  "bs58",
  "bytes",
@@ -19682,7 +19682,7 @@ dependencies = [
 
 [[package]]
 name = "sc-offchain"
-version = "44.0.0"
+version = "44.0.1"
 dependencies = [
  "async-trait",
  "bytes",
@@ -21394,7 +21394,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-inbound-queue-primitives"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "alloy-core",
  "frame-support",
@@ -21448,7 +21448,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-outbound-queue-primitives"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "alloy-core",
  "ethabi-decode",
@@ -21539,7 +21539,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue"
-version = "0.13.1"
+version = "0.13.2"
 dependencies = [
  "alloy-core",
  "frame-benchmarking",
@@ -21579,7 +21579,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue-v2"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "alloy-core",
  "bp-relayers",
@@ -21677,7 +21677,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-system"
-version = "0.13.2"
+version = "0.13.3"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -21726,7 +21726,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-system-v2"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -21824,7 +21824,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-test-utils"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
