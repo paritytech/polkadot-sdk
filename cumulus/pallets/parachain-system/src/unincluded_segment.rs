@@ -342,7 +342,7 @@ impl<H> SegmentTracker<H> {
 		}
 		if let Some(watermark) = self.hrmp_watermark.as_ref() {
 			if let HrmpWatermarkUpdate::Trunk(new) = new_watermark {
-				if &new <= watermark {
+				if &new < watermark {
 					return Err(BandwidthUpdateError::InvalidHrmpWatermark {
 						submitted: new,
 						latest: *watermark,
@@ -707,20 +707,14 @@ mod tests {
 		segment
 			.append(&ancestor, HrmpWatermarkUpdate::Head(0), &limits)
 			.expect("nothing to compare the watermark with in default segment");
-		assert_matches!(
-			segment.append(&ancestor, HrmpWatermarkUpdate::Trunk(0), &limits),
-			Err(BandwidthUpdateError::InvalidHrmpWatermark {
-				submitted,
-				latest,
-			}) if submitted == 0 && latest == 0
-		);
+		assert_matches!(segment.append(&ancestor, HrmpWatermarkUpdate::Trunk(0), &limits), Ok(()));
 
 		for watermark in 1..5 {
 			segment
 				.append(&ancestor, HrmpWatermarkUpdate::Trunk(watermark), &limits)
 				.expect("hrmp watermark is valid");
 		}
-		for watermark in 0..5 {
+		for watermark in 0..4 {
 			assert_matches!(
 				segment.append(&ancestor, HrmpWatermarkUpdate::Trunk(watermark), &limits),
 				Err(BandwidthUpdateError::InvalidHrmpWatermark {
@@ -729,6 +723,9 @@ mod tests {
 				}) if submitted == watermark && latest == 4
 			);
 		}
+		segment
+			.append(&ancestor, HrmpWatermarkUpdate::Trunk(5), &limits)
+			.expect("hrmp watermark is valid");
 
 		segment
 			.append(&ancestor, HrmpWatermarkUpdate::Head(4), &limits)

@@ -180,6 +180,43 @@ pub struct OutboundHrmpMessage<Id> {
 	pub data: alloc::vec::Vec<u8>,
 }
 
+/// A structure that helps identify a message inside a collection of messages sorted by `sent_at`.
+///
+/// This structure contains a `sent_of` field and a reverse index. Using this information, we can
+/// identify a message inside a sorted collection by walking back `reverse_idx` positions starting
+/// from the last message that has the provided `sent_at`.
+///
+/// We use a reverse index instead of a normal index because sometimes the messages at the
+/// beginning of the collection are being pruned.
+///
+/// # Example
+///
+///
+/// For the collection
+/// `msgs = [{sent_at: 0}, {sent_at: 1}, {sent_at: 1}, {sent_at: 1}, {sent_at: 1}, {sent_at: 3}]`
+///
+/// `InboundMessageId {sent_at: 1, reverse_idx: 0}` points to `msgs[4]`
+/// `InboundMessageId {sent_at: 1, reverse_idx: 3}` points to `msgs[1]`
+/// `InboundMessageId {sent_at: 1, reverse_idx: 4}` points to `msgs[0]`
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Default,
+	sp_runtime::RuntimeDebug,
+	PartialEq,
+	TypeInfo,
+)]
+pub struct InboundMessageId<BlockNumber = crate::BlockNumber> {
+	/// The block number at which these messages were added to the message passing queue
+	/// on the relay chain.
+	pub sent_at: BlockNumber,
+	/// The index of the current msg in the collection of messages sent at the provided block.
+	/// The index starts from the back of the collection.
+	pub reverse_idx: u32,
+}
+
 /// `V2` primitives.
 pub mod v2 {
 	pub use super::*;

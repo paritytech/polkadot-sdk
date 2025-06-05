@@ -70,7 +70,9 @@ pub use cumulus_primitives_core::{
 	relay_chain::{BlockNumber as RelayBlockNumber, HeadData, HrmpChannelId},
 	AbridgedHrmpChannel, DmpMessageHandler, ParaId, PersistedValidationData, XcmpMessageHandler,
 };
-pub use cumulus_primitives_parachain_inherent::ParachainInherentData;
+pub use cumulus_primitives_parachain_inherent::{
+	ExtraParachainInherentData, ParachainInherentData,
+};
 pub use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 pub use pallet_message_queue::{Config as MessageQueueConfig, Pallet as MessageQueuePallet};
 pub use parachains_common::{AccountId, Balance};
@@ -666,7 +668,7 @@ macro_rules! decl_test_parachains {
 
 				fn new_block() {
 					use $crate::{
-						Dispatchable, Chain, Convert, TestExt, Zero,
+						Dispatchable, Chain, Convert, TestExt, Zero
 					};
 
 					let para_id = Self::para_id().into();
@@ -698,8 +700,15 @@ macro_rules! decl_test_parachains {
 						// Process parachain inherents:
 
 						// 1. inherent: cumulus_pallet_parachain_system::Call::set_validation_data
+						let data = N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data);
+						let (data, mut downward_messages, mut horizontal_messages) = data.deconstruct();
+						let extra = $crate::ExtraParachainInherentData::new(
+							downward_messages.into_compressed(&mut usize::MAX.clone()),
+							horizontal_messages.into_compressed(&mut usize::MAX.clone()),
+						);
 						let set_validation_data: <Self as Chain>::RuntimeCall = $crate::ParachainSystemCall::set_validation_data {
-							data: N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data),
+							data,
+							extra
 						}.into();
 						$crate::assert_ok!(
 							set_validation_data.dispatch(<Self as Chain>::RuntimeOrigin::none())

@@ -226,12 +226,12 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 }
 
 #[allow(dead_code)]
-pub fn mk_dmp(sent_at: u32) -> InboundDownwardMessage {
-	InboundDownwardMessage { sent_at, msg: format!("down{}", sent_at).into_bytes() }
+pub fn mk_dmp(sent_at: u8, size: usize) -> InboundDownwardMessage {
+	InboundDownwardMessage { sent_at: sent_at as u32, msg: vec![sent_at; size] }
 }
 
-pub fn mk_hrmp(sent_at: u32) -> InboundHrmpMessage {
-	InboundHrmpMessage { sent_at, data: format!("{}", sent_at).into_bytes() }
+pub fn mk_hrmp(sent_at: u8, size: usize) -> InboundHrmpMessage {
+	InboundHrmpMessage { sent_at: sent_at as u32, data: vec![sent_at; size] }
 }
 
 pub struct ReadRuntimeVersion(pub Vec<u8>);

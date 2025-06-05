@@ -36,15 +36,18 @@ use cumulus_primitives_core::{
 	relay_chain::{
 		self,
 		vstaging::{ClaimQueueOffset, CoreSelector, DEFAULT_CLAIM_QUEUE_OFFSET},
+		InboundMessageId,
 	},
 	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, GetChannelInfo,
-	InboundDownwardMessage, InboundHrmpMessage, ListChannelInfos, MessageSendError,
-	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
-	XcmpMessageHandler, XcmpMessageSource,
+	ListChannelInfos, MessageSendError, OutboundHrmpMessage, ParaId, PersistedValidationData,
+	UpwardMessage, UpwardMessageSender, XcmpMessageHandler, XcmpMessageSource,
 };
-use cumulus_primitives_parachain_inherent::{v0, MessageQueueChain, ParachainInherentData};
+use cumulus_primitives_parachain_inherent::{
+	v0, BasicParachainInherentData, CompressedInboundDownwardMessages,
+	CompressedInboundHrmpMessages, ExtraParachainInherentData, MessageQueueChain,
+	ParachainInherentData,
+};
 use frame_support::{
-	defensive,
 	dispatch::DispatchResult,
 	ensure,
 	inherent::{InherentData, InherentIdentifier, ProvideInherent},
@@ -57,7 +60,7 @@ use polkadot_runtime_parachains::{FeeTracker, GetMinFeeFactor};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Block as BlockT, BlockNumberProvider, Hash, One},
-	BoundedSlice, FixedU128, RuntimeDebug,
+	FixedU128, RuntimeDebug,
 };
 use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm, MAX_XCM_DECODE_DEPTH};
 use xcm_builder::InspectMessageQueues;
@@ -113,6 +116,8 @@ pub use unincluded_segment::{Ancestor, UsedBandwidth};
 pub use pallet::*;
 
 const LOG_TARGET: &str = "parachain-system";
+const INBOUND_MESSAGES_COLLECTION_SIZE_LIMIT: usize = 1024 * 1024; // 1 MiB
+
 /// Something that can check the associated relay block number.
 ///
 /// Each Parachain block is built in the context of a relay chain block, this trait allows us
@@ -523,28 +528,15 @@ pub mod pallet {
 
 			// Remove the validation from the old block.
 			ValidationData::<T>::kill();
-			// NOTE: Killing here is required to at least include the trie nodes down to the key in
-			// the proof. Because this value will be read in `validate_block` and thus, needs to
-			// be reachable by the proof.
+			// NOTE: Killing here is required to at least include the trie nodes down to the keys
+			// in the proof. Because these values will be read in `validate_block` and thus,
+			// need to be reachable by the proof.
 			ProcessedDownwardMessages::<T>::kill();
-			// NOTE: Killing here is required to at least include the trie nodes down to the key in
-			// the proof. Because this value will be read in `validate_block` and thus, needs to
-			// be reachable by the proof.
-			HrmpWatermark::<T>::kill();
-			// NOTE: Killing here is required to at least include the trie nodes down to the key in
-			// the proof. Because this value will be read in `validate_block` and thus, needs to
-			// be reachable by the proof.
+			HrmpWatermark::<T>::set(HrmpWatermark::<T>::take());
 			UpwardMessages::<T>::kill();
-			// NOTE: Killing here is required to at least include the trie nodes down to the key in
-			// the proof. Because this value will be read in `validate_block` and thus, needs to
-			// be reachable by the proof.
 			HrmpOutboundMessages::<T>::kill();
-			// NOTE: Killing here is required to at least include the trie nodes down to the key in
-			// the proof. Because this value will be read in `validate_block` and thus, needs to
-			// be reachable by the proof.
 			CustomValidationHeadData::<T>::kill();
-
-			weight += T::DbWeight::get().writes(6);
+			weight += T::DbWeight::get().reads_writes(1, 6);
 
 			// Here, in `on_initialize` we must report the weight for both `on_initialize` and
 			// `on_finalize`.
@@ -616,7 +608,8 @@ pub mod pallet {
 		// call with `register_extra_weight_unchecked`.
 		pub fn set_validation_data(
 			origin: OriginFor<T>,
-			data: ParachainInherentData,
+			data: BasicParachainInherentData,
+			extra: ExtraParachainInherentData,
 		) -> DispatchResult {
 			ensure_none(origin)?;
 			assert!(
@@ -633,11 +626,9 @@ pub mod pallet {
 			// ancestors.
 			//
 			// This invariant should be upheld by the `ProvideInherent` implementation.
-			let ParachainInherentData {
+			let BasicParachainInherentData {
 				validation_data: vfp,
 				relay_chain_state,
-				downward_messages,
-				horizontal_messages,
 				relay_parent_descendants,
 				collator_peer_id: _,
 			} = data;
@@ -749,11 +740,11 @@ pub mod pallet {
 
 			total_weight.saturating_accrue(Self::enqueue_inbound_downward_messages(
 				relevant_messaging_state.dmq_mqc_head,
-				downward_messages,
+				extra.downward_messages,
 			));
 			total_weight.saturating_accrue(Self::enqueue_inbound_horizontal_messages(
 				&relevant_messaging_state.ingress_channels,
-				horizontal_messages,
+				extra.horizontal_messages,
 				vfp.relay_parent_number,
 			));
 
@@ -934,11 +925,19 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ProcessedDownwardMessages<T: Config> = StorageValue<_, u32, ValueQuery>;
 
+	#[pallet::storage]
+	pub type LastProcessedDownwardMessage<T: Config> =
+		StorageValue<_, InboundMessageId<relay_chain::BlockNumber>>;
+
 	/// HRMP watermark that was set in a block.
 	///
 	/// This will be cleared in `on_initialize` of each new block.
 	#[pallet::storage]
 	pub type HrmpWatermark<T: Config> = StorageValue<_, relay_chain::BlockNumber, ValueQuery>;
+
+	#[pallet::storage]
+	pub type LastProcessedHrmpMessage<T: Config> =
+		StorageValue<_, InboundMessageId<relay_chain::BlockNumber>>;
 
 	/// HRMP messages that were sent in a block.
 	///
@@ -991,7 +990,7 @@ pub mod pallet {
 			cumulus_primitives_parachain_inherent::INHERENT_IDENTIFIER;
 
 		fn create_inherent(data: &InherentData) -> Option<Self::Call> {
-			let mut data = match data
+			let data = match data
 				.get_data::<ParachainInherentData>(&Self::INHERENT_IDENTIFIER)
 				.ok()
 				.flatten()
@@ -1012,9 +1011,7 @@ pub mod pallet {
 				Some(data) => data,
 			};
 
-			Self::drop_processed_messages_from_inherent(&mut data);
-
-			Some(Call::set_validation_data { data })
+			Some(Self::do_create_inherent(data))
 		}
 
 		fn is_inherent(call: &Self::Call) -> bool {
@@ -1130,33 +1127,32 @@ impl<T: Config> GetChannelInfo for Pallet<T> {
 
 impl<T: Config> Pallet<T> {
 	/// Updates inherent data to only contain messages that weren't already processed
-	/// by the runtime based on last relay chain block number.
+	/// by the runtime and to compress (hash) the remaining ones if needed.
 	///
 	/// This method doesn't check for mqc heads mismatch.
-	fn drop_processed_messages_from_inherent(para_inherent: &mut ParachainInherentData) {
-		let ParachainInherentData { downward_messages, horizontal_messages, .. } = para_inherent;
-
-		// Last relay chain block number. Any message with sent-at block number less
-		// than or equal to this value is assumed to be processed previously.
+	fn do_create_inherent(data: ParachainInherentData) -> Call<T> {
+		let (data, mut downward_messages, mut horizontal_messages) = data.deconstruct();
 		let last_relay_block_number = LastRelayChainBlockNumber::<T>::get();
 
 		// DMQ.
-		let dmq_processed_num = downward_messages
-			.iter()
-			.take_while(|message| message.sent_at <= last_relay_block_number)
-			.count();
-		downward_messages.drain(..dmq_processed_num);
+		let last_processed_msg = LastProcessedDownwardMessage::<T>::get()
+			.unwrap_or(InboundMessageId { sent_at: last_relay_block_number, reverse_idx: 0 });
+		downward_messages.drop_processed_messages(&last_processed_msg);
+		let mut size_limit = INBOUND_MESSAGES_COLLECTION_SIZE_LIMIT;
+		let downward_messages = downward_messages.into_compressed(&mut size_limit);
 
 		// HRMP.
-		for horizontal in horizontal_messages.values_mut() {
-			let horizontal_processed_num = horizontal
-				.iter()
-				.take_while(|message| message.sent_at <= last_relay_block_number)
-				.count();
-			horizontal.drain(..horizontal_processed_num);
-		}
+		let last_processed_msg = LastProcessedHrmpMessage::<T>::get()
+			.unwrap_or(InboundMessageId { sent_at: last_relay_block_number, reverse_idx: 0 });
+		horizontal_messages.drop_processed_messages(&last_processed_msg);
+		size_limit = size_limit.saturating_add(INBOUND_MESSAGES_COLLECTION_SIZE_LIMIT);
+		let horizontal_messages = horizontal_messages.into_compressed(&mut size_limit);
 
-		// If MQC doesn't match after dropping messages, the runtime will panic when creating
+		let extra = ExtraParachainInherentData::new(downward_messages, horizontal_messages);
+
+		Call::set_validation_data { data, extra }
+
+		// If MQC doesn't match after dropping messages, the runtime will panic when executing
 		// inherent.
 	}
 
@@ -1171,32 +1167,37 @@ impl<T: Config> Pallet<T> {
 	/// hash doesn't match the expected.
 	fn enqueue_inbound_downward_messages(
 		expected_dmq_mqc_head: relay_chain::Hash,
-		downward_messages: Vec<InboundDownwardMessage>,
+		downward_messages: CompressedInboundDownwardMessages,
 	) -> Weight {
-		let dm_count = downward_messages.len() as u32;
+		downward_messages.check_advancement_rule("DMQ");
+
 		let mut dmq_head = <LastDmqMqcHead<T>>::get();
 
-		let weight_used = T::WeightInfo::enqueue_inbound_downward_messages(dm_count);
-		if dm_count != 0 {
-			Self::deposit_event(Event::DownwardMessagesReceived { count: dm_count });
+		let (messages, hashed_messages) = downward_messages.messages();
+		let message_count = messages.len() as u32;
+		let weight_used = T::WeightInfo::enqueue_inbound_downward_messages(message_count);
+		if message_count != 0 {
+			Self::deposit_event(Event::DownwardMessagesReceived { count: message_count });
 
 			// Eagerly update the MQC head hash:
-			for m in &downward_messages {
-				dmq_head.extend_downward(m);
+			let mut last_processed_msg = InboundMessageId { sent_at: 0, reverse_idx: 0 };
+			for msg in messages {
+				dmq_head.extend_downward(msg);
+
+				last_processed_msg.sent_at = msg.sent_at;
 			}
-			let bounded = downward_messages
-				.iter()
-				// Note: we are not using `.defensive()` here since that prints the whole value to
-				// console. In case that the message is too long, this clogs up the log quite badly.
-				.filter_map(|m| match BoundedSlice::try_from(&m.msg[..]) {
-					Ok(bounded) => Some(bounded),
-					Err(_) => {
-						defensive!("Inbound Downward message was too long; dropping");
-						None
-					},
-				});
-			T::DmpQueue::handle_messages(bounded);
 			<LastDmqMqcHead<T>>::put(&dmq_head);
+
+			for msg in hashed_messages {
+				dmq_head.extend_with_hashed_msg(&msg);
+
+				if msg.sent_at == last_processed_msg.sent_at {
+					last_processed_msg.reverse_idx += 1;
+				}
+			}
+			LastProcessedDownwardMessage::<T>::put(last_processed_msg);
+
+			T::DmpQueue::handle_messages(downward_messages.bounded_msgs_iter());
 
 			Self::deposit_event(Event::DownwardMessagesProcessed {
 				weight_used,
@@ -1209,11 +1210,29 @@ impl<T: Config> Pallet<T> {
 		//
 		// A mismatch means that at least some of the submitted messages were altered, omitted or
 		// added improperly.
-		assert_eq!(dmq_head.head(), expected_dmq_mqc_head);
+		assert_eq!(dmq_head.head(), expected_dmq_mqc_head, "DMQ head mismatch");
 
-		ProcessedDownwardMessages::<T>::put(dm_count);
+		ProcessedDownwardMessages::<T>::put(message_count);
 
 		weight_used
+	}
+
+	fn check_hrmp_mcq_heads(
+		ingress_channels: &[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
+		mqc_heads: &mut BTreeMap<ParaId, MessageQueueChain>,
+	) {
+		// Check that the MQC heads for each channel provided by the relay chain match the MQC
+		// heads we have after processing all incoming messages.
+		//
+		// Along the way we also carry over the relevant entries from the `last_mqc_heads` to
+		// `running_mqc_heads`. Otherwise, in a block where no messages were sent in a channel
+		// it won't get into next block's `last_mqc_heads` and thus will be all zeros, which
+		// would corrupt the message queue chain.
+		for (sender, channel) in ingress_channels {
+			let cur_head = mqc_heads.entry(*sender).or_default().head();
+			let target_head = channel.mqc_head.unwrap_or_default();
+			assert_eq!(cur_head, target_head, "HRMP head mismatch");
+		}
 	}
 
 	/// Process all inbound horizontal messages relayed by the collator.
@@ -1228,86 +1247,65 @@ impl<T: Config> Pallet<T> {
 	///            correspond to the ones found on the relay-chain.
 	fn enqueue_inbound_horizontal_messages(
 		ingress_channels: &[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
-		horizontal_messages: BTreeMap<ParaId, Vec<InboundHrmpMessage>>,
+		horizontal_messages: CompressedInboundHrmpMessages,
 		relay_parent_number: relay_chain::BlockNumber,
 	) -> Weight {
-		// First, check that all submitted messages are sent from channels that exist. The
+		// First, check the HRMP advancement rule.
+		horizontal_messages.check_advancement_rule("HRMP");
+		// Then, check that all submitted messages are sent from channels that exist. The
 		// channel exists if its MQC head is present in `vfp.hrmp_mqc_heads`.
-		for sender in horizontal_messages.keys() {
+		for sender in horizontal_messages.get_senders() {
 			// A violation of the assertion below indicates that one of the messages submitted
 			// by the collator was sent from a sender that doesn't have a channel opened to
 			// this parachain, according to the relay-parent state.
-			assert!(ingress_channels.binary_search_by_key(sender, |&(s, _)| s).is_ok(),);
+			assert!(ingress_channels.binary_search_by_key(&sender, |&(s, _)| s).is_ok(),);
 		}
 
-		// Second, prepare horizontal messages for a more convenient processing:
-		//
-		// instead of a mapping from a para to a list of inbound HRMP messages, we will have a
-		// list of tuples `(sender, message)` first ordered by `sent_at` (the relay chain block
-		// number in which the message hit the relay-chain) and second ordered by para id
-		// ascending.
-		//
-		// The messages will be dispatched in this order.
-		let mut horizontal_messages = horizontal_messages
-			.into_iter()
-			.flat_map(|(sender, channel_contents)| {
-				channel_contents.into_iter().map(move |message| (sender, message))
-			})
-			.collect::<Vec<_>>();
-		horizontal_messages.sort_by(|a, b| {
-			// first sort by sent-at and then by the para id
-			match a.1.sent_at.cmp(&b.1.sent_at) {
-				cmp::Ordering::Equal => a.0.cmp(&b.0),
-				ord => ord,
+		let (messages, hashed_messages) = horizontal_messages.messages();
+		let mut mqc_heads = <LastHrmpMqcHeads<T>>::get();
+
+		if messages.is_empty() {
+			Self::check_hrmp_mcq_heads(ingress_channels, &mut mqc_heads);
+			let last_processed_msg =
+				InboundMessageId { sent_at: relay_parent_number, reverse_idx: 0 };
+			LastProcessedHrmpMessage::<T>::put(last_processed_msg);
+			HrmpWatermark::<T>::put(relay_parent_number);
+			return Weight::zero();
+		}
+
+		let mut last_processed_block = HrmpWatermark::<T>::get();
+		let mut last_processed_msg = InboundMessageId { sent_at: 0, reverse_idx: 0 };
+		for (sender, msg) in messages {
+			if msg.sent_at > last_processed_msg.sent_at && last_processed_msg.sent_at > 0 {
+				last_processed_block = last_processed_msg.sent_at;
 			}
-		});
+			last_processed_msg.sent_at = msg.sent_at;
 
-		let last_mqc_heads = <LastHrmpMqcHeads<T>>::get();
-		let mut running_mqc_heads = BTreeMap::new();
-		let mut hrmp_watermark = None;
+			mqc_heads.entry(*sender).or_default().extend_hrmp(msg);
+		}
+		<LastHrmpMqcHeads<T>>::put(mqc_heads.clone());
+		for (sender, msg) in hashed_messages {
+			mqc_heads.entry(*sender).or_default().extend_with_hashed_msg(&msg);
 
-		{
-			for (sender, ref horizontal_message) in &horizontal_messages {
-				if hrmp_watermark.map(|w| w < horizontal_message.sent_at).unwrap_or(true) {
-					hrmp_watermark = Some(horizontal_message.sent_at);
-				}
-
-				running_mqc_heads
-					.entry(sender)
-					.or_insert_with(|| last_mqc_heads.get(sender).cloned().unwrap_or_default())
-					.extend_hrmp(horizontal_message);
+			if msg.sent_at == last_processed_msg.sent_at {
+				last_processed_msg.reverse_idx += 1;
 			}
 		}
-		let message_iter = horizontal_messages
-			.iter()
-			.map(|&(sender, ref message)| (sender, message.sent_at, &message.data[..]));
+		if last_processed_msg.sent_at > 0 && last_processed_msg.reverse_idx == 0 {
+			last_processed_block = last_processed_msg.sent_at;
+		}
+		LastProcessedHrmpMessage::<T>::put(&last_processed_msg);
+		Self::check_hrmp_mcq_heads(ingress_channels, &mut mqc_heads);
 
 		let max_weight =
 			<ReservedXcmpWeightOverride<T>>::get().unwrap_or_else(T::ReservedXcmpWeight::get);
-		let weight_used = T::XcmpMessageHandler::handle_xcmp_messages(message_iter, max_weight);
+		let weight_used = T::XcmpMessageHandler::handle_xcmp_messages(
+			horizontal_messages.flat_msgs_iter(),
+			max_weight,
+		);
 
-		// Check that the MQC heads for each channel provided by the relay chain match the MQC
-		// heads we have after processing all incoming messages.
-		//
-		// Along the way we also carry over the relevant entries from the `last_mqc_heads` to
-		// `running_mqc_heads`. Otherwise, in a block where no messages were sent in a channel
-		// it won't get into next block's `last_mqc_heads` and thus will be all zeros, which
-		// would corrupt the message queue chain.
-		for (sender, channel) in ingress_channels {
-			let cur_head = running_mqc_heads
-				.entry(sender)
-				.or_insert_with(|| last_mqc_heads.get(sender).cloned().unwrap_or_default())
-				.head();
-			let target_head = channel.mqc_head.unwrap_or_default();
-
-			assert!(cur_head == target_head);
-		}
-
-		<LastHrmpMqcHeads<T>>::put(running_mqc_heads);
-
-		// If we processed at least one message, then advance watermark to that location or if there
-		// were no messages, set it to the block number of the relay parent.
-		HrmpWatermark::<T>::put(hrmp_watermark.unwrap_or(relay_parent_number));
+		// Update watermark
+		HrmpWatermark::<T>::put(last_processed_block);
 
 		weight_used
 	}
