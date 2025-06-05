@@ -15,22 +15,17 @@
 
 ///! Staking, and election related pallet configurations.
 use super::*;
-use core::marker::PhantomData;
 use cumulus_primitives_core::relay_chain::SessionIndex;
-use frame_election_provider_support::{
-	bounds::{ElectionBounds, ElectionBoundsBuilder},
-	onchain, ElectionDataProvider, SequentialPhragmen,
-};
+use frame_election_provider_support::{ElectionDataProvider, SequentialPhragmen};
 use frame_support::traits::{ConstU128, EitherOf};
-use pallet_election_provider_multi_block::{
-	self as multi_block, weights::measured, SolutionAccuracyOf,
-};
+use pallet_election_provider_multi_block::{self as multi_block, SolutionAccuracyOf};
 use pallet_staking_async::UseValidatorsMap;
-use polkadot_runtime_common::{prod_or_fast, BalanceToU256, CurrencyToVote, U256ToBalance};
+use pallet_staking_async_rc_client as rc_client;
+use polkadot_runtime_common::{prod_or_fast, BalanceToU256, U256ToBalance};
 use sp_runtime::{
 	transaction_validity::TransactionPriority, FixedPointNumber, FixedU128, SaturatedConversion,
 };
-use westend_runtime_constants::time::EPOCH_DURATION_IN_SLOTS;
+use xcm::latest::prelude::*;
 
 parameter_types! {
 	/// Number of election pages that we operate upon. 32 * 6s block = 192s 3.2min stanpshot
@@ -89,25 +84,6 @@ frame_election_provider_support::generate_solution_type!(
 	>(16)
 );
 
-parameter_types! {
-	/// Onchain election only happens in genesis, and iff configured as fallback. It should use a small number of stakers.
-	pub OnchainElectionBounds: ElectionBounds =
-		ElectionBoundsBuilder::default().voters_count(1000.into()).targets_count(1000.into()).build();
-}
-
-/// The onchain election backup. Used only in genesis, and possible as a fallback.
-pub struct OnChainSeqPhragmen;
-impl onchain::Config for OnChainSeqPhragmen {
-	type Sort = ConstBool<true>;
-	type System = Runtime;
-	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>>;
-	type DataProvider = Staking;
-	type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Runtime>;
-	type Bounds = OnchainElectionBounds;
-	type MaxBackersPerWinner = MaxBackersPerWinner;
-	type MaxWinnersPerPage = MaxWinnersPerPage;
-}
-
 ord_parameter_types! {
 	// https://westend.subscan.io/account/5GBoBNFP9TA7nAk82i6SUZJimerbdhxaRgyC2PVcdYQMdb8e
 	pub const WestendStakingMiner: AccountId = AccountId::from(hex_literal::hex!("b65991822483a6c3bd24b1dcf6afd3e270525da1f9c8c22a4373d1e1079e236a"));
@@ -130,8 +106,7 @@ impl multi_block::Config for Runtime {
 	// Revert back to signed phase if nothing is submitted and queued, so we prolong the election.
 	type AreWeDone = multi_block::RevertToSignedIfNotQueuedOf<Self>;
 	type OnRoundRotation = multi_block::CleanRound<Self>;
-	// TODO: double check they are right.
-	type WeightInfo = measured::pallet_election_provider_multi_block::SubstrateWeight<Self>;
+	type WeightInfo = multi_block::weights::westend::MultiBlockWeightInfo<Self>;
 }
 
 impl multi_block::verifier::Config for Runtime {
@@ -140,9 +115,7 @@ impl multi_block::verifier::Config for Runtime {
 	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
 	type SolutionDataProvider = MultiBlockSigned;
 	type SolutionImprovementThreshold = SolutionImprovementThreshold;
-	// TODO: double check they are right.
-	type WeightInfo =
-		measured::pallet_election_provider_multi_block_verifier::SubstrateWeight<Self>;
+	type WeightInfo = multi_block::weights::westend::MultiBlockVerifierWeightInfo<Self>;
 }
 
 parameter_types! {
@@ -164,8 +137,7 @@ impl multi_block::signed::Config for Runtime {
 	type RewardBase = RewardBase;
 	type MaxSubmissions = MaxSubmissions;
 	type EstimateCallFee = TransactionPayment;
-	// TODO: double check they are right.
-	type WeightInfo = measured::pallet_election_provider_multi_block_signed::SubstrateWeight<Self>;
+	type WeightInfo = multi_block::weights::westend::MultiBlockSignedWeightInfo<Self>;
 }
 
 parameter_types! {
@@ -181,9 +153,7 @@ impl multi_block::unsigned::Config for Runtime {
 	type OffchainSolver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>>;
 	type MinerTxPriority = MinerTxPriority;
 	type OffchainRepeat = OffchainRepeat;
-	// TODO: double check they are right.
-	type WeightInfo =
-		measured::pallet_election_provider_multi_block_unsigned::SubstrateWeight<Self>;
+	type WeightInfo = multi_block::weights::westend::MultiBlockUnsignedWeightInfo<Self>;
 }
 
 parameter_types! {
@@ -298,7 +268,7 @@ impl pallet_staking_async::Config for Runtime {
 impl pallet_staking_async_rc_client::Config for Runtime {
 	type RelayChainOrigin = EnsureRoot<AccountId>;
 	type AHStakingInterface = Staking;
-	type SendToRelayChain = XcmToRelayChain<xcm_config::XcmRouter>;
+	type SendToRelayChain = StakingXcmToRelayChain;
 }
 
 #[derive(Encode, Decode)]
@@ -316,17 +286,12 @@ pub enum AhClientCalls {
 	ValidatorSet(rc_client::ValidatorSetReport<AccountId>),
 }
 
-use pallet_staking_async_rc_client as rc_client;
-use xcm::latest::{prelude::*, SendXcm};
-
-// CI-FAIL: @kianenigma port over the new xcm configs from https://github.com/paritytech/polkadot-sdk/pull/8422
-pub struct XcmToRelayChain<T: SendXcm>(PhantomData<T>);
-impl<T: SendXcm> rc_client::SendToRelayChain for XcmToRelayChain<T> {
-	type AccountId = AccountId;
-
-	/// Send a new validator set report to relay chain.
-	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId>) {
-		let message = Xcm(vec![
+pub struct ValidatorSetToXcm;
+impl sp_runtime::traits::Convert<rc_client::ValidatorSetReport<AccountId>, Xcm<()>>
+	for ValidatorSetToXcm
+{
+	fn convert(report: rc_client::ValidatorSetReport<AccountId>) -> Xcm<()> {
+		Xcm(vec![
 			Instruction::UnpaidExecution {
 				weight_limit: WeightLimit::Unlimited,
 				check_origin: None,
@@ -338,18 +303,25 @@ impl<T: SendXcm> rc_client::SendToRelayChain for XcmToRelayChain<T> {
 					.encode()
 					.into(),
 			},
-		]);
-		let dest = Location::parent();
-		let result = send_xcm::<T>(dest, message);
+		])
+	}
+}
 
-		match result {
-			Ok(_) => {
-				log::info!(target: "runtime", "Successfully sent validator set report to relay chain")
-			},
-			Err(e) => {
-				log::error!(target: "runtime", "Failed to send validator set report to relay chain: {:?}", e)
-			},
-		}
+parameter_types! {
+	pub RelayLocation: Location = Location::parent();
+}
+
+pub struct StakingXcmToRelayChain;
+
+impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
+	type AccountId = AccountId;
+	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId>) {
+		rc_client::XCMSender::<
+			xcm_config::XcmRouter,
+			RelayLocation,
+			rc_client::ValidatorSetReport<Self::AccountId>,
+			ValidatorSetToXcm,
+		>::split_then_send(report, Some(8));
 	}
 }
 
@@ -489,7 +461,7 @@ impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
-	fn create_inherent(call: RuntimeCall) -> UncheckedExtrinsic {
+	fn create_bare(call: RuntimeCall) -> UncheckedExtrinsic {
 		UncheckedExtrinsic::new_bare(call)
 	}
 }

@@ -14,12 +14,11 @@
 // limitations under the License.
 
 use super::{
-	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, BaseDeliveryFee,
-	CollatorSelection, DepositPerByte, DepositPerItem, FeeAssetId, FellowshipAdmin, ForeignAssets,
-	ForeignAssetsInstance, GeneralAdmin, ParachainInfo, ParachainSystem, PolkadotXcm, PoolAssets,
-	Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason, RuntimeOrigin, StakingAdmin,
-	ToRococoXcmRouter, TransactionByteFee, Treasurer, TrustBackedAssetsInstance, Uniques,
-	WeightToFee, XcmpQueue,
+	AccountId, AllPalletsWithSystem, Assets, Balance, Balances, BaseDeliveryFee, CollatorSelection,
+	DepositPerByte, DepositPerItem, FeeAssetId, FellowshipAdmin, ForeignAssets, GeneralAdmin,
+	ParachainInfo, ParachainSystem, PolkadotXcm, PoolAssets, Runtime, RuntimeCall, RuntimeEvent,
+	RuntimeHoldReason, RuntimeOrigin, StakingAdmin, ToRococoXcmRouter, TransactionByteFee,
+	Treasurer, Uniques, WeightToFee, XcmpQueue,
 };
 use assets_common::{
 	matching::{FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},
@@ -32,6 +31,7 @@ use frame_support::{
 		tokens::imbalance::{ResolveAssetTo, ResolveTo},
 		ConstU32, Contains, Equals, Everything, LinearStoragePrice, PalletInfoAccess,
 	},
+	PalletId,
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::{AuthorizedAliasers, XcmPassthrough};
@@ -44,9 +44,10 @@ use parachains_common::{
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use snowbridge_outbound_queue_primitives::v2::exporter::PausableExporter;
-use sp_runtime::traits::{AccountIdConversion, ConvertInto, TryConvertInto};
+use sp_runtime::traits::{AccountIdConversion, TryConvertInto};
 use westend_runtime_constants::{
-	system_parachain::COLLECTIVES_ID, xcm::body::FELLOWSHIP_ADMIN_INDEX,
+	system_parachain::{ASSET_HUB_ID, COLLECTIVES_ID},
+	xcm::body::FELLOWSHIP_ADMIN_INDEX,
 };
 use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
 use xcm_builder::{
@@ -59,10 +60,9 @@ use xcm_builder::{
 	NonFungiblesAdapter, OriginToPluralityVoice, ParentAsSuperuser, ParentIsPreset,
 	RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SingleAssetExchangeAdapter,
-	SovereignPaidRemoteExporter, SovereignSignedViaLocation, StartsWith,
-	StartsWithExplicitGlobalConsensus, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WeightInfoBounds, WithComputedOrigin, WithLatestLocationConverter, WithUniqueTopic,
-	XcmFeeManagerFromComponents,
+	SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus, TakeWeightCredit,
+	TrailingSetTopicAsId, UnpaidRemoteExporter, UsingComponents, WeightInfoBounds,
+	WithComputedOrigin, WithLatestLocationConverter, WithUniqueTopic, XcmFeeManagerFromComponents,
 };
 use xcm_executor::XcmExecutor;
 
@@ -70,6 +70,7 @@ parameter_types! {
 	pub const RootLocation: Location = Location::here();
 	pub const WestendLocation: Location = Location::parent();
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::ByGenesis(WESTEND_GENESIS_HASH));
+	pub const AssetHubParaId: crate::ParaId = crate::ParaId::new(ASSET_HUB_ID);
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into())].into();
@@ -88,8 +89,8 @@ parameter_types! {
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
 	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
 	pub const GovernanceLocation: Location = Location::parent();
-	/// The Checking Account along with the indication that the local chain is able to mint tokens.
-	pub TeleportTracking: Option<(AccountId, MintLocation)> = crate::AhMigrator::teleport_tracking();
+	/// Asset Hub has mint authority since the Asset Hub migration.
+	pub TeleportTracking: Option<(AccountId, MintLocation)> = Some((CheckingAccount::get(), MintLocation::Local));
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
@@ -118,7 +119,7 @@ pub type FungibleTransactor = FungibleAdapter<
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
-	// Teleports tracking is managed by `AhMigrator`: no tracking before, track after.
+	// Teleports tracking
 	TeleportTracking,
 >;
 
@@ -216,6 +217,31 @@ pub type PoolFungiblesTransactor = FungiblesAdapter<
 	CheckingAccount,
 >;
 
+parameter_types! {
+	/// Taken from the real gas and deposits of a standard ERC20 transfer call.
+	pub const ERC20TransferGasLimit: Weight = Weight::from_parts(700_000_000, 200_000);
+	pub const ERC20TransferStorageDepositLimit: Balance = 10_200_000_000;
+	pub ERC20TransfersCheckingAccount: AccountId = PalletId(*b"py/revch").into_account_truncating();
+}
+
+/// Transactor for ERC20 tokens.
+pub type ERC20Transactor = assets_common::ERC20Transactor<
+	// We need this for accessing pallet-revive.
+	Runtime,
+	// The matcher for smart contracts.
+	assets_common::ERC20Matcher,
+	// How to convert from a location to an account id.
+	LocationToAccountId,
+	// The maximum gas that can be used by a standard ERC20 transfer.
+	ERC20TransferGasLimit,
+	// The maximum storage deposit that can be used by a standard ERC20 transfer.
+	ERC20TransferStorageDepositLimit,
+	// We're generic over this so we can't escape specifying it.
+	AccountId,
+	// Checking account for ERC20 transfers.
+	ERC20TransfersCheckingAccount,
+>;
+
 /// Means for transacting assets on this chain.
 pub type AssetTransactors = (
 	FungibleTransactor,
@@ -223,6 +249,7 @@ pub type AssetTransactors = (
 	ForeignFungiblesTransactor,
 	PoolFungiblesTransactor,
 	UniquesTransactor,
+	ERC20Transactor,
 );
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
@@ -333,6 +360,15 @@ pub type WaivedLocations = (
 	LocalPlurality,
 );
 
+/// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
+///
+/// - WND with the parent Relay Chain and sibling system parachains; and
+/// - Sibling parachains' assets from where they originate (as `ForeignCreators`).
+pub type TrustedTeleporters = (
+	ConcreteAssetFromSystem<WestendLocation>,
+	IsForeignConcreteAsset<FromSiblingParachain<AssetHubParaId>>,
+);
+
 /// Defines origin aliasing rules for this chain.
 ///
 /// - Allow any origin to alias into a child sub-location (equivalent to DescendOrigin),
@@ -376,7 +412,7 @@ impl xcm_executor::Config for XcmConfig {
 		bridging::to_rococo::RococoAssetFromAssetHubRococo,
 		bridging::to_ethereum::EthereumAssetFromEthereum,
 	);
-	type IsTeleporter = crate::AhMigrator;
+	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = WeightInfoBounds<
@@ -499,14 +535,18 @@ pub type XcmRouter = WithUniqueTopic<(
 	// GlobalConsensus with a pausable flag, if the flag is set true then the Router is paused
 	PausableExporter<
 		crate::SnowbridgeSystemFrontend,
-		SovereignPaidRemoteExporter<
-			(
+		(
+			UnpaidRemoteExporter<
 				bridging::to_ethereum::EthereumNetworkExportTableV2,
+				XcmpQueue,
+				UniversalLocation,
+			>,
+			UnpaidRemoteExporter<
 				bridging::to_ethereum::EthereumNetworkExportTable,
-			),
-			XcmpQueue,
-			UniversalLocation,
-		>,
+				XcmpQueue,
+				UniversalLocation,
+			>,
+		),
 	>,
 )>;
 

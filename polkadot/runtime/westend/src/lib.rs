@@ -22,7 +22,6 @@
 
 extern crate alloc;
 
-use ah_migration::phase1 as ahm_phase1;
 use alloc::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
 	vec,
@@ -34,13 +33,12 @@ use frame_support::{
 	derive_impl,
 	dynamic_params::{dynamic_pallet_params, dynamic_params},
 	genesis_builder_helper::{build_state, get_preset},
-	pallet_prelude::PhantomData,
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstU32, Contains, EitherOf,
-		EitherOfDiverse, EnsureOriginWithArg, Equals, FromContains, InstanceFilter,
-		KeyOwnerProofSystem, LinearStoragePrice, Nothing, ProcessMessage, ProcessMessageError,
-		VariantCountOf, WithdrawReasons,
+		fungible::HoldConsideration, tokens::UnityOrOuterConversion, AsEnsureOriginWithArg,
+		ConstU32, Contains, EitherOf, EitherOfDiverse, EnsureOriginWithArg, FromContains,
+		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, Nothing, ProcessMessage,
+		ProcessMessageError, VariantCountOf, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
@@ -102,17 +100,18 @@ use sp_consensus_beefy::{
 	mmr::{BeefyDataProvider, MmrLeafVersion},
 };
 use sp_core::{ConstBool, ConstU8, ConstUint, OpaqueMetadata, RuntimeDebug, H256};
+#[cfg(any(feature = "std", test))]
+pub use sp_runtime::BuildStorage;
 use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{
-		AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, IdentityLookup, Keccak256,
-		OpaqueKeys, SaturatedConversion, Verify,
+		AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, Get, IdentityLookup,
+		Keccak256, OpaqueKeys, SaturatedConversion, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, MultiSignature, MultiSigner, Percent, Permill,
 };
 use sp_staking::{EraIndex, SessionIndex};
-
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -121,7 +120,6 @@ use xcm::{
 	VersionedLocation, VersionedXcm,
 };
 use xcm_builder::PayOverXcm;
-use xcm_config::{AssetHub, Collectives, FellowsBodyId};
 use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
@@ -131,9 +129,6 @@ pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_election_provider_multi_phase::{Call as EPMCall, GeometricDepositBase};
 pub use pallet_timestamp::Call as TimestampCall;
-use sp_runtime::traits::Get;
-#[cfg(any(feature = "std", test))]
-pub use sp_runtime::BuildStorage;
 
 /// Constant values used within the runtime.
 use westend_runtime_constants::{
@@ -152,7 +147,6 @@ pub mod xcm_config;
 mod impls;
 use impls::ToParachainIdentityReaper;
 
-pub mod ah_migration;
 // Governance and configurations.
 pub mod governance;
 use governance::{
@@ -218,7 +212,6 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::RelayChainDefaultConfig)]
 impl frame_system::Config for Runtime {
-	type BaseCallFilter = RcMigrator;
 	type BlockWeights = BlockWeights;
 	type BlockLength = BlockLength;
 	type Nonce = Nonce;
@@ -248,8 +241,7 @@ impl pallet_scheduler::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletsOrigin = OriginCaller;
 	type RuntimeCall = RuntimeCall;
-	type MaximumWeight =
-		pallet_rc_migrator::types::ZeroWeightOr<RcMigrator, MaximumSchedulerWeight>;
+	type MaximumWeight = MaximumSchedulerWeight;
 	// The goal of having ScheduleOrigin include AuctionAdmin is to allow the auctions track of
 	// OpenGov to schedule periodic auctions.
 	type ScheduleOrigin = EitherOf<EnsureRoot<AccountId>, AuctionAdmin>;
@@ -779,7 +771,6 @@ impl pallet_staking::Config for Runtime {
 	type BenchmarkingConfig = polkadot_runtime_common::StakingBenchmarkingConfig;
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
-	// TODO: Set this to everything once AHM migration starts.
 	type Filter = Nothing;
 }
 
@@ -798,57 +789,10 @@ enum RcClientCalls<AccountId> {
 	RelayNewOffence(SessionIndex, Vec<rc_client::Offence<AccountId>>),
 }
 
-// CI-FAIL: @kianenigma port over the new xcm configs from https://github.com/paritytech/polkadot-sdk/pull/8422
 pub struct AssetHubLocation;
 impl Get<Location> for AssetHubLocation {
 	fn get() -> Location {
 		Location::new(0, [Junction::Parachain(ASSET_HUB_ID)])
-	}
-}
-
-pub struct XcmToAssetHub<T: SendXcm>(PhantomData<T>);
-impl<T: SendXcm> ah_client::SendToAssetHub for XcmToAssetHub<T> {
-	type AccountId = AccountId;
-
-	fn relay_session_report(session_report: rc_client::SessionReport<Self::AccountId>) {
-		let message = Xcm(vec![
-			Instruction::UnpaidExecution {
-				weight_limit: WeightLimit::Unlimited,
-				check_origin: None,
-			},
-			Self::mk_asset_hub_call(RcClientCalls::RelaySessionReport(session_report)),
-		]);
-		if let Err(err) = send_xcm::<T>(AssetHubLocation::get(), message) {
-			log::error!(target: "runtime", "Failed to send relay session report message: {:?}", err);
-		}
-	}
-
-	fn relay_new_offence(
-		session_index: SessionIndex,
-		offences: Vec<rc_client::Offence<Self::AccountId>>,
-	) {
-		let message = Xcm(vec![
-			Instruction::UnpaidExecution {
-				weight_limit: WeightLimit::Unlimited,
-				check_origin: None,
-			},
-			Self::mk_asset_hub_call(RcClientCalls::RelayNewOffence(session_index, offences)),
-		]);
-		if let Err(err) = send_xcm::<T>(AssetHubLocation::get(), message) {
-			log::error!(target: "runtime", "Failed to send relay offence message: {:?}", err);
-		}
-	}
-}
-
-impl<T: SendXcm> XcmToAssetHub<T> {
-	fn mk_asset_hub_call(
-		call: RcClientCalls<<Self as ah_client::SendToAssetHub>::AccountId>,
-	) -> Instruction<()> {
-		Instruction::Transact {
-			origin_kind: OriginKind::Superuser,
-			fallback_max_weight: None,
-			call: AssetHubRuntimePallets::RcClient(call).encode().into(),
-		}
 	}
 }
 
@@ -870,16 +814,73 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureAssetHub {
 	}
 }
 
-// Note - AHM: this pallet is currently in place, but does nothing. Upon AHM, it should become
-// activated. Note that it is used as `SessionManager`, but since its mode is `Passive`, it will
-// delegate all of its tasks to `Fallback`, which is again `Staking`.
+pub struct SessionReportToXcm;
+impl sp_runtime::traits::Convert<rc_client::SessionReport<AccountId>, Xcm<()>>
+	for SessionReportToXcm
+{
+	fn convert(a: rc_client::SessionReport<AccountId>) -> Xcm<()> {
+		Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			Instruction::Transact {
+				origin_kind: OriginKind::Superuser,
+				fallback_max_weight: None,
+				call: AssetHubRuntimePallets::RcClient(RcClientCalls::RelaySessionReport(a))
+					.encode()
+					.into(),
+			},
+		])
+	}
+}
+
+pub struct StakingXcmToAssetHub;
+impl ah_client::SendToAssetHub for StakingXcmToAssetHub {
+	type AccountId = AccountId;
+
+	fn relay_session_report(session_report: rc_client::SessionReport<Self::AccountId>) {
+		rc_client::XCMSender::<
+			xcm_config::XcmRouter,
+			AssetHubLocation,
+			rc_client::SessionReport<AccountId>,
+			SessionReportToXcm,
+		>::split_then_send(session_report, Some(8));
+	}
+
+	fn relay_new_offence(
+		session_index: SessionIndex,
+		offences: Vec<rc_client::Offence<Self::AccountId>>,
+	) {
+		let message = Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			Instruction::Transact {
+				origin_kind: OriginKind::Superuser,
+				fallback_max_weight: None,
+				call: AssetHubRuntimePallets::RcClient(RcClientCalls::RelayNewOffence(
+					session_index,
+					offences,
+				))
+				.encode()
+				.into(),
+			},
+		]);
+		if let Err(err) = send_xcm::<xcm_config::XcmRouter>(AssetHubLocation::get(), message) {
+			log::error!(target: "runtime::ah-client", "Failed to send relay offence message: {:?}", err);
+		}
+	}
+}
+
 impl ah_client::Config for Runtime {
 	type CurrencyBalance = Balance;
 	type AssetHubOrigin =
 		frame_support::traits::EitherOfDiverse<EnsureRoot<AccountId>, EnsureAssetHub>;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type SessionInterface = Self;
-	type SendToAssetHub = XcmToAssetHub<crate::xcm_config::XcmRouter>;
+	type SendToAssetHub = StakingXcmToAssetHub;
 	type MinimumValidatorSetSize = ConstU32<1>;
 	type UnixTime = Timestamp;
 	type PointsPerBlock = ConstU32<20>;
@@ -1068,11 +1069,11 @@ where
 	}
 }
 
-impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
+impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
-	fn create_inherent(call: RuntimeCall) -> UncheckedExtrinsic {
+	fn create_bare(call: RuntimeCall) -> UncheckedExtrinsic {
 		UncheckedExtrinsic::new_bare(call)
 	}
 }
@@ -1409,6 +1410,13 @@ impl parachains_paras::Config for Runtime {
 	type Fungible = Balances;
 	// Per day the cooldown is removed earlier, it should cost 1000.
 	type CooldownRemovalMultiplier = ConstUint<{ 1000 * UNITS / DAYS as u128 }>;
+	type AuthorizeCurrentCodeOrigin = EitherOfDiverse<
+		EnsureRoot<AccountId>,
+		// Collectives DDay plurality mapping.
+		AsEnsureOriginWithArg<
+			EnsureXcm<IsVoiceOfBody<xcm_config::Collectives, xcm_config::DDayBodyId>>,
+		>,
+	>;
 }
 
 parameter_types! {
@@ -1769,31 +1777,6 @@ parameter_types! {
 	pub AhExistentialDeposit: Balance = EXISTENTIAL_DEPOSIT / 100;
 }
 
-impl pallet_rc_migrator::Config for Runtime {
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeEvent = RuntimeEvent;
-	type ManagerOrigin = EitherOfDiverse<
-		EnsureRoot<AccountId>,
-		EitherOfDiverse<
-			EnsureXcm<IsVoiceOfBody<Collectives, FellowsBodyId>>,
-			EnsureXcm<Equals<AssetHub>, Location>,
-		>,
-	>;
-	type Currency = Balances;
-	type CheckingAccount = xcm_config::CheckAccount;
-	type SendXcm = xcm_config::XcmRouter;
-	type MaxRcWeight = RcMigratorMaxWeight;
-	type MaxAhWeight = AhMigratorMaxWeight;
-	type AhExistentialDeposit = AhExistentialDeposit;
-	type RcWeightInfo = weights::pallet_rc_migrator::WeightInfo<Runtime>;
-	type AhWeightInfo = weights::pallet_ah_migrator::WeightInfo<ah_migration::weights::AhDbConfig>;
-	type RcIntraMigrationCalls = ahm_phase1::CallsEnabledDuringMigration;
-	type RcPostMigrationCalls = ahm_phase1::CallsEnabledAfterMigration;
-	type StakingDelegationReason = ahm_phase1::StakingDelegationReason;
-	type OnDemandPalletId = OnDemandPalletId;
-	type UnprocessedMsgBuffer = ConstU32<5>;
-}
-
 pub type MetaTxExtension = (
 	pallet_verify_signature::VerifySignature<Runtime>,
 	pallet_meta_tx::MetaTxMarker<Runtime>,
@@ -2037,10 +2020,6 @@ mod runtime {
 	// Pallet for migrating Identity to a parachain. To be removed post-migration.
 	#[runtime::pallet_index(248)]
 	pub type IdentityMigrator = identity_migrator;
-
-	// Relay Chain Migrator.
-	#[runtime::pallet_index(255)]
-	pub type RcMigrator = pallet_rc_migrator;
 }
 
 /// The address format for describing accounts.
@@ -3003,12 +2982,13 @@ sp_api::impl_runtime_apis! {
 					Asset { fun: Fungible(1 * UNITS), id: AssetId(TokenLocation::get()) },
 				));
 				pub const TrustedReserve: Option<(Location, Asset)> = None;
+				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
 			}
 
 			impl pallet_xcm_benchmarks::fungible::Config for Runtime {
 				type TransactAsset = Balances;
 
-				type CheckedAccount = xcm_config::LocalCheckAccount;
+				type CheckedAccount = CheckedAccount;
 				type TrustedTeleporter = TrustedTeleporter;
 				type TrustedReserve = TrustedReserve;
 

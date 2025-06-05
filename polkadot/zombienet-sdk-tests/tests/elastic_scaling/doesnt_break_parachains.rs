@@ -11,9 +11,11 @@ use cumulus_zombienet_sdk_helpers::{
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 use serde_json::json;
 use std::collections::{BTreeMap, VecDeque};
-use subxt::{OnlineClient, PolkadotConfig};
-use subxt_signer::sr25519::dev;
-use zombienet_sdk::NetworkConfigBuilder;
+use zombienet_sdk::{
+	subxt::{OnlineClient, PolkadotConfig},
+	subxt_signer::sr25519::dev,
+	NetworkConfigBuilder,
+};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn doesnt_break_parachains_test() -> Result<(), anyhow::Error> {

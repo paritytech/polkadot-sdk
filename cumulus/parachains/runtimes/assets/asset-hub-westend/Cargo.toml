@@ -28,7 +28,6 @@ frame-system = { workspace = true }
 frame-system-benchmarking = { optional = true, workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
 frame-try-runtime = { optional = true, workspace = true }
-pallet-ah-migrator = { workspace = true }
 pallet-ah-ops = { workspace = true }
 pallet-asset-conversion = { workspace = true }
 pallet-asset-conversion-ops = { workspace = true }
@@ -55,7 +54,6 @@ pallet-nomination-pools = { workspace = true }
 pallet-nomination-pools-runtime-api = { workspace = true }
 pallet-preimage = { workspace = true }
 pallet-proxy = { workspace = true }
-pallet-rc-migrator = { workspace = true }
 pallet-referenda = { workspace = true }
 pallet-revive = { workspace = true }
 pallet-scheduler = { workspace = true }
@@ -135,8 +133,10 @@ snowbridge-pallet-system-frontend = { workspace = true }
 snowbridge-runtime-common = { workspace = true }
 
 [dev-dependencies]
+alloy-core = { workspace = true, features = ["sol-types"] }
 asset-test-utils = { workspace = true, default-features = true }
 hex = { workspace = true, default-features = false }
+pallet-revive-fixtures = { workspace = true, default-features = true }
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
 remote-externalities = { workspace = true, default-features = true }
 sp-tracing = { workspace = true }
@@ -146,18 +146,7 @@ tokio = { features = ["macros"], workspace = true, default-features = true }
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
 
 [features]
-default = ["ahm-westend", "std"]
-ahm-westend = [
-	"ahm-staking-migration",
-	"pallet-ah-migrator/ahm-westend",
-	"pallet-ah-ops/ahm-westend",
-	"pallet-rc-migrator/ahm-westend",
-]
-ahm-staking-migration = [
-	"pallet-ah-migrator/ahm-staking-migration",
-	"pallet-ah-ops/ahm-staking-migration",
-	"pallet-rc-migrator/ahm-staking-migration",
-]
+default = ["std"]
 runtime-benchmarks = [
 	"assets-common/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
@@ -171,7 +160,6 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-ah-migrator/runtime-benchmarks",
 	"pallet-ah-ops/runtime-benchmarks",
 	"pallet-asset-conversion-ops/runtime-benchmarks",
 	"pallet-asset-conversion-tx-payment/runtime-benchmarks",
@@ -196,7 +184,6 @@ runtime-benchmarks = [
 	"pallet-nomination-pools/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
-	"pallet-rc-migrator/runtime-benchmarks",
 	"pallet-referenda/runtime-benchmarks",
 	"pallet-revive/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
@@ -229,6 +216,7 @@ runtime-benchmarks = [
 	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
+	"assets-common/try-runtime",
 	"cumulus-pallet-aura-ext/try-runtime",
 	"cumulus-pallet-parachain-system/try-runtime",
 	"cumulus-pallet-weight-reclaim/try-runtime",
@@ -239,7 +227,6 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"frame-try-runtime/try-runtime",
-	"pallet-ah-migrator/try-runtime",
 	"pallet-ah-ops/try-runtime",
 	"pallet-asset-conversion-ops/try-runtime",
 	"pallet-asset-conversion-tx-payment/try-runtime",
@@ -266,7 +253,6 @@ try-runtime = [
 	"pallet-nomination-pools/try-runtime",
 	"pallet-preimage/try-runtime",
 	"pallet-proxy/try-runtime",
-	"pallet-rc-migrator/try-runtime",
 	"pallet-referenda/try-runtime",
 	"pallet-revive/try-runtime",
 	"pallet-scheduler/try-runtime",
@@ -286,12 +272,14 @@ try-runtime = [
 	"pallet-xcm-bridge-hub-router/try-runtime",
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
+	"parachains-common/try-runtime",
 	"polkadot-runtime-common/try-runtime",
 	"snowbridge-pallet-system-frontend/try-runtime",
 	"snowbridge-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
 ]
 std = [
+	"alloy-core/std",
 	"assets-common/std",
 	"bp-asset-hub-rococo/std",
 	"bp-asset-hub-westend/std",
@@ -318,7 +306,6 @@ std = [
 	"frame-try-runtime?/std",
 	"hex/std",
 	"log/std",
-	"pallet-ah-migrator/std",
 	"pallet-ah-ops/std",
 	"pallet-asset-conversion-ops/std",
 	"pallet-asset-conversion-tx-payment/std",
@@ -347,7 +334,6 @@ std = [
 	"pallet-nomination-pools/std",
 	"pallet-preimage/std",
 	"pallet-proxy/std",
-	"pallet-rc-migrator/std",
 	"pallet-referenda/std",
 	"pallet-revive/std",
 	"pallet-scheduler/std",

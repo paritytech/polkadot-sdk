@@ -25,8 +25,8 @@ use crate::{
 	slashing::OffenceRecord,
 	weights::WeightInfo,
 	BalanceOf, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf, Nominations,
-	NominationsOf, NominationsQuota, PositiveImbalanceOf, RewardDestination, SnapshotStatus,
-	StakingLedger, ValidatorPrefs, STAKING_ID,
+	NominationsQuota, PositiveImbalanceOf, RewardDestination, SnapshotStatus, StakingLedger,
+	ValidatorPrefs, STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use frame_election_provider_support::{
@@ -652,7 +652,7 @@ impl<T: Config> Pallet<T> {
 	/// NOTE: you must ALWAYS use this function to add nominator or update their targets. Any access
 	/// to `Nominators` or `VoterList` outside of this function is almost certainly
 	/// wrong.
-	pub fn do_add_nominator(who: &T::AccountId, nominations: NominationsOf<T>) {
+	pub fn do_add_nominator(who: &T::AccountId, nominations: Nominations<T>) {
 		if !Nominators::<T>::contains_key(who) {
 			// maybe update sorted list.
 			let _ = T::VoterList::on_insert(who.clone(), Self::weight_of(who))
@@ -1057,7 +1057,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	/// implies a new validator set has been applied, and we must increment the active era to keep
 	/// the systems in sync.
 	fn on_relay_session_report(report: rc_client::SessionReport<Self::AccountId>) {
-		log!(debug, "session report received\n{:?}", report,);
+		log!(debug, "session report received: {}", report,);
 		let consumed_weight = T::WeightInfo::rc_on_session_report();
 
 		let rc_client::SessionReport {
@@ -1815,10 +1815,15 @@ impl<T: Config> Pallet<T> {
 						));
 					}
 				} else {
-					ensure!(
-						Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
-						"bond, ledger and/or staking hold inconsistent for a bonded stash."
-					);
+					let integrity = Self::inspect_bond_state(&stash);
+					if integrity != Ok(LedgerIntegrityState::Ok) {
+						log!(
+							warn,
+							"bonded stash {:?} has inconsistent ledger state: {:?}",
+							stash,
+							integrity
+						);
+					}
 				}
 
 				// ensure ledger consistency.

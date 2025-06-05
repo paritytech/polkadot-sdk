@@ -19,10 +19,9 @@
 
 use crate::{
 	asset, slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
-	EraRewardPoints, EraRewardPointsOf, ExposurePage, Forcing, LedgerIntegrityState,
-	MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsOf, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, StakingLedger, UnappliedSlash, UnappliedSlashOf,
-	UnlockChunk, ValidatorPrefs,
+	EraRewardPoints, ExposurePage, Forcing, LedgerIntegrityState, MaxNominationsOf,
+	NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
+	StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
 };
 use alloc::{format, vec::Vec};
 use codec::Codec;
@@ -154,7 +153,7 @@ pub mod pallet {
 		///
 		/// Following information is kept for eras in `[current_era -
 		/// HistoryDepth, current_era]`: `ErasValidatorPrefs`, `ErasValidatorReward`,
-		/// `ErasRewardPoints`, `ErasTotalStake`, `ErasClaimedRewards`,
+		/// `ErasRewardPoints`, `ErasTotalStake`, `ClaimedRewards`,
 		/// `ErasStakersPaged`, `ErasStakersOverview`.
 		///
 		/// Must be more than the number of eras delayed by session.
@@ -181,7 +180,7 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type Reward: OnUnbalanced<PositiveImbalanceOf<Self>>;
 
-		/// Number of sessions per era.
+		/// Number of sessions per era, as per the preferences of the **relay chain**.
 		#[pallet::constant]
 		type SessionsPerEra: Get<SessionIndex>;
 
@@ -233,7 +232,7 @@ pub mod pallet {
 		/// `MaxExposurePageSize` nominators. This is to limit the i/o cost for the
 		/// nominator payout.
 		///
-		/// Note: `MaxExposurePageSize` is used to bound `ErasClaimedRewards` and is unsafe to
+		/// Note: `MaxExposurePageSize` is used to bound `ClaimedRewards` and is unsafe to
 		/// reduce without handling it in a migration.
 		#[pallet::constant]
 		type MaxExposurePageSize: Get<u32>;
@@ -463,7 +462,7 @@ pub mod pallet {
 	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
 	#[pallet::storage]
 	pub type Nominators<T: Config> =
-		CountedStorageMap<_, Twox64Concat, T::AccountId, NominationsOf<T>>;
+		CountedStorageMap<_, Twox64Concat, T::AccountId, Nominations<T>>;
 
 	/// Stakers whose funds are managed by other pallets.
 	///
@@ -610,8 +609,8 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
-	pub struct ErasClaimedRewardsBound<T>(core::marker::PhantomData<T>);
-	impl<T: Config> Get<u32> for ErasClaimedRewardsBound<T> {
+	pub struct ClaimedRewardsBound<T>(core::marker::PhantomData<T>);
+	impl<T: Config> Get<u32> for ClaimedRewardsBound<T> {
 		fn get() -> u32 {
 			let max_total_nominators_per_validator =
 				<T::ElectionProvider as ElectionProvider>::MaxBackersPerWinner::get() *
@@ -630,13 +629,13 @@ pub mod pallet {
 	///
 	/// It is removed after [`Config::HistoryDepth`] eras.
 	#[pallet::storage]
-	pub type ErasClaimedRewards<T: Config> = StorageDoubleMap<
+	pub type ClaimedRewards<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		EraIndex,
 		Twox64Concat,
 		T::AccountId,
-		WeakBoundedVec<Page, ErasClaimedRewardsBound<T>>,
+		WeakBoundedVec<Page, ClaimedRewardsBound<T>>,
 		ValueQuery,
 	>;
 
@@ -667,7 +666,7 @@ pub mod pallet {
 	/// If reward hasn't been set or has been removed then 0 reward is returned.
 	#[pallet::storage]
 	pub type ErasRewardPoints<T: Config> =
-		StorageMap<_, Twox64Concat, EraIndex, EraRewardPointsOf<T>, ValueQuery>;
+		StorageMap<_, Twox64Concat, EraIndex, EraRewardPoints<T>, ValueQuery>;
 
 	/// The total amount staked for the last [`Config::HistoryDepth`] eras.
 	/// If total hasn't been set or has been removed then 0 stake is returned.
@@ -755,7 +754,7 @@ pub mod pallet {
 		Twox64Concat,
 		// Unique key for unapplied slashes: (validator, slash fraction, page index).
 		(T::AccountId, Perbill, u32),
-		UnappliedSlashOf<T>,
+		UnappliedSlash<T>,
 		OptionQuery,
 	>;
 

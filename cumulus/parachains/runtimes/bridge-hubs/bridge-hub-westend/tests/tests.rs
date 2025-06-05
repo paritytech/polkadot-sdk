@@ -781,7 +781,7 @@ fn governance_authorize_upgrade_works() {
 			Runtime,
 			RuntimeOrigin,
 		>(GovernanceOrigin::Location(Location::new(1, Parachain(12334)))),
-		Either::Right(XcmError::Barrier)
+		Either::Right(InstructionError { index: 0, error: XcmError::Barrier })
 	);
 	// ok - AssetHub
 	assert_ok!(parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
@@ -794,7 +794,7 @@ fn governance_authorize_upgrade_works() {
 			Runtime,
 			RuntimeOrigin,
 		>(GovernanceOrigin::Location(Location::new(1, Parachain(COLLECTIVES_ID)))),
-		Either::Right(XcmError::Barrier)
+		Either::Right(InstructionError { index: 0, error: XcmError::Barrier })
 	);
 	// no - Collectives Voice of Fellows plurality
 	assert_err!(
@@ -805,7 +805,7 @@ fn governance_authorize_upgrade_works() {
 			Location::new(1, Parachain(COLLECTIVES_ID)),
 			Plurality { id: BodyId::Technical, part: BodyPart::Voice }.into()
 		)),
-		Either::Right(XcmError::Barrier)
+		Either::Right(InstructionError { index: 0, error: XcmError::Barrier })
 	);
 
 	// ok - relaychain

@@ -42,18 +42,18 @@ use cumulus_primitives_core::ParaId;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		fungible::{Inspect, InspectFreeze, Mutate, MutateFreeze, MutateHold, Unbalanced},
-		tokens::{Fortitude, IdAmount, Precision, Preservation},
+		fungible::{InspectFreeze, Mutate, MutateFreeze, MutateHold, Unbalanced},
+		tokens::{Precision, Preservation},
 		Defensive, LockableCurrency, ReservableCurrency,
 	},
 };
 use frame_system::pallet_prelude::*;
-use pallet_balances::{AccountData, BalanceLock};
+use pallet_balances::AccountData;
 use sp_runtime::{traits::BlockNumberProvider, AccountId32};
 use sp_std::prelude::*;
 
 /// The log target of this pallet.
-pub const LOG_TARGET: &str = "runtime::ah-migrator";
+pub const LOG_TARGET: &str = "runtime::ah-ops";
 
 pub type BalanceOf<T> = <T as pallet_balances::Config>::Balance;
 
@@ -67,9 +67,6 @@ pub mod pallet {
 		+ pallet_balances::Config<Balance = u128>
 		+ pallet_timestamp::Config<Moment = u64> // Needed for testing
 	{
-		/// The overarching event type.
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
 		/// Native asset type.
 		type Currency: Mutate<Self::AccountId, Balance = u128>
 			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
@@ -307,12 +304,13 @@ pub mod pallet {
 					.saturating_add(Weight::from_parts(0, 50_000)))]
 		pub fn migrate_parachain_sovereign_acc(
 			origin: OriginFor<T>,
-			from: T::AccountId,
+			fixme: T::AccountId,
 			to: T::AccountId,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			Self::do_migrate_parachain_sovereign_acc(&from, &to).map_err(Into::into)
+			//Self::do_migrate_parachain_sovereign_acc(&from, &to).map_err(Into::into) FAIL-CI
+			Err(Error::<T>::InternalError.into())
 		}
 
 		/// Force unreserve a named or unnamed reserve.
@@ -419,7 +417,7 @@ pub mod pallet {
 			contrib_iter.next().is_none()
 		}
 
-		pub fn do_migrate_parachain_sovereign_acc(
+		/*pub fn do_migrate_parachain_sovereign_acc(
 			from: &T::AccountId,
 			to: &T::AccountId,
 		) -> Result<(), Error<T>> {
@@ -518,7 +516,7 @@ pub mod pallet {
 
 			// Reapply the locks
 			for lock in &locks {
-				let reasons = pallet_rc_migrator::types::map_lock_reason(lock.reasons);
+				let reasons =  pallet_rc_migrator::types::map_lock_reason(lock.reasons);
 				<T as Config>::Currency::set_lock(lock.id, &to, lock.amount, reasons);
 			}
 			// Reapply the freezes
@@ -544,7 +542,7 @@ pub mod pallet {
 			});
 
 			Ok(())
-		}
+		}*/
 
 		pub fn do_force_unreserve(
 			account: T::AccountId,

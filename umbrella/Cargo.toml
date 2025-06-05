@@ -124,7 +124,6 @@ std = [
 	"pallet-recovery?/std",
 	"pallet-referenda?/std",
 	"pallet-remark?/std",
-	"pallet-revive-mock-network?/std",
 	"pallet-revive?/std",
 	"pallet-root-offences?/std",
 	"pallet-root-testing?/std",
@@ -306,7 +305,6 @@ runtime-benchmarks = [
 	"pallet-recovery?/runtime-benchmarks",
 	"pallet-referenda?/runtime-benchmarks",
 	"pallet-remark?/runtime-benchmarks",
-	"pallet-revive-mock-network?/runtime-benchmarks",
 	"pallet-revive?/runtime-benchmarks",
 	"pallet-root-offences?/runtime-benchmarks",
 	"pallet-safe-mode?/runtime-benchmarks",
@@ -357,6 +355,7 @@ runtime-benchmarks = [
 	"xcm-runtime-apis?/runtime-benchmarks",
 ]
 try-runtime = [
+	"assets-common?/try-runtime",
 	"cumulus-pallet-aura-ext?/try-runtime",
 	"cumulus-pallet-dmp-queue?/try-runtime",
 	"cumulus-pallet-parachain-system?/try-runtime",
@@ -438,7 +437,6 @@ try-runtime = [
 	"pallet-recovery?/try-runtime",
 	"pallet-referenda?/try-runtime",
 	"pallet-remark?/try-runtime",
-	"pallet-revive-mock-network?/try-runtime",
 	"pallet-revive?/try-runtime",
 	"pallet-root-offences?/try-runtime",
 	"pallet-root-testing?/try-runtime",
@@ -470,6 +468,7 @@ try-runtime = [
 	"pallet-xcm-bridge-hub-router?/try-runtime",
 	"pallet-xcm-bridge-hub?/try-runtime",
 	"pallet-xcm?/try-runtime",
+	"parachains-common?/try-runtime",
 	"polkadot-cli?/try-runtime",
 	"polkadot-omni-node-lib?/try-runtime",
 	"polkadot-runtime-common?/try-runtime",
@@ -563,6 +562,7 @@ runtime-full = [
 	"cumulus-primitives-storage-weight-reclaim",
 	"cumulus-primitives-timestamp",
 	"cumulus-primitives-utility",
+	"ethereum-standards",
 	"frame-benchmarking",
 	"frame-benchmarking-pallet-pov",
 	"frame-election-provider-solution-type",
@@ -851,7 +851,6 @@ node = [
 	"mmr-rpc",
 	"pallet-contracts-mock-network",
 	"pallet-revive-eth-rpc",
-	"pallet-revive-mock-network",
 	"pallet-transaction-payment-rpc",
 	"parachains-runtimes-test-utils",
 	"polkadot-approval-distribution",
@@ -1138,6 +1137,11 @@ path = "../cumulus/primitives/timestamp"
 default-features = false
 optional = true
 path = "../cumulus/primitives/utility"
+
+[dependencies.ethereum-standards]
+default-features = false
+optional = true
+path = "../substrate/primitives/ethereum-standards"
 
 [dependencies.frame-benchmarking]
 default-features = false
@@ -2253,11 +2257,6 @@ path = "../substrate/frame/contracts/mock-network"
 default-features = false
 optional = true
 path = "../substrate/frame/revive/rpc"
-
-[dependencies.pallet-revive-mock-network]
-default-features = false
-optional = true
-path = "../substrate/frame/revive/mock-network"
 
 [dependencies.pallet-transaction-payment-rpc]
 default-features = false

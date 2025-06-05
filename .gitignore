@@ -1,4 +1,3 @@
-*.snap
 !polkadot.service
 .cargo-remote.toml
 .direnv/

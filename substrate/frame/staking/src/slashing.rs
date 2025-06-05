@@ -58,7 +58,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	ensure,
 	pallet_prelude::DecodeWithMemTracking,
-	traits::{Defensive, DefensiveSaturating, Get, Imbalance, OnUnbalanced},
+	traits::{Defensive, DefensiveSaturating, Imbalance, OnUnbalanced},
 };
 use scale_info::TypeInfo;
 use sp_runtime::{

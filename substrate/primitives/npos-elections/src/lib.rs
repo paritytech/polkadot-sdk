@@ -138,6 +138,10 @@ pub enum Error {
 	TooManyVoters,
 	/// Some bounds were exceeded when converting election types.
 	BoundsExceeded,
+	/// A duplicate voter was detected.
+	DuplicateVoter,
+	/// A duplicate target was detected.
+	DuplicateTarget,
 }
 
 /// A type which is used in the API of this crate as a numeric weight of a vote, most often the

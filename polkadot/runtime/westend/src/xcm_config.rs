@@ -49,16 +49,14 @@ use xcm_builder::{
 };
 use xcm_executor::XcmExecutor;
 
-pub use pallet_rc_migrator::xcm_config::*;
-
 parameter_types! {
 	pub const TokenLocation: Location = Here.into_location();
 	pub const RootLocation: Location = Location::here();
 	pub const ThisNetwork: NetworkId = ByGenesis(WESTEND_GENESIS_HASH);
 	pub UniversalLocation: InteriorLocation = [GlobalConsensus(ThisNetwork::get())].into();
 	pub CheckAccount: AccountId = XcmPallet::check_account();
-	/// The Checking Account along with the indication that the local chain is able to mint tokens.
-	pub TeleportTracking: Option<(AccountId, MintLocation)> = crate::RcMigrator::teleport_tracking();
+	/// Westend does not have mint authority anymore after the Asset Hub migration.
+	pub TeleportTracking: Option<(AccountId, MintLocation)> = None;
 	pub TreasuryAccount: AccountId = Treasury::account_id();
 	/// The asset ID for the asset that we use to pay for message delivery fees.
 	pub FeeAssetId: AssetId = AssetId(TokenLocation::get());
@@ -86,7 +84,6 @@ pub type LocalAssetTransactor = FungibleAdapter<
 	LocationConverter,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
-	// Teleports tracking is managed by `RcMigrator`: track before, no tracking after.
 	TeleportTracking,
 >;
 
@@ -207,7 +204,7 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetTransactor = LocalAssetTransactor;
 	type OriginConverter = LocalOriginConverter;
 	type IsReserve = ();
-	type IsTeleporter = crate::RcMigrator;
+	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = WeightInfoBounds<
@@ -250,6 +247,8 @@ parameter_types! {
 	pub const FellowshipAdminBodyId: BodyId = BodyId::Index(FELLOWSHIP_ADMIN_INDEX);
 	// `Treasurer` pluralistic body.
 	pub const TreasurerBodyId: BodyId = BodyId::Treasury;
+	// DDay pluralistic body.
+	pub const DDayBodyId: BodyId = BodyId::Moniker([b'd', b'd', b'a', b'y']);
 }
 
 /// Type to convert the `GeneralAdmin` origin to a Plurality `Location` value.
