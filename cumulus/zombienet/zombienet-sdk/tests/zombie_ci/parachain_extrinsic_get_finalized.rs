@@ -50,11 +50,29 @@ async fn parachain_extrinsic_gets_finalized() -> Result<(), anyhow::Error> {
 
 	for node in [alice, bob, charlie] {
 		log::info!("Ensuring {} does not report any error", node.name());
+
+		let result = node
+			.wait_log_line_count_with_timeout(
+				".*kernel security feature.*not available.*error.",
+				false,
+				// Do not wait for more logs. The lines we are looking for appear at the node
+				// startup, which we must have clearly reached if we are here.
+				LogLineCountOptions::new(|n| n == 0, Duration::from_secs(0), false),
+			)
+			.await?;
+
+		// If above line appeared then increase expected error count
+		let error_cnt_expected = if result.success() { 0 } else { 1 };
+
 		let result = node
 			.wait_log_line_count_with_timeout(
 				"error",
 				false,
-				LogLineCountOptions::no_occurences_within_timeout(Duration::from_secs(2)),
+				LogLineCountOptions::new(
+					move |n| n == error_cnt_expected,
+					Duration::from_secs(2),
+					true,
+				),
 			)
 			.await?;
 		assert!(result.success(), "node {} reported error: {:?}", node.name(), result);
