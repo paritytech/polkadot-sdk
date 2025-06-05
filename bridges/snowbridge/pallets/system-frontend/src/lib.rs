@@ -219,6 +219,9 @@ pub mod pallet {
 		#[pallet::weight(
 			T::WeightInfo::register_token()
 				.saturating_add(T::BackendWeightInfo::transact_register_token())
+				.saturating_add(T::BackendWeightInfo::do_process_message())
+				.saturating_add(T::BackendWeightInfo::commit_single())
+				.saturating_add(T::BackendWeightInfo::submit_delivery_receipt())
 		)]
 		pub fn register_token(
 			origin: OriginFor<T>,
