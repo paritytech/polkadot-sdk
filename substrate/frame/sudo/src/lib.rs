@@ -333,7 +333,7 @@ pub mod pallet {
 
 	/// The `AccountId` of the sudo key.
 	#[pallet::storage]
-	pub(super) type Key<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
+	pub type Key<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
