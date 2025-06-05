@@ -2105,10 +2105,21 @@ mod phase_rotation {
 	#[should_panic(
 		expected = "signed validation phase should be a multiple of the number of pages."
 	)]
-	fn incorrect_signed_validation_phase() {
+	fn incorrect_signed_validation_phase_shorter_than_number_of_pages() {
 		ExtBuilder::full()
 			.pages(3)
 			.signed_validation_phase(2)
+			.build_and_execute(|| <MultiBlock as Hooks<BlockNumber>>::integrity_test())
+	}
+
+	#[test]
+	#[should_panic(
+		expected = "signed validation phase should be a multiple of the number of pages."
+	)]
+	fn incorret_signed_validation_phase_not_a_multiple_of_the_number_of_pages() {
+		ExtBuilder::full()
+			.pages(3)
+			.signed_validation_phase(7)
 			.build_and_execute(|| <MultiBlock as Hooks<BlockNumber>>::integrity_test())
 	}
 
