@@ -122,8 +122,11 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 	fn get_page(page: PageIndex) -> Self::Solution {
 		let current_round = Self::current_round();
 		Submissions::<T>::leader(current_round)
-			// Leader is verified to exist before we call `Verifier::start`. We do not change it
-			// otherwise.
+			// Leader is verified to exist before we call `Verifier::start`. The verifier only
+			// transitions to `Status::Ongoing` when a leader is confirmed to exist. During
+			// verification, the leader should remain unchanged - it's only removed when
+			// verification fails (which immediately stops the verifier) or completes successfully.
+			// Therefore, `get_page` should only be called when a leader exists.
 			.defensive()
 			.and_then(|(who, _score)| {
 				sublog!(
@@ -141,8 +144,11 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 	fn get_score() -> ElectionScore {
 		let current_round = Self::current_round();
 		Submissions::<T>::leader(current_round)
-			// Leader is verified to exist before we call `Verifier::start`. We do not change it
-			// otherwise.
+			// Leader is verified to exist before we call `Verifier::start`. The verifier only
+			// transitions to `Status::Ongoing` when a leader is confirmed to exist. During
+			// verification, the leader should remain unchanged - it's only removed when
+			// verification fails (which immediately stops the verifier) or completes successfully.
+			// Therefore, `get_score` should only be called when a leader exists.
 			.defensive()
 			.and_then(|(_who, score)| {
 				sublog!(
