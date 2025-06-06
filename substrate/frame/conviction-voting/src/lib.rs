@@ -586,7 +586,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						if votes[i].retracted_votes == Default::default() {
 							votes.remove(i);
 						}
-						
+
 						Self::deposit_event(Event::VoteRemoved { who: who.clone(), vote: account_vote });
 						T::VotingHooks::on_remove_vote(who, poll_index, Status::Ongoing);
 					}
@@ -632,16 +632,59 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 								}
 							}
 						}
+
+						// Update delegate's voting state if delegating
+						if let (Some(delegate), Some(conviction)) = (&voting.delegate, &voting.conviction) {
+							VotingFor::<T, I>::mutate(delegate, &class, |delegate_voting| {
+								// Find the matching poll record on the delegate's account.
+								if let Ok(idx) = delegate_voting.votes.binary_search_by_key(&poll_index, |v| v.poll_index)
+								{
+									let amount_delegated = conviction.votes(voting.delegated_balance);
+
+									// Reduce the retracted amount on the delegate's record.
+									let poll_vote = &mut delegate_voting.votes[idx];
+									poll_vote.retracted_votes = poll_vote.retracted_votes.saturating_sub(amount_delegated);
+
+									// Remove vote record if no longer necessary
+									if poll_vote.maybe_vote.is_none() && poll_vote.retracted_votes == Default::default()
+									{
+										delegate_voting.votes.remove(idx);
+									}
+								}
+							});
+						}
+
 						// Call on_remove_vote hook
 						T::VotingHooks::on_remove_vote(who, poll_index, Status::Completed);
 					}
 					Ok(())
 				},
 				PollStatus::None => {
+					// Poll was cancelled.
 					let old_vote = votes.remove(i);
-					// Check vote had been cast
+					// Check vote existed at time of cancellation
 					if old_vote.maybe_vote.is_some() {
-						// Poll was cancelled.
+						// Update delegate's voting state if delegating
+						if let (Some(delegate), Some(conviction)) = (&voting.delegate, &voting.conviction) {
+							VotingFor::<T, I>::mutate(delegate, &class, |delegate_voting| {
+								// Find the matching poll record on the delegate's account.
+								if let Ok(idx) = delegate_voting.votes.binary_search_by_key(&poll_index, |v| v.poll_index)
+								{
+									let amount_delegated = conviction.votes(voting.delegated_balance);
+
+									// Reduce the retracted amount on the delegate's record.
+									let poll_vote = &mut delegate_voting.votes[idx];
+									poll_vote.retracted_votes = poll_vote.retracted_votes.saturating_sub(amount_delegated);
+
+									// Remove vote record if no longer necessary
+									if poll_vote.maybe_vote.is_none() && poll_vote.retracted_votes == Default::default()
+									{
+										delegate_voting.votes.remove(idx);
+									}
+								}
+							});
+						}
+
 						T::VotingHooks::on_remove_vote(who, poll_index, Status::None);
 					}
 					Ok(())
