@@ -238,7 +238,6 @@ pub mod pallet {
 		///
 		/// A value of `0` (obtained by configuring `type AutoRebagPerBlock = ();`) disables
 		/// the feature.
-		/// versions.
 		#[pallet::constant]
 		type AutoRebagPerBlock: Get<u32>;
 
