@@ -426,8 +426,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		T::Polls::try_access_poll(poll_index, |poll_status| {
 			let (tally, class) = poll_status.ensure_ongoing().ok_or(Error::<T, I>::NotOngoing)?;
 			VotingFor::<T, I>::try_mutate(who, &class, |voting| {
-				let mut votes = voting.votes;
-				let delegations = voting.delegations;
+				let votes = &mut voting.votes;
+				let delegations = &mut voting.delegations;
 				let mut vote_introduced = false;
 				let index = match votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
 					// Found the vote for who
@@ -472,11 +472,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				}
 
 				// Update delegate's info if delegating
-				if let (Some(delegate), Some(conviction)) = (voting.delegate, voting.conviction) {
+				if let (Some(delegate), Some(conviction)) = (&voting.delegate, &voting.conviction) {
 					// Calculate amount delegated to delegate
 					let amount_delegated = conviction.votes(voting.delegated_balance);
-					VotingFor::<T, I>::try_mutate(delegate, class, |delegate_voting| -> Result<(), DispatchError> {
-						let delegates_votes = delegate_voting.votes;
+					VotingFor::<T, I>::try_mutate(delegate, &class, |delegate_voting| -> Result<(), DispatchError> {
+						let delegates_votes = &mut delegate_voting.votes;
 						// Search for data about poll in delegates voting info
 						match delegates_votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
 							// Found
@@ -532,33 +532,32 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			.or_else(|| Some(T::Polls::as_ongoing(poll_index)?.1))
 			.ok_or(Error::<T, I>::ClassNeeded)?;
 		VotingFor::<T, I>::try_mutate(who, &class, |voting| {
-			let mut votes = &voting.votes;
+			let votes = &mut voting.votes;
 			let delegations = voting.delegations;
 			let mut prior = voting.prior;
 			let i = votes
 				.binary_search_by_key(&poll_index, |i| i.poll_index)
 				.map_err(|_| Error::<T, I>::NotVoter)?;
-			let poll_vote = &votes[i];
 		
 			T::Polls::try_access_poll(poll_index, |poll_status| match poll_status {
 				PollStatus::Ongoing(tally, _) => {
 					// Fully remove only if there are no retracted votes to track
-					if poll_vote.retracted_votes == Default::default() {
+					if votes[i].retracted_votes == Default::default() {
 						votes.remove(i);
 					}
 
-					if let Some(account_vote) = poll_vote.maybe_vote {
+					if let Some(account_vote) = votes[i].maybe_vote {
 						ensure!(matches!(scope, UnvoteScope::Any), Error::<T, I>::NoPermission);
 						// Remove vote from tally, shouldn't be possible to fail, but we handle it gracefully.
 						tally.remove(account_vote).ok_or(ArithmeticError::Underflow)?;
 						// Remove delegated votes (minus those votes retracted) only if vote was standard aye nay
 						if let Some(approve) = account_vote.as_standard() {
-							let final_delgations = delegations.saturating_sub(poll_vote.retracted_votes);
+							let final_delgations = delegations.saturating_sub(votes[i].retracted_votes);
 							tally.reduce(approve, final_delgations);
 						}
 						
 						// Update delegate's voting state if delegating
-						if let (Some(delegate), Some(conviction)) = (voting.delegate, voting.conviction) {
+						if let (Some(delegate), Some(conviction)) = (&voting.delegate, &voting.conviction) {
 							VotingFor::<T, I>::mutate(delegate, &class, |delegate_voting| {
 								let delegates_votes = &delegate_voting.votes;
 								// Check vote data exists, shouldn't be possible for it not to if delegator has voted
@@ -590,7 +589,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				PollStatus::Completed(end, approved) => {
 					votes.remove(i);
 					// If vote was cast, ensure locks
-					if let Some(account_vote) = poll_vote.maybe_vote {
+					if let Some(account_vote) = votes[i].maybe_vote {
 						if let Some((lock_periods, balance)) =
 							account_vote.locked_if(vote::LockedIf::Status(approved))
 						{
@@ -635,7 +634,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				PollStatus::None => {
 					votes.remove(i);
 					// Check vote had been cast
-					if let Some(_) = poll_vote.maybe_vote {
+					if let Some(_) = votes[i].maybe_vote {
 						// Poll was cancelled.
 						T::VotingHooks::on_remove_vote(who, poll_index, Status::None);
 					}
@@ -779,11 +778,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				
 				// Collect all of the delegator's votes that are for ongoing polls
 				let ongoing_votes: Vec<_> = voting.votes.iter().filter_map(|poll_vote|
-					if let Some(_) = poll_vote.maybe_vote {
-						if let Some(_) = T::Polls::as_ongoing(poll_vote.poll_index) {
-							Some(poll_vote.poll_index)
-						}
-					} 
+					if poll_vote.maybe_vote.is_some() && T::Polls::as_ongoing(poll_vote.poll_index).is_some() {
+						Some(poll_vote.poll_index)
+					} else {
+						None
+					}
 				).collect();
 				
 				// Update voting data of chosen delegate
@@ -808,11 +807,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				if let (Some(delegate), Some(conviction)) = (voting.delegate, voting.conviction) {
 					// Collect all of the delegator's votes that are for ongoing polls
 					let ongoing_votes: Vec<_> = voting.votes.iter().filter_map(|poll_vote|
-						if let Some(_) = poll_vote.maybe_vote {
-							if let Some(_) = T::Polls::as_ongoing(poll_vote.poll_index) {
-								Some(poll_vote.poll_index)
-							}
-						}).collect();
+						if poll_vote.maybe_vote.is_some() && T::Polls::as_ongoing(poll_vote.poll_index).is_some() {
+							Some(poll_vote.poll_index)
+						} else {
+							None
+						}
+					).collect();
 					// Update the delegate's voting data
 					let votes = Self::reduce_upstream_delegation(&delegate, &class, conviction.votes(voting.delegated_balance), ongoing_votes)?;
 					
