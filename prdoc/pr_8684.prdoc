@@ -9,10 +9,10 @@ doc:
     disables this functionality, preserving pre-upgrade pallet behavior.
 crates:
 - name: pallet-bags-list
-  bump: minor
+  bump: major
 - name: westend-runtime
-  bump: minor
+  bump: major
 - name: pallet-staking-async-parachain-runtime
-  bump: minor
+  bump: major
 - name: pallet-staking-async-rc-runtime
-  bump: minor
+  bump: major
