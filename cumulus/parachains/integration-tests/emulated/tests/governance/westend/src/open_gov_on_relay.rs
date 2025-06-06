@@ -13,23 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{common::*, imports::*};
-use codec::Encode;
 use emulated_integration_tests_common::{
 	impls::RelayChain,
-	xcm_emulator::{Chain, Parachain, TestExt},
-	xcm_helpers::{
-		build_xcm_send_authorize_upgrade_call, dispatch_note_preimage_call,
-		dispatch_whitelisted_call_with_preimage,
-	},
 };
-use frame_support::assert_err;
-use sp_runtime::DispatchError;
 use westend_runtime::governance::pallet_custom_origins::Origin;
-use westend_system_emulated_network::{
-	AssetHubWestendPara as AssetHubWestend, BridgeHubWestendPara as BridgeHubWestend,
-	CoretimeWestendPara as CoretimeWestend, PeopleWestendPara as PeopleWestend,
-	WestendRelay as Westend,
-};
 
 use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
 

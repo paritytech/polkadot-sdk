@@ -16,14 +16,26 @@
 
 #[cfg(test)]
 mod imports {
+	pub(crate) use codec::Encode;
 	pub(crate) use emulated_integration_tests_common::{
-		impls::{assert_expected_events, bx, TestExt},
-		xcm_emulator::Chain,
+		impls::{assert_expected_events, bx},
+		xcm_emulator::{Chain, Parachain, TestExt},
+		xcm_helpers::{
+			build_xcm_send_authorize_upgrade_call, dispatch_note_preimage_call,
+			dispatch_whitelisted_call_with_preimage,
+		},
 	};
-	pub(crate) use frame_support::assert_ok;
+	pub(crate) use frame_support::{assert_ok, assert_err};
 	pub(crate) use sp_runtime::traits::Dispatchable;
 	pub(crate) use westend_system_emulated_network::CollectivesWestendPara as CollectivesWestend;
 	pub(crate) use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm};
+	pub(crate) use sp_runtime::DispatchError;
+
+	pub(crate) use westend_system_emulated_network::{
+		AssetHubWestendPara as AssetHubWestend, BridgeHubWestendPara as BridgeHubWestend,
+		CoretimeWestendPara as CoretimeWestend, PeopleWestendPara as PeopleWestend,
+		WestendRelay as Westend,
+	};
 }
 
 #[cfg(test)]
@@ -31,3 +43,6 @@ mod common;
 
 #[cfg(test)]
 mod open_gov_on_relay;
+
+#[cfg(test)]
+mod open_gov_on_asset_hub;

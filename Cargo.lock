@@ -7550,6 +7550,7 @@ dependencies = [
 name = "governance-westend-integration-tests"
 version = "0.0.0"
 dependencies = [
+ "asset-hub-westend-runtime",
  "collectives-westend-runtime",
  "emulated-integration-tests-common",
  "frame-support",
