@@ -189,7 +189,7 @@ type RetractedVotes<Balance> = Delegations<Balance>;
 
 /// Pertinent information of a vote in regards to a specific poll
 #[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct PollVote<Balance> {
+pub struct PollVote<PollIndex, Balance> {
 	/// The poll index this information concerns
 	pub poll_index: PollIndex,
 	/// The vote this account has cast. Can be none if only retracted_votes info is needed
@@ -201,12 +201,12 @@ pub struct PollVote<Balance> {
 
 /// Information concerning the vote-casting of some voting power.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct Voting<Balance, AccountId, BlockNumber, MaxVotes> 
+pub struct Voting<Balance, AccountId, BlockNumber, PollIndex, MaxVotes> 
 where
 	MaxVotes: Get<u32>,
 {
 	/// The current vote data of the account.
-	pub votes: BoundedVec<PollVote<Balance>, MaxVotes>,
+	pub votes: BoundedVec<PollVote<PollIndex, Balance>, MaxVotes>,
 	/// The amount of balance delegated to some voting power.
 	pub delegated_balance: Balance,
 	/// A possible account to which the voting power is delegating.
@@ -264,9 +264,9 @@ where
 	/// The amount of this account's balance that must currently be locked due to voting/delegating.
 	pub fn locked_balance(&self) -> Balance {
 		let from_voting = self.votes.iter()
-    	.filter_map(|i| i.1.as_ref().map(|v| v.balance()))
+    	.filter_map(|i| i.maybe_vote.as_ref().map(|v| v.balance()))
     	.fold(self.prior.locked(), |a, i| a.max(i));
-		let from_delegating = *self.balance.max(&self.prior.locked());
+		let from_delegating = *self.delegated_balance.max(&self.prior.locked());
 		from_voting.max(from_delegating)
 	}
 
@@ -282,12 +282,12 @@ where
 	/// Set the delegate related info of an account's voting data.
 	pub fn set_delegate_info(
 		&mut self,
-		delegate: Option<AccountId>,
+		maybe_delegate: Option<AccountId>,
 		balance: Balance,
-		conviction: Option<Conviction>,
+		maybe_conviction: Option<Conviction>,
 	) {
-		self.delegate = Some(delegate);
+		self.delegate = maybe_delegate;
 		self.delegated_balance = balance;
-		self.conviction = Some(conviction);
+		self.conviction = maybe_conviction;
 	}
 }

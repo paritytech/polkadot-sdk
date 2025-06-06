@@ -53,7 +53,7 @@ pub use self::{
 	pallet::*,
 	traits::{Status, VotingHooks},
 	types::{Delegations, Tally, UnvoteScope},
-	vote::{AccountVote, Casting, Delegating, Vote, Voting},
+	vote::{AccountVote, Vote, Voting, PollVote},
 	weights::WeightInfo,
 };
 use sp_runtime::traits::BlockNumberProvider;
@@ -79,9 +79,6 @@ pub type VotingOf<T, I = ()> = Voting<
 	PollIndexOf<T, I>,
 	<T as Config<I>>::MaxVotes,
 >;
-#[allow(dead_code)]
-type DelegatingOf<T, I = ()> =
-	Delegating<BalanceOf<T, I>, <T as frame_system::Config>::AccountId, BlockNumberFor<T, I>>;
 pub type TallyOf<T, I = ()> = Tally<BalanceOf<T, I>, <T as Config<I>>::MaxTurnout>;
 pub type VotesOf<T, I = ()> = BalanceOf<T, I>;
 pub type PollIndexOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
@@ -493,7 +490,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 										// And it was a standard vote
 										if let Some(approve) = delegates_vote.as_standard() {
 											// Decrease tally by delegated amount
-											tally.decrease(approve, *amount_delegated);
+											tally.reduce(approve, *amount_delegated);
 										}
 									}
 								}
@@ -584,7 +581,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 							});
 						}
 
-						Self::deposit_event(Event::VoteRemoved { who: who.clone(), vote: account_vote.1 });
+						Self::deposit_event(Event::VoteRemoved { who: who.clone(), vote: account_vote });
 						T::VotingHooks::on_remove_vote(who, poll_index, Status::Ongoing);
 					}
 					Ok(())
@@ -652,7 +649,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		who: &T::AccountId,
 		class: &ClassOf<T, I>,
 		amount: Delegations<BalanceOf<T, I>>,
-		ongoing_votes: Vec<PollIndex>,
+		ongoing_votes: Vec<PollIndexOf<T, I>>,
 	) -> Result<u32, DispatchError> {
 		VotingFor::<T, I>::try_mutate(who, class, |voting| {
 			voting.delegations = voting.delegations.saturating_add(amount);
@@ -708,7 +705,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		who: &T::AccountId,
 		class: &ClassOf<T, I>,
 		amount: Delegations<BalanceOf<T, I>>,
-		ongoing_votes: Vec<PollIndex>,
+		ongoing_votes: Vec<PollIndexOf<T, I>>,
 	) -> u32 {
 		// Grab the delegate's voting data
 		VotingFor::<T, I>::try_mutate(who, class, |votes| {
