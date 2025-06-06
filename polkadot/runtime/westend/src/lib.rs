@@ -1762,21 +1762,6 @@ impl OnSwap for SwapLeases {
 	}
 }
 
-// Derived from `polkadot_asset_hub_runtime::RuntimeBlockWeights`.
-const AH_MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
-	frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2),
-	polkadot_primitives::MAX_POV_SIZE as u64,
-);
-
-parameter_types! {
-	// Equivalent to `polkadot_asset_hub_runtime::MessageQueueServiceWeight`.
-	pub AhMqServiceWeight: Weight = Perbill::from_percent(50) * AH_MAXIMUM_BLOCK_WEIGHT;
-	// 80 percent of the `AhMqServiceWeight` to leave some space for XCM message base processing.
-	pub AhMigratorMaxWeight: Weight = Perbill::from_percent(80) * AhMqServiceWeight::get();
-	pub RcMigratorMaxWeight: Weight = Perbill::from_percent(50) * BlockWeights::get().max_block;
-	pub AhExistentialDeposit: Balance = EXISTENTIAL_DEPOSIT / 100;
-}
-
 pub type MetaTxExtension = (
 	pallet_verify_signature::VerifySignature<Runtime>,
 	pallet_meta_tx::MetaTxMarker<Runtime>,
