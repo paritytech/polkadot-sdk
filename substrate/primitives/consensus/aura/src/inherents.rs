@@ -26,11 +26,14 @@ pub type InherentType = sp_consensus_slots::Slot;
 
 /// Create inherent data providers for Aura.
 #[cfg(feature = "std")]
-pub type AuraCreateInherentDataProviders<Block> = std::sync::Arc<
+pub type AuraCreateInherentDataProviders<
+	Block,
+	InherentDataProviders = (InherentDataProvider, sp_timestamp::InherentDataProvider),
+> = std::sync::Arc<
 	dyn sp_inherents::CreateInherentDataProviders<
 		Block,
 		(),
-		InherentDataProviders = (InherentDataProvider, sp_timestamp::InherentDataProvider),
+		InherentDataProviders = InherentDataProviders,
 	>,
 >;
 

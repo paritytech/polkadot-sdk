@@ -46,7 +46,6 @@ use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{
 	vstaging::DEFAULT_CLAIM_QUEUE_OFFSET, CollatorPair, Id as ParaId, OccupiedCoreAssumption,
 };
-use sc_consensus_slots::InherentDataProviderExt;
 
 use crate::{collator as collator_util, export_pov_to_path};
 use futures::prelude::*;
@@ -120,7 +119,7 @@ where
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + Clone + 'static,
-	CIDP::InherentDataProviders: InherentDataProviderExt + Send,
+	CIDP::InherentDataProviders: Send,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
 	BI::Error: Into<sp_consensus::Error>,
 	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
@@ -173,7 +172,7 @@ where
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + Clone + 'static,
-	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
+	CIDP::InherentDataProviders: Send + Sync,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
 	BI::Error: Into<sp_consensus::Error>,
 	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
