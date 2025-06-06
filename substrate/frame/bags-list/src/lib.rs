@@ -505,9 +505,10 @@ pub mod pallet {
 			}
 
 			match next_cursor.first() {
-				// Defensive check: prevents re-processing the same node multiple times within a single block.
-				// This situation should not occur during normal execution, but can happen in test environments
-				// or if `on_idle()` is invoked more than once per block (e.g. via custom test harnesses or manual calls).
+				// Defensive check: prevents re-processing the same node multiple times within a
+				// single block. This situation should not occur during normal execution, but
+				// can happen in test environments or if `on_idle()` is invoked more than once
+				// per block (e.g. via custom test harnesses or manual calls).
 				Some(next) if to_process.contains(next) => {
 					NextNodeAutoRebagged::<T, I>::kill();
 					defensive!("Loop detected: {:?} already processed — cursor killed", next);

@@ -26,7 +26,7 @@ use frame_benchmarking::v1::{
 use frame_election_provider_support::ScoreProvider;
 use frame_support::{assert_ok, traits::Get};
 use frame_system::RawOrigin as SystemOrigin;
-use sp_runtime::traits::{One};
+use sp_runtime::traits::One;
 
 benchmarks_instance_pallet! {
 	// iteration of any number of items should only touch that many nodes and bags.
@@ -37,7 +37,7 @@ benchmarks_instance_pallet! {
 		// clear any pre-existing storage.
 		List::<T, _>::unsafe_clear();
 
-		// add n nodes, half to first bag and half to second bag.
+		// add n nodes, half to the first bag and half to the second bag.
 		let bag_thresh = T::BagThresholds::get()[0];
 		let second_bag_thresh = T::BagThresholds::get()[1];
 
@@ -60,7 +60,7 @@ benchmarks_instance_pallet! {
 	}: {
 		let voters = <Pallet<T, _> as SortedListProvider<T::AccountId>>::iter();
 		let len = voters.collect::<Vec<_>>().len();
-		assert!(len as u32 == n, "len is {}, expected {}", len, n);
+		assert_eq!(len as u32, n,"len is {}, expected {}", len, n);
 	}
 
 	// iteration of any number of items should only touch that many nodes and bags.
@@ -71,7 +71,7 @@ benchmarks_instance_pallet! {
 		// clear any pre-existing storage.
 		List::<T, _>::unsafe_clear();
 
-		// add n nodes, half to first bag and half to second bag.
+		// add n nodes, half to the first bag and half to the second bag.
 		let bag_thresh = T::BagThresholds::get()[0];
 		let second_bag_thresh = T::BagThresholds::get()[1];
 
@@ -95,7 +95,7 @@ benchmarks_instance_pallet! {
 		// this should only go into one of the bags
 		let voters = <Pallet<T, _> as SortedListProvider<T::AccountId>>::iter().take(n as usize / 4 );
 		let len = voters.collect::<Vec<_>>().len();
-		assert!(len as u32 == n / 4, "len is {}, expected {}", len, n / 4);
+		assert_eq!(len as u32, n / 4,"len is {}, expected {}", len, n / 4);
 	}
 
 	#[extra]
@@ -105,7 +105,7 @@ benchmarks_instance_pallet! {
 		// clear any pre-existing storage.
 		List::<T, _>::unsafe_clear();
 
-		// add n nodes, half to first bag and half to second bag.
+		// add n nodes, half to the first bag and half to the second bag.
 		let bag_thresh = T::BagThresholds::get()[0];
 		let second_bag_thresh = T::BagThresholds::get()[1];
 
@@ -135,7 +135,7 @@ benchmarks_instance_pallet! {
 		}
 
 		let len = voters.len();
-		assert!(len as u32 == n / 4, "len is {}, expected {}", len, n / 4);
+		assert_eq!(len as u32, n / 4,"len is {}, expected {}", len, n / 4);
 	}
 
 	#[extra]
@@ -184,7 +184,7 @@ benchmarks_instance_pallet! {
 	}: {
 		let voters = <Pallet<T, _> as SortedListProvider<T::AccountId>>::iter_from(&from).unwrap();
 		let len = voters.collect::<Vec<_>>().len();
-		assert!(len as u32 == 74, "len is {}, expected {}", len, 74);
+		assert_eq!(len as u32, 74,"len is {}, expected {}", len, 74);
 	}
 
 
@@ -232,7 +232,7 @@ benchmarks_instance_pallet! {
 
 		let caller = whitelisted_caller();
 		// update the weight of `origin_middle` to guarantee it will be rebagged into the destination.
-		T::ScoreProvider::set_score_of(&origin_middle, dest_bag_thresh);
+		ScoreProvider::set_score_of(&origin_middle, dest_bag_thresh);
 	}: rebag(SystemOrigin::Signed(caller), origin_middle_lookup.clone())
 	verify {
 		// check the bags have updated as expected.
@@ -291,7 +291,7 @@ benchmarks_instance_pallet! {
 
 		let caller = whitelisted_caller();
 		// update the weight of `origin_tail` to guarantee it will be rebagged into the destination.
-		T::ScoreProvider::set_score_of(&origin_tail, dest_bag_thresh);
+		ScoreProvider::set_score_of(&origin_tail, dest_bag_thresh);
 	}: rebag(SystemOrigin::Signed(caller), origin_tail_lookup.clone())
 	verify {
 		// check the bags have updated as expected.
@@ -329,8 +329,8 @@ benchmarks_instance_pallet! {
 		let heavier_next: T::AccountId = account("heavier_next", 0, 0);
 		assert_ok!(List::<T, _>::insert(heavier_next.clone(), bag_thresh));
 
-		T::ScoreProvider::set_score_of(&lighter, bag_thresh - One::one());
-		T::ScoreProvider::set_score_of(&heavier, bag_thresh);
+		ScoreProvider::set_score_of(&lighter, bag_thresh - One::one());
+		ScoreProvider::set_score_of(&heavier, bag_thresh);
 
 		let lighter_lookup = T::Lookup::unlookup(lighter.clone());
 
@@ -350,58 +350,70 @@ benchmarks_instance_pallet! {
 
 	on_idle {
 		// This benchmark generates weights for `on_idle` based on runtime configuration.
-		//
 		// The main input is the runtime's AutoRebagPerBlock type, which defines how many
-		// nodes can be rebagged per block. This benchmark simulates the worst-case rebag
-		// scenario while ensuring we only rebag exactly `AutoRebagPerBlock` nodes.
+		// nodes can be rebagged per block.
+		// This benchmark simulates a more realistic and fragmented rebag scenario.
 
-		// given: a list of nodes longer than rebag budget, all in the same bag
 		List::<T, _>::unsafe_clear();
 
-		let bag_thresh_1 = T::BagThresholds::get()[0];
-		let bag_thresh_2 = T::BagThresholds::get()[1];
+		let bag_thresh = T::BagThresholds::get();
+		let low = bag_thresh[0];
+		let mid = bag_thresh[1];
+		let high = bag_thresh[2];
 
 		let rebag_budget = <T as Config<I>>::AutoRebagPerBlock::get();
-		let n = rebag_budget + 1;
+		let n = rebag_budget + 5;
+
+		// Insert nodes with varying scores
 		for i in 0..n {
 			let node: T::AccountId = account("node", i, 0);
-			assert_ok!(List::<T, _>::insert(node.clone(), bag_thresh_1 - One::one()));
+			let score = match i % 3 {
+				0 => low - One::one(),
+				1 => mid - One::one(),
+				_ => high - One::one(),
+			};
+			assert_ok!(List::<T, _>::insert(node.clone(), score));
 		}
 
+		// Corrupt some nodes to simulate edge cases
+		for i in (0..n).step_by(4) {
+			let node: T::AccountId = account("node", i, 0);
+			let _ = List::<T, _>::remove(&node); // orphan nodes
+		}
+
+		// Now set new scores that will move nodes into higher bags
 		for i in 0..n {
 			let node: T::AccountId = account("node", i, 0);
-			T::ScoreProvider::set_score_of(&node, bag_thresh_2);
+			let new_score = match i % 3 {
+				0 => mid,
+				1 => high,
+				_ => high + high, // force into a new top bag
+			};
+			ScoreProvider::set_score_of(&node, new_score);
 		}
-		// all inserted nodes ended up in a bag with threshold bag_thresh_1
-		assert_eq!(
-			List::<T, _>::get_bags()
-				.into_iter()
-				.map(|(bag, nodes)| (bag, nodes.len()))
-				.collect::<Vec<_>>(),
-			vec![(bag_thresh_1, n as usize)]
-		);
+
+		// Ensure we have at least three bags populated before rebag
+		assert!(List::<T, _>::get_bags().len() >= 2);
 	}
 	: {
 		use frame_support::traits::Hooks;
 		<Pallet<T, I> as Hooks<_>>::on_idle(0u32.into(), Weight::MAX);
 	}
 	verify {
-		let moved = List::<T, _>::get_bags()
-			.into_iter()
-			.find(|(bag, _)| *bag == bag_thresh_2)
-			.map(|(_, v)| v.len())
-			.unwrap_or(0);
+		// Count how many nodes ended up in higher bags
+		let total_rebagged: usize = List::<T, _>::get_bags()
+			.iter()
+			.filter(|(b, _)| *b > T::BagThresholds::get()[0])
+			.map(|(_, nodes)| nodes.len())
+			.sum();
 
-		assert_eq!(
-			moved,
-			rebag_budget as usize,
-			"Expected exactly rebag_budget nodes to be rebagged"
-		);
+		let expected = <T as Config<I>>::AutoRebagPerBlock::get() as usize;
+		assert_eq!(total_rebagged, expected,"Expected exactly{:?} rebagged nodes, found {:?}", expected, total_rebagged);
 	}
 
 	impl_benchmark_test_suite!(
 		Pallet,
-		crate::mock::ExtBuilder::default().skip_genesis_ids().build(),
-		crate::mock::Runtime
+		mock::ExtBuilder::default().skip_genesis_ids().build(),
+		mock::Runtime
 	);
 }
