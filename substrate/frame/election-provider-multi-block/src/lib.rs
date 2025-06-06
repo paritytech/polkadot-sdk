@@ -192,7 +192,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use crate::types::*;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{
 	onchain, BoundedSupportsOf, DataProviderBounds, ElectionDataProvider, ElectionProvider,
@@ -247,7 +246,7 @@ pub mod weights;
 
 pub use pallet::*;
 pub use types::*;
-pub use weights::measured::pallet_election_provider_multi_block::WeightInfo;
+pub use weights::traits::pallet_election_provider_multi_block::WeightInfo;
 
 /// A fallback implementation that transitions the pallet to the emergency phase.
 pub struct InitiateEmergencyPhase<T>(sp_std::marker::PhantomData<T>);
@@ -660,12 +659,12 @@ pub mod pallet {
 			let weight1 = match current_phase {
 				Phase::Snapshot(x) if x == T::Pages::get() => {
 					// create the target snapshot
-					Self::create_targets_snapshot().defensive_unwrap_or_default();
+					Self::create_targets_snapshot();
 					T::WeightInfo::on_initialize_into_snapshot_msp()
 				},
 				Phase::Snapshot(x) => {
 					// create voter snapshot
-					Self::create_voters_snapshot_paged(x).unwrap();
+					Self::create_voters_snapshot_paged(x);
 					T::WeightInfo::on_initialize_into_snapshot_rest()
 				},
 				_ => T::WeightInfo::on_initialize_nothing(),
@@ -778,6 +777,10 @@ pub mod pallet {
 			/// The target phase
 			to: Phase<T>,
 		},
+		/// Target snapshot creation failed
+		UnexpectedTargetSnapshotFailed,
+		/// Voter snapshot creation failed
+		UnexpectedVoterSnapshotFailed,
 	}
 
 	/// Error of the pallet that can be returned in response to dispatches.
@@ -1134,10 +1137,10 @@ pub mod pallet {
 
 	/// Desired number of targets to elect for this round.
 	#[pallet::storage]
-	type DesiredTargets<T> = StorageMap<_, Twox64Concat, u32, u32>;
+	pub type DesiredTargets<T> = StorageMap<_, Twox64Concat, u32, u32>;
 	/// Paginated voter snapshot. At most [`T::Pages`] keys will exist.
 	#[pallet::storage]
-	type PagedVoterSnapshot<T: Config> = StorageDoubleMap<
+	pub type PagedVoterSnapshot<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		u32,
@@ -1149,13 +1152,13 @@ pub mod pallet {
 	///
 	/// The hash is generated using [`frame_system::Config::Hashing`].
 	#[pallet::storage]
-	type PagedVoterSnapshotHash<T: Config> =
+	pub type PagedVoterSnapshotHash<T: Config> =
 		StorageDoubleMap<_, Twox64Concat, u32, Twox64Concat, PageIndex, T::Hash>;
 	/// Paginated target snapshot.
 	///
 	/// For the time being, since we assume one pages of targets, at most ONE key will exist.
 	#[pallet::storage]
-	type PagedTargetSnapshot<T: Config> = StorageDoubleMap<
+	pub type PagedTargetSnapshot<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		u32,
@@ -1167,7 +1170,7 @@ pub mod pallet {
 	///
 	/// The hash is generated using [`frame_system::Config::Hashing`].
 	#[pallet::storage]
-	type PagedTargetSnapshotHash<T: Config> =
+	pub type PagedTargetSnapshotHash<T: Config> =
 		StorageDoubleMap<_, Twox64Concat, u32, Twox64Concat, PageIndex, T::Hash>;
 
 	#[pallet::pallet]
@@ -1265,42 +1268,62 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Creates the target snapshot.
-	pub(crate) fn create_targets_snapshot() -> Result<(), ElectionError<T>> {
+	///
+	/// If snapshot creation fails, emits `UnexpectedTargetSnapshotFailed` event
+	/// and triggers defensive panic.
+	pub(crate) fn create_targets_snapshot() {
 		// if requested, get the targets as well.
-		Snapshot::<T>::set_desired_targets(
-			T::DataProvider::desired_targets().map_err(ElectionError::DataProvider)?,
-		);
+		let desired_targets = match T::DataProvider::desired_targets() {
+			Ok(targets) => targets,
+			Err(e) => {
+				Self::deposit_event(Event::UnexpectedTargetSnapshotFailed);
+				defensive!("Failed to get desired targets: {:?}", e);
+				return;
+			},
+		};
+		Snapshot::<T>::set_desired_targets(desired_targets);
 
 		let count = T::TargetSnapshotPerBlock::get();
 		let bounds = DataProviderBounds { count: Some(count.into()), size: None };
 		let targets: BoundedVec<_, T::TargetSnapshotPerBlock> =
-			T::DataProvider::electable_targets(bounds, 0)
+			match T::DataProvider::electable_targets(bounds, 0)
 				.and_then(|v| v.try_into().map_err(|_| "try-into failed"))
-				.map_err(ElectionError::DataProvider)?;
+			{
+				Ok(targets) => targets,
+				Err(e) => {
+					Self::deposit_event(Event::UnexpectedTargetSnapshotFailed);
+					defensive!("Failed to create target snapshot: {:?}", e);
+					return;
+				},
+			};
 
 		let count = targets.len() as u32;
 		log!(debug, "created target snapshot with {} targets.", count);
 		Snapshot::<T>::set_targets(targets);
-
-		Ok(())
 	}
 
 	/// Creates the voter snapshot.
-	pub(crate) fn create_voters_snapshot_paged(
-		remaining: PageIndex,
-	) -> Result<(), ElectionError<T>> {
+	///
+	/// If snapshot creation fails, emits `UnexpectedVoterSnapshotFailed` event
+	/// and triggers defensive panic.
+	pub(crate) fn create_voters_snapshot_paged(remaining: PageIndex) {
 		let count = T::VoterSnapshotPerBlock::get();
 		let bounds = DataProviderBounds { count: Some(count.into()), size: None };
 		let voters: BoundedVec<_, T::VoterSnapshotPerBlock> =
-			T::DataProvider::electing_voters(bounds, remaining)
+			match T::DataProvider::electing_voters(bounds, remaining)
 				.and_then(|v| v.try_into().map_err(|_| "try-into failed"))
-				.map_err(ElectionError::DataProvider)?;
+			{
+				Ok(voters) => voters,
+				Err(e) => {
+					Self::deposit_event(Event::UnexpectedVoterSnapshotFailed);
+					defensive!("Failed to create voter snapshot: {:?}", e);
+					return;
+				},
+			};
 
 		let count = voters.len() as u32;
 		Snapshot::<T>::set_voters(remaining, voters);
 		log!(debug, "created voter snapshot with {} voters, {} remaining.", count, remaining);
-
-		Ok(())
 	}
 
 	/// Perform the tasks to be done after a new `elect` has been triggered:
@@ -1581,9 +1604,9 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn asap() {
 		// prepare our snapshot so we can "hopefully" run a fallback.
-		Self::create_targets_snapshot().unwrap();
+		Self::create_targets_snapshot();
 		for p in (Self::lsp()..=Self::msp()).rev() {
-			Self::create_voters_snapshot_paged(p).unwrap()
+			Self::create_voters_snapshot_paged(p)
 		}
 	}
 }
@@ -2220,6 +2243,41 @@ mod phase_rotation {
 				assert_ok!(MultiBlock::elect(1));
 				assert_eq!(MultiBlock::current_phase(), Phase::Export(0));
 			});
+	}
+
+	#[test]
+	#[cfg_attr(debug_assertions, should_panic(expected = "Defensive failure has been triggered!"))]
+	fn target_snapshot_failed_event_emitted() {
+		ExtBuilder::full()
+				.pages(2)
+				.election_start(13)
+				.build_and_execute(|| {
+					// Create way more targets than the TargetSnapshotPerBlock limit (4)
+					// This will cause bounds.slice_exhausted(&targets) to return true
+					let too_many_targets: Vec<AccountId> = (1..=100).collect();
+					Targets::set(too_many_targets);
+
+					roll_to(13);
+					assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(2));
+
+					// Clear any existing events
+					let _ = multi_block_events_since_last_call();
+
+					// Roll to next block - on_initialize will be in Phase::Snapshot(2) where x == T::Pages::get()
+					// This triggers target snapshot creation, which should fail due to too many targets
+					roll_to(14);
+
+					// Verify that UnexpectedTargetSnapshotFailed event was emitted
+					let events = multi_block_events_since_last_call();
+					assert!(
+						events.contains(&Event::UnexpectedTargetSnapshotFailed),
+						"UnexpectedTargetSnapshotFailed event should have been emitted when target snapshot creation fails. Events: {:?}",
+						events
+					);
+
+					// Verify phase transition still happened despite the failure
+					assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(1));
+				});
 	}
 }
 

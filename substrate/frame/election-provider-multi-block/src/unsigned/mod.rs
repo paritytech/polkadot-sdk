@@ -70,7 +70,7 @@
 //! the signed process is bullet-proof, we can be okay with the status quo.
 
 /// Export weights
-pub use crate::weights::measured::pallet_election_provider_multi_block_unsigned::*;
+pub use crate::weights::traits::pallet_election_provider_multi_block_unsigned::*;
 /// Exports of this pallet
 pub use pallet::*;
 #[cfg(feature = "runtime-benchmarks")]
@@ -165,7 +165,7 @@ mod pallet {
 			// we select the most significant pages, based on `T::MinerPages`.
 			let page_indices = crate::Pallet::<T>::msp_range_for(T::MinerPages::get() as usize);
 			<T::Verifier as Verifier>::verify_synchronous_multi(
-				paged_solution.solution_pages.into_inner(),
+				paged_solution.solution_pages,
 				page_indices,
 				claimed_score,
 			)
@@ -235,7 +235,12 @@ mod pallet {
 			assert!(
 				UnsignedWeightsOf::<T>::submit_unsigned().all_lte(T::BlockWeights::get().max_block),
 				"weight of `submit_unsigned` is too high"
-			)
+			);
+			assert!(
+				<T as Config>::MinerPages::get() as usize <=
+					<T as crate::Config>::Pages::get() as usize,
+				"number of pages in the unsigned phase is too high"
+			);
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -331,6 +336,10 @@ mod pallet {
 			);
 			ensure!(
 				paged_solution.solution_pages.len() == T::MinerPages::get() as usize,
+				CommonError::WrongPageCount
+			);
+			ensure!(
+				paged_solution.solution_pages.len() <= <T as crate::Config>::Pages::get() as usize,
 				CommonError::WrongPageCount
 			);
 

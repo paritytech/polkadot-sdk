@@ -47,7 +47,7 @@ pub(crate) type SupportsOfVerifier<V> = frame_election_provider_support::Bounded
 	<V as Verifier>::MaxBackersPerWinner,
 >;
 
-pub(crate) type VerifierWeightsOf<T> = <T as Config>::WeightInfo;
+pub(crate) type VerifierWeightsOf<T> = <T as super::Config>::WeightInfo;
 
 /// The status of this pallet.
 #[derive(
@@ -799,7 +799,8 @@ impl<T: Config> Pallet<T> {
 	fn finalize_async_verification(claimed_score: ElectionScore) -> Result<(), FeasibilityError> {
 		let outcome = QueuedSolution::<T>::compute_invalid_score()
 			.and_then(|(final_score, winner_count)| {
-				let desired_targets = crate::Snapshot::<T>::desired_targets().unwrap();
+				let desired_targets =
+					crate::Snapshot::<T>::desired_targets().defensive_unwrap_or(u32::MAX);
 				// claimed_score checked prior in seal_unverified_solution
 				match (final_score == claimed_score, winner_count == desired_targets) {
 					(true, true) => {
