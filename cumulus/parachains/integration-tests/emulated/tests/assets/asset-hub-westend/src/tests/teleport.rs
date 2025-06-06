@@ -311,7 +311,7 @@ fn limited_teleport_native_assets_from_relay_to_asset_hub_checking_acc_fails() {
 	assert_eq!(receiver_balance_after, receiver_balance_before);
 }
 
-/// Checking account should
+/// Checking account should correctly account for incoming teleports.
 #[test]
 fn limited_teleport_native_assets_from_relay_to_asset_hub_checking_acc_burn_works() {
 	// Init values for Relay Chain
@@ -377,7 +377,7 @@ fn limited_teleport_native_assets_from_relay_to_asset_hub_checking_acc_burn_work
 	assert!(receiver_balance_after < receiver_balance_before + amount_to_send);
 }
 
-/// Checking account should
+/// Checking account should correctly account for outgoing teleports.
 #[test]
 fn limited_teleport_native_assets_from_asset_hub_to_relay_checking_acc_mint_works() {
 	// Init values for Relay Chain
