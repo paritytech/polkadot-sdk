@@ -1,0 +1,10 @@
+title: Westend governance authorize_upgrade integration tests
+doc:
+- audience: Runtime Dev
+  description: |-
+    Introduces integration tests covering `authorize_upgrade` with whitelisting via Collectives for Westend network:
+    - relay chain authorizes upgrade for itself
+    - relay chain authorizes upgrades for all system chains
+crates:
+- name: emulated-integration-tests-common
+  bump: patch
