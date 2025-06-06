@@ -59,22 +59,6 @@ fn find_event_and_decode_fields<T: Decode>(
 	Ok(result)
 }
 
-/// Wait for `num_blocks` blocks.
-pub async fn wait_num_blocks(
-	relay_client: &OnlineClient<PolkadotConfig>,
-	num_blocks: u32,
-) -> Result<(), anyhow::Error> {
-	let mut counter = 0;
-	let mut blocks_sub = relay_client.blocks().subscribe_best().await?;
-	while let Some(_block) = blocks_sub.next().await {
-		counter += 1;
-		if counter >= num_blocks + 1 {
-			return Ok(())
-		}
-	}
-	Ok(())
-}
-
 // Helper function for asserting the throughput of parachains (total number of backed candidates in
 // a window of relay chain blocks), after the first session change.
 // Blocks with session changes are generally ignores.
@@ -90,7 +74,7 @@ pub async fn assert_finalized_para_throughput(
 	let valid_para_ids: Vec<ParaId> = expected_candidate_ranges.keys().cloned().collect();
 
 	// Wait for the first session, block production on the parachain will start after that.
-	// wait_for_first_session_change(&mut blocks_sub).await?;
+	wait_for_first_session_change(&mut blocks_sub).await?;
 
 	while let Some(block) = blocks_sub.next().await {
 		let block = block?;
@@ -165,6 +149,9 @@ pub async fn assert_para_throughput(
 	let mut start_height: Option<u32> = None;
 
 	let valid_para_ids: Vec<ParaId> = expected_candidate_ranges.keys().cloned().collect();
+
+	// Wait for the first session, block production on the parachain will start after that.
+	wait_for_first_session_change(&mut blocks_sub).await?;
 
 	let mut session_change_seen_at = 0u32;
 	while let Some(block) = blocks_sub.next().await {
