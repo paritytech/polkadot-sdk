@@ -634,7 +634,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				PollStatus::None => {
 					votes.remove(i);
 					// Check vote had been cast
-					if let Some(_) = votes[i].maybe_vote {
+					if votes[i].maybe_vote.is_some() {
 						// Poll was cancelled.
 						T::VotingHooks::on_remove_vote(who, poll_index, Status::None);
 					}
@@ -652,8 +652,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		ongoing_votes: Vec<PollIndexOf<T, I>>,
 	) -> Result<u32, DispatchError> {
 		VotingFor::<T, I>::try_mutate(who, class, |voting| {
+			// Increase delegate's delegation counter
 			voting.delegations = voting.delegations.saturating_add(amount);
-			let votes = voting.votes;
+			
+			let votes = &mut voting.votes;
+			let updates = (ongoing_votes.len() + votes.len()) as u32;
 			
 			// For each of the delegate's votes
 			for PollVote { poll_index, maybe_vote, .. } in votes.iter() {
@@ -695,7 +698,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					},
 				}
 			}
-			let updates = (ongoing_votes.len() + votes.len()) as u32;
 			Ok(updates)
 		})
 	}
@@ -712,8 +714,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			// Reduce amount delegated to this delegate
 			voting.delegations = voting.delegations.saturating_sub(amount);
 			
+			let votes = &mut voting.votes;
+			let updates = (ongoing_votes.len() + votes.len()) as u32;
+
 			// For each of the delegate's votes
-			let votes = voting.votes;
 			for PollVote{ poll_index, maybe_vote, ..} in votes.iter() {
 				// That are standard aye or nay
 				if let Some(AccountVote::Standard { vote, .. }) = maybe_vote {
@@ -743,13 +747,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 							});
 						}
 					},
-					Err(i) => {
+					Err(_i) => {
 						// This shouldn't be possible as if the delegator is voting for an ongoing poll
 						// while delegating, the delegate will always need info about that poll
 					},
 				}
 			}
-			Ok((ongoing_votes.len() + votes.len()) as u32)
+			Ok(updates)
 		})
 	}
 
@@ -770,7 +774,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let delegate_vote_count =
 			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<u32, DispatchError> {
 				// Ensure not already delegating
-				if let Some(delegate) = voting.delegate {
+				if voting.delegate.is_some() {
 					return Err(Error::<T, I>::AlreadyDelegating.into());
 				}
 				// Set delegation related info
