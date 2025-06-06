@@ -268,6 +268,23 @@ mod tests {
 		child.kill().unwrap();
 	}
 
+	// Sets up omni-node to run a text exercise based on a chain spec.
+	async fn omni_node_test_setup(chain_spec_path: PathBuf) {
+		maybe_build_omni_node();
+		let omni_node = find_release_binary(OMNI_NODE).unwrap();
+
+		let mut child = Command::new(omni_node)
+			.arg("--dev")
+			.args(["--chain", chain_spec_path.to_str().unwrap()])
+			.stderr(Stdio::piped())
+			.spawn()
+			.unwrap();
+
+		let stderr = child.stderr.take().unwrap();
+		assert_eq!(imported_block_found(stderr, 7, 100).await, true);
+		child.kill().unwrap();
+	}
+
 	#[tokio::test]
 	async fn works_with_different_block_times() {
 		test_runtime_preset(PARA_RUNTIME, 100, Some(DEV_RUNTIME_PRESET.into())).await;
@@ -309,19 +326,17 @@ mod tests {
 			.join("templates")
 			.join("parachain")
 			.join("dev_chain_spec.json");
+		omni_node_test_setup(dev_chain_spec).await;
+	}
 
-		maybe_build_omni_node();
-		let omni_node = find_release_binary(OMNI_NODE).unwrap();
-
-		let mut child = Command::new(omni_node)
-			.arg("--dev")
-			.args(["--chain", dev_chain_spec.to_str().unwrap()])
-			.stderr(Stdio::piped())
-			.spawn()
-			.unwrap();
-
-		let stderr = child.stderr.take().unwrap();
-		assert_eq!(imported_block_found(stderr, 7, 100).await, true);
-		child.kill().unwrap();
+	#[tokio::test]
+	// This is a regresion test so that we still remain compatible with runtimes that use
+	// `para-id` in chain specs, instead of implementing the
+	// `cumulus_primitives_core::GetParachainIdentity`.
+	async fn omni_node_dev_mode_works_without_getparachainidentity() {
+		let dev_chain_spec = std::env::current_dir()
+			.unwrap()
+			.join("src/guides/parachain_without_getparachainidentity.json");
+		omni_node_test_setup(dev_chain_spec).await;
 	}
 }
