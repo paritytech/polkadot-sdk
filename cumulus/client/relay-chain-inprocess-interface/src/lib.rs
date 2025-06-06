@@ -35,6 +35,7 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
 use futures::{FutureExt, Stream, StreamExt};
+use polkadot_primitives::vstaging::CandidateEvent;
 use polkadot_service::{
 	builder::PolkadotServiceBuilder, CollatorOverseerGen, CollatorPair, Configuration, FullBackend,
 	FullClient, Handle, NewFull, NewFullParams, TaskManager,
@@ -42,7 +43,7 @@ use polkadot_service::{
 use sc_cli::{RuntimeVersion, SubstrateCli};
 use sc_client_api::{
 	blockchain::BlockStatus, Backend, BlockchainEvents, HeaderBackend, ImportNotifications,
-	StorageProof,
+	StorageProof, TrieCacheContext,
 };
 use sc_network::{
 	config::NetworkBackendType,
@@ -224,7 +225,7 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 		relay_parent: PHash,
 		key: &[u8],
 	) -> RelayChainResult<Option<StorageValue>> {
-		let state = self.backend.state_at(relay_parent)?;
+		let state = self.backend.state_at(relay_parent, TrieCacheContext::Untrusted)?;
 		state.storage(key).map_err(RelayChainError::GenericError)
 	}
 
@@ -233,7 +234,7 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 		relay_parent: PHash,
 		relevant_keys: &Vec<Vec<u8>>,
 	) -> RelayChainResult<StorageProof> {
-		let state_backend = self.backend.state_at(relay_parent)?;
+		let state_backend = self.backend.state_at(relay_parent, TrieCacheContext::Untrusted)?;
 
 		sp_state_machine::prove_read(state_backend, relevant_keys)
 			.map_err(RelayChainError::StateMachineError)
@@ -328,6 +329,10 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 	async fn scheduling_lookahead(&self, hash: PHash) -> RelayChainResult<u32> {
 		Ok(self.full_client.runtime_api().scheduling_lookahead(hash)?)
 	}
+
+	async fn candidate_events(&self, hash: PHash) -> RelayChainResult<Vec<CandidateEvent>> {
+		Ok(self.full_client.runtime_api().candidate_events(hash)?)
+	}
 }
 
 pub enum BlockCheckStatus {
@@ -415,15 +420,14 @@ fn build_polkadot_full_node(
 		keep_finalized_for: None,
 	};
 
-	let (relay_chain_full_node, paranode_req_receiver) =
-		match config.network.network_backend.unwrap_or_default() {
-			NetworkBackendType::Libp2p => build_polkadot_with_paranode_protocol::<
-				sc_network::NetworkWorker<_, _>,
-			>(config, new_full_params)?,
-			NetworkBackendType::Litep2p => build_polkadot_with_paranode_protocol::<
-				sc_network::Litep2pNetworkBackend,
-			>(config, new_full_params)?,
-		};
+	let (relay_chain_full_node, paranode_req_receiver) = match config.network.network_backend {
+		NetworkBackendType::Libp2p => build_polkadot_with_paranode_protocol::<
+			sc_network::NetworkWorker<_, _>,
+		>(config, new_full_params)?,
+		NetworkBackendType::Litep2p => build_polkadot_with_paranode_protocol::<
+			sc_network::Litep2pNetworkBackend,
+		>(config, new_full_params)?,
+	};
 
 	Ok((relay_chain_full_node, maybe_collator_key, paranode_req_receiver))
 }

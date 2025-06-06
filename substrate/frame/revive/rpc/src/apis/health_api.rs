@@ -44,7 +44,22 @@ impl SystemHealthRpcServerImpl {
 #[async_trait]
 impl SystemHealthRpcServer for SystemHealthRpcServerImpl {
 	async fn system_health(&self) -> RpcResult<Health> {
-		let health = self.client.system_health().await?;
+		let (sync_state, health) =
+			tokio::try_join!(self.client.sync_state(), self.client.system_health())?;
+
+		let latest = self.client.latest_block().await.number();
+
+		// Compare against `latest + 1` to avoid a false positive if the health check runs
+		// immediately after a new block is produced but before the cache updates.
+		if sync_state.current_block > latest + 1 {
+			log::warn!(
+				target: LOG_TARGET,
+				"Client is out of sync. Current block: {}, latest cache block: {latest}",
+				sync_state.current_block,
+			);
+			return Err(ErrorCode::InternalError.into());
+		}
+
 		Ok(Health {
 			peers: health.peers,
 			is_syncing: health.is_syncing,

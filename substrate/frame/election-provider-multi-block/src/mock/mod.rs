@@ -309,11 +309,11 @@ where
 	type Extrinsic = Extrinsic;
 }
 
-impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
+impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
-	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
 		Extrinsic::new_bare(call)
 	}
 }
@@ -656,6 +656,13 @@ pub fn roll_to_signed_open() {
 /// (`Phase::SignedValidation(_)`).
 pub fn roll_to_signed_validation_open() {
 	while !matches!(MultiBlock::current_phase(), Phase::SignedValidation(_)) {
+		roll_next()
+	}
+}
+
+/// proceed block number until we reach the done phase (`Phase::Done`).
+pub fn roll_to_done() {
+	while !MultiBlock::current_phase().is_done() {
 		roll_next()
 	}
 }
