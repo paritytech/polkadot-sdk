@@ -1688,6 +1688,7 @@ impl NetworkBehaviour for Notifications {
 			FromSwarm::ExternalAddrConfirmed(_) => {},
 			FromSwarm::AddressChange(_) => {},
 			FromSwarm::NewListenAddr(_) => {},
+			FromSwarm::NewExternalAddrOfPeer(_) => {},
 			event => {
 				warn!(target: LOG_TARGET, "New unknown `FromSwarm` libp2p event: {event:?}");
 			},

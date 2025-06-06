@@ -496,6 +496,75 @@ fn renewals_affect_price() {
 }
 
 #[test]
+/// Renewals adjust to lower end of market
+fn renewal_price_adjusts_to_lower_market_end() {
+	sp_tracing::try_init_simple();
+	let b = 100_000_000;
+	let region_length_blocks = 40;
+	let config = ConfigRecord {
+		advance_notice: 2,
+		interlude_length: 10,
+		leadin_length: 20,
+		ideal_bulk_proportion: Perbill::from_percent(100),
+		limit_cores_offered: None,
+		// Region length is in time slices (2 blocks):
+		region_length: 20,
+		renewal_bump: Perbill::from_percent(10),
+		contribution_timeout: 5,
+	};
+	TestExt::new_with_config(config.clone())
+		.endow(1, b)
+		.endow(2, b)
+		.execute_with(|| {
+			let price = 910;
+			assert_ok!(Broker::do_start_sales(10, 2));
+			advance_to(11);
+			let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+			// Price is lower, because already one block in:
+			let b = b - price;
+			assert_eq!(balance(1), b);
+			assert_ok!(Broker::do_assign(region, None, 1001, Final));
+			advance_to(region_length_blocks);
+			assert_noop!(Broker::do_purchase(1, u64::max_value()), Error::<Test>::TooEarly);
+
+			let core = Broker::do_renew(1, region.core).unwrap();
+			// First renewal has same price as initial purchase.
+			let b = b - price;
+			assert_eq!(balance(1), b);
+			// Ramp up price:
+			advance_to(region_length_blocks + config.interlude_length + 1);
+			Broker::do_purchase(2, u64::max_value()).unwrap();
+
+			advance_to(2 * region_length_blocks);
+			assert_ok!(Broker::do_renew(1, core));
+			// Renewal bump in effect
+			let price = price + Perbill::from_percent(10) * price;
+			let b = b - price;
+			assert_eq!(balance(1), b);
+			// Ramp up price again:
+			advance_to(2 * region_length_blocks + config.interlude_length + 1);
+			Broker::do_purchase(2, u64::max_value()).unwrap();
+
+			advance_to(3 * region_length_blocks);
+			assert_ok!(Broker::do_renew(1, core));
+			// Renewal bump still in effect
+			let price = price + Perbill::from_percent(10) * price;
+			let b = b - price;
+			assert_eq!(balance(1), b);
+			// No further price ramp up necessary - the price of this sale is relevant for next
+			// renewal.
+			let end_price = SaleInfo::<Test>::get().unwrap().end_price;
+
+			advance_to(4 * region_length_blocks);
+			assert_ok!(Broker::do_renew(1, core));
+			// Renewal bump trumped by end price of previous sale.
+			let price = end_price;
+			let b = b - price;
+			assert_eq!(balance(1), b);
+		});
+}
+
+#[test]
 fn instapool_payouts_work() {
 	// Commented out code is from the reference test implementation and should be uncommented as
 	// soon as we have the credit system implemented
