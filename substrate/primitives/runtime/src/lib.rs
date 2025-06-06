@@ -1220,9 +1220,6 @@ mod tests {
 		let multi_sig = MultiSignature::from(signature);
 		let multi_signer = MultiSigner::from(pair.public());
 		assert!(multi_sig.verify(msg, &multi_signer.into_account()));
-
-		let multi_signer = MultiSigner::from(pair.public());
-		assert!(multi_sig.verify(msg, &multi_signer.into_account()));
 	}
 
 	#[test]
@@ -1234,9 +1231,6 @@ mod tests {
 		assert!(ecdsa::Pair::verify(&signature, msg, &pair.public()));
 
 		let multi_sig = MultiSignature::Eth(signature);
-		let multi_signer = MultiSigner::Eth(pair.public());
-		assert!(multi_sig.verify(msg, &multi_signer.into_account()));
-
 		let multi_signer = MultiSigner::Eth(pair.public());
 		assert!(multi_sig.verify(msg, &multi_signer.into_account()));
 	}
