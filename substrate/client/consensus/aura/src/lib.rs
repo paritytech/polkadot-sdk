@@ -626,11 +626,9 @@ mod tests {
 		PeersFullClient,
 		AuthorityPair,
 		Box<
-			dyn CreateInherentDataProviders<
-				TestBlock,
-				(),
-				InherentDataProviders = (InherentDataProvider,),
-			>,
+			dyn Fn(<TestBlock as sp_runtime::traits::Block>::Hash) -> sp_blockchain::Result<Slot>
+				+ Send
+				+ Sync,
 		>,
 		u64,
 	>;
@@ -653,12 +651,11 @@ mod tests {
 			assert_eq!(slot_duration.as_millis() as u64, SLOT_DURATION_MS);
 			import_queue::AuraVerifier::new(
 				client,
-				Box::new(|_, _| async {
-					let slot = InherentDataProvider::from_timestamp_and_slot_duration(
+				Box::new(|_| {
+					Ok(Slot::from_timestamp(
 						Timestamp::current(),
 						SlotDuration::from_millis(SLOT_DURATION_MS),
-					);
-					Ok((slot,))
+					))
 				}),
 				None,
 				CompatibilityMode::None,
