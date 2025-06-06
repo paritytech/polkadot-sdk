@@ -11,8 +11,14 @@ crates:
 - name: pallet-bags-list
   bump: major
 - name: westend-runtime
-  bump: major
+  bump: minor
 - name: pallet-staking-async-parachain-runtime
-  bump: major
+  bump: minor
 - name: pallet-staking-async-rc-runtime
-  bump: major
+  bump: minor
+- name: pallet-staking
+  bump: minor
+- name: pallet-nomination-pools-benchmarking
+  bump: minor
+- name: pallet-staking-async
+  bump: minor   
