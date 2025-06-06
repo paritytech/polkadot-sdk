@@ -13,7 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod ah_as_root;
 mod aliases;
 mod claim_assets;
 mod exchange_asset;

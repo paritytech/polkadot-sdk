@@ -1184,6 +1184,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
  "frame-support",
+ "frame-system",
  "pallet-asset-conversion",
  "pallet-asset-rewards",
  "pallet-assets",
@@ -5901,12 +5902,15 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",
  "frame-support",
+ "frame-system",
  "hex-literal",
  "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
  "pallet-bridge-messages",
  "pallet-message-queue",
+ "pallet-preimage",
+ "pallet-whitelist",
  "pallet-xcm",
  "pallet-xcm-bridge-hub",
  "parachains-common",
@@ -7540,6 +7544,26 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+]
+
+[[package]]
+name = "governance-westend-integration-tests"
+version = "0.0.0"
+dependencies = [
+ "asset-hub-westend-runtime",
+ "collectives-westend-runtime",
+ "emulated-integration-tests-common",
+ "frame-support",
+ "frame-system",
+ "pallet-utility",
+ "pallet-whitelist",
+ "pallet-xcm",
+ "parity-scale-codec",
+ "sp-core 28.0.0",
+ "sp-runtime 31.0.1",
+ "staging-xcm",
+ "westend-runtime",
+ "westend-system-emulated-network",
 ]
 
 [[package]]

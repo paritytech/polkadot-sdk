@@ -46,13 +46,16 @@ use xcm_builder::{
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal,
 	DescribeFamily, DescribeTerminus, EnsureXcmOrigin, FrameTransactionalProcessor,
-	FungibleAdapter, HashedDescription, IsConcrete, ParentAsSuperuser, ParentIsPreset,
-	RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeeManagerFromComponents,
+	FungibleAdapter, HashedDescription, IsConcrete, LocationAsSuperuser, ParentAsSuperuser,
+	ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative,
+	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
+	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
 };
 use xcm_executor::XcmExecutor;
+
+// Re-export
+pub use testnet_parachains_constants::westend::locations::GovernanceLocation;
 
 parameter_types! {
 	pub const RootLocation: Location = Location::here();
@@ -65,7 +68,6 @@ parameter_types! {
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	pub FellowshipLocation: Location = Location::new(1, Parachain(COLLECTIVES_ID));
-	pub const GovernanceLocation: Location = Location::parent();
 	/// The asset ID for the asset that we use to pay for message delivery fees. Just WND.
 	pub FeeAssetId: AssetId = AssetId(RelayLocation::get());
 	/// The base fee for the message delivery fees.
@@ -124,6 +126,8 @@ pub type FungibleTransactor = FungibleAdapter<
 /// ready for dispatching a transaction with XCM's `Transact`. There is an `OriginKind` that can
 /// bias the kind of local `Origin` it will become.
 pub type XcmOriginToTransactDispatchOrigin = (
+	// Governance location can gain root.
+	LocationAsSuperuser<Equals<GovernanceLocation>, RuntimeOrigin>,
 	// Sovereign account converter; this attempts to derive an `AccountId` from the origin location
 	// using `LocationToAccountId` and then turn that into the usual `Signed` origin. Useful for
 	// foreign chains who want to have a local sovereign account on this chain that they control.
@@ -183,7 +187,11 @@ pub type Barrier = TrailingSetTopicAsId<
 					AllowTopLevelPaidExecutionFrom<Everything>,
 					// Parent, its pluralities (i.e. governance bodies), and the Fellows plurality
 					// get free execution.
-					AllowExplicitUnpaidExecutionFrom<(ParentOrParentsPlurality, FellowsPlurality)>,
+					AllowExplicitUnpaidExecutionFrom<(
+						ParentOrParentsPlurality,
+						FellowsPlurality,
+						Equals<GovernanceLocation>,
+					)>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
 					// HRMP notifications from the relay chain are OK.
