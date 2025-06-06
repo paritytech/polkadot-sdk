@@ -426,7 +426,12 @@ fn full_native_block_import_works() {
 		let filtered_events: Vec<_> = System::events()
 			.into_iter()
 			.filter(|ev| {
-				!matches!(ev.event, RuntimeEvent::VoterList(pallet_bags_list::Event::<Runtime, _>::ScoreUpdated { .. }))
+				!matches!(
+					ev.event,
+					RuntimeEvent::VoterList(
+						pallet_bags_list::Event::<Runtime, _>::ScoreUpdated { .. }
+					)
+				)
 			})
 			.collect();
 
@@ -591,9 +596,10 @@ fn full_native_block_import_works() {
 			},
 		];
 		let all_events = System::events();
-		// Ensure that all expected events (`events`) are present in the full event log (`all_events`).
-		// We use this instead of strict equality since some events (like VoterList::ScoreUpdated) may
-		// be emitted non-deterministically depending on runtime internals or auto-rebagging logic.
+		// Ensure that all expected events (`events`) are present in the full event log
+		// (`all_events`). We use this instead of strict equality since some events (like
+		// VoterList::ScoreUpdated) may be emitted non-deterministically depending on runtime
+		// internals or auto-rebagging logic.
 		for expected_event in &events {
 			assert!(
 				all_events.contains(expected_event),
