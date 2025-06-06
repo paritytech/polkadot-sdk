@@ -62,12 +62,12 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 	let _charlie_client: OnlineClient<PolkadotConfig> = charlie.wait_client().await?;
 	let _dave_client: OnlineClient<PolkadotConfig> = charlie.wait_client().await?;
 
-	let charlie_rpc = if url_is_secure(&charlie.ws_uri())? {
+	let charlie_rpc = if url_is_secure(charlie.ws_uri())? {
 		RpcClient::from_url(&charlie.ws_uri()).await?
 	} else {
 		RpcClient::from_insecure_url(&charlie.ws_uri()).await?
 	};
-	let dave_rpc = if url_is_secure(&dave.ws_uri())? {
+	let dave_rpc = if url_is_secure(dave.ws_uri())? {
 		RpcClient::from_url(&dave.ws_uri()).await?
 	} else {
 		RpcClient::from_insecure_url(&dave.ws_uri()).await?
