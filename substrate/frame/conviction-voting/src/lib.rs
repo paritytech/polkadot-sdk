@@ -541,11 +541,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		
 			T::Polls::try_access_poll(poll_index, |poll_status| match poll_status {
 				PollStatus::Ongoing(tally, _) => {
-					// Fully remove only if there are no retracted votes to track
-					if votes[i].retracted_votes == Default::default() {
-						votes.remove(i);
-					}
-
+					
+					// If the vote data has a vote
 					if let Some(account_vote) = votes[i].maybe_vote {
 						ensure!(matches!(scope, UnvoteScope::Any), Error::<T, I>::NoPermission);
 						// Remove vote from tally, shouldn't be possible to fail, but we handle it gracefully.
@@ -585,15 +582,20 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 							});
 						}
 
+						// Fully remove only if there are no retracted votes to track
+						if votes[i].retracted_votes == Default::default() {
+							votes.remove(i);
+						}
+						
 						Self::deposit_event(Event::VoteRemoved { who: who.clone(), vote: account_vote });
 						T::VotingHooks::on_remove_vote(who, poll_index, Status::Ongoing);
 					}
 					Ok(())
 				},
 				PollStatus::Completed(end, approved) => {
-					votes.remove(i);
+					let old_vote = votes.remove(i);
 					// If vote was cast, ensure locks
-					if let Some(account_vote) = votes[i].maybe_vote {
+					if let Some(account_vote) = old_vote.maybe_vote {
 						if let Some((lock_periods, balance)) =
 							account_vote.locked_if(vote::LockedIf::Status(approved))
 						{
@@ -636,9 +638,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					Ok(())
 				},
 				PollStatus::None => {
-					votes.remove(i);
+					let old_vote = votes.remove(i);
 					// Check vote had been cast
-					if votes[i].maybe_vote.is_some() {
+					if old_vote.maybe_vote.is_some() {
 						// Poll was cancelled.
 						T::VotingHooks::on_remove_vote(who, poll_index, Status::None);
 					}
@@ -850,6 +852,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(delegate_vote_count)
 	}
 
+	// Update the lock for this class to be max(old, amount)
 	fn extend_lock(who: &T::AccountId, class: &ClassOf<T, I>, amount: BalanceOf<T, I>) {
 		ClassLocksFor::<T, I>::mutate(who, |locks| {
 			match locks.iter().position(|x| &x.0 == class) {
