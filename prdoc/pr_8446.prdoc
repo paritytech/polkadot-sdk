@@ -11,14 +11,12 @@ crates:
 - name: polkadot-omni-node-lib
   bump: minor
 - name: polkadot-service
-  bump: major
+  bump: patch
 - name: sc-consensus-aura
   bump: major
 - name: sc-consensus-babe
   bump: major
 - name: sc-consensus-babe-rpc
-  bump: patch
-- name: sc-consensus
   bump: patch
 - name: sc-consensus-slots
   bump: patch
@@ -26,3 +24,9 @@ crates:
   bump: patch
 - name: sp-consensus
   bump: major
+- name: sp-inherents
+  bump: minor
+- name: sp-consensus-aura
+  bump: minor
+- name: sp-consensus-babe
+  bump: minor
