@@ -4,6 +4,12 @@ function run_test {
   cd "${OUTPUT_DIR}"
   for i in $(find ${OUTPUT_DIR} -name "${TEST_TO_RUN}"| head -1); do
     TEST_FOUND=1
+    # in order to let native provider work properly we need
+    # to unset ZOMBIENET_IMAGE, which controls 'inCI' internal flag.
+    # ZOMBIENET_IMAGE not set && RUN_IN_CONTAINER=0 => inCI=false
+    # Apparently inCI=true works properly only with k8s provider
+    unset ZOMBIENET_IMAGE
+
     ${ZOMBIE_COMMAND} -p native -c $CONCURRENCY test $i
     EXIT_STATUS=$?
   done;
@@ -51,6 +57,7 @@ SCRIPT_PATH=$(dirname "$0")               # relative
 SCRIPT_PATH=$(cd "${SCRIPT_PATH}" && pwd) # absolutized and normalized
 
 ZOMBIE_COMMAND=zombie
+
 EXIT_STATUS=0
 
 # args
