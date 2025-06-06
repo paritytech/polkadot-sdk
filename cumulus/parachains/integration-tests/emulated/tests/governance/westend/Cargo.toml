@@ -14,11 +14,11 @@ workspace = true
 codec = { workspace = true, default-features = true }
 
 # Substrate
-sp-core = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
 frame-support = { workspace = true, default-features = true }
 frame-system = { workspace = true, default-features = true }
 pallet-whitelist = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
 # pallet-preimage = { workspace = true, default-features = true }
 pallet-utility = { workspace = true, default-features = true }
 
