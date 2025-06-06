@@ -9,4 +9,4 @@ doc:
 
 crates:
   - name: pallet-revive
-    bump: minor
+    bump: major
