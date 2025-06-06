@@ -793,7 +793,7 @@ pub mod on_idle {
 	fn does_nothing_when_feature_is_disabled() {
 		ExtBuilder::default().build_and_execute(|| {
 			// given
-			// Set auto-rebag limit to 2 nodes per block
+			// Set auto-rebag limit to 0 nodes per block
 			<Runtime as Config>::AutoRebagPerBlock::set(0);
 			assert_eq!(<Runtime as Config>::AutoRebagPerBlock::get(), 0);
 
