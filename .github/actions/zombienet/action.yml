@@ -14,12 +14,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: k8s_auth
-      shell: bash
-      run: |
-        . /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
-        k8s_auth
-
     - name: common_vars
       shell: bash
       env:
@@ -35,6 +29,80 @@ runs:
         echo "local-dir: $LOCAL_PATH"
         echo "concurrency: $CONCURRENCY"
 
+    - uses: ./.github/actions/download-artifact-extract
+      with:
+        artifact-name: build-linux-stable-${{ inputs.ref-slug }}
+        gh-token: ${{ inputs.gh-token }}
+        run-id: ${{ inputs.build-id }}
+        extract-path: ./tmp
+        files-to-copy: |
+          artifacts/polkadot
+          artifacts/polkadot-execute-worker
+          artifacts/polkadot-prepare-worker
+        destination-path: ./bin
+        cleanup: "true"
+
+
+    - uses: ./.github/actions/download-artifact-extract
+      with:
+        artifact-name: build-linux-stable-cumulus-${{ inputs.ref-slug }}
+        gh-token: ${{ inputs.gh-token }}
+        run-id: ${{ inputs.build-id }}
+        extract-path: ./tmp
+        files-to-copy: |
+          artifacts/polkadot-parachain
+        destination-path: ./bin
+        cleanup: "true"
+
+    - uses: ./.github/actions/download-artifact-extract
+      with:
+        artifact-name: build-test-parachain-${{ inputs.ref-slug }}
+        gh-token: ${{ inputs.gh-token }}
+        run-id: ${{ inputs.build-id }}
+        extract-path: ./tmp
+        files-to-copy: |
+          artifacts/test-parachain
+        destination-path: ./bin
+        cleanup: "true"
+
+    - uses: ./.github/actions/download-artifact-extract
+      with:
+        artifact-name: build-test-collators-${{ inputs.ref-slug }}
+        gh-token: ${{ inputs.gh-token }}
+        run-id: ${{ inputs.build-id }}
+        extract-path: ./tmp
+        files-to-copy: |
+          artifacts/adder-collator
+          artifacts/undying-collator
+        destination-path: ./bin
+        cleanup: "true"
+
+    - uses: ./.github/actions/download-artifact-extract
+      with:
+        artifact-name: build-malus-${{ inputs.ref-slug }}
+        gh-token: ${{ inputs.gh-token }}
+        run-id: ${{ inputs.build-id }}
+        extract-path: ./tmp
+        # TODO: should copy polkadot-execute-worker and polkadot-prepare-worker?
+        # if yes then it overlaps with build-linux-stable - address this
+        files-to-copy: |
+          artifacts/malus
+        destination-path: ./bin
+        cleanup: "true"
+
+    - uses: ./.github/actions/download-artifact-extract
+      with:
+        artifact-name: build-templates-node-${{ inputs.ref-slug }}
+        gh-token: ${{ inputs.gh-token }}
+        run-id: ${{ inputs.build-id }}
+        extract-path: ./tmp
+        files-to-copy: |
+          artifacts/minimal-template-node
+          artifacts/parachain-template-node
+          artifacts/solochain-template-node
+        destination-path: ./bin
+        cleanup: "true"
+
     - name: zombie_test
       shell: bash
       env:
@@ -42,13 +110,16 @@ runs:
         LOCAL_PATH: ${{ inputs.local-dir }}
         CONCURRENCY: ${{ inputs.concurrency }}
       run: |
+        export PATH=$(pwd)/bin:$PATH
+        chmod +x $(pwd)/bin/*
+
         if [[ $ZOMBIENET_RUNNER == "parity-zombienet" ]]; then
           export ZOMBIE_NAMESPACE=$(cat /data/namespace)
         fi;
-        /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
-          --local-dir="$(pwd)/$LOCAL_PATH" \
-          --concurrency=$CONCURRENCY \
-          --test="$TEST_NAME"
+        ./.github/scripts/run-zombienet-test.sh \
+          "$(pwd)/$LOCAL_PATH" \
+          $CONCURRENCY \
+          "$TEST_NAME"
 
     - name: upload_logs
       uses: actions/upload-artifact@v4
