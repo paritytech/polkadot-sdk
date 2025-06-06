@@ -74,7 +74,7 @@ pub struct CreateCmd {
 	/// versions starting with `stable2512`.
 	#[arg(long, value_enum, short = 'p', requires = "relay_chain")]
 	#[deprecated(
-		note = "The para_id information is not required anymore and will be removed starting with `stable2512`. Runtimes must implement a new API called `cumulus_primitives_core::GetParachainIdentity` to still be compatible with node versions starting with `stable2512`. Check the parachain-template-runtime: `https://github.com/paritytech/polkadot-sdk-parachain-template/blob/master/runtime/src/apis.rs` for an example of how to do it."
+		note = "The para_id information is not required anymore and will be removed starting with `stable2512`. Runtimes must implement a new API called `cumulus_primitives_core::GetParachainIdentity` to still be compatible with node versions starting with `stable2512`."
 	)]
 	// TODO: https://github.com/paritytech/polkadot-sdk/issues/8740
 	pub para_id: Option<u32>,
