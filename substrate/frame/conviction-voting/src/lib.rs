@@ -560,8 +560,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 								// Check vote data exists, shouldn't be possible for it not to if delegator has voted
 								match delegates_votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
 									Ok(i) => {
+										let amount_delegated = conviction.votes(voting.delegated_balance);
 										// Remove clawback from delegates vote record
-										delegates_votes[i].retracted_votes.saturating_sub(delegations);
+										delegates_votes[i].retracted_votes = delegates_votes[i].retracted_votes.saturating_sub(amount_delegated);
 										// If delegate had voted
 										if let Some(delegates_vote) = delegates_votes[i].maybe_vote {
 											// And it was a standard vote
@@ -582,7 +583,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 							});
 						}
 
-						// Fully remove only if there are no retracted votes to track
+
+						// Remove vote and fully remove record if there are no retracted votes to track
+						votes[i].maybe_vote = None;
 						if votes[i].retracted_votes == Default::default() {
 							votes.remove(i);
 						}
