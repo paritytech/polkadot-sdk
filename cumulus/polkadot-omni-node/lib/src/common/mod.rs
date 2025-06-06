@@ -24,6 +24,7 @@ pub mod command;
 pub mod rpc;
 pub mod runtime;
 pub mod spec;
+pub(crate) mod statement_store;
 pub mod types;
 
 use crate::cli::AuthoringPolicy;

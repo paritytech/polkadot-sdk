@@ -56,11 +56,9 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
 	let network = spawn_fn(config).await?;
 
-	let relay_node = network.get_node("validator-0")?;
 	let charlie = network.get_node("charlie")?;
 	let dave = network.get_node("dave")?;
 
-	let _relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 	let _charlie_client: OnlineClient<PolkadotConfig> = charlie.wait_client().await?;
 	let _dave_client: OnlineClient<PolkadotConfig> = charlie.wait_client().await?;
 

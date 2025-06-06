@@ -17,6 +17,10 @@
 use crate::common::{
 	command::NodeCommandRunner,
 	rpc::BuildRpcExtensions,
+	statement_store::{
+		build_statement_store, has_validate_statement_api_at_hash, new_statement_handler_proto,
+		sparse_check_for_validate_statement_api_and_warn,
+	},
 	types::{
 		ParachainBackend, ParachainBlockImport, ParachainClient, ParachainHostFunctions,
 		ParachainService,
@@ -36,7 +40,7 @@ use parachains_common::Hash;
 use polkadot_cli::service::IdentifyNetworkBackend;
 use polkadot_primitives::CollatorPair;
 use prometheus_endpoint::Registry;
-use sc_client_api::{Backend, HeaderBackend};
+use sc_client_api::Backend;
 use sc_consensus::DefaultImportQueue;
 use sc_executor::{HeapAllocStrategy, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_network::{config::FullNetworkConfiguration, NetworkBackend, NetworkBlock};
@@ -47,9 +51,7 @@ use sc_telemetry::{TelemetryHandle, TelemetryWorker};
 use sc_tracing::tracing::Instrument;
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_keystore::KeystorePtr;
-use sp_statement_store::runtime_api::ValidateStatement;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
 pub(crate) trait BuildImportQueue<
@@ -302,35 +304,20 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				prometheus_registry.clone(),
 			);
 
-			let best_hash = client.chain_info().best_hash;
-			let has_validate_statement_api_at_best_hash = client
-				.runtime_api()
-				.has_api::<dyn ValidateStatement<Self::Block>>(best_hash)
-				.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
+			let enable_stmt_store =
+				has_validate_statement_api_at_hash(client.as_ref(), client.chain_info().best_hash)?;
 
 			let metrics = Net::register_notification_metrics(
 				parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
 			);
 
-			let statement_store_vars = if has_validate_statement_api_at_best_hash {
-				let statement_store = sc_statement_store::Store::new_shared(
-					&parachain_config.data_path,
-					Default::default(),
-					client.clone(),
-					params.keystore_container.local_keystore(),
-					parachain_config.prometheus_registry(),
-					&task_manager.spawn_handle(),
-				)
-				.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
-				let (statement_handler_proto, statement_config) =
-					sc_network_statement::StatementHandlerPrototype::new::<_, _, Net>(
-						client.chain_info().genesis_hash,
-						parachain_config.chain_spec.fork_id(),
-						metrics.clone(),
-						Arc::clone(&net_config.peer_store_handle()),
-					);
-				net_config.add_notification_protocol(statement_config);
-				Some((statement_store, statement_handler_proto))
+			let statement_handler_proto = if enable_stmt_store {
+				Some(new_statement_handler_proto(
+					&*client,
+					&parachain_config,
+					&metrics,
+					&mut net_config,
+				))
 			} else {
 				None
 			};
@@ -350,30 +337,16 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				})
 				.await?;
 
-			let statement_store = if let Some((statement_store, statement_handler_proto)) =
-				statement_store_vars
-			{
-				// Spawn statement protocol worker
-				let statement_protocol_executor = {
-					let spawn_handle = task_manager.spawn_handle();
-					Box::new(move |fut| {
-						spawn_handle.spawn("network-statement-validator", Some("networking"), fut);
-					})
-				};
-				let statement_handler = statement_handler_proto.build(
+			let statement_store = if let Some(statement_handler_proto) = statement_handler_proto {
+				Some(build_statement_store(
+					&parachain_config,
+					&mut task_manager,
+					client.clone(),
 					network.clone(),
 					sync_service.clone(),
-					statement_store.clone(),
-					prometheus_registry.as_ref(),
-					statement_protocol_executor,
-				)?;
-				task_manager.spawn_handle().spawn(
-					"network-statement-handler",
-					Some("networking"),
-					statement_handler.run(),
-				);
-
-				Some(statement_store)
+					params.keystore_container.local_keystore(),
+					statement_handler_proto,
+				)?)
 			} else {
 				None
 			};
@@ -387,44 +360,15 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 							vec![Box::new(statement_store.clone().as_statement_store_ext())
 								as Box<_>]
 						} else {
-							// Every N blocks, check if the runtime supports the
-							// `ValidateStatement` API and warn node operators if statement store is
-							// not enabled.
-							match client.number(hash) {
-								Ok(Some(bn)) =>
-									if bn % 600u32.into() == 0u32.into() {
-										match client
-											.runtime_api()
-											.has_api::<dyn ValidateStatement<Self::Block>>(hash)
-										{
-											Ok(true) => log::warn!(
-												"The runtime at the block hash used by the offchain \
-												worker provides `ValidateStatement` API, but the \
-												statement store is not enabled in the node. To \
-												enable the statement store, restart the node, the \
-												statement store will be automatically enabled when \
-												the tip of the chain provides the \
-												`ValidateStatement` runtime API."
-											),
-											Ok(false) => (),
-											Err(e) => log::warn!(
-												"Failed to check if the runtime supports when \
-												`ValidateStatement` API, when fetching the custom \
-												extensions for the offchain worker, error: {}",
-												e
-											),
-										}
-									},
-								Ok(None) => log::warn!(
-									"Failed to get the block number for the block hash used by the \
-									offchain worker, header is not in the chain."
-								),
-								Err(e) => log::warn!(
-									"Failed to get the block number for the block hash used by the \
-									offchain worker, error: {}",
-									e
-								),
-							}
+							sparse_check_for_validate_statement_api_and_warn(
+								&client,
+								hash,
+								"The runtime at the block hash used by the offchain worker provides \
+								`ValidateStatement` API, but the statement store is not enabled in \
+								the node. To enable the statement store, restart the node, the \
+								statement store will be automatically enabled when the tip of the \
+								chain provides the `ValidateStatement` runtime API."
+							);
 
 							vec![]
 						}

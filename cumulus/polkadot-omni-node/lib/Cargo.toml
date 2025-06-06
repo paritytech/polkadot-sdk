@@ -50,8 +50,10 @@ sc-client-db = { workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
 sc-consensus-manual-seal = { workspace = true, default-features = true }
 sc-executor = { workspace = true, default-features = true }
+sc-keystore = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
 sc-network-statement = { workspace = true, default-features = true }
+sc-network-sync = { workspace = true, default-features = true }
 sc-offchain = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
 sc-runtime-utilities = { workspace = true, default-features = true }
