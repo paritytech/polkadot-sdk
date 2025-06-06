@@ -26,7 +26,7 @@ use frame_benchmarking::v1::{
 use frame_election_provider_support::ScoreProvider;
 use frame_support::{assert_ok, traits::Get};
 use frame_system::RawOrigin as SystemOrigin;
-use sp_runtime::traits::One;
+use sp_runtime::traits::{One};
 
 benchmarks_instance_pallet! {
 	// iteration of any number of items should only touch that many nodes and bags.
@@ -232,7 +232,7 @@ benchmarks_instance_pallet! {
 
 		let caller = whitelisted_caller();
 		// update the weight of `origin_middle` to guarantee it will be rebagged into the destination.
-		ScoreProvider::set_score_of(&origin_middle, dest_bag_thresh);
+		T::ScoreProvider::set_score_of(&origin_middle, dest_bag_thresh);
 	}: rebag(SystemOrigin::Signed(caller), origin_middle_lookup.clone())
 	verify {
 		// check the bags have updated as expected.
@@ -291,7 +291,7 @@ benchmarks_instance_pallet! {
 
 		let caller = whitelisted_caller();
 		// update the weight of `origin_tail` to guarantee it will be rebagged into the destination.
-		ScoreProvider::set_score_of(&origin_tail, dest_bag_thresh);
+		T::ScoreProvider::set_score_of(&origin_tail, dest_bag_thresh);
 	}: rebag(SystemOrigin::Signed(caller), origin_tail_lookup.clone())
 	verify {
 		// check the bags have updated as expected.
@@ -329,8 +329,8 @@ benchmarks_instance_pallet! {
 		let heavier_next: T::AccountId = account("heavier_next", 0, 0);
 		assert_ok!(List::<T, _>::insert(heavier_next.clone(), bag_thresh));
 
-		ScoreProvider::set_score_of(&lighter, bag_thresh - One::one());
-		ScoreProvider::set_score_of(&heavier, bag_thresh);
+		T::ScoreProvider::set_score_of(&lighter, bag_thresh - One::one());
+		T::ScoreProvider::set_score_of(&heavier, bag_thresh);
 
 		let lighter_lookup = T::Lookup::unlookup(lighter.clone());
 
