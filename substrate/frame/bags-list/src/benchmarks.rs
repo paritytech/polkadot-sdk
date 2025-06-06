@@ -26,7 +26,7 @@ use frame_benchmarking::v1::{
 use frame_election_provider_support::ScoreProvider;
 use frame_support::{assert_ok, traits::Get};
 use frame_system::RawOrigin as SystemOrigin;
-use sp_runtime::traits::{One};
+use sp_runtime::traits::One;
 
 benchmarks_instance_pallet! {
 	// iteration of any number of items should only touch that many nodes and bags.
