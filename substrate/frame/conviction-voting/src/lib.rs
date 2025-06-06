@@ -475,7 +475,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				if let (Some(delegate), Some(conviction)) = (voting.delegate, voting.conviction) {
 					// Calculate amount delegated to delegate
 					let amount_delegated = conviction.votes(voting.delegated_balance);
-					VotingFor::<T, I>::try_mutate(delegate, class, |delegate_voting| -> Result<_, DispatchError> {
+					VotingFor::<T, I>::try_mutate(delegate, class, |delegate_voting| -> Result<(), DispatchError> {
 						let delegates_votes = delegate_voting.votes;
 						// Search for data about poll in delegates voting info
 						match delegates_votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
@@ -494,16 +494,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 										}
 									}
 								}
+								Ok(())
 							},
 							// Not found, add empty vote and clawback amount
 							Err(i) => {
 								let poll_vote = PollVote {poll_index: poll_index, maybe_vote: None, retracted_votes: amount_delegated};
 								votes
 									.try_insert(i, poll_vote)
-									.map_err(|_| Error::<T, I>::DelegateMaxVotesReached)?;
+									.map_err(|_| Error::<T, I>::DelegateMaxVotesReached.into())
 							},
 						}
-					});
+					})?;
 				}
 
 				// Extend the lock to `balance` (rather than setting it) since we don't know what
@@ -780,7 +781,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				let ongoing_votes: Vec<_> = voting.votes.iter().filter_map(|poll_vote|
 					if let Some(_) = poll_vote.maybe_vote {
 						if let Some(_) = T::Polls::as_ongoing(poll_vote.poll_index) {
-							poll_vote.poll_index
+							Some(poll_vote.poll_index)
 						}
 					} 
 				).collect();
@@ -809,7 +810,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					let ongoing_votes: Vec<_> = voting.votes.iter().filter_map(|poll_vote|
 						if let Some(_) = poll_vote.maybe_vote {
 							if let Some(_) = T::Polls::as_ongoing(poll_vote.poll_index) {
-								poll_vote.poll_index
+								Some(poll_vote.poll_index)
 							}
 						}).collect();
 					// Update the delegate's voting data
