@@ -559,7 +559,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						// Update delegate's voting state if delegating
 						if let (Some(delegate), Some(conviction)) = (&voting.delegate, &voting.conviction) {
 							VotingFor::<T, I>::mutate(delegate, &class, |delegate_voting| {
-								let delegates_votes = &delegate_voting.votes;
+								let delegates_votes = &mut delegate_voting.votes;
 								// Check vote data exists, shouldn't be possible for it not to if delegator has voted
 								match delegates_votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
 									Ok(i) => {
@@ -572,6 +572,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 												// Increase tally by delegated amount
 												tally.increase(approve, conviction.votes(voting.delegated_balance));
 											}
+										}
+										// And remove the voting data if there's no longer a reason to hold
+										if delegates_votes[i].maybe_vote.is_none() && delegates_votes[i].retracted_votes == Default::default() {
+											delegates_votes.remove(i);
 										}
 									},
 									Err(_i) => {
