@@ -55,6 +55,9 @@ jobs:
           test: "0001-parachains-pvf.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}/functional"
           concurrency: 1
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
   #
   zombienet-polkadot-functional-0002-parachains-disputes:
@@ -79,6 +82,9 @@ jobs:
           test: "0002-parachains-disputes.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}/functional"
           concurrency: 1
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
   #
   zombienet-polkadot-functional-0003-beefy-and-mmr:
@@ -101,6 +107,9 @@ jobs:
         with:
           test: "0003-beefy-and-mmr.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}/functional"
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
   #
   zombienet-polkadot-functional-0004-parachains-disputes-garbage-candidate:
@@ -124,6 +133,9 @@ jobs:
         with:
           test: "0004-parachains-garbage-candidate.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}/functional"
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
   #
   zombienet-polkadot-functional-0006-parachains-max-tranche0:
@@ -146,6 +158,9 @@ jobs:
         with:
           test: "0006-parachains-max-tranche0.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}/functional"
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
   #
   zombienet-polkadot-functional-0007-dispute-freshly-finalized:
@@ -169,6 +184,9 @@ jobs:
         with:
           test: "0007-dispute-freshly-finalized.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}/functional"
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
   #
   zombienet-polkadot-functional-0008-dispute-old-finalized:
@@ -192,6 +210,9 @@ jobs:
         with:
           test: "0008-dispute-old-finalized.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}/functional"
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
 
   #
@@ -216,6 +237,9 @@ jobs:
         with:
           test: "0010-validator-disabling.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}/functional"
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
   #
   #
   zombienet-polkadot-functional-0013-systematic-chunk-recovery:
@@ -238,6 +262,9 @@ jobs:
         with:
           test: "0013-systematic-chunk-recovery.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}/functional"
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
   #
   #
   zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility:
@@ -262,6 +289,9 @@ jobs:
         with:
           test: "0014-chunk-fetching-network-compatibility.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}/functional"
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
   #
   #
   zombienet-polkadot-functional-0015-coretime-shared-core:
@@ -288,6 +318,9 @@ jobs:
         with:
           test: "0015-coretime-shared-core.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}/functional"
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
   #
   #
   zombienet-polkadot-functional-0018-shared-core-idle-parachain:
@@ -314,6 +347,9 @@ jobs:
         with:
           test: "0018-shared-core-idle-parachain.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}/functional"
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
   #
   #
   zombienet-polkadot-functional-0019-coretime-collation-fetching-fairness:
@@ -340,6 +376,9 @@ jobs:
         with:
           test: "0019-coretime-collation-fetching-fairness.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}/functional"
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
   #
   # smoke
@@ -364,6 +403,9 @@ jobs:
         with:
           test: "0001-parachains-smoke-test.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}/smoke"
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
   #
   #
   zombienet-polkadot-smoke-0002-parachains-parachains-upgrade-smoke:
@@ -386,6 +428,9 @@ jobs:
         with:
           test: "0002-parachains-upgrade-smoke-test.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}/smoke"
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
   #
   # (skipped in gitlab)
   zombienet-polkadot-smoke-0003-deregister-register-validator:
@@ -407,6 +452,9 @@ jobs:
         with:
           test: "0003-deregister-register-validator-smoke.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}/smoke"
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
   #
   #
   zombienet-polkadot-smoke-0004-coretime-smoke-test:
@@ -429,6 +477,9 @@ jobs:
         with:
           test: "0004-coretime-smoke-test.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}/smoke"
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
   #
   #
   zombienet-polkadot-smoke-0005-precompile-pvf-smoke:
@@ -451,6 +502,9 @@ jobs:
         with:
           test: "0005-precompile-pvf-smoke.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}/smoke"
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
   #
   # misc
@@ -475,6 +529,9 @@ jobs:
         with:
           test: "0001-paritydb.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}/misc"
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
   # TODO: needs to resolve how to pass the GH_TOKEN to pods
   #
@@ -505,6 +562,9 @@ jobs:
   #       with:
   #         test: "0002-upgrade-node.zndsl"
   #         local-dir: "${{ env.LOCAL_DIR }}/misc"
+  #         gh-token: ${{ secrets.GITHUB_TOKEN }}
+  #         build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+  #         ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
 
   #
@@ -532,6 +592,9 @@ jobs:
         with:
           test: "0001-dispute-valid-block.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}/integrationtests"
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
   #
   # sdk tests
