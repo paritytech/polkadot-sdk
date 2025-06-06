@@ -5,6 +5,8 @@ doc:
 crates:
 - name: pallet-staking-async-parachain-runtime
   bump: minor
+- name: pallet-staking-async-runtime-api
+  bump: major
 - name: pallet-staking-async
   bump: major
 - name: sp-staking
