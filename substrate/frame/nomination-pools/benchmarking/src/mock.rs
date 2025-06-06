@@ -24,6 +24,7 @@ use frame_support::{
 	traits::{ConstU64, Nothing, VariantCountOf},
 	PalletId,
 };
+use pallet_bags_list::mock::AutoRebagNumber;
 use sp_runtime::{
 	traits::{Convert, IdentityLookup},
 	BuildStorage, FixedU128, Perbill,
@@ -102,6 +103,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type BagThresholds = BagThresholds;
 	type ScoreProvider = Staking;
 	type Score = VoteWeight;
+	type AutoRebagPerBlock = AutoRebagNumber;
 }
 
 pub struct BalanceToU256;
