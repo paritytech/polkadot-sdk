@@ -39,11 +39,17 @@ cargo install staging-chain-spec-builder --locked
 
 ### 2. Generate a chain spec
 
-Omni Node requires the chain spec to include a JSON key named `relay_chain`. It is set to a chain id
-(representing the chain name, e.g. `westend`, `paseo`, `rococo`, `polkadot`, or `kusama`). Additionaly,
-although deprecated, the `--para-id` flag can still be used to set the JSON key named `para_id`. The
-removal of the flag will happen starting with `stable2512`. The alternative of not using it is to
-implement the `cumulus_primitives_core::GetParachainIdentity` runtime API for the runtime, and
+Omni Node requires the chain spec to include a JSON key named `relay_chain`. It is set to a chain id,
+representing the chain name, e.g. `westend`, `paseo`, `rococo`, `polkadot`, or `kusama`, but
+there are also local variants that can be used for testing, like `rococo-local` or `westend-local`. The
+local variants are available only for a build of `polkadot-omni-node` with
+`westend-native` and `rococo-native` features respectively.
+
+<!-- TODO: https://github.com/paritytech/polkadot-sdk/issues/8747 -->
+<!-- TODO: https://github.com/paritytech/polkadot-sdk/issues/8740 -->
+Additionaly, although deprecated, the `--para-id` flag can still be used to set the JSON key named
+`para_id`. The removal of the flag will happen starting with `stable2512`. The alternative of not using
+it is to implement the `cumulus_primitives_core::GetParachainIdentity` runtime API for the runtime, and
 upgrade it on-chain as well, to be compatible with nodes released starting with `stable2512`.
 
 Example command bellow:

@@ -44,6 +44,8 @@ pub struct Extensions {
 	pub relay_chain: String,
 	/// The id of the Parachain.
 	#[serde(alias = "paraId", alias = "ParaId")]
+	// TODO: https://github.com/paritytech/polkadot-sdk/issues/8747
+	// TODO: https://github.com/paritytech/polkadot-sdk/issues/8740
 	#[deprecated(
 		note = "The para_id information is not required anymore and will be removed starting with `stable2512`. Runtimes must implement a new API called `cumulus_primitives_core::GetParachainIdentity` to still be compatible with node versions starting with `stable2512`."
 	)]

@@ -163,6 +163,8 @@ pub(crate) trait BaseNodeSpec {
 			let id = ParaId::from(
 				Extensions::try_get(&*parachain_config.chain_spec).and_then(|ext| ext.para_id)?,
 			);
+			// TODO: https://github.com/paritytech/polkadot-sdk/issues/8747
+			// TODO: https://github.com/paritytech/polkadot-sdk/issues/8740
 			log::info!("Deprecation notice: the parachain id was provided via the chain spec. This way of providing the parachain id to the node is not recommended. The alternative is to implement the `cumulus_primitives_core::GetParachainIdentity` runtime API in the runtime, and upgrade it on-chain. Starting with `stable2512` providing the parachain id via the chain spec will not be supported anymore.");
 			id
 		};
