@@ -53,7 +53,6 @@ impl AuraInherentData for InherentData {
 }
 
 /// Provides the slot duration inherent data for `Aura`.
-// TODO: Remove in the future. https://github.com/paritytech/substrate/issues/8029
 #[cfg(feature = "std")]
 pub struct InherentDataProvider {
 	slot: InherentType,
