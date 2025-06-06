@@ -201,6 +201,8 @@ pub struct PollVote<PollIndex, Balance> {
 
 /// Information concerning the vote-casting of some voting power.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[scale_info(skip_type_params(MaxVotes))]
+#[codec(mel_bound(Balance: MaxEncodedLen, BlockNumber: MaxEncodedLen, PollIndex: MaxEncodedLen))]
 pub struct Voting<Balance, AccountId, BlockNumber, PollIndex, MaxVotes> 
 where
 	MaxVotes: Get<u32>,

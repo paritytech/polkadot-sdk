@@ -440,7 +440,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 							if let Some(approve) = account_vote.as_standard() {
 								// Adjust by the current clawback amount
 								let final_delegations = delegations.saturating_sub(votes[i].retracted_votes);
-								tally.reduce(approve, *final_delegations);
+								tally.reduce(approve, final_delegations);
 							}
 						} else {
 							// Vote going from none to something
@@ -468,7 +468,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				if let Some(approve) = vote.as_standard() {
 					// But first adjust by current clawbacks
 					let final_delegations = delegations.saturating_sub(votes[index].retracted_votes);
-					tally.increase(approve, *final_delegations);
+					tally.increase(approve, final_delegations);
 				}
 
 				// Update delegate's info if delegating
@@ -570,7 +570,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 											// And it was a standard vote
 											if let Some(approve) = delegates_vote.as_standard() {
 												// Increase tally by delegated amount
-												tally.increase(approve, *conviction.votes(voting.delegated_balance));
+												tally.increase(approve, conviction.votes(voting.delegated_balance));
 											}
 										}
 									},
@@ -656,7 +656,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			let votes = voting.votes;
 			
 			// For each of the delegate's votes
-			for &(poll_index, account_vote, _) in votes.iter() {
+			for PollVote { poll_index, maybe_vote, .. } in votes.iter() {
 				// If they have a standard vote recorded
 				if let Some(AccountVote::Standard { vote, .. }) = account_vote {
 					T::Polls::access_poll(poll_index, |poll_status| {
@@ -708,11 +708,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		ongoing_votes: Vec<PollIndexOf<T, I>>,
 	) -> u32 {
 		// Grab the delegate's voting data
-		VotingFor::<T, I>::try_mutate(who, class, |votes| {
+		VotingFor::<T, I>::try_mutate(who, class, |voting| {
 			// Reduce amount delegated to this delegate
-			votes.delegations = votes.delegation.saturating_sub(amount);
+			voting.delegations = voting.delegations.saturating_sub(amount);
 			
 			// For each of the delegate's votes
+			let votes = voting.votes;
 			for &(poll_index, maybe_vote, _) in votes.iter() {
 				// That are standard aye or nay
 				if let Some(AccountVote::Standard { vote, .. }) = maybe_vote {
