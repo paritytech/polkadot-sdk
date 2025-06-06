@@ -50,7 +50,7 @@ fn set_minimum_active_stake_lower_bond_works() {
 		assert_eq!(<Test as Config>::VoterList::count(), 4);
 
 		assert_ok!(Staking::bond(RuntimeOrigin::signed(4), 5, RewardDestination::Staked,));
-		assert_ok!(Staking::nominate(RuntimeOrigin::signed(4), vec![1]));
+		assert_ok!(Staking::nominate(RuntimeOrigin::signed(4), vec![11]));
 		assert_eq!(<Test as Config>::VoterList::count(), 5);
 
 		let voters_before =
@@ -272,18 +272,19 @@ fn respects_snapshot_size_limits() {
 
 #[test]
 fn nomination_quota_checks_at_nominate_works() {
-	ExtBuilder::default().nominate(false).build_and_execute(|| {
+	ExtBuilder::default()
+	.nominate(false).build_and_execute(|| {
 		// stash bond of 222 has a nomination quota of 2 targets.
 		bond(61, 222);
 		assert_eq!(Staking::api_nominations_quota(222), 2);
 
 		// nominating with targets below the nomination quota works.
 		assert_ok!(Staking::nominate(RuntimeOrigin::signed(61), vec![11]));
-		assert_ok!(Staking::nominate(RuntimeOrigin::signed(61), vec![11, 12]));
+		assert_ok!(Staking::nominate(RuntimeOrigin::signed(61), vec![11, 21]));
 
 		// nominating with targets above the nomination quota returns error.
 		assert_noop!(
-			Staking::nominate(RuntimeOrigin::signed(61), vec![11, 12, 13]),
+			Staking::nominate(RuntimeOrigin::signed(61), vec![11, 21, 31]),
 			Error::<Test>::TooManyTargets
 		);
 	});
@@ -491,6 +492,12 @@ fn lazy_quota_npos_voters_works_above_quota() {
 fn nominations_quota_limits_size_work() {
 	ExtBuilder::default()
 		.nominate(false)
+		.add_staker(10, 333, StakerStatus::<AccountId>::Validator)
+		.add_staker(12, 333, StakerStatus::<AccountId>::Validator)
+		.add_staker(13, 333, StakerStatus::<AccountId>::Validator)
+		.add_staker(14, 333, StakerStatus::<AccountId>::Validator)
+		.add_staker(15, 333, StakerStatus::<AccountId>::Validator)
+		.add_staker(16, 333, StakerStatus::<AccountId>::Validator)
 		.add_staker(71, 333, StakerStatus::<AccountId>::Nominator(vec![16, 15, 14, 13, 12, 11, 10]))
 		.build_and_execute(|| {
 			// nominations of controller 70 won't be added due to voter size limit exceeded.
@@ -541,7 +548,7 @@ mod sorted_list_provider {
 			);
 
 			// when account 101 renominates
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![41]));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![11]));
 
 			// then counts don't change
 			assert_eq!(<Test as Config>::VoterList::count(), pre_insert_voter_count);
@@ -650,7 +657,7 @@ mod paged_snapshot {
 						.into_iter()
 						.map(|v| (v, <Test as Config>::VoterList::get_score(&v).unwrap()))
 						.collect::<Vec<_>>(),
-					vec![(41, 4000), (51, 5000), (11, 1000), (21, 1000), (31, 500), (101, 500)],
+					vec![(51, 5000), (41, 4000), (11, 1000), (21, 1000), (31, 500), (101, 500)],
 				);
 
 				let mut all_voters = vec![];
@@ -662,7 +669,7 @@ mod paged_snapshot {
 					.collect::<Vec<_>>();
 				all_voters.extend(voters_page_3.clone());
 
-				assert_eq!(voters_page_3, vec![41, 51, 11]);
+				assert_eq!(voters_page_3, vec![51, 41, 11]);
 				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Ongoing(11));
 
 				let voters_page_2 = <Staking as ElectionDataProvider>::electing_voters(bounds, 2)
@@ -723,7 +730,7 @@ mod paged_snapshot {
 						.into_iter()
 						.map(|v| (v, <Test as Config>::VoterList::get_score(&v).unwrap()))
 						.collect::<Vec<_>>(),
-					vec![(41, 4000), (51, 5000), (11, 1000), (21, 1000), (31, 500), (101, 500)],
+					vec![(51, 5000), (41, 4000), (11, 1000), (21, 1000), (31, 500), (101, 500)],
 				);
 
 				// initially not locked
@@ -735,8 +742,8 @@ mod paged_snapshot {
 					.map(|(a, _, _)| a)
 					.collect::<Vec<_>>();
 
-				assert_eq!(voters_page_3, vec![41, 51]);
-				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Ongoing(51));
+				assert_eq!(voters_page_3, vec![51, 41]);
+				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Ongoing(41));
 				assert_eq!(pallet_bags_list::Lock::<T, VoterBagsListInstance>::get(), Some(()));
 
 				hypothetically!({});
@@ -788,7 +795,7 @@ mod paged_snapshot {
 						.into_iter()
 						.map(|v| (v, <Test as Config>::VoterList::get_score(&v).unwrap()))
 						.collect::<Vec<_>>(),
-					vec![(41, 4000), (51, 5000), (11, 1000), (21, 1000), (31, 500), (101, 500)],
+					vec![(51, 5000), (41, 4000), (11, 1000), (21, 1000), (31, 500), (101, 500)],
 				);
 
 				// initial bag of 51
@@ -816,8 +823,8 @@ mod paged_snapshot {
 					.map(|(a, _, _)| a)
 					.collect::<Vec<_>>();
 
-				assert_eq!(voters_page_3, vec![41, 51]);
-				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Ongoing(51));
+				assert_eq!(voters_page_3, vec![51, 41]);
+				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Ongoing(41));
 				assert_eq!(pallet_bags_list::Lock::<T, VoterBagsListInstance>::get(), Some(()));
 
 				// 51 who is already part of the list might want to unbond. They are already in the
