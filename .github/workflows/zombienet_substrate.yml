@@ -13,7 +13,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  RUN_IN_CONTAINER: 1
   FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 1
   LOCAL_DIR: "./substrate/zombienet"
   GHA_CLUSTER_SERVER_ADDR: "https://kubernetes.default:443"
