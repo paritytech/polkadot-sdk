@@ -21,4 +21,4 @@ crates:
 - name: pallet-nomination-pools-benchmarking
   bump: minor
 - name: pallet-staking-async
-  bump: minor   
+  bump: minor
