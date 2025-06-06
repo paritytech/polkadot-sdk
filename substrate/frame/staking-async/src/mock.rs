@@ -33,7 +33,6 @@ use frame_support::{
 	weights::constants::RocksDbWeight,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, EnsureRoot, EnsureSignedBy};
-use pallet_bags_list::mock::AutoRebagNumber;
 use pallet_staking_async_rc_client as rc_client;
 use sp_core::{ConstBool, ConstU64};
 use sp_io;
@@ -138,7 +137,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Test {
 	// Staking is the source of truth for voter bags list, since they are not kept up to date.
 	type ScoreProvider = Staking;
 	type BagThresholds = BagThresholds;
-	type AutoRebagPerBlock = AutoRebagNumber;
+	type AutoRebagPerBlock = ();
 	type Score = VoteWeight;
 }
 

@@ -27,7 +27,6 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::EnsureRoot;
-use pallet_bags_list::mock::AutoRebagNumber;
 use pallet_nomination_pools::{
 	adapter::{Member, Pool, StakeStrategyType},
 	BondType,
@@ -122,7 +121,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type BagThresholds = BagThresholds;
 	type ScoreProvider = Staking;
 	type Score = VoteWeight;
-	type AutoRebagPerBlock = AutoRebagNumber;
+	type AutoRebagPerBlock = ();
 }
 
 pub struct BalanceToU256;

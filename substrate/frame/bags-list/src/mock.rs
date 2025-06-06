@@ -55,7 +55,7 @@ impl frame_system::Config for Runtime {
 
 parameter_types! {
 	pub static BagThresholds: &'static [VoteWeight] = &[10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_000];
-	pub static AutoRebagNumber: u32 = 0;
+	pub static AutoRebagNumber: u32 = 10;
 }
 
 impl bags_list::Config for Runtime {
