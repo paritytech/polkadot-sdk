@@ -56,6 +56,7 @@ use std::sync::Arc;
 
 use crate::{log, log_current_time};
 use frame_support::{derive_impl, traits::Nothing};
+use pallet_bags_list::mock::AutoRebagNumber;
 
 pub const INIT_TIMESTAMP: BlockNumber = 30_000;
 pub const BLOCK_TIME: BlockNumber = 1000;
@@ -252,6 +253,7 @@ impl pallet_bags_list::Config for Runtime {
 	type ScoreProvider = Staking;
 	type BagThresholds = BagThresholds;
 	type Score = VoteWeight;
+	type AutoRebagPerBlock = AutoRebagNumber;
 }
 
 pub struct BalanceToU256;

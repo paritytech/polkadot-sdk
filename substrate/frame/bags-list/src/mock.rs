@@ -61,10 +61,10 @@ parameter_types! {
 impl bags_list::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type BagThresholds = BagThresholds;
 	type ScoreProvider = StakingMock;
-	type Score = VoteWeight;
+	type BagThresholds = BagThresholds;
 	type AutoRebagPerBlock = AutoRebagNumber;
+	type Score = VoteWeight;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;

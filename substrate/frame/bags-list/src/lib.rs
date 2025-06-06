@@ -471,15 +471,8 @@ pub mod pallet {
 			let mut processed = 0u32;
 			let mut successful_rebags = 0u32;
 			let mut failed_rebags = 0u32;
-			let per_rebag =
-				T::WeightInfo::rebag_non_terminal().max(T::WeightInfo::rebag_terminal());
 
 			for account in to_process {
-				if meter.try_consume(per_rebag).is_err() {
-					log!(debug, "Weight limit reached after {} processed accounts", processed);
-					break;
-				}
-
 				match Self::rebag_internal(&account) {
 					Err(Error::<T, I>::Locked) => {
 						defensive!("Pallet became locked during auto-rebag, stopping");
