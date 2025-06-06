@@ -75,7 +75,6 @@ jobs:
       package: "polkadot-parachain-bin"
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: x86_64-unknown-linux-gnu
-      features: runtime-benchmarks
     secrets:
       PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
       PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
@@ -187,7 +186,6 @@ jobs:
       package: polkadot-parachain-bin
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: aarch64-apple-darwin
-      features: runtime-benchmarks
     secrets:
       PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
       PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
