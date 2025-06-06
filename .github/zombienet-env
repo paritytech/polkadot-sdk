@@ -3,6 +3,7 @@ ZOMBIENET_RUNNER=parity-large
 PUSHGATEWAY_URL=http://prometheus-pushgateway.monitoring.svc.cluster.local:9091/metrics/job/zombie-metrics
 DEBUG=zombie,zombie::network-node,zombie::kube::client::logs
 RUN_IN_CI=1
+RUN_IN_CONTAINER=0
 KUBERNETES_CPU_REQUEST=512m
 KUBERNETES_MEMORY_REQUEST=1Gi
 TEMP_IMAGES_BASE=europe-docker.pkg.dev/parity-ci-2024/temp-images
