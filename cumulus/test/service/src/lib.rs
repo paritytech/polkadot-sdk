@@ -39,7 +39,7 @@ use cumulus_test_runtime::{Hash, Header, NodeBlock as Block, RuntimeApi};
 use prometheus::Registry;
 use runtime::AccountId;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
-use sp_consensus_aura::{inherents::AuraCreateInherentDataProviders, sr25519::AuthorityPair};
+use sp_consensus_aura::{inherents::AuraCreateInherentDataProviders, sr25519::AuthorityPair, Slot};
 use std::{
 	collections::HashSet,
 	future::Future,
@@ -262,14 +262,11 @@ pub fn new_partial(
 		ImportQueueParams {
 			block_import: block_import.clone(),
 			client: client.clone(),
-			create_inherent_data_providers: Arc::new(move |_, _| async move {
-				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-				let slot = sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-					*timestamp,
-					slot_duration,
-				);
-				Ok((slot, timestamp))
-			}) as AuraCreateInherentDataProviders<Block>,
+			get_slot: move |_| {
+				let timestamp = sp_timestamp::Timestamp::current();
+				let slot = Slot::from_timestamp(timestamp, slot_duration);
+				Ok(slot)
+			},
 			spawner: &task_manager.spawn_essential_handle(),
 			registry: None,
 			telemetry: None,

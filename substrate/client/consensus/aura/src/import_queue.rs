@@ -30,7 +30,7 @@ use sc_consensus::{
 	block_import::{BlockImport, BlockImportParams, ForkChoiceStrategy},
 	import_queue::{BasicQueue, BoxJustificationImport, DefaultImportQueue, Verifier},
 };
-use sc_consensus_slots::{CheckedHeader, InherentDataProviderExt};
+use sc_consensus_slots::CheckedHeader;
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_TRACE};
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
@@ -39,7 +39,6 @@ use sp_consensus::Error as ConsensusError;
 use sp_consensus_aura::AuraApi;
 use sp_consensus_slots::Slot;
 use sp_core::crypto::Pair;
-use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::{
 	traits::{Block as BlockT, Header, NumberFor},
 	DigestItem,
@@ -78,41 +77,34 @@ where
 }
 
 /// A verifier for Aura blocks.
-pub struct AuraVerifier<C, P, CIDP, N> {
+pub struct AuraVerifier<C, P, GetSlotFn, N> {
 	client: Arc<C>,
-	create_inherent_data_providers: CIDP,
+	get_slot: GetSlotFn,
 	telemetry: Option<TelemetryHandle>,
 	compatibility_mode: CompatibilityMode<N>,
 	_phantom: PhantomData<fn() -> P>,
 }
 
-impl<C, P, CIDP, N> AuraVerifier<C, P, CIDP, N> {
+impl<C, P, GetSlotFn, N> AuraVerifier<C, P, GetSlotFn, N> {
 	pub(crate) fn new(
 		client: Arc<C>,
-		create_inherent_data_providers: CIDP,
+		get_slot: GetSlotFn,
 		telemetry: Option<TelemetryHandle>,
 		compatibility_mode: CompatibilityMode<N>,
 	) -> Self {
-		Self {
-			client,
-			create_inherent_data_providers,
-			telemetry,
-			compatibility_mode,
-			_phantom: PhantomData,
-		}
+		Self { client, get_slot, telemetry, compatibility_mode, _phantom: PhantomData }
 	}
 }
 
 #[async_trait::async_trait]
-impl<B: BlockT, C, P, CIDP> Verifier<B> for AuraVerifier<C, P, CIDP, NumberFor<B>>
+impl<B: BlockT, C, P, GetSlotFn> Verifier<B> for AuraVerifier<C, P, GetSlotFn, NumberFor<B>>
 where
 	C: ProvideRuntimeApi<B> + Send + Sync + sc_client_api::backend::AuxStore,
 	C::Api: BlockBuilderApi<B> + AuraApi<B, AuthorityId<P>> + ApiExt<B>,
 	P: Pair,
 	P::Public: Codec + Debug,
 	P::Signature: Codec,
-	CIDP: CreateInherentDataProviders<B, ()> + Send + Sync,
-	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
+	GetSlotFn: Fn(B::Hash) -> sp_blockchain::Result<Slot> + Send + Sync,
 {
 	async fn verify(
 		&self,
@@ -140,13 +132,8 @@ where
 		)
 		.map_err(|e| format!("Could not fetch authorities at {:?}: {}", parent_hash, e))?;
 
-		let create_inherent_data_providers = self
-			.create_inherent_data_providers
-			.create_inherent_data_providers(parent_hash, ())
-			.await
-			.map_err(|e| Error::<B>::Client(sp_blockchain::Error::Application(e)))?;
-
-		let slot_now = create_inherent_data_providers.slot();
+		let slot_now = (self.get_slot)(parent_hash)
+			.map_err(|e| format!("Could not get slot for parent hash {:?}: {}", parent_hash, e))?;
 
 		// we add one to allow for some small drift.
 		// FIXME #1019 in the future, alter this queue to allow deferring of
@@ -188,15 +175,15 @@ where
 }
 
 /// Parameters of [`import_queue`].
-pub struct ImportQueueParams<'a, Block: BlockT, I, C, S, CIDP> {
+pub struct ImportQueueParams<'a, Block: BlockT, I, C, S, GetSlotFn> {
 	/// The block import to use.
 	pub block_import: I,
 	/// The justification import.
 	pub justification_import: Option<BoxJustificationImport<Block>>,
 	/// The client to interact with the chain.
 	pub client: Arc<C>,
-	/// Something that can create the inherent data providers.
-	pub create_inherent_data_providers: CIDP,
+	/// Something that can get the current slot.
+	pub get_slot: GetSlotFn,
 	/// The spawner to spawn background tasks.
 	pub spawner: &'a S,
 	/// The prometheus registry.
@@ -210,17 +197,17 @@ pub struct ImportQueueParams<'a, Block: BlockT, I, C, S, CIDP> {
 }
 
 /// Start an import queue for the Aura consensus algorithm.
-pub fn import_queue<P, Block, I, C, S, CIDP>(
+pub fn import_queue<P, Block, I, C, S, GetSlotFn>(
 	ImportQueueParams {
 		block_import,
 		justification_import,
 		client,
-		create_inherent_data_providers,
+		get_slot,
 		spawner,
 		registry,
 		telemetry,
 		compatibility_mode,
-	}: ImportQueueParams<Block, I, C, S, CIDP>,
+	}: ImportQueueParams<Block, I, C, S, GetSlotFn>,
 ) -> Result<DefaultImportQueue<Block>, sp_consensus::Error>
 where
 	Block: BlockT,
@@ -238,12 +225,11 @@ where
 	P::Public: Codec + Debug,
 	P::Signature: Codec,
 	S: sp_core::traits::SpawnEssentialNamed,
-	CIDP: CreateInherentDataProviders<Block, ()> + Sync + Send + 'static,
-	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
+	GetSlotFn: Fn(Block::Hash) -> sp_blockchain::Result<Slot> + Send + Sync + 'static,
 {
 	let verifier = build_verifier::<P, _, _, _>(BuildVerifierParams {
 		client,
-		create_inherent_data_providers,
+		get_slot,
 		telemetry,
 		compatibility_mode,
 	});
@@ -252,11 +238,11 @@ where
 }
 
 /// Parameters of [`build_verifier`].
-pub struct BuildVerifierParams<C, CIDP, N> {
+pub struct BuildVerifierParams<C, GetSlotFn, N> {
 	/// The client to interact with the chain.
 	pub client: Arc<C>,
-	/// Something that can create the inherent data providers.
-	pub create_inherent_data_providers: CIDP,
+	/// Something that can get the current slot.
+	pub get_slot: GetSlotFn,
 	/// Telemetry instance used to report telemetry metrics.
 	pub telemetry: Option<TelemetryHandle>,
 	/// Compatibility mode that should be used.
@@ -266,18 +252,12 @@ pub struct BuildVerifierParams<C, CIDP, N> {
 }
 
 /// Build the [`AuraVerifier`]
-pub fn build_verifier<P, C, CIDP, N>(
-	BuildVerifierParams {
-		client,
-		create_inherent_data_providers,
-		telemetry,
-		compatibility_mode,
-	}: BuildVerifierParams<C, CIDP, N>,
-) -> AuraVerifier<C, P, CIDP, N> {
-	AuraVerifier::<_, P, _, _>::new(
-		client,
-		create_inherent_data_providers,
-		telemetry,
-		compatibility_mode,
-	)
+pub fn build_verifier<P, C, GetSlotFn, N>(
+	BuildVerifierParams { client, get_slot, telemetry, compatibility_mode }: BuildVerifierParams<
+		C,
+		GetSlotFn,
+		N,
+	>,
+) -> AuraVerifier<C, P, GetSlotFn, N> {
+	AuraVerifier::<_, P, _, _>::new(client, get_slot, telemetry, compatibility_mode)
 }
