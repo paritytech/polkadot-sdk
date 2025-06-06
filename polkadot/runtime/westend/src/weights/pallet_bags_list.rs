@@ -19,7 +19,7 @@
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
 //! DATE: 2025-06-06, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `cec2aee2ebf6`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
+//! HOSTNAME: `db139286744f`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
 //! WASM-EXECUTION: `Compiled`, CHAIN: `None`, DB CACHE: 1024
 
 // Executed Command:
@@ -65,8 +65,8 @@ impl<T: frame_system::Config> pallet_bags_list::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `1718`
 		//  Estimated: `11506`
-		// Minimum execution time: 70_471_000 picoseconds.
-		Weight::from_parts(73_188_000, 0)
+		// Minimum execution time: 72_102_000 picoseconds.
+		Weight::from_parts(74_200_000, 0)
 			.saturating_add(Weight::from_parts(0, 11506))
 			.saturating_add(T::DbWeight::get().reads(8))
 			.saturating_add(T::DbWeight::get().writes(5))
@@ -85,8 +85,8 @@ impl<T: frame_system::Config> pallet_bags_list::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `1612`
 		//  Estimated: `8877`
-		// Minimum execution time: 67_717_000 picoseconds.
-		Weight::from_parts(70_328_000, 0)
+		// Minimum execution time: 68_443_000 picoseconds.
+		Weight::from_parts(71_130_000, 0)
 			.saturating_add(Weight::from_parts(0, 8877))
 			.saturating_add(T::DbWeight::get().reads(8))
 			.saturating_add(T::DbWeight::get().writes(5))
@@ -107,8 +107,8 @@ impl<T: frame_system::Config> pallet_bags_list::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `1923`
 		//  Estimated: `11506`
-		// Minimum execution time: 80_262_000 picoseconds.
-		Weight::from_parts(83_978_000, 0)
+		// Minimum execution time: 80_579_000 picoseconds.
+		Weight::from_parts(83_923_000, 0)
 			.saturating_add(Weight::from_parts(0, 11506))
 			.saturating_add(T::DbWeight::get().reads(11))
 			.saturating_add(T::DbWeight::get().writes(6))
@@ -119,7 +119,7 @@ impl<T: frame_system::Config> pallet_bags_list::WeightInfo for WeightInfo<T> {
 	/// Proof: `VoterList::Lock` (`max_values`: Some(1), `max_size`: Some(0), added: 495, mode: `MaxEncodedLen`)
 	/// Storage: `VoterList::NextNodeAutoRebagged` (r:1 w:1)
 	/// Proof: `VoterList::NextNodeAutoRebagged` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
-	/// Storage: `VoterList::ListBags` (r:200 w:2)
+	/// Storage: `VoterList::ListBags` (r:200 w:4)
 	/// Proof: `VoterList::ListBags` (`max_values`: None, `max_size`: Some(82), added: 2557, mode: `MaxEncodedLen`)
 	/// Storage: `VoterList::ListNodes` (r:11 w:11)
 	/// Proof: `VoterList::ListNodes` (`max_values`: None, `max_size`: Some(154), added: 2629, mode: `MaxEncodedLen`)
@@ -129,12 +129,12 @@ impl<T: frame_system::Config> pallet_bags_list::WeightInfo for WeightInfo<T> {
 	/// Proof: `Staking::Ledger` (`max_values`: None, `max_size`: Some(1091), added: 3566, mode: `MaxEncodedLen`)
 	fn on_idle() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `4542`
+		//  Measured:  `4811`
 		//  Estimated: `512390`
-		// Minimum execution time: 710_290_000 picoseconds.
-		Weight::from_parts(729_145_000, 0)
+		// Minimum execution time: 728_028_000 picoseconds.
+		Weight::from_parts(744_511_000, 0)
 			.saturating_add(Weight::from_parts(0, 512390))
 			.saturating_add(T::DbWeight::get().reads(234))
-			.saturating_add(T::DbWeight::get().writes(14))
+			.saturating_add(T::DbWeight::get().writes(16))
 	}
 }

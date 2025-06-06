@@ -37,7 +37,7 @@
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
 //! DATE: 2025-06-06, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `cec2aee2ebf6`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
+//! HOSTNAME: `db139286744f`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
 //! WASM-EXECUTION: `Compiled`, CHAIN: `None`, DB CACHE: `1024`
 
 // Executed Command:
@@ -94,8 +94,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `1818`
 		//  Estimated: `11506`
-		// Minimum execution time: 70_735_000 picoseconds.
-		Weight::from_parts(72_270_000, 11506)
+		// Minimum execution time: 70_064_000 picoseconds.
+		Weight::from_parts(73_131_000, 11506)
 			.saturating_add(T::DbWeight::get().reads(8_u64))
 			.saturating_add(T::DbWeight::get().writes(5_u64))
 	}
@@ -113,8 +113,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `1712`
 		//  Estimated: `8877`
-		// Minimum execution time: 70_330_000 picoseconds.
-		Weight::from_parts(83_893_000, 8877)
+		// Minimum execution time: 68_344_000 picoseconds.
+		Weight::from_parts(70_387_000, 8877)
 			.saturating_add(T::DbWeight::get().reads(8_u64))
 			.saturating_add(T::DbWeight::get().writes(5_u64))
 	}
@@ -134,8 +134,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `2024`
 		//  Estimated: `11506`
-		// Minimum execution time: 78_418_000 picoseconds.
-		Weight::from_parts(81_170_000, 11506)
+		// Minimum execution time: 77_764_000 picoseconds.
+		Weight::from_parts(81_433_000, 11506)
 			.saturating_add(T::DbWeight::get().reads(11_u64))
 			.saturating_add(T::DbWeight::get().writes(6_u64))
 	}
@@ -145,7 +145,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `VoterList::Lock` (`max_values`: Some(1), `max_size`: Some(0), added: 495, mode: `MaxEncodedLen`)
 	/// Storage: `VoterList::NextNodeAutoRebagged` (r:1 w:1)
 	/// Proof: `VoterList::NextNodeAutoRebagged` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
-	/// Storage: `VoterList::ListBags` (r:200 w:2)
+	/// Storage: `VoterList::ListBags` (r:200 w:4)
 	/// Proof: `VoterList::ListBags` (`max_values`: None, `max_size`: Some(82), added: 2557, mode: `MaxEncodedLen`)
 	/// Storage: `VoterList::ListNodes` (r:11 w:11)
 	/// Proof: `VoterList::ListNodes` (`max_values`: None, `max_size`: Some(154), added: 2629, mode: `MaxEncodedLen`)
@@ -155,12 +155,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Staking::Ledger` (`max_values`: None, `max_size`: Some(1091), added: 3566, mode: `MaxEncodedLen`)
 	fn on_idle() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `4651`
+		//  Measured:  `4920`
 		//  Estimated: `512390`
-		// Minimum execution time: 683_075_000 picoseconds.
-		Weight::from_parts(703_035_000, 512390)
+		// Minimum execution time: 692_265_000 picoseconds.
+		Weight::from_parts(707_279_000, 512390)
 			.saturating_add(T::DbWeight::get().reads(234_u64))
-			.saturating_add(T::DbWeight::get().writes(14_u64))
+			.saturating_add(T::DbWeight::get().writes(16_u64))
 	}
 }
 
@@ -180,8 +180,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `1818`
 		//  Estimated: `11506`
-		// Minimum execution time: 70_735_000 picoseconds.
-		Weight::from_parts(72_270_000, 11506)
+		// Minimum execution time: 70_064_000 picoseconds.
+		Weight::from_parts(73_131_000, 11506)
 			.saturating_add(RocksDbWeight::get().reads(8_u64))
 			.saturating_add(RocksDbWeight::get().writes(5_u64))
 	}
@@ -199,8 +199,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `1712`
 		//  Estimated: `8877`
-		// Minimum execution time: 70_330_000 picoseconds.
-		Weight::from_parts(83_893_000, 8877)
+		// Minimum execution time: 68_344_000 picoseconds.
+		Weight::from_parts(70_387_000, 8877)
 			.saturating_add(RocksDbWeight::get().reads(8_u64))
 			.saturating_add(RocksDbWeight::get().writes(5_u64))
 	}
@@ -220,8 +220,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `2024`
 		//  Estimated: `11506`
-		// Minimum execution time: 78_418_000 picoseconds.
-		Weight::from_parts(81_170_000, 11506)
+		// Minimum execution time: 77_764_000 picoseconds.
+		Weight::from_parts(81_433_000, 11506)
 			.saturating_add(RocksDbWeight::get().reads(11_u64))
 			.saturating_add(RocksDbWeight::get().writes(6_u64))
 	}
@@ -231,7 +231,7 @@ impl WeightInfo for () {
 	/// Proof: `VoterList::Lock` (`max_values`: Some(1), `max_size`: Some(0), added: 495, mode: `MaxEncodedLen`)
 	/// Storage: `VoterList::NextNodeAutoRebagged` (r:1 w:1)
 	/// Proof: `VoterList::NextNodeAutoRebagged` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
-	/// Storage: `VoterList::ListBags` (r:200 w:2)
+	/// Storage: `VoterList::ListBags` (r:200 w:4)
 	/// Proof: `VoterList::ListBags` (`max_values`: None, `max_size`: Some(82), added: 2557, mode: `MaxEncodedLen`)
 	/// Storage: `VoterList::ListNodes` (r:11 w:11)
 	/// Proof: `VoterList::ListNodes` (`max_values`: None, `max_size`: Some(154), added: 2629, mode: `MaxEncodedLen`)
@@ -241,11 +241,11 @@ impl WeightInfo for () {
 	/// Proof: `Staking::Ledger` (`max_values`: None, `max_size`: Some(1091), added: 3566, mode: `MaxEncodedLen`)
 	fn on_idle() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `4651`
+		//  Measured:  `4920`
 		//  Estimated: `512390`
-		// Minimum execution time: 683_075_000 picoseconds.
-		Weight::from_parts(703_035_000, 512390)
+		// Minimum execution time: 692_265_000 picoseconds.
+		Weight::from_parts(707_279_000, 512390)
 			.saturating_add(RocksDbWeight::get().reads(234_u64))
-			.saturating_add(RocksDbWeight::get().writes(14_u64))
+			.saturating_add(RocksDbWeight::get().writes(16_u64))
 	}
 }
