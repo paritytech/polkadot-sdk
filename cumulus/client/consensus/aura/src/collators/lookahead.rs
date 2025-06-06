@@ -47,7 +47,6 @@ use polkadot_primitives::{
 	vstaging::DEFAULT_CLAIM_QUEUE_OFFSET, CollatorPair, Id as ParaId, OccupiedCoreAssumption,
 };
 use sc_consensus_slots::InherentDataProviderExt;
-use sp_block_builder::BlockBuilder;
 
 use crate::{collator as collator_util, export_pov_to_path};
 use futures::prelude::*;
@@ -116,10 +115,8 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api: BlockBuilder<Block>
-		+ AuraApi<Block, P::Public>
-		+ CollectCollationInfo<Block>
-		+ AuraUnincludedSegmentApi<Block>,
+	Client::Api:
+		AuraApi<Block, P::Public> + CollectCollationInfo<Block> + AuraUnincludedSegmentApi<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + Clone + 'static,
@@ -171,10 +168,8 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api: BlockBuilder<Block>
-		+ AuraApi<Block, P::Public>
-		+ CollectCollationInfo<Block>
-		+ AuraUnincludedSegmentApi<Block>,
+	Client::Api:
+		AuraApi<Block, P::Public> + CollectCollationInfo<Block> + AuraUnincludedSegmentApi<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + Clone + 'static,
