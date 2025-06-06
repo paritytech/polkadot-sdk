@@ -738,13 +738,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					Ok(i) => {
 						// Remove the clawback
 						votes[i].retracted_votes = votes[i].retracted_votes.saturating_sub(amount);
-						// And increase the tally by that amount if the delegate has voted standard and the poll is ongoing
+						// Increase the tally by that amount if the delegate has voted standard and the poll is ongoing
 						if let Some(AccountVote::Standard { vote, .. }) = votes[i].maybe_vote {
 							T::Polls::access_poll(poll_index, |poll_status| {
 								if let PollStatus::Ongoing(tally, _) = poll_status {
 									tally.increase(vote.aye, amount);
 								}
 							});
+						}
+						// And remove the voting data if there's no longer a reason to hold
+						if votes[i].maybe_vote.is_none() && votes[i].retracted_votes == Default::default() {
+							votes.remove(i);
 						}
 					},
 					Err(_i) => {
@@ -817,7 +821,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 							None
 						}
 					).collect();
-					// Update the delegate's voting data
+
+					// Update their delegate's voting data
 					let votes = Self::reduce_upstream_delegation(&delegate, &class, conviction.votes(voting.delegated_balance), ongoing_votes)?;
 					
 					// Accumulate the locks
@@ -829,6 +834,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						),
 						voting.delegated_balance,
 					);
+
 					// Set the delegator's delegate info
 					voting.set_delegate_info(None, Default::default(), None);
 					Ok(votes)
