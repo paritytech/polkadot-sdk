@@ -454,7 +454,7 @@ mod tests {
 	}
 
 	#[test]
-	fn ah_know_good_era_duration() {
+	fn ah_knows_good_era_duration() {
 		// era duration and rewards work.
 	}
 
@@ -464,7 +464,7 @@ mod tests {
 	}
 
 	#[test]
-	fn overlapping_election() {
+	fn overlapping_election_wont_happen() {
 		// while one election is ongoing, enough sessions pass that we think we should plan yet
 		// another era.
 	}

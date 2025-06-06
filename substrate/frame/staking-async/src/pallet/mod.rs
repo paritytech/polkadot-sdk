@@ -762,7 +762,7 @@ pub mod pallet {
 	/// All slashing events on validators, mapped by era to the highest slash proportion
 	/// and slash value of the era.
 	#[pallet::storage]
-	pub(crate) type ValidatorSlashInEra<T: Config> = StorageDoubleMap<
+	pub type ValidatorSlashInEra<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		EraIndex,
@@ -773,21 +773,21 @@ pub mod pallet {
 
 	/// All slashing events on nominators, mapped by era to the highest slash value of the era.
 	#[pallet::storage]
-	pub(crate) type NominatorSlashInEra<T: Config> =
+	pub type NominatorSlashInEra<T: Config> =
 		StorageDoubleMap<_, Twox64Concat, EraIndex, Twox64Concat, T::AccountId, BalanceOf<T>>;
 
 	/// The threshold for when users can start calling `chill_other` for other validators /
 	/// nominators. The threshold is compared to the actual number of validators / nominators
 	/// (`CountFor*`) in the system compared to the configured max (`Max*Count`).
 	#[pallet::storage]
-	pub(crate) type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
+	pub type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
 
 	/// Voter snapshot progress status.
 	///
 	/// If the status is `Ongoing`, it keeps a cursor of the last voter retrieved to proceed when
 	/// creating the next snapshot page.
 	#[pallet::storage]
-	pub(crate) type VoterSnapshotStatus<T: Config> =
+	pub type VoterSnapshotStatus<T: Config> =
 		StorageValue<_, SnapshotStatus<T::AccountId>, ValueQuery>;
 
 	/// Keeps track of an ongoing multi-page election solution request.
@@ -797,11 +797,11 @@ pub mod pallet {
 	///
 	/// This is only set in multi-block elections. Should always be `None` otherwise.
 	#[pallet::storage]
-	pub(crate) type NextElectionPage<T: Config> = StorageValue<_, PageIndex, OptionQuery>;
+	pub type NextElectionPage<T: Config> = StorageValue<_, PageIndex, OptionQuery>;
 
 	/// A bounded list of the "electable" stashes that resulted from a successful election.
 	#[pallet::storage]
-	pub(crate) type ElectableStashes<T: Config> = StorageValue<
+	pub type ElectableStashes<T: Config> = StorageValue<
 		_,
 		BoundedBTreeMap<T::AccountId, BalanceOf<T>, T::MaxValidatorSet>,
 		ValueQuery,
@@ -996,7 +996,7 @@ pub mod pallet {
 	}
 
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
+	#[pallet::generate_deposit(pub fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// The era payout has been set; the first balance is the validator-payout; the second is
 		/// the remainder from the maximum amount of reward.
@@ -1209,7 +1209,7 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Apply previously-unapplied slashes on the beginning of a new era, after a delay.
-		pub(crate) fn apply_unapplied_slashes(active_era: EraIndex) -> Weight {
+		pub fn apply_unapplied_slashes(active_era: EraIndex) -> Weight {
 			let mut slashes = UnappliedSlashes::<T>::iter_prefix(&active_era).take(1);
 			if let Some((key, slash)) = slashes.next() {
 				crate::log!(

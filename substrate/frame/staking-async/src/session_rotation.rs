@@ -511,6 +511,18 @@ impl<T: Config> Rotator<T> {
 		Ok(())
 	}
 
+	#[cfg(any(feature = "try-runtime", feature = "std", feature = "runtime-benchmarks", test))]
+	pub fn assert_election_ongoing() {
+		assert!(
+			Self::planning_era() == Self::active_era() + 1,
+			"planning era must be one more than active era during election"
+		);
+		assert!(
+			T::ElectionProvider::status().is_ok(),
+			"Election provider must be in a good state during election"
+		);
+	}
+
 	pub fn planning_era() -> EraIndex {
 		CurrentEra::<T>::get().unwrap_or(0)
 	}

@@ -36,7 +36,7 @@ use crate::{
 	Ledger, Pallet, Payee, RewardDestination, TotalUnbondInEra, UnbondingQueueParams, Vec,
 	VirtualStakers,
 };
-use alloc::collections::BTreeMap;
+use alloc::{collections::BTreeMap, fmt::Debug};
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
 	defensive, ensure,
@@ -54,13 +54,14 @@ use sp_staking::{EraIndex, OnStakingUpdate, StakingAccount, StakingInterface};
 pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 	/// Amount of funds to be unlocked.
 	#[codec(compact)]
-	pub(crate) value: Balance,
-	/// Era number when the chunk was created.
+	pub value: Balance,
+	/// Era number at which point it'll be unlocked.
 	#[codec(compact)]
-	pub(crate) era: EraIndex,
+	pub era: EraIndex,
+
 	/// Total accumulated stake to be unbonded when this chunk was created.
 	#[codec(compact)]
-	pub(crate) previous_unbonded_stake: Balance,
+	pub previous_unbonded_stake: Balance,
 }
 
 /// The ledger of a (bonded) stash.
@@ -73,7 +74,15 @@ pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 /// leaving here to enforce a clean PR diff, given how critical this logic is. Tracking issue
 /// <https://github.com/paritytech/substrate/issues/14749>.
 #[derive(
-	PartialEqNoBound, EqNoBound, CloneNoBound, Encode, Decode, DebugNoBound, TypeInfo, MaxEncodedLen,
+	PartialEqNoBound,
+	EqNoBound,
+	CloneNoBound,
+	Encode,
+	Decode,
+	DebugNoBound,
+	TypeInfo,
+	MaxEncodedLen,
+	DecodeWithMemTracking,
 )]
 #[scale_info(skip_type_params(T))]
 pub struct StakingLedger<T: Config> {
@@ -98,9 +107,9 @@ pub struct StakingLedger<T: Config> {
 	/// The controller associated with this ledger's stash.
 	///
 	/// This is not stored on-chain, and is only bundled when the ledger is read from storage.
-	/// Use [`controller`] function to get the controller associated with the ledger.
+	/// Use [`Self::controller()`] function to get the controller associated with the ledger.
 	#[codec(skip)]
-	pub(crate) controller: Option<T::AccountId>,
+	pub controller: Option<T::AccountId>,
 }
 
 impl<T: Config> StakingLedger<T> {
@@ -224,7 +233,7 @@ impl<T: Config> StakingLedger<T> {
 	/// controller is not set in `self`, which most likely means that self was fetched directly from
 	/// [`Ledger`] instead of through the methods exposed in [`StakingLedger`]. If the ledger does
 	/// not exist in storage, it returns `None`.
-	pub(crate) fn controller(&self) -> Option<T::AccountId> {
+	pub fn controller(&self) -> Option<T::AccountId> {
 		self.controller.clone().or_else(|| {
 			defensive!("fetched a controller on a ledger instance without it.");
 			Self::paired_account(StakingAccount::Stash(self.stash.clone()))
