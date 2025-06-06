@@ -45,6 +45,7 @@ use crate::{
 		BlockHash, ExtrinsicFor, ExtrinsicHash, IsValidator, Options, RawExtrinsicFor,
 	},
 	insert_and_log_throttled, ReadyIteratorFor, ValidateTransactionPriority, LOG_TARGET,
+	LOG_TARGET_STAT,
 };
 use async_trait::async_trait;
 use futures::{
@@ -350,7 +351,7 @@ where
 			view_store.listener.transaction_dropped(dropped);
 			insert_and_log_throttled!(
 				Level::DEBUG,
-				target:"txpool",
+				target:LOG_TARGET_STAT,
 				prefix:"dropped_stats",
 				dropped_stats,
 				start.elapsed().into()
@@ -916,7 +917,7 @@ where
 
 		insert_and_log_throttled!(
 			Level::DEBUG,
-			target:"txpool",
+			target:LOG_TARGET_STAT,
 			prefix:"submit_stats",
 			self.submit_stats,
 			start.elapsed().into()
@@ -967,7 +968,7 @@ where
 		let result = self.submit_and_watch_inner(at, source, xt).await;
 		insert_and_log_throttled!(
 			Level::DEBUG,
-			target:"txpool",
+			target:LOG_TARGET_STAT,
 			prefix:"submit_and_watch_stats",
 			self.submit_and_watch_stats,
 			start.elapsed().into()

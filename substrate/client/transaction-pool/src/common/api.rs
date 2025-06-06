@@ -21,7 +21,7 @@
 use crate::{
 	common::{sliding_stat::DurationSlidingStats, STAT_SLIDING_WINDOW},
 	graph::ValidateTransactionPriority,
-	insert_and_log_throttled, LOG_TARGET,
+	insert_and_log_throttled, LOG_TARGET, LOG_TARGET_STAT
 };
 use async_trait::async_trait;
 use codec::Encode;
@@ -103,14 +103,14 @@ fn spawn_validation_pool_task(
 
 				insert_and_log_throttled!(
 					Level::DEBUG,
-					target:"txpool",
+					target:LOG_TARGET_STAT,
 					prefix:format!("validate_transaction_inner_stats"),
 					stats,
 					start.elapsed().into()
 				);
 				insert_and_log_throttled!(
 					Level::DEBUG,
-					target:"txpool",
+					target:LOG_TARGET_STAT,
 					prefix:format!("validate_transaction_blocking_stats"),
 					blocking_stats,
 					blocking_duration.into()
@@ -251,7 +251,7 @@ where
 		};
 		insert_and_log_throttled!(
 			Level::DEBUG,
-			target:"txpool",
+			target:LOG_TARGET_STAT,
 			prefix:prefix,
 			stats,
 			start.elapsed().into()

@@ -445,7 +445,7 @@ impl<T> Clone for SyncSlidingStats<T> {
 macro_rules! insert_and_log_throttled {
     (
         $level:expr,
-        target: $target:literal,
+        target: $target:expr,
         log_interval: $log_interval:expr,
         prefix: $prefix:expr,
         $stats:expr,
@@ -461,7 +461,7 @@ macro_rules! insert_and_log_throttled {
 
     (
         $level:expr,
-        target: $target:literal,
+        target: $target:expr,
         prefix: $prefix:expr,
         $stats:expr,
         $value:expr

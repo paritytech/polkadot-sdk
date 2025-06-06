@@ -58,3 +58,4 @@ type ReadyIteratorFor<PoolApi> =
 /// It can be used by other components for logging functionality strictly related to txpool (e.g.
 /// importing transaction).
 pub const LOG_TARGET: &str = "txpool";
+const LOG_TARGET_STAT: &str = "txpoolstats";
