@@ -494,8 +494,7 @@ mod tests {
 		// Ensure all have the correct ref count
 		assert!(original_ext.backend.backend_storage().keys().values().all(|r| *r == 2));
 
-		// Drain the raw storage and root.
-		let root = *original_ext.backend.root();
+		// Clone the raw storage
 		let (raw_storage, storage_root, state_version) = original_ext.clone_raw_snapshot();
 
 		// Load the raw storage and root into a new TestExternalities.
@@ -505,8 +504,10 @@ mod tests {
 			state_version,
 		);
 
+		let recovered_root = *recovered_ext.backend.root();
+
 		// Check the storage root is the same as the original
-		assert_eq!(root, *recovered_ext.backend.root());
+		assert_eq!(*original_ext.backend.root(), recovered_root);
 
 		// Check the original storage key/values were recovered correctly
 		assert_eq!(recovered_ext.backend.storage(b"doe").unwrap(), Some(b"reindeer".to_vec()));
@@ -525,6 +526,19 @@ mod tests {
 
 		// Ensure all have the correct ref count after importing
 		assert!(recovered_ext.backend.backend_storage().keys().values().all(|r| *r == 2));
+
+		// Insert new element to the original; Do not change recovered
+		original_ext.insert(b"bird".to_vec(), b"sing".to_vec());
+
+		// Check new item is only inserted to the original, while recovered remains unchanged
+		assert_eq!(original_ext.backend.storage(b"bird").unwrap(), Some(b"sing".to_vec()));
+		assert_eq!(recovered_ext.backend.storage(b"bird").unwrap(), None);
+
+		// Check recovered root is not affected by changes to original
+		assert_eq!(*recovered_ext.backend.root(), recovered_root);
+
+		// Check the storage root is now different between original and recovered
+		assert_ne!(*original_ext.backend.root(), *recovered_ext.backend.root());
 	}
 
 	#[test]
