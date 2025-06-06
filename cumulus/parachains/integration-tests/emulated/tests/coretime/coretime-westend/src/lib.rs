@@ -45,7 +45,7 @@ mod imports {
 		},
 		penpal_emulated_chain::{PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet},
 		people_westend_emulated_chain::PeopleWestendParaPallet as PeopleWestendPallet,
-		westend_emulated_chain::genesis::ED as WESTEND_ED,
+		westend_emulated_chain::{genesis::ED as WESTEND_ED, WestendRelayPallet as WestendPallet},
 		AssetHubWestendPara as AssetHubWestend,
 		AssetHubWestendParaReceiver as AssetHubWestendReceiver,
 		AssetHubWestendParaSender as AssetHubWestendSender,

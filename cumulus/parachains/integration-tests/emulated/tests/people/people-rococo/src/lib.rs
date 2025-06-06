@@ -35,7 +35,7 @@ mod imports {
 			},
 			PeopleRococoParaPallet as PeopleRococoPallet,
 		},
-		rococo_emulated_chain::genesis::ED as ROCOCO_ED,
+		rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
 		AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
 		PeopleRococoPara as PeopleRococo, PeopleRococoParaReceiver as PeopleRococoReceiver,
 		PeopleRococoParaSender as PeopleRococoSender, RococoRelay as Rococo,
