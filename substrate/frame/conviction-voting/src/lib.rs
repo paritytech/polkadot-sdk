@@ -490,7 +490,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 										// And it was a standard vote
 										if let Some(approve) = delegates_vote.as_standard() {
 											// Decrease tally by delegated amount
-											tally.reduce(approve, *amount_delegated);
+											tally.reduce(approve, amount_delegated);
 										}
 									}
 								}
@@ -658,7 +658,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			// For each of the delegate's votes
 			for PollVote { poll_index, maybe_vote, .. } in votes.iter() {
 				// If they have a standard vote recorded
-				if let Some(AccountVote::Standard { vote, .. }) = account_vote {
+				if let Some(AccountVote::Standard { vote, .. }) = maybe_vote {
 					T::Polls::access_poll(poll_index, |poll_status| {
 						// And the poll is currently ongoing
 						if let PollStatus::Ongoing(tally, _) = poll_status {
@@ -706,7 +706,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		class: &ClassOf<T, I>,
 		amount: Delegations<BalanceOf<T, I>>,
 		ongoing_votes: Vec<PollIndexOf<T, I>>,
-	) -> u32 {
+	) -> Result<u32, DispatchError> {
 		// Grab the delegate's voting data
 		VotingFor::<T, I>::try_mutate(who, class, |voting| {
 			// Reduce amount delegated to this delegate
@@ -714,7 +714,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			
 			// For each of the delegate's votes
 			let votes = voting.votes;
-			for &(poll_index, maybe_vote, _) in votes.iter() {
+			for PollVote{ poll_index, maybe_vote, ..} in votes.iter() {
 				// That are standard aye or nay
 				if let Some(AccountVote::Standard { vote, .. }) = maybe_vote {
 					T::Polls::access_poll(poll_index, |poll_status| {
@@ -769,17 +769,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		ensure!(balance <= T::Currency::total_balance(&who), Error::<T, I>::InsufficientFunds);
 		let delegate_vote_count =
 			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<u32, DispatchError> {
-				let old = voting.clone();
 				// Ensure not already delegating
-				if let Some(delegate) = old.delegate {
+				if let Some(delegate) = voting.delegate {
 					return Err(Error::<T, I>::AlreadyDelegating.into());
 				}
 				// Set delegation related info
 				voting.set_delegate_info(Some(target), balance, Some(conviction));
 				
 				// Collect all of the delegator's votes that are for ongoing polls
-				let ongoing_votes: Vec<_> = voting.votes.iter().filter_map(|poll_vote| 
-					T::Polls::as_ongoing(poll_vote.poll_index)
+				let ongoing_votes: Vec<_> = voting.votes.iter().filter_map(|poll_vote|
+					if let Some(vote) = poll_vote.maybe_vote {
+						T::Polls::as_ongoing(poll_vote.poll_index)
+					} 
 				).collect();
 				
 				// Update voting data of chosen delegate
@@ -804,7 +805,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				if let (Some(delegate), Some(conviction)) = (voting.delegate, voting.conviction) {
 					// Collect all of the delegator's votes that are for ongoing polls
 					let ongoing_votes: Vec<_> = voting.votes.iter().filter_map(|poll_vote|
-						T::Polls::as_ongoing(poll_vote.poll_index)
+						if let Some(vote) = poll_vote.maybe_vote {
+							T::Polls::as_ongoing(poll_vote.poll_index)
+						}
 					).collect();
 					// Update the delegate's voting data
 					let votes = Self::reduce_upstream_delegation(&delegate, &class, conviction.votes(voting.delegated_balance), ongoing_votes);

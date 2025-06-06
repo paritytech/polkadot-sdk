@@ -202,7 +202,7 @@ pub struct PollVote<PollIndex, Balance> {
 /// Information concerning the vote-casting of some voting power.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(MaxVotes))]
-#[codec(mel_bound(Balance: MaxEncodedLen, BlockNumber: MaxEncodedLen, PollIndex: MaxEncodedLen))]
+#[codec(mel_bound(Balance: MaxEncodedLen, AccountId: MaxEncodedLen, BlockNumber: MaxEncodedLen, PollIndex: MaxEncodedLen))]
 pub struct Voting<Balance, AccountId, BlockNumber, PollIndex, MaxVotes> 
 where
 	MaxVotes: Get<u32>,
@@ -268,7 +268,7 @@ where
 		let from_voting = self.votes.iter()
     	.filter_map(|i| i.maybe_vote.as_ref().map(|v| v.balance()))
     	.fold(self.prior.locked(), |a, i| a.max(i));
-		let from_delegating = *self.delegated_balance.max(&self.prior.locked());
+		let from_delegating = *self.delegated_balance.max(self.prior.locked());
 		from_voting.max(from_delegating)
 	}
 
