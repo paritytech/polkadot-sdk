@@ -778,7 +778,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					return Err(Error::<T, I>::AlreadyDelegating.into());
 				}
 				// Set delegation related info
-				voting.set_delegate_info(Some(target), balance, Some(conviction));
+				voting.set_delegate_info(Some(target.clone()), balance, Some(conviction));
 				
 				// Collect all of the delegator's votes that are for ongoing polls
 				let ongoing_votes: Vec<_> = voting.votes.iter().filter_map(|poll_vote|
@@ -808,7 +808,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let delegate_vote_count =
 			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<u32, DispatchError> {
 				// If they're currently delegating
-				if let (Some(delegate), Some(conviction)) = (voting.delegate, voting.conviction) {
+				if let (Some(delegate), Some(conviction)) = (&voting.delegate, &voting.conviction) {
 					// Collect all of the delegator's votes that are for ongoing polls
 					let ongoing_votes: Vec<_> = voting.votes.iter().filter_map(|poll_vote|
 						if poll_vote.maybe_vote.is_some() && T::Polls::as_ongoing(poll_vote.poll_index).is_some() {
