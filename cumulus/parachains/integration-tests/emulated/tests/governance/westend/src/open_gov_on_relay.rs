@@ -13,9 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{common::*, imports::*};
-use emulated_integration_tests_common::{
-	impls::RelayChain,
-};
+use emulated_integration_tests_common::impls::RelayChain;
 use westend_runtime::governance::pallet_custom_origins::Origin;
 
 use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
