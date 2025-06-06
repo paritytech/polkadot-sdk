@@ -389,7 +389,7 @@ benchmarks_instance_pallet! {
 				1 => high,
 				_ => high + high, // force into a new top bag
 			};
-			ScoreProvider::set_score_of(&node, new_score);
+			T::ScoreProvider::set_score_of(&node, new_score);
 		}
 
 		// Ensure we have at least three bags populated before rebag
