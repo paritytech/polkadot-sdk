@@ -475,7 +475,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				if let (Some(delegate), Some(conviction)) = (voting.delegate, voting.conviction) {
 					// Calculate amount delegated to delegate
 					let amount_delegated = conviction.votes(voting.delegated_balance);
-					VotingFor::<T, I>::mutate(delegate, class, |delegate_voting| {
+					VotingFor::<T, I>::try_mutate(delegate, class, |delegate_voting| -> Result<_, DispatchError> {
 						let delegates_votes = delegate_voting.votes;
 						// Search for data about poll in delegates voting info
 						match delegates_votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
@@ -659,7 +659,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			for PollVote { poll_index, maybe_vote, .. } in votes.iter() {
 				// If they have a standard vote recorded
 				if let Some(AccountVote::Standard { vote, .. }) = maybe_vote {
-					T::Polls::access_poll(poll_index, |poll_status| {
+					T::Polls::access_poll(*poll_index, |poll_status| {
 						// And the poll is currently ongoing
 						if let PollStatus::Ongoing(tally, _) = poll_status {
 							// Increase the tally by the delegated amount
@@ -717,7 +717,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			for PollVote{ poll_index, maybe_vote, ..} in votes.iter() {
 				// That are standard aye or nay
 				if let Some(AccountVote::Standard { vote, .. }) = maybe_vote {
-					T::Polls::access_poll(poll_index, |poll_status| {
+					T::Polls::access_poll(*poll_index, |poll_status| {
 						// And for an ongoing poll
 						if let PollStatus::Ongoing(tally, _) = poll_status {
 							// Reduce the tally by the delegated amount
@@ -780,7 +780,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				let ongoing_votes: Vec<_> = voting.votes.iter().filter_map(|poll_vote|
 					if let Some(_) = poll_vote.maybe_vote {
 						if let Some(_) = T::Polls::as_ongoing(poll_vote.poll_index) {
-							poll_index
+							poll_vote.poll_index
 						}
 					} 
 				).collect();
@@ -791,7 +791,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				// Extend the lock to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
 				Self::extend_lock(&who, &class, balance);
-				Ok(vote_count)
+				vote_count
 			})?;
 		Self::deposit_event(Event::<T, I>::Delegated(who, target));
 		Ok(delegate_vote_count)
@@ -809,11 +809,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					let ongoing_votes: Vec<_> = voting.votes.iter().filter_map(|poll_vote|
 						if let Some(_) = poll_vote.maybe_vote {
 							if let Some(_) = T::Polls::as_ongoing(poll_vote.poll_index) {
-								poll_index
+								poll_vote.poll_index
 							}
 						}).collect();
 					// Update the delegate's voting data
-					let votes = Self::reduce_upstream_delegation(&delegate, &class, conviction.votes(voting.delegated_balance), ongoing_votes);
+					let votes = Self::reduce_upstream_delegation(&delegate, &class, conviction.votes(voting.delegated_balance), ongoing_votes)?;
 					
 					// Accumulate the locks
 					let now = T::BlockNumberProvider::current_block_number();

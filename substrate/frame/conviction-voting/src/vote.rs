@@ -268,7 +268,7 @@ where
 		let from_voting = self.votes.iter()
     	.filter_map(|i| i.maybe_vote.as_ref().map(|v| v.balance()))
     	.fold(self.prior.locked(), |a, i| a.max(i));
-		let from_delegating = *self.delegated_balance.max(self.prior.locked());
+		let from_delegating = self.delegated_balance.max(self.prior.locked());
 		from_voting.max(from_delegating)
 	}
 
