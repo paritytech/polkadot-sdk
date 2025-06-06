@@ -74,7 +74,7 @@ mod impls;
 mod tests;
 
 // internal imports
-pub use crate::weights::measured::pallet_election_provider_multi_block_verifier::*;
+pub use crate::weights::traits::pallet_election_provider_multi_block_verifier::*;
 
 use frame_election_provider_support::PageIndex;
 use impls::SupportsOfVerifier;

@@ -660,6 +660,13 @@ pub fn roll_to_signed_validation_open() {
 	}
 }
 
+/// proceed block number until we reach the done phase (`Phase::Done`).
+pub fn roll_to_done() {
+	while !MultiBlock::current_phase().is_done() {
+		roll_next()
+	}
+}
+
 /// Proceed one block.
 pub fn roll_next() {
 	let now = System::block_number();

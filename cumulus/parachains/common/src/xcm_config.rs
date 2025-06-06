@@ -45,6 +45,11 @@ where
 		<Runtime as pallet_assets::Config<AssetInstance>>::AssetId,
 		<Runtime as pallet_assets::Config<AssetInstance>>::Balance,
 	>,
+	<BalanceConverter as ConversionToAssetBalance<
+		CurrencyBalance,
+		<Runtime as pallet_assets::Config<AssetInstance>>::AssetId,
+		<Runtime as pallet_assets::Config<AssetInstance>>::Balance,
+	>>::Error: core::fmt::Debug,
 {
 	fn charge_weight_in_fungibles(
 		asset_id: <pallet_assets::Pallet<Runtime, AssetInstance> as Inspect<
@@ -59,7 +64,10 @@ where
 		// If the amount gotten is not at least the ED, then make it be the ED of the asset
 		// This is to avoid burning assets and decreasing the supply
 		let asset_amount = BalanceConverter::to_asset_balance(amount, asset_id)
-			.map_err(|_| XcmError::TooExpensive)?;
+			.map_err(|error| {
+				log::debug!(target: "xcm::charge_weight_in_fungibles", "AssetFeeAsExistentialDepositMultiplier cannot convert to valid balance (possibly below ED): {error:?}");
+				XcmError::TooExpensive
+			})?;
 		Ok(asset_amount)
 	}
 }
