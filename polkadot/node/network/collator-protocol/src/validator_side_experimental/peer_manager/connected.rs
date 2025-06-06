@@ -240,7 +240,6 @@ impl PerPara {
 		// If we've got enough room, add it. Otherwise, see if it has a higher reputation than any
 		// other connected peer.
 
-		println!("len: {}", self.sorted_scores.len());
 		if self.sorted_scores.len() < (u16::from(self.limit) as usize) {
 			self.sorted_scores.insert(PeerScoreEntry { peer_id, score });
 			self.per_peer_score.insert(peer_id, score);

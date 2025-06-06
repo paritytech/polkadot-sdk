@@ -14,25 +14,22 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::validator_side_experimental::common::{
-	CONNECTED_PEERS_PARA_LIMIT, MAX_STARTUP_ANCESTRY_LOOKBACK,
+use crate::validator_side_experimental::{
+	common::{CONNECTED_PEERS_PARA_LIMIT, MAX_STARTUP_ANCESTRY_LOOKBACK},
+	peer_manager::Backend,
 };
 
 use super::*;
 use assert_matches::assert_matches;
 use codec::Encode;
-use futures::channel::mpsc::{self, UnboundedReceiver};
+use futures::channel::mpsc::UnboundedReceiver;
 use polkadot_node_network_protocol::{
 	peer_set::{CollationVersion, PeerSet},
-	request_response::{Requests, ResponseSender},
+	OurView,
 };
-use polkadot_node_primitives::{BlockData, PoV};
-use polkadot_node_subsystem::{
-	messages::{
-		AllMessages, ChainApiMessage, NetworkBridgeTxMessage, ProspectiveParachainsMessage,
-		RuntimeApiMessage, RuntimeApiRequest,
-	},
-	CollatorProtocolSenderTrait,
+use polkadot_node_subsystem::messages::{
+	AllMessages, ChainApiMessage, NetworkBridgeTxMessage, ProspectiveParachainsMessage,
+	RuntimeApiMessage, RuntimeApiRequest,
 };
 use polkadot_node_subsystem_test_helpers::{mock::new_leaf, sender_receiver, TestSubsystemSender};
 use polkadot_node_subsystem_util::TimeoutExt;
@@ -43,15 +40,15 @@ use polkadot_primitives::{
 		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, MutateDescriptorV2, UMPSignal,
 		UMP_SEPARATOR,
 	},
-	BlockNumber, CollatorPair, CoreIndex, GroupRotationInfo, Hash, HeadData, Header, Id as ParaId,
-	NodeFeatures, PersistedValidationData, SessionIndex, ValidatorId, ValidatorIndex,
+	BlockNumber, CoreIndex, GroupRotationInfo, Hash, Header, Id as ParaId, NodeFeatures,
+	SessionIndex, ValidatorId, ValidatorIndex,
 };
-use polkadot_primitives_test_helpers::{dummy_committed_candidate_receipt_v2, dummy_hash};
+use polkadot_primitives_test_helpers::dummy_committed_candidate_receipt_v2;
 use sc_network_types::multihash::Multihash;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::Keystore;
 use std::{
-	collections::{BTreeMap, HashMap},
+	collections::{BTreeMap, BTreeSet, HashMap},
 	sync::Arc,
 	time::Duration,
 };
@@ -66,7 +63,6 @@ fn peer_id(i: u8) -> PeerId {
 
 #[derive(Clone)]
 struct RelayParentInfo {
-	hash: Hash,
 	number: BlockNumber,
 	parent: Hash,
 	session_index: SessionIndex,
@@ -101,40 +97,52 @@ struct TestState {
 
 impl Default for TestState {
 	fn default() -> Self {
+		sp_tracing::init_for_tests();
+
 		let mut rp_info = HashMap::new();
-		let cq: BTreeMap<CoreIndex, Vec<ParaId>> = (0..3)
-			.map(|i| (CoreIndex::from(i), vec![ParaId::from(100), ParaId::from(200)]))
-			.collect();
+
+		let cq: BTreeMap<CoreIndex, Vec<ParaId>> =
+			(1..3).map(|i| (CoreIndex::from(i), vec![600.into(), 600.into()])).collect();
+
 		rp_info.insert(
 			get_hash(10),
 			RelayParentInfo {
-				hash: get_hash(10),
 				number: 10,
 				parent: get_parent_hash(10),
 				session_index: 1,
-				claim_queue: cq.clone(),
+				claim_queue: {
+					let mut cq = cq.clone();
+					cq.insert(CoreIndex(0), vec![100.into(), 200.into(), 100.into()]);
+					cq
+				},
 				assigned_core: CoreIndex(0),
 			},
 		);
 		rp_info.insert(
 			get_hash(9),
 			RelayParentInfo {
-				hash: get_hash(9),
 				number: 9,
 				parent: get_parent_hash(9),
 				session_index: 1,
-				claim_queue: cq.clone(),
+				claim_queue: {
+					let mut cq = cq.clone();
+					cq.insert(CoreIndex(0), vec![200.into(), 100.into(), 200.into()]);
+					cq
+				},
 				assigned_core: CoreIndex(0),
 			},
 		);
 		rp_info.insert(
 			get_hash(8),
 			RelayParentInfo {
-				hash: get_hash(8),
 				number: 8,
 				parent: get_parent_hash(8),
 				session_index: 1,
-				claim_queue: cq.clone(),
+				claim_queue: {
+					let mut cq = cq.clone();
+					cq.insert(CoreIndex(0), vec![100.into(), 200.into(), 100.into()]);
+					cq
+				},
 				assigned_core: CoreIndex(0),
 			},
 		);
@@ -158,7 +166,7 @@ impl Default for TestState {
 		];
 
 		let group_rotation_info =
-			GroupRotationInfo { session_start_block: 0, group_rotation_frequency: 3, now: 0 };
+			GroupRotationInfo { session_start_block: 0, group_rotation_frequency: 100, now: 0 };
 		session_info.insert(
 			1,
 			SessionInfo {
@@ -222,17 +230,29 @@ impl TestState {
 		assert!(self.recv.next().timeout(TIMEOUT).await.is_none());
 	}
 
-	async fn assert_peer_disconnected(&mut self, peer: PeerId) {
+	async fn assert_peers_disconnected(
+		&mut self,
+		expected_peers: impl IntoIterator<Item = PeerId>,
+	) {
+		let msg = match self.buffered_msg.take() {
+			Some(msg) => msg,
+			None => self.timeout_recv().await,
+		};
 		assert_matches!(
-			self.timeout_recv().await,
+			msg,
 			AllMessages::NetworkBridgeTx(
 				NetworkBridgeTxMessage::DisconnectPeers(peers, PeerSet::Collation)
-			) if peers == vec![peer]
+			) if peers.clone().into_iter().collect::<BTreeSet<_>>() == expected_peers.into_iter().collect::<BTreeSet<_>>()
 		);
 	}
 
 	async fn timeout_recv(&mut self) -> AllMessages {
-		self.recv.next().timeout(TIMEOUT).await.unwrap().unwrap()
+		self.recv
+			.next()
+			.timeout(TIMEOUT)
+			.await
+			.expect("Receiver timed out")
+			.expect("Sender dropped")
 	}
 
 	async fn handle_view_update(&mut self, view_update: ViewUpdate) {
@@ -361,6 +381,19 @@ impl TestState {
 		self.buffered_msg = extra_msg;
 	}
 
+	async fn activate_leaf<B: Backend>(&mut self, state: &mut State<B>, height: BlockNumber) {
+		let mut sender = self.sender.clone();
+		futures::join!(
+			self.handle_view_update(ViewUpdate { active: vec![get_hash(height)] }),
+			async {
+				state
+					.handle_our_view_change(&mut sender, OurView::new([get_hash(height)], 0))
+					.await
+					.unwrap()
+			}
+		);
+	}
+
 	async fn handle_finalized_block(&mut self, finalized: BlockNumber) {
 		let old_finalized = self.finalized_block;
 		self.finalized_block = finalized;
@@ -469,7 +502,11 @@ fn get_hash(number: u32) -> Hash {
 	Hash::from_low_u64_be(number as u64)
 }
 
-async fn make_state(test_state: &mut TestState, first_view_update: ViewUpdate) -> State<Db> {
+async fn make_state<B: Backend>(
+	db: B,
+	test_state: &mut TestState,
+	first_view_update: ViewUpdate,
+) -> State<B> {
 	assert_eq!(first_view_update.active.len(), 1);
 
 	let initial_leaf_hash = *(first_view_update.active.first().unwrap());
@@ -528,7 +565,6 @@ async fn make_state(test_state: &mut TestState, first_view_update: ViewUpdate) -
 		.await
 		.unwrap();
 
-		let db = Db::new(MAX_STORED_SCORES_PER_PARA).await;
 		let peer_manager = PeerManager::startup(db, &mut sender, collation_manager.assignments())
 			.await
 			.unwrap();
@@ -541,21 +577,6 @@ async fn make_state(test_state: &mut TestState, first_view_update: ViewUpdate) -
 	state
 }
 
-// Scenarios:
-// Test new peer connection: More extensively tested in the peer_manager tests.
-// - Test a peer that is already connected. No-op.
-// - Test a peer that replaces another peer.
-// - Test a peer that is rejected based on its low rep.
-// - Test a regular peer that is accepted.
-
-// Peer disconnection:
-// - Test a peer that disconnects. Verify that we don't try to make requests to it and that the
-//   claims were freed. Check that a reconnect is possible.
-
-// Peer declaration:
-// - reject a peer that switches the paraid.
-// - reject a peer that declares for a paraid that is not scheduled for the current group.
-
 // Finalized block notification:
 // - Test that reputation are bumped/decayed correctly.
 // - Later: Test a change in the registered paras.
@@ -566,9 +587,9 @@ async fn make_state(test_state: &mut TestState, first_view_update: ViewUpdate) -
 //   blocked by backing).
 // - Test an advertisement that is accepted and results in a request for a collation.
 
-// View updates:
-
 // Launching new collations:
+// - Verify that we don't try to make requests to a peer that disconnected and that the claims were
+//   freed.
 
 // Collation fetch response:
 // - Valid
@@ -580,35 +601,35 @@ async fn make_state(test_state: &mut TestState, first_view_update: ViewUpdate) -
 
 // Unblocking collations
 
-#[tokio::test]
-// Test various scenarios concerning connects/disconnects and declares.
-async fn test_connection_flow() {
-	// Leaf: 10.
-	// Parent: 9.
+// Test subsystem startup: make sure we are properly populating the db.
 
+#[tokio::test]
+// Test scenarios concerning connects/disconnects and declares.
+// More fine grained tests are in the `ConnectedPeers` unit tests.
+async fn test_connection_flow() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
 	let first_view_update = ViewUpdate { active: vec![active_leaf] };
-	let mut state = make_state(&mut test_state, first_view_update).await;
+	let db = Db::new(MAX_STORED_SCORES_PER_PARA).await;
+	let mut state = make_state(db, &mut test_state, first_view_update).await;
 	let mut sender = test_state.sender.clone();
 
 	let first_peer = PeerId::random();
 	state.handle_peer_connected(&mut sender, first_peer, CollationVersion::V2).await;
 	// If we don't get a disconnect message, it was accepted.
 	test_state.assert_no_messages().await;
+	assert_eq!(state.connected_peers(), [first_peer].into_iter().collect());
 
 	// Reconnecting is a no-op. We should have first received a disconnect.
 	state.handle_peer_connected(&mut sender, first_peer, CollationVersion::V1).await;
 	test_state.assert_no_messages().await;
+	assert_eq!(state.connected_peers(), [first_peer].into_iter().collect());
 
 	// Disconnect the peer.
 	state.handle_peer_disconnected(first_peer).await;
+	assert_eq!(state.connected_peers(), Default::default());
 
 	// Fill up the connection slots. For each para (ids 100 and 200) we should have 100 slots.
-	let active_leaf_info = test_state.rp_info.get(&active_leaf).unwrap();
-	let schedule = active_leaf_info.claim_queue.get(&active_leaf_info.assigned_core).unwrap();
-	assert_eq!(schedule.len(), 2);
-
 	let peer_ids = (0..(CONNECTED_PEERS_PARA_LIMIT.get() as u8))
 		.map(|i| peer_id(i))
 		.collect::<Vec<_>>();
@@ -617,27 +638,234 @@ async fn test_connection_flow() {
 		state.handle_peer_connected(&mut sender, *id, CollationVersion::V2).await;
 	}
 	test_state.assert_no_messages().await;
+	assert_eq!(state.connected_peers(), peer_ids.clone().into_iter().collect());
 
 	// Now all 100 peers were accepted on both paras (since they're not declared).
 	// A new connection from a peer with the same score will be rejected.
 	let new_peer = PeerId::random();
 	state.handle_peer_connected(&mut sender, new_peer, CollationVersion::V2).await;
+	test_state.assert_peers_disconnected([new_peer]).await;
+	assert_eq!(state.connected_peers(), peer_ids.clone().into_iter().collect());
 
-	test_state.assert_peer_disconnected(new_peer).await;
+	// Bump the reputations of all peers except for the first one.
+	// The ith peer will have it's reputation bumped i times.
+	let mut pending = vec![];
+	for (i, peer) in peer_ids.iter().enumerate().skip(1) {
+		for _ in 0..i {
+			pending.push((ParaId::from(100), *peer));
+		}
+	}
 
-	let mut sender = test_state.sender.clone();
-	// This bumps the
-	let mut pending = HashMap::new();
-	pending.insert(get_hash(1), vec![(ParaId::from(100), new_peer)]);
-	test_state.set_candidates_pending_availability(pending);
+	test_state.set_candidates_pending_availability(
+		[(get_hash(1), pending), (get_hash(2), vec![(ParaId::from(100), new_peer)])]
+			.into_iter()
+			.collect(),
+	);
+
+	// Reputations are bumped on finalized block notifications.
 	futures::join!(test_state.handle_finalized_block(2), async {
 		state.handle_finalized_block(&mut sender, get_hash(2), 2).await.unwrap()
 	});
-
 	test_state.assert_no_messages().await;
+	assert_eq!(state.connected_peers(), peer_ids.clone().into_iter().collect());
 
 	state.handle_peer_connected(&mut sender, new_peer, CollationVersion::V2).await;
-	// The new peer took the spot of some other one, but that other one remains connected for the
+	// The new peer took the spot of the first one, but that other one remains connected for the
 	// other para (200).
 	test_state.assert_no_messages().await;
+	assert_eq!(state.connected_peers(), peer_ids.clone().into_iter().chain([new_peer]).collect());
+
+	// If that first peer then declares for another para, it will get disconnected.
+	state.handle_declare(&mut sender, peer_ids[0], 100.into()).await;
+	test_state.assert_peers_disconnected([peer_ids[0]]).await;
+	assert_eq!(
+		state.connected_peers(),
+		peer_ids.clone().into_iter().skip(1).chain([new_peer]).collect()
+	);
+
+	// Make all peers declare for para 100.
+	state.handle_declare(&mut sender, new_peer, 100.into()).await;
+	for peer in peer_ids.iter().skip(1) {
+		state.handle_declare(&mut sender, *peer, 100.into()).await;
+	}
+	test_state.assert_no_messages().await;
+
+	// A subsequent declare is idempotent.
+	state.handle_declare(&mut sender, new_peer, 100.into()).await;
+
+	test_state.assert_no_messages().await;
+
+	assert_eq!(
+		state.connected_peers(),
+		peer_ids.clone().into_iter().skip(1).chain([new_peer]).collect()
+	);
+
+	// The first peer can attempt to reconnect and declare for the other para.
+	state
+		.handle_peer_connected(&mut sender, peer_ids[0], CollationVersion::V2)
+		.await;
+	state.handle_declare(&mut sender, peer_ids[0], 200.into()).await;
+	test_state.assert_no_messages().await;
+	assert_eq!(state.connected_peers(), peer_ids.clone().into_iter().chain([new_peer]).collect());
+	state.handle_peer_disconnected(peer_ids[0]).await;
+
+	// Will be disconnected if declared to collate for an unscheduled para.
+	state
+		.handle_peer_connected(&mut sender, peer_ids[0], CollationVersion::V2)
+		.await;
+	state.handle_declare(&mut sender, peer_ids[0], 600.into()).await;
+	test_state.assert_peers_disconnected([peer_ids[0]]).await;
+
+	assert_eq!(
+		state.connected_peers(),
+		peer_ids.clone().into_iter().skip(1).chain([new_peer]).collect()
+	);
+
+	// The new peer will be disconnected if it switches the paraid.
+	state.handle_declare(&mut sender, new_peer, 200.into()).await;
+	test_state.assert_peers_disconnected([new_peer]).await;
+	assert_eq!(state.connected_peers(), peer_ids.clone().into_iter().skip(1).collect());
 }
+
+// Test peer connection inheritance across scheduled para change.
+#[tokio::test]
+async fn test_peer_connections_across_schedule_change() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	let first_view_update = ViewUpdate { active: vec![active_leaf] };
+	let db = Db::new(MAX_STORED_SCORES_PER_PARA).await;
+	let mut state = make_state(db, &mut test_state, first_view_update).await;
+	let mut sender = test_state.sender.clone();
+
+	// Leaf 8 has 100, 200, 100.
+	// Leaf 9 has 200, 100, 200.
+	// Leaf 10 has 100, 200, 100.
+
+	// First 5 peers will be declared for para 100.
+	// Next 5 peers will be declared for para 200.
+	// Last 5 peers undeclared.
+	let peer_ids = (0..15).map(|i| peer_id(i)).collect::<Vec<_>>();
+
+	for id in peer_ids.iter() {
+		state.handle_peer_connected(&mut sender, *id, CollationVersion::V2).await;
+	}
+	test_state.assert_no_messages().await;
+	assert_eq!(state.connected_peers(), peer_ids.clone().into_iter().collect());
+
+	for id in &peer_ids[..5] {
+		state.handle_declare(&mut sender, *id, 100.into()).await;
+	}
+	for id in &peer_ids[5..10] {
+		state.handle_declare(&mut sender, *id, 200.into()).await;
+	}
+	test_state.assert_no_messages().await;
+	assert_eq!(state.connected_peers(), peer_ids.clone().into_iter().collect());
+
+	let all_100: Vec<ParaId> = std::iter::repeat(100.into()).take(3).collect();
+	let all_600: Vec<ParaId> = std::iter::repeat(600.into()).take(3).collect();
+
+	let prev_leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+	for (height, assignments) in [
+		(11, vec![200.into(), 100.into(), 100.into()]),
+		(12, all_100.clone()),
+		(13, all_100.clone()),
+		(14, all_100),
+		(15, all_600.clone()),
+		(16, all_600.clone()),
+		(17, all_600),
+	] {
+		let mut cq = prev_leaf_info.claim_queue.clone();
+		cq.insert(prev_leaf_info.assigned_core, assignments);
+
+		test_state.rp_info.insert(
+			get_hash(height),
+			RelayParentInfo {
+				number: height,
+				parent: get_parent_hash(height),
+				session_index: prev_leaf_info.session_index,
+				claim_queue: cq.clone(),
+				assigned_core: prev_leaf_info.assigned_core,
+			},
+		);
+	}
+
+	// Send an active leaf update which preserves one last claim for para 200.
+	// Send the same active leaf update twice, should be idempotent.
+	for _ in 0..2 {
+		test_state.activate_leaf(&mut state, 11).await;
+		test_state.assert_no_messages().await;
+		assert_eq!(state.connected_peers(), peer_ids.clone().into_iter().collect());
+	}
+
+	// Send active leaf updates which drop all assignments for para 200. The declared peers for
+	// 200 will be dropped.
+	for height in 12..=13 {
+		test_state.activate_leaf(&mut state, height).await;
+		test_state.assert_no_messages().await;
+		assert_eq!(state.connected_peers(), peer_ids.clone().into_iter().collect());
+	}
+	test_state.activate_leaf(&mut state, 14).await;
+	test_state.assert_peers_disconnected((&peer_ids[5..10]).to_vec()).await;
+	let expected_connected_peers = (&peer_ids[..5])
+		.into_iter()
+		.cloned()
+		.chain((&peer_ids[10..15]).into_iter().cloned())
+		.collect();
+	assert_eq!(state.connected_peers(), expected_connected_peers);
+	test_state.assert_no_messages().await;
+
+	// Send active leaf updates which drop all assignments for para 100 as well. Only undeclared
+	// peers will remain
+	for height in 15..=16 {
+		test_state.activate_leaf(&mut state, height).await;
+		test_state.assert_no_messages().await;
+		assert_eq!(state.connected_peers(), expected_connected_peers);
+	}
+
+	test_state.activate_leaf(&mut state, 17).await;
+
+	test_state.assert_peers_disconnected((&peer_ids[0..5]).to_vec()).await;
+	let expected_connected_peers = (&peer_ids[10..]).into_iter().cloned().collect();
+	assert_eq!(state.connected_peers(), expected_connected_peers);
+	test_state.assert_no_messages().await;
+
+	// Add a fork which brings back assignment for para 200. Test that assignments are considered
+	// across forks.
+	let mut cq = prev_leaf_info.claim_queue.clone();
+	cq.insert(prev_leaf_info.assigned_core, vec![200.into()]);
+
+	let fork_hash = Hash::random();
+	test_state.rp_info.insert(
+		fork_hash,
+		RelayParentInfo {
+			number: 17,
+			parent: get_parent_hash(17),
+			session_index: prev_leaf_info.session_index,
+			claim_queue: cq.clone(),
+			assigned_core: prev_leaf_info.assigned_core,
+		},
+	);
+	futures::join!(test_state.handle_view_update(ViewUpdate { active: vec![fork_hash] }), async {
+		state
+			.handle_our_view_change(&mut sender, OurView::new([fork_hash], 0))
+			.await
+			.unwrap()
+	});
+
+	assert_eq!(state.connected_peers(), expected_connected_peers);
+	test_state.assert_no_messages().await;
+
+	// Declare a peer for para 600 and a peer for para 200. They should both be kept.
+	let peer_200 = peer_ids[10];
+	let peer_600 = peer_ids[11];
+	state.handle_declare(&mut sender, peer_200, 200.into()).await;
+	test_state.assert_no_messages().await;
+
+	state.handle_declare(&mut sender, peer_600, 600.into()).await;
+	test_state.assert_no_messages().await;
+	assert_eq!(state.connected_peers(), expected_connected_peers);
+}
+
+// Test peer connection inheritance across group rotations.
+#[tokio::test]
+async fn test_peer_connections_across_group_rotations() {}

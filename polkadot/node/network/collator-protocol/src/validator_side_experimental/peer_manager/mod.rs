@@ -249,6 +249,7 @@ impl<B: Backend> PeerManager<B> {
 					?peer_id,
 					"Peer switched collating paraid. Rejected.",
 				);
+				self.disconnect_peers(sender, [peer_id].into_iter()).await;
 				false
 			},
 			DeclarationOutcome::Rejected => {
@@ -307,9 +308,7 @@ impl<B: Backend> PeerManager<B> {
 		match outcome {
 			TryAcceptOutcome::Added => TryAcceptOutcome::Added,
 			TryAcceptOutcome::Replaced(other_peers) => {
-				if !other_peers.is_empty() {
-					self.disconnect_peers(sender, other_peers.clone().into_iter()).await;
-				}
+				self.disconnect_peers(sender, other_peers.clone().into_iter()).await;
 				TryAcceptOutcome::Replaced(other_peers)
 			},
 			TryAcceptOutcome::Rejected => {
@@ -334,12 +333,20 @@ impl<B: Backend> PeerManager<B> {
 		self.db.max_scores_for_paras(paras).await
 	}
 
+	#[cfg(test)]
+	pub fn connected_peers(&self) -> BTreeSet<PeerId> {
+		self.connected.clone().consume().0.into_keys().collect()
+	}
+
 	async fn disconnect_peers<Sender: CollatorProtocolSenderTrait>(
 		&self,
 		sender: &mut Sender,
 		peers: impl Iterator<Item = PeerId>,
 	) {
-		let peers = peers.collect();
+		let peers: Vec<_> = peers.collect();
+		if peers.is_empty() {
+			return
+		}
 		gum::trace!(
 			target: LOG_TARGET,
 			?peers,
