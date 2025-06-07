@@ -265,7 +265,7 @@ jobs:
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
   #
-  #
+  # TODO: Disabled, fails 100% with with zombienet native provider
   zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility') }}
@@ -321,7 +321,7 @@ jobs:
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
   #
-  #
+  # TODO: Disabled. Fails most of the times with zombienet native provider.
   zombienet-polkadot-functional-0018-shared-core-idle-parachain:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-functional-0018-shared-core-idle-parachain') }}
@@ -431,7 +431,7 @@ jobs:
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
   #
-  # (skipped in gitlab)
+  # TODO: Disabled
   zombienet-polkadot-smoke-0003-deregister-register-validator:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-smoke-0003-deregister-register-validator') }}
@@ -599,6 +599,7 @@ jobs:
   # sdk tests
   #
 
+  # TODO: Disabled
   zombienet-polkadot-coretime-revenue:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-coretime-revenue') }}
@@ -655,7 +656,7 @@ jobs:
           test: "elastic_scaling::slot_based_3cores::slot_based_3cores_test"
           prefix: "polkadot"
   #
-  #
+  # TODO: Disabled, fails very often with zombienet native provider
   zombienet-polkadot-elastic-scaling-slot-based-12cores:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-elastic-scaling-slot-based-12cores') }}
@@ -914,7 +915,8 @@ jobs:
           prefix: "polkadot"
 
   #
-  #
+  # TODO: Disabled, need to address the problem with getting old version validators for
+  # zombienet native provider
   zombienet-polkadot-approved-peer-mixed-validators:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-functional-spam-statement-distribution-requests') }}
