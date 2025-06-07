@@ -304,23 +304,20 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				prometheus_registry.clone(),
 			);
 
-			let enable_stmt_store =
-				has_validate_statement_api_at_hash(client.as_ref(), client.chain_info().best_hash)?;
-
-			let metrics = Net::register_notification_metrics(
+						let metrics = Net::register_notification_metrics(
 				parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
 			);
 
-			let statement_handler_proto = if enable_stmt_store {
-				Some(new_statement_handler_proto(
-					&*client,
-					&parachain_config,
-					&metrics,
-					&mut net_config,
-				))
-			} else {
-				None
-			};
+			let statement_handler_proto =
+				has_validate_statement_api_at_hash(client.as_ref(), client.chain_info().best_hash)?
+					.then(|| {
+						new_statement_handler_proto(
+							&*client,
+							&parachain_config,
+							&metrics,
+							&mut net_config,
+						)
+					});
 
 			let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 				build_network(BuildNetworkParams {
@@ -337,8 +334,8 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				})
 				.await?;
 
-			let statement_store = if let Some(statement_handler_proto) = statement_handler_proto {
-				Some(build_statement_store(
+						let statement_store = statement_handler_proto.map(|statement_handler_proto| {
+				build_statement_store(
 					&parachain_config,
 					&mut task_manager,
 					client.clone(),
@@ -346,10 +343,8 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					sync_service.clone(),
 					params.keystore_container.local_keystore(),
 					statement_handler_proto,
-				)?)
-			} else {
-				None
-			};
+				)?
+			});
 
 			if parachain_config.offchain_worker.enabled {
 				let custom_extensions = {
