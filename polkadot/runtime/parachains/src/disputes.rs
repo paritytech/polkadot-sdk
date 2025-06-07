@@ -83,8 +83,9 @@ impl RewardValidators for () {
 
 /// Punishment hooks for disputes.
 pub trait SlashingHandler<BlockNumber> {
-	/// Punish a series of validators who were for an invalid parablock. This is
-	/// expected to be a major punishment.
+	/// Punish a series of validators who were for an invalid parablock.
+	/// This is expected to trigger a large punishment for backers
+	/// and a medium punishment for other approvers.
 	fn punish_for_invalid(
 		session: SessionIndex,
 		candidate_hash: CandidateHash,
@@ -92,8 +93,8 @@ pub trait SlashingHandler<BlockNumber> {
 		backers: impl IntoIterator<Item = ValidatorIndex>,
 	);
 
-	/// Punish a series of validators who were against a valid parablock. This
-	/// is expected to be a minor punishment.
+	/// Punish a series of validators who were against a valid parablock.
+	/// This is expected to be a minor punishment.
 	fn punish_against_valid(
 		session: SessionIndex,
 		candidate_hash: CandidateHash,

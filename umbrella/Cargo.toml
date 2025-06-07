@@ -87,6 +87,7 @@ std = [
 	"pallet-delegated-staking?/std",
 	"pallet-democracy?/std",
 	"pallet-dev-mode?/std",
+	"pallet-dummy-dim?/std",
 	"pallet-election-provider-multi-block?/std",
 	"pallet-election-provider-multi-phase?/std",
 	"pallet-election-provider-support-benchmarking?/std",
@@ -116,16 +117,20 @@ std = [
 	"pallet-nomination-pools?/std",
 	"pallet-offences-benchmarking?/std",
 	"pallet-offences?/std",
+<<<<<<< HEAD
 	"pallet-opf?/std",
+=======
+	"pallet-origin-restriction?/std",
+>>>>>>> upstream/master
 	"pallet-paged-list?/std",
 	"pallet-parameters?/std",
+	"pallet-people?/std",
 	"pallet-preimage?/std",
 	"pallet-proxy?/std",
 	"pallet-ranked-collective?/std",
 	"pallet-recovery?/std",
 	"pallet-referenda?/std",
 	"pallet-remark?/std",
-	"pallet-revive-mock-network?/std",
 	"pallet-revive?/std",
 	"pallet-root-offences?/std",
 	"pallet-root-testing?/std",
@@ -275,6 +280,7 @@ runtime-benchmarks = [
 	"pallet-core-fellowship?/runtime-benchmarks",
 	"pallet-delegated-staking?/runtime-benchmarks",
 	"pallet-democracy?/runtime-benchmarks",
+	"pallet-dummy-dim?/runtime-benchmarks",
 	"pallet-election-provider-multi-block?/runtime-benchmarks",
 	"pallet-election-provider-multi-phase?/runtime-benchmarks",
 	"pallet-election-provider-support-benchmarking?/runtime-benchmarks",
@@ -299,16 +305,20 @@ runtime-benchmarks = [
 	"pallet-nomination-pools?/runtime-benchmarks",
 	"pallet-offences-benchmarking?/runtime-benchmarks",
 	"pallet-offences?/runtime-benchmarks",
+<<<<<<< HEAD
 	"pallet-opf?/runtime-benchmarks",
+=======
+	"pallet-origin-restriction?/runtime-benchmarks",
+>>>>>>> upstream/master
 	"pallet-paged-list?/runtime-benchmarks",
 	"pallet-parameters?/runtime-benchmarks",
+	"pallet-people?/runtime-benchmarks",
 	"pallet-preimage?/runtime-benchmarks",
 	"pallet-proxy?/runtime-benchmarks",
 	"pallet-ranked-collective?/runtime-benchmarks",
 	"pallet-recovery?/runtime-benchmarks",
 	"pallet-referenda?/runtime-benchmarks",
 	"pallet-remark?/runtime-benchmarks",
-	"pallet-revive-mock-network?/runtime-benchmarks",
 	"pallet-revive?/runtime-benchmarks",
 	"pallet-root-offences?/runtime-benchmarks",
 	"pallet-safe-mode?/runtime-benchmarks",
@@ -409,6 +419,7 @@ try-runtime = [
 	"pallet-delegated-staking?/try-runtime",
 	"pallet-democracy?/try-runtime",
 	"pallet-dev-mode?/try-runtime",
+	"pallet-dummy-dim?/try-runtime",
 	"pallet-election-provider-multi-block?/try-runtime",
 	"pallet-election-provider-multi-phase?/try-runtime",
 	"pallet-elections-phragmen?/try-runtime",
@@ -433,16 +444,20 @@ try-runtime = [
 	"pallet-node-authorization?/try-runtime",
 	"pallet-nomination-pools?/try-runtime",
 	"pallet-offences?/try-runtime",
+<<<<<<< HEAD
 	"pallet-opf?/try-runtime",
+=======
+	"pallet-origin-restriction?/try-runtime",
+>>>>>>> upstream/master
 	"pallet-paged-list?/try-runtime",
 	"pallet-parameters?/try-runtime",
+	"pallet-people?/try-runtime",
 	"pallet-preimage?/try-runtime",
 	"pallet-proxy?/try-runtime",
 	"pallet-ranked-collective?/try-runtime",
 	"pallet-recovery?/try-runtime",
 	"pallet-referenda?/try-runtime",
 	"pallet-remark?/try-runtime",
-	"pallet-revive-mock-network?/try-runtime",
 	"pallet-revive?/try-runtime",
 	"pallet-root-offences?/try-runtime",
 	"pallet-root-testing?/try-runtime",
@@ -620,6 +635,7 @@ runtime-full = [
 	"pallet-delegated-staking",
 	"pallet-democracy",
 	"pallet-dev-mode",
+	"pallet-dummy-dim",
 	"pallet-election-provider-multi-block",
 	"pallet-election-provider-multi-phase",
 	"pallet-election-provider-support-benchmarking",
@@ -649,9 +665,14 @@ runtime-full = [
 	"pallet-nomination-pools-runtime-api",
 	"pallet-offences",
 	"pallet-offences-benchmarking",
+<<<<<<< HEAD
 	"pallet-opf",
+=======
+	"pallet-origin-restriction",
+>>>>>>> upstream/master
 	"pallet-paged-list",
 	"pallet-parameters",
+	"pallet-people",
 	"pallet-preimage",
 	"pallet-proxy",
 	"pallet-ranked-collective",
@@ -859,7 +880,6 @@ node = [
 	"mmr-rpc",
 	"pallet-contracts-mock-network",
 	"pallet-revive-eth-rpc",
-	"pallet-revive-mock-network",
 	"pallet-transaction-payment-rpc",
 	"parachains-runtimes-test-utils",
 	"polkadot-approval-distribution",
@@ -1402,6 +1422,11 @@ default-features = false
 optional = true
 path = "../substrate/frame/examples/dev-mode"
 
+[dependencies.pallet-dummy-dim]
+default-features = false
+optional = true
+path = "../substrate/frame/dummy-dim"
+
 [dependencies.pallet-election-provider-multi-block]
 default-features = false
 optional = true
@@ -1547,10 +1572,17 @@ default-features = false
 optional = true
 path = "../substrate/frame/offences/benchmarking"
 
+<<<<<<< HEAD
 [dependencies.pallet-opf]
 default-features = false
 optional = true
 path = "../substrate/frame/opf"
+=======
+[dependencies.pallet-origin-restriction]
+default-features = false
+optional = true
+path = "../substrate/frame/origin-restriction"
+>>>>>>> upstream/master
 
 [dependencies.pallet-paged-list]
 default-features = false
@@ -1561,6 +1593,11 @@ path = "../substrate/frame/paged-list"
 default-features = false
 optional = true
 path = "../substrate/frame/parameters"
+
+[dependencies.pallet-people]
+default-features = false
+optional = true
+path = "../substrate/frame/people"
 
 [dependencies.pallet-preimage]
 default-features = false
@@ -2271,11 +2308,6 @@ path = "../substrate/frame/contracts/mock-network"
 default-features = false
 optional = true
 path = "../substrate/frame/revive/rpc"
-
-[dependencies.pallet-revive-mock-network]
-default-features = false
-optional = true
-path = "../substrate/frame/revive/mock-network"
 
 [dependencies.pallet-transaction-payment-rpc]
 default-features = false
