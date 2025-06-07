@@ -304,7 +304,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				prometheus_registry.clone(),
 			);
 
-						let metrics = Net::register_notification_metrics(
+			let metrics = Net::register_notification_metrics(
 				parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
 			);
 
@@ -334,17 +334,19 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				})
 				.await?;
 
-						let statement_store = statement_handler_proto.map(|statement_handler_proto| {
-				build_statement_store(
-					&parachain_config,
-					&mut task_manager,
-					client.clone(),
-					network.clone(),
-					sync_service.clone(),
-					params.keystore_container.local_keystore(),
-					statement_handler_proto,
-				)?
-			});
+			let statement_store = statement_handler_proto
+				.map(|statement_handler_proto| {
+					build_statement_store(
+						&parachain_config,
+						&mut task_manager,
+						client.clone(),
+						network.clone(),
+						sync_service.clone(),
+						params.keystore_container.local_keystore(),
+						statement_handler_proto,
+					)
+				})
+				.transpose()?;
 
 			if parachain_config.offchain_worker.enabled {
 				let custom_extensions = {
