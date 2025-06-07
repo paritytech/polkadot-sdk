@@ -81,7 +81,7 @@ jobs:
         with:
           name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
-          retention-days: 1
+          retention-days: 2
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
@@ -121,7 +121,7 @@ jobs:
         with:
           name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
-          retention-days: 1
+          retention-days: 2
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
@@ -163,7 +163,7 @@ jobs:
         with:
           name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
-          retention-days: 1
+          retention-days: 2
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
@@ -206,7 +206,7 @@ jobs:
         with:
           name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
-          retention-days: 1
+          retention-days: 2
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
@@ -248,7 +248,7 @@ jobs:
         with:
           name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
-          retention-days: 1
+          retention-days: 2
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
@@ -295,7 +295,7 @@ jobs:
         with:
           name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
-          retention-days: 1
+          retention-days: 2
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
@@ -338,7 +338,7 @@ jobs:
         with:
           name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
-          retention-days: 1
+          retention-days: 2
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
@@ -377,7 +377,7 @@ jobs:
         with:
           name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
-          retention-days: 1
+          retention-days: 2
 
   #
   #
@@ -407,7 +407,7 @@ jobs:
         with:
           name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
-          retention-days: 1
+          retention-days: 2
 
   #
   #
@@ -437,7 +437,7 @@ jobs:
         with:
           name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
-          retention-days: 1
+          retention-days: 2
 
   prepare-parachain-templates-zombienet-artifacts:
     needs: [preflight]
@@ -464,7 +464,7 @@ jobs:
         with:
           name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           path: artifacts.tar
-          retention-days: 1
+          retention-days: 2
 
   ### Publish ########################
 
