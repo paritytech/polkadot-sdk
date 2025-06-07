@@ -117,11 +117,8 @@ std = [
 	"pallet-nomination-pools?/std",
 	"pallet-offences-benchmarking?/std",
 	"pallet-offences?/std",
-<<<<<<< HEAD
 	"pallet-opf?/std",
-=======
 	"pallet-origin-restriction?/std",
->>>>>>> upstream/master
 	"pallet-paged-list?/std",
 	"pallet-parameters?/std",
 	"pallet-people?/std",
@@ -305,11 +302,8 @@ runtime-benchmarks = [
 	"pallet-nomination-pools?/runtime-benchmarks",
 	"pallet-offences-benchmarking?/runtime-benchmarks",
 	"pallet-offences?/runtime-benchmarks",
-<<<<<<< HEAD
 	"pallet-opf?/runtime-benchmarks",
-=======
 	"pallet-origin-restriction?/runtime-benchmarks",
->>>>>>> upstream/master
 	"pallet-paged-list?/runtime-benchmarks",
 	"pallet-parameters?/runtime-benchmarks",
 	"pallet-people?/runtime-benchmarks",
@@ -444,11 +438,8 @@ try-runtime = [
 	"pallet-node-authorization?/try-runtime",
 	"pallet-nomination-pools?/try-runtime",
 	"pallet-offences?/try-runtime",
-<<<<<<< HEAD
 	"pallet-opf?/try-runtime",
-=======
 	"pallet-origin-restriction?/try-runtime",
->>>>>>> upstream/master
 	"pallet-paged-list?/try-runtime",
 	"pallet-parameters?/try-runtime",
 	"pallet-people?/try-runtime",
@@ -665,11 +656,8 @@ runtime-full = [
 	"pallet-nomination-pools-runtime-api",
 	"pallet-offences",
 	"pallet-offences-benchmarking",
-<<<<<<< HEAD
 	"pallet-opf",
-=======
 	"pallet-origin-restriction",
->>>>>>> upstream/master
 	"pallet-paged-list",
 	"pallet-parameters",
 	"pallet-people",
@@ -1572,17 +1560,14 @@ default-features = false
 optional = true
 path = "../substrate/frame/offences/benchmarking"
 
-<<<<<<< HEAD
 [dependencies.pallet-opf]
 default-features = false
 optional = true
 path = "../substrate/frame/opf"
-=======
 [dependencies.pallet-origin-restriction]
 default-features = false
 optional = true
 path = "../substrate/frame/origin-restriction"
->>>>>>> upstream/master
 
 [dependencies.pallet-paged-list]
 default-features = false
