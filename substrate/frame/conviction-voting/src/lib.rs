@@ -429,6 +429,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				let votes = &mut voting.votes;
 				let delegations = &mut voting.delegations;
 				let mut vote_introduced = false;
+				// Remove update vote data and remove old votes effect on tally
 				let index = match votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
 					// Found the vote for who
 					Ok(i) => {
@@ -443,10 +444,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 								tally.reduce(approve, final_delegations);
 							}
 						} else {
-							// Vote going from none to something
+							// Vote going from none to some
 							vote_introduced = true;
 						}
-						// Update who's vote data with incoming vote
+						// Update their vote data with incoming vote
 						votes[i].maybe_vote = Some(vote);
 						i
 					},
@@ -473,16 +474,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 				// Update delegate's info if delegating
 				if let (Some(delegate), Some(conviction)) = (&voting.delegate, &voting.conviction) {
-					// Calculate amount delegated to delegate
-					let amount_delegated = conviction.votes(voting.delegated_balance);
-					VotingFor::<T, I>::try_mutate(delegate, &class, |delegate_voting| -> Result<(), DispatchError> {
-						let delegates_votes = &mut delegate_voting.votes;
-						// Search for data about poll in delegates voting info
-						match delegates_votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
-							// Found
-							Ok(i) => {
-								// Only if delegators vote is went from None to Some
-								if vote_introduced {
+					// Only if delegator's vote went from None to Some, otherwise the retraction will already be there
+					if vote_introduced {
+						// Calculate amount delegated to delegate
+						let amount_delegated = conviction.votes(voting.delegated_balance);
+						VotingFor::<T, I>::try_mutate(delegate, &class, |delegate_voting| -> Result<(), DispatchError> {
+							let delegates_votes = &mut delegate_voting.votes;
+							// Search for data about poll in delegates voting info
+							match delegates_votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
+								Ok(i) => {
 									// Update delegates clawback amount for this poll
 									delegates_votes[i].retracted_votes.saturating_add(amount_delegated);
 
@@ -493,18 +493,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 											tally.reduce(approve, amount_delegated);
 										}
 									}
-								}
-								Ok(())
-							},
-							// Not found, add empty vote and clawback amount
-							Err(i) => {
-								let poll_vote = PollVote {poll_index: poll_index, maybe_vote: None, retracted_votes: amount_delegated};
-								votes
-									.try_insert(i, poll_vote)
-									.map_err(|_| Error::<T, I>::DelegateMaxVotesReached.into())
-							},
-						}
-					})?;
+									Ok(())
+								},
+								// Not found, add empty vote and clawback amount
+								Err(i) => {
+									let poll_vote = PollVote {poll_index: poll_index, maybe_vote: None, retracted_votes: amount_delegated};
+									votes
+										.try_insert(i, poll_vote)
+										.map_err(|_| Error::<T, I>::DelegateMaxVotesReached.into())
+								},
+							}
+						})?;
+				}
 				}
 
 				// Extend the lock to `balance` (rather than setting it) since we don't know what
