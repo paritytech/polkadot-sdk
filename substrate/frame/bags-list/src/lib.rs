@@ -457,11 +457,12 @@ pub mod pallet {
 					Self::iter()
 				},
 			};
-
 			let accounts: Vec<_> = iter.take((rebag_budget + 1) as usize).collect();
 
 			// Safe split: if we reached (or passed) the tail of the list, we don’t want to panic.
 			let (to_process, next_cursor) = if accounts.len() <= rebag_budget as usize {
+				// This guarantees we either get the next account to process
+				// or gracefully receive None.
 				(accounts.as_slice(), &[][..])
 			} else {
 				accounts.split_at(rebag_budget as usize)
