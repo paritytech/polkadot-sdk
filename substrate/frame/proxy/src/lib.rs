@@ -57,6 +57,7 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 #[derive(
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Clone,
 	Copy,
 	Eq,
