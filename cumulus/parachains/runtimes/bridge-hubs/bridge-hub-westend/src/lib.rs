@@ -1054,18 +1054,29 @@ impl_runtime_apis! {
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 
+			use xcm::latest::prelude::*;
+			use xcm_config::WestendLocation;
+			use xcm_config::{AssetHubId, AssetHubParaLocation};
+			parameter_types! {
+				pub ExistentialDepositAsset: Option<Asset> = Some((
+					WestendLocation::get(),
+					ExistentialDeposit::get()
+				).into());
+				pub AssetHubParaId: ParaId = ParaId::new(AssetHubId::get());
+			}
+
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
 				type DeliveryHelper = polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
-						RandomParaId,
+						AssetHubParaId,
 						ParachainSystem,
 					>;
 
 				fn reachable_dest() -> Option<Location> {
-					Some(RandomParaLocation::get())
+					Some(AssetHubParaLocation::get())
 				}
 
 				fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
@@ -1075,7 +1086,7 @@ impl_runtime_apis! {
 							fun: Fungible(ExistentialDeposit::get()),
 							id: AssetId(WestendLocation::get())
 						},
-						RandomParaLocation::get(),
+						AssetHubParaLocation::get(),
 					))
 				}
 
@@ -1089,7 +1100,7 @@ impl_runtime_apis! {
 					// BH only supports teleports to system parachain.
 					// Relay/native token can be teleported between BH and Relay.
 					let native_location = WestendLocation::get();
-					let dest = RandomParaLocation::get();
+					let dest = AssetHubParaLocation::get();
 					pallet_xcm::benchmarking::helpers::native_teleport_as_asset_transfer::<Runtime>(
 						native_location,
 						dest
@@ -1098,20 +1109,10 @@ impl_runtime_apis! {
 
 				fn get_asset() -> Asset {
 					Asset {
-						id: AssetId(WestendLocation::get()),
+						id: AssetId(Location::parent()),
 						fun: Fungible(ExistentialDeposit::get()),
 					}
 				}
-			}
-
-			use xcm::latest::prelude::*;
-			use xcm_config::WestendLocation;
-
-			parameter_types! {
-				pub ExistentialDepositAsset: Option<Asset> = Some((
-					WestendLocation::get(),
-					ExistentialDeposit::get()
-				).into());
 			}
 
 			impl pallet_xcm_benchmarks::Config for Runtime {
@@ -1121,11 +1122,11 @@ impl_runtime_apis! {
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
-						RandomParaId,
+						AssetHubParaId,
 						ParachainSystem,
 					>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
-					Ok(RandomParaLocation::get())
+					Ok(AssetHubParaLocation::get())
 				}
 				fn worst_case_holding(_depositable_count: u32) -> Assets {
 					// just assets according to relay chain.
@@ -1141,7 +1142,7 @@ impl_runtime_apis! {
 
 			parameter_types! {
 				pub TrustedTeleporter: Option<(Location, Asset)> = Some((
-					RandomParaLocation::get(),
+					AssetHubParaLocation::get(),
 					Asset { fun: Fungible(UNITS), id: AssetId(WestendLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
@@ -1180,15 +1181,15 @@ impl_runtime_apis! {
 				}
 
 				fn transact_origin_and_runtime_call() -> Result<(Location, RuntimeCall), BenchmarkError> {
-					Ok((WestendLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
+					Ok((AssetHubParaLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
 				}
 
 				fn subscribe_origin() -> Result<Location, BenchmarkError> {
-					Ok(WestendLocation::get())
+					Ok(AssetHubParaLocation::get())
 				}
 
 				fn claimable_asset() -> Result<(Location, Location, Assets), BenchmarkError> {
-					let origin = WestendLocation::get();
+					let origin = AssetHubParaLocation::get();
 					let assets: Assets = (AssetId(WestendLocation::get()), 1_000 * UNITS).into();
 					let ticket = Location { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
