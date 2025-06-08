@@ -188,7 +188,7 @@ pub type WaivedLocations = (
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 /// - NativeToken with the parent Relay Chain and sibling parachains.
-pub type TrustedTeleporters = ConcreteAssetFromSystem<RandomParaLocation>;
+pub type TrustedTeleporters = ConcreteAssetFromSystem<WestendLocation>;
 
 /// Defines origin aliasing rules for this chain.
 ///
