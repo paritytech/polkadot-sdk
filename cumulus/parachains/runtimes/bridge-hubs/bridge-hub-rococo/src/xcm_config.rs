@@ -66,6 +66,9 @@ parameter_types! {
 	pub const TokenLocation: Location = Location::parent();
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub RelayNetwork: NetworkId = NetworkId::ByGenesis(ROCOCO_GENESIS_HASH);
+	pub AssetHubId: u32 = 1000;
+	pub AssetHubParaLocation: Location = ParentThen(Parachain(
+		AssetHubId::get().into()).into()).into();
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into())].into();
 	pub const MaxInstructions: u32 = 100;

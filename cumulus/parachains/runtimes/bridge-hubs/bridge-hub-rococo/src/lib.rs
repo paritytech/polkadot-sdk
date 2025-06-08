@@ -1112,18 +1112,29 @@ impl_runtime_apis! {
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 
+			use xcm::latest::prelude::*;
+			use xcm_config::TokenLocation;
+			use xcm_config::{AssetHubId, AssetHubParaLocation};
+			parameter_types! {
+				pub ExistentialDepositAsset: Option<Asset> = Some((
+					TokenLocation::get(),
+					ExistentialDeposit::get()
+				).into());
+				pub AssetHubParaId: ParaId = ParaId::new(AssetHubId::get());
+			}
+
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
 				type DeliveryHelper = polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
-						RandomParaId,
+						AssetHubParaId,
 						ParachainSystem,
 					>;
 
 				fn reachable_dest() -> Option<Location> {
-					Some(RandomParaLocation::get())
+					Some(AssetHubParaLocation::get())
 				}
 
 				fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
@@ -1133,7 +1144,7 @@ impl_runtime_apis! {
 							fun: Fungible(ExistentialDeposit::get()),
 							id: AssetId(TokenLocation::get())
 						},
-						RandomParaLocation::get(),
+						AssetHubParaLocation::get(),
 					))
 				}
 
@@ -1147,7 +1158,7 @@ impl_runtime_apis! {
 					// BH only supports teleports to system parachain.
 					// Relay/native token can be teleported between BH and Relay.
 					let native_location = TokenLocation::get();
-					let dest = RandomParaLocation::get();
+					let dest = AssetHubParaLocation::get();
 					pallet_xcm::benchmarking::helpers::native_teleport_as_asset_transfer::<Runtime>(
 						native_location,
 						dest
@@ -1162,18 +1173,6 @@ impl_runtime_apis! {
 				}
 			}
 
-			use xcm::latest::prelude::*;
-			use xcm_config::TokenLocation;
-
-			parameter_types! {
-				pub ExistentialDepositAsset: Option<Asset> = Some((
-					TokenLocation::get(),
-					ExistentialDeposit::get()
-				).into());
-				pub RandomParaId: ParaId = ParaId::new(43211234);
-				pub RandomParaLocation: Location = ParentThen(Parachain(RandomParaId::get().into()).into()).into();
-			}
-
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
@@ -1181,11 +1180,11 @@ impl_runtime_apis! {
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
-						RandomParaId,
+						AssetHubParaId,
 						ParachainSystem,
 					>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
-					Ok(RandomParaLocation::get())
+					Ok(AssetHubParaLocation::get())
 				}
 				fn worst_case_holding(_depositable_count: u32) -> Assets {
 					// just concrete assets according to relay chain.
@@ -1201,7 +1200,7 @@ impl_runtime_apis! {
 
 			parameter_types! {
 				pub TrustedTeleporter: Option<(Location, Asset)> = Some((
-					RandomParaLocation::get(),
+					AssetHubParaLocation::get(),
 					Asset { fun: Fungible(UNITS), id: AssetId(TokenLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
