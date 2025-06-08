@@ -952,7 +952,7 @@ impl_runtime_apis! {
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
-						AssetHubId,
+						AssetHubParaId,
 						ParachainSystem,
 					>;
 
@@ -994,13 +994,14 @@ impl_runtime_apis! {
 			}
 
 			use xcm::latest::prelude::*;
-			use xcm_config::{PriceForParentDelivery, RelayLocation};
 
 			parameter_types! {
 				pub ExistentialDepositAsset: Option<Asset> = Some((
 					RelayLocation::get(),
 					ExistentialDeposit::get()
 				).into());
+
+				pub AssetHubParaId: ParaId = ParaId::new(AssetHubId::get());
 			}
 
 			impl pallet_xcm_benchmarks::Config for Runtime {
@@ -1010,7 +1011,7 @@ impl_runtime_apis! {
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
-						AssetHubId,
+						AssetHubParaId,
 						ParachainSystem,
 					>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
