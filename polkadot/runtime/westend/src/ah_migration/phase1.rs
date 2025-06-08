@@ -119,7 +119,7 @@ pub fn call_allowed_status(call: &<Runtime as frame_system::Config>::RuntimeCall
 		Paras(..) => (ON, ON),
 		Initializer(..) => (ON, ON),
 		// Dmp has no calls and deprecated
-		Hrmp(..) => (OFF, OFF),
+		Hrmp(..) => (OFF, ON),
 		// ParaSessionInfo has no calls
 		ParasDisputes(..) => (OFF, ON), // TODO check with security
 		ParasSlashing(..) => (OFF, ON), // TODO check with security
