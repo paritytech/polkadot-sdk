@@ -54,6 +54,9 @@ parameter_types! {
 	pub const RootLocation: Location = Location::here();
 	pub const RelayLocation: Location = Location::parent();
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::ByGenesis(ROCOCO_GENESIS_HASH));
+	pub AssetHubId: u32 = 1000;
+	pub AssetHubParaLocation: Location = ParentThen(Parachain(
+		AssetHubId::get().into()).into()).into();
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into())].into();
@@ -200,7 +203,7 @@ impl xcm_executor::Config for XcmConfig {
 	// where allowed (e.g. with the Relay Chain).
 	type IsReserve = ();
 	/// Only allow teleportation of ROC.
-	type IsTeleporter = ConcreteAssetFromSystem<RandomParaLocation>;
+	type IsTeleporter = ConcreteAssetFromSystem<RelayLocation>;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = WeightInfoBounds<
