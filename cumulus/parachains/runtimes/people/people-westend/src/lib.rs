@@ -952,7 +952,7 @@ impl_runtime_apis! {
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
-						ASSET_HUB_ID,
+						AssetHubId,
 						ParachainSystem,
 					>;
 
@@ -1010,7 +1010,7 @@ impl_runtime_apis! {
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
-						ASSET_HUB_ID,
+						AssetHubId,
 						ParachainSystem,
 					>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
