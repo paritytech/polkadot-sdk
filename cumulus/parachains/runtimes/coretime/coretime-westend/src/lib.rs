@@ -1000,7 +1000,7 @@ impl_runtime_apis! {
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 
 			use xcm::latest::prelude::*;
-			use xcm_config::TokenRelayLocation;
+			use xcm_config::{AssetHubId, TokenRelayLocation, AssetHubParaLocation};
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
@@ -1008,12 +1008,12 @@ impl_runtime_apis! {
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
-						RandomParaId,
+						AssetHubId,
 						ParachainSystem,
 					>;
 
 				fn reachable_dest() -> Option<Location> {
-					Some(RandomParaLocation::get())
+					Some(AssetHubParaLocation::get())
 				}
 
 				fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
@@ -1023,7 +1023,7 @@ impl_runtime_apis! {
 							fun: Fungible(ExistentialDeposit::get()),
 							id: AssetId(TokenRelayLocation::get())
 						},
-						RandomParaLocation::get(),
+						AssetHubParaLocation::get(),
 					))
 				}
 
@@ -1041,7 +1041,7 @@ impl_runtime_apis! {
 							fun: NonFungible(Index(region_id.into())),
 							id: AssetId(xcm_config::BrokerPalletLocation::get())
 						},
-						RandomParaLocation::get(),
+						AssetHubParaLocation::get(),
 					))
 				}
 
@@ -1059,8 +1059,7 @@ impl_runtime_apis! {
 					ExistentialDeposit::get()
 				).into());
 
-				pub RandomParaId: ParaId = ParaId::new(43211234);
-				pub RandomParaLocation: Location = ParentThen(Parachain(RandomParaId::get().into()).into()).into();
+				pub AssetHubParaId: ParaId = ParaId::new(AssetHubId::get());
 			}
 
 			impl pallet_xcm_benchmarks::Config for Runtime {
@@ -1070,13 +1069,13 @@ impl_runtime_apis! {
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
-						RandomParaId,
+						AssetHubId,
 						ParachainSystem,
 					>;
 
 				type AccountIdConverter = xcm_config::LocationToAccountId;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
-					Ok(RandomParaLocation::get())
+					Ok(AssetHubParaLocation::get())
 				}
 				fn worst_case_holding(_depositable_count: u32) -> Assets {
 					// just concrete assets according to relay chain.
@@ -1092,7 +1091,7 @@ impl_runtime_apis! {
 
 			parameter_types! {
 				pub TrustedTeleporter: Option<(Location, Asset)> = Some((
-					RandomParaLocation::get(),
+					AssetHubParaLocation::get(),
 					Asset { fun: Fungible(UNITS), id: AssetId(TokenRelayLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
@@ -1131,15 +1130,15 @@ impl_runtime_apis! {
 				}
 
 				fn transact_origin_and_runtime_call() -> Result<(Location, RuntimeCall), BenchmarkError> {
-					Ok((TokenRelayLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
+					Ok((AssetHubParaLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
 				}
 
 				fn subscribe_origin() -> Result<Location, BenchmarkError> {
-					Ok(TokenRelayLocation::get())
+					Ok(AssetHubParaLocation::get())
 				}
 
 				fn claimable_asset() -> Result<(Location, Location, Assets), BenchmarkError> {
-					let origin = TokenRelayLocation::get();
+					let origin = AssetHubParaLocation::get();
 					let assets: Assets = (AssetId(TokenRelayLocation::get()), 1_000 * UNITS).into();
 					let ticket = Location { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
