@@ -168,8 +168,6 @@ parameter_types! {
 		.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
 		.build_or_panic();
 	pub const SS58Prefix: u8 = 42;
-	pub RandomParaId: ParaId = ParaId::new(43211234);
-	pub RandomParaLocation: Location = ParentThen(Parachain(RandomParaId::get().into()).into()).into();
 }
 
 // Configure FRAME pallets to include in runtime.
