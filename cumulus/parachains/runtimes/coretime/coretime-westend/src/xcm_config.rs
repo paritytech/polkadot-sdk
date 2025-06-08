@@ -61,6 +61,9 @@ parameter_types! {
 	pub const TokenRelayLocation: Location = Location::parent();
 	pub AssetHubLocation: Location = Location::new(1, [Parachain(ASSET_HUB_ID)]);
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::ByGenesis(WESTEND_GENESIS_HASH));
+	pub AssetHubId: u32 = 1000;
+	pub AssetHubParaLocation: Location = ParentThen(Parachain(
+		AssetHubId::get().into()).into()).into();
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into())].into();
