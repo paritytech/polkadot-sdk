@@ -17,7 +17,7 @@ use super::{
 	AccountId, AllPalletsWithSystem, Balance, Balances, BaseDeliveryFee, FeeAssetId, Fellows,
 	ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
 	RuntimeHoldReason, RuntimeOrigin, TransactionByteFee, WeightToFee, WestendTreasuryAccount,
-	XcmpQueue, RandomParaLocation
+	XcmpQueue
 };
 use frame_support::{
 	parameter_types,
