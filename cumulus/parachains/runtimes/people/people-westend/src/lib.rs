@@ -556,8 +556,6 @@ impl identity_migrator::Config for Runtime {
 
 parameter_types! {
 	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
-	pub RandomParaId: ParaId = ParaId::new(43211234);
-	pub RandomParaLocation: Location = ParentThen(Parachain(RandomParaId::get().into()).into()).into();
 }
 
 impl pallet_migrations::Config for Runtime {
@@ -946,6 +944,7 @@ impl_runtime_apis! {
 
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
+			use xcm_config::{AssetHubLocation, AssetHubId};
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
@@ -953,12 +952,12 @@ impl_runtime_apis! {
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
-						RandomParaId,
+						ASSET_HUB_ID,
 						ParachainSystem,
 					>;
 
 				fn reachable_dest() -> Option<Location> {
-					Some(RandomParaLocation::get())
+					Some(AssetHubLocation::get())
 				}
 
 				fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
@@ -968,7 +967,7 @@ impl_runtime_apis! {
 							fun: Fungible(ExistentialDeposit::get()),
 							id: AssetId(RelayLocation::get())
 						},
-						RandomParaLocation::get(),
+						AssetHubLocation::get(),
 					))
 				}
 
@@ -1011,11 +1010,11 @@ impl_runtime_apis! {
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
-						RandomParaId,
+						ASSET_HUB_ID,
 						ParachainSystem,
 					>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
-					Ok(RandomParaLocation::get())
+					Ok(AssetHubLocation::get())
 				}
 				fn worst_case_holding(_depositable_count: u32) -> Assets {
 					// just concrete assets according to relay chain.
@@ -1031,7 +1030,7 @@ impl_runtime_apis! {
 
 			parameter_types! {
 				pub TrustedTeleporter: Option<(Location, Asset)> = Some((
-					RandomParaLocation::get(),
+					AssetHubLocation::get(),
 					Asset { fun: Fungible(UNITS), id: AssetId(RelayLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
