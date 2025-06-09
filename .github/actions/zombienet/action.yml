@@ -33,6 +33,7 @@ runs:
       run: |
         echo "Vars"
         echo "ZOMBIENET_INTEGRATION_TEST_IMAGE: $ZOMBIENET_INTEGRATION_TEST_IMAGE"
+        echo "ZOMBIENET_PROVIDER: $ZOMBIENET_PROVIDER"
         echo "COL_IMAGE: $COL_IMAGE"
         echo "Inputs"
         echo "test: $TEST_NAME"
@@ -40,13 +41,20 @@ runs:
         echo "concurrency: $CONCURRENCY"
 
     - name: Download binaries for zombienet native tests
-      if: env.ZOMBIE_PROVIDER == 'native'
-      uses: ./.github/actions/download-artifacts-for-zombienet-tests
+      if: env.ZOMBIENET_PROVIDER == 'native'
+      uses: ./.github/actions/download-binaries-for-zombienet-tests
       with:
         gh-token: ${{ inputs.gh-token }}
         ref-slug: ${{ inputs.ref-slug }}
         build-id: ${{ inputs.build-id }}
         destination-path: ./bin
+
+    - name: k8s_auth
+      if: env.ZOMBIENET_PROVIDER == 'k8s'
+      shell: bash
+      run: |
+        . /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+        k8s_auth
 
     - name: zombie_test
       shell: bash
@@ -55,16 +63,25 @@ runs:
         LOCAL_PATH: ${{ inputs.local-dir }}
         CONCURRENCY: ${{ inputs.concurrency }}
       run: |
-        export PATH=$(pwd)/bin:$PATH
-        chmod +x $(pwd)/bin/*
+        if [[ "$ZOMBIENET_PROVIDER" == "native" ]]; then
+          # set path to downloaded binaries
+          export PATH=$(pwd)/bin:$PATH
+          chmod +x $(pwd)/bin/*
 
-        if [[ $ZOMBIENET_RUNNER == "parity-zombienet" ]]; then
-          export ZOMBIE_NAMESPACE=$(cat /data/namespace)
-        fi;
-        ./.github/scripts/run-zombienet-test.sh \
-          "$(pwd)/$LOCAL_PATH" \
-          $CONCURRENCY \
-          "$TEST_NAME"
+          ./.github/scripts/run-zombienet-test.sh \
+            "$(pwd)/$LOCAL_PATH" \
+            $CONCURRENCY \
+            "$TEST_NAME"
+        else
+          if [[ $ZOMBIENET_RUNNER == "parity-zombienet" ]]; then
+            export ZOMBIE_NAMESPACE=$(cat /data/namespace)
+          fi
+
+          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
+            --local-dir="$(pwd)/$LOCAL_PATH" \
+            --concurrency=$CONCURRENCY \
+            --test="$TEST_NAME"
+        fi
 
     - name: upload_logs
       uses: actions/upload-artifact@v4

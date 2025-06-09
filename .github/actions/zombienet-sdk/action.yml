@@ -35,14 +35,13 @@ runs:
         echo "CUMULUS_IMAGE: $CUMULUS_IMAGE"
         echo "COL_IMAGE: $COL_IMAGE"
         echo "MALUS_IMAGE: $MALUS_IMAGE"
-        echo "RUN_IN_CI: $RUN_IN_CI"
         echo "Inputs"
         echo "test: $TEST_NAME"
         echo "prefix: $PREFIX"
 
     - name: Download binaries for zombienet native tests
       if: env.ZOMBIE_PROVIDER == 'native'
-      uses: ./.github/actions/download-artifacts-for-zombienet-tests
+      uses: ./.github/actions/download-binaries-for-zombienet-tests
       with:
         gh-token: ${{ inputs.gh-token }}
         ref-slug: ${{ inputs.ref-slug }}
@@ -55,6 +54,13 @@ runs:
         gh-token: ${{ inputs.gh-token }}
         run-id: ${{ inputs.build-id }}
 
+    - name: k8s_auth
+      if: env.ZOMBIE_PROVIDER == 'k8s'
+      shell: bash
+      run: |
+        . /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+        k8s_auth
+
     - name: zombie_test
       shell: bash
       env:
@@ -63,24 +69,25 @@ runs:
         TEST_NAME: ${{ inputs.test }}
         PREFIX: ${{ inputs.prefix }}
       run: |
-        # zombienet-sdk expects RUN_IN_CI=0 when running in CI only for native provider
+        # RUN_IN_CI=1 shall be set only for k8s provider
         if [[ "$ZOMBIE_PROVIDER" == "native" ]]; then
           export RUN_IN_CI=0
+          # set path to downloaded binaries
+          export PATH=$(pwd)/bin:$PATH
+          chmod +x $(pwd)/bin/*
         else
           export RUN_IN_CI=1
+          if [[ $ZOMBIENET_SDK_RUNNER == "parity-zombienet" ]]; then
+            export ZOMBIE_K8S_CI_NAMESPACE=$(cat /data/namespace)
+          fi
         fi
-        export PATH=$(pwd)/bin:$PATH
-        chmod +x $(pwd)/bin/*
-
-        if [[ $ZOMBIENET_RUNNER == "parity-zombienet" ]]; then
-          export ZOMBIE_K8S_CI_NAMESPACE=$(cat /data/namespace)
-        fi;
 
         ls -ltr ./artifacts
         # We want to run tests sequentially, '--no-capture' ensures that.
         # If we want to get rid of '--no-capture' some day, please use '--test-threads 1' or NEXTEST_TEST_THREADS=1
         # Both options cannot coexist for cargo-nextest below v0.9.94
         cargo nextest run --archive-file ./artifacts/${PREFIX}-zombienet-tests.tar.zst --no-capture -- ${TEST_NAME}
+
     - name: process_logs
       if: ${{ ! cancelled() }}
       shell: bash
