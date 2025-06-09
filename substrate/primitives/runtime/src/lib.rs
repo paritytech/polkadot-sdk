@@ -377,10 +377,11 @@ pub enum MultiSigner {
 
 impl FromEntropy for MultiSigner {
 	fn from_entropy(input: &mut impl codec::Input) -> Result<Self, codec::Error> {
-		Ok(match input.read_byte()? % 3 {
+		Ok(match input.read_byte()? % 4 {
 			0 => Self::Ed25519(FromEntropy::from_entropy(input)?),
 			1 => Self::Sr25519(FromEntropy::from_entropy(input)?),
-			2.. => Self::Ecdsa(FromEntropy::from_entropy(input)?),
+			2 => Self::Ecdsa(FromEntropy::from_entropy(input)?),
+			3.. => Self::Eth(FromEntropy::from_entropy(input)?),
 		})
 	}
 }
