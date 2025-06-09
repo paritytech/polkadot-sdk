@@ -17,7 +17,7 @@
 use super::{
 	AccountId, AllPalletsWithSystem, Balance, Balances, BaseDeliveryFee, FeeAssetId, ParachainInfo,
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason, RuntimeOrigin,
-  TransactionByteFee, WeightToFee, XcmOverBridgeHubRococo, XcmpQueue, RandomParaLocation
+  TransactionByteFee, WeightToFee, XcmOverBridgeHubRococo, XcmpQueue
 };
 use crate::bridge_to_ethereum_config::{AssetHubLocation, SnowbridgeFrontendLocation};
 use bridge_hub_common::DenyExportMessageFrom;
