@@ -8,5 +8,7 @@ crates:
   validate: false
 - name: pallet-revive-fixtures
   bump: patch
+  validate: false
 - name: pallet-revive-proc-macro
   bump: patch
+  validate: false
