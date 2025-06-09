@@ -25,6 +25,7 @@ frame-system-rpc-runtime-api = { workspace = true }
 pallet-babe = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-timestamp = { workspace = true }
+pallet-utility = { workspace = true }
 sc-service = { optional = true, workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 sp-api = { workspace = true }
@@ -58,6 +59,7 @@ tracing = { workspace = true, default-features = false }
 
 [dev-dependencies]
 futures = { workspace = true }
+pretty_assertions = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
 sc-chain-spec = { workspace = true, default-features = true }
 sc-executor = { workspace = true, default-features = true }
@@ -86,6 +88,7 @@ std = [
 	"pallet-babe/std",
 	"pallet-balances/std",
 	"pallet-timestamp/std",
+	"pallet-utility/std",
 	"sc-executor/std",
 	"sc-service",
 	"scale-info/std",
