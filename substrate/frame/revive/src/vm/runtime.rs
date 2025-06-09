@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Environment definition of the wasm smart-contract runtime.
+//! Environment definition of the vm smart-contract runtime.
 
 use crate::{
 	address::AddressMapper,

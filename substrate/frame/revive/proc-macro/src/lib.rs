@@ -18,7 +18,7 @@
 //! Procedural macros used in the contracts module.
 //!
 //! Most likely you should use the [`#[define_env]`][`macro@define_env`] attribute macro which hides
-//! boilerplate of defining external environment for a wasm module.
+//! boilerplate of defining external environment for a vm module.
 
 use proc_macro::TokenStream;
 use proc_macro2::{Literal, Span, TokenStream as TokenStream2};
@@ -36,12 +36,12 @@ pub fn unstable_hostfn(_attr: TokenStream, item: TokenStream) -> TokenStream {
 	expanded.into()
 }
 
-/// Defines a host functions set that can be imported by contract wasm code.
+/// Defines a host functions set that can be imported by contract vm code.
 ///
 /// **NB**: Be advised that all functions defined by this macro
 /// will panic if called with unexpected arguments.
 ///
-/// It's up to you as the user of this macro to check signatures of wasm code to be executed
+/// It's up to you as the user of this macro to check signatures of vm code to be executed
 /// and reject the code if any imported function has a mismatched signature.
 ///
 /// ## Example
@@ -54,7 +54,7 @@ pub fn unstable_hostfn(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// 	}
 /// }
 /// ```
-/// This example will expand to the `foo()` defined in the wasm module named `seal0`. This is
+/// This example will expand to the `foo()` defined in the vm module named `seal0`. This is
 /// because the module `seal0` is the default when no module is specified.
 ///
 /// To define a host function in `seal2` and `seal3` modules, it should be annotated with the
@@ -93,8 +93,8 @@ pub fn unstable_hostfn(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// - `Result<u64, TrapReason>`.
 ///
 /// The macro expands to `pub struct Env` declaration, with the following traits implementations:
-/// - `pallet_revive::wasm::Environment<Runtime<E>> where E: Ext`
-/// - `pallet_revive::wasm::Environment<()>`
+/// - `pallet_revive::vm::Environment<Runtime<E>> where E: Ext`
+/// - `pallet_revive::vm::Environment<()>`
 ///
 /// The implementation on `()` can be used in places where no `Ext` exists, yet. This is useful
 /// when only checking whether a code can be instantiated without actually executing any code.
@@ -388,7 +388,7 @@ where
 
 /// Expands environment definition.
 /// Should generate source code for:
-///  - implementations of the host functions to be added to the wasm runtime environment (see
+///  - implementations of the host functions to be added to the vm runtime environment (see
 ///    `expand_impls()`).
 fn expand_env(def: &EnvDef) -> TokenStream2 {
 	let impls = expand_functions(def);
@@ -509,7 +509,7 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 			.map_err(TrapReason::from)?;
 
 		// This is the overhead to call an empty syscall that always needs to be charged.
-		self.charge_gas(crate::wasm::RuntimeCosts::HostFn).map_err(TrapReason::from)?;
+		self.charge_gas(crate::vm::RuntimeCosts::HostFn).map_err(TrapReason::from)?;
 
 		// They will be mapped to variable names by the syscall specific code.
 		let (__a0__, __a1__, __a2__, __a3__, __a4__, __a5__) = memory.read_input_regs();

@@ -46,11 +46,11 @@
 // benchmark
 // pallet
 // --extrinsic=*
-// --runtime=target/production/wbuild/kitchensink-runtime/kitchensink_runtime.wasm
+// --runtime=target/production/wbuild/kitchensink-runtime/kitchensink_runtime.vm
 // --pallet=pallet_revive
 // --header=/__w/polkadot-sdk/polkadot-sdk/substrate/HEADER-APACHE2
 // --output=/__w/polkadot-sdk/polkadot-sdk/substrate/frame/revive/src/weights.rs
-// --wasm-execution=compiled
+// --vm-execution=compiled
 // --steps=50
 // --repeat=20
 // --heap-pages=4096
