@@ -63,17 +63,77 @@ pub mod benchmark_helpers {
 			RuntimeOrigin::from(pallet_xcm::Origin::Xcm(location))
 		}
 
-		fn initialize_storage(asset_location: Location, asset_owner: Location) {
-			let asset_owner = LocationToAccountId::convert_location(&asset_owner).unwrap();
+		fn initialize_storage(asset_location: Location, asset_owner_location: Location) {
+			let asset_owner = LocationToAccountId::convert_location(&asset_owner_location).unwrap();
 			ForeignAssets::force_create(
 				RuntimeOrigin::root(),
 				asset_location,
-				asset_owner.into(),
+				asset_owner.clone().into(),
 				true,
 				1,
 			)
-			.unwrap()
+			.unwrap();
 		}
+<<<<<<< HEAD
+=======
+
+		fn setup_pools(caller: AccountId, asset: Location) {
+			// Prefund the caller's account with DOT
+			Balances::force_set_balance(
+				RuntimeOrigin::root(),
+				caller.clone().into(),
+				10_000_000_000_000,
+			)
+			.unwrap();
+
+			let asset_owner = caller.clone();
+			ForeignAssets::force_create(
+				RuntimeOrigin::root(),
+				asset.clone(),
+				asset_owner.clone().into(),
+				true,
+				1,
+			)
+			.unwrap();
+
+			let signed_owner = RuntimeOrigin::signed(asset_owner.clone());
+
+			// Prefund the asset owner's account with DOT and Ether to create the pools
+			ForeignAssets::mint(
+				signed_owner.clone(),
+				asset.clone().into(),
+				asset_owner.clone().into(),
+				10_000_000_000_000,
+			)
+			.unwrap();
+			Balances::force_set_balance(
+				RuntimeOrigin::root(),
+				asset_owner.clone().into(),
+				10_000_000_000_000,
+			)
+			.unwrap();
+
+			// Create the pool so the swap will succeed
+			let native_asset: Location = Parent.into();
+			AssetConversion::create_pool(
+				signed_owner.clone(),
+				Box::new(native_asset.clone()),
+				Box::new(asset.clone()),
+			)
+			.unwrap();
+			AssetConversion::add_liquidity(
+				signed_owner,
+				Box::new(native_asset),
+				Box::new(asset),
+				1_000_000_000_000,
+				2_000_000_000_000,
+				0,
+				0,
+				asset_owner.into(),
+			)
+			.unwrap();
+		}
+>>>>>>> 36c3039 (Snowbridge: enforce fee when registering Polkadot native asset (#8725))
 	}
 }
 
@@ -120,7 +180,7 @@ impl snowbridge_pallet_system_frontend::Config for Runtime {
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type XcmSender = XcmRouter;
 	#[cfg(feature = "runtime-benchmarks")]
-	type XcmSender = DoNothingRouter;
+	type XcmSender = benchmark_helpers::DoNothingRouter;
 	type AssetTransactor = AssetTransactors;
 	type EthereumLocation = FeeAsset;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
@@ -128,4 +188,5 @@ impl snowbridge_pallet_system_frontend::Config for Runtime {
 	type UniversalLocation = UniversalLocation;
 	type PalletLocation = SystemFrontendPalletLocation;
 	type BackendWeightInfo = weights::snowbridge_pallet_system_backend::WeightInfo<Runtime>;
+	type AccountIdConverter = xcm_config::LocationToAccountId;
 }

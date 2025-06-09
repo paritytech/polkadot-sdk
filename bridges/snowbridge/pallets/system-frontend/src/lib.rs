@@ -59,6 +59,7 @@ pub enum EthereumSystemCall {
 		sender: Box<VersionedLocation>,
 		asset_id: Box<VersionedLocation>,
 		metadata: AssetMetadata,
+		amount: u128,
 	},
 }
 
@@ -74,6 +75,7 @@ where
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use xcm_executor::traits::ConvertLocation;
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
@@ -108,6 +110,8 @@ pub mod pallet {
 
 		/// InteriorLocation of this pallet.
 		type PalletLocation: Get<InteriorLocation>;
+
+		type AccountIdConverter: ConvertLocation<Self::AccountId>;
 
 		/// Weights for dispatching XCM to backend implementation of `register_token`
 		type BackendWeightInfo: BackendWeightInfo;
@@ -191,11 +195,15 @@ pub mod pallet {
 		#[pallet::weight(
 			T::WeightInfo::register_token()
 				.saturating_add(T::BackendWeightInfo::transact_register_token())
+				.saturating_add(T::BackendWeightInfo::do_process_message())
+				.saturating_add(T::BackendWeightInfo::commit_single())
+				.saturating_add(T::BackendWeightInfo::submit_delivery_receipt())
 		)]
 		pub fn register_token(
 			origin: OriginFor<T>,
 			asset_id: Box<VersionedLocation>,
 			metadata: AssetMetadata,
+			fee_asset: Asset,
 		) -> DispatchResult {
 			ensure!(!Self::export_operating_mode().is_halted(), Error::<T>::Halted);
 
@@ -203,22 +211,46 @@ pub mod pallet {
 				(*asset_id).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
 			let origin_location = T::RegisterTokenOrigin::ensure_origin(origin, &asset_location)?;
 
-			let dest = T::BridgeHubLocation::get();
-			let call =
-				Self::build_register_token_call(origin_location.clone(), asset_location, metadata)?;
-			let remote_xcm = Self::build_remote_xcm(&call);
-			let message_id = Self::send_xcm(origin_location, dest.clone(), remote_xcm.clone())
-				.map_err(|error| Error::<T>::from(error))?;
+			let ether_gained = if origin_location.is_here() {
+				// Root origin/location does not pay any fees/tip.
+				0
+			} else {
+				Self::swap_fee_asset_and_burn(origin_location.clone(), fee_asset)?
+			};
 
-			Self::deposit_event(Event::<T>::MessageSent {
-				origin: T::PalletLocation::get().into(),
-				destination: dest,
-				message: remote_xcm,
-				message_id,
-			});
+			let call = Self::build_register_token_call(
+				origin_location.clone(),
+				asset_location,
+				metadata,
+				ether_gained,
+			)?;
 
-			Ok(())
+			Self::send_transact_call(origin_location, call)
 		}
+<<<<<<< HEAD
+=======
+
+		/// Add an additional relayer tip for a committed message identified by `message_id`.
+		/// The tip asset will be swapped for ether.
+		#[pallet::call_index(2)]
+		#[pallet::weight(
+			T::WeightInfo::add_tip()
+				.saturating_add(T::BackendWeightInfo::transact_add_tip())
+		)]
+		pub fn add_tip(origin: OriginFor<T>, message_id: MessageId, asset: Asset) -> DispatchResult
+		where
+			<T as frame_system::Config>::AccountId: Into<Location>,
+		{
+			let who = ensure_signed(origin)?;
+
+			let ether_gained = Self::swap_fee_asset_and_burn(who.clone().into(), asset)?;
+
+			// Send the tip details to BH to be allocated to the reward in the Inbound/Outbound
+			// pallet
+			let call = Self::build_add_tip_call(who.clone(), message_id.clone(), ether_gained);
+			Self::send_transact_call(who.into(), call)
+		}
+>>>>>>> 36c3039 (Snowbridge: enforce fee when registering Polkadot native asset (#8725))
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -232,12 +264,52 @@ pub mod pallet {
 			T::XcmSender::deliver(ticket)
 		}
 
+<<<<<<< HEAD
+=======
+		/// Swaps a specified tip asset to Ether and then burns the resulting ether for
+		/// teleportation. Returns the amount of Ether gained if successful, or a DispatchError if
+		/// any step fails.
+		fn swap_and_burn(
+			origin: Location,
+			tip_asset_location: Location,
+			ether_location: Location,
+			tip_amount: u128,
+		) -> Result<u128, DispatchError> {
+			// Swap tip asset to ether
+			let swap_path = vec![tip_asset_location.clone(), ether_location.clone()];
+			let who = T::AccountIdConverter::convert_location(&origin)
+				.ok_or(Error::<T>::LocationConversionFailed)?;
+
+			let ether_gained = T::Swap::swap_exact_tokens_for_tokens(
+				who.clone(),
+				swap_path,
+				tip_amount,
+				None, // No minimum amount required
+				who,
+				true,
+			)?;
+
+			// Burn the ether
+			let ether_asset = Asset::from((ether_location.clone(), ether_gained));
+
+			burn_for_teleport::<T::AssetTransactor>(&origin, &ether_asset)
+				.map_err(|_| Error::<T>::BurnError)?;
+
+			Ok(ether_gained)
+		}
+
+>>>>>>> 36c3039 (Snowbridge: enforce fee when registering Polkadot native asset (#8725))
 		// Build the call to dispatch the `EthereumSystem::register_token` extrinsic on BH
 		fn build_register_token_call(
 			sender: Location,
 			asset: Location,
 			metadata: AssetMetadata,
+<<<<<<< HEAD
 		) -> Result<BridgeHubRuntime, Error<T>> {
+=======
+			amount: u128,
+		) -> Result<BridgeHubRuntime<T>, Error<T>> {
+>>>>>>> 36c3039 (Snowbridge: enforce fee when registering Polkadot native asset (#8725))
 			// reanchor locations relative to BH
 			let sender = Self::reanchored(sender)?;
 			let asset = Self::reanchored(asset)?;
@@ -246,6 +318,7 @@ pub mod pallet {
 				sender: Box::new(VersionedLocation::from(sender)),
 				asset_id: Box::new(VersionedLocation::from(asset)),
 				metadata,
+				amount,
 			});
 
 			Ok(call)
@@ -268,6 +341,59 @@ pub mod pallet {
 			location
 				.reanchored(&T::BridgeHubLocation::get(), &T::UniversalLocation::get())
 				.map_err(|_| Error::<T>::LocationConversionFailed)
+		}
+
+		fn swap_fee_asset_and_burn(
+			origin: Location,
+			fee_asset: Asset,
+		) -> Result<u128, DispatchError> {
+			let ether_location = T::EthereumLocation::get();
+			let (fee_asset_location, fee_amount) = match fee_asset {
+				Asset { id: AssetId(ref loc), fun: Fungible(amount) } => (loc, amount),
+				_ => {
+					tracing::debug!(target: LOG_TARGET, ?fee_asset, "error matching fee asset");
+					return Err(Error::<T>::UnsupportedAsset.into())
+				},
+			};
+			if fee_amount == 0 {
+				return Ok(0)
+			}
+
+			let ether_gained = if *fee_asset_location != ether_location {
+				Self::swap_and_burn(
+					origin.clone(),
+					fee_asset_location.clone(),
+					ether_location,
+					fee_amount,
+				)
+				.inspect_err(|&e| {
+					tracing::debug!(target: LOG_TARGET, ?e, "error swapping asset");
+				})?
+			} else {
+				burn_for_teleport::<T::AssetTransactor>(&origin, &fee_asset)
+					.map_err(|_| Error::<T>::BurnError)?;
+				fee_amount
+			};
+			Ok(ether_gained)
+		}
+
+		fn send_transact_call(
+			origin_location: Location,
+			call: BridgeHubRuntime<T>,
+		) -> DispatchResult {
+			let dest = T::BridgeHubLocation::get();
+			let remote_xcm = Self::build_remote_xcm(&call);
+			let message_id = Self::send_xcm(origin_location, dest.clone(), remote_xcm.clone())
+				.map_err(|error| Error::<T>::from(error))?;
+
+			Self::deposit_event(Event::<T>::MessageSent {
+				origin: T::PalletLocation::get().into(),
+				destination: dest,
+				message: remote_xcm,
+				message_id,
+			});
+
+			Ok(())
 		}
 	}
 
