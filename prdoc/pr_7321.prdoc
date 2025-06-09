@@ -27,5 +27,3 @@ crates:
    bump: minor
  - name: people-westend-runtime
    bump: minor
- - name: contracts-rococo-runtime
-   bump: minor
