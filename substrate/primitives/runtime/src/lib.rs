@@ -291,7 +291,7 @@ pub enum MultiSignature {
 	/// An ECDSA/SECP256k1 signature.
 	Ecdsa(ecdsa::Signature),
 	/// An ECDSA/SECP256k1 signature but with a different address derivation.
-	Eth(ecdsa::Signature),
+	Eth(ecdsa::KeccakSignature),
 }
 
 impl From<ed25519::Signature> for MultiSignature {
@@ -503,7 +503,7 @@ impl Verify for MultiSignature {
 					.map_or(false, |pubkey| sp_io::hashing::blake2_256(&pubkey) == who)
 			},
 			Self::Eth(sig) => {
-				let m = sp_io::hashing::blake2_256(msg.get());
+				let m = sp_io::hashing::keccak_256(msg.get());
 				sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig.as_ref(), &m)
 					.map_or(false, |pubkey| {
 						&MultiSigner::Eth(pubkey.into()).into_account() == signer
@@ -1226,10 +1226,10 @@ mod tests {
 	#[test]
 	fn multi_signature_eth_verify_works() {
 		let msg = &b"test-message"[..];
-		let (pair, _) = ecdsa::Pair::generate();
+		let (pair, _) = ecdsa::KeccakPair::generate();
 
 		let signature = pair.sign(&msg);
-		assert!(ecdsa::Pair::verify(&signature, msg, &pair.public()));
+		assert!(ecdsa::KeccakPair::verify(&signature, msg, &pair.public()));
 
 		let multi_sig = MultiSignature::Eth(signature);
 		let multi_signer = MultiSigner::Eth(pair.public());
