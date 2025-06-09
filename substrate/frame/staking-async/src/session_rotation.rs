@@ -511,6 +511,18 @@ impl<T: Config> Rotator<T> {
 		Ok(())
 	}
 
+	#[cfg(any(feature = "try-runtime", feature = "std", feature = "runtime-benchmarks", test))]
+	pub fn assert_election_ongoing() {
+		assert!(
+			Self::planning_era().is_some(),
+			"planning era must exist"
+		);
+		assert!(
+			T::ElectionProvider::status().is_ok(),
+			"Election provider must be in a good state during election"
+		);
+	}
+
 	/// Latest era that was planned.
 	///
 	/// The returned value does not necessarily indicate that planning for the era with this index
