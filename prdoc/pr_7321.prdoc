@@ -10,5 +10,23 @@ doc:
      ToParachainDeliveryHelper and updating related destination settings.
 
 crates:
- - name: cumulus-parachains-runtimes
+ - name: asset-hub-rococo-runtime
+   bump: minor
+ - name: asset-hub-westend-runtime
+   bump: minor
+ - name: bridge-hub-rococo-runtime
+   bump: minor
+ - name: bridge-hub-westend-runtime
+   bump: minor
+ - name: collectives-westend-runtime
+   bump: minor
+ - name: coretime-rococo-runtime
+   bump: minor
+ - name: coretime-westend-runtime
+   bump: minor
+ - name: people-rococo-runtime
+   bump: minor
+ - name: people-westend-runtime
+   bump: minor
+ - name: contracts-rococo-runtime
    bump: minor
