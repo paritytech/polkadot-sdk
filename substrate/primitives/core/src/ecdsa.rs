@@ -36,10 +36,10 @@ use secp256k1::{
 	Message, PublicKey, SecretKey, SECP256K1,
 };
 
-#[cfg(feature = "std")]
+#[cfg(all(feature = "std", feature = "full_crypto"))]
 type NativeSignature = secp256k1::ecdsa::RecoverableSignature;
 
-#[cfg(not(feature = "std"))]
+#[cfg(all(not(feature = "std"), feature = "full_crypto"))]
 type NativeSignature = (k256::ecdsa::Signature, k256::ecdsa::RecoveryId);
 
 /// An identifier used to match public keys against ecdsa keys
