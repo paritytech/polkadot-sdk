@@ -187,7 +187,7 @@ impl BootnodeDiscovery {
 			self.find_node_queries.is_empty() &&
 			self.start_discovery.is_terminated()
 		{
-			// No need to start discovey again if the previous attempt succeeded.
+			// No need to start discovery again if the previous attempt succeeded.
 			if self.succeeded {
 				info!(
 					target: LOG_TARGET,
