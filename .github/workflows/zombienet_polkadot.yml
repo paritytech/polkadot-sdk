@@ -18,8 +18,6 @@ env:
   GHA_CLUSTER_SERVER_ADDR: "https://kubernetes.default:443"
   # use spot by default
   X_INFRA_INSTANCE: "spot"
-  # don't retry sdk tests
-  NEXTEST_RETRIES: 0
 
 # only run if we have changes in [subtrate, polkadot] directories or this workflow.
 jobs:
