@@ -5,10 +5,27 @@ title: Update system parachains XCM benchmarking for sibling parachain delivery
 doc:
  - audience: Runtime Dev
    description: |
-     Updates XCM benchmarking configs to support message delivery between sibling
-     parachains instead of relay chain, replacing ToParentDeliveryHelper with
-     ToParachainDeliveryHelper and updating related destination settings.
+     Updates XCM benchmarking configs to support asset delivery to system
+     parachains instead of relay chain.
 
 crates:
- - name: cumulus-parachains-runtimes
+ - name: asset-hub-rococo-runtime
+   bump: minor
+ - name: asset-hub-westend-runtime
+   bump: minor
+ - name: bridge-hub-rococo-runtime
+   bump: minor
+ - name: bridge-hub-westend-runtime
+   bump: minor
+ - name: collectives-westend-runtime
+   bump: minor
+ - name: coretime-rococo-runtime
+   bump: minor
+ - name: coretime-westend-runtime
+   bump: minor
+ - name: people-rococo-runtime
+   bump: minor
+ - name: people-westend-runtime
+   bump: minor
+ - name: contracts-rococo-runtime
    bump: minor
