@@ -17,7 +17,7 @@ use super::{
 	AccountId, AllPalletsWithSystem, Assets, Balance, Balances, BaseDeliveryFee, CollatorSelection,
 	DepositPerByte, DepositPerItem, FeeAssetId, ForeignAssets, ParachainInfo, ParachainSystem,
 	PolkadotXcm, PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason, RuntimeOrigin,
-	ToRococoXcmRouter, TransactionByteFee, Uniques, WeightToFee, XcmpQueue
+	ToRococoXcmRouter, TransactionByteFee, Uniques, WeightToFee, XcmpQueue,
 };
 use assets_common::{
 	matching::{FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},
@@ -399,7 +399,7 @@ impl xcm_executor::Config for XcmConfig {
 	type IsReserve = (
 		bridging::to_rococo::RococoAssetFromAssetHubRococo,
 		bridging::to_ethereum::EthereumAssetFromEthereum,
-		bridging::to_rococo::NonSystemParachain
+		bridging::to_rococo::NonSystemParachain,
 	);
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
@@ -654,9 +654,9 @@ pub mod bridging {
 
 		/// Allow any asset native to the Rococo ecosystem if it comes from Rococo Asset Hub.
 		pub type RococoAssetFromAssetHubRococo =
-			matching::RemoteAssetFromLocation<StartsWith<RococoEcosystem>, AssetHubRococo,>;
-		pub type NonSystemParachain = matching::RemoteAssetFromLocation<
-			StartsWith<RococoEcosystem>, RandomParaLocation>;
+			matching::RemoteAssetFromLocation<StartsWith<RococoEcosystem>, AssetHubRococo>;
+		pub type NonSystemParachain =
+			matching::RemoteAssetFromLocation<StartsWith<RococoEcosystem>, RandomParaLocation>;
 	}
 
 	pub mod to_ethereum {

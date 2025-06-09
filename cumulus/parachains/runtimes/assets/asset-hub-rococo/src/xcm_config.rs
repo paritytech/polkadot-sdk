@@ -17,7 +17,7 @@ use super::{
 	AccountId, AllPalletsWithSystem, Assets, Balance, Balances, BaseDeliveryFee, CollatorSelection,
 	FeeAssetId, ForeignAssets, ParachainInfo, ParachainSystem, PolkadotXcm, PoolAssets, Runtime,
 	RuntimeCall, RuntimeEvent, RuntimeHoldReason, RuntimeOrigin, ToWestendXcmRouter,
-	TransactionByteFee, Uniques, WeightToFee, XcmpQueue
+	TransactionByteFee, Uniques, WeightToFee, XcmpQueue,
 };
 use assets_common::{
 	matching::{FromNetwork, FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},
@@ -618,8 +618,8 @@ pub mod bridging {
 			(StartsWith<WestendEcosystem>, StartsWith<EthereumEcosystem>),
 			AssetHubWestend,
 		>;
-		pub type NonSystemParachain = matching::RemoteAssetFromLocation<
-			StartsWith<WestendEcosystem>, RandomParaLocation>;
+		pub type NonSystemParachain =
+			matching::RemoteAssetFromLocation<StartsWith<WestendEcosystem>, RandomParaLocation>;
 	}
 
 	pub mod to_ethereum {
