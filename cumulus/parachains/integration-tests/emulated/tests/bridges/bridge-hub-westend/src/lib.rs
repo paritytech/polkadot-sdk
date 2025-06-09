@@ -89,8 +89,6 @@ mod imports {
 
 	pub(crate) const ASSET_ID: u32 = 1;
 	pub(crate) const ASSET_MIN_BALANCE: u128 = 1000;
-
-	pub(crate) type SystemParaToSystemParaTest = Test<BridgeHubWestend, AssetHubWestend>;
 }
 
 #[cfg(test)]

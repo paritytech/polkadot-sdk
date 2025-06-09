@@ -63,8 +63,6 @@ mod imports {
 		PeopleWestendPara as PeopleWestend, WestendRelay as Westend,
 		WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
 	};
-
-	pub(crate) type SystemParaToSystemParaTest = Test<CollectivesWestend, AssetHubWestend>;
 }
 
 #[cfg(test)]

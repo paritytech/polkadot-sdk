@@ -51,7 +51,6 @@ mod imports {
 		WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
 	};
 
-	pub(crate) type SystemParaToSystemParaTest = Test<PeopleWestend, AssetHubWestend>;
 }
 
 #[cfg(test)]
