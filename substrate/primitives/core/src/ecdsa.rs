@@ -27,6 +27,7 @@ use crate::{
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
+use core::marker::PhantomData;
 #[cfg(not(feature = "std"))]
 use k256::ecdsa::{SigningKey as SecretKey, VerifyingKey};
 #[cfg(feature = "std")]
@@ -45,7 +46,12 @@ pub const PUBLIC_KEY_SERIALIZED_SIZE: usize = 33;
 pub const SIGNATURE_SERIALIZED_SIZE: usize = 65;
 
 #[doc(hidden)]
+#[derive(Clone)]
 pub struct EcdsaTag;
+
+#[doc(hidden)]
+#[derive(Clone)]
+pub struct EcdsaKeccakTag;
 
 /// The secret seed.
 ///
@@ -99,15 +105,29 @@ impl From<Pair> for Public {
 	}
 }
 
+#[doc(hidden)]
+pub type GenericSignature<TAG> = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, TAG>;
+
 /// A signature (a 512-bit value, plus 8 bits for recovery ID).
+///
+/// Uses blake2 during key recovery.
 pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, EcdsaTag>;
 
-impl Signature {
-	/// Recover the public key from this signature and a message.
-	pub fn recover<M: AsRef<[u8]>>(&self, message: M) -> Option<Public> {
-		self.recover_prehashed(&sp_crypto_hashing::blake2_256(message.as_ref()))
-	}
+/// A signature (a 512-bit value, plus 8 bits for recovery ID).
+///
+/// Uses keccak during key recovery.
+pub type KeccakSignature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, EcdsaKeccakTag>;
 
+/// A signature that allows recovering the public key from a message.
+pub trait Recover {
+	/// Recover the public key from this signature and a pre-hashed message.
+	fn recover_prehashed(&self, message: &[u8; 32]) -> Option<Public>;
+
+	/// Recover the public key from this signature and a message.
+	fn recover<M: AsRef<[u8]>>(&self, message: M) -> Option<Public>;
+}
+
+impl<TAG> GenericSignature<TAG> {
 	/// Recover the public key from this signature and a pre-hashed message.
 	pub fn recover_prehashed(&self, message: &[u8; 32]) -> Option<Public> {
 		#[cfg(feature = "std")]
@@ -128,6 +148,40 @@ impl Signature {
 	}
 }
 
+impl Signature {
+	/// Recover the public key from this signature and a message.
+	pub fn recover<M: AsRef<[u8]>>(&self, message: M) -> Option<Public> {
+		self.recover_prehashed(&sp_crypto_hashing::blake2_256(message.as_ref()))
+	}
+}
+
+impl KeccakSignature {
+	/// Recover the public key from this signature and a message.
+	pub fn recover<M: AsRef<[u8]>>(&self, message: M) -> Option<Public> {
+		self.recover_prehashed(&sp_crypto_hashing::keccak_256(message.as_ref()))
+	}
+}
+
+impl Recover for Signature {
+	fn recover_prehashed(&self, message: &[u8; 32]) -> Option<Public> {
+		self.recover_prehashed(message)
+	}
+
+	fn recover<M: AsRef<[u8]>>(&self, message: M) -> Option<Public> {
+		self.recover(message)
+	}
+}
+
+impl Recover for KeccakSignature {
+	fn recover_prehashed(&self, message: &[u8; 32]) -> Option<Public> {
+		self.recover_prehashed(message)
+	}
+
+	fn recover<M: AsRef<[u8]>>(&self, message: M) -> Option<Public> {
+		self.recover(message)
+	}
+}
+
 #[cfg(not(feature = "std"))]
 impl From<(k256::ecdsa::Signature, k256::ecdsa::RecoveryId)> for Signature {
 	fn from(recsig: (k256::ecdsa::Signature, k256::ecdsa::RecoveryId)) -> Signature {
@@ -139,8 +193,8 @@ impl From<(k256::ecdsa::Signature, k256::ecdsa::RecoveryId)> for Signature {
 }
 
 #[cfg(feature = "std")]
-impl From<RecoverableSignature> for Signature {
-	fn from(recsig: RecoverableSignature) -> Signature {
+impl<TAG> From<RecoverableSignature> for GenericSignature<TAG> {
+	fn from(recsig: RecoverableSignature) -> Self {
 		let mut r = Self::default();
 		let (recid, sig) = recsig.serialize_compact();
 		r.0[..64].copy_from_slice(&sig);
@@ -156,77 +210,99 @@ fn derive_hard_junction(secret_seed: &Seed, cc: &[u8; 32]) -> Seed {
 	("Secp256k1HDKD", secret_seed, cc).using_encoded(sp_crypto_hashing::blake2_256)
 }
 
-/// A key pair.
 #[derive(Clone)]
-pub struct Pair {
+#[doc(hidden)]
+pub struct GenericPair<TAG> {
 	public: Public,
 	secret: SecretKey,
+	_tag: PhantomData<TAG>,
 }
+
+/// An ecdsa key pair using the blake2 algorithm for hashing the message.
+pub type Pair = GenericPair<EcdsaTag>;
+
+/// An ecdsa key pair using the keccak algorithm for hashing the message.
+pub type KeccakPair = GenericPair<EcdsaKeccakTag>;
 
 impl TraitPair for Pair {
 	type Public = Public;
 	type Seed = Seed;
 	type Signature = Signature;
 
-	/// Make a new key pair from secret seed material. The slice must be 32 bytes long or it
-	/// will return `None`.
-	///
-	/// You should never need to use this; generate(), generate_with_phrase
-	fn from_seed_slice(seed_slice: &[u8]) -> Result<Pair, SecretStringError> {
-		#[cfg(feature = "std")]
-		{
-			let secret = SecretKey::from_slice(seed_slice)
-				.map_err(|_| SecretStringError::InvalidSeedLength)?;
-			Ok(Pair { public: PublicKey::from_secret_key(&SECP256K1, &secret).into(), secret })
-		}
-
-		#[cfg(not(feature = "std"))]
-		{
-			let secret = SecretKey::from_slice(seed_slice)
-				.map_err(|_| SecretStringError::InvalidSeedLength)?;
-			Ok(Pair { public: VerifyingKey::from(&secret).into(), secret })
-		}
+	fn from_seed_slice(seed_slice: &[u8]) -> Result<Self, SecretStringError> {
+		Self::from_seed_slice(seed_slice)
 	}
 
-	/// Derive a child key from a series of given junctions.
 	fn derive<Iter: Iterator<Item = DeriveJunction>>(
 		&self,
 		path: Iter,
 		_seed: Option<Seed>,
-	) -> Result<(Pair, Option<Seed>), DeriveError> {
-		let mut acc = self.seed();
-		for j in path {
-			match j {
-				DeriveJunction::Soft(_cc) => return Err(DeriveError::SoftKeyInPath),
-				DeriveJunction::Hard(cc) => acc = derive_hard_junction(&acc, &cc),
-			}
-		}
-		Ok((Self::from_seed(&acc), Some(acc)))
+	) -> Result<(Self, Option<Seed>), DeriveError> {
+		self.derive(path)
 	}
 
-	/// Get the public key.
 	fn public(&self) -> Public {
-		self.public
+		self.public()
 	}
 
-	/// Sign a message.
 	#[cfg(feature = "full_crypto")]
-	fn sign(&self, message: &[u8]) -> Signature {
-		self.sign_prehashed(&sp_crypto_hashing::blake2_256(message))
+	fn sign(&self, message: &[u8]) -> Self::Signature {
+		self.sign(message)
 	}
 
 	/// Verify a signature on a message. Returns true if the signature is good.
-	fn verify<M: AsRef<[u8]>>(sig: &Signature, message: M, public: &Public) -> bool {
-		sig.recover(message).map(|actual| actual == *public).unwrap_or_default()
+	fn verify<M: AsRef<[u8]>>(sig: &Self::Signature, message: M, public: &Public) -> bool {
+		Self::verify(sig, message, public)
 	}
 
 	/// Return a vec filled with raw data.
 	fn to_raw_vec(&self) -> Vec<u8> {
-		self.seed().to_vec()
+		self.to_raw_vec()
 	}
 }
 
-impl Pair {
+impl TraitPair for KeccakPair {
+	type Public = Public;
+	type Seed = Seed;
+	type Signature = KeccakSignature;
+
+	fn from_seed_slice(seed_slice: &[u8]) -> Result<Self, SecretStringError> {
+		Self::from_seed_slice(seed_slice)
+	}
+
+	fn derive<Iter: Iterator<Item = DeriveJunction>>(
+		&self,
+		path: Iter,
+		_seed: Option<Seed>,
+	) -> Result<(Self, Option<Seed>), DeriveError> {
+		self.derive(path)
+	}
+
+	fn public(&self) -> Public {
+		self.public()
+	}
+
+	#[cfg(feature = "full_crypto")]
+	fn sign(&self, message: &[u8]) -> Self::Signature {
+		self.sign(message)
+	}
+
+	/// Verify a signature on a message. Returns true if the signature is good.
+	fn verify<M: AsRef<[u8]>>(sig: &Self::Signature, message: M, public: &Public) -> bool {
+		Self::verify(sig, message, public)
+	}
+
+	/// Return a vec filled with raw data.
+	fn to_raw_vec(&self) -> Vec<u8> {
+		self.to_raw_vec()
+	}
+}
+
+impl<TAG> GenericPair<TAG>
+where
+	Self: TraitPair<Seed = Seed>,
+	<Self as TraitPair>::Signature: Recover,
+{
 	/// Get the seed for this key.
 	pub fn seed(&self) -> Seed {
 		#[cfg(feature = "std")]
@@ -242,7 +318,7 @@ impl Pair {
 	/// Exactly as `from_string` except that if no matches are found then, the the first 32
 	/// characters are taken (padded with spaces as necessary) and used as the MiniSecretKey.
 	#[cfg(feature = "std")]
-	pub fn from_legacy_string(s: &str, password_override: Option<&str>) -> Pair {
+	pub fn from_legacy_string(s: &str, password_override: Option<&str>) -> Self {
 		Self::from_string(s, password_override).unwrap_or_else(|_| {
 			let mut padded_seed: Seed = [b' '; 32];
 			let len = s.len().min(32);
@@ -251,30 +327,13 @@ impl Pair {
 		})
 	}
 
-	/// Sign a pre-hashed message
-	#[cfg(feature = "full_crypto")]
-	pub fn sign_prehashed(&self, message: &[u8; 32]) -> Signature {
-		#[cfg(feature = "std")]
-		{
-			let message =
-				Message::from_digest_slice(message).expect("Message is a 32 bytes hash; qed");
-			SECP256K1.sign_ecdsa_recoverable(&message, &self.secret).into()
-		}
-
-		#[cfg(not(feature = "std"))]
-		{
-			// Signing fails only if the `message` number of bytes is less than the field length
-			// (unfallible as we're using a fixed message length of 32).
-			self.secret
-				.sign_prehash_recoverable(message)
-				.expect("Signing can't fail when using 32 bytes message hash. qed.")
-				.into()
-		}
-	}
-
 	/// Verify a signature on a pre-hashed message. Return `true` if the signature is valid
 	/// and thus matches the given `public` key.
-	pub fn verify_prehashed(sig: &Signature, message: &[u8; 32], public: &Public) -> bool {
+	pub fn verify_prehashed(
+		sig: &<Self as TraitPair>::Signature,
+		message: &[u8; 32],
+		public: &Public,
+	) -> bool {
 		match sig.recover_prehashed(message) {
 			Some(actual) => actual == *public,
 			None => false,
@@ -303,6 +362,107 @@ impl Pair {
 			_ => false,
 		}
 	}
+
+	fn from_seed_slice(seed_slice: &[u8]) -> Result<Self, SecretStringError> {
+		#[cfg(feature = "std")]
+		{
+			let secret = SecretKey::from_slice(seed_slice)
+				.map_err(|_| SecretStringError::InvalidSeedLength)?;
+			Ok(Self {
+				public: PublicKey::from_secret_key(&SECP256K1, &secret).into(),
+				secret,
+				_tag: PhantomData::default(),
+			})
+		}
+
+		#[cfg(not(feature = "std"))]
+		{
+			let secret = SecretKey::from_slice(seed_slice)
+				.map_err(|_| SecretStringError::InvalidSeedLength)?;
+			Ok(Self {
+				public: VerifyingKey::from(&secret).into(),
+				secret,
+				_tag: Default::default(),
+			})
+		}
+	}
+
+	fn derive<Iter: Iterator<Item = DeriveJunction>>(
+		&self,
+		path: Iter,
+	) -> Result<(Self, Option<Seed>), DeriveError> {
+		let mut acc = self.seed();
+		for j in path {
+			match j {
+				DeriveJunction::Soft(_cc) => return Err(DeriveError::SoftKeyInPath),
+				DeriveJunction::Hard(cc) => acc = derive_hard_junction(&acc, &cc),
+			}
+		}
+		Ok((Self::from_seed(&acc), Some(acc)))
+	}
+
+	fn public(&self) -> Public {
+		self.public
+	}
+
+	fn verify<M: AsRef<[u8]>>(
+		sig: &<Self as TraitPair>::Signature,
+		message: M,
+		public: &Public,
+	) -> bool {
+		sig.recover(message).map(|actual| actual == *public).unwrap_or_default()
+	}
+
+	fn to_raw_vec(&self) -> Vec<u8> {
+		self.seed().to_vec()
+	}
+}
+
+#[cfg(feature = "full_crypto")]
+impl<TAG> GenericPair<TAG>
+where
+	Self: TraitPair,
+	<Self as TraitPair>::Signature: From<RecoverableSignature>,
+{
+	/// Sign a pre-hashed message
+	pub fn sign_prehashed(&self, message: &[u8; 32]) -> <Self as TraitPair>::Signature {
+		#[cfg(feature = "std")]
+		{
+			let message =
+				Message::from_digest_slice(message).expect("Message is a 32 bytes hash; qed");
+			SECP256K1.sign_ecdsa_recoverable(&message, &self.secret).into()
+		}
+
+		#[cfg(not(feature = "std"))]
+		{
+			// Signing fails only if the `message` number of bytes is less than the field length
+			// (unfallible as we're using a fixed message length of 32).
+			self.secret
+				.sign_prehash_recoverable(message)
+				.expect("Signing can't fail when using 32 bytes message hash. qed.")
+				.into()
+		}
+	}
+}
+
+#[cfg(feature = "full_crypto")]
+impl Pair
+where
+	<Self as TraitPair>::Signature: From<RecoverableSignature>,
+{
+	fn sign(&self, message: &[u8]) -> Signature {
+		self.sign_prehashed(&sp_crypto_hashing::blake2_256(message))
+	}
+}
+
+#[cfg(feature = "full_crypto")]
+impl KeccakPair
+where
+	<Self as TraitPair>::Signature: From<RecoverableSignature>,
+{
+	fn sign(&self, message: &[u8]) -> KeccakSignature {
+		self.sign_prehashed(&sp_crypto_hashing::keccak_256(message))
+	}
 }
 
 // The `secp256k1` backend doesn't implement cleanup for their private keys.
@@ -311,7 +471,7 @@ impl Pair {
 // The very same problem affects other cryptographic backends that are just using
 // `zeroize`for their secrets.
 #[cfg(feature = "std")]
-impl Drop for Pair {
+impl<TAG> Drop for GenericPair<TAG> {
 	fn drop(&mut self) {
 		self.secret.non_secure_erase()
 	}
@@ -325,8 +485,16 @@ impl CryptoType for Signature {
 	type Pair = Pair;
 }
 
+impl CryptoType for KeccakSignature {
+	type Pair = KeccakPair;
+}
+
 impl CryptoType for Pair {
-	type Pair = Pair;
+	type Pair = Self;
+}
+
+impl CryptoType for KeccakPair {
+	type Pair = Self;
 }
 
 impl NonAggregatable for Pair {}
@@ -361,7 +529,7 @@ mod test {
 		let pair = Pair::from_seed(&seed);
 		assert_eq!(pair.seed(), seed);
 		let path = vec![DeriveJunction::Hard([0u8; 32])];
-		let derived = pair.derive(path.into_iter(), None).ok().unwrap();
+		let derived = pair.derive(path.into_iter()).ok().unwrap();
 		assert_eq!(
 			derived.0.seed(),
 			array_bytes::hex2array_unchecked::<_, 32>(
@@ -418,6 +586,16 @@ mod test {
 		let signature = pair.sign(&message[..]);
 		assert!(Pair::verify(&signature, &message[..], &public));
 		assert!(!Pair::verify(&signature, b"Something else", &public));
+	}
+
+	#[test]
+	fn generated_pair_should_work_keccak() {
+		let (pair, _) = KeccakPair::generate();
+		let public = pair.public();
+		let message = b"Something important";
+		let signature = pair.sign(&message[..]);
+		assert!(KeccakPair::verify(&signature, &message[..], &public));
+		assert!(!KeccakPair::verify(&signature, b"Something else", &public));
 	}
 
 	#[test]
