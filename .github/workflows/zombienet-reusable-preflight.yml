@@ -85,6 +85,10 @@ on:
           comma separated list of flaky tests to skip.
 
       # Zombie vars
+      ZOMBIENET_PROVIDER:
+        value: ${{ jobs.preflight.outputs.ZOMBIENET_PROVIDER }}
+        description: "Provider to use in zombienet tests."
+
       PUSHGATEWAY_URL:
         value: ${{ jobs.preflight.outputs.PUSHGATEWAY_URL }}
         description: "Gateway (url) to push metrics related to test."
@@ -136,6 +140,7 @@ jobs:
 
       CI_IMAGE: ${{ steps.set_vars.outputs.IMAGE }}
 
+      ZOMBIENET_PROVIDER: ${{ steps.set_vars.outputs.ZOMBIENET_PROVIDER }}
       ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}
       ZOMBIENET_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_RUNNER }}
 
@@ -205,9 +210,25 @@ jobs:
           #
           cat .github/zombienet-env >> $GITHUB_OUTPUT
           cat .github/zombienet-env
+          . .github/zombienet-env
+          if [[ "$ZOMBIENET_PROVIDER" == "native" ]]; then
+            echo "ZOMBIENET_IMAGE=${ZOMBIENET_IMAGE_FOR_NATIVE}" >> $GITHUB_OUTPUT
+            echo "ZOMBIENET_RUNNER=${ZOMBIENET_RUNNER_FOR_NATIVE}" >> $GITHUB_OUTPUT
+          else
+            echo "ZOMBIENET_IMAGE=${ZOMBIENET_IMAGE_FOR_K8S}" >> $GITHUB_OUTPUT
+            echo "ZOMBIENET_RUNNER=${ZOMBIENET_RUNNER_FOR_K8S}" >> $GITHUB_OUTPUT
+          fi
           # additional envs required by zombienet-sdk
           cat .github/zombienet-sdk-env >> $GITHUB_OUTPUT
           cat .github/zombienet-sdk-env
+          . .github/zombienet-sdk-env
+          if [[ "$ZOMBIE_PROVIDER" == "native" ]]; then
+            echo "ZOMBIENET_SDK_IMAGE=${ZOMBIENET_SDK_IMAGE_FOR_NATIVE}" >> $GITHUB_OUTPUT
+            echo "ZOMBIENET_SDK_RUNNER=${ZOMBIENET_SDK_RUNNER_FOR_NATIVE}" >> $GITHUB_OUTPUT
+          else
+            echo "ZOMBIENET_SDK_IMAGE=${ZOMBIENET_SDK_IMAGE_FOR_K8S}" >> $GITHUB_OUTPUT
+            echo "ZOMBIENET_SDK_RUNNER=${ZOMBIENET_SDK_RUNNER_FOR_K8S}" >> $GITHUB_OUTPUT
+          fi
           # global img from ci
           cat .github/env >> $GITHUB_OUTPUT
           cat .github/env
@@ -244,6 +265,7 @@ jobs:
       - name: Info vars
         run: |
           echo "zombienet vars"
+          echo "ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}"
           echo "ZOMBIENET_RUNNER: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }}"
           echo "ZOMBIENET_IMAGE: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}"
           echo "PUSHGATEWAY_URL: ${{ needs.preflight.outputs.PUSHGATEWAY_URL }}"
