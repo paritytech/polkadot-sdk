@@ -944,7 +944,7 @@ impl_runtime_apis! {
 
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
-			use xcm_config::{AssetHubLocation, AssetHubId};
+			use xcm_config::{RelayLocation, AssetHubLocation, AssetHubId};
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
@@ -977,7 +977,7 @@ impl_runtime_apis! {
 
 				fn set_up_complex_asset_transfer() -> Option<(Assets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
 					let native_location = Parent.into();
-					let dest = Parent.into();
+					let dest = AssetHubLocation::get();
 
 					pallet_xcm::benchmarking::helpers::native_teleport_as_asset_transfer::<Runtime>(
 						native_location,
@@ -994,7 +994,6 @@ impl_runtime_apis! {
 			}
 
 			use xcm::latest::prelude::*;
-
 			parameter_types! {
 				pub ExistentialDepositAsset: Option<Asset> = Some((
 					RelayLocation::get(),
@@ -1070,15 +1069,15 @@ impl_runtime_apis! {
 				}
 
 				fn transact_origin_and_runtime_call() -> Result<(Location, RuntimeCall), BenchmarkError> {
-					Ok((RelayLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
+					Ok((AssetHubLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
 				}
 
 				fn subscribe_origin() -> Result<Location, BenchmarkError> {
-					Ok(RelayLocation::get())
+					Ok(AssetHubLocation::get())
 				}
 
 				fn claimable_asset() -> Result<(Location, Location, Assets), BenchmarkError> {
-					let origin = RelayLocation::get();
+					let origin = AssetHubLocation::get();
 					let assets: Assets = (AssetId(RelayLocation::get()), 1_000 * UNITS).into();
 					let ticket = Location { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
