@@ -1,0 +1,20 @@
+{
+  "name": "papi-tests",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@polkadot-api/descriptors": "file:.papi/descriptors",
+    "@polkadot-labs/hdkd": "^0.0.16",
+    "commander": "^14.0.0",
+    "polkadot-api": "^1.13.1",
+    "strip-ansi": "^7.1.0",
+    "winston": "^3.17.0"
+  }
+}

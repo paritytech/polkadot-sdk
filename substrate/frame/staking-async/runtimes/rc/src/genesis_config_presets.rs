@@ -210,7 +210,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			vec![
 				get_authority_keys_from_seed("Alice"),
 				get_authority_keys_from_seed("Bob"),
-				get_authority_keys_from_seed("Charlie"),
+				get_authority_keys_from_seed("Eve"),
 				get_authority_keys_from_seed("Dave"),
 			],
 			Sr25519Keyring::Alice.to_account_id(),

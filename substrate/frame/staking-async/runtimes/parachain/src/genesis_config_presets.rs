@@ -118,7 +118,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 		"real-s" => {
 			params.validator_count = 2;
 			// generate no new "fake" validators.
-			params.dev_stakers = Some((0, 1000));
+			params.dev_stakers = Some((0, 500));
 			// set expected relay validators in genesis so they are elected
 			params.validators = vec![
 				Sr25519Keyring::AliceStash.to_account_id(),
@@ -129,12 +129,12 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 		"real-m" => {
 			params.validator_count = 4;
 			// generate no new "fake" validators.
-			params.dev_stakers = Some((0, 1000));
+			params.dev_stakers = Some((0, 2000));
 			// set expected relay validators in genesis so they are elected
 			params.validators = vec![
 				Sr25519Keyring::AliceStash.to_account_id(),
 				Sr25519Keyring::BobStash.to_account_id(),
-				Sr25519Keyring::CharlieStash.to_account_id(),
+				Sr25519Keyring::EveStash.to_account_id(),
 				Sr25519Keyring::DaveStash.to_account_id(),
 			];
 			staking_async_parachain_genesis(params, id.to_string())

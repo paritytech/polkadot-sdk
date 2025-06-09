@@ -2,6 +2,7 @@ import { spawn, spawnSync } from "child_process";
 import { Presets } from "./index";
 import { logger } from "./utils";
 import { join } from "path";
+import stripAnsi from "strip-ansi";
 
 export function rcPresetFor(paraPreset: Presets): string {
 	return paraPreset == Presets.FakeDev ||
@@ -38,12 +39,23 @@ export async function runPresetUntilLaunched(paraPreset: Presets): Promise<() =>
 	);
 
 	return new Promise<() => void>((resolve, reject) => {
+		const logCmds: string[] = [];
 		child.stdout.on("data", (data) => {
-			if (data.toString().includes("Provider : native")) {
-				logger.info(`ZN config launched for preset: ${paraPreset}`);
+			const raw: string = stripAnsi(data.toString());
+			if(raw.includes("Log Cmd : ")) {
+				raw.split("\n").filter((line) => line.includes("Log Cmd : ")).forEach((line) => {
+					logCmds.push(line.replace("Log Cmd : ", "").trim());
+				});
+			}
+			// our hacky way to know ZN is done.
+			if (raw.includes("Parachain ID : 1100")) {
+				for (const cmd of logCmds) {
+					logger.info(`${cmd}`);
+				}
+				logger.info(`Launched ZN: ${paraPreset}`);
 				resolve(() => {
 					child.kill();
-					logger.info(`ZN config killed for preset: ${paraPreset}`);
+					logger.info(`Killed ZN config: ${paraPreset}`);
 				});
 			}
 		});

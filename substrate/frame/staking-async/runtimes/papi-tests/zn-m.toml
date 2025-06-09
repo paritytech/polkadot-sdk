@@ -16,7 +16,7 @@ chain_spec_path = "./rc.json"
 	]
 
 	[[relaychain.nodes]]
-	name = "charlie"
+	name = "eve"
 	validator = true
 	rpc_port = 9944
 

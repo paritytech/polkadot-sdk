@@ -1,5 +1,5 @@
-import type { Presets } from ".";
-import { getApis, logger, safeJsonStringify } from "./utils";
+import { logger, safeJsonStringify, type ApiDeclerations } from "./utils";
+import { exit } from "process";
 
 export enum Chain {
 	Relay = "Relay",
@@ -52,7 +52,7 @@ export class Observe {
 	}
 }
 
-enum EventOutcome {
+export enum EventOutcome {
 	Passed,
 	Ignored,
 	TimedOut,
@@ -61,11 +61,19 @@ enum EventOutcome {
 
 export class TestCase {
 	eventSequence: Observe[];
-	onComplete: () => void;
+	onKill: () => void;
+	allowPerChainInterleavedEvents: boolean = false;
+	private resolveTestPromise: (outcome: EventOutcome) => void = () => {};
 
-	constructor(e: Observe[], onComplete: () => void = () => {}) {
+	constructor(e: Observe[], interleave: boolean = false, onKill: () => void = () => {}) {
 		this.eventSequence = e;
-		this.onComplete = onComplete;
+		this.onKill = onKill;
+		this.allowPerChainInterleavedEvents = interleave;
+	}
+
+	// New: Method to set the promise resolvers
+	setTestPromiseResolvers(resolve: (outcome: EventOutcome) => void) {
+		this.resolveTestPromise = resolve;
 	}
 
 	match(ours: IObservableEvent, theirs: IEvent): boolean {
@@ -86,94 +94,130 @@ export class TestCase {
 		return ours.byBlock === undefined ? true : block <= ours.byBlock;
 	}
 
-	onEvent(e: IEvent): EventOutcome {
-		logger.debug(`Processing event: ${pe(e)}`);
-		const expectedEvent = this.eventSequence[0]!;
+	// returns a [`primary`, `maybeSecondary`] event to check. `primary` should always be checked first, and if not secondary is checked.
+	nextEvent(chain: Chain): [Observe, Observe | undefined] {
+		const next = this.eventSequence[0]!;
+		if (this.allowPerChainInterleavedEvents && this.eventSequence.length > 1) {
+			// get the next event in our list that is of type `chain`.
+			const nextOfChain = this.eventSequence.slice(1).find((e) => e.e.chain === chain);
+			return [next, nextOfChain];
+		} else {
+			return [next, undefined];
+		}
+	}
 
-		if (this.match(expectedEvent.e, e)) {
-			expectedEvent.onPass();
-			this.eventSequence.shift();
-			logger.info(`Event passed`);
+	removeEvent(e: Observe): void {
+		const index = this.eventSequence.findIndex((x) => x.e === e.e);
+		if (index !== -1) {
+			this.eventSequence.splice(index, 1);
+		} else {
+			logger.warn(`Event not found for removal: ${e.toString()}`);
+			exit(1);
+		}
+	}
+
+	onEvent(e: IEvent) {
+		logger.debug(`Processing event: ${pe(e)}`);
+		const [primary, maybeSecondary] = this.nextEvent(e.chain);
+
+		if (this.match(primary.e, e)) {
+			primary.onPass();
+			this.removeEvent(primary);
+			logger.info(`Primary event passed`);
 			if (this.eventSequence.length === 0) {
 				logger.info("All events processed.");
-				this.onComplete();
-				return EventOutcome.Done;
+				this.resolveTestPromise(EventOutcome.Done);
 			} else {
-				logger.info(
+				const nextExpected = logger.info(
 					`Next expected event: ${this.eventSequence[0]!.toString()}, remaining: ${
 						this.eventSequence.length
 					}`
 				);
-				return EventOutcome.Passed;
 			}
-		} else if (this.notTimedOut(expectedEvent.e, e.block)) {
+		} else if (maybeSecondary && this.match(maybeSecondary.e, e)) {
+			maybeSecondary.onPass();
+			this.removeEvent(maybeSecondary);
+			logger.info(`Secondary event passed`);
+		} else if (this.notTimedOut(primary.e, e.block)) {
 			logger.debug(`event not relevant, but not timed out`);
-			return EventOutcome.Ignored;
 		} else {
-			logger.error(`Event not passed: expected ${expectedEvent} got ${pe(e)}, and timed out`);
-			return EventOutcome.TimedOut;
+			logger.error(
+				`Event not passed: expected ${primary.e} or ${maybeSecondary?.e}, got ${pe(
+					e
+				)}, and timed out`
+			);
+			this.resolveTestPromise(EventOutcome.TimedOut);
 		}
 	}
 }
 
-export async function runTest(test: TestCase): Promise<void> {
-	const { rcApi, paraApi, paraClient, rcClient } = getApis();
+export async function runTest(test: TestCase, apis: ApiDeclerations): Promise<EventOutcome> {
+	const { rcClient, paraClient, rcApi, paraApi } = apis;
 
-	logger.info(`Connecting to relay chain ${(await rcApi.constants.System.Version()).spec_name}`);
-	logger.info(`Connecting to parachain ${(await paraApi.constants.System.Version()).spec_name}`);
+	let completionPromise: Promise<EventOutcome> = new Promise((resolve, _) => {
+		// Pass the resolve/reject functions to the TestCase instance
+		test.setTestPromiseResolvers(resolve);
 
-	rcClient.finalizedBlock$.subscribe(async (block) => {
-		const events = await rcApi.query.System.Events.getValue({ at: block.hash });
-		events
-			.filter(
-				(e) =>
-					e.event.type === "Session" ||
-					e.event.type === "RootOffences" ||
-					e.event.type === "StakingAhClient"
-			)
-			.map((e) => {
-				return {
-					chain: Chain.Relay,
-					module: e.event.type,
-					event: e.event.value.type,
-					data: e.event.value.value,
-					block: block.number,
-				};
-			})
-			.forEach((e) => {
-				test.onEvent(e);
+		const subscribeToRelay = async () => {
+			rcClient.finalizedBlock$.subscribe(async (block) => {
+				const events = await rcApi.query.System.Events.getValue({ at: block.hash });
+				for (const e of events) {
+					// Use for...of for async iteration if needed, or simple forEach
+					if (
+						e.event.type === "Session" ||
+						e.event.type === "RootOffences" ||
+						e.event.type === "StakingAhClient"
+					) {
+						test.onEvent({
+							chain: Chain.Relay,
+							module: e.event.type,
+							event: e.event.value.type,
+							data: e.event.value.value,
+							block: block.number,
+						});
+					}
+				}
 			});
+		};
+
+		const subscribeToParachain = async () => {
+			paraClient.finalizedBlock$.subscribe(async (block) => {
+				const events = await paraApi.query.System.Events.getValue({ at: block.hash });
+				for (const e of events) {
+					// Use for...of for async iteration if needed
+					if (
+						e.event.type == "Staking" ||
+						e.event.type == "MultiBlock" ||
+						e.event.type == "MultiBlockSigned" ||
+						e.event.type == "MultiBlockVerifier" ||
+						e.event.type == "StakingRcClient"
+					) {
+						test.onEvent({
+							chain: Chain.Parachain,
+							module: e.event.type,
+							event: e.event.value.type,
+							data: e.event.value.value,
+							block: block.number,
+						});
+					}
+				}
+			});
+		};
+
+		subscribeToRelay();
+		subscribeToParachain();
 	});
 
-	paraClient.finalizedBlock$.subscribe(async (block) => {
-		const events = await paraApi.query.System.Events.getValue({ at: block.hash });
-		events
-			.filter(
-				(e) =>
-					e.event.type == "Staking" ||
-					e.event.type == "MultiBlock" ||
-					e.event.type == "MultiBlockSigned" ||
-					e.event.type == "MultiBlockVerifier" ||
-					e.event.type == "StakingRcClient"
-			)
-			.map((e) => {
-				return {
-					chain: Chain.Parachain,
-					module: e.event.type,
-					event: e.event.value.type,
-					data: e.event.value.value,
-					block: block.number,
-				};
-			})
-			.forEach((e) => {
-				test.onEvent(e);
-			});
-	});
-
+	// Handle graceful exit on SIGINT
 	process.on("SIGINT", () => {
 		console.log("Exiting on Ctrl+C...");
+		test.onKill();
 		rcClient.destroy();
 		paraClient.destroy();
 		process.exit(0);
 	});
+
+	// Wait for the completionPromise to resolve/reject
+	const finalOutcome = await completionPromise;
+	return finalOutcome;
 }
