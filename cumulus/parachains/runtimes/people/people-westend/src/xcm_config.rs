@@ -16,7 +16,7 @@
 use super::{
 	AccountId, AllPalletsWithSystem, Balance, Balances, ParachainInfo, ParachainSystem,
 	PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason, RuntimeOrigin, WeightToFee,
-	XcmpQueue, RandomParaLocation
+	XcmpQueue
 };
 use crate::{TransactionByteFee, CENTS};
 use frame_support::{
