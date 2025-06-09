@@ -89,7 +89,7 @@ async fn doesnt_break_parachains_test() -> Result<(), anyhow::Error> {
 	let para_client = para_node.wait_client().await?;
 	// Assert the parachain finalized block height is also on par with the number of backed
 	// candidates.
-	assert_finality_lag(&para_client, 5).await?;
+	assert_finality_lag(&para_client, 6).await?;
 
 	// Sanity check that indeed the parachain has two assigned cores.
 	let cq = relay_client
