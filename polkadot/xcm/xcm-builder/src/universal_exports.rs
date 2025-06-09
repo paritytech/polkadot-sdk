@@ -255,9 +255,9 @@ impl<T: Get<Vec<NetworkExportTableItem>>> ExporterFor for NetworkExportTable<T> 
 ///
 /// In the case that the message ends with a `SetTopic(T)` (as should be the case if the top-level
 /// router is `WithUniqueTopic`), then the forwarding message (i.e. the one carrying the
-/// export instruction *to* the bridge in local consensus) will also end with a `SetTopic` whose
-/// inner is `forward_id_for(T)`. If this is not the case then the onward message will not be given
-/// the `SetTopic` afterword.
+/// export instruction *to* the bridge in local consensus) will also end with the same
+/// `SetTopic(T)`. If this is not the case, then the onward message will not be given the `SetTopic`
+/// afterward.
 pub struct UnpaidRemoteExporter<Bridges, Router, UniversalLocation>(
 	PhantomData<(Bridges, Router, UniversalLocation)>,
 );
@@ -343,9 +343,9 @@ impl<Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get<InteriorLocat
 ///
 /// In the case that the message ends with a `SetTopic(T)` (as should be the case if the top-level
 /// router is `WithUniqueTopic`), then the forwarding message (i.e. the one carrying the
-/// export instruction *to* the bridge in local consensus) will also end with a `SetTopic` whose
-/// inner is `forward_id_for(T)`. If this is not the case then the onward message will not be given
-/// the `SetTopic` afterword.
+/// export instruction *to* the bridge in local consensus) will also end with the same
+/// `SetTopic(T)`. If this is not the case, then the onward message will not be given the `SetTopic`
+/// afterward.
 pub struct SovereignPaidRemoteExporter<Bridges, Router, UniversalLocation>(
 	PhantomData<(Bridges, Router, UniversalLocation)>,
 );
