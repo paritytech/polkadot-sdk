@@ -1,6 +1,6 @@
 title: check inherents and equivocations in `import_block`
 doc:
-- audience: Node Operator
+- audience: ["Node Operator", "Node Dev"]
   description: |-
     When importing blocks, there are essentially two steps: `verify` and `import_block`. With https://github.com/paritytech/polkadot-sdk/issues/65, we would like to re-broadcast blocks between these two steps (i.e. basically right after `verify`).
 
