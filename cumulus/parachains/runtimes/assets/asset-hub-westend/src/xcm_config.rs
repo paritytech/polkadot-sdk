@@ -30,6 +30,7 @@ use frame_support::{
 		tokens::imbalance::{ResolveAssetTo, ResolveTo},
 		ConstU32, Contains, Equals, Everything, LinearStoragePrice, PalletInfoAccess,
 	},
+	PalletId,
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::{AuthorizedAliasers, XcmPassthrough};
@@ -54,9 +55,9 @@ use xcm_builder::{
 	LocalMint, MatchedConvertedConcreteId, NetworkExportTableItem, NoChecking, NonFungiblesAdapter,
 	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount,
 	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
-	SignedToAccountId32, SingleAssetExchangeAdapter, SovereignPaidRemoteExporter,
-	SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin,
+	SignedToAccountId32, SingleAssetExchangeAdapter, SovereignSignedViaLocation, StartsWith,
+	StartsWithExplicitGlobalConsensus, TakeWeightCredit, TrailingSetTopicAsId,
+	UnpaidRemoteExporter, UsingComponents, WeightInfoBounds, WithComputedOrigin,
 	WithLatestLocationConverter, WithUniqueTopic, XcmFeeManagerFromComponents,
 };
 use xcm_executor::XcmExecutor;
@@ -209,6 +210,31 @@ pub type PoolFungiblesTransactor = FungiblesAdapter<
 	CheckingAccount,
 >;
 
+parameter_types! {
+	/// Taken from the real gas and deposits of a standard ERC20 transfer call.
+	pub const ERC20TransferGasLimit: Weight = Weight::from_parts(700_000_000, 200_000);
+	pub const ERC20TransferStorageDepositLimit: Balance = 10_200_000_000;
+	pub ERC20TransfersCheckingAccount: AccountId = PalletId(*b"py/revch").into_account_truncating();
+}
+
+/// Transactor for ERC20 tokens.
+pub type ERC20Transactor = assets_common::ERC20Transactor<
+	// We need this for accessing pallet-revive.
+	Runtime,
+	// The matcher for smart contracts.
+	assets_common::ERC20Matcher,
+	// How to convert from a location to an account id.
+	LocationToAccountId,
+	// The maximum gas that can be used by a standard ERC20 transfer.
+	ERC20TransferGasLimit,
+	// The maximum storage deposit that can be used by a standard ERC20 transfer.
+	ERC20TransferStorageDepositLimit,
+	// We're generic over this so we can't escape specifying it.
+	AccountId,
+	// Checking account for ERC20 transfers.
+	ERC20TransfersCheckingAccount,
+>;
+
 /// Means for transacting assets on this chain.
 pub type AssetTransactors = (
 	FungibleTransactor,
@@ -216,6 +242,7 @@ pub type AssetTransactors = (
 	ForeignFungiblesTransactor,
 	PoolFungiblesTransactor,
 	UniquesTransactor,
+	ERC20Transactor,
 );
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
@@ -454,14 +481,18 @@ pub type XcmRouter = WithUniqueTopic<(
 	// GlobalConsensus with a pausable flag, if the flag is set true then the Router is paused
 	PausableExporter<
 		crate::SnowbridgeSystemFrontend,
-		SovereignPaidRemoteExporter<
-			(
+		(
+			UnpaidRemoteExporter<
 				bridging::to_ethereum::EthereumNetworkExportTableV2,
+				XcmpQueue,
+				UniversalLocation,
+			>,
+			UnpaidRemoteExporter<
 				bridging::to_ethereum::EthereumNetworkExportTable,
-			),
-			XcmpQueue,
-			UniversalLocation,
-		>,
+				XcmpQueue,
+				UniversalLocation,
+			>,
+		),
 	>,
 )>;
 

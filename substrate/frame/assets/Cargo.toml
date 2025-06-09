@@ -17,6 +17,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { workspace = true }
+ethereum-standards = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
@@ -27,6 +28,7 @@ frame-support = { workspace = true }
 # `system` module provides us with all sorts of useful stuff and macros depend on it being around.
 frame-benchmarking = { optional = true, workspace = true }
 frame-system = { workspace = true }
+pallet-revive = { workspace = true }
 sp-core = { workspace = true }
 
 [dev-dependencies]
@@ -42,6 +44,7 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-balances/std",
+	"pallet-revive/std",
 	"scale-info/std",
 	"sp-core/std",
 	"sp-io/std",
@@ -52,11 +55,13 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-revive/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-revive/try-runtime",
 	"sp-runtime/try-runtime",
 ]
