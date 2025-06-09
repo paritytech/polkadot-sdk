@@ -588,7 +588,6 @@ runtime-full = [
 	"frame-system-benchmarking",
 	"frame-system-rpc-runtime-api",
 	"frame-try-runtime",
-	"pallet-ah-ops",
 	"pallet-alliance",
 	"pallet-asset-conversion",
 	"pallet-asset-conversion-ops",
