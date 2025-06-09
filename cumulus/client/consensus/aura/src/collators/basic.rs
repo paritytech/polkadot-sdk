@@ -42,7 +42,6 @@ use sc_consensus::BlockImport;
 use sc_consensus_slots::InherentDataProviderExt;
 use sp_api::{CallApiAt, ProvideRuntimeApi};
 use sp_application_crypto::AppPublic;
-use sp_block_builder::BlockBuilder;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::AuraApi;
 use sp_core::crypto::Pair;
@@ -103,7 +102,7 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api: BlockBuilder<Block> + AuraApi<Block, P::Public> + CollectCollationInfo<Block>,
+	Client::Api: AuraApi<Block, P::Public> + CollectCollationInfo<Block>,
 	RClient: RelayChainInterface + Send + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + Clone + Send + 'static,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
