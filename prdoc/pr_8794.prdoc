@@ -5,6 +5,7 @@ doc:
 crates:
 - name: pallet-revive
   bump: patch
+  validate: false
 - name: pallet-revive-fixtures
   bump: patch
 - name: pallet-revive-proc-macro
