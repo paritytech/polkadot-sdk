@@ -43,23 +43,9 @@ on:
         description: |
           True iff there are changes in templates directory or the current workflow
 
-      ZOMBIENET_IMAGE:
-        value: ${{ jobs.preflight.outputs.ZOMBIENET_IMAGE }}
-        description: "ZOMBIENET CI image"
-
       CI_IMAGE:
         value: ${{ jobs.preflight.outputs.CI_IMAGE }}
         description: "CI image"
-
-      ZOMBIENET_RUNNER:
-        value: ${{ jobs.preflight.outputs.ZOMBIENET_RUNNER }}
-        description: |
-          Main runner for zombienet tests.
-
-      TEMP_IMAGES_BASE:
-        value: ${{ jobs.preflight.outputs.TEMP_IMAGES_BASE }}
-        description: |
-          Base location for 'temp' images used in tests.
 
       DOCKER_IMAGES_VERSION:
         value: ${{ jobs.preflight.outputs.DOCKER_IMAGES_VERSION }}
@@ -79,31 +65,27 @@ on:
         description: |
           url for download polkadot built artifacts (in zip format).
 
-      FLAKY_TESTS:
-        value: ${{ jobs.preflight.outputs.FLAKY_TESTS }}
-        description: |
-          comma separated list of flaky tests to skip.
-
-      # Zombie vars
+      # zombienet-env vars
       ZOMBIENET_PROVIDER:
         value: ${{ jobs.preflight.outputs.ZOMBIENET_PROVIDER }}
         description: "Provider to use in zombienet tests."
 
+      ZOMBIENET_IMAGE:
+        value: ${{ jobs.preflight.outputs.ZOMBIENET_IMAGE }}
+        description: "ZOMBIENET CI image"
+
+      ZOMBIENET_RUNNER:
+        value: ${{ jobs.preflight.outputs.ZOMBIENET_RUNNER }}
+        description: |
+          Main runner for zombienet tests.
+
       PUSHGATEWAY_URL:
         value: ${{ jobs.preflight.outputs.PUSHGATEWAY_URL }}
         description: "Gateway (url) to push metrics related to test."
+
       DEBUG:
         value: ${{ jobs.preflight.outputs.DEBUG }}
         description: "Debug value to zombienet v1 tests."
-      ZOMBIE_PROVIDER:
-        value: ${{ jobs.preflight.outputs.ZOMBIE_PROVIDER }}
-        description: "Provider to use in zombienet-sdk tests."
-      RUST_LOG:
-        value: ${{ jobs.preflight.outputs.RUST_LOG }}
-        description: "Log value to use in zombinet-sdk tests."
-      RUN_IN_CI:
-        value: ${{ jobs.preflight.outputs.RUN_IN_CI }}
-        description: "Internal flag to make zombienet aware of the env."
 
       KUBERNETES_CPU_REQUEST:
         value: ${{ jobs.preflight.outputs.KUBERNETES_CPU_REQUEST }}
@@ -112,6 +94,24 @@ on:
       KUBERNETES_MEMORY_REQUEST:
         value: ${{ jobs.preflight.outputs.KUBERNETES_MEMORY_REQUEST }}
         description: "Base memory (request) for pod runner."
+
+      TEMP_IMAGES_BASE:
+        value: ${{ jobs.preflight.outputs.TEMP_IMAGES_BASE }}
+        description: |
+          Base location for 'temp' images used in tests.
+
+      FLAKY_TESTS:
+        value: ${{ jobs.preflight.outputs.FLAKY_TESTS }}
+        description: |
+          comma separated list of flaky tests to skip.
+
+      # zombienet-sdk-env vars
+      ZOMBIE_PROVIDER:
+        value: ${{ jobs.preflight.outputs.ZOMBIE_PROVIDER }}
+        description: "Provider to use in zombienet-sdk tests."
+      RUST_LOG:
+        value: ${{ jobs.preflight.outputs.RUST_LOG }}
+        description: "Log value to use in zombinet-sdk tests."
 
       ZOMBIENET_SDK_RUNNER:
         value: ${{ jobs.preflight.outputs.ZOMBIENET_SDK_RUNNER }}
@@ -140,22 +140,20 @@ jobs:
 
       CI_IMAGE: ${{ steps.set_vars.outputs.IMAGE }}
 
-      ZOMBIENET_PROVIDER: ${{ steps.set_vars.outputs.ZOMBIENET_PROVIDER }}
-      ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}
-      ZOMBIENET_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_RUNNER }}
-
-      TEMP_IMAGES_BASE: ${{ steps.set_vars.outputs.TEMP_IMAGES_BASE }}
-
       # images versions
       DOCKER_IMAGES_VERSION: ${{ steps.set_images_version.outputs.DOCKER_IMAGES_VERSION }}
 
-      # common vars
-      PUSHGATEWAY_URL: ${{ steps.set_vars.outputs.PUSHGATEWAY_URL }}
       SOURCE_REF_SLUG: ${{ steps.set_vars.outputs.SOURCE_REF_SLUG }}
+
+      # zombienet-env vars
+      ZOMBIENET_PROVIDER: ${{ steps.set_vars.outputs.ZOMBIENET_PROVIDER }}
+      ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}
+      ZOMBIENET_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_RUNNER }}
+      PUSHGATEWAY_URL: ${{ steps.set_vars.outputs.PUSHGATEWAY_URL }}
       DEBUG: ${{ steps.set_vars.outputs.DEBUG }}
-      RUN_IN_CI: ${{ steps.set_vars.outputs.RUN_IN_CI }}
       KUBERNETES_CPU_REQUEST: ${{ steps.set_vars.outputs.KUBERNETES_CPU_REQUEST }}
       KUBERNETES_MEMORY_REQUEST: ${{ steps.set_vars.outputs.KUBERNETES_MEMORY_REQUEST }}
+      TEMP_IMAGES_BASE: ${{ steps.set_vars.outputs.TEMP_IMAGES_BASE }}
       FLAKY_TESTS: ${{ steps.set_vars.outputs.FLAKY_TESTS }}
 
       # zombienet-sdk vars
@@ -270,7 +268,6 @@ jobs:
           echo "ZOMBIENET_IMAGE: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}"
           echo "PUSHGATEWAY_URL: ${{ needs.preflight.outputs.PUSHGATEWAY_URL }}"
           echo "DEBUG: ${{ needs.preflight.outputs.DEBUG }}"
-          echo "RUN_IN_CI: ${{ needs.preflight.outputs.RUN_IN_CI }}"
           echo "KUBERNETES_CPU_REQUEST: ${{ needs.preflight.outputs.KUBERNETES_CPU_REQUEST }}"
           echo "KUBERNETES_MEMORY_REQUEST: ${{ needs.preflight.outputs.KUBERNETES_MEMORY_REQUEST }}"
           echo "FLAKY_TESTS: ${{ needs.preflight.outputs.FLAKY_TESTS }}"
