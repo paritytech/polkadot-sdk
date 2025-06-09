@@ -271,8 +271,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn call() -> Result<(), BenchmarkError> {
 		let data = vec![42u8; 1024];
-		let instance =
-			Contract::<T>::with_caller(whitelisted_caller(), VmModule::dummy(), vec![])?;
+		let instance = Contract::<T>::with_caller(whitelisted_caller(), VmModule::dummy(), vec![])?;
 		let value = Pallet::<T>::min_balance();
 		let origin = RawOrigin::Signed(instance.caller.clone());
 		let before = T::Currency::balance(&instance.account_id);
@@ -349,8 +348,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn set_code() -> Result<(), BenchmarkError> {
-		let instance =
-			<Contract<T>>::with_caller(whitelisted_caller(), VmModule::dummy(), vec![])?;
+		let instance = <Contract<T>>::with_caller(whitelisted_caller(), VmModule::dummy(), vec![])?;
 		// we just add some bytes so that the code hash is different
 		let VmModule { code, .. } = VmModule::dummy_unique(128);
 		let origin = RawOrigin::Signed(instance.caller.clone());
@@ -961,10 +959,7 @@ mod benchmarks {
 			result = runtime.bench_seal_return(memory.as_mut_slice(), 0, 0, n);
 		}
 
-		assert!(matches!(
-			result,
-			Err(crate::vm::TrapReason::Return(crate::vm::ReturnData { .. }))
-		));
+		assert!(matches!(result, Err(crate::vm::TrapReason::Return(crate::vm::ReturnData { .. }))));
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -2054,8 +2049,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_set_code_hash() -> Result<(), BenchmarkError> {
-		let code_hash =
-			Contract::<T>::with_index(1, VmModule::dummy(), vec![])?.info()?.code_hash;
+		let code_hash = Contract::<T>::with_index(1, VmModule::dummy(), vec![])?.info()?.code_hash;
 
 		build_runtime!(runtime, memory: [ code_hash.encode(),]);
 

@@ -313,10 +313,7 @@ where
 	}
 
 	/// Create a new contract with the specified unbalanced storage trie.
-	pub fn with_unbalanced_storage_trie(
-		code: VmModule,
-		key: &[u8],
-	) -> Result<Self, &'static str> {
+	pub fn with_unbalanced_storage_trie(code: VmModule, key: &[u8]) -> Result<Self, &'static str> {
 		/// Number of layers in a Radix16 unbalanced trie.
 		const UNBALANCED_TRIE_LAYERS: u32 = 20;
 
