@@ -90,6 +90,7 @@ pallet-staking = { workspace = true }
 pallet-staking-async-ah-client = { workspace = true }
 pallet-staking-async-rc-client = { workspace = true }
 pallet-staking-async-rc-runtime-constants = { workspace = true }
+pallet-staking-async-preset-store = { workspace = true }
 pallet-state-trie-migration = { workspace = true }
 pallet-sudo = { workspace = true }
 pallet-timestamp = { workspace = true }
@@ -191,6 +192,7 @@ std = [
 	"pallet-society/std",
 	"pallet-staking-async-ah-client/std",
 	"pallet-staking-async-rc-client/std",
+	"pallet-staking-async-preset-store/std",
 	"pallet-staking-async-rc-runtime-constants/std",
 	"pallet-staking/std",
 	"pallet-state-trie-migration/std",

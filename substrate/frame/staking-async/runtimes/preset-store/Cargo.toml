@@ -1,0 +1,17 @@
+[package]
+name = "pallet-staking-async-preset-store"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+codec = { workspace = true }
+scale-info = { workspace = true }
+frame = { workspace = true }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"scale-info/std",
+	"frame/std",
+]

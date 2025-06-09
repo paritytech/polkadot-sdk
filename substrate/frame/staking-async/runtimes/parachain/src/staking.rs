@@ -33,7 +33,7 @@ use xcm::latest::prelude::*;
 parameter_types! {
 	pub storage SignedPhase: u32 = 2 * MINUTES;
 	pub storage UnsignedPhase: u32 = MINUTES;
-	pub storage SignedValidationPhase: u32 = Pages::get() + 1;
+	pub storage SignedValidationPhase: u32 = Pages::get();
 
 	pub storage MaxElectingVoters: u32 = 1000;
 
@@ -276,7 +276,7 @@ impl pallet_staking_async::Config for Runtime {
 	type MaxDisabledValidators = ConstU32<100>;
 	type PlanningEraOffset =
 		pallet_staking_async::PlanningEraOffsetOf<Self, RelaySessionDuration, ConstU32<10>>;
-	type RcClientInterface = StakingNextRcClient;
+	type RcClientInterface = StakingRcClient;
 }
 
 impl pallet_staking_async_rc_client::Config for Runtime {

@@ -13334,10 +13334,6 @@ dependencies = [
  "sp-staking",
  "sp-tracing 16.0.0",
  "substrate-test-utils",
- "subxt 0.38.1",
- "subxt-signer 0.38.0",
- "tokio",
- "zombienet-sdk",
 ]
 
 [[package]]
@@ -13418,6 +13414,7 @@ dependencies = [
  "pallet-scheduler",
  "pallet-session",
  "pallet-staking-async",
+ "pallet-staking-async-preset-store",
  "pallet-staking-async-rc-client",
  "pallet-staking-async-runtime-api",
  "pallet-state-trie-migration",
@@ -13466,6 +13463,15 @@ dependencies = [
  "testnet-parachains-constants",
  "westend-runtime-constants",
  "xcm-runtime-apis",
+]
+
+[[package]]
+name = "pallet-staking-async-preset-store"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "polkadot-sdk-frame",
+ "scale-info",
 ]
 
 [[package]]
@@ -13543,6 +13549,7 @@ dependencies = [
  "pallet-society",
  "pallet-staking",
  "pallet-staking-async-ah-client",
+ "pallet-staking-async-preset-store",
  "pallet-staking-async-rc-client",
  "pallet-staking-async-rc-runtime-constants",
  "pallet-state-trie-migration",

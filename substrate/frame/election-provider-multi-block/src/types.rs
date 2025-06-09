@@ -301,6 +301,12 @@ impl<T: crate::Config> Phase<T> {
 		Self::Snapshot(T::Pages::get())
 	}
 
+	fn are_we_done() -> Self {
+		let query = T::AreWeDone::get();
+		log!(debug, "Are we done? {:?}", query);
+		query
+	}
+
 	/// Consume self and return the next variant, as per what the current phase is.
 	pub fn next(self) -> Self {
 		match self {
@@ -317,33 +323,33 @@ impl<T: crate::Config> Phase<T> {
 				{
 					Self::Unsigned(unsigned_duration)
 				} else {
-					T::AreWeDone::get()
+					Self::are_we_done()
 				},
 			Self::Snapshot(non_zero_remaining) =>
 				Self::Snapshot(non_zero_remaining.defensive_saturating_sub(One::one())),
 
 			// signed phase
-			Self::Signed(zero) if zero == BlockNumberFor::<T>::zero() =>
+			Self::Signed(zero) if zero.is_zero() =>
 				Self::SignedValidation(T::SignedValidationPhase::get().saturating_sub(One::one())),
 			Self::Signed(non_zero_left) =>
 				Self::Signed(non_zero_left.defensive_saturating_sub(One::one())),
 
 			// signed validation
-			Self::SignedValidation(zero) if zero == BlockNumberFor::<T>::zero() =>
+			Self::SignedValidation(zero) if zero.is_zero() =>
 				if let Some(unsigned_duration) = T::UnsignedPhase::get().checked_sub(&One::one()) {
 					Self::Unsigned(unsigned_duration)
 				} else {
-					T::AreWeDone::get()
+					Self::are_we_done()
 				},
 			Self::SignedValidation(non_zero_left) =>
 				Self::SignedValidation(non_zero_left.defensive_saturating_sub(One::one())),
 
 			// unsigned phase -- at this phase we will
-			Self::Unsigned(zero) if zero == BlockNumberFor::<T>::zero() => T::AreWeDone::get(),
+			Self::Unsigned(zero) if zero.is_zero() => Self::are_we_done(),
 			Self::Unsigned(non_zero_left) =>
 				Self::Unsigned(non_zero_left.defensive_saturating_sub(One::one())),
 
-			// Done
+			// Done. Wait for export to start.
 			Self::Done => Self::Done,
 
 			// Export
