@@ -153,7 +153,7 @@ pub fn call_allowed_status(call: &<Runtime as frame_system::Config>::RuntimeCall
 		RootTesting(..) => (ON, ON),
 		MetaTx(..) => (ON, ON), // FAIL-CI @muharem check
 		IdentityMigrator(..) => (ON, ON),
-		AssetHubStakingClient(..) => (ON, ON),
+		StakingAhClient(..) => (ON, ON),
 		// Exhaustive match. Compiler ensures that we did not miss any.
 	}
 }

@@ -1392,13 +1392,13 @@ construct_runtime!(
 		FastUnstake: pallet_fast_unstake = 82,
 		VoterList: pallet_bags_list::<Instance1> = 83,
 		DelegatedStaking: pallet_delegated_staking = 84,
-		StakingNextRcClient: pallet_staking_async_rc_client = 89,
+		StakingRcClient: pallet_staking_async_rc_client = 89,
 
 		// Staking election apparatus.
-		MultiBlock: pallet_election_provider_multi_block = 85,
-		MultiBlockVerifier: pallet_election_provider_multi_block::verifier = 86,
-		MultiBlockUnsigned: pallet_election_provider_multi_block::unsigned = 87,
-		MultiBlockSigned: pallet_election_provider_multi_block::signed = 88,
+		MultiBlockElection: pallet_election_provider_multi_block = 85,
+		MultiBlockElectionVerifier: pallet_election_provider_multi_block::verifier = 86,
+		MultiBlockElectionUnsigned: pallet_election_provider_multi_block::unsigned = 87,
+		MultiBlockElectionSigned: pallet_election_provider_multi_block::signed = 88,
 
 		// Governance.
 		ConvictionVoting: pallet_conviction_voting = 90,
@@ -1471,6 +1471,39 @@ impl EthExtra for EthExtraImpl {
 pub type UncheckedExtrinsic =
 	pallet_revive::evm::runtime::UncheckedExtrinsic<Address, Signature, EthExtraImpl>;
 
+pub struct RenameStakingPallets;
+impl frame_support::traits::OnRuntimeUpgrade for RenameStakingPallets {
+	fn on_runtime_upgrade() -> Weight {
+		// CI-FAIL: set to the next spec of westend-ah.
+		if VERSION.spec_version == 1_018_008 {
+			// This pallet already has a bunch od data, we just ignore it. The rest have small amounts of data.
+			// frame_support::storage::migration::move_pallet(
+			// 	b"MultiBlockSigned",
+			// 	b"MultiBlockElectionSigned",
+			// );
+			frame_support::storage::migration::move_pallet(
+				b"StakingNextRcClient",
+				b"StakingRcClient",
+			);
+			frame_support::storage::migration::move_pallet(
+				b"MultiBlock",
+				b"MultiBlockElection",
+			);
+			frame_support::storage::migration::move_pallet(
+				b"MultiBlockUnsigned",
+				b"MultiBlockElectionUnsigned",
+			);
+			frame_support::storage::migration::move_pallet(
+				b"MultiBlockVerifier",
+				b"MultiBlockElectionVerifier",
+			);
+			<Weight as sp_runtime::traits::Bounded>::max_value()
+		} else {
+			Default::default()
+		}
+	}
+}
+
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
 	// v9420
@@ -1499,6 +1532,7 @@ pub type Migrations = (
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
+	RenameStakingPallets,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.
@@ -1699,10 +1733,10 @@ mod benches {
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
 		[pallet_conviction_voting, ConvictionVoting]
-		[pallet_election_provider_multi_block, MultiBlock]
-		[pallet_election_provider_multi_block_verifier, MultiBlockVerifier]
-		[pallet_election_provider_multi_block_unsigned, MultiBlockUnsigned]
-		[pallet_election_provider_multi_block_signed, MultiBlockSigned]
+		[pallet_election_provider_multi_block, MultiBlockElection]
+		[pallet_election_provider_multi_block_verifier, MultiBlockElectionVerifier]
+		[pallet_election_provider_multi_block_unsigned, MultiBlockElectionUnsigned]
+		[pallet_election_provider_multi_block_signed, MultiBlockElectionSigned]
 		[pallet_fast_unstake, FastUnstake]
 		[pallet_message_queue, MessageQueue]
 		[pallet_migrations, MultiBlockMigrations]
