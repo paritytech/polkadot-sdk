@@ -513,7 +513,7 @@ impl<T: Config> Rotator<T> {
 
 	#[cfg(any(feature = "try-runtime", feature = "std", feature = "runtime-benchmarks", test))]
 	pub fn assert_election_ongoing() {
-		assert!(Self::planning_era().is_some(), "planning era must exist");
+		assert!(Self::is_planning().is_some(), "planning era must exist");
 		assert!(
 			T::ElectionProvider::status().is_ok(),
 			"Election provider must be in a good state during election"
@@ -526,7 +526,7 @@ impl<T: Config> Rotator<T> {
 	/// is underway, but rather the last era that was planned. If `Self::active_era()` is equal to
 	/// this value, it means that the era is currently active and no new era is planned.
 	///
-	/// See [`Self::planning_era()`] to only get the next index that is planned.
+	/// See [`Self::is_planning()`] to only get the next index if planning in progress.
 	pub fn planned_era() -> EraIndex {
 		CurrentEra::<T>::get().unwrap_or(0)
 	}
@@ -538,7 +538,7 @@ impl<T: Config> Rotator<T> {
 	/// Next era that is planned to be started.
 	///
 	/// Returns None if no era is planned.
-	pub fn planning_era() -> Option<EraIndex> {
+	pub fn is_planning() -> Option<EraIndex> {
 		let (active, planned) = (Self::active_era(), Self::planned_era());
 		if planned.defensive_saturating_sub(active) > 1 {
 			defensive!("planned era must always be equal or one more than active");
@@ -553,7 +553,7 @@ impl<T: Config> Rotator<T> {
 			defensive!("Active era must always be available.");
 			return;
 		};
-		let current_planned_era = Self::planning_era();
+		let current_planned_era = Self::is_planning();
 		let starting = end_index + 1;
 		// the session after the starting session.
 		let planning = starting + 1;
@@ -605,7 +605,7 @@ impl<T: Config> Rotator<T> {
 
 		// Note: we call `planning_era` again, as a new era might have started since we checked
 		// it last.
-		let has_pending_era = Self::planning_era().is_some();
+		let has_pending_era = Self::is_planning().is_some();
 		match (should_plan_era, has_pending_era) {
 			(false, _) => {
 				// nothing to consider

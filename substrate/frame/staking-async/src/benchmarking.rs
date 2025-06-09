@@ -229,7 +229,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
+		let origin_weight = Staking::<T>::min_nominator_bond();
 
 		// setup the worst case list scenario.
 
@@ -318,7 +318,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
+		let origin_weight = Staking::<T>::min_nominator_bond();
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
@@ -442,7 +442,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
+		let origin_weight = Staking::<T>::min_nominator_bond();
 
 		// setup a worst case list scenario. Note we don't care about the destination position,
 		// because we are just doing an insert into the origin position.
@@ -475,7 +475,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
+		let origin_weight = Staking::<T>::min_nominator_bond();
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
@@ -633,7 +633,7 @@ mod benchmarks {
 		// Clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
+		let origin_weight = Staking::<T>::min_nominator_bond();
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
@@ -734,8 +734,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get()
-			.max(asset::existential_deposit::<T>())
+		let origin_weight = Pallet::<T>::min_nominator_bond()
 			// we use 100 to play friendly with the list threshold values in the mock
 			.max(100u32.into());
 
@@ -781,7 +780,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
+		let origin_weight = Staking::<T>::min_nominator_bond();
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
@@ -858,7 +857,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
+		let origin_weight = Staking::<T>::min_nominator_bond();
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.

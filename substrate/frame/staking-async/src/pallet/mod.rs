@@ -1150,7 +1150,7 @@ pub mod pallet {
 		DuplicateIndex,
 		/// Slash record not found.
 		InvalidSlashRecord,
-		/// Cannot have a validator or nominator role, with value less than the minimum defined by
+		/// Cannot bond, nominate or validate with value less than the minimum defined by
 		/// governance (see `MinValidatorBond` and `MinNominatorBond`). If unbonding is the
 		/// intention, `chill` first to remove one's role as validator/nominator.
 		InsufficientBond,
@@ -1308,7 +1308,7 @@ pub mod pallet {
 			}
 
 			// Reject a bond which is lower than the minimum bond.
-			if value < Self::min_bond() {
+			if value < Self::min_chilled_bond() {
 				return Err(Error::<T>::InsufficientBond.into());
 			}
 
@@ -1407,9 +1407,9 @@ pub mod pallet {
 				}
 
 				let min_active_bond = if Nominators::<T>::contains_key(&stash) {
-					MinNominatorBond::<T>::get()
+					Self::min_nominator_bond()
 				} else if Validators::<T>::contains_key(&stash) {
-					MinValidatorBond::<T>::get()
+					Self::min_validator_bond()
 				} else {
 					// staker is chilled, no min bond.
 					Zero::zero()
@@ -1493,7 +1493,7 @@ pub mod pallet {
 
 			let ledger = Self::ledger(Controller(controller))?;
 
-			ensure!(ledger.active >= MinValidatorBond::<T>::get(), Error::<T>::InsufficientBond);
+			ensure!(ledger.active >= Self::min_validator_bond(), Error::<T>::InsufficientBond);
 			let stash = &ledger.stash;
 
 			// ensure their commission is correct.
@@ -1534,7 +1534,7 @@ pub mod pallet {
 
 			let ledger = Self::ledger(StakingAccount::Controller(controller.clone()))?;
 
-			ensure!(ledger.active >= MinNominatorBond::<T>::get(), Error::<T>::InsufficientBond);
+			ensure!(ledger.active >= Self::min_nominator_bond(), Error::<T>::InsufficientBond);
 			let stash = &ledger.stash;
 
 			// Only check limits if they are not already a nominator.
@@ -1889,7 +1889,7 @@ pub mod pallet {
 			let initial_unlocking = ledger.unlocking.len() as u32;
 			let (ledger, rebonded_value) = ledger.rebond(value);
 			// Last check: the new active amount of ledger must be more than min bond.
-			ensure!(ledger.active >= Self::min_bond(), Error::<T>::InsufficientBond);
+			ensure!(ledger.active >= Self::min_chilled_bond(), Error::<T>::InsufficientBond);
 
 			Self::deposit_event(Event::<T>::Bonded {
 				stash: ledger.stash.clone(),
@@ -1942,13 +1942,13 @@ pub mod pallet {
 			// virtual stakers should not be allowed to be reaped.
 			ensure!(!Self::is_virtual_staker(&stash), Error::<T>::VirtualStakerNotAllowed);
 
-			let min_bond = Self::min_bond();
+			let min_chilled_bond = Self::min_chilled_bond();
 			let origin_balance = asset::total_balance::<T>(&stash);
 			let ledger_total =
 				Self::ledger(Stash(stash.clone())).map(|l| l.total).unwrap_or_default();
-			let reapable = origin_balance < min_bond ||
+			let reapable = origin_balance < min_chilled_bond ||
 				origin_balance.is_zero() ||
-				ledger_total < min_bond ||
+				ledger_total < min_chilled_bond ||
 				ledger_total.is_zero();
 			ensure!(reapable, Error::<T>::FundedTarget);
 
@@ -2123,7 +2123,7 @@ pub mod pallet {
 						threshold * max_nominator_count < current_nominator_count,
 						Error::<T>::CannotChillOther
 					);
-					MinNominatorBond::<T>::get()
+					Self::min_nominator_bond()
 				} else if Validators::<T>::contains_key(&stash) {
 					let max_validator_count =
 						MaxValidatorsCount::<T>::get().ok_or(Error::<T>::CannotChillOther)?;
@@ -2132,7 +2132,7 @@ pub mod pallet {
 						threshold * max_validator_count < current_validator_count,
 						Error::<T>::CannotChillOther
 					);
-					MinValidatorBond::<T>::get()
+					Self::min_validator_bond()
 				} else {
 					Zero::zero()
 				};
