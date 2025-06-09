@@ -504,7 +504,6 @@ impl<B: BlockT> From<crate::standalone::PreDigestLookupError> for Error<B> {
 }
 
 /// Return AURA authorities at the given `parent_hash`.
-#[doc(hidden)]
 pub fn authorities<A, B, C>(
 	client: &C,
 	parent_hash: B::Hash,
