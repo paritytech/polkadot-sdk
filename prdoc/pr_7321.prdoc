@@ -11,22 +11,22 @@ doc:
 
 crates:
  - name: asset-hub-rococo-runtime
-   bump: patch
+   bump: minor
  - name: asset-hub-westend-runtime
-   bump: patch
+   bump: minor
  - name: bridge-hub-rococo-runtime
-   bump: patch
+   bump: minor
  - name: bridge-hub-westend-runtime
-   bump: patch
+   bump: minor
  - name: collectives-westend-runtime
-   bump: patch
+   bump: minor
  - name: coretime-rococo-runtime
-   bump: patch
+   bump: minor
  - name: coretime-westend-runtime
-   bump: patch
+   bump: minor
  - name: people-rococo-runtime
-   bump: patch
+   bump: minor
  - name: people-westend-runtime
-   bump: patch
+   bump: minor
  - name: contracts-rococo-runtime
-   bump: patch
+   bump: minor
