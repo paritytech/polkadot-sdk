@@ -13,7 +13,6 @@ workspace = true
 [dependencies]
 # Substrate
 frame-support = { workspace = true }
-pallet-balances = { workspace = true }
 pallet-broker = { workspace = true, default-features = true }
 pallet-message-queue = { workspace = true }
 pallet-xcm = { workspace = true }

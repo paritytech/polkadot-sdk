@@ -3806,7 +3806,6 @@ dependencies = [
  "cumulus-pallet-parachain-system",
  "emulated-integration-tests-common",
  "frame-support",
- "pallet-balances",
  "pallet-broker",
  "pallet-message-queue",
  "pallet-xcm",
