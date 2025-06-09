@@ -513,10 +513,7 @@ impl<T: Config> Rotator<T> {
 
 	#[cfg(any(feature = "try-runtime", feature = "std", feature = "runtime-benchmarks", test))]
 	pub fn assert_election_ongoing() {
-		assert!(
-			Self::planning_era().is_some(),
-			"planning era must exist"
-		);
+		assert!(Self::planning_era().is_some(), "planning era must exist");
 		assert!(
 			T::ElectionProvider::status().is_ok(),
 			"Election provider must be in a good state during election"
