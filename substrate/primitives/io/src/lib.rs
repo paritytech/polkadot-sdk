@@ -81,7 +81,9 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
+#[cfg(not(substrate_runtime))]
 use byte_slice_cast::AsMutSliceOf;
+
 use strum::EnumCount;
 
 #[cfg(not(substrate_runtime))]
@@ -119,10 +121,10 @@ use sp_trie::{LayoutV0, LayoutV1, TrieConfiguration};
 use sp_runtime_interface::{
 	pass_by::{
 		AllocateAndReturnByCodec, AllocateAndReturnFatPointer, AllocateAndReturnPointer,
-		ConvertAndPassAs, ConvertAndReturnAs, PassAs, PassBufferAndWriteEncoded,
-		PassFatPointerAndDecode, PassFatPointerAndDecodeSlice, PassFatPointerAndRead,
-		PassFatPointerAndReadWrite, PassMaybeFatPointerAndRead, PassPointerAndRead,
-		PassPointerAndReadCopy, PassPointerAndWrite, ReturnAs,
+		ConvertAndPassAs, ConvertAndReturnAs, PassAs, PassBufferAndWrite,
+		PassBufferAndWriteEncoded, PassFatPointerAndDecode, PassFatPointerAndDecodeSlice,
+		PassFatPointerAndRead, PassFatPointerAndReadWrite, PassMaybeFatPointerAndRead,
+		PassPointerAndRead, PassPointerAndReadCopy, PassPointerAndWrite, ReturnAs,
 	},
 	runtime_interface, Pointer,
 };
@@ -693,7 +695,6 @@ pub trait Storage {
 		self.storage_append(key.to_vec(), value);
 	}
 
-	// TODO
 	/// "Commit" all existing operations and compute the resulting storage root.
 	///
 	/// The hashing algorithm is defined by the `Block`.
@@ -711,6 +712,18 @@ pub trait Storage {
 	#[version(2)]
 	fn root(&mut self, version: PassAs<StateVersion, u8>) -> AllocateAndReturnFatPointer<Vec<u8>> {
 		self.storage_root(version)
+	}
+
+	/// "Commit" all existing operations and compute the resulting storage root.
+	///
+	/// The hashing algorithm is defined by the `Block`.
+	///
+	/// Fills provided output buffer with the SCALE encoded hash.
+	#[version(3, register_only)]
+	fn root(&mut self, out: PassBufferAndWrite<&mut [u8], 1024>) {
+		let root = self.storage_root(StateVersion::V0);
+		let write_len = root.len().min(out.len());
+		out[..write_len].copy_from_slice(&root[..write_len]);
 	}
 
 	/// Always returns `None`. This function exists for compatibility reasons.
@@ -939,7 +952,6 @@ pub trait DefaultChildStorage {
 		self.exists_child_storage(&child_info, key)
 	}
 
-	// TODO
 	/// Clear child default key by prefix.
 	///
 	/// Clear the child storage of each key-value pair where the key starts with the given `prefix`.
@@ -966,6 +978,7 @@ pub trait DefaultChildStorage {
 		self.clear_child_prefix(&child_info, prefix, limit, None).into()
 	}
 
+	/// TODO
 	/// Clear the child storage of each key-value pair where the key starts with the given `prefix`.
 	///
 	/// See `Storage` module `clear_prefix` documentation for `limit` usage.
@@ -987,7 +1000,6 @@ pub trait DefaultChildStorage {
 		.into()
 	}
 
-	// TODO
 	/// Default child root calculation.
 	///
 	/// "Commit" all existing operations and compute the resulting child storage root.
@@ -1016,6 +1028,24 @@ pub trait DefaultChildStorage {
 	) -> AllocateAndReturnFatPointer<Vec<u8>> {
 		let child_info = ChildInfo::new_default(storage_key);
 		self.child_storage_root(&child_info, version)
+	}
+
+	/// Default child root calculation.
+	///
+	/// "Commit" all existing operations and compute the resulting child storage root.
+	/// The hashing algorithm is defined by the `Block`.
+	///
+	/// Fills provided output buffer with the SCALE encoded hash.
+	#[version(3, register_only)]
+	fn root(
+		&mut self,
+		storage_key: PassFatPointerAndRead<&[u8]>,
+		out: PassBufferAndWrite<&mut [u8], 1024>,
+	) {
+		let child_info = ChildInfo::new_default(storage_key);
+		let root = self.child_storage_root(&child_info, StateVersion::V0);
+		let write_len = root.len().min(out.len());
+		out[..write_len].copy_from_slice(&root[..write_len]);
 	}
 
 	/// Child storage key iteration.

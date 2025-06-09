@@ -274,7 +274,7 @@ where
 			Some(value) => {
 				let value = value.as_ref();
 				(pack_ptr_and_len(value.as_ptr() as u32, value.len() as u32), ())
-			}
+			},
 		}
 	}
 }
@@ -548,8 +548,8 @@ where
 	}
 }
 
-/// Pass `T` through the FFI boundary by first converting it to `U` and then to `V` in the runtime, and then
-/// converting it back to `U` and then to `T` on the host's side.
+/// Pass `T` through the FFI boundary by first converting it to `U` and then to `V` in the runtime,
+/// and then converting it back to `U` and then to `T` on the host's side.
 ///
 /// Raw FFI type: same as `V`'s FFI type
 pub struct ConvertAndPassAs<T, U, V>(PhantomData<(T, U, V)>);
@@ -607,6 +607,55 @@ where
 	}
 }
 
+/// Allocate a buffer at the runtime, pass a pointer to it into the host and write raw bytes to it
+/// after the host call ends.
+///
+/// The host *doesn't* read from the buffer. After the host function finishes this buffer is then
+/// written back into the guest memory.
+///
+/// Raw FFI type: `u32` (a pointer)
+pub struct PassBufferAndWrite<T, const N: usize>(PhantomData<(T, [u8; N])>);
+
+impl<T, const N: usize> RIType for PassBufferAndWrite<T, N> {
+	type FFIType = u32;
+	type Inner = T;
+}
+
+#[cfg(not(substrate_runtime))]
+impl<'a, const N: usize> FromFFIValue<'a> for PassBufferAndWrite<&'a mut [u8], N> {
+	type Owned = Vec<u8>;
+
+	fn from_ffi_value(
+		_context: &mut dyn FunctionContext,
+		_arg: Self::FFIType,
+	) -> Result<Self::Owned> {
+		Ok(alloc::vec![0; N])
+	}
+
+	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::Inner {
+		&mut *owned
+	}
+
+	fn write_back_into_runtime(
+		value: Self::Owned,
+		context: &mut dyn FunctionContext,
+		arg: Self::FFIType,
+	) -> Result<()> {
+		let write_len = N.min(value.len());
+		context.write_memory(Pointer::new(arg), &value[..write_len])
+	}
+}
+
+#[cfg(substrate_runtime)]
+impl<const N: usize> IntoFFIValue for PassBufferAndWrite<&mut [u8], N> {
+	type Destructor = Vec<MaybeUninit<u8>>;
+
+	fn into_ffi_value(_value: &mut Self::Inner) -> (Self::FFIType, Self::Destructor) {
+		let buffer = alloc::vec![MaybeUninit::<u8>::uninit(); N];
+		(buffer.as_ptr() as u32, buffer)
+	}
+}
+
 /// Allocate a buffer at the runtime, pass a pointer to it into the host and write SCALE-encoded
 /// `T` to it after the host call ends.
 ///
@@ -652,8 +701,7 @@ where
 }
 
 #[cfg(substrate_runtime)]
-impl<T, const N: usize> IntoFFIValue for PassBufferAndWriteEncoded<&mut T, N>
-{
+impl<T, const N: usize> IntoFFIValue for PassBufferAndWriteEncoded<&mut T, N> {
 	type Destructor = Vec<MaybeUninit<u8>>;
 
 	fn into_ffi_value(_value: &mut Self::Inner) -> (Self::FFIType, Self::Destructor) {
