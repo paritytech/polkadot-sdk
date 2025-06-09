@@ -36,6 +36,12 @@ use secp256k1::{
 	Message, PublicKey, SecretKey, SECP256K1,
 };
 
+#[cfg(feature = "std")]
+type NativeSignature = secp256k1::ecdsa::RecoverableSignature;
+
+#[cfg(not(feature = "std"))]
+type NativeSignature = (k256::ecdsa::Signature, k256::ecdsa::RecoveryId);
+
 /// An identifier used to match public keys against ecdsa keys
 pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"ecds");
 
@@ -99,8 +105,11 @@ impl From<VerifyingKey> for Public {
 }
 
 #[cfg(feature = "full_crypto")]
-impl From<Pair> for Public {
-	fn from(x: Pair) -> Self {
+impl<TAG> From<GenericPair<TAG>> for Public
+where
+	GenericPair<TAG>: TraitPair<Public = Public>,
+{
+	fn from(x: GenericPair<TAG>) -> Self {
 		x.public()
 	}
 }
@@ -183,8 +192,8 @@ impl Recover for KeccakSignature {
 }
 
 #[cfg(not(feature = "std"))]
-impl From<(k256::ecdsa::Signature, k256::ecdsa::RecoveryId)> for Signature {
-	fn from(recsig: (k256::ecdsa::Signature, k256::ecdsa::RecoveryId)) -> Signature {
+impl<TAG> From<(k256::ecdsa::Signature, k256::ecdsa::RecoveryId)> for GenericSignature<TAG> {
+	fn from(recsig: (k256::ecdsa::Signature, k256::ecdsa::RecoveryId)) -> Self {
 		let mut r = Self::default();
 		r.0[..64].copy_from_slice(&recsig.0.to_bytes());
 		r.0[64] = recsig.1.to_byte();
@@ -422,7 +431,7 @@ where
 impl<TAG> GenericPair<TAG>
 where
 	Self: TraitPair,
-	<Self as TraitPair>::Signature: From<RecoverableSignature>,
+	<Self as TraitPair>::Signature: From<NativeSignature>,
 {
 	/// Sign a pre-hashed message
 	pub fn sign_prehashed(&self, message: &[u8; 32]) -> <Self as TraitPair>::Signature {
@@ -448,7 +457,7 @@ where
 #[cfg(feature = "full_crypto")]
 impl Pair
 where
-	<Self as TraitPair>::Signature: From<RecoverableSignature>,
+	<Self as TraitPair>::Signature: From<NativeSignature>,
 {
 	fn sign(&self, message: &[u8]) -> Signature {
 		self.sign_prehashed(&sp_crypto_hashing::blake2_256(message))
@@ -458,7 +467,7 @@ where
 #[cfg(feature = "full_crypto")]
 impl KeccakPair
 where
-	<Self as TraitPair>::Signature: From<RecoverableSignature>,
+	<Self as TraitPair>::Signature: From<NativeSignature>,
 {
 	fn sign(&self, message: &[u8]) -> KeccakSignature {
 		self.sign_prehashed(&sp_crypto_hashing::keccak_256(message))
