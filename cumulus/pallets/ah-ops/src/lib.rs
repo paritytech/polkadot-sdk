@@ -480,26 +480,26 @@ pub mod pallet {
 
 			// Release all locks
 			let locks: Vec<BalanceLock<T::Balance>> =
-				pallet_balances::Locks::<T>::get(&from).into_inner();
+				pallet_balances::Locks::<T>::get(from).into_inner();
 			for lock in &locks {
-				let () = <T as Config>::Currency::remove_lock(lock.id, &from);
+				let () = <T as Config>::Currency::remove_lock(lock.id, from);
 			}
 
 			// Thaw all the freezes
 			let freezes: Vec<IdAmount<T::FreezeIdentifier, T::Balance>> =
-				pallet_balances::Freezes::<T>::get(&from).into();
+				pallet_balances::Freezes::<T>::get(from).into();
 
 			for freeze in &freezes {
-				let () = <T as Config>::Currency::thaw(&freeze.id, &from)
+				let () = <T as Config>::Currency::thaw(&freeze.id, from)
 					.map_err(|_| Error::<T>::FailedToThaw)?;
 			}
 
 			// Release all holds
 			let holds: Vec<IdAmount<T::RuntimeHoldReason, T::Balance>> =
-				pallet_balances::Holds::<T>::get(&from).into();
+				pallet_balances::Holds::<T>::get(from).into();
 
 			for IdAmount { id, amount } in &holds {
-				let _ = <T as Config>::Currency::release(id, &from, *amount, Precision::Exact)
+				let _ = <T as Config>::Currency::release(id, from, *amount, Precision::Exact)
 					.map_err(|_| Error::<T>::FailedToReleaseHold)?;
 				Self::deposit_event(Event::HoldReleased {
 					account: from.clone(),
@@ -509,22 +509,22 @@ pub mod pallet {
 			}
 
 			// Unreserve unnamed reserves
-			let unnamed_reserve = <T as Config>::Currency::reserved_balance(&from);
-			let missing = <T as Config>::Currency::unreserve(&from, unnamed_reserve);
+			let unnamed_reserve = <T as Config>::Currency::reserved_balance(from);
+			let missing = <T as Config>::Currency::unreserve(from, unnamed_reserve);
 			defensive_assert!(missing == 0, "Should have unreserved the full amount");
 
 			// Set consumer refs to zero
-			let consumers = frame_system::Pallet::<T>::consumers(&from);
-			frame_system::Account::<T>::mutate(&from, |acc| {
+			let consumers = frame_system::Pallet::<T>::consumers(from);
+			frame_system::Account::<T>::mutate(from, |acc| {
 				acc.consumers = 0;
 			});
 			// We dont handle sufficients and there should be none
-			ensure!(frame_system::Pallet::<T>::sufficients(&from) == 0, Error::<T>::InternalError);
+			ensure!(frame_system::Pallet::<T>::sufficients(from) == 0, Error::<T>::InternalError);
 
 			// Sanity check
-			let total = <T as Config>::Currency::total_balance(&from);
+			let total = <T as Config>::Currency::total_balance(from);
 			let reducible = <T as Config>::Currency::reducible_balance(
-				&from,
+				from,
 				Preservation::Expendable,
 				Fortitude::Polite,
 			);
@@ -535,18 +535,18 @@ pub mod pallet {
 			defensive_assert!(total == reducible, "Total balance should be reducible");
 
 			// Now the actual balance transfer to the new account
-			<T as Config>::Currency::transfer(&from, &to, total, Preservation::Expendable)
+			<T as Config>::Currency::transfer(from, to, total, Preservation::Expendable)
 				.defensive()
 				.map_err(|_| Error::<T>::FailedToTransfer)?;
 
 			// Apply consumer refs
-			frame_system::Account::<T>::mutate(&to, |acc| {
+			frame_system::Account::<T>::mutate(to, |acc| {
 				acc.consumers += consumers;
 			});
 
 			// Reapply the holds
 			for hold in &holds {
-				<T as Config>::Currency::hold(&hold.id, &to, hold.amount)
+				<T as Config>::Currency::hold(&hold.id, to, hold.amount)
 					.map_err(|_| Error::<T>::FailedToPutHold)?;
 				// Somehow there are no events for this being emitted... so we emit our own.
 				Self::deposit_event(Event::HoldPlaced {
@@ -557,28 +557,28 @@ pub mod pallet {
 			}
 
 			// Reapply the reserve
-			<T as Config>::Currency::reserve(&to, unnamed_reserve)
+			<T as Config>::Currency::reserve(to, unnamed_reserve)
 				.defensive()
 				.map_err(|_| Error::<T>::FailedToReserve)?;
 
 			// Reapply the locks
 			for lock in &locks {
 				let reasons = map_lock_reason(lock.reasons);
-				<T as Config>::Currency::set_lock(lock.id, &to, lock.amount, reasons);
+				<T as Config>::Currency::set_lock(lock.id, to, lock.amount, reasons);
 			}
 			// Reapply the freezes
 			for freeze in &freezes {
-				<T as Config>::Currency::set_freeze(&freeze.id, &to, freeze.amount)
+				<T as Config>::Currency::set_freeze(&freeze.id, to, freeze.amount)
 					.map_err(|_| Error::<T>::FailedToSetFreeze)?;
 			}
 
 			defensive_assert!(
-				frame_system::Account::<T>::get(&from) == Default::default(),
+				frame_system::Account::<T>::get(from) == Default::default(),
 				"Must reap old account"
 			);
 			// If new account would die from this, then lets rather not do it and check it manually.
 			ensure!(
-				frame_system::Account::<T>::get(&to) != Default::default(),
+				frame_system::Account::<T>::get(to) != Default::default(),
 				Error::<T>::WouldReap
 			);
 
@@ -651,9 +651,8 @@ pub mod pallet {
 			let mut ah_raw = [0u8; 32];
 			ah_raw[0..4].copy_from_slice(b"sibl");
 			ah_raw[4..6].copy_from_slice(&para_id.encode());
-			let ah_acc = ah_raw.try_into().map_err(|_| Error::<T>::InternalError)?;
 
-			Ok((ah_acc, para_id))
+			Ok((ah_raw.into(), para_id))
 		}
 
 		pub fn try_rc_sovereign_derived_to_ah(

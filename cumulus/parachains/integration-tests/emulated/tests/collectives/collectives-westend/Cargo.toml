@@ -31,9 +31,7 @@ xcm = { workspace = true }
 xcm-executor = { workspace = true }
 
 # Cumulus
-asset-test-utils = { workspace = true, default-features = true }
 cumulus-pallet-parachain-system = { workspace = true }
 cumulus-pallet-xcmp-queue = { workspace = true }
 emulated-integration-tests-common = { workspace = true }
-parachains-common = { workspace = true, default-features = true }
 westend-system-emulated-network = { workspace = true }

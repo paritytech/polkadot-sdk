@@ -2661,7 +2661,6 @@ name = "bridge-hub-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
  "asset-hub-westend-runtime",
- "asset-test-utils",
  "bp-asset-hub-westend",
  "bridge-hub-common",
  "bridge-hub-westend-runtime",
@@ -3327,7 +3326,6 @@ dependencies = [
 name = "collectives-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
- "asset-test-utils",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
@@ -3339,7 +3337,6 @@ dependencies = [
  "pallet-utility",
  "pallet-whitelist",
  "pallet-xcm",
- "parachains-common",
  "parity-scale-codec",
  "polkadot-runtime-common",
  "sp-runtime 31.0.1",
@@ -3806,7 +3803,6 @@ dependencies = [
 name = "coretime-westend-integration-tests"
 version = "0.0.0"
 dependencies = [
- "asset-test-utils",
  "cumulus-pallet-parachain-system",
  "emulated-integration-tests-common",
  "frame-support",
@@ -3814,7 +3810,6 @@ dependencies = [
  "pallet-broker",
  "pallet-message-queue",
  "pallet-xcm",
- "parachains-common",
  "polkadot-runtime-parachains",
  "sp-runtime 31.0.1",
  "staging-xcm",
@@ -14589,7 +14584,6 @@ dependencies = [
 name = "people-westend-integration-tests"
 version = "0.1.0"
 dependencies = [
- "asset-test-utils",
  "emulated-integration-tests-common",
  "frame-support",
  "pallet-balances",

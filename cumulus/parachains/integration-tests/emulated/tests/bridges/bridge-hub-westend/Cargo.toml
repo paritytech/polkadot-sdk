@@ -37,7 +37,6 @@ pallet-bridge-relayers = { workspace = true }
 
 # Cumulus
 asset-hub-westend-runtime = { workspace = true }
-asset-test-utils = { workspace = true, default-features = true }
 bp-asset-hub-westend = { workspace = true }
 bridge-hub-common = { workspace = true }
 bridge-hub-westend-runtime = { workspace = true }
