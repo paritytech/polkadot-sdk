@@ -29,8 +29,6 @@ jobs:
     uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
     needs: isdraft
-    # TODO: reenable
-    if: false
     uses: ./.github/workflows/zombienet-reusable-preflight.yml
 
   zombienet-substrate-0000-block-building:
