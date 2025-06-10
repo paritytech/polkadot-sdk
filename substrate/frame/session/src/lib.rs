@@ -416,6 +416,10 @@ pub mod pallet {
 
 		/// A conversion from account ID to validator ID.
 		///
+		/// It is also a means to check that an account id is eligible to set session keys, through
+		/// being associated with a validator id. To disable this check, use
+		/// [`sp_runtime::traits::ConvertInto`].
+		///
 		/// Its cost must be at most one storage read.
 		type ValidatorIdOf: Convert<Self::AccountId, Option<Self::ValidatorId>>;
 
@@ -918,12 +922,9 @@ impl<T: Config> Pallet<T> {
 			Self::clear_key_owner(*id, key_data);
 		}
 
-		// Release the deposit from hold
-		let reason = &HoldReason::Keys.into();
-
 		// Use release_all to handle the case where the exact amount might not be available
 		let _ = T::Currency::release_all(
-			&reason,
+			&HoldReason::Keys.into(),
 			account,
 			frame_support::traits::tokens::Precision::BestEffort,
 		);

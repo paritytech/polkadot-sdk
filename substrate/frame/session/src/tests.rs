@@ -20,9 +20,10 @@
 use super::*;
 use crate::mock::{
 	authorities, before_session_end_called, force_new_session, new_test_ext,
-	reset_before_session_end_called, session_changed, set_next_validators, set_session_length,
-	Balances, KeyDeposit, MockSessionKeys, PreUpgradeMockSessionKeys, RuntimeOrigin, Session,
-	SessionChanged, System, Test, TestSessionChanged, TestValidatorIdOf, ValidatorAccounts,
+	reset_before_session_end_called, session_changed, session_events_since_last_call, session_hold,
+	set_next_validators, set_session_length, Balances, KeyDeposit, MockSessionKeys,
+	PreUpgradeMockSessionKeys, RuntimeOrigin, Session, SessionChanged, System, Test,
+	TestSessionChanged, TestValidatorIdOf, ValidatorAccounts,
 };
 
 use codec::Decode;
@@ -187,27 +188,42 @@ fn session_change_should_work() {
 		// Block 1: No change
 		initialize_block(1);
 		assert_eq!(authorities(), vec![UintAuthorityId(1), UintAuthorityId(2), UintAuthorityId(3)]);
+		assert_eq!(session_events_since_last_call(), vec![]);
 
 		// Block 2: Session rollover, but no change.
 		initialize_block(2);
 		assert_eq!(authorities(), vec![UintAuthorityId(1), UintAuthorityId(2), UintAuthorityId(3)]);
+		assert_eq!(
+			session_events_since_last_call(),
+			vec![Event::NewQueued, Event::NewSession { session_index: 1 }]
+		);
 
 		// Block 3: Set new key for validator 2; no visible change.
 		initialize_block(3);
 		assert_ok!(Session::set_keys(RuntimeOrigin::signed(2), UintAuthorityId(5).into(), vec![]));
 		assert_eq!(authorities(), vec![UintAuthorityId(1), UintAuthorityId(2), UintAuthorityId(3)]);
+		assert_eq!(session_events_since_last_call(), vec![]);
 
 		// Block 4: Session rollover; no visible change.
 		initialize_block(4);
 		assert_eq!(authorities(), vec![UintAuthorityId(1), UintAuthorityId(2), UintAuthorityId(3)]);
+		assert_eq!(
+			session_events_since_last_call(),
+			vec![Event::NewQueued, Event::NewSession { session_index: 2 }]
+		);
 
 		// Block 5: No change.
 		initialize_block(5);
 		assert_eq!(authorities(), vec![UintAuthorityId(1), UintAuthorityId(2), UintAuthorityId(3)]);
+		assert_eq!(session_events_since_last_call(), vec![]);
 
 		// Block 6: Session rollover; authority 2 changes.
 		initialize_block(6);
 		assert_eq!(authorities(), vec![UintAuthorityId(1), UintAuthorityId(5), UintAuthorityId(3)]);
+		assert_eq!(
+			session_events_since_last_call(),
+			vec![Event::NewQueued, Event::NewSession { session_index: 3 }]
+		);
 	});
 }
 
@@ -489,7 +505,7 @@ fn set_keys_should_fail_with_insufficient_funds() {
 }
 
 #[test]
-fn set_keys_should_reserve_funds() {
+fn set_keys_should_hold_funds() {
 	new_test_ext().execute_with(|| {
 		// Account 1000 is mocked to have sufficient funds
 		let account_id = 1000;
@@ -505,14 +521,13 @@ fn set_keys_should_reserve_funds() {
 		let res = Session::set_keys(RuntimeOrigin::signed(account_id), keys, vec![]);
 		assert_ok!(res);
 
-		// Check that the funds were reserved
-		let reserved_balance = Balances::reserved_balance(&account_id);
-		assert_eq!(reserved_balance, deposit);
+		// Check that the funds are held
+		assert_eq!(session_hold(account_id), deposit);
 	});
 }
 
 #[test]
-fn purge_keys_should_unreserve_funds() {
+fn purge_keys_should_unhold_funds() {
 	new_test_ext().execute_with(|| {
 		// Account 1000 is mocked to have sufficient funds
 		let account_id = 1000;
@@ -545,6 +560,33 @@ fn purge_keys_should_unreserve_funds() {
 		// Check that the funds were unreserved
 		let reserved_balance_after_purge = Balances::reserved_balance(&account_id);
 		assert_eq!(reserved_balance_after_purge, reserved_balance_before_purge - deposit);
+	});
+}
+
+#[test]
+fn existing_validators_without_hold_are_except() {
+	// upon addition of `SessionDeposit`, a runtime may have some old validators without any held
+	// amount. They can freely still update their session keys. They can also purge them.
+
+	// disable key deposit for initial validators
+	KeyDeposit::set(0);
+	new_test_ext().execute_with(|| {
+		// reset back to the first value.
+		KeyDeposit::set(10);
+		// 1 is an initial validator
+		assert_eq!(session_hold(1), 0);
+
+		// upgrade 1's keys
+		assert_ok!(Session::set_keys(
+			RuntimeOrigin::signed(1),
+			UintAuthorityId(7).into(),
+			Default::default()
+		));
+		assert_eq!(session_hold(1), 0);
+
+		// purge 1's keys
+		assert_ok!(Session::purge_keys(RuntimeOrigin::signed(1)));
+		assert_eq!(session_hold(1), 0);
 	});
 }
 
