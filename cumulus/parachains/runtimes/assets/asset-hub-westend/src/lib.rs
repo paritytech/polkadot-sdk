@@ -1653,8 +1653,9 @@ mod benches {
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
 		[pallet_conviction_voting, ConvictionVoting]
-		[pallet_election_provider_multi_block, MultiBlock]
-		[pallet_election_provider_multi_block_verifier, MultiBlockVerifier]
+		// Temporarily disabled due to https://github.com/paritytech/polkadot-sdk/issues/7714
+		// [pallet_election_provider_multi_block, MultiBlock]
+		// [pallet_election_provider_multi_block_verifier, MultiBlockVerifier]
 		[pallet_election_provider_multi_block_unsigned, MultiBlockUnsigned]
 		[pallet_election_provider_multi_block_signed, MultiBlockSigned]
 		[pallet_fast_unstake, FastUnstake]
