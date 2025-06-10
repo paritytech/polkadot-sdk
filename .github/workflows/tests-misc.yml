@@ -140,11 +140,9 @@ jobs:
           ref: ${{ matrix.branch == 'master' && matrix.branch || '' }}
 
       - name: script
+        shell: bash
         run: |
-          # Fail the step if any command in a pipeline errors out (--pipefail).
-          # -e  : exit immediately on non‑zero status
-          # -u  : treat unset variables as an error
-          # -o pipefail : return the status of the first failing command in a pipeline
+          # Fail the step if any command in a pipeline errors out.
           set -euo pipefail 
           ARTIFACTS_DIR=./artifacts
           BENCH_TRIE_READ=::trie::read::small
