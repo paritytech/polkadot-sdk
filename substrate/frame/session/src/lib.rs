@@ -456,7 +456,7 @@ pub mod pallet {
 		/// The amount to be held when setting keys.
 		#[pallet::constant]
 		type KeyDeposit: Get<
-			<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance,
+			<<Self as Config>::Currency as Inspect<<Self as frame_system::Config>::AccountId>>::Balance,
 		>;
 	}
 
@@ -856,8 +856,9 @@ impl<T: Config> Pallet<T> {
 		// The hold call itself will return an error if funds are insufficient.
 		if old_keys.is_none() {
 			let deposit = T::KeyDeposit::get();
-			let reason = &HoldReason::Keys.into();
-			T::Currency::hold(&reason, account, deposit)?;
+			if !deposit.is_zero() {
+				T::Currency::hold(&HoldReason::Keys.into(), account, deposit)?;
+			}
 
 			let assertion = frame_system::Pallet::<T>::inc_consumers(account).is_ok();
 			debug_assert!(assertion, "can_inc_consumer() returned true; no change since; qed");
