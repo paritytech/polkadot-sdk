@@ -3038,7 +3038,7 @@ fn unavailable_call_is_detected() {
 
 #[test]
 fn service_task_fetched_weight_sane() {
-	use crate::{weights::SubstrateWeight, WeightInfo};
+	use crate::{WeightInfo, weights::SubstrateWeight};
 
 	let w = SubstrateWeight::<Test>::service_task_fetched(0);
 	assert!(w.proof_size() < 100 * 1024, "Proof size is less then 100 KiB");

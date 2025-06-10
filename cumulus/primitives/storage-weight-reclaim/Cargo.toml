@@ -37,7 +37,5 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"scale-info/std",
-	"sp-io/std",
 	"sp-runtime/std",
-	"sp-trie/std",
 ]
