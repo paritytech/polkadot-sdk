@@ -28,6 +28,7 @@ pub mod pallet_identity;
 pub mod pallet_message_queue;
 pub mod pallet_migrations;
 pub mod pallet_multisig;
+pub mod pallet_origin_restriction;
 pub mod pallet_proxy;
 pub mod pallet_session;
 pub mod pallet_timestamp;
@@ -38,7 +39,6 @@ pub mod paritydb_weights;
 pub mod polkadot_runtime_common_identity_migrator;
 pub mod rocksdb_weights;
 pub mod xcm;
-pub mod pallet_origin_restriction;
 
 pub use block_weights::constants::BlockExecutionWeight;
 pub use extrinsic_weights::constants::ExtrinsicBaseWeight;
