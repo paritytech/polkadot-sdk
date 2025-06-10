@@ -1462,12 +1462,6 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		T::BondingDuration::get()
 	}
 
-	/// Deprecated
-	fn current_era() -> EraIndex {
-		defensive!("should not be used, use `active_era` instead");
-		CurrentEra::<T>::get().unwrap_or(Zero::zero())
-	}
-
 	fn active_era() -> EraIndex {
 		Rotator::<T>::active_era()
 	}
@@ -1614,8 +1608,9 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			Eras::<T>::upsert_exposure(*current_era, stash, exposure);
 		}
 
-		fn set_current_era(era: EraIndex) {
+		fn set_active_era(era: EraIndex) {
 			CurrentEra::<T>::put(era);
+			ActiveEra::<T>::put(crate::ActiveEraInfo { index: era, start: Some(0) });
 		}
 
 		fn max_exposure_page_size() -> Page {

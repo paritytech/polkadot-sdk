@@ -131,7 +131,7 @@ mod benchmarks {
 		let u = T::MaxErasToCheckPerBlock::get().min(T::Staking::bonding_duration());
 
 		ErasToCheckPerBlock::<T>::put(u);
-		T::Staking::set_current_era(u);
+		T::Staking::set_active_era(u);
 
 		// setup staking with v validators and u eras of data (0..=u+1)
 		setup_staking::<T>(v, u);

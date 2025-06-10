@@ -40,6 +40,7 @@ use sp_runtime::{
 	Perbill, Percent, Saturating,
 };
 use sp_staking::currency_to_vote::CurrencyToVote;
+use sp_staking::StakingInterface;
 use testing_utils::*;
 
 const SEED: u32 = 0;
@@ -297,7 +298,7 @@ mod benchmarks {
 		let (_, controller) = create_stash_controller::<T>(0, 100, RewardDestination::Staked)?;
 		let amount = asset::existential_deposit::<T>() * 5u32.into(); // Half of total
 		Staking::<T>::unbond(RawOrigin::Signed(controller.clone()).into(), amount)?;
-		CurrentEra::<T>::put(EraIndex::max_value());
+		Staking::<T>::set_active_era(EraIndex::max_value());
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created before")?;
 		let original_total: BalanceOf<T> = ledger.total;
 		whitelist_account!(controller);
@@ -331,7 +332,7 @@ mod benchmarks {
 		let mut ledger = Ledger::<T>::get(&controller).unwrap();
 		ledger.active = ed - One::one();
 		Ledger::<T>::insert(&controller, ledger);
-		CurrentEra::<T>::put(EraIndex::max_value());
+		Staking::<T>::set_active_era(EraIndex::max_value());
 
 		whitelist_account!(controller);
 

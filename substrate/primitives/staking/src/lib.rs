@@ -200,12 +200,6 @@ pub trait StakingInterface {
 	/// Number of eras that staked funds must remain bonded for.
 	fn bonding_duration() -> EraIndex;
 
-	/// The current era index.
-	///
-	/// This should be the latest planned era that the staking system knows about.
-	#[deprecated(note = "`Use active_era` instead. This will be removed in the future.")]
-	fn current_era() -> EraIndex;
-
 	/// The ongoing era index in the staking system.
 	fn active_era() -> EraIndex;
 
@@ -317,8 +311,12 @@ pub trait StakingInterface {
 		exposures: Vec<(Self::AccountId, Self::Balance)>,
 	);
 
+	/// Updates the current and active era index in the staking system.
+	///
+	/// Note: This resets the Active Era timestamp. Should be used only for testing and when
+	/// timestamp is irrelevant.
 	#[cfg(feature = "runtime-benchmarks")]
-	fn set_current_era(era: EraIndex);
+	fn set_active_era(era: EraIndex);
 }
 
 /// Set of low level apis to manipulate staking ledger.
