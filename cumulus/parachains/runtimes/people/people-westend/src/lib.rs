@@ -685,9 +685,9 @@ where
 		UncheckedExtrinsic::new_bare(call)
 	}
 	fn create_bare(
-		_: <Self as CreateTransactionBase<LocalCall>>::RuntimeCall,
+		call: <Self as CreateTransactionBase<LocalCall>>::RuntimeCall,
 	) -> <Self as CreateTransactionBase<LocalCall>>::Extrinsic {
-		todo!()
+		UncheckedExtrinsic::new_bare(call)
 	}
 }
 
