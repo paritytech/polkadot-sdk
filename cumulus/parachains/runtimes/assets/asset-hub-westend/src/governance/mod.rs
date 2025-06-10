@@ -49,7 +49,8 @@ parameter_types! {
 }
 
 mod impls;
-use impls::benchmarks::*;
+#[cfg(feature = "runtime-benchmarks")]
+use impls::benchmarks::{OpenHrmpChannel, PayWithEnsure};
 
 impl pallet_conviction_voting::Config for Runtime {
 	type WeightInfo = weights::pallet_conviction_voting::WeightInfo<Self>;
