@@ -83,11 +83,10 @@ pub fn roll_until_matches(criteria: impl Fn() -> bool, with_rc: bool) {
 /// Use the given `end_index` as the first session report, and increment as per needed.
 pub(crate) fn roll_until_next_active(mut end_index: SessionIndex) -> Vec<AccountId> {
 	// receive enough session reports, such that we plan a new era
-	let planned_era = pallet_staking_async::session_rotation::Rotator::<Runtime>::planning_era();
+	let planned_era = pallet_staking_async::session_rotation::Rotator::<Runtime>::planned_era();
 	let active_era = pallet_staking_async::session_rotation::Rotator::<Runtime>::active_era();
 
-	while pallet_staking_async::session_rotation::Rotator::<Runtime>::planning_era() == planned_era
-	{
+	while pallet_staking_async::session_rotation::Rotator::<Runtime>::planned_era() == planned_era {
 		let report = SessionReport {
 			end_index,
 			activation_timestamp: None,
@@ -342,6 +341,7 @@ impl pallet_staking_async::Config for Runtime {
 	type RewardRemainder = ();
 	type Slash = ();
 	type SlashDeferDuration = SlashDeferredDuration;
+	type MaxEraDuration = ();
 
 	type HistoryDepth = ConstU32<7>;
 	type MaxControllersInDeprecationBatch = ();
