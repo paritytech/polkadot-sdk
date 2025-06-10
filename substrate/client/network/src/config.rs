@@ -672,7 +672,7 @@ pub struct NetworkConfiguration {
 	pub yamux_window_size: Option<u32>,
 
 	/// Networking backend used for P2P communication.
-	pub network_backend: Option<NetworkBackendType>,
+	pub network_backend: NetworkBackendType,
 }
 
 impl NetworkConfiguration {
@@ -705,7 +705,7 @@ impl NetworkConfiguration {
 				.expect("value is a constant; constant is non-zero; qed."),
 			yamux_window_size: None,
 			ipfs_server: false,
-			network_backend: None,
+			network_backend: NetworkBackendType::Litep2p,
 		}
 	}
 
@@ -933,12 +933,19 @@ impl<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> FullNetworkConfig
 /// Network backend type.
 #[derive(Debug, Clone, Default, Copy)]
 pub enum NetworkBackendType {
-	/// Use libp2p for P2P networking.
-	#[default]
-	Libp2p,
-
 	/// Use litep2p for P2P networking.
+	///
+	/// This is the preferred option for Substrate-based chains.
+	#[default]
 	Litep2p,
+
+	/// Use libp2p for P2P networking.
+	///
+	/// The libp2p is still used for compatibility reasons until the
+	/// ecosystem switches entirely to litep2p. The backend will enter
+	/// a "best-effort" maintenance mode, where only critical issues will
+	/// get fixed. If you are unsure, please use `NetworkBackendType::Litep2p`.
+	Libp2p,
 }
 
 #[cfg(test)]
