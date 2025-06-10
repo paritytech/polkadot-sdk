@@ -15,7 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::session_rotation::Eras;
+use crate::{
+	session_rotation::{Eras, Rotator},
+	tests::session_mock::{CurrentIndex, Timestamp},
+};
 
 use super::*;
 
@@ -178,10 +181,43 @@ fn forcing_force_new() {
 }
 
 #[test]
-#[should_panic]
 fn activation_timestamp_when_no_planned_era() {
 	// maybe not needed, as we have the id check
-	todo!("what if we receive an activation timestamp when there is no planned era?");
+	ExtBuilder::default().session_per_era(6).build_and_execute(|| {
+		Session::roll_until_active_era(2);
+		let current_index = CurrentIndex::get();
+
+		// reset events until now.
+		let _ = staking_events_since_last_call();
+
+		// GIVEN: no new planned era
+		assert_eq!(Rotator::<T>::active_era(), 2);
+		assert_eq!(Rotator::<T>::planned_era(), 2);
+
+		// WHEN: send a new activation timestamp (manually).
+		<Staking as pallet_staking_async_rc_client::AHStakingInterface>::on_relay_session_report(
+			pallet_staking_async_rc_client::SessionReport::new_terminal(
+				current_index,
+				vec![],
+				// sending a timestamp that is in the future with identifier of the next era that
+				// is not planned.
+				Some((Timestamp::get() + time_per_session(), 3)),
+			),
+		);
+
+		// THEN: No era rotation should happen, but an error event should be emitted.
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				Event::Unexpected(UnexpectedKind::UnknownValidatorActivation),
+				Event::SessionRotated {
+					starting_session: current_index + 1,
+					active_era: 2,
+					planned_era: 2
+				}
+			]
+		);
+	});
 }
 
 #[test]
@@ -192,9 +228,66 @@ fn activation_timestamp_when_era_planning_not_complete() {
 }
 
 #[test]
-#[should_panic]
 fn max_era_duration_safety_guard() {
-	todo!("a safety guard that ensures that there is an upper bound on how long an era duration can be. Should prevent us from parabolic inflation in case of some crazy bug.");
+	ExtBuilder::default().build_and_execute(|| {
+		// let's deduce some magic numbers for the test.
+		let ideal_era_payout = total_payout_for(time_per_era());
+		let ideal_treasury_payout = RemainderRatio::get() * ideal_era_payout;
+		let ideal_validator_payout = ideal_era_payout - ideal_treasury_payout;
+		// max era duration is capped to 7 times the ideal era duration.
+		let max_validator_payout = 7 * ideal_validator_payout;
+		let max_treasury_payout = 7 * ideal_treasury_payout;
+
+		// these are the values we expect to see in the events.
+		assert_eq!(ideal_treasury_payout, 7500);
+		assert_eq!(ideal_validator_payout, 7500);
+		// when the era duration exceeds `MaxEraDuration`, the payouts should be capped to the
+		// following values.
+		assert_eq!(max_treasury_payout, 52500);
+		assert_eq!(max_validator_payout, 52500);
+
+		// GIVEN: we are at end of an era (2).
+		Session::roll_until_active_era(2);
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				Event::SessionRotated { starting_session: 4, active_era: 1, planned_era: 2 },
+				Event::PagedElectionProceeded { page: 0, result: Ok(2) },
+				Event::SessionRotated { starting_session: 5, active_era: 1, planned_era: 2 },
+				Event::EraPaid {
+					era_index: 1,
+					validator_payout: ideal_validator_payout,
+					remainder: ideal_treasury_payout
+				},
+				Event::SessionRotated { starting_session: 6, active_era: 2, planned_era: 2 }
+			]
+		);
+
+		// WHEN: subsequent era takes longer than MaxEraDuration.
+		// (this can happen either because of a bug or because a long stall in the chain).
+		Timestamp::set(Timestamp::get() + 2 * MaxEraDuration::get());
+		Session::roll_until_active_era(3);
+
+		// THEN: we should see the payouts capped to the max values.
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				Event::SessionRotated { starting_session: 7, active_era: 2, planned_era: 3 },
+				Event::PagedElectionProceeded { page: 0, result: Ok(2) },
+				Event::SessionRotated { starting_session: 8, active_era: 2, planned_era: 3 },
+				// an event is emitted to indicate something unexpected happened, i.e. the era
+				// duration exceeded the `MaxEraDuration` limit.
+				Event::Unexpected(UnexpectedKind::EraDurationBoundExceeded),
+				// the payouts are capped to the max values.
+				Event::EraPaid {
+					era_index: 2,
+					validator_payout: max_validator_payout,
+					remainder: max_treasury_payout
+				},
+				Event::SessionRotated { starting_session: 9, active_era: 3, planned_era: 3 }
+			]
+		);
+	});
 }
 
 #[test]

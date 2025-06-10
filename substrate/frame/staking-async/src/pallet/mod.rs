@@ -312,6 +312,17 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxDisabledValidators: Get<u32>;
 
+		/// Maximum allowed era duration in milliseconds.
+		///
+		/// This provides a defensive upper bound to cap the effective era duration, preventing
+		/// excessively long eras from causing runaway inflation (e.g., due to bugs). If the actual
+		/// era duration exceeds this value, it will be clamped to this maximum.
+		///
+		/// Example: For an ideal era duration of 24 hours (86,400,000 ms),
+		/// this can be set to 604,800,000 ms (7 days).
+		#[pallet::constant]
+		type MaxEraDuration: Get<u64>;
+
 		/// Interface to talk to the RC-Client pallet, possibly sending election results to the
 		/// relay chain.
 		#[pallet::no_default]
@@ -373,6 +384,7 @@ pub mod pallet {
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type MaxInvulnerables = ConstU32<20>;
 			type MaxDisabledValidators = ConstU32<100>;
+			type MaxEraDuration = ();
 			type EventListeners = ();
 			type Filter = Nothing;
 			type WeightInfo = ();
@@ -1103,6 +1115,22 @@ pub mod pallet {
 			active_era: EraIndex,
 			planned_era: EraIndex,
 		},
+		/// Something occurred that should never happen under normal operation.
+		/// Logged as an event for fail-safe observability.
+		Unexpected(UnexpectedKind),
+	}
+
+	/// Represents unexpected or invariant-breaking conditions encountered during execution.
+	///
+	/// These variants are emitted as [`Event::Unexpected`] and indicate a defensive check has
+	/// failed. While these should never occur under normal operation, they are useful for
+	/// diagnosing issues in production or test environments.
+	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, RuntimeDebug)]
+	pub enum UnexpectedKind {
+		/// Emitted when calculated era duration exceeds the configured maximum.
+		EraDurationBoundExceeded,
+		/// Received a validator activation event that is not recognized.
+		UnknownValidatorActivation,
 	}
 
 	#[pallet::error]
@@ -1122,7 +1150,7 @@ pub mod pallet {
 		DuplicateIndex,
 		/// Slash record not found.
 		InvalidSlashRecord,
-		/// Cannot have a validator or nominator role, with value less than the minimum defined by
+		/// Cannot bond, nominate or validate with value less than the minimum defined by
 		/// governance (see `MinValidatorBond` and `MinNominatorBond`). If unbonding is the
 		/// intention, `chill` first to remove one's role as validator/nominator.
 		InsufficientBond,
@@ -1279,8 +1307,8 @@ pub mod pallet {
 				return Err(Error::<T>::AlreadyPaired.into());
 			}
 
-			// Reject a bond which is considered to be _dust_.
-			if value < asset::existential_deposit::<T>() {
+			// Reject a bond which is lower than the minimum bond.
+			if value < Self::min_chilled_bond() {
 				return Err(Error::<T>::InsufficientBond.into());
 			}
 
@@ -1379,10 +1407,11 @@ pub mod pallet {
 				}
 
 				let min_active_bond = if Nominators::<T>::contains_key(&stash) {
-					MinNominatorBond::<T>::get()
+					Self::min_nominator_bond()
 				} else if Validators::<T>::contains_key(&stash) {
-					MinValidatorBond::<T>::get()
+					Self::min_validator_bond()
 				} else {
+					// staker is chilled, no min bond.
 					Zero::zero()
 				};
 
@@ -1464,7 +1493,7 @@ pub mod pallet {
 
 			let ledger = Self::ledger(Controller(controller))?;
 
-			ensure!(ledger.active >= MinValidatorBond::<T>::get(), Error::<T>::InsufficientBond);
+			ensure!(ledger.active >= Self::min_validator_bond(), Error::<T>::InsufficientBond);
 			let stash = &ledger.stash;
 
 			// ensure their commission is correct.
@@ -1505,7 +1534,7 @@ pub mod pallet {
 
 			let ledger = Self::ledger(StakingAccount::Controller(controller.clone()))?;
 
-			ensure!(ledger.active >= MinNominatorBond::<T>::get(), Error::<T>::InsufficientBond);
+			ensure!(ledger.active >= Self::min_nominator_bond(), Error::<T>::InsufficientBond);
 			let stash = &ledger.stash;
 
 			// Only check limits if they are not already a nominator.
@@ -1859,11 +1888,8 @@ pub mod pallet {
 
 			let initial_unlocking = ledger.unlocking.len() as u32;
 			let (ledger, rebonded_value) = ledger.rebond(value);
-			// Last check: the new active amount of ledger must be more than ED.
-			ensure!(
-				ledger.active >= asset::existential_deposit::<T>(),
-				Error::<T>::InsufficientBond
-			);
+			// Last check: the new active amount of ledger must be more than min bond.
+			ensure!(ledger.active >= Self::min_chilled_bond(), Error::<T>::InsufficientBond);
 
 			Self::deposit_event(Event::<T>::Bonded {
 				stash: ledger.stash.clone(),
@@ -1888,8 +1914,8 @@ pub mod pallet {
 		/// Remove all data structures concerning a staker/stash once it is at a state where it can
 		/// be considered `dust` in the staking system. The requirements are:
 		///
-		/// 1. the `total_balance` of the stash is below existential deposit.
-		/// 2. or, the `ledger.total` of the stash is below existential deposit.
+		/// 1. the `total_balance` of the stash is below minimum bond.
+		/// 2. or, the `ledger.total` of the stash is below minimum bond.
 		/// 3. or, existential deposit is zero and either `total_balance` or `ledger.total` is zero.
 		///
 		/// The former can happen in cases like a slash; the latter when a fully unbonded account
@@ -1916,13 +1942,13 @@ pub mod pallet {
 			// virtual stakers should not be allowed to be reaped.
 			ensure!(!Self::is_virtual_staker(&stash), Error::<T>::VirtualStakerNotAllowed);
 
-			let ed = asset::existential_deposit::<T>();
+			let min_chilled_bond = Self::min_chilled_bond();
 			let origin_balance = asset::total_balance::<T>(&stash);
 			let ledger_total =
 				Self::ledger(Stash(stash.clone())).map(|l| l.total).unwrap_or_default();
-			let reapable = origin_balance < ed ||
+			let reapable = origin_balance < min_chilled_bond ||
 				origin_balance.is_zero() ||
-				ledger_total < ed ||
+				ledger_total < min_chilled_bond ||
 				ledger_total.is_zero();
 			ensure!(reapable, Error::<T>::FundedTarget);
 
@@ -2097,7 +2123,7 @@ pub mod pallet {
 						threshold * max_nominator_count < current_nominator_count,
 						Error::<T>::CannotChillOther
 					);
-					MinNominatorBond::<T>::get()
+					Self::min_nominator_bond()
 				} else if Validators::<T>::contains_key(&stash) {
 					let max_validator_count =
 						MaxValidatorsCount::<T>::get().ok_or(Error::<T>::CannotChillOther)?;
@@ -2106,7 +2132,7 @@ pub mod pallet {
 						threshold * max_validator_count < current_validator_count,
 						Error::<T>::CannotChillOther
 					);
-					MinValidatorBond::<T>::get()
+					Self::min_validator_bond()
 				} else {
 					Zero::zero()
 				};
