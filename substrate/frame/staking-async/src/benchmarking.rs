@@ -39,8 +39,7 @@ use sp_runtime::{
 	traits::{Bounded, One, StaticLookup, TrailingZeroInput, Zero},
 	Perbill, Percent, Saturating,
 };
-use sp_staking::currency_to_vote::CurrencyToVote;
-use sp_staking::StakingInterface;
+use sp_staking::{currency_to_vote::CurrencyToVote, StakingInterface};
 use testing_utils::*;
 
 const SEED: u32 = 0;
