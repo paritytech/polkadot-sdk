@@ -39,7 +39,7 @@ pub mod pallet {
 		PalletId,
 	};
 	use frame_system::pallet_prelude::*;
-	use pallet_conviction_voting::{AccountVote, VotingHooks};
+	use pallet_conviction_voting::{AccountVote, LockedIf, Voting, VotingHooks};
 	use sp_runtime::{
 		traits::{AccountIdConversion, BlockNumberProvider},
 		Percent, Saturating,
@@ -560,12 +560,23 @@ pub mod pallet {
 		}
 
 		fn lock_balance_on_unsuccessful_vote(
-			_who: &T::AccountId,
-			_ref_index: PollIndex,
+			who: &T::AccountId,
+			poll_index: PollIndex,
 		) -> Option<pallet_conviction_voting::BalanceOf<T, T::ConvictionVotingInstance>> {
-			// TODO: This method is not enough, we need to access the amount to lock. Better to
-			// add a new param to the pallet conviction voting or extend this trait.
-			None
+			let vote = pallet_conviction_voting::VotingFor::<T, T::ConvictionVotingInstance>::get(
+				who, Class,
+			);
+
+			let votes = match vote {
+				Voting::Casting(casting) => casting.votes,
+				Voting::Delegating { .. } => return None,
+			};
+
+			votes.binary_search_by_key(&poll_index, |i| i.0)
+				.ok()
+				.and_then(|vote_index| votes.get(vote_index))
+				.and_then(|vote|vote.1.locked_if(LockedIf::Always))
+				.map(|(_period, balance)| balance)
 		}
 	}
 }
