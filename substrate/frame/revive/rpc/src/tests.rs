@@ -21,6 +21,8 @@
 use crate::{
 	cli::{self, CliCommand},
 	example::TransactionBuilder,
+	subxt_client,
+	subxt_client::{src_chain::runtime_types::pallet_revive::primitives::Code, SrcChainConfig},
 	EthRpcClient,
 };
 use clap::Parser;
@@ -32,6 +34,7 @@ use pallet_revive::{
 use static_init::dynamic;
 use std::{sync::Arc, thread};
 use substrate_cli_test_utils::*;
+use subxt::OnlineClient;
 
 /// Create a websocket client with a 120s timeout.
 async fn ws_client_with_retry(url: &str) -> WsClient {
@@ -141,7 +144,6 @@ async fn deploy_and_call() -> anyhow::Result<()> {
 	// Balance transfer
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
 	let initial_balance = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
-
 	let value = 1_000_000_000_000_000_000_000u128.into();
 	let tx = TransactionBuilder::new(&client).value(value).to(ethan.address()).send().await?;
 
@@ -215,6 +217,37 @@ async fn deploy_and_call() -> anyhow::Result<()> {
 		balance.checked_sub(initial_balance),
 		"Balance {balance} should have increased from {initial_balance} by {value}."
 	);
+	Ok(())
+}
+
+#[tokio::test]
+async fn runtime_api_dry_run_addr_works() -> anyhow::Result<()> {
+	let _lock = SHARED_RESOURCES.write();
+	let client = std::sync::Arc::new(SharedResources::client().await);
+
+	let account = Account::default();
+	let origin: [u8; 32] = account.substrate_account().into();
+	let data = b"hello world".to_vec();
+	let value = 5_000_000_000_000u128;
+	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
+
+	let payload = subxt_client::apis().revive_api().instantiate(
+		subxt::utils::AccountId32(origin),
+		value,
+		None,
+		None,
+		Code::Upload(bytes),
+		data,
+		None,
+	);
+
+	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
+
+	let c = OnlineClient::<SrcChainConfig>::from_url("ws://localhost:45789").await?;
+	let res = c.runtime_api().at_latest().await?.call(payload).await?.result.unwrap();
+
+	assert_eq!(res.addr, contract_address);
 	Ok(())
 }
 

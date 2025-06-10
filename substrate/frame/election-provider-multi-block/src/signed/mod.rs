@@ -83,7 +83,7 @@ use sp_runtime::{traits::Saturating, Perbill};
 use sp_std::prelude::*;
 
 /// Explore all weights
-pub use crate::weights::measured::pallet_election_provider_multi_block_signed::*;
+pub use crate::weights::traits::pallet_election_provider_multi_block_signed::*;
 /// Exports of this pallet
 pub use pallet::*;
 
@@ -232,7 +232,7 @@ impl<Balance: From<u32> + Saturating, G: Get<Balance>> CalculatePageDeposit<Bala
 
 #[frame_support::pallet]
 pub mod pallet {
-	use super::{WeightInfo, *};
+	use super::*;
 
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]

@@ -113,7 +113,7 @@ jobs:
 
       - name: Generate content write token for the release automation
         id: generate_write_token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v2
         with:
             app-id: ${{ vars.POLKADOT_SDK_RELEASE_RW_APP_ID }}
             private-key: ${{ secrets.POLKADOT_SDK_RELEASE_RW_APP_KEY }}
@@ -155,7 +155,7 @@ jobs:
 
       - name: Generate content write token for the release automation
         id: generate_write_token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v2
         with:
             app-id: ${{ vars.POLKADOT_SDK_RELEASE_RW_APP_ID }}
             private-key: ${{ secrets.POLKADOT_SDK_RELEASE_RW_APP_KEY }}
@@ -207,7 +207,7 @@ jobs:
 
       - name: Generate content write token for the release automation
         id: generate_write_token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v2
         with:
             app-id: ${{ vars.POLKADOT_SDK_RELEASE_RW_APP_ID }}
             private-key: ${{ secrets.POLKADOT_SDK_RELEASE_RW_APP_KEY }}
