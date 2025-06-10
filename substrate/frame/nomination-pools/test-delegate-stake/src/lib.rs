@@ -539,7 +539,7 @@ fn pool_slash_proportional() {
 		ExistentialDeposit::set(2);
 		BondingDuration::set(28);
 		assert_eq!(Balances::minimum_balance(), 2);
-		assert_eq!(Staking::current_era(), None);
+		assert_eq!(Staking::active_era(), None);
 
 		// create the pool, we know this has id 1.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 40, 10, 10, 10));
