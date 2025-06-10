@@ -370,10 +370,6 @@ impl<T: Config> Eras<T> {
 	pub(crate) fn get_reward_points(era: EraIndex) -> EraRewardPoints<T> {
 		ErasRewardPoints::<T>::get(era)
 	}
-
-	pub(crate) fn active() -> EraIndex {
-		Rotator::<T>::active_era()
-	}
 }
 
 #[cfg(any(feature = "try-runtime", test))]
@@ -531,7 +527,7 @@ impl<T: Config> Rotator<T> {
 	/// this value, it means that the era is currently active and no new era is planned.
 	///
 	/// See [`Self::is_planning()`] to only get the next index if planning in progress.
-	pub fn planned_era() -> EraIndex {
+	fn planned_era() -> EraIndex {
 		CurrentEra::<T>::get().unwrap_or(0)
 	}
 
