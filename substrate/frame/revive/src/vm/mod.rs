@@ -16,7 +16,7 @@
 // limitations under the License.
 
 //! This module provides a means for executing contracts
-//! represented in vm.
+//! represented in vm bytecode.
 
 mod runtime;
 
@@ -52,7 +52,7 @@ use sp_runtime::DispatchError;
 #[derive(Encode, Decode, scale_info::TypeInfo)]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T))]
-pub struct VmBlob<T: Config> {
+pub struct ContractBlob<T: Config> {
 	code: CodeVec,
 	// This isn't needed for contract execution and is not stored alongside it.
 	#[codec(skip)]
@@ -128,7 +128,7 @@ pub fn code_load_weight(code_len: u32) -> Weight {
 	Token::<crate::tests::Test>::weight(&CodeLoadToken(code_len))
 }
 
-impl<T: Config> VmBlob<T>
+impl<T: Config> ContractBlob<T>
 where
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 {
@@ -152,7 +152,7 @@ where
 			behaviour_version: Default::default(),
 		};
 		let code_hash = H256(sp_io::hashing::keccak_256(&code));
-		Ok(VmBlob { code, code_info, code_hash })
+		Ok(ContractBlob { code, code_info, code_hash })
 	}
 
 	/// Remove the code from storage and refund the deposit to its owner.
@@ -333,7 +333,7 @@ where
 	}
 }
 
-impl<T: Config> VmBlob<T> {
+impl<T: Config> ContractBlob<T> {
 	/// Compile and instantiate contract.
 	///
 	/// `aux_data_size` is only used for runtime benchmarks. Real contracts
@@ -389,7 +389,7 @@ impl<T: Config> VmBlob<T> {
 	}
 }
 
-impl<T: Config> Executable<T> for VmBlob<T>
+impl<T: Config> Executable<T> for ContractBlob<T>
 where
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 {

@@ -20,7 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::{
-	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, VmModule},
+	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, VmBinaryModule},
 	evm::runtime::GAS_PRICE,
 	exec::{Key, MomentOf, PrecompileExt},
 	limits,
@@ -100,7 +100,7 @@ mod benchmarks {
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn on_initialize_per_trie_key(k: Linear<0, 1024>) -> Result<(), BenchmarkError> {
-		let instance = Contract::<T>::with_storage(VmModule::dummy(), k, limits::PAYLOAD_BYTES)?;
+		let instance = Contract::<T>::with_storage(VmBinaryModule::dummy(), k, limits::PAYLOAD_BYTES)?;
 		instance.info()?.queue_trie_for_deletion();
 
 		#[block]
@@ -127,7 +127,7 @@ mod benchmarks {
 		c: Linear<0, { limits::code::STATIC_MEMORY_BYTES / limits::code::BYTES_PER_INSTRUCTION }>,
 	) -> Result<(), BenchmarkError> {
 		let instance =
-			Contract::<T>::with_caller(whitelisted_caller(), VmModule::sized(c), vec![])?;
+			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::sized(c), vec![])?;
 		let value = Pallet::<T>::min_balance();
 		let storage_deposit = default_deposit_limit::<T>();
 
@@ -158,7 +158,7 @@ mod benchmarks {
 	fn basic_block_compilation(b: Linear<0, 1>) -> Result<(), BenchmarkError> {
 		let instance = Contract::<T>::with_caller(
 			whitelisted_caller(),
-			VmModule::with_num_instructions(limits::code::BASIC_BLOCK_SIZE),
+			VmBinaryModule::with_num_instructions(limits::code::BASIC_BLOCK_SIZE),
 			vec![],
 		)?;
 		let value = Pallet::<T>::min_balance();
@@ -191,7 +191,7 @@ mod benchmarks {
 		let value = Pallet::<T>::min_balance();
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
-		let VmModule { code, .. } = VmModule::sized(c);
+		let VmBinaryModule { code, .. } = VmBinaryModule::sized(c);
 		let origin = RawOrigin::Signed(caller.clone());
 		Contracts::<T>::map_account(origin.clone().into()).unwrap();
 		let deployer = T::AddressMapper::to_address(&caller);
@@ -230,7 +230,7 @@ mod benchmarks {
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let origin = RawOrigin::Signed(caller.clone());
 		Contracts::<T>::map_account(origin.clone().into()).unwrap();
-		let VmModule { code, .. } = VmModule::dummy();
+		let VmBinaryModule { code, .. } = VmBinaryModule::dummy();
 		let storage_deposit = default_deposit_limit::<T>();
 		let deployer = T::AddressMapper::to_address(&caller);
 		let addr = crate::address::create2(&deployer, &code, &input, &salt);
@@ -271,7 +271,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn call() -> Result<(), BenchmarkError> {
 		let data = vec![42u8; 1024];
-		let instance = Contract::<T>::with_caller(whitelisted_caller(), VmModule::dummy(), vec![])?;
+		let instance = Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
 		let value = Pallet::<T>::min_balance();
 		let origin = RawOrigin::Signed(instance.caller.clone());
 		let before = T::Currency::balance(&instance.account_id);
@@ -313,7 +313,7 @@ mod benchmarks {
 	) {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
-		let VmModule { code, hash, .. } = VmModule::sized(c);
+		let VmBinaryModule { code, hash, .. } = VmBinaryModule::sized(c);
 		let origin = RawOrigin::Signed(caller.clone());
 		let storage_deposit = default_deposit_limit::<T>();
 		#[extrinsic_call]
@@ -330,7 +330,7 @@ mod benchmarks {
 	fn remove_code() -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
-		let VmModule { code, hash, .. } = VmModule::dummy();
+		let VmBinaryModule { code, hash, .. } = VmBinaryModule::dummy();
 		let origin = RawOrigin::Signed(caller.clone());
 		let storage_deposit = default_deposit_limit::<T>();
 		let uploaded =
@@ -348,9 +348,9 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn set_code() -> Result<(), BenchmarkError> {
-		let instance = <Contract<T>>::with_caller(whitelisted_caller(), VmModule::dummy(), vec![])?;
+		let instance = <Contract<T>>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
 		// we just add some bytes so that the code hash is different
-		let VmModule { code, .. } = VmModule::dummy_unique(128);
+		let VmBinaryModule { code, .. } = VmBinaryModule::dummy_unique(128);
 		let origin = RawOrigin::Signed(instance.caller.clone());
 		let storage_deposit = default_deposit_limit::<T>();
 		let hash =
@@ -397,7 +397,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn noop_host_fn(r: Linear<0, API_BENCHMARK_RUNS>) {
-		let mut setup = CallSetup::<T>::new(VmModule::noop());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::noop());
 		let (mut ext, module) = setup.ext();
 		let prepared = CallSetup::<T>::prepare_call(&mut ext, module, r.encode(), 0);
 		#[block]
@@ -445,7 +445,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_is_contract() {
 		let Contract { account_id, .. } =
-			Contract::<T>::with_index(1, VmModule::dummy(), vec![]).unwrap();
+			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
 
 		build_runtime!(runtime, memory: [account_id.encode(), ]);
 
@@ -492,7 +492,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_code_hash() {
-		let contract = Contract::<T>::with_index(1, VmModule::dummy(), vec![]).unwrap();
+		let contract = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
 		let len = <sp_core::H256 as MaxEncodedLen>::max_encoded_len() as u32;
 		build_runtime!(runtime, memory: [vec![0u8; len as _], contract.account_id.encode(), ]);
 
@@ -528,7 +528,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_code_size() {
-		let contract = Contract::<T>::with_index(1, VmModule::dummy(), vec![]).unwrap();
+		let contract = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
 		build_runtime!(runtime, memory: [contract.address.encode(),]);
 
 		let result;
@@ -537,7 +537,7 @@ mod benchmarks {
 			result = runtime.bench_code_size(memory.as_mut_slice(), 0);
 		}
 
-		assert_eq!(result.unwrap(), VmModule::dummy().code.len() as u64);
+		assert_eq!(result.unwrap(), VmBinaryModule::dummy().code.len() as u64);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -1023,7 +1023,7 @@ mod benchmarks {
 		let max_value_len = limits::PAYLOAD_BYTES as usize;
 		let value = vec![1u8; max_value_len];
 
-		let instance = Contract::<T>::new(VmModule::dummy(), vec![])?;
+		let instance = Contract::<T>::new(VmBinaryModule::dummy(), vec![])?;
 		let info = instance.info()?;
 		let child_trie_info = info.child_trie_info();
 		info.bench_write_raw(&key, Some(value.clone()), false)
@@ -1046,7 +1046,7 @@ mod benchmarks {
 		let max_value_len = limits::PAYLOAD_BYTES;
 		let value = vec![1u8; max_value_len as usize];
 
-		let instance = Contract::<T>::with_unbalanced_storage_trie(VmModule::dummy(), &key)?;
+		let instance = Contract::<T>::with_unbalanced_storage_trie(VmBinaryModule::dummy(), &key)?;
 		let info = instance.info()?;
 		let child_trie_info = info.child_trie_info();
 		info.bench_write_raw(&key, Some(value.clone()), false)
@@ -1069,7 +1069,7 @@ mod benchmarks {
 		let max_value_len = limits::PAYLOAD_BYTES as usize;
 		let value = vec![1u8; max_value_len];
 
-		let instance = Contract::<T>::new(VmModule::dummy(), vec![])?;
+		let instance = Contract::<T>::new(VmBinaryModule::dummy(), vec![])?;
 		let info = instance.info()?;
 		let child_trie_info = info.child_trie_info();
 		info.bench_write_raw(&key, Some(vec![42u8; max_value_len]), false)
@@ -1094,7 +1094,7 @@ mod benchmarks {
 		let max_value_len = limits::PAYLOAD_BYTES;
 		let value = vec![1u8; max_value_len as usize];
 
-		let instance = Contract::<T>::with_unbalanced_storage_trie(VmModule::dummy(), &key)?;
+		let instance = Contract::<T>::with_unbalanced_storage_trie(VmBinaryModule::dummy(), &key)?;
 		let info = instance.info()?;
 		let child_trie_info = info.child_trie_info();
 		info.bench_write_raw(&key, Some(vec![42u8; max_value_len as usize]), false)
@@ -1564,7 +1564,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_call(t: Linear<0, 1>, i: Linear<0, { limits::code::BLOB_BYTES }>) {
 		let Contract { account_id: callee, .. } =
-			Contract::<T>::with_index(1, VmModule::dummy(), vec![]).unwrap();
+			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
 		let callee_bytes = callee.encode();
 		let callee_len = callee_bytes.len() as u32;
 
@@ -1668,7 +1668,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_delegate_call() -> Result<(), BenchmarkError> {
 		let Contract { account_id: address, .. } =
-			Contract::<T>::with_index(1, VmModule::dummy(), vec![]).unwrap();
+			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
 
 		let address_bytes = address.encode();
 		let address_len = address_bytes.len() as u32;
@@ -1706,8 +1706,8 @@ mod benchmarks {
 	// i: size of input in bytes
 	#[benchmark(pov_mode = Measured)]
 	fn seal_instantiate(i: Linear<0, { limits::code::BLOB_BYTES }>) -> Result<(), BenchmarkError> {
-		let code = VmModule::dummy();
-		let hash = Contract::<T>::with_index(1, VmModule::dummy(), vec![])?.info()?.code_hash;
+		let code = VmBinaryModule::dummy();
+		let hash = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?.info()?.code_hash;
 		let hash_bytes = hash.encode();
 
 		let value: BalanceOf<T> = 1_000_000u32.into();
@@ -2049,7 +2049,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_set_code_hash() -> Result<(), BenchmarkError> {
-		let code_hash = Contract::<T>::with_index(1, VmModule::dummy(), vec![])?.info()?.code_hash;
+		let code_hash = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?.info()?.code_hash;
 
 		build_runtime!(runtime, memory: [ code_hash.encode(),]);
 
@@ -2090,7 +2090,7 @@ mod benchmarks {
 			"If we do too many iterations we run into the risk of loading from warm cache lines",
 		);
 
-		let mut setup = CallSetup::<T>::new(VmModule::instr(true));
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::instr(true));
 		let (mut ext, module) = setup.ext();
 		let mut prepared =
 			CallSetup::<T>::prepare_call(&mut ext, module, Vec::new(), MEMORY_SIZE as u32);
@@ -2135,7 +2135,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn instr_empty_loop(r: Linear<0, 100_000>) {
-		let mut setup = CallSetup::<T>::new(VmModule::instr(false));
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::instr(false));
 		let (mut ext, module) = setup.ext();
 		let mut prepared = CallSetup::<T>::prepare_call(&mut ext, module, Vec::new(), 0);
 		prepared.setup_aux_data(&[], 0, r.into()).unwrap();

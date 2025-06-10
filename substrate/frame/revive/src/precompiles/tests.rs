@@ -22,13 +22,13 @@ use crate::{
 	call_builder::CallSetup,
 	exec::Stack,
 	tests::{ExtBuilder, Test},
-	vm::VmBlob,
+	vm::ContractBlob,
 };
 use alloy_core::hex as alloy_hex;
 use core::num::NonZero;
 use sp_core::hex2array as hex;
 
-type Env<'a> = Stack<'a, Test, VmBlob<Test>>;
+type Env<'a> = Stack<'a, Test, ContractBlob<Test>>;
 
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "PascalCase")]

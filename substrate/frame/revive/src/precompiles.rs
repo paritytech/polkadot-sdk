@@ -541,7 +541,7 @@ impl BuiltinAddressMatcher {
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 pub mod run {
 	pub use crate::{
-		call_builder::{CallSetup, Contract, VmModule},
+		call_builder::{CallSetup, Contract, VmBinaryModule},
 		BalanceOf, MomentOf,
 	};
 	pub use sp_core::{H256, U256};

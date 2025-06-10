@@ -19,7 +19,7 @@
 ///
 /// In these tests the VM/loader are mocked. Instead of dealing with vm bytecode they use
 /// simple closures. This allows you to tackle executive logic more thoroughly without writing
-/// a vm VM code.
+/// a VM binary code.
 #[cfg(test)]
 use super::*;
 use crate::{
