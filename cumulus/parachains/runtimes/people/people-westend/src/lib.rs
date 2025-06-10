@@ -114,10 +114,7 @@ pub type TransactionExtension = cumulus_pallet_weight_reclaim::StorageWeightRecl
 		frame_system::CheckEra<Runtime>,
 		frame_system::CheckNonce<Runtime>,
 		frame_system::CheckWeight<Runtime>,
-		pallet_skip_feeless_payment::SkipCheckIfFeeless<
-			Runtime,
-			pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-		>,
+		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 	),
 >;
 
@@ -586,10 +583,6 @@ impl pallet_migrations::Config for Runtime {
 	type WeightInfo = weights::pallet_migrations::WeightInfo<Runtime>;
 }
 
-impl pallet_skip_feeless_payment::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-}
-
 #[cfg(feature = "runtime-benchmarks")]
 pub struct VerifySignatureBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
@@ -713,7 +706,6 @@ construct_runtime!(
 		// Monetary stuff.
 		Balances: pallet_balances = 10,
 		TransactionPayment: pallet_transaction_payment = 11,
-		SkipFeelessPayment: pallet_skip_feeless_payment = 12,
 		OriginRestriction: pallet_origin_restriction = 13,
 
 		// Collator support. The order of these 5 are important and shall not change.
@@ -777,6 +769,7 @@ mod benches {
 		[pallet_origin_restriction, OriginRestriction]
 		[pallet_people, People]
 		[pallet_dummy_dim, DummyDim]
+		[pallet_verify_signature, VerifySignature]
 	);
 }
 

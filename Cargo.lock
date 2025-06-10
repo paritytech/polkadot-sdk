@@ -14561,7 +14561,6 @@ dependencies = [
  "pallet-people",
  "pallet-proxy",
  "pallet-session",
- "pallet-skip-feeless-payment",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
