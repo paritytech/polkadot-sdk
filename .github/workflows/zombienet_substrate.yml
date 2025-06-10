@@ -23,6 +23,7 @@ env:
   DB_SNAPSHOT: "https://storage.googleapis.com/zombienet-db-snaps/substrate/0001-basic-warp-sync/chains-9677807d738b951e9f6c82e5fd15518eb0ae0419.tgz"
   DB_BLOCK_HEIGHT: 56687
   DEFAULT_CONCURRENCY: 4
+  ZOMBIENET_PROVIDER: "native"
 
 jobs:
   isdraft:
