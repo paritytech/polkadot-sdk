@@ -20,7 +20,7 @@ corresponds to a single [availability core](../runtime-api/availability-cores.md
 validator believes the following statements to be true for a core:
 
 - the availability core is occupied
-- there exists a [`CommittedCandidateReceipt`](candidate.html#committed-candidate-receipt) corresponding to that core.
+- there exists a [`CommittedCandidateReceipt`](candidate.md#committed-candidate-receipt) corresponding to that core.
   In other words, that para has a block in progress.
 - the validator's [Availability Store](../node/utility/availability-store.md) contains a chunk of that parablock's PoV.
 
