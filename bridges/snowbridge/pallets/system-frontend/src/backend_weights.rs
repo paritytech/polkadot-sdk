@@ -9,22 +9,13 @@ pub trait BackendWeightInfo {
 	/// Execution weight for remote xcm that dispatches `EthereumSystemCall::RegisterToken`
 	/// using `Transact`.
 	fn transact_register_token() -> Weight;
-<<<<<<< HEAD
-=======
-	fn transact_add_tip() -> Weight;
 	fn do_process_message() -> Weight;
 	fn commit_single() -> Weight;
 	fn submit_delivery_receipt() -> Weight;
->>>>>>> 36c3039 (Snowbridge: enforce fee when registering Polkadot native asset (#8725))
 }
 
 impl BackendWeightInfo for () {
 	fn transact_register_token() -> Weight {
-		Weight::from_parts(100_000_000, 10000)
-	}
-<<<<<<< HEAD
-=======
-	fn transact_add_tip() -> Weight {
 		Weight::from_parts(100_000_000, 10000)
 	}
 	fn do_process_message() -> Weight {
@@ -44,5 +35,4 @@ impl BackendWeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(2))
 			.saturating_add(RocksDbWeight::get().writes(2))
 	}
->>>>>>> 36c3039 (Snowbridge: enforce fee when registering Polkadot native asset (#8725))
 }
