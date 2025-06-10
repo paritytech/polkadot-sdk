@@ -2,11 +2,12 @@ title: Add deposit for setting session keys
 doc:
 - audience: Runtime Dev
   description: |-
-    # Description
-    closes #1625
-    Implement reserved balance tracking for test accounts in the session pallet.
-    Update KeyDeposit type to use BalanceOf. Add tests for setting and purging keys to verify fund reservation and unreservation.
-    Update inner_set_keys to accept old keys as an argument to reduce redundant storage reads and improve efficiency in the session pallet.
+    Implement hold balance tracking for test accounts in the session pallet.
+
+    Requires `pallet_session::Config` to specify:
+    * `type Currency`, assigned to an instance of `pallet_balances`.
+    * `type RuntimeHoldReason`, almost always set to `RuntimeHoldReason`.
+    * `type KeyDeposit`, the amount of deposit. Set to `()` to assert to deposit amount is needed.
 crates:
 - name: pallet-session
   bump: minor
