@@ -16,8 +16,8 @@ import { getPolkadotSigner } from "polkadot-api/signer";
 export const GlobalTimeout = 30 * 60 * 1000;
 
 export const logger = createLogger({
-	level: "debug",
-	format: format.cli(),
+	level: process.env.LOG_LEVEL || "verbose",
+	format: format.combine(format.timestamp(), format.cli()),
 	defaultMeta: { service: "staking-papi-tests" },
 	transports: [new transports.Console()],
 });
@@ -37,7 +37,7 @@ export type ApiDeclerations = {
 export async function nullifySigned(
 	paraApi: TypedApi<typeof parachain>,
 	signer: PolkadotSigner = alice
-): Promise<void> {
+): Promise<boolean> {
 	// signed and signed validation phase to 0
 	const call = paraApi.tx.System.set_storage({
 		items: [
@@ -48,7 +48,7 @@ export async function nullifySigned(
 						99, 88, 172, 210, 3, 94, 196, 187, 134, 63, 169, 129, 224, 193, 119, 185,
 					])
 				),
-				Binary.fromBytes(Uint8Array.from([0])),
+				Binary.fromBytes(Uint8Array.from([0, 0, 0, 0])),
 			],
 			// SignedValidation key
 			[
@@ -57,23 +57,23 @@ export async function nullifySigned(
 						72, 56, 74, 129, 110, 79, 113, 169, 54, 203, 118, 220, 158, 48, 63, 42,
 					])
 				),
-				Binary.fromBytes(Uint8Array.from([0])),
+				Binary.fromBytes(Uint8Array.from([0, 0, 0, 0])),
 			],
 		],
 	}).decodedCall;
 	const res = await paraApi.tx.Sudo.sudo({ call }).signAndSubmit(alice);
-	logger.info("Set storage for nullify signed result:", res.ok);
+	return res.ok;
 }
 
 export async function getApis(): Promise<ApiDeclerations> {
-	const rcClient = createClient(withPolkadotSdkCompat(getWsProvider("ws://localhost:9944")));
+	const rcClient = createClient(withPolkadotSdkCompat(getWsProvider("ws://localhost:9945")));
 	const rcApi = rcClient.getTypedApi(rc);
 
 	const paraClient = createClient(withPolkadotSdkCompat(getWsProvider("ws://localhost:9946")));
 	const paraApi = paraClient.getTypedApi(parachain);
 
-	logger.info(`Connecting to relay chain ${(await rcApi.constants.System.Version()).spec_name}`);
-	logger.info(`Connecting to parachain ${(await paraApi.constants.System.Version()).spec_name}`);
+	logger.info(`Connected to ${(await rcApi.constants.System.Version()).spec_name}`);
+	logger.info(`Connected to ${(await paraApi.constants.System.Version()).spec_name}`);
 
 	return { rcApi, paraApi, rcClient, paraClient };
 }

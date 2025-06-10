@@ -7,18 +7,14 @@ export enum Chain {
 }
 
 interface IEvent {
-	chain: Chain;
 	module: string;
 	event: string;
 	data: any | undefined;
-	block: number;
 }
 
 // Print an event.
 function pe(e: IEvent): string {
-	return `${e.chain} ${e.module} ${e.event} ${
-		e.data ? safeJsonStringify(e.data) : "no data"
-	} at block ${e.block}`;
+	return `${e.module} ${e.event} ${e.data ? safeJsonStringify(e.data) : "no data"}`;
 }
 
 interface IObservableEvent {
@@ -50,13 +46,61 @@ export class Observe {
 			this.e.dataCheck ? "dataCheck" : "no dataCheck"
 		}, ${this.e.byBlock ? this.e.byBlock : "no byBlock"})`;
 	}
+
+	// Static builder entry point
+	static on(chain: Chain, mod: string, event: string): ObserveBuilder {
+		return new ObserveBuilder(chain, mod, event);
+	}
+}
+
+export class ObserveBuilder {
+	private chain: Chain;
+	private module: string;
+	private event: string;
+	private dataCheck?: (data: any) => boolean;
+	private byBlockVal?: number;
+	private onPassCallback: () => void = () => {};
+
+	constructor(chain: Chain, module: string, event: string) {
+		this.chain = chain;
+		this.module = module;
+		this.event = event;
+	}
+
+	withDataCheck(check: (data: any) => boolean): ObserveBuilder {
+		this.dataCheck = check;
+		return this;
+	}
+
+	byBlock(blockNumber: number): ObserveBuilder {
+		this.byBlockVal = blockNumber;
+		return this;
+	}
+
+	onPass(callback: () => void): ObserveBuilder {
+		this.onPassCallback = callback;
+		return this;
+	}
+
+	build(): Observe {
+		if (!this.module || !this.event) {
+			throw new Error("Module and event are required");
+		}
+
+		return new Observe(
+			this.chain,
+			this.module,
+			this.event,
+			this.dataCheck,
+			this.byBlockVal,
+			this.onPassCallback
+		);
+	}
 }
 
 export enum EventOutcome {
-	Passed,
-	Ignored,
-	TimedOut,
-	Done,
+	TimedOut = "TimedOut",
+	Done = "Done",
 }
 
 export class TestCase {
@@ -76,9 +120,9 @@ export class TestCase {
 		this.resolveTestPromise = resolve;
 	}
 
-	match(ours: IObservableEvent, theirs: IEvent): boolean {
+	match(ours: IObservableEvent, theirs: IEvent, theirsChain: Chain): boolean {
 		const trivialComp =
-			ours.chain === theirs.chain &&
+			ours.chain === theirsChain &&
 			ours.module === theirs.module &&
 			ours.event === theirs.event;
 		if (trivialComp) {
@@ -116,11 +160,34 @@ export class TestCase {
 		}
 	}
 
-	onEvent(e: IEvent) {
-		logger.debug(`Processing event: ${pe(e)}`);
-		const [primary, maybeSecondary] = this.nextEvent(e.chain);
+	onBlock(chain: Chain, block: number, events: IEvent[]) {
+		// sort from small to big
+		logger.debug(`Processing ${chain} block ${block}, events: ${events.length}`);
+		const firstTimeOut = this.eventSequence
+			.filter((e) => e.e.byBlock)
+			.map((e) => e.e.byBlock!)
+			.sort((x, y) => x - y);
+		if (firstTimeOut.length > 0 && block > firstTimeOut[0]!) {
+			logger.error(
+				`Block ${block} is past the first timeout at block ${firstTimeOut[0]}, exiting.`
+			);
+			this.resolveTestPromise(EventOutcome.TimedOut);
+		}
 
-		if (this.match(primary.e, e)) {
+		for (const e of events) {
+			this.onEvent(e, chain);
+		}
+	}
+
+	onEvent(e: IEvent, chain: Chain) {
+		if (!this.eventSequence.length) {
+			logger.warn(`No events to process for ${chain}, event: ${pe(e)}`);
+			return;
+		}
+		logger.verbose(`Processing ${chain} event: ${pe(e)}`);
+		const [primary, maybeSecondary] = this.nextEvent(chain);
+
+		if (this.match(primary.e, e, chain)) {
 			primary.onPass();
 			this.removeEvent(primary);
 			logger.info(`Primary event passed`);
@@ -134,19 +201,14 @@ export class TestCase {
 					}`
 				);
 			}
-		} else if (maybeSecondary && this.match(maybeSecondary.e, e)) {
+		} else if (maybeSecondary && this.match(maybeSecondary.e, e, chain)) {
 			maybeSecondary.onPass();
 			this.removeEvent(maybeSecondary);
 			logger.info(`Secondary event passed`);
-		} else if (this.notTimedOut(primary.e, e.block)) {
-			logger.debug(`event not relevant, but not timed out`);
+			// when we check secondary events, we must have at least 2 items in the list, so no
+			// need to check for the end of list.
 		} else {
-			logger.error(
-				`Event not passed: expected ${primary.e} or ${maybeSecondary?.e}, got ${pe(
-					e
-				)}, and timed out`
-			);
-			this.resolveTestPromise(EventOutcome.TimedOut);
+			logger.verbose(`event not relevant`);
 		}
 	}
 }
@@ -158,66 +220,56 @@ export async function runTest(test: TestCase, apis: ApiDeclerations): Promise<Ev
 		// Pass the resolve/reject functions to the TestCase instance
 		test.setTestPromiseResolvers(resolve);
 
-		const subscribeToRelay = async () => {
-			rcClient.finalizedBlock$.subscribe(async (block) => {
-				const events = await rcApi.query.System.Events.getValue({ at: block.hash });
-				for (const e of events) {
-					// Use for...of for async iteration if needed, or simple forEach
-					if (
+		rcClient.finalizedBlock$.subscribe(async (block) => {
+			const events = await rcApi.query.System.Events.getValue({ at: block.hash });
+			const interested = events
+				.filter(
+					(e) =>
 						e.event.type === "Session" ||
 						e.event.type === "RootOffences" ||
 						e.event.type === "StakingAhClient"
-					) {
-						test.onEvent({
-							chain: Chain.Relay,
-							module: e.event.type,
-							event: e.event.value.type,
-							data: e.event.value.value,
-							block: block.number,
-						});
-					}
-				}
-			});
-		};
+				)
+				.map((e) => ({
+					module: e.event.type,
+					event: e.event.value.type,
+					data: e.event.value.value,
+				}));
+			test.onBlock(Chain.Relay, block.number, interested);
+		});
 
-		const subscribeToParachain = async () => {
-			paraClient.finalizedBlock$.subscribe(async (block) => {
-				const events = await paraApi.query.System.Events.getValue({ at: block.hash });
-				for (const e of events) {
-					// Use for...of for async iteration if needed
-					if (
+		paraClient.blocks$.subscribe(async (block) => {
+			const events = await paraApi.query.System.Events.getValue({ at: block.hash });
+			const interested = events
+				.filter(
+					(e) =>
 						e.event.type == "Staking" ||
 						e.event.type == "MultiBlock" ||
 						e.event.type == "MultiBlockSigned" ||
 						e.event.type == "MultiBlockVerifier" ||
 						e.event.type == "StakingRcClient"
-					) {
-						test.onEvent({
-							chain: Chain.Parachain,
-							module: e.event.type,
-							event: e.event.value.type,
-							data: e.event.value.value,
-							block: block.number,
-						});
-					}
-				}
-			});
-		};
-
-		subscribeToRelay();
-		subscribeToParachain();
+				)
+				.map((e) => ({
+					module: e.event.type,
+					event: e.event.value.type,
+					data: e.event.value.value,
+				}));
+			test.onBlock(Chain.Parachain, block.number, interested);
+		});
 	});
 
 	// Handle graceful exit on SIGINT
 	process.on("SIGINT", () => {
 		console.log("Exiting on Ctrl+C...");
-		test.onKill();
 		rcClient.destroy();
 		paraClient.destroy();
+		test.onKill();
 		process.exit(0);
 	});
 
 	// Wait for the completionPromise to resolve/reject
 	const finalOutcome = await completionPromise;
+	rcClient.destroy();
+	paraClient.destroy();
+	test.onKill();
 	return finalOutcome;
 }

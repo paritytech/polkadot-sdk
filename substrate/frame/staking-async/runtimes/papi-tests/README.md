@@ -88,7 +88,7 @@ See `genesis_config_presets.rs`, and `fn build_state` in each runtime for more d
 
 ## Running
 
-This section describes how to run this code. Make sure to have the latest version of node+bun installed.
+This section describes how to run this code. Make sure to have the latest version of node+bun installed. Moreover, you are expected to have `zombienet`, `polkadot`, `polkadot-parachain`, `polkadot-prepare-worker` and `polkadot-execution-worker` in your `PATH` already. Rest of the binaries (`chain-spec-builder`) are compiled from the sdk
 
 ### PAPI Typegen
 
