@@ -99,6 +99,9 @@ mod benchmarks {
 	#[benchmark]
 	fn on_idle_unstake(b: Linear<1, { T::BatchSize::get() }>) {
 		ErasToCheckPerBlock::<T>::put(1);
+		// initialise the era.
+		T::Staking::set_active_era(0);
+
 		for who in create_unexposed_batch::<T>(b).into_iter() {
 			assert_ok!(Pallet::<T>::register_fast_unstake(RawOrigin::Signed(who.clone()).into(),));
 		}
