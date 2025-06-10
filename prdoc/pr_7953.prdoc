@@ -1,0 +1,64 @@
+title: Add deposit for setting session keys
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+    closes #1625
+    Implement reserved balance tracking for test accounts in the session pallet.
+    Update KeyDeposit type to use BalanceOf. Add tests for setting and purging keys to verify fund reservation and unreservation.
+    Update inner_set_keys to accept old keys as an argument to reduce redundant storage reads and improve efficiency in the session pallet.
+crates:
+- name: pallet-session
+  bump: minor
+- name: pallet-collator-selection
+  bump: minor
+- name: penpal-runtime
+  bump: minor
+- name: rococo-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: bridge-hub-rococo-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
+- name: asset-hub-rococo-runtime
+  bump: minor
+- name: collectives-westend-runtime
+  bump: minor
+- name: coretime-rococo-runtime
+  bump: minor
+- name: coretime-westend-runtime
+  bump: minor
+- name: people-rococo-runtime
+  bump: minor
+- name: pallet-im-online
+  bump: minor
+- name: pallet-staking-async-parachain-runtime
+  bump: minor
+- name: pallet-staking-async-rc-runtime
+  bump: minor
+- name: pallet-authority-discovery
+  bump: minor
+- name: pallet-babe
+  bump: minor
+- name: pallet-beefy-mmr
+  bump: minor
+- name: pallet-beefy
+  bump: minor
+- name: pallet-grandpa
+  bump: minor
+- name: pallet-offences-benchmarking
+  bump: minor
+- name: pallet-root-offences
+  bump: minor
+- name: pallet-session-benchmarking
+  bump: minor
+- name: pallet-staking
+  bump: minor
+- name: yet-another-parachain-runtime
+  bump: minor
