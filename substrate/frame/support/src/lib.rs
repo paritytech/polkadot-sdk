@@ -36,6 +36,9 @@ extern crate self as frame_support;
 #[doc(hidden)]
 extern crate alloc;
 
+/// Maximum nesting level for extrinsics.
+pub const MAX_EXTRINSIC_DEPTH: u32 = 256;
+
 /// Private exports that are being used by macros.
 ///
 /// The exports are not stable and should not be relied on.
@@ -858,8 +861,8 @@ macro_rules! assert_error_encoded_size {
 #[macro_export]
 macro_rules! hypothetically {
 	( $e:expr ) => {
-		$crate::storage::transactional::with_transaction(|| -> $crate::__private::TransactionOutcome<Result<_, $crate::__private::DispatchError>> {
-			$crate::__private::TransactionOutcome::Rollback(Ok($e))
+		$crate::storage::transactional::with_transaction(|| -> $crate::__private::TransactionOutcome<::core::result::Result<_, $crate::__private::DispatchError>> {
+			$crate::__private::TransactionOutcome::Rollback(::core::result::Result::Ok($e))
 		},
 		).expect("Always returning Ok; qed")
 	};
