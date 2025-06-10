@@ -80,13 +80,13 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 					}))
 					.with_default_args(vec![
 						"--authoring=slot-based".into(),
-						"--rpc-max-subscriptions-per-connection=128000".into(),
+						"--rpc-max-subscriptions-per-connection=256000".into(),
 						"--rpc-max-connections=128000".into(),
 						"--rpc-max-response-size=150".into(),
 						"--pool-limit=500000".into(),
 						"--pool-kbytes=2048000".into(),
 						"--pool-type=fork-aware".into(),
-						("-lparachain=debug,aura=debug,txpool=debug").into(),
+						("-lparachain=debug,aura=debug,txpool=debug,txpoolstat=debug").into(),
 					])
 					.with_collator(|n| n.with_name("dave").with_rpc_port(9944))
 			})
@@ -128,8 +128,8 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 	}
 	.with_rpc_uri(ws)
 	.with_start_id(0)
-	.with_last_id(999)
-	.with_txs_count(5_000)
+	.with_last_id(9999)
+	.with_txs_count(500)
 	.with_executor_id("txs-executor".to_string())
 	.with_send_threshold(35000)
 	.build()
