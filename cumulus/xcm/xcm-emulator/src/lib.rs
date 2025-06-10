@@ -142,6 +142,15 @@ where
 	}
 }
 
+// Implement optional inherent code to be executed
+pub trait AdditionalInherentCode {
+	fn execute_additional_inherents() -> DispatchResult {
+		Ok(())
+	}
+}
+
+impl AdditionalInherentCode for () {}
+
 pub trait TestExt {
 	fn build_new_ext(storage: Storage) -> TestExternalities;
 	fn new_ext() -> TestExternalities;
@@ -269,6 +278,7 @@ pub trait Parachain: Chain {
 	type ParachainSystem;
 	type MessageProcessor: ProcessMessage + ServiceQueues;
 	type DigestProvider: Convert<BlockNumberFor<Self::Runtime>, Digest>;
+	type AdditionalInherentCode: AdditionalInherentCode;
 
 	fn init();
 
@@ -604,6 +614,7 @@ macro_rules! decl_test_parachains {
 					LocationToAccountId: $location_to_account:path,
 					ParachainInfo: $parachain_info:path,
 					MessageOrigin: $message_origin:path,
+					AdditionalInherentCode: $additiona_inherent_code:path,
 					$( DigestProvider: $digest_provider:ty, )?
 				},
 				pallets = {
@@ -645,6 +656,7 @@ macro_rules! decl_test_parachains {
 				type ParachainSystem = $crate::ParachainSystemPallet<<Self as $crate::Chain>::Runtime>;
 				type ParachainInfo = $parachain_info;
 				type MessageProcessor = $crate::DefaultParaMessageProcessor<$name<N>, $message_origin>;
+				type AdditionalInherentCode = $additiona_inherent_code;
 				$crate::decl_test_parachains!(@inner_digest_provider $($digest_provider)?);
 
 				// We run an empty block during initialisation to open HRMP channels
@@ -712,6 +724,9 @@ macro_rules! decl_test_parachains {
 						}.into();
 						$crate::assert_ok!(
 							timestamp_set.dispatch(<Self as Chain>::RuntimeOrigin::none())
+						);
+						$crate::assert_ok!(
+							<Self as Parachain>::AdditionalInherentCode::execute_additional_inherents()
 						);
 					});
 				}
