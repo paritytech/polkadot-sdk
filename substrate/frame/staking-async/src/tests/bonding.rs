@@ -1426,10 +1426,12 @@ mod reap {
 	#[test]
 	fn reap_stash_works() {
 		ExtBuilder::default()
+			.min_nominator_bond(1_000)
+			.min_validator_bond(1_500)
 			.existential_deposit(10)
 			.balance_factor(10)
 			.build_and_execute(|| {
-				// given
+				// GIVEN: 11 is a bonded validator.
 				assert_eq!(asset::staked::<Test>(&11), 10 * 1000);
 				assert_eq!(Staking::bonded(&11), Some(11));
 
@@ -1444,14 +1446,27 @@ mod reap {
 					Error::<Test>::FundedTarget
 				);
 
+				// Note: Even though the stash is a validator, the threshold to reap is min of
+				// nominator and validator bond
 				// no easy way to cause an account to go below ED, we tweak their staking ledger
 				// instead.
-				Ledger::<Test>::insert(11, StakingLedger::<Test>::new(11, 5));
 
-				// reap-able
+				// WHEN: we set the ledger to below min validator bond but above min nominator bond.
+				Ledger::<Test>::insert(11, StakingLedger::<Test>::new(11, 1499));
+
+				// THEN: still can't reap as the balance is above min nominator bond.
+				assert_noop!(
+					Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0),
+					Error::<Test>::FundedTarget
+				);
+
+				// WHEN: set ledger to below min nominator bond.
+				Ledger::<Test>::insert(11, StakingLedger::<Test>::new(11, 999));
+
+				// THEN: reap-able
 				assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0));
 
-				// then
+				// all the data is removed.
 				assert!(!<Ledger<Test>>::contains_key(&11));
 				assert!(!<Bonded<Test>>::contains_key(&11));
 				assert!(!<Validators<Test>>::contains_key(&11));
@@ -1596,23 +1611,17 @@ mod staking_bounds_chill_other {
 			.min_validator_bond(1_500)
 			.build_and_execute(|| {
 				// 500 is not enough for any role
-				assert_ok!(Staking::bond(RuntimeOrigin::signed(3), 500, RewardDestination::Stash));
 				assert_noop!(
-					Staking::nominate(RuntimeOrigin::signed(3), vec![1]),
+					Staking::bond(RuntimeOrigin::signed(3), 500, RewardDestination::Stash),
 					Error::<Test>::InsufficientBond
 				);
+				// 1000 is enough for nominator but not for validator.
+				assert_ok!(Staking::bond(RuntimeOrigin::signed(3), 1000, RewardDestination::Stash));
 				assert_noop!(
 					Staking::validate(RuntimeOrigin::signed(3), ValidatorPrefs::default()),
 					Error::<Test>::InsufficientBond,
 				);
-
-				// 1000 is enough for nominator
-				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(3), 500));
 				assert_ok!(Staking::nominate(RuntimeOrigin::signed(3), vec![1]));
-				assert_noop!(
-					Staking::validate(RuntimeOrigin::signed(3), ValidatorPrefs::default()),
-					Error::<Test>::InsufficientBond,
-				);
 
 				// 1500 is enough for validator
 				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(3), 500));

@@ -29,11 +29,7 @@ use frame_support::{
 	traits::{EnsureOrigin, Get, OnFinalize, OnInitialize},
 };
 use frame_system::RawOrigin;
-use sp_io::crypto::{sr25519_generate, sr25519_sign};
-use sp_runtime::{
-	traits::{Bounded, IdentifyAccount, One},
-	MultiSignature, MultiSigner,
-};
+use sp_runtime::traits::{Bounded, One};
 
 const SEED: u32 = 0;
 
@@ -131,11 +127,7 @@ fn bounded_username<T: Config>(username: Vec<u8>, suffix: Vec<u8>) -> Username<T
 	Username::<T>::try_from(full_username).expect("test usernames should fit within bounds")
 }
 
-#[benchmarks(
-	where
-		<T as frame_system::Config>::AccountId: From<sp_runtime::AccountId32>,
-		T::OffchainSignature: From<MultiSignature>,
-)]
+#[benchmarks]
 mod benchmarks {
 	use super::*;
 
@@ -625,16 +617,12 @@ mod benchmarks {
 		let username = bench_username();
 		let bounded_username = bounded_username::<T>(username.clone(), suffix.clone());
 
-		let public = sr25519_generate(0.into(), None);
-		let who_account: T::AccountId = MultiSigner::Sr25519(public).into_account().into();
+		let (public, signature) = T::BenchmarkHelper::sign_message(&bounded_username[..]);
+		let who_account = public.into_account();
 		let who_lookup = T::Lookup::unlookup(who_account.clone());
 
-		let signature = MultiSignature::Sr25519(
-			sr25519_sign(0.into(), &public, &bounded_username[..]).unwrap(),
-		);
-
 		// Verify signature here to avoid surprise errors at runtime
-		assert!(signature.verify(&bounded_username[..], &public.into()));
+		assert!(signature.verify(&bounded_username[..], &who_account));
 		let use_allocation = match p {
 			0 => false,
 			1 => true,
