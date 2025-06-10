@@ -53,6 +53,7 @@ std = [
 	"pallet-balances/std",
 	"scale-info/std",
 	"serde",
+	"sp-core/std",
 	"sp-inherents/std",
 	"sp-io/std",
 	"sp-runtime/std",

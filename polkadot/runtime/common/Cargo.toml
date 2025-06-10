@@ -138,6 +138,7 @@ runtime-benchmarks = [
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",
+	"frame-support-test/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-asset-rate/try-runtime",
