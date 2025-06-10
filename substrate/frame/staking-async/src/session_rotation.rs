@@ -370,6 +370,18 @@ impl<T: Config> Eras<T> {
 	pub(crate) fn get_reward_points(era: EraIndex) -> EraRewardPoints<T> {
 		ErasRewardPoints::<T>::get(era)
 	}
+
+	pub(crate) fn set_lowest_stake(era: EraIndex, total_stake: BalanceOf<T>) {
+		ErasLowestRatioTotalStake::<T>::set(era, Some(total_stake));
+	}
+
+	pub(crate) fn get_lowest_stake(era: EraIndex) -> BalanceOf<T> {
+		ErasLowestRatioTotalStake::<T>::get(era).unwrap_or(Zero::zero())
+	}
+
+	pub(crate) fn clean_up_lowest_stake(era: EraIndex) {
+		ErasLowestRatioTotalStake::<T>::remove(era);
+	}
 }
 
 #[cfg(any(feature = "try-runtime", test))]
@@ -798,7 +810,7 @@ impl<T: Config> Rotator<T> {
 		if starting_era >= diff {
 			let target_era = starting_era - diff;
 			TotalUnbondInEra::<T>::remove(target_era);
-			ErasLowestRatioTotalStake::<T>::remove(target_era);
+			Eras::<T>::clean_up_lowest_stake(target_era);
 		}
 
 		// discard the ancient era info.

@@ -906,7 +906,7 @@ impl<T: Config> Pallet<T> {
 			let total_stake = total_stake.into_iter().sum();
 
 			// Store the total stake of the lowest portion validators for the planned era.
-			ErasLowestRatioTotalStake::<T>::set(era, Some(total_stake));
+			Eras::<T>::set_lowest_stake(era, total_stake)
 		}
 	}
 
@@ -953,8 +953,7 @@ impl<T: Config> Pallet<T> {
 					};
 					total_unbond.saturating_accrue(unbond);
 
-					let lowest_stake =
-						ErasLowestRatioTotalStake::<T>::get(chunk.era).unwrap_or_default();
+					let lowest_stake = Eras::<T>::get_lowest_stake(chunk.era);
 					let threshold =
 						(Perbill::from_percent(100) - min_slashable_share) * lowest_stake;
 					if total_unbond >= threshold {
