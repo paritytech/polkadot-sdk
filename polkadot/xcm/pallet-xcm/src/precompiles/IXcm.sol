@@ -25,5 +25,5 @@ interface IXcm {
     /// @notice Given a message estimate the weight cost
     /// @param message The XCM message to send
     /// @returns weight estimated for sending the message
-    function weighMessage(bytes calldata message) external view returns (Weight weight);
+    function weighMessage(bytes calldata message) external view returns (Weight memory weight);
 }
