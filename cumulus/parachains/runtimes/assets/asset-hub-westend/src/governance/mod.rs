@@ -48,6 +48,10 @@ parameter_types! {
 	pub const VoteLockingPeriod: BlockNumber = prod_or_fast!(7 * RC_DAYS, 1);
 }
 
+mod impls;
+use impls::benchmarks::*;
+
+
 impl pallet_conviction_voting::Config for Runtime {
 	type WeightInfo = weights::pallet_conviction_voting::WeightInfo<Self>;
 	type RuntimeEvent = RuntimeEvent;
@@ -130,6 +134,17 @@ parameter_types! {
 
 pub type TreasurySpender = EitherOf<EnsureRootWithSuccess<AccountId, MaxBalance>, Spender>;
 
+type TreasuryPaymaster = PayOverXcm<
+	TreasuryInteriorLocation,
+	crate::xcm_config::XcmRouter,
+	crate::PolkadotXcm,
+	ConstU32<{ 6 * HOURS }>,
+	VersionedLocation,
+	VersionedLocatableAsset,
+	LocatableAssetConverter,
+	VersionedLocationConverter,
+>;
+
 impl pallet_treasury::Config for Runtime {
 	type PalletId = TreasuryPalletId;
 	type Currency = Balances;
@@ -145,16 +160,10 @@ impl pallet_treasury::Config for Runtime {
 	type AssetKind = VersionedLocatableAsset;
 	type Beneficiary = VersionedLocation;
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
-	type Paymaster = PayOverXcm<
-		TreasuryInteriorLocation,
-		crate::xcm_config::XcmRouter,
-		crate::PolkadotXcm,
-		ConstU32<{ 6 * HOURS }>,
-		Self::Beneficiary,
-		Self::AssetKind,
-		LocatableAssetConverter,
-		VersionedLocationConverter,
-	>;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type Paymaster = TreasuryPaymaster;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Paymaster = PayWithEnsure<TreasuryPaymaster, OpenHrmpChannel<ConstU32<1001>>>;
 	type BalanceConverter = UnityOrOuterConversion<
 		ContainsParts<
 			FromContains<
@@ -167,7 +176,10 @@ impl pallet_treasury::Config for Runtime {
 	type PayoutPeriod = PayoutSpendPeriod;
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments;
+	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments<
+		ConstU8<1>,
+		ConstU32<1001>,
+	>;
 }
 
 impl pallet_asset_rate::Config for Runtime {
