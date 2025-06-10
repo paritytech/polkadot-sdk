@@ -311,12 +311,18 @@ pub trait StakingInterface {
 		exposures: Vec<(Self::AccountId, Self::Balance)>,
 	);
 
-	/// Updates the current and active era index in the staking system.
+	/// Unsafe sets the current and active era index in the staking system.
 	///
-	/// Note: This resets the Active Era timestamp. Should be used only for testing and when
-	/// timestamp is irrelevant.
+	/// Note: This may break some invariance. Only to be used in tests where era transition can be
+	/// unsafe. Use [`Self::activate_next_era`] where possible.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn set_active_era(era: EraIndex);
+
+	/// Activates the next era by ending the active era and starting a new one.
+	///
+	/// An era must be planned.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn activate_next_era(era_duration_in_session: SessionIndex, era_duration_in_millis: u64);
 }
 
 /// Set of low level apis to manipulate staking ledger.

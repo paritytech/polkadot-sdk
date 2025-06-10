@@ -710,6 +710,9 @@ mod benchmarks {
 			nominator_balances_before.push(balance);
 		}
 
+		// activate the current era.
+		Staking::<T>::activate_next_era(1, 1);
+
 		#[extrinsic_call]
 		payout_stakers(RawOrigin::Signed(caller), validator.clone(), current_era);
 
@@ -1226,6 +1229,9 @@ mod tests {
 				.unwrap();
 
 			assert_eq!(nominators.len() as u32, n);
+
+			// activate the current era.
+			Staking::activate_next_era(1, 1);
 
 			let original_stakeable_balance = asset::stakeable_balance::<Test>(&validator_stash);
 			assert_ok!(Staking::payout_stakers_by_page(

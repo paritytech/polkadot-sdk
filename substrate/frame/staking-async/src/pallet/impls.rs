@@ -1613,6 +1613,15 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			ActiveEra::<T>::put(crate::ActiveEraInfo { index: era, start: Some(0) });
 		}
 
+		fn activate_next_era(era_duration_in_session: SessionIndex, era_duration_in_millis: u64) {
+			let planning_era = Rotator::<T>::is_planning().expect("No planning era found");
+			let last_activation_timestamp = ActiveEra::<T>::get()
+				.and_then(|a| a.start)
+				.unwrap_or(0);
+
+			Rotator::<T>::end_session(Rotator::<T>::active_era_start_session_index() + era_duration_in_session, Some((last_activation_timestamp + era_duration_in_millis, planning_era)));
+		}
+
 		fn max_exposure_page_size() -> Page {
 			T::MaxExposurePageSize::get()
 		}
