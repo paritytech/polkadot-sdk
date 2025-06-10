@@ -51,7 +51,6 @@ parameter_types! {
 mod impls;
 use impls::benchmarks::*;
 
-
 impl pallet_conviction_voting::Config for Runtime {
 	type WeightInfo = weights::pallet_conviction_voting::WeightInfo<Self>;
 	type RuntimeEvent = RuntimeEvent;
@@ -176,10 +175,8 @@ impl pallet_treasury::Config for Runtime {
 	type PayoutPeriod = PayoutSpendPeriod;
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments<
-		ConstU8<1>,
-		ConstU32<1001>,
-	>;
+	type BenchmarkHelper =
+		polkadot_runtime_common::impls::benchmarks::TreasuryArguments<ConstU8<1>, ConstU32<1001>>;
 }
 
 impl pallet_asset_rate::Config for Runtime {
