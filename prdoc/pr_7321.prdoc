@@ -22,8 +22,7 @@ crates:
  - name: coretime-rococo-runtime
    bump: minor
  - name: coretime-westend-runtime
-   bump: minor
-   validate: false
+   bump: major
  - name: people-rococo-runtime
    bump: minor
  - name: people-westend-runtime
