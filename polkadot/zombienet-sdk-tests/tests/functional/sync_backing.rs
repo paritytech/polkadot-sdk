@@ -66,7 +66,7 @@ async fn sync_backing_test() -> Result<(), anyhow::Error> {
 	assert_finalized_para_throughput(
 		&relay_client,
 		15,
-		[(ParaId::from(2500), 6..9)].into_iter().collect(),
+		[(ParaId::from(2500), 5..9)].into_iter().collect(),
 	)
 	.await?;
 
