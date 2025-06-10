@@ -104,10 +104,10 @@ pub fn call_allowed_status(call: &<Runtime as frame_system::Config>::RuntimeCall
 		ToRococoXcmRouter(..) => OFF,
 		Treasury(..) => OFF,
 		Staking(..) => OFF,
-		MultiBlock(..) => OFF,
-		MultiBlockVerifier(..) => OFF,
-		MultiBlockUnsigned(..) => OFF,
-		MultiBlockSigned(..) => OFF,
+		MultiBlockElection(..) => OFF,
+		MultiBlockElectionVerifier(..) => OFF,
+		MultiBlockElectionUnsigned(..) => OFF,
+		MultiBlockElectionSigned(..) => OFF,
 		AssetConversionMigration(..) => OFF,
 		Revive(..) => ON,
 		AssetRewards(..) => ON,
@@ -118,7 +118,7 @@ pub fn call_allowed_status(call: &<Runtime as frame_system::Config>::RuntimeCall
 		Whitelist(..) => OFF,
 		XcmpQueue(..) => ON, /* Allow updating XCM settings. Only by Fellowship and root. */
 		SnowbridgeSystemFrontend(..) => OFF, // FAIL-CI Clara
-		StakingNextRcClient(..) => OFF,
+		StakingRcClient(..) => OFF,
 		Sudo(..) => ON,
 		/* Exhaustive match. Compiler ensures that we did not miss any. */
 	};
