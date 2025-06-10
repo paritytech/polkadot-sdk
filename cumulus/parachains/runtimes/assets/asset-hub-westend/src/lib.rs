@@ -64,7 +64,7 @@ use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 use pallet_assets::precompiles::{InlineIdConfig, ERC20};
 use pallet_nfts::{DestroyWitness, PalletFeatures};
 use pallet_revive::evm::runtime::EthExtra;
-use pallet_xcm::{EnsureXcm, precompiles::XcmPrecompile};
+use pallet_xcm::{precompiles::XcmPrecompile, EnsureXcm};
 use parachains_common::{
 	impls::DealWithFees, message_queue::*, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
 	BlockNumber, CollectionId, Hash, Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
