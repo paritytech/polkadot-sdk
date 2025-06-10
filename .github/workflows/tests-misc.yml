@@ -141,6 +141,11 @@ jobs:
 
       - name: script
         run: |
+          # Fail the step if any command in a pipeline errors out (--pipefail).
+          # -e  : exit immediately on non‑zero status
+          # -u  : treat unset variables as an error
+          # -o pipefail : return the status of the first failing command in a pipeline
+          set -euo pipefail 
           ARTIFACTS_DIR=./artifacts
           BENCH_TRIE_READ=::trie::read::small
           BENCH_NODE_IMPORT=::node::import::sr25519::transfer_keep_alive::paritydb::small
