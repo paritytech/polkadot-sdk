@@ -27,7 +27,7 @@ mod benchmarks {
 		};
 
 		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, creator, asset, asset_metadata);
+		_(origin as T::RuntimeOrigin, creator, asset, asset_metadata, 1);
 
 		Ok(())
 	}
