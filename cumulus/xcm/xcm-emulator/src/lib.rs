@@ -143,6 +143,7 @@ where
 }
 
 // Implement optional inherent code to be executed
+// This will be executed after on-initialize and before on-finalize
 pub trait AdditionalInherentCode {
 	fn execute_additional_inherents() -> DispatchResult {
 		Ok(())
@@ -614,8 +615,8 @@ macro_rules! decl_test_parachains {
 					LocationToAccountId: $location_to_account:path,
 					ParachainInfo: $parachain_info:path,
 					MessageOrigin: $message_origin:path,
-					AdditionalInherentCode: $additiona_inherent_code:path,
-					$( DigestProvider: $digest_provider:ty, )?
+					$( DigestProvider: $digest_provider:ty,)?
+					$( AdditionalInherentCode: $additional_inherent_code:ty,)?
 				},
 				pallets = {
 					$($pallet_name:ident: $pallet_path:path,)*
@@ -656,8 +657,8 @@ macro_rules! decl_test_parachains {
 				type ParachainSystem = $crate::ParachainSystemPallet<<Self as $crate::Chain>::Runtime>;
 				type ParachainInfo = $parachain_info;
 				type MessageProcessor = $crate::DefaultParaMessageProcessor<$name<N>, $message_origin>;
-				type AdditionalInherentCode = $additiona_inherent_code;
 				$crate::decl_test_parachains!(@inner_digest_provider $($digest_provider)?);
+				$crate::decl_test_parachains!(@inner_additional_inherent_code $($additional_inherent_code)?);
 
 				// We run an empty block during initialisation to open HRMP channels
 				// and have them ready for the next block
@@ -678,7 +679,7 @@ macro_rules! decl_test_parachains {
 
 				fn new_block() {
 					use $crate::{
-						Dispatchable, Chain, Convert, TestExt, Zero,
+						Dispatchable, Chain, Convert, TestExt, Zero, AdditionalInherentCode
 					};
 
 					let para_id = Self::para_id().into();
@@ -790,6 +791,8 @@ macro_rules! decl_test_parachains {
 	};
 	( @inner_digest_provider $digest_provider:ty ) => { type DigestProvider = $digest_provider; };
 	( @inner_digest_provider /* none */ ) => { type DigestProvider = (); };
+	( @inner_additional_inherent_code $additional_inherent_code:ty ) => { type AdditionalInherentCode = $additional_inherent_code; };
+	( @inner_additional_inherent_code /* none */ ) => { type AdditionalInherentCode = (); };
 }
 
 #[macro_export]

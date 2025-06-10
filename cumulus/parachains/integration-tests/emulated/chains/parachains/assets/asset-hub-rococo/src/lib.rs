@@ -43,6 +43,7 @@ decl_test_parachains! {
 			ParachainInfo: asset_hub_rococo_runtime::ParachainInfo,
 			MessageOrigin: cumulus_primitives_core::AggregateMessageOrigin,
 			DigestProvider: (),
+			AdditionalInherentCode: (),
 		},
 		pallets = {
 			PolkadotXcm: asset_hub_rococo_runtime::PolkadotXcm,
