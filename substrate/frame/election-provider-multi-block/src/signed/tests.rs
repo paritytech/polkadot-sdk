@@ -642,153 +642,43 @@ mod e2e {
 	}
 
 	#[test]
-	fn after_rejecting_calls_verifier_start_again_if_leader_exists() {
-		ExtBuilder::signed().build_and_execute(|| {
-			roll_to_signed_open();
-			assert_full_snapshot();
-
-			// Submit invalid solution with high score but no pages (will be slashed)
-			{
-				let mut strong_score = mine_full_solution().unwrap().score;
-				strong_score.minimal_stake *= 2;
-				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), strong_score));
-				// Don't submit any pages - this will cause it to be slashed
-			}
-
-			// Submit good solution with all pages
-			{
-				let strong_solution = mine_full_solution().unwrap();
-				load_signed_for_verification(999, strong_solution.clone());
-			}
-
-			let current_round = SignedPallet::current_round();
-			assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 2);
-
-			// Go to signed validation phase
-			roll_to_signed_validation_open();
-			assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
-
-			roll_next(); // Block 1
-			roll_next(); // Block 2
-			roll_next(); // Block 3: invalid solution (99) gets slashed for having no pages
-
-			// Check that invalid solution is slashed but good solution remains
-			assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 1);
-			assert!(Submissions::<Runtime>::has_leader(current_round));
-			let remaining_leader = Submissions::<Runtime>::leader(current_round).unwrap();
-			assert_eq!(remaining_leader.0, 999); // Good solution remains
-
-			// Check that expected events were emitted for the rejection
-			assert_eq!(
-				signed_events(),
-				vec![
-					Event::Registered(
-						0,
-						99,
-						ElectionScore {
-							minimal_stake: 110,
-							sum_stake: 130,
-							sum_stake_squared: 8650
-						}
-					),
-					Event::Registered(
-						0,
-						999,
-						ElectionScore {
-							minimal_stake: 55,
-							sum_stake: 130,
-							sum_stake_squared: 8650
-						}
-					),
-					Event::Stored(0, 999, 0),
-					Event::Stored(0, 999, 1),
-					Event::Stored(0, 999, 2),
-					Event::Slashed(0, 99, 5),
-				]
-			);
-			assert_eq!(
-				verifier_events(),
-				vec![
-					crate::verifier::Event::Verified(2, 0),
-					crate::verifier::Event::Verified(1, 0),
-					crate::verifier::Event::Verified(0, 0),
-					crate::verifier::Event::VerificationFailed(0, FeasibilityError::InvalidScore),
-				]
-			);
-
-			// Check verifier status - should still be ongoing.
-			assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
-
-			roll_next(); // Block 4: processes page 2 of good solution
-			roll_next(); // Block 5: processes page 1 of good solution
-			roll_next(); // Block 6: processes page 0 of good solution
-
-			// Check verifier status - should be Nothing after completion
-			assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
-
-			// Check good solution is fully verified and removed from queue
-			assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 0);
-			assert!(!Submissions::<Runtime>::has_leader(current_round));
-		});
-	}
-
-	#[test]
 	fn after_rejecting_does_not_call_verifier_start_if_no_leader_exists() {
 		ExtBuilder::signed().build_and_execute(|| {
 			roll_to_signed_open();
 			assert_full_snapshot();
 
-			// Submit only an invalid solution
-			let score = ElectionScore { minimal_stake: 10, sum_stake: 10, sum_stake_squared: 100 };
-			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score));
-			assert_ok!(SignedPallet::submit_page(
-				RuntimeOrigin::signed(99),
-				0,
-				Some(Default::default())
-			));
+			// Submit only an invalid solution (register but don't submit pages)
+			let invalid_score =
+				ElectionScore { minimal_stake: 10, sum_stake: 10, sum_stake_squared: 100 };
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), invalid_score));
 
-			// Verify we have exactly one submission
 			let current_round = SignedPallet::current_round();
 			assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 1);
-			assert!(Submissions::<Runtime>::has_leader(current_round));
 
 			roll_to_signed_validation_open();
 
-			assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
+			roll_to_full_verification();
 
-			roll_next(); // Block 1: processes page 2 (empty)
-			roll_next(); // Block 2: processes page 1  (empty)
-			roll_next(); // Block 3: processes page 0 (the only submitted page)
-
-			// After 3 blocks, the invalid solution should be processed and discarded
 			// Verify no-restart conditions are met
 			assert!(crate::Pallet::<Runtime>::current_phase().is_signed_validation());
 			assert!(!Submissions::<Runtime>::has_leader(current_round));
 			assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 0);
 			assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
 
+			// Verifier should remain idle for the rest of the signed validation phase
+			while crate::Pallet::<Runtime>::current_phase().is_signed_validation() {
+				roll_next();
+				assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
+			}
+
 			// Check that expected events were emitted for the rejection
 			assert_eq!(
 				signed_events(),
-				vec![
-					Event::Registered(
-						0,
-						99,
-						ElectionScore { minimal_stake: 10, sum_stake: 10, sum_stake_squared: 100 }
-					),
-					Event::Stored(0, 99, 0),
-					Event::Slashed(0, 99, 6),
-				]
+				vec![Event::Registered(0, 99, invalid_score), Event::Slashed(0, 99, 5),]
 			);
-			assert_eq!(
-				verifier_events(),
-				vec![
-					crate::verifier::Event::Verified(2, 0),
-					crate::verifier::Event::Verified(1, 0),
-					crate::verifier::Event::Verified(0, 0),
-					crate::verifier::Event::VerificationFailed(0, FeasibilityError::InvalidScore),
-				]
-			);
+
+			roll_next();
+			assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
 		});
 	}
 
@@ -798,47 +688,14 @@ mod e2e {
 			roll_to_signed_open();
 			assert_full_snapshot();
 
-			// Submit only one good solution that will be accepted
+			// Load and verify a good solution
 			let good_solution = mine_full_solution().unwrap();
-			load_signed_for_verification(99, good_solution.clone());
+			load_signed_for_verification_and_start_and_roll_to_verified(
+				99,
+				good_solution.clone(),
+				0,
+			);
 
-			// Verify we have exactly one submission
-			let current_round = SignedPallet::current_round();
-			assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 1);
-			assert!(Submissions::<Runtime>::has_leader(current_round));
-
-			// Move to verification phase
-			roll_to_signed_validation_open();
-			assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
-
-			// The good solution will be processed and accepted over 3 blocks
-			roll_next(); // Block 1: processes page 2
-			roll_next(); // Block 2: processes page 1
-			roll_next(); // Block 3: processes page 0 and solution gets queued/rewarded
-
-			// After acceptance, verify no-restart conditions are met
-			assert!(crate::Pallet::<Runtime>::current_phase().is_signed_validation());
-			assert!(!Submissions::<Runtime>::has_leader(current_round));
-			assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 0);
-			assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
-
-			// Verify verifier stays idle until we reach Done phase (no restart)
-			while !MultiBlock::current_phase().is_done() {
-				roll_next();
-				assert_eq!(
-					VerifierPallet::status(),
-					crate::verifier::Status::Nothing,
-					"Verifier should remain idle until Done phase"
-				);
-				assert!(!Submissions::<Runtime>::has_leader(current_round));
-				assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 0);
-			}
-
-			// Verify we reached Done phase with verifier still idle
-			assert_eq!(MultiBlock::current_phase(), Phase::Done);
-			assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
-
-			// Check that expected events were emitted for the acceptance
 			assert_eq!(
 				signed_events(),
 				vec![
@@ -849,6 +706,8 @@ mod e2e {
 					Event::Rewarded(0, 99, 7),
 				]
 			);
+
+			// Check verifier events
 			assert_eq!(
 				verifier_events(),
 				vec![
@@ -858,6 +717,9 @@ mod e2e {
 					crate::verifier::Event::Queued(good_solution.score, None),
 				]
 			);
+
+			roll_to_done();
+			assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
 		});
 	}
 
@@ -875,7 +737,6 @@ mod e2e {
 			let paged = mine_full_solution().unwrap();
 			let real_score = paged.score;
 			let submitter = 99;
-			let initial_balance = Balances::free_balance(&submitter);
 
 			assert!(
 				paged.solution_pages.len() > 1,
@@ -884,10 +745,6 @@ mod e2e {
 			);
 
 			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(submitter), real_score));
-			assert_eq!(
-				balances(submitter),
-				(initial_balance - SignedDepositBase::get(), SignedDepositBase::get())
-			);
 
 			// Submit ONLY page 0 of the solution, deliberately skip pages 1 and 2.
 			let first_page = paged.solution_pages.pagify(Pages::get()).next().unwrap();
@@ -898,14 +755,12 @@ mod e2e {
 			));
 
 			// Verify the metadata shows correct page submission status
-			let metadata = Submissions::<Runtime>::metadata_of(0, submitter).unwrap();
-			let pages_status = metadata.pages.into_inner();
-			assert_eq!(pages_status[0], true, "Page 0 should be submitted");
-			assert_eq!(pages_status[1], false, "Page 1 should not be submitted");
-			assert_eq!(pages_status[2], false, "Page 2 should not be submitted");
+			assert_eq!(
+					    Submissions::<Runtime>::metadata_of(0, submitter).unwrap().pages.into_inner(),
+					    vec![true, false, false]
+					);
 
 			// Verify that the solution data provider can access all pages without errors
-
 			let page_0 = SignedPallet::get_page(0);
 			let page_1 = SignedPallet::get_page(1);
 			let page_2 = SignedPallet::get_page(2);
@@ -1177,6 +1032,123 @@ mod e2e {
 				// Check good solution is fully verified and removed from queue
 				assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 0);
 				assert!(!Submissions::<Runtime>::has_leader(current_round));
+			});
+	}
+
+	#[test]
+	fn max_queue_with_single_valid_solution_at_end() {
+		// Test that when the submission queue is at capacity (MaxSubmissions = 3), with only the
+		// third submission being valid, the verifier processes the entire queue sequentially and
+		// eventually accepts the final valid solution.
+
+		// Set max submissions to 3 for this test
+		SignedMaxSubmissions::set(3);
+		ExtBuilder::signed()
+			.signed_validation_phase(9) // 3 solutions * 3 pages per solution = 9 blocks needed
+			.build_and_execute(|| {
+				roll_to_signed_open();
+				assert_full_snapshot();
+
+				let current_round = SignedPallet::current_round();
+
+				// Submit two invalid solutions (register but don't submit pages)
+				let invalid_score1 = {
+					let mut score = mine_full_solution().unwrap().score;
+					score.minimal_stake *= 2; // Make it attractive but it will be invalid
+					score
+				};
+				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(91), invalid_score1));
+
+				let invalid_score2 = {
+					let mut score = mine_full_solution().unwrap().score;
+					score.minimal_stake *= 3; // Make it even more attractive but still invalid
+					score
+				};
+				assert_ok!(SignedPallet::register(RuntimeOrigin::signed(92), invalid_score2));
+
+				// Submit one valid solution at the end
+				let valid_solution = mine_full_solution().unwrap();
+				load_signed_for_verification(99, valid_solution.clone());
+
+				// Verify we have 3 submissions at max capacity
+				assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 3);
+				assert!(Submissions::<Runtime>::has_leader(current_round));
+
+				// Move to verification phase
+				roll_to_signed_validation_open();
+				assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
+
+				// Process first invalid solution (91)
+				roll_next(); // Process page 2
+				roll_next(); // Process page 1
+				roll_next(); // Process page 0 and reject solution
+
+				// Verify first solution was slashed and removed
+				assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 2);
+				assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
+
+				// Process second invalid solution (92)
+				roll_next(); // Process page 2
+				roll_next(); // Process page 1
+				roll_next(); // Process page 0 and reject solution
+
+				// Verify second solution was slashed and removed
+				assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 1);
+				assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
+
+				// Verify the last remaining solution is our valid one
+				let leader = Submissions::<Runtime>::leader(current_round).unwrap();
+				assert_eq!(leader.0, 99);
+
+				// Process the final valid solution
+				roll_next(); // Process page 2 of valid solution
+				roll_next(); // Process page 1 of valid solution
+				roll_next(); // Process page 0 of valid solution and accept it
+
+				// Roll until done and check final state
+				roll_to_done();
+				assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
+
+				// Check that all expected events were emitted in the correct order
+				assert_eq!(
+					signed_events(),
+					vec![
+						Event::Registered(0, 91, invalid_score1),
+						Event::Registered(0, 92, invalid_score2),
+						Event::Registered(0, 99, valid_solution.score),
+						Event::Stored(0, 99, 0),
+						Event::Stored(0, 99, 1),
+						Event::Stored(0, 99, 2),
+						Event::Slashed(0, 92, 5),
+						Event::Slashed(0, 91, 5),
+						Event::Rewarded(0, 99, 7),
+					]
+				);
+
+				// Verify verifier events show all verifications
+				assert_eq!(
+					verifier_events(),
+					vec![
+						crate::verifier::Event::Verified(2, 0),
+						crate::verifier::Event::Verified(1, 0),
+						crate::verifier::Event::Verified(0, 0),
+						crate::verifier::Event::VerificationFailed(
+							0,
+							FeasibilityError::InvalidScore
+						),
+						crate::verifier::Event::Verified(2, 0),
+						crate::verifier::Event::Verified(1, 0),
+						crate::verifier::Event::Verified(0, 0),
+						crate::verifier::Event::VerificationFailed(
+							0,
+							FeasibilityError::InvalidScore
+						),
+						crate::verifier::Event::Verified(2, 2),
+						crate::verifier::Event::Verified(1, 2),
+						crate::verifier::Event::Verified(0, 2),
+						crate::verifier::Event::Queued(valid_solution.score, None),
+					]
+				);
 			});
 	}
 }

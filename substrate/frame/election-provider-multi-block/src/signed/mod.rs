@@ -141,16 +141,15 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 			.unwrap_or_default()
 	}
 
+	// `get_score` should only be called when a leader exists.
+	// The verifier only transitions to `Status::Ongoing` when a leader is confirmed to exist.
+	// During verification, the leader should remain unchanged - it's only removed when
+	// verification fails (which immediately stops the verifier) or completes successfully.
 	fn get_score() -> ElectionScore {
 		let current_round = Self::current_round();
 		Submissions::<T>::leader(current_round)
-			// Leader is verified to exist before we call `Verifier::start`. The verifier only
-			// transitions to `Status::Ongoing` when a leader is confirmed to exist. During
-			// verification, the leader should remain unchanged - it's only removed when
-			// verification fails (which immediately stops the verifier) or completes successfully.
-			// Therefore, `get_score` should only be called when a leader exists.
 			.defensive()
-			.and_then(|(_who, score)| {
+			.inspect(|(_who, score)| {
 				sublog!(
 					debug,
 					"signed",
@@ -158,8 +157,8 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 					score,
 					current_round
 				);
-				Some(score)
 			})
+			.map(|(_who, score)| score)
 			.unwrap_or_default()
 	}
 
@@ -968,7 +967,9 @@ impl<T: Config> Pallet<T> {
 
 	/// Common logic for handling solution rejection - slash the submitter and try next solution
 	fn handle_solution_rejection(current_round: u32, reason: &'static str) {
-		if let Some((loser, metadata)) = Submissions::<T>::take_leader_with_data(current_round) {
+		if let Some((loser, metadata)) =
+			Submissions::<T>::take_leader_with_data(current_round).defensive()
+		{
 			// Slash the deposit
 			let slash = metadata.deposit;
 			let _res = T::Currency::burn_held(
