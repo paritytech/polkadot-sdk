@@ -755,7 +755,7 @@ impl<T: Config> Rotator<T> {
 		if starting_era >= diff {
 			let target_era = starting_era - diff;
 			TotalUnbondInEra::<T>::remove(target_era);
-			EraLowestRatioTotalStake::<T>::remove(target_era);
+			ErasLowestRatioTotalStake::<T>::remove(target_era);
 		}
 
 		// discard the ancient era info.

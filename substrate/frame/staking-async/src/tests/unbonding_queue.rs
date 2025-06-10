@@ -48,7 +48,7 @@ fn get_min_lowest_stake_works() {
 
 			// Initial conditions.
 			assert_eq!(Staking::current_era(), 1);
-			assert_eq!(EraLowestRatioTotalStake::<T>::iter().collect::<Vec<_>>(), vec![]);
+			assert_eq!(ErasLowestRatioTotalStake::<T>::iter().collect::<Vec<_>>(), vec![]);
 
 			// Setup to nominate.
 			assert_ok!(Staking::bond(RuntimeOrigin::signed(999), 100, RewardDestination::Stash));
@@ -57,7 +57,7 @@ fn get_min_lowest_stake_works() {
 			// Era 1 -> 2
 			Session::roll_until_active_era(2);
 			assert_eq!(
-				EraLowestRatioTotalStake::<T>::iter().collect::<BTreeMap<_, _>>(),
+				ErasLowestRatioTotalStake::<T>::iter().collect::<BTreeMap<_, _>>(),
 				BTreeMap::from([(2, 500)])
 			);
 
@@ -65,7 +65,7 @@ fn get_min_lowest_stake_works() {
 			assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(999), 100));
 			Session::roll_until_active_era(3);
 			assert_eq!(
-				EraLowestRatioTotalStake::<T>::iter().collect::<BTreeMap<_, _>>(),
+				ErasLowestRatioTotalStake::<T>::iter().collect::<BTreeMap<_, _>>(),
 				BTreeMap::from([(2, 500), (3, 600)])
 			);
 
@@ -73,7 +73,7 @@ fn get_min_lowest_stake_works() {
 			assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(999), 100));
 			Session::roll_until_active_era(4);
 			assert_eq!(
-				EraLowestRatioTotalStake::<T>::iter().collect::<BTreeMap<_, _>>(),
+				ErasLowestRatioTotalStake::<T>::iter().collect::<BTreeMap<_, _>>(),
 				BTreeMap::from([(2, 500), (3, 600), (4, 700)])
 			);
 
@@ -81,7 +81,7 @@ fn get_min_lowest_stake_works() {
 			assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(999), 100));
 			Session::roll_until_active_era(5);
 			assert_eq!(
-				EraLowestRatioTotalStake::<T>::iter().collect::<BTreeMap<_, _>>(),
+				ErasLowestRatioTotalStake::<T>::iter().collect::<BTreeMap<_, _>>(),
 				BTreeMap::from([(3, 600), (4, 700), (5, 800)])
 			);
 
@@ -89,7 +89,7 @@ fn get_min_lowest_stake_works() {
 			assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(999), 100));
 			Session::roll_until_active_era(6);
 			assert_eq!(
-				EraLowestRatioTotalStake::<T>::iter().collect::<BTreeMap<_, _>>(),
+				ErasLowestRatioTotalStake::<T>::iter().collect::<BTreeMap<_, _>>(),
 				BTreeMap::from([(4, 700), (5, 800), (6, 900)])
 			);
 		});
@@ -106,7 +106,7 @@ fn calculate_lowest_total_stake_works() {
 			assert_eq!(current_era(), 4);
 			// There are no stakers
 			assert_eq!(
-				EraLowestRatioTotalStake::<T>::iter().collect::<BTreeMap<_, _>>(),
+				ErasLowestRatioTotalStake::<T>::iter().collect::<BTreeMap<_, _>>(),
 				BTreeMap::from([(2, 0), (3, 0), (4, 0)])
 			);
 			let ed = Balances::minimum_balance();
@@ -134,20 +134,20 @@ fn calculate_lowest_total_stake_works() {
 			// Trigger new era to calculate the lowest proportion.
 			Session::roll_until_active_era(5);
 			assert_eq!(
-				EraLowestRatioTotalStake::<T>::iter().collect::<BTreeMap<_, _>>(),
+				ErasLowestRatioTotalStake::<T>::iter().collect::<BTreeMap<_, _>>(),
 				BTreeMap::from([(3, 0), (4, 0), (5, 1000)])
 			);
 
 			Session::roll_until_active_era(6);
 			assert_eq!(
-				EraLowestRatioTotalStake::<T>::iter().collect::<BTreeMap<_, _>>(),
+				ErasLowestRatioTotalStake::<T>::iter().collect::<BTreeMap<_, _>>(),
 				BTreeMap::from([(4, 0), (5, 1000), (6, 1000)])
 			);
 
 			// Ensure old entry is pruned after bonding duration (3 eras).
 			Session::roll_until_active_era(7);
 			assert_eq!(
-				EraLowestRatioTotalStake::<T>::iter().collect::<BTreeMap<_, _>>(),
+				ErasLowestRatioTotalStake::<T>::iter().collect::<BTreeMap<_, _>>(),
 				BTreeMap::from([(5, 1000), (6, 1000), (7, 1000)])
 			);
 		});
@@ -324,6 +324,7 @@ fn test_withdrawing_with_favorable_global_stake_threshold_should_work() {
 
 		// After two eras the user can withdraw.
 		Session::roll_until_active_era(12);
+		assert_eq!(Staking::unbonding_duration(11), vec![(10 + 2, 10)]);
 		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 10));
 		assert_eq!(
 			StakingLedger::<Test>::get(StakingAccount::Stash(11))
@@ -344,7 +345,7 @@ fn test_withdrawing_over_global_stake_threshold_should_not_work() {
 		Session::roll_until_active_era(10);
 		assert_eq!(Staking::current_era(), 10);
 		// Assume there was no previous stake in any era.
-		let _ = EraLowestRatioTotalStake::<Test>::clear(u32::MAX, None);
+		let _ = ErasLowestRatioTotalStake::<Test>::clear(u32::MAX, None);
 
 		assert_eq!(
 			StakingLedger::<Test>::get(StakingAccount::Stash(11))
@@ -379,6 +380,7 @@ fn test_withdrawing_over_global_stake_threshold_should_not_work() {
 
 		// With the lowest stake set the user should be able to withdraw.
 		Session::roll_until_active_era(12);
+		assert_eq!(Staking::unbonding_duration(11), vec![(10 + 3, 10)]);
 		assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 10));
 		assert_eq!(
 			StakingLedger::<Test>::get(StakingAccount::Stash(11))

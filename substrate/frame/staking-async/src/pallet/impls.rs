@@ -16,6 +16,14 @@
 // limitations under the License.
 
 //! `pallet-staking-async`'s main `impl` blocks.
+//!
+//! This file contains the core implementation logic for the async staking pallet, including:
+//! - Ledger management
+//! - Bonding and unbonding operations
+//! - Staking rewards distribution
+//! - Nomination and validation operations
+//! - Snapshot creation for NPoS elections
+//! - Offence handling and slashing
 
 use crate::{
 	asset,
@@ -26,9 +34,9 @@ use crate::{
 	weights::WeightInfo,
 	BalanceOf, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf, Nominations,
 	NominationsQuota, PositiveImbalanceOf, RewardDestination, SnapshotStatus, StakingLedger,
-	ValidatorPrefs, STAKING_ID,
+	UnlockChunk, ValidatorPrefs, STAKING_ID,
 };
-use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::{boxed::Box, collections::btree_map::BTreeMap, vec, vec::Vec};
 use frame_election_provider_support::{
 	bounds::CountBound, data_provider, DataProviderBounds, ElectionDataProvider, ElectionProvider,
 	PageIndex, ScoreProvider, SortedListProvider, VoteWeight, VoterOf,
@@ -188,9 +196,8 @@ impl<T: Config> Pallet<T> {
 	pub(super) fn do_withdraw_unbonded(controller: &T::AccountId) -> Result<Weight, DispatchError> {
 		let mut ledger = Self::ledger(Controller(controller.clone()))?;
 		let (stash, old_total) = (ledger.stash.clone(), ledger.total);
-		if let Some(current_era) = CurrentEra::<T>::get() {
-			ledger = ledger.consolidate_unlocked(current_era)
-		}
+		ledger = ledger.consolidate_unlocked();
+
 		let new_total = ledger.total;
 
 		let ed = asset::existential_deposit::<T>();
@@ -830,11 +837,9 @@ impl<T: Config> Pallet<T> {
 		// dec provider
 		let _ = frame_system::Pallet::<T>::dec_providers(&stash)?;
 
-		return Ok(())
+		Ok(())
 	}
-}
 
-impl<T: Config> Pallet<T> {
 	/// Returns the current nominations quota for nominators.
 	///
 	/// Used by the runtime API.
@@ -877,8 +882,71 @@ impl<T: Config> Pallet<T> {
 			let total_stake = total_stake.into_iter().sum();
 
 			// Store the total stake of the lowest portion validators for the planned era.
-			EraLowestRatioTotalStake::<T>::set(era, Some(total_stake));
+			ErasLowestRatioTotalStake::<T>::set(era, Some(total_stake));
 		}
+	}
+
+	/// Curates the unlocking chunks for a stash account by:
+	/// - Calculating immediately withdrawable balance
+	/// - Determining new unlock eras based on queue parameters
+	/// - Organizing remaining chunks by era
+	///
+	/// Returns a tuple of:
+	/// - Amount that can be immediately withdrawn.
+	/// - Map of era to remaining unlock chunks.
+	pub(crate) fn curate_unlocking_chunks(
+		stash: T::AccountId,
+	) -> ((EraIndex, BalanceOf<T>), BTreeMap<EraIndex, UnlockChunk<BalanceOf<T>>>) {
+		let current_era = CurrentEra::<T>::get().unwrap_or(Zero::zero());
+		let ledger = match Self::ledger(Stash(stash)) {
+			Ok(l) => l,
+			Err(_) => return ((current_era, Zero::zero()), BTreeMap::new()),
+		};
+		let target_era = current_era.saturating_add(1).saturating_sub(T::BondingDuration::get());
+		let (min_unlock_era, min_slashable_share) = match UnbondingQueueParams::<T>::get() {
+			None => (T::BondingDuration::get(), Zero::zero()),
+			Some(params) => (params.unbond_period_lower_bound, params.min_slashable_share),
+		};
+		let mut result = BTreeMap::new();
+		let mut free = BalanceOf::<T>::zero();
+		for chunk in ledger.unlocking.into_iter() {
+			let max_release_era = chunk.era.defensive_saturating_add(T::BondingDuration::get());
+			if current_era >= max_release_era {
+				// We can immediately withdraw these funds.
+				free.saturating_accrue(chunk.value);
+			} else {
+				let mut final_era = chunk.era.defensive_saturating_add(min_unlock_era);
+				for era in (target_era..=chunk.era).rev() {
+					let mut total_unbond = BalanceOf::<T>::zero();
+					let era_total_amount =
+						TotalUnbondInEra::<T>::get(chunk.era).unwrap_or_default();
+					let unbond = if era == chunk.era {
+						era_total_amount.min(
+							chunk.previous_unbonded_stake.defensive_saturating_add(chunk.value),
+						)
+					} else {
+						era_total_amount
+					};
+					total_unbond.saturating_accrue(unbond);
+
+					let lowest_stake =
+						ErasLowestRatioTotalStake::<T>::get(chunk.era).unwrap_or_default();
+					let threshold =
+						(Perbill::from_percent(100) - min_slashable_share) * lowest_stake;
+					if total_unbond >= threshold {
+						final_era = final_era
+							.max(chunk.era.defensive_saturating_add(T::BondingDuration::get()));
+						break;
+					}
+				}
+				if final_era <= current_era {
+					free.saturating_accrue(chunk.value);
+				} else {
+					result.insert(final_era, chunk);
+				}
+			}
+		}
+		((current_era, free), result)
 	}
 }
 

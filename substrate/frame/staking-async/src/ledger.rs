@@ -32,9 +32,8 @@
 //! state consistency.
 
 use crate::{
-	asset, log, BalanceOf, Bonded, Config, DecodeWithMemTracking, EraLowestRatioTotalStake, Error,
-	Ledger, Pallet, Payee, RewardDestination, TotalUnbondInEra, UnbondingQueueParams, Vec,
-	VirtualStakers,
+	asset, log, BalanceOf, Bonded, Config, DecodeWithMemTracking, Error, Ledger, Pallet, Payee,
+	RewardDestination, TotalUnbondInEra, Vec, VirtualStakers,
 };
 use alloc::{collections::BTreeMap, fmt::Debug};
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
@@ -44,7 +43,7 @@ use frame_support::{
 	BoundedVec, CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound,
 };
 use scale_info::TypeInfo;
-use sp_runtime::{traits::Zero, DispatchResult, Perbill, Perquintill, Rounding, Saturating};
+use sp_runtime::{traits::Zero, DispatchResult, Perquintill, Rounding, Saturating};
 use sp_staking::{EraIndex, OnStakingUpdate, StakingAccount, StakingInterface};
 
 /// Just a Balance/BlockNumber tuple to encode when a chunk of funds will be unlocked.
@@ -349,60 +348,14 @@ impl<T: Config> StakingLedger<T> {
 
 	/// Remove entries from `unlocking` that are sufficiently old and reduce the
 	/// total by the sum of their balances.
-	pub(crate) fn consolidate_unlocked(self, current_era: EraIndex) -> Self {
-		let (min_unlock_era, min_slashable_share) = match UnbondingQueueParams::<T>::get() {
-			None => (T::BondingDuration::get(), Zero::zero()),
-			Some(params) => (params.unbond_period_lower_bound, params.min_slashable_share),
-		};
-		let target_era = current_era.saturating_add(1).saturating_sub(T::BondingDuration::get());
-		let mut total = self.total;
-		let unlocking: BoundedVec<_, _> = self
-			.unlocking
-			.into_iter()
-			.filter(|chunk| {
-				if current_era >= chunk.era.defensive_saturating_add(T::BondingDuration::get()) {
-					total.saturating_reduce(chunk.value);
-					false
-				} else if current_era >= chunk.era.defensive_saturating_add(min_unlock_era) &&
-					chunk.era >= target_era
-				{
-					let era_total_amount =
-						TotalUnbondInEra::<T>::get(chunk.era).unwrap_or_default();
-					let mut total_unbond = BalanceOf::<T>::zero();
-					for era in (target_era..=chunk.era).rev() {
-						if era == chunk.era {
-							total_unbond.saturating_accrue(era_total_amount.min(
-								chunk.previous_unbonded_stake.defensive_saturating_add(chunk.value),
-							));
-						} else {
-							total_unbond.saturating_accrue(era_total_amount);
-						}
-
-						let lowest_stake =
-							EraLowestRatioTotalStake::<T>::get(chunk.era).unwrap_or_default();
-						let threshold =
-							(Perbill::from_percent(100) - min_slashable_share) * lowest_stake;
-						if total_unbond >= threshold {
-							return true;
-						}
-					}
-					total.saturating_reduce(chunk.value);
-					false
-				} else {
-					true
-				}
-			})
-			.collect::<Vec<_>>()
-			.try_into()
-			.expect(
-				"filtering items from a bounded vec always leaves length less than bounds. qed",
-			);
-
+	pub(crate) fn consolidate_unlocked(self) -> Self {
+		let ((_, free), chunks) = Pallet::<T>::curate_unlocking_chunks(self.stash.clone());
+		let unlocking: Vec<_> = chunks.into_iter().map(|(_, chunk)| chunk).collect();
 		Self {
 			stash: self.stash,
-			total,
+			total: self.total.defensive_saturating_sub(free),
 			active: self.active,
-			unlocking,
+			unlocking: unlocking.try_into().expect("unlocking chunk size cannot grow; qed"),
 			controller: self.controller,
 		}
 	}
