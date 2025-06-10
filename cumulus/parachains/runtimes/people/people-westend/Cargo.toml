@@ -85,11 +85,11 @@ parachains-common = { workspace = true }
 testnet-parachains-constants = { features = ["westend"], workspace = true }
 
 # Individuality
-verifiable = { workspace = true }
-pallet-people = { workspace = true }
-pallet-origin-restriction = { workspace = true }
 pallet-dummy-dim = { workspace = true }
+pallet-origin-restriction = { workspace = true }
+pallet-people = { workspace = true }
 pallet-verify-signature = { workspace = true }
+verifiable = { workspace = true }
 
 [dev-dependencies]
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
