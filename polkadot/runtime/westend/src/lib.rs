@@ -2089,7 +2089,7 @@ pub struct RenameAhClient;
 impl frame_support::traits::OnRuntimeUpgrade for RenameAhClient {
 	fn on_runtime_upgrade() -> Weight {
 		// CI-FAIL: set to the next spec of westend.
-		if VERSION.spec_version == 1_018_007 {
+		if VERSION.spec_version == 1_018_011 {
 			frame_support::storage::migration::move_pallet(
 				b"AssetHubStakingClient",
 				b"StakingAhClient",

@@ -1474,8 +1474,7 @@ pub type UncheckedExtrinsic =
 pub struct RenameStakingPallets;
 impl frame_support::traits::OnRuntimeUpgrade for RenameStakingPallets {
 	fn on_runtime_upgrade() -> Weight {
-		// CI-FAIL: set to the next spec of westend-ah.
-		if VERSION.spec_version == 1_018_008 {
+		if VERSION.spec_version == 1_018_011 {
 			// This pallet already has a bunch od data, we just ignore it. The rest have small amounts of data.
 			// frame_support::storage::migration::move_pallet(
 			// 	b"MultiBlockSigned",
