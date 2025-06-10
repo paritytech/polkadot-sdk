@@ -370,6 +370,10 @@ impl<T: Config> Eras<T> {
 	pub(crate) fn get_reward_points(era: EraIndex) -> EraRewardPoints<T> {
 		ErasRewardPoints::<T>::get(era)
 	}
+
+	pub(crate) fn active() -> EraIndex {
+		Rotator::<T>::active_era()
+	}
 }
 
 #[cfg(any(feature = "try-runtime", test))]
@@ -638,7 +642,7 @@ impl<T: Config> Rotator<T> {
 		new_era_start_timestamp: u64,
 	) {
 		// verify that a new era was planned
-		debug_assert!(CurrentEra::<T>::get().unwrap_or(0) == ending_era.index + 1);
+		debug_assert!(Self::is_planning().is_some(), "new era must be planned");
 
 		let starting_era = ending_era.index + 1;
 
@@ -858,8 +862,7 @@ impl<T: Config> EraElectionPlanner<T> {
 			);
 
 			debug_assert!(
-				CurrentEra::<T>::get().unwrap_or(0) ==
-					ActiveEra::<T>::get().map_or(0, |a| a.index) + 1,
+				Rotator::<T>::is_planning().is_some(),
 				"Next era must be already planned."
 			);
 
@@ -875,7 +878,7 @@ impl<T: Config> EraElectionPlanner<T> {
 			// we can report it now.
 			if maybe_next_page.is_none() {
 				use pallet_staking_async_rc_client::RcClientInterface;
-				let id = CurrentEra::<T>::get().defensive_unwrap_or(0);
+				let id = Rotator::<T>::is_planning().defensive_unwrap_or(0);
 				let prune_up_to = Self::get_prune_up_to();
 
 				crate::log!(
