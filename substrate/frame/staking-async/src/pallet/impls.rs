@@ -212,9 +212,9 @@ impl<T: Config> Pallet<T> {
 	pub(super) fn do_withdraw_unbonded(controller: &T::AccountId) -> Result<Weight, DispatchError> {
 		let mut ledger = Self::ledger(Controller(controller.clone()))?;
 		let (stash, old_total) = (ledger.stash.clone(), ledger.total);
-		if let Some(current_era) = CurrentEra::<T>::get() {
-			ledger = ledger.consolidate_unlocked(current_era)
-		}
+		let active_era = Rotator::<T>::active_era();
+		ledger = ledger.consolidate_unlocked(active_era);
+
 		let new_total = ledger.total;
 
 		let used_weight = if ledger.unlocking.is_empty() &&
@@ -265,15 +265,11 @@ impl<T: Config> Pallet<T> {
 		page: Page,
 	) -> DispatchResultWithPostInfo {
 		// Validate input data
-		let current_era = CurrentEra::<T>::get().ok_or_else(|| {
-			Error::<T>::InvalidEraToReward
-				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
-		})?;
-
+		let active_era = Rotator::<T>::active_era();
 		let history_depth = T::HistoryDepth::get();
 
 		ensure!(
-			era <= current_era && era >= current_era.saturating_sub(history_depth),
+			era <= active_era && era >= active_era.saturating_sub(history_depth),
 			Error::<T>::InvalidEraToReward
 				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
 		);
@@ -1466,8 +1462,13 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		T::BondingDuration::get()
 	}
 
+	/// Deprecated
 	fn current_era() -> EraIndex {
 		CurrentEra::<T>::get().unwrap_or(Zero::zero())
+	}
+
+	fn active_era() -> EraIndex {
+		Rotator::<T>::active_era()
 	}
 
 	fn stake(who: &Self::AccountId) -> Result<Stake<BalanceOf<T>>, DispatchError> {

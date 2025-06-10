@@ -203,7 +203,11 @@ pub trait StakingInterface {
 	/// The current era index.
 	///
 	/// This should be the latest planned era that the staking system knows about.
+	#[deprecated(note = "`Use active_era` instead. This will be removed in the future.")]
 	fn current_era() -> EraIndex;
+
+	/// The ongoing era index in the staking system.
+	fn active_era() -> EraIndex;
 
 	/// Returns the [`Stake`] of `who`.
 	fn stake(who: &Self::AccountId) -> Result<Stake<Self::Balance>, DispatchError>;
