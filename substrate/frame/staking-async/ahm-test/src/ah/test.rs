@@ -31,7 +31,7 @@ fn on_receive_session_report() {
 	ExtBuilder::default().local_queue().build().execute_with(|| {
 		// GIVEN genesis state of ah
 		assert_eq!(System::block_number(), 1);
-		assert_eq!(CurrentEra::<T>::get(), Some(0));
+		assert!(CurrentEra::<T>::get(), Some(0));
 		assert_eq!(Rotator::<Runtime>::active_era_start_session_index(), 0);
 		assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 0, start: Some(0) }));
 

@@ -1464,6 +1464,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 
 	/// Deprecated
 	fn current_era() -> EraIndex {
+		defensive!("should not be used, use `active_era` instead");
 		CurrentEra::<T>::get().unwrap_or(Zero::zero())
 	}
 

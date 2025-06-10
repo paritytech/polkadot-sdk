@@ -237,11 +237,6 @@ pub fn create_validators_with_nominators_for_era<T: Config>(
 	Ok(validator_chosen)
 }
 
-/// get the current era.
-pub fn current_era<T: Config>() -> EraIndex {
-	CurrentEra::<T>::get().unwrap_or(0)
-}
-
 pub fn migrate_to_old_currency<T: Config>(who: T::AccountId) {
 	use frame_support::traits::LockableCurrency;
 	let staked = asset::staked::<T>(&who);

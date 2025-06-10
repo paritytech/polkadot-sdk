@@ -99,7 +99,7 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 
 	// Start a new Era
 	let new_validators = Rotator::<T>::legacy_insta_plan_era();
-	let planned_era = CurrentEra::<T>::get().unwrap_or_default();
+	let planned_era = Rotator::<T>::is_planning().expect("Planning should be in progress");
 
 	assert_eq!(new_validators.len(), 1, "New validators is not 1");
 	assert_eq!(new_validators[0], v_stash, "Our validator was not selected");
@@ -1023,16 +1023,14 @@ mod benchmarks {
 		let _new_validators = Rotator::<T>::legacy_insta_plan_era();
 		// activate the previous one
 		Rotator::<T>::start_era(
-			crate::ActiveEraInfo {
-				index: Rotator::<T>::is_planning().expect("era must be planned") - 1,
-				start: Some(1),
-			},
+			crate::ActiveEraInfo { index: Rotator::<T>::is_planning().expect("era must be planned") - 1, start: Some(1) },
 			42, // start session index doesn't really matter,
 			2,  // timestamp doesn't really matter
 		);
 
 		// ensure our offender has at least a full exposure page
-		let offender_exposure = Eras::<T>::get_full_exposure(Rotator::<T>::active_era(), &offender);
+		let offender_exposure =
+			Eras::<T>::get_full_exposure(Rotator::<T>::active_era(), &offender);
 		ensure!(
 			offender_exposure.others.len() as u32 == 2 * T::MaxExposurePageSize::get(),
 			"exposure not created"
@@ -1146,7 +1144,8 @@ mod benchmarks {
 
 		// plan new era
 		let _new_validators = Rotator::<T>::legacy_insta_plan_era();
-		let planning_era = Rotator::<T>::is_planning().expect("era should be planned");
+		let planning_era = Rotator::<T>::is_planning()
+			.expect("era should be planned");
 
 		//  receive a session report with timestamp that actives the previous one.
 		let validator_points = (0..T::MaxValidatorSet::get())
