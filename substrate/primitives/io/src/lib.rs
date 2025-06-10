@@ -924,7 +924,6 @@ pub trait DefaultChildStorage {
 		self.kill_child_storage(&child_info, limit, None).into()
 	}
 
-	// TODO
 	/// Clear a child storage key.
 	///
 	/// See `Storage` module `clear_prefix` documentation for `limit` usage.
@@ -932,12 +931,16 @@ pub trait DefaultChildStorage {
 	fn storage_kill(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
-		maybe_limit: PassFatPointerAndDecode<Option<u32>>,
-		maybe_cursor: PassFatPointerAndDecode<Option<Vec<u8>>>,
-	) -> AllocateAndReturnByCodec<MultiRemovalResults> {
+		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
+		maybe_cursor_in: PassMaybeFatPointerAndRead<Option<&[u8]>>,
+		removal_results_out: PassBufferAndWriteEncoded<&mut MultiRemovalResults, 4096>,
+	) {
 		let child_info = ChildInfo::new_default(storage_key);
-		self.kill_child_storage(&child_info, maybe_limit, maybe_cursor.as_ref().map(|x| &x[..]))
-			.into()
+		*removal_results_out = self.kill_child_storage(
+			&child_info,
+			maybe_limit,
+			maybe_cursor_in.as_ref().map(|x| &x[..]),
+		);
 	}
 
 	/// Check a child storage key.
@@ -978,7 +981,6 @@ pub trait DefaultChildStorage {
 		self.clear_child_prefix(&child_info, prefix, limit, None).into()
 	}
 
-	/// TODO
 	/// Clear the child storage of each key-value pair where the key starts with the given `prefix`.
 	///
 	/// See `Storage` module `clear_prefix` documentation for `limit` usage.
@@ -987,17 +989,17 @@ pub trait DefaultChildStorage {
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
 		prefix: PassFatPointerAndRead<&[u8]>,
-		maybe_limit: PassFatPointerAndDecode<Option<u32>>,
-		maybe_cursor: PassFatPointerAndDecode<Option<Vec<u8>>>,
-	) -> AllocateAndReturnByCodec<MultiRemovalResults> {
+		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
+		maybe_cursor_in: PassMaybeFatPointerAndRead<Option<&[u8]>>,
+		removal_results_out: PassBufferAndWriteEncoded<&mut MultiRemovalResults, 4096>,
+	) {
 		let child_info = ChildInfo::new_default(storage_key);
-		self.clear_child_prefix(
+		*removal_results_out = self.clear_child_prefix(
 			&child_info,
 			prefix,
 			maybe_limit,
-			maybe_cursor.as_ref().map(|x| &x[..]),
-		)
-		.into()
+			maybe_cursor_in.as_ref().map(|x| &x[..]),
+		);
 	}
 
 	/// Default child root calculation.
