@@ -303,7 +303,6 @@ impl Config for Test {
 	type WeightInfo = ();
 	type Currency = pallet_balances::Pallet<Test>;
 	type KeyDeposit = KeyDeposit;
-	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 #[cfg(feature = "historical")]
