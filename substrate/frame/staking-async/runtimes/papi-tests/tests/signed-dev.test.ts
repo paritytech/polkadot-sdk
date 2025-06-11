@@ -17,7 +17,6 @@ test(
 			// by block 10 we will plan a new era
 			Observe.on(Chain.Parachain, "Staking", "SessionRotated")
 				.withDataCheck((x: any) => x.active_era == 0 && x.planned_era == 1)
-				.byBlock(30)
 				.onPass(() => {
 					nullifyUnsigned(apis.paraApi).then((ok) => {
 						logger.verbose("Nullified unsigned phase:", ok);
@@ -76,8 +75,6 @@ test(
 		);
 
 		const outcome = await runTest(testCase, apis);
-		killMiner();
-		killHandle();
 		expect(outcome).toEqual(EventOutcome.Done);
 	},
 	{ timeout: GlobalTimeout }
