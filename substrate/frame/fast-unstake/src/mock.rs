@@ -331,5 +331,8 @@ pub fn create_exposed_nominator(exposed: AccountId, era: u32) {
 
 pub fn set_active_era(era: sp_staking::EraIndex) {
 	pallet_staking::CurrentEra::<T>::put(era);
-	pallet_staking::ActiveEra::<T>::put(pallet_staking::ActiveEraInfo { index: era, start: Some(0) });
+	pallet_staking::ActiveEra::<T>::put(pallet_staking::ActiveEraInfo {
+		index: era,
+		start: Some(0),
+	});
 }
