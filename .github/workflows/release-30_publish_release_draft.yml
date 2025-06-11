@@ -43,7 +43,7 @@ jobs:
     needs: [ validate-inputs ]
     uses: "./.github/workflows/release-srtool.yml"
     with:
-       excluded_runtimes: "asset-hub-rococo bridge-hub-rococo coretime-rococo people-rococo rococo rococo-parachain substrate-test bp cumulus-test kitchensink minimal-template parachain-template penpal polkadot-test seedling shell frame-try sp solochain-template polkadot-sdk-docs-first"
+       excluded_runtimes: "asset-hub-rococo bridge-hub-rococo coretime-rococo people-rococo rococo rococo-parachain substrate-test bp cumulus-test kitchensink minimal-template parachain-template penpal polkadot-test seedling shell frame-try sp solochain-template polkadot-sdk-docs-first pallet-staking-async-parachain pallet-staking-async-rc frame-storage-access-test yet-another-parachain"
        build_opts: "--features on-chain-release-build"
        profile: production
     permissions:
