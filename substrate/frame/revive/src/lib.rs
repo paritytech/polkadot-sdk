@@ -1344,13 +1344,12 @@ where
 					result.storage_deposit,
 				);
 				let dispatch_call: <T as Config>::RuntimeCall =
-					crate::Call::<T>::instantiate_with_code {
+					crate::Call::<T>::eth_instantiate_with_code {
 						value: native_value,
 						gas_limit,
 						storage_deposit_limit,
 						code: code.to_vec(),
 						data: data.to_vec(),
-						salt: None,
 					}
 					.into();
 				(result, dispatch_call.get_dispatch_info())
