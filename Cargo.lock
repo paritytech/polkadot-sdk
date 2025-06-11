@@ -13934,6 +13934,8 @@ dependencies = [
  "frame-system",
  "pallet-assets",
  "pallet-balances",
+ "pallet-revive",
+ "pallet-timestamp",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-runtime-parachains",
