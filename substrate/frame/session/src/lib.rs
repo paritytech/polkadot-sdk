@@ -450,9 +450,6 @@ pub mod pallet {
 		type Currency: Inspect<Self::AccountId>
 			+ HoldMutate<Self::AccountId, Reason: From<HoldReason>>;
 
-		/// The hold reason when settings keys
-		type RuntimeHoldReason: From<HoldReason>;
-
 		/// The amount to be held when setting keys.
 		#[pallet::constant]
 		type KeyDeposit: Get<
