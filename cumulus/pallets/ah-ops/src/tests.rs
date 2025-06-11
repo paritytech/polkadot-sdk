@@ -125,7 +125,7 @@ fn sovereign_account_translation() {
 		if let Some((parent, index)) = derivation {
 			let parent = AccountId32::from_str(parent).unwrap();
 			let (got_to, _) =
-				crate::Pallet::<AssetHub>::try_rc_sovereign_derived_to_ah(&from, (parent, index))
+				crate::Pallet::<AssetHub>::try_rc_sovereign_derived_to_ah(&from, parent, index)
 					.unwrap();
 			assert_eq!(got_to, to);
 		} else {

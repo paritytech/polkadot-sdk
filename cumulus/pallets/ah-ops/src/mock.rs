@@ -18,8 +18,7 @@ use crate::*;
 use frame_support::derive_impl;
 use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, IdentityLookup};
-// Reexport crate as its pallet name for construct_runtime.
-use crate as pallet_dev_mode;
+use crate as pallet_ah_ops;
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
 
@@ -28,7 +27,7 @@ frame_support::construct_runtime!(
 	pub enum Runtime {
 		System: frame_system,
 		Balances: pallet_balances,
-		Example: pallet_dev_mode,
+		AhOps: pallet_ah_ops,
 		Timestamp: pallet_timestamp,
 	}
 );

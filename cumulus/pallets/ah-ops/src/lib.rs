@@ -50,6 +50,8 @@ use frame_support::{
 		Defensive, LockableCurrency, ReservableCurrency,
 	},
 };
+use frame_support::traits::WithdrawReasons as LockWithdrawReasons;
+use pallet_balances::Reasons as LockReasons;
 use frame_system::pallet_prelude::*;
 use pallet_balances::{AccountData, BalanceLock};
 use sp_application_crypto::ByteArray;
@@ -469,7 +471,7 @@ pub mod pallet {
 
 			let (translated_acc, para_id, index) = if let Some((parent, index)) = derivation {
 				let (parent_translated, para_id) =
-					Self::try_rc_sovereign_derived_to_ah(from, (parent, index))?;
+					Self::try_rc_sovereign_derived_to_ah(from, &parent, index)?;
 				(parent_translated, para_id, Some(index))
 			} else {
 				let (translated_acc, para_id) = Self::try_translate_rc_sovereign_to_ah(from)?;
@@ -654,11 +656,12 @@ pub mod pallet {
 			Ok((ah_raw.into(), para_id))
 		}
 
+		/// Same as `try_translate_rc_sovereign_to_ah` but for derived accounts.
 		pub fn try_rc_sovereign_derived_to_ah(
 			from: &AccountId32,
-			derivation: (AccountId32, DerivationIndex),
+			parent: &AccountId32,
+			index: DerivationIndex,
 		) -> Result<(AccountId32, ParaId), Error<T>> {
-			let (parent, index) = derivation;
 			// check the derivation proof
 			{
 				let derived = pallet_utility::derivative_account_id(parent.clone(), index);
@@ -672,9 +675,6 @@ pub mod pallet {
 		}
 	}
 }
-
-use frame_support::traits::WithdrawReasons as LockWithdrawReasons;
-use pallet_balances::Reasons as LockReasons;
 
 /// Backward mapping from <https://github.com/paritytech/polkadot-sdk/blob/74a5e1a242274ddaadac1feb3990fc95c8612079/substrate/frame/balances/src/types.rs#L38>
 pub fn map_lock_reason(reasons: LockReasons) -> LockWithdrawReasons {

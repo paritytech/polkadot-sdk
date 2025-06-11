@@ -652,7 +652,7 @@ assert_matches = { version = "1.5.0" }
 asset-hub-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-rococo" }
 asset-hub-rococo-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-rococo", default-features = false }
 asset-hub-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-westend" }
-asset-hub-westend-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-westend", default-features = false }
+asset-hub-westend-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-westend" }
 asset-test-utils = { path = "cumulus/parachains/runtimes/assets/test-utils", default-features = false }
 assets-common = { path = "cumulus/parachains/runtimes/assets/common", default-features = false }
 async-channel = { version = "1.8.0" }
@@ -698,7 +698,7 @@ bridge-hub-rococo-emulated-chain = { path = "cumulus/parachains/integration-test
 bridge-hub-rococo-runtime = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo", default-features = false }
 bridge-hub-test-utils = { path = "cumulus/parachains/runtimes/bridge-hubs/test-utils", default-features = false }
 bridge-hub-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/bridges/bridge-hub-westend" }
-bridge-hub-westend-runtime = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend", default-features = false }
+bridge-hub-westend-runtime = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend" }
 bridge-runtime-common = { path = "bridges/bin/runtime-common", default-features = false }
 bs58 = { version = "0.5.1", default-features = false }
 build-helper = { version = "0.1.1" }
