@@ -1425,36 +1425,6 @@ impl EthExtra for EthExtraImpl {
 pub type UncheckedExtrinsic =
 	pallet_revive::evm::runtime::UncheckedExtrinsic<Address, Signature, EthExtraImpl>;
 
-pub struct RenameStakingPallets;
-impl frame_support::traits::OnRuntimeUpgrade for RenameStakingPallets {
-	fn on_runtime_upgrade() -> Weight {
-		// CI-FAIL: set to the next spec of westend-ah.
-		if VERSION.spec_version == 1_018_008 {
-			// This pallet already has a bunch od data, we just ignore it. The rest have small
-			// amounts of data. frame_support::storage::migration::move_pallet(
-			// 	b"MultiBlockSigned",
-			// 	b"MultiBlockElectionSigned",
-			// );
-			frame_support::storage::migration::move_pallet(
-				b"StakingNextRcClient",
-				b"StakingRcClient",
-			);
-			frame_support::storage::migration::move_pallet(b"MultiBlock", b"MultiBlockElection");
-			frame_support::storage::migration::move_pallet(
-				b"MultiBlockUnsigned",
-				b"MultiBlockElectionUnsigned",
-			);
-			frame_support::storage::migration::move_pallet(
-				b"MultiBlockVerifier",
-				b"MultiBlockElectionVerifier",
-			);
-			<Weight as sp_runtime::traits::Bounded>::max_value()
-		} else {
-			Default::default()
-		}
-	}
-}
-
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
 	// v9420
@@ -1483,7 +1453,6 @@ pub type Migrations = (
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
-	RenameStakingPallets,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.

@@ -2043,22 +2043,6 @@ parameter_types! {
 /// upgrades in case governance decides to do so. THE ORDER IS IMPORTANT.
 pub type Migrations = migrations::Unreleased;
 
-pub struct RenameAhClient;
-impl frame_support::traits::OnRuntimeUpgrade for RenameAhClient {
-	fn on_runtime_upgrade() -> Weight {
-		// CI-FAIL: set to the next spec of westend.
-		if VERSION.spec_version == 1_018_007 {
-			frame_support::storage::migration::move_pallet(
-				b"AssetHubStakingClient",
-				b"StakingAhClient",
-			);
-			<Weight as sp_runtime::traits::Bounded>::max_value()
-		} else {
-			Default::default()
-		}
-	}
-}
-
 /// The runtime migrations per release.
 #[allow(deprecated, missing_docs)]
 pub mod migrations {
@@ -2080,8 +2064,6 @@ pub mod migrations {
 		>,
 		// permanent
 		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
-		// remove once done
-		RenameAhClient,
 	);
 }
 
