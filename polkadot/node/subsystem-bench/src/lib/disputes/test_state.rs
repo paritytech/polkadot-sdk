@@ -14,18 +14,5 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-// The validator index that represents the node that is under test.
-pub const NODE_UNDER_TEST: u32 = 0;
-
-pub mod approval;
-pub mod availability;
-pub mod configuration;
-pub(crate) mod display;
-pub mod disputes;
-pub(crate) mod environment;
-pub(crate) mod keyring;
-pub(crate) mod mock;
-pub(crate) mod network;
-pub mod statement;
-pub mod usage;
-pub mod utils;
+#[derive(Clone)]
+pub struct TestState {}
