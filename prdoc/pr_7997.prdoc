@@ -5,7 +5,7 @@ doc:
     Post Asset Hub migration code for Westend.
 
     Changes:
-      - TODO FAIL-CI
+      - Deprecate pallet function `pallet_utility::Pallet::<T>::derivative_account_id` in favour of freestanding function `pallet_utility::derivative_account_id`.
 crates:
 - name: asset-hub-westend-runtime
   bump: patch

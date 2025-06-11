@@ -174,7 +174,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("parity-westend"),
 	authoring_version: 2,
-	spec_version: 1_018_007,
+	spec_version: 1_018_012,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 27,
@@ -776,7 +776,7 @@ impl pallet_staking::Config for Runtime {
 
 #[derive(Encode, Decode)]
 enum AssetHubRuntimePallets<AccountId> {
-	// Audit: `StakingNextRcClient` in asset-hub-westend
+	// Audit: `StakingRcClient` in asset-hub-westend
 	#[codec(index = 89)]
 	RcClient(RcClientCalls<AccountId>),
 }

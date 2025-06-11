@@ -300,10 +300,6 @@ pub use mmr_gadget;
 #[cfg(feature = "mmr-rpc")]
 pub use mmr_rpc;
 
-/// Operations cleanup pallet for the post-migration Asset Hub.
-#[cfg(feature = "pallet-ah-ops")]
-pub use pallet_ah_ops;
-
 /// The Alliance pallet provides a collective for standard-setting industry collaboration.
 #[cfg(feature = "pallet-alliance")]
 pub use pallet_alliance;

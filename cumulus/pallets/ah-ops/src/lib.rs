@@ -47,13 +47,11 @@ use frame_support::{
 	traits::{
 		fungible::{Inspect, InspectFreeze, Mutate, MutateFreeze, MutateHold, Unbalanced},
 		tokens::{Fortitude, IdAmount, Precision, Preservation},
-		Defensive, LockableCurrency, ReservableCurrency,
+		Defensive, LockableCurrency, ReservableCurrency, WithdrawReasons as LockWithdrawReasons,
 	},
 };
-use frame_support::traits::WithdrawReasons as LockWithdrawReasons;
-use pallet_balances::Reasons as LockReasons;
 use frame_system::pallet_prelude::*;
-use pallet_balances::{AccountData, BalanceLock};
+use pallet_balances::{AccountData, BalanceLock, Reasons as LockReasons};
 use sp_application_crypto::ByteArray;
 use sp_runtime::{traits::BlockNumberProvider, AccountId32};
 use sp_std::prelude::*;

@@ -51,7 +51,6 @@ std = [
 	"frame-system-rpc-runtime-api?/std",
 	"frame-system?/std",
 	"frame-try-runtime?/std",
-	"pallet-ah-ops?/std",
 	"pallet-alliance?/std",
 	"pallet-asset-conversion-ops?/std",
 	"pallet-asset-conversion-tx-payment?/std",
@@ -247,7 +246,6 @@ runtime-benchmarks = [
 	"frame-support?/runtime-benchmarks",
 	"frame-system-benchmarking?/runtime-benchmarks",
 	"frame-system?/runtime-benchmarks",
-	"pallet-ah-ops?/runtime-benchmarks",
 	"pallet-alliance?/runtime-benchmarks",
 	"pallet-asset-conversion-ops?/runtime-benchmarks",
 	"pallet-asset-conversion-tx-payment?/runtime-benchmarks",
@@ -378,7 +376,6 @@ try-runtime = [
 	"frame-support?/try-runtime",
 	"frame-system?/try-runtime",
 	"frame-try-runtime/try-runtime",
-	"pallet-ah-ops?/try-runtime",
 	"pallet-alliance?/try-runtime",
 	"pallet-asset-conversion-ops?/try-runtime",
 	"pallet-asset-conversion-tx-payment?/try-runtime",
@@ -588,7 +585,6 @@ runtime-full = [
 	"frame-system-benchmarking",
 	"frame-system-rpc-runtime-api",
 	"frame-try-runtime",
-	"pallet-ah-ops",
 	"pallet-alliance",
 	"pallet-asset-conversion",
 	"pallet-asset-conversion-ops",
@@ -1223,11 +1219,6 @@ path = "../substrate/frame/system/rpc/runtime-api"
 default-features = false
 optional = true
 path = "../substrate/frame/try-runtime"
-
-[dependencies.pallet-ah-ops]
-default-features = false
-optional = true
-path = "../cumulus/pallets/ah-ops"
 
 [dependencies.pallet-alliance]
 default-features = false

@@ -14,11 +14,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate as pallet_ah_ops;
 use crate::*;
 use frame_support::derive_impl;
 use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, IdentityLookup};
-use crate as pallet_ah_ops;
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
 

@@ -145,7 +145,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
 	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
 	authoring_version: 1,
-	spec_version: 1_018_008,
+	spec_version: 1_018_012,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -1213,7 +1213,6 @@ impl pallet_migrations::Config for Runtime {
 parameter_types! {
 	pub MaximumSchedulerWeight: frame_support::weights::Weight = Perbill::from_percent(80) *
 		RuntimeBlockWeights::get().max_block;
-	pub const NoPreimagePostponement: Option<u32> = Some(10);
 }
 
 impl pallet_scheduler::Config for Runtime {
@@ -1224,7 +1223,7 @@ impl pallet_scheduler::Config for Runtime {
 	type MaximumWeight = MaximumSchedulerWeight;
 	type ScheduleOrigin = EnsureRoot<AccountId>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type MaxScheduledPerBlock = ConstU32<{ 512 * 15 }>; // MaxVotes * TRACKS_DATA length; TODO: Investigate
+	type MaxScheduledPerBlock = ConstU32<{ 512 * 15 }>; // MaxVotes * TRACKS_DATA length
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type MaxScheduledPerBlock = ConstU32<50>;
 	type WeightInfo = weights::pallet_scheduler::WeightInfo<Runtime>;

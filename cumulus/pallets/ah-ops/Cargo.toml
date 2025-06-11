@@ -7,6 +7,9 @@ edition.workspace = true
 authors.workspace = true
 repository.workspace = true
 
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true # for AHM only
+
 [dependencies]
 codec = { workspace = true, features = ["max-encoded-len"] }
 cumulus-primitives-core = { workspace = true }
