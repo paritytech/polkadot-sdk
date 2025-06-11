@@ -397,7 +397,7 @@ benchmarks_instance_pallet! {
 	}
 	: {
 		use frame_support::traits::Hooks;
-		<Pallet<T, I> as Hooks<_>>::on_idle(0u32.into(), Weight::MAX);
+		<Pallet<T, I> as Hooks<_>>::on_idle(Default::default(), Weight::MAX);
 	}
 	verify {
 		// Count how many nodes ended up in higher bags
