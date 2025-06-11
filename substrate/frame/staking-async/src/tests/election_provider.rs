@@ -748,10 +748,10 @@ mod paged_on_initialize_era_election_planner {
 				// the electable stashes remain the same.
 				assert_eq_uvec!(
 					ElectableStashes::<Test>::get().into_iter().collect::<Vec<_>>(),
-					vec![11, 21, 31, 61, 71]
+					vec![11, 21, 31, 61, 71, 81]
 				);
 				assert_eq!(NextElectionPage::<Test>::get(), Some(0));
-				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Ongoing(71));
+				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Ongoing(81));
 
 				assert_eq_uvec!(
 					era_exposures(2),

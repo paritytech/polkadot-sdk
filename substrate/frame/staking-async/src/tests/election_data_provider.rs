@@ -427,6 +427,9 @@ fn change_of_absolute_max_nominations() {
 fn nomination_quota_max_changes_decoding() {
 	use frame_election_provider_support::ElectionDataProvider;
 	ExtBuilder::default()
+		.add_staker(2, 10, StakerStatus::Validator)
+		.add_staker(3, 10, StakerStatus::Validator)
+		.add_staker(4, 10, StakerStatus::Validator)
 		.add_staker(60, 10, StakerStatus::Nominator(vec![1]))
 		.add_staker(70, 10, StakerStatus::Nominator(vec![1, 2, 3]))
 		.add_staker(30, 10, StakerStatus::Nominator(vec![1, 2, 3, 4]))
@@ -465,6 +468,26 @@ fn lazy_quota_npos_voters_works_above_quota() {
 	ExtBuilder::default()
 		.nominate(false)
 		.add_staker(
+			22,
+			300, // 300 bond has 16 nomination quota.
+			StakerStatus::<AccountId>::Validator,
+		)
+		.add_staker(
+			23,
+			300, // 300 bond has 16 nomination quota.
+			StakerStatus::<AccountId>::Validator,
+		)
+		.add_staker(
+			24,
+			300, // 300 bond has 16 nomination quota.
+			StakerStatus::<AccountId>::Validator,
+		)
+		.add_staker(
+			25,
+			300, // 300 bond has 16 nomination quota.
+			StakerStatus::<AccountId>::Validator,
+		)
+		.add_staker(
 			61,
 			300, // 300 bond has 16 nomination quota.
 			StakerStatus::<AccountId>::Nominator(vec![21, 22, 23, 24, 25]),
@@ -475,7 +498,7 @@ fn lazy_quota_npos_voters_works_above_quota() {
 			assert_ok!(Staking::unbond(RuntimeOrigin::signed(61), 78));
 			assert_eq!(Staking::api_nominations_quota(300 - 78), 2);
 
-			// even through 61 has nomination quota of 2 at the time of the election, all the
+			// even though 61 has nomination quota of 2 at the time of the election, all the
 			// nominations (5) will be used.
 			assert_eq!(
 				Staking::electing_voters(DataProviderBounds::default(), 0)
@@ -483,7 +506,7 @@ fn lazy_quota_npos_voters_works_above_quota() {
 					.iter()
 					.map(|(stash, _, targets)| (*stash, targets.len()))
 					.collect::<Vec<_>>(),
-				vec![(11, 1), (21, 1), (31, 1), (61, 5)],
+				vec![(11, 1), (21, 1), (31, 1), (22, 1), (23, 1), (24, 1), (25, 1), (61, 5)],
 			);
 		});
 }
