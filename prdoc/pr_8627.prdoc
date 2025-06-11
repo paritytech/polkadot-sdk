@@ -1,0 +1,9 @@
+title: '[stable2412] Weight update for pallet scheduler'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Update pallet scheduler weights and add sanity check test.
+
+crates:
+- name: pallet-scheduler
+  bump: patch
