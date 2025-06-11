@@ -644,7 +644,7 @@ impl Notifications {
 				let peer_id = occ_entry.key().0;
 				trace!(
 					target: LOG_TARGET,
-					"PSM => Connect({}, {:?}): Will start to connect at until {:?}",
+					"PSM => Connect({}, {:?}): Will start to connect at {:?}",
 					peer_id,
 					set_id,
 					timer_deadline,
@@ -1037,7 +1037,7 @@ impl Notifications {
 				if peerset_rejected {
 					trace!(
 						target: LOG_TARGET,
-						"Protocol accepted ({:?} {:?} {:?}) but Peerset had request disconnection, rejecting",
+						"Protocol accepted ({:?} {:?} {:?}) but Peerset had requested disconnection, rejecting",
 						index,
 						incoming.peer_id,
 						incoming.set_id
