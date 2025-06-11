@@ -414,6 +414,8 @@ pub mod pallet {
 		/// It stores a persistent cursor to continue across blocks.
 		fn on_idle(_n: BlockNumberFor<T>, limit: Weight) -> Weight {
 			let mut meter = WeightMeter::with_limit(limit);
+			// This weight assumes worst-case usage of `MaxAutoRebagPerBlock`.
+			// Changing the runtime value requires re-running the benchmarks.
 			if meter.try_consume(T::WeightInfo::on_idle()).is_err() {
 				log!(debug, "Not enough Weight for on_idle. Skipping rebugging.");
 				return Weight::zero();
