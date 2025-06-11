@@ -16,4 +16,4 @@ clap = { features = ["derive"], workspace = true }
 
 generate-bags = { workspace = true, default-features = true }
 
-westend-runtime = { workspace = true }
+westend-runtime = { workspace = true, default-features = true }
