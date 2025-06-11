@@ -350,7 +350,7 @@ impl<T: Config> StakingLedger<T> {
 	/// total by the sum of their balances.
 	pub(crate) fn consolidate_unlocked(self) -> Self {
 		let ((_, free), chunks) = Pallet::<T>::curate_unlocking_chunks(self.stash.clone());
-		let unlocking: Vec<_> = chunks.into_iter().map(|(_, chunk)| chunk).collect();
+		let unlocking: Vec<_> = chunks.into_values().collect();
 		Self {
 			stash: self.stash,
 			total: self.total.defensive_saturating_sub(free),

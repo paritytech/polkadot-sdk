@@ -2524,7 +2524,7 @@ pub mod pallet {
 		/// parameters. For instance, larger amounts may need to wait longer.
 		pub fn unbonding_duration(stash: T::AccountId) -> Vec<(EraIndex, BalanceOf<T>)> {
 			let ((current_era, free), chunks) = Self::curate_unlocking_chunks(stash);
-			let mut result = vec![];
+			let mut result = Vec::new();
 			if !free.is_zero() {
 				result.push((current_era, free));
 			}
