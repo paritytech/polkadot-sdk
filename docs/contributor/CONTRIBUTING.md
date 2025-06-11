@@ -10,6 +10,9 @@ via pull-requests and need to be approved by the maintainers.
 > **Note:** Contributors who are part of the organization do not need to fork the repository. They can create a branch
 > directly in the repository to send a pull request.
 
+## How?
+Get started installing the prerequites to build the project by [following this guide](https://docs.polkadot.com/develop/parachains/install-polkadot-sdk/).
+
 ## Rules
 
 There are a few basic ground-rules for contributors (including the maintainer(s) of the project):
