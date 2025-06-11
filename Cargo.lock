@@ -6730,6 +6730,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
  "sp-version 29.0.0",
+ "substrate-test-runtime-client",
 ]
 
 [[package]]
@@ -19250,6 +19251,7 @@ dependencies = [
  "docify",
  "memmap2 0.9.3",
  "parity-scale-codec",
+ "pretty_assertions",
  "regex",
  "sc-chain-spec-derive",
  "sc-client-api",
@@ -24352,6 +24354,7 @@ dependencies = [
  "clap",
  "cmd_lib",
  "docify",
+ "pretty_assertions",
  "sc-chain-spec",
  "serde",
  "serde_json",
@@ -24886,7 +24889,9 @@ dependencies = [
  "pallet-babe",
  "pallet-balances",
  "pallet-timestamp",
+ "pallet-utility",
  "parity-scale-codec",
+ "pretty_assertions",
  "sc-block-builder",
  "sc-chain-spec",
  "sc-executor 0.32.0",
