@@ -448,7 +448,7 @@ pub mod pallet {
 
 		/// The currency type for placing holds when setting keys.
 		type Currency: Inspect<Self::AccountId>
-			+ HoldMutate<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+			+ HoldMutate<Self::AccountId, Reason: From<HoldReason>>;
 
 		/// The hold reason when settings keys
 		type RuntimeHoldReason: From<HoldReason>;
