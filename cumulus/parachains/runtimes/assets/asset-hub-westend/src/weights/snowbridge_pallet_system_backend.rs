@@ -31,14 +31,6 @@ impl<T: frame_system::Config> snowbridge_pallet_system_frontend::BackendWeightIn
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
-<<<<<<< HEAD
-=======
-
-	fn transact_add_tip() -> Weight {
-		Weight::from_parts(45_000_000, 6044)
-			.saturating_add(T::DbWeight::get().reads(5_u64))
-			.saturating_add(T::DbWeight::get().writes(3_u64))
-	}
 
 	fn do_process_message() -> Weight {
 		Weight::from_parts(19_000_000, 0)
@@ -59,5 +51,4 @@ impl<T: frame_system::Config> snowbridge_pallet_system_frontend::BackendWeightIn
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
->>>>>>> 36c3039 (Snowbridge: enforce fee when registering Polkadot native asset (#8725))
 }

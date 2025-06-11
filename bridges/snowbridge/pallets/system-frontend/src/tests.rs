@@ -5,8 +5,8 @@ use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use snowbridge_core::{AssetMetadata, BasicOperatingMode};
 use xcm::{
-	latest::{Assets, Error as XcmError, Location},
-	prelude::{GeneralIndex, Parachain, SendError},
+	latest::Error as XcmError,
+	prelude::{Asset, Assets, GeneralIndex, Location, Parachain, SendError},
 	VersionedLocation,
 };
 
@@ -142,128 +142,6 @@ fn test_switch_operating_mode() {
 		assert_ok!(EthereumSystemFrontend::register_token(origin, asset_id, asset_metadata, asset));
 	});
 }
-<<<<<<< HEAD
-=======
-
-#[test]
-fn add_tip_ether_asset_succeeds() {
-	new_test_ext().execute_with(|| {
-		let who: AccountId = Keyring::Alice.into();
-		let message_id = MessageId::Inbound(1);
-		let ether_location = Ether::get();
-		let tip_amount = 1000;
-		let asset = Asset::from((ether_location.clone(), tip_amount));
-
-		assert_ok!(EthereumSystemFrontend::add_tip(
-			RuntimeOrigin::signed(who.clone()),
-			message_id.clone(),
-			asset.clone()
-		));
-
-		let events = System::events();
-		let event_record = events.last().expect("Expected at least one event").event.clone();
-
-		if !matches!(
-			event_record,
-			RuntimeEvent::EthereumSystemFrontend(crate::Event::MessageSent { .. })
-		) {
-			panic!("Expected MessageSent event, got: {:?}", event_record);
-		}
-	});
-}
-
-#[test]
-fn add_tip_non_ether_asset_succeeds() {
-	new_test_ext().execute_with(|| {
-		let who: AccountId = Keyring::Alice.into();
-		let message_id = MessageId::Outbound(2);
-		let non_ether_location = Location::new(1, [Parachain(3000)]);
-		let tip_amount = 2000;
-		let asset = Asset::from((non_ether_location.clone(), tip_amount));
-
-		assert_ok!(EthereumSystemFrontend::add_tip(
-			RuntimeOrigin::signed(who.clone()),
-			message_id.clone(),
-			asset.clone()
-		));
-
-		let events = System::events();
-		let event_record = events.last().expect("Expected at least one event").event.clone();
-
-		if !matches!(
-			event_record,
-			RuntimeEvent::EthereumSystemFrontend(crate::Event::MessageSent { .. })
-		) {
-			panic!("Expected MessageSent event, got: {:?}", event_record);
-		}
-	});
-}
-
-#[test]
-fn add_tip_unsupported_asset_fails() {
-	new_test_ext().execute_with(|| {
-		let who: AccountId = Keyring::Alice.into();
-		let message_id = MessageId::Inbound(1);
-		let asset = Asset {
-			id: AssetId(Location::new(1, [Parachain(4000)])),
-			fun: Fungibility::NonFungible(AssetInstance::Array4([0u8; 4])),
-		};
-		assert_noop!(
-			EthereumSystemFrontend::add_tip(RuntimeOrigin::signed(who), message_id, asset),
-			Error::<Test>::UnsupportedAsset
-		);
-	});
-}
-
-#[test]
-fn add_tip_send_xcm_failure() {
-	new_test_ext().execute_with(|| {
-		set_sender_override(
-			|_, _| Ok((Default::default(), Default::default())),
-			|_| Err(SendError::Unroutable),
-		);
-		let who: AccountId = Keyring::Alice.into();
-		let message_id = MessageId::Outbound(4);
-		let ether_location = Ether::get();
-		let tip_amount = 3000;
-		let asset = Asset::from((ether_location.clone(), tip_amount));
-		assert_noop!(
-			EthereumSystemFrontend::add_tip(RuntimeOrigin::signed(who), message_id, asset),
-			Error::<Test>::SendFailure
-		);
-	});
-}
-
-#[test]
-fn add_tip_origin_not_signed_fails() {
-	new_test_ext().execute_with(|| {
-		let message_id = MessageId::Inbound(5);
-		let ether_location = Ether::get();
-		let tip_amount = 1500;
-		let asset = Asset::from((ether_location, tip_amount));
-		assert_noop!(
-			EthereumSystemFrontend::add_tip(RuntimeOrigin::root(), message_id, asset),
-			sp_runtime::DispatchError::BadOrigin
-		);
-	});
-}
-
-#[test]
-fn tip_fails_due_to_swap_error() {
-	new_test_ext().execute_with(|| {
-		let who: AccountId = Keyring::Alice.into();
-		let message_id = MessageId::Inbound(6);
-		let non_ether_location = Location::new(1, [Parachain(3000)]);
-		// Use the special amount 12345 that will trigger a swap error in mock_swap_executor
-		let tip_amount = TRIGGER_SWAP_ERROR_AMOUNT;
-		let asset = Asset::from((non_ether_location.clone(), tip_amount));
-
-		assert_noop!(
-			EthereumSystemFrontend::add_tip(RuntimeOrigin::signed(who), message_id, asset),
-			Other("Swap failed for test")
-		);
-	});
-}
 
 #[test]
 fn register_token_with_non_ether_fee_asset_succeeds() {
@@ -289,4 +167,3 @@ fn register_token_with_non_ether_fee_asset_succeeds() {
 		));
 	});
 }
->>>>>>> 36c3039 (Snowbridge: enforce fee when registering Polkadot native asset (#8725))

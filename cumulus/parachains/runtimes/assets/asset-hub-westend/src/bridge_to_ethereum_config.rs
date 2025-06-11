@@ -19,7 +19,7 @@ use crate::{
 		AssetTransactors, LocationToAccountId, TrustBackedAssetsPalletLocation, UniversalLocation,
 		XcmConfig,
 	},
-	AccountId, Assets, ForeignAssets, Runtime, RuntimeEvent,
+	AccountId, AssetConversion, Assets, ForeignAssets, Runtime, RuntimeEvent,
 };
 use assets_common::{matching::FromSiblingParachain, AssetIdForTrustBackedAssetsConvert};
 use frame_support::{parameter_types, traits::EitherOf};
@@ -37,7 +37,11 @@ use benchmark_helpers::DoNothingRouter;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmark_helpers {
-	use crate::{xcm_config::LocationToAccountId, ForeignAssets, RuntimeOrigin};
+	use crate::{
+		xcm_config::LocationToAccountId, AccountId, AssetConversion, Balances, ForeignAssets,
+		RuntimeOrigin,
+	};
+	use alloc::boxed::Box;
 	use codec::Encode;
 	use xcm::prelude::*;
 	use xcm_executor::traits::ConvertLocation;
@@ -58,7 +62,7 @@ pub mod benchmark_helpers {
 		}
 	}
 
-	impl snowbridge_pallet_system_frontend::BenchmarkHelper<RuntimeOrigin> for () {
+	impl snowbridge_pallet_system_frontend::BenchmarkHelper<RuntimeOrigin, AccountId> for () {
 		fn make_xcm_origin(location: Location) -> RuntimeOrigin {
 			RuntimeOrigin::from(pallet_xcm::Origin::Xcm(location))
 		}
@@ -74,8 +78,6 @@ pub mod benchmark_helpers {
 			)
 			.unwrap();
 		}
-<<<<<<< HEAD
-=======
 
 		fn setup_pools(caller: AccountId, asset: Location) {
 			// Prefund the caller's account with DOT
@@ -133,7 +135,6 @@ pub mod benchmark_helpers {
 			)
 			.unwrap();
 		}
->>>>>>> 36c3039 (Snowbridge: enforce fee when registering Polkadot native asset (#8725))
 	}
 }
 
@@ -187,6 +188,7 @@ impl snowbridge_pallet_system_frontend::Config for Runtime {
 	type BridgeHubLocation = BridgeHubLocation;
 	type UniversalLocation = UniversalLocation;
 	type PalletLocation = SystemFrontendPalletLocation;
+	type Swap = AssetConversion;
 	type BackendWeightInfo = weights::snowbridge_pallet_system_backend::WeightInfo<Runtime>;
 	type AccountIdConverter = xcm_config::LocationToAccountId;
 }
