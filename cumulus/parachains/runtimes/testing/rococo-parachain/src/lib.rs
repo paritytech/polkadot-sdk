@@ -22,9 +22,11 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+mod genesis_config_presets;
+
 extern crate alloc;
 
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 use sp_api::impl_runtime_apis;
@@ -856,11 +858,11 @@ impl_runtime_apis! {
 		}
 
 		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
-			get_preset::<RuntimeGenesisConfig>(id, |_| None)
+			get_preset::<RuntimeGenesisConfig>(id, &genesis_config_presets::get_preset)
 		}
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
-			vec![]
+			genesis_config_presets::preset_names()
 		}
 	}
 
