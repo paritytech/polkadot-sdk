@@ -1080,7 +1080,7 @@ where
 		&mut self,
 		executable: ExecutableOrPrecompile<T, E, Self>,
 		input_data: Vec<u8>,
-		is_ethereum_call: bool,
+		is_eth_call: bool,
 	) -> Result<(), ExecError> {
 		let frame = self.top_frame();
 		let entry_point = frame.entry_point;
@@ -1141,9 +1141,10 @@ where
 				// Contracts nonce starts at 1
 				<System<T>>::inc_account_nonce(account_id);
 
-				// Needs to be incremented before calling into the code so that it is visible
-				// in case of recursion.
-				if !is_ethereum_call {
+				// Only bump the nonce for a substrate transaction, as they can be batched
+				if !is_eth_call {
+					// Needs to be incremented before calling into the code so that it is visible
+					// in case of recursion.
 					<System<T>>::inc_account_nonce(caller.account_id()?);
 				}
 				// The incremented refcount should be visible to the constructor.
