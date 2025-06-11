@@ -341,7 +341,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 		// ensure staking era is initialised.
 		set_active_era(0);
-
 	});
 
 	ext
