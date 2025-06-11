@@ -47,7 +47,8 @@ use xcm_executor::{
 };
 use xcm_simulator::helpers::derive_topic_id;
 
-use crate::{self as pallet_xcm, TestWeightInfo};
+use crate::{self as pallet_xcm, precompiles::XcmPrecompile, TestWeightInfo};
+use pallet_timestamp;
 
 pub type AccountId = AccountId32;
 pub type Balance = u128;
@@ -139,6 +140,17 @@ pub mod pallet_test_notifier {
 	}
 }
 
+parameter_types! {
+	pub const MinimumPeriod: u64 = 1;
+}
+
+impl pallet_timestamp::Config for Test {
+	type Moment = u64;
+	type OnTimestampSet = ();
+	type MinimumPeriod = MinimumPeriod;
+	type WeightInfo = ();
+}
+
 construct_runtime!(
 	pub enum Test
 	{
@@ -148,6 +160,8 @@ construct_runtime!(
 		ParasOrigin: origin,
 		XcmPallet: pallet_xcm,
 		TestNotifier: pallet_test_notifier,
+		Revive: pallet_revive,
+		Timestamp: pallet_timestamp,
 	}
 );
 
@@ -318,6 +332,16 @@ impl pallet_assets::Config for Test {
 	type RemoveItemsLimit = ConstU32<5>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = XcmBenchmarkHelper;
+}
+
+#[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
+impl pallet_revive::Config for Test {
+	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
+	type Currency = Balances;
+	type Precompiles = (XcmPrecompile<Self>,);
+	type Time = Timestamp;
+	type UploadOrigin = frame_system::EnsureSigned<AccountId>;
+	type InstantiateOrigin = frame_system::EnsureSigned<AccountId>;
 }
 
 // This child parachain is a system parachain trusted to teleport native token.
@@ -717,6 +741,8 @@ pub(crate) fn buy_limited_execution<C>(
 	BuyExecution { fees: fees.into(), weight_limit }
 }
 
+pub const ALICE: AccountId32 = AccountId::new([0u8; 32]);
+
 pub(crate) fn new_test_ext_with_balances(
 	balances: Vec<(AccountId, Balance)>,
 ) -> sp_io::TestExternalities {
@@ -738,6 +764,10 @@ pub(crate) fn new_test_ext_with_balances_and_xcm_version(
 		.unwrap();
 
 	pallet_xcm::GenesisConfig::<Test> { safe_xcm_version, ..Default::default() }
+		.assimilate_storage(&mut t)
+		.unwrap();
+
+	pallet_revive::GenesisConfig::<Test> { mapped_accounts: vec![ALICE] }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
