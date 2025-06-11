@@ -24,7 +24,7 @@ use alloc::{vec, vec::Vec};
 use core::{cmp::max, marker::PhantomData, num::NonZero};
 use num_bigint::BigUint;
 use num_integer::Integer;
-use num_traits::{One, Zero};
+use num_traits::{One, ToPrimitive, Zero};
 use sp_runtime::DispatchError;
 
 /// See EIP-2565
@@ -87,9 +87,9 @@ impl<T: Config> PrimitivePrecompile for Modexp<T> {
 		}
 
 		// bounds check handled above
-		let base_len: usize = base_len_big.try_into().expect("base_len out of bounds");
-		let exp_len: usize = exp_len_big.try_into().expect("exp_len out of bounds");
-		let mod_len: usize = mod_len_big.try_into().expect("mod_len out of bounds");
+		let base_len = base_len_big.to_usize().expect("base_len out of bounds");
+		let exp_len = exp_len_big.to_usize().expect("exp_len out of bounds");
+		let mod_len = mod_len_big.to_usize().expect("mod_len out of bounds");
 
 		// if mod_len is 0 output must be empty
 		if mod_len == 0 {
