@@ -6,7 +6,6 @@ doc:
 
     Requires `pallet_session::Config` to specify:
     * `type Currency`, assigned to an instance of `pallet_balances`.
-    * `type RuntimeHoldReason`, almost always set to `RuntimeHoldReason`.
     * `type KeyDeposit`, the amount of deposit. Set to `()` to assert no deposit amount is needed.
 crates:
 - name: pallet-session
