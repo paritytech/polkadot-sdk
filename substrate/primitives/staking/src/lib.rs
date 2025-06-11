@@ -242,7 +242,7 @@ pub trait StakingInterface {
 	fn bond_extra(who: &Self::AccountId, extra: Self::Balance) -> DispatchResult;
 
 	/// Schedule a portion of the active bonded balance to be unlocked at era
-	/// [Self::current_era] + [`Self::bonding_duration`].
+	/// [Self::active_era] + [`Self::bonding_duration`].
 	///
 	/// Once the unlock era has been reached, [`Self::withdraw_unbonded`] can be called to unlock
 	/// the funds.
