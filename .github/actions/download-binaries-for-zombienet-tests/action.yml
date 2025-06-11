@@ -20,6 +20,17 @@ runs:
   steps:
     - uses: ./.github/actions/download-artifact-extract
       with:
+        artifact-name: build-linux-substrate-${{ inputs.ref-slug }}
+        gh-token: ${{ inputs.gh-token }}
+        run-id: ${{ inputs.build-id }}
+        extract-path: ./tmp
+        files-to-copy: |
+          artifacts/substrate
+        destination-path: ${{ inputs.destination-path }}
+        cleanup: "true"
+
+    - uses: ./.github/actions/download-artifact-extract
+      with:
         artifact-name: build-linux-stable-${{ inputs.ref-slug }}
         gh-token: ${{ inputs.gh-token }}
         run-id: ${{ inputs.build-id }}
