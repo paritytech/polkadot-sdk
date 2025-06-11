@@ -832,15 +832,7 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 			alarm: None,
 		};
 
-		// there is some limit of scheduled "alarms" per block,
-		// assume limit of 1 and just create single alarm per block starting at block number
-		// max_value and decreasing
-		Self::ensure_alarm_at(
-			&mut status,
-			index,
-			<BlockNumberFor<T, I> as sp_runtime::traits::Bounded>::max_value()
-				.saturating_sub(index.into()),
-		);
+		Self::ensure_alarm_at(&mut status, index, sp_runtime::traits::Bounded::max_value());
 		ReferendumInfoFor::<T, I>::insert(index, ReferendumInfo::Ongoing(status));
 		Ok(index)
 	}
