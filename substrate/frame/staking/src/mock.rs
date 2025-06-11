@@ -152,7 +152,6 @@ impl pallet_session::Config for Test {
 		pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy<DISABLING_LIMIT_FACTOR>;
 	type WeightInfo = ();
 	type Currency = Balances;
-	type RuntimeHoldReason = RuntimeHoldReason;
 	type KeyDeposit = ();
 }
 

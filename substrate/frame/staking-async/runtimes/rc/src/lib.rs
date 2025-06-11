@@ -566,7 +566,6 @@ impl pallet_session::Config for Runtime {
 	type DisablingStrategy = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy;
 	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
 	type Currency = Balances;
-	type RuntimeHoldReason = RuntimeHoldReason;
 	type KeyDeposit = ();
 }
 

@@ -214,7 +214,6 @@ mod tests {
 		type DisablingStrategy = ();
 		type WeightInfo = ();
 		type Currency = Balances;
-		type RuntimeHoldReason = RuntimeHoldReason;
 		type KeyDeposit = ();
 	}
 
