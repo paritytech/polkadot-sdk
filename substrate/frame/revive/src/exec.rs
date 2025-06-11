@@ -454,8 +454,8 @@ pub enum ExportedFunction {
 
 /// A trait that represents something that can be executed.
 ///
-/// In the on-chain environment this would be represented by a vm binary module. This trait exists in
-/// order to be able to mock the vm logic for testing.
+/// In the on-chain environment this would be represented by a vm binary module. This trait exists
+/// in order to be able to mock the vm logic for testing.
 pub trait Executable<T: Config>: Sized {
 	/// Load the executable from storage.
 	///

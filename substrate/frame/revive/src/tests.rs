@@ -668,7 +668,8 @@ fn instantiate_unique_trie_id() {
 
 	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		Contracts::upload_code(RuntimeOrigin::signed(ALICE), binary, deposit_limit::<Test>()).unwrap();
+		Contracts::upload_code(RuntimeOrigin::signed(ALICE), binary, deposit_limit::<Test>())
+			.unwrap();
 
 		// Instantiate the contract and store its trie id for later comparison.
 		let Contract { addr, .. } =
@@ -827,8 +828,12 @@ fn deploy_and_call_other_contract() {
 		);
 		let callee_account = <Test as Config>::AddressMapper::to_account_id(&callee_addr);
 
-		Contracts::upload_code(RuntimeOrigin::signed(ALICE), callee_binary, deposit_limit::<Test>())
-			.unwrap();
+		Contracts::upload_code(
+			RuntimeOrigin::signed(ALICE),
+			callee_binary,
+			deposit_limit::<Test>(),
+		)
+		.unwrap();
 
 		// Drop previous events
 		initialize_block(2);
@@ -901,14 +906,16 @@ fn delegate_call() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
 		// Instantiate the 'caller'
-		let Contract { addr: caller_addr, .. } = builder::bare_instantiate(Code::Upload(caller_binary))
-			.value(300_000)
-			.build_and_unwrap_contract();
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_binary))
+				.value(300_000)
+				.build_and_unwrap_contract();
 
 		// Instantiate the 'callee'
-		let Contract { addr: callee_addr, .. } = builder::bare_instantiate(Code::Upload(callee_binary))
-			.value(100_000)
-			.build_and_unwrap_contract();
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_binary))
+				.value(100_000)
+				.build_and_unwrap_contract();
 
 		assert_ok!(builder::call(caller_addr)
 			.value(1337)
@@ -925,9 +932,10 @@ fn delegate_call_non_existant_is_noop() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
 		// Instantiate the 'caller'
-		let Contract { addr: caller_addr, .. } = builder::bare_instantiate(Code::Upload(caller_binary))
-			.value(300_000)
-			.build_and_unwrap_contract();
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_binary))
+				.value(300_000)
+				.build_and_unwrap_contract();
 
 		assert_ok!(builder::call(caller_addr)
 			.value(1337)
@@ -947,14 +955,16 @@ fn delegate_call_with_weight_limit() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
 		// Instantiate the 'caller'
-		let Contract { addr: caller_addr, .. } = builder::bare_instantiate(Code::Upload(caller_binary))
-			.value(300_000)
-			.build_and_unwrap_contract();
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_binary))
+				.value(300_000)
+				.build_and_unwrap_contract();
 
 		// Instantiate the 'callee'
-		let Contract { addr: callee_addr, .. } = builder::bare_instantiate(Code::Upload(callee_binary))
-			.value(100_000)
-			.build_and_unwrap_contract();
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_binary))
+				.value(100_000)
+				.build_and_unwrap_contract();
 
 		// fails, not enough weight
 		assert_err!(
@@ -982,14 +992,16 @@ fn delegate_call_with_deposit_limit() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
 		// Instantiate the 'caller'
-		let Contract { addr: caller_addr, .. } = builder::bare_instantiate(Code::Upload(caller_binary))
-			.value(300_000)
-			.build_and_unwrap_contract();
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_binary))
+				.value(300_000)
+				.build_and_unwrap_contract();
 
 		// Instantiate the 'callee'
-		let Contract { addr: callee_addr, .. } = builder::bare_instantiate(Code::Upload(callee_binary))
-			.value(100_000)
-			.build_and_unwrap_contract();
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_binary))
+				.value(100_000)
+				.build_and_unwrap_contract();
 
 		// Delegate call will write 1 storage and deposit of 2 (1 item) + 32 (bytes) is required.
 		// + 32 + 16 for blake2_128concat
@@ -1225,10 +1237,11 @@ fn destroy_contract_and_transfer_funds() {
 
 		// This deploys the BOB contract, which in turn deploys the CHARLIE contract during
 		// construction.
-		let Contract { addr: addr_bob, .. } = builder::bare_instantiate(Code::Upload(caller_binary))
-			.value(200_000)
-			.data(callee_code_hash.as_ref().to_vec())
-			.build_and_unwrap_contract();
+		let Contract { addr: addr_bob, .. } =
+			builder::bare_instantiate(Code::Upload(caller_binary))
+				.value(200_000)
+				.data(callee_code_hash.as_ref().to_vec())
+				.build_and_unwrap_contract();
 
 		// Check that the CHARLIE contract has been instantiated.
 		let salt = [47; 32]; // hard coded in fixture.
@@ -2700,7 +2713,8 @@ fn deposit_limit_in_nested_calls() {
 
 #[test]
 fn deposit_limit_in_nested_instantiate() {
-	let (binary_caller, _code_hash_caller) = compile_module("create_storage_and_instantiate").unwrap();
+	let (binary_caller, _code_hash_caller) =
+		compile_module("create_storage_and_instantiate").unwrap();
 	let (binary_callee, code_hash_callee) = compile_module("store_deploy").unwrap();
 	const ED: u64 = 5;
 	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
@@ -3095,7 +3109,11 @@ fn only_upload_origin_can_upload() {
 		);
 
 		assert_err!(
-			Contracts::upload_code(RuntimeOrigin::signed(BOB), binary.clone(), deposit_limit::<Test>(),),
+			Contracts::upload_code(
+				RuntimeOrigin::signed(BOB),
+				binary.clone(),
+				deposit_limit::<Test>(),
+			),
 			DispatchError::BadOrigin
 		);
 

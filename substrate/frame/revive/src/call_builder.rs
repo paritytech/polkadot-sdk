@@ -32,8 +32,8 @@ use crate::{
 	storage::meter::Meter,
 	transient_storage::MeterEntry,
 	vm::{PreparedCall, Runtime},
-	BalanceOf, Code, CodeInfoOf, Config, ContractInfo, ContractInfoOf, DepositLimit, Error,
-	GasMeter, MomentOf, Origin, Pallet as Contracts, PristineCode, ContractBlob, Weight,
+	BalanceOf, Code, CodeInfoOf, Config, ContractBlob, ContractInfo, ContractInfoOf, DepositLimit,
+	Error, GasMeter, MomentOf, Origin, Pallet as Contracts, PristineCode, Weight,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::{storage::child, traits::fungible::Mutate};
@@ -313,7 +313,10 @@ where
 	}
 
 	/// Create a new contract with the specified unbalanced storage trie.
-	pub fn with_unbalanced_storage_trie(code: VmBinaryModule, key: &[u8]) -> Result<Self, &'static str> {
+	pub fn with_unbalanced_storage_trie(
+		code: VmBinaryModule,
+		key: &[u8],
+	) -> Result<Self, &'static str> {
 		/// Number of layers in a Radix16 unbalanced trie.
 		const UNBALANCED_TRIE_LAYERS: u32 = 20;
 

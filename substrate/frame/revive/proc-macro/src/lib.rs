@@ -41,10 +41,11 @@ pub fn unstable_hostfn(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// **CAUTION**: Be advised that all functions defined by this macro
 /// will panic if called with unexpected arguments.
 ///
-/// WARNING: It is CRITICAL for the user of this macro to thoroughly check the signatures of polkavm code to be executed.
-/// Failure to do so may result in undefined behavior, including runtime panics or security vulnerabilities.
-/// For example, if a function is called with an incorrect signature, it could lead to memory corruption or unexpected results.
-/// and reject the code if any imported function has a mismatched signature.
+/// WARNING: It is CRITICAL for the user of this macro to thoroughly check the signatures of polkavm
+/// code to be executed. Failure to do so may result in undefined behavior, including runtime panics
+/// or security vulnerabilities. For example, if a function is called with an incorrect signature,
+/// it could lead to memory corruption or unexpected results. and reject the code if any imported
+/// function has a mismatched signature.
 #[proc_macro_attribute]
 pub fn define_env(attr: TokenStream, item: TokenStream) -> TokenStream {
 	if !attr.is_empty() {
