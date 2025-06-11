@@ -66,7 +66,7 @@ pub fn run() -> sc_cli::Result<()> {
 		}
 	}
 
-	let cli = Cli::from_iter(&mut args.into_iter());
+	let cli = Cli::from_iter(args.into_iter());
 
 	match &cli.subcommand {
 		Some(Subcommand::Key(cmd)) => cmd.run(&cli),
