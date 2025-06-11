@@ -270,6 +270,7 @@ where
 			Code::Upload(module.code),
 			data,
 			salt,
+			false,
 		);
 
 		let address = outcome.result?.addr;

@@ -772,7 +772,9 @@ where
 			value,
 			skip_transfer,
 		)? {
-			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
+			stack
+				.run(executable, input_data, false)
+				.map(|_| stack.first_frame.last_frame_output)
 		} else {
 			let result = Self::transfer_from_origin(&origin, &origin, &dest, value, storage_meter);
 			if_tracing(|t| {
@@ -809,6 +811,7 @@ where
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
 		skip_transfer: bool,
+		is_eth_call: bool,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
 		let (mut stack, executable) = Stack::<'_, T, E>::new(
 			FrameArgs::Instantiate {
@@ -826,7 +829,7 @@ where
 		.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
 		let address = T::AddressMapper::to_address(&stack.top_frame().account_id);
 		stack
-			.run(executable, input_data)
+			.run(executable, input_data, is_eth_call)
 			.map(|_| (address, stack.first_frame.last_frame_output))
 	}
 
@@ -1523,7 +1526,7 @@ where
 			deposit_limit.saturated_into::<BalanceOf<T>>(),
 			self.is_read_only(),
 		)? {
-			self.run(executable, input_data)
+			self.run(executable, input_data, false)
 		} else {
 			// Delegate-calls to non-contract accounts are considered success.
 			Ok(())
@@ -1685,7 +1688,7 @@ where
 			self.is_read_only(),
 		)?;
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
-		self.run(executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE), input_data)
+		self.run(executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE), input_data, false)
 			.map(|_| address)
 	}
 }
@@ -1754,7 +1757,7 @@ where
 				deposit_limit.saturated_into::<BalanceOf<T>>(),
 				is_read_only,
 			)? {
-				self.run(executable, input_data)
+				self.run(executable, input_data, false)
 			} else {
 				let result = if is_read_only && value.is_zero() {
 					Ok(Default::default())

@@ -4444,3 +4444,24 @@ fn precompiles_with_info_creates_contract() {
 		});
 	}
 }
+
+#[test]
+fn eth_instantiate_bump_nonce_once_works() {
+	let (code, _) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&BOB, 1_000_000);
+
+		builder::bare_instantiate(Code::Upload(code.clone()))
+			.origin(RuntimeOrigin::signed(ALICE))
+			.build_and_unwrap_result();
+		assert_eq!(System::account_nonce(&ALICE), 1);
+
+		builder::bare_instantiate(Code::Upload(code))
+			.origin(RuntimeOrigin::signed(BOB))
+			.is_eth_call(true)
+			.build_and_unwrap_result();
+		assert_eq!(System::account_nonce(&BOB), 0);
+	});
+}

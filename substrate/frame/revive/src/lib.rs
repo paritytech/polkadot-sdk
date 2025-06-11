@@ -765,6 +765,7 @@ pub mod pallet {
 				Code::Existing(code_hash),
 				data,
 				salt,
+				false,
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -829,6 +830,7 @@ pub mod pallet {
 				Code::Upload(code),
 				data,
 				salt,
+				false,
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -842,8 +844,13 @@ pub mod pallet {
 			)
 		}
 
-		/// Same as [`Self::instantiate_with_code`] but should only be dispatched by EVM wallet
-		/// through the Eth compatibility layer
+		/// Same as [`Self::instantiate_with_code`], but intended to be dispatched **only**
+		/// by an EVM transaction through the EVM compatibility layer.
+		///
+		/// Calling this dispatchable ensures that the origin's nonce is bumped only once,
+		/// via the `CheckNonce` transaction extension. In contrast, [`Self::instantiate_with_code`]
+		/// also bumps the nonce after contract instantiation, since it may be invoked multiple
+		/// times within a batch call transaction.
 		#[pallet::call_index(10)]
 		#[pallet::weight(
 			T::WeightInfo::instantiate_with_code(code.len() as u32, data.len() as u32)
@@ -867,6 +874,7 @@ pub mod pallet {
 				Code::Upload(code),
 				data,
 				None,
+				true,
 			);
 
 			if let Ok(retval) = &output.result {
@@ -1093,6 +1101,7 @@ where
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
+		is_eth_call: bool,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
@@ -1135,6 +1144,7 @@ where
 				data,
 				salt.as_ref(),
 				unchecked_deposit_limit,
+				is_eth_call,
 			);
 			storage_deposit = storage_meter
 				.try_into_deposit(&instantiate_origin, unchecked_deposit_limit)?
@@ -1305,6 +1315,7 @@ where
 					Code::Upload(code.to_vec()),
 					data.to_vec(),
 					None,
+					true,
 				);
 
 				let returned_data = match result.result {
@@ -1747,6 +1758,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 						code,
 						data,
 						salt,
+						false,
 					)
 				}
 

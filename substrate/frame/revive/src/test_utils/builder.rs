@@ -138,6 +138,7 @@ builder!(
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
+		is_eth_call: bool,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>>;
 
 	/// Build the instantiate call and unwrap the result.
@@ -165,6 +166,7 @@ builder!(
 			code,
 			data: vec![],
 			salt: Some([0; 32]),
+			is_eth_call: false,
 		}
 	}
 );
