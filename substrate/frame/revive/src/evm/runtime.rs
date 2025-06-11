@@ -145,11 +145,9 @@ where
 	fn check(self, lookup: &Lookup) -> Result<Self::Checked, TransactionValidityError> {
 		if !self.0.is_signed() {
 			if let Some(crate::Call::eth_transact { payload }) = self.0.function.is_sub_type() {
-				let checked = crate::ethereum_call::using(true, || {
-					E::try_into_checked_extrinsic(payload.to_vec(), self.encoded_size())
-				})?;
-				return Ok(checked);
-			}
+				let checked = E::try_into_checked_extrinsic(payload.to_vec(), self.encoded_size())?;
+				return Ok(checked)
+			};
 		}
 		self.0.check(lookup)
 	}
