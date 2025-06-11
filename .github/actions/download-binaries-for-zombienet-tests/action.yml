@@ -25,7 +25,7 @@ runs:
         run-id: ${{ inputs.build-id }}
         extract-path: ./tmp
         files-to-copy: |
-          artifacts/substrate
+          artifacts/substrate/substrate
         destination-path: ${{ inputs.destination-path }}
         cleanup: "true"
 
