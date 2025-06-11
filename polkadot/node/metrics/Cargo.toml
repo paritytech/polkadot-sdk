@@ -5,6 +5,8 @@ version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -12,32 +14,26 @@ workspace = true
 [dependencies]
 futures = { workspace = true }
 futures-timer = { workspace = true }
-gum = { workspace = true, default-features = true }
 
-metered = { features = ["futures_channel"], workspace = true }
-# Both `sc-service` and `sc-cli` are required by runtime metrics `logger_hook()`.
-sc-service = { workspace = true, default-features = true }
-sc-cli = { workspace = true, default-features = true }
-
-prometheus-endpoint = { workspace = true, default-features = true }
-sc-tracing = { workspace = true, default-features = true }
-codec = { workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
 bs58 = { features = ["alloc"], workspace = true, default-features = true }
-log = { workspace = true, default-features = true }
+codec = { workspace = true, default-features = true }
+metered = { features = ["futures_channel"], workspace = true }
+polkadot-primitives = { workspace = true, default-features = true }
+prometheus-endpoint = { workspace = true, default-features = true }
+# Both `sc-service` and `sc-cli` are required by runtime metrics `logger_hook()`.
+sc-cli = { workspace = true, default-features = false }
+sc-service = { workspace = true, default-features = false }
+sc-tracing = { workspace = true, default-features = true }
 
 [dev-dependencies]
-assert_cmd = { workspace = true }
-tempfile = { workspace = true }
-hyper-util = { features = ["client-legacy", "tokio"], workspace = true }
-hyper = { workspace = true }
 http-body-util = { workspace = true }
-tokio = { workspace = true, default-features = true }
+hyper = { workspace = true }
+hyper-util = { features = ["client-legacy", "tokio"], workspace = true }
 polkadot-test-service = { features = ["runtime-metrics"], workspace = true }
-substrate-test-utils = { workspace = true }
+prometheus-parse = { workspace = true }
 sc-service = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
-prometheus-parse = { workspace = true }
+tokio = { workspace = true, default-features = true }
 
 [features]
 default = []

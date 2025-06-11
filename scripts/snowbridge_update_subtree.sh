@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # A script to update bridges repo as subtree to Cumulus
 # Usage:

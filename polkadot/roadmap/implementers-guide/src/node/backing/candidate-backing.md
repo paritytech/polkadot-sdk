@@ -1,5 +1,9 @@
 # Candidate Backing
 
+> NOTE: This module has suffered changes for the elastic scaling implementation. As a result, parts of this document may
+be out of date and will be updated at a later time. Issue tracking the update:
+https://github.com/paritytech/polkadot-sdk/issues/3699
+
 The Candidate Backing subsystem ensures every parablock considered for relay block inclusion has been seconded by at
 least one validator, and approved by a quorum. Parablocks for which not enough validators will assert correctness are
 discarded. If the block later proves invalid, the initial backers are slashable; this gives Polkadot a rational threat

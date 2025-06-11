@@ -1,0 +1,9 @@
+title: '[pallet-revive] set logs_bloom'
+doc:
+- audience: Runtime Dev
+  description: Set the logs_bloom in the transaction receipt
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor
+- name: pallet-revive
+  bump: minor

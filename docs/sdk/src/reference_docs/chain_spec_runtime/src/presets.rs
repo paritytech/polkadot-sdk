@@ -17,17 +17,21 @@
 
 //! Presets for the chain-spec demo runtime.
 
-use crate::pallets::{FooEnum, SomeFooData1, SomeFooData2};
+use crate::{
+	pallets::{FooEnum, SomeFooData1, SomeFooData2},
+	runtime::{BarConfig, FooConfig, RuntimeGenesisConfig},
+};
+use alloc::vec;
+use frame_support::build_struct_json_patch;
 use serde_json::{json, to_string, Value};
 use sp_application_crypto::Ss58Codec;
-use sp_keyring::AccountKeyring;
-use sp_std::vec;
+use sp_keyring::Sr25519Keyring;
 
 /// A demo preset with strings only.
 pub const PRESET_1: &str = "preset_1";
 /// A demo preset with real types.
 pub const PRESET_2: &str = "preset_2";
-/// Another demo preset with real types.
+/// Another demo preset with real types and manually created json object.
 pub const PRESET_3: &str = "preset_3";
 /// A single value patch preset.
 pub const PRESET_4: &str = "preset_4";
@@ -58,25 +62,25 @@ fn preset_1() -> Value {
 }
 
 #[docify::export]
-/// Function provides a preset demonstrating how use the actual types to create a preset.
+/// Function provides a preset demonstrating how to create a preset using
+/// [`build_struct_json_patch`] macro.
 fn preset_2() -> Value {
-	json!({
-		"bar": {
-			"initialAccount": AccountKeyring::Ferdie.public().to_ss58check(),
+	build_struct_json_patch!(RuntimeGenesisConfig {
+		foo: FooConfig {
+			some_integer: 200,
+			some_enum: FooEnum::Data2(SomeFooData2 { values: vec![0x0c, 0x10] })
 		},
-		"foo": {
-			"someEnum": FooEnum::Data2(SomeFooData2 { values: vec![12,16] }),
-			"someInteger": 200
-		},
+		bar: BarConfig { initial_account: Some(Sr25519Keyring::Ferdie.public().into()) },
 	})
 }
 
 #[docify::export]
-/// Function provides a preset demonstrating how use the actual types to create a preset.
+/// Function provides a preset demonstrating how use the actual types to manually create a JSON
+/// representing the preset.
 fn preset_3() -> Value {
 	json!({
 		"bar": {
-			"initialAccount": AccountKeyring::Alice.public().to_ss58check(),
+			"initialAccount": Sr25519Keyring::Alice.public().to_ss58check(),
 		},
 		"foo": {
 			"someEnum": FooEnum::Data1(
@@ -92,22 +96,16 @@ fn preset_3() -> Value {
 
 #[docify::export]
 /// Function provides a minimal preset demonstrating how to patch single key in
-/// `RuntimeGenesisConfig`.
-fn preset_4() -> Value {
-	json!({
-		"foo": {
-			"someEnum": {
-				"Data2": {
-					"values": "0x0c0f"
-				}
-			},
-		},
+/// `RuntimeGenesisConfig` using [`build_struct_json_patch`] macro.
+pub fn preset_4() -> Value {
+	build_struct_json_patch!(RuntimeGenesisConfig {
+		foo: FooConfig { some_enum: FooEnum::Data2(SomeFooData2 { values: vec![0x0c, 0x10] }) },
 	})
 }
 
 #[docify::export]
 /// Function provides an invalid preset demonstrating how important is use of
-/// [`deny_unknown_fields`] in data structures used in `GenesisConfig`.
+/// `deny_unknown_fields` in data structures used in `GenesisConfig`.
 fn preset_invalid() -> Value {
 	json!({
 		"foo": {
@@ -122,13 +120,13 @@ fn preset_invalid() -> Value {
 ///
 /// If no preset with given `id` exits `None` is returned.
 #[docify::export]
-pub fn get_builtin_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<u8>> {
-	let preset = match id.try_into() {
-		Ok(PRESET_1) => preset_1(),
-		Ok(PRESET_2) => preset_2(),
-		Ok(PRESET_3) => preset_3(),
-		Ok(PRESET_4) => preset_4(),
-		Ok(PRESET_INVALID) => preset_invalid(),
+pub fn get_builtin_preset(id: &sp_genesis_builder::PresetId) -> Option<alloc::vec::Vec<u8>> {
+	let preset = match id.as_ref() {
+		PRESET_1 => preset_1(),
+		PRESET_2 => preset_2(),
+		PRESET_3 => preset_3(),
+		PRESET_4 => preset_4(),
+		PRESET_INVALID => preset_invalid(),
 		_ => return None,
 	};
 

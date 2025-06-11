@@ -139,6 +139,9 @@ where
 			parse_default_directive("trust_dns_proto=off").expect("provided directive is valid"),
 		)
 		.add_directive(
+			parse_default_directive("hickory_proto=off").expect("provided directive is valid"),
+		)
+		.add_directive(
 			parse_default_directive("libp2p_mdns::behaviour::iface=off")
 				.expect("provided directive is valid"),
 		)
@@ -182,12 +185,15 @@ where
 	let enable_color = force_colors.unwrap_or_else(|| io::stderr().is_terminal());
 	let timer = fast_local_time::FastLocalTime { with_fractional: detailed_output };
 
+	// We need to set both together, because we are may printing to `stdout` and `stderr`.
+	console::set_colors_enabled(enable_color);
+	console::set_colors_enabled_stderr(enable_color);
+
 	let event_format = EventFormat {
 		timer,
 		display_target: detailed_output,
 		display_level: detailed_output,
 		display_thread_name: detailed_output,
-		enable_color,
 		dup_to_stdout: !io::stderr().is_terminal() && io::stdout().is_terminal(),
 	};
 	let builder = FmtSubscriber::builder().with_env_filter(env_filter);
@@ -494,7 +500,7 @@ mod tests {
 	fn do_not_write_with_colors_on_tty_entrypoint() {
 		if env::var("ENABLE_LOGGING").is_ok() {
 			let _guard = init_logger("");
-			log::info!("{}", ansi_term::Colour::Yellow.paint(EXPECTED_LOG_MESSAGE));
+			log::info!("{}", console::style(EXPECTED_LOG_MESSAGE).yellow());
 		}
 	}
 
@@ -650,38 +656,6 @@ mod tests {
 		if let Some(output) = output {
 			let stderr = String::from_utf8(output.stderr).unwrap();
 			assert!(stderr.contains(&line));
-		}
-	}
-
-	#[test]
-	fn control_characters_are_always_stripped_out_from_the_log_messages() {
-		const RAW_LINE: &str = "$$START$$\x1B[1;32mIn\u{202a}\u{202e}\u{2066}\u{2069}ner\n\r\x7ftext!\u{80}\u{9f}\x1B[0m$$END$$";
-		const SANITIZED_LINE: &str = "$$START$$Inner\ntext!$$END$$";
-
-		let output = run_test_in_another_process(
-			"control_characters_are_always_stripped_out_from_the_log_messages",
-			|| {
-				std::env::set_var("RUST_LOG", "trace");
-				let mut builder = LoggerBuilder::new("");
-				builder.with_colors(true);
-				builder.init().unwrap();
-				log::error!("{}", RAW_LINE);
-			},
-		);
-
-		if let Some(output) = output {
-			let stderr = String::from_utf8(output.stderr).unwrap();
-			// The log messages should always be sanitized.
-			assert!(!stderr.contains(RAW_LINE));
-			assert!(stderr.contains(SANITIZED_LINE));
-
-			// The part where the timestamp, the logging level, etc. is printed out doesn't
-			// always have to be sanitized unless it's necessary, and here it shouldn't be.
-			assert!(stderr.contains("\x1B[31mERROR\x1B[0m"));
-
-			// Make sure the logs aren't being duplicated.
-			assert_eq!(stderr.find("ERROR"), stderr.rfind("ERROR"));
-			assert_eq!(stderr.find(SANITIZED_LINE), stderr.rfind(SANITIZED_LINE));
 		}
 	}
 }

@@ -4,7 +4,7 @@ version = "2.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 publish = false
 
@@ -26,3 +26,6 @@ sp-core = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 substrate-test-client = { workspace = true }
 substrate-test-runtime = { workspace = true }
+
+[features]
+bls-experimental = ["substrate-test-runtime/bls-experimental"]

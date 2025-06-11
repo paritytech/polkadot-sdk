@@ -1,0 +1,7 @@
+title: Bump Westend AH
+doc:
+- audience: Runtime Dev
+  description: Bump Asset-Hub westend spec version
+crates:
+- name: asset-hub-westend-runtime
+  bump: minor

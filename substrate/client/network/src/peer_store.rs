@@ -19,12 +19,13 @@
 //! [`PeerStore`] manages peer reputations and provides connection candidates to
 //! [`crate::protocol_controller::ProtocolController`].
 
-use crate::service::traits::PeerStore as PeerStoreT;
+use crate::service::{metrics::PeerStoreMetrics, traits::PeerStore as PeerStoreT};
 
 use libp2p::PeerId;
 use log::trace;
 use parking_lot::Mutex;
 use partial_sort::PartialSort;
+use prometheus_endpoint::Registry;
 use sc_network_common::{role::ObservedRole, types::ReputationChange};
 use std::{
 	cmp::{Ord, Ordering, PartialOrd},
@@ -95,12 +96,6 @@ pub trait PeerStoreProvider: Debug + Send + Sync {
 		ignored: HashSet<sc_network_types::PeerId>,
 	) -> Vec<sc_network_types::PeerId>;
 
-	/// Get the number of known peers.
-	///
-	/// This number might not include some connected peers in rare cases when their reputation
-	/// was not updated for one hour, because their entries in [`PeerStore`] were dropped.
-	fn num_known_peers(&self) -> usize;
-
 	/// Add known peer.
 	fn add_known_peer(&self, peer_id: sc_network_types::PeerId);
 }
@@ -154,10 +149,6 @@ impl PeerStoreProvider for PeerStoreHandle {
 			.iter()
 			.map(|peer_id| peer_id.into())
 			.collect()
-	}
-
-	fn num_known_peers(&self) -> usize {
-		self.inner.lock().peers.len()
 	}
 
 	fn add_known_peer(&self, peer_id: sc_network_types::PeerId) {
@@ -242,6 +233,7 @@ impl PeerInfo {
 struct PeerStoreInner {
 	peers: HashMap<PeerId, PeerInfo>,
 	protocols: Vec<Arc<dyn ProtocolHandle>>,
+	metrics: Option<PeerStoreMetrics>,
 }
 
 impl PeerStoreInner {
@@ -268,11 +260,37 @@ impl PeerStoreInner {
 
 	fn report_peer(&mut self, peer_id: PeerId, change: ReputationChange) {
 		let peer_info = self.peers.entry(peer_id).or_default();
+		let was_banned = peer_info.is_banned();
 		peer_info.add_reputation(change.value);
 
-		if peer_info.reputation < BANNED_THRESHOLD {
-			self.protocols.iter().for_each(|handle| handle.disconnect_peer(peer_id.into()));
+		log::trace!(
+			target: LOG_TARGET,
+			"Report {}: {:+} to {}. Reason: {}.",
+			peer_id,
+			change.value,
+			peer_info.reputation,
+			change.reason,
+		);
 
+		if !peer_info.is_banned() {
+			if was_banned {
+				log::info!(
+					target: LOG_TARGET,
+					"Peer {} is now unbanned: {:+} to {}. Reason: {}.",
+					peer_id,
+					change.value,
+					peer_info.reputation,
+					change.reason,
+				);
+			}
+			return;
+		}
+
+		// Peer is currently banned, disconnect it from all protocols.
+		self.protocols.iter().for_each(|handle| handle.disconnect_peer(peer_id.into()));
+
+		// The peer is banned for the first time.
+		if !was_banned {
 			log::warn!(
 				target: LOG_TARGET,
 				"Report {}: {:+} to {}. Reason: {}. Banned, disconnecting.",
@@ -281,10 +299,15 @@ impl PeerStoreInner {
 				peer_info.reputation,
 				change.reason,
 			);
-		} else {
-			log::trace!(
+			return;
+		}
+
+		// The peer was already banned and it got another negative report.
+		// This may happen during a batch report.
+		if change.value < 0 {
+			log::debug!(
 				target: LOG_TARGET,
-				"Report {}: {:+} to {}. Reason: {}.",
+				"Report {}: {:+} to {}. Reason: {}. Misbehaved during the ban threshold.",
 				peer_id,
 				change.value,
 				peer_info.reputation,
@@ -341,8 +364,19 @@ impl PeerStoreInner {
 
 		// Retain only entries with non-zero reputation values or not expired ones.
 		let now = Instant::now();
-		self.peers
-			.retain(|_, info| info.reputation != 0 || info.last_updated + FORGET_AFTER > now);
+		let mut num_banned_peers: u64 = 0;
+		self.peers.retain(|_, info| {
+			if info.is_banned() {
+				num_banned_peers += 1;
+			}
+
+			info.reputation != 0 || info.last_updated + FORGET_AFTER > now
+		});
+
+		if let Some(metrics) = &self.metrics {
+			metrics.num_discovered.set(self.peers.len() as u64);
+			metrics.num_banned_peers.set(num_banned_peers);
+		}
 	}
 
 	fn add_known_peer(&mut self, peer_id: PeerId) {
@@ -370,7 +404,18 @@ pub struct PeerStore {
 
 impl PeerStore {
 	/// Create a new peer store from the list of bootnodes.
-	pub fn new(bootnodes: Vec<PeerId>) -> Self {
+	pub fn new(bootnodes: Vec<PeerId>, metrics_registry: Option<Registry>) -> Self {
+		let metrics = if let Some(registry) = &metrics_registry {
+			PeerStoreMetrics::register(registry)
+				.map_err(|err| {
+					log::error!(target: LOG_TARGET, "Failed to register peer set metrics: {}", err);
+					err
+				})
+				.ok()
+		} else {
+			None
+		};
+
 		PeerStore {
 			inner: Arc::new(Mutex::new(PeerStoreInner {
 				peers: bootnodes
@@ -378,6 +423,7 @@ impl PeerStore {
 					.map(|peer_id| (peer_id, PeerInfo::default()))
 					.collect(),
 				protocols: Vec::new(),
+				metrics,
 			})),
 		}
 	}
@@ -422,7 +468,7 @@ impl PeerStoreT for PeerStore {
 
 #[cfg(test)]
 mod tests {
-	use super::PeerInfo;
+	use super::{PeerInfo, PeerStore, PeerStoreProvider};
 
 	#[test]
 	fn decaying_zero_reputation_yields_zero() {
@@ -488,5 +534,40 @@ mod tests {
 
 		peer_info.decay_reputation(SECONDS / 2);
 		assert_eq!(peer_info.reputation, 0);
+	}
+
+	#[test]
+	fn report_banned_peers() {
+		let peer_a = sc_network_types::PeerId::random();
+		let peer_b = sc_network_types::PeerId::random();
+		let peer_c = sc_network_types::PeerId::random();
+
+		let metrics_registry = prometheus_endpoint::Registry::new();
+		let peerstore = PeerStore::new(
+			vec![peer_a, peer_b, peer_c].into_iter().map(Into::into).collect(),
+			Some(metrics_registry),
+		);
+		let metrics = peerstore.inner.lock().metrics.as_ref().unwrap().clone();
+		let handle = peerstore.handle();
+
+		// Check initial state. Advance time to propagate peers.
+		handle.inner.lock().progress_time(1);
+		assert_eq!(metrics.num_discovered.get(), 3);
+		assert_eq!(metrics.num_banned_peers.get(), 0);
+
+		// Report 2 peers with a negative reputation.
+		handle.report_peer(
+			peer_a,
+			sc_network_common::types::ReputationChange { value: i32::MIN, reason: "test".into() },
+		);
+		handle.report_peer(
+			peer_b,
+			sc_network_common::types::ReputationChange { value: i32::MIN, reason: "test".into() },
+		);
+
+		// Advance time to propagate banned peers.
+		handle.inner.lock().progress_time(1);
+		assert_eq!(metrics.num_discovered.get(), 3);
+		assert_eq!(metrics.num_banned_peers.get(), 2);
 	}
 }

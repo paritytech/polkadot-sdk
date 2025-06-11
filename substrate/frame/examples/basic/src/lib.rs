@@ -1,19 +1,25 @@
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT-0
 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Permission is hereby granted, free of charge, to any person obtaining a copy of
+// this software and associated documentation files (the "Software"), to deal in
+// the Software without restriction, including without limitation the rights to
+// use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+// of the Software, and to permit persons to whom the Software is furnished to do
+// so, subject to the following conditions:
+
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 //! # Basic Example Pallet
 //!
@@ -24,7 +30,7 @@
 //! > Made with *Substrate*, for *Polkadot*.
 //!
 //! [![github]](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/examples/basic)
-//! [![polkadot]](https://polkadot.network)
+//! [![polkadot]](https://polkadot.com)
 //!
 //! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white
 //! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&labelColor=555555&logo=github
@@ -46,17 +52,22 @@
 //!   use the [`Config::WeightInfo`] trait to calculate call weights. This can also be overridden,
 //!   as demonstrated by [`Call::set_dummy`].
 //! - A private function that performs a storage update.
-//! - A simple signed extension implementation (see: [`sp_runtime::traits::SignedExtension`]) which
-//!   increases the priority of the [`Call::set_dummy`] if it's present and drops any transaction
-//!   with an encoded length higher than 200 bytes.
+//! - A simple transaction extension implementation (see:
+//!   [`sp_runtime::traits::TransactionExtension`]) which increases the priority of the
+//!   [`Call::set_dummy`] if it's present and drops any transaction with an encoded length higher
+//!   than 200 bytes.
 
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode};
+extern crate alloc;
+
+use alloc::vec::Vec;
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::marker::PhantomData;
 use frame_support::{
 	dispatch::{ClassifyDispatch, DispatchClass, DispatchResult, Pays, PaysFee, WeighData},
+	pallet_prelude::TransactionSource,
 	traits::IsSubType,
 	weights::Weight,
 };
@@ -64,12 +75,13 @@ use frame_system::ensure_signed;
 use log::info;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{Bounded, DispatchInfoOf, SaturatedConversion, Saturating, SignedExtension},
-	transaction_validity::{
-		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
+	impl_tx_ext_default,
+	traits::{
+		Bounded, DispatchInfoOf, DispatchOriginOf, SaturatedConversion, Saturating,
+		TransactionExtension, ValidateResult,
 	},
+	transaction_validity::{InvalidTransaction, ValidTransaction},
 };
-use sp_std::vec::Vec;
 
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
@@ -151,9 +163,6 @@ pub mod pallet {
 		// Setting a constant config parameter from the runtime
 		#[pallet::constant]
 		type MagicNumber: Get<Self::Balance>;
-
-		/// The overarching event type.
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Type representing the weight of this pallet
 		type WeightInfo: WeightInfo;
@@ -438,43 +447,44 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-// Similar to other FRAME pallets, your pallet can also define a signed extension and perform some
-// checks and [pre/post]processing [before/after] the transaction. A signed extension can be any
-// decodable type that implements `SignedExtension`. See the trait definition for the full list of
-// bounds. As a convention, you can follow this approach to create an extension for your pallet:
+// Similar to other FRAME pallets, your pallet can also define a transaction extension and perform
+// some checks and [pre/post]processing [before/after] the transaction. A transaction extension can
+// be any decodable type that implements `TransactionExtension`. See the trait definition for the
+// full list of bounds. As a convention, you can follow this approach to create an extension for
+// your pallet:
 //   - If the extension does not carry any data, then use a tuple struct with just a `marker`
 //     (needed for the compiler to accept `T: Config`) will suffice.
 //   - Otherwise, create a tuple struct which contains the external data. Of course, for the entire
 //     struct to be decodable, each individual item also needs to be decodable.
 //
-// Note that a signed extension can also indicate that a particular data must be present in the
-// _signing payload_ of a transaction by providing an implementation for the `additional_signed`
-// method. This example will not cover this type of extension. See `CheckSpecVersion` in
-// [FRAME System](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/system#signed-extensions)
+// Note that a transaction extension can also indicate that a particular data must be present in the
+// _signing payload_ of a transaction by providing an implementation for the `implicit` method. This
+// example will not cover this type of extension. See `CheckSpecVersion` in [FRAME
+// System](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/system#signed-extensions)
 // for an example.
 //
 // Using the extension, you can add some hooks to the life cycle of each transaction. Note that by
 // default, an extension is applied to all `Call` functions (i.e. all transactions). the `Call` enum
-// variant is given to each function of `SignedExtension`. Hence, you can filter based on pallet or
-// a particular call if needed.
+// variant is given to each function of `TransactionExtension`. Hence, you can filter based on
+// pallet or a particular call if needed.
 //
 // Some extra information, such as encoded length, some static dispatch info like weight and the
 // sender of the transaction (if signed) are also provided.
 //
-// The full list of hooks that can be added to a signed extension can be found
-// [here](https://paritytech.github.io/polkadot-sdk/master/sp_runtime/traits/trait.SignedExtension.html).
+// The full list of hooks that can be added to a transaction extension can be found in the
+// `TransactionExtension` trait definition.
 //
-// The signed extensions are aggregated in the runtime file of a substrate chain. All extensions
-// should be aggregated in a tuple and passed to the `CheckedExtrinsic` and `UncheckedExtrinsic`
-// types defined in the runtime. Lookup `pub type SignedExtra = (...)` in `node/runtime` and
-// `node-template` for an example of this.
+// The transaction extensions are aggregated in the runtime file of a substrate chain. All
+// extensions should be aggregated in a tuple and passed to the `CheckedExtrinsic` and
+// `UncheckedExtrinsic` types defined in the runtime. Lookup `pub type TxExtension = (...)` in
+// `node/runtime` and `node-template` for an example of this.
 
-/// A simple signed extension that checks for the `set_dummy` call. In that case, it increases the
-/// priority and prints some log.
+/// A simple transaction extension that checks for the `set_dummy` call. In that case, it increases
+/// the priority and prints some log.
 ///
 /// Additionally, it drops any transaction with an encoded length higher than 200 bytes. No
-/// particular reason why, just to demonstrate the power of signed extensions.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+/// particular reason why, just to demonstrate the power of transaction extensions.
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct WatchDummy<T: Config + Send + Sync>(PhantomData<T>);
 
@@ -484,52 +494,43 @@ impl<T: Config + Send + Sync> core::fmt::Debug for WatchDummy<T> {
 	}
 }
 
-impl<T: Config + Send + Sync> SignedExtension for WatchDummy<T>
+impl<T: Config + Send + Sync> TransactionExtension<<T as frame_system::Config>::RuntimeCall>
+	for WatchDummy<T>
 where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
 	const IDENTIFIER: &'static str = "WatchDummy";
-	type AccountId = T::AccountId;
-	type Call = <T as frame_system::Config>::RuntimeCall;
-	type AdditionalSigned = ();
+	type Implicit = ();
 	type Pre = ();
-
-	fn additional_signed(&self) -> core::result::Result<(), TransactionValidityError> {
-		Ok(())
-	}
-
-	fn pre_dispatch(
-		self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		self.validate(who, call, info, len).map(|_| ())
-	}
+	type Val = ();
 
 	fn validate(
 		&self,
-		_who: &Self::AccountId,
-		call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
+		origin: DispatchOriginOf<<T as frame_system::Config>::RuntimeCall>,
+		call: &<T as frame_system::Config>::RuntimeCall,
+		_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		len: usize,
-	) -> TransactionValidity {
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
+		_source: TransactionSource,
+	) -> ValidateResult<Self::Val, <T as frame_system::Config>::RuntimeCall> {
 		// if the transaction is too big, just drop it.
 		if len > 200 {
-			return InvalidTransaction::ExhaustsResources.into()
+			return Err(InvalidTransaction::ExhaustsResources.into())
 		}
 
 		// check for `set_dummy`
-		match call.is_sub_type() {
+		let validity = match call.is_sub_type() {
 			Some(Call::set_dummy { .. }) => {
 				sp_runtime::print("set_dummy was received.");
 
 				let valid_tx =
 					ValidTransaction { priority: Bounded::max_value(), ..Default::default() };
-				Ok(valid_tx)
+				valid_tx
 			},
-			_ => Ok(Default::default()),
-		}
+			_ => Default::default(),
+		};
+		Ok((validity, (), origin))
 	}
+	impl_tx_ext_default!(<T as frame_system::Config>::RuntimeCall; weight prepare);
 }

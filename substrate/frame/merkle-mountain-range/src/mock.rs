@@ -18,14 +18,20 @@
 use crate as pallet_mmr;
 use crate::*;
 
+use crate::{
+	frame_system::DefaultConfig,
+	primitives::{Compact, LeafDataProvider},
+};
 use codec::{Decode, Encode};
-use frame_support::{derive_impl, parameter_types};
-use sp_mmr_primitives::{Compact, LeafDataProvider};
-use sp_runtime::traits::Keccak256;
+use frame::{
+	deps::frame_support::derive_impl,
+	prelude::{frame_system, frame_system::config_preludes::TestDefaultConfig},
+	testing_prelude::*,
+};
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -33,7 +39,7 @@ frame_support::construct_runtime!(
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+#[derive_impl(TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 }
@@ -46,6 +52,8 @@ impl Config for Test {
 	type OnNewRoot = ();
 	type BlockHashProvider = DefaultBlockHashProvider<Test>;
 	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 #[derive(Encode, Decode, Clone, Default, Eq, PartialEq, Debug)]

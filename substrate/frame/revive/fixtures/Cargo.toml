@@ -1,0 +1,33 @@
+[package]
+name = "pallet-revive-fixtures"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Fixtures for testing and benchmarking"
+homepage.workspace = true
+repository.workspace = true
+rust-version = "1.84"
+
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow = { workspace = true, default-features = true, optional = true }
+sp-core = { workspace = true, default-features = true, optional = true }
+sp-io = { workspace = true, default-features = true, optional = true }
+
+[build-dependencies]
+anyhow = { workspace = true, default-features = true }
+cargo_metadata = { workspace = true }
+pallet-revive-uapi = { workspace = true }
+polkavm-linker = { version = "0.21.0" }
+toml = { workspace = true }
+
+[features]
+default = ["std"]
+# only when std is enabled all fixtures are available
+std = ["anyhow", "sp-core", "sp-io"]

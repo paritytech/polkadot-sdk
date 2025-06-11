@@ -10,7 +10,7 @@ doc:
       3. `#[runtime::pallet_index]` must be attached to a pallet to define its index
       4. `#[runtime::disable_call]` can be optionally attached to a pallet to disable its calls
       5. `#[runtime::disable_unsigned]` can be optionally attached to a pallet to disable unsigned calls
-      6. A pallet instance can be defined as `TemplateModule: pallet_template<Instance>`
+      6. A pallet instance can be defined as `Template: pallet_template<Instance>`
       An optional attribute can be defined as `#[frame_support::runtime(legacy_ordering)]` to ensure that 
       the order of hooks is same as the order of pallets (and not based on the pallet_index). This is to support 
       legacy runtimes and should be avoided for new ones.

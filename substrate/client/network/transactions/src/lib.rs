@@ -368,7 +368,8 @@ where
 				{
 					self.on_transactions(peer, m);
 				} else {
-					warn!(target: "sub-libp2p", "Failed to decode transactions list");
+					warn!(target: "sub-libp2p", "Failed to decode transactions list from peer {peer}");
+					self.network.report_peer(peer, rep::BAD_TRANSACTION);
 				}
 			},
 		}
@@ -461,12 +462,14 @@ where
 		if let Some(transaction) = self.transaction_pool.transaction(hash) {
 			let propagated_to = self.do_propagate_transactions(&[(hash.clone(), transaction)]);
 			self.transaction_pool.on_broadcasted(propagated_to);
+		} else {
+			debug!(target: "sync", "Propagating transaction failure [{:?}]", hash);
 		}
 	}
 
 	fn do_propagate_transactions(
 		&mut self,
-		transactions: &[(H, B::Extrinsic)],
+		transactions: &[(H, Arc<B::Extrinsic>)],
 	) -> HashMap<H, Vec<String>> {
 		let mut propagated_to = HashMap::<_, Vec<_>>::new();
 		let mut propagated_transactions = 0;
@@ -477,7 +480,7 @@ where
 				continue
 			}
 
-			let (hashes, to_send): (Vec<_>, Vec<_>) = transactions
+			let (hashes, to_send): (Vec<_>, Transactions<_>) = transactions
 				.iter()
 				.filter(|(hash, _)| peer.known_transactions.insert(hash.clone()))
 				.cloned()
@@ -521,8 +524,14 @@ where
 			return
 		}
 
-		debug!(target: LOG_TARGET, "Propagating transactions");
 		let transactions = self.transaction_pool.transactions();
+
+		if transactions.is_empty() {
+			return
+		}
+
+		debug!(target: LOG_TARGET, "Propagating transactions");
+
 		let propagated_to = self.do_propagate_transactions(&transactions);
 		self.transaction_pool.on_broadcasted(propagated_to);
 	}

@@ -31,20 +31,22 @@ mod benchmarks {
 	#[benchmark]
 	fn request_revenue_at() {
 		let root_origin = <T as frame_system::Config>::RuntimeOrigin::root();
-		let mhr = <T as assigner_on_demand::Config>::MaxHistoricalRevenue::get();
+		let mhr = <T as on_demand::Config>::MaxHistoricalRevenue::get();
 		frame_system::Pallet::<T>::set_block_number((mhr + 2).into());
-		let minimum_balance = <T as assigner_on_demand::Config>::Currency::minimum_balance();
+		let minimum_balance = <T as on_demand::Config>::Currency::minimum_balance();
 		let rev: BoundedVec<
-			<<T as assigner_on_demand::Config>::Currency as frame_support::traits::Currency<
+			<<T as on_demand::Config>::Currency as frame_support::traits::Currency<
 				T::AccountId,
 			>>::Balance,
 			T::MaxHistoricalRevenue,
 		> = BoundedVec::try_from((1..=mhr).map(|v| minimum_balance * v.into()).collect::<Vec<_>>())
 			.unwrap();
-		assigner_on_demand::Revenue::<T>::put(rev);
+		on_demand::Revenue::<T>::put(rev);
 
-		<T as assigner_on_demand::Config>::Currency::make_free_balance_be(
-			&<assigner_on_demand::Pallet<T>>::account_id(),
+		crate::paras::Heads::<T>::insert(ParaId::from(T::BrokerId::get()), vec![1, 2, 3]);
+
+		<T as on_demand::Config>::Currency::make_free_balance_be(
+			&<on_demand::Pallet<T>>::account_id(),
 			minimum_balance * (mhr * (mhr + 1)).into(),
 		);
 
@@ -93,5 +95,15 @@ mod benchmarks {
 			assignments,
 			Some(BlockNumberFor::<T>::from(20u32)),
 		)
+	}
+
+	#[benchmark]
+	fn credit_account() {
+		// Setup
+		let root_origin = <T as frame_system::Config>::RuntimeOrigin::root();
+		let who: T::AccountId = whitelisted_caller();
+
+		#[extrinsic_call]
+		_(root_origin as <T as frame_system::Config>::RuntimeOrigin, who, 1_000_000u32.into())
 	}
 }

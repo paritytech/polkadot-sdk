@@ -23,6 +23,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(deprecated)] // The pallet itself is deprecated.
 
+extern crate alloc;
+
 use migration::*;
 pub use pallet::*;
 
@@ -57,6 +59,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type of the runtime.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The sink for all DMP messages that the lazy migration will use.

@@ -21,8 +21,8 @@ use polkadot_node_primitives::approval::{v1::DelayTranche, v2::AssignmentCertV2}
 use polkadot_node_subsystem::{SubsystemError, SubsystemResult};
 use polkadot_node_subsystem_util::database::{DBTransaction, Database};
 use polkadot_primitives::{
-	BlockNumber, CandidateHash, CandidateIndex, CandidateReceipt, CoreIndex, GroupIndex, Hash,
-	SessionIndex, ValidatorIndex, ValidatorSignature,
+	vstaging::CandidateReceiptV2 as CandidateReceipt, BlockNumber, CandidateHash, CandidateIndex,
+	CoreIndex, GroupIndex, Hash, SessionIndex, ValidatorIndex, ValidatorSignature,
 };
 
 use sp_consensus_slots::Slot;

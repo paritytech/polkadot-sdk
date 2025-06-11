@@ -15,38 +15,34 @@
 
 #[cfg(test)]
 mod imports {
-	pub use codec::Encode;
-
 	// Substrate
-	pub use frame_support::{
-		assert_ok,
-		pallet_prelude::Weight,
-		sp_runtime::{AccountId32, DispatchResult},
-		traits::fungibles::Inspect,
-	};
+	pub(crate) use frame_support::sp_runtime::DispatchResult;
 
 	// Polkadot
-	pub use xcm::prelude::*;
+	pub(crate) use xcm::{latest::ROCOCO_GENESIS_HASH, prelude::*};
 
 	// Cumulus
-	pub use asset_test_utils::xcm_helpers;
-	pub use emulated_integration_tests_common::xcm_emulator::{
-		assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, Test, TestArgs,
-		TestContext, TestExt,
+	pub(crate) use asset_test_utils::xcm_helpers;
+	pub(crate) use emulated_integration_tests_common::xcm_emulator::{
+		assert_expected_events, bx, Chain, Parachain as Para, Test, TestArgs, TestContext, TestExt,
 	};
-	pub use parachains_common::Balance;
-	pub use rococo_system_emulated_network::{
+	pub(crate) use parachains_common::Balance;
+	pub(crate) use rococo_system_emulated_network::{
 		people_rococo_emulated_chain::{
-			genesis::ED as PEOPLE_ROCOCO_ED, PeopleRococoParaPallet as PeopleRococoPallet,
+			people_rococo_runtime::{
+				xcm_config::XcmConfig as PeopleRococoXcmConfig,
+				ExistentialDeposit as PeopleRococoExistentialDeposit,
+			},
+			PeopleRococoParaPallet as PeopleRococoPallet,
 		},
 		rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
+		AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
 		PeopleRococoPara as PeopleRococo, PeopleRococoParaReceiver as PeopleRococoReceiver,
 		PeopleRococoParaSender as PeopleRococoSender, RococoRelay as Rococo,
 		RococoRelayReceiver as RococoReceiver, RococoRelaySender as RococoSender,
 	};
 
-	pub type RelayToSystemParaTest = Test<Rococo, PeopleRococo>;
-	pub type SystemParaToRelayTest = Test<PeopleRococo, Rococo>;
+	pub(crate) type SystemParaToRelayTest = Test<PeopleRococo, Rococo>;
 }
 
 #[cfg(test)]

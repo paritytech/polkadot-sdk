@@ -16,12 +16,13 @@
 
 //! `PayOverXcm` struct for paying through XCM and getting the status back.
 
+use alloc::vec;
+use core::marker::PhantomData;
 use frame_support::traits::{
 	tokens::{Pay, PaymentStatus},
 	Get,
 };
 use sp_runtime::traits::TryConvert;
-use sp_std::{marker::PhantomData, vec};
 use xcm::{opaque::lts::Weight, prelude::*};
 use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
 
@@ -69,8 +70,8 @@ impl<
 		Router: SendXcm,
 		Querier: QueryHandler,
 		Timeout: Get<Querier::BlockNumber>,
-		Beneficiary: Clone,
-		AssetKind,
+		Beneficiary: Clone + core::fmt::Debug,
+		AssetKind: core::fmt::Debug,
 		AssetKindToLocatableAsset: TryConvert<AssetKind, LocatableAssetId>,
 		BeneficiaryRefToLocation: for<'a> TryConvert<&'a Beneficiary, Location>,
 	> Pay
@@ -96,14 +97,20 @@ impl<
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
 	) -> Result<Self::Id, Self::Error> {
-		let locatable = AssetKindToLocatableAsset::try_convert(asset_kind)
-			.map_err(|_| xcm::latest::Error::InvalidLocation)?;
+		let locatable = AssetKindToLocatableAsset::try_convert(asset_kind).map_err(|error| {
+			tracing::debug!(target: "xcm::pay", ?error, "Failed to convert asset kind to locatable asset");
+			xcm::latest::Error::InvalidLocation
+		})?;
 		let LocatableAssetId { asset_id, location: asset_location } = locatable;
-		let destination = Querier::UniversalLocation::get()
-			.invert_target(&asset_location)
-			.map_err(|()| Self::Error::LocationNotInvertible)?;
-		let beneficiary = BeneficiaryRefToLocation::try_convert(&who)
-			.map_err(|_| xcm::latest::Error::InvalidLocation)?;
+		let destination =
+			Querier::UniversalLocation::get().invert_target(&asset_location).map_err(|()| {
+				tracing::debug!(target: "xcm::pay", "Failed to invert asset location");
+				Self::Error::LocationNotInvertible
+			})?;
+		let beneficiary = BeneficiaryRefToLocation::try_convert(&who).map_err(|error| {
+			tracing::debug!(target: "xcm::pay", ?error, "Failed to convert beneficiary to location");
+			xcm::latest::Error::InvalidLocation
+		})?;
 
 		let query_id = Querier::new_query(asset_location.clone(), Timeout::get(), Interior::get());
 
@@ -143,10 +150,9 @@ impl<
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_successful(_: &Self::Beneficiary, _: Self::AssetKind, _: Self::Balance) {
-		// We cannot generally guarantee this will go through successfully since we don't have any
-		// control over the XCM transport layers. We just assume that the benchmark environment
-		// will be sending it somewhere sensible.
+	fn ensure_successful(_: &Self::Beneficiary, asset_kind: Self::AssetKind, _: Self::Balance) {
+		let locatable = AssetKindToLocatableAsset::try_convert(asset_kind).unwrap();
+		Router::ensure_successful_delivery(Some(locatable.location));
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -199,7 +205,7 @@ pub struct LocatableAssetId {
 
 /// Adapter `struct` which implements a conversion from any `AssetKind` into a [`LocatableAssetId`]
 /// value using a fixed `Location` for the `location` field.
-pub struct FixedLocation<FixedLocationValue>(sp_std::marker::PhantomData<FixedLocationValue>);
+pub struct FixedLocation<FixedLocationValue>(core::marker::PhantomData<FixedLocationValue>);
 impl<FixedLocationValue: Get<Location>, AssetKind: Into<AssetId>>
 	TryConvert<AssetKind, LocatableAssetId> for FixedLocation<FixedLocationValue>
 {

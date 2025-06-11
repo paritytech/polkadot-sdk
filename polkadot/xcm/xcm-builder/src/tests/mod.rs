@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::{test_utils::*, *};
+use alloc::{vec, vec::Vec};
 use frame_support::{
 	assert_err,
 	traits::{ConstU32, ContainsPair, ProcessMessageError},

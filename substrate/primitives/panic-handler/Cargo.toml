@@ -4,7 +4,7 @@ version = "13.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Custom panic hook with bug report link"
 documentation = "https://docs.rs/sp-panic-handler"
@@ -18,5 +18,4 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 backtrace = { workspace = true }
-lazy_static = { workspace = true }
 regex = { workspace = true }

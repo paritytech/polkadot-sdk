@@ -4,7 +4,7 @@ version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Fuzz storage types of pallet-paged-list"
 publish = false
@@ -18,8 +18,13 @@ path = "src/paged_list.rs"
 
 [dependencies]
 arbitrary = { workspace = true }
+frame = { workspace = true, features = ["runtime"] }
 honggfuzz = { workspace = true }
-
-frame-support = { features = ["std"], workspace = true }
-sp-io = { features = ["std"], workspace = true }
 pallet-paged-list = { features = ["std"], workspace = true }
+
+[features]
+default = ["std"]
+std = [
+	"frame/std",
+	"pallet-paged-list/std",
+]

@@ -4,7 +4,7 @@ version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Hashing primitives."
 documentation = "https://docs.rs/sp-crypto-hashing"
@@ -14,6 +14,13 @@ workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
+
+[lib]
+bench = false
+
+[[bench]]
+name = "bench"
+harness = false
 
 [dependencies]
 blake2b_simd = { workspace = true }
@@ -26,13 +33,6 @@ twox-hash = { features = ["digest_0_10"], workspace = true }
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }
 sp-crypto-hashing-proc-macro = { workspace = true, default-features = true }
-
-[[bench]]
-name = "bench"
-harness = false
-
-[lib]
-bench = false
 
 [features]
 default = ["std"]

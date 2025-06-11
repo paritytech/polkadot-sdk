@@ -29,14 +29,6 @@ fn benchmark_overhead_works() {
 	}
 }
 
-/// `benchmark overhead` rejects all non-dev runtimes.
-#[test]
-fn benchmark_overhead_rejects_non_dev_runtimes() {
-	for runtime in RUNTIMES.into_iter() {
-		assert!(benchmark_overhead(runtime).is_err());
-	}
-}
-
 fn benchmark_overhead(runtime: &str) -> Result<(), String> {
 	let tmp_dir = tempdir().expect("could not create a temp dir");
 	let base_path = tmp_dir.path();

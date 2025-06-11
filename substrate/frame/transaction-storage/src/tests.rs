@@ -40,9 +40,9 @@ fn discards_data() {
 			vec![0u8; 2000 as usize]
 		));
 		let proof_provider = || {
-			let block_num = <frame_system::Pallet<Test>>::block_number();
+			let block_num = frame_system::Pallet::<Test>::block_number();
 			if block_num == 11 {
-				let parent_hash = <frame_system::Pallet<Test>>::parent_hash();
+				let parent_hash = frame_system::Pallet::<Test>::parent_hash();
 				Some(
 					build_proof(parent_hash.as_ref(), vec![vec![0u8; 2000], vec![0u8; 2000]])
 						.unwrap(),
@@ -92,7 +92,7 @@ fn checks_proof() {
 			vec![0u8; MAX_DATA_SIZE as usize]
 		));
 		run_to_block(10, || None);
-		let parent_hash = <frame_system::Pallet<Test>>::parent_hash();
+		let parent_hash = frame_system::Pallet::<Test>::parent_hash();
 		let proof =
 			build_proof(parent_hash.as_ref(), vec![vec![0u8; MAX_DATA_SIZE as usize]]).unwrap();
 		assert_noop!(
@@ -100,7 +100,7 @@ fn checks_proof() {
 			Error::<Test>::UnexpectedProof,
 		);
 		run_to_block(11, || None);
-		let parent_hash = <frame_system::Pallet<Test>>::parent_hash();
+		let parent_hash = frame_system::Pallet::<Test>::parent_hash();
 
 		let invalid_proof = build_proof(parent_hash.as_ref(), vec![vec![0u8; 1000]]).unwrap();
 		assert_noop!(
@@ -132,9 +132,9 @@ fn renews_data() {
 		));
 		assert_eq!(Balances::free_balance(1), 1_000_000_000 - 4000 * 2 - 200 * 2);
 		let proof_provider = || {
-			let block_num = <frame_system::Pallet<Test>>::block_number();
+			let block_num = frame_system::Pallet::<Test>::block_number();
 			if block_num == 11 || block_num == 16 {
-				let parent_hash = <frame_system::Pallet<Test>>::parent_hash();
+				let parent_hash = frame_system::Pallet::<Test>::parent_hash();
 				Some(build_proof(parent_hash.as_ref(), vec![vec![0u8; 2000]]).unwrap())
 			} else {
 				None

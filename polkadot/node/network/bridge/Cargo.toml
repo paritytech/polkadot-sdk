@@ -5,6 +5,8 @@ description = "The Network Bridge Subsystem — protocol multiplexer for Polkado
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -12,26 +14,26 @@ workspace = true
 [dependencies]
 always-assert = { workspace = true }
 async-trait = { workspace = true }
+bytes = { workspace = true, default-features = true }
+codec = { features = ["derive"], workspace = true }
+fatality = { workspace = true }
 futures = { workspace = true }
 gum = { workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
-codec = { features = ["derive"], workspace = true }
-sc-network = { workspace = true, default-features = true }
-sp-consensus = { workspace = true, default-features = true }
+parking_lot = { workspace = true, default-features = true }
 polkadot-node-metrics = { workspace = true, default-features = true }
 polkadot-node-network-protocol = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-overseer = { workspace = true, default-features = true }
-parking_lot = { workspace = true, default-features = true }
-bytes = { workspace = true, default-features = true }
-fatality = { workspace = true }
+polkadot-primitives = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
+futures-timer = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-node-subsystem-util = { workspace = true, default-features = true }
+polkadot-primitives-test-helpers = { workspace = true }
 sp-core = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
-futures-timer = { workspace = true }
-polkadot-primitives-test-helpers = { workspace = true }

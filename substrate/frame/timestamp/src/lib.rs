@@ -18,7 +18,7 @@
 //! > Made with *Substrate*, for *Polkadot*.
 //!
 //! [![github]](https://github.com/paritytech/polkadot-sdk/substrate/frame/timestamp)
-//! [![polkadot]](https://polkadot.network)
+//! [![polkadot]](https://polkadot.com)
 //!
 //! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white
 //! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&labelColor=555555&logo=github
@@ -133,9 +133,9 @@ mod mock;
 mod tests;
 pub mod weights;
 
+use core::{cmp, result};
 use frame_support::traits::{OnTimestampSet, Time, UnixTime};
 use sp_runtime::traits::{AtLeast32Bit, SaturatedConversion, Scale, Zero};
-use sp_std::{cmp, result};
 use sp_timestamp::{InherentError, InherentType, INHERENT_IDENTIFIER};
 pub use weights::WeightInfo;
 
@@ -161,7 +161,7 @@ pub mod pallet {
 		impl DefaultConfig for TestDefaultConfig {
 			type Moment = u64;
 			type OnTimestampSet = ();
-			type MinimumPeriod = frame_support::traits::ConstU64<1>;
+			type MinimumPeriod = ConstUint<1>;
 			type WeightInfo = ();
 		}
 	}
@@ -367,14 +367,14 @@ impl<T: Config> UnixTime for Pallet<T> {
 		// now is duration since unix epoch in millisecond as documented in
 		// `sp_timestamp::InherentDataProvider`.
 		let now = Now::<T>::get();
-		sp_std::if_std! {
-			if now == T::Moment::zero() {
-				log::error!(
-					target: "runtime::timestamp",
-					"`pallet_timestamp::UnixTime::now` is called at genesis, invalid value returned: 0",
-				);
-			}
+
+		if now == T::Moment::zero() {
+			log::error!(
+				target: "runtime::timestamp",
+				"`pallet_timestamp::UnixTime::now` is called at genesis, invalid value returned: 0",
+			);
 		}
+
 		core::time::Duration::from_millis(now.saturated_into::<u64>())
 	}
 }

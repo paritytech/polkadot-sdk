@@ -23,9 +23,9 @@ pub use super::mock_helpers::*;
 use super::*;
 
 use crate as pallet_message_queue;
+use alloc::collections::btree_map::BTreeMap;
 use frame_support::{derive_impl, parameter_types};
 use sp_runtime::BuildStorage;
-use sp_std::collections::btree_map::BTreeMap;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -42,10 +42,11 @@ impl frame_system::Config for Test {
 	type Block = Block;
 }
 parameter_types! {
-	pub const HeapSize: u32 = 24;
+	pub const HeapSize: u32 = 40;
 	pub const MaxStale: u32 = 2;
 	pub const ServiceWeight: Option<Weight> = Some(Weight::from_parts(100, 100));
 }
+
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = MockedWeightInfo;
@@ -121,6 +122,12 @@ impl crate::weights::WeightInfo for MockedWeightInfo {
 			.copied()
 			.unwrap_or(DefaultWeightForCall::get())
 	}
+	fn set_service_head() -> Weight {
+		WeightForCall::get()
+			.get("set_service_head")
+			.copied()
+			.unwrap_or(DefaultWeightForCall::get())
+	}
 	fn service_page_item() -> Weight {
 		WeightForCall::get()
 			.get("service_page_item")
@@ -184,8 +191,15 @@ impl ProcessMessage for RecordingMessageProcessor {
 		if meter.try_consume(required).is_ok() {
 			if let Some(p) = message.strip_prefix(&b"callback="[..]) {
 				let s = String::from_utf8(p.to_vec()).expect("Need valid UTF8");
-				Callback::get()(&origin, s.parse().expect("Expected an u32"));
+				if let Err(()) = Callback::get()(&origin, s.parse().expect("Expected an u32")) {
+					return Err(ProcessMessageError::Corrupt)
+				}
+
+				if s.contains("000") {
+					return Ok(false)
+				}
 			}
+
 			let mut m = MessagesProcessed::get();
 			m.push((message.to_vec(), origin));
 			MessagesProcessed::set(m);
@@ -197,7 +211,7 @@ impl ProcessMessage for RecordingMessageProcessor {
 }
 
 parameter_types! {
-	pub static Callback: Box<fn (&MessageOrigin, u32)> = Box::new(|_, _| {});
+	pub static Callback: Box<fn (&MessageOrigin, u32) -> Result<(), ()>> = Box::new(|_, _| { Ok(()) });
 	pub static IgnoreStackOvError: bool = false;
 }
 
@@ -252,8 +266,11 @@ impl ProcessMessage for CountingMessageProcessor {
 		if meter.try_consume(required).is_ok() {
 			if let Some(p) = message.strip_prefix(&b"callback="[..]) {
 				let s = String::from_utf8(p.to_vec()).expect("Need valid UTF8");
-				Callback::get()(&origin, s.parse().expect("Expected an u32"));
+				if let Err(()) = Callback::get()(&origin, s.parse().expect("Expected an u32")) {
+					return Err(ProcessMessageError::Corrupt)
+				}
 			}
+
 			NumMessagesProcessed::set(NumMessagesProcessed::get() + 1);
 			Ok(true)
 		} else {
@@ -310,7 +327,8 @@ where
 {
 	new_test_ext::<T>().execute_with(|| {
 		test();
-		MessageQueue::do_try_state().expect("All invariants must hold after a test");
+		pallet_message_queue::Pallet::<T>::do_try_state()
+			.expect("All invariants must hold after a test");
 	});
 }
 

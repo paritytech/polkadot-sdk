@@ -36,7 +36,7 @@
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", pallet_bar)]
 //!
 //! Let's explore how each of these affect the [`RuntimeCall`], [`RuntimeOrigin`] and
-//! [`RuntimeGenesisConfig`] generated in [`runtime`] by respectively.
+//! [`RuntimeGenesisConfig`] generated in [`runtime`] respectively.
 //!
 //! As observed, [`RuntimeCall`] has 3 variants, one for each pallet and one for `frame_system`. If
 //! you explore further, you will soon realize that each variant is merely a pointer to the `Call`
@@ -134,9 +134,9 @@
 //! * [`crate::reference_docs::frame_origin`] explores further details about the usage of
 //!   `RuntimeOrigin`.
 //! * [`RuntimeCall`] is a particularly interesting composite enum as it dictates the encoding of an
-//!   extrinsic. See [`crate::reference_docs::signed_extensions`] for more information.
+//!   extrinsic. See [`crate::reference_docs::transaction_extensions`] for more information.
 //! * See the documentation of [`construct_runtime`].
-//! * See the corresponding lecture in the [pba-book](https://polkadot-blockchain-academy.github.io/pba-book/frame/outer-enum/page.html).
+//! * See the corresponding lecture in the [PBA Lectures](https://www.youtube.com/watch?v=OCBC1pMYPoc&list=PL-w_i5kwVqbni1Ch2j_RwTIXiB-bwnYqq&index=11).
 //!
 //!
 //! [`construct_runtime`]: frame::runtime::prelude::construct_runtime
@@ -168,7 +168,17 @@ pub mod pallet_foo {
 	pub trait Config: frame_system::Config {}
 
 	#[pallet::origin]
-	#[derive(PartialEq, Eq, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+	#[derive(
+		PartialEq,
+		Eq,
+		Clone,
+		RuntimeDebug,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		TypeInfo,
+		MaxEncodedLen,
+	)]
 	pub enum Origin {
 		A,
 		B,

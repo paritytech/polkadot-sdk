@@ -1,19 +1,25 @@
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT-0
 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Permission is hereby granted, free of charge, to any person obtaining a copy of
+// this software and associated documentation files (the "Software"), to deal in
+// the Software without restriction, including without limitation the rights to
+// use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+// of the Software, and to permit persons to whom the Software is furnished to do
+// so, subject to the following conditions:
+
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 use crate as example_offchain_worker;
 use crate::*;
@@ -31,7 +37,7 @@ use sp_core::{
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystoreExt};
 use sp_runtime::{
 	testing::TestXt,
-	traits::{BlakeTwo256, Extrinsic as ExtrinsicT, IdentifyAccount, IdentityLookup, Verify},
+	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	RuntimeAppPublic,
 };
 
@@ -80,25 +86,47 @@ impl frame_system::offchain::SigningTypes for Test {
 	type Signature = Signature;
 }
 
-impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Test
+impl<LocalCall> frame_system::offchain::CreateTransactionBase<LocalCall> for Test
 where
 	RuntimeCall: From<LocalCall>,
 {
-	type OverarchingCall = RuntimeCall;
+	type RuntimeCall = RuntimeCall;
 	type Extrinsic = Extrinsic;
+}
+
+impl<LocalCall> frame_system::offchain::CreateTransaction<LocalCall> for Test
+where
+	RuntimeCall: From<LocalCall>,
+{
+	type Extension = ();
+
+	fn create_transaction(call: RuntimeCall, _extension: Self::Extension) -> Extrinsic {
+		Extrinsic::new_transaction(call, ())
+	}
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test
 where
 	RuntimeCall: From<LocalCall>,
 {
-	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+	fn create_signed_transaction<
+		C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
+	>(
 		call: RuntimeCall,
 		_public: <Signature as Verify>::Signer,
 		_account: AccountId,
 		nonce: u64,
-	) -> Option<(RuntimeCall, <Extrinsic as ExtrinsicT>::SignaturePayload)> {
-		Some((call, (nonce, ())))
+	) -> Option<Extrinsic> {
+		Some(Extrinsic::new_signed(call, nonce, (), ()))
+	}
+}
+
+impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for Test
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
+		Extrinsic::new_bare(call)
 	}
 }
 
@@ -107,7 +135,6 @@ parameter_types! {
 }
 
 impl Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type AuthorityId = crypto::TestAuthId;
 	type GracePeriod = ConstU64<5>;
 	type UnsignedInterval = ConstU64<128>;
@@ -218,8 +245,8 @@ fn should_submit_signed_transaction_on_chain() {
 		let tx = pool_state.write().transactions.pop().unwrap();
 		assert!(pool_state.read().transactions.is_empty());
 		let tx = Extrinsic::decode(&mut &*tx).unwrap();
-		assert_eq!(tx.signature.unwrap().0, 0);
-		assert_eq!(tx.call, RuntimeCall::Example(crate::Call::submit_price { price: 15523 }));
+		assert!(matches!(tx.preamble, sp_runtime::generic::Preamble::Signed(0, (), (),)));
+		assert_eq!(tx.function, RuntimeCall::Example(crate::Call::submit_price { price: 15523 }));
 	});
 }
 
@@ -258,19 +285,20 @@ fn should_submit_unsigned_transaction_on_chain_for_any_account() {
 		// then
 		let tx = pool_state.write().transactions.pop().unwrap();
 		let tx = Extrinsic::decode(&mut &*tx).unwrap();
-		assert_eq!(tx.signature, None);
+		assert!(tx.is_inherent());
 		if let RuntimeCall::Example(crate::Call::submit_price_unsigned_with_signed_payload {
 			price_payload: body,
 			signature,
-		}) = tx.call
+		}) = tx.function
 		{
 			assert_eq!(body, price_payload);
 
-			let signature_valid =
-				<PricePayload<
-					<Test as SigningTypes>::Public,
-					frame_system::pallet_prelude::BlockNumberFor<Test>,
-				> as SignedPayload<Test>>::verify::<crypto::TestAuthId>(&price_payload, signature);
+			let signature_valid = <PricePayload<
+				<Test as SigningTypes>::Public,
+				frame_system::pallet_prelude::BlockNumberFor<Test>,
+			> as SignedPayload<Test>>::verify::<crypto::TestAuthId>(
+				&price_payload, signature
+			);
 
 			assert!(signature_valid);
 		}
@@ -312,19 +340,20 @@ fn should_submit_unsigned_transaction_on_chain_for_all_accounts() {
 		// then
 		let tx = pool_state.write().transactions.pop().unwrap();
 		let tx = Extrinsic::decode(&mut &*tx).unwrap();
-		assert_eq!(tx.signature, None);
+		assert!(tx.is_inherent());
 		if let RuntimeCall::Example(crate::Call::submit_price_unsigned_with_signed_payload {
 			price_payload: body,
 			signature,
-		}) = tx.call
+		}) = tx.function
 		{
 			assert_eq!(body, price_payload);
 
-			let signature_valid =
-				<PricePayload<
-					<Test as SigningTypes>::Public,
-					frame_system::pallet_prelude::BlockNumberFor<Test>,
-				> as SignedPayload<Test>>::verify::<crypto::TestAuthId>(&price_payload, signature);
+			let signature_valid = <PricePayload<
+				<Test as SigningTypes>::Public,
+				frame_system::pallet_prelude::BlockNumberFor<Test>,
+			> as SignedPayload<Test>>::verify::<crypto::TestAuthId>(
+				&price_payload, signature
+			);
 
 			assert!(signature_valid);
 		}
@@ -352,9 +381,9 @@ fn should_submit_raw_unsigned_transaction_on_chain() {
 		let tx = pool_state.write().transactions.pop().unwrap();
 		assert!(pool_state.read().transactions.is_empty());
 		let tx = Extrinsic::decode(&mut &*tx).unwrap();
-		assert_eq!(tx.signature, None);
+		assert!(tx.is_inherent());
 		assert_eq!(
-			tx.call,
+			tx.function,
 			RuntimeCall::Example(crate::Call::submit_price_unsigned {
 				block_number: 1,
 				price: 15523
@@ -375,7 +404,7 @@ fn price_oracle_response(state: &mut testing::OffchainState) {
 
 #[test]
 fn parse_price_works() {
-	let test_data = vec![
+	let test_data = alloc::vec![
 		("{\"USD\":6536.92}", Some(653692)),
 		("{\"USD\":65.92}", Some(6592)),
 		("{\"USD\":6536.924565}", Some(653692)),

@@ -21,27 +21,25 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{
-	traits::{EstimateNextSessionRotation, Get, OneSessionHandler},
-	BoundedVec,
-};
-use frame_system::{
-	offchain::{SendTransactionTypes, SubmitTransaction},
-	pallet_prelude::BlockNumberFor,
-};
+extern crate alloc;
+
 pub use pallet::*;
-use scale_info::TypeInfo;
+
+use alloc::vec::Vec;
+use core::cmp::Ordering;
+use frame::{
+	deps::{
+		sp_io::{self, MultiRemovalResults},
+		sp_runtime,
+	},
+	prelude::*,
+};
 use serde::{Deserialize, Serialize};
 use sp_application_crypto::RuntimeAppPublic;
-use sp_arithmetic::traits::{CheckedSub, Saturating, UniqueSaturatedInto, Zero};
-use sp_io::MultiRemovalResults;
 use sp_mixnet::types::{
 	AuthorityId, AuthoritySignature, KxPublic, Mixnode, MixnodesErr, PeerId, SessionIndex,
 	SessionPhase, SessionStatus, KX_PUBLIC_SIZE,
 };
-use sp_runtime::RuntimeDebug;
-use sp_std::{cmp::Ordering, vec::Vec};
 
 const LOG_TARGET: &str = "runtime::mixnet";
 
@@ -54,7 +52,16 @@ pub type AuthorityIndex = u32;
 
 /// Like [`Mixnode`], but encoded size is bounded.
 #[derive(
-	Clone, Decode, Encode, MaxEncodedLen, PartialEq, TypeInfo, RuntimeDebug, Serialize, Deserialize,
+	Clone,
+	Decode,
+	DecodeWithMemTracking,
+	Encode,
+	MaxEncodedLen,
+	PartialEq,
+	TypeInfo,
+	RuntimeDebug,
+	Serialize,
+	Deserialize,
 )]
 pub struct BoundedMixnode<ExternalAddresses> {
 	/// Key-exchange public key for the mixnode.
@@ -123,7 +130,7 @@ pub type BoundedMixnodeFor<T> = BoundedMixnode<
 
 /// A mixnode registration. A registration transaction is formed from one of these plus an
 /// [`AuthoritySignature`].
-#[derive(Clone, Decode, Encode, PartialEq, TypeInfo, RuntimeDebug)]
+#[derive(Clone, Decode, DecodeWithMemTracking, Encode, PartialEq, TypeInfo, RuntimeDebug)]
 pub struct Registration<BlockNumber, BoundedMixnode> {
 	/// Block number at the time of creation. When a registration transaction fails to make it on
 	/// to the chain for whatever reason, we send out another one. We want this one to have a
@@ -165,17 +172,14 @@ fn twox<BlockNumber: UniqueSaturatedInto<u64>>(
 // The pallet
 ////////////////////////////////////////////////////////////////////////////////
 
-#[frame_support::pallet(dev_mode)]
+#[frame::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
-
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + SendTransactionTypes<Call<Self>> {
+	pub trait Config: frame_system::Config + CreateBare<Call<Self>> {
 		/// The maximum number of authorities per session.
 		#[pallet::constant]
 		type MaxAuthorities: Get<AuthorityIndex>;
@@ -251,7 +255,7 @@ pub mod pallet {
 		StorageDoubleMap<_, Identity, SessionIndex, Identity, AuthorityIndex, BoundedMixnodeFor<T>>;
 
 	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
+	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		/// The mixnode set for the very first session.
 		pub mixnodes: BoundedVec<BoundedMixnodeFor<T>, T::MaxAuthorities>,
@@ -305,7 +309,7 @@ pub mod pallet {
 
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			let Self::Call::register { registration, signature } = call else {
-				return InvalidTransaction::Call.into()
+				return InvalidTransaction::Call.into();
 			};
 
 			// Check session index matches
@@ -317,16 +321,16 @@ pub mod pallet {
 
 			// Check authority index is valid
 			if registration.authority_index >= T::MaxAuthorities::get() {
-				return InvalidTransaction::BadProof.into()
+				return InvalidTransaction::BadProof.into();
 			}
 			let Some(authority_id) = NextAuthorityIds::<T>::get(registration.authority_index)
 			else {
-				return InvalidTransaction::BadProof.into()
+				return InvalidTransaction::BadProof.into();
 			};
 
 			// Check the authority hasn't registered a mixnode yet
 			if Self::already_registered(registration.session_index, registration.authority_index) {
-				return InvalidTransaction::Stale.into()
+				return InvalidTransaction::Stale.into();
 			}
 
 			// Check signature. Note that we don't use regular signed transactions for registration
@@ -336,7 +340,7 @@ pub mod pallet {
 				authority_id.verify(&encoded_registration, signature)
 			});
 			if !signature_ok {
-				return InvalidTransaction::BadProof.into()
+				return InvalidTransaction::BadProof.into();
 			}
 
 			ValidTransaction::with_tag_prefix("MixnetRegistration")
@@ -365,12 +369,12 @@ impl<T: Config> Pallet<T> {
 			.saturating_sub(CurrentSessionStartBlock::<T>::get());
 		let Some(block_in_phase) = block_in_phase.checked_sub(&T::NumCoverToCurrentBlocks::get())
 		else {
-			return SessionPhase::CoverToCurrent
+			return SessionPhase::CoverToCurrent;
 		};
 		let Some(block_in_phase) =
 			block_in_phase.checked_sub(&T::NumRequestsToCurrentBlocks::get())
 		else {
-			return SessionPhase::RequestsToCurrent
+			return SessionPhase::RequestsToCurrent;
 		};
 		if block_in_phase < T::NumCoverToPrevBlocks::get() {
 			SessionPhase::CoverToPrev
@@ -408,7 +412,7 @@ impl<T: Config> Pallet<T> {
 			return Err(MixnodesErr::InsufficientRegistrations {
 				num: 0,
 				min: T::MinMixnodes::get(),
-			})
+			});
 		};
 		Self::mixnodes(prev_session_index)
 	}
@@ -427,7 +431,7 @@ impl<T: Config> Pallet<T> {
 		// registering
 		let block_in_session = block_number.saturating_sub(CurrentSessionStartBlock::<T>::get());
 		if block_in_session < T::NumRegisterStartSlackBlocks::get() {
-			return false
+			return false;
 		}
 
 		let (Some(end_block), _weight) =
@@ -435,7 +439,7 @@ impl<T: Config> Pallet<T> {
 		else {
 			// Things aren't going to work terribly well in this case as all the authorities will
 			// just pile in after the slack period...
-			return true
+			return true;
 		};
 
 		let remaining_blocks = end_block
@@ -444,7 +448,7 @@ impl<T: Config> Pallet<T> {
 		if remaining_blocks.is_zero() {
 			// Into the slack time at the end of the session. Not necessarily too late;
 			// registrations are accepted right up until the session ends.
-			return true
+			return true;
 		}
 
 		// Want uniform distribution over the remaining blocks, so pick this block with probability
@@ -493,7 +497,7 @@ impl<T: Config> Pallet<T> {
 				"Session {session_index} registration attempted, \
 				but current session is {current_session_index}",
 			);
-			return false
+			return false;
 		}
 
 		let block_number = frame_system::Pallet::<T>::block_number();
@@ -502,7 +506,7 @@ impl<T: Config> Pallet<T> {
 				target: LOG_TARGET,
 				"Waiting for the session to progress further before registering",
 			);
-			return false
+			return false;
 		}
 
 		let Some((authority_index, authority_id)) = Self::next_local_authority() else {
@@ -510,7 +514,7 @@ impl<T: Config> Pallet<T> {
 				target: LOG_TARGET,
 				"Not an authority in the next session; cannot register a mixnode",
 			);
-			return false
+			return false;
 		};
 
 		if Self::already_registered(session_index, authority_index) {
@@ -518,17 +522,18 @@ impl<T: Config> Pallet<T> {
 				target: LOG_TARGET,
 				"Already registered a mixnode for the next session",
 			);
-			return false
+			return false;
 		}
 
 		let registration =
 			Registration { block_number, session_index, authority_index, mixnode: mixnode.into() };
 		let Some(signature) = authority_id.sign(&registration.encode()) else {
 			log::debug!(target: LOG_TARGET, "Failed to sign registration");
-			return false
+			return false;
 		};
 		let call = Call::register { registration, signature };
-		match SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()) {
+		let xt = T::create_bare(call.into());
+		match SubmitTransaction::<T, Call<T>>::submit_transaction(xt) {
 			Ok(()) => true,
 			Err(()) => {
 				log::debug!(

@@ -63,17 +63,11 @@ struct TestHarness {
 	finality_target_rx: Receiver<Option<Hash>>,
 }
 
-#[derive(Default)]
-struct HarnessConfig;
-
 fn test_harness<T: Future<Output = VirtualOverseer>>(
 	case_vars: CaseVars,
 	test: impl FnOnce(TestHarness) -> T,
 ) {
-	let _ = env_logger::builder()
-		.is_test(true)
-		.filter_level(log::LevelFilter::Trace)
-		.try_init();
+	sp_tracing::init_for_tests();
 
 	let pool = TaskExecutor::new();
 	let (mut context, virtual_overseer) =
@@ -86,6 +80,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		context.sender().clone(),
 		Default::default(),
 		None,
+		false,
 	);
 
 	let target_hash = case_vars.target_block;

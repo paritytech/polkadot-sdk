@@ -20,6 +20,8 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub use sp_core::crypto::{key_types, CryptoTypeId, DeriveJunction, KeyTypeId, Ss58Codec};
 #[doc(hidden)]
 pub use sp_core::crypto::{DeriveError, Pair, SecretStringError};
@@ -27,28 +29,29 @@ pub use sp_core::crypto::{DeriveError, Pair, SecretStringError};
 pub use sp_core::{
 	self,
 	crypto::{ByteArray, CryptoType, Derive, IsWrappedBy, Public, Signature, UncheckedFrom, Wraps},
+	proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
 	RuntimeDebug,
 };
 
 #[doc(hidden)]
+pub use alloc::vec::Vec;
+#[doc(hidden)]
 pub use codec;
+#[doc(hidden)]
+pub use core::ops::Deref;
 #[doc(hidden)]
 pub use scale_info;
 #[doc(hidden)]
 #[cfg(feature = "serde")]
 pub use serde;
-#[doc(hidden)]
-pub use sp_std::{ops::Deref, vec::Vec};
 
 #[cfg(feature = "bandersnatch-experimental")]
 pub mod bandersnatch;
 #[cfg(feature = "bls-experimental")]
-pub mod bls377;
-#[cfg(feature = "bls-experimental")]
 pub mod bls381;
 pub mod ecdsa;
 #[cfg(feature = "bls-experimental")]
-pub mod ecdsa_bls377;
+pub mod ecdsa_bls381;
 pub mod ed25519;
 pub mod sr25519;
 mod traits;
@@ -175,6 +178,18 @@ macro_rules! app_crypto_pair_common {
 			}
 		}
 
+		impl $crate::ProofOfPossessionVerifier for Pair {
+			fn verify_proof_of_possession(
+				proof_of_possession: &Self::Signature,
+				allegedly_possessed_pubkey: &Self::Public,
+			) -> bool {
+				<$pair>::verify_proof_of_possession(
+					&proof_of_possession.0,
+					allegedly_possessed_pubkey.as_ref(),
+				)
+			}
+		}
+
 		impl $crate::AppCrypto for Pair {
 			type Public = Public;
 			type Pair = Pair;
@@ -249,6 +264,7 @@ macro_rules! app_crypto_public_full_crypto {
 				Clone, Eq, Hash, PartialEq, PartialOrd, Ord,
 				$crate::codec::Encode,
 				$crate::codec::Decode,
+				$crate::codec::DecodeWithMemTracking,
 				$crate::RuntimeDebug,
 				$crate::codec::MaxEncodedLen,
 				$crate::scale_info::TypeInfo,
@@ -285,6 +301,7 @@ macro_rules! app_crypto_public_not_full_crypto {
 				Clone, Eq, Hash, PartialEq, Ord, PartialOrd,
 				$crate::codec::Encode,
 				$crate::codec::Decode,
+				$crate::codec::DecodeWithMemTracking,
 				$crate::RuntimeDebug,
 				$crate::codec::MaxEncodedLen,
 				$crate::scale_info::TypeInfo,
@@ -357,7 +374,7 @@ macro_rules! app_crypto_public_common {
 #[doc(hidden)]
 pub mod module_format_string_prelude {
 	#[cfg(all(not(feature = "std"), feature = "serde"))]
-	pub use sp_std::alloc::{format, string::String};
+	pub use alloc::{format, string::String};
 	#[cfg(feature = "std")]
 	pub use std::{format, string::String};
 }
@@ -430,6 +447,7 @@ macro_rules! app_crypto_signature_full_crypto {
 			#[derive(Clone, Eq, PartialEq,
 				$crate::codec::Encode,
 				$crate::codec::Decode,
+				$crate::codec::DecodeWithMemTracking,
 				$crate::RuntimeDebug,
 				$crate::scale_info::TypeInfo,
 			)]
@@ -464,6 +482,7 @@ macro_rules! app_crypto_signature_not_full_crypto {
 			#[derive(Clone, Eq, PartialEq,
 				$crate::codec::Encode,
 				$crate::codec::Decode,
+				$crate::codec::DecodeWithMemTracking,
 				$crate::RuntimeDebug,
 				$crate::scale_info::TypeInfo,
 			)]

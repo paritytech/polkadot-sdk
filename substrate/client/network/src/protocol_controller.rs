@@ -464,7 +464,7 @@ impl ProtocolController {
 	/// maintain connections with such peers.
 	fn on_add_reserved_peer(&mut self, peer_id: PeerId) {
 		if self.reserved_nodes.contains_key(&peer_id) {
-			warn!(
+			debug!(
 				target: LOG_TARGET,
 				"Trying to add an already reserved node {peer_id} as reserved on {:?}.",
 				self.set_id,
@@ -878,7 +878,6 @@ mod tests {
 			fn peer_reputation(&self, peer_id: &sc_network_types::PeerId) -> i32;
 			fn peer_role(&self, peer_id: &sc_network_types::PeerId) -> Option<ObservedRole>;
 			fn outgoing_candidates(&self, count: usize, ignored: HashSet<sc_network_types::PeerId>) -> Vec<sc_network_types::PeerId>;
-			fn num_known_peers(&self) -> usize;
 			fn add_known_peer(&self, peer_id: sc_network_types::PeerId);
 		}
 	}

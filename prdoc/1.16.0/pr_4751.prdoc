@@ -1,0 +1,22 @@
+title: "Use all parachain heads for BEEFY MMR extra data"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Previously, the extra data in an MMR leaf nodes was only computed based on lease-based parachain heads.
+      This PR extends the extra data to include others, including on-demand parachain heads.
+      Currently, the number of heads is limited to the first 1024 heads sorted by para id.
+
+crates:
+  - name: polkadot-runtime-parachains
+    bump: minor
+  - name: rococo-runtime
+    bump: minor
+  - name: westend-runtime
+    bump: minor
+  - name: pallet-mmr
+    bump: major
+  - name: pallet-beefy-mmr
+    bump: minor
+  - name: polkadot-sdk
+    bump: minor

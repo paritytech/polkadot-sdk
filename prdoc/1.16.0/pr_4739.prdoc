@@ -1,0 +1,15 @@
+title: parachain-template - genesis config presets added
+
+doc:
+  - audience: Node Dev
+    description: |
+        - common DEV_RUNTIME_PRESET ("development") const added to sp-genesis-builder. 
+        - parachain-templates are now using presets.
+
+crates:
+  - name: sp-genesis-builder
+    bump: minor
+  - name: parachain-template-node
+    bump: patch
+  - name: parachain-template-runtime
+    bump: patch

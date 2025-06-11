@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use clap::Parser;
-use frame_benchmarking_cli::BenchmarkCmd;
+use frame_benchmarking_cli::{BenchmarkCmd, OpaqueBlock};
 use sc_cli::Result;
 use sp_runtime::traits::BlakeTwo256;
 
@@ -36,13 +36,19 @@ use sp_runtime::traits::BlakeTwo256;
 /// Directly via crates.io:
 ///
 /// ```sh
-/// cargo install --locked frame-omni-bencher
+/// cargo install frame-omni-bencher --profile=production
 /// ```
 ///
-/// or when the sources are locally checked out:
+/// from GitHub:
 ///
 /// ```sh
-/// cargo install --locked --path substrate/utils/frame/omni-bencher --profile=production
+/// cargo install --git https://github.com/paritytech/polkadot-sdk frame-omni-bencher --profile=production
+/// ```
+///
+/// or locally from the sources:
+///
+/// ```sh
+/// cargo install --path substrate/utils/frame/omni-bencher --profile=production
 /// ```
 ///
 /// Check the installed version and print the docs:
@@ -60,7 +66,7 @@ use sp_runtime::traits::BlakeTwo256;
 /// cargo build -p westend-runtime --profile production --features runtime-benchmarks
 /// ```
 ///
-/// Now as example we benchmark `pallet_balances`:
+/// Now as an example, we benchmark the `balances` pallet:
 ///
 /// ```sh
 /// frame-omni-bencher v1 benchmark pallet \
@@ -123,27 +129,20 @@ impl Command {
 		}
 	}
 }
-
 impl V1SubCommand {
 	pub fn run(self) -> Result<()> {
-		let pallet = match self {
+		match self {
 			V1SubCommand::Benchmark(V1BenchmarkCommand { sub }) => match sub {
-				BenchmarkCmd::Pallet(pallet) => pallet,
+				BenchmarkCmd::Pallet(pallet) => {
+					pallet.run_with_spec::<BlakeTwo256, HostFunctions>(None)
+				},
+				BenchmarkCmd::Overhead(overhead_cmd) =>
+					overhead_cmd.run_with_default_builder_and_spec::<OpaqueBlock, HostFunctions>(None),
 				_ =>
 					return Err(
-						"Only the `v1 benchmark pallet` command is currently supported".into()
+						"Only the `v1 benchmark pallet` and `v1 benchmark overhead` command is currently supported".into()
 					),
 			},
-		};
-
-		if let Some(spec) = pallet.shared_params.chain {
-			return Err(format!(
-				"Chain specs are not supported. Please remove `--chain={spec}` and use \
-				`--runtime=<PATH>` instead"
-			)
-			.into())
 		}
-
-		pallet.run_with_spec::<BlakeTwo256, HostFunctions>(None)
 	}
 }

@@ -15,10 +15,10 @@
 
 #[cfg(test)]
 mod imports {
-	pub use codec::Encode;
+	pub(crate) use codec::Encode;
 
 	// Substrate
-	pub use frame_support::{
+	pub(crate) use frame_support::{
 		assert_err, assert_ok,
 		pallet_prelude::Weight,
 		sp_runtime::{DispatchError, DispatchResult, ModuleError},
@@ -26,34 +26,62 @@ mod imports {
 	};
 
 	// Polkadot
-	pub use xcm::{
+	pub(crate) use xcm::{
+		latest::{ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH},
 		prelude::{AccountId32 as AccountId32Junction, *},
-		v3,
 	};
-	pub use xcm_executor::traits::TransferType;
+	pub(crate) use xcm_executor::traits::TransferType;
 
 	// Cumulus
-	pub use asset_test_utils::xcm_helpers;
-	pub use emulated_integration_tests_common::{
-		test_parachain_is_trusted_teleporter,
+	pub(crate) use asset_test_utils::xcm_helpers;
+	pub(crate) use emulated_integration_tests_common::{
+		accounts::DUMMY_EMPTY,
+		test_parachain_is_trusted_teleporter, test_parachain_is_trusted_teleporter_for_relay,
+		test_relay_is_trusted_teleporter, test_xcm_fee_querying_apis_work_for_asset_hub,
 		xcm_emulator::{
 			assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, Test,
 			TestArgs, TestContext, TestExt,
 		},
-		xcm_helpers::{non_fee_asset, xcm_transact_paid_execution},
-		ASSETS_PALLET_ID, RESERVABLE_ASSET_ID, XCM_V3,
+		xcm_helpers::{
+			fee_asset, get_amount_from_versioned_assets, non_fee_asset, xcm_transact_paid_execution,
+		},
+		PenpalATeleportableAssetLocation, ASSETS_PALLET_ID, RESERVABLE_ASSET_ID, XCM_V3,
 	};
-	pub use parachains_common::Balance;
-	pub use rococo_system_emulated_network::{
+	pub(crate) use parachains_common::Balance;
+	pub(crate) use rococo_system_emulated_network::{
 		asset_hub_rococo_emulated_chain::{
+			asset_hub_rococo_runtime::{
+				self,
+				xcm_config::{
+					self as ahr_xcm_config, TokenLocation as RelayLocation, TreasuryAccount,
+					XcmConfig as AssetHubRococoXcmConfig,
+				},
+				AssetConversionOrigin as AssetHubRococoAssetConversionOrigin,
+				ExistentialDeposit as AssetHubRococoExistentialDeposit,
+			},
 			genesis::{AssetHubRococoAssetOwner, ED as ASSET_HUB_ROCOCO_ED},
 			AssetHubRococoParaPallet as AssetHubRococoPallet,
 		},
 		penpal_emulated_chain::{
+			penpal_runtime::xcm_config::{
+				CustomizableAssetFromSystemAssetHub as PenpalCustomizableAssetFromSystemAssetHub,
+				LocalReservableFromAssetHub as PenpalLocalReservableFromAssetHub,
+				LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
+				UsdtFromAssetHub as PenpalUsdtFromAssetHub,
+			},
 			PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner,
 			PenpalBParaPallet as PenpalBPallet, ED as PENPAL_ED,
 		},
-		rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
+		rococo_emulated_chain::{
+			genesis::ED as ROCOCO_ED,
+			rococo_runtime::{
+				governance as rococo_governance,
+				governance::pallet_custom_origins::Origin::Treasurer,
+				xcm_config::UniversalLocation as RococoUniversalLocation, Dmp,
+				OriginCaller as RococoOriginCaller,
+			},
+			RococoRelayPallet as RococoPallet,
+		},
 		AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
 		AssetHubRococoParaSender as AssetHubRococoSender, BridgeHubRococoPara as BridgeHubRococo,
 		BridgeHubRococoParaReceiver as BridgeHubRococoReceiver, PenpalAPara as PenpalA,
@@ -62,30 +90,17 @@ mod imports {
 		RococoRelayReceiver as RococoReceiver, RococoRelaySender as RococoSender,
 	};
 
-	// Runtimes
-	pub use asset_hub_rococo_runtime::xcm_config::{
-		TokenLocation as RelayLocation, XcmConfig as AssetHubRococoXcmConfig,
-	};
-	pub use penpal_runtime::xcm_config::{
-		LocalReservableFromAssetHub as PenpalLocalReservableFromAssetHub,
-		LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
-	};
-	pub use rococo_runtime::xcm_config::{
-		UniversalLocation as RococoUniversalLocation, XcmConfig as RococoXcmConfig,
-	};
+	pub(crate) const ASSET_ID: u32 = 3;
+	pub(crate) const ASSET_MIN_BALANCE: u128 = 1000;
 
-	pub const ASSET_ID: u32 = 3;
-	pub const ASSET_MIN_BALANCE: u128 = 1000;
-
-	pub type RelayToSystemParaTest = Test<Rococo, AssetHubRococo>;
-	pub type RelayToParaTest = Test<Rococo, PenpalA>;
-	pub type ParaToRelayTest = Test<PenpalA, Rococo>;
-	pub type SystemParaToRelayTest = Test<AssetHubRococo, Rococo>;
-	pub type SystemParaToParaTest = Test<AssetHubRococo, PenpalA>;
-	pub type ParaToSystemParaTest = Test<PenpalA, AssetHubRococo>;
-	pub type ParaToParaThroughRelayTest = Test<PenpalA, PenpalB, Rococo>;
-	pub type ParaToParaThroughAHTest = Test<PenpalA, PenpalB, AssetHubRococo>;
-	pub type RelayToParaThroughAHTest = Test<Rococo, PenpalA, AssetHubRococo>;
+	pub(crate) type RelayToParaTest = Test<Rococo, PenpalA>;
+	pub(crate) type ParaToRelayTest = Test<PenpalA, Rococo>;
+	pub(crate) type SystemParaToRelayTest = Test<AssetHubRococo, Rococo>;
+	pub(crate) type SystemParaToParaTest = Test<AssetHubRococo, PenpalA>;
+	pub(crate) type ParaToSystemParaTest = Test<PenpalA, AssetHubRococo>;
+	pub(crate) type ParaToParaThroughRelayTest = Test<PenpalA, PenpalB, Rococo>;
+	pub(crate) type ParaToParaThroughAHTest = Test<PenpalA, PenpalB, AssetHubRococo>;
+	pub(crate) type RelayToParaThroughAHTest = Test<Rococo, PenpalA, AssetHubRococo>;
 }
 
 #[cfg(test)]

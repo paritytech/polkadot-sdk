@@ -21,18 +21,15 @@
 
 use super::*;
 
-use crate::Pallet as Identity;
+use crate::{migration::v2::LazyMigrationV1ToV2, Pallet as Identity};
+use alloc::{vec, vec::Vec};
 use frame_benchmarking::{account, v2::*, whitelisted_caller, BenchmarkError};
 use frame_support::{
 	assert_ok, ensure,
 	traits::{EnsureOrigin, Get, OnFinalize, OnInitialize},
 };
 use frame_system::RawOrigin;
-use sp_io::crypto::{sr25519_generate, sr25519_sign};
-use sp_runtime::{
-	traits::{Bounded, IdentifyAccount, One},
-	MultiSignature, MultiSigner,
-};
+use sp_runtime::traits::{Bounded, One};
 
 const SEED: u32 = 0;
 
@@ -130,11 +127,7 @@ fn bounded_username<T: Config>(username: Vec<u8>, suffix: Vec<u8>) -> Username<T
 	Username::<T>::try_from(full_username).expect("test usernames should fit within bounds")
 }
 
-#[benchmarks(
-	where
-		<T as frame_system::Config>::AccountId: From<sp_runtime::AccountId32>,
-		T::OffchainSignature: From<MultiSignature>,
-)]
+#[benchmarks]
 mod benchmarks {
 	use super::*;
 
@@ -217,7 +210,7 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 
 		// Give them p many previous sub accounts.
-		let _ = add_sub_accounts::<T>(&caller, p)?;
+		add_sub_accounts::<T>(&caller, p)?;
 
 		// Remove all subs.
 		let subs = create_sub_accounts::<T>(&caller, 0)?;
@@ -245,7 +238,7 @@ mod benchmarks {
 		add_registrars::<T>(r)?;
 
 		// Add sub accounts
-		let _ = add_sub_accounts::<T>(&caller, s)?;
+		add_sub_accounts::<T>(&caller, s)?;
 
 		// Create their main identity with x additional fields
 		let info = T::IdentityInformation::create_identity_info();
@@ -463,7 +456,7 @@ mod benchmarks {
 
 		let info = T::IdentityInformation::create_identity_info();
 		Identity::<T>::set_identity(target_origin.clone(), Box::new(info.clone()))?;
-		let _ = add_sub_accounts::<T>(&target, s)?;
+		add_sub_accounts::<T>(&target, s)?;
 
 		// User requests judgement from all the registrars, and they approve
 		for i in 0..r {
@@ -497,7 +490,7 @@ mod benchmarks {
 	#[benchmark]
 	fn add_sub(s: Linear<0, { T::MaxSubAccounts::get() - 1 }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
-		let _ = add_sub_accounts::<T>(&caller, s)?;
+		add_sub_accounts::<T>(&caller, s)?;
 		let sub = account("new_sub", 0, SEED);
 		let data = Data::Raw(vec![0; 32].try_into().unwrap());
 
@@ -545,7 +538,7 @@ mod benchmarks {
 	fn quit_sub(s: Linear<0, { T::MaxSubAccounts::get() - 1 }>) -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 		let sup = account("super", 0, SEED);
-		let _ = add_sub_accounts::<T>(&sup, s)?;
+		add_sub_accounts::<T>(&sup, s)?;
 		let sup_origin = RawOrigin::Signed(sup).into();
 		Identity::<T>::add_sub(
 			sup_origin,
@@ -592,19 +585,19 @@ mod benchmarks {
 		assert_ok!(Identity::<T>::add_username_authority(
 			origin.clone(),
 			authority_lookup.clone(),
-			suffix,
+			suffix.clone(),
 			allocation
 		));
 
 		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, authority_lookup);
+		_(origin as T::RuntimeOrigin, suffix.into(), authority_lookup);
 
 		assert_last_event::<T>(Event::<T>::AuthorityRemoved { authority }.into());
 		Ok(())
 	}
 
 	#[benchmark]
-	fn set_username_for() -> Result<(), BenchmarkError> {
+	fn set_username_for(p: Linear<0, 1>) -> Result<(), BenchmarkError> {
 		// Set up a username authority.
 		let auth_origin =
 			T::UsernameAuthorityOrigin::try_successful_origin().expect("can generate origin");
@@ -612,6 +605,7 @@ mod benchmarks {
 		let authority_lookup = T::Lookup::unlookup(authority.clone());
 		let suffix = bench_suffix();
 		let allocation = 10;
+		let _ = T::Currency::make_free_balance_be(&authority, BalanceOf::<T>::max_value());
 
 		Identity::<T>::add_username_authority(
 			auth_origin,
@@ -623,19 +617,26 @@ mod benchmarks {
 		let username = bench_username();
 		let bounded_username = bounded_username::<T>(username.clone(), suffix.clone());
 
-		let public = sr25519_generate(0.into(), None);
-		let who_account: T::AccountId = MultiSigner::Sr25519(public).into_account().into();
+		let (public, signature) = T::BenchmarkHelper::sign_message(&bounded_username[..]);
+		let who_account = public.into_account();
 		let who_lookup = T::Lookup::unlookup(who_account.clone());
 
-		let signature = MultiSignature::Sr25519(
-			sr25519_sign(0.into(), &public, &bounded_username[..]).unwrap(),
-		);
-
 		// Verify signature here to avoid surprise errors at runtime
-		assert!(signature.verify(&bounded_username[..], &public.into()));
+		assert!(signature.verify(&bounded_username[..], &who_account));
+		let use_allocation = match p {
+			0 => false,
+			1 => true,
+			_ => unreachable!(),
+		};
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(authority.clone()), who_lookup, username, Some(signature.into()));
+		set_username_for(
+			RawOrigin::Signed(authority.clone()),
+			who_lookup,
+			bounded_username.clone().into(),
+			Some(signature.into()),
+			use_allocation,
+		);
 
 		assert_has_event::<T>(
 			Event::<T>::UsernameSet {
@@ -647,6 +648,15 @@ mod benchmarks {
 		assert_has_event::<T>(
 			Event::<T>::PrimaryUsernameSet { who: who_account, username: bounded_username }.into(),
 		);
+		if use_allocation {
+			let suffix: Suffix<T> = suffix.try_into().unwrap();
+			assert_eq!(AuthorityOf::<T>::get(&suffix).unwrap().allocation, 9);
+		} else {
+			assert_eq!(
+				T::Currency::free_balance(&authority),
+				BalanceOf::<T>::max_value() - T::UsernameDeposit::get()
+			);
+		}
 		Ok(())
 	}
 
@@ -655,7 +665,7 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		let username = bounded_username::<T>(bench_username(), bench_suffix());
 
-		Identity::<T>::queue_acceptance(&caller, username.clone());
+		Identity::<T>::queue_acceptance(&caller, username.clone(), Provider::Allocation);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), username.clone());
@@ -665,10 +675,35 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn remove_expired_approval() -> Result<(), BenchmarkError> {
+	fn remove_expired_approval(p: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		// Set up a username authority.
+		let auth_origin =
+			T::UsernameAuthorityOrigin::try_successful_origin().expect("can generate origin");
+		let authority: T::AccountId = account("authority", 0, SEED);
+		let authority_lookup = T::Lookup::unlookup(authority.clone());
+		let suffix = bench_suffix();
+		let allocation = 10;
+		let _ = T::Currency::make_free_balance_be(&authority, BalanceOf::<T>::max_value());
+
+		Identity::<T>::add_username_authority(
+			auth_origin,
+			authority_lookup,
+			suffix.clone(),
+			allocation,
+		)?;
+
 		let caller: T::AccountId = whitelisted_caller();
-		let username = bounded_username::<T>(bench_username(), bench_suffix());
-		Identity::<T>::queue_acceptance(&caller, username.clone());
+		let username = bounded_username::<T>(bench_username(), suffix.clone());
+		let username_deposit = T::UsernameDeposit::get();
+		let provider = match p {
+			0 => {
+				let _ = T::Currency::reserve(&authority, username_deposit);
+				Provider::AuthorityDeposit(username_deposit)
+			},
+			1 => Provider::Allocation,
+			_ => unreachable!(),
+		};
+		Identity::<T>::queue_acceptance(&caller, username.clone(), provider);
 
 		let expected_expiration =
 			frame_system::Pallet::<T>::block_number() + T::PendingUsernameExpiration::get();
@@ -679,6 +714,16 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller.clone()), username);
 
 		assert_last_event::<T>(Event::<T>::PreapprovalExpired { whose: caller }.into());
+		match p {
+			0 => {
+				assert_eq!(T::Currency::free_balance(&authority), BalanceOf::<T>::max_value());
+			},
+			1 => {
+				let suffix: Suffix<T> = suffix.try_into().unwrap();
+				assert_eq!(AuthorityOf::<T>::get(&suffix).unwrap().allocation, 10);
+			},
+			_ => unreachable!(),
+		}
 		Ok(())
 	}
 
@@ -689,8 +734,8 @@ mod benchmarks {
 		let second_username = bounded_username::<T>(b"slowbenchmark".to_vec(), bench_suffix());
 
 		// First one will be set as primary. Second will not be.
-		Identity::<T>::insert_username(&caller, first_username);
-		Identity::<T>::insert_username(&caller, second_username.clone());
+		Identity::<T>::insert_username(&caller, first_username, Provider::Allocation);
+		Identity::<T>::insert_username(&caller, second_username.clone(), Provider::Allocation);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), second_username.clone());
@@ -702,24 +747,185 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn remove_dangling_username() -> Result<(), BenchmarkError> {
+	fn unbind_username() -> Result<(), BenchmarkError> {
+		// Set up a username authority.
+		let auth_origin =
+			T::UsernameAuthorityOrigin::try_successful_origin().expect("can generate origin");
+		let authority: T::AccountId = account("authority", 0, SEED);
+		let authority_lookup = T::Lookup::unlookup(authority.clone());
+		let suffix = bench_suffix();
+		let allocation = 10;
+		let _ = T::Currency::make_free_balance_be(&authority, BalanceOf::<T>::max_value());
+
+		Identity::<T>::add_username_authority(
+			auth_origin,
+			authority_lookup,
+			suffix.clone(),
+			allocation,
+		)?;
+
 		let caller: T::AccountId = whitelisted_caller();
-		let first_username = bounded_username::<T>(bench_username(), bench_suffix());
-		let second_username = bounded_username::<T>(b"slowbenchmark".to_vec(), bench_suffix());
+		let username = bounded_username::<T>(bench_username(), suffix.clone());
 
-		// First one will be set as primary. Second will not be.
-		Identity::<T>::insert_username(&caller, first_username);
-		Identity::<T>::insert_username(&caller, second_username.clone());
-
-		// User calls `clear_identity`, leaving their second username as "dangling"
-		Identity::<T>::clear_identity(RawOrigin::Signed(caller.clone()).into())?;
+		let username_deposit = T::UsernameDeposit::get();
+		Identity::<T>::insert_username(
+			&caller,
+			username.clone(),
+			Provider::AuthorityDeposit(username_deposit),
+		);
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), second_username.clone());
+		_(RawOrigin::Signed(authority), username.clone());
 
-		assert_last_event::<T>(
-			Event::<T>::DanglingUsernameRemoved { who: caller, username: second_username }.into(),
+		assert_last_event::<T>(Event::<T>::UsernameUnbound { username }.into());
+		Ok(())
+	}
+
+	#[benchmark]
+	fn remove_username() -> Result<(), BenchmarkError> {
+		// Set up a username authority.
+		let authority: T::AccountId = account("authority", 0, SEED);
+		let suffix = bench_suffix();
+		let _ = T::Currency::make_free_balance_be(&authority, BalanceOf::<T>::max_value());
+		let caller: T::AccountId = whitelisted_caller();
+		let username = bounded_username::<T>(bench_username(), suffix.clone());
+
+		let username_deposit = T::UsernameDeposit::get();
+		Identity::<T>::insert_username(
+			&caller,
+			username.clone(),
+			Provider::AuthorityDeposit(username_deposit),
 		);
+		let now = frame_system::Pallet::<T>::block_number();
+		let expiry = now + T::UsernameGracePeriod::get();
+		UnbindingUsernames::<T>::insert(&username, expiry);
+
+		frame_system::Pallet::<T>::set_block_number(expiry);
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), username.clone());
+
+		assert_last_event::<T>(Event::<T>::UsernameRemoved { username }.into());
+		Ok(())
+	}
+
+	#[benchmark]
+	fn kill_username(p: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		// Set up a username authority.
+		let auth_origin =
+			T::UsernameAuthorityOrigin::try_successful_origin().expect("can generate origin");
+		let authority: T::AccountId = account("authority", 0, SEED);
+		let authority_lookup = T::Lookup::unlookup(authority.clone());
+		let suffix = bench_suffix();
+		let allocation = 10;
+		let _ = T::Currency::make_free_balance_be(&authority, BalanceOf::<T>::max_value());
+
+		Identity::<T>::add_username_authority(
+			auth_origin,
+			authority_lookup,
+			suffix.clone(),
+			allocation,
+		)?;
+
+		let caller: T::AccountId = whitelisted_caller();
+		let username = bounded_username::<T>(bench_username(), suffix.clone());
+		let username_deposit = T::UsernameDeposit::get();
+		let provider = match p {
+			0 => {
+				let _ = T::Currency::reserve(&authority, username_deposit);
+				Provider::AuthorityDeposit(username_deposit)
+			},
+			1 => Provider::Allocation,
+			_ => unreachable!(),
+		};
+		Identity::<T>::insert_username(&caller, username.clone(), provider);
+		UnbindingUsernames::<T>::insert(&username, frame_system::Pallet::<T>::block_number());
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, username.clone());
+
+		assert_last_event::<T>(Event::<T>::UsernameKilled { username }.into());
+		match p {
+			0 => {
+				assert_eq!(
+					T::Currency::free_balance(&authority),
+					BalanceOf::<T>::max_value() - username_deposit
+				);
+			},
+			1 => {
+				let suffix: Suffix<T> = suffix.try_into().unwrap();
+				assert_eq!(AuthorityOf::<T>::get(&suffix).unwrap().allocation, 10);
+			},
+			_ => unreachable!(),
+		}
+		Ok(())
+	}
+
+	#[benchmark]
+	fn migration_v2_authority_step() -> Result<(), BenchmarkError> {
+		let setup = LazyMigrationV1ToV2::<T>::setup_benchmark_env_for_migration();
+		assert_eq!(AuthorityOf::<T>::iter().count(), 0);
+		#[block]
+		{
+			LazyMigrationV1ToV2::<T>::authority_step(None);
+		}
+		assert_eq!(AuthorityOf::<T>::get(&setup.suffix).unwrap().account_id, setup.authority);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn migration_v2_username_step() -> Result<(), BenchmarkError> {
+		let setup = LazyMigrationV1ToV2::<T>::setup_benchmark_env_for_migration();
+		assert_eq!(UsernameInfoOf::<T>::iter().count(), 0);
+		#[block]
+		{
+			LazyMigrationV1ToV2::<T>::username_step(None);
+		}
+		assert_eq!(UsernameInfoOf::<T>::iter().next().unwrap().1.owner, setup.account);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn migration_v2_identity_step() -> Result<(), BenchmarkError> {
+		let setup = LazyMigrationV1ToV2::<T>::setup_benchmark_env_for_migration();
+		#[block]
+		{
+			LazyMigrationV1ToV2::<T>::identity_step(None);
+		}
+		assert!(IdentityOf::<T>::get(&setup.account).is_some());
+		Ok(())
+	}
+
+	#[benchmark]
+	fn migration_v2_pending_username_step() -> Result<(), BenchmarkError> {
+		let setup = LazyMigrationV1ToV2::<T>::setup_benchmark_env_for_migration();
+		#[block]
+		{
+			LazyMigrationV1ToV2::<T>::pending_username_step(None);
+		}
+		assert!(PendingUsernames::<T>::get(&setup.username).is_some());
+		Ok(())
+	}
+
+	#[benchmark]
+	fn migration_v2_cleanup_authority_step() -> Result<(), BenchmarkError> {
+		let setup = LazyMigrationV1ToV2::<T>::setup_benchmark_env_for_cleanup();
+		#[block]
+		{
+			LazyMigrationV1ToV2::<T>::cleanup_authority_step(None);
+		}
+		LazyMigrationV1ToV2::<T>::check_authority_cleanup_validity(setup.suffix, setup.authority);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn migration_v2_cleanup_username_step() -> Result<(), BenchmarkError> {
+		let setup = LazyMigrationV1ToV2::<T>::setup_benchmark_env_for_cleanup();
+		#[block]
+		{
+			LazyMigrationV1ToV2::<T>::cleanup_username_step(None);
+		}
+		LazyMigrationV1ToV2::<T>::check_username_cleanup_validity(setup.username, setup.account);
 		Ok(())
 	}
 

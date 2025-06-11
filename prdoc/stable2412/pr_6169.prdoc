@@ -1,0 +1,63 @@
+title: "[Deprecation] deprecate treasury `spend_local` call and related items"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Deprecates `spend_local` from the treasury pallet and items associated with it.
+
+      ### Migration
+
+      #### For users who were using only `spend_local` before
+
+      To replace `spend_local` functionality configure `Paymaster` pallet configuration to be `PayFromAccount` and configure `AssetKind` to be `()` and use `spend` call instead.
+      This way `spend` call will function as deprecated `spend_local`.
+
+      Example:
+      ```
+      impl pallet_treasury::Config for Runtime {
+        ..
+        type AssetKind = ();
+        type Paymaster = PayFromAccount<Self::Currency, TreasuryAccount>;
+        // convert balance 1:1 ratio with native currency
+        type BalanceConverter = UnityAssetBalanceConversion;
+        ..
+      }
+      ```
+
+      #### For users who were already using `spend` with all other assets, except the native asset
+
+      Use `NativeOrWithId` type for `AssetKind` and have a `UnionOf` for native and non-native assets, then use that with `PayAssetFromAccount`.
+
+      Example from `kitchensink-runtime`:
+      ```
+      // Union of native currency and assets
+      pub type NativeAndAssets =
+        UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
+
+      impl pallet_treasury::Config for Runtime {
+        ..
+        type AssetKind = NativeOrWithId<u32>;
+        type Paymaster = PayAssetFromAccount<NativeAndAssets, TreasuryAccount>;
+        type BalanceConverter = AssetRate;
+        ..
+      }
+
+      // AssetRate pallet configuration
+      impl pallet_asset_rate::Config for Runtime {
+        ..
+        type Currency = Balances;
+        type AssetKind = NativeOrWithId<u32>;
+        ..
+      }
+      ```
+
+
+crates:
+- name: pallet-treasury
+  bump: patch
+- name: pallet-bounties
+  bump: patch
+- name: pallet-child-bounties
+  bump: patch
+- name: pallet-tips
+  bump: patch

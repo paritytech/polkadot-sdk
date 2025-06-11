@@ -25,6 +25,7 @@
 pub mod migration;
 
 use crate::traits::{LeaseError, Leaser, Registrar};
+use alloc::{vec, vec::Vec};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Currency, ReservableCurrency},
@@ -34,7 +35,6 @@ use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use polkadot_primitives::Id as ParaId;
 use sp_runtime::traits::{CheckedConversion, CheckedSub, Saturating, Zero};
-use sp_std::prelude::*;
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -74,6 +74,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The currency type used for bidding.
@@ -149,7 +150,7 @@ pub mod pallet {
 			if let Some((lease_period, first_block)) = Self::lease_period_index(n) {
 				// If we're beginning a new lease period then handle that.
 				if first_block {
-					return Self::manage_lease_period_start(lease_period)
+					return Self::manage_lease_period_start(lease_period);
 				}
 			}
 
@@ -209,7 +210,7 @@ pub mod pallet {
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::trigger_onboard())]
 		pub fn trigger_onboard(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			let leases = Leases::<T>::get(para);
 			match leases.first() {
 				// If the first element in leases is present, then it has a lease!
@@ -237,7 +238,7 @@ impl<T: Config> Pallet<T> {
 		let mut parachains = Vec::new();
 		for (para, mut lease_periods) in Leases::<T>::iter() {
 			if lease_periods.is_empty() {
-				continue
+				continue;
 			}
 			// ^^ should never be empty since we would have deleted the entry otherwise.
 
@@ -309,7 +310,7 @@ impl<T: Config> Pallet<T> {
 	// Useful when trying to clean up a parachain leases, as this would tell
 	// you all the balances you need to unreserve.
 	fn all_deposits_held(para: ParaId) -> Vec<(T::AccountId, BalanceOf<T>)> {
-		let mut tracker = sp_std::collections::btree_map::BTreeMap::new();
+		let mut tracker = alloc::collections::btree_map::BTreeMap::new();
 		Leases::<T>::get(para).into_iter().for_each(|lease| match lease {
 			Some((who, amount)) => match tracker.get(&who) {
 				Some(prev_amount) =>
@@ -329,7 +330,7 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> crate::traits::OnSwap for Pallet<T> {
 	fn on_swap(one: ParaId, other: ParaId) {
-		Leases::<T>::mutate(one, |x| Leases::<T>::mutate(other, |y| sp_std::mem::swap(x, y)))
+		Leases::<T>::mutate(one, |x| Leases::<T>::mutate(other, |y| core::mem::swap(x, y)))
 	}
 }
 
@@ -381,7 +382,7 @@ impl<T: Config> Leaser<BlockNumberFor<T>> for Pallet<T> {
 						// attempt.
 						//
 						// We bail, not giving any lease and leave it for governance to sort out.
-						return Err(LeaseError::AlreadyLeased)
+						return Err(LeaseError::AlreadyLeased);
 					}
 				} else if d.len() == i {
 					// Doesn't exist. This is usual.
@@ -488,7 +489,7 @@ impl<T: Config> Leaser<BlockNumberFor<T>> for Pallet<T> {
 		for slot in offset..=offset + period_count {
 			if let Some(Some(_)) = leases.get(slot) {
 				// If there exists any lease period, we exit early and return true.
-				return true
+				return true;
 			}
 		}
 
@@ -578,34 +579,23 @@ mod tests {
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		pallet_balances::GenesisConfig::<Test> {
 			balances: vec![(1, 10), (2, 20), (3, 30), (4, 40), (5, 50), (6, 60)],
+			..Default::default()
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
 		t.into()
 	}
 
-	fn run_to_block(n: BlockNumber) {
-		while System::block_number() < n {
-			Slots::on_finalize(System::block_number());
-			Balances::on_finalize(System::block_number());
-			System::on_finalize(System::block_number());
-			System::set_block_number(System::block_number() + 1);
-			System::on_initialize(System::block_number());
-			Balances::on_initialize(System::block_number());
-			Slots::on_initialize(System::block_number());
-		}
-	}
-
 	#[test]
 	fn basic_setup_works() {
 		new_test_ext().execute_with(|| {
-			run_to_block(1);
+			System::run_to_block::<AllPalletsWithSystem>(1);
 			assert_eq!(Slots::lease_period_length(), (10, 0));
 			let now = System::block_number();
 			assert_eq!(Slots::lease_period_index(now).unwrap().0, 0);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 
-			run_to_block(10);
+			System::run_to_block::<AllPalletsWithSystem>(10);
 			let now = System::block_number();
 			assert_eq!(Slots::lease_period_index(now).unwrap().0, 1);
 		});
@@ -614,7 +604,7 @@ mod tests {
 	#[test]
 	fn lease_lifecycle_works() {
 		new_test_ext().execute_with(|| {
-			run_to_block(1);
+			System::run_to_block::<AllPalletsWithSystem>(1);
 
 			assert_ok!(TestRegistrar::<Test>::register(
 				1,
@@ -627,11 +617,11 @@ mod tests {
 			assert_eq!(Slots::deposit_held(1.into(), &1), 1);
 			assert_eq!(Balances::reserved_balance(1), 1);
 
-			run_to_block(19);
+			System::run_to_block::<AllPalletsWithSystem>(19);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 1);
 			assert_eq!(Balances::reserved_balance(1), 1);
 
-			run_to_block(20);
+			System::run_to_block::<AllPalletsWithSystem>(20);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
 
@@ -645,7 +635,7 @@ mod tests {
 	#[test]
 	fn lease_interrupted_lifecycle_works() {
 		new_test_ext().execute_with(|| {
-			run_to_block(1);
+			System::run_to_block::<AllPalletsWithSystem>(1);
 
 			assert_ok!(TestRegistrar::<Test>::register(
 				1,
@@ -657,19 +647,19 @@ mod tests {
 			assert_ok!(Slots::lease_out(1.into(), &1, 6, 1, 1));
 			assert_ok!(Slots::lease_out(1.into(), &1, 4, 3, 1));
 
-			run_to_block(19);
+			System::run_to_block::<AllPalletsWithSystem>(19);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 6);
 			assert_eq!(Balances::reserved_balance(1), 6);
 
-			run_to_block(20);
+			System::run_to_block::<AllPalletsWithSystem>(20);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 4);
 			assert_eq!(Balances::reserved_balance(1), 4);
 
-			run_to_block(39);
+			System::run_to_block::<AllPalletsWithSystem>(39);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 4);
 			assert_eq!(Balances::reserved_balance(1), 4);
 
-			run_to_block(40);
+			System::run_to_block::<AllPalletsWithSystem>(40);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
 
@@ -688,7 +678,7 @@ mod tests {
 	#[test]
 	fn lease_relayed_lifecycle_works() {
 		new_test_ext().execute_with(|| {
-			run_to_block(1);
+			System::run_to_block::<AllPalletsWithSystem>(1);
 
 			assert_ok!(TestRegistrar::<Test>::register(
 				1,
@@ -704,25 +694,25 @@ mod tests {
 			assert_eq!(Slots::deposit_held(1.into(), &2), 4);
 			assert_eq!(Balances::reserved_balance(2), 4);
 
-			run_to_block(19);
+			System::run_to_block::<AllPalletsWithSystem>(19);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 6);
 			assert_eq!(Balances::reserved_balance(1), 6);
 			assert_eq!(Slots::deposit_held(1.into(), &2), 4);
 			assert_eq!(Balances::reserved_balance(2), 4);
 
-			run_to_block(20);
+			System::run_to_block::<AllPalletsWithSystem>(20);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
 			assert_eq!(Slots::deposit_held(1.into(), &2), 4);
 			assert_eq!(Balances::reserved_balance(2), 4);
 
-			run_to_block(29);
+			System::run_to_block::<AllPalletsWithSystem>(29);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
 			assert_eq!(Slots::deposit_held(1.into(), &2), 4);
 			assert_eq!(Balances::reserved_balance(2), 4);
 
-			run_to_block(30);
+			System::run_to_block::<AllPalletsWithSystem>(30);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
 			assert_eq!(Slots::deposit_held(1.into(), &2), 0);
@@ -738,7 +728,7 @@ mod tests {
 	#[test]
 	fn lease_deposit_increase_works() {
 		new_test_ext().execute_with(|| {
-			run_to_block(1);
+			System::run_to_block::<AllPalletsWithSystem>(1);
 
 			assert_ok!(TestRegistrar::<Test>::register(
 				1,
@@ -755,11 +745,11 @@ mod tests {
 			assert_eq!(Slots::deposit_held(1.into(), &1), 6);
 			assert_eq!(Balances::reserved_balance(1), 6);
 
-			run_to_block(29);
+			System::run_to_block::<AllPalletsWithSystem>(29);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 6);
 			assert_eq!(Balances::reserved_balance(1), 6);
 
-			run_to_block(30);
+			System::run_to_block::<AllPalletsWithSystem>(30);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
 
@@ -773,7 +763,7 @@ mod tests {
 	#[test]
 	fn lease_deposit_decrease_works() {
 		new_test_ext().execute_with(|| {
-			run_to_block(1);
+			System::run_to_block::<AllPalletsWithSystem>(1);
 
 			assert_ok!(TestRegistrar::<Test>::register(
 				1,
@@ -790,19 +780,19 @@ mod tests {
 			assert_eq!(Slots::deposit_held(1.into(), &1), 6);
 			assert_eq!(Balances::reserved_balance(1), 6);
 
-			run_to_block(19);
+			System::run_to_block::<AllPalletsWithSystem>(19);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 6);
 			assert_eq!(Balances::reserved_balance(1), 6);
 
-			run_to_block(20);
+			System::run_to_block::<AllPalletsWithSystem>(20);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 4);
 			assert_eq!(Balances::reserved_balance(1), 4);
 
-			run_to_block(29);
+			System::run_to_block::<AllPalletsWithSystem>(29);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 4);
 			assert_eq!(Balances::reserved_balance(1), 4);
 
-			run_to_block(30);
+			System::run_to_block::<AllPalletsWithSystem>(30);
 			assert_eq!(Slots::deposit_held(1.into(), &1), 0);
 			assert_eq!(Balances::reserved_balance(1), 0);
 
@@ -816,7 +806,7 @@ mod tests {
 	#[test]
 	fn clear_all_leases_works() {
 		new_test_ext().execute_with(|| {
-			run_to_block(1);
+			System::run_to_block::<AllPalletsWithSystem>(1);
 
 			assert_ok!(TestRegistrar::<Test>::register(
 				1,
@@ -852,7 +842,7 @@ mod tests {
 	#[test]
 	fn lease_out_current_lease_period() {
 		new_test_ext().execute_with(|| {
-			run_to_block(1);
+			System::run_to_block::<AllPalletsWithSystem>(1);
 
 			assert_ok!(TestRegistrar::<Test>::register(
 				1,
@@ -867,7 +857,7 @@ mod tests {
 				dummy_validation_code()
 			));
 
-			run_to_block(20);
+			System::run_to_block::<AllPalletsWithSystem>(20);
 			let now = System::block_number();
 			assert_eq!(Slots::lease_period_index(now).unwrap().0, 2);
 			// Can't lease from the past
@@ -884,7 +874,7 @@ mod tests {
 	#[test]
 	fn trigger_onboard_works() {
 		new_test_ext().execute_with(|| {
-			run_to_block(1);
+			System::run_to_block::<AllPalletsWithSystem>(1);
 			assert_ok!(TestRegistrar::<Test>::register(
 				1,
 				ParaId::from(1_u32),
@@ -973,7 +963,7 @@ mod benchmarking {
 	use polkadot_runtime_parachains::paras;
 	use sp_runtime::traits::{Bounded, One};
 
-	use frame_benchmarking::{account, benchmarks, whitelisted_caller, BenchmarkError};
+	use frame_benchmarking::v2::*;
 
 	use crate::slots::Pallet as Slots;
 
@@ -1009,10 +999,15 @@ mod benchmarking {
 		(para, leaser)
 	}
 
-	benchmarks! {
-		where_clause { where T: paras::Config }
+	#[benchmarks(
+		where T: paras::Config,
+	)]
 
-		force_lease {
+	mod benchmarks {
+		use super::*;
+
+		#[benchmark]
+		fn force_lease() -> Result<(), BenchmarkError> {
 			// If there is an offset, we need to be on that block to be able to do lease things.
 			frame_system::Pallet::<T>::set_block_number(T::LeaseOffset::get() + One::one());
 			let para = ParaId::from(1337);
@@ -1023,23 +1018,32 @@ mod benchmarking {
 			let period_count = 3u32.into();
 			let origin =
 				T::ForceOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		}: _<T::RuntimeOrigin>(origin, para, leaser.clone(), amount, period_begin, period_count)
-		verify {
-			assert_last_event::<T>(Event::<T>::Leased {
-				para_id: para,
-				leaser, period_begin,
-				period_count,
-				extra_reserved: amount,
-				total_amount: amount,
-			}.into());
+
+			#[extrinsic_call]
+			_(origin as T::RuntimeOrigin, para, leaser.clone(), amount, period_begin, period_count);
+
+			assert_last_event::<T>(
+				Event::<T>::Leased {
+					para_id: para,
+					leaser,
+					period_begin,
+					period_count,
+					extra_reserved: amount,
+					total_amount: amount,
+				}
+				.into(),
+			);
+
+			Ok(())
 		}
 
-		// Worst case scenario, T on-demand parachains onboard, and C lease holding parachains offboard.
-		manage_lease_period_start {
-			// Assume reasonable maximum of 100 paras at any time
-			let c in 0 .. 100;
-			let t in 0 .. 100;
-
+		// Worst case scenario, T on-demand parachains onboard, and C lease holding parachains
+		// offboard. Assume reasonable maximum of 100 paras at any time
+		#[benchmark]
+		fn manage_lease_period_start(
+			c: Linear<0, 100>,
+			t: Linear<0, 100>,
+		) -> Result<(), BenchmarkError> {
 			let period_begin = 1u32.into();
 			let period_count = 4u32.into();
 
@@ -1047,9 +1051,7 @@ mod benchmarking {
 			frame_system::Pallet::<T>::set_block_number(T::LeaseOffset::get() + One::one());
 
 			// Make T parathreads (on-demand parachains)
-			let paras_info = (0..t).map(|i| {
-				register_a_parathread::<T>(i)
-			}).collect::<Vec<_>>();
+			let paras_info = (0..t).map(|i| register_a_parathread::<T>(i)).collect::<Vec<_>>();
 
 			T::Registrar::execute_pending_transitions();
 
@@ -1064,43 +1066,48 @@ mod benchmarking {
 			T::Registrar::execute_pending_transitions();
 
 			// C lease holding parachains are downgrading to on-demand parachains
-			for i in 200 .. 200 + c {
-				let (para, leaser) = register_a_parathread::<T>(i);
+			for i in 200..200 + c {
+				let (para, _) = register_a_parathread::<T>(i);
 				T::Registrar::make_parachain(para)?;
 			}
 
 			T::Registrar::execute_pending_transitions();
 
-			for i in 0 .. t {
+			for i in 0..t {
 				assert!(T::Registrar::is_parathread(ParaId::from(i)));
 			}
 
-			for i in 200 .. 200 + c {
+			for i in 200..200 + c {
 				assert!(T::Registrar::is_parachain(ParaId::from(i)));
 			}
-		}: {
-				Slots::<T>::manage_lease_period_start(period_begin);
-		} verify {
+			#[block]
+			{
+				let _ = Slots::<T>::manage_lease_period_start(period_begin);
+			}
+
 			// All paras should have switched.
 			T::Registrar::execute_pending_transitions();
-			for i in 0 .. t {
+			for i in 0..t {
 				assert!(T::Registrar::is_parachain(ParaId::from(i)));
 			}
-			for i in 200 .. 200 + c {
+			for i in 200..200 + c {
 				assert!(T::Registrar::is_parathread(ParaId::from(i)));
 			}
+
+			Ok(())
 		}
 
 		// Assume that at most 8 people have deposits for leases on a parachain.
 		// This would cover at least 4 years of leases in the worst case scenario.
-		clear_all_leases {
+		#[benchmark]
+		fn clear_all_leases() -> Result<(), BenchmarkError> {
 			let max_people = 8;
 			let (para, _) = register_a_parathread::<T>(1);
 
 			// If there is an offset, we need to be on that block to be able to do lease things.
 			frame_system::Pallet::<T>::set_block_number(T::LeaseOffset::get() + One::one());
 
-			for i in 0 .. max_people {
+			for i in 0..max_people {
 				let leaser = account("lease_deposit", i, 0);
 				let amount = T::Currency::minimum_balance();
 				T::Currency::make_free_balance_be(&leaser, BalanceOf::<T>::max_value());
@@ -1113,31 +1120,45 @@ mod benchmarking {
 				Slots::<T>::force_lease(origin, para, leaser, amount, period_begin, period_count)?;
 			}
 
-			for i in 0 .. max_people {
+			for i in 0..max_people {
 				let leaser = account("lease_deposit", i, 0);
 				assert_eq!(T::Currency::reserved_balance(&leaser), T::Currency::minimum_balance());
 			}
 
 			let origin =
 				T::ForceOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		}: _<T::RuntimeOrigin>(origin, para)
-		verify {
-			for i in 0 .. max_people {
+
+			#[extrinsic_call]
+			_(origin as T::RuntimeOrigin, para);
+
+			for i in 0..max_people {
 				let leaser = account("lease_deposit", i, 0);
 				assert_eq!(T::Currency::reserved_balance(&leaser), 0u32.into());
 			}
+
+			Ok(())
 		}
 
-		trigger_onboard {
+		#[benchmark]
+		fn trigger_onboard() -> Result<(), BenchmarkError> {
 			// get a parachain into a bad state where they did not onboard
 			let (para, _) = register_a_parathread::<T>(1);
-			Leases::<T>::insert(para, vec![Some((account::<T::AccountId>("lease_insert", 0, 0), BalanceOf::<T>::default()))]);
+			Leases::<T>::insert(
+				para,
+				vec![Some((
+					account::<T::AccountId>("lease_insert", 0, 0),
+					BalanceOf::<T>::default(),
+				))],
+			);
 			assert!(T::Registrar::is_parathread(para));
 			let caller = whitelisted_caller();
-		}: _(RawOrigin::Signed(caller), para)
-		verify {
+
+			#[extrinsic_call]
+			_(RawOrigin::Signed(caller), para);
+
 			T::Registrar::execute_pending_transitions();
 			assert!(T::Registrar::is_parachain(para));
+			Ok(())
 		}
 
 		impl_benchmark_test_suite!(

@@ -35,6 +35,12 @@ const EMPTY_RANDOMNESS: [u8; RANDOMNESS_LENGTH] = [
 	161, 164, 127, 217, 153, 138, 37, 48, 192, 248, 0,
 ];
 
+impl crate::migrations::BabePalletPrefix for Test {
+	fn pallet_prefix() -> &'static str {
+		"Babe"
+	}
+}
+
 #[test]
 fn empty_randomness_is_correct() {
 	let s = compute_randomness([0; RANDOMNESS_LENGTH], 0, std::iter::empty(), None);
@@ -43,7 +49,7 @@ fn empty_randomness_is_correct() {
 
 #[test]
 fn initial_values() {
-	new_test_ext(4).execute_with(|| assert_eq!(Babe::authorities().len(), 4))
+	new_test_ext(4).execute_with(|| assert_eq!(Authorities::<Test>::get().len(), 4))
 }
 
 #[test]
@@ -68,25 +74,25 @@ fn first_block_epoch_zero_start() {
 
 		let pre_digest = make_primary_pre_digest(0, genesis_slot, vrf_signature);
 
-		assert_eq!(Babe::genesis_slot(), Slot::from(0));
+		assert_eq!(GenesisSlot::<Test>::get(), Slot::from(0));
 		System::reset_events();
 		System::initialize(&1, &Default::default(), &pre_digest);
 
 		// see implementation of the function for details why: we issue an
 		// epoch-change digest but don't do it via the normal session mechanism.
 		assert!(!Babe::should_end_session(1));
-		assert_eq!(Babe::genesis_slot(), genesis_slot);
-		assert_eq!(Babe::current_slot(), genesis_slot);
-		assert_eq!(Babe::epoch_index(), 0);
+		assert_eq!(GenesisSlot::<Test>::get(), genesis_slot);
+		assert_eq!(CurrentSlot::<Test>::get(), genesis_slot);
+		assert_eq!(EpochIndex::<Test>::get(), 0);
 
 		Babe::on_finalize(1);
 		let header = System::finalize();
 
-		assert_eq!(Babe::author_vrf_randomness(), Some(vrf_randomness));
+		assert_eq!(AuthorVrfRandomness::<Test>::get(), Some(vrf_randomness));
 		assert_eq!(SegmentIndex::<Test>::get(), 0);
 		assert_eq!(UnderConstruction::<Test>::get(0), vec![vrf_randomness]);
-		assert_eq!(Babe::randomness(), [0; 32]);
-		assert_eq!(Babe::author_vrf_randomness(), Some(vrf_randomness));
+		assert_eq!(Randomness::<Test>::get(), [0; 32]);
+		assert_eq!(AuthorVrfRandomness::<Test>::get(), Some(vrf_randomness));
 		assert_eq!(NextRandomness::<Test>::get(), [0; 32]);
 
 		assert_eq!(header.digest.logs.len(), 2);
@@ -95,8 +101,8 @@ fn first_block_epoch_zero_start() {
 
 		let consensus_log = sp_consensus_babe::ConsensusLog::NextEpochData(
 			sp_consensus_babe::digests::NextEpochDescriptor {
-				authorities: Babe::authorities().into_inner(),
-				randomness: Babe::randomness(),
+				authorities: Authorities::<Test>::get().into_inner(),
+				randomness: Randomness::<Test>::get(),
 			},
 		);
 		let consensus_digest = DigestItem::Consensus(BABE_ENGINE_ID, consensus_log.encode());
@@ -118,19 +124,19 @@ fn current_slot_is_processed_on_initialization() {
 
 		System::reset_events();
 		System::initialize(&1, &Default::default(), &pre_digest);
-		assert_eq!(Babe::current_slot(), Slot::from(0));
-		assert!(Babe::initialized().is_none());
+		assert_eq!(CurrentSlot::<Test>::get(), Slot::from(0));
+		assert!(Initialized::<Test>::get().is_none());
 
 		// current slot is updated on initialization
 		Babe::initialize(1);
-		assert_eq!(Babe::current_slot(), genesis_slot);
-		assert!(Babe::initialized().is_some());
+		assert_eq!(CurrentSlot::<Test>::get(), genesis_slot);
+		assert!(Initialized::<Test>::get().is_some());
 		// but author vrf randomness isn't
-		assert_eq!(Babe::author_vrf_randomness(), None);
+		assert_eq!(AuthorVrfRandomness::<Test>::get(), None);
 
 		// instead it is updated on block finalization
 		Babe::on_finalize(1);
-		assert_eq!(Babe::author_vrf_randomness(), Some(vrf_randomness));
+		assert_eq!(AuthorVrfRandomness::<Test>::get(), Some(vrf_randomness));
 	})
 }
 
@@ -151,16 +157,16 @@ where
 
 		// author vrf randomness is not updated on initialization
 		Babe::initialize(1);
-		assert_eq!(Babe::author_vrf_randomness(), None);
+		assert_eq!(AuthorVrfRandomness::<Test>::get(), None);
 
 		// instead it is updated on block finalization to account for any
 		// epoch changes that might happen during the block
 		Babe::on_finalize(1);
-		assert_eq!(Babe::author_vrf_randomness(), Some(vrf_randomness));
+		assert_eq!(AuthorVrfRandomness::<Test>::get(), Some(vrf_randomness));
 
 		// and it is kept after finalizing the block
 		System::finalize();
-		assert_eq!(Babe::author_vrf_randomness(), Some(vrf_randomness));
+		assert_eq!(AuthorVrfRandomness::<Test>::get(), Some(vrf_randomness));
 	})
 }
 
@@ -182,14 +188,14 @@ fn no_author_vrf_output_for_secondary_plain() {
 
 		System::reset_events();
 		System::initialize(&1, &Default::default(), &secondary_plain_pre_digest);
-		assert_eq!(Babe::author_vrf_randomness(), None);
+		assert_eq!(AuthorVrfRandomness::<Test>::get(), None);
 
 		Babe::initialize(1);
-		assert_eq!(Babe::author_vrf_randomness(), None);
+		assert_eq!(AuthorVrfRandomness::<Test>::get(), None);
 
 		Babe::on_finalize(1);
 		System::finalize();
-		assert_eq!(Babe::author_vrf_randomness(), None);
+		assert_eq!(AuthorVrfRandomness::<Test>::get(), None);
 	})
 }
 
@@ -210,14 +216,14 @@ fn can_predict_next_epoch_change() {
 		assert_eq!(<Test as Config>::EpochDuration::get(), 3);
 		// this sets the genesis slot to 6;
 		go_to_block(1, 6);
-		assert_eq!(*Babe::genesis_slot(), 6);
-		assert_eq!(*Babe::current_slot(), 6);
-		assert_eq!(Babe::epoch_index(), 0);
+		assert_eq!(*GenesisSlot::<Test>::get(), 6);
+		assert_eq!(*CurrentSlot::<Test>::get(), 6);
+		assert_eq!(EpochIndex::<Test>::get(), 0);
 
 		progress_to_block(5);
 
-		assert_eq!(Babe::epoch_index(), 5 / 3);
-		assert_eq!(*Babe::current_slot(), 10);
+		assert_eq!(EpochIndex::<Test>::get(), 5 / 3);
+		assert_eq!(*CurrentSlot::<Test>::get(), 10);
 
 		// next epoch change will be at
 		assert_eq!(*Babe::current_epoch_start(), 9); // next change will be 12, 2 slots from now
@@ -266,9 +272,9 @@ fn can_enact_next_config() {
 		assert_eq!(<Test as Config>::EpochDuration::get(), 3);
 		// this sets the genesis slot to 6;
 		go_to_block(1, 6);
-		assert_eq!(*Babe::genesis_slot(), 6);
-		assert_eq!(*Babe::current_slot(), 6);
-		assert_eq!(Babe::epoch_index(), 0);
+		assert_eq!(*GenesisSlot::<Test>::get(), 6);
+		assert_eq!(*CurrentSlot::<Test>::get(), 6);
+		assert_eq!(EpochIndex::<Test>::get(), 0);
 		go_to_block(2, 7);
 
 		let current_config = BabeEpochConfiguration {
@@ -414,7 +420,7 @@ fn disabled_validators_cannot_author_blocks() {
 		// so we should still be able to author blocks
 		start_era(2);
 
-		assert_eq!(Staking::current_era().unwrap(), 2);
+		assert_eq!(pallet_staking::CurrentEra::<Test>::get().unwrap(), 2);
 
 		// let's disable the validator at index 0
 		Session::disable_index(0);
@@ -431,7 +437,7 @@ fn report_equivocation_current_session_works() {
 	ext.execute_with(|| {
 		start_era(1);
 
-		let authorities = Babe::authorities();
+		let authorities = Authorities::<Test>::get();
 		let validators = Session::validators();
 
 		// make sure that all authorities have the same balance
@@ -508,7 +514,7 @@ fn report_equivocation_old_session_works() {
 	ext.execute_with(|| {
 		start_era(1);
 
-		let authorities = Babe::authorities();
+		let authorities = Authorities::<Test>::get();
 
 		// we will use the validator at index 0 as the offending authority
 		let offending_validator_index = 1;
@@ -566,7 +572,7 @@ fn report_equivocation_invalid_key_owner_proof() {
 	ext.execute_with(|| {
 		start_era(1);
 
-		let authorities = Babe::authorities();
+		let authorities = Authorities::<Test>::get();
 
 		// we will use the validator at index 0 as the offending authority
 		let offending_validator_index = 0;
@@ -629,7 +635,7 @@ fn report_equivocation_invalid_equivocation_proof() {
 	ext.execute_with(|| {
 		start_era(1);
 
-		let authorities = Babe::authorities();
+		let authorities = Authorities::<Test>::get();
 
 		// we will use the validator at index 0 as the offending authority
 		let offending_validator_index = 0;
@@ -734,7 +740,7 @@ fn report_equivocation_validate_unsigned_prevents_duplicates() {
 	ext.execute_with(|| {
 		start_era(1);
 
-		let authorities = Babe::authorities();
+		let authorities = Authorities::<Test>::get();
 
 		// generate and report an equivocation for the validator at index 0
 		let offending_validator_index = 0;
@@ -848,7 +854,7 @@ fn report_equivocation_after_skipped_epochs_works() {
 		assert_eq!(SkippedEpochs::<Test>::get(), vec![(10, 1)]);
 
 		// generate an equivocation proof for validator at index 1
-		let authorities = Babe::authorities();
+		let authorities = Authorities::<Test>::get();
 		let offending_validator_index = 1;
 		let offending_authority_pair = pairs
 			.into_iter()
@@ -870,12 +876,11 @@ fn report_equivocation_after_skipped_epochs_works() {
 
 		// report the equivocation, in order for the validation to pass the mapping
 		// between epoch index and session index must be checked.
-		assert!(Babe::report_equivocation_unsigned(
+		assert_ok!(Babe::report_equivocation_unsigned(
 			RuntimeOrigin::none(),
 			Box::new(equivocation_proof),
 			key_owner_proof
-		)
-		.is_ok());
+		));
 	})
 }
 
@@ -906,7 +911,7 @@ fn valid_equivocation_reports_dont_pay_fees() {
 
 		// it should have non-zero weight and the fee has to be paid.
 		// TODO: account for proof size weight
-		assert!(info.weight.ref_time() > 0);
+		assert!(info.call_weight.ref_time() > 0);
 		assert_eq!(info.pays_fee, Pays::Yes);
 
 		// report the equivocation.
@@ -942,12 +947,6 @@ fn valid_equivocation_reports_dont_pay_fees() {
 #[test]
 fn add_epoch_configurations_migration_works() {
 	use frame_support::storage::migration::{get_storage_value, put_storage_value};
-
-	impl crate::migrations::BabePalletPrefix for Test {
-		fn pallet_prefix() -> &'static str {
-			"Babe"
-		}
-	}
 
 	new_test_ext(1).execute_with(|| {
 		let next_config_descriptor =

@@ -20,18 +20,23 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::*;
-use frame_benchmarking::v1::benchmarks_instance_pallet;
-use frame_support::traits::OnInitialize;
+use frame::{
+	benchmarking::prelude::v1::benchmarks_instance_pallet,
+	deps::frame_support::traits::OnInitialize,
+};
 
 benchmarks_instance_pallet! {
 	on_initialize {
 		let x in 1 .. 1_000;
 
 		let leaves = x as NodeIndex;
-	}: {
-		for b in 0..leaves {
-			Pallet::<T, I>::on_initialize((b as u32).into());
+
+		<<T as pallet::Config::<I>>::BenchmarkHelper as BenchmarkHelper>::setup();
+		for leaf in 0..(leaves - 1) {
+			<Pallet::<T, I> as OnInitialize<BlockNumberFor<T>>>::on_initialize((leaf as u32).into());
 		}
+	}: {
+		<Pallet::<T, I> as OnInitialize<BlockNumberFor<T>>>::on_initialize((leaves as u32 - 1).into());
 	} verify {
 		assert_eq!(crate::NumberOfLeaves::<T, I>::get(), leaves);
 	}

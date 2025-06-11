@@ -1,44 +1,48 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Substrate is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Substrate is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Cumulus related core primitive types and traits.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode, MaxEncodedLen};
+extern crate alloc;
+
+use alloc::vec::Vec;
+use codec::{Decode, DecodeAll, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use polkadot_parachain_primitives::primitives::HeadData;
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
-use sp_std::prelude::*;
 
+pub mod parachain_block_data;
+
+pub use parachain_block_data::ParachainBlockData;
 pub use polkadot_core_primitives::InboundDownwardMessage;
 pub use polkadot_parachain_primitives::primitives::{
 	DmpMessageHandler, Id as ParaId, IsSystem, UpwardMessage, ValidationParams, XcmpMessageFormat,
 	XcmpMessageHandler,
 };
 pub use polkadot_primitives::{
+	vstaging::{ClaimQueueOffset, CoreSelector},
 	AbridgedHostConfiguration, AbridgedHrmpChannel, PersistedValidationData,
 };
-
 pub use sp_runtime::{
 	generic::{Digest, DigestItem},
 	traits::Block as BlockT,
 	ConsensusEngineId,
 };
-
 pub use xcm::latest::prelude::*;
 
 /// A module that re-exports relevant relay chain definitions.
@@ -82,7 +86,9 @@ impl From<MessageSendError> for &'static str {
 }
 
 /// The origin of an inbound message.
-#[derive(Encode, Decode, MaxEncodedLen, Clone, Eq, PartialEq, TypeInfo, Debug)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, Clone, Eq, PartialEq, TypeInfo, Debug,
+)]
 pub enum AggregateMessageOrigin {
 	/// The message came from the para-chain itself.
 	Here,
@@ -148,11 +154,23 @@ pub trait UpwardMessageSender {
 	/// Send the given UMP message; return the expected number of blocks before the message will
 	/// be dispatched or an error if the message cannot be sent.
 	/// return the hash of the message sent
-	fn send_upward_message(msg: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError>;
+	fn send_upward_message(message: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError>;
+
+	/// Pre-check the given UMP message.
+	fn can_send_upward_message(message: &UpwardMessage) -> Result<(), MessageSendError>;
+
+	/// Ensure `[Self::send_upward_message]` is successful when called in benchmarks/tests.
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+	fn ensure_successful_delivery() {}
 }
+
 impl UpwardMessageSender for () {
-	fn send_upward_message(_msg: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError> {
+	fn send_upward_message(_message: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError> {
 		Err(MessageSendError::NoChannel)
+	}
+
+	fn can_send_upward_message(_message: &UpwardMessage) -> Result<(), MessageSendError> {
+		Err(MessageSendError::Other)
 	}
 }
 
@@ -193,61 +211,6 @@ pub enum ServiceQuality {
 	Fast,
 }
 
-/// The parachain block that is created by a collator.
-///
-/// This is send as PoV (proof of validity block) to the relay-chain validators. There it will be
-/// passed to the parachain validation Wasm blob to be validated.
-#[derive(codec::Encode, codec::Decode, Clone)]
-pub struct ParachainBlockData<B: BlockT> {
-	/// The header of the parachain block.
-	header: B::Header,
-	/// The extrinsics of the parachain block.
-	extrinsics: sp_std::vec::Vec<B::Extrinsic>,
-	/// The data that is required to emulate the storage accesses executed by all extrinsics.
-	storage_proof: sp_trie::CompactProof,
-}
-
-impl<B: BlockT> ParachainBlockData<B> {
-	/// Creates a new instance of `Self`.
-	pub fn new(
-		header: <B as BlockT>::Header,
-		extrinsics: sp_std::vec::Vec<<B as BlockT>::Extrinsic>,
-		storage_proof: sp_trie::CompactProof,
-	) -> Self {
-		Self { header, extrinsics, storage_proof }
-	}
-
-	/// Convert `self` into the stored block.
-	pub fn into_block(self) -> B {
-		B::new(self.header, self.extrinsics)
-	}
-
-	/// Convert `self` into the stored header.
-	pub fn into_header(self) -> B::Header {
-		self.header
-	}
-
-	/// Returns the header.
-	pub fn header(&self) -> &B::Header {
-		&self.header
-	}
-
-	/// Returns the extrinsics.
-	pub fn extrinsics(&self) -> &[B::Extrinsic] {
-		&self.extrinsics
-	}
-
-	/// Returns the [`CompactProof`](sp_trie::CompactProof).
-	pub fn storage_proof(&self) -> &sp_trie::CompactProof {
-		&self.storage_proof
-	}
-
-	/// Deconstruct into the inner parts.
-	pub fn deconstruct(self) -> (B::Header, sp_std::vec::Vec<B::Extrinsic>, sp_trie::CompactProof) {
-		(self.header, self.extrinsics, self.storage_proof)
-	}
-}
-
 /// A consensus engine ID indicating that this is a Cumulus Parachain.
 pub const CUMULUS_CONSENSUS_ID: ConsensusEngineId = *b"CMLS";
 
@@ -257,12 +220,39 @@ pub enum CumulusDigestItem {
 	/// A digest item indicating the relay-parent a parachain block was built against.
 	#[codec(index = 0)]
 	RelayParent(relay_chain::Hash),
+	/// A digest item indicating which core to select on the relay chain for this block.
+	#[codec(index = 1)]
+	SelectCore {
+		/// The selector that determines the actual core.
+		selector: CoreSelector,
+		/// The claim queue offset that determines how far "into the future" the core is selected.
+		claim_queue_offset: ClaimQueueOffset,
+	},
 }
 
 impl CumulusDigestItem {
 	/// Encode this as a Substrate [`DigestItem`].
 	pub fn to_digest_item(&self) -> DigestItem {
 		DigestItem::Consensus(CUMULUS_CONSENSUS_ID, self.encode())
+	}
+
+	/// Find [`CumulusDigestItem::SelectCore`] in the given `digest`.
+	///
+	/// If there are multiple valid digests, this returns the value of the first one, although
+	/// well-behaving runtimes should not produce headers with more than one.
+	pub fn find_select_core(digest: &Digest) -> Option<(CoreSelector, ClaimQueueOffset)> {
+		digest.convert_first(|d| match d {
+			DigestItem::Consensus(id, val) if id == &CUMULUS_CONSENSUS_ID => {
+				let Ok(CumulusDigestItem::SelectCore { selector, claim_queue_offset }) =
+					CumulusDigestItem::decode_all(&mut &val[..])
+				else {
+					return None
+				};
+
+				Some((selector, claim_queue_offset))
+			},
+			_ => None,
+		})
 	}
 }
 
@@ -382,7 +372,11 @@ pub struct CollationInfo {
 
 sp_api::decl_runtime_apis! {
 	/// Runtime api to collect information about a collation.
-	#[api_version(2)]
+	///
+	/// Version history:
+	/// - Version 2: Changed [`Self::collect_collation_info`] signature
+	/// - Version 3: Signals to the node to use version 1 of [`ParachainBlockData`].
+	#[api_version(3)]
 	pub trait CollectCollationInfo {
 		/// Collect information about a collation.
 		#[changed_in(2)]
@@ -392,5 +386,19 @@ sp_api::decl_runtime_apis! {
 		/// The given `header` is the header of the built block for that
 		/// we are collecting the collation info for.
 		fn collect_collation_info(header: &Block::Header) -> CollationInfo;
+	}
+
+	/// Runtime api used to select the core for which the next block will be built.
+	pub trait GetCoreSelectorApi {
+		/// Retrieve core selector and claim queue offset for the next block.
+		fn core_selector() -> (CoreSelector, ClaimQueueOffset);
+	}
+	/// API to tell the node side how the relay parent should be chosen.
+	///
+	/// A larger offset indicates that the relay parent should not be the tip of the relay chain,
+	/// but `N` blocks behind the tip. This offset is then enforced by the runtime.
+	pub trait RelayParentOffsetApi {
+		/// Fetch the slot offset that is expected from the relay chain.
+		fn relay_parent_offset() -> u32;
 	}
 }

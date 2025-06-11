@@ -1,37 +1,107 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #![cfg(test)]
 
 use super::*;
 use crate::mock::*;
 
+use core::num::NonZeroU32;
 use cumulus_primitives_core::{AbridgedHrmpChannel, InboundDownwardMessage, InboundHrmpMessage};
+use cumulus_primitives_parachain_inherent::{
+	v0, INHERENT_IDENTIFIER, PARACHAIN_INHERENT_IDENTIFIER_V0,
+};
 use frame_support::{assert_ok, parameter_types, weights::Weight};
 use frame_system::RawOrigin;
 use hex_literal::hex;
 use rand::Rng;
+#[cfg(feature = "experimental-ump-signals")]
+use relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
 use relay_chain::HrmpChannelId;
 use sp_core::H256;
-use sp_std::num::NonZeroU32;
+use sp_inherents::InherentDataProvider;
+use sp_trie::StorageProof;
 
 #[test]
 #[should_panic]
 fn block_tests_run_on_drop() {
 	BlockTests::new().add(123, || panic!("if this test passes, block tests run properly"));
+}
+
+/// Test that ensures that the parachain-system pallet accepts both the legacy
+/// and versioned inherent format.
+#[test]
+fn test_inherent_compatibility() {
+	sp_tracing::init_for_tests();
+	let mut valid_inherent_data_v1 = sp_inherents::InherentData::new();
+	valid_inherent_data_v1
+		.put_data(
+			INHERENT_IDENTIFIER,
+			&ParachainInherentData {
+				validation_data: Default::default(),
+				relay_chain_state: StorageProof::empty(),
+				downward_messages: Default::default(),
+				horizontal_messages: Default::default(),
+				relay_parent_descendants: Default::default(),
+				collator_peer_id: None,
+			},
+		)
+		.expect("Put validation function params failed");
+
+	let mut valid_inherent_data_legacy = sp_inherents::InherentData::new();
+	valid_inherent_data_legacy
+		.put_data(
+			PARACHAIN_INHERENT_IDENTIFIER_V0,
+			&v0::ParachainInherentData {
+				validation_data: Default::default(),
+				relay_chain_state: StorageProof::empty(),
+				downward_messages: Default::default(),
+				horizontal_messages: Default::default(),
+			},
+		)
+		.expect("Put validation function params failed");
+
+	let mut valid_inherent_data_full_compatibility = sp_inherents::InherentData::new();
+	let data = ParachainInherentData {
+		validation_data: Default::default(),
+		relay_chain_state: StorageProof::empty(),
+		downward_messages: Default::default(),
+		horizontal_messages: Default::default(),
+		relay_parent_descendants: Default::default(),
+		collator_peer_id: None,
+	};
+	let _ = futures::executor::block_on(
+		data.provide_inherent_data(&mut valid_inherent_data_full_compatibility),
+	);
+
+	wasm_ext().execute_with(|| {
+		assert!(
+			ParachainSystem::create_inherent(&valid_inherent_data_v1).is_some(),
+			"V1 inherent was not accepted"
+		);
+		assert!(
+			ParachainSystem::create_inherent(&valid_inherent_data_legacy).is_some(),
+			"Legacy inherent was not accepted"
+		);
+
+		assert!(
+			ParachainSystem::create_inherent(&valid_inherent_data_full_compatibility).is_some(),
+			"Inherent on multiple keys was not accepted."
+		);
+	})
 }
 
 #[test]
@@ -555,7 +625,7 @@ fn aborted_upgrade() {
 }
 
 #[test]
-fn checks_size() {
+fn checks_code_size() {
 	BlockTests::new()
 		.with_relay_sproof_builder(|_, _, builder| {
 			builder.host_config.max_code_size = 8;
@@ -583,7 +653,25 @@ fn send_upward_message_num_per_candidate() {
 			},
 			|| {
 				let v = UpwardMessages::<Test>::get();
-				assert_eq!(v, vec![b"Mr F was here".to_vec()]);
+				#[cfg(feature = "experimental-ump-signals")]
+				{
+					assert_eq!(
+						v,
+						vec![
+							b"Mr F was here".to_vec(),
+							UMP_SEPARATOR,
+							UMPSignal::SelectCore(
+								CoreSelector(1),
+								ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)
+							)
+							.encode()
+						]
+					);
+				}
+				#[cfg(not(feature = "experimental-ump-signals"))]
+				{
+					assert_eq!(v, vec![b"Mr F was here".to_vec()]);
+				}
 			},
 		)
 		.add_with_post_test(
@@ -594,7 +682,25 @@ fn send_upward_message_num_per_candidate() {
 			},
 			|| {
 				let v = UpwardMessages::<Test>::get();
-				assert_eq!(v, vec![b"message 2".to_vec()]);
+				#[cfg(feature = "experimental-ump-signals")]
+				{
+					assert_eq!(
+						v,
+						vec![
+							b"message 2".to_vec(),
+							UMP_SEPARATOR,
+							UMPSignal::SelectCore(
+								CoreSelector(2),
+								ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)
+							)
+							.encode()
+						]
+					);
+				}
+				#[cfg(not(feature = "experimental-ump-signals"))]
+				{
+					assert_eq!(v, vec![b"message 2".to_vec()]);
+				}
 			},
 		);
 }
@@ -620,7 +726,24 @@ fn send_upward_message_relay_bottleneck() {
 			|| {
 				// The message won't be sent because there is already one message in queue.
 				let v = UpwardMessages::<Test>::get();
-				assert!(v.is_empty());
+				#[cfg(feature = "experimental-ump-signals")]
+				{
+					assert_eq!(
+						v,
+						vec![
+							UMP_SEPARATOR,
+							UMPSignal::SelectCore(
+								CoreSelector(1),
+								ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)
+							)
+							.encode()
+						]
+					);
+				}
+				#[cfg(not(feature = "experimental-ump-signals"))]
+				{
+					assert!(v.is_empty());
+				}
 			},
 		)
 		.add_with_post_test(
@@ -628,9 +751,55 @@ fn send_upward_message_relay_bottleneck() {
 			|| { /* do nothing within block */ },
 			|| {
 				let v = UpwardMessages::<Test>::get();
-				assert_eq!(v, vec![vec![0u8; 8]]);
+				#[cfg(feature = "experimental-ump-signals")]
+				{
+					assert_eq!(
+						v,
+						vec![
+							vec![0u8; 8],
+							UMP_SEPARATOR,
+							UMPSignal::SelectCore(
+								CoreSelector(2),
+								ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)
+							)
+							.encode()
+						]
+					);
+				}
+				#[cfg(not(feature = "experimental-ump-signals"))]
+				{
+					assert_eq!(v, vec![vec![0u8; 8]]);
+				}
 			},
 		);
+}
+
+#[test]
+fn send_upwards_message_checks_size_on_validate() {
+	BlockTests::new()
+		.with_relay_sproof_builder(|_, _, sproof| {
+			sproof.host_config.max_upward_message_size = 128;
+		})
+		.add(1, || {
+			assert_eq!(
+				ParachainSystem::can_send_upward_message(vec![0u8; 129].as_ref()),
+				Err(MessageSendError::TooBig)
+			);
+		});
+}
+
+#[test]
+fn send_upward_message_check_size() {
+	BlockTests::new()
+		.with_relay_sproof_builder(|_, _, sproof| {
+			sproof.host_config.max_upward_message_size = 128;
+		})
+		.add(1, || {
+			assert_eq!(
+				ParachainSystem::send_upward_message(vec![0u8; 129]),
+				Err(MessageSendError::TooBig)
+			);
+		});
 }
 
 #[test]
@@ -754,12 +923,8 @@ fn message_queue_chain() {
 #[test]
 #[cfg(not(feature = "runtime-benchmarks"))]
 fn receive_dmp() {
-	lazy_static::lazy_static! {
-		static ref MSG: InboundDownwardMessage = InboundDownwardMessage {
-			sent_at: 1,
-			msg: b"down".to_vec(),
-		};
-	}
+	static MSG: std::sync::LazyLock<InboundDownwardMessage> =
+		std::sync::LazyLock::new(|| InboundDownwardMessage { sent_at: 1, msg: b"down".to_vec() });
 
 	BlockTests::new()
 		.with_relay_sproof_builder(|_, relay_block_num, sproof| match relay_block_num {
@@ -771,14 +936,14 @@ fn receive_dmp() {
 		})
 		.with_inherent_data(|_, relay_block_num, data| match relay_block_num {
 			1 => {
-				data.downward_messages.push(MSG.clone());
+				data.downward_messages.push((*MSG).clone());
 			},
 			_ => unreachable!(),
 		})
 		.add(1, || {
 			HANDLED_DMP_MESSAGES.with(|m| {
 				let mut m = m.borrow_mut();
-				assert_eq!(&*m, &[(MSG.msg.clone())]);
+				assert_eq!(&*m, &[MSG.msg.clone()]);
 				m.clear();
 			});
 		});
@@ -1101,15 +1266,14 @@ fn receive_hrmp_many() {
 #[test]
 fn upgrade_version_checks_should_work() {
 	use codec::Encode;
-	use sp_runtime::DispatchErrorWithPostInfo;
 	use sp_version::RuntimeVersion;
 
 	let test_data = vec![
-		("test", 0, 1, Err(frame_system::Error::<Test>::SpecVersionNeedsToIncrease)),
-		("test", 1, 0, Err(frame_system::Error::<Test>::SpecVersionNeedsToIncrease)),
-		("test", 1, 1, Err(frame_system::Error::<Test>::SpecVersionNeedsToIncrease)),
-		("test", 1, 2, Err(frame_system::Error::<Test>::SpecVersionNeedsToIncrease)),
-		("test2", 1, 1, Err(frame_system::Error::<Test>::InvalidSpecName)),
+		("test", 0, 1, frame_system::Error::<Test>::SpecVersionNeedsToIncrease),
+		("test", 1, 0, frame_system::Error::<Test>::SpecVersionNeedsToIncrease),
+		("test", 1, 1, frame_system::Error::<Test>::SpecVersionNeedsToIncrease),
+		("test", 1, 2, frame_system::Error::<Test>::SpecVersionNeedsToIncrease),
+		("test2", 1, 1, frame_system::Error::<Test>::InvalidSpecName),
 	];
 
 	for (spec_name, spec_version, impl_version, expected) in test_data.into_iter() {
@@ -1124,15 +1288,21 @@ fn upgrade_version_checks_should_work() {
 		let mut ext = new_test_ext();
 		ext.register_extension(sp_core::traits::ReadRuntimeVersionExt::new(read_runtime_version));
 		ext.execute_with(|| {
+			System::set_block_number(1);
+
 			let new_code = vec![1, 2, 3, 4];
 			let new_code_hash = H256(sp_crypto_hashing::blake2_256(&new_code));
 
-			#[allow(deprecated)]
-			let _authorize = ParachainSystem::authorize_upgrade(RawOrigin::Root.into(), new_code_hash, true);
-			#[allow(deprecated)]
-			let res = ParachainSystem::enact_authorized_upgrade(RawOrigin::None.into(), new_code);
+			let _authorize = System::authorize_upgrade(RawOrigin::Root.into(), new_code_hash);
+			assert_ok!(System::apply_authorized_upgrade(RawOrigin::None.into(), new_code));
 
-			assert_eq!(expected.map_err(DispatchErrorWithPostInfo::from), res);
+			System::assert_last_event(
+				frame_system::Event::RejectedInvalidAuthorizedUpgrade {
+					code_hash: new_code_hash,
+					error: expected.into(),
+				}
+				.into(),
+			);
 		});
 	}
 }
@@ -1178,7 +1348,25 @@ fn ump_fee_factor_increases_and_decreases() {
 			|| {
 				// Factor decreases in `on_finalize`, but only if we are below the threshold
 				let messages = UpwardMessages::<Test>::get();
-				assert_eq!(messages, vec![b"Test".to_vec()]);
+				#[cfg(feature = "experimental-ump-signals")]
+				{
+					assert_eq!(
+						messages,
+						vec![
+							b"Test".to_vec(),
+							UMP_SEPARATOR,
+							UMPSignal::SelectCore(
+								CoreSelector(1),
+								ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)
+							)
+							.encode()
+						]
+					);
+				}
+				#[cfg(not(feature = "experimental-ump-signals"))]
+				{
+					assert_eq!(messages, vec![b"Test".to_vec()]);
+				}
 				assert_eq!(
 					UpwardDeliveryFeeFactor::<Test>::get(),
 					FixedU128::from_rational(105, 100)
@@ -1192,10 +1380,28 @@ fn ump_fee_factor_increases_and_decreases() {
 			},
 			|| {
 				let messages = UpwardMessages::<Test>::get();
-				assert_eq!(
-					messages,
-					vec![b"This message will be enough to increase the fee factor".to_vec(),]
-				);
+				#[cfg(feature = "experimental-ump-signals")]
+				{
+					assert_eq!(
+						messages,
+						vec![
+							b"This message will be enough to increase the fee factor".to_vec(),
+							UMP_SEPARATOR,
+							UMPSignal::SelectCore(
+								CoreSelector(2),
+								ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)
+							)
+							.encode()
+						]
+					);
+				}
+				#[cfg(not(feature = "experimental-ump-signals"))]
+				{
+					assert_eq!(
+						messages,
+						vec![b"This message will be enough to increase the fee factor".to_vec()]
+					);
+				}
 				// Now the delivery fee factor is decreased, since we are below the threshold
 				assert_eq!(UpwardDeliveryFeeFactor::<Test>::get(), FixedU128::from_u32(1));
 			},

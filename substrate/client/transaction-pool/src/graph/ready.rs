@@ -24,10 +24,10 @@ use std::{
 };
 
 use crate::LOG_TARGET;
-use log::{debug, trace};
 use sc_transaction_pool_api::error;
 use serde::Serialize;
 use sp_runtime::{traits::Member, transaction_validity::TransactionTag as Tag};
+use tracing::trace;
 
 use super::{
 	base_pool::Transaction,
@@ -84,7 +84,7 @@ pub struct ReadyTx<Hash, Ex> {
 	/// How many required tags are provided inherently
 	///
 	/// Some transactions might be already pruned from the queue,
-	/// so when we compute ready set we may consider this transactions ready earlier.
+	/// so when we compute ready set we may consider these transactions ready earlier.
 	pub requires_offset: usize,
 }
 
@@ -106,7 +106,7 @@ qed
 "#;
 
 /// Validated transactions that are block ready with all their dependencies met.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ReadyTransactions<Hash: hash::Hash + Eq, Ex> {
 	/// Next free insertion id (used to indicate when a transaction was inserted into the pool).
 	insertion_id: u64,
@@ -232,12 +232,10 @@ impl<Hash: hash::Hash + Member + Serialize, Ex> ReadyTransactions<Hash, Ex> {
 		Ok(replaced)
 	}
 
-	/// Fold a list of ready transactions to compute a single value.
-	pub fn fold<R, F: FnMut(Option<R>, &ReadyTx<Hash, Ex>) -> Option<R>>(
-		&mut self,
-		f: F,
-	) -> Option<R> {
-		self.ready.read().values().fold(None, f)
+	/// Fold a list of ready transactions to compute a single value using initial value of
+	/// accumulator.
+	pub fn fold<R, F: FnMut(R, &ReadyTx<Hash, Ex>) -> R>(&self, init: R, f: F) -> R {
+		self.ready.read().values().fold(init, f)
 	}
 
 	/// Returns true if given transaction is part of the queue.
@@ -281,8 +279,8 @@ impl<Hash: hash::Hash + Member + Serialize, Ex> ReadyTransactions<Hash, Ex> {
 	) -> Vec<Arc<Transaction<Hash, Ex>>> {
 		let mut removed = vec![];
 		let mut ready = self.ready.write();
-		while let Some(hash) = to_remove.pop() {
-			if let Some(mut tx) = ready.remove(&hash) {
+		while let Some(tx_hash) = to_remove.pop() {
+			if let Some(mut tx) = ready.remove(&tx_hash) {
 				let invalidated = tx.transaction.transaction.provides.iter().filter(|tag| {
 					provides_tag_filter
 						.as_ref()
@@ -300,8 +298,8 @@ impl<Hash: hash::Hash + Member + Serialize, Ex> ReadyTransactions<Hash, Ex> {
 				// remove from unlocks
 				for tag in &tx.transaction.transaction.requires {
 					if let Some(hash) = self.provided_tags.get(tag) {
-						if let Some(tx) = ready.get_mut(hash) {
-							remove_item(&mut tx.unlocks, hash);
+						if let Some(tx_unlocking) = ready.get_mut(hash) {
+							remove_item(&mut tx_unlocking.unlocks, &tx_hash);
 						}
 					}
 				}
@@ -315,7 +313,7 @@ impl<Hash: hash::Hash + Member + Serialize, Ex> ReadyTransactions<Hash, Ex> {
 				}
 
 				// add to removed
-				trace!(target: LOG_TARGET, "[{:?}] Removed as part of the subtree.", hash);
+				trace!(target: LOG_TARGET, ?tx_hash, "Removed as part of the subtree.");
 				removed.push(tx.transaction.transaction);
 			}
 		}
@@ -521,10 +519,10 @@ impl<Hash: hash::Hash + Member, Ex> BestIterator<Hash, Ex> {
 	/// When invoked on a fully drained iterator it has no effect either.
 	pub fn report_invalid(&mut self, tx: &Arc<Transaction<Hash, Ex>>) {
 		if let Some(to_report) = self.all.get(&tx.hash) {
-			debug!(
+			trace!(
 				target: LOG_TARGET,
-				"[{:?}] Reported as invalid. Will skip sub-chains while iterating.",
-				to_report.transaction.transaction.hash
+				tx_hash = ?to_report.transaction.transaction.hash,
+				"best-iterator: Reported as invalid. Will skip sub-chains while iterating."
 			);
 			for hash in &to_report.unlocks {
 				self.invalid.insert(hash.clone());
@@ -540,18 +538,19 @@ impl<Hash: hash::Hash + Member, Ex> Iterator for BestIterator<Hash, Ex> {
 		loop {
 			let best = self.best.iter().next_back()?.clone();
 			let best = self.best.take(&best)?;
-			let hash = &best.transaction.hash;
+			let tx_hash = &best.transaction.hash;
 
 			// Check if the transaction was marked invalid.
-			if self.invalid.contains(hash) {
-				debug!(
+			if self.invalid.contains(tx_hash) {
+				trace!(
 					target: LOG_TARGET,
-					"[{:?}] Skipping invalid child transaction while iterating.", hash,
+					?tx_hash,
+					"Skipping invalid child transaction while iterating."
 				);
 				continue
 			}
 
-			let ready = match self.all.get(hash).cloned() {
+			let ready = match self.all.get(tx_hash).cloned() {
 				Some(ready) => ready,
 				// The transaction is not in all, maybe it was removed in the meantime?
 				None => continue,
@@ -589,7 +588,6 @@ fn remove_item<T: PartialEq>(vec: &mut Vec<T>, item: &T) {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_runtime::transaction_validity::TransactionSource as Source;
 
 	fn tx(id: u8) -> Transaction<u64, Vec<u8>> {
 		Transaction {
@@ -601,7 +599,7 @@ mod tests {
 			requires: vec![vec![1], vec![2]],
 			provides: vec![vec![3], vec![4]],
 			propagate: true,
-			source: Source::External,
+			source: crate::TimedTransactionSource::new_external(false),
 		}
 	}
 
@@ -703,7 +701,7 @@ mod tests {
 		tx6.requires = vec![tx5.provides[0].clone()];
 		tx6.provides = vec![];
 		let tx7 = Transaction {
-			data: vec![7],
+			data: vec![7].into(),
 			bytes: 1,
 			hash: 7,
 			priority: 1,
@@ -711,7 +709,7 @@ mod tests {
 			requires: vec![tx1.provides[0].clone()],
 			provides: vec![],
 			propagate: true,
-			source: Source::External,
+			source: crate::TimedTransactionSource::new_external(false),
 		};
 
 		// when
@@ -789,5 +787,41 @@ mod tests {
 		it.report_invalid(&tx4.unwrap());
 		assert_eq!(it.next().as_ref().map(data), Some(7));
 		assert_eq!(it.next().as_ref().map(data), None);
+	}
+
+	#[test]
+	fn should_remove_tx_from_unlocks_set_of_its_parent() {
+		// given
+		let mut ready = ReadyTransactions::default();
+		populate_pool(&mut ready);
+
+		// when
+		let mut it = ready.get();
+		let tx1 = it.next().unwrap();
+		let tx2 = it.next().unwrap();
+		let tx3 = it.next().unwrap();
+		let tx4 = it.next().unwrap();
+		let lock = ready.ready.read();
+		let tx1_unlocks = &lock.get(&tx1.hash).unwrap().unlocks;
+
+		// There are two tags provided by tx1 and required by tx2.
+		assert_eq!(tx1_unlocks[0], tx2.hash);
+		assert_eq!(tx1_unlocks[1], tx2.hash);
+		assert_eq!(tx1_unlocks[2], tx3.hash);
+		assert_eq!(tx1_unlocks[4], tx4.hash);
+		drop(lock);
+
+		// then consider tx2 invalid, and hence, remove it.
+		let removed = ready.remove_subtree(&[tx2.hash]);
+		assert_eq!(removed.len(), 2);
+		assert_eq!(removed[0].hash, tx2.hash);
+		// tx3 is removed too, since it requires tx2 provides tags.
+		assert_eq!(removed[1].hash, tx3.hash);
+
+		let lock = ready.ready.read();
+		let tx1_unlocks = &lock.get(&tx1.hash).unwrap().unlocks;
+		assert!(!tx1_unlocks.contains(&tx2.hash));
+		assert!(!tx1_unlocks.contains(&tx3.hash));
+		assert!(tx1_unlocks.contains(&tx4.hash));
 	}
 }

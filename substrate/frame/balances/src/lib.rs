@@ -150,7 +150,15 @@ mod tests;
 mod types;
 pub mod weights;
 
+extern crate alloc;
+
+use alloc::{
+	format,
+	string::{String, ToString},
+	vec::Vec,
+};
 use codec::{Codec, MaxEncodedLen};
+use core::{cmp, fmt::Debug, mem, result};
 use frame_support::{
 	ensure,
 	pallet_prelude::DispatchResult,
@@ -169,14 +177,15 @@ use frame_support::{
 use frame_system as system;
 pub use impl_currency::{NegativeImbalance, PositiveImbalance};
 use scale_info::TypeInfo;
+use sp_core::{sr25519::Pair as SrPair, Pair};
 use sp_runtime::{
 	traits::{
-		AtLeast32BitUnsigned, Bounded, CheckedAdd, CheckedSub, MaybeSerializeDeserialize,
-		Saturating, StaticLookup, Zero,
+		AtLeast32BitUnsigned, CheckedAdd, CheckedSub, MaybeSerializeDeserialize, Saturating,
+		StaticLookup, Zero,
 	},
 	ArithmeticError, DispatchError, FixedPointOperand, Perbill, RuntimeDebug, TokenError,
 };
-use sp_std::{cmp, fmt::Debug, mem, prelude::*, result};
+
 pub use types::{
 	AccountData, AdjustmentDirection, BalanceLock, DustCleaner, ExtraFlags, Reasons, ReserveData,
 };
@@ -186,11 +195,15 @@ pub use pallet::*;
 
 const LOG_TARGET: &str = "runtime::balances";
 
+// Default derivation(hard) for development accounts.
+const DEFAULT_ADDRESS_URI: &str = "//Sender//{}";
+
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use codec::HasCompact;
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{fungible::Credit, tokens::Precision, VariantCount, VariantCountOf},
@@ -202,7 +215,7 @@ pub mod pallet {
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::*;
-		use frame_support::{derive_impl, traits::ConstU64};
+		use frame_support::derive_impl;
 
 		pub struct TestDefaultConfig;
 
@@ -219,7 +232,7 @@ pub mod pallet {
 			type RuntimeFreezeReason = ();
 
 			type Balance = u64;
-			type ExistentialDeposit = ConstU64<1>;
+			type ExistentialDeposit = ConstUint<1>;
 
 			type ReserveIdentifier = ();
 			type FreezeIdentifier = Self::RuntimeFreezeReason;
@@ -231,6 +244,7 @@ pub mod pallet {
 			type MaxFreezes = VariantCountOf<Self::RuntimeFreezeReason>;
 
 			type WeightInfo = ();
+			type DoneSlashHandler = ();
 		}
 	}
 
@@ -238,6 +252,7 @@ pub mod pallet {
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The overarching event type.
 		#[pallet::no_default_bounds]
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -257,6 +272,7 @@ pub mod pallet {
 			+ Member
 			+ AtLeast32BitUnsigned
 			+ Codec
+			+ HasCompact<Type: DecodeWithMemTracking>
 			+ Default
 			+ Copy
 			+ MaybeSerializeDeserialize
@@ -309,6 +325,14 @@ pub mod pallet {
 		/// The maximum number of individual freeze locks that can exist on an account at any time.
 		#[pallet::constant]
 		type MaxFreezes: Get<u32>;
+
+		/// Allows callbacks to other pallets so they can update their bookkeeping when a slash
+		/// occurs.
+		type DoneSlashHandler: fungible::hold::DoneSlash<
+			Self::RuntimeHoldReason,
+			Self::AccountId,
+			Self::Balance,
+		>;
 	}
 
 	/// The in-code storage version.
@@ -405,13 +429,11 @@ pub mod pallet {
 
 	/// The total units issued in the system.
 	#[pallet::storage]
-	#[pallet::getter(fn total_issuance)]
 	#[pallet::whitelist_storage]
 	pub type TotalIssuance<T: Config<I>, I: 'static = ()> = StorageValue<_, T::Balance, ValueQuery>;
 
 	/// The total units of outstanding deactivated balance in the system.
 	#[pallet::storage]
-	#[pallet::getter(fn inactive_issuance)]
 	#[pallet::whitelist_storage]
 	pub type InactiveIssuance<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, T::Balance, ValueQuery>;
@@ -449,7 +471,6 @@ pub mod pallet {
 	///
 	/// Use of locks is deprecated in favour of freezes. See `https://github.com/paritytech/substrate/pull/12951/`
 	#[pallet::storage]
-	#[pallet::getter(fn locks)]
 	pub type Locks<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Blake2_128Concat,
@@ -462,7 +483,6 @@ pub mod pallet {
 	///
 	/// Use of reserves is deprecated in favour of holds. See `https://github.com/paritytech/substrate/pull/12951/`
 	#[pallet::storage]
-	#[pallet::getter(fn reserves)]
 	pub type Reserves<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Blake2_128Concat,
@@ -497,11 +517,18 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
 		pub balances: Vec<(T::AccountId, T::Balance)>,
+		/// Derived development accounts(Optional):
+		/// - `u32`: The number of development accounts to generate.
+		/// - `T::Balance`: The initial balance assigned to each development account.
+		/// - `String`: An optional derivation(hard) string template.
+		/// - Must include `{}` as a placeholder for account indices.
+		/// - Defaults to `"//Sender//{}`" if `None`.
+		pub dev_accounts: Option<(u32, T::Balance, Option<String>)>,
 	}
 
 	impl<T: Config<I>, I: 'static> Default for GenesisConfig<T, I> {
 		fn default() -> Self {
-			Self { balances: Default::default() }
+			Self { balances: Default::default(), dev_accounts: None }
 		}
 	}
 
@@ -525,13 +552,22 @@ pub mod pallet {
 				.iter()
 				.map(|(x, _)| x)
 				.cloned()
-				.collect::<sp_std::collections::btree_set::BTreeSet<_>>();
+				.collect::<alloc::collections::btree_set::BTreeSet<_>>();
 
 			assert!(
 				endowed_accounts.len() == self.balances.len(),
 				"duplicate balances in genesis."
 			);
 
+			// Generate additional dev accounts.
+			if let Some((num_accounts, balance, ref derivation)) = self.dev_accounts {
+				// Using the provided derivation string or default to `"//Sender//{}`".
+				Pallet::<T, I>::derive_dev_account(
+					num_accounts,
+					balance,
+					derivation.as_deref().unwrap_or(DEFAULT_ADDRESS_URI),
+				);
+			}
 			for &(ref who, free) in self.balances.iter() {
 				frame_system::Pallet::<T>::inc_providers(who);
 				assert!(T::AccountStore::insert(who, AccountData { free, ..Default::default() })
@@ -819,6 +855,28 @@ pub mod pallet {
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Public function to get the total issuance.
+		pub fn total_issuance() -> T::Balance {
+			TotalIssuance::<T, I>::get()
+		}
+
+		/// Public function to get the inactive issuance.
+		pub fn inactive_issuance() -> T::Balance {
+			InactiveIssuance::<T, I>::get()
+		}
+
+		/// Public function to access the Locks storage.
+		pub fn locks(who: &T::AccountId) -> WeakBoundedVec<BalanceLock<T::Balance>, T::MaxLocks> {
+			Locks::<T, I>::get(who)
+		}
+
+		/// Public function to access the reserves storage.
+		pub fn reserves(
+			who: &T::AccountId,
+		) -> BoundedVec<ReserveData<T::ReserveIdentifier, T::Balance>, T::MaxReserves> {
+			Reserves::<T, I>::get(who)
+		}
+
 		fn ed() -> T::Balance {
 			T::ExistentialDeposit::get()
 		}
@@ -856,13 +914,13 @@ pub mod pallet {
 		}
 
 		/// Get the free balance of an account.
-		pub fn free_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
+		pub fn free_balance(who: impl core::borrow::Borrow<T::AccountId>) -> T::Balance {
 			Self::account(who.borrow()).free
 		}
 
 		/// Get the balance of an account that can be used for transfers, reservations, or any other
 		/// non-locking, non-transaction-fee activity. Will be at most `free_balance`.
-		pub fn usable_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
+		pub fn usable_balance(who: impl core::borrow::Borrow<T::AccountId>) -> T::Balance {
 			<Self as fungible::Inspect<_>>::reducible_balance(who.borrow(), Expendable, Polite)
 		}
 
@@ -870,14 +928,12 @@ pub mod pallet {
 		/// or any other kind of fees, though). Will be at most `free_balance`.
 		///
 		/// This requires that the account stays alive.
-		pub fn usable_balance_for_fees(
-			who: impl sp_std::borrow::Borrow<T::AccountId>,
-		) -> T::Balance {
+		pub fn usable_balance_for_fees(who: impl core::borrow::Borrow<T::AccountId>) -> T::Balance {
 			<Self as fungible::Inspect<_>>::reducible_balance(who.borrow(), Protect, Polite)
 		}
 
 		/// Get the reserved balance of an account.
-		pub fn reserved_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
+		pub fn reserved_balance(who: impl core::borrow::Borrow<T::AccountId>) -> T::Balance {
 			Self::account(who.borrow()).reserved
 		}
 
@@ -1012,7 +1068,7 @@ pub mod pallet {
 				}
 				if did_provide && !does_provide {
 					// This could reap the account so must go last.
-					frame_system::Pallet::<T>::dec_providers(who).map_err(|r| {
+					frame_system::Pallet::<T>::dec_providers(who).inspect_err(|_| {
 						// best-effort revert consumer change.
 						if did_consume && !does_consume {
 							let _ = frame_system::Pallet::<T>::inc_consumers(who).defensive();
@@ -1020,7 +1076,6 @@ pub mod pallet {
 						if !did_consume && does_consume {
 							let _ = frame_system::Pallet::<T>::dec_consumers(who);
 						}
-						r
 					})?;
 				}
 
@@ -1220,6 +1275,41 @@ pub mod pallet {
 				destination_status: status,
 			});
 			Ok(actual)
+		}
+
+		/// Generate dev account from derivation(hard) string.
+		pub fn derive_dev_account(num_accounts: u32, balance: T::Balance, derivation: &str) {
+			// Ensure that the number of accounts is not zero.
+			assert!(num_accounts > 0, "num_accounts must be greater than zero");
+
+			assert!(
+				balance >= <T as Config<I>>::ExistentialDeposit::get(),
+				"the balance of any account should always be at least the existential deposit.",
+			);
+
+			assert!(
+				derivation.contains("{}"),
+				"Invalid derivation, expected `{{}}` as part of the derivation"
+			);
+
+			for index in 0..num_accounts {
+				// Replace "{}" in the derivation string with the index.
+				let derivation_string = derivation.replace("{}", &index.to_string());
+
+				// Generate the key pair from the derivation string using sr25519.
+				let pair: SrPair = Pair::from_string(&derivation_string, None)
+					.expect(&format!("Failed to parse derivation string: {derivation_string}"));
+
+				// Convert the public key to AccountId.
+				let who = T::AccountId::decode(&mut &pair.public().encode()[..])
+					.expect(&format!("Failed to decode public key from pair: {:?}", pair.public()));
+
+				// Set the balance for the generated account.
+				Self::mutate_account_handling_dust(&who, |account| {
+					account.free = balance;
+				})
+				.expect(&format!("Failed to add account to keystore: {:?}", who));
+			}
 		}
 	}
 }

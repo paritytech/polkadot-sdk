@@ -12,47 +12,49 @@ workspace = true
 codec = { features = ["derive"], workspace = true }
 
 # Substrate
-sc-service = { workspace = true, default-features = true }
+frame-system = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
+pallet-transaction-payment = { workspace = true, default-features = true }
+sc-block-builder = { workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
 sc-consensus-aura = { workspace = true, default-features = true }
-sc-block-builder = { workspace = true, default-features = true }
 sc-executor = { workspace = true, default-features = true }
 sc-executor-common = { workspace = true, default-features = true }
-substrate-test-client = { workspace = true }
-sp-application-crypto = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
+sc-service = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
-sp-consensus-aura = { workspace = true, default-features = true }
+sp-application-crypto = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
+sp-consensus-aura = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
 sp-inherents = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
 sp-timestamp = { workspace = true, default-features = true }
-frame-system = { workspace = true, default-features = true }
-pallet-transaction-payment = { workspace = true, default-features = true }
-pallet-balances = { workspace = true, default-features = true }
+substrate-test-client = { workspace = true }
 
 # Polkadot
-polkadot-primitives = { workspace = true, default-features = true }
 polkadot-parachain-primitives = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
 
 # Cumulus
+cumulus-pallet-weight-reclaim = { workspace = true, default-features = true }
+cumulus-primitives-core = { workspace = true, default-features = true }
+cumulus-primitives-parachain-inherent = { workspace = true, default-features = true }
+cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
+cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
 cumulus-test-runtime = { workspace = true }
 cumulus-test-service = { workspace = true }
-cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
-cumulus-primitives-core = { workspace = true, default-features = true }
-cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
-cumulus-primitives-parachain-inherent = { workspace = true, default-features = true }
-cumulus-primitives-storage-weight-reclaim = { workspace = true, default-features = true }
 
 [features]
 runtime-benchmarks = [
+	"cumulus-pallet-weight-reclaim/runtime-benchmarks",
 	"cumulus-primitives-core/runtime-benchmarks",
 	"cumulus-test-service/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",

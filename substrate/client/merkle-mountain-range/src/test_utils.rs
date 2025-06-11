@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+//! Test utilities.
+
 use crate::MmrGadget;
 use parking_lot::Mutex;
 use sc_block_builder::BlockBuilderBuilder;
@@ -67,9 +69,12 @@ pub(crate) struct MmrBlock {
 	pub(crate) leaf_data: Vec<u8>,
 }
 
+/// Which kind of key type to use.
 #[derive(Clone, Copy)]
 pub enum OffchainKeyType {
+	/// Temporary key.
 	Temp,
+	/// Cononical key.
 	Canon,
 }
 
@@ -122,7 +127,7 @@ impl MockClient {
 		name: &[u8],
 		maybe_leaf_idx: Option<LeafIndex>,
 	) -> MmrBlock {
-		let mut client = self.client.lock();
+		let client = self.client.lock();
 
 		let hash = client.expect_block_hash_from_id(&at).unwrap();
 		let mut block_builder = BlockBuilderBuilder::new(&*client)

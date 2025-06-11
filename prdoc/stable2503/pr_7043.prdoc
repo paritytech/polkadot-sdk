@@ -1,0 +1,51 @@
+title: Remove usage of `sp-std` from Substrate
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    This PR removes usage of deprecated `sp-std` from Substrate. (following PR of #5010)
+
+    ## Integration
+
+    This PR doesn't remove re-exported `sp_std` from any crates yet, so downstream projects using re-exported `sp_std` will not be affected.
+
+    ## Review Notes
+
+    The existing code using `sp-std` is refactored to use `alloc` and `core` directly. The key-value maps are instantiated from an array of tuples directly instead of using `sp_std::map!` macro.
+
+    This PR replaces `sp_std::Writer`, a helper type for using `Vec<u8>` with `core::fmt::Write` trait, with `alloc::string::String`.
+
+crates:
+- name: pallet-contracts
+  bump: patch
+- name: pallet-revive
+  bump: patch
+- name: sp-runtime
+  bump: patch
+- name: frame-support-procedural
+  bump: patch
+- name: frame-system
+  bump: patch
+- name: pallet-contracts-proc-macro
+  bump: patch
+- name: pallet-revive-proc-macro
+  bump: patch
+- name: frame-support
+  bump: patch
+- name: sc-sysinfo
+  bump: patch
+- name: pallet-bags-list-remote-tests
+  bump: patch
+- name: pallet-election-provider-e2e-test
+  bump: patch
+- name: pallet-nft-fractionalization
+  bump: patch
+- name: pallet-nomination-pools-test-delegate-stake
+  bump: patch
+- name: pallet-nomination-pools-test-transfer-stake
+  bump: patch
+- name: pallet-root-offences
+  bump: patch
+- name: pallet-uniques
+  bump: patch

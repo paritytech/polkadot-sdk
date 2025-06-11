@@ -55,6 +55,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub use pallet::*;
 pub mod weights;
 
@@ -75,6 +77,8 @@ pub mod pallet {
 
 	pub use crate::weights::WeightInfo;
 
+	use alloc::{vec, vec::Vec};
+	use core::ops::Deref;
 	use frame_support::{
 		dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},
 		ensure,
@@ -93,7 +97,6 @@ pub mod pallet {
 		self,
 		traits::{Saturating, Zero},
 	};
-	use sp_std::{ops::Deref, prelude::*};
 
 	pub(crate) type BalanceOf<T> =
 		<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
@@ -103,13 +106,13 @@ pub mod pallet {
 		CloneNoBound,
 		Encode,
 		Decode,
+		DecodeWithMemTracking,
 		scale_info::TypeInfo,
 		PartialEqNoBound,
 		EqNoBound,
 		MaxEncodedLen,
 	)]
 	#[scale_info(skip_type_params(MaxKeyLen))]
-	#[codec(mel_bound())]
 	pub enum Progress<MaxKeyLen: Get<u32>> {
 		/// Yet to begin.
 		ToStart,
@@ -125,8 +128,16 @@ pub mod pallet {
 	/// A migration task stored in state.
 	///
 	/// It tracks the last top and child keys read.
-	#[derive(Clone, Encode, Decode, scale_info::TypeInfo, PartialEq, Eq, MaxEncodedLen)]
-	#[codec(mel_bound(T: Config))]
+	#[derive(
+		Clone,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		scale_info::TypeInfo,
+		PartialEq,
+		Eq,
+		MaxEncodedLen,
+	)]
 	#[scale_info(skip_type_params(T))]
 	pub struct MigrationTask<T: Config> {
 		/// The current top trie migration progress.
@@ -171,11 +182,11 @@ pub mod pallet {
 		pub(crate) child_items: u32,
 
 		#[codec(skip)]
-		pub(crate) _ph: sp_std::marker::PhantomData<T>,
+		pub(crate) _ph: core::marker::PhantomData<T>,
 	}
 
-	impl<Size: Get<u32>> sp_std::fmt::Debug for Progress<Size> {
-		fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+	impl<Size: Get<u32>> core::fmt::Debug for Progress<Size> {
+		fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 			match self {
 				Progress::ToStart => f.write_str("To start"),
 				Progress::LastKey(key) => write!(f, "Last: {:?}", HexDisplay::from(key.deref())),
@@ -184,8 +195,8 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> sp_std::fmt::Debug for MigrationTask<T> {
-		fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+	impl<T: Config> core::fmt::Debug for MigrationTask<T> {
+		fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 			f.debug_struct("MigrationTask")
 				.field("top", &self.progress_top)
 				.field("child", &self.progress_child)
@@ -248,13 +259,13 @@ pub mod pallet {
 			if limits.item.is_zero() || limits.size.is_zero() {
 				// handle this minor edge case, else we would call `migrate_tick` at least once.
 				log!(warn, "limits are zero. stopping");
-				return Ok(())
+				return Ok(());
 			}
 
 			while !self.exhausted(limits) && !self.finished() {
 				if let Err(e) = self.migrate_tick() {
 					log!(error, "migrate_until_exhaustion failed: {:?}", e);
-					return Err(e)
+					return Err(e);
 				}
 			}
 
@@ -331,7 +342,7 @@ pub mod pallet {
 				_ => {
 					// defensive: there must be an ongoing top migration.
 					frame_support::defensive!("cannot migrate child key.");
-					return Ok(())
+					return Ok(());
 				},
 			};
 
@@ -373,7 +384,7 @@ pub mod pallet {
 				Progress::Complete => {
 					// defensive: there must be an ongoing top migration.
 					frame_support::defensive!("cannot migrate top key.");
-					return Ok(())
+					return Ok(());
 				},
 			};
 
@@ -403,6 +414,7 @@ pub mod pallet {
 		Copy,
 		Encode,
 		Decode,
+		DecodeWithMemTracking,
 		scale_info::TypeInfo,
 		Default,
 		Debug,
@@ -418,7 +430,17 @@ pub mod pallet {
 	}
 
 	/// How a migration was computed.
-	#[derive(Clone, Copy, Encode, Decode, scale_info::TypeInfo, Debug, PartialEq, Eq)]
+	#[derive(
+		Clone,
+		Copy,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		scale_info::TypeInfo,
+		Debug,
+		PartialEq,
+		Eq,
+	)]
 	pub enum MigrationCompute {
 		/// A signed origin triggered the migration.
 		Signed,
@@ -485,6 +507,7 @@ pub mod pallet {
 
 		/// The overarching event type.
 		#[pallet::no_default_bounds]
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The currency provider type.
@@ -668,7 +691,7 @@ pub mod pallet {
 			// ensure that the migration witness data was correct.
 			if real_size_upper < task.dyn_size {
 				Self::slash(who, deposit)?;
-				return Ok(().into())
+				return Ok(().into());
 			}
 
 			Self::deposit_event(Event::<T>::Migrated {
@@ -814,7 +837,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			limits: MigrationLimits,
 		) -> DispatchResult {
-			let _ = T::ControlOrigin::ensure_origin(origin)?;
+			T::ControlOrigin::ensure_origin(origin)?;
 			SignedMigrationMaxLimits::<T>::put(limits);
 			Ok(())
 		}
@@ -835,7 +858,7 @@ pub mod pallet {
 			progress_top: ProgressOf<T>,
 			progress_child: ProgressOf<T>,
 		) -> DispatchResult {
-			let _ = T::ControlOrigin::ensure_origin(origin)?;
+			T::ControlOrigin::ensure_origin(origin)?;
 			MigrationProcess::<T>::mutate(|task| {
 				task.progress_top = progress_top;
 				task.progress_child = progress_child;
@@ -955,8 +978,9 @@ pub mod pallet {
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarks {
 	use super::{pallet::Pallet as StateTrieMigration, *};
+	use alloc::vec;
+	use frame_benchmarking::v2::*;
 	use frame_support::traits::fungible::{Inspect, Mutate};
-	use sp_std::prelude::*;
 
 	// The size of the key seemingly makes no difference in the read/write time, so we make it
 	// constant.
@@ -969,8 +993,12 @@ mod benchmarks {
 		stash
 	}
 
-	frame_benchmarking::benchmarks! {
-		continue_migrate {
+	#[benchmarks]
+	mod inner_benchmarks {
+		use super::*;
+
+		#[benchmark]
+		fn continue_migrate() -> Result<(), BenchmarkError> {
 			// note that this benchmark should migrate nothing, as we only want the overhead weight
 			// of the bookkeeping, and the migration cost itself is noted via the `dynamic_weight`
 			// function.
@@ -979,116 +1007,151 @@ mod benchmarks {
 			let stash = set_balance_for_deposit::<T>(&caller, null.item);
 			// Allow signed migrations.
 			SignedMigrationMaxLimits::<T>::put(MigrationLimits { size: 1024, item: 5 });
-		}: _(frame_system::RawOrigin::Signed(caller.clone()), null, 0, StateTrieMigration::<T>::migration_process())
-		verify {
+
+			#[extrinsic_call]
+			_(
+				frame_system::RawOrigin::Signed(caller.clone()),
+				null,
+				0,
+				StateTrieMigration::<T>::migration_process(),
+			);
+
 			assert_eq!(StateTrieMigration::<T>::migration_process(), Default::default());
-			assert_eq!(T::Currency::balance(&caller), stash)
+			assert_eq!(T::Currency::balance(&caller), stash);
+
+			Ok(())
 		}
 
-		continue_migrate_wrong_witness {
+		#[benchmark]
+		fn continue_migrate_wrong_witness() -> Result<(), BenchmarkError> {
 			let null = MigrationLimits::default();
 			let caller = frame_benchmarking::whitelisted_caller();
-			let bad_witness = MigrationTask { progress_top: Progress::LastKey(vec![1u8].try_into().unwrap()), ..Default::default() };
-		}: {
-			assert!(
-				StateTrieMigration::<T>::continue_migrate(
+			let bad_witness = MigrationTask {
+				progress_top: Progress::LastKey(vec![1u8].try_into().unwrap()),
+				..Default::default()
+			};
+			#[block]
+			{
+				assert!(StateTrieMigration::<T>::continue_migrate(
 					frame_system::RawOrigin::Signed(caller).into(),
 					null,
 					0,
 					bad_witness,
 				)
-				.is_err()
-			)
-		}
-		verify {
-			assert_eq!(StateTrieMigration::<T>::migration_process(), Default::default())
+				.is_err());
+			}
+
+			assert_eq!(StateTrieMigration::<T>::migration_process(), Default::default());
+
+			Ok(())
 		}
 
-		migrate_custom_top_success {
+		#[benchmark]
+		fn migrate_custom_top_success() -> Result<(), BenchmarkError> {
 			let null = MigrationLimits::default();
 			let caller: T::AccountId = frame_benchmarking::whitelisted_caller();
 			let stash = set_balance_for_deposit::<T>(&caller, null.item);
-		}: migrate_custom_top(frame_system::RawOrigin::Signed(caller.clone()), Default::default(), 0)
-		verify {
+			#[extrinsic_call]
+			migrate_custom_top(
+				frame_system::RawOrigin::Signed(caller.clone()),
+				Default::default(),
+				0,
+			);
+
 			assert_eq!(StateTrieMigration::<T>::migration_process(), Default::default());
-			assert_eq!(T::Currency::balance(&caller), stash)
+			assert_eq!(T::Currency::balance(&caller), stash);
+			Ok(())
 		}
 
-		migrate_custom_top_fail {
+		#[benchmark]
+		fn migrate_custom_top_fail() -> Result<(), BenchmarkError> {
 			let null = MigrationLimits::default();
 			let caller: T::AccountId = frame_benchmarking::whitelisted_caller();
 			let stash = set_balance_for_deposit::<T>(&caller, null.item);
 			// for tests, we need to make sure there is _something_ in storage that is being
 			// migrated.
-			sp_io::storage::set(b"foo", vec![1u8;33].as_ref());
-		}: {
-			assert!(
-				StateTrieMigration::<T>::migrate_custom_top(
+			sp_io::storage::set(b"foo", vec![1u8; 33].as_ref());
+			#[block]
+			{
+				assert!(StateTrieMigration::<T>::migrate_custom_top(
 					frame_system::RawOrigin::Signed(caller.clone()).into(),
 					vec![b"foo".to_vec()],
 					1,
-				).is_ok()
-			);
+				)
+				.is_ok());
 
-			frame_system::Pallet::<T>::assert_last_event(
-				<T as Config>::RuntimeEvent::from(crate::Event::Slashed {
-					who: caller.clone(),
-					amount: StateTrieMigration::<T>::calculate_deposit_for(1u32),
-				}).into(),
-			);
-		}
-		verify {
+				frame_system::Pallet::<T>::assert_last_event(
+					<T as Config>::RuntimeEvent::from(crate::Event::Slashed {
+						who: caller.clone(),
+						amount: StateTrieMigration::<T>::calculate_deposit_for(1u32),
+					})
+					.into(),
+				);
+			}
+
 			assert_eq!(StateTrieMigration::<T>::migration_process(), Default::default());
 			// must have gotten slashed
-			assert!(T::Currency::balance(&caller) < stash)
+			assert!(T::Currency::balance(&caller) < stash);
+
+			Ok(())
 		}
 
-		migrate_custom_child_success {
+		#[benchmark]
+		fn migrate_custom_child_success() -> Result<(), BenchmarkError> {
 			let caller: T::AccountId = frame_benchmarking::whitelisted_caller();
 			let stash = set_balance_for_deposit::<T>(&caller, 0);
-		}: migrate_custom_child(
-			frame_system::RawOrigin::Signed(caller.clone()),
-			StateTrieMigration::<T>::childify(Default::default()),
-			Default::default(),
-			0
-		)
-		verify {
+
+			#[extrinsic_call]
+			migrate_custom_child(
+				frame_system::RawOrigin::Signed(caller.clone()),
+				StateTrieMigration::<T>::childify(Default::default()),
+				Default::default(),
+				0,
+			);
+
 			assert_eq!(StateTrieMigration::<T>::migration_process(), Default::default());
 			assert_eq!(T::Currency::balance(&caller), stash);
+
+			Ok(())
 		}
 
-		migrate_custom_child_fail {
+		#[benchmark]
+		fn migrate_custom_child_fail() -> Result<(), BenchmarkError> {
 			let caller: T::AccountId = frame_benchmarking::whitelisted_caller();
 			let stash = set_balance_for_deposit::<T>(&caller, 1);
 			// for tests, we need to make sure there is _something_ in storage that is being
 			// migrated.
-			sp_io::default_child_storage::set(b"top", b"foo", vec![1u8;33].as_ref());
-		}: {
-			assert!(
-				StateTrieMigration::<T>::migrate_custom_child(
+			sp_io::default_child_storage::set(b"top", b"foo", vec![1u8; 33].as_ref());
+
+			#[block]
+			{
+				assert!(StateTrieMigration::<T>::migrate_custom_child(
 					frame_system::RawOrigin::Signed(caller.clone()).into(),
 					StateTrieMigration::<T>::childify("top"),
 					vec![b"foo".to_vec()],
 					1,
-				).is_ok()
-			)
-		}
-		verify {
+				)
+				.is_ok());
+			}
 			assert_eq!(StateTrieMigration::<T>::migration_process(), Default::default());
 			// must have gotten slashed
-			assert!(T::Currency::balance(&caller) < stash)
+			assert!(T::Currency::balance(&caller) < stash);
+			Ok(())
 		}
 
-		process_top_key {
-			let v in 1 .. (4 * 1024 * 1024);
-
-			let value = sp_std::vec![1u8; v as usize];
+		#[benchmark]
+		fn process_top_key(v: Linear<1, { 4 * 1024 * 1024 }>) -> Result<(), BenchmarkError> {
+			let value = alloc::vec![1u8; v as usize];
 			sp_io::storage::set(KEY, &value);
-		}: {
-			let data = sp_io::storage::get(KEY).unwrap();
-			sp_io::storage::set(KEY, &data);
-			let _next = sp_io::storage::next_key(KEY);
-			assert_eq!(data, value);
+			#[block]
+			{
+				let data = sp_io::storage::get(KEY).unwrap();
+				sp_io::storage::set(KEY, &data);
+				let _next = sp_io::storage::next_key(KEY);
+				assert_eq!(data, value);
+			}
+
+			Ok(())
 		}
 
 		impl_benchmark_test_suite!(
@@ -1103,6 +1166,7 @@ mod benchmarks {
 mod mock {
 	use super::*;
 	use crate as pallet_state_trie_migration;
+	use alloc::{vec, vec::Vec};
 	use frame_support::{derive_impl, parameter_types, traits::Hooks, weights::Weight};
 	use frame_system::{EnsureRoot, EnsureSigned};
 	use sp_core::{
@@ -1255,9 +1319,12 @@ mod mock {
 			frame_system::GenesisConfig::<Test>::default()
 				.assimilate_storage(&mut custom_storage)
 				.unwrap();
-			pallet_balances::GenesisConfig::<Test> { balances: vec![(1, 1000)] }
-				.assimilate_storage(&mut custom_storage)
-				.unwrap();
+			pallet_balances::GenesisConfig::<Test> {
+				balances: vec![(1, 1000)],
+				..Default::default()
+			}
+			.assimilate_storage(&mut custom_storage)
+			.unwrap();
 		}
 
 		sp_tracing::try_init_simple();
@@ -1267,16 +1334,17 @@ mod mock {
 	pub(crate) fn run_to_block(n: u32) -> (H256, Weight) {
 		let mut root = Default::default();
 		let mut weight_sum = Weight::zero();
+
 		log::trace!(target: LOG_TARGET, "running from {:?} to {:?}", System::block_number(), n);
-		while System::block_number() < n {
-			System::set_block_number(System::block_number() + 1);
-			System::on_initialize(System::block_number());
 
-			weight_sum += StateTrieMigration::on_initialize(System::block_number());
+		System::run_to_block_with::<AllPalletsWithSystem>(
+			n,
+			frame_system::RunToBlockHooks::default().after_initialize(|bn| {
+				weight_sum += StateTrieMigration::on_initialize(bn);
+				root = *System::finalize().state_root();
+			}),
+		);
 
-			root = *System::finalize().state_root();
-			System::on_finalize(System::block_number());
-		}
 		(root, weight_sum)
 	}
 }
@@ -1739,7 +1807,7 @@ pub(crate) mod remote_tests {
 			let ((finished, weight), proof) = ext.execute_and_prove(|| {
 				let weight = run_to_block::<Runtime>(now + One::one()).1;
 				if StateTrieMigration::<Runtime>::migration_process().finished() {
-					return (true, weight)
+					return (true, weight);
 				}
 				duration += One::one();
 				now += One::one();
@@ -1766,7 +1834,7 @@ pub(crate) mod remote_tests {
 			ext.commit_all().unwrap();
 
 			if finished {
-				break
+				break;
 			}
 		}
 

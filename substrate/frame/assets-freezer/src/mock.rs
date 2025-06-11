@@ -1,42 +1,40 @@
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT-0
 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Permission is hereby granted, free of charge, to any person obtaining a copy of
+// this software and associated documentation files (the "Software"), to deal in
+// the Software without restriction, including without limitation the rights to
+// use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+// of the Software, and to permit persons to whom the Software is furnished to do
+// so, subject to the following conditions:
+
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 //! Tests mock for `pallet-assets-freezer`.
 
 use crate as pallet_assets_freezer;
 pub use crate::*;
 use codec::{Compact, Decode, Encode, MaxEncodedLen};
-use frame_support::{
-	derive_impl,
-	traits::{AsEnsureOriginWithArg, ConstU64},
-};
+use frame::testing_prelude::*;
 use scale_info::TypeInfo;
-use sp_core::{ConstU32, H256};
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-};
 
 pub type AccountId = u64;
 pub type Balance = u64;
 pub type AssetId = u32;
 type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -48,7 +46,7 @@ frame_support::construct_runtime!(
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
+	type BaseCallFilter = Everything;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type DbWeight = ();
@@ -70,7 +68,7 @@ impl frame_system::Config for Test {
 	type SystemWeightInfo = ();
 	type SS58Prefix = ();
 	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type MaxConsumers = ConstU32<16>;
 }
 
 impl pallet_balances::Config for Test {
@@ -87,6 +85,7 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
+	type DoneSlashHandler = ();
 }
 
 impl pallet_assets::Config for Test {
@@ -105,6 +104,7 @@ impl pallet_assets::Config for Test {
 	type RemoveItemsLimit = ConstU32<10>;
 	type CallbackHandle = ();
 	type Currency = Balances;
+	type Holder = ();
 	type Freezer = AssetsFreezer;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
@@ -113,7 +113,18 @@ impl pallet_assets::Config for Test {
 }
 
 #[derive(
-	Decode, Encode, MaxEncodedLen, PartialEq, Eq, Ord, PartialOrd, TypeInfo, Debug, Clone, Copy,
+	Decode,
+	DecodeWithMemTracking,
+	Encode,
+	MaxEncodedLen,
+	PartialEq,
+	Eq,
+	Ord,
+	PartialOrd,
+	TypeInfo,
+	Debug,
+	Clone,
+	Copy,
 )]
 pub enum DummyFreezeReason {
 	Governance,
@@ -131,7 +142,7 @@ impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 }
 
-pub fn new_test_ext(execute: impl FnOnce()) -> sp_io::TestExternalities {
+pub fn new_test_ext(execute: impl FnOnce()) -> TestExternalities {
 	let t = RuntimeGenesisConfig {
 		assets: pallet_assets::GenesisConfig {
 			assets: vec![(1, 0, true, 1)],
@@ -144,11 +155,12 @@ pub fn new_test_ext(execute: impl FnOnce()) -> sp_io::TestExternalities {
 	}
 	.build_storage()
 	.unwrap();
-	let mut ext: sp_io::TestExternalities = t.into();
+	let mut ext: TestExternalities = t.into();
 	ext.execute_with(|| {
 		System::set_block_number(1);
 		execute();
-		frame_support::assert_ok!(AssetsFreezer::do_try_state());
+		#[cfg(feature = "try-runtime")]
+		assert_ok!(AssetsFreezer::do_try_state());
 	});
 
 	ext

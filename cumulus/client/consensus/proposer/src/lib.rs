@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 //! The Cumulus [`Proposer`] is a wrapper around a Substrate [`sp_consensus::Environment`]
 //! for creating new parachain blocks.
@@ -21,12 +22,12 @@
 
 use async_trait::async_trait;
 
-use cumulus_primitives_parachain_inherent::ParachainInherentData;
 use sp_consensus::{EnableProofRecording, Environment, Proposal, Proposer as SubstrateProposer};
-use sp_inherents::InherentData;
+use sp_inherents::{InherentData, InherentDataProvider};
 use sp_runtime::{traits::Block as BlockT, Digest};
 use sp_state_machine::StorageProof;
 
+use cumulus_primitives_parachain_inherent::ParachainInherentData;
 use std::{fmt::Debug, time::Duration};
 
 /// Errors that can occur when proposing a parachain block.
@@ -117,11 +118,9 @@ where
 			.map_err(|e| Error::proposer_creation(anyhow::Error::new(e)))?;
 
 		let mut inherent_data = other_inherent_data;
-		inherent_data
-			.put_data(
-				cumulus_primitives_parachain_inherent::INHERENT_IDENTIFIER,
-				&paras_inherent_data,
-			)
+		paras_inherent_data
+			.provide_inherent_data(&mut inherent_data)
+			.await
 			.map_err(|e| Error::proposing(anyhow::Error::new(e)))?;
 
 		proposer

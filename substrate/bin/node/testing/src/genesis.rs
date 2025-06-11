@@ -38,22 +38,23 @@ pub fn config_endowed(extra_endowed: Vec<AccountId>) -> RuntimeGenesisConfig {
 		(alice(), 111 * DOLLARS),
 		(bob(), 100 * DOLLARS),
 		(charlie(), 100_000_000 * DOLLARS),
-		(dave(), 111 * DOLLARS),
+		(dave(), 112 * DOLLARS),
 		(eve(), 101 * DOLLARS),
-		(ferdie(), 100 * DOLLARS),
+		(ferdie(), 101 * DOLLARS),
 	];
 
 	endowed.extend(extra_endowed.into_iter().map(|endowed| (endowed, 100 * DOLLARS)));
 
 	RuntimeGenesisConfig {
 		indices: IndicesConfig { indices: vec![] },
-		balances: BalancesConfig { balances: endowed },
+		balances: BalancesConfig { balances: endowed, ..Default::default() },
 		session: SessionConfig {
 			keys: vec![
 				(alice(), dave(), session_keys_from_seed(Ed25519Keyring::Alice.into())),
 				(bob(), eve(), session_keys_from_seed(Ed25519Keyring::Bob.into())),
 				(charlie(), ferdie(), session_keys_from_seed(Ed25519Keyring::Charlie.into())),
 			],
+			..Default::default()
 		},
 		staking: StakingConfig {
 			stakers: vec![

@@ -1,19 +1,25 @@
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT-0
 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Permission is hereby granted, free of charge, to any person obtaining a copy of
+// this software and associated documentation files (the "Software"), to deal in
+// the Software without restriction, including without limitation the rights to
+// use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+// of the Software, and to permit persons to whom the Software is furnished to do
+// so, subject to the following conditions:
+
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 //! # Kitchensink Example Pallet
 //!
@@ -42,6 +48,8 @@ use sp_runtime::TryRuntimeError;
 pub mod weights;
 pub use weights::*;
 
+extern crate alloc;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -67,9 +75,6 @@ pub mod pallet {
 	///   `frame_system::Config` to exist, which you should almost never need.
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		/// The overarching runtime event type.
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
 		/// Type representing the weight of this pallet
 		type WeightInfo: WeightInfo;
 
@@ -218,6 +223,37 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// A call that is specially authorized.
+		/// Authorized call can be dispatched by anybody without requiring any signature or fee.
+		#[pallet::call_index(1)]
+		#[pallet::authorize(|
+			_source: TransactionSource,
+			new_foo: &u32,
+		| -> TransactionValidityWithRefund {
+			if *new_foo == 42 && Foo::<T>::get().is_none() {
+				// This is the amount to refund, here we refund nothing.
+				let refund = Weight::zero();
+				// The transaction needs to give a provided tag.
+				// See `ValidTransaction` documentation.
+				let validity = ValidTransaction::with_tag_prefix("pallet-kitchen-sink")
+					.and_provides("set_foo_using_authorize")
+					.into();
+				Ok((validity, refund))
+			} else {
+				Err(InvalidTransaction::Call.into())
+			}
+		})]
+		#[pallet::weight(T::WeightInfo::set_foo_using_authorize())]
+		#[pallet::weight_of_authorize(T::WeightInfo::authorize_set_foo_using_authorize())]
+		pub fn set_foo_using_authorize(origin: OriginFor<T>, new_foo: u32) -> DispatchResult {
+			// We only dispatch if it comes from the authorized origin. Meaning that the closure
+			// passed in `pallet::authorize` has successfully authorized the call.
+			ensure_authorized(origin)?;
+			Foo::<T>::set(Some(new_foo));
+
+			Ok(())
+		}
 	}
 
 	/// The event type. This exactly like a normal Rust enum.
@@ -296,20 +332,6 @@ pub mod pallet {
 	#[pallet::composite_enum]
 	pub enum HoldReason {
 		Staking,
-	}
-
-	/// Allows the pallet to validate some unsigned transaction. See
-	/// [`sp_runtime::traits::ValidateUnsigned`] for more info.
-	#[pallet::validate_unsigned]
-	impl<T: Config> ValidateUnsigned for Pallet<T> {
-		type Call = Call<T>;
-		fn validate_unsigned(_: TransactionSource, _: &Self::Call) -> TransactionValidity {
-			unimplemented!()
-		}
-
-		fn pre_dispatch(_: &Self::Call) -> Result<(), TransactionValidityError> {
-			unimplemented!()
-		}
 	}
 
 	/// Allows the pallet to provide some inherent. See [`frame_support::inherent::ProvideInherent`]

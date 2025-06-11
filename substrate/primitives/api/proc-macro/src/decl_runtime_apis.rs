@@ -32,6 +32,7 @@ use proc_macro2::{Span, TokenStream};
 
 use quote::quote;
 
+use std::collections::{BTreeMap, HashMap};
 use syn::{
 	fold::{self, Fold},
 	parse::{Error, Parse, ParseStream, Result},
@@ -42,8 +43,6 @@ use syn::{
 	Attribute, FnArg, GenericParam, Generics, Ident, ItemTrait, LitInt, LitStr, TraitBound,
 	TraitItem, TraitItemFn,
 };
-
-use std::collections::{BTreeMap, HashMap};
 
 /// The structure used for parsing the runtime api declarations.
 struct RuntimeApiDecls {
@@ -133,7 +132,7 @@ fn remove_supported_attributes(attrs: &mut Vec<Attribute>) -> HashMap<&'static s
 /// ```
 fn generate_versioned_api_traits(
 	api: ItemTrait,
-	methods: BTreeMap<u64, Vec<TraitItemFn>>,
+	methods: BTreeMap<u32, Vec<TraitItemFn>>,
 ) -> Vec<ItemTrait> {
 	let mut result = Vec::<ItemTrait>::new();
 	for (version, _) in &methods {
@@ -188,72 +187,79 @@ fn generate_runtime_decls(decls: &[ItemTrait]) -> Result<TokenStream> {
 		let decl_span = decl.span();
 		extend_generics_with_block(&mut decl.generics);
 		let mod_name = generate_runtime_mod_name_for_trait(&decl.ident);
-		let found_attributes = remove_supported_attributes(&mut decl.attrs);
-		let api_version =
-			get_api_version(&found_attributes).map(|v| generate_runtime_api_version(v as u32))?;
-		let id = generate_runtime_api_id(&decl.ident.to_string());
 
-		let metadata = crate::runtime_metadata::generate_decl_runtime_metadata(&decl);
+		let found_attributes = remove_supported_attributes(&mut decl.attrs);
+		let api_version = get_api_version(&found_attributes).map(generate_runtime_api_version)?;
+		let id = generate_runtime_api_id(&decl.ident.to_string());
 
 		let trait_api_version = get_api_version(&found_attributes)?;
 
-		let mut methods_by_version: BTreeMap<u64, Vec<TraitItemFn>> = BTreeMap::new();
+		let mut methods_by_version: BTreeMap<u32, Vec<TraitItemFn>> = BTreeMap::new();
 
 		// Process the items in the declaration. The filter_map function below does a lot of stuff
 		// because the method attributes are stripped at this point
-		decl.items.iter_mut().for_each(|i| match i {
-			TraitItem::Fn(ref mut method) => {
-				let method_attrs = remove_supported_attributes(&mut method.attrs);
-				let mut method_version = trait_api_version;
-				// validate the api version for the method (if any) and generate default
-				// implementation for versioned methods
-				if let Some(version_attribute) = method_attrs.get(API_VERSION_ATTRIBUTE) {
-					method_version = match parse_runtime_api_version(version_attribute) {
-						Ok(method_api_ver) if method_api_ver < trait_api_version => {
-							let method_ver = method_api_ver.to_string();
-							let trait_ver = trait_api_version.to_string();
-							let mut err1 = Error::new(
-								version_attribute.span(),
-								format!(
+		decl.items.iter_mut().for_each(|i| {
+			match i {
+				TraitItem::Fn(ref mut method) => {
+					let method_attrs = remove_supported_attributes(&mut method.attrs);
+					let mut method_version = trait_api_version;
+					// validate the api version for the method (if any) and generate default
+					// implementation for versioned methods
+					if let Some(version_attribute) = method_attrs.get(API_VERSION_ATTRIBUTE) {
+						method_version = match parse_runtime_api_version(version_attribute) {
+							Ok(method_api_ver) if method_api_ver < trait_api_version => {
+								let method_ver = method_api_ver.to_string();
+								let trait_ver = trait_api_version.to_string();
+								let mut err1 = Error::new(
+									version_attribute.span(),
+									format!(
 										"Method version `{}` is older than (or equal to) trait version `{}`.\
 										 Methods can't define versions older than the trait version.",
 										method_ver,
 										trait_ver,
 									),
-							);
+								);
 
-							let err2 = match found_attributes.get(&API_VERSION_ATTRIBUTE) {
-								Some(attr) => Error::new(attr.span(), "Trait version is set here."),
-								None => Error::new(
-									decl_span,
-									"Trait version is not set so it is implicitly equal to 1.",
-								),
-							};
-							err1.combine(err2);
-							result.push(err1.to_compile_error());
+								let err2 = match found_attributes.get(&API_VERSION_ATTRIBUTE) {
+									Some(attr) =>
+										Error::new(attr.span(), "Trait version is set here."),
+									None => Error::new(
+										decl_span,
+										"Trait version is not set so it is implicitly equal to 1.",
+									),
+								};
+								err1.combine(err2);
+								result.push(err1.to_compile_error());
 
-							trait_api_version
-						},
-						Ok(method_api_ver) => method_api_ver,
-						Err(e) => {
-							result.push(e.to_compile_error());
-							trait_api_version
-						},
-					};
-				}
+								trait_api_version
+							},
+							Ok(method_api_ver) => method_api_ver,
+							Err(e) => {
+								result.push(e.to_compile_error());
+								trait_api_version
+							},
+						};
+					}
 
-				// Any method with the `changed_in` attribute isn't required for the runtime
-				// anymore.
-				if !method_attrs.contains_key(CHANGED_IN_ATTRIBUTE) {
-					// Make sure we replace all the wild card parameter names.
-					replace_wild_card_parameter_names(&mut method.sig);
+					// Any method with the `changed_in` attribute isn't required for the runtime
+					// anymore.
+					if !method_attrs.contains_key(CHANGED_IN_ATTRIBUTE) {
+						// Make sure we replace all the wild card parameter names.
+						replace_wild_card_parameter_names(&mut method.sig);
 
-					// partition methods by api version
-					methods_by_version.entry(method_version).or_default().push(method.clone());
-				}
-			},
-			_ => (),
+						// partition methods by api version
+						methods_by_version.entry(method_version).or_default().push(method.clone());
+					}
+				},
+				_ => (),
+			}
 		});
+
+		let versioned_methods_iter = methods_by_version
+			.iter()
+			.flat_map(|(&version, methods)| methods.iter().map(move |method| (method, version)));
+		let metadata =
+			crate::runtime_metadata::generate_decl_runtime_metadata(&decl, versioned_methods_iter);
 
 		let versioned_api_traits = generate_versioned_api_traits(decl.clone(), methods_by_version);
 
@@ -505,7 +511,7 @@ fn generate_runtime_api_version(version: u32) -> TokenStream {
 }
 
 /// Generates the implementation of `RuntimeApiInfo` for the given trait.
-fn generate_runtime_info_impl(trait_: &ItemTrait, version: u64) -> TokenStream {
+fn generate_runtime_info_impl(trait_: &ItemTrait, version: u32) -> TokenStream {
 	let trait_name = &trait_.ident;
 	let crate_ = generate_crate_access();
 	let id = generate_runtime_api_id(&trait_name.to_string());
@@ -523,9 +529,15 @@ fn generate_runtime_info_impl(trait_: &ItemTrait, version: u64) -> TokenStream {
 		let ident = &t.ident;
 		quote! { #ident }
 	});
+	let maybe_allow_attrs = trait_.attrs.iter().filter(|attr| attr.path().is_ident("allow"));
+	let maybe_allow_deprecated = trait_.attrs.iter().filter_map(|attr| {
+		attr.path().is_ident("deprecated").then(|| quote! { #[allow(deprecated)] })
+	});
 
 	quote!(
 		#crate_::std_enabled! {
+			#( #maybe_allow_attrs )*
+			#( #maybe_allow_deprecated )*
 			impl < #( #impl_generics, )* > #crate_::RuntimeApiInfo
 				for dyn #trait_name < #( #ty_generics, )* >
 			{
@@ -537,7 +549,7 @@ fn generate_runtime_info_impl(trait_: &ItemTrait, version: u64) -> TokenStream {
 }
 
 /// Get changed in version from the user given attribute or `Ok(None)`, if no attribute was given.
-fn get_changed_in(found_attributes: &HashMap<&'static str, Attribute>) -> Result<Option<u64>> {
+fn get_changed_in(found_attributes: &HashMap<&'static str, Attribute>) -> Result<Option<u32>> {
 	found_attributes
 		.get(&CHANGED_IN_ATTRIBUTE)
 		.map(|v| parse_runtime_api_version(v).map(Some))
@@ -545,7 +557,7 @@ fn get_changed_in(found_attributes: &HashMap<&'static str, Attribute>) -> Result
 }
 
 /// Get the api version from the user given attribute or `Ok(1)`, if no attribute was given.
-fn get_api_version(found_attributes: &HashMap<&'static str, Attribute>) -> Result<u64> {
+fn get_api_version(found_attributes: &HashMap<&'static str, Attribute>) -> Result<u32> {
 	found_attributes
 		.get(&API_VERSION_ATTRIBUTE)
 		.map(parse_runtime_api_version)
@@ -579,7 +591,10 @@ fn generate_client_side_decls(decls: &[ItemTrait]) -> Result<TokenStream> {
 		let runtime_info = api_version.map(|v| generate_runtime_info_impl(&decl, v))?;
 
 		result.push(quote!(
-			#crate_::std_enabled! { #decl }
+			#crate_::std_enabled! {
+				#[allow(deprecated)]
+				#decl
+			 }
 			#runtime_info
 			#( #errors )*
 		));
@@ -610,7 +625,7 @@ impl CheckTraitDecl {
 	///
 	/// Any error is stored in `self.errors`.
 	fn check_method_declarations<'a>(&mut self, methods: impl Iterator<Item = &'a TraitItemFn>) {
-		let mut method_to_signature_changed = HashMap::<Ident, Vec<Option<u64>>>::new();
+		let mut method_to_signature_changed = HashMap::<Ident, Vec<Option<u32>>>::new();
 
 		methods.into_iter().for_each(|method| {
 			let attributes = remove_supported_attributes(&mut method.attrs.clone());

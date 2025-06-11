@@ -17,7 +17,8 @@
 
 //! Miscellaneous additional datatypes.
 
-use codec::{Codec, Decode, Encode, MaxEncodedLen};
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	traits::VoteTally, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
@@ -26,7 +27,6 @@ use sp_runtime::{
 	traits::{Saturating, Zero},
 	RuntimeDebug,
 };
-use sp_std::{fmt::Debug, marker::PhantomData};
 
 use super::*;
 use crate::{AccountVote, Conviction, Vote};
@@ -40,6 +40,7 @@ use crate::{AccountVote, Conviction, Vote};
 	TypeInfo,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(Total))]
@@ -117,14 +118,9 @@ impl<
 	pub fn from_parts(
 		ayes_with_conviction: Votes,
 		nays_with_conviction: Votes,
-		ayes: Votes,
+		support: Votes,
 	) -> Self {
-		Self {
-			ayes: ayes_with_conviction,
-			nays: nays_with_conviction,
-			support: ayes,
-			dummy: PhantomData,
-		}
+		Self { ayes: ayes_with_conviction, nays: nays_with_conviction, support, dummy: PhantomData }
 	}
 
 	/// Add an account's vote into the tally.
@@ -218,7 +214,17 @@ impl<
 
 /// Amount of votes and capital placed in delegation for an account.
 #[derive(
-	Encode, Decode, Default, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Default,
+	Copy,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
 )]
 pub struct Delegations<Balance> {
 	/// The number of votes (this is post-conviction).

@@ -18,17 +18,18 @@
 //! The vote datatype.
 
 use crate::{Conviction, Delegations};
-use codec::{Decode, Encode, EncodeLike, Input, MaxEncodedLen, Output};
+use codec::{Decode, DecodeWithMemTracking, Encode, EncodeLike, Input, MaxEncodedLen, Output};
 use frame_support::{pallet_prelude::Get, BoundedVec};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Saturating, Zero},
 	RuntimeDebug,
 };
-use sp_std::prelude::*;
 
 /// A number of lock periods, plus a vote, one way or the other.
-#[derive(Copy, Clone, Eq, PartialEq, Default, RuntimeDebug, MaxEncodedLen)]
+#[derive(
+	DecodeWithMemTracking, Copy, Clone, Eq, PartialEq, Default, RuntimeDebug, MaxEncodedLen,
+)]
 pub struct Vote {
 	pub aye: bool,
 	pub conviction: Conviction,
@@ -67,7 +68,18 @@ impl TypeInfo for Vote {
 }
 
 /// A vote for a referendum of a particular account.
-#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum AccountVote<Balance> {
 	/// A standard vote, one-way (approve or reject) with a given amount of conviction.
 	Standard { vote: Vote, balance: Balance },
@@ -80,15 +92,37 @@ pub enum AccountVote<Balance> {
 	SplitAbstain { aye: Balance, nay: Balance, abstain: Balance },
 }
 
+/// Present the conditions under which an account's Funds are locked after a voting action.
+#[derive(Copy, Clone, Eq, PartialEq, RuntimeDebug)]
+pub enum LockedIf {
+	/// Lock the funds if the outcome of the referendum matches the voting behavior of the user.
+	///
+	/// `true` means they voted `aye` and `false` means `nay`.
+	Status(bool),
+	/// Always lock the funds.
+	Always,
+}
+
 impl<Balance: Saturating> AccountVote<Balance> {
 	/// Returns `Some` of the lock periods that the account is locked for, assuming that the
-	/// referendum passed iff `approved` is `true`.
-	pub fn locked_if(self, approved: bool) -> Option<(u32, Balance)> {
+	/// referendum passed if `approved` is `true`.
+	pub fn locked_if(self, approved: LockedIf) -> Option<(u32, Balance)> {
 		// winning side: can only be removed after the lock period ends.
-		match self {
-			AccountVote::Standard { vote: Vote { conviction: Conviction::None, .. }, .. } => None,
-			AccountVote::Standard { vote, balance } if vote.aye == approved =>
+		match (self, approved) {
+			// If the vote has no conviction, always return None
+			(AccountVote::Standard { vote: Vote { conviction: Conviction::None, .. }, .. }, _) =>
+				None,
+
+			// For Standard votes, check the approval condition
+			(AccountVote::Standard { vote, balance }, LockedIf::Status(is_approved))
+				if vote.aye == is_approved =>
 				Some((vote.conviction.lock_periods(), balance)),
+
+			// If LockedIf::Always, return the lock period regardless of the vote
+			(AccountVote::Standard { vote, balance }, LockedIf::Always) =>
+				Some((vote.conviction.lock_periods(), balance)),
+
+			// All other cases return None
 			_ => None,
 		}
 	}
@@ -117,6 +151,7 @@ impl<Balance: Saturating> AccountVote<Balance> {
 #[derive(
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Default,
 	Copy,
 	Clone,
@@ -150,7 +185,17 @@ impl<BlockNumber: Ord + Copy + Zero, Balance: Ord + Copy + Zero> PriorLock<Block
 }
 
 /// Information concerning the delegation of some voting power.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct Delegating<Balance, AccountId, BlockNumber> {
 	/// The amount of balance delegated.
 	pub balance: Balance,
@@ -166,7 +211,17 @@ pub struct Delegating<Balance, AccountId, BlockNumber> {
 }
 
 /// Information concerning the direct vote-casting of some voting power.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 #[scale_info(skip_type_params(MaxVotes))]
 #[codec(mel_bound(Balance: MaxEncodedLen, BlockNumber: MaxEncodedLen, PollIndex: MaxEncodedLen))]
 pub struct Casting<Balance, BlockNumber, PollIndex, MaxVotes>
@@ -182,7 +237,17 @@ where
 }
 
 /// An indicator for what an account is doing; it can either be delegating or voting.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 #[scale_info(skip_type_params(MaxVotes))]
 #[codec(mel_bound(
 	Balance: MaxEncodedLen, AccountId: MaxEncodedLen, BlockNumber: MaxEncodedLen,

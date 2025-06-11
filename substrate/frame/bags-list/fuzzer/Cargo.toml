@@ -4,7 +4,7 @@ version = "4.0.0-dev"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Fuzzer for FRAME pallet bags list"
 publish = false
@@ -12,12 +12,11 @@ publish = false
 [lints]
 workspace = true
 
-[dependencies]
-honggfuzz = { workspace = true }
-rand = { features = ["small_rng", "std"], workspace = true, default-features = true }
-frame-election-provider-support = { features = ["fuzz"], workspace = true, default-features = true }
-pallet-bags-list = { features = ["fuzz"], workspace = true, default-features = true }
-
 [[bin]]
 name = "bags-list"
 path = "src/main.rs"
+
+[dependencies]
+frame-election-provider-support = { features = ["fuzz"], workspace = true, default-features = true }
+honggfuzz = { workspace = true }
+pallet-bags-list = { features = ["fuzz"], workspace = true, default-features = true }

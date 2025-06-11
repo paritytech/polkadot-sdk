@@ -48,7 +48,7 @@ pub trait StateApi<Hash> {
 	) -> Result<Vec<StorageKey>, Error>;
 
 	/// Returns the keys with prefix, leave empty to get all the keys
-	#[method(name = "state_getPairs", blocking)]
+	#[method(name = "state_getPairs", blocking, with_extensions)]
 	fn storage_pairs(
 		&self,
 		prefix: StorageKey,
@@ -76,7 +76,7 @@ pub trait StateApi<Hash> {
 	fn storage_hash(&self, key: StorageKey, hash: Option<Hash>) -> Result<Option<Hash>, Error>;
 
 	/// Returns the size of a storage entry at a block's state.
-	#[method(name = "state_getStorageSize", aliases = ["state_getStorageSizeAt"])]
+	#[method(name = "state_getStorageSize", aliases = ["state_getStorageSizeAt"], with_extensions)]
 	async fn storage_size(&self, key: StorageKey, hash: Option<Hash>)
 		-> Result<Option<u64>, Error>;
 
@@ -95,7 +95,7 @@ pub trait StateApi<Hash> {
 	/// Subsequent values in the vector represent changes to the previous state (diffs).
 	/// WARNING: The time complexity of this query is O(|keys|*dist(block, hash)), and the
 	/// memory complexity is O(dist(block, hash)) -- use with caution.
-	#[method(name = "state_queryStorage", blocking)]
+	#[method(name = "state_queryStorage", blocking, with_extensions)]
 	fn query_storage(
 		&self,
 		keys: Vec<StorageKey>,
@@ -136,6 +136,7 @@ pub trait StateApi<Hash> {
 		name = "state_subscribeStorage" => "state_storage",
 		unsubscribe = "state_unsubscribeStorage",
 		item = StorageChangeSet<Hash>,
+		with_extensions,
 	)]
 	fn subscribe_storage(&self, keys: Option<Vec<StorageKey>>);
 
@@ -291,7 +292,7 @@ pub trait StateApi<Hash> {
 	///
 	/// If you are having issues with maximum payload size you can use the flag
 	/// `-ltracing=trace` to get some logging during tracing.
-	#[method(name = "state_traceBlock", blocking)]
+	#[method(name = "state_traceBlock", blocking, with_extensions)]
 	fn trace_block(
 		&self,
 		block: Hash,

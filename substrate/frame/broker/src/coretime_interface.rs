@@ -17,13 +17,14 @@
 
 #![deny(missing_docs)]
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use alloc::vec::Vec;
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use core::fmt::Debug;
 use frame_support::Parameter;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::AtLeast32BitUnsigned;
 use sp_core::RuntimeDebug;
 use sp_runtime::traits::BlockNumberProvider;
-use sp_std::{fmt::Debug, vec::Vec};
 
 use crate::Timeslice;
 
@@ -38,7 +39,17 @@ pub type PartsOf57600 = u16;
 
 /// An element to which a core can be assigned.
 #[derive(
-	Encode, Decode, Clone, Eq, PartialEq, Ord, PartialOrd, RuntimeDebug, TypeInfo, MaxEncodedLen,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
 )]
 pub enum CoreAssignment {
 	/// Core need not be used for anything.

@@ -28,11 +28,14 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 // Re-export since this is necessary for `impl_apis` in runtime.
 pub use sp_consensus_grandpa::{
 	self as fg_primitives, AuthorityId, AuthorityList, AuthorityWeight,
 };
 
+use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::{DispatchResultWithPostInfo, Pays},
@@ -50,7 +53,6 @@ use sp_consensus_grandpa::{
 use sp_runtime::{generic::DigestItem, traits::Zero, DispatchResult};
 use sp_session::{GetSessionNumber, GetValidatorCount};
 use sp_staking::{offence::OffenceReportSystem, SessionIndex};
-use sp_std::prelude::*;
 
 mod default_weights;
 mod equivocation;
@@ -83,6 +85,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The event type of this module.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event>
 			+ Into<<Self as frame_system::Config>::RuntimeEvent>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -125,7 +128,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_finalize(block_number: BlockNumberFor<T>) {
 			// check for scheduled pending authority set changes
-			if let Some(pending_change) = <PendingChange<T>>::get() {
+			if let Some(pending_change) = PendingChange::<T>::get() {
 				// emit signal if we're at the block that scheduled the change
 				if block_number == pending_change.scheduled_at {
 					let next_authorities = pending_change.next_authorities.to_vec();
@@ -148,12 +151,12 @@ pub mod pallet {
 					Self::deposit_event(Event::NewAuthorities {
 						authority_set: pending_change.next_authorities.into_inner(),
 					});
-					<PendingChange<T>>::kill();
+					PendingChange::<T>::kill();
 				}
 			}
 
 			// check for scheduled pending state changes
-			match <State<T>>::get() {
+			match State::<T>::get() {
 				StoredState::PendingPause { scheduled_at, delay } => {
 					// signal change to pause
 					if block_number == scheduled_at {
@@ -162,7 +165,7 @@ pub mod pallet {
 
 					// enact change to paused state
 					if block_number == scheduled_at + delay {
-						<State<T>>::put(StoredState::Paused);
+						State::<T>::put(StoredState::Paused);
 						Self::deposit_event(Event::Paused);
 					}
 				},
@@ -174,7 +177,7 @@ pub mod pallet {
 
 					// enact change to live state
 					if block_number == scheduled_at + delay {
-						<State<T>>::put(StoredState::Live);
+						State::<T>::put(StoredState::Live);
 						Self::deposit_event(Event::Resumed);
 					}
 				},
@@ -295,37 +298,32 @@ pub mod pallet {
 	}
 
 	#[pallet::type_value]
-	pub(super) fn DefaultForState<T: Config>() -> StoredState<BlockNumberFor<T>> {
+	pub fn DefaultForState<T: Config>() -> StoredState<BlockNumberFor<T>> {
 		StoredState::Live
 	}
 
 	/// State of the current authority set.
 	#[pallet::storage]
-	#[pallet::getter(fn state)]
-	pub(super) type State<T: Config> =
+	pub type State<T: Config> =
 		StorageValue<_, StoredState<BlockNumberFor<T>>, ValueQuery, DefaultForState<T>>;
 
 	/// Pending change: (signaled at, scheduled change).
 	#[pallet::storage]
-	#[pallet::getter(fn pending_change)]
-	pub(super) type PendingChange<T: Config> =
+	pub type PendingChange<T: Config> =
 		StorageValue<_, StoredPendingChange<BlockNumberFor<T>, T::MaxAuthorities>>;
 
 	/// next block number where we can force a change.
 	#[pallet::storage]
-	#[pallet::getter(fn next_forced)]
-	pub(super) type NextForced<T: Config> = StorageValue<_, BlockNumberFor<T>>;
+	pub type NextForced<T: Config> = StorageValue<_, BlockNumberFor<T>>;
 
 	/// `true` if we are currently stalled.
 	#[pallet::storage]
-	#[pallet::getter(fn stalled)]
-	pub(super) type Stalled<T: Config> = StorageValue<_, (BlockNumberFor<T>, BlockNumberFor<T>)>;
+	pub type Stalled<T: Config> = StorageValue<_, (BlockNumberFor<T>, BlockNumberFor<T>)>;
 
 	/// The number of changes (both in terms of keys and underlying economic responsibilities)
 	/// in the "set" of Grandpa validators from genesis.
 	#[pallet::storage]
-	#[pallet::getter(fn current_set_id)]
-	pub(super) type CurrentSetId<T: Config> = StorageValue<_, SetId, ValueQuery>;
+	pub type CurrentSetId<T: Config> = StorageValue<_, SetId, ValueQuery>;
 
 	/// A mapping from grandpa set ID to the index of the *most recent* session for which its
 	/// members were responsible.
@@ -338,12 +336,11 @@ pub mod pallet {
 	///
 	/// TWOX-NOTE: `SetId` is not under user control.
 	#[pallet::storage]
-	#[pallet::getter(fn session_for_set)]
-	pub(super) type SetIdSession<T: Config> = StorageMap<_, Twox64Concat, SetId, SessionIndex>;
+	pub type SetIdSession<T: Config> = StorageMap<_, Twox64Concat, SetId, SessionIndex>;
 
 	/// The current list of authorities.
 	#[pallet::storage]
-	pub(crate) type Authorities<T: Config> =
+	pub type Authorities<T: Config> =
 		StorageValue<_, BoundedAuthorityList<T::MaxAuthorities>, ValueQuery>;
 
 	#[derive(frame_support::DefaultNoBound)]
@@ -351,7 +348,7 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		pub authorities: AuthorityList,
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -430,6 +427,44 @@ pub enum StoredState<N> {
 }
 
 impl<T: Config> Pallet<T> {
+	/// State of the current authority set.
+	pub fn state() -> StoredState<BlockNumberFor<T>> {
+		State::<T>::get()
+	}
+
+	/// Pending change: (signaled at, scheduled change).
+	pub fn pending_change() -> Option<StoredPendingChange<BlockNumberFor<T>, T::MaxAuthorities>> {
+		PendingChange::<T>::get()
+	}
+
+	/// next block number where we can force a change.
+	pub fn next_forced() -> Option<BlockNumberFor<T>> {
+		NextForced::<T>::get()
+	}
+
+	/// `true` if we are currently stalled.
+	pub fn stalled() -> Option<(BlockNumberFor<T>, BlockNumberFor<T>)> {
+		Stalled::<T>::get()
+	}
+
+	/// The number of changes (both in terms of keys and underlying economic responsibilities)
+	/// in the "set" of Grandpa validators from genesis.
+	pub fn current_set_id() -> SetId {
+		CurrentSetId::<T>::get()
+	}
+
+	/// A mapping from grandpa set ID to the index of the *most recent* session for which its
+	/// members were responsible.
+	///
+	/// This is only used for validating equivocation proofs. An equivocation proof must
+	/// contains a key-ownership proof for a given session, therefore we need a way to tie
+	/// together sessions and GRANDPA set ids, i.e. we need to validate that a validator
+	/// was the owner of a given key on a given session, and what the active set ID was
+	/// during that session.
+	pub fn session_for_set(set_id: SetId) -> Option<SessionIndex> {
+		SetIdSession::<T>::get(set_id)
+	}
+
 	/// Get the current set of authorities, along with their respective weights.
 	pub fn grandpa_authorities() -> AuthorityList {
 		Authorities::<T>::get().into_inner()
@@ -438,9 +473,9 @@ impl<T: Config> Pallet<T> {
 	/// Schedule GRANDPA to pause starting in the given number of blocks.
 	/// Cannot be done when already paused.
 	pub fn schedule_pause(in_blocks: BlockNumberFor<T>) -> DispatchResult {
-		if let StoredState::Live = <State<T>>::get() {
-			let scheduled_at = <frame_system::Pallet<T>>::block_number();
-			<State<T>>::put(StoredState::PendingPause { delay: in_blocks, scheduled_at });
+		if let StoredState::Live = State::<T>::get() {
+			let scheduled_at = frame_system::Pallet::<T>::block_number();
+			State::<T>::put(StoredState::PendingPause { delay: in_blocks, scheduled_at });
 
 			Ok(())
 		} else {
@@ -450,9 +485,9 @@ impl<T: Config> Pallet<T> {
 
 	/// Schedule a resume of GRANDPA after pausing.
 	pub fn schedule_resume(in_blocks: BlockNumberFor<T>) -> DispatchResult {
-		if let StoredState::Paused = <State<T>>::get() {
-			let scheduled_at = <frame_system::Pallet<T>>::block_number();
-			<State<T>>::put(StoredState::PendingResume { delay: in_blocks, scheduled_at });
+		if let StoredState::Paused = State::<T>::get() {
+			let scheduled_at = frame_system::Pallet::<T>::block_number();
+			State::<T>::put(StoredState::PendingResume { delay: in_blocks, scheduled_at });
 
 			Ok(())
 		} else {
@@ -479,17 +514,17 @@ impl<T: Config> Pallet<T> {
 		in_blocks: BlockNumberFor<T>,
 		forced: Option<BlockNumberFor<T>>,
 	) -> DispatchResult {
-		if !<PendingChange<T>>::exists() {
-			let scheduled_at = <frame_system::Pallet<T>>::block_number();
+		if !PendingChange::<T>::exists() {
+			let scheduled_at = frame_system::Pallet::<T>::block_number();
 
 			if forced.is_some() {
-				if Self::next_forced().map_or(false, |next| next > scheduled_at) {
+				if NextForced::<T>::get().map_or(false, |next| next > scheduled_at) {
 					return Err(Error::<T>::TooSoon.into())
 				}
 
 				// only allow the next forced change when twice the window has passed since
 				// this one.
-				<NextForced<T>>::put(scheduled_at + in_blocks * 2u32.into());
+				NextForced::<T>::put(scheduled_at + in_blocks * 2u32.into());
 			}
 
 			let next_authorities = WeakBoundedVec::<_, T::MaxAuthorities>::force_from(
@@ -500,7 +535,7 @@ impl<T: Config> Pallet<T> {
 				),
 			);
 
-			<PendingChange<T>>::put(StoredPendingChange {
+			PendingChange::<T>::put(StoredPendingChange {
 				delay: in_blocks,
 				scheduled_at,
 				next_authorities,
@@ -516,7 +551,7 @@ impl<T: Config> Pallet<T> {
 	/// Deposit one of this module's logs.
 	fn deposit_log(log: ConsensusLog<BlockNumberFor<T>>) {
 		let log = DigestItem::Consensus(GRANDPA_ENGINE_ID, log.encode());
-		<frame_system::Pallet<T>>::deposit_log(log);
+		frame_system::Pallet::<T>::deposit_log(log);
 	}
 
 	// Perform module initialization, abstracted so that it can be called either through genesis
@@ -552,7 +587,7 @@ impl<T: Config> Pallet<T> {
 		// when we record old authority sets we could try to figure out _who_
 		// failed. until then, we can't meaningfully guard against
 		// `next == last` the way that normal session changes do.
-		<Stalled<T>>::put((further_wait, median));
+		Stalled::<T>::put((further_wait, median));
 	}
 }
 
@@ -581,10 +616,10 @@ where
 		// Always issue a change if `session` says that the validators have changed.
 		// Even if their session keys are the same as before, the underlying economic
 		// identities have changed.
-		let current_set_id = if changed || <Stalled<T>>::exists() {
+		let current_set_id = if changed || Stalled::<T>::exists() {
 			let next_authorities = validators.map(|(_, k)| (k, 1)).collect::<Vec<_>>();
 
-			let res = if let Some((further_wait, median)) = <Stalled<T>>::take() {
+			let res = if let Some((further_wait, median)) = Stalled::<T>::take() {
 				Self::schedule_change(next_authorities, further_wait, Some(median))
 			} else {
 				Self::schedule_change(next_authorities, Zero::zero(), None)
@@ -606,17 +641,17 @@ where
 				// either the session module signalled that the validators have changed
 				// or the set was stalled. but since we didn't successfully schedule
 				// an authority set change we do not increment the set id.
-				Self::current_set_id()
+				CurrentSetId::<T>::get()
 			}
 		} else {
 			// nothing's changed, neither economic conditions nor session keys. update the pointer
 			// of the current set.
-			Self::current_set_id()
+			CurrentSetId::<T>::get()
 		};
 
 		// update the mapping to note that the current set corresponds to the
 		// latest equivalent session (i.e. now).
-		let session_index = <pallet_session::Pallet<T>>::current_index();
+		let session_index = pallet_session::Pallet::<T>::current_index();
 		SetIdSession::<T>::insert(current_set_id, &session_index);
 	}
 

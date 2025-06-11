@@ -1,0 +1,18 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: '[pallet-mixnet] Migrate to using frame umbrella crate'
+
+doc:
+  - audience: Runtime Dev
+    description: This PR migrates the pallet-mixnet to use the frame umbrella crate. This
+      is part of the ongoing effort to migrate all pallets to use the frame umbrella crate.
+      The effort is tracked [here](https://github.com/paritytech/polkadot-sdk/issues/6504).
+
+crates:
+  - name: pallet-mixnet
+    bump: minor
+  - name: polkadot-sdk-frame
+    bump: minor
+  - name: polkadot-sdk
+    bump: none

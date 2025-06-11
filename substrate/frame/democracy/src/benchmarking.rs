@@ -17,9 +17,11 @@
 
 //! Democracy pallet benchmarking.
 
+#![cfg(feature = "runtime-benchmarks")]
+
 use super::*;
 
-use frame_benchmarking::v1::{account, benchmarks, whitelist_account, BenchmarkError};
+use frame_benchmarking::v2::*;
 use frame_support::{
 	assert_noop, assert_ok,
 	traits::{Currency, EnsureOrigin, Get, OnInitialize, UnfilteredDispatchable},
@@ -85,8 +87,8 @@ fn assert_has_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 
 // note a new preimage.
 fn note_preimage<T: Config>() -> T::Hash {
+	use alloc::borrow::Cow;
 	use core::sync::atomic::{AtomicU8, Ordering};
-	use sp_std::borrow::Cow;
 	// note a new preimage on every function invoke.
 	static COUNTER: AtomicU8 = AtomicU8::new(0);
 	let data = Cow::from(vec![COUNTER.fetch_add(1, Ordering::Relaxed)]);
@@ -94,11 +96,15 @@ fn note_preimage<T: Config>() -> T::Hash {
 	hash
 }
 
-benchmarks! {
-	propose {
+#[benchmarks]
+mod benchmarks {
+	use super::*;
+
+	#[benchmark]
+	fn propose() -> Result<(), BenchmarkError> {
 		let p = T::MaxProposals::get();
 
-		for i in 0 .. (p - 1) {
+		for i in 0..(p - 1) {
 			add_proposal::<T>(i)?;
 		}
 
@@ -106,18 +112,22 @@ benchmarks! {
 		let proposal = make_proposal::<T>(0);
 		let value = T::MinimumDeposit::get();
 		whitelist_account!(caller);
-	}: _(RawOrigin::Signed(caller), proposal, value)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), proposal, value);
+
 		assert_eq!(PublicProps::<T>::get().len(), p as usize, "Proposals not created.");
+		Ok(())
 	}
 
-	second {
+	#[benchmark]
+	fn second() -> Result<(), BenchmarkError> {
 		let caller = funded_account::<T>("caller", 0);
 		add_proposal::<T>(0)?;
 
 		// Create s existing "seconds"
 		// we must reserve one deposit for the `proposal` and one for our benchmarked `second` call.
-		for i in 0 .. T::MaxDeposits::get() - 2 {
+		for i in 0..T::MaxDeposits::get() - 2 {
 			let seconder = funded_account::<T>("seconder", i);
 			Democracy::<T>::second(RawOrigin::Signed(seconder).into(), 0)?;
 		}
@@ -125,20 +135,32 @@ benchmarks! {
 		let deposits = DepositOf::<T>::get(0).ok_or("Proposal not created")?;
 		assert_eq!(deposits.0.len(), (T::MaxDeposits::get() - 1) as usize, "Seconds not recorded");
 		whitelist_account!(caller);
-	}: _(RawOrigin::Signed(caller), 0)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), 0);
+
 		let deposits = DepositOf::<T>::get(0).ok_or("Proposal not created")?;
-		assert_eq!(deposits.0.len(), (T::MaxDeposits::get()) as usize, "`second` benchmark did not work");
+		assert_eq!(
+			deposits.0.len(),
+			(T::MaxDeposits::get()) as usize,
+			"`second` benchmark did not work"
+		);
+		Ok(())
 	}
 
-	vote_new {
+	#[benchmark]
+	fn vote_new() -> Result<(), BenchmarkError> {
 		let caller = funded_account::<T>("caller", 0);
 		let account_vote = account_vote::<T>(100u32.into());
 
 		// We need to create existing direct votes
-		for i in 0 .. T::MaxVotes::get() - 1 {
+		for i in 0..T::MaxVotes::get() - 1 {
 			let ref_index = add_referendum::<T>(i).0;
-			Democracy::<T>::vote(RawOrigin::Signed(caller.clone()).into(), ref_index, account_vote)?;
+			Democracy::<T>::vote(
+				RawOrigin::Signed(caller.clone()).into(),
+				ref_index,
+				account_vote,
+			)?;
 		}
 		let votes = match VotingOf::<T>::get(&caller) {
 			Voting::Direct { votes, .. } => votes,
@@ -148,23 +170,32 @@ benchmarks! {
 
 		let ref_index = add_referendum::<T>(T::MaxVotes::get() - 1).0;
 		whitelist_account!(caller);
-	}: vote(RawOrigin::Signed(caller.clone()), ref_index, account_vote)
-	verify {
+
+		#[extrinsic_call]
+		vote(RawOrigin::Signed(caller.clone()), ref_index, account_vote);
+
 		let votes = match VotingOf::<T>::get(&caller) {
 			Voting::Direct { votes, .. } => votes,
 			_ => return Err("Votes are not direct".into()),
 		};
+
 		assert_eq!(votes.len(), T::MaxVotes::get() as usize, "Vote was not recorded.");
+		Ok(())
 	}
 
-	vote_existing {
+	#[benchmark]
+	fn vote_existing() -> Result<(), BenchmarkError> {
 		let caller = funded_account::<T>("caller", 0);
 		let account_vote = account_vote::<T>(100u32.into());
 
 		// We need to create existing direct votes
 		for i in 0..T::MaxVotes::get() {
 			let ref_index = add_referendum::<T>(i).0;
-			Democracy::<T>::vote(RawOrigin::Signed(caller.clone()).into(), ref_index, account_vote)?;
+			Democracy::<T>::vote(
+				RawOrigin::Signed(caller.clone()).into(),
+				ref_index,
+				account_vote,
+			)?;
 		}
 		let votes = match VotingOf::<T>::get(&caller) {
 			Voting::Direct { votes, .. } => votes,
@@ -179,43 +210,50 @@ benchmarks! {
 
 		// This tests when a user changes a vote
 		whitelist_account!(caller);
-	}: vote(RawOrigin::Signed(caller.clone()), ref_index, new_vote)
-	verify {
+
+		#[extrinsic_call]
+		vote(RawOrigin::Signed(caller.clone()), ref_index, new_vote);
+
 		let votes = match VotingOf::<T>::get(&caller) {
 			Voting::Direct { votes, .. } => votes,
 			_ => return Err("Votes are not direct".into()),
 		};
 		assert_eq!(votes.len(), T::MaxVotes::get() as usize, "Vote was incorrectly added");
-		let referendum_info = ReferendumInfoOf::<T>::get(ref_index)
-			.ok_or("referendum doesn't exist")?;
-		let tally =  match referendum_info {
+		let referendum_info =
+			ReferendumInfoOf::<T>::get(ref_index).ok_or("referendum doesn't exist")?;
+		let tally = match referendum_info {
 			ReferendumInfo::Ongoing(r) => r.tally,
 			_ => return Err("referendum not ongoing".into()),
 		};
 		assert_eq!(tally.nays, 1000u32.into(), "changed vote was not recorded");
+		Ok(())
 	}
 
-	emergency_cancel {
-		let origin =
-			T::CancellationOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+	#[benchmark]
+	fn emergency_cancel() -> Result<(), BenchmarkError> {
+		let origin = T::CancellationOrigin::try_successful_origin()
+			.map_err(|_| BenchmarkError::Weightless)?;
 		let (ref_index, _, preimage_hash) = add_referendum::<T>(0);
 		assert_ok!(Democracy::<T>::referendum_status(ref_index));
-	}: _<T::RuntimeOrigin>(origin, ref_index)
-	verify {
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, ref_index);
 		// Referendum has been canceled
-		assert_noop!(
-			Democracy::<T>::referendum_status(ref_index),
-			Error::<T>::ReferendumInvalid,
+		assert_noop!(Democracy::<T>::referendum_status(ref_index), Error::<T>::ReferendumInvalid,);
+		assert_last_event::<T>(
+			crate::Event::MetadataCleared {
+				owner: MetadataOwner::Referendum(ref_index),
+				hash: preimage_hash,
+			}
+			.into(),
 		);
-		assert_last_event::<T>(crate::Event::MetadataCleared {
-			owner: MetadataOwner::Referendum(ref_index),
-			hash: preimage_hash,
-		}.into());
+		Ok(())
 	}
 
-	blacklist {
+	#[benchmark]
+	fn blacklist() -> Result<(), BenchmarkError> {
 		// Place our proposal at the end to make sure it's worst case.
-		for i in 0 .. T::MaxProposals::get() - 1 {
+		for i in 0..T::MaxProposals::get() - 1 {
 			add_proposal::<T>(i)?;
 		}
 		// We should really add a lot of seconds here, but we're not doing it elsewhere.
@@ -231,21 +269,24 @@ benchmarks! {
 		));
 		let origin =
 			T::BlacklistOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-	}: _<T::RuntimeOrigin>(origin, hash, Some(ref_index))
-	verify {
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, hash, Some(ref_index));
+
 		// Referendum has been canceled
-		assert_noop!(
-			Democracy::<T>::referendum_status(ref_index),
-			Error::<T>::ReferendumInvalid
+		assert_noop!(Democracy::<T>::referendum_status(ref_index), Error::<T>::ReferendumInvalid);
+		assert_has_event::<T>(
+			crate::Event::MetadataCleared {
+				owner: MetadataOwner::Referendum(ref_index),
+				hash: preimage_hash,
+			}
+			.into(),
 		);
-		assert_has_event::<T>(crate::Event::MetadataCleared {
-			owner: MetadataOwner::Referendum(ref_index),
-			hash: preimage_hash,
-		}.into());
+		Ok(())
 	}
 
 	// Worst case scenario, we external propose a previously blacklisted proposal
-	external_propose {
+	#[benchmark]
+	fn external_propose() -> Result<(), BenchmarkError> {
 		let origin =
 			T::ExternalOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let proposal = make_proposal::<T>(0);
@@ -258,33 +299,42 @@ benchmarks! {
 			.try_into()
 			.unwrap();
 		Blacklist::<T>::insert(proposal.hash(), (BlockNumberFor::<T>::zero(), addresses));
-	}: _<T::RuntimeOrigin>(origin, proposal)
-	verify {
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, proposal);
+
 		// External proposal created
 		ensure!(NextExternal::<T>::exists(), "External proposal didn't work");
+		Ok(())
 	}
 
-	external_propose_majority {
+	#[benchmark]
+	fn external_propose_majority() -> Result<(), BenchmarkError> {
 		let origin = T::ExternalMajorityOrigin::try_successful_origin()
 			.map_err(|_| BenchmarkError::Weightless)?;
 		let proposal = make_proposal::<T>(0);
-	}: _<T::RuntimeOrigin>(origin, proposal)
-	verify {
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, proposal);
+
 		// External proposal created
 		ensure!(NextExternal::<T>::exists(), "External proposal didn't work");
+		Ok(())
 	}
 
-	external_propose_default {
+	#[benchmark]
+	fn external_propose_default() -> Result<(), BenchmarkError> {
 		let origin = T::ExternalDefaultOrigin::try_successful_origin()
 			.map_err(|_| BenchmarkError::Weightless)?;
 		let proposal = make_proposal::<T>(0);
-	}: _<T::RuntimeOrigin>(origin, proposal)
-	verify {
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, proposal);
+
 		// External proposal created
 		ensure!(NextExternal::<T>::exists(), "External proposal didn't work");
+		Ok(())
 	}
 
-	fast_track {
+	#[benchmark]
+	fn fast_track() -> Result<(), BenchmarkError> {
 		let origin_propose = T::ExternalDefaultOrigin::try_successful_origin()
 			.expect("ExternalDefaultOrigin has no successful origin required for the benchmark");
 		let proposal = make_proposal::<T>(0);
@@ -295,23 +345,30 @@ benchmarks! {
 		assert_ok!(Democracy::<T>::set_metadata(
 			origin_propose,
 			MetadataOwner::External,
-			Some(preimage_hash)));
+			Some(preimage_hash)
+		));
 		// NOTE: Instant origin may invoke a little bit more logic, but may not always succeed.
 		let origin_fast_track =
 			T::FastTrackOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let voting_period = T::FastTrackVotingPeriod::get();
 		let delay = 0u32;
-	}: _<T::RuntimeOrigin>(origin_fast_track, proposal_hash, voting_period, delay.into())
-	verify {
+		#[extrinsic_call]
+		_(origin_fast_track as T::RuntimeOrigin, proposal_hash, voting_period, delay.into());
+
 		assert_eq!(ReferendumCount::<T>::get(), 1, "referendum not created");
-		assert_last_event::<T>(crate::Event::MetadataTransferred {
-			prev_owner: MetadataOwner::External,
-			owner: MetadataOwner::Referendum(0),
-			hash: preimage_hash,
-		}.into());
+		assert_last_event::<T>(
+			crate::Event::MetadataTransferred {
+				prev_owner: MetadataOwner::External,
+				owner: MetadataOwner::Referendum(0),
+				hash: preimage_hash,
+			}
+			.into(),
+		);
+		Ok(())
 	}
 
-	veto_external {
+	#[benchmark]
+	fn veto_external() -> Result<(), BenchmarkError> {
 		let proposal = make_proposal::<T>(0);
 		let proposal_hash = proposal.hash();
 
@@ -323,28 +380,32 @@ benchmarks! {
 		assert_ok!(Democracy::<T>::set_metadata(
 			origin_propose,
 			MetadataOwner::External,
-			Some(preimage_hash))
-		);
+			Some(preimage_hash)
+		));
 
 		let mut vetoers: BoundedVec<T::AccountId, _> = Default::default();
-		for i in 0 .. (T::MaxBlacklisted::get() - 1) {
+		for i in 0..(T::MaxBlacklisted::get() - 1) {
 			vetoers.try_push(account::<T::AccountId>("vetoer", i, SEED)).unwrap();
 		}
 		vetoers.sort();
 		Blacklist::<T>::insert(proposal_hash, (BlockNumberFor::<T>::zero(), vetoers));
 
-		let origin = T::VetoOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		let origin =
+			T::VetoOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		ensure!(NextExternal::<T>::get().is_some(), "no external proposal");
-	}: _<T::RuntimeOrigin>(origin, proposal_hash)
-	verify {
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, proposal_hash);
+
 		assert!(NextExternal::<T>::get().is_none());
 		let (_, new_vetoers) = Blacklist::<T>::get(&proposal_hash).ok_or("no blacklist")?;
 		assert_eq!(new_vetoers.len(), T::MaxBlacklisted::get() as usize, "vetoers not added");
+		Ok(())
 	}
 
-	cancel_proposal {
+	#[benchmark]
+	fn cancel_proposal() -> Result<(), BenchmarkError> {
 		// Place our proposal at the end to make sure it's worst case.
-		for i in 0 .. T::MaxProposals::get() {
+		for i in 0..T::MaxProposals::get() {
 			add_proposal::<T>(i)?;
 		}
 		// Add metadata to the first proposal.
@@ -353,31 +414,41 @@ benchmarks! {
 		assert_ok!(Democracy::<T>::set_metadata(
 			RawOrigin::Signed(proposer).into(),
 			MetadataOwner::Proposal(0),
-			Some(preimage_hash)));
+			Some(preimage_hash)
+		));
 		let cancel_origin = T::CancelProposalOrigin::try_successful_origin()
 			.map_err(|_| BenchmarkError::Weightless)?;
-	}: _<T::RuntimeOrigin>(cancel_origin, 0)
-	verify {
-		assert_last_event::<T>(crate::Event::MetadataCleared {
-			owner: MetadataOwner::Proposal(0),
-			hash: preimage_hash,
-		}.into());
+		#[extrinsic_call]
+		_(cancel_origin as T::RuntimeOrigin, 0);
+
+		assert_last_event::<T>(
+			crate::Event::MetadataCleared {
+				owner: MetadataOwner::Proposal(0),
+				hash: preimage_hash,
+			}
+			.into(),
+		);
+		Ok(())
 	}
 
-	cancel_referendum {
+	#[benchmark]
+	fn cancel_referendum() -> Result<(), BenchmarkError> {
 		let (ref_index, _, preimage_hash) = add_referendum::<T>(0);
-	}: _(RawOrigin::Root, ref_index)
-	verify {
-		assert_last_event::<T>(crate::Event::MetadataCleared {
-			owner: MetadataOwner::Referendum(0),
-			hash: preimage_hash,
-		}.into());
+		#[extrinsic_call]
+		_(RawOrigin::Root, ref_index);
+
+		assert_last_event::<T>(
+			crate::Event::MetadataCleared {
+				owner: MetadataOwner::Referendum(0),
+				hash: preimage_hash,
+			}
+			.into(),
+		);
+		Ok(())
 	}
 
-	#[extra]
-	on_initialize_external {
-		let r in 0 .. REFERENDUM_COUNT_HINT;
-
+	#[benchmark(extra)]
+	fn on_initialize_external(r: Linear<0, REFERENDUM_COUNT_HINT>) -> Result<(), BenchmarkError> {
 		for i in 0..r {
 			add_referendum::<T>(i);
 		}
@@ -397,14 +468,17 @@ benchmarks! {
 
 		let block_number = T::LaunchPeriod::get();
 
-	}: { Democracy::<T>::on_initialize(block_number) }
-	verify {
+		#[block]
+		{
+			Democracy::<T>::on_initialize(block_number);
+		}
+
 		// One extra because of next external
 		assert_eq!(ReferendumCount::<T>::get(), r + 1, "referenda not created");
 		ensure!(!NextExternal::<T>::exists(), "External wasn't taken");
 
 		// All but the new next external should be finished
-		for i in 0 .. r {
+		for i in 0..r {
 			if let Some(value) = ReferendumInfoOf::<T>::get(i) {
 				match value {
 					ReferendumInfo::Finished { .. } => (),
@@ -412,12 +486,13 @@ benchmarks! {
 				}
 			}
 		}
+		Ok(())
 	}
 
-	#[extra]
-	on_initialize_public {
-		let r in 0 .. (T::MaxVotes::get() - 1);
-
+	#[benchmark(extra)]
+	fn on_initialize_public(
+		r: Linear<0, { T::MaxVotes::get() - 1 }>,
+	) -> Result<(), BenchmarkError> {
 		for i in 0..r {
 			add_referendum::<T>(i);
 		}
@@ -430,13 +505,16 @@ benchmarks! {
 
 		let block_number = T::LaunchPeriod::get();
 
-	}: { Democracy::<T>::on_initialize(block_number) }
-	verify {
+		#[block]
+		{
+			Democracy::<T>::on_initialize(block_number);
+		}
+
 		// One extra because of next public
 		assert_eq!(ReferendumCount::<T>::get(), r + 1, "proposal not accepted");
 
 		// All should be finished
-		for i in 0 .. r {
+		for i in 0..r {
 			if let Some(value) = ReferendumInfoOf::<T>::get(i) {
 				match value {
 					ReferendumInfo::Finished { .. } => (),
@@ -444,12 +522,12 @@ benchmarks! {
 				}
 			}
 		}
+		Ok(())
 	}
 
 	// No launch no maturing referenda.
-	on_initialize_base {
-		let r in 0 .. (T::MaxVotes::get() - 1);
-
+	#[benchmark]
+	fn on_initialize_base(r: Linear<0, { T::MaxVotes::get() - 1 }>) -> Result<(), BenchmarkError> {
 		for i in 0..r {
 			add_referendum::<T>(i);
 		}
@@ -464,22 +542,28 @@ benchmarks! {
 		assert_eq!(ReferendumCount::<T>::get(), r, "referenda not created");
 		assert_eq!(LowestUnbaked::<T>::get(), 0, "invalid referenda init");
 
-	}: { Democracy::<T>::on_initialize(1u32.into()) }
-	verify {
+		#[block]
+		{
+			Democracy::<T>::on_initialize(1u32.into());
+		}
+
 		// All should be on going
-		for i in 0 .. r {
+		for i in 0..r {
 			if let Some(value) = ReferendumInfoOf::<T>::get(i) {
 				match value {
-					ReferendumInfo::Finished { .. } => return Err("Referendum has been finished".into()),
+					ReferendumInfo::Finished { .. } =>
+						return Err("Referendum has been finished".into()),
 					ReferendumInfo::Ongoing(_) => (),
 				}
 			}
 		}
+		Ok(())
 	}
 
-	on_initialize_base_with_launch_period {
-		let r in 0 .. (T::MaxVotes::get() - 1);
-
+	#[benchmark]
+	fn on_initialize_base_with_launch_period(
+		r: Linear<0, { T::MaxVotes::get() - 1 }>,
+	) -> Result<(), BenchmarkError> {
 		for i in 0..r {
 			add_referendum::<T>(i);
 		}
@@ -496,22 +580,26 @@ benchmarks! {
 
 		let block_number = T::LaunchPeriod::get();
 
-	}: { Democracy::<T>::on_initialize(block_number) }
-	verify {
+		#[block]
+		{
+			Democracy::<T>::on_initialize(block_number);
+		}
+
 		// All should be on going
-		for i in 0 .. r {
+		for i in 0..r {
 			if let Some(value) = ReferendumInfoOf::<T>::get(i) {
 				match value {
-					ReferendumInfo::Finished { .. } => return Err("Referendum has been finished".into()),
+					ReferendumInfo::Finished { .. } =>
+						return Err("Referendum has been finished".into()),
 					ReferendumInfo::Ongoing(_) => (),
 				}
 			}
 		}
+		Ok(())
 	}
 
-	delegate {
-		let r in 0 .. (T::MaxVotes::get() - 1);
-
+	#[benchmark]
+	fn delegate(r: Linear<0, { T::MaxVotes::get() - 1 }>) -> Result<(), BenchmarkError> {
 		let initial_balance: BalanceOf<T> = 100u32.into();
 		let delegated_balance: BalanceOf<T> = 1000u32.into();
 
@@ -538,7 +626,11 @@ benchmarks! {
 		// We need to create existing direct votes for the `new_delegate`
 		for i in 0..r {
 			let ref_index = add_referendum::<T>(i).0;
-			Democracy::<T>::vote(RawOrigin::Signed(new_delegate.clone()).into(), ref_index, account_vote)?;
+			Democracy::<T>::vote(
+				RawOrigin::Signed(new_delegate.clone()).into(),
+				ref_index,
+				account_vote,
+			)?;
 		}
 		let votes = match VotingOf::<T>::get(&new_delegate) {
 			Voting::Direct { votes, .. } => votes,
@@ -546,8 +638,15 @@ benchmarks! {
 		};
 		assert_eq!(votes.len(), r as usize, "Votes were not recorded.");
 		whitelist_account!(caller);
-	}: _(RawOrigin::Signed(caller.clone()), new_delegate_lookup, Conviction::Locked1x, delegated_balance)
-	verify {
+
+		#[extrinsic_call]
+		_(
+			RawOrigin::Signed(caller.clone()),
+			new_delegate_lookup,
+			Conviction::Locked1x,
+			delegated_balance,
+		);
+
 		let (target, balance) = match VotingOf::<T>::get(&caller) {
 			Voting::Delegating { target, balance, .. } => (target, balance),
 			_ => return Err("Votes are not direct".into()),
@@ -559,11 +658,11 @@ benchmarks! {
 			_ => return Err("Votes are not direct".into()),
 		};
 		assert_eq!(delegations.capital, delegated_balance, "delegation was not recorded.");
+		Ok(())
 	}
 
-	undelegate {
-		let r in 0 .. (T::MaxVotes::get() - 1);
-
+	#[benchmark]
+	fn undelegate(r: Linear<0, { T::MaxVotes::get() - 1 }>) -> Result<(), BenchmarkError> {
 		let initial_balance: BalanceOf<T> = 100u32.into();
 		let delegated_balance: BalanceOf<T> = 1000u32.into();
 
@@ -590,7 +689,7 @@ benchmarks! {
 			Democracy::<T>::vote(
 				RawOrigin::Signed(the_delegate.clone()).into(),
 				ref_index,
-				account_vote
+				account_vote,
 			)?;
 		}
 		let votes = match VotingOf::<T>::get(&the_delegate) {
@@ -599,31 +698,38 @@ benchmarks! {
 		};
 		assert_eq!(votes.len(), r as usize, "Votes were not recorded.");
 		whitelist_account!(caller);
-	}: _(RawOrigin::Signed(caller.clone()))
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()));
+
 		// Voting should now be direct
 		match VotingOf::<T>::get(&caller) {
 			Voting::Direct { .. } => (),
 			_ => return Err("undelegation failed".into()),
 		}
+		Ok(())
 	}
 
-	clear_public_proposals {
+	#[benchmark]
+	fn clear_public_proposals() -> Result<(), BenchmarkError> {
 		add_proposal::<T>(0)?;
 
-	}: _(RawOrigin::Root)
+		#[extrinsic_call]
+		_(RawOrigin::Root);
+
+		Ok(())
+	}
 
 	// Test when unlock will remove locks
-	unlock_remove {
-		let r in 0 .. (T::MaxVotes::get() - 1);
-
+	#[benchmark]
+	fn unlock_remove(r: Linear<0, { T::MaxVotes::get() - 1 }>) -> Result<(), BenchmarkError> {
 		let locker = funded_account::<T>("locker", 0);
 		let locker_lookup = T::Lookup::unlookup(locker.clone());
 		// Populate votes so things are locked
 		let base_balance: BalanceOf<T> = 100u32.into();
 		let small_vote = account_vote::<T>(base_balance);
 		// Vote and immediately unvote
-		for i in 0 .. r {
+		for i in 0..r {
 			let ref_index = add_referendum::<T>(i).0;
 			Democracy::<T>::vote(RawOrigin::Signed(locker.clone()).into(), ref_index, small_vote)?;
 			Democracy::<T>::remove_vote(RawOrigin::Signed(locker.clone()).into(), ref_index)?;
@@ -631,23 +737,25 @@ benchmarks! {
 
 		let caller = funded_account::<T>("caller", 0);
 		whitelist_account!(caller);
-	}: unlock(RawOrigin::Signed(caller), locker_lookup)
-	verify {
+
+		#[extrinsic_call]
+		unlock(RawOrigin::Signed(caller), locker_lookup);
+
 		// Note that we may want to add a `get_lock` api to actually verify
 		let voting = VotingOf::<T>::get(&locker);
 		assert_eq!(voting.locked_balance(), BalanceOf::<T>::zero());
+		Ok(())
 	}
 
 	// Test when unlock will set a new value
-	unlock_set {
-		let r in 0 .. (T::MaxVotes::get() - 1);
-
+	#[benchmark]
+	fn unlock_set(r: Linear<0, { T::MaxVotes::get() - 1 }>) -> Result<(), BenchmarkError> {
 		let locker = funded_account::<T>("locker", 0);
 		let locker_lookup = T::Lookup::unlookup(locker.clone());
 		// Populate votes so things are locked
 		let base_balance: BalanceOf<T> = 100u32.into();
 		let small_vote = account_vote::<T>(base_balance);
-		for i in 0 .. r {
+		for i in 0..r {
 			let ref_index = add_referendum::<T>(i).0;
 			Democracy::<T>::vote(RawOrigin::Signed(locker.clone()).into(), ref_index, small_vote)?;
 		}
@@ -670,8 +778,10 @@ benchmarks! {
 
 		let caller = funded_account::<T>("caller", 0);
 		whitelist_account!(caller);
-	}: unlock(RawOrigin::Signed(caller), locker_lookup)
-	verify {
+
+		#[extrinsic_call]
+		unlock(RawOrigin::Signed(caller), locker_lookup);
+
 		let votes = match VotingOf::<T>::get(&locker) {
 			Voting::Direct { votes, .. } => votes,
 			_ => return Err("Votes are not direct".into()),
@@ -681,17 +791,21 @@ benchmarks! {
 		let voting = VotingOf::<T>::get(&locker);
 		// Note that we may want to add a `get_lock` api to actually verify
 		assert_eq!(voting.locked_balance(), if r > 0 { base_balance } else { 0u32.into() });
+		Ok(())
 	}
 
-	remove_vote {
-		let r in 1 .. T::MaxVotes::get();
-
+	#[benchmark]
+	fn remove_vote(r: Linear<1, { T::MaxVotes::get() }>) -> Result<(), BenchmarkError> {
 		let caller = funded_account::<T>("caller", 0);
 		let account_vote = account_vote::<T>(100u32.into());
 
-		for i in 0 .. r {
+		for i in 0..r {
 			let ref_index = add_referendum::<T>(i).0;
-			Democracy::<T>::vote(RawOrigin::Signed(caller.clone()).into(), ref_index, account_vote)?;
+			Democracy::<T>::vote(
+				RawOrigin::Signed(caller.clone()).into(),
+				ref_index,
+				account_vote,
+			)?;
 		}
 
 		let votes = match VotingOf::<T>::get(&caller) {
@@ -702,26 +816,32 @@ benchmarks! {
 
 		let ref_index = r - 1;
 		whitelist_account!(caller);
-	}: _(RawOrigin::Signed(caller.clone()), ref_index)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), ref_index);
+
 		let votes = match VotingOf::<T>::get(&caller) {
 			Voting::Direct { votes, .. } => votes,
 			_ => return Err("Votes are not direct".into()),
 		};
 		assert_eq!(votes.len(), (r - 1) as usize, "Vote was not removed");
+		Ok(())
 	}
 
 	// Worst case is when target == caller and referendum is ongoing
-	remove_other_vote {
-		let r in 1 .. T::MaxVotes::get();
-
+	#[benchmark]
+	fn remove_other_vote(r: Linear<1, { T::MaxVotes::get() }>) -> Result<(), BenchmarkError> {
 		let caller = funded_account::<T>("caller", r);
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
 		let account_vote = account_vote::<T>(100u32.into());
 
-		for i in 0 .. r {
+		for i in 0..r {
 			let ref_index = add_referendum::<T>(i).0;
-			Democracy::<T>::vote(RawOrigin::Signed(caller.clone()).into(), ref_index, account_vote)?;
+			Democracy::<T>::vote(
+				RawOrigin::Signed(caller.clone()).into(),
+				ref_index,
+				account_vote,
+			)?;
 		}
 
 		let votes = match VotingOf::<T>::get(&caller) {
@@ -732,68 +852,71 @@ benchmarks! {
 
 		let ref_index = r - 1;
 		whitelist_account!(caller);
-	}: _(RawOrigin::Signed(caller.clone()), caller_lookup, ref_index)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), caller_lookup, ref_index);
+
 		let votes = match VotingOf::<T>::get(&caller) {
 			Voting::Direct { votes, .. } => votes,
 			_ => return Err("Votes are not direct".into()),
 		};
 		assert_eq!(votes.len(), (r - 1) as usize, "Vote was not removed");
+		Ok(())
 	}
 
-	set_external_metadata {
+	#[benchmark]
+	fn set_external_metadata() -> Result<(), BenchmarkError> {
 		let origin = T::ExternalOrigin::try_successful_origin()
 			.expect("ExternalOrigin has no successful origin required for the benchmark");
-		assert_ok!(
-			Democracy::<T>::external_propose(origin.clone(), make_proposal::<T>(0))
-		);
+		assert_ok!(Democracy::<T>::external_propose(origin.clone(), make_proposal::<T>(0)));
 		let owner = MetadataOwner::External;
 		let hash = note_preimage::<T>();
-	}: set_metadata<T::RuntimeOrigin>(origin, owner.clone(), Some(hash))
-	verify {
-		assert_last_event::<T>(crate::Event::MetadataSet {
-			owner,
-			hash,
-		}.into());
+
+		#[extrinsic_call]
+		set_metadata(origin as T::RuntimeOrigin, owner.clone(), Some(hash));
+
+		assert_last_event::<T>(crate::Event::MetadataSet { owner, hash }.into());
+		Ok(())
 	}
 
-	clear_external_metadata {
+	#[benchmark]
+	fn clear_external_metadata() -> Result<(), BenchmarkError> {
 		let origin = T::ExternalOrigin::try_successful_origin()
 			.expect("ExternalOrigin has no successful origin required for the benchmark");
-		assert_ok!(
-			Democracy::<T>::external_propose(origin.clone(), make_proposal::<T>(0))
-		);
+		assert_ok!(Democracy::<T>::external_propose(origin.clone(), make_proposal::<T>(0)));
 		let owner = MetadataOwner::External;
-		let proposer = funded_account::<T>("proposer", 0);
+		let _proposer = funded_account::<T>("proposer", 0);
 		let hash = note_preimage::<T>();
 		assert_ok!(Democracy::<T>::set_metadata(origin.clone(), owner.clone(), Some(hash)));
-	}: set_metadata<T::RuntimeOrigin>(origin, owner.clone(), None)
-	verify {
-		assert_last_event::<T>(crate::Event::MetadataCleared {
-			owner,
-			hash,
-		}.into());
+
+		#[extrinsic_call]
+		set_metadata(origin as T::RuntimeOrigin, owner.clone(), None);
+
+		assert_last_event::<T>(crate::Event::MetadataCleared { owner, hash }.into());
+		Ok(())
 	}
 
-	set_proposal_metadata {
+	#[benchmark]
+	fn set_proposal_metadata() -> Result<(), BenchmarkError> {
 		// Place our proposal at the end to make sure it's worst case.
-		for i in 0 .. T::MaxProposals::get() {
+		for i in 0..T::MaxProposals::get() {
 			add_proposal::<T>(i)?;
 		}
 		let owner = MetadataOwner::Proposal(0);
 		let proposer = funded_account::<T>("proposer", 0);
 		let hash = note_preimage::<T>();
-	}: set_metadata<T::RuntimeOrigin>(RawOrigin::Signed(proposer).into(), owner.clone(), Some(hash))
-	verify {
-		assert_last_event::<T>(crate::Event::MetadataSet {
-			owner,
-			hash,
-		}.into());
+
+		#[extrinsic_call]
+		set_metadata(RawOrigin::Signed(proposer), owner.clone(), Some(hash));
+
+		assert_last_event::<T>(crate::Event::MetadataSet { owner, hash }.into());
+		Ok(())
 	}
 
-	clear_proposal_metadata {
+	#[benchmark]
+	fn clear_proposal_metadata() -> Result<(), BenchmarkError> {
 		// Place our proposal at the end to make sure it's worst case.
-		for i in 0 .. T::MaxProposals::get() {
+		for i in 0..T::MaxProposals::get() {
 			add_proposal::<T>(i)?;
 		}
 		let proposer = funded_account::<T>("proposer", 0);
@@ -802,33 +925,36 @@ benchmarks! {
 		assert_ok!(Democracy::<T>::set_metadata(
 			RawOrigin::Signed(proposer.clone()).into(),
 			owner.clone(),
-			Some(hash)));
-	}: set_metadata<T::RuntimeOrigin>(RawOrigin::Signed(proposer).into(), owner.clone(), None)
-	verify {
-		assert_last_event::<T>(crate::Event::MetadataCleared {
-			owner,
-			hash,
-		}.into());
+			Some(hash)
+		));
+
+		#[extrinsic_call]
+		set_metadata::<T::RuntimeOrigin>(RawOrigin::Signed(proposer), owner.clone(), None);
+
+		assert_last_event::<T>(crate::Event::MetadataCleared { owner, hash }.into());
+		Ok(())
 	}
 
-	set_referendum_metadata {
+	#[benchmark]
+	fn set_referendum_metadata() -> Result<(), BenchmarkError> {
 		// create not ongoing referendum.
 		ReferendumInfoOf::<T>::insert(
 			0,
 			ReferendumInfo::Finished { end: BlockNumberFor::<T>::zero(), approved: true },
 		);
 		let owner = MetadataOwner::Referendum(0);
-		let caller = funded_account::<T>("caller", 0);
+		let _caller = funded_account::<T>("caller", 0);
 		let hash = note_preimage::<T>();
-	}: set_metadata<T::RuntimeOrigin>(RawOrigin::Root.into(), owner.clone(), Some(hash))
-	verify {
-		assert_last_event::<T>(crate::Event::MetadataSet {
-			owner,
-			hash,
-		}.into());
+
+		#[extrinsic_call]
+		set_metadata::<T::RuntimeOrigin>(RawOrigin::Root, owner.clone(), Some(hash));
+
+		assert_last_event::<T>(crate::Event::MetadataSet { owner, hash }.into());
+		Ok(())
 	}
 
-	clear_referendum_metadata {
+	#[benchmark]
+	fn clear_referendum_metadata() -> Result<(), BenchmarkError> {
 		// create not ongoing referendum.
 		ReferendumInfoOf::<T>::insert(
 			0,
@@ -838,17 +964,13 @@ benchmarks! {
 		let hash = note_preimage::<T>();
 		MetadataOf::<T>::insert(owner.clone(), hash);
 		let caller = funded_account::<T>("caller", 0);
-	}: set_metadata<T::RuntimeOrigin>(RawOrigin::Signed(caller).into(), owner.clone(), None)
-	verify {
-		assert_last_event::<T>(crate::Event::MetadataCleared {
-			owner,
-			hash,
-		}.into());
+
+		#[extrinsic_call]
+		set_metadata::<T::RuntimeOrigin>(RawOrigin::Signed(caller), owner.clone(), None);
+
+		assert_last_event::<T>(crate::Event::MetadataCleared { owner, hash }.into());
+		Ok(())
 	}
 
-	impl_benchmark_test_suite!(
-		Democracy,
-		crate::tests::new_test_ext(),
-		crate::tests::Test
-	);
+	impl_benchmark_test_suite!(Democracy, crate::tests::new_test_ext(), crate::tests::Test);
 }

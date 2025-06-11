@@ -166,7 +166,7 @@ impl WasmBuilder {
 
 	/// Enable exporting `__heap_base` as global variable in the WASM binary.
 	///
-	/// This adds `-Clink-arg=--export=__heap_base` to `RUST_FLAGS`.
+	/// This adds `-C link-arg=--export=__heap_base` to `RUST_FLAGS`.
 	pub fn export_heap_base(mut self) -> Self {
 		self.export_heap_base = true;
 		self
@@ -235,10 +235,11 @@ impl WasmBuilder {
 
 	/// Build the WASM binary.
 	pub fn build(mut self) {
-		let target = crate::runtime_target();
+		let target = RuntimeTarget::new();
+
 		if target == RuntimeTarget::Wasm {
 			if self.export_heap_base {
-				self.rust_flags.push("-Clink-arg=--export=__heap_base".into());
+				self.rust_flags.push("-C link-arg=--export=__heap_base".into());
 			}
 
 			if self.import_memory {
@@ -264,7 +265,7 @@ impl WasmBuilder {
 			target,
 			file_path,
 			self.project_cargo_toml,
-			self.rust_flags.into_iter().map(|f| format!("{} ", f)).collect(),
+			self.rust_flags.join(" "),
 			self.features_to_enable,
 			self.file_name,
 			!self.disable_runtime_version_section_check,
@@ -303,7 +304,8 @@ fn provide_dummy_wasm_binary_if_not_exist(file_path: &Path) {
 	if !file_path.exists() {
 		crate::write_file_if_changed(
 			file_path,
-			"pub const WASM_BINARY: Option<&[u8]> = None;\
+			"pub const WASM_BINARY_PATH: Option<&str> = None;\
+			 pub const WASM_BINARY: Option<&[u8]> = None;\
 			 pub const WASM_BINARY_BLOATY: Option<&[u8]> = None;",
 		);
 	}
@@ -346,10 +348,12 @@ fn build_project(
 	check_for_runtime_version_section: bool,
 	#[cfg(feature = "metadata-hash")] enable_metadata_hash: Option<MetadataExtraInfo>,
 ) {
+	// Init jobserver as soon as possible
+	crate::wasm_project::get_jobserver();
 	let cargo_cmd = match crate::prerequisites::check(target) {
 		Ok(cmd) => cmd,
 		Err(err_msg) => {
-			eprintln!("{}", err_msg);
+			eprintln!("{err_msg}");
 			process::exit(1);
 		},
 	};
@@ -376,9 +380,11 @@ fn build_project(
 		file_name,
 		format!(
 			r#"
+				pub const WASM_BINARY_PATH: Option<&str> = Some("{wasm_binary_path}");
 				pub const WASM_BINARY: Option<&[u8]> = Some(include_bytes!("{wasm_binary}"));
 				pub const WASM_BINARY_BLOATY: Option<&[u8]> = Some(include_bytes!("{wasm_binary_bloaty}"));
 			"#,
+			wasm_binary_path = wasm_binary,
 			wasm_binary = wasm_binary,
 			wasm_binary_bloaty = wasm_binary_bloaty,
 		),

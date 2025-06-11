@@ -17,10 +17,11 @@
 
 //! Traits for managing information attached to pallets and their constituents.
 
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
+use core::ops::Add;
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_runtime::RuntimeDebug;
-use sp_std::{ops::Add, prelude::*};
 
 /// Provides information about the pallet itself and its setup in the runtime.
 ///
@@ -146,16 +147,16 @@ impl CrateVersion {
 	}
 }
 
-impl sp_std::cmp::Ord for CrateVersion {
-	fn cmp(&self, other: &Self) -> sp_std::cmp::Ordering {
+impl Ord for CrateVersion {
+	fn cmp(&self, other: &Self) -> core::cmp::Ordering {
 		self.major
 			.cmp(&other.major)
 			.then_with(|| self.minor.cmp(&other.minor).then_with(|| self.patch.cmp(&other.patch)))
 	}
 }
 
-impl sp_std::cmp::PartialOrd for CrateVersion {
-	fn partial_cmp(&self, other: &Self) -> Option<sp_std::cmp::Ordering> {
+impl PartialOrd for CrateVersion {
+	fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
 		Some(<Self as Ord>::cmp(self, other))
 	}
 }
@@ -248,7 +249,7 @@ impl PartialEq<u16> for StorageVersion {
 }
 
 impl PartialOrd<u16> for StorageVersion {
-	fn partial_cmp(&self, other: &u16) -> Option<sp_std::cmp::Ordering> {
+	fn partial_cmp(&self, other: &u16) -> Option<core::cmp::Ordering> {
 		Some(self.0.cmp(other))
 	}
 }

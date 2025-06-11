@@ -1,0 +1,20 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add missing events to nomination pool extrinsics
+
+doc:
+  - audience: [Runtime Dev, Runtime User]
+    description: |
+      Introduces events to extrinsics from `pallet_nomination_pools` that previously had none:
+        - `set_metadata`
+        - `nominate`
+        - `chill`
+        - `set_configs`
+        - `set_claim_permission`
+
+crates:
+- name: pallet-nomination-pools
+  bump: major
+- name: pallet-staking
+  bump: none

@@ -1,0 +1,27 @@
+title: Introduce `ConstUint` to make dependent types in `DefaultConfig` more adaptable
+author: conr2d
+topic: runtime
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    Introduce `ConstUint` that is a unified alternative to `ConstU8`, `ConstU16`, and
+    similar types, particularly useful for configuring `DefaultConfig` in pallets.
+    It enables configuring the underlying integer for a specific type without the need
+    to update all dependent types, offering enhanced flexibility in type management.
+
+crates:
+  - name: frame-support
+    bump: patch
+  - name: frame-system
+    bump: none
+  - name: pallet-assets
+    bump: none
+  - name: pallet-balances
+    bump: none
+  - name: pallet-timestamp
+    bump: none
+  - name: sp-core
+    bump: patch
+  - name: sp-runtime
+    bump: patch

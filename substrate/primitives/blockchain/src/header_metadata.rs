@@ -18,14 +18,18 @@
 //! Implements tree backend, cached header metadata and algorithms
 //! to compute routes efficiently over the tree of headers.
 
-use parking_lot::RwLock;
+use parking_lot::Mutex;
 use schnellru::{ByLength, LruMap};
-use sp_runtime::traits::{Block as BlockT, Header, NumberFor, One};
+use sp_core::U256;
+use sp_runtime::{
+	traits::{Block as BlockT, Header, NumberFor, One},
+	Saturating,
+};
 
 /// Set to the expected max difference between `best` and `finalized` blocks at sync.
 pub(crate) const LRU_CACHE_SIZE: u32 = 5_000;
 
-/// Get lowest common ancestor between two blocks in the tree.
+/// Get the lowest common ancestor between two blocks in the tree.
 ///
 /// This implementation is efficient because our trees have very few and
 /// small branches, and because of our current query pattern:
@@ -96,30 +100,6 @@ pub fn lowest_common_ancestor<Block: BlockT, T: HeaderMetadata<Block> + ?Sized>(
 	Ok(HashAndNumber { hash: header_one.hash, number: header_one.number })
 }
 
-/// Get lowest common ancestor between multiple blocks.
-pub fn lowest_common_ancestor_multiblock<Block: BlockT, T: HeaderMetadata<Block> + ?Sized>(
-	backend: &T,
-	hashes: Vec<Block::Hash>,
-) -> Result<Option<HashAndNumber<Block>>, T::Error> {
-	// Ensure the list of hashes is not empty
-	let mut hashes_iter = hashes.into_iter();
-
-	let first_hash = match hashes_iter.next() {
-		Some(hash) => hash,
-		None => return Ok(None),
-	};
-
-	// Start with the first hash as the initial LCA
-	let first_cached = backend.header_metadata(first_hash)?;
-	let mut lca = HashAndNumber { number: first_cached.number, hash: first_cached.hash };
-	for hash in hashes_iter {
-		// Calculate the LCA of the current LCA and the next hash
-		lca = lowest_common_ancestor(backend, lca.hash, hash)?;
-	}
-
-	Ok(Some(lca))
-}
-
 /// Compute a tree-route between two blocks. See tree-route docs for more details.
 pub fn tree_route<Block: BlockT, T: HeaderMetadata<Block> + ?Sized>(
 	backend: &T,
@@ -129,15 +109,16 @@ pub fn tree_route<Block: BlockT, T: HeaderMetadata<Block> + ?Sized>(
 	let mut from = backend.header_metadata(from)?;
 	let mut to = backend.header_metadata(to)?;
 
-	let mut from_branch = Vec::new();
-	let mut to_branch = Vec::new();
-
+	let mut to_branch =
+		Vec::with_capacity(Into::<U256>::into(to.number.saturating_sub(from.number)).as_usize());
 	while to.number > from.number {
 		to_branch.push(HashAndNumber { number: to.number, hash: to.hash });
 
 		to = backend.header_metadata(to.parent)?;
 	}
 
+	let mut from_branch =
+		Vec::with_capacity(Into::<U256>::into(to.number.saturating_sub(from.number)).as_usize());
 	while from.number > to.number {
 		from_branch.push(HashAndNumber { number: from.number, hash: from.hash });
 		from = backend.header_metadata(from.parent)?;
@@ -156,6 +137,7 @@ pub fn tree_route<Block: BlockT, T: HeaderMetadata<Block> + ?Sized>(
 	// add the pivot block. and append the reversed to-branch
 	// (note that it's reverse order originals)
 	let pivot = from_branch.len();
+	from_branch.reserve_exact(to_branch.len() + 1);
 	from_branch.push(HashAndNumber { number: to.number, hash: to.hash });
 	from_branch.extend(to_branch.into_iter().rev());
 
@@ -171,9 +153,32 @@ pub struct HashAndNumber<Block: BlockT> {
 	pub hash: Block::Hash,
 }
 
+impl<Block: BlockT> Eq for HashAndNumber<Block> {}
+
+impl<Block: BlockT> PartialEq for HashAndNumber<Block> {
+	fn eq(&self, other: &Self) -> bool {
+		self.number.eq(&other.number) && self.hash.eq(&other.hash)
+	}
+}
+
+impl<Block: BlockT> Ord for HashAndNumber<Block> {
+	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		match self.number.cmp(&other.number) {
+			std::cmp::Ordering::Equal => self.hash.cmp(&other.hash),
+			result => result,
+		}
+	}
+}
+
+impl<Block: BlockT> PartialOrd for HashAndNumber<Block> {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(self.cmp(&other))
+	}
+}
+
 /// A tree-route from one block to another in the chain.
 ///
-/// All blocks prior to the pivot in the deque is the reverse-order unique ancestry
+/// All blocks prior to the pivot in the vector is the reverse-order unique ancestry
 /// of the first block, the block at the pivot index is the common ancestor,
 /// and all blocks after the pivot is the ancestry of the second block, in
 /// order.
@@ -266,33 +271,33 @@ pub trait HeaderMetadata<Block: BlockT> {
 
 /// Caches header metadata in an in-memory LRU cache.
 pub struct HeaderMetadataCache<Block: BlockT> {
-	cache: RwLock<LruMap<Block::Hash, CachedHeaderMetadata<Block>>>,
+	cache: Mutex<LruMap<Block::Hash, CachedHeaderMetadata<Block>>>,
 }
 
 impl<Block: BlockT> HeaderMetadataCache<Block> {
 	/// Creates a new LRU header metadata cache with `capacity`.
 	pub fn new(capacity: u32) -> Self {
-		HeaderMetadataCache { cache: RwLock::new(LruMap::new(ByLength::new(capacity))) }
+		HeaderMetadataCache { cache: Mutex::new(LruMap::new(ByLength::new(capacity))) }
 	}
 }
 
 impl<Block: BlockT> Default for HeaderMetadataCache<Block> {
 	fn default() -> Self {
-		HeaderMetadataCache { cache: RwLock::new(LruMap::new(ByLength::new(LRU_CACHE_SIZE))) }
+		Self::new(LRU_CACHE_SIZE)
 	}
 }
 
 impl<Block: BlockT> HeaderMetadataCache<Block> {
 	pub fn header_metadata(&self, hash: Block::Hash) -> Option<CachedHeaderMetadata<Block>> {
-		self.cache.write().get(&hash).cloned()
+		self.cache.lock().get(&hash).cloned()
 	}
 
 	pub fn insert_header_metadata(&self, hash: Block::Hash, metadata: CachedHeaderMetadata<Block>) {
-		self.cache.write().insert(hash, metadata);
+		self.cache.lock().insert(hash, metadata);
 	}
 
 	pub fn remove_header_metadata(&self, hash: Block::Hash) {
-		self.cache.write().remove(&hash);
+		self.cache.lock().remove(&hash);
 	}
 }
 

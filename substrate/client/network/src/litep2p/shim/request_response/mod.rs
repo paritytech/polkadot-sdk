@@ -24,13 +24,15 @@ use crate::{
 	peer_store::PeerStoreProvider,
 	request_responses::{IncomingRequest, OutgoingResponse},
 	service::{metrics::Metrics, traits::RequestResponseConfig as RequestResponseConfigT},
-	IfDisconnected, ProtocolName, RequestFailure,
+	IfDisconnected, OutboundFailure, ProtocolName, RequestFailure,
 };
 
 use futures::{channel::oneshot, future::BoxFuture, stream::FuturesUnordered, StreamExt};
 use litep2p::{
+	error::{ImmediateDialError, NegotiationError, SubstreamError},
 	protocol::request_response::{
-		DialOptions, RequestResponseError, RequestResponseEvent, RequestResponseHandle,
+		DialOptions, RejectReason, RequestResponseError, RequestResponseEvent,
+		RequestResponseHandle,
 	},
 	types::RequestId,
 };
@@ -271,6 +273,13 @@ impl RequestResponseProtocol {
 		request_id: RequestId,
 		request: Vec<u8>,
 	) {
+		log::trace!(
+			target: LOG_TARGET,
+			"{}: request received from {peer:?} ({fallback:?} {request_id:?}), request size {:?}",
+			self.protocol,
+			request.len(),
+		);
+
 		let Some(inbound_queue) = &self.inbound_queue else {
 			log::trace!(
 				target: LOG_TARGET,
@@ -282,12 +291,18 @@ impl RequestResponseProtocol {
 			return;
 		};
 
-		log::trace!(
-			target: LOG_TARGET,
-			"{}: request received from {peer:?} ({fallback:?} {request_id:?}), request size {:?}",
-			self.protocol,
-			request.len(),
-		);
+		if self.peerstore_handle.is_banned(&peer.into()) {
+			log::trace!(
+				target: LOG_TARGET,
+				"{}: rejecting inbound request from banned {peer:?} ({request_id:?})",
+				self.protocol,
+			);
+
+			self.handle.reject_request(request_id);
+			self.metrics.register_inbound_request_failure("banned-peer");
+			return;
+		}
+
 		let (tx, rx) = oneshot::channel();
 
 		match inbound_queue.try_send(IncomingRequest {
@@ -318,7 +333,7 @@ impl RequestResponseProtocol {
 		&mut self,
 		peer: litep2p::PeerId,
 		request_id: RequestId,
-		fallback: Option<litep2p::ProtocolName>,
+		_fallback: Option<litep2p::ProtocolName>,
 		response: Vec<u8>,
 	) {
 		match self.pending_inbound_responses.remove(&request_id) {
@@ -335,10 +350,7 @@ impl RequestResponseProtocol {
 					response.len(),
 				);
 
-				let _ = tx.send(Ok((
-					response,
-					fallback.map_or_else(|| self.protocol.clone(), Into::into),
-				)));
+				let _ = tx.send(Ok((response, self.protocol.clone())));
 				self.metrics.register_outbound_request_success(started.elapsed());
 			},
 		}
@@ -369,10 +381,37 @@ impl RequestResponseProtocol {
 			return
 		};
 
-		let error = match error {
-			RequestResponseError::NotConnected => Some(RequestFailure::NotConnected),
-			RequestResponseError::Rejected | RequestResponseError::Timeout =>
-				Some(RequestFailure::Refused),
+		let status = match error {
+			RequestResponseError::NotConnected =>
+				Some((RequestFailure::NotConnected, "not-connected")),
+			RequestResponseError::Rejected(reason) => {
+				let reason = match reason {
+					RejectReason::ConnectionClosed => "connection-closed",
+					RejectReason::SubstreamClosed => "substream-closed",
+					RejectReason::SubstreamOpenError(substream_error) => match substream_error {
+						SubstreamError::NegotiationError(NegotiationError::Timeout) =>
+							"substream-timeout",
+						_ => "substream-open-error",
+					},
+					RejectReason::DialFailed(None) => "dial-failed",
+					RejectReason::DialFailed(Some(ImmediateDialError::AlreadyConnected)) =>
+						"dial-already-connected",
+					RejectReason::DialFailed(Some(ImmediateDialError::PeerIdMissing)) =>
+						"dial-peerid-missing",
+					RejectReason::DialFailed(Some(ImmediateDialError::TriedToDialSelf)) =>
+						"dial-tried-to-dial-self",
+					RejectReason::DialFailed(Some(ImmediateDialError::NoAddressAvailable)) =>
+						"dial-no-address-available",
+					RejectReason::DialFailed(Some(ImmediateDialError::TaskClosed)) =>
+						"dial-task-closed",
+					RejectReason::DialFailed(Some(ImmediateDialError::ChannelClogged)) =>
+						"dial-channel-clogged",
+				};
+
+				Some((RequestFailure::Refused, reason))
+			},
+			RequestResponseError::Timeout =>
+				Some((RequestFailure::Network(OutboundFailure::Timeout), "timeout")),
 			RequestResponseError::Canceled => {
 				log::debug!(
 					target: LOG_TARGET,
@@ -387,14 +426,14 @@ impl RequestResponseProtocol {
 					"{}: tried to send too large request to {peer:?} ({request_id:?})",
 					self.protocol,
 				);
-				Some(RequestFailure::Refused)
+				Some((RequestFailure::Refused, "payload-too-large"))
 			},
 			RequestResponseError::UnsupportedProtocol => match fallback_request {
 				Some((request, protocol)) => match self.request_tx.get(&protocol) {
 					Some(sender) => {
 						log::debug!(
 							target: LOG_TARGET,
-							"{}: failed to negotiate protocol with {:?}, try fallback request: ({})",
+							"{}: failed to negotiate protocol with {:?}. Trying the fallback protocol ({})",
 							self.protocol,
 							peer,
 							protocol,
@@ -426,15 +465,15 @@ impl RequestResponseProtocol {
 							peer,
 						);
 
-						Some(RequestFailure::Refused)
+						Some((RequestFailure::Refused, "invalid-fallback-protocol"))
 					},
 				},
-				None => Some(RequestFailure::Refused),
+				None => Some((RequestFailure::Refused, "unsupported-protocol")),
 			},
 		};
 
-		if let Some(error) = error {
-			self.metrics.register_outbound_request_failure(error.to_string().as_ref());
+		if let Some((error, reason)) = status {
+			self.metrics.register_outbound_request_failure(reason);
 			let _ = tx.send(Err(error));
 		}
 	}

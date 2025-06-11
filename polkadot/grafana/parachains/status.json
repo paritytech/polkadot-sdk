@@ -1405,7 +1405,7 @@
         "type": "prometheus",
         "uid": "$data_source"
       },
-      "description": "Approval voting requires that validators which are assigned to check a specific \ncandidate are split up into delay tranches (0.5s each). Then, all validators checks are ordered by the delay \ntranche index. Early tranches of validators will check the candidate first and later tranches act as as backups in case of no shows.",
+      "description": "Approval voting requires that validators which are assigned to check a specific \ncandidate are split up into delay tranches (0.5s each). Then, all validators checks are ordered by the delay \ntranche index. Early tranches of validators will check the candidate first and later tranches act as backups in case of no shows.",
       "gridPos": {
         "h": 9,
         "w": 18,

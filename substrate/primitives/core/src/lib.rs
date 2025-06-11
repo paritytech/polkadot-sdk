@@ -20,6 +20,8 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 /// Initialize a key-value collection from array.
 ///
 /// Creates a vector of given pairs and calls `collect` on the iterator from it.
@@ -31,15 +33,15 @@ macro_rules! map {
 	);
 }
 
+use alloc::vec::Vec;
 #[doc(hidden)]
-pub use codec::{Decode, Encode, MaxEncodedLen};
+pub use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use core::ops::Deref;
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 pub use serde;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-use sp_runtime_interface::pass_by::{PassByEnum, PassByInner};
-use sp_std::{ops::Deref, prelude::*};
 
 pub use sp_debug_derive::RuntimeDebug;
 
@@ -59,11 +61,12 @@ pub use paste;
 mod address_uri;
 pub mod defer;
 pub mod hash;
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 mod hasher;
 pub mod offchain;
+pub mod proof_of_possession;
 pub mod testing;
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 pub mod traits;
 pub mod uint;
 
@@ -80,7 +83,7 @@ pub mod sr25519;
 #[cfg(feature = "bls-experimental")]
 pub use bls::{bls377, bls381};
 #[cfg(feature = "bls-experimental")]
-pub use paired_crypto::ecdsa_bls377;
+pub use paired_crypto::{ecdsa_bls377, ecdsa_bls381};
 
 pub use self::{
 	hash::{convert_hash, H160, H256, H512},
@@ -88,9 +91,9 @@ pub use self::{
 };
 pub use crypto::{ByteArray, DeriveJunction, Pair, Public};
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 pub use self::hasher::blake2::Blake2Hasher;
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 pub use self::hasher::keccak::KeccakHasher;
 pub use hash_db::Hasher;
 
@@ -98,8 +101,9 @@ pub use bounded_collections as bounded;
 #[cfg(feature = "std")]
 pub use bounded_collections::{bounded_btree_map, bounded_vec};
 pub use bounded_collections::{
-	parameter_types, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128,
-	ConstU16, ConstU32, ConstU64, ConstU8, Get, GetDefault, TryCollect, TypedGet,
+	parameter_types, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstInt,
+	ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, ConstUint, Get, GetDefault, TryCollect,
+	TypedGet,
 };
 pub use sp_storage as storage;
 
@@ -137,7 +141,7 @@ impl codec::WrapperTypeDecode for Bytes {
 }
 
 #[cfg(feature = "std")]
-impl sp_std::str::FromStr for Bytes {
+impl alloc::str::FromStr for Bytes {
 	type Err = bytes::FromHexError;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -156,7 +160,7 @@ impl OpaqueMetadata {
 	}
 }
 
-impl sp_std::ops::Deref for OpaqueMetadata {
+impl Deref for OpaqueMetadata {
 	type Target = Vec<u8>;
 
 	fn deref(&self) -> &Self::Target {
@@ -174,8 +178,8 @@ impl sp_std::ops::Deref for OpaqueMetadata {
 	PartialOrd,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	RuntimeDebug,
-	PassByInner,
 	TypeInfo,
 )]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -197,33 +201,53 @@ pub trait TypeId {
 /// A log level matching the one from `log` crate.
 ///
 /// Used internally by `sp_io::logging::log` method.
-#[derive(Encode, Decode, PassByEnum, Copy, Clone)]
-pub enum LogLevel {
+#[derive(Copy, Clone)]
+pub enum RuntimeInterfaceLogLevel {
 	/// `Error` log level.
-	Error = 1_isize,
+	Error = 0_isize,
 	/// `Warn` log level.
-	Warn = 2_isize,
+	Warn = 1_isize,
 	/// `Info` log level.
-	Info = 3_isize,
+	Info = 2_isize,
 	/// `Debug` log level.
-	Debug = 4_isize,
+	Debug = 3_isize,
 	/// `Trace` log level.
-	Trace = 5_isize,
+	Trace = 4_isize,
 }
 
-impl From<u32> for LogLevel {
-	fn from(val: u32) -> Self {
-		match val {
-			x if x == LogLevel::Warn as u32 => LogLevel::Warn,
-			x if x == LogLevel::Info as u32 => LogLevel::Info,
-			x if x == LogLevel::Debug as u32 => LogLevel::Debug,
-			x if x == LogLevel::Trace as u32 => LogLevel::Trace,
-			_ => LogLevel::Error,
+impl TryFrom<u8> for RuntimeInterfaceLogLevel {
+	type Error = ();
+	fn try_from(value: u8) -> Result<Self, ()> {
+		match value {
+			0 => Ok(Self::Error),
+			1 => Ok(Self::Warn),
+			2 => Ok(Self::Info),
+			3 => Ok(Self::Debug),
+			4 => Ok(Self::Trace),
+			_ => Err(()),
 		}
 	}
 }
 
-impl From<log::Level> for LogLevel {
+impl From<RuntimeInterfaceLogLevel> for u8 {
+	fn from(value: RuntimeInterfaceLogLevel) -> Self {
+		value as Self
+	}
+}
+
+impl From<u32> for RuntimeInterfaceLogLevel {
+	fn from(val: u32) -> Self {
+		match val {
+			x if x == RuntimeInterfaceLogLevel::Warn as u32 => RuntimeInterfaceLogLevel::Warn,
+			x if x == RuntimeInterfaceLogLevel::Info as u32 => RuntimeInterfaceLogLevel::Info,
+			x if x == RuntimeInterfaceLogLevel::Debug as u32 => RuntimeInterfaceLogLevel::Debug,
+			x if x == RuntimeInterfaceLogLevel::Trace as u32 => RuntimeInterfaceLogLevel::Trace,
+			_ => RuntimeInterfaceLogLevel::Error,
+		}
+	}
+}
+
+impl From<log::Level> for RuntimeInterfaceLogLevel {
 	fn from(l: log::Level) -> Self {
 		use log::Level::*;
 		match l {
@@ -236,9 +260,9 @@ impl From<log::Level> for LogLevel {
 	}
 }
 
-impl From<LogLevel> for log::Level {
-	fn from(l: LogLevel) -> Self {
-		use self::LogLevel::*;
+impl From<RuntimeInterfaceLogLevel> for log::Level {
+	fn from(l: RuntimeInterfaceLogLevel) -> Self {
+		use self::RuntimeInterfaceLogLevel::*;
 		match l {
 			Error => Self::Error,
 			Warn => Self::Warn,
@@ -252,7 +276,7 @@ impl From<LogLevel> for log::Level {
 /// Log level filter that expresses which log levels should be filtered.
 ///
 /// This enum matches the [`log::LevelFilter`] enum.
-#[derive(Encode, Decode, PassByEnum, Copy, Clone)]
+#[derive(Encode, Decode, Copy, Clone)]
 pub enum LogLevelFilter {
 	/// `Off` log level filter.
 	Off = 0_isize,
@@ -266,6 +290,27 @@ pub enum LogLevelFilter {
 	Debug = 4_isize,
 	/// `Trace` log level filter.
 	Trace = 5_isize,
+}
+
+impl TryFrom<u8> for LogLevelFilter {
+	type Error = ();
+	fn try_from(value: u8) -> Result<Self, ()> {
+		match value {
+			0 => Ok(Self::Off),
+			1 => Ok(Self::Error),
+			2 => Ok(Self::Warn),
+			3 => Ok(Self::Info),
+			4 => Ok(Self::Debug),
+			5 => Ok(Self::Trace),
+			_ => Err(()),
+		}
+	}
+}
+
+impl From<LogLevelFilter> for u8 {
+	fn from(value: LogLevelFilter) -> Self {
+		value as Self
+	}
 }
 
 impl From<LogLevelFilter> for log::LevelFilter {
@@ -313,14 +358,24 @@ pub fn to_substrate_wasm_fn_return_value(value: &impl Encode) -> u64 {
 	// Leak the output vector to avoid it being freed.
 	// This is fine in a WASM context since the heap
 	// will be discarded after the call.
-	sp_std::mem::forget(encoded);
+	core::mem::forget(encoded);
 
 	res
 }
 
 /// The void type - it cannot exist.
 // Oh rust, you crack me up...
-#[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone,
+	Decode,
+	DecodeWithMemTracking,
+	Encode,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum Void {}
 
 /// Macro for creating `Maybe*` marker traits.
@@ -430,16 +485,7 @@ pub const MAX_POSSIBLE_ALLOCATION: u32 = 33554432; // 2^25 bytes, 32 MiB
 macro_rules! generate_feature_enabled_macro {
 	( $macro_name:ident, $feature_name:meta, $d:tt ) => {
 		$crate::paste::paste!{
-			/// Enable/disable the given code depending on
-			#[doc = concat!("`", stringify!($feature_name), "`")]
-			/// being enabled for the crate or not.
 			///
-			/// # Example
-			///
-			/// ```nocompile
-			/// // Will add the code depending on the feature being enabled or not.
-			#[doc = concat!(stringify!($macro_name), "!( println!(\"Hello\") )")]
-			/// ```
 			#[cfg($feature_name)]
 			#[macro_export]
 			macro_rules! [<_ $macro_name>] {
@@ -448,6 +494,13 @@ macro_rules! generate_feature_enabled_macro {
 				}
 			}
 
+			///
+ 			#[cfg(not($feature_name))]
+			#[macro_export]
+			macro_rules! [<_ $macro_name>] {
+				( $d ( $d input:tt )* ) => {};
+			}
+
 			/// Enable/disable the given code depending on
 			#[doc = concat!("`", stringify!($feature_name), "`")]
 			/// being enabled for the crate or not.
@@ -458,15 +511,8 @@ macro_rules! generate_feature_enabled_macro {
 			/// // Will add the code depending on the feature being enabled or not.
 			#[doc = concat!(stringify!($macro_name), "!( println!(\"Hello\") )")]
 			/// ```
-			#[cfg(not($feature_name))]
-			#[macro_export]
-			macro_rules! [<_ $macro_name>] {
-				( $d ( $d input:tt )* ) => {};
-			}
-
-			// Work around for: <https://github.com/rust-lang/rust/pull/52234>
-			#[doc(hidden)]
-			pub use [<_ $macro_name>] as $macro_name;
+			// https://github.com/rust-lang/rust/pull/52234
+ 			pub use [<_ $macro_name>] as $macro_name;
 		}
 	};
 }
@@ -475,16 +521,17 @@ macro_rules! generate_feature_enabled_macro {
 mod tests {
 	use super::*;
 
+	generate_feature_enabled_macro!(if_test, test, $);
+	generate_feature_enabled_macro!(if_not_test, not(test), $);
+
 	#[test]
 	#[should_panic]
 	fn generate_feature_enabled_macro_panics() {
-		generate_feature_enabled_macro!(if_test, test, $);
 		if_test!(panic!("This should panic"));
 	}
 
 	#[test]
 	fn generate_feature_enabled_macro_works() {
-		generate_feature_enabled_macro!(if_not_test, not(test), $);
 		if_not_test!(panic!("This should not panic"));
 	}
 }

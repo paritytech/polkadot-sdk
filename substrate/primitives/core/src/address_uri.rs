@@ -18,8 +18,8 @@
 //! Little util for parsing an address URI. Replaces regular expressions.
 
 #[cfg(not(feature = "std"))]
-use sp_std::{
-	alloc::string::{String, ToString},
+use alloc::{
+	string::{String, ToString},
 	vec::Vec,
 };
 
@@ -97,10 +97,10 @@ impl InvalidCharacterInfo {
 	}
 }
 
-impl sp_std::fmt::Display for InvalidCharacterInfo {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+impl core::fmt::Display for InvalidCharacterInfo {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		let (s, pos) = escape_string(&self.0, self.1);
-		write!(f, "{s}\n{i}^", i = sp_std::iter::repeat(" ").take(pos).collect::<String>())
+		write!(f, "{s}\n{i}^", i = core::iter::repeat(" ").take(pos).collect::<String>())
 	}
 }
 
@@ -196,11 +196,12 @@ impl<'a> AddressUri<'a> {
 mod tests {
 	use super::*;
 	use regex::Regex;
+	use std::sync::LazyLock;
 
-	lazy_static::lazy_static! {
-		static ref SECRET_PHRASE_REGEX: Regex = Regex::new(r"^(?P<phrase>[a-zA-Z0-9 ]+)?(?P<path>(//?[^/]+)*)(///(?P<password>.*))?$")
-			.expect("constructed from known-good static value; qed");
-	}
+	static SECRET_PHRASE_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+		Regex::new(r"^(?P<phrase>[a-zA-Z0-9 ]+)?(?P<path>(//?[^/]+)*)(///(?P<password>.*))?$")
+			.expect("constructed from known-good static value; qed")
+	});
 
 	fn check_with_regex(input: &str) {
 		let regex_result = SECRET_PHRASE_REGEX.captures(input);

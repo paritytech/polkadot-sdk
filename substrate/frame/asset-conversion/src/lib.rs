@@ -70,6 +70,9 @@ pub use swap::*;
 pub use types::*;
 pub use weights::WeightInfo;
 
+extern crate alloc;
+
+use alloc::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 use codec::Codec;
 use frame_support::{
 	storage::{with_storage_layer, with_transaction},
@@ -93,7 +96,6 @@ use sp_runtime::{
 	},
 	DispatchError, Saturating, TokenError, TransactionOutcome,
 };
-use sp_std::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -111,6 +113,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// Overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The type in which the assets for swapping are measured.
@@ -433,7 +436,7 @@ pub mod pallet {
 		/// calls to render the liquidity withdrawable and rectify the exchange rate.
 		///
 		/// Once liquidity is added, someone may successfully call
-		/// [`Pallet::swap_exact_tokens_for_tokens`] successfully.
+		/// [`Pallet::swap_exact_tokens_for_tokens`].
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::add_liquidity())]
 		pub fn add_liquidity(

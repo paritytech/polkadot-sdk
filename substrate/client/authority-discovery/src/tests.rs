@@ -25,7 +25,7 @@ use crate::{
 };
 
 use futures::{channel::mpsc::channel, executor::LocalPool, task::LocalSpawn};
-use libp2p::identity::ed25519;
+use sc_network_types::ed25519;
 use std::{collections::HashSet, sync::Arc};
 
 use sc_network::{multiaddr::Protocol, Multiaddr, PeerId};

@@ -252,7 +252,10 @@ pub struct TrieRecorder<'a, H: Hasher> {
 }
 
 impl<H: Hasher> crate::TrieRecorderProvider<H> for Recorder<H> {
-	type Recorder<'a> = TrieRecorder<'a, H> where H: 'a;
+	type Recorder<'a>
+		= TrieRecorder<'a, H>
+	where
+		H: 'a;
 
 	fn drain_storage_proof(self) -> Option<StorageProof> {
 		Some(Recorder::drain_storage_proof(self))

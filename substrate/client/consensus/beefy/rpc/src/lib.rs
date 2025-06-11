@@ -24,7 +24,10 @@ use parking_lot::RwLock;
 use sp_consensus_beefy::AuthorityIdBound;
 use std::sync::Arc;
 
-use sc_rpc::{utils::pipe_from_stream, SubscriptionTaskExecutor};
+use sc_rpc::{
+	utils::{BoundedVecDeque, PendingSubscription},
+	SubscriptionTaskExecutor,
+};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_runtime::traits::Block as BlockT;
 
@@ -145,7 +148,10 @@ where
 			.subscribe(100_000)
 			.map(|vfp| notification::EncodedVersionedFinalityProof::new::<Block, AuthorityId>(vfp));
 
-		sc_rpc::utils::spawn_subscription_task(&self.executor, pipe_from_stream(pending, stream));
+		sc_rpc::utils::spawn_subscription_task(
+			&self.executor,
+			PendingSubscription::from(pending).pipe_from_stream(stream, BoundedVecDeque::default()),
+		);
 	}
 
 	async fn latest_finalized(&self) -> Result<Block::Hash, Error> {
@@ -195,7 +201,7 @@ mod tests {
 	async fn uninitialized_rpc_handler() {
 		let (rpc, _) = setup_io_handler();
 		let request = r#"{"jsonrpc":"2.0","method":"beefy_getFinalizedHead","params":[],"id":1}"#;
-		let expected_response = r#"{"jsonrpc":"2.0","error":{"code":1,"message":"BEEFY RPC endpoint not ready"},"id":1}"#;
+		let expected_response = r#"{"jsonrpc":"2.0","id":1,"error":{"code":1,"message":"BEEFY RPC endpoint not ready"}}"#;
 		let (response, _) = rpc.raw_json_request(&request, 1).await.unwrap();
 
 		assert_eq!(expected_response, response);
@@ -214,13 +220,13 @@ mod tests {
 		let request = r#"{"jsonrpc":"2.0","method":"beefy_getFinalizedHead","params":[],"id":1}"#;
 		let expected = "{\
 			\"jsonrpc\":\"2.0\",\
-			\"result\":\"0x2f0039e93a27221fcf657fb877a1d4f60307106113e885096cb44a461cd0afbf\",\
-			\"id\":1\
+			\"id\":1,\
+			\"result\":\"0x2f0039e93a27221fcf657fb877a1d4f60307106113e885096cb44a461cd0afbf\"\
 		}";
-		let not_ready = "{\
+		let not_ready: &str = "{\
 			\"jsonrpc\":\"2.0\",\
-			\"error\":{\"code\":1,\"message\":\"BEEFY RPC endpoint not ready\"},\
-			\"id\":1\
+			\"id\":1,\
+			\"error\":{\"code\":1,\"message\":\"BEEFY RPC endpoint not ready\"}\
 		}";
 
 		let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
@@ -256,7 +262,7 @@ mod tests {
 			)
 			.await
 			.unwrap();
-		let expected = r#"{"jsonrpc":"2.0","result":false,"id":1}"#;
+		let expected = r#"{"jsonrpc":"2.0","id":1,"result":false}"#;
 
 		assert_eq!(response, expected);
 	}

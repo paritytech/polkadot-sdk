@@ -1,0 +1,13 @@
+title: Add `offchain_localStorageClear` RPC method
+doc:
+- audience: Node Operator
+  description: |-
+    Adds RPC method `offchain_localStorageClear` to clear the offchain local storage.
+crates:
+- name: sc-offchain
+  bump: minor
+- name: sc-rpc-api
+  bump: minor
+  validate: false
+- name: sc-rpc
+  bump: minor

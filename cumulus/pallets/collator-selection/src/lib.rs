@@ -81,6 +81,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use core::marker::PhantomData;
 use frame_support::traits::TypedGet;
 pub use pallet::*;
@@ -101,6 +103,7 @@ const LOG_TARGET: &str = "runtime::collator-selection";
 #[frame_support::pallet]
 pub mod pallet {
 	pub use crate::weights::WeightInfo;
+	use alloc::vec::Vec;
 	use core::ops::Div;
 	use frame_support::{
 		dispatch::{DispatchClass, DispatchResultWithPostInfo},
@@ -118,7 +121,6 @@ pub mod pallet {
 		RuntimeDebug,
 	};
 	use sp_staking::SessionIndex;
-	use sp_std::vec::Vec;
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
@@ -139,6 +141,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// Overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The currency mechanism.
@@ -148,22 +151,27 @@ pub mod pallet {
 		type UpdateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Account Identifier from which the internal Pot is generated.
+		#[pallet::constant]
 		type PotId: Get<PalletId>;
 
 		/// Maximum number of candidates that we should have.
 		///
 		/// This does not take into account the invulnerables.
+		#[pallet::constant]
 		type MaxCandidates: Get<u32>;
 
 		/// Minimum number eligible collators. Should always be greater than zero. This includes
 		/// Invulnerable collators. This ensures that there will always be one collator who can
 		/// produce a block.
+		#[pallet::constant]
 		type MinEligibleCollators: Get<u32>;
 
 		/// Maximum number of invulnerables.
+		#[pallet::constant]
 		type MaxInvulnerables: Get<u32>;
 
 		// Will be kicked if block is not produced in threshold.
+		#[pallet::constant]
 		type KickThreshold: Get<BlockNumberFor<Self>>;
 
 		/// A stable ID for a validator.
@@ -179,6 +187,14 @@ pub mod pallet {
 
 		/// The weight information of this pallet.
 		type WeightInfo: WeightInfo;
+	}
+
+	#[pallet::extra_constants]
+	impl<T: Config> Pallet<T> {
+		/// Gets this pallet's derived pot account.
+		fn pot_account() -> T::AccountId {
+			Self::account_id()
+		}
 	}
 
 	/// Basic information about a collation candidate.
@@ -244,7 +260,7 @@ pub mod pallet {
 			let duplicate_invulnerables = self
 				.invulnerables
 				.iter()
-				.collect::<sp_std::collections::btree_set::BTreeSet<_>>();
+				.collect::<alloc::collections::btree_set::BTreeSet<_>>();
 			assert!(
 				duplicate_invulnerables.len() == self.invulnerables.len(),
 				"duplicate invulnerables in genesis."
@@ -970,7 +986,7 @@ pub mod pallet {
 			let result = Self::assemble_collators();
 
 			frame_system::Pallet::<T>::register_extra_weight_unchecked(
-				T::WeightInfo::new_session(candidates_len_before, removed),
+				T::WeightInfo::new_session(removed, candidates_len_before),
 				DispatchClass::Mandatory,
 			);
 			Some(result)

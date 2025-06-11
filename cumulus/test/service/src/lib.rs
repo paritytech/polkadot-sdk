@@ -25,17 +25,24 @@ pub mod chain_spec;
 
 use cumulus_client_collator::service::CollatorService;
 use cumulus_client_consensus_aura::{
-	collators::lookahead::{self as aura, Params as AuraParams},
+	collators::{
+		lookahead::{self as aura, Params as AuraParams},
+		slot_based::{
+			self as slot_based, Params as SlotBasedParams, SlotBasedBlockImport,
+			SlotBasedBlockImportHandle,
+		},
+	},
 	ImportQueueParams,
 };
 use cumulus_client_consensus_proposer::Proposer;
+use prometheus::Registry;
 use runtime::AccountId;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sp_consensus_aura::sr25519::AuthorityPair;
 use std::{
 	collections::HashSet,
 	future::Future,
-	net::{IpAddr, Ipv4Addr, SocketAddr},
+	net::{Ipv4Addr, SocketAddr, SocketAddrV4},
 	time::Duration,
 };
 use url::Url;
@@ -45,7 +52,7 @@ use cumulus_client_cli::{CollatorOptions, RelayChainMode};
 use cumulus_client_consensus_common::{
 	ParachainBlockImport as TParachainBlockImport, ParachainCandidate, ParachainConsensus,
 };
-use cumulus_client_pov_recovery::RecoveryHandle;
+use cumulus_client_pov_recovery::{RecoveryDelayRange, RecoveryHandle};
 #[allow(deprecated)]
 use cumulus_client_service::old_consensus;
 use cumulus_client_service::{
@@ -75,8 +82,9 @@ use sc_network::{
 };
 use sc_service::{
 	config::{
-		BlocksPruning, DatabaseSource, KeystoreConfig, MultiaddrWithPeerId, NetworkConfiguration,
-		OffchainWorkerConfig, PruningMode, RpcBatchRequestConfig, WasmExecutionMethod,
+		BlocksPruning, DatabaseSource, ExecutorConfiguration, KeystoreConfig, MultiaddrWithPeerId,
+		NetworkConfiguration, OffchainWorkerConfig, PruningMode, RpcBatchRequestConfig,
+		RpcConfiguration, RpcEndpoint, WasmExecutionMethod,
 	},
 	BasePath, ChainSpec as ChainSpecService, Configuration, Error as ServiceError,
 	PartialComponents, Role, RpcHandlers, TFullBackend, TFullClient, TaskManager,
@@ -85,7 +93,7 @@ use sp_arithmetic::traits::SaturatedConversion;
 use sp_blockchain::HeaderBackend;
 use sp_core::Pair;
 use sp_keyring::Sr25519Keyring;
-use sp_runtime::{codec::Encode, generic};
+use sp_runtime::{codec::Encode, generic, MultiAddress};
 use sp_state_machine::BasicExternalities;
 use std::sync::Arc;
 use substrate_test_client::{
@@ -126,10 +134,11 @@ pub type Client = TFullClient<runtime::NodeBlock, runtime::RuntimeApi, WasmExecu
 pub type Backend = TFullBackend<Block>;
 
 /// The block-import type being used by the test service.
-pub type ParachainBlockImport = TParachainBlockImport<Block, Arc<Client>, Backend>;
+pub type ParachainBlockImport =
+	TParachainBlockImport<Block, SlotBasedBlockImport<Block, Arc<Client>, Client>, Backend>;
 
 /// Transaction pool type used by the test service
-pub type TransactionPool = Arc<sc_transaction_pool::FullPool<Block, Client>>;
+pub type TransactionPool = Arc<sc_transaction_pool::TransactionPoolHandle<Block, Client>>;
 
 /// Recovery handle that fails regularly to simulate unavailable povs.
 pub struct FailingRecoveryHandle {
@@ -178,8 +187,8 @@ pub type Service = PartialComponents<
 	Backend,
 	(),
 	sc_consensus::import_queue::BasicQueue<Block>,
-	sc_transaction_pool::FullPool<Block, Client>,
-	ParachainBlockImport,
+	sc_transaction_pool::TransactionPoolHandle<Block, Client>,
+	(ParachainBlockImport, SlotBasedBlockImportHandle<Block>),
 >;
 
 /// Starts a `ServiceBuilder` for a full service.
@@ -191,15 +200,16 @@ pub fn new_partial(
 	enable_import_proof_record: bool,
 ) -> Result<Service, sc_service::Error> {
 	let heap_pages = config
+		.executor
 		.default_heap_pages
 		.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |h| HeapAllocStrategy::Static { extra_pages: h as _ });
 
 	let executor = WasmExecutor::builder()
-		.with_execution_method(config.wasm_method)
+		.with_execution_method(config.executor.wasm_method)
 		.with_onchain_heap_alloc_strategy(heap_pages)
 		.with_offchain_heap_alloc_strategy(heap_pages)
-		.with_max_runtime_instances(config.max_runtime_instances)
-		.with_runtime_cache_size(config.runtime_cache_size)
+		.with_max_runtime_instances(config.executor.max_runtime_instances)
+		.with_runtime_cache_size(config.executor.runtime_cache_size)
 		.build();
 
 	let (client, backend, keystore_container, task_manager) =
@@ -211,14 +221,19 @@ pub fn new_partial(
 		)?;
 	let client = Arc::new(client);
 
-	let block_import = ParachainBlockImport::new(client.clone(), backend.clone());
+	let (block_import, slot_based_handle) =
+		SlotBasedBlockImport::new(client.clone(), client.clone());
+	let block_import = ParachainBlockImport::new(block_import, backend.clone());
 
-	let transaction_pool = sc_transaction_pool::BasicPool::new_full(
-		config.transaction_pool.clone(),
-		config.role.is_authority().into(),
-		config.prometheus_registry(),
-		task_manager.spawn_essential_handle(),
-		client.clone(),
+	let transaction_pool = Arc::from(
+		sc_transaction_pool::Builder::new(
+			task_manager.spawn_essential_handle(),
+			client.clone(),
+			config.role.is_authority().into(),
+		)
+		.with_options(config.transaction_pool.clone())
+		.with_prometheus(config.prometheus_registry())
+		.build(),
 	);
 
 	let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
@@ -251,7 +266,7 @@ pub fn new_partial(
 		task_manager,
 		transaction_pool,
 		select_chain: (),
-		other: block_import,
+		other: (block_import, slot_based_handle),
 	};
 
 	Ok(params)
@@ -259,11 +274,12 @@ pub fn new_partial(
 
 async fn build_relay_chain_interface(
 	relay_chain_config: Configuration,
+	parachain_prometheus_registry: Option<&Registry>,
 	collator_key: Option<CollatorPair>,
 	collator_options: CollatorOptions,
 	task_manager: &mut TaskManager,
 ) -> RelayChainResult<Arc<dyn RelayChainInterface + 'static>> {
-	let relay_chain_full_node = match collator_options.relay_chain_mode {
+	let relay_chain_node = match collator_options.relay_chain_mode {
 		cumulus_client_cli::RelayChainMode::Embedded => polkadot_test_service::new_full(
 			relay_chain_config,
 			if let Some(ref key) = collator_key {
@@ -278,6 +294,7 @@ async fn build_relay_chain_interface(
 		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) =>
 			return build_minimal_relay_chain_node_with_rpc(
 				relay_chain_config,
+				parachain_prometheus_registry,
 				task_manager,
 				rpc_target_urls,
 			)
@@ -289,13 +306,13 @@ async fn build_relay_chain_interface(
 				.map(|r| r.0),
 	};
 
-	task_manager.add_child(relay_chain_full_node.task_manager);
+	task_manager.add_child(relay_chain_node.task_manager);
 	tracing::info!("Using inprocess node.");
 	Ok(Arc::new(RelayChainInProcessInterface::new(
-		relay_chain_full_node.client.clone(),
-		relay_chain_full_node.backend.clone(),
-		relay_chain_full_node.sync_service.clone(),
-		relay_chain_full_node.overseer_handle.ok_or(RelayChainError::GenericError(
+		relay_chain_node.client.clone(),
+		relay_chain_node.backend.clone(),
+		relay_chain_node.sync_service.clone(),
+		relay_chain_node.overseer_handle.ok_or(RelayChainError::GenericError(
 			"Overseer should be running in full node.".to_string(),
 		))?,
 	)))
@@ -304,7 +321,7 @@ async fn build_relay_chain_interface(
 /// Start a node with the given parachain `Configuration` and relay chain `Configuration`.
 ///
 /// This is the actual implementation that is abstract over the executor and the runtime api.
-#[sc_tracing::logging::prefix_logs_with(parachain_config.network.node_name.as_str())]
+#[sc_tracing::logging::prefix_logs_with("Parachain")]
 pub async fn start_node_impl<RB, Net: NetworkBackend<Block, Hash>>(
 	parachain_config: Configuration,
 	collator_key: Option<CollatorPair>,
@@ -316,6 +333,7 @@ pub async fn start_node_impl<RB, Net: NetworkBackend<Block, Hash>>(
 	consensus: Consensus,
 	collator_options: CollatorOptions,
 	proof_recording_during_import: bool,
+	use_slot_based_collator: bool,
 ) -> sc_service::error::Result<(
 	TaskManager,
 	Arc<Client>,
@@ -337,10 +355,11 @@ where
 	let client = params.client.clone();
 	let backend = params.backend.clone();
 
-	let block_import = params.other;
-
+	let block_import = params.other.0;
+	let slot_based_handle = params.other.1;
 	let relay_chain_interface = build_relay_chain_interface(
 		relay_chain_config,
+		parachain_config.prometheus_registry(),
 		collator_key.clone(),
 		collator_options.clone(),
 		&mut task_manager,
@@ -349,9 +368,13 @@ where
 	.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
 
 	let import_queue_service = params.import_queue.service();
-	let net_config = FullNetworkConfiguration::<Block, Hash, Net>::new(&parachain_config.network);
+	let prometheus_registry = parachain_config.prometheus_registry().cloned();
+	let net_config = FullNetworkConfiguration::<Block, Hash, Net>::new(
+		&parachain_config.network,
+		prometheus_registry.clone(),
+	);
 
-	let (network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
+	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 		build_network(BuildNetworkParams {
 			parachain_config: &parachain_config,
 			net_config,
@@ -368,12 +391,10 @@ where
 		})
 		.await?;
 
-	let prometheus_registry = parachain_config.prometheus_registry().cloned();
-
 	let keystore = params.keystore_container.keystore();
 	let rpc_builder = {
 		let client = client.clone();
-		Box::new(move |_, _| rpc_ext_builder(client.clone()))
+		Box::new(move |_| rpc_ext_builder(client.clone()))
 	};
 
 	let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
@@ -409,7 +430,6 @@ where
 	} else {
 		Box::new(overseer_handle.clone())
 	};
-	let is_collator = collator_key.is_some();
 	let relay_chain_slot_duration = Duration::from_secs(6);
 
 	start_relay_chain_tasks(StartRelayChainTasksParams {
@@ -418,15 +438,16 @@ where
 		para_id,
 		relay_chain_interface: relay_chain_interface.clone(),
 		task_manager: &mut task_manager,
-		da_recovery_profile: if is_collator {
-			DARecoveryProfile::Collator
-		} else {
-			DARecoveryProfile::FullNode
-		},
+		// Increase speed of recovery for testing purposes.
+		da_recovery_profile: DARecoveryProfile::Other(RecoveryDelayRange {
+			min: Duration::from_secs(1),
+			max: Duration::from_secs(5),
+		}),
 		import_queue: import_queue_service,
 		relay_chain_slot_duration,
 		recovery_handle,
 		sync_service: sync_service.clone(),
+		prometheus_registry: None,
 	})?;
 
 	if let Some(collator_key) = collator_key {
@@ -461,33 +482,68 @@ where
 			);
 
 			let client_for_aura = client.clone();
-			let params = AuraParams {
-				create_inherent_data_providers: move |_, ()| async move { Ok(()) },
-				block_import,
-				para_client: client.clone(),
-				para_backend: backend.clone(),
-				relay_client: relay_chain_interface,
-				code_hash_provider: move |block_hash| {
-					client_for_aura.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
-				},
-				sync_oracle: sync_service,
-				keystore,
-				collator_key,
-				para_id,
-				overseer_handle,
-				relay_chain_slot_duration,
-				proposer,
-				collator_service,
-				authoring_duration: Duration::from_millis(2000),
-				reinitialize: false,
-			};
 
-			let fut = aura::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _, _>(params);
-			task_manager.spawn_essential_handle().spawn("aura", None, fut);
+			if use_slot_based_collator {
+				tracing::info!(target: LOG_TARGET, "Starting block authoring with slot based authoring.");
+				let params = SlotBasedParams {
+					create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+					block_import,
+					para_client: client.clone(),
+					para_backend: backend.clone(),
+					relay_client: relay_chain_interface,
+					code_hash_provider: move |block_hash| {
+						client_for_aura
+							.code_at(block_hash)
+							.ok()
+							.map(|c| ValidationCode::from(c).hash())
+					},
+					keystore,
+					collator_key,
+					relay_chain_slot_duration,
+					para_id,
+					proposer,
+					collator_service,
+					authoring_duration: Duration::from_millis(2000),
+					reinitialize: false,
+					slot_offset: Duration::from_secs(1),
+					block_import_handle: slot_based_handle,
+					spawner: task_manager.spawn_handle(),
+					export_pov: None,
+					max_pov_percentage: None,
+				};
+
+				slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _, _>(params);
+			} else {
+				tracing::info!(target: LOG_TARGET, "Starting block authoring with lookahead collator.");
+				let params = AuraParams {
+					create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+					block_import,
+					para_client: client.clone(),
+					para_backend: backend.clone(),
+					relay_client: relay_chain_interface,
+					code_hash_provider: move |block_hash| {
+						client_for_aura
+							.code_at(block_hash)
+							.ok()
+							.map(|c| ValidationCode::from(c).hash())
+					},
+					keystore,
+					collator_key,
+					para_id,
+					overseer_handle,
+					relay_chain_slot_duration,
+					proposer,
+					collator_service,
+					authoring_duration: Duration::from_millis(2000),
+					reinitialize: false,
+					max_pov_percentage: None,
+				};
+
+				let fut = aura::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _>(params);
+				task_manager.spawn_essential_handle().spawn("aura", None, fut);
+			}
 		}
 	}
-
-	start_network.start_network();
 
 	Ok((task_manager, client, network, rpc_handlers, transaction_pool, backend))
 }
@@ -700,12 +756,15 @@ impl TestNodeBuilder {
 			false,
 		);
 
-		let collator_options = CollatorOptions { relay_chain_mode: self.relay_chain_mode };
+		let collator_options = CollatorOptions {
+			relay_chain_mode: self.relay_chain_mode,
+			embedded_dht_bootnode: true,
+			dht_bootnode_discovery: true,
+		};
 
 		relay_chain_config.network.node_name =
 			format!("{} (relay chain)", relay_chain_config.network.node_name);
 
-		let multiaddr = parachain_config.network.listen_addresses[0].clone();
 		let (task_manager, client, network, rpc_handlers, transaction_pool, backend) =
 			match relay_chain_config.network.network_backend {
 				sc_network::config::NetworkBackendType::Libp2p =>
@@ -720,6 +779,7 @@ impl TestNodeBuilder {
 						self.consensus,
 						collator_options,
 						self.record_proof_during_import,
+						false,
 					)
 					.await
 					.expect("could not create Cumulus test service"),
@@ -735,11 +795,13 @@ impl TestNodeBuilder {
 						self.consensus,
 						collator_options,
 						self.record_proof_during_import,
+						false,
 					)
 					.await
 					.expect("could not create Cumulus test service"),
 			};
 		let peer_id = network.local_peer_id();
+		let multiaddr = polkadot_test_service::get_listen_address(network.clone()).await;
 		let addr = MultiaddrWithPeerId { multiaddr, peer_id };
 
 		TestNode { task_manager, client, network, addr, rpc_handlers, transaction_pool, backend }
@@ -748,10 +810,13 @@ impl TestNodeBuilder {
 
 /// Create a Cumulus `Configuration`.
 ///
-/// By default an in-memory socket will be used, therefore you need to provide nodes if you want the
-/// node to be connected to other nodes. If `nodes_exclusive` is `true`, the node will only connect
-/// to the given `nodes` and not to any other node. The `storage_update_func` can be used to make
-/// adjustments to the runtime genesis.
+/// By default a TCP socket will be used, therefore you need to provide nodes if you want the
+/// node to be connected to other nodes.
+///
+/// If `nodes_exclusive` is `true`, the node will only connect to the given `nodes` and not to any
+/// other node.
+///
+/// The `storage_update_func` can be used to make adjustments to the runtime genesis.
 pub fn node_config(
 	storage_update_func: impl Fn(),
 	tokio_handle: tokio::runtime::Handle,
@@ -766,8 +831,11 @@ pub fn node_config(
 	let root = base_path.path().join(format!("cumulus_test_service_{}", key));
 	let role = if is_collator { Role::Authority } else { Role::Full };
 	let key_seed = key.to_seed();
-	let mut spec =
-		Box::new(chain_spec::get_chain_spec_with_extra_endowed(Some(para_id), endowed_accounts));
+	let mut spec = Box::new(chain_spec::get_chain_spec_with_extra_endowed(
+		Some(para_id),
+		endowed_accounts,
+		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+	));
 
 	let mut storage = spec.as_storage_builder().build_storage().expect("could not build storage");
 
@@ -791,11 +859,10 @@ pub fn node_config(
 
 	network_config.allow_non_globals_in_dht = true;
 
-	network_config
-		.listen_addresses
-		.push(multiaddr::Protocol::Memory(rand::random()).into());
-
-	network_config.transport = TransportConfig::MemoryOnly;
+	let addr: multiaddr::Multiaddr = "/ip4/127.0.0.1/tcp/0".parse().expect("valid address; qed");
+	network_config.listen_addresses.push(addr.clone());
+	network_config.transport =
+		TransportConfig::Normal { enable_mdns: false, allow_private_ip: true };
 
 	Ok(Configuration {
 		impl_name: "cumulus-test-node".to_string(),
@@ -807,42 +874,45 @@ pub fn node_config(
 		keystore: KeystoreConfig::InMemory,
 		database: DatabaseSource::RocksDb { path: root.join("db"), cache_size: 128 },
 		trie_cache_maximum_size: Some(64 * 1024 * 1024),
+		warm_up_trie_cache: None,
 		state_pruning: Some(PruningMode::ArchiveAll),
 		blocks_pruning: BlocksPruning::KeepAll,
 		chain_spec: spec,
-		wasm_method: WasmExecutionMethod::Compiled {
-			instantiation_strategy: sc_executor_wasmtime::InstantiationStrategy::PoolingCopyOnWrite,
+		executor: ExecutorConfiguration {
+			wasm_method: WasmExecutionMethod::Compiled {
+				instantiation_strategy:
+					sc_executor_wasmtime::InstantiationStrategy::PoolingCopyOnWrite,
+			},
+			..ExecutorConfiguration::default()
 		},
-		rpc_addr: None,
-		rpc_max_connections: Default::default(),
-		rpc_cors: None,
-		rpc_methods: Default::default(),
-		rpc_max_request_size: Default::default(),
-		rpc_max_response_size: Default::default(),
-		rpc_id_provider: None,
-		rpc_max_subs_per_conn: Default::default(),
-		rpc_port: 9945,
-		rpc_message_buffer_capacity: Default::default(),
-		rpc_batch_config: RpcBatchRequestConfig::Unlimited,
-		rpc_rate_limit: None,
-		rpc_rate_limit_whitelisted_ips: Default::default(),
-		rpc_rate_limit_trust_proxy_headers: Default::default(),
+		rpc: RpcConfiguration {
+			addr: None,
+			max_connections: Default::default(),
+			cors: None,
+			methods: Default::default(),
+			max_request_size: Default::default(),
+			max_response_size: Default::default(),
+			id_provider: None,
+			max_subs_per_conn: Default::default(),
+			port: 9945,
+			message_buffer_capacity: Default::default(),
+			batch_config: RpcBatchRequestConfig::Unlimited,
+			rate_limit: None,
+			rate_limit_whitelisted_ips: Default::default(),
+			rate_limit_trust_proxy_headers: Default::default(),
+		},
 		prometheus_config: None,
 		telemetry_endpoints: None,
-		default_heap_pages: None,
 		offchain_worker: OffchainWorkerConfig { enabled: true, indexing_enabled: false },
 		force_authoring: false,
 		disable_grandpa: false,
 		dev_key_seed: Some(key_seed),
 		tracing_targets: None,
 		tracing_receiver: Default::default(),
-		max_runtime_instances: 8,
 		announce_block: true,
 		data_path: root,
 		base_path,
-		informant_output_format: Default::default(),
 		wasm_runtime_overrides: None,
-		runtime_cache_size: 2,
 	})
 }
 
@@ -907,7 +977,8 @@ pub fn construct_extrinsic(
 		.map(|c| c / 2)
 		.unwrap_or(2) as u64;
 	let tip = 0;
-	let extra: runtime::SignedExtra = (
+	let tx_ext: runtime::TxExtension = (
+		frame_system::AuthorizeCall::<runtime::Runtime>::new(),
 		frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
 		frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
 		frame_system::CheckGenesis::<runtime::Runtime>::new(),
@@ -918,19 +989,19 @@ pub fn construct_extrinsic(
 		frame_system::CheckNonce::<runtime::Runtime>::from(nonce),
 		frame_system::CheckWeight::<runtime::Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(tip),
-		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::<runtime::Runtime>::new(),
-	);
+	)
+		.into();
 	let raw_payload = runtime::SignedPayload::from_raw(
 		function.clone(),
-		extra.clone(),
-		((), runtime::VERSION.spec_version, genesis_block, current_block_hash, (), (), (), ()),
+		tx_ext.clone(),
+		((), (), runtime::VERSION.spec_version, genesis_block, current_block_hash, (), (), ()),
 	);
 	let signature = raw_payload.using_encoded(|e| caller.sign(e));
 	runtime::UncheckedExtrinsic::new_signed(
 		function,
-		caller.public().into(),
+		MultiAddress::Id(caller.public().into()),
 		runtime::Signature::Sr25519(signature),
-		extra,
+		tx_ext,
 	)
 }
 
@@ -954,7 +1025,22 @@ pub fn run_relay_chain_validator_node(
 	);
 
 	if let Some(port) = port {
-		config.rpc_addr = Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port));
+		config.rpc.addr = Some(vec![RpcEndpoint {
+			batch_config: config.rpc.batch_config,
+			cors: config.rpc.cors.clone(),
+			listen_addr: SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port)),
+			max_connections: config.rpc.max_connections,
+			max_payload_in_mb: config.rpc.max_request_size,
+			max_payload_out_mb: config.rpc.max_response_size,
+			max_subscriptions_per_connection: config.rpc.max_subs_per_conn,
+			max_buffer_capacity_per_connection: config.rpc.message_buffer_capacity,
+			rpc_methods: config.rpc.methods,
+			rate_limit: config.rpc.rate_limit,
+			rate_limit_trust_proxy_headers: config.rpc.rate_limit_trust_proxy_headers,
+			rate_limit_whitelisted_ips: config.rpc.rate_limit_whitelisted_ips.clone(),
+			retry_random_port: true,
+			is_optional: false,
+		}]);
 	}
 
 	let mut workers_path = std::env::current_exe().unwrap();
@@ -962,6 +1048,6 @@ pub fn run_relay_chain_validator_node(
 	workers_path.pop();
 
 	tokio_handle.block_on(async move {
-		polkadot_test_service::run_validator_node(config, Some(workers_path))
+		polkadot_test_service::run_validator_node(config, Some(workers_path)).await
 	})
 }

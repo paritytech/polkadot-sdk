@@ -1,0 +1,28 @@
+title: "separate validation and collation protocols"
+
+doc:
+  - audience: Node Dev
+    description: |
+      This PR completes the removal of validation protocol versions 1 and 2 by separating
+      validation from collation. Previously, a shared `Versioned` enum prevented full removal.
+      With this change, outdated validation messages are now eliminated.
+
+crates:
+  - name: polkadot-node-core-approval-voting-parallel
+    bump: patch
+  - name: polkadot-approval-distribution
+    bump: patch
+  - name: polkadot-availability-bitfield-distribution
+    bump: patch
+  - name: polkadot-network-bridge
+    bump: patch
+  - name: polkadot-collator-protocol
+    bump: patch
+  - name: polkadot-gossip-support
+    bump: patch
+  - name: polkadot-node-network-protocol
+    bump: major
+  - name: polkadot-statement-distribution
+    bump: patch
+  - name: polkadot-subsystem-bench
+    bump: patch

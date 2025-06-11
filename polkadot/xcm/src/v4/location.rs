@@ -17,8 +17,8 @@
 //! XCM `Location` datatype.
 
 use super::{traits::Reanchorable, Junction, Junctions};
-use crate::{v3::MultiLocation as OldLocation, VersionedLocation};
-use codec::{Decode, Encode, MaxEncodedLen};
+use crate::{v3::MultiLocation as OldLocation, v5::Location as NewLocation, VersionedLocation};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::result;
 use scale_info::TypeInfo;
 
@@ -51,6 +51,7 @@ use scale_info::TypeInfo;
 #[derive(
 	Clone,
 	Decode,
+	DecodeWithMemTracking,
 	Encode,
 	Eq,
 	PartialEq,
@@ -489,6 +490,20 @@ impl TryFrom<OldLocation> for Location {
 	}
 }
 
+impl TryFrom<NewLocation> for Option<Location> {
+	type Error = ();
+	fn try_from(new: NewLocation) -> result::Result<Self, Self::Error> {
+		Ok(Some(Location::try_from(new)?))
+	}
+}
+
+impl TryFrom<NewLocation> for Location {
+	type Error = ();
+	fn try_from(new: NewLocation) -> result::Result<Self, ()> {
+		Ok(Location { parents: new.parent_count(), interior: new.interior().clone().try_into()? })
+	}
+}
+
 /// A unit struct which can be converted into a `Location` of `parents` value 1.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Parent;
@@ -531,6 +546,12 @@ impl From<[u8; 32]> for Location {
 	fn from(bytes: [u8; 32]) -> Self {
 		let junction: Junction = bytes.into();
 		junction.into()
+	}
+}
+
+impl From<sp_runtime::AccountId32> for Location {
+	fn from(id: sp_runtime::AccountId32) -> Self {
+		Junction::AccountId32 { network: None, id: id.into() }.into()
 	}
 }
 

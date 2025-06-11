@@ -1,0 +1,32 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Improved TrustedQueryAPI signatures."
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Changed returned type of API methods from `Result<bool, xcm_runtime_apis::trusted_query::Error>` to a typed one:
+      `type XcmTrustedQueryResult = Result<bool, xcm_runtime_apis::trusted_query::Error>`
+
+crates:
+  - name: asset-hub-westend-runtime
+    bump: patch
+  - name: bridge-hub-rococo-runtime
+    bump: patch
+  - name: bridge-hub-westend-runtime
+    bump: patch
+  - name: collectives-westend-runtime
+    bump: patch
+  - name: contracts-rococo-runtime
+    bump: patch
+  - name: coretime-rococo-runtime
+    bump: patch
+  - name: coretime-westend-runtime
+    bump: patch
+  - name: people-rococo-runtime
+    bump: patch
+  - name: people-westend-runtime
+    bump: patch
+  - name: penpal-runtime
+    bump: patch

@@ -72,7 +72,6 @@ pub struct Metrics {
 	pub distinct_peers_connections_opened_total: Counter<U64>,
 	pub incoming_connections_errors_total: CounterVec<U64>,
 	pub incoming_connections_total: Counter<U64>,
-	pub issued_light_requests: Counter<U64>,
 	pub kademlia_query_duration: HistogramVec,
 	pub kademlia_random_queries_total: Counter<U64>,
 	pub kademlia_records_count: Gauge<U64>,
@@ -80,7 +79,6 @@ pub struct Metrics {
 	pub kbuckets_num_nodes: GaugeVec<U64>,
 	pub listeners_local_addresses: Gauge<U64>,
 	pub listeners_errors_total: Counter<U64>,
-	pub peerset_num_discovered: Gauge<U64>,
 	pub pending_connections: Gauge<U64>,
 	pub pending_connections_errors_total: CounterVec<U64>,
 	pub requests_in_failure_total: CounterVec<U64>,
@@ -127,10 +125,6 @@ impl Metrics {
 				"substrate_sub_libp2p_incoming_connections_total",
 				"Total number of incoming connections on the listening sockets"
 			)?, registry)?,
-			issued_light_requests: prometheus::register(Counter::new(
-				"substrate_issued_light_requests",
-				"Number of light client requests that our node has issued.",
-			)?, registry)?,
 			kademlia_query_duration: prometheus::register(HistogramVec::new(
 				HistogramOpts {
 					common_opts: Opts::new(
@@ -168,10 +162,6 @@ impl Metrics {
 			listeners_errors_total: prometheus::register(Counter::new(
 				"substrate_sub_libp2p_listeners_errors_total",
 				"Total number of non-fatal errors reported by a listener"
-			)?, registry)?,
-			peerset_num_discovered: prometheus::register(Gauge::new(
-				"substrate_sub_libp2p_peerset_num_discovered",
-				"Number of nodes stored in the peerset manager",
 			)?, registry)?,
 			pending_connections: prometheus::register(Gauge::new(
 				"substrate_sub_libp2p_pending_connections",
@@ -221,6 +211,34 @@ impl Metrics {
 				},
 				&["protocol"]
 			)?, registry)?,
+		})
+	}
+}
+
+/// Peer store metrics.
+#[derive(Clone, Debug)]
+pub struct PeerStoreMetrics {
+	pub num_banned_peers: Gauge<U64>,
+	pub num_discovered: Gauge<U64>,
+}
+
+impl PeerStoreMetrics {
+	pub fn register(registry: &Registry) -> Result<Self, PrometheusError> {
+		Ok(Self {
+			num_banned_peers: prometheus::register(
+				Gauge::new(
+					"substrate_sub_libp2p_peerset_num_banned_peers",
+					"Number of banned peers stored in the peerset manager",
+				)?,
+				registry,
+			)?,
+			num_discovered: prometheus::register(
+				Gauge::new(
+					"substrate_sub_libp2p_peerset_num_discovered",
+					"Number of nodes stored in the peerset manager",
+				)?,
+				registry,
+			)?,
 		})
 	}
 }

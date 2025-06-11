@@ -1,0 +1,14 @@
+title: '`fatxpool`: transaction statuses metrics added'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR introduces a new mechanism to capture and report Prometheus metrics related to timings of transaction
+    lifecycle events, which are currently not available. By exposing these timings, we aim to augment transaction-pool
+    reliability dashboards and extend existing Grafana boards.
+
+    A new `unknown_from_block_import_txs` metric is also introduced. It provides the number of transactions in imported
+    block which are not known to the node's  transaction pool. It allows to monitor alignment of transaction pools
+    across the nodes in the network.
+crates:
+- name: sc-transaction-pool
+  bump: minor

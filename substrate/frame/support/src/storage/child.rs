@@ -21,10 +21,10 @@
 // NOTE: could replace unhashed by having only one kind of storage (top trie being the child info
 // of null length parent storage key).
 
+use alloc::vec::Vec;
 use codec::{Codec, Decode, Encode};
 pub use sp_core::storage::{ChildInfo, ChildType, StateVersion};
 pub use sp_io::{KillStorageResult, MultiRemovalResults};
-use sp_std::prelude::*;
 
 /// Return the value of the item in storage under `key`, or `None` if there is no explicit entry.
 pub fn get<T: Decode + Sized>(child_info: &ChildInfo, key: &[u8]) -> Option<T> {
@@ -163,7 +163,7 @@ pub fn kill_storage(child_info: &ChildInfo, limit: Option<u32>) -> KillStorageRe
 /// operating on the same prefix should pass `Some` and this value should be equal to the
 /// previous call result's `maybe_cursor` field. The only exception to this is when you can
 /// guarantee that the subsequent call is in a new block; in this case the previous call's result
-/// cursor need not be passed in an a `None` may be passed instead. This exception may be useful
+/// cursor need not be passed in and a `None` may be passed instead. This exception may be useful
 /// then making this call solely from a block-hook such as `on_initialize`.
 
 /// Returns [`MultiRemovalResults`] to inform about the result. Once the resultant `maybe_cursor`

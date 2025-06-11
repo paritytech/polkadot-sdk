@@ -1,0 +1,7 @@
+title: '[pallet-revive] breakdown integration tests'
+doc:
+- audience: Runtime Dev
+  description: Break down the single integration tests into multiple tests, use keccak-256 for tx.hash
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor

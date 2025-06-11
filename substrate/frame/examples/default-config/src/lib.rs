@@ -1,19 +1,25 @@
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT-0
 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Permission is hereby granted, free of charge, to any person obtaining a copy of
+// this software and associated documentation files (the "Software"), to deal in
+// the Software without restriction, including without limitation the rights to
+// use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+// of the Software, and to permit persons to whom the Software is furnished to do
+// so, subject to the following conditions:
+
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 //! # Default Config Pallet Example
 //!
@@ -32,6 +38,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
@@ -42,13 +50,9 @@ pub mod pallet {
 	/// It will be an identical, but won't have anything that is `#[pallet::no_default]`.
 	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
-		/// The overarching event type. This is coming from the runtime, and cannot have a default.
+		/// The overarching task type. This is coming from the runtime, and cannot have a default.  
 		/// In general, `Runtime*`-oriented types cannot have a sensible default.
 		#[pallet::no_default] // optional. `RuntimeEvent` is automatically excluded as well.
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
-		/// The overarching task type.
-		#[pallet::no_default]
 		type RuntimeTask: Task;
 
 		/// An input parameter to this pallet. This value can have a default, because it is not
@@ -60,10 +64,10 @@ pub mod pallet {
 		type OverwrittenDefaultValue: Get<u32>;
 
 		/// An input parameter that relies on `<Self as frame_system::Config>::AccountId`. This can
-		/// too have a default, as long as as it is present in `frame_system::DefaultConfig`.
+		/// too have a default, as long as it is present in `frame_system::DefaultConfig`.
 		type CanDeriveDefaultFromSystem: Get<Self::AccountId>;
 
-		/// We might chose to declare as one that doesn't have a default, for whatever semantical
+		/// We might choose to declare as one that doesn't have a default, for whatever semantical
 		/// reason.
 		#[pallet::no_default]
 		type HasNoDefault: Get<u32>;
@@ -189,13 +193,12 @@ pub mod tests {
 	}
 
 	parameter_types! {
-		pub const SomeCall: RuntimeCall = RuntimeCall::System(frame_system::Call::<Runtime>::remark { remark: vec![] });
+		pub const SomeCall: RuntimeCall = RuntimeCall::System(frame_system::Call::<Runtime>::remark { remark: alloc::vec![] });
 	}
 
 	#[derive_impl(TestDefaultConfig as pallet::DefaultConfig)]
 	impl pallet_default_config_example::Config for Runtime {
-		// These two both cannot have defaults.
-		type RuntimeEvent = RuntimeEvent;
+		// This cannot have default.
 		type RuntimeTask = RuntimeTask;
 
 		type HasNoDefault = frame_support::traits::ConstU32<1>;

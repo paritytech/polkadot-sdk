@@ -18,7 +18,7 @@
 //! The conviction datatype.
 
 use crate::types::Delegations;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::result::Result;
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -31,6 +31,7 @@ use sp_runtime::{
 	Encode,
 	MaxEncodedLen,
 	Decode,
+	DecodeWithMemTracking,
 	Copy,
 	Clone,
 	Eq,

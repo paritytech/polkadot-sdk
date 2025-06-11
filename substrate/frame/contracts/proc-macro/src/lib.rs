@@ -522,7 +522,7 @@ fn expand_docs(def: &EnvDef) -> TokenStream2 {
 ///    `expand_impls()`).
 fn expand_env(def: &EnvDef, docs: bool) -> TokenStream2 {
 	let impls = expand_impls(def);
-	let docs = docs.then_some(expand_docs(def)).unwrap_or(TokenStream2::new());
+	let docs = docs.then(|| expand_docs(def)).unwrap_or(TokenStream2::new());
 	let stable_api_count = def.host_funcs.iter().filter(|f| f.is_stable).count();
 
 	quote! {
@@ -649,11 +649,10 @@ fn expand_functions(def: &EnvDef, expand_mode: ExpandMode) -> TokenStream2 {
 			quote! {
 				let result = #body;
 				if ::log::log_enabled!(target: "runtime::contracts::strace", ::log::Level::Trace) {
-						use sp_std::fmt::Write;
-						let mut w = sp_std::Writer::default();
-						let _ = core::write!(&mut w, #trace_fmt_str, #( #trace_fmt_args, )* result);
-						let msg = core::str::from_utf8(&w.inner()).unwrap_or_default();
-						ctx.ext().append_debug_buffer(msg);
+						use core::fmt::Write;
+						let mut msg = alloc::string::String::default();
+						let _ = core::write!(&mut msg, #trace_fmt_str, #( #trace_fmt_args, )* result);
+						ctx.ext().append_debug_buffer(&msg);
 				}
 				result
 			}

@@ -4,7 +4,7 @@ version = "25.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME nomination pools pallet"
 
@@ -16,22 +16,17 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 # parity
-codec = { features = [
-	"derive",
-], workspace = true }
-scale-info = { features = [
-	"derive",
-], workspace = true }
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 
 # FRAME
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-sp-runtime = { workspace = true }
-sp-std = { workspace = true }
-sp-staking = { workspace = true }
+log = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
-log = { workspace = true }
+sp-runtime = { workspace = true }
+sp-staking = { workspace = true }
 
 # Optional: use for testing and/or fuzzing
 pallet-balances = { optional = true, workspace = true }
@@ -55,7 +50,6 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"sp-std/std",
 	"sp-tracing?/std",
 ]
 runtime-benchmarks = [

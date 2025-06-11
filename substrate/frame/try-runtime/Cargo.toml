@@ -4,9 +4,9 @@ version = "0.34.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
-description = "FRAME pallet for democracy"
+description = "Supporting types for try-runtime, testing and dry-running commands."
 
 [lints]
 workspace = true
@@ -19,7 +19,6 @@ codec = { features = ["derive"], workspace = true }
 frame-support = { workspace = true }
 sp-api = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 
 [features]
 default = ["std"]
@@ -28,6 +27,5 @@ std = [
 	"frame-support/std",
 	"sp-api/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 try-runtime = ["frame-support/try-runtime", "sp-runtime/try-runtime"]

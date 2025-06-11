@@ -1,0 +1,19 @@
+title: Enforce libp2p outbound request-response timeout limits
+
+doc:
+  - audience: Node Dev
+    description: |
+      This PR enforces that outbound requests are finished within the specified protocol timeout.
+      The stable2412 version running libp2p 0.52.4 contains a bug which does not track request timeouts properly
+      https://github.com/libp2p/rust-libp2p/pull/5429.
+  
+      The issue has been detected while submitting libp2p to litep2p requests in Kusama.
+      This aims to check that pending outbound requests have not timed out.
+      Although the issue has been fixed in libp2p, there might be other cases where this may happen.
+      For example, https://github.com/libp2p/rust-libp2p/pull/5417.
+
+      For more context see https://github.com/paritytech/polkadot-sdk/issues/7076#issuecomment-2596085096.
+
+crates:
+- name: sc-network
+  bump: patch

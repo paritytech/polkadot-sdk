@@ -1,25 +1,24 @@
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
+// SPDX-License-Identifier: Apache-2.0
 
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with this program. If not, see <https://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Implementations of public traits, namely [`DelegationInterface`] and [`OnStakingUpdate`].
 
 use super::*;
-use sp_staking::{Agent, DelegationInterface, DelegationMigrator, Delegator, OnStakingUpdate};
+use sp_staking::{DelegationInterface, DelegationMigrator, OnStakingUpdate};
 
 impl<T: Config> DelegationInterface for Pallet<T> {
 	type Balance = BalanceOf<T>;
@@ -32,28 +31,34 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 			.ok()
 	}
 
+	fn agent_transferable_balance(agent: Agent<Self::AccountId>) -> Option<Self::Balance> {
+		AgentLedgerOuter::<T>::get(&agent.get())
+			.map(|a| a.ledger.unclaimed_withdrawals)
+			.ok()
+	}
+
 	fn delegator_balance(delegator: Delegator<Self::AccountId>) -> Option<Self::Balance> {
 		Delegation::<T>::get(&delegator.get()).map(|d| d.amount)
 	}
 
 	/// Delegate funds to an `Agent`.
-	fn delegate(
-		who: Delegator<Self::AccountId>,
+	fn register_agent(
 		agent: Agent<Self::AccountId>,
 		reward_account: &Self::AccountId,
-		amount: Self::Balance,
 	) -> DispatchResult {
 		Pallet::<T>::register_agent(
 			RawOrigin::Signed(agent.clone().get()).into(),
 			reward_account.clone(),
-		)?;
+		)
+	}
 
-		// Delegate the funds from who to the `Agent` account.
-		Pallet::<T>::delegate_to_agent(RawOrigin::Signed(who.get()).into(), agent.get(), amount)
+	/// Remove `Agent` registration.
+	fn remove_agent(agent: Agent<Self::AccountId>) -> DispatchResult {
+		Pallet::<T>::remove_agent(RawOrigin::Signed(agent.clone().get()).into())
 	}
 
 	/// Add more delegation to the `Agent` account.
-	fn delegate_extra(
+	fn delegate(
 		who: Delegator<Self::AccountId>,
 		agent: Agent<Self::AccountId>,
 		amount: Self::Balance,
@@ -118,7 +123,7 @@ impl<T: Config> DelegationMigrator for Pallet<T> {
 
 	/// Only used for testing.
 	#[cfg(feature = "runtime-benchmarks")]
-	fn drop_agent(agent: Agent<Self::AccountId>) {
+	fn force_kill_agent(agent: Agent<Self::AccountId>) {
 		<Agents<T>>::remove(agent.clone().get());
 		<Delegators<T>>::iter()
 			.filter(|(_, delegation)| delegation.agent == agent.clone().get())
@@ -130,8 +135,6 @@ impl<T: Config> DelegationMigrator for Pallet<T> {
 				);
 				<Delegators<T>>::remove(&delegator);
 			});
-
-		T::CoreStaking::migrate_to_direct_staker(&agent.get());
 	}
 }
 
@@ -139,7 +142,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	fn on_slash(
 		who: &T::AccountId,
 		_slashed_active: BalanceOf<T>,
-		_slashed_unlocking: &sp_std::collections::btree_map::BTreeMap<EraIndex, BalanceOf<T>>,
+		_slashed_unlocking: &alloc::collections::btree_map::BTreeMap<EraIndex, BalanceOf<T>>,
 		slashed_total: BalanceOf<T>,
 	) {
 		<Agents<T>>::mutate(who, |maybe_register| match maybe_register {

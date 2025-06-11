@@ -113,6 +113,12 @@ impl<H: Clone, BH: Clone> Sender<H, BH> {
 	}
 
 	/// Transaction has been dropped from the pool because of the limit.
+	pub fn limit_enforced(&mut self) {
+		self.send(TransactionStatus::Dropped);
+		self.is_finalized = true;
+	}
+
+	/// Transaction has been dropped from the pool.
 	pub fn dropped(&mut self) {
 		self.send(TransactionStatus::Dropped);
 		self.is_finalized = true;
@@ -123,7 +129,7 @@ impl<H: Clone, BH: Clone> Sender<H, BH> {
 		self.send(TransactionStatus::Broadcast(peers))
 	}
 
-	/// Returns true if the are no more listeners for this extrinsic or it was finalized.
+	/// Returns true if there are no more listeners for this extrinsic, or it was finalized.
 	pub fn is_done(&self) -> bool {
 		self.is_finalized || self.receivers.is_empty()
 	}

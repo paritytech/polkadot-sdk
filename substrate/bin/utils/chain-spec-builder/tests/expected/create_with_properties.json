@@ -1,0 +1,40 @@
+{
+  "name": "Custom",
+  "id": "custom",
+  "chainType": "Live",
+  "bootNodes": [],
+  "telemetryEndpoints": null,
+  "protocolId": null,
+  "properties": {
+    "tokenDecimals": 6,
+    "tokenSymbol": "TEST",
+    "ss58Prefix": 42,
+    "isEthereum": false
+  },
+  "codeSubstitutes": {},
+  "genesis": {
+    "runtimeGenesis": {
+      "code": "0x010203",
+      "config": {
+        "babe": {
+          "authorities": [],
+          "epochConfig": {
+            "allowed_slots": "PrimaryAndSecondaryVRFSlots",
+            "c": [
+              1,
+              4
+            ]
+          }
+        },
+        "balances": {
+          "balances": [],
+          "devAccounts": null
+        },
+        "substrateTest": {
+          "authorities": []
+        },
+        "system": {}
+      }
+    }
+  }
+}

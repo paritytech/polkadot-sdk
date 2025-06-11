@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Expose more syncing types to enable custom syncing strategy
+
+doc:
+  - audience: Node Dev
+    description: |
+      Exposes additional syncing types to facilitate the development of a custom syncing strategy.
+
+crates:
+  - name: sc-network-sync
+    bump: patch

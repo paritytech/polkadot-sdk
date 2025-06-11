@@ -1,0 +1,20 @@
+title: asset-hub-rococo - genesis config presets added
+
+doc:
+  - audience: Node Dev
+    description: |
+        `asset-hub-rococo` genesis state was moved to runtime.
+  - audience: Runtime Dev
+    description: |
+        `asset-hub-rococo` genesis state was moved to runtime.
+
+
+crates:
+  - name: parachains-common
+    bump: minor
+  - name: testnet-parachains-constants
+    bump: minor
+  - name: asset-hub-rococo-runtime
+    bump: minor
+  - name: polkadot-parachain-bin
+    bump: minor

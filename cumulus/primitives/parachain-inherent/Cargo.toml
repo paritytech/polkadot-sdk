@@ -5,6 +5,8 @@ authors.workspace = true
 edition.workspace = true
 description = "Inherent that needs to be present in every parachain block. Contains messages and a relay chain storage-proof."
 license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -17,13 +19,13 @@ scale-info = { features = ["derive"], workspace = true }
 # Substrate
 sp-core = { workspace = true }
 sp-inherents = { workspace = true }
-sp-runtime = { optional = true, workspace = true }
-sp-state-machine = { optional = true, workspace = true }
-sp-std = { workspace = true }
 sp-trie = { workspace = true }
 
 # Cumulus
 cumulus-primitives-core = { workspace = true }
+
+[dev-dependencies]
+cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -34,8 +36,5 @@ std = [
 	"scale-info/std",
 	"sp-core/std",
 	"sp-inherents/std",
-	"sp-runtime?/std",
-	"sp-state-machine?/std",
-	"sp-std/std",
 	"sp-trie/std",
 ]

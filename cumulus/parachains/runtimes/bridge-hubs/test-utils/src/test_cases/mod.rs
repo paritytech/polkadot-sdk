@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Module contains predefined test-case scenarios for `Runtime` with bridging capabilities.
 //!
@@ -29,44 +29,47 @@ use crate::{test_cases::bridges_prelude::*, test_data};
 use asset_test_utils::BasicParachainRuntime;
 use bp_messages::{
 	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
-	LaneId, MessageKey, MessagesOperatingMode, OutboundLaneData,
+	LaneState, MessageKey, MessagesOperatingMode, OutboundLaneData,
 };
 use bp_runtime::BasicOperatingMode;
-use bridge_runtime_common::messages_xcm_extension::{
-	XcmAsPlainPayload, XcmBlobMessageDispatchResult,
-};
 use codec::Encode;
 use frame_support::{
 	assert_ok,
 	dispatch::GetDispatchInfo,
-	traits::{Get, OnFinalize, OnInitialize, OriginTrait},
+	traits::{Contains, Get, OnFinalize, OnInitialize, OriginTrait},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use parachains_common::AccountId;
 use parachains_runtimes_test_utils::{
-	mock_open_hrmp_channel, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder, RuntimeCallOf,
-	SlotDurations, XcmReceivedFrom,
+	mock_open_hrmp_channel, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder,
+	GovernanceOrigin, RuntimeCallOf, RuntimeOriginOf, SlotDurations, XcmReceivedFrom,
 };
 use sp_runtime::{traits::Zero, AccountId32};
 use xcm::{latest::prelude::*, AlwaysLatest};
 use xcm_builder::DispatchBlobError;
 use xcm_executor::{
-	traits::{TransactAsset, WeightBounds},
+	traits::{ConvertLocation, TransactAsset, WeightBounds},
 	XcmExecutor,
 };
 
 /// Common bridges exports.
 pub(crate) mod bridges_prelude {
+	pub use bp_parachains::{RelayBlockHash, RelayBlockNumber};
 	pub use pallet_bridge_grandpa::{Call as BridgeGrandpaCall, Config as BridgeGrandpaConfig};
-	pub use pallet_bridge_messages::{Call as BridgeMessagesCall, Config as BridgeMessagesConfig};
+	pub use pallet_bridge_messages::{
+		Call as BridgeMessagesCall, Config as BridgeMessagesConfig, LanesManagerError,
+	};
 	pub use pallet_bridge_parachains::{
-		Call as BridgeParachainsCall, Config as BridgeParachainsConfig, RelayBlockHash,
-		RelayBlockNumber,
+		Call as BridgeParachainsCall, Config as BridgeParachainsConfig,
 	};
 }
 
+// Re-export test-case
+pub use for_pallet_xcm_bridge_hub::open_and_close_bridge_works;
+
 // Re-export test_case from assets
 pub use asset_test_utils::include_teleports_for_native_asset_works;
+use pallet_bridge_messages::LaneIdOf;
 
 pub type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
 	parachains_runtimes_test_utils::RuntimeHelper<Runtime, AllPalletsWithoutSystem>;
@@ -101,6 +104,7 @@ where
 pub fn initialize_bridge_by_governance_works<Runtime, GrandpaPalletInstance>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
+	governance_origin: GovernanceOrigin<RuntimeOriginOf<Runtime>>,
 ) where
 	Runtime: BasicParachainRuntime + BridgeGrandpaConfig<GrandpaPalletInstance>,
 	GrandpaPalletInstance: 'static,
@@ -123,11 +127,10 @@ pub fn initialize_bridge_by_governance_works<Runtime, GrandpaPalletInstance>(
 		});
 
 		// execute XCM with Transacts to `initialize bridge` as governance does
-		assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(
-			initialize_call.encode(),
-			initialize_call.get_dispatch_info().weight,
-		)
-		.ensure_complete());
+		assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance_call(
+			initialize_call,
+			governance_origin
+		));
 
 		// check mode after
 		assert_eq!(
@@ -142,6 +145,7 @@ pub fn initialize_bridge_by_governance_works<Runtime, GrandpaPalletInstance>(
 pub fn change_bridge_grandpa_pallet_mode_by_governance_works<Runtime, GrandpaPalletInstance>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
+	governance_origin: GovernanceOrigin<RuntimeOriginOf<Runtime>>,
 ) where
 	Runtime: BasicParachainRuntime + BridgeGrandpaConfig<GrandpaPalletInstance>,
 	GrandpaPalletInstance: 'static,
@@ -164,11 +168,10 @@ pub fn change_bridge_grandpa_pallet_mode_by_governance_works<Runtime, GrandpaPal
 			);
 
 			// execute XCM with Transacts to `initialize bridge` as governance does
-			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(
-				set_operating_mode_call.encode(),
-				set_operating_mode_call.get_dispatch_info().weight,
-			)
-			.ensure_complete());
+			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance_call(
+				set_operating_mode_call,
+				governance_origin.clone()
+			));
 
 			// check mode after
 			assert_eq!(
@@ -193,6 +196,7 @@ pub fn change_bridge_grandpa_pallet_mode_by_governance_works<Runtime, GrandpaPal
 pub fn change_bridge_parachains_pallet_mode_by_governance_works<Runtime, ParachainsPalletInstance>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
+	governance_origin: GovernanceOrigin<RuntimeOriginOf<Runtime>>,
 ) where
 	Runtime: BasicParachainRuntime + BridgeParachainsConfig<ParachainsPalletInstance>,
 	ParachainsPalletInstance: 'static,
@@ -217,11 +221,10 @@ pub fn change_bridge_parachains_pallet_mode_by_governance_works<Runtime, Paracha
 				});
 
 			// execute XCM with Transacts to `initialize bridge` as governance does
-			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(
-				set_operating_mode_call.encode(),
-				set_operating_mode_call.get_dispatch_info().weight,
-			)
-			.ensure_complete());
+			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance_call(
+				set_operating_mode_call,
+				governance_origin.clone()
+			));
 
 			// check mode after
 			assert_eq!(
@@ -246,6 +249,7 @@ pub fn change_bridge_parachains_pallet_mode_by_governance_works<Runtime, Paracha
 pub fn change_bridge_messages_pallet_mode_by_governance_works<Runtime, MessagesPalletInstance>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
+	governance_origin: GovernanceOrigin<RuntimeOriginOf<Runtime>>,
 ) where
 	Runtime: BasicParachainRuntime + BridgeMessagesConfig<MessagesPalletInstance>,
 	MessagesPalletInstance: 'static,
@@ -270,11 +274,10 @@ pub fn change_bridge_messages_pallet_mode_by_governance_works<Runtime, MessagesP
 			});
 
 			// execute XCM with Transacts to `initialize bridge` as governance does
-			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(
-				set_operating_mode_call.encode(),
-				set_operating_mode_call.get_dispatch_info().weight,
-			)
-			.ensure_complete());
+			assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance_call(
+				set_operating_mode_call,
+				governance_origin.clone()
+			));
 
 			// check mode after
 			assert_eq!(
@@ -320,10 +323,9 @@ pub fn handle_export_message_from_system_parachain_to_outbound_queue_works<
 		dyn Fn(Vec<u8>) -> Option<pallet_bridge_messages::Event<Runtime, MessagesPalletInstance>>,
 	>,
 	export_message_instruction: fn() -> Instruction<XcmConfig::RuntimeCall>,
-	expected_lane_id: LaneId,
 	existential_deposit: Option<Asset>,
 	maybe_paid_export_message: Option<Asset>,
-	prepare_configuration: impl Fn(),
+	prepare_configuration: impl Fn() -> LaneIdOf<Runtime, MessagesPalletInstance>,
 ) where
 	Runtime: BasicParachainRuntime + BridgeMessagesConfig<MessagesPalletInstance>,
 	XcmConfig: xcm_executor::Config,
@@ -333,14 +335,19 @@ pub fn handle_export_message_from_system_parachain_to_outbound_queue_works<
 	let sibling_parachain_location = Location::new(1, [Parachain(sibling_parachain_id)]);
 
 	run_test::<Runtime, _>(collator_session_key, runtime_para_id, vec![], || {
-		prepare_configuration();
+		let expected_lane_id = prepare_configuration();
 
 		// check queue before
 		assert_eq!(
 			pallet_bridge_messages::OutboundLanes::<Runtime, MessagesPalletInstance>::try_get(
 				expected_lane_id
 			),
-			Err(())
+			Ok(OutboundLaneData {
+				state: LaneState::Opened,
+				oldest_unpruned_nonce: 1,
+				latest_received_nonce: 0,
+				latest_generated_nonce: 0
+			})
 		);
 
 		// prepare `ExportMessage`
@@ -391,6 +398,7 @@ pub fn handle_export_message_from_system_parachain_to_outbound_queue_works<
 				expected_lane_id
 			),
 			Ok(OutboundLaneData {
+				state: LaneState::Opened,
 				oldest_unpruned_nonce: 1,
 				latest_received_nonce: 0,
 				latest_generated_nonce: 1,
@@ -430,12 +438,11 @@ pub fn message_dispatch_routing_works<
 	unwrap_cumulus_pallet_xcmp_queue_event: Box<
 		dyn Fn(Vec<u8>) -> Option<cumulus_pallet_xcmp_queue::Event<Runtime>>,
 	>,
-	expected_lane_id: LaneId,
 	prepare_configuration: impl Fn(),
 ) where
 	Runtime: BasicParachainRuntime
 		+ cumulus_pallet_xcmp_queue::Config
-		+ BridgeMessagesConfig<MessagesPalletInstance, InboundPayload = XcmAsPlainPayload>,
+		+ BridgeMessagesConfig<MessagesPalletInstance, InboundPayload = test_data::XcmAsPlainPayload>,
 	AllPalletsWithoutSystem:
 		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
 	AccountIdOf<Runtime>: From<AccountId32>
@@ -455,12 +462,19 @@ pub fn message_dispatch_routing_works<
 			Location::new(C::get(), [GlobalConsensus(N::get())])
 		}
 	}
-
 	assert_ne!(runtime_para_id, sibling_parachain_id);
+
+	#[derive(Debug)]
+	enum XcmBlobMessageDispatchResult {
+		Dispatched,
+		#[allow(dead_code)]
+		NotDispatched(Option<DispatchBlobError>),
+	}
 
 	run_test::<Runtime, _>(collator_session_key, runtime_para_id, vec![], || {
 		prepare_configuration();
 
+		let dummy_lane_id = LaneIdOf::<Runtime, MessagesPalletInstance>::default();
 		let mut alice = [0u8; 32];
 		alice[0] = 1;
 
@@ -477,7 +491,7 @@ pub fn message_dispatch_routing_works<
 		>((RuntimeNetwork::get(), Here));
 		let result =
 			<<Runtime as BridgeMessagesConfig<MessagesPalletInstance>>::MessageDispatch>::dispatch(
-				test_data::dispatch_message(expected_lane_id, 1, bridging_message),
+				test_data::dispatch_message(dummy_lane_id, 1, bridging_message),
 			);
 		assert_eq!(
 			format!("{:?}", result.dispatch_level_result),
@@ -495,17 +509,18 @@ pub fn message_dispatch_routing_works<
 
 		// 2. this message is sent from other global consensus with destination of this Runtime
 		//    sibling parachain (HRMP)
-		let bridging_message = test_data::simulate_message_exporter_on_bridged_chain::<
-			BridgedNetwork,
-			NetworkWithParentCount<RuntimeNetwork, NetworkDistanceAsParentCount>,
-			AlwaysLatest,
-		>((RuntimeNetwork::get(), [Parachain(sibling_parachain_id)].into()));
+		let bridging_message =
+			test_data::simulate_message_exporter_on_bridged_chain::<
+				BridgedNetwork,
+				NetworkWithParentCount<RuntimeNetwork, NetworkDistanceAsParentCount>,
+				AlwaysLatest,
+			>((RuntimeNetwork::get(), [Parachain(sibling_parachain_id)].into()));
 
 		// 2.1. WITHOUT opened hrmp channel -> RoutingError
 		let result =
 			<<Runtime as BridgeMessagesConfig<MessagesPalletInstance>>::MessageDispatch>::dispatch(
 				DispatchMessage {
-					key: MessageKey { lane_id: expected_lane_id, nonce: 1 },
+					key: MessageKey { lane_id: dummy_lane_id, nonce: 1 },
 					data: DispatchMessageData { payload: Ok(bridging_message.clone()) },
 				},
 			);
@@ -537,7 +552,7 @@ pub fn message_dispatch_routing_works<
 		let result =
 			<<Runtime as BridgeMessagesConfig<MessagesPalletInstance>>::MessageDispatch>::dispatch(
 				DispatchMessage {
-					key: MessageKey { lane_id: expected_lane_id, nonce: 1 },
+					key: MessageKey { lane_id: dummy_lane_id, nonce: 1 },
 					data: DispatchMessageData { payload: Ok(bridging_message) },
 				},
 			);
@@ -625,7 +640,7 @@ where
 	]);
 
 	// get weight
-	let weight = XcmConfig::Weigher::weight(&mut xcm);
+	let weight = XcmConfig::Weigher::weight(&mut xcm, Weight::MAX);
 	assert_ok!(weight);
 	let weight = weight.unwrap();
 	// check if sane
@@ -642,4 +657,152 @@ where
 	assert!(estimated_fee > BalanceOf::<Runtime>::zero());
 
 	estimated_fee.into()
+}
+
+pub(crate) mod for_pallet_xcm_bridge_hub {
+	use super::*;
+	use crate::test_cases::helpers::for_pallet_xcm_bridge_hub::{
+		close_bridge, ensure_opened_bridge, open_bridge_with_extrinsic,
+	};
+	pub(crate) use pallet_xcm_bridge_hub::{
+		Bridge, BridgeState, Call as BridgeXcmOverBridgeCall, Config as BridgeXcmOverBridgeConfig,
+		LanesManagerOf,
+	};
+
+	/// Test-case makes sure that `Runtime` can open/close bridges.
+	pub fn open_and_close_bridge_works<Runtime, XcmOverBridgePalletInstance, LocationToAccountId, TokenLocation>(
+		collator_session_key: CollatorSessionKeys<Runtime>,
+		runtime_para_id: u32,
+		expected_source: Location,
+		destination: InteriorLocation,
+		origin_with_origin_kind: (Location, OriginKind),
+		is_paid_xcm_execution: bool,
+	) where
+		Runtime: BasicParachainRuntime + BridgeXcmOverBridgeConfig<XcmOverBridgePalletInstance>,
+		XcmOverBridgePalletInstance: 'static,
+		<Runtime as frame_system::Config>::RuntimeCall: GetDispatchInfo + From<BridgeXcmOverBridgeCall<Runtime, XcmOverBridgePalletInstance>>,
+		<Runtime as pallet_balances::Config>::Balance: From<<<Runtime as pallet_bridge_messages::Config<<Runtime as pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>>::BridgeMessagesPalletInstance>>::ThisChain as bp_runtime::Chain>::Balance>,
+		<Runtime as pallet_balances::Config>::Balance: From<u128>,
+		<<Runtime as pallet_bridge_messages::Config<<Runtime as pallet_xcm_bridge_hub::Config<XcmOverBridgePalletInstance>>::BridgeMessagesPalletInstance>>::ThisChain as bp_runtime::Chain>::AccountId: From<<Runtime as frame_system::Config>::AccountId>,
+		LocationToAccountId: ConvertLocation<AccountIdOf<Runtime>>,
+		TokenLocation: Get<Location>,
+	{
+		run_test::<Runtime, _>(collator_session_key, runtime_para_id, vec![], || {
+			// construct expected bridge configuration
+			let locations = pallet_xcm_bridge_hub::Pallet::<Runtime, XcmOverBridgePalletInstance>::bridge_locations(
+				expected_source.clone().into(),
+				destination.clone().into(),
+			).expect("valid bridge locations");
+			let expected_lane_id =
+				locations.calculate_lane_id(xcm::latest::VERSION).expect("valid laneId");
+			let lanes_manager = LanesManagerOf::<Runtime, XcmOverBridgePalletInstance>::new();
+
+			let expected_deposit = if <Runtime as pallet_xcm_bridge_hub::Config<
+				XcmOverBridgePalletInstance,
+			>>::AllowWithoutBridgeDeposit::contains(
+				locations.bridge_origin_relative_location()
+			) {
+				Zero::zero()
+			} else {
+				<Runtime as pallet_xcm_bridge_hub::Config<
+					XcmOverBridgePalletInstance,
+				>>::BridgeDeposit::get()
+			};
+
+			// check bridge/lane DOES not exist
+			assert_eq!(
+				pallet_xcm_bridge_hub::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
+					locations.bridge_id()
+				),
+				None
+			);
+			assert_eq!(
+				lanes_manager.active_inbound_lane(expected_lane_id).map(drop),
+				Err(LanesManagerError::UnknownInboundLane)
+			);
+			assert_eq!(
+				lanes_manager.active_outbound_lane(expected_lane_id).map(drop),
+				Err(LanesManagerError::UnknownOutboundLane)
+			);
+
+			// open bridge with Transact call
+			assert_eq!(
+				ensure_opened_bridge::<
+					Runtime,
+					XcmOverBridgePalletInstance,
+					LocationToAccountId,
+					TokenLocation,
+				>(
+					expected_source.clone(),
+					destination.clone(),
+					is_paid_xcm_execution,
+					|locations, maybe_paid_execution| open_bridge_with_extrinsic::<
+						Runtime,
+						XcmOverBridgePalletInstance,
+					>(
+						origin_with_origin_kind.clone(),
+						locations.bridge_destination_universal_location().clone(),
+						maybe_paid_execution
+					)
+				)
+				.0
+				.bridge_id(),
+				locations.bridge_id()
+			);
+
+			// check bridge/lane DOES exist
+			assert_eq!(
+				pallet_xcm_bridge_hub::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
+					locations.bridge_id()
+				),
+				Some(Bridge {
+					bridge_origin_relative_location: Box::new(expected_source.clone().into()),
+					bridge_origin_universal_location: Box::new(
+						locations.bridge_origin_universal_location().clone().into()
+					),
+					bridge_destination_universal_location: Box::new(
+						locations.bridge_destination_universal_location().clone().into()
+					),
+					state: BridgeState::Opened,
+					bridge_owner_account: LocationToAccountId::convert_location(&expected_source)
+						.expect("valid location")
+						.into(),
+					deposit: expected_deposit,
+					lane_id: expected_lane_id,
+				})
+			);
+			assert_eq!(
+				lanes_manager.active_inbound_lane(expected_lane_id).map(|lane| lane.state()),
+				Ok(LaneState::Opened)
+			);
+			assert_eq!(
+				lanes_manager.active_outbound_lane(expected_lane_id).map(|lane| lane.state()),
+				Ok(LaneState::Opened)
+			);
+
+			// close bridge with Transact call
+			close_bridge::<Runtime, XcmOverBridgePalletInstance, LocationToAccountId, TokenLocation>(
+				expected_source,
+				destination,
+				origin_with_origin_kind,
+				is_paid_xcm_execution,
+			);
+
+			// check bridge/lane DOES not exist
+			assert_eq!(
+				pallet_xcm_bridge_hub::Bridges::<Runtime, XcmOverBridgePalletInstance>::get(
+					locations.bridge_id()
+				),
+				None
+			);
+			assert_eq!(
+				lanes_manager.active_inbound_lane(expected_lane_id).map(drop),
+				Err(LanesManagerError::UnknownInboundLane)
+			);
+			assert_eq!(
+				lanes_manager.active_outbound_lane(expected_lane_id).map(drop),
+				Err(LanesManagerError::UnknownOutboundLane)
+			);
+		});
+	}
 }

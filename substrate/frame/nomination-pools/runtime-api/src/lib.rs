@@ -43,6 +43,9 @@ sp_api::decl_runtime_apis! {
 		fn pool_pending_slash(pool_id: PoolId) -> Balance;
 
 		/// Returns the pending slash for a given pool member.
+		///
+		/// If pending slash of the member exceeds `ExistentialDeposit`, it can be reported on
+		/// chain.
 		fn member_pending_slash(member: AccountId) -> Balance;
 
 		/// Returns true if the pool with `pool_id` needs migration.
@@ -63,5 +66,14 @@ sp_api::decl_runtime_apis! {
 		/// [`migrate_delegation`](pallet_nomination_pools::Call::migrate_delegation)
 		/// to migrate the funds of the pool member.
 		fn member_needs_delegate_migration(member: AccountId) -> bool;
+
+		/// Returns the total contribution of a pool member including any balance that is unbonding.
+		fn member_total_balance(who: AccountId) -> Balance;
+
+		/// Total balance contributed to the pool.
+		fn pool_balance(pool_id: PoolId) -> Balance;
+
+		/// Returns the bonded account and reward account associated with the pool_id.
+		fn pool_accounts(pool_id: PoolId) -> (AccountId, AccountId);
 	}
 }

@@ -23,7 +23,6 @@ use prometheus_endpoint::Registry;
 use sc_chain_spec::ChainSpec;
 pub use sc_client_db::{BlocksPruning, Database, DatabaseSource, PruningMode};
 pub use sc_executor::{WasmExecutionMethod, WasmtimeInstantiationStrategy};
-pub use sc_informant::OutputFormat;
 pub use sc_network::{
 	config::{
 		MultiaddrWithPeerId, NetworkConfiguration, NodeKeyConfig, NonDefaultSetConfig, ProtocolId,
@@ -34,9 +33,11 @@ pub use sc_network::{
 	},
 	Multiaddr,
 };
-pub use sc_rpc_server::IpNetwork;
+pub use sc_rpc_server::{
+	IpNetwork, RpcEndpoint, RpcMethods, SubscriptionIdProvider as RpcSubscriptionIdProvider,
+};
 pub use sc_telemetry::TelemetryEndpoints;
-pub use sc_transaction_pool::Options as TransactionPoolOptions;
+pub use sc_transaction_pool::TransactionPoolOptions;
 use sp_core::crypto::SecretString;
 use std::{
 	io, iter,
@@ -69,6 +70,8 @@ pub struct Configuration {
 	///
 	/// If `None` is given the cache is disabled.
 	pub trie_cache_maximum_size: Option<usize>,
+	/// Force the trie cache to be in memory.
+	pub warm_up_trie_cache: Option<TrieCacheWarmUpStrategy>,
 	/// State pruning settings.
 	pub state_pruning: Option<PruningMode>,
 	/// Number of blocks to keep in the db.
@@ -77,48 +80,18 @@ pub struct Configuration {
 	pub blocks_pruning: BlocksPruning,
 	/// Chain configuration.
 	pub chain_spec: Box<dyn ChainSpec>,
-	/// Wasm execution method.
-	pub wasm_method: WasmExecutionMethod,
+	/// Runtime executor configuration.
+	pub executor: ExecutorConfiguration,
 	/// Directory where local WASM runtimes live. These runtimes take precedence
 	/// over on-chain runtimes when the spec version matches. Set to `None` to
 	/// disable overrides (default).
 	pub wasm_runtime_overrides: Option<PathBuf>,
-	/// JSON-RPC server binding address.
-	pub rpc_addr: Option<SocketAddr>,
-	/// Maximum number of connections for JSON-RPC server.
-	pub rpc_max_connections: u32,
-	/// CORS settings for HTTP & WS servers. `None` if all origins are allowed.
-	pub rpc_cors: Option<Vec<String>>,
-	/// RPC methods to expose (by default only a safe subset or all of them).
-	pub rpc_methods: RpcMethods,
-	/// Maximum payload of a rpc request
-	pub rpc_max_request_size: u32,
-	/// Maximum payload of a rpc response.
-	pub rpc_max_response_size: u32,
-	/// Custom JSON-RPC subscription ID provider.
-	///
-	/// Default: [`crate::RandomStringSubscriptionId`].
-	pub rpc_id_provider: Option<Box<dyn crate::RpcSubscriptionIdProvider>>,
-	/// Maximum allowed subscriptions per rpc connection
-	pub rpc_max_subs_per_conn: u32,
-	/// JSON-RPC server default port.
-	pub rpc_port: u16,
-	/// The number of messages the JSON-RPC server is allowed to keep in memory.
-	pub rpc_message_buffer_capacity: u32,
-	/// JSON-RPC server batch config.
-	pub rpc_batch_config: RpcBatchRequestConfig,
-	/// RPC rate limit per minute.
-	pub rpc_rate_limit: Option<NonZeroU32>,
-	/// RPC rate limit whitelisted ip addresses.
-	pub rpc_rate_limit_whitelisted_ips: Vec<IpNetwork>,
-	/// RPC rate limit trust proxy headers.
-	pub rpc_rate_limit_trust_proxy_headers: bool,
+	/// RPC configuration.
+	pub rpc: RpcConfiguration,
 	/// Prometheus endpoint configuration. `None` if disabled.
 	pub prometheus_config: Option<PrometheusConfig>,
 	/// Telemetry service URL. `None` if disabled.
 	pub telemetry_endpoints: Option<TelemetryEndpoints>,
-	/// The default number of 64KB pages to allocate for Wasm execution
-	pub default_heap_pages: Option<u64>,
 	/// Should offchain workers be executed.
 	pub offchain_worker: OffchainWorkerConfig,
 	/// Enable authoring even when offline.
@@ -136,20 +109,28 @@ pub struct Configuration {
 	pub tracing_targets: Option<String>,
 	/// Tracing receiver
 	pub tracing_receiver: sc_tracing::TracingReceiver,
-	/// The size of the instances cache.
-	///
-	/// The default value is 8.
-	pub max_runtime_instances: usize,
 	/// Announce block automatically after they have been imported
 	pub announce_block: bool,
 	/// Data path root for the configured chain.
 	pub data_path: PathBuf,
 	/// Base path of the configuration. This is shared between chains.
 	pub base_path: BasePath,
-	/// Configuration of the output format that the informant uses.
-	pub informant_output_format: OutputFormat,
-	/// Maximum number of different runtime versions that can be cached.
-	pub runtime_cache_size: u8,
+}
+
+/// Warmup strategy for the trie cache.
+#[derive(Debug, Clone, Copy)]
+pub enum TrieCacheWarmUpStrategy {
+	/// Warm up the cache in a non-blocking way.
+	NonBlocking,
+	/// Warm up the cache in a blocking way.
+	Blocking,
+}
+
+impl TrieCacheWarmUpStrategy {
+	/// Returns true if the warmup strategy is blocking.
+	pub(crate) fn is_blocking(&self) -> bool {
+		matches!(self, Self::Blocking)
+	}
 }
 
 /// Type for tasks spawned by the executor.
@@ -254,25 +235,8 @@ impl Configuration {
 			state_pruning: self.state_pruning.clone(),
 			source: self.database.clone(),
 			blocks_pruning: self.blocks_pruning,
+			metrics_registry: self.prometheus_registry().cloned(),
 		}
-	}
-}
-
-/// Available RPC methods.
-#[derive(Debug, Copy, Clone)]
-pub enum RpcMethods {
-	/// Expose every RPC method only when RPC is listening on `localhost`,
-	/// otherwise serve only safe RPC methods.
-	Auto,
-	/// Allow only a safe subset of RPC methods.
-	Safe,
-	/// Expose every RPC method (even potentially unsafe ones).
-	Unsafe,
-}
-
-impl Default for RpcMethods {
-	fn default() -> RpcMethods {
-		RpcMethods::Auto
 	}
 }
 
@@ -340,5 +304,66 @@ impl BasePath {
 impl From<PathBuf> for BasePath {
 	fn from(path: PathBuf) -> Self {
 		BasePath::new(path)
+	}
+}
+
+/// RPC configuration.
+#[derive(Debug)]
+pub struct RpcConfiguration {
+	/// JSON-RPC server endpoints.
+	pub addr: Option<Vec<RpcEndpoint>>,
+	/// Maximum number of connections for JSON-RPC server.
+	pub max_connections: u32,
+	/// CORS settings for HTTP & WS servers. `None` if all origins are allowed.
+	pub cors: Option<Vec<String>>,
+	/// RPC methods to expose (by default only a safe subset or all of them).
+	pub methods: RpcMethods,
+	/// Maximum payload of a rpc request
+	pub max_request_size: u32,
+	/// Maximum payload of a rpc response.
+	pub max_response_size: u32,
+	/// Custom JSON-RPC subscription ID provider.
+	///
+	/// Default: [`crate::RandomStringSubscriptionId`].
+	pub id_provider: Option<Box<dyn RpcSubscriptionIdProvider>>,
+	/// Maximum allowed subscriptions per rpc connection
+	pub max_subs_per_conn: u32,
+	/// JSON-RPC server default port.
+	pub port: u16,
+	/// The number of messages the JSON-RPC server is allowed to keep in memory.
+	pub message_buffer_capacity: u32,
+	/// JSON-RPC server batch config.
+	pub batch_config: RpcBatchRequestConfig,
+	/// RPC rate limit per minute.
+	pub rate_limit: Option<NonZeroU32>,
+	/// RPC rate limit whitelisted ip addresses.
+	pub rate_limit_whitelisted_ips: Vec<IpNetwork>,
+	/// RPC rate limit trust proxy headers.
+	pub rate_limit_trust_proxy_headers: bool,
+}
+
+/// Runtime executor configuration.
+#[derive(Debug, Clone)]
+pub struct ExecutorConfiguration {
+	/// Wasm execution method.
+	pub wasm_method: WasmExecutionMethod,
+	/// The size of the instances cache.
+	///
+	/// The default value is 8.
+	pub max_runtime_instances: usize,
+	/// The default number of 64KB pages to allocate for Wasm execution
+	pub default_heap_pages: Option<u64>,
+	/// Maximum number of different runtime versions that can be cached.
+	pub runtime_cache_size: u8,
+}
+
+impl Default for ExecutorConfiguration {
+	fn default() -> Self {
+		Self {
+			wasm_method: WasmExecutionMethod::default(),
+			max_runtime_instances: 8,
+			default_heap_pages: None,
+			runtime_cache_size: 2,
+		}
 	}
 }
