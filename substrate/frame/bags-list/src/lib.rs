@@ -420,18 +420,19 @@ pub mod pallet {
 			}
 
 			let rebag_budget = T::MaxAutoRebagPerBlock::get();
-			let total_nodes = ListNodes::<T, I>::count();
-			let is_locked = Self::ensure_unlocked().is_err();
+			if rebag_budget == 0 {
+				log!(debug, "Auto-rebag skipped: rebag_budget=0");
+				return meter.consumed();
+			}
 
-			//Fast exit: feature is disabled, a list is empty or locked.
-			if rebag_budget == 0 || total_nodes == 0 || is_locked {
-				log!(
-					debug,
-					"Auto-rebag skipped: rebag_budget={}, total_nodes={}, locked={}.",
-					rebag_budget,
-					total_nodes,
-					is_locked
-				);
+			let total_nodes = ListNodes::<T, I>::count();
+			if total_nodes == 0 {
+				log!(debug, "Auto-rebag skipped: total_nodes=0");
+				return meter.consumed();
+			}
+
+			if Self::ensure_unlocked().is_err() {
+				log!(debug, "Auto-rebag skipped: pallet is locked");
 				return meter.consumed();
 			}
 
