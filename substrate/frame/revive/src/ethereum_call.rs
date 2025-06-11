@@ -7,5 +7,5 @@ pub fn do_ethereum_call<R>(f: impl FnOnce() -> R) -> R {
 }
 
 pub fn is_ethereum_call() -> bool {
-	ethereum_flag::with(|v| *v).unwrap_or(false)
+	ethereum_flag::with(|v| *v).is_some()
 }
