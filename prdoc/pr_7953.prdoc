@@ -1,8 +1,8 @@
 title: Add deposit for setting session keys
 doc:
-- audience: Runtime Dev
+- audience: [Runtime Dev, Runtime User]
   description: |-
-    Implement hold balance tracking for test accounts in the session pallet.
+    Setting session keys might put some funds on hold in the future, depending on how runtimes use this feature.
 
     Requires `pallet_session::Config` to specify:
     * `type Currency`, assigned to an instance of `pallet_balances`.
