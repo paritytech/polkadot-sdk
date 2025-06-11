@@ -771,7 +771,7 @@ mod sorted_list_provider {
 	}
 }
 
-pub mod on_idle {
+mod on_idle {
 	use super::*;
 	use frame_support::traits::OnIdle;
 
