@@ -6,4 +6,4 @@ doc:
 
 crates:
 - name: emulated-integration-tests-common
-  bump: patch
+  bump: minor
