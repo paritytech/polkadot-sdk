@@ -26,7 +26,7 @@ use crate::{
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
 	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, ConversionPrecision,
-	Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts,
+	Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, RuntimeCosts,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -279,7 +279,12 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Charges the gas meter with the given weight.
 	fn charge(&mut self, weight: Weight) -> Result<crate::gas::ChargedAmount, DispatchError> {
-		self.gas_meter_mut().charge(crate::RuntimeCosts::Precompile(weight))
+		self.gas_meter_mut().charge(RuntimeCosts::Precompile(weight))
+	}
+
+	fn adjust_gas(&mut self, charged: crate::gas::ChargedAmount, actual_weight: Weight) {
+		self.gas_meter_mut()
+			.adjust_gas(charged, RuntimeCosts::Precompile(actual_weight));
 	}
 
 	/// Call (possibly transferring some amount of funds) into the specified account.
