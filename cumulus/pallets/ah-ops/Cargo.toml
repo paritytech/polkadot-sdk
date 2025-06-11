@@ -17,12 +17,12 @@ log = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-timestamp = { workspace = true }
 pallet-utility = { workspace = true }
-sp-application-crypto = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
+sp-application-crypto = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
-sp-io = { workspace = true }
-sp-core = { workspace = true }
 
 [features]
 default = ["std"]
@@ -35,7 +35,11 @@ std = [
 	"log/std",
 	"pallet-balances/std",
 	"pallet-timestamp/std",
+	"pallet-utility/std",
 	"scale-info/std",
+	"sp-application-crypto/std",
+	"sp-core/std",
+	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
 ]
@@ -46,6 +50,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
@@ -53,5 +58,6 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-timestamp/try-runtime",
+	"pallet-utility/try-runtime",
 	"sp-runtime/try-runtime",
 ]

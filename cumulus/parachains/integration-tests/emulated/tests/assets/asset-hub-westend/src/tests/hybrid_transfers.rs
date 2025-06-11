@@ -689,7 +689,7 @@ fn transfer_native_asset_from_relay_to_penpal_through_asset_hub() {
 	// Init values for Relay
 	let destination = Westend::child_location_of(PenpalA::para_id());
 	let sender = WestendSender::get();
-	let amount_to_send: Balance = WESTEND_ED * 1000;
+	let amount_to_send: Balance = WESTEND_ED * 100;
 
 	// Init values for Parachain
 	let relay_native_asset_location = RelayLocation::get();
@@ -726,11 +726,6 @@ fn transfer_native_asset_from_relay_to_penpal_through_asset_hub() {
 				RuntimeEvent::Balances(pallet_balances::Event::Burned { who, amount }) => {
 					who: *who == t.sender.account_id,
 					amount: *amount == t.args.amount,
-				},
-				// Amount to teleport is deposited in Relay's `CheckAccount`
-				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount }) => {
-					who: *who == <Westend as WestendPallet>::XcmPallet::check_account(),
-					amount:  *amount == t.args.amount,
 				},
 			]
 		);
@@ -885,11 +880,6 @@ fn transfer_native_asset_from_penpal_to_relay_through_asset_hub() {
 	);
 	// fund Penpal's SA on AssetHub with the assets held in reserve
 	AssetHubWestend::fund_accounts(vec![(sov_penpal_on_ah.clone().into(), amount_to_send * 2)]);
-
-	// prefund Relay checking account so we accept teleport "back" from AssetHub
-	let check_account =
-		Westend::execute_with(|| <Westend as WestendPallet>::XcmPallet::check_account());
-	Westend::fund_accounts(vec![(check_account, amount_to_send)]);
 
 	// Query initial balances
 	let sender_balance_before = PenpalA::execute_with(|| {

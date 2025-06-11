@@ -1212,7 +1212,6 @@ impl pallet_migrations::Config for Runtime {
 parameter_types! {
 	pub MaximumSchedulerWeight: frame_support::weights::Weight = Perbill::from_percent(80) *
 		RuntimeBlockWeights::get().max_block;
-	pub const MaxScheduledPerBlock: u32 = 50;
 	pub const NoPreimagePostponement: Option<u32> = Some(10);
 }
 
@@ -1223,7 +1222,10 @@ impl pallet_scheduler::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type MaximumWeight = MaximumSchedulerWeight;
 	type ScheduleOrigin = EnsureRoot<AccountId>;
-	type MaxScheduledPerBlock = MaxScheduledPerBlock;
+	#[cfg(feature = "runtime-benchmarks")]
+	type MaxScheduledPerBlock = ConstU32<{ 512 * 15 }>; // MaxVotes * TRACKS_DATA length; TODO: Investigate
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type MaxScheduledPerBlock = ConstU32<50>;
 	type WeightInfo = weights::pallet_scheduler::WeightInfo<Runtime>;
 	type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
 	type Preimages = Preimage;
@@ -1653,8 +1655,9 @@ mod benches {
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
 		[pallet_conviction_voting, ConvictionVoting]
-		[pallet_election_provider_multi_block, MultiBlockElection]
-		[pallet_election_provider_multi_block_verifier, MultiBlockElectionVerifier]
+		// Temporarily disabled due to https://github.com/paritytech/polkadot-sdk/issues/7714
+		// [pallet_election_provider_multi_block, MultiBlockElection]
+		// [pallet_election_provider_multi_block_verifier, MultiBlockElectionVerifier]
 		[pallet_election_provider_multi_block_unsigned, MultiBlockElectionUnsigned]
 		[pallet_election_provider_multi_block_signed, MultiBlockElectionSigned]
 		[pallet_fast_unstake, FastUnstake]
@@ -2611,124 +2614,4 @@ fn ensure_key_ss58() {
 	let acc =
 		AccountId::from_ss58check("5F4EbSkZz18X36xhbsjvDNs6NuZ82HyYtq5UiJ1h9SBHJXZD").unwrap();
 	assert_eq!(acc, RootMigController::sorted_members()[0]);
-}
-
-#[cfg(all(test, feature = "try-runtime"))]
-mod remote_tests {
-	use super::*;
-	use frame_support::{
-		storage::StorageValue,
-		traits::{TryState, TryStateSelect::All},
-	};
-	use frame_try_runtime::{runtime_decl_for_try_runtime::TryRuntime, UpgradeCheckSelect};
-	use remote_externalities::{
-		Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig, Transport,
-	};
-	use sp_core::H256;
-	use std::env::var;
-
-	#[ignore] // to be run manually
-	#[tokio::test]
-	async fn ahm_fix_holds() {
-		sp_tracing::try_init_simple();
-		let transport: Transport = var("WS")
-			.unwrap_or("wss://westend-asset-hub-rpc.polkadot.io:443".to_string())
-			.into();
-		let maybe_snap: Option<SnapshotConfig> = var("SNAP").map(|s| s.into()).ok();
-		let online_config = OnlineConfig {
-			// https://assethub-westend.subscan.io/block/11736080?tab=event
-			// at: Some(H256::from_slice(&hex::decode("
-			// f61aa8d80607c4c84aa16cd15781b0f779768842b3e5603c578baac03e418661").unwrap())),
-			transport: transport.clone(),
-			state_snapshot: maybe_snap.clone(),
-			child_trie: false,
-			..Default::default()
-		};
-
-		let mut ext = Builder::<Block>::default()
-			.mode(if let Some(state_snapshot) = maybe_snap {
-				Mode::OfflineOrElseOnline(
-					OfflineConfig { state_snapshot: state_snapshot.clone() },
-					online_config,
-				)
-			} else {
-				Mode::Online(online_config)
-			})
-			.build()
-			.await
-			.unwrap();
-		ext.execute_with(|| {
-			use frame_support::traits::tokens::IdAmount;
-			use scale_info::prelude::collections::HashMap;
-			use sp_staking::StakingInterface;
-
-			let preimage_hold_reason: RuntimeHoldReason =
-				pallet_preimage::HoldReason::Preimage.into();
-			// Account, DelegationHold, StakingHold
-			let mut success_calls: Vec<(AccountId, Balance, Balance)> = vec![];
-			let mut failed_calls: Vec<(AccountId, Balance, Balance)> = vec![];
-			// go through all accounts that have holds.
-			pallet_balances::Holds::<Runtime>::iter()
-				.filter(|(_account, holds)| {
-					// we only care about the PreImage holds.
-					holds.iter().any(|identifier| identifier.id == preimage_hold_reason)
-				})
-				.for_each(|(account, _holds)| {
-					let is_pool_member_unmigrated =
-						pallet_nomination_pools::Pallet::<Runtime>::api_member_needs_delegate_migration(
-							account.clone(),
-						);
-
-					let delegation_hold = if is_pool_member_unmigrated {
-						0
-					} else {
-						pallet_nomination_pools::Pallet::<Runtime>::api_member_total_balance(
-							account.clone(),
-						)
-					};
-
-					let staking_hold =
-						pallet_staking_async::Ledger::<Runtime>::get(account.clone())
-							.map(|ledger| {
-								let is_virtual =
-									pallet_staking_async::Pallet::<Runtime>::is_virtual_staker(
-										&account,
-									);
-								if is_virtual {
-									0
-								} else {
-									ledger.total
-								}
-							})
-							.unwrap_or_else(|| 0);
-
-					// if both holds are 0, we can skip this account.
-					if (staking_hold + delegation_hold) == 0 {
-						return;
-					}
-
-					let _ = AhMigrator::fix_misplaced_hold(
-						RuntimeOrigin::root(),
-						account.clone(),
-						delegation_hold,
-						staking_hold,
-					)
-					.map(|_| {
-						success_calls.push((account.clone(), delegation_hold, staking_hold));
-					})
-					.map_err(|e| {
-						failed_calls.push((account.clone(), delegation_hold, staking_hold));
-					});
-				});
-
-			AllPalletsWithSystem::try_state(System::block_number(), All).unwrap();
-
-			println!("Summary: {:?} success, {:?} failed", success_calls.len(), failed_calls.len());
-
-			println!("account, delegation_hold, staking_hold");
-			for call in success_calls.iter() {
-				println!("{:?}, {:?}, {:?}", call.0, call.1, call.2);
-			}
-		});
-	}
 }

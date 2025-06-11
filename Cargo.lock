@@ -5927,6 +5927,7 @@ dependencies = [
  "sp-keyring",
  "sp-runtime 31.0.1",
  "staging-xcm",
+ "staging-xcm-builder",
  "staging-xcm-executor",
  "xcm-emulator",
  "xcm-runtime-apis",
@@ -14582,7 +14583,6 @@ dependencies = [
 name = "people-westend-integration-tests"
 version = "0.1.0"
 dependencies = [
- "asset-test-utils",
  "emulated-integration-tests-common",
  "frame-support",
  "pallet-balances",
@@ -16194,6 +16194,7 @@ dependencies = [
  "generate-bags",
  "mmr-gadget",
  "mmr-rpc",
+ "pallet-ah-ops",
  "pallet-alliance",
  "pallet-asset-conversion",
  "pallet-asset-conversion-ops",
