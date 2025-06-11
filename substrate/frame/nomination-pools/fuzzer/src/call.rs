@@ -302,7 +302,7 @@ fn main() {
 
 				// trigger an era change, and check the status of the reward agent.
 				if iteration % ERA == 0 {
-					CurrentEra::mutate(|c| *c += 1);
+					ActiveEra::mutate(|c| *c += 1);
 					BondedPools::<T>::iter().for_each(|(id, _)| {
 						let amount = random_ed_multiple(&mut rng);
 						let _ =
