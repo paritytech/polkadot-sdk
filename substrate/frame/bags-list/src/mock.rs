@@ -63,7 +63,7 @@ impl bags_list::Config for Runtime {
 	type WeightInfo = ();
 	type ScoreProvider = StakingMock;
 	type BagThresholds = BagThresholds;
-	type AutoRebagPerBlock = AutoRebagNumber;
+	type MaxAutoRebagPerBlock = AutoRebagNumber;
 	type Score = VoteWeight;
 }
 

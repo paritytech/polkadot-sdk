@@ -5,8 +5,9 @@ doc:
     improving the incremental correction of account positions within the bags-list
     during block execution's idle phase. This feature leverages new storage and
     configurable constants, alongside enhanced logging and internal helpers.
-    Setting `AutoRebagPerBlock` to `0` (e.g., `type AutoRebagPerBlock = ();`)
+    Setting `MaxAutoRebagPerBlock` to `0` (e.g., `type MaxAutoRebagPerBlock = ();`)
     disables this functionality, preserving pre-upgrade pallet behavior.
+    make sure that after setting value of `MaxAutoRebagPerBlock` you regenerate weight for your runtime.
 crates:
 - name: pallet-bags-list
   bump: major

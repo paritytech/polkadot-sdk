@@ -794,8 +794,8 @@ pub mod on_idle {
 		ExtBuilder::default().build_and_execute(|| {
 			// given
 			// Set auto-rebag limit to 0 nodes per block
-			<Runtime as Config>::AutoRebagPerBlock::set(0);
-			assert_eq!(<Runtime as Config>::AutoRebagPerBlock::get(), 0);
+			<Runtime as Config>::MaxAutoRebagPerBlock::set(0);
+			assert_eq!(<Runtime as Config>::MaxAutoRebagPerBlock::get(), 0);
 
 			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
 
@@ -817,7 +817,7 @@ pub mod on_idle {
 	fn rebags_nodes_when_feature_is_enabled() {
 		ExtBuilder::default().build_and_execute(|| {
 			// Set auto-rebag limit to 2 nodes per block
-			<Runtime as Config>::AutoRebagPerBlock::set(2);
+			<Runtime as Config>::MaxAutoRebagPerBlock::set(2);
 
 			// given
 			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
@@ -838,7 +838,7 @@ pub mod on_idle {
 	fn does_nothing_when_list_empty() {
 		ExtBuilder::default().skip_genesis_ids().build_and_execute(|| {
 			// Set auto-rebag limit to 2 nodes per block
-			<Runtime as Config>::AutoRebagPerBlock::set(2);
+			<Runtime as Config>::MaxAutoRebagPerBlock::set(2);
 
 			// given
 			assert_eq!(List::<Runtime>::get_bags(), vec![]);
@@ -857,7 +857,7 @@ pub mod on_idle {
 	fn rebags_limited_by_budget() {
 		ExtBuilder::default().build_and_execute(|| {
 			// Set auto-rebag limit to 2 nodes per block
-			<Runtime as Config>::AutoRebagPerBlock::set(2);
+			<Runtime as Config>::MaxAutoRebagPerBlock::set(2);
 
 			// given
 			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
@@ -882,7 +882,7 @@ pub mod on_idle {
 	fn rebags_resumes_from_node_after_rebagging() {
 		ExtBuilder::default().build_and_execute(|| {
 			// Set auto-rebag limit to 1 node per block
-			<Runtime as Config>::AutoRebagPerBlock::set(1);
+			<Runtime as Config>::MaxAutoRebagPerBlock::set(1);
 
 			// given
 			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
@@ -906,7 +906,7 @@ pub mod on_idle {
 	fn can_rebag_across_bags() {
 		ExtBuilder::default().build_and_execute(|| {
 			// Set the auto-rebag limit to a large enough value to process all
-			<Runtime as Config>::AutoRebagPerBlock::set(4);
+			<Runtime as Config>::MaxAutoRebagPerBlock::set(4);
 
 			// given
 			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
@@ -935,7 +935,7 @@ pub mod on_idle {
 	fn when_we_hit_the_end_of_the_list() {
 		ExtBuilder::default().build_and_execute(|| {
 			// Set the auto-rebag limit to a large enough value to process all
-			<Runtime as Config>::AutoRebagPerBlock::set(2);
+			<Runtime as Config>::MaxAutoRebagPerBlock::set(2);
 
 			// given
 			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
@@ -964,8 +964,8 @@ pub mod on_idle {
 	fn does_nothing_when_no_weight_left() {
 		ExtBuilder::default().build_and_execute(|| {
 			// given
-			// Set AutoRebagPerBlock to a non-zero value to allow rebagging in theory
-			<Runtime as Config>::AutoRebagPerBlock::set(2);
+			// Set MaxAutoRebagPerBlock to a non-zero value to allow rebagging in theory
+			<Runtime as Config>::MaxAutoRebagPerBlock::set(2);
 
 			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1]), (1_000, vec![2, 3, 4])]);
 			assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), None);
