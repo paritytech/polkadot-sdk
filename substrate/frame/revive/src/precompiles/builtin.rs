@@ -17,6 +17,7 @@
 
 mod blake2f;
 mod bn128;
+mod create2;
 mod ecrecover;
 mod identity;
 mod modexp;
@@ -53,6 +54,7 @@ type Production<T> = (
 	bn128::Bn128Pairing<T>,
 	blake2f::Blake2F<T>,
 	point_eval::PointEval<T>,
+	create2::Create2<T>,
 );
 
 #[cfg(feature = "runtime-benchmarks")]

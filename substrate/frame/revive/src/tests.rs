@@ -434,6 +434,61 @@ impl Default for Origin<Test> {
 }
 
 #[test]
+fn create2_precompile_works() {
+    use sp_core::H160;
+    use crate::precompiles::Precompile;
+	use alloy_core::sol_types::SolInterface;
+	use precompiles::{INoInfo, NoInfo};
+
+    // The address of the CREATE2 precompile (standard is 0x000...05)
+	// let create2_precompile_addr = H160(NoInfo::<Test>::MATCHER.base_address());
+    let create2_precompile_addr = H160::from_low_u64_be(0x0B);
+
+    // Prepare input for the precompile according to your ABI.
+    // For example, value = 0, code = [1,2,3], salt = [0;32]
+    let value = [0u8; 32];
+    let code = vec![1, 2, 3];
+    let salt = [42u8; 32];
+
+    // You may need to encode the input as expected by your precompile.
+    let mut input = Vec::new();
+    input.extend_from_slice(&value);
+    input.extend_from_slice(&(32u64.to_le_bytes())); // offset to code (example)
+    input.extend_from_slice(&(code.len() as u64).to_le_bytes());
+    input.extend_from_slice(&(64u64.to_le_bytes())); // offset to salt (example)
+    input.extend_from_slice(&(salt.len() as u64).to_le_bytes());
+    input.extend_from_slice(&code);
+    input.extend_from_slice(&salt);
+
+    ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
+        let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+        // Call the precompile directly
+        let result = builder::bare_call(create2_precompile_addr)
+            .data(vec![])
+            // .data(input.clone())
+            .build_and_unwrap_result();
+
+        // You may want to check:
+        // - The result is not a revert
+        // - The output contains the expected contract address
+        // - The contract is actually deployed at that address
+
+        // Example: decode the returned address (first 20 bytes)
+        // let deployed_addr = H160::from_slice(&result.data[0..20]);
+        // assert!(ContractInfoOf::<Test>::contains_key(&deployed_addr));
+
+        // Optionally, check the code at the deployed address
+        // let contract_info = get_contract(&deployed_addr);
+        // assert_eq!(contract_info.code_hash, /* expected code hash */);
+
+        // Optionally, check the balance
+        // let account_id = <Test as Config>::AddressMapper::to_account_id(&deployed_addr);
+        // assert!(<Test as Config>::Currency::free_balance(&account_id) > 0);
+    });
+}
+
+#[test]
 fn calling_plain_account_is_balance_transfer() {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
