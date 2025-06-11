@@ -17,23 +17,37 @@
 mod imports {
 
 	// Substrate
-	pub(crate) use frame_support::assert_ok;
+	pub(crate) use frame_support::{assert_ok, sp_runtime::DispatchResult};
 
 	// Polkadot
 	pub(crate) use xcm::{latest::ROCOCO_GENESIS_HASH, prelude::*};
 
+	pub(crate) use parachains_common::Balance;
+
+	pub(crate) use asset_test_utils::xcm_helpers;
 	// Cumulus
 	pub(crate) use emulated_integration_tests_common::xcm_emulator::{
-		assert_expected_events, Chain, Parachain, TestExt,
+		assert_expected_events, bx, Chain, Parachain, Test, TestArgs, TestContext, TestExt,
 	};
 	pub(crate) use rococo_system_emulated_network::{
+		asset_hub_rococo_emulated_chain::genesis::ED as ASSET_HUB_ROCOCO_ED,
 		coretime_rococo_emulated_chain::{
-			coretime_rococo_runtime::ExistentialDeposit as CoretimeRococoExistentialDeposit,
+			coretime_rococo_runtime::{
+				xcm_config::XcmConfig as CoretimeRococoXcmConfig,
+				ExistentialDeposit as CoretimeRococoExistentialDeposit,
+			},
+			genesis::ED as CORETIME_ROCOCO_ED,
 			CoretimeRococoParaPallet as CoretimeRococoPallet,
 		},
-		CoretimeRococoPara as CoretimeRococo, CoretimeRococoParaReceiver as CoretimeRococoReceiver,
+		rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
+		AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
+		AssetHubRococoParaSender as AssetHubRococoSender, CoretimeRococoPara as CoretimeRococo,
+		CoretimeRococoParaReceiver as CoretimeRococoReceiver,
 		CoretimeRococoParaSender as CoretimeRococoSender, RococoRelay as Rococo,
+		RococoRelayReceiver as RococoReceiver, RococoRelaySender as RococoSender,
 	};
+
+	pub(crate) type SystemParaToRelayTest = Test<CoretimeRococo, Rococo>;
 }
 
 #[cfg(test)]
