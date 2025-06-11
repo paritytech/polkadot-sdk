@@ -14,12 +14,17 @@ PROFILE=${PROFILE:-production}
 # write, so make it relative to github workspace.
 ARTIFACTS=$GITHUB_WORKSPACE/artifacts/$BIN
 VERSION=$(git tag -l --contains HEAD | grep -E "^v.*")
+# must be given as feature1,feature2,feature3...
+FEATURES=$3
+if [ -n "$FEATURES" ]; then
+  FEATURES="--features ${FEATURES}"
+fi
 
 echo "Artifacts will be copied into $ARTIFACTS"
 mkdir -p "$ARTIFACTS"
 
 git log --pretty=oneline -n 1
-time cargo build --profile $PROFILE --locked --verbose --bin $BIN --package $PACKAGE
+time cargo build --profile $PROFILE --locked --verbose --bin $BIN --package $PACKAGE $FEATURES
 
 echo "Artifact target: $ARTIFACTS"
 
