@@ -583,7 +583,7 @@ async fn make_state<B: Backend>(
 }
 
 // Advertisements:
-// - Test an advertisement from a peer that is not declared.
+// - Test an advertisement from a peer that is not declared or even connected.
 // - Test an advertisement that is rejected for some reason (like relay parent out of view or
 //   blocked by backing).
 // - Test an advertisement that is accepted and results in a request for a collation.
@@ -606,13 +606,18 @@ async fn make_state<B: Backend>(
 
 // Unblocking collations
 
-// Test peer disconnects in various scenarios.
+// Test peer disconnects in various scenarios. With collations being validated
+// with collations being fetched. With collations seconded. With collations that are blocking other
+// collations.
 
 // View update for collation manager.
 
 // LATER:
 // - Test subsystem startup: make sure we are properly populating the db.
 // - Test a change in the registered paras on finalized block notification.
+
+// Not sure about these:
+// - Test a session change and the effect it has on assignments.
 
 #[tokio::test]
 // Test scenarios concerning connects/disconnects and declares.
@@ -736,6 +741,81 @@ async fn test_connection_flow() {
 	state.handle_declare(&mut sender, new_peer, 200.into()).await;
 	test_state.assert_peers_disconnected([new_peer]).await;
 	assert_eq!(state.connected_peers(), peer_ids.clone().into_iter().skip(1).collect());
+}
+
+#[tokio::test]
+// Test that peer connections are rejected if we have no assignments.
+async fn test_no_assignments() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	let active_leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+	let assigned_core = active_leaf_info.assigned_core;
+	let first_view_update = ViewUpdate { active: vec![active_leaf] };
+
+	for info in test_state.rp_info.values_mut() {
+		info.claim_queue.get_mut(&assigned_core).unwrap().clear();
+	}
+
+	let db = Db::new(MAX_STORED_SCORES_PER_PARA).await;
+	let mut state = make_state(db, &mut test_state, first_view_update).await;
+	let mut sender = test_state.sender.clone();
+
+	let peer = peer_id(1);
+
+	state.handle_peer_connected(&mut sender, peer, CollationVersion::V2).await;
+	test_state.assert_peers_disconnected([peer]).await;
+	assert!(state.connected_peers().is_empty());
+	test_state.assert_no_messages().await;
+
+	// Now add some assignments and connected peers. We want to check what happens to already
+	// connected peers when we run out of assignments
+	test_state.rp_info.insert(
+		get_hash(11),
+		RelayParentInfo {
+			number: 11,
+			parent: get_parent_hash(11),
+			session_index: active_leaf_info.session_index,
+			claim_queue: [(assigned_core, vec![600.into()])].into_iter().collect(),
+			assigned_core,
+		},
+	);
+
+	test_state.activate_leaf(&mut state, 11).await;
+
+	let first_peer = peer;
+	let second_peer = peer_id(2);
+
+	state.handle_peer_connected(&mut sender, first_peer, CollationVersion::V2).await;
+	state
+		.handle_peer_connected(&mut sender, second_peer, CollationVersion::V2)
+		.await;
+	state.handle_declare(&mut sender, first_peer, 600.into()).await;
+	test_state.assert_no_messages().await;
+	assert_eq!(state.connected_peers(), [first_peer, second_peer].into_iter().collect());
+
+	for height in 12..=14 {
+		test_state.rp_info.insert(
+			get_hash(height),
+			RelayParentInfo {
+				number: height,
+				parent: get_parent_hash(height),
+				session_index: active_leaf_info.session_index,
+				claim_queue: [(assigned_core, vec![])].into_iter().collect(),
+				assigned_core,
+			},
+		);
+	}
+
+	for _ in 12..=13 {
+		test_state.activate_leaf(&mut state, 11).await;
+		test_state.assert_no_messages().await;
+	}
+	assert_eq!(state.connected_peers(), [first_peer, second_peer].into_iter().collect());
+
+	// When 14th leaf comes in, we're left with no assignments. Peers will be disconnected.
+	test_state.activate_leaf(&mut state, 14).await;
+	test_state.assert_peers_disconnected([first_peer, second_peer]).await;
+	assert!(state.connected_peers().is_empty());
 }
 
 // Test peer connection inheritance across scheduled para change.
