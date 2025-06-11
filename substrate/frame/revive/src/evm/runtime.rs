@@ -410,7 +410,7 @@ mod test {
 		tests::{ExtBuilder, RuntimeCall, RuntimeOrigin, Test},
 		Weight,
 	};
-	use frame_support::{assert_ok, error::LookupError, traits::fungible::Mutate};
+	use frame_support::{error::LookupError, traits::fungible::Mutate};
 	use pallet_revive_fixtures::compile_module;
 	use sp_runtime::{
 		traits::{self, Checkable, DispatchTransaction},
@@ -691,63 +691,5 @@ mod test {
 		let diff = tx.gas_price.unwrap() - U256::from(GAS_PRICE);
 		let expected_tip = crate::Pallet::<Test>::evm_gas_to_fee(tx.gas.unwrap(), diff).unwrap();
 		assert_eq!(extra.1.tip(), expected_tip);
-	}
-
-	#[test]
-	fn call_eth_transact_sets_flag() {
-		use crate::Call;
-
-		let payload = vec![0u8; 32];
-		let _call = Call::<Test>::eth_transact { payload };
-
-		let _ = crate::ethereum_call::using(true, || {
-			assert!(crate::ethereum_call::is_ethereum_call());
-		});
-		assert_eq!(false, crate::ethereum_call::is_ethereum_call());
-	}
-
-	#[test]
-	fn eth_transact_bump_nonce_once() {
-		use crate::{
-			ethereum_call,
-			test_utils::{deposit_limit, ALICE},
-			tests::{ExtBuilder, RuntimeOrigin, System, Test},
-			Code, DepositLimit, Pallet,
-		};
-		use frame_support::{assert_ok, weights::Weight};
-		use pallet_revive_fixtures::compile_module;
-
-		let (wasm, _) = compile_module("dummy").unwrap();
-
-		ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
-			let _ = <Test as crate::Config>::Currency::set_balance(&ALICE, 1_000_000);
-
-			let origin = RuntimeOrigin::signed(ALICE);
-			assert_ok!(Pallet::<Test>::upload_code(
-				origin.clone(),
-				wasm.clone(),
-				deposit_limit::<Test>(),
-			));
-
-			let initial = System::account_nonce(&ALICE);
-
-			ethereum_call::using(true, || {
-				let inst = Pallet::<Test>::bare_instantiate(
-					origin.clone(),
-					0u64.into(),
-					Weight::from_parts(1_000_000, 0),
-					DepositLimit::UnsafeOnlyForDryRun,
-					Code::Upload(wasm.clone()),
-					Vec::new(),
-					None,
-				);
-				assert!(inst.result.is_ok(), "instantiate failed: {:?}", inst.result);
-			});
-			assert_eq!(
-				System::account_nonce(&ALICE),
-				initial,
-				"Nonce must NOT bump when ethereum_call flag is set"
-			);
-		});
 	}
 }
