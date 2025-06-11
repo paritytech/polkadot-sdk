@@ -32,8 +32,6 @@ use xcm_executor::XcmExecutor;
 
 #[cfg(not(feature = "runtime-benchmarks"))]
 use crate::xcm_config::XcmRouter;
-#[cfg(feature = "runtime-benchmarks")]
-use benchmark_helpers::DoNothingRouter;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmark_helpers {
