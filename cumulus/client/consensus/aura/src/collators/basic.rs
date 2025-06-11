@@ -39,7 +39,6 @@ use polkadot_primitives::{CollatorPair, Id as ParaId, ValidationCode};
 use futures::{channel::mpsc::Receiver, prelude::*};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
-use sc_consensus_slots::InherentDataProviderExt;
 use sp_api::{CallApiAt, ProvideRuntimeApi};
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
