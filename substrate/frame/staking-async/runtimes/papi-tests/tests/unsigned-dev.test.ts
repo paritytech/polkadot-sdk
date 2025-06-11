@@ -23,19 +23,23 @@ test(
 					});
 				}),
 			// eventually we will verify a 4 page solution
-			Observe.on(Chain.Parachain, "MultiBlockVerifier", "Verified"),
-			Observe.on(Chain.Parachain, "MultiBlockVerifier", "Verified"),
-			Observe.on(Chain.Parachain, "MultiBlockVerifier", "Verified"),
-			Observe.on(Chain.Parachain, "MultiBlockVerifier", "Verified"),
+			Observe.on(Chain.Parachain, "MultiBlockElectionVerifier", "Verified"),
+			Observe.on(Chain.Parachain, "MultiBlockElectionVerifier", "Verified"),
+			Observe.on(Chain.Parachain, "MultiBlockElectionVerifier", "Verified"),
+			Observe.on(Chain.Parachain, "MultiBlockElectionVerifier", "Verified"),
 			// eventually it will be queued
-			Observe.on(Chain.Parachain, "MultiBlockVerifier", "Queued"),
+			Observe.on(Chain.Parachain, "MultiBlockElectionVerifier", "Queued"),
+			// eventually multiblock election will transition to `Done`
+			Observe.on(Chain.Parachain, "MultiBlockElection", "PhaseTransitioned").withDataCheck(
+				(x: any) => x.to.type === "Done"
+			),
 			// eventually we will export all 4 pages to staking
 			Observe.on(Chain.Parachain, "Staking", "PagedElectionProceeded"),
 			Observe.on(Chain.Parachain, "Staking", "PagedElectionProceeded"),
 			Observe.on(Chain.Parachain, "Staking", "PagedElectionProceeded"),
 			Observe.on(Chain.Parachain, "Staking", "PagedElectionProceeded"),
 			// eventually multiblock goes back to `Off`
-			Observe.on(Chain.Parachain, "MultiBlock", "PhaseTransitioned").withDataCheck(
+			Observe.on(Chain.Parachain, "MultiBlockElection", "PhaseTransitioned").withDataCheck(
 				(x: any) => x.to.type === "Off"
 			),
 			// eventually we will send it back to RC
@@ -47,7 +51,7 @@ test(
 			Observe.on(Chain.Parachain, "StakingRcClient", "SessionReportReceived").withDataCheck(
 				(x) => x.activation_timestamp !== undefined
 			),
-			// eventually we will have era paid
+			// eventually we will have era paid (inflation)
 			Observe.on(Chain.Parachain, "Staking", "EraPaid"),
 		];
 		const testCase = new TestCase(

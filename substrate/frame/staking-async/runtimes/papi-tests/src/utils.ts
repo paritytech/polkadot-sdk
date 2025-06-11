@@ -65,6 +65,28 @@ export async function nullifySigned(
 	return res.ok;
 }
 
+export async function nullifyUnsigned(
+	paraApi: TypedApi<typeof parachain>,
+	signer: PolkadotSigner = alice
+): Promise<boolean> {
+	// signed and signed validation phase to 0
+	const call = paraApi.tx.System.set_storage({
+		items: [
+			// UnsignedPhase key
+			[
+				Binary.fromBytes(
+					Uint8Array.from([
+						194, 9, 245, 216, 235, 146, 6, 129, 181, 108, 100, 184, 105, 78, 167, 140,
+					])
+				),
+				Binary.fromBytes(Uint8Array.from([0, 0, 0, 0])),
+			],
+		],
+	}).decodedCall;
+	const res = await paraApi.tx.Sudo.sudo({ call }).signAndSubmit(alice);
+	return res.ok;
+}
+
 export async function getApis(): Promise<ApiDeclerations> {
 	const rcClient = createClient(withPolkadotSdkCompat(getWsProvider("ws://localhost:9945")));
 	const rcApi = rcClient.getTypedApi(rc);

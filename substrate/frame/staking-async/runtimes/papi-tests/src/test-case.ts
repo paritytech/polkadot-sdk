@@ -160,7 +160,7 @@ export class TestCase {
 		}
 	}
 
-	onBlock(chain: Chain, block: number, events: IEvent[]) {
+	onBlock(chain: Chain, block: number, weights: any, events: IEvent[]) {
 		// sort from small to big
 		logger.debug(`Processing ${chain} block ${block}, events: ${events.length}`);
 		const firstTimeOut = this.eventSequence
@@ -222,6 +222,7 @@ export async function runTest(test: TestCase, apis: ApiDeclerations): Promise<Ev
 
 		rcClient.finalizedBlock$.subscribe(async (block) => {
 			const events = await rcApi.query.System.Events.getValue({ at: block.hash });
+			const weights = await rcApi.query.System.BlockWeight.getValue({ at: block.hash });
 			const interested = events
 				.filter(
 					(e) =>
@@ -234,18 +235,19 @@ export async function runTest(test: TestCase, apis: ApiDeclerations): Promise<Ev
 					event: e.event.value.type,
 					data: e.event.value.value,
 				}));
-			test.onBlock(Chain.Relay, block.number, interested);
+			test.onBlock(Chain.Relay, block.number, weights, interested);
 		});
 
 		paraClient.blocks$.subscribe(async (block) => {
 			const events = await paraApi.query.System.Events.getValue({ at: block.hash });
+			const weights = await paraApi.query.System.BlockWeight.getValue({ at: block.hash });
 			const interested = events
 				.filter(
 					(e) =>
 						e.event.type == "Staking" ||
-						e.event.type == "MultiBlock" ||
-						e.event.type == "MultiBlockSigned" ||
-						e.event.type == "MultiBlockVerifier" ||
+						e.event.type == "MultiBlockElection" ||
+						e.event.type == "MultiBlockElectionSigned" ||
+						e.event.type == "MultiBlockElectionVerifier" ||
 						e.event.type == "StakingRcClient"
 				)
 				.map((e) => ({
@@ -253,7 +255,7 @@ export async function runTest(test: TestCase, apis: ApiDeclerations): Promise<Ev
 					event: e.event.value.type,
 					data: e.event.value.value,
 				}));
-			test.onBlock(Chain.Parachain, block.number, interested);
+			test.onBlock(Chain.Parachain, block.number, weights, interested);
 		});
 	});
 

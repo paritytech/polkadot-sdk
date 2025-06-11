@@ -3,6 +3,7 @@ import { Presets } from "./index";
 import { logger } from "./utils";
 import { join } from "path";
 import stripAnsi from "strip-ansi";
+import { createWriteStream } from "fs";
 
 export function rcPresetFor(paraPreset: Presets): string {
 	return paraPreset == Presets.FakeDev ||
@@ -16,36 +17,32 @@ export function znConfigFor(paraPreset: Presets): string {
 	return paraPreset == Presets.RealM ? "../zn-m.toml" : "../zn-s.toml";
 }
 
-
 export async function runPreset(paraPreset: Presets): Promise<void> {
 	prepPreset(paraPreset);
 	const znConfig = znConfigFor(paraPreset);
 	logger.info(`Launching ZN config for preset: ${paraPreset}, config: ${znConfig}`);
-	cmd(
-		"zombienet",
-		["--provider", "native", "-l", "text", "spawn", znConfig],
-		"inherit"
-	);
+	cmd("zombienet", ["--provider", "native", "-l", "text", "spawn", znConfig], "inherit");
 }
 
 export async function runPresetUntilLaunched(paraPreset: Presets): Promise<() => void> {
 	prepPreset(paraPreset);
 	const znConfig = znConfigFor(paraPreset);
 	logger.info(`Launching ZN config for preset: ${paraPreset}, config: ${znConfig}`);
-	const child = spawn(
-		"zombienet",
-		["--provider", "native", "-l", "text", "spawn", znConfig],
-		{ stdio: "pipe", cwd: __dirname }
-	);
+	const child = spawn("zombienet", ["--provider", "native", "-l", "text", "spawn", znConfig], {
+		stdio: "pipe",
+		cwd: __dirname,
+	});
 
 	return new Promise<() => void>((resolve, reject) => {
 		const logCmds: string[] = [];
 		child.stdout.on("data", (data) => {
 			const raw: string = stripAnsi(data.toString());
-			if(raw.includes("Log Cmd : ")) {
-				raw.split("\n").filter((line) => line.includes("Log Cmd : ")).forEach((line) => {
-					logCmds.push(line.replace("Log Cmd : ", "").trim());
-				});
+			if (raw.includes("Log Cmd : ")) {
+				raw.split("\n")
+					.filter((line) => line.includes("Log Cmd : "))
+					.forEach((line) => {
+						logCmds.push(line.replace("Log Cmd : ", "").trim());
+					});
 			}
 			// our hacky way to know ZN is done.
 			if (raw.includes("Parachain ID : 1100")) {
@@ -55,13 +52,46 @@ export async function runPresetUntilLaunched(paraPreset: Presets): Promise<() =>
 				logger.info(`Launched ZN: ${paraPreset}`);
 				resolve(() => {
 					child.kill();
-					logger.info(`Killed ZN config: ${paraPreset}`);
+					logger.verbose(`Killed zn process`);
 				});
 			}
 		});
 
 		child.on("error", (err) => {
 			reject(err);
+		});
+	});
+}
+
+export async function spawnMiner(): Promise<() => void> {
+	logger.info(`Spawning miner in background`);
+
+	const logFile = createWriteStream(join(__dirname, "miner.log"), { flags: 'a' });
+
+	const child = spawn(
+		"polkadot-staking-miner",
+		[
+			"--uri",
+			"ws://127.0.0.1:9946",
+			"experimental-monitor-multi-block",
+			"--seed-or-path",
+			"//Bob",
+		],
+		{ stdio: "pipe", cwd: __dirname }
+	);
+
+	child.stdout?.pipe(logFile);
+	child.stderr?.pipe(logFile);
+
+	return new Promise<() => void>((resolve, reject) => {
+		child.on("error", (err) => {
+			logger.error(`Error in miner miner: ${err}`);
+			reject(err);
+		});
+		resolve(() => {
+			logger.verbose(`Killing miner process`);
+			logFile.end();
+			child.kill();
 		});
 	});
 }
