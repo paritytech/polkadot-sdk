@@ -700,7 +700,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type WeightInfo = weights::pallet_bags_list::WeightInfo<Runtime>;
 	type ScoreProvider = Staking;
 	type BagThresholds = BagThresholds;
-	type AutoRebagPerBlock = AutoRebagNumber;
+	type MaxAutoRebagPerBlock = AutoRebagNumber;
 	type Score = sp_npos_elections::VoteWeight;
 }
 

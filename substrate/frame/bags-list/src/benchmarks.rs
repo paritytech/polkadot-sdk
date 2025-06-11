@@ -350,7 +350,7 @@ benchmarks_instance_pallet! {
 
 	on_idle {
 		// This benchmark generates weights for `on_idle` based on runtime configuration.
-		// The main input is the runtime's AutoRebagPerBlock type, which defines how many
+		// The main input is the runtime's `MaxAutoRebagPerBlock` type, which defines how many
 		// nodes can be rebagged per block.
 		// This benchmark simulates a more realistic and fragmented rebag scenario.
 
@@ -361,7 +361,7 @@ benchmarks_instance_pallet! {
 		let mid = bag_thresh[1];
 		let high = bag_thresh[2];
 
-		let rebag_budget = <T as Config<I>>::AutoRebagPerBlock::get();
+		let rebag_budget = <T as Config<I>>::MaxAutoRebagPerBlock::get();
 		let n = rebag_budget + 5;
 
 		// Insert nodes with varying scores
@@ -407,7 +407,7 @@ benchmarks_instance_pallet! {
 			.map(|(_, nodes)| nodes.len())
 			.sum();
 
-		let expected = <T as Config<I>>::AutoRebagPerBlock::get() as usize;
+		let expected = <T as Config<I>>::MaxAutoRebagPerBlock::get() as usize;
 		assert_eq!(total_rebagged, expected,"Expected exactly{:?} rebagged nodes, found {:?}", expected, total_rebagged);
 	}
 

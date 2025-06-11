@@ -236,10 +236,10 @@ pub mod pallet {
 
 		/// Maximum number of accounts that may be re-bagged automatically in `on_idle`.
 		///
-		/// A value of `0` (obtained by configuring `type AutoRebagPerBlock = ();`) disables
+		/// A value of `0` (obtained by configuring `type MaxAutoRebagPerBlock = ();`) disables
 		/// the feature.
 		#[pallet::constant]
-		type AutoRebagPerBlock: Get<u32>;
+		type MaxAutoRebagPerBlock: Get<u32>;
 
 		/// The type used to dictate a node position relative to other nodes.
 		type Score: Clone
@@ -419,7 +419,7 @@ pub mod pallet {
 				return Weight::zero();
 			}
 
-			let rebag_budget = T::AutoRebagPerBlock::get();
+			let rebag_budget = T::MaxAutoRebagPerBlock::get();
 			let total_nodes = ListNodes::<T, I>::count();
 			let is_locked = Self::ensure_unlocked().is_err();
 

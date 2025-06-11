@@ -943,7 +943,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	/// of each node is the staking pallet.
 	type ScoreProvider = Staking;
 	type BagThresholds = BagThresholds;
-	type AutoRebagPerBlock = AutoRebagNumber;
+	type MaxAutoRebagPerBlock = AutoRebagNumber;
 	type Score = VoteWeight;
 }
 

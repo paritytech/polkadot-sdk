@@ -252,7 +252,7 @@ impl pallet_bags_list::Config for Runtime {
 	type ScoreProvider = Staking;
 	type BagThresholds = BagThresholds;
 	type Score = VoteWeight;
-	type AutoRebagPerBlock = ();
+	type MaxAutoRebagPerBlock = ();
 }
 
 pub struct BalanceToU256;
