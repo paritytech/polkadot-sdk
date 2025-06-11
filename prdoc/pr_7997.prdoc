@@ -1,0 +1,89 @@
+title: '[AHM] The Asset Hub Migration on Westend (WIP)'
+doc:
+- audience: Runtime User
+  description: |-
+    Post Asset Hub migration code for Westend.
+
+    Changes:
+      - TODO FAIL-CI
+crates:
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: westend-runtime
+  bump: patch
+- name: pallet-election-provider-multi-block
+  bump: patch
+- name: pallet-ah-ops
+  bump: patch
+- name: parachains-common
+  bump: patch
+- name: pallet-balances
+  bump: patch
+- name: pallet-conviction-voting
+  bump: patch
+- name: pallet-nomination-pools
+  bump: patch
+- name: pallet-proxy
+  bump: patch
+- name: pallet-referenda
+  bump: patch
+- name: pallet-scheduler
+  bump: patch
+- name: frame-support
+  bump: patch
+- name: pallet-staking
+  bump: patch
+- name: sp-staking
+  bump: patch
+- name: westend-runtime-constants
+  bump: patch
+- name: pallet-staking-async
+  bump: patch
+- name: pallet-staking-async-rc-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch
+- name: polkadot-service
+  bump: patch
+- name: pallet-staking-async-parachain-runtime
+  bump: patch
+- name: pallet-sudo
+  bump: patch
+- name: pallet-staking-async-ah-client
+  bump: patch
+- name: pallet-nomination-pools-benchmarking
+  bump: patch
+- name: pallet-offences-benchmarking
+  bump: patch
+- name: pallet-session-benchmarking
+  bump: patch
+- name: pallet-utility
+  bump: patch
+- name: emulated-integration-tests-common
+  bump: patch
+- name: testnet-parachains-constants
+  bump: patch
+- name: glutton-westend-runtime
+  bump: patch
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-test-utils
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: coretime-rococo-runtime
+  bump: patch
+- name: polkadot-parachain-bin
+  bump: patch
+- name: polkadot-voter-bags
+  bump: patch
+- name: pallet-fast-unstake
+  bump: patch
+- name: polkadot-sdk
+  bump: patch
