@@ -15,12 +15,16 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::validator_side_experimental::{
-	common::{CONNECTED_PEERS_PARA_LIMIT, MAX_STARTUP_ANCESTRY_LOOKBACK},
-	peer_manager::Backend,
+	common::{
+		Score, CONNECTED_PEERS_PARA_LIMIT, MAX_STARTUP_ANCESTRY_LOOKBACK,
+		VALID_INCLUDED_CANDIDATE_BUMP,
+	},
+	peer_manager::{Backend, ReputationUpdate},
 };
 
 use super::*;
 use assert_matches::assert_matches;
+use async_trait::async_trait;
 use codec::Encode;
 use futures::channel::mpsc::UnboundedReceiver;
 use polkadot_node_network_protocol::{
@@ -36,9 +40,8 @@ use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
 	node_features::FeatureIndex,
 	vstaging::{
-		ApprovedPeerId, CandidateReceiptV2 as CandidateReceipt,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, MutateDescriptorV2, UMPSignal,
-		UMP_SEPARATOR,
+		ApprovedPeerId, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+		MutateDescriptorV2, UMPSignal, UMP_SEPARATOR,
 	},
 	BlockNumber, CoreIndex, GroupRotationInfo, Hash, Header, Id as ParaId, NodeFeatures,
 	SessionIndex, ValidatorId, ValidatorIndex,
@@ -49,7 +52,7 @@ use sp_keyring::Sr25519Keyring;
 use sp_keystore::Keystore;
 use std::{
 	collections::{BTreeMap, BTreeSet, HashMap},
-	sync::Arc,
+	sync::{Arc, Mutex},
 	time::Duration,
 };
 
@@ -227,7 +230,9 @@ impl TestState {
 
 	async fn assert_no_messages(&mut self) {
 		assert!(self.buffered_msg.is_none());
-		assert!(self.recv.next().timeout(TIMEOUT).await.is_none());
+		// Use a small timeout here because we expect this to be called after the future we're
+		// testing resolved.
+		assert!(self.recv.next().timeout(Duration::from_millis(10)).await.is_none());
 	}
 
 	async fn assert_peers_disconnected(
@@ -577,23 +582,23 @@ async fn make_state<B: Backend>(
 	state
 }
 
-// Finalized block notification:
-// - Test that reputation are bumped/decayed correctly.
-// - Later: Test a change in the registered paras.
-
 // Advertisements:
 // - Test an advertisement from a peer that is not declared.
 // - Test an advertisement that is rejected for some reason (like relay parent out of view or
 //   blocked by backing).
 // - Test an advertisement that is accepted and results in a request for a collation.
+// - Test advertisement rate limiting
 
 // Launching new collations:
 // - Verify that we don't try to make requests to a peer that disconnected and that the claims were
 //   freed.
+// - fetch_one_collation_at_a_time_for_v1_advertisement
+// - v1_advertisement_rejected_on_non_active_leaf
+// - multiple candidates per relay parent (including from implicit view)
 
 // Collation fetch response:
 // - Valid
-// - Invalid
+// - Invalid (network error or various types of failures on the response validity)
 
 // Collation seconded response:
 // - Valid
@@ -601,7 +606,13 @@ async fn make_state<B: Backend>(
 
 // Unblocking collations
 
-// Test subsystem startup: make sure we are properly populating the db.
+// Test peer disconnects in various scenarios.
+
+// View update for collation manager.
+
+// LATER:
+// - Test subsystem startup: make sure we are properly populating the db.
+// - Test a change in the registered paras on finalized block notification.
 
 #[tokio::test]
 // Test scenarios concerning connects/disconnects and declares.
@@ -868,4 +879,235 @@ async fn test_peer_connections_across_schedule_change() {
 
 // Test peer connection inheritance across group rotations.
 #[tokio::test]
-async fn test_peer_connections_across_group_rotations() {}
+async fn test_peer_connections_across_group_rotations() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	let active_leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+	let initial_core = active_leaf_info.assigned_core;
+	assert_eq!(initial_core, CoreIndex(0));
+	let next_core = CoreIndex(1);
+
+	// Set the rotation frequency to 12, so that the core is switched to core 1 on block 11.
+	test_state
+		.session_info
+		.get_mut(&active_leaf_info.session_index)
+		.unwrap()
+		.group_rotation_info
+		.group_rotation_frequency = 12;
+
+	let first_view_update = ViewUpdate { active: vec![active_leaf] };
+	let db = Db::new(MAX_STORED_SCORES_PER_PARA).await;
+	let mut state = make_state(db, &mut test_state, first_view_update).await;
+	let mut sender = test_state.sender.clone();
+
+	let mut cq = active_leaf_info.claim_queue.clone();
+	cq.insert(next_core, std::iter::repeat(600.into()).take(3).collect());
+
+	for rp_info in test_state.rp_info.values_mut() {
+		rp_info.claim_queue = cq.clone();
+	}
+
+	// Leaf 8 has 100, 200, 100.
+	// Leaf 9 has 200, 100, 200.
+	// Leaf 10 has 100, 200, 100.
+	// Leaves 11-13 switch to 600, 600, 600
+
+	// First 5 peers will be declared for para 100.
+	// Last 5 peers undeclared.
+	let peer_ids = (0..10).map(|i| peer_id(i)).collect::<Vec<_>>();
+
+	for id in peer_ids.iter() {
+		state.handle_peer_connected(&mut sender, *id, CollationVersion::V2).await;
+	}
+	test_state.assert_no_messages().await;
+	assert_eq!(state.connected_peers(), peer_ids.clone().into_iter().collect());
+
+	for id in &peer_ids[..5] {
+		state.handle_declare(&mut sender, *id, 100.into()).await;
+	}
+	test_state.assert_no_messages().await;
+	assert_eq!(state.connected_peers(), peer_ids.clone().into_iter().collect());
+
+	for height in 11..=13 {
+		test_state.rp_info.insert(
+			get_hash(height),
+			RelayParentInfo {
+				number: height,
+				parent: get_parent_hash(height),
+				session_index: active_leaf_info.session_index,
+				claim_queue: cq.clone(),
+				assigned_core: next_core,
+			},
+		);
+	}
+
+	for height in 11..=12 {
+		test_state.activate_leaf(&mut state, height).await;
+		test_state.assert_no_messages().await;
+		assert_eq!(state.connected_peers(), peer_ids.clone().into_iter().collect());
+	}
+
+	test_state.activate_leaf(&mut state, 13).await;
+	test_state.assert_peers_disconnected((&peer_ids[0..5]).to_vec()).await;
+	assert_eq!(state.connected_peers(), (&peer_ids[5..]).into_iter().cloned().collect());
+
+	// Declare the yet undeclared peers for para 600.
+	for id in &peer_ids[5..] {
+		state.handle_declare(&mut sender, *id, 600.into()).await;
+	}
+	test_state.assert_no_messages().await;
+	assert_eq!(state.connected_peers(), (&peer_ids[5..]).into_iter().cloned().collect());
+}
+
+#[tokio::test]
+// Test reputation bumps on finalized block notification.
+async fn finalized_block_notification() {
+	#[derive(Clone, Default)]
+	struct MockDb {
+		finalized: Arc<Mutex<BlockNumber>>,
+		// Use BTreeMaps to ensure ordering when asserting.
+		expected_bumps: Arc<Mutex<BTreeMap<ParaId, BTreeMap<PeerId, Score>>>>,
+	}
+
+	#[async_trait]
+	impl Backend for MockDb {
+		/// Return the latest finalized block for which the backend processed bumps.
+		async fn processed_finalized_block_number(&self) -> Option<BlockNumber> {
+			Some(*(self.finalized.lock().unwrap()))
+		}
+
+		async fn query(&self, _peer_id: &PeerId, _para_id: &ParaId) -> Option<Score> {
+			// We're not interested in resolving queries for this test.
+			None
+		}
+
+		async fn slash(&mut self, _peer_id: &PeerId, _para_id: &ParaId, _value: Score) {
+			unimplemented!()
+		}
+
+		async fn prune_paras(&mut self, _registered_paras: BTreeSet<ParaId>) {
+			unimplemented!()
+		}
+
+		async fn process_bumps(
+			&mut self,
+			leaf_number: BlockNumber,
+			bumps: BTreeMap<ParaId, HashMap<PeerId, Score>>,
+			_decay_value: Option<Score>,
+		) -> Vec<ReputationUpdate> {
+			assert_eq!(
+				*(self.expected_bumps.lock().unwrap()),
+				bumps.into_iter().map(|(k, v)| (k, v.into_iter().collect())).collect()
+			);
+
+			*(self.finalized.lock().unwrap()) = leaf_number;
+
+			vec![]
+		}
+
+		async fn max_scores_for_paras(&self, _paras: BTreeSet<ParaId>) -> HashMap<ParaId, Score> {
+			unimplemented!()
+		}
+	}
+
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	let first_view_update = ViewUpdate { active: vec![active_leaf] };
+	let db = MockDb::default();
+	let mut state = make_state(db.clone(), &mut test_state, first_view_update).await;
+	let mut sender = test_state.sender.clone();
+
+	// Add 3 peers and connect them
+	let first_peer = peer_id(1);
+	let second_peer = peer_id(2);
+	let third_peer = peer_id(3);
+	let peers = vec![first_peer, second_peer, third_peer];
+
+	for peer in peers.iter() {
+		state.handle_peer_connected(&mut sender, *peer, CollationVersion::V2).await;
+	}
+	test_state.assert_no_messages().await;
+	assert_eq!(state.connected_peers(), peers.clone().into_iter().collect());
+
+	// Finalize block 5, no expected bumps, because there are no included candidates.
+	futures::join!(test_state.handle_finalized_block(5), async {
+		state.handle_finalized_block(&mut sender, get_hash(5), 5).await.unwrap()
+	});
+	test_state.assert_no_messages().await;
+
+	// Add one included candidate at block 6 for first peer and para 100.
+	test_state.set_candidates_pending_availability(
+		[(get_hash(6), vec![(ParaId::from(100), first_peer)])].into_iter().collect(),
+	);
+
+	let mut expected_bumps = BTreeMap::new();
+	expected_bumps.insert(
+		ParaId::new(100),
+		[(first_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP).unwrap())]
+			.into_iter()
+			.collect(),
+	);
+
+	let mut db_guard = db.expected_bumps.lock().unwrap();
+	*db_guard = expected_bumps;
+	drop(db_guard);
+
+	futures::join!(test_state.handle_finalized_block(6), async {
+		state.handle_finalized_block(&mut sender, get_hash(6), 6).await.unwrap()
+	});
+	test_state.assert_no_messages().await;
+
+	// This peer is not even connected, but we should process its reputation bumps.
+	let fourth_peer = peer_id(4);
+
+	test_state.set_candidates_pending_availability(
+		[
+			// Keep this one to ensure that we don't end up processing it again.
+			(get_hash(6), vec![(ParaId::from(100), first_peer)]),
+			(
+				get_hash(7),
+				vec![
+					(ParaId::from(200), first_peer),
+					(ParaId::from(200), first_peer),
+					(ParaId::from(200), second_peer),
+				],
+			),
+			(get_hash(8), vec![(ParaId::from(100), fourth_peer)]),
+			(get_hash(10), vec![(ParaId::from(100), first_peer)]),
+		]
+		.into_iter()
+		.collect(),
+	);
+
+	let mut expected_bumps = BTreeMap::new();
+	expected_bumps.insert(
+		ParaId::new(100),
+		[
+			(first_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP).unwrap()),
+			(fourth_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP).unwrap()),
+		]
+		.into_iter()
+		.collect(),
+	);
+	expected_bumps.insert(
+		ParaId::new(200),
+		[
+			(first_peer, Score::new(2 * VALID_INCLUDED_CANDIDATE_BUMP).unwrap()),
+			(second_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP).unwrap()),
+		]
+		.into_iter()
+		.collect(),
+	);
+
+	let mut db_guard = db.expected_bumps.lock().unwrap();
+	*db_guard = expected_bumps;
+	drop(db_guard);
+
+	// Add multiple included candidates at different block heights and check that they are processed
+	// accordingly.
+	futures::join!(test_state.handle_finalized_block(10), async {
+		state.handle_finalized_block(&mut sender, get_hash(10), 10).await.unwrap()
+	});
+	test_state.assert_no_messages().await;
+	assert_eq!(state.connected_peers(), peers.clone().into_iter().collect());
+}
