@@ -64,11 +64,11 @@ runs:
       env:
         GITHUB_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       run: |
-        export DOCKER_IMAGES_VERSION=${{ github.event.pull_request.head.sha || 'master' }}
         export DOCKERHUB_TAG=docker.io/paritypr/${{ inputs.image-name }}:${{ github.event.pull_request.number || 'master' }}
         if [[ ${{ github.event_name }} == "pull_request" ]]; then export DOCKERHUB_TAG=$DOCKERHUB_TAG-${GITHUB_PR_HEAD_SHA::8}; fi
+        if [[ ${{ github.event_name }} == "push" ]]; then export DOCKERHUB_TAG=$DOCKERHUB_TAG-${GITHUB_SHA::8}; fi
         #
-        docker tag "europe-docker.pkg.dev/parity-ci-2024/temp-images/${{ inputs.image-name }}:$DOCKER_IMAGES_VERSION" $DOCKERHUB_TAG
+        docker tag "europe-docker.pkg.dev/parity-ci-2024/temp-images/${{ inputs.image-name }}:${{ github.event.pull_request.head.sha || 'master' }}" $DOCKERHUB_TAG
         docker push $DOCKERHUB_TAG
 
 
