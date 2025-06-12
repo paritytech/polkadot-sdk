@@ -27,6 +27,7 @@ use crate::zombienet::{
 	relaychain_rococo_local_network_spec::parachain_asset_hub_network_spec as para, NetworkSpawner,
 };
 use futures::future::join_all;
+use tracing::info;
 use txtesttool::{execution_log::ExecutionLog, scenario::ScenarioExecutor};
 use zombienet::DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS;
 
@@ -236,6 +237,7 @@ async fn send_batch(
 	prio: u32,
 ) -> ScenarioExecutor {
 	let ws = net.node_rpc_uri(node_name).unwrap();
+	info!(from, to, prio, "send_batch");
 	default_zn_scenario_builder(net)
 		.with_rpc_uri(ws)
 		.with_start_id(from)
@@ -326,7 +328,8 @@ async fn test_limits_increasing_prio_relaychain() {
 	net.wait_for_block_production("alice").await.unwrap();
 
 	let mut executors = vec![];
-	let senders_count = 25;
+	//this looks like current limit of what we can handle. A bit choky but almost no empty blocks.
+	let senders_count = 50;
 	let sender_batch = 2000;
 
 	for i in 0..senders_count {
@@ -338,7 +341,7 @@ async fn test_limits_increasing_prio_relaychain() {
 			from,
 			to,
 			|prio| prio + 1,
-			Duration::from_secs(30),
+			Duration::from_secs(15),
 		));
 	}
 
@@ -358,7 +361,7 @@ async fn test_limits_same_prio_relaychain() {
 	net.wait_for_block_production("alice").await.unwrap();
 
 	let mut executors = vec![];
-	let senders_count = 25;
+	let senders_count = 50;
 	let sender_batch = 2000;
 
 	for i in 0..senders_count {
