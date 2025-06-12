@@ -30,7 +30,7 @@ use sp_runtime::traits::Block as BlockT;
 
 use super::{tx_mem_pool::TxMemPool, view_store::ViewStore};
 use futures::prelude::*;
-use tracing::{debug, trace, warn};
+use tracing::{debug, warn};
 
 use super::view::{FinishRevalidationWorkerChannels, View};
 
