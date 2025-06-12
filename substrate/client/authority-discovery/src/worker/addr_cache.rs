@@ -16,12 +16,16 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use sc_network::{multiaddr::Protocol, Multiaddr, multiaddr::ParseError};
+use crate::error::Error;
+use sc_network::{
+	multiaddr::{ParseError, Protocol},
+	Multiaddr,
+};
 use sc_network_types::PeerId;
+use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
 use sp_authority_discovery::AuthorityId;
 use std::collections::{hash_map::Entry, HashMap, HashSet};
-use serde::{Serialize, Deserialize};
-use crate::error::Error;
 
 /// Cache for [`AuthorityId`] -> [`HashSet<Multiaddr>`] and [`PeerId`] -> [`HashSet<AuthorityId>`]
 /// mappings.
@@ -173,8 +177,8 @@ fn addresses_to_peer_ids(addresses: &HashSet<Multiaddr>) -> HashSet<PeerId> {
 }
 
 /// A (de)serializable version of the [`AddrCache`] that can be used for serialization,
-/// implements Serialize and Deserialize traits, by holding variants of `Multiaddr` and `PeerId` that
-/// can be encoded and decoded.
+/// implements Serialize and Deserialize traits, by holding variants of `Multiaddr` and `PeerId`
+/// that can be encoded and decoded.
 /// This is used for storing the cache in the database.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(super) struct SerializableAddrCache {
@@ -183,30 +187,23 @@ pub(super) struct SerializableAddrCache {
 }
 impl From<AddrCache> for SerializableAddrCache {
 	fn from(addr_cache: AddrCache) -> Self {
-
-		let authority_id_to_addresses = addr_cache.authority_id_to_addresses
-		.into_iter()
-		.map(|(authority_id, addresses)| {
-			let addresses = addresses
-				.into_iter()
-				.map(SerializableMultiaddr::from)
-				.collect::<HashSet<_>>();
-			(authority_id, addresses)
-		})
-		.collect::<HashMap<_, _>>();
+		let authority_id_to_addresses = addr_cache
+			.authority_id_to_addresses
+			.into_iter()
+			.map(|(authority_id, addresses)| {
+				let addresses =
+					addresses.into_iter().map(SerializableMultiaddr::from).collect::<HashSet<_>>();
+				(authority_id, addresses)
+			})
+			.collect::<HashMap<_, _>>();
 
 		let peer_id_to_authority_ids = addr_cache
 			.peer_id_to_authority_ids
 			.into_iter()
-			.map(|(peer_id, authority_ids)| {
-				(SerializablePeerId::from(peer_id), authority_ids)
-			})
+			.map(|(peer_id, authority_ids)| (SerializablePeerId::from(peer_id), authority_ids))
 			.collect::<HashMap<_, _>>();
 
-		SerializableAddrCache {
-			authority_id_to_addresses,
-			peer_id_to_authority_ids
-		}
+		SerializableAddrCache { authority_id_to_addresses, peer_id_to_authority_ids }
 	}
 }
 
@@ -220,63 +217,63 @@ impl TryFrom<SerializableAddrCache> for AddrCache {
 			.map(|(authority_id, addresses)| {
 				let addresses = addresses
 					.into_iter()
-					.map(|ma| Multiaddr::try_from(ma).map_err(|e| {
-						Error::EncodingDecodingAddrCache(e.to_string())
-					}))
+					.map(|ma| {
+						Multiaddr::try_from(ma)
+							.map_err(|e| Error::EncodingDecodingAddrCache(e.to_string()))
+					})
 					.collect::<Result<HashSet<Multiaddr>, Self::Error>>()?;
 				Ok((authority_id, addresses))
 			})
-			.collect::<Result<HashMap::<AuthorityId, HashSet::<Multiaddr>>, Self::Error>>()?;
+			.collect::<Result<HashMap<AuthorityId, HashSet<Multiaddr>>, Self::Error>>()?;
 
 		let peer_id_to_authority_ids = value
 			.peer_id_to_authority_ids
 			.into_iter()
-			.map(|(peer_id, authority_ids) | {
+			.map(|(peer_id, authority_ids)| {
 				let peer_id = PeerId::try_from(peer_id)?;
-				Ok((peer_id, authority_ids.into_iter().collect::<HashSet::<AuthorityId>>()))
+				Ok((peer_id, authority_ids.into_iter().collect::<HashSet<AuthorityId>>()))
 			})
 			.collect::<Result<HashMap<PeerId, HashSet<AuthorityId>>, Self::Error>>()?;
 
-
-		Ok(AddrCache {
-			authority_id_to_addresses,
-			peer_id_to_authority_ids,
-		})
+		Ok(AddrCache { authority_id_to_addresses, peer_id_to_authority_ids })
 	}
 }
 
 /// A (de)serializable version of [`PeerId`] that can be used for serialization,
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde_as]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(transparent)]
 struct SerializablePeerId {
+	#[serde_as(as = "serde_with::hex::Hex")]
 	encoded_peer_id: Vec<u8>,
 }
 
 impl From<PeerId> for SerializablePeerId {
 	fn from(peer_id: PeerId) -> Self {
-		Self {
-			encoded_peer_id: peer_id.to_bytes(),
-		}
+		Self { encoded_peer_id: peer_id.to_bytes() }
 	}
 }
 impl TryFrom<SerializablePeerId> for PeerId {
 	type Error = Error;
 
 	fn try_from(value: SerializablePeerId) -> Result<Self, Self::Error> {
-		PeerId::from_bytes(&value.encoded_peer_id).map_err(|e| Error::EncodingDecodingAddrCache(e.to_string()))
+		PeerId::from_bytes(&value.encoded_peer_id)
+			.map_err(|e| Error::EncodingDecodingAddrCache(e.to_string()))
 	}
 }
 
 /// A (de)serializable version of [`Multiaddr`] that can be used for serialization,
+#[serde_as]
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 struct SerializableMultiaddr {
 	/// `Multiaddr` holds a single `LiteP2pMultiaddr`, which holds `Arc<Vec<u8>>`.
+	#[serde_as(as = "serde_with::hex::Hex")]
 	bytes: Vec<u8>,
 }
 impl From<Multiaddr> for SerializableMultiaddr {
 	fn from(multiaddr: Multiaddr) -> Self {
-		Self {
-			bytes: multiaddr.to_vec(),
-		}
+		Self { bytes: multiaddr.to_vec() }
 	}
 }
 impl TryFrom<SerializableMultiaddr> for Multiaddr {
@@ -286,7 +283,6 @@ impl TryFrom<SerializableMultiaddr> for Multiaddr {
 		Self::try_from(value.bytes)
 	}
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -498,8 +494,13 @@ mod tests {
 		);
 	}
 
-	#[test]
-	fn roundtrip_serializable_variant() {
+	fn roundtrip_serializable_variant_with_transform_reverse<
+		T,
+		E: std::fmt::Debug,
+	>(
+		transform: impl Fn(SerializableAddrCache) -> T,
+		reverse: impl Fn(T) -> Result<SerializableAddrCache, E>,
+	) {
 		let cache = {
 			let mut addr_cache = AddrCache::new();
 
@@ -514,7 +515,55 @@ mod tests {
 			addr_cache
 		};
 		let serializable = SerializableAddrCache::from(cache.clone());
-		let from_serializable = AddrCache::try_from(serializable).expect("Decoding should not fail");
+		let transformed = transform(serializable);
+		let reversed = reverse(transformed).expect("Decoding should not fail");
+		let from_serializable = AddrCache::try_from(reversed).expect("Decoding should not fail");
 		assert_eq!(cache, from_serializable);
 	}
+
+	#[test]
+	fn roundtrip_serializable_variant() {
+		#[derive(Debug)]
+		struct NoError;
+		// This tests only that From/TryFrom of SerializableAddrCache works.
+		roundtrip_serializable_variant_with_transform_reverse::<SerializableAddrCache, NoError>(
+			|s| s,
+			|t| Ok(t),
+		);
+	}
+
+	#[test]
+	fn serde_json() {
+		// This tests Serde JSON
+		roundtrip_serializable_variant_with_transform_reverse(
+			|s| serde_json::to_string_pretty(&s).expect("Serialization should work"),
+			|t| serde_json::from_str(&t),
+		);
+	}
+
+	#[test]
+	fn deserialize_from_str() {
+		let json = r#"
+		{
+			"authority_id_to_addresses": {
+				"5GKfaFiY4UoCegBEw8ppnKL8kKv4X6jTq5CNfbYuxynrTsmA": [
+					"a503220020d4968f78e5dd380759ef0532529367aae2e2040adb3b5bfba4e2dcd0f66005af"
+				],
+				"5F2Q58Tg8YKdg9YHUXwnWFBzq8ksuD1eBqY8szWSoPBgjT2J": [
+					"a503220020d4968f78e5dd380759ef0532529367aae2e2040adb3b5bfba4e2dcd0f66005af"
+				]
+			},
+			"peer_id_to_authority_ids": {
+				"0020d4968f78e5dd380759ef0532529367aae2e2040adb3b5bfba4e2dcd0f66005af": [
+					"5F2Q58Tg8YKdg9YHUXwnWFBzq8ksuD1eBqY8szWSoPBgjT2J",
+					"5GKfaFiY4UoCegBEw8ppnKL8kKv4X6jTq5CNfbYuxynrTsmA"
+				]
+			}
+		}
+		"#;
+		let deserialized = serde_json::from_str::<SerializableAddrCache>(json)
+			.expect("Should be able to deserialize valid JSON into SerializableAddrCache");
+		assert_eq!(deserialized.authority_id_to_addresses.len(), 2);
+	}
+
 }
