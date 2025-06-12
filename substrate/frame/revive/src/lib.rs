@@ -34,7 +34,7 @@ mod storage;
 #[cfg(test)]
 mod tests;
 mod transient_storage;
-mod wasm;
+mod vm;
 
 pub mod evm;
 pub mod precompiles;
@@ -50,7 +50,7 @@ use crate::{
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
-	wasm::{CodeInfo, RuntimeCosts, WasmBlob},
+	vm::{CodeInfo, ContractBlob, RuntimeCosts},
 };
 use alloc::{boxed::Box, format, vec};
 use codec::{Codec, Decode, Encode};
@@ -65,7 +65,7 @@ use frame_support::{
 	traits::{
 		fungible::{Inspect, Mutate, MutateHold},
 		tokens::{Fortitude::Polite, Preservation::Preserve},
-		ConstU32, ConstU64, Contains, EnsureOrigin, Get, IsType, OriginTrait, Time,
+		ConstU32, ConstU64, EnsureOrigin, Get, IsType, OriginTrait, Time,
 	},
 	weights::WeightMeter,
 	BoundedVec, RuntimeDebugNoBound,
@@ -98,7 +98,7 @@ pub use sp_runtime;
 pub use weights::WeightInfo;
 
 #[cfg(doc)]
-pub use crate::wasm::SyscallDoc;
+pub use crate::vm::SyscallDoc;
 
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
@@ -161,31 +161,6 @@ pub mod pallet {
 		/// Overarching hold reason.
 		#[pallet::no_default_bounds]
 		type RuntimeHoldReason: From<HoldReason>;
-
-		/// Filter that is applied to calls dispatched by contracts.
-		///
-		/// Use this filter to control which dispatchables are callable by contracts.
-		/// This is applied in **addition** to [`frame_system::Config::BaseCallFilter`].
-		/// It is recommended to treat this as a whitelist.
-		///
-		/// # Stability
-		///
-		/// The runtime **must** make sure that all dispatchables that are callable by
-		/// contracts remain stable. In addition [`Self::RuntimeCall`] itself must remain stable.
-		/// This means that no existing variants are allowed to switch their positions.
-		///
-		/// # Note
-		///
-		/// Note that dispatchables that are called via contracts do not spawn their
-		/// own wasm instance for each call (as opposed to when called via a transaction).
-		/// Therefore please make sure to be restrictive about which dispatchables are allowed
-		/// in order to not introduce a new DoS vector like memory allocation patterns that can
-		/// be exploited to drive the runtime into a panic.
-		///
-		/// This filter does not apply to XCM transact calls. To impose restrictions on XCM transact
-		/// calls, you must configure them separately within the XCM pallet itself.
-		#[pallet::no_default_bounds]
-		type CallFilter: Contains<<Self as frame_system::Config>::RuntimeCall>;
 
 		/// Used to answer contracts' queries regarding the current weight price. This is **not**
 		/// used to calculate the actual fee and is only for informational purposes.
@@ -265,15 +240,6 @@ pub mod pallet {
 		/// contract code.
 		#[pallet::no_default_bounds]
 		type InstantiateOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
-
-		/// A type that exposes XCM APIs, allowing contracts to interact with other parachains, and
-		/// execute XCM programs.
-		#[pallet::no_default_bounds]
-		type Xcm: xcm_builder::Controller<
-			OriginFor<Self>,
-			<Self as frame_system::Config>::RuntimeCall,
-			BlockNumberFor<Self>,
-		>;
 
 		/// The amount of memory in bytes that parachain nodes a lot to the runtime.
 		///
@@ -360,7 +326,6 @@ pub mod pallet {
 
 			#[inject_runtime_type]
 			type RuntimeCall = ();
-			type CallFilter = ();
 			type Precompiles = ();
 			type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 			type DepositPerByte = DepositPerByte;
@@ -371,7 +336,6 @@ pub mod pallet {
 			type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 			type WeightInfo = ();
 			type WeightPrice = Self;
-			type Xcm = ();
 			type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 			type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
 			type ChainId = ConstU64<42>;
@@ -432,8 +396,6 @@ pub mod pallet {
 		InputForwarded = 0x0E,
 		/// The amount of topics passed to `seal_deposit_events` exceeds the limit.
 		TooManyTopics = 0x0F,
-		/// Failed to decode the XCM program.
-		XCMDecodeFailed = 0x11,
 		/// A contract with the same AccountId already exists.
 		DuplicateContract = 0x12,
 		/// A contract self destructed in its constructor.
@@ -517,18 +479,6 @@ pub mod pallet {
 		StorageDepositReserve,
 		/// Deposit for creating an address mapping in [`OriginalAccount`].
 		AddressMapping,
-	}
-
-	#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-	pub enum NonceAlreadyIncremented {
-		/// Indicates that the nonce has not been incremented yet.
-		///
-		/// This happens when the instantiation is triggered by a dry-run or another contract.
-		No,
-		/// Indicates that the nonce has already been incremented.
-		///
-		/// This happens when the instantiation is triggered by a transaction.
-		Yes,
 	}
 
 	/// A mapping from a contract's code hash to its code.
@@ -788,10 +738,10 @@ pub mod pallet {
 			dispatch_result(output.result, output.gas_consumed, T::WeightInfo::call())
 		}
 
-		/// Instantiates a contract from a previously deployed wasm binary.
+		/// Instantiates a contract from a previously deployed vm binary.
 		///
 		/// This function is identical to [`Self::instantiate_with_code`] but without the
-		/// code deployment step. Instead, the `code_hash` of an on-chain deployed wasm binary
+		/// code deployment step. Instead, the `code_hash` of an on-chain deployed vm binary
 		/// must be supplied.
 		#[pallet::call_index(2)]
 		#[pallet::weight(
@@ -815,7 +765,6 @@ pub mod pallet {
 				Code::Existing(code_hash),
 				data,
 				salt,
-				NonceAlreadyIncremented::Yes,
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -880,7 +829,6 @@ pub mod pallet {
 				Code::Upload(code),
 				data,
 				salt,
-				NonceAlreadyIncremented::Yes,
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -927,7 +875,7 @@ pub mod pallet {
 			code_hash: sp_core::H256,
 		) -> DispatchResultWithPostInfo {
 			let origin = ensure_signed(origin)?;
-			<WasmBlob<T>>::remove(&origin, code_hash)?;
+			<ContractBlob<T>>::remove(&origin, code_hash)?;
 			// we waive the fee because removing unused code is beneficial
 			Ok(Pays::No.into())
 		}
@@ -1057,7 +1005,7 @@ where
 				DepositLimit::UnsafeOnlyForDryRun =>
 					StorageMeter::new_unchecked(BalanceOf::<T>::max_value()),
 			};
-			let result = ExecStack::<T, WasmBlob<T>>::run_call(
+			let result = ExecStack::<T, ContractBlob<T>>::run_call(
 				origin.clone(),
 				dest,
 				&mut gas_meter,
@@ -1082,6 +1030,17 @@ where
 		}
 	}
 
+	/// Prepare a dry run for the given account.
+	///
+	///
+	/// This function is public because it is called by the runtime API implementation
+	/// (see `impl_runtime_apis_plus_revive`).
+	pub fn prepare_dry_run(account: &T::AccountId) {
+		// Bump the  nonce to simulate what would happen
+		// `pre-dispatch` if the transaction was executed.
+		frame_system::Pallet::<T>::inc_account_nonce(account);
+	}
+
 	/// A generalized version of [`Self::instantiate`] or [`Self::instantiate_with_code`].
 	///
 	/// Identical to [`Self::instantiate`] or [`Self::instantiate_with_code`] but tailored towards
@@ -1095,7 +1054,6 @@ where
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
-		nonce_already_incremented: NonceAlreadyIncremented,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
@@ -1120,7 +1078,7 @@ where
 					(executable, upload_deposit)
 				},
 				Code::Existing(code_hash) =>
-					(WasmBlob::from_storage(code_hash, &mut gas_meter)?, Default::default()),
+					(ContractBlob::from_storage(code_hash, &mut gas_meter)?, Default::default()),
 			};
 			let instantiate_origin = Origin::from_account_id(instantiate_account.clone());
 			let mut storage_meter = if unchecked_deposit_limit {
@@ -1129,7 +1087,7 @@ where
 				StorageMeter::new(storage_deposit_limit)
 			};
 
-			let result = ExecStack::<T, WasmBlob<T>>::run_instantiate(
+			let result = ExecStack::<T, ContractBlob<T>>::run_instantiate(
 				instantiate_account,
 				executable,
 				&mut gas_meter,
@@ -1138,7 +1096,6 @@ where
 				data,
 				salt.as_ref(),
 				unchecked_deposit_limit,
-				nonce_already_incremented,
 			);
 			storage_deposit = storage_meter
 				.try_into_deposit(&instantiate_origin, unchecked_deposit_limit)?
@@ -1156,14 +1113,14 @@ where
 		}
 	}
 
-	/// A version of [`Self::eth_transact`] used to dry-run Ethereum calls.
+	/// Dry-run Ethereum calls.
 	///
 	/// # Parameters
 	///
 	/// - `tx`: The Ethereum transaction to simulate.
 	/// - `gas_limit`: The gas limit enforced during contract execution.
 	/// - `tx_fee`: A function that returns the fee for the given call and dispatch info.
-	pub fn bare_eth_transact(
+	pub fn dry_run_eth_transact(
 		mut tx: GenericTransaction,
 		gas_limit: Weight,
 		tx_fee: impl Fn(Call<T>, DispatchInfo) -> BalanceOf<T>,
@@ -1176,10 +1133,11 @@ where
 		T::Nonce: Into<U256>,
 		T::Hash: frame_support::traits::IsType<H256>,
 	{
-		log::trace!(target: LOG_TARGET, "bare_eth_transact: tx: {tx:?} gas_limit: {gas_limit:?}");
+		log::trace!(target: LOG_TARGET, "dry_run_eth_transact: {tx:?} gas_limit: {gas_limit:?}");
 
 		let from = tx.from.unwrap_or_default();
 		let origin = T::AddressMapper::to_account_id(&from);
+		Self::prepare_dry_run(&origin);
 
 		let storage_deposit_limit = if tx.gas.is_some() {
 			DepositLimit::Balance(BalanceOf::<T>::max_value())
@@ -1308,7 +1266,6 @@ where
 					Code::Upload(code.to_vec()),
 					data.to_vec(),
 					None,
-					NonceAlreadyIncremented::No,
 				);
 
 				let returned_data = match result.result {
@@ -1458,14 +1415,14 @@ where
 		Ok(maybe_value)
 	}
 
-	/// Uploads new code and returns the Wasm blob and deposit amount collected.
+	/// Uploads new code and returns the Vm binary contract blob and deposit amount collected.
 	fn try_upload_code(
 		origin: T::AccountId,
 		code: Vec<u8>,
 		storage_deposit_limit: BalanceOf<T>,
 		skip_transfer: bool,
-	) -> Result<(WasmBlob<T>, BalanceOf<T>), DispatchError> {
-		let mut module = WasmBlob::from_code(code, origin)?;
+	) -> Result<(ContractBlob<T>, BalanceOf<T>), DispatchError> {
+		let mut module = ContractBlob::from_code(code, origin)?;
 		let deposit = module.store_code(skip_transfer)?;
 		ensure!(storage_deposit_limit >= deposit, <Error<T>>::StorageDepositLimitExhausted);
 		Ok((module, deposit))
@@ -1580,7 +1537,7 @@ sp_api::decl_runtime_apis! {
 
 		/// Perform an Ethereum call.
 		///
-		/// See [`crate::Pallet::bare_eth_transact`]
+		/// See [`crate::Pallet::dry_run_eth_transact`]
 		fn eth_transact(tx: GenericTransaction) -> Result<EthTransactInfo<Balance>, EthTransactError>;
 
 		/// Upload new code without instantiating a contract from it.
@@ -1703,7 +1660,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 
 					let blockweights: $crate::BlockWeights =
 						<Self as $crate::frame_system::Config>::BlockWeights::get();
-					$crate::Pallet::<Self>::bare_eth_transact(tx, blockweights.max_block, tx_fee)
+					$crate::Pallet::<Self>::dry_run_eth_transact(tx, blockweights.max_block, tx_fee)
 				}
 
 				fn call(
@@ -1718,10 +1675,9 @@ macro_rules! impl_runtime_apis_plus_revive {
 					let blockweights: $crate::BlockWeights =
 						<Self as $crate::frame_system::Config>::BlockWeights::get();
 
-					let origin =
-						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin);
+					$crate::Pallet::<Self>::prepare_dry_run(&origin);
 					$crate::Pallet::<Self>::bare_call(
-						origin,
+						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin),
 						dest,
 						value,
 						gas_limit.unwrap_or(blockweights.max_block),
@@ -1743,17 +1699,15 @@ macro_rules! impl_runtime_apis_plus_revive {
 					let blockweights: $crate::BlockWeights =
 						<Self as $crate::frame_system::Config>::BlockWeights::get();
 
-					let origin =
-						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin);
+					$crate::Pallet::<Self>::prepare_dry_run(&origin);
 					$crate::Pallet::<Self>::bare_instantiate(
-						origin,
+						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin),
 						value,
 						gas_limit.unwrap_or(blockweights.max_block),
 						$crate::DepositLimit::Balance(storage_deposit_limit.unwrap_or(u128::MAX)),
 						code,
 						data,
 						salt,
-						$crate::NonceAlreadyIncremented::No,
 					)
 				}
 

@@ -354,6 +354,7 @@ members = [
 	"substrate/frame/core-fellowship",
 	"substrate/frame/delegated-staking",
 	"substrate/frame/democracy",
+	"substrate/frame/dummy-dim",
 	"substrate/frame/election-provider-multi-block",
 	"substrate/frame/election-provider-multi-phase",
 	"substrate/frame/election-provider-multi-phase/test-staking-e2e",
@@ -404,9 +405,11 @@ members = [
 	"substrate/frame/nomination-pools/test-delegate-stake",
 	"substrate/frame/offences",
 	"substrate/frame/offences/benchmarking",
+	"substrate/frame/origin-restriction",
 	"substrate/frame/paged-list",
 	"substrate/frame/paged-list/fuzzer",
 	"substrate/frame/parameters",
+	"substrate/frame/people",
 	"substrate/frame/preimage",
 	"substrate/frame/proxy",
 	"substrate/frame/ranked-collective",
@@ -415,7 +418,6 @@ members = [
 	"substrate/frame/remark",
 	"substrate/frame/revive",
 	"substrate/frame/revive/fixtures",
-	"substrate/frame/revive/mock-network",
 	"substrate/frame/revive/proc-macro",
 	"substrate/frame/revive/rpc",
 	"substrate/frame/revive/uapi",
@@ -887,7 +889,7 @@ linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
 linregress = { version = "0.5.1" }
 lite-json = { version = "0.2.0", default-features = false }
-litep2p = { version = "0.9.4", features = ["websocket"] }
+litep2p = { version = "0.9.5", features = ["websocket"] }
 log = { version = "0.4.22", default-features = false }
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
@@ -923,7 +925,7 @@ num-integer = { version = "0.1.46", default-features = false }
 num-rational = { version = "0.4.1" }
 num-traits = { version = "0.2.17", default-features = false }
 num_cpus = { version = "1.13.1" }
-once_cell = { version = "1.19.0" }
+once_cell = { version = "1.21.3" }
 orchestra = { version = "0.4.0", default-features = false }
 pallet-alliance = { path = "substrate/frame/alliance", default-features = false }
 pallet-asset-conversion = { path = "substrate/frame/asset-conversion", default-features = false }
@@ -966,6 +968,7 @@ pallet-default-config-example = { path = "substrate/frame/examples/default-confi
 pallet-delegated-staking = { path = "substrate/frame/delegated-staking", default-features = false }
 pallet-democracy = { path = "substrate/frame/democracy", default-features = false }
 pallet-dev-mode = { path = "substrate/frame/examples/dev-mode", default-features = false }
+pallet-dummy-dim = { path = "substrate/frame/dummy-dim", default-features = false }
 pallet-election-provider-multi-block = { path = "substrate/frame/election-provider-multi-block", default-features = false }
 pallet-election-provider-multi-phase = { path = "substrate/frame/election-provider-multi-phase", default-features = false }
 pallet-election-provider-support-benchmarking = { path = "substrate/frame/election-provider-support/benchmarking", default-features = false }
@@ -1007,9 +1010,11 @@ pallet-nomination-pools-benchmarking = { path = "substrate/frame/nomination-pool
 pallet-nomination-pools-runtime-api = { path = "substrate/frame/nomination-pools/runtime-api", default-features = false }
 pallet-offences = { path = "substrate/frame/offences", default-features = false }
 pallet-offences-benchmarking = { path = "substrate/frame/offences/benchmarking", default-features = false }
+pallet-origin-restriction = { path = "substrate/frame/origin-restriction", default-features = false }
 pallet-paged-list = { path = "substrate/frame/paged-list", default-features = false }
 pallet-parachain-template = { path = "templates/parachain/pallets/template", default-features = false }
 pallet-parameters = { path = "substrate/frame/parameters", default-features = false }
+pallet-people = { path = "substrate/frame/people", default-features = false }
 pallet-preimage = { path = "substrate/frame/preimage", default-features = false }
 pallet-proxy = { path = "substrate/frame/proxy", default-features = false }
 pallet-ranked-collective = { path = "substrate/frame/ranked-collective", default-features = false }
@@ -1019,7 +1024,6 @@ pallet-remark = { default-features = false, path = "substrate/frame/remark" }
 pallet-revive = { path = "substrate/frame/revive", default-features = false }
 pallet-revive-eth-rpc = { path = "substrate/frame/revive/rpc", default-features = false }
 pallet-revive-fixtures = { path = "substrate/frame/revive/fixtures", default-features = false }
-pallet-revive-mock-network = { default-features = false, path = "substrate/frame/revive/mock-network" }
 pallet-revive-proc-macro = { path = "substrate/frame/revive/proc-macro", default-features = false }
 pallet-revive-uapi = { path = "substrate/frame/revive/uapi", default-features = false }
 pallet-root-offences = { default-features = false, path = "substrate/frame/root-offences" }
@@ -1403,7 +1407,7 @@ tikv-jemalloc-ctl = { version = "0.5.0" }
 tikv-jemallocator = { version = "0.5.0" }
 time = { version = "0.3" }
 tiny-keccak = { version = "2.0.2" }
-tokio = { version = "1.43.1", default-features = false }
+tokio = { version = "1.45.0", default-features = false }
 tokio-retry = { version = "0.3.0" }
 tokio-stream = { version = "0.1.14" }
 tokio-test = { version = "0.4.4" }
@@ -1430,6 +1434,7 @@ twox-hash = { version = "1.6.3", default-features = false }
 txtesttool = { version = "0.6.0", package = "substrate-txtesttool" }
 unsigned-varint = { version = "0.7.2" }
 url = { version = "2.5.4" }
+verifiable = { version = "0.1", default-features = false }
 void = { version = "1.0.2" }
 w3f-bls = { version = "0.1.9", default-features = false }
 wait-timeout = { version = "0.2" }

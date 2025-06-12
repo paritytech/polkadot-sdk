@@ -17,9 +17,9 @@
 
 /// These tests exercise the executive layer.
 ///
-/// In these tests the VM/loader are mocked. Instead of dealing with wasm bytecode they use
+/// In these tests the VM/loader are mocked. Instead of dealing with vm bytecode they use
 /// simple closures. This allows you to tackle executive logic more thoroughly without writing
-/// a wasm VM code.
+/// a VM binary code.
 #[cfg(test)]
 use super::*;
 use crate::{
@@ -28,17 +28,17 @@ use crate::{
 	test_utils::*,
 	tests::{
 		test_utils::{get_balance, place_contract, set_balance},
-		ExtBuilder, RuntimeCall, RuntimeEvent as MetaEvent, Test, TestFilter,
+		ExtBuilder, RuntimeEvent as MetaEvent, Test,
 	},
 	AddressMapper, Error,
 };
 use assert_matches::assert_matches;
 use frame_support::{assert_err, assert_ok, parameter_types};
-use frame_system::{AccountInfo, EventRecord, Phase};
+use frame_system::AccountInfo;
 use pallet_revive_uapi::ReturnFlags;
 use pretty_assertions::assert_eq;
 use sp_io::hashing::keccak_256;
-use sp_runtime::{traits::Hash, DispatchError};
+use sp_runtime::DispatchError;
 use std::{cell::RefCell, collections::hash_map::HashMap, rc::Rc};
 
 type System = frame_system::Pallet<Test>;
@@ -235,12 +235,19 @@ fn transfer_works() {
 		set_balance(&ALICE, 100);
 		set_balance(&BOB, 0);
 
+		let value = 55;
 		let origin = Origin::from_account_id(ALICE);
-		MockStack::transfer(&origin, &ALICE, &BOB, 55u64.into()).unwrap();
+		let mut storage_meter = storage::meter::Meter::new(u64::MAX);
+		MockStack::transfer(&origin, &ALICE, &BOB, value.into(), &mut storage_meter).unwrap();
 
 		let min_balance = <Test as Config>::Currency::minimum_balance();
-		assert_eq!(get_balance(&ALICE), 45 - min_balance);
-		assert_eq!(get_balance(&BOB), 55 + min_balance);
+		assert!(min_balance > 0);
+		assert_eq!(get_balance(&ALICE), 100 - value - min_balance);
+		assert_eq!(get_balance(&BOB), min_balance + value);
+		assert_eq!(
+			storage_meter.try_into_deposit(&Origin::from_account_id(ALICE), false).unwrap(),
+			StorageDeposit::Charge(min_balance)
+		);
 	});
 }
 
@@ -252,6 +259,7 @@ fn transfer_to_nonexistent_account_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		let ed = <Test as Config>::Currency::minimum_balance();
 		let value = 1024;
+		let mut storage_meter = storage::meter::Meter::new(u64::MAX);
 
 		// Transfers to nonexistant accounts should work
 		set_balance(&ALICE, ed * 2);
@@ -261,7 +269,8 @@ fn transfer_to_nonexistent_account_works() {
 			&Origin::from_account_id(ALICE),
 			&BOB,
 			&CHARLIE,
-			value.into()
+			value.into(),
+			&mut storage_meter,
 		));
 		assert_eq!(get_balance(&ALICE), ed);
 		assert_eq!(get_balance(&BOB), ed);
@@ -271,7 +280,13 @@ fn transfer_to_nonexistent_account_works() {
 		set_balance(&ALICE, ed);
 		set_balance(&BOB, ed + value);
 		assert_err!(
-			MockStack::transfer(&Origin::from_account_id(ALICE), &BOB, &DJANGO, value.into()),
+			MockStack::transfer(
+				&Origin::from_account_id(ALICE),
+				&BOB,
+				&DJANGO,
+				value.into(),
+				&mut storage_meter
+			),
 			<Error<Test>>::StorageDepositNotEnoughFunds,
 		);
 
@@ -279,7 +294,13 @@ fn transfer_to_nonexistent_account_works() {
 		set_balance(&ALICE, ed * 2);
 		set_balance(&BOB, value);
 		assert_err!(
-			MockStack::transfer(&Origin::from_account_id(ALICE), &BOB, &EVE, value.into()),
+			MockStack::transfer(
+				&Origin::from_account_id(ALICE),
+				&BOB,
+				&EVE,
+				value.into(),
+				&mut storage_meter
+			),
 			<Error<Test>>::TransferFailed
 		);
 		// The ED transfer would work. But it should only be executed with the actual transfer
@@ -444,9 +465,15 @@ fn balance_too_low() {
 		let ed = <Test as Config>::Currency::minimum_balance();
 		set_balance(&ALICE, ed * 2);
 		set_balance(&from, ed + 99);
+		let mut storage_meter = storage::meter::Meter::new(u64::MAX);
 
-		let result =
-			MockStack::transfer(&Origin::from_account_id(ALICE), &from, &dest, 100u64.into());
+		let result = MockStack::transfer(
+			&Origin::from_account_id(ALICE),
+			&from,
+			&dest,
+			100u64.into(),
+			&mut storage_meter,
+		);
 
 		assert_eq!(result, Err(Error::<Test>::TransferFailed.into()));
 		assert_eq!(get_balance(&ALICE), ed * 2);
@@ -566,7 +593,6 @@ fn input_data_to_instantiate() {
 				vec![1, 2, 3, 4],
 				Some(&[0; 32]),
 				false,
-				NonceAlreadyIncremented::Yes,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -1069,7 +1095,6 @@ fn refuse_instantiate_with_value_below_existential_deposit() {
 				vec![],
 				Some(&[0; 32]),
 				false,
-				NonceAlreadyIncremented::Yes,
 			),
 			Err(_)
 		);
@@ -1103,7 +1128,6 @@ fn instantiation_work_with_success_output() {
 					vec![],
 					Some(&[0 ;32]),
 					false,
-					NonceAlreadyIncremented::Yes,
 				),
 				Ok((address, ref output)) if output.data == vec![80, 65, 83, 83] => address
 			);
@@ -1148,7 +1172,6 @@ fn instantiation_fails_with_failing_output() {
 					vec![],
 					Some(&[0; 32]),
 					false,
-					NonceAlreadyIncremented::Yes,
 				),
 				Ok((address, ref output)) if output.data == vec![70, 65, 73, 76] => address
 			);
@@ -1309,7 +1332,6 @@ fn termination_from_instantiate_fails() {
 					vec![],
 					Some(&[0; 32]),
 					false,
-					NonceAlreadyIncremented::Yes,
 				),
 				Err(ExecError {
 					error: Error::<Test>::TerminatedInConstructor.into(),
@@ -1436,7 +1458,6 @@ fn recursive_call_during_constructor_is_balance_transfer() {
 				vec![],
 				Some(&[0; 32]),
 				false,
-				NonceAlreadyIncremented::Yes,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -1585,138 +1606,6 @@ fn call_deny_reentry() {
 }
 
 #[test]
-fn call_runtime_works() {
-	let code_hash = MockLoader::insert(Call, |ctx, _| {
-		let call = RuntimeCall::System(frame_system::Call::remark_with_event {
-			remark: b"Hello World".to_vec(),
-		});
-		ctx.ext.call_runtime(call).unwrap();
-		exec_success()
-	});
-
-	ExtBuilder::default().build().execute_with(|| {
-		let min_balance = <Test as Config>::Currency::minimum_balance();
-
-		let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
-		set_balance(&ALICE, min_balance * 10);
-		place_contract(&BOB, code_hash);
-		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
-		System::reset_events();
-		MockStack::run_call(
-			origin,
-			BOB_ADDR,
-			&mut gas_meter,
-			&mut storage_meter,
-			U256::zero(),
-			vec![],
-			false,
-		)
-		.unwrap();
-
-		let remark_hash = <Test as frame_system::Config>::Hashing::hash(b"Hello World");
-		assert_eq!(
-			System::events(),
-			vec![EventRecord {
-				phase: Phase::Initialization,
-				event: MetaEvent::System(frame_system::Event::Remarked {
-					sender: BOB_FALLBACK,
-					hash: remark_hash
-				}),
-				topics: vec![],
-			},]
-		);
-	});
-}
-
-#[test]
-fn call_runtime_filter() {
-	let code_hash = MockLoader::insert(Call, |ctx, _| {
-		use frame_system::Call as SysCall;
-		use pallet_balances::Call as BalanceCall;
-		use pallet_utility::Call as UtilCall;
-
-		// remark should still be allowed
-		let allowed_call =
-			RuntimeCall::System(SysCall::remark_with_event { remark: b"Hello".to_vec() });
-
-		// transfers are disallowed by the `TestFiler` (see below)
-		let forbidden_call =
-			RuntimeCall::Balances(BalanceCall::transfer_allow_death { dest: CHARLIE, value: 22 });
-
-		// simple cases: direct call
-		assert_err!(
-			ctx.ext.call_runtime(forbidden_call.clone()),
-			frame_system::Error::<Test>::CallFiltered
-		);
-
-		// as part of a patch: return is OK (but it interrupted the batch)
-		assert_ok!(ctx.ext.call_runtime(RuntimeCall::Utility(UtilCall::batch {
-			calls: vec![allowed_call.clone(), forbidden_call, allowed_call]
-		})),);
-
-		// the transfer wasn't performed
-		assert_eq!(get_balance(&CHARLIE), 0);
-
-		exec_success()
-	});
-
-	TestFilter::set_filter(|call| match call {
-		RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death { .. }) => false,
-		_ => true,
-	});
-
-	ExtBuilder::default().build().execute_with(|| {
-		let min_balance = <Test as Config>::Currency::minimum_balance();
-
-		let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
-		set_balance(&ALICE, min_balance * 10);
-		place_contract(&BOB, code_hash);
-		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
-		System::reset_events();
-		MockStack::run_call(
-			origin,
-			BOB_ADDR,
-			&mut gas_meter,
-			&mut storage_meter,
-			U256::zero(),
-			vec![],
-			false,
-		)
-		.unwrap();
-
-		let remark_hash = <Test as frame_system::Config>::Hashing::hash(b"Hello");
-		assert_eq!(
-			System::events(),
-			vec![
-				EventRecord {
-					phase: Phase::Initialization,
-					event: MetaEvent::System(frame_system::Event::Remarked {
-						sender: BOB_FALLBACK,
-						hash: remark_hash
-					}),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
-					event: MetaEvent::Utility(pallet_utility::Event::ItemCompleted),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
-					event: MetaEvent::Utility(pallet_utility::Event::BatchInterrupted {
-						index: 1,
-						error: frame_system::Error::<Test>::CallFiltered.into()
-					},),
-					topics: vec![],
-				},
-			]
-		);
-	});
-}
-
-#[test]
 fn nonce() {
 	let fail_code = MockLoader::insert(Constructor, |_, _| exec_trapped());
 	let success_code = MockLoader::insert(Constructor, |_, _| exec_success());
@@ -1735,7 +1624,7 @@ fn nonce() {
 	});
 	let succ_succ_code = MockLoader::insert(Constructor, move |ctx, _| {
 		let alice_nonce = System::account_nonce(&ALICE);
-		assert_eq!(System::account_nonce(ctx.ext.account_id()), 0);
+		assert_eq!(System::account_nonce(ctx.ext.account_id()), 1);
 		assert_eq!(ctx.ext.caller().account_id().unwrap(), &ALICE);
 		let addr = ctx
 			.ext
@@ -1753,8 +1642,8 @@ fn nonce() {
 			<<Test as Config>::AddressMapper as AddressMapper<Test>>::to_fallback_account_id(&addr);
 
 		assert_eq!(System::account_nonce(&ALICE), alice_nonce);
-		assert_eq!(System::account_nonce(ctx.ext.account_id()), 1);
-		assert_eq!(System::account_nonce(&account_id), 0);
+		assert_eq!(System::account_nonce(ctx.ext.account_id()), 2);
+		assert_eq!(System::account_nonce(&account_id), 1);
 
 		// a plain call should not influence the account counter
 		ctx.ext
@@ -1762,8 +1651,8 @@ fn nonce() {
 			.unwrap();
 
 		assert_eq!(System::account_nonce(ALICE), alice_nonce);
-		assert_eq!(System::account_nonce(ctx.ext.account_id()), 1);
-		assert_eq!(System::account_nonce(&account_id), 0);
+		assert_eq!(System::account_nonce(ctx.ext.account_id()), 2);
+		assert_eq!(System::account_nonce(&account_id), 1);
 
 		exec_success()
 	});
@@ -1795,7 +1684,6 @@ fn nonce() {
 				vec![],
 				Some(&[0; 32]),
 				false,
-				NonceAlreadyIncremented::Yes,
 			)
 			.ok();
 			assert_eq!(System::account_nonce(&ALICE), 0);
@@ -1809,7 +1697,6 @@ fn nonce() {
 				vec![],
 				Some(&[0; 32]),
 				false,
-				NonceAlreadyIncremented::Yes,
 			));
 			assert_eq!(System::account_nonce(&ALICE), 1);
 
@@ -1822,7 +1709,6 @@ fn nonce() {
 				vec![],
 				Some(&[0; 32]),
 				false,
-				NonceAlreadyIncremented::Yes,
 			));
 			assert_eq!(System::account_nonce(&ALICE), 2);
 
@@ -1835,7 +1721,6 @@ fn nonce() {
 				vec![],
 				Some(&[0; 32]),
 				false,
-				NonceAlreadyIncremented::Yes,
 			));
 			assert_eq!(System::account_nonce(&ALICE), 3);
 		});
@@ -2815,7 +2700,6 @@ fn immutable_data_set_overrides() {
 				vec![],
 				None,
 				false,
-				NonceAlreadyIncremented::Yes,
 			)
 			.unwrap()
 			.0;

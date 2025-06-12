@@ -14,7 +14,8 @@ Backports should only be used to fix bugs or security issues - never to introduc
 3. Merge the PR into `master`.
 4. Wait for the bot to open the backport PR.
 5. Ensure the change is audited or does not need audit.
-6. Merge the backport PR.
+6. Merge the backport PR.(ℹ️ for the branches starting from 2412 it can be done automatically
+    if backport PR has at least two reviews and a pipeline is green)
 
 The label can also be added after the PR is merged.
 

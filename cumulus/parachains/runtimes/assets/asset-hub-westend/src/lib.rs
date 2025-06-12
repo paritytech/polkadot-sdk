@@ -51,7 +51,7 @@ use frame_support::{
 		fungibles,
 		tokens::{imbalance::ResolveAssetTo, nonfungibles_v2::Inspect},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8,
-		ConstantStoragePrice, Equals, InstanceFilter, Nothing, TransformOrigin,
+		ConstantStoragePrice, Equals, InstanceFilter, TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight},
 	BoundedVec, PalletId,
@@ -64,7 +64,7 @@ use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
 use pallet_assets::precompiles::{InlineIdConfig, ERC20};
 use pallet_nfts::{DestroyWitness, PalletFeatures};
 use pallet_revive::evm::runtime::EthExtra;
-use pallet_xcm::EnsureXcm;
+use pallet_xcm::{precompiles::XcmPrecompile, EnsureXcm};
 use parachains_common::{
 	impls::DealWithFees, message_queue::*, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
 	BlockNumber, CollectionId, Hash, Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
@@ -1073,7 +1073,6 @@ impl pallet_revive::Config for Runtime {
 	type Currency = Balances;
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
-	type CallFilter = Nothing;
 	type DepositPerItem = DepositPerItem;
 	type DepositPerByte = DepositPerByte;
 	type WeightPrice = pallet_transaction_payment::Pallet<Self>;
@@ -1081,6 +1080,7 @@ impl pallet_revive::Config for Runtime {
 	type Precompiles = (
 		ERC20<Self, InlineIdConfig<0x120>, TrustBackedAssetsInstance>,
 		ERC20<Self, InlineIdConfig<0x320>, PoolAssetsInstance>,
+		XcmPrecompile<Self>,
 	);
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
@@ -1090,7 +1090,6 @@ impl pallet_revive::Config for Runtime {
 	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
-	type Xcm = pallet_xcm::Pallet<Self>;
 	type ChainId = ConstU64<420_420_421>;
 	type NativeToEthRatio = ConstU32<1_000_000>; // 10^(18 - 12) Eth is 10^18, Native is 10^12.
 	type EthGasEncoder = ();
