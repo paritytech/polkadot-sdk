@@ -136,7 +136,7 @@ impl RuntimeInfo {
 	/// Create with more elaborate configuration options.
 	pub fn new_with_config(cfg: Config) -> Self {
 		Self {
-			session_index_cache: LruMap::new(ByLength::new(2 * MAX_FINALITY_LAG)),
+			session_index_cache: LruMap::new(ByLength::new(cfg.session_cache_lru_size.max(2 * MAX_FINALITY_LAG))),
 			session_info_cache: LruMap::new(ByLength::new(cfg.session_cache_lru_size)),
 			disabled_validators_cache: LruMap::new(ByLength::new(100)),
 			pinned_blocks: LruMap::new(ByLength::new(cfg.session_cache_lru_size)),
