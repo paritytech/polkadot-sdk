@@ -51,8 +51,8 @@ use polkadot_primitives::{
 		CandidateDescriptorV2 as CandidateDescriptor, CandidateDescriptorVersion,
 		CandidateReceiptV2 as CandidateReceipt,
 	},
-	CandidateHash, CoreIndex, GroupRotationInfo, Hash, HeadData, Id as ParaId,
-	PersistedValidationData, SessionIndex, ValidatorId, ValidatorIndex,
+	CandidateHash, CoreIndex, GroupIndex, GroupRotationInfo, Hash, HeadData, Id as ParaId,
+	PersistedValidationData, SessionIndex,
 };
 use requests::PendingRequests;
 use schnellru::{ByLength, LruMap};
@@ -193,9 +193,7 @@ impl CollationManager {
 				// Remove the fetching collations and advertisements for the deactivated RPs.
 				if let Some(deactivated_rp) = self.per_relay_parent.remove(deactivated) {
 					for advertisement in deactivated_rp.all_advertisements() {
-						if self.fetching.contains(&advertisement) {
-							self.fetching.cancel(&advertisement);
-						}
+						self.fetching.cancel(&advertisement);
 					}
 				}
 			}
@@ -426,15 +424,13 @@ impl CollationManager {
 			return
 		}
 
-		// Cancel ongoing fetches for advertisements from these peers.
+		// Remove advertisements from these peers.
 		for peer in peers_to_remove {
 			for per_rp in self.per_relay_parent.values_mut() {
-				for advertisement in per_rp.remove_peer_advertisements(&peer) {
-					// If it's not fetching, this will be a no-op.
-					self.fetching.cancel(&advertisement);
-					// No need to reset now the statuses of claims that were pending fetch for these
-					// candidates, as the futures will soon conclude with Cancelled reason.
-				}
+				// No need to reset now the statuses of claims that were pending fetch for these
+				// candidates, or even cancel the futures as the requests will soon conclude with a
+				// network error.
+				per_rp.remove_peer_advertisements(&peer);
 			}
 		}
 	}
@@ -631,7 +627,6 @@ impl CollationManager {
 			.implicit_view
 			.block_number(parent)
 			.ok_or_else(|| Error::BlockNumberNotFoundInImplicitView(*parent))?;
-		let keystore = self.keystore.clone();
 		let session_info = self.get_session_info(sender, parent, session_index).await?;
 		let mut rotation_info = session_info.group_rotation_info.clone();
 
@@ -639,12 +634,8 @@ impl CollationManager {
 		// here.
 		rotation_info.now = block_number + 1;
 
-		let core_now = if let Some(group) =
-			polkadot_node_subsystem_util::signing_key_and_index(&session_info.validators, &keystore)
-				.and_then(|(_, index)| {
-					polkadot_node_subsystem_util::find_validator_group(&session_info.groups, index)
-				}) {
-			rotation_info.core_for_group(group, session_info.groups.len())
+		let core_now = if let Some(group) = session_info.our_group {
+			rotation_info.core_for_group(group, session_info.n_cores)
 		} else {
 			gum::trace!(target: LOG_TARGET, ?parent, "Not a validator");
 			return Ok(Default::default())
@@ -670,9 +661,20 @@ impl CollationManager {
 				.map(|b| *b)
 				.unwrap_or(false);
 
+			let our_group =
+				polkadot_node_subsystem_util::signing_key_and_index(&validators, &self.keystore)
+					.and_then(|(_, index)| {
+						polkadot_node_subsystem_util::find_validator_group(&groups, index)
+					});
+
 			self.per_session.insert(
 				index,
-				PerSessionInfo { validators, groups, group_rotation_info, v2_receipts },
+				PerSessionInfo {
+					our_group,
+					n_cores: groups.len(),
+					group_rotation_info,
+					v2_receipts,
+				},
 			);
 		}
 
@@ -894,8 +896,8 @@ struct PeerAdvertisements {
 }
 
 struct PerSessionInfo {
-	validators: Vec<ValidatorId>,
-	groups: Vec<Vec<ValidatorIndex>>,
+	our_group: Option<GroupIndex>,
+	n_cores: usize,
 	// The group rotation info changes once per session, apart from the `now` field. The caller
 	// must ensure to override it with the right value.
 	group_rotation_info: GroupRotationInfo,

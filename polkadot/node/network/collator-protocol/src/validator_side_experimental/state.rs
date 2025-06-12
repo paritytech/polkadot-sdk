@@ -529,4 +529,9 @@ impl<B: Backend> State<B> {
 			}
 		}
 	}
+
+	#[cfg(test)]
+	pub fn connected_peers(&self) -> std::collections::BTreeSet<PeerId> {
+		self.peer_manager.connected_peers()
+	}
 }
