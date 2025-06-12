@@ -44,8 +44,8 @@ pub fn unstable_hostfn(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// WARNING: It is CRITICAL for contracts to make sure that the signatures match exactly.
 /// Failure to do so may result in undefined behavior, traps or security vulnerabilities inside the
 /// contract. The runtime itself is unharmed due to sandboxing.
-/// For example, if a function is called with an incorrect signature, it could lead to memory corruption or
-/// unexpected results within the contract.
+/// For example, if a function is called with an incorrect signature, it could lead to memory
+/// corruption or unexpected results within the contract.
 #[proc_macro_attribute]
 pub fn define_env(attr: TokenStream, item: TokenStream) -> TokenStream {
 	if !attr.is_empty() {
