@@ -136,7 +136,12 @@ impl RuntimeInfo {
 	/// Create with more elaborate configuration options.
 	pub fn new_with_config(cfg: Config) -> Self {
 		Self {
-			session_index_cache: LruMap::new(ByLength::new(cfg.session_cache_lru_size.max(2 * MAX_FINALITY_LAG))),
+			// Usually messages are processed for blocks pointing to hashes from last finalized
+			// block to to best, so make this cache large enough to hold at least this amount of
+			// hashes, so that we get the benefit of caching even when finality lag is large.
+			session_index_cache: LruMap::new(ByLength::new(
+				cfg.session_cache_lru_size.max(2 * MAX_FINALITY_LAG),
+			)),
 			session_info_cache: LruMap::new(ByLength::new(cfg.session_cache_lru_size)),
 			disabled_validators_cache: LruMap::new(ByLength::new(100)),
 			pinned_blocks: LruMap::new(ByLength::new(cfg.session_cache_lru_size)),
