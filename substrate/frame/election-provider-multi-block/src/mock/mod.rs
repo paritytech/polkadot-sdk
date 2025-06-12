@@ -602,6 +602,7 @@ pub fn multi_block_events() -> Vec<crate::Event<Runtime>> {
 
 parameter_types! {
 	static MultiBlockEvents: u32 = 0;
+	static VerifierEvents: u32 = 0;
 }
 
 pub fn multi_block_events_since_last_call() -> Vec<crate::Event<Runtime>> {
@@ -620,6 +621,14 @@ pub fn verifier_events() -> Vec<crate::verifier::Event<Runtime>> {
 			|e| if let RuntimeEvent::VerifierPallet(inner) = e { Some(inner) } else { None },
 		)
 		.collect::<Vec<_>>()
+}
+
+/// get the events of the verifier pallet since last call.
+pub fn verifier_events_since_last_call() -> Vec<crate::verifier::Event<Runtime>> {
+	let events = verifier_events();
+	let already_seen = VerifierEvents::get();
+	VerifierEvents::set(events.len() as u32);
+	events.into_iter().skip(already_seen as usize).collect()
 }
 
 /// proceed block number to `n`.
