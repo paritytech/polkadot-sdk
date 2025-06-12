@@ -229,7 +229,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
+		let origin_weight = Staking::<T>::min_nominator_bond();
 
 		// setup the worst case list scenario.
 
@@ -318,7 +318,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
+		let origin_weight = Staking::<T>::min_nominator_bond();
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
@@ -442,7 +442,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
+		let origin_weight = Staking::<T>::min_nominator_bond();
 
 		// setup a worst case list scenario. Note we don't care about the destination position,
 		// because we are just doing an insert into the origin position.
@@ -475,7 +475,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
+		let origin_weight = Staking::<T>::min_nominator_bond();
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
@@ -633,7 +633,7 @@ mod benchmarks {
 		// Clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
+		let origin_weight = Staking::<T>::min_nominator_bond();
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
@@ -734,8 +734,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get()
-			.max(asset::existential_deposit::<T>())
+		let origin_weight = Pallet::<T>::min_nominator_bond()
 			// we use 100 to play friendly with the list threshold values in the mock
 			.max(100u32.into());
 
@@ -781,7 +780,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
+		let origin_weight = Staking::<T>::min_nominator_bond();
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
@@ -858,7 +857,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
+		let origin_weight = Staking::<T>::min_nominator_bond();
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
@@ -1024,14 +1023,14 @@ mod benchmarks {
 		let _new_validators = Rotator::<T>::legacy_insta_plan_era();
 		// activate the previous one
 		Rotator::<T>::start_era(
-			crate::ActiveEraInfo { index: Rotator::<T>::planning_era() - 1, start: Some(1) },
+			crate::ActiveEraInfo { index: Rotator::<T>::planned_era() - 1, start: Some(1) },
 			42, // start session index doesn't really matter,
 			2,  // timestamp doesn't really matter
 		);
 
 		// ensure our offender has at least a full exposure page
 		let offender_exposure =
-			Eras::<T>::get_full_exposure(Rotator::<T>::planning_era(), &offender);
+			Eras::<T>::get_full_exposure(Rotator::<T>::planned_era(), &offender);
 		ensure!(
 			offender_exposure.others.len() as u32 == 2 * T::MaxExposurePageSize::get(),
 			"exposure not created"
@@ -1073,7 +1072,7 @@ mod benchmarks {
 	fn rc_on_offence(
 		v: Linear<2, { T::MaxValidatorSet::get() / 2 }>,
 	) -> Result<(), BenchmarkError> {
-		let initial_era = Rotator::<T>::planning_era();
+		let initial_era = Rotator::<T>::planned_era();
 		let _ = crate::testing_utils::create_validators_with_nominators_for_era::<T>(
 			2 * v,
 			// number of nominators is irrelevant here, so we hardcode these
@@ -1085,7 +1084,7 @@ mod benchmarks {
 
 		// plan new era
 		let new_validators = Rotator::<T>::legacy_insta_plan_era();
-		ensure!(Rotator::<T>::planning_era() == initial_era + 1, "era should be incremented");
+		ensure!(Rotator::<T>::planned_era() == initial_era + 1, "era should be incremented");
 		// activate the previous one
 		Rotator::<T>::start_era(
 			crate::ActiveEraInfo { index: initial_era, start: Some(1) },
@@ -1135,7 +1134,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn rc_on_session_report() -> Result<(), BenchmarkError> {
-		let initial_planned_era = Rotator::<T>::planning_era();
+		let initial_planned_era = Rotator::<T>::planned_era();
 		let initial_active_era = Rotator::<T>::active_era();
 
 		// create a small, arbitrary number of stakers. This is just for sanity of the era planning,
