@@ -800,7 +800,7 @@ version = "0.17.1"
 path = "../substrate/frame/benchmarking"
 default-features = false
 optional = true
-version = "38.0.0"
+version = "38.1.0"
 
 [dependencies.frame-benchmarking-pallet-pov]
 path = "../substrate/frame/benchmarking/pov"
@@ -1346,7 +1346,7 @@ version = "23.2.0"
 path = "../substrate/frame/scheduler"
 default-features = false
 optional = true
-version = "39.0.0"
+version = "39.1.0"
 
 [dependencies.pallet-scored-pool]
 path = "../substrate/frame/scored-pool"
@@ -1490,7 +1490,7 @@ version = "37.0.0"
 path = "../polkadot/xcm/pallet-xcm"
 default-features = false
 optional = true
-version = "17.0.2"
+version = "17.0.3"
 
 [dependencies.pallet-xcm-benchmarks]
 path = "../polkadot/xcm/pallet-xcm-benchmarks"
@@ -2018,7 +2018,7 @@ version = "0.18.0"
 path = "../cumulus/client/consensus/aura"
 default-features = false
 optional = true
-version = "0.18.1"
+version = "0.18.2"
 
 [dependencies.cumulus-client-consensus-common]
 path = "../cumulus/client/consensus/common"
@@ -2108,7 +2108,7 @@ version = "13.0.0"
 path = "../substrate/utils/frame/benchmarking-cli"
 default-features = false
 optional = true
-version = "43.0.0"
+version = "43.1.0"
 
 [dependencies.frame-remote-externalities]
 path = "../substrate/utils/frame/remote-externalities"

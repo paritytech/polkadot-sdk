@@ -921,7 +921,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.26.5"
+version = "0.26.6"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -3785,7 +3785,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-consensus-aura"
-version = "0.18.1"
+version = "0.18.2"
 dependencies = [
  "async-trait",
  "cumulus-client-collator",
@@ -5730,7 +5730,7 @@ checksum = "6c2141d6d6c8512188a7891b4b01590a45f6dac67afb4f255c4124dbb86d4eaa"
 
 [[package]]
 name = "frame-benchmarking"
-version = "38.0.0"
+version = "38.1.0"
 dependencies = [
  "array-bytes",
  "frame-support",
@@ -5756,7 +5756,7 @@ dependencies = [
 
 [[package]]
 name = "frame-benchmarking-cli"
-version = "43.0.0"
+version = "43.1.0"
 dependencies = [
  "Inflector",
  "array-bytes",
@@ -11539,7 +11539,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-scheduler"
-version = "39.0.0"
+version = "39.1.0"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -11977,7 +11977,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm"
-version = "17.0.2"
+version = "17.0.3"
 dependencies = [
  "bounded-collections",
  "frame-benchmarking",
@@ -23474,7 +23474,7 @@ dependencies = [
 
 [[package]]
 name = "westend-runtime"
-version = "18.0.2"
+version = "18.1.0"
 dependencies = [
  "binary-merkle-tree",
  "bitvec",
