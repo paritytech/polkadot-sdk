@@ -141,7 +141,11 @@ where
 }
 
 /// Builds an XCM call to send an authorize upgrade message using the provided location
-pub fn build_xcm_send_authorize_upgrade_call<T, D>(location: Location) -> T::RuntimeCall
+pub fn build_xcm_send_authorize_upgrade_call<T, D>(
+	location: Location,
+	code_hash: &H256,
+	fallback_max_weight: Option<Weight>,
+) -> T::RuntimeCall
 where
 	T: Chain,
 	T::Runtime: pallet_xcm::Config,
@@ -150,11 +154,8 @@ where
 	D::Runtime: frame_system::Config<Hash = H256>,
 	D::RuntimeCall: Encode + From<frame_system::Call<D::Runtime>>,
 {
-	let code_hash = [1u8; 32].into();
-	// TODO: calculate real weight
-	let weight = Weight::from_parts(5_000_000_000, 500_000);
-
-	let transact_call: D::RuntimeCall = frame_system::Call::authorize_upgrade { code_hash }.into();
+	let transact_call: D::RuntimeCall =
+		frame_system::Call::authorize_upgrade { code_hash: *code_hash }.into();
 
 	let call: T::RuntimeCall = pallet_xcm::Call::send {
 		dest: bx!(VersionedLocation::from(location)),
@@ -162,7 +163,7 @@ where
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 			Transact {
 				origin_kind: OriginKind::Superuser,
-				fallback_max_weight: Some(weight),
+				fallback_max_weight,
 				call: transact_call.encode().into(),
 			}
 		]))),
@@ -178,8 +179,5 @@ where
 	T::Runtime: frame_system::Config<Hash = H256>,
 	T::RuntimeCall: Encode,
 {
-	T::execute_with(|| {
-		let call_hash = <T::Runtime as frame_system::Config>::Hashing::hash_of(&call);
-		call_hash
-	})
+	<T::Runtime as frame_system::Config>::Hashing::hash_of(&call)
 }
