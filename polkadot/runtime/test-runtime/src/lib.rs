@@ -552,15 +552,6 @@ impl parachains_configuration::Config for Runtime {
 impl parachains_shared::Config for Runtime {
 	type DisabledValidators = Session;
 }
-
-pub struct AggregateMessageOriginConverter;
-
-impl Convert<UmpQueueId, AggregateMessageOrigin> for AggregateMessageOriginConverter {
-	fn convert(queue_id: UmpQueueId) -> AggregateMessageOrigin {
-		AggregateMessageOrigin::Ump(queue_id)
-	}
-}
-
 pub struct AggregateMessageOriginConverter;
 
 impl Convert<ParaId, AggregateMessageOrigin> for AggregateMessageOriginConverter {
