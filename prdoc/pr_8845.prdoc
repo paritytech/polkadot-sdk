@@ -9,8 +9,8 @@ crates:
   - name: sc-rpc
     bump: patch
   - name: sc-client-api
-    bump: patch
+    bump: minor
   - name: sc-service
-    bump: patch
+    bump: minor
   - name: sc-tracing
-    bump: patch
+    bump: minor
