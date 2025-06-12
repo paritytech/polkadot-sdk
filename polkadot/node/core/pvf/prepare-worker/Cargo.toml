@@ -16,7 +16,6 @@ name = "prepare_rococo_runtime"
 harness = false
 
 [dependencies]
-blake3 = { workspace = true }
 cfg-if = { workspace = true }
 gum = { workspace = true, default-features = true }
 libc = { workspace = true }
