@@ -583,7 +583,7 @@ async fn handle_execute_pvf(
 					send_execute(
 						execute_queue,
 						execute::ToQueue::Enqueue {
-							artifact: ArtifactPathId::new(artifact_id, path, checksum.clone()),
+							artifact: ArtifactPathId::new(artifact_id, path, *checksum),
 							pending_execution_request: PendingExecutionRequest {
 								exec_timeout,
 								pvd,
@@ -828,7 +828,7 @@ async fn handle_prepare_done(
 		}
 
 		let (path, checksum) = match &result {
-			Ok(success) => (success.path.clone(), success.checksum.clone()),
+			Ok(success) => (success.path.clone(), success.checksum),
 			Err(error) => {
 				let _ = result_tx.send(Err(ValidationError::from(error.clone())));
 				continue

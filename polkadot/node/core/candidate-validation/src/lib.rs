@@ -965,6 +965,8 @@ async fn validate_candidate_exhaustive(
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
 		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::RuntimeConstruction(err))) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
+		Err(ValidationError::PossiblyInvalid(err @ PossiblyInvalidError::CorruptedArtifact)) =>
+			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err.to_string()))),
 
 		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err))) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(format!(
@@ -1168,7 +1170,8 @@ trait ValidationBackend {
 					break_if_no_retries_left!(num_internal_retries_left),
 
 				Err(ValidationError::PossiblyInvalid(
-					PossiblyInvalidError::RuntimeConstruction(_),
+					PossiblyInvalidError::RuntimeConstruction(_) |
+					PossiblyInvalidError::CorruptedArtifact,
 				)) => {
 					break_if_no_retries_left!(num_runtime_construction_retries_left);
 					self.precheck_pvf(pvf.clone()).await?;
