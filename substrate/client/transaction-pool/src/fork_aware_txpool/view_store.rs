@@ -666,11 +666,16 @@ where
 				})
 				.collect::<Vec<_>>()
 		};
+		debug!(
+			target: LOG_TARGET,
+			duration = ?start.elapsed(),
+			"finish_background_revalidations before"
+		);
 		futures::future::join_all(finish_revalidation_futures).await;
 		debug!(
 			target: LOG_TARGET,
 			duration = ?start.elapsed(),
-			"finish_background_revalidations"
+			"finish_background_revalidations after"
 		);
 	}
 

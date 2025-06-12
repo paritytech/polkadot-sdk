@@ -417,7 +417,7 @@ where
 			revalidation_result_tx,
 		} = finish_revalidation_worker_channels;
 
-		trace!(
+		debug!(
 			target: LOG_TARGET,
 			at_hash = ?self.at.hash,
 			"view::revalidate: at starting"
@@ -442,7 +442,7 @@ where
 			let mut should_break = false;
 			tokio::select! {
 				_ = finish_revalidation_request_rx.recv() => {
-					trace!(
+					debug!(
 						target: LOG_TARGET,
 						at_hash = ?self.at.hash,
 						"view::revalidate: finish revalidation request received"
@@ -528,7 +528,7 @@ where
 			}
 		}
 
-		trace!(
+		debug!(
 			target: LOG_TARGET,
 			at_hash = ?self.at.hash,
 			"view::revalidate: sending revalidation result"
@@ -560,7 +560,7 @@ where
 			super::revalidation_worker::RevalidationQueue<ChainApi, ChainApi::Block>,
 		>,
 	) {
-		trace!(
+		debug!(
 			target: LOG_TARGET,
 			at_hash = ?view.at.hash,
 			"view::start_background_revalidation"

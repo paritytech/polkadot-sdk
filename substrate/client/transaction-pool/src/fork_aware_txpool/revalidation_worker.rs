@@ -30,7 +30,7 @@ use sp_runtime::traits::Block as BlockT;
 
 use super::{tx_mem_pool::TxMemPool, view_store::ViewStore};
 use futures::prelude::*;
-use tracing::{trace, warn};
+use tracing::{debug, trace, warn};
 
 use super::view::{FinishRevalidationWorkerChannels, View};
 
@@ -135,7 +135,7 @@ where
 		view: Arc<View<Api>>,
 		finish_revalidation_worker_channels: FinishRevalidationWorkerChannels<Api>,
 	) {
-		trace!(
+		debug!(
 			target: LOG_TARGET,
 			view_at_hash = ?view.at.hash,
 			"revalidation_queue::revalidate_view: Sending view to revalidation queue"
@@ -170,7 +170,7 @@ where
 		view_store: Arc<ViewStore<Api, Block>>,
 		finalized_hash: HashAndNumber<Block>,
 	) {
-		trace!(
+		debug!(
 			target: LOG_TARGET,
 			?finalized_hash,
 			"Sent mempool to revalidation queue"
