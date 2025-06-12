@@ -24,7 +24,7 @@ use polkadot_node_primitives::{
 	maybe_compress_pov, AvailableData, Collation, CollationResult, CollationSecondedSignal,
 	CollatorFn, MaybeCompressedPoV, PoV, Statement, UpwardMessages,
 };
-use polkadot_node_subsystem::{messages::CollatorProtocolMessage, PriorityLevel};
+use polkadot_node_subsystem::messages::CollatorProtocolMessage;
 use polkadot_primitives::{
 	vstaging::{
 		CandidateDescriptorV2, CandidateReceiptV2, ClaimQueueOffset, DEFAULT_CLAIM_QUEUE_OFFSET,
@@ -644,7 +644,6 @@ impl Collator {
 									core_index: *core_index,
 								},
 								"Collator",
-								PriorityLevel::Normal,
 							)
 							.await;
 					}

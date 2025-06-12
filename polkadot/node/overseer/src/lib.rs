@@ -190,8 +190,13 @@ impl Handle {
 		self.send_and_log_error(Event::BlockImported(block)).await
 	}
 
-	/// Send some message to one of the `Subsystem`s.
-	pub async fn send_msg(
+	/// Send some message with normal priority to one of the `Subsystem`s.
+	pub async fn send_msg(&mut self, msg: impl Into<AllMessages>, origin: &'static str) {
+		self.send_msg_with_priority(msg, origin, PriorityLevel::Normal).await
+	}
+
+	/// Send some message with the specified priority to one of the `Subsystem`s.
+	pub async fn send_msg_with_priority(
 		&mut self,
 		msg: impl Into<AllMessages>,
 		origin: &'static str,
@@ -203,8 +208,8 @@ impl Handle {
 
 	/// Send a message not providing an origin.
 	#[inline(always)]
-	pub async fn send_msg_anon(&mut self, msg: impl Into<AllMessages>, priority: PriorityLevel) {
-		self.send_msg(msg, "", priority).await
+	pub async fn send_msg_anon(&mut self, msg: impl Into<AllMessages>) {
+		self.send_msg(msg, "").await
 	}
 
 	/// Inform the `Overseer` that some block was finalized.
@@ -775,10 +780,10 @@ where
 						Event::MsgToSubsystem { msg, origin, priority } => {
 							match priority {
 								PriorityLevel::Normal => {
-									self.route_message::<NormalPriority>(msg.into(), origin).await?;
+									self.route_message(msg.into(), origin).await?;
 								},
 								PriorityLevel::High => {
-									self.route_message::<HighPriority>(msg.into(), origin).await?;
+									self.route_message_with_priority::<HighPriority>(msg.into(), origin).await?;
 								},
 							}
 							self.metrics.on_message_relayed();

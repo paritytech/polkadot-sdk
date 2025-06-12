@@ -79,7 +79,6 @@ impl<C: sp_blockchain::HeaderBackend<Block>> ParachainsInherentDataProvider<C> {
 				.send_msg(
 					ProvisionerMessage::RequestInherentData(parent, sender),
 					std::any::type_name::<Self>(),
-					polkadot_overseer::PriorityLevel::Normal,
 				)
 				.await;
 

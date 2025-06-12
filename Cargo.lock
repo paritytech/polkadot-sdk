@@ -11138,7 +11138,7 @@ checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 [[package]]
 name = "orchestra"
 version = "0.4.0"
-source = "git+https://github.com/paritytech/orchestra?branch=alexggh/router_priority_messages#282d82597a70cfd9712c503b4c26a2e6d8cfd5a0"
+source = "git+https://github.com/paritytech/orchestra?branch=alexggh/router_priority_messages#b2b04a841fd0ef58f364b0fd1d2bd6e7a38b945d"
 dependencies = [
  "async-trait",
  "dyn-clonable",
@@ -11154,7 +11154,7 @@ dependencies = [
 [[package]]
 name = "orchestra-proc-macro"
 version = "0.4.0"
-source = "git+https://github.com/paritytech/orchestra?branch=alexggh/router_priority_messages#282d82597a70cfd9712c503b4c26a2e6d8cfd5a0"
+source = "git+https://github.com/paritytech/orchestra?branch=alexggh/router_priority_messages#b2b04a841fd0ef58f364b0fd1d2bd6e7a38b945d"
 dependencies = [
  "expander",
  "indexmap 2.9.0",
@@ -17415,7 +17415,7 @@ dependencies = [
 [[package]]
 name = "prioritized-metered-channel"
 version = "0.6.1"
-source = "git+https://github.com/paritytech/orchestra?branch=alexggh/router_priority_messages#282d82597a70cfd9712c503b4c26a2e6d8cfd5a0"
+source = "git+https://github.com/paritytech/orchestra?branch=alexggh/router_priority_messages#b2b04a841fd0ef58f364b0fd1d2bd6e7a38b945d"
 dependencies = [
  "coarsetime",
  "crossbeam-queue",

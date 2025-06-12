@@ -18,10 +18,7 @@
 
 use polkadot_cli::{Error, Result};
 use polkadot_node_primitives::CollationGenerationConfig;
-use polkadot_node_subsystem::{
-	messages::{CollationGenerationMessage, CollatorProtocolMessage},
-	PriorityLevel,
-};
+use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProtocolMessage};
 use polkadot_primitives::Id as ParaId;
 use sc_cli::{Error as SubstrateCliError, SubstrateCli};
 use sp_core::hexdisplay::HexDisplay;
@@ -148,19 +145,11 @@ fn main() -> Result<()> {
 					para_id,
 				};
 				overseer_handle
-					.send_msg(
-						CollationGenerationMessage::Initialize(config),
-						"Collator",
-						PriorityLevel::Normal,
-					)
+					.send_msg(CollationGenerationMessage::Initialize(config), "Collator")
 					.await;
 
 				overseer_handle
-					.send_msg(
-						CollatorProtocolMessage::CollateOn(para_id),
-						"Collator",
-						PriorityLevel::Normal,
-					)
+					.send_msg(CollatorProtocolMessage::CollateOn(para_id), "Collator")
 					.await;
 
 				// If the collator is configured to behave maliciously, simulate the specified

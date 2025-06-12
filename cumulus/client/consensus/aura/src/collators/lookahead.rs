@@ -39,7 +39,6 @@ use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{ClaimQueueOffset, CollectCollationInfo, PersistedValidationData};
 use cumulus_relay_chain_interface::RelayChainInterface;
-use polkadot_overseer::PriorityLevel;
 
 use polkadot_node_primitives::SubmitCollationParams;
 use polkadot_node_subsystem::messages::CollationGenerationMessage;
@@ -445,7 +444,6 @@ where
 									},
 								),
 								"SubmitCollation",
-								PriorityLevel::Normal,
 							)
 							.await;
 

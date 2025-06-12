@@ -54,7 +54,7 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
 
 use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT};
 use polkadot_node_subsystem::messages::AvailabilityRecoveryMessage;
-use polkadot_overseer::{Handle as OverseerHandle, PriorityLevel};
+use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{
 	vstaging::{
 		CandidateReceiptV2 as CandidateReceipt,
@@ -107,7 +107,7 @@ impl RecoveryHandle for OverseerHandle {
 		message: AvailabilityRecoveryMessage,
 		origin: &'static str,
 	) {
-		self.send_msg(message, origin, PriorityLevel::Normal).await;
+		self.send_msg(message, origin).await;
 	}
 }
 
