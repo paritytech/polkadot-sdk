@@ -1,0 +1,17 @@
+title: 'Introduction of Approval Slashes'
+doc:
+- audience: [Node Operator, Runtime Dev]
+  description: |-
+    Introduces a more aggressive slashing scheme.
+    Lazy or spammy validators will from now on be slashable in disputes.
+    Even if your validator is not a backer but it approves an invalid block
+    it will be slashed 2%.
+    If your validator raises or supports fake alarms (disputes against
+    valid blocks) you will be slashed (0%) and disabled for the remainder
+    of the era, which will potentially reduce era point gains.
+
+crates:
+- name: polkadot-primitives
+  bump: minor
+- name: polkadot-runtime-parachains
+  bump: major
