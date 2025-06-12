@@ -5879,7 +5879,6 @@ dependencies = [
  "pallet-balances",
  "pallet-bridge-messages",
  "pallet-message-queue",
- "pallet-preimage",
  "pallet-whitelist",
  "pallet-xcm",
  "pallet-xcm-bridge-hub",
