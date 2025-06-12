@@ -910,7 +910,7 @@ mod tests {
 			artifact: ArtifactPathId {
 				id: artifact_id(0),
 				path: PathBuf::new(),
-				checksum: "".to_string(),
+				checksum: Default::default(),
 			},
 			exec_timeout: Duration::from_secs(10),
 			exec_kind: PvfExecKind::Approval,
@@ -1078,7 +1078,7 @@ mod tests {
 			artifact: ArtifactPathId {
 				id: artifact_id(0),
 				path: PathBuf::new(),
-				checksum: "".to_string(),
+				checksum: Default::default(),
 			},
 			exec_timeout: Duration::from_secs(1),
 			exec_kind: PvfExecKind::Backing(relevant_relay_parent),
@@ -1095,7 +1095,7 @@ mod tests {
 				artifact: ArtifactPathId {
 					id: artifact_id(0),
 					path: PathBuf::new(),
-					checksum: "".to_string(),
+					checksum: Default::default(),
 				},
 				exec_timeout: Duration::from_secs(1),
 				exec_kind: PvfExecKind::Backing(old_relay_parent),

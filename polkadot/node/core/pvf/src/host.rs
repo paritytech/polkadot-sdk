@@ -1242,14 +1242,14 @@ pub(crate) mod tests {
 		builder.artifacts.insert_prepared(
 			artifact_id(1),
 			path1.clone(),
-			"".to_string(),
+			Default::default(),
 			mock_now,
 			1024,
 		);
 		builder.artifacts.insert_prepared(
 			artifact_id(2),
 			path2.clone(),
-			"".to_string(),
+			Default::default(),
 			mock_now,
 			1024,
 		);

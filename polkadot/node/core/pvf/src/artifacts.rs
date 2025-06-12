@@ -56,7 +56,7 @@
 
 use crate::{host::PrecheckResultSender, worker_interface::WORKER_DIR_PREFIX};
 use always_assert::always;
-use polkadot_node_core_pvf_common::{error::PrepareError, pvf::PvfPrepData};
+use polkadot_node_core_pvf_common::{error::PrepareError, pvf::PvfPrepData, ArtifactChecksum};
 use polkadot_parachain_primitives::primitives::ValidationCodeHash;
 use polkadot_primitives::ExecutorParamsPrepHash;
 use std::{
@@ -120,11 +120,11 @@ impl ArtifactId {
 pub struct ArtifactPathId {
 	pub(crate) id: ArtifactId,
 	pub(crate) path: PathBuf,
-	pub(crate) checksum: String,
+	pub(crate) checksum: ArtifactChecksum,
 }
 
 impl ArtifactPathId {
-	pub(crate) fn new(artifact_id: ArtifactId, path: &Path, checksum: String) -> Self {
+	pub(crate) fn new(artifact_id: ArtifactId, path: &Path, checksum: ArtifactChecksum) -> Self {
 		Self { id: artifact_id, path: path.to_owned(), checksum }
 	}
 }
@@ -137,7 +137,7 @@ pub enum ArtifactState {
 	/// id (unless, it was removed externally).
 	Prepared {
 		/// The checksum of the compiled artifact.
-		checksum: String,
+		checksum: ArtifactChecksum,
 		/// The path of the compiled artifact.
 		path: PathBuf,
 		/// The time when the artifact was last needed.
@@ -268,7 +268,7 @@ impl Artifacts {
 		&mut self,
 		artifact_id: ArtifactId,
 		path: PathBuf,
-		checksum: String,
+		checksum: ArtifactChecksum,
 		last_time_needed: SystemTime,
 		size: u64,
 	) {
@@ -380,21 +380,21 @@ mod tests {
 		artifacts.insert_prepared(
 			artifact_id1.clone(),
 			path1.clone(),
-			"".to_string(),
+			Default::default(),
 			mock_now - Duration::from_secs(5),
 			1024,
 		);
 		artifacts.insert_prepared(
 			artifact_id2.clone(),
 			path2.clone(),
-			"".to_string(),
+			Default::default(),
 			mock_now - Duration::from_secs(10),
 			1024,
 		);
 		artifacts.insert_prepared(
 			artifact_id3.clone(),
 			path3.clone(),
-			"".to_string(),
+			Default::default(),
 			mock_now - Duration::from_secs(15),
 			1024,
 		);
@@ -428,21 +428,21 @@ mod tests {
 		artifacts.insert_prepared(
 			artifact_id1.clone(),
 			path1.clone(),
-			"".to_string(),
+			Default::default(),
 			mock_now - Duration::from_secs(5),
 			1024,
 		);
 		artifacts.insert_prepared(
 			artifact_id2.clone(),
 			path2.clone(),
-			"".to_string(),
+			Default::default(),
 			mock_now - Duration::from_secs(10),
 			1024,
 		);
 		artifacts.insert_prepared(
 			artifact_id3.clone(),
 			path3.clone(),
-			"".to_string(),
+			Default::default(),
 			mock_now - Duration::from_secs(15),
 			1024,
 		);
