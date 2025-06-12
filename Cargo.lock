@@ -15440,6 +15440,7 @@ name = "polkadot-node-core-pvf-common"
 version = "7.0.0"
 dependencies = [
  "assert_matches",
+ "blake3",
  "cpu-time",
  "futures",
  "landlock",

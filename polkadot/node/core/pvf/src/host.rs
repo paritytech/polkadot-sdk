@@ -573,7 +573,7 @@ async fn handle_execute_pvf(
 
 	if let Some(state) = artifacts.artifact_state_mut(&artifact_id) {
 		match state {
-			ArtifactState::Prepared { ref path, last_time_needed, .. } => {
+			ArtifactState::Prepared { ref path, checksum, last_time_needed, .. } => {
 				let file_metadata = std::fs::metadata(path);
 
 				if file_metadata.is_ok() {
@@ -583,7 +583,7 @@ async fn handle_execute_pvf(
 					send_execute(
 						execute_queue,
 						execute::ToQueue::Enqueue {
-							artifact: ArtifactPathId::new(artifact_id, path),
+							artifact: ArtifactPathId::new(artifact_id, path, checksum.clone()),
 							pending_execution_request: PendingExecutionRequest {
 								exec_timeout,
 								pvd,
@@ -827,8 +827,8 @@ async fn handle_prepare_done(
 			continue
 		}
 
-		let path = match &result {
-			Ok(success) => success.path.clone(),
+		let (path, checksum) = match &result {
+			Ok(success) => (success.path.clone(), success.checksum.clone()),
 			Err(error) => {
 				let _ = result_tx.send(Err(ValidationError::from(error.clone())));
 				continue
@@ -838,7 +838,7 @@ async fn handle_prepare_done(
 		send_execute(
 			execute_queue,
 			execute::ToQueue::Enqueue {
-				artifact: ArtifactPathId::new(artifact_id.clone(), &path),
+				artifact: ArtifactPathId::new(artifact_id.clone(), &path, checksum),
 				pending_execution_request: PendingExecutionRequest {
 					exec_timeout,
 					pvd,
@@ -853,8 +853,8 @@ async fn handle_prepare_done(
 	}
 
 	*state = match result {
-		Ok(PrepareSuccess { path, size, .. }) =>
-			ArtifactState::Prepared { path, last_time_needed: SystemTime::now(), size },
+		Ok(PrepareSuccess { checksum, path, size, .. }) =>
+			ArtifactState::Prepared { checksum, path, last_time_needed: SystemTime::now(), size },
 		Err(error) => {
 			let last_time_failed = SystemTime::now();
 			let num_failures = *num_failures + 1;
@@ -1239,8 +1239,20 @@ pub(crate) mod tests {
 		builder.cleanup_config = ArtifactsCleanupConfig::new(1024, Duration::from_secs(0));
 		let path1 = generate_artifact_path(cache_path);
 		let path2 = generate_artifact_path(cache_path);
-		builder.artifacts.insert_prepared(artifact_id(1), path1.clone(), mock_now, 1024);
-		builder.artifacts.insert_prepared(artifact_id(2), path2.clone(), mock_now, 1024);
+		builder.artifacts.insert_prepared(
+			artifact_id(1),
+			path1.clone(),
+			"".to_string(),
+			mock_now,
+			1024,
+		);
+		builder.artifacts.insert_prepared(
+			artifact_id(2),
+			path2.clone(),
+			"".to_string(),
+			mock_now,
+			1024,
+		);
 		let mut test = builder.build();
 		let mut host = test.host_handle();
 

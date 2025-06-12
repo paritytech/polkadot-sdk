@@ -28,6 +28,7 @@ use codec::{Decode, Encode};
 use futures::FutureExt;
 use futures_timer::Delay;
 use polkadot_node_core_pvf_common::{
+	compute_checksum,
 	error::InternalValidationError,
 	execute::{Handshake, WorkerError, WorkerResponse},
 	worker_dir, SecurityStatus,
@@ -106,6 +107,9 @@ pub enum Error {
 	#[error("The worker reported an error: {0}")]
 	WorkerError(#[from] WorkerError),
 
+	#[error("The artifact is corrupted: {0:?}")]
+	CorruptedArtifact(ArtifactPathId),
+
 	/// An internal error happened during the validation. Such an error is most likely related to
 	/// some transient glitch.
 	///
@@ -137,6 +141,14 @@ pub async fn start_work(
 		"starting execute for {}",
 		artifact.path.display(),
 	);
+
+	let artifact_checksum = tokio::fs::read(&artifact.path)
+		.await
+		.map_err(|e| InternalValidationError::CouldNotOpenFile(e.to_string()))
+		.map(|bytes| compute_checksum(&bytes))?;
+	if artifact_checksum != artifact.checksum {
+		return Err(Error::CorruptedArtifact(artifact));
+	}
 
 	with_worker_dir_setup(worker_dir, pid, &artifact.path, |worker_dir| async move {
 		send_request(&mut stream, pvd, pov, execution_timeout).await.map_err(|error| {

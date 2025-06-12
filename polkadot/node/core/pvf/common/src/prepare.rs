@@ -29,6 +29,8 @@ pub struct PrepareWorkerSuccess {
 /// Result of PVF preparation if successful.
 #[derive(Debug, Clone, Default)]
 pub struct PrepareSuccess {
+	/// Checksum of the compiled PVF.
+	pub checksum: String,
 	/// Canonical path to the compiled artifact.
 	pub path: PathBuf,
 	/// Size in bytes

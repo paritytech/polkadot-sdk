@@ -120,11 +120,12 @@ impl ArtifactId {
 pub struct ArtifactPathId {
 	pub(crate) id: ArtifactId,
 	pub(crate) path: PathBuf,
+	pub(crate) checksum: String,
 }
 
 impl ArtifactPathId {
-	pub(crate) fn new(artifact_id: ArtifactId, path: &Path) -> Self {
-		Self { id: artifact_id, path: path.to_owned() }
+	pub(crate) fn new(artifact_id: ArtifactId, path: &Path, checksum: String) -> Self {
+		Self { id: artifact_id, path: path.to_owned(), checksum }
 	}
 }
 
@@ -135,6 +136,8 @@ pub enum ArtifactState {
 	/// That means that the artifact should be accessible through the path obtained by the artifact
 	/// id (unless, it was removed externally).
 	Prepared {
+		/// The checksum of the compiled artifact.
+		checksum: String,
 		/// The path of the compiled artifact.
 		path: PathBuf,
 		/// The time when the artifact was last needed.
@@ -265,13 +268,14 @@ impl Artifacts {
 		&mut self,
 		artifact_id: ArtifactId,
 		path: PathBuf,
+		checksum: String,
 		last_time_needed: SystemTime,
 		size: u64,
 	) {
 		// See the precondition.
 		always!(self
 			.inner
-			.insert(artifact_id, ArtifactState::Prepared { path, last_time_needed, size })
+			.insert(artifact_id, ArtifactState::Prepared { path, checksum, last_time_needed, size })
 			.is_none());
 	}
 
@@ -376,18 +380,21 @@ mod tests {
 		artifacts.insert_prepared(
 			artifact_id1.clone(),
 			path1.clone(),
+			"".to_string(),
 			mock_now - Duration::from_secs(5),
 			1024,
 		);
 		artifacts.insert_prepared(
 			artifact_id2.clone(),
 			path2.clone(),
+			"".to_string(),
 			mock_now - Duration::from_secs(10),
 			1024,
 		);
 		artifacts.insert_prepared(
 			artifact_id3.clone(),
 			path3.clone(),
+			"".to_string(),
 			mock_now - Duration::from_secs(15),
 			1024,
 		);
@@ -421,18 +428,21 @@ mod tests {
 		artifacts.insert_prepared(
 			artifact_id1.clone(),
 			path1.clone(),
+			"".to_string(),
 			mock_now - Duration::from_secs(5),
 			1024,
 		);
 		artifacts.insert_prepared(
 			artifact_id2.clone(),
 			path2.clone(),
+			"".to_string(),
 			mock_now - Duration::from_secs(10),
 			1024,
 		);
 		artifacts.insert_prepared(
 			artifact_id3.clone(),
 			path3.clone(),
+			"".to_string(),
 			mock_now - Duration::from_secs(15),
 			1024,
 		);

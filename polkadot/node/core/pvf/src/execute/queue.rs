@@ -534,6 +534,7 @@ async fn handle_job_finish(
 			None,
 			None,
 		),
+		Err(WorkerInterfaceError::CorruptedArtifact(artifact_id)) => todo!(),
 	};
 
 	queue.metrics.execute_finished();
@@ -906,7 +907,11 @@ mod tests {
 		});
 		let pov = Arc::new(PoV { block_data: BlockData(b"pov".to_vec()) });
 		ExecuteJob {
-			artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() },
+			artifact: ArtifactPathId {
+				id: artifact_id(0),
+				path: PathBuf::new(),
+				checksum: "".to_string(),
+			},
 			exec_timeout: Duration::from_secs(10),
 			exec_kind: PvfExecKind::Approval,
 			pvd,
@@ -1070,7 +1075,11 @@ mod tests {
 		let mut result_rxs = vec![];
 		let (result_tx, _result_rx) = oneshot::channel();
 		let relevant_job = ExecuteJob {
-			artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() },
+			artifact: ArtifactPathId {
+				id: artifact_id(0),
+				path: PathBuf::new(),
+				checksum: "".to_string(),
+			},
 			exec_timeout: Duration::from_secs(1),
 			exec_kind: PvfExecKind::Backing(relevant_relay_parent),
 			pvd: Arc::new(PersistedValidationData::default()),
@@ -1083,7 +1092,11 @@ mod tests {
 		for _ in 0..10 {
 			let (result_tx, result_rx) = oneshot::channel();
 			let expired_job = ExecuteJob {
-				artifact: ArtifactPathId { id: artifact_id(0), path: PathBuf::new() },
+				artifact: ArtifactPathId {
+					id: artifact_id(0),
+					path: PathBuf::new(),
+					checksum: "".to_string(),
+				},
 				exec_timeout: Duration::from_secs(1),
 				exec_kind: PvfExecKind::Backing(old_relay_parent),
 				pvd: Arc::new(PersistedValidationData::default()),
