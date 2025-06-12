@@ -442,7 +442,7 @@ async fn corrupted_prepared_artifact_does_not_dispute() {
 
 	assert_matches!(
 		result,
-		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::RuntimeConstruction(_)))
+		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::CorruptedArtifact))
 	);
 
 	// because of RuntimeConstruction we may retry
