@@ -34,9 +34,9 @@ use sc_client_api::{
 		ImportNotificationAction, ImportSummary, LockImportRun, NewBlockState, StorageProvider,
 	},
 	client::{
-		BadBlocks, BlockBackend, BlockImportNotification, BlockOf, BlockchainEvents, ClientInfo,
-		FinalityNotification, FinalityNotifications, ForkBlocks, ImportNotifications,
-		PreCommitActions, ProvideUncles,
+		BadBlocks, BlockBackend, EnableProofRecording, BlockImportNotification, BlockOf,
+		BlockchainEvents, ClientInfo, FinalityNotification, FinalityNotifications, ForkBlocks,
+		ImportNotifications, PreCommitActions, ProvideUncles,
 	},
 	execution_extensions::ExecutionExtensions,
 	notifications::{StorageEventStream, StorageNotifications},
@@ -1984,6 +1984,17 @@ where
 
 	fn requires_full_sync(&self) -> bool {
 		self.backend.requires_full_sync()
+	}
+}
+
+impl<B, E, Block, RA> EnableProofRecording for Client<B, E, Block, RA>
+where
+	B: backend::Backend<Block>,
+	E: CallExecutor<Block>,
+	Block: BlockT,
+{
+	fn enable_proof_recording(&self) -> bool {
+		self.config.enable_import_proof_recording
 	}
 }
 

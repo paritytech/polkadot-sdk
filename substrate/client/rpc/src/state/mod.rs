@@ -27,7 +27,8 @@ mod tests;
 use crate::SubscriptionTaskExecutor;
 use jsonrpsee::{core::async_trait, Extensions, PendingSubscriptionSink};
 use sc_client_api::{
-	Backend, BlockBackend, BlockchainEvents, ExecutorProvider, ProofProvider, StorageProvider,
+	Backend, BlockBackend, BlockchainEvents, EnableProofRecording, ExecutorProvider, ProofProvider,
+	StorageProvider,
 };
 use sc_rpc_api::{check_if_safe, DenyUnsafe};
 use sp_api::{CallApiAt, Metadata, ProvideRuntimeApi};
@@ -178,6 +179,7 @@ where
 		+ HeaderBackend<Block>
 		+ BlockBackend<Block>
 		+ ProvideRuntimeApi<Block>
+		+ EnableProofRecording
 		+ Send
 		+ Sync
 		+ 'static,

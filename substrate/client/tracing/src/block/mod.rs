@@ -36,7 +36,7 @@ use tracing::{
 
 use crate::{SpanDatum, TraceEvent, Values};
 use sc_client_api::BlockBackend;
-use sp_api::{Core, Metadata, ProvideRuntimeApi};
+use sp_api::{ApiExt, Core, Metadata, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_core::hexdisplay::HexDisplay;
 use sp_rpc::tracing::{BlockTrace, Span, TraceBlockResponse};
@@ -45,6 +45,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header},
 };
 use sp_tracing::{WASM_NAME_KEY, WASM_TARGET_KEY, WASM_TRACE_IDENTIFIER};
+use sp_trie::proof_size_extension::ProofSizeExt;
 
 // Default to only pallet, frame support and state related traces
 const DEFAULT_TARGETS: &str = "pallet,frame,state";
@@ -167,6 +168,7 @@ pub struct BlockExecutor<Block: BlockT, Client> {
 	targets: Option<String>,
 	storage_keys: Option<String>,
 	methods: Option<String>,
+	record_proof: bool,
 }
 
 impl<Block, Client> BlockExecutor<Block, Client>
@@ -187,8 +189,9 @@ where
 		targets: Option<String>,
 		storage_keys: Option<String>,
 		methods: Option<String>,
+		record_proof: bool,
 	) -> Self {
-		Self { client, block, targets, storage_keys, methods }
+		Self { client, block, targets, storage_keys, methods, record_proof }
 	}
 
 	/// Execute block, record all spans and events belonging to `Self::targets`
@@ -228,7 +231,21 @@ where
 			if let Err(e) = dispatcher::with_default(&dispatch, || {
 				let span = tracing::info_span!(target: TRACE_TARGET, "trace_block");
 				let _enter = span.enter();
-				self.client.runtime_api().execute_block(parent_hash, block)
+
+				let mut runtime_api = self.client.runtime_api();
+
+				// Enable proof recording if requested
+				if self.record_proof {
+					// Enable proof recording
+					runtime_api.record_proof();
+					let recorder = runtime_api
+						.proof_recorder()
+								.expect("Proof recording is enabled in the line above; qed.");
+					runtime_api.register_extension(ProofSizeExt::new(recorder));
+				}
+
+				// Replay block
+				runtime_api.execute_block(parent_hash, block)
 			}) {
 				return Err(Error::Dispatch(format!(
 					"Failed to collect traces and execute block: {}",
@@ -268,6 +285,9 @@ where
 			.map(|s| s.into())
 			.collect();
 		tracing::debug!(target: "state_tracing", "Captured {} spans and {} events", spans.len(), events.len());
+
+		// Extract the proof (might not be needed)
+		let _proof = self.client.runtime_api().extract_proof();
 
 		Ok(TraceBlockResponse::BlockTrace(BlockTrace {
 			block_hash: block_id_as_string(BlockId::<Block>::Hash(self.block)),

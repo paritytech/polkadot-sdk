@@ -20599,6 +20599,7 @@ dependencies = [
  "sp-rpc",
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
+ "sp-trie 29.0.0",
  "thiserror 1.0.65",
  "tracing",
  "tracing-log",
