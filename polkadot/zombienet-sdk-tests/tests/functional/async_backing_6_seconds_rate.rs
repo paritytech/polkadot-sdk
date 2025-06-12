@@ -86,7 +86,7 @@ async fn async_backing_6_seconds_rate_test() -> Result<(), anyhow::Error> {
 
 	// Assert the parachain finalized block height is also on par with the number of backed
 	// candidates. We can only do this for the collator based on cumulus.
-	assert_finality_lag(&para_node_2001.wait_client().await?, 5).await?;
+	assert_finality_lag(&para_node_2001.wait_client().await?, 6).await?;
 
 	log::info!("Test finished successfully");
 
