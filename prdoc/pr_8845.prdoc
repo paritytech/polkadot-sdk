@@ -1,0 +1,23 @@
+---
+title: Enable proof recording in trace_block
+
+doc:
+  - audience: [Node Dev]
+    description: |
+      The RPC method `state_traceBlock` never enables proof recording, which causes it to fail on any substrate chain that uses `StorageWeightReclaim` with a storage root mismatch error.
+      
+      This PR automatically enables proof recording in `trace_block` when the client configuration has the `enable_import_proof_recording` flag enabled. This change is transparent to users and requires no configuration changes.
+
+crates:
+  - name: sc-rpc
+    bump: patch
+    note: Internal change to enable proof recording in trace_block when configured
+  - name: sc-client-api
+    bump: patch
+    note: Internal change to enable proof recording in trace_block when configured
+  - name: sc-service
+    bump: patch
+    note: Internal change to enable proof recording in trace_block when configured
+  - name: sc-tracing
+    bump: patch
+    note: Internal change to enable proof recording in trace_block when configured
