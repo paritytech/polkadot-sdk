@@ -293,12 +293,12 @@ where
 
 	/// Returns the minimum value in the current window.
 	pub fn min(&self) -> Option<T> {
-		self.by_value.iter().next().map(|(v, _)| *v)
+		self.by_value.first().map(|(v, _)| *v)
 	}
 
 	/// Returns the maximum value in the current window.
 	pub fn max(&self) -> Option<T> {
-		self.by_value.iter().next_back().map(|(v, _)| *v)
+		self.by_value.last().map(|(v, _)| *v)
 	}
 
 	/// Returns the number of items currently retained.
@@ -351,14 +351,14 @@ where
 		if len == 0 {
 			None
 		} else {
-			Some(self.entries.values().map(|e| e.value.into()).sum::<f64>() as f64 / len as f64)
+			Some(self.entries.values().map(|e| e.value.into()).sum::<f64>() / len as f64)
 		}
 	}
 
 	/// Returns the value at the given percentile (e.g., 0.5 for p50).
 	///
 	/// Returns `None` if the buffer is empty.
-	//note: copied from: https://docs.rs/statrs/0.18.0/src/statrs/statistics/slice_statistics.rs.html#164-182
+	// note: copied from: https://docs.rs/statrs/0.18.0/src/statrs/statistics/slice_statistics.rs.html#164-182
 	pub fn percentile(&self, percentile: usize) -> f64 {
 		if self.len() == 0 || percentile > 100 {
 			return f64::NAN;

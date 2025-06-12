@@ -228,7 +228,7 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 	}
 
 	/// Imports a bunch of unverified extrinsics to the pool
-	#[instrument(level = Level::TRACE, skip_all, target="txpool",name = "pool::submit_at")]
+	#[instrument(level = Level::TRACE, skip_all, target="txpool", name = "pool::submit_at")]
 	pub async fn submit_at(
 		&self,
 		at: &HashAndNumber<B::Block>,
