@@ -5,4 +5,4 @@ doc:
     This PR includes `poll_index` field to the `Voted` and `VoteRemoved` events to aid the identification of which referendum a voter voted
 crates:
 - name: pallet-conviction-voting
-  bump: minor
+  bump: major
