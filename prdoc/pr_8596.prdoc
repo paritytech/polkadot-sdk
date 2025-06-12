@@ -1,0 +1,44 @@
+title: '`fatxpool`: limits handling optimizations and fixes'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR adds some optimization and fixes in handling limits in fork-aware transaction pool.
+
+    #### Notes for reviewers
+
+    Changes made (random order):
+    - [`ChainApi`](https://github.com/paritytech/polkadot-sdk/blob/74dafaee5c600fd2c8a59a280f647f94ccf0a755/substrate/client/transaction-pool/src/graph/pool.rs#L65-L66) is now `async_trait`, [`validate_transaction`](https://github.com/paritytech/polkadot-sdk/blob/74dafaee5c600fd2c8a59a280f647f94ccf0a755/substrate/client/transaction-pool/src/graph/pool.rs#L80) is now `async` method. This was just cleanup - migrating from returning `Future` to `async` method,
+    - debug levels adjusted in numerous places places ( `debug -> trace` for tx, `trace -> debug` for general flow) for better readablity,
+    - internal TxMemPool [storage](https://github.com/paritytech/polkadot-sdk/blob/74dafaee5c600fd2c8a59a280f647f94ccf0a755/substrate/client/transaction-pool/src/fork_aware_txpool/tx_mem_pool.rs#L268-L272) is now [sorted](https://github.com/paritytech/polkadot-sdk/blob/74dafaee5c600fd2c8a59a280f647f94ccf0a755/substrate/client/transaction-pool/src/fork_aware_txpool/tx_mem_pool/tx_mem_pool_map.rs#L123-L132). A new helper exposes methods to reduce number of transaction clones (e.g. [here](https://github.com/paritytech/polkadot-sdk/blob/74dafaee5c600fd2c8a59a280f647f94ccf0a755/substrate/client/transaction-pool/src/fork_aware_txpool/fork_aware_txpool.rs#L1404-L1410), see [previous verions](https://github.com/paritytech/polkadot-sdk/blob/2863b7a9a879935ff16987d0e95065d088dad9f8/substrate/client/transaction-pool/src/fork_aware_txpool/fork_aware_txpool.rs#L1352-L1359)). This new structure eliminates the necessity of sorting transactions on the fly which was a not efficient, naive, [first](https://github.com/paritytech/polkadot-sdk/blob/e44b89fb7ca3385f314803c733ad97b26cd14e9f/substrate/client/transaction-pool/src/fork_aware_txpool/tx_mem_pool.rs#L384-L400) implementation.
+    - some _mutexes_ were migrated to `tokio::sync::Mutex` to avoid tokio threads locking,
+    - `sync` to `async` _[message](https://github.com/paritytech/polkadot-sdk/blob/74dafaee5c600fd2c8a59a280f647f94ccf0a755/substrate/client/transaction-pool/src/fork_aware_txpool/tx_mem_pool.rs#L743) based_ bridge was implemented. It's purpose is mainly to support `LocalTransactionPool / OffchainTransactionPool` infrastucture. `sync` methods can be called from both non-tokio and tokio context. This requires one additional [blocking](https://github.com/paritytech/polkadot-sdk/blob/74dafaee5c600fd2c8a59a280f647f94ccf0a755/substrate/client/transaction-pool/src/fork_aware_txpool/fork_aware_txpool.rs#L398-L402) task for transaction pool.
+    - `ViewStore::most_recent_view` is now a [reference](https://github.com/paritytech/polkadot-sdk/blob/74dafaee5c600fd2c8a59a280f647f94ccf0a755/substrate/client/transaction-pool/src/fork_aware_txpool/view_store.rs#L171) to `View`.
+    - `TXMEMPOOL_TRANSACTION_LIMIT_MULTIPLIER` removed, there is no point for buffering more. Initially intended to work as buffer accommodating transactions from two different full views (which could have different set of transactions), turned out to be a bottleneck in maintain function (it still is but aligning sizes reduced the impact),
+    - [bug](https://github.com/paritytech/polkadot-sdk/blob/74dafaee5c600fd2c8a59a280f647f94ccf0a755/substrate/client/transaction-pool/src/fork_aware_txpool/view_store.rs#L769) :see_no_evil: fixed in pre-insert actions removal
+    - [`ValidateTransactionPriority`](https://github.com/paritytech/polkadot-sdk/blob/045bc6d342620a02ee9b28d8de51f72ae680f06f/substrate/client/transaction-pool/src/graph/pool.rs#L64-L71) was added. The goal is to allow faster processing of validation requests that were made from the `maintain` context. Otherwise all requests were landing in the same queue and maintain requests could be delayed. Now the processing power is evenly 50/50 split  between _maintain_ and _submit+revalidate_ context.
+    - ~[`TransactionPool::report_invalid`](https://github.com/paritytech/polkadot-sdk/blob/74dafaee5c600fd2c8a59a280f647f94ccf0a755/substrate/client/transaction-pool/api/src/lib.rs#L314) is now `async`, function was typically used in async context, seems right to be fully async.,~ (_note_: I moved it dedicated PR: #8836).
+
+
+    Related work:
+    - https://github.com/michalkucharczyk/tx-test-tool/pull/42,
+    - https://github.com/paritytech/polkadot-sdk/pull/8152,
+
+    Todo:
+    - [x] some run should be done also for parachain,
+crates:
+- name: sc-transaction-pool
+  bump: minor
+- name: sc-basic-authorship
+  bump: minor
+- name: sc-rpc-api
+  bump: minor
+- name: sc-rpc-spec-v2
+  bump: minor
+- name: sc-rpc
+  bump: minor
+- name: sc-transaction-pool-api
+  bump: minor
+- name: sc-network
+  bump: minor
+- name: sc-network-transactions
+  bump: minor
