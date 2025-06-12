@@ -21,7 +21,7 @@
 use crate::{
 	common::{sliding_stat::DurationSlidingStats, STAT_SLIDING_WINDOW},
 	graph::ValidateTransactionPriority,
-	insert_and_log_throttled, LOG_TARGET, LOG_TARGET_STAT
+	insert_and_log_throttled, LOG_TARGET, LOG_TARGET_STAT,
 };
 use async_trait::async_trait;
 use codec::Encode;
