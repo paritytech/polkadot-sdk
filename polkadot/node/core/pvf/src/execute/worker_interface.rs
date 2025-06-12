@@ -30,7 +30,7 @@ use futures_timer::Delay;
 use polkadot_node_core_pvf_common::{
 	compute_checksum,
 	error::InternalValidationError,
-	execute::{Handshake, WorkerError, WorkerResponse},
+	execute::{Handshake, JobResponse, WorkerError, WorkerResponse},
 	worker_dir, SecurityStatus,
 };
 use polkadot_node_primitives::PoV;
@@ -107,9 +107,6 @@ pub enum Error {
 	#[error("The worker reported an error: {0}")]
 	WorkerError(#[from] WorkerError),
 
-	#[error("The artifact is corrupted: {0:?}")]
-	CorruptedArtifact(ArtifactPathId),
-
 	/// An internal error happened during the validation. Such an error is most likely related to
 	/// some transient glitch.
 	///
@@ -147,7 +144,20 @@ pub async fn start_work(
 		.map_err(|e| InternalValidationError::CouldNotOpenFile(e.to_string()))
 		.map(|bytes| compute_checksum(&bytes))?;
 	if artifact_checksum != artifact.checksum {
-		return Err(Error::CorruptedArtifact(artifact));
+		gum::warn!(
+			target: LOG_TARGET,
+			worker_pid = %pid,
+			validation_code_hash = ?artifact.id.code_hash,
+			"artifact checksum mismatch, re-prepare the artifact and try again",
+		);
+		return Ok(Response {
+			worker_response: WorkerResponse {
+				job_response: JobResponse::CorruptedArtifact,
+				duration: Duration::ZERO,
+				pov_size: 0,
+			},
+			idle_worker: IdleWorker { stream, pid, worker_dir },
+		});
 	}
 
 	with_worker_dir_setup(worker_dir, pid, &artifact.path, |worker_dir| async move {

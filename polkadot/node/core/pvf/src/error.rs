@@ -98,6 +98,9 @@ pub enum PossiblyInvalidError {
 	/// Possibly related to local issues or dirty node update. May be retried with re-preparation.
 	#[error("possibly invalid: runtime construction: {0}")]
 	RuntimeConstruction(String),
+	/// The artifact is corrupted, re-prepare the artifact and try again.
+	#[error("possibly invalid: artifact is corrupted")]
+	CorruptedArtifact,
 }
 
 impl From<PrepareError> for ValidationError {

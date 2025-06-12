@@ -503,6 +503,26 @@ async fn handle_job_finish(
 				None,
 			)
 		},
+		Ok(WorkerInterfaceResponse {
+			worker_response: WorkerResponse { job_response: JobResponse::CorruptedArtifact, .. },
+			idle_worker,
+		}) => {
+			let (tx, rx) = oneshot::channel();
+			queue
+				.from_queue_tx
+				.unbounded_send(FromQueue::RemoveArtifact {
+					artifact: artifact_id.clone(),
+					reply_to: tx,
+				})
+				.expect("from execute queue receiver is listened by the host; qed");
+			(
+				Some(idle_worker),
+				Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::CorruptedArtifact)),
+				None,
+				Some(rx),
+				None,
+			)
+		},
 
 		Err(WorkerInterfaceError::InternalError(err)) |
 		Err(WorkerInterfaceError::WorkerError(WorkerError::InternalError(err))) =>
@@ -534,7 +554,6 @@ async fn handle_job_finish(
 			None,
 			None,
 		),
-		Err(WorkerInterfaceError::CorruptedArtifact(artifact_id)) => todo!(),
 	};
 
 	queue.metrics.execute_finished();
