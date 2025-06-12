@@ -9,6 +9,7 @@ source "$FRAMEWORK_PATH/utils/zombienet.sh"
 # whether to init the chains (open HRMP channels, set XCM version, create reserve assets, etc)
 init=0
 start_relayer=0
+permlanes=0
 while [ $# -ne 0 ]
 do
     arg="$1"
@@ -18,6 +19,9 @@ do
             ;;
         --start-relayer)
             start_relayer=1
+            ;;
+        --permlanes)
+            permlanes=1
             ;;
     esac
     shift
@@ -68,4 +72,9 @@ echo $westend_dir > $TEST_DIR/westend.env
 echo
 
 wait -n $rococo_pid $westend_pid $finality_relayer_pid $parachains_relayer_pid $messages_relayer_pid
+
+if [[ $permlanes -eq 1 ]] then
+  $
+
+
 kill -9 -$$
