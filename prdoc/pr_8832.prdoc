@@ -1,0 +1,10 @@
+title: increase session index cache
+doc:
+- audience: Node Dev
+  description: |-
+    A 10 session index cache is not enough when you run under intense pressure and finality is lagg since you will end requesting the session index for blocks older than that. So let's make this cache larger to achieve its purpose even under intense load when it actually matters more to be faster.
+
+    The session_index_cache keeps a Hash and a u32, so that's about 36 bytes per entry, with this increase it can grow up to 65k which is not that big in my book.
+crates:
+- name: polkadot-node-subsystem-util
+  bump: patch
