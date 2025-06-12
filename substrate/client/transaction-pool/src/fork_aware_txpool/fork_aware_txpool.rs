@@ -83,6 +83,12 @@ use tracing::{debug, info, instrument, trace, warn, Level};
 /// as stale and are subject to cleanup.
 const FINALITY_TIMEOUT_THRESHOLD: usize = 128;
 
+/// The number of transactions that will be sent from the mempool to the newly created view during
+/// the maintain process.
+//todo [#8835]: better approach is needed - maybe time-budget approach?
+//note: yap parachain block size.
+const MEMPOOL_TO_VIEW_BATCH_SIZE: usize = 7_000;
+
 /// Fork aware transaction pool task, that needs to be polled.
 pub type ForkAwareTxPoolTask = Pin<Box<dyn Future<Output = ()> + Send>>;
 
@@ -1478,6 +1484,8 @@ where
 			.with_transactions(|iter| {
 				iter.filter(|(hash, _)| !view.is_imported(&hash) && !included_xts.contains(&hash))
 					.map(|(k, v)| (*k, v.clone()))
+					//todo [#8835]: better approach is needed - maybe time-budget approach?
+					.take(MEMPOOL_TO_VIEW_BATCH_SIZE)
 					.collect::<HashMap<_, _>>()
 			})
 			.await
