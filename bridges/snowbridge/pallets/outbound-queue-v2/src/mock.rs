@@ -101,8 +101,8 @@ parameter_types! {
 
 pub const DOT: u128 = 10_000_000_000;
 
-pub struct OriginToAggregateMessageOrigin;
-impl Convert<H256, AggregateMessageOrigin> for OriginToAggregateMessageOrigin {
+pub struct AggregateMessageOriginConverter;
+impl Convert<H256, AggregateMessageOrigin> for AggregateMessageOriginConverter {
 	fn convert(origin: H256) -> AggregateMessageOrigin {
 		AggregateMessageOrigin::SnowbridgeV2(origin)
 	}
@@ -127,7 +127,7 @@ impl crate::Config for Test {
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;
 	type AggregateMessageOrigin = AggregateMessageOrigin;
-	type OriginToAggregateMessageOrigin = OriginToAggregateMessageOrigin;
+	type AggregateMessageOriginConverter = AggregateMessageOriginConverter;
 }
 
 fn setup() {

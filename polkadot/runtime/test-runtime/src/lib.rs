@@ -553,9 +553,9 @@ impl parachains_shared::Config for Runtime {
 	type DisabledValidators = Session;
 }
 
-pub struct OriginToAggregateMessageOrigin;
+pub struct AggregateMessageOriginConverter;
 
-impl Convert<UmpQueueId, AggregateMessageOrigin> for OriginToAggregateMessageOrigin {
+impl Convert<UmpQueueId, AggregateMessageOrigin> for AggregateMessageOriginConverter {
 	fn convert(queue_id: UmpQueueId) -> AggregateMessageOrigin {
 		AggregateMessageOrigin::Ump(queue_id)
 	}

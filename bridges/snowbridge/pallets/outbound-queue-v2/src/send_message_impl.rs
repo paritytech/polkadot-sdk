@@ -32,7 +32,7 @@ where
 	}
 
 	fn deliver(ticket: Self::Ticket) -> Result<H256, SendError> {
-		let origin = T::OriginToAggregateMessageOrigin::convert(ticket.origin);
+		let origin = T::AggregateMessageOriginConverter::convert(ticket.origin);
 
 		let message =
 			BoundedVec::try_from(ticket.encode()).map_err(|_| SendError::MessageTooLarge)?;
