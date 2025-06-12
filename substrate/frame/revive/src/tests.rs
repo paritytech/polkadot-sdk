@@ -519,6 +519,14 @@ fn instantiate_and_call_and_deposit_event() {
 					}),
 					topics: vec![],
 				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Contracts(crate::Event::Instantiated {
+						deployer: ALICE_ADDR,
+						contract: addr
+					}),
+					topics: vec![],
+				},
 			]
 		);
 	});
@@ -2220,6 +2228,14 @@ fn instantiate_with_zero_balance_works() {
 					}),
 					topics: vec![],
 				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Contracts(crate::Event::Instantiated {
+						deployer: ALICE_ADDR,
+						contract: addr,
+					}),
+					topics: vec![],
+				},
 			]
 		);
 	});
@@ -2283,6 +2299,14 @@ fn instantiate_with_below_existential_deposit_works() {
 						from: ALICE,
 						to: account_id.clone(),
 						amount: 50,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Contracts(crate::Event::Instantiated {
+						deployer: ALICE_ADDR,
+						contract: addr,
 					}),
 					topics: vec![],
 				},
