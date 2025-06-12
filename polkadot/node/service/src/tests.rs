@@ -20,6 +20,7 @@ use futures::channel::oneshot::Receiver;
 use polkadot_node_primitives::approval::v2::VrfSignature;
 use polkadot_node_subsystem::messages::{AllMessages, BlockDescription};
 use polkadot_node_subsystem_util::TimeoutExt;
+use polkadot_overseer::{HighPriority, PriorityLevel};
 use polkadot_test_client::Sr25519Keyring;
 use sp_consensus_babe::{
 	digests::{CompatibleDigestItem, PreDigest, SecondaryVRFPreDigest},
@@ -52,6 +53,26 @@ type VirtualOverseer =
 impl OverseerHandleT for TestSubsystemSender {
 	async fn send_msg<M: Send + Into<AllMessages>>(&mut self, msg: M, _origin: &'static str) {
 		TestSubsystemSender::send_message(self, msg.into()).await;
+	}
+}
+
+#[async_trait::async_trait]
+impl OverseerHandleWithPriorityT for TestSubsystemSender {
+	async fn send_msg_with_priority<M: Send + Into<AllMessages>>(
+		&mut self,
+		msg: M,
+		_origin: &'static str,
+		priority: PriorityLevel,
+	) {
+		match priority {
+			PriorityLevel::High => {
+				TestSubsystemSender::send_message_with_priority::<HighPriority>(self, msg.into())
+					.await;
+			},
+			PriorityLevel::Normal => {
+				TestSubsystemSender::send_message(self, msg.into()).await;
+			},
+		}
 	}
 }
 

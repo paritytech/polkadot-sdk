@@ -238,7 +238,7 @@ pub struct SelectRelayChainInner<B, OH> {
 impl<B, OH> SelectRelayChainInner<B, OH>
 where
 	B: HeaderProviderProvider<PolkadotBlock>,
-	OH: OverseerHandleT,
+	OH: OverseerHandleT + OverseerHandleWithPriorityT,
 {
 	/// Create a new [`SelectRelayChainInner`] wrapping the given chain backend
 	/// and a handle to the overseer.
@@ -286,7 +286,7 @@ where
 impl<B, OH> Clone for SelectRelayChainInner<B, OH>
 where
 	B: HeaderProviderProvider<PolkadotBlock> + Send + Sync,
-	OH: OverseerHandleT,
+	OH: OverseerHandleT + OverseerHandleWithPriorityT,
 {
 	fn clone(&self) -> Self {
 		SelectRelayChainInner {
