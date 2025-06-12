@@ -88,11 +88,11 @@ pub fn framed_recv_blocking(r: &mut (impl Read + Unpin)) -> io::Result<Vec<u8>> 
 	Ok(buf)
 }
 
-pub type ArtifactChecksum = blake3::Hash;
+pub type ArtifactChecksum = [u8; 32];
 
 /// Compute the checksum of the given artifact.
 pub fn compute_checksum(data: &[u8]) -> ArtifactChecksum {
-	blake3::hash(data)
+	blake3::hash(data).into()
 }
 
 #[cfg(all(test, not(feature = "test-utils")))]
