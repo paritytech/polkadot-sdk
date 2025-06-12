@@ -6,17 +6,3 @@ doc:
 crates:
 - name: sc-transaction-pool
   bump: minor
-- name: sc-basic-authorship
-  bump: minor
-- name: sc-rpc-api
-  bump: minor
-- name: sc-rpc-spec-v2
-  bump: minor
-- name: sc-rpc
-  bump: minor
-- name: sc-transaction-pool-api
-  bump: minor
-- name: sc-network
-  bump: minor
-- name: sc-network-transactions
-  bump: minor
