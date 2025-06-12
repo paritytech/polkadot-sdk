@@ -31,9 +31,9 @@ use crate::{
 	limits,
 	storage::meter::Meter,
 	transient_storage::MeterEntry,
-	wasm::{PreparedCall, Runtime},
-	BalanceOf, Code, CodeInfoOf, Config, ContractInfo, ContractInfoOf, DepositLimit, Error,
-	GasMeter, MomentOf, Origin, Pallet as Contracts, PristineCode, WasmBlob, Weight,
+	vm::{PreparedCall, Runtime},
+	BalanceOf, Code, CodeInfoOf, Config, ContractBlob, ContractInfo, ContractInfoOf, DepositLimit,
+	Error, GasMeter, MomentOf, Origin, Pallet as Contracts, PristineCode, Weight,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::{storage::child, traits::fungible::Mutate};
@@ -43,7 +43,7 @@ use sp_core::{Get, H160, H256, U256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::traits::{Bounded, Hash};
 
-type StackExt<'a, T> = Stack<'a, T, WasmBlob<T>>;
+type StackExt<'a, T> = Stack<'a, T, ContractBlob<T>>;
 
 /// A builder used to prepare a contract call.
 pub struct CallSetup<T: Config> {
@@ -65,7 +65,7 @@ where
 	T::Hash: frame_support::traits::IsType<H256>,
 {
 	fn default() -> Self {
-		Self::new(WasmModule::dummy())
+		Self::new(VmBinaryModule::dummy())
 	}
 }
 
@@ -77,7 +77,7 @@ where
 	T::Hash: frame_support::traits::IsType<H256>,
 {
 	/// Setup a new call for the given module.
-	pub fn new(module: WasmModule) -> Self {
+	pub fn new(module: VmBinaryModule) -> Self {
 		let contract = Contract::<T>::new(module, vec![]).unwrap();
 		let dest = contract.account_id.clone();
 		let origin = Origin::from_account_id(contract.caller.clone());
@@ -149,7 +149,7 @@ where
 	}
 
 	/// Build the call stack.
-	pub fn ext(&mut self) -> (StackExt<'_, T>, WasmBlob<T>) {
+	pub fn ext(&mut self) -> (StackExt<'_, T>, ContractBlob<T>) {
 		let mut ext = StackExt::bench_new_call(
 			T::AddressMapper::to_address(&self.dest),
 			self.origin.clone(),
@@ -166,7 +166,7 @@ where
 	/// Prepare a call to the module.
 	pub fn prepare_call<'a>(
 		ext: &'a mut StackExt<'a, T>,
-		module: WasmBlob<T>,
+		module: ContractBlob<T>,
 		input: Vec<u8>,
 		aux_data_size: u32,
 	) -> PreparedCall<'a, StackExt<'a, T>> {
@@ -229,7 +229,7 @@ where
 	T::Hash: frame_support::traits::IsType<H256>,
 {
 	/// Create new contract and use a default account id as instantiator.
-	pub fn new(module: WasmModule, data: Vec<u8>) -> Result<Contract<T>, &'static str> {
+	pub fn new(module: VmBinaryModule, data: Vec<u8>) -> Result<Contract<T>, &'static str> {
 		let caller = T::AddressMapper::to_fallback_account_id(&crate::test_utils::ALICE_ADDR);
 		Self::with_caller(caller, module, data)
 	}
@@ -238,7 +238,7 @@ where
 	#[cfg(feature = "runtime-benchmarks")]
 	pub fn with_index(
 		index: u32,
-		module: WasmModule,
+		module: VmBinaryModule,
 		data: Vec<u8>,
 	) -> Result<Contract<T>, &'static str> {
 		Self::with_caller(frame_benchmarking::account("instantiator", index, 0), module, data)
@@ -247,7 +247,7 @@ where
 	/// Create new contract and use the supplied `caller` as instantiator.
 	pub fn with_caller(
 		caller: T::AccountId,
-		module: WasmModule,
+		module: VmBinaryModule,
 		data: Vec<u8>,
 	) -> Result<Contract<T>, &'static str> {
 		T::Currency::set_balance(&caller, caller_funding::<T>());
@@ -283,7 +283,7 @@ where
 
 	/// Create a new contract with the supplied storage item count and size each.
 	pub fn with_storage(
-		code: WasmModule,
+		code: VmBinaryModule,
 		stor_num: u32,
 		stor_size: u32,
 	) -> Result<Self, &'static str> {
@@ -314,7 +314,7 @@ where
 
 	/// Create a new contract with the specified unbalanced storage trie.
 	pub fn with_unbalanced_storage_trie(
-		code: WasmModule,
+		code: VmBinaryModule,
 		key: &[u8],
 	) -> Result<Self, &'static str> {
 		/// Number of layers in a Radix16 unbalanced trie.
@@ -375,14 +375,14 @@ where
 	}
 }
 
-/// A wasm module ready to be put on chain.
+/// A vm binary module ready to be put on chain.
 #[derive(Clone)]
-pub struct WasmModule {
+pub struct VmBinaryModule {
 	pub code: Vec<u8>,
 	pub hash: H256,
 }
 
-impl WasmModule {
+impl VmBinaryModule {
 	/// Return a contract code that does nothing.
 	pub fn dummy() -> Self {
 		Self::new(bench_fixtures::DUMMY.to_vec())
@@ -395,7 +395,7 @@ impl WasmModule {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-impl WasmModule {
+impl VmBinaryModule {
 	/// Same as [`Self::dummy`] but uses `replace_with` to make the code unique.
 	pub fn dummy_unique(replace_with: u32) -> Self {
 		Self::new(bench_fixtures::dummy_unique(replace_with))
