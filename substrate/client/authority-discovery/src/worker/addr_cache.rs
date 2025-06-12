@@ -16,13 +16,16 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use sc_network::{multiaddr::Protocol, Multiaddr};
+use sc_network::{multiaddr::Protocol, Multiaddr, multiaddr::ParseError};
 use sc_network_types::PeerId;
 use sp_authority_discovery::AuthorityId;
 use std::collections::{hash_map::Entry, HashMap, HashSet};
+use codec::{Decode, Encode};
+use crate::error::Error;
 
 /// Cache for [`AuthorityId`] -> [`HashSet<Multiaddr>`] and [`PeerId`] -> [`HashSet<AuthorityId>`]
 /// mappings.
+#[derive(Clone, Debug, Default, PartialEq)]
 pub(super) struct AddrCache {
 	/// The addresses found in `authority_id_to_addresses` are guaranteed to always match
 	/// the peerids found in `peer_id_to_authority_ids`. In other words, these two hashmaps
@@ -37,10 +40,7 @@ pub(super) struct AddrCache {
 
 impl AddrCache {
 	pub fn new() -> Self {
-		AddrCache {
-			authority_id_to_addresses: HashMap::new(),
-			peer_id_to_authority_ids: HashMap::new(),
-		}
+		AddrCache::default()
 	}
 
 	/// Inserts the given [`AuthorityId`] and [`Vec<Multiaddr>`] pair for future lookups by
@@ -171,6 +171,140 @@ fn peer_id_from_multiaddr(addr: &Multiaddr) -> Option<PeerId> {
 fn addresses_to_peer_ids(addresses: &HashSet<Multiaddr>) -> HashSet<PeerId> {
 	addresses.iter().filter_map(peer_id_from_multiaddr).collect::<HashSet<_>>()
 }
+
+trait Codable: Encode + Decode {}
+impl<T: Encode + Decode> Codable for T {}
+
+#[derive(Clone, Debug, Encode, Decode)]
+struct CodablePair<T, U> where T: Codable, U: Codable {
+	first: T,
+	second: U,
+}
+impl<T, U> CodablePair<T, U> where T: Codable, U: Codable {
+	pub fn new(first: T, second: U) -> Self {
+		CodablePair { first, second }
+	}
+}
+
+
+/// A codable version of the [`AddrCache`] that can be used for serialization,
+/// implements Encode and Decode traits, by holding variants of `Multiaddr` and `PeerId` that
+/// can be encoded and decoded.
+/// This is used for storing the cache in the database.
+#[derive(Clone, Debug, Encode, Decode)]
+pub(super) struct CodableAddrCache {
+	authority_id_to_addresses: Vec<CodablePair<AuthorityId, Vec<CodableMultiaddr>>>,
+	peer_id_to_authority_ids: Vec<CodablePair<CodablePeerId, Vec<AuthorityId>>>,
+}
+impl From<AddrCache> for CodableAddrCache {
+	fn from(addr_cache: AddrCache) -> Self {
+
+		let authority_id_to_addresses = addr_cache.authority_id_to_addresses
+		.into_iter()
+		.map(|(authority_id, addresses)| {
+			let addresses = addresses
+				.into_iter()
+				.map(CodableMultiaddr::from)
+				.collect::<Vec<_>>();
+			CodablePair::new(authority_id, addresses)
+		})
+		.collect::<Vec<_>>();
+
+		let peer_id_to_authority_ids = addr_cache
+			.peer_id_to_authority_ids
+			.into_iter()
+			.map(|(peer_id, authority_ids)| {
+				CodablePair::new(CodablePeerId::from(peer_id), authority_ids.into_iter().collect::<Vec<_>>())
+			})
+			.collect::<Vec<_>>();
+
+		CodableAddrCache {
+			authority_id_to_addresses,
+			peer_id_to_authority_ids
+		}
+	}
+}
+
+impl TryFrom<CodableAddrCache> for AddrCache {
+	type Error = crate::Error;
+
+	fn try_from(value: CodableAddrCache) -> Result<Self, Self::Error> {
+		let authority_id_to_addresses = value
+			.authority_id_to_addresses
+			.into_iter()
+			.map(|pair| {
+				let authority_id = pair.first;
+				let addresses = pair.second;
+				let addresses = addresses
+					.into_iter()
+					.map(|ma| Multiaddr::try_from(ma).map_err(|e| {
+						Error::EncodingDecodingAddrCache(e.to_string())
+					}))
+					.collect::<Result<HashSet<Multiaddr>, Self::Error>>()?;
+				Ok((authority_id, addresses))
+			})
+			.collect::<Result<HashMap::<AuthorityId, HashSet::<Multiaddr>>, Self::Error>>()?;
+
+		let peer_id_to_authority_ids = value
+			.peer_id_to_authority_ids
+			.into_iter()
+			.map(|pair| {
+				let peer_id = PeerId::try_from(pair.first)?;
+				let authority_ids = pair.second;
+				Ok((peer_id, authority_ids.into_iter().collect::<HashSet::<AuthorityId>>()))
+			})
+			.collect::<Result<HashMap<PeerId, HashSet<AuthorityId>>, Self::Error>>()?;
+
+
+		Ok(AddrCache {
+			authority_id_to_addresses,
+			peer_id_to_authority_ids,
+		})
+	}
+}
+
+/// A codable version of [`PeerId`] that can be used for serialization,
+#[derive(Clone, Debug, PartialEq, Encode, Decode)]
+struct CodablePeerId {
+	encoded_peer_id: Vec<u8>,
+}
+
+impl From<PeerId> for CodablePeerId {
+	fn from(peer_id: PeerId) -> Self {
+		CodablePeerId {
+			encoded_peer_id: peer_id.to_bytes(),
+		}
+	}
+}
+impl TryFrom<CodablePeerId> for PeerId {
+	type Error = Error;
+
+	fn try_from(value: CodablePeerId) -> Result<Self, Self::Error> {
+		PeerId::from_bytes(&value.encoded_peer_id).map_err(|e| Error::EncodingDecodingAddrCache(e.to_string()))
+	}
+}
+
+/// A codable version of [`Multiaddr`] that can be used for serialization,
+#[derive(Clone, Debug, PartialEq, Encode, Decode)]
+struct CodableMultiaddr {
+	/// `Multiaddr` holds a single `LiteP2pMultiaddr`, which holds `Arc<Vec<u8>>`.
+	bytes: Vec<u8>,
+}
+impl From<Multiaddr> for CodableMultiaddr {
+	fn from(multiaddr: Multiaddr) -> Self {
+		CodableMultiaddr {
+			bytes: multiaddr.to_vec(),
+		}
+	}
+}
+impl TryFrom<CodableMultiaddr> for Multiaddr {
+	type Error = ParseError;
+
+	fn try_from(value: CodableMultiaddr) -> Result<Self, Self::Error> {
+		Multiaddr::try_from(value.bytes)
+	}
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -380,5 +514,25 @@ mod tests {
 			&HashSet::from([addr]),
 			addr_cache.get_addresses_by_authority_id(&authority_id1).unwrap()
 		);
+	}
+
+	#[test]
+	fn addr_cache_codable_roundtrip() {
+		let cache = {
+			let mut addr_cache = AddrCache::new();
+
+			let peer_id = PeerId::random();
+			let addr = Multiaddr::empty().with(Protocol::P2p(peer_id.into()));
+
+			let authority_id0 = AuthorityPair::generate().0.public();
+			let authority_id1 = AuthorityPair::generate().0.public();
+
+			addr_cache.insert(authority_id0.clone(), vec![addr.clone()]);
+			addr_cache.insert(authority_id1.clone(), vec![addr.clone()]);
+			addr_cache
+		};
+		let codable = CodableAddrCache::from(cache.clone());
+		let from_codable = AddrCache::try_from(codable).expect("Decoding should not fail");
+		assert_eq!(cache, from_codable);
 	}
 }
