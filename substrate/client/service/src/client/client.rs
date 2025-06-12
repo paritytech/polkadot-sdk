@@ -34,8 +34,8 @@ use sc_client_api::{
 		ImportNotificationAction, ImportSummary, LockImportRun, NewBlockState, StorageProvider,
 	},
 	client::{
-		BadBlocks, BlockBackend, EnableProofRecording, BlockImportNotification, BlockOf,
-		BlockchainEvents, ClientInfo, FinalityNotification, FinalityNotifications, ForkBlocks,
+		BadBlocks, BlockBackend, BlockImportNotification, BlockOf, BlockchainEvents, ClientInfo,
+		EnableProofRecording, FinalityNotification, FinalityNotifications, ForkBlocks,
 		ImportNotifications, PreCommitActions, ProvideUncles,
 	},
 	execution_extensions::ExecutionExtensions,

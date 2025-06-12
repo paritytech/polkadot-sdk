@@ -240,7 +240,7 @@ where
 					runtime_api.record_proof();
 					let recorder = runtime_api
 						.proof_recorder()
-								.expect("Proof recording is enabled in the line above; qed.");
+						.expect("Proof recording is enabled in the line above; qed.");
 					runtime_api.register_extension(ProofSizeExt::new(recorder));
 				}
 
