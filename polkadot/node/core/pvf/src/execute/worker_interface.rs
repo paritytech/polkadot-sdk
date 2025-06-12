@@ -28,10 +28,9 @@ use codec::{Decode, Encode};
 use futures::FutureExt;
 use futures_timer::Delay;
 use polkadot_node_core_pvf_common::{
-	compute_checksum,
 	error::InternalValidationError,
-	execute::{Handshake, JobResponse, WorkerError, WorkerResponse},
-	worker_dir, SecurityStatus,
+	execute::{Handshake, WorkerError, WorkerResponse},
+	worker_dir, ArtifactChecksum, SecurityStatus,
 };
 use polkadot_node_primitives::PoV;
 use polkadot_primitives::{ExecutorParams, PersistedValidationData};
@@ -139,38 +138,19 @@ pub async fn start_work(
 		artifact.path.display(),
 	);
 
-	let artifact_checksum = tokio::fs::read(&artifact.path)
-		.await
-		.map_err(|e| InternalValidationError::CouldNotOpenFile(e.to_string()))
-		.map(|bytes| compute_checksum(&bytes))?;
-	if artifact_checksum != artifact.checksum {
-		gum::warn!(
-			target: LOG_TARGET,
-			worker_pid = %pid,
-			validation_code_hash = ?artifact.id.code_hash,
-			"artifact checksum mismatch, re-prepare the artifact and try again",
-		);
-		return Ok(Response {
-			worker_response: WorkerResponse {
-				job_response: JobResponse::CorruptedArtifact,
-				duration: Duration::ZERO,
-				pov_size: 0,
-			},
-			idle_worker: IdleWorker { stream, pid, worker_dir },
-		});
-	}
-
 	with_worker_dir_setup(worker_dir, pid, &artifact.path, |worker_dir| async move {
-		send_request(&mut stream, pvd, pov, execution_timeout).await.map_err(|error| {
-			gum::warn!(
-				target: LOG_TARGET,
-				worker_pid = %pid,
-				validation_code_hash = ?artifact.id.code_hash,
-				"failed to send an execute request: {}",
-				error,
-			);
-			Error::InternalError(InternalValidationError::HostCommunication(error.to_string()))
-		})?;
+		send_request(&mut stream, pvd, pov, execution_timeout, artifact.checksum)
+			.await
+			.map_err(|error| {
+				gum::warn!(
+					target: LOG_TARGET,
+					worker_pid = %pid,
+					validation_code_hash = ?artifact.id.code_hash,
+					"failed to send an execute request: {}",
+					error,
+				);
+				Error::InternalError(InternalValidationError::HostCommunication(error.to_string()))
+			})?;
 
 		// We use a generous timeout here. This is in addition to the one in the child process, in
 		// case the child stalls. We have a wall clock timeout here in the host, but a CPU timeout
@@ -313,10 +293,12 @@ async fn send_request(
 	pvd: Arc<PersistedValidationData>,
 	pov: Arc<PoV>,
 	execution_timeout: Duration,
+	artifact_checksum: ArtifactChecksum,
 ) -> io::Result<()> {
 	framed_send(stream, &pvd.encode()).await?;
 	framed_send(stream, &pov.encode()).await?;
-	framed_send(stream, &execution_timeout.encode()).await
+	framed_send(stream, &execution_timeout.encode()).await?;
+	framed_send(stream, &artifact_checksum.encode()).await
 }
 
 async fn recv_result(stream: &mut UnixStream) -> io::Result<Result<WorkerResponse, WorkerError>> {
