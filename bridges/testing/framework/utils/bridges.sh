@@ -189,6 +189,10 @@ function open_hrmp_channels() {
             ${max_message_size}
 }
 
+function open_permissionless_lanes() {
+    local runtime_para_endpoint=$1
+    local seed=$2
+
 function force_xcm_version() {
     local relay_url=$1
     local relay_chain_seed=$2
