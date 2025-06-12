@@ -49,9 +49,9 @@ mod candidates;
 /// When traversing the ancestry of a block we will stop once we hit a hash that we find in the
 /// `last_observed_blocks` LRU. This means, this value should the very least be as large as the
 /// number of expected forks for keeping chain scraping efficient. Making the LRU much larger than
-/// that has very limited use. 
+/// that has very limited use.
 /// In cases of high load when finality lags, forks could appear anywhere from the last finalized
-/// block to best, hence this number needs to be large enough to hold all the hashes from best to 
+/// block to best, hence this number needs to be large enough to hold all the hashes from best to
 /// finalized.
 const LRU_OBSERVED_BLOCKS_CAPACITY: u32 = 2 * MAX_FINALITY_LAG;
 
