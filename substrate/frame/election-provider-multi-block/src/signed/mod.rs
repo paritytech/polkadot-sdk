@@ -979,11 +979,27 @@ impl<T: Config> Pallet<T> {
 			Self::deposit_event(Event::<T>::Slashed(current_round, loser.clone(), slash));
 
 			// Try to start verification again if we still have submissions
-			if crate::Pallet::<T>::current_phase().is_signed_validation() &&
-				Submissions::<T>::has_leader(current_round)
+			if let crate::types::Phase::SignedValidation(remaining_blocks) =
+				crate::Pallet::<T>::current_phase()
 			{
-				// defensive: verifier just reported back a result, it must be in clear state.
-				let _ = <T::Verifier as AsynchronousVerifier>::start().defensive();
+				// Only start verification if there are sufficient blocks remaining
+				// Note: SignedValidation(N) means N+1 blocks remaining in the phase
+				let actual_blocks_remaining = remaining_blocks.saturating_add(One::one());
+				if actual_blocks_remaining >= T::Pages::get().into() {
+					if Submissions::<T>::has_leader(current_round) {
+						// defensive: verifier just reported back a result, it must be in clear
+						// state.
+						let _ = <T::Verifier as AsynchronousVerifier>::start().defensive();
+					}
+				} else {
+					sublog!(
+								warn,
+								"signed",
+								"SignedValidation phase has {} blocks remaining, which are insufficient for {} pages",
+								actual_blocks_remaining,
+								T::Pages::get()
+							);
+				}
 			}
 		} else {
 			// No leader to slash; nothing to do.
