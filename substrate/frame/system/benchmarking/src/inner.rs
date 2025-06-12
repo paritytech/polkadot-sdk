@@ -205,7 +205,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		authorize_upgrade(RawOrigin::Root, hash);
 
-		assert!(System::<T>::authorized_upgrade().is_some());
+		assert_eq!(System::<T>::authorized_upgrade().unwrap().code_hash(), &hash);
 		Ok(())
 	}
 
