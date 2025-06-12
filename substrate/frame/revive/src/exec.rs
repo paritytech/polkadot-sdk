@@ -454,8 +454,8 @@ pub enum ExportedFunction {
 
 /// A trait that represents something that can be executed.
 ///
-/// In the on-chain environment this would be represented by a wasm module. This trait exists in
-/// order to be able to mock the wasm logic for testing.
+/// In the on-chain environment this would be represented by a vm binary module. This trait exists
+/// in order to be able to mock the vm logic for testing.
 pub trait Executable<T: Config>: Sized {
 	/// Load the executable from storage.
 	///
@@ -493,7 +493,7 @@ pub trait Executable<T: Config>: Sized {
 ///
 /// The call stack is initiated by either a signed origin or one of the contract RPC calls.
 /// This type implements `Ext` and by that exposes the business logic of contract execution to
-/// the runtime module which interfaces with the contract (the wasm blob) itself.
+/// the runtime module which interfaces with the contract (the vm contract blob) itself.
 pub struct Stack<'a, T: Config, E> {
 	/// The origin that initiated the call stack. It could either be a Signed plain account that
 	/// holds an account id or Root.
