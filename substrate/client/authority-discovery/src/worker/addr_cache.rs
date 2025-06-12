@@ -20,7 +20,7 @@ use sc_network::{multiaddr::Protocol, Multiaddr, multiaddr::ParseError};
 use sc_network_types::PeerId;
 use sp_authority_discovery::AuthorityId;
 use std::collections::{hash_map::Entry, HashMap, HashSet};
-use codec::{Decode, Encode};
+use serde::{Serialize, Deserialize};
 use crate::error::Error;
 
 /// Cache for [`AuthorityId`] -> [`HashSet<Multiaddr>`] and [`PeerId`] -> [`HashSet<AuthorityId>`]
@@ -172,31 +172,16 @@ fn addresses_to_peer_ids(addresses: &HashSet<Multiaddr>) -> HashSet<PeerId> {
 	addresses.iter().filter_map(peer_id_from_multiaddr).collect::<HashSet<_>>()
 }
 
-trait Codable: Encode + Decode {}
-impl<T: Encode + Decode> Codable for T {}
-
-#[derive(Clone, Debug, Encode, Decode)]
-struct CodablePair<T, U> where T: Codable, U: Codable {
-	first: T,
-	second: U,
-}
-impl<T, U> CodablePair<T, U> where T: Codable, U: Codable {
-	pub fn new(first: T, second: U) -> Self {
-		CodablePair { first, second }
-	}
-}
-
-
-/// A codable version of the [`AddrCache`] that can be used for serialization,
-/// implements Encode and Decode traits, by holding variants of `Multiaddr` and `PeerId` that
+/// A (de)serializable version of the [`AddrCache`] that can be used for serialization,
+/// implements Serialize and Deserialize traits, by holding variants of `Multiaddr` and `PeerId` that
 /// can be encoded and decoded.
 /// This is used for storing the cache in the database.
-#[derive(Clone, Debug, Encode, Decode)]
-pub(super) struct CodableAddrCache {
-	authority_id_to_addresses: Vec<CodablePair<AuthorityId, Vec<CodableMultiaddr>>>,
-	peer_id_to_authority_ids: Vec<CodablePair<CodablePeerId, Vec<AuthorityId>>>,
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(super) struct SerializableAddrCache {
+	authority_id_to_addresses: HashMap<AuthorityId, HashSet<SerializableMultiaddr>>,
+	peer_id_to_authority_ids: HashMap<SerializablePeerId, HashSet<AuthorityId>>,
 }
-impl From<AddrCache> for CodableAddrCache {
+impl From<AddrCache> for SerializableAddrCache {
 	fn from(addr_cache: AddrCache) -> Self {
 
 		let authority_id_to_addresses = addr_cache.authority_id_to_addresses
@@ -204,37 +189,35 @@ impl From<AddrCache> for CodableAddrCache {
 		.map(|(authority_id, addresses)| {
 			let addresses = addresses
 				.into_iter()
-				.map(CodableMultiaddr::from)
-				.collect::<Vec<_>>();
-			CodablePair::new(authority_id, addresses)
+				.map(SerializableMultiaddr::from)
+				.collect::<HashSet<_>>();
+			(authority_id, addresses)
 		})
-		.collect::<Vec<_>>();
+		.collect::<HashMap<_, _>>();
 
 		let peer_id_to_authority_ids = addr_cache
 			.peer_id_to_authority_ids
 			.into_iter()
 			.map(|(peer_id, authority_ids)| {
-				CodablePair::new(CodablePeerId::from(peer_id), authority_ids.into_iter().collect::<Vec<_>>())
+				(SerializablePeerId::from(peer_id), authority_ids)
 			})
-			.collect::<Vec<_>>();
+			.collect::<HashMap<_, _>>();
 
-		CodableAddrCache {
+		SerializableAddrCache {
 			authority_id_to_addresses,
 			peer_id_to_authority_ids
 		}
 	}
 }
 
-impl TryFrom<CodableAddrCache> for AddrCache {
+impl TryFrom<SerializableAddrCache> for AddrCache {
 	type Error = crate::Error;
 
-	fn try_from(value: CodableAddrCache) -> Result<Self, Self::Error> {
+	fn try_from(value: SerializableAddrCache) -> Result<Self, Self::Error> {
 		let authority_id_to_addresses = value
 			.authority_id_to_addresses
 			.into_iter()
-			.map(|pair| {
-				let authority_id = pair.first;
-				let addresses = pair.second;
+			.map(|(authority_id, addresses)| {
 				let addresses = addresses
 					.into_iter()
 					.map(|ma| Multiaddr::try_from(ma).map_err(|e| {
@@ -248,9 +231,8 @@ impl TryFrom<CodableAddrCache> for AddrCache {
 		let peer_id_to_authority_ids = value
 			.peer_id_to_authority_ids
 			.into_iter()
-			.map(|pair| {
-				let peer_id = PeerId::try_from(pair.first)?;
-				let authority_ids = pair.second;
+			.map(|(peer_id, authority_ids) | {
+				let peer_id = PeerId::try_from(peer_id)?;
 				Ok((peer_id, authority_ids.into_iter().collect::<HashSet::<AuthorityId>>()))
 			})
 			.collect::<Result<HashMap<PeerId, HashSet<AuthorityId>>, Self::Error>>()?;
@@ -263,45 +245,45 @@ impl TryFrom<CodableAddrCache> for AddrCache {
 	}
 }
 
-/// A codable version of [`PeerId`] that can be used for serialization,
-#[derive(Clone, Debug, PartialEq, Encode, Decode)]
-struct CodablePeerId {
+/// A (de)serializable version of [`PeerId`] that can be used for serialization,
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+struct SerializablePeerId {
 	encoded_peer_id: Vec<u8>,
 }
 
-impl From<PeerId> for CodablePeerId {
+impl From<PeerId> for SerializablePeerId {
 	fn from(peer_id: PeerId) -> Self {
-		CodablePeerId {
+		Self {
 			encoded_peer_id: peer_id.to_bytes(),
 		}
 	}
 }
-impl TryFrom<CodablePeerId> for PeerId {
+impl TryFrom<SerializablePeerId> for PeerId {
 	type Error = Error;
 
-	fn try_from(value: CodablePeerId) -> Result<Self, Self::Error> {
+	fn try_from(value: SerializablePeerId) -> Result<Self, Self::Error> {
 		PeerId::from_bytes(&value.encoded_peer_id).map_err(|e| Error::EncodingDecodingAddrCache(e.to_string()))
 	}
 }
 
-/// A codable version of [`Multiaddr`] that can be used for serialization,
-#[derive(Clone, Debug, PartialEq, Encode, Decode)]
-struct CodableMultiaddr {
+/// A (de)serializable version of [`Multiaddr`] that can be used for serialization,
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+struct SerializableMultiaddr {
 	/// `Multiaddr` holds a single `LiteP2pMultiaddr`, which holds `Arc<Vec<u8>>`.
 	bytes: Vec<u8>,
 }
-impl From<Multiaddr> for CodableMultiaddr {
+impl From<Multiaddr> for SerializableMultiaddr {
 	fn from(multiaddr: Multiaddr) -> Self {
-		CodableMultiaddr {
+		Self {
 			bytes: multiaddr.to_vec(),
 		}
 	}
 }
-impl TryFrom<CodableMultiaddr> for Multiaddr {
+impl TryFrom<SerializableMultiaddr> for Multiaddr {
 	type Error = ParseError;
 
-	fn try_from(value: CodableMultiaddr) -> Result<Self, Self::Error> {
-		Multiaddr::try_from(value.bytes)
+	fn try_from(value: SerializableMultiaddr) -> Result<Self, Self::Error> {
+		Self::try_from(value.bytes)
 	}
 }
 
@@ -517,7 +499,7 @@ mod tests {
 	}
 
 	#[test]
-	fn addr_cache_codable_roundtrip() {
+	fn roundtrip_serializable_variant() {
 		let cache = {
 			let mut addr_cache = AddrCache::new();
 
@@ -531,8 +513,8 @@ mod tests {
 			addr_cache.insert(authority_id1.clone(), vec![addr.clone()]);
 			addr_cache
 		};
-		let codable = CodableAddrCache::from(cache.clone());
-		let from_codable = AddrCache::try_from(codable).expect("Decoding should not fail");
-		assert_eq!(cache, from_codable);
+		let serializable = SerializableAddrCache::from(cache.clone());
+		let from_serializable = AddrCache::try_from(serializable).expect("Decoding should not fail");
+		assert_eq!(cache, from_serializable);
 	}
 }
