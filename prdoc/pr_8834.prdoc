@@ -1,0 +1,22 @@
+title: extend overseer to send priority messages
+doc:
+- audience: Node Dev
+  description: |-
+    Extend overseer to send priority messages, the new functionality is used for sending messages on the grandpa call path when we call dispute-coordinator and approval-voting in finality_target_with_longest_chain to make sure we don't block unnecessarily.
+
+    Depends on: https://github.com/paritytech/orchestra/pull/87.
+crates:
+- name: cumulus-client-collator
+  bump: patch
+- name: cumulus-client-consensus-aura
+  bump: patch
+- name: cumulus-client-pov-recovery
+  bump: patch
+- name: polkadot-node-core-approval-voting-parallel
+  bump: patch
+- name: polkadot-node-core-parachains-inherent
+  bump: patch
+- name: polkadot-overseer
+  bump: patch
+- name: polkadot-service
+  bump: patch
