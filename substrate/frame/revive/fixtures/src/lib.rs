@@ -22,7 +22,7 @@ extern crate alloc;
 // generated file that tells us where to find the fixtures
 include!(concat!(env!("OUT_DIR"), "/fixture_location.rs"));
 
-/// Load a given wasm module and returns a wasm binary contents along with its hash.
+/// Load a given polkavm module and returns a polkavm binary contents along with its hash.
 #[cfg(feature = "std")]
 pub fn compile_module(fixture_name: &str) -> anyhow::Result<(Vec<u8>, sp_core::H256)> {
 	let out_dir: std::path::PathBuf = FIXTURE_DIR.into();
