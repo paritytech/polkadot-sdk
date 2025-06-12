@@ -311,7 +311,7 @@ pub trait TransactionPool: Send + Sync {
 	/// occurred.
 	///
 	/// Function returns the transactions actually removed from the pool.
-	async fn report_invalid(
+	fn report_invalid(
 		&self,
 		at: Option<<Self::Block as BlockT>::Hash>,
 		invalid_tx_errors: TxInvalidityReportMap<TxHash<Self>>,

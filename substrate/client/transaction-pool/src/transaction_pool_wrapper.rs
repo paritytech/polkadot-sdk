@@ -107,12 +107,12 @@ where
 		self.0.ready()
 	}
 
-	async fn report_invalid(
+	fn report_invalid(
 		&self,
 		at: Option<<Self::Block as BlockT>::Hash>,
 		invalid_tx_errors: TxInvalidityReportMap<TxHash<Self>>,
 	) -> Vec<Arc<Self::InPoolTransaction>> {
-		self.0.report_invalid(at, invalid_tx_errors).await
+		self.0.report_invalid(at, invalid_tx_errors)
 	}
 
 	fn futures(&self) -> Vec<Self::InPoolTransaction> {
