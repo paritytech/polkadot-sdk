@@ -829,7 +829,7 @@ where
 		tx_hash: ExtrinsicHash<ChainApi>,
 	) {
 		if let Err(error) =
-			view.submit_one(source, xt, ValidateTransactionPriority::Submitted).await
+			view.submit_one(source, xt, ValidateTransactionPriority::Maintained).await
 		{
 			trace!(
 				target: LOG_TARGET,

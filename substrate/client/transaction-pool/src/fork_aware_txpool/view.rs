@@ -454,7 +454,7 @@ where
 						let validation_result = (
 							api.validate_transaction(self.at.hash,
 								tx.source.clone().into(), tx.data.clone(),
-								ValidateTransactionPriority::Submitted).await,
+								ValidateTransactionPriority::Maintained).await,
 							tx.hash,
 							tx
 						);

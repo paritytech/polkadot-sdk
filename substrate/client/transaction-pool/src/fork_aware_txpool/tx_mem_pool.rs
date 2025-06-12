@@ -595,7 +595,7 @@ where
 					finalized_block.hash,
 					xt.source.clone().into(),
 					xt.tx(),
-					ValidateTransactionPriority::Submitted,
+					ValidateTransactionPriority::Maintained,
 				)
 				.map(move |validation_result| {
 					xt.validated_at
