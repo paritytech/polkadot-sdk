@@ -100,9 +100,12 @@ cumulus-primitives-aura = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
 futures-timer = { workspace = true }
+schnellru = { workspace = true }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
+cumulus-test-client = { workspace = true }
+cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
 cumulus-test-runtime = { workspace = true }
 nix = { features = ["signal"], workspace = true }
 tokio = { version = "1.43.1", features = ["macros", "parking_lot", "time"] }
