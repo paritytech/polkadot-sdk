@@ -1055,8 +1055,7 @@ where
 		let most_recent_view_hash =
 			self.view_store.most_recent_view.read().as_ref().map(|v| v.at.hash);
 		let result = most_recent_view_hash
-			.map(|block_hash| self.view_store.ready_transaction(block_hash, tx_hash))
-			.flatten();
+			.and_then(|block_hash| self.view_store.ready_transaction(block_hash, tx_hash));
 		trace!(
 			target: LOG_TARGET,
 			?tx_hash,

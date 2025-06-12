@@ -434,8 +434,7 @@ where
 		self.most_recent_view
 			.read()
 			.as_ref()
-			.map(|view| self.futures_at(view.at.hash))
-			.flatten()
+			.and_then(|view| self.futures_at(view.at.hash))
 			.unwrap_or_default()
 	}
 

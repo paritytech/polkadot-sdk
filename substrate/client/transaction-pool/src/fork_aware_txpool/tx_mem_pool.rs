@@ -507,7 +507,6 @@ where
 	) -> Vec<Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error>>
 	{
 		let insert_futures = xts.into_iter().map(|xt| {
-			let source = source.clone();
 			let api = self.api.clone();
 			let xt = xt.clone();
 			async move {
