@@ -17,7 +17,7 @@
 //! Dispute coordinator subsystem in initialized state (after first active leaf is received).
 
 use std::{
-	collections::{BTreeMap, VecDeque},
+	collections::{BTreeMap, HashSet, VecDeque},
 	sync::Arc,
 };
 
@@ -47,9 +47,10 @@ use polkadot_primitives::{
 	slashing,
 	vstaging::{CandidateReceiptV2 as CandidateReceipt, ScrapedOnChainVotes},
 	BlockNumber, CandidateHash, CompactStatement, DisputeStatement, DisputeStatementSet, Hash,
-	SessionIndex, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
+	IndexedVec, SessionIndex, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
+	ValidatorPair,
 };
-use schnellru::{LruMap, UnlimitedCompact};
+use schnellru::{ByLength, LruMap, UnlimitedCompact};
 
 use crate::{
 	db::{self, v1::RecentDisputes},
@@ -98,6 +99,8 @@ pub(crate) struct Initialized {
 	/// We have the onchain state of disabled validators as well as the offchain
 	/// state that is based on the lost disputes.
 	offchain_disabled_validators: OffchainDisabledValidators,
+	/// The indices of the controlled validators, cached by session.
+	controlled_validator_indices: ControlledValidatorIndices,
 	/// This is the highest `SessionIndex` seen via `ActiveLeavesUpdate`. It doesn't matter if it
 	/// was cached successfully or not. It is used to detect ancient disputes.
 	highest_session_seen: SessionIndex,
@@ -133,6 +136,7 @@ impl Initialized {
 		highest_session_seen: SessionIndex,
 		gaps_in_cache: bool,
 		offchain_disabled_validators: OffchainDisabledValidators,
+		controlled_validator_indices: ControlledValidatorIndices,
 	) -> Self {
 		let DisputeCoordinatorSubsystem {
 			config: _,
@@ -149,6 +153,7 @@ impl Initialized {
 			keystore,
 			runtime_info,
 			offchain_disabled_validators,
+			controlled_validator_indices,
 			highest_session_seen,
 			gaps_in_cache,
 			spam_slots,
@@ -975,12 +980,12 @@ impl Initialized {
 		};
 
 		let env = match CandidateEnvironment::new(
-			&self.keystore,
 			ctx,
 			&mut self.runtime_info,
 			session,
 			relay_parent,
 			self.offchain_disabled_validators.iter(session),
+			&mut self.controlled_validator_indices,
 		)
 		.await
 		{
@@ -1450,12 +1455,12 @@ impl Initialized {
 
 		// Load environment:
 		let env = match CandidateEnvironment::new(
-			&self.keystore,
 			ctx,
 			&mut self.runtime_info,
 			session,
 			candidate_receipt.descriptor.relay_parent(),
 			self.offchain_disabled_validators.iter(session),
+			&mut self.controlled_validator_indices,
 		)
 		.await
 		{
@@ -1778,5 +1783,58 @@ impl OffchainDisabledValidators {
 				.chain(e.against_valid.iter())
 				.map(|(i, _)| *i)
 		})
+	}
+}
+
+/// Keeps track of the validator indices controlled by the local validator in a given session. For
+/// better performance, the values for each session are cached.
+pub struct ControlledValidatorIndices {
+	/// The indices of the controlled validators, cached by session.
+	controlled_validator_indices: LruMap<SessionIndex, HashSet<ValidatorIndex>>,
+	keystore: Arc<LocalKeystore>,
+}
+
+impl ControlledValidatorIndices {
+	/// Create a new instance of `ControlledValidatorIndices`.
+	pub fn new(keystore: Arc<LocalKeystore>) -> Self {
+		let controlled_validator_indices = LruMap::new(ByLength::new(DISPUTE_WINDOW.get()));
+		Self { controlled_validator_indices, keystore }
+	}
+
+	/// Get the controlled validator indices for a given session. If the indices are not known they
+	/// will be fetched from `session_validators` and cached.
+	pub fn get(
+		&mut self,
+		session: SessionIndex,
+		session_validators: &IndexedVec<ValidatorIndex, ValidatorId>,
+	) -> &HashSet<ValidatorIndex> {
+		if self.controlled_validator_indices.get(&session).is_none() {
+			let indices =
+				Self::find_controlled_validator_indices(&self.keystore, session_validators);
+			self.controlled_validator_indices.insert(session, indices.clone());
+		}
+
+		self.controlled_validator_indices
+			.get(&session)
+			.expect("We just inserted the controlled indices; qed")
+	}
+
+	/// Find indices controlled by this validator.
+	///
+	/// That is all `ValidatorIndex`es we have private keys for. Usually this will only be one.
+	fn find_controlled_validator_indices(
+		keystore: &LocalKeystore,
+		validators: &IndexedVec<ValidatorIndex, ValidatorId>,
+	) -> HashSet<ValidatorIndex> {
+		let mut controlled = HashSet::new();
+		for (index, validator) in validators.iter().enumerate() {
+			if keystore.key_pair::<ValidatorPair>(validator).ok().flatten().is_none() {
+				continue
+			}
+
+			controlled.insert(ValidatorIndex(index as _));
+		}
+
+		controlled
 	}
 }

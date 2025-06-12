@@ -60,6 +60,7 @@ use fatality::Split;
 
 use self::{
 	import::{CandidateEnvironment, CandidateVoteState},
+	initialized::ControlledValidatorIndices,
 	participation::{ParticipationPriority, ParticipationRequest},
 	spam_slots::{SpamSlots, UnconfirmedDisputes},
 };
@@ -236,6 +237,7 @@ impl DisputeCoordinatorSubsystem {
 				highest_session_seen,
 				gaps_in_cache,
 				offchain_disabled_validators,
+				controlled_validator_indices,
 			) = match self
 				.handle_startup(ctx, first_leaf.clone(), &mut runtime_info, &mut overlay_db, clock)
 				.await
@@ -263,6 +265,7 @@ impl DisputeCoordinatorSubsystem {
 					highest_session_seen,
 					gaps_in_cache,
 					offchain_disabled_validators,
+					controlled_validator_indices,
 				),
 				backend,
 			)))
@@ -289,6 +292,7 @@ impl DisputeCoordinatorSubsystem {
 		SessionIndex,
 		bool,
 		initialized::OffchainDisabledValidators,
+		ControlledValidatorIndices,
 	)> {
 		let now = clock.now();
 
@@ -357,16 +361,18 @@ impl DisputeCoordinatorSubsystem {
 
 		let mut participation_requests = Vec::new();
 		let mut spam_disputes: UnconfirmedDisputes = UnconfirmedDisputes::new();
+		let mut controlled_indecies =
+			crate::initialized::ControlledValidatorIndices::new(self.keystore.clone());
 		let leaf_hash = initial_head.hash;
 		let (scraper, votes) = ChainScraper::new(ctx.sender(), initial_head).await?;
 		for ((session, ref candidate_hash), _) in active_disputes {
 			let env = match CandidateEnvironment::new(
-				&self.keystore,
 				ctx,
 				runtime_info,
 				highest_session,
 				leaf_hash,
 				offchain_disabled_validators.iter(session),
+				&mut controlled_indecies,
 			)
 			.await
 			{
@@ -452,6 +458,7 @@ impl DisputeCoordinatorSubsystem {
 			highest_session,
 			gap_in_cache,
 			offchain_disabled_validators,
+			controlled_indecies,
 		))
 	}
 }
