@@ -50,7 +50,7 @@ mod candidates;
 /// `last_observed_blocks` LRU. This means, this value should the very least be as large as the
 /// number of expected forks for keeping chain scraping efficient. Making the LRU much larger than
 /// that has very limited use.
-const LRU_OBSERVED_BLOCKS_CAPACITY: u32 = 20;
+const LRU_OBSERVED_BLOCKS_CAPACITY: u32 = 1024;
 
 /// `ScrapedUpdates`
 ///
