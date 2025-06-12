@@ -195,15 +195,18 @@ mod benchmarks {
 		assert!(T::Verifier::queued_score().is_some());
 		assert_eq!(verifier::QueuedSolution::<T>::valid_iter().count() as u32, T::Pages::get());
 
+		// Roll to Done phase to start export
+		crate::Pallet::<T>::roll_until_matches(|| CurrentPhase::<T>::get().is_done());
+
 		#[block]
 		{
 			// tell the data provider to do its election process for one page, while we are fully
 			// ready.
-			T::DataProvider::fetch_page(T::Pages::get() - 1)
+			T::DataProvider::fetch_page(T::Pages::get() - 1);
 		}
 
 		// we should be in the export phase now.
-		assert_eq!(CurrentPhase::<T>::get(), Phase::Export(T::Pages::get() - 1));
+		assert_eq!(CurrentPhase::<T>::get(), Phase::Export(T::Pages::get() - 2));
 
 		Ok(())
 	}
@@ -230,18 +233,17 @@ mod benchmarks {
 			"solution should be full"
 		);
 
-		// fetch all pages, except for the last one.
-		for i in 1..T::Pages::get() {
-			T::DataProvider::fetch_page(T::Pages::get() - i)
-		}
+		// Roll to Done phase
+		crate::Pallet::<T>::roll_until_matches(|| CurrentPhase::<T>::get().is_done());
 
-		assert_eq!(CurrentPhase::<T>::get(), Phase::Export(1));
+		// Start export and fetch all pages except the last one
+		(1..=T::Pages::get() - 1).rev().for_each(T::DataProvider::fetch_page);
+
+		assert_eq!(CurrentPhase::<T>::get(), Phase::Export(0));
 
 		#[block]
 		{
-			// tell the data provider to do its election process for one page, while we are fully
-			// ready.
-			T::DataProvider::fetch_page(0)
+			T::DataProvider::fetch_page(0);
 		}
 
 		// we should be in the off phase now.

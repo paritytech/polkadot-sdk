@@ -7,11 +7,12 @@ use frame_support::{
 	derive_impl, parameter_types,
 	traits::{AsEnsureOriginWithArg, Everything},
 };
+use snowbridge_core::ParaId;
 use snowbridge_test_utils::mock_swap_executor::SwapExecutor;
 pub use snowbridge_test_utils::{mock_origin::pallet_xcm_origin, mock_xcm::*};
 use sp_core::H256;
 use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
 	AccountId32, BuildStorage,
 };
 use xcm::prelude::*;
@@ -75,6 +76,18 @@ parameter_types! {
 	pub PalletLocation: InteriorLocation = [PalletInstance(36)].into();
 }
 
+pub struct AccountIdConverter;
+impl xcm_executor::traits::ConvertLocation<AccountId> for AccountIdConverter {
+	fn convert_location(ml: &Location) -> Option<AccountId> {
+		match ml.unpack() {
+			(0, [Junction::AccountId32 { id, .. }]) =>
+				Some(<AccountId as codec::Decode>::decode(&mut &*id.to_vec()).unwrap()),
+			(1, [Parachain(id)]) => Some(ParaId::from(*id).into_account_truncating()),
+			_ => None,
+		}
+	}
+}
+
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RegisterTokenOrigin = AsEnsureOriginWithArg<pallet_xcm_origin::EnsureXcm<Everything>>;
@@ -90,6 +103,7 @@ impl crate::Config for Test {
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
+	type AccountIdConverter = AccountIdConverter;
 }
 
 // Build genesis storage according to the mock runtime.

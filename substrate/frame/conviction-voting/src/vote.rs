@@ -151,6 +151,7 @@ impl<Balance: Saturating> AccountVote<Balance> {
 #[derive(
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Default,
 	Copy,
 	Clone,
@@ -184,7 +185,17 @@ impl<BlockNumber: Ord + Copy + Zero, Balance: Ord + Copy + Zero> PriorLock<Block
 }
 
 /// Information concerning the delegation of some voting power.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct Delegating<Balance, AccountId, BlockNumber> {
 	/// The amount of balance delegated.
 	pub balance: Balance,
@@ -200,7 +211,17 @@ pub struct Delegating<Balance, AccountId, BlockNumber> {
 }
 
 /// Information concerning the direct vote-casting of some voting power.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 #[scale_info(skip_type_params(MaxVotes))]
 #[codec(mel_bound(Balance: MaxEncodedLen, BlockNumber: MaxEncodedLen, PollIndex: MaxEncodedLen))]
 pub struct Casting<Balance, BlockNumber, PollIndex, MaxVotes>
@@ -216,7 +237,17 @@ where
 }
 
 /// An indicator for what an account is doing; it can either be delegating or voting.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 #[scale_info(skip_type_params(MaxVotes))]
 #[codec(mel_bound(
 	Balance: MaxEncodedLen, AccountId: MaxEncodedLen, BlockNumber: MaxEncodedLen,

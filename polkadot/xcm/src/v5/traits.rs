@@ -244,26 +244,36 @@ pub type Result = result::Result<(), Error>;
 pub enum Outcome {
 	/// Execution completed successfully; given weight was used.
 	Complete { used: Weight },
-	/// Execution started, but did not complete successfully due to the given error; given weight
-	/// was used.
-	Incomplete { used: Weight, error: Error },
-	/// Execution did not start due to the given error.
-	Error { error: Error },
+	/// Execution started, but did not complete successfully due to`error` which occurred
+	/// on the `index`-th (top-level) instruction. Overall, total `weight` was used.
+	Incomplete { used: Weight, error: InstructionError },
+	/// Execution did not start due to an error. We use `InstructionError` since it's always
+	/// possible to isolate the problematic instruction that caused the error.
+	Error(InstructionError),
+}
+
+/// XCM error and the index of the instruction that caused it.
+#[derive(Copy, Clone, Encode, Decode, DecodeWithMemTracking, Eq, PartialEq, Debug, TypeInfo)]
+pub struct InstructionError {
+	/// The index of the intruction that caused the error.
+	pub index: InstructionIndex,
+	/// The XCM error itself.
+	pub error: Error,
 }
 
 impl Outcome {
-	pub fn ensure_complete(self) -> Result {
+	pub fn ensure_complete(self) -> result::Result<(), InstructionError> {
 		match self {
 			Outcome::Complete { .. } => Ok(()),
 			Outcome::Incomplete { error, .. } => Err(error),
-			Outcome::Error { error, .. } => Err(error),
+			Outcome::Error(error) => Err(error),
 		}
 	}
-	pub fn ensure_execution(self) -> result::Result<Weight, Error> {
+	pub fn ensure_execution(self) -> result::Result<Weight, InstructionError> {
 		match self {
 			Outcome::Complete { used, .. } => Ok(used),
 			Outcome::Incomplete { used, .. } => Ok(used),
-			Outcome::Error { error, .. } => Err(error),
+			Outcome::Error(error) => Err(error),
 		}
 	}
 	/// How much weight was used by the XCM execution attempt.
@@ -271,14 +281,14 @@ impl Outcome {
 		match self {
 			Outcome::Complete { used, .. } => *used,
 			Outcome::Incomplete { used, .. } => *used,
-			Outcome::Error { .. } => Weight::zero(),
+			Outcome::Error(_) => Weight::zero(),
 		}
 	}
 }
 
 impl From<Error> for Outcome {
 	fn from(error: Error) -> Self {
-		Self::Error { error }
+		Self::Error(InstructionError { error, index: 0 })
 	}
 }
 
@@ -286,10 +296,17 @@ pub trait PreparedMessage {
 	fn weight_of(&self) -> Weight;
 }
 
+/// The index of an instruction in an XCM.
+pub type InstructionIndex = u8;
+
 /// Type of XCM message executor.
 pub trait ExecuteXcm<Call> {
 	type Prepared: PreparedMessage;
-	fn prepare(message: Xcm<Call>) -> result::Result<Self::Prepared, Xcm<Call>>;
+	/// If it fails, returns the index of the problematic instruction.
+	fn prepare(
+		message: Xcm<Call>,
+		weight_limit: Weight,
+	) -> result::Result<Self::Prepared, InstructionError>;
 	fn execute(
 		origin: impl Into<Location>,
 		pre: Self::Prepared,
@@ -303,14 +320,10 @@ pub trait ExecuteXcm<Call> {
 		weight_limit: Weight,
 		weight_credit: Weight,
 	) -> Outcome {
-		let pre = match Self::prepare(message) {
+		let pre = match Self::prepare(message, weight_limit) {
 			Ok(x) => x,
-			Err(_) => return Outcome::Error { error: Error::WeightNotComputable },
+			Err(error) => return Outcome::Error(error),
 		};
-		let xcm_weight = pre.weight_of();
-		if xcm_weight.any_gt(weight_limit) {
-			return Outcome::Error { error: Error::WeightLimitReached(xcm_weight) }
-		}
 		Self::execute(origin, pre, id, weight_credit)
 	}
 
@@ -328,8 +341,8 @@ impl PreparedMessage for Weightless {
 
 impl<C> ExecuteXcm<C> for () {
 	type Prepared = Weightless;
-	fn prepare(message: Xcm<C>) -> result::Result<Self::Prepared, Xcm<C>> {
-		Err(message)
+	fn prepare(_: Xcm<C>, _: Weight) -> result::Result<Self::Prepared, InstructionError> {
+		Err(InstructionError { index: 0, error: Error::Unimplemented })
 	}
 	fn execute(_: impl Into<Location>, _: Self::Prepared, _: &mut XcmHash, _: Weight) -> Outcome {
 		unreachable!()

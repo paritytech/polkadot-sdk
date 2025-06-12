@@ -580,6 +580,10 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 						"Unknown peer {:?} to change address from {:?} to {:?}", peer_id, old, new);
 				}
 			},
+			FromSwarm::NewExternalAddrOfPeer(e) => {
+				self.ping.on_swarm_event(FromSwarm::NewExternalAddrOfPeer(e));
+				self.identify.on_swarm_event(FromSwarm::NewExternalAddrOfPeer(e));
+			},
 			event => {
 				debug!(target: LOG_TARGET, "New unknown `FromSwarm` libp2p event: {event:?}");
 				self.ping.on_swarm_event(event);

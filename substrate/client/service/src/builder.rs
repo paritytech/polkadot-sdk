@@ -27,12 +27,13 @@ use crate::{
 };
 use futures::{select, FutureExt, StreamExt};
 use jsonrpsee::RpcModule;
-use log::info;
+use log::{debug, error, info};
 use prometheus_endpoint::Registry;
 use sc_chain_spec::{get_extension, ChainSpec};
 use sc_client_api::{
 	execution_extensions::ExecutionExtensions, proof_provider::ProofProvider, BadBlocks,
-	BlockBackend, BlockchainEvents, ExecutorProvider, ForkBlocks, StorageProvider, UsageProvider,
+	BlockBackend, BlockchainEvents, ExecutorProvider, ForkBlocks, KeysIter, StorageProvider,
+	TrieCacheContext, UsageProvider,
 };
 use sc_client_db::{Backend, BlocksPruning, DatabaseSettings, PruningMode};
 use sc_consensus::import_queue::{ImportQueue, ImportQueueService};
@@ -90,6 +91,7 @@ use sp_consensus::block_validation::{
 use sp_core::traits::{CodeExecutor, SpawnNamed};
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, BlockIdTo, NumberFor, Zero};
+use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey};
 use std::{
 	str::FromStr,
 	sync::Arc,
@@ -263,10 +265,87 @@ where
 			},
 		)?;
 
+		if let Some(warm_up_strategy) = config.warm_up_trie_cache {
+			let storage_root = client.usage_info().chain.best_hash;
+			let backend_clone = backend.clone();
+
+			if warm_up_strategy.is_blocking() {
+				// We use the blocking strategy for testing purposes.
+				// So better to error out if it fails.
+				warm_up_trie_cache(backend_clone, storage_root)?;
+			} else {
+				task_manager.spawn_handle().spawn_blocking(
+					"warm-up-trie-cache",
+					None,
+					async move {
+						if let Err(e) = warm_up_trie_cache(backend_clone, storage_root) {
+							error!("Failed to warm up trie cache: {e}");
+						}
+					},
+				);
+			}
+		}
+
 		client
 	};
 
 	Ok((client, backend, keystore_container, task_manager))
+}
+
+fn child_info(key: Vec<u8>) -> Option<ChildInfo> {
+	let prefixed_key = PrefixedStorageKey::new(key);
+	ChildType::from_prefixed_key(&prefixed_key).and_then(|(child_type, storage_key)| {
+		(child_type == ChildType::ParentKeyId).then(|| ChildInfo::new_default(storage_key))
+	})
+}
+
+fn warm_up_trie_cache<TBl: BlockT>(
+	backend: Arc<TFullBackend<TBl>>,
+	storage_root: TBl::Hash,
+) -> Result<(), Error> {
+	use sc_client_api::backend::Backend;
+	use sp_state_machine::Backend as StateBackend;
+
+	let untrusted_state = || backend.state_at(storage_root, TrieCacheContext::Untrusted);
+	let trusted_state = || backend.state_at(storage_root, TrieCacheContext::Trusted);
+
+	debug!("Populating trie cache started",);
+	let start_time = std::time::Instant::now();
+	let mut keys_count = 0;
+	let mut child_keys_count = 0;
+	for key in KeysIter::<_, TBl>::new(untrusted_state()?, None, None)? {
+		if keys_count != 0 && keys_count % 100_000 == 0 {
+			debug!("{} keys and {} child keys have been warmed", keys_count, child_keys_count);
+		}
+		match child_info(key.0.clone()) {
+			Some(info) => {
+				for child_key in
+					KeysIter::<_, TBl>::new_child(untrusted_state()?, info.clone(), None, None)?
+				{
+					if trusted_state()?
+						.child_storage(&info, &child_key.0)
+						.unwrap_or_default()
+						.is_none()
+					{
+						debug!("Child storage value unexpectedly empty: {child_key:?}");
+					}
+					child_keys_count += 1;
+				}
+			},
+			None => {
+				if trusted_state()?.storage(&key.0).unwrap_or_default().is_none() {
+					debug!("Storage value unexpectedly empty: {key:?}");
+				}
+				keys_count += 1;
+			},
+		}
+	}
+	debug!(
+		"Trie cache populated with {keys_count} keys and {child_keys_count} child keys in {} s",
+		start_time.elapsed().as_secs_f32()
+	);
+
+	Ok(())
 }
 
 /// Creates a [`NativeElseWasmExecutor`](sc_executor::NativeElseWasmExecutor) according to
