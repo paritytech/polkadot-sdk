@@ -23,7 +23,7 @@ use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_node_primitives::{MaybeCompressedPoV, SubmitCollationParams};
 use polkadot_node_subsystem::messages::CollationGenerationMessage;
-use polkadot_overseer::Handle as OverseerHandle;
+use polkadot_overseer::{Handle as OverseerHandle, PriorityLevel};
 use polkadot_primitives::{CollatorPair, Id as ParaId};
 
 use cumulus_primitives_core::relay_chain::BlockId;
@@ -183,6 +183,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 				result_sender: None,
 			}),
 			"SubmitCollation",
+			PriorityLevel::Normal,
 		)
 		.await;
 }

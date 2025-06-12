@@ -35,6 +35,7 @@ use cumulus_client_consensus_aura::{
 	ImportQueueParams,
 };
 use cumulus_client_consensus_proposer::Proposer;
+use polkadot_overseer::PriorityLevel;
 use prometheus::Registry;
 use runtime::AccountId;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
@@ -175,7 +176,7 @@ impl RecoveryHandle for FailingRecoveryHandle {
 				.send(Err(RecoveryError::Unavailable))
 				.expect("Return channel should work here.");
 		} else {
-			self.overseer_handle.send_msg(message, origin).await;
+			self.overseer_handle.send_msg(message, origin, PriorityLevel::Normal).await;
 		}
 		self.counter += 1;
 	}

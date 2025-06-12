@@ -24,7 +24,7 @@ pub use chain_spec::*;
 use futures::{future::Future, stream::StreamExt};
 use polkadot_node_primitives::{CollationGenerationConfig, CollatorFn};
 use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProtocolMessage};
-use polkadot_overseer::Handle;
+use polkadot_overseer::{Handle, PriorityLevel};
 use polkadot_primitives::{Balance, CollatorPair, HeadData, Id as ParaId, ValidationCode};
 use polkadot_runtime_common::BlockHashCount;
 use polkadot_runtime_parachains::paras::{ParaGenesisArgs, ParaKind};
@@ -428,11 +428,19 @@ impl PolkadotTestNode {
 			CollationGenerationConfig { key: collator_key, collator: Some(collator), para_id };
 
 		self.overseer_handle
-			.send_msg(CollationGenerationMessage::Initialize(config), "Collator")
+			.send_msg(
+				CollationGenerationMessage::Initialize(config),
+				"Collator",
+				PriorityLevel::Normal,
+			)
 			.await;
 
 		self.overseer_handle
-			.send_msg(CollatorProtocolMessage::CollateOn(para_id), "Collator")
+			.send_msg(
+				CollatorProtocolMessage::CollateOn(para_id),
+				"Collator",
+				PriorityLevel::Normal,
+			)
 			.await;
 	}
 }

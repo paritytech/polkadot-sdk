@@ -43,7 +43,7 @@ use polkadot_node_subsystem::messages::{
 	ChainSelectionMessage, DisputeCoordinatorMessage, HighestApprovedAncestorBlock,
 };
 use polkadot_node_subsystem_util::metrics::{self, prometheus};
-use polkadot_overseer::{AllMessages, Handle};
+use polkadot_overseer::{AllMessages, Handle, PriorityLevel};
 use polkadot_primitives::{Block as PolkadotBlock, BlockNumber, Hash, Header as PolkadotHeader};
 use sp_consensus::{Error as ConsensusError, SelectChain};
 use std::sync::Arc;
@@ -322,13 +322,23 @@ enum Error {
 /// Required for testing purposes.
 #[async_trait::async_trait]
 pub trait OverseerHandleT: Clone + Send + Sync {
-	async fn send_msg<M: Send + Into<AllMessages>>(&mut self, msg: M, origin: &'static str);
+	async fn send_msg<M: Send + Into<AllMessages>>(
+		&mut self,
+		msg: M,
+		origin: &'static str,
+		priority: PriorityLevel,
+	);
 }
 
 #[async_trait::async_trait]
 impl OverseerHandleT for Handle {
-	async fn send_msg<M: Send + Into<AllMessages>>(&mut self, msg: M, origin: &'static str) {
-		Handle::send_msg(self, msg, origin).await
+	async fn send_msg<M: Send + Into<AllMessages>>(
+		&mut self,
+		msg: M,
+		origin: &'static str,
+		priority: PriorityLevel,
+	) {
+		Handle::send_msg(self, msg, origin, priority).await
 	}
 }
 
@@ -344,7 +354,11 @@ where
 
 		self.overseer
 			.clone()
-			.send_msg(ChainSelectionMessage::Leaves(tx), std::any::type_name::<Self>())
+			.send_msg(
+				ChainSelectionMessage::Leaves(tx),
+				std::any::type_name::<Self>(),
+				PriorityLevel::Normal,
+			)
 			.await;
 
 		let leaves = rx
@@ -395,6 +409,7 @@ where
 				.send_msg(
 					ChainSelectionMessage::BestLeafContaining(target_hash, tx),
 					std::any::type_name::<Self>(),
+					PriorityLevel::Normal,
 				)
 				.await;
 
@@ -468,6 +483,7 @@ where
 							tx,
 						),
 						std::any::type_name::<Self>(),
+						PriorityLevel::High,
 					)
 					.await;
 			} else {
@@ -475,6 +491,7 @@ where
 					.send_msg(
 						ApprovalVotingMessage::ApprovedAncestor(subchain_head, target_number, tx),
 						std::any::type_name::<Self>(),
+						PriorityLevel::High,
 					)
 					.await;
 			}
@@ -506,6 +523,7 @@ where
 						.send_msg(
 							ApprovalVotingParallelMessage::ApprovalCheckingLagUpdate(lag),
 							std::any::type_name::<Self>(),
+							PriorityLevel::Normal,
 						)
 						.await;
 				} else {
@@ -513,6 +531,7 @@ where
 						.send_msg(
 							ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag),
 							std::any::type_name::<Self>(),
+							PriorityLevel::Normal,
 						)
 						.await;
 				}
@@ -549,6 +568,7 @@ where
 						tx,
 					},
 					std::any::type_name::<Self>(),
+					PriorityLevel::High,
 				)
 				.await;
 

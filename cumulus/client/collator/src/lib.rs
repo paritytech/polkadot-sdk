@@ -29,7 +29,7 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 use cumulus_client_consensus_common::ParachainConsensus;
 use polkadot_node_primitives::{CollationGenerationConfig, CollationResult, MaybeCompressedPoV};
 use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProtocolMessage};
-use polkadot_overseer::Handle as OverseerHandle;
+use polkadot_overseer::{Handle as OverseerHandle, PriorityLevel};
 use polkadot_primitives::{CollatorPair, Id as ParaId};
 
 use codec::Decode;
@@ -152,7 +152,7 @@ pub mod relay_chain_driven {
 	};
 	use polkadot_node_primitives::{CollationGenerationConfig, CollationResult};
 	use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProtocolMessage};
-	use polkadot_overseer::Handle as OverseerHandle;
+	use polkadot_overseer::{Handle as OverseerHandle, PriorityLevel};
 	use polkadot_primitives::{CollatorPair, Id as ParaId};
 
 	use cumulus_primitives_core::{relay_chain::Hash as PHash, PersistedValidationData};
@@ -218,11 +218,19 @@ pub mod relay_chain_driven {
 		};
 
 		overseer_handle
-			.send_msg(CollationGenerationMessage::Initialize(config), "StartCollator")
+			.send_msg(
+				CollationGenerationMessage::Initialize(config),
+				"StartCollator",
+				PriorityLevel::Normal,
+			)
 			.await;
 
 		overseer_handle
-			.send_msg(CollatorProtocolMessage::CollateOn(para_id), "StartCollator")
+			.send_msg(
+				CollatorProtocolMessage::CollateOn(para_id),
+				"StartCollator",
+				PriorityLevel::Normal,
+			)
 			.await;
 
 		stream_rx
@@ -243,16 +251,28 @@ pub async fn initialize_collator_subsystems(
 
 	if reinitialize {
 		overseer_handle
-			.send_msg(CollationGenerationMessage::Reinitialize(config), "StartCollator")
+			.send_msg(
+				CollationGenerationMessage::Reinitialize(config),
+				"StartCollator",
+				PriorityLevel::Normal,
+			)
 			.await;
 	} else {
 		overseer_handle
-			.send_msg(CollationGenerationMessage::Initialize(config), "StartCollator")
+			.send_msg(
+				CollationGenerationMessage::Initialize(config),
+				"StartCollator",
+				PriorityLevel::Normal,
+			)
 			.await;
 	}
 
 	overseer_handle
-		.send_msg(CollatorProtocolMessage::CollateOn(para_id), "StartCollator")
+		.send_msg(
+			CollatorProtocolMessage::CollateOn(para_id),
+			"StartCollator",
+			PriorityLevel::Normal,
+		)
 		.await;
 }
 
