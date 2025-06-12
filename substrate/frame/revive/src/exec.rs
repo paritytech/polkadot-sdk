@@ -37,7 +37,7 @@ use frame_support::{
 	traits::{
 		fungible::{Inspect, Mutate},
 		tokens::{Fortitude, Preservation},
-		FindAuthor, Time,
+		Time,
 	},
 	weights::Weight,
 	Blake2_128Concat, BoundedVec, StorageHasher,
@@ -380,7 +380,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	fn block_hash(&self, block_number: U256) -> Option<H256>;
 
 	/// Returns the author of the current block.
-	fn block_author(&self) -> Option<AccountIdOf<Self::T>>;
+	fn block_author(&self) -> Option<H160>;
 
 	/// Returns the maximum allowed size of a storage item.
 	fn max_value_size(&self) -> u32;
@@ -1912,11 +1912,8 @@ where
 		self.block_hash(block_number)
 	}
 
-	fn block_author(&self) -> Option<AccountIdOf<Self::T>> {
-		let digest = <frame_system::Pallet<T>>::digest();
-		let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
-
-		T::FindAuthor::find_author(pre_runtime_digests)
+	fn block_author(&self) -> Option<H160> {
+		crate::Pallet::<T>::block_author()
 	}
 
 	fn max_value_size(&self) -> u32 {

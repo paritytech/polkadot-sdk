@@ -1338,17 +1338,6 @@ where
 		System::<T>::account_nonce(account).into()
 	}
 
-	/// The address of the validator that produced the current block.
-	pub fn coinbase() -> Option<H160> {
-		use frame_support::traits::FindAuthor;
-
-		let digest = <frame_system::Pallet<T>>::digest();
-		let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
-
-		let account_id = T::FindAuthor::find_author(pre_runtime_digests)?;
-		Some(T::AddressMapper::to_address(&account_id))
-	}
-
 	/// Convert a substrate fee into a gas value, using the fixed `GAS_PRICE`.
 	/// The gas is calculated as `fee / GAS_PRICE`, rounded up to the nearest integer.
 	pub fn evm_fee_to_gas(fee: BalanceOf<T>) -> U256 {
@@ -1508,6 +1497,17 @@ impl<T: Config> Pallet<T> {
 	fn deposit_event(event: Event<T>) {
 		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(event))
 	}
+
+	/// The address of the validator that produced the current block.
+	pub fn block_author() -> Option<H160> {
+		use frame_support::traits::FindAuthor;
+
+		let digest = <frame_system::Pallet<T>>::digest();
+		let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
+
+		let account_id = T::FindAuthor::find_author(pre_runtime_digests)?;
+		Some(T::AddressMapper::to_address(&account_id))
+	}
 }
 
 // Set up a global reference to the boolean flag used for the re-entrancy guard.
@@ -1623,7 +1623,7 @@ sp_api::decl_runtime_apis! {
 		fn trace_call(tx: GenericTransaction, config: TracerType) -> Result<Trace, EthTransactError>;
 
 		/// The address of the validator that produced the current block.
-		fn coinbase() -> Option<H160>;
+		fn block_author() -> Option<H160>;
 
 	}
 }
@@ -1647,8 +1647,8 @@ macro_rules! impl_runtime_apis_plus_revive {
 					$crate::Pallet::<Self>::evm_balance(&address)
 				}
 
-				fn coinbase() -> Option<$crate::H160> {
-					$crate::Pallet::<Self>::coinbase()
+				fn block_author() -> Option<$crate::H160> {
+					$crate::Pallet::<Self>::block_author()
 				}
 
 				fn block_gas_limit() -> $crate::U256 {
@@ -1822,7 +1822,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 					let t = tracer.as_tracing();
 
 					t.watch_address(&tx.from.unwrap_or_default());
-					t.watch_address(&$crate::Pallet::<Self>::coinbase().unwrap_or_default());
+					t.watch_address(&$crate::Pallet::<Self>::block_author().unwrap_or_default());
 					let result = trace(t, || Self::eth_transact(tx));
 
 					if let Some(trace) = tracer.collect_trace() {
