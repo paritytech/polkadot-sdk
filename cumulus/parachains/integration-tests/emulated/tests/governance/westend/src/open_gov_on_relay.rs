@@ -15,10 +15,11 @@
 use crate::{common::*, imports::*};
 use codec::Encode;
 use emulated_integration_tests_common::{
+	assert_whitelisted,
 	impls::RelayChain,
 	xcm_emulator::{Chain, Parachain, TestExt},
 	xcm_helpers::{
-		build_xcm_send_authorize_upgrade_call, dispatch_note_preimage_call,
+		build_xcm_send_authorize_upgrade_call, call_hash_of,
 		dispatch_whitelisted_call_with_preimage,
 	},
 };
@@ -53,8 +54,7 @@ fn relaychain_can_authorize_upgrade_for_itself() {
 	// ok origin
 	let ok_origin: WestendRuntimeOrigin = Origin::WhitelistedCaller.into();
 
-	// store preimage
-	let call_hash = dispatch_note_preimage_call::<Westend>(authorize_upgrade.clone());
+	let call_hash = call_hash_of::<Westend>(&authorize_upgrade);
 
 	// Err - when dispatch non-whitelisted
 	assert_err!(
@@ -136,8 +136,7 @@ fn relaychain_can_authorize_upgrade_for_system_chains() {
 	// ok origin
 	let ok_origin: WestendRuntimeOrigin = Origin::WhitelistedCaller.into();
 
-	// store preimage
-	let call_hash = dispatch_note_preimage_call::<Westend>(authorize_upgrade.clone());
+	let call_hash = call_hash_of::<Westend>(&authorize_upgrade);
 
 	// Err - when dispatch non-whitelisted
 	assert_err!(
@@ -158,6 +157,10 @@ fn relaychain_can_authorize_upgrade_for_system_chains() {
 			call_hash,
 		})
 		.encode()
+	});
+
+	Westend::execute_with(|| {
+		assert_whitelisted!(Westend, call_hash);
 	});
 
 	// Err - when dispatch wrong origin

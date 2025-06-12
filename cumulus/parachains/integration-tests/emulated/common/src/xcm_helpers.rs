@@ -22,10 +22,7 @@ use xcm::{prelude::*, DoubleEncoded};
 use xcm_emulator::Chain;
 
 use crate::impls::{bx, Encode};
-use frame_support::{
-	assert_ok,
-	dispatch::{DispatchResultWithPostInfo, PostDispatchInfo},
-};
+use frame_support::dispatch::{DispatchResultWithPostInfo, PostDispatchInfo};
 use sp_runtime::traits::{Dispatchable, Hash};
 use xcm::{VersionedLocation, VersionedXcm};
 
@@ -143,28 +140,6 @@ where
 	})
 }
 
-/// Encodes a runtime call, stores it as a preimage, and returns its H256 hash
-pub fn dispatch_note_preimage_call<T>(call: T::RuntimeCall) -> H256
-where
-	T: Chain,
-	T::Runtime: frame_system::Config<Hash = H256> + pallet_preimage::Config,
-	T::RuntimeCall: Encode
-		+ From<pallet_preimage::Call<T::Runtime>>
-		+ Dispatchable<RuntimeOrigin = T::RuntimeOrigin, PostInfo = PostDispatchInfo>,
-	T::RuntimeOrigin: From<<T::Runtime as frame_system::Config>::RuntimeOrigin>,
-{
-	T::execute_with(|| {
-		let call_bytes = call.encode();
-		let call_hash = <T::Runtime as frame_system::Config>::Hashing::hash(&call_bytes);
-		let preimage_call: T::RuntimeCall =
-			pallet_preimage::Call::<T::Runtime>::note_preimage { bytes: call_bytes.clone() }.into();
-
-		let root_origin = T::RuntimeOrigin::from(frame_system::RawOrigin::Root.into());
-		assert_ok!(preimage_call.dispatch(root_origin));
-		call_hash
-	})
-}
-
 /// Builds an XCM call to send an authorize upgrade message using the provided location
 pub fn build_xcm_send_authorize_upgrade_call<T, D>(location: Location) -> T::RuntimeCall
 where
@@ -194,4 +169,17 @@ where
 	}
 	.into();
 	call
+}
+
+/// Encodes a runtime call and returns its H256 hash
+pub fn call_hash_of<T>(call: &T::RuntimeCall) -> H256
+where
+	T: Chain,
+	T::Runtime: frame_system::Config<Hash = H256>,
+	T::RuntimeCall: Encode,
+{
+	T::execute_with(|| {
+		let call_hash = <T::Runtime as frame_system::Config>::Hashing::hash_of(&call);
+		call_hash
+	})
 }
