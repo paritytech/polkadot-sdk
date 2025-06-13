@@ -137,7 +137,7 @@ impl TransactionPool for MiddlewarePool {
 		Ok(watcher.boxed())
 	}
 
-	fn report_invalid(
+	async fn report_invalid(
 		&self,
 		at: Option<<Self::Block as BlockT>::Hash>,
 		invalid_tx_errors: TxInvalidityReportMap<TxHash<Self>>,
