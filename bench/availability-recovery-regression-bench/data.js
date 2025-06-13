@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1749746415198,
+  "lastUpdate": 1749815842081,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -59347,6 +59347,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.268603238966667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "donal.murray@parity.io",
+            "name": "Dónal Murray",
+            "username": "seadanda"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f96dfb73ff0472a5087451fd0227949b44756478",
+          "message": "[pallet-broker] Force-unpool provisionally pooled regions before redispatching them (#4081)\n\nThis PR force removes regions from the pool before allowing them to be\nredispatched (through `partition`/`interlace`/`assign`) in the case that\na region was pooled with `Provisional` finality.\n\nThis PR does not account for the case where a pooled region already\nentitles the benefactor to a contribution reward before the point of it\nbeing redispatched. However, `claim_revenue` should be called before\ntrying to redispatch a region anyway.\nOtherwise there would be ambiguity as to what should be done with the\nfirst part of a partitioned region. The first of the two new regions\nactually has the exact same `region_id` as the original region -- leave\nit pooled/withdraw from pool/claim contribution then withdraw?\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2025-06-13T10:33:18Z",
+          "tree_id": "9252b4ba357a052894712e133e0ddc077a35254b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f96dfb73ff0472a5087451fd0227949b44756478"
+        },
+        "date": 1749815824080,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.251304830799999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.19877025583333335,
             "unit": "seconds"
           }
         ]
