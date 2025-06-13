@@ -1250,7 +1250,10 @@ mod e2e {
 				assert_eq!(crate::Pallet::<T>::current_phase(), Phase::Done);
 				// verifier has done nothing
 				assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
-				assert!(verifier_events_since_last_call().is_empty(), "No additional verifier events should occur");
+				assert!(
+					verifier_events_since_last_call().is_empty(),
+					"No additional verifier events should occur"
+				);
 			});
 	}
 }
