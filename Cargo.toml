@@ -417,6 +417,8 @@ members = [
 	"substrate/frame/referenda",
 	"substrate/frame/remark",
 	"substrate/frame/revive",
+	"substrate/frame/revive/dev-node/node",
+	"substrate/frame/revive/dev-node/runtime",
 	"substrate/frame/revive/fixtures",
 	"substrate/frame/revive/proc-macro",
 	"substrate/frame/revive/rpc",
@@ -1040,6 +1042,8 @@ pallet-staking = { path = "substrate/frame/staking", default-features = false }
 pallet-staking-reward-curve = { path = "substrate/frame/staking/reward-curve", default-features = false }
 pallet-staking-reward-fn = { path = "substrate/frame/staking/reward-fn", default-features = false }
 pallet-staking-runtime-api = { path = "substrate/frame/staking/runtime-api", default-features = false }
+revive-dev-node = { path = "substrate/frame/revive/dev-node/node" }
+revive-dev-runtime = { path = "substrate/frame/revive/dev-node/runtime" }
 # TODO: remove the reward stuff as they are not needed here
 pallet-staking-async = { path = "substrate/frame/staking-async", default-features = false }
 pallet-staking-async-ah-client = { path = "substrate/frame/staking-async/ah-client", default-features = false }
