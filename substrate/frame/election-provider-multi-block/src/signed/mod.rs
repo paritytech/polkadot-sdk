@@ -995,7 +995,7 @@ impl<T: Config> Pallet<T> {
 					sublog!(
 								warn,
 								"signed",
-								"SignedValidation phase has {} blocks remaining, which are insufficient for {} pages",
+								"SignedValidation phase has {:?} blocks remaining, which are insufficient for {} pages",
 								actual_blocks_remaining,
 								T::Pages::get()
 							);
