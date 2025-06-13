@@ -1,0 +1,9 @@
+title: Add address revive runtime API
+doc:
+- audience: Runtime Dev
+  description: |-
+    This gives an easy way for substrate user to convert an Account ID into
+    the mapped H160 address
+crates:
+- name: pallet-revive
+  bump: patch
