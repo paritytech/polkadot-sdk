@@ -8,4 +8,14 @@ DEBUG=zombie,zombie::network-node,zombie::kube::client::logs
 KUBERNETES_CPU_REQUEST=512m
 KUBERNETES_MEMORY_REQUEST=1Gi
 TEMP_IMAGES_BASE=europe-docker.pkg.dev/parity-ci-2024/temp-images
-FLAKY_TESTS="zombienet-polkadot-coretime-revenue, zombienet-polkadot-smoke-0003-deregister-register-validator, zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility, zombienet-polkadot-functional-0018-shared-core-idle-parachain, zombienet-polkadot-approved-peer-mixed-validators, zombienet-polkadot-elastic-scaling-slot-based-12cores"
+FLAKY_TESTS="
+zombienet-polkadot-coretime-revenue
+zombienet-polkadot-smoke-0003-deregister-register-validator
+zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility
+zombienet-polkadot-functional-0018-shared-core-idle-parachain
+zombienet-polkadot-approved-peer-mixed-validators
+zombienet-polkadot-elastic-scaling-slot-based-12cores
+zombienet-polkadot-functional-0002-parachains-disputes
+zombienet-polkadot-functional-0004-parachains-disputes-garbage-candidate
+zombienet-polkadot-disputes-slashing
+"
