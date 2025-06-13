@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1749746442468,
+  "lastUpdate": 1749815868760,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -73249,6 +73249,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02257317843333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "donal.murray@parity.io",
+            "name": "Dónal Murray",
+            "username": "seadanda"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f96dfb73ff0472a5087451fd0227949b44756478",
+          "message": "[pallet-broker] Force-unpool provisionally pooled regions before redispatching them (#4081)\n\nThis PR force removes regions from the pool before allowing them to be\nredispatched (through `partition`/`interlace`/`assign`) in the case that\na region was pooled with `Provisional` finality.\n\nThis PR does not account for the case where a pooled region already\nentitles the benefactor to a contribution reward before the point of it\nbeing redispatched. However, `claim_revenue` should be called before\ntrying to redispatch a region anyway.\nOtherwise there would be ambiguity as to what should be done with the\nfirst part of a partitioned region. The first of the two new regions\nactually has the exact same `region_id` as the original region -- leave\nit pooled/withdraw from pool/claim contribution then withdraw?\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2025-06-13T10:33:18Z",
+          "tree_id": "9252b4ba357a052894712e133e0ddc077a35254b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f96dfb73ff0472a5087451fd0227949b44756478"
+        },
+        "date": 1749815851175,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012925199980000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15743449511333338,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.008976781940000088,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02245022881333333,
             "unit": "seconds"
           }
         ]
