@@ -66,6 +66,7 @@ fn register_penpal_a_asset_from_penpal_b_will_fail() {
 			EthereumSystemFrontendCall::RegisterToken {
 				asset_id: Box::new(VersionedLocation::from(penpal_a_asset_at_asset_hub)),
 				metadata: Default::default(),
+				fee_asset: remote_fee_asset_on_ethereum.clone(),
 			},
 		);
 
@@ -180,6 +181,9 @@ pub fn register_usdt_not_from_owner_on_asset_hub_will_fail() {
 	AssetHubWestend::execute_with(|| {
 		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
 
+		let fees_asset =
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
+
 		assert_noop!(
 			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::register_token(
 				// The owner is Alice, while AssetHubWestendReceiver is Bob, so it should fail
@@ -189,7 +193,8 @@ pub fn register_usdt_not_from_owner_on_asset_hub_will_fail() {
 					name: "usdt".as_bytes().to_vec().try_into().unwrap(),
 					symbol: "usdt".as_bytes().to_vec().try_into().unwrap(),
 					decimals: 6,
-				}
+				},
+				fees_asset
 			),
 			BadOrigin
 		);
@@ -204,6 +209,9 @@ pub fn register_relay_token_from_asset_hub_user_origin_will_fail() {
 	AssetHubWestend::execute_with(|| {
 		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
 
+		let fees_asset =
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
+
 		assert_noop!(
 			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::register_token(
 				RuntimeOrigin::signed(AssetHubWestendSender::get()),
@@ -213,6 +221,7 @@ pub fn register_relay_token_from_asset_hub_user_origin_will_fail() {
 					symbol: "wnd".as_bytes().to_vec().try_into().unwrap(),
 					decimals: 12,
 				},
+				fees_asset
 			),
 			BadOrigin
 		);
