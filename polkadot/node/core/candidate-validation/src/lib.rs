@@ -1150,7 +1150,7 @@ trait ValidationBackend {
 		let mut num_death_retries_left = 1;
 		let mut num_job_error_retries_left = 1;
 		let mut num_internal_retries_left = 1;
-		let mut num_runtime_construction_retries_left = 1;
+		let mut num_execution_error_retries_left = 1;
 		loop {
 			// Stop retrying if we exceeded the timeout.
 			if total_time_start.elapsed() + retry_delay > exec_timeout {
@@ -1173,7 +1173,7 @@ trait ValidationBackend {
 					PossiblyInvalidError::RuntimeConstruction(_) |
 					PossiblyInvalidError::CorruptedArtifact,
 				)) => {
-					break_if_no_retries_left!(num_runtime_construction_retries_left);
+					break_if_no_retries_left!(num_execution_error_retries_left);
 					self.precheck_pvf(pvf.clone()).await?;
 					// In this case the error is deterministic
 					// And a retry forces the ValidationBackend
