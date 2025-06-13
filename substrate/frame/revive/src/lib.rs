@@ -765,7 +765,7 @@ pub mod pallet {
 				Code::Existing(code_hash),
 				data,
 				salt,
-				false,
+				BumpNonce::Yes,
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -830,7 +830,7 @@ pub mod pallet {
 				Code::Upload(code),
 				data,
 				salt,
-				false,
+				BumpNonce::Yes,
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -874,7 +874,7 @@ pub mod pallet {
 				Code::Upload(code),
 				data,
 				None,
-				true,
+				BumpNonce::No,
 			);
 
 			if let Ok(retval) = &output.result {
@@ -1101,7 +1101,7 @@ where
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
-		is_eth_call: bool,
+		bump_nonce: BumpNonce,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
@@ -1144,7 +1144,7 @@ where
 				data,
 				salt.as_ref(),
 				unchecked_deposit_limit,
-				is_eth_call,
+				bump_nonce,
 			);
 			storage_deposit = storage_meter
 				.try_into_deposit(&instantiate_origin, unchecked_deposit_limit)?
@@ -1315,7 +1315,7 @@ where
 					Code::Upload(code.to_vec()),
 					data.to_vec(),
 					None,
-					true,
+					BumpNonce::No,
 				);
 
 				let returned_data = match result.result {

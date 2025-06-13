@@ -50,7 +50,7 @@ use frame_support::{
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
 use hex_literal::hex;
-use pallet_revive::{Code, DepositLimit, InstantiateReturnValue};
+use pallet_revive::{BumpNonce, Code, DepositLimit, InstantiateReturnValue};
 use pallet_revive_fixtures::compile_module;
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
@@ -1514,7 +1514,7 @@ fn withdraw_and_deposit_erc20s() {
 			Code::Upload(code),
 			constructor_data,
 			None,
-			false,
+			BumpNonce::Yes,
 		);
 		let Ok(InstantiateReturnValue { addr: erc20_address, .. }) = result.result else {
 			unreachable!("contract should initialize")
@@ -1628,7 +1628,7 @@ fn smart_contract_not_erc20_will_error() {
 			Code::Upload(code),
 			Vec::new(),
 			None,
-			false,
+			BumpNonce::Yes,
 		);
 		let Ok(InstantiateReturnValue { addr: non_erc20_address, .. }) = result.result else {
 			unreachable!("contract should initialize")
@@ -1693,7 +1693,7 @@ fn smart_contract_does_not_return_bool_fails() {
 			Code::Upload(code),
 			constructor_data,
 			None,
-			false,
+			BumpNonce::Yes,
 		);
 		let Ok(InstantiateReturnValue { addr: non_erc20_address, .. }) = result.result else {
 			unreachable!("contract should initialize")
@@ -1756,7 +1756,7 @@ fn expensive_erc20_runs_out_of_gas() {
 			Code::Upload(code),
 			constructor_data,
 			None,
-			false,
+			BumpNonce::Yes,
 		);
 		let Ok(InstantiateReturnValue { addr: non_erc20_address, .. }) = result.result else {
 			unreachable!("contract should initialize")

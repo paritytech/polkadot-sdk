@@ -17,8 +17,8 @@
 
 use super::{deposit_limit, GAS_LIMIT};
 use crate::{
-	address::AddressMapper, AccountIdOf, BalanceOf, Code, Config, ContractResult, DepositLimit,
-	ExecReturnValue, InstantiateReturnValue, OriginFor, Pallet, Weight,
+	address::AddressMapper, AccountIdOf, BalanceOf, BumpNonce, Code, Config, ContractResult,
+	DepositLimit, ExecReturnValue, InstantiateReturnValue, OriginFor, Pallet, Weight,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;
@@ -138,7 +138,7 @@ builder!(
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
-		is_eth_call: bool,
+		bump_nonce: BumpNonce,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>>;
 
 	/// Build the instantiate call and unwrap the result.
@@ -166,7 +166,7 @@ builder!(
 			code,
 			data: vec![],
 			salt: Some([0; 32]),
-			is_eth_call: false,
+			bump_nonce: BumpNonce::Yes,
 		}
 	}
 );

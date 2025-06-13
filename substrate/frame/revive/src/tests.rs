@@ -30,9 +30,9 @@ use crate::{
 	tests::test_utils::{get_contract, get_contract_checked},
 	tracing::trace,
 	weights::WeightInfo,
-	AccountId32Mapper, BalanceOf, Code, CodeInfoOf, Config, ContractInfo, ContractInfoOf,
-	DeletionQueueCounter, DepositLimit, Error, EthTransactError, HoldReason, Origin, Pallet,
-	PristineCode, H160,
+	AccountId32Mapper, BalanceOf, BumpNonce, Code, CodeInfoOf, Config, ContractInfo,
+	ContractInfoOf, DeletionQueueCounter, DepositLimit, Error, EthTransactError, HoldReason,
+	Origin, Pallet, PristineCode, H160,
 };
 
 use crate::test_utils::builder::Contract;
@@ -4455,12 +4455,13 @@ fn eth_instantiate_bump_nonce_once_works() {
 
 		builder::bare_instantiate(Code::Upload(code.clone()))
 			.origin(RuntimeOrigin::signed(ALICE))
+			.bump_nonce(BumpNonce::Yes)
 			.build_and_unwrap_result();
 		assert_eq!(System::account_nonce(&ALICE), 1);
 
 		builder::bare_instantiate(Code::Upload(code))
 			.origin(RuntimeOrigin::signed(BOB))
-			.is_eth_call(true)
+			.bump_nonce(BumpNonce::No)
 			.build_and_unwrap_result();
 		assert_eq!(System::account_nonce(&BOB), 0);
 	});

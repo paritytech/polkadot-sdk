@@ -20,7 +20,7 @@ use crate::{
 	gas::GasMeter,
 	limits,
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
-	primitives::{ExecReturnValue, StorageDeposit},
+	primitives::{BumpNonce, ExecReturnValue, StorageDeposit},
 	runtime_decl_for_revive_api::{Decode, Encode, RuntimeDebugNoBound, TypeInfo},
 	storage::{self, meter::Diff, WriteOutcome},
 	tracing::if_tracing,
@@ -773,7 +773,7 @@ where
 			skip_transfer,
 		)? {
 			stack
-				.run(executable, input_data, false)
+				.run(executable, input_data, BumpNonce::Yes)
 				.map(|_| stack.first_frame.last_frame_output)
 		} else {
 			let result = Self::transfer_from_origin(&origin, &origin, &dest, value, storage_meter);
@@ -811,7 +811,7 @@ where
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
 		skip_transfer: bool,
-		is_eth_call: bool,
+		bump_nonce: BumpNonce,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
 		let (mut stack, executable) = Stack::<'_, T, E>::new(
 			FrameArgs::Instantiate {
@@ -829,7 +829,7 @@ where
 		.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
 		let address = T::AddressMapper::to_address(&stack.top_frame().account_id);
 		stack
-			.run(executable, input_data, is_eth_call)
+			.run(executable, input_data, bump_nonce)
 			.map(|_| (address, stack.first_frame.last_frame_output))
 	}
 
@@ -1080,7 +1080,7 @@ where
 		&mut self,
 		executable: ExecutableOrPrecompile<T, E, Self>,
 		input_data: Vec<u8>,
-		is_eth_call: bool,
+		bump_nonce: BumpNonce,
 	) -> Result<(), ExecError> {
 		let frame = self.top_frame();
 		let entry_point = frame.entry_point;
@@ -1142,7 +1142,7 @@ where
 				<System<T>>::inc_account_nonce(account_id);
 
 				// Only bump the nonce for a substrate transaction, as they can be batched
-				if !is_eth_call {
+				if matches!(bump_nonce, BumpNonce::Yes) {
 					// Needs to be incremented before calling into the code so that it is visible
 					// in case of recursion.
 					<System<T>>::inc_account_nonce(caller.account_id()?);
@@ -1527,7 +1527,7 @@ where
 			deposit_limit.saturated_into::<BalanceOf<T>>(),
 			self.is_read_only(),
 		)? {
-			self.run(executable, input_data, false)
+			self.run(executable, input_data, BumpNonce::Yes)
 		} else {
 			// Delegate-calls to non-contract accounts are considered success.
 			Ok(())
@@ -1689,7 +1689,7 @@ where
 			self.is_read_only(),
 		)?;
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
-		self.run(executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE), input_data, false)
+		self.run(executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE), input_data, BumpNonce::Yes)
 			.map(|_| address)
 	}
 }
@@ -1758,7 +1758,7 @@ where
 				deposit_limit.saturated_into::<BalanceOf<T>>(),
 				is_read_only,
 			)? {
-				self.run(executable, input_data, false)
+				self.run(executable, input_data, BumpNonce::Yes)
 			} else {
 				let result = if is_read_only && value.is_zero() {
 					Ok(Default::default())
