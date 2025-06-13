@@ -4064,7 +4064,7 @@ fn tracing_works_for_transfers() {
 }
 
 #[test]
-fn tracing_works() {
+fn call_tracing_works() {
 	use crate::evm::*;
 	use CallType::*;
 	let (code, _code_hash) = compile_module("tracing").unwrap();
@@ -4216,6 +4216,121 @@ fn tracing_works() {
 				trace,
 				expected_trace.into(),
 			);
+		}
+	});
+}
+
+#[test]
+fn prestate_tracing_works() {
+	use crate::evm::*;
+	use alloc::collections::BTreeMap;
+
+	let (code, _code_hash) = compile_module("tracing").unwrap();
+	let (callee_code, _) = compile_module("tracing_callee").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
+
+		let Contract { addr: addr_callee, .. } =
+			builder::bare_instantiate(Code::Upload(callee_code.clone()))
+				.build_and_unwrap_contract();
+
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
+			.value(10_000_000)
+			.build_and_unwrap_contract();
+
+		let test_cases = vec![
+			(
+				PrestateTracerConfig {
+					diff_mode: false,
+					disable_storage: false,
+					disable_code: false,
+				},
+				PrestateTrace::Prestate(BTreeMap::from([
+					(
+						ALICE_ADDR,
+						PrestateTraceInfo {
+							balance: Some(U256::from(89994487u64)),
+							nonce: Some(2),
+							..Default::default()
+						},
+					),
+					(
+						BOB_ADDR,
+						PrestateTraceInfo { balance: Some(U256::from(0u64)), ..Default::default() },
+					),
+					(
+						addr_callee,
+						PrestateTraceInfo {
+							balance: Some(U256::from(0u64)),
+							code: Some(Bytes(callee_code.clone())),
+							nonce: Some(1),
+							..Default::default()
+						},
+					),
+					(
+						addr,
+						PrestateTraceInfo {
+							balance: Some(U256::from(10_000_000u64)),
+							code: Some(Bytes(code.clone())),
+							nonce: Some(1),
+							..Default::default()
+						},
+					),
+				])),
+			),
+			(
+				PrestateTracerConfig {
+					diff_mode: true,
+					disable_storage: false,
+					disable_code: false,
+				},
+				PrestateTrace::DiffMode {
+					pre: BTreeMap::from([
+						(
+							BOB_ADDR,
+							PrestateTraceInfo {
+								balance: Some(U256::from(100u64)),
+								..Default::default()
+							},
+						),
+						(
+							addr,
+							PrestateTraceInfo {
+								balance: Some(U256::from(9_999_900u64)),
+								code: Some(Bytes(code)),
+								nonce: Some(1),
+								..Default::default()
+							},
+						),
+					]),
+					post: BTreeMap::from([
+						(
+							BOB_ADDR,
+							PrestateTraceInfo {
+								balance: Some(U256::from(200u64)),
+								..Default::default()
+							},
+						),
+						(
+							addr,
+							PrestateTraceInfo {
+								balance: Some(U256::from(9_999_800u64)),
+								..Default::default()
+							},
+						),
+					]),
+				},
+			),
+		];
+
+		for (config, expected_trace) in test_cases {
+			let mut tracer = PrestateTracer::<Test>::new(config);
+			trace(&mut tracer, || {
+				builder::bare_call(addr).data((3u32, addr_callee).encode()).build()
+			});
+
+			let trace = tracer.collect_trace();
+			assert_eq!(trace, expected_trace);
 		}
 	});
 }
