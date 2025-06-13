@@ -17,6 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::error::Error;
+use core::fmt;
 use sc_network::{
 	multiaddr::{ParseError, Protocol},
 	Multiaddr,
@@ -29,7 +30,6 @@ use std::collections::{hash_map::Entry, HashMap, HashSet};
 
 /// Cache for [`AuthorityId`] -> [`HashSet<Multiaddr>`] and [`PeerId`] -> [`HashSet<AuthorityId>`]
 /// mappings.
-#[derive(Clone, Debug, Default, PartialEq)]
 pub(super) struct AddrCache {
 	/// The addresses found in `authority_id_to_addresses` are guaranteed to always match
 	/// the peerids found in `peer_id_to_authority_ids`. In other words, these two hashmaps
@@ -40,11 +40,50 @@ pub(super) struct AddrCache {
 	/// it's not expected that a single `AuthorityId` can have multiple `PeerId`s.
 	authority_id_to_addresses: HashMap<AuthorityId, HashSet<Multiaddr>>,
 	peer_id_to_authority_ids: HashMap<PeerId, HashSet<AuthorityId>>,
+
+	on_change: Option<OnAddrCacheChange>,
 }
+impl AddrCache {
+	/// Clones all but the `on_change` handler (if any).
+	fn clone_content(&self) -> Self {
+		AddrCache {
+			authority_id_to_addresses: self.authority_id_to_addresses.clone(),
+			peer_id_to_authority_ids: self.peer_id_to_authority_ids.clone(),
+			on_change: None,
+		}
+	}
+}
+impl std::fmt::Debug for AddrCache {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("AddrCache")
+			.field("authority_id_to_addresses", &self.authority_id_to_addresses)
+			.field("peer_id_to_authority_ids", &self.peer_id_to_authority_ids)
+			.finish()
+	}
+}
+impl PartialEq for AddrCache {
+	fn eq(&self, other: &Self) -> bool {
+		self.authority_id_to_addresses == other.authority_id_to_addresses &&
+			self.peer_id_to_authority_ids == other.peer_id_to_authority_ids
+	}
+}
+pub(super) type OnAddrCacheChange =
+	Box<dyn Fn(AddrCache) -> Result<(), Box<dyn fmt::Debug>> + 'static>;
 
 impl AddrCache {
 	pub fn new() -> Self {
-		AddrCache::default()
+		AddrCache {
+			authority_id_to_addresses: HashMap::new(),
+			peer_id_to_authority_ids: HashMap::new(),
+			on_change: None,
+		}
+	}
+
+	pub fn install_on_change_callback<F>(&mut self, on_change: F)
+	where
+		F: Fn(AddrCache) -> Result<(), Box<dyn fmt::Debug>> + 'static,
+	{
+		self.on_change = Some(Box::new(on_change));
 	}
 
 	/// Inserts the given [`AuthorityId`] and [`Vec<Multiaddr>`] pair for future lookups by
@@ -89,6 +128,8 @@ impl AddrCache {
 
 		// Remove the old peer ids
 		self.remove_authority_id_from_peer_ids(&authority_id, old_peer_ids.difference(&peer_ids));
+
+		self.notify_change_if_needed()
 	}
 
 	/// Remove the given `authority_id` from the `peer_id` to `authority_ids` mapping.
@@ -159,6 +200,19 @@ impl AddrCache {
 				addresses_to_peer_ids(&addresses).iter(),
 			);
 		}
+
+		self.notify_change_if_needed()
+	}
+
+	fn notify_change_if_needed(&self) {
+		if let Some(on_change) = &self.on_change {
+			match (on_change)(self.clone_content()) {
+				Ok(()) => {},
+				Err(err) => {
+					log::error!(target: super::LOG_TARGET, "Error while notifying change: {:?}", err);
+				},
+			}
+		}
 	}
 }
 
@@ -180,7 +234,7 @@ fn addresses_to_peer_ids(addresses: &HashSet<Multiaddr>) -> HashSet<PeerId> {
 /// implements Serialize and Deserialize traits, by holding variants of `Multiaddr` and `PeerId`
 /// that can be encoded and decoded.
 /// This is used for storing the cache in the database.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub(super) struct SerializableAddrCache {
 	authority_id_to_addresses: HashMap<AuthorityId, HashSet<SerializableMultiaddr>>,
 	peer_id_to_authority_ids: HashMap<SerializablePeerId, HashSet<AuthorityId>>,
@@ -235,7 +289,7 @@ impl TryFrom<SerializableAddrCache> for AddrCache {
 			})
 			.collect::<Result<HashMap<PeerId, HashSet<AuthorityId>>, Self::Error>>()?;
 
-		Ok(AddrCache { authority_id_to_addresses, peer_id_to_authority_ids })
+		Ok(AddrCache { authority_id_to_addresses, peer_id_to_authority_ids, on_change: None })
 	}
 }
 
@@ -286,6 +340,7 @@ impl TryFrom<SerializableMultiaddr> for Multiaddr {
 
 #[cfg(test)]
 mod tests {
+
 	use super::*;
 
 	use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
@@ -494,55 +549,103 @@ mod tests {
 		);
 	}
 
-	fn roundtrip_serializable_variant_with_transform_reverse<
-		T,
-		E: std::fmt::Debug,
-	>(
-		transform: impl Fn(SerializableAddrCache) -> T,
-		reverse: impl Fn(T) -> Result<SerializableAddrCache, E>,
-	) {
-		let cache = {
+	impl AddrCache {
+		pub fn sample() -> Self {
 			let mut addr_cache = AddrCache::new();
 
-			let peer_id = PeerId::random();
+			let peer_id = PeerId::from_multihash(
+				Multihash::wrap(Code::Sha2_256.into(), &[0xab; 32]).unwrap(),
+			)
+			.unwrap();
 			let addr = Multiaddr::empty().with(Protocol::P2p(peer_id.into()));
-
-			let authority_id0 = AuthorityPair::generate().0.public();
-			let authority_id1 = AuthorityPair::generate().0.public();
+			let authority_id0 = AuthorityPair::from_seed(&[0xaa; 32]).public();
+			let authority_id1 = AuthorityPair::from_seed(&[0xbb; 32]).public();
 
 			addr_cache.insert(authority_id0.clone(), vec![addr.clone()]);
 			addr_cache.insert(authority_id1.clone(), vec![addr.clone()]);
 			addr_cache
-		};
-		let serializable = SerializableAddrCache::from(cache.clone());
-		let transformed = transform(serializable);
-		let reversed = reverse(transformed).expect("Decoding should not fail");
-		let from_serializable = AddrCache::try_from(reversed).expect("Decoding should not fail");
-		assert_eq!(cache, from_serializable);
+		}
 	}
 
+	/// Tests From<AddrCache> and TryFrom<SerializableAddrCache> implementations
 	#[test]
 	fn roundtrip_serializable_variant() {
-		#[derive(Debug)]
-		struct NoError;
-		// This tests only that From/TryFrom of SerializableAddrCache works.
-		roundtrip_serializable_variant_with_transform_reverse::<SerializableAddrCache, NoError>(
-			|s| s,
-			|t| Ok(t),
-		);
+		let sample = || AddrCache::sample();
+		let serializable = SerializableAddrCache::from(sample());
+		let from_serializable = AddrCache::try_from(serializable).unwrap();
+		assert_eq!(sample(), from_serializable);
 	}
 
+	/// Tests JSON roundtrip is stable.
 	#[test]
 	fn serde_json() {
-		// This tests Serde JSON
-		roundtrip_serializable_variant_with_transform_reverse(
-			|s| serde_json::to_string_pretty(&s).expect("Serialization should work"),
-			|t| serde_json::from_str(&t),
-		);
+		let sample = || AddrCache::sample();
+		let serializable = SerializableAddrCache::from(sample());
+		let json = serde_json::to_string(&serializable).expect("Serialization should not fail");
+		let deserialized = serde_json::from_str::<SerializableAddrCache>(&json).unwrap();
+		let from_serializable = AddrCache::try_from(deserialized).unwrap();
+		assert_eq!(sample(), from_serializable);
+	}
+
+	impl AddrCache {
+		fn contains_authority_id(&self, id: &AuthorityId) -> bool {
+			self.authority_id_to_addresses.contains_key(id)
+		}
 	}
 
 	#[test]
-	fn deserialize_from_str() {
+	fn test_on_change_callback_on_insert() {
+		use std::{cell::RefCell, rc::Rc};
+
+		let called = Rc::new(RefCell::new(false));
+		let mut sut = AddrCache::new();
+
+		let new_authority = AuthorityPair::from_seed(&[0xbb; 32]).public();
+		let called_clone = Rc::clone(&called);
+		let new_authority_clone = new_authority.clone();
+		sut.install_on_change_callback(move |changed| {
+			*called_clone.borrow_mut() = true;
+			assert!(changed.contains_authority_id(&new_authority_clone));
+			Ok(())
+		});
+		assert!(!sut.contains_authority_id(&new_authority));
+
+		sut.insert(
+			new_authority.clone(),
+			vec![Multiaddr::empty().with(Protocol::P2p(PeerId::random().into()))],
+		);
+
+		assert!(*called.borrow(), "on_change callback should be called after insert");
+	}
+
+	#[test]
+	fn test_on_change_callback_on_retain() {
+		use std::{cell::RefCell, rc::Rc};
+
+		let called = Rc::new(RefCell::new(false));
+		let mut sut = AddrCache::new();
+
+		let authority_id = AuthorityPair::from_seed(&[0xbb; 32]).public();
+		let called_clone = Rc::clone(&called);
+		let authority_id_clone = authority_id.clone();
+		sut.insert(
+			authority_id.clone(),
+			vec![Multiaddr::empty().with(Protocol::P2p(PeerId::random().into()))],
+		);
+
+		sut.install_on_change_callback(move |changed| {
+			*called_clone.borrow_mut() = true;
+			assert!(!changed.contains_authority_id(&authority_id_clone));
+			Ok(())
+		});
+		assert!(sut.contains_authority_id(&authority_id));
+		sut.retain_ids(&[]); // remove value keyed by `authority_id`
+
+		assert!(*called.borrow(), "on_change callback should be called after insert");
+	}
+
+	#[test]
+	fn deserialize_from_json() {
 		let json = r#"
 		{
 			"authority_id_to_addresses": {
@@ -565,5 +668,4 @@ mod tests {
 			.expect("Should be able to deserialize valid JSON into SerializableAddrCache");
 		assert_eq!(deserialized.authority_id_to_addresses.len(), 2);
 	}
-
 }
