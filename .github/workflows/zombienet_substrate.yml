@@ -36,7 +36,7 @@ jobs:
     needs: [preflight]
     # only run if we have changes in ./substrate directory and the build workflow already finish with success status.
     if: ${{ needs.preflight.outputs.changes_substrate || github.event_name == 'workflow_dispatch' }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
@@ -64,7 +64,7 @@ jobs:
     needs: [preflight]
     # only run if we have changes in ./substrate directory and the build workflow already finish with success status.
     if: ${{ needs.preflight.outputs.changes_substrate || github.event_name == 'workflow_dispatch' }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
@@ -92,7 +92,7 @@ jobs:
     needs: [preflight]
     # only run if we have changes in ./substrate directory and the build workflow already finish with success status.
     if: ${{ needs.preflight.outputs.changes_substrate || github.event_name == 'workflow_dispatch' }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
@@ -124,7 +124,7 @@ jobs:
     needs: [preflight]
     # only run if we have changes in ./substrate directory and the build workflow already finish with success status.
     if: ${{ needs.preflight.outputs.changes_substrate || github.event_name == 'workflow_dispatch' }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}

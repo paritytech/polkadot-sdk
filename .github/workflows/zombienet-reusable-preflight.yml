@@ -211,10 +211,13 @@ jobs:
             . .github/zombienet-env
             if [[ "$ZOMBIENET_PROVIDER" == "native" ]]; then
               echo "ZOMBIENET_IMAGE=${ZOMBIENET_IMAGE_FOR_NATIVE}"
-              echo "ZOMBIENET_RUNNER=${ZOMBIENET_RUNNER_FOR_NATIVE}"
+              echo "ZOMBIENET_DEFAULT_RUNNER=${ZOMBIENET_DEFAULT_RUNNER_FOR_NATIVE}"
+              echo "ZOMBIENET_LARGE_RUNNER=${ZOMBIENET_DEFAULT_RUNNER_FOR_NATIVE}"
             else
               echo "ZOMBIENET_IMAGE=${ZOMBIENET_IMAGE_FOR_K8S}"
-              echo "ZOMBIENET_RUNNER=${ZOMBIENET_RUNNER_FOR_K8S}"
+              # runner size for k8s is not relevant, it "only" spawns pods and runs the test
+              echo "ZOMBIENET_DEFAULT_RUNNER=${ZOMBIENET_RUNNER_FOR_K8S}"
+              echo "ZOMBIENET_LARGE_RUNNER=${ZOMBIENET_RUNNER_FOR_K8S}"
             fi
 
             # additional envs required by zombienet-sdk
@@ -222,10 +225,13 @@ jobs:
             . .github/zombienet-sdk-env
             if [[ "$ZOMBIE_PROVIDER" == "native" ]]; then
               echo "ZOMBIENET_SDK_IMAGE=${ZOMBIENET_SDK_IMAGE_FOR_NATIVE}"
-              echo "ZOMBIENET_SDK_RUNNER=${ZOMBIENET_SDK_RUNNER_FOR_NATIVE}"
+              echo "ZOMBIENET_SDK_DEFAULT_RUNNER=${ZOMBIENET_SDK_DEFAULT_RUNNER_FOR_NATIVE}"
+              echo "ZOMBIENET_SDK_LARGE_RUNNER=${ZOMBIENET_SDK_LARGE_RUNNER_FOR_NATIVE}"
             else
               echo "ZOMBIENET_SDK_IMAGE=${ZOMBIENET_SDK_IMAGE_FOR_K8S}"
-              echo "ZOMBIENET_SDK_RUNNER=${ZOMBIENET_SDK_RUNNER_FOR_K8S}"
+              # runner size for k8s is not relevant, it "only" spawns pods and runs the test
+              echo "ZOMBIENET_SDK_DEFAULT_RUNNER=${ZOMBIENET_SDK_RUNNER_FOR_K8S}"
+              echo "ZOMBIENET_SDK_LARGE_RUNNER=${ZOMBIENET_SDK_RUNNER_FOR_K8S}"
             fi
 
             # Trick for multline strings: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#example-of-a-multiline-string
