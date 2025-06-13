@@ -10,6 +10,8 @@ doc:
     - Similarly, updated `get_score` method now returns a default (0) score if no leader is available.
     - Removed VerificationDataUnavailable now that `get_page` and `get_score` don't return an Option anymore
     - Signed validation phase must now be a multiple of the number of pages
+    - Moved verifier stop logic to internal pallet method, removing the trait-level stop function
+    in favor of handling cleanup during verification failure.
     - Updated tests to reflect new behavior and remove defensive unwraps.
 crates:
 - name: pallet-election-provider-multi-block
