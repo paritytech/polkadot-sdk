@@ -32,7 +32,7 @@ use sp_runtime::{traits::Zero, Perbill};
 
 parameter_types! {
 	pub static MockSignedNextSolution: Option<Vec<SolutionOf<Runtime>>> = None;
-	pub static MockSignedNextScore: Option<ElectionScore> = Default::default();
+	pub static MockSignedNextScore: ElectionScore = Default::default();
 	pub static MockSignedResults: Vec<VerificationResult> = Default::default();
 }
 
@@ -43,11 +43,13 @@ parameter_types! {
 pub struct MockSignedPhase;
 impl SolutionDataProvider for MockSignedPhase {
 	type Solution = <Runtime as MinerConfig>::Solution;
-	fn get_page(page: PageIndex) -> Option<Self::Solution> {
-		MockSignedNextSolution::get().map(|i| i.get(page as usize).cloned().unwrap_or_default())
+	fn get_page(page: PageIndex) -> Self::Solution {
+		MockSignedNextSolution::get()
+			.and_then(|i| i.get(page as usize).cloned())
+			.unwrap_or_default()
 	}
 
-	fn get_score() -> Option<ElectionScore> {
+	fn get_score() -> ElectionScore {
 		MockSignedNextScore::get()
 	}
 
@@ -96,15 +98,16 @@ pub enum SignedSwitch {
 pub struct DualSignedPhase;
 impl SolutionDataProvider for DualSignedPhase {
 	type Solution = <Runtime as MinerConfig>::Solution;
-	fn get_page(page: PageIndex) -> Option<Self::Solution> {
+	fn get_page(page: PageIndex) -> Self::Solution {
 		match SignedPhaseSwitch::get() {
 			SignedSwitch::Mock => MockSignedNextSolution::get()
-				.map(|i| i.get(page as usize).cloned().unwrap_or_default()),
+				.and_then(|i| i.get(page as usize).cloned())
+				.unwrap_or_default(),
 			SignedSwitch::Real => SignedPallet::get_page(page),
 		}
 	}
 
-	fn get_score() -> Option<ElectionScore> {
+	fn get_score() -> ElectionScore {
 		match SignedPhaseSwitch::get() {
 			SignedSwitch::Mock => MockSignedNextScore::get(),
 			SignedSwitch::Real => SignedPallet::get_score(),
@@ -123,7 +126,7 @@ parameter_types! {
 	static SignedEventsIndex: u32 = 0;
 }
 
-pub fn singed_events_since_last_call() -> Vec<crate::signed::Event<Runtime>> {
+pub fn signed_events_since_last_call() -> Vec<crate::signed::Event<Runtime>> {
 	let events = signed_events();
 	let already_seen = SignedEventsIndex::get();
 	SignedEventsIndex::set(events.len() as u32);
@@ -192,7 +195,7 @@ pub fn load_signed_for_verification_and_start(
 			},
 			Event::PhaseTransitioned {
 				from: Phase::Signed(0),
-				to: Phase::SignedValidation(SignedValidationPhase::get() - 1)
+				to: Phase::SignedValidation(SignedValidationPhase::get())
 			}
 		]
 	);
@@ -222,7 +225,7 @@ pub fn load_signed_for_verification_and_start_and_roll_to_verified(
 			},
 			Event::PhaseTransitioned {
 				from: Phase::Signed(0),
-				to: Phase::SignedValidation(SignedValidationPhase::get() - 1)
+				to: Phase::SignedValidation(SignedValidationPhase::get())
 			}
 		]
 	);
@@ -232,7 +235,7 @@ pub fn load_signed_for_verification_and_start_and_roll_to_verified(
 	assert_eq!(<Runtime as crate::Config>::Verifier::queued_score(), None);
 
 	// roll to the block it is finalized.
-	for _ in 0..Pages::get() {
+	for _ in 0..Pages::get() + 1 {
 		roll_next();
 	}
 
@@ -262,7 +265,7 @@ pub fn load_mock_signed_and_start(raw_paged: PagedRawSolution<Runtime>) {
 		"you should not use this if mock phase is not being mocked"
 	);
 	MockSignedNextSolution::set(Some(raw_paged.solution_pages.pad_solution_pages(Pages::get())));
-	MockSignedNextScore::set(Some(raw_paged.score));
+	MockSignedNextScore::set(raw_paged.score);
 
 	// Let's gooooo!
 	assert_ok!(<VerifierPallet as AsynchronousVerifier>::start());
