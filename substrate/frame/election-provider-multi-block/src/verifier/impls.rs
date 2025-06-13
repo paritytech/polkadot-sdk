@@ -33,7 +33,7 @@ use frame_election_provider_support::{
 use frame_support::{
 	ensure,
 	pallet_prelude::{ValueQuery, *},
-	traits::{defensive_prelude::*, Defensive, Get},
+	traits::{defensive_prelude::*, Get},
 };
 use frame_system::pallet_prelude::*;
 use pallet::*;
@@ -151,8 +151,6 @@ pub(crate) mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T> {
-		/// The verification data was unavailable and it could not continue.
-		VerificationDataUnavailable,
 		/// A verification failed at the given page.
 		///
 		/// NOTE: if the index is 0, then this could mean either the feasibility of the last page
@@ -372,21 +370,19 @@ pub(crate) mod pallet {
 
 		/// Return the `score` and `winner_count` of verifying solution.
 		///
-		/// Assumes that all the corresponding pages of `QueuedSolutionBackings` exist, then it
-		/// computes the final score of the solution that is currently at the end of its
+		/// Computes the final score of the solution that is currently at the end of its
 		/// verification process.
+		///
+		/// Does NOT check for completeness of all the corresponding pages of
+		/// `QueuedSolutionBackings`. This function is called during finalization logic, which can
+		/// be reached even with missing/empty pages (treated as Default::default()). Missing
+		/// pages are handled gracefully by the verification process before reaching this point.
+		/// This avoids unnecessary storage reads and redundant checks.
 		///
 		/// This solution corresponds to whatever is stored in the INVALID variant of
 		/// `QueuedSolution`. Recall that the score of this solution is not yet verified, so it
 		/// should never become `valid`.
 		pub(crate) fn compute_invalid_score() -> Result<(ElectionScore, u32), FeasibilityError> {
-			// ensure that this is only called when all pages are verified individually.
-			if QueuedSolutionBackings::<T>::iter_key_prefix(Self::round()).count() !=
-				T::Pages::get() as usize
-			{
-				return Err(FeasibilityError::Incomplete)
-			}
-
 			let mut total_supports: BTreeMap<T::AccountId, PartialBackings> = Default::default();
 			for (who, PartialBackings { backers, total }) in
 				QueuedSolutionBackings::<T>::iter_prefix(Self::round()).flat_map(|(_, pb)| pb)
@@ -630,29 +626,9 @@ pub(crate) mod pallet {
 impl<T: Config> Pallet<T> {
 	fn do_on_initialize() -> Weight {
 		if let Status::Ongoing(current_page) = Self::status_storage() {
-			let maybe_page_solution =
+			let page_solution =
 				<T::SolutionDataProvider as SolutionDataProvider>::get_page(current_page);
 
-			if maybe_page_solution.as_ref().is_none() {
-				// the data provider has zilch, revert to a clean state, waiting for a new `start`.
-				sublog!(
-					error,
-					"verifier",
-					"T::SolutionDataProvider failed to deliver page {}. This is an unexpected error.",
-					current_page,
-				);
-
-				QueuedSolution::<T>::clear_invalid_and_backings();
-				StatusStorage::<T>::put(Status::Nothing);
-				T::SolutionDataProvider::report_result(VerificationResult::DataUnavailable);
-
-				Self::deposit_event(Event::<T>::VerificationDataUnavailable);
-				// weight is a bit overestimate.
-				let wasted_pages = T::Pages::get().saturating_sub(current_page);
-				return VerifierWeightsOf::<T>::on_initialize_invalid_non_terminal(wasted_pages);
-			}
-
-			let page_solution = maybe_page_solution.expect("Option checked to not be None; qed");
 			let maybe_supports = Self::feasibility_check_page_inner(page_solution, current_page);
 
 			sublog!(
@@ -673,15 +649,10 @@ impl<T: Config> Pallet<T> {
 						StatusStorage::<T>::put(Status::Ongoing(current_page.saturating_sub(1)));
 						VerifierWeightsOf::<T>::on_initialize_valid_non_terminal()
 					} else {
-						// last page, finalize everything. Solution data provider must always have a
-						// score for us at this point. Not much point in reporting a result, we just
-						// assume default score, which will almost certainly fail and cause a proper
-						// cleanup of the pallet, which is what we want anyways.
-						let claimed_score =
-							T::SolutionDataProvider::get_score().defensive_unwrap_or_default();
+						// last page, finalize everything. Get the claimed score.
+						let claimed_score = T::SolutionDataProvider::get_score();
 
-						// in both cases of the following match, we are not back to the nothing
-						// state.
+						// in both cases of the following match, we are back to the nothing state.
 						StatusStorage::<T>::put(Status::Nothing);
 
 						match Self::finalize_async_verification(claimed_score) {
@@ -703,9 +674,19 @@ impl<T: Config> Pallet<T> {
 				Err(err) => {
 					// the page solution was invalid.
 					Self::deposit_event(Event::<T>::VerificationFailed(current_page, err));
+
+					sublog!(warn, "verifier", "Clearing any ongoing unverified solutions.");
+					// Clear any ongoing solution that has not been verified, regardless of the
+					// current state.
+					QueuedSolution::<T>::clear_invalid_and_backings_unchecked();
+
+					// we also mutate the status back to doing nothing.
+					let was_ongoing = matches!(StatusStorage::<T>::get(), Status::Ongoing(_));
 					StatusStorage::<T>::put(Status::Nothing);
-					QueuedSolution::<T>::clear_invalid_and_backings();
-					T::SolutionDataProvider::report_result(VerificationResult::Rejected);
+
+					if was_ongoing {
+						T::SolutionDataProvider::report_result(VerificationResult::Rejected);
+					}
 					let wasted_pages = T::Pages::get().saturating_sub(current_page);
 					VerifierWeightsOf::<T>::on_initialize_invalid_non_terminal(wasted_pages)
 				},
@@ -1021,7 +1002,7 @@ impl<T: Config> AsynchronousVerifier for Pallet<T> {
 	fn start() -> Result<(), &'static str> {
 		sublog!(info, "verifier", "start signal received.");
 		if let Status::Nothing = Self::status() {
-			let claimed_score = Self::SolutionDataProvider::get_score().unwrap_or_default();
+			let claimed_score = Self::SolutionDataProvider::get_score();
 			if Self::ensure_score_quality(claimed_score).is_err() {
 				// don't do anything, report back that this solution was garbage.
 				Self::deposit_event(Event::<T>::VerificationFailed(
@@ -1040,27 +1021,5 @@ impl<T: Config> AsynchronousVerifier for Pallet<T> {
 			sublog!(warn, "verifier", "start signal received while busy. This will be ignored.");
 			Err("verification ongoing")
 		}
-	}
-
-	fn stop() {
-		sublog!(warn, "verifier", "stop signal received. clearing everything.");
-
-		// we clear any ongoing solution's no been verified in any case, although this should only
-		// exist if we were doing something.
-		#[cfg(debug_assertions)]
-		assert!(
-			!matches!(StatusStorage::<T>::get(), Status::Ongoing(_)) ||
-				(matches!(StatusStorage::<T>::get(), Status::Ongoing(_)) &&
-					QueuedSolution::<T>::invalid_iter().count() > 0)
-		);
-		QueuedSolution::<T>::clear_invalid_and_backings_unchecked();
-
-		// we also mutate the status back to doing nothing.
-		StatusStorage::<T>::mutate(|old| {
-			if matches!(old, Status::Ongoing(_)) {
-				T::SolutionDataProvider::report_result(VerificationResult::Rejected)
-			}
-			*old = Status::Nothing;
-		});
 	}
 }
