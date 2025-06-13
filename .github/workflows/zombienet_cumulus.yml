@@ -13,7 +13,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  RUN_IN_CONTAINER: 1
   FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 1
   LOCAL_DIR: "./cumulus/zombienet/tests"
   GHA_CLUSTER_SERVER_ADDR: "https://kubernetes.default:443"
@@ -29,10 +28,10 @@ jobs:
   zombienet-cumulus-0001-sync_blocks_from_tip_without_connected_collator:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
+      image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
     env:
       # sdk tests are looking for POLKADOT_IMAGE
       POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
@@ -56,10 +55,10 @@ jobs:
   zombienet-cumulus-0002-pov_recovery:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
+      image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
     env:
       POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
@@ -82,10 +81,10 @@ jobs:
   zombienet-cumulus-0003-full_node_catching_up:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
+      image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
     env:
       POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
@@ -108,10 +107,10 @@ jobs:
   zombienet-cumulus-0004-runtime_upgrade:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
+      image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
     env:
       POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
@@ -149,10 +148,10 @@ jobs:
   zombienet-cumulus-0005-migrate_solo_to_para:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
+      image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
     env:
       POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
@@ -175,10 +174,10 @@ jobs:
   zombienet-cumulus-0006-rpc_collator_builds_blocks:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
+      image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
     env:
       POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
@@ -202,10 +201,10 @@ jobs:
   zombienet-cumulus-0007-full_node_warp_sync:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
+      image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
     env:
       POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
@@ -228,10 +227,10 @@ jobs:
   zombienet-cumulus-0008-elastic_authoring:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
+      image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
     env:
       # sdk tests are looking for POLKADOT_IMAGE
       POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
@@ -255,10 +254,10 @@ jobs:
   zombienet-cumulus-0009-elastic_scaling_pov_recovery:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
+      image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
     env:
       # sdk tests are looking for POLKADOT_IMAGE
       POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
@@ -282,10 +281,10 @@ jobs:
   zombienet-cumulus-0010-elastic_scaling_multiple_block_per_slot:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
+      image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
     env:
       # sdk tests are looking for POLKADOT_IMAGE
       POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
@@ -309,10 +308,10 @@ jobs:
   zombienet-cumulus-0011-dht-bootnodes:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
+      image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
     env:
       # sdk tests are looking for POLKADOT_IMAGE
       POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
@@ -336,10 +335,10 @@ jobs:
   zombienet-cumulus-0012-parachain_extrinsic_gets_finalized:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
+      image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
     env:
       # sdk tests are looking for POLKADOT_IMAGE
       POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
