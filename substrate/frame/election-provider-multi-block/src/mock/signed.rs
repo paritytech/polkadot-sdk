@@ -195,7 +195,7 @@ pub fn load_signed_for_verification_and_start(
 			},
 			Event::PhaseTransitioned {
 				from: Phase::Signed(0),
-				to: Phase::SignedValidation(SignedValidationPhase::get() - 1)
+				to: Phase::SignedValidation(SignedValidationPhase::get())
 			}
 		]
 	);
@@ -225,7 +225,7 @@ pub fn load_signed_for_verification_and_start_and_roll_to_verified(
 			},
 			Event::PhaseTransitioned {
 				from: Phase::Signed(0),
-				to: Phase::SignedValidation(SignedValidationPhase::get() - 1)
+				to: Phase::SignedValidation(SignedValidationPhase::get())
 			}
 		]
 	);
@@ -235,7 +235,7 @@ pub fn load_signed_for_verification_and_start_and_roll_to_verified(
 	assert_eq!(<Runtime as crate::Config>::Verifier::queued_score(), None);
 
 	// roll to the block it is finalized.
-	for _ in 0..Pages::get() {
+	for _ in 0..Pages::get() + 1 {
 		roll_next();
 	}
 

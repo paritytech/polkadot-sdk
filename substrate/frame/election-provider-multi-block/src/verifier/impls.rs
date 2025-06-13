@@ -624,22 +624,6 @@ pub(crate) mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	/// Internal method to handle verifier cleanup
-	fn stop() {
-		sublog!(warn, "verifier", "Clearing any ongoing unverified solutions.");
-		// Clear any ongoing solution that has not been verified, regardless of the current state.
-		// This cleanup should only be necessary if there was an active verification process.
-		QueuedSolution::<T>::clear_invalid_and_backings_unchecked();
-
-		// we also mutate the status back to doing nothing.
-		let was_ongoing = matches!(StatusStorage::<T>::get(), Status::Ongoing(_));
-		StatusStorage::<T>::put(Status::Nothing);
-
-		if was_ongoing {
-			T::SolutionDataProvider::report_result(VerificationResult::Rejected);
-		}
-	}
-
 	fn do_on_initialize() -> Weight {
 		if let Status::Ongoing(current_page) = Self::status_storage() {
 			let page_solution =
@@ -692,7 +676,19 @@ impl<T: Config> Pallet<T> {
 				Err(err) => {
 					// the page solution was invalid.
 					Self::deposit_event(Event::<T>::VerificationFailed(current_page, err));
-					Self::stop();
+
+					sublog!(warn, "verifier", "Clearing any ongoing unverified solutions.");
+					// Clear any ongoing solution that has not been verified, regardless of the
+					// current state.
+					QueuedSolution::<T>::clear_invalid_and_backings_unchecked();
+
+					// we also mutate the status back to doing nothing.
+					let was_ongoing = matches!(StatusStorage::<T>::get(), Status::Ongoing(_));
+					StatusStorage::<T>::put(Status::Nothing);
+
+					if was_ongoing {
+						T::SolutionDataProvider::report_result(VerificationResult::Rejected);
+					}
 					let wasted_pages = T::Pages::get().saturating_sub(current_page);
 					VerifierWeightsOf::<T>::on_initialize_invalid_non_terminal(wasted_pages)
 				},

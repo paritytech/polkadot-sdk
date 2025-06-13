@@ -399,6 +399,10 @@ impl ExtBuilder {
 		MinerPages::set(p);
 		self
 	}
+	pub(crate) fn max_signed_submissions(self, s: u32) -> Self {
+		SignedMaxSubmissions::set(s);
+		self
+	}
 	#[allow(unused)]
 	pub(crate) fn add_voter(self, who: AccountId, stake: Balance, targets: Vec<AccountId>) -> Self {
 		staking::VOTERS.with(|v| v.borrow_mut().push((who, stake, targets.try_into().unwrap())));
@@ -667,13 +671,6 @@ pub fn roll_to_last_unsigned() {
 pub fn roll_to_signed_open() {
 	while !matches!(MultiBlock::current_phase(), Phase::Signed(_)) {
 		roll_next();
-	}
-}
-
-/// proceed block number to whenever the signed phase is about to close (`Phase::Signed(_)`).
-pub fn roll_to_last_signed() {
-	while !matches!(MultiBlock::current_phase(), Phase::Signed(0)) {
-		roll_next()
 	}
 }
 

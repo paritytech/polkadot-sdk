@@ -191,7 +191,7 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 				}
 			},
 			VerificationResult::Rejected => {
-				Self::handle_solution_rejection(current_round, "Rejected");
+				Self::handle_solution_rejection(current_round);
 			},
 		}
 	}
@@ -962,7 +962,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Common logic for handling solution rejection - slash the submitter and try next solution
-	fn handle_solution_rejection(current_round: u32, reason: &'static str) {
+	fn handle_solution_rejection(current_round: u32) {
 		if let Some((loser, metadata)) =
 			Submissions::<T>::take_leader_with_data(current_round).defensive()
 		{
@@ -993,12 +993,12 @@ impl<T: Config> Pallet<T> {
 					}
 				} else {
 					sublog!(
-								warn,
-								"signed",
-								"SignedValidation phase has {:?} blocks remaining, which are insufficient for {} pages",
-								actual_blocks_remaining,
-								T::Pages::get()
-							);
+						warn,
+						"signed",
+						"SignedValidation phase has {:?} blocks remaining, which are insufficient for {} pages",
+						actual_blocks_remaining,
+						T::Pages::get()
+					);
 				}
 			}
 		} else {
@@ -1006,8 +1006,7 @@ impl<T: Config> Pallet<T> {
 			sublog!(
 				warn,
 				"signed",
-				"Tried to report {} but no leader was present for round {}",
-				reason,
+				"Tried to slashm but no leader was present for round {}",
 				current_round
 			);
 		}
