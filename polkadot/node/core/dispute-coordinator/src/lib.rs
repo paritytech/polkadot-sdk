@@ -361,7 +361,7 @@ impl DisputeCoordinatorSubsystem {
 
 		let mut participation_requests = Vec::new();
 		let mut spam_disputes: UnconfirmedDisputes = UnconfirmedDisputes::new();
-		let mut controlled_indecies =
+		let mut controlled_indices =
 			crate::initialized::ControlledValidatorIndices::new(self.keystore.clone());
 		let leaf_hash = initial_head.hash;
 		let (scraper, votes) = ChainScraper::new(ctx.sender(), initial_head).await?;
@@ -372,7 +372,7 @@ impl DisputeCoordinatorSubsystem {
 				highest_session,
 				leaf_hash,
 				offchain_disabled_validators.iter(session),
-				&mut controlled_indecies,
+				&mut controlled_indices,
 			)
 			.await
 			{
@@ -458,7 +458,7 @@ impl DisputeCoordinatorSubsystem {
 			highest_session,
 			gap_in_cache,
 			offchain_disabled_validators,
-			controlled_indecies,
+			controlled_indices,
 		))
 	}
 }
