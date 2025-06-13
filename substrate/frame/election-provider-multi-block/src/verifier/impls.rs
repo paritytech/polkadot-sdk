@@ -655,7 +655,7 @@ impl<T: Config> Pallet<T> {
 						// in both cases of the following match, we are back to the nothing state.
 						StatusStorage::<T>::put(Status::Nothing);
 
-						let weight = match Self::finalize_async_verification(claimed_score) {
+						match Self::finalize_async_verification(claimed_score) {
 							Ok(_) => {
 								T::SolutionDataProvider::report_result(VerificationResult::Queued);
 								VerifierWeightsOf::<T>::on_initialize_valid_terminal()
@@ -668,9 +668,7 @@ impl<T: Config> Pallet<T> {
 								QueuedSolution::<T>::clear_invalid_and_backings();
 								VerifierWeightsOf::<T>::on_initialize_invalid_terminal()
 							},
-						};
-
-						weight
+						}
 					}
 				},
 				Err(err) => {
