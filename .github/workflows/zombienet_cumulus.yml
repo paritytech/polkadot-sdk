@@ -107,7 +107,7 @@ jobs:
   zombienet-cumulus-0004-runtime_upgrade:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER }}
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
@@ -148,7 +148,7 @@ jobs:
   zombienet-cumulus-0005-migrate_solo_to_para:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER }}
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
