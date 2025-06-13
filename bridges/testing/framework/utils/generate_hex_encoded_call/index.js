@@ -120,6 +120,35 @@ function forceXcmVersion(endpoint, outputFile, dest, xcm_version) {
 		});
 }
 
+function forceCreatePool(endpoint, outputFile, poolOwner, nativeAssetId, foreignAssetId) {
+	console.log(`Generating forceCreatePool from RPC endpoint: ${endpoint} to outputFile: ${outputFile}, poolOwner: ${poolOwner}, nativeAssetId: ${nativeAssetId}, foreignAssetId: ${foreignAssetId}`);
+	connect(endpoint)
+		.then((api) => {
+			const call = api.tx.assetConversion.createPool(JSON.parse(nativeAssetId), JSON.parse(foreignAssetId));
+			writeHexEncodedBytesToOutput(call.method, outputFile);
+			exit(0);
+		})
+		.catch((e) => {
+			console.error(e);
+			exit(1);
+		});
+}
+
+function forceAddLiquidity(endpoint, outputFile, poolOwner, nativeAssetId, foreignAssetId, nativeAssetAmount, foreignAssetAmount) {
+	console.log(`Generating forceAddLiquidity from RPC endpoint: ${endpoint} to outputFile: ${outputFile}, poolOwner: ${poolOwner}, nativeAssetId: ${nativeAssetId}, foreignAssetId: ${foreignAssetId}, nativeAssetAmount: ${nativeAssetAmount}, foreignAssetAmount: ${foreignAssetAmount}`);
+	connect(endpoint)
+		.then((api) => {
+			const call = api.tx.assetConversion.addLiquidity(JSON.parse(nativeAssetId), JSON.parse(foreignAssetId), nativeAssetAmount, foreignAssetAmount, 1, 1, poolOwner);
+			writeHexEncodedBytesToOutput(call.method, outputFile);
+			exit(0);
+		})
+		.catch((e) => {
+			console.error(e);
+			exit(1);
+		});
+}
+
+
 if (!process.argv[2] || !process.argv[3]) {
 	console.log("usage: node ./script/generate_hex_encoded_call <type> <endpoint> <output hex-encoded data file> <input message>");
 	exit(1);
@@ -156,6 +185,12 @@ switch (type) {
 		break;
 	case 'force-xcm-version':
 		forceXcmVersion(rpcEndpoint, output, inputArgs[0], inputArgs[1]);
+		break;
+	case 'force-create-pool':
+		forceCreatePool(rpcEndpoint, output, inputArgs[0], inputArgs[1], inputArgs[2], inputArgs[3]);
+		break;
+	case 'force-add-liquidity':
+		forceAddLiquidity(rpcEndpoint, output, inputArgs[0], inputArgs[1], inputArgs[2], inputArgs[3], inputArgs[4]);
 		break;
 	case 'check':
 		console.log(`Checking nodejs installation, if you see this everything is ready!`);

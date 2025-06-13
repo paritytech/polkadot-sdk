@@ -189,6 +189,31 @@ function open_hrmp_channels() {
             ${max_message_size}
 }
 
+function set_up_foreign_asset_pool() {
+    local relay_url=$1
+    local relay_chain_seed=$2
+    local runtime_para_id=$3
+    local runtime_para_endpoint=$4
+    local pool_id=$5
+    local pool_name=$6
+    echo "  calling set_up_pool:"
+    echo "      relay_url: ${relay_url}"
+    echo "      relay_chain_seed: ${relay_chain_seed}"
+    echo "      runtime_para_id: ${runtime_para_id}"
+    echo "      runtime_para_endpoint: ${runtime_para_endpoint}"
+    echo "      pool_id: ${pool_id}"
+    echo "      pool_name: ${pool_name}"
+    echo "      params:"
+
+    # 1. generate data for Transact (Pools::set_up_pool)
+    local tmp_output_file=$(mktemp)
+    generate_hex_encoded_call_data "set-up-pool" "${runtime_para_endpoint}" "${tmp_output_file}" "$pool_id" "$pool_name"
+    local hex_encoded_data=$(cat $tmp_output_file)
+
+    # 2. trigger governance call
+    send_governance_transact "${relay_url}" "${relay_chain_seed}" "${runtime_para_id}" "${hex_encoded_data}" 200000000 12000
+}
+
 function force_xcm_version() {
     local relay_url=$1
     local relay_chain_seed=$2
@@ -239,6 +264,60 @@ function force_create_foreign_asset() {
     generate_hex_encoded_call_data "force-create-asset" "${runtime_para_endpoint}" "${tmp_output_file}" "$asset_multilocation" "$asset_owner_account_id" $is_sufficient $min_balance
     local hex_encoded_data=$(cat $tmp_output_file)
 
+    # 2. trigger governance call
+    send_governance_transact "${relay_url}" "${relay_chain_seed}" "${runtime_para_id}" "${hex_encoded_data}" 200000000 12000
+}
+
+function force_create_pool() {
+    local relay_url=$1
+    local relay_chain_seed=$2
+    local runtime_para_id=$3
+    local runtime_para_endpoint=$4
+    local pool_owner_account_id=$5
+    local native_asset_id=$6
+    local foreign_asset_id=$7
+    echo "  calling force_create_pool:"
+    echo "      relay_url: ${relay_url}"
+    echo "      relay_chain_seed: ${relay_chain_seed}"
+    echo "      runtime_para_id: ${runtime_para_id}"
+    echo "      runtime_para_endpoint: ${runtime_para_endpoint}"
+    echo "      pool_owner_account_id: ${pool_owner_account_id}"
+    echo "      native_asset_id: ${native_asset_id}"
+    echo "      foreign_asset_id: ${foreign_asset_id}"
+    echo "      params:"
+    # 1. generate data for Transact (Pools::force_create_pool)
+    local tmp_output_file=$(mktemp)
+    generate_hex_encoded_call_data "force-create-pool" "${runtime_para_endpoint}" "${tmp_output_file}" "$pool_owner_account_id" "$native_asset_id" "$foreign_asset_id"
+    local hex_encoded_data=$(cat $tmp_output_file)
+    # 2. trigger governance call
+    send_governance_transact "${relay_url}" "${relay_chain_seed}" "${runtime_para_id}" "${hex_encoded_data}" 200000000 12000
+}
+    
+function force_add_liquidity() {
+    local relay_url=$1
+    local relay_chain_seed=$2
+    local runtime_para_id=$3
+    local runtime_para_endpoint=$4
+    local pool_owner_account_id=$5
+    local native_asset_id=$6
+    local foreign_asset_id=$7
+    local native_asset_amount=$8
+    local foreign_asset_amount=$9
+    echo "  calling force_add_liquidity:"
+    echo "      relay_url: ${relay_url}"
+    echo "      relay_chain_seed: ${relay_chain_seed}"
+    echo "      runtime_para_id: ${runtime_para_id}"
+    echo "      runtime_para_endpoint: ${runtime_para_endpoint}"
+    echo "      pool_owner_account_id: ${pool_owner_account_id}"
+    echo "      native_asset_id: ${native_asset_id}"
+    echo "      foreign_asset_id: ${foreign_asset_id}"
+    echo "      native_asset_amount: ${native_asset_amount}"
+    echo "      foreign_asset_amount: ${foreign_asset_amount}"
+    echo "      params:"
+    # 1. generate data for Transact (Pools::force_add_liquidity)
+    local tmp_output_file=$(mktemp)
+    generate_hex_encoded_call_data "force-add-liquidity" "${runtime_para_endpoint}" "${tmp_output_file}" "$pool_owner_account_id" "$native_asset_id" "$foreign_asset_id" "$native_asset_amount" "$foreign_asset_amount"
+    local hex_encoded_data=$(cat $tmp_output_file)
     # 2. trigger governance call
     send_governance_transact "${relay_url}" "${relay_chain_seed}" "${runtime_para_id}" "${hex_encoded_data}" 200000000 12000
 }
