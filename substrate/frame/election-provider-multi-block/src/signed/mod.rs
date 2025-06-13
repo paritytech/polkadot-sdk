@@ -1006,7 +1006,7 @@ impl<T: Config> Pallet<T> {
 			sublog!(
 				warn,
 				"signed",
-				"Tried to slashm but no leader was present for round {}",
+				"Tried to slash but no leader was present for round {}",
 				current_round
 			);
 		}

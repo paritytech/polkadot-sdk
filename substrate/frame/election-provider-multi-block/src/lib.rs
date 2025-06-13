@@ -62,7 +62,7 @@
 //! ### Pallet Ordering:
 //!
 //! TODO: @kiaenigma: this needs clarification and a enforcement. Signed pallet should come first.
-//! Fixing this should yield removing `verifier_done` form the phase transition.
+//! Fixing this should yield removing `verifier_done` from the phase transition.
 //!
 //! The ordering of these pallets in a runtime should be:
 //! * parent
