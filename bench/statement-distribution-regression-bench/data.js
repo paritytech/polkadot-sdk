@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1749815922520,
+  "lastUpdate": 1749818596129,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -49627,6 +49627,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03396409516599999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pgherveou@gmail.com",
+            "name": "PG Herveou",
+            "username": "pgherveou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "5a84a332babf7968569b88034b5e4fc4abead35e",
+          "message": "[pallet-revive] prestate tracer (#8742)\n\n- Add prestate tracer, with identical API as\nhttps://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#prestate-tracer\n- Add coinbase runtime API to get the miner's address\ntested against geth with\nhttps://github.com/paritytech/evm-test-suite/pull/93\n\nfixes https://github.com/paritytech/revive-differential-tests/issues/7\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2025-06-13T11:28:21Z",
+          "tree_id": "9a88c8e461debb0a6fb502b48679ebd679f381ad",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5a84a332babf7968569b88034b5e4fc4abead35e"
+        },
+        "date": 1749818578384,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.94799999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03405607164999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.044605953049999945,
             "unit": "seconds"
           }
         ]
