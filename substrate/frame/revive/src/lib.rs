@@ -765,6 +765,7 @@ pub mod pallet {
 				Code::Existing(code_hash),
 				data,
 				salt,
+				BumpNonce::Yes,
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -829,7 +830,53 @@ pub mod pallet {
 				Code::Upload(code),
 				data,
 				salt,
+				BumpNonce::Yes,
 			);
+			if let Ok(retval) = &output.result {
+				if retval.result.did_revert() {
+					output.result = Err(<Error<T>>::ContractReverted.into());
+				}
+			}
+			dispatch_result(
+				output.result.map(|result| result.result),
+				output.gas_consumed,
+				T::WeightInfo::instantiate_with_code(code_len, data_len),
+			)
+		}
+
+		/// Same as [`Self::instantiate_with_code`], but intended to be dispatched **only**
+		/// by an EVM transaction through the EVM compatibility layer.
+		///
+		/// Calling this dispatchable ensures that the origin's nonce is bumped only once,
+		/// via the `CheckNonce` transaction extension. In contrast, [`Self::instantiate_with_code`]
+		/// also bumps the nonce after contract instantiation, since it may be invoked multiple
+		/// times within a batch call transaction.
+		#[pallet::call_index(10)]
+		#[pallet::weight(
+			T::WeightInfo::instantiate_with_code(code.len() as u32, data.len() as u32)
+			.saturating_add(*gas_limit)
+		)]
+		pub fn eth_instantiate_with_code(
+			origin: OriginFor<T>,
+			#[pallet::compact] value: BalanceOf<T>,
+			gas_limit: Weight,
+			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
+			code: Vec<u8>,
+			data: Vec<u8>,
+		) -> DispatchResultWithPostInfo {
+			let code_len = code.len() as u32;
+			let data_len = data.len() as u32;
+			let mut output = Self::bare_instantiate(
+				origin,
+				value,
+				gas_limit,
+				DepositLimit::Balance(storage_deposit_limit),
+				Code::Upload(code),
+				data,
+				None,
+				BumpNonce::No,
+			);
+
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
 					output.result = Err(<Error<T>>::ContractReverted.into());
@@ -1054,6 +1101,7 @@ where
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
+		bump_nonce: BumpNonce,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
@@ -1096,6 +1144,7 @@ where
 				data,
 				salt.as_ref(),
 				unchecked_deposit_limit,
+				bump_nonce,
 			);
 			storage_deposit = storage_meter
 				.try_into_deposit(&instantiate_origin, unchecked_deposit_limit)?
@@ -1266,6 +1315,7 @@ where
 					Code::Upload(code.to_vec()),
 					data.to_vec(),
 					None,
+					BumpNonce::No,
 				);
 
 				let returned_data = match result.result {
@@ -1294,13 +1344,12 @@ where
 					result.storage_deposit,
 				);
 				let dispatch_call: <T as Config>::RuntimeCall =
-					crate::Call::<T>::instantiate_with_code {
+					crate::Call::<T>::eth_instantiate_with_code {
 						value: native_value,
 						gas_limit,
 						storage_deposit_limit,
 						code: code.to_vec(),
 						data: data.to_vec(),
-						salt: None,
 					}
 					.into();
 				(result, dispatch_call.get_dispatch_info())
@@ -1740,6 +1789,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 						code,
 						data,
 						salt,
+						$crate::BumpNonce::Yes,
 					)
 				}
 

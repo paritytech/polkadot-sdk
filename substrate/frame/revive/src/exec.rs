@@ -20,7 +20,7 @@ use crate::{
 	gas::GasMeter,
 	limits,
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
-	primitives::{ExecReturnValue, StorageDeposit},
+	primitives::{BumpNonce, ExecReturnValue, StorageDeposit},
 	runtime_decl_for_revive_api::{Decode, Encode, RuntimeDebugNoBound, TypeInfo},
 	storage::{self, meter::Diff, WriteOutcome},
 	tracing::if_tracing,
@@ -772,7 +772,9 @@ where
 			value,
 			skip_transfer,
 		)? {
-			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
+			stack
+				.run(executable, input_data, BumpNonce::Yes)
+				.map(|_| stack.first_frame.last_frame_output)
 		} else {
 			if_tracing(|t| {
 				t.enter_child_span(
@@ -811,6 +813,7 @@ where
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
 		skip_transfer: bool,
+		bump_nonce: BumpNonce,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
 		let (mut stack, executable) = Stack::<'_, T, E>::new(
 			FrameArgs::Instantiate {
@@ -828,7 +831,7 @@ where
 		.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
 		let address = T::AddressMapper::to_address(&stack.top_frame().account_id);
 		stack
-			.run(executable, input_data)
+			.run(executable, input_data, bump_nonce)
 			.map(|_| (address, stack.first_frame.last_frame_output))
 	}
 
@@ -1079,6 +1082,7 @@ where
 		&mut self,
 		executable: ExecutableOrPrecompile<T, E, Self>,
 		input_data: Vec<u8>,
+		bump_nonce: BumpNonce,
 	) -> Result<(), ExecError> {
 		let frame = self.top_frame();
 		let entry_point = frame.entry_point;
@@ -1139,10 +1143,11 @@ where
 				// Contracts nonce starts at 1
 				<System<T>>::inc_account_nonce(account_id);
 
-				// Needs to be incremented before calling into the code so that it is visible
-				// in case of recursion.
-				<System<T>>::inc_account_nonce(caller.account_id()?);
-
+				if matches!(bump_nonce, BumpNonce::Yes) {
+					// Needs to be incremented before calling into the code so that it is visible
+					// in case of recursion.
+					<System<T>>::inc_account_nonce(caller.account_id()?);
+				}
 				// The incremented refcount should be visible to the constructor.
 				<CodeInfo<T>>::increment_refcount(
 					*executable
@@ -1523,7 +1528,7 @@ where
 			deposit_limit.saturated_into::<BalanceOf<T>>(),
 			self.is_read_only(),
 		)? {
-			self.run(executable, input_data)
+			self.run(executable, input_data, BumpNonce::Yes)
 		} else {
 			// Delegate-calls to non-contract accounts are considered success.
 			Ok(())
@@ -1685,7 +1690,7 @@ where
 			self.is_read_only(),
 		)?;
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
-		self.run(executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE), input_data)
+		self.run(executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE), input_data, BumpNonce::Yes)
 			.map(|_| address)
 	}
 }
@@ -1754,7 +1759,7 @@ where
 				deposit_limit.saturated_into::<BalanceOf<T>>(),
 				is_read_only,
 			)? {
-				self.run(executable, input_data)
+				self.run(executable, input_data, BumpNonce::Yes)
 			} else {
 				if_tracing(|t| {
 					t.enter_child_span(
