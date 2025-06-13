@@ -227,6 +227,11 @@ jobs:
             echo "ZOMBIENET_SDK_IMAGE=${ZOMBIENET_SDK_IMAGE_FOR_K8S}" >> $GITHUB_OUTPUT
             echo "ZOMBIENET_SDK_RUNNER=${ZOMBIENET_SDK_RUNNER_FOR_K8S}" >> $GITHUB_OUTPUT
           fi
+          {
+            echo 'FLAKY_TESTS<<EOF'
+            cat .github/zombienet-flaky-tests
+            echo EOF
+          } >> $GITHUB_OUTPUT
           # global img from ci
           cat .github/env >> $GITHUB_OUTPUT
           cat .github/env
