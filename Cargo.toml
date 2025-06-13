@@ -898,7 +898,7 @@ memory-db = { version = "0.33.0", default-features = false }
 merkleized-metadata = { version = "0.5.0" }
 merlin = { version = "3.0", default-features = false }
 messages-relay = { path = "bridges/relays/messages" }
-metered = { git = "https://github.com/paritytech/orchestra", branch = "alexggh/router_priority_messages", default-features = false, package = "prioritized-metered-channel" }
+metered = { version = "0.6.1", default-features = false, package = "prioritized-metered-channel" }
 milagro-bls = { version = "1.5.4", default-features = false, package = "snowbridge-milagro-bls" }
 minimal-template-node = { path = "templates/minimal/node" }
 minimal-template-runtime = { path = "templates/minimal/runtime" }
@@ -926,7 +926,7 @@ num-rational = { version = "0.4.1" }
 num-traits = { version = "0.2.17", default-features = false }
 num_cpus = { version = "1.13.1" }
 once_cell = { version = "1.21.3" }
-orchestra = { git = "https://github.com/paritytech/orchestra", branch = "alexggh/router_priority_messages", default-features = false }
+orchestra = { version = "0.4.0", default-features = false }
 pallet-alliance = { path = "substrate/frame/alliance", default-features = false }
 pallet-asset-conversion = { path = "substrate/frame/asset-conversion", default-features = false }
 pallet-asset-conversion-ops = { path = "substrate/frame/asset-conversion/ops", default-features = false }
