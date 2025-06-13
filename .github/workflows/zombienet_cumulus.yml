@@ -62,6 +62,8 @@ jobs:
     env:
       RELAY_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       COL_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      DEBUG: ${{ needs.preflight.outputs.DEBUG }}
+      ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -72,6 +74,9 @@ jobs:
           test: "0002-pov_recovery.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}"
           concurrency: 1
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
   zombienet-cumulus-0003-full_node_catching_up:
     needs: [preflight]
@@ -83,6 +88,8 @@ jobs:
     env:
       RELAY_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       COL_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      DEBUG: ${{ needs.preflight.outputs.DEBUG }}
+      ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -93,6 +100,9 @@ jobs:
           test: "0003-full_node_catching_up.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}"
           concurrency: 1
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
   zombienet-cumulus-0004-runtime_upgrade:
     needs: [preflight]
@@ -104,6 +114,8 @@ jobs:
     env:
       RELAY_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       COL_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      DEBUG: ${{ needs.preflight.outputs.DEBUG }}
+      ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -129,6 +141,9 @@ jobs:
           test: "0004-runtime_upgrade.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}"
           concurrency: 1
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
   zombienet-cumulus-0005-migrate_solo_to_para:
     needs: [preflight]
@@ -140,6 +155,8 @@ jobs:
     env:
       RELAY_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       COL_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      DEBUG: ${{ needs.preflight.outputs.DEBUG }}
+      ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -150,6 +167,9 @@ jobs:
           test: "0005-migrate_solo_to_para.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}"
           concurrency: 1
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
   zombienet-cumulus-0006-rpc_collator_builds_blocks:
     needs: [preflight]
@@ -161,6 +181,8 @@ jobs:
     env:
       RELAY_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       COL_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      DEBUG: ${{ needs.preflight.outputs.DEBUG }}
+      ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -171,6 +193,9 @@ jobs:
           test: "0006-rpc_collator_builds_blocks.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}"
           concurrency: 1
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
   zombienet-cumulus-0007-full_node_warp_sync:
     needs: [preflight]
@@ -182,6 +207,8 @@ jobs:
     env:
       RELAY_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       COL_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      DEBUG: ${{ needs.preflight.outputs.DEBUG }}
+      ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -203,6 +230,8 @@ jobs:
     env:
       RELAY_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       COL_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      DEBUG: ${{ needs.preflight.outputs.DEBUG }}
+      ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -213,6 +242,9 @@ jobs:
           test: "0008-elastic_authoring.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}"
           concurrency: 1
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
   zombienet-cumulus-0009-elastic_pov_recovery:
     needs: [preflight]
@@ -224,6 +256,8 @@ jobs:
     env:
       RELAY_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       COL_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      DEBUG: ${{ needs.preflight.outputs.DEBUG }}
+      ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -234,6 +268,9 @@ jobs:
           test: "0009-elastic_pov_recovery.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}"
           concurrency: 1
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
   zombienet-cumulus-0010-elastic_scaling_multiple_block_per_slot:
     needs: [preflight]
