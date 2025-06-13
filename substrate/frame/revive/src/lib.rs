@@ -1757,7 +1757,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 						code,
 						data,
 						salt,
-						false,
+						$crate::BumpNonce::Yes,
 					)
 				}
 
