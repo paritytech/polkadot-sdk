@@ -18366,6 +18366,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "revive-dev-node"
+version = "0.0.0"
+dependencies = [
+ "clap",
+ "docify",
+ "futures",
+ "futures-timer",
+ "jsonrpsee",
+ "polkadot-sdk 0.1.0",
+ "revive-dev-runtime",
+]
+
+[[package]]
+name = "revive-dev-runtime"
+version = "0.0.0"
+dependencies = [
+ "array-bytes 6.2.2",
+ "parity-scale-codec",
+ "polkadot-sdk 0.1.0",
+ "scale-info",
+ "serde_json",
+]
+
+[[package]]
 name = "rfc6979"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
