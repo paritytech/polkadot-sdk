@@ -203,38 +203,45 @@ jobs:
         id: set_vars
         shell: bash
         run: |
-          export SOURCE_REF_NAME=${{ github.head_ref || github.ref_name }}
-          echo "SOURCE_REF_SLUG=${SOURCE_REF_NAME//\//_}" >> $GITHUB_OUTPUT
-          #
-          cat .github/zombienet-env >> $GITHUB_OUTPUT
-          cat .github/zombienet-env
-          . .github/zombienet-env
-          if [[ "$ZOMBIENET_PROVIDER" == "native" ]]; then
-            echo "ZOMBIENET_IMAGE=${ZOMBIENET_IMAGE_FOR_NATIVE}" >> $GITHUB_OUTPUT
-            echo "ZOMBIENET_RUNNER=${ZOMBIENET_RUNNER_FOR_NATIVE}" >> $GITHUB_OUTPUT
-          else
-            echo "ZOMBIENET_IMAGE=${ZOMBIENET_IMAGE_FOR_K8S}" >> $GITHUB_OUTPUT
-            echo "ZOMBIENET_RUNNER=${ZOMBIENET_RUNNER_FOR_K8S}" >> $GITHUB_OUTPUT
-          fi
-          # additional envs required by zombienet-sdk
-          cat .github/zombienet-sdk-env >> $GITHUB_OUTPUT
-          cat .github/zombienet-sdk-env
-          . .github/zombienet-sdk-env
-          if [[ "$ZOMBIE_PROVIDER" == "native" ]]; then
-            echo "ZOMBIENET_SDK_IMAGE=${ZOMBIENET_SDK_IMAGE_FOR_NATIVE}" >> $GITHUB_OUTPUT
-            echo "ZOMBIENET_SDK_RUNNER=${ZOMBIENET_SDK_RUNNER_FOR_NATIVE}" >> $GITHUB_OUTPUT
-          else
-            echo "ZOMBIENET_SDK_IMAGE=${ZOMBIENET_SDK_IMAGE_FOR_K8S}" >> $GITHUB_OUTPUT
-            echo "ZOMBIENET_SDK_RUNNER=${ZOMBIENET_SDK_RUNNER_FOR_K8S}" >> $GITHUB_OUTPUT
-          fi
+          # below section shall only print variables set for GITHUB_OUTPUT
           {
+            export SOURCE_REF_NAME=${{ github.head_ref || github.ref_name }}
+            echo "SOURCE_REF_SLUG=${SOURCE_REF_NAME//\//_}"
+            cat .github/zombienet-env
+            . .github/zombienet-env
+            if [[ "$ZOMBIENET_PROVIDER" == "native" ]]; then
+              echo "ZOMBIENET_IMAGE=${ZOMBIENET_IMAGE_FOR_NATIVE}"
+              echo "ZOMBIENET_RUNNER=${ZOMBIENET_RUNNER_FOR_NATIVE}"
+            else
+              echo "ZOMBIENET_IMAGE=${ZOMBIENET_IMAGE_FOR_K8S}"
+              echo "ZOMBIENET_RUNNER=${ZOMBIENET_RUNNER_FOR_K8S}"
+            fi
+
+            # additional envs required by zombienet-sdk
+            cat .github/zombienet-sdk-env
+            . .github/zombienet-sdk-env
+            if [[ "$ZOMBIE_PROVIDER" == "native" ]]; then
+              echo "ZOMBIENET_SDK_IMAGE=${ZOMBIENET_SDK_IMAGE_FOR_NATIVE}"
+              echo "ZOMBIENET_SDK_RUNNER=${ZOMBIENET_SDK_RUNNER_FOR_NATIVE}"
+            else
+              echo "ZOMBIENET_SDK_IMAGE=${ZOMBIENET_SDK_IMAGE_FOR_K8S}"
+              echo "ZOMBIENET_SDK_RUNNER=${ZOMBIENET_SDK_RUNNER_FOR_K8S}"
+            fi
+
+            # Trick for multline strings: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#example-of-a-multiline-string
             echo 'FLAKY_TESTS<<EOF'
             cat .github/zombienet-flaky-tests
             echo EOF
+
+            # global img from ci
+            cat .github/env
           } >> $GITHUB_OUTPUT
-          # global img from ci
-          cat .github/env >> $GITHUB_OUTPUT
+
+          cat .github/zombienet-env
+          cat .github/zombienet-sdk-env
           cat .github/env
+          echo "FLAKY_TESTS:"
+          cat .github/zombienet-flaky-tests
 
       #
       #
