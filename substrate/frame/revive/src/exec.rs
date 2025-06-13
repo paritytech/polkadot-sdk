@@ -1146,7 +1146,6 @@ where
 				// Contracts nonce starts at 1
 				<System<T>>::inc_account_nonce(account_id);
 
-				// Only bump the nonce for a substrate transaction, as they can be batched
 				if matches!(bump_nonce, BumpNonce::Yes) {
 					// Needs to be incremented before calling into the code so that it is visible
 					// in case of recursion.
