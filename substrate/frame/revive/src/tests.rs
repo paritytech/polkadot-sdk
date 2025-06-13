@@ -30,9 +30,9 @@ use crate::{
 	tests::test_utils::{get_contract, get_contract_checked},
 	tracing::trace,
 	weights::WeightInfo,
-	AccountId32Mapper, BalanceOf, Code, CodeInfoOf, Config, ContractInfo, ContractInfoOf,
-	DeletionQueueCounter, DepositLimit, Error, EthTransactError, HoldReason, Origin, Pallet,
-	PristineCode, H160,
+	AccountId32Mapper, BalanceOf, BumpNonce, Code, CodeInfoOf, Config, ContractInfo,
+	ContractInfoOf, DeletionQueueCounter, DepositLimit, Error, EthTransactError, HoldReason,
+	Origin, Pallet, PristineCode, H160,
 };
 
 use crate::test_utils::builder::Contract;
@@ -4064,7 +4064,7 @@ fn tracing_works_for_transfers() {
 }
 
 #[test]
-fn tracing_works() {
+fn call_tracing_works() {
 	use crate::evm::*;
 	use CallType::*;
 	let (code, _code_hash) = compile_module("tracing").unwrap();
@@ -4216,6 +4216,121 @@ fn tracing_works() {
 				trace,
 				expected_trace.into(),
 			);
+		}
+	});
+}
+
+#[test]
+fn prestate_tracing_works() {
+	use crate::evm::*;
+	use alloc::collections::BTreeMap;
+
+	let (code, _code_hash) = compile_module("tracing").unwrap();
+	let (callee_code, _) = compile_module("tracing_callee").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
+
+		let Contract { addr: addr_callee, .. } =
+			builder::bare_instantiate(Code::Upload(callee_code.clone()))
+				.build_and_unwrap_contract();
+
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
+			.value(10_000_000)
+			.build_and_unwrap_contract();
+
+		let test_cases = vec![
+			(
+				PrestateTracerConfig {
+					diff_mode: false,
+					disable_storage: false,
+					disable_code: false,
+				},
+				PrestateTrace::Prestate(BTreeMap::from([
+					(
+						ALICE_ADDR,
+						PrestateTraceInfo {
+							balance: Some(U256::from(89994487u64)),
+							nonce: Some(2),
+							..Default::default()
+						},
+					),
+					(
+						BOB_ADDR,
+						PrestateTraceInfo { balance: Some(U256::from(0u64)), ..Default::default() },
+					),
+					(
+						addr_callee,
+						PrestateTraceInfo {
+							balance: Some(U256::from(0u64)),
+							code: Some(Bytes(callee_code.clone())),
+							nonce: Some(1),
+							..Default::default()
+						},
+					),
+					(
+						addr,
+						PrestateTraceInfo {
+							balance: Some(U256::from(10_000_000u64)),
+							code: Some(Bytes(code.clone())),
+							nonce: Some(1),
+							..Default::default()
+						},
+					),
+				])),
+			),
+			(
+				PrestateTracerConfig {
+					diff_mode: true,
+					disable_storage: false,
+					disable_code: false,
+				},
+				PrestateTrace::DiffMode {
+					pre: BTreeMap::from([
+						(
+							BOB_ADDR,
+							PrestateTraceInfo {
+								balance: Some(U256::from(100u64)),
+								..Default::default()
+							},
+						),
+						(
+							addr,
+							PrestateTraceInfo {
+								balance: Some(U256::from(9_999_900u64)),
+								code: Some(Bytes(code)),
+								nonce: Some(1),
+								..Default::default()
+							},
+						),
+					]),
+					post: BTreeMap::from([
+						(
+							BOB_ADDR,
+							PrestateTraceInfo {
+								balance: Some(U256::from(200u64)),
+								..Default::default()
+							},
+						),
+						(
+							addr,
+							PrestateTraceInfo {
+								balance: Some(U256::from(9_999_800u64)),
+								..Default::default()
+							},
+						),
+					]),
+				},
+			),
+		];
+
+		for (config, expected_trace) in test_cases {
+			let mut tracer = PrestateTracer::<Test>::new(config);
+			trace(&mut tracer, || {
+				builder::bare_call(addr).data((3u32, addr_callee).encode()).build()
+			});
+
+			let trace = tracer.collect_trace();
+			assert_eq!(trace, expected_trace);
 		}
 	});
 }
@@ -4448,4 +4563,51 @@ fn precompiles_with_info_creates_contract() {
 			);
 		});
 	}
+}
+
+#[test]
+fn bump_nonce_once_works() {
+	let (code, hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		frame_system::Account::<Test>::mutate(&ALICE, |account| account.nonce = 1);
+
+		let _ = <Test as Config>::Currency::set_balance(&BOB, 1_000_000);
+		frame_system::Account::<Test>::mutate(&BOB, |account| account.nonce = 1);
+
+		builder::bare_instantiate(Code::Upload(code.clone()))
+			.origin(RuntimeOrigin::signed(ALICE))
+			.bump_nonce(BumpNonce::Yes)
+			.salt(None)
+			.build_and_unwrap_result();
+		assert_eq!(System::account_nonce(&ALICE), 2);
+
+		// instantiate again is ok
+		let result = builder::bare_instantiate(Code::Existing(hash))
+			.origin(RuntimeOrigin::signed(ALICE))
+			.bump_nonce(BumpNonce::Yes)
+			.salt(None)
+			.build()
+			.result;
+		assert!(result.is_ok());
+
+		builder::bare_instantiate(Code::Upload(code.clone()))
+			.origin(RuntimeOrigin::signed(BOB))
+			.bump_nonce(BumpNonce::No)
+			.salt(None)
+			.build_and_unwrap_result();
+		assert_eq!(System::account_nonce(&BOB), 1);
+
+		// instantiate again should fail
+		let err = builder::bare_instantiate(Code::Upload(code))
+			.origin(RuntimeOrigin::signed(BOB))
+			.bump_nonce(BumpNonce::No)
+			.salt(None)
+			.build()
+			.result
+			.unwrap_err();
+
+		assert_eq!(err, <Error<Test>>::DuplicateContract.into());
+	});
 }
