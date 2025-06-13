@@ -33,7 +33,7 @@ use xcm::latest::prelude::*;
 parameter_types! {
 	pub storage SignedPhase: u32 = 2 * MINUTES;
 	pub storage UnsignedPhase: u32 = MINUTES;
-	pub storage SignedValidationPhase: u32 = Pages::get() + 1;
+	pub storage SignedValidationPhase: u32 = Pages::get();
 
 	pub storage MaxElectingVoters: u32 = 1000;
 
@@ -114,7 +114,7 @@ impl multi_block::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type Fallback = frame_election_provider_support::onchain::OnChainExecution<OnChainConfig>;
 	type MinerConfig = Self;
-	type Verifier = MultiBlockVerifier;
+	type Verifier = MultiBlockElectionVerifier;
 	type OnRoundRotation = multi_block::CleanRound<Self>;
 	type WeightInfo = multi_block::weights::polkadot::MultiBlockWeightInfo<Self>;
 }
@@ -123,7 +123,7 @@ impl multi_block::verifier::Config for Runtime {
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
-	type SolutionDataProvider = MultiBlockSigned;
+	type SolutionDataProvider = MultiBlockElectionSigned;
 	type SolutionImprovementThreshold = SolutionImprovementThreshold;
 	type WeightInfo = multi_block::weights::polkadot::MultiBlockVerifierWeightInfo<Self>;
 }
@@ -266,13 +266,13 @@ impl pallet_staking_async::Config for Runtime {
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 	type EraPayout = EraPayout;
 	type MaxExposurePageSize = MaxExposurePageSize;
-	type ElectionProvider = MultiBlock;
+	type ElectionProvider = MultiBlockElection;
 	type VoterList = VoterList;
 	type TargetList = UseValidatorsMap<Self>;
 	type MaxValidatorSet = MaxValidatorSet;
 	type NominationsQuota = pallet_staking_async::FixedNominationsQuota<{ MaxNominations::get() }>;
 	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
-	type HistoryDepth = frame_support::traits::ConstU32<84>;
+	type HistoryDepth = frame_support::traits::ConstU32<2>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
@@ -281,7 +281,7 @@ impl pallet_staking_async::Config for Runtime {
 	type MaxDisabledValidators = ConstU32<100>;
 	type PlanningEraOffset =
 		pallet_staking_async::PlanningEraOffsetOf<Self, RelaySessionDuration, ConstU32<10>>;
-	type RcClientInterface = StakingNextRcClient;
+	type RcClientInterface = StakingRcClient;
 }
 
 impl pallet_staking_async_rc_client::Config for Runtime {

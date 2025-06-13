@@ -57,6 +57,7 @@ pallet-referenda = { workspace = true }
 pallet-scheduler = { workspace = true }
 pallet-session = { workspace = true }
 pallet-staking-async = { workspace = true }
+pallet-staking-async-preset-store = { workspace = true }
 pallet-staking-async-rc-client = { workspace = true }
 pallet-staking-async-runtime-api = { workspace = true }
 pallet-state-trie-migration = { workspace = true }
@@ -317,6 +318,7 @@ std = [
 	"pallet-staking-async-rc-client/std",
 	"pallet-staking-async-runtime-api/std",
 	"pallet-staking-async/std",
+	"pallet-staking-async-preset-store/std",
 	"pallet-state-trie-migration/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",

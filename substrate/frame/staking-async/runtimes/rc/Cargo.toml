@@ -81,6 +81,7 @@ pallet-preimage = { workspace = true }
 pallet-proxy = { workspace = true }
 pallet-recovery = { workspace = true }
 pallet-referenda = { workspace = true }
+pallet-root-offences = { workspace = true }
 pallet-root-testing = { workspace = true }
 pallet-scheduler = { workspace = true }
 pallet-session = { workspace = true }
@@ -89,6 +90,7 @@ pallet-staking = { workspace = true }
 pallet-staking-async-ah-client = { workspace = true }
 pallet-staking-async-rc-client = { workspace = true }
 pallet-staking-async-rc-runtime-constants = { workspace = true }
+pallet-staking-async-preset-store = { workspace = true }
 pallet-state-trie-migration = { workspace = true }
 pallet-sudo = { workspace = true }
 pallet-timestamp = { workspace = true }
@@ -182,6 +184,7 @@ std = [
 	"pallet-proxy/std",
 	"pallet-recovery/std",
 	"pallet-referenda/std",
+	"pallet-root-offences/std",
 	"pallet-root-testing/std",
 	"pallet-scheduler/std",
 	"pallet-session-benchmarking?/std",
@@ -189,6 +192,7 @@ std = [
 	"pallet-society/std",
 	"pallet-staking-async-ah-client/std",
 	"pallet-staking-async-rc-client/std",
+	"pallet-staking-async-preset-store/std",
 	"pallet-staking-async-rc-runtime-constants/std",
 	"pallet-staking/std",
 	"pallet-state-trie-migration/std",
@@ -333,6 +337,7 @@ try-runtime = [
 	"pallet-proxy/try-runtime",
 	"pallet-recovery/try-runtime",
 	"pallet-referenda/try-runtime",
+	"pallet-root-offences/try-runtime",
 	"pallet-root-testing/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-session/try-runtime",

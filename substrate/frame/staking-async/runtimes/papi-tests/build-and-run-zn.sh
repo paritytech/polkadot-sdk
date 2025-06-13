@@ -19,8 +19,7 @@ RUST_LOG=${LOG} ../../../../../target/release/chain-spec-builder \
     --runtime ../../../../../target/release/wbuild/pallet-staking-async-parachain-runtime/pallet_staking_async_parachain_runtime.compact.compressed.wasm \
     --relay-chain rococo-local \
     --para-id 1100 \
-    named-preset development
-    # change this as per your needs ^^^ options: development / dot_size / ksm_size
+    named-preset fake-dot
 mv ./chain_spec.json ./parachain.json
 
 echo "✅ creating rc chain specs"
@@ -28,8 +27,8 @@ RUST_LOG=${LOG} ../../../../../target/release/chain-spec-builder \
     create \
     -t development \
     --runtime ../../../../../target/release/wbuild/pallet-staking-async-rc-runtime/fast_runtime_binary.rs.wasm \
-    named-preset local_testnet
+    named-preset fake-s
 mv ./chain_spec.json ./rc.json
 
 echo "✅ launching ZN"
-zombienet --provider native -l text spawn zombienet-staking-runtimes.toml
+zombienet --provider native -l text spawn zn-s.toml
