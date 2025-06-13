@@ -73,7 +73,8 @@ runs:
             $CONCURRENCY \
             "$TEST_NAME"
         else
-          if [[ $ZOMBIENET_RUNNER == "parity-zombienet" ]]; then
+          # no need to check other runner variables. for k8s they shall store the same value
+          if [[ $ZOMBIENET_DEFAULT_RUNNER == "parity-zombienet" ]]; then
             export ZOMBIE_NAMESPACE=$(cat /data/namespace)
           fi
 

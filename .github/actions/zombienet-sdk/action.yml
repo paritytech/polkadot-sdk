@@ -77,7 +77,8 @@ runs:
           chmod +x $(pwd)/bin/*
         else
           export RUN_IN_CI=1
-          if [[ $ZOMBIENET_SDK_RUNNER == "parity-zombienet" ]]; then
+          # no need to check other runner variables. for k8s they shall store the same value
+          if [[ $ZOMBIENET_SDK_DEFAULT_RUNNER == "parity-zombienet" ]]; then
             export ZOMBIE_K8S_CI_NAMESPACE=$(cat /data/namespace)
           fi
         fi

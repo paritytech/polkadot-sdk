@@ -74,10 +74,15 @@ on:
         value: ${{ jobs.preflight.outputs.ZOMBIENET_IMAGE }}
         description: "ZOMBIENET CI image"
 
-      ZOMBIENET_RUNNER:
-        value: ${{ jobs.preflight.outputs.ZOMBIENET_RUNNER }}
+      ZOMBIENET_DEFAULT_RUNNER:
+        value: ${{ jobs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER }}
         description: |
           Main runner for zombienet tests.
+
+      ZOMBIENET_LARGE_RUNNER:
+        value: ${{ jobs.preflight.outputs.ZOMBIENET_LARGE_RUNNER }}
+        description: |
+          Large runner for zombienet tests.
 
       PUSHGATEWAY_URL:
         value: ${{ jobs.preflight.outputs.PUSHGATEWAY_URL }}
@@ -113,10 +118,15 @@ on:
         value: ${{ jobs.preflight.outputs.RUST_LOG }}
         description: "Log value to use in zombinet-sdk tests."
 
-      ZOMBIENET_SDK_RUNNER:
-        value: ${{ jobs.preflight.outputs.ZOMBIENET_SDK_RUNNER }}
+      ZOMBIENET_SDK_DEFAULT_RUNNER:
+        value: ${{ jobs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
         description: |
           Main runner for zombienet-sdk tests.
+
+      ZOMBIENET_SDK_LARGE_RUNNER:
+        value: ${{ jobs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
+        description: |
+          Large runner for zombienet-sdk tests.
 
       ZOMBIENET_SDK_IMAGE:
         value: ${{ jobs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
@@ -148,7 +158,8 @@ jobs:
       # zombienet-env vars
       ZOMBIENET_PROVIDER: ${{ steps.set_vars.outputs.ZOMBIENET_PROVIDER }}
       ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}
-      ZOMBIENET_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_RUNNER }}
+      ZOMBIENET_DEFAULT_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_DEFAULT_RUNNER }}
+      ZOMBIENET_LARGE_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_LARGE_RUNNER }}
       PUSHGATEWAY_URL: ${{ steps.set_vars.outputs.PUSHGATEWAY_URL }}
       DEBUG: ${{ steps.set_vars.outputs.DEBUG }}
       KUBERNETES_CPU_REQUEST: ${{ steps.set_vars.outputs.KUBERNETES_CPU_REQUEST }}
@@ -160,7 +171,8 @@ jobs:
       RUST_LOG: ${{ steps.set_vars.outputs.RUST_LOG }}
       ZOMBIE_PROVIDER: ${{ steps.set_vars.outputs.ZOMBIE_PROVIDER }}
       ZOMBIENET_SDK_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_SDK_IMAGE }}
-      ZOMBIENET_SDK_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_SDK_RUNNER }}
+      ZOMBIENET_SDK_DEFAULT_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
+      ZOMBIENET_SDK_LARGE_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
 
     steps:
       - uses: actions/checkout@v4
@@ -282,7 +294,8 @@ jobs:
         run: |
           echo "zombienet vars"
           echo "ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}"
-          echo "ZOMBIENET_RUNNER: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }}"
+          echo "ZOMBIENET_DEFAULT_RUNNER: ${{ needs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER }}"
+          echo "ZOMBIENET_LARGE_RUNNER: ${{ needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER }}"
           echo "ZOMBIENET_IMAGE: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}"
           echo "PUSHGATEWAY_URL: ${{ needs.preflight.outputs.PUSHGATEWAY_URL }}"
           echo "DEBUG: ${{ needs.preflight.outputs.DEBUG }}"
