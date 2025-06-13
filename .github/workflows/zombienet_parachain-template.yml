@@ -30,7 +30,7 @@ jobs:
   zombienet-parachain-template-smoke:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-parachain-template-smoke') }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
     timeout-minutes: 30
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
