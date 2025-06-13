@@ -18,6 +18,10 @@ on:
         required: true
         default: "release"
         description: "The profile to use for the binary build"
+      features:
+        required: false
+        type: string
+        description: "Features to enable when building the binary (must be a list of comma-separated features)"
 
 jobs:
 
@@ -63,10 +67,10 @@ jobs:
           if [ "${{ inputs.binary }}" = "polkadot" ]; then
               for binary in polkadot polkadot-prepare-worker polkadot-execute-worker; do
                   echo "Building $binary..."
-                  ./.github/scripts/release/build-linux-release.sh $binary ${{ inputs.package }} "${PROFILE}"
+                  ./.github/scripts/release/build-linux-release.sh $binary ${{ inputs.package }} "${PROFILE}" ${{ inputs.features }}
               done
           else
-            ./.github/scripts/release/build-linux-release.sh ${{ inputs.binary }} ${{ inputs.package }} "${PROFILE}"
+            ./.github/scripts/release/build-linux-release.sh ${{ inputs.binary }} ${{ inputs.package }} "${PROFILE}" ${{ inputs.features }}
           fi
 
       - name: Upload ${{ inputs.binary }} artifacts
