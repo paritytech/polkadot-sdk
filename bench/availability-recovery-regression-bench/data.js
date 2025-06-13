@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1749815842081,
+  "lastUpdate": 1749818515313,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -59391,6 +59391,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.19877025583333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pgherveou@gmail.com",
+            "name": "PG Herveou",
+            "username": "pgherveou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "5a84a332babf7968569b88034b5e4fc4abead35e",
+          "message": "[pallet-revive] prestate tracer (#8742)\n\n- Add prestate tracer, with identical API as\nhttps://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#prestate-tracer\n- Add coinbase runtime API to get the miner's address\ntested against geth with\nhttps://github.com/paritytech/evm-test-suite/pull/93\n\nfixes https://github.com/paritytech/revive-differential-tests/issues/7\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2025-06-13T11:28:21Z",
+          "tree_id": "9a88c8e461debb0a6fb502b48679ebd679f381ad",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5a84a332babf7968569b88034b5e4fc4abead35e"
+        },
+        "date": 1749818497493,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.19759823513333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.247120315433332,
             "unit": "seconds"
           }
         ]
