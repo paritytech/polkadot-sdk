@@ -59,6 +59,10 @@ impl SubstrateCli for Cli {
 /// Parse and run command line arguments
 pub fn run() -> sc_cli::Result<()> {
 	let mut args = std::env::args_os().collect::<Vec<_>>();
+
+	// Skip validation when running the test node
+	env::set_var("REVIVE_SKIP_VALIDATION", "true");
+
 	if args.len() == 1 {
 		args.push("--dev".into());
 		if std::env::var("RUST_LOG").is_err() {

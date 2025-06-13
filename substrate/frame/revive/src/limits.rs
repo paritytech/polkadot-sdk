@@ -32,11 +32,13 @@
 //! can change those limits without breaking existing contracts. Please keep in mind that we should
 //! only ever **increase** those values but never decrease.
 
+const BUMP_FACTOR: u32 = 10;
+
 /// The maximum depth of the call stack.
 ///
 /// A 0 means that no callings of other contracts are possible. In other words only the origin
 /// called "root contract" is allowed to execute then.
-pub const CALL_STACK_DEPTH: u32 = 5;
+pub const CALL_STACK_DEPTH: u32 = 5 * BUMP_FACTOR;
 
 /// The maximum number of topics a call to [`crate::SyscallDoc::deposit_event`] can emit.
 ///
@@ -49,7 +51,7 @@ pub const PAYLOAD_BYTES: u32 = 416;
 /// The maximum size of the transient storage in bytes.
 ///
 /// This includes keys, values, and previous entries used for storage rollback.
-pub const TRANSIENT_STORAGE_BYTES: u32 = 4 * 1024;
+pub const TRANSIENT_STORAGE_BYTES: u32 = 4 * 1024 * BUMP_FACTOR;
 
 /// The maximum allowable length in bytes for (transient) storage keys.
 pub const STORAGE_KEY_BYTES: u32 = 128;
@@ -81,7 +83,7 @@ pub mod code {
 	/// This mostly exist to prevent parsing too big blobs and to
 	/// have a maximum encoded length. The actual memory calculation
 	/// is purely based off [`STATIC_MEMORY_BYTES`].
-	pub const BLOB_BYTES: u32 = 256 * 1024;
+	pub const BLOB_BYTES: u32 = 256 * 1024 * BUMP_FACTOR;
 
 	/// Maximum size the program is allowed to take in memory.
 	///
@@ -89,7 +91,7 @@ pub mod code {
 	/// for more code or more data. However, since code will decompress
 	/// into a bigger representation on compilation it will only increase
 	/// the allowed code size by [`BYTE_PER_INSTRUCTION`].
-	pub const STATIC_MEMORY_BYTES: u32 = 2 * 1024 * 1024;
+	pub const STATIC_MEMORY_BYTES: u32 = 2 * 1024 * 1024 * BUMP_FACTOR;
 
 	/// The maximum size of a basic block in number of instructions.
 	///
