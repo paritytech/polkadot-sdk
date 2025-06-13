@@ -90,7 +90,7 @@ jobs:
   zombienet-polkadot-functional-0003-beefy-and-mmr:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-functional-0003-beefy-and-mmr') }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER }}
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
@@ -398,7 +398,7 @@ jobs:
   zombienet-polkadot-smoke-0001-parachains-smoke-test:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-smoke-0001-parachains-smoke-test') }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER }}
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
@@ -424,7 +424,7 @@ jobs:
   zombienet-polkadot-smoke-0002-parachains-parachains-upgrade-smoke:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-smoke-0002-parachains-parachains-upgrade-smoke') }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER }}
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
@@ -450,7 +450,7 @@ jobs:
   zombienet-polkadot-smoke-0003-deregister-register-validator:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-smoke-0003-deregister-register-validator') }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER }}
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
@@ -475,7 +475,7 @@ jobs:
   zombienet-polkadot-smoke-0004-coretime-smoke-test:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-smoke-0004-coretime-smoke-test') }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER }}
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
@@ -624,7 +624,7 @@ jobs:
   zombienet-polkadot-coretime-revenue:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-coretime-revenue') }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
@@ -851,7 +851,7 @@ jobs:
   zombienet-polkadot-disputes-slashing:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-disputes-slashing') }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
