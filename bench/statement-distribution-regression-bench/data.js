@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1749746496631,
+  "lastUpdate": 1749815922520,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -49583,6 +49583,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04472786080399994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "donal.murray@parity.io",
+            "name": "Dónal Murray",
+            "username": "seadanda"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f96dfb73ff0472a5087451fd0227949b44756478",
+          "message": "[pallet-broker] Force-unpool provisionally pooled regions before redispatching them (#4081)\n\nThis PR force removes regions from the pool before allowing them to be\nredispatched (through `partition`/`interlace`/`assign`) in the case that\na region was pooled with `Provisional` finality.\n\nThis PR does not account for the case where a pooled region already\nentitles the benefactor to a contribution reward before the point of it\nbeing redispatched. However, `claim_revenue` should be called before\ntrying to redispatch a region anyway.\nOtherwise there would be ambiguity as to what should be done with the\nfirst part of a partitioned region. The first of the two new regions\nactually has the exact same `region_id` as the original region -- leave\nit pooled/withdraw from pool/claim contribution then withdraw?\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2025-06-13T10:33:18Z",
+          "tree_id": "9252b4ba357a052894712e133e0ddc077a35254b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f96dfb73ff0472a5087451fd0227949b44756478"
+        },
+        "date": 1749815904544,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 127.94799999999992,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.044408347663999974,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03396409516599999,
             "unit": "seconds"
           }
         ]
