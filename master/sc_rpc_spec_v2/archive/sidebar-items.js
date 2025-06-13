@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["MethodResult"],"mod":["api","archive","error"],"struct":["MethodResultErr","MethodResultOk"]};

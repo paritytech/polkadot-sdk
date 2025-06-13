@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["changing_consensus","cumulus_enabled_parachain","xcm_enabled_parachain","your_first_node","your_first_pallet","your_first_runtime"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["CRYPTO_ID","PUBLIC_KEY_LEN","SIGNATURE_LEN"],"struct":["AppPair","AppPublic","AppSignature"],"type":["Pair","Public","Signature"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["max_validators_for"],"trait":["Config"]};

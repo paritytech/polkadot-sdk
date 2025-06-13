@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["Admin","Creator","ExpiryBlock","PoolId","RewardAssetId","RewardRatePerBlock","StakedAssetId"]};

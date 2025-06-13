@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["Approvals","Param0","Param1","Param2"]};

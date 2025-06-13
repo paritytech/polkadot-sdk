@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["check_status","payout","remove_approval","spend","spend_local","void_spend"],"struct":["CheckStatus","Payout","RemoveApproval","Spend","SpendLocal","VoidSpend"]};

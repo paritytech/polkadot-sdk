@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["ActualFee","Tip","Who"]};

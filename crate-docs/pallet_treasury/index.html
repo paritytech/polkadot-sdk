@@ -1,0 +1,92 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Made with Substrate, for Polkadot."><title>pallet_treasury - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_treasury" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../pallet_treasury/index.html"><img class="rust-logo" src="../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../pallet_treasury/index.html"><img class="rust-logo" src="../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2 class="location"><a href="#">Crate pallet_treasury</a></h2><div class="sidebar-elems"><ul class="block"><li class="version">Version 4.0.0-dev</li><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#types">Type Definitions</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">pallet_treasury</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/pallet_treasury/lib.rs.html#18-1122">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><blockquote>
+<p>Made with <em>Substrate</em>, for <em>Polkadot</em>.</p>
+</blockquote>
+<p><a href="https://github.com/paritytech/substrate/frame/fast-unstake"><img src="https://img.shields.io/badge/github-8da0cb?style=for-the-badge&amp;labelColor=555555&amp;logo=github" alt="github" /></a> -
+<a href="https://polkadot.network"><img src="https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&amp;logo=polkadot&amp;logoColor=white" alt="polkadot" /></a></p>
+<h2 id="treasury-pallet"><a href="#treasury-pallet">Treasury Pallet</a></h2>
+<p>The Treasury pallet provides a “pot” of funds that can be managed by stakeholders in the system
+and a structure for making spending proposals from this pot.</p>
+<h3 id="overview"><a href="#overview">Overview</a></h3>
+<p>The Treasury Pallet itself provides the pot to store funds, and a means for stakeholders to
+propose and claim expenditures (aka spends). The chain will need to provide a method to approve
+spends (e.g. public referendum) and a method for collecting funds (e.g. inflation, fees).</p>
+<p>By way of example, stakeholders could vote to fund the Treasury with a portion of the block
+reward and use the funds to pay developers.</p>
+<h4 id="terminology"><a href="#terminology">Terminology</a></h4>
+<ul>
+<li><strong>Proposal:</strong> A suggestion to allocate funds from the pot to a beneficiary.</li>
+<li><strong>Beneficiary:</strong> An account who will receive the funds from a proposal iff the proposal is
+approved.</li>
+<li><strong>Pot:</strong> Unspent funds accumulated by the treasury pallet.</li>
+<li><strong>Spend</strong> An approved proposal for transferring a specific amount of funds to a designated
+beneficiary.</li>
+</ul>
+<h4 id="example"><a href="#example">Example</a></h4>
+<ol>
+<li>Multiple local spends approved by spend origins and received by a beneficiary.</li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">fn </span>spend_local_origin_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		<span class="comment">// Check that accumulate works when we have Some value in Dummy already.
+		</span>Balances::make_free_balance_be(<span class="kw-2">&amp;</span>Treasury::account_id(), <span class="number">101</span>);
+		<span class="comment">// approve spend of some amount to beneficiary `6`.
+		</span><span class="macro">assert_ok!</span>(Treasury::spend_local(RuntimeOrigin::signed(<span class="number">10</span>), <span class="number">5</span>, <span class="number">6</span>));
+		<span class="macro">assert_ok!</span>(Treasury::spend_local(RuntimeOrigin::signed(<span class="number">10</span>), <span class="number">5</span>, <span class="number">6</span>));
+		<span class="macro">assert_ok!</span>(Treasury::spend_local(RuntimeOrigin::signed(<span class="number">10</span>), <span class="number">5</span>, <span class="number">6</span>));
+		<span class="macro">assert_ok!</span>(Treasury::spend_local(RuntimeOrigin::signed(<span class="number">10</span>), <span class="number">5</span>, <span class="number">6</span>));
+		<span class="macro">assert_ok!</span>(Treasury::spend_local(RuntimeOrigin::signed(<span class="number">11</span>), <span class="number">10</span>, <span class="number">6</span>));
+		<span class="macro">assert_ok!</span>(Treasury::spend_local(RuntimeOrigin::signed(<span class="number">12</span>), <span class="number">20</span>, <span class="number">6</span>));
+		<span class="macro">assert_ok!</span>(Treasury::spend_local(RuntimeOrigin::signed(<span class="number">13</span>), <span class="number">50</span>, <span class="number">6</span>));
+		<span class="comment">// free balance of `6` is zero, spend period has not passed.
+		</span>&lt;Treasury <span class="kw">as </span>OnInitialize&lt;u64&gt;&gt;::on_initialize(<span class="number">1</span>);
+		<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="number">6</span>), <span class="number">0</span>);
+		<span class="comment">// free balance of `6` is `100`, spend period has passed.
+		</span>&lt;Treasury <span class="kw">as </span>OnInitialize&lt;u64&gt;&gt;::on_initialize(<span class="number">2</span>);
+		<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="number">6</span>), <span class="number">100</span>);
+		<span class="comment">// `100` spent, `1` burned.
+		</span><span class="macro">assert_eq!</span>(Treasury::pot(), <span class="number">0</span>);
+	});
+}</code></pre></div>
+<ol start="2">
+<li>Approve a spend of some asset kind and claim it.</li>
+</ol>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">fn </span>spend_payout_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		System::set_block_number(<span class="number">1</span>);
+		<span class="comment">// approve a `2` coins spend of asset `1` to beneficiary `6`, the spend valid from now.
+		</span><span class="macro">assert_ok!</span>(Treasury::spend(RuntimeOrigin::signed(<span class="number">10</span>), Box::new(<span class="number">1</span>), <span class="number">2</span>, Box::new(<span class="number">6</span>), <span class="prelude-val">None</span>));
+		<span class="comment">// payout the spend.
+		</span><span class="macro">assert_ok!</span>(Treasury::payout(RuntimeOrigin::signed(<span class="number">1</span>), <span class="number">0</span>));
+		<span class="comment">// beneficiary received `2` coins of asset `1`.
+		</span><span class="macro">assert_eq!</span>(paid(<span class="number">6</span>, <span class="number">1</span>), <span class="number">2</span>);
+		<span class="macro">assert_eq!</span>(SpendCount::&lt;Test, <span class="kw">_</span>&gt;::get(), <span class="number">1</span>);
+		<span class="kw">let </span>payment_id = get_payment_id(<span class="number">0</span>).expect(<span class="string">&quot;no payment attempt&quot;</span>);
+		System::assert_last_event(Event::&lt;Test, <span class="kw">_</span>&gt;::Paid { index: <span class="number">0</span>, payment_id }.into());
+		set_status(payment_id, PaymentStatus::Success);
+		<span class="comment">// the payment succeed.
+		</span><span class="macro">assert_ok!</span>(Treasury::check_status(RuntimeOrigin::signed(<span class="number">1</span>), <span class="number">0</span>));
+		System::assert_last_event(Event::&lt;Test, <span class="kw">_</span>&gt;::SpendProcessed { index: <span class="number">0 </span>}.into());
+		<span class="comment">// cannot payout the same spend twice.
+		</span><span class="macro">assert_noop!</span>(Treasury::payout(RuntimeOrigin::signed(<span class="number">1</span>), <span class="number">0</span>), Error::&lt;Test, <span class="kw">_</span>&gt;::InvalidIndex);
+	});
+}</code></pre></div>
+<h3 id="pallet-api"><a href="#pallet-api">Pallet API</a></h3>
+<p>See the <a href="pallet/index.html" title="mod pallet_treasury::pallet"><code>pallet</code></a> module for more information about the interfaces this pallet exposes,
+including its configuration trait, dispatchables, storage items, events and errors.</p>
+<h3 id="low-level--implementation-details"><a href="#low-level--implementation-details">Low Level / Implementation Details</a></h3>
+<p>Spends can be initiated using either the <code>spend_local</code> or <code>spend</code> dispatchable. The
+<code>spend_local</code> dispatchable enables the creation of spends using the native currency of the
+chain, utilizing the funds stored in the pot. These spends are automatically paid out every
+<a href="pallet/trait.Config.html#associatedtype.SpendPeriod" title="associated type pallet_treasury::pallet::Config::SpendPeriod"><code>pallet::Config::SpendPeriod</code></a>. On the other hand, the <code>spend</code> dispatchable allows spending of
+any asset kind managed by the treasury, with payment facilitated by a designated
+<a href="pallet/trait.Config.html#associatedtype.Paymaster" title="associated type pallet_treasury::pallet::Config::Paymaster"><code>pallet::Config::Paymaster</code></a>. To claim these spends, the <code>payout</code> dispatchable should be called
+within some temporal bounds, starting from the moment they become valid and within one
+<a href="pallet/trait.Config.html#associatedtype.PayoutPeriod" title="associated type pallet_treasury::pallet::Config::PayoutPeriod"><code>pallet::Config::PayoutPeriod</code></a>.</p>
+</div></details><h2 id="reexports" class="small-section-header"><a href="#reexports">Re-exports</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.WeightInfo"><code>pub use weights::<a class="trait" href="weights/trait.WeightInfo.html" title="trait pallet_treasury::weights::WeightInfo">WeightInfo</a>;</code></div></li><li><div class="item-name"><code>pub use <a class="mod" href="pallet/index.html" title="mod pallet_treasury::pallet">pallet</a>::*;</code></div></li></ul><h2 id="modules" class="small-section-header"><a href="#modules">Modules</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="pallet/index.html" title="mod pallet_treasury::pallet">pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="weights/index.html" title="mod pallet_treasury::weights">weights</a></div><div class="desc docblock-short">Autogenerated weights for pallet_treasury</div></li></ul><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Proposal.html" title="struct pallet_treasury::Proposal">Proposal</a></div><div class="desc docblock-short">A spending proposal.</div></li><li><div class="item-name"><a class="struct" href="struct.SpendStatus.html" title="struct pallet_treasury::SpendStatus">SpendStatus</a></div><div class="desc docblock-short">Info regarding an approved treasury spend.</div></li></ul><h2 id="enums" class="small-section-header"><a href="#enums">Enums</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.PaymentState.html" title="enum pallet_treasury::PaymentState">PaymentState</a></div><div class="desc docblock-short">The state of the payment claim.</div></li></ul><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.SpendFunds.html" title="trait pallet_treasury::SpendFunds">SpendFunds</a></div><div class="desc docblock-short">A trait to allow the Treasury Pallet to spend it’s funds for other purposes.
+There is an expectation that the implementer of this trait will correctly manage
+the mutable variables passed to it:</div></li></ul><h2 id="types" class="small-section-header"><a href="#types">Type Definitions</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.AssetBalanceOf.html" title="type pallet_treasury::AssetBalanceOf">AssetBalanceOf</a></div></li><li><div class="item-name"><a class="type" href="type.BalanceOf.html" title="type pallet_treasury::BalanceOf">BalanceOf</a></div></li><li><div class="item-name"><a class="type" href="type.NegativeImbalanceOf.html" title="type pallet_treasury::NegativeImbalanceOf">NegativeImbalanceOf</a></div></li><li><div class="item-name"><a class="type" href="type.PositiveImbalanceOf.html" title="type pallet_treasury::PositiveImbalanceOf">PositiveImbalanceOf</a></div></li><li><div class="item-name"><a class="type" href="type.ProposalIndex.html" title="type pallet_treasury::ProposalIndex">ProposalIndex</a></div><div class="desc docblock-short">An index of a proposal. Just a <code>u32</code>.</div></li><li><div class="item-name"><a class="type" href="type.SpendIndex.html" title="type pallet_treasury::SpendIndex">SpendIndex</a></div><div class="desc docblock-short">Index of an approved treasury spend.</div></li></ul></section></div></main></body></html>

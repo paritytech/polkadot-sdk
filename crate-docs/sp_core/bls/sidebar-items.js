@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["PUBLIC_KEY_SERIALIZED_SIZE","SIGNATURE_SERIALIZED_SIZE"],"mod":["bls377","bls381"],"struct":["Pair"],"type":["Public","Signature"]};

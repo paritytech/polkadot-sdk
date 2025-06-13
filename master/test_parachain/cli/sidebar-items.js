@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AuthoringPolicy","Subcommand"],"struct":["RelayChainCli","TestCollatorCli"]};

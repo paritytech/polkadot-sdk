@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["accept_curator","add_child_bounty","award_child_bounty","claim_child_bounty","close_child_bounty","propose_curator","unassign_curator"],"struct":["AcceptCurator","AddChildBounty","AwardChildBounty","ClaimChildBounty","CloseChildBounty","ProposeCurator","UnassignCurator"]};

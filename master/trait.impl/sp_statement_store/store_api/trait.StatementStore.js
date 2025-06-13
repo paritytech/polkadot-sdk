@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["sc_statement_store",[["impl <a class=\"trait\" href=\"sc_statement_store/trait.StatementStore.html\" title=\"trait sc_statement_store::StatementStore\">StatementStore</a> for <a class=\"struct\" href=\"sc_statement_store/struct.Store.html\" title=\"struct sc_statement_store::Store\">Store</a>"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[299]}

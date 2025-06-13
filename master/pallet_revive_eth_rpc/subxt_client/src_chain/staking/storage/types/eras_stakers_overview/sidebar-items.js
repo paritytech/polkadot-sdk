@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["ErasStakersOverview","Param0","Param1"]};

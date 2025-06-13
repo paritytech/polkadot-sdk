@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["MinimumScore","QueuedSolutionBackings","QueuedSolutionScore","QueuedSolutionX","QueuedSolutionY","QueuedValidVariant","StatusStorage"]};

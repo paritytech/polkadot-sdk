@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["auto_renewals","configuration","core_count_inbox","insta_pool_contribution","insta_pool_history","insta_pool_io","leases","potential_renewals","regions","reservations","revenue_inbox","sale_info","status","workload","workplan"]};

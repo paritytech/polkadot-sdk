@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["InvalidTransaction"],"macro":["impl_tx_ext_default"],"struct":["CallMetadata","ValidTransaction"],"trait":["AsTransactionAuthorizedOrigin","DispatchTransaction","GetCallMetadata","TransactionExtension"],"type":["ExtensionVersion","ValidateResult"]};

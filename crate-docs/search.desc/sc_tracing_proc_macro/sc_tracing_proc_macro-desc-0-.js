@@ -1,0 +1,1 @@
+searchState.loadedDescShard("sc_tracing_proc_macro", 0, "Add a log prefix to the function.")

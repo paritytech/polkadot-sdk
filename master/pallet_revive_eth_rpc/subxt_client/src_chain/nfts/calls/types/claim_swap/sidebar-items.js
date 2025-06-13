@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["ReceiveCollection","ReceiveItem","SendCollection","SendItem","WitnessPrice"]};

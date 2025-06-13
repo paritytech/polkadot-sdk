@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["call","instantiate","instantiate_with_code","migrate","remove_code","set_code","upload_code"]};

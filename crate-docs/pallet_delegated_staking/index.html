@@ -1,0 +1,252 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Delegated Staking Pallet"><title>pallet_delegated_staking - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_delegated_staking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-4c98445ec4002617.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_delegated_staking/index.html">pallet_delegated_staking</a><span class="version">1.0.0</span></h2></div><div class="sidebar-elems"><ul class="block">
+            <li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../pallet_delegated_staking/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">pallet_delegated_staking</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/pallet_delegated_staking/lib.rs.html#18-815">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="delegated-staking-pallet"><a class="doc-anchor" href="#delegated-staking-pallet">§</a>Delegated Staking Pallet</h2>
+<p>This pallet implements [<code>sp_staking::DelegationInterface</code>] that provides delegation
+functionality to <code>delegators</code> and <code>agents</code>. It is designed to be used in conjunction with
+[<code>StakingInterface</code>] and relies on <a href="pallet/trait.Config.html#associatedtype.CoreStaking" title="associated type pallet_delegated_staking::pallet::Config::CoreStaking"><code>Config::CoreStaking</code></a> to provide primitive staking
+functions.</p>
+<p>Currently, it does not expose any dispatchable calls but is written with a vision to expose them
+in the future such that it can be utilised by any external account, off-chain entity or xcm
+<code>MultiLocation</code> such as a parachain or a smart contract.</p>
+<h3 id="key-terminologies"><a class="doc-anchor" href="#key-terminologies">§</a>Key Terminologies</h3>
+<ul>
+<li><strong>Agent</strong>: An account who accepts delegations from other accounts and act as an agent on their
+behalf for staking these delegated funds. Also, sometimes referred as <code>Delegatee</code>.</li>
+<li><strong>Delegator</strong>: An account who delegates their funds to an <code>agent</code> and authorises them to use
+it for staking.</li>
+<li><strong>AgentLedger</strong>: A data structure that holds important information about the <code>agent</code> such as
+total delegations they have received, any slashes posted to them, etc.</li>
+<li><strong>Delegation</strong>: A data structure that stores the amount of funds delegated to an <code>agent</code> by a
+<code>delegator</code>.</li>
+</ul>
+<h3 id="goals"><a class="doc-anchor" href="#goals">§</a>Goals</h3>
+<p>Direct nomination on the Staking pallet does not scale well. Nominations pools were created to
+address this by pooling delegator funds into one account and then staking it. This though had
+a very critical limitation that the funds were moved from delegator account to pool account
+and hence the delegator lost control over their funds for using it for other purposes such as
+governance. This pallet aims to solve this by extending the staking pallet to support a new
+primitive function: delegation of funds to an <code>agent</code> with the intent of staking. The agent can
+then stake the delegated funds to <a href="pallet/trait.Config.html#associatedtype.CoreStaking" title="associated type pallet_delegated_staking::pallet::Config::CoreStaking"><code>Config::CoreStaking</code></a> on behalf of the delegators.</p>
+<h4 id="withdrawal-management"><a class="doc-anchor" href="#withdrawal-management">§</a>Withdrawal Management</h4>
+<p>Agent unbonding does not regulate ordering of consequent withdrawal for delegators. This is upto
+the consumer of this pallet to implement in what order unbondable funds from
+<a href="pallet/trait.Config.html#associatedtype.CoreStaking" title="associated type pallet_delegated_staking::pallet::Config::CoreStaking"><code>Config::CoreStaking</code></a> can be withdrawn by the delegators.</p>
+<h4 id="reward-and-slashing"><a class="doc-anchor" href="#reward-and-slashing">§</a>Reward and Slashing</h4>
+<p>This pallet does not enforce any specific strategy for how rewards or slashes are applied. It
+is upto the <code>agent</code> account to decide how to apply the rewards and slashes.</p>
+<p>This importantly allows clients of this pallet to build their own strategies for reward/slashes.
+For example, an <code>agent</code> account can choose to first slash the reward pot before slashing the
+delegators. Or part of the reward can go to an insurance fund that can be used to cover any
+potential future slashes. The goal is to eventually allow foreign MultiLocations
+(smart contracts or pallets on another chain) to build their own pooled staking solutions
+similar to <code>NominationPools</code>.</p>
+<h3 id="core-functions"><a class="doc-anchor" href="#core-functions">§</a>Core functions</h3>
+<ul>
+<li>Allow an account to receive delegations. See <a href="pallet/struct.Pallet.html#method.register_agent" title="associated function pallet_delegated_staking::pallet::Pallet::register_agent"><code>Pallet::register_agent</code></a>.</li>
+<li>Delegate funds to an <code>agent</code> account. See <a href="pallet/struct.Pallet.html#method.delegate_to_agent" title="associated function pallet_delegated_staking::pallet::Pallet::delegate_to_agent"><code>Pallet::delegate_to_agent</code></a>.</li>
+<li>Release delegated funds from an <code>agent</code> account to the <code>delegator</code>. See
+<a href="pallet/struct.Pallet.html#method.release_delegation" title="associated function pallet_delegated_staking::pallet::Pallet::release_delegation"><code>Pallet::release_delegation</code></a>.</li>
+<li>Migrate a <code>Nominator</code> account to an <code>agent</code> account. See <a href="pallet/struct.Pallet.html#method.migrate_to_agent" title="associated function pallet_delegated_staking::pallet::Pallet::migrate_to_agent"><code>Pallet::migrate_to_agent</code></a>.
+Explained in more detail in the <code>Migration</code> section.</li>
+<li>Migrate unclaimed delegated funds from <code>agent</code> to delegator. When a nominator migrates to an
+agent, the funds are held in a proxy account. This function allows the delegator to claim their
+share of the funds from the proxy account. See <a href="pallet/struct.Pallet.html#method.migrate_delegation" title="associated function pallet_delegated_staking::pallet::Pallet::migrate_delegation"><code>Pallet::migrate_delegation</code></a>.</li>
+</ul>
+<h3 id="lazy-slashing"><a class="doc-anchor" href="#lazy-slashing">§</a>Lazy Slashing</h3>
+<p>One of the reasons why direct nominators on staking pallet cannot scale well is because all
+nominators are slashed at the same time. This is expensive and needs to be bounded operation.</p>
+<p>This pallet implements a lazy slashing mechanism. Any slashes to the <code>agent</code> are posted in its
+<code>AgentLedger</code> as a pending slash. Since the actual amount is held in the multiple
+<code>delegator</code> accounts, this pallet has no way to know how to apply slash. It is the <code>agent</code>’s
+responsibility to apply slashes for each delegator, one at a time. Staking pallet ensures the
+pending slash never exceeds staked amount and would freeze further withdraws until all pending
+slashes are cleared.</p>
+<p>The user of this pallet can apply slash using
+<a href="sp_staking::DelegationInterface::delegator_slash">DelegationInterface::delegator_slash</a>.</p>
+<h3 id="migration-from-nominator-to-agent"><a class="doc-anchor" href="#migration-from-nominator-to-agent">§</a>Migration from Nominator to Agent</h3>
+<p>More details <a href="https://hackmd.io/@ak0n/454-np-governance">here</a>.</p>
+<h3 id="nomination-pool-vs-delegation-staking"><a class="doc-anchor" href="#nomination-pool-vs-delegation-staking">§</a>Nomination Pool vs Delegation Staking</h3>
+<p>This pallet is not a replacement for Nomination Pool but adds a new primitive in addition to
+staking pallet that can be used by Nomination Pool to support delegation based staking. It can
+be thought of as an extension to the Staking Pallet in relation to Nomination Pools.
+Technically, these changes could be made in one of those pallets as well but that would have
+meant significant refactoring and high chances of introducing a regression. With this approach,
+we can keep the existing pallets with minimal changes and introduce a new pallet that can be
+optionally used by Nomination Pool. The vision is to build this in a configurable way such that
+runtime can choose whether to use this pallet or not.</p>
+<p>With that said, following is the main difference between</p>
+<h5 id="nomination-pool-without-delegation-support"><a class="doc-anchor" href="#nomination-pool-without-delegation-support">§</a>Nomination Pool without delegation support</h5>
+<ol>
+<li>transfer fund from delegator to pool account, and</li>
+<li>stake from pool account as a direct nominator.</li>
+</ol>
+<h5 id="nomination-pool-with-delegation-support"><a class="doc-anchor" href="#nomination-pool-with-delegation-support">§</a>Nomination Pool with delegation support</h5>
+<ol>
+<li>delegate fund from delegator to pool account, and</li>
+<li>stake from pool account as an <code>Agent</code> account on the staking pallet.</li>
+</ol>
+<p>The difference being, in the second approach, the delegated funds will be locked in-place in
+user’s account enabling them to participate in use cases that allows use of <code>held</code> funds such
+as participation in governance voting.</p>
+<p>Nomination pool still does all the heavy lifting around pool administration, reward
+distribution, lazy slashing and as such, is not meant to be replaced with this pallet.</p>
+<h3 id="limitations"><a class="doc-anchor" href="#limitations">§</a>Limitations</h3>
+<ul>
+<li>Rewards can not be auto-compounded.</li>
+<li>Slashes are lazy and hence there could be a period of time when an account can use funds for
+operations such as voting in governance even though they should be slashed.</li>
+</ul>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><code>pub use <a class="mod" href="pallet/index.html" title="mod pallet_delegated_staking::pallet">pallet</a>::*;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="pallet/index.html" title="mod pallet_delegated_staking::pallet">pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.BalanceOf.html" title="type pallet_delegated_staking::BalanceOf">BalanceOf</a></div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

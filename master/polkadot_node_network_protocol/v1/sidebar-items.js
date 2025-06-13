@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CollationProtocol","CollatorProtocolMessage"],"fn":["declare_signature_payload"]};

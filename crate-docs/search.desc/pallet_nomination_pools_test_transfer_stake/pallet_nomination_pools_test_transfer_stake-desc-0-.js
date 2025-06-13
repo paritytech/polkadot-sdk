@@ -1,0 +1,1 @@
+searchState.loadedDescShard("pallet_nomination_pools_test_transfer_stake", 0, "")

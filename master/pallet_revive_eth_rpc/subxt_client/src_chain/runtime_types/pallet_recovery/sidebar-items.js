@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DepositKind"],"mod":["pallet"],"struct":["ActiveRecovery","RecoveryConfig"]};

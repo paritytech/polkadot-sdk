@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["pallet_election_provider_multi_block","pallet_election_provider_multi_block_signed","pallet_election_provider_multi_block_unsigned","pallet_election_provider_multi_block_verifier"]};

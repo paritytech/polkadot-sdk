@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["current_session_index","current_session_start_block","mixnodes","next_authority_ids"]};

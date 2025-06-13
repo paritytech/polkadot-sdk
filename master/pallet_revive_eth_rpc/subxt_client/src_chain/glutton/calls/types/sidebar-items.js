@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["bloat","initialize_pallet","set_block_length","set_compute","set_storage"],"struct":["Bloat","InitializePallet","SetBlockLength","SetCompute","SetStorage"]};

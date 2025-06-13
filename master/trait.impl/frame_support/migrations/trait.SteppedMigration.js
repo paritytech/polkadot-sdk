@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["pallet_example_mbm",[["impl&lt;T: <a class=\"trait\" href=\"pallet_example_mbm/pallet/trait.Config.html\" title=\"trait pallet_example_mbm::pallet::Config\">Config</a>, W: <a class=\"trait\" href=\"pallet_example_mbm/migrations/v1/weights/trait.WeightInfo.html\" title=\"trait pallet_example_mbm::migrations::v1::weights::WeightInfo\">WeightInfo</a>&gt; SteppedMigration for <a class=\"struct\" href=\"pallet_example_mbm/migrations/v1/struct.LazyMigrationV1.html\" title=\"struct pallet_example_mbm::migrations::v1::LazyMigrationV1\">LazyMigrationV1</a>&lt;T, W&gt;"]]],["pallet_identity",[["impl&lt;T: <a class=\"trait\" href=\"pallet_identity/pallet/trait.Config.html\" title=\"trait pallet_identity::pallet::Config\">Config</a>&gt; SteppedMigration for <a class=\"struct\" href=\"pallet_identity/migration/v2/struct.LazyMigrationV1ToV2.html\" title=\"struct pallet_identity::migration::v2::LazyMigrationV1ToV2\">LazyMigrationV1ToV2</a>&lt;T&gt;"]]],["pallet_migrations",[["impl&lt;T, P, V&gt; SteppedMigration for <a class=\"struct\" href=\"pallet_migrations/migrations/struct.ResetPallet.html\" title=\"struct pallet_migrations::migrations::ResetPallet\">ResetPallet</a>&lt;T, P&gt;<div class=\"where\">where\n    T: <a class=\"trait\" href=\"pallet_migrations/pallet/trait.Config.html\" title=\"trait pallet_migrations::pallet::Config\">Config</a>,\n    P: PalletInfoAccess + GetStorageVersion&lt;InCodeStorageVersion = V&gt;,\n    V: StoreInCodeStorageVersion&lt;P&gt;,</div>"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[571,382,534]}

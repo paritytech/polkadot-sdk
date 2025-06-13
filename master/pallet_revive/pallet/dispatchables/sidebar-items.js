@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["call","dispatch_as_fallback_account","eth_transact","instantiate","instantiate_with_code","map_account","remove_code","set_code","unmap_account","upload_code"]};

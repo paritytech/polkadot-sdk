@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Releases"],"mod":["migrations","pallet","weights"],"struct":["MaxVestingSchedulesGet","VestingInfo"]};

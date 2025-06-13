@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["Multisigs","Param0","Param1"]};

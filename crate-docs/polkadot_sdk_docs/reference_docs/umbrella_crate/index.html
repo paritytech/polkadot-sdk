@@ -1,0 +1,224 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Learn about the Polkadot Umbrella crate that re-exports all other crates."><title>polkadot_sdk_docs::reference_docs::umbrella_crate - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.network/favicon-32x32.png"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module umbrella_crate</a></h2><div class="sidebar-elems"><h2><a href="../index.html">In polkadot_sdk_docs::reference_docs</a></h2></div></nav><div class="sidebar-resizer"></div>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_sdk_docs/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">reference_docs</a>::<wbr><a class="mod" href="#">umbrella_crate</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/reference_docs/umbrella_crate.rs.html#1-89">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Learn about the Polkadot Umbrella crate that re-exports all other crates.</p>
+<h2 id="umbrella-crate"><a class="doc-anchor" href="#umbrella-crate">§</a>Umbrella Crate</h2>
+<p>The Polkadot-SDK “umbrella” is a crate that re-exports all other published crates. This makes it
+possible to have a very small <code>Cargo.toml</code> file that only has one dependency, the umbrella
+crate. This helps with selecting the right combination of crate versions, since otherwise 3rd
+party tools are needed to select a compatible set of versions.</p>
+<h3 id="features"><a class="doc-anchor" href="#features">§</a>Features</h3>
+<p>The umbrella crate supports no-std builds and can therefore be used in the runtime and node.
+There are two main features: <code>runtime</code> and <code>node</code>. The <code>runtime</code> feature enables all <code>no-std</code>
+crates, while the <code>node</code> feature enables all <code>std</code> crates. It should be used like any other
+crate in the repo, with <code>default-features = false</code>.</p>
+<p>For more fine-grained control, additionally, each crate can be enabled selectively. The umbrella
+exposes one feature per dependency. For example, if you only want to use the <code>frame-support</code>
+crate, you can enable the <code>frame-support</code> feature.</p>
+<p>The umbrella exposes a few more general features:</p>
+<ul>
+<li><code>tuples-96</code>: Needs to be enabled for runtimes that have more than 64 pallets.</li>
+<li><code>serde</code>: Specifically enable <code>serde</code> en/decoding support.</li>
+<li><code>experimental</code>: Experimental enable experimental features - should not yet used in production.</li>
+<li><code>with-tracing</code>: Enable tracing support.</li>
+<li><code>try-runtime</code>, <code>runtime-benchmarks</code> and <code>std</code>: These follow the standard conventions.</li>
+<li><code>runtime</code>: As described above, enable all <code>no-std</code> crates.</li>
+<li><code>node</code>: As described above, enable all <code>std</code> crates.</li>
+<li>There does <em>not</em> exist a dedicated docs feature. To generate docs, enable the <code>runtime</code> and
+<code>node</code> feature. For docs.rs the manifest contains specific configuration to make it show up
+all re-exports.</li>
+</ul>
+<p>There is a specific <code>zepter</code> check in place to ensure that the features of the umbrella are
+correctly configured. This check is run in CI and locally when running <code>zepter</code>.</p>
+<h3 id="generation"><a class="doc-anchor" href="#generation">§</a>Generation</h3>
+<p>The umbrella crate needs to be updated every time when a new crate is added or removed from the
+workspace. It is checked in CI by calling its generation script. The generation script is
+located in <code>./scripts/generate-umbrella.py</code> and needs dependency <code>cargo_workspace</code>.</p>
+<p>Example: <code>python3 scripts/generate-umbrella.py --sdk . --version 1.9.0</code></p>
+<h3 id="usage"><a class="doc-anchor" href="#usage">§</a>Usage</h3>
+<blockquote>
+<p>Note: You can see a live example in the <code>staging-node-cli</code> and <code>kitchensink-runtime</code> crates.</p>
+</blockquote>
+<p>The umbrella crate can be added to your runtime crate like this:</p>
+<p><code>polkadot-sdk = { path = &quot;../../../../umbrella&quot;, features = [&quot;runtime&quot;], default-features = false }</code></p>
+<p>or for a node:</p>
+<p><code>polkadot-sdk = { path = &quot;../../../../umbrella&quot;, features = [&quot;node&quot;], default-features = false }</code></p>
+<p>In the code, it is then possible to bring all dependencies into scope via:</p>
+<p><code>use polkadot_sdk::*;</code></p>
+<h4 id="known-issues"><a class="doc-anchor" href="#known-issues">§</a>Known Issues</h4>
+<p>The only known issue so far is the fact that the <code>use</code> statement brings the dependencies only
+into the outer module scope - not the global crate scope. For example, the following code would
+need to be adjusted:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>polkadot_sdk::<span class="kw-2">*</span>;
+
+<span class="kw">mod </span>foo {
+   <span class="comment">// This does sadly not compile:
+   </span><span class="macro">frame_support::parameter_types! </span>{ }
+
+   <span class="comment">// Instead, we need to do this (or add an equivalent `use` statement):
+   </span><span class="macro">polkadot_sdk::frame_support::parameter_types! </span>{ }
+}</code></pre></div>
+<p>Apart from this, no issues are known. There could be some bugs with how macros locate their own
+re-exports. Please compile issues that arise from using this crate.</p>
+<h3 id="dependencies"><a class="doc-anchor" href="#dependencies">§</a>Dependencies</h3>
+<p>The umbrella crate re-exports all published crates, with a few exceptions:</p>
+<ul>
+<li>Runtime crates like <code>rococo-runtime</code> etc are not exported. This otherwise leads to very weird
+compile errors and should not be needed anyway.</li>
+<li>Example and fuzzing crates are not exported. This is currently detected by checking the name
+of the crate for these magic words. In the future, it will utilize custom metadata, as it is
+done in the <code>rococo-runtime</code> crate.</li>
+<li>The umbrella crate itself. Should be obvious :)</li>
+</ul>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

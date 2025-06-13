@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["announce","remove_announcement","set_charter"]};

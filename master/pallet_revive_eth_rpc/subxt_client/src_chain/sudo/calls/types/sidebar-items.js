@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["set_key","sudo","sudo_as","sudo_unchecked_weight"],"struct":["RemoveKey","SetKey","Sudo","SudoAs","SudoUncheckedWeight"]};

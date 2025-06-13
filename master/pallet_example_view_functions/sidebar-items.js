@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["pallet","pallet2"],"struct":["SomeType1"],"trait":["SomeAssociation1"]};

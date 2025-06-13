@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["build_ring_manual","force_recognize_personhood","merge_rings","migrate_included_key","migrate_onboarding_key","onboard_people_manual","set_alias_account","set_onboarding_size","set_personal_id_account","under_alias","unset_alias_account","unset_personal_id_account"]};

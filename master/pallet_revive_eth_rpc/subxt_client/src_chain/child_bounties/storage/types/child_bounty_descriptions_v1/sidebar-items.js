@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["ChildBountyDescriptionsV1","Param0","Param1"]};
