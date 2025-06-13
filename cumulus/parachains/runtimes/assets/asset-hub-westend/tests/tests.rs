@@ -50,7 +50,10 @@ use frame_support::{
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
 use hex_literal::hex;
-use pallet_revive::{Code, DepositLimit, InstantiateReturnValue};
+use pallet_revive::{
+	test_utils::builder::{BareInstantiateBuilder, Contract},
+	Code, DepositLimit,
+};
 use pallet_revive_fixtures::compile_module;
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
@@ -99,6 +102,12 @@ fn slot_durations() -> SlotDurations {
 		relay: SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS.into()),
 		para: SlotDuration::from_millis(SLOT_DURATION),
 	}
+}
+
+/// Build a bare_instantiate call.
+fn bare_instantiate(origin: &AccountId, code: Vec<u8>) -> BareInstantiateBuilder<Runtime> {
+	let origin = RuntimeOrigin::signed(origin.clone());
+	BareInstantiateBuilder::<Runtime>::bare_instantiate(origin, Code::Upload(code))
 }
 
 #[test]
@@ -1506,18 +1515,11 @@ fn withdraw_and_deposit_erc20s() {
 
 		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
 		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
-		let result = Revive::bare_instantiate(
-			RuntimeOrigin::signed(sender.clone()),
-			0,
-			Weight::from_parts(2_000_000_000, 200_000),
-			DepositLimit::Balance(Balance::MAX),
-			Code::Upload(code),
-			constructor_data,
-			None,
-		);
-		let Ok(InstantiateReturnValue { addr: erc20_address, .. }) = result.result else {
-			unreachable!("contract should initialize")
-		};
+		let Contract { addr: erc20_address, .. } = bare_instantiate(&sender, code)
+			.gas_limit(Weight::from_parts(2_000_000_000, 200_000))
+			.storage_deposit_limit(DepositLimit::Balance(Balance::MAX))
+			.data(constructor_data)
+			.build_and_unwrap_contract();
 
 		let sender_balance_before = <Balances as fungible::Inspect<_>>::balance(&sender);
 
@@ -1619,18 +1621,10 @@ fn smart_contract_not_erc20_will_error() {
 
 		let (code, _) = compile_module("dummy").unwrap();
 
-		let result = Revive::bare_instantiate(
-			RuntimeOrigin::signed(sender.clone()),
-			0,
-			Weight::from_parts(2_000_000_000, 200_000),
-			DepositLimit::Balance(Balance::MAX),
-			Code::Upload(code),
-			Vec::new(),
-			None,
-		);
-		let Ok(InstantiateReturnValue { addr: non_erc20_address, .. }) = result.result else {
-			unreachable!("contract should initialize")
-		};
+		let Contract { addr: non_erc20_address, .. } = bare_instantiate(&sender, code)
+			.gas_limit(Weight::from_parts(2_000_000_000, 200_000))
+			.storage_deposit_limit(DepositLimit::Balance(Balance::MAX))
+			.build_and_unwrap_contract();
 
 		let wnd_amount_for_fees = 1_000_000_000_000u128;
 		let erc20_transfer_amount = 100u128;
@@ -1683,18 +1677,12 @@ fn smart_contract_does_not_return_bool_fails() {
 
 		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
 		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
-		let result = Revive::bare_instantiate(
-			RuntimeOrigin::signed(sender.clone()),
-			0,
-			Weight::from_parts(2_000_000_000, 200_000),
-			DepositLimit::Balance(Balance::MAX),
-			Code::Upload(code),
-			constructor_data,
-			None,
-		);
-		let Ok(InstantiateReturnValue { addr: non_erc20_address, .. }) = result.result else {
-			unreachable!("contract should initialize")
-		};
+
+		let Contract { addr: non_erc20_address, .. } = bare_instantiate(&sender, code)
+			.gas_limit(Weight::from_parts(2_000_000_000, 200_000))
+			.storage_deposit_limit(DepositLimit::Balance(Balance::MAX))
+			.data(constructor_data)
+			.build_and_unwrap_contract();
 
 		let wnd_amount_for_fees = 1_000_000_000_000u128;
 		let erc20_transfer_amount = 100u128;
@@ -1745,18 +1733,11 @@ fn expensive_erc20_runs_out_of_gas() {
 
 		let initial_amount_u256 = U256::from(1_000_000_000_000u128);
 		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
-		let result = Revive::bare_instantiate(
-			RuntimeOrigin::signed(sender.clone()),
-			0,
-			Weight::from_parts(2_000_000_000, 200_000),
-			DepositLimit::Balance(Balance::MAX),
-			Code::Upload(code),
-			constructor_data,
-			None,
-		);
-		let Ok(InstantiateReturnValue { addr: non_erc20_address, .. }) = result.result else {
-			unreachable!("contract should initialize")
-		};
+		let Contract { addr: non_erc20_address, .. } = bare_instantiate(&sender, code)
+			.gas_limit(Weight::from_parts(2_000_000_000, 200_000))
+			.storage_deposit_limit(DepositLimit::Balance(Balance::MAX))
+			.data(constructor_data)
+			.build_and_unwrap_contract();
 
 		let wnd_amount_for_fees = 1_000_000_000_000u128;
 		let erc20_transfer_amount = 100u128;

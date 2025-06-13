@@ -352,13 +352,12 @@ pub trait EthExtra {
 				return Err(InvalidTransaction::Call);
 			};
 
-			crate::Call::instantiate_with_code::<Self::Config> {
+			crate::Call::eth_instantiate_with_code::<Self::Config> {
 				value,
 				gas_limit,
 				storage_deposit_limit,
 				code: code.to_vec(),
 				data: data.to_vec(),
-				salt: None,
 			}
 		};
 
@@ -603,11 +602,10 @@ mod test {
 
 		assert_eq!(
 			call,
-			crate::Call::instantiate_with_code::<Test> {
+			crate::Call::eth_instantiate_with_code::<Test> {
 				value: tx.value.unwrap_or_default().as_u64(),
 				code,
 				data,
-				salt: None,
 				gas_limit,
 				storage_deposit_limit
 			}
