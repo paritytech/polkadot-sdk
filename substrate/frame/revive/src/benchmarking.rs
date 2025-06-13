@@ -20,7 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::{
-	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, WasmModule},
+	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, VmBinaryModule},
 	evm::runtime::GAS_PRICE,
 	exec::{Key, MomentOf, PrecompileExt},
 	limits,
@@ -73,7 +73,7 @@ macro_rules! build_runtime(
 		let $contract = setup.contract();
 		let input = setup.data();
 		let (mut ext, _) = setup.ext();
-		let mut $runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, input);
+		let mut $runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, input);
 	};
 );
 
@@ -100,7 +100,8 @@ mod benchmarks {
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn on_initialize_per_trie_key(k: Linear<0, 1024>) -> Result<(), BenchmarkError> {
-		let instance = Contract::<T>::with_storage(WasmModule::dummy(), k, limits::PAYLOAD_BYTES)?;
+		let instance =
+			Contract::<T>::with_storage(VmBinaryModule::dummy(), k, limits::PAYLOAD_BYTES)?;
 		instance.info()?.queue_trie_for_deletion();
 
 		#[block]
@@ -127,7 +128,7 @@ mod benchmarks {
 		c: Linear<0, { limits::code::STATIC_MEMORY_BYTES / limits::code::BYTES_PER_INSTRUCTION }>,
 	) -> Result<(), BenchmarkError> {
 		let instance =
-			Contract::<T>::with_caller(whitelisted_caller(), WasmModule::sized(c), vec![])?;
+			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::sized(c), vec![])?;
 		let value = Pallet::<T>::min_balance();
 		let storage_deposit = default_deposit_limit::<T>();
 
@@ -158,7 +159,7 @@ mod benchmarks {
 	fn basic_block_compilation(b: Linear<0, 1>) -> Result<(), BenchmarkError> {
 		let instance = Contract::<T>::with_caller(
 			whitelisted_caller(),
-			WasmModule::with_num_instructions(limits::code::BASIC_BLOCK_SIZE),
+			VmBinaryModule::with_num_instructions(limits::code::BASIC_BLOCK_SIZE),
 			vec![],
 		)?;
 		let value = Pallet::<T>::min_balance();
@@ -191,7 +192,7 @@ mod benchmarks {
 		let value = Pallet::<T>::min_balance();
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
-		let WasmModule { code, .. } = WasmModule::sized(c);
+		let VmBinaryModule { code, .. } = VmBinaryModule::sized(c);
 		let origin = RawOrigin::Signed(caller.clone());
 		Contracts::<T>::map_account(origin.clone().into()).unwrap();
 		let deployer = T::AddressMapper::to_address(&caller);
@@ -230,7 +231,7 @@ mod benchmarks {
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let origin = RawOrigin::Signed(caller.clone());
 		Contracts::<T>::map_account(origin.clone().into()).unwrap();
-		let WasmModule { code, .. } = WasmModule::dummy();
+		let VmBinaryModule { code, .. } = VmBinaryModule::dummy();
 		let storage_deposit = default_deposit_limit::<T>();
 		let deployer = T::AddressMapper::to_address(&caller);
 		let addr = crate::address::create2(&deployer, &code, &input, &salt);
@@ -272,7 +273,7 @@ mod benchmarks {
 	fn call() -> Result<(), BenchmarkError> {
 		let data = vec![42u8; 1024];
 		let instance =
-			Contract::<T>::with_caller(whitelisted_caller(), WasmModule::dummy(), vec![])?;
+			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
 		let value = Pallet::<T>::min_balance();
 		let origin = RawOrigin::Signed(instance.caller.clone());
 		let before = T::Currency::balance(&instance.account_id);
@@ -314,7 +315,7 @@ mod benchmarks {
 	) {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
-		let WasmModule { code, hash, .. } = WasmModule::sized(c);
+		let VmBinaryModule { code, hash, .. } = VmBinaryModule::sized(c);
 		let origin = RawOrigin::Signed(caller.clone());
 		let storage_deposit = default_deposit_limit::<T>();
 		#[extrinsic_call]
@@ -331,7 +332,7 @@ mod benchmarks {
 	fn remove_code() -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
-		let WasmModule { code, hash, .. } = WasmModule::dummy();
+		let VmBinaryModule { code, hash, .. } = VmBinaryModule::dummy();
 		let origin = RawOrigin::Signed(caller.clone());
 		let storage_deposit = default_deposit_limit::<T>();
 		let uploaded =
@@ -350,9 +351,9 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn set_code() -> Result<(), BenchmarkError> {
 		let instance =
-			<Contract<T>>::with_caller(whitelisted_caller(), WasmModule::dummy(), vec![])?;
+			<Contract<T>>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
 		// we just add some bytes so that the code hash is different
-		let WasmModule { code, .. } = WasmModule::dummy_unique(128);
+		let VmBinaryModule { code, .. } = VmBinaryModule::dummy_unique(128);
 		let origin = RawOrigin::Signed(instance.caller.clone());
 		let storage_deposit = default_deposit_limit::<T>();
 		let hash =
@@ -399,7 +400,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn noop_host_fn(r: Linear<0, API_BENCHMARK_RUNS>) {
-		let mut setup = CallSetup::<T>::new(WasmModule::noop());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::noop());
 		let (mut ext, module) = setup.ext();
 		let prepared = CallSetup::<T>::prepare_call(&mut ext, module, r.encode(), 0);
 		#[block]
@@ -447,7 +448,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_is_contract() {
 		let Contract { account_id, .. } =
-			Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
+			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
 
 		build_runtime!(runtime, memory: [account_id.encode(), ]);
 
@@ -494,7 +495,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_code_hash() {
-		let contract = Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
+		let contract = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
 		let len = <sp_core::H256 as MaxEncodedLen>::max_encoded_len() as u32;
 		build_runtime!(runtime, memory: [vec![0u8; len as _], contract.account_id.encode(), ]);
 
@@ -530,7 +531,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_code_size() {
-		let contract = Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
+		let contract = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
 		build_runtime!(runtime, memory: [contract.address.encode(),]);
 
 		let result;
@@ -539,7 +540,7 @@ mod benchmarks {
 			result = runtime.bench_code_size(memory.as_mut_slice(), 0);
 		}
 
-		assert_eq!(result.unwrap(), WasmModule::dummy().code.len() as u64);
+		assert_eq!(result.unwrap(), VmBinaryModule::dummy().code.len() as u64);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -559,7 +560,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::default();
 		setup.set_origin(Origin::Root);
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
+		let mut runtime = crate::vm::Runtime::new(&mut ext, vec![]);
 
 		let result;
 		#[block]
@@ -678,7 +679,7 @@ mod benchmarks {
 		let (mut ext, _) = setup.ext();
 		ext.override_export(crate::exec::ExportedFunction::Constructor);
 
-		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, input);
+		let mut runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, input);
 
 		let result;
 		#[block]
@@ -718,7 +719,7 @@ mod benchmarks {
 	fn seal_return_data_size() {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
+		let mut runtime = crate::vm::Runtime::new(&mut ext, vec![]);
 		let mut memory = memory!(vec![],);
 		*runtime.ext().last_frame_output_mut() =
 			ExecReturnValue { data: vec![42; 256], ..Default::default() };
@@ -734,7 +735,7 @@ mod benchmarks {
 	fn seal_call_data_size() {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![42u8; 128 as usize]);
+		let mut runtime = crate::vm::Runtime::new(&mut ext, vec![42u8; 128 as usize]);
 		let mut memory = memory!(vec![0u8; 4],);
 		let result;
 		#[block]
@@ -851,7 +852,7 @@ mod benchmarks {
 		let (mut ext, _) = setup.ext();
 		ext.set_block_number(BlockNumberFor::<T>::from(1u32));
 
-		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, input);
+		let mut runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, input);
 
 		let block_hash = H256::from([1; 32]);
 		frame_system::BlockHash::<T>::insert(
@@ -902,7 +903,7 @@ mod benchmarks {
 	fn seal_copy_to_contract(n: Linear<0, { limits::code::BLOB_BYTES - 4 }>) {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![]);
+		let mut runtime = crate::vm::Runtime::new(&mut ext, vec![]);
 		let mut memory = memory!(n.encode(), vec![0u8; n as usize],);
 		let result;
 		#[block]
@@ -925,7 +926,7 @@ mod benchmarks {
 	fn seal_call_data_load() {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![42u8; 32]);
+		let mut runtime = crate::vm::Runtime::new(&mut ext, vec![42u8; 32]);
 		let mut memory = memory!(vec![0u8; 32],);
 		let result;
 		#[block]
@@ -940,7 +941,7 @@ mod benchmarks {
 	fn seal_call_data_copy(n: Linear<0, { limits::code::BLOB_BYTES }>) {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::wasm::Runtime::new(&mut ext, vec![42u8; n as usize]);
+		let mut runtime = crate::vm::Runtime::new(&mut ext, vec![42u8; n as usize]);
 		let mut memory = memory!(vec![0u8; n as usize],);
 		let result;
 		#[block]
@@ -961,10 +962,7 @@ mod benchmarks {
 			result = runtime.bench_seal_return(memory.as_mut_slice(), 0, 0, n);
 		}
 
-		assert!(matches!(
-			result,
-			Err(crate::wasm::TrapReason::Return(crate::wasm::ReturnData { .. }))
-		));
+		assert!(matches!(result, Err(crate::vm::TrapReason::Return(crate::vm::ReturnData { .. }))));
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -979,7 +977,7 @@ mod benchmarks {
 			result = runtime.bench_terminate(memory.as_mut_slice(), 0);
 		}
 
-		assert!(matches!(result, Err(crate::wasm::TrapReason::Termination)));
+		assert!(matches!(result, Err(crate::vm::TrapReason::Termination)));
 
 		Ok(())
 	}
@@ -1028,7 +1026,7 @@ mod benchmarks {
 		let max_value_len = limits::PAYLOAD_BYTES as usize;
 		let value = vec![1u8; max_value_len];
 
-		let instance = Contract::<T>::new(WasmModule::dummy(), vec![])?;
+		let instance = Contract::<T>::new(VmBinaryModule::dummy(), vec![])?;
 		let info = instance.info()?;
 		let child_trie_info = info.child_trie_info();
 		info.bench_write_raw(&key, Some(value.clone()), false)
@@ -1051,7 +1049,7 @@ mod benchmarks {
 		let max_value_len = limits::PAYLOAD_BYTES;
 		let value = vec![1u8; max_value_len as usize];
 
-		let instance = Contract::<T>::with_unbalanced_storage_trie(WasmModule::dummy(), &key)?;
+		let instance = Contract::<T>::with_unbalanced_storage_trie(VmBinaryModule::dummy(), &key)?;
 		let info = instance.info()?;
 		let child_trie_info = info.child_trie_info();
 		info.bench_write_raw(&key, Some(value.clone()), false)
@@ -1074,7 +1072,7 @@ mod benchmarks {
 		let max_value_len = limits::PAYLOAD_BYTES as usize;
 		let value = vec![1u8; max_value_len];
 
-		let instance = Contract::<T>::new(WasmModule::dummy(), vec![])?;
+		let instance = Contract::<T>::new(VmBinaryModule::dummy(), vec![])?;
 		let info = instance.info()?;
 		let child_trie_info = info.child_trie_info();
 		info.bench_write_raw(&key, Some(vec![42u8; max_value_len]), false)
@@ -1099,7 +1097,7 @@ mod benchmarks {
 		let max_value_len = limits::PAYLOAD_BYTES;
 		let value = vec![1u8; max_value_len as usize];
 
-		let instance = Contract::<T>::with_unbalanced_storage_trie(WasmModule::dummy(), &key)?;
+		let instance = Contract::<T>::with_unbalanced_storage_trie(VmBinaryModule::dummy(), &key)?;
 		let info = instance.info()?;
 		let child_trie_info = info.child_trie_info();
 		info.bench_write_raw(&key, Some(vec![42u8; max_value_len as usize]), false)
@@ -1283,7 +1281,7 @@ mod benchmarks {
 		let value = Some(vec![42u8; max_value_len as _]);
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		let result;
 		#[block]
@@ -1306,7 +1304,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::default();
 		setup.set_transient_storage_size(limits::TRANSIENT_STORAGE_BYTES);
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		let result;
 		#[block]
@@ -1328,7 +1326,7 @@ mod benchmarks {
 
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		runtime
 			.ext()
@@ -1354,7 +1352,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::default();
 		setup.set_transient_storage_size(limits::TRANSIENT_STORAGE_BYTES);
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		runtime
 			.ext()
@@ -1381,7 +1379,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::default();
 		setup.set_transient_storage_size(limits::TRANSIENT_STORAGE_BYTES);
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		runtime.ext().transient_storage().start_transaction();
 		runtime
@@ -1569,7 +1567,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_call(t: Linear<0, 1>, i: Linear<0, { limits::code::BLOB_BYTES }>) {
 		let Contract { account_id: callee, .. } =
-			Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
+			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
 		let callee_bytes = callee.encode();
 		let callee_len = callee_bytes.len() as u32;
 
@@ -1588,7 +1586,7 @@ mod benchmarks {
 		setup.set_origin(Origin::from_account_id(setup.contract().account_id.clone()));
 
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		let mut memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
 
 		let result;
@@ -1640,7 +1638,7 @@ mod benchmarks {
 		setup.set_storage_deposit_limit(deposit);
 
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		let mut memory = memory!(callee_bytes, deposit_bytes, value_bytes, input_bytes,);
 
 		let mut do_benchmark = || {
@@ -1673,7 +1671,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_delegate_call() -> Result<(), BenchmarkError> {
 		let Contract { account_id: address, .. } =
-			Contract::<T>::with_index(1, WasmModule::dummy(), vec![]).unwrap();
+			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
 
 		let address_bytes = address.encode();
 		let address_len = address_bytes.len() as u32;
@@ -1686,7 +1684,7 @@ mod benchmarks {
 		setup.set_origin(Origin::from_account_id(setup.contract().account_id.clone()));
 
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		let mut memory = memory!(address_bytes, deposit_bytes,);
 
 		let result;
@@ -1711,8 +1709,8 @@ mod benchmarks {
 	// i: size of input in bytes
 	#[benchmark(pov_mode = Measured)]
 	fn seal_instantiate(i: Linear<0, { limits::code::BLOB_BYTES }>) -> Result<(), BenchmarkError> {
-		let code = WasmModule::dummy();
-		let hash = Contract::<T>::with_index(1, WasmModule::dummy(), vec![])?.info()?.code_hash;
+		let code = VmBinaryModule::dummy();
+		let hash = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?.info()?.code_hash;
 		let hash_bytes = hash.encode();
 
 		let value: BalanceOf<T> = 1_000_000u32.into();
@@ -1729,7 +1727,7 @@ mod benchmarks {
 
 		let account_id = &setup.contract().account_id.clone();
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::wasm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 
 		let input = vec![42u8; i as _];
 		let input_len = hash_bytes.len() as u32 + input.len() as u32;
@@ -2055,7 +2053,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_set_code_hash() -> Result<(), BenchmarkError> {
 		let code_hash =
-			Contract::<T>::with_index(1, WasmModule::dummy(), vec![])?.info()?.code_hash;
+			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?.info()?.code_hash;
 
 		build_runtime!(runtime, memory: [ code_hash.encode(),]);
 
@@ -2096,7 +2094,7 @@ mod benchmarks {
 			"If we do too many iterations we run into the risk of loading from warm cache lines",
 		);
 
-		let mut setup = CallSetup::<T>::new(WasmModule::instr(true));
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::instr(true));
 		let (mut ext, module) = setup.ext();
 		let mut prepared =
 			CallSetup::<T>::prepare_call(&mut ext, module, Vec::new(), MEMORY_SIZE as u32);
@@ -2141,7 +2139,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn instr_empty_loop(r: Linear<0, 100_000>) {
-		let mut setup = CallSetup::<T>::new(WasmModule::instr(false));
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::instr(false));
 		let (mut ext, module) = setup.ext();
 		let mut prepared = CallSetup::<T>::prepare_call(&mut ext, module, Vec::new(), 0);
 		prepared.setup_aux_data(&[], 0, r.into()).unwrap();
