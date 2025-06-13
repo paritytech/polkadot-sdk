@@ -1,0 +1,38 @@
+[package]
+name = "revive-dev-runtime"
+description = "A solochain dev runtime for revive."
+version = "0.0.0"
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+array-bytes = { workspace = true }
+codec = { workspace = true }
+polkadot-sdk = { workspace = true, features = [
+	"pallet-balances",
+	"pallet-revive",
+	"pallet-sudo",
+	"pallet-timestamp",
+	"pallet-transaction-payment",
+	"pallet-transaction-payment-rpc-runtime-api",
+	"parachains-common",
+	"runtime",
+	"with-tracing",
+] }
+scale-info = { workspace = true }
+serde_json = { workspace = true, default-features = false, features = ["alloc"] }
+
+[build-dependencies]
+polkadot-sdk = { optional = true, workspace = true, features = ["substrate-wasm-builder"] }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"polkadot-sdk/std",
+	"scale-info/std",
+	"serde_json/std",
+]
