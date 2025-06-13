@@ -1,6 +1,6 @@
 [package]
 name = "sc-cli"
-version = "0.51.0"
+version = "0.51.1"
 authors.workspace = true
 description = "Substrate CLI interface."
 edition.workspace = true

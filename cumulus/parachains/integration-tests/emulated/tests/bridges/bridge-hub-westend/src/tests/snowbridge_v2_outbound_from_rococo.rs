@@ -303,10 +303,13 @@ fn register_rococo_asset_on_ethereum_from_rah() {
 		vec![],
 	);
 
+	let fee_asset = Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
+
 	let call =
 		EthereumSystemFrontend::EthereumSystemFrontend(EthereumSystemFrontendCall::RegisterToken {
 			asset_id: Box::new(VersionedLocation::from(bridged_asset_at_wah.clone())),
 			metadata: Default::default(),
+			fee_asset,
 		})
 		.encode();
 

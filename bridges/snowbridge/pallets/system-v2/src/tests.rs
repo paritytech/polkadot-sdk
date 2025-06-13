@@ -16,6 +16,7 @@ fn register_tokens_succeeds() {
 			Box::new(versioned_location.clone()),
 			Box::new(versioned_location),
 			Default::default(),
+			1
 		));
 	});
 }
@@ -128,7 +129,8 @@ fn register_all_tokens_succeeds() {
 				origin,
 				Box::new(versioned_location.clone()),
 				Box::new(versioned_location),
-				Default::default()
+				Default::default(),
+				1
 			));
 
 			let reanchored_location = EthereumSystemV2::reanchor(tc.native.clone()).unwrap();
@@ -161,7 +163,8 @@ fn register_ethereum_native_token_fails() {
 				origin,
 				versioned_location.clone(),
 				versioned_location.clone(),
-				Default::default()
+				Default::default(),
+				1
 			),
 			Error::<Test>::LocationConversionFailed
 		);
