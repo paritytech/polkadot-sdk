@@ -84,7 +84,7 @@ pub struct ContractResult<R, Balance> {
 	/// is `Err`. This is because on error all storage changes are rolled back including the
 	/// payment of the deposit.
 	pub storage_deposit: StorageDeposit<Balance>,
-	/// The execution result of the wasm code.
+	/// The execution result of the vm binary code.
 	pub result: Result<R, DispatchError>,
 }
 
@@ -165,12 +165,12 @@ pub struct CodeUploadReturnValue<Balance> {
 	pub deposit: Balance,
 }
 
-/// Reference to an existing code hash or a new wasm module.
+/// Reference to an existing code hash or a new vm module.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub enum Code {
-	/// A wasm module as raw bytes.
+	/// A vm module as raw bytes.
 	Upload(Vec<u8>),
-	/// The code hash of an on-chain wasm blob.
+	/// The code hash of an on-chain vm binary blob.
 	Existing(sp_core::H256),
 }
 
