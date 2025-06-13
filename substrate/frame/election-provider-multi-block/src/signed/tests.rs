@@ -525,10 +525,25 @@ mod e2e {
 
 			roll_to_signed_validation_open();
 
+			// Clear verifier events to track incremental verification
+			let _ = verifier_events();
+
 			// 92 is slashed in 3 blocks, 999 becomes rewarded in 3 blocks, , and 99 is discarded.
 			roll_next();
 			roll_next();
 			roll_next();
+
+			// Check events after first solution (92) is rejected
+			let events_after_first_rejection = verifier_events_since_last_call();
+			assert_eq!(
+				events_after_first_rejection,
+				vec![
+					crate::verifier::Event::Verified(2, 0),
+					crate::verifier::Event::Verified(1, 0),
+					crate::verifier::Event::Verified(0, 0),
+					crate::verifier::Event::VerificationFailed(0, FeasibilityError::InvalidScore),
+				]
+			);
 
 			assert_eq!(
 				Submissions::<Runtime>::leaderboard(0)
@@ -541,6 +556,25 @@ mod e2e {
 			roll_next();
 			roll_next();
 			roll_next();
+
+			// Check events after second solution (999) is accepted
+			let events_after_acceptance = verifier_events_since_last_call();
+			assert_eq!(
+				events_after_acceptance,
+				vec![
+					crate::verifier::Event::Verified(2, 2),
+					crate::verifier::Event::Verified(1, 2),
+					crate::verifier::Event::Verified(0, 2),
+					crate::verifier::Event::Queued(
+						ElectionScore {
+							minimal_stake: 55,
+							sum_stake: 130,
+							sum_stake_squared: 8650
+						},
+						None
+					)
+				]
+			);
 
 			assert_eq!(
 				signed_events_since_last_call(),
@@ -577,26 +611,8 @@ mod e2e {
 				]
 			);
 
-			assert_eq!(
-				verifier_events(),
-				vec![
-					crate::verifier::Event::Verified(2, 0),
-					crate::verifier::Event::Verified(1, 0),
-					crate::verifier::Event::Verified(0, 0),
-					crate::verifier::Event::VerificationFailed(0, FeasibilityError::InvalidScore),
-					crate::verifier::Event::Verified(2, 2),
-					crate::verifier::Event::Verified(1, 2),
-					crate::verifier::Event::Verified(0, 2),
-					crate::verifier::Event::Queued(
-						ElectionScore {
-							minimal_stake: 55,
-							sum_stake: 130,
-							sum_stake_squared: 8650
-						},
-						None
-					)
-				]
-			);
+			let remaining_events = verifier_events_since_last_call();
+			assert_eq!(remaining_events, vec![], "No additional verifier events should occur");
 
 			// 99 is discarded -- for now they have some deposit collected, which they have to
 			// manually collect next.
@@ -656,8 +672,21 @@ mod e2e {
 			assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 1);
 
 			roll_to_signed_validation_open();
+			let _ = verifier_events(); // Clear events
 
 			roll_to_full_verification();
+
+			// Check that rejection events were properly generated
+			let rejection_events = verifier_events_since_last_call();
+			assert_eq!(
+				rejection_events,
+				vec![
+					crate::verifier::Event::Verified(2, 0),
+					crate::verifier::Event::Verified(1, 0),
+					crate::verifier::Event::Verified(0, 0),
+					crate::verifier::Event::VerificationFailed(0, FeasibilityError::InvalidScore),
+				]
+			);
 
 			// Verify no-restart conditions are met
 			assert!(crate::Pallet::<Runtime>::current_phase().is_signed_validation());
@@ -707,9 +736,10 @@ mod e2e {
 				]
 			);
 
-			// Check verifier events
+			// Check only the verification events for this solution
+			let solution_events = verifier_events_since_last_call();
 			assert_eq!(
-				verifier_events(),
+				solution_events,
 				vec![
 					crate::verifier::Event::Verified(2, 2),
 					crate::verifier::Event::Verified(1, 2),
@@ -772,16 +802,17 @@ mod e2e {
 
 			// Start verification process
 			roll_to_signed_validation_open();
+			let _ = verifier_events(); // Clear existing events
 
 			// The verification should proceed and treat the missing pages as empty
 			roll_next(); // Process page 2 (missing, treated as empty)
 			roll_next(); // Process page 1 (missing, treated as empty)
 			roll_next(); // Process page 0 (submitted with real data)
 
-			// Check that verification handled the missing pages gracefully.
-			// Missing pages should be treated as empty pages without errors.
+			// Check only the events from this verification
+			let verification_events = verifier_events_since_last_call();
 			assert_eq!(
-				verifier_events(),
+				verification_events,
 				vec![
 					crate::verifier::Event::Verified(2, 0), // Page 2 missing, treated as empty
 					crate::verifier::Event::Verified(1, 0), // Page 1 missing, treated as empty
@@ -829,6 +860,9 @@ mod e2e {
 				assert!(matches!(MultiBlock::current_phase(), Phase::SignedValidation(_)));
 				assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
 
+				// Clear verifier events to track from this point
+				let _ = verifier_events();
+
 				// Initial verifier state should have no queued solution
 				assert_eq!(VerifierPallet::queued_score(), None);
 
@@ -845,6 +879,21 @@ mod e2e {
 
 				roll_next(); // SignedValidation(0) -> Unsigned(4) (verification of bad solution complete,
 				 // verification of the 2nd solution hasn't started yet)
+
+				// Check events after bad solution verification completes
+				let bad_solution_events = verifier_events_since_last_call();
+				assert_eq!(
+					bad_solution_events,
+					vec![
+						crate::verifier::Event::Verified(2, 0),
+						crate::verifier::Event::Verified(1, 0),
+						crate::verifier::Event::Verified(0, 0),
+						crate::verifier::Event::VerificationFailed(
+							0,
+							FeasibilityError::InvalidScore
+						),
+					]
+				);
 
 				// Verify phase transition to unsigned
 				assert!(matches!(MultiBlock::current_phase(), Phase::Unsigned(_)));
@@ -883,18 +932,9 @@ mod e2e {
 						Event::Slashed(0, 99, 5),
 					]
 				);
-				assert_eq!(
-					verifier_events(),
-					vec![
-						crate::verifier::Event::Verified(2, 0),
-						crate::verifier::Event::Verified(1, 0),
-						crate::verifier::Event::Verified(0, 0),
-						crate::verifier::Event::VerificationFailed(
-							0,
-							FeasibilityError::InvalidScore
-						),
-					]
-				);
+				// Verify no additional events occurred
+				let remaining_events = verifier_events_since_last_call();
+				assert_eq!(remaining_events, vec![], "No additional verifier events should occur");
 
 				// Verifier should be STOPPED when transitioning to unsigned
 				assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
@@ -1080,10 +1120,28 @@ mod e2e {
 				roll_to_signed_validation_open();
 				assert!(matches!(VerifierPallet::status(), crate::verifier::Status::Ongoing(_)));
 
+				// Clear verifier events to track incremental verification
+				let _ = verifier_events();
+
 				// Process first invalid solution (91)
 				roll_next(); // Process page 2
 				roll_next(); // Process page 1
 				roll_next(); // Process page 0 and reject solution
+
+				// Check events after first solution (91) is rejected
+				let events_first_solution = verifier_events_since_last_call();
+				assert_eq!(
+					events_first_solution,
+					vec![
+						crate::verifier::Event::Verified(2, 0),
+						crate::verifier::Event::Verified(1, 0),
+						crate::verifier::Event::Verified(0, 0),
+						crate::verifier::Event::VerificationFailed(
+							0,
+							FeasibilityError::InvalidScore
+						),
+					]
+				);
 
 				// Verify first solution was slashed and removed
 				assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 2);
@@ -1093,6 +1151,21 @@ mod e2e {
 				roll_next(); // Process page 2
 				roll_next(); // Process page 1
 				roll_next(); // Process page 0 and reject solution
+
+				// Check events after second solution (92) is rejected
+				let events_second_solution = verifier_events_since_last_call();
+				assert_eq!(
+					events_second_solution,
+					vec![
+						crate::verifier::Event::Verified(2, 0),
+						crate::verifier::Event::Verified(1, 0),
+						crate::verifier::Event::Verified(0, 0),
+						crate::verifier::Event::VerificationFailed(
+							0,
+							FeasibilityError::InvalidScore
+						),
+					]
+				);
 
 				// Verify second solution was slashed and removed
 				assert_eq!(Submissions::<Runtime>::submitters_count(current_round), 1);
@@ -1106,6 +1179,18 @@ mod e2e {
 				roll_next(); // Process page 2 of valid solution
 				roll_next(); // Process page 1 of valid solution
 				roll_next(); // Process page 0 of valid solution and accept it
+
+				// Check events after valid solution (99) is accepted
+				let events_valid_solution = verifier_events_since_last_call();
+				assert_eq!(
+					events_valid_solution,
+					vec![
+						crate::verifier::Event::Verified(2, 2),
+						crate::verifier::Event::Verified(1, 2),
+						crate::verifier::Event::Verified(0, 2),
+						crate::verifier::Event::Queued(valid_solution.score, None),
+					]
+				);
 
 				// Roll until done and check final state
 				roll_to_done();
@@ -1127,30 +1212,9 @@ mod e2e {
 					]
 				);
 
-				// Verify verifier events show all verifications
-				assert_eq!(
-					verifier_events(),
-					vec![
-						crate::verifier::Event::Verified(2, 0),
-						crate::verifier::Event::Verified(1, 0),
-						crate::verifier::Event::Verified(0, 0),
-						crate::verifier::Event::VerificationFailed(
-							0,
-							FeasibilityError::InvalidScore
-						),
-						crate::verifier::Event::Verified(2, 0),
-						crate::verifier::Event::Verified(1, 0),
-						crate::verifier::Event::Verified(0, 0),
-						crate::verifier::Event::VerificationFailed(
-							0,
-							FeasibilityError::InvalidScore
-						),
-						crate::verifier::Event::Verified(2, 2),
-						crate::verifier::Event::Verified(1, 2),
-						crate::verifier::Event::Verified(0, 2),
-						crate::verifier::Event::Queued(valid_solution.score, None),
-					]
-				);
+				// Verify all events were captured correctly in incremental checks
+				let remaining_events = verifier_events_since_last_call();
+				assert_eq!(remaining_events, vec![], "No additional verifier events should occur");
 			});
 	}
 }
