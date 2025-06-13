@@ -67,8 +67,8 @@ mod test_state;
 
 const LOG_TARGET: &str = "subsystem-bench::disputes";
 
-pub fn make_keystore() -> KeystorePtr {
-	let keystore: KeystorePtr = Arc::new(LocalKeystore::in_memory());
+pub fn make_keystore() -> Arc<LocalKeystore> {
+	let keystore = Arc::new(LocalKeystore::in_memory());
 	Keystore::sr25519_generate_new(&*keystore, ValidatorId::ID, Some("//Node0"))
 		.expect("Insert key into keystore");
 	Keystore::sr25519_generate_new(&*keystore, AuthorityDiscoveryId::ID, Some("//Node0"))

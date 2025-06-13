@@ -14,5 +14,34 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::{
+	configuration::{TestAuthorities, TestConfiguration},
+	network::{HandleNetworkMessage, NetworkMessage},
+};
+
 #[derive(Clone)]
-pub struct TestState {}
+pub struct TestState {
+	// Full test config
+	pub config: TestConfiguration,
+	// Authority keys for the network emulation.
+	pub test_authorities: TestAuthorities,
+}
+
+impl TestState {
+	pub fn new(config: &TestConfiguration) -> Self {
+		Self { config: config.clone(), test_authorities: config.generate_authorities() }
+	}
+}
+
+#[async_trait::async_trait]
+impl HandleNetworkMessage for TestState {
+	async fn handle(
+		&self,
+		message: NetworkMessage,
+		_node_sender: &mut futures::channel::mpsc::UnboundedSender<NetworkMessage>,
+	) -> Option<NetworkMessage> {
+		match message {
+			_ => Some(message),
+		}
+	}
+}
