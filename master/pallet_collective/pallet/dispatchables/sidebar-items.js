@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["close","disapprove_proposal","execute","kill","propose","release_proposal_cost","set_members","vote"]};

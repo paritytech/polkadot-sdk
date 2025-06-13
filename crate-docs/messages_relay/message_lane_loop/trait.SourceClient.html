@@ -1,0 +1,261 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source client trait."><title>SourceClient in messages_relay::message_lane_loop - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="messages_relay" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../messages_relay/index.html">messages_relay</a><span class="version">0.1.0</span></h2></div><h2 class="location"><a href="#">SourceClient</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.BatchTransaction">BatchTransaction</a></li><li><a href="#associatedtype.TransactionTracker">TransactionTracker</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.generated_message_details">generated_message_details</a></li><li><a href="#tymethod.latest_confirmed_received_nonce">latest_confirmed_received_nonce</a></li><li><a href="#tymethod.latest_generated_nonce">latest_generated_nonce</a></li><li><a href="#tymethod.prove_messages">prove_messages</a></li><li><a href="#tymethod.require_target_header_on_source">require_target_header_on_source</a></li><li><a href="#tymethod.state">state</a></li><li><a href="#tymethod.submit_messages_receiving_proof">submit_messages_receiving_proof</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In messages_relay::message_lane_loop</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">messages_relay</a>::<wbr><a href="index.html">message_lane_loop</a>::<wbr><a class="trait" href="#">SourceClient</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../src/messages_relay/message_lane_loop.rs.html#122-183">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait SourceClient&lt;P: <a class="trait" href="../message_lane/trait.MessageLane.html" title="trait messages_relay::message_lane::MessageLane">MessageLane</a>&gt;: <a class="trait" href="../../relay_utils/relay_loop/trait.Client.html" title="trait relay_utils::relay_loop::Client">RelayClient</a> {
+    type <a href="#associatedtype.BatchTransaction" class="associatedtype">BatchTransaction</a>: <a class="trait" href="trait.BatchTransaction.html" title="trait messages_relay::message_lane_loop::BatchTransaction">BatchTransaction</a>&lt;<a class="type" href="../message_lane/type.TargetHeaderIdOf.html" title="type messages_relay::message_lane::TargetHeaderIdOf">TargetHeaderIdOf</a>&lt;P&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a>;
+    type <a href="#associatedtype.TransactionTracker" class="associatedtype">TransactionTracker</a>: <a class="trait" href="../../relay_utils/trait.TransactionTracker.html" title="trait relay_utils::TransactionTracker">TransactionTracker</a>&lt;HeaderId = <a class="type" href="../message_lane/type.SourceHeaderIdOf.html" title="type messages_relay::message_lane::SourceHeaderIdOf">SourceHeaderIdOf</a>&lt;P&gt;&gt;;
+
+    // Required methods
+    fn <a href="#tymethod.state" class="fn">state</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="type" href="type.SourceClientState.html" title="type messages_relay::message_lane_loop::SourceClientState">SourceClientState</a>&lt;P&gt;, Self::<a class="associatedtype" href="../../relay_utils/relay_loop/trait.Client.html#associatedtype.Error" title="type relay_utils::relay_loop::Client::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.latest_generated_nonce" class="fn">latest_generated_nonce</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        id: <a class="type" href="../message_lane/type.SourceHeaderIdOf.html" title="type messages_relay::message_lane::SourceHeaderIdOf">SourceHeaderIdOf</a>&lt;P&gt;
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(<a class="type" href="../message_lane/type.SourceHeaderIdOf.html" title="type messages_relay::message_lane::SourceHeaderIdOf">SourceHeaderIdOf</a>&lt;P&gt;, <a class="type" href="../../bp_messages/type.MessageNonce.html" title="type bp_messages::MessageNonce">MessageNonce</a>), Self::<a class="associatedtype" href="../../relay_utils/relay_loop/trait.Client.html#associatedtype.Error" title="type relay_utils::relay_loop::Client::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.latest_confirmed_received_nonce" class="fn">latest_confirmed_received_nonce</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        id: <a class="type" href="../message_lane/type.SourceHeaderIdOf.html" title="type messages_relay::message_lane::SourceHeaderIdOf">SourceHeaderIdOf</a>&lt;P&gt;
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(<a class="type" href="../message_lane/type.SourceHeaderIdOf.html" title="type messages_relay::message_lane::SourceHeaderIdOf">SourceHeaderIdOf</a>&lt;P&gt;, <a class="type" href="../../bp_messages/type.MessageNonce.html" title="type bp_messages::MessageNonce">MessageNonce</a>), Self::<a class="associatedtype" href="../../relay_utils/relay_loop/trait.Client.html#associatedtype.Error" title="type relay_utils::relay_loop::Client::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.generated_message_details" class="fn">generated_message_details</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        id: <a class="type" href="../message_lane/type.SourceHeaderIdOf.html" title="type messages_relay::message_lane::SourceHeaderIdOf">SourceHeaderIdOf</a>&lt;P&gt;,
+        nonces: <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/ops/range/struct.RangeInclusive.html" title="struct core::ops::range::RangeInclusive">RangeInclusive</a>&lt;<a class="type" href="../../bp_messages/type.MessageNonce.html" title="type bp_messages::MessageNonce">MessageNonce</a>&gt;
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="type" href="type.MessageDetailsMap.html" title="type messages_relay::message_lane_loop::MessageDetailsMap">MessageDetailsMap</a>&lt;P::<a class="associatedtype" href="../message_lane/trait.MessageLane.html#associatedtype.SourceChainBalance" title="type messages_relay::message_lane::MessageLane::SourceChainBalance">SourceChainBalance</a>&gt;, Self::<a class="associatedtype" href="../../relay_utils/relay_loop/trait.Client.html#associatedtype.Error" title="type relay_utils::relay_loop::Client::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.prove_messages" class="fn">prove_messages</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        id: <a class="type" href="../message_lane/type.SourceHeaderIdOf.html" title="type messages_relay::message_lane::SourceHeaderIdOf">SourceHeaderIdOf</a>&lt;P&gt;,
+        nonces: <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/ops/range/struct.RangeInclusive.html" title="struct core::ops::range::RangeInclusive">RangeInclusive</a>&lt;<a class="type" href="../../bp_messages/type.MessageNonce.html" title="type bp_messages::MessageNonce">MessageNonce</a>&gt;,
+        proof_parameters: <a class="struct" href="struct.MessageProofParameters.html" title="struct messages_relay::message_lane_loop::MessageProofParameters">MessageProofParameters</a>
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(<a class="type" href="../message_lane/type.SourceHeaderIdOf.html" title="type messages_relay::message_lane::SourceHeaderIdOf">SourceHeaderIdOf</a>&lt;P&gt;, <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/ops/range/struct.RangeInclusive.html" title="struct core::ops::range::RangeInclusive">RangeInclusive</a>&lt;<a class="type" href="../../bp_messages/type.MessageNonce.html" title="type bp_messages::MessageNonce">MessageNonce</a>&gt;, P::<a class="associatedtype" href="../message_lane/trait.MessageLane.html#associatedtype.MessagesProof" title="type messages_relay::message_lane::MessageLane::MessagesProof">MessagesProof</a>), Self::<a class="associatedtype" href="../../relay_utils/relay_loop/trait.Client.html#associatedtype.Error" title="type relay_utils::relay_loop::Client::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.submit_messages_receiving_proof" class="fn">submit_messages_receiving_proof</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        maybe_batch_tx: <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="trait.SourceClient.html#associatedtype.BatchTransaction" title="type messages_relay::message_lane_loop::SourceClient::BatchTransaction">BatchTransaction</a>&gt;,
+        generated_at_block: <a class="type" href="../message_lane/type.TargetHeaderIdOf.html" title="type messages_relay::message_lane::TargetHeaderIdOf">TargetHeaderIdOf</a>&lt;P&gt;,
+        proof: P::<a class="associatedtype" href="../message_lane/trait.MessageLane.html#associatedtype.MessagesReceivingProof" title="type messages_relay::message_lane::MessageLane::MessagesReceivingProof">MessagesReceivingProof</a>
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.SourceClient.html#associatedtype.TransactionTracker" title="type messages_relay::message_lane_loop::SourceClient::TransactionTracker">TransactionTracker</a>, Self::<a class="associatedtype" href="../../relay_utils/relay_loop/trait.Client.html#associatedtype.Error" title="type relay_utils::relay_loop::Client::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+<span class="item-spacer"></span>    fn <a href="#tymethod.require_target_header_on_source" class="fn">require_target_header_on_source</a>&lt;'life0, 'async_trait&gt;(
+        &amp;'life0 self,
+        id: <a class="type" href="../message_lane/type.TargetHeaderIdOf.html" title="type messages_relay::message_lane::TargetHeaderIdOf">TargetHeaderIdOf</a>&lt;P&gt;
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="trait.SourceClient.html#associatedtype.BatchTransaction" title="type messages_relay::message_lane_loop::SourceClient::BatchTransaction">BatchTransaction</a>&gt;, Self::<a class="associatedtype" href="../../relay_utils/relay_loop/trait.Client.html#associatedtype.Error" title="type relay_utils::relay_loop::Client::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
+       <span class="where">where Self: 'async_trait,
+             'life0: 'async_trait</span>;
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Source client trait.</p>
+</div></details><h2 id="required-associated-types" class="small-section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.BatchTransaction" class="method"><a class="src rightside" href="../../src/messages_relay/message_lane_loop.rs.html#124">source</a><h4 class="code-header">type <a href="#associatedtype.BatchTransaction" class="associatedtype">BatchTransaction</a>: <a class="trait" href="trait.BatchTransaction.html" title="trait messages_relay::message_lane_loop::BatchTransaction">BatchTransaction</a>&lt;<a class="type" href="../message_lane/type.TargetHeaderIdOf.html" title="type messages_relay::message_lane::TargetHeaderIdOf">TargetHeaderIdOf</a>&lt;P&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a></h4></section></summary><div class="docblock"><p>Type of batch transaction that submits finality and message receiving proof.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.TransactionTracker" class="method"><a class="src rightside" href="../../src/messages_relay/message_lane_loop.rs.html#126">source</a><h4 class="code-header">type <a href="#associatedtype.TransactionTracker" class="associatedtype">TransactionTracker</a>: <a class="trait" href="../../relay_utils/trait.TransactionTracker.html" title="trait relay_utils::TransactionTracker">TransactionTracker</a>&lt;HeaderId = <a class="type" href="../message_lane/type.SourceHeaderIdOf.html" title="type messages_relay::message_lane::SourceHeaderIdOf">SourceHeaderIdOf</a>&lt;P&gt;&gt;</h4></section></summary><div class="docblock"><p>Transaction tracker to track submitted transactions.</p>
+</div></details></div><h2 id="required-methods" class="small-section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.state" class="method"><a class="src rightside" href="../../src/messages_relay/message_lane_loop.rs.html#129">source</a><h4 class="code-header">fn <a href="#tymethod.state" class="fn">state</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="type" href="type.SourceClientState.html" title="type messages_relay::message_lane_loop::SourceClientState">SourceClientState</a>&lt;P&gt;, Self::<a class="associatedtype" href="../../relay_utils/relay_loop/trait.Client.html#associatedtype.Error" title="type relay_utils::relay_loop::Client::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<span class="where fmt-newline">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</span></h4></section></summary><div class="docblock"><p>Returns state of the client.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.latest_generated_nonce" class="method"><a class="src rightside" href="../../src/messages_relay/message_lane_loop.rs.html#132-135">source</a><h4 class="code-header">fn <a href="#tymethod.latest_generated_nonce" class="fn">latest_generated_nonce</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    id: <a class="type" href="../message_lane/type.SourceHeaderIdOf.html" title="type messages_relay::message_lane::SourceHeaderIdOf">SourceHeaderIdOf</a>&lt;P&gt;
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(<a class="type" href="../message_lane/type.SourceHeaderIdOf.html" title="type messages_relay::message_lane::SourceHeaderIdOf">SourceHeaderIdOf</a>&lt;P&gt;, <a class="type" href="../../bp_messages/type.MessageNonce.html" title="type bp_messages::MessageNonce">MessageNonce</a>), Self::<a class="associatedtype" href="../../relay_utils/relay_loop/trait.Client.html#associatedtype.Error" title="type relay_utils::relay_loop::Client::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<span class="where fmt-newline">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</span></h4></section></summary><div class="docblock"><p>Get nonce of instance of latest generated message.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.latest_confirmed_received_nonce" class="method"><a class="src rightside" href="../../src/messages_relay/message_lane_loop.rs.html#138-141">source</a><h4 class="code-header">fn <a href="#tymethod.latest_confirmed_received_nonce" class="fn">latest_confirmed_received_nonce</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    id: <a class="type" href="../message_lane/type.SourceHeaderIdOf.html" title="type messages_relay::message_lane::SourceHeaderIdOf">SourceHeaderIdOf</a>&lt;P&gt;
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(<a class="type" href="../message_lane/type.SourceHeaderIdOf.html" title="type messages_relay::message_lane::SourceHeaderIdOf">SourceHeaderIdOf</a>&lt;P&gt;, <a class="type" href="../../bp_messages/type.MessageNonce.html" title="type bp_messages::MessageNonce">MessageNonce</a>), Self::<a class="associatedtype" href="../../relay_utils/relay_loop/trait.Client.html#associatedtype.Error" title="type relay_utils::relay_loop::Client::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<span class="where fmt-newline">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</span></h4></section></summary><div class="docblock"><p>Get nonce of the latest message, which receiving has been confirmed by the target chain.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.generated_message_details" class="method"><a class="src rightside" href="../../src/messages_relay/message_lane_loop.rs.html#147-151">source</a><h4 class="code-header">fn <a href="#tymethod.generated_message_details" class="fn">generated_message_details</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    id: <a class="type" href="../message_lane/type.SourceHeaderIdOf.html" title="type messages_relay::message_lane::SourceHeaderIdOf">SourceHeaderIdOf</a>&lt;P&gt;,
+    nonces: <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/ops/range/struct.RangeInclusive.html" title="struct core::ops::range::RangeInclusive">RangeInclusive</a>&lt;<a class="type" href="../../bp_messages/type.MessageNonce.html" title="type bp_messages::MessageNonce">MessageNonce</a>&gt;
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="type" href="type.MessageDetailsMap.html" title="type messages_relay::message_lane_loop::MessageDetailsMap">MessageDetailsMap</a>&lt;P::<a class="associatedtype" href="../message_lane/trait.MessageLane.html#associatedtype.SourceChainBalance" title="type messages_relay::message_lane::MessageLane::SourceChainBalance">SourceChainBalance</a>&gt;, Self::<a class="associatedtype" href="../../relay_utils/relay_loop/trait.Client.html#associatedtype.Error" title="type relay_utils::relay_loop::Client::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<span class="where fmt-newline">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</span></h4></section></summary><div class="docblock"><p>Returns mapping of message nonces, generated on this client, to their weights.</p>
+<p>Some messages may be missing from returned map, if corresponding messages were pruned at
+the source chain.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.prove_messages" class="method"><a class="src rightside" href="../../src/messages_relay/message_lane_loop.rs.html#154-159">source</a><h4 class="code-header">fn <a href="#tymethod.prove_messages" class="fn">prove_messages</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    id: <a class="type" href="../message_lane/type.SourceHeaderIdOf.html" title="type messages_relay::message_lane::SourceHeaderIdOf">SourceHeaderIdOf</a>&lt;P&gt;,
+    nonces: <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/ops/range/struct.RangeInclusive.html" title="struct core::ops::range::RangeInclusive">RangeInclusive</a>&lt;<a class="type" href="../../bp_messages/type.MessageNonce.html" title="type bp_messages::MessageNonce">MessageNonce</a>&gt;,
+    proof_parameters: <a class="struct" href="struct.MessageProofParameters.html" title="struct messages_relay::message_lane_loop::MessageProofParameters">MessageProofParameters</a>
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(<a class="type" href="../message_lane/type.SourceHeaderIdOf.html" title="type messages_relay::message_lane::SourceHeaderIdOf">SourceHeaderIdOf</a>&lt;P&gt;, <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/ops/range/struct.RangeInclusive.html" title="struct core::ops::range::RangeInclusive">RangeInclusive</a>&lt;<a class="type" href="../../bp_messages/type.MessageNonce.html" title="type bp_messages::MessageNonce">MessageNonce</a>&gt;, P::<a class="associatedtype" href="../message_lane/trait.MessageLane.html#associatedtype.MessagesProof" title="type messages_relay::message_lane::MessageLane::MessagesProof">MessagesProof</a>), Self::<a class="associatedtype" href="../../relay_utils/relay_loop/trait.Client.html#associatedtype.Error" title="type relay_utils::relay_loop::Client::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<span class="where fmt-newline">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</span></h4></section></summary><div class="docblock"><p>Prove messages in inclusive range [begin; end].</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.submit_messages_receiving_proof" class="method"><a class="src rightside" href="../../src/messages_relay/message_lane_loop.rs.html#162-167">source</a><h4 class="code-header">fn <a href="#tymethod.submit_messages_receiving_proof" class="fn">submit_messages_receiving_proof</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    maybe_batch_tx: <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="trait.SourceClient.html#associatedtype.BatchTransaction" title="type messages_relay::message_lane_loop::SourceClient::BatchTransaction">BatchTransaction</a>&gt;,
+    generated_at_block: <a class="type" href="../message_lane/type.TargetHeaderIdOf.html" title="type messages_relay::message_lane::TargetHeaderIdOf">TargetHeaderIdOf</a>&lt;P&gt;,
+    proof: P::<a class="associatedtype" href="../message_lane/trait.MessageLane.html#associatedtype.MessagesReceivingProof" title="type messages_relay::message_lane::MessageLane::MessagesReceivingProof">MessagesReceivingProof</a>
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="trait.SourceClient.html#associatedtype.TransactionTracker" title="type messages_relay::message_lane_loop::SourceClient::TransactionTracker">TransactionTracker</a>, Self::<a class="associatedtype" href="../../relay_utils/relay_loop/trait.Client.html#associatedtype.Error" title="type relay_utils::relay_loop::Client::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<span class="where fmt-newline">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</span></h4></section></summary><div class="docblock"><p>Submit messages receiving proof.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.require_target_header_on_source" class="method"><a class="src rightside" href="../../src/messages_relay/message_lane_loop.rs.html#179-182">source</a><h4 class="code-header">fn <a href="#tymethod.require_target_header_on_source" class="fn">require_target_header_on_source</a>&lt;'life0, 'async_trait&gt;(
+    &amp;'life0 self,
+    id: <a class="type" href="../message_lane/type.TargetHeaderIdOf.html" title="type messages_relay::message_lane::TargetHeaderIdOf">TargetHeaderIdOf</a>&lt;P&gt;
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/pin/struct.Pin.html" title="struct core::pin::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Self::<a class="associatedtype" href="trait.SourceClient.html#associatedtype.BatchTransaction" title="type messages_relay::message_lane_loop::SourceClient::BatchTransaction">BatchTransaction</a>&gt;, Self::<a class="associatedtype" href="../../relay_utils/relay_loop/trait.Client.html#associatedtype.Error" title="type relay_utils::relay_loop::Client::Error">Error</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<span class="where fmt-newline">where
+    Self: 'async_trait,
+    'life0: 'async_trait,</span></h4></section></summary><div class="docblock"><p>We need given finalized target header on source to continue synchronization.</p>
+<p>We assume that the absence of header <code>id</code> has already been checked by caller.</p>
+<p>The client may return <code>Some(_)</code>, which means that nothing has happened yet and
+the caller must generate and append message receiving proof to the batch transaction
+to actually send it (along with required header) to the node.</p>
+<p>If function has returned <code>None</code>, it means that the caller now must wait for the
+appearance of the target header <code>id</code> at the source client.</p>
+</div></details></div><h2 id="object-safety" class="small-section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.75.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/messages_relay/message_lane_loop/trait.SourceClient.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

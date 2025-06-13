@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["class_locks_for","voting_for"]};

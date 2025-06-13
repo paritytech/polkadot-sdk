@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["clear_offchain_storage"],"mod":["v1"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["add_member","cleanup_poll","demote_member","exchange_member","promote_member","remove_member","vote"],"struct":["AddMember","CleanupPoll","DemoteMember","ExchangeMember","PromoteMember","RemoveMember","Vote"]};

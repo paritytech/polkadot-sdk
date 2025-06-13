@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["generate_genesis_block","initial_head_data"]};

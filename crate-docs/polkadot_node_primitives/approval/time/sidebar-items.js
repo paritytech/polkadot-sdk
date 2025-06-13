@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["TICK_DURATION_MILLIS","TICK_TOO_FAR_IN_FUTURE"],"fn":["slot_number_to_tick","tick_to_slot_number","tranche_to_tick"],"struct":["DelayedApprovalTimer","SystemClock"],"trait":["Clock","ClockExt"],"type":["Tick"]};

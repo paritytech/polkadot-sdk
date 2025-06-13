@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ENDOWMENT","STASH"],"fn":["authority_keys_from_seed","get_preset","kitchensink_genesis","preset_names","session_keys","session_keys_from_seed","validator","well_known_including_eth_accounts"],"type":["Staker"]};

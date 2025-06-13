@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["bail","clear_old_round_data","register","submit_page"]};

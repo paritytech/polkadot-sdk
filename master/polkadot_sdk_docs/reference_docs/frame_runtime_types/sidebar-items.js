@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["pallet_bar","pallet_foo","pallet_with_specific_runtime_call","runtime","runtime_with_specific_runtime_call"]};

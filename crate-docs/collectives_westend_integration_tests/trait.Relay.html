@@ -1,0 +1,173 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `Relay` trait in crate `collectives_westend_integration_tests`."><title>Relay in collectives_westend_integration_tests - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="collectives_westend_integration_tests" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../collectives_westend_integration_tests/index.html">collectives_westend_integration_tests</a><span class="version">1.0.0</span></h2></div><h2 class="location"><a href="#">Relay</a></h2><div class="sidebar-elems"><section><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.MessageProcessor">MessageProcessor</a></li><li><a href="#associatedtype.SovereignAccountOf">SovereignAccountOf</a></li></ul><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.init">init</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.child_location_of">child_location_of</a></li><li><a href="#method.sovereign_account_id_of">sovereign_account_id_of</a></li><li><a href="#method.sovereign_account_id_of_child_para">sovereign_account_id_of_child_para</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-RelayChain-for-Westend%3CN%3E">Westend&lt;N&gt;</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In crate collectives_westend_integration_tests</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="index.html">collectives_westend_integration_tests</a>::<wbr><a class="trait" href="#">Relay</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/xcm_emulator/lib.rs.html#226">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Relay: <a class="trait" href="trait.Chain.html" title="trait collectives_westend_integration_tests::Chain">Chain</a> {
+    type <a href="#associatedtype.SovereignAccountOf" class="associatedtype">SovereignAccountOf</a>: <a class="trait" href="../staging_xcm_executor/traits/conversion/trait.ConvertLocation.html" title="trait staging_xcm_executor::traits::conversion::ConvertLocation">ConvertLocation</a>&lt;&lt;Self::<a class="associatedtype" href="trait.Chain.html#associatedtype.Runtime" title="type collectives_westend_integration_tests::Chain::Runtime">Runtime</a> as <a class="trait" href="../frame_system/pallet/trait.Config.html" title="trait frame_system::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a>&gt;;
+    type <a href="#associatedtype.MessageProcessor" class="associatedtype">MessageProcessor</a>: <a class="trait" href="../frame_support/traits/messages/trait.ProcessMessage.html" title="trait frame_support::traits::messages::ProcessMessage">ProcessMessage</a>&lt;Origin = <a class="struct" href="../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">Id</a>&gt; + <a class="trait" href="../frame_support/traits/messages/trait.ServiceQueues.html" title="trait frame_support::traits::messages::ServiceQueues">ServiceQueues</a>;
+
+    // Required method
+    fn <a href="#tymethod.init" class="fn">init</a>();
+
+    // Provided methods
+    fn <a href="#method.child_location_of" class="fn">child_location_of</a>(id: <a class="struct" href="../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">Id</a>) -&gt; <a class="struct" href="struct.Location.html" title="struct collectives_westend_integration_tests::Location">Location</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.sovereign_account_id_of" class="fn">sovereign_account_id_of</a>(
+        location: <a class="struct" href="struct.Location.html" title="struct collectives_westend_integration_tests::Location">Location</a>
+    ) -&gt; &lt;Self::<a class="associatedtype" href="trait.Chain.html#associatedtype.Runtime" title="type collectives_westend_integration_tests::Chain::Runtime">Runtime</a> as <a class="trait" href="../frame_system/pallet/trait.Config.html" title="trait frame_system::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.sovereign_account_id_of_child_para" class="fn">sovereign_account_id_of_child_para</a>(
+        id: <a class="struct" href="../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">Id</a>
+    ) -&gt; &lt;Self::<a class="associatedtype" href="trait.Chain.html#associatedtype.Runtime" title="type collectives_westend_integration_tests::Chain::Runtime">Runtime</a> as <a class="trait" href="../frame_system/pallet/trait.Config.html" title="trait frame_system::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a> { ... }
+}</code></pre><h2 id="required-associated-types" class="small-section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><section id="associatedtype.SovereignAccountOf" class="method"><a class="src rightside" href="../src/xcm_emulator/lib.rs.html#227">source</a><h4 class="code-header">type <a href="#associatedtype.SovereignAccountOf" class="associatedtype">SovereignAccountOf</a>: <a class="trait" href="../staging_xcm_executor/traits/conversion/trait.ConvertLocation.html" title="trait staging_xcm_executor::traits::conversion::ConvertLocation">ConvertLocation</a>&lt;&lt;Self::<a class="associatedtype" href="trait.Chain.html#associatedtype.Runtime" title="type collectives_westend_integration_tests::Chain::Runtime">Runtime</a> as <a class="trait" href="../frame_system/pallet/trait.Config.html" title="trait frame_system::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a>&gt;</h4></section><section id="associatedtype.MessageProcessor" class="method"><a class="src rightside" href="../src/xcm_emulator/lib.rs.html#228">source</a><h4 class="code-header">type <a href="#associatedtype.MessageProcessor" class="associatedtype">MessageProcessor</a>: <a class="trait" href="../frame_support/traits/messages/trait.ProcessMessage.html" title="trait frame_support::traits::messages::ProcessMessage">ProcessMessage</a>&lt;Origin = <a class="struct" href="../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">Id</a>&gt; + <a class="trait" href="../frame_support/traits/messages/trait.ServiceQueues.html" title="trait frame_support::traits::messages::ServiceQueues">ServiceQueues</a></h4></section></div><h2 id="required-methods" class="small-section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><section id="tymethod.init" class="method"><a class="src rightside" href="../src/xcm_emulator/lib.rs.html#230">source</a><h4 class="code-header">fn <a href="#tymethod.init" class="fn">init</a>()</h4></section></div><h2 id="provided-methods" class="small-section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><section id="method.child_location_of" class="method"><a class="src rightside" href="../src/xcm_emulator/lib.rs.html#232">source</a><h4 class="code-header">fn <a href="#method.child_location_of" class="fn">child_location_of</a>(id: <a class="struct" href="../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">Id</a>) -&gt; <a class="struct" href="struct.Location.html" title="struct collectives_westend_integration_tests::Location">Location</a></h4></section><section id="method.sovereign_account_id_of" class="method"><a class="src rightside" href="../src/xcm_emulator/lib.rs.html#236">source</a><h4 class="code-header">fn <a href="#method.sovereign_account_id_of" class="fn">sovereign_account_id_of</a>(
+    location: <a class="struct" href="struct.Location.html" title="struct collectives_westend_integration_tests::Location">Location</a>
+) -&gt; &lt;Self::<a class="associatedtype" href="trait.Chain.html#associatedtype.Runtime" title="type collectives_westend_integration_tests::Chain::Runtime">Runtime</a> as <a class="trait" href="../frame_system/pallet/trait.Config.html" title="trait frame_system::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a></h4></section><section id="method.sovereign_account_id_of_child_para" class="method"><a class="src rightside" href="../src/xcm_emulator/lib.rs.html#240">source</a><h4 class="code-header">fn <a href="#method.sovereign_account_id_of_child_para" class="fn">sovereign_account_id_of_child_para</a>(
+    id: <a class="struct" href="../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">Id</a>
+) -&gt; &lt;Self::<a class="associatedtype" href="trait.Chain.html#associatedtype.Runtime" title="type collectives_westend_integration_tests::Chain::Runtime">Runtime</a> as <a class="trait" href="../frame_system/pallet/trait.Config.html" title="trait frame_system::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="type frame_system::pallet::Config::AccountId">AccountId</a></h4></section></div><h2 id="object-safety" class="small-section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.75.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="foreign-impls" class="small-section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-RelayChain-for-Westend%3CN%3E" class="impl"><a href="#impl-RelayChain-for-Westend%3CN%3E" class="anchor">§</a><h3 class="code-header">impl&lt;N&gt; <a class="trait" href="trait.Relay.html" title="trait collectives_westend_integration_tests::Relay">RelayChain</a> for Westend&lt;N&gt;<span class="where fmt-newline">where
+    N: <a class="trait" href="../xcm_emulator/trait.Network.html" title="trait xcm_emulator::Network">Network</a>,</span></h3></section></summary><div class="impl-items"><section id="associatedtype.SovereignAccountOf-1" class="associatedtype trait-impl"><a href="#associatedtype.SovereignAccountOf-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.SovereignAccountOf" class="associatedtype">SovereignAccountOf</a> = (<a class="struct" href="../staging_xcm_builder/location_conversion/struct.ChildParachainConvertsVia.html" title="struct staging_xcm_builder::location_conversion::ChildParachainConvertsVia">ChildParachainConvertsVia</a>&lt;<a class="struct" href="../polkadot_parachain_primitives/primitives/struct.Id.html" title="struct polkadot_parachain_primitives::primitives::Id">Id</a>, &lt;&lt;<a class="enum" href="../sp_runtime/enum.MultiSignature.html" title="enum sp_runtime::MultiSignature">MultiSignature</a> as <a class="trait" href="../sp_runtime/traits/trait.Verify.html" title="trait sp_runtime::traits::Verify">Verify</a>&gt;::<a class="associatedtype" href="../sp_runtime/traits/trait.Verify.html#associatedtype.Signer" title="type sp_runtime::traits::Verify::Signer">Signer</a> as <a class="trait" href="../sp_runtime/traits/trait.IdentifyAccount.html" title="trait sp_runtime::traits::IdentifyAccount">IdentifyAccount</a>&gt;::<a class="associatedtype" href="../sp_runtime/traits/trait.IdentifyAccount.html#associatedtype.AccountId" title="type sp_runtime::traits::IdentifyAccount::AccountId">AccountId</a>&gt;, <a class="struct" href="../staging_xcm_builder/location_conversion/struct.AccountId32Aliases.html" title="struct staging_xcm_builder::location_conversion::AccountId32Aliases">AccountId32Aliases</a>&lt;ThisNetwork, &lt;&lt;<a class="enum" href="../sp_runtime/enum.MultiSignature.html" title="enum sp_runtime::MultiSignature">MultiSignature</a> as <a class="trait" href="../sp_runtime/traits/trait.Verify.html" title="trait sp_runtime::traits::Verify">Verify</a>&gt;::<a class="associatedtype" href="../sp_runtime/traits/trait.Verify.html#associatedtype.Signer" title="type sp_runtime::traits::Verify::Signer">Signer</a> as <a class="trait" href="../sp_runtime/traits/trait.IdentifyAccount.html" title="trait sp_runtime::traits::IdentifyAccount">IdentifyAccount</a>&gt;::<a class="associatedtype" href="../sp_runtime/traits/trait.IdentifyAccount.html#associatedtype.AccountId" title="type sp_runtime::traits::IdentifyAccount::AccountId">AccountId</a>&gt;, <a class="struct" href="../staging_xcm_builder/location_conversion/struct.HashedDescription.html" title="struct staging_xcm_builder::location_conversion::HashedDescription">HashedDescription</a>&lt;&lt;&lt;<a class="enum" href="../sp_runtime/enum.MultiSignature.html" title="enum sp_runtime::MultiSignature">MultiSignature</a> as <a class="trait" href="../sp_runtime/traits/trait.Verify.html" title="trait sp_runtime::traits::Verify">Verify</a>&gt;::<a class="associatedtype" href="../sp_runtime/traits/trait.Verify.html#associatedtype.Signer" title="type sp_runtime::traits::Verify::Signer">Signer</a> as <a class="trait" href="../sp_runtime/traits/trait.IdentifyAccount.html" title="trait sp_runtime::traits::IdentifyAccount">IdentifyAccount</a>&gt;::<a class="associatedtype" href="../sp_runtime/traits/trait.IdentifyAccount.html#associatedtype.AccountId" title="type sp_runtime::traits::IdentifyAccount::AccountId">AccountId</a>, <a class="struct" href="../staging_xcm_builder/location_conversion/struct.DescribeFamily.html" title="struct staging_xcm_builder::location_conversion::DescribeFamily">DescribeFamily</a>&lt;(<a class="struct" href="../staging_xcm_builder/location_conversion/struct.DescribeTerminus.html" title="struct staging_xcm_builder::location_conversion::DescribeTerminus">DescribeTerminus</a>, <a class="struct" href="../staging_xcm_builder/location_conversion/struct.DescribePalletTerminal.html" title="struct staging_xcm_builder::location_conversion::DescribePalletTerminal">DescribePalletTerminal</a>, <a class="struct" href="../staging_xcm_builder/location_conversion/struct.DescribeAccountId32Terminal.html" title="struct staging_xcm_builder::location_conversion::DescribeAccountId32Terminal">DescribeAccountId32Terminal</a>, <a class="struct" href="../staging_xcm_builder/location_conversion/struct.DescribeAccountKey20Terminal.html" title="struct staging_xcm_builder::location_conversion::DescribeAccountKey20Terminal">DescribeAccountKey20Terminal</a>, <a class="struct" href="../staging_xcm_builder/location_conversion/struct.DescribeTreasuryVoiceTerminal.html" title="struct staging_xcm_builder::location_conversion::DescribeTreasuryVoiceTerminal">DescribeTreasuryVoiceTerminal</a>, <a class="struct" href="../staging_xcm_builder/location_conversion/struct.DescribeBodyTerminal.html" title="struct staging_xcm_builder::location_conversion::DescribeBodyTerminal">DescribeBodyTerminal</a>)&gt;&gt;)</h4></section><section id="associatedtype.MessageProcessor-1" class="associatedtype trait-impl"><a href="#associatedtype.MessageProcessor-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.MessageProcessor" class="associatedtype">MessageProcessor</a> = <a class="struct" href="../xcm_emulator/struct.DefaultRelayMessageProcessor.html" title="struct xcm_emulator::DefaultRelayMessageProcessor">DefaultRelayMessageProcessor</a>&lt;Westend&lt;N&gt;&gt;</h4></section><section id="method.init" class="method trait-impl"><a href="#method.init" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.init" class="fn">init</a>()</h4></section></div></details><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/xcm_emulator/trait.RelayChain.js" data-ignore-extern-crates="westend_emulated_chain" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

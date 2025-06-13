@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["polkadot_runtime_common",[]],["polkadot_test_runtime",[["impl&lt;A: Get&lt;<a class=\"struct\" href=\"staging_xcm/v5/asset/struct.AssetId.html\" title=\"struct staging_xcm::v5::asset::AssetId\">AssetId</a>&gt;, F: <a class=\"trait\" href=\"polkadot_runtime_parachains/trait.FeeTracker.html\" title=\"trait polkadot_runtime_parachains::FeeTracker\">FeeTracker</a>&gt; <a class=\"trait\" href=\"polkadot_runtime_common/xcm_sender/trait.PriceForMessageDelivery.html\" title=\"trait polkadot_runtime_common::xcm_sender::PriceForMessageDelivery\">PriceForMessageDelivery</a> for <a class=\"struct\" href=\"polkadot_test_runtime/xcm_config/struct.TestDeliveryPrice.html\" title=\"struct polkadot_test_runtime::xcm_config::TestDeliveryPrice\">TestDeliveryPrice</a>&lt;A, F&gt;"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[30,745]}

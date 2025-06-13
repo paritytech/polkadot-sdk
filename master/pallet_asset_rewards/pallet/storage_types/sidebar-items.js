@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["NextPoolId","PoolCost","PoolStakers","Pools"]};

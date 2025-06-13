@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["payout_other"],"struct":["Bump","CheckPayment","Induct","Init","Payout","PayoutOther","Register"]};

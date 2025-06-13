@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ALICE","BOB","DUMMY_EMPTY"],"fn":["init_balances"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["LogValidationError","VerificationError"],"struct":["EventFixture","EventProof","Log","Proof"],"trait":["Verifier"]};

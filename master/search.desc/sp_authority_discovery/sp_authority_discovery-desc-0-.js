@@ -1,0 +1,1 @@
+searchState.loadedDescShard("sp_authority_discovery", 0, "Runtime Api to help discover authorities.\nThe authority discovery api.\nAn authority discovery authority identifier.\nAn authority discovery authority keypair.\nAn authority discovery authority signature.\nRetrieve authority identifiers of the current and next …")

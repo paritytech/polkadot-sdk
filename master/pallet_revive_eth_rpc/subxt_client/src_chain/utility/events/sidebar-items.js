@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["batch_interrupted","dispatched_as","if_else_fallback_called","item_failed"],"struct":["BatchCompleted","BatchCompletedWithErrors","BatchInterrupted","DispatchedAs","IfElseFallbackCalled","IfElseMainSuccess","ItemCompleted","ItemFailed"]};

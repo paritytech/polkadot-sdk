@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["register_token","register_token_with_insufficient_fee","send_token","send_token_to_penpal"],"struct":["InboundQueueFixture"]};

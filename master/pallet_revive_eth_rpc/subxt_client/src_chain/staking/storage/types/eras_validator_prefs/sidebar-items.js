@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["ErasValidatorPrefs","Param0","Param1"]};

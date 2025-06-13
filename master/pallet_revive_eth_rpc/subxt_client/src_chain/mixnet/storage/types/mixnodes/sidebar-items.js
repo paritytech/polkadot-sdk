@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["Mixnodes","Param0","Param1"]};

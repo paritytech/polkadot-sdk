@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["cleanup_pool","create_pool","deposit_reward_tokens","harvest_rewards","set_pool_admin","set_pool_expiry_block","set_pool_reward_rate_per_block","stake","unstake"],"struct":["CleanupPool","CreatePool","DepositRewardTokens","HarvestRewards","SetPoolAdmin","SetPoolExpiryBlock","SetPoolRewardRatePerBlock","Stake","Unstake"]};

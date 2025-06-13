@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BidKind","VouchingStatus"],"mod":["pallet"],"struct":["Bid","Candidacy","GroupParams","IntakeRecord","MemberRecord","PayoutRecord","Tally","Vote"]};

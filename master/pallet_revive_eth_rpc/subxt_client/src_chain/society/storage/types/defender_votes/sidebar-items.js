@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["DefenderVotes","Param0","Param1"]};

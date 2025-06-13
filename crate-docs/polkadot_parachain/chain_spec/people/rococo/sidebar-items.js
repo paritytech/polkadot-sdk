@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["PEOPLE_ROCOCO","PEOPLE_ROCOCO_DEVELOPMENT","PEOPLE_ROCOCO_ED","PEOPLE_ROCOCO_LOCAL"],"fn":["genesis","local_config"]};

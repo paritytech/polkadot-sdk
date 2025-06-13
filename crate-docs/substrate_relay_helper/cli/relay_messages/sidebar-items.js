@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["RelayMessagesParams"],"trait":["MessagesRelayer"]};

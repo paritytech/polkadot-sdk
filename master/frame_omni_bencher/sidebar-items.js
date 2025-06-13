@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["main","setup_logger"],"mod":["command"]};

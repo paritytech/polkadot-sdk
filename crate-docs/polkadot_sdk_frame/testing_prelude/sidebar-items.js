@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"attr":["storage_alias"],"macro":["assert_err","assert_err_ignore_postinfo","assert_error_encoded_size","assert_noop","assert_ok","assert_storage_noop","if_std"],"type":["MockBlock","MockBlockU128","MockBlockU32","MockUncheckedExtrinsic","TestState"]};

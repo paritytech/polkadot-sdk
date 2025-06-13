@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["as_recovered","cancel_recovered","claim_recovery","close_recovery","create_recovery","initiate_recovery","poke_deposit","set_recovered","vouch_recovery"],"struct":["AsRecovered","CancelRecovered","ClaimRecovery","CloseRecovery","CreateRecovery","InitiateRecovery","PokeDeposit","RemoveRecovery","SetRecovered","VouchRecovery"]};

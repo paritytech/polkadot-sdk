@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["NominatorSlashInEra","Param0","Param1"]};

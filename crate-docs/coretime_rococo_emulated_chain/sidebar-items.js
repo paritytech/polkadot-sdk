@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["LOCAL_EXT_CORETIMEROCOCO"],"mod":["genesis"],"struct":["CoretimeRococo","GLOBAL_EXT_CORETIMEROCOCO"],"trait":["CoretimeRococoParaPallet"]};

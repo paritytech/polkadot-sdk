@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["accept_curator","approve_bounty","approve_bounty_with_curator","award_bounty","claim_bounty","close_bounty","extend_bounty_expiry","poke_deposit","propose_bounty","propose_curator","unassign_curator"]};

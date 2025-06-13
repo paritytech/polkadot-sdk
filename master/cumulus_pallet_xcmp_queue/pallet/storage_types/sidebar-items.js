@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["DeliveryFeeFactor","InboundXcmpSuspended","OutboundXcmpMessages","OutboundXcmpStatus","QueueConfig","QueueSuspended","SignalMessages"]};

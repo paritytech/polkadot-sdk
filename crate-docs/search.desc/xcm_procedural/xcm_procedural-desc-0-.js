@@ -1,0 +1,1 @@
+searchState.loadedDescShard("xcm_procedural", 0, "Procedural macros used in XCM.\nThis is called on the <code>Instruction</code> enum, not on the <code>Xcm</code> …")

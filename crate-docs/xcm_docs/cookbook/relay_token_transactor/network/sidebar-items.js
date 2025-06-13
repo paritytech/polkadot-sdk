@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ALICE","BOB","CENTS","EXT_PARAA","EXT_RELAY","INITIAL_BALANCE","UNITS"],"fn":["para_ext","relay_ext"],"struct":["MockNet","ParaA","ParachainXcmRouter","Relay","RelayChainXcmRouter"]};

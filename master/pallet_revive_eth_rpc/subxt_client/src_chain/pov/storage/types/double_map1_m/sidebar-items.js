@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["DoubleMap1M","Param0","Param1"]};

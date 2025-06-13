@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["FooEnum"],"mod":["pallet_bar","pallet_foo"],"struct":["FooStruct","SomeFooData1","SomeFooData2"]};

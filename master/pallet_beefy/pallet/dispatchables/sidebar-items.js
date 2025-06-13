@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["report_double_voting","report_double_voting_unsigned","report_fork_voting","report_fork_voting_unsigned","report_future_block_voting","report_future_block_voting_unsigned","set_new_genesis"]};

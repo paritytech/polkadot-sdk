@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["author_vrf_randomness","authorities","current_slot","epoch_config","epoch_index","epoch_start","genesis_slot","initialized","lateness","next_authorities","next_epoch_config","next_randomness","pending_epoch_config_change","randomness","segment_index","skipped_epochs","under_construction"]};

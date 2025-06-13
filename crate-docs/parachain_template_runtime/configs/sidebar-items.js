@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["ExistentialDeposit","MessageQueueServiceWeight","Offset","Period","PotId","RelayOrigin","ReservedDmpWeight","ReservedXcmpWeight","RuntimeBlockLength","RuntimeBlockWeights","SS58Prefix","SessionLength","StakingAdminBodyId","TransactionByteFee","Version"],"type":["CollatorSelectionUpdateOrigin"]};

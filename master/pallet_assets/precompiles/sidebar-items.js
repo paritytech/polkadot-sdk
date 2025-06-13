@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["ERC20","InlineAssetIdExtractor","InlineIdConfig"],"trait":["AssetIdExtractor","AssetPrecompileConfig"]};

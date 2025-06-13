@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["limited_reserve_transfer_assets_for_native_asset_works","receive_reserve_asset_deposited_from_different_consensus_works","report_bridge_status_from_xcm_bridge_router_works"],"struct":["TestBridgingConfig"]};

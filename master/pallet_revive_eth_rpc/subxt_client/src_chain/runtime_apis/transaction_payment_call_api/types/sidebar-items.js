@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["query_call_fee_details","query_call_info","query_length_to_fee","query_weight_to_fee"],"struct":["QueryCallFeeDetails","QueryCallInfo","QueryLengthToFee","QueryWeightToFee"]};

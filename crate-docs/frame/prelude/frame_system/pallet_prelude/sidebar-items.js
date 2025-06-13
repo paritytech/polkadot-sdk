@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["ensure_none","ensure_root","ensure_signed","ensure_signed_or_root"],"type":["BlockNumberFor","ExtrinsicFor","HeaderFor","OriginFor","RuntimeCallFor"]};

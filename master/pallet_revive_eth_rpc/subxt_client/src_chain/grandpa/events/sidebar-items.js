@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["new_authorities"],"struct":["NewAuthorities","Paused","Resumed"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Sr25519Keyring","WasmExecutionMethod"],"fn":["block_on"],"struct":["BlockBuilderBuilder"],"trait":["ClientBlockImportExt","ClientExt","HeaderBackend"]};
