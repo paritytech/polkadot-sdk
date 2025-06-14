@@ -676,11 +676,11 @@ mod tests {
 		type RuntimeCall = RuntimeCall;
 	}
 
-	impl<C> frame_system::offchain::CreateInherent<C> for Test
+	impl<C> frame_system::offchain::CreateBare<C> for Test
 	where
 		RuntimeCall: From<C>,
 	{
-		fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+		fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
 			UncheckedExtrinsic::new_bare(call)
 		}
 	}
@@ -734,6 +734,7 @@ mod tests {
 		type AssignCoretime = ();
 		type Fungible = Balances;
 		type CooldownRemovalMultiplier = ConstUint<1>;
+		type AuthorizeCurrentCodeOrigin = EnsureRoot<Self::AccountId>;
 	}
 
 	impl parachains_shared::Config for Test {

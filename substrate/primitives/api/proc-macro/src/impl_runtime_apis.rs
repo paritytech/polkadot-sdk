@@ -100,8 +100,7 @@ fn generate_impl_call(
 
 		quote!(
 			#let_binding =
-				match #c::DecodeLimit::decode_all_with_depth_limit(
-					#c::MAX_EXTRINSIC_DEPTH,
+				match #c::Decode::decode(
 					&mut #input,
 				) {
 					Ok(res) => res,

@@ -19,6 +19,16 @@
 
 use super::*;
 
+use frame_support::{
+	assert_err, assert_ok, derive_impl,
+	migrations::MultiStepMigrator,
+	pallet_prelude::*,
+	parameter_types,
+	traits::{fungible, ConstU8, Currency, IsInherent, VariantCount, VariantCountOf},
+	weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight, WeightMeter, WeightToFee},
+};
+use frame_system::{pallet_prelude::*, ChainContext, LastRuntimeUpgrade, LastRuntimeUpgradeInfo};
+use pallet_balances::Call as BalancesCall;
 use pallet_transaction_payment::FungibleAdapter;
 use sp_core::H256;
 use sp_runtime::{
@@ -30,17 +40,6 @@ use sp_runtime::{
 	},
 	BuildStorage, DispatchError,
 };
-
-use frame_support::{
-	assert_err, assert_ok, derive_impl,
-	migrations::MultiStepMigrator,
-	pallet_prelude::*,
-	parameter_types,
-	traits::{fungible, ConstU8, Currency, IsInherent, VariantCount, VariantCountOf},
-	weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight, WeightMeter, WeightToFee},
-};
-use frame_system::{pallet_prelude::*, ChainContext, LastRuntimeUpgrade, LastRuntimeUpgradeInfo};
-use pallet_balances::Call as BalancesCall;
 
 const TEST_KEY: &[u8] = b":test:key:";
 
@@ -1564,4 +1563,40 @@ fn is_inherent_works() {
 
 	let ext = UncheckedXt::new_bare(RuntimeCall::Custom2(custom2::Call::allowed_unsigned {}));
 	assert!(!Runtime::is_inherent(&ext), "Unsigned ext are not automatically inherents");
+}
+
+#[test]
+fn max_transaction_depth_is_respected() {
+	use substrate_test_runtime_client::{
+		prelude::*,
+		runtime::{ExtrinsicBuilder, RuntimeCall, UtilityCall},
+		BlockOrigin,
+	};
+
+	let client = TestClientBuilder::default().build();
+
+	let mut call = RuntimeCall::System(frame_system::Call::remark { remark: vec![1, 2, 3] });
+	for _ in 0..MAX_EXTRINSIC_DEPTH {
+		call = RuntimeCall::Utility(UtilityCall::batch { calls: vec![call] });
+	}
+
+	let call_one_more = RuntimeCall::Utility(UtilityCall::batch { calls: vec![call.clone()] });
+
+	let ext = ExtrinsicBuilder::new(call).build();
+
+	let mut block_builder = BlockBuilderBuilder::new(&client)
+		.on_parent_block(client.chain_info().best_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap();
+
+	block_builder.push(ext).unwrap();
+
+	// With one more the transaction is rejected
+	block_builder.push(ExtrinsicBuilder::new(call_one_more).build()).unwrap_err();
+
+	let block = block_builder.build().unwrap().block;
+
+	// Import works
+	block_on(client.import(BlockOrigin::Own, block)).unwrap();
 }

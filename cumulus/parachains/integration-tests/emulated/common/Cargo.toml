@@ -18,6 +18,7 @@ paste = { workspace = true, default-features = true }
 
 # Substrate
 frame-support = { workspace = true, default-features = true }
+pallet-asset-conversion = { workspace = true, default-features = true }
 pallet-assets = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-message-queue = { workspace = true, default-features = true }
@@ -35,6 +36,8 @@ polkadot-parachain-primitives = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 polkadot-runtime-parachains = { workspace = true, default-features = true }
 xcm = { workspace = true, default-features = true }
+xcm-executor = { workspace = true, default-features = true }
+xcm-runtime-apis = { workspace = true, default-features = true }
 xcm-simulator = { workspace = true, default-features = true }
 
 # Cumulus

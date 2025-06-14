@@ -530,6 +530,8 @@ where
 		}
 
 		self.parachain_import_queue
+			// Use `ConsensusBroadcast` to inform the import pipeline that this blocks needs to be
+			// imported.
 			.import_blocks(BlockOrigin::ConsensusBroadcast, incoming_blocks);
 	}
 

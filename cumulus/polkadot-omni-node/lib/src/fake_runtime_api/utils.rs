@@ -59,6 +59,12 @@ macro_rules! impl_node_runtime_apis {
 				}
 			}
 
+			impl cumulus_primitives_core::RelayParentOffsetApi<$block> for $runtime {
+				fn relay_parent_offset() -> u32 {
+					unimplemented!()
+				}
+			}
+
 			impl sp_consensus_aura::AuraApi<$block, $aura_id> for $runtime {
 				fn slot_duration() -> sp_consensus_aura::SlotDuration {
 					unimplemented!()
