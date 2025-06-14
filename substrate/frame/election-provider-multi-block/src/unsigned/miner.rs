@@ -1253,42 +1253,45 @@ mod trimming {
 
 	#[test]
 	fn trim_backers_final_works() {
-		ExtBuilder::unsigned().max_backers_per_winner_final(4).build_and_execute(|| {
-			// adjust the voters a bit, such that they are all different backings
-			let mut current_voters = Voters::get();
-			current_voters.iter_mut().for_each(|(who, stake, ..)| *stake = *who);
-			Voters::set(current_voters);
+		ExtBuilder::unsigned()
+			.max_backers_per_winner(4)
+			.max_backers_per_winner_final(4)
+			.build_and_execute(|| {
+				// adjust the voters a bit, such that they are all different backings
+				let mut current_voters = Voters::get();
+				current_voters.iter_mut().for_each(|(who, stake, ..)| *stake = *who);
+				Voters::set(current_voters);
 
-			roll_to_snapshot_created();
-			ensure_voters(3, 12);
+				roll_to_snapshot_created();
+				ensure_voters(3, 12);
 
-			let solution = mine_full_solution().unwrap();
+				let solution = mine_full_solution().unwrap();
 
-			load_mock_signed_and_start(solution);
-			let supports = roll_to_full_verification();
+				load_mock_signed_and_start(solution);
+				let supports = roll_to_full_verification();
 
-			// a solution is queued.
-			assert!(VerifierPallet::queued_score().is_some());
+				// a solution is queued.
+				assert!(VerifierPallet::queued_score().is_some());
 
-			// 30 has 1 + 3 = 4 backers -- all good
-			// 40 has 1 + 2 + 3 = 6 backers -- needs to lose 2
-			assert_eq!(
-				supports,
-				vec![
+				// 30 has 1 + 3 = 4 backers -- all good
+				// 40 has 1 + 2 + 3 = 6 backers -- needs to lose 2
+				assert_eq!(
+					supports,
 					vec![
-						(30, Support { total: 30, voters: vec![(30, 30)] }),
-						(40, Support { total: 40, voters: vec![(40, 40)] })
-					],
-					vec![
-						(30, Support { total: 14, voters: vec![(5, 5), (6, 2), (7, 7)] }),
-						(40, Support { total: 4, voters: vec![(6, 4)] })
-					],
-					vec![(40, Support { total: 7, voters: vec![(3, 3), (4, 4)] })]
-				]
-				.try_from_unbounded_paged()
-				.unwrap()
-			);
-		})
+						vec![
+							(30, Support { total: 30, voters: vec![(30, 30)] }),
+							(40, Support { total: 40, voters: vec![(40, 40)] })
+						],
+						vec![
+							(30, Support { total: 14, voters: vec![(5, 5), (6, 2), (7, 7)] }),
+							(40, Support { total: 4, voters: vec![(6, 4)] })
+						],
+						vec![(40, Support { total: 7, voters: vec![(3, 3), (4, 4)] })]
+					]
+					.try_from_unbounded_paged()
+					.unwrap()
+				);
+			})
 	}
 
 	#[test]
