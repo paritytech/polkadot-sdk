@@ -877,7 +877,7 @@ impl<T: Config> EraElectionPlanner<T> {
 				use pallet_staking_async_rc_client::RcClientInterface;
 				let id = CurrentEra::<T>::get().defensive_unwrap_or(0);
 				let prune_up_to = Self::get_prune_up_to();
-				let rc_validators = ElectableStashes::<T>::take().into_iter().collect();
+				let rc_validators = ElectableStashes::<T>::take().into_iter().collect::<Vec<_>>();
 
 				crate::log!(
 					info,
