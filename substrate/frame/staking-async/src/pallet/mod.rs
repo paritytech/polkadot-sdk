@@ -863,12 +863,20 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			crate::log!(trace, "initializing with {:?}", self);
+			assert!(
+				self.validator_count <=
+					<T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get() *
+						<T::ElectionProvider as ElectionProvider>::Pages::get(),
+				"validator count is too high, `ElectionProvider` can never fulfill this"
+			);
 			ValidatorCount::<T>::put(self.validator_count);
+
 			assert!(
 				self.invulnerables.len() as u32 <= T::MaxInvulnerables::get(),
 				"Too many invulnerable validators at genesis."
 			);
 			<Invulnerables<T>>::put(&self.invulnerables);
+
 			ForceEra::<T>::put(self.force_era);
 			CanceledSlashPayout::<T>::put(self.canceled_payout);
 			SlashRewardFraction::<T>::put(self.slash_reward_fraction);
@@ -905,11 +913,6 @@ pub mod pallet {
 							T::RuntimeOrigin::from(Some(stash.clone()).into()),
 							Default::default(),
 						));
-						assert!(
-							ValidatorCount::<T>::get() <=
-								<T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get() *
-									<T::ElectionProvider as ElectionProvider>::Pages::get()
-						);
 					},
 					crate::StakerStatus::Idle => {
 						crate::log!(
@@ -928,11 +931,6 @@ pub mod pallet {
 							balance,
 							RewardDestination::Staked,
 						));
-						assert!(
-							ValidatorCount::<T>::get() <=
-								<T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get() *
-									<T::ElectionProvider as ElectionProvider>::Pages::get()
-						);
 					},
 					_ => {},
 				}
@@ -945,9 +943,9 @@ pub mod pallet {
 						crate::log!(
 							trace,
 							"inserting genesis nominator: {:?} => {:?} => {:?}",
-								stash,
-								balance,
-								status
+							stash,
+							balance,
+							status
 						);
 						assert!(
 							asset::free_to_stake::<T>(stash) >= balance,
@@ -962,13 +960,8 @@ pub mod pallet {
 							T::RuntimeOrigin::from(Some(stash.clone()).into()),
 							votes.iter().map(|l| T::Lookup::unlookup(l.clone())).collect(),
 						));
-						assert!(
-							ValidatorCount::<T>::get() <=
-								<T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get() *
-									<T::ElectionProvider as ElectionProvider>::Pages::get()
-						);
 					},
-					_ => {}
+					_ => {},
 				}
 			}
 

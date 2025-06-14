@@ -272,8 +272,7 @@ fn respects_snapshot_size_limits() {
 
 #[test]
 fn nomination_quota_checks_at_nominate_works() {
-	ExtBuilder::default()
-	.nominate(false).build_and_execute(|| {
+	ExtBuilder::default().nominate(false).build_and_execute(|| {
 		// stash bond of 222 has a nomination quota of 2 targets.
 		bond(61, 222);
 		assert_eq!(Staking::api_nominations_quota(222), 2);
@@ -427,29 +426,28 @@ fn change_of_absolute_max_nominations() {
 fn nomination_quota_max_changes_decoding() {
 	use frame_election_provider_support::ElectionDataProvider;
 	ExtBuilder::default()
-		.add_staker(2, 10, StakerStatus::Validator)
-		.add_staker(3, 10, StakerStatus::Validator)
-		.add_staker(4, 10, StakerStatus::Validator)
-		.add_staker(60, 10, StakerStatus::Nominator(vec![1]))
-		.add_staker(70, 10, StakerStatus::Nominator(vec![1, 2, 3]))
-		.add_staker(30, 10, StakerStatus::Nominator(vec![1, 2, 3, 4]))
-		.add_staker(50, 10, StakerStatus::Nominator(vec![1, 2, 3, 4]))
+		.nominate(false)
+		.set_status(41, StakerStatus::Validator)
+		.add_staker(60, 10, StakerStatus::Nominator(vec![11]))
+		.add_staker(70, 10, StakerStatus::Nominator(vec![11, 21, 31]))
+		.add_staker(30, 10, StakerStatus::Nominator(vec![11, 21, 31, 41]))
+		.add_staker(50, 10, StakerStatus::Nominator(vec![11, 21, 31, 41]))
 		.balance_factor(11)
 		.build_and_execute(|| {
 			// pre-condition.
 			assert_eq!(MaxNominationsOf::<Test>::get(), 16);
 
-			let unbonded_election = DataProviderBounds::default();
+			let unbounded_election = DataProviderBounds::default();
 
 			assert_eq!(
 				Nominators::<Test>::iter()
 					.map(|(k, n)| (k, n.targets.len()))
 					.collect::<Vec<_>>(),
-				vec![(70, 3), (101, 2), (50, 4), (30, 4), (60, 1)]
+				vec![(70, 3), (50, 4), (30, 4), (60, 1)]
 			);
 
 			// 4 validators and 4 nominators
-			assert_eq!(Staking::electing_voters(unbonded_election, 0).unwrap().len(), 4 + 4);
+			assert_eq!(Staking::electing_voters(unbounded_election, 0).unwrap().len(), 4 + 4);
 		});
 }
 
@@ -467,26 +465,11 @@ fn api_nominations_quota_works() {
 fn lazy_quota_npos_voters_works_above_quota() {
 	ExtBuilder::default()
 		.nominate(false)
-		.add_staker(
-			22,
-			300, // 300 bond has 16 nomination quota.
-			StakerStatus::<AccountId>::Validator,
-		)
-		.add_staker(
-			23,
-			300, // 300 bond has 16 nomination quota.
-			StakerStatus::<AccountId>::Validator,
-		)
-		.add_staker(
-			24,
-			300, // 300 bond has 16 nomination quota.
-			StakerStatus::<AccountId>::Validator,
-		)
-		.add_staker(
-			25,
-			300, // 300 bond has 16 nomination quota.
-			StakerStatus::<AccountId>::Validator,
-		)
+		// need to make 22, 23, 24 and 25 validators
+		.add_staker(22, 1000, StakerStatus::Validator)
+		.add_staker(23, 1000, StakerStatus::Validator)
+		.add_staker(24, 1000, StakerStatus::Validator)
+		.add_staker(25, 1000, StakerStatus::Validator)
 		.add_staker(
 			61,
 			300, // 300 bond has 16 nomination quota.
@@ -498,7 +481,7 @@ fn lazy_quota_npos_voters_works_above_quota() {
 			assert_ok!(Staking::unbond(RuntimeOrigin::signed(61), 78));
 			assert_eq!(Staking::api_nominations_quota(300 - 78), 2);
 
-			// even though 61 has nomination quota of 2 at the time of the election, all the
+			// even through 61 has nomination quota of 2 at the time of the election, all the
 			// nominations (5) will be used.
 			assert_eq!(
 				Staking::electing_voters(DataProviderBounds::default(), 0)
@@ -515,28 +498,23 @@ fn lazy_quota_npos_voters_works_above_quota() {
 fn nominations_quota_limits_size_work() {
 	ExtBuilder::default()
 		.nominate(false)
-		.add_staker(10, 333, StakerStatus::<AccountId>::Validator)
-		.add_staker(12, 333, StakerStatus::<AccountId>::Validator)
-		.add_staker(13, 333, StakerStatus::<AccountId>::Validator)
-		.add_staker(14, 333, StakerStatus::<AccountId>::Validator)
-		.add_staker(15, 333, StakerStatus::<AccountId>::Validator)
-		.add_staker(16, 333, StakerStatus::<AccountId>::Validator)
-		.add_staker(71, 333, StakerStatus::<AccountId>::Nominator(vec![16, 15, 14, 13, 12, 11, 10]))
+		.set_status(41, StakerStatus::Validator)
+		.add_staker(71, 333, StakerStatus::<AccountId>::Nominator(vec![11, 21, 31, 41]))
 		.build_and_execute(|| {
-			// nominations of controller 70 won't be added due to voter size limit exceeded.
-			let bounds = ElectionBoundsBuilder::default().voters_size(100.into()).build();
+			// nominations of 71 won't be added due to voter size limit exceeded.
+			let bounds = ElectionBoundsBuilder::default().voters_size(101.into()).build();
 			assert_eq!(
 				Staking::electing_voters(bounds.voters, 0)
 					.unwrap()
 					.iter()
 					.map(|(stash, _, targets)| (*stash, targets.len()))
 					.collect::<Vec<_>>(),
-				vec![(11, 1), (21, 1), (31, 1)],
+				vec![(41, 1), (11, 1), (21, 1), (31, 1)],
 			);
 
 			assert_eq!(
 				*staking_events().last().unwrap(),
-				Event::SnapshotVotersSizeExceeded { size: 75 }
+				Event::SnapshotVotersSizeExceeded { size: 100 }
 			);
 
 			// however, if the election voter size bounds were larger, the snapshot would
@@ -548,7 +526,7 @@ fn nominations_quota_limits_size_work() {
 					.iter()
 					.map(|(stash, _, targets)| (*stash, targets.len()))
 					.collect::<Vec<_>>(),
-				vec![(11, 1), (21, 1), (31, 1), (71, 7)],
+				vec![(41, 1), (11, 1), (21, 1), (31, 1), (71, 4)],
 			);
 		});
 }
@@ -571,7 +549,7 @@ mod sorted_list_provider {
 			);
 
 			// when account 101 renominates
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![11]));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![31]));
 
 			// then counts don't change
 			assert_eq!(<Test as Config>::VoterList::count(), pre_insert_voter_count);
@@ -789,7 +767,7 @@ mod paged_snapshot {
 					.collect::<Vec<_>>();
 
 				// consumed, and we already unlock
-				assert_eq!(voters_page_1, vec![31, 101]);
+				assert_eq_uvec!(voters_page_1, vec![31, 101]);
 				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Consumed);
 				assert_eq!(pallet_bags_list::Lock::<T, VoterBagsListInstance>::get(), None);
 
