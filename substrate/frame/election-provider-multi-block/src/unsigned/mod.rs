@@ -497,7 +497,7 @@ mod validate_unsigned {
 
 	#[test]
 	fn retracts_wrong_phase() {
-		ExtBuilder::unsigned().signed_phase(5, 0).build_and_execute(|| {
+		ExtBuilder::unsigned().signed_phase(5, 6).build_and_execute(|| {
 			let solution = raw_paged_solution_low_score();
 			let call = Call::submit_unsigned { paged_solution: Box::new(solution.clone()) };
 
@@ -534,7 +534,7 @@ mod validate_unsigned {
 			));
 
 			// unsigned
-			roll_to(25);
+			roll_to_unsigned_open();
 			assert!(MultiBlock::current_phase().is_unsigned());
 
 			assert_ok!(<UnsignedPallet as ValidateUnsigned>::validate_unsigned(

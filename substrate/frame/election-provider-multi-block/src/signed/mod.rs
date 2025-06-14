@@ -119,18 +119,43 @@ pub struct SubmissionMetadata<T: Config> {
 impl<T: Config> SolutionDataProvider for Pallet<T> {
 	type Solution = SolutionOf<T::MinerConfig>;
 
-	fn get_page(page: PageIndex) -> Option<Self::Solution> {
-		// note: a non-existing page will still be treated as merely an empty page. This could be
-		// re-considered.
+	// `get_page` should only be called when a leader exists.
+	// The verifier only transitions to `Status::Ongoing` when a leader is confirmed to exist.
+	// During verification, the leader should remain unchanged - it's only removed when
+	// verification fails (which immediately stops the verifier) or completes successfully.
+	fn get_page(page: PageIndex) -> Self::Solution {
 		let current_round = Self::current_round();
-		Submissions::<T>::leader(current_round).map(|(who, _score)| {
-			sublog!(info, "signed", "returning page {} of {:?}'s submission as leader.", page, who);
-			Submissions::<T>::get_page_of(current_round, &who, page).unwrap_or_default()
-		})
+		Submissions::<T>::leader(current_round)
+			.defensive()
+			.and_then(|(who, _score)| {
+				sublog!(
+					info,
+					"signed",
+					"returning page {} of {:?}'s submission as leader.",
+					page,
+					who
+				);
+				Submissions::<T>::get_page_of(current_round, &who, page)
+			})
+			.unwrap_or_default()
 	}
 
-	fn get_score() -> Option<ElectionScore> {
-		Submissions::<T>::leader(Self::current_round()).map(|(_who, score)| score)
+	// `get_score` should only be called when a leader exists.
+	fn get_score() -> ElectionScore {
+		let current_round = Self::current_round();
+		Submissions::<T>::leader(current_round)
+			.defensive()
+			.inspect(|(_who, score)| {
+				sublog!(
+					debug,
+					"signed",
+					"returning score {:?} of current leader for round {}.",
+					score,
+					current_round
+				);
+			})
+			.map(|(_who, score)| score)
+			.unwrap_or_default()
 	}
 
 	fn report_result(result: crate::verifier::VerificationResult) {
@@ -166,36 +191,7 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 				}
 			},
 			VerificationResult::Rejected => {
-				// defensive: if there is a result to be reported, then we must have had some
-				// leader.
-				if let Some((loser, metadata)) =
-					Submissions::<T>::take_leader_with_data(Self::current_round()).defensive()
-				{
-					// first, let's slash their deposit.
-					let slash = metadata.deposit;
-					let _res = T::Currency::burn_held(
-						&HoldReason::SignedSubmission.into(),
-						&loser,
-						slash,
-						Precision::BestEffort,
-						Fortitude::Force,
-					);
-					debug_assert_eq!(_res, Ok(slash));
-					Self::deposit_event(Event::<T>::Slashed(current_round, loser.clone(), slash));
-
-					// inform the verifier that they can now try again, if we're still in the signed
-					// validation phase.
-					if crate::Pallet::<T>::current_phase().is_signed_validation() &&
-						Submissions::<T>::has_leader(current_round)
-					{
-						// defensive: verifier just reported back a result, it must be in clear
-						// state.
-						let _ = <T::Verifier as AsynchronousVerifier>::start().defensive();
-					}
-				}
-			},
-			VerificationResult::DataUnavailable => {
-				unreachable!("TODO")
+				Self::handle_solution_rejection(current_round);
 			},
 		}
 	}
@@ -324,7 +320,7 @@ pub mod pallet {
 	pub(crate) struct Submissions<T: Config>(sp_std::marker::PhantomData<T>);
 
 	#[pallet::storage]
-	type SortedScores<T: Config> = StorageMap<
+	pub type SortedScores<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		u32,
@@ -921,12 +917,6 @@ pub mod pallet {
 				}
 			}
 
-			if crate::Pallet::<T>::current_phase().is_unsigned_opened_now() {
-				// signed validation phase just ended, make sure you stop any ongoing operation.
-				sublog!(info, "signed", "signed validation ended, sending validation stop signal",);
-				<T::Verifier as AsynchronousVerifier>::stop();
-			}
-
 			weight_taken_into_account
 		}
 
@@ -969,5 +959,56 @@ impl<T: Config> Pallet<T> {
 		)
 		.defensive();
 		debug_assert_eq!(_res, Ok(to_slash));
+	}
+
+	/// Common logic for handling solution rejection - slash the submitter and try next solution
+	fn handle_solution_rejection(current_round: u32) {
+		if let Some((loser, metadata)) =
+			Submissions::<T>::take_leader_with_data(current_round).defensive()
+		{
+			// Slash the deposit
+			let slash = metadata.deposit;
+			let _res = T::Currency::burn_held(
+				&HoldReason::SignedSubmission.into(),
+				&loser,
+				slash,
+				Precision::BestEffort,
+				Fortitude::Force,
+			);
+			debug_assert_eq!(_res, Ok(slash));
+			Self::deposit_event(Event::<T>::Slashed(current_round, loser.clone(), slash));
+
+			// Try to start verification again if we still have submissions
+			if let crate::types::Phase::SignedValidation(remaining_blocks) =
+				crate::Pallet::<T>::current_phase()
+			{
+				// Only start verification if there are sufficient blocks remaining
+				// Note: SignedValidation(N) means N+1 blocks remaining in the phase
+				let actual_blocks_remaining = remaining_blocks.saturating_add(One::one());
+				if actual_blocks_remaining >= T::Pages::get().into() {
+					if Submissions::<T>::has_leader(current_round) {
+						// defensive: verifier just reported back a result, it must be in clear
+						// state.
+						let _ = <T::Verifier as AsynchronousVerifier>::start().defensive();
+					}
+				} else {
+					sublog!(
+						warn,
+						"signed",
+						"SignedValidation phase has {:?} blocks remaining, which are insufficient for {} pages",
+						actual_blocks_remaining,
+						T::Pages::get()
+					);
+				}
+			}
+		} else {
+			// No leader to slash; nothing to do.
+			sublog!(
+				warn,
+				"signed",
+				"Tried to slash but no leader was present for round {}",
+				current_round
+			);
+		}
 	}
 }
