@@ -26,6 +26,7 @@ sp-authority-discovery = { workspace = true }
 sp-runtime = { workspace = true }
 
 [dev-dependencies]
+pallet-balances = { workspace = true }
 sp-core = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 
@@ -35,6 +36,7 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
+	"pallet-balances/std",
 	"pallet-session/std",
 	"scale-info/std",
 	"sp-application-crypto/std",
@@ -46,6 +48,7 @@ std = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
 	"pallet-session/try-runtime",
 	"sp-runtime/try-runtime",
 ]

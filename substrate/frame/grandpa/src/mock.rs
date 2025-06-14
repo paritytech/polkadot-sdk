@@ -106,6 +106,8 @@ impl pallet_session::Config for Test {
 	type Keys = TestSessionKeys;
 	type DisablingStrategy = ();
 	type WeightInfo = ();
+	type Currency = Balances;
+	type KeyDeposit = ();
 }
 
 impl pallet_session::historical::Config for Test {

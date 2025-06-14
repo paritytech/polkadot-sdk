@@ -106,6 +106,8 @@ impl pallet_session::Config for Test {
 	type ValidatorIdOf = sp_runtime::traits::ConvertInto;
 	type DisablingStrategy = ();
 	type WeightInfo = ();
+	type Currency = Balances;
+	type KeyDeposit = ();
 }
 pallet_staking_reward_curve::build! {
 	const I_NPOS: sp_runtime::curve::PiecewiseLinear<'static> = curve!(
