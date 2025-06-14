@@ -418,7 +418,7 @@ impl<T: MinerConfig> BaseMiner<T> {
 		paged.score = score;
 
 		miner_log!(
-			info,
+			debug,
 			"mined a solution with {} pages, score {:?}, {} winners, {} voters, {} edges, and {} bytes",
 			pages,
 			score,
@@ -773,11 +773,6 @@ impl<T: Config> OffchainWorkerMiner<T> {
 	}
 
 	fn submit_call(call: Call<T>) -> Result<(), OffchainMinerError<T>> {
-		sublog!(
-			debug,
-			"unsigned::ocw-miner",
-			"miner submitting a solution as an unsigned transaction"
-		);
 		let xt = T::create_bare(call.into());
 		frame_system::offchain::SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
 			.map(|_| {

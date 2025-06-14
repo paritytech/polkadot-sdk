@@ -308,7 +308,6 @@ impl<T: Config> ElectionProvider for Continue<T> {
 	type MaxWinnersPerPage = <T::Verifier as Verifier>::MaxWinnersPerPage;
 
 	fn elect(_page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
-		log!(warn, "'Continue' fallback will do nothing");
 		Err("'Continue' fallback will do nothing")
 	}
 
@@ -1539,7 +1538,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 			.ok_or(ElectionError::SupportPageNotAvailable)
 			.or_else(|err: ElectionError<T>| {
 				log!(
-					warn,
+					debug,
 					"primary election for page {} failed due to: {:?}, trying fallback",
 					remaining,
 					err,
@@ -1551,7 +1550,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 				// anything else anymore. This will prevent any new submissions to signed and
 				// unsigned pallet, and thus the verifier will also be almost stuck, except for the
 				// submission of emergency solutions.
-				log!(warn, "primary and fallback ({:?}) failed for page {:?}", err, remaining);
+				log!(debug, "fallback also ({:?}) failed for page {:?}", err, remaining);
 				err
 			})
 			.map(|supports| {
@@ -1564,7 +1563,6 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 			log!(error, "Emergency phase triggered, halting the election.");
 		} else {
 			if remaining.is_zero() {
-				log!(info, "receiving last call to elect(0), rotating round");
 				Self::rotate_round()
 			} else {
 				Self::phase_transition(Phase::Export(remaining - 1))
