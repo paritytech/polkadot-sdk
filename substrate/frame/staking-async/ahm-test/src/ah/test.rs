@@ -141,13 +141,13 @@ fn on_receive_session_report() {
 		);
 
 		// roll some blocks until election result is exported.
-		roll_many(14);
+		roll_many(15);
 		assert_eq!(
 			election_events_since_last_call(),
 			vec![
 				ElectionEvent::PhaseTransitioned {
 					from: Phase::Signed(0),
-					to: Phase::SignedValidation(5)
+					to: Phase::SignedValidation(6)
 				},
 				ElectionEvent::PhaseTransitioned {
 					from: Phase::SignedValidation(0),
@@ -187,7 +187,7 @@ fn on_receive_session_report() {
 			LocalQueue::get().unwrap(),
 			vec![(
 				// this is the block number at which the message was sent.
-				42,
+				43,
 				OutgoingMessages::ValidatorSet(ValidatorSetReport {
 					new_validator_set: vec![3, 5, 6, 8],
 					id: 1,
