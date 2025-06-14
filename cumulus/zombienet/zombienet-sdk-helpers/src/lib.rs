@@ -207,7 +207,9 @@ pub async fn assert_para_throughput(
 			candidate_count.entry(*para_id).or_default().1 = block_number;
 		}
 
-		if block_number - *start_height.get_or_insert_with(|| block_number - 1) >= stop_after {
+		if block_number - *start_height.get_or_insert_with(|| block_number.saturating_sub(1)) >=
+			stop_after
+		{
 			log::info!(
 				"Finished condition: block_height: {:?}, start_height: {:?}",
 				block.number(),

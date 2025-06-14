@@ -25,8 +25,8 @@ use frame_election_provider_support::{
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
-		ConstU64, EitherOfDiverse, FindAuthor, Get, Imbalance, OnUnbalanced, OneSessionHandler,
-		RewardsReporter,
+		ConstU64, EitherOfDiverse, FindAuthor, Get, Imbalance, OnGenesis, OnUnbalanced,
+		OneSessionHandler, RewardsReporter,
 	},
 	weights::constants::RocksDbWeight,
 };
@@ -568,6 +568,10 @@ impl ExtBuilder {
 		.assimilate_storage(&mut storage);
 
 		let mut ext = sp_io::TestExternalities::from(storage);
+
+		ext.execute_with(|| {
+			Session::on_genesis();
+		});
 
 		if self.initialize_first_session {
 			ext.execute_with(|| {
