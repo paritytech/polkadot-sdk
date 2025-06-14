@@ -14,11 +14,11 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: k8s_auth
-      shell: bash
-      run: |
-        . /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
-        k8s_auth
+    #    - name: k8s_auth
+    #  shell: bash
+    #  run: |
+    #    . /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+    #    k8s_auth
 
     - name: common_vars
       shell: bash
