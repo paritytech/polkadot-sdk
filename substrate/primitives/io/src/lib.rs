@@ -81,9 +81,6 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
-#[cfg(not(substrate_runtime))]
-use byte_slice_cast::AsMutSliceOf;
-
 use strum::EnumCount;
 
 #[cfg(not(substrate_runtime))]
@@ -122,7 +119,7 @@ use sp_runtime_interface::{
 	pass_by::{
 		AllocateAndReturnByCodec, AllocateAndReturnFatPointer, AllocateAndReturnPointer,
 		ConvertAndPassAs, ConvertAndReturnAs, PassAs, PassBufferAndWrite,
-		PassBufferAndWriteEncoded, PassFatPointerAndDecode, PassFatPointerAndDecodeSlice,
+		PassFatPointerAndDecode, PassFatPointerAndDecodeSlice,
 		PassFatPointerAndRead, PassFatPointerAndReadWrite, PassMaybeFatPointerAndRead,
 		PassPointerAndRead, PassPointerAndReadCopy, PassPointerAndWrite, ReturnAs,
 	},
@@ -673,14 +670,17 @@ pub trait Storage {
 		maybe_prefix: PassFatPointerAndRead<&[u8]>,
 		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
 		maybe_cursor_in: PassMaybeFatPointerAndRead<Option<&[u8]>>,
-		removal_results_out: PassBufferAndWriteEncoded<&mut MultiRemovalResults, 4096>,
+		removal_results_out: PassBufferAndWrite<&mut [u8], 4096>,
 	) {
-		*removal_results_out = Externalities::clear_prefix(
+		let removal_results = Externalities::clear_prefix(
 			*self,
 			maybe_prefix,
 			maybe_limit,
 			maybe_cursor_in.as_ref().map(|x| &x[..]),
 		);
+		let encoded = removal_results.encode();
+		let write_len = encoded.len().min(removal_results_out.len());
+		removal_results_out[..write_len].copy_from_slice(&encoded[..write_len]);
 	}
 
 	/// Append the encoded `value` to the storage item at `key`.
@@ -933,14 +933,17 @@ pub trait DefaultChildStorage {
 		storage_key: PassFatPointerAndRead<&[u8]>,
 		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
 		maybe_cursor_in: PassMaybeFatPointerAndRead<Option<&[u8]>>,
-		removal_results_out: PassBufferAndWriteEncoded<&mut MultiRemovalResults, 4096>,
+		removal_results_out: PassBufferAndWrite<&mut [u8], 4096>,
 	) {
 		let child_info = ChildInfo::new_default(storage_key);
-		*removal_results_out = self.kill_child_storage(
+		let removal_results = self.kill_child_storage(
 			&child_info,
 			maybe_limit,
 			maybe_cursor_in.as_ref().map(|x| &x[..]),
 		);
+		let encoded = removal_results.encode();
+		let write_len = encoded.len().min(removal_results_out.len());
+		removal_results_out[..write_len].copy_from_slice(&encoded[..write_len]);
 	}
 
 	/// Check a child storage key.
@@ -991,15 +994,18 @@ pub trait DefaultChildStorage {
 		prefix: PassFatPointerAndRead<&[u8]>,
 		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
 		maybe_cursor_in: PassMaybeFatPointerAndRead<Option<&[u8]>>,
-		removal_results_out: PassBufferAndWriteEncoded<&mut MultiRemovalResults, 4096>,
+		removal_results_out: PassBufferAndWrite<&mut [u8], 4096>,
 	) {
 		let child_info = ChildInfo::new_default(storage_key);
-		*removal_results_out = self.clear_child_prefix(
+		let removal_results = self.clear_child_prefix(
 			&child_info,
 			prefix,
 			maybe_limit,
 			maybe_cursor_in.as_ref().map(|x| &x[..]),
 		);
+		let encoded = removal_results.encode();
+		let write_len = encoded.len().min(removal_results_out.len());
+		removal_results_out[..write_len].copy_from_slice(&encoded[..write_len]);
 	}
 
 	/// Default child root calculation.
@@ -2767,26 +2773,14 @@ pub trait Offchain {
 		&mut self,
 		ids: PassFatPointerAndDecodeSlice<&[HttpRequestId]>,
 		deadline: PassFatPointerAndDecode<Option<Timestamp>>,
-		out: PassFatPointerAndReadWrite<&mut [u8]>,
+		out: PassBufferAndWrite<&mut [u8], 4096>,
 	) {
-		out.as_mut_slice_of::<i32>()
-			.expect("out must cast to a slice of i32")
-			.iter_mut()
-			.zip(
-				self.extension::<OffchainWorkerExt>()
-					.expect("http_response_wait can be called only in the offchain worker context")
-					.http_response_wait(ids, deadline)
-					.iter()
-					.map(|r| match r {
-						HttpRequestStatus::DeadlineReached => -1_i32,
-						HttpRequestStatus::IoError => -2_i32,
-						HttpRequestStatus::Invalid => -3_i32,
-						HttpRequestStatus::Finished(code) => *code as i32,
-					}),
-			)
-			.for_each(|(out, status)| {
-				*out = status;
-			});
+		let statuses = self.extension::<OffchainWorkerExt>()
+			.expect("http_response_wait can be called only in the offchain worker context")
+			.http_response_wait(ids, deadline);
+		let encoded = statuses.encode();
+		let write_len = encoded.len().min(out.len());
+		out[..write_len].copy_from_slice(&encoded[..write_len]);
 	}
 
 	/// Read all response headers.
