@@ -171,8 +171,6 @@ mod pallet {
 			)
 			.expect(error_message);
 
-			sublog!(info, "unsigned", "queued an unsigned solution with score {:?}", claimed_score);
-
 			Ok(None.into())
 		}
 	}

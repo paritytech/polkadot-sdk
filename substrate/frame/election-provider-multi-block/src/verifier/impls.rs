@@ -752,7 +752,7 @@ impl<T: Config> Pallet<T> {
 
 		// then store it.
 		sublog!(
-			info,
+			debug,
 			"verifier",
 			"queued sync solution with score {:?} for pages {:?}",
 			truth_score,

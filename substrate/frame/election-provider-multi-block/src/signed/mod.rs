@@ -903,7 +903,7 @@ pub mod pallet {
 			if crate::Pallet::<T>::current_phase().is_signed_validation_opened_now() {
 				let maybe_leader = Submissions::<T>::leader(Self::current_round());
 				sublog!(
-					info,
+					debug,
 					"signed",
 					"signed validation started, sending validation start signal? {:?}",
 					maybe_leader.is_some()
