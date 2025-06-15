@@ -1,4 +1,4 @@
-title: "[FRAME]\_Custom log level for the runtime benchmarks"
+title: "[FRAME] Custom log level for the runtime benchmarks"
 doc:
 - audience: Runtime Dev
   description: |-
