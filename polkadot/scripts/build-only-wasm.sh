@@ -30,8 +30,8 @@ fi
 if [ -d $WASM_BUILDER_RUNNER ]; then
   export DEBUG=false
   export OUT_DIR="$PROJECT_ROOT/target/release/build"
-  fl_cargo run --release --manifest-path="$WASM_BUILDER_RUNNER/Cargo.toml" --features runtime-benchmarks \
+  fl_cargo run --release --manifest-path="$WASM_BUILDER_RUNNER/Cargo.toml" \
     | grep -vE "cargo:rerun-if-|Executing build command"
 else
-  fl_cargo build --release -p $1 --features runtime-benchmarks
+  fl_cargo build --release -p $1
 fi
