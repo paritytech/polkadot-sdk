@@ -58,6 +58,7 @@ sp-database = { workspace = true, default-features = true }
 sp-externalities = { workspace = true, default-features = true }
 sp-genesis-builder = { workspace = true, default-features = true }
 sp-inherents = { workspace = true, default-features = true }
+sp-runtime-interface = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
