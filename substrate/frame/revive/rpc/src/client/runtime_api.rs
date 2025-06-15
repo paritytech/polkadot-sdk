@@ -113,11 +113,10 @@ impl RuntimeApi {
 		transaction_index: u32,
 		tracer_type: crate::TracerType,
 	) -> Result<Trace, ClientError> {
-		let payload = subxt_client::apis().revive_api().trace_tx(
-			block.into(),
-			transaction_index,
-			tracer_type.into(),
-		);
+		let payload = subxt_client::apis()
+			.revive_api()
+			.trace_tx(block.into(), transaction_index, tracer_type.into())
+			.unvalidated();
 
 		let trace = self.0.call(payload).await?.ok_or(ClientError::EthExtrinsicNotFound)?.0;
 		Ok(trace)
@@ -132,8 +131,10 @@ impl RuntimeApi {
 		>,
 		tracer_type: crate::TracerType,
 	) -> Result<Vec<(u32, Trace)>, ClientError> {
-		let payload =
-			subxt_client::apis().revive_api().trace_block(block.into(), tracer_type.into());
+		let payload = subxt_client::apis()
+			.revive_api()
+			.trace_block(block.into(), tracer_type.into())
+			.unvalidated();
 
 		let traces = self.0.call(payload).await?.into_iter().map(|(idx, t)| (idx, t.0)).collect();
 		Ok(traces)
@@ -147,7 +148,8 @@ impl RuntimeApi {
 	) -> Result<Trace, ClientError> {
 		let payload = subxt_client::apis()
 			.revive_api()
-			.trace_call(transaction.into(), tracer_type.into());
+			.trace_call(transaction.into(), tracer_type.into())
+			.unvalidated();
 
 		let trace = self.0.call(payload).await?.map_err(|err| ClientError::TransactError(err.0))?;
 		Ok(trace.0)
