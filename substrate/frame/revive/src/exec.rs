@@ -1690,6 +1690,7 @@ where
 			self.is_read_only(),
 		)?;
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
+		if_tracing(|t| t.instantiate_code(&crate::Code::Existing(code_hash), salt));
 		self.run(executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE), input_data, BumpNonce::Yes)
 			.map(|_| address)
 	}
