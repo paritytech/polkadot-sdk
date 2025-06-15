@@ -64,7 +64,7 @@ type SubstrateAndExtraHF<T> = (
 	ExtendedHostFunctions<
 		(sp_io::SubstrateHostFunctions, frame_benchmarking::benchmarking::HostFunctions),
 		super::logging::logging::HostFunctions,
-	>, // Our special logging interface
+	>,
 	T,
 );
 /// How the PoV size of a storage item should be estimated.

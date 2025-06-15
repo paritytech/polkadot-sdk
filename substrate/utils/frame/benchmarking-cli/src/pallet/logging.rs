@@ -53,19 +53,20 @@ pub fn init(arg: Option<LevelFilter>) {
 /// Alternative implementation to `sp_runtime_interface::logging::HostFunctions` for benchmarking.
 #[runtime_interface]
 pub trait Logging {
+	#[allow(dead_code)]
 	fn log(
 		level: PassAs<RuntimeInterfaceLogLevel, u8>,
 		target: PassFatPointerAndRead<&str>,
 		message: PassFatPointerAndRead<&[u8]>,
 	) {
-		let Ok(message) = core::str::from_utf8(message) else {
+		if let Ok(message) = core::str::from_utf8(message) {
+			log::log!(target: target, log::Level::from(level), "{}", message);
+		} else {
 			log::error!(target: LOG_TARGET, "Runtime tried to log invalid UTF-8 data");
-			return;
-		};
-
-		log::log!(target: target, log::Level::from(level), "{}", message)
+		}
 	}
 
+	#[allow(dead_code)]
 	fn max_level() -> ReturnAs<LogLevelFilter, u8> {
 		RUNTIME_LOG_LEVEL
 			.with(|level| *level.get().expect("Must be set by host"))
