@@ -61,7 +61,7 @@ runs:
         TEST_NAME: ${{ inputs.test }}
         PREFIX: ${{ inputs.prefix }}
       run: |
-          export ZOMBIE_NAMESPACE=$(cat /data/namespace)
+          export ZOMBIE_K8S_CI_NAMESPACE=$(cat /data/namespace)
           ls -ltr ./artifacts
           cargo nextest run --archive-file ./artifacts/${PREFIX}-zombienet-tests.tar.zst --no-capture -- ${TEST_NAME}
 
