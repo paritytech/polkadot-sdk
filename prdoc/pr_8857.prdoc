@@ -8,7 +8,5 @@ doc:
     - Set custom log level for runtime benchmarks that can be different form CLI level
     - Fix issue where old runtimes have a space in the pallet or instance name from breaking change in `quote` macro
 crates:
-- name: polkadot
-  bump: minor
 - name: frame-benchmarking-cli
   bump: minor
