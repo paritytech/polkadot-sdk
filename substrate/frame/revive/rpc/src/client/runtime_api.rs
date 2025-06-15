@@ -96,6 +96,13 @@ impl RuntimeApi {
 		Ok(*gas_limit)
 	}
 
+	/// Get the miner address
+	pub async fn block_author(&self) -> Result<Option<H160>, ClientError> {
+		let payload = subxt_client::apis().revive_api().block_author();
+		let author = self.0.call(payload).await?;
+		Ok(author)
+	}
+
 	/// Get the trace for the given transaction index in the given block.
 	pub async fn trace_tx(
 		&self,

@@ -14,7 +14,11 @@
 // limitations under the License.
 
 use crate::tests::{snowbridge_common::snowbridge_sovereign, *};
-use emulated_integration_tests_common::macros::Dmp;
+use emulated_integration_tests_common::{
+	macros::Dmp,
+	xcm_helpers::{find_mq_processed_id, find_xcm_sent_message_id},
+	xcm_simulator::helpers::TopicIdTracker,
+};
 use xcm::latest::AssetTransferFilter;
 
 fn send_assets_over_bridge<F: FnOnce()>(send_fn: F) {
@@ -1028,6 +1032,7 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 	let amount = ASSET_HUB_WESTEND_ED * 10_000_000;
 	let sender = PenpalBSender::get();
 	let receiver = RococoReceiver::get();
+	let mut topic_id_tracker = TopicIdTracker::new();
 
 	// set up ROCs for transfer
 	let penpal_location = AssetHubWestend::sibling_location_of(PenpalB::para_id());
@@ -1132,11 +1137,17 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 			// send message over bridge
 			assert_ok!(PenpalB::execute_with(|| {
 				let signed_origin = <PenpalB as Chain>::RuntimeOrigin::signed(sender.clone());
-				<PenpalB as PenpalBPallet>::PolkadotXcm::execute(
+				let result = <PenpalB as PenpalBPallet>::PolkadotXcm::execute(
 					signed_origin,
 					bx!(xcm::VersionedXcm::V5(xcm.into())),
 					Weight::MAX,
-				)
+				);
+
+				let msg_sent_id =
+					find_xcm_sent_message_id::<PenpalB>().expect("Missing Sent Event");
+				topic_id_tracker.insert("PenpalB", msg_sent_id.into());
+
+				result
 			}));
 			AssetHubWestend::execute_with(|| {
 				type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
@@ -1159,6 +1170,9 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 						) => {},
 					]
 				);
+				let mq_prc_id =
+					find_mq_processed_id::<AssetHubWestend>().expect("Missing Processed Event");
+				topic_id_tracker.insert("AssetHubWestend", mq_prc_id);
 			});
 		});
 	}
@@ -1185,7 +1199,10 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 				) => {},
 			]
 		);
+		let mq_prc_id = find_mq_processed_id::<AssetHubRococo>().expect("Missing Processed Event");
+		topic_id_tracker.insert("AssetHubRococo", mq_prc_id);
 	});
+	topic_id_tracker.assert_unique();
 
 	let sender_rocs_after = PenpalB::execute_with(|| {
 		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
@@ -1210,6 +1227,7 @@ fn dry_run_transfer_to_rococo_sends_xcm_to_bridge_hub() {
 }
 
 fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
+	topic_id_tracker: &mut TopicIdTracker,
 	wnds: (Location, u128),
 	pens: (Location, u128),
 ) {
@@ -1301,14 +1319,25 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 				},
 			]);
 
-			<PenpalB as PenpalBPallet>::PolkadotXcm::execute(
+			let result = <PenpalB as PenpalBPallet>::PolkadotXcm::execute(
 				signed_origin,
 				bx!(xcm::VersionedXcm::V5(xcm.into())),
 				Weight::MAX,
-			)
+			);
+
+			let msg_sent_id = find_xcm_sent_message_id::<PenpalB>().expect("Missing Sent Event");
+			topic_id_tracker.insert_and_assert_unique("PenpalB", msg_sent_id.into());
+
+			result
 		}));
 		AssetHubWestend::execute_with(|| {
 			type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+			let mq_prc_id =
+				find_mq_processed_id::<AssetHubWestend>().expect("Missing Processed Event");
+			topic_id_tracker.insert_and_assert_unique("AssetHubWestend", mq_prc_id);
+			let msg_sent_id =
+				find_xcm_sent_message_id::<AssetHubWestend>().expect("Missing Sent Event");
+			topic_id_tracker.insert_and_assert_unique("AssetHubWestend", msg_sent_id.into());
 			assert_expected_events!(
 				AssetHubWestend,
 				vec![
@@ -1328,6 +1357,12 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 					) => {},
 				]
 			);
+		});
+
+		BridgeHubWestend::ext_wrapper(|| {
+			let mq_prc_id =
+				find_mq_processed_id::<BridgeHubWestend>().expect("Missing Processed Event");
+			topic_id_tracker.insert_and_assert_unique("BridgeHubWestend", mq_prc_id);
 		});
 	});
 }
@@ -1433,8 +1468,12 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 		)
 	});
 
+	// init topic ID tracker
+	let mut topic_id_tracker = TopicIdTracker::new();
+
 	// transfer assets
 	do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
+		&mut topic_id_tracker,
 		(wnd_at_westend_parachains.clone(), wnds_to_send),
 		(pens_location_on_penpal.try_into().unwrap(), pens_to_send),
 	);
@@ -1442,6 +1481,8 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 	let wnd = Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]);
 	AssetHubRococo::execute_with(|| {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
+		let mq_prc_id = find_mq_processed_id::<AssetHubRococo>().expect("Missing Processed Event");
+		topic_id_tracker.insert_and_assert_unique("AssetHubRococo", mq_prc_id);
 		assert_expected_events!(
 			AssetHubRococo,
 			vec![
@@ -1457,6 +1498,9 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 			]
 		);
 	});
+
+	// assert unique topic across all chains
+	topic_id_tracker.assert_unique();
 
 	// account balances after
 	let sender_wnds_after = PenpalB::execute_with(|| {

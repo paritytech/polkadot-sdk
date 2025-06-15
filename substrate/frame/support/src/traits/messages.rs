@@ -18,9 +18,11 @@
 //! Traits for managing message queuing and handling.
 
 use super::storage::Footprint;
-use alloc::{vec, vec::Vec};
+use crate::defensive;
+
+use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, FullCodec, MaxEncodedLen};
-use core::{fmt::Debug, marker::PhantomData};
+use core::{cmp::Ordering, fmt::Debug, marker::PhantomData};
 use scale_info::TypeInfo;
 use sp_core::{ConstU32, Get, TypedGet};
 use sp_runtime::{traits::Convert, BoundedSlice, RuntimeDebug};
@@ -164,7 +166,7 @@ pub struct QueueFootprint {
 }
 
 /// The resource footprint of a batch of messages.
-#[derive(Default, Copy, Clone, Eq, PartialEq, RuntimeDebug)]
+#[derive(Default, Copy, Clone, PartialEq, RuntimeDebug)]
 pub struct BatchFootprint {
 	/// The number of messages in the batch.
 	pub msgs_count: usize,
@@ -172,6 +174,69 @@ pub struct BatchFootprint {
 	pub size_in_bytes: usize,
 	/// The number of resulting new pages in the queue if the current batch was added.
 	pub new_pages_count: u32,
+}
+
+/// The resource footprints of continuous subsets of messages.
+///
+/// For a set of messages `xcms[0..n]`, each `footprints[i]` contains the footprint
+/// of the batch `xcms[0..i]`, so as `i` increases `footprints[i]` contains the footprint
+/// of a bigger batch.
+#[derive(Default, RuntimeDebug)]
+pub struct BatchesFootprints {
+	/// The position in the first available MQ page where the batch will start being appended.
+	///
+	/// The messages in the batch will be enqueued to the message queue. Since the message queue is
+	/// organized in pages, the messages may be enqueued across multiple contiguous pages.
+	/// The position where we start appending messages to the first available MQ page is of
+	/// particular importance since it impacts the performance of the enqueuing operation.
+	/// That's because the first page has to be decoded first. This is not needed for the following
+	/// pages.
+	pub first_page_pos: usize,
+	pub footprints: Vec<BatchFootprint>,
+}
+
+impl BatchesFootprints {
+	/// Appends a batch footprint to the back of the collection.
+	///
+	/// The new footprint represents a batch that includes all the messages contained by the
+	/// previous batches plus the provided `msg`. If `new_page` is true, we will consider that
+	/// the provided `msg` is appended to a new message queue page. Otherwise, we consider
+	/// that it is appended to the current page.
+	pub fn push(&mut self, msg: &[u8], new_page: bool) {
+		let previous_footprint =
+			self.footprints.last().map(|footprint| *footprint).unwrap_or_default();
+
+		let mut new_pages_count = previous_footprint.new_pages_count;
+		if new_page {
+			new_pages_count = new_pages_count.saturating_add(1);
+		}
+		self.footprints.push(BatchFootprint {
+			msgs_count: previous_footprint.msgs_count.saturating_add(1),
+			size_in_bytes: previous_footprint.size_in_bytes.saturating_add(msg.len()),
+			new_pages_count,
+		});
+	}
+
+	/// Gets the biggest batch for which the comparator function returns `Ordering::Less`.
+	pub fn search_best_by<F>(&self, f: F) -> &BatchFootprint
+	where
+		F: FnMut(&BatchFootprint) -> Ordering,
+	{
+		// Since the batches are sorted by size, we can use binary search.
+		let maybe_best_idx = match self.footprints.binary_search_by(f) {
+			Ok(last_ok_idx) => Some(last_ok_idx),
+			Err(first_err_idx) => first_err_idx.checked_sub(1),
+		};
+		if let Some(best_idx) = maybe_best_idx {
+			match self.footprints.get(best_idx) {
+				Some(best_footprint) => return best_footprint,
+				None => {
+					defensive!("Invalid best_batch_idx: {}", best_idx);
+				},
+			}
+		}
+		&BatchFootprint { msgs_count: 0, size_in_bytes: 0, new_pages_count: 0 }
+	}
 }
 
 /// Provides information on queue footprint.
@@ -214,7 +279,7 @@ pub trait QueueFootprintQuery<Origin> {
 		origin: Origin,
 		msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
 		total_pages_limit: u32,
-	) -> Vec<BatchFootprint>;
+	) -> BatchesFootprints;
 }
 
 impl<Origin: MaxEncodedLen> QueueFootprintQuery<Origin> for () {
@@ -228,8 +293,8 @@ impl<Origin: MaxEncodedLen> QueueFootprintQuery<Origin> for () {
 		_origin: Origin,
 		_msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
 		_total_pages_limit: u32,
-	) -> Vec<BatchFootprint> {
-		vec![]
+	) -> BatchesFootprints {
+		BatchesFootprints::default()
 	}
 }
 
@@ -269,7 +334,7 @@ impl<E: QueueFootprintQuery<O>, O: MaxEncodedLen, N: MaxEncodedLen, C: Convert<N
 		origin: N,
 		msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
 		total_pages_limit: u32,
-	) -> Vec<BatchFootprint> {
+	) -> BatchesFootprints {
 		E::get_batches_footprints(C::convert(origin), msgs, total_pages_limit)
 	}
 }

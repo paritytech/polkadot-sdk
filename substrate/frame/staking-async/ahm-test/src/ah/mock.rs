@@ -83,11 +83,10 @@ pub fn roll_until_matches(criteria: impl Fn() -> bool, with_rc: bool) {
 /// Use the given `end_index` as the first session report, and increment as per needed.
 pub(crate) fn roll_until_next_active(mut end_index: SessionIndex) -> Vec<AccountId> {
 	// receive enough session reports, such that we plan a new era
-	let planned_era = pallet_staking_async::session_rotation::Rotator::<Runtime>::planning_era();
+	let planned_era = pallet_staking_async::session_rotation::Rotator::<Runtime>::planned_era();
 	let active_era = pallet_staking_async::session_rotation::Rotator::<Runtime>::active_era();
 
-	while pallet_staking_async::session_rotation::Rotator::<Runtime>::planning_era() == planned_era
-	{
+	while pallet_staking_async::session_rotation::Rotator::<Runtime>::planned_era() == planned_era {
 		let report = SessionReport {
 			end_index,
 			activation_timestamp: None,
@@ -195,11 +194,11 @@ where
 	type Extrinsic = Extrinsic;
 }
 
-impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
+impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
-	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
 		Extrinsic::new_bare(call)
 	}
 }
@@ -270,7 +269,7 @@ impl multi_block::Config for Runtime {
 	type Verifier = MultiBlockVerifier;
 	type AreWeDone = multi_block::ProceedRegardlessOf<Self>;
 	type OnRoundRotation = multi_block::CleanRound<Self>;
-	type WeightInfo = multi_block::weights::AllZeroWeights;
+	type WeightInfo = ();
 }
 
 impl multi_block::verifier::Config for Runtime {
@@ -280,12 +279,12 @@ impl multi_block::verifier::Config for Runtime {
 
 	type SolutionDataProvider = MultiBlockSigned;
 	type SolutionImprovementThreshold = ();
-	type WeightInfo = multi_block::weights::AllZeroWeights;
+	type WeightInfo = ();
 }
 
 impl multi_block::unsigned::Config for Runtime {
 	type MinerPages = ConstU32<1>;
-	type WeightInfo = multi_block::weights::AllZeroWeights;
+	type WeightInfo = ();
 	type MinerTxPriority = ConstU64<{ u64::MAX }>;
 	type OffchainRepeat = ();
 	type OffchainSolver = SequentialPhragmen<AccountId, Perbill>;
@@ -310,14 +309,14 @@ impl multi_block::signed::Config for Runtime {
 	type EstimateCallFee = ConstU32<1>;
 	type MaxSubmissions = MaxSubmissions;
 	type RewardBase = RewardBase;
-	type WeightInfo = multi_block::weights::AllZeroWeights;
+	type WeightInfo = ();
 }
 
 parameter_types! {
 	pub static BondingDuration: u32 = 3;
 	pub static SlashDeferredDuration: u32 = 2;
 	pub static SessionsPerEra: u32 = 6;
-	pub static PlanningEraOffset: u32 = 1;
+	pub static PlanningEraOffset: u32 = 2;
 }
 
 impl pallet_staking_async::Config for Runtime {
@@ -342,6 +341,7 @@ impl pallet_staking_async::Config for Runtime {
 	type RewardRemainder = ();
 	type Slash = ();
 	type SlashDeferDuration = SlashDeferredDuration;
+	type MaxEraDuration = ();
 
 	type HistoryDepth = ConstU32<7>;
 	type MaxControllersInDeprecationBatch = ();

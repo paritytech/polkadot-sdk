@@ -729,7 +729,7 @@ impl<T: Config> Pallet<T> {
 
 		if new_planned_era > 0 {
 			log!(
-				info,
+				debug,
 				"new validator set of size {:?} has been processed for era {:?}",
 				elected_stashes.len(),
 				new_planned_era,
@@ -987,7 +987,7 @@ impl<T: Config> Pallet<T> {
 		MinimumActiveStake::<T>::put(min_active_stake);
 
 		log!(
-			info,
+			debug,
 			"generated {} npos voters, {} from validators and {} nominators",
 			all_voters.len(),
 			validators_taken,
@@ -1037,7 +1037,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Self::register_weight(T::WeightInfo::get_npos_targets(all_targets.len() as u32));
-		log!(info, "generated {} npos targets", all_targets.len());
+		log!(debug, "generated {} npos targets", all_targets.len());
 
 		all_targets
 	}

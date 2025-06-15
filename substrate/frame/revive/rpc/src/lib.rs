@@ -136,12 +136,6 @@ impl EthRpcServer for EthRpcServerImpl {
 		transaction_hash: H256,
 	) -> RpcResult<Option<ReceiptInfo>> {
 		let receipt = self.client.receipt(&transaction_hash).await;
-		log::debug!(
-			target: LOG_TARGET,
-			"transaction_receipt for {transaction_hash:?}: received: {received} - success: {success:?}",
-			received = receipt.is_some(),
-			success = receipt.as_ref().map(|r| r.status == Some(U256::one()))
-		);
 		Ok(receipt)
 	}
 
@@ -322,7 +316,10 @@ impl EthRpcServer for EthRpcServerImpl {
 	) -> RpcResult<Option<TransactionInfo>> {
 		let Some(receipt) = self
 			.client
-			.receipt_by_hash_and_index(&block_hash, transaction_index.as_usize())
+			.receipt_by_hash_and_index(
+				&block_hash,
+				transaction_index.try_into().map_err(|_| EthRpcError::ConversionError)?,
+			)
 			.await
 		else {
 			return Ok(None);

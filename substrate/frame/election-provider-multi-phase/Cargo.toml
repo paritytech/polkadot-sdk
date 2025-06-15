@@ -34,6 +34,11 @@ frame-benchmarking = { optional = true, workspace = true }
 rand = { features = ["alloc", "small_rng"], optional = true, workspace = true }
 strum = { features = ["derive"], optional = true, workspace = true }
 
+# optional for remote testing
+hex = { workspace = true, default-features = true, optional = true }
+remote-externalities = { workspace = true, default-features = true, optional = true }
+tokio = { features = ["macros"], workspace = true, default-features = true, optional = true }
+
 [dev-dependencies]
 frame-benchmarking = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
@@ -42,7 +47,9 @@ rand = { workspace = true, default-features = true }
 sp-npos-elections = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
 
+
 [features]
+remote-mining = ["hex", "remote-externalities", "tokio"]
 default = ["std"]
 std = [
 	"codec/std",

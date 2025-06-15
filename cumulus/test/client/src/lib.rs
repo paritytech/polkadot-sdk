@@ -238,36 +238,37 @@ fn get_keystore() -> sp_keystore::KeystorePtr {
 	Arc::new(keystore)
 }
 
-/// Given parachain block data and a slot, seal the block with an aura seal. Assumes that the
-/// authorities of the test runtime are present in the keyring.
-pub fn seal_block(block: ParachainBlockData, client: &Client) -> ParachainBlockData {
+/// Seals the given block with an AURA seal.
+///
+/// Assumes that the authorities of the test runtime are present in the keyring.
+pub fn seal_block(mut block: Block, client: &Client) -> Block {
+	let parachain_slot =
+		find_pre_digest::<Block, <AuraId as AppCrypto>::Signature>(&block.header).unwrap();
+	let parent_hash = block.header.parent_hash;
+	let authorities = client.runtime_api().authorities(parent_hash).unwrap();
+	let expected_author = slot_author::<<AuraId as AppCrypto>::Pair>(parachain_slot, &authorities)
+		.expect("Should be able to find author");
+
+	let keystore = get_keystore();
+	let seal_digest = seal::<_, sp_consensus_aura::sr25519::AuthorityPair>(
+		&block.header.hash(),
+		expected_author,
+		&keystore,
+	)
+	.expect("Should be able to create seal");
+	block.header.digest_mut().push(seal_digest);
+
+	block
+}
+
+/// Seals all the blocks in the given [`ParachainBlockData`] with an AURA seal.
+///
+/// Assumes that the authorities of the test runtime are present in the keyring.
+pub fn seal_parachain_block_data(block: ParachainBlockData, client: &Client) -> ParachainBlockData {
 	let (blocks, proof) = block.into_inner();
 
 	ParachainBlockData::new(
-		blocks
-			.into_iter()
-			.map(|mut block| {
-				let parachain_slot =
-					find_pre_digest::<Block, <AuraId as AppCrypto>::Signature>(&block.header)
-						.unwrap();
-				let parent_hash = block.header.parent_hash;
-				let authorities = client.runtime_api().authorities(parent_hash).unwrap();
-				let expected_author =
-					slot_author::<<AuraId as AppCrypto>::Pair>(parachain_slot, &authorities)
-						.expect("Should be able to find author");
-
-				let keystore = get_keystore();
-				let seal_digest = seal::<_, sp_consensus_aura::sr25519::AuthorityPair>(
-					&block.header.hash(),
-					expected_author,
-					&keystore,
-				)
-				.expect("Should be able to create seal");
-				block.header.digest_mut().push(seal_digest);
-
-				block
-			})
-			.collect::<Vec<_>>(),
+		blocks.into_iter().map(|block| seal_block(block, &client)).collect::<Vec<_>>(),
 		proof,
 	)
 }

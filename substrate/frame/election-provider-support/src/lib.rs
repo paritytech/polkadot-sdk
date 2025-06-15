@@ -232,7 +232,10 @@ use sp_runtime::TryRuntimeError;
 // re-export for the solution macro, with the dependencies of the macro.
 #[doc(hidden)]
 pub mod private {
-	pub use alloc::{collections::btree_set::BTreeSet, vec::Vec};
+	pub use alloc::{
+		collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+		vec::Vec,
+	};
 	pub use codec;
 	pub use scale_info;
 	pub use sp_arithmetic;

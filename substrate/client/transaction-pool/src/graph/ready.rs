@@ -298,8 +298,8 @@ impl<Hash: hash::Hash + Member + Serialize, Ex> ReadyTransactions<Hash, Ex> {
 				// remove from unlocks
 				for tag in &tx.transaction.transaction.requires {
 					if let Some(hash) = self.provided_tags.get(tag) {
-						if let Some(tx) = ready.get_mut(hash) {
-							remove_item(&mut tx.unlocks, hash);
+						if let Some(tx_unlocking) = ready.get_mut(hash) {
+							remove_item(&mut tx_unlocking.unlocks, &tx_hash);
 						}
 					}
 				}
@@ -787,5 +787,41 @@ mod tests {
 		it.report_invalid(&tx4.unwrap());
 		assert_eq!(it.next().as_ref().map(data), Some(7));
 		assert_eq!(it.next().as_ref().map(data), None);
+	}
+
+	#[test]
+	fn should_remove_tx_from_unlocks_set_of_its_parent() {
+		// given
+		let mut ready = ReadyTransactions::default();
+		populate_pool(&mut ready);
+
+		// when
+		let mut it = ready.get();
+		let tx1 = it.next().unwrap();
+		let tx2 = it.next().unwrap();
+		let tx3 = it.next().unwrap();
+		let tx4 = it.next().unwrap();
+		let lock = ready.ready.read();
+		let tx1_unlocks = &lock.get(&tx1.hash).unwrap().unlocks;
+
+		// There are two tags provided by tx1 and required by tx2.
+		assert_eq!(tx1_unlocks[0], tx2.hash);
+		assert_eq!(tx1_unlocks[1], tx2.hash);
+		assert_eq!(tx1_unlocks[2], tx3.hash);
+		assert_eq!(tx1_unlocks[4], tx4.hash);
+		drop(lock);
+
+		// then consider tx2 invalid, and hence, remove it.
+		let removed = ready.remove_subtree(&[tx2.hash]);
+		assert_eq!(removed.len(), 2);
+		assert_eq!(removed[0].hash, tx2.hash);
+		// tx3 is removed too, since it requires tx2 provides tags.
+		assert_eq!(removed[1].hash, tx3.hash);
+
+		let lock = ready.ready.read();
+		let tx1_unlocks = &lock.get(&tx1.hash).unwrap().unlocks;
+		assert!(!tx1_unlocks.contains(&tx2.hash));
+		assert!(!tx1_unlocks.contains(&tx3.hash));
+		assert!(tx1_unlocks.contains(&tx4.hash));
 	}
 }

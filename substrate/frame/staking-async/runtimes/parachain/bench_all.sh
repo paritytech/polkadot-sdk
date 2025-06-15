@@ -1,16 +1,17 @@
+# run this, then copy all files to `substrate/frame/election-provider-multi-block/src/weights/`
 source ~/.zshrc
 
-STEPS=10
-REPEAT=20
+STEPS=2
+REPEAT=2
 
 # if any of the command line arguments are equal to `--log=X`, set X to the below log levels
 LOG="runtime::multiblock-election=debug,runtime::staking-async=debug,polkadot_sdk_frame::benchmark=debug"
 
-if [ "$1" != "no-compile" ]; then
-	  cargo build --release -p frame-omni-bencher
-    FORCE_WASM_BUILD=$RANDOM  WASMTIME_BACKTRACE_DETAILS=1 RUST_LOG=${LOG} cargo build --release -p pallet-staking-async-parachain-runtime --features runtime-benchmarks
+if [[ "${NO_COMPILE}" == "1" ]]; then
+    echo "Skipping compilation because 'NO_COMPILE' was set"
 else
-      echo "Skipping compilation because 'no-compile' argument was provided."
+	cargo build --release -p frame-omni-bencher
+  FORCE_WASM_BUILD=$RANDOM  WASMTIME_BACKTRACE_DETAILS=1 RUST_LOG=${LOG} cargo build --release -p pallet-staking-async-parachain-runtime --features runtime-benchmarks
 fi
 
 WASM_BLOB_PATH=../../../../../target/release/wbuild/pallet-staking-async-parachain-runtime/pallet_staking_async_parachain_runtime.compact.wasm
@@ -30,23 +31,23 @@ run_benchmark() {
   WASMTIME_BACKTRACE_DETAILS=1 RUST_LOG=${LOG} \
     ../../../../../target/release/frame-omni-bencher v1 benchmark pallet \
     --pallet "$pallet_name" \
-    --extrinsic "all" \
+    --extrinsic "*" \
     --runtime "$WASM_BLOB_PATH" \
     --steps "$STEPS" \
     --repeat "$REPEAT" \
     --genesis-builder-preset "$genesis_preset" \
-    --template "../../../../../substrate/.maintain/frame-weight-template.hbs" \
+    --template "../../../../../substrate/frame/election-provider-multi-block/src/template.hbs" \
     --heap-pages 65000 \
     --output "$output_file"
 }
 
-run_benchmark "pallet_staking_async" "dot_size"
+# run_benchmark "pallet_staking_async" "dot_size"
 run_benchmark "pallet_election_provider_multi_block" "dot_size"
 run_benchmark "pallet_election_provider_multi_block_signed" "dot_size"
 run_benchmark "pallet_election_provider_multi_block_unsigned" "dot_size"
 run_benchmark "pallet_election_provider_multi_block_verifier" "dot_size"
 
-run_benchmark "pallet_staking_async" "ksm_size"
+# run_benchmark "pallet_staking_async" "ksm_size"
 run_benchmark "pallet_election_provider_multi_block" "ksm_size"
 run_benchmark "pallet_election_provider_multi_block_signed" "ksm_size"
 run_benchmark "pallet_election_provider_multi_block_unsigned" "ksm_size"

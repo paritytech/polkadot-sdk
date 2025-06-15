@@ -31,7 +31,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, SaturatedConversion, StaticLookup},
 	DispatchError, Either,
 };
-use xcm::prelude::XcmError;
+use xcm::prelude::InstructionError;
 use xcm_runtime_apis::fees::{
 	runtime_decl_for_xcm_payment_api::XcmPaymentApiV1, Error as XcmPaymentApiError,
 };
@@ -226,7 +226,7 @@ where
 /// `frame_system::Call::authorize_upgrade` from governance system.
 pub fn can_governance_authorize_upgrade<Runtime, RuntimeOrigin>(
 	governance_origin: GovernanceOrigin<RuntimeOrigin>,
-) -> Result<(), Either<DispatchError, XcmError>>
+) -> Result<(), Either<DispatchError, InstructionError>>
 where
 	Runtime: BasicParachainRuntime
 		+ frame_system::Config<RuntimeOrigin = RuntimeOrigin, AccountId = AccountId>,

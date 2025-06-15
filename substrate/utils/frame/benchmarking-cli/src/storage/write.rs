@@ -15,6 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use codec::Encode;
+use frame_storage_access_test_runtime::StorageAccessParams;
+use log::{debug, info, trace, warn};
+use rand::prelude::*;
 use sc_cli::Result;
 use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
 use sc_client_db::{DbHash, DbState, DbStateBuilder};
@@ -22,23 +26,25 @@ use sp_blockchain::HeaderBackend;
 use sp_database::{ColumnId, Transaction};
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
 use sp_state_machine::Backend as StateBackend;
-use sp_trie::PrefixedMemoryDB;
-
-use log::{info, trace};
-use rand::prelude::*;
 use sp_storage::{ChildInfo, StateVersion};
+use sp_trie::{recorder::Recorder, PrefixedMemoryDB};
 use std::{
 	fmt::Debug,
 	sync::Arc,
 	time::{Duration, Instant},
 };
 
-use super::cmd::StorageCmd;
+use super::{cmd::StorageCmd, get_wasm_module, MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION};
 use crate::shared::{new_rng, BenchRecord};
 
 impl StorageCmd {
 	/// Benchmarks the time it takes to write a single Storage item.
+	///
 	/// Uses the latest state that is available for the given client.
+	///
+	/// Unlike reading benchmark, where we read every single key, here we write a batch of keys in
+	/// one time. So writing a remaining keys with the size much smaller than batch size can
+	/// dramatically distort the results. To avoid this, we skip the remaining keys.
 	pub(crate) fn bench_write<Block, BA, H, C>(
 		&self,
 		client: Arc<C>,
@@ -52,6 +58,15 @@ impl StorageCmd {
 		BA: ClientBackend<Block>,
 		C: UsageProvider<Block> + HeaderBackend<Block> + StorageProvider<Block, BA>,
 	{
+		if self.params.is_validate_block_mode() && self.params.disable_pov_recorder {
+			return Err("PoV recorder must be activated to provide a storage proof for block validation at runtime. Remove `--disable-pov-recorder`.".into())
+		}
+		if self.params.is_validate_block_mode() &&
+			self.params.batch_size > MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION
+		{
+			return Err(format!("Batch size is too large. This may cause problems with runtime memory allocation. Better set `--batch-size {}` or less.", MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION).into())
+		}
+
 		// Store the time that it took to write each value.
 		let mut record = BenchRecord::default();
 
@@ -59,28 +74,26 @@ impl StorageCmd {
 		let header = client.header(best_hash)?.ok_or("Header not found")?;
 		let original_root = *header.state_root();
 
+		let (trie, _) = self.create_trie_backend::<Block, H>(
+			original_root,
+			&storage,
+			shared_trie_cache.as_ref(),
+		);
+
 		info!("Preparing keys from block {}", best_hash);
-		let build_trie_backend = |storage: Arc<
-			dyn sp_state_machine::Storage<HashingFor<Block>>,
-		>,
-		                          original_root,
-		                          enable_pov_recorder: bool| {
-			let pov_recorder = enable_pov_recorder.then(|| Default::default());
-
-			DbStateBuilder::<HashingFor<Block>>::new(storage.clone(), original_root)
-				.with_optional_cache(shared_trie_cache.as_ref().map(|c| c.local_cache_trusted()))
-				.with_optional_recorder(pov_recorder)
-				.build()
-		};
-
-		let trie =
-			build_trie_backend(storage.clone(), original_root, !self.params.disable_pov_recorder);
-
 		// Load all KV pairs and randomly shuffle them.
 		let mut kvs: Vec<_> = trie.pairs(Default::default())?.collect();
 		let (mut rng, _) = new_rng(None);
 		kvs.shuffle(&mut rng);
-		info!("Writing {} keys", kvs.len());
+		if kvs.is_empty() {
+			return Err("Can't process benchmarking with empty storage".into())
+		}
+
+		info!("Writing {} keys in batches of {}", kvs.len(), self.params.batch_size);
+		let remainder = kvs.len() % self.params.batch_size;
+		if self.params.is_validate_block_mode() && remainder != 0 {
+			info!("Remaining `{remainder}` keys will be skipped");
+		}
 
 		let mut child_nodes = Vec::new();
 		let mut batched_keys = Vec::new();
@@ -91,11 +104,10 @@ impl StorageCmd {
 			let (k, original_v) = key_value?;
 			match (self.params.include_child_trees, self.is_child_key(k.to_vec())) {
 				(true, Some(info)) => {
-					let child_keys =
-						client.child_storage_keys(best_hash, info.clone(), None, None)?;
-					for ck in child_keys {
-						child_nodes.push((ck.clone(), info.clone()));
-					}
+					let child_keys = client
+						.child_storage_keys(best_hash, info.clone(), None, None)?
+						.collect::<Vec<_>>();
+					child_nodes.push((child_keys, info.clone()));
 				},
 				_ => {
 					// regular key
@@ -124,80 +136,247 @@ impl StorageCmd {
 						continue
 					}
 
-					// For every batched write use a different trie instance and recorder, so we
-					// don't benefit from past runs.
-					let trie = build_trie_backend(
-						storage.clone(),
-						original_root,
-						!self.params.disable_pov_recorder,
-					);
 					// Write each value in one commit.
-					let (size, duration) = measure_per_key_amortised_write_cost::<Block>(
-						db.clone(),
-						&trie,
-						batched_keys.clone(),
-						self.state_version(),
-						state_col,
-						None,
-					)?;
+					let (size, duration) = if self.params.is_validate_block_mode() {
+						self.measure_per_key_amortised_validate_block_write_cost::<Block, H>(
+							original_root,
+							&storage,
+							shared_trie_cache.as_ref(),
+							batched_keys.clone(),
+							None,
+						)?
+					} else {
+						self.measure_per_key_amortised_import_block_write_cost::<Block, H>(
+							original_root,
+							&storage,
+							shared_trie_cache.as_ref(),
+							db.clone(),
+							batched_keys.clone(),
+							self.state_version(),
+							state_col,
+							None,
+						)?
+					};
 					record.append(size, duration)?;
 					batched_keys.clear();
 				},
 			}
 		}
 
-		if self.params.include_child_trees {
-			child_nodes.shuffle(&mut rng);
-			info!("Writing {} child keys", child_nodes.len());
-
-			for (key, info) in child_nodes {
-				if let Some(original_v) = client
-					.child_storage(best_hash, &info.clone(), &key)
-					.expect("Checked above to exist")
-				{
-					let mut new_v = vec![0; original_v.0.len()];
-
-					loop {
-						rng.fill_bytes(&mut new_v[..]);
-						if check_new_value::<Block>(
-							db.clone(),
-							&trie,
-							&key.0,
-							&new_v,
-							self.state_version(),
-							state_col,
-							Some(&info),
-						) {
-							break
-						}
-					}
-					batched_keys.push((key.0, new_v.to_vec()));
-
-					if batched_keys.len() < self.params.batch_size {
-						continue
-					}
-
-					let trie = build_trie_backend(
-						storage.clone(),
-						original_root,
-						!self.params.disable_pov_recorder,
+		if self.params.include_child_trees && !child_nodes.is_empty() {
+			info!("Writing {} child keys", child_nodes.iter().map(|(c, _)| c.len()).sum::<usize>());
+			for (mut child_keys, info) in child_nodes {
+				if child_keys.len() < self.params.batch_size {
+					warn!(
+						"{} child keys will be skipped because it's less than batch size",
+						child_keys.len()
 					);
+					continue;
+				}
 
-					let (size, duration) = measure_per_key_amortised_write_cost::<Block>(
-						db.clone(),
-						&trie,
-						batched_keys.clone(),
-						self.state_version(),
-						state_col,
-						Some(&info),
-					)?;
-					record.append(size, duration)?;
-					batched_keys.clear();
+				child_keys.shuffle(&mut rng);
+
+				for key in child_keys {
+					if let Some(original_v) = client
+						.child_storage(best_hash, &info, &key)
+						.expect("Checked above to exist")
+					{
+						let mut new_v = vec![0; original_v.0.len()];
+
+						loop {
+							rng.fill_bytes(&mut new_v[..]);
+							if check_new_value::<Block>(
+								db.clone(),
+								&trie,
+								&key.0,
+								&new_v,
+								self.state_version(),
+								state_col,
+								Some(&info),
+							) {
+								break
+							}
+						}
+						batched_keys.push((key.0, new_v.to_vec()));
+						if batched_keys.len() < self.params.batch_size {
+							continue
+						}
+
+						let (size, duration) = if self.params.is_validate_block_mode() {
+							self.measure_per_key_amortised_validate_block_write_cost::<Block, H>(
+								original_root,
+								&storage,
+								shared_trie_cache.as_ref(),
+								batched_keys.clone(),
+								None,
+							)?
+						} else {
+							self.measure_per_key_amortised_import_block_write_cost::<Block, H>(
+								original_root,
+								&storage,
+								shared_trie_cache.as_ref(),
+								db.clone(),
+								batched_keys.clone(),
+								self.state_version(),
+								state_col,
+								Some(&info),
+							)?
+						};
+						record.append(size, duration)?;
+						batched_keys.clear();
+					}
 				}
 			}
 		}
 
 		Ok(record)
+	}
+
+	fn create_trie_backend<Block, H>(
+		&self,
+		original_root: Block::Hash,
+		storage: &Arc<dyn sp_state_machine::Storage<HashingFor<Block>>>,
+		shared_trie_cache: Option<&sp_trie::cache::SharedTrieCache<HashingFor<Block>>>,
+	) -> (DbState<HashingFor<Block>>, Option<Recorder<HashingFor<Block>>>)
+	where
+		Block: BlockT<Header = H, Hash = DbHash> + Debug,
+		H: HeaderT<Hash = DbHash>,
+	{
+		let recorder = (!self.params.disable_pov_recorder).then(|| Default::default());
+		let trie = DbStateBuilder::<HashingFor<Block>>::new(storage.clone(), original_root)
+			.with_optional_cache(shared_trie_cache.map(|c| c.local_cache_trusted()))
+			.with_optional_recorder(recorder.clone())
+			.build();
+
+		(trie, recorder)
+	}
+
+	/// Measures write benchmark
+	/// if `child_info` exist then it means this is a child tree key
+	fn measure_per_key_amortised_import_block_write_cost<Block, H>(
+		&self,
+		original_root: Block::Hash,
+		storage: &Arc<dyn sp_state_machine::Storage<HashingFor<Block>>>,
+		shared_trie_cache: Option<&sp_trie::cache::SharedTrieCache<HashingFor<Block>>>,
+		db: Arc<dyn sp_database::Database<DbHash>>,
+		changes: Vec<(Vec<u8>, Vec<u8>)>,
+		version: StateVersion,
+		col: ColumnId,
+		child_info: Option<&ChildInfo>,
+	) -> Result<(usize, Duration)>
+	where
+		Block: BlockT<Header = H, Hash = DbHash> + Debug,
+		H: HeaderT<Hash = DbHash>,
+	{
+		let batch_size = changes.len();
+		let average_len = changes.iter().map(|(_, v)| v.len()).sum::<usize>() / batch_size;
+		// For every batched write use a different trie instance and recorder, so we
+		// don't benefit from past runs.
+		let (trie, _recorder) =
+			self.create_trie_backend::<Block, H>(original_root, storage, shared_trie_cache);
+
+		let start = Instant::now();
+		// Create a TX that will modify the Trie in the DB and
+		// calculate the root hash of the Trie after the modification.
+		let replace = changes
+			.iter()
+			.map(|(key, new_v)| (key.as_ref(), Some(new_v.as_ref())))
+			.collect::<Vec<_>>();
+		let stx = match child_info {
+			Some(info) => trie.child_storage_root(info, replace.iter().cloned(), version).2,
+			None => trie.storage_root(replace.iter().cloned(), version).1,
+		};
+		// Only the keep the insertions, since we do not want to benchmark pruning.
+		let tx = convert_tx::<Block>(db.clone(), stx.clone(), false, col);
+		db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
+		let result = (average_len, start.elapsed() / batch_size as u32);
+
+		// Now undo the changes by removing what was added.
+		let tx = convert_tx::<Block>(db.clone(), stx.clone(), true, col);
+		db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
+
+		Ok(result)
+	}
+
+	/// Measures write benchmark on block validation
+	/// if `child_info` exist then it means this is a child tree key
+	fn measure_per_key_amortised_validate_block_write_cost<Block, H>(
+		&self,
+		original_root: Block::Hash,
+		storage: &Arc<dyn sp_state_machine::Storage<HashingFor<Block>>>,
+		shared_trie_cache: Option<&sp_trie::cache::SharedTrieCache<HashingFor<Block>>>,
+		changes: Vec<(Vec<u8>, Vec<u8>)>,
+		maybe_child_info: Option<&ChildInfo>,
+	) -> Result<(usize, Duration)>
+	where
+		Block: BlockT<Header = H, Hash = DbHash> + Debug,
+		H: HeaderT<Hash = DbHash>,
+	{
+		let batch_size = changes.len();
+		let average_len = changes.iter().map(|(_, v)| v.len()).sum::<usize>() / batch_size;
+		let (trie, recorder) =
+			self.create_trie_backend::<Block, H>(original_root, storage, shared_trie_cache);
+		for (key, _) in changes.iter() {
+			let _v = trie
+				.storage(key)
+				.expect("Checked above to exist")
+				.ok_or("Value unexpectedly empty")?;
+		}
+		let storage_proof = recorder
+			.map(|r| r.drain_storage_proof())
+			.expect("Storage proof must exist for block validation");
+		let root = trie.root();
+		debug!(
+			"POV: len {:?} {:?}",
+			storage_proof.len(),
+			storage_proof.clone().encoded_compact_size::<HashingFor<Block>>(*root)
+		);
+		let params = StorageAccessParams::<Block>::new_write(
+			*root,
+			storage_proof,
+			(changes, maybe_child_info.cloned()),
+		);
+
+		let mut durations_in_nanos = Vec::new();
+		let wasm_module = get_wasm_module();
+		let mut instance = wasm_module.new_instance().expect("Failed to create wasm instance");
+		let dry_run_encoded = params.as_dry_run().encode();
+		let encoded = params.encode();
+
+		for i in 1..=self.params.validate_block_rounds {
+			info!(
+				"validate_block with {} keys, round {}/{}",
+				batch_size, i, self.params.validate_block_rounds
+			);
+
+			// Dry run to get the time it takes without storage access
+			let dry_run_start = Instant::now();
+			instance
+				.call_export("validate_block", &dry_run_encoded)
+				.expect("Failed to call validate_block");
+			let dry_run_elapsed = dry_run_start.elapsed();
+			debug!("validate_block dry-run time {:?}", dry_run_elapsed);
+
+			let start = Instant::now();
+			instance
+				.call_export("validate_block", &encoded)
+				.expect("Failed to call validate_block");
+			let elapsed = start.elapsed();
+			debug!("validate_block time {:?}", elapsed);
+
+			durations_in_nanos.push(
+				elapsed.saturating_sub(dry_run_elapsed).as_nanos() as u64 / batch_size as u64,
+			);
+		}
+
+		let result = (
+			average_len,
+			std::time::Duration::from_nanos(
+				durations_in_nanos.iter().sum::<u64>() / durations_in_nanos.len() as u64,
+			),
+		);
+
+		Ok(result)
 	}
 }
 
@@ -225,39 +404,6 @@ fn convert_tx<B: BlockT>(
 		// 0 means no modification.
 	}
 	ret
-}
-
-/// Measures write benchmark
-/// if `child_info` exist then it means this is a child tree key
-fn measure_per_key_amortised_write_cost<Block: BlockT>(
-	db: Arc<dyn sp_database::Database<DbHash>>,
-	trie: &DbState<HashingFor<Block>>,
-	changes: Vec<(Vec<u8>, Vec<u8>)>,
-	version: StateVersion,
-	col: ColumnId,
-	child_info: Option<&ChildInfo>,
-) -> Result<(usize, Duration)> {
-	let start = Instant::now();
-	// Create a TX that will modify the Trie in the DB and
-	// calculate the root hash of the Trie after the modification.
-	let average_len = changes.iter().map(|(_, v)| v.len()).sum::<usize>() / changes.len();
-	let replace = changes
-		.iter()
-		.map(|(key, new_v)| (key.as_ref(), Some(new_v.as_ref())))
-		.collect::<Vec<_>>();
-	let stx = match child_info {
-		Some(info) => trie.child_storage_root(info, replace.iter().cloned(), version).2,
-		None => trie.storage_root(replace.iter().cloned(), version).1,
-	};
-	// Only the keep the insertions, since we do not want to benchmark pruning.
-	let tx = convert_tx::<Block>(db.clone(), stx.clone(), false, col);
-	db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
-	let result = (average_len, start.elapsed() / changes.len() as u32);
-
-	// Now undo the changes by removing what was added.
-	let tx = convert_tx::<Block>(db.clone(), stx.clone(), true, col);
-	db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
-	Ok(result)
 }
 
 /// Checks if a new value causes any collision in tree updates

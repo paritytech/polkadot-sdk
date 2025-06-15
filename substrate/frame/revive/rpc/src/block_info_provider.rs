@@ -106,24 +106,36 @@ impl BlockInfoProvider for SubxtBlockInfoProvider {
 		&self,
 		block_number: SubstrateBlockNumber,
 	) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
-		if block_number == self.latest_block().await.number() {
-			return Ok(Some(self.latest_block().await));
-		} else if block_number == self.latest_finalized_block().await.number() {
-			return Ok(Some(self.latest_finalized_block().await));
+		let latest = self.latest_block().await;
+		if block_number == latest.number() {
+			return Ok(Some(latest));
+		}
+
+		let latest_finalized = self.latest_finalized_block().await;
+		if block_number == latest_finalized.number() {
+			return Ok(Some(latest_finalized));
 		}
 
 		let Some(hash) = self.rpc.chain_get_block_hash(Some(block_number.into())).await? else {
 			return Ok(None);
 		};
 
-		self.block_by_hash(&hash).await
+		match self.api.blocks().at(hash).await {
+			Ok(block) => Ok(Some(Arc::new(block))),
+			Err(subxt::Error::Block(subxt::error::BlockError::NotFound(_))) => Ok(None),
+			Err(err) => Err(err.into()),
+		}
 	}
 
 	async fn block_by_hash(&self, hash: &H256) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
-		if hash == &self.latest_block().await.hash() {
-			return Ok(Some(self.latest_block().await));
-		} else if hash == &self.latest_finalized_block().await.hash() {
-			return Ok(Some(self.latest_finalized_block().await));
+		let latest = self.latest_block().await;
+		if hash == &latest.hash() {
+			return Ok(Some(latest));
+		}
+
+		let latest_finalized = self.latest_finalized_block().await;
+		if hash == &latest_finalized.hash() {
+			return Ok(Some(latest_finalized));
 		}
 
 		match self.api.blocks().at(*hash).await {
