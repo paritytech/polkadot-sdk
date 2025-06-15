@@ -274,3 +274,21 @@ where
 		}
 	}
 }
+
+/// Indicates whether the account nonce should be incremented after instantiating a new contract.
+///
+/// In Substrate, where transactions can be batched, the account's nonce should be incremented after
+/// each instantiation, ensuring that each instantiation uses a unique nonce.
+///
+/// For transactions sent from Ethereum wallets, which cannot be batched, the nonce should only be
+/// incremented once. In these cases, Use `BumpNonce::No` to suppress an extra nonce increment.
+///
+/// Note:
+/// The origin's nonce is already incremented pre-dispatch by the `CheckNonce` transaction
+/// extension.
+pub enum BumpNonce {
+	/// Do not increment the nonce after contract instantiation
+	No,
+	/// Increment the nonce after contract instantiation
+	Yes,
+}

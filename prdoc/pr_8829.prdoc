@@ -1,0 +1,12 @@
+title: Eth transaction do not double bump the nonce
+doc:
+- audience: Runtime Dev
+  description: |-
+    Add an extra `eth_instantiate_with_code` dispatchable that is used by the EVM compatibility layer and ensures that the origin's nonce is only incremented once
+
+    Fixes https://github.com/paritytech/contract-issues/issues/64
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch
+- name: pallet-revive
+  bump: major
