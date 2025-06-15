@@ -7,8 +7,6 @@ doc:
     - Read env var `RUNTIME_LOG` as fallback to the `--runtime-log` option
     - Set custom log level for runtime benchmarks that can be different form CLI level
     - Fix issue where old runtimes have a space in the pallet or instance name from breaking change in `quote` macro
-
-    Note: I saw that the genesis builder is not using the provided host functions, hence it still logs things during genesis config building.
 crates:
 - name: polkadot
   bump: minor
