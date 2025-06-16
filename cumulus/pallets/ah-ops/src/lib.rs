@@ -666,7 +666,7 @@ pub mod pallet {
 				ensure!(derived == *from, Error::<T>::WrongDerivedTranslation);
 			}
 
-			let (parent_translated, para_id) = Self::try_translate_rc_sovereign_to_ah(&parent)?;
+			let (parent_translated, para_id) = Self::try_translate_rc_sovereign_to_ah(parent)?;
 			let parent_translated_derived =
 				pallet_utility::derivative_account_id(parent_translated, index);
 			Ok((parent_translated_derived, para_id))
