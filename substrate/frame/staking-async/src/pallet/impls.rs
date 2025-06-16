@@ -1829,8 +1829,10 @@ impl<T: Config> Pallet<T> {
 				} else {
 					let integrity = Self::inspect_bond_state(&stash);
 					if integrity != Ok(LedgerIntegrityState::Ok) {
-						defensive!(
-							"bonded stash {:?} has inconsistent ledger state: {:?}",
+						// NOTE: not using defensive! since we test these cases and it panics them
+						log!(
+							error,
+							"defensive: bonded stash {:?} has inconsistent ledger state: {:?}",
 							stash,
 							integrity
 						);
