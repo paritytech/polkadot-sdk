@@ -249,6 +249,7 @@ pub trait RelayChainInterface: Send + Sync {
 	/// Fetch the scheduling lookahead value.
 	async fn scheduling_lookahead(&self, relay_parent: PHash) -> RelayChainResult<u32>;
 
+	/// Fetch the candidate events for the given relay chain block.
 	async fn candidate_events(&self, at: RelayHash) -> RelayChainResult<Vec<CandidateEvent>>;
 }
 
