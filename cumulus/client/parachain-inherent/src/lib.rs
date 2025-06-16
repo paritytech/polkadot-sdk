@@ -208,6 +208,7 @@ impl ParachainInherentDataProvider {
 			validation_data: validation_data.clone(),
 			relay_chain_state,
 			relay_parent_descendants,
+			collator_peer_id: None,
 		})
 	}
 }

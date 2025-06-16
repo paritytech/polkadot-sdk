@@ -21,6 +21,7 @@ use std::fs::File;
 use clap::Parser;
 
 use cmd_lib::spawn_with_output;
+use pretty_assertions::assert_eq;
 use sc_chain_spec::update_code_in_json_chain_spec;
 use serde_json::{from_reader, from_str, Value};
 use staging_chain_spec_builder::ChainSpecBuilder;

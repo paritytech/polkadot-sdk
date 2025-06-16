@@ -422,6 +422,7 @@ impl BlockTests {
 					downward_messages: Default::default(),
 					horizontal_messages: Default::default(),
 					relay_parent_descendants: Default::default(),
+					collator_peer_id: None,
 				};
 				if let Some(ref hook) = self.inherent_data_hook {
 					hook(self, relay_parent_number, &mut system_inherent_data);

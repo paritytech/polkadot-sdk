@@ -72,7 +72,7 @@ use frame_system_rpc_runtime_api::AccountNonceApi;
 use polkadot_node_subsystem::{errors::RecoveryError, messages::AvailabilityRecoveryMessage};
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{CandidateHash, CollatorPair, Hash as PHash, PersistedValidationData};
-use polkadot_service::{IdentifyNetworkBackend, ProvideRuntimeApi};
+use polkadot_service::ProvideRuntimeApi;
 use sc_consensus::ImportQueue;
 use sc_network::{
 	config::{FullNetworkConfiguration, TransportConfig},
@@ -765,13 +765,8 @@ impl TestNodeBuilder {
 		relay_chain_config.network.node_name =
 			format!("{} (relay chain)", relay_chain_config.network.node_name);
 
-		let multiaddr = parachain_config.network.listen_addresses[0].clone();
-
-		// If the network backend is unspecified, use the default for the given chain.
-		let default_backend = relay_chain_config.chain_spec.network_backend();
-		let network_backend = relay_chain_config.network.network_backend.unwrap_or(default_backend);
 		let (task_manager, client, network, rpc_handlers, transaction_pool, backend) =
-			match network_backend {
+			match relay_chain_config.network.network_backend {
 				sc_network::config::NetworkBackendType::Libp2p =>
 					start_node_impl::<_, sc_network::NetworkWorker<_, _>>(
 						parachain_config,
@@ -806,6 +801,7 @@ impl TestNodeBuilder {
 					.expect("could not create Cumulus test service"),
 			};
 		let peer_id = network.local_peer_id();
+		let multiaddr = polkadot_test_service::get_listen_address(network.clone()).await;
 		let addr = MultiaddrWithPeerId { multiaddr, peer_id };
 
 		TestNode { task_manager, client, network, addr, rpc_handlers, transaction_pool, backend }
@@ -814,10 +810,13 @@ impl TestNodeBuilder {
 
 /// Create a Cumulus `Configuration`.
 ///
-/// By default an in-memory socket will be used, therefore you need to provide nodes if you want the
-/// node to be connected to other nodes. If `nodes_exclusive` is `true`, the node will only connect
-/// to the given `nodes` and not to any other node. The `storage_update_func` can be used to make
-/// adjustments to the runtime genesis.
+/// By default a TCP socket will be used, therefore you need to provide nodes if you want the
+/// node to be connected to other nodes.
+///
+/// If `nodes_exclusive` is `true`, the node will only connect to the given `nodes` and not to any
+/// other node.
+///
+/// The `storage_update_func` can be used to make adjustments to the runtime genesis.
 pub fn node_config(
 	storage_update_func: impl Fn(),
 	tokio_handle: tokio::runtime::Handle,
@@ -860,11 +859,10 @@ pub fn node_config(
 
 	network_config.allow_non_globals_in_dht = true;
 
-	network_config
-		.listen_addresses
-		.push(multiaddr::Protocol::Memory(rand::random()).into());
-
-	network_config.transport = TransportConfig::MemoryOnly;
+	let addr: multiaddr::Multiaddr = "/ip4/127.0.0.1/tcp/0".parse().expect("valid address; qed");
+	network_config.listen_addresses.push(addr.clone());
+	network_config.transport =
+		TransportConfig::Normal { enable_mdns: false, allow_private_ip: true };
 
 	Ok(Configuration {
 		impl_name: "cumulus-test-node".to_string(),
@@ -1050,6 +1048,6 @@ pub fn run_relay_chain_validator_node(
 	workers_path.pop();
 
 	tokio_handle.block_on(async move {
-		polkadot_test_service::run_validator_node(config, Some(workers_path))
+		polkadot_test_service::run_validator_node(config, Some(workers_path)).await
 	})
 }

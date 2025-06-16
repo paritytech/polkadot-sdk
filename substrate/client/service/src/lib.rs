@@ -519,7 +519,7 @@ where
 		let uxt = match Decode::decode(&mut &encoded[..]) {
 			Ok(uxt) => uxt,
 			Err(e) => {
-				debug!("Transaction invalid: {:?}", e);
+				debug!(target: sc_transaction_pool::LOG_TARGET, "Transaction invalid: {:?}", e);
 				return Box::pin(futures::future::ready(TransactionImport::Bad))
 			},
 		};

@@ -44,7 +44,9 @@ pub fn instantiate_executor(
 ) -> (XcmExecutor<XcmConfig>, Weight) {
 	let mut vm =
 		XcmExecutor::<XcmConfig>::new(origin, message.using_encoded(sp_io::hashing::blake2_256));
-	let weight = XcmExecutor::<XcmConfig>::prepare(message.clone()).unwrap().weight_of();
+	let weight = XcmExecutor::<XcmConfig>::prepare(message.clone(), Weight::MAX)
+		.unwrap()
+		.weight_of();
 	vm.message_weight = weight;
 	(vm, weight)
 }
@@ -89,7 +91,7 @@ impl GetDispatchInfo for TestCall {
 /// Test weigher that just returns a fixed weight for every program.
 pub struct TestWeigher;
 impl<C> WeightBounds<C> for TestWeigher {
-	fn weight(_message: &mut Xcm<C>) -> Result<Weight, XcmError> {
+	fn weight(_message: &mut Xcm<C>, _weight_limit: Weight) -> Result<Weight, InstructionError> {
 		Ok(Weight::from_parts(2, 2))
 	}
 

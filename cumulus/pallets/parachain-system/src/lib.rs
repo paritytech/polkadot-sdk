@@ -639,6 +639,7 @@ pub mod pallet {
 				downward_messages,
 				horizontal_messages,
 				relay_parent_descendants,
+				collator_peer_id: _,
 			} = data;
 
 			// Check that the associated relay chain block number is as expected.
@@ -1846,7 +1847,7 @@ impl<T: Config> BlockNumberProvider for RelaychainDataProvider<T> {
 			.unwrap_or_else(|| Pallet::<T>::last_relay_block_number())
 	}
 
-	#[cfg(feature = "runtime-benchmarks")]
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 	fn set_block_number(block: Self::BlockNumber) {
 		let mut validation_data = ValidationData::<T>::get().unwrap_or_else(||
 			// PersistedValidationData does not impl default in non-std

@@ -33,7 +33,7 @@ pub use crate::{
 	exec::{ExecError, PrecompileExt as Ext, PrecompileWithInfoExt as ExtWithInfo},
 	gas::{GasMeter, Token},
 	storage::meter::Diff,
-	wasm::RuntimeCosts,
+	vm::RuntimeCosts,
 	AddressMapper,
 };
 pub use alloy_core as alloy;
@@ -140,9 +140,7 @@ impl<T: Config> From<CrateError<T>> for Error {
 /// # Warning
 ///
 /// Pre-compiles are unmetered code. Hence they have to charge an appropriate amount of weight
-/// themselves. Generally, their first line of code should be a call to
-/// `env.gas_meter_mut().charge()`. For that you need to implement [`Token`] on a type of your
-/// choosing.
+/// themselves. Generally, their first line of code should be a call to `env.charge(weight)`.
 pub trait Precompile {
 	/// Your runtime.
 	type T: Config;
@@ -543,7 +541,7 @@ impl BuiltinAddressMatcher {
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 pub mod run {
 	pub use crate::{
-		call_builder::{CallSetup, Contract, WasmModule},
+		call_builder::{CallSetup, Contract, VmBinaryModule},
 		BalanceOf, MomentOf,
 	};
 	pub use sp_core::{H256, U256};
