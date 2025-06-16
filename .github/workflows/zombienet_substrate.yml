@@ -17,6 +17,13 @@ env:
   FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 1
   LOCAL_DIR: "./substrate/zombienet"
   GHA_CLUSTER_SERVER_ADDR: "https://kubernetes.default:443"
+  # use spot by default
+  X_INFRA_INSTANCE: "spot"
+  # don't retry sdk tests
+  NEXTEST_RETRIES: 0
+  KUBECONFIG: "/data/config"
+  ZOMBIE_CLEANER_DISABLED: 1
+
 
   # DB generated from commit: https://github.com/paritytech/polkadot-sdk/commit/868788a5bff3ef94869bd36432726703fe3b4e96
   # TODO: As a workaround for https://github.com/paritytech/polkadot-sdk/issues/2568 the DB was generated in archive mode.
