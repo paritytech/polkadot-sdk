@@ -248,8 +248,8 @@ function force_create_pool() {
     local relay_chain_seed=$2
     local runtime_para_id=$3
     local runtime_para_endpoint=$4
-    local native_asset_id=$6
-    local foreign_asset_id=$7
+    local native_asset_id=$5
+    local foreign_asset_id=$6
     echo "  calling force_create_pool:"
     echo "      relay_url: ${relay_url}"
     echo "      relay_chain_seed: ${relay_chain_seed}"
@@ -258,7 +258,7 @@ function force_create_pool() {
     echo "      native_asset_id: ${native_asset_id}"
     echo "      foreign_asset_id: ${foreign_asset_id}"
     echo "      params:"
-    # 1. generate data for Transact (Pools::force_create_pool)
+    # 1. generate data for Transact
     local tmp_output_file=$(mktemp)
     generate_hex_encoded_call_data "force-create-pool" "${runtime_para_endpoint}" "${tmp_output_file}" "$native_asset_id" "$foreign_asset_id"
     local hex_encoded_data=$(cat $tmp_output_file)
@@ -287,7 +287,7 @@ function force_add_liquidity() {
     echo "      native_asset_amount: ${native_asset_amount}"
     echo "      foreign_asset_amount: ${foreign_asset_amount}"
     echo "      params:"
-    # 1. generate data for Transact (Pools::force_add_liquidity)
+    # 1. generate data for Transact
     local tmp_output_file=$(mktemp)
     generate_hex_encoded_call_data "force-add-liquidity" "${runtime_para_endpoint}" "${tmp_output_file}" "$pool_owner_account_id" "$native_asset_id" "$foreign_asset_id" "$native_asset_amount" "$foreign_asset_amount"
     local hex_encoded_data=$(cat $tmp_output_file)

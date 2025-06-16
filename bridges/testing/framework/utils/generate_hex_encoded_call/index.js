@@ -187,7 +187,7 @@ switch (type) {
 		forceXcmVersion(rpcEndpoint, output, inputArgs[0], inputArgs[1]);
 		break;
 	case 'force-create-pool':
-		forceCreatePool(rpcEndpoint, output, inputArgs[0], inputArgs[1], inputArgs[2]);
+		forceCreatePool(rpcEndpoint, output, inputArgs[0], inputArgs[1]);
 		break;
 	case 'force-add-liquidity':
 		forceAddLiquidity(rpcEndpoint, output, inputArgs[0], inputArgs[1], inputArgs[2], inputArgs[3], inputArgs[4]);
