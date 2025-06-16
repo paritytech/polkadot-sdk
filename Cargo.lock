@@ -16203,7 +16203,6 @@ dependencies = [
  "generate-bags",
  "mmr-gadget",
  "mmr-rpc",
- "pallet-ah-ops",
  "pallet-alliance",
  "pallet-asset-conversion",
  "pallet-asset-conversion-ops",

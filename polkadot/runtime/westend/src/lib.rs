@@ -36,9 +36,9 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		fungible::HoldConsideration, tokens::UnityOrOuterConversion, AsEnsureOriginWithArg,
-		ConstU32, Contains, EitherOf, EitherOfDiverse, EnsureOriginWithArg, FromContains,
-		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, Nothing, ProcessMessage,
-		ProcessMessageError, VariantCountOf, WithdrawReasons,
+		ConstU32, Contains, EitherOf, EitherOfDiverse, EnsureOriginWithArg, Everything,
+		FromContains, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, Nothing,
+		ProcessMessage, ProcessMessageError, VariantCountOf, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
@@ -773,7 +773,7 @@ impl pallet_staking::Config for Runtime {
 	type BenchmarkingConfig = polkadot_runtime_common::StakingBenchmarkingConfig;
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
-	type Filter = Nothing;
+	type Filter = Everything;
 }
 
 #[derive(Encode, Decode)]
