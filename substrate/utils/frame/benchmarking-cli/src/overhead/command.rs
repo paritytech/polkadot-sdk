@@ -573,6 +573,7 @@ impl OverheadCmd {
 				wasm_runtime_substitutes: Default::default(),
 				enable_import_proof_recording: chain_type.requires_proof_recording(),
 			},
+			None,
 		)?);
 
 		Ok(client)

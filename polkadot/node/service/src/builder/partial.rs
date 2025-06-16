@@ -129,6 +129,7 @@ pub(crate) fn new_partial_basics(
 		telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
 		executor,
 		vec![Arc::new(GrandpaPruningFilter)],
+		None,
 	)?;
 	let client = Arc::new(client);
 

@@ -197,6 +197,7 @@ pub fn new_partial(
 			executor,
 			enable_import_proof_record,
 			Default::default(),
+			None,
 		)?;
 	let client = Arc::new(client);
 

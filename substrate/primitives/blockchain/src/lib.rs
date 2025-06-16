@@ -20,9 +20,11 @@
 mod backend;
 mod error;
 mod header_metadata;
+mod tx_priority;
 
 pub use backend::*;
 pub use error::*;
 pub use header_metadata::*;
+pub use tx_priority::*;
 
 const LOG_TARGET: &str = "db::blockchain";

@@ -32,6 +32,8 @@ frame-metadata = { workspace = true, default-features = true }
 jsonrpsee = { features = ["server"], workspace = true }
 parachains-common-types = { workspace = true, default-features = true }
 scale-info = { workspace = true }
+sp-blockchain.workspace = true
+sp-blockchain.default-features = true
 subxt-metadata = { workspace = true, default-features = true }
 
 # Substrate
