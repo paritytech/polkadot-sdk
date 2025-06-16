@@ -12,7 +12,6 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-blake3 = { workspace = true }
 cpu-time = { workspace = true }
 futures = { workspace = true }
 gum = { workspace = true, default-features = true }
