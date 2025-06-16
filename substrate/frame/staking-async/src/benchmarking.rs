@@ -29,6 +29,7 @@ pub use frame_benchmarking::{
 };
 use frame_election_provider_support::SortedListProvider;
 use frame_support::{
+	assert_ok,
 	pallet_prelude::*,
 	storage::bounded_vec::BoundedVec,
 	traits::{Get, TryCollect},
@@ -157,8 +158,21 @@ impl<T: Config> ListScenario<T> {
 		let i = asset::burn::<T>(asset::total_issuance::<T>());
 		core::mem::forget(i);
 
-		// create accounts with the origin weight
+		// make sure `account("random_validator", 0, SEED)` is a validator
+		let validator_account = account("random_validator", 0, SEED);
+		let validator_stake = asset::existential_deposit::<T>() * 1000u32.into();
+		asset::set_stakeable_balance::<T>(&validator_account, validator_stake);
+		assert_ok!(Staking::<T>::bond(
+			RawOrigin::Signed(validator_account.clone()).into(),
+			validator_stake / 2u32.into(),
+			RewardDestination::Staked
+		));
+		assert_ok!(Staking::<T>::validate(
+			RawOrigin::Signed(validator_account.clone()).into(),
+			Default::default()
+		));
 
+		// create accounts with the origin weight
 		let (origin_stash1, origin_controller1) = create_stash_controller_with_balance::<T>(
 			USER_SEED + 2,
 			origin_weight,
@@ -167,7 +181,7 @@ impl<T: Config> ListScenario<T> {
 		Staking::<T>::nominate(
 			RawOrigin::Signed(origin_controller1.clone()).into(),
 			// NOTE: these don't really need to be validators.
-			vec![T::Lookup::unlookup(account("random_validator", 0, SEED))],
+			vec![T::Lookup::unlookup(validator_account.clone())],
 		)?;
 
 		let (_origin_stash2, origin_controller2) = create_stash_controller_with_balance::<T>(
@@ -177,7 +191,7 @@ impl<T: Config> ListScenario<T> {
 		)?;
 		Staking::<T>::nominate(
 			RawOrigin::Signed(origin_controller2).into(),
-			vec![T::Lookup::unlookup(account("random_validator", 0, SEED))],
+			vec![T::Lookup::unlookup(validator_account.clone())],
 		)?;
 
 		// find a destination weight that will trigger the worst case scenario
@@ -197,7 +211,7 @@ impl<T: Config> ListScenario<T> {
 		)?;
 		Staking::<T>::nominate(
 			RawOrigin::Signed(dest_controller1).into(),
-			vec![T::Lookup::unlookup(account("random_validator", 0, SEED))],
+			vec![T::Lookup::unlookup(validator_account)],
 		)?;
 
 		Ok(ListScenario { origin_stash1, origin_controller1, dest_weight })
