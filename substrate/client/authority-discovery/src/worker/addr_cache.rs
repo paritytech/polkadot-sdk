@@ -32,7 +32,7 @@ use sp_runtime::DeserializeOwned;
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet},
 	fs::File,
-	io::{self, Write, BufReader},
+	io::{self, BufReader, Write},
 	path::PathBuf,
 	sync::Arc,
 	thread,
@@ -433,7 +433,6 @@ pub(crate) fn create_addr_cache(persistence_path: PathBuf) -> AddrCache {
 		.map_err(|_|Error::EncodingDecodingAddrCache(format!("Failed to load AddrCache from file: {}", persistence_path.display())))
 		.and_then(AddrCache::try_from).unwrap_or_else(|e| {
 			warn!(target: super::LOG_TARGET, "Failed to load AddrCache from file, using empty instead, error: {}", e);
-			println!("❌ Failed to load AddrCache from file, using empty instead, error: {:?}", e);
 			AddrCache::new()
 		});
 
@@ -785,23 +784,41 @@ mod tests {
 	}
 
 	#[test]
-	fn cache_is_persisted_when_expanded() {
+	fn cache_is_persisted_on_change() {
+		// ARRANGE
 		let dir = tempfile::tempdir().expect("tempfile should create tmp dir");
 		let path = dir.path().join("cache.json");
+		let read_from_disk = || {
+			sleep(Duration::from_millis(10)); // sleep short period to let `fs` complete writing to file.
+			let read_from_path = load_from_file::<SerializableAddrCache>(&path).unwrap();
+			AddrCache::try_from(read_from_path).unwrap()
+		};
+
 		let mut addr_cache = create_addr_cache(path.clone());
-
-		let peer_id = PeerId::random();
-		let addr = Multiaddr::empty().with(Protocol::P2p(peer_id.into()));
-
 		let authority_id0 = AuthorityPair::generate().0.public();
 		let authority_id1 = AuthorityPair::generate().0.public();
 
-		addr_cache.insert(authority_id0.clone(), vec![addr.clone()]);
-		addr_cache.insert(authority_id1.clone(), vec![addr.clone()]);
+		// Test Insert
+		{
+			let peer_id = PeerId::random();
+			let addr = Multiaddr::empty().with(Protocol::P2p(peer_id.into()));
 
-		sleep(Duration::from_millis(10)); // sleep short period to let `fs` complete writing to file.
-		let read_from_path = load_from_file::<SerializableAddrCache>(&path).unwrap();
-		let read_from_path = AddrCache::try_from(read_from_path).unwrap();
-		assert_eq!(2, read_from_path.num_authority_ids());
+			// ACT
+			addr_cache.insert(authority_id0.clone(), vec![addr.clone()]);
+			addr_cache.insert(authority_id1.clone(), vec![addr.clone()]);
+
+			// ASSERT
+			assert_eq!(2, read_from_disk().num_authority_ids());
+		}
+
+		// Test Insert
+		{
+			// ACT
+			addr_cache.retain_ids(&[authority_id1]);
+			addr_cache.retain_ids(&[]);
+
+			// ASSERT
+			assert_eq!(0, read_from_disk().num_authority_ids());
+		}
 	}
 }
