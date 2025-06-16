@@ -32,8 +32,40 @@ use sp_runtime::{
 };
 use xcm::latest::prelude::*;
 
+pub(crate) fn enable_dot_preset(fast: bool) {
+	Pages::set(&32);
+	MinerPages::set(&4);
+	MaxElectingVoters::set(&22_500);
+	TargetSnapshotPerBlock::set(&2000);
+	if !fast {
+		SignedValidationPhase::set(&(8 * Pages::get()));
+		SignedPhase::set(&(20 * MINUTES));
+	}
+}
+
+pub(crate) fn enable_ksm_preset(fast: bool) {
+	Pages::set(&16);
+	MinerPages::set(&4);
+	MaxElectingVoters::set(&12_500);
+	TargetSnapshotPerBlock::set(&4000);
+	if !fast {
+		SignedValidationPhase::set(&(4 * Pages::get()));
+		SignedPhase::set(&(20 * MINUTES));
+	}
+}
+
+
 // This macro contains all of the variable parameters that we intend to use for Polkadot and
 // Kusama.
+//
+// Note that this runtime has 3 broad presets:
+//
+// 1. dev: fast development preset.
+// 2. dot-size: as close to Polkadot as possible.
+// 3. ksm-size: as close to Kusama as possible.
+//
+// The default values here are related to `dev`. The above helper functions are used at launch (see
+// `build_state` runtime-api) to enable dot/ksm presets.
 parameter_types! {
 	/// Number of election pages that we operate upon.
 	///
@@ -54,7 +86,7 @@ parameter_types! {
 	/// * Kusama: 4 * 16 (64 blocks, 6.4m). Enough time to verify 4 solutions.
 	///
 	/// Reasoning: Less security needed in Kusama, to compensate for the shorter session duration.
-	pub storage SignedValidationPhase: u32 = Pages::get(); // allow to verify  just a solution
+	pub storage SignedValidationPhase: u32 = Pages::get();
 
 	/// * Polkadot: 200 blocks, 20m.
 	/// * Kusama: 100 blocks, 10m.

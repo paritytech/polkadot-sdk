@@ -2175,16 +2175,15 @@ impl_runtime_apis! {
 				}
 				"fake-dev" => {
 					log::info!(target: "runtime", "detected a fake-dev preset");
+					// noop, default values are for dev.
 				},
 				"fake-ksm" => {
 					log::info!(target: "runtime", "detected fake-ksm preset");
-					crate::staking::MaxElectingVoters::set(&12_500);
-					crate::staking::Pages::set(&16);
+					crate::staking::enable_ksm_preset(true);
 				},
 				"fake-dot" => {
 					log::info!(target: "runtime", "detected fake-dot preset");
-					crate::staking::MaxElectingVoters::set(&22_500);
-					crate::staking::Pages::set(&32);
+					crate::staking::enable_dot_preset(true);
 				},
 				_ => {
 					panic!("Unrecognized preset to build");

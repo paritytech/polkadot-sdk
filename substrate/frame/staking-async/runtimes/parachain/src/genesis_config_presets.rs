@@ -145,12 +145,12 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 		},
 		"fake-dot" => {
 			params.validator_count = 500;
-			params.dev_stakers = Some((2_000, 25_000));
+			params.dev_stakers = Some((2_500, 25_000));
 			staking_async_parachain_genesis(params, id.to_string())
 		},
 		"fake-ksm" => {
 			params.validator_count = 1_000;
-			params.dev_stakers = Some((4_000, 20_000));
+			params.dev_stakers = Some((4_500, 15_000));
 			staking_async_parachain_genesis(params, id.to_string())
 		},
 		_ => panic!("unrecognized genesis preset!"),

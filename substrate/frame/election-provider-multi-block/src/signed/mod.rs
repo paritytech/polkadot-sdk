@@ -123,7 +123,7 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 			.defensive()
 			.and_then(|(who, _score)| {
 				sublog!(
-					info,
+					debug,
 					"signed",
 					"returning page {} of {:?}'s submission as leader.",
 					page,

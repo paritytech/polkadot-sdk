@@ -73,6 +73,7 @@ pub mod traits {
 		pub trait WeightInfo {
 			fn validate_unsigned() -> Weight;
 			fn submit_unsigned() -> Weight;
+			// fn mine_solution(_p: u32) -> Weight;
 		}
 
 		impl WeightInfo for () {
@@ -82,6 +83,9 @@ pub mod traits {
 			fn submit_unsigned() -> Weight {
 				Default::default()
 			}
+			// fn mine_solution() -> Weight {
+			// 	Default::default()
+			// }
 		}
 	}
 
