@@ -12,3 +12,5 @@ zombienet-polkadot-functional-spam-statement-distribution-requests
 zombienet-polkadot-functional-0019-coretime-collation-fetching-fairness
 zombienet-polkadot-misc-0001-parachains-paritydb
 zombienet-polkadot-functional-duplicate-collations
+zombienet-substrate-0003-block-building-warp-sync
+zombienet-substrate-0002-validators-warp-sync

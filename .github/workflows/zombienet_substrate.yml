@@ -88,10 +88,11 @@ jobs:
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
 
+  # TODO: Disabled, fails 50% times
   zombienet-substrate-0002-validators-warp-sync:
     needs: [preflight]
     # only run if we have changes in ./substrate directory and the build workflow already finish with success status.
-    if: ${{ needs.preflight.outputs.changes_substrate || github.event_name == 'workflow_dispatch' }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || github.event_name == 'workflow_dispatch') &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-substrate-0002-validators-warp-sync') }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
@@ -120,10 +121,11 @@ jobs:
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
 
+  # TODO: Disabled, occasionally (1 on ~50-70 runs) fails
   zombienet-substrate-0003-block-building-warp-sync:
     needs: [preflight]
     # only run if we have changes in ./substrate directory and the build workflow already finish with success status.
-    if: ${{ needs.preflight.outputs.changes_substrate || github.event_name == 'workflow_dispatch' }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || github.event_name == 'workflow_dispatch') &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-substrate-0003-block-building-warp-sync') }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER }}
     timeout-minutes: 60
     container:
