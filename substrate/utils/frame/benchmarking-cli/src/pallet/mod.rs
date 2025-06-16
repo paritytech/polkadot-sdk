@@ -30,7 +30,7 @@ use sc_cli::{
 use std::{fmt::Debug, path::PathBuf};
 
 /// Logging target
-const LOG_TARGET: &'static str = "polkadot_sdk_frame::benchmark::pallet";
+const LOG_TARGET: &'static str = "frame::benchmark::pallet";
 
 // Add a more relaxed parsing for pallet names by allowing pallet directory names with `-` to be
 // used like crate names with `_`
