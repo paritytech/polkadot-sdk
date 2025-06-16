@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{primitives::ExecReturnValue, DispatchError, Key, Weight};
+use crate::{primitives::ExecReturnValue, Code, DispatchError, Key, Weight};
 use alloc::vec::Vec;
 use environmental::environmental;
 use sp_core::{H160, H256, U256};
@@ -57,6 +57,10 @@ pub trait Tracing {
 		_gas: Weight,
 	) {
 	}
+
+	/// Record the next code and salt to be instantiated.
+	fn instantiate_code(&mut self, _code: &Code, _salt: Option<&[u8; 32]>) {}
+
 	/// Called when a balance is read
 	fn balance_read(&mut self, _addr: &H160, _value: U256) {}
 

@@ -572,7 +572,7 @@ impl<T: Config> Rotator<T> {
 
 		log!(
 			info,
-			"Session: end {:?}, start {:?} (ts: {:?}), plan {:?}",
+			"Session: end {:?}, start {:?} (ts: {:?}), planning {:?}",
 			end_index,
 			starting,
 			activation_timestamp,
@@ -777,7 +777,7 @@ impl<T: Config> Rotator<T> {
 	/// The newly planned era is targeted to activate in the next session.
 	fn plan_new_era() {
 		let _ = CurrentEra::<T>::try_mutate(|x| {
-			log!(debug, "Planning new era: {:?}, sending election start signal", x.unwrap_or(0));
+			log!(info, "Planning new era: {:?}, sending election start signal", x.unwrap_or(0));
 			let could_start_election = EraElectionPlanner::<T>::plan_new_election();
 			*x = Some(x.unwrap_or(0) + 1);
 			could_start_election
@@ -897,19 +897,17 @@ impl<T: Config> EraElectionPlanner<T> {
 				let id = CurrentEra::<T>::get().defensive_unwrap_or(0);
 				let prune_up_to = Self::get_prune_up_to();
 				Pallet::<T>::calculate_lowest_total_stake(id);
-
+				let rc_validators: Vec<_> =
+					ElectableStashes::<T>::take().into_iter().map(|(s, _)| s).collect();
 				crate::log!(
 					info,
-					"Send new validator set to RC. ID: {:?}, prune_up_to: {:?}",
+					"Sending new validator set of size {:?} to RC. ID: {:?}, prune_up_to: {:?}",
+					rc_validators.len(),
 					id,
 					prune_up_to
 				);
 
-				T::RcClientInterface::validator_set(
-					ElectableStashes::<T>::take().into_iter().map(|(s, _)| s).collect(),
-					id,
-					prune_up_to,
-				);
+				T::RcClientInterface::validator_set(rc_validators, id, prune_up_to);
 			}
 		}
 	}
@@ -1042,7 +1040,7 @@ impl<T: Config> EraElectionPlanner<T> {
 		}
 
 		log!(
-			info,
+			debug,
 			"stored a page of stakers with {:?} validators and {:?} total backers for era {:?}",
 			elected_stashes.len(),
 			total_backers,
