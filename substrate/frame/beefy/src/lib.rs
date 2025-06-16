@@ -43,8 +43,8 @@ use frame_system::{
 };
 use sp_consensus_beefy::{
 	AncestryHelper, AncestryHelperWeightInfo, AuthorityIndex, BeefyAuthorityId, ConsensusLog,
-	DoubleVotingProof, ForkVotingProof, FutureBlockVotingProof, OnNewValidatorSet, ValidatorSet,
-	BEEFY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
+	DoubleVotingProof, ForkVotingProof, FutureBlockVotingProof, MmrRootHash, OnNewValidatorSet,
+	ValidatorSet, BEEFY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
 };
 use sp_runtime::{
 	generic::DigestItem,
@@ -604,7 +604,8 @@ impl<T: Config> Pallet<T> {
 		if let Some(validator_set) = ValidatorSet::<T::BeefyId>::new(new, new_id) {
 			let log = DigestItem::Consensus(
 				BEEFY_ENGINE_ID,
-				ConsensusLog::AuthoritiesChange(validator_set.clone()).encode(),
+				ConsensusLog::<T::BeefyId, MmrRootHash>::AuthoritiesChange(validator_set.clone())
+					.encode(),
 			);
 			frame_system::Pallet::<T>::deposit_log(log);
 
@@ -724,7 +725,7 @@ where
 	fn on_disabled(i: u32) {
 		let log = DigestItem::Consensus(
 			BEEFY_ENGINE_ID,
-			ConsensusLog::<T::BeefyId>::OnDisabled(i as AuthorityIndex).encode(),
+			ConsensusLog::<T::BeefyId, MmrRootHash>::OnDisabled(i as AuthorityIndex).encode(),
 		);
 
 		frame_system::Pallet::<T>::deposit_log(log);

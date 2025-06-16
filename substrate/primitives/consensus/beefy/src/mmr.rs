@@ -138,7 +138,7 @@ pub type BeefyNextAuthoritySet<MerkleRoot> = BeefyAuthoritySet<MerkleRoot>;
 pub fn find_mmr_root_digest<B: Block>(header: &B::Header) -> Option<MmrRootHash> {
 	let id = OpaqueDigestItemId::Consensus(&BEEFY_ENGINE_ID);
 
-	let filter = |log: ConsensusLog<AuthorityId>| match log {
+	let filter = |log: ConsensusLog<AuthorityId, MmrRootHash>| match log {
 		ConsensusLog::MmrRoot(root) => Some(root),
 		_ => None,
 	};

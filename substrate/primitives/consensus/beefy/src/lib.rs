@@ -53,7 +53,7 @@ use scale_info::TypeInfo;
 use sp_application_crypto::{AppPublic, RuntimeAppPublic};
 use sp_core::H256;
 use sp_runtime::{
-	traits::{Hash, Header as HeaderT, Keccak256, NumberFor},
+	traits::{Hash, Header as HeaderT, NumberFor},
 	OpaqueValue,
 };
 use sp_weights::Weight;
@@ -274,14 +274,12 @@ impl<AuthorityId> ValidatorSet<AuthorityId> {
 /// The index of an authority.
 pub type AuthorityIndex = u32;
 
-/// The Hashing used within MMR.
-pub type MmrHashing = Keccak256;
 /// The type used to represent an MMR root hash.
 pub type MmrRootHash = H256;
 
 /// A consensus log item for BEEFY.
 #[derive(Decode, Encode, TypeInfo)]
-pub enum ConsensusLog<AuthorityId: Codec> {
+pub enum ConsensusLog<AuthorityId: Codec, MmrRootHash> {
 	/// The authorities have changed.
 	#[codec(index = 1)]
 	AuthoritiesChange(ValidatorSet<AuthorityId>),
