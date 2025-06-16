@@ -189,3 +189,42 @@ fn handle_event<Hash: Clone, BlockHash: Clone>(
 		TransactionStatus::Broadcast(_) => None,
 	}
 }
+
+/// Handle for the transaction monitor.
+pub struct TransactionMonitorHandle<Hash: Clone>(
+	tokio::sync::mpsc::Receiver<TransactionMonitorEvent<Hash>>,
+);
+
+/// An event emitted by the transaction monitor.
+///
+/// This is used to notify about the state of transactions.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TransactionMonitorEvent<Hash: Clone> {
+	/// A new transaction has been submitted.
+	Submitted {
+		/// The transaction ID.
+		id: u64,
+	},
+
+	/// The transaction has been included in a block.
+	InBlock {
+		/// The transaction ID.
+		id: u64,
+		/// The block hash where the transaction was included.
+		block_hash: Hash,
+	},
+
+	/// The transaction has been finalized.
+	Finalized {
+		/// The transaction ID.
+		id: u64,
+		/// The block hash where the transaction was finalized.
+		block_hash: Hash,
+	},
+
+	/// The transaction has been dropped from the pool.
+	Stopped {
+		/// The transaction ID.
+		id: u64,
+	},
+}
