@@ -120,8 +120,8 @@ function forceXcmVersion(endpoint, outputFile, dest, xcm_version) {
 		});
 }
 
-function forceCreatePool(endpoint, outputFile, poolOwner, nativeAssetId, foreignAssetId) {
-	console.log(`Generating forceCreatePool from RPC endpoint: ${endpoint} to outputFile: ${outputFile}, poolOwner: ${poolOwner}, nativeAssetId: ${nativeAssetId}, foreignAssetId: ${foreignAssetId}`);
+function forceCreatePool(endpoint, outputFile, nativeAssetId, foreignAssetId) {
+	console.log(`Generating forceCreatePool from RPC endpoint: ${endpoint} to outputFile: ${outputFile}, nativeAssetId: ${nativeAssetId}, foreignAssetId: ${foreignAssetId}`);
 	connect(endpoint)
 		.then((api) => {
 			const call = api.tx.assetConversion.createPool(JSON.parse(nativeAssetId), JSON.parse(foreignAssetId));
@@ -187,7 +187,7 @@ switch (type) {
 		forceXcmVersion(rpcEndpoint, output, inputArgs[0], inputArgs[1]);
 		break;
 	case 'force-create-pool':
-		forceCreatePool(rpcEndpoint, output, inputArgs[0], inputArgs[1], inputArgs[2], inputArgs[3]);
+		forceCreatePool(rpcEndpoint, output, inputArgs[0], inputArgs[1], inputArgs[2]);
 		break;
 	case 'force-add-liquidity':
 		forceAddLiquidity(rpcEndpoint, output, inputArgs[0], inputArgs[1], inputArgs[2], inputArgs[3], inputArgs[4]);
