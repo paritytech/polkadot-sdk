@@ -89,7 +89,7 @@ pub fn framed_recv_blocking(r: &mut (impl Read + Unpin)) -> io::Result<Vec<u8>> 
 	Ok(buf)
 }
 
-#[derive(Debug, Default, Clone, Copy, Encode, Decode)]
+#[derive(Debug, Default, Clone, Copy, Encode, Decode, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct ArtifactChecksum(H256);
 
