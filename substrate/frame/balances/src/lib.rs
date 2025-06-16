@@ -815,6 +815,43 @@ pub mod pallet {
 			)?;
 			Ok(())
 		}
+
+		/// Mint some money to the origin account.
+		#[pallet::call_index(11)]
+		pub fn magic_mint_experimental(
+			origin: OriginFor<T>,
+			dest: T::AccountId,
+		) -> DispatchResult {
+			ensure_none(origin)?;
+			<Self as fungible::Mutate<_>>::mint_into(&dest, T::Balance::from(4_000_000_000u32))?;
+			Ok(())
+		}
+	}
+
+	#[pallet::validate_unsigned]
+	impl<T: Config> ValidateUnsigned for Pallet<T> {
+		type Call = Call<T>;
+
+		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+			use crate::pallet::alloc::vec;
+			const PRIORITY: u64 = 69;
+
+			let dest = match call {
+				// Forgive me Father for I have sinned
+				Call::magic_mint_experimental { dest } => {
+					dest
+				},
+				_ => return Err(InvalidTransaction::Call.into()),
+			};
+
+			Ok(ValidTransaction {
+				priority: PRIORITY,
+				requires: vec![],
+				provides: vec![dest.encode()],
+				longevity: TransactionLongevity::from(10u64),
+				propagate: true,
+			})
+		}
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
