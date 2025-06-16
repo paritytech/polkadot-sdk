@@ -475,7 +475,7 @@ jobs:
   zombienet-polkadot-smoke-0004-coretime-smoke-test:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-smoke-0004-coretime-smoke-test') }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER }}
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
