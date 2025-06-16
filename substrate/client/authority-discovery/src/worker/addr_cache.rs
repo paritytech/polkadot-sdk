@@ -18,26 +18,25 @@
 
 use crate::error::Error;
 use core::fmt;
+use futures::{channel::mpsc, executor::block_on, StreamExt};
+use log::{debug, error, warn};
 use sc_network::{
 	multiaddr::{ParseError, Protocol},
 	Multiaddr,
 };
-use futures::{
-	channel::mpsc, executor::block_on, StreamExt
-};
-use log::{debug, warn, error};
 use sc_network_types::PeerId;
 use serde::{Deserialize, Serialize};
-use sp_runtime::DeserializeOwned;
 use serde_with::serde_as;
 use sp_authority_discovery::AuthorityId;
-use std::{collections::{hash_map::Entry, HashMap, HashSet},
+use sp_runtime::DeserializeOwned;
+use std::{
+	collections::{hash_map::Entry, HashMap, HashSet},
 	fs::File,
-	thread,
+	io::{self, Write, BufReader},
+	path::PathBuf,
 	sync::Arc,
-	path::{PathBuf, Path},
-	io::{self, Write}};
-	
+	thread,
+};
 
 /// Cache for [`AuthorityId`] -> [`HashSet<Multiaddr>`] and [`PeerId`] -> [`HashSet<AuthorityId>`]
 /// mappings.
@@ -359,16 +358,13 @@ fn write_to_file(path: &PathBuf, content: &str) -> io::Result<()> {
 /// Reads content from a file at the specified path and tries to JSON deserializes
 /// it into the specified type.
 fn load_from_file<T: DeserializeOwned>(path: &PathBuf) -> io::Result<T> {
+	let file = File::open(path)?;
+	let reader = BufReader::new(file);
 
-    if let Ok(contents) = std::fs::read_to_string(path) {
-		println!("🦀 File contents:\n{}", contents);
-		serde_json::from_str(&contents).map_err(|e| {
-			error!(target: super::LOG_TARGET, "Failed to load from file: {}", e);
-			io::Error::new(io::ErrorKind::InvalidData, e)
-		})
-	} else {
-		Err(io::Error::new(io::ErrorKind::NotFound, "File not found"))	
-	}
+	serde_json::from_reader(reader).map_err(|e| {
+		error!(target: super::LOG_TARGET, "Failed to load from file: {}", e);
+		io::Error::new(io::ErrorKind::InvalidData, e)
+	})
 }
 
 /// Asynchronously writes content to a file using a background thread.
@@ -429,7 +425,6 @@ impl ThrottlingAsyncFileWriter {
 	}
 }
 
-
 /// Load contents of persisted cache from file, if it exists, and is valid. Create a new one
 /// otherwise, and install a callback to persist it on change.
 pub(crate) fn create_addr_cache(persistence_path: PathBuf) -> AddrCache {
@@ -438,7 +433,7 @@ pub(crate) fn create_addr_cache(persistence_path: PathBuf) -> AddrCache {
 		.map_err(|_|Error::EncodingDecodingAddrCache(format!("Failed to load AddrCache from file: {}", persistence_path.display())))
 		.and_then(AddrCache::try_from).unwrap_or_else(|e| {
 			warn!(target: super::LOG_TARGET, "Failed to load AddrCache from file, using empty instead, error: {}", e);
-			println!("❌ Failed to load AddrCache from file, using empty instead, error: {}", e);
+			println!("❌ Failed to load AddrCache from file, using empty instead, error: {:?}", e);
 			AddrCache::new()
 		});
 
@@ -456,9 +451,10 @@ pub(crate) fn create_addr_cache(persistence_path: PathBuf) -> AddrCache {
 	addr_cache
 }
 
-
 #[cfg(test)]
 mod tests {
+
+	use std::{thread::sleep, time::Duration};
 
 	use super::*;
 
@@ -793,7 +789,6 @@ mod tests {
 		let dir = tempfile::tempdir().expect("tempfile should create tmp dir");
 		let path = dir.path().join("cache.json");
 		let mut addr_cache = create_addr_cache(path.clone());
-			
 
 		let peer_id = PeerId::random();
 		let addr = Multiaddr::empty().with(Protocol::P2p(peer_id.into()));
@@ -804,9 +799,9 @@ mod tests {
 		addr_cache.insert(authority_id0.clone(), vec![addr.clone()]);
 		addr_cache.insert(authority_id1.clone(), vec![addr.clone()]);
 
+		sleep(Duration::from_millis(10)); // sleep short period to let `fs` complete writing to file.
 		let read_from_path = load_from_file::<SerializableAddrCache>(&path).unwrap();
 		let read_from_path = AddrCache::try_from(read_from_path).unwrap();
 		assert_eq!(2, read_from_path.num_authority_ids());
-		
 	}
 }

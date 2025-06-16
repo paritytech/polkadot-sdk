@@ -19,33 +19,26 @@
 use crate::{
 	error::{Error, Result},
 	interval::ExpIncInterval,
-	worker::addr_cache::{create_addr_cache, SerializableAddrCache},
+	worker::addr_cache::create_addr_cache,
 	ServicetoWorkerMsg, WorkerConfig,
 };
 
 use std::{
 	collections::{HashMap, HashSet},
-	fs::File,
-	io::{self, Write},
 	marker::PhantomData,
 	path::PathBuf,
 	sync::Arc,
-	thread,
 	time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-use futures::{
-	channel::mpsc, executor::block_on, future, stream::Fuse, FutureExt, Stream, StreamExt,
-};
-use serde::Serialize;
+use futures::{channel::mpsc, future, stream::Fuse, FutureExt, Stream, StreamExt};
 
-use addr_cache::AddrCache;
 use codec::{Decode, Encode};
 use ip_network::IpNetwork;
 use linked_hash_set::LinkedHashSet;
 use sc_network_types::kad::{Key, PeerRecord, Record};
 
-use log::{debug, error, trace, warn};
+use log::{debug, error, trace};
 use prometheus_endpoint::{register, Counter, CounterVec, Gauge, Opts, U64};
 use prost::Message;
 use rand::{seq::SliceRandom, thread_rng};
@@ -63,7 +56,7 @@ use sp_authority_discovery::{
 use sp_blockchain::HeaderBackend;
 use sp_core::crypto::{key_types, ByteArray, Pair};
 use sp_keystore::{Keystore, KeystorePtr};
-use sp_runtime::{traits::Block as BlockT, DeserializeOwned};
+use sp_runtime::traits::Block as BlockT;
 
 mod addr_cache;
 /// Dht payload schemas generated from Protobuf definitions via Prost crate in build.rs.
