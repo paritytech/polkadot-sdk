@@ -258,7 +258,7 @@ case "$1" in
           "ws://127.0.0.1:9910" \
           "$GLOBAL_CONSENSUS_WESTEND_SOVEREIGN_ACCOUNT" \
           "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \
-          "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }] } }')"
+          "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }] } }')"
       # Create liquidity in the pool
       force_add_liquidity \
           "ws://127.0.0.1:9942" \
@@ -267,7 +267,7 @@ case "$1" in
           "ws://127.0.0.1:9910" \
           "$GLOBAL_CONSENSUS_WESTEND_SOVEREIGN_ACCOUNT" \
           "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \
-          "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }] } }')" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }] } }')" \
           10000000000 \
           10000000000
     
@@ -338,7 +338,7 @@ case "$1" in
             "ws://127.0.0.1:9010" \
             "$GLOBAL_CONSENSUS_ROCOCO_SOVEREIGN_ACCOUNT" \
             "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \   
-            "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }] } }')"
+            "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }] } }')"
       # Create liquidity in the pool
         force_add_liquidity \
             "ws://127.0.0.1:9945" \
@@ -347,7 +347,7 @@ case "$1" in
             "ws://127.0.0.1:9010" \
             "$GLOBAL_CONSENSUS_ROCOCO_SOVEREIGN_ACCOUNT" \
             "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \
-            "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }] } }')" \
+            "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }] } }')" \
             10000000000 \
             10000000000
       # HRMP
