@@ -46,26 +46,52 @@ use std::sync::Arc;
 pub(crate) const LOG_TARGET: &str = "rpc-spec-v2";
 
 /// An API for transaction RPC calls.
-pub struct Transaction<Pool, Client> {
+pub struct Transaction<Pool, Client>
+where
+	Pool: TransactionPool + Sync + Send + 'static,
+	Pool::Hash: Unpin,
+	<Pool::Block as BlockT>::Hash: Unpin,
+	Client: HeaderBackend<Pool::Block> + Send + Sync + 'static,
+{
 	/// Substrate client.
 	client: Arc<Client>,
 	/// Transactions pool.
 	pool: Arc<Pool>,
 	/// Executor to spawn subscriptions.
 	executor: SubscriptionTaskExecutor,
+	/// Channel to monitor transactions.
+	tx_monitor:
+		Option<tokio::sync::mpsc::Sender<TransactionMonitorEvent<<Pool::Block as BlockT>::Hash>>>,
 	/// Metrics for transactions.
 	metrics: Option<Metrics>,
 }
 
-impl<Pool, Client> Transaction<Pool, Client> {
+impl<Pool, Client> Transaction<Pool, Client>
+where
+	Pool: TransactionPool + Sync + Send + 'static,
+	Pool::Hash: Unpin,
+	<Pool::Block as BlockT>::Hash: Unpin,
+	Client: HeaderBackend<Pool::Block> + Send + Sync + 'static,
+{
 	/// Creates a new [`Transaction`].
 	pub fn new(
 		client: Arc<Client>,
 		pool: Arc<Pool>,
 		executor: SubscriptionTaskExecutor,
 		metrics: Option<Metrics>,
-	) -> Self {
-		Transaction { client, pool, executor, metrics }
+	) -> (Self, TransactionMonitorHandle<<Pool::Block as BlockT>::Hash>) {
+		let (tx_monitor, rx_monitor) = tokio::sync::mpsc::channel(1024);
+
+		(
+			Transaction {
+				client: client.clone(),
+				pool: pool.clone(),
+				executor,
+				tx_monitor: Some(tx_monitor),
+				metrics,
+			},
+			TransactionMonitorHandle(rx_monitor),
+		)
 	}
 }
 
