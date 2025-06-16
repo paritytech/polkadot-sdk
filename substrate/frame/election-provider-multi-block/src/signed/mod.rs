@@ -44,13 +44,7 @@
 //!
 //! ## Future Plans:
 //!
-//! **Lazy deletion**:
-//! Overall, this pallet can avoid the need to delete any storage item, by:
-//! 1. outsource the storage of solution data to some other pallet.
-//! 2. keep it here, but make everything be also a map of the round number, so that we can keep old
-//!    storage, and it is ONLY EVER removed, when after that round number is over. This can happen
-//!    for more or less free by the submitter itself, and by anyone else as well, in which case they
-//!    get a share of the the sum deposit. The share increases as times goes on.
+//! **Lazy Deletion In Eject**: While most deletion ops of the signed phase are now lazy, if someone is ejected from the list, we still remove their data in sync.
 //! **Metadata update**: imagine you mis-computed your score.
 //! **whitelisted accounts**: who will not pay deposits are needed. They can still be ejected, but
 //! for free.
@@ -826,7 +820,7 @@ pub mod pallet {
 
 		/// Retract a submission.
 		///
-		/// A portion of the deposit may be returned, based on the [`Config::BailoutGraceRatio`].
+		/// A portion of the deposit may be returned, based on the [`Config::EjectGraceRatio`].
 		///
 		/// This will fully remove the solution from storage.
 		#[pallet::weight(SignedWeightsOf::<T>::bail())]
