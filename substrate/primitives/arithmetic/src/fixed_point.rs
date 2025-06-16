@@ -45,10 +45,10 @@
 //!
 
 use crate::{
-	helpers_128bit::{multiply_by_rational_with_rounding, sqrt},
+	helpers_128bit::{multiply_by_rational, multiply_by_rational_with_rounding, sqrt},
 	traits::{
-		Bounded, CheckedAdd, CheckedDiv, CheckedMul, CheckedNeg, CheckedSub, One,
-		SaturatedConversion, Saturating, UniqueSaturatedInto, Zero,
+		Bounded, CheckedAdd, CheckedDiv, CheckedMul, CheckedNeg, CheckedRem, CheckedSub, Num, One,
+		SaturatedConversion, Saturating, Signed, UniqueSaturatedInto, Unsigned, Zero,
 	},
 	PerThing, Perbill, Rounding, SignedRounding,
 };
@@ -178,7 +178,7 @@ pub trait FixedPointNumber:
 		d: D,
 	) -> Option<Self> {
 		if d == D::zero() {
-			return None
+			return None;
 		}
 
 		let n: I129 = n.into();
@@ -520,6 +520,11 @@ macro_rules! implement_fixed {
 				self.0 as f64 / <Self as FixedPointNumber>::DIV as f64
 			}
 
+			/// Convert into a `u32` value.
+			pub fn to_u32(self) -> u32 {
+				(self.0 / <Self as FixedPointNumber>::DIV) as u32
+			}
+
 			/// Attempt to convert into a `PerThing`. This will succeed iff `self` is at least zero
 			/// and at most one. If it is out of bounds, it will result in an error returning the
 			/// clamped value.
@@ -574,10 +579,10 @@ macro_rules! implement_fixed {
 			/// Compute the square root. If it overflows or is negative, then `None` is returned.
 			pub const fn checked_sqrt(self) -> Option<Self> {
 				if self.0 == 0 {
-					return Some(Self(0))
+					return Some(Self(0));
 				}
 				if self.0 < 1 {
-					return None
+					return None;
 				}
 				let v = self.0 as u128;
 
@@ -668,7 +673,7 @@ macro_rules! implement_fixed {
 				} else {
 					let unsigned_inner = n.value as $inner_type;
 					if unsigned_inner as u128 != n.value || (unsigned_inner > 0) != (n.value > 0) {
-						return None
+						return None;
 					};
 					if n.negative {
 						match unsigned_inner.checked_neg() {
@@ -762,7 +767,7 @@ macro_rules! implement_fixed {
 				rounding: SignedRounding,
 			) -> Option<Self> {
 				if other.0 == 0 {
-					return None
+					return None;
 				}
 
 				let lhs = self.into_i129();
@@ -796,7 +801,7 @@ macro_rules! implement_fixed {
 
 			fn saturating_pow(self, exp: usize) -> Self {
 				if exp == 0 {
-					return Self::saturating_from_integer(1)
+					return Self::saturating_from_integer(1);
 				}
 
 				let exp = exp as u32;
@@ -859,6 +864,18 @@ macro_rules! implement_fixed {
 			}
 		}
 
+		impl ops::Rem for $name {
+			type Output = Self;
+
+			fn rem(self, rhs: Self) -> Self::Output {
+				if rhs.0 == 0 {
+					panic!("attempt to divide by zero")
+				}
+				self.checked_rem(&rhs)
+					.unwrap_or_else(|| panic!("attempt to divide with overflow"))
+			}
+		}
+
 		impl CheckedSub for $name {
 			fn checked_sub(&self, rhs: &Self) -> Option<Self> {
 				self.0.checked_sub(rhs.0).map(Self)
@@ -874,7 +891,7 @@ macro_rules! implement_fixed {
 		impl CheckedDiv for $name {
 			fn checked_div(&self, other: &Self) -> Option<Self> {
 				if other.0 == 0 {
-					return None
+					return None;
 				}
 
 				let lhs: I129 = self.0.into();
@@ -913,6 +930,32 @@ macro_rules! implement_fixed {
 			}
 		}
 
+		impl CheckedRem for $name {
+			fn checked_rem(&self, other: &Self) -> Option<Self> {
+				if other.0 == 0 {
+					return None;
+				}
+
+				let lhs: I129 = self.0.into();
+				let rhs: I129 = other.0.into();
+				let negative = lhs.negative;
+
+				multiply_by_rational(lhs.value, 1, rhs.value)
+					.and_then(|(_, value)| from_i129(I129 { value, negative }))
+					.map(Self)
+			}
+		}
+
+		impl Num for $name {
+			type FromStrRadixErr = <$inner_type as Num>::FromStrRadixErr;
+
+			fn from_str_radix(str: &str, radix: u32) -> Result<Self, Self::FromStrRadixErr> {
+				<$inner_type as Num>::from_str_radix(str, radix).map(Self)
+			}
+		}
+
+		impl_signed_trait!($name, $signed);
+
 		impl Bounded for $name {
 			fn min_value() -> Self {
 				Self(<Self as FixedPointNumber>::Inner::min_value())
@@ -936,6 +979,18 @@ macro_rules! implement_fixed {
 		impl One for $name {
 			fn one() -> Self {
 				Self::from_inner(Self::DIV)
+			}
+		}
+
+		impl ::core::iter::Sum for $name {
+			fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+				iter.fold(Self::zero(), |a, b| a + b)
+			}
+		}
+
+		impl<'a> ::core::iter::Sum<&'a Self> for $name {
+			fn sum<I: Iterator<Item = &'a Self>>(iter: I) -> Self {
+				iter.fold(Self::zero(), |a, &b| a + b)
 			}
 		}
 
@@ -1044,6 +1099,15 @@ macro_rules! implement_fixed {
 				}
 
 				let _ = AsMaxEncodedLen { _data: $name::min_value() };
+			}
+
+			#[test]
+			fn u32_roundtrip_matches() {
+				let fixed = $name::from_u32(u32::MAX);
+				assert_eq!(fixed.0, (u32::MAX as $inner_type) * $name::DIV);
+
+				let val = fixed.to_u32();
+				assert_eq!(val, u32::MAX);
 			}
 
 			#[test]
@@ -2006,6 +2070,56 @@ macro_rules! implement_fixed {
 			}
 
 			#[test]
+			fn checked_rem_works() {
+				let inner_max = <$name as FixedPointNumber>::Inner::max_value();
+				let inner_min = <$name as FixedPointNumber>::Inner::min_value();
+
+				let a = $name::from_inner(inner_max);
+				let b = $name::from_inner(inner_min);
+				let c = $name::zero();
+				let d = $name::one();
+				let e = $name::saturating_from_integer(6);
+				let f = $name::saturating_from_integer(5);
+
+				assert_eq!(e.checked_rem(&4.into()), Some(2.into()));
+				assert_eq!(f.checked_rem(&2.into()), Some(1.into()));
+
+				assert_eq!(a.checked_rem(&inner_max.into()), Some(0.into()));
+				assert_eq!(a.checked_rem(&$name::max_value()), Some(0.into()));
+				assert_eq!(a.checked_rem(&d), Some($name::from_inner(0) + a.frac()));
+				assert_eq!(a.checked_rem(&$name::from_inner(1)), Some(0.into()));
+
+				if b < c {
+					// Not executed by unsigned inners.
+
+					assert_eq!(
+						$name::from_float(15.).checked_rem(&$name::from_float(-4.)),
+						Some($name::from_float(3.))
+					);
+
+					assert_eq!(
+						$name::from_float(-15.).checked_rem(&$name::from_float(4.)),
+						Some($name::from_float(-3.))
+					);
+
+					assert_eq!(
+						$name::from_float(-15.).checked_rem(&$name::from_float(-4.)),
+						Some($name::from_float(-3.))
+					);
+
+					assert_eq!(
+						$name::from_float(-20.).checked_rem(&$name::from_float(-7.)),
+						Some($name::from_float(-6.))
+					);
+				}
+
+				assert_eq!(a.checked_rem(&$name::zero()), None);
+				assert_eq!(b.checked_rem(&$name::zero()), None);
+				assert_eq!(c.checked_rem(&$name::zero()), None);
+				assert_eq!(d.checked_rem(&$name::zero()), None);
+			}
+
+			#[test]
 			fn is_positive_negative_works() {
 				let one = $name::one();
 				assert!(one.is_positive());
@@ -2214,6 +2328,50 @@ macro_rules! implement_fixed {
 				}
 			}
 		}
+	};
+}
+
+macro_rules! impl_signed_trait {
+	($name:ident, true) => {
+		impl Signed for $name {
+			fn abs(&self) -> Self {
+				if <$name as FixedPointNumber>::is_negative(*self) {
+					-*self
+				} else {
+					*self
+				}
+			}
+
+			fn abs_sub(&self, other: &Self) -> Self {
+				if *self <= *other {
+					Self::zero()
+				} else {
+					*self - *other
+				}
+			}
+
+			fn signum(&self) -> Self {
+				if <$name as Zero>::is_zero(self) {
+					Self::zero()
+				} else if <$name as FixedPointNumber>::is_negative(*self) {
+					-Self::one()
+				} else {
+					Self::one()
+				}
+			}
+
+			fn is_positive(&self) -> bool {
+				<$name as FixedPointNumber>::is_positive(*self)
+			}
+
+			fn is_negative(&self) -> bool {
+				<$name as FixedPointNumber>::is_negative(*self)
+			}
+		}
+	};
+
+	($name:ident, false) => {
+		impl Unsigned for $name {}
 	};
 }
 
