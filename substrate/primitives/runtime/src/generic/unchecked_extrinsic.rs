@@ -565,7 +565,9 @@ where
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
 		self.0.using_encoded(|payload| {
 			if payload.len() > 256 {
-				f(&blake2_256(payload)[..])
+				let mut hash = [0u8; 32];
+				blake2_256(payload, &mut hash);
+				f(&hash[..])
 			} else {
 				f(payload)
 			}
@@ -965,9 +967,11 @@ mod tests {
 		let signed = TEST_ACCOUNT;
 		let extension = DummyExtension;
 		let implicit = extension.implicit().unwrap();
+		let mut sig = [0u8; 32];
+		blake2_256(&(&call, DummyExtension, &implicit).encode()[..], &mut sig);
 		let signature = TestSig(
 			TEST_ACCOUNT,
-			blake2_256(&(&call, DummyExtension, &implicit).encode()[..]).to_vec(),
+			sig.to_vec(),
 		);
 
 		let old_ux =

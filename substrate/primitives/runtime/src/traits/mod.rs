@@ -138,11 +138,15 @@ impl Verify for sp_core::sr25519::Signature {
 impl Verify for sp_core::ecdsa::Signature {
 	type Signer = sp_core::ecdsa::Public;
 	fn verify<L: Lazy<[u8]>>(&self, mut msg: L, signer: &sp_core::ecdsa::Public) -> bool {
+		let mut msg_hash = [0u8; 32];
+		sp_io::hashing::blake2_256(msg.get(), &mut msg_hash);
+		let mut pubkey = sp_io::Pubkey264::default();
 		match sp_io::crypto::secp256k1_ecdsa_recover_compressed(
 			self.as_ref(),
-			&sp_io::hashing::blake2_256(msg.get()),
+			&msg_hash,
+			&mut pubkey,
 		) {
-			Ok(pubkey) => signer.0 == pubkey,
+			Ok(()) => signer.0 == pubkey.0,
 			_ => false,
 		}
 	}
@@ -1050,7 +1054,9 @@ impl Hasher for BlakeTwo256 {
 	const LENGTH: usize = 32;
 
 	fn hash(s: &[u8]) -> Self::Out {
-		sp_io::hashing::blake2_256(s).into()
+		let mut hash = [0u8; 32];
+		sp_io::hashing::blake2_256(s, &mut hash);
+		hash.into()
 	}
 }
 
@@ -1058,11 +1064,15 @@ impl Hash for BlakeTwo256 {
 	type Output = sp_core::H256;
 
 	fn ordered_trie_root(input: Vec<Vec<u8>>, version: StateVersion) -> Self::Output {
-		sp_io::trie::blake2_256_ordered_root(input, version)
+		let mut hash = sp_core::H256::default();
+		sp_io::trie::blake2_256_ordered_root(input, version, &mut hash);
+		hash
 	}
 
 	fn trie_root(input: Vec<(Vec<u8>, Vec<u8>)>, version: StateVersion) -> Self::Output {
-		sp_io::trie::blake2_256_root(input, version)
+		let mut hash = sp_core::H256::default();
+		sp_io::trie::blake2_256_root(input, version, &mut hash);
+		hash
 	}
 }
 
@@ -1077,7 +1087,9 @@ impl Hasher for Keccak256 {
 	const LENGTH: usize = 32;
 
 	fn hash(s: &[u8]) -> Self::Out {
-		sp_io::hashing::keccak_256(s).into()
+		let mut hash = [0u8; 32];
+		sp_io::hashing::keccak_256(s, &mut hash);
+		hash.into()
 	}
 }
 
@@ -1085,11 +1097,15 @@ impl Hash for Keccak256 {
 	type Output = sp_core::H256;
 
 	fn ordered_trie_root(input: Vec<Vec<u8>>, version: StateVersion) -> Self::Output {
-		sp_io::trie::keccak_256_ordered_root(input, version)
+		let mut hash = sp_core::H256::default();
+		sp_io::trie::keccak_256_ordered_root(input, version, &mut hash);
+		hash
 	}
 
 	fn trie_root(input: Vec<(Vec<u8>, Vec<u8>)>, version: StateVersion) -> Self::Output {
-		sp_io::trie::keccak_256_root(input, version)
+		let mut hash = sp_core::H256::default();
+		sp_io::trie::keccak_256_root(input, version, &mut hash);
+		hash
 	}
 }
 

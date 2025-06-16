@@ -115,11 +115,13 @@ pub mod ecdsa_crypto {
 	{
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
 			let msg_hash = <MsgHash as Hash>::hash(msg).into();
+			let mut pubkey = sp_io::Pubkey264::default();
 			match sp_io::crypto::secp256k1_ecdsa_recover_compressed(
 				signature.as_inner_ref().as_ref(),
 				&msg_hash,
+				&mut pubkey,
 			) {
-				Ok(raw_pubkey) => raw_pubkey.as_ref() == AsRef::<[u8]>::as_ref(self),
+				Ok(()) => pubkey.0 == AsRef::<[u8]>::as_ref(self),
 				_ => false,
 			}
 		}

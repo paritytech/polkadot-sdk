@@ -49,6 +49,7 @@
 //! ```
 
 use alloc::{str, vec, vec::Vec};
+use codec::Decode;
 use sp_core::{
 	offchain::{
 		HttpError, HttpRequestId as RequestId, HttpRequestStatus as RequestStatus, Timestamp,
@@ -293,7 +294,9 @@ impl PendingRequest {
 		deadline: impl Into<Option<Timestamp>>,
 	) -> Vec<Result<HttpResult, PendingRequest>> {
 		let ids = requests.iter().map(|r| r.id).collect::<Vec<_>>();
-		let statuses = sp_io::offchain::http_response_wait(&ids, deadline.into());
+		let mut statuses = vec![0u8; ids.len() * 4 * 2];
+		sp_io::offchain::http_response_wait(&ids, deadline.into(), &mut statuses[..]);
+		let statuses: Vec<RequestStatus> = Decode::decode(&mut &statuses[..]).expect("Statused should decode correctly");
 
 		statuses
 			.into_iter()

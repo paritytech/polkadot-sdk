@@ -166,7 +166,7 @@ pub enum EcdsaVerifyError {
 // The FFI representation of EcdsaVerifyError.
 #[derive(EnumCount)]
 #[repr(i16)]
-enum RIEcdsaVerifyError {
+pub enum RIEcdsaVerifyError {
 	BadRS = -1_i16,
 	BadV = -2_i16,
 	BadSignature = -3_i16,
@@ -201,7 +201,8 @@ impl From<RIEcdsaVerifyError> for EcdsaVerifyError {
 // The FFI representation of HttpError.
 #[derive(EnumCount)]
 #[repr(i16)]
-enum RIHttpError {
+#[allow(missing_docs)]
+pub enum RIHttpError {
 	DeadlineReached = -1_i16,
 	IoError = -2_i16,
 	Invalid = -3_i16,
@@ -562,7 +563,7 @@ pub trait Storage {
 	/// doesn't exist at all.
 	/// If `value_out` length is smaller than the returned length, only `value_out` length bytes
 	/// are copied into `value_out`.
-	#[version(2, register_only)]
+	#[version(2)]
 	fn read(
 		&mut self,
 		key: PassFatPointerAndRead<&[u8]>,
@@ -664,7 +665,7 @@ pub trait Storage {
 	///
 	/// Please note that keys which are residing in the overlay for that prefix when
 	/// issuing this call are deleted without counting towards the `limit`.
-	#[version(3, register_only)]
+	#[version(3)]
 	fn clear_prefix(
 		&mut self,
 		maybe_prefix: PassFatPointerAndRead<&[u8]>,
@@ -719,7 +720,7 @@ pub trait Storage {
 	/// The hashing algorithm is defined by the `Block`.
 	///
 	/// Fills provided output buffer with the SCALE encoded hash.
-	#[version(3, register_only)]
+	#[version(3)]
 	fn root(&mut self, out: PassBufferAndWrite<&mut [u8], 1024>) {
 		let root = self.storage_root(StateVersion::V0);
 		let write_len = root.len().min(out.len());
@@ -743,7 +744,7 @@ pub trait Storage {
 	}
 
 	/// Get the next key in storage after the given one in lexicographic order.
-	#[version(2, register_only)]
+	#[version(2)]
 	fn next_key(&mut self, key_in_out: PassFatPointerAndReadWrite<&mut [u8]>) -> u32 {
 		if let Some(next_key) = self.next_storage_key(key_in_out) {
 			let next_key_len = next_key.len();
@@ -843,7 +844,7 @@ pub trait DefaultChildStorage {
 	/// doesn't exist at all.
 	/// If `value_out` length is smaller than the returned length, only `value_out` length bytes
 	/// are copied into `value_out`.
-	#[version(2, register_only)]
+	#[version(2)]
 	fn read(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
@@ -927,7 +928,7 @@ pub trait DefaultChildStorage {
 	/// Clear a child storage key.
 	///
 	/// See `Storage` module `clear_prefix` documentation for `limit` usage.
-	#[version(4, register_only)]
+	#[version(4)]
 	fn storage_kill(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
@@ -987,7 +988,7 @@ pub trait DefaultChildStorage {
 	/// Clear the child storage of each key-value pair where the key starts with the given `prefix`.
 	///
 	/// See `Storage` module `clear_prefix` documentation for `limit` usage.
-	#[version(3, register_only)]
+	#[version(3)]
 	fn clear_prefix(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
@@ -1044,7 +1045,7 @@ pub trait DefaultChildStorage {
 	/// The hashing algorithm is defined by the `Block`.
 	///
 	/// Fills provided output buffer with the SCALE encoded hash.
-	#[version(3, register_only)]
+	#[version(3)]
 	fn root(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
@@ -1071,7 +1072,7 @@ pub trait DefaultChildStorage {
 	/// Child storage key iteration.
 	///
 	/// Get the next key in storage after the given one in lexicographic order in child storage.
-	#[version(2, register_only)]
+	#[version(2)]
 	fn next_key(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
@@ -1111,7 +1112,7 @@ pub trait Trie {
 	}
 
 	/// A trie root formed from the iterated items.
-	#[version(3, register_only)]
+	#[version(3)]
 	fn blake2_256_root(
 		input: PassFatPointerAndDecode<Vec<(Vec<u8>, Vec<u8>)>>,
 		version: PassAs<StateVersion, u8>,
@@ -1144,7 +1145,7 @@ pub trait Trie {
 	}
 
 	/// A trie root formed from the enumerated items.
-	#[version(3, register_only)]
+	#[version(3)]
 	fn blake2_256_ordered_root(
 		input: PassFatPointerAndDecode<Vec<Vec<u8>>>,
 		version: PassAs<StateVersion, u8>,
@@ -1177,7 +1178,7 @@ pub trait Trie {
 	}
 
 	/// A trie root formed from the iterated items.
-	#[version(3, register_only)]
+	#[version(3)]
 	fn keccak_256_root(
 		input: PassFatPointerAndDecode<Vec<(Vec<u8>, Vec<u8>)>>,
 		version: PassAs<StateVersion, u8>,
@@ -1210,7 +1211,7 @@ pub trait Trie {
 	}
 
 	/// A trie root formed from the enumerated items.
-	#[version(3, register_only)]
+	#[version(3)]
 	fn keccak_256_ordered_root(
 		input: PassFatPointerAndDecode<Vec<Vec<u8>>>,
 		version: PassAs<StateVersion, u8>,
@@ -1389,7 +1390,7 @@ pub trait Misc {
 	/// may be involved. This means that a runtime call will be performed to query the version.
 	///
 	/// Calling into the runtime may be incredible expensive and should be approached with care.
-	#[version(2, register_only)]
+	#[version(2)]
 	fn runtime_version(
 		&mut self,
 		wasm: PassFatPointerAndRead<&[u8]>,
@@ -1513,7 +1514,7 @@ pub trait Crypto {
 	/// The `seed` needs to be a valid utf8.
 	///
 	/// Stores the public key in the provided output buffer.
-	#[version(2, register_only)]
+	#[version(2)]
 	fn ed25519_generate(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -1551,7 +1552,7 @@ pub trait Crypto {
 	/// key type in the keystore.
 	///
 	/// Returns the signature.
-	#[version(2, register_only)]
+	#[version(2)]
 	fn ed25519_sign(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -1763,7 +1764,7 @@ pub trait Crypto {
 	/// The `seed` needs to be a valid utf8.
 	///
 	/// Stores the public key in the provided output buffer.
-	#[version(2, register_only)]
+	#[version(2)]
 	fn sr25519_generate(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -1801,7 +1802,7 @@ pub trait Crypto {
 	/// key type in the keystore.
 	///
 	/// Returns the signature.
-	#[version(2, register_only)]
+	#[version(2)]
 	fn sr25519_sign(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -1891,7 +1892,7 @@ pub trait Crypto {
 	/// The `seed` needs to be a valid utf8.
 	///
 	/// Stores the public key in the provided output buffer.
-	#[version(2, register_only)]
+	#[version(2)]
 	fn ecdsa_generate(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -1929,7 +1930,7 @@ pub trait Crypto {
 	/// key type in the keystore.
 	///
 	/// Returns the signature.
-	#[version(2, register_only)]
+	#[version(2)]
 	fn ecdsa_sign(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -1969,7 +1970,7 @@ pub trait Crypto {
 	/// key and key type in the keystore.
 	///
 	/// Returns the signature.
-	#[version(2, register_only)]
+	#[version(2)]
 	fn ecdsa_sign_prehashed(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -2113,7 +2114,7 @@ pub trait Crypto {
 	///
 	/// Returns `Err` if the signature is bad, otherwise the 64-byte pubkey
 	/// (doesn't include the 0x04 prefix).
-	#[version(3, register_only)]
+	#[version(3)]
 	fn secp256k1_ecdsa_recover(
 		sig: PassPointerAndRead<&[u8; 65], 65>,
 		msg: PassPointerAndRead<&[u8; 32], 32>,
@@ -2189,7 +2190,7 @@ pub trait Crypto {
 	/// - `msg` is the blake2-256 hash of the message.
 	///
 	/// Returns `Err` if the signature is bad, otherwise the 33-byte compressed pubkey.
-	#[version(3, register_only)]
+	#[version(3)]
 	fn secp256k1_ecdsa_recover_compressed(
 		sig: PassPointerAndRead<&[u8; 65], 65>,
 		msg: PassPointerAndRead<&[u8; 32], 32>,
@@ -2315,7 +2316,7 @@ pub trait Hashing {
 	}
 
 	/// Conduct a 256-bit Keccak hash.
-	#[version(2, register_only)]
+	#[version(2)]
 	fn keccak_256(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut [u8; 32], 32>) {
 		out.copy_from_slice(&sp_crypto_hashing::keccak_256(data));
 	}
@@ -2326,7 +2327,7 @@ pub trait Hashing {
 	}
 
 	/// Conduct a 512-bit Keccak hash.
-	#[version(2, register_only)]
+	#[version(2)]
 	fn keccak_512(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut Val512, 64>) {
 		out.0.copy_from_slice(&sp_crypto_hashing::keccak_512(data));
 	}
@@ -2337,7 +2338,7 @@ pub trait Hashing {
 	}
 
 	/// Conduct a 256-bit Sha2 hash.
-	#[version(2, register_only)]
+	#[version(2)]
 	fn sha2_256(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut [u8; 32], 32>) {
 		out.copy_from_slice(&sp_crypto_hashing::sha2_256(data));
 	}
@@ -2348,7 +2349,7 @@ pub trait Hashing {
 	}
 
 	/// Conduct a 128-bit Blake2 hash.
-	#[version(2, register_only)]
+	#[version(2)]
 	fn blake2_128(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut [u8; 16], 16>) {
 		out.copy_from_slice(&sp_crypto_hashing::blake2_128(data));
 	}
@@ -2359,7 +2360,7 @@ pub trait Hashing {
 	}
 
 	/// Conduct a 256-bit Blake2 hash.
-	#[version(2, register_only)]
+	#[version(2)]
 	fn blake2_256(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut [u8; 32], 32>) {
 		out.copy_from_slice(&sp_crypto_hashing::blake2_256(data));
 	}
@@ -2370,7 +2371,7 @@ pub trait Hashing {
 	}
 
 	/// Conduct four XX hashes to give a 256-bit result.
-	#[version(2, register_only)]
+	#[version(2)]
 	fn twox_256(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut [u8; 32], 32>) {
 		out.copy_from_slice(&sp_crypto_hashing::twox_256(data));
 	}
@@ -2381,7 +2382,7 @@ pub trait Hashing {
 	}
 
 	/// Conduct two XX hashes to give a 128-bit result.
-	#[version(2, register_only)]
+	#[version(2)]
 	fn twox_128(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut [u8; 16], 16>) {
 		out.copy_from_slice(&sp_crypto_hashing::twox_128(data));
 	}
@@ -2392,7 +2393,7 @@ pub trait Hashing {
 	}
 
 	/// Conduct two XX hashes to give a 64-bit result.
-	#[version(2, register_only)]
+	#[version(2)]
 	fn twox_64(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut [u8; 8], 8>) {
 		out.copy_from_slice(&sp_crypto_hashing::twox_64(data));
 	}
@@ -2472,7 +2473,7 @@ pub trait Offchain {
 	/// Submit an encoded transaction to the pool.
 	///
 	/// The transaction will end up in the pool.
-	#[version(2, register_only)]
+	#[version(2)]
 	fn submit_transaction(
 		&mut self,
 		data: PassFatPointerAndRead<Vec<u8>>,
@@ -2536,7 +2537,7 @@ pub trait Offchain {
 	///
 	/// This is a truly random, non-deterministic seed generated by host environment.
 	/// Obviously fine in the off-chain worker context.
-	#[version(2, register_only)]
+	#[version(2)]
 	fn random_seed(&mut self, out: PassPointerAndWrite<&mut [u8; 32], 32>) {
 		out.copy_from_slice(
 			&self
@@ -2669,7 +2670,7 @@ pub trait Offchain {
 	///
 	/// Meta is a future-reserved field containing additional, parity-scale-codec encoded
 	/// parameters. Returns the id of newly started request.
-	#[version(2, register_only)]
+	#[version(2)]
 	fn http_request_start(
 		&mut self,
 		method: PassFatPointerAndRead<&str>,
@@ -2695,7 +2696,7 @@ pub trait Offchain {
 	}
 
 	/// Append header to the request.
-	#[version(2, register_only)]
+	#[version(2)]
 	fn http_request_add_header(
 		&mut self,
 		request_id: PassAs<HttpRequestId, u16>,
@@ -2730,7 +2731,7 @@ pub trait Offchain {
 	/// Passing `None` as deadline blocks forever.
 	///
 	/// Returns an error in case deadline is reached or the chunk couldn't be written.
-	#[version(2, register_only)]
+	#[version(2)]
 	fn http_request_write_body(
 		&mut self,
 		request_id: PassAs<HttpRequestId, u16>,
@@ -2759,6 +2760,9 @@ pub trait Offchain {
 			.http_response_wait(ids, deadline)
 	}
 
+	/// TODO: Original error codes are used as they to not contradict anything. That should be
+	/// either reflected in RFC-145 or changed here.
+	/// 
 	/// Block and wait for the responses for given requests.
 	///
 	/// Fills the provided output buffer with request statuses. The length of the provided buffer
@@ -2768,7 +2772,7 @@ pub trait Offchain {
 	/// otherwise unready responses will produce `DeadlineReached` status.
 	///
 	/// Passing `None` as deadline blocks forever.
-	#[version(2, register_only)]
+	#[version(2)]
 	fn http_response_wait(
 		&mut self,
 		ids: PassFatPointerAndDecodeSlice<&[HttpRequestId]>,
@@ -2868,7 +2872,7 @@ pub trait Offchain {
 	/// and the `request_id` is now invalid.
 	/// NOTE: this implies that response headers must be read before draining the body.
 	/// Passing `None` as a deadline blocks forever.
-	#[version(2, register_only)]
+	#[version(2)]
 	fn http_response_read_body(
 		&mut self,
 		request_id: PassAs<HttpRequestId, u16>,
@@ -3212,14 +3216,11 @@ mod tests {
 		});
 
 		t.execute_with(|| {
-			// We can switch to this once we enable v3 of the `clear_prefix`.
-			//assert!(matches!(
-			//	storage::clear_prefix(b":abc", None),
-			//	MultiRemovalResults::NoneLeft { db: 2, total: 2 }
-			//));
+			let mut res = MultiRemovalResults::default();
+			storage::clear_prefix(b":abc", None, None, &mut res);
 			assert!(matches!(
-				storage::clear_prefix(b":abc", None),
-				KillStorageResult::AllRemoved(2),
+				res,
+				MultiRemovalResults::NoneLeft { db: 2, total: 2 }
 			));
 
 			assert!(storage::get(b":a").is_some());
@@ -3227,14 +3228,10 @@ mod tests {
 			assert!(storage::get(b":abcd").is_none());
 			assert!(storage::get(b":abc").is_none());
 
-			// We can switch to this once we enable v3 of the `clear_prefix`.
-			//assert!(matches!(
-			//	storage::clear_prefix(b":abc", None),
-			//	MultiRemovalResults::NoneLeft { db: 0, total: 0 }
-			//));
+			storage::clear_prefix(b":abc", None, None, &mut res);
 			assert!(matches!(
-				storage::clear_prefix(b":abc", None),
-				KillStorageResult::AllRemoved(0),
+				storage::clear_prefix(b":abc", None, None, &mut res),
+				MultiRemovalResults::NoneLeft { db: 0, total: 0 }
 			));
 		});
 	}
