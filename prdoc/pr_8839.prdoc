@@ -1,0 +1,20 @@
+title: net/discovery: File persistence for AddrCache
+
+doc:
+  - audience: [ Node Dev, Node Operator ]
+    description: |
+      Introduce file persistence for `AddrCache`. Upon authority-discovery worker
+      startup, the worker tries to read a persisted cache from file, if not found
+      or if deserialization would fail (it should not with this PR, but might
+      in future if we were to change the JSON format) an empty cache is used.
+
+      For every time the in-memory cache is changed, the file is persisted to file,
+      by serializing the AddrCache to JSON. 
+
+      The writing to disc is done using a new helper `ThrottlingAsyncFileWriter`
+      which "throttles" consecutive writes and only uses the last one, plus writing
+      is done in a background thread, as to not block worker execution.
+
+crates:
+  - name: sc-authority-discovery
+    bump: patch
