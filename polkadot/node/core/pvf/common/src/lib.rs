@@ -95,7 +95,7 @@ pub struct ArtifactChecksum(H256);
 
 /// Compute the checksum of the given artifact.
 pub fn compute_checksum(data: &[u8]) -> ArtifactChecksum {
-	ArtifactChecksum(H256::from_slice(blake3::hash(data).as_bytes()))
+	ArtifactChecksum(H256::from_slice(&sp_crypto_hashing::twox_256(data)))
 }
 
 #[cfg(all(test, not(feature = "test-utils")))]
