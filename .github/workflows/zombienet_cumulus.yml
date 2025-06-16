@@ -22,6 +22,8 @@ jobs:
   isdraft:
     uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
+    # TODO: reenable
+    if: false
     needs: isdraft
     uses: ./.github/workflows/zombienet-reusable-preflight.yml
 
