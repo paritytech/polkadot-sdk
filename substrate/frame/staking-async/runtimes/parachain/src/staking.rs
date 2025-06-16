@@ -33,7 +33,7 @@ use xcm::latest::prelude::*;
 parameter_types! {
 	pub storage SignedPhase: u32 = 2 * MINUTES;
 	pub storage UnsignedPhase: u32 = MINUTES;
-	pub storage SignedValidationPhase: u32 = Pages::get() + 1;
+	pub storage SignedValidationPhase: u32 = Pages::get(); // allow to verify  just a solution
 
 	pub storage MaxElectingVoters: u32 = 1000;
 
