@@ -526,7 +526,7 @@ jobs:
 
   #
   # misc
-  #
+  # TODO: Disabled, occasionally (1 on ~50-70 runs) fails
   zombienet-polkadot-misc-0001-parachains-paritydb:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-misc-0001-parachains-paritydb') }}
@@ -820,6 +820,7 @@ jobs:
           prefix: "polkadot"
   #
   #
+  # TODO: Disabled, occasionally (1 on ~50-100 runs) fails
   zombienet-polkadot-functional-duplicate-collations:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-functional-duplicate-collations') }}
