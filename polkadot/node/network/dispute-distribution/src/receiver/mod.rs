@@ -50,6 +50,8 @@ use crate::{
 	Metrics, LOG_TARGET,
 };
 
+pub(crate) use peer_queues::PEER_QUEUE_CAPACITY;
+
 mod error;
 
 /// Rate limiting queues for incoming requests by peers.
