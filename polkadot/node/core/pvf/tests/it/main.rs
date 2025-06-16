@@ -445,7 +445,7 @@ async fn corrupted_prepared_artifact_does_not_dispute() {
 		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::CorruptedArtifact))
 	);
 
-	// because of RuntimeConstruction we may retry
+	// because of CorruptedArtifact we may retry
 	host.precheck_pvf(test_parachain_halt::wasm_binary_unwrap(), Default::default())
 		.await
 		.unwrap();
