@@ -158,7 +158,7 @@ impl TryAcceptOutcome {
 }
 
 /// Candidate supplied with a para head it's built on top of.
-#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub struct ProspectiveCandidate {
 	/// Candidate hash.
 	pub candidate_hash: CandidateHash,
@@ -167,7 +167,7 @@ pub struct ProspectiveCandidate {
 }
 
 /// Identifier of a collation being requested.
-#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Advertisement {
 	/// Candidate's relay parent.
 	pub relay_parent: Hash,

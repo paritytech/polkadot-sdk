@@ -73,10 +73,12 @@ pub enum AdvertisementError {
 	Duplicate,
 	#[error("Advertised relay parent is out of our view")]
 	OutOfOurView,
-	#[error("Para reached the candidate limit")]
+	#[error("Peer reached the candidate limit")]
 	PeerLimitReached,
 	#[error("Seconding not allowed by backing subsystem")]
 	BlockedByBacking,
+	#[error("V1 advertisements are only allowed on active leaves")]
+	V1AdvertisementForImplicitParent,
 }
 
 /// Fetched collation data.
@@ -301,6 +303,13 @@ impl CollationManager {
 			return Err(AdvertisementError::OutOfOurView)
 		};
 
+		// V1 advertisements are only allowed on active leaves.
+		if advertisement.prospective_candidate.is_none() &&
+			!self.implicit_view.contains_leaf(&advertisement.relay_parent)
+		{
+			return Err(AdvertisementError::V1AdvertisementForImplicitParent)
+		}
+
 		let now = Instant::now();
 
 		let max_assignments = self
@@ -310,8 +319,6 @@ impl CollationManager {
 		if max_assignments == 0 {
 			return Err(AdvertisementError::InvalidAssignment)
 		}
-
-		per_rp.can_keep_advertisement(advertisement, max_assignments)?;
 
 		if let Some(ProspectiveCandidate { candidate_hash, .. }) =
 			advertisement.prospective_candidate
@@ -324,6 +331,8 @@ impl CollationManager {
 		if self.fetching.contains(&advertisement) {
 			return Err(AdvertisementError::Duplicate)
 		}
+
+		per_rp.can_keep_advertisement(advertisement, max_assignments)?;
 
 		let can_second = backing_allows_seconding(sender, &advertisement).await;
 
@@ -793,6 +802,19 @@ impl CollationManager {
 				);
 			}
 		}
+	}
+
+	#[cfg(test)]
+	pub fn advertisements(&self) -> BTreeSet<Advertisement> {
+		self.per_relay_parent
+			.values()
+			.flat_map(|per_rp| {
+				per_rp
+					.peer_advertisements
+					.values()
+					.flat_map(|peer_adv| peer_adv.advertisements.clone().into_iter())
+			})
+			.collect()
 	}
 }
 

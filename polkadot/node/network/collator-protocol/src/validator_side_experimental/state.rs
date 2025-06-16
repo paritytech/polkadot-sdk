@@ -247,8 +247,8 @@ impl<B: Backend> State<B> {
 					?relay_parent,
 					?maybe_prospective_candidate,
 					?peer_id,
-					?err,
-					"Advertisement rejected",
+					"Advertisement rejected: {}",
+					err
 				);
 			},
 			Ok(()) => {
@@ -533,5 +533,10 @@ impl<B: Backend> State<B> {
 	#[cfg(test)]
 	pub fn connected_peers(&self) -> std::collections::BTreeSet<PeerId> {
 		self.peer_manager.connected_peers()
+	}
+
+	#[cfg(test)]
+	pub fn advertisements(&self) -> std::collections::BTreeSet<Advertisement> {
+		self.collation_manager.advertisements()
 	}
 }
