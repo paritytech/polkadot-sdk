@@ -102,7 +102,7 @@ impl NetworkSpawner {
 			.map_err(|_| Error::FailedToGetOnlineClinet)?;
 		let mut stream = client
 			.blocks()
-			.subscribe_best()
+			.subscribe_finalized()
 			.await
 			.map_err(|_| Error::FailedToGetBlocksStream)?;
 		// It should take at most two iterations to return with the best block, if any.
@@ -112,11 +112,11 @@ impl NetworkSpawner {
 			};
 
 			if let Some(block) = block.ok().filter(|block| block.number() == 1) {
-				tracing::info!("[{node_name}] found first best block: {:#?}", block.hash());
+				tracing::info!("[{node_name}] found first finalized block: {:#?}", block.hash());
 				break;
 			}
 
-			tracing::info!("[{node_name}] waiting for first best block");
+			tracing::info!("[{node_name}] waiting for first finalized block");
 		}
 		Ok(())
 	}

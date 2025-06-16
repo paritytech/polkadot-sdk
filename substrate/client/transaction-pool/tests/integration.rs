@@ -133,3 +133,64 @@ async fn send_future_and_ready_from_many_accounts_to_relaychain() {
 	assert_eq!(finalized_future, 10_000);
 	assert_eq!(finalized_ready, 10_000);
 }
+
+// Test which sends future and ready txs from many accounts
+// to an unlimited pool of a parachain collator based on the asset-hub-rococo runtime.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn send_mortal_tx_and_have_it_dropped() {
+	let net = NetworkSpawner::from_toml_with_env_logger(RELAYCHAIN_HIGH_POOL_LIMIT_FATP)
+		.await
+		.unwrap();
+
+	// Wait for the parachain collator to start block production.
+	net.wait_for_block_production("alice").await.unwrap();
+
+	// Create future & ready txs executors.
+	let ws = net.node_rpc_uri("alice").unwrap();
+	let ready_scenario_executor = default_zn_scenario_builder(&net)
+		.with_rpc_uri(ws.clone())
+		.with_start_id(0)
+		.with_nonce_from(Some(0))
+		.with_txs_count(50)
+		.with_executor_id("ready-txs-executor".to_string())
+		.with_remark_recipe(5)
+		.with_send_threshold(5)
+		.with_timeout_in_secs(DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS)
+		.build()
+		.await;
+
+	let mortal_scenario_executor = default_zn_scenario_builder(&net)
+		.with_rpc_uri(ws)
+		.with_start_id(0)
+		.with_nonce_from(Some(50))
+		.with_txs_count(1)
+		.with_executor_id("mortal-tx-executor".to_string())
+		.with_mortality(5)
+		.with_remark_recipe(5)
+		.with_timeout_in_secs(DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS)
+		.build()
+		.await;
+
+	// let mortal_logs = mortal_scenario_executor.execute().await;
+	// Execute transactions and fetch the execution logs.
+	let (mortal_logs, ready_logs) = futures::future::join(
+		mortal_scenario_executor.execute(),
+		ready_scenario_executor.execute(),
+	)
+	.await;
+
+	let mortal_failed_at_submission = mortal_logs
+		.values()
+		.filter_map(|default_log| {
+			let dropped = default_log.dropped();
+			dropped.as_ref().map(|reason| println!("blaaaaaaaaaaaaaaaaa - {}", reason));
+			dropped
+		})
+		.count();
+	let finalized_ready =
+		ready_logs.values().filter_map(|default_log| default_log.finalized()).count();
+
+	assert_eq!(mortal_failed_at_submission, 1);
+	assert_eq!(finalized_ready, 50);
+}
