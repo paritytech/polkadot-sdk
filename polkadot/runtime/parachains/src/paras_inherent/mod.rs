@@ -511,7 +511,13 @@ impl<T: Config> Pallet<T> {
 				&validator_public[..],
 				bitfields.clone(),
 			);
-		all_weight_after.saturating_accrue(enact_weight);
+		// For relay chain blocks, we're (ab)using the proof size
+		// to limit the raw transaction size of `ParaInherent` and
+		// there's no state proof (aka PoV) associated with it.
+		// Since we already accounted for bitfields size, we should
+		// not include `enact_candidate` PoV impact here.
+		all_weight_after.saturating_accrue(enact_weight.set_proof_size(0));
+
 		log::debug!(
 			target: LOG_TARGET,
 			"Enacting weight: {}, all weight: {}",
