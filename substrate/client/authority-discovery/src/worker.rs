@@ -19,7 +19,7 @@
 use crate::{
 	error::{Error, Result},
 	interval::ExpIncInterval,
-	worker::addr_cache::SerializableAddrCache,
+	worker::addr_cache::{create_addr_cache, SerializableAddrCache},
 	ServicetoWorkerMsg, WorkerConfig,
 };
 
@@ -77,6 +77,7 @@ mod schema {
 pub mod tests;
 
 const LOG_TARGET: &str = "sub-authority-discovery";
+const ADDR_CACHE_PERSISTENCE_PATH: &str = "authority_discovery_addr_cache.json";
 
 /// Maximum number of addresses cached per authority. Additional addresses are discarded.
 const MAX_ADDRESSES_PER_AUTHORITY: usize = 16;
@@ -96,67 +97,6 @@ pub enum Role {
 	PublishAndDiscover(KeystorePtr),
 	/// Discover addresses of others.
 	Discover,
-}
-
-fn write_to_file(path: &PathBuf, content: &str) -> io::Result<()> {
-	let mut file = File::create(path)?;
-	file.write_all(content.as_bytes())?;
-	file.flush()
-}
-
-fn load_from_file<T: DeserializeOwned>(path: &PathBuf) -> io::Result<T> {
-	let file = File::open(path)?;
-	let reader = io::BufReader::new(file);
-	serde_json::from_reader(reader).map_err(|e| {
-		error!(target: LOG_TARGET, "Failed to load from file: {}", e);
-		io::Error::new(io::ErrorKind::InvalidData, e)
-	})
-}
-
-#[derive(Clone)]
-pub struct AsyncFileWriter {
-	sender: mpsc::UnboundedSender<String>,
-}
-
-impl AsyncFileWriter {
-	pub fn new(purpose_label: String, path: impl Into<PathBuf>) -> Self {
-		let path = Arc::new(path.into());
-		let (sender, mut receiver) = mpsc::unbounded();
-
-		let path_clone = Arc::clone(&path);
-		thread::spawn(move || {
-			let mut latest: Option<String>;
-
-			while let Some(msg) = block_on(receiver.next()) {
-				latest = Some(msg);
-				while let Ok(Some(msg)) = receiver.try_next() {
-					latest = Some(msg);
-				}
-
-				if let Some(ref content) = latest {
-					if let Err(err) = write_to_file(&path_clone, content) {
-						error!(target: LOG_TARGET, "Failed to write to file for {}, error: {}", purpose_label, err);
-					}
-				}
-			}
-		});
-
-		Self { sender }
-	}
-
-	pub fn write(&self, content: impl Into<String>) {
-		let _ = self.sender.unbounded_send(content.into());
-	}
-
-	/// Serialize the value and write it to the file.
-	pub fn write_serde<T: Serialize>(
-		&self,
-		value: &T,
-	) -> std::result::Result<(), serde_json::Error> {
-		let json = serde_json::to_string_pretty(value)?;
-		self.write(json);
-		Ok(())
-	}
 }
 
 /// An authority discovery [`Worker`] can publish the local node's addresses as well as discover
@@ -330,29 +270,9 @@ where
 		let publish_if_changed_interval =
 			ExpIncInterval::new(config.keystore_refresh_interval, config.keystore_refresh_interval);
 
-		// If config supports persisted address cache, load it from file or create a new one.
-		// also if persisited address cache is enabled, install a callback to save the cache
-		// to file on change.
-		let addr_cache: AddrCache = {
-			let persistence_path = PathBuf::from(ADDR_CACHE_PERSISTENCE_PATH);
-			// Try to load from cache on file it it exists and is valid.
-			let mut addr_cache: AddrCache = load_from_file::<SerializableAddrCache>(&persistence_path)
-				.map_err(|_|Error::EncodingDecodingAddrCache(format!("Failed to load AddrCache from file: {}", persistence_path.display())))
-				.and_then(AddrCache::try_from).unwrap_or_else(|e| {
-							warn!(target: LOG_TARGET, "Failed to load AddrCache from file, using empty instead, error: {}", e);
-							AddrCache::new()
-				});
-			let async_file_writer =
-				AsyncFileWriter::new("Persisted-AddrCache".to_owned(), &persistence_path);
-			addr_cache.install_on_change_callback(move |cache| {
-				let serializable = SerializableAddrCache::from(cache);
-				debug!(target: LOG_TARGET, "Persisting AddrCache to file: {}", persistence_path.display());
-				async_file_writer
-					.write_serde(&serializable)
-					.map_err(|e| Box::new(e) as Box<dyn std::fmt::Debug>)
-			});
-			addr_cache
-		};
+		// Load contents of persisted cache from file, if it exists, and is valid. Create a new one
+		// otherwise, and install a callback to persist it on change.
+		let addr_cache = create_addr_cache(PathBuf::from(ADDR_CACHE_PERSISTENCE_PATH));
 
 		let metrics = match prometheus_registry {
 			Some(registry) => match Metrics::register(&registry) {

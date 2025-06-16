@@ -33,7 +33,7 @@ pub use crate::{
 	worker::{AuthorityDiscovery, NetworkProvider, Role, Worker},
 };
 
-use std::{collections::HashSet, path::PathBuf, sync::Arc, time::Duration};
+use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use futures::{
 	channel::{mpsc, oneshot},

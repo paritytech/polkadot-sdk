@@ -22,11 +22,22 @@ use sc_network::{
 	multiaddr::{ParseError, Protocol},
 	Multiaddr,
 };
+use futures::{
+	channel::mpsc, executor::block_on, StreamExt
+};
+use log::{debug, warn, error};
 use sc_network_types::PeerId;
 use serde::{Deserialize, Serialize};
+use sp_runtime::DeserializeOwned;
 use serde_with::serde_as;
 use sp_authority_discovery::AuthorityId;
-use std::collections::{hash_map::Entry, HashMap, HashSet};
+use std::{collections::{hash_map::Entry, HashMap, HashSet},
+	fs::File,
+	thread,
+	sync::Arc,
+	path::{PathBuf, Path},
+	io::{self, Write}};
+	
 
 /// Cache for [`AuthorityId`] -> [`HashSet<Multiaddr>`] and [`PeerId`] -> [`HashSet<AuthorityId>`]
 /// mappings.
@@ -337,6 +348,114 @@ impl TryFrom<SerializableMultiaddr> for Multiaddr {
 		Self::try_from(value.bytes)
 	}
 }
+
+/// Writes the content to a file at the specified path.
+fn write_to_file(path: &PathBuf, content: &str) -> io::Result<()> {
+	let mut file = File::create(path)?;
+	file.write_all(content.as_bytes())?;
+	file.flush()
+}
+
+/// Reads content from a file at the specified path and tries to JSON deserializes
+/// it into the specified type.
+fn load_from_file<T: DeserializeOwned>(path: &PathBuf) -> io::Result<T> {
+
+    if let Ok(contents) = std::fs::read_to_string(path) {
+		println!("🦀 File contents:\n{}", contents);
+		serde_json::from_str(&contents).map_err(|e| {
+			error!(target: super::LOG_TARGET, "Failed to load from file: {}", e);
+			io::Error::new(io::ErrorKind::InvalidData, e)
+		})
+	} else {
+		Err(io::Error::new(io::ErrorKind::NotFound, "File not found"))	
+	}
+}
+
+/// Asynchronously writes content to a file using a background thread.
+/// Multiple consecutive writes in quick succession (before the current write is completed)
+/// will be **throttled**, and only the last write will be performed.
+#[derive(Clone)]
+pub struct ThrottlingAsyncFileWriter {
+	/// Each request to write content will send a message to this sender.
+	sender: mpsc::UnboundedSender<String>,
+}
+
+impl ThrottlingAsyncFileWriter {
+	/// Creates a new `ThrottlingAsyncFileWriter` for the specified file path,
+	/// the label is used for logging purposes.
+	pub fn new(purpose_label: String, path: impl Into<PathBuf>) -> Self {
+		let path = Arc::new(path.into());
+		let (sender, mut receiver) = mpsc::unbounded();
+
+		let path_clone = Arc::clone(&path);
+		thread::spawn(move || {
+			let mut latest: Option<String>;
+
+			while let Some(msg) = block_on(receiver.next()) {
+				latest = Some(msg);
+				while let Ok(Some(msg)) = receiver.try_next() {
+					latest = Some(msg);
+				}
+
+				if let Some(ref content) = latest {
+					if let Err(err) = write_to_file(&path_clone, content) {
+						error!(target: super::LOG_TARGET, "Failed to write to file for {}, error: {}", purpose_label, err);
+					}
+				}
+			}
+		});
+
+		Self { sender }
+	}
+
+	/// Write content to the file asynchronously, subsequent calls in quick succession
+	/// will be throttled, and only the last write will be performed.
+	///
+	/// The content is written to the file specified by the path in the constructor.
+	pub fn write(&self, content: impl Into<String>) {
+		let _ = self.sender.unbounded_send(content.into());
+	}
+
+	/// Serialize the value and write it to the file, asynchronously and throttled.
+	///
+	/// This calls `write` after serializing the value to a pretty JSON string.
+	pub fn write_serde<T: Serialize>(
+		&self,
+		value: &T,
+	) -> std::result::Result<(), serde_json::Error> {
+		let json = serde_json::to_string_pretty(value)?;
+		self.write(json);
+		Ok(())
+	}
+}
+
+
+/// Load contents of persisted cache from file, if it exists, and is valid. Create a new one
+/// otherwise, and install a callback to persist it on change.
+pub(crate) fn create_addr_cache(persistence_path: PathBuf) -> AddrCache {
+	// Try to load from cache on file it it exists and is valid.
+	let mut addr_cache: AddrCache = load_from_file::<SerializableAddrCache>(&persistence_path)
+		.map_err(|_|Error::EncodingDecodingAddrCache(format!("Failed to load AddrCache from file: {}", persistence_path.display())))
+		.and_then(AddrCache::try_from).unwrap_or_else(|e| {
+			warn!(target: super::LOG_TARGET, "Failed to load AddrCache from file, using empty instead, error: {}", e);
+			println!("❌ Failed to load AddrCache from file, using empty instead, error: {}", e);
+			AddrCache::new()
+		});
+
+	let async_file_writer =
+		ThrottlingAsyncFileWriter::new("Persisted-AddrCache".to_owned(), &persistence_path);
+
+	addr_cache.install_on_change_callback(move |cache| {
+		let serializable = SerializableAddrCache::from(cache);
+		debug!(target: super::LOG_TARGET, "Persisting AddrCache to file: {}", persistence_path.display());
+		async_file_writer
+			.write_serde(&serializable)
+			.map_err(|e| Box::new(e) as Box<dyn std::fmt::Debug>)
+	});
+
+	addr_cache
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -667,5 +786,27 @@ mod tests {
 		let deserialized = serde_json::from_str::<SerializableAddrCache>(json)
 			.expect("Should be able to deserialize valid JSON into SerializableAddrCache");
 		assert_eq!(deserialized.authority_id_to_addresses.len(), 2);
+	}
+
+	#[test]
+	fn cache_is_persisted_when_expanded() {
+		let dir = tempfile::tempdir().expect("tempfile should create tmp dir");
+		let path = dir.path().join("cache.json");
+		let mut addr_cache = create_addr_cache(path.clone());
+			
+
+		let peer_id = PeerId::random();
+		let addr = Multiaddr::empty().with(Protocol::P2p(peer_id.into()));
+
+		let authority_id0 = AuthorityPair::generate().0.public();
+		let authority_id1 = AuthorityPair::generate().0.public();
+
+		addr_cache.insert(authority_id0.clone(), vec![addr.clone()]);
+		addr_cache.insert(authority_id1.clone(), vec![addr.clone()]);
+
+		let read_from_path = load_from_file::<SerializableAddrCache>(&path).unwrap();
+		let read_from_path = AddrCache::try_from(read_from_path).unwrap();
+		assert_eq!(2, read_from_path.num_authority_ids());
+		
 	}
 }
