@@ -16,7 +16,6 @@
 // limitations under the License.
 
 use super::LOG_TARGET;
-use log::LevelFilter;
 use sp_core::{LogLevelFilter, RuntimeInterfaceLogLevel};
 use sp_runtime_interface::{
 	pass_by::{PassAs, PassFatPointerAndRead, ReturnAs},
@@ -25,28 +24,35 @@ use sp_runtime_interface::{
 use std::cell::OnceCell;
 
 thread_local! {
-	/// Log level that the runtime will use.
+	/// Log level filter that the runtime will use.
 	///
-	/// Must be initialized by the host before invoking the runtime executor.
-	static RUNTIME_LOG_LEVEL: OnceCell<LevelFilter> = OnceCell::new();
+	/// Must be initialized by the host before invoking the runtime executor. You may use `init` for
+	/// this or set it manually. The that can be set are either levels directly or filter like
+	// `warn,runtime=info`.
+	pub static RUNTIME_LOG: OnceCell<env_filter::Filter> = OnceCell::new();
 }
 
 /// Init runtime logger with the following priority (high to low):
 /// - CLI argument
 /// - Environment variable
 /// - Default logger settings
-pub fn init(arg: Option<LevelFilter>) {
-	let level = arg.unwrap_or_else(|| {
+pub fn init(arg: Option<String>) {
+	let filter_str = arg.unwrap_or_else(|| {
 		if let Ok(env) = std::env::var("RUNTIME_LOG") {
-			env.parse().expect("Invalid level for RUNTIME_LOG")
+			env
 		} else {
-			log::max_level()
+			log::max_level().to_string()
 		}
 	});
 
-	RUNTIME_LOG_LEVEL.with(|cell| {
-		cell.set(level).expect("Can be set by host");
-		log::info!(target: LOG_TARGET, "Initialized runtime log level to '{:?}'", level);
+	let filter = env_filter::Builder::new()
+		.try_parse(&filter_str)
+		.expect("Invalid runtime log filter")
+		.build();
+
+	RUNTIME_LOG.with(|cell| {
+		cell.set(filter).expect("Can be set by host");
+		log::info!(target: LOG_TARGET, "Initialized runtime log filter to '{}'", filter_str);
 	});
 }
 
@@ -59,17 +65,25 @@ pub trait Logging {
 		target: PassFatPointerAndRead<&str>,
 		message: PassFatPointerAndRead<&[u8]>,
 	) {
-		if let Ok(message) = core::str::from_utf8(message) {
-			log::log!(target: target, log::Level::from(level), "{}", message);
-		} else {
+		let Ok(message) = core::str::from_utf8(message) else {
 			log::error!(target: LOG_TARGET, "Runtime tried to log invalid UTF-8 data");
+			return;
+		};
+
+		let level = log::Level::from(level);
+		let metadata = log::MetadataBuilder::new().level(level).target(target).build();
+
+		if RUNTIME_LOG.with(|filter| filter.get().expect("Must be set by host").enabled(&metadata))
+		{
+			log::log!(target: target, level, "{}", message);
 		}
 	}
 
 	#[allow(dead_code)]
 	fn max_level() -> ReturnAs<LogLevelFilter, u8> {
-		RUNTIME_LOG_LEVEL
-			.with(|level| *level.get().expect("Must be set by host"))
+		RUNTIME_LOG
+			// .filter() gives us the max level of this filter
+			.with(|filter| filter.get().expect("Must be set by host").filter())
 			.into()
 	}
 }

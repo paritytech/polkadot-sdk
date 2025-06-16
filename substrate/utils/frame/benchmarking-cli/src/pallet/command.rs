@@ -254,7 +254,7 @@ impl PalletCmd {
 			};
 			return self.output_from_results(&batches)
 		}
-		super::logging::init(self.runtime_log);
+		super::logging::init(self.runtime_log.clone());
 
 		let state_handler =
 			self.state_handler_from_cli::<SubstrateAndExtraHF<ExtraHostFunctions>>(chain_spec)?;

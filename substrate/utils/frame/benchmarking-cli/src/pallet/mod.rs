@@ -196,7 +196,7 @@ pub struct PalletCmd {
 	/// This will overwrite the `RUNTIME_LOG` environment variable. If neither is set, the CLI
 	/// default set by `RUST_LOG` setting is used.
 	#[arg(long)]
-	pub runtime_log: Option<log::LevelFilter>,
+	pub runtime_log: Option<String>,
 
 	/// Do not fail if there are unknown but also unused host functions in the runtime.
 	#[arg(long)]
