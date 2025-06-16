@@ -51,6 +51,8 @@ use polkadot_primitives::{
 	ValidatorPair,
 };
 use schnellru::{ByLength, LruMap, UnlimitedCompact};
+use sp_application_crypto::{AppCrypto, ByteArray};
+use sp_keystore::Keystore;
 
 use crate::{
 	db::{self, v1::RecentDisputes},
@@ -1828,7 +1830,7 @@ impl ControlledValidatorIndices {
 	) -> HashSet<ValidatorIndex> {
 		let mut controlled = HashSet::new();
 		for (index, validator) in validators.iter().enumerate() {
-			if keystore.key_pair::<ValidatorPair>(validator).ok().flatten().is_none() {
+			if !Keystore::has_keys(keystore, &[(validator.to_raw_vec(), ValidatorPair::ID)]) {
 				continue
 			}
 
