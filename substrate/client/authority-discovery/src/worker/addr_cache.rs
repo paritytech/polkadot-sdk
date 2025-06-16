@@ -431,7 +431,7 @@ impl ThrottlingAsyncFileWriter {
 /// Load contents of persisted cache from file, if it exists, and is valid. Create a new one
 /// otherwise, and install a callback to persist it on change.
 pub(crate) fn create_addr_cache(persistence_path: PathBuf) -> AddrCache {
-	// Try to load from cache on file it it exists and is valid.
+	// Try to load from the cache file if it exists and is valid.
 	let mut addr_cache: AddrCache = load_from_file::<SerializableAddrCache>(&persistence_path)
 		.map_err(|_|Error::EncodingDecodingAddrCache(format!("Failed to load AddrCache from file: {}", persistence_path.display())))
 		.and_then(AddrCache::try_from).unwrap_or_else(|e| {
