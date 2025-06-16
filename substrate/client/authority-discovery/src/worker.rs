@@ -334,29 +334,24 @@ where
 		// also if persisited address cache is enabled, install a callback to save the cache
 		// to file on change.
 		let addr_cache: AddrCache = {
-			if let Some(persistence_path) = config.persisted_addr_cache_path {
-				// Try to load from cache on file it it exists and is valid.
-				let mut addr_cache: AddrCache = load_from_file::<SerializableAddrCache>(&persistence_path)
-					.map_err(|_|Error::EncodingDecodingAddrCache(format!("Failed to load AddrCache from file: {}", persistence_path.display())))
-					.and_then(AddrCache::try_from).unwrap_or_else(|e| {
-								warn!(target: LOG_TARGET, "Failed to load AddrCache from file, using empty instead, error: {}", e);
-								AddrCache::new()
-					});
-
-				let async_file_writer =
-					AsyncFileWriter::new("Persisted-AddrCache".to_owned(), &persistence_path);
-				addr_cache.install_on_change_callback(move |cache| {
-					let serializable = SerializableAddrCache::from(cache);
-					debug!(target: LOG_TARGET, "Persisting AddrCache to file: {}", persistence_path.display());
-					async_file_writer
-						.write_serde(&serializable)
-						.map_err(|e| Box::new(e) as Box<dyn std::fmt::Debug>)
+			let persistence_path = PathBuf::from(ADDR_CACHE_PERSISTENCE_PATH);
+			// Try to load from cache on file it it exists and is valid.
+			let mut addr_cache: AddrCache = load_from_file::<SerializableAddrCache>(&persistence_path)
+				.map_err(|_|Error::EncodingDecodingAddrCache(format!("Failed to load AddrCache from file: {}", persistence_path.display())))
+				.and_then(AddrCache::try_from).unwrap_or_else(|e| {
+							warn!(target: LOG_TARGET, "Failed to load AddrCache from file, using empty instead, error: {}", e);
+							AddrCache::new()
 				});
-				addr_cache
-			} else {
-				// Persisted address cache is not enabled, create a new one.
-				AddrCache::new()
-			}
+			let async_file_writer =
+				AsyncFileWriter::new("Persisted-AddrCache".to_owned(), &persistence_path);
+			addr_cache.install_on_change_callback(move |cache| {
+				let serializable = SerializableAddrCache::from(cache);
+				debug!(target: LOG_TARGET, "Persisting AddrCache to file: {}", persistence_path.display());
+				async_file_writer
+					.write_serde(&serializable)
+					.map_err(|e| Box::new(e) as Box<dyn std::fmt::Debug>)
+			});
+			addr_cache
 		};
 
 		let metrics = match prometheus_registry {

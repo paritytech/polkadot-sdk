@@ -88,13 +88,6 @@ pub struct WorkerConfig {
 	///
 	/// Defaults to `false` to provide compatibility with old versions
 	pub strict_record_validation: bool,
-
-	/// An optional path to a file on disc where you want to persist the AddCache, the DHT
-	/// table for all the peers found during the worker's lifetime. When the AddrCache (peer DHT)
-	/// changes the worker will write to disc.
-	///
-	/// Using `None` means no file persistence is used.
-	pub persisted_addr_cache_path: Option<PathBuf>,
 }
 
 impl Default for WorkerConfig {
@@ -117,7 +110,6 @@ impl Default for WorkerConfig {
 			publish_non_global_ips: true,
 			public_addresses: Vec::new(),
 			strict_record_validation: false,
-			persisted_addr_cache_path: None,
 		}
 	}
 }
