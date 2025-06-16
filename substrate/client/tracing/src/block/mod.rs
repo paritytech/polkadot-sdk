@@ -286,9 +286,6 @@ where
 			.collect();
 		tracing::debug!(target: "state_tracing", "Captured {} spans and {} events", spans.len(), events.len());
 
-		// Extract the proof (might not be needed)
-		let _proof = self.client.runtime_api().extract_proof();
-
 		Ok(TraceBlockResponse::BlockTrace(BlockTrace {
 			block_hash: block_id_as_string(BlockId::<Block>::Hash(self.block)),
 			parent_hash: block_id_as_string(BlockId::<Block>::Hash(parent_hash)),
