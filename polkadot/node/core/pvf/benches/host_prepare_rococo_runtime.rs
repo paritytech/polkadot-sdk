@@ -22,9 +22,9 @@ use polkadot_node_core_pvf::{
 };
 use polkadot_primitives::ExecutorParams;
 use rococo_runtime::WASM_BINARY;
+use sp_maybe_compressed_blob::blob_type;
 use std::time::Duration;
 use tokio::{runtime::Handle, sync::Mutex};
-
 const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(30);
 
 struct TestHost {
@@ -64,9 +64,8 @@ impl TestHost {
 		executor_params: ExecutorParams,
 	) -> Result<(), PrepareError> {
 		let (result_tx, result_rx) = futures::channel::oneshot::channel();
-
-		let code = sp_maybe_compressed_blob::decompress(code, 16 * 1024 * 1024)
-			.expect("Compression works");
+		let blob_type = blob_type(code).unwrap();
+		assert!(blob_type.is_code());
 
 		self.host
 			.lock()
@@ -93,18 +92,13 @@ fn host_prepare_rococo_runtime(c: &mut Criterion) {
 	let rt = tokio::runtime::Runtime::new().unwrap();
 
 	let blob = WASM_BINARY.expect("You need to build the WASM binaries to run the tests!");
-	let pvf = match sp_maybe_compressed_blob::decompress(&blob, 64 * 1024 * 1024) {
-		Ok(code) => PvfPrepData::from_code(
-			code.into_owned(),
-			ExecutorParams::default(),
-			Duration::from_secs(360),
-			PrepareJobKind::Compilation,
-			64 * 1024 * 1024,
-		),
-		Err(e) => {
-			panic!("Cannot decompress blob: {:?}", e);
-		},
-	};
+	let pvf = PvfPrepData::from_code(
+		blob.to_vec(),
+		ExecutorParams::default(),
+		Duration::from_secs(360),
+		PrepareJobKind::Compilation,
+		64 * 1024 * 1024,
+	);
 
 	let mut group = c.benchmark_group("prepare rococo");
 	group.sampling_mode(SamplingMode::Flat);

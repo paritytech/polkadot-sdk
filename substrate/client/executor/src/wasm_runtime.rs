@@ -33,7 +33,6 @@ use schnellru::{ByLength, LruMap};
 use sp_core::traits::{Externalities, FetchRuntimeCode, RuntimeCode};
 use sp_version::RuntimeVersion;
 use sp_wasm_interface::HostFunctions;
-
 use std::{
 	panic::AssertUnwindSafe,
 	path::{Path, PathBuf},
@@ -447,6 +446,7 @@ mod tests {
 	use alloc::borrow::Cow;
 	use codec::Encode;
 	use sp_api::{Core, RuntimeApiInfo};
+	use sp_maybe_compressed_blob::{decompress_as, MaybeCompressedBlobType, CODE_BLOB_BOMB_LIMIT};
 	use sp_version::{create_apis_vec, RuntimeVersion};
 	use sp_wasm_interface::HostFunctions;
 	use substrate_test_runtime::Block;
@@ -534,9 +534,10 @@ mod tests {
 
 	#[test]
 	fn embed_runtime_version_works() {
-		let wasm = sp_maybe_compressed_blob::decompress(
+		let wasm = decompress_as(
+			MaybeCompressedBlobType::Wasm,
 			substrate_test_runtime::wasm_binary_unwrap(),
-			sp_maybe_compressed_blob::CODE_BLOB_BOMB_LIMIT,
+			CODE_BLOB_BOMB_LIMIT,
 		)
 		.expect("Decompressing works");
 		let runtime_version = RuntimeVersion {

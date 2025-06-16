@@ -112,7 +112,7 @@ fn try_restrict(worker_info: &WorkerInfo) -> Result<()> {
 			}
 			// Ensure that the new root is a mount point.
 			let additional_flags =
-				if let WorkerKind::Execute | WorkerKind::CheckPivotRoot = worker_info.kind {
+				if let WorkerKind::ExecuteWasm | WorkerKind::CheckPivotRoot = worker_info.kind {
 					libc::MS_RDONLY
 				} else {
 					0

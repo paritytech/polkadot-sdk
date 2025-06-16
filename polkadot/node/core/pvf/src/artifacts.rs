@@ -123,7 +123,7 @@ pub struct ArtifactPathId {
 }
 
 impl ArtifactPathId {
-	pub(crate) fn new(artifact_id: ArtifactId, path: &Path) -> Self {
+	pub fn new(artifact_id: ArtifactId, path: &Path) -> Self {
 		Self { id: artifact_id, path: path.to_owned() }
 	}
 }

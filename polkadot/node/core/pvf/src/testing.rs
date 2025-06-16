@@ -38,19 +38,24 @@ pub fn validate_candidate(
 	params: &[u8],
 ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
 	use polkadot_node_core_pvf_common::executor_interface::{prepare, prevalidate};
-	use polkadot_node_core_pvf_execute_worker::execute_artifact;
+	use polkadot_node_core_pvf_execute_worker::{execute_pvm, execute_wasm};
+	use sp_maybe_compressed_blob::{blob_type, decompress_as, MaybeCompressedBlobType};
 
-	let code = sp_maybe_compressed_blob::decompress(code, 10 * 1024 * 1024)
-		.expect("Decompressing code failed");
+	let blob_type = blob_type(code)?;
+	assert!(blob_type.is_code());
 
-	let blob = prevalidate(&code)?;
+	let code = decompress_as(blob_type, code, 10 * 1024 * 1024).expect("Decompressing code failed");
+
 	let executor_params = ExecutorParams::default();
-	let compiled_artifact_blob = prepare(blob, &executor_params)?;
 
-	let result = unsafe {
-		// SAFETY: This is trivially safe since the artifact is obtained by calling `prepare`
-		//         and is written into a temporary directory in an unmodified state.
-		execute_artifact(&compiled_artifact_blob, &executor_params, params)?
+	let result = match blob_type {
+		MaybeCompressedBlobType::Legacy | MaybeCompressedBlobType::Wasm => {
+			let blob = prevalidate(&code)?;
+			let compiled_artifact_blob = prepare(blob, &executor_params)?;
+			unsafe { execute_wasm(&compiled_artifact_blob, &executor_params, params)? }
+		},
+		MaybeCompressedBlobType::Pvm => execute_pvm(&code, &executor_params, params)?,
+		MaybeCompressedBlobType::Pov => unreachable!("PoV blob can never be passed as code"),
 	};
 
 	Ok(result)
