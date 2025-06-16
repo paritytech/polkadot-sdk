@@ -10,8 +10,8 @@ bootnode addresses in the chainspec.
 This mechanism, enabled by default, allows any parachain node to serve as a bootnode. In each
 epoch, 20 parachain nodes are selected as bootnodes based on the proximity of their relay chain
 peer IDs to the parachain key for that epoch. These selected nodes register themselves in the relay
-chain's Kademlia DHT as [_content providers._]
-(https://github.com/libp2p/specs/tree/master/kad-dht#content-provider-advertisement-and-discovery)
+chain's Kademlia DHT as [_content providers._](
+https://github.com/libp2p/specs/tree/master/kad-dht#content-provider-advertisement-and-discovery)
 Other nodes can then discover and query them to obtain the multiaddresses of their parachain
 instances.
 
