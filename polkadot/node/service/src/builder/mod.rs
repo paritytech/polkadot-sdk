@@ -334,9 +334,6 @@ where
 
 		let req_protocol_names = ReqProtocolNames::new(&genesis_hash, config.chain_spec.fork_id());
 
-		let (collation_req_v1_receiver, cfg) =
-			IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
-		net_config.add_request_response_protocol(cfg);
 		let (collation_req_v2_receiver, cfg) =
 			IncomingRequest::get_config_receiver::<_, Network>(&req_protocol_names);
 		net_config.add_request_response_protocol(cfg);
@@ -607,7 +604,6 @@ where
 						network_service: network.clone(),
 						sync_service: sync_service.clone(),
 						authority_discovery_service,
-						collation_req_v1_receiver,
 						collation_req_v2_receiver,
 						available_data_req_receiver,
 						registry: prometheus_registry.as_ref(),
