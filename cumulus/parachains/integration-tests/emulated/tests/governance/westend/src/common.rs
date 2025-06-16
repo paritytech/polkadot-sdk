@@ -43,7 +43,7 @@ pub fn collectives_send_whitelist(
 
 		use collectives_westend_runtime::fellowship::pallet_fellowship_origins::Origin::Fellows as FellowsOrigin;
 		let fellows_origin: RuntimeOrigin = FellowsOrigin.into();
-		assert_ok!(whitelist_call.dispatch(fellows_origin));
+		assert_ok!(send_whitelist_call.dispatch(fellows_origin));
 		assert_expected_events!(
 			CollectivesWestend,
 			vec![
