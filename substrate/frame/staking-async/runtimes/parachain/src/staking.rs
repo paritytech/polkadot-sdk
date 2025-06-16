@@ -32,8 +32,8 @@ use sp_runtime::{
 };
 use xcm::latest::prelude::*;
 
-/// This macro contains all of the variable parameters that we intend to use for Polkadot and
-/// Kusama.
+// This macro contains all of the variable parameters that we intend to use for Polkadot and
+// Kusama.
 parameter_types! {
 	/// Number of election pages that we operate upon.
 	///
@@ -118,7 +118,7 @@ parameter_types! {
 	// NOTE: rest of the parameters are computed identically in both Kusama and Polkadot.
 
 	/// Allow OCW miner to at most run 4 times in the entirety of the 10m Unsigned Phase.
-	pub const OffchainRepeat: u32 = UnsignedPhase::get() / 4;
+	pub OffchainRepeat: u32 = UnsignedPhase::get() / 4;
 
 	/// Upper bound of `Staking.ValidatorCount`, which translates to
 	/// `ElectionProvider::DesiredTargets`. 1000 is the end-game for both Kusama and Polkadot for
@@ -153,7 +153,7 @@ parameter_types! {
 	pub SolutionImprovementThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
 }
 
-/// Signed phase parameters
+// Signed phase parameters.
 parameter_types! {
 	/// * Polkadot: 16
 	/// * Kusama: 8
@@ -200,11 +200,11 @@ parameter_types! {
 	pub RewardBase: Balance = 10 * UNITS;
 }
 
-/// * Polkadot: as seen here.
-/// * Kusama, we will use a similar type, but with 24 as the maximum filed length.
-///
-/// Reasoning: using u16, we can have up to 65,536 nominators and validators represented in the
-/// snapshot. If we every go beyond this, we have to first adjust this type.
+// * Polkadot: as seen here.
+// * Kusama, we will use a similar type, but with 24 as the maximum filed length.
+//
+// Reasoning: using u16, we can have up to 65,536 nominators and validators represented in the
+// snapshot. If we every go beyond this, we have to first adjust this type.
 frame_election_provider_support::generate_solution_type!(
 	#[compact]
 	pub struct NposCompactSolution16::<
@@ -254,7 +254,7 @@ impl multi_block::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type Fallback = frame_election_provider_support::onchain::OnChainExecution<OnChainConfig>;
 	type MinerConfig = Self;
-	type Verifier = MultiBlockVerifier;
+	type Verifier = MultiBlockElectionVerifier;
 	type OnRoundRotation = multi_block::CleanRound<Self>;
 	type WeightInfo = multi_block::weights::polkadot::MultiBlockWeightInfo<Self>;
 }
@@ -263,7 +263,7 @@ impl multi_block::verifier::Config for Runtime {
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
-	type SolutionDataProvider = MultiBlockSigned;
+	type SolutionDataProvider = MultiBlockElectionSigned;
 	type SolutionImprovementThreshold = SolutionImprovementThreshold;
 	type WeightInfo = multi_block::weights::polkadot::MultiBlockVerifierWeightInfo<Self>;
 }
@@ -401,7 +401,7 @@ impl pallet_staking_async::Config for Runtime {
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 	type EraPayout = EraPayout;
 	type MaxExposurePageSize = MaxExposurePageSize;
-	type ElectionProvider = MultiBlock;
+	type ElectionProvider = MultiBlockElection;
 	type VoterList = VoterList;
 	type TargetList = UseValidatorsMap<Self>;
 	type MaxValidatorSet = MaxValidatorSet;
@@ -416,7 +416,7 @@ impl pallet_staking_async::Config for Runtime {
 	type MaxDisabledValidators = ConstU32<100>;
 	type PlanningEraOffset =
 		pallet_staking_async::PlanningEraOffsetOf<Self, RelaySessionDuration, ConstU32<10>>;
-	type RcClientInterface = StakingNextRcClient;
+	type RcClientInterface = StakingRcClient;
 }
 
 impl pallet_staking_async_rc_client::Config for Runtime {

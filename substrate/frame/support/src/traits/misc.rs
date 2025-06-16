@@ -1033,7 +1033,7 @@ impl<T: Encode> Encode for WrapperOpaque<T> {
 impl<T: Decode> Decode for WrapperOpaque<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, codec::Error> {
 		Ok(Self(T::decode_all_with_depth_limit(
-			sp_api::MAX_EXTRINSIC_DEPTH,
+			crate::MAX_EXTRINSIC_DEPTH,
 			&mut &<Vec<u8>>::decode(input)?[..],
 		)?))
 	}
@@ -1097,7 +1097,7 @@ impl<T: Decode> WrapperKeepOpaque<T> {
 	///
 	/// Returns `None` if the decoding failed.
 	pub fn try_decode(&self) -> Option<T> {
-		T::decode_all_with_depth_limit(sp_api::MAX_EXTRINSIC_DEPTH, &mut &self.data[..]).ok()
+		T::decode_all_with_depth_limit(crate::MAX_EXTRINSIC_DEPTH, &mut &self.data[..]).ok()
 	}
 
 	/// Returns the length of the encoded `T`.
@@ -1426,7 +1426,7 @@ mod test {
 
 	#[test]
 	fn test_opaque_wrapper_decode_limit() {
-		let limit = sp_api::MAX_EXTRINSIC_DEPTH as usize;
+		let limit = crate::MAX_EXTRINSIC_DEPTH as usize;
 		let mut ok_bytes = vec![0u8; limit];
 		ok_bytes.push(1u8);
 		let mut err_bytes = vec![0u8; limit + 1];

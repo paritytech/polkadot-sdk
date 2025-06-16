@@ -1,18 +1,29 @@
-name: Release - RC automation
+name: Release - RC tagging automation
 on:
-  # TODO: Activate it and delete old branches patterns, when the release process from stable is settled
-  #push:
-    # branches:
-    #   # Catches release-polkadot-v1.2.3, release-v1.2.3-rc1, etc
-    #   - release-v[0-9]+.[0-9]+.[0-9]+*
-    #   - release-cumulus-v[0-9]+*
-    #   - release-polkadot-v[0-9]+*
-    #   - stable
-
   workflow_dispatch:
     inputs:
       version:
         description: Current release/rc version in format polkadot-stableYYMM
+  workflow_call:
+    inputs:
+      version:
+        description: Current release/rc version in format polkadot-stableYYMM
+        type: string
+    secrets:
+      PGP_KMS_SIGN_COMMITS_KEY:
+        required: true
+      PGP_KMS_HASH:
+        required: true
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+      AWS_DEFAULT_REGION:
+        required: true
+      RELEASE_AUTOMATION_APP_PRIVATE_KEY:
+        required: true
+      RELEASENOTES_MATRIX_V2_ACCESS_TOKEN:
+        required: true
 
 jobs:
   tag_rc:
@@ -38,7 +49,7 @@ jobs:
 
       - name: Generate content write token for the release automation
         id: generate_write_token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v2
         with:
             app-id: ${{ vars.RELEASE_AUTOMATION_APP_ID }}
             private-key: ${{ secrets.RELEASE_AUTOMATION_APP_PRIVATE_KEY }}
