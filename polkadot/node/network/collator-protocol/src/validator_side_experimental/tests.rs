@@ -16,8 +16,8 @@
 
 use crate::validator_side_experimental::{
 	common::{
-		Advertisement, Score, CONNECTED_PEERS_PARA_LIMIT, MAX_STARTUP_ANCESTRY_LOOKBACK,
-		VALID_INCLUDED_CANDIDATE_BUMP,
+		Advertisement, CollationFetchError, Score, CONNECTED_PEERS_PARA_LIMIT, FAILED_FETCH_SLASH,
+		MAX_STARTUP_ANCESTRY_LOOKBACK, VALID_INCLUDED_CANDIDATE_BUMP,
 	},
 	peer_manager::{Backend, ReputationUpdate},
 };
@@ -29,7 +29,9 @@ use codec::Encode;
 use futures::channel::mpsc::UnboundedReceiver;
 use polkadot_node_network_protocol::{
 	peer_set::{CollationVersion, PeerSet},
-	request_response::{v1::CollationFetchingResponse, Recipient, Requests},
+	request_response::{
+		outgoing::RequestError, v1::CollationFetchingResponse, Recipient, Requests,
+	},
 	OurView,
 };
 use polkadot_node_primitives::{
@@ -54,11 +56,13 @@ use polkadot_primitives::{
 	ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::dummy_committed_candidate_receipt_v2;
+use sc_network::{OutboundFailure, RequestFailure};
 use sc_network_types::multihash::Multihash;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::Keystore;
 use std::{
 	collections::{BTreeMap, BTreeSet, HashMap},
+	ops::DerefMut,
 	sync::{Arc, Mutex},
 	time::Duration,
 };
@@ -837,6 +841,75 @@ async fn make_state<B: Backend>(
 	state
 }
 
+#[derive(Clone, Default)]
+struct MockDb {
+	finalized: Arc<Mutex<BlockNumber>>,
+	// Use BTreeMaps to ensure ordering when asserting.
+	witnessed_bumps: Arc<Mutex<BTreeMap<ParaId, BTreeMap<PeerId, Score>>>>,
+	witnessed_slash: Arc<Mutex<Option<(PeerId, ParaId, Score)>>>,
+}
+
+impl MockDb {
+	fn witnessed_bumps(&self) -> BTreeMap<ParaId, BTreeMap<PeerId, Score>> {
+		std::mem::take(self.witnessed_bumps.lock().unwrap().deref_mut())
+	}
+
+	fn witnessed_slash(&self) -> Option<(PeerId, ParaId, Score)> {
+		std::mem::take(self.witnessed_slash.lock().unwrap().deref_mut())
+	}
+}
+
+#[async_trait]
+impl Backend for MockDb {
+	async fn processed_finalized_block_number(&self) -> Option<BlockNumber> {
+		Some(*(self.finalized.lock().unwrap()))
+	}
+
+	async fn query(&self, _peer_id: &PeerId, _para_id: &ParaId) -> Option<Score> {
+		None
+	}
+
+	async fn slash(&mut self, peer_id: &PeerId, para_id: &ParaId, value: Score) {
+		let old_slash = std::mem::replace(
+			self.witnessed_slash.lock().unwrap().deref_mut(),
+			Some((*peer_id, *para_id, value)),
+		);
+
+		assert!(old_slash.is_none());
+	}
+
+	async fn prune_paras(&mut self, _registered_paras: BTreeSet<ParaId>) {}
+
+	async fn process_bumps(
+		&mut self,
+		leaf_number: BlockNumber,
+		bumps: BTreeMap<ParaId, HashMap<PeerId, Score>>,
+		_decay_value: Option<Score>,
+	) -> Vec<ReputationUpdate> {
+		let old_bumps = std::mem::replace(
+			self.witnessed_bumps.lock().unwrap().deref_mut(),
+			bumps.into_iter().map(|(k, v)| (k, v.into_iter().collect())).collect(),
+		);
+
+		assert!(old_bumps.is_empty());
+
+		*(self.finalized.lock().unwrap()) = leaf_number;
+
+		vec![]
+	}
+
+	async fn max_scores_for_paras(&self, _paras: BTreeSet<ParaId>) -> HashMap<ParaId, Score> {
+		HashMap::new()
+	}
+}
+
+impl Drop for MockDb {
+	fn drop(&mut self) {
+		assert!(self.witnessed_bumps().is_empty());
+		assert!(self.witnessed_slash().is_none());
+	}
+}
+
 #[tokio::test]
 // Test scenarios concerning connects/disconnects and declares.
 // More fine grained tests are in the `ConnectedPeers` unit tests.
@@ -1257,54 +1330,6 @@ async fn test_peer_connections_across_group_rotations() {
 #[tokio::test]
 // Test reputation bumps on finalized block notification.
 async fn finalized_block_notification() {
-	#[derive(Clone, Default)]
-	struct MockDb {
-		finalized: Arc<Mutex<BlockNumber>>,
-		// Use BTreeMaps to ensure ordering when asserting.
-		expected_bumps: Arc<Mutex<BTreeMap<ParaId, BTreeMap<PeerId, Score>>>>,
-	}
-
-	#[async_trait]
-	impl Backend for MockDb {
-		/// Return the latest finalized block for which the backend processed bumps.
-		async fn processed_finalized_block_number(&self) -> Option<BlockNumber> {
-			Some(*(self.finalized.lock().unwrap()))
-		}
-
-		async fn query(&self, _peer_id: &PeerId, _para_id: &ParaId) -> Option<Score> {
-			// We're not interested in resolving queries for this test.
-			None
-		}
-
-		async fn slash(&mut self, _peer_id: &PeerId, _para_id: &ParaId, _value: Score) {
-			unimplemented!()
-		}
-
-		async fn prune_paras(&mut self, _registered_paras: BTreeSet<ParaId>) {
-			unimplemented!()
-		}
-
-		async fn process_bumps(
-			&mut self,
-			leaf_number: BlockNumber,
-			bumps: BTreeMap<ParaId, HashMap<PeerId, Score>>,
-			_decay_value: Option<Score>,
-		) -> Vec<ReputationUpdate> {
-			assert_eq!(
-				*(self.expected_bumps.lock().unwrap()),
-				bumps.into_iter().map(|(k, v)| (k, v.into_iter().collect())).collect()
-			);
-
-			*(self.finalized.lock().unwrap()) = leaf_number;
-
-			vec![]
-		}
-
-		async fn max_scores_for_paras(&self, _paras: BTreeSet<ParaId>) -> HashMap<ParaId, Score> {
-			unimplemented!()
-		}
-	}
-
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
 
@@ -1343,14 +1368,12 @@ async fn finalized_block_notification() {
 			.collect(),
 	);
 
-	let mut db_guard = db.expected_bumps.lock().unwrap();
-	*db_guard = expected_bumps;
-	drop(db_guard);
-
 	futures::join!(test_state.handle_finalized_block(6), async {
 		state.handle_finalized_block(&mut sender, get_hash(6), 6).await.unwrap()
 	});
 	test_state.assert_no_messages().await;
+
+	assert_eq!(db.witnessed_bumps(), expected_bumps);
 
 	// This peer is not even connected, but we should process its reputation bumps.
 	let fourth_peer = peer_id(4);
@@ -1394,10 +1417,6 @@ async fn finalized_block_notification() {
 		.collect(),
 	);
 
-	let mut db_guard = db.expected_bumps.lock().unwrap();
-	*db_guard = expected_bumps;
-	drop(db_guard);
-
 	// Add multiple included candidates at different block heights and check that they are processed
 	// accordingly.
 	futures::join!(test_state.handle_finalized_block(10), async {
@@ -1405,6 +1424,8 @@ async fn finalized_block_notification() {
 	});
 	test_state.assert_no_messages().await;
 	assert_eq!(state.connected_peers(), peers.clone().into_iter().collect());
+
+	assert_eq!(db.witnessed_bumps(), expected_bumps);
 }
 
 #[tokio::test]
@@ -1552,8 +1573,92 @@ async fn test_advertisement_rejections() {
 	test_state.assert_no_messages().await;
 }
 
+#[tokio::test]
+async fn test_collation_fetch_failure() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+
+	let db = MockDb::default();
+	let mut state = make_state(db.clone(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	let mut ccr = dummy_committed_candidate_receipt_v2(active_leaf);
+	ccr.descriptor.set_para_id(100.into());
+	ccr.descriptor.set_persisted_validation_data_hash(dummy_pvd().hash());
+	ccr.descriptor.set_core_index(leaf_info.assigned_core);
+	ccr.descriptor.set_session_index(leaf_info.session_index);
+
+	let receipt = ccr.to_plain();
+	let prospective_candidate = Some(ProspectiveCandidate {
+		candidate_hash: receipt.hash(),
+		parent_head_data_hash: dummy_pvd().parent_head.hash(),
+	});
+
+	// Different network errors.
+	for (err, maybe_slash) in [
+		// Cancelled by us. No slash.
+		(Err(CollationFetchError::Cancelled), None),
+		// Network error. No slash as it could be caused by us.
+		(
+			Err(CollationFetchError::Request(RequestError::NetworkError(
+				RequestFailure::NotConnected,
+			))),
+			None,
+		),
+		(
+			Err(CollationFetchError::Request(RequestError::NetworkError(RequestFailure::Network(
+				OutboundFailure::DialFailure,
+			)))),
+			None,
+		),
+		// Timeout. Slash.
+		(
+			Err(CollationFetchError::Request(RequestError::NetworkError(RequestFailure::Network(
+				OutboundFailure::Timeout,
+			)))),
+			Some(FAILED_FETCH_SLASH),
+		),
+		// Invalid response. Slash.
+		(
+			Err(CollationFetchError::Request(RequestError::InvalidResponse("Invalid".into()))),
+			Some(FAILED_FETCH_SLASH),
+		),
+	] {
+		let peer_id = PeerId::random();
+
+		// We reuse the same advertisement, to test that if a fetch fails, another peer can
+		// advertise the same collation.
+		let adv = Advertisement {
+			peer_id,
+			para_id: 100.into(),
+			relay_parent: active_leaf,
+			prospective_candidate,
+		};
+
+		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
+		state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+		test_state.handle_advertisement(&mut state, adv).await;
+		state.try_launch_new_fetch_requests(&mut sender).await;
+		test_state.assert_collation_request(adv).await;
+
+		state.handle_fetched_collation(&mut sender, (adv, err)).await;
+		// Once it failed, we no longer retry it.
+		state.try_launch_new_fetch_requests(&mut sender).await;
+		assert_eq!(db.witnessed_slash(), maybe_slash.map(|score| (peer_id, adv.para_id, score)));
+		test_state.assert_no_messages().await;
+	}
+
+	// compare_fetched_collation_with_advertisement
+	// descriptor_version_sanity_check
+	// fetch_pvd -> PersistedValidationDataNotFound (no response from prospective-parachains or no
+	// response from runtime) 			PersistedValidationDataMismatch, ParentHeadDataMismatch
+
+	// self.assert_pvd_request(adv, dummy_pvd())
+}
+
 // Test advertisement: test both versions (v1 and v2), which lead to new requests
-// Test that we retry a failed attempt at fetching a collation from another peer that advertised it.
 
 // Launching new collations:
 // - Verify that we don't try to make requests to a peer that disconnected and that the claims were
