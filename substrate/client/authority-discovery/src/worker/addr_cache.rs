@@ -309,19 +309,19 @@ impl TryFrom<SerializableAddrCache> for AddrCache {
 #[serde(transparent)]
 struct SerializablePeerId {
 	#[serde_as(as = "serde_with::hex::Hex")]
-	encoded_peer_id: Vec<u8>,
+	bytes: Vec<u8>,
 }
 
 impl From<PeerId> for SerializablePeerId {
 	fn from(peer_id: PeerId) -> Self {
-		Self { encoded_peer_id: peer_id.to_bytes() }
+		Self { bytes: peer_id.to_bytes() }
 	}
 }
 impl TryFrom<SerializablePeerId> for PeerId {
 	type Error = Error;
 
 	fn try_from(value: SerializablePeerId) -> Result<Self, Self::Error> {
-		PeerId::from_bytes(&value.encoded_peer_id)
+		PeerId::from_bytes(&value.bytes)
 			.map_err(|e| Error::EncodingDecodingAddrCache(e.to_string()))
 	}
 }
@@ -373,6 +373,9 @@ fn load_from_file<T: DeserializeOwned>(path: &PathBuf) -> io::Result<T> {
 #[derive(Clone)]
 pub struct ThrottlingAsyncFileWriter {
 	/// Each request to write content will send a message to this sender.
+	///
+	/// N.B. this is not passed in as an argument, it is an implementation
+	/// detail.
 	sender: mpsc::UnboundedSender<String>,
 }
 
@@ -820,5 +823,18 @@ mod tests {
 			// ASSERT
 			assert_eq!(0, read_from_disk().num_authority_ids());
 		}
+	}
+
+	#[test]
+	fn test_load_cache_from_disc() {
+		let dir = tempfile::tempdir().expect("tempfile should create tmp dir");
+		let path = dir.path().join("cache.json");
+		let sample = AddrCache::sample();
+		assert_eq!(sample.num_authority_ids(), 2);
+		let existing = serde_json::to_string(&SerializableAddrCache::from(sample)).unwrap();
+		write_to_file(&path, &existing).unwrap();
+
+		let cache = create_addr_cache(path);
+		assert_eq!(cache.num_authority_ids(), 2);
 	}
 }
