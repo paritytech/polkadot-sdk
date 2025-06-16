@@ -33,6 +33,7 @@ pub use sp_tracing;
 const LOG_TARGET: &str = "parachain::pvf-common";
 
 use codec::{Decode, Encode};
+use sp_core::H256;
 use std::{
 	io::{self, Read, Write},
 	mem,
@@ -88,11 +89,13 @@ pub fn framed_recv_blocking(r: &mut (impl Read + Unpin)) -> io::Result<Vec<u8>> 
 	Ok(buf)
 }
 
-pub type ArtifactChecksum = [u8; 32];
+#[derive(Debug, Default, Clone, Copy, Encode, Decode)]
+#[repr(transparent)]
+pub struct ArtifactChecksum(H256);
 
 /// Compute the checksum of the given artifact.
 pub fn compute_checksum(data: &[u8]) -> ArtifactChecksum {
-	blake3::hash(data).into()
+	ArtifactChecksum(H256::from_slice(blake3::hash(data).as_bytes()))
 }
 
 #[cfg(all(test, not(feature = "test-utils")))]
