@@ -22,7 +22,8 @@ bootnodes and hardcoded addresses in the chainspec. It also reduces the risk of 
 of failure if predefined bootnodes become unreachable.
 
 However, since this feature is relatively new, high-value parachains are still advised to include
-a set of dedicated bootnodes in the chainspec as a fallback mechanism.
+a set of dedicated bootnodes in the chainspec as a fallback mechanism. Also, the bootnodes
+specified via the `--bootnodes` command-line option are always used.
 
 ## Command-Line Options
 
