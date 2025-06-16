@@ -140,7 +140,8 @@ where
 	})
 }
 
-/// Builds an XCM call to send an authorize upgrade message using the provided location
+/// Builds a `pallet_xcm::send` call to authorize an upgrade at the provided location,
+/// wrapped in an unpaid XCM `Transact` with `OriginKind::Superuser`.
 pub fn build_xcm_send_authorize_upgrade_call<T, D>(
 	location: Location,
 	code_hash: &H256,
