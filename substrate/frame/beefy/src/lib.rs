@@ -48,7 +48,7 @@ use sp_consensus_beefy::{
 };
 use sp_runtime::{
 	generic::DigestItem,
-	traits::{IsMember, Member, One},
+	traits::{Hash, IsMember, Member, One},
 	RuntimeAppPublic,
 };
 use sp_session::{GetSessionNumber, GetValidatorCount};
@@ -70,8 +70,7 @@ pub mod pallet {
 		/// Authority identifier type
 		type BeefyId: Member
 			+ Parameter
-			// todo: use custom signature hashing type instead of hardcoded `Keccak256`
-			+ BeefyAuthorityId<sp_runtime::traits::Keccak256>
+			+ BeefyAuthorityId<<Self as Config>::Hashing>
 			+ MaybeSerializeDeserialize
 			+ MaxEncodedLen;
 
@@ -102,6 +101,9 @@ pub mod pallet {
 		/// Hook for checking commitment canonicity.
 		type AncestryHelper: AncestryHelper<HeaderFor<Self>>
 			+ AncestryHelperWeightInfo<HeaderFor<Self>>;
+
+		/// A hasher for signature type
+		type Hashing: Hash;
 
 		/// Weights for this pallet.
 		type WeightInfo: WeightInfo;
