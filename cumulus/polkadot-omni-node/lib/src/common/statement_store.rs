@@ -28,7 +28,7 @@ use std::sync::Arc;
 
 /// Helper function to setup the statement store in `NodeSpec::start_node`.
 ///
-/// Functions are tailored for internal usage, types are unnecessary opiniated for usage in
+/// Functions are tailored for internal usage, types are unnecessary opinionated for usage in
 /// `NodeSpec::start_node`.
 
 /// Return whether the `ValidateStatement` API is available at the given block hash.
