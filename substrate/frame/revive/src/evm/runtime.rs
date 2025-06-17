@@ -21,7 +21,7 @@ use crate::{
 		GasEncoder,
 	},
 	AccountIdOf, AddressMapper, BalanceOf, Config, ConversionPrecision, MomentOf, Pallet,
-	LOG_TARGET,
+	LOG_TARGET, RUNTIME_PALLETS_ADDR,
 };
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
@@ -333,11 +333,18 @@ pub trait EthExtra {
 			})?;
 
 		let call = if let Some(dest) = to {
-			if dest == crate::RUNTIME_PALLETS_ADDR {
-				CallOf::<Self::Config>::decode(&mut &data[..]).map_err(|_| {
+			if dest == RUNTIME_PALLETS_ADDR {
+				let call = CallOf::<Self::Config>::decode(&mut &data[..]).map_err(|_| {
 					log::debug!(target: LOG_TARGET, "Failed to decode data as Call");
 					InvalidTransaction::Call
-				})?
+				})?;
+
+				if value != 0u32.into() {
+					log::debug!(target: LOG_TARGET, "Runtime pallets address cannot be called with value");
+					return Err(InvalidTransaction::Call)
+				}
+
+				call
 			} else {
 				crate::Call::call::<Self::Config> {
 					dest,
@@ -718,7 +725,7 @@ mod test {
 			frame_system::Call::remark { remark: b"Hello, world!".to_vec() }.into();
 
 		let builder =
-			UncheckedExtrinsicBuilder::call_with(crate::RUNTIME_PALLETS_ADDR).data(remark.encode());
+			UncheckedExtrinsicBuilder::call_with(RUNTIME_PALLETS_ADDR).data(remark.encode());
 		let (call, _, _) = builder.check().unwrap();
 
 		assert_eq!(call, remark);
