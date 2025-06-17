@@ -89,13 +89,26 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 		return Err(anyhow!("Charlie did not store the statement"));
 	}
 
-	// Wait for the statement to be propagated to dave.
-	tokio::time::sleep(core::time::Duration::from_secs(10)).await;
+	// Query dave until it receives the statement, stop if 20 seconds passed.
+	let query_start_time = std::time::SystemTime::now();
+	let stop_after_secs = 20;
+	loop {
+		let dave_dump: Vec<Bytes> = dave_rpc.request("statement_dump", rpc_params![]).await?;
+		if !dave_dump.is_empty() {
+			if dave_dump != vec![statement.clone()] {
+				return Err(anyhow!("Dave statement store is not the expected one"));
+			}
+			break;
+		}
 
-	// Ensure that dave received and stored the statement.
-	let dave_dump: Vec<Bytes> = dave_rpc.request("statement_dump", rpc_params![]).await?;
-	if dave_dump.is_empty() {
-		return Err(anyhow!("Dave did not receive the statement"));
+		let elapsed = query_start_time
+			.elapsed()
+			.map_err(|_| anyhow!("Failed to get elapsed time"))?;
+		if elapsed.as_secs() > stop_after_secs {
+			return Err(anyhow!("Dave did not receive the statement in time"));
+		}
+
+		tokio::time::sleep(core::time::Duration::from_secs(1)).await;
 	}
 
 	Ok(())
