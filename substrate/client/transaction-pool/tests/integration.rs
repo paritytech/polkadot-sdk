@@ -182,11 +182,7 @@ async fn send_mortal_tx_and_have_it_dropped() {
 
 	let mortal_failed_at_submission = mortal_logs
 		.values()
-		.filter_map(|default_log| {
-			let dropped = default_log.dropped();
-			dropped.as_ref().map(|reason| println!("blaaaaaaaaaaaaaaaaa - {}", reason));
-			dropped
-		})
+		.filter(|default_log| default_log.get_dropped_reason().len() > 0)
 		.count();
 	let finalized_ready =
 		ready_logs.values().filter_map(|default_log| default_log.finalized()).count();
