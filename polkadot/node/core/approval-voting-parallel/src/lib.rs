@@ -347,7 +347,7 @@ async fn run_main_loop<Context>(
 						// The message the approval voting subsystem would've handled.
 						ApprovalVotingParallelMessage::ApprovedAncestor(_, _,_) |
 						ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate(_, _)  => {
-							to_approval_voting_worker.send_message(
+							to_approval_voting_worker.send_message_with_priority::<overseer::HighPriority>(
 								msg.try_into().expect(
 									"Message is one of ApprovedAncestor, GetApprovalSignaturesForCandidate
 									 and that can be safely converted to ApprovalVotingMessage; qed"
