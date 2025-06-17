@@ -188,9 +188,9 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
 		/// An account has delegated their vote to another account. \[who, target\]
-		Delegated(T::AccountId, T::AccountId),
+		Delegated(T::AccountId, T::AccountId, ClassOf<T, I>),
 		/// An \[account\] has cancelled a previous delegation operation.
-		Undelegated(T::AccountId),
+		Undelegated(T::AccountId, ClassOf<T, I>),
 		/// An account has voted
 		Voted {
 			who: T::AccountId,
@@ -662,7 +662,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				Self::extend_lock(&who, &class, balance);
 				Ok(votes)
 			})?;
-		Self::deposit_event(Event::<T, I>::Delegated(who, target));
+		Self::deposit_event(Event::<T, I>::Delegated(who, target, class));
 		Ok(votes)
 	}
 
@@ -701,7 +701,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					Voting::Casting(_) => Err(Error::<T, I>::NotDelegating.into()),
 				}
 			})?;
-		Self::deposit_event(Event::<T, I>::Undelegated(who));
+		Self::deposit_event(Event::<T, I>::Undelegated(who, class));
 		Ok(votes)
 	}
 
