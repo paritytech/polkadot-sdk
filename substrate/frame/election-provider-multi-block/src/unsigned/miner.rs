@@ -2236,11 +2236,14 @@ mod offchain_worker_miner {
 	mod no_storage {
 		use super::*;
 		#[test]
-		fn initial_ocw_runs_and_does_not_save() {
-			// as per `T::OffchainStorage`.
+		fn ocw_never_uses_cache_on_initial_run_or_resubmission() {
+			// When `T::OffchainStorage` is false, the offchain worker should never use cache:
+			// - Initial run: mines and submits without caching
+			// - Resubmission: re-mines fresh solution instead of restoring from cache
 			let (mut ext, pool) =
 				ExtBuilder::unsigned().offchain_storage(false).build_offchainify();
 			ext.execute_with_sanity_checks(|| {
+				let offchain_repeat = <Runtime as crate::unsigned::Config>::OffchainRepeat::get();
 				roll_to_unsigned_open();
 
 				let last_block = StorageValueRef::persistent(
@@ -2250,15 +2253,34 @@ mod offchain_worker_miner {
 					&OffchainWorkerMiner::<Runtime>::OFFCHAIN_CACHED_CALL,
 				);
 
+				// Initial state: no previous runs
 				assert_eq!(last_block.get::<BlockNumber>(), Ok(None));
 				assert_eq!(cache.get::<crate::unsigned::Call<Runtime>>(), Ok(None));
 
-				// creates, submits without expecting previous cache value
+				// First run: mines and submits without caching
 				UnsignedPallet::offchain_worker(25);
-
 				assert_eq!(pool.read().transactions.len(), 1);
+				let first_tx = pool.read().transactions[0].clone();
+
+				// Verify no cache is created or used
 				assert_eq!(last_block.get::<BlockNumber>(), Ok(Some(25)));
 				assert_eq!(cache.get::<crate::unsigned::Call<Runtime>>(), Ok(None));
+
+				// Clear the pool to simulate transaction processing
+				pool.try_write().unwrap().transactions.clear();
+
+				// Second run after repeat threshold: should re-mine instead of using cache
+				UnsignedPallet::offchain_worker(25 + 1 + offchain_repeat);
+				assert_eq!(pool.read().transactions.len(), 1);
+				let second_tx = pool.read().transactions[0].clone();
+
+				// Verify still no cache is used throughout the process
+				assert_eq!(last_block.get::<BlockNumber>(), Ok(Some(25 + 1 + offchain_repeat)));
+				assert_eq!(cache.get::<crate::unsigned::Call<Runtime>>(), Ok(None));
+
+				// Both transactions should be identical since the snapshot hasn't changed,
+				// but they were generated independently (no cache reuse)
+				assert_eq!(first_tx, second_tx);
 			})
 		}
 	}
