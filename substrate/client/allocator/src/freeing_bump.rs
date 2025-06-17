@@ -80,11 +80,12 @@ use std::{
 ///
 /// The alignment of 8 is chosen because it is the maximum size of a primitive type supported by the
 /// target version of wasm32: i64's natural alignment is 8.
-const ALIGNMENT: u32 = 8;
+const ALIGNMENT: u32 = 16;
 
-// Each pointer is prefixed with 8 bytes, which identify the list index
-// to which it belongs.
-const HEADER_SIZE: u32 = 8;
+const _: () = {
+	// The header size is `8`.
+	assert!(8 <= ALIGNMENT as usize, "HEADER_SIZE needs to be equal or smaller to the ALIGNMENT");
+};
 
 /// Create an allocator error.
 fn error(msg: &'static str) -> Error {
@@ -102,21 +103,20 @@ const LOG_TARGET: &str = "wasm-heap";
 //
 // This number corresponds to the number of powers between the minimum possible allocation and
 // maximum possible allocation, or: 2^3...2^25 (both ends inclusive, hence 23).
-const N_ORDERS: usize = 23;
-const MIN_POSSIBLE_ALLOCATION: u32 = 8; // 2^3 bytes, 8 bytes
+const N_ORDERS: usize = 22;
+const MIN_POSSIBLE_ALLOCATION: u32 = 16; // 2^3 bytes, 8 bytes
 
 /// The exponent for the power of two sized block adjusted to the minimum size.
 ///
-/// This way, if `MIN_POSSIBLE_ALLOCATION == 8`, we would get:
+/// This way, if `MIN_POSSIBLE_ALLOCATION == 16`, we would get:
 ///
 /// power_of_two_size | order
-/// 8                 | 0
-/// 16                | 1
-/// 32                | 2
-/// 64                | 3
+/// 16                 | 0
+/// 32                | 1
+/// 64                | 2
+/// 128                | 3
 /// ...
-/// 16777216          | 21
-/// 33554432          | 22
+/// 33554432          | 21
 ///
 /// and so on.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -421,7 +421,7 @@ impl FreeingBumpHeapAllocator {
 
 		let header_ptr: u32 = match self.free_lists[order] {
 			Link::Ptr(header_ptr) => {
-				if (u64::from(header_ptr) + u64::from(order.size()) + u64::from(HEADER_SIZE)) >
+				if (u64::from(header_ptr) + u64::from(order.size()) + u64::from(ALIGNMENT)) >
 					mem.size()
 				{
 					return Err(error("Invalid header pointer detected"))
@@ -437,15 +437,15 @@ impl FreeingBumpHeapAllocator {
 			},
 			Link::Nil => {
 				// Corresponding free list is empty. Allocate a new item.
-				Self::bump(&mut self.bumper, order.size() + HEADER_SIZE, mem)?
+				Self::bump(&mut self.bumper, order.size() + ALIGNMENT, mem)?
 			},
 		};
 
 		// Write the order in the occupied header.
 		Header::Occupied(order).write_into(mem, header_ptr)?;
 
-		self.stats.bytes_allocated += order.size() + HEADER_SIZE;
-		self.stats.bytes_allocated_sum += u128::from(order.size() + HEADER_SIZE);
+		self.stats.bytes_allocated += order.size() + ALIGNMENT;
+		self.stats.bytes_allocated_sum += u128::from(order.size() + ALIGNMENT);
 		self.stats.bytes_allocated_peak =
 			max(self.stats.bytes_allocated_peak, self.stats.bytes_allocated);
 		self.stats.address_space_used = self.bumper - self.original_heap_base;
@@ -453,7 +453,7 @@ impl FreeingBumpHeapAllocator {
 		log::trace!(target: LOG_TARGET, "after allocation: {:?}", self.stats);
 
 		bomb.disarm();
-		Ok(Pointer::new(header_ptr + HEADER_SIZE))
+		Ok(Pointer::new(header_ptr + ALIGNMENT))
 	}
 
 	/// Deallocates the space which was allocated for a pointer.
@@ -477,7 +477,7 @@ impl FreeingBumpHeapAllocator {
 		Self::observe_memory_size(&mut self.last_observed_memory_size, mem)?;
 
 		let header_ptr = u32::from(ptr)
-			.checked_sub(HEADER_SIZE)
+			.checked_sub(ALIGNMENT)
 			.ok_or_else(|| error("Invalid pointer for deallocation"))?;
 
 		let order = Header::read_from(mem, header_ptr)?
@@ -491,7 +491,7 @@ impl FreeingBumpHeapAllocator {
 		self.stats.bytes_allocated = self
 			.stats
 			.bytes_allocated
-			.checked_sub(order.size() + HEADER_SIZE)
+			.checked_sub(order.size() + ALIGNMENT)
 			.ok_or_else(|| error("underflow of the currently allocated bytes count"))?;
 
 		log::trace!("after deallocation: {:?}", self.stats);
@@ -716,12 +716,12 @@ mod tests {
 		let ptr = heap.allocate(&mut mem, 1).unwrap();
 
 		// then
-		// returned pointer must start right after `HEADER_SIZE`
-		assert_eq!(ptr, to_pointer(HEADER_SIZE));
+		// returned pointer must start right after `ALIGNMENT`
+		assert_eq!(ptr, to_pointer(ALIGNMENT));
 	}
 
 	#[test]
-	fn should_always_align_pointers_to_multiples_of_8() {
+	fn should_always_align_pointers() {
 		// given
 		let mut mem = MemoryInstance::with_pages(1);
 		let mut heap = FreeingBumpHeapAllocator::new(13);
@@ -730,9 +730,7 @@ mod tests {
 		let ptr = heap.allocate(&mut mem, 1).unwrap();
 
 		// then
-		// the pointer must start at the next multiple of 8 from 13
-		// + the prefix of 8 bytes.
-		assert_eq!(ptr, to_pointer(24));
+		assert!(u32::from(ptr) % ALIGNMENT == 0);
 	}
 
 	#[test]
@@ -747,15 +745,15 @@ mod tests {
 		let ptr3 = heap.allocate(&mut mem, 1).unwrap();
 
 		// then
-		// a prefix of 8 bytes is prepended to each pointer
-		assert_eq!(ptr1, to_pointer(HEADER_SIZE));
+		// a prefix of ALIGNMENT bytes is prepended to each pointer
+		assert_eq!(ptr1, to_pointer(ALIGNMENT));
 
 		// the prefix of 8 bytes + the content of ptr1 padded to the lowest possible
 		// item size of 8 bytes + the prefix of ptr1
-		assert_eq!(ptr2, to_pointer(24));
+		assert_eq!(ptr2, to_pointer(ALIGNMENT * 3));
 
-		// ptr2 + its content of 16 bytes + the prefix of 8 bytes
-		assert_eq!(ptr3, to_pointer(24 + 16 + HEADER_SIZE));
+		// ptr2 + its content of 16 bytes + the prefix of ALIGNMENT bytes
+		assert_eq!(ptr3, to_pointer(ALIGNMENT * 3 + 16 + ALIGNMENT));
 	}
 
 	#[test]
@@ -764,12 +762,12 @@ mod tests {
 		let mut mem = MemoryInstance::with_pages(1);
 		let mut heap = FreeingBumpHeapAllocator::new(0);
 		let ptr1 = heap.allocate(&mut mem, 1).unwrap();
-		// the prefix of 8 bytes is prepended to the pointer
-		assert_eq!(ptr1, to_pointer(HEADER_SIZE));
+		// the prefix of ALIGNMENT bytes is prepended to the pointer
+		assert_eq!(ptr1, to_pointer(ALIGNMENT));
 
 		let ptr2 = heap.allocate(&mut mem, 1).unwrap();
-		// the prefix of 8 bytes + the content of ptr 1 is prepended to the pointer
-		assert_eq!(ptr2, to_pointer(24));
+		// the prefix of ALIGNMENT bytes + the content of ptr 1 is prepended to the pointer
+		assert_eq!(ptr2, to_pointer(ALIGNMENT + 16 + ALIGNMENT));
 
 		// when
 		heap.deallocate(&mut mem, ptr2).unwrap();
@@ -777,7 +775,7 @@ mod tests {
 		// then
 		// then the heads table should contain a pointer to the
 		// prefix of ptr2 in the leftmost entry
-		assert_eq!(heap.free_lists.heads[0], Link::Ptr(u32::from(ptr2) - HEADER_SIZE));
+		assert_eq!(heap.free_lists.heads[0], Link::Ptr(u32::from(ptr2) - ALIGNMENT));
 	}
 
 	#[test]
@@ -788,14 +786,14 @@ mod tests {
 		let mut heap = FreeingBumpHeapAllocator::new(13);
 
 		let ptr1 = heap.allocate(&mut mem, 1).unwrap();
-		// the prefix of 8 bytes is prepended to the pointer
-		assert_eq!(ptr1, to_pointer(padded_offset + HEADER_SIZE));
+		// the prefix of ALIGNMENT bytes is prepended to the pointer
+		assert_eq!(ptr1, to_pointer(padded_offset + ALIGNMENT));
 
 		let ptr2 = heap.allocate(&mut mem, 9).unwrap();
-		// the padded_offset + the previously allocated ptr (8 bytes prefix +
-		// 8 bytes content) + the prefix of 8 bytes which is prepended to the
+		// the padded_offset + the previously allocated ptr (ALIGNMENT bytes prefix +
+		// 16 bytes content) + the prefix of ALIGNMENT bytes which is prepended to the
 		// current pointer
-		assert_eq!(ptr2, to_pointer(padded_offset + 16 + HEADER_SIZE));
+		assert_eq!(ptr2, to_pointer(padded_offset + ALIGNMENT + 16 + ALIGNMENT));
 
 		// when
 		heap.deallocate(&mut mem, ptr2).unwrap();
@@ -803,7 +801,7 @@ mod tests {
 
 		// then
 		// should have re-allocated
-		assert_eq!(ptr3, to_pointer(padded_offset + 16 + HEADER_SIZE));
+		assert_eq!(ptr3, to_pointer(padded_offset + ALIGNMENT + 16 + ALIGNMENT));
 		assert_eq!(heap.free_lists.heads, [Link::Nil; N_ORDERS]);
 	}
 
@@ -823,12 +821,12 @@ mod tests {
 		heap.deallocate(&mut mem, ptr3).unwrap();
 
 		// then
-		assert_eq!(heap.free_lists.heads[0], Link::Ptr(u32::from(ptr3) - HEADER_SIZE));
+		assert_eq!(heap.free_lists.heads[0], Link::Ptr(u32::from(ptr3) - ALIGNMENT));
 
 		let ptr4 = heap.allocate(&mut mem, 8).unwrap();
 		assert_eq!(ptr4, ptr3);
 
-		assert_eq!(heap.free_lists.heads[0], Link::Ptr(u32::from(ptr2) - HEADER_SIZE));
+		assert_eq!(heap.free_lists.heads[0], Link::Ptr(u32::from(ptr2) - ALIGNMENT));
 	}
 
 	#[test]
@@ -851,8 +849,8 @@ mod tests {
 		let mut mem = MemoryInstance::with_pages(1);
 		mem.set_max_wasm_pages(1);
 		let mut heap = FreeingBumpHeapAllocator::new(0);
-		let ptr1 = heap.allocate(&mut mem, (PAGE_SIZE / 2) - HEADER_SIZE).unwrap();
-		assert_eq!(ptr1, to_pointer(HEADER_SIZE));
+		let ptr1 = heap.allocate(&mut mem, (PAGE_SIZE / 2) - ALIGNMENT).unwrap();
+		assert_eq!(ptr1, to_pointer(ALIGNMENT));
 
 		// when
 		let ptr2 = heap.allocate(&mut mem, PAGE_SIZE / 2);
@@ -875,7 +873,7 @@ mod tests {
 		let ptr = heap.allocate(&mut mem, MAX_POSSIBLE_ALLOCATION).unwrap();
 
 		// then
-		assert_eq!(ptr, to_pointer(HEADER_SIZE));
+		assert_eq!(ptr, to_pointer(ALIGNMENT));
 	}
 
 	#[test]
@@ -899,30 +897,27 @@ mod tests {
 		let mut heap = FreeingBumpHeapAllocator::new(0);
 
 		let mut ptrs = Vec::new();
-		for _ in 0..(PAGE_SIZE as usize / 40) {
-			ptrs.push(heap.allocate(&mut mem, 32).expect("Allocate 32 byte"));
+		for _ in 0..(PAGE_SIZE as usize / 32) {
+			ptrs.push(heap.allocate(&mut mem, 16).expect("Allocate 32 byte"));
 		}
 
-		assert_eq!(heap.stats.bytes_allocated, PAGE_SIZE - 16);
-		assert_eq!(heap.bumper, PAGE_SIZE - 16);
+		assert_eq!(heap.stats.bytes_allocated, PAGE_SIZE);
+		assert_eq!(heap.bumper, PAGE_SIZE);
 
 		ptrs.into_iter()
 			.for_each(|ptr| heap.deallocate(&mut mem, ptr).expect("Deallocate 32 byte"));
 
 		assert_eq!(heap.stats.bytes_allocated, 0);
-		assert_eq!(heap.stats.bytes_allocated_peak, PAGE_SIZE - 16);
-		assert_eq!(heap.bumper, PAGE_SIZE - 16);
-
-		// Allocate another 8 byte to use the full heap.
-		heap.allocate(&mut mem, 8).expect("Allocate 8 byte");
+		assert_eq!(heap.stats.bytes_allocated_peak, PAGE_SIZE);
+		assert_eq!(heap.bumper, PAGE_SIZE);
 
 		// when
 		// the `bumper` value is equal to `size` here and any
 		// further allocation which would increment the bumper must fail.
-		// we try to allocate 8 bytes here, which will increment the
-		// bumper since no 8 byte item has been freed before.
+		// we try to allocate 32 bytes here, which will increment the
+		// bumper since no 32 byte item has been freed before.
 		assert_eq!(heap.bumper as u64, mem.size());
-		let ptr = heap.allocate(&mut mem, 8);
+		let ptr = heap.allocate(&mut mem, 32);
 
 		// then
 		assert_eq!(Error::AllocatorOutOfSpace, ptr.unwrap_err());
@@ -939,7 +934,7 @@ mod tests {
 		heap.allocate(&mut mem, 9).unwrap();
 
 		// then
-		assert_eq!(heap.stats.bytes_allocated, HEADER_SIZE + 16);
+		assert_eq!(heap.stats.bytes_allocated, ALIGNMENT + 16);
 	}
 
 	#[test]
@@ -950,7 +945,7 @@ mod tests {
 
 		// when
 		let ptr = heap.allocate(&mut mem, 42).unwrap();
-		assert_eq!(ptr, to_pointer(16 + HEADER_SIZE));
+		assert_eq!(ptr, to_pointer(16 + ALIGNMENT));
 		heap.deallocate(&mut mem, ptr).unwrap();
 
 		// then
@@ -995,13 +990,13 @@ mod tests {
 		let item_size = Order::from_raw(raw_order).unwrap().size();
 
 		// then
-		assert_eq!(item_size, 8);
+		assert_eq!(item_size, 16);
 	}
 
 	#[test]
 	fn should_get_max_item_size_from_index() {
 		// given
-		let raw_order = 22;
+		let raw_order = 21;
 
 		// when
 		let item_size = Order::from_raw(raw_order).unwrap().size();
@@ -1117,7 +1112,7 @@ mod tests {
 		heap.deallocate(&mut mem, ptr).unwrap();
 
 		Header::Free(Link::Ptr(u32::MAX - 1))
-			.write_into(&mut mem, u32::from(ptr) - HEADER_SIZE)
+			.write_into(&mut mem, u32::from(ptr) - ALIGNMENT)
 			.unwrap();
 
 		heap.allocate(&mut mem, 5).unwrap();
