@@ -1,0 +1,11 @@
+title: '`fatxpool`: `ChainApi` is now async'
+doc:
+- audience: Node Dev
+  description: '[`ChainApi`](https://github.com/paritytech/polkadot-sdk/blob/488072d245763fb059743bf32eea2f48d84054b3/substrate/client/transaction-pool/src/graph/pool.rs#L65-L66)
+    is now `async_trait`, [`validate_transaction`](https://github.com/paritytech/polkadot-sdk/blob/488072d245763fb059743bf32eea2f48d84054b3/substrate/client/transaction-pool/src/graph/pool.rs#L78)
+    and [`block_body`](https://github.com/paritytech/polkadot-sdk/blob/488072d245763fb059743bf32eea2f48d84054b3/substrate/client/transaction-pool/src/graph/pool.rs#L112)
+    are now `async` methods. This is just cleanup - migrating from returning `Future`
+    to `async` method'
+crates:
+- name: sc-transaction-pool
+  bump: minor
