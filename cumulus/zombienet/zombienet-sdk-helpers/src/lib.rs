@@ -310,21 +310,21 @@ pub async fn assert_finality_lag(
 pub async fn assert_blocks_are_being_finalized(
 	client: &OnlineClient<PolkadotConfig>,
 ) -> Result<(), anyhow::Error> {
-	let sleep_time = 12;
+	let sleep_duration = Duration::from_secs(12);
 	let mut finalized_blocks = client.blocks().subscribe_finalized().await?;
 	let first_measurement = finalized_blocks
 		.next()
 		.await
 		.ok_or(anyhow::anyhow!("Can't get finalized block from stream"))??
 		.number();
-	sleep(Duration::from_secs(sleep_time)).await;
+	sleep(sleep_duration).await;
 	let second_measurement = finalized_blocks
 		.next()
 		.await
 		.ok_or(anyhow::anyhow!("Can't get finalized block from stream"))??
 		.number();
 
-	log::info!("Finalized {} blocks within {sleep_time}s", second_measurement - first_measurement);
+	log::info!("Finalized {} blocks within {sleep_duration:?}", second_measurement - first_measurement);
 	assert!(second_measurement > first_measurement);
 
 	Ok(())
