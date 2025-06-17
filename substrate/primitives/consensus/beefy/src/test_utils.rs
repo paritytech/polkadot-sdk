@@ -20,8 +20,8 @@ use crate::bls_crypto;
 #[cfg(feature = "bls-experimental")]
 use crate::ecdsa_bls_crypto;
 use crate::{
-	ecdsa_crypto, AuthorityIdBound, BeefySignatureHasher, Commitment, DoubleVotingProof,
-	ForkVotingProof, FutureBlockVotingProof, Payload, ValidatorSetId, VoteMessage,
+	ecdsa_crypto, AuthorityIdBound, Commitment, DoubleVotingProof, ForkVotingProof,
+	FutureBlockVotingProof, Payload, ValidatorSetId, VoteMessage,
 };
 use sp_application_crypto::{AppCrypto, AppPair, RuntimeAppPublic, Wraps};
 use sp_core::{ecdsa, Pair};
@@ -91,7 +91,7 @@ where
 impl<AuthorityId> Keyring<AuthorityId>
 where
 	AuthorityId: AuthorityIdBound + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Public>,
-	<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<BeefySignatureHasher>,
+	<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<AuthorityId::SignatureHasher>,
 	<AuthorityId as RuntimeAppPublic>::Signature:
 		Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
 {

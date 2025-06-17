@@ -70,7 +70,7 @@ pub mod pallet {
 		/// Authority identifier type
 		type BeefyId: Member
 			+ Parameter
-			+ BeefyAuthorityId<<Self as Config>::Hashing>
+			+ BeefyAuthorityId<<Self as Config>::SignatureHasher>
 			+ MaybeSerializeDeserialize
 			+ MaxEncodedLen;
 
@@ -103,7 +103,7 @@ pub mod pallet {
 			+ AncestryHelperWeightInfo<HeaderFor<Self>>;
 
 		/// A hasher for signature type
-		type Hashing: Hash;
+		type SignatureHasher: Hash;
 
 		/// Weights for this pallet.
 		type WeightInfo: WeightInfo;

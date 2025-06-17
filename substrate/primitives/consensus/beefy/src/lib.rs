@@ -71,17 +71,16 @@ pub trait BeefyAuthorityId<MsgHash: Hash>: RuntimeAppPublic {
 	fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool;
 }
 
-/// Hasher used for BEEFY signatures.
-pub type BeefySignatureHasher = sp_runtime::traits::Keccak256;
-
 /// A trait bound which lists all traits which are required to be implemented by
 /// a BEEFY AuthorityId type in order to be able to be used in BEEFY Keystore
 pub trait AuthorityIdBound:
 	Ord
 	+ AppPublic
 	+ Display
-	+ BeefyAuthorityId<BeefySignatureHasher, Signature = Self::BoundedSignature>
+	+ BeefyAuthorityId<Self::SignatureHasher, Signature = Self::BoundedSignature>
 {
+	/// Necessary bounds for hasher of the signature
+	type SignatureHasher: Hash;
 	/// Necessary bounds on the Signature associated with the AuthorityId
 	type BoundedSignature: Debug + Eq + PartialEq + Clone + TypeInfo + Codec + Send + Sync;
 }
@@ -125,6 +124,7 @@ pub mod ecdsa_crypto {
 		}
 	}
 	impl AuthorityIdBound for AuthorityId {
+		type SignatureHasher = sp_runtime::traits::Keccak256;
 		type BoundedSignature = Signature;
 	}
 }
@@ -168,6 +168,7 @@ pub mod bls_crypto {
 		}
 	}
 	impl AuthorityIdBound for AuthorityId {
+		type SignatureHasher = sp_runtime::traits::Keccak256;
 		type BoundedSignature = Signature;
 	}
 }
@@ -218,6 +219,7 @@ pub mod ecdsa_bls_crypto {
 	}
 
 	impl AuthorityIdBound for AuthorityId {
+		type SignatureHasher = sp_runtime::traits::Keccak256;
 		type BoundedSignature = Signature;
 	}
 }
