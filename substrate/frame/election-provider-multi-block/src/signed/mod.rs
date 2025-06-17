@@ -929,7 +929,7 @@ pub mod pallet {
 		///
 		/// This allows an offchain application to know what [`Config::DepositPerPage`] and
 		/// [`Config::DepositBase`] are doing under the hood. It also takes into account if `who` is
-		/// [`Invulnerable`] or not.
+		/// [`Invulnerables`] or not.
 		pub fn deposit_for(who: T::AccountId, pages: u32) -> BalanceOf<T> {
 			Submissions::<T>::deposit_for(&who, pages as usize)
 		}
