@@ -19,6 +19,7 @@
 //! Chain api required for the transaction pool.
 
 use crate::LOG_TARGET;
+use async_trait::async_trait;
 use codec::Encode;
 use futures::{
 	channel::{mpsc, oneshot},
@@ -26,8 +27,6 @@ use futures::{
 	lock::Mutex,
 	SinkExt, StreamExt,
 };
-use std::{marker::PhantomData, pin::Pin, sync::Arc};
-use async_trait::async_trait;
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_client_api::{blockchain::HeaderBackend, BlockBackend};
 use sp_api::{ApiExt, ProvideRuntimeApi};
@@ -39,6 +38,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 };
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
+use std::{marker::PhantomData, pin::Pin, sync::Arc};
 
 use super::{
 	error::{self, Error},
