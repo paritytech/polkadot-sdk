@@ -2238,7 +2238,8 @@ mod offchain_worker_miner {
 		#[test]
 		fn initial_ocw_runs_and_does_not_save() {
 			// as per `T::OffchainStorage`.
-			let (mut ext, pool) = ExtBuilder::unsigned().offchain_storage(false).build_offchainify();
+			let (mut ext, pool) =
+				ExtBuilder::unsigned().offchain_storage(false).build_offchainify();
 			ext.execute_with_sanity_checks(|| {
 				roll_to_unsigned_open();
 

@@ -52,8 +52,6 @@
 //!    for more or less free by the submitter itself, and by anyone else as well, in which case they
 //!    get a share of the the sum deposit. The share increases as times goes on.
 //! **Metadata update**: imagine you mis-computed your score.
-//! **whitelisted accounts**: who will not pay deposits are needed. They can still be ejected, but
-//! for free.
 //! **Permissionless `clear_old_round_data`**: Anyone can clean anyone else's data, and get a part
 //! of their deposit.
 
