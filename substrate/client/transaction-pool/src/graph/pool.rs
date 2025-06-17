@@ -18,7 +18,7 @@
 
 use crate::{common::tracing_log_xt::log_xt_trace, LOG_TARGET};
 use async_trait::async_trait;
-use futures::{channel::mpsc::Receiver};
+use futures::channel::mpsc::Receiver;
 use indexmap::IndexMap;
 use sc_transaction_pool_api::error;
 use sp_blockchain::{HashAndNumber, TreeRoute};
@@ -104,7 +104,10 @@ pub trait ChainApi: Send + Sync {
 	fn hash_and_length(&self, uxt: &RawExtrinsicFor<Self>) -> (ExtrinsicHash<Self>, usize);
 
 	/// Returns a block body given the block.
-	async fn block_body(&self, at: <Self::Block as BlockT>::Hash) -> Result<Option<Vec<<Self::Block as traits::Block>::Extrinsic>>, Self::Error>;
+	async fn block_body(
+		&self,
+		at: <Self::Block as BlockT>::Hash,
+	) -> Result<Option<Vec<<Self::Block as traits::Block>::Extrinsic>>, Self::Error>;
 
 	/// Returns a block header given the block id.
 	fn block_header(

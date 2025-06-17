@@ -482,13 +482,11 @@ impl ChainApi for TestApi {
 		Self::hash_and_length_inner(ex)
 	}
 
-	async fn block_body(&self, hash: <Self::Block as BlockT>::Hash) -> Result<Option<Vec<Extrinsic>>, Error> {
-		Ok(self
-			.chain
-			.read()
-			.block_by_hash
-			.get(&hash)
-			.map(|b| b.extrinsics().to_vec()))
+	async fn block_body(
+		&self,
+		hash: <Self::Block as BlockT>::Hash,
+	) -> Result<Option<Vec<Extrinsic>>, Error> {
+		Ok(self.chain.read().block_by_hash.get(&hash).map(|b| b.extrinsics().to_vec()))
 	}
 
 	fn block_header(

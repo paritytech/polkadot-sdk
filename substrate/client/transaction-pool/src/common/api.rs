@@ -121,7 +121,10 @@ where
 	type Block = Block;
 	type Error = error::Error;
 
-	async fn block_body(&self, hash: Block::Hash) -> error::Result<Option<Vec<<Self::Block as BlockT>::Extrinsic>>> {
+	async fn block_body(
+		&self,
+		hash: Block::Hash,
+	) -> error::Result<Option<Vec<<Self::Block as BlockT>::Extrinsic>>> {
 		self.client.block_body(hash).map_err(error::Error::from)
 	}
 
