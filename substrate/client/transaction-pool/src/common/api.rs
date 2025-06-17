@@ -208,19 +208,24 @@ where
 		source: TransactionSource,
 		uxt: graph::ExtrinsicFor<Self>,
 		validation_priority: ValidateTransactionPriority,
-		) -> Self::ValidationFuture {
+	) -> Self::ValidationFuture {
 		let start = Instant::now();
 		let (tx, rx) = oneshot::channel();
 		let client = self.client.clone();
-		let (stats, validation_pool, prefix) = if validation_priority == ValidateTransactionPriority::Maintained {
-			(self.validate_transaction_maintained_stats.clone(),
-			self.validation_pool_maintained.clone(),
-			"validate_transaction_maintained_stats",
-			)
-		} else {
-			(self.validate_transaction_normal_stats.clone(), self.validation_pool_normal.clone(), "validate_transaction_stats")
-
-		};
+		let (stats, validation_pool, prefix) =
+			if validation_priority == ValidateTransactionPriority::Maintained {
+				(
+					self.validate_transaction_maintained_stats.clone(),
+					self.validation_pool_maintained.clone(),
+					"validate_transaction_maintained_stats",
+				)
+			} else {
+				(
+					self.validate_transaction_normal_stats.clone(),
+					self.validation_pool_normal.clone(),
+					"validate_transaction_stats",
+				)
+			};
 		let metrics = self.metrics.clone();
 
 		async move {
@@ -235,7 +240,7 @@ where
 							metrics.report(|m| m.validations_finished.inc());
 						}
 						.boxed(),
-						)
+					)
 					.await
 					.map_err(|e| Error::RuntimeApi(format!("Validation pool down: {:?}", e)))?;
 			}
@@ -246,12 +251,12 @@ where
 			};
 
 			insert_and_log_throttled!(
-				Level::DEBUG,
-				target:LOG_TARGET_STAT,
-				prefix:prefix,
-				stats,
-				start.elapsed().into()
-				);
+			Level::DEBUG,
+			target:LOG_TARGET_STAT,
+			prefix:prefix,
+			stats,
+			start.elapsed().into()
+			);
 
 			validity
 		}
