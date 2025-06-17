@@ -21,7 +21,6 @@
 
 use async_trait::async_trait;
 use codec::Encode;
-use futures::future::ready;
 use parking_lot::RwLock;
 use sc_transaction_pool::ChainApi;
 use sp_blockchain::{CachedHeaderMetadata, HashAndNumber, TreeRoute};
