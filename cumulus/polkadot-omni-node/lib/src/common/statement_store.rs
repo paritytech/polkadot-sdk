@@ -136,7 +136,7 @@ pub(crate) fn sparse_check_for_validate_statement_api_and_warn<
 					Ok(true) => log::warn!("{}", warning),
 					Ok(false) => (),
 					Err(e) => log::warn!(
-						"Failed to check if the runtime supports when `ValidateStatement` API, \
+						"Failed to check if the runtime supports `ValidateStatement` API, \
 						error: {}",
 						e
 					),
