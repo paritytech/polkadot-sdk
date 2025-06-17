@@ -414,4 +414,13 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 	fn remove_authorized_alias() -> Weight {
 		Weight::from_parts(100_000, 0)
 	}
+
+	fn weigh_message() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 7_785_000 picoseconds.
+		Weight::from_parts(8_077_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+	}
 }
