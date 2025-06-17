@@ -44,6 +44,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	database::Database,
 	runtime::{Config as RuntimeInfoConfig, RuntimeInfo},
+	ControlledValidatorIndices,
 };
 use polkadot_primitives::{
 	vstaging::ScrapedOnChainVotes, DisputeStatement, SessionIndex, SessionInfo, ValidatorIndex,
@@ -60,7 +61,6 @@ use fatality::Split;
 
 use self::{
 	import::{CandidateEnvironment, CandidateVoteState},
-	initialized::ControlledValidatorIndices,
 	participation::{ParticipationPriority, ParticipationRequest},
 	spam_slots::{SpamSlots, UnconfirmedDisputes},
 };
@@ -362,7 +362,7 @@ impl DisputeCoordinatorSubsystem {
 		let mut participation_requests = Vec::new();
 		let mut spam_disputes: UnconfirmedDisputes = UnconfirmedDisputes::new();
 		let mut controlled_indices =
-			crate::initialized::ControlledValidatorIndices::new(self.keystore.clone());
+			ControlledValidatorIndices::new(self.keystore.clone(), DISPUTE_WINDOW.get());
 		let leaf_hash = initial_head.hash;
 		let (scraper, votes) = ChainScraper::new(ctx.sender(), initial_head).await?;
 		for ((session, ref candidate_hash), _) in active_disputes {

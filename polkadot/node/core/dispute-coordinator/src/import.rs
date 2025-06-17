@@ -32,14 +32,14 @@ use polkadot_node_primitives::{
 	disputes::ValidCandidateVotes, CandidateVotes, DisputeStatus, SignedDisputeStatement, Timestamp,
 };
 use polkadot_node_subsystem::overseer;
-use polkadot_node_subsystem_util::runtime::RuntimeInfo;
+use polkadot_node_subsystem_util::{runtime::RuntimeInfo, ControlledValidatorIndices};
 use polkadot_primitives::{
 	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, DisputeStatement,
 	ExecutorParams, Hash, IndexedVec, SessionIndex, SessionInfo, ValidDisputeStatementKind,
 	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
-use crate::{initialized::ControlledValidatorIndices, LOG_TARGET};
+use crate::LOG_TARGET;
 
 /// (Session) environment of a candidate.
 pub struct CandidateEnvironment<'a> {

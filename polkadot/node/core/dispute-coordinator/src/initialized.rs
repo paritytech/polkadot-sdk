@@ -17,7 +17,7 @@
 //! Dispute coordinator subsystem in initialized state (after first active leaf is received).
 
 use std::{
-	collections::{BTreeMap, HashSet, VecDeque},
+	collections::{BTreeMap, VecDeque},
 	sync::Arc,
 };
 
@@ -40,19 +40,17 @@ use polkadot_node_subsystem::{
 	},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, RuntimeApiError,
 };
-use polkadot_node_subsystem_util::runtime::{
-	self, key_ownership_proof, submit_report_dispute_lost, RuntimeInfo,
+use polkadot_node_subsystem_util::{
+	runtime::{self, key_ownership_proof, submit_report_dispute_lost, RuntimeInfo},
+	ControlledValidatorIndices,
 };
 use polkadot_primitives::{
 	slashing,
 	vstaging::{CandidateReceiptV2 as CandidateReceipt, ScrapedOnChainVotes},
 	BlockNumber, CandidateHash, CompactStatement, DisputeStatement, DisputeStatementSet, Hash,
-	IndexedVec, SessionIndex, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
-	ValidatorPair,
+	SessionIndex, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
 };
-use schnellru::{ByLength, LruMap, UnlimitedCompact};
-use sp_application_crypto::{AppCrypto, ByteArray};
-use sp_keystore::Keystore;
+use schnellru::{LruMap, UnlimitedCompact};
 
 use crate::{
 	db::{self, v1::RecentDisputes},
@@ -1785,58 +1783,5 @@ impl OffchainDisabledValidators {
 				.chain(e.against_valid.iter())
 				.map(|(i, _)| *i)
 		})
-	}
-}
-
-/// Keeps track of the validator indices controlled by the local validator in a given session. For
-/// better performance, the values for each session are cached.
-pub struct ControlledValidatorIndices {
-	/// The indices of the controlled validators, cached by session.
-	controlled_validator_indices: LruMap<SessionIndex, HashSet<ValidatorIndex>>,
-	keystore: Arc<LocalKeystore>,
-}
-
-impl ControlledValidatorIndices {
-	/// Create a new instance of `ControlledValidatorIndices`.
-	pub fn new(keystore: Arc<LocalKeystore>) -> Self {
-		let controlled_validator_indices = LruMap::new(ByLength::new(DISPUTE_WINDOW.get()));
-		Self { controlled_validator_indices, keystore }
-	}
-
-	/// Get the controlled validator indices for a given session. If the indices are not known they
-	/// will be fetched from `session_validators` and cached.
-	pub fn get(
-		&mut self,
-		session: SessionIndex,
-		session_validators: &IndexedVec<ValidatorIndex, ValidatorId>,
-	) -> &HashSet<ValidatorIndex> {
-		if self.controlled_validator_indices.get(&session).is_none() {
-			let indices =
-				Self::find_controlled_validator_indices(&self.keystore, session_validators);
-			self.controlled_validator_indices.insert(session, indices.clone());
-		}
-
-		self.controlled_validator_indices
-			.get(&session)
-			.expect("We just inserted the controlled indices; qed")
-	}
-
-	/// Find indices controlled by this validator.
-	///
-	/// That is all `ValidatorIndex`es we have private keys for. Usually this will only be one.
-	fn find_controlled_validator_indices(
-		keystore: &LocalKeystore,
-		validators: &IndexedVec<ValidatorIndex, ValidatorId>,
-	) -> HashSet<ValidatorIndex> {
-		let mut controlled = HashSet::new();
-		for (index, validator) in validators.iter().enumerate() {
-			if !Keystore::has_keys(keystore, &[(validator.to_raw_vec(), ValidatorPair::ID)]) {
-				continue
-			}
-
-			controlled.insert(ValidatorIndex(index as _));
-		}
-
-		controlled
 	}
 }

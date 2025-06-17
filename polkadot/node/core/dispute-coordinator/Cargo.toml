@@ -26,7 +26,6 @@ polkadot-primitives = { workspace = true, default-features = true }
 
 sc-keystore = { workspace = true, default-features = true }
 sp-application-crypto = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
