@@ -836,11 +836,7 @@ mod benchmarks {
 		}
 		assert_ok!(result);
 
-		let block_author = runtime
-			.ext()
-			.block_author()
-			.map(|account| T::AddressMapper::to_address(&account))
-			.unwrap_or(H160::zero());
+		let block_author = runtime.ext().block_author().unwrap_or(H160::zero());
 		assert_eq!(&memory[..], block_author.as_bytes());
 	}
 
