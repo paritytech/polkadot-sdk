@@ -482,6 +482,11 @@ mod test {
 			}
 		}
 
+		fn data(mut self, data: Vec<u8>) -> Self {
+			self.tx.input = Bytes(data).into();
+			self
+		}
+
 		fn estimate_gas(&mut self) {
 			let dry_run = crate::Pallet::<Test>::dry_run_eth_transact(
 				self.tx.clone(),
@@ -705,5 +710,17 @@ mod test {
 		let diff = tx.gas_price.unwrap() - U256::from(GAS_PRICE);
 		let expected_tip = crate::Pallet::<Test>::evm_gas_to_fee(tx.gas.unwrap(), diff).unwrap();
 		assert_eq!(extra.1.tip(), expected_tip);
+	}
+
+	#[test]
+	fn check_runtime_pallets_addr_works() {
+		let remark: CallOf<Test> =
+			frame_system::Call::remark { remark: b"Hello, world!".to_vec() }.into();
+
+		let builder =
+			UncheckedExtrinsicBuilder::call_with(crate::RUNTIME_PALLETS_ADDR).data(remark.encode());
+		let (call, _, _) = builder.check().unwrap();
+
+		assert_eq!(call, remark);
 	}
 }
