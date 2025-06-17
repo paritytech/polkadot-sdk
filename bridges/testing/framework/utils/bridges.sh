@@ -258,13 +258,14 @@ function force_create_pool() {
     echo "      native_asset_id: ${native_asset_id}"
     echo "      foreign_asset_id: ${foreign_asset_id}"
     echo "      params:"
-    # 1. generate data for Transact
-    local tmp_output_file=$(mktemp)
-    generate_hex_encoded_call_data "force-create-pool" "${runtime_para_endpoint}" "${tmp_output_file}" "$native_asset_id" "$foreign_asset_id"
-    local hex_encoded_data=$(cat $tmp_output_file)
-    # 2. trigger governance call
-    send_governance_transact "${relay_url}" "${relay_chain_seed}" "${runtime_para_id}" "${hex_encoded_data}" 200000000 12000
-}
+    
+    call_polkadot_js_api \
+        --ws "${runtime_para_endpoint?}" \
+        --seed "${relay_chain_seed?}" \
+        tx.assetConversion.createPool \
+            "${native_asset_id}" \
+            "${foreign_asset_id}"
+    }
     
 function force_add_liquidity() {
     local relay_url=$1
@@ -287,14 +288,19 @@ function force_add_liquidity() {
     echo "      native_asset_amount: ${native_asset_amount}"
     echo "      foreign_asset_amount: ${foreign_asset_amount}"
     echo "      params:"
-    # 1. generate data for Transact
-    local tmp_output_file=$(mktemp)
-    generate_hex_encoded_call_data "force-add-liquidity" "${runtime_para_endpoint}" "${tmp_output_file}" "$pool_owner_account_id" "$native_asset_id" "$foreign_asset_id" "$native_asset_amount" "$foreign_asset_amount"
-    local hex_encoded_data=$(cat $tmp_output_file)
-    # 2. trigger governance call
-    send_governance_transact "${relay_url}" "${relay_chain_seed}" "${runtime_para_id}" "${hex_encoded_data}" 200000000 12000
+    
+    call_polkadot_js_api \
+        --ws "${runtime_para_endpoint?}" \
+        --seed "${relay_chain_seed?}" \
+        tx.assetConversion.addLiquidity \
+            "${native_asset_id}" \
+            "${foreign_asset_id}" \
+            "${native_asset_amount}" \
+            "${foreign_asset_amount}" \
+            "1" \
+            "1" \
+            "${pool_owner_account_id}" 
 }
-
 function limited_reserve_transfer_assets() {
     local url=$1
     local seed=$2

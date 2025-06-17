@@ -335,8 +335,8 @@ case "$1" in
             "//Alice" \
             1000 \
             "ws://127.0.0.1:9010" \
-            "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \   
-            "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }] } }')"
+          "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }] } }')"
       # Create liquidity in the pool
         force_add_liquidity \
             "ws://127.0.0.1:9945" \
