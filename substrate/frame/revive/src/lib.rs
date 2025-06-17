@@ -1267,9 +1267,7 @@ where
 
 					let result = EthTransactInfo {
 						gas_required: dispatch_info.total_weight(),
-						storage_deposit: Default::default(),
-						data: Default::default(),
-						eth_gas: Default::default(),
+						..Default::default()
 					};
 
 					(result, dispatch_info)
