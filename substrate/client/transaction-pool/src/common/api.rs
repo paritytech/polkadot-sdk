@@ -27,7 +27,7 @@ use futures::{
 	SinkExt, StreamExt,
 };
 use std::{marker::PhantomData, pin::Pin, sync::Arc};
-
+use async_trait::async_trait;
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_client_api::{blockchain::HeaderBackend, BlockBackend};
 use sp_api::{ApiExt, ProvideRuntimeApi};
@@ -106,6 +106,7 @@ impl<Client, Block> FullChainApi<Client, Block> {
 	}
 }
 
+#[async_trait]
 impl<Client, Block> graph::ChainApi for FullChainApi<Client, Block>
 where
 	Block: BlockT,
@@ -119,48 +120,43 @@ where
 {
 	type Block = Block;
 	type Error = error::Error;
-	type ValidationFuture =
-		Pin<Box<dyn Future<Output = error::Result<TransactionValidity>> + Send>>;
 	type BodyFuture = Ready<error::Result<Option<Vec<<Self::Block as BlockT>::Extrinsic>>>>;
 
 	fn block_body(&self, hash: Block::Hash) -> Self::BodyFuture {
 		ready(self.client.block_body(hash).map_err(error::Error::from))
 	}
 
-	fn validate_transaction(
+	async fn validate_transaction(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		uxt: graph::ExtrinsicFor<Self>,
-	) -> Self::ValidationFuture {
+	) -> Result<TransactionValidity, Self::Error> {
 		let (tx, rx) = oneshot::channel();
 		let client = self.client.clone();
 		let mut validation_pool = self.validation_pool.clone();
 		let metrics = self.metrics.clone();
 
-		async move {
-			metrics.report(|m| m.validations_scheduled.inc());
+		metrics.report(|m| m.validations_scheduled.inc());
 
-			{
-				validation_pool
-					.send(
-						async move {
-							let res = validate_transaction_blocking(&*client, at, source, uxt);
-							let _ = tx.send(res);
-							metrics.report(|m| m.validations_finished.inc());
-						}
-						.boxed(),
-					)
-					.await
-					.map_err(|e| Error::RuntimeApi(format!("Validation pool down: {:?}", e)))?;
-			}
-
-			match rx.await {
-				Ok(r) => r,
-				Err(_) => Err(Error::RuntimeApi("Validation was canceled".into())),
-			}
+		{
+			validation_pool
+				.send(
+					async move {
+						let res = validate_transaction_blocking(&*client, at, source, uxt);
+						let _ = tx.send(res);
+						metrics.report(|m| m.validations_finished.inc());
+					}
+					.boxed(),
+				)
+				.await
+				.map_err(|e| Error::RuntimeApi(format!("Validation pool down: {:?}", e)))?;
 		}
-		.boxed()
+
+		match rx.await {
+			Ok(r) => r,
+			Err(_) => Err(Error::RuntimeApi("Validation was canceled".into())),
+		}
 	}
 
 	/// Validates a transaction by calling into the runtime.

@@ -19,6 +19,7 @@
 //!
 //! See [`TestApi`] for more information.
 
+use async_trait::async_trait;
 use codec::Encode;
 use futures::future::ready;
 use parking_lot::RwLock;
@@ -343,19 +344,19 @@ impl TagFrom for AccountId {
 	}
 }
 
+#[async_trait]
 impl ChainApi for TestApi {
 	type Block = Block;
 	type Error = Error;
-	type ValidationFuture = futures::future::Ready<Result<TransactionValidity, Error>>;
 	type BodyFuture = futures::future::Ready<Result<Option<Vec<Extrinsic>>, Error>>;
 
-	fn validate_transaction(
+	async fn validate_transaction(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		uxt: Arc<<Self::Block as BlockT>::Extrinsic>,
-	) -> Self::ValidationFuture {
-		ready(self.validate_transaction_blocking(at, source, uxt))
+	) -> Result<TransactionValidity, Error> {
+		self.validate_transaction_blocking(at, source, uxt)
 	}
 
 	fn validate_transaction_blocking(

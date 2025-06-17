@@ -16,9 +16,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use criterion::{criterion_group, criterion_main, Criterion};
-
+use async_trait::async_trait;
 use codec::Encode;
+use criterion::{criterion_group, criterion_main, Criterion};
 use futures::{
 	executor::block_on,
 	future::{ready, Ready},
@@ -55,18 +55,18 @@ fn to_tag(nonce: u64, from: AccountId) -> Tag {
 	data.to_vec()
 }
 
+#[async_trait]
 impl ChainApi for TestApi {
 	type Block = Block;
 	type Error = sc_transaction_pool_api::error::Error;
-	type ValidationFuture = Ready<sc_transaction_pool_api::error::Result<TransactionValidity>>;
 	type BodyFuture = Ready<sc_transaction_pool_api::error::Result<Option<Vec<Extrinsic>>>>;
 
-	fn validate_transaction(
+	async fn validate_transaction(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		_source: TransactionSource,
 		uxt: Arc<<Self::Block as BlockT>::Extrinsic>,
-	) -> Self::ValidationFuture {
+	) -> Result<TransactionValidity, Self::Error> {
 		let uxt = (*uxt).clone();
 		let transfer = TransferData::try_from(&uxt)
 			.expect("uxt is expected to be bench_call (carrying TransferData)");
@@ -74,11 +74,11 @@ impl ChainApi for TestApi {
 		let from = transfer.from;
 
 		match self.block_id_to_number(&BlockId::Hash(at)) {
-			Ok(Some(num)) if num > 5 => return ready(Ok(Err(InvalidTransaction::Stale.into()))),
+			Ok(Some(num)) if num > 5 => return Ok(Err(InvalidTransaction::Stale.into())),
 			_ => {},
 		}
 
-		ready(Ok(Ok(ValidTransaction {
+		Ok(Ok(ValidTransaction {
 			priority: 4,
 			requires: if nonce > 1 && self.nonce_dependant {
 				vec![to_tag(nonce - 1, from)]
@@ -88,7 +88,7 @@ impl ChainApi for TestApi {
 			provides: vec![to_tag(nonce, from)],
 			longevity: 10,
 			propagate: true,
-		})))
+		}))
 	}
 
 	fn validate_transaction_blocking(
