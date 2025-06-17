@@ -101,9 +101,8 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 			break;
 		}
 
-		let elapsed = query_start_time
-			.elapsed()
-			.map_err(|_| anyhow!("Failed to get elapsed time"))?;
+		let elapsed =
+			query_start_time.elapsed().map_err(|_| anyhow!("Failed to get elapsed time"))?;
 		if elapsed.as_secs() > stop_after_secs {
 			return Err(anyhow!("Dave did not receive the statement in time"));
 		}
