@@ -59,9 +59,8 @@ where
 	pool: Arc<Pool>,
 	/// Executor to spawn subscriptions.
 	executor: SubscriptionTaskExecutor,
-	/// Channel to monitor transactions.
-	tx_monitor:
-		Option<tokio::sync::mpsc::Sender<TransactionMonitorEvent<<Pool::Block as BlockT>::Hash>>>,
+	/// Channel to announce transactions.
+	tx_announce: tokio::sync::mpsc::Sender<TransactionMonitorEvent<<Pool::Block as BlockT>::Hash>>,
 	/// Metrics for transactions.
 	metrics: Option<Metrics>,
 }
@@ -80,17 +79,17 @@ where
 		executor: SubscriptionTaskExecutor,
 		metrics: Option<Metrics>,
 	) -> (Self, TransactionMonitorHandle<<Pool::Block as BlockT>::Hash>) {
-		let (tx_monitor, rx_monitor) = tokio::sync::mpsc::channel(1024);
+		let (tx_announce, rx_announce) = tokio::sync::mpsc::channel(1024);
 
 		(
 			Transaction {
 				client: client.clone(),
 				pool: pool.clone(),
 				executor,
-				tx_monitor: Some(tx_monitor),
+				tx_announce,
 				metrics,
 			},
-			TransactionMonitorHandle(rx_monitor),
+			TransactionMonitorHandle(rx_announce),
 		)
 	}
 }
@@ -116,6 +115,7 @@ where
 
 		// Get a new transaction metrics instance and increment the counter.
 		let mut metrics = InstanceMetrics::new(self.metrics.clone());
+		let tx_announce = self.tx_announce.clone();
 
 		let fut = async move {
 			let decoded_extrinsic = match TransactionFor::<Pool>::decode(&mut &xt[..]) {
@@ -151,6 +151,7 @@ where
 				return;
 			};
 
+			let submitted_at = metrics.submitted_at();
 			match submit.await {
 				Ok(stream) => {
 					let stream = stream
@@ -161,7 +162,24 @@ where
 								metrics.register_event(event);
 							});
 
-							async move { event }
+							let tx_announce = tx_announce.clone();
+							async move {
+								if let Some(TransactionEvent::BestChainBlockIncluded(Some(
+									TransactionBlock { hash, .. },
+								))) = &event
+								{
+									// Notify the monitor about the transaction being included in a
+									// block.
+									let _ = tx_announce
+										.send(TransactionMonitorEvent::InBlock {
+											block_hash: hash.clone(),
+											submitted_at,
+										})
+										.await;
+								}
+
+								event
+							}
 						})
 						.boxed();
 
@@ -224,33 +242,14 @@ pub struct TransactionMonitorHandle<Hash: Clone>(
 /// An event emitted by the transaction monitor.
 ///
 /// This is used to notify about the state of transactions.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub enum TransactionMonitorEvent<Hash: Clone> {
-	/// A new transaction has been submitted.
-	Submitted {
-		/// The transaction ID.
-		id: u64,
-	},
-
 	/// The transaction has been included in a block.
 	InBlock {
-		/// The transaction ID.
-		id: u64,
 		/// The block hash where the transaction was included.
 		block_hash: Hash,
-	},
 
-	/// The transaction has been finalized.
-	Finalized {
-		/// The transaction ID.
-		id: u64,
-		/// The block hash where the transaction was finalized.
-		block_hash: Hash,
-	},
-
-	/// The transaction has been dropped from the pool.
-	Stopped {
-		/// The transaction ID.
-		id: u64,
+		/// The time when the transaction was submitted.
+		submitted_at: std::time::Instant,
 	},
 }
