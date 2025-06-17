@@ -746,12 +746,14 @@ impl<T: Config> OffchainWorkerMiner<T> {
 		Ok(call)
 	}
 
-	/// Mine a new checked solution, cache it, and submit it back to the chain as an unsigned
+	/// Mine a new checked solution, maybe cache it, and submit it back to the chain as an unsigned
 	/// transaction.
-	pub fn mine_check_save_submit() -> Result<(), OffchainMinerError<T>> {
+	pub(crate) fn mine_check_maybe_save_submit(save: bool) -> Result<(), OffchainMinerError<T>> {
 		sublog!(debug, "unsigned::ocw-miner", "miner attempting to compute an unsigned solution.");
 		let call = Self::mine_checked_call()?;
-		Self::save_solution(&call, crate::Snapshot::<T>::fingerprint())?;
+		if save {
+			Self::save_solution(&call, crate::Snapshot::<T>::fingerprint())?;
+		}
 		Self::submit_call(call)
 	}
 
@@ -762,7 +764,7 @@ impl<T: Config> OffchainWorkerMiner<T> {
 	/// 	1. optionally feasibility check.
 	/// 	2. snapshot-independent checks.
 	/// 		1. optionally, snapshot fingerprint.
-	pub fn check_solution(
+	pub(crate) fn check_solution(
 		paged_solution: &PagedRawSolution<T::MinerConfig>,
 		maybe_snapshot_fingerprint: Option<T::Hash>,
 		do_feasibility: bool,
@@ -824,7 +826,7 @@ impl<T: Config> OffchainWorkerMiner<T> {
 
 	/// Attempt to restore a solution from cache. Otherwise, compute it fresh. Either way,
 	/// submit if our call's score is greater than that of the cached solution.
-	pub fn restore_or_compute_then_maybe_submit() -> Result<(), OffchainMinerError<T>> {
+	pub(crate) fn restore_or_compute_then_maybe_submit() -> Result<(), OffchainMinerError<T>> {
 		sublog!(
 			debug,
 			"unsigned::ocw-miner",
@@ -2231,9 +2233,32 @@ mod offchain_worker_miner {
 		});
 	}
 
-	#[test]
-	#[ignore]
-	fn multi_page_miner_on_remote_state() {
-		todo!();
+	mod no_storage {
+		use super::*;
+		#[test]
+		fn initial_ocw_runs_and_does_not_save() {
+			// as per `T::OffchainStorage`.
+			let (mut ext, pool) = ExtBuilder::unsigned().offchain_storage(false).build_offchainify();
+			ext.execute_with_sanity_checks(|| {
+				roll_to_unsigned_open();
+
+				let last_block = StorageValueRef::persistent(
+					&OffchainWorkerMiner::<Runtime>::OFFCHAIN_LAST_BLOCK,
+				);
+				let cache = StorageValueRef::persistent(
+					&OffchainWorkerMiner::<Runtime>::OFFCHAIN_CACHED_CALL,
+				);
+
+				assert_eq!(last_block.get::<BlockNumber>(), Ok(None));
+				assert_eq!(cache.get::<crate::unsigned::Call<Runtime>>(), Ok(None));
+
+				// creates, submits without expecting previous cache value
+				UnsignedPallet::offchain_worker(25);
+
+				assert_eq!(pool.read().transactions.len(), 1);
+				assert_eq!(last_block.get::<BlockNumber>(), Ok(Some(25)));
+				assert_eq!(cache.get::<crate::unsigned::Call<Runtime>>(), Ok(None));
+			})
+		}
 	}
 }

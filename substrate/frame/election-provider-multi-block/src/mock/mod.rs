@@ -151,6 +151,7 @@ parameter_types! {
 	pub static MinerTxPriority: u64 = 100;
 	pub static SolutionImprovementThreshold: Perbill = Perbill::zero();
 	pub static OffchainRepeat: BlockNumber = 5;
+	pub static OffchainStorage: bool = true;
 	pub static MinerMaxLength: u32 = 256;
 	pub static MinerPages: u32 = 1;
 	pub static MaxVotesPerVoter: u32 = <TestNposSolution as NposSolution>::LIMIT as u32;
@@ -193,6 +194,7 @@ impl crate::verifier::Config for Runtime {
 impl crate::unsigned::Config for Runtime {
 	type MinerPages = MinerPages;
 	type OffchainRepeat = OffchainRepeat;
+	type OffchainStorage = OffchainStorage;
 	type MinerTxPriority = MinerTxPriority;
 	type OffchainSolver = SequentialPhragmen<Self::AccountId, Perbill>;
 	type WeightInfo = ();
@@ -352,6 +354,10 @@ impl ExtBuilder {
 	}
 	pub(crate) fn max_backers_per_winner_final(self, c: u32) -> Self {
 		MaxBackersPerWinnerFinal::set(c);
+		self
+	}
+	pub(crate) fn offchain_storage(self, s: bool) -> Self {
+		OffchainStorage::set(s);
 		self
 	}
 	pub(crate) fn miner_tx_priority(self, p: u64) -> Self {
