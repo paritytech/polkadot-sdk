@@ -1585,7 +1585,7 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-/// The addresses used to target the runtime's pallets.
+/// The address used to call the runtime's pallets dispatchables
 ///
 /// Note:
 /// computed with PalletId(*b"py/paddr").into_account_truncating();
@@ -1707,7 +1707,7 @@ sp_api::decl_runtime_apis! {
 		/// The address of the validator that produced the current block.
 		fn block_author() -> Option<H160>;
 
-		/// The addresses used to target the runtime's pallets.
+		/// The address used to call the runtime's pallets dispatchables
 		fn runtime_pallets_address() -> H160;
 	}
 }
