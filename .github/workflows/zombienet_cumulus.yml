@@ -74,22 +74,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: script
-        run: |
-          echo "RELAY_IMAGE: $RELAY_IMAGE"
-          echo "COL_IMAGE: $COL_IMAGE"
-          export DEBUG=${{ needs.preflight.outputs.DEBUG }}
-          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
-            --local-dir="$(pwd)/$LOCAL_DIR" \
-            --concurrency=1 \
-            --test="0002-pov_recovery.zndsl"
-
-      - name: upload logs
-        uses: actions/upload-artifact@v4
+      #
+      - name: zombienet_test
+        uses: ./.github/actions/zombienet
         with:
-          name: zombienet-logs-${{ github.job }}-${{ github.sha }}
-          path: |
-            /tmp/zombie*/logs/*
+          test: "0002-pov_recovery.zndsl"
+          local-dir: "${{ env.LOCAL_DIR }}"
+          concurrency: 1
 
   zombienet-cumulus-0003-full_node_catching_up:
     needs: [preflight]
@@ -105,22 +96,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: script
-        run: |
-          echo "RELAY_IMAGE: $RELAY_IMAGE"
-          echo "COL_IMAGE: $COL_IMAGE"
-          export DEBUG=${{ needs.preflight.outputs.DEBUG }}
-          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
-            --local-dir="$(pwd)/$LOCAL_DIR" \
-            --concurrency=1 \
-            --test="0003-full_node_catching_up.zndsl"
-
-      - name: upload logs
-        uses: actions/upload-artifact@v4
+      #
+      - name: zombienet_test
+        uses: ./.github/actions/zombienet
         with:
-          name: zombienet-logs-${{ github.job }}-${{ github.sha }}
-          path: |
-            /tmp/zombie*/logs/*
+          test: "0003-full_node_catching_up.zndsl"
+          local-dir: "${{ env.LOCAL_DIR }}"
+          concurrency: 1
 
   zombienet-cumulus-0004-runtime_upgrade:
     needs: [preflight]
@@ -145,25 +127,20 @@ jobs:
       - name: tar
         run: tar -xvf artifacts.tar
 
-      - name: script
+      - name: cp
+        shell: bash
         run: |
-          echo "RELAY_IMAGE: $RELAY_IMAGE"
-          echo "COL_IMAGE: $COL_IMAGE"
           ls -ltr *
           cp ./artifacts/zombienet/wasm_binary_spec_version_incremented.rs.compact.compressed.wasm /tmp/
           ls /tmp
-          export DEBUG=${{ needs.preflight.outputs.DEBUG }}
-          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
-            --local-dir="$(pwd)/$LOCAL_DIR" \
-            --concurrency=1 \
-            --test="0004-runtime_upgrade.zndsl"
 
-      - name: upload logs
-        uses: actions/upload-artifact@v4
+      #
+      - name: zombienet_test
+        uses: ./.github/actions/zombienet
         with:
-          name: zombienet-logs-${{ github.job }}-${{ github.sha }}
-          path: |
-            /tmp/zombie*/logs/*
+          test: "0004-runtime_upgrade.zndsl"
+          local-dir: "${{ env.LOCAL_DIR }}"
+          concurrency: 1
 
   zombienet-cumulus-0005-migrate_solo_to_para:
     needs: [preflight]
@@ -179,22 +156,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: script
-        run: |
-          echo "RELAY_IMAGE: $RELAY_IMAGE"
-          echo "COL_IMAGE: $COL_IMAGE"
-          export DEBUG=${{ needs.preflight.outputs.DEBUG }}
-          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
-            --local-dir="$(pwd)/$LOCAL_DIR" \
-            --concurrency=1 \
-            --test="0005-migrate_solo_to_para.zndsl"
-
-      - name: upload logs
-        uses: actions/upload-artifact@v4
+      #
+      - name: zombienet_test
+        uses: ./.github/actions/zombienet
         with:
-          name: zombienet-logs-${{ github.job }}-${{ github.sha }}
-          path: |
-            /tmp/zombie*/logs/*
+          test: "0005-migrate_solo_to_para.zndsl"
+          local-dir: "${{ env.LOCAL_DIR }}"
+          concurrency: 1
 
   zombienet-cumulus-0006-rpc_collator_builds_blocks:
     needs: [preflight]
@@ -210,22 +178,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: script
-        run: |
-          echo "RELAY_IMAGE: $RELAY_IMAGE"
-          echo "COL_IMAGE: $COL_IMAGE"
-          export DEBUG=${{ needs.preflight.outputs.DEBUG }}
-          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
-            --local-dir="$(pwd)/$LOCAL_DIR" \
-            --concurrency=1 \
-            --test="0006-rpc_collator_builds_blocks.zndsl"
-
-      - name: upload logs
-        uses: actions/upload-artifact@v4
+      #
+      - name: zombienet_test
+        uses: ./.github/actions/zombienet
         with:
-          name: zombienet-logs-${{ github.job }}-${{ github.sha }}
-          path: |
-            /tmp/zombie*/logs/*
+          test: "0006-rpc_collator_builds_blocks.zndsl"
+          local-dir: "${{ env.LOCAL_DIR }}"
+          concurrency: 1
 
   zombienet-cumulus-0007-full_node_warp_sync:
     needs: [preflight]
@@ -241,22 +200,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: script
-        run: |
-          echo "RELAY_IMAGE: $RELAY_IMAGE"
-          echo "COL_IMAGE: $COL_IMAGE"
-          export DEBUG=${{ needs.preflight.outputs.DEBUG }}
-          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
-            --local-dir="$(pwd)/$LOCAL_DIR" \
-            --concurrency=1 \
-            --test="0007-full_node_warp_sync.zndsl"
-
-      - name: upload logs
-        uses: actions/upload-artifact@v4
+      #
+      - name: zombienet_test
+        uses: ./.github/actions/zombienet
         with:
-          name: zombienet-logs-${{ github.job }}-${{ github.sha }}
-          path: |
-            /tmp/zombie*/logs/*
+          test: "0007-full_node_warp_sync.zndsl"
+          local-dir: "${{ env.LOCAL_DIR }}"
+          concurrency: 1
+
 
   zombienet-cumulus-0008-elastic_authoring:
     needs: [preflight]
@@ -272,22 +223,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: script
-        run: |
-          echo "RELAY_IMAGE: $RELAY_IMAGE"
-          echo "COL_IMAGE: $COL_IMAGE"
-          export DEBUG=${{ needs.preflight.outputs.DEBUG }}
-          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
-            --local-dir="$(pwd)/$LOCAL_DIR" \
-            --concurrency=1 \
-            --test="0008-elastic_authoring.zndsl"
-
-      - name: upload logs
-        uses: actions/upload-artifact@v4
+      #
+      - name: zombienet_test
+        uses: ./.github/actions/zombienet
         with:
-          name: zombienet-logs-${{ github.job }}-${{ github.sha }}
-          path: |
-            /tmp/zombie*/logs/*
+          test: "0008-elastic_authoring.zndsl"
+          local-dir: "${{ env.LOCAL_DIR }}"
+          concurrency: 1
 
   zombienet-cumulus-0009-elastic_pov_recovery:
     needs: [preflight]
@@ -303,22 +245,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: script
-        run: |
-          echo "RELAY_IMAGE: $RELAY_IMAGE"
-          echo "COL_IMAGE: $COL_IMAGE"
-          export DEBUG=${{ needs.preflight.outputs.DEBUG }}
-          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
-            --local-dir="$(pwd)/$LOCAL_DIR" \
-            --concurrency=1 \
-            --test="0009-elastic_pov_recovery.zndsl"
-
-      - name: upload logs
-        uses: actions/upload-artifact@v4
+      #
+      - name: zombienet_test
+        uses: ./.github/actions/zombienet
         with:
-          name: zombienet-logs-${{ github.job }}-${{ github.sha }}
-          path: |
-            /tmp/zombie*/logs/*
+          test: "0009-elastic_pov_recovery.zndsl"
+          local-dir: "${{ env.LOCAL_DIR }}"
+          concurrency: 1
 
   zombienet-cumulus-0010-elastic_scaling_multiple_block_per_slot:
     needs: [preflight]
