@@ -461,7 +461,6 @@ pub struct BuildNetworkParams<
 	pub spawn_handle: SpawnTaskHandle,
 	pub import_queue: IQ,
 	pub sybil_resistance_level: CollatorSybilResistance,
-	/// Metrics.
 	pub metrics: sc_network::NotificationMetrics,
 }
 
