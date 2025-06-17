@@ -112,7 +112,7 @@ where
 			.map_err(|e| Error::proposing(anyhow::Error::new(e)))?;
 
 		proposer
-			.propose(ProposeArgs {
+			.propose_block(ProposeArgs {
 				inherent_data,
 				inherent_digests,
 				max_duration,

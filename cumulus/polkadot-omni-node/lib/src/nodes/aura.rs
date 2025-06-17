@@ -449,7 +449,7 @@ where
 		node_extra_args: NodeExtraArgs,
 		_: (),
 	) -> Result<(), Error> {
-		let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
+		let proposer = sc_basic_authorship::ProposerFactory::with_proof_recording(
 			task_manager.spawn_handle(),
 			client.clone(),
 			transaction_pool,
@@ -483,7 +483,7 @@ where
 				para_id,
 				overseer_handle,
 				relay_chain_slot_duration,
-				proposer: proposer_factory,
+				proposer,
 				collator_service,
 				authoring_duration: Duration::from_millis(2000),
 				reinitialize: false,
