@@ -63,6 +63,7 @@ fn get_addresses_and_authority_id() {
 		Box::pin(dht_event_rx),
 		Role::PublishAndDiscover(key_store.into()),
 		None,
+		sp_core::testing::TaskExecutor::new()
 	);
 	worker.inject_addresses(remote_authority_id.clone(), vec![remote_addr.clone()]);
 

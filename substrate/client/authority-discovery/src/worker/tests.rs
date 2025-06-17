@@ -327,6 +327,7 @@ fn new_registers_metrics() {
 		Role::PublishAndDiscover(key_store.into()),
 		Some(registry.clone()),
 		Default::default(),
+		sp_core::testing::TaskExecutor::new()
 	);
 
 	assert!(registry.gather().len() > 0);
@@ -356,6 +357,7 @@ fn triggers_dht_get_query() {
 		Role::PublishAndDiscover(key_store.into()),
 		None,
 		Default::default(),
+		sp_core::testing::TaskExecutor::new()
 	);
 
 	futures::executor::block_on(async {
@@ -394,6 +396,7 @@ fn publish_discover_cycle() {
 				Role::PublishAndDiscover(key_store.into()),
 				None,
 				Default::default(),
+				sp_core::testing::TaskExecutor::new()
 			);
 
 			worker.publish_ext_addresses(false).await.unwrap();
@@ -428,6 +431,7 @@ fn publish_discover_cycle() {
 				Role::PublishAndDiscover(key_store.into()),
 				None,
 				Default::default(),
+				sp_core::testing::TaskExecutor::new()
 			);
 
 			dht_event_tx.try_send(dht_event.clone()).unwrap();
@@ -463,6 +467,7 @@ fn terminate_when_event_stream_terminates() {
 		Role::PublishAndDiscover(key_store.into()),
 		None,
 		Default::default(),
+		sp_core::testing::TaskExecutor::new()
 	)
 	.run();
 	futures::pin_mut!(worker);
@@ -526,6 +531,7 @@ fn dont_stop_polling_dht_event_stream_after_bogus_event() {
 		Role::PublishAndDiscover(Arc::new(key_store)),
 		None,
 		Default::default(),
+		sp_core::testing::TaskExecutor::new()
 	);
 
 	// Spawn the authority discovery to make sure it is polled independently.
@@ -653,6 +659,7 @@ impl DhtValueFoundTester {
 				Role::PublishAndDiscover(Arc::new(local_key_store)),
 				None,
 				WorkerConfig { strict_record_validation, ..Default::default() },
+				sp_core::testing::TaskExecutor::new()
 			));
 			(self.local_worker.as_mut().unwrap(), Some(local_network))
 		};
@@ -1044,6 +1051,7 @@ fn addresses_to_publish_adds_p2p() {
 		Role::PublishAndDiscover(MemoryKeystore::new().into()),
 		Some(prometheus_endpoint::Registry::new()),
 		Default::default(),
+		sp_core::testing::TaskExecutor::new()
 	);
 
 	assert!(
@@ -1082,6 +1090,7 @@ fn addresses_to_publish_respects_existing_p2p_protocol() {
 		Role::PublishAndDiscover(MemoryKeystore::new().into()),
 		Some(prometheus_endpoint::Registry::new()),
 		Default::default(),
+		sp_core::testing::TaskExecutor::new()
 	);
 
 	assert_eq!(
@@ -1126,6 +1135,7 @@ fn lookup_throttling() {
 		Role::Discover,
 		Some(default_registry().clone()),
 		Default::default(),
+		sp_core::testing::TaskExecutor::new()
 	);
 
 	let mut pool = LocalPool::new();
@@ -1244,6 +1254,7 @@ fn test_handle_put_record_request() {
 		Role::Discover,
 		Some(default_registry().clone()),
 		Default::default(),
+		sp_core::testing::TaskExecutor::new()
 	);
 
 	let mut pool = LocalPool::new();
