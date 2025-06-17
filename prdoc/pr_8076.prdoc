@@ -20,3 +20,5 @@ crates:
   bump: major
 - name: cumulus-client-service
   bump: major
+- name: people-westend-runtime
+  bump: major
