@@ -333,7 +333,7 @@ pub trait EthExtra {
 			})?;
 
 		let call = if let Some(dest) = to {
-			if dest == Pallet::<Self::Config>::pallets_address() {
+			if dest == crate::RUNTIME_PALLETS_ADDR {
 				CallOf::<Self::Config>::decode(&mut &data[..]).map_err(|_| {
 					log::debug!(target: LOG_TARGET, "Failed to decode data as Call");
 					InvalidTransaction::Call
