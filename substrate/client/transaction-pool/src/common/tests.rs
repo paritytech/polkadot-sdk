@@ -70,20 +70,20 @@ impl TestApi {
 	}
 }
 
-#[async_trait]
 impl ChainApi for TestApi {
 	type Block = Block;
 	type Error = error::Error;
+	type ValidationFuture = futures::future::Ready<error::Result<TransactionValidity>>;
 	type BodyFuture = futures::future::Ready<error::Result<Option<Vec<Extrinsic>>>>;
 
 	/// Verify extrinsic at given block.
-	async fn validate_transaction(
+	fn validate_transaction(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		_source: TransactionSource,
 		uxt: ExtrinsicFor<Self>,
 		_: ValidateTransactionPriority,
-	) -> Result<TransactionValidity, error::Error> {
+	) -> Self::ValidationFuture {
 		let uxt = (*uxt).clone();
 		self.validation_requests.lock().push(uxt.clone());
 		let hash = self.hash_and_length(&uxt).0;
@@ -160,7 +160,7 @@ impl ChainApi for TestApi {
 			_ => unimplemented!(),
 		};
 
-		Ok(res)
+		futures::future::ready(Ok(res))
 	}
 
 	fn validate_transaction_blocking(

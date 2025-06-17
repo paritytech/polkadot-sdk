@@ -23,7 +23,6 @@ use crate::{
 	graph::ValidateTransactionPriority,
 	insert_and_log_throttled, LOG_TARGET, LOG_TARGET_STAT,
 };
-use async_trait::async_trait;
 use codec::Encode;
 use futures::future::{ready, Future, FutureExt, Ready};
 use prometheus_endpoint::Registry as PrometheusRegistry;
@@ -50,7 +49,7 @@ use super::{
 	metrics::{ApiMetrics, ApiMetricsExt},
 };
 use crate::graph;
-use tracing::{instrument, trace, warn, Level};
+use tracing::{trace, warn, Level};
 
 /// The transaction pool logic for full client.
 pub struct FullChainApi<Client, Block> {
@@ -182,7 +181,6 @@ impl<Client, Block> FullChainApi<Client, Block> {
 	}
 }
 
-#[async_trait]
 impl<Client, Block> graph::ChainApi for FullChainApi<Client, Block>
 where
 	Block: BlockT,
@@ -196,68 +194,68 @@ where
 {
 	type Block = Block;
 	type Error = error::Error;
+	type ValidationFuture =
+		Pin<Box<dyn Future<Output = error::Result<TransactionValidity>> + Send>>;
 	type BodyFuture = Ready<error::Result<Option<Vec<<Self::Block as BlockT>::Extrinsic>>>>;
 
 	fn block_body(&self, hash: Block::Hash) -> Self::BodyFuture {
 		ready(self.client.block_body(hash).map_err(error::Error::from))
 	}
 
-	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "api::validate_transaction")]
-	async fn validate_transaction(
+	fn validate_transaction(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		uxt: graph::ExtrinsicFor<Self>,
 		validation_priority: ValidateTransactionPriority,
-	) -> Result<TransactionValidity, Self::Error> {
+		) -> Self::ValidationFuture {
 		let start = Instant::now();
 		let (tx, rx) = oneshot::channel();
 		let client = self.client.clone();
-		let validation_pool = if validation_priority == ValidateTransactionPriority::Maintained {
-			self.validation_pool_maintained.clone()
+		let (stats, validation_pool, prefix) = if validation_priority == ValidateTransactionPriority::Maintained {
+			(self.validate_transaction_maintained_stats.clone(),
+			self.validation_pool_maintained.clone(),
+			"validate_transaction_maintained_stats",
+			)
 		} else {
-			self.validation_pool_normal.clone()
+			(self.validate_transaction_normal_stats.clone(), self.validation_pool_normal.clone(), "validate_transaction_stats")
+
 		};
 		let metrics = self.metrics.clone();
 
-		metrics.report(|m| m.validations_scheduled.inc());
+		async move {
+			metrics.report(|m| m.validations_scheduled.inc());
 
-		{
-			validation_pool
-				.send(
-					async move {
-						let res = validate_transaction_blocking(&*client, at, source, uxt);
-						let _ = tx.send(res);
-						metrics.report(|m| m.validations_finished.inc());
-					}
-					.boxed(),
-				)
-				.await
-				.map_err(|e| Error::RuntimeApi(format!("Validation pool down: {:?}", e)))?;
+			{
+				validation_pool
+					.send(
+						async move {
+							let res = validate_transaction_blocking(&*client, at, source, uxt);
+							let _ = tx.send(res);
+							metrics.report(|m| m.validations_finished.inc());
+						}
+						.boxed(),
+						)
+					.await
+					.map_err(|e| Error::RuntimeApi(format!("Validation pool down: {:?}", e)))?;
+			}
+
+			let validity = match rx.await {
+				Ok(r) => r,
+				Err(_) => Err(Error::RuntimeApi("Validation was canceled".into())),
+			};
+
+			insert_and_log_throttled!(
+				Level::DEBUG,
+				target:LOG_TARGET_STAT,
+				prefix:prefix,
+				stats,
+				start.elapsed().into()
+				);
+
+			validity
 		}
-
-		let validity = match rx.await {
-			Ok(r) => r,
-			Err(_) => Err(Error::RuntimeApi("Validation was canceled".into())),
-		};
-
-		let (stats, prefix) = if validation_priority == ValidateTransactionPriority::Maintained {
-			(
-				self.validate_transaction_maintained_stats.clone(),
-				"validate_transaction_maintained_stats",
-			)
-		} else {
-			(self.validate_transaction_normal_stats.clone(), "validate_transaction_stats")
-		};
-		insert_and_log_throttled!(
-			Level::DEBUG,
-			target:LOG_TARGET_STAT,
-			prefix:prefix,
-			stats,
-			start.elapsed().into()
-		);
-
-		validity
+		.boxed()
 	}
 
 	/// Validates a transaction by calling into the runtime.
