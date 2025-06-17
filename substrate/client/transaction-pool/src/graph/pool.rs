@@ -18,7 +18,7 @@
 
 use crate::{common::tracing_log_xt::log_xt_trace, LOG_TARGET};
 use async_trait::async_trait;
-use futures::{channel::mpsc::Receiver, Future};
+use futures::{channel::mpsc::Receiver};
 use indexmap::IndexMap;
 use sc_transaction_pool_api::error;
 use sp_blockchain::{HashAndNumber, TreeRoute};
@@ -68,11 +68,6 @@ pub trait ChainApi: Send + Sync {
 	type Block: BlockT;
 	/// Error type.
 	type Error: From<error::Error> + error::IntoPoolError;
-	/// Body future (since block body might be remote)
-	type BodyFuture: Future<Output = Result<Option<Vec<<Self::Block as traits::Block>::Extrinsic>>, Self::Error>>
-		+ Unpin
-		+ Send
-		+ 'static;
 
 	/// Asynchronously verify extrinsic at given block.
 	async fn validate_transaction(
@@ -109,7 +104,7 @@ pub trait ChainApi: Send + Sync {
 	fn hash_and_length(&self, uxt: &RawExtrinsicFor<Self>) -> (ExtrinsicHash<Self>, usize);
 
 	/// Returns a block body given the block.
-	fn block_body(&self, at: <Self::Block as BlockT>::Hash) -> Self::BodyFuture;
+	async fn block_body(&self, at: <Self::Block as BlockT>::Hash) -> Result<Option<Vec<<Self::Block as traits::Block>::Extrinsic>>, Self::Error>;
 
 	/// Returns a block header given the block id.
 	fn block_header(

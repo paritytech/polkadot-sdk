@@ -347,7 +347,6 @@ impl TagFrom for AccountId {
 impl ChainApi for TestApi {
 	type Block = Block;
 	type Error = Error;
-	type BodyFuture = futures::future::Ready<Result<Option<Vec<Extrinsic>>, Error>>;
 
 	async fn validate_transaction(
 		&self,
@@ -483,13 +482,13 @@ impl ChainApi for TestApi {
 		Self::hash_and_length_inner(ex)
 	}
 
-	fn block_body(&self, hash: <Self::Block as BlockT>::Hash) -> Self::BodyFuture {
-		futures::future::ready(Ok(self
+	async fn block_body(&self, hash: <Self::Block as BlockT>::Hash) -> Result<Option<Vec<Extrinsic>>, Error> {
+		Ok(self
 			.chain
 			.read()
 			.block_by_hash
 			.get(&hash)
-			.map(|b| b.extrinsics().to_vec())))
+			.map(|b| b.extrinsics().to_vec()))
 	}
 
 	fn block_header(

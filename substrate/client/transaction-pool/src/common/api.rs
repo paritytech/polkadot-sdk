@@ -23,7 +23,7 @@ use async_trait::async_trait;
 use codec::Encode;
 use futures::{
 	channel::{mpsc, oneshot},
-	future::{ready, Future, FutureExt, Ready},
+	future::{Future, FutureExt},
 	lock::Mutex,
 	SinkExt, StreamExt,
 };
@@ -120,10 +120,9 @@ where
 {
 	type Block = Block;
 	type Error = error::Error;
-	type BodyFuture = Ready<error::Result<Option<Vec<<Self::Block as BlockT>::Extrinsic>>>>;
 
-	fn block_body(&self, hash: Block::Hash) -> Self::BodyFuture {
-		ready(self.client.block_body(hash).map_err(error::Error::from))
+	async fn block_body(&self, hash: Block::Hash) -> error::Result<Option<Vec<<Self::Block as BlockT>::Extrinsic>>> {
+		self.client.block_body(hash).map_err(error::Error::from)
 	}
 
 	async fn validate_transaction(
