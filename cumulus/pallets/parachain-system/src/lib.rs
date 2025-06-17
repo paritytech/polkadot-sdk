@@ -116,7 +116,14 @@ pub use unincluded_segment::{Ancestor, UsedBandwidth};
 pub use pallet::*;
 
 const LOG_TARGET: &str = "parachain-system";
-const INBOUND_MESSAGES_COLLECTION_SIZE_LIMIT: usize = 1024 * 1024; // 1 MiB
+
+/// The bandwidth limit per block that applies when receiving messages from the relay chain via
+/// DMP or XCMP. The limit is per message passing mechanism (e.g. 1 MiB for DMP, 1 MiB for XCMP).
+///
+/// The purpose of this limit is to make sure that the total size of the messages received by the
+/// parachain from the relay chain don't exceed the block size. A 1 MiB limit per message passing
+/// mechanism means a total of 2 MiB which and the max block size is 5 MiB.
+pub const INBOUND_MESSAGES_COLLECTION_SIZE_LIMIT: usize = 1024 * 1024; // 1 MiB
 
 /// Something that can check the associated relay block number.
 ///
@@ -925,6 +932,9 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ProcessedDownwardMessages<T: Config> = StorageValue<_, u32, ValueQuery>;
 
+	/// The last downward message processed before the current block.
+	///
+	/// We need to keep track of this to filter the messages that have been already processed.
 	#[pallet::storage]
 	pub type LastProcessedDownwardMessage<T: Config> =
 		StorageValue<_, InboundMessageId<relay_chain::BlockNumber>>;
@@ -935,6 +945,9 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type HrmpWatermark<T: Config> = StorageValue<_, relay_chain::BlockNumber, ValueQuery>;
 
+	/// The last HRMP message processed before the current block.
+	///
+	/// We need to keep track of this to filter the messages that have been already processed.
 	#[pallet::storage]
 	pub type LastProcessedHrmpMessage<T: Config> =
 		StorageValue<_, InboundMessageId<relay_chain::BlockNumber>>;

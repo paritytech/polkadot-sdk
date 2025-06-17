@@ -88,6 +88,7 @@ pub mod v0 {
 	}
 }
 
+/// An inbound message whose content was hashed.
 #[derive(
 	codec::Encode,
 	codec::Decode,
@@ -124,6 +125,7 @@ pub trait InboundMessage<BlockNumber> {
 	fn to_compressed(&self) -> Self::CompressedMessage;
 }
 
+/// A collection of inbound messages.
 #[derive(
 	codec::Encode,
 	codec::Decode,
@@ -146,6 +148,7 @@ impl<BlockNumber: PartialEq + PartialOrd, Message: InboundMessage<BlockNumber>>
 		Self { messages, _phantom: Default::default() }
 	}
 
+	/// Drop all the messages up to `last_processed_msg`.
 	pub fn drop_processed_messages(&mut self, last_processed_msg: &InboundMessageId<BlockNumber>) {
 		let mut last_processed_msg_idx = None;
 		let messages = &mut self.messages;
@@ -196,6 +199,10 @@ impl<BlockNumber: PartialEq + PartialOrd, Message: InboundMessage<BlockNumber>>
 	}
 }
 
+/// A compressed collection of inbound messages.
+///
+/// The first messages in the collection (up to a limit) contain the full message data.
+/// The messages that exceed that limit are hashed.
 #[derive(
 	codec::Encode,
 	codec::Decode,
