@@ -15200,7 +15200,10 @@ dependencies = [
  "polkadot-primitives-test-helpers",
  "prioritized-metered-channel",
  "rand 0.8.5",
+<<<<<<< HEAD
  "sc-client-api",
+=======
+>>>>>>> 825f5e22 (Cache locally controlled validator indices in `dispute-coordinator` (#8837))
  "sc-keystore",
  "schnellru",
  "sp-application-crypto 40.1.0",
