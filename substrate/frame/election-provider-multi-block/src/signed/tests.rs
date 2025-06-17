@@ -648,7 +648,7 @@ mod e2e {
 			assert_ok!(Submissions::<Runtime>::ensure_killed_with(&99, 0));
 
 			// check events.
-			assert_eq!(signed_events_since_last_call(), vec![Event::Discarded(1, 99)]);
+			assert_eq!(signed_events_since_last_call(), vec![Event::Discarded(0, 99)]);
 
 			// 99 now has their deposit returned.
 			assert_eq!(balances(99), (100, 0));
@@ -1255,6 +1255,198 @@ mod e2e {
 					"No additional verifier events should occur"
 				);
 			});
+	}
+}
+
+mod invulnerables {
+	use super::*;
+
+	fn make_invulnerable(who: AccountId) {
+		SignedPallet::set_invulnerables(RuntimeOrigin::root(), vec![who]).unwrap();
+	}
+
+	#[test]
+	fn invulnerable_pays_different_deposit_independent_of_pages() {
+		ExtBuilder::signed().build_and_execute(|| {
+			roll_to_signed_open();
+			assert_full_snapshot();
+
+			make_invulnerable(99);
+			assert_eq!(balances(99), (100, 0));
+			assert_eq!(<Runtime as crate::signed::Config>::InvulnerableDeposit::get(), 7);
+
+			let score = ElectionScore { minimal_stake: 100, ..Default::default() };
+
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score));
+			assert_eq!(balances(99), (93, 7));
+
+			assert_eq!(
+				Submissions::<Runtime>::metadata_of(0, 99).unwrap(),
+				SubmissionMetadata {
+					claimed_score: score,
+					deposit: 7,
+					// ^^ fixed deposit
+					fee: 1,
+					// ^^ fee accumulates
+					pages: bounded_vec![false, false, false],
+					reward: 3
+				}
+			);
+
+			assert_ok!(SignedPallet::submit_page(
+				RuntimeOrigin::signed(99),
+				0,
+				Some(Default::default())
+			));
+
+			assert_eq!(
+				Submissions::<Runtime>::metadata_of(0, 99).unwrap(),
+				SubmissionMetadata {
+					claimed_score: score,
+					deposit: 7,
+					// ^^
+					fee: 2,
+					// ^^
+					pages: bounded_vec![true, false, false],
+					reward: 3
+				}
+			);
+		})
+	}
+
+	#[test]
+	fn ejected_invulnerable_gets_deposit_back() {
+		ExtBuilder::signed().max_signed_submissions(2).build_and_execute(|| {
+			roll_to_signed_open();
+			assert_full_snapshot();
+			make_invulnerable(99);
+
+			// by default, we pay back 20% of the discarded deposit back
+			assert_eq!(
+				<Runtime as crate::signed::Config>::EjectGraceRatio::get(),
+				Perbill::from_percent(20)
+			);
+
+			// submit 99 as invulnerable
+			assert_ok!(SignedPallet::register(
+				RuntimeOrigin::signed(99),
+				ElectionScore { minimal_stake: 100, ..Default::default() }
+			));
+			assert!(matches!(
+				Submissions::<Runtime>::metadata_of(0, 99).unwrap(),
+				SubmissionMetadata { deposit: 7, .. }
+			));
+
+			// submit 98 as normal
+			assert_ok!(SignedPallet::register(
+				RuntimeOrigin::signed(98),
+				ElectionScore { minimal_stake: 101, ..Default::default() }
+			));
+			assert!(matches!(
+				Submissions::<Runtime>::metadata_of(0, 98).unwrap(),
+				SubmissionMetadata { deposit: 5, .. }
+			));
+			let _ = signed_events_since_last_call();
+			assert_eq!(balances(99), (93, 7));
+			assert_eq!(balances(98), (95, 5));
+
+			// submit 97 and 96 with higher scores, eject both of the previous ones
+			assert_ok!(SignedPallet::register(
+				RuntimeOrigin::signed(97),
+				ElectionScore { minimal_stake: 200, ..Default::default() }
+			));
+			assert_ok!(SignedPallet::register(
+				RuntimeOrigin::signed(96),
+				ElectionScore { minimal_stake: 201, ..Default::default() }
+			));
+
+			assert_eq!(
+				signed_events_since_last_call(),
+				vec![
+					Event::Ejected(0, 99),
+					Event::Registered(
+						0,
+						97,
+						ElectionScore { minimal_stake: 200, sum_stake: 0, sum_stake_squared: 0 }
+					),
+					Event::Ejected(0, 98),
+					Event::Registered(
+						0,
+						96,
+						ElectionScore { minimal_stake: 201, sum_stake: 0, sum_stake_squared: 0 }
+					)
+				]
+			);
+
+			// 99 gets everything back
+			assert_eq!(balances(99), (100, 0));
+			// 98 gets 20% x 5 = 1 back
+			assert_eq!(balances(98), (96, 0));
+		})
+	}
+
+	#[test]
+	fn discarded_invulnerable_gets_fee_and_deposit_back() {
+		ExtBuilder::signed().build_and_execute(|| {
+			make_invulnerable(99);
+
+			roll_to_signed_open();
+
+			// a weak, discarded solution from 99
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), Default::default()));
+			assert!(matches!(
+				Submissions::<Runtime>::metadata_of(0, 99).unwrap(),
+				SubmissionMetadata { deposit: 7, fee: 1, .. }
+			));
+			// note: we don't actually collect the tx-fee in the tests
+			assert_eq!(balances(99), (93, 7));
+
+			// a valid, strong solution.
+			let paged = mine_full_solution().unwrap();
+			load_signed_for_verification(98, paged.clone());
+			let _ = signed_events_since_last_call();
+
+			roll_to_signed_validation_open();
+			roll_next();
+			roll_to_full_verification();
+
+			assert_eq!(
+				verifier_events_since_last_call(),
+				vec![
+					crate::verifier::Event::Verified(2, 2),
+					crate::verifier::Event::Verified(1, 2),
+					crate::verifier::Event::Verified(0, 2),
+					crate::verifier::Event::Queued(
+						ElectionScore {
+							minimal_stake: 55,
+							sum_stake: 130,
+							sum_stake_squared: 8650
+						},
+						None
+					)
+				]
+			);
+			assert_eq!(signed_events_since_last_call(), vec![Event::Rewarded(0, 98, 7)]);
+
+			// not relevant: signed will not start verification again
+			roll_next();
+			assert!(verifier_events_since_last_call().is_empty());
+			assert_eq!(VerifierPallet::status(), crate::verifier::Status::Nothing);
+
+			// fast-forward to round being over
+			roll_to_done();
+			MultiBlock::rotate_round();
+
+			// now we can delete our stuff.
+			assert_ok!(SignedPallet::clear_old_round_data(
+				RuntimeOrigin::signed(99),
+				0,
+				Pages::get()
+			));
+			assert_eq!(signed_events_since_last_call(), vec![Event::Discarded(0, 99)]);
+			// full deposit is returned + tx-fee
+			assert_eq!(balances(99), (101, 0));
+		})
 	}
 }
 
