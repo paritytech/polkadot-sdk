@@ -104,6 +104,8 @@ First, we will need to instruct PAPI to generate the right types for our runtime
 npx papi add -w ws://localhost:9945 rc
 npx papi add -w ws://localhost:9946 parachain
 npx papi
+# or
+npx papi add -w ws://localhost:9946 parachain && npx papi add -w ws://localhost:9945 rc && npx papi
 ```
 
 Then you should be ready to go.
@@ -125,3 +127,5 @@ bun run test
 ```
 
 ## How To Write Tests
+
+TODO

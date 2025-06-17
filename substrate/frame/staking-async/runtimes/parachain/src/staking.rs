@@ -54,7 +54,6 @@ pub(crate) fn enable_ksm_preset(fast: bool) {
 	}
 }
 
-
 // This macro contains all of the variable parameters that we intend to use for Polkadot and
 // Kusama.
 //
@@ -94,11 +93,13 @@ parameter_types! {
 	/// Reasoning:
 	///
 	/// * Polkadot wishes at least 8 submitters to be able to submit. That is  8 * 32 = 256 pages
-	///   for all submitters. Weight of each submission page is roughly x% of block weight. 200
+	///   for all submitters. Weight of each submission page is roughly 0.0007 of block weight. 200
 	///   blocks is more than enough.
 	/// * Kusama wishes at least 4 submitters to be able to submit. That is 4 * 16 = 64 pages for
-	///   all submitters. Weight of each submission page is roughly x% of block weight. 100 blocks
-	///   is more than enough.
+	///   all submitters. Weight of each submission page is roughly 0.0007 of block weight. 100
+	///   blocks is more than enough.
+	///
+	/// See `signed_weight_ratios` test below for more info.
 	pub storage SignedPhase: u32 = 2 * MINUTES;
 
 	/// * Polkadot: 4
@@ -651,37 +652,31 @@ where
 mod tests {
 	use super::*;
 	use frame_election_provider_support::ElectionProvider;
+	use frame_support::weights::constants::{WEIGHT_PROOF_SIZE_PER_KB, WEIGHT_REF_TIME_PER_MILLIS};
 	use frame_system::BlockWeight;
-	use pallet_election_provider_multi_block::{
-		self as mb, signed::WeightInfo, unsigned::WeightInfo,
-	};
+	use pallet_election_provider_multi_block::{self as mb, signed::WeightInfo};
 	use remote_externalities::{
 		Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig, Transport,
 	};
 	use std::env::var;
 
-	#[test]
-	fn election_duration() {
-		todo!("test the duration of election.");
-	}
-
 	fn weight_diff(block: Weight, op: Weight) {
 		log::info!(
 			target: "runtime",
-			"ref_time: {:?} {:.2}",
-			op.ref_time(),
+			"ref_time: {:?}ms {:.4} of total",
+			op.ref_time() / WEIGHT_REF_TIME_PER_MILLIS,
 			op.ref_time() as f64 / block.ref_time() as f64
 		);
 		log::info!(
 			target: "runtime",
-			"proof_size: {:?} {:.2}",
-			op.proof_size(),
+			"proof_size: {:?}kb {:.4} of total",
+			op.proof_size() / WEIGHT_PROOF_SIZE_PER_KB,
 			op.proof_size() as f64 / block.proof_size() as f64
 		);
 	}
 
 	#[test]
-	fn weight_ratios() {
+	fn signed_weight_ratios() {
 		sp_tracing::try_init_simple();
 		let block_weight = <Runtime as frame_system::Config>::BlockWeights::get().max_block;
 		let polkadot_signed_submission =
@@ -691,7 +686,38 @@ mod tests {
 
 		log::info!(target: "runtime", "Polkadot:");
 		weight_diff(block_weight, polkadot_signed_submission);
+		log::info!(target: "runtime", "Kusama:");
 		weight_diff(block_weight, kusama_signed_submission);
+	}
+
+	#[test]
+	fn election_duration() {
+		sp_tracing::try_init_simple();
+		sp_io::TestExternalities::default().execute_with(|| {
+			super::enable_dot_preset(false);
+			let duration = mb::Pallet::<Runtime>::average_election_duration();
+			let polkadot_session = 6 * HOURS;
+			log::info!(
+				target: "runtime",
+				"Polkadot election duration: {:?}, session: {:?} ({} sessions)",
+				duration,
+				polkadot_session,
+				duration / polkadot_session
+			);
+		});
+
+		sp_io::TestExternalities::default().execute_with(|| {
+			super::enable_ksm_preset(false);
+			let duration = mb::Pallet::<Runtime>::average_election_duration();
+			let kusama_session = 1 * HOURS;
+			log::info!(
+				target: "runtime",
+				"Kusama election duration: {:?}, session: {:?} ({} sessions)",
+				duration,
+				kusama_session,
+				duration / kusama_session
+			);
+		});
 	}
 
 	#[test]
@@ -749,11 +775,7 @@ mod tests {
 			.unwrap();
 		ext.execute_with(|| {
 			sp_core::crypto::set_default_ss58_version(1u8.into());
-			log::info!(target: "runtime", "Running display_and_check_bags");
-			pallet_bags_list_remote_tests::display_and_check_bags::<Runtime>(10u64.pow(10), "DOT");
-
-			Pages::set(&32);
-			MaxElectingVoters::set(&22_500);
+			super::enable_dot_preset(true);
 
 			// prepare all snapshot in EPMB pallet.
 			mb::Pallet::<Runtime>::asap();
