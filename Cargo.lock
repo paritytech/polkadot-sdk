@@ -15489,7 +15489,6 @@ dependencies = [
 name = "polkadot-node-core-pvf-prepare-worker"
 version = "7.0.0"
 dependencies = [
- "blake3",
  "cfg-if",
  "criterion",
  "libc",
