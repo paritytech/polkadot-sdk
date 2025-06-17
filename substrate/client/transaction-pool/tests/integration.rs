@@ -134,11 +134,11 @@ async fn send_future_and_ready_from_many_accounts_to_relaychain() {
 	assert_eq!(finalized_ready, 10_000);
 }
 
-// Test which sends future and ready txs from many accounts
-// to an unlimited pool of a parachain collator based on the asset-hub-rococo runtime.
+// Send immportal and mortal txs. Some of the mortal txs are configured to get dropped
+// while others to succeed. Mortal txs are future so not being able to become ready in time and
+// included in blocks result in their dropping.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore]
-async fn send_mortal_tx_and_have_it_dropped() {
+async fn send_future_mortal_txs() {
 	let net = NetworkSpawner::from_toml_with_env_logger(RELAYCHAIN_HIGH_POOL_LIMIT_FATP)
 		.await
 		.unwrap();
@@ -160,33 +160,49 @@ async fn send_mortal_tx_and_have_it_dropped() {
 		.build()
 		.await;
 
-	let mortal_scenario_executor = default_zn_scenario_builder(&net)
-		.with_rpc_uri(ws)
+	let mortal_scenario_dropped = default_zn_scenario_builder(&net)
+		.with_rpc_uri(ws.clone())
 		.with_start_id(0)
 		.with_nonce_from(Some(50))
-		.with_txs_count(1)
-		.with_executor_id("mortal-tx-executor".to_string())
+		.with_txs_count(10)
+		.with_executor_id("mortal-tx-executor-dropped".to_string())
 		.with_mortality(5)
 		.with_remark_recipe(5)
 		.with_timeout_in_secs(DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS)
 		.build()
 		.await;
 
-	// let mortal_logs = mortal_scenario_executor.execute().await;
-	// Execute transactions and fetch the execution logs.
-	let (mortal_logs, ready_logs) = futures::future::join(
-		mortal_scenario_executor.execute(),
-		ready_scenario_executor.execute(),
-	)
-	.await;
+	let mortal_scenario_success = default_zn_scenario_builder(&net)
+		.with_rpc_uri(ws)
+		.with_start_id(0)
+		.with_nonce_from(Some(50))
+		.with_txs_count(10)
+		.with_executor_id("mortal-tx-executor-success".to_string())
+		.with_mortality(10)
+		.with_remark_recipe(5)
+		.with_timeout_in_secs(DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS)
+		.build()
+		.await;
 
-	let mortal_failed_at_submission = mortal_logs
+	// Execute transactions and fetch the execution logs.
+	let (mortal_dropped_logs, ready_logs, mortal_succes_logs) = tokio::join!(
+		mortal_scenario_dropped.execute(),
+		ready_scenario_executor.execute(),
+		mortal_scenario_success.execute(),
+	);
+
+	let mortal_dropped = mortal_dropped_logs
 		.values()
 		.filter(|default_log| default_log.get_dropped_reason().len() > 0)
+		.count();
+	let mortal_succesfull = mortal_succes_logs
+		.values()
+		.filter_map(|default_log| default_log.finalized())
 		.count();
 	let finalized_ready =
 		ready_logs.values().filter_map(|default_log| default_log.finalized()).count();
 
-	assert_eq!(mortal_failed_at_submission, 1);
+	assert_eq!(mortal_dropped, 10);
+	assert_eq!(mortal_succesfull, 10);
 	assert_eq!(finalized_ready, 50);
 }
