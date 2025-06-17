@@ -1250,49 +1250,74 @@ where
 		let (mut result, dispatch_info) = match tx.to {
 			// A contract call.
 			Some(dest) => {
-				// Dry run the call.
-				let result = crate::Pallet::<T>::bare_call(
-					T::RuntimeOrigin::signed(origin),
-					dest,
-					native_value,
-					gas_limit,
-					storage_deposit_limit,
-					input.clone(),
-				);
+				if dest == Pallet::<T>::pallets_address() {
+					let Ok(dispatch_call) = <T as Config>::RuntimeCall::decode(&mut &input[..])
+					else {
+						return Err(EthTransactError::Message(format!(
+							"Failed to decode pallet-call {input:?}"
+						)));
+					};
 
-				let data = match result.result {
-					Ok(return_value) => {
-						if return_value.did_revert() {
-							return Err(EthTransactError::Data(return_value.data));
-						}
-						return_value.data
-					},
-					Err(err) => {
-						log::debug!(target: LOG_TARGET, "Failed to execute call: {err:?}");
-						return extract_error(err)
-					},
-				};
+					let dispatch_info = dispatch_call.get_dispatch_info();
+					if let Err(err) = dispatch_call.dispatch(RawOrigin::Signed(origin).into()) {
+						return Err(EthTransactError::Message(format!(
+							"Failed to dispatch call: {err:?}"
+						)));
+					};
 
-				let result = EthTransactInfo {
-					gas_required: result.gas_required,
-					storage_deposit: result.storage_deposit.charge_or_zero(),
-					data,
-					eth_gas: Default::default(),
-				};
+					let result = EthTransactInfo {
+						gas_required: dispatch_info.total_weight(),
+						storage_deposit: Default::default(),
+						data: Default::default(),
+						eth_gas: Default::default(),
+					};
 
-				let (gas_limit, storage_deposit_limit) = T::EthGasEncoder::as_encoded_values(
-					result.gas_required,
-					result.storage_deposit,
-				);
-				let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::call {
-					dest,
-					value: native_value,
-					gas_limit,
-					storage_deposit_limit,
-					data: input.clone(),
+					(result, dispatch_info)
+				} else {
+					// Dry run the call.
+					let result = crate::Pallet::<T>::bare_call(
+						T::RuntimeOrigin::signed(origin),
+						dest,
+						native_value,
+						gas_limit,
+						storage_deposit_limit,
+						input.clone(),
+					);
+
+					let data = match result.result {
+						Ok(return_value) => {
+							if return_value.did_revert() {
+								return Err(EthTransactError::Data(return_value.data));
+							}
+							return_value.data
+						},
+						Err(err) => {
+							log::debug!(target: LOG_TARGET, "Failed to execute call: {err:?}");
+							return extract_error(err)
+						},
+					};
+
+					let result = EthTransactInfo {
+						gas_required: result.gas_required,
+						storage_deposit: result.storage_deposit.charge_or_zero(),
+						data,
+						eth_gas: Default::default(),
+					};
+
+					let (gas_limit, storage_deposit_limit) = T::EthGasEncoder::as_encoded_values(
+						result.gas_required,
+						result.storage_deposit,
+					);
+					let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::call {
+						dest,
+						value: native_value,
+						gas_limit,
+						storage_deposit_limit,
+						data: input.clone(),
+					}
+					.into();
+					(result, dispatch_call.get_dispatch_info())
 				}
-				.into();
-				(result, dispatch_call.get_dispatch_info())
 			},
 			// A contract deployment
 			None => {
@@ -1562,6 +1587,17 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
+impl<T: Config> Pallet<T> {
+	/// The addresses used to target the runtime's pallets.
+	pub fn pallets_address() -> H160 {
+		use frame_support::PalletId;
+		use sp_runtime::traits::AccountIdConversion;
+		let addr: [u8; 20] = PalletId(*b"py/paddr").into_account_truncating();
+		H160(addr)
+		// 0x6d6f646c70792f70616464720000000000000000
+	}
+}
+
 // Set up a global reference to the boolean flag used for the re-entrancy guard.
 environmental!(executing_contract: bool);
 
@@ -1677,6 +1713,8 @@ sp_api::decl_runtime_apis! {
 		/// The address of the validator that produced the current block.
 		fn block_author() -> Option<H160>;
 
+		/// The addresses used to target the runtime's pallets.
+		fn pallets_address() -> H160;
 	}
 }
 
@@ -1886,6 +1924,11 @@ macro_rules! impl_runtime_apis_plus_revive {
 						Ok(tracer.empty_trace())
 					}
 				}
+
+				fn pallets_address() -> $crate::H160 {
+					$crate::Pallet::<Self>::pallets_address()
+				}
+
 			}
 		}
 	};
