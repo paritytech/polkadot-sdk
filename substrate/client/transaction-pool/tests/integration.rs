@@ -19,6 +19,8 @@
 // Testsuite of fatp integration tests.
 pub mod zombienet;
 
+use std::time::Duration;
+
 use crate::zombienet::{
 	default_zn_scenario_builder,
 	relaychain_rococo_local_network_spec::{
@@ -203,6 +205,85 @@ async fn send_future_mortal_txs() {
 		ready_logs.values().filter_map(|default_log| default_log.finalized()).count();
 
 	assert_eq!(mortal_dropped, 10);
+	assert_eq!(mortal_succesfull, 10);
+	assert_eq!(finalized_ready, 50);
+}
+
+// Send immportal and mortal txs. The mortal txs have lower priority so they shouldn't get into
+// blocks.
+// TODO: this doesn't work
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn send_lower_priority_mortal_txs() {
+	let net = NetworkSpawner::from_toml_with_env_logger(RELAYCHAIN_HIGH_POOL_LIMIT_FATP)
+		.await
+		.unwrap();
+
+	// Wait for the parachain collator to start block production.
+	net.wait_for_block_production("alice").await.unwrap();
+
+	// Create future & ready txs executors.
+	let ws = net.node_rpc_uri("alice").unwrap();
+	let ready_scenario_executor = default_zn_scenario_builder(&net)
+		.with_rpc_uri(ws.clone())
+		.with_start_id(0)
+		.with_nonce_from(Some(0))
+		.with_txs_count(50)
+		.with_executor_id("ready-txs-executor".to_string())
+		.with_remark_recipe(5)
+		.with_send_threshold(5)
+		.with_timeout_in_secs(DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS)
+		.with_tip(100)
+		.build()
+		.await;
+
+	let mortal_scenario_dropped = default_zn_scenario_builder(&net)
+		.with_rpc_uri(ws.clone())
+		.with_start_id(0)
+		.with_nonce_from(Some(0))
+		.with_txs_count(10)
+		.with_executor_id("mortal-tx-executor-dropped".to_string())
+		.with_mortality(2)
+		.with_send_threshold(1)
+		.with_remark_recipe(5)
+		.with_tip(150)
+		.with_timeout_in_secs(DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS)
+		.build()
+		.await;
+
+	let mortal_scenario_success = default_zn_scenario_builder(&net)
+		.with_rpc_uri(ws)
+		.with_start_id(0)
+		.with_nonce_from(Some(0))
+		.with_txs_count(10)
+		.with_executor_id("mortal-tx-executor-success".to_string())
+		.with_mortality(10)
+		.with_send_threshold(1)
+		.with_remark_recipe(5)
+		.with_timeout_in_secs(DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS)
+		.with_tip(100)
+		.build()
+		.await;
+
+	// Execute transactions and fetch the execution logs.
+	let (mortal_dropped_logs, ready_logs, mortal_succes_logs) = tokio::join!(
+		mortal_scenario_dropped.execute(),
+		ready_scenario_executor.execute(),
+		mortal_scenario_success.execute(),
+	);
+
+	let mortal_succesfull = mortal_succes_logs
+		.values()
+		.filter(|default_log| default_log.get_dropped_reason().len() > 0)
+		.count();
+	let mortal_dropped = mortal_dropped_logs
+		.values()
+		.filter_map(|default_log| default_log.finalized())
+		.count();
+	let finalized_ready =
+		ready_logs.values().filter_map(|default_log| default_log.finalized()).count();
+
+	// assert_eq!(mortal_dropped, 10);
 	assert_eq!(mortal_succesfull, 10);
 	assert_eq!(finalized_ready, 50);
 }
