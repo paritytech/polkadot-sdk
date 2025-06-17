@@ -118,6 +118,7 @@ pub struct StartRelayChainTasksParams<'a, Block: BlockT, Client, RCInterface> {
 	pub recovery_handle: Box<dyn RecoveryHandle>,
 	pub sync_service: Arc<SyncingService<Block>>,
 	pub prometheus_registry: Option<&'a Registry>,
+	pub rpc_transaction_v2_handles: Vec<sc_service::TransactionMonitorHandle<Block::Hash>>,
 }
 
 /// Parameters given to [`start_full_node`].
@@ -192,6 +193,7 @@ where
 		recovery_handle,
 		sync_service,
 		prometheus_registry,
+		rpc_transaction_v2_handles: vec![],
 	})?;
 
 	#[allow(deprecated)]
@@ -232,6 +234,7 @@ pub fn start_relay_chain_tasks<Block, Client, Backend, RCInterface>(
 		recovery_handle,
 		sync_service,
 		prometheus_registry,
+		rpc_transaction_v2_handles,
 	}: StartRelayChainTasksParams<Block, Client, RCInterface>,
 ) -> sc_service::error::Result<()>
 where
@@ -358,6 +361,7 @@ where
 		sync_service,
 		da_recovery_profile: DARecoveryProfile::FullNode,
 		prometheus_registry,
+		rpc_transaction_v2_handles: vec![],
 	})
 }
 

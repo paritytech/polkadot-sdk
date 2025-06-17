@@ -346,7 +346,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				})
 			};
 
-			sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+			let spawn_result = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 				rpc_builder,
 				client: client.clone(),
 				transaction_pool: transaction_pool.clone(),
