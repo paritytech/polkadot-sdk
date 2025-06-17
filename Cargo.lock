@@ -15677,6 +15677,7 @@ dependencies = [
  "polkadot-primitives-test-helpers",
  "prioritized-metered-channel",
  "rand 0.8.5",
+ "sc-keystore",
  "schnellru",
  "sp-application-crypto 30.0.0",
  "sp-core 28.0.0",
