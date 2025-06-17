@@ -22,7 +22,7 @@ use crate::{
 	verifier::{FeasibilityError, Verifier},
 	Phase,
 };
-use frame_election_provider_support::NposSolution;
+use frame_election_provider_support::{ElectionProvider, NposSolution};
 use frame_support::storage::unhashed;
 use sp_core::bounded_vec;
 use sp_npos_elections::ElectionScore;
@@ -1266,6 +1266,32 @@ mod invulnerables {
 	}
 
 	#[test]
+	fn set_invulnerables_requires_admin_origin() {
+		ExtBuilder::signed().build_and_execute(|| {
+			// Should fail with non-admin origin
+			assert_noop!(
+				SignedPallet::set_invulnerables(RuntimeOrigin::signed(1), vec![99]),
+				sp_runtime::DispatchError::BadOrigin
+			);
+
+			// Should succeed with admin origin (root)
+			assert_ok!(SignedPallet::set_invulnerables(RuntimeOrigin::root(), vec![99]));
+		});
+	}
+
+	#[test]
+	fn set_invulnerables_too_many_fails() {
+		ExtBuilder::signed().build_and_execute(|| {
+			// Try to set more than 16 invulnerables (ConstU32<16> limit)
+			let too_many: Vec<AccountId> = (1..=17).collect();
+			assert_noop!(
+				SignedPallet::set_invulnerables(RuntimeOrigin::root(), too_many),
+				Error::<Runtime>::TooManyInvulnerables
+			);
+		});
+	}
+
+	#[test]
 	fn invulnerable_pays_different_deposit_independent_of_pages() {
 		ExtBuilder::signed().build_and_execute(|| {
 			roll_to_signed_open();
@@ -1304,14 +1330,68 @@ mod invulnerables {
 				SubmissionMetadata {
 					claimed_score: score,
 					deposit: 7,
-					// ^^
+					// ^^ deposit still fixed at 7
 					fee: 2,
-					// ^^
+					// ^^ fee accumulates
 					pages: bounded_vec![true, false, false],
 					reward: 3
 				}
 			);
+
+			// Submit additional pages to verify deposit remains fixed
+			assert_ok!(SignedPallet::submit_page(
+				RuntimeOrigin::signed(99),
+				1,
+				Some(Default::default())
+			));
+			assert_ok!(SignedPallet::submit_page(
+				RuntimeOrigin::signed(99),
+				2,
+				Some(Default::default())
+			));
+
+			// Verify final state after all pages are submitted
+			let final_metadata = Submissions::<Runtime>::metadata_of(0, 99).unwrap();
+			assert_eq!(
+				final_metadata,
+				SubmissionMetadata {
+					claimed_score: score,
+					deposit: 7,
+					// ^^ deposit still fixed at 7 even after submitting all pages
+					fee: 4,
+					// ^^ fee accumulates: register(1) + page0(1) + page1(1) + page2(1) = 4 total
+					pages: bounded_vec![true, true, true],
+					// ^^ all pages submitted
+					reward: 3
+				}
+			);
+
+			// Balance should remain the same - only deposit is held, fees tracked in metadata
+			assert_eq!(balances(99), (93, 7));
 		})
+	}
+
+	#[test]
+	fn multiple_invulnerables_all_get_fixed_deposit() {
+		ExtBuilder::signed().build_and_execute(|| {
+			roll_to_signed_open();
+			assert_full_snapshot();
+
+			// Set multiple invulnerables
+			SignedPallet::set_invulnerables(RuntimeOrigin::root(), vec![99, 98, 97]).unwrap();
+
+			let score = ElectionScore { minimal_stake: 100, ..Default::default() };
+
+			// All should pay the same fixed deposit
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(98), score));
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(97), score));
+
+			// All should have paid exactly InvulnerableDeposit (7)
+			assert_eq!(balances(99), (93, 7));
+			assert_eq!(balances(98), (93, 7));
+			assert_eq!(balances(97), (93, 7));
+		});
 	}
 
 	#[test]
@@ -1447,6 +1527,37 @@ mod invulnerables {
 			// full deposit is returned + tx-fee
 			assert_eq!(balances(99), (101, 0));
 		})
+	}
+
+	#[test]
+	fn removing_from_invulnerables_affects_future_submissions() {
+		ExtBuilder::signed().build_and_execute(|| {
+			// Initially make invulnerable
+			make_invulnerable(99);
+
+			roll_to_signed_open();
+			assert_full_snapshot();
+
+			let score = ElectionScore { minimal_stake: 100, ..Default::default() };
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score));
+			assert_eq!(Submissions::<Runtime>::metadata_of(0, 99).unwrap().deposit, 7);
+
+			// Clear round and remove from invulnerables
+			roll_to_done();
+			MultiBlock::rotate_round();
+			SignedPallet::set_invulnerables(RuntimeOrigin::root(), vec![]).unwrap();
+
+			// Start new election
+			assert_ok!(MultiBlock::start());
+
+			// Now roll to signed open for the new round
+			roll_to_signed_open();
+			assert_full_snapshot();
+			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(99), score));
+			let new_deposit =
+				Submissions::<Runtime>::metadata_of(MultiBlock::round(), 99).unwrap().deposit;
+			assert_eq!(new_deposit, 5); // Should not be fixed deposit anymore
+		});
 	}
 }
 

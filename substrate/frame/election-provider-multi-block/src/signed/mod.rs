@@ -915,7 +915,7 @@ pub mod pallet {
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::DbWeight::get().writes(1))]
 		pub fn set_invulnerables(origin: OriginFor<T>, inv: Vec<T::AccountId>) -> DispatchResult {
-			let _ = <T as crate::Config>::AdminOrigin::ensure_origin(origin);
+			<T as crate::Config>::AdminOrigin::ensure_origin(origin)?;
 			let bounded: BoundedVec<_, ConstU32<16>> =
 				inv.try_into().map_err(|_| Error::<T>::TooManyInvulnerables)?;
 			Invulnerables::<T>::set(bounded);
