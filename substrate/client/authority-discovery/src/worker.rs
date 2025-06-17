@@ -54,7 +54,10 @@ use sp_authority_discovery::{
 	AuthorityDiscoveryApi, AuthorityId, AuthorityPair, AuthoritySignature,
 };
 use sp_blockchain::HeaderBackend;
-use sp_core::crypto::{key_types, ByteArray, Pair};
+use sp_core::{
+	crypto::{key_types, ByteArray, Pair},
+	traits::SpawnNamed,
+};
 use sp_keystore::{Keystore, KeystorePtr};
 use sp_runtime::traits::Block as BlockT;
 
@@ -247,6 +250,7 @@ where
 		role: Role,
 		prometheus_registry: Option<prometheus_endpoint::Registry>,
 		config: WorkerConfig,
+		spawner: impl SpawnNamed,
 	) -> Self {
 		// When a node starts up publishing and querying might fail due to various reasons, for
 		// example due to being not yet fully bootstrapped on the DHT. Thus one should retry rather
@@ -265,7 +269,7 @@ where
 
 		// Load contents of persisted cache from file, if it exists, and is valid. Create a new one
 		// otherwise, and install a callback to persist it on change.
-		let addr_cache = create_addr_cache(PathBuf::from(ADDR_CACHE_PERSISTENCE_PATH));
+		let addr_cache = create_addr_cache(PathBuf::from(ADDR_CACHE_PERSISTENCE_PATH), spawner);
 
 		let metrics = match prometheus_registry {
 			Some(registry) => match Metrics::register(&registry) {

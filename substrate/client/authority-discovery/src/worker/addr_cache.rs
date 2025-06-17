@@ -18,7 +18,6 @@
 
 use crate::error::Error;
 use core::fmt;
-use futures::{channel::mpsc, executor::block_on, StreamExt};
 use log::{debug, error, warn};
 use sc_network::{
 	multiaddr::{ParseError, Protocol},
@@ -28,6 +27,7 @@ use sc_network_types::PeerId;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use sp_authority_discovery::AuthorityId;
+use sp_core::traits::SpawnNamed;
 use sp_runtime::DeserializeOwned;
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet},
@@ -35,8 +35,8 @@ use std::{
 	io::{self, BufReader, Write},
 	path::PathBuf,
 	sync::Arc,
-	thread,
 };
+use tokio::sync::mpsc;
 
 /// Cache for [`AuthorityId`] -> [`HashSet<Multiaddr>`] and [`PeerId`] -> [`HashSet<AuthorityId>`]
 /// mappings.
@@ -371,66 +371,64 @@ fn load_from_file<T: DeserializeOwned>(path: &PathBuf) -> io::Result<T> {
 /// Multiple consecutive writes in quick succession (before the current write is completed)
 /// will be **throttled**, and only the last write will be performed.
 #[derive(Clone)]
-pub struct ThrottlingAsyncFileWriter {
+pub struct ThrottlingAsyncFileWriter<T: Serialize + Clone + Send + Sync + 'static>
+{
 	/// Each request to write content will send a message to this sender.
 	///
 	/// N.B. this is not passed in as an argument, it is an implementation
 	/// detail.
-	sender: mpsc::UnboundedSender<String>,
+	sender: mpsc::UnboundedSender<T>,
 }
 
-impl ThrottlingAsyncFileWriter {
+impl<T: Serialize + Clone + Send + Sync + 'static> ThrottlingAsyncFileWriter<T> {
 	/// Creates a new `ThrottlingAsyncFileWriter` for the specified file path,
 	/// the label is used for logging purposes.
-	pub fn new(purpose_label: String, path: impl Into<PathBuf>) -> Self {
+	pub fn new(
+		purpose_label: &'static str,
+		path: impl Into<PathBuf>,
+		spawner: impl SpawnNamed,
+	) -> Self {
 		let path = Arc::new(path.into());
-		let (sender, mut receiver) = mpsc::unbounded();
+		let (sender, mut receiver) = mpsc::unbounded_channel();
 
 		let path_clone = Arc::clone(&path);
-		thread::spawn(move || {
-			let mut latest: Option<String>;
+		spawner.spawn(purpose_label, Some("ThrottlingAsyncFileWriter"), Box::pin(async move {
 
-			while let Some(msg) = block_on(receiver.next()) {
+			let mut latest: Option<T>;
+
+			while let Some(msg) = receiver.recv().await {
 				latest = Some(msg);
-				while let Ok(Some(msg)) = receiver.try_next() {
+				while let Ok(msg) = receiver.try_recv() {
 					latest = Some(msg);
 				}
-
-				if let Some(ref content) = latest {
-					if let Err(err) = write_to_file(&path_clone, content) {
-						error!(target: super::LOG_TARGET, "Failed to write to file for {}, error: {}", purpose_label, err);
+				if let Some(ref latest_value) = latest {
+					match serde_json::to_string_pretty(latest_value) {
+						Ok(content) => {
+							if let Err(err) = write_to_file(&path_clone, &content) {
+								error!(target: super::LOG_TARGET, "Failed to write to file for {}, error: {}", purpose_label, err);
+							}
+						},
+						Err(err) => {
+							error!(target: super::LOG_TARGET, "Failed to serialize content for {}, error: {}", purpose_label, err);
+							continue;
+						}
 					}
 				}
 			}
-		});
+		}));
 
 		Self { sender }
 	}
 
-	/// Write content to the file asynchronously, subsequent calls in quick succession
-	/// will be throttled, and only the last write will be performed.
-	///
-	/// The content is written to the file specified by the path in the constructor.
-	pub fn write(&self, content: impl Into<String>) {
-		let _ = self.sender.unbounded_send(content.into());
-	}
-
-	/// Serialize the value and write it to the file, asynchronously and throttled.
-	///
-	/// This calls `write` after serializing the value to a pretty JSON string.
-	pub fn write_serde<T: Serialize>(
-		&self,
-		value: &T,
-	) -> std::result::Result<(), serde_json::Error> {
-		let json = serde_json::to_string_pretty(value)?;
-		self.write(json);
-		Ok(())
+	/// Schedules to serialize the value and write it to the file, asynchronously and throttled.
+	pub fn schedule_write(&self, value: &T) {
+		let _ = self.sender.send(value.clone());
 	}
 }
 
 /// Load contents of persisted cache from file, if it exists, and is valid. Create a new one
 /// otherwise, and install a callback to persist it on change.
-pub(crate) fn create_addr_cache(persistence_path: PathBuf) -> AddrCache {
+pub(crate) fn create_addr_cache(persistence_path: PathBuf, spawner: impl SpawnNamed) -> AddrCache {
 	// Try to load from the cache file if it exists and is valid.
 	let mut addr_cache: AddrCache = load_from_file::<SerializableAddrCache>(&persistence_path)
 		.map_err(|_|Error::EncodingDecodingAddrCache(format!("Failed to load AddrCache from file: {}", persistence_path.display())))
@@ -440,14 +438,13 @@ pub(crate) fn create_addr_cache(persistence_path: PathBuf) -> AddrCache {
 		});
 
 	let async_file_writer =
-		ThrottlingAsyncFileWriter::new("Persisted-AddrCache".to_owned(), &persistence_path);
+		ThrottlingAsyncFileWriter::new("Persisted-AddrCache", &persistence_path, spawner);
 
 	addr_cache.install_on_change_callback(move |cache| {
 		let serializable = SerializableAddrCache::from(cache);
 		debug!(target: super::LOG_TARGET, "Persisting AddrCache to file: {}", persistence_path.display());
-		async_file_writer
-			.write_serde(&serializable)
-			.map_err(|e| Box::new(e) as Box<dyn std::fmt::Debug>)
+		async_file_writer.schedule_write(&serializable);
+		Ok(())
 	});
 
 	addr_cache
@@ -789,15 +786,18 @@ mod tests {
 	#[test]
 	fn cache_is_persisted_on_change() {
 		// ARRANGE
-		let dir = tempfile::tempdir().expect("tempfile should create tmp dir");
+		let dir = tempfile::tempdir().unwrap();
 		let path = dir.path().join("cache.json");
 		let read_from_disk = || {
 			sleep(Duration::from_millis(10)); // sleep short period to let `fs` complete writing to file.
-			let read_from_path = load_from_file::<SerializableAddrCache>(&path).unwrap();
+			let read_from_path = load_from_file::<SerializableAddrCache>(&path)
+				.expect("Should be able to read from file");
 			AddrCache::try_from(read_from_path).unwrap()
 		};
 
-		let mut addr_cache = create_addr_cache(path.clone());
+		let spawner = sp_core::testing::TaskExecutor::new();
+
+		let mut addr_cache = create_addr_cache(path.clone(), spawner);
 		let authority_id0 = AuthorityPair::generate().0.public();
 		let authority_id1 = AuthorityPair::generate().0.public();
 
@@ -827,14 +827,49 @@ mod tests {
 
 	#[test]
 	fn test_load_cache_from_disc() {
-		let dir = tempfile::tempdir().expect("tempfile should create tmp dir");
+		let dir = tempfile::tempdir().unwrap();
 		let path = dir.path().join("cache.json");
 		let sample = AddrCache::sample();
 		assert_eq!(sample.num_authority_ids(), 2);
 		let existing = serde_json::to_string(&SerializableAddrCache::from(sample)).unwrap();
 		write_to_file(&path, &existing).unwrap();
-
-		let cache = create_addr_cache(path);
+		let spawner = sp_core::testing::TaskExecutor::new();
+		let cache = create_addr_cache(path, spawner);
 		assert_eq!(cache.num_authority_ids(), 2);
+	}
+
+	#[test]
+	fn test_async_file_writer_throttle() {
+		// ARRANGE
+		let dir = tempfile::tempdir().unwrap();
+		let path = dir.path().join("cache.json");
+
+		let spawner = sp_core::testing::TaskExecutor::new();
+
+		#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
+		struct User {
+			id: u8,
+		}
+		let assert_eq_expected = |expected: User, msg: &'static str| {
+			let content = std::fs::read_to_string(&path).expect(&format!("{}", msg));
+			let expected = serde_json::to_string_pretty(&expected).unwrap();
+			assert_eq!(content, expected, "{}", msg);
+		};
+		let writer = ThrottlingAsyncFileWriter::<User>::new("test", &path, spawner);
+
+		// ACT
+		writer.schedule_write(&User { id: 1 });
+		std::thread::sleep(Duration::from_millis(20));
+		// ASSERT
+		assert_eq_expected(User { id: 1 }, "Should have had time to write user id 1");
+
+		// ACT 2
+		writer.schedule_write(&User { id: 2 });
+		writer.schedule_write(&User { id: 3 });
+		writer.schedule_write(&User { id: 4 });
+		std::thread::sleep(Duration::from_millis(20));
+		
+		// ASSERT 2
+		assert_eq_expected(User { id: 4 }, "Should have had time to write user id 4");
 	}
 }

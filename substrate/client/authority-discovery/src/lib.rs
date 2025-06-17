@@ -44,8 +44,8 @@ use sc_network::{event::DhtEvent, Multiaddr};
 use sc_network_types::PeerId;
 use sp_authority_discovery::AuthorityId;
 use sp_blockchain::HeaderBackend;
+use sp_core::traits::SpawnNamed;
 use sp_runtime::traits::Block as BlockT;
-
 mod error;
 mod interval;
 mod service;
@@ -123,6 +123,7 @@ pub fn new_worker_and_service<Client, Block, DhtEventStream>(
 	dht_event_rx: DhtEventStream,
 	role: Role,
 	prometheus_registry: Option<prometheus_endpoint::Registry>,
+	spawner: impl SpawnNamed,
 ) -> (Worker<Client, Block, DhtEventStream>, Service)
 where
 	Block: BlockT + Unpin + 'static,
@@ -136,6 +137,7 @@ where
 		dht_event_rx,
 		role,
 		prometheus_registry,
+		spawner,
 	)
 }
 
@@ -149,6 +151,7 @@ pub fn new_worker_and_service_with_config<Client, Block, DhtEventStream>(
 	dht_event_rx: DhtEventStream,
 	role: Role,
 	prometheus_registry: Option<prometheus_endpoint::Registry>,
+	spawner: impl SpawnNamed,
 ) -> (Worker<Client, Block, DhtEventStream>, Service)
 where
 	Block: BlockT + Unpin + 'static,
@@ -157,8 +160,16 @@ where
 {
 	let (to_worker, from_service) = mpsc::channel(0);
 
-	let worker =
-		Worker::new(from_service, client, network, dht_event_rx, role, prometheus_registry, config);
+	let worker = Worker::new(
+		from_service,
+		client,
+		network,
+		dht_event_rx,
+		role,
+		prometheus_registry,
+		config,
+		spawner,
+	);
 	let service = Service::new(to_worker);
 
 	(worker, service)

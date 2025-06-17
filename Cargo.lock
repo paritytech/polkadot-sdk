@@ -19199,6 +19199,7 @@ dependencies = [
  "sc-client-api",
  "sc-network",
  "sc-network-types",
+ "sc-service",
  "serde",
  "serde_json",
  "serde_with",
@@ -19213,6 +19214,7 @@ dependencies = [
  "substrate-test-runtime-client",
  "tempfile",
  "thiserror 1.0.65",
+ "tokio",
 ]
 
 [[package]]

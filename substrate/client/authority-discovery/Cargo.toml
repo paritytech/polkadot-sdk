@@ -33,6 +33,7 @@ sc-network-types = { workspace = true, default-features = true }
 serde_json.workspace = true
 serde_with.workspace = true
 serde.workspace = true
+sc-service.workspace = true
 sp-api = { workspace = true, default-features = true }
 sp-authority-discovery = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
@@ -40,6 +41,7 @@ sp-core = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 thiserror = { workspace = true }
+tokio.workspace = true
 
 [dev-dependencies]
 hex.workspace = true
