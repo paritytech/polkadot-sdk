@@ -98,6 +98,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: cp
+        shell: bash
+        run: |
+          cp --remove-destination ${LOCAL_DIR}/0001-basic-warp-sync/chain-spec.json ${LOCAL_DIR}/0002-validators-warp-sync
+
       #
       - name: zombienet_test
         uses: ./.github/actions/zombienet
@@ -119,6 +124,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: cp
+        shell: bash
+        run: |
+          cp --remove-destination ${LOCAL_DIR}/0001-basic-warp-sync/chain-spec.json ${LOCAL_DIR}/0003-block-building-warp-sync
 
       #
       - name: zombienet_test
