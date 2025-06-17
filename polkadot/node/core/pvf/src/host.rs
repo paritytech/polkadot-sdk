@@ -31,6 +31,8 @@ use futures::{
 	channel::{mpsc, oneshot},
 	Future, FutureExt, SinkExt, StreamExt,
 };
+#[cfg(feature = "test-utils")]
+use polkadot_node_core_pvf_common::ArtifactChecksum;
 use polkadot_node_core_pvf_common::{
 	error::{PrecheckResult, PrepareError},
 	prepare::PrepareSuccess,
@@ -159,13 +161,41 @@ impl ValidationHost {
 			.await
 			.map_err(|_| "the inner loop hung up".to_string())
 	}
+
+	/// Replace the artifact checksum with a new one.
+	///
+	/// Only for test purposes to imitate a corruption of the artifact on disk.
+	#[cfg(feature = "test-utils")]
+	pub async fn replace_artifact_checksum(
+		&mut self,
+		checksum: ArtifactChecksum,
+		new_checksum: ArtifactChecksum,
+	) -> Result<(), String> {
+		self.to_host_tx
+			.send(ToHost::ReplaceArtifactChecksum { checksum, new_checksum })
+			.await
+			.map_err(|_| "the inner loop hung up".to_string())
+	}
 }
 
 enum ToHost {
-	PrecheckPvf { pvf: PvfPrepData, result_tx: PrecheckResultSender },
+	PrecheckPvf {
+		pvf: PvfPrepData,
+		result_tx: PrecheckResultSender,
+	},
 	ExecutePvf(ExecutePvfInputs),
-	HeadsUp { active_pvfs: Vec<PvfPrepData> },
-	UpdateActiveLeaves { update: ActiveLeavesUpdate, ancestors: Vec<Hash> },
+	HeadsUp {
+		active_pvfs: Vec<PvfPrepData>,
+	},
+	UpdateActiveLeaves {
+		update: ActiveLeavesUpdate,
+		ancestors: Vec<Hash>,
+	},
+	#[cfg(feature = "test-utils")]
+	ReplaceArtifactChecksum {
+		checksum: ArtifactChecksum,
+		new_checksum: ArtifactChecksum,
+	},
 }
 
 struct ExecutePvfInputs {
@@ -507,6 +537,10 @@ async fn handle_to_host(
 			handle_heads_up(artifacts, prepare_queue, active_pvfs).await?,
 		ToHost::UpdateActiveLeaves { update, ancestors } =>
 			handle_update_active_leaves(execute_queue, update, ancestors).await?,
+		#[cfg(feature = "test-utils")]
+		ToHost::ReplaceArtifactChecksum { checksum, new_checksum } => {
+			artifacts.replace_artifact_checksum(checksum, new_checksum);
+		},
 	}
 
 	Ok(())

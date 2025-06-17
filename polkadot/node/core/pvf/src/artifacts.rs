@@ -215,6 +215,21 @@ impl Artifacts {
 		self.inner.keys().cloned().collect()
 	}
 
+	#[cfg(feature = "test-utils")]
+	pub fn replace_artifact_checksum(
+		&mut self,
+		checksum: ArtifactChecksum,
+		new_checksum: ArtifactChecksum,
+	) {
+		for artifact in self.inner.values_mut() {
+			if let ArtifactState::Prepared { checksum: c, .. } = artifact {
+				if *c == checksum {
+					*c = new_checksum;
+				}
+			}
+		}
+	}
+
 	/// Create an empty table and the cache directory on-disk if it doesn't exist.
 	pub async fn new(cache_path: &Path) -> Self {
 		// Make sure that the cache path directory and all its parents are created.
