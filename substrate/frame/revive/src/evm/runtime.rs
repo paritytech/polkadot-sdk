@@ -333,12 +333,19 @@ pub trait EthExtra {
 			})?;
 
 		let call = if let Some(dest) = to {
-			crate::Call::call::<Self::Config> {
-				dest,
-				value,
-				gas_limit,
-				storage_deposit_limit,
-				data,
+			if dest == Pallet::<Self::Config>::pallets_address() {
+				crate::Call::<Self::Config>::decode(&mut &data[..]).map_err(|_| {
+					log::debug!(target: LOG_TARGET, "Failed to decode data as Call");
+					InvalidTransaction::Call
+				})?
+			} else {
+				crate::Call::call::<Self::Config> {
+					dest,
+					value,
+					gas_limit,
+					storage_deposit_limit,
+					data,
+				}
 			}
 		} else {
 			let blob = match polkavm::ProgramBlob::blob_length(&data) {
