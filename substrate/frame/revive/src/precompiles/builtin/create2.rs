@@ -15,8 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use sp_runtime::DispatchError;
+
 use crate::{
 	precompiles::{BuiltinAddressMatcher, Error, Ext, PrimitivePrecompile},
+    address,
     Config,
 };
 use core::{marker::PhantomData, num::NonZero};
@@ -33,8 +36,38 @@ impl<T: Config>  PrimitivePrecompile for Create2<T> {
 		input: Vec<u8>,
 		env: &mut impl Ext<T = Self::T>,
     ) -> Result<Vec<u8>, Error> {
-        println!("call create2");
-        // Parse input according to CREATE2 ABI:
+        println!("call create2, input_len(): {}", input.len());
+        
+        if input.len() < 160 {
+            Err(DispatchError::from("invalid input length"))?;
+        }
+        let endowment: &[u8; 32] = input[0..32].try_into().map_err(|_| DispatchError::from("invalid value length"))?;
+        let code_offset: &[u8; 32] = input[32..64].try_into().map_err(|_| DispatchError::from("invalid code offset length"))?;
+        let code_length: &[u8; 32] = input[64..96].try_into().map_err(|_| DispatchError::from("invalid code length length"))?;
+        let salt_offset: &[u8; 32] = input[96..128].try_into().map_err(|_| DispatchError::from("invalid salt offset length"))?;
+        let salt_length: &[u8; 32] = input[128..160].try_into().map_err(|_| DispatchError::from("invalid salt length length"))?;
+
+        let code_offset1: u128 = u128::from_be_bytes(code_offset[0..16].try_into().map_err(|_| DispatchError::from("invalid code offset"))?);
+        let code_offset2: u128 = u128::from_be_bytes(code_offset[16..32].try_into().map_err(|_| DispatchError::from("invalid code offset"))?);
+        let code_length1: u128 = u128::from_be_bytes(code_length[0..16].try_into().map_err(|_| DispatchError::from("invalid code length"))?);
+        let code_length2: u128 = u128::from_be_bytes(code_length[16..32].try_into().map_err(|_| DispatchError::from("invalid code length"))?);
+        println!("code_offset1: {code_offset1}, code_offset2: {code_offset2}");
+        println!("code_length1: {code_length1}, code_length2: {code_length2}");
+
+        let salt_offset1: u128 = u128::from_be_bytes(salt_offset[0..16].try_into().map_err(|_| DispatchError::from("invalid salt offset"))?);
+        let salt_offset2: u128 = u128::from_be_bytes(salt_offset[16..32].try_into().map_err(|_| DispatchError::from("invalid salt offset"))?);
+        let salt_length1: u128 = u128::from_be_bytes(salt_length[0..16].try_into().map_err(|_| DispatchError::from("invalid salt length"))?);
+        let salt_length2: u128 = u128::from_be_bytes(salt_length[16..32].try_into().map_err(|_| DispatchError::from("invalid salt length"))?);
+
+        println!("salt_offset1: {salt_offset1}, salt_offset2: {salt_offset2}");
+        println!("salt_length1: {salt_length1}, salt_length2: {salt_length2}");
+
+        {
+            assert_eq!(input.len(), salt_offset2 as usize + salt_length2 as usize, "input length does not match expected length");
+        }
+
+
+        // CREATE2 ABI:
         // [0..32]   = value
         // [32..64]  = offset to code
         // [64..96]  = length of code
@@ -42,12 +75,7 @@ impl<T: Config>  PrimitivePrecompile for Create2<T> {
         // [128..160]= length of salt
         // [160..]   = code + salt
 
-        // For simplicity, you may want to use the same ABI as OpenEthereum's CREATE2 precompile,
-        // or match the EVM opcode directly.
-
-        // ...parse input, deploy contract, handle errors...
-
-        // For now, just return success with empty output:
         Ok(vec![])
     }
+
 }
