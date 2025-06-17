@@ -334,7 +334,7 @@ pub trait EthExtra {
 
 		let call = if let Some(dest) = to {
 			if dest == Pallet::<Self::Config>::pallets_address() {
-				crate::Call::<Self::Config>::decode(&mut &data[..]).map_err(|_| {
+				CallOf::<Self::Config>::decode(&mut &data[..]).map_err(|_| {
 					log::debug!(target: LOG_TARGET, "Failed to decode data as Call");
 					InvalidTransaction::Call
 				})?
@@ -346,6 +346,7 @@ pub trait EthExtra {
 					storage_deposit_limit,
 					data,
 				}
+				.into()
 			}
 		} else {
 			let blob = match polkavm::ProgramBlob::blob_length(&data) {
@@ -366,10 +367,10 @@ pub trait EthExtra {
 				code: code.to_vec(),
 				data: data.to_vec(),
 			}
+			.into()
 		};
 
 		let mut info = call.get_dispatch_info();
-		let function: CallOf<Self::Config> = call.into();
 		let nonce = nonce.unwrap_or_default().try_into().map_err(|_| {
 			log::debug!(target: LOG_TARGET, "Failed to convert nonce");
 			InvalidTransaction::Call
@@ -380,7 +381,7 @@ pub trait EthExtra {
 			.map_err(|_| InvalidTransaction::Call)?;
 
 		// Fees calculated from the extrinsic, without the tip.
-		info.extension_weight = Self::get_eth_extension(nonce, 0u32.into()).weight(&function);
+		info.extension_weight = Self::get_eth_extension(nonce, 0u32.into()).weight(&call);
 		let actual_fee: BalanceOf<Self::Config> =
 			pallet_transaction_payment::Pallet::<Self::Config>::compute_fee(
 				encoded_len as u32,
@@ -410,7 +411,7 @@ pub trait EthExtra {
 		log::debug!(target: LOG_TARGET, "Created checked Ethereum transaction with nonce: {nonce:?} and tip: {tip:?}");
 		Ok(CheckedExtrinsic {
 			format: ExtrinsicFormat::Signed(signer.into(), Self::get_eth_extension(nonce, tip)),
-			function,
+			function: call,
 		})
 	}
 }
