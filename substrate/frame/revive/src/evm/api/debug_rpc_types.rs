@@ -159,6 +159,10 @@ pub enum CallType {
 	StaticCall,
 	/// A delegate call.
 	DelegateCall,
+	/// A create call.
+	Create,
+	/// A create2 call.
+	Create2,
 }
 
 /// A Trace

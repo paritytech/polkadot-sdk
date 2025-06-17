@@ -36,8 +36,7 @@ runs:
         LOCAL_PATH: ${{ inputs.local-dir }}
         CONCURRENCY: ${{ inputs.concurrency }}
       run: |
-        export ZOMBIE_NAMESPACE=$(cat /data/namespace)
-
+        export ZOMBIE_K8S_CI_NAMESPACE=$(cat /data/namespace)
         /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
           --local-dir="$(pwd)/$LOCAL_PATH" \
           --concurrency=$CONCURRENCY \

@@ -30,9 +30,9 @@ use crate::{
 	tests::test_utils::{get_contract, get_contract_checked},
 	tracing::trace,
 	weights::WeightInfo,
-	AccountId32Mapper, BalanceOf, Code, CodeInfoOf, Config, ContractInfo, ContractInfoOf,
-	DeletionQueueCounter, DepositLimit, Error, EthTransactError, HoldReason, Origin, Pallet,
-	PristineCode, H160,
+	AccountId32Mapper, BalanceOf, BumpNonce, Code, CodeInfoOf, Config, ContractInfo,
+	ContractInfoOf, DeletionQueueCounter, DepositLimit, Error, EthTransactError, HoldReason,
+	Origin, Pallet, PristineCode, H160,
 };
 
 use crate::test_utils::builder::Contract;
@@ -4221,6 +4221,66 @@ fn call_tracing_works() {
 }
 
 #[test]
+fn create_call_tracing_works() {
+	use crate::evm::*;
+	let (code, code_hash) = compile_module("create2_with_value").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
+
+		let mut tracer = CallTracer::new(Default::default(), |_| U256::zero());
+
+		let Contract { addr, .. } = trace(&mut tracer, || {
+			builder::bare_instantiate(Code::Upload(code.clone()))
+				.value(100)
+				.salt(None)
+				.build_and_unwrap_contract()
+		});
+
+		let call_trace = tracer.collect_trace().unwrap();
+		assert_eq!(
+			call_trace,
+			CallTrace {
+				from: ALICE_ADDR,
+				to: addr,
+				value: Some(100.into()),
+				input: Bytes(code.clone()),
+				call_type: CallType::Create,
+				..Default::default()
+			}
+		);
+
+		let mut tracer = CallTracer::new(Default::default(), |_| U256::zero());
+		let data = b"garbage";
+		let input = (code_hash, data).encode();
+		trace(&mut tracer, || {
+			assert_ok!(builder::call(addr).data(input.clone()).build());
+		});
+
+		let call_trace = tracer.collect_trace().unwrap();
+		let child_addr = crate::address::create2(&addr, &code, data, &[1u8; 32]);
+
+		assert_eq!(
+			call_trace,
+			CallTrace {
+				from: ALICE_ADDR,
+				to: addr,
+				value: Some(0.into()),
+				input: input.clone().into(),
+				calls: vec![CallTrace {
+					from: addr,
+					input: input.clone().into(),
+					to: child_addr,
+					value: Some(0.into()),
+					call_type: CallType::Create2,
+					..Default::default()
+				},],
+				..Default::default()
+			}
+		);
+	});
+}
+
+#[test]
 fn prestate_tracing_works() {
 	use crate::evm::*;
 	use alloc::collections::BTreeMap;
@@ -4563,4 +4623,51 @@ fn precompiles_with_info_creates_contract() {
 			);
 		});
 	}
+}
+
+#[test]
+fn bump_nonce_once_works() {
+	let (code, hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		frame_system::Account::<Test>::mutate(&ALICE, |account| account.nonce = 1);
+
+		let _ = <Test as Config>::Currency::set_balance(&BOB, 1_000_000);
+		frame_system::Account::<Test>::mutate(&BOB, |account| account.nonce = 1);
+
+		builder::bare_instantiate(Code::Upload(code.clone()))
+			.origin(RuntimeOrigin::signed(ALICE))
+			.bump_nonce(BumpNonce::Yes)
+			.salt(None)
+			.build_and_unwrap_result();
+		assert_eq!(System::account_nonce(&ALICE), 2);
+
+		// instantiate again is ok
+		let result = builder::bare_instantiate(Code::Existing(hash))
+			.origin(RuntimeOrigin::signed(ALICE))
+			.bump_nonce(BumpNonce::Yes)
+			.salt(None)
+			.build()
+			.result;
+		assert!(result.is_ok());
+
+		builder::bare_instantiate(Code::Upload(code.clone()))
+			.origin(RuntimeOrigin::signed(BOB))
+			.bump_nonce(BumpNonce::No)
+			.salt(None)
+			.build_and_unwrap_result();
+		assert_eq!(System::account_nonce(&BOB), 1);
+
+		// instantiate again should fail
+		let err = builder::bare_instantiate(Code::Upload(code))
+			.origin(RuntimeOrigin::signed(BOB))
+			.bump_nonce(BumpNonce::No)
+			.salt(None)
+			.build()
+			.result
+			.unwrap_err();
+
+		assert_eq!(err, <Error<Test>>::DuplicateContract.into());
+	});
 }
