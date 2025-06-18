@@ -71,7 +71,6 @@ impl TestApi {
 impl ChainApi for TestApi {
 	type Block = Block;
 	type Error = error::Error;
-	type BodyFuture = futures::future::Ready<error::Result<Option<Vec<Extrinsic>>>>;
 
 	/// Verify extrinsic at given block.
 	async fn validate_transaction(
@@ -199,8 +198,8 @@ impl ChainApi for TestApi {
 		(Hashing::hash(&encoded), len)
 	}
 
-	fn block_body(&self, _id: <Self::Block as BlockT>::Hash) -> Self::BodyFuture {
-		futures::future::ready(Ok(None))
+	async fn block_body(&self, _id: <Self::Block as BlockT>::Hash) -> error::Result<Option<Vec<<Self::Block as BlockT>::Extrinsic>>> {
+		Ok(None)
 	}
 
 	fn block_header(

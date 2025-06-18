@@ -59,7 +59,6 @@ fn to_tag(nonce: u64, from: AccountId) -> Tag {
 impl ChainApi for TestApi {
 	type Block = Block;
 	type Error = sc_transaction_pool_api::error::Error;
-	type BodyFuture = Ready<sc_transaction_pool_api::error::Result<Option<Vec<Extrinsic>>>>;
 
 	async fn validate_transaction(
 		&self,
@@ -127,7 +126,7 @@ impl ChainApi for TestApi {
 		(blake2_256(&encoded).into(), encoded.len())
 	}
 
-	fn block_body(&self, _id: <Self::Block as BlockT>::Hash) -> Self::BodyFuture {
+	fn block_body(&self, _id: <Self::Block as BlockT>::Hash) -> error::Result<Option<Vec<<Self::Block as BlockT>::Extrinsic>>> {
 		ready(Ok(None))
 	}
 
