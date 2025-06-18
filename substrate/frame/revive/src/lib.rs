@@ -1176,7 +1176,7 @@ where
 	pub fn dry_run_eth_transact(
 		mut tx: GenericTransaction,
 		gas_limit: Weight,
-		tx_fee: impl Fn(Call<T>, <T as Config>::RuntimeCall) -> BalanceOf<T>,
+		tx_fee: impl Fn(<T as Config>::RuntimeCall, <T as Config>::RuntimeCall) -> BalanceOf<T>,
 	) -> Result<EthTransactInfo<BalanceOf<T>>, EthTransactError>
 	where
 		<T as frame_system::Config>::RuntimeCall:
@@ -1390,7 +1390,7 @@ where
 
 		let eth_transact_call =
 			crate::Call::<T>::eth_transact { payload: unsigned_tx.dummy_signed_payload() };
-		let fee = tx_fee(eth_transact_call, dispatch_call);
+		let fee = tx_fee(eth_transact_call.into(), dispatch_call);
 		let raw_gas = Self::evm_fee_to_gas(fee);
 		let eth_gas =
 			T::EthGasEncoder::encode(raw_gas, result.gas_required, result.storage_deposit);
@@ -1760,11 +1760,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 						sp_runtime::traits::Block as BlockT
 					};
 
-					let tx_fee = |eth_transact_call, dispatch_call: <Self as $crate::frame_system::Config>::RuntimeCall| {
-						// Build the eth_transact call
-						let call =
-							<Self as $crate::frame_system::Config>::RuntimeCall::from(eth_transact_call);
-
+					let tx_fee = |call: <Self as $crate::frame_system::Config>::RuntimeCall, dispatch_call: <Self as $crate::frame_system::Config>::RuntimeCall| {
 						// Get the dispatch info of the actual call dispatched
 						let mut dispatch_info = dispatch_call.get_dispatch_info();
 						dispatch_info.extension_weight =
