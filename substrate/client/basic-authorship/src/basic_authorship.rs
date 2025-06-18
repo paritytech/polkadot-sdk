@@ -375,7 +375,7 @@ where
 			ignored_nodes_by_proof_recording,
 		}: ProposeArgs<Block>,
 	) -> Result<Proposal<Block, PR::Proof>, sp_blockchain::Error> {
-		// leave some time for evaluation and block finalization (33%)
+		// leave some time for evaluation and block finalization (10%)
 		let deadline = (self.now)() + max_duration - max_duration / 10;
 		let block_timer = time::Instant::now();
 		let mut block_builder = BlockBuilderBuilder::new(&*self.client)
