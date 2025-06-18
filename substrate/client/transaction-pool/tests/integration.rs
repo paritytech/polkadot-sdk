@@ -161,7 +161,7 @@ async fn send_future_mortal_txs() {
 		// so we get 3750KB. In the test scenario we aim for 5 txs per block roughly (not precesily)
 		// so to fill a block each user tx must have around 750kb. We aim for 5 txs per block
 		// because we send 50 ready txs which we want to distribute over 10 blocks, so mortal txs
-		// with lifetime lower than 5 should be declared invalid after the ready txs finalize, while
+		// with lifetime lower than 10 should be declared invalid after the ready txs finalize, while
 		// mortal txs with bigger lifetime should be finalized.
 		.with_remark_recipe(750)
 		.with_executor_id("ready-txs-executor".to_string())
@@ -237,7 +237,7 @@ async fn send_lower_priority_mortal_txs() {
 		// so we get 3750KB. In the test scenario we aim for 5 txs per block roughly (not precesily)
 		// so to fill a block each user tx must have around 750kb. We aim for 5 txs per block
 		// because we send 50 ready txs which we want to distribute over 10 blocks, so mortal txs
-		// with lifetime lower than 5 should be declared invalid after the ready txs finalize, while
+		// with lifetime lower than 10 should be declared invalid after the ready txs finalize, while
 		// mortal txs with bigger lifetime should be finalized.
 		.with_remark_recipe(750)
 		.with_timeout_in_secs(DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS)
