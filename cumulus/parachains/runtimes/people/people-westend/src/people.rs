@@ -275,7 +275,7 @@ impl frame_support::traits::Contains<Context> for AccountContexts {
 }
 
 impl pallet_people::Config for Runtime {
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_people::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
 	type Crypto = BandersnatchVrfVerifiable;
 	type AccountContexts = AccountContexts;
@@ -288,7 +288,7 @@ impl pallet_people::Config for Runtime {
 }
 
 impl pallet_dummy_dim::Config for Runtime {
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_dummy_dim::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
 	type UpdateOrigin = EnsureRoot<AccountId>;
 	type MaxPersonBatchSize = ConstU32<1000>;

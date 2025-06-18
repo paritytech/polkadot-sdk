@@ -44,7 +44,7 @@ use frame_support::{
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
-	offchain::{CreateInherent, CreateTransactionBase},
+	offchain::{CreateBare, CreateTransactionBase},
 	EnsureRoot,
 };
 use pallet_origin_restriction::Allowance;
@@ -96,7 +96,7 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 pub type BlockId = generic::BlockId<Block>;
 
 /// The transactionExtension to the basic transaction logic.
-pub type TransactionExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
+pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 	Runtime,
 	(
 		// Origin modifiers
@@ -120,7 +120,7 @@ pub type TransactionExtension = cumulus_pallet_weight_reclaim::StorageWeightRecl
 
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
-	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TransactionExtension>;
+	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
 
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
@@ -602,7 +602,7 @@ impl pallet_verify_signature::BenchmarkHelper<MultiSignature, AccountId>
 impl pallet_verify_signature::Config for Runtime {
 	type Signature = MultiSignature;
 	type AccountIdentifier = MultiSigner;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_verify_signature::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = VerifySignatureBenchmarkHelper;
 }
@@ -670,13 +670,10 @@ impl pallet_origin_restriction::Config for Runtime {
 	type OperationAllowedOneTimeExcess = OperationAllowedOneTimeExcess;
 }
 
-impl<LocalCall> CreateInherent<LocalCall> for Runtime
+impl<LocalCall> CreateBare<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
-	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
-		UncheckedExtrinsic::new_bare(call)
-	}
 	fn create_bare(
 		call: <Self as CreateTransactionBase<LocalCall>>::RuntimeCall,
 	) -> <Self as CreateTransactionBase<LocalCall>>::Extrinsic {
