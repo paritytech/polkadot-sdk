@@ -58,7 +58,7 @@ unsafe impl GlobalAlloc for RuntimeAllocator {
 		let ptr_offset = ptr.align_offset(align);
 
 		// Should never happen, but just to be sure.
-		if ptr_offset > u16::MAX as usize {
+		if ptr_offset > u16::MAX as usize || ptr.is_null() {
 			return ptr::null_mut()
 		}
 
