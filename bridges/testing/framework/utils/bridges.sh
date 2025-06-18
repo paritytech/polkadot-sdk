@@ -244,17 +244,13 @@ function force_create_foreign_asset() {
 }
 
 function force_create_pool() {
-    local relay_url=$1
-    local relay_chain_seed=$2
-    local runtime_para_id=$3
-    local runtime_para_endpoint=$4
-    local native_asset_id=$5
-    local foreign_asset_id=$6
+    local runtime_para_endpoint=$1
+    local seed=$2
+    local native_asset_id=$3
+    local foreign_asset_id=$4
     echo "  calling force_create_pool:"
-    echo "      relay_url: ${relay_url}"
-    echo "      relay_chain_seed: ${relay_chain_seed}"
-    echo "      runtime_para_id: ${runtime_para_id}"
     echo "      runtime_para_endpoint: ${runtime_para_endpoint}"
+    echo "      seed: ${seed}"
     echo "      native_asset_id: ${native_asset_id}"
     echo "      foreign_asset_id: ${foreign_asset_id}"
     echo "      params:"
@@ -268,21 +264,17 @@ function force_create_pool() {
     }
     
 function force_add_liquidity() {
-    local relay_url=$1
-    local relay_chain_seed=$2
-    local runtime_para_id=$3
-    local runtime_para_endpoint=$4
-    local pool_owner_account_id=$5
-    local native_asset_id=$6
-    local foreign_asset_id=$7
-    local native_asset_amount=$8
-    local foreign_asset_amount=$9
+    local runtime_para_endpoint=$1
+    local seed=$2
+    local native_asset_id=$3
+    local foreign_asset_id=$4
+    local native_asset_amount=$5
+    local foreign_asset_amount=$6
     echo "  calling force_add_liquidity:"
     echo "      relay_url: ${relay_url}"
     echo "      relay_chain_seed: ${relay_chain_seed}"
     echo "      runtime_para_id: ${runtime_para_id}"
     echo "      runtime_para_endpoint: ${runtime_para_endpoint}"
-    echo "      pool_owner_account_id: ${pool_owner_account_id}"
     echo "      native_asset_id: ${native_asset_id}"
     echo "      foreign_asset_id: ${foreign_asset_id}"
     echo "      native_asset_amount: ${native_asset_amount}"
@@ -291,7 +283,7 @@ function force_add_liquidity() {
     
     call_polkadot_js_api \
         --ws "${runtime_para_endpoint?}" \
-        --seed "${relay_chain_seed?}" \
+        --seed "${seed?}" \
         tx.assetConversion.addLiquidity \
             "${native_asset_id}" \
             "${foreign_asset_id}" \

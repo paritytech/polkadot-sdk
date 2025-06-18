@@ -252,19 +252,14 @@ case "$1" in
           true
       # create foreign asset pool
       force_create_pool \
-          "ws://127.0.0.1:9942" \
-          "//Alice" \
-          1000 \
           "ws://127.0.0.1:9910" \
+          "//Alice" \
           "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \
           "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }] } }')"
       # Create liquidity in the pool
       force_add_liquidity \
-          "ws://127.0.0.1:9942" \
-          "//Alice" \
-          1000 \
           "ws://127.0.0.1:9910" \
-          "$GLOBAL_CONSENSUS_WESTEND_SOVEREIGN_ACCOUNT" \
+          "//Alice" \
           "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \
           "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }] } }')" \
           10000000000 \
@@ -331,19 +326,14 @@ case "$1" in
           true
       # create foreign asset pool
         force_create_pool \
-            "ws://127.0.0.1:9945" \
-            "//Alice" \
-            1000 \
             "ws://127.0.0.1:9010" \
+            "//Alice" \
           "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \
           "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }] } }')"
       # Create liquidity in the pool
         force_add_liquidity \
-            "ws://127.0.0.1:9945" \
-            "//Alice" \
-            1000 \
             "ws://127.0.0.1:9010" \
-            "$GLOBAL_CONSENSUS_ROCOCO_SOVEREIGN_ACCOUNT" \
+            "//Alice" \
             "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \
             "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }] } }')" \
             10000000000 \
