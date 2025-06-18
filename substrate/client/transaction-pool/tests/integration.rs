@@ -137,6 +137,10 @@ async fn send_future_and_ready_from_many_accounts_to_relaychain() {
 // Send immportal and mortal txs. Some of the mortal txs are configured to get dropped
 // while others to succeed. Mortal txs are future so not being able to become ready in time and
 // included in blocks result in their dropping.
+//
+// Block length for rococo for user txs is 75% of maximum 5MB (per frame-system setup),
+// so we get 3750KB. In the test scenario we aim for 5 txs per block roughly (not precesily)
+// so to fill a block each user tx must have around 750kb.
 #[tokio::test(flavor = "multi_thread")]
 async fn send_future_mortal_txs() {
 	let net = NetworkSpawner::from_toml_with_env_logger(RELAYCHAIN_HIGH_POOL_LIMIT_FATP)
@@ -146,27 +150,26 @@ async fn send_future_mortal_txs() {
 	// Wait for the parachain collator to start block production.
 	net.wait_for_block_production("alice").await.unwrap();
 
-	// Create future & ready txs executors.
+	// Create txs executors.
 	let ws = net.node_rpc_uri("alice").unwrap();
 	let ready_scenario_executor = default_zn_scenario_builder(&net)
 		.with_rpc_uri(ws.clone())
 		.with_start_id(0)
 		.with_nonce_from(Some(0))
 		.with_txs_count(50)
+		.with_remark_recipe(750)
 		.with_executor_id("ready-txs-executor".to_string())
-		.with_remark_recipe(786)
-		.with_timeout_in_secs(DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS)
 		.build()
 		.await;
 
 	let mortal_scenario_invalid = default_zn_scenario_builder(&net)
 		.with_rpc_uri(ws.clone())
 		.with_start_id(0)
-		.with_nonce_from(Some(50))
+		.with_nonce_from(Some(60))
+		.with_remark_recipe(750)
 		.with_txs_count(10)
 		.with_executor_id("mortal-tx-executor-invalid".to_string())
 		.with_mortality(5)
-		.with_remark_recipe(786)
 		.with_timeout_in_secs(DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS)
 		.build()
 		.await;
@@ -178,11 +181,7 @@ async fn send_future_mortal_txs() {
 		.with_txs_count(10)
 		.with_executor_id("mortal-tx-executor-success".to_string())
 		.with_mortality(25)
-		.with_block_monitoring(true)
-		.with_remark_recipe(786)
-		// They need some tip to get finalized, otherwise they'll be considered invalid with a
-		// "priority too low" message.
-		.with_tip(100)
+		.with_remark_recipe(750)
 		.with_timeout_in_secs(DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS)
 		.build()
 		.await;
@@ -210,10 +209,14 @@ async fn send_future_mortal_txs() {
 	assert_eq!(finalized_ready, 50);
 }
 
-// Send immportal and mortal txs. The mortal txs have lower priority so they shouldn't get into
-// blocks.
+// Send immortal and mortal txs. Some mortal txs have lower priority so they shouldn't get into
+// blocks during their lifetime, and will be considered invalid, while other mortal txs have
+// sufficient lifetime to be included in blocks, and are finalized successfully.
+//
+// Block length for rococo for user txs is 75% of maximum 5MB (per frame-system setup),
+// so we get 3750KB. In the test scenario we aim for 5 txs per block roughly (not precesily)
+// so to fill a block each user tx must have around 750kb.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore]
 async fn send_lower_priority_mortal_txs() {
 	let net = NetworkSpawner::from_toml_with_env_logger(RELAYCHAIN_HIGH_POOL_LIMIT_FATP)
 		.await
@@ -222,7 +225,7 @@ async fn send_lower_priority_mortal_txs() {
 	// Wait for the parachain collator to start block production.
 	net.wait_for_block_production("alice").await.unwrap();
 
-	// Create future & ready txs executors.
+	// Create txs executors.
 	let ws = net.node_rpc_uri("alice").unwrap();
 	let ready_scenario_executor = default_zn_scenario_builder(&net)
 		.with_rpc_uri(ws.clone())
@@ -230,7 +233,7 @@ async fn send_lower_priority_mortal_txs() {
 		.with_nonce_from(Some(0))
 		.with_txs_count(50)
 		.with_executor_id("ready-txs-executor".to_string())
-		.with_remark_recipe(786)
+		.with_remark_recipe(750)
 		.with_timeout_in_secs(DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS)
 		.with_tip(150)
 		.build()
@@ -243,7 +246,7 @@ async fn send_lower_priority_mortal_txs() {
 		.with_txs_count(10)
 		.with_executor_id("mortal-tx-executor-invalid".to_string())
 		.with_mortality(2)
-		.with_remark_recipe(786)
+		.with_remark_recipe(750)
 		.with_tip(50)
 		.with_timeout_in_secs(DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS)
 		.build()
@@ -256,7 +259,7 @@ async fn send_lower_priority_mortal_txs() {
 		.with_txs_count(10)
 		.with_executor_id("mortal-tx-executor-success".to_string())
 		.with_mortality(20)
-		.with_remark_recipe(786)
+		.with_remark_recipe(750)
 		.with_timeout_in_secs(DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS)
 		.with_tip(100)
 		.build()
