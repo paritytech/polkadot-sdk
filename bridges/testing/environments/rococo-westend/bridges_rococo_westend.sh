@@ -326,20 +326,20 @@ case "$1" in
           10000000000 \
           true
       # create foreign asset pool
-        create_pool \
-            "ws://127.0.0.1:9010" \
-            "//Alice" \
+      create_pool \
+          "ws://127.0.0.1:9010" \
+          "//Alice" \
           "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \
           "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }] } }')"
       # Create liquidity in the pool
-        add_liquidity \
-            "ws://127.0.0.1:9010" \
-            "//Alice" \
-            "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \
-            "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }] } }')" \
-            10000000000 \
-            10000000000 \
-            "$ALICE_SOVEREIGN_ACCOUNT"
+      add_liquidity \
+          "ws://127.0.0.1:9010" \
+          "//Alice" \
+          "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }] } }')" \
+          10000000000 \
+          10000000000 \
+          "$ALICE_SOVEREIGN_ACCOUNT"
       # HRMP
       open_hrmp_channels \
           "ws://127.0.0.1:9945" \
