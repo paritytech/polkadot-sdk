@@ -464,14 +464,27 @@ fn create2_precompile_works() {
     input.extend_from_slice(&code);
     input.extend_from_slice(&salt);
 
+
+	// let contract_address = create2(&ALICE, code.as_slice(), &[], &salt);
+let deployer = <Test as Config>::AddressMapper::to_address(&ALICE);
+let contract_address_expected = create2(&deployer, code.as_slice(), &[], &salt);
+
+	println!("contract_address_expected: {:?}", contract_address_expected.as_bytes());
+
     ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
         let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
         // Call the precompile directly
         let result = builder::bare_call(create2_precompile_addr)
-            // .data(vec![])
             .data(input.clone())
-            .build_and_unwrap_result();
+            .build();
+		println!("result: {result:?}");
+
+		let result_exec = result.result.clone();
+		assert_ok!(result_exec);
+
+		let contract_address = &result.result.unwrap().data[12..];
+		assert_eq!(contract_address, contract_address_expected.as_bytes());
 
 		// TODO: check if result it OK
 		// TODO: output contains the expected address

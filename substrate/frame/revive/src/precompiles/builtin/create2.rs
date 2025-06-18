@@ -16,12 +16,12 @@
 // limitations under the License.
 
 use sp_runtime::DispatchError;
+use sp_core::H160;
 
 use crate::{
-	precompiles::{BuiltinAddressMatcher, Error, Ext, PrimitivePrecompile},
-    address,
-    Config,
+	address, limits::code, precompiles::{BuiltinAddressMatcher, Error, Ext, PrimitivePrecompile}, Config
 };
+use crate::address::AddressMapper;
 use core::{marker::PhantomData, num::NonZero};
 
 pub struct Create2<T>(PhantomData<T>);
@@ -37,6 +37,8 @@ impl<T: Config>  PrimitivePrecompile for Create2<T> {
 		env: &mut impl Ext<T = Self::T>,
     ) -> Result<Vec<u8>, Error> {
         println!("call create2, input_len(): {}", input.len());
+        println!("address: {address:?}");
+
         
         if input.len() < 160 {
             Err(DispatchError::from("invalid input length"))?;
@@ -66,7 +68,24 @@ impl<T: Config>  PrimitivePrecompile for Create2<T> {
             assert_eq!(input.len(), salt_offset2 as usize + salt_length2 as usize, "input length does not match expected length");
         }
 
+        let code_offset = code_offset2 as usize;
+        let code_length = code_length2 as usize;
+        let salt_offset = salt_offset2 as usize;
+        let salt_length = salt_length2 as usize;
+        let code = &input[code_offset..code_offset + code_length];
+        let salt = &input[salt_offset..salt_offset + salt_length];
 
+        println!("salt.len(): {}", salt.len());
+
+        let caller = env.caller();
+        let deployer_account_id = caller.account_id().map_err(|_| DispatchError::from("caller account_id is None"))?;
+        let deployer = T::AddressMapper::to_address(deployer_account_id);
+
+
+        println!("deployer: {deployer:?}");
+        let salt: &[u8; 32] = salt.try_into().map_err(|_| DispatchError::from("invalid salt length"))?;
+
+        let contract_address = crate::address::create2(&deployer, code, &[], salt);
         // CREATE2 ABI:
         // [0..32]   = value
         // [32..64]  = offset to code
@@ -75,7 +94,11 @@ impl<T: Config>  PrimitivePrecompile for Create2<T> {
         // [128..160]= length of salt
         // [160..]   = code + salt
 
-        Ok(vec![])
+        // Pad the contract address to 32 bytes (left padding with zeros)
+        let mut padded = [0u8; 32];
+        let addr = contract_address.as_ref();
+        padded[32 - addr.len()..].copy_from_slice(addr);
+        Ok(padded.to_vec())
     }
 
 }
