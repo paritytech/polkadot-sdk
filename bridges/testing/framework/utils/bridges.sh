@@ -276,7 +276,7 @@ function add_liquidity() {
             "${foreign_asset_amount}" \
             "1" \
             "1" \
-            "${pool_owner_account_id}" \
+            "${pool_owner_account_id}"
 }
 function limited_reserve_transfer_assets() {
     local url=$1
