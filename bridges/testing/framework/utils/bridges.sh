@@ -248,16 +248,10 @@ function force_create_pool() {
     local seed=$2
     local native_asset_id=$3
     local foreign_asset_id=$4
-    echo "  calling force_create_pool:"
-    echo "      runtime_para_endpoint: ${runtime_para_endpoint}"
-    echo "      seed: ${seed}"
-    echo "      native_asset_id: ${native_asset_id}"
-    echo "      foreign_asset_id: ${foreign_asset_id}"
-    echo "      params:"
     
     call_polkadot_js_api \
         --ws "${runtime_para_endpoint?}" \
-        --seed "${relay_chain_seed?}" \
+        --seed "${seed?}" \
         tx.assetConversion.createPool \
             "${native_asset_id}" \
             "${foreign_asset_id}"
@@ -270,16 +264,6 @@ function force_add_liquidity() {
     local foreign_asset_id=$4
     local native_asset_amount=$5
     local foreign_asset_amount=$6
-    echo "  calling force_add_liquidity:"
-    echo "      relay_url: ${relay_url}"
-    echo "      relay_chain_seed: ${relay_chain_seed}"
-    echo "      runtime_para_id: ${runtime_para_id}"
-    echo "      runtime_para_endpoint: ${runtime_para_endpoint}"
-    echo "      native_asset_id: ${native_asset_id}"
-    echo "      foreign_asset_id: ${foreign_asset_id}"
-    echo "      native_asset_amount: ${native_asset_amount}"
-    echo "      foreign_asset_amount: ${foreign_asset_amount}"
-    echo "      params:"
     
     call_polkadot_js_api \
         --ws "${runtime_para_endpoint?}" \
@@ -291,7 +275,7 @@ function force_add_liquidity() {
             "${foreign_asset_amount}" \
             "1" \
             "1" \
-            "${pool_owner_account_id}" 
+            "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY" 
 }
 function limited_reserve_transfer_assets() {
     local url=$1
