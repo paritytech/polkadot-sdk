@@ -4,35 +4,15 @@ doc:
   description: |-
     This pull requests implements support for ignoring trie nodes while recording a proof. It directly includes the feature into `basic-authorship` to later make use of it in Cumulus for multi-block PoVs.
 
-    The idea behind this is when you have multiple blocks per PoV that trie nodes accessed or produced by a block before (in the same `PoV`), are not required to be added to the storage proof again. So, all the blocks in one `PoV` basically share the same storage proof. This also impacts things like storage weight reclaim, because ignored trie node do not contribute a to the storage proof size (similar to when this would happen in the same block).
+    The idea behind this is when you have multiple blocks per PoV that trie nodes accessed or produced by a block before (in the same `PoV`), are not required to be added to the storage proof again. So, all the blocks in one `PoV` basically share the same storage proof. 
+    This also impacts things like storage weight reclaim, because ignored trie node do not contribute a to the storage proof size (similar to when this would happen in the same block).
 
-    # Example
-
-    Let's say block `A` access key `X` and block `B` accesses key `X` again. As `A` already has read it, we know that it is part of the storage proof and thus, don't need to add it again to the storage proof when building `B`. The same applies for storage values produced by an earlier block (in the same PoV). These storage values are an output of the execution and thus, don't need to be added to the storage proof :)
-
-
-    Depends on https://github.com/paritytech/polkadot-sdk/pull/6137. Base branch will be changed when this got merged.
-
-    Part of: https://github.com/paritytech/polkadot-sdk/issues/6495
 crates:
-- name: cumulus-client-collator
-  bump: major
-- name: cumulus-client-consensus-aura
-  bump: major
-- name: cumulus-client-pov-recovery
-  bump: major
 - name: cumulus-pallet-parachain-system
-  bump: major
-- name: cumulus-primitives-core
-  bump: major
+  bump: minor
+  validate: false
 - name: polkadot-primitives
-  bump: major
-- name: cumulus-pov-validator
-  bump: major
-- name: polkadot-node-collation-generation
-  bump: major
-- name: polkadot-node-core-candidate-validation
-  bump: major
+  bump: patch
 - name: cumulus-client-consensus-proposer
   bump: major
 - name: sc-basic-authorship
@@ -44,8 +24,9 @@ crates:
 - name: sp-api
   bump: major
 - name: sp-trie
-  bump: major
+  bump: minor
 - name: polkadot-omni-node-lib
-  bump: major
+  bump: patch
+  validate: false
 - name: sc-consensus
-  bump: major
+  bump: minor
