@@ -19,10 +19,7 @@
 use async_trait::async_trait;
 use codec::Encode;
 use criterion::{criterion_group, criterion_main, Criterion};
-use futures::{
-	executor::block_on,
-	future::{ready, Ready},
-};
+use futures::executor::block_on;
 use sc_transaction_pool::*;
 use sp_blockchain::HashAndNumber;
 use sp_crypto_hashing::blake2_256;
@@ -126,11 +123,11 @@ impl ChainApi for TestApi {
 		(blake2_256(&encoded).into(), encoded.len())
 	}
 
-	fn block_body(
+	async fn block_body(
 		&self,
 		_id: <Self::Block as BlockT>::Hash,
-	) -> error::Result<Option<Vec<<Self::Block as BlockT>::Extrinsic>>> {
-		ready(Ok(None))
+	) -> sc_transaction_pool_api::error::Result<Option<Vec<<Self::Block as BlockT>::Extrinsic>>> {
+		Ok(None)
 	}
 
 	fn block_header(
