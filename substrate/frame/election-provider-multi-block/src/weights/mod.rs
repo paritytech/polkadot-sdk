@@ -73,7 +73,8 @@ pub mod traits {
 		pub trait WeightInfo {
 			fn validate_unsigned() -> Weight;
 			fn submit_unsigned() -> Weight;
-			// fn mine_solution(_p: u32) -> Weight;
+			// This has an aut-impl as the associated benchmark is `#[extra]`.
+			fn mine_solution(_p: u32) -> Weight { Default::default() }
 		}
 
 		impl WeightInfo for () {
@@ -83,9 +84,6 @@ pub mod traits {
 			fn submit_unsigned() -> Weight {
 				Default::default()
 			}
-			// fn mine_solution() -> Weight {
-			// 	Default::default()
-			// }
 		}
 	}
 

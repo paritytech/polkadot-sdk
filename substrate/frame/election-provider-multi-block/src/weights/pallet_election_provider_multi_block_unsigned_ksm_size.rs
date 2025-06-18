@@ -22,7 +22,7 @@
 // ! we don't want to generate the `trait WeightInfo`.
 //!
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
-//! DATE: 2025-06-17, STEPS: `5`, REPEAT: `5`, LOW RANGE: `[]`, HIGH RANGE: `[]`
+//! DATE: 2025-06-18, STEPS: `5`, REPEAT: `3`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
 //! HOSTNAME: `ggwpez-ref-hw`, CPU: `AMD EPYC 7232P 8-Core Processor`
 //! WASM-EXECUTION: `Compiled`, CHAIN: `None`, DB CACHE: `1024`
@@ -41,13 +41,14 @@
 // --steps
 // 5
 // --repeat
-// 5
+// 3
 // --genesis-builder-preset
 // fake-ksm
 // --template
 // ../../../../../substrate/frame/election-provider-multi-block/src/template.hbs
 // --heap-pages
 // 65000
+// --extra
 // --output
 // ./pallet_election_provider_multi_block_unsigned_fake-ksm.rs
 
@@ -83,8 +84,8 @@ impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_m
 		// Proof Size summary in bytes:
 		//  Measured:  `378`
 		//  Estimated: `3843`
-		// Minimum execution time: 2_472_925_000 picoseconds.
-		Weight::from_parts(2_803_346_000, 3843)
+		// Minimum execution time: 2_236_486_000 picoseconds.
+		Weight::from_parts(2_276_596_000, 3843)
 			.saturating_add(T::DbWeight::get().reads(8_u64))
 	}
 	/// Storage: UNKNOWN KEY `0x33ed3d010c1fea25c2adbfba9297161f` (r:1 w:0)
@@ -115,9 +116,36 @@ impl<T: frame_system::Config> crate::weights::traits::pallet_election_provider_m
 		// Proof Size summary in bytes:
 		//  Measured:  `1440523`
 		//  Estimated: `1451413`
-		// Minimum execution time: 29_152_928_000 picoseconds.
-		Weight::from_parts(31_139_961_000, 1451413)
+		// Minimum execution time: 30_959_432_000 picoseconds.
+		Weight::from_parts(31_005_092_000, 1451413)
 			.saturating_add(T::DbWeight::get().reads(14_u64))
 			.saturating_add(T::DbWeight::get().writes(5_u64))
+	}
+	/// Storage: `MultiBlockElection::Round` (r:1 w:0)
+	/// Proof: `MultiBlockElection::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+	/// Storage: `MultiBlockElection::DesiredTargets` (r:1 w:0)
+	/// Proof: `MultiBlockElection::DesiredTargets` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `Measured`)
+	/// Storage: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
+	/// Proof: UNKNOWN KEY `0xa143099d7a337c5fd879b91b2b157c2d` (r:1 w:0)
+	/// Storage: `MultiBlockElection::PagedTargetSnapshot` (r:1 w:0)
+	/// Proof: `MultiBlockElection::PagedTargetSnapshot` (`max_values`: None, `max_size`: Some(128026), added: 130501, mode: `Measured`)
+	/// Storage: UNKNOWN KEY `0x5640fd84ada5e16d1b6739279282536c` (r:1 w:0)
+	/// Proof: UNKNOWN KEY `0x5640fd84ada5e16d1b6739279282536c` (r:1 w:0)
+	/// Storage: `MultiBlockElection::PagedVoterSnapshot` (r:16 w:0)
+	/// Proof: `MultiBlockElection::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(431919), added: 434394, mode: `Measured`)
+	/// Storage: UNKNOWN KEY `0x6f320d44e42312c78638e6c92dff65af` (r:1 w:0)
+	/// Proof: UNKNOWN KEY `0x6f320d44e42312c78638e6c92dff65af` (r:1 w:0)
+	/// The range of component `p` is `[1, 16]`.
+	fn mine_solution(p: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `39458 + p * (349682 ±0)`
+		//  Estimated: `26136 + p * (352057 ±1_160)`
+		// Minimum execution time: 3_353_004_496_000 picoseconds.
+		Weight::from_parts(3_353_004_496_000, 26136)
+			// Standard Error: 376_745_635_821
+			.saturating_add(Weight::from_parts(6_831_608_018_289, 0).saturating_mul(p.into()))
+			.saturating_add(T::DbWeight::get().reads(6_u64))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(p.into())))
+			.saturating_add(Weight::from_parts(0, 352057).saturating_mul(p.into()))
 	}
 }

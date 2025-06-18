@@ -118,13 +118,12 @@ parameter_types! {
 	/// able to run the mining code at least twice. Note that `OffchainRepeat` limits execution of
 	/// the OCW to at most 4 times per round, for faster collators.
 	///
-	/// * Empirical logs from WAH parity collators show mining takes TODO.
-	/// * Empirical logs from WAH collator running on my M1 MBP shows mining takes TODO.
+	/// Benchmarks logs from tests below are:
 	///
-	/// TODO: need to update WAH runtime to:
-	/// 1. run balancing as well
-	/// 2. run 4 pages
-	/// 3. run without saving, as we still have some flakiness in OCW mining.
+	/// * exec_time of polkadot miner in WASM with 4 pages is 27369ms
+	/// * exec_time of kusama miner in WASM with 4 pages is 23848ms
+	///
+	/// See `max_ocw_miner_pages_as_per_weights` test below.
 	pub storage UnsignedPhase: u32 = MINUTES;
 
 	/// * Polkadot: 22_500
@@ -143,9 +142,6 @@ parameter_types! {
 	/// them. In case this limit is reached, governance should introduce `minValidatorBond`, and
 	/// validators would have to compete with their self-stake to force-chill one another. More
 	/// info: https://github.com/paritytech-secops/srlabs_findings/issues/417
-	///
-	/// TODO: verify in benchmarks ran against these parameters that the weight of the first
-	/// snapshot page is good. Current benchmarks are on slightly smaller values.
 	pub storage TargetSnapshotPerBlock: u32 = 4000;
 
 	// NOTE: rest of the parameters are computed identically in both Kusama and Polkadot.
@@ -654,7 +650,9 @@ mod tests {
 	use frame_election_provider_support::ElectionProvider;
 	use frame_support::weights::constants::{WEIGHT_PROOF_SIZE_PER_KB, WEIGHT_REF_TIME_PER_MILLIS};
 	use frame_system::BlockWeight;
-	use pallet_election_provider_multi_block::{self as mb, signed::WeightInfo};
+	use pallet_election_provider_multi_block::{
+		self as mb, signed::WeightInfo as _, unsigned::WeightInfo as _,
+	};
 	use remote_externalities::{
 		Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig, Transport,
 	};
@@ -722,9 +720,23 @@ mod tests {
 
 	#[test]
 	fn max_ocw_miner_pages_as_per_weights() {
-		todo!(
-			"maximum number of pages that can be submitted via OCW with reasonable weight limits."
-		)
+		sp_tracing::try_init_simple();
+		for p in 1..=32 {
+			log::info!(
+				target: "runtime",
+				"exec_time of polkadot miner in WASM with {} pages is {:?}ms",
+				p,
+				mb::weights::polkadot::MultiBlockUnsignedWeightInfo::<Runtime>::mine_solution(p).ref_time() / WEIGHT_REF_TIME_PER_MILLIS
+			);
+		}
+		for p in 1..=16 {
+			log::info!(
+				target: "runtime",
+				"exec_time of kusama miner in WASM with {} pages is {:?}ms",
+				p,
+				mb::weights::kusama::MultiBlockUnsignedWeightInfo::<Runtime>::mine_solution(p).ref_time() / WEIGHT_REF_TIME_PER_MILLIS
+			);
+		}
 	}
 
 	/// Run it like:
