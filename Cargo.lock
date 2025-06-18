@@ -6727,6 +6727,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
  "sp-version 29.0.0",
+ "substrate-test-runtime-client",
 ]
 
 [[package]]
@@ -11136,9 +11137,9 @@ checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
 name = "orchestra"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41f6bbacc8c189a3f2e45e0fd0436e5d97f194db888e721bdbc3973e7dbed4c2"
+checksum = "19051f0b0512402f5d52d6776999f55996f01887396278aeeccbbdfbc83eef2d"
 dependencies = [
  "async-trait",
  "dyn-clonable",
@@ -11153,9 +11154,9 @@ dependencies = [
 
 [[package]]
 name = "orchestra-proc-macro"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7b1d40dd8f367db3c65bec8d3dd47d4a604ee8874480738f93191bddab4e0e0"
+checksum = "43dfaf083aef571385fccfdc3a2f8ede8d0a1863160455d4f2b014d8f7d04a3f"
 dependencies = [
  "expander",
  "indexmap 2.9.0",
@@ -11436,6 +11437,7 @@ version = "28.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-balances",
  "pallet-session",
  "parity-scale-codec",
  "scale-info",
@@ -11588,6 +11590,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-balances",
  "pallet-beefy",
  "pallet-mmr",
  "pallet-session",
@@ -12430,6 +12433,7 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-authorship",
+ "pallet-balances",
  "pallet-session",
  "parity-scale-codec",
  "scale-info",
@@ -13214,6 +13218,7 @@ dependencies = [
  "frame-system",
  "impl-trait-for-tuples",
  "log",
+ "pallet-balances",
  "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
@@ -13933,6 +13938,8 @@ dependencies = [
  "frame-system",
  "pallet-assets",
  "pallet-balances",
+ "pallet-revive",
+ "pallet-timestamp",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-runtime-parachains",
@@ -14371,6 +14378,7 @@ dependencies = [
  "polkadot-runtime-common",
  "primitive-types 0.13.1",
  "scale-info",
+ "serde_json",
  "smallvec",
  "sp-api 26.0.0",
  "sp-block-builder",
@@ -14378,6 +14386,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-genesis-builder",
  "sp-inherents",
+ "sp-keyring",
  "sp-offchain",
  "sp-runtime 31.0.1",
  "sp-session",
@@ -15480,7 +15489,6 @@ dependencies = [
 name = "polkadot-node-core-pvf-prepare-worker"
 version = "7.0.0"
 dependencies = [
- "blake3",
  "cfg-if",
  "criterion",
  "libc",
@@ -15669,6 +15677,7 @@ dependencies = [
  "polkadot-primitives-test-helpers",
  "prioritized-metered-channel",
  "rand 0.8.5",
+ "sc-keystore",
  "schnellru",
  "sp-application-crypto 30.0.0",
  "sp-core 28.0.0",
@@ -18361,6 +18370,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "revive-dev-node"
+version = "0.0.0"
+dependencies = [
+ "clap",
+ "docify",
+ "futures",
+ "futures-timer",
+ "jsonrpsee",
+ "polkadot-sdk 0.1.0",
+ "revive-dev-runtime",
+]
+
+[[package]]
+name = "revive-dev-runtime"
+version = "0.0.0"
+dependencies = [
+ "array-bytes 6.2.2",
+ "parity-scale-codec",
+ "polkadot-sdk 0.1.0",
+ "scale-info",
+ "serde_json",
+]
+
+[[package]]
 name = "rfc6979"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -18494,12 +18527,14 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
  "scale-info",
+ "serde_json",
  "sp-api 26.0.0",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core 28.0.0",
  "sp-genesis-builder",
  "sp-inherents",
+ "sp-keyring",
  "sp-offchain",
  "sp-runtime 31.0.1",
  "sp-session",
@@ -19224,6 +19259,7 @@ dependencies = [
  "docify",
  "memmap2 0.9.3",
  "parity-scale-codec",
+ "pretty_assertions",
  "regex",
  "sc-chain-spec-derive",
  "sc-client-api",
@@ -24326,6 +24362,7 @@ dependencies = [
  "clap",
  "cmd_lib",
  "docify",
+ "pretty_assertions",
  "sc-chain-spec",
  "serde",
  "serde_json",
@@ -24860,7 +24897,9 @@ dependencies = [
  "pallet-babe",
  "pallet-balances",
  "pallet-timestamp",
+ "pallet-utility",
  "parity-scale-codec",
+ "pretty_assertions",
  "sc-block-builder",
  "sc-chain-spec",
  "sc-executor 0.32.0",
@@ -28524,6 +28563,7 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
  "scale-info",
+ "serde_json",
  "sp-api 26.0.0",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -28531,6 +28571,7 @@ dependencies = [
  "sp-genesis-builder",
  "sp-inherents",
  "sp-io 30.0.0",
+ "sp-keyring",
  "sp-offchain",
  "sp-runtime 31.0.1",
  "sp-session",

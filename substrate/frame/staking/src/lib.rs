@@ -374,7 +374,17 @@ pub type NegativeImbalanceOf<T> =
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 /// Information regarding the active era (era in used in session).
-#[derive(Encode, Decode, Clone, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+	PartialEq,
+	Eq,
+)]
 pub struct ActiveEraInfo {
 	/// Index of era.
 	pub index: EraIndex,
@@ -388,7 +398,7 @@ pub struct ActiveEraInfo {
 /// Reward points of an era. Used to split era total payout between validators.
 ///
 /// This points will be used to reward validators and their respective nominators.
-#[derive(PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo, Clone, PartialEq, Eq)]
 pub struct EraRewardPoints<AccountId: Ord> {
 	/// Total number of points. Equals the sum of reward points for each validator.
 	pub total: RewardPoint,
@@ -469,10 +479,10 @@ pub struct ValidatorPrefs {
 pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 	/// Amount of funds to be unlocked.
 	#[codec(compact)]
-	value: Balance,
+	pub value: Balance,
 	/// Era number at which point it'll be unlocked.
 	#[codec(compact)]
-	era: EraIndex,
+	pub era: EraIndex,
 }
 
 /// The ledger of a (bonded) stash.
@@ -490,6 +500,7 @@ pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 	CloneNoBound,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	RuntimeDebugNoBound,
 	TypeInfo,
 	MaxEncodedLen,
@@ -524,9 +535,9 @@ pub struct StakingLedger<T: Config> {
 	/// The controller associated with this ledger's stash.
 	///
 	/// This is not stored on-chain, and is only bundled when the ledger is read from storage.
-	/// Use [`controller`] function to get the controller associated with the ledger.
+	/// Use [`Self::controller()`] function to get the controller associated with the ledger.
 	#[codec(skip)]
-	controller: Option<T::AccountId>,
+	pub controller: Option<T::AccountId>,
 }
 
 /// State of a ledger with regards with its data and metadata integrity.
@@ -799,7 +810,15 @@ impl<T: Config> StakingLedger<T> {
 
 /// A record of the nominations made by a specific account.
 #[derive(
-	PartialEqNoBound, EqNoBound, Clone, Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen,
+	PartialEqNoBound,
+	EqNoBound,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebugNoBound,
+	TypeInfo,
+	MaxEncodedLen,
 )]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T))]
@@ -866,18 +885,18 @@ impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEn
 
 /// A pending slash record. The value of the slash has been computed but not applied yet,
 /// rather deferred for several eras.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, RuntimeDebug, TypeInfo, PartialEq, Eq, Clone, DecodeWithMemTracking)]
 pub struct UnappliedSlash<AccountId, Balance: HasCompact> {
 	/// The stash ID of the offending validator.
-	validator: AccountId,
+	pub validator: AccountId,
 	/// The validator's own slash.
-	own: Balance,
+	pub own: Balance,
 	/// All other slashed stakers and amounts.
-	others: Vec<(AccountId, Balance)>,
+	pub others: Vec<(AccountId, Balance)>,
 	/// Reporters of the offence; bounty payout recipients.
-	reporters: Vec<AccountId>,
+	pub reporters: Vec<AccountId>,
 	/// The amount of payout.
-	payout: Balance,
+	pub payout: Balance,
 }
 
 impl<AccountId, Balance: HasCompact + Zero> UnappliedSlash<AccountId, Balance> {

@@ -31,9 +31,9 @@ use sp_runtime::{
 use xcm::latest::prelude::*;
 
 parameter_types! {
-	pub storage SignedPhase: u32 = 2 * MINUTES;
+	pub storage SignedPhase: u32 = 4 * MINUTES;
 	pub storage UnsignedPhase: u32 = MINUTES;
-	pub storage SignedValidationPhase: u32 = Pages::get() + 1;
+	pub storage SignedValidationPhase: u32 = Pages::get(); // allow to verify  just a solution
 
 	pub storage MaxElectingVoters: u32 = 1000;
 
@@ -244,6 +244,10 @@ parameter_types! {
 	// of nominators.
 	pub const MaxControllersInDeprecationBatch: u32 = 751;
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
+	// Note: In WAH, this should be set closer to the ideal era duration to trigger capping more
+	// frequently. On Kusama and Polkadot, a higher value like 7 × ideal_era_duration is more
+	// appropriate.
+	pub const MaxEraDuration: u64 = RelaySessionDuration::get() as u64 * RELAY_CHAIN_SLOT_DURATION_MILLIS as u64 * SessionsPerEra::get() as u64;
 }
 
 impl pallet_staking_async::Config for Runtime {
@@ -273,6 +277,7 @@ impl pallet_staking_async::Config for Runtime {
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
 	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
+	type MaxEraDuration = MaxEraDuration;
 	type MaxDisabledValidators = ConstU32<100>;
 	type PlanningEraOffset =
 		pallet_staking_async::PlanningEraOffsetOf<Self, RelaySessionDuration, ConstU32<10>>;

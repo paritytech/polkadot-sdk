@@ -16,6 +16,13 @@ env:
   FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 1
   LOCAL_DIR: "./cumulus/zombienet/tests"
   GHA_CLUSTER_SERVER_ADDR: "https://kubernetes.default:443"
+  # use spot by default
+  X_INFRA_INSTANCE: "spot"
+  # don't retry sdk tests
+  NEXTEST_RETRIES: 0
+  KUBECONFIG: "/data/config"
+  ZOMBIE_CLEANER_DISABLED: 1
+
 
 # only run if we have changes in [subtrate, cumulus, polkadot] directories or this workflow.
 jobs:
@@ -70,6 +77,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+
       - name: zombienet_test
         uses: ./.github/actions/zombienet
         with:
@@ -79,6 +87,7 @@ jobs:
           gh-token: ${{ secrets.GITHUB_TOKEN }}
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+
 
   zombienet-cumulus-0003-full_node_catching_up:
     needs: [preflight]
@@ -95,6 +104,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet
@@ -131,7 +141,8 @@ jobs:
       - name: tar
         run: tar -xvf artifacts.tar
 
-      - name: script
+      - name: cp
+        shell: bash
         run: |
           ls -ltr *
           cp ./artifacts/zombienet/wasm_binary_spec_version_incremented.rs.compact.compressed.wasm /tmp/
@@ -146,6 +157,7 @@ jobs:
           gh-token: ${{ secrets.GITHUB_TOKEN }}
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+
 
   zombienet-cumulus-0005-migrate_solo_to_para:
     needs: [preflight]

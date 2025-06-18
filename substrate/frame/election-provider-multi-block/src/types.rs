@@ -35,7 +35,7 @@
 //! This is the most important type of this pallet, demonstrating the state-machine used
 //! to manage the election process and its various phases.
 
-use crate::unsigned::miner::MinerConfig;
+use crate::{unsigned::miner::MinerConfig, verifier};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_election_provider_support::ElectionProvider;
 pub use frame_election_provider_support::{NposSolution, PageIndex};
@@ -202,19 +202,19 @@ impl<T: Default + Clone + Debug, Bound: frame_support::traits::Get<u32>> PadSolu
 }
 
 /// Alias for a voter, parameterized by the miner config.
-pub(crate) type VoterOf<T> = frame_election_provider_support::Voter<
+pub type VoterOf<T> = frame_election_provider_support::Voter<
 	<T as MinerConfig>::AccountId,
 	<T as MinerConfig>::MaxVotesPerVoter,
 >;
 
 /// Alias for a page of voters, parameterized by this crate's config.
-pub(crate) type VoterPageOf<T> = BoundedVec<VoterOf<T>, <T as MinerConfig>::VoterSnapshotPerBlock>;
+pub type VoterPageOf<T> = BoundedVec<VoterOf<T>, <T as MinerConfig>::VoterSnapshotPerBlock>;
 
 /// Alias for all pages of voters, parameterized by this crate's config.
-pub(crate) type AllVoterPagesOf<T> = BoundedVec<VoterPageOf<T>, <T as MinerConfig>::Pages>;
+pub type AllVoterPagesOf<T> = BoundedVec<VoterPageOf<T>, <T as MinerConfig>::Pages>;
 
 /// Maximum number of items that [`AllVoterPagesOf`] can contain, when flattened.
-pub(crate) struct MaxFlattenedVoters<T: MinerConfig>(sp_std::marker::PhantomData<T>);
+pub struct MaxFlattenedVoters<T: MinerConfig>(sp_std::marker::PhantomData<T>);
 impl<T: MinerConfig> Get<u32> for MaxFlattenedVoters<T> {
 	fn get() -> u32 {
 		T::VoterSnapshotPerBlock::get().saturating_mul(T::Pages::get())
@@ -225,7 +225,7 @@ impl<T: MinerConfig> Get<u32> for MaxFlattenedVoters<T> {
 /// flattened into one outer, unbounded `Vec` type.
 ///
 /// This is bounded by [`MaxFlattenedVoters`].
-pub(crate) type AllVoterPagesFlattenedOf<T> = BoundedVec<VoterOf<T>, MaxFlattenedVoters<T>>;
+pub type AllVoterPagesFlattenedOf<T> = BoundedVec<VoterOf<T>, MaxFlattenedVoters<T>>;
 
 /// Current phase of the pallet.
 #[derive(
@@ -301,6 +301,21 @@ impl<T: crate::Config> Phase<T> {
 		Self::Snapshot(T::Pages::get())
 	}
 
+	fn are_we_done() -> Self {
+		let query = T::AreWeDone::get();
+		log!(debug, "Are we done? {:?}", query);
+		query
+	}
+
+	/// A hack to make sure we don't finish the signed verification phase just yet if the status is
+	/// not yet set back to `Nothing`.
+	fn verifier_done() -> bool {
+		matches!(
+			<T::Verifier as verifier::AsynchronousVerifier>::status(),
+			verifier::Status::Nothing
+		)
+	}
+
 	/// Consume self and return the next variant, as per what the current phase is.
 	pub fn next(self) -> Self {
 		match self {
@@ -317,29 +332,30 @@ impl<T: crate::Config> Phase<T> {
 				{
 					Self::Unsigned(unsigned_duration)
 				} else {
-					T::AreWeDone::get()
+					Self::are_we_done()
 				},
 			Self::Snapshot(non_zero_remaining) =>
 				Self::Snapshot(non_zero_remaining.defensive_saturating_sub(One::one())),
 
 			// signed phase
 			Self::Signed(zero) if zero == BlockNumberFor::<T>::zero() =>
-				Self::SignedValidation(T::SignedValidationPhase::get().saturating_sub(One::one())),
+				Self::SignedValidation(T::SignedValidationPhase::get()),
 			Self::Signed(non_zero_left) =>
 				Self::Signed(non_zero_left.defensive_saturating_sub(One::one())),
 
 			// signed validation
-			Self::SignedValidation(zero) if zero == BlockNumberFor::<T>::zero() =>
+			Self::SignedValidation(zero)
+				if zero == BlockNumberFor::<T>::zero() && Self::verifier_done() =>
 				if let Some(unsigned_duration) = T::UnsignedPhase::get().checked_sub(&One::one()) {
 					Self::Unsigned(unsigned_duration)
 				} else {
-					T::AreWeDone::get()
+					Self::are_we_done()
 				},
 			Self::SignedValidation(non_zero_left) =>
-				Self::SignedValidation(non_zero_left.defensive_saturating_sub(One::one())),
+				Self::SignedValidation(non_zero_left.saturating_sub(One::one())),
 
 			// unsigned phase -- at this phase we will
-			Self::Unsigned(zero) if zero == BlockNumberFor::<T>::zero() => T::AreWeDone::get(),
+			Self::Unsigned(zero) if zero == BlockNumberFor::<T>::zero() => Self::are_we_done(),
 			Self::Unsigned(non_zero_left) =>
 				Self::Unsigned(non_zero_left.defensive_saturating_sub(One::one())),
 
