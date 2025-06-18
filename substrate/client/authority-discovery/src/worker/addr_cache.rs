@@ -17,25 +17,22 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::error::Error;
-use log::{debug, error, warn};
-use sc_network::{
-	multiaddr::Protocol,
-	Multiaddr,
-};
+use log::{error, warn};
+use sc_network::{multiaddr::Protocol, Multiaddr};
 use sc_network_types::PeerId;
 use serde::{Deserialize, Serialize};
 use sp_authority_discovery::AuthorityId;
 use sp_runtime::DeserializeOwned;
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet},
-	fs::{self, File, Permissions},
-	io::{self, BufReader, Write, BufWriter},
-	path::{PathBuf, Path},
+	fs::{self, File},
+	io::{self, BufReader, Write},
+	path::Path,
 };
 
 /// Cache for [`AuthorityId`] -> [`HashSet<Multiaddr>`] and [`PeerId`] -> [`HashSet<AuthorityId>`]
 /// mappings.
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default, Clone)]
 pub(super) struct AddrCache {
 	/// The addresses found in `authority_id_to_addresses` are guaranteed to always match
 	/// the peerids found in `peer_id_to_authority_ids`. In other words, these two hashmaps
@@ -46,7 +43,6 @@ pub(super) struct AddrCache {
 	/// it's not expected that a single `AuthorityId` can have multiple `PeerId`s.
 	authority_id_to_addresses: HashMap<AuthorityId, HashSet<Multiaddr>>,
 	peer_id_to_authority_ids: HashMap<PeerId, HashSet<AuthorityId>>,
-
 }
 
 impl std::fmt::Debug for AddrCache {
@@ -99,8 +95,9 @@ impl AddrCache {
 	}
 
 	pub fn persist_on_disk(&self, path: impl AsRef<Path>) -> Result<(), crate::Error> {
-		write_to_file(path, self)
-			.map_err(|e| Error::EncodingDecodingAddrCache(format!("Failed to persist AddrCache, error: {:?}", e)))
+		write_to_file(path, self).map_err(|e| {
+			Error::EncodingDecodingAddrCache(format!("Failed to persist AddrCache, error: {:?}", e))
+		})
 	}
 
 	/// Inserts the given [`AuthorityId`] and [`Vec<Multiaddr>`] pair for future lookups by
@@ -145,7 +142,6 @@ impl AddrCache {
 
 		// Remove the old peer ids
 		self.remove_authority_id_from_peer_ids(&authority_id, old_peer_ids.difference(&peer_ids));
-
 	}
 
 	/// Remove the given `authority_id` from the `peer_id` to `authority_ids` mapping.
@@ -216,10 +212,7 @@ impl AddrCache {
 				addresses_to_peer_ids(&addresses).iter(),
 			);
 		}
-
 	}
-
-
 }
 
 fn peer_id_from_multiaddr(addr: &Multiaddr) -> Option<PeerId> {
@@ -249,7 +242,7 @@ fn load_from_file<T: DeserializeOwned>(path: impl AsRef<Path>) -> io::Result<T> 
 #[cfg(test)]
 mod tests {
 
-	use std::{os::unix::thread, thread::sleep, time::Duration};
+	use std::{thread::sleep, time::Duration};
 
 	use super::*;
 
@@ -477,8 +470,6 @@ mod tests {
 		}
 	}
 
-
-
 	/// Tests JSON roundtrip is stable.
 	#[test]
 	fn serde_json() {
@@ -526,5 +517,4 @@ mod tests {
 		let cache = AddrCache::load_from_persisted_file(path);
 		assert_eq!(cache.num_authority_ids(), 2);
 	}
-
 }

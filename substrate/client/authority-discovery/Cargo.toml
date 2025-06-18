@@ -42,6 +42,7 @@ sp-keystore = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 tokio.workspace = true
+tokio-stream.workspace = true
 
 [dev-dependencies]
 hex.workspace = true

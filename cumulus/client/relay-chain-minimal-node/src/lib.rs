@@ -75,6 +75,11 @@ fn build_authority_discovery_service<Block: BlockT>(
 			public_addresses: auth_disc_public_addresses,
 			// Require that authority discovery records are signed.
 			strict_record_validation: true,
+			persisted_cache_directory: config
+				.network
+				.net_config_path
+				.cloned()
+				.expect("'net_config_path' should be set"),
 			..Default::default()
 		},
 		client,

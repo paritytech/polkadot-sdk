@@ -21,12 +21,12 @@ use litep2p::types::multiaddr::{
 	Protocol as LiteP2pProtocol,
 };
 use multiaddr::Multiaddr as LibP2pMultiaddr;
+use serde_with::{DeserializeFromStr, SerializeDisplay};
 use std::{
 	fmt::{self, Debug, Display},
 	net::{IpAddr, Ipv4Addr, Ipv6Addr},
 	str::FromStr,
 };
-use serde_with::{SerializeDisplay, DeserializeFromStr};
 
 mod protocol;
 pub use protocol::Protocol;

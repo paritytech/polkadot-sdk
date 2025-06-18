@@ -23,6 +23,7 @@ use std::{
 	time::Instant,
 };
 
+use super::*;
 use futures::{
 	channel::mpsc::{self, channel},
 	executor::{block_on, LocalPool},
@@ -41,13 +42,11 @@ use sc_network_types::{
 	multiaddr::{Multiaddr, Protocol},
 	PeerId,
 };
-use sc_service::TaskManager;
 use sp_api::{ApiRef, ProvideRuntimeApi};
+use sp_core::testing::TaskExecutor;
 use sp_keystore::{testing::MemoryKeystore, Keystore};
 use sp_runtime::traits::{Block as BlockT, NumberFor, Zero};
 use substrate_test_runtime_client::runtime::Block;
-use sp_core::testing::TaskExecutor;
-use super::*;
 
 fn create_spawner() -> Arc<dyn SpawnNamed> {
 	Arc::new(TaskExecutor::new())
@@ -331,7 +330,7 @@ async fn new_registers_metrics() {
 		Role::PublishAndDiscover(key_store.into()),
 		Some(registry.clone()),
 		Default::default(),
-		create_spawner()
+		create_spawner(),
 	);
 
 	assert!(registry.gather().len() > 0);
@@ -361,7 +360,7 @@ async fn triggers_dht_get_query() {
 		Role::PublishAndDiscover(key_store.into()),
 		None,
 		Default::default(),
-		create_spawner()
+		create_spawner(),
 	);
 
 	futures::executor::block_on(async {
@@ -400,7 +399,7 @@ async fn publish_discover_cycle() {
 				Role::PublishAndDiscover(key_store.into()),
 				None,
 				Default::default(),
-				create_spawner()
+				create_spawner(),
 			);
 
 			worker.publish_ext_addresses(false).await.unwrap();
@@ -435,7 +434,7 @@ async fn publish_discover_cycle() {
 				Role::PublishAndDiscover(key_store.into()),
 				None,
 				Default::default(),
-				create_spawner()
+				create_spawner(),
 			);
 
 			dht_event_tx.try_send(dht_event.clone()).unwrap();
@@ -471,7 +470,7 @@ async fn terminate_when_event_stream_terminates() {
 		Role::PublishAndDiscover(key_store.into()),
 		None,
 		Default::default(),
-		create_spawner()
+		create_spawner(),
 	)
 	.run();
 	futures::pin_mut!(worker);
@@ -535,7 +534,7 @@ async fn dont_stop_polling_dht_event_stream_after_bogus_event() {
 		Role::PublishAndDiscover(Arc::new(key_store)),
 		None,
 		Default::default(),
-		create_spawner()
+		create_spawner(),
 	);
 
 	// Spawn the authority discovery to make sure it is polled independently.
@@ -662,8 +661,17 @@ impl DhtValueFoundTester {
 				Box::pin(dht_event_rx),
 				Role::PublishAndDiscover(Arc::new(local_key_store)),
 				None,
-				WorkerConfig { strict_record_validation, ..Default::default() },
-				create_spawner()
+				WorkerConfig {
+					strict_record_validation,
+					persisted_cache_directory: Some(
+						tempfile::tempdir()
+							.expect("Should be able to create tmp dir")
+							.path()
+							.to_path_buf(),
+					),
+					..Default::default()
+				},
+				create_spawner(),
 			));
 			(self.local_worker.as_mut().unwrap(), Some(local_network))
 		};
@@ -1055,7 +1063,7 @@ async fn addresses_to_publish_adds_p2p() {
 		Role::PublishAndDiscover(MemoryKeystore::new().into()),
 		Some(prometheus_endpoint::Registry::new()),
 		Default::default(),
-		create_spawner()
+		create_spawner(),
 	);
 
 	assert!(
@@ -1094,7 +1102,7 @@ async fn addresses_to_publish_respects_existing_p2p_protocol() {
 		Role::PublishAndDiscover(MemoryKeystore::new().into()),
 		Some(prometheus_endpoint::Registry::new()),
 		Default::default(),
-		create_spawner()
+		create_spawner(),
 	);
 
 	assert_eq!(
@@ -1139,7 +1147,7 @@ async fn lookup_throttling() {
 		Role::Discover,
 		Some(default_registry().clone()),
 		Default::default(),
-		create_spawner()
+		create_spawner(),
 	);
 
 	let mut pool = LocalPool::new();
@@ -1258,7 +1266,7 @@ async fn test_handle_put_record_request() {
 		Role::Discover,
 		Some(default_registry().clone()),
 		Default::default(),
-		create_spawner()
+		create_spawner(),
 	);
 
 	let mut pool = LocalPool::new();

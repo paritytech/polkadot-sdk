@@ -33,7 +33,7 @@ pub use crate::{
 	worker::{AuthorityDiscovery, NetworkProvider, Role, Worker},
 };
 
-use std::{collections::HashSet, sync::Arc, time::Duration};
+use std::{collections::HashSet, path::PathBuf, sync::Arc, time::Duration};
 
 use futures::{
 	channel::{mpsc, oneshot},
@@ -88,6 +88,11 @@ pub struct WorkerConfig {
 	///
 	/// Defaults to `false` to provide compatibility with old versions
 	pub strict_record_validation: bool,
+
+	/// The directory of where the persisted AddrCache file is located,
+	/// optional since NetworkConfiguration's `net_config_path` field
+	/// is optional. If None, we won't persist the AddrCache at all.
+	pub persisted_cache_directory: Option<PathBuf>,
 }
 
 impl Default for WorkerConfig {
@@ -110,6 +115,7 @@ impl Default for WorkerConfig {
 			publish_non_global_ips: true,
 			public_addresses: Vec::new(),
 			strict_record_validation: false,
+			persisted_cache_directory: None,
 		}
 	}
 }

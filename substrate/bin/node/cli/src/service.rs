@@ -659,6 +659,11 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 				sc_authority_discovery::WorkerConfig {
 					publish_non_global_ips: auth_disc_publish_non_global_ips,
 					public_addresses: auth_disc_public_addresses,
+					persisted_cache_directory: config
+						.network
+						.net_config_path
+						.cloned()
+						.expect("'net_config_path' should be set"),
 					..Default::default()
 				},
 				client.clone(),

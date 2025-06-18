@@ -60,6 +60,7 @@ use sp_core::{
 };
 use sp_keystore::{Keystore, KeystorePtr};
 use sp_runtime::traits::Block as BlockT;
+use tokio_stream::wrappers::IntervalStream;
 
 mod addr_cache;
 /// Dht payload schemas generated from Protobuf definitions via Prost crate in build.rs.
@@ -73,7 +74,7 @@ mod schema {
 pub mod tests;
 
 const LOG_TARGET: &str = "sub-authority-discovery";
-const ADDR_CACHE_PERSISTENCE_PATH: &str = "authority_discovery_addr_cache.json";
+const ADDR_CACHE_FILE_NAME: &str = "authority_discovery_addr_cache.json";
 
 /// Maximum number of addresses cached per authority. Additional addresses are discarded.
 const MAX_ADDRESSES_PER_AUTHORITY: usize = 16;
@@ -194,6 +195,11 @@ pub struct Worker<Client, Block: BlockT, DhtEventStream> {
 
 	/// A spawner of tasks
 	spawner: Arc<dyn SpawnNamed>,
+
+	/// The directory of where the persisted AddrCache file is located,
+	/// optional since NetworkConfiguration's `net_config_path` field
+	/// is optional. If None, we won't persist the AddrCache at all.
+	persisted_cache_file_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone)]
@@ -270,10 +276,22 @@ where
 		let publish_if_changed_interval =
 			ExpIncInterval::new(config.keystore_refresh_interval, config.keystore_refresh_interval);
 
-		// Load contents of persisted cache from file, if it exists, and is valid. Create a new one
-		// otherwise, and install a callback to persist it on change.
-		let persisted_cache_path = PathBuf::from(ADDR_CACHE_PERSISTENCE_PATH);
-		let addr_cache = AddrCache::load_from_persisted_file(&persisted_cache_path);
+		let maybe_persisted_cache_file_path =
+			config.persisted_cache_directory.as_ref().map(|dir| {
+				let mut path = dir.clone();
+				path.push(ADDR_CACHE_FILE_NAME);
+				path
+			});
+
+		// If we have a path to persisted cache file, then we will try to
+		// load the contents of persisted cache from file, if it exists, and is valid.
+		// Create a new one otherwise.
+		let addr_cache: AddrCache =
+			if let Some(persisted_cache_file_path) = maybe_persisted_cache_file_path.as_ref() {
+				AddrCache::load_from_persisted_file(persisted_cache_file_path)
+			} else {
+				AddrCache::new()
+			};
 
 		let metrics = match prometheus_registry {
 			Some(registry) => match Metrics::register(&registry) {
@@ -320,35 +338,50 @@ where
 			warn_public_addresses: false,
 			phantom: PhantomData,
 			last_known_records: HashMap::new(),
-			spawner
+			spawner,
+			persisted_cache_file_path: maybe_persisted_cache_file_path,
 		}
+	}
+
+	pub fn persist_addr_cache_if_supported(&self) {
+		let maybe_path = self.persisted_cache_file_path.clone();
+		let Some(path) = maybe_path else { return };
+		let cloned_cache = self.addr_cache.clone();
+		self.spawner.spawn(
+			"PersistAddrCache",
+			Some("AuthorityDiscoveryWorker"),
+			Box::pin(async move {
+				match cloned_cache.persist_on_disk(path) {
+					Err(err) => {
+						error!(target: LOG_TARGET, "Failed to persist AddrCache on disk: {}", err);
+					},
+					Ok(_) => {
+						debug!(target: LOG_TARGET, "Successfully persisted AddrCache on disk");
+					},
+				};
+			}),
+		)
 	}
 
 	/// Start the worker
 	pub async fn run(mut self) {
-		let mut interval = tokio::time::interval(Duration::from_secs(60 * 10 /* 10 minutes */));
+		let mut maybe_interval = self.persisted_cache_file_path.as_ref().map(|_| {
+			IntervalStream::new(tokio::time::interval(Duration::from_secs(60 * 10))).fuse()
+		});
 
 		loop {
 			self.start_new_lookups();
 
+			let persist_future = maybe_interval
+				.as_mut()
+				.map(|i| i.select_next_some().boxed())
+				.unwrap_or_else(|| future::pending().boxed());
+
 			futures::select! {
-				_ = interval.tick().fuse() => {
-					// Addr cache is eventually consistent.
-					match self.addr_cache.persist_on_disk(PathBuf::from(ADDR_CACHE_PERSISTENCE_PATH)) {
-						Err(err) => {
-							error!(
-								target: LOG_TARGET,
-								"Failed to persist AddrCache on disk: {}", err,
-							);
-						},
-						Ok(_) => {
-							debug!(
-								target: LOG_TARGET,
-								"Successfully persisted AddrCache on disk",
-							);
-						},
-					};
-				},
+				// Only tick and persist if the interval exists
+				_ = persist_future.fuse() => {
+						self.persist_addr_cache_if_supported()
+					},
 				// Process incoming events.
 				event = self.dht_event_rx.next().fuse() => {
 					if let Some(event) = event {
