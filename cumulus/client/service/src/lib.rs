@@ -314,18 +314,20 @@ where
 		.spawn_handle()
 		.spawn("parachain-informant", None, parachain_informant);
 
-	let parachain_rpc_metrics = parachain_rpc_metrics::<Block>(
-		relay_chain_interface.clone(),
-		rpc_transaction_v2_handles,
-		para_id,
-		prometheus_registry.map(ParachainRpcMetrics::new).transpose()?,
-	);
-	task_manager.spawn_handle().spawn("parachain-rpc-metrics", None, async move {
-		let result = parachain_rpc_metrics.await;
-		if result.is_err() {
-			log::error!(target: LOG_TARGET_SYNC, "Parachain RPC metrics stopped: {:?}", result);
-		}
-	});
+	if !rpc_transaction_v2_handles.is_empty() {
+		let parachain_rpc_metrics = parachain_rpc_metrics::<Block>(
+			relay_chain_interface.clone(),
+			rpc_transaction_v2_handles,
+			para_id,
+			prometheus_registry.map(ParachainRpcMetrics::new).transpose()?,
+		);
+		task_manager.spawn_handle().spawn("parachain-rpc-metrics", None, async move {
+			let result = parachain_rpc_metrics.await;
+			if result.is_err() {
+				log::error!(target: LOG_TARGET_SYNC, "Parachain RPC metrics stopped: {:?}", result);
+			}
+		});
+	}
 
 	Ok(())
 }
