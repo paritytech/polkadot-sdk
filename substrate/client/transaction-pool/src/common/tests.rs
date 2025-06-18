@@ -22,7 +22,6 @@ use crate::{
 	graph::{BlockHash, ChainApi, ExtrinsicFor, NumberFor, RawExtrinsicFor},
 	ValidateTransactionPriority,
 };
-use async_trait::async_trait;
 use codec::Encode;
 use parking_lot::Mutex;
 use sc_transaction_pool_api::error;

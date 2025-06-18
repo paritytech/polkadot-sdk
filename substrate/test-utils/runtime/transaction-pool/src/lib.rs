@@ -20,6 +20,7 @@
 //! See [`TestApi`] for more information.
 
 use codec::Encode;
+use futures::future::ready;
 use parking_lot::RwLock;
 use sc_transaction_pool::{ChainApi, ValidateTransactionPriority};
 use sp_blockchain::{CachedHeaderMetadata, HashAndNumber, TreeRoute};
