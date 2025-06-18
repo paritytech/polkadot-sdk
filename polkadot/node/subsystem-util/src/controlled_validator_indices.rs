@@ -17,23 +17,22 @@
 //! `ControlledValidatorIndices` implementation.
 
 use polkadot_primitives::{IndexedVec, SessionIndex, ValidatorId, ValidatorIndex, ValidatorPair};
-use sc_keystore::LocalKeystore;
 use schnellru::{ByLength, LruMap};
 use sp_application_crypto::{AppCrypto, ByteArray};
-use sp_keystore::Keystore;
-use std::{collections::HashSet, sync::Arc};
+use sp_keystore::{Keystore, KeystorePtr};
+use std::collections::HashSet;
 
 /// Keeps track of the validator indices controlled by the local validator in a given session. For
 /// better performance, the values for each session are cached.
 pub struct ControlledValidatorIndices {
 	/// The indices of the controlled validators, cached by session.
 	controlled_validator_indices: LruMap<SessionIndex, HashSet<ValidatorIndex>>,
-	keystore: Arc<LocalKeystore>,
+	keystore: KeystorePtr,
 }
 
 impl ControlledValidatorIndices {
 	/// Create a new instance of `ControlledValidatorIndices`.
-	pub fn new(keystore: Arc<LocalKeystore>, cache_size: u32) -> Self {
+	pub fn new(keystore: KeystorePtr, cache_size: u32) -> Self {
 		let controlled_validator_indices = LruMap::new(ByLength::new(cache_size));
 		Self { controlled_validator_indices, keystore }
 	}
@@ -60,7 +59,7 @@ impl ControlledValidatorIndices {
 	///
 	/// That is all `ValidatorIndex`es we have private keys for. Usually this will only be one.
 	fn find_controlled_validator_indices(
-		keystore: &LocalKeystore,
+		keystore: &KeystorePtr,
 		validators: &IndexedVec<ValidatorIndex, ValidatorId>,
 	) -> HashSet<ValidatorIndex> {
 		let mut controlled = HashSet::new();
