@@ -210,7 +210,48 @@ impl<T: Config<I>, I: 'static> fungible::Mutate<T::AccountId> for Pallet<T, I> {
 	}
 }
 
-impl<T: Config<I>, I: 'static> fungible::MutateHold<T::AccountId> for Pallet<T, I> {}
+impl<T: Config<I>, I: 'static> fungible::MutateHold<T::AccountId> for Pallet<T, I> {
+	fn done_hold(reason: &Self::Reason, who: &T::AccountId, amount: Self::Balance) {
+		Self::deposit_event(Event::<T, I>::Held { reason: *reason, who: who.clone(), amount });
+	}
+	fn done_release(reason: &Self::Reason, who: &T::AccountId, amount: Self::Balance) {
+		Self::deposit_event(Event::<T, I>::Released { reason: *reason, who: who.clone(), amount });
+	}
+	fn done_burn_held(reason: &Self::Reason, who: &T::AccountId, amount: Self::Balance) {
+		Self::deposit_event(Event::<T, I>::BurnedHeld {
+			reason: *reason,
+			who: who.clone(),
+			amount,
+		});
+	}
+	fn done_transfer_on_hold(
+		reason: &Self::Reason,
+		source: &T::AccountId,
+		dest: &T::AccountId,
+		amount: Self::Balance,
+	) {
+		// Emit on-hold transfer event
+		Self::deposit_event(Event::<T, I>::TransferOnHold {
+			reason: *reason,
+			source: source.clone(),
+			dest: dest.clone(),
+			amount,
+		});
+	}
+	fn done_transfer_and_hold(
+		reason: &Self::Reason,
+		source: &T::AccountId,
+		dest: &T::AccountId,
+		transferred: Self::Balance,
+	) {
+		Self::deposit_event(Event::<T, I>::TransferAndHold {
+			reason: *reason,
+			source: source.clone(),
+			dest: dest.clone(),
+			transferred,
+		})
+	}
+}
 
 impl<T: Config<I>, I: 'static> fungible::InspectHold<T::AccountId> for Pallet<T, I> {
 	type Reason = T::RuntimeHoldReason;
@@ -344,8 +385,8 @@ impl<T: Config<I>, I: 'static> fungible::MutateFreeze<T::AccountId> for Pallet<T
 }
 
 impl<T: Config<I>, I: 'static> fungible::Balanced<T::AccountId> for Pallet<T, I> {
-	type OnDropCredit = fungible::DecreaseIssuance<T::AccountId, Self>;
-	type OnDropDebt = fungible::IncreaseIssuance<T::AccountId, Self>;
+	type OnDropCredit = NegativeImbalance<T, I>;
+	type OnDropDebt = PositiveImbalance<T, I>;
 
 	fn done_deposit(who: &T::AccountId, amount: Self::Balance) {
 		Self::deposit_event(Event::<T, I>::Deposit { who: who.clone(), amount });
