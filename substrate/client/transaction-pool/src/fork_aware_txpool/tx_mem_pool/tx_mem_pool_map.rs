@@ -54,32 +54,12 @@ pub(super) trait PriorityAndTimestamp {
 ///
 /// `PriorityKey<U, V>` allows sorting where the primary criteria is `Priority`
 /// and ties are broken using `Timestamp`.
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct PriorityKey<U, V>(U, V);
-
-impl<U, V> Ord for PriorityKey<U, V>
-where
-	U: Ord,
-	V: Ord,
-{
-	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-		self.0.cmp(&other.0).then_with(|| self.1.cmp(&other.1))
-	}
-}
-
-impl<U, V> PartialOrd for PriorityKey<U, V>
-where
-	U: Ord,
-	V: Ord,
-{
-	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-		Some(self.cmp(other))
-	}
-}
 
 /// Composite key for sorting collections by priority keys (embedded in `PriorityKey`) and item key
 /// (typically hash).
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Ord, PartialOrd, Debug)]
 struct SortKey<P, K>(P, K);
 
 impl<K, A, B> SortKey<PriorityKey<A, B>, K>
@@ -92,26 +72,6 @@ where
 	/// timestamp.
 	fn new<V: PriorityAndTimestamp<Priority = A, Timestamp = B>>(key: &K, item: &V) -> Self {
 		Self(PriorityKey(item.priority(), item.timestamp()), *key)
-	}
-}
-
-impl<P, K> Ord for SortKey<P, K>
-where
-	P: Ord,
-	K: Ord,
-{
-	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-		self.0.cmp(&other.0).then_with(|| self.1.cmp(&other.1))
-	}
-}
-
-impl<P, K> PartialOrd for SortKey<P, K>
-where
-	P: Ord,
-	K: Ord,
-{
-	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-		Some(self.cmp(other))
 	}
 }
 
