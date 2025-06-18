@@ -44,14 +44,10 @@ impl ControlledValidatorIndices {
 		session: SessionIndex,
 		session_validators: &IndexedVec<ValidatorIndex, ValidatorId>,
 	) -> &HashSet<ValidatorIndex> {
-		if self.controlled_validator_indices.get(&session).is_none() {
-			let indices =
-				Self::find_controlled_validator_indices(&self.keystore, session_validators);
-			self.controlled_validator_indices.insert(session, indices.clone());
-		}
-
 		self.controlled_validator_indices
-			.get(&session)
+			.get_or_insert(session, || {
+				Self::find_controlled_validator_indices(&self.keystore, session_validators)
+			})
 			.expect("We just inserted the controlled indices; qed")
 	}
 
@@ -62,15 +58,13 @@ impl ControlledValidatorIndices {
 		keystore: &KeystorePtr,
 		validators: &IndexedVec<ValidatorIndex, ValidatorId>,
 	) -> HashSet<ValidatorIndex> {
-		let mut controlled = HashSet::new();
-		for (index, validator) in validators.iter().enumerate() {
-			if !Keystore::has_keys(keystore, &[(validator.to_raw_vec(), ValidatorPair::ID)]) {
-				continue
-			}
-
-			controlled.insert(ValidatorIndex(index as _));
-		}
-
-		controlled
+		validators
+			.iter()
+			.enumerate()
+			.filter(|(_, validator)| {
+				Keystore::has_keys(keystore, &[(validator.to_raw_vec(), ValidatorPair::ID)])
+			})
+			.map(|(index, _)| ValidatorIndex(index as _))
+			.collect()
 	}
 }
