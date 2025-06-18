@@ -58,8 +58,8 @@ unsafe impl GlobalAlloc for RuntimeAllocator {
 		let ptr_offset = ptr.align_offset(align);
 
 		// Should never happen, but just to be sure.
-		if ptr_offset > u16::MAX {
-			return ptr::null()
+		if ptr_offset > u16::MAX as usize {
+			return ptr::null_mut()
 		}
 
 		let ptr = ptr.add(ptr_offset);
@@ -72,7 +72,7 @@ unsafe impl GlobalAlloc for RuntimeAllocator {
 		ptr
 	}
 
-	unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+	unsafe fn dealloc(&self, ptr: *mut u8, _: Layout) {
 		let mut offset: [u8; OFFSET_LENGTH] = [0; OFFSET_LENGTH];
 		unsafe {
 			ptr::copy(ptr.sub(OFFSET_LENGTH), offset.as_mut_ptr(), OFFSET_LENGTH);
