@@ -28,7 +28,7 @@ use crate::{
 };
 
 use codec::Decode;
-use futures::{StreamExt, TryFutureExt};
+use futures::{Stream, StreamExt, TryFutureExt};
 use jsonrpsee::{core::async_trait, PendingSubscriptionSink};
 
 use super::metrics::{InstanceMetrics, Metrics};
@@ -252,4 +252,15 @@ pub enum TransactionMonitorEvent<Hash: Clone> {
 		/// The time when the transaction was submitted.
 		submitted_at: std::time::Instant,
 	},
+}
+
+impl<Hash: Clone> Stream for TransactionMonitorHandle<Hash> {
+	type Item = TransactionMonitorEvent<Hash>;
+
+	fn poll_next(
+		self: std::pin::Pin<&mut Self>,
+		cx: &mut std::task::Context<'_>,
+	) -> std::task::Poll<Option<Self::Item>> {
+		self.get_mut().0.poll_recv(cx)
+	}
 }
