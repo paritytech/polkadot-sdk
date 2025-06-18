@@ -595,10 +595,10 @@ impl Client {
 	pub async fn trace_call(
 		&self,
 		transaction: GenericTransaction,
-		block: BlockNumberOrTag,
+		block: BlockNumberOrTagOrHash,
 		config: TracerType,
 	) -> Result<Trace, ClientError> {
-		let block_hash = self.block_hash_for_tag(block.into()).await?;
+		let block_hash = self.block_hash_for_tag(block).await?;
 		let runtime_api = self.runtime_api(block_hash);
 		runtime_api.trace_call(transaction, config.clone()).await
 	}
@@ -634,6 +634,7 @@ impl Client {
 
 		let header = block.header();
 		let timestamp = extract_block_timestamp(block).await.unwrap_or_default();
+		let block_author = runtime_api.block_author().await.ok().flatten().unwrap_or_default();
 
 		// TODO: remove once subxt is updated
 		let parent_hash = header.parent_hash.0.into();
@@ -660,6 +661,7 @@ impl Client {
 			hash: block.hash(),
 			parent_hash,
 			state_root,
+			miner: block_author,
 			transactions_root: extrinsics_root,
 			number: header.number.into(),
 			timestamp: timestamp.into(),

@@ -863,12 +863,20 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			crate::log!(trace, "initializing with {:?}", self);
+			assert!(
+				self.validator_count <=
+					<T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get() *
+						<T::ElectionProvider as ElectionProvider>::Pages::get(),
+				"validator count is too high, `ElectionProvider` can never fulfill this"
+			);
 			ValidatorCount::<T>::put(self.validator_count);
+
 			assert!(
 				self.invulnerables.len() as u32 <= T::MaxInvulnerables::get(),
 				"Too many invulnerable validators at genesis."
 			);
 			<Invulnerables<T>>::put(&self.invulnerables);
+
 			ForceEra::<T>::put(self.force_era);
 			CanceledSlashPayout::<T>::put(self.canceled_payout);
 			SlashRewardFraction::<T>::put(self.slash_reward_fraction);
@@ -881,39 +889,80 @@ pub mod pallet {
 				MaxNominatorsCount::<T>::put(x);
 			}
 
+			// First pass: set up all validators and idle stakers
 			for &(ref stash, balance, ref status) in &self.stakers {
-				crate::log!(
-					trace,
-					"inserting genesis staker: {:?} => {:?} => {:?}",
-					stash,
-					balance,
-					status
-				);
-				assert!(
-					asset::free_to_stake::<T>(stash) >= balance,
-					"Stash does not have enough balance to bond."
-				);
-				assert_ok!(<Pallet<T>>::bond(
-					T::RuntimeOrigin::from(Some(stash.clone()).into()),
-					balance,
-					RewardDestination::Staked,
-				));
-				assert_ok!(match status {
-					crate::StakerStatus::Validator => <Pallet<T>>::validate(
-						T::RuntimeOrigin::from(Some(stash.clone()).into()),
-						Default::default(),
-					),
-					crate::StakerStatus::Nominator(votes) => <Pallet<T>>::nominate(
-						T::RuntimeOrigin::from(Some(stash.clone()).into()),
-						votes.iter().map(|l| T::Lookup::unlookup(l.clone())).collect(),
-					),
-					_ => Ok(()),
-				});
-				assert!(
-					ValidatorCount::<T>::get() <=
-						<T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get() *
-							<T::ElectionProvider as ElectionProvider>::Pages::get()
-				);
+				match status {
+					crate::StakerStatus::Validator => {
+						crate::log!(
+							trace,
+							"inserting genesis validator: {:?} => {:?} => {:?}",
+							stash,
+							balance,
+							status
+						);
+						assert!(
+							asset::free_to_stake::<T>(stash) >= balance,
+							"Stash does not have enough balance to bond."
+						);
+						assert_ok!(<Pallet<T>>::bond(
+							T::RuntimeOrigin::from(Some(stash.clone()).into()),
+							balance,
+							RewardDestination::Staked,
+						));
+						assert_ok!(<Pallet<T>>::validate(
+							T::RuntimeOrigin::from(Some(stash.clone()).into()),
+							Default::default(),
+						));
+					},
+					crate::StakerStatus::Idle => {
+						crate::log!(
+							trace,
+							"inserting genesis idle staker: {:?} => {:?} => {:?}",
+							stash,
+							balance,
+							status
+						);
+						assert!(
+							asset::free_to_stake::<T>(stash) >= balance,
+							"Stash does not have enough balance to bond."
+						);
+						assert_ok!(<Pallet<T>>::bond(
+							T::RuntimeOrigin::from(Some(stash.clone()).into()),
+							balance,
+							RewardDestination::Staked,
+						));
+					},
+					_ => {},
+				}
+			}
+
+			// Second pass: set up all nominators (now that validators exist)
+			for &(ref stash, balance, ref status) in &self.stakers {
+				match status {
+					crate::StakerStatus::Nominator(votes) => {
+						crate::log!(
+							trace,
+							"inserting genesis nominator: {:?} => {:?} => {:?}",
+							stash,
+							balance,
+							status
+						);
+						assert!(
+							asset::free_to_stake::<T>(stash) >= balance,
+							"Stash does not have enough balance to bond."
+						);
+						assert_ok!(<Pallet<T>>::bond(
+							T::RuntimeOrigin::from(Some(stash.clone()).into()),
+							balance,
+							RewardDestination::Staked,
+						));
+						assert_ok!(<Pallet<T>>::nominate(
+							T::RuntimeOrigin::from(Some(stash.clone()).into()),
+							votes.iter().map(|l| T::Lookup::unlookup(l.clone())).collect(),
+						));
+					},
+					_ => {},
+				}
 			}
 
 			// all voters are reported to the `VoterList`.
@@ -1569,7 +1618,9 @@ pub mod pallet {
 			let targets: BoundedVec<_, _> = targets
 				.into_iter()
 				.map(|n| {
-					if old.contains(&n) || !Validators::<T>::get(&n).blocked {
+					if old.contains(&n) ||
+						(Validators::<T>::contains_key(&n) && !Validators::<T>::get(&n).blocked)
+					{
 						Ok(n)
 					} else {
 						Err(Error::<T>::BadTarget.into())
