@@ -52,18 +52,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: script
-        run: |
-          echo "Img: $ZOMBIENET_INTEGRATION_TEST_IMAGE"
-          export DEBUG=${{ needs.preflight.outputs.DEBUG }}
-          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh --local-dir="$(pwd)/$LOCAL_DIR/0000-block-building" --test="block-building.zndsl"
-
-      - name: upload logs
-        uses: actions/upload-artifact@v4
+      #
+      - name: zombienet_test
+        uses: ./.github/actions/zombienet
         with:
-          name: zombienet-logs-${{ github.job }}-${{ github.sha }}
-          path: |
-            /tmp/zombie*/logs/*
+          test: "block-building.zndsl"
+          local-dir: "${{ env.LOCAL_DIR }}/0000-block-building"
+          concurrency: 1
+
 
   zombienet-substrate-0001-basic-warp-sync:
     needs: [preflight]
@@ -79,18 +75,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: script
-        run: |
-          echo "Img: $ZOMBIENET_INTEGRATION_TEST_IMAGE"
-          export DEBUG=${{ needs.preflight.outputs.DEBUG }}
-          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh --local-dir="$(pwd)/$LOCAL_DIR/0001-basic-warp-sync" --test="test-warp-sync.zndsl"
-
-      - name: upload logs
-        uses: actions/upload-artifact@v4
+      #
+      - name: zombienet_test
+        uses: ./.github/actions/zombienet
         with:
-          name: zombienet-logs-${{ github.job }}-${{ github.sha }}
-          path: |
-            /tmp/zombie*/logs/*
+          test: "test-warp-sync.zndsl"
+          local-dir: "${{ env.LOCAL_DIR }}/0001-basic-warp-sync"
+          concurrency: 1
+
 
   zombienet-substrate-0002-validators-warp-sync:
     needs: [preflight]
@@ -106,19 +98,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: script
+      - name: cp
+        shell: bash
         run: |
-          echo "Img: $ZOMBIENET_INTEGRATION_TEST_IMAGE"
           cp --remove-destination ${LOCAL_DIR}/0001-basic-warp-sync/chain-spec.json ${LOCAL_DIR}/0002-validators-warp-sync
-          export DEBUG=${{ needs.preflight.outputs.DEBUG }}
-          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh --local-dir="$(pwd)/$LOCAL_DIR/0002-validators-warp-sync" --test="test-validators-warp-sync.zndsl"
 
-      - name: upload logs
-        uses: actions/upload-artifact@v4
+      #
+      - name: zombienet_test
+        uses: ./.github/actions/zombienet
         with:
-          name: zombienet-logs-${{ github.job }}-${{ github.sha }}
-          path: |
-            /tmp/zombie*/logs/*
+          test: "test-validators-warp-sync.zndsl"
+          local-dir: "${{ env.LOCAL_DIR }}/0002-validators-warp-sync"
+          concurrency: 1
 
   zombienet-substrate-0003-block-building-warp-sync:
     needs: [preflight]
@@ -134,16 +125,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: script
+      - name: cp
+        shell: bash
         run: |
-          echo "Img: $ZOMBIENET_INTEGRATION_TEST_IMAGE"
           cp --remove-destination ${LOCAL_DIR}/0001-basic-warp-sync/chain-spec.json ${LOCAL_DIR}/0003-block-building-warp-sync
-          export DEBUG=${{ needs.preflight.outputs.DEBUG }}
-          /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh --local-dir="$(pwd)/$LOCAL_DIR/0003-block-building-warp-sync" --test="test-block-building-warp-sync.zndsl"
 
-      - name: upload logs
-        uses: actions/upload-artifact@v4
+      #
+      - name: zombienet_test
+        uses: ./.github/actions/zombienet
         with:
-          name: zombienet-logs-${{ github.job }}-${{ github.sha }}
-          path: |
-            /tmp/zombie*/logs/*
+          test: "test-block-building-warp-sync.zndsl"
+          local-dir: "${{ env.LOCAL_DIR }}/0003-block-building-warp-sync"
+          concurrency: 1
+
