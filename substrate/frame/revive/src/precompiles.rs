@@ -33,7 +33,7 @@ pub use crate::{
 	exec::{ExecError, PrecompileExt as Ext, PrecompileWithInfoExt as ExtWithInfo},
 	gas::{GasMeter, Token},
 	storage::meter::Diff,
-	wasm::RuntimeCosts,
+	vm::RuntimeCosts,
 	AddressMapper,
 };
 pub use alloy_core as alloy;
@@ -541,7 +541,7 @@ impl BuiltinAddressMatcher {
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 pub mod run {
 	pub use crate::{
-		call_builder::{CallSetup, Contract, WasmModule},
+		call_builder::{CallSetup, Contract, VmBinaryModule},
 		BalanceOf, MomentOf,
 	};
 	pub use sp_core::{H256, U256};

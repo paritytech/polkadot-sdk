@@ -296,12 +296,12 @@ pub trait EthExtra {
 			InvalidTransaction::Call
 		})?;
 
-		let signer = tx.recover_eth_address().map_err(|err| {
+		let signer_addr = tx.recover_eth_address().map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to recover signer: {err:?}");
 			InvalidTransaction::BadProof
 		})?;
 
-		let signer = <Self::Config as Config>::AddressMapper::to_fallback_account_id(&signer);
+		let signer = <Self::Config as Config>::AddressMapper::to_fallback_account_id(&signer_addr);
 		let GenericTransaction { nonce, chain_id, to, value, input, gas, gas_price, .. } =
 			GenericTransaction::from_signed(tx, crate::GAS_PRICE.into(), None);
 
@@ -352,19 +352,21 @@ pub trait EthExtra {
 				return Err(InvalidTransaction::Call);
 			};
 
-			crate::Call::instantiate_with_code::<Self::Config> {
+			crate::Call::eth_instantiate_with_code::<Self::Config> {
 				value,
 				gas_limit,
 				storage_deposit_limit,
 				code: code.to_vec(),
 				data: data.to_vec(),
-				salt: None,
 			}
 		};
 
 		let mut info = call.get_dispatch_info();
 		let function: CallOf<Self::Config> = call.into();
-		let nonce = nonce.unwrap_or_default().try_into().map_err(|_| InvalidTransaction::Call)?;
+		let nonce = nonce.unwrap_or_default().try_into().map_err(|_| {
+			log::debug!(target: LOG_TARGET, "Failed to convert nonce");
+			InvalidTransaction::Call
+		})?;
 		let gas_price = gas_price.unwrap_or_default();
 
 		let eth_fee = Pallet::<Self::Config>::evm_gas_to_fee(gas, gas_price)
@@ -392,6 +394,11 @@ pub trait EthExtra {
 			Pallet::<Self::Config>::evm_gas_to_fee(gas, gas_price.saturating_sub(GAS_PRICE.into()))
 				.unwrap_or_default()
 				.min(actual_fee);
+
+		crate::tracing::if_tracing(|tracer| {
+			tracer.watch_address(&Pallet::<Self::Config>::block_author().unwrap_or_default());
+			tracer.watch_address(&signer_addr);
+		});
 
 		log::debug!(target: LOG_TARGET, "Created checked Ethereum transaction with nonce: {nonce:?} and tip: {tip:?}");
 		Ok(CheckedExtrinsic {
@@ -595,11 +602,10 @@ mod test {
 
 		assert_eq!(
 			call,
-			crate::Call::instantiate_with_code::<Test> {
+			crate::Call::eth_instantiate_with_code::<Test> {
 				value: tx.value.unwrap_or_default().as_u64(),
 				code,
 				data,
-				salt: None,
 				gas_limit,
 				storage_deposit_limit
 			}
