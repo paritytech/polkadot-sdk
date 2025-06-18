@@ -1230,7 +1230,7 @@ impl<T: Config> Pallet<T> {
 		let mut count_down = max;
 		let service_agenda_base_weight = T::WeightInfo::service_agenda_base(max_items);
 		while count_down > 0 && when <= now && weight.can_consume(service_agenda_base_weight) {
-			if !Self::service_agenda(weight, &mut is_first, now, when, u32::MAX) {
+			if !Self::service_agenda(weight, is_first, now, when, u32::MAX) {
 				incomplete_since = incomplete_since.min(when);
 			}
 			is_first = false;
@@ -1254,7 +1254,7 @@ impl<T: Config> Pallet<T> {
 	/// later block.
 	fn service_agenda(
 		weight: &mut WeightMeter,
-		is_first: &mut bool,
+		mut is_first: bool,
 		now: BlockNumberFor<T>,
 		when: BlockNumberFor<T>,
 		max: u32,
@@ -1290,7 +1290,7 @@ impl<T: Config> Pallet<T> {
 				agenda[agenda_index as usize] = Some(task);
 				break
 			}
-			let result = Self::service_task(weight, now, when, agenda_index, *is_first, task);
+			let result = Self::service_task(weight, now, when, agenda_index, is_first, task);
 			agenda[agenda_index as usize] = match result {
 				Err((Unavailable, slot)) => {
 					dropped += 1;
@@ -1301,7 +1301,7 @@ impl<T: Config> Pallet<T> {
 					slot
 				},
 				Ok(()) => {
-					*is_first = false;
+					is_first = false;
 					None
 				},
 			};
