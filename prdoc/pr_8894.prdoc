@@ -6,14 +6,14 @@ doc:
     or with approval-distribution and approval-voting subsystems.
 crates:
 - name: cumulus-relay-chain-inprocess-interface
-  bump: patch
+  bump: major
 - name: polkadot-cli
-  bump: patch
+  bump: major
 - name: polkadot-node-core-dispute-coordinator
-  bump: patch
+  bump: major
 - name: polkadot-network-bridge
-  bump: patch
+  bump: major
 - name: polkadot-overseer
-  bump: patch
+  bump: major
 - name: polkadot-service
-  bump: patch
+  bump: major
