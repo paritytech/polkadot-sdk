@@ -1,0 +1,11 @@
+title: Improvements for `ControlledValidatorIndices`
+doc:
+  - audience: Node Dev
+    description: |
+      Improvements for `ControlledValidatorIndices`:
+      - remove unneeded dependency
+      - more readable implementations for `get` and `find_controlled_validator_indices`
+
+crates:
+- name: polkadot-node-subsystem-util
+  bump: minor
