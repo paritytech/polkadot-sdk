@@ -836,6 +836,8 @@ async fn parachain_rpc_metrics<Block: BlockT>(
 			notification = import_notification_stream.next().fuse() => {
 				let Some(notification) = notification else { return Ok(()) };
 
+				log::debug!(target: LOG_TARGET, "Received import notification for block {:?}", notification.hash());
+
 				let Ok(events) = relay_chain_interface.candidate_events(notification.hash()).await else {
 					log::warn!(target: LOG_TARGET, "Failed to get candidate events for block {}", notification.hash());
 					continue
@@ -848,6 +850,8 @@ async fn parachain_rpc_metrics<Block: BlockT>(
 						}
 					_ => None,
 				});
+
+				log::trace!(target: LOG_TARGET, "Relay block {:?} with backed blocks: {:?}", notification.hash(), blocks);
 
 				for block in blocks {
 					if backed_blocks.insert(block, ()) {
@@ -866,6 +870,8 @@ async fn parachain_rpc_metrics<Block: BlockT>(
 
 			tx_event = transaction_v2_handle.next().fuse() => {
 				let Some(tx_event) = tx_event else { return Ok(()) };
+
+				log::debug!(target: LOG_TARGET, "Received transaction event: {:?}", tx_event);
 
 				match tx_event {
 					sc_service::TransactionMonitorEvent::InBlock { block_hash, submitted_at } => {
