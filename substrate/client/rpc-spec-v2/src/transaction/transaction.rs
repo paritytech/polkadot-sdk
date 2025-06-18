@@ -43,7 +43,7 @@ use sp_core::Bytes;
 use sp_runtime::traits::Block as BlockT;
 use std::sync::Arc;
 
-pub(crate) const LOG_TARGET: &str = "rpc-spec-v2";
+pub(crate) const LOG_TARGET: &str = "rpc-spec-v2::tx";
 
 /// An API for transaction RPC calls.
 pub struct Transaction<Pool, Client>
@@ -176,6 +176,7 @@ where
 											submitted_at,
 										})
 										.await;
+									log::trace!(target: LOG_TARGET, "Transaction included in block and notified: {:?}", hash);
 								}
 
 								event
