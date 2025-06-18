@@ -81,6 +81,8 @@ pub enum JobResponse {
 	InvalidCandidate(String),
 	/// PoV decompression failed
 	PoVDecompressionFailure,
+	/// The artifact is corrupted, re-prepare the artifact and try again.
+	CorruptedArtifact,
 }
 
 impl JobResponse {
