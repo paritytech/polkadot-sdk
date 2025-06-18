@@ -99,6 +99,18 @@ Enabling features like `node` may pull in dependencies that you don't need. As y
 knowledgeable about the SDK, you may consider specifying the exact crate names in the `features`
 list instead to reduce build time.
 
+Occasionally, you may need to enable a specific FEATURE of a CRATE. You can achieve that by adding
+`<CRATE>_<FEATURE>` to the `features` list. For example, the following enables the
+`substrate-wasm-builder`'s `metadata-hash` feature:
+
+```toml
+[dependencies]
+polkadot-sdk = { version = "0.12.0", features = [
+    "runtime",
+    "substrate-wasm-builder_metadata-hash",
+    "tuples-96",
+], default-features = false }
+```
 </details>
 
 ---
