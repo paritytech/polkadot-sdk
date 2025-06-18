@@ -124,7 +124,7 @@ where
 	async fn block_body(
 		&self,
 		hash: Block::Hash,
-	) -> error::Result<Option<Vec<<Self::Block as BlockT>::Extrinsic>>> {
+	) -> Result<Option<Vec<<Self::Block as BlockT>::Extrinsic>>, Self::Error> {
 		self.client.block_body(hash).map_err(error::Error::from)
 	}
 
@@ -169,21 +169,21 @@ where
 		at: Block::Hash,
 		source: TransactionSource,
 		uxt: graph::ExtrinsicFor<Self>,
-	) -> error::Result<TransactionValidity> {
+	) -> Result<TransactionValidity, Self::Error> {
 		validate_transaction_blocking(&*self.client, at, source, uxt)
 	}
 
 	fn block_id_to_number(
 		&self,
 		at: &BlockId<Self::Block>,
-	) -> error::Result<Option<graph::NumberFor<Self>>> {
+	) -> Result<Option<graph::NumberFor<Self>>, Self::Error> {
 		self.client.to_number(at).map_err(|e| Error::BlockIdConversion(e.to_string()))
 	}
 
 	fn block_id_to_hash(
 		&self,
 		at: &BlockId<Self::Block>,
-	) -> error::Result<Option<graph::BlockHash<Self>>> {
+	) -> Result<Option<graph::BlockHash<Self>>, Self::Error> {
 		self.client.to_hash(at).map_err(|e| Error::BlockIdConversion(e.to_string()))
 	}
 

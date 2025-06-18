@@ -92,7 +92,7 @@ impl ChainApi for TestApi {
 		_at: <Self::Block as BlockT>::Hash,
 		_source: TransactionSource,
 		_uxt: Arc<<Self::Block as BlockT>::Extrinsic>,
-	) -> sc_transaction_pool_api::error::Result<TransactionValidity> {
+	) -> Result<TransactionValidity, Self::Error> {
 		unimplemented!();
 	}
 
@@ -126,7 +126,7 @@ impl ChainApi for TestApi {
 	async fn block_body(
 		&self,
 		_id: <Self::Block as BlockT>::Hash,
-	) -> sc_transaction_pool_api::error::Result<Option<Vec<<Self::Block as BlockT>::Extrinsic>>> {
+	) -> Result<Option<Vec<<Self::Block as BlockT>::Extrinsic>>, Self::Error> {
 		Ok(None)
 	}
 

@@ -78,7 +78,7 @@ impl ChainApi for TestApi {
 		at: <Self::Block as BlockT>::Hash,
 		_source: TransactionSource,
 		uxt: ExtrinsicFor<Self>,
-	) -> Result<TransactionValidity, error::Error> {
+	) -> Result<TransactionValidity, Self::Error> {
 		let uxt = (*uxt).clone();
 		self.validation_requests.lock().push(uxt.clone());
 		let hash = self.hash_and_length(&uxt).0;
@@ -163,7 +163,7 @@ impl ChainApi for TestApi {
 		_at: <Self::Block as BlockT>::Hash,
 		_source: TransactionSource,
 		_uxt: Arc<<Self::Block as BlockT>::Extrinsic>,
-	) -> error::Result<TransactionValidity> {
+	) -> Result<TransactionValidity, Self::Error> {
 		unimplemented!();
 	}
 
@@ -201,7 +201,7 @@ impl ChainApi for TestApi {
 	async fn block_body(
 		&self,
 		_id: <Self::Block as BlockT>::Hash,
-	) -> error::Result<Option<Vec<<Self::Block as BlockT>::Extrinsic>>> {
+	) -> Result<Option<Vec<<Self::Block as BlockT>::Extrinsic>>, Self::Error> {
 		Ok(None)
 	}
 
