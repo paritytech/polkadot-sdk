@@ -249,11 +249,11 @@ async fn send_lower_priority_mortal_txs() {
 		.with_txs_count(10)
 		.with_executor_id("mortal-tx-executor-invalid".to_string())
 		.with_mortality(5)
-		// Same reasoning as for the ready immortal txs, we want these txs to be similarly big as
-		// the immortal txs, so at all times if it comes to pick a ready txs to include it in a
-		// block, an immortal tx should be picked instead (leaving these mortal txs to be picked
-		// only after, when it is too late due to small lifetime).
-		.with_remark_recipe(750)
+		/// Make it very hard for these mortal txs to be included in blocks, by making them big
+		/// enough to not let other txs be part of the same block as them, but also make sure they
+		/// have the lowest priority so that they are not included in a single tx block over other
+		/// txs. At some point they'll be starved and their lifetime will pass.
+		.with_remark_recipe(3500)
 		.with_tip(50)
 		.build()
 		.await;
