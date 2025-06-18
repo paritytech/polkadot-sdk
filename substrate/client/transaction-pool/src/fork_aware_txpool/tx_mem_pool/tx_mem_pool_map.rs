@@ -18,10 +18,10 @@
 
 //! Provides structures for storing and managing transactions in a transaction memory pool.
 //!
-//! The module includes `TrackedMap`, a map designed for concurrent access, and `InnerStorage`,
-//! which manages transaction entries by key and priority. Transactions are stored efficiently with
-//! operations to insert items based on priority and manage space utilization. This module provides
-//! core functionality for maintaining the `TxMemPool` state.
+//! The module includes `SizeTrackedStore`, a map designed for concurrent access, and
+//! `IndexedStorage`, which manages transaction entries by key and priority. Transactions are stored
+//! efficiently with operations to insert items based on priority and manage space utilization. This
+//! module provides core functionality for maintaining the `TxMemPool` state.
 
 use std::{
 	collections::{BTreeMap, HashMap},
@@ -41,7 +41,7 @@ pub(super) trait Size {
 /// Trait for items with a priority and timestamp ordering.
 ///
 /// `PriorityAndTimestamp` defines methods to access the priority and timestamp,
-/// facilitating sorting in structures like `TrackedMap`.
+/// facilitating sorting in structures like `SizeTrackedStore`.
 pub(super) trait PriorityAndTimestamp {
 	type Priority: Ord;
 	type Timestamp: Ord;
@@ -117,7 +117,7 @@ where
 
 /// Internal storage for managing TxMemPool entries.
 ///
-/// `InnerStorage` uses `HashMap` for fast access by key and `BTreeMap` for
+/// `IndexedStorage` uses `HashMap` for fast access by key and `BTreeMap` for
 /// efficient priority ordering.
 #[derive(Debug)]
 struct IndexedStorage<K, S, V>
@@ -133,7 +133,7 @@ where
 
 /// Core structure for storing and managing transactions in TxMemPool.
 ///
-/// `TrackedMap` is a thread-safe map designed to track the size and priority
+/// `SizeTrackedStore` is a thread-safe map designed to track the size and priority
 /// of transactions, optimized for use in a transaction memory pool. The map
 /// preserves sorting order based on priority and timestamp.
 ///
@@ -351,13 +351,13 @@ where
 	}
 
 	/// Lock map for read.
-	pub async fn read(&self) -> TrackedMapReadAccess<K, S, V> {
-		TrackedMapReadAccess { inner_guard: self.index.read().await }
+	pub async fn read(&self) -> SizeTrackedStoreReadAccess<K, S, V> {
+		SizeTrackedStoreReadAccess { inner_guard: self.index.read().await }
 	}
 
 	/// Lock map for write.
-	pub async fn write(&self) -> TrackedMapWriteAccess<K, S, V> {
-		TrackedMapWriteAccess {
+	pub async fn write(&self) -> SizeTrackedStoreWriteAccess<K, S, V> {
+		SizeTrackedStoreWriteAccess {
 			inner_guard: self.index.write().await,
 			bytes: &self.bytes,
 			length: &self.length,
@@ -365,7 +365,7 @@ where
 	}
 }
 
-pub struct TrackedMapReadAccess<'a, K, S, V>
+pub struct SizeTrackedStoreReadAccess<'a, K, S, V>
 where
 	K: Ord,
 	S: Ord,
@@ -373,7 +373,7 @@ where
 	inner_guard: RwLockReadGuard<'a, IndexedStorage<K, S, V>>,
 }
 
-impl<K, S, V> TrackedMapReadAccess<'_, K, S, V>
+impl<K, S, V> SizeTrackedStoreReadAccess<'_, K, S, V>
 where
 	K: Ord + std::hash::Hash,
 	S: Ord,
@@ -406,7 +406,7 @@ where
 	}
 }
 
-pub struct TrackedMapWriteAccess<'a, K, S, V>
+pub struct SizeTrackedStoreWriteAccess<'a, K, S, V>
 where
 	K: Ord,
 	S: Ord,
@@ -416,7 +416,7 @@ where
 	inner_guard: RwLockWriteGuard<'a, IndexedStorage<K, S, V>>,
 }
 
-impl<K, A, B, V> TrackedMapWriteAccess<'_, K, PriorityKey<A, B>, V>
+impl<K, A, B, V> SizeTrackedStoreWriteAccess<'_, K, PriorityKey<A, B>, V>
 where
 	K: Ord + std::hash::Hash + Copy + std::fmt::Debug,
 	A: Ord + std::fmt::Debug,
@@ -478,7 +478,7 @@ where
 	}
 }
 
-impl<K, S, V> TrackedMapWriteAccess<'_, K, S, V>
+impl<K, S, V> SizeTrackedStoreWriteAccess<'_, K, S, V>
 where
 	K: Ord + std::hash::Hash,
 	S: Ord,
