@@ -746,12 +746,14 @@ impl<T: Config> OffchainWorkerMiner<T> {
 		Ok(call)
 	}
 
-	/// Mine a new checked solution, cache it, and submit it back to the chain as an unsigned
+	/// Mine a new checked solution, maybe cache it, and submit it back to the chain as an unsigned
 	/// transaction.
-	pub fn mine_check_save_submit() -> Result<(), OffchainMinerError<T>> {
+	pub(crate) fn mine_check_maybe_save_submit(save: bool) -> Result<(), OffchainMinerError<T>> {
 		sublog!(debug, "unsigned::ocw-miner", "miner attempting to compute an unsigned solution.");
 		let call = Self::mine_checked_call()?;
-		Self::save_solution(&call, crate::Snapshot::<T>::fingerprint())?;
+		if save {
+			Self::save_solution(&call, crate::Snapshot::<T>::fingerprint())?;
+		}
 		Self::submit_call(call)
 	}
 
@@ -762,7 +764,7 @@ impl<T: Config> OffchainWorkerMiner<T> {
 	/// 	1. optionally feasibility check.
 	/// 	2. snapshot-independent checks.
 	/// 		1. optionally, snapshot fingerprint.
-	pub fn check_solution(
+	pub(crate) fn check_solution(
 		paged_solution: &PagedRawSolution<T::MinerConfig>,
 		maybe_snapshot_fingerprint: Option<T::Hash>,
 		do_feasibility: bool,
@@ -824,7 +826,7 @@ impl<T: Config> OffchainWorkerMiner<T> {
 
 	/// Attempt to restore a solution from cache. Otherwise, compute it fresh. Either way,
 	/// submit if our call's score is greater than that of the cached solution.
-	pub fn restore_or_compute_then_maybe_submit() -> Result<(), OffchainMinerError<T>> {
+	pub(crate) fn restore_or_compute_then_maybe_submit() -> Result<(), OffchainMinerError<T>> {
 		sublog!(
 			debug,
 			"unsigned::ocw-miner",
@@ -2231,9 +2233,55 @@ mod offchain_worker_miner {
 		});
 	}
 
-	#[test]
-	#[ignore]
-	fn multi_page_miner_on_remote_state() {
-		todo!();
+	mod no_storage {
+		use super::*;
+		#[test]
+		fn ocw_never_uses_cache_on_initial_run_or_resubmission() {
+			// When `T::OffchainStorage` is false, the offchain worker should never use cache:
+			// - Initial run: mines and submits without caching
+			// - Resubmission: re-mines fresh solution instead of restoring from cache
+			let (mut ext, pool) =
+				ExtBuilder::unsigned().offchain_storage(false).build_offchainify();
+			ext.execute_with_sanity_checks(|| {
+				let offchain_repeat = <Runtime as crate::unsigned::Config>::OffchainRepeat::get();
+				roll_to_unsigned_open();
+
+				let last_block = StorageValueRef::persistent(
+					&OffchainWorkerMiner::<Runtime>::OFFCHAIN_LAST_BLOCK,
+				);
+				let cache = StorageValueRef::persistent(
+					&OffchainWorkerMiner::<Runtime>::OFFCHAIN_CACHED_CALL,
+				);
+
+				// Initial state: no previous runs
+				assert_eq!(last_block.get::<BlockNumber>(), Ok(None));
+				assert_eq!(cache.get::<crate::unsigned::Call<Runtime>>(), Ok(None));
+
+				// First run: mines and submits without caching
+				UnsignedPallet::offchain_worker(25);
+				assert_eq!(pool.read().transactions.len(), 1);
+				let first_tx = pool.read().transactions[0].clone();
+
+				// Verify no cache is created or used
+				assert_eq!(last_block.get::<BlockNumber>(), Ok(Some(25)));
+				assert_eq!(cache.get::<crate::unsigned::Call<Runtime>>(), Ok(None));
+
+				// Clear the pool to simulate transaction processing
+				pool.try_write().unwrap().transactions.clear();
+
+				// Second run after repeat threshold: should re-mine instead of using cache
+				UnsignedPallet::offchain_worker(25 + 1 + offchain_repeat);
+				assert_eq!(pool.read().transactions.len(), 1);
+				let second_tx = pool.read().transactions[0].clone();
+
+				// Verify still no cache is used throughout the process
+				assert_eq!(last_block.get::<BlockNumber>(), Ok(Some(25 + 1 + offchain_repeat)));
+				assert_eq!(cache.get::<crate::unsigned::Call<Runtime>>(), Ok(None));
+
+				// Both transactions should be identical since the snapshot hasn't changed,
+				// but they were generated independently (no cache reuse)
+				assert_eq!(first_tx, second_tx);
+			})
+		}
 	}
 }
