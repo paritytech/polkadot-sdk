@@ -32,7 +32,7 @@ use cumulus_relay_chain_minimal_node::{
 };
 use futures::{channel::mpsc, FutureExt, StreamExt};
 use polkadot_primitives::{vstaging::CandidateEvent, CollatorPair, OccupiedCoreAssumption};
-use prometheus::{Histogram, HistogramOpts, Registry};
+use prometheus::{linear_buckets, Histogram, HistogramOpts, Registry};
 use sc_client_api::{
 	Backend as BackendT, BlockBackend, BlockchainEvents, Finalizer, ProofProvider, UsageProvider,
 };
@@ -784,10 +784,13 @@ struct ParachainRpcMetrics {
 
 impl ParachainRpcMetrics {
 	fn new(prometheus_registry: &Registry) -> prometheus::Result<Self> {
-		let transaction_backed_duration = Histogram::with_opts(HistogramOpts::new(
-			"parachain_transaction_backed_duration",
-			"Time between the submission of a transaction and its inclusion in a backed block",
-		))?;
+		let transaction_backed_duration = Histogram::with_opts(
+			HistogramOpts::new(
+				"parachain_transaction_backed_duration",
+				"Time between the submission of a transaction and its inclusion in a backed block",
+			)
+			.buckets(linear_buckets(0.01, 40.0, 20).expect("Valid buckets; qed")),
+		)?;
 		prometheus_registry.register(Box::new(transaction_backed_duration.clone()))?;
 
 		Ok(Self { transaction_backed_duration })
