@@ -381,12 +381,6 @@ impl<'a, H: Hasher> trie_db::TrieRecorder<H::Out> for TrieRecorder<'a, H> {
 
 		match access {
 			TrieAccess::NodeOwned { hash, node_owned } => {
-				tracing::trace!(
-					target: LOG_TARGET,
-					?hash,
-					"Recording node",
-				);
-
 				let inner = self.inner.deref_mut();
 
 				if inner.ignored_nodes.is_ignored(&hash) {
@@ -397,6 +391,12 @@ impl<'a, H: Hasher> trie_db::TrieRecorder<H::Out> for TrieRecorder<'a, H> {
 					);
 					return
 				}
+
+				tracing::trace!(
+					target: LOG_TARGET,
+					?hash,
+					"Recording node",
+				);
 
 				inner.accessed_nodes.entry(hash).or_insert_with(|| {
 					let node = node_owned.to_encoded::<NodeCodec<H>>();
@@ -411,12 +411,6 @@ impl<'a, H: Hasher> trie_db::TrieRecorder<H::Out> for TrieRecorder<'a, H> {
 				});
 			},
 			TrieAccess::EncodedNode { hash, encoded_node } => {
-				tracing::trace!(
-					target: LOG_TARGET,
-					hash = ?hash,
-					"Recording node",
-				);
-
 				let inner = self.inner.deref_mut();
 
 				if inner.ignored_nodes.is_ignored(&hash) {
@@ -427,6 +421,12 @@ impl<'a, H: Hasher> trie_db::TrieRecorder<H::Out> for TrieRecorder<'a, H> {
 					);
 					return
 				}
+
+				tracing::trace!(
+					target: LOG_TARGET,
+					hash = ?hash,
+					"Recording node",
+				);
 
 				inner.accessed_nodes.entry(hash).or_insert_with(|| {
 					let node = encoded_node.into_owned();
@@ -441,13 +441,6 @@ impl<'a, H: Hasher> trie_db::TrieRecorder<H::Out> for TrieRecorder<'a, H> {
 				});
 			},
 			TrieAccess::Value { hash, value, full_key } => {
-				tracing::trace!(
-					target: LOG_TARGET,
-					hash = ?hash,
-					key = ?sp_core::hexdisplay::HexDisplay::from(&full_key),
-					"Recording value",
-				);
-
 				let inner = self.inner.deref_mut();
 
 				// A value is also just a node.
@@ -459,6 +452,13 @@ impl<'a, H: Hasher> trie_db::TrieRecorder<H::Out> for TrieRecorder<'a, H> {
 					);
 					return
 				}
+
+				tracing::trace!(
+					target: LOG_TARGET,
+					hash = ?hash,
+					key = ?sp_core::hexdisplay::HexDisplay::from(&full_key),
+					"Recording value",
+				);
 
 				inner.accessed_nodes.entry(hash).or_insert_with(|| {
 					let value = value.into_owned();
@@ -836,15 +836,35 @@ mod tests {
 				.with_recorder(&mut trie_recorder)
 				.build();
 
-			for (key, data) in TEST_DATA {
+			for (key, data) in TEST_DATA.iter().take(3) {
 				assert_eq!(data.to_vec(), trie.get(&key).unwrap().unwrap());
 			}
 		}
 
 		assert!(recorder.estimate_encoded_size() > 10);
-		let ignored_nodes = IgnoredNodes::from_storage_proof::<sp_core::Blake2Hasher>(
+		let mut ignored_nodes = IgnoredNodes::from_storage_proof::<sp_core::Blake2Hasher>(
 			&recorder.drain_storage_proof(),
 		);
+
+		let recorder = Recorder::with_ignored_nodes(ignored_nodes.clone());
+
+		{
+			let mut trie_recorder = recorder.as_trie_recorder(root);
+			let trie = TrieDBBuilder::<Layout>::new(&db, &root)
+				.with_recorder(&mut trie_recorder)
+				.build();
+
+			for (key, data) in TEST_DATA {
+				assert_eq!(data.to_vec(), trie.get(&key).unwrap().unwrap());
+			}
+		}
+
+		assert!(recorder.estimate_encoded_size() > TEST_DATA[3].1.len());
+		let ignored_nodes2 = IgnoredNodes::from_storage_proof::<sp_core::Blake2Hasher>(
+			&recorder.drain_storage_proof(),
+		);
+
+		ignored_nodes.extend(ignored_nodes2);
 
 		let recorder = Recorder::with_ignored_nodes(ignored_nodes);
 
@@ -858,7 +878,6 @@ mod tests {
 				assert_eq!(data.to_vec(), trie.get(&key).unwrap().unwrap());
 			}
 		}
-
 		assert_eq!(0, recorder.estimate_encoded_size());
 	}
 }
