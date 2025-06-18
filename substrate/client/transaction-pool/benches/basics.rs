@@ -126,7 +126,10 @@ impl ChainApi for TestApi {
 		(blake2_256(&encoded).into(), encoded.len())
 	}
 
-	fn block_body(&self, _id: <Self::Block as BlockT>::Hash) -> error::Result<Option<Vec<<Self::Block as BlockT>::Extrinsic>>> {
+	fn block_body(
+		&self,
+		_id: <Self::Block as BlockT>::Hash,
+	) -> error::Result<Option<Vec<<Self::Block as BlockT>::Extrinsic>>> {
 		ready(Ok(None))
 	}
 

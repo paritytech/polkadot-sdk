@@ -198,7 +198,10 @@ impl ChainApi for TestApi {
 		(Hashing::hash(&encoded), len)
 	}
 
-	async fn block_body(&self, _id: <Self::Block as BlockT>::Hash) -> error::Result<Option<Vec<<Self::Block as BlockT>::Extrinsic>>> {
+	async fn block_body(
+		&self,
+		_id: <Self::Block as BlockT>::Hash,
+	) -> error::Result<Option<Vec<<Self::Block as BlockT>::Extrinsic>>> {
 		Ok(None)
 	}
 
