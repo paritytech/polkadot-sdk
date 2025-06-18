@@ -18,6 +18,9 @@ color-eyre = { workspace = true }
 # Local
 polkadot-omni-node-lib = { workspace = true }
 
+[dev-dependencies]
+assert_cmd = { workspace = true }
+
 [build-dependencies]
 substrate-build-script-utils = { workspace = true, default-features = true }
 

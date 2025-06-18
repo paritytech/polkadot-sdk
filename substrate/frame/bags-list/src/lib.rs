@@ -18,7 +18,7 @@
 //! > Made with *Substrate*, for *Polkadot*.
 //!
 //! [![github]](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/bags-list) -
-//! [![polkadot]](https://polkadot.network)
+//! [![polkadot]](https://polkadot.com)
 //!
 //! [polkadot]:
 //!     https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white
@@ -54,7 +54,7 @@
 //! can be used.
 //!
 //! Additional reading, about how this pallet is used in the context of Polkadot's staking system:
-//! <https://polkadot.network/blog/staking-update-september-2021/#bags-list-in-depth>
+//! <https://polkadot.com/blog/staking-update-september-2021/#bags-list-in-depth>
 //!
 //! ## Examples
 //!
@@ -291,6 +291,21 @@ pub mod pallet {
 	impl<T, I> From<ListError> for Error<T, I> {
 		fn from(t: ListError) -> Self {
 			Error::<T, I>::List(t)
+		}
+	}
+
+	#[pallet::view_functions]
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Get the current `score` of a given account.
+		///
+		/// Returns `(current, real_score)`, the former being the current score that this pallet is
+		/// aware of, which may or may not be up to date, and the latter being the real score, as
+		/// provided by
+		// [`Config::ScoreProvider`].
+		///
+		/// If the two differ, it means this node is eligible for [`Call::rebag`].
+		pub fn scores(who: T::AccountId) -> (Option<T::Score>, Option<T::Score>) {
+			(ListNodes::<T, I>::get(&who).map(|node| node.score), T::ScoreProvider::score(&who))
 		}
 	}
 

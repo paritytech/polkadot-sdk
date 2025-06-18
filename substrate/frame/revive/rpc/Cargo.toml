@@ -28,9 +28,11 @@ sc-cli = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
 sc-rpc-api = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
+serde_json = { workspace = true }
 sp-arithmetic = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true }
+sp-rpc = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-weights = { workspace = true, default-features = true }
 sqlx = { workspace = true, features = ["macros", "runtime-tokio", "sqlite"] }

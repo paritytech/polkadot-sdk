@@ -413,31 +413,6 @@ mod staking_interface {
 	}
 
 	#[test]
-	fn do_withdraw_unbonded_with_wrong_slash_spans_works_as_expected() {
-		ExtBuilder::default().build_and_execute(|| {
-			// add a slash and go forward one block so that it is computed, and slashing spans are
-			// created.
-			add_slash_with_percent(11, 100);
-			Session::roll_next();
-
-			assert_eq!(Staking::bonded(&11), Some(11));
-
-			assert_noop!(
-				Staking::withdraw_unbonded(RuntimeOrigin::signed(11), 0),
-				Error::<Test>::IncorrectSlashingSpans
-			);
-
-			let num_slashing_spans =
-				SlashingSpans::<Test>::get(&11).map_or(0, |s| s.iter().count());
-
-			assert_ok!(Staking::withdraw_unbonded(
-				RuntimeOrigin::signed(11),
-				num_slashing_spans as u32
-			));
-		});
-	}
-
-	#[test]
 	fn do_withdraw_unbonded_can_kill_stash_with_existential_deposit_zero() {
 		ExtBuilder::default()
 			.existential_deposit(0)
@@ -794,10 +769,10 @@ mod staking_unchecked {
 				assert_eq!(SlashObserver::get().get(&101).unwrap(), &nominator_stake);
 
 				// validator can be reaped.
-				assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(10), 11, u32::MAX));
+				assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(10), 11, 0));
 				// nominator is a virtual staker and cannot be reaped.
 				assert_noop!(
-					Staking::reap_stash(RuntimeOrigin::signed(10), 101, u32::MAX),
+					Staking::reap_stash(RuntimeOrigin::signed(10), 101, 0),
 					Error::<Test>::VirtualStakerNotAllowed
 				);
 			})

@@ -34,7 +34,7 @@ use frame_support::{
 };
 use frame_system::{pallet_prelude::BlockNumberFor, EnsureRoot, EnsureSignedBy};
 use pallet_staking_async_rc_client as rc_client;
-use sp_core::ConstBool;
+use sp_core::{ConstBool, ConstU64};
 use sp_io;
 use sp_npos_elections::BalancingConfig;
 use sp_runtime::{traits::Zero, BuildStorage};
@@ -61,6 +61,22 @@ pub(crate) type AccountId = <Runtime as frame_system::Config>::AccountId;
 pub(crate) type BlockNumber = BlockNumberFor<Runtime>;
 pub(crate) type Balance = <Runtime as pallet_balances::Config>::Balance;
 
+#[derive(Clone, Copy)]
+pub enum PlanningEraMode {
+	Fixed(SessionIndex),
+	Smart,
+}
+
+pub struct PlanningEraOffset;
+impl Get<SessionIndex> for PlanningEraOffset {
+	fn get() -> SessionIndex {
+		match PlanningEraModeVal::get() {
+			PlanningEraMode::Fixed(value) => value,
+			PlanningEraMode::Smart => crate::PlanningEraOffsetOf::<T, Period, ConstU64<0>>::get(),
+		}
+	}
+}
+
 parameter_types! {
 	pub static ExistentialDeposit: Balance = 1;
 	pub static SlashDeferDuration: EraIndex = 0;
@@ -73,7 +89,7 @@ parameter_types! {
 	pub static MaxValidatorSet: u32 = 100;
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 	pub static AbsoluteMaxNominations: u32 = 16;
-	pub static PlanningEraOffset: u32 = 1;
+	pub static PlanningEraModeVal: PlanningEraMode = PlanningEraMode::Fixed(2);
 	// Session configs
 	pub static SessionsPerEra: SessionIndex = 3;
 	pub static Period: BlockNumber = 5;
@@ -129,7 +145,8 @@ parameter_types! {
 	pub static Pages: PageIndex = 1;
 	pub static MaxBackersPerWinner: u32 = 256;
 	pub static MaxWinnersPerPage: u32 = MaxValidatorSet::get();
-	pub static StartReceived: bool = false;
+	pub static StartReceived: Option<BlockNumber> = None;
+	pub static ElectionDelay: BlockNumber = 0;
 }
 
 pub type InnerElection = onchain::OnChainExecution<OnChainSeqPhragmen>;
@@ -164,22 +181,23 @@ impl ElectionProvider for TestElectionProvider {
 
 	fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		if page == 0 {
-			StartReceived::set(false);
+			StartReceived::set(None);
 		}
 		InnerElection::elect(page)
 	}
 	fn start() -> Result<(), Self::Error> {
-		StartReceived::set(true);
+		StartReceived::set(Some(System::block_number()));
 		Ok(())
 	}
 	fn duration() -> Self::BlockNumber {
-		InnerElection::duration()
+		InnerElection::duration() + ElectionDelay::get()
 	}
 	fn status() -> Result<bool, ()> {
-		if StartReceived::get() {
-			Ok(true)
-		} else {
-			Err(())
+		let now = System::block_number();
+		match StartReceived::get() {
+			Some(at) if now - at >= ElectionDelay::get() => Ok(true),
+			Some(_) => Ok(false),
+			None => Err(()),
 		}
 	}
 }
@@ -294,16 +312,29 @@ pub mod session_mock {
 				if QueuedBufferSessions::get() == 0 {
 					// buffer time has passed
 					Active::set(q);
-					Rotator::<Test>::end_session(ending, Some((Timestamp::get(), id)));
+					<Staking as rc_client::AHStakingInterface>::on_relay_session_report(
+						rc_client::SessionReport::new_terminal(
+							ending,
+							// TODO: currently we use `Eras::reward_active_era()` to set validator
+							// points in our tests. We should improve this and find a good way to
+							// set this value instead.
+							vec![],
+							Some((Timestamp::get(), id)),
+						),
+					);
 					Queued::reset();
 					QueuedId::reset();
 				} else {
 					QueuedBufferSessions::mutate(|s| *s -= 1);
-					Rotator::<Test>::end_session(ending, None);
+					<Staking as rc_client::AHStakingInterface>::on_relay_session_report(
+						rc_client::SessionReport::new_terminal(ending, vec![], None),
+					);
 				}
 			} else {
 				// just end the session.
-				Rotator::<Test>::end_session(ending, None);
+				<Staking as rc_client::AHStakingInterface>::on_relay_session_report(
+					rc_client::SessionReport::new_terminal(ending, vec![], None),
+				);
 			}
 			CurrentIndex::set(ending + 1);
 		}
@@ -336,7 +367,7 @@ pub mod session_mock {
 			id: u32,
 			prune_up_to: Option<u32>,
 		) {
-			log::debug!(target: "runtime::session_mock", "Received validator set: {:?}", new_validator_set);
+			log::debug!(target: "runtime::staking-async::session_mock", "Received validator set: {:?}", new_validator_set);
 			let now = System::block_number();
 			// store the report for further inspection.
 			ReceivedValidatorSets::mutate(|reports| {
@@ -367,6 +398,7 @@ ord_parameter_types! {
 
 parameter_types! {
 	pub static RemainderRatio: Perbill = Perbill::from_percent(50);
+	pub static MaxEraDuration: u64 = time_per_era() * 7;
 }
 pub struct OneTokenPerMillisecond;
 impl EraPayout<Balance> for OneTokenPerMillisecond {
@@ -405,6 +437,7 @@ impl crate::pallet::pallet::Config for Test {
 	type EventListeners = EventListenerMock;
 	type MaxInvulnerables = ConstU32<20>;
 	type MaxDisabledValidators = ConstU32<100>;
+	type MaxEraDuration = MaxEraDuration;
 	type PlanningEraOffset = PlanningEraOffset;
 	type Filter = MockedRestrictList;
 	type RcClientInterface = session_mock::Session;
@@ -485,7 +518,15 @@ impl ExtBuilder {
 		self
 	}
 	pub(crate) fn planning_era_offset(self, offset: SessionIndex) -> Self {
-		PlanningEraOffset::set(offset);
+		PlanningEraModeVal::set(PlanningEraMode::Fixed(offset));
+		self
+	}
+	pub fn smart_era_planner(self) -> Self {
+		PlanningEraModeVal::set(PlanningEraMode::Smart);
+		self
+	}
+	pub fn election_delay(self, delay: BlockNumber) -> Self {
+		ElectionDelay::set(delay);
 		self
 	}
 	pub(crate) fn nominate(mut self, nominate: bool) -> Self {
@@ -769,18 +810,7 @@ pub(crate) fn add_slash(who: AccountId) {
 	);
 }
 
-pub(crate) fn add_slash_in_era(who: AccountId, era: EraIndex) {
-	let _ = <Staking as rc_client::AHStakingInterface>::on_new_offences(
-		Rotator::<T>::era_start_session_index(era).unwrap(),
-		vec![rc_client::Offence {
-			offender: who,
-			reporters: vec![],
-			slash_fraction: Perbill::from_percent(10),
-		}],
-	);
-}
-
-pub(crate) fn add_slash_in_era_with_value(who: AccountId, era: EraIndex, p: Perbill) {
+pub(crate) fn add_slash_in_era(who: AccountId, era: EraIndex, p: Perbill) {
 	let _ = <Staking as rc_client::AHStakingInterface>::on_new_offences(
 		Rotator::<T>::era_start_session_index(era).unwrap(),
 		vec![rc_client::Offence { offender: who, reporters: vec![], slash_fraction: p }],

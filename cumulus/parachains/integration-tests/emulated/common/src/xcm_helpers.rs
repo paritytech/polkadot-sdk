@@ -17,7 +17,9 @@
 use parachains_common::AccountId;
 
 // Polkadot
+use sp_core::H256;
 use xcm::{prelude::*, DoubleEncoded};
+use xcm_emulator::Chain;
 
 /// Helper method to build a XCM with a `Transact` instruction and paying for its execution
 pub fn xcm_transact_paid_execution(
@@ -83,4 +85,30 @@ pub fn get_amount_from_versioned_assets(assets: VersionedAssets) -> u128 {
 		unreachable!("asset is non-fungible");
 	};
 	amount
+}
+
+/// Helper method to find the ID of the first `Event::Processed` event in the chain's events.
+pub fn find_mq_processed_id<C: Chain>() -> Option<H256>
+where
+	<C as Chain>::Runtime: pallet_message_queue::Config,
+	C::RuntimeEvent: TryInto<pallet_message_queue::Event<<C as Chain>::Runtime>>,
+{
+	C::events().into_iter().find_map(|event| {
+		if let Ok(pallet_message_queue::Event::Processed { id, .. }) = event.try_into() {
+			Some(id)
+		} else {
+			None
+		}
+	})
+}
+
+/// Helper method to find the message ID of the first `Event::Sent` event in the chain's events.
+pub fn find_xcm_sent_message_id<
+	C: Chain<RuntimeEvent = <<C as Chain>::Runtime as pallet_xcm::Config>::RuntimeEvent>,
+>() -> Option<XcmHash>
+where
+	C::Runtime: pallet_xcm::Config,
+	C::RuntimeEvent: TryInto<pallet_xcm::Event<C::Runtime>>,
+{
+	pallet_xcm::xcm_helpers::find_xcm_sent_message_id::<<C as Chain>::Runtime>(C::events())
 }

@@ -22,11 +22,10 @@
 
 use codec::Encode;
 
-use alloc::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	rc::Rc,
-};
+use alloc::rc::Rc;
+
 use core::cell::{RefCell, RefMut};
+use hashbrown::{HashMap, HashSet};
 use sp_trie::{NodeCodec, ProofSizeProvider, StorageProof};
 use trie_db::{Hasher, RecordedForKey, TrieAccess};
 
@@ -34,10 +33,10 @@ use trie_db::{Hasher, RecordedForKey, TrieAccess};
 ///
 /// The internal size counting logic should align
 /// with ['sp_trie::recorder::Recorder'].
-pub(crate) struct SizeOnlyRecorder<'a, H: Hasher> {
-	seen_nodes: RefMut<'a, BTreeSet<H::Out>>,
+pub struct SizeOnlyRecorder<'a, H: Hasher> {
+	seen_nodes: RefMut<'a, HashSet<H::Out>>,
 	encoded_size: RefMut<'a, usize>,
-	recorded_keys: RefMut<'a, BTreeMap<Rc<[u8]>, RecordedForKey>>,
+	recorded_keys: RefMut<'a, HashMap<Rc<[u8]>, RecordedForKey>>,
 }
 
 impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeOnlyRecorder<'a, H> {
@@ -90,10 +89,10 @@ impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeOnlyRecorder<
 }
 
 #[derive(Clone)]
-pub(crate) struct SizeOnlyRecorderProvider<H: Hasher> {
-	seen_nodes: Rc<RefCell<BTreeSet<H::Out>>>,
+pub struct SizeOnlyRecorderProvider<H: Hasher> {
+	seen_nodes: Rc<RefCell<HashSet<H::Out>>>,
 	encoded_size: Rc<RefCell<usize>>,
-	recorded_keys: Rc<RefCell<BTreeMap<Rc<[u8]>, RecordedForKey>>>,
+	recorded_keys: Rc<RefCell<HashMap<Rc<[u8]>, RecordedForKey>>>,
 }
 
 impl<H: Hasher> Default for SizeOnlyRecorderProvider<H> {
@@ -198,11 +197,11 @@ mod tests {
 			let recorder_for_test: SizeOnlyRecorderProvider<sp_core::Blake2Hasher> =
 				SizeOnlyRecorderProvider::default();
 			let reference_cache: SharedTrieCache<sp_core::Blake2Hasher> =
-				SharedTrieCache::new(CacheSize::new(1024 * 5));
+				SharedTrieCache::new(CacheSize::new(1024 * 5), None);
 			let cache_for_test: SharedTrieCache<sp_core::Blake2Hasher> =
-				SharedTrieCache::new(CacheSize::new(1024 * 5));
+				SharedTrieCache::new(CacheSize::new(1024 * 5), None);
 			{
-				let local_cache = cache_for_test.local_cache();
+				let local_cache = cache_for_test.local_cache_untrusted();
 				let mut trie_cache_for_reference = local_cache.as_trie_db_cache(root);
 				let mut reference_trie_recorder = reference_recorder.as_trie_recorder(root);
 				let reference_trie =
@@ -211,7 +210,7 @@ mod tests {
 						.with_cache(&mut trie_cache_for_reference)
 						.build();
 
-				let local_cache_for_test = reference_cache.local_cache();
+				let local_cache_for_test = reference_cache.local_cache_untrusted();
 				let mut trie_cache_for_test = local_cache_for_test.as_trie_db_cache(root);
 				let mut trie_recorder_under_test = recorder_for_test.as_trie_recorder(root);
 				let test_trie =

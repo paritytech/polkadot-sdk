@@ -61,11 +61,14 @@
 //!
 //! ### Pallet Ordering:
 //!
+//! TODO: @kiaenigma: this needs clarification and a enforcement. Signed pallet should come first.
+//! Fixing this should yield removing `verifier_done` from the phase transition.
+//!
 //! The ordering of these pallets in a runtime should be:
-//! 1. parent
-//! 2. verifier
-//! 3. signed
-//! 4. unsigned
+//! * parent
+//! * verifier
+//! * signed
+//! * unsigned
 //!
 //! This is critical for the phase transition to work.
 //!
@@ -192,7 +195,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use crate::types::*;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{
 	onchain, BoundedSupportsOf, DataProviderBounds, ElectionDataProvider, ElectionProvider,
@@ -224,12 +226,12 @@ pub mod helpers;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-/// The common logginv prefix of all pallets in this crate.
+/// The common logging prefix of all pallets in this crate.
 pub const LOG_PREFIX: &'static str = "runtime::multiblock-election";
 
-macro_rules! clear_paged_map {
-	($map: ty) => {{
-		let __r = <$map>::clear(u32::MAX, None);
+macro_rules! clear_round_based_map {
+	($map: ty, $round: expr) => {{
+		let __r = <$map>::clear_prefix($round, u32::MAX, None);
 		debug_assert!(__r.unique <= T::Pages::get(), "clearing map caused too many removals")
 	}};
 }
@@ -247,7 +249,7 @@ pub mod weights;
 
 pub use pallet::*;
 pub use types::*;
-pub use weights::measured::pallet_election_provider_multi_block::WeightInfo;
+pub use weights::traits::pallet_election_provider_multi_block::WeightInfo;
 
 /// A fallback implementation that transitions the pallet to the emergency phase.
 pub struct InitiateEmergencyPhase<T>(sp_std::marker::PhantomData<T>);
@@ -306,7 +308,6 @@ impl<T: Config> ElectionProvider for Continue<T> {
 	type MaxWinnersPerPage = <T::Verifier as Verifier>::MaxWinnersPerPage;
 
 	fn elect(_page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
-		log!(warn, "'Continue' fallback will do nothing");
 		Err("'Continue' fallback will do nothing")
 	}
 
@@ -422,6 +423,8 @@ pub enum ElectionError<T: Config> {
 	NotOngoing,
 	/// The election is currently ongoing, and therefore we cannot start again.
 	Ongoing,
+	/// Called elect() with wrong page order or in wrong phase.
+	OutOfOrder,
 	/// Other misc error
 	Other(&'static str),
 }
@@ -476,9 +479,38 @@ pub enum AdminOperation<T: Config> {
 	SetMinUntrustedScore(ElectionScore),
 }
 
+/// Trait to notify other sub-systems that a round has ended.
+pub trait OnRoundRotation {
+	/// `ending` round has ended. Implies we are now at round `ending + 1`
+	fn on_round_rotation(ending: u32);
+}
+
+impl OnRoundRotation for () {
+	fn on_round_rotation(_: u32) {}
+}
+
+/// An implementation of [`OnRoundRotation`] that immediately deletes all the data in all the
+/// pallets, once the round is over.
+///
+/// This is intended to be phased out once we move to fully lazy deletion system to spare more PoV.
+/// In that case, simply use `()` on [`pallet::Config::OnRoundRotation`].
+pub struct CleanRound<T>(core::marker::PhantomData<T>);
+impl<T: Config> OnRoundRotation for CleanRound<T> {
+	fn on_round_rotation(_ending: u32) {
+		// Kill everything in the verifier.
+		T::Verifier::kill();
+
+		// Kill the snapshot.
+		pallet::Snapshot::<T>::kill();
+
+		// Nothing to do in the signed pallet -- it is already in lazy-deletion mode.
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// Duration of the unsigned phase.
@@ -558,6 +590,10 @@ pub mod pallet {
 
 		/// The weight of the pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Single type that implement [`super::OnRoundRotation`] to do something when the round
+		/// ends.
+		type OnRoundRotation: super::OnRoundRotation;
 	}
 
 	#[pallet::call]
@@ -625,41 +661,47 @@ pub mod pallet {
 			let weight1 = match current_phase {
 				Phase::Snapshot(x) if x == T::Pages::get() => {
 					// create the target snapshot
-					Self::create_targets_snapshot().defensive_unwrap_or_default();
+					Self::create_targets_snapshot();
 					T::WeightInfo::on_initialize_into_snapshot_msp()
 				},
 				Phase::Snapshot(x) => {
 					// create voter snapshot
-					Self::create_voters_snapshot_paged(x).unwrap();
+					Self::create_voters_snapshot_paged(x);
 					T::WeightInfo::on_initialize_into_snapshot_rest()
 				},
 				_ => T::WeightInfo::on_initialize_nothing(),
 			};
 
-			// in all cases, go to next phase
-			let next_phase = current_phase.next();
+			// Only transition if not in Export phase
+			if !matches!(current_phase, Phase::Export(_)) {
+				let next_phase = current_phase.next();
 
-			let weight2 = match next_phase {
-				Phase::Signed(_) => T::WeightInfo::on_initialize_into_signed(),
-				Phase::SignedValidation(_) => T::WeightInfo::on_initialize_into_signed_validation(),
-				Phase::Unsigned(_) => T::WeightInfo::on_initialize_into_unsigned(),
-				_ => T::WeightInfo::on_initialize_nothing(),
-			};
+				let weight2 = match next_phase {
+					Phase::Signed(_) => T::WeightInfo::on_initialize_into_signed(),
+					Phase::SignedValidation(_) =>
+						T::WeightInfo::on_initialize_into_signed_validation(),
+					Phase::Unsigned(_) => T::WeightInfo::on_initialize_into_unsigned(),
+					_ => T::WeightInfo::on_initialize_nothing(),
+				};
 
-			Self::phase_transition(next_phase);
+				Self::phase_transition(next_phase);
 
-			// bit messy, but for now this works best.
-			#[cfg(test)]
-			{
-				let test_election_start: BlockNumberFor<T> =
-					(crate::mock::ElectionStart::get() as u32).into();
-				if _now == test_election_start {
-					crate::log!(info, "TESTING: Starting election at block {}", _now);
-					crate::mock::MultiBlock::start().unwrap();
+				// bit messy, but for now this works best.
+				#[cfg(test)]
+				{
+					let test_election_start: BlockNumberFor<T> =
+						(crate::mock::ElectionStart::get() as u32).into();
+					if _now == test_election_start {
+						crate::log!(info, "TESTING: Starting election at block {}", _now);
+						crate::mock::MultiBlock::start().unwrap();
+					}
 				}
-			}
 
-			weight1 + weight2
+				weight1 + weight2
+			} else {
+				// If in Export phase, do nothing.
+				weight1
+			}
 		}
 
 		fn integrity_test() {
@@ -713,8 +755,9 @@ pub mod pallet {
 				"Signed phase not set correct -- both should be set or unset"
 			);
 			assert!(
-				signed_validation.is_zero() || signed_validation >= T::Pages::get().into(),
-				"signed validation phase should be at least as long as the number of pages."
+				signed_validation.is_zero() ||
+					signed_validation % T::Pages::get().into() == Zero::zero(),
+				"signed validation phase should be a multiple of the number of pages."
 			);
 
 			assert!(has_signed || has_unsigned, "either signed or unsigned phase must be set");
@@ -737,6 +780,10 @@ pub mod pallet {
 			/// The target phase
 			to: Phase<T>,
 		},
+		/// Target snapshot creation failed
+		UnexpectedTargetSnapshotFailed,
+		/// Voter snapshot creation failed
+		UnexpectedVoterSnapshotFailed,
 	}
 
 	/// Error of the pallet that can be returned in response to dispatches.
@@ -794,6 +841,14 @@ pub mod pallet {
 	/// - `PagedTargetSnapshot`: Paginated map of targets.
 	/// - `PagedTargetSnapshotHash`: Hash of the aforementioned.
 	///
+	/// ### Round
+	///
+	/// All inner storage items are keyed by the round number. Yet, none of the interface in this
+	/// type expose this. This is because a snapshot is really only ever meaningful in the current
+	/// round. Moreover, doing this will allow us to possibly lazy-delete the old round data, such
+	/// as the sizeable snapshot, in a lazy manner. If any of these storage items, key-ed by a round
+	/// index, are in a round that has passed, now they can be lazy deleted.
+	///
 	/// ### Invariants
 	///
 	/// The following invariants must be met at **all times** for this storage item to be "correct".
@@ -816,48 +871,48 @@ pub mod pallet {
 	impl<T: Config> Snapshot<T> {
 		// ----------- mutable methods
 		pub(crate) fn set_desired_targets(d: u32) {
-			DesiredTargets::<T>::put(d);
+			DesiredTargets::<T>::insert(Self::round(), d);
 		}
 
 		pub(crate) fn set_targets(targets: BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>) {
 			let hash = Self::write_storage_with_pre_allocate(
-				&PagedTargetSnapshot::<T>::hashed_key_for(Pallet::<T>::msp()),
+				&PagedTargetSnapshot::<T>::hashed_key_for(Self::round(), Pallet::<T>::msp()),
 				targets,
 			);
-			PagedTargetSnapshotHash::<T>::insert(Pallet::<T>::msp(), hash);
+			PagedTargetSnapshotHash::<T>::insert(Self::round(), Pallet::<T>::msp(), hash);
 		}
 
 		pub(crate) fn set_voters(page: PageIndex, voters: VoterPageOf<T::MinerConfig>) {
 			let hash = Self::write_storage_with_pre_allocate(
-				&PagedVoterSnapshot::<T>::hashed_key_for(page),
+				&PagedVoterSnapshot::<T>::hashed_key_for(Self::round(), page),
 				voters,
 			);
-			PagedVoterSnapshotHash::<T>::insert(page, hash);
+			PagedVoterSnapshotHash::<T>::insert(Self::round(), page, hash);
 		}
 
 		/// Destroy the entire snapshot.
 		///
 		/// Should be called only once we transition to [`Phase::Off`].
 		pub(crate) fn kill() {
-			DesiredTargets::<T>::kill();
-			clear_paged_map!(PagedVoterSnapshot::<T>);
-			clear_paged_map!(PagedVoterSnapshotHash::<T>);
-			clear_paged_map!(PagedTargetSnapshot::<T>);
-			clear_paged_map!(PagedTargetSnapshotHash::<T>);
+			DesiredTargets::<T>::remove(Self::round());
+			clear_round_based_map!(PagedVoterSnapshot::<T>, Self::round());
+			clear_round_based_map!(PagedVoterSnapshotHash::<T>, Self::round());
+			clear_round_based_map!(PagedTargetSnapshot::<T>, Self::round());
+			clear_round_based_map!(PagedTargetSnapshotHash::<T>, Self::round());
 		}
 
 		// ----------- non-mutables
 		pub(crate) fn desired_targets() -> Option<u32> {
-			DesiredTargets::<T>::get()
+			DesiredTargets::<T>::get(Self::round())
 		}
 
 		pub(crate) fn voters(page: PageIndex) -> Option<VoterPageOf<T::MinerConfig>> {
-			PagedVoterSnapshot::<T>::get(page)
+			PagedVoterSnapshot::<T>::get(Self::round(), page)
 		}
 
 		pub(crate) fn targets() -> Option<BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>> {
 			// NOTE: targets always have one index, which is 0, aka lsp.
-			PagedTargetSnapshot::<T>::get(Pallet::<T>::msp())
+			PagedTargetSnapshot::<T>::get(Self::round(), Pallet::<T>::msp())
 		}
 
 		/// Get a fingerprint of the snapshot, from all the hashes that are stored for each page of
@@ -870,7 +925,7 @@ pub mod pallet {
 			let mut hashed_target_and_voters =
 				Self::targets_hash().unwrap_or_default().as_ref().to_vec();
 			let hashed_voters = (Pallet::<T>::msp()..=Pallet::<T>::lsp())
-				.map(|i| PagedVoterSnapshotHash::<T>::get(i).unwrap_or_default())
+				.map(|i| PagedVoterSnapshotHash::<T>::get(Self::round(), i).unwrap_or_default())
 				.flat_map(|hash| <T::Hash as AsRef<[u8]>>::as_ref(&hash).to_owned())
 				.collect::<Vec<u8>>();
 			hashed_target_and_voters.extend(hashed_voters);
@@ -894,7 +949,11 @@ pub mod pallet {
 		}
 
 		pub(crate) fn targets_hash() -> Option<T::Hash> {
-			PagedTargetSnapshotHash::<T>::get(Pallet::<T>::msp())
+			PagedTargetSnapshotHash::<T>::get(Self::round(), Pallet::<T>::msp())
+		}
+
+		fn round() -> u32 {
+			Pallet::<T>::round()
 		}
 	}
 
@@ -985,15 +1044,15 @@ pub mod pallet {
 		}
 
 		pub(crate) fn voters_decode_len(page: PageIndex) -> Option<usize> {
-			PagedVoterSnapshot::<T>::decode_len(page)
+			PagedVoterSnapshot::<T>::decode_len(Self::round(), page)
 		}
 
 		pub(crate) fn targets_decode_len() -> Option<usize> {
-			PagedTargetSnapshot::<T>::decode_len(Pallet::<T>::msp())
+			PagedTargetSnapshot::<T>::decode_len(Self::round(), Pallet::<T>::msp())
 		}
 
 		pub(crate) fn voters_hash(page: PageIndex) -> Option<T::Hash> {
-			PagedVoterSnapshotHash::<T>::get(page)
+			PagedVoterSnapshotHash::<T>::get(Self::round(), page)
 		}
 
 		pub(crate) fn sanity_check() -> Result<(), &'static str> {
@@ -1043,60 +1102,79 @@ pub mod pallet {
 				(crate::Pallet::<T>::lsp()..=crate::Pallet::<T>::msp()).collect::<Vec<_>>();
 			key_range
 				.into_iter()
-				.flat_map(|k| PagedVoterSnapshot::<T>::get(k).unwrap_or_default())
+				.flat_map(|k| PagedVoterSnapshot::<T>::get(Self::round(), k).unwrap_or_default())
 		}
 
 		pub(crate) fn remove_voter_page(page: PageIndex) {
-			PagedVoterSnapshot::<T>::remove(page);
+			PagedVoterSnapshot::<T>::remove(Self::round(), page);
 		}
 
 		pub(crate) fn kill_desired_targets() {
-			DesiredTargets::<T>::kill();
+			DesiredTargets::<T>::remove(Self::round());
 		}
 
 		pub(crate) fn remove_target_page() {
-			PagedTargetSnapshot::<T>::remove(Pallet::<T>::msp());
+			PagedTargetSnapshot::<T>::remove(Self::round(), Pallet::<T>::msp());
 		}
 
 		pub(crate) fn remove_target(at: usize) {
-			PagedTargetSnapshot::<T>::mutate(crate::Pallet::<T>::msp(), |maybe_targets| {
-				if let Some(targets) = maybe_targets {
-					targets.remove(at);
-					// and update the hash.
-					PagedTargetSnapshotHash::<T>::insert(
-						crate::Pallet::<T>::msp(),
-						T::Hashing::hash(&targets.encode()),
-					)
-				} else {
-					unreachable!();
-				}
-			})
+			PagedTargetSnapshot::<T>::mutate(
+				Self::round(),
+				crate::Pallet::<T>::msp(),
+				|maybe_targets| {
+					if let Some(targets) = maybe_targets {
+						targets.remove(at);
+						// and update the hash.
+						PagedTargetSnapshotHash::<T>::insert(
+							Self::round(),
+							crate::Pallet::<T>::msp(),
+							T::Hashing::hash(&targets.encode()),
+						)
+					} else {
+						unreachable!();
+					}
+				},
+			)
 		}
 	}
 
 	/// Desired number of targets to elect for this round.
 	#[pallet::storage]
-	type DesiredTargets<T> = StorageValue<_, u32>;
+	pub type DesiredTargets<T> = StorageMap<_, Twox64Concat, u32, u32>;
 	/// Paginated voter snapshot. At most [`T::Pages`] keys will exist.
 	#[pallet::storage]
-	type PagedVoterSnapshot<T: Config> =
-		StorageMap<_, Twox64Concat, PageIndex, VoterPageOf<T::MinerConfig>>;
+	pub type PagedVoterSnapshot<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		u32,
+		Twox64Concat,
+		PageIndex,
+		VoterPageOf<T::MinerConfig>,
+	>;
 	/// Same as [`PagedVoterSnapshot`], but it will store the hash of the snapshot.
 	///
 	/// The hash is generated using [`frame_system::Config::Hashing`].
 	#[pallet::storage]
-	type PagedVoterSnapshotHash<T: Config> = StorageMap<_, Twox64Concat, PageIndex, T::Hash>;
+	pub type PagedVoterSnapshotHash<T: Config> =
+		StorageDoubleMap<_, Twox64Concat, u32, Twox64Concat, PageIndex, T::Hash>;
 	/// Paginated target snapshot.
 	///
 	/// For the time being, since we assume one pages of targets, at most ONE key will exist.
 	#[pallet::storage]
-	type PagedTargetSnapshot<T: Config> =
-		StorageMap<_, Twox64Concat, PageIndex, BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>>;
+	pub type PagedTargetSnapshot<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		u32,
+		Twox64Concat,
+		PageIndex,
+		BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>,
+	>;
 	/// Same as [`PagedTargetSnapshot`], but it will store the hash of the snapshot.
 	///
 	/// The hash is generated using [`frame_system::Config::Hashing`].
 	#[pallet::storage]
-	type PagedTargetSnapshotHash<T: Config> = StorageMap<_, Twox64Concat, PageIndex, T::Hash>;
+	pub type PagedTargetSnapshotHash<T: Config> =
+		StorageDoubleMap<_, Twox64Concat, u32, Twox64Concat, PageIndex, T::Hash>;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
@@ -1193,42 +1271,62 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Creates the target snapshot.
-	pub(crate) fn create_targets_snapshot() -> Result<(), ElectionError<T>> {
+	///
+	/// If snapshot creation fails, emits `UnexpectedTargetSnapshotFailed` event
+	/// and triggers defensive panic.
+	pub(crate) fn create_targets_snapshot() {
 		// if requested, get the targets as well.
-		Snapshot::<T>::set_desired_targets(
-			T::DataProvider::desired_targets().map_err(ElectionError::DataProvider)?,
-		);
+		let desired_targets = match T::DataProvider::desired_targets() {
+			Ok(targets) => targets,
+			Err(e) => {
+				Self::deposit_event(Event::UnexpectedTargetSnapshotFailed);
+				defensive!("Failed to get desired targets: {:?}", e);
+				return;
+			},
+		};
+		Snapshot::<T>::set_desired_targets(desired_targets);
 
 		let count = T::TargetSnapshotPerBlock::get();
 		let bounds = DataProviderBounds { count: Some(count.into()), size: None };
 		let targets: BoundedVec<_, T::TargetSnapshotPerBlock> =
-			T::DataProvider::electable_targets(bounds, 0)
+			match T::DataProvider::electable_targets(bounds, 0)
 				.and_then(|v| v.try_into().map_err(|_| "try-into failed"))
-				.map_err(ElectionError::DataProvider)?;
+			{
+				Ok(targets) => targets,
+				Err(e) => {
+					Self::deposit_event(Event::UnexpectedTargetSnapshotFailed);
+					defensive!("Failed to create target snapshot: {:?}", e);
+					return;
+				},
+			};
 
 		let count = targets.len() as u32;
 		log!(debug, "created target snapshot with {} targets.", count);
 		Snapshot::<T>::set_targets(targets);
-
-		Ok(())
 	}
 
 	/// Creates the voter snapshot.
-	pub(crate) fn create_voters_snapshot_paged(
-		remaining: PageIndex,
-	) -> Result<(), ElectionError<T>> {
+	///
+	/// If snapshot creation fails, emits `UnexpectedVoterSnapshotFailed` event
+	/// and triggers defensive panic.
+	pub(crate) fn create_voters_snapshot_paged(remaining: PageIndex) {
 		let count = T::VoterSnapshotPerBlock::get();
 		let bounds = DataProviderBounds { count: Some(count.into()), size: None };
 		let voters: BoundedVec<_, T::VoterSnapshotPerBlock> =
-			T::DataProvider::electing_voters(bounds, remaining)
+			match T::DataProvider::electing_voters(bounds, remaining)
 				.and_then(|v| v.try_into().map_err(|_| "try-into failed"))
-				.map_err(ElectionError::DataProvider)?;
+			{
+				Ok(voters) => voters,
+				Err(e) => {
+					Self::deposit_event(Event::UnexpectedVoterSnapshotFailed);
+					defensive!("Failed to create voter snapshot: {:?}", e);
+					return;
+				},
+			};
 
 		let count = voters.len() as u32;
 		Snapshot::<T>::set_voters(remaining, voters);
 		log!(debug, "created voter snapshot with {} voters, {} remaining.", count, remaining);
-
-		Ok(())
 	}
 
 	/// Perform the tasks to be done after a new `elect` has been triggered:
@@ -1238,16 +1336,14 @@ impl<T: Config> Pallet<T> {
 	/// 3. Clear all snapshot data.
 	pub(crate) fn rotate_round() {
 		// Inc round.
-		<Round<T>>::mutate(|r| *r += 1);
+		<Round<T>>::mutate(|r| {
+			// Notify the rest of the world
+			T::OnRoundRotation::on_round_rotation(*r);
+			*r += 1
+		});
 
 		// Phase is off now.
 		Self::phase_transition(Phase::Off);
-
-		// Kill everything in the verifier.
-		T::Verifier::kill();
-
-		// Kill the snapshot.
-		Snapshot::<T>::kill();
 	}
 
 	/// Call fallback for the given page.
@@ -1302,7 +1398,7 @@ where
 		loop {
 			Self::roll_next(true, false);
 			if criteria() {
-				break
+				break;
 			}
 		}
 	}
@@ -1324,7 +1420,7 @@ where
 			.unwrap();
 
 			if should_break {
-				break
+				break;
 			}
 		}
 	}
@@ -1433,11 +1529,16 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 			Err(_) => return Err(ElectionError::NotOngoing),
 		}
 
+		let current_phase = CurrentPhase::<T>::get();
+		if let Phase::Export(expected) = current_phase {
+			ensure!(expected == remaining, ElectionError::OutOfOrder);
+		}
+
 		let result = T::Verifier::get_queued_solution_page(remaining)
 			.ok_or(ElectionError::SupportPageNotAvailable)
 			.or_else(|err: ElectionError<T>| {
 				log!(
-					warn,
+					debug,
 					"primary election for page {} failed due to: {:?}, trying fallback",
 					remaining,
 					err,
@@ -1449,7 +1550,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 				// anything else anymore. This will prevent any new submissions to signed and
 				// unsigned pallet, and thus the verifier will also be almost stuck, except for the
 				// submission of emergency solutions.
-				log!(warn, "primary and fallback ({:?}) failed for page {:?}", err, remaining);
+				log!(debug, "fallback also ({:?}) failed for page {:?}", err, remaining);
 				err
 			})
 			.map(|supports| {
@@ -1462,10 +1563,9 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 			log!(error, "Emergency phase triggered, halting the election.");
 		} else {
 			if remaining.is_zero() {
-				log!(info, "receiving last call to elect(0), rotating round");
 				Self::rotate_round()
 			} else {
-				Self::phase_transition(Phase::Export(remaining))
+				Self::phase_transition(Phase::Export(remaining - 1))
 			}
 		}
 
@@ -1506,9 +1606,9 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn asap() {
 		// prepare our snapshot so we can "hopefully" run a fallback.
-		Self::create_targets_snapshot().unwrap();
+		Self::create_targets_snapshot();
 		for p in (Self::lsp()..=Self::msp()).rev() {
-			Self::create_voters_snapshot_paged(p).unwrap()
+			Self::create_voters_snapshot_paged(p)
 		}
 	}
 }
@@ -1518,7 +1618,6 @@ mod phase_rotation {
 	use super::{Event, *};
 	use crate::{mock::*, Phase};
 	use frame_election_provider_support::ElectionProvider;
-	use frame_support::traits::Hooks;
 
 	#[test]
 	fn single_page() {
@@ -1571,7 +1670,7 @@ mod phase_rotation {
 				roll_to(20);
 				assert_eq!(
 					MultiBlock::current_phase(),
-					Phase::SignedValidation(SignedValidationPhase::get() - 1)
+					Phase::SignedValidation(SignedValidationPhase::get())
 				);
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 1));
 				assert_eq!(MultiBlock::round(), 0);
@@ -1580,16 +1679,16 @@ mod phase_rotation {
 					multi_block_events_since_last_call(),
 					vec![Event::PhaseTransitioned {
 						from: Phase::Signed(0),
-						to: Phase::SignedValidation(SignedValidationPhase::get() - 1)
+						to: Phase::SignedValidation(SignedValidationPhase::get())
 					}],
 				);
 
-				roll_to(24);
+				roll_to(26);
 				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(0));
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 1));
 				assert_eq!(MultiBlock::round(), 0);
 
-				roll_to(25);
+				roll_to(27);
 				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(UnsignedPhase::get() - 1));
 				assert_eq!(
 					multi_block_events_since_last_call(),
@@ -1599,20 +1698,20 @@ mod phase_rotation {
 					}],
 				);
 
-				roll_to(29);
+				roll_to(31);
 				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(0));
 
 				// We stay in done otherwise
-				roll_to(30);
+				roll_to(32);
 				assert!(MultiBlock::current_phase().is_done());
 
 				// We stay in done otherwise
-				roll_to(31);
+				roll_to(33);
 				assert!(MultiBlock::current_phase().is_done());
 
 				// We close when upstream tells us to elect.
-				roll_to(32);
-				assert_eq!(MultiBlock::current_phase(), Phase::Done);
+				roll_to(34);
+				assert!(MultiBlock::current_phase().is_done());
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 1));
 
 				MultiBlock::elect(0).unwrap();
@@ -1688,23 +1787,23 @@ mod phase_rotation {
 				assert_eq!(MultiBlock::round(), 0);
 				assert_eq!(
 					MultiBlock::current_phase(),
-					Phase::SignedValidation(SignedValidationPhase::get() - 1)
+					Phase::SignedValidation(SignedValidationPhase::get())
 				);
 
 				assert_eq!(
 					multi_block_events_since_last_call(),
 					vec![Event::PhaseTransitioned {
 						from: Phase::Signed(0),
-						to: Phase::SignedValidation(SignedValidationPhase::get() - 1)
+						to: Phase::SignedValidation(SignedValidationPhase::get())
 					}],
 				);
 
-				roll_to(24);
+				roll_to(26);
 				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(0));
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 2));
 				assert_eq!(MultiBlock::round(), 0);
 
-				roll_to(25);
+				roll_to(27);
 				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(UnsignedPhase::get() - 1));
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 2));
 				assert_eq!(MultiBlock::round(), 0);
@@ -1717,16 +1816,16 @@ mod phase_rotation {
 					}],
 				);
 
-				roll_to(29);
+				roll_to(31);
 				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(0));
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 2));
 
-				roll_to(30);
+				roll_to(32);
 				assert_eq!(MultiBlock::current_phase(), Phase::Done);
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 2));
 
 				// We close when upstream tells us to elect.
-				roll_to(32);
+				roll_to(33);
 				assert_eq!(MultiBlock::current_phase(), Phase::Done);
 
 				// and even this one's coming from the fallback.
@@ -1797,21 +1896,21 @@ mod phase_rotation {
 				roll_to(20);
 				assert_eq!(
 					MultiBlock::current_phase(),
-					Phase::SignedValidation(SignedValidationPhase::get() - 1)
+					Phase::SignedValidation(SignedValidationPhase::get())
 				);
 				assert_eq!(
 					multi_block_events_since_last_call(),
 					vec![Event::PhaseTransitioned {
 						from: Phase::Signed(0),
-						to: Phase::SignedValidation(SignedValidationPhase::get() - 1)
+						to: Phase::SignedValidation(SignedValidationPhase::get())
 					}]
 				);
 
-				roll_to(24);
+				roll_to(26);
 				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(0));
 				assert_eq!(MultiBlock::round(), 0);
 
-				roll_to(25);
+				roll_to(27);
 				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(UnsignedPhase::get() - 1));
 				assert_eq!(
 					multi_block_events_since_last_call(),
@@ -1821,14 +1920,14 @@ mod phase_rotation {
 					}]
 				);
 
-				roll_to(29);
+				roll_to(31);
 				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(0));
 
-				roll_to(30);
+				roll_to(32);
 				assert_eq!(MultiBlock::current_phase(), Phase::Done);
 
 				// We close when upstream tells us to elect.
-				roll_to(32);
+				roll_to(33);
 				assert_eq!(MultiBlock::current_phase(), Phase::Done);
 
 				MultiBlock::elect(0).unwrap();
@@ -1882,7 +1981,7 @@ mod phase_rotation {
 				roll_to(25);
 				assert_eq!(
 					MultiBlock::current_phase(),
-					Phase::SignedValidation(SignedValidationPhase::get() - 1)
+					Phase::SignedValidation(SignedValidationPhase::get())
 				);
 
 				assert_eq!(
@@ -1895,20 +1994,20 @@ mod phase_rotation {
 						},
 						Event::PhaseTransitioned {
 							from: Phase::Signed(0),
-							to: Phase::SignedValidation(SignedValidationPhase::get() - 1)
+							to: Phase::SignedValidation(SignedValidationPhase::get())
 						},
 					]
 				);
 
 				// last block of signed validation
-				roll_to(29);
+				roll_to(31);
 				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(0));
 
 				// we are done now
-				roll_to(30);
+				roll_to(32);
 				assert_eq!(MultiBlock::current_phase(), Phase::Done);
 
-				roll_to(31);
+				roll_to(33);
 				assert_eq!(MultiBlock::current_phase(), Phase::Done);
 
 				MultiBlock::elect(0).unwrap();
@@ -1989,6 +2088,7 @@ mod phase_rotation {
 	}
 
 	#[test]
+	#[should_panic(expected = "either signed or unsigned phase must be set")]
 	fn no_signed_and_unsigned_phase() {
 		ExtBuilder::full()
 			.pages(3)
@@ -1997,37 +2097,24 @@ mod phase_rotation {
 			.election_start(10)
 			.fallback_mode(FallbackModes::Onchain)
 			.build_and_execute(|| {
-				assert_eq!(System::block_number(), 0);
-				assert_eq!(MultiBlock::current_phase(), Phase::Off);
-				assert_none_snapshot();
-				assert_eq!(MultiBlock::round(), 0);
-
-				roll_to(10);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(3));
-				assert_eq!(MultiBlock::round(), 0);
-
-				roll_to(11);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(2));
-				roll_to(12);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(1));
-				roll_to(13);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(0));
-
-				// And we are done already
-				roll_to(14);
-				assert_eq!(MultiBlock::current_phase(), Phase::Done);
+				// This should panic during integrity test
 			});
 	}
 
 	#[test]
 	#[should_panic(
-		expected = "signed validation phase should be at least as long as the number of pages"
+		expected = "signed validation phase should be a multiple of the number of pages."
 	)]
-	fn incorrect_signed_validation_phase() {
-		ExtBuilder::full()
-			.pages(3)
-			.signed_validation_phase(2)
-			.build_and_execute(|| <MultiBlock as Hooks<BlockNumber>>::integrity_test())
+	fn incorrect_signed_validation_phase_shorter_than_number_of_pages() {
+		ExtBuilder::full().pages(3).signed_validation_phase(2).build_and_execute(|| {})
+	}
+
+	#[test]
+	#[should_panic(
+		expected = "signed validation phase should be a multiple of the number of pages."
+	)]
+	fn incorret_signed_validation_phase_not_a_multiple_of_the_number_of_pages() {
+		ExtBuilder::full().pages(3).signed_validation_phase(7).build_and_execute(|| {})
 	}
 
 	#[test]
@@ -2047,7 +2134,7 @@ mod phase_rotation {
 						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed(4) },
 						Event::PhaseTransitioned {
 							from: Phase::Signed(0),
-							to: Phase::SignedValidation(4)
+							to: Phase::SignedValidation(SignedValidationPhase::get())
 						},
 						Event::PhaseTransitioned {
 							from: Phase::SignedValidation(0),
@@ -2070,12 +2157,128 @@ mod phase_rotation {
 				assert_eq!(MultiBlock::current_phase(), Phase::Signed(SignedPhase::get() - 3));
 			});
 	}
+
+	#[test]
+	fn export_phase_only_transitions_on_elect() {
+		ExtBuilder::full()
+			.pages(3)
+			.election_start(13)
+			.fallback_mode(FallbackModes::Onchain)
+			.build_and_execute(|| {
+				roll_to_done();
+
+				assert_eq!(MultiBlock::current_phase(), Phase::Done);
+
+				// Test that on_initialize does NOT advance the phase when in Done
+				roll_next();
+				assert_eq!(
+					MultiBlock::current_phase(),
+					Phase::Done,
+					"Done phase should not auto-transition"
+				);
+
+				// Start export by calling elect(max_page)
+				assert_ok!(MultiBlock::elect(2)); // max_page = 2 for 3 pages
+				assert_eq!(MultiBlock::current_phase(), Phase::Export(1));
+
+				// Test that on_initialize does NOT advance the phase when in Export
+				roll_next();
+				assert_eq!(
+					MultiBlock::current_phase(),
+					Phase::Export(1),
+					"Export phase should not auto-transition"
+				);
+
+				// Only elect() should advance the Export phase
+				assert_ok!(MultiBlock::elect(1));
+				assert_eq!(MultiBlock::current_phase(), Phase::Export(0));
+
+				// Test Export(0) also blocks on_initialize transitions
+				roll_next();
+				assert_eq!(
+					MultiBlock::current_phase(),
+					Phase::Export(0),
+					"Export(0) should not auto-transition"
+				);
+
+				// Complete the export manually
+				assert_ok!(MultiBlock::elect(0));
+				assert_eq!(MultiBlock::current_phase(), Phase::Off);
+			});
+	}
+
+	#[test]
+	fn export_phase_out_of_order_elect_fails() {
+		ExtBuilder::full()
+			.pages(3)
+			.election_start(13)
+			.fallback_mode(FallbackModes::Onchain)
+			.build_and_execute(|| {
+				roll_to_done();
+
+				assert_eq!(MultiBlock::current_phase(), Phase::Done);
+
+				// Start export by calling elect(max_page)
+				assert_ok!(MultiBlock::elect(2)); // max_page = 2 for 3 pages
+				assert_eq!(MultiBlock::current_phase(), Phase::Export(1));
+
+				// Out of order: try to call elect(2) again, should fail
+				assert_eq!(MultiBlock::elect(2), Err(ElectionError::OutOfOrder));
+
+				// Out of order: try to call elect(0) before elect(1), should fail
+				assert_eq!(MultiBlock::elect(0), Err(ElectionError::OutOfOrder));
+
+				// Correct order: elect(1) works
+				assert_ok!(MultiBlock::elect(1));
+				assert_eq!(MultiBlock::current_phase(), Phase::Export(0));
+			});
+	}
+
+	#[test]
+	#[cfg_attr(debug_assertions, should_panic(expected = "Defensive failure has been triggered!"))]
+	fn target_snapshot_failed_event_emitted() {
+		ExtBuilder::full()
+				.pages(2)
+				.election_start(13)
+				.build_and_execute(|| {
+					// Create way more targets than the TargetSnapshotPerBlock limit (4)
+					// This will cause bounds.slice_exhausted(&targets) to return true
+					let too_many_targets: Vec<AccountId> = (1..=100).collect();
+					Targets::set(too_many_targets);
+
+					roll_to(13);
+					assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(2));
+
+					// Clear any existing events
+					let _ = multi_block_events_since_last_call();
+
+					// Roll to next block - on_initialize will be in Phase::Snapshot(2) where x == T::Pages::get()
+					// This triggers target snapshot creation, which should fail due to too many targets
+					roll_to(14);
+
+					// Verify that UnexpectedTargetSnapshotFailed event was emitted
+					let events = multi_block_events_since_last_call();
+					assert!(
+						events.contains(&Event::UnexpectedTargetSnapshotFailed),
+						"UnexpectedTargetSnapshotFailed event should have been emitted when target snapshot creation fails. Events: {:?}",
+						events
+					);
+
+					// Verify phase transition still happened despite the failure
+					assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(1));
+				});
+	}
 }
 
 #[cfg(test)]
 mod election_provider {
 	use super::*;
-	use crate::{mock::*, unsigned::miner::OffchainWorkerMiner, verifier::Verifier, Phase};
+	use crate::{
+		mock::*,
+		unsigned::miner::OffchainWorkerMiner,
+		verifier::{AsynchronousVerifier, Verifier},
+		Phase,
+	};
 	use frame_election_provider_support::{BoundedSupport, BoundedSupports, ElectionProvider};
 	use frame_support::{
 		assert_storage_noop, testing_prelude::bounded_vec, unsigned::ValidateUnsigned,
@@ -2110,7 +2313,7 @@ mod election_provider {
 					},
 					Event::PhaseTransitioned {
 						from: Phase::Signed(0),
-						to: Phase::SignedValidation(SignedValidationPhase::get() - 1)
+						to: Phase::SignedValidation(SignedValidationPhase::get())
 					}
 				]
 			);
@@ -2118,6 +2321,15 @@ mod election_provider {
 
 			// there is no queued solution prior to the last page of the solution getting verified
 			assert_eq!(<Runtime as crate::Config>::Verifier::queued_score(), None);
+			assert_eq!(<Runtime as crate::Config>::Verifier::status(), verifier::Status::Nothing);
+
+			// next block, signed will start the verifier, although nothing is verified yet.
+			roll_next();
+			assert_eq!(
+				<Runtime as crate::Config>::Verifier::status(),
+				verifier::Status::Ongoing(2)
+			);
+			assert_eq!(verifier_events(), vec![]);
 
 			// proceed until it is fully verified.
 			roll_next();
@@ -2195,10 +2407,12 @@ mod election_provider {
 			// there is no queued solution prior to the last page of the solution getting verified
 			assert_eq!(<Runtime as crate::Config>::Verifier::queued_score(), None);
 
-			// roll to the block it is finalized
+			// roll to the block it is finalized. 1 block to start the verifier, and 3 to verify
 			roll_next();
 			roll_next();
 			roll_next();
+			roll_next();
+
 			assert_eq!(
 				verifier_events(),
 				vec![
@@ -2252,10 +2466,12 @@ mod election_provider {
 			// there is no queued solution prior to the last page of the solution getting verified
 			assert_eq!(<Runtime as crate::Config>::Verifier::queued_score(), None);
 
-			// roll to the block it is finalized
+			// roll to the block it is finalized. 1 block to start the verifier, and 3 to verify.
 			roll_next();
 			roll_next();
 			roll_next();
+			roll_next();
+
 			assert_eq!(
 				verifier_events(),
 				vec![
@@ -2291,6 +2507,49 @@ mod election_provider {
 			assert!(MultiBlock::current_phase().is_export());
 			assert_eq!(Round::<Runtime>::get(), 0);
 			assert_full_snapshot();
+		});
+	}
+
+	#[test]
+	fn elect_advances_phase_even_on_error() {
+		// Use Continue fallback to avoid emergency phase when both primary and fallback fail.
+		ExtBuilder::full().fallback_mode(FallbackModes::Continue).build_and_execute(|| {
+			// Move to unsigned phase
+			roll_to_unsigned_open();
+
+			// Note: our mock runtime is configured with 1 page for the unsigned phase
+			let miner_pages = <Runtime as unsigned::Config>::MinerPages::get();
+			// Mine an unsigned solution
+			let unsigned_solution =
+				OffchainWorkerMiner::<Runtime>::mine_solution(miner_pages, true).unwrap();
+
+			// Submit the unsigned solution
+			assert_ok!(UnsignedPallet::submit_unsigned(
+				RuntimeOrigin::none(),
+				Box::new(unsigned_solution)
+			));
+
+			// Move to Done phase
+			roll_to_done();
+
+			// In the mock runtime Pages::get() = 3 so unsigned solution has 1 page but we go
+			// through Done -> Export(2) -> Export(1) -> Export(0) -> Off via elect().
+			// First elect call should succeed
+			let result1 = MultiBlock::elect(2);
+			assert!(result1.is_ok());
+			assert_eq!(MultiBlock::current_phase(), Phase::Export(1));
+
+			// Second elect call should now fail because we have mined a solution with MinerPages
+			// equal to 1.
+			// Phase should advance even on error.
+			let result2 = MultiBlock::elect(1);
+			assert!(result2.is_err());
+			assert_eq!(MultiBlock::current_phase(), Phase::Export(0));
+
+			// Third elect call should also fail but still advance to Off
+			let result3 = MultiBlock::elect(0);
+			assert!(result3.is_err());
+			assert!(matches!(MultiBlock::current_phase(), Phase::Off));
 		});
 	}
 
@@ -2424,9 +2683,9 @@ mod election_provider {
 					},
 					Event::PhaseTransitioned {
 						from: Phase::Signed(SignedPhase::get() - 1),
-						to: Phase::Export(2)
+						to: Phase::Export(1)
 					},
-					Event::PhaseTransitioned { from: Phase::Export(1), to: Phase::Off }
+					Event::PhaseTransitioned { from: Phase::Export(0), to: Phase::Off }
 				]
 			);
 			assert_eq!(verifier_events(), vec![]);

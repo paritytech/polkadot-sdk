@@ -30,11 +30,13 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use bp_xcm_bridge_hub_router::MINIMAL_DELIVERY_FEE_FACTOR;
 pub use bp_xcm_bridge_hub_router::{BridgeState, XcmChannelStatusProvider};
 use codec::Encode;
 use frame_support::traits::Get;
+use polkadot_runtime_parachains::FeeTracker;
 use sp_core::H256;
-use sp_runtime::{FixedPointNumber, FixedU128, Saturating};
+use sp_runtime::{FixedPointNumber, FixedU128};
 use sp_std::vec::Vec;
 use xcm::prelude::*;
 use xcm_builder::{ExporterFor, InspectMessageQueues, SovereignPaidRemoteExporter};
@@ -46,15 +48,6 @@ pub mod benchmarking;
 pub mod weights;
 
 mod mock;
-
-/// Minimal delivery fee factor.
-pub const MINIMAL_DELIVERY_FEE_FACTOR: FixedU128 = FixedU128::from_u32(1);
-
-/// The factor that is used to increase current message fee factor when bridge experiencing
-/// some lags.
-const EXPONENTIAL_FEE_BASE: FixedU128 = FixedU128::from_rational(105, 100); // 1.05
-/// The factor that is used to increase current message fee factor for every sent kilobyte.
-const MESSAGE_SIZE_FEE_BASE: FixedU128 = FixedU128::from_rational(1, 1000); // 0.001
 
 /// Maximal size of the XCM message that may be sent over bridge.
 ///
@@ -130,14 +123,11 @@ pub mod pallet {
 				return T::WeightInfo::on_initialize_when_congested();
 			}
 
+			let previous_factor = Self::get_fee_factor(());
 			// if we can't decrease the delivery fee factor anymore, we don't change anything
-			if bridge.delivery_fee_factor == MINIMAL_DELIVERY_FEE_FACTOR {
+			if !Self::do_decrease_fee_factor(&mut bridge.delivery_fee_factor) {
 				return T::WeightInfo::on_initialize_when_congested();
 			}
-
-			let previous_factor = bridge.delivery_fee_factor;
-			bridge.delivery_fee_factor =
-				MINIMAL_DELIVERY_FEE_FACTOR.max(bridge.delivery_fee_factor / EXPONENTIAL_FEE_BASE);
 
 			log::info!(
 				target: LOG_TARGET,
@@ -216,13 +206,12 @@ pub mod pallet {
 					return Err(());
 				}
 
+				let previous_factor = Self::get_fee_factor(());
 				// ok - we need to increase the fee factor, let's do that
-				let message_size_factor = FixedU128::from_u32(message_size.saturating_div(1024))
-					.saturating_mul(MESSAGE_SIZE_FEE_BASE);
-				let total_factor = EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor);
-				let previous_factor = bridge.delivery_fee_factor;
-				bridge.delivery_fee_factor =
-					bridge.delivery_fee_factor.saturating_mul(total_factor);
+				<Self as FeeTracker>::do_increase_fee_factor(
+					&mut bridge.delivery_fee_factor,
+					message_size as u128,
+				);
 
 				log::info!(
 					target: LOG_TARGET,
@@ -335,7 +324,7 @@ impl<T: Config<I>, I: 'static> ExporterFor for Pallet<T, I> {
 		let message_size = message.encoded_size();
 		let message_fee = (message_size as u128).saturating_mul(T::ByteFee::get());
 		let fee_sum = base_fee.saturating_add(message_fee);
-		let fee_factor = Self::bridge().delivery_fee_factor;
+		let fee_factor = Self::get_fee_factor(());
 		let fee = fee_factor.saturating_mul_int(fee_sum);
 
 		let fee = if fee > 0 { Some((T::FeeAsset::get(), fee).into()) } else { None };
@@ -442,6 +431,22 @@ impl<T: Config<I>, I: 'static> InspectMessageQueues for Pallet<T, I> {
 	}
 }
 
+impl<T: Config<I>, I: 'static> FeeTracker for Pallet<T, I> {
+	type Id = ();
+
+	const MIN_FEE_FACTOR: FixedU128 = MINIMAL_DELIVERY_FEE_FACTOR;
+
+	fn get_fee_factor(_id: Self::Id) -> FixedU128 {
+		Self::bridge().delivery_fee_factor
+	}
+
+	fn set_fee_factor(_id: Self::Id, val: FixedU128) {
+		let mut bridge = Self::bridge();
+		bridge.delivery_fee_factor = val;
+		Bridge::<T, I>::put(bridge);
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -465,7 +470,7 @@ mod tests {
 		run_test(|| {
 			assert_eq!(
 				Bridge::<TestRuntime, ()>::get(),
-				uncongested_bridge(MINIMAL_DELIVERY_FEE_FACTOR),
+				uncongested_bridge(Pallet::<TestRuntime, ()>::MIN_FEE_FACTOR),
 			);
 		})
 	}
@@ -504,7 +509,9 @@ mod tests {
 			Bridge::<TestRuntime, ()>::put(uncongested_bridge(initial_fee_factor));
 
 			// it should eventually decrease to one
-			while XcmBridgeHubRouter::bridge().delivery_fee_factor > MINIMAL_DELIVERY_FEE_FACTOR {
+			while XcmBridgeHubRouter::bridge().delivery_fee_factor >
+				Pallet::<TestRuntime, ()>::MIN_FEE_FACTOR
+			{
 				XcmBridgeHubRouter::on_initialize(One::one());
 			}
 
@@ -512,7 +519,7 @@ mod tests {
 			XcmBridgeHubRouter::on_initialize(One::one());
 			assert_eq!(
 				XcmBridgeHubRouter::bridge(),
-				uncongested_bridge(MINIMAL_DELIVERY_FEE_FACTOR)
+				uncongested_bridge(Pallet::<TestRuntime, ()>::MIN_FEE_FACTOR)
 			);
 
 			// check emitted event
@@ -522,7 +529,7 @@ mod tests {
 				Some(EventRecord {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::XcmBridgeHubRouter(Event::DeliveryFeeFactorDecreased {
-						new_value: initial_fee_factor / EXPONENTIAL_FEE_BASE,
+						new_value: initial_fee_factor / XcmBridgeHubRouter::EXPONENTIAL_FEE_BASE,
 					}),
 					topics: vec![],
 				})
@@ -701,7 +708,9 @@ mod tests {
 	#[test]
 	fn sent_message_increases_factor_if_bridge_has_reported_congestion() {
 		run_test(|| {
-			Bridge::<TestRuntime, ()>::put(congested_bridge(MINIMAL_DELIVERY_FEE_FACTOR));
+			Bridge::<TestRuntime, ()>::put(congested_bridge(
+				Pallet::<TestRuntime, ()>::MIN_FEE_FACTOR,
+			));
 
 			let old_bridge = XcmBridgeHubRouter::bridge();
 			assert_ok!(send_xcm::<XcmBridgeHubRouter>(

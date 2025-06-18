@@ -548,6 +548,143 @@ pub(crate) async fn handle_network_update<Context>(
 	}
 }
 
+#[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
+async fn handle_active_leaf_update<Context>(
+	ctx: &mut Context,
+	state: &mut State,
+	new_relay_parent: Hash,
+) -> JfyiErrorResult<()> {
+	let disabled_validators: HashSet<_> =
+		polkadot_node_subsystem_util::request_disabled_validators(new_relay_parent, ctx.sender())
+			.await
+			.await
+			.map_err(JfyiError::RuntimeApiUnavailable)?
+			.map_err(JfyiError::FetchDisabledValidators)?
+			.into_iter()
+			.collect();
+
+	let session_index = polkadot_node_subsystem_util::request_session_index_for_child(
+		new_relay_parent,
+		ctx.sender(),
+	)
+	.await
+	.await
+	.map_err(JfyiError::RuntimeApiUnavailable)?
+	.map_err(JfyiError::FetchSessionIndex)?;
+
+	if !state.per_session.contains_key(&session_index) {
+		let session_info = polkadot_node_subsystem_util::request_session_info(
+			new_relay_parent,
+			session_index,
+			ctx.sender(),
+		)
+		.await
+		.await
+		.map_err(JfyiError::RuntimeApiUnavailable)?
+		.map_err(JfyiError::FetchSessionInfo)?;
+
+		let session_info = match session_info {
+			None => {
+				gum::warn!(
+					target: LOG_TARGET,
+					relay_parent = ?new_relay_parent,
+					"No session info available for current session"
+				);
+
+				return Ok(())
+			},
+			Some(s) => s,
+		};
+
+		let minimum_backing_votes =
+			request_min_backing_votes(new_relay_parent, session_index, ctx.sender())
+				.await
+				.await
+				.map_err(JfyiError::RuntimeApiUnavailable)?
+				.map_err(JfyiError::FetchMinimumBackingVotes)?;
+		let node_features = request_node_features(new_relay_parent, session_index, ctx.sender())
+			.await
+			.await
+			.map_err(JfyiError::RuntimeApiUnavailable)?
+			.map_err(JfyiError::FetchNodeFeatures)?;
+		let mut per_session_state = PerSessionState::new(
+			session_info,
+			&state.keystore,
+			minimum_backing_votes,
+			node_features
+				.get(FeatureIndex::CandidateReceiptV2 as usize)
+				.map(|b| *b)
+				.unwrap_or(false),
+		);
+		if let Some(topology) = state.unused_topologies.remove(&session_index) {
+			per_session_state.supply_topology(&topology.topology, topology.local_index);
+		}
+		state.per_session.insert(session_index, per_session_state);
+	}
+
+	let per_session = state
+		.per_session
+		.get_mut(&session_index)
+		.expect("either existed or just inserted; qed");
+
+	if !disabled_validators.is_empty() {
+		gum::debug!(
+			target: LOG_TARGET,
+			relay_parent = ?new_relay_parent,
+			?session_index,
+			?disabled_validators,
+			"Disabled validators detected"
+		);
+	}
+
+	let group_rotation_info =
+		polkadot_node_subsystem_util::request_validator_groups(new_relay_parent, ctx.sender())
+			.await
+			.await
+			.map_err(JfyiError::RuntimeApiUnavailable)?
+			.map_err(JfyiError::FetchValidatorGroups)?
+			.1;
+
+	let claim_queue = ClaimQueueSnapshot(
+		polkadot_node_subsystem_util::request_claim_queue(new_relay_parent, ctx.sender())
+			.await
+			.await
+			.map_err(JfyiError::RuntimeApiUnavailable)?
+			.map_err(JfyiError::FetchClaimQueue)?,
+	);
+
+	let (groups_per_para, assignments_per_group) = determine_group_assignments(
+		per_session.groups.all().len(),
+		group_rotation_info,
+		&claim_queue,
+	)
+	.await;
+
+	let local_validator = per_session.local_validator.and_then(|v| {
+		if let LocalValidatorIndex::Active(idx) = v {
+			find_active_validator_state(idx, &per_session.groups, &assignments_per_group)
+		} else {
+			Some(LocalValidatorState { grid_tracker: GridTracker::default(), active: None })
+		}
+	});
+
+	let transposed_cq = transpose_claim_queue(claim_queue.0);
+
+	state.per_relay_parent.insert(
+		new_relay_parent,
+		PerRelayParentState {
+			local_validator,
+			statement_store: StatementStore::new(&per_session.groups),
+			session: session_index,
+			groups_per_para,
+			disabled_validators,
+			transposed_cq,
+			assignments_per_group,
+		},
+	);
+	Ok(())
+}
+
 /// Called on new leaf updates.
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
 pub(crate) async fn handle_active_leaves_update<Context>(
@@ -566,142 +703,19 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 		state.implicit_view.all_allowed_relay_parents().cloned().collect::<Vec<_>>();
 
 	for new_relay_parent in new_relay_parents.iter().cloned() {
-		let disabled_validators: HashSet<_> =
-			polkadot_node_subsystem_util::request_disabled_validators(
-				new_relay_parent,
-				ctx.sender(),
-			)
-			.await
-			.await
-			.map_err(JfyiError::RuntimeApiUnavailable)?
-			.map_err(JfyiError::FetchDisabledValidators)?
-			.into_iter()
-			.collect();
-
-		let session_index = polkadot_node_subsystem_util::request_session_index_for_child(
-			new_relay_parent,
-			ctx.sender(),
-		)
-		.await
-		.await
-		.map_err(JfyiError::RuntimeApiUnavailable)?
-		.map_err(JfyiError::FetchSessionIndex)?;
-
-		if !state.per_session.contains_key(&session_index) {
-			let session_info = polkadot_node_subsystem_util::request_session_info(
-				new_relay_parent,
-				session_index,
-				ctx.sender(),
-			)
-			.await
-			.await
-			.map_err(JfyiError::RuntimeApiUnavailable)?
-			.map_err(JfyiError::FetchSessionInfo)?;
-
-			let session_info = match session_info {
-				None => {
-					gum::warn!(
-						target: LOG_TARGET,
-						relay_parent = ?new_relay_parent,
-						"No session info available for current session"
-					);
-
-					continue
-				},
-				Some(s) => s,
-			};
-
-			let minimum_backing_votes =
-				request_min_backing_votes(new_relay_parent, session_index, ctx.sender())
-					.await
-					.await
-					.map_err(JfyiError::RuntimeApiUnavailable)?
-					.map_err(JfyiError::FetchMinimumBackingVotes)?;
-			let node_features =
-				request_node_features(new_relay_parent, session_index, ctx.sender())
-					.await
-					.await
-					.map_err(JfyiError::RuntimeApiUnavailable)?
-					.map_err(JfyiError::FetchNodeFeatures)?;
-			let mut per_session_state = PerSessionState::new(
-				session_info,
-				&state.keystore,
-				minimum_backing_votes,
-				node_features
-					.get(FeatureIndex::CandidateReceiptV2 as usize)
-					.map(|b| *b)
-					.unwrap_or(false),
-			);
-			if let Some(topology) = state.unused_topologies.remove(&session_index) {
-				per_session_state.supply_topology(&topology.topology, topology.local_index);
-			}
-			state.per_session.insert(session_index, per_session_state);
-		}
-
-		let per_session = state
-			.per_session
-			.get_mut(&session_index)
-			.expect("either existed or just inserted; qed");
-
-		if !disabled_validators.is_empty() {
-			gum::debug!(
-				target: LOG_TARGET,
-				relay_parent = ?new_relay_parent,
-				?session_index,
-				?disabled_validators,
-				"Disabled validators detected"
-			);
-		}
-
 		if state.per_relay_parent.contains_key(&new_relay_parent) {
 			continue
 		}
 
-		let group_rotation_info =
-			polkadot_node_subsystem_util::request_validator_groups(new_relay_parent, ctx.sender())
-				.await
-				.await
-				.map_err(JfyiError::RuntimeApiUnavailable)?
-				.map_err(JfyiError::FetchValidatorGroups)?
-				.1;
-
-		let claim_queue = ClaimQueueSnapshot(
-			polkadot_node_subsystem_util::request_claim_queue(new_relay_parent, ctx.sender())
-				.await
-				.await
-				.map_err(JfyiError::RuntimeApiUnavailable)?
-				.map_err(JfyiError::FetchClaimQueue)?,
-		);
-
-		let (groups_per_para, assignments_per_group) = determine_group_assignments(
-			per_session.groups.all().len(),
-			group_rotation_info,
-			&claim_queue,
-		)
-		.await;
-
-		let local_validator = per_session.local_validator.and_then(|v| {
-			if let LocalValidatorIndex::Active(idx) = v {
-				find_active_validator_state(idx, &per_session.groups, &assignments_per_group)
-			} else {
-				Some(LocalValidatorState { grid_tracker: GridTracker::default(), active: None })
-			}
-		});
-
-		let transposed_cq = transpose_claim_queue(claim_queue.0);
-
-		state.per_relay_parent.insert(
-			new_relay_parent,
-			PerRelayParentState {
-				local_validator,
-				statement_store: StatementStore::new(&per_session.groups),
-				session: session_index,
-				groups_per_para,
-				disabled_validators,
-				transposed_cq,
-				assignments_per_group,
-			},
-		);
+		if let Err(err) = handle_active_leaf_update(ctx, state, new_relay_parent).await {
+			gum::warn!(
+				target: LOG_TARGET,
+				relay_parent = ?new_relay_parent,
+				error = ?err,
+				"Failed to handle active leaf update"
+			);
+			continue
+		}
 	}
 
 	gum::debug!(

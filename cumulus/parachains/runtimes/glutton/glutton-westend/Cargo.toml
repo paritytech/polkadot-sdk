@@ -135,6 +135,7 @@ try-runtime = [
 	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"parachain-info/try-runtime",
+	"parachains-common/try-runtime",
 	"sp-runtime/try-runtime",
 ]
 

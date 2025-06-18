@@ -462,8 +462,10 @@ jobs:
       - name: build and push image
         uses: ./.github/actions/build-push-image
         with:
-          image-name: "europe-docker.pkg.dev/parity-ci-2024/temp-images/test-parachain"
+          image-name: "test-parachain"
           dockerfile: "docker/dockerfiles/test-parachain_injected.Dockerfile"
+          username: ${{ secrets.PARITYPR_DOCKERHUB_USERNAME }}
+          password: ${{ secrets.PARITYPR_DOCKERHUB_PASSWORD }}
 
   #
   #
@@ -486,8 +488,10 @@ jobs:
       - name: build and push image
         uses: ./.github/actions/build-push-image
         with:
-          image-name: "europe-docker.pkg.dev/parity-ci-2024/temp-images/polkadot-debug"
+          image-name: "polkadot-debug"
           dockerfile: "docker/dockerfiles/polkadot/polkadot_injected_debug.Dockerfile"
+          username: ${{ secrets.PARITYPR_DOCKERHUB_USERNAME }}
+          password: ${{ secrets.PARITYPR_DOCKERHUB_PASSWORD }}
 
   #
   #
@@ -510,8 +514,10 @@ jobs:
       - name: build and push image
         uses: ./.github/actions/build-push-image
         with:
-          image-name: "europe-docker.pkg.dev/parity-ci-2024/temp-images/colander"
+          image-name: "colander"
           dockerfile: "docker/dockerfiles/collator_injected.Dockerfile"
+          username: ${{ secrets.PARITYPR_DOCKERHUB_USERNAME }}
+          password: ${{ secrets.PARITYPR_DOCKERHUB_PASSWORD }}
 
   #
   #
@@ -534,8 +540,10 @@ jobs:
       - name: build and push image
         uses: ./.github/actions/build-push-image
         with:
-          image-name: "europe-docker.pkg.dev/parity-ci-2024/temp-images/malus"
+          image-name: "malus"
           dockerfile: "docker/dockerfiles/malus_injected.Dockerfile"
+          username: ${{ secrets.PARITYPR_DOCKERHUB_USERNAME }}
+          password: ${{ secrets.PARITYPR_DOCKERHUB_PASSWORD }}
 
   #
   #
@@ -558,8 +566,10 @@ jobs:
       - name: build and push image
         uses: ./.github/actions/build-push-image
         with:
-          image-name: "europe-docker.pkg.dev/parity-ci-2024/temp-images/substrate"
+          image-name: "substrate"
           dockerfile: "docker/dockerfiles/substrate_injected.Dockerfile"
+          username: ${{ secrets.PARITYPR_DOCKERHUB_USERNAME }}
+          password: ${{ secrets.PARITYPR_DOCKERHUB_PASSWORD }}
 
   #
   #
@@ -607,8 +617,10 @@ jobs:
       - name: build and push image
         uses: ./.github/actions/build-push-image
         with:
-          image-name: "europe-docker.pkg.dev/parity-ci-2024/temp-images/bridges-zombienet-tests"
+          image-name: "bridges-zombienet-tests"
           dockerfile: "docker/dockerfiles/bridges_zombienet_tests_injected.Dockerfile"
+          username: ${{ secrets.PARITYPR_DOCKERHUB_USERNAME }}
+          password: ${{ secrets.PARITYPR_DOCKERHUB_PASSWORD }}
 
   #
   #
@@ -631,8 +643,10 @@ jobs:
       - name: build and push image
         uses: ./.github/actions/build-push-image
         with:
-          image-name: "europe-docker.pkg.dev/parity-ci-2024/temp-images/polkadot-parachain-debug"
+          image-name: "polkadot-parachain-debug"
           dockerfile: "docker/dockerfiles/polkadot-parachain/polkadot-parachain-debug_unsigned_injected.Dockerfile"
+          username: ${{ secrets.PARITYPR_DOCKERHUB_USERNAME }}
+          password: ${{ secrets.PARITYPR_DOCKERHUB_PASSWORD }}
 
   confirm-required-build-jobs-passed:
     runs-on: ubuntu-latest

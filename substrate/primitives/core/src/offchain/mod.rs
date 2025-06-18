@@ -56,7 +56,7 @@ pub trait OffchainStorage: Clone + Send + Sync {
 }
 
 /// A type of supported crypto.
-#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, RuntimeDebug)]
+#[derive(Clone, Copy, PartialEq, Eq, RuntimeDebug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(C)]
 pub enum StorageKind {
@@ -66,12 +66,12 @@ pub enum StorageKind {
 	/// that is re-run at block `N(hash2)`.
 	/// This storage can be used by offchain workers to handle forks
 	/// and coordinate offchain workers running on different forks.
-	PERSISTENT = 1_isize,
+	PERSISTENT = 0_isize,
 	/// Local storage is revertible and fork-aware. It means that any value
 	/// set by the offchain worker triggered at block `N(hash1)` is reverted
 	/// if that block is reverted as non-canonical and is NOT available for the worker
 	/// that is re-run at block `N(hash2)`.
-	LOCAL = 2_isize,
+	LOCAL = 1_isize,
 }
 
 impl TryFrom<u32> for StorageKind {
@@ -120,11 +120,14 @@ impl From<HttpRequestId> for u32 {
 #[repr(C)]
 pub enum HttpError {
 	/// The requested action couldn't been completed within a deadline.
-	DeadlineReached = 1_isize,
+	#[codec(index = 1)]
+	DeadlineReached = 0_isize,
 	/// There was an IO Error while processing the request.
-	IoError = 2_isize,
+	#[codec(index = 2)]
+	IoError = 1_isize,
 	/// The ID of the request is invalid in this context.
-	Invalid = 3_isize,
+	#[codec(index = 3)]
+	Invalid = 2_isize,
 }
 
 impl TryFrom<u32> for HttpError {

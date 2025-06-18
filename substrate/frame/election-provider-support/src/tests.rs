@@ -247,6 +247,65 @@ mod solution_type {
 	}
 
 	#[test]
+	fn prevents_target_duplicate_into_assignment() {
+		let voter_at = |a: u32| -> Option<AccountId> { Some(a as AccountId) };
+		let target_at = |a: u16| -> Option<AccountId> { Some(a as AccountId) };
+
+		// case 1: duplicate target in votes2.
+		let solution = TestSolution { votes2: vec![(0, [(1, p(50))], 1)], ..Default::default() };
+		assert_eq!(
+			solution.into_assignment(&voter_at, &target_at).unwrap_err(),
+			NposError::DuplicateTarget,
+		);
+
+		// case 2: duplicate target in votes3.
+		let solution =
+			TestSolution { votes3: vec![(0, [(1, p(25)), (2, p(50))], 1)], ..Default::default() };
+		assert_eq!(
+			solution.into_assignment(&voter_at, &target_at).unwrap_err(),
+			NposError::DuplicateTarget,
+		);
+	}
+
+	#[test]
+	fn prevents_voter_duplicate_into_assignment() {
+		let voter_at = |a: u32| -> Option<AccountId> { Some(a as AccountId) };
+		let target_at = |a: u16| -> Option<AccountId> { Some(a as AccountId) };
+
+		// case 1: there is a duplicate among two different fields
+		let solution = TestSolution {
+			// voter index 0 is present here
+			votes1: vec![(0, 0), (1, 0)],
+			// voter index 0 is also present here
+			votes2: vec![(0, [(1, p(50))], 2)],
+			..Default::default()
+		};
+
+		assert_eq!(
+			solution.into_assignment(&voter_at, &target_at).unwrap_err(),
+			NposError::DuplicateVoter,
+		);
+
+		// case 2: there is a duplicate in the same field
+		let solution = TestSolution { votes1: vec![(0, 0), (0, 1)], ..Default::default() };
+		assert_eq!(
+			solution.into_assignment(&voter_at, &target_at).unwrap_err(),
+			NposError::DuplicateVoter,
+		);
+
+		// case 2.1: there is a duplicate in the same fieild, a bit more complex
+		let solution = TestSolution {
+			votes1: vec![(0, 0)],
+			votes2: vec![(1, [(1, p(50))], 2), (1, [(3, p(50))], 4)],
+			..Default::default()
+		};
+		assert_eq!(
+			solution.into_assignment(&voter_at, &target_at).unwrap_err(),
+			NposError::DuplicateVoter,
+		);
+	}
+
+	#[test]
 	fn from_and_into_assignment_works() {
 		let voters = vec![2 as AccountId, 4, 1, 5, 3];
 		let targets = vec![

@@ -1,0 +1,40 @@
+title: 'RFC-0008: Store parachain bootnodes in the relay chain DHT'
+doc:
+- audience: Node Dev
+  description: |-
+    Implement [RFC-0008 "DHT bootnodes"](https://polkadot-fellows.github.io/RFCs/approved/0008-parachain-bootnodes-dht.html).
+
+    With this mechanism, every parachain node is eligible to act as a bootnode. If its peer ID is close to the parachain key for the current relay chain epoch, it becomes discoverable by other parachain nodes via the relay chain DHT. This removes the need to specify bootnodes in the parachain chainspec, eliminating a single point of failure and simplifying things for parachain operators.
+
+    The mechanism is enabled by default. The embedded DHT bootnode can be disabled using the `--no-dht-bootnode` flag, and discovery of such nodes can be disabled with the `--no-dht-bootnode-discovery` flag.
+crates:
+- name: cumulus-relay-chain-inprocess-interface
+  bump: minor
+- name: cumulus-relay-chain-interface
+  bump: minor
+- name: cumulus-relay-chain-minimal-node
+  bump: minor
+- name: cumulus-relay-chain-rpc-interface
+  bump: minor
+- name: cumulus-client-bootnodes
+  bump: patch
+- name: cumulus-client-cli
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: minor
+- name: cumulus-client-service
+  bump: minor
+- name: sc-network
+  bump: major
+- name: sc-authority-discovery
+  bump: patch
+- name: cumulus-client-consensus-common
+  bump: minor
+- name: cumulus-client-network
+  bump: minor
+- name: cumulus-client-pov-recovery
+  bump: minor
+- name: cumulus-zombienet-sdk-helpers
+  bump: minor
+- name: polkadot-sdk
+  bump: minor

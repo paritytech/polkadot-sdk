@@ -20,7 +20,7 @@ use cumulus_pallet_parachain_system::AnyRelayNumber;
 use cumulus_primitives_core::{ChannelInfo, IsSystem, ParaId};
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU32, Everything, OriginTrait},
+	traits::{BatchesFootprints, ConstU32, Everything, OriginTrait},
 	BoundedSlice,
 };
 use frame_system::EnsureRoot;
@@ -105,6 +105,7 @@ impl cumulus_pallet_parachain_system::Config for Test {
 	type CheckAssociatedRelayNumber = AnyRelayNumber;
 	type ConsensusHook = cumulus_pallet_parachain_system::consensus_hook::ExpectParentIncluded;
 	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Test>;
+	type RelayParentOffset = ConstU32<0>;
 }
 
 parameter_types! {
@@ -193,24 +194,16 @@ impl<T: OnQueueChanged<ParaId>> QueueFootprintQuery<ParaId> for EnqueueToLocalSt
 		origin: ParaId,
 		msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
 		total_pages_limit: u32,
-	) -> Vec<BatchFootprint> {
+	) -> BatchesFootprints {
 		// Let's consider that we add one message per page
 		let footprint = Self::footprint(origin);
-		let mut batches_footprints = vec![];
-		let mut new_pages_count = 0;
-		let mut total_size = 0;
+		let mut batches_footprints = BatchesFootprints::default();
 		for (idx, msg) in msgs.enumerate() {
-			new_pages_count += 1;
-			if footprint.pages + new_pages_count > total_pages_limit {
+			if footprint.pages + idx as u32 + 1 > total_pages_limit {
 				break;
 			}
 
-			total_size += msg.len();
-			batches_footprints.push(BatchFootprint {
-				msgs_count: idx + 1,
-				size_in_bytes: total_size,
-				new_pages_count,
-			})
+			batches_footprints.push(msg.into(), true);
 		}
 		batches_footprints
 	}

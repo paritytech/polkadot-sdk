@@ -31,13 +31,15 @@ use codec::{Decode, Encode};
 
 use cumulus_primitives_core::relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
 use frame_support::{
-	traits::{ExecuteBlock, ExtrinsicCall, Get, IsSubType},
+	traits::{ExecuteBlock, Get, IsSubType},
 	BoundedVec,
 };
 use sp_core::storage::{ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::KillStorageResult;
-use sp_runtime::traits::{Block as BlockT, ExtrinsicLike, HashingFor, Header as HeaderT};
+use sp_runtime::traits::{
+	Block as BlockT, ExtrinsicCall, ExtrinsicLike, HashingFor, Header as HeaderT,
+};
 use sp_state_machine::OverlayedChanges;
 use sp_trie::ProofSizeProvider;
 use trie_recorder::SizeOnlyRecorderProvider;

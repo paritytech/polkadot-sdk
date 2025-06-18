@@ -119,7 +119,7 @@ jobs:
         if: matrix.template != 'solochain'
       - name: Generate a token for the template repository
         id: app_token
-        uses: actions/create-github-app-token@v1.9.3
+        uses: actions/create-github-app-token@v2
         with:
           owner: "paritytech"
           repositories: "polkadot-sdk-${{ matrix.template }}-template"
@@ -178,6 +178,7 @@ jobs:
 
           echo "$(toml get -r ./runtime/Cargo.toml 'package.name') = { path = \"./runtime\", default-features = false }" >> Cargo.toml
           echo "$(toml get -r ./pallets/template/Cargo.toml 'package.name') = { path = \"./pallets/template\", default-features = false }" >> Cargo.toml
+
         shell: bash
         working-directory: polkadot-sdk/templates/${{ matrix.template }}/
       - name: Update workspace configuration
@@ -230,6 +231,24 @@ jobs:
             # And copy the dependency from the monorepo.
             toml get ../polkadot-sdk/Cargo.toml 'workspace.dependencies' --output-toml | grep "^${missing_dep} = " >> Cargo.toml
           done;
+        working-directory: "${{ env.template-path }}"
+
+      - name: Add build profiles
+        run: |
+          # Add profile configurations to resulting Cargo.toml
+          cat << EOF >> Cargo.toml
+
+          [profile.release]
+          opt-level = 3
+          panic = "unwind"
+
+          [profile.production]
+          codegen-units = 1
+          inherits = "release"
+          lto = true
+
+          EOF
+          
         working-directory: "${{ env.template-path }}"
 
       - name: Print the result Cargo.tomls for debugging after copying required workspace dependencies

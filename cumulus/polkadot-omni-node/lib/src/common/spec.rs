@@ -23,6 +23,7 @@ use crate::common::{
 	},
 	ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 };
+use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_service::{
 	build_network, build_relay_chain_interface, prepare_node_config, start_relay_chain_tasks,
@@ -32,7 +33,6 @@ use cumulus_primitives_core::{BlockT, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::FutureExt;
 use parachains_common::Hash;
-use polkadot_cli::service::IdentifyNetworkBackend;
 use polkadot_primitives::CollatorPair;
 use prometheus_endpoint::Registry;
 use sc_client_api::Backend;
@@ -266,23 +266,27 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 	{
 		let fut = async move {
 			let parachain_config = prepare_node_config(parachain_config);
-
+			let parachain_public_addresses = parachain_config.network.public_addresses.clone();
+			let parachain_fork_id = parachain_config.chain_spec.fork_id().map(ToString::to_string);
+			let advertise_non_global_ips = parachain_config.network.allow_non_globals_in_dht;
 			let params = Self::new_partial(&parachain_config)?;
 			let (block_import, mut telemetry, telemetry_worker_handle, block_import_auxiliary_data) =
 				params.other;
 			let client = params.client.clone();
 			let backend = params.backend.clone();
 			let mut task_manager = params.task_manager;
-			let (relay_chain_interface, collator_key) = build_relay_chain_interface(
-				polkadot_config,
-				&parachain_config,
-				telemetry_worker_handle,
-				&mut task_manager,
-				collator_options.clone(),
-				hwbench.clone(),
-			)
-			.await
-			.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+			let relay_chain_fork_id = polkadot_config.chain_spec.fork_id().map(ToString::to_string);
+			let (relay_chain_interface, collator_key, relay_chain_network, paranode_rx) =
+				build_relay_chain_interface(
+					polkadot_config,
+					&parachain_config,
+					telemetry_worker_handle,
+					&mut task_manager,
+					collator_options.clone(),
+					hwbench.clone(),
+				)
+				.await
+				.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
 
 			let validator = parachain_config.role.is_authority();
 			let prometheus_registry = parachain_config.prometheus_registry().cloned();
@@ -399,7 +403,24 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				relay_chain_slot_duration,
 				recovery_handle: Box::new(overseer_handle.clone()),
 				sync_service,
+				prometheus_registry: prometheus_registry.as_ref(),
 			})?;
+
+			start_bootnode_tasks(StartBootnodeTasksParams {
+				embedded_dht_bootnode: collator_options.embedded_dht_bootnode,
+				dht_bootnode_discovery: collator_options.dht_bootnode_discovery,
+				para_id,
+				task_manager: &mut task_manager,
+				relay_chain_interface: relay_chain_interface.clone(),
+				relay_chain_fork_id,
+				relay_chain_network,
+				request_receiver: paranode_rx,
+				parachain_network: network,
+				advertise_non_global_ips,
+				parachain_genesis_hash: client.chain_info().genesis_hash,
+				parachain_fork_id,
+				parachain_public_addresses,
+			});
 
 			if validator {
 				Self::StartConsensus::start_consensus(
@@ -460,10 +481,7 @@ where
 		hwbench: Option<HwBench>,
 		node_extra_args: NodeExtraArgs,
 	) -> Pin<Box<dyn Future<Output = sc_service::error::Result<TaskManager>>>> {
-		// If the network backend is unspecified, use the default for the given chain.
-		let default_backend = parachain_config.chain_spec.network_backend();
-		let network_backend = parachain_config.network.network_backend.unwrap_or(default_backend);
-		match network_backend {
+		match parachain_config.network.network_backend {
 			sc_network::config::NetworkBackendType::Libp2p =>
 				<Self as NodeSpec>::start_node::<sc_network::NetworkWorker<_, _>>(
 					parachain_config,

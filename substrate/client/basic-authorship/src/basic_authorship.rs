@@ -606,7 +606,7 @@ mod tests {
 
 	use futures::executor::block_on;
 	use parking_lot::Mutex;
-	use sc_client_api::Backend;
+	use sc_client_api::{Backend, TrieCacheContext};
 	use sc_transaction_pool::BasicPool;
 	use sc_transaction_pool_api::{ChainEvent, MaintainedTransactionPool, TransactionSource};
 	use sp_api::Core;
@@ -777,7 +777,7 @@ mod tests {
 		let api = client.runtime_api();
 		api.execute_block(genesis_hash, proposal.block).unwrap();
 
-		let state = backend.state_at(genesis_hash).unwrap();
+		let state = backend.state_at(genesis_hash, TrieCacheContext::Untrusted).unwrap();
 
 		let storage_changes = api.into_storage_changes(&state, genesis_hash).unwrap();
 

@@ -94,7 +94,7 @@ Please see the installation section at [`crates.io/omni-node`](https://crates.io
 #### Build `parachain-template-runtime`
 
 ```sh
-cargo build --release
+cargo build --profile production
 ```
 
 #### Install `staging-chain-spec-builder`

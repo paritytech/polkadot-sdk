@@ -37,6 +37,8 @@ snowbridge-core = { workspace = true }
 snowbridge-outbound-queue-primitives = { workspace = true }
 snowbridge-pallet-system = { workspace = true }
 
+tracing = { workspace = true }
+
 [dev-dependencies]
 hex-literal = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
@@ -59,6 +61,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"tracing/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]

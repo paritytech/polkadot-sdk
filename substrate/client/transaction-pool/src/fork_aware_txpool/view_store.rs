@@ -34,11 +34,13 @@ use crate::{
 };
 use itertools::Itertools;
 use parking_lot::RwLock;
-use sc_transaction_pool_api::{error::Error as PoolError, PoolStatus, TxInvalidityReportMap};
+use sc_transaction_pool_api::{
+	error::Error as PoolError, PoolStatus, TransactionTag as Tag, TxInvalidityReportMap,
+};
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_runtime::{
 	generic::BlockId,
-	traits::{Block as BlockT, Saturating},
+	traits::{Block as BlockT, Header, One, Saturating},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 };
 use std::{
@@ -334,6 +336,39 @@ where
 	/// Returns true if there are no active views.
 	pub(super) fn is_empty(&self) -> bool {
 		self.active_views.read().is_empty() && self.inactive_views.read().is_empty()
+	}
+
+	/// Searches in the view store for the first descendant view by iterating through the fork of
+	/// the `at` block, up to the provided `block_number`.
+	///
+	/// Returns with a maybe pair of a view and a set of enacted blocks when the first view is
+	/// found.
+	pub(super) fn find_view_descendent_up_to_number(
+		&self,
+		at: &HashAndNumber<Block>,
+		up_to: <<Block as BlockT>::Header as Header>::Number,
+	) -> Option<(Arc<View<ChainApi>>, Vec<Block::Hash>)> {
+		let mut enacted_blocks = Vec::new();
+		let mut at_hash = at.hash;
+		let mut at_number = at.number;
+
+		// Search for a view that can be used to get and return an approximate ready
+		// transaction set.
+		while at_number >= up_to {
+			// Found a view, stop searching.
+			if let Some((view, _)) = self.get_view_at(at_hash, true) {
+				return Some((view, enacted_blocks));
+			}
+
+			enacted_blocks.push(at_hash);
+
+			// Move up into the fork.
+			let header = self.api.block_header(at_hash).ok().flatten()?;
+			at_hash = *header.parent_hash();
+			at_number = at_number.saturating_sub(One::one());
+		}
+
+		None
 	}
 
 	/// Finds the best existing active view to clone from along the path.
@@ -906,5 +941,35 @@ where
 				self.dropped_stream_controller.remove_view(view);
 			}
 		}
+	}
+
+	/// Returns provides tags of given transactions in the views associated to the given set of
+	/// blocks.
+	pub(crate) fn provides_tags_from_inactive_views(
+		&self,
+		block_hashes: Vec<&HashAndNumber<Block>>,
+		mut xts_hashes: Vec<ExtrinsicHash<ChainApi>>,
+	) -> HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>> {
+		let mut provides_tags_map = HashMap::new();
+
+		block_hashes.into_iter().for_each(|hn| {
+			// Get tx provides tags from given view's pool.
+			if let Some((view, _)) = self.get_view_at(hn.hash, true) {
+				let provides_tags = view.pool.validated_pool().extrinsics_tags(&xts_hashes);
+				let xts_provides_tags = xts_hashes
+					.iter()
+					.zip(provides_tags.into_iter())
+					.filter_map(|(hash, maybe_tags)| maybe_tags.map(|tags| (*hash, tags)))
+					.collect::<HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>>>();
+
+				// Remove txs that have been resolved.
+				xts_hashes.retain(|xth| !xts_provides_tags.contains_key(xth));
+
+				// Collect the (extrinsic hash, tags) pairs in a map.
+				provides_tags_map.extend(xts_provides_tags);
+			}
+		});
+
+		provides_tags_map
 	}
 }

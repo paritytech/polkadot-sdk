@@ -29,6 +29,7 @@ use sp_runtime::{
 	},
 };
 use std::{
+	collections::HashMap,
 	sync::Arc,
 	time::{Duration, Instant},
 };
@@ -305,6 +306,7 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 		at: &HashAndNumber<B::Block>,
 		parent: <B::Block as BlockT>::Hash,
 		extrinsics: &[RawExtrinsicFor<B>],
+		known_provides_tags: Option<Arc<HashMap<ExtrinsicHash<B>, Vec<Tag>>>>,
 	) {
 		debug!(
 			target: LOG_TARGET,
@@ -316,17 +318,31 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 		let in_pool_hashes =
 			extrinsics.iter().map(|extrinsic| self.hash_of(extrinsic)).collect::<Vec<_>>();
 		let in_pool_tags = self.validated_pool.extrinsics_tags(&in_pool_hashes);
+		// Fill unknown tags based on the known tags given in `known_provides_tags`.
+		let mut unknown_txs_count = 0usize;
+		let mut reused_txs_count = 0usize;
+		let tags = in_pool_hashes.iter().zip(in_pool_tags).map(|(tx_hash, tags)| {
+			tags.or_else(|| {
+				unknown_txs_count += 1;
+				known_provides_tags.as_ref().and_then(|inner| {
+					inner.get(&tx_hash).map(|found_tags| {
+						reused_txs_count += 1;
+						found_tags.clone()
+					})
+				})
+			})
+		});
 
 		// Zip the ones from the pool with the full list (we get pairs `(Extrinsic,
 		// Option<Vec<Tag>>)`)
-		let all = extrinsics.iter().zip(in_pool_tags.into_iter());
+		let all = extrinsics.iter().zip(tags);
 		let mut validated_counter: usize = 0;
-
 		let mut future_tags = Vec::new();
 		let now = Instant::now();
 		for (extrinsic, in_pool_tags) in all {
 			match in_pool_tags {
-				// reuse the tags for extrinsics that were found in the pool
+				// reuse the tags for extrinsics that were found in the pool or given in
+				// `known_provides_tags` cache.
 				Some(tags) => future_tags.extend(tags),
 				// if it's not found in the pool query the runtime at parent block
 				// to get validity info and tags that the extrinsic provides.
@@ -356,19 +372,23 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 					} else {
 						trace!(
 							target: LOG_TARGET,
-							at = ?at,
-							"txpool is empty, skipping validation for block"
+							?at,
+							"txpool is empty, skipping validation for block",
 						);
 					}
 				},
 			}
 		}
 
+		let known_provides_tags_len = known_provides_tags.map(|inner| inner.len()).unwrap_or(0);
 		debug!(
 			target: LOG_TARGET,
 			validated_counter,
+			known_provides_tags_len,
+			unknown_txs_count,
+			reused_txs_count,
 			duration = ?now.elapsed(),
-			"prune completed"
+			"prune"
 		);
 		self.prune_tags(at, future_tags, in_pool_hashes).await
 	}

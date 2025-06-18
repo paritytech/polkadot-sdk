@@ -20,6 +20,7 @@
 use super::*;
 use crate as pallet_assets;
 
+use crate::precompiles::{InlineIdConfig, ERC20};
 use codec::Encode;
 use frame_support::{
 	assert_ok, construct_runtime, derive_impl, parameter_types,
@@ -36,6 +37,7 @@ construct_runtime!(
 		System: frame_system,
 		Balances: pallet_balances,
 		Assets: pallet_assets,
+		Revive: pallet_revive,
 	}
 );
 
@@ -52,6 +54,13 @@ impl frame_system::Config for Test {
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
+}
+
+#[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
+impl pallet_revive::Config for Test {
+	type AddressMapper = pallet_revive::TestAccountMapper<Self>;
+	type Currency = Balances;
+	type Precompiles = (ERC20<Self, InlineIdConfig<0x0120>>,);
 }
 
 pub struct AssetsCallbackHandle;

@@ -56,8 +56,6 @@ pub struct ErrorDef {
 	pub error: keyword::Error,
 	/// The span of the pallet::error attribute.
 	pub attr_span: proc_macro2::Span,
-	/// Attributes
-	pub attrs: Vec<syn::Attribute>,
 }
 
 impl ErrorDef {
@@ -75,6 +73,8 @@ impl ErrorDef {
 			let msg = "Invalid pallet::error, `Error` must be public";
 			return Err(syn::Error::new(item.span(), msg))
 		}
+
+		crate::deprecation::prevent_deprecation_attr_on_outer_enum(&item.attrs)?;
 
 		let instances =
 			vec![helper::check_type_def_gen_no_bounds(&item.generics, item.ident.span())?];
@@ -116,6 +116,6 @@ impl ErrorDef {
 			})
 			.collect::<Result<_, _>>()?;
 
-		Ok(ErrorDef { attr_span, index, variants, instances, error, attrs: item.attrs.clone() })
+		Ok(ErrorDef { attr_span, index, variants, instances, error })
 	}
 }

@@ -49,6 +49,7 @@ xcm-executor = { workspace = true }
 
 [dev-dependencies]
 pallet-message-queue = { workspace = true }
+snowbridge-test-utils = { workspace = true }
 
 [features]
 default = ["std"]
@@ -86,6 +87,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
+	"snowbridge-test-utils/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",

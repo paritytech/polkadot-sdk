@@ -21,12 +21,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: k8s_auth
-      shell: bash
-      run: |
-        . /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
-        k8s_auth
-
     - name: common_vars
       shell: bash
       env:
@@ -38,6 +32,7 @@ runs:
         echo "COL_IMAGE: $COL_IMAGE"
         echo "POLKADOT_IMAGE: $POLKADOT_IMAGE"
         echo "MALUS_IMAGE: $MALUS_IMAGE"
+        echo "RUN_IN_CI: $RUN_IN_CI"
         echo "Inputs"
         echo "test: $TEST_NAME"
         echo "prefix: $PREFIX"
@@ -55,9 +50,12 @@ runs:
     - name: zombie_test
       shell: bash
       env:
+        # zombienet-sdk expects RUN_IN_CI to be set when running in CI
+        RUN_IN_CI: 1
         TEST_NAME: ${{ inputs.test }}
         PREFIX: ${{ inputs.prefix }}
       run: |
+          export ZOMBIE_K8S_CI_NAMESPACE=$(cat /data/namespace)
           ls -ltr ./artifacts
           cargo nextest run --archive-file ./artifacts/${PREFIX}-zombienet-tests.tar.zst --no-capture -- ${TEST_NAME}
 

@@ -28,7 +28,7 @@ use bp_runtime::{
 	StorageMapKeyProvider,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{Blake2_128Concat, Twox64Concat};
+use frame_support::{weights::Weight, Blake2_128Concat, Twox64Concat};
 use scale_info::TypeInfo;
 use sp_core::storage::StorageKey;
 use sp_runtime::{traits::Header as HeaderT, RuntimeDebug};
@@ -190,5 +190,21 @@ impl ParaStoredHeaderDataBuilder for C {
 		)* );
 
 		None
+	}
+}
+
+/// Runtime hook for when a parachain head is updated.
+pub trait OnNewHead {
+	/// Called when a parachain head is updated.
+	/// Returns the weight consumed by this function.
+	fn on_new_head(id: ParaId, head: &ParaHead) -> Weight;
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(8)]
+impl OnNewHead for Tuple {
+	fn on_new_head(id: ParaId, head: &ParaHead) -> Weight {
+		let mut weight: Weight = Default::default();
+		for_tuples!( #( weight.saturating_accrue(Tuple::on_new_head(id, head)); )* );
+		weight
 	}
 }

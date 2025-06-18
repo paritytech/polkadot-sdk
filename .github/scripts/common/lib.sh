@@ -539,3 +539,18 @@ parse_branch_names_from_backport_labels() {
   BRANCHES=$(echo "$BRANCHES" | sed 's/^ *//')
   echo "$BRANCHES"
 }
+
+# Extract the PR number from the PR title
+#
+# input: PR_TITLE
+# output: PR_NUMBER or exit 1 if the PR title does not contain the PR number
+extract_pr_number_from_pr_title() {
+  PR_TITLE=$1
+  if [[ "$PR_TITLE" =~ \#([0-9]+) ]]; then
+    PR_NUMBER="${BASH_REMATCH[1]}"
+  else
+    echo "⚠️ The PR title does not contain original PR number. PR title should be in form: [stableBranchName] Backport #originalPRNumber"
+    exit 1
+  fi
+  echo $PR_NUMBER
+}

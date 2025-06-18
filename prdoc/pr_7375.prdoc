@@ -50,6 +50,11 @@ doc:
       The `#[runtime_interface]` machinery automatically "strips" away the marshalling strategy wrappers,
       so neither the body of the `say_hello_world` function here nor its callers need to be changed.
 
+      Please pay attention that `enum`s with explicit discriminant numbers (if different from implicit, that is,
+      not starting from zero or not sequential) using the old `PassByEnum` strategy, should be carefully
+      migrated to preserve compatibility, as `PassByEnum` was always using implicitly generated discriminants
+      starting from zero, and the `PassAs` strategy introduced by this PR passes actual values.
+
       Furthermore, to explicitly distinguish between the runtime compilation mode and native mode,
       `#[cfg(substrate_runtime)]` is now used instead of `#[cfg(not(feature = "std"))]`. That allows for fine-tuning
       the compilation behavior without relying solely on the `std` feature.

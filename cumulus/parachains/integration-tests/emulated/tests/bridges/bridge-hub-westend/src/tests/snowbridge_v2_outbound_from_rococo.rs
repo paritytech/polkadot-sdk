@@ -183,7 +183,7 @@ fn send_roc_from_asset_hub_rococo_to_ethereum() {
 	register_roc_on_bh();
 
 	// set XCM versions
-	AssetHubRococo::force_xcm_version(asset_hub_westend_location(), XCM_VERSION);
+	AssetHubRococo::force_xcm_version(asset_hub_westend_global_location(), XCM_VERSION);
 	BridgeHubRococo::force_xcm_version(bridge_hub_westend_location(), XCM_VERSION);
 
 	// send ROCs, use them for fees
@@ -199,7 +199,7 @@ fn send_roc_from_asset_hub_rococo_to_ethereum() {
 		WithdrawAsset(assets.clone().into()),
 		PayFees { asset: local_fee_asset.clone() },
 		InitiateTransfer {
-			destination: asset_hub_westend_location(),
+			destination: asset_hub_westend_global_location(),
 			remote_fees: Some(AssetTransferFilter::ReserveDeposit(Definite(
 				remote_fee_on_westend.clone().into(),
 			))),
@@ -303,10 +303,13 @@ fn register_rococo_asset_on_ethereum_from_rah() {
 		vec![],
 	);
 
+	let fee_asset = Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
+
 	let call =
 		EthereumSystemFrontend::EthereumSystemFrontend(EthereumSystemFrontendCall::RegisterToken {
 			asset_id: Box::new(VersionedLocation::from(bridged_asset_at_wah.clone())),
 			metadata: Default::default(),
+			fee_asset,
 		})
 		.encode();
 
@@ -330,7 +333,7 @@ fn register_rococo_asset_on_ethereum_from_rah() {
 		));
 	});
 
-	let destination = asset_hub_westend_location();
+	let destination = asset_hub_westend_global_location();
 
 	// fund the RAH's SA on RBH for paying bridge delivery fees
 	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id(), 10_000_000_000_000u128);
