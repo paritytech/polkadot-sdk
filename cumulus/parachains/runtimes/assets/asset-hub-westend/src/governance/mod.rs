@@ -24,10 +24,9 @@ use frame_support::{
 };
 use frame_system::EnsureRootWithSuccess;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
+use parachains_common::pay::{LocalPay, VersionedLocatableAccount};
 use polkadot_runtime_common::{
-	impls::{
-		ContainsParts, LocatableAssetConverter, VersionedLocatableAsset, VersionedLocationConverter,
-	},
+	impls::{ContainsParts, VersionedLocatableAsset},
 	prod_or_fast,
 };
 use sp_runtime::{traits::IdentityLookup, Percent};
@@ -117,9 +116,6 @@ parameter_types! {
 	pub const Burn: Permill = Permill::from_perthousand(2);
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub const PayoutSpendPeriod: BlockNumber = 30 * DAYS;
-	// The asset's interior location for the paying account. This is the Treasury
-	// pallet instance (which sits at index 37).
-	pub TreasuryInteriorLocation: InteriorLocation = PalletInstance(37).into();
 
 	pub const TipCountdown: BlockNumber = 1 * DAYS;
 	pub const TipFindersFee: Percent = Percent::from_percent(20);
@@ -130,20 +126,10 @@ parameter_types! {
 	pub const MaxKeys: u32 = 10_000;
 	pub const MaxPeerInHeartbeats: u32 = 10_000;
 	pub const MaxBalance: Balance = Balance::max_value();
+	pub TreasuryAccount: AccountId = Treasury::account_id();
 }
 
 pub type TreasurySpender = EitherOf<EnsureRootWithSuccess<AccountId, MaxBalance>, Spender>;
-
-type TreasuryPaymaster = PayOverXcm<
-	TreasuryInteriorLocation,
-	crate::xcm_config::XcmRouter,
-	crate::PolkadotXcm,
-	ConstU32<{ 6 * HOURS }>,
-	VersionedLocation,
-	VersionedLocatableAsset,
-	LocatableAssetConverter,
-	VersionedLocationConverter,
->;
 
 impl pallet_treasury::Config for Runtime {
 	type PalletId = TreasuryPalletId;
@@ -158,12 +144,9 @@ impl pallet_treasury::Config for Runtime {
 	type SpendFunds = ();
 	type SpendOrigin = TreasurySpender;
 	type AssetKind = VersionedLocatableAsset;
-	type Beneficiary = VersionedLocation;
+	type Beneficiary = VersionedLocatableAccount;
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Paymaster = TreasuryPaymaster;
-	#[cfg(feature = "runtime-benchmarks")]
-	type Paymaster = PayWithEnsure<TreasuryPaymaster, OpenHrmpChannel<ConstU32<1001>>>;
+	type Paymaster = LocalPay<NativeAndAllAssets, TreasuryAccount, xcm_config::LocationToAccountId>;
 	type BalanceConverter = UnityOrOuterConversion<
 		ContainsParts<
 			FromContains<

@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::traits::{
 	fungibles,
 	tokens::{PaymentStatus, Preservation},
@@ -27,7 +27,15 @@ use xcm_executor::traits::ConvertLocation;
 /// Versioned locatable account type which contains both an XCM `location` and `account_id` to
 /// identify an account which exists on some chain.
 #[derive(
-	Encode, Decode, Eq, PartialEq, Clone, RuntimeDebug, scale_info::TypeInfo, MaxEncodedLen,
+	Encode,
+	Decode,
+	Eq,
+	PartialEq,
+	Clone,
+	RuntimeDebug,
+	scale_info::TypeInfo,
+	MaxEncodedLen,
+	DecodeWithMemTracking,
 )]
 pub enum VersionedLocatableAccount {
 	#[codec(index = 4)]
