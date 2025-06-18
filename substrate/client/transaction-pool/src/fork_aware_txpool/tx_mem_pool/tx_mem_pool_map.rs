@@ -189,7 +189,7 @@ where
 		let _ = r.as_ref().map(|r| {
 			let k = SortKey::new(key, r);
 			let a = self.items_by_priority.remove(&k);
-			debug_assert_eq!(r.clone(), a.expect("item should be in both mapts. qed."));
+			debug_assert_eq!(r.clone(), a.expect("item should be in both maps. qed."));
 		});
 		r
 	}
