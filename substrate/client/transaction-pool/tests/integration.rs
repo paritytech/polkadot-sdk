@@ -175,7 +175,6 @@ async fn send_future_mortal_txs() {
 		.with_txs_count(10)
 		.with_executor_id("mortal-tx-executor-invalid".to_string())
 		.with_mortality(5)
-		.with_timeout_in_secs(DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS)
 		.build()
 		.await;
 
@@ -186,7 +185,6 @@ async fn send_future_mortal_txs() {
 		.with_txs_count(10)
 		.with_executor_id("mortal-tx-executor-success".to_string())
 		.with_mortality(25)
-		.with_timeout_in_secs(DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS)
 		.build()
 		.await;
 
@@ -240,7 +238,6 @@ async fn send_lower_priority_mortal_txs() {
 		// with lifetime lower than 10 should be declared invalid after the ready txs finalize, while
 		// mortal txs with bigger lifetime should be finalized.
 		.with_remark_recipe(750)
-		.with_timeout_in_secs(DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS)
 		.with_tip(150)
 		.build()
 		.await;
@@ -258,7 +255,6 @@ async fn send_lower_priority_mortal_txs() {
 		// only after, when it is too late due to small lifetime).
 		.with_remark_recipe(750)
 		.with_tip(50)
-		.with_timeout_in_secs(DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS)
 		.build()
 		.await;
 
@@ -274,7 +270,6 @@ async fn send_lower_priority_mortal_txs() {
 		// block, an immortal tx should be picked instead (leaving these mortal txs to be picked
 		// only after, which is fine for these mortal txs).
 		.with_remark_recipe(750)
-		.with_timeout_in_secs(DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS)
 		.with_tip(100)
 		.build()
 		.await;
