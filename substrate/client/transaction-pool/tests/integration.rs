@@ -157,6 +157,12 @@ async fn send_future_mortal_txs() {
 		.with_start_id(0)
 		.with_nonce_from(Some(0))
 		.with_txs_count(50)
+		// Block length for rococo for user txs is 75% of maximum 5MB (per frame-system setup),
+		// so we get 3750KB. In the test scenario we aim for 5 txs per block roughly (not precesily)
+		// so to fill a block each user tx must have around 750kb. We aim for 5 txs per block
+		// because we send 50 ready txs which we want to distribute over 5 blocks, so mortal txs
+		// with lifetime lower than 5 should be declared invalid after the ready txs finalize, while
+		// mortal txs with bigger lifetime should be finalized.
 		.with_remark_recipe(750)
 		.with_executor_id("ready-txs-executor".to_string())
 		.build()
@@ -166,7 +172,6 @@ async fn send_future_mortal_txs() {
 		.with_rpc_uri(ws.clone())
 		.with_start_id(0)
 		.with_nonce_from(Some(60))
-		.with_remark_recipe(750)
 		.with_txs_count(10)
 		.with_executor_id("mortal-tx-executor-invalid".to_string())
 		.with_mortality(5)
@@ -181,7 +186,6 @@ async fn send_future_mortal_txs() {
 		.with_txs_count(10)
 		.with_executor_id("mortal-tx-executor-success".to_string())
 		.with_mortality(25)
-		.with_remark_recipe(750)
 		.with_timeout_in_secs(DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS)
 		.build()
 		.await;
@@ -212,10 +216,6 @@ async fn send_future_mortal_txs() {
 // Send immortal and mortal txs. Some mortal txs have lower priority so they shouldn't get into
 // blocks during their lifetime, and will be considered invalid, while other mortal txs have
 // sufficient lifetime to be included in blocks, and are finalized successfully.
-//
-// Block length for rococo for user txs is 75% of maximum 5MB (per frame-system setup),
-// so we get 3750KB. In the test scenario we aim for 5 txs per block roughly (not precesily)
-// so to fill a block each user tx must have around 750kb.
 #[tokio::test(flavor = "multi_thread")]
 async fn send_lower_priority_mortal_txs() {
 	let net = NetworkSpawner::from_toml_with_env_logger(RELAYCHAIN_HIGH_POOL_LIMIT_FATP)
@@ -233,6 +233,12 @@ async fn send_lower_priority_mortal_txs() {
 		.with_nonce_from(Some(0))
 		.with_txs_count(50)
 		.with_executor_id("ready-txs-executor".to_string())
+		// Block length for rococo for user txs is 75% of maximum 5MB (per frame-system setup),
+		// so we get 3750KB. In the test scenario we aim for 5 txs per block roughly (not precesily)
+		// so to fill a block each user tx must have around 750kb. We aim for 5 txs per block
+		// because we send 50 ready txs which we want to distribute over 5 blocks, so mortal txs
+		// with lifetime lower than 5 should be declared invalid after the ready txs finalize, while
+		// mortal txs with bigger lifetime should be finalized.
 		.with_remark_recipe(750)
 		.with_timeout_in_secs(DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS)
 		.with_tip(150)
@@ -245,7 +251,11 @@ async fn send_lower_priority_mortal_txs() {
 		.with_nonce_from(Some(0))
 		.with_txs_count(10)
 		.with_executor_id("mortal-tx-executor-invalid".to_string())
-		.with_mortality(2)
+		.with_mortality(5)
+		// Same reasoning as for the ready immortal txs, we want these txs to be similarly big as
+		// the immortal txs, so at all times if it comes to pick a ready txs to include it in a
+		// block, an immortal tx should be picked instead (leaving these mortal txs to be picked
+		// only after, when it is too late due to small lifetime).
 		.with_remark_recipe(750)
 		.with_tip(50)
 		.with_timeout_in_secs(DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS)
@@ -259,6 +269,10 @@ async fn send_lower_priority_mortal_txs() {
 		.with_txs_count(10)
 		.with_executor_id("mortal-tx-executor-success".to_string())
 		.with_mortality(20)
+		// Same reasoning as for the ready immortal txs, we want these txs to be similarly big as
+		// the immortal txs, so at all times if it comes to pick a ready txs to include it in a
+		// block, an immortal tx should be picked instead (leaving these mortal txs to be picked
+		// only after, which is fine for these mortal txs).
 		.with_remark_recipe(750)
 		.with_timeout_in_secs(DEFAULT_SEND_FUTURE_AND_READY_TXS_TESTS_TIMEOUT_IN_SECS)
 		.with_tip(100)
