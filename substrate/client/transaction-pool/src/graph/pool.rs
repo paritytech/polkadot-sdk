@@ -63,9 +63,13 @@ pub type ValidatedTransactionFor<A> =
 /// The priority of request to validate the transaction.
 #[derive(PartialEq, Copy, Clone)]
 pub enum ValidateTransactionPriority {
-	/// Validate the newly submitted transaction,
+	/// Validate the newly submitted transactions
+	///
+	/// Validation will be done with lower priority.
 	Submitted,
 	/// Validate the transaction during maintainance process,
+	///
+	/// Validation will be performed with higher priority.
 	Maintained,
 }
 
