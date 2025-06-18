@@ -249,7 +249,7 @@ where
 				wasm_runtime_overrides: config.wasm_runtime_overrides.clone(),
 				no_genesis: matches!(
 					config.network.sync_mode,
-					SyncMode::LightState { .. } | SyncMode::Warp { .. }
+					SyncMode::LightState { .. } | SyncMode::Warp { .. } | SyncMode::LightRpc { .. }
 				),
 				wasm_runtime_substitutes,
 				enable_import_proof_recording,
@@ -813,7 +813,8 @@ where
 		match config.network.sync_mode {
 			SyncMode::LightState { .. } =>
 				return Err("Fast sync doesn't work for archive nodes".into()),
-			SyncMode::Warp => return Err("Warp sync doesn't work for archive nodes".into()),
+			SyncMode::Warp | SyncMode::LightRpc =>
+				return Err("Warp sync doesn't work for archive nodes".into()),
 			SyncMode::Full => {},
 		}
 	}

@@ -176,25 +176,27 @@ pub fn open_database<Block: BlockT>(
 	db_source: &DatabaseSource,
 	db_type: DatabaseType,
 	create: bool,
+	limit_size: bool,
 ) -> OpenDbResult {
 	// Maybe migrate (copy) the database to a type specific subdirectory to make it
 	// possible that light and full databases coexist
 	// NOTE: This function can be removed in a few releases
-	maybe_migrate_to_type_subdir::<Block>(db_source, db_type)?;
+	maybe_migrate_to_type_subdir::<Block>(db_source, db_type, limit_size)?;
 
-	open_database_at::<Block>(db_source, db_type, create)
+	open_database_at::<Block>(db_source, db_type, create, limit_size)
 }
 
 fn open_database_at<Block: BlockT>(
 	db_source: &DatabaseSource,
 	db_type: DatabaseType,
 	create: bool,
+	limit_size: bool,
 ) -> OpenDbResult {
 	let db: Arc<dyn Database<DbHash>> = match &db_source {
 		DatabaseSource::ParityDb { path } => open_parity_db::<Block>(path, db_type, create)?,
 		#[cfg(feature = "rocksdb")]
 		DatabaseSource::RocksDb { path, cache_size } =>
-			open_kvdb_rocksdb::<Block>(path, db_type, create, *cache_size)?,
+			open_kvdb_rocksdb::<Block>(path, db_type, create, *cache_size, limit_size)?,
 		DatabaseSource::Custom { db, require_create_flag } => {
 			if *require_create_flag && !create {
 				return Err(OpenDbError::DoesNotExist)
@@ -203,7 +205,8 @@ fn open_database_at<Block: BlockT>(
 		},
 		DatabaseSource::Auto { paritydb_path, rocksdb_path, cache_size } => {
 			// check if rocksdb exists first, if not, open paritydb
-			match open_kvdb_rocksdb::<Block>(rocksdb_path, db_type, false, *cache_size) {
+			match open_kvdb_rocksdb::<Block>(rocksdb_path, db_type, false, *cache_size, limit_size)
+			{
 				Ok(db) => db,
 				Err(OpenDbError::NotEnabled(_)) | Err(OpenDbError::DoesNotExist) =>
 					open_parity_db::<Block>(paritydb_path, db_type, create)?,
@@ -299,6 +302,7 @@ fn open_kvdb_rocksdb<Block: BlockT>(
 	db_type: DatabaseType,
 	create: bool,
 	cache_size: usize,
+	limit_size: bool,
 ) -> OpenDbResult {
 	// first upgrade database to required version
 	match crate::upgrade::upgrade_db::<Block>(path, db_type) {
@@ -336,6 +340,9 @@ fn open_kvdb_rocksdb<Block: BlockT>(
 		},
 	}
 	db_config.memory_budget = memory_budget;
+	if limit_size {
+		db_config.max_total_wal_size = Some(64 * 1024 * 1024);
+	}
 
 	let db = kvdb_rocksdb::Database::open(&db_config, path)?;
 	// write database version only after the database is successfully opened
@@ -349,6 +356,7 @@ fn open_kvdb_rocksdb<Block: BlockT>(
 	_db_type: DatabaseType,
 	_create: bool,
 	_cache_size: usize,
+	_limit_size: bool,
 ) -> OpenDbResult {
 	Err(OpenDbError::NotEnabled("with-kvdb-rocksdb"))
 }
@@ -379,6 +387,7 @@ pub fn check_database_type(
 fn maybe_migrate_to_type_subdir<Block: BlockT>(
 	source: &DatabaseSource,
 	db_type: DatabaseType,
+	limit_size: bool,
 ) -> Result<(), OpenDbError> {
 	if let Some(p) = source.path() {
 		let mut basedir = p.to_path_buf();
@@ -394,7 +403,7 @@ fn maybe_migrate_to_type_subdir<Block: BlockT>(
 			// database stored in the target directory and close the database on success.
 			let mut old_source = source.clone();
 			old_source.set_path(&basedir);
-			open_database_at::<Block>(&old_source, db_type, false)?;
+			open_database_at::<Block>(&old_source, db_type, false, limit_size)?;
 
 			info!(
 				"Migrating database to a database-type-based subdirectory: '{:?}' -> '{:?}'",

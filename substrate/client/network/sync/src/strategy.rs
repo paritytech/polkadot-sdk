@@ -55,6 +55,7 @@ fn chain_sync_mode(sync_mode: SyncMode) -> ChainSyncMode {
 		SyncMode::LightState { skip_proofs, storage_chain_mode } =>
 			ChainSyncMode::LightState { skip_proofs, storage_chain_mode },
 		SyncMode::Warp => ChainSyncMode::Full,
+		SyncMode::LightRpc => ChainSyncMode::LightRpc,
 	}
 }
 
@@ -191,7 +192,7 @@ where
 		client: Arc<Client>,
 		warp_sync_config: Option<WarpSyncConfig<B>>,
 	) -> Result<Self, ClientError> {
-		if let SyncMode::Warp = config.mode {
+		if config.mode.is_warp() || config.mode.light_rpc() {
 			let warp_sync_config = warp_sync_config
 				.expect("Warp sync configuration must be supplied in warp sync mode.");
 			let warp_sync = WarpSync::new(client.clone(), warp_sync_config);
@@ -466,8 +467,8 @@ where
 		&mut self,
 		target_header: B::Header,
 	) -> Result<(), ()> {
-		match self.config.mode {
-			SyncMode::Warp => match self.warp {
+		if self.config.mode.is_warp() || self.config.mode.light_rpc() {
+			match self.warp {
 				Some(ref mut warp) => {
 					warp.set_target_block(target_header);
 					Ok(())
@@ -482,15 +483,14 @@ where
 					);
 					Ok(())
 				},
-			},
-			_ => {
-				error!(
-					target: LOG_TARGET,
-					"Cannot set warp sync target block: not in warp sync mode."
-				);
-				debug_assert!(false);
-				Err(())
-			},
+			}
+		} else {
+			error!(
+				target: LOG_TARGET,
+				"Cannot set warp sync target block: not in warp sync mode."
+			);
+			debug_assert!(false);
+			Err(())
 		}
 	}
 

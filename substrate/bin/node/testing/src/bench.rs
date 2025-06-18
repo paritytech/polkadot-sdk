@@ -385,6 +385,7 @@ impl BenchDb {
 			state_pruning: Some(PruningMode::ArchiveAll),
 			source: database_type.into_settings(dir.into()),
 			blocks_pruning: sc_client_db::BlocksPruning::KeepAll,
+			limit_size: false,
 		};
 		let task_executor = TaskExecutor::new();
 

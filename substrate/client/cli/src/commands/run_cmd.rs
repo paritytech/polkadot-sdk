@@ -362,6 +362,9 @@ impl CliConfiguration for RunCmd {
 	fn role(&self, is_dev: bool) -> Result<Role> {
 		let keyring = self.get_keyring();
 		let is_authority = self.validator || is_dev || keyring.is_some();
+		if self.validator && self.network_params.sync == crate::SyncMode::LightRpc {
+			return Err("Can't run a validator in LightRPC mode.".into());
+		}
 
 		Ok(if is_authority { Role::Authority } else { Role::Full })
 	}

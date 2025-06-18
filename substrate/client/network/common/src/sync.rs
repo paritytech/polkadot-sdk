@@ -34,6 +34,8 @@ pub enum SyncMode {
 	},
 	/// Warp sync - verify authority set transitions and the latest state.
 	Warp,
+	/// minimize startup-time and disk space
+	LightRpc,
 }
 
 impl SyncMode {
@@ -45,6 +47,11 @@ impl SyncMode {
 	/// Returns `true` if `self` is [`Self::LightState`].
 	pub fn light_state(&self) -> bool {
 		matches!(self, Self::LightState { .. })
+	}
+
+	/// Returns `true` if `self` is [`Self::LightRpc`].
+	pub fn light_rpc(&self) -> bool {
+		matches!(self, Self::LightRpc { .. })
 	}
 }
 

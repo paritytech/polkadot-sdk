@@ -764,8 +764,10 @@ pub trait TestNetFactory: Default + Sized + Send {
 		}
 
 		if !config.force_genesis &&
-			matches!(config.sync_mode, SyncMode::LightState { .. } | SyncMode::Warp)
-		{
+			matches!(
+				config.sync_mode,
+				SyncMode::LightState { .. } | SyncMode::Warp | SyncMode::LightRpc
+			) {
 			test_client_builder = test_client_builder.set_no_genesis();
 		}
 		let backend = test_client_builder.backend();
