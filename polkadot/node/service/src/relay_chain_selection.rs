@@ -477,9 +477,9 @@ where
 						subchain_head,
 						target_number,
 						tx,
-						PriorityLevel::High,
 					),
 					std::any::type_name::<Self>(),
+					PriorityLevel::High,
 				)
 				.await;
 
