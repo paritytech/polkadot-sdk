@@ -19,7 +19,7 @@
 use crate::{
 	error::{Error, Result},
 	interval::ExpIncInterval,
-	worker::addr_cache::create_addr_cache,
+	worker::addr_cache::AddrCache,
 	ServicetoWorkerMsg, WorkerConfig,
 };
 
@@ -191,6 +191,9 @@ pub struct Worker<Client, Block: BlockT, DhtEventStream> {
 	role: Role,
 
 	phantom: PhantomData<Block>,
+
+	/// A spawner of tasks
+	spawner: Arc<dyn SpawnNamed>,
 }
 
 #[derive(Debug, Clone)]
@@ -250,7 +253,7 @@ where
 		role: Role,
 		prometheus_registry: Option<prometheus_endpoint::Registry>,
 		config: WorkerConfig,
-		spawner: impl SpawnNamed,
+		spawner: Arc<dyn SpawnNamed>,
 	) -> Self {
 		// When a node starts up publishing and querying might fail due to various reasons, for
 		// example due to being not yet fully bootstrapped on the DHT. Thus one should retry rather
@@ -269,7 +272,8 @@ where
 
 		// Load contents of persisted cache from file, if it exists, and is valid. Create a new one
 		// otherwise, and install a callback to persist it on change.
-		let addr_cache = create_addr_cache(PathBuf::from(ADDR_CACHE_PERSISTENCE_PATH), spawner);
+		let persisted_cache_path = PathBuf::from(ADDR_CACHE_PERSISTENCE_PATH);
+		let addr_cache = AddrCache::load_from_persisted_file(&persisted_cache_path);
 
 		let metrics = match prometheus_registry {
 			Some(registry) => match Metrics::register(&registry) {
@@ -316,15 +320,35 @@ where
 			warn_public_addresses: false,
 			phantom: PhantomData,
 			last_known_records: HashMap::new(),
+			spawner
 		}
 	}
 
 	/// Start the worker
 	pub async fn run(mut self) {
+		let mut interval = tokio::time::interval(Duration::from_secs(60 * 10 /* 10 minutes */));
+
 		loop {
 			self.start_new_lookups();
 
 			futures::select! {
+				_ = interval.tick().fuse() => {
+					// Addr cache is eventually consistent.
+					match self.addr_cache.persist_on_disk(PathBuf::from(ADDR_CACHE_PERSISTENCE_PATH)) {
+						Err(err) => {
+							error!(
+								target: LOG_TARGET,
+								"Failed to persist AddrCache on disk: {}", err,
+							);
+						},
+						Ok(_) => {
+							debug!(
+								target: LOG_TARGET,
+								"Successfully persisted AddrCache on disk",
+							);
+						},
+					};
+				},
 				// Process incoming events.
 				event = self.dht_event_rx.next().fuse() => {
 					if let Some(event) = event {

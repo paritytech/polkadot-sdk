@@ -26,6 +26,7 @@ use std::{
 	net::{IpAddr, Ipv4Addr, Ipv6Addr},
 	str::FromStr,
 };
+use serde_with::{SerializeDisplay, DeserializeFromStr};
 
 mod protocol;
 pub use protocol::Protocol;
@@ -36,7 +37,7 @@ pub use crate::build_multiaddr as multiaddr;
 /// [`Multiaddr`] type used in Substrate. Converted to libp2p's `Multiaddr`
 /// or litep2p's `Multiaddr` when passed to the corresponding network backend.
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash, SerializeDisplay, DeserializeFromStr)]
 pub struct Multiaddr {
 	multiaddr: LiteP2pMultiaddr,
 }

@@ -20204,6 +20204,8 @@ dependencies = [
  "multihash 0.19.1",
  "quickcheck",
  "rand 0.8.5",
+ "serde",
+ "serde_with",
  "thiserror 1.0.65",
  "zeroize",
 ]

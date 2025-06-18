@@ -30,11 +30,15 @@ use std::{collections::HashSet, sync::Arc};
 
 use sc_network::{multiaddr::Protocol, Multiaddr, PeerId};
 use sp_authority_discovery::AuthorityId;
-use sp_core::crypto::key_types;
+use sp_core::{crypto::key_types, testing::TaskExecutor, traits::SpawnNamed};
 use sp_keystore::{testing::MemoryKeystore, Keystore};
 
-#[test]
-fn get_addresses_and_authority_id() {
+fn create_spawner() -> Arc<dyn SpawnNamed> {
+	Arc::new(TaskExecutor::new())
+}
+
+#[tokio::test]
+async fn get_addresses_and_authority_id() {
 	let (_dht_event_tx, dht_event_rx) = channel(0);
 	let network: Arc<TestNetwork> = Arc::new(Default::default());
 
@@ -63,7 +67,7 @@ fn get_addresses_and_authority_id() {
 		Box::pin(dht_event_rx),
 		Role::PublishAndDiscover(key_store.into()),
 		None,
-		sp_core::testing::TaskExecutor::new()
+		create_spawner()
 	);
 	worker.inject_addresses(remote_authority_id.clone(), vec![remote_addr.clone()]);
 
@@ -81,8 +85,8 @@ fn get_addresses_and_authority_id() {
 	});
 }
 
-#[test]
-fn cryptos_are_compatible() {
+#[tokio::test]
+async fn cryptos_are_compatible() {
 	use sp_core::crypto::Pair;
 
 	let libp2p_keypair = ed25519::Keypair::generate();
