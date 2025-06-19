@@ -33,7 +33,9 @@ use crate::{
 use bitvec::vec::BitVec;
 use colored::Colorize;
 use itertools::Itertools;
-use polkadot_node_core_dispute_coordinator::DisputeCoordinatorSubsystem;
+use polkadot_node_core_dispute_coordinator::{
+	Config as DisputeCoordinatorConfig, DisputeCoordinatorSubsystem,
+};
 use polkadot_node_metrics::metrics::Metrics;
 use polkadot_node_network_protocol::{
 	grid_topology::{SessionGridTopology, TopologyPeerInfo},
@@ -51,7 +53,6 @@ use polkadot_overseer::{
 use polkadot_primitives::{
 	AuthorityDiscoveryId, Block, GroupIndex, Hash, Id, ValidatorId, ValidatorIndex,
 };
-use polkadot_statement_distribution::StatementDistributionSubsystem;
 use sc_keystore::LocalKeystore;
 use sc_network_types::PeerId;
 use sc_service::SpawnTaskHandle;
@@ -87,8 +88,10 @@ fn build_overseer(
 	let overseer_metrics = OverseerMetrics::try_register(&dependencies.registry).unwrap();
 	let spawn_task_handle = dependencies.task_manager.spawn_handle();
 
-	let store = todo!();
-	let config = todo!();
+	let db = kvdb_memorydb::create(1);
+	let db = polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter::new(db, &[0]);
+	let store = Arc::new(db);
+	let config = DisputeCoordinatorConfig { col_dispute_data: 0 };
 	let keystore = make_keystore();
 	let approval_voting_parallel_enabled = true;
 	let dispute_coordinator = DisputeCoordinatorSubsystem::new(
@@ -134,5 +137,24 @@ pub async fn benchmark_dispute_coordinator(
 	env: &mut TestEnvironment,
 	state: &TestState,
 ) -> BenchmarkUsage {
-	todo!()
+	let config = env.config().clone();
+
+	let test_start = Instant::now();
+
+	for block_info in state.block_infos.iter() {
+		let block_num = block_info.number as usize;
+		gum::info!(target: LOG_TARGET, "Current block {}/{} {:?}", block_num, config.num_blocks, block_info.hash);
+		env.metrics().set_current_block(block_num);
+		env.import_block(block_info.clone()).await;
+	}
+
+	let duration: u128 = test_start.elapsed().as_millis();
+	gum::info!(target: LOG_TARGET, "All blocks processed in {}", format!("{:?}ms", duration).cyan());
+	gum::info!(target: LOG_TARGET,
+		"Avg block time: {}",
+		format!("{} ms", test_start.elapsed().as_millis() / env.config().num_blocks as u128).red()
+	);
+
+	env.stop().await;
+	env.collect_resource_usage(&["dispute-coordinator"], false)
 }

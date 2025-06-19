@@ -18,6 +18,8 @@ use crate::{
 	configuration::{TestAuthorities, TestConfiguration},
 	network::{HandleNetworkMessage, NetworkMessage},
 };
+use polkadot_node_subsystem_test_helpers::mock::generate_block_info;
+use polkadot_overseer::BlockInfo;
 
 #[derive(Clone)]
 pub struct TestState {
@@ -25,11 +27,17 @@ pub struct TestState {
 	pub config: TestConfiguration,
 	// Authority keys for the network emulation.
 	pub test_authorities: TestAuthorities,
+	// Relay chain block infos
+	pub block_infos: Vec<BlockInfo>,
 }
 
 impl TestState {
 	pub fn new(config: &TestConfiguration) -> Self {
-		Self { config: config.clone(), test_authorities: config.generate_authorities() }
+		Self {
+			config: config.clone(),
+			test_authorities: config.generate_authorities(),
+			block_infos: (1..=config.num_blocks).map(generate_block_info).collect(),
+		}
 	}
 }
 
