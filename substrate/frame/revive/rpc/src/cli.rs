@@ -234,7 +234,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 			}
 		});
 
-	task_manager.keep_alive(rpc_server_handle);
+	task_manager.keep_alive(rpc_server_handle.server);
 	let signals = tokio_runtime.block_on(async { Signals::capture() })?;
 	tokio_runtime.block_on(signals.run_until_signal(task_manager.future().fuse()))?;
 	Ok(())
