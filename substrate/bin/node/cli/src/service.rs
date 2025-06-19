@@ -547,6 +547,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		task_manager.spawn_handle().spawn("mixnet", None, mixnet);
 	}
 
+	let net_config_path = config.network.net_config_path.clone();
 	let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 		config,
 		backend: backend.clone(),
@@ -659,11 +660,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 				sc_authority_discovery::WorkerConfig {
 					publish_non_global_ips: auth_disc_publish_non_global_ips,
 					public_addresses: auth_disc_public_addresses,
-					persisted_cache_directory: config
-						.network
-						.net_config_path
-						.cloned()
-						.expect("'net_config_path' should be set"),
+					persisted_cache_directory: net_config_path,
 					..Default::default()
 				},
 				client.clone(),
@@ -671,6 +668,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 				Box::pin(dht_event_stream),
 				authority_discovery_role,
 				prometheus_registry.clone(),
+				Arc::new(task_manager.spawn_handle()),
 			);
 
 		task_manager.spawn_handle().spawn(

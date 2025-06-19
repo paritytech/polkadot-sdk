@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::error::Error;
-use log::{error, warn};
+use log::{error, info, warn};
 use sc_network::{multiaddr::Protocol, Multiaddr};
 use sc_network_types::PeerId;
 use serde::{Deserialize, Serialize};
@@ -25,10 +25,11 @@ use sp_authority_discovery::AuthorityId;
 use sp_runtime::DeserializeOwned;
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet},
-	fs::{self, File},
-	io::{self, BufReader, Write},
+	fs::File,
+	io::{self, BufReader},
 	path::Path,
 };
+use tokio::io::AsyncWriteExt;
 
 /// Cache for [`AuthorityId`] -> [`HashSet<Multiaddr>`] and [`PeerId`] -> [`HashSet<AuthorityId>`]
 /// mappings.
@@ -61,17 +62,18 @@ impl PartialEq for AddrCache {
 	}
 }
 
-/// Write the given `data` to `path`.
-fn write_to_file<D: Serialize>(path: impl AsRef<Path>, data: &D) -> io::Result<()> {
-	let mut file = File::create(path)?;
+async fn write_to_file_async(path: impl AsRef<Path>, contents: &str) -> tokio::io::Result<()> {
+	let path = path.as_ref();
+	let mut file = tokio::fs::File::create(path).await?;
 
 	#[cfg(target_family = "unix")]
 	{
 		use std::os::unix::fs::PermissionsExt;
-		file.set_permissions(fs::Permissions::from_mode(0o600))?;
+		tokio::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600)).await?;
 	}
-	serde_json::to_writer(&file, data)?;
-	file.flush()?;
+
+	file.write_all(contents.as_bytes()).await?;
+	file.flush().await?;
 	Ok(())
 }
 
@@ -94,10 +96,21 @@ impl AddrCache {
 			})
 	}
 
-	pub fn persist_on_disk(&self, path: impl AsRef<Path>) -> Result<(), crate::Error> {
-		write_to_file(path, self).map_err(|e| {
-			Error::EncodingDecodingAddrCache(format!("Failed to persist AddrCache, error: {:?}", e))
-		})
+	pub fn serialize(&self) -> Option<String> {
+		serde_json::to_string_pretty(self).inspect_err(|e| {
+			error!(target: super::LOG_TARGET, "Failed to serialize AddrCache to JSON: {} => skip persisting it.", e);
+		}).ok()
+	}
+
+	pub async fn persist(path: impl AsRef<Path>, serialized_cache: String) {
+		match write_to_file_async(path, &serialized_cache).await {
+			Err(err) => {
+				error!(target: super::LOG_TARGET, "Failed to persist AddrCache on disk: {}", err);
+			},
+			Ok(_) => {
+				info!(target: super::LOG_TARGET, "Successfully persisted AddrCache on disk");
+			},
+		}
 	}
 
 	/// Inserts the given [`AuthorityId`] and [`Vec<Multiaddr>`] pair for future lookups by
@@ -506,13 +519,22 @@ mod tests {
 		assert_eq!(deserialized.authority_id_to_addresses.len(), 2);
 	}
 
+	use std::io::Write;
+	fn write_to_file_sync<T: Serialize>(path: impl AsRef<Path>, contents: &T) -> io::Result<()> {
+		let serialized = serde_json::to_string_pretty(contents).unwrap();
+		let mut file = File::create(&path)?;
+		file.write_all(serialized.as_bytes())?;
+		file.flush()?;
+		Ok(())
+	}
+
 	#[test]
 	fn test_load_cache_from_disc() {
 		let dir = tempfile::tempdir().unwrap();
 		let path = dir.path().join("cache.json");
 		let sample = AddrCache::sample();
 		assert_eq!(sample.num_authority_ids(), 2);
-		write_to_file(&path, &sample).unwrap();
+		write_to_file_sync(&path, &sample).unwrap();
 		sleep(Duration::from_millis(10)); // Ensure file is written before loading
 		let cache = AddrCache::load_from_persisted_file(path);
 		assert_eq!(cache.num_authority_ids(), 2);

@@ -60,7 +60,6 @@ use sp_core::{
 };
 use sp_keystore::{Keystore, KeystorePtr};
 use sp_runtime::traits::Block as BlockT;
-use tokio_stream::wrappers::IntervalStream;
 
 mod addr_cache;
 /// Dht payload schemas generated from Protobuf definitions via Prost crate in build.rs.
@@ -343,50 +342,40 @@ where
 		}
 	}
 
+	/// Persists `AddrCache` to disk if the `persisted_cache_file_path` is set.
 	pub fn persist_addr_cache_if_supported(&self) {
-		let maybe_path = self.persisted_cache_file_path.clone();
-		let Some(path) = maybe_path else { return };
-		let cloned_cache = self.addr_cache.clone();
+		let Some(path) = self.persisted_cache_file_path.as_ref().cloned() else {
+			return;
+		};
+		let Some(serialized_cache) = self.addr_cache.serialize() else { return };
 		self.spawner.spawn(
 			"PersistAddrCache",
 			Some("AuthorityDiscoveryWorker"),
 			Box::pin(async move {
-				match cloned_cache.persist_on_disk(path) {
-					Err(err) => {
-						error!(target: LOG_TARGET, "Failed to persist AddrCache on disk: {}", err);
-					},
-					Ok(_) => {
-						debug!(target: LOG_TARGET, "Successfully persisted AddrCache on disk");
-					},
-				};
+				AddrCache::persist(path, serialized_cache).await;
 			}),
 		)
 	}
 
 	/// Start the worker
 	pub async fn run(mut self) {
-		let mut maybe_interval = self.persisted_cache_file_path.as_ref().map(|_| {
-			IntervalStream::new(tokio::time::interval(Duration::from_secs(60 * 10))).fuse()
-		});
+		let mut persist_interval =
+			tokio::time::interval(Duration::from_secs(60 * 10 /* 10 minutes */));
 
 		loop {
 			self.start_new_lookups();
 
-			let persist_future = maybe_interval
-				.as_mut()
-				.map(|i| i.select_next_some().boxed())
-				.unwrap_or_else(|| future::pending().boxed());
-
 			futures::select! {
 				// Only tick and persist if the interval exists
-				_ = persist_future.fuse() => {
-						self.persist_addr_cache_if_supported()
-					},
+				_ = persist_interval.tick().fuse() => {
+					self.persist_addr_cache_if_supported();
+				},
 				// Process incoming events.
 				event = self.dht_event_rx.next().fuse() => {
 					if let Some(event) = event {
 						self.handle_dht_event(event).await;
 					} else {
+						self.persist_addr_cache_if_supported();
 						// This point is reached if the network has shut down, at which point there is not
 						// much else to do than to shut down the authority discovery as well.
 						return;
