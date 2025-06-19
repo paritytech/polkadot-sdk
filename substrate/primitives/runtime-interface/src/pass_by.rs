@@ -396,6 +396,19 @@ where
 	}
 }
 
+#[cfg(substrate_runtime)]
+impl<'a, T, const N: usize> IntoFFIValue for PassPointerAndWrite<&'a mut T, N>
+where
+	T: AsMut<[u8]>,
+{
+	type Destructor = ();
+
+	fn into_ffi_value(value: &mut Self::Inner) -> (Self::FFIType, Self::Destructor) {
+		let value = value.as_mut();
+		assert_eq!(value.len(), N);
+		(value.as_ptr() as u32, ())
+	}
+}
 /// Pass a pointer to a primitive number into the host and write to it after the host call ends.
 ///
 /// This casts a given value into `&mut [u8]` and passes a pointer to
