@@ -181,15 +181,6 @@ impl BootnodeDiscovery {
 	/// Schedule bootnode discovery if needed. Returns `false` if the discovery event loop should be
 	/// terminated.
 	fn maybe_retry_discovery(&mut self) -> bool {
-<<<<<<< Updated upstream
-		// Schedule discovery if it is not currently in progress or scheduled.
-		if self.key_being_discovered.is_none() &&
-			self.pending_responses.is_empty() &&
-			self.find_node_queries.is_empty() &&
-			self.start_discovery.is_terminated()
-		{
-			// No need to start discovery again if the previous attempt succeeded.
-=======
 		let discovery_in_progress = self.key_being_discovered.is_some() ||
 			!self.pending_responses.is_empty() ||
 			!self.find_node_queries.is_empty();
@@ -199,7 +190,6 @@ impl BootnodeDiscovery {
 			// Discovery is already in progress or scheduled, just continue the event loop.
 			true
 		} else {
->>>>>>> Stashed changes
 			if self.succeeded {
 				// No need to start discovey again if the previous attempt succeeded.
 				info!(
