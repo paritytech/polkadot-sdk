@@ -534,7 +534,11 @@ impl TestState {
 				adv.relay_parent,
 				adv.prospective_candidate
 			),
-			self.assert_can_second_request(adv, true)
+			async move {
+				if adv.prospective_candidate.is_some() {
+					self.assert_can_second_request(adv, true).await
+				}
+			}
 		);
 	}
 
@@ -602,7 +606,11 @@ impl TestState {
 		}
 	}
 
-	async fn assert_pvd_request(&mut self, adv: Advertisement, pvd: PersistedValidationData) {
+	async fn assert_pvd_request(
+		&mut self,
+		adv: Advertisement,
+		pvd: Option<PersistedValidationData>,
+	) {
 		let msg = match self.buffered_msg.take() {
 			Some(msg) => msg,
 			None => self.timeout_recv().await,
@@ -621,11 +629,19 @@ impl TestState {
 				) => {
 					assert_eq!(para_id, adv.para_id);
 					assert_eq!(candidate_relay_parent, adv.relay_parent);
-					assert_matches!(
-						parent_head_data,
-						ParentHeadData::OnlyHash(head_data_hash) if head_data_hash == parent_head_data_hash
+
+					assert!(
+						matches!(
+							parent_head_data,
+							ParentHeadData::OnlyHash(head_data_hash) if head_data_hash == parent_head_data_hash
+						) ||
+						matches!(
+							parent_head_data,
+							ParentHeadData::WithData {head_data, ..} if head_data == pvd.as_ref().unwrap().parent_head
+						)
 					);
-					tx.send(Some(pvd)).unwrap();
+
+					tx.send(pvd).unwrap();
 				}
 			);
 		} else {
@@ -641,7 +657,7 @@ impl TestState {
 				)) => {
 					assert_eq!(para_id, adv.para_id);
 					assert_eq!(rp, adv.relay_parent);
-					tx.send(Ok(Some(pvd))).unwrap();
+					tx.send(Ok(pvd)).unwrap();
 				}
 			);
 		}
@@ -684,7 +700,7 @@ impl TestState {
 				&mut sender,
 				(adv, Ok(CollationFetchingResponse::Collation(receipt.clone(), dummy_pov())))
 			),
-			self.assert_pvd_request(adv, dummy_pvd())
+			self.assert_pvd_request(adv, Some(dummy_pvd()))
 		);
 
 		self.assert_seconding_kickoff(receipt, dummy_pvd(), dummy_pov()).await;
@@ -1650,15 +1666,342 @@ async fn test_collation_fetch_failure() {
 		test_state.assert_no_messages().await;
 	}
 
-	// compare_fetched_collation_with_advertisement
-	// descriptor_version_sanity_check
-	// fetch_pvd -> PersistedValidationDataNotFound (no response from prospective-parachains or no
-	// response from runtime) 			PersistedValidationDataMismatch, ParentHeadDataMismatch
+	// Received paraid is different than the advertised one. Try for both network protocol
+	// versions. This implies a check on the candidate hash as well for v2 advertisements.
+	for version in [CollationVersion::V1, CollationVersion::V2] {
+		let peer_id = PeerId::random();
 
-	// self.assert_pvd_request(adv, dummy_pvd())
+		let adv = Advertisement {
+			peer_id,
+			para_id: 100.into(),
+			relay_parent: active_leaf,
+			prospective_candidate: (version == CollationVersion::V2)
+				.then_some(prospective_candidate.unwrap()),
+		};
+
+		state.handle_peer_connected(&mut sender, peer_id, version).await;
+		state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+		test_state.handle_advertisement(&mut state, adv).await;
+
+		state.try_launch_new_fetch_requests(&mut sender).await;
+		test_state.assert_collation_request(adv).await;
+
+		let mut receipt = receipt.clone();
+		// Modify the paraid.
+		receipt.descriptor.set_para_id(200.into());
+		let res = Ok(CollationFetchingResponse::Collation(receipt, dummy_pov()));
+		state.handle_fetched_collation(&mut sender, (adv, res)).await;
+		state.try_launch_new_fetch_requests(&mut sender).await;
+		assert_eq!(db.witnessed_slash(), Some((peer_id, adv.para_id, FAILED_FETCH_SLASH)));
+		test_state.assert_no_messages().await;
+	}
+
+	// Relay parent mismatch.
+	{
+		let peer_id = PeerId::random();
+
+		let mut adv = Advertisement {
+			peer_id,
+			para_id: 100.into(),
+			relay_parent: active_leaf,
+			prospective_candidate,
+		};
+
+		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
+		state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+		test_state.handle_advertisement(&mut state, adv).await;
+
+		state.try_launch_new_fetch_requests(&mut sender).await;
+		test_state.assert_collation_request(adv).await;
+
+		// Modify the relay parent.
+		adv.relay_parent = get_hash(8);
+		let res = Ok(CollationFetchingResponse::Collation(receipt.clone(), dummy_pov()));
+		state.handle_fetched_collation(&mut sender, (adv, res)).await;
+		state.try_launch_new_fetch_requests(&mut sender).await;
+		assert_eq!(db.witnessed_slash(), Some((peer_id, adv.para_id, FAILED_FETCH_SLASH)));
+		test_state.assert_no_messages().await;
+	}
+
+	// Invalid core index on the v2 descriptor.
+	{
+		let peer_id = PeerId::random();
+
+		let mut receipt = receipt.clone();
+		// Set a different core index.
+		receipt.descriptor.set_core_index(CoreIndex(5));
+
+		let prospective_candidate = Some(ProspectiveCandidate {
+			candidate_hash: receipt.hash(),
+			parent_head_data_hash: dummy_pvd().parent_head.hash(),
+		});
+		let adv = Advertisement {
+			peer_id,
+			para_id: 100.into(),
+			relay_parent: active_leaf,
+			prospective_candidate,
+		};
+
+		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
+		state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+		test_state.handle_advertisement(&mut state, adv).await;
+
+		state.try_launch_new_fetch_requests(&mut sender).await;
+		test_state.assert_collation_request(adv).await;
+
+		let res = Ok(CollationFetchingResponse::Collation(receipt, dummy_pov()));
+		state.handle_fetched_collation(&mut sender, (adv, res)).await;
+		state.try_launch_new_fetch_requests(&mut sender).await;
+		assert_eq!(db.witnessed_slash(), Some((peer_id, adv.para_id, FAILED_FETCH_SLASH)));
+		test_state.assert_no_messages().await;
+	}
+
+	// Invalid session index on the v2 descriptor.
+	{
+		let peer_id = PeerId::random();
+
+		let mut receipt = receipt.clone();
+		// Set a different session index.
+		receipt.descriptor.set_session_index(5);
+
+		let prospective_candidate = Some(ProspectiveCandidate {
+			candidate_hash: receipt.hash(),
+			parent_head_data_hash: dummy_pvd().parent_head.hash(),
+		});
+		let adv = Advertisement {
+			peer_id,
+			para_id: 100.into(),
+			relay_parent: active_leaf,
+			prospective_candidate,
+		};
+
+		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
+		state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+		test_state.handle_advertisement(&mut state, adv).await;
+
+		state.try_launch_new_fetch_requests(&mut sender).await;
+		test_state.assert_collation_request(adv).await;
+
+		let res = Ok(CollationFetchingResponse::Collation(receipt, dummy_pov()));
+		state.handle_fetched_collation(&mut sender, (adv, res)).await;
+		state.try_launch_new_fetch_requests(&mut sender).await;
+		assert_eq!(db.witnessed_slash(), Some((peer_id, adv.para_id, FAILED_FETCH_SLASH)));
+		test_state.assert_no_messages().await;
+	}
+
+	// PVD not found. Only check for v1 advertisement, which will end up querying the runtime.
+	// For v2 advertisement, an unknown PVF could just make the candidate end up being blocked from
+	// seconding (and we have other tests for it)
+	{
+		let peer_id = PeerId::random();
+
+		let adv = Advertisement {
+			peer_id,
+			para_id: 100.into(),
+			relay_parent: active_leaf,
+			prospective_candidate: None,
+		};
+
+		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V1).await;
+		state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+		test_state.handle_advertisement(&mut state, adv).await;
+
+		state.try_launch_new_fetch_requests(&mut sender).await;
+		test_state.assert_collation_request(adv).await;
+
+		let res = Ok(CollationFetchingResponse::Collation(receipt.clone(), dummy_pov()));
+		futures::join!(
+			state.handle_fetched_collation(&mut sender, (adv, res)),
+			test_state.assert_pvd_request(adv, None)
+		);
+		state.try_launch_new_fetch_requests(&mut sender).await;
+		// No slash, as it's not the collator's fault.
+		assert_eq!(db.witnessed_slash(), None);
+		test_state.assert_no_messages().await;
+	}
+
+	// PVD Mismatch.
+	{
+		let peer_id = PeerId::random();
+
+		let mut receipt = receipt.clone();
+		// Modify some random thing in the receipt so that we get a different candidate.
+		receipt.commitments_hash = get_hash(10);
+
+		let prospective_candidate = Some(ProspectiveCandidate {
+			candidate_hash: receipt.hash(),
+			parent_head_data_hash: dummy_pvd().parent_head.hash(),
+		});
+
+		let adv = Advertisement {
+			peer_id,
+			para_id: 100.into(),
+			relay_parent: active_leaf,
+			prospective_candidate,
+		};
+
+		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
+		state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+		test_state.handle_advertisement(&mut state, adv).await;
+
+		state.try_launch_new_fetch_requests(&mut sender).await;
+		test_state.assert_collation_request(adv).await;
+
+		// Modify the PVD.
+		let mut pvd: PersistedValidationData = dummy_pvd();
+		pvd.relay_parent_number = 100;
+
+		let res = Ok(CollationFetchingResponse::Collation(receipt, dummy_pov()));
+		futures::join!(
+			state.handle_fetched_collation(&mut sender, (adv, res)),
+			test_state.assert_pvd_request(adv, Some(pvd))
+		);
+		state.try_launch_new_fetch_requests(&mut sender).await;
+		assert_eq!(db.witnessed_slash(), Some((peer_id, adv.para_id, FAILED_FETCH_SLASH)));
+		test_state.assert_no_messages().await;
+	}
+
+	// Parent head data mismatch.
+	{
+		let peer_id = PeerId::random();
+
+		let mut receipt = receipt.clone();
+		// Modify some random thing in the receipt so that we get a different candidate.
+		receipt.commitments_hash = get_hash(11);
+
+		let prospective_candidate = Some(ProspectiveCandidate {
+			candidate_hash: receipt.hash(),
+			// Randomly modify the parent head data hash in the advertisement.
+			parent_head_data_hash: get_hash(11),
+		});
+
+		let adv = Advertisement {
+			peer_id,
+			para_id: 100.into(),
+			relay_parent: active_leaf,
+			prospective_candidate,
+		};
+
+		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
+		state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+		test_state.handle_advertisement(&mut state, adv).await;
+
+		state.try_launch_new_fetch_requests(&mut sender).await;
+		test_state.assert_collation_request(adv).await;
+
+		let res = Ok(CollationFetchingResponse::Collation(receipt, dummy_pov()));
+		futures::join!(
+			state.handle_fetched_collation(&mut sender, (adv, res)),
+			test_state.assert_pvd_request(adv, Some(dummy_pvd()))
+		);
+		state.try_launch_new_fetch_requests(&mut sender).await;
+		assert_eq!(db.witnessed_slash(), Some((peer_id, adv.para_id, FAILED_FETCH_SLASH)));
+		test_state.assert_no_messages().await;
+	}
+
+	// Parent head data mismatch with full parent head present in response.
+	{
+		let peer_id = PeerId::random();
+
+		let mut receipt = receipt.clone();
+		// Modify some random thing in the receipt so that we get a different candidate.
+		receipt.commitments_hash = get_hash(12);
+
+		let prospective_candidate = Some(ProspectiveCandidate {
+			candidate_hash: receipt.hash(),
+			parent_head_data_hash: dummy_pvd().parent_head.hash(),
+		});
+
+		let adv = Advertisement {
+			peer_id,
+			para_id: 100.into(),
+			relay_parent: active_leaf,
+			prospective_candidate,
+		};
+
+		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
+		state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+		test_state.handle_advertisement(&mut state, adv).await;
+
+		state.try_launch_new_fetch_requests(&mut sender).await;
+		test_state.assert_collation_request(adv).await;
+
+		let res = Ok(CollationFetchingResponse::CollationWithParentHeadData {
+			receipt,
+			pov: dummy_pov(),
+			// Add a random head data here.
+			parent_head_data: HeadData(vec![1, 2, 3]),
+		});
+		let mut pvd = dummy_pvd();
+		pvd.parent_head = HeadData(vec![1, 2, 3]);
+
+		futures::join!(
+			state.handle_fetched_collation(&mut sender, (adv, res)),
+			test_state.assert_pvd_request(adv, Some(pvd))
+		);
+		state.try_launch_new_fetch_requests(&mut sender).await;
+		assert_eq!(db.witnessed_slash(), Some((peer_id, adv.para_id, FAILED_FETCH_SLASH)));
+		test_state.assert_no_messages().await;
+	}
 }
 
-// Test advertisement: test both versions (v1 and v2), which lead to new requests
+#[tokio::test]
+// Test that v2 candidates are rejected if the node feature is disabled.
+async fn test_v2_descriptor_without_feature_enabled() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+	// Clear the node feature.
+	test_state.session_info.get_mut(&leaf_info.session_index).unwrap().v2_receipts = false;
+
+	let db = MockDb::default();
+	let mut state = make_state(db.clone(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	// Build a v2 candidate.
+	let mut ccr = dummy_committed_candidate_receipt_v2(active_leaf);
+	ccr.descriptor.set_para_id(100.into());
+	ccr.descriptor.set_persisted_validation_data_hash(dummy_pvd().hash());
+	ccr.descriptor.set_core_index(leaf_info.assigned_core);
+	ccr.descriptor.set_session_index(leaf_info.session_index);
+
+	let receipt = ccr.to_plain();
+	let prospective_candidate = Some(ProspectiveCandidate {
+		candidate_hash: receipt.hash(),
+		parent_head_data_hash: dummy_pvd().parent_head.hash(),
+	});
+
+	let peer_id = PeerId::random();
+
+	let adv = Advertisement {
+		peer_id,
+		para_id: 100.into(),
+		relay_parent: active_leaf,
+		prospective_candidate,
+	};
+
+	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
+	state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+	test_state.handle_advertisement(&mut state, adv).await;
+
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(adv).await;
+
+	let res = Ok(CollationFetchingResponse::Collation(receipt, dummy_pov()));
+	state.handle_fetched_collation(&mut sender, (adv, res)).await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	assert_eq!(db.witnessed_slash(), Some((peer_id, adv.para_id, FAILED_FETCH_SLASH)));
+	test_state.assert_no_messages().await;
+}
 
 // Launching new collations:
 // - Verify that we don't try to make requests to a peer that disconnected and that the claims were
@@ -1666,17 +2009,18 @@ async fn test_collation_fetch_failure() {
 // - fetch_one_collation_at_a_time_for_v1_advertisement
 // - candidates going out of view
 // - multiple candidates per relay parent (including from implicit view)
+// - Test fairness according to claim queue and rate limiting according to the claim queue
+// - test delay, test prioritisation
 
 // Collation fetch response:
-// - Valid
-// - Invalid (network error or various types of failures on the response validity)
 // - fetched but went out of view in the meantime
 
 // Collation seconded response:
 // - Valid
 // - Invalid
 
-// Unblocking collations
+// Unblocking collations (PVD not found for a v2 advertisement), as well as cleanup of blocked
+// collations
 
 // Test peer disconnects in various scenarios. With collations being validated
 // with collations being fetched. With collations seconded. With collations that are blocking other
@@ -1691,3 +2035,5 @@ async fn test_collation_fetch_failure() {
 
 // Not sure about these:
 // - Test a session change and the effect it has on assignments.
+
+// Test the compatibility of a v1 candidate (end-to-end).
