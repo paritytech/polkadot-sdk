@@ -1,6 +1,5 @@
-// This file is part of Substrate.
-
 // Copyright (C) Parity Technologies (UK) Ltd.
+// This file is part of Cumulus.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -33,29 +32,36 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
 pub mod weights;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
 
-use cumulus_primitives_core::ParaId;
+use codec::DecodeAll;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::{Inspect, InspectFreeze, Mutate, MutateFreeze, MutateHold, Unbalanced},
 		tokens::{Fortitude, IdAmount, Precision, Preservation},
-		Defensive, LockableCurrency, ReservableCurrency,
+		Defensive, LockableCurrency, ReservableCurrency, WithdrawReasons as LockWithdrawReasons,
 	},
 };
 use frame_system::pallet_prelude::*;
-use pallet_balances::{AccountData, BalanceLock};
+use pallet_balances::{AccountData, BalanceLock, Reasons as LockReasons};
+use sp_application_crypto::ByteArray;
 use sp_runtime::{traits::BlockNumberProvider, AccountId32};
 use sp_std::prelude::*;
 
 /// The log target of this pallet.
-pub const LOG_TARGET: &str = "runtime::ah-migrator";
+pub const LOG_TARGET: &str = "runtime::ah-ops";
 
 pub type BalanceOf<T> = <T as pallet_balances::Config>::Balance;
+pub type DerivationIndex = u16;
+pub type ParaId = u16;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -67,9 +73,6 @@ pub mod pallet {
 		+ pallet_balances::Config<Balance = u128>
 		+ pallet_timestamp::Config<Moment = u64> // Needed for testing
 	{
-		/// The overarching event type.
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
 		/// Native asset type.
 		type Currency: Mutate<Self::AccountId, Balance = u128>
 			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
@@ -173,6 +176,8 @@ pub mod pallet {
 		ContributionsRemaining,
 		/// Passed account IDs are not matching unmigrated child and sibling accounts.
 		WrongSovereignTranslation,
+		/// The account is not a derived account.
+		WrongDerivedTranslation,
 		/// Account cannot be migrated since it is not a sovereign parachain account.
 		NotSovereign,
 		/// Internal error, please bug report.
@@ -187,8 +192,14 @@ pub mod pallet {
 		FailedToThaw,
 		/// Failed to set a freeze on an account.
 		FailedToSetFreeze,
+		/// Failed to transfer a balance.
+		FailedToTransfer,
+		/// Failed to reserve a balance.
+		FailedToReserve,
 		/// Failed to unreserve the full balance.
 		CannotUnreserve,
+		/// The from and to accounts are identical.
+		AccountIdentical,
 	}
 
 	#[pallet::event]
@@ -217,6 +228,8 @@ pub mod pallet {
 			from: T::AccountId,
 			/// The new account that was migrated into.
 			to: T::AccountId,
+			/// Set if this account was derived from a para sovereign account.
+			derivation_index: Option<DerivationIndex>,
 		},
 
 		/// An amount of fungible balance was put on hold.
@@ -312,7 +325,28 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			Self::do_migrate_parachain_sovereign_acc(&from, &to).map_err(Into::into)
+			Self::do_migrate_parachain_sovereign_derived_acc(&from, &to, None).map_err(Into::into)
+		}
+
+		/// Try to migrate a parachain sovereign child account to its respective sibling.
+		///
+		/// Takes the old and new account and migrates it only if they are as expected. An event of
+		/// `SovereignMigrated` will be emitted if the account was migrated successfully.
+		///
+		/// Callable by any signed origin.
+		#[pallet::call_index(5)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(15, 15)
+					.saturating_add(Weight::from_parts(0, 50_000)))]
+		pub fn migrate_parachain_sovereign_derived_acc(
+			origin: OriginFor<T>,
+			from: T::AccountId,
+			to: T::AccountId,
+			derivation: (T::AccountId, DerivationIndex),
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			Self::do_migrate_parachain_sovereign_derived_acc(&from, &to, Some(derivation))
+				.map_err(Into::into)
 		}
 
 		/// Force unreserve a named or unnamed reserve.
@@ -419,46 +453,52 @@ pub mod pallet {
 			contrib_iter.next().is_none()
 		}
 
-		pub fn do_migrate_parachain_sovereign_acc(
+		pub fn do_migrate_parachain_sovereign_derived_acc(
 			from: &T::AccountId,
 			to: &T::AccountId,
+			derivation: Option<(T::AccountId, DerivationIndex)>,
 		) -> Result<(), Error<T>> {
 			if frame_system::Account::<T>::get(from) == Default::default() {
 				// Nothing to do if the account does not exist
 				return Ok(());
 			}
+			if from == to {
+				return Err(Error::<T>::AccountIdentical);
+			}
+			pallet_balances::Pallet::<T>::ensure_upgraded(from); // prevent future headache
 
-			pallet_balances::Pallet::<T>::ensure_upgraded(from);
-
-			let (expected_to, para_id) =
-				pallet_rc_migrator::accounts::try_translate_rc_sovereign_to_ah(from)
-					.defensive()
-					.map_err(|_| Error::<T>::InternalError)?
-					.ok_or(Error::<T>::NotSovereign)?;
-			ensure!(expected_to == *to, Error::<T>::WrongSovereignTranslation);
+			let (translated_acc, para_id, index) = if let Some((parent, index)) = derivation {
+				let (parent_translated, para_id) =
+					Self::try_rc_sovereign_derived_to_ah(from, &parent, index)?;
+				(parent_translated, para_id, Some(index))
+			} else {
+				let (translated_acc, para_id) = Self::try_translate_rc_sovereign_to_ah(from)?;
+				(translated_acc, para_id, None)
+			};
+			ensure!(translated_acc == *to, Error::<T>::WrongSovereignTranslation);
 
 			// Release all locks
 			let locks: Vec<BalanceLock<T::Balance>> =
-				pallet_balances::Locks::<T>::get(&from).into_inner();
+				pallet_balances::Locks::<T>::get(from).into_inner();
 			for lock in &locks {
-				let () = <T as Config>::Currency::remove_lock(lock.id, &from);
+				let () = <T as Config>::Currency::remove_lock(lock.id, from);
 			}
 
 			// Thaw all the freezes
 			let freezes: Vec<IdAmount<T::FreezeIdentifier, T::Balance>> =
-				pallet_balances::Freezes::<T>::get(&from).into();
+				pallet_balances::Freezes::<T>::get(from).into();
 
 			for freeze in &freezes {
-				let () = <T as Config>::Currency::thaw(&freeze.id, &from)
+				let () = <T as Config>::Currency::thaw(&freeze.id, from)
 					.map_err(|_| Error::<T>::FailedToThaw)?;
 			}
 
 			// Release all holds
 			let holds: Vec<IdAmount<T::RuntimeHoldReason, T::Balance>> =
-				pallet_balances::Holds::<T>::get(&from).into();
+				pallet_balances::Holds::<T>::get(from).into();
 
 			for IdAmount { id, amount } in &holds {
-				let _ = <T as Config>::Currency::release(id, &from, *amount, Precision::Exact)
+				let _ = <T as Config>::Currency::release(id, from, *amount, Precision::Exact)
 					.map_err(|_| Error::<T>::FailedToReleaseHold)?;
 				Self::deposit_event(Event::HoldReleased {
 					account: from.clone(),
@@ -468,22 +508,22 @@ pub mod pallet {
 			}
 
 			// Unreserve unnamed reserves
-			let unnamed_reserve = <T as Config>::Currency::reserved_balance(&from);
-			let missing = <T as Config>::Currency::unreserve(&from, unnamed_reserve);
+			let unnamed_reserve = <T as Config>::Currency::reserved_balance(from);
+			let missing = <T as Config>::Currency::unreserve(from, unnamed_reserve);
 			defensive_assert!(missing == 0, "Should have unreserved the full amount");
 
 			// Set consumer refs to zero
-			let consumers = frame_system::Pallet::<T>::consumers(&from);
-			frame_system::Account::<T>::mutate(&from, |acc| {
+			let consumers = frame_system::Pallet::<T>::consumers(from);
+			frame_system::Account::<T>::mutate(from, |acc| {
 				acc.consumers = 0;
 			});
 			// We dont handle sufficients and there should be none
-			ensure!(frame_system::Pallet::<T>::sufficients(&from) == 0, Error::<T>::InternalError);
+			ensure!(frame_system::Pallet::<T>::sufficients(from) == 0, Error::<T>::InternalError);
 
 			// Sanity check
-			let total = <T as Config>::Currency::total_balance(&from);
+			let total = <T as Config>::Currency::total_balance(from);
 			let reducible = <T as Config>::Currency::reducible_balance(
-				&from,
+				from,
 				Preservation::Expendable,
 				Fortitude::Polite,
 			);
@@ -494,16 +534,18 @@ pub mod pallet {
 			defensive_assert!(total == reducible, "Total balance should be reducible");
 
 			// Now the actual balance transfer to the new account
-			<T as Config>::Currency::transfer(&from, &to, total, Preservation::Expendable);
+			<T as Config>::Currency::transfer(from, to, total, Preservation::Expendable)
+				.defensive()
+				.map_err(|_| Error::<T>::FailedToTransfer)?;
 
 			// Apply consumer refs
-			frame_system::Account::<T>::mutate(&to, |acc| {
+			frame_system::Account::<T>::mutate(to, |acc| {
 				acc.consumers += consumers;
 			});
 
 			// Reapply the holds
 			for hold in &holds {
-				<T as Config>::Currency::hold(&hold.id, &to, hold.amount)
+				<T as Config>::Currency::hold(&hold.id, to, hold.amount)
 					.map_err(|_| Error::<T>::FailedToPutHold)?;
 				// Somehow there are no events for this being emitted... so we emit our own.
 				Self::deposit_event(Event::HoldPlaced {
@@ -514,21 +556,23 @@ pub mod pallet {
 			}
 
 			// Reapply the reserve
-			<T as Config>::Currency::reserve(&to, unnamed_reserve);
+			<T as Config>::Currency::reserve(to, unnamed_reserve)
+				.defensive()
+				.map_err(|_| Error::<T>::FailedToReserve)?;
 
 			// Reapply the locks
 			for lock in &locks {
-				let reasons = pallet_rc_migrator::types::map_lock_reason(lock.reasons);
-				<T as Config>::Currency::set_lock(lock.id, &to, lock.amount, reasons);
+				let reasons = map_lock_reason(lock.reasons);
+				<T as Config>::Currency::set_lock(lock.id, to, lock.amount, reasons);
 			}
 			// Reapply the freezes
 			for freeze in &freezes {
-				<T as Config>::Currency::set_freeze(&freeze.id, &to, freeze.amount)
+				<T as Config>::Currency::set_freeze(&freeze.id, to, freeze.amount)
 					.map_err(|_| Error::<T>::FailedToSetFreeze)?;
 			}
 
 			defensive_assert!(
-				frame_system::Account::<T>::get(&from) == Default::default(),
+				frame_system::Account::<T>::get(from) == Default::default(),
 				"Must reap old account"
 			);
 			// If new account would die from this, then lets rather not do it and check it manually.
@@ -538,9 +582,10 @@ pub mod pallet {
 			);
 
 			Self::deposit_event(Event::SovereignMigrated {
-				para_id: (para_id as u32).into(),
+				para_id,
 				from: from.clone(),
 				to: to.clone(),
+				derivation_index: index,
 			});
 
 			Ok(())
@@ -568,5 +613,72 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// Try to translate a Parachain sovereign account to the Parachain AH sovereign account.
+		///
+		/// Returns:
+		/// - `Ok(None)` if the account is not a Parachain sovereign account
+		/// - `Ok(Some((ah_account, para_id)))` with the translated account and the para id
+		/// - `Err(())` otherwise
+		///
+		/// The way that this normally works is through the configured
+		/// `SiblingParachainConvertsVia`: <https://github.com/polkadot-fellows/runtimes/blob/7b096c14c2b16cc81ca4e2188eea9103f120b7a4/system-parachains/asset-hubs/asset-hub-polkadot/src/xcm_config.rs#L93-L94>
+		/// it passes the `Sibling` type into it which has type-ID `sibl`:
+		/// <https://github.com/paritytech/polkadot-sdk/blob/c10e25aaa8b8afd8665b53f0a0b02e4ea44caa77/polkadot/parachain/src/primitives.rs#L272-L274>
+		/// This type-ID gets used by the converter here:
+		/// <https://github.com/paritytech/polkadot-sdk/blob/7ecf3f757a5d6f622309cea7f788e8a547a5dce8/polkadot/xcm/xcm-builder/src/location_conversion.rs#L314>
+		/// and eventually ends up in the encoding here
+		/// <https://github.com/paritytech/polkadot-sdk/blob/cdf107de700388a52a17b2fb852c98420c78278e/substrate/primitives/runtime/src/traits/mod.rs#L1997-L1999>
+		/// The `para` conversion is likewise with `ChildParachainConvertsVia` and the `para`
+		/// type-ID <https://github.com/paritytech/polkadot-sdk/blob/c10e25aaa8b8afd8665b53f0a0b02e4ea44caa77/polkadot/parachain/src/primitives.rs#L162-L164>
+		pub fn try_translate_rc_sovereign_to_ah(
+			from: &AccountId32,
+		) -> Result<(AccountId32, ParaId), Error<T>> {
+			let raw = from.to_raw_vec();
+
+			// Must start with "para"
+			let Some(raw) = raw.strip_prefix(b"para") else {
+				return Err(Error::<T>::NotSovereign);
+			};
+			// Must end with 26 zero bytes
+			let Some(raw) = raw.strip_suffix(&[0u8; 26]) else {
+				return Err(Error::<T>::NotSovereign);
+			};
+			let para_id = u16::decode_all(&mut &raw[..]).map_err(|_| Error::<T>::InternalError)?;
+
+			// Translate to AH sibling account
+			let mut ah_raw = [0u8; 32];
+			ah_raw[0..4].copy_from_slice(b"sibl");
+			ah_raw[4..6].copy_from_slice(&para_id.encode());
+
+			Ok((ah_raw.into(), para_id))
+		}
+
+		/// Same as `try_translate_rc_sovereign_to_ah` but for derived accounts.
+		pub fn try_rc_sovereign_derived_to_ah(
+			from: &AccountId32,
+			parent: &AccountId32,
+			index: DerivationIndex,
+		) -> Result<(AccountId32, ParaId), Error<T>> {
+			// check the derivation proof
+			{
+				let derived = pallet_utility::derivative_account_id(parent.clone(), index);
+				ensure!(derived == *from, Error::<T>::WrongDerivedTranslation);
+			}
+
+			let (parent_translated, para_id) = Self::try_translate_rc_sovereign_to_ah(parent)?;
+			let parent_translated_derived =
+				pallet_utility::derivative_account_id(parent_translated, index);
+			Ok((parent_translated_derived, para_id))
+		}
+	}
+}
+
+/// Backward mapping from <https://github.com/paritytech/polkadot-sdk/blob/74a5e1a242274ddaadac1feb3990fc95c8612079/substrate/frame/balances/src/types.rs#L38>
+pub fn map_lock_reason(reasons: LockReasons) -> LockWithdrawReasons {
+	match reasons {
+		LockReasons::All => LockWithdrawReasons::TRANSACTION_PAYMENT | LockWithdrawReasons::RESERVE,
+		LockReasons::Fee => LockWithdrawReasons::TRANSACTION_PAYMENT,
+		LockReasons::Misc => LockWithdrawReasons::TIP,
 	}
 }

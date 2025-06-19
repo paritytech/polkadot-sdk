@@ -7,6 +7,9 @@ edition.workspace = true
 authors.workspace = true
 repository.workspace = true
 
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true # for AHM only
+
 [dependencies]
 codec = { workspace = true, features = ["max-encoded-len"] }
 cumulus-primitives-core = { workspace = true }
@@ -15,9 +18,12 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
 pallet-balances = { workspace = true }
-pallet-rc-migrator = { workspace = true }
 pallet-timestamp = { workspace = true }
+pallet-utility = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
+sp-application-crypto = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
 
@@ -31,9 +37,12 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-balances/std",
-	"pallet-rc-migrator/std",
 	"pallet-timestamp/std",
+	"pallet-utility/std",
 	"scale-info/std",
+	"sp-application-crypto/std",
+	"sp-core/std",
+	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
 ]
@@ -43,27 +52,15 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-rc-migrator/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
-	"pallet-rc-migrator/try-runtime",
 	"pallet-timestamp/try-runtime",
+	"pallet-utility/try-runtime",
 	"sp-runtime/try-runtime",
-]
-ahm-polkadot = [
-	"pallet-rc-migrator/ahm-polkadot",
-]
-ahm-westend = [
-	"pallet-rc-migrator/ahm-westend",
-]
-ahm-staking-migration = [
-	"pallet-rc-migrator/ahm-staking-migration",
-]
-stable2503 = [
-	"pallet-rc-migrator/stable2503",
 ]
