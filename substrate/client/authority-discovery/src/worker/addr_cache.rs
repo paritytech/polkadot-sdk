@@ -32,7 +32,7 @@ use std::{
 
 /// Cache for [`AuthorityId`] -> [`HashSet<Multiaddr>`] and [`PeerId`] -> [`HashSet<AuthorityId>`]
 /// mappings.
-#[derive(Serialize, Deserialize, Default, Clone)]
+#[derive(Serialize, Deserialize, Default, Clone, PartialEq)]
 pub(super) struct AddrCache {
 	/// The addresses found in `authority_id_to_addresses` are guaranteed to always match
 	/// the peerids found in `peer_id_to_authority_ids`. In other words, these two hashmaps
@@ -51,13 +51,6 @@ impl std::fmt::Debug for AddrCache {
 			.field("authority_id_to_addresses", &self.authority_id_to_addresses)
 			.field("peer_id_to_authority_ids", &self.peer_id_to_authority_ids)
 			.finish()
-	}
-}
-
-impl PartialEq for AddrCache {
-	fn eq(&self, other: &Self) -> bool {
-		self.authority_id_to_addresses == other.authority_id_to_addresses &&
-			self.peer_id_to_authority_ids == other.peer_id_to_authority_ids
 	}
 }
 
