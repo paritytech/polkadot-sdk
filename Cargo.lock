@@ -16987,16 +16987,22 @@ name = "polkadot-zombienet-sdk-tests"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "asset-hub-westend-runtime",
  "cumulus-zombienet-sdk-helpers",
  "env_logger 0.11.3",
+ "futures",
  "log",
+ "pallet-revive",
  "parity-scale-codec",
  "polkadot-primitives",
  "serde",
  "serde_json",
+ "sp-core 28.0.0",
  "substrate-build-script-utils",
  "subwasmlib",
- "subxt 0.38.1",
+ "subxt 0.41.0",
+ "subxt-macro 0.41.0",
+ "subxt-signer 0.41.0",
  "tokio",
  "tokio-util",
  "zombienet-orchestrator",
@@ -25107,7 +25113,7 @@ dependencies = [
  "serde_json",
  "subxt-core 0.38.0",
  "subxt-lightclient 0.38.0",
- "subxt-macro 0.38.0",
+ "subxt-macro 0.38.1",
  "subxt-metadata 0.38.0",
  "thiserror 1.0.65",
  "tokio",
@@ -25284,9 +25290,9 @@ dependencies = [
 
 [[package]]
 name = "subxt-macro"
-version = "0.38.0"
+version = "0.38.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "228db9a5c95a6d8dc6152b4d6cdcbabc4f60821dd3f482a4f8791e022b7caadb"
+checksum = "7819c5e09aae0319981ee853869f2fcd1fac4db8babd0d004c17161297aadc05"
 dependencies = [
  "darling",
  "parity-scale-codec",
@@ -25443,9 +25449,13 @@ version = "0.41.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc868b55fe2303788dc7703457af390111940c3da4714b510983284501780ed5"
 dependencies = [
+ "frame-metadata 20.0.0",
  "hex",
+ "jsonrpsee",
  "parity-scale-codec",
  "thiserror 2.0.12",
+ "tokio",
+ "url",
 ]
 
 [[package]]
