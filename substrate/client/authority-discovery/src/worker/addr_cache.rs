@@ -48,13 +48,6 @@ pub(super) struct AddrCache {
 fn write_to_file(path: impl AsRef<Path>, contents: &str) -> io::Result<()> {
 	let path = path.as_ref();
 	let mut file = File::create(path)?;
-
-	#[cfg(target_family = "unix")]
-	{
-		use std::os::unix::fs::PermissionsExt;
-		fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
-	}
-
 	file.write_all(contents.as_bytes())?;
 	file.flush()?;
 	Ok(())
