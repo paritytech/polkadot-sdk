@@ -16,17 +16,17 @@
 // limitations under the License.
 
 //! This module provides a means for executing contracts
-//! represented in wasm.
+//! represented in vm bytecode.
 
 mod runtime;
 
 #[cfg(doc)]
-pub use crate::wasm::runtime::SyscallDoc;
+pub use crate::vm::runtime::SyscallDoc;
 
 #[cfg(feature = "runtime-benchmarks")]
-pub use crate::wasm::runtime::{ReturnData, TrapReason};
+pub use crate::vm::runtime::{ReturnData, TrapReason};
 
-pub use crate::wasm::runtime::{Runtime, RuntimeCosts};
+pub use crate::vm::runtime::{Runtime, RuntimeCosts};
 
 use crate::{
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
@@ -47,12 +47,12 @@ use frame_support::{
 use sp_core::{Get, H256, U256};
 use sp_runtime::DispatchError;
 
-/// Validated Wasm module ready for execution.
+/// Validated Vm module ready for execution.
 /// This data structure is immutable once created and stored.
 #[derive(Encode, Decode, scale_info::TypeInfo)]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T))]
-pub struct WasmBlob<T: Config> {
+pub struct ContractBlob<T: Config> {
 	code: CodeVec,
 	// This isn't needed for contract execution and is not stored alongside it.
 	#[codec(skip)]
@@ -94,7 +94,7 @@ pub struct CodeInfo<T: Config> {
 }
 
 impl ExportedFunction {
-	/// The wasm export name for the function.
+	/// The vm export name for the function.
 	fn identifier(&self) -> &str {
 		match self {
 			Self::Constructor => "deploy",
@@ -128,7 +128,7 @@ pub fn code_load_weight(code_len: u32) -> Weight {
 	Token::<crate::tests::Test>::weight(&CodeLoadToken(code_len))
 }
 
-impl<T: Config> WasmBlob<T>
+impl<T: Config> ContractBlob<T>
 where
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 {
@@ -152,7 +152,7 @@ where
 			behaviour_version: Default::default(),
 		};
 		let code_hash = H256(sp_io::hashing::keccak_256(&code));
-		Ok(WasmBlob { code, code_info, code_hash })
+		Ok(ContractBlob { code, code_info, code_hash })
 	}
 
 	/// Remove the code from storage and refund the deposit to its owner.
@@ -333,7 +333,7 @@ where
 	}
 }
 
-impl<T: Config> WasmBlob<T> {
+impl<T: Config> ContractBlob<T> {
 	/// Compile and instantiate contract.
 	///
 	/// `aux_data_size` is only used for runtime benchmarks. Real contracts
@@ -389,7 +389,7 @@ impl<T: Config> WasmBlob<T> {
 	}
 }
 
-impl<T: Config> Executable<T> for WasmBlob<T>
+impl<T: Config> Executable<T> for ContractBlob<T>
 where
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 {
