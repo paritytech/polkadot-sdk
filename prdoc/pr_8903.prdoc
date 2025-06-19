@@ -3,8 +3,6 @@ doc:
 - audience: Runtime Dev
   description: |-
     This will be moved into an inherent digest.
-
-    As preparation for: https://github.com/paritytech/polkadot-sdk/issues/8893
 crates:
 - name: cumulus-pallet-parachain-system
   bump: patch
