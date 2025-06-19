@@ -119,7 +119,7 @@ jobs:
         if: matrix.template != 'solochain'
       - name: Generate a token for the template repository
         id: app_token
-        uses: actions/create-github-app-token@v1.9.3
+        uses: actions/create-github-app-token@v2
         with:
           owner: "paritytech"
           repositories: "polkadot-sdk-${{ matrix.template }}-template"
