@@ -16,7 +16,7 @@
 
 use crate::{
 	validator_side::{
-		error::SecondingError, request_persisted_validation_data,
+		descriptor_version_sanity_check, error::SecondingError, request_persisted_validation_data,
 		request_prospective_validation_data, BlockedCollationId, PerLeafClaimQueueState,
 	},
 	validator_side_experimental::{
@@ -46,13 +46,9 @@ use polkadot_node_subsystem_util::{
 	runtime::recv_runtime,
 };
 use polkadot_primitives::{
-	node_features,
-	vstaging::{
-		CandidateDescriptorV2 as CandidateDescriptor, CandidateDescriptorVersion,
-		CandidateReceiptV2 as CandidateReceipt,
-	},
-	CandidateHash, CoreIndex, GroupIndex, GroupRotationInfo, Hash, HeadData, Id as ParaId,
-	PersistedValidationData, SessionIndex,
+	node_features, vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, CoreIndex,
+	GroupIndex, GroupRotationInfo, Hash, HeadData, Id as ParaId, PersistedValidationData,
+	SessionIndex,
 };
 use requests::PendingRequests;
 use schnellru::{ByLength, LruMap};
@@ -358,6 +354,7 @@ impl CollationManager {
 		let mut requests = vec![];
 		let leaves: Vec<_> = self.claim_queue_state.leaves().copied().collect();
 
+		// TODO: add some debug/trace logs in here
 		for leaf in leaves {
 			let free_slots = self.claim_queue_state.free_slots(&leaf);
 			let Some(parents) = self.implicit_view.known_allowed_relay_parents_under(&leaf, None)
@@ -515,7 +512,8 @@ impl CollationManager {
 				if let Err(err) = descriptor_version_sanity_check(
 					fetched_collation.candidate_receipt.descriptor(),
 					session_info.v2_receipts,
-					per_rp,
+					per_rp.core_index,
+					per_rp.session_index,
 				) {
 					gum::warn!(
 						target: LOG_TARGET,
@@ -982,39 +980,6 @@ fn compare_fetched_collation_with_advertisement(
 	}
 
 	Ok(())
-}
-
-// Sanity check the candidate descriptor version.
-fn descriptor_version_sanity_check(
-	descriptor: &CandidateDescriptor,
-	v2_receipts: bool,
-	per_relay_parent: &PerRelayParent,
-) -> std::result::Result<(), SecondingError> {
-	match descriptor.version() {
-		CandidateDescriptorVersion::V1 => Ok(()),
-		CandidateDescriptorVersion::V2 if v2_receipts => {
-			if let Some(core_index) = descriptor.core_index() {
-				if core_index != per_relay_parent.core_index {
-					return Err(SecondingError::InvalidCoreIndex(
-						core_index.0,
-						per_relay_parent.core_index.0,
-					))
-				}
-			}
-
-			if let Some(session_index) = descriptor.session_index() {
-				if session_index != per_relay_parent.session_index {
-					return Err(SecondingError::InvalidSessionIndex(
-						session_index,
-						per_relay_parent.session_index,
-					))
-				}
-			}
-
-			Ok(())
-		},
-		descriptor_version => Err(SecondingError::InvalidReceiptVersion(descriptor_version)),
-	}
 }
 
 async fn fetch_pvd<Sender: CollatorProtocolSenderTrait>(

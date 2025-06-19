@@ -91,7 +91,7 @@ pub enum SecondingError {
 	#[error("Invalid candidate receipt version {0:?}")]
 	InvalidReceiptVersion(CandidateDescriptorVersion),
 
-	#[error("ParaId hash doesn't match the advertisement")]
+	#[error("ParaId doesn't match the advertisement")]
 	ParaIdMismatch,
 
 	#[error("Collation seconding blocked on parent being seconded: {0}")]

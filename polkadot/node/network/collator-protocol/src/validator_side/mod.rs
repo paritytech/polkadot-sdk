@@ -1855,7 +1855,12 @@ async fn kick_off_seconding<Context>(
 	};
 
 	// Sanity check of the candidate receipt version.
-	descriptor_version_sanity_check(candidate_receipt.descriptor(), per_relay_parent)?;
+	descriptor_version_sanity_check(
+		candidate_receipt.descriptor(),
+		per_relay_parent.v2_receipts,
+		per_relay_parent.current_core,
+		per_relay_parent.session_index,
+	)?;
 
 	let collations = &mut per_relay_parent.collations;
 
@@ -2232,27 +2237,26 @@ fn get_next_collation_to_fetch(
 }
 
 // Sanity check the candidate descriptor version.
-fn descriptor_version_sanity_check(
+pub fn descriptor_version_sanity_check(
 	descriptor: &CandidateDescriptorV2,
-	per_relay_parent: &PerRelayParent,
+	v2_receipts: bool,
+	current_core: CoreIndex,
+	current_session_index: SessionIndex,
 ) -> std::result::Result<(), SecondingError> {
 	match descriptor.version() {
 		CandidateDescriptorVersion::V1 => Ok(()),
-		CandidateDescriptorVersion::V2 if per_relay_parent.v2_receipts => {
+		CandidateDescriptorVersion::V2 if v2_receipts => {
 			if let Some(core_index) = descriptor.core_index() {
-				if core_index != per_relay_parent.current_core {
-					return Err(SecondingError::InvalidCoreIndex(
-						core_index.0,
-						per_relay_parent.current_core.0,
-					))
+				if core_index != current_core {
+					return Err(SecondingError::InvalidCoreIndex(core_index.0, current_core.0))
 				}
 			}
 
 			if let Some(session_index) = descriptor.session_index() {
-				if session_index != per_relay_parent.session_index {
+				if session_index != current_session_index {
 					return Err(SecondingError::InvalidSessionIndex(
 						session_index,
-						per_relay_parent.session_index,
+						current_session_index,
 					))
 				}
 			}
