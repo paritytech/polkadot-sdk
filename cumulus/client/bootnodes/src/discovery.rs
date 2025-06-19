@@ -191,7 +191,7 @@ impl BootnodeDiscovery {
 			true
 		} else {
 			if self.succeeded {
-				// No need to start discovey again if the previous attempt succeeded.
+				// No need to start discovery again if the previous attempt succeeded.
 				info!(
 					target: LOG_TARGET,
 					"Parachain bootnode discovery on the relay chain DHT succeeded",
