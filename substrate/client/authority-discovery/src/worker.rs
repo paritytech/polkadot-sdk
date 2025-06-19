@@ -193,7 +193,7 @@ pub struct Worker<Client, Block: BlockT, DhtEventStream> {
 	phantom: PhantomData<Block>,
 
 	/// A spawner of tasks
-	spawner: Arc<dyn SpawnNamed>,
+	spawner: Box<dyn SpawnNamed>,
 
 	/// The directory of where the persisted AddrCache file is located,
 	/// optional since NetworkConfiguration's `net_config_path` field
@@ -258,7 +258,7 @@ where
 		role: Role,
 		prometheus_registry: Option<prometheus_endpoint::Registry>,
 		config: WorkerConfig,
-		spawner: Arc<dyn SpawnNamed>,
+		spawner: impl SpawnNamed + 'static,
 	) -> Self {
 		// When a node starts up publishing and querying might fail due to various reasons, for
 		// example due to being not yet fully bootstrapped on the DHT. Thus one should retry rather
@@ -339,7 +339,7 @@ where
 			warn_public_addresses: false,
 			phantom: PhantomData,
 			last_known_records: HashMap::new(),
-			spawner,
+			spawner: Box::new(spawner),
 			persisted_cache_file_path: maybe_persisted_cache_file_path,
 		}
 	}

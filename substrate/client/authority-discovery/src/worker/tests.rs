@@ -23,7 +23,7 @@ use std::{
 	time::Instant,
 };
 
-use crate::tests::test_config;
+use crate::tests::{test_config, create_spawner};
 
 use super::*;
 use futures::{
@@ -45,14 +45,10 @@ use sc_network_types::{
 	PeerId,
 };
 use sp_api::{ApiRef, ProvideRuntimeApi};
-use sp_core::testing::TaskExecutor;
 use sp_keystore::{testing::MemoryKeystore, Keystore};
 use sp_runtime::traits::{Block as BlockT, NumberFor, Zero};
 use substrate_test_runtime_client::runtime::Block;
 
-fn create_spawner() -> Arc<dyn SpawnNamed> {
-	Arc::new(TaskExecutor::new())
-}
 #[derive(Clone)]
 pub(crate) struct TestApi {
 	pub(crate) authorities: Vec<AuthorityId>,

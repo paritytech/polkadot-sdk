@@ -25,7 +25,7 @@ use sp_authority_discovery::AuthorityId;
 use sp_runtime::DeserializeOwned;
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet},
-	fs::{self, File},
+	fs::File,
 	io::{self, BufReader, Write},
 	path::Path,
 };

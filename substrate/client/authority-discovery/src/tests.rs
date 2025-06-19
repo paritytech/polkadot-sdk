@@ -34,8 +34,8 @@ use sp_authority_discovery::AuthorityId;
 use sp_core::{crypto::key_types, testing::TaskExecutor, traits::SpawnNamed};
 use sp_keystore::{testing::MemoryKeystore, Keystore};
 
-fn create_spawner() -> Arc<dyn SpawnNamed> {
-	Arc::new(TaskExecutor::new())
+pub(super) fn create_spawner() -> Box<dyn SpawnNamed> {
+	Box::new(TaskExecutor::new())
 }
 
 pub(super) fn test_config(path_buf: Option<std::path::PathBuf>) -> WorkerConfig {

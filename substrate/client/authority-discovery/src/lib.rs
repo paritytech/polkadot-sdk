@@ -129,7 +129,7 @@ pub fn new_worker_and_service<Client, Block, DhtEventStream>(
 	dht_event_rx: DhtEventStream,
 	role: Role,
 	prometheus_registry: Option<prometheus_endpoint::Registry>,
-	spawner: Arc<dyn SpawnNamed>,
+	spawner: impl SpawnNamed + 'static,
 ) -> (Worker<Client, Block, DhtEventStream>, Service)
 where
 	Block: BlockT + Unpin + 'static,
@@ -157,7 +157,7 @@ pub fn new_worker_and_service_with_config<Client, Block, DhtEventStream>(
 	dht_event_rx: DhtEventStream,
 	role: Role,
 	prometheus_registry: Option<prometheus_endpoint::Registry>,
-	spawner: Arc<dyn SpawnNamed>,
+	spawner: impl SpawnNamed + 'static,
 ) -> (Worker<Client, Block, DhtEventStream>, Service)
 where
 	Block: BlockT + Unpin + 'static,
