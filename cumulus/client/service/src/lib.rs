@@ -60,7 +60,7 @@ use std::{
 };
 
 mod para_informant;
-use crate::para_informant::{parachain_informant, ParachainInformantMetrics};
+use crate::para_informant::ParachainInformant;
 
 /// Host functions that should be used in parachain nodes.
 ///
@@ -305,14 +305,15 @@ where
 		.spawn_essential_handle()
 		.spawn("cumulus-pov-recovery", None, pov_recovery.run());
 
-	let parachain_informant = parachain_informant::<Block, _>(
-		relay_chain_interface.clone(),
+	let parachain_informant = ParachainInformant::<Block>::new(
+		Arc::new(relay_chain_interface.clone()),
 		client.clone(),
-		prometheus_registry.map(ParachainInformantMetrics::new).transpose()?,
-	);
-	task_manager
-		.spawn_handle()
-		.spawn("parachain-informant", None, parachain_informant);
+		prometheus_registry,
+	)?;
+
+	task_manager.spawn_handle().spawn("parachain-informant", None, async move {
+		let _ = parachain_informant.run().await;
+	});
 
 	if !rpc_transaction_v2_handles.is_empty() {
 		let parachain_rpc_metrics = parachain_rpc_metrics::<Block>(

@@ -20,50 +20,72 @@
 //! Provides a service that logs information about parachain candidate events
 //! and related metrics.
 
-use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
-use futures::{channel::mpsc, FutureExt, StreamExt};
-use polkadot_primitives::{vstaging::CandidateEvent, CollatorPair, OccupiedCoreAssumption};
+use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
+use futures::StreamExt;
+use polkadot_primitives::vstaging::CandidateEvent;
 use prometheus::{linear_buckets, Histogram, HistogramOpts, Registry};
 use sc_telemetry::log;
 use schnellru::{ByLength, LruMap};
-use sp_blockchain::{HeaderBackend, HeaderMetadata};
-use sp_core::{traits::SpawnNamed, Decode};
+use sp_blockchain::HeaderBackend;
+use sp_core::Decode;
 use sp_runtime::{
-	traits::{Block as BlockT, BlockIdTo, Header},
+	traits::{Block as BlockT, Header},
 	SaturatedConversion, Saturating,
 };
-use std::{
-	sync::Arc,
-	time::{Duration, Instant},
-};
+use std::{sync::Arc, time::Instant};
 
-/// Task for logging candidate events and some related metrics.
-pub async fn parachain_informant<Block: BlockT, Client>(
-	relay_chain_interface: impl RelayChainInterface + Clone,
-	client: Arc<Client>,
+use cumulus_primitives_core::{relay_chain::Header as RelayHeader, ParaId};
+
+pub struct ParachainInformant<Block: BlockT> {
+	/// Relay chain interface to interact with the relay chain.
+	relay_chain_interface: Arc<dyn RelayChainInterface>,
+
+	/// Client to access the blockchain headers.
+	client: Arc<dyn HeaderBackend<Block>>,
+
+	/// Optional metrics for the parachain informant.
 	metrics: Option<ParachainInformantMetrics>,
-) where
-	Client: HeaderBackend<Block> + Send + Sync + 'static,
-{
-	let mut backed_blocks: LruMap<sp_core::H256, ()> = LruMap::new(ByLength::new(64));
-	let mut unresolved_tx: LruMap<sp_core::H256, Vec<Instant>> = LruMap::new(ByLength::new(64));
 
-	let mut import_notifications = match relay_chain_interface.import_notification_stream().await {
-		Ok(import_notifications) => import_notifications,
-		Err(e) => {
-			log::error!("Failed to get import notification stream: {e:?}. Parachain informant will not run!");
-			return
-		},
-	};
-	let mut last_backed_block_time: Option<Instant> = None;
-	while let Some(n) = import_notifications.next().await {
-		let candidate_events = match relay_chain_interface.candidate_events(n.hash()).await {
+	/// Last time a block was backed.
+	last_backed_block_time: Option<Instant>,
+}
+
+impl<Block: BlockT> ParachainInformant<Block> {
+	pub fn new(
+		relay_chain_interface: Arc<dyn RelayChainInterface>,
+		client: Arc<dyn HeaderBackend<Block>>,
+		registry: Option<&Registry>,
+	) -> sc_service::error::Result<Self> {
+		let metrics = registry.map(|r| ParachainInformantMetrics::new(r)).transpose()?;
+
+		Ok(Self { relay_chain_interface, client, metrics, last_backed_block_time: None })
+	}
+
+	pub async fn run(mut self) -> RelayChainResult<()> {
+		let mut import_notifications = self
+			.relay_chain_interface
+			.import_notification_stream()
+			.await
+			.inspect_err(|e| {
+				log::error!("Failed to get import notification stream: {e:?}. Parachain informant will not run!");
+			})?;
+
+		while let Some(n) = import_notifications.next().await {
+			self.handle_import_notification(n).await;
+		}
+
+		Ok(())
+	}
+
+	async fn handle_import_notification(&mut self, n: RelayHeader) {
+		let candidate_events = match self.relay_chain_interface.candidate_events(n.hash()).await {
 			Ok(candidate_events) => candidate_events,
 			Err(e) => {
 				log::warn!("Failed to get candidate events for block {}: {e:?}", n.hash());
-				continue
+				return;
 			},
 		};
+
 		let mut backed_candidates = Vec::new();
 		let mut included_candidates = Vec::new();
 		let mut timed_out_candidates = Vec::new();
@@ -80,13 +102,13 @@ pub async fn parachain_informant<Block: BlockT, Client>(
 						},
 					};
 					let backed_block_time = Instant::now();
-					if let Some(last_backed_block_time) = &last_backed_block_time {
+					if let Some(last_backed_block_time) = &self.last_backed_block_time {
 						let duration = backed_block_time.duration_since(*last_backed_block_time);
-						if let Some(metrics) = &metrics {
+						if let Some(metrics) = &self.metrics {
 							metrics.parachain_block_backed_duration.observe(duration.as_secs_f64());
 						}
 					}
-					last_backed_block_time = Some(backed_block_time);
+					self.last_backed_block_time = Some(backed_block_time);
 					backed_candidates.push(backed_block);
 				},
 				CandidateEvent::CandidateIncluded(_, head, _, _) => {
@@ -100,9 +122,9 @@ pub async fn parachain_informant<Block: BlockT, Client>(
 						},
 					};
 					let unincluded_segment_size =
-						client.info().best_number.saturating_sub(*included_block.number());
+						self.client.info().best_number.saturating_sub(*included_block.number());
 					let unincluded_segment_size: u32 = unincluded_segment_size.saturated_into();
-					if let Some(metrics) = &metrics {
+					if let Some(metrics) = &self.metrics {
 						metrics.unincluded_segment_size.observe(unincluded_segment_size.into());
 					}
 					included_candidates.push(included_block);
@@ -157,6 +179,7 @@ pub async fn parachain_informant<Block: BlockT, Client>(
 	}
 }
 
+/// Metrics for the parachain informant service.
 pub struct ParachainInformantMetrics {
 	/// Time between parachain blocks getting backed by the relaychain.
 	parachain_block_backed_duration: Histogram,
