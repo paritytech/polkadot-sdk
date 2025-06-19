@@ -37,8 +37,7 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::{AvailableData, BlockData, PoV};
 use polkadot_node_subsystem_test_helpers::{
-	derive_erasure_chunks_with_proofs_and_root,
-	mock::{generate_block_info, new_block_import_info},
+	derive_erasure_chunks_with_proofs_and_root, mock::new_block_import_info,
 };
 use polkadot_overseer::BlockInfo;
 use polkadot_primitives::{
@@ -212,6 +211,10 @@ fn sign_statement(
 	.unwrap()
 	.as_unchecked()
 	.to_owned()
+}
+
+fn generate_block_info(block_num: usize) -> BlockInfo {
+	new_block_import_info(Hash::repeat_byte(block_num as u8), block_num as BlockNumber)
 }
 
 fn generate_block_header(info: &BlockInfo) -> (H256, Header) {
