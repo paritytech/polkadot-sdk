@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The crate's tests.
+//! The tests for `pallet-conviction-voting`.
 
 use std::{cell::RefCell, collections::BTreeMap};
 
