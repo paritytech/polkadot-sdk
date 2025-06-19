@@ -638,13 +638,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						}
 
 						// Update delegate's voting state if delegating
-						if let (Some(delegate), Some(conviction)) = (&voting.delegate, &voting.conviction) {
+						if let (Some(delegate), Some(_)) = (&voting.delegate, &voting.conviction) {
 							VotingFor::<T, I>::mutate(delegate, &class, |delegate_voting| {
 								// Find the matching poll record on the delegate's account.
 								match delegate_voting.votes.binary_search_by_key(&poll_index, |v| v.poll_index)
 								{
 									Ok(idx) => {
 										// Remove vote record if no longer necessary
+										let poll_vote = &mut delegate_voting.votes[idx];
 										if poll_vote.maybe_vote.is_none()
 										{
 											delegate_voting.votes.remove(idx);
@@ -668,13 +669,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					// Check vote existed at time of cancellation
 					if old_vote.maybe_vote.is_some() {
 						// Update delegate's voting state if delegating
-						if let (Some(delegate), Some(conviction)) = (&voting.delegate, &voting.conviction) {
+						if let (Some(delegate), Some(_)) = (&voting.delegate, &voting.conviction) {
 							VotingFor::<T, I>::mutate(delegate, &class, |delegate_voting| {
 								// Find the matching poll record on the delegate's account.
 								match delegate_voting.votes.binary_search_by_key(&poll_index, |v| v.poll_index)
 								{
 									Ok(idx) => {
 										// Remove vote record if no longer necessary
+										let poll_vote = &mut delegate_voting.votes[idx];
 										if poll_vote.maybe_vote.is_none()
 										{
 											delegate_voting.votes.remove(idx);
@@ -801,7 +803,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 										tally.increase(vote.aye, amount);
 									}
 								},
-								.. => {
+								_ => {
 									// Poll is done or was cancelled, can remove voting record
 									poll_ended = true;
 								}
