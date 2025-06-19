@@ -1,0 +1,8 @@
+title: Fix flaxy `0003-block-building-warp-sync` test
+doc:
+- audience: Node Dev
+  description: |-
+    Fixes: https://github.com/paritytech/polkadot-sdk/issues/8868
+
+    The error skipped in log is acceptable, the announced block does not have the parent imported yet.
+crates: []
