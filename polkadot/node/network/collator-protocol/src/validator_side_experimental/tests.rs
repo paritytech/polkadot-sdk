@@ -21,6 +21,7 @@ use crate::validator_side_experimental::{
 	},
 	peer_manager::{Backend, ReputationUpdate},
 };
+use rstest::rstest;
 
 use super::*;
 use assert_matches::assert_matches;
@@ -55,7 +56,9 @@ use polkadot_primitives::{
 	OccupiedCoreAssumption, PersistedValidationData, SessionIndex, SigningContext, ValidatorId,
 	ValidatorIndex,
 };
-use polkadot_primitives_test_helpers::dummy_committed_candidate_receipt_v2;
+use polkadot_primitives_test_helpers::{
+	dummy_committed_candidate_receipt, dummy_committed_candidate_receipt_v2,
+};
 use sc_network::{OutboundFailure, RequestFailure};
 use sc_network_types::multihash::Multihash;
 use sp_keyring::Sr25519Keyring;
@@ -2003,6 +2006,61 @@ async fn test_v2_descriptor_without_feature_enabled() {
 	test_state.assert_no_messages().await;
 }
 
+#[rstest]
+#[case(true)]
+#[case(false)]
+#[tokio::test]
+// Test that we still accept v1 candidates regardless of whether the v2 descriptor node feature is
+// enabled or not
+async fn v1_descriptor_compatibility(#[case] v2_receipts: bool) {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+
+	// Set the node feature.
+	test_state.session_info.get_mut(&leaf_info.session_index).unwrap().v2_receipts = v2_receipts;
+
+	let db = MockDb::default();
+	let mut state = make_state(db.clone(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	// Build a v1 candidate.
+	let mut ccr = dummy_committed_candidate_receipt(active_leaf);
+	ccr.descriptor.para_id = 100.into();
+	ccr.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
+
+	let receipt = ccr.to_plain();
+	let prospective_candidate = Some(ProspectiveCandidate {
+		candidate_hash: receipt.hash(),
+		parent_head_data_hash: dummy_pvd().parent_head.hash(),
+	});
+
+	let peer_id = PeerId::random();
+
+	let adv = Advertisement {
+		peer_id,
+		para_id: 100.into(),
+		relay_parent: active_leaf,
+		prospective_candidate,
+	};
+
+	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
+	state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+	test_state.handle_advertisement(&mut state, adv).await;
+
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(adv).await;
+
+	test_state.handle_fetched_collation(&mut state, adv, receipt.into()).await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_no_messages().await;
+	test_state
+		.second_collation(&mut state, peer_id, CollationVersion::V2, ccr.into())
+		.await;
+	test_state.assert_no_messages().await;
+}
+
 // Launching new collations:
 // - Verify that we don't try to make requests to a peer that disconnected and that the claims were
 //   freed.
@@ -2035,5 +2093,3 @@ async fn test_v2_descriptor_without_feature_enabled() {
 
 // Not sure about these:
 // - Test a session change and the effect it has on assignments.
-
-// Test the compatibility of a v1 candidate (end-to-end).
