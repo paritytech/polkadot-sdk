@@ -74,7 +74,6 @@ std = [
 	"frame-system/std",
 	"hex/std",
 	"log/std",
-	"pallet-ah-ops/std",
 	"pallet-asset-rate/std",
 	"pallet-bags-list/std",
 	"pallet-balances/std",
@@ -119,6 +118,7 @@ std = [
 	"xcm-executor/std",
 	"xcm-executor/std",
 	"xcm/std",
+	"pallet-ah-ops/std"
 ]
 runtime-benchmarks = [
 	"assets-common/runtime-benchmarks",
@@ -127,7 +127,6 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-ah-ops/runtime-benchmarks",
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
@@ -163,12 +162,12 @@ runtime-benchmarks = [
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
+	"pallet-ah-ops/runtime-benchmarks"
 	# "asset-hub-westend-runtime/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-ah-ops/try-runtime",
 	"pallet-asset-rate/try-runtime",
 	"pallet-bags-list/try-runtime",
 	"pallet-balances/try-runtime",
@@ -195,24 +194,21 @@ try-runtime = [
 	"polkadot-runtime-common/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-ah-ops/try-runtime"
 ]
 
 ahm-polkadot = [
-	"pallet-ah-ops/ahm-polkadot",
 	"pallet-rc-migrator/ahm-polkadot",
 ]
 ahm-westend = [
 	"ahm-staking-migration",
-	"pallet-ah-ops/ahm-westend",
 	"pallet-rc-migrator/ahm-westend",
 	"stable2503",
 
 ]
 stable2503 = [
-	"pallet-ah-ops/stable2503",
 	"pallet-rc-migrator/stable2503",
 ]
 ahm-staking-migration = [
-	"pallet-ah-ops/ahm-staking-migration",
 	"pallet-rc-migrator/ahm-staking-migration",
 ]

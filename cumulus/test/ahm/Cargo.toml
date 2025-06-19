@@ -77,7 +77,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-ah-migrator/runtime-benchmarks",
-	"pallet-ah-ops/runtime-benchmarks",
+	
 	"pallet-balances/runtime-benchmarks",
 	"pallet-bounties/runtime-benchmarks",
 	"pallet-indices/runtime-benchmarks",
@@ -98,29 +98,26 @@ runtime-benchmarks = [
 	"westend-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
+	"pallet-ah-ops/runtime-benchmarks"
 ]
 
 ahm-westend = [
 	"asset-hub-westend-runtime/ahm-westend",
 	"pallet-ah-migrator/ahm-westend",
-	"pallet-ah-ops/ahm-westend",
 	"pallet-rc-migrator/ahm-westend",
 ]
 ahm-polkadot = [
 	"pallet-ah-migrator/ahm-polkadot",
-	"pallet-ah-ops/ahm-polkadot",
 	"pallet-rc-migrator/ahm-polkadot",
 ]
 
 # This will be changed by our porting script
 stable2503 = [
 	"pallet-ah-migrator/stable2503",
-	"pallet-ah-ops/stable2503",
 	"pallet-rc-migrator/stable2503",
 ]
 ahm-staking-migration = [
 	"asset-hub-westend-runtime/ahm-staking-migration",
 	"pallet-ah-migrator/ahm-staking-migration",
-	"pallet-ah-ops/ahm-staking-migration",
 	"pallet-rc-migrator/ahm-staking-migration",
 ]
