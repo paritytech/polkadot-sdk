@@ -125,8 +125,6 @@ type DerivativeExtraOf<T, I> = <T as Config<I>>::DerivativeExtra;
 pub mod pallet {
 	use super::*;
 
-	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
