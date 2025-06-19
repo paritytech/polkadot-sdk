@@ -1282,7 +1282,6 @@ impl pallet_indices::Config for Runtime {
 }
 
 impl pallet_ah_ops::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type RcBlockNumberProvider = RelaychainDataProvider<Runtime>;
 	type WeightInfo = weights::pallet_ah_ops::WeightInfo<Runtime>;
