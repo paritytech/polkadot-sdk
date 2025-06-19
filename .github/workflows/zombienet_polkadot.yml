@@ -301,13 +301,16 @@ jobs:
       - name: download_release_bins
         shell: bash
         run: |
+          BIN_DIR="$(pwd)/bin"
+          mkdir -p $BIN_DIR
           for bin in polkadot polkadot-execute-worker polkadot-prepare-worker polkadot-parachain; do
-            echo "downloading $bin";
-            curl -L -o /tmp/$bin https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-v1.7.0/$bin-old
-            chmod 755 /tmp/$bin;
+            OLD_NAME="$bin-old"
+            echo "downloading $bin as $OLD_NAME in $BIN_DIR";
+            curl -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-v1.7.0/$bin
+            chmod 755 $BIN_DIR/$OLD_NAME;
           done
-          ls -ltr /tmp
-          export PATH=/tmp:$PATH
+          ls -ltr $BIN_DIR
+          export PATH=$(pwd)$BIN_DIR:$PATH
           echo "PATH=$PATH" >> $GITHUB_ENV
           echo $PATH
 
