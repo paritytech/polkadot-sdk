@@ -100,7 +100,7 @@ pub struct BootnodeDiscovery {
 	>,
 	direct_requests: HashSet<PeerId>,
 	find_node_queries: HashSet<PeerId>,
-	start_discovery: Pin<Box<Fuse<Sleep>>>,
+	pending_start_discovery: Pin<Box<Fuse<Sleep>>>,
 	succeeded: bool,
 }
 
@@ -131,7 +131,7 @@ impl BootnodeDiscovery {
 			direct_requests: HashSet::new(),
 			find_node_queries: HashSet::new(),
 			// Trigger the discovery immediately on startup.
-			start_discovery: Box::pin(sleep(Duration::ZERO).fuse()),
+			pending_start_discovery: Box::pin(sleep(Duration::ZERO).fuse()),
 			succeeded: false,
 		}
 	}
@@ -181,6 +181,7 @@ impl BootnodeDiscovery {
 	/// Schedule bootnode discovery if needed. Returns `false` if the discovery event loop should be
 	/// terminated.
 	fn maybe_retry_discovery(&mut self) -> bool {
+<<<<<<< Updated upstream
 		// Schedule discovery if it is not currently in progress or scheduled.
 		if self.key_being_discovered.is_none() &&
 			self.pending_responses.is_empty() &&
@@ -188,7 +189,19 @@ impl BootnodeDiscovery {
 			self.start_discovery.is_terminated()
 		{
 			// No need to start discovery again if the previous attempt succeeded.
+=======
+		let discovery_in_progress = self.key_being_discovered.is_some() ||
+			!self.pending_responses.is_empty() ||
+			!self.find_node_queries.is_empty();
+		let discovery_scheduled = !self.pending_start_discovery.is_terminated();
+
+		if discovery_in_progress || discovery_scheduled {
+			// Discovery is already in progress or scheduled, just continue the event loop.
+			true
+		} else {
+>>>>>>> Stashed changes
 			if self.succeeded {
+				// No need to start discovey again if the previous attempt succeeded.
 				info!(
 					target: LOG_TARGET,
 					"Parachain bootnode discovery on the relay chain DHT succeeded",
@@ -200,13 +213,10 @@ impl BootnodeDiscovery {
 					target: LOG_TARGET,
 					"Retrying parachain bootnode discovery on the relay chain DHT in {RETRY_DELAY:?}",
 				);
-				self.start_discovery = Box::pin(sleep(RETRY_DELAY).fuse());
+				self.pending_start_discovery = Box::pin(sleep(RETRY_DELAY).fuse());
 
 				true
 			}
-		} else {
-			// Discovery is already in progress, just continue the event loop.
-			true
 		}
 	}
 
@@ -453,7 +463,7 @@ impl BootnodeDiscovery {
 			}
 
 			tokio::select! {
-				_ = &mut self.start_discovery => {
+				_ = &mut self.pending_start_discovery => {
 					self.start_discovery().await?;
 				},
 				header = import_notification_stream.select_next_some() => {
