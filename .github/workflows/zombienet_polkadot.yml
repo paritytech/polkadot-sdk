@@ -278,8 +278,8 @@ jobs:
           gh-token: ${{ secrets.GITHUB_TOKEN }}
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-  #
-  # TODO: Disabled, fails 100% with with zombienet native provider
+
+  # re-enabled
   zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility') }}
@@ -298,8 +298,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: download_release_bins
+        shell: bash
+        run: |
+          for bin in polkadot polkadot-execute-worker polkadot-prepare-worker polkadot-parachain; do
+            echo "downloading $bin";
+            curl -L -o /tmp/$bin https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-v1.7.0/$bin-old
+            chmod 755 /tmp/$bin;
+          done
+          ls -ltr /tmp
+          export PATH=/tmp:$PATH
+          echo "PATH=$PATH" >> $GITHUB_ENV
+          echo $PATH
+
       - name: zombienet_test
         uses: ./.github/actions/zombienet
+        env:
+          OLD_SUFFIX: "-old"
         with:
           test: "0014-chunk-fetching-network-compatibility.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}/functional"
