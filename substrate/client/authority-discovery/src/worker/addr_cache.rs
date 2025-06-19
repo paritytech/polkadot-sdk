@@ -32,7 +32,7 @@ use std::{
 
 /// Cache for [`AuthorityId`] -> [`HashSet<Multiaddr>`] and [`PeerId`] -> [`HashSet<AuthorityId>`]
 /// mappings.
-#[derive(Serialize, Deserialize, Default, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Default, Clone, PartialEq, Debug)]
 pub(super) struct AddrCache {
 	/// The addresses found in `authority_id_to_addresses` are guaranteed to always match
 	/// the peerids found in `peer_id_to_authority_ids`. In other words, these two hashmaps
@@ -43,15 +43,6 @@ pub(super) struct AddrCache {
 	/// it's not expected that a single `AuthorityId` can have multiple `PeerId`s.
 	authority_id_to_addresses: HashMap<AuthorityId, HashSet<Multiaddr>>,
 	peer_id_to_authority_ids: HashMap<PeerId, HashSet<AuthorityId>>,
-}
-
-impl std::fmt::Debug for AddrCache {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.debug_struct("AddrCache")
-			.field("authority_id_to_addresses", &self.authority_id_to_addresses)
-			.field("peer_id_to_authority_ids", &self.peer_id_to_authority_ids)
-			.finish()
-	}
 }
 
 fn write_to_file(path: impl AsRef<Path>, contents: &str) -> io::Result<()> {
