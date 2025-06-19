@@ -15,7 +15,7 @@
 // limitations under the License.
 
 use crate::{
-	chain_spec::Extensions,
+	chain_spec::DeprecatedExtensions,
 	common::{
 		command::NodeCommandRunner,
 		rpc::BuildRpcExtensions,
@@ -32,7 +32,7 @@ use cumulus_client_service::{
 	build_network, build_relay_chain_interface, prepare_node_config, start_relay_chain_tasks,
 	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, StartRelayChainTasksParams,
 };
-use cumulus_primitives_core::{BlockT, GetParachainIdentity, ParaId};
+use cumulus_primitives_core::{BlockT, GetParachainIdentifier, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::FutureExt;
 use log::info;
@@ -161,11 +161,12 @@ pub(crate) trait BaseNodeSpec {
 			// TODO: remove this once `para_id` extension is removed: https://github.com/paritytech/polkadot-sdk/issues/8740
 			#[allow(deprecated)]
 			let id = ParaId::from(
-				Extensions::try_get(&*parachain_config.chain_spec).and_then(|ext| ext.para_id)?,
+				DeprecatedExtensions::try_get(&*parachain_config.chain_spec)
+					.and_then(|ext| ext.para_id)?,
 			);
 			// TODO: https://github.com/paritytech/polkadot-sdk/issues/8747
 			// TODO: https://github.com/paritytech/polkadot-sdk/issues/8740
-			log::info!("Deprecation notice: the parachain id was provided via the chain spec. This way of providing the parachain id to the node is not recommended. The alternative is to implement the `cumulus_primitives_core::GetParachainIdentity` runtime API in the runtime, and upgrade it on-chain. Starting with `stable2512` providing the parachain id via the chain spec will not be supported anymore.");
+			log::info!("Deprecation notice: the parachain id was provided via the chain spec. This way of providing the parachain id to the node is not recommended. The alternative is to implement the `cumulus_primitives_core::GetParachainIdentifier` runtime API in the runtime, and upgrade it on-chain. Starting with `stable2512` providing the parachain id via the chain spec will not be supported anymore.");
 			id
 		};
 

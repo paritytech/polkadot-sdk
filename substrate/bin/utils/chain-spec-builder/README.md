@@ -31,7 +31,7 @@ around by the `bash!(...)` macro calls.
 
 <!-- TODO: https://github.com/paritytech/polkadot-sdk/issues/8747 -->
 `para-id` flag is deprecated. Runtimes relying on generating the chain
-specification with this tool should implement `cumulus_primitives_core::GetParachainIdentity`
+specification with this tool should implement `cumulus_primitives_core::GetParachainIdentifier`
 trait, a new runtime API designed to provide the parachain ID from the `parachain-info`
 pallet. The `para-id` flag will be removed and nodes support for extracting the
 parachain id from the chain specification will stop from `stable2512`.

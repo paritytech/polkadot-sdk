@@ -27,9 +27,7 @@ pub fn collectives_westend_development_config() -> GenericChainSpec {
 	GenericChainSpec::builder(
 		collectives_westend_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
-		// TODO: remove when removing the `para_id` extension: https://github.com/paritytech/polkadot-sdk/issues/8740
-		#[allow(deprecated)]
-		Extensions { relay_chain: "westend-dev".into(), para_id: None },
+		Extensions { relay_chain: "westend-dev".into() },
 	)
 	.with_name("Westend Collectives Development")
 	.with_id("collectives_westend_dev")
@@ -50,9 +48,7 @@ pub fn collectives_westend_local_config() -> GenericChainSpec {
 	GenericChainSpec::builder(
 		collectives_westend_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
-		// TODO: remove when removing the `para_id` extension: https://github.com/paritytech/polkadot-sdk/issues/8740
-		#[allow(deprecated)]
-		Extensions { relay_chain: "westend-local".into(), para_id: None },
+		Extensions { relay_chain: "westend-local".into() },
 	)
 	.with_name("Westend Collectives Local")
 	.with_id("collectives_westend_local")

@@ -36,23 +36,42 @@ impl LoadSpec for DiskChainSpecLoader {
 	}
 }
 
-/// Generic extensions for Parachain ChainSpecs.
+/// Generic extensions for Parachain ChainSpecs used for extracting the extensions from chain specs.
+/// This is also used only while `para_id` is around the corner.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecExtension)]
 pub struct Extensions {
 	/// The relay chain of the Parachain.
 	#[serde(alias = "relayChain", alias = "RelayChain")]
 	pub relay_chain: String,
+}
+
+/// Generic extensions for Parachain ChainSpecs used for extracting the extensions from chain specs.
+/// This is also used only while `para_id` is around the corner.
+// TODO: https://github.com/paritytech/polkadot-sdk/issues/8747
+// TODO: https://github.com/paritytech/polkadot-sdk/issues/8740
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecExtension)]
+pub struct DeprecatedExtensions {
+	/// The relay chain of the Parachain. It is kept here only for compatibility reasons until
+	/// people migrate to using the new `Extensions` struct and associated logic in the node
+	/// corresponding to pulling the parachain id from the runtime.
+	#[serde(alias = "relayChain", alias = "RelayChain")]
+	pub relay_chain: String,
 	/// The id of the Parachain.
 	#[serde(alias = "paraId", alias = "ParaId")]
-	// TODO: https://github.com/paritytech/polkadot-sdk/issues/8747
-	// TODO: https://github.com/paritytech/polkadot-sdk/issues/8740
 	#[deprecated(
-		note = "The para_id information is not required anymore and will be removed starting with `stable2512`. Runtimes must implement a new API called `cumulus_primitives_core::GetParachainIdentity` to still be compatible with node versions starting with `stable2512`."
+		note = "The para_id information is not required anymore and will be removed starting with `stable2512`. Runtimes must implement a new API called `cumulus_primitives_core::GetParachainIdentifier` to still be compatible with node versions starting with `stable2512`."
 	)]
 	pub para_id: Option<u32>,
 }
 
 impl Extensions {
+	/// Try to get the extension from the given `ChainSpec`.
+	pub fn try_get(chain_spec: &dyn sc_service::ChainSpec) -> Option<&Self> {
+		sc_chain_spec::get_extension(chain_spec.extensions())
+	}
+}
+
+impl DeprecatedExtensions {
 	/// Try to get the extension from the given `ChainSpec`.
 	pub fn try_get(chain_spec: &dyn sc_service::ChainSpec) -> Option<&Self> {
 		sc_chain_spec::get_extension(chain_spec.extensions())

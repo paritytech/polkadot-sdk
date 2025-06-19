@@ -615,8 +615,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 						RuntimeCall::Utility { .. } |
 						RuntimeCall::Multisig { .. } |
 						RuntimeCall::NftFractionalization { .. } |
-						RuntimeCall::Nfts { .. } |
-						RuntimeCall::Uniques { .. }
+						RuntimeCall::Nfts { .. } | RuntimeCall::Uniques { .. }
 				)
 			},
 			ProxyType::AssetOwner => matches!(
@@ -2046,7 +2045,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl cumulus_primitives_core::GetParachainIdentity<Block> for Runtime {
+	impl cumulus_primitives_core::GetParachainIdentifier<Block> for Runtime {
 		fn parachain_id() -> ParaId {
 			ParachainInfo::parachain_id()
 		}

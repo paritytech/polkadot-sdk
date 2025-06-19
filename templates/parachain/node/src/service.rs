@@ -27,7 +27,7 @@ use cumulus_client_service::{
 #[docify::export(cumulus_primitives)]
 use cumulus_primitives_core::{
 	relay_chain::{CollatorPair, ValidationCode},
-	GetParachainIdentity, ParaId,
+	GetParachainIdentifier, ParaId,
 };
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 

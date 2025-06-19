@@ -168,22 +168,17 @@ pub mod rococo {
 				.expect("WASM binary was not built, please build it!")
 		};
 
-		GenericChainSpec::builder(
-			wasm_binary,
-			// TODO: remove when removing the `para_id` extension: https://github.com/paritytech/polkadot-sdk/issues/8740
-			#[allow(deprecated)]
-			Extensions { relay_chain: relay_chain.to_string(), para_id: None },
-		)
-		.with_name(&chain_name)
-		.with_id(runtime_type.into())
-		.with_chain_type(chain_type.clone())
-		.with_genesis_config_preset_name(match chain_type {
-			ChainType::Development => sp_genesis_builder::DEV_RUNTIME_PRESET,
-			ChainType::Local => sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET,
-			_ => panic!("chain_type: {chain_type:?} not supported here!"),
-		})
-		.with_properties(properties)
-		.build()
+		GenericChainSpec::builder(wasm_binary, Extensions { relay_chain: relay_chain.to_string() })
+			.with_name(&chain_name)
+			.with_id(runtime_type.into())
+			.with_chain_type(chain_type.clone())
+			.with_genesis_config_preset_name(match chain_type {
+				ChainType::Development => sp_genesis_builder::DEV_RUNTIME_PRESET,
+				ChainType::Local => sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET,
+				_ => panic!("chain_type: {chain_type:?} not supported here!"),
+			})
+			.with_properties(properties)
+			.build()
 	}
 }
 
@@ -210,9 +205,7 @@ pub mod westend {
 		GenericChainSpec::builder(
 			coretime_westend_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!"),
-			// TODO: remove when removing the `para_id` extension: https://github.com/paritytech/polkadot-sdk/issues/8740
-			#[allow(deprecated)]
-			Extensions { relay_chain: relay_chain.to_string(), para_id: None },
+			Extensions { relay_chain: relay_chain.to_string() },
 		)
 		.with_name(&chain_name)
 		.with_id(runtime_type.into())
