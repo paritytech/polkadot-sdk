@@ -65,6 +65,9 @@ impl SlotTimestampProvider {
 		let time = Self::with_header(&client, slot_duration, |header| {
 			let slot_number = *sc_consensus_babe::find_pre_digest::<B>(&header)
 				.map_err(|err| format!("{}", err))?
+				// If babe pre-genesis is missing (e.g. genesis or aura -> babe migration),
+				// just use the default.
+				.unwrap_or_default()
 				.slot();
 			Ok(slot_number)
 		})?;
