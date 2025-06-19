@@ -827,13 +827,6 @@ fn errors_with_vote_work() {
 			Error::<Test>::InsufficientFunds
 		);
 
-		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 10));
-		assert_noop!(
-			Voting::vote(RuntimeOrigin::signed(1), 3, aye(10, 0)),
-			Error::<Test>::AlreadyDelegating
-		);
-
-		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
 		Polls::set(
 			vec![
 				(0, Ongoing(Tally::new(0), 0)),
@@ -851,12 +844,19 @@ fn errors_with_vote_work() {
 			Voting::vote(RuntimeOrigin::signed(1), 3, aye(10, 0)),
 			Error::<Test>::MaxVotesReached
 		);
+
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 10));
+		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
 	});
 }
 
 #[test]
 fn errors_with_delegating_work() {
 	new_test_ext().execute_with(|| {
+		assert_noop!(
+			Voting::delegate(RuntimeOrigin::signed(1), 0, 1, Conviction::None, 10),
+			Error::<Test>::Nonsense
+		);
 		assert_noop!(
 			Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 11),
 			Error::<Test>::InsufficientFunds
@@ -865,14 +865,14 @@ fn errors_with_delegating_work() {
 			Voting::delegate(RuntimeOrigin::signed(1), 3, 2, Conviction::None, 10),
 			Error::<Test>::BadClass
 		);
+		assert_noop!(Voting::undelegate(RuntimeOrigin::signed(1), 0), Error::<Test>::NotDelegating);
 
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(10, 0)));
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 10));
 		assert_noop!(
-			Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 10),
-			Error::<Test>::AlreadyVoting
+			Voting::delegate(RuntimeOrigin::signed(1), 0, 5, Conviction::None, 10),
+			Error::<Test>::AlreadyDelegating
 		);
-
-		assert_noop!(Voting::undelegate(RuntimeOrigin::signed(1), 0), Error::<Test>::NotDelegating);
 	});
 }
 
