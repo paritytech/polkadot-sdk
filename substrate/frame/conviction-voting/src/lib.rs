@@ -535,7 +535,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		VotingFor::<T, I>::try_mutate(who, &class, |voting| {
 			let votes = &mut voting.votes;
 			let delegations = voting.delegations;
-			let mut prior = voting.prior;
+			let prior = &mut voting.prior;
 			let i = votes
 				.binary_search_by_key(&poll_index, |i| i.poll_index)
 				.map_err(|_| Error::<T, I>::NotVoter)?;
