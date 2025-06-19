@@ -1761,6 +1761,8 @@ macro_rules! impl_runtime_apis_plus_revive {
 					};
 
 					let tx_fee = |call: <Self as $crate::frame_system::Config>::RuntimeCall, dispatch_call: <Self as $crate::frame_system::Config>::RuntimeCall| {
+						use $crate::frame_support::dispatch::GetDispatchInfo;
+
 						// Get the dispatch info of the actual call dispatched
 						let mut dispatch_info = dispatch_call.get_dispatch_info();
 						dispatch_info.extension_weight =
