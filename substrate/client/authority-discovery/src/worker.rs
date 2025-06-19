@@ -366,7 +366,6 @@ where
 			self.start_new_lookups();
 
 			futures::select! {
-				// Only tick and persist if the interval exists
 				_ = persist_interval.tick().fuse() => {
 					self.persist_addr_cache_if_supported();
 				},
