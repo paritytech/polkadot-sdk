@@ -1,16 +1,16 @@
 # Staking Async Test Parachain
 
 - [Staking Async Test Parachain](#staking-async-test-parachain)
-	- [Runtime Overview](#runtime-overview)
-		- [Runtime Presets + Other Hacks](#runtime-presets--other-hacks)
-			- [`parameter_types! { pub storage }` FTW](#parameter_types--pub-storage--ftw)
-			- [Optionally Ignoring New Validators](#optionally-ignoring-new-validators)
-			- [Presets](#presets)
-	- [Running](#running)
-		- [PAPI Typegen](#papi-typegen)
-		- [Runing a Preset](#runing-a-preset)
-	- [Test](#test)
-	- [How To Write Tests](#how-to-write-tests)
+    - [Runtime Overview](#runtime-overview)
+        - [Runtime Presets + Other Hacks](#runtime-presets--other-hacks)
+            - [`parameter_types! { pub storage }` FTW](#parameter_types--pub-storage--ftw)
+            - [Optionally Ignoring New Validators](#optionally-ignoring-new-validators)
+            - [Presets](#presets)
+    - [Running](#running)
+        - [PAPI Typegen](#papi-typegen)
+        - [Runing a Preset](#runing-a-preset)
+    - [Test](#test)
+    - [How To Write Tests](#how-to-write-tests)
 
 This folder contains a Node+PAPI+Bun setup to:
 
@@ -61,69 +61,81 @@ In both runtimes, we extensively use `parameter_types! { pub storage }` as a sho
 
 The rely chain runtime contains an important hack. A type called `MaybeUsePreviousValidatorsElse`. This type looks into `parameter_types! { pub storage UsePreviousValidators: bool = true }`, and
 
-* If set to `true`, it will ignore the new validators coming from AH, and use the previous ones. **Why is this needed**? Because in ZN, our test relay chain is running with usually a set of known validators run by ZN (often alice and bob). If AH sends us back a validator set that contains a large new validator set, the setup will break. As seen in the next section, a number of runtime presets are designed to generate large validator/nominator sets to mimic the behavior of Polkadot and Kusama. We thereofre must use this hack in such cases.
-* If set to `false`, it will use the new validator set.
+- If set to `true`, it will ignore the new validators coming from AH, and use the previous ones. **Why is this needed**? Because in ZN, our test relay chain is running with usually a set of known validators run by ZN (often alice and bob). If AH sends us back a validator set that contains a large new validator set, the setup will break. As seen in the next section, a number of runtime presets are designed to generate large validator/nominator sets to mimic the behavior of Polkadot and Kusama. We thereofre must use this hack in such cases.
+- If set to `false`, it will use the new validator set.
 
 #### Presets
 
 The runtime presets are generally divided into few categories:
 
-* `real-s` / `real-m`: imply that the realy chain will not use `MaybeUsePreviousValidatorsElse`. Consequently, AH will NOT generate random validators, and instead use 2 or 4 well know keys (alice, bob, dave, eve) as validator candidates. This setup is useful for slashing testing. `real-s` uses 2 validators, while `real-m` uses 4 validators. The latter is useful for testing disabling. Note that we need at least 2 non-disabled validators to run a parachain.
-* `fake-x`: these presets instruct asset-hub to generate various number of fake validators and nominators. Useful for testing large elections. `MaybeUsePreviousValidatorsElse` is used in the relay runtime to ignore the new validators, and stick to alice and bob.
+- `real-s` / `real-m`: imply that the realy chain will not use `MaybeUsePreviousValidatorsElse`. Consequently, AH will NOT generate random validators, and instead use 2 or 4 well know keys (alice, bob, dave, eve) as validator candidates. This setup is useful for slashing testing. `real-s` uses 2 validators, while `real-m` uses 4 validators. The latter is useful for testing disabling. Note that we need at least 2 non-disabled validators to run a parachain.
+- `fake-x`: these presets instruct asset-hub to generate various number of fake validators and nominators. Useful for testing large elections. `MaybeUsePreviousValidatorsElse` is used in the relay runtime to ignore the new validators, and stick to alice and bob.
 
 More concretely, the presets are:
 
-* Parachain:
-  * `fake-dev`: 4 page, small number of fake validators and nominators.
-  * `fake-dot`: 32 pages, large number of fake validators and nominators.
-  * `fake-ksm`: 16 pages, large number of fake validators and nominators.
-  * `real-s`: 4 pages, alice and bob as validators, 500 fake nominators
-  * `real-m`: 4 pages, alice, bob, dave, eve as validators, 2000 fake nominators.
-* Relay Chain
-  * `fake-s`: alice and bob as relay validators, `UsePreviousValidators` set to true. Should be used with all 3 `fake-x` presets in the parachain.
-  * `real-s`: alice and bob as relay validators, `UsePreviousValidators` set to false. Should be used with `real-s` presets in the parachain.
-  * `real-m`: alice, bob, dave, eve as relay validators, `UsePreviousValidators` set to false. Should be used with `real-m` presets in the parachain.
+- Parachain:
+    - `fake-dev`: 4 page, small number of fake validators and nominators.
+    - `fake-dot`: 32 pages, large number of fake validators and nominators.
+    - `fake-ksm`: 16 pages, large number of fake validators and nominators.
+    - `real-s`: 4 pages, alice and bob as validators, 500 fake nominators
+    - `real-m`: 4 pages, alice, bob, dave, eve as validators, 2000 fake nominators.
+- Relay Chain
+    - `fake-s`: alice and bob as relay validators, `UsePreviousValidators` set to true. Should be used with all 3 `fake-x` presets in the parachain.
+    - `real-s`: alice and bob as relay validators, `UsePreviousValidators` set to false. Should be used with `real-s` presets in the parachain.
+    - `real-m`: alice, bob, dave, eve as relay validators, `UsePreviousValidators` set to false. Should be used with `real-m` presets in the parachain.
 
 See `genesis_config_presets.rs`, and `fn build_state` in each runtime for more details.
 
-## Running
+## Setup
 
-This section describes how to run this code. Make sure to have the latest version of node+bun installed. Moreover, you are expected to have `zombienet`, `polkadot`, `polkadot-parachain`, `polkadot-prepare-worker` and `polkadot-execution-worker` in your `PATH` already. Rest of the binaries (`chain-spec-builder`) are compiled from the sdk
+This section describes how to set up and run this code. Make sure to have the latest version of node, bun and [just](https://github.com/casey/just) installed. Moreover, you are expected to have `zombienet`, `polkadot`, `polkadot-parachain`, `polkadot-prepare-worker` and `polkadot-execution-worker` in your `PATH` already. Rest of the binaries (`chain-spec-builder`) are compiled from the sdk.
 
-### PAPI Typegen
+### Quick Start
 
-First, install the dependencies:
+For first-time setup, run:
 
 ```bash
-bun install
+just setup
 ```
 
-First, we will need to instruct PAPI to generate the right types for our runtimes. Use the lagacy `build-and-run-zn.sh` setup to run both chains. Then run:
+This single command will:
+
+- Start the chains and generate fresh metadata
+- Generate PAPI descriptors from the running chains
+- Install all dependencies including the generated descriptors
+- Clean up chain processes
+
+After this, you can use regular `just install` (or `bun install`) commands without issues.
+
+### Development Workflow
 
 ```bash
-npx papi add -w ws://localhost:9945 rc
-npx papi add -w ws://localhost:9946 parachain
-npx papi
-# or
-npx papi add -w ws://localhost:9946 parachain && npx papi add -w ws://localhost:9945 rc && npx papi
-```
+# First time setup
+just setup
 
-Then you should be ready to go.
+# Regular development - install dependencies
+just  install # or equivalently: bun install
 
-### Runing a Preset
+# Run tests
+just test
 
-> This is merely a wrapper around generating chain-specs, compiling runtimes, and running ZN. You could do all of it manually as well. You can also use `build-and-run-zn.sh`.
+# Start chains for development (keeps running)
+just start-chains
 
-```bash
-bun run src/index.ts run --para-preset <preset>
-```
+# Generate fresh descriptors (when chains are running)
+just generate-descriptors
 
-You only provide the parachain preset, one of the above. The relay chain preset is automatically selected. The correct ZN file to use is also selected based on the preset.
+# Run with a specific preset
+just run <preset>
 
-## Test
+# See available presets
+just presets
 
-```bash
-bun run test
+# Clean everything and start fresh
+just reset
+
+# See all available commands
+just help
 ```
 
 ## How To Write Tests
