@@ -98,7 +98,7 @@ fn build_overseer(
 		state.config.clone(),
 		state.test_authorities.clone(),
 		state.candidate_receipts.clone(),
-		Default::default(),
+		state.candidate_events.clone(),
 		Default::default(),
 		0,
 		MockRuntimeApiCoreState::Scheduled,

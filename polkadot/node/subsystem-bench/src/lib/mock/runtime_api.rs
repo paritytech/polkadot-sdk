@@ -47,7 +47,7 @@ pub struct RuntimeApiState {
 	node_features: NodeFeatures,
 	// Candidate hashes per block
 	candidate_hashes: HashMap<H256, Vec<CandidateReceipt>>,
-	// Included candidates per bock
+	// Candidate events per block
 	candidate_events: HashMap<H256, Vec<CandidateEvent>>,
 	babe_epoch: Option<BabeEpoch>,
 	// The session child index,

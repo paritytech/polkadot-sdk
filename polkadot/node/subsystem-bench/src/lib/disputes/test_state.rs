@@ -21,7 +21,8 @@ use crate::{
 use polkadot_node_subsystem_test_helpers::mock::new_block_import_info;
 use polkadot_overseer::BlockInfo;
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2, BlockNumber, CandidateCommitments, Hash, Header,
+	vstaging::{CandidateEvent, CandidateReceiptV2},
+	BlockNumber, CandidateCommitments, CoreIndex, GroupIndex, Hash, HeadData, Header,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt_v2_bad_sig, dummy_hash};
 use std::collections::HashMap;
@@ -34,8 +35,10 @@ pub struct TestState {
 	pub test_authorities: TestAuthorities,
 	// Relay chain block infos
 	pub block_infos: Vec<BlockInfo>,
-	// Map from generated candidate receipts (valid, invalid)
+	// Map from generated candidate receipts vec![valid, invalid]
 	pub candidate_receipts: HashMap<Hash, Vec<CandidateReceiptV2>>,
+	// Map from generated candidate events
+	pub candidate_events: HashMap<Hash, Vec<CandidateEvent>>,
 	// Relay chain block headers
 	pub block_headers: HashMap<Hash, Header>,
 }
@@ -46,7 +49,7 @@ impl TestState {
 		let test_authorities = config.generate_authorities();
 		let block_infos: Vec<BlockInfo> =
 			(1..=config.num_blocks).map(generate_block_info).collect();
-		let candidate_receipts = block_infos
+		let candidate_receipts: HashMap<Hash, Vec<CandidateReceiptV2>> = block_infos
 			.iter()
 			.map(|block_info| {
 				(
@@ -58,9 +61,28 @@ impl TestState {
 				)
 			})
 			.collect();
+		let candidate_events = candidate_receipts
+			.iter()
+			.map(|(&hash, receipts)| {
+				(
+					hash,
+					receipts
+						.iter()
+						.map(|receipt| make_valid_candidate_event(hash, receipt.clone()))
+						.collect::<Vec<_>>(),
+				)
+			})
+			.collect();
 		let block_headers = block_infos.iter().map(generate_block_header).collect();
 
-		Self { config, test_authorities, block_infos, candidate_receipts, block_headers }
+		Self {
+			config,
+			test_authorities,
+			block_infos,
+			candidate_receipts,
+			candidate_events,
+			block_headers,
+		}
 	}
 }
 
@@ -72,6 +94,15 @@ fn make_valid_candidate_receipt(relay_parent: Hash) -> CandidateReceiptV2 {
 
 fn make_invalid_candidate_receipt(relay_parent: Hash) -> CandidateReceiptV2 {
 	dummy_candidate_receipt_v2_bad_sig(relay_parent, Some(Default::default()))
+}
+
+fn make_valid_candidate_event(relay_parent: Hash, receipt: CandidateReceiptV2) -> CandidateEvent {
+	CandidateEvent::CandidateBacked(
+		receipt,
+		HeadData::default(),
+		CoreIndex::default(),
+		GroupIndex::default(),
+	)
 }
 
 fn generate_block_info(block_num: usize) -> BlockInfo {
