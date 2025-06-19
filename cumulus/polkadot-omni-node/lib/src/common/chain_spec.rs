@@ -36,7 +36,7 @@ impl LoadSpec for DiskChainSpecLoader {
 	}
 }
 
-/// Generic extensions for Parachain ChainSpecs used for extracting the extensions from chain specs.
+/// Generic extensions for Parachain ChainSpecs.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecExtension)]
 pub struct Extensions {
 	/// The relay chain of the Parachain.
