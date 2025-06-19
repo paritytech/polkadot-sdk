@@ -37,6 +37,9 @@ use sp_runtime::{
 	SaturatedConversion, Saturating,
 };
 
+const LOG_TARGET: &str = "parachain_informant";
+
+/// The parachain informant service.
 pub struct ParachainInformant<Block: BlockT> {
 	/// Relay chain interface to interact with the relay chain.
 	relay_chain_interface: Arc<dyn RelayChainInterface>,
@@ -96,12 +99,12 @@ impl<Block: BlockT> ParachainInformant<Block> {
 
 	/// Run the parachain informant service.
 	pub async fn run(mut self) -> RelayChainResult<()> {
-		let mut import_notifications = self
-			.relay_chain_interface
-			.import_notification_stream()
-			.await
-			.inspect_err(|e| {
-				log::error!("Failed to get import notification stream: {e:?}. Parachain informant will not run!");
+		let mut import_notifications =
+			self.relay_chain_interface.import_notification_stream().await.inspect_err(|e| {
+				log::error!(
+					target: LOG_TARGET,
+					"Failed to get import notification stream: {e:?}. Parachain informant will not run!"
+				);
 			})?;
 
 		loop {
@@ -114,6 +117,8 @@ impl<Block: BlockT> ParachainInformant<Block> {
 
 				tx_event = self.transaction_v2_handle.next().fuse() => {
 					let Some(tx_event) = tx_event else { continue };
+
+					 log::debug!(target: LOG_TARGET, "Received transaction event: {:?}", tx_event);
 
 					self.handle_rpc_monitor_event(tx_event);
 				},
@@ -129,7 +134,7 @@ impl<Block: BlockT> ParachainInformant<Block> {
 		let candidate_events = match self.relay_chain_interface.candidate_events(n.hash()).await {
 			Ok(candidate_events) => candidate_events,
 			Err(e) => {
-				log::warn!("Failed to get candidate events for block {}: {e:?}", n.hash());
+				log::warn!(target: LOG_TARGET, "Failed to get candidate events for block {}: {e:?}", n.hash());
 				return;
 			},
 		};
@@ -139,6 +144,11 @@ impl<Block: BlockT> ParachainInformant<Block> {
 		self.handle_logging(candidate_events, &n);
 	}
 
+	/// Handle a transaction event from the RPC transaction monitor.
+	///
+	/// If the transaction is included in a backed block a metric is recorded.
+	/// Otherwise, the transaction is stored in an unresolved transactions cache
+	/// until the block is backed.
 	fn handle_rpc_monitor_event(&mut self, event: TransactionMonitorEvent<Block::Hash>) {
 		let (block_hash, submitted_at) = match event {
 			sc_service::TransactionMonitorEvent::InBlock { block_hash, submitted_at } =>
@@ -159,6 +169,7 @@ impl<Block: BlockT> ParachainInformant<Block> {
 		}
 	}
 
+	/// Handle the RPC metrics for backed blocks.
 	fn handle_rpc_backed_blocks<'a>(&mut self, events: impl Iterator<Item = &'a CandidateEvent>) {
 		let blocks = events.filter_map(|event| match event {
 			CandidateEvent::CandidateBacked(receipt, ..)
@@ -169,7 +180,7 @@ impl<Block: BlockT> ParachainInformant<Block> {
 
 		for block in blocks {
 			if self.backed_blocks.insert(block, ()) {
-				log::debug!("New backed block: {:?}", block);
+				log::trace!(target: LOG_TARGET, "New backed block: {:?}", block);
 			}
 
 			if let Some(tx_times) = self.unresolved_tx.remove(&block) {
@@ -184,6 +195,7 @@ impl<Block: BlockT> ParachainInformant<Block> {
 		}
 	}
 
+	/// Handle candidate events and log the results.
 	fn handle_logging(&mut self, candidate_events: Vec<CandidateEvent>, n: &RelayHeader) {
 		let mut backed_candidates = Vec::new();
 		let mut included_candidates = Vec::new();
@@ -196,6 +208,7 @@ impl<Block: BlockT> ParachainInformant<Block> {
 						Ok(header) => header,
 						Err(e) => {
 							log::warn!(
+								target: LOG_TARGET,
 								"Failed to decode parachain header from backed block: {e:?}"
 							);
 							continue
@@ -216,6 +229,7 @@ impl<Block: BlockT> ParachainInformant<Block> {
 						Ok(header) => header,
 						Err(e) => {
 							log::warn!(
+								target: LOG_TARGET,
 								"Failed to decode parachain header from included block: {e:?}"
 							);
 							continue
@@ -234,6 +248,7 @@ impl<Block: BlockT> ParachainInformant<Block> {
 						Ok(header) => header,
 						Err(e) => {
 							log::warn!(
+								target: LOG_TARGET,
 								"Failed to decode parachain header from timed out block: {e:?}"
 							);
 							continue
@@ -270,6 +285,7 @@ impl<Block: BlockT> ParachainInformant<Block> {
 		};
 		if !log_parts.is_empty() {
 			log::info!(
+				target: LOG_TARGET,
 				"Update at relay chain block #{} ({}) - {}",
 				n.number(),
 				n.hash(),
