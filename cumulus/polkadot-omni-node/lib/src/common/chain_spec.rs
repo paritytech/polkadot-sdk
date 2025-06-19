@@ -91,16 +91,21 @@ mod tests {
 		let pascal_case = r#"{"RelayChain":"relay","ParaId":1}"#;
 		let para_id_missing = r#"{"RelayChain":"westend"}"#;
 
-		let camel_case_extension: Extensions = serde_json::from_str(camel_case).unwrap();
-		let snake_case_extension: Extensions = serde_json::from_str(snake_case).unwrap();
-		let pascal_case_extension: Extensions = serde_json::from_str(pascal_case).unwrap();
+		let camel_case_extension: DeprecatedExtensions = serde_json::from_str(camel_case).unwrap();
+		let snake_case_extension: DeprecatedExtensions = serde_json::from_str(snake_case).unwrap();
+		let pascal_case_extension: DeprecatedExtensions =
+			serde_json::from_str(pascal_case).unwrap();
 		let missing_paraid_extension: Extensions = serde_json::from_str(para_id_missing).unwrap();
+		let missing_paraid_deprecated: DeprecatedExtensions =
+			serde_json::from_str(para_id_missing).unwrap();
 		assert_eq!(camel_case_extension, snake_case_extension);
 		assert_eq!(snake_case_extension, pascal_case_extension);
 		assert_eq!(missing_paraid_extension.relay_chain, "westend".to_string());
+
 		// TODO: remove it once `para_id` is removed: https://github.com/paritytech/polkadot-sdk/issues/8740
+		assert_eq!(missing_paraid_deprecated.relay_chain, "westend".to_string());
 		#[allow(deprecated)]
-		let test = missing_paraid_extension.para_id.is_none();
+		let test = missing_paraid_deprecated.para_id.is_none();
 		assert!(test);
 	}
 }
