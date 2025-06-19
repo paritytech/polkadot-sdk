@@ -29,16 +29,16 @@ pub struct Handshake {
 	pub executor_params: ExecutorParams,
 }
 
-/// A request to execute a PVF. Contains all the data needed for validation.
+/// A request to execute a PVF
 #[derive(Encode, Decode)]
 pub struct ExecuteRequest {
-	/// The persisted validation data.
+	/// Persisted validation data.
 	pub pvd: PersistedValidationData,
-	/// The proof-of-validity.
+	/// Proof-of-validity.
 	pub pov: PoV,
-	/// The execution timeout.
+	/// Execution timeout.
 	pub execution_timeout: Duration,
-	/// The checksum of the artifact to execute.
+	/// Checksum of the artifact to execute.
 	pub artifact_checksum: ArtifactChecksum,
 }
 
