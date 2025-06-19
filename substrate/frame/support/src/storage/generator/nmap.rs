@@ -425,7 +425,7 @@ impl<K: ReversibleKeyGenerator, V: FullCodec, G: StorageNMap<K, V>>
 		let prefix = G::prefix_hash().to_vec();
 		let mut previous_key = prefix.clone();
 		while let Some(next) =
-			sp_io::storage::next_key(&previous_key).filter(|n| n.starts_with(&prefix))
+			sp_io::storage_next_key(&previous_key).filter(|n| n.starts_with(&prefix))
 		{
 			previous_key = next;
 			let value = match unhashed::get::<O>(&previous_key) {

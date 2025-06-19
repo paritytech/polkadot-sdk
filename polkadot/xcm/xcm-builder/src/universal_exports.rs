@@ -132,7 +132,7 @@ impl<Exporter: ExportXcm, UniversalLocation: Get<InteriorLocation>> SendXcm
 		let xcm = msg.take().ok_or(MissingArgument)?;
 
 		let hash =
-			(Some(Location::here()), &remote_location).using_encoded(sp_io::hashing::blake2_128);
+			(Some(Location::here()), &remote_location).using_encoded(sp_io::hashing_blake2_128);
 		let channel = u32::decode(&mut hash.as_ref()).unwrap_or(0);
 
 		validate_export::<Exporter>(
@@ -650,7 +650,7 @@ impl<
 				tracing::debug!(target: "xcm::universal_exports", "Failed to convert destination to versioned location");
 				SendError::DestinationUnsupported })?;
 
-		let id = maybe_id.unwrap_or_else(|| message.using_encoded(sp_io::hashing::blake2_256));
+		let id = maybe_id.unwrap_or_else(|| message.using_encoded(sp_io::hashing_blake2_256));
 		let blob = BridgeMessage { universal_dest, message }.encode();
 		Ok(((blob, id), Price::get()))
 	}

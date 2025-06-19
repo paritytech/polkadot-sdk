@@ -27,7 +27,6 @@ use frame_support::{
 	traits::{Contains, ContainsPair, Defensive, Get, PalletsInfoAccess},
 };
 use sp_core::defer;
-use sp_io::hashing::blake2_128;
 use sp_weights::Weight;
 use xcm::latest::{prelude::*, AssetTransferFilter};
 
@@ -1667,7 +1666,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						);
 						XcmError::Unanchored
 					})?;
-				let hash = (self.origin_ref(), &destination).using_encoded(blake2_128);
+				let hash = (self.origin_ref(), &destination).using_encoded(sp_io::hashing_blake2_128);
 				let channel = u32::decode(&mut hash.as_ref()).unwrap_or(0);
 				// Hash identifies the lane on the exporter which we use. We use the pairwise
 				// combination of the origin and destination to ensure origin/destination pairs

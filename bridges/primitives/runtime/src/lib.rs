@@ -249,8 +249,8 @@ pub fn storage_map_final_key<H: StorageHasher>(
 ///
 /// Copied from `frame_support::storage::storage_prefix`.
 pub fn storage_value_key(pallet_prefix: &str, value_name: &str) -> StorageKey {
-	let pallet_hash = sp_io::hashing::twox_128(pallet_prefix.as_bytes());
-	let storage_hash = sp_io::hashing::twox_128(value_name.as_bytes());
+	let pallet_hash = sp_io::hashing_twox_128(pallet_prefix.as_bytes());
+	let storage_hash = sp_io::hashing_twox_128(value_name.as_bytes());
 
 	let mut final_key = vec![0u8; 32];
 	final_key[..16].copy_from_slice(&pallet_hash);

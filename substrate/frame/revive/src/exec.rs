@@ -1932,7 +1932,9 @@ where
 	}
 
 	fn ecdsa_recover(&self, signature: &[u8; 65], message_hash: &[u8; 32]) -> Result<[u8; 33], ()> {
-		secp256k1_ecdsa_recover_compressed(signature, message_hash).map_err(|_| ())
+		let mut pk = sp_io::Pubkey264::default();
+		secp256k1_ecdsa_recover_compressed(signature, message_hash, &mut pk).map_err(|_| ())?;
+		Ok(pk.0)
 	}
 
 	fn sr25519_verify(&self, signature: &[u8; 64], message: &[u8], pub_key: &[u8; 32]) -> bool {

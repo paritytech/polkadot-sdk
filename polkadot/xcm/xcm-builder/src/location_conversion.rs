@@ -19,7 +19,7 @@ use alloc::vec::Vec;
 use codec::{Compact, Decode, Encode};
 use core::marker::PhantomData;
 use frame_support::traits::Get;
-use sp_io::hashing::blake2_256;
+use sp_io::hashing_blake2_256 as blake2_256;
 use sp_runtime::traits::{AccountIdConversion, TrailingZeroInput, TryConvert};
 use xcm::latest::prelude::*;
 use xcm_executor::traits::ConvertLocation;

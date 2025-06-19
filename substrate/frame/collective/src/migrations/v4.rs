@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sp_io::hashing::twox_128;
+use sp_io::hashing_twox_128 as twox_128;
 
 use super::super::LOG_TARGET;
 use frame_support::{
