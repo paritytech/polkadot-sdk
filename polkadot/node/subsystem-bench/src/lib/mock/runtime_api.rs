@@ -330,6 +330,18 @@ impl MockRuntimeApi {
 						RuntimeApiMessage::Request(_parent, RuntimeApiRequest::ClaimQueue(tx)) => {
 							tx.send(Ok(self.state.claim_queue.clone())).unwrap();
 						},
+						RuntimeApiMessage::Request(
+							_parent,
+							RuntimeApiRequest::FetchOnChainVotes(tx),
+						) => {
+							tx.send(Ok(None)).unwrap();
+						},
+						RuntimeApiMessage::Request(
+							_parent,
+							RuntimeApiRequest::UnappliedSlashes(tx),
+						) => {
+							tx.send(Ok(vec![])).unwrap();
+						},
 						// Long term TODO: implement more as needed.
 						message => {
 							unimplemented!("Unexpected runtime-api message: {:?}", message)
