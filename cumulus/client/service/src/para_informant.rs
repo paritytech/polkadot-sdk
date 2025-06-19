@@ -20,10 +20,14 @@
 //! Provides a service that logs information about parachain candidate events
 //! and related metrics.
 
+use std::{pin::Pin, sync::Arc, time::Instant};
+
+use cumulus_primitives_core::{relay_chain::Header as RelayHeader, ParaId};
 use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
-use futures::StreamExt;
+use futures::{FutureExt, StreamExt};
 use polkadot_primitives::vstaging::CandidateEvent;
 use prometheus::{linear_buckets, Histogram, HistogramOpts, Registry};
+use sc_service::TransactionMonitorEvent;
 use sc_telemetry::log;
 use schnellru::{ByLength, LruMap};
 use sp_blockchain::HeaderBackend;
@@ -32,9 +36,6 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header},
 	SaturatedConversion, Saturating,
 };
-use std::{sync::Arc, time::Instant};
-
-use cumulus_primitives_core::{relay_chain::Header as RelayHeader, ParaId};
 
 pub struct ParachainInformant<Block: BlockT> {
 	/// Relay chain interface to interact with the relay chain.
@@ -46,8 +47,21 @@ pub struct ParachainInformant<Block: BlockT> {
 	/// Optional metrics for the parachain informant.
 	metrics: Option<ParachainInformantMetrics>,
 
+	/// Parachain ID of the parachain this informant is running for.
+	para_id: ParaId,
+
 	/// Last time a block was backed.
 	last_backed_block_time: Option<Instant>,
+
+	/// Cache for storing the last backed blocks.
+	backed_blocks: LruMap<sp_core::H256, ()>,
+
+	/// Cache for storing transactions not yet backed.
+	unresolved_tx: LruMap<sp_core::H256, Vec<Instant>>,
+
+	/// Stream of transaction events from RPC transaction v2 handles.
+	transaction_v2_handle:
+		Pin<Box<dyn futures::Stream<Item = TransactionMonitorEvent<Block::Hash>> + Unpin + Send>>,
 }
 
 impl<Block: BlockT> ParachainInformant<Block> {
@@ -55,12 +69,32 @@ impl<Block: BlockT> ParachainInformant<Block> {
 		relay_chain_interface: Arc<dyn RelayChainInterface>,
 		client: Arc<dyn HeaderBackend<Block>>,
 		registry: Option<&Registry>,
+		para_id: ParaId,
+		rpc_transaction_v2_handles: Vec<sc_service::TransactionMonitorHandle<Block::Hash>>,
 	) -> sc_service::error::Result<Self> {
 		let metrics = registry.map(|r| ParachainInformantMetrics::new(r)).transpose()?;
 
-		Ok(Self { relay_chain_interface, client, metrics, last_backed_block_time: None })
+		let transaction_v2_handle: Pin<
+			Box<dyn futures::Stream<Item = TransactionMonitorEvent<Block::Hash>> + Unpin + Send>,
+		> = if rpc_transaction_v2_handles.is_empty() {
+			Box::pin(futures::stream::pending())
+		} else {
+			Box::pin(futures::stream::select_all(rpc_transaction_v2_handles))
+		};
+
+		Ok(Self {
+			relay_chain_interface,
+			client,
+			metrics,
+			para_id,
+			last_backed_block_time: None,
+			backed_blocks: LruMap::new(ByLength::new(64)),
+			unresolved_tx: LruMap::new(ByLength::new(64)),
+			transaction_v2_handle,
+		})
 	}
 
+	/// Run the parachain informant service.
 	pub async fn run(mut self) -> RelayChainResult<()> {
 		let mut import_notifications = self
 			.relay_chain_interface
@@ -70,11 +104,66 @@ impl<Block: BlockT> ParachainInformant<Block> {
 				log::error!("Failed to get import notification stream: {e:?}. Parachain informant will not run!");
 			})?;
 
-		while let Some(n) = import_notifications.next().await {
-			self.handle_import_notification(n).await;
-		}
+		loop {
+			futures::select! {
+				notification = import_notifications.next().fuse() => {
+					let Some(notification) = notification else { return Ok(()) };
 
-		Ok(())
+					self.handle_import_notification(notification).await;
+				},
+
+				tx_event = self.transaction_v2_handle.next().fuse() => {
+					let Some(tx_event) = tx_event else { continue };
+
+					self.handle_rpc_monitor_event(tx_event);
+				},
+			}
+		}
+	}
+
+	fn handle_rpc_backed_blocks<'a>(&mut self, events: impl Iterator<Item = &'a CandidateEvent>) {
+		let blocks = events.filter_map(|event| match event {
+			CandidateEvent::CandidateBacked(receipt, ..)
+				if receipt.descriptor.para_id() == self.para_id =>
+				Some(receipt.descriptor.para_head()),
+			_ => None,
+		});
+
+		for block in blocks {
+			if self.backed_blocks.insert(block, ()) {
+				log::debug!("New backed block: {:?}", block);
+			}
+
+			if let Some(tx_times) = self.unresolved_tx.remove(&block) {
+				for submitted_at in tx_times {
+					if let Some(metrics) = &self.metrics {
+						metrics
+							.transaction_backed_duration
+							.observe(submitted_at.elapsed().as_secs_f64());
+					}
+				}
+			}
+		}
+	}
+
+	fn handle_rpc_monitor_event(&mut self, event: TransactionMonitorEvent<Block::Hash>) {
+		let (block_hash, submitted_at) = match event {
+			sc_service::TransactionMonitorEvent::InBlock { block_hash, submitted_at } =>
+				(sp_core::H256::from_slice(block_hash.as_ref()), submitted_at),
+		};
+
+		if self.backed_blocks.peek(&block_hash).is_some() {
+			if let Some(metrics) = &self.metrics {
+				metrics
+					.transaction_backed_duration
+					.observe(submitted_at.elapsed().as_secs_f64());
+			}
+		} else {
+			// Received the transaction before the block is backed.
+			self.unresolved_tx
+				.get_or_insert(block_hash, || Vec::new())
+				.map(|pending| pending.push(submitted_at));
+		}
 	}
 
 	async fn handle_import_notification(&mut self, n: RelayHeader) {
@@ -85,6 +174,8 @@ impl<Block: BlockT> ParachainInformant<Block> {
 				return;
 			},
 		};
+
+		self.handle_rpc_backed_blocks(candidate_events.iter());
 
 		let mut backed_candidates = Vec::new();
 		let mut included_candidates = Vec::new();

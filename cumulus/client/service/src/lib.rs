@@ -26,13 +26,13 @@ use cumulus_client_pov_recovery::{PoVRecovery, RecoveryDelayRange, RecoveryHandl
 use cumulus_primitives_core::{CollectCollationInfo, ParaId};
 pub use cumulus_primitives_proof_size_hostfunction::storage_proof_size;
 use cumulus_relay_chain_inprocess_interface::build_inprocess_relay_chain;
-use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
+use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
 use cumulus_relay_chain_minimal_node::{
 	build_minimal_relay_chain_node_light_client, build_minimal_relay_chain_node_with_rpc,
 };
-use futures::{channel::mpsc, FutureExt, StreamExt};
-use polkadot_primitives::{vstaging::CandidateEvent, CollatorPair, OccupiedCoreAssumption};
-use prometheus::{linear_buckets, Histogram, HistogramOpts, Registry};
+use futures::{channel::mpsc, StreamExt};
+use polkadot_primitives::{CollatorPair, OccupiedCoreAssumption};
+use prometheus::Registry;
 use sc_client_api::{
 	Backend as BackendT, BlockBackend, BlockchainEvents, Finalizer, ProofProvider, UsageProvider,
 };
@@ -49,15 +49,11 @@ use sc_network_transactions::TransactionsHandlerController;
 use sc_service::{Configuration, SpawnTaskHandle, TaskManager, WarpSyncConfig};
 use sc_telemetry::{log, TelemetryWorkerHandle};
 use sc_utils::mpsc::TracingUnboundedSender;
-use schnellru::{ByLength, LruMap};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_core::{traits::SpawnNamed, Decode};
 use sp_runtime::traits::{Block as BlockT, BlockIdTo, Header};
-use std::{
-	sync::Arc,
-	time::{Duration, Instant},
-};
+use std::{sync::Arc, time::Duration};
 
 mod para_informant;
 use crate::para_informant::ParachainInformant;
@@ -309,26 +305,12 @@ where
 		Arc::new(relay_chain_interface.clone()),
 		client.clone(),
 		prometheus_registry,
+		para_id,
+		rpc_transaction_v2_handles,
 	)?;
-
 	task_manager.spawn_handle().spawn("parachain-informant", None, async move {
 		let _ = parachain_informant.run().await;
 	});
-
-	if !rpc_transaction_v2_handles.is_empty() {
-		let parachain_rpc_metrics = parachain_rpc_metrics::<Block>(
-			relay_chain_interface.clone(),
-			rpc_transaction_v2_handles,
-			para_id,
-			prometheus_registry.map(ParachainRpcMetrics::new).transpose()?,
-		);
-		task_manager.spawn_handle().spawn("parachain-rpc-metrics", None, async move {
-			let result = parachain_rpc_metrics.await;
-			if result.is_err() {
-				log::error!(target: LOG_TARGET_SYNC, "Parachain RPC metrics stopped: {:?}", result);
-			}
-		});
-	}
 
 	Ok(())
 }
@@ -627,126 +609,4 @@ where
 	}
 
 	Err("Stopping following imported blocks. Could not determine parachain target block".into())
-}
-
-/// Metrics for the parachain RPC.
-struct ParachainRpcMetrics {
-	/// Time between the submission of a transaction and its inclusion in a backed block.
-	transaction_backed_duration: Histogram,
-}
-
-impl ParachainRpcMetrics {
-	fn new(prometheus_registry: &Registry) -> prometheus::Result<Self> {
-		let transaction_backed_duration = Histogram::with_opts(
-			HistogramOpts::new(
-				"parachain_transaction_backed_duration",
-				"Time between the submission of a transaction and its inclusion in a backed block",
-			)
-			.buckets(linear_buckets(0.01, 40.0, 20).expect("Valid buckets; qed")),
-		)?;
-		prometheus_registry.register(Box::new(transaction_backed_duration.clone()))?;
-
-		Ok(Self { transaction_backed_duration })
-	}
-}
-
-/// Task for monitoring the parachain RPC metrics.
-async fn parachain_rpc_metrics<Block: BlockT>(
-	relay_chain_interface: impl RelayChainInterface + Clone,
-	rpc_transaction_v2_handles: Vec<sc_service::TransactionMonitorHandle<Block::Hash>>,
-	para_id: ParaId,
-	metrics: Option<ParachainRpcMetrics>,
-) -> Result<(), RelayChainError> {
-	const LOG_TARGET: &str = "parachain_rpc_metrics";
-
-	let mut backed_blocks: LruMap<sp_core::H256, ()> = LruMap::new(ByLength::new(64));
-	let mut unresolved_tx: LruMap<sp_core::H256, Vec<Instant>> = LruMap::new(ByLength::new(64));
-
-	/// Convert the substrate block hash to a H256 hash without panics.
-	fn convert_to_h256<Block: BlockT>(
-		hash: &Block::Hash,
-	) -> Result<sp_core::H256, RelayChainError> {
-		if hash.as_ref().len() != 32 {
-			return Err(RelayChainError::GenericError(format!(
-				"Expected hash to be 32 bytes, got {} bytes",
-				hash.as_ref().len()
-			)));
-		}
-
-		Ok(sp_core::H256::from_slice(hash.as_ref()))
-	}
-
-	let mut import_notification_stream =
-		relay_chain_interface.import_notification_stream().await.inspect_err(|err| {
-			log::error!(
-				target: LOG_TARGET,
-				"Failed to get backed block stream: {err:?}"
-			);
-		})?;
-
-	let mut transaction_v2_handle =
-		Box::pin(futures::stream::select_all(rpc_transaction_v2_handles));
-
-	loop {
-		futures::select! {
-			notification = import_notification_stream.next().fuse() => {
-				let Some(notification) = notification else { return Ok(()) };
-
-				log::debug!(target: LOG_TARGET, "Received import notification for block {:?}", notification.hash());
-
-				let Ok(events) = relay_chain_interface.candidate_events(notification.hash()).await else {
-					log::warn!(target: LOG_TARGET, "Failed to get candidate events for block {}", notification.hash());
-					continue
-				};
-
-				let blocks = events.into_iter().filter_map(|event| match event {
-					CandidateEvent::CandidateBacked(receipt, ..)
-						if receipt.descriptor.para_id() == para_id => {
-							Some(receipt.descriptor.para_head())
-						}
-					_ => None,
-				});
-
-				log::trace!(target: LOG_TARGET, "Relay block {:?} with backed blocks: {:?}", notification.hash(), blocks);
-
-				for block in blocks {
-					if backed_blocks.insert(block, ()) {
-						log::debug!(target: LOG_TARGET, "New backed block: {:?}", block);
-					}
-
-					if let Some(tx_times) = unresolved_tx.remove(&block) {
-						for submitted_at in tx_times {
-							if let Some(metrics) = &metrics {
-								metrics.transaction_backed_duration.observe(submitted_at.elapsed().as_secs_f64());
-							}
-						}
-					}
-				}
-			},
-
-			tx_event = transaction_v2_handle.next().fuse() => {
-				let Some(tx_event) = tx_event else { return Ok(()) };
-
-				log::debug!(target: LOG_TARGET, "Received transaction event: {:?}", tx_event);
-
-				match tx_event {
-					sc_service::TransactionMonitorEvent::InBlock { block_hash, submitted_at } => {
-						let block_hash = convert_to_h256::<Block>(&block_hash)?;
-
-						if backed_blocks.peek(&block_hash).is_some() {
-							if let Some(metrics) = &metrics {
-								metrics.transaction_backed_duration.observe(submitted_at.elapsed().as_secs_f64());
-							}
-						} else {
-							// Received the transaction before the block is backed.
-							unresolved_tx.get_or_insert(
-								block_hash,
-								|| Vec::new(),
-							).map(|pending| pending.push(submitted_at));
-						}
-					}
-				}
-			}
-		}
-	}
 }
