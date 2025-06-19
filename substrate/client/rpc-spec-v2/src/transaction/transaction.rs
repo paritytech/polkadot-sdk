@@ -172,7 +172,7 @@ where
 									// block.
 									let _ = tx_announce
 										.send(TransactionMonitorEvent::InBlock {
-											block_hash: hash.clone(),
+											block_hash: *hash,
 											submitted_at,
 										})
 										.await;
