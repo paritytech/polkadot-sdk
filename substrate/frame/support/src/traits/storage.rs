@@ -67,7 +67,7 @@ pub trait StorageInstance {
 	/// NOTE: This hash must be `twox_128(pallet_prefix())`.
 	/// Should not impl this function by hand. Only use the default or macro generated impls.
 	fn pallet_prefix_hash() -> [u8; 16] {
-		sp_io::hashing::twox_128(Self::pallet_prefix().as_bytes())
+		sp_io::hashing_twox_128(Self::pallet_prefix().as_bytes())
 	}
 
 	/// Prefix given to a storage to isolate from other storages in the pallet.
@@ -77,7 +77,7 @@ pub trait StorageInstance {
 	///
 	/// NOTE: This hash must be `twox_128(STORAGE_PREFIX)`.
 	fn storage_prefix_hash() -> [u8; 16] {
-		sp_io::hashing::twox_128(Self::STORAGE_PREFIX.as_bytes())
+		sp_io::hashing_twox_128(Self::STORAGE_PREFIX.as_bytes())
 	}
 
 	/// Return the prefix hash of instance.

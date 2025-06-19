@@ -25,7 +25,7 @@ use frame_support::{
 	weights::Weight,
 };
 use sp_core::hexdisplay::HexDisplay;
-use sp_io::{hashing::twox_128, storage};
+use sp_io::{hashing_twox_128 as twox_128, storage_next_key};
 
 use crate as pallet_bounties;
 
@@ -145,20 +145,20 @@ pub fn pre_migration<T: pallet_bounties::Config, P: GetStorageVersion + 'static,
 
 	// ensure nothing is stored in the new prefix.
 	assert!(
-		storage::next_key(&new_pallet_prefix).map_or(
+		storage_next_key(&new_pallet_prefix).map_or(
 			// either nothing is there
 			true,
 			// or we ensure that the next key has no common prefix with twox_128(new),
 			// or is the pallet version that is already stored using the pallet name
 			|next_key| {
-				storage::next_key(&next_key).map_or(true, |next_key| {
+				storage_next_key(&next_key).map_or(true, |next_key| {
 					!next_key.starts_with(&new_pallet_prefix) || next_key == storage_version_key
 				})
 			},
 		),
 		"unexpected next_key({}) = {:?}",
 		new_pallet_name,
-		HexDisplay::from(&sp_io::storage::next_key(&new_pallet_prefix).unwrap()),
+		HexDisplay::from(&storage_next_key(&new_pallet_prefix).unwrap()),
 	);
 	assert!(<P as GetStorageVersion>::on_chain_storage_version() < 4);
 }
@@ -206,13 +206,13 @@ pub fn post_migration<T: pallet_bounties::Config, P: GetStorageVersion, N: AsRef
 		[&old_pallet_prefix, &twox_128(storage_prefix_bounties_description)[..]].concat();
 	let old_bounties_approvals_key =
 		[&old_pallet_prefix, &twox_128(storage_prefix_bounties_approvals)[..]].concat();
-	assert!(storage::next_key(&old_bounties_count_key)
+	assert!(storage_next_key(&old_bounties_count_key)
 		.map_or(true, |next_key| !next_key.starts_with(&old_bounties_count_key)));
-	assert!(storage::next_key(&old_bounties_key)
+	assert!(storage_next_key(&old_bounties_key)
 		.map_or(true, |next_key| !next_key.starts_with(&old_bounties_key)));
-	assert!(storage::next_key(&old_bounties_description_key)
+	assert!(storage_next_key(&old_bounties_description_key)
 		.map_or(true, |next_key| !next_key.starts_with(&old_bounties_description_key)));
-	assert!(storage::next_key(&old_bounties_approvals_key)
+	assert!(storage_next_key(&old_bounties_approvals_key)
 		.map_or(true, |next_key| !next_key.starts_with(&old_bounties_approvals_key)));
 
 	assert_eq!(<P as GetStorageVersion>::on_chain_storage_version(), 4);

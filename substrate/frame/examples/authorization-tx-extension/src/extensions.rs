@@ -110,7 +110,7 @@ where
 		let second_account = auth.second.0.clone().into_account();
 
 		// Construct the payload to sign using the `inherited_implication`.
-		let msg = inherited_implication.using_encoded(sp_io::hashing::blake2_256);
+		let msg = inherited_implication.using_encoded(sp_io::hashing_blake2_256);
 
 		// Both parties' signatures must be correct for the origin to be authorized.
 		// In a prod environment, we're just return a `InvalidTransaction::BadProof` if the

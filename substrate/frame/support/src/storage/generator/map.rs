@@ -149,7 +149,7 @@ where
 		let previous_key = previous_key.unwrap_or_else(|| prefix.clone());
 
 		let current_key =
-			sp_io::storage::next_key(&previous_key).filter(|n| n.starts_with(&prefix))?;
+			sp_io::storage_next_key(&previous_key).filter(|n| n.starts_with(&prefix))?;
 
 		let value = match unhashed::get::<O>(&current_key) {
 			Some(value) => value,

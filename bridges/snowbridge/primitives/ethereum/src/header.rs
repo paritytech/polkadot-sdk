@@ -6,7 +6,7 @@ use hex_literal::hex;
 use parity_bytes::Bytes;
 use rlp::RlpStream;
 use scale_info::TypeInfo;
-use sp_io::hashing::keccak_256;
+use sp_io::hashing_keccak_256 as keccak_256;
 use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
 

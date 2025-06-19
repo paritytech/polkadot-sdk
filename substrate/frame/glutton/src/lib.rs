@@ -41,7 +41,6 @@ use alloc::{vec, vec::Vec};
 use blake2::{Blake2b512, Digest};
 use frame_support::{pallet_prelude::*, weights::WeightMeter, DefaultNoBound};
 use frame_system::pallet_prelude::*;
-use sp_io::hashing::twox_256;
 use sp_runtime::{traits::Zero, FixedPointNumber, FixedU64};
 
 pub use pallet::*;
@@ -446,7 +445,7 @@ pub mod pallet {
 			let mut ret = [0u8; VALUE_SIZE];
 
 			for i in 0u32..(VALUE_SIZE as u32 / 32) {
-				let hash = (seed, i).using_encoded(twox_256);
+				let hash = (seed, i).using_encoded(sp_io::hashing_twox_256);
 				ret[i as usize * 32..(i + 1) as usize * 32].copy_from_slice(&hash);
 			}
 

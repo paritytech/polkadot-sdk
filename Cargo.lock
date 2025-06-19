@@ -23508,6 +23508,7 @@ dependencies = [
 name = "sp-runtime-interface"
 version = "24.0.0"
 dependencies = [
+ "byte-slice-cast",
  "bytes",
  "impl-trait-for-tuples",
  "parity-scale-codec",

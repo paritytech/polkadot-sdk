@@ -153,7 +153,6 @@ use frame_support::{
 		Defensive, DefensiveOption, Imbalance, OnUnbalanced,
 	},
 };
-use sp_io::hashing::blake2_256;
 use sp_runtime::{
 	traits::{CheckedAdd, CheckedSub, TrailingZeroInput, Zero},
 	ArithmeticError, DispatchResult, Perbill, RuntimeDebug, Saturating,
@@ -468,7 +467,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Derive a (keyless) pot account from the given agent account and account type.
 	fn sub_account(account_type: AccountType, acc: T::AccountId) -> T::AccountId {
-		let entropy = (T::PalletId::get(), acc, account_type).using_encoded(blake2_256);
+		let entropy = (T::PalletId::get(), acc, account_type).using_encoded(sp_io::hashing_blake2_256);
 		Decode::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
 			.expect("infinite length input; no invalid inputs for type; qed")
 	}

@@ -69,7 +69,6 @@ use frame_support::{
 	traits::{IsSubType, OriginTrait, UnfilteredDispatchable},
 };
 use sp_core::TypeId;
-use sp_io::hashing::blake2_256;
 use sp_runtime::traits::{BadOrigin, Dispatchable, TrailingZeroInput};
 pub use weights::WeightInfo;
 
@@ -618,7 +617,7 @@ impl TypeId for IndexedUtilityPalletId {
 impl<T: Config> Pallet<T> {
 	/// Derive a derivative account ID from the owner account and the sub-account index.
 	pub fn derivative_account_id(who: T::AccountId, index: u16) -> T::AccountId {
-		let entropy = (b"modlpy/utilisuba", who, index).using_encoded(blake2_256);
+		let entropy = (b"modlpy/utilisuba", who, index).using_encoded(sp_io::hashing_blake2_256);
 		Decode::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
 			.expect("infinite length input; no invalid inputs for type; qed")
 	}

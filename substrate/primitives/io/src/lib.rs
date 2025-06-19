@@ -118,10 +118,10 @@ use sp_trie::{LayoutV0, LayoutV1, TrieConfiguration};
 use sp_runtime_interface::{
 	pass_by::{
 		AllocateAndReturnByCodec, AllocateAndReturnFatPointer, AllocateAndReturnPointer,
-		ConvertAndPassAs, ConvertAndReturnAs, PassAs, PassBufferAndWrite,
-		PassFatPointerAndDecode, PassFatPointerAndDecodeSlice,
-		PassFatPointerAndRead, PassFatPointerAndReadWrite, PassMaybeFatPointerAndRead,
-		PassPointerAndRead, PassPointerAndReadCopy, PassPointerAndWrite, ReturnAs,
+		ConvertAndPassAs, ConvertAndReturnAs, PassAs, PassFatPointerAndDecode,
+		PassFatPointerAndDecodeSlice, PassFatPointerAndRead, PassFatPointerAndReadWrite,
+		PassMaybeFatPointerAndRead, PassPointerAndRead, PassPointerAndReadCopy,
+		PassPointerAndWrite, PassPointerToPrimitiveAndWrite, ReturnAs,
 	},
 	runtime_interface, Pointer,
 };
@@ -166,6 +166,7 @@ pub enum EcdsaVerifyError {
 // The FFI representation of EcdsaVerifyError.
 #[derive(EnumCount)]
 #[repr(i16)]
+#[allow(missing_docs)]
 pub enum RIEcdsaVerifyError {
 	BadRS = -1_i16,
 	BadV = -2_i16,
@@ -671,17 +672,26 @@ pub trait Storage {
 		maybe_prefix: PassFatPointerAndRead<&[u8]>,
 		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
 		maybe_cursor_in: PassMaybeFatPointerAndRead<Option<&[u8]>>,
-		removal_results_out: PassBufferAndWrite<&mut [u8], 4096>,
-	) {
+		maybe_cursor_out: PassFatPointerAndReadWrite<&mut [u8]>,
+		backend: PassPointerToPrimitiveAndWrite<&mut u32>,
+		unique: PassPointerToPrimitiveAndWrite<&mut u32>,
+		loops: PassPointerToPrimitiveAndWrite<&mut u32>,
+	) -> u32 {
 		let removal_results = Externalities::clear_prefix(
 			*self,
 			maybe_prefix,
 			maybe_limit,
 			maybe_cursor_in.as_ref().map(|x| &x[..]),
 		);
-		let encoded = removal_results.encode();
-		let write_len = encoded.len().min(removal_results_out.len());
-		removal_results_out[..write_len].copy_from_slice(&encoded[..write_len]);
+		let cursor_out_len = removal_results.maybe_cursor.as_ref().map(|c| c.len()).unwrap_or(0);
+		if let Some(cursor_out) = removal_results.maybe_cursor {
+			let write_len = cursor_out_len.min(maybe_cursor_out.len());
+			maybe_cursor_out[..write_len].copy_from_slice(&cursor_out[..write_len]);
+		}
+		*backend = removal_results.backend;
+		*unique = removal_results.unique;
+		*loops = removal_results.loops;
+		cursor_out_len as u32
 	}
 
 	/// Append the encoded `value` to the storage item at `key`.
@@ -721,10 +731,11 @@ pub trait Storage {
 	///
 	/// Fills provided output buffer with the SCALE encoded hash.
 	#[version(3)]
-	fn root(&mut self, out: PassBufferAndWrite<&mut [u8], 1024>) {
+	fn root(&mut self, out: PassFatPointerAndReadWrite<&mut [u8]>) -> u32 {
 		let root = self.storage_root(StateVersion::V0);
 		let write_len = root.len().min(out.len());
 		out[..write_len].copy_from_slice(&root[..write_len]);
+		root.len() as u32
 	}
 
 	/// Always returns `None`. This function exists for compatibility reasons.
@@ -743,16 +754,21 @@ pub trait Storage {
 		self.next_storage_key(key)
 	}
 
+	// TODO: Interface changed, reflect in RFC
 	/// Get the next key in storage after the given one in lexicographic order.
 	#[version(2)]
-	fn next_key(&mut self, key_in_out: PassFatPointerAndReadWrite<&mut [u8]>) -> u32 {
-		if let Some(next_key) = self.next_storage_key(key_in_out) {
-			let next_key_len = next_key.len();
-			let written = core::cmp::min(next_key_len, key_in_out.len());
-			key_in_out[..written].copy_from_slice(&next_key[..written]);
-			return next_key_len as u32
+	fn next_key(
+		&mut self,
+		key_in: PassFatPointerAndRead<&[u8]>,
+		key_out: PassFatPointerAndReadWrite<&mut [u8]>,
+	) -> u32 {
+		let next_key = self.next_storage_key(key_in);
+		let next_key_len = next_key.as_ref().map(|k| k.len()).unwrap_or(0);
+		if let Some(next_key) = next_key {
+			let write_len = next_key_len.min(key_out.len());
+			key_out[..write_len].copy_from_slice(&next_key[..write_len]);
 		}
-		return 0
+		next_key_len as u32
 	}
 
 	/// Start a new nested transaction.
@@ -934,17 +950,26 @@ pub trait DefaultChildStorage {
 		storage_key: PassFatPointerAndRead<&[u8]>,
 		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
 		maybe_cursor_in: PassMaybeFatPointerAndRead<Option<&[u8]>>,
-		removal_results_out: PassBufferAndWrite<&mut [u8], 4096>,
-	) {
+		maybe_cursor_out: PassFatPointerAndReadWrite<&mut [u8]>,
+		backend: PassPointerToPrimitiveAndWrite<&mut u32>,
+		unique: PassPointerToPrimitiveAndWrite<&mut u32>,
+		loops: PassPointerToPrimitiveAndWrite<&mut u32>,
+	) -> u32 {
 		let child_info = ChildInfo::new_default(storage_key);
 		let removal_results = self.kill_child_storage(
 			&child_info,
 			maybe_limit,
 			maybe_cursor_in.as_ref().map(|x| &x[..]),
 		);
-		let encoded = removal_results.encode();
-		let write_len = encoded.len().min(removal_results_out.len());
-		removal_results_out[..write_len].copy_from_slice(&encoded[..write_len]);
+		let cursor_out_len = removal_results.maybe_cursor.as_ref().map(|c| c.len()).unwrap_or(0);
+		if let Some(cursor_out) = removal_results.maybe_cursor {
+			let write_len = cursor_out_len.min(maybe_cursor_out.len());
+			maybe_cursor_out[..write_len].copy_from_slice(&cursor_out[..write_len]);
+		}
+		*backend = removal_results.backend;
+		*unique = removal_results.unique;
+		*loops = removal_results.loops;
+		cursor_out_len as u32
 	}
 
 	/// Check a child storage key.
@@ -995,8 +1020,11 @@ pub trait DefaultChildStorage {
 		prefix: PassFatPointerAndRead<&[u8]>,
 		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
 		maybe_cursor_in: PassMaybeFatPointerAndRead<Option<&[u8]>>,
-		removal_results_out: PassBufferAndWrite<&mut [u8], 4096>,
-	) {
+		maybe_cursor_out: PassFatPointerAndReadWrite<&mut [u8]>,
+		backend: PassPointerToPrimitiveAndWrite<&mut u32>,
+		unique: PassPointerToPrimitiveAndWrite<&mut u32>,
+		loops: PassPointerToPrimitiveAndWrite<&mut u32>,
+	) -> u32 {
 		let child_info = ChildInfo::new_default(storage_key);
 		let removal_results = self.clear_child_prefix(
 			&child_info,
@@ -1004,9 +1032,15 @@ pub trait DefaultChildStorage {
 			maybe_limit,
 			maybe_cursor_in.as_ref().map(|x| &x[..]),
 		);
-		let encoded = removal_results.encode();
-		let write_len = encoded.len().min(removal_results_out.len());
-		removal_results_out[..write_len].copy_from_slice(&encoded[..write_len]);
+		let cursor_out_len = removal_results.maybe_cursor.as_ref().map(|c| c.len()).unwrap_or(0);
+		if let Some(cursor_out) = removal_results.maybe_cursor {
+			let write_len = cursor_out_len.min(maybe_cursor_out.len());
+			maybe_cursor_out[..write_len].copy_from_slice(&cursor_out[..write_len]);
+		}
+		*backend = removal_results.backend;
+		*unique = removal_results.unique;
+		*loops = removal_results.loops;
+		cursor_out_len as u32
 	}
 
 	/// Default child root calculation.
@@ -1049,12 +1083,13 @@ pub trait DefaultChildStorage {
 	fn root(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
-		out: PassBufferAndWrite<&mut [u8], 1024>,
-	) {
+		out: PassFatPointerAndReadWrite<&mut [u8]>,
+	) -> u32 {
 		let child_info = ChildInfo::new_default(storage_key);
 		let root = self.child_storage_root(&child_info, StateVersion::V0);
 		let write_len = root.len().min(out.len());
 		out[..write_len].copy_from_slice(&root[..write_len]);
+		root.len() as u32
 	}
 
 	/// Child storage key iteration.
@@ -1069,6 +1104,7 @@ pub trait DefaultChildStorage {
 		self.next_child_storage_key(&child_info, key)
 	}
 
+	// TODO: Interface changed, reflect in RFC
 	/// Child storage key iteration.
 	///
 	/// Get the next key in storage after the given one in lexicographic order in child storage.
@@ -1076,16 +1112,17 @@ pub trait DefaultChildStorage {
 	fn next_key(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
-		key_inout: PassFatPointerAndReadWrite<&mut [u8]>,
+		key_in: PassFatPointerAndRead<&[u8]>,
+		key_out: PassFatPointerAndReadWrite<&mut [u8]>,
 	) -> u32 {
 		let child_info = ChildInfo::new_default(storage_key);
-		if let Some(next_key) = self.next_child_storage_key(&child_info, key_inout) {
-			let next_key_len = next_key.len();
-			let written = core::cmp::min(next_key_len, key_inout.len());
-			key_inout[..written].copy_from_slice(&next_key[..written]);
-			return next_key_len as u32
+		let next_key = self.next_child_storage_key(&child_info, key_in);
+		let next_key_len = next_key.as_ref().map(|k| k.len()).unwrap_or(0);
+		if let Some(next_key) = next_key {
+			let write_len = next_key_len.min(key_out.len());
+			key_out[..write_len].copy_from_slice(&next_key[..write_len]);
 		}
-		return 0
+		next_key_len as u32
 	}
 }
 
@@ -2103,7 +2140,7 @@ pub trait Crypto {
 		let ctx = secp256k1::Secp256k1::<secp256k1::VerifyOnly>::gen_new();
 		let pubkey = ctx.recover_ecdsa(&msg, &sig).map_err(|_| EcdsaVerifyError::BadSignature)?;
 		let mut res = [0u8; 64];
-		res.copy_from_slice(&pubkey.serialize_uncompressed()[1..]);
+		res.copy_from_slice(&pubkey.serialize_uncompressed()[1..65]);
 		Ok(res)
 	}
 
@@ -2777,14 +2814,16 @@ pub trait Offchain {
 		&mut self,
 		ids: PassFatPointerAndDecodeSlice<&[HttpRequestId]>,
 		deadline: PassFatPointerAndDecode<Option<Timestamp>>,
-		out: PassBufferAndWrite<&mut [u8], 4096>,
+		out: PassFatPointerAndReadWrite<&mut [u32]>,
 	) {
-		let statuses = self.extension::<OffchainWorkerExt>()
+		assert_eq!(out.len(), ids.len());
+		let statuses = self
+			.extension::<OffchainWorkerExt>()
 			.expect("http_response_wait can be called only in the offchain worker context")
 			.http_response_wait(ids, deadline);
-		let encoded = statuses.encode();
-		let write_len = encoded.len().min(out.len());
-		out[..write_len].copy_from_slice(&encoded[..write_len]);
+		statuses.into_iter().zip(out).for_each(|(status, out)| {
+			*out = status.into();
+		});
 	}
 
 	/// Read all response headers.
@@ -3122,6 +3161,131 @@ pub fn oom(_: core::alloc::Layout) -> ! {
 	}
 }
 
+// Useful wrappers
+
+/// A convenience wrapper around [`storage::clear_prefix`]
+pub fn storage_clear_prefix(
+		maybe_prefix: impl AsRef<[u8]>,
+		maybe_limit: Option<u32>,
+		maybe_cursor_in: Option<&[u8]>,
+) -> MultiRemovalResults {
+	let mut result = MultiRemovalResults::default();
+	let mut maybe_cursor_out = vec![0u8; 4096];
+	let cursor_len = storage::clear_prefix(
+		maybe_prefix.as_ref(),
+		maybe_limit,
+		maybe_cursor_in,
+		&mut maybe_cursor_out,
+		&mut result.backend,
+		&mut result.unique,
+		&mut result.loops,
+	) as usize;
+	maybe_cursor_out.truncate(cursor_len);
+	result.maybe_cursor = if cursor_len > 0 { Some(maybe_cursor_out) } else { None };
+
+	result
+}
+
+/// A convenience wrapper around [`storage::next_key`]
+pub fn storage_next_key(key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+	let mut key_out = vec![0u8; 256];
+	let len =storage::next_key(key.as_ref(), &mut key_out[..]);
+	if len as usize > key_out.len() {
+		key_out.resize(len as usize, 0);
+		storage::next_key(key.as_ref(), &mut key_out[..]);
+	}
+	key_out.truncate(len as usize);
+	if len > 0 { Some(key_out) } else { None }
+}
+
+/// A convenience wrapper around [`storage::root`]
+pub fn storage_root() -> Vec<u8> {
+	let mut root_out = vec![0u8; 256];
+	let len = storage::root(&mut root_out[..]);
+	if len as usize > root_out.len() {
+		root_out.resize(len as usize, 0);
+		storage::root(&mut root_out[..]);
+	}
+	root_out.truncate(len as usize);
+	root_out
+}
+
+/// A convenience wrapper around [`default_child_storage::next_key`]
+pub fn child_storage_next_key(storage_key: impl AsRef<[u8]>, key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+	let mut key_out = vec![0u8; 256];
+	let len = default_child_storage::next_key(storage_key.as_ref(), key.as_ref(), &mut key_out[..]);
+	if len as usize > key_out.len() {
+		key_out.resize(len as usize, 0);
+		default_child_storage::next_key(storage_key.as_ref(), key.as_ref(), &mut key_out[..]);
+	}
+	key_out.truncate(len as usize);
+	if len > 0 { Some(key_out) } else { None }
+}
+
+/// A convenience wrapper around [`default_child_storage::storage_kill`]
+pub fn child_storage_kill(storage_key: impl AsRef<[u8]>, maybe_limit: Option<u32>, maybe_cursor: Option<&[u8]>) -> MultiRemovalResults {
+	let mut result = MultiRemovalResults::default();
+	let mut maybe_cursor_out = vec![0u8; 4096];
+	let cursor_len = default_child_storage::storage_kill(storage_key.as_ref(), maybe_limit, maybe_cursor, &mut maybe_cursor_out[..], &mut result.backend, &mut result.unique, &mut result.loops);
+	maybe_cursor_out.truncate(cursor_len as usize);
+	result.maybe_cursor = if cursor_len > 0 { Some(maybe_cursor_out) } else { None };
+
+	result
+}
+
+/// A convenience wrapper around [`default_child_storage::root`]
+pub fn child_storage_root(storage_key: impl AsRef<[u8]>) -> Vec<u8> {
+	let mut root_out = vec![0u8; 256];
+	let len = default_child_storage::root(storage_key.as_ref(), &mut root_out[..]);
+	if len as usize > root_out.len() {
+		root_out.resize(len as usize, 0);
+		default_child_storage::root(storage_key.as_ref(), &mut root_out[..]);
+	}
+	root_out.truncate(len as usize);
+	root_out
+}
+
+/// A convenience wrapper around [`misc::runtime_version`]
+pub fn misc_runtime_version(code: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+	let mut version = vec![0u8; 1024];
+	let maybe_len = misc::runtime_version(code.as_ref(), &mut version);
+	maybe_len.map(|len| {version.truncate(len as usize); version})
+}
+
+macro_rules! impl_hashing_wrappers {
+	($(
+		($name:ident, $wrapper_name:ident, $size:expr);
+	)*) => {
+		$(
+			/// A convenience wrapper around [`hashing::$name`]
+			#[inline(always)]
+			pub fn $wrapper_name(x: &[u8]) -> [u8; $size] {
+				let mut hash = [0u8; $size];
+				hashing::$name(x, &mut hash);
+				hash
+			}
+		)*
+	};
+}
+
+impl_hashing_wrappers! {
+	(twox_64, hashing_twox_64, 8);
+	(twox_128, hashing_twox_128, 16);
+	(twox_256, hashing_twox_256, 32);
+	(blake2_128, hashing_blake2_128, 16);
+	(blake2_256, hashing_blake2_256, 32);
+	(keccak_256, hashing_keccak_256, 32);
+	(sha2_256, hashing_sha2_256, 32);
+}
+
+/// A convenience wrapper around [`hashing::keccak_512`]
+#[inline(always)]
+pub fn hashing_keccak_512(x: &[u8]) -> [u8; 64] {
+	let mut hash = Val512([0u8; 64]);
+	hashing::keccak_512(x, &mut hash);
+	hash.0
+}
+
 /// Type alias for Externalities implementation used in tests.
 #[cfg(feature = "std")] // NOTE: Deliberately isn't `not(substrate_runtime)`.
 pub type TestExternalities = sp_state_machine::TestExternalities<sp_core::Blake2Hasher>;
@@ -3216,23 +3380,20 @@ mod tests {
 		});
 
 		t.execute_with(|| {
-			let mut res = MultiRemovalResults::default();
-			storage::clear_prefix(b":abc", None, None, &mut res);
-			assert!(matches!(
-				res,
-				MultiRemovalResults::NoneLeft { db: 2, total: 2 }
-			));
+			let res = storage_clear_prefix(b":abc", None, None);
+			assert_eq!(res.backend, 2);
+			assert_eq!(res.unique, 2);
+			assert_eq!(res.loops, 2);
 
 			assert!(storage::get(b":a").is_some());
 			assert!(storage::get(b":abdd").is_some());
 			assert!(storage::get(b":abcd").is_none());
 			assert!(storage::get(b":abc").is_none());
 
-			storage::clear_prefix(b":abc", None, None, &mut res);
-			assert!(matches!(
-				storage::clear_prefix(b":abc", None, None, &mut res),
-				MultiRemovalResults::NoneLeft { db: 0, total: 0 }
-			));
+			let res = storage_clear_prefix(b":abc", None, None);
+			assert_eq!(res.backend, 0);
+			assert_eq!(res.unique, 0);
+			assert_eq!(res.loops, 0);
 		});
 	}
 

@@ -77,20 +77,20 @@ pub fn pre_migration<T: crate::Config, N: AsRef<str>>(new: N) {
 	log::info!("pre-migration elections-phragmen test with new = {}", new);
 
 	// the next key must exist, and start with the hash of `OLD_PREFIX`.
-	let next_key = sp_io::storage::next_key(OLD_PREFIX).unwrap();
-	assert!(next_key.starts_with(&sp_io::hashing::twox_128(OLD_PREFIX)));
+	let next_key = sp_io::storage_next_key(OLD_PREFIX).unwrap();
+	assert!(next_key.starts_with(&sp_io::hashing_twox_128(OLD_PREFIX)));
 
 	// ensure nothing is stored in the new prefix.
 	assert!(
-		sp_io::storage::next_key(new.as_bytes()).map_or(
+		sp_io::storage_next_key(new.as_bytes()).map_or(
 			// either nothing is there
 			true,
 			// or we ensure that it has no common prefix with twox_128(new).
-			|next_key| !next_key.starts_with(&sp_io::hashing::twox_128(new.as_bytes()))
+			|next_key| !next_key.starts_with(&sp_io::hashing_twox_128(new.as_bytes()))
 		),
 		"unexpected next_key({}) = {:?}",
 		new,
-		sp_core::hexdisplay::HexDisplay::from(&sp_io::storage::next_key(new.as_bytes()).unwrap())
+		sp_core::hexdisplay::HexDisplay::from(&sp_io::storage_next_key(new.as_bytes()).unwrap())
 	);
 	// ensure storage version is 3.
 	assert_eq!(StorageVersion::get::<crate::Pallet<T>>(), 3);
