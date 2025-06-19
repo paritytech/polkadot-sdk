@@ -54,7 +54,7 @@
 //! not be its owner. The chain itself should manage such a collection in some way (e.g., by
 //! providing ownership to the reserve location's sovereign account).
 //!
-//! In this case, an intermediate API is needed to create derivative NFT collections safely. The
+//! In this case, an intermediate API is needed to create derivative NFT collections safely.
 //! `pallet-derivatives` provides such an API. The `create_derivative` and `destroy_derivative` take
 //! only the original ID value as a parameter, and the pallet's config completely defines the actual
 //! logic.
