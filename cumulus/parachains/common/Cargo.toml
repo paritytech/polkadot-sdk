@@ -35,6 +35,7 @@ sp-runtime = { workspace = true }
 # Polkadot
 pallet-xcm = { workspace = true }
 polkadot-primitives = { workspace = true }
+polkadot-runtime-common = { workspace = true }
 xcm = { workspace = true }
 xcm-executor = { workspace = true }
 
@@ -62,6 +63,7 @@ std = [
 	"pallet-xcm/std",
 	"parachain-info/std",
 	"polkadot-primitives/std",
+	"polkadot-runtime-common/std",
 	"scale-info/std",
 	"sp-consensus-aura/std",
 	"sp-core/std",
@@ -82,6 +84,7 @@ runtime-benchmarks = [
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-runtime-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
@@ -98,5 +101,6 @@ try-runtime = [
 	"pallet-message-queue/try-runtime",
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
+	"polkadot-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
 ]

@@ -831,6 +831,7 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 			in_queue: false,
 			alarm: None,
 		};
+
 		Self::ensure_alarm_at(&mut status, index, sp_runtime::traits::Bounded::max_value());
 		ReferendumInfoFor::<T, I>::insert(index, ReferendumInfo::Ongoing(status));
 		Ok(index)

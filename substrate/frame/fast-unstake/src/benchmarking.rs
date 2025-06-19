@@ -47,7 +47,7 @@ fn create_unexposed_batch<T: Config>(batch_size: u32) -> Vec<T::AccountId> {
 
 fn fund_and_bond_account<T: Config>(account: &T::AccountId) {
 	let stake = CurrencyOf::<T>::minimum_balance() * 100u32.into();
-	CurrencyOf::<T>::make_free_balance_be(&account, stake * 10u32.into());
+	CurrencyOf::<T>::make_free_balance_be(&account, stake * 100u32.into());
 
 	// bond and nominate ourselves, this will guarantee that we are not backing anyone.
 	assert_ok!(T::Staking::bond(account, stake, account));

@@ -22,7 +22,7 @@ use alloy_core::{
 	sol_types::{sol_data, SolType},
 };
 use asset_hub_westend_runtime::{
-	xcm_config,
+	governance, xcm_config,
 	xcm_config::{
 		bridging, CheckingAccount, GovernanceLocation, LocationToAccountId, StakingPot,
 		TrustBackedAssetsPalletLocation, WestendLocation, XcmConfig,
@@ -882,7 +882,7 @@ fn limited_reserve_transfer_assets_for_native_asset_to_asset_hub_rococo_works() 
 		bridging_to_asset_hub_rococo,
 		WeightLimit::Unlimited,
 		Some(xcm_config::bridging::XcmBridgeHubRouterFeeAssetId::get()),
-		Some(xcm_config::TreasuryAccount::get()),
+		Some(governance::TreasuryAccount::get()),
 	)
 }
 
@@ -1418,7 +1418,7 @@ fn xcm_payment_api_works() {
 
 #[test]
 fn governance_authorize_upgrade_works() {
-	use westend_runtime_constants::system_parachain::{ASSET_HUB_ID, COLLECTIVES_ID};
+	use westend_runtime_constants::system_parachain::COLLECTIVES_ID;
 
 	// no - random para
 	assert_err!(
@@ -1428,21 +1428,18 @@ fn governance_authorize_upgrade_works() {
 		>(GovernanceOrigin::Location(Location::new(1, Parachain(12334)))),
 		Either::Right(InstructionError { index: 0, error: XcmError::Barrier })
 	);
-	// no - AssetHub
-	assert_err!(
-		parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
-			Runtime,
-			RuntimeOrigin,
-		>(GovernanceOrigin::Location(Location::new(1, Parachain(ASSET_HUB_ID)))),
-		Either::Right(InstructionError { index: 0, error: XcmError::Barrier })
-	);
+	// ok - AssetHub (itself)
+	assert_ok!(parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
+		Runtime,
+		RuntimeOrigin,
+	>(GovernanceOrigin::Origin(RuntimeOrigin::root())));
 	// no - Collectives
 	assert_err!(
 		parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
 			Runtime,
 			RuntimeOrigin,
 		>(GovernanceOrigin::Location(Location::new(1, Parachain(COLLECTIVES_ID)))),
-		Either::Right(InstructionError { index: 0, error: XcmError::Barrier })
+		Either::Right(InstructionError { index: 1, error: XcmError::BadOrigin })
 	);
 	// no - Collectives Voice of Fellows plurality
 	assert_err!(
@@ -1461,6 +1458,8 @@ fn governance_authorize_upgrade_works() {
 		Runtime,
 		RuntimeOrigin,
 	>(GovernanceOrigin::Location(Location::parent())));
+
+	// ok - governance location
 	assert_ok!(parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
 		Runtime,
 		RuntimeOrigin,
