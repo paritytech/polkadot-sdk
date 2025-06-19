@@ -18,11 +18,12 @@ use crate::{
 	configuration::{TestAuthorities, TestConfiguration},
 	network::{HandleNetworkMessage, NetworkMessage},
 };
-use polkadot_node_subsystem_test_helpers::mock::generate_block_info;
+use polkadot_node_subsystem_test_helpers::mock::new_block_import_info;
 use polkadot_overseer::BlockInfo;
-use polkadot_primitives::{vstaging::CandidateReceiptV2, CandidateCommitments};
+use polkadot_primitives::{
+	vstaging::CandidateReceiptV2, BlockNumber, CandidateCommitments, Hash, Header,
+};
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt_v2_bad_sig, dummy_hash};
-use sp_core::H256;
 use std::collections::HashMap;
 
 #[derive(Clone)]
@@ -34,7 +35,9 @@ pub struct TestState {
 	// Relay chain block infos
 	pub block_infos: Vec<BlockInfo>,
 	// Map from generated candidate receipts (valid, invalid)
-	pub candidate_receipts: HashMap<H256, (CandidateReceiptV2, CandidateReceiptV2)>,
+	pub candidate_receipts: HashMap<Hash, Vec<CandidateReceiptV2>>,
+	// Relay chain block headers
+	pub block_headers: HashMap<Hash, Header>,
 }
 
 impl TestState {
@@ -48,26 +51,44 @@ impl TestState {
 			.map(|block_info| {
 				(
 					block_info.hash,
-					(
+					vec![
 						make_valid_candidate_receipt(block_info.hash),
 						make_invalid_candidate_receipt(block_info.hash),
-					),
+					],
 				)
 			})
 			.collect();
+		let block_headers = block_infos.iter().map(generate_block_header).collect();
 
-		Self { config, test_authorities, block_infos, candidate_receipts }
+		Self { config, test_authorities, block_infos, candidate_receipts, block_headers }
 	}
 }
 
-fn make_valid_candidate_receipt(relay_parent: H256) -> CandidateReceiptV2 {
+fn make_valid_candidate_receipt(relay_parent: Hash) -> CandidateReceiptV2 {
 	let mut candidate_receipt = dummy_candidate_receipt_v2_bad_sig(relay_parent, dummy_hash());
 	candidate_receipt.commitments_hash = CandidateCommitments::default().hash();
 	candidate_receipt
 }
 
-fn make_invalid_candidate_receipt(relay_parent: H256) -> CandidateReceiptV2 {
-	dummy_candidate_receipt_v2_bad_sig(Default::default(), Some(Default::default()))
+fn make_invalid_candidate_receipt(relay_parent: Hash) -> CandidateReceiptV2 {
+	dummy_candidate_receipt_v2_bad_sig(relay_parent, Some(Default::default()))
+}
+
+fn generate_block_info(block_num: usize) -> BlockInfo {
+	new_block_import_info(Hash::repeat_byte(block_num as u8), block_num as BlockNumber)
+}
+
+fn generate_block_header(info: &BlockInfo) -> (Hash, Header) {
+	(
+		info.hash,
+		Header {
+			digest: Default::default(),
+			number: info.number,
+			parent_hash: info.parent_hash,
+			extrinsics_root: Default::default(),
+			state_root: Default::default(),
+		},
+	)
 }
 
 #[async_trait::async_trait]

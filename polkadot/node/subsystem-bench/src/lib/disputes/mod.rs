@@ -94,6 +94,17 @@ fn build_overseer(
 	let config = DisputeCoordinatorConfig { col_dispute_data: 0 };
 	let keystore = make_keystore();
 	let approval_voting_parallel_enabled = true;
+	let mock_runtime_api = MockRuntimeApi::new(
+		state.config.clone(),
+		state.test_authorities.clone(),
+		state.candidate_receipts.clone(),
+		Default::default(),
+		Default::default(),
+		0,
+		MockRuntimeApiCoreState::Scheduled,
+	);
+	let chain_api_state = ChainApiState { block_headers: state.block_headers.clone() };
+	let mock_chain_api = MockChainApi::new(chain_api_state);
 	let dispute_coordinator = DisputeCoordinatorSubsystem::new(
 		store,
 		config,
@@ -103,6 +114,8 @@ fn build_overseer(
 	);
 
 	let dummy = dummy_builder!(spawn_task_handle, overseer_metrics)
+		.replace_runtime_api(|_| mock_runtime_api)
+		.replace_chain_api(|_| mock_chain_api)
 		.replace_dispute_coordinator(|_| dispute_coordinator);
 
 	let (overseer, raw_handle) = dummy.build_with_connector(overseer_connector).unwrap();
@@ -147,8 +160,8 @@ pub async fn benchmark_dispute_coordinator(
 		env.metrics().set_current_block(block_num);
 		env.import_block(block_info.clone()).await;
 
-		let (valid_candidate_receipt, invalid_candidate_receipt) =
-			state.candidate_receipts.get(&block_info.hash).unwrap();
+		let valid_candidate_receipt = &state.candidate_receipts.get(&block_info.hash).unwrap()[0];
+		let invalid_candidate_receipt = &state.candidate_receipts.get(&block_info.hash).unwrap()[1];
 	}
 
 	let duration: u128 = test_start.elapsed().as_millis();
