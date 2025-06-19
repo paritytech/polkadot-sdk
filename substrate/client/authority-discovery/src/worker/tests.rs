@@ -23,6 +23,8 @@ use std::{
 	time::Instant,
 };
 
+use crate::tests::test_config;
+
 use super::*;
 use futures::{
 	channel::mpsc::{self, channel},
@@ -321,6 +323,8 @@ async fn new_registers_metrics() {
 
 	let registry = prometheus_endpoint::Registry::new();
 
+	let _tempdir = tempfile::tempdir();
+	let _tempdir = tempfile::tempdir();
 	let (_to_worker, from_service) = mpsc::channel(0);
 	Worker::new(
 		from_service,
@@ -329,7 +333,7 @@ async fn new_registers_metrics() {
 		Box::pin(dht_event_rx),
 		Role::PublishAndDiscover(key_store.into()),
 		Some(registry.clone()),
-		Default::default(),
+		test_config(_tempdir.ok().map(|t| t.path().to_path_buf())),
 		create_spawner(),
 	);
 
@@ -351,7 +355,9 @@ async fn triggers_dht_get_query() {
 	let network = Arc::new(TestNetwork::default());
 	let key_store = MemoryKeystore::new();
 
+	let _tempdir = tempfile::tempdir();
 	let (_to_worker, from_service) = mpsc::channel(0);
+	let _tempdir = tempfile::tempdir();
 	let mut worker = Worker::new(
 		from_service,
 		test_api,
@@ -359,7 +365,7 @@ async fn triggers_dht_get_query() {
 		Box::pin(dht_event_rx),
 		Role::PublishAndDiscover(key_store.into()),
 		None,
-		Default::default(),
+		test_config(_tempdir.ok().map(|t| t.path().to_path_buf())),
 		create_spawner(),
 	);
 
@@ -383,7 +389,7 @@ async fn publish_discover_cycle() {
 	let network: Arc<TestNetwork> = Arc::new(Default::default());
 
 	let key_store = MemoryKeystore::new();
-
+	let _tempdir = tempfile::tempdir();
 	let _ = pool.spawner().spawn_local_obj(
 		async move {
 			let node_a_public =
@@ -391,6 +397,7 @@ async fn publish_discover_cycle() {
 			let test_api = Arc::new(TestApi { authorities: vec![node_a_public.into()] });
 
 			let (_to_worker, from_service) = mpsc::channel(0);
+			let _tempdir = tempfile::tempdir();
 			let mut worker = Worker::new(
 				from_service,
 				test_api,
@@ -398,7 +405,7 @@ async fn publish_discover_cycle() {
 				Box::pin(dht_event_rx),
 				Role::PublishAndDiscover(key_store.into()),
 				None,
-				Default::default(),
+				test_config(_tempdir.ok().map(|t| t.path().to_path_buf())),
 				create_spawner(),
 			);
 
@@ -426,6 +433,7 @@ async fn publish_discover_cycle() {
 			let key_store = MemoryKeystore::new();
 
 			let (_to_worker, from_service) = mpsc::channel(0);
+			let _tempdir = tempfile::tempdir();
 			let mut worker = Worker::new(
 				from_service,
 				test_api,
@@ -433,7 +441,7 @@ async fn publish_discover_cycle() {
 				Box::pin(dht_event_rx),
 				Role::PublishAndDiscover(key_store.into()),
 				None,
-				Default::default(),
+				test_config(_tempdir.ok().map(|t| t.path().to_path_buf())),
 				create_spawner(),
 			);
 
@@ -460,6 +468,7 @@ async fn terminate_when_event_stream_terminates() {
 	let network: Arc<TestNetwork> = Arc::new(Default::default());
 	let key_store = MemoryKeystore::new();
 	let test_api = Arc::new(TestApi { authorities: vec![] });
+	let path = tempfile::tempdir().unwrap().path().to_path_buf();
 
 	let (to_worker, from_service) = mpsc::channel(0);
 	let worker = Worker::new(
@@ -469,7 +478,7 @@ async fn terminate_when_event_stream_terminates() {
 		Box::pin(dht_event_rx),
 		Role::PublishAndDiscover(key_store.into()),
 		None,
-		Default::default(),
+		test_config(Some(path)),
 		create_spawner(),
 	)
 	.run();
@@ -526,6 +535,7 @@ async fn dont_stop_polling_dht_event_stream_after_bogus_event() {
 	let mut pool = LocalPool::new();
 
 	let (mut to_worker, from_service) = mpsc::channel(1);
+	let _tempdir = tempfile::tempdir();
 	let mut worker = Worker::new(
 		from_service,
 		test_api,
@@ -533,7 +543,7 @@ async fn dont_stop_polling_dht_event_stream_after_bogus_event() {
 		Box::pin(dht_event_rx),
 		Role::PublishAndDiscover(Arc::new(key_store)),
 		None,
-		Default::default(),
+		test_config(_tempdir.ok().map(|t| t.path().to_path_buf())),
 		create_spawner(),
 	);
 
@@ -1055,6 +1065,7 @@ async fn addresses_to_publish_adds_p2p() {
 	));
 
 	let (_to_worker, from_service) = mpsc::channel(0);
+	let _tempdir = tempfile::tempdir();
 	let mut worker = Worker::new(
 		from_service,
 		Arc::new(TestApi { authorities: vec![] }),
@@ -1062,7 +1073,7 @@ async fn addresses_to_publish_adds_p2p() {
 		Box::pin(dht_event_rx),
 		Role::PublishAndDiscover(MemoryKeystore::new().into()),
 		Some(prometheus_endpoint::Registry::new()),
-		Default::default(),
+		test_config(_tempdir.ok().map(|t| t.path().to_path_buf())),
 		create_spawner(),
 	);
 
@@ -1094,6 +1105,7 @@ async fn addresses_to_publish_respects_existing_p2p_protocol() {
 	});
 
 	let (_to_worker, from_service) = mpsc::channel(0);
+	let _tempdir = tempfile::tempdir();
 	let mut worker = Worker::new(
 		from_service,
 		Arc::new(TestApi { authorities: vec![] }),
@@ -1101,7 +1113,7 @@ async fn addresses_to_publish_respects_existing_p2p_protocol() {
 		Box::pin(dht_event_rx),
 		Role::PublishAndDiscover(MemoryKeystore::new().into()),
 		Some(prometheus_endpoint::Registry::new()),
-		Default::default(),
+		test_config(_tempdir.ok().map(|t| t.path().to_path_buf())),
 		create_spawner(),
 	);
 
@@ -1139,6 +1151,7 @@ async fn lookup_throttling() {
 	let mut network = TestNetwork::default();
 	let mut receiver = network.get_event_receiver().unwrap();
 	let network = Arc::new(network);
+	let _tempdir = tempfile::tempdir();
 	let mut worker = Worker::new(
 		from_service,
 		Arc::new(TestApi { authorities: remote_public_keys.clone() }),
@@ -1146,7 +1159,7 @@ async fn lookup_throttling() {
 		dht_event_rx.boxed(),
 		Role::Discover,
 		Some(default_registry().clone()),
-		Default::default(),
+		test_config(_tempdir.ok().map(|t| t.path().to_path_buf())),
 		create_spawner(),
 	);
 
@@ -1258,6 +1271,7 @@ async fn test_handle_put_record_request() {
 	let (_dht_event_tx, dht_event_rx) = channel(1);
 	let (_to_worker, from_service) = mpsc::channel(0);
 	let network = Arc::new(local_node_network);
+	let _tempdir = tempfile::tempdir();
 	let mut worker = Worker::new(
 		from_service,
 		Arc::new(TestApi { authorities: remote_public_keys.clone() }),
@@ -1265,7 +1279,7 @@ async fn test_handle_put_record_request() {
 		dht_event_rx.boxed(),
 		Role::Discover,
 		Some(default_registry().clone()),
-		Default::default(),
+		test_config(_tempdir.ok().map(|t| t.path().to_path_buf())),
 		create_spawner(),
 	);
 

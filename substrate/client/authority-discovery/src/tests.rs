@@ -17,11 +17,12 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{
-	new_worker_and_service,
+	new_worker_and_service_with_config,
 	worker::{
 		tests::{TestApi, TestNetwork},
 		Role,
 	},
+	WorkerConfig,
 };
 
 use futures::{channel::mpsc::channel, executor::LocalPool, task::LocalSpawn};
@@ -35,6 +36,14 @@ use sp_keystore::{testing::MemoryKeystore, Keystore};
 
 fn create_spawner() -> Arc<dyn SpawnNamed> {
 	Arc::new(TaskExecutor::new())
+}
+
+pub(super) fn test_config(path_buf: Option<std::path::PathBuf>) -> WorkerConfig {
+	if let Some(path) = path_buf.as_ref() {
+		// tempdir seems to in fact not create the dir. `fs::create_dir_all` fixes it.
+		std::fs::create_dir_all(path).unwrap();
+	}
+	WorkerConfig { persisted_cache_directory: path_buf, ..Default::default() }
 }
 
 #[tokio::test]
@@ -61,7 +70,9 @@ async fn get_addresses_and_authority_id() {
 
 	let test_api = Arc::new(TestApi { authorities: vec![] });
 
-	let (mut worker, mut service) = new_worker_and_service(
+	let _tempdir = tempfile::tempdir();
+	let (mut worker, mut service) = new_worker_and_service_with_config(
+		test_config(_tempdir.ok().map(|t| t.path().to_path_buf())),
 		test_api,
 		network.clone(),
 		Box::pin(dht_event_rx),

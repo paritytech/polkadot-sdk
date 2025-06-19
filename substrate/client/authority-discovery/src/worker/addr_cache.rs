@@ -25,11 +25,10 @@ use sp_authority_discovery::AuthorityId;
 use sp_runtime::DeserializeOwned;
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet},
-	fs::File,
-	io::{self, BufReader},
+	fs::{self, File},
+	io::{self, BufReader, Write},
 	path::Path,
 };
-use tokio::io::AsyncWriteExt;
 
 /// Cache for [`AuthorityId`] -> [`HashSet<Multiaddr>`] and [`PeerId`] -> [`HashSet<AuthorityId>`]
 /// mappings.
@@ -62,18 +61,18 @@ impl PartialEq for AddrCache {
 	}
 }
 
-async fn write_to_file_async(path: impl AsRef<Path>, contents: &str) -> tokio::io::Result<()> {
+fn write_to_file(path: impl AsRef<Path>, contents: &str) -> io::Result<()> {
 	let path = path.as_ref();
-	let mut file = tokio::fs::File::create(path).await?;
+	let mut file = File::create(path)?;
 
 	#[cfg(target_family = "unix")]
 	{
 		use std::os::unix::fs::PermissionsExt;
-		tokio::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600)).await?;
+		fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
 	}
 
-	file.write_all(contents.as_bytes()).await?;
-	file.flush().await?;
+	file.write_all(contents.as_bytes())?;
+	file.flush()?;
 	Ok(())
 }
 
@@ -102,10 +101,10 @@ impl AddrCache {
 		}).ok()
 	}
 
-	pub async fn persist(path: impl AsRef<Path>, serialized_cache: String) {
-		match write_to_file_async(path, &serialized_cache).await {
+	pub fn persist(path: impl AsRef<Path>, serialized_cache: String) {
+		match write_to_file(path.as_ref(), &serialized_cache) {
 			Err(err) => {
-				error!(target: super::LOG_TARGET, "Failed to persist AddrCache on disk: {}", err);
+				error!(target: super::LOG_TARGET, "Failed to persist AddrCache on disk at path: {}, error: {}", path.as_ref().display(), err);
 			},
 			Ok(_) => {
 				info!(target: super::LOG_TARGET, "Successfully persisted AddrCache on disk");
@@ -519,13 +518,12 @@ mod tests {
 		assert_eq!(deserialized.authority_id_to_addresses.len(), 2);
 	}
 
-	use std::io::Write;
-	fn write_to_file_sync<T: Serialize>(path: impl AsRef<Path>, contents: &T) -> io::Result<()> {
+	fn serialize_and_write_to_file<T: Serialize>(
+		path: impl AsRef<Path>,
+		contents: &T,
+	) -> io::Result<()> {
 		let serialized = serde_json::to_string_pretty(contents).unwrap();
-		let mut file = File::create(&path)?;
-		file.write_all(serialized.as_bytes())?;
-		file.flush()?;
-		Ok(())
+		write_to_file(path, &serialized)
 	}
 
 	#[test]
@@ -534,7 +532,7 @@ mod tests {
 		let path = dir.path().join("cache.json");
 		let sample = AddrCache::sample();
 		assert_eq!(sample.num_authority_ids(), 2);
-		write_to_file_sync(&path, &sample).unwrap();
+		serialize_and_write_to_file(&path, &sample).unwrap();
 		sleep(Duration::from_millis(10)); // Ensure file is written before loading
 		let cache = AddrCache::load_from_persisted_file(path);
 		assert_eq!(cache.num_authority_ids(), 2);

@@ -38,7 +38,7 @@ use ip_network::IpNetwork;
 use linked_hash_set::LinkedHashSet;
 use sc_network_types::kad::{Key, PeerRecord, Record};
 
-use log::{debug, error, trace};
+use log::{debug, error, trace, warn};
 use prometheus_endpoint::{register, Counter, CounterVec, Gauge, Opts, U64};
 use prost::Message;
 use rand::{seq::SliceRandom, thread_rng};
@@ -285,12 +285,14 @@ where
 		// If we have a path to persisted cache file, then we will try to
 		// load the contents of persisted cache from file, if it exists, and is valid.
 		// Create a new one otherwise.
-		let addr_cache: AddrCache =
-			if let Some(persisted_cache_file_path) = maybe_persisted_cache_file_path.as_ref() {
-				AddrCache::load_from_persisted_file(persisted_cache_file_path)
-			} else {
-				AddrCache::new()
-			};
+		let addr_cache: AddrCache = if let Some(persisted_cache_file_path) =
+			maybe_persisted_cache_file_path.as_ref()
+		{
+			AddrCache::load_from_persisted_file(persisted_cache_file_path)
+		} else {
+			warn!(target: LOG_TARGET, "Warning: No persisted cache file path provided, authority discovery will not persist the address cache to disk.");
+			AddrCache::new()
+		};
 
 		let metrics = match prometheus_registry {
 			Some(registry) => match Metrics::register(&registry) {
@@ -351,9 +353,7 @@ where
 		self.spawner.spawn(
 			"PersistAddrCache",
 			Some("AuthorityDiscoveryWorker"),
-			Box::pin(async move {
-				AddrCache::persist(path, serialized_cache).await;
-			}),
+			Box::pin(async move { AddrCache::persist(path, serialized_cache) }),
 		)
 	}
 
