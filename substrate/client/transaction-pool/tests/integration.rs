@@ -161,8 +161,8 @@ async fn send_future_mortal_txs() {
 		// so we get 3750KB. In the test scenario we aim for 5 txs per block roughly (not precesily)
 		// so to fill a block each user tx must have around 750kb. We aim for 5 txs per block
 		// because we send 50 ready txs which we want to distribute over 10 blocks, so mortal txs
-		// with lifetime lower than 10 should be declared invalid after the ready txs finalize, while
-		// mortal txs with bigger lifetime should be finalized.
+		// with lifetime lower than 10 should be declared invalid after the ready txs finalize,
+		// while mortal txs with bigger lifetime should be finalized.
 		.with_remark_recipe(750)
 		.with_executor_id("ready-txs-executor".to_string())
 		.build()
@@ -235,8 +235,8 @@ async fn send_lower_priority_mortal_txs() {
 		// so we get 3750KB. In the test scenario we aim for 5 txs per block roughly (not precesily)
 		// so to fill a block each user tx must have around 750kb. We aim for 5 txs per block
 		// because we send 50 ready txs which we want to distribute over 10 blocks, so mortal txs
-		// with lifetime lower than 10 should be declared invalid after the ready txs finalize, while
-		// mortal txs with bigger lifetime should be finalized.
+		// with lifetime lower than 10 should be declared invalid after the ready txs finalize,
+		// while mortal txs with bigger lifetime should be finalized.
 		.with_remark_recipe(750)
 		.with_tip(150)
 		.build()
@@ -249,10 +249,10 @@ async fn send_lower_priority_mortal_txs() {
 		.with_txs_count(10)
 		.with_executor_id("mortal-tx-executor-invalid".to_string())
 		.with_mortality(5)
-		/// Make it very hard for these mortal txs to be included in blocks, by making them big
-		/// enough to not let other txs be part of the same block as them, but also make sure they
-		/// have the lowest priority so that they are not included in a single tx block over other
-		/// txs. At some point they'll be starved and their lifetime will pass.
+		// Make it very hard for these mortal txs to be included in blocks, by making them big
+		// enough to not let other txs be part of the same block as them, but also make sure they
+		// have the lowest priority so that they are not included in a single tx block over other
+		// txs. At some point they'll be starved and their lifetime will pass.
 		.with_remark_recipe(3500)
 		.with_tip(50)
 		.build()
