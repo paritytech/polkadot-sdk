@@ -70,9 +70,9 @@ async fn get_addresses_and_authority_id() {
 
 	let test_api = Arc::new(TestApi { authorities: vec![] });
 
-	let _tempdir = tempfile::tempdir();
+	let tempdir = tempfile::tempdir();
 	let (mut worker, mut service) = new_worker_and_service_with_config(
-		test_config(_tempdir.ok().map(|t| t.path().to_path_buf())),
+		test_config(tempdir.ok().map(|t| t.path().to_path_buf())),
 		test_api,
 		network.clone(),
 		Box::pin(dht_event_rx),
