@@ -1,7 +1,7 @@
 ZOMBIENET_PROVIDER=native
 ZOMBIENET_IMAGE_FOR_NATIVE=docker.io/paritytech/zombienet:v1.3.133
 ZOMBIENET_DEFAULT_RUNNER_FOR_NATIVE=parity-default
-ZOMBIENET_LARGE_RUNNER_FOR_NATIVE=parity-large
+ZOMBIENET_LARGE_RUNNER_FOR_NATIVE=parity-large-sidecar
 ZOMBIENET_IMAGE_FOR_K8S=docker.io/paritytech/zombienet:v1.3.133
 ZOMBIENET_RUNNER_FOR_K8S=parity-zombienet
 PUSHGATEWAY_URL=http://prometheus-pushgateway.monitoring.svc.cluster.local:9091/metrics/job/zombie-metrics
