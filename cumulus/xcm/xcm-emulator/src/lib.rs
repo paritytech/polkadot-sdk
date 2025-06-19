@@ -145,7 +145,7 @@ where
 // Implement optional inherent code to be executed
 // This will be executed after on-initialize and before on-finalize
 pub trait AdditionalInherentCode {
-	fn execute_additional_inherents() -> DispatchResult {
+	fn on_new_block() -> DispatchResult {
 		Ok(())
 	}
 }
@@ -727,7 +727,7 @@ macro_rules! decl_test_parachains {
 							timestamp_set.dispatch(<Self as Chain>::RuntimeOrigin::none())
 						);
 						$crate::assert_ok!(
-							<Self as Parachain>::AdditionalInherentCode::execute_additional_inherents()
+							<Self as Parachain>::AdditionalInherentCode::on_new_block()
 						);
 					});
 				}
