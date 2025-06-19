@@ -48,7 +48,7 @@ pub struct RuntimeApiState {
 	// Candidate hashes per block
 	candidate_hashes: HashMap<H256, Vec<CandidateReceipt>>,
 	// Included candidates per bock
-	included_candidates: HashMap<H256, Vec<CandidateEvent>>,
+	candidate_events: HashMap<H256, Vec<CandidateEvent>>,
 	babe_epoch: Option<BabeEpoch>,
 	// The session child index,
 	session_index: SessionIndex,
@@ -77,7 +77,7 @@ impl MockRuntimeApi {
 		config: TestConfiguration,
 		authorities: TestAuthorities,
 		candidate_hashes: HashMap<H256, Vec<CandidateReceipt>>,
-		included_candidates: HashMap<H256, Vec<CandidateEvent>>,
+		candidate_events: HashMap<H256, Vec<CandidateEvent>>,
 		babe_epoch: Option<BabeEpoch>,
 		session_index: SessionIndex,
 		core_state: MockRuntimeApiCoreState,
@@ -107,7 +107,7 @@ impl MockRuntimeApi {
 			state: RuntimeApiState {
 				authorities,
 				candidate_hashes,
-				included_candidates,
+				candidate_events,
 				babe_epoch,
 				session_index,
 				node_features,
@@ -186,7 +186,7 @@ impl MockRuntimeApi {
 							request,
 							RuntimeApiRequest::CandidateEvents(sender),
 						) => {
-							let candidate_events = self.state.included_candidates.get(&request);
+							let candidate_events = self.state.candidate_events.get(&request);
 							let _ = sender.send(Ok(candidate_events.cloned().unwrap_or_default()));
 						},
 						RuntimeApiMessage::Request(
