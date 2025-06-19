@@ -121,6 +121,44 @@ impl<Block: BlockT> ParachainInformant<Block> {
 		}
 	}
 
+	/// Handle an import notification from the relay chain.
+	///
+	/// Ensures the RPC backed blocks reflect into the metrics and
+	/// performs the parachain logging.
+	async fn handle_import_notification(&mut self, n: RelayHeader) {
+		let candidate_events = match self.relay_chain_interface.candidate_events(n.hash()).await {
+			Ok(candidate_events) => candidate_events,
+			Err(e) => {
+				log::warn!("Failed to get candidate events for block {}: {e:?}", n.hash());
+				return;
+			},
+		};
+
+		self.handle_rpc_backed_blocks(candidate_events.iter());
+
+		self.handle_logging(candidate_events, &n);
+	}
+
+	fn handle_rpc_monitor_event(&mut self, event: TransactionMonitorEvent<Block::Hash>) {
+		let (block_hash, submitted_at) = match event {
+			sc_service::TransactionMonitorEvent::InBlock { block_hash, submitted_at } =>
+				(sp_core::H256::from_slice(block_hash.as_ref()), submitted_at),
+		};
+
+		if self.backed_blocks.peek(&block_hash).is_some() {
+			if let Some(metrics) = &self.metrics {
+				metrics
+					.transaction_backed_duration
+					.observe(submitted_at.elapsed().as_secs_f64());
+			}
+		} else {
+			// Received the transaction before the block is backed.
+			self.unresolved_tx
+				.get_or_insert(block_hash, || Vec::new())
+				.map(|pending| pending.push(submitted_at));
+		}
+	}
+
 	fn handle_rpc_backed_blocks<'a>(&mut self, events: impl Iterator<Item = &'a CandidateEvent>) {
 		let blocks = events.filter_map(|event| match event {
 			CandidateEvent::CandidateBacked(receipt, ..)
@@ -146,40 +184,11 @@ impl<Block: BlockT> ParachainInformant<Block> {
 		}
 	}
 
-	fn handle_rpc_monitor_event(&mut self, event: TransactionMonitorEvent<Block::Hash>) {
-		let (block_hash, submitted_at) = match event {
-			sc_service::TransactionMonitorEvent::InBlock { block_hash, submitted_at } =>
-				(sp_core::H256::from_slice(block_hash.as_ref()), submitted_at),
-		};
-
-		if self.backed_blocks.peek(&block_hash).is_some() {
-			if let Some(metrics) = &self.metrics {
-				metrics
-					.transaction_backed_duration
-					.observe(submitted_at.elapsed().as_secs_f64());
-			}
-		} else {
-			// Received the transaction before the block is backed.
-			self.unresolved_tx
-				.get_or_insert(block_hash, || Vec::new())
-				.map(|pending| pending.push(submitted_at));
-		}
-	}
-
-	async fn handle_import_notification(&mut self, n: RelayHeader) {
-		let candidate_events = match self.relay_chain_interface.candidate_events(n.hash()).await {
-			Ok(candidate_events) => candidate_events,
-			Err(e) => {
-				log::warn!("Failed to get candidate events for block {}: {e:?}", n.hash());
-				return;
-			},
-		};
-
-		self.handle_rpc_backed_blocks(candidate_events.iter());
-
+	fn handle_logging(&mut self, candidate_events: Vec<CandidateEvent>, n: &RelayHeader) {
 		let mut backed_candidates = Vec::new();
 		let mut included_candidates = Vec::new();
 		let mut timed_out_candidates = Vec::new();
+
 		for event in candidate_events {
 			match event {
 				CandidateEvent::CandidateBacked(_, head, _, _) => {
