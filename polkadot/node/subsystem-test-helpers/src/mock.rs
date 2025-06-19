@@ -59,3 +59,8 @@ pub fn new_leaf(hash: Hash, number: BlockNumber) -> ActivatedLeaf {
 pub fn new_block_import_info(hash: Hash, number: BlockNumber) -> BlockInfo {
 	BlockInfo { hash, parent_hash: Hash::default(), number, unpin_handle: dummy_unpin_handle(hash) }
 }
+
+/// Generate a new block info with the given number.
+pub fn generate_block_info(block_num: usize) -> BlockInfo {
+	new_block_import_info(Hash::repeat_byte(block_num as u8), block_num as BlockNumber)
+}
