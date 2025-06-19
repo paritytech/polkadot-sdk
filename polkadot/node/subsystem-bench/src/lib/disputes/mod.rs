@@ -146,6 +146,9 @@ pub async fn benchmark_dispute_coordinator(
 		gum::info!(target: LOG_TARGET, "Current block {}/{} {:?}", block_num, config.num_blocks, block_info.hash);
 		env.metrics().set_current_block(block_num);
 		env.import_block(block_info.clone()).await;
+
+		let (valid_candidate_receipt, invalid_candidate_receipt) =
+			state.candidate_receipts.get(&block_info.hash).unwrap();
 	}
 
 	let duration: u128 = test_start.elapsed().as_millis();
