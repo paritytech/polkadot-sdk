@@ -18,15 +18,26 @@
 use sp_runtime::DispatchError;
 use sp_core::H160;
 
+use crate::Pallet as Contracts;
 use crate::{
-	address, limits::code, precompiles::{BuiltinAddressMatcher, Error, Ext, PrimitivePrecompile}, Config
+	address, limits::code, precompiles::{BuiltinAddressMatcher, Error, Ext, Precompiles, PrimitivePrecompile}, Config
 };
+use crate::H256;
+use sp_core::U256;
+use sp_runtime::traits::Bounded;
+use crate::BalanceOf;
+use crate::MomentOf;
 use crate::address::AddressMapper;
 use core::{marker::PhantomData, num::NonZero};
 
 pub struct Create2<T>(PhantomData<T>);
 
-impl<T: Config>  PrimitivePrecompile for Create2<T> {
+impl<T: Config>  PrimitivePrecompile for Create2<T> 
+where
+	BalanceOf<T>: Into<U256> + TryFrom<U256> + Bounded,
+	MomentOf<T>: Into<U256>,
+	T::Hash: frame_support::traits::IsType<H256>,
+{
 	type T = T;
     const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(11).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
@@ -39,11 +50,19 @@ impl<T: Config>  PrimitivePrecompile for Create2<T> {
         println!("call create2, input_len(): {}", input.len());
         println!("address: {address:?}");
 
-        
+
+let gas_limit = frame_support::weights::Weight::MAX;
+
+        let x64 = 0u64;
+        let x256: U256 = U256::from(x64);
+        let x256 : U256 = x64.into();
+
+let storage_deposit_limit = crate::DepositLimit::<BalanceOf::<Self::T>>::UnsafeOnlyForDryRun;
+
         if input.len() < 160 {
             Err(DispatchError::from("invalid input length"))?;
         }
-        let endowment: &[u8; 32] = input[0..32].try_into().map_err(|_| DispatchError::from("invalid value length"))?;
+        let endowment: &[u8; 32] = input[0..32].try_into().map_err(|_| DispatchError::from("invalid endowment"))?;
         let code_offset: &[u8; 32] = input[32..64].try_into().map_err(|_| DispatchError::from("invalid code offset length"))?;
         let code_length: &[u8; 32] = input[64..96].try_into().map_err(|_| DispatchError::from("invalid code length length"))?;
         let salt_offset: &[u8; 32] = input[96..128].try_into().map_err(|_| DispatchError::from("invalid salt offset length"))?;
@@ -86,13 +105,17 @@ impl<T: Config>  PrimitivePrecompile for Create2<T> {
         let salt: &[u8; 32] = salt.try_into().map_err(|_| DispatchError::from("invalid salt length"))?;
 
         let contract_address = crate::address::create2(&deployer, code, &[], salt);
-        // CREATE2 ABI:
-        // [0..32]   = value
-        // [32..64]  = offset to code
-        // [64..96]  = length of code
-        // [96..128] = offset to salt
-        // [128..160]= length of salt
-        // [160..]   = code + salt
+
+        let endowment_val = u32::from_be_bytes(endowment[28..32].try_into().unwrap());
+        let instantiate_result = Contracts::<T>::bare_instantiate(
+            frame_system::RawOrigin::Signed(deployer_account_id.clone()).into(),
+endowment_val.into(),
+            gas_limit,
+            storage_deposit_limit,
+            crate::Code::Upload(code.to_vec()),
+            vec![], // input data for constructor, if any
+            Some(salt.clone()),
+        );
 
         // Pad the contract address to 32 bytes (left padding with zeros)
         let mut padded = [0u8; 32];

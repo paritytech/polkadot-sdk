@@ -50,12 +50,15 @@ use frame_support::{
 	},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, FixedFee, IdentityFee, Weight, WeightMeter},
 };
+// use sp_runtime::traits::Bounded;
+use num_traits::Bounded;
 use frame_system::{EventRecord, Phase};
 use pallet_revive_fixtures::compile_module;
 use pallet_revive_uapi::{ReturnErrorCode as RuntimeReturnCode, ReturnFlags};
 use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
 use pretty_assertions::{assert_eq, assert_ne};
 use sp_core::U256;
+//use crate::U256;
 use sp_io::hashing::blake2_256;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
@@ -230,6 +233,7 @@ impl frame_system::Config for Test {
 	type AccountId = AccountId32;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type AccountData = pallet_balances::AccountData<u64>;
+	type Hash = sp_runtime::testing::H256;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
@@ -624,6 +628,7 @@ fn create1_address_from_extrinsic() {
 		assert_eq!(System::account_nonce(&ALICE), 6);
 	});
 }
+
 
 #[test]
 fn deposit_event_max_value_limit() {
