@@ -324,7 +324,10 @@ pub async fn assert_blocks_are_being_finalized(
 		.ok_or(anyhow::anyhow!("Can't get finalized block from stream"))??
 		.number();
 
-	log::info!("Finalized {} blocks within {sleep_duration:?}", second_measurement - first_measurement);
+	log::info!(
+		"Finalized {} blocks within {sleep_duration:?}",
+		second_measurement - first_measurement
+	);
 	assert!(second_measurement > first_measurement);
 
 	Ok(())
