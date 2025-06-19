@@ -644,14 +644,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 								match delegate_voting.votes.binary_search_by_key(&poll_index, |v| v.poll_index)
 								{
 									Ok(idx) => {
-										let amount_delegated = conviction.votes(voting.delegated_balance);
-
-										// Reduce the retracted amount on the delegate's record.
-										let poll_vote = &mut delegate_voting.votes[idx];
-										poll_vote.retracted_votes = poll_vote.retracted_votes.saturating_sub(amount_delegated);
-
 										// Remove vote record if no longer necessary
-										if poll_vote.maybe_vote.is_none() && poll_vote.retracted_votes == Default::default()
+										if poll_vote.maybe_vote.is_none()
 										{
 											delegate_voting.votes.remove(idx);
 										}
@@ -680,14 +674,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 								match delegate_voting.votes.binary_search_by_key(&poll_index, |v| v.poll_index)
 								{
 									Ok(idx) => {
-										let amount_delegated = conviction.votes(voting.delegated_balance);
-
-										// Reduce the retracted amount on the delegate's record.
-										let poll_vote = &mut delegate_voting.votes[idx];
-										poll_vote.retracted_votes = poll_vote.retracted_votes.saturating_sub(amount_delegated);
-
 										// Remove vote record if no longer necessary
-										if poll_vote.maybe_vote.is_none() && poll_vote.retracted_votes == Default::default()
+										if poll_vote.maybe_vote.is_none()
 										{
 											delegate_voting.votes.remove(idx);
 										}
@@ -799,23 +787,33 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				// That the delegate has data for
 				match votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
 					Ok(i) => {
-						// Remove the clawback
-						votes[i].retracted_votes = votes[i].retracted_votes.saturating_sub(amount);
-						// Increase the tally by that amount if the delegate has voted standard and the poll is ongoing
-						if let Some(AccountVote::Standard { vote, .. }) = votes[i].maybe_vote {
-							T::Polls::access_poll(poll_index, |poll_status| {
-								if let PollStatus::Ongoing(tally, _) = poll_status {
-									tally.increase(vote.aye, amount);
+						// Get poll state
+						let mut poll_ended = false;
+						T::Polls::access_poll(poll_index, |poll_status| {
+							match poll_status {
+								// If ongoing
+								PollStatus::Ongoing(tally, _) => {
+									// Remove the clawback
+									votes[i].retracted_votes = votes[i].retracted_votes.saturating_sub(amount);
+									
+									// And increase the tally by clawback amount if the delegate has voted standard
+									if let Some(AccountVote::Standard { vote, .. }) = votes[i].maybe_vote {
+										tally.increase(vote.aye, amount);
+									}
+								},
+								.. => {
+									// Poll is done or was cancelled, can remove voting record
+									poll_ended = true;
 								}
-							});
-						}
+							}
+						});
 						// And remove the voting data if there's no longer a reason to hold
-						if votes[i].maybe_vote.is_none() && votes[i].retracted_votes == Default::default() {
+						if votes[i].maybe_vote.is_none() && (votes[i].retracted_votes == Default::default() || poll_ended) {
 							votes.remove(i);
 						}
 					},
 					Err(_i) => {
-						// Delegate may have already removed the vote if Completed or Cancelled
+						// Delegate may have already removed the vote if poll completed or was cancelled
 					},
 				}
 			}
