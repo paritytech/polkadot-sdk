@@ -511,7 +511,7 @@ fn hrmp_outbound_respects_used_bandwidth() {
 fn runtime_upgrade_events() {
 	BlockTests::new()
 		.with_relay_sproof_builder(|_, block_number, builder| {
-			if block_number > 123 {
+			if block_number == 1234 {
 				builder.upgrade_go_ahead = Some(relay_chain::UpgradeGoAhead::GoAhead);
 			}
 		})
@@ -534,14 +534,26 @@ fn runtime_upgrade_events() {
 			|| {
 				let events = System::events();
 
-				assert_eq!(events[0].event, RuntimeEvent::System(frame_system::Event::CodeUpdated));
-
 				assert_eq!(
-					events[1].event,
+					events[0].event,
 					RuntimeEvent::ParachainSystem(crate::Event::ValidationFunctionApplied {
 						relay_chain_block_num: 1234
 					})
 				);
+
+				assert!(System::digest()
+					.logs()
+					.iter()
+					.all(|d| *d != sp_runtime::generic::DigestItem::RuntimeEnvironmentUpdated));
+			},
+		)
+		.add_with_post_test(
+			1235,
+			|| {},
+			|| {
+				let events = System::events();
+
+				assert_eq!(events[0].event, RuntimeEvent::System(frame_system::Event::CodeUpdated));
 
 				assert!(System::digest()
 					.logs()
