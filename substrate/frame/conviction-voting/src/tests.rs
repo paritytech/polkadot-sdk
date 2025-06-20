@@ -808,6 +808,121 @@ fn lock_aggregation_over_different_classes_with_casting_works() {
 }
 
 #[test]
+fn lock_aggregation_with_delegation_and_voting_unlocks_correctly() {
+    new_test_ext().execute_with(|| {
+        Polls::set(vec![ (0, Ongoing(Tally::new(0), 0)), (1, Ongoing(Tally::new(0), 1)) ].into_iter().collect());
+
+        assert_eq!(Balances::free_balance(1), 10);
+
+		// Apply voting lock.
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 0, aye(5, 2)));
+        assert_eq!(Balances::usable_balance(1), 5);
+
+		// Apply delegation lock on separate class.
+        assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 1, 3, Conviction::Locked1x, 10));
+        assert_eq!(Balances::usable_balance(1), 0);
+
+        next_block();
+        Polls::set(vec![(0, Completed(2, true)), (1, Completed(2, true))].into_iter().collect());
+
+		// Begin unlocking for both.
+        assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), Some(0), 0));
+        assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 1));
+		assert_eq!(Balances::usable_balance(1), 0);
+
+		// Max of delegation and voting locks should still apply.
+        run_to(4);
+        assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
+		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 1, 1));
+        assert_eq!(Balances::usable_balance(1), 0);
+
+		// Delegation lock should have unlocked.
+        run_to(5);
+        assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
+		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 1, 1));
+        assert_eq!(Balances::usable_balance(1), 5);
+
+		// Vote lock should have unlocked.
+		run_to(8);
+        assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
+		assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 1, 1));
+        assert_eq!(Balances::usable_balance(1), 10);
+    });
+}
+
+#[test]
+fn lock_amalgamation_with_delegation_and_voting_unlocks_correctly() {
+	new_test_ext().execute_with(|| {
+        Polls::set(vec![(0, Ongoing(Tally::new(0), 0))].into_iter().collect());
+
+        assert_eq!(Balances::free_balance(1), 10);
+
+		// Apply voting lock.
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 0, aye(5, 2)));
+        assert_eq!(Balances::usable_balance(1), 5);
+
+		// Apply delegation lock on same class.
+        assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 3, Conviction::Locked1x, 10));
+        assert_eq!(Balances::usable_balance(1), 0);
+
+        next_block();
+        Polls::set(vec![(0, Completed(2, true))].into_iter().collect());
+
+		// Begin unlocking for both.
+        assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), Some(0), 0));
+        assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
+		assert_eq!(Balances::usable_balance(1), 0);
+
+		// Max of delegation and voting locks should still apply.
+        run_to(4);
+        assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
+        assert_eq!(Balances::usable_balance(1), 0);
+
+		// Delegation lock should have unlocked, but amalgamation with voting lock should keep
+		// everything locked.
+        run_to(5);
+        assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
+        assert_eq!(Balances::usable_balance(1), 0);
+
+		// Vote lock should have unlocked.
+		run_to(8);
+        assert_ok!(Voting::unlock(RuntimeOrigin::signed(1), 0, 1));
+        assert_eq!(Balances::usable_balance(1), 10);
+    });
+}
+
+#[test]
+fn delegators_votes_dont_affect_delegates_locks() {
+    new_test_ext().execute_with(|| {
+        Polls::set(
+            vec![(0, Ongoing(Tally::new(0), 0))]
+                .into_iter()
+                .collect(),
+        );
+        let class: u8 = 0;
+        let delegator = 1;
+        let delegate = 2;
+
+		// Delegator delegates then votes. Delegate's balance should remain unlocked.
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(delegator), class, delegate, Conviction::Locked1x, 10));
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), 0, aye(5, 1)));
+		assert_eq!(Balances::usable_balance(delegator), 0);
+		assert_eq!(Balances::usable_balance(delegate), 20);
+
+		// Poll ends, delegator removes their vote. Still unlocked.
+        next_block();
+        Polls::set(vec![(0, Completed(2, true))].into_iter().collect());
+        assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(delegator), Some(class), 0));
+        assert_eq!(Balances::usable_balance(delegate), 20);
+
+        run_to(5);
+        assert_ok!(Voting::unlock(RuntimeOrigin::signed(delegator), class, delegator));
+		assert_eq!(Balances::usable_balance(delegator), 0);
+        assert_eq!(Balances::usable_balance(delegate), 20);
+    });
+}
+
+#[test]
 fn errors_with_vote_work() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
