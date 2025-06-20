@@ -49,6 +49,7 @@ rand_chacha = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
+insecure_zero_ed=["pallet-balances/insecure_zero_ed"]
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",
@@ -73,6 +74,7 @@ runtime-benchmarks = [
 	"rand_chacha",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",

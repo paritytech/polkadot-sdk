@@ -53,7 +53,7 @@ pub fn create_funded_user<T: Config>(
 	balance_factor: u32,
 ) -> T::AccountId {
 	let user = account(string, n, SEED);
-	let balance = T::Currency::minimum_balance() * balance_factor.into();
+	let balance = T::Currency::minimum_balance().max(1u64.into()) * balance_factor.into();
 	let _ = T::Currency::make_free_balance_be(&user, balance);
 	user
 }
@@ -96,7 +96,7 @@ pub fn create_unique_stash_controller<T: Config>(
 	} else {
 		create_funded_user::<T>("controller", n, balance_factor)
 	};
-	let amount = T::Currency::minimum_balance() * (balance_factor / 10).max(1).into();
+	let amount = T::Currency::minimum_balance().max(1u64.into()) * (balance_factor / 10).max(1).into();
 	Staking::<T>::bond(RawOrigin::Signed(stash.clone()).into(), amount, destination)?;
 
 	// update ledger to be a *different* controller to stash
@@ -129,7 +129,7 @@ pub fn create_stash_and_dead_payee<T: Config>(
 	let staker = create_funded_user::<T>("stash", n, 0);
 	// payee has no funds
 	let payee = create_funded_user::<T>("payee", n, 0);
-	let amount = T::Currency::minimum_balance() * (balance_factor / 10).max(1).into();
+	let amount = T::Currency::minimum_balance().max(1u64.into()) * (balance_factor / 10).max(1).into();
 	Staking::<T>::bond(
 		RawOrigin::Signed(staker.clone()).into(),
 		amount,

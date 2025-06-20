@@ -111,7 +111,7 @@ impl FindAuthor<AccountId> for Author11 {
 
 parameter_types! {
 	pub static SessionsPerEra: SessionIndex = 3;
-	pub static ExistentialDeposit: Balance = 1;
+	pub static ExistentialDeposit: Balance = 0;
 	pub static SlashDeferDuration: EraIndex = 0;
 	pub static Period: BlockNumber = 5;
 	pub static Offset: BlockNumber = 0;
@@ -339,8 +339,8 @@ impl Default for ExtBuilder {
 			invulnerables: vec![],
 			has_stakers: true,
 			initialize_first_session: true,
-			min_nominator_bond: ExistentialDeposit::get(),
-			min_validator_bond: ExistentialDeposit::get(),
+			min_nominator_bond: ExistentialDeposit::get().max(1u64.into()),
+			min_validator_bond: ExistentialDeposit::get().max(1u64.into()),
 			status: Default::default(),
 			stakes: Default::default(),
 			stakers: Default::default(),
