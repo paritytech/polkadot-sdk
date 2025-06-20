@@ -21,6 +21,7 @@ pub use pallet_asset_conversion;
 pub use pallet_assets;
 pub use pallet_balances;
 pub use pallet_message_queue;
+pub use pallet_whitelist;
 pub use pallet_xcm;
 
 pub use frame_support::assert_ok;
@@ -1112,4 +1113,19 @@ macro_rules! create_pool_with_native_on {
 			});
 		}
 	};
+}
+
+#[macro_export]
+macro_rules! assert_whitelisted {
+    ($chain:ident, $expected_call_hash:expr) => {
+		type RuntimeEvent = <$chain as $crate::macros::Chain>::RuntimeEvent;
+		$crate::macros::assert_expected_events!(
+			$chain,
+			vec![
+				RuntimeEvent::Whitelist($crate::macros::pallet_whitelist::Event::CallWhitelisted { call_hash }) => {
+						call_hash: *call_hash == $expected_call_hash,
+				},
+			]
+		);
+    };
 }

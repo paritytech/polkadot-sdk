@@ -18,10 +18,12 @@ paste = { workspace = true, default-features = true }
 
 # Substrate
 frame-support = { workspace = true, default-features = true }
+frame-system = { workspace = true, default-features = true }
 pallet-asset-conversion = { workspace = true, default-features = true }
 pallet-assets = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-message-queue = { workspace = true, default-features = true }
+pallet-whitelist = { workspace = true, default-features = true }
 sc-consensus-grandpa = { workspace = true, default-features = true }
 sp-authority-discovery = { workspace = true, default-features = true }
 sp-consensus-babe = { workspace = true, default-features = true }
