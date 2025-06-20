@@ -49,9 +49,9 @@ sp-runtime = { workspace = true }
 sp-session = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-version = { workspace = true }
+xcm.workspace = true
 xcm-builder.workspace = true
 xcm-executor.workspace = true
-xcm.workspace = true
 
 # Polkadot
 polkadot-parachain-primitives = { workspace = true }

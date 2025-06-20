@@ -132,6 +132,7 @@ pub mod pallet {
 		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().writes(1))]
+		#[allow(clippy::useless_conversion)]
 		pub fn do_something(origin: OriginFor<T>, bn: u32) -> DispatchResultWithPostInfo {
 			// Check that the extrinsic was signed and get the signer.
 			// This function will return an error if the extrinsic is not signed.
@@ -155,6 +156,7 @@ pub mod pallet {
 		/// An example dispatchable that may throw a custom error.
 		#[pallet::call_index(1)]
 		#[pallet::weight(Weight::from_parts(10_000, 0) + T::DbWeight::get().reads_writes(1,1))]
+		#[allow(clippy::useless_conversion)]
 		pub fn cause_error(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let _who = ensure_signed(origin)?;
 
