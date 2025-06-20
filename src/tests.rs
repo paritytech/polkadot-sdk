@@ -176,7 +176,7 @@ impl crate::RemoteProxyInterface<u64, ProxyType, u64> for RemoteProxyImpl {
 			sp_trie::TrieDBMutBuilder::<sp_trie::LayoutV1<_>>::new(&mut db, &mut root).build();
 
 		let proxy_definition = vec![ProxyDefinition::<u64, ProxyType, u64> {
-			delegate: caller.clone(),
+			delegate: *caller,
 			proxy_type: ProxyType::default(),
 			delay: 0,
 		}];
