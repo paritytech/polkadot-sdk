@@ -112,6 +112,7 @@ members = [
 	"cumulus/parachains/integration-tests/emulated/tests/collectives/collectives-westend",
 	"cumulus/parachains/integration-tests/emulated/tests/coretime/coretime-rococo",
 	"cumulus/parachains/integration-tests/emulated/tests/coretime/coretime-westend",
+	"cumulus/parachains/integration-tests/emulated/tests/governance/westend",
 	"cumulus/parachains/integration-tests/emulated/tests/people/people-rococo",
 	"cumulus/parachains/integration-tests/emulated/tests/people/people-westend",
 	"cumulus/parachains/pallets/collective-content",
