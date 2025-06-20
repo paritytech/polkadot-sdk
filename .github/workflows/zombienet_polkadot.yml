@@ -21,6 +21,8 @@ env:
   X_INFRA_INSTANCE: "spot"
   # don't retry sdk tests
   NEXTEST_RETRIES: 0
+  KUBECONFIG: "/data/config"
+  ZOMBIE_CLEANER_DISABLED: 1
 
 # only run if we have changes in [subtrate, polkadot] directories or this workflow.
 jobs:
