@@ -38,7 +38,7 @@ async function run(nodeName, networkInfo) {
                 console.log(`CandidateIncluded for ${included_para_id}: block_offset=${block_count} relay_parent=${relay_parent}`);
             });
 
-            if (block_count == 6) {
+            if (block_count == 12) {
                 unsubscribe();
                 return resolve();
             }
@@ -48,11 +48,7 @@ async function run(nodeName, networkInfo) {
     console.log(`Result: 2000: ${blocks_per_para[2000]}, 2001: ${blocks_per_para[2001]}`);
     // This check assumes that para 2000 runs slot based collator which respects its claim queue
     // and para 2001 runs lookahead which generates blocks for each relay parent.
-    //
-    // We don't want to be too strict here because we don't know what candidates were included in
-    // the previous session. So we assume that para 2001 shouldn't have more than 2 blocks for the
-    // last session and para 2000 should have at least 3.
-    return (blocks_per_para[2000] >= 3) && (blocks_per_para[2001] <= 2);
+    return (blocks_per_para[2000] >= 6) && (blocks_per_para[2001] <= 4);
 }
 
 module.exports = { run };
