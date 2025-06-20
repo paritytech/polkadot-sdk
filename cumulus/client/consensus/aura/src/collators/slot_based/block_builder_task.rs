@@ -250,11 +250,9 @@ where
 			let Ok(RelayChainData {
 				relay_parent_header,
 				max_pov_size,
-				scheduled_cores,
+				claim_queue,
 				claimed_cores,
-			}) = relay_chain_data_cache
-				.get_mut_relay_chain_data(relay_parent, claim_queue_offset)
-				.await
+			}) = relay_chain_data_cache.get_mut_relay_chain_data(relay_parent).await
 			else {
 				continue;
 			};

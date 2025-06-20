@@ -145,18 +145,13 @@ async fn scheduling_lookahead(
 	}
 }
 
-// Return all the cores assigned to the para at the provided relay parent, using the claim queue
-// offset.
-// Will return an empty vec if the provided offset is higher than the claim queue length (which
-// corresponds to the scheduling_lookahead on the relay chain).
-async fn cores_scheduled_for_para(
+// Returns the claim queue at the given relay parent.
+async fn claim_queue_at(
 	relay_parent: RelayHash,
-	para_id: ParaId,
 	relay_client: &impl RelayChainInterface,
-	claim_queue_offset: ClaimQueueOffset,
-) -> Vec<CoreIndex> {
+) -> ClaimQueueSnapshot {
 	// Get `ClaimQueue` from runtime
-	let claim_queue: ClaimQueueSnapshot = match relay_client.claim_queue(relay_parent).await {
+	match relay_client.claim_queue(relay_parent).await {
 		Ok(claim_queue) => claim_queue.into(),
 		Err(error) => {
 			tracing::error!(
@@ -165,14 +160,9 @@ async fn cores_scheduled_for_para(
 				?relay_parent,
 				"Failed to query claim queue runtime API",
 			);
-			return Vec::new()
+			Default::default()
 		},
-	};
-
-	claim_queue
-		.iter_claims_at_depth(claim_queue_offset.0 as usize)
-		.filter_map(|(core_index, core_para_id)| (core_para_id == para_id).then_some(core_index))
-		.collect()
+	}
 }
 
 // Checks if we own the slot at the given block and whether there

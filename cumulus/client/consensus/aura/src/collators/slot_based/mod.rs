@@ -267,25 +267,3 @@ struct CollatorMessage<Block: BlockT> {
 	pub max_pov_size: u32,
 }
 
-/// Fetch the `CoreSelector` and `ClaimQueueOffset` for `parent_hash`.
-fn core_selector<Block: BlockT, Client>(
-	para_client: &Client,
-	parent_hash: Block::Hash,
-	parent_number: NumberFor<Block>,
-) -> Result<(CoreSelector, ClaimQueueOffset), sp_api::ApiError>
-where
-	Client: ProvideRuntimeApi<Block> + Send + Sync,
-	Client::Api: GetCoreSelectorApi<Block>,
-{
-	let runtime_api = para_client.runtime_api();
-
-	if runtime_api.has_api::<dyn GetCoreSelectorApi<Block>>(parent_hash)? {
-		Ok(runtime_api.core_selector(parent_hash)?)
-	} else {
-		let next_block_number: U256 = (parent_number + One::one()).into();
-
-		// If the runtime API does not support the core selector API, fallback to some default
-		// values.
-		Ok((CoreSelector(next_block_number.byte(0)), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)))
-	}
-}

@@ -47,7 +47,7 @@ use polkadot_primitives::{
 	vstaging::DEFAULT_CLAIM_QUEUE_OFFSET, CollatorPair, Id as ParaId, OccupiedCoreAssumption,
 };
 
-use crate::{collator as collator_util, export_pov_to_path};
+use crate::{collator as collator_util, collators::claim_queue_at, export_pov_to_path};
 use futures::prelude::*;
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
@@ -220,17 +220,13 @@ where
 		while let Some(relay_parent_header) = import_notifications.next().await {
 			let relay_parent = relay_parent_header.hash();
 
-			let core_index = if let Some(core_index) = super::cores_scheduled_for_para(
-				relay_parent,
-				params.para_id,
-				&mut params.relay_client,
-				ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET),
-			)
-			.await
-			.get(0)
-			{
-				*core_index
-			} else {
+			let Some(core_index) = claim_queue_at(relay_parent, &mut params.relay_client)
+				.await
+				.iter_claims_at_depth(0)
+				.find_map(
+					|(core, para_id)| if para_id == params.para_id { Some(core) } else { None },
+				)
+			else {
 				tracing::trace!(
 					target: crate::LOG_TARGET,
 					?relay_parent,

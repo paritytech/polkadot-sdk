@@ -17,7 +17,7 @@
 
 //! Utility for caching [`RelayChainData`] for different relay blocks.
 
-use crate::collators::cores_scheduled_for_para;
+use crate::collators::{claim_queue_at, cores_scheduled_for_para};
 use cumulus_primitives_core::ClaimQueueOffset;
 use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_primitives::{
@@ -31,8 +31,8 @@ use std::collections::BTreeSet;
 pub struct RelayChainData {
 	/// Current relay chain parent header.
 	pub relay_parent_header: RelayHeader,
-	/// The cores on which the para is scheduled at the configured claim queue offset.
-	pub scheduled_cores: Vec<CoreIndex>,
+	/// The claim queue at the relay parent.
+	pub claim_queue: ClaimQueueSnapshot,
 	/// Maximum configured PoV size on the relay chain.
 	pub max_pov_size: u32,
 	/// The claimed cores at a relay parent.
@@ -66,14 +66,13 @@ where
 	pub async fn get_mut_relay_chain_data(
 		&mut self,
 		relay_parent: RelayHash,
-		claim_queue_offset: ClaimQueueOffset,
 	) -> Result<&mut RelayChainData, ()> {
 		let insert_data = if self.cached_data.peek(&relay_parent).is_some() {
 			tracing::trace!(target: crate::LOG_TARGET, %relay_parent, "Using cached data for relay parent.");
 			None
 		} else {
 			tracing::trace!(target: crate::LOG_TARGET, %relay_parent, "Relay chain best block changed, fetching new data from relay chain.");
-			Some(self.update_for_relay_parent(relay_parent, claim_queue_offset).await?)
+			Some(self.update_for_relay_parent(relay_parent).await?)
 		};
 
 		Ok(self
@@ -85,18 +84,8 @@ where
 	}
 
 	/// Fetch fresh data from the relay chain for the given relay parent hash.
-	async fn update_for_relay_parent(
-		&self,
-		relay_parent: RelayHash,
-		claim_queue_offset: ClaimQueueOffset,
-	) -> Result<RelayChainData, ()> {
-		let scheduled_cores = cores_scheduled_for_para(
-			relay_parent,
-			self.para_id,
-			&self.relay_client,
-			claim_queue_offset,
-		)
-		.await;
+	async fn update_for_relay_parent(&self, relay_parent: RelayHash) -> Result<RelayChainData, ()> {
+		let claim_queue = claim_queue_at(relay_parent, &self.relay_client).await;
 
 		let Ok(Some(relay_parent_header)) =
 			self.relay_client.header(BlockId::Hash(relay_parent)).await
@@ -120,7 +109,7 @@ where
 
 		Ok(RelayChainData {
 			relay_parent_header,
-			scheduled_cores,
+			claim_queue,
 			max_pov_size,
 			claimed_cores: BTreeSet::new(),
 		})
