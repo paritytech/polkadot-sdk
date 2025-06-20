@@ -534,10 +534,7 @@ experimental = [
 ]
 with-tracing = [
 	"frame-executive?/with-tracing",
-	"frame-executive?/with-tracing",
 	"sp-io?/with-tracing",
-	"sp-io?/with-tracing",
-	"sp-tracing?/with-tracing",
 	"sp-tracing?/with-tracing",
 ]
 runtime-full = [
