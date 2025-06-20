@@ -121,35 +121,33 @@ fn relaychain_can_authorize_upgrade_for_system_chains() {
 	let code_hash_coretime = [4u8; 32].into();
 	let code_hash_people = [5u8; 32].into();
 
-	let fallback_max_weight = Some(Weight::from_parts(5_000_000_000, 500_000));
-
 	let authorize_upgrade =
 		WestendRuntimeCall::Utility(pallet_utility::Call::<WestendRuntime>::force_batch {
 			calls: vec![
 				build_xcm_send_authorize_upgrade_call::<Westend, AssetHubWestend>(
 					Westend::child_location_of(AssetHubWestend::para_id()),
 					&code_hash_asset_hub,
-					fallback_max_weight,
+					None,
 				),
 				build_xcm_send_authorize_upgrade_call::<Westend, BridgeHubWestend>(
 					Westend::child_location_of(BridgeHubWestend::para_id()),
 					&code_hash_bridge_hub,
-					fallback_max_weight,
+					None,
 				),
 				build_xcm_send_authorize_upgrade_call::<Westend, CollectivesWestend>(
 					Westend::child_location_of(CollectivesWestend::para_id()),
 					&code_hash_collectives,
-					fallback_max_weight,
+					None,
 				),
 				build_xcm_send_authorize_upgrade_call::<Westend, CoretimeWestend>(
 					Westend::child_location_of(CoretimeWestend::para_id()),
 					&code_hash_coretime,
-					fallback_max_weight,
+					None,
 				),
 				build_xcm_send_authorize_upgrade_call::<Westend, PeopleWestend>(
 					Westend::child_location_of(PeopleWestend::para_id()),
 					&code_hash_people,
-					fallback_max_weight,
+					None,
 				),
 			],
 		});
