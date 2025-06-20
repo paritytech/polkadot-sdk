@@ -301,7 +301,7 @@ jobs:
       - name: download_release_bins
         shell: bash
         run: |
-          BIN_DIR="$(pwd)/bin"
+          BIN_DIR="$(pwd)/bin_old"
           mkdir -p $BIN_DIR
           for bin in polkadot polkadot-execute-worker polkadot-prepare-worker polkadot-parachain; do
             OLD_NAME="$bin-old"
