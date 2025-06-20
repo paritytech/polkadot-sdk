@@ -44,6 +44,13 @@ pub struct Extensions {
 	pub relay_chain: String,
 }
 
+impl Extensions {
+	/// Try to get the extension from the given `ChainSpec`.
+	pub fn try_get(chain_spec: &dyn sc_service::ChainSpec) -> Option<&Self> {
+		sc_chain_spec::get_extension(chain_spec.extensions())
+	}
+}
+
 /// Generic extensions for Parachain ChainSpecs used for extracting the extensions from chain specs.
 /// This is also used only while `para_id` is around the corner.
 // TODO: https://github.com/paritytech/polkadot-sdk/issues/8747
@@ -61,13 +68,6 @@ pub struct DeprecatedExtensions {
 		note = "The para_id information is not required anymore and will be removed starting with `stable2512`. Runtimes must implement a new API called `cumulus_primitives_core::GetParachainIdentifier` to still be compatible with node versions starting with `stable2512`."
 	)]
 	pub para_id: Option<u32>,
-}
-
-impl Extensions {
-	/// Try to get the extension from the given `ChainSpec`.
-	pub fn try_get(chain_spec: &dyn sc_service::ChainSpec) -> Option<&Self> {
-		sc_chain_spec::get_extension(chain_spec.extensions())
-	}
 }
 
 impl DeprecatedExtensions {
