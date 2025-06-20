@@ -31,7 +31,7 @@ mod builder;
 mod metrics;
 mod task_manager;
 
-use crate::{builder::RpcModuleData, config::Multiaddr};
+use crate::config::Multiaddr;
 use std::{
 	collections::HashMap,
 	net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
@@ -61,8 +61,8 @@ pub use self::{
 		new_client, new_db_backend, new_full_client, new_full_parts, new_full_parts_record_import,
 		new_full_parts_with_genesis_builder, new_wasm_executor,
 		propagate_transaction_notifications, spawn_tasks, BuildNetworkAdvancedParams,
-		BuildNetworkParams, DefaultSyncingEngineConfig, KeystoreContainer, SpawnTasksParams,
-		TFullBackend, TFullCallExecutor, TFullClient,
+		BuildNetworkParams, DefaultSyncingEngineConfig, KeystoreContainer, RpcModuleData,
+		SpawnTasksParams, TFullBackend, TFullCallExecutor, TFullClient,
 	},
 	client::{ClientConfig, LocalCallExecutor},
 	error::Error,
@@ -382,24 +382,24 @@ pub async fn build_system_rpc_future<
 }
 
 /// The data returned by starting the RPC server.
-pub struct RpcServerData<Block: BlockT> {
+pub struct RpcServerData<Hash: Clone> {
 	/// The RPC server instance.
 	pub server: Server,
 	/// Specific handler for the RPC transactions.
-	pub transaction_v2_handle: sc_rpc_spec_v2::transaction::TransactionMonitorHandle<Block::Hash>,
+	pub transaction_v2_handle: sc_rpc_spec_v2::transaction::TransactionMonitorHandle<Hash>,
 }
 
 /// Starts RPC servers.
-pub fn start_rpc_servers<R, Block>(
+pub fn start_rpc_servers<R, Hash>(
 	rpc_configuration: &RpcConfiguration,
 	registry: Option<&Registry>,
 	tokio_handle: &Handle,
 	gen_rpc_module: R,
 	rpc_id_provider: Option<Box<dyn sc_rpc_server::SubscriptionIdProvider>>,
-) -> Result<RpcServerData<Block>, error::Error>
+) -> Result<RpcServerData<Hash>, error::Error>
 where
-	Block: BlockT,
-	R: Fn() -> Result<RpcModuleData<Block>, Error>,
+	Hash: Clone,
+	R: Fn() -> Result<RpcModuleData<Hash>, Error>,
 {
 	let endpoints: Vec<sc_rpc_server::RpcEndpoint> = if let Some(endpoints) =
 		rpc_configuration.addr.as_ref()

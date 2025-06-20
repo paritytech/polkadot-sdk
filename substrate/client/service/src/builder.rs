@@ -767,12 +767,13 @@ where
 	Ok(telemetry.handle())
 }
 
-pub struct RpcModuleData<TBl: BlockT> {
+/// RPC module data structure.
+pub struct RpcModuleData<Hash: Clone> {
 	/// The RPC module used to instantiate the RPC server.
 	pub module: RpcModule<()>,
 
 	/// Specific handler for the RPC transactions.
-	pub transaction_v2_handle: sc_rpc_spec_v2::transaction::TransactionMonitorHandle<TBl::Hash>,
+	pub transaction_v2_handle: sc_rpc_spec_v2::transaction::TransactionMonitorHandle<Hash>,
 }
 
 /// Generate RPC module using provided configuration
@@ -790,7 +791,7 @@ pub fn gen_rpc_module<TBl, TBackend, TCl, TRpc, TExPool>(
 	backend: Arc<TBackend>,
 	rpc_builder: &(dyn Fn(SubscriptionTaskExecutor) -> Result<RpcModule<TRpc>, Error>),
 	metrics: Option<sc_rpc_spec_v2::transaction::TransactionMetrics>,
-) -> Result<RpcModuleData<TBl>, Error>
+) -> Result<RpcModuleData<TBl::Hash>, Error>
 where
 	TBl: BlockT,
 	TCl: ProvideRuntimeApi<TBl>

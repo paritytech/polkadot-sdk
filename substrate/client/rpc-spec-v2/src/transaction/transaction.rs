@@ -89,7 +89,7 @@ where
 				tx_announce,
 				metrics,
 			},
-			TransactionMonitorHandle(rx_announce),
+			TransactionMonitorHandle(Some(rx_announce)),
 		)
 	}
 }
@@ -236,8 +236,9 @@ fn handle_event<Hash: Clone, BlockHash: Clone>(
 }
 
 /// Handle for the transaction monitor.
+#[derive(Default)]
 pub struct TransactionMonitorHandle<Hash: Clone>(
-	tokio::sync::mpsc::Receiver<TransactionMonitorEvent<Hash>>,
+	Option<tokio::sync::mpsc::Receiver<TransactionMonitorEvent<Hash>>>,
 );
 
 /// An event emitted by the transaction monitor.
@@ -262,6 +263,9 @@ impl<Hash: Clone> Stream for TransactionMonitorHandle<Hash> {
 		self: std::pin::Pin<&mut Self>,
 		cx: &mut std::task::Context<'_>,
 	) -> std::task::Poll<Option<Self::Item>> {
-		self.get_mut().0.poll_recv(cx)
+		if let Some(rx) = self.get_mut().0.as_mut() {
+			return rx.poll_recv(cx);
+		}
+		std::task::Poll::Pending
 	}
 }
