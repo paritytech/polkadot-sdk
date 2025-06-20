@@ -499,7 +499,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 								// Not found, add empty vote and clawback amount
 								Err(i) => {
 									let poll_vote = PollVote {poll_index: poll_index, maybe_vote: None, retracted_votes: amount_delegated};
-									votes
+									delegates_votes
 										.try_insert(i, poll_vote)
 										.map_err(|_| Error::<T, I>::DelegateMaxVotesReached.into())
 								},
