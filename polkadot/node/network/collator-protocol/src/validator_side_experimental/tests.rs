@@ -1678,8 +1678,11 @@ async fn test_collation_fetch_failure() {
 			peer_id,
 			para_id: 100.into(),
 			relay_parent: active_leaf,
-			prospective_candidate: (version == CollationVersion::V2)
-				.then_some(prospective_candidate.unwrap()),
+			prospective_candidate: if version == CollationVersion::V2 {
+				prospective_candidate
+			} else {
+				None
+			},
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, version).await;
