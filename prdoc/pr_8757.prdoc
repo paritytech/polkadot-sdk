@@ -26,4 +26,4 @@ crates:
 - name: sp-runtime
   bump: major
 - name: sp-core
-  bump: minor
+  bump: major
