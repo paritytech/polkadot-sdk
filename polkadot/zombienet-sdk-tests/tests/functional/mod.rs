@@ -7,3 +7,4 @@ mod async_backing_6_seconds_rate;
 mod duplicate_collations;
 mod spam_statement_distribution_requests;
 mod sync_backing;
+mod systematic_chunk_recovery;
