@@ -38,6 +38,7 @@ sp-io = { default-features = true, path = "../../../primitives/io" }
 
 [features]
 default = ["std"]
+insecure_zero_ed = ["pallet-balances/insecure_zero_ed"]
 std = [
 	"frame-benchmarking/std",
 	"frame-support/std",
@@ -55,4 +56,5 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks"
 ]

@@ -42,6 +42,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances,
 		Staking: pallet_staking,
 		Session: pallet_session,
+		Historical: pallet_session::historical
 	}
 );
 
@@ -56,7 +57,7 @@ impl frame_system::Config for Test {
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type ExistentialDeposit = ConstU64<10>;
+	type ExistentialDeposit = ConstU64<0>;
 	type AccountStore = System;
 }
 
@@ -79,7 +80,7 @@ sp_runtime::impl_opaque_keys! {
 
 pub struct TestSessionHandler;
 impl pallet_session::SessionHandler<AccountId> for TestSessionHandler {
-	const KEY_TYPE_IDS: &'static [sp_runtime::KeyTypeId] = &[];
+	const KEY_TYPE_IDS: &'static [sp_runtime::KeyTypeId] = &[sp_core::crypto::key_types::DUMMY];
 
 	fn on_genesis_session<Ks: sp_runtime::traits::OpaqueKeys>(_validators: &[(AccountId, Ks)]) {}
 
