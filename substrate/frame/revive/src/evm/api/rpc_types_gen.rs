@@ -75,67 +75,58 @@ fn deserialize_input_or_data<'d, D: Deserializer<'d>>(d: D) -> Result<InputOrDat
 
 /// Block object
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct Block {
 	/// Base fee per gas
-	#[serde(rename = "baseFeePerGas", skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub base_fee_per_gas: Option<U256>,
 	/// Blob gas used
-	#[serde(rename = "blobGasUsed", skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub blob_gas_used: Option<U256>,
 	/// Difficulty
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub difficulty: Option<U256>,
 	/// Excess blob gas
-	#[serde(rename = "excessBlobGas", skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub excess_blob_gas: Option<U256>,
 	/// Extra data
-	#[serde(rename = "extraData")]
 	pub extra_data: Bytes,
 	/// Gas limit
-	#[serde(rename = "gasLimit")]
 	pub gas_limit: U256,
 	/// Gas used
-	#[serde(rename = "gasUsed")]
 	pub gas_used: U256,
 	/// Hash
 	pub hash: H256,
 	/// Bloom filter
-	#[serde(rename = "logsBloom")]
 	pub logs_bloom: Bytes256,
 	/// Coinbase
 	pub miner: Address,
 	/// Mix hash
-	#[serde(rename = "mixHash")]
 	pub mix_hash: H256,
 	/// Nonce
 	pub nonce: Bytes8,
 	/// Number
 	pub number: U256,
 	/// Parent Beacon Block Root
-	#[serde(rename = "parentBeaconBlockRoot", skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub parent_beacon_block_root: Option<H256>,
 	/// Parent block hash
-	#[serde(rename = "parentHash")]
 	pub parent_hash: H256,
 	/// Receipts root
-	#[serde(rename = "receiptsRoot")]
 	pub receipts_root: H256,
 	/// Ommers hash
-	#[serde(rename = "sha3Uncles")]
 	pub sha_3_uncles: H256,
 	/// Block size
 	pub size: U256,
 	/// State root
-	#[serde(rename = "stateRoot")]
 	pub state_root: H256,
 	/// Timestamp
 	pub timestamp: U256,
 	/// Total difficulty
-	#[serde(rename = "totalDifficulty", skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub total_difficulty: Option<U256>,
 	pub transactions: HashesOrTransactionInfos,
 	/// Transactions root
-	#[serde(rename = "transactionsRoot")]
 	pub transactions_root: H256,
 	/// Uncles
 	pub uncles: Vec<H256>,
@@ -143,7 +134,7 @@ pub struct Block {
 	#[serde(default, skip_serializing_if = "Vec::is_empty")]
 	pub withdrawals: Vec<Withdrawal>,
 	/// Withdrawals root
-	#[serde(rename = "withdrawalsRoot", skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub withdrawals_root: Option<H256>,
 }
 
@@ -186,19 +177,13 @@ impl<'a> serde::Deserialize<'a> for BlockNumberOrTagOrHash {
 		D: serde::Deserializer<'a>,
 	{
 		#[derive(Deserialize)]
-		#[serde(untagged)]
+		#[serde(untagged, rename_all = "camelCase")]
 		pub enum BlockNumberOrTagOrHashWithAlias {
 			BlockTag(BlockTag),
 			BlockNumber(U64),
-			NestedBlockNumber {
-				#[serde(rename = "blockNumber")]
-				block_number: U256,
-			},
+			NestedBlockNumber { block_number: U256 },
 			BlockHash(H256),
-			NestedBlockHash {
-				#[serde(rename = "blockHash")]
-				block_hash: H256,
-			},
+			NestedBlockHash { block_hash: H256 },
 		}
 
 		let r = BlockNumberOrTagOrHashWithAlias::deserialize(de)?;
@@ -221,17 +206,18 @@ impl<'a> serde::Deserialize<'a> for BlockNumberOrTagOrHash {
 
 /// filter
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct Filter {
 	/// Address(es)
 	pub address: Option<AddressOrAddresses>,
 	/// from block
-	#[serde(rename = "fromBlock", skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub from_block: Option<BlockNumberOrTag>,
 	/// to block
-	#[serde(rename = "toBlock", skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub to_block: Option<BlockNumberOrTag>,
 	/// Restricts the logs returned to the single block
-	#[serde(rename = "blockHash", skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub block_hash: Option<H256>,
 	/// Topics
 	#[serde(skip_serializing_if = "Option::is_none")]
@@ -257,14 +243,15 @@ impl Default for FilterResults {
 #[derive(
 	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
 )]
+#[serde(rename_all = "camelCase")]
 pub struct GenericTransaction {
 	/// accessList
 	/// EIP-2930 access list
-	#[serde(rename = "accessList", skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub access_list: Option<AccessList>,
 	/// blobVersionedHashes
 	/// List of versioned blob hashes associated with the transaction's EIP-4844 data blobs.
-	#[serde(rename = "blobVersionedHashes", default, skip_serializing_if = "Vec::is_empty")]
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
 	pub blob_versioned_hashes: Vec<H256>,
 	/// blobs
 	/// Raw blob data.
@@ -272,7 +259,7 @@ pub struct GenericTransaction {
 	pub blobs: Vec<Bytes>,
 	/// chainId
 	/// Chain ID that this transaction is valid on.
-	#[serde(rename = "chainId", skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub chain_id: Option<U256>,
 	/// from address
 	#[serde(skip_serializing_if = "Option::is_none")]
@@ -282,23 +269,23 @@ pub struct GenericTransaction {
 	pub gas: Option<U256>,
 	/// gas price
 	/// The gas price willing to be paid by the sender in wei
-	#[serde(rename = "gasPrice", skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub gas_price: Option<U256>,
 	/// input data
 	#[serde(flatten, deserialize_with = "deserialize_input_or_data")]
 	pub input: InputOrData,
 	/// max fee per blob gas
 	/// The maximum total fee per gas the sender is willing to pay for blob gas in wei
-	#[serde(rename = "maxFeePerBlobGas", skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub max_fee_per_blob_gas: Option<U256>,
 	/// max fee per gas
 	/// The maximum total fee per gas the sender is willing to pay (includes the network / base fee
 	/// and miner / priority fee) in wei
-	#[serde(rename = "maxFeePerGas", skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub max_fee_per_gas: Option<U256>,
 	/// max priority fee per gas
 	/// Maximum fee per gas the sender is willing to pay to miners in wei
-	#[serde(rename = "maxPriorityFeePerGas", skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub max_priority_fee_per_gas: Option<U256>,
 	/// nonce
 	#[serde(skip_serializing_if = "Option::is_none")]
@@ -315,47 +302,41 @@ pub struct GenericTransaction {
 
 /// Receipt information
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct ReceiptInfo {
 	/// blob gas price
 	/// The actual value per gas deducted from the sender's account for blob gas. Only specified
 	/// for blob transactions as defined by EIP-4844.
-	#[serde(rename = "blobGasPrice", skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub blob_gas_price: Option<U256>,
 	/// blob gas used
 	/// The amount of blob gas used for this specific transaction. Only specified for blob
 	/// transactions as defined by EIP-4844.
-	#[serde(rename = "blobGasUsed", skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub blob_gas_used: Option<U256>,
 	/// block hash
-	#[serde(rename = "blockHash")]
 	pub block_hash: H256,
 	/// block number
-	#[serde(rename = "blockNumber")]
 	pub block_number: U256,
 	/// contract address
 	/// The contract address created, if the transaction was a contract creation, otherwise null.
-	#[serde(rename = "contractAddress")]
 	pub contract_address: Option<Address>,
 	/// cumulative gas used
 	/// The sum of gas used by this transaction and all preceding transactions in the same block.
-	#[serde(rename = "cumulativeGasUsed")]
 	pub cumulative_gas_used: U256,
 	/// effective gas price
 	/// The actual value per gas deducted from the sender's account. Before EIP-1559, this is equal
 	/// to the transaction's gas price. After, it is equal to baseFeePerGas + min(maxFeePerGas -
 	/// baseFeePerGas, maxPriorityFeePerGas).
-	#[serde(rename = "effectiveGasPrice")]
 	pub effective_gas_price: U256,
 	/// from
 	pub from: Address,
 	/// gas used
 	/// The amount of gas used for this specific transaction alone.
-	#[serde(rename = "gasUsed")]
 	pub gas_used: U256,
 	/// logs
 	pub logs: Vec<Log>,
 	/// logs bloom
-	#[serde(rename = "logsBloom")]
 	pub logs_bloom: Bytes256,
 	/// state root
 	/// The post-transaction state root. Only specified for transactions included before the
@@ -371,10 +352,8 @@ pub struct ReceiptInfo {
 	/// Address of the receiver or null in a contract creation transaction.
 	pub to: Option<Address>,
 	/// transaction hash
-	#[serde(rename = "transactionHash")]
 	pub transaction_hash: H256,
 	/// transaction index
-	#[serde(rename = "transactionIndex")]
 	pub transaction_index: U256,
 	/// type
 	#[serde(skip_serializing_if = "Option::is_none")]
@@ -399,19 +378,17 @@ impl Default for SyncingStatus {
 
 /// Transaction information
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct TransactionInfo {
 	/// block hash
-	#[serde(rename = "blockHash")]
 	pub block_hash: H256,
 	/// block number
-	#[serde(rename = "blockNumber")]
 	pub block_number: U256,
 	/// from address
 	pub from: Address,
 	/// transaction hash
 	pub hash: H256,
 	/// transaction index
-	#[serde(rename = "transactionIndex")]
 	pub transaction_index: U256,
 	#[serde(flatten)]
 	pub transaction_signed: TransactionSigned,
@@ -463,17 +440,13 @@ pub type Addresses = Vec<Address>;
 /// transition is finalized, any call querying for `finalized` or `safe` block MUST be responded to
 /// with `-39001: Unknown block` error
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "lowercase")]
 pub enum BlockTag {
-	#[serde(rename = "earliest")]
 	Earliest,
-	#[serde(rename = "finalized")]
 	Finalized,
-	#[serde(rename = "safe")]
 	Safe,
-	#[serde(rename = "latest")]
 	#[default]
 	Latest,
-	#[serde(rename = "pending")]
 	Pending,
 }
 
@@ -496,20 +469,18 @@ impl Default for HashesOrTransactionInfos {
 
 /// log
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct Log {
 	/// address
 	pub address: Address,
 	/// block hash
-	#[serde(rename = "blockHash")]
 	pub block_hash: H256,
 	/// block number
-	#[serde(rename = "blockNumber")]
 	pub block_number: U256,
 	/// data
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub data: Option<Bytes>,
 	/// log index
-	#[serde(rename = "logIndex")]
 	pub log_index: U256,
 	/// removed
 	#[serde(skip_serializing_if = "Option::is_none")]
@@ -518,37 +489,35 @@ pub struct Log {
 	#[serde(default, skip_serializing_if = "Vec::is_empty")]
 	pub topics: Vec<H256>,
 	/// transaction hash
-	#[serde(rename = "transactionHash")]
 	pub transaction_hash: H256,
 	/// transaction index
-	#[serde(rename = "transactionIndex")]
 	pub transaction_index: U256,
 }
 
 /// Syncing progress
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct SyncingProgress {
 	/// Current block
-	#[serde(rename = "currentBlock", skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub current_block: Option<U256>,
 	/// Highest block
-	#[serde(rename = "highestBlock", skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub highest_block: Option<U256>,
 	/// Starting block
-	#[serde(rename = "startingBlock", skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub starting_block: Option<U256>,
 }
 
 /// EIP-1559 transaction.
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct Transaction1559Unsigned {
 	/// accessList
 	/// EIP-2930 access list
-	#[serde(rename = "accessList")]
 	pub access_list: AccessList,
 	/// chainId
 	/// Chain ID that this transaction is valid on.
-	#[serde(rename = "chainId")]
 	pub chain_id: U256,
 	/// gas limit
 	pub gas: U256,
@@ -556,18 +525,15 @@ pub struct Transaction1559Unsigned {
 	/// The effective gas price paid by the sender in wei. For transactions not yet included in a
 	/// block, this value should be set equal to the max fee per gas. This field is DEPRECATED,
 	/// please transition to using effectiveGasPrice in the receipt object going forward.
-	#[serde(rename = "gasPrice")]
 	pub gas_price: U256,
 	/// input data
 	pub input: Bytes,
 	/// max fee per gas
 	/// The maximum total fee per gas the sender is willing to pay (includes the network / base fee
 	/// and miner / priority fee) in wei
-	#[serde(rename = "maxFeePerGas")]
 	pub max_fee_per_gas: U256,
 	/// max priority fee per gas
 	/// Maximum fee per gas the sender is willing to pay to miners in wei
-	#[serde(rename = "maxPriorityFeePerGas")]
 	pub max_priority_fee_per_gas: U256,
 	/// nonce
 	pub nonce: U256,
@@ -581,20 +547,18 @@ pub struct Transaction1559Unsigned {
 
 /// EIP-2930 transaction.
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct Transaction2930Unsigned {
 	/// accessList
 	/// EIP-2930 access list
-	#[serde(rename = "accessList")]
 	pub access_list: AccessList,
 	/// chainId
 	/// Chain ID that this transaction is valid on.
-	#[serde(rename = "chainId")]
 	pub chain_id: U256,
 	/// gas limit
 	pub gas: U256,
 	/// gas price
 	/// The gas price willing to be paid by the sender in wei
-	#[serde(rename = "gasPrice")]
 	pub gas_price: U256,
 	/// input data
 	pub input: Bytes,
@@ -610,18 +574,16 @@ pub struct Transaction2930Unsigned {
 
 /// EIP-4844 transaction.
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct Transaction4844Unsigned {
 	/// accessList
 	/// EIP-2930 access list
-	#[serde(rename = "accessList")]
 	pub access_list: AccessList,
 	/// blobVersionedHashes
 	/// List of versioned blob hashes associated with the transaction's EIP-4844 data blobs.
-	#[serde(rename = "blobVersionedHashes")]
 	pub blob_versioned_hashes: Vec<H256>,
 	/// chainId
 	/// Chain ID that this transaction is valid on.
-	#[serde(rename = "chainId")]
 	pub chain_id: U256,
 	/// gas limit
 	pub gas: U256,
@@ -629,16 +591,13 @@ pub struct Transaction4844Unsigned {
 	pub input: Bytes,
 	/// max fee per blob gas
 	/// The maximum total fee per gas the sender is willing to pay for blob gas in wei
-	#[serde(rename = "maxFeePerBlobGas")]
 	pub max_fee_per_blob_gas: U256,
 	/// max fee per gas
 	/// The maximum total fee per gas the sender is willing to pay (includes the network / base fee
 	/// and miner / priority fee) in wei
-	#[serde(rename = "maxFeePerGas")]
 	pub max_fee_per_gas: U256,
 	/// max priority fee per gas
 	/// Maximum fee per gas the sender is willing to pay to miners in wei
-	#[serde(rename = "maxPriorityFeePerGas")]
 	pub max_priority_fee_per_gas: U256,
 	/// nonce
 	pub nonce: U256,
@@ -652,16 +611,16 @@ pub struct Transaction4844Unsigned {
 
 /// Legacy transaction.
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct TransactionLegacyUnsigned {
 	/// chainId
 	/// Chain ID that this transaction is valid on.
-	#[serde(rename = "chainId", skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub chain_id: Option<U256>,
 	/// gas limit
 	pub gas: U256,
 	/// gas price
 	/// The gas price willing to be paid by the sender in wei
-	#[serde(rename = "gasPrice")]
 	pub gas_price: U256,
 	/// input data
 	pub input: Bytes,
@@ -691,6 +650,7 @@ impl Default for TransactionSigned {
 
 /// Validator withdrawal
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct Withdrawal {
 	/// recipient address for withdrawal value
 	pub address: Address,
@@ -699,7 +659,6 @@ pub struct Withdrawal {
 	/// index of withdrawal
 	pub index: U256,
 	/// index of validator that generated withdrawal
-	#[serde(rename = "validatorIndex")]
 	pub validator_index: U256,
 }
 
@@ -707,9 +666,9 @@ pub struct Withdrawal {
 #[derive(
 	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
 )]
+#[serde(rename_all = "camelCase")]
 pub struct AccessListEntry {
 	pub address: Address,
-	#[serde(rename = "storageKeys")]
 	pub storage_keys: Vec<H256>,
 }
 
@@ -730,6 +689,7 @@ impl Default for FilterTopic {
 
 /// Signed 1559 Transaction
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct Transaction1559Signed {
 	#[serde(flatten)]
 	pub transaction_1559_unsigned: Transaction1559Unsigned,
@@ -744,12 +704,12 @@ pub struct Transaction1559Signed {
 	pub v: Option<U256>,
 	/// yParity
 	/// The parity (0 for even, 1 for odd) of the y-value of the secp256k1 signature.
-	#[serde(rename = "yParity")]
 	pub y_parity: U256,
 }
 
 /// Signed 2930 Transaction
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct Transaction2930Signed {
 	#[serde(flatten)]
 	pub transaction_2930_unsigned: Transaction2930Unsigned,
@@ -764,12 +724,12 @@ pub struct Transaction2930Signed {
 	pub v: Option<U256>,
 	/// yParity
 	/// The parity (0 for even, 1 for odd) of the y-value of the secp256k1 signature.
-	#[serde(rename = "yParity")]
 	pub y_parity: U256,
 }
 
 /// Signed 4844 Transaction
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct Transaction4844Signed {
 	#[serde(flatten)]
 	pub transaction_4844_unsigned: Transaction4844Unsigned,
@@ -779,7 +739,6 @@ pub struct Transaction4844Signed {
 	pub s: U256,
 	/// yParity
 	/// The parity (0 for even, 1 for odd) of the y-value of the secp256k1 signature.
-	#[serde(rename = "yParity")]
 	pub y_parity: U256,
 }
 
