@@ -301,7 +301,7 @@ jobs:
       # We need to use an older version of polkadot/polkadot-parachain, particulary a version that doesn't includes
       # https://github.com/paritytech/polkadot-sdk/pull/1644, and since this change is also used by the collators we need to
       # keep this test to ensure that works with older versions.
-      - name: download_release_bins
+      - name: download_old_release_bins
         shell: bash
         run: |
           BIN_DIR="$(pwd)/bin_old"
@@ -984,6 +984,7 @@ jobs:
       # sdk tests are looking for POLKADOT_IMAGE
       POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       OLD_POLKADOT_IMAGE: "docker.io/paritypr/polkadot-debug:master-187cddde"
+      OLD_POLKADOT_COMMAND: "polkadot-old"
       COL_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/colander:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
@@ -991,6 +992,30 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # We need to use an older version of polkadot
+      - name: download_old_release_bins
+        shell: bash
+        run: |
+          BIN_DIR="$(pwd)/bin_old"
+          mkdir -p $BIN_DIR
+          for bin in polkadot polkadot-parachain; do
+            OLD_NAME="$bin-old"
+            echo "downloading $bin as $OLD_NAME in $BIN_DIR";
+            curl -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2503/$bin
+            chmod 755 $BIN_DIR/$OLD_NAME;
+          done
+          for bin in polkadot-execute-worker polkadot-prepare-worker; do
+            OLD_NAME="$bin"
+            echo "downloading $bin as $OLD_NAME in $BIN_DIR";
+            curl -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2503/$bin
+            chmod 755 $BIN_DIR/$OLD_NAME;
+          done
+
+          ls -ltr $BIN_DIR
+          export PATH=$BIN_DIR:$PATH
+          echo "PATH=$PATH" >> $GITHUB_ENV
+          echo $PATH
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet-sdk
