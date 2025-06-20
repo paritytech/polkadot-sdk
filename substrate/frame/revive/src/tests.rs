@@ -447,29 +447,31 @@ fn create2_precompile_works() {
 	// let create2_precompile_addr = H160(NoInfo::<Test>::MATCHER.base_address());
     let create2_precompile_addr = H160::from_low_u64_be(0x0B); // hardcoded 11 in create2.rs
 
+	let (code, code_hash) = compile_module("dummy").unwrap();
+	println!("code.len(): {}", code.len());
+
     let value = [0u8; 32];
 	let mut code_offset = [0u8; 32];
 	code_offset[31] = 160;
 	let mut code_length = [0u8; 32];
-	code_length[31] = 3;
+	let code_len = code.len() as u64;
+	code_length[24..32].copy_from_slice(&code_len.to_be_bytes());
 	let mut salt_offset = [0u8; 32];
-	salt_offset[31] = 160+code_length[31];
+	salt_offset[24..32].copy_from_slice(&(code_len+160).to_be_bytes());
 	let mut salt_length = [0u8; 32];
 	salt_length[31] = 32;
-    let code = vec![1, 2, 3];
     let salt = [42u8; 32];
 
     let mut input = Vec::new();
     input.extend_from_slice(&value);
-    input.extend_from_slice(&code_offset); // offset to code (example)
+    input.extend_from_slice(&code_offset);
     input.extend_from_slice(&code_length);
-    input.extend_from_slice(&salt_offset); // offset to salt (example)
+    input.extend_from_slice(&salt_offset);
     input.extend_from_slice(&salt_length);
     input.extend_from_slice(&code);
     input.extend_from_slice(&salt);
 
 
-	// let contract_address = create2(&ALICE, code.as_slice(), &[], &salt);
 let deployer = <Test as Config>::AddressMapper::to_address(&ALICE);
 let contract_address_expected = create2(&deployer, code.as_slice(), &[], &salt);
 
@@ -477,6 +479,12 @@ let contract_address_expected = create2(&deployer, code.as_slice(), &[], &salt);
 
     ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
         let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		assert_ok!(Contracts::upload_code(
+			RuntimeOrigin::signed(ALICE),
+			code.clone(),
+			deposit_limit::<Test>(),
+		));
 
         // Call the precompile directly
         let result = builder::bare_call(create2_precompile_addr)
@@ -486,9 +494,13 @@ let contract_address_expected = create2(&deployer, code.as_slice(), &[], &salt);
 
 		let result_exec = result.result.clone();
 		assert_ok!(result_exec);
+		let result_result = result.result.clone().unwrap();
 
-		let contract_address = &result.result.unwrap().data[12..];
+		let contract_address = &result_result.data[12..];
+		assert_eq!(contract_address.len(), contract_address_expected.as_bytes().len());
 		assert_eq!(contract_address, contract_address_expected.as_bytes());
+
+		assert!(!result_result.did_revert());
 
 		// TODO: check if result it OK
 		// TODO: output contains the expected address

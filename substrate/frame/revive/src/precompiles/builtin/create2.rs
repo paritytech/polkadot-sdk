@@ -20,7 +20,7 @@ use sp_core::H160;
 
 use crate::Pallet as Contracts;
 use crate::{
-	address, limits::code, precompiles::{BuiltinAddressMatcher, Error, Ext, Precompiles, PrimitivePrecompile}, Config
+	address, limits::code, precompiles::{BuiltinAddressMatcher, Error, ExtWithInfo, Precompiles, PrimitivePrecompile}, Config
 };
 use crate::H256;
 use sp_core::U256;
@@ -33,31 +33,22 @@ use core::{marker::PhantomData, num::NonZero};
 pub struct Create2<T>(PhantomData<T>);
 
 impl<T: Config>  PrimitivePrecompile for Create2<T> 
-where
-	BalanceOf<T>: Into<U256> + TryFrom<U256> + Bounded,
-	MomentOf<T>: Into<U256>,
-	T::Hash: frame_support::traits::IsType<H256>,
 {
 	type T = T;
     const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(11).unwrap());
-	const HAS_CONTRACT_INFO: bool = false;
+	const HAS_CONTRACT_INFO: bool = true;
 
-    fn call(
+    fn call_with_info(
         address: &[u8; 20],
 		input: Vec<u8>,
-		env: &mut impl Ext<T = Self::T>,
+		env: &mut impl ExtWithInfo<T = Self::T>,
     ) -> Result<Vec<u8>, Error> {
-        println!("call create2, input_len(): {}", input.len());
-        println!("address: {address:?}");
 
+        // TODO(RVE): what value to put here?
+        let gas_limit = frame_support::weights::Weight::MAX;
 
-let gas_limit = frame_support::weights::Weight::MAX;
-
-        let x64 = 0u64;
-        let x256: U256 = U256::from(x64);
-        let x256 : U256 = x64.into();
-
-let storage_deposit_limit = crate::DepositLimit::<BalanceOf::<Self::T>>::UnsafeOnlyForDryRun;
+        // TODO(RVE): what value to put here?
+        let storage_deposit_limit = crate::DepositLimit::<BalanceOf::<Self::T>>::UnsafeOnlyForDryRun;
 
         if input.len() < 160 {
             Err(DispatchError::from("invalid input length"))?;
@@ -87,6 +78,7 @@ let storage_deposit_limit = crate::DepositLimit::<BalanceOf::<Self::T>>::UnsafeO
             assert_eq!(input.len(), salt_offset2 as usize + salt_length2 as usize, "input length does not match expected length");
         }
 
+        // TODO(RVE): this could potentially panic if the offsets are out of bounds.
         let code_offset = code_offset2 as usize;
         let code_length = code_length2 as usize;
         let salt_offset = salt_offset2 as usize;
@@ -107,14 +99,17 @@ let storage_deposit_limit = crate::DepositLimit::<BalanceOf::<Self::T>>::UnsafeO
         let contract_address = crate::address::create2(&deployer, code, &[], salt);
 
         let endowment_val = u32::from_be_bytes(endowment[28..32].try_into().unwrap());
-        let instantiate_result = Contracts::<T>::bare_instantiate(
-            frame_system::RawOrigin::Signed(deployer_account_id.clone()).into(),
-endowment_val.into(),
+        let code_hash = sp_io::hashing::keccak_256(&code);
+        // env.inst
+        let instantiate_result = env.instantiate(
+            // frame_system::RawOrigin::Signed(deployer_account_id.clone()).into(),
+// endowment_val.into(),
             gas_limit,
-            storage_deposit_limit,
-            crate::Code::Upload(code.to_vec()),
+            U256::MAX,
+            H256::from(code_hash),
+            endowment_val.into(),
             vec![], // input data for constructor, if any
-            Some(salt.clone()),
+            Some(salt),
         );
 
         // Pad the contract address to 32 bytes (left padding with zeros)
