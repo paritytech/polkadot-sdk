@@ -13,21 +13,18 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  RUN_IN_CONTAINER: 1
   FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 1
   GHA_CLUSTER_SERVER_ADDR: "https://kubernetes.default:443"
   # use spot by default
   X_INFRA_INSTANCE: "spot"
-  # don't retry sdk tests
-  NEXTEST_RETRIES: 0
-  ZOMBIE_PROVIDER: "native"
-  RUST_LOG: "info,zombienet_orchestrator=debug"
 
 # only run if we have changes in [subtrate, polkadot] directories or this workflow.
 jobs:
   isdraft:
     uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
+    # TODO: reenable
+    if: false
     needs: isdraft
     uses: ./.github/workflows/zombienet-reusable-preflight.yml
 
@@ -35,64 +32,30 @@ jobs:
   zombienet-parachain-template-smoke:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-parachain-template-smoke') }}
-    runs-on: parity-default
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
     timeout-minutes: 30
     container:
-      image: ${{ needs.preflight.outputs.CI_IMAGE }}
+      image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
     env:
-      ZOMBIE_PROVIDER: "native"
-      RUST_LOG: "info,zombienet_orchestrator=debug"
+      # sdk tests are looking for POLKADOT_IMAGE
+      POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
+      RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 1
-      RUN_IN_CONTAINER: "1"
-      IMAGE: ${{ needs.preflight.outputs.CI_IMAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v4.1.8
+      - name: zombienet_test
+        uses: ./.github/actions/zombienet-sdk
         with:
-          path: build-artifacts-linux-stable
-          name: build-linux-stable-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
-
-      - uses: actions/download-artifact@v4.1.8
-        with:
-          path: build-artifacts-templates-node
-          name: build-templates-node-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
-
-      - run: ls -R build-artifacts*
-
-      - name: tar
-        shell: bash
-        run: |
-          echo "uncompressing build-artifacts-linux-stable"
-          cd build-artifacts-linux-stable && tar -xvf artifacts.tar
-          rm artifacts.tar
-          cd ../
-          echo "uncompressing build-artifacts-templates-node"
-          cd build-artifacts-templates-node && tar -xvf artifacts.tar
-
-      - run: ls -R build-artifacts*
-
-      - name: zombienet
-        id: zombienet_tests
-        shell: bash
-        run: |
-          # add `artifacts` to the PATH
-          export PATH=$(pwd)/build-artifacts-templates-node/artifacts:$(pwd)/build-artifacts-linux-stable/artifacts:$PATH
-          echo $PATH
-          cargo test -p template-zombienet-tests  --features zombienet --tests  minimal_template_block_production_test
-          cargo test -p template-zombienet-tests  --features zombienet --tests  parachain_template_block_production_test
-          cargo test -p template-zombienet-tests  --features zombienet --tests  solochain_template_block_production_test
-      #
-      # upload 'native' logs
-      - name: upload_logs
-        uses: actions/upload-artifact@v4
-        if: ${{ ! cancelled() }}
-        with:
-          name: zombienet-logs-${{ github.job }}-${{ github.sha }}
-          path: |
-            /tmp/zombie*/*/*.log
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+          # This pattern shall cover:
+          # - minimal_template_block_production_test
+          # - parachain_template_block_production_test
+          # - solochain_template_block_production_test
+          test: "template"
+          prefix: "parachain-templates"

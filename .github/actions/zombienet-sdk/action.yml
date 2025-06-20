@@ -1,10 +1,11 @@
 name: "Zombienet-sdk test"
+description: "Runs zombienet-sdk tests with archived artifacts"
 inputs:
   build-id:
     description: ""
     required: true
   ref-slug:
-    description:
+    description: "Ref slug (e.g branch-name-short)"
     required: true
   test:
     description: "test filter to pass to nextest (e.g: functional::spam_statement_distribution_requests::spam_statement_distribution_requests_test)"
@@ -29,35 +30,79 @@ runs:
       run: |
         echo "Vars"
         echo "ZOMBIENET_INTEGRATION_TEST_IMAGE: $ZOMBIENET_INTEGRATION_TEST_IMAGE"
-        echo "COL_IMAGE: $COL_IMAGE"
+        echo "ZOMBIE_PROVIDER": $ZOMBIE_PROVIDER
         echo "POLKADOT_IMAGE: $POLKADOT_IMAGE"
+        echo "CUMULUS_IMAGE: $CUMULUS_IMAGE"
+        echo "COL_IMAGE: $COL_IMAGE"
         echo "MALUS_IMAGE: $MALUS_IMAGE"
-        echo "RUN_IN_CI: $RUN_IN_CI"
         echo "Inputs"
         echo "test: $TEST_NAME"
         echo "prefix: $PREFIX"
 
-    - uses: actions/download-artifact@v4.1.8
+    - name: Download binaries for zombienet native tests
+      if: env.ZOMBIE_PROVIDER == 'native'
+      uses: ./.github/actions/download-binaries-for-zombienet-tests
       with:
-        name: prepare-${{ inputs.prefix }}-zombienet-artifacts-${{ inputs.ref-slug }}
-        github-token: ${{ inputs.gh-token }}
+        gh-token: ${{ inputs.gh-token }}
+        ref-slug: ${{ inputs.ref-slug }}
+        build-id: ${{ inputs.build-id }}
+        destination-path: ./bin
+
+    - uses: ./.github/actions/download-artifact-extract
+      with:
+        artifact-name: prepare-${{ inputs.prefix }}-zombienet-artifacts-${{ inputs.ref-slug }}
+        gh-token: ${{ inputs.gh-token }}
         run-id: ${{ inputs.build-id }}
 
-    - name: tar
+    - name: k8s_auth
+      if: env.ZOMBIE_PROVIDER == 'k8s'
       shell: bash
-      run: tar -xvf artifacts.tar
+      run: |
+        . /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+        k8s_auth
 
     - name: zombie_test
       shell: bash
       env:
-        # zombienet-sdk expects RUN_IN_CI to be set when running in CI
-        RUN_IN_CI: 1
+        # don't retry sdk tests
+        NEXTEST_RETRIES: 0
         TEST_NAME: ${{ inputs.test }}
         PREFIX: ${{ inputs.prefix }}
       run: |
-          export ZOMBIE_K8S_CI_NAMESPACE=$(cat /data/namespace)
-          ls -ltr ./artifacts
-          cargo nextest run --archive-file ./artifacts/${PREFIX}-zombienet-tests.tar.zst --no-capture -- ${TEST_NAME}
+        # RUN_IN_CI=1 shall be set only for k8s provider
+        if [[ "$ZOMBIE_PROVIDER" == "native" ]]; then
+          export RUN_IN_CI=0
+          # set path to downloaded binaries
+          export PATH=$(pwd)/bin:$PATH
+          chmod +x $(pwd)/bin/*
+        else
+          export RUN_IN_CI=1
+          # no need to check other runner variables. for k8s they shall store the same value
+          if [[ $ZOMBIENET_SDK_DEFAULT_RUNNER == "parity-zombienet" ]]; then
+            export ZOMBIE_K8S_CI_NAMESPACE=$(cat /data/namespace)
+          fi
+        fi
+
+        ls -ltr ./artifacts
+        # We want to run tests sequentially, '--no-capture' ensures that.
+        # If we want to get rid of '--no-capture' some day, please use '--test-threads 1' or NEXTEST_TEST_THREADS=1
+        # Both options cannot coexist for cargo-nextest below v0.9.94
+        cargo nextest run --archive-file ./artifacts/${PREFIX}-zombienet-tests.tar.zst --no-capture -- ${TEST_NAME}
+
+    - name: process_logs
+      if: ${{ ! cancelled() }}
+      shell: bash
+      run: |
+        echo "Processing log files"
+        echo "::group::Logs"
+        # do not fail the whole run if this step fails
+        if ! ./.github/scripts/process-logs-zombienet-sdk.sh ; then
+          echo "::endgroup::"
+          echo "::warning ::WARNING: Failed to process logs"
+        else
+          echo "::endgroup::"
+        fi
+
 
     - name: upload_logs
       uses: actions/upload-artifact@v4
