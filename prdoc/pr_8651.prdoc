@@ -8,7 +8,7 @@ doc:
     field passed via chain specifications, while `parachain-template-node` supports only runtime API based provided parachain id.
     - This PR also changes `minimal-template-runtime` to not run anymore with Omni Node.
     - `chain-spec-builder` still supports generating chain specifications with `para_id` field.
-	- Starting with `stable2509` `polkadot-parachain`/`parachain-template-node` will generate chain specs that are not compatible
+    - Starting with `stable2509` `polkadot-parachain`/`parachain-template-node` will generate chain specs that are not compatible
       with prior node versions because `para_id` field will not be added anymore to the resulting chain specs.
 
     Starting with `stable2509` the `para_id` field of chain specification is not required anymore, and runtime developers will be able
