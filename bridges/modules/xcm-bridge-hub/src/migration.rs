@@ -63,7 +63,7 @@ impl<
 		let bridge_destination_universal_location = BridgedUniversalLocation::get();
 		let lane_id = Lane::get();
 		let create_lane = CreateLane::get();
-		log::info!(
+		tracing::info!(
 			target: LOG_TARGET,
 			"OpenBridgeForLane - going to open bridge with lane_id: {lane_id:?} (create_lane: {create_lane:?}) \
 			between bridge_origin_relative_location: {bridge_origin_relative_location:?} and \
@@ -76,7 +76,7 @@ impl<
 		) {
 			Ok(locations) => locations,
 			Err(e) => {
-				log::error!(
+				tracing::error!(
 					target: LOG_TARGET,
 					"OpenBridgeForLane - on_runtime_upgrade failed to construct bridge_locations with error: {e:?}"
 				);
@@ -86,12 +86,12 @@ impl<
 
 		// check if already exists
 		if let Some((bridge_id, bridge)) = Pallet::<T, I>::bridge_by_lane_id(&lane_id) {
-			log::info!(
+			tracing::info!(
 				target: LOG_TARGET,
 				"OpenBridgeForLane - bridge: {bridge:?} with bridge_id: {bridge_id:?} already exist for lane_id: {lane_id:?}!"
 			);
 			if &bridge_id != locations.bridge_id() {
-				log::warn!(
+				tracing::warn!(
 					target: LOG_TARGET,
 					"OpenBridgeForLane - check you parameters, because a different bridge: {bridge:?} \
 					with bridge_id: {bridge_id:?} exist for lane_id: {lane_id:?} for requested \
@@ -104,10 +104,10 @@ impl<
 		}
 
 		if let Err(e) = Pallet::<T, I>::do_open_bridge(locations, lane_id, create_lane) {
-			log::error!(target: LOG_TARGET, "OpenBridgeForLane - do_open_bridge failed with error: {e:?}");
+			tracing::error!(target: LOG_TARGET, error=?e, "OpenBridgeForLane - do_open_bridge failed with error");
 			T::DbWeight::get().reads(6)
 		} else {
-			log::info!(target: LOG_TARGET, "OpenBridgeForLane - do_open_bridge passed!");
+			tracing::info!(target: LOG_TARGET, "OpenBridgeForLane - do_open_bridge passed!");
 			T::DbWeight::get().reads_writes(6, 4)
 		}
 	}
@@ -133,7 +133,7 @@ impl<
 			"Bridge is not stored correctly!"
 		);
 
-		log::info!(
+		tracing::info!(
 			target: LOG_TARGET,
 			"OpenBridgeForLane - post_upgrade found opened bridge with lane_id: {lane_id:?} \
 			between bridge_origin_relative_location: {bridge_origin_relative_location:?} and \
