@@ -666,6 +666,13 @@ where
 		);
 		(false, pending)
 	}
+
+	/// Number of notified items in import_notification_sink.
+	///
+	/// Internal detail, exposed only for testing.
+	pub fn import_notification_sink_len(&self) -> usize {
+		self.import_notification_sink.notified_items_len()
+	}
 }
 
 /// Converts the input view-to-statuses map into the output vector of statuses.

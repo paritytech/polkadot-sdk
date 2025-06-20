@@ -16,11 +16,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use std::{
-	collections::{HashMap, HashSet},
-	sync::Arc,
-};
-
 use crate::{common::tracing_log_xt::log_xt_trace, LOG_TARGET};
 use futures::channel::mpsc::{channel, Sender};
 use indexmap::IndexMap;
@@ -31,8 +26,12 @@ use sp_runtime::{
 	traits::SaturatedConversion,
 	transaction_validity::{TransactionTag as Tag, ValidTransaction},
 };
-use std::time::Instant;
-use tracing::{debug, trace, warn};
+use std::{
+	collections::{HashMap, HashSet},
+	sync::Arc,
+	time::{Duration, Instant},
+};
+use tracing::{debug, trace, warn, Level};
 
 use super::{
 	base_pool::{self as base, PruneStatus},
@@ -704,6 +703,12 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 			}
 			hashes
 		};
+		debug!(
+			target:LOG_TARGET,
+			to_remove_len=to_remove.len(),
+			futures_to_remove_len=futures_to_remove.len(),
+			"clear_stale"
+		);
 		// removing old transactions
 		self.remove_invalid(&to_remove);
 		self.remove_invalid(&futures_to_remove);
