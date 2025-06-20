@@ -16,17 +16,15 @@
 
 //! `ControlledValidatorIndices` implementation.
 
-use polkadot_primitives::{IndexedVec, SessionIndex, ValidatorId, ValidatorIndex, ValidatorPair};
+use polkadot_primitives::{IndexedVec, SessionIndex, ValidatorId, ValidatorIndex};
 use schnellru::{ByLength, LruMap};
-use sp_application_crypto::{AppCrypto, ByteArray};
-use sp_keystore::{Keystore, KeystorePtr};
-use std::collections::HashSet;
+use sp_keystore::KeystorePtr;
 
 /// Keeps track of the validator indices controlled by the local validator in a given session. For
 /// better performance, the values for each session are cached.
 pub struct ControlledValidatorIndices {
 	/// The indices of the controlled validators, cached by session.
-	controlled_validator_indices: LruMap<SessionIndex, HashSet<ValidatorIndex>>,
+	controlled_validator_indices: LruMap<SessionIndex, Option<ValidatorIndex>>,
 	keystore: KeystorePtr,
 }
 
@@ -43,28 +41,13 @@ impl ControlledValidatorIndices {
 		&mut self,
 		session: SessionIndex,
 		session_validators: &IndexedVec<ValidatorIndex, ValidatorId>,
-	) -> &HashSet<ValidatorIndex> {
+	) -> Option<ValidatorIndex> {
 		self.controlled_validator_indices
 			.get_or_insert(session, || {
-				Self::find_controlled_validator_indices(&self.keystore, session_validators)
+				crate::signing_key_and_index(session_validators.iter(), &self.keystore)
+					.map(|(_, index)| index)
 			})
+			.copied()
 			.expect("We just inserted the controlled indices; qed")
-	}
-
-	/// Find indices controlled by this validator.
-	///
-	/// That is all `ValidatorIndex`es we have private keys for. Usually this will only be one.
-	fn find_controlled_validator_indices(
-		keystore: &KeystorePtr,
-		validators: &IndexedVec<ValidatorIndex, ValidatorId>,
-	) -> HashSet<ValidatorIndex> {
-		validators
-			.iter()
-			.enumerate()
-			.filter(|(_, validator)| {
-				Keystore::has_keys(keystore, &[(validator.to_raw_vec(), ValidatorPair::ID)])
-			})
-			.map(|(index, _)| ValidatorIndex(index as _))
-			.collect()
 	}
 }
