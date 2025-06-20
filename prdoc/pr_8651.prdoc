@@ -43,7 +43,7 @@ crates:
 - name: rococo-parachain-runtime
   bump: minor 
 - name: polkadot-omni-node-lib
-  bump: patch 
+  bump: major
 - name: polkadot-omni-node
   bump: major
 - name: staging-chain-spec-builder
