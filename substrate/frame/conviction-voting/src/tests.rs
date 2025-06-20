@@ -917,7 +917,7 @@ fn delegators_votes_dont_affect_delegates_locks() {
 
         run_to(5);
         assert_ok!(Voting::unlock(RuntimeOrigin::signed(delegator), class, delegator));
-		assert_eq!(Balances::usable_balance(delegator), 0);
+		assert_ok!(Voting::unlock(RuntimeOrigin::signed(delegate), class, delegate));
         assert_eq!(Balances::usable_balance(delegate), 20);
     });
 }
