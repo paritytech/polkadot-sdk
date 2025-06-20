@@ -20,7 +20,7 @@ polkadot-sdk = { workspace = true, features = [
 	"runtime",
 ] }
 scale-info = { workspace = true }
-serde_json = { workspace = true, default-features = false, features = ["alloc"] }
+serde_json = { workspace = true, features = ["alloc"] }
 
 # local pallet templates
 pallet-minimal-template = { workspace = true }

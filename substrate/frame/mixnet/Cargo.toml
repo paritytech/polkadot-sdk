@@ -35,6 +35,4 @@ std = [
 	"sp-application-crypto/std",
 	"sp-mixnet/std",
 ]
-try-runtime = [
-	"frame/try-runtime",
-]
+try-runtime = ["frame/try-runtime"]

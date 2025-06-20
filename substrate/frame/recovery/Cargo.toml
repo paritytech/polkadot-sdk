@@ -29,13 +29,5 @@ runtime-benchmarks = [
 	"frame/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 ]
-std = [
-	"codec/std",
-	"frame/std",
-	"pallet-balances/std",
-	"scale-info/std",
-]
-try-runtime = [
-	"frame/try-runtime",
-	"pallet-balances/try-runtime",
-]
+std = ["codec/std", "frame/std", "pallet-balances/std", "scale-info/std"]
+try-runtime = ["frame/try-runtime", "pallet-balances/try-runtime"]

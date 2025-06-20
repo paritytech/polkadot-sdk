@@ -25,11 +25,7 @@ pallet-preimage = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
-std = [
-	"codec/std",
-	"frame/std",
-	"scale-info/std",
-]
+std = ["codec/std", "frame/std", "scale-info/std"]
 runtime-benchmarks = [
 	"frame/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",

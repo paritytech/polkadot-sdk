@@ -24,7 +24,4 @@ pallet-paged-list = { features = ["std"], workspace = true }
 
 [features]
 default = ["std"]
-std = [
-	"frame/std",
-	"pallet-paged-list/std",
-]
+std = ["frame/std", "pallet-paged-list/std"]

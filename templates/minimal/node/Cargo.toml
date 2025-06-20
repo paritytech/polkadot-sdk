@@ -28,7 +28,4 @@ polkadot-sdk = { workspace = true, features = ["substrate-build-script-utils"] }
 
 [features]
 default = ["std"]
-std = [
-	"minimal-template-runtime/std",
-	"polkadot-sdk/std",
-]
+std = ["minimal-template-runtime/std", "polkadot-sdk/std"]
