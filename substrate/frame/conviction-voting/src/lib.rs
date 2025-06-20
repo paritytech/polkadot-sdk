@@ -452,7 +452,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						votes[i].maybe_vote = Some(vote);
 						i
 					},
-					// Voting from who didn't exist
+					// Previous vote didn't exist
 					Err(i) => {
 						// Add vote data, unless max vote reached
 						let poll_vote = PollVote {poll_index: poll_index, maybe_vote: Some(vote), retracted_votes: Default::default()};
@@ -485,7 +485,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 							match delegates_votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
 								Ok(i) => {
 									// Update delegates clawback amount for this poll
-									delegates_votes[i].retracted_votes.saturating_add(amount_delegated);
+									delegates_votes[i].retracted_votes = delegates_votes[i].retracted_votes.saturating_add(amount_delegated);
 
 									if let Some(delegates_vote) = delegates_votes[i].maybe_vote {
 										// And it was a standard vote
