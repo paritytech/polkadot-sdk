@@ -238,8 +238,12 @@ where
 		let (dropped_stream_controller, dropped_stream) =
 			MultiViewDroppedWatcherController::<ChainApi>::new();
 
-		let view_store =
-			Arc::new(ViewStore::new(pool_api.clone(), listener, dropped_stream_controller));
+		let view_store = Arc::new(ViewStore::new(
+			pool_api.clone(),
+			listener,
+			dropped_stream_controller,
+			import_notification_sink.clone(),
+		));
 
 		let dropped_monitor_task = Self::dropped_monitor_task(
 			dropped_stream,
@@ -372,8 +376,12 @@ where
 		let (dropped_stream_controller, dropped_stream) =
 			MultiViewDroppedWatcherController::<ChainApi>::new();
 
-		let view_store =
-			Arc::new(ViewStore::new(pool_api.clone(), listener, dropped_stream_controller));
+		let view_store = Arc::new(ViewStore::new(
+			pool_api.clone(),
+			listener,
+			dropped_stream_controller,
+			import_notification_sink.clone(),
+		));
 
 		let dropped_monitor_task = Self::dropped_monitor_task(
 			dropped_stream,
