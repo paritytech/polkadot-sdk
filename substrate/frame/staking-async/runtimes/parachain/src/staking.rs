@@ -100,7 +100,7 @@ parameter_types! {
 	///   blocks is more than enough.
 	///
 	/// See `signed_weight_ratios` test below for more info.
-	pub storage SignedPhase: u32 = 2 * MINUTES;
+	pub storage SignedPhase: u32 = 4 * MINUTES;
 
 	/// * Polkadot: 4
 	/// * Kusama: 4
