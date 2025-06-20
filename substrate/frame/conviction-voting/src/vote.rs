@@ -151,6 +151,7 @@ impl<Balance: Saturating> AccountVote<Balance> {
 #[derive(
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Default,
 	Copy,
 	Clone,
@@ -188,7 +189,7 @@ impl<BlockNumber: Ord + Copy + Zero, Balance: Ord + Copy + Zero> PriorLock<Block
 type RetractedVotes<Balance> = Delegations<Balance>;
 
 /// Pertinent information of a vote in regards to a specific poll
-#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct PollVote<PollIndex, Balance> {
 	/// The poll index this information concerns
 	pub poll_index: PollIndex,
@@ -200,7 +201,7 @@ pub struct PollVote<PollIndex, Balance> {
 }
 
 /// Information concerning the vote-casting of some voting power.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(MaxVotes))]
 #[codec(mel_bound(Balance: MaxEncodedLen, AccountId: MaxEncodedLen, BlockNumber: MaxEncodedLen, PollIndex: MaxEncodedLen))]
 pub struct Voting<Balance, AccountId, BlockNumber, PollIndex, MaxVotes> 
