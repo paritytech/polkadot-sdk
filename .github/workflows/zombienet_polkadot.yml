@@ -298,6 +298,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # We need to use an older version of polkadot/polkadot-parachain, particulary a version that doesn't includes
+      # https://github.com/paritytech/polkadot-sdk/pull/1644, and since this change is also used by the collators we need to
+      # keep this test to ensure that works with older versions.
       - name: download_release_bins
         shell: bash
         run: |
@@ -310,7 +313,7 @@ jobs:
             chmod 755 $BIN_DIR/$OLD_NAME;
           done
           ls -ltr $BIN_DIR
-          export PATH=$(pwd)$BIN_DIR:$PATH
+          export PATH=$BIN_DIR:$PATH
           echo "PATH=$PATH" >> $GITHUB_ENV
           echo $PATH
 
