@@ -20,8 +20,8 @@ use crate::{
 		api::{GenericTransaction, TransactionSigned},
 		GasEncoder,
 	},
-	AccountIdOf, AddressMapper, BalanceOf, Config, ConversionPrecision, MomentOf,
-	OnChargeTransactionBalanceOf, Pallet, LOG_TARGET, RUNTIME_PALLETS_ADDR,
+	AccountIdOf, AddressMapper, BalanceOf, Config, ConversionPrecision, MomentOf, Pallet,
+	LOG_TARGET, RUNTIME_PALLETS_ADDR,
 };
 use alloc::vec::Vec;
 use codec::{Decode, DecodeLimit, DecodeWithMemTracking, Encode};
@@ -30,6 +30,7 @@ use frame_support::{
 	traits::{InherentBuilder, IsSubType, SignedTransactionBuilder},
 	MAX_EXTRINSIC_DEPTH,
 };
+use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_core::{Get, H256, U256};
 use sp_runtime::{
@@ -117,6 +118,8 @@ impl<Address: TypeInfo, Signature: TypeInfo, E: EthExtra> ExtrinsicCall
 		self.0.call()
 	}
 }
+
+type OnChargeTransactionBalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
 
 impl<LookupSource, Signature, E, Lookup> Checkable<Lookup>
 	for UncheckedExtrinsic<LookupSource, Signature, E>
