@@ -1,0 +1,8 @@
+title: 'ParachainSystem: Do not emit the `SelectCore` digest'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This will be moved into an inherent digest.
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: patch
