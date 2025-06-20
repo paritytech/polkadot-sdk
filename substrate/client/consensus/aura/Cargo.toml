@@ -37,6 +37,7 @@ sp-core = { workspace = true, default-features = true }
 sp-inherents = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+sp-timestamp = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]

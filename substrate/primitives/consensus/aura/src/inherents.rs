@@ -24,6 +24,19 @@ pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"auraslot";
 /// The type of the Aura inherent.
 pub type InherentType = sp_consensus_slots::Slot;
 
+/// Create inherent data providers for Aura.
+#[cfg(feature = "std")]
+pub type AuraCreateInherentDataProviders<
+	Block,
+	InherentDataProviders = (InherentDataProvider, sp_timestamp::InherentDataProvider),
+> = std::sync::Arc<
+	dyn sp_inherents::CreateInherentDataProviders<
+		Block,
+		(),
+		InherentDataProviders = InherentDataProviders,
+	>,
+>;
+
 /// Auxiliary trait to extract Aura inherent data.
 pub trait AuraInherentData {
 	/// Get aura inherent data.
@@ -43,7 +56,6 @@ impl AuraInherentData for InherentData {
 }
 
 /// Provides the slot duration inherent data for `Aura`.
-// TODO: Remove in the future. https://github.com/paritytech/substrate/issues/8029
 #[cfg(feature = "std")]
 pub struct InherentDataProvider {
 	slot: InherentType,

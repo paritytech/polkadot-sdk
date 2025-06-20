@@ -57,8 +57,7 @@ pub mod standalone;
 
 pub use crate::standalone::{find_pre_digest, slot_duration};
 pub use import_queue::{
-	build_verifier, import_queue, AuraVerifier, BuildVerifierParams, CheckForEquivocation,
-	ImportQueueParams,
+	build_verifier, import_queue, AuraVerifier, BuildVerifierParams, ImportQueueParams,
 };
 pub use sc_consensus_slots::SlotProportion;
 pub use sp_consensus::SyncOracle;
@@ -504,7 +503,8 @@ impl<B: BlockT> From<crate::standalone::PreDigestLookupError> for Error<B> {
 	}
 }
 
-fn authorities<A, B, C>(
+/// Return AURA authorities at the given `parent_hash`.
+pub fn authorities<A, B, C>(
 	client: &C,
 	parent_hash: B::Hash,
 	context_block_number: NumberFor<B>,
@@ -625,11 +625,9 @@ mod tests {
 		PeersFullClient,
 		AuthorityPair,
 		Box<
-			dyn CreateInherentDataProviders<
-				TestBlock,
-				(),
-				InherentDataProviders = (InherentDataProvider,),
-			>,
+			dyn Fn(<TestBlock as sp_runtime::traits::Block>::Hash) -> sp_blockchain::Result<Slot>
+				+ Send
+				+ Sync,
 		>,
 		u64,
 	>;
@@ -652,14 +650,12 @@ mod tests {
 			assert_eq!(slot_duration.as_millis() as u64, SLOT_DURATION_MS);
 			import_queue::AuraVerifier::new(
 				client,
-				Box::new(|_, _| async {
-					let slot = InherentDataProvider::from_timestamp_and_slot_duration(
+				Box::new(|_| {
+					Ok(Slot::from_timestamp(
 						Timestamp::current(),
 						SlotDuration::from_millis(SLOT_DURATION_MS),
-					);
-					Ok((slot,))
+					))
 				}),
-				CheckForEquivocation::Yes,
 				None,
 				CompatibilityMode::None,
 			)
