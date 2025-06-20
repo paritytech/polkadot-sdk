@@ -29,7 +29,7 @@ crates:
 - name: collectives-westend-runtime
   bump: minor 
 - name: coretime-rococo-runtime
-  bump: major
+  bump: minor
 - name: coretime-westend-runtime
   bump: minor 
 - name: glutton-westend-runtime
