@@ -46,7 +46,7 @@ fn create_unexposed_batch<T: Config>(batch_size: u32) -> Vec<T::AccountId> {
 }
 
 fn fund_and_bond_account<T: Config>(account: &T::AccountId) {
-	let stake = CurrencyOf::<T>::minimum_balance() * 100u32.into();
+	let stake = CurrencyOf::<T>::minimum_balance().max(1u32.into()) * 100u32.into();
 	CurrencyOf::<T>::make_free_balance_be(&account, stake * 10u32.into());
 
 	// bond and nominate ourselves, this will guarantee that we are not backing anyone.
@@ -63,7 +63,7 @@ pub(crate) fn fast_unstake_events<T: Config>() -> Vec<crate::Event<T>> {
 }
 
 fn setup_staking<T: Config>(v: u32, until: EraIndex) {
-	let ed = CurrencyOf::<T>::minimum_balance();
+	let ed = CurrencyOf::<T>::minimum_balance().max(1u32.into());
 
 	log!(debug, "registering {} validators and {} eras.", v, until);
 
