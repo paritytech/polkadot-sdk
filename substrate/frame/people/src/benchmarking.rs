@@ -618,7 +618,7 @@ mod benches {
 	}
 
 	#[benchmark]
-	fn remove_suspended_keys(
+	fn remove_suspended_people(
 		n: Linear<1, { T::MaxRingSize::get() }>,
 	) -> Result<(), BenchmarkError> {
 		prepare_chunks::<T>();

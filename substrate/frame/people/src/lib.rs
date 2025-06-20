@@ -612,11 +612,12 @@ pub mod pallet {
 			// The default genesis config will put in the chunks that pertain to the ring vrf
 			// implementation in the `verifiable` crate. This default config will not work for other
 			// custom `GenerateVerifiable` implementations.
-			use verifiable::ring_vrf_impl::StaticChunk;
-			let params = verifiable::ring_vrf_impl::ring_verifier_builder_params();
-			let chunks: Vec<StaticChunk> = params.0.iter().map(|c| StaticChunk(*c)).collect();
+			// use verifiable::ring_vrf_impl::StaticChunk;
+			// let params = verifiable::ring_vrf_impl::ring_verifier_builder_params();
+			// let chunks: Vec<StaticChunk> = params.0.iter().map(|c| StaticChunk(*c)).collect();
 			Self {
-				encoded_chunks: chunks.encode(),
+				// encoded_chunks: chunks.encode(),
+				encoded_chunks: Vec::new(),
 				_phantom_data: PhantomData,
 				onboarding_size: T::MaxRingSize::get(),
 			}

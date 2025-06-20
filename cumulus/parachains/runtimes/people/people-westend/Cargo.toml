@@ -89,6 +89,7 @@ pallet-origin-restriction = { workspace = true }
 pallet-people = { workspace = true }
 pallet-verify-signature = { workspace = true }
 verifiable = { workspace = true }
+individuality-storage-init = { workspace = true }
 
 [dev-dependencies]
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
@@ -117,6 +118,7 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"frame-try-runtime?/std",
+	"individuality-storage-init/std",
 	"log/std",
 	"pallet-aura/std",
 	"pallet-authorship/std",
@@ -179,6 +181,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"individuality-storage-init/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-dummy-dim/runtime-benchmarks",
@@ -205,6 +208,7 @@ runtime-benchmarks = [
 	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
+	"individuality-storage-init/try-runtime",
 	"cumulus-pallet-aura-ext/try-runtime",
 	"cumulus-pallet-parachain-system/try-runtime",
 	"cumulus-pallet-weight-reclaim/try-runtime",

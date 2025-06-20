@@ -320,7 +320,7 @@ impl<T: frame_system::Config> pallet_people::WeightInfo for WeightInfo<T> {
 	/// Storage: `People::Root` (r:1 w:1)
 	/// Proof: `People::Root` (`max_values`: None, `max_size`: Some(840), added: 3315, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[1, 255]`.
-	fn remove_suspended_keys(_n: u32, ) -> Weight {
+	fn remove_suspended_people(_n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `9481 + n * (4 ±0)`
 		//  Estimated: `11647`

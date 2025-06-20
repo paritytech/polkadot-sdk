@@ -1,0 +1,51 @@
+[package]
+name = "individuality-storage-init"
+version = "0.1.0"
+license = "Apache-2.0"
+description = "Pallet to initialize storage items in pallets of individuality / PoP project"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[dependencies]
+codec = { features = ["derive"], workspace = true, default-features = false }
+scale-info = { features = ["derive"], workspace = true, default-features = false }
+frame-support = { workspace = true, default-features = false }
+frame-system = { workspace = true, default-features = false }
+sp-runtime = { workspace = true, default-features = false }
+sp-core = { workspace = true, default-features = false }
+sp-std = { workspace = true, default-features = false }
+pallet-people = { workspace = true, default-features = false }
+verifiable = { workspace = true, default-features = false }
+log = { workspace = true, default-features = false }
+
+[lints]
+workspace = true
+
+[features]
+default = ["std"]
+std = [
+    "frame-support/std",
+    "frame-system/std",
+    "sp-runtime/std",
+    "sp-core/std",
+    "sp-std/std",
+    "pallet-people/std",
+    "codec/std",
+    "scale-info/std",
+    "verifiable/std",
+    "log/std",
+]
+runtime-benchmarks = [
+    "frame-support/runtime-benchmarks",
+    "frame-system/runtime-benchmarks",
+    "sp-runtime/runtime-benchmarks",
+    "pallet-people/runtime-benchmarks",
+]
+try-runtime = [
+    "frame-support/try-runtime",
+    "frame-system/try-runtime",
+    "sp-runtime/try-runtime",
+    "pallet-people/try-runtime",
+]

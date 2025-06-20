@@ -48,7 +48,6 @@ pub trait WeightInfo {
 	fn under_alias() -> Weight;
 	fn set_alias_account() -> Weight;
 	fn unset_alias_account() -> Weight;
-	fn reset_root() -> Weight;
 	fn force_recognize_personhood() -> Weight;
 	fn set_personal_id_account() -> Weight;
 	fn unset_personal_id_account() -> Weight;
@@ -82,10 +81,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 
 	fn unset_alias_account() -> Weight {
-		Weight::zero()
-	}
-
-	fn reset_root() -> Weight {
 		Weight::zero()
 	}
 
@@ -181,10 +176,6 @@ impl WeightInfo for () {
 	}
 
 	fn unset_alias_account() -> Weight {
-		Weight::zero()
-	}
-
-	fn reset_root() -> Weight {
 		Weight::zero()
 	}
 
