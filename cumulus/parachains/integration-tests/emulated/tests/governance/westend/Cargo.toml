@@ -1,0 +1,32 @@
+[package]
+name = "governance-westend-integration-tests"
+version = "0.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+description = "Westend governance integration tests with xcm-emulator"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { workspace = true, default-features = true }
+
+# Substrate
+frame-support = { workspace = true, default-features = true }
+frame-system = { workspace = true, default-features = true }
+pallet-utility = { workspace = true, default-features = true }
+pallet-whitelist = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+
+pallet-xcm = { workspace = true, default-features = true }
+xcm = { workspace = true, default-features = true }
+
+emulated-integration-tests-common = { workspace = true }
+
+# Local
+collectives-westend-runtime = { workspace = true }
+westend-runtime = { workspace = true }
+westend-system-emulated-network = { workspace = true }
