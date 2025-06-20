@@ -49,10 +49,9 @@ async function run(nodeName, networkInfo) {
     // This check assumes that para 2000 runs slot based collator which respects its claim queue
     // and para 2001 runs lookahead which generates blocks for each relay parent.
     //
-    // For 12 blocks there will be one session change. One block won't have anything backed/included.
-    // In the next there will be one backed so for 12 blocks we should expect 10 included events - no
-    // more than 4 for para 2001 and at least 6 for para 2000. This should also cover the unlucky
-    // case when we observe two session changes during the 12 block period.
+    // We don't want to be too strict here because we don't know what candidates were included in
+    // the previous session. So we assume that para 2001 shouldn't have more than 2 blocks for the
+    // last session and para 2000 should have at least 3.
     return (blocks_per_para[2000] >= 3) && (blocks_per_para[2001] <= 2);
 }
 
