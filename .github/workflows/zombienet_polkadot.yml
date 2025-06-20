@@ -306,12 +306,19 @@ jobs:
         run: |
           BIN_DIR="$(pwd)/bin_old"
           mkdir -p $BIN_DIR
-          for bin in polkadot polkadot-execute-worker polkadot-prepare-worker polkadot-parachain; do
+          for bin in polkadot polkadot-parachain; do
             OLD_NAME="$bin-old"
             echo "downloading $bin as $OLD_NAME in $BIN_DIR";
             curl -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-v1.7.0/$bin
             chmod 755 $BIN_DIR/$OLD_NAME;
           done
+          for bin in polkadot-execute-worker polkadot-prepare-worker; do
+            OLD_NAME="$bin"
+            echo "downloading $bin as $OLD_NAME in $BIN_DIR";
+            curl -L -o $BIN_DIR/$OLD_NAME https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-v1.7.0/$bin
+            chmod 755 $BIN_DIR/$OLD_NAME;
+          done
+
           ls -ltr $BIN_DIR
           export PATH=$BIN_DIR:$PATH
           echo "PATH=$PATH" >> $GITHUB_ENV
