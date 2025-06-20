@@ -76,6 +76,7 @@ use frame_system::{
 	pallet_prelude::{BlockNumberFor, OriginFor},
 	Pallet as System,
 };
+use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{BadOrigin, Bounded, Convert, Dispatchable, Saturating, Zero},
@@ -106,6 +107,7 @@ pub type BalanceOf<T> =
 type TrieId = BoundedVec<u8, ConstU32<128>>;
 type CodeVec = BoundedVec<u8, ConstU32<{ limits::code::BLOB_BYTES }>>;
 type ImmutableData = BoundedVec<u8, ConstU32<{ limits::IMMUTABLE_BYTES }>>;
+pub(crate) type OnChargeTransactionBalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
 
 /// Used as a sentinel value when reading and writing contract memory.
 ///
@@ -1171,15 +1173,18 @@ where
 	///
 	/// - `tx`: The Ethereum transaction to simulate.
 	/// - `gas_limit`: The gas limit enforced during contract execution.
-	/// - `tx_fee`: A function that returns the fee for the given call and dispatch info.
+	/// - `tx_fee`: A function that returns the fee for the computed eth_transact and actual
+	/// dispatched call
 	pub fn dry_run_eth_transact(
 		mut tx: GenericTransaction,
 		gas_limit: Weight,
-		tx_fee: impl Fn(Call<T>, DispatchInfo) -> BalanceOf<T>,
+		tx_fee: impl Fn(<T as Config>::RuntimeCall, <T as Config>::RuntimeCall) -> BalanceOf<T>,
 	) -> Result<EthTransactInfo<BalanceOf<T>>, EthTransactError>
 	where
 		<T as frame_system::Config>::RuntimeCall:
 			Dispatchable<Info = frame_support::dispatch::DispatchInfo>,
+		T: pallet_transaction_payment::Config,
+		OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
 		<T as Config>::RuntimeCall: From<crate::Call<T>>,
 		<T as Config>::RuntimeCall: Encode,
 		T::Nonce: Into<U256>,
@@ -1247,7 +1252,7 @@ where
 		};
 
 		// Dry run the call
-		let (mut result, dispatch_info) = match tx.to {
+		let (mut result, dispatch_call) = match tx.to {
 			// A contract call.
 			Some(dest) => {
 				if dest == RUNTIME_PALLETS_ADDR {
@@ -1258,19 +1263,20 @@ where
 						)));
 					};
 
-					let dispatch_info = dispatch_call.get_dispatch_info();
-					if let Err(err) = dispatch_call.dispatch(RawOrigin::Signed(origin).into()) {
+					if let Err(err) =
+						dispatch_call.clone().dispatch(RawOrigin::Signed(origin).into())
+					{
 						return Err(EthTransactError::Message(format!(
 							"Failed to dispatch call: {err:?}"
 						)));
 					};
 
 					let result = EthTransactInfo {
-						gas_required: dispatch_info.total_weight(),
+						gas_required: dispatch_call.get_dispatch_info().total_weight(),
 						..Default::default()
 					};
 
-					(result, dispatch_info)
+					(result, dispatch_call)
 				} else {
 					// Dry run the call.
 					let result = crate::Pallet::<T>::bare_call(
@@ -1291,7 +1297,7 @@ where
 						},
 						Err(err) => {
 							log::debug!(target: LOG_TARGET, "Failed to execute call: {err:?}");
-							return extract_error(err)
+							return extract_error(err);
 						},
 					};
 
@@ -1314,7 +1320,7 @@ where
 						data: input.clone(),
 					}
 					.into();
-					(result, dispatch_call.get_dispatch_info())
+					(result, dispatch_call)
 				}
 			},
 			// A contract deployment
@@ -1353,7 +1359,7 @@ where
 					},
 					Err(err) => {
 						log::debug!(target: LOG_TARGET, "Failed to instantiate: {err:?}");
-						return extract_error(err)
+						return extract_error(err);
 					},
 				};
 
@@ -1378,7 +1384,7 @@ where
 						data: data.to_vec(),
 					}
 					.into();
-				(result, dispatch_call.get_dispatch_info())
+				(result, dispatch_call)
 			},
 		};
 
@@ -1386,9 +1392,9 @@ where
 			return Err(EthTransactError::Message("Invalid transaction".into()));
 		};
 
-		let eth_dispatch_call =
+		let eth_transact_call =
 			crate::Call::<T>::eth_transact { payload: unsigned_tx.dummy_signed_payload() };
-		let fee = tx_fee(eth_dispatch_call, dispatch_info);
+		let fee = tx_fee(eth_transact_call.into(), dispatch_call);
 		let raw_gas = Self::evm_fee_to_gas(fee);
 		let eth_gas =
 			T::EthGasEncoder::encode(raw_gas, result.gas_required, result.storage_deposit);
@@ -1439,13 +1445,24 @@ where
 	}
 
 	/// Get the block gas limit.
-	pub fn evm_block_gas_limit() -> U256 {
+	pub fn evm_block_gas_limit() -> U256
+	where
+		<T as frame_system::Config>::RuntimeCall:
+			Dispatchable<Info = frame_support::dispatch::DispatchInfo>,
+		T: pallet_transaction_payment::Config,
+		OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
+	{
 		let max_block_weight = T::BlockWeights::get()
 			.get(DispatchClass::Normal)
 			.max_total
 			.unwrap_or_else(|| T::BlockWeights::get().max_block);
 
+		let length_fee = pallet_transaction_payment::Pallet::<T>::length_to_fee(
+			5 * 1024 * 1024, // 5 MB
+		);
+
 		Self::evm_gas_from_weight(max_block_weight)
+			.saturating_add(Self::evm_fee_to_gas(length_fee.into()))
 	}
 
 	/// Get the gas price.
@@ -1547,7 +1564,7 @@ where
 		precision: ConversionPrecision,
 	) -> Result<BalanceOf<T>, Error<T>> {
 		if value.is_zero() {
-			return Ok(Zero::zero())
+			return Ok(Zero::zero());
 		}
 
 		let (quotient, remainder) = value.div_mod(T::NativeToEthRatio::get().into());
@@ -1758,15 +1775,19 @@ macro_rules! impl_runtime_apis_plus_revive {
 						sp_runtime::traits::Block as BlockT
 					};
 
-					let tx_fee = |pallet_call, mut dispatch_info: $crate::DispatchInfo| {
-						let call =
-							<Self as $crate::frame_system::Config>::RuntimeCall::from(pallet_call);
-						dispatch_info.extension_weight =
-							<$EthExtra>::get_eth_extension(0, 0u32.into()).weight(&call);
+					let tx_fee = |call: <Self as $crate::frame_system::Config>::RuntimeCall, dispatch_call: <Self as $crate::frame_system::Config>::RuntimeCall| {
+						use $crate::frame_support::dispatch::GetDispatchInfo;
 
+						// Get the dispatch info of the actual call dispatched
+						let mut dispatch_info = dispatch_call.get_dispatch_info();
+						dispatch_info.extension_weight =
+							<$EthExtra>::get_eth_extension(0, 0u32.into()).weight(&dispatch_call);
+
+						// Build the extrinsic
 						let uxt: <Block as BlockT>::Extrinsic =
 							$crate::sp_runtime::generic::UncheckedExtrinsic::new_bare(call).into();
 
+						// Compute the fee of the extrinsic
 						$crate::pallet_transaction_payment::Pallet::<Self>::compute_fee(
 							uxt.encoded_size() as u32,
 							&dispatch_info,

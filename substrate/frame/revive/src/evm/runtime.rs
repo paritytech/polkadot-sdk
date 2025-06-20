@@ -20,16 +20,16 @@ use crate::{
 		api::{GenericTransaction, TransactionSigned},
 		GasEncoder,
 	},
-	AccountIdOf, AddressMapper, BalanceOf, Config, ConversionPrecision, MomentOf, Pallet,
-	LOG_TARGET, RUNTIME_PALLETS_ADDR,
+	AccountIdOf, AddressMapper, BalanceOf, Config, ConversionPrecision, MomentOf,
+	OnChargeTransactionBalanceOf, Pallet, LOG_TARGET, RUNTIME_PALLETS_ADDR,
 };
 use alloc::vec::Vec;
-use codec::{Decode, DecodeWithMemTracking, Encode};
+use codec::{Decode, DecodeLimit, DecodeWithMemTracking, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo},
 	traits::{InherentBuilder, IsSubType, SignedTransactionBuilder},
+	MAX_EXTRINSIC_DEPTH,
 };
-use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_core::{Get, H256, U256};
 use sp_runtime::{
@@ -117,8 +117,6 @@ impl<Address: TypeInfo, Signature: TypeInfo, E: EthExtra> ExtrinsicCall
 		self.0.call()
 	}
 }
-
-type OnChargeTransactionBalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
 
 impl<LookupSource, Signature, E, Lookup> Checkable<Lookup>
 	for UncheckedExtrinsic<LookupSource, Signature, E>
@@ -334,7 +332,11 @@ pub trait EthExtra {
 
 		let call = if let Some(dest) = to {
 			if dest == RUNTIME_PALLETS_ADDR {
-				let call = CallOf::<Self::Config>::decode(&mut &data[..]).map_err(|_| {
+				let call = CallOf::<Self::Config>::decode_all_with_depth_limit(
+					MAX_EXTRINSIC_DEPTH,
+					&mut &data[..],
+				)
+				.map_err(|_| {
 					log::debug!(target: LOG_TARGET, "Failed to decode data as Call");
 					InvalidTransaction::Call
 				})?;
