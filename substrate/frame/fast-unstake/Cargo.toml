@@ -39,6 +39,7 @@ pallet-timestamp = { default-features = true, path = "../timestamp" }
 
 [features]
 default = ["std"]
+insecure_zero_ed=["pallet-balances/insecure_zero_ed"]
 std = [
 	"codec/std",
 	"frame-benchmarking/std",
@@ -50,6 +51,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-staking/std",
+	"pallet-staking/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -58,6 +60,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",
