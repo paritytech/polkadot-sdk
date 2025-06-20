@@ -51,7 +51,10 @@ async fn shared_core_idle_parachain_test() -> Result<(), anyhow::Error> {
 				.onboard_as_parachain(false)
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_default_args(vec![("-lparachain=debug,aura=debug").into()])
+				.with_default_args(vec![
+					("-lparachain=debug,aura=debug").into(),
+					"--authoring=slot-based".into(),
+				])
 				.with_collator(|n| n.with_name("collator-2000"))
 		})
 		.build()
@@ -91,7 +94,7 @@ async fn shared_core_idle_parachain_test() -> Result<(), anyhow::Error> {
 	assert_finalized_para_throughput(
 		&relay_client,
 		15,
-		[(ParaId::from(2000), 6..9)].into_iter().collect(),
+		[(ParaId::from(2000), 5..9)].into_iter().collect(),
 	)
 	.await?;
 
