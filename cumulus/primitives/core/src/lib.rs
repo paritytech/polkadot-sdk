@@ -395,7 +395,7 @@ sp_api::decl_runtime_apis! {
 	}
 
 	/// Runtime api used to access general info about a parachain runtime.
-	pub trait GetParachainIdentifier {
+	pub trait GetParachainInfo {
 		/// Retrieve the parachain id used for runtime.
 		fn parachain_id() -> ParaId;
   }

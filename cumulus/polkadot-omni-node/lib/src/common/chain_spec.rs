@@ -65,7 +65,7 @@ pub struct DeprecatedExtensions {
 	/// The id of the Parachain.
 	#[serde(alias = "paraId", alias = "ParaId")]
 	#[deprecated(
-		note = "The para_id information is not required anymore and will be removed starting with `stable2512`. Runtimes must implement a new API called `cumulus_primitives_core::GetParachainIdentifier` to still be compatible with node versions starting with `stable2512`."
+		note = "The para_id information is not required anymore and will be removed starting with `stable2512`. Runtimes must implement a new API called `cumulus_primitives_core::GetParachainInfo` to still be compatible with node versions starting with `stable2512`."
 	)]
 	pub para_id: Option<u32>,
 }

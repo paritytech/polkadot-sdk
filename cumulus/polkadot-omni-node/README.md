@@ -49,7 +49,7 @@ local variants are available only for a build of `polkadot-omni-node` with
 <!-- TODO: https://github.com/paritytech/polkadot-sdk/issues/8740 -->
 Additionaly, although deprecated, the `--para-id` flag can still be used to set the JSON key named
 `para_id`. The removal of the flag will happen starting with `stable2512`. The alternative of not using
-it is to implement the `cumulus_primitives_core::GetParachainIdentifier` runtime API for the runtime, and
+it is to implement the `cumulus_primitives_core::GetParachainInfo` runtime API for the runtime, and
 upgrade it on-chain as well, to be compatible with nodes released starting with `stable2512`.
 
 Example command bellow:

@@ -174,7 +174,7 @@ macro_rules! impl_node_runtime_apis {
 					unimplemented!()
 				}
 			}
-			impl cumulus_primitives_core::GetParachainIdentifier<$block> for $runtime {
+			impl cumulus_primitives_core::GetParachainInfo<$block> for $runtime {
 				fn parachain_id() -> ParaId {
 					unimplemented!()
 				}
