@@ -1,0 +1,90 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Lean about Cumulus, the framework that transforms `substrate`-based chains into `polkadot`-enabled parachains."><title>developer_hub::polkadot_sdk::cumulus - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="developer_hub" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../developer_hub/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../../../developer_hub/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2 class="location"><a href="#">Module cumulus</a></h2><div class="sidebar-elems"></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">developer_hub</a>::<wbr><a href="../index.html">polkadot_sdk</a>::<wbr><a class="mod" href="#">cumulus</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/developer_hub/polkadot_sdk/cumulus.rs.html#1-130">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Lean about Cumulus, the framework that transforms <a href="../substrate/index.html" title="mod developer_hub::polkadot_sdk::substrate"><code>substrate</code></a>-based chains into
+<a href="../polkadot/index.html" title="mod developer_hub::polkadot_sdk::polkadot"><code>polkadot</code></a>-enabled parachains.</p>
+<h2 id="cumulus"><a href="#cumulus">Cumulus</a></h2>
+<p>Substrate provides a framework (<a href="../frame_runtime/index.html" title="mod developer_hub::polkadot_sdk::frame_runtime">FRAME</a>) through which a blockchain node and runtime can easily
+be created. Cumulus aims to extend the same approach to creation of Polkadot parachains.</p>
+<blockquote>
+<p>Cumulus clouds are shaped sort of like dots; together they form a system that is intricate,
+beautiful and functional.</p>
+</blockquote>
+<h3 id="example-runtime"><a href="#example-runtime">Example: Runtime</a></h3>
+<p>A Cumulus-based runtime is fairly similar to other <a href="../frame_runtime/index.html" title="mod developer_hub::polkadot_sdk::frame_runtime">FRAME</a>-based runtimes. Most notably, the
+following changes are applied to a normal FRAME-based runtime to make it a Cumulus-based
+runtime:</p>
+<h5 id="cumulus-pallets"><a href="#cumulus-pallets">Cumulus Pallets</a></h5>
+<p>A parachain runtime should use a number of pallets that are provided by Cumulus and Substrate.
+Notably:</p>
+<ul>
+<li><a href="../../../frame_system/index.html" title="mod frame_system"><code>frame-system</code></a>, like all FRAME-based runtimes.</li>
+<li><a href="../../../cumulus_pallet_parachain_system/index.html" title="mod cumulus_pallet_parachain_system"><code>cumulus_pallet_parachain_system</code></a></li>
+<li><a href="../../../staging_parachain_info/index.html" title="mod staging_parachain_info"><code>parachain_info</code></a></li>
+</ul>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">mod </span>system_pallets {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+	<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig)]
+	</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
+		<span class="kw">type </span>Block = MockBlock&lt;<span class="self">Self</span>&gt;;
+		<span class="kw">type </span>OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode&lt;<span class="self">Self</span>&gt;;
+	}
+
+	<span class="kw">impl </span>cumulus_pallet_parachain_system::Config <span class="kw">for </span>Runtime {
+		<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+		<span class="kw">type </span>OnSystemEvent = ();
+		<span class="kw">type </span>SelfParaId = parachain_info::Pallet&lt;Runtime&gt;;
+		<span class="kw">type </span>OutboundXcmpMessageSource = ();
+		<span class="kw">type </span>XcmpMessageHandler = ();
+		<span class="kw">type </span>ReservedDmpWeight = ();
+		<span class="kw">type </span>ReservedXcmpWeight = ();
+		<span class="kw">type </span>CheckAssociatedRelayNumber =
+			cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
+		<span class="kw">type </span>ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook&lt;
+			Runtime,
+			<span class="number">6000</span>, <span class="comment">// relay chain block time
+			</span><span class="number">1</span>,
+			<span class="number">1</span>,
+		&gt;;
+		<span class="kw">type </span>WeightInfo = ();
+		<span class="kw">type </span>DmpQueue = frame::traits::EnqueueWithOrigin&lt;(), sp_core::ConstU8&lt;<span class="number">0</span>&gt;&gt;;
+	}
+
+	<span class="kw">impl </span>parachain_info::Config <span class="kw">for </span>Runtime {}
+}</code></pre></div>
+<p>Given that all Cumulus-based runtimes use a simple Aura-based consensus mechanism, the following
+pallets also need to be added:</p>
+<ul>
+<li><a href="../../../pallet_timestamp/index.html" title="mod pallet_timestamp"><code>pallet_timestamp</code></a></li>
+<li><a href="../../../pallet_aura/index.html" title="mod pallet_aura"><code>pallet_aura</code></a></li>
+<li><a href="../../../cumulus_pallet_aura_ext/index.html" title="mod cumulus_pallet_aura_ext"><code>cumulus_pallet_aura_ext</code></a></li>
+</ul>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">mod </span>consensus_pallets {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+	<span class="kw">impl </span>pallet_aura::Config <span class="kw">for </span>Runtime {
+		<span class="kw">type </span>AuthorityId = AuraId;
+		<span class="kw">type </span>DisabledValidators = ();
+		<span class="kw">type </span>MaxAuthorities = ConstU32&lt;<span class="number">100_000</span>&gt;;
+		<span class="kw">type </span>AllowMultipleBlocksPerSlot = ConstBool&lt;<span class="bool-val">false</span>&gt;;
+		<span class="attr">#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
+		</span><span class="kw">type </span>SlotDuration = pallet_aura::MinimumPeriodTimesTwo&lt;<span class="self">Self</span>&gt;;
+	}
+
+	<span class="attr">#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig <span class="kw">as </span>pallet_timestamp::DefaultConfig)]
+	</span><span class="kw">impl </span>pallet_timestamp::Config <span class="kw">for </span>Runtime {}
+
+	<span class="kw">impl </span>cumulus_pallet_aura_ext::Config <span class="kw">for </span>Runtime {}
+}</code></pre></div>
+<p>Finally, a separate macro, similar to
+<a href="../../../sp_api_proc_macro/macro.impl_runtime_apis.html" title="macro sp_api_proc_macro::impl_runtime_apis"><code>impl_runtime_api</code></a>, which creates the default set
+of runtime APIs, will generate the parachain runtime’s validation runtime API, also known as
+parachain validation function (PVF). Without this API, the relay chain is unable to validate
+blocks produced by our parachain.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="macro">cumulus_pallet_parachain_system::register_validate_block! </span>{
+	Runtime = Runtime,
+	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::&lt;Runtime, Executive&gt;,
+}</code></pre></div>
+<hr />
+</div></details></section></div></main></body></html>

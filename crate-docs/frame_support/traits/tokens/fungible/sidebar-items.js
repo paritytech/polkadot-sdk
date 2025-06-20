@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["conformance_tests","freeze","hold"],"struct":["DecreaseIssuance","Dust","FreezeConsideration","HoldConsideration","Imbalance","IncreaseIssuance","ItemOf","LoneFreezeConsideration","LoneHoldConsideration"],"trait":["Balanced","HandleImbalanceDrop","Inspect","Mutate","Unbalanced"],"type":["Credit","Debt"]};

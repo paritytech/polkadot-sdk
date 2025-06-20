@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["LegacyRuntime"],"fn":["extract_parachain_id"],"mod":["asset_hubs","bridge_hubs","collectives","coretime","glutton","penpal","people","rococo_parachain","yet_another_parachain"],"struct":["ChainSpecLoader","RuntimeResolver"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["CoresOffered","EndPrice","IdealCoresSold","LeadinLength","RegionBegin","RegionEnd","SaleStart","StartPrice"]};

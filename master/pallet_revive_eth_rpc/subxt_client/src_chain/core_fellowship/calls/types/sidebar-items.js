@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["approve","bump","import_member","induct","offboard","promote","promote_fast","set_active","set_params","set_partial_params","submit_evidence"],"struct":["Approve","Bump","Import","ImportMember","Induct","Offboard","Promote","PromoteFast","SetActive","SetParams","SetPartialParams","SubmitEvidence"]};

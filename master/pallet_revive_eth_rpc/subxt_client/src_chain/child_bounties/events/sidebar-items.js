@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["added","awarded","canceled","claimed"],"struct":["Added","Awarded","Canceled","Claimed"]};

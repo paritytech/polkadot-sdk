@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["simple_transfer","simple_transfer_2","simple_transfer_3"]};

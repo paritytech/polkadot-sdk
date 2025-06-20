@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["pool_admin_modified","pool_cleaned_up","pool_created","pool_expiry_block_modified","pool_reward_rate_modified","rewards_harvested","staked","unstaked"],"struct":["PoolAdminModified","PoolCleanedUp","PoolCreated","PoolExpiryBlockModified","PoolRewardRateModified","RewardsHarvested","Staked","Unstaked"]};
