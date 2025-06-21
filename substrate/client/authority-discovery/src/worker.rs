@@ -19,25 +19,26 @@
 use crate::{
 	error::{Error, Result},
 	interval::ExpIncInterval,
+	worker::addr_cache::AddrCache,
 	ServicetoWorkerMsg, WorkerConfig,
 };
 
 use std::{
 	collections::{HashMap, HashSet},
 	marker::PhantomData,
+	path::PathBuf,
 	sync::Arc,
 	time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use futures::{channel::mpsc, future, stream::Fuse, FutureExt, Stream, StreamExt};
 
-use addr_cache::AddrCache;
 use codec::{Decode, Encode};
 use ip_network::IpNetwork;
 use linked_hash_set::LinkedHashSet;
 use sc_network_types::kad::{Key, PeerRecord, Record};
 
-use log::{debug, error, trace};
+use log::{debug, error, trace, warn};
 use prometheus_endpoint::{register, Counter, CounterVec, Gauge, Opts, U64};
 use prost::Message;
 use rand::{seq::SliceRandom, thread_rng};
@@ -53,7 +54,10 @@ use sp_authority_discovery::{
 	AuthorityDiscoveryApi, AuthorityId, AuthorityPair, AuthoritySignature,
 };
 use sp_blockchain::HeaderBackend;
-use sp_core::crypto::{key_types, ByteArray, Pair};
+use sp_core::{
+	crypto::{key_types, ByteArray, Pair},
+	traits::SpawnNamed,
+};
 use sp_keystore::{Keystore, KeystorePtr};
 use sp_runtime::traits::Block as BlockT;
 
@@ -69,6 +73,7 @@ mod schema {
 pub mod tests;
 
 const LOG_TARGET: &str = "sub-authority-discovery";
+const ADDR_CACHE_FILE_NAME: &str = "authority_discovery_addr_cache.json";
 
 /// Maximum number of addresses cached per authority. Additional addresses are discarded.
 const MAX_ADDRESSES_PER_AUTHORITY: usize = 16;
@@ -186,6 +191,14 @@ pub struct Worker<Client, Block: BlockT, DhtEventStream> {
 	role: Role,
 
 	phantom: PhantomData<Block>,
+
+	/// A spawner of tasks
+	spawner: Box<dyn SpawnNamed>,
+
+	/// The directory of where the persisted AddrCache file is located,
+	/// optional since NetworkConfiguration's `net_config_path` field
+	/// is optional. If None, we won't persist the AddrCache at all.
+	persisted_cache_file_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone)]
@@ -245,6 +258,7 @@ where
 		role: Role,
 		prometheus_registry: Option<prometheus_endpoint::Registry>,
 		config: WorkerConfig,
+		spawner: impl SpawnNamed + 'static,
 	) -> Self {
 		// When a node starts up publishing and querying might fail due to various reasons, for
 		// example due to being not yet fully bootstrapped on the DHT. Thus one should retry rather
@@ -261,7 +275,24 @@ where
 		let publish_if_changed_interval =
 			ExpIncInterval::new(config.keystore_refresh_interval, config.keystore_refresh_interval);
 
-		let addr_cache = AddrCache::new();
+		let maybe_persisted_cache_file_path =
+			config.persisted_cache_directory.as_ref().map(|dir| {
+				let mut path = dir.clone();
+				path.push(ADDR_CACHE_FILE_NAME);
+				path
+			});
+
+		// If we have a path to persisted cache file, then we will try to
+		// load the contents of persisted cache from file, if it exists, and is valid.
+		// Create a new one otherwise.
+		let addr_cache: AddrCache = if let Some(persisted_cache_file_path) =
+			maybe_persisted_cache_file_path.as_ref()
+		{
+			AddrCache::load_from_persisted_file(persisted_cache_file_path)
+		} else {
+			warn!(target: LOG_TARGET, "Warning: No persisted cache file path provided, authority discovery will not persist the address cache to disk.");
+			AddrCache::new()
+		};
 
 		let metrics = match prometheus_registry {
 			Some(registry) => match Metrics::register(&registry) {
@@ -308,20 +339,42 @@ where
 			warn_public_addresses: false,
 			phantom: PhantomData,
 			last_known_records: HashMap::new(),
+			spawner: Box::new(spawner),
+			persisted_cache_file_path: maybe_persisted_cache_file_path,
 		}
+	}
+
+	/// Persists `AddrCache` to disk if the `persisted_cache_file_path` is set.
+	pub fn persist_addr_cache_if_supported(&self) {
+		let Some(path) = self.persisted_cache_file_path.as_ref().cloned() else {
+			return;
+		};
+		let Some(serialized_cache) = self.addr_cache.serialize() else { return };
+		self.spawner.spawn(
+			"PersistAddrCache",
+			Some("AuthorityDiscoveryWorker"),
+			Box::pin(async move { AddrCache::persist(path, serialized_cache) }),
+		)
 	}
 
 	/// Start the worker
 	pub async fn run(mut self) {
+		let mut persist_interval =
+			tokio::time::interval(Duration::from_secs(60 * 10 /* 10 minutes */));
+
 		loop {
 			self.start_new_lookups();
 
 			futures::select! {
+				_ = persist_interval.tick().fuse() => {
+					self.persist_addr_cache_if_supported();
+				},
 				// Process incoming events.
 				event = self.dht_event_rx.next().fuse() => {
 					if let Some(event) = event {
 						self.handle_dht_event(event).await;
 					} else {
+						self.persist_addr_cache_if_supported();
 						// This point is reached if the network has shut down, at which point there is not
 						// much else to do than to shut down the authority discovery as well.
 						return;

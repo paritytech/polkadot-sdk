@@ -16,13 +16,23 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+use crate::error::Error;
+use log::{error, info, warn};
 use sc_network::{multiaddr::Protocol, Multiaddr};
 use sc_network_types::PeerId;
+use serde::{Deserialize, Serialize};
 use sp_authority_discovery::AuthorityId;
-use std::collections::{hash_map::Entry, HashMap, HashSet};
+use sp_runtime::DeserializeOwned;
+use std::{
+	collections::{hash_map::Entry, HashMap, HashSet},
+	fs::File,
+	io::{self, BufReader, Write},
+	path::Path,
+};
 
 /// Cache for [`AuthorityId`] -> [`HashSet<Multiaddr>`] and [`PeerId`] -> [`HashSet<AuthorityId>`]
 /// mappings.
+#[derive(Serialize, Deserialize, Default, Clone, PartialEq, Debug)]
 pub(super) struct AddrCache {
 	/// The addresses found in `authority_id_to_addresses` are guaranteed to always match
 	/// the peerids found in `peer_id_to_authority_ids`. In other words, these two hashmaps
@@ -35,11 +45,47 @@ pub(super) struct AddrCache {
 	peer_id_to_authority_ids: HashMap<PeerId, HashSet<AuthorityId>>,
 }
 
+fn write_to_file(path: impl AsRef<Path>, contents: &str) -> io::Result<()> {
+	let path = path.as_ref();
+	let mut file = File::create(path)?;
+	file.write_all(contents.as_bytes())?;
+	file.flush()?;
+	Ok(())
+}
+
 impl AddrCache {
 	pub fn new() -> Self {
-		AddrCache {
-			authority_id_to_addresses: HashMap::new(),
-			peer_id_to_authority_ids: HashMap::new(),
+		AddrCache::default()
+	}
+
+	/// Load contents of persisted cache from file, if it exists, and is valid. Create a new one
+	/// otherwise, and install a callback to persist it on change.
+	pub fn load_from_persisted_file(path: impl AsRef<Path>) -> Self {
+		// Try to load from the cache file if it exists and is valid.
+		load_from_file::<AddrCache>(&path.as_ref())
+			.map_err(|e| Error::EncodingDecodingAddrCache(
+				format!("Failed to load AddrCache from file: {}, error: {:?}", path.as_ref().display(), e)
+			))
+			.unwrap_or_else(|e| {
+				warn!(target: super::LOG_TARGET, "Failed to load AddrCache from file, using empty instead, error: {}", e);
+				AddrCache::new()
+			})
+	}
+
+	pub fn serialize(&self) -> Option<String> {
+		serde_json::to_string_pretty(self).inspect_err(|e| {
+			error!(target: super::LOG_TARGET, "Failed to serialize AddrCache to JSON: {} => skip persisting it.", e);
+		}).ok()
+	}
+
+	pub fn persist(path: impl AsRef<Path>, serialized_cache: String) {
+		match write_to_file(path.as_ref(), &serialized_cache) {
+			Err(err) => {
+				error!(target: super::LOG_TARGET, "Failed to persist AddrCache on disk at path: {}, error: {}", path.as_ref().display(), err);
+			},
+			Ok(_) => {
+				info!(target: super::LOG_TARGET, "Successfully persisted AddrCache on disk");
+			},
 		}
 	}
 
@@ -172,8 +218,21 @@ fn addresses_to_peer_ids(addresses: &HashSet<Multiaddr>) -> HashSet<PeerId> {
 	addresses.iter().filter_map(peer_id_from_multiaddr).collect::<HashSet<_>>()
 }
 
+fn load_from_file<T: DeserializeOwned>(path: impl AsRef<Path>) -> io::Result<T> {
+	let file = File::open(path)?;
+	let reader = BufReader::new(file);
+
+	serde_json::from_reader(reader).map_err(|e| {
+		error!(target: super::LOG_TARGET, "Failed to load from file: {}", e);
+		io::Error::new(io::ErrorKind::InvalidData, e)
+	})
+}
+
 #[cfg(test)]
 mod tests {
+
+	use std::{thread::sleep, time::Duration};
+
 	use super::*;
 
 	use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
@@ -380,5 +439,79 @@ mod tests {
 			&HashSet::from([addr]),
 			addr_cache.get_addresses_by_authority_id(&authority_id1).unwrap()
 		);
+	}
+
+	impl AddrCache {
+		pub fn sample() -> Self {
+			let mut addr_cache = AddrCache::new();
+
+			let peer_id = PeerId::from_multihash(
+				Multihash::wrap(Code::Sha2_256.into(), &[0xab; 32]).unwrap(),
+			)
+			.unwrap();
+			let addr = Multiaddr::empty().with(Protocol::P2p(peer_id.into()));
+			let authority_id0 = AuthorityPair::from_seed(&[0xaa; 32]).public();
+			let authority_id1 = AuthorityPair::from_seed(&[0xbb; 32]).public();
+
+			addr_cache.insert(authority_id0.clone(), vec![addr.clone()]);
+			addr_cache.insert(authority_id1.clone(), vec![addr.clone()]);
+			addr_cache
+		}
+	}
+
+	/// Tests JSON roundtrip is stable.
+	#[test]
+	fn serde_json() {
+		let sample = || AddrCache::sample();
+		let serializable = AddrCache::from(sample());
+		let json = serde_json::to_string(&serializable).expect("Serialization should not fail");
+		let deserialized = serde_json::from_str::<AddrCache>(&json).unwrap();
+		let from_serializable = AddrCache::try_from(deserialized).unwrap();
+		assert_eq!(sample(), from_serializable);
+	}
+
+	#[test]
+	fn deserialize_from_json() {
+		let json = r#"
+		{
+		  "authority_id_to_addresses": {
+		    "5FjfMGrqw9ck5XZaPVTKm2RE5cbwoVUfXvSGZY7KCUEFtdr7": [
+		      "/p2p/QmZtnFaddFtzGNT8BxdHVbQrhSFdq1pWxud5z4fA4kxfDt"
+		    ],
+		    "5DiQDBQvjFkmUF3C8a7ape5rpRPoajmMj44Q9CTGPfVBaa6U": [
+		      "/p2p/QmZtnFaddFtzGNT8BxdHVbQrhSFdq1pWxud5z4fA4kxfDt"
+		    ]
+		  },
+		  "peer_id_to_authority_ids": {
+		    "QmZtnFaddFtzGNT8BxdHVbQrhSFdq1pWxud5z4fA4kxfDt": [
+		      "5FjfMGrqw9ck5XZaPVTKm2RE5cbwoVUfXvSGZY7KCUEFtdr7",
+		      "5DiQDBQvjFkmUF3C8a7ape5rpRPoajmMj44Q9CTGPfVBaa6U"
+		    ]
+		  }
+		}
+		"#;
+		let deserialized = serde_json::from_str::<AddrCache>(json)
+			.expect("Should be able to deserialize valid JSON into AddrCache");
+		assert_eq!(deserialized.authority_id_to_addresses.len(), 2);
+	}
+
+	fn serialize_and_write_to_file<T: Serialize>(
+		path: impl AsRef<Path>,
+		contents: &T,
+	) -> io::Result<()> {
+		let serialized = serde_json::to_string_pretty(contents).unwrap();
+		write_to_file(path, &serialized)
+	}
+
+	#[test]
+	fn test_load_cache_from_disc() {
+		let dir = tempfile::tempdir().unwrap();
+		let path = dir.path().join("cache.json");
+		let sample = AddrCache::sample();
+		assert_eq!(sample.num_authority_ids(), 2);
+		serialize_and_write_to_file(&path, &sample).unwrap();
+		sleep(Duration::from_millis(10)); // Ensure file is written before loading
+		let cache = AddrCache::load_from_persisted_file(path);
+		assert_eq!(cache.num_authority_ids(), 2);
 	}
 }
