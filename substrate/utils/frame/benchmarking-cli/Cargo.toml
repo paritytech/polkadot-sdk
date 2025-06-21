@@ -58,6 +58,7 @@ sp-database = { workspace = true, default-features = true }
 sp-externalities = { workspace = true, default-features = true }
 sp-genesis-builder = { workspace = true, default-features = true }
 sp-inherents = { workspace = true, default-features = true }
+sp-runtime-interface = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
@@ -72,6 +73,7 @@ subxt = { workspace = true, features = ["native"] }
 subxt-signer = { workspace = true, features = ["unstable-eth"] }
 thiserror = { workspace = true }
 thousands = { workspace = true }
+env_filter = { workspace = true }
 
 [dev-dependencies]
 cumulus-test-runtime = { workspace = true, default-features = true }
