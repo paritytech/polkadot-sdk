@@ -295,10 +295,13 @@ async fn send_request(
 	execution_timeout: Duration,
 	artifact_checksum: ArtifactChecksum,
 ) -> io::Result<()> {
-	framed_send(stream, &pvd.encode()).await?;
-	framed_send(stream, &pov.encode()).await?;
-	framed_send(stream, &execution_timeout.encode()).await?;
-	framed_send(stream, &artifact_checksum.encode()).await
+	let request = polkadot_node_core_pvf_common::execute::ExecuteRequest {
+		pvd: (*pvd).clone(),
+		pov: (*pov).clone(),
+		execution_timeout,
+		artifact_checksum,
+	};
+	framed_send(stream, &request.encode()).await
 }
 
 async fn recv_result(stream: &mut UnixStream) -> io::Result<Result<WorkerResponse, WorkerError>> {

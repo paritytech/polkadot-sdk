@@ -21,6 +21,7 @@ thiserror = { workspace = true }
 
 codec = { features = ["derive"], workspace = true }
 
+polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-parachain-primitives = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 

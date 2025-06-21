@@ -91,40 +91,17 @@ fn recv_execute_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
 fn recv_request(
 	stream: &mut UnixStream,
 ) -> io::Result<(PersistedValidationData, PoV, Duration, ArtifactChecksum)> {
-	let pvd = framed_recv_blocking(stream)?;
-	let pvd = PersistedValidationData::decode(&mut &pvd[..]).map_err(|_| {
+	use polkadot_node_core_pvf_common::execute::ExecuteRequest;
+
+	let request_bytes = framed_recv_blocking(stream)?;
+	let request = ExecuteRequest::decode(&mut &request_bytes[..]).map_err(|_| {
 		io::Error::new(
 			io::ErrorKind::Other,
-			"execute pvf recv_request: failed to decode persisted validation data".to_string(),
+			"execute pvf recv_request: failed to decode ExecuteRequest".to_string(),
 		)
 	})?;
 
-	let pov = framed_recv_blocking(stream)?;
-	let pov = PoV::decode(&mut &pov[..]).map_err(|_| {
-		io::Error::new(
-			io::ErrorKind::Other,
-			"execute pvf recv_request: failed to decode PoV".to_string(),
-		)
-	})?;
-
-	let execution_timeout = framed_recv_blocking(stream)?;
-	let execution_timeout = Duration::decode(&mut &execution_timeout[..]).map_err(|_| {
-		io::Error::new(
-			io::ErrorKind::Other,
-			"execute pvf recv_request: failed to decode duration".to_string(),
-		)
-	})?;
-
-	let artifact_checksum = framed_recv_blocking(stream)?;
-	let artifact_checksum =
-		ArtifactChecksum::decode(&mut &artifact_checksum[..]).map_err(|_| {
-			io::Error::new(
-				io::ErrorKind::Other,
-				"execute pvf recv_request: failed to decode artifact checksum".to_string(),
-			)
-		})?;
-
-	Ok((pvd, pov, execution_timeout, artifact_checksum))
+	Ok((request.pvd, request.pov, request.execution_timeout, request.artifact_checksum))
 }
 
 /// Sends an error to the host and returns the original error wrapped in `io::Error`.
