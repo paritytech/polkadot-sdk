@@ -32,8 +32,8 @@ use prometheus_endpoint::Registry;
 use sc_chain_spec::{get_extension, ChainSpec};
 use sc_client_api::{
 	execution_extensions::ExecutionExtensions, proof_provider::ProofProvider, BadBlocks,
-	BlockBackend, BlockchainEvents, ExecutorProvider, ForkBlocks, KeysIter, StorageProvider,
-	TrieCacheContext, UsageProvider,
+	BlockBackend, BlockchainEvents, EnableProofRecording, ExecutorProvider, ForkBlocks, KeysIter,
+	StorageProvider, TrieCacheContext, UsageProvider,
 };
 use sc_client_db::{Backend, BlocksPruning, DatabaseSettings, PruningMode};
 use sc_consensus::import_queue::{ImportQueue, ImportQueueService};
@@ -480,6 +480,7 @@ where
 		+ UsageProvider<TBl>
 		+ StorageProvider<TBl, TBackend>
 		+ CallApiAt<TBl>
+		+ EnableProofRecording
 		+ Send
 		+ 'static,
 	<TCl as ProvideRuntimeApi<TBl>>::Api: sp_api::Metadata<TBl>
@@ -777,6 +778,7 @@ where
 		+ ProofProvider<TBl>
 		+ StorageProvider<TBl, TBackend>
 		+ BlockBackend<TBl>
+		+ EnableProofRecording
 		+ Send
 		+ Sync
 		+ 'static,

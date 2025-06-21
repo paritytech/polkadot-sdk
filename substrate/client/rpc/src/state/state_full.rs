@@ -33,8 +33,8 @@ use crate::{
 use futures::{future, stream, StreamExt};
 use jsonrpsee::{core::async_trait, types::ErrorObject, PendingSubscriptionSink};
 use sc_client_api::{
-	Backend, BlockBackend, BlockchainEvents, CallExecutor, ExecutorProvider, ProofProvider,
-	StorageProvider,
+	Backend, BlockBackend, BlockchainEvents, CallExecutor, EnableProofRecording, ExecutorProvider,
+	ProofProvider, StorageProvider,
 };
 use sc_rpc_api::state::ReadProof;
 use sp_api::{CallApiAt, Metadata, ProvideRuntimeApi};
@@ -183,6 +183,7 @@ where
 		+ CallApiAt<Block>
 		+ ProvideRuntimeApi<Block>
 		+ BlockBackend<Block>
+		+ EnableProofRecording
 		+ Send
 		+ Sync
 		+ 'static,
@@ -479,6 +480,7 @@ where
 			targets,
 			storage_keys,
 			methods,
+			self.client.enable_proof_recording(),
 		)
 		.trace_block()
 		.map_err(|e| invalid_block::<Block>(block, None, e.to_string()))
