@@ -38,7 +38,7 @@ use std::{sync::Arc, time::Duration};
 
 use futures::{channel::oneshot, prelude::*};
 use polkadot_node_subsystem::messages::{
-	ApprovalVotingMessage, ChainSelectionMessage, DisputeCoordinatorMessage,
+	ApprovalVotingParallelMessage, ChainSelectionMessage, DisputeCoordinatorMessage,
 	HighestApprovedAncestorBlock,
 };
 use polkadot_primitives::{Block, BlockNumber, Hash, Header};
@@ -47,7 +47,7 @@ use polkadot_node_subsystem_test_helpers::TestSubsystemSender;
 use polkadot_overseer::{SubsystemContext, SubsystemSender};
 
 type VirtualOverseer =
-	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<ApprovalVotingMessage>;
+	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<ApprovalVotingParallelMessage>;
 
 #[async_trait::async_trait]
 impl OverseerHandleT for TestSubsystemSender {
@@ -101,7 +101,6 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		context.sender().clone(),
 		Default::default(),
 		None,
-		false,
 	);
 
 	let target_hash = case_vars.target_block;
@@ -384,7 +383,7 @@ async fn test_skeleton(
 		overseer_recv(
 			virtual_overseer
 		).await,
-		AllMessages::ApprovalVoting(ApprovalVotingMessage::ApprovedAncestor(_block_hash, _block_number, tx))
+		AllMessages::ApprovalVotingParallel(ApprovalVotingParallelMessage::ApprovedAncestor(_block_hash, _block_number, tx))
 		=> {
 			tx.send(highest_approved_ancestor_block.clone()).unwrap();
 		}
