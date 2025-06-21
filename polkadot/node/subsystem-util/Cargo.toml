@@ -42,6 +42,7 @@ polkadot-primitives.default-features = true
 polkadot-primitives.workspace = true
 sc-client-api.default-features = true
 sc-client-api.workspace = true
+sc-keystore.workspace = true
 sp-application-crypto.default-features = true
 sp-application-crypto.workspace = true
 sp-core.default-features = true
