@@ -1009,7 +1009,7 @@ pub mod pallet {
 					if Self::request_version_notify(dest).is_ok() {
 						// TODO: correct weights.
 						weight_used.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
-						break
+						break;
 					}
 				}
 			}
@@ -1057,8 +1057,9 @@ pub mod pallet {
 						timeout,
 						maybe_match_querier: Some(Location::here().into()),
 					},
-					VersionNotifier { origin, is_active } =>
-						QueryStatus::VersionNotifier { origin, is_active },
+					VersionNotifier { origin, is_active } => {
+						QueryStatus::VersionNotifier { origin, is_active }
+					},
 					Ready { response, at } => QueryStatus::Ready { response, at },
 				}
 			}
@@ -1694,16 +1695,17 @@ pub mod pallet {
 			ensure!(origin_location != new_aliaser, Error::<T>::BadLocation);
 			// remove `network` from inner `AccountId32` for easier matching
 			let origin_location = match origin_location.unpack() {
-				(0, [AccountId32 { network: _, id }]) =>
-					Location::new(0, [AccountId32 { network: None, id: *id }]),
+				(0, [AccountId32 { network: _, id }]) => {
+					Location::new(0, [AccountId32 { network: None, id: *id }])
+				},
 				_ => return Err(Error::<T>::InvalidOrigin.into()),
 			};
 			tracing::debug!(target: "xcm::pallet_xcm::add_authorized_alias", ?origin_location, ?new_aliaser, ?expires);
 			ensure!(origin_location != new_aliaser, Error::<T>::BadLocation);
 			if let Some(expiry) = expires {
 				ensure!(
-					expiry >
-						frame_system::Pallet::<T>::current_block_number().saturated_into::<u64>(),
+					expiry
+						> frame_system::Pallet::<T>::current_block_number().saturated_into::<u64>(),
 					Error::<T>::ExpiresInPast
 				);
 			}
@@ -1776,8 +1778,9 @@ pub mod pallet {
 			ensure!(origin_location != to_remove, Error::<T>::BadLocation);
 			// remove `network` from inner `AccountId32` for easier matching
 			let origin_location = match origin_location.unpack() {
-				(0, [AccountId32 { network: _, id }]) =>
-					Location::new(0, [AccountId32 { network: None, id: *id }]),
+				(0, [AccountId32 { network: _, id }]) => {
+					Location::new(0, [AccountId32 { network: None, id: *id }])
+				},
 				_ => return Err(Error::<T>::InvalidOrigin.into()),
 			};
 			tracing::debug!(target: "xcm::pallet_xcm::remove_authorized_alias", ?origin_location, ?to_remove);
@@ -1826,8 +1829,9 @@ pub mod pallet {
 			let origin_location: Location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
 			// remove `network` from inner `AccountId32` for easier matching
 			let origin_location = match origin_location.unpack() {
-				(0, [AccountId32 { network: _, id }]) =>
-					Location::new(0, [AccountId32 { network: None, id: *id }]),
+				(0, [AccountId32 { network: _, id }]) => {
+					Location::new(0, [AccountId32 { network: None, id: *id }])
+				},
 				_ => return Err(Error::<T>::InvalidOrigin.into()),
 			};
 			tracing::debug!(target: "xcm::pallet_xcm::remove_all_authorized_aliases", ?origin_location);
@@ -2181,8 +2185,9 @@ impl<T: Config> Pallet<T> {
 					fees,
 					weight_limit,
 				)?,
-				TransferType::RemoteReserve(_) =>
-					return Err(Error::<T>::InvalidAssetUnsupportedReserve.into()),
+				TransferType::RemoteReserve(_) => {
+					return Err(Error::<T>::InvalidAssetUnsupportedReserve.into())
+				},
 			};
 			FeesHandling::Separate { local_xcm, remote_xcm }
 		};
@@ -2803,7 +2808,7 @@ impl<T: Config> Pallet<T> {
 					}
 					weight_used.saturating_accrue(sv_migrate_weight);
 					if weight_used.any_gte(weight_cutoff) {
-						return (weight_used, Some(stage))
+						return (weight_used, Some(stage));
 					}
 				}
 			}
@@ -2817,7 +2822,7 @@ impl<T: Config> Pallet<T> {
 					}
 					weight_used.saturating_accrue(vn_migrate_weight);
 					if weight_used.any_gte(weight_cutoff) {
-						return (weight_used, Some(stage))
+						return (weight_used, Some(stage));
 					}
 				}
 			}
@@ -2839,7 +2844,7 @@ impl<T: Config> Pallet<T> {
 						// We don't early return here since we need to be certain that we
 						// make some progress.
 						weight_used.saturating_accrue(vnt_already_notified_weight);
-						continue
+						continue;
 					},
 				};
 				let response = Response::Version(xcm_version);
@@ -2865,7 +2870,7 @@ impl<T: Config> Pallet<T> {
 				weight_used.saturating_accrue(vnt_notify_weight);
 				if weight_used.any_gte(weight_cutoff) {
 					let last = Some(iter.last_raw_key().into());
-					return (weight_used, Some(NotifyCurrentTargets(last)))
+					return (weight_used, Some(NotifyCurrentTargets(last)));
 				}
 			}
 			stage = MigrateAndNotifyOldTargets;
@@ -2883,9 +2888,9 @@ impl<T: Config> Pallet<T> {
 							});
 							weight_used.saturating_accrue(vnt_migrate_fail_weight);
 							if weight_used.any_gte(weight_cutoff) {
-								return (weight_used, Some(stage))
+								return (weight_used, Some(stage));
 							}
-							continue
+							continue;
 						},
 					};
 
@@ -2926,7 +2931,7 @@ impl<T: Config> Pallet<T> {
 						weight_used.saturating_accrue(vnt_notify_migrate_weight);
 					}
 					if weight_used.any_gte(weight_cutoff) {
-						return (weight_used, Some(stage))
+						return (weight_used, Some(stage));
 					}
 				}
 			}
@@ -3367,12 +3372,12 @@ impl<T: Config> Pallet<T> {
 		Ok(Self::authorized_aliasers(target)?.into_iter().any(|aliaser| {
 			// `aliasers` and `origin` have already been transformed to `desired_version`, we
 			// can just directly compare them.
-			aliaser.location == origin &&
-				aliaser
+			aliaser.location == origin
+				&& aliaser
 					.expiry
 					.map(|expiry| {
-						frame_system::Pallet::<T>::current_block_number().saturated_into::<u64>() <
-							expiry
+						frame_system::Pallet::<T>::current_block_number().saturated_into::<u64>()
+							< expiry
 					})
 					.unwrap_or(true)
 		}))
@@ -3508,6 +3513,22 @@ impl<T: Config> Pallet<T> {
 	pub fn do_try_state() -> Result<(), TryRuntimeError> {
 		use migration::data::NeedsMigration;
 
+		// Validate that SafeXcmVersion is set correctly according to the XCM version support rule
+		// Only validate this when there's no active migration (i.e., in a stable state)
+		if !CurrentMigration::<T>::exists() {
+			let latest = CurrentXcmVersion::get();
+			let expected_safe_version = latest.saturating_sub(migration::SUPPORTED_VERSIONS_COUNT);
+			let stored_safe_version = SafeXcmVersion::<T>::get();
+
+			// SafeXcmVersion should be set to latest - SUPPORTED_VERSIONS_COUNT
+			ensure!(
+				stored_safe_version == Some(expected_safe_version),
+				TryRuntimeError::Other(
+					"SafeXcmVersion must be set to latest - SUPPORTED_VERSIONS_COUNT"
+				)
+			);
+		}
+
 		// Take the minimum version between `SafeXcmVersion` and `latest - 1` and ensure that the
 		// operational data is stored at least at that version, for example, to prevent issues when
 		// removing older XCM versions.
@@ -3537,8 +3558,8 @@ impl<T: Config> Pallet<T> {
 		// check `RemoteLockedFungibles`
 		ensure!(
 			!RemoteLockedFungibles::<T>::iter()
-				.any(|(key, data)| key.needs_migration(minimal_allowed_xcm_version) ||
-					data.needs_migration(minimal_allowed_xcm_version)),
+				.any(|(key, data)| key.needs_migration(minimal_allowed_xcm_version)
+					|| data.needs_migration(minimal_allowed_xcm_version)),
 			TryRuntimeError::Other(
 				"`RemoteLockedFungibles` data should be migrated to the higher xcm version!"
 			)
@@ -3547,7 +3568,7 @@ impl<T: Config> Pallet<T> {
 		// if migration has been already scheduled, everything is ok and data will be eventually
 		// migrated
 		if CurrentMigration::<T>::exists() {
-			return Ok(())
+			return Ok(());
 		}
 
 		// if migration has NOT been scheduled yet, we need to check all operational data
@@ -3849,7 +3870,7 @@ impl<T: Config> VersionChangeNotifier for Pallet<T> {
 impl<T: Config> DropAssets for Pallet<T> {
 	fn drop_assets(origin: &Location, assets: AssetsInHolding, _context: &XcmContext) -> Weight {
 		if assets.is_empty() {
-			return Weight::zero()
+			return Weight::zero();
 		}
 		let versioned = VersionedAssets::from(Assets::from(assets));
 		let hash = BlakeTwo256::hash_of(&(&origin, &versioned));
@@ -3873,11 +3894,12 @@ impl<T: Config> ClaimAssets for Pallet<T> {
 	) -> bool {
 		let mut versioned = VersionedAssets::from(assets.clone());
 		match ticket.unpack() {
-			(0, [GeneralIndex(i)]) =>
+			(0, [GeneralIndex(i)]) => {
 				versioned = match versioned.into_version(*i as u32) {
 					Ok(v) => v,
 					Err(()) => return false,
-				},
+				}
+			},
 			(0, []) => (),
 			_ => return false,
 		};
@@ -3892,7 +3914,7 @@ impl<T: Config> ClaimAssets for Pallet<T> {
 			origin: origin.clone(),
 			assets: versioned,
 		});
-		return true
+		return true;
 	}
 }
 
@@ -3903,15 +3925,17 @@ impl<T: Config> OnResponse for Pallet<T> {
 		querier: Option<&Location>,
 	) -> bool {
 		match Queries::<T>::get(query_id) {
-			Some(QueryStatus::Pending { responder, maybe_match_querier, .. }) =>
-				Location::try_from(responder).map_or(false, |r| origin == &r) &&
-					maybe_match_querier.map_or(true, |match_querier| {
+			Some(QueryStatus::Pending { responder, maybe_match_querier, .. }) => {
+				Location::try_from(responder).map_or(false, |r| origin == &r)
+					&& maybe_match_querier.map_or(true, |match_querier| {
 						Location::try_from(match_querier).map_or(false, |match_querier| {
 							querier.map_or(false, |q| q == &match_querier)
 						})
-					}),
-			Some(QueryStatus::VersionNotifier { origin: r, .. }) =>
-				Location::try_from(r).map_or(false, |r| origin == &r),
+					})
+			},
+			Some(QueryStatus::VersionNotifier { origin: r, .. }) => {
+				Location::try_from(r).map_or(false, |r| origin == &r)
+			},
 			_ => false,
 		}
 	}
@@ -3938,7 +3962,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 							query_id,
 							expected_location: Some(o),
 						});
-						return Weight::zero()
+						return Weight::zero();
 					},
 					_ => {
 						Self::deposit_event(Event::InvalidResponder {
@@ -3947,7 +3971,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 							expected_location: None,
 						});
 						// TODO #3735: Correct weight for this.
-						return Weight::zero()
+						return Weight::zero();
 					},
 				};
 				// TODO #3735: Check max_weight is correct.
@@ -3980,7 +4004,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 								origin: origin.clone(),
 								query_id,
 							});
-							return Weight::zero()
+							return Weight::zero();
 						},
 					};
 					if querier.map_or(true, |q| q != &match_querier) {
@@ -3990,7 +4014,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 							expected_querier: match_querier,
 							maybe_actual_querier: querier.cloned(),
 						});
-						return Weight::zero()
+						return Weight::zero();
 					}
 				}
 				let responder = match Location::try_from(responder) {
@@ -4000,7 +4024,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 							origin: origin.clone(),
 							query_id,
 						});
-						return Weight::zero()
+						return Weight::zero();
 					},
 				};
 				if origin != responder {
@@ -4009,7 +4033,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 						query_id,
 						expected_location: Some(responder),
 					});
-					return Weight::zero()
+					return Weight::zero();
 				}
 				match maybe_notify {
 					Some((pallet_index, call_index)) => {
@@ -4031,7 +4055,7 @@ impl<T: Config> OnResponse for Pallet<T> {
 									max_budgeted_weight: max_weight,
 								};
 								Self::deposit_event(e);
-								return Weight::zero()
+								return Weight::zero();
 							}
 							let dispatch_origin = Origin::Response(origin.clone()).into();
 							match call.dispatch(dispatch_origin) {
@@ -4191,12 +4215,13 @@ where
 
 	fn try_origin(outer: O) -> Result<Self::Success, O> {
 		match outer.caller().try_into() {
-			Ok(Origin::Xcm(ref location)) =>
+			Ok(Origin::Xcm(ref location)) => {
 				if let Ok(location) = location.clone().try_into() {
 					if F::contains(&location) {
 						return Ok(location);
 					}
-				},
+				}
+			},
 			_ => (),
 		}
 
