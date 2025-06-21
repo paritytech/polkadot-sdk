@@ -50,11 +50,15 @@ sc-client-db = { workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
 sc-consensus-manual-seal = { workspace = true, default-features = true }
 sc-executor = { workspace = true, default-features = true }
+sc-keystore = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
+sc-network-statement = { workspace = true, default-features = true }
+sc-network-sync = { workspace = true, default-features = true }
 sc-offchain = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
 sc-runtime-utilities = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = false }
+sc-statement-store = { workspace = true, default-features = true }
 sc-sysinfo = { workspace = true, default-features = true }
 sc-telemetry = { workspace = true, default-features = true }
 sc-tracing = { workspace = true, default-features = true }
@@ -71,6 +75,7 @@ sp-keystore = { workspace = true, default-features = true }
 sp-offchain = { workspace = true, default-features = true }
 sp-runtime = { workspace = true }
 sp-session = { workspace = true, default-features = true }
+sp-statement-store = { workspace = true, default-features = true }
 sp-storage = { workspace = true, default-features = true }
 sp-timestamp = { workspace = true, default-features = true }
 sp-transaction-pool = { workspace = true, default-features = true }

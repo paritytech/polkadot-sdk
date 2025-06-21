@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-cargo build --release -p cumulus-test-service --bin test-parachain -p polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker --bin polkadot
+cargo build --release -p cumulus-test-service --bin test-parachain -p polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker --bin polkadot -p polkadot-parachain-bin --bin polkadot-parachain
 
 RELEASE_DIR=$(dirname "$(cargo locate-project --workspace --message-format plain)")/target/release
 

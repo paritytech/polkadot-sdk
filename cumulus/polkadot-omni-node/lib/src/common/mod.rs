@@ -24,6 +24,7 @@ pub mod command;
 pub mod rpc;
 pub mod runtime;
 pub mod spec;
+pub(crate) mod statement_store;
 pub mod types;
 
 use crate::cli::AuthoringPolicy;
@@ -38,6 +39,7 @@ use sp_runtime::{
 	OpaqueExtrinsic,
 };
 use sp_session::SessionKeys;
+use sp_statement_store::runtime_api::ValidateStatement;
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
 use std::{fmt::Debug, path::PathBuf, str::FromStr};
 
@@ -70,6 +72,7 @@ pub trait NodeRuntimeApi<Block: BlockT>:
 	+ OffchainWorkerApi<Block>
 	+ CollectCollationInfo<Block>
 	+ GetCoreSelectorApi<Block>
+	+ ValidateStatement<Block>
 	+ RelayParentOffsetApi<Block>
 	+ Sized
 {
@@ -85,6 +88,7 @@ impl<T, Block: BlockT> NodeRuntimeApi<Block> for T where
 		+ GetCoreSelectorApi<Block>
 		+ RelayParentOffsetApi<Block>
 		+ CollectCollationInfo<Block>
+		+ ValidateStatement<Block>
 {
 }
 
