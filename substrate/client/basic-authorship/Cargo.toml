@@ -30,6 +30,7 @@ sp-consensus = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-inherents = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+sp-trie = { workspace = true, default-features = true }
 
 [dev-dependencies]
 parking_lot = { workspace = true, default-features = true }

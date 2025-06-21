@@ -22,7 +22,7 @@ use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use cumulus_test_runtime::{Block, GetLastTimestamp, Hash, Header};
 use polkadot_primitives::{BlockNumber as PBlockNumber, Hash as PHash};
 use sc_block_builder::BlockBuilderBuilder;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ProofRecorder, ProofRecorderIgnoredNodes, ProvideRuntimeApi};
 use sp_consensus_aura::{AuraApi, Slot};
 use sp_runtime::{traits::Header as HeaderT, Digest, DigestItem};
 
@@ -61,6 +61,19 @@ pub trait InitBlockBuilder {
 		relay_sproof_builder: RelayStateSproofBuilder,
 	) -> BlockBuilderAndSupportData;
 
+	/// Init a specific block builder at a specific block that works for the test runtime.
+	///
+	/// Same as [`InitBlockBuilder::init_block_builder_with_timestamp`] besides that it takes
+	/// `ignored_nodes` that instruct the proof recorder to not record these nodes.
+	fn init_block_builder_with_ignored_nodes(
+		&self,
+		at: Hash,
+		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
+		relay_sproof_builder: RelayStateSproofBuilder,
+		timestamp: u64,
+		ignored_nodes: ProofRecorderIgnoredNodes<Block>,
+	) -> BlockBuilderAndSupportData;
+
 	/// Init a specific block builder that works for the test runtime.
 	///
 	/// Same as [`InitBlockBuilder::init_block_builder`] besides that it takes a
@@ -81,6 +94,7 @@ fn init_block_builder(
 	validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 	mut relay_sproof_builder: RelayStateSproofBuilder,
 	timestamp: u64,
+	ignored_nodes: Option<ProofRecorderIgnoredNodes<Block>>,
 ) -> BlockBuilderAndSupportData<'_> {
 	let slot: Slot =
 		(timestamp / client.runtime_api().slot_duration(at).unwrap().as_millis()).into();
@@ -97,7 +111,9 @@ fn init_block_builder(
 		.on_parent_block(at)
 		.fetch_parent_block_number(client)
 		.unwrap()
-		.enable_proof_recording()
+		.with_proof_recorder(Some(ProofRecorder::<Block>::with_ignored_nodes(
+			ignored_nodes.unwrap_or_default(),
+		)))
 		.with_inherent_digests(aura_pre_digest)
 		.build()
 		.expect("Creates new block builder for test runtime");
@@ -168,7 +184,25 @@ impl InitBlockBuilder for Client {
 			last_timestamp + self.runtime_api().slot_duration(at).unwrap().as_millis()
 		};
 
-		init_block_builder(self, at, validation_data, relay_sproof_builder, timestamp)
+		init_block_builder(self, at, validation_data, relay_sproof_builder, timestamp, None)
+	}
+
+	fn init_block_builder_with_ignored_nodes(
+		&self,
+		at: Hash,
+		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
+		relay_sproof_builder: RelayStateSproofBuilder,
+		timestamp: u64,
+		ignored_nodes: ProofRecorderIgnoredNodes<Block>,
+	) -> BlockBuilderAndSupportData {
+		init_block_builder(
+			self,
+			at,
+			validation_data,
+			relay_sproof_builder,
+			timestamp,
+			Some(ignored_nodes),
+		)
 	}
 
 	fn init_block_builder_with_timestamp(
@@ -178,7 +212,7 @@ impl InitBlockBuilder for Client {
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,
 	) -> BlockBuilderAndSupportData {
-		init_block_builder(self, at, validation_data, relay_sproof_builder, timestamp)
+		init_block_builder(self, at, validation_data, relay_sproof_builder, timestamp, None)
 	}
 }
 

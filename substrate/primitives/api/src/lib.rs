@@ -525,6 +525,9 @@ pub use sp_api_proc_macro::mock_impl_runtime_apis;
 pub type ProofRecorder<B> = sp_trie::recorder::Recorder<HashingFor<B>>;
 
 #[cfg(feature = "std")]
+pub type ProofRecorderIgnoredNodes<B> = sp_trie::recorder::IgnoredNodes<<B as BlockT>::Hash>;
+
+#[cfg(feature = "std")]
 pub type StorageChanges<Block> = sp_state_machine::StorageChanges<HashingFor<Block>>;
 
 /// Something that can be constructed to a runtime api.
@@ -612,8 +615,15 @@ pub trait ApiExt<Block: BlockT> {
 	where
 		Self: Sized;
 
-	/// Start recording all accessed trie nodes for generating proofs.
+	/// Start recording all accessed trie nodes.
+	///
+	/// The recorded trie nodes can be converted into a proof using [`Self::extract_proof`].
 	fn record_proof(&mut self);
+
+	/// Start recording all accessed trie nodes using the given proof recorder.
+	///
+	/// The recorded trie nodes can be converted into a proof using [`Self::extract_proof`].
+	fn record_proof_with_recorder(&mut self, recorder: ProofRecorder<Block>);
 
 	/// Extract the recorded proof.
 	///
