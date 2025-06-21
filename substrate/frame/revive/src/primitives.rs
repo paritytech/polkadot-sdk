@@ -89,7 +89,7 @@ pub struct ContractResult<R, Balance> {
 }
 
 /// The result of the execution of a `eth_transact` call.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Default, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct EthTransactInfo<Balance> {
 	/// The amount of gas that was necessary to execute the transaction.
 	pub gas_required: Weight,
