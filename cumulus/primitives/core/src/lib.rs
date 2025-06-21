@@ -393,6 +393,13 @@ sp_api::decl_runtime_apis! {
 		/// Retrieve core selector and claim queue offset for the next block.
 		fn core_selector() -> (CoreSelector, ClaimQueueOffset);
 	}
+
+	/// Runtime api used to access general info about a parachain runtime.
+	pub trait GetParachainInfo {
+		/// Retrieve the parachain id used for runtime.
+		fn parachain_id() -> ParaId;
+  }
+
 	/// API to tell the node side how the relay parent should be chosen.
 	///
 	/// A larger offset indicates that the relay parent should not be the tip of the relay chain,

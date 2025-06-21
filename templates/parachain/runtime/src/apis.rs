@@ -26,8 +26,9 @@
 // External crates imports
 use alloc::vec::Vec;
 
-use polkadot_sdk::*;
+use polkadot_sdk::{staging_parachain_info as parachain_info, *};
 
+use cumulus_primitives_core::ParaId;
 use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	weights::Weight,
@@ -316,6 +317,12 @@ impl_runtime_apis! {
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
 			crate::genesis_config_presets::preset_names()
+		}
+	}
+
+	impl cumulus_primitives_core::GetParachainInfo<Block> for Runtime {
+		fn parachain_id() -> ParaId {
+			parachain_info::Pallet::<Runtime>::parachain_id()
 		}
 	}
 }

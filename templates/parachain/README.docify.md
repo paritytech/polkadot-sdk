@@ -102,14 +102,11 @@ Please see the installation section at [`crates.io/staging-chain-spec-builder`](
 #### Use `chain-spec-builder` to generate the `chain_spec.json` file
 
 ```sh
-chain-spec-builder create --relay-chain "rococo-local" --para-id {{PARACHAIN_ID}} --runtime \
+chain-spec-builder create --relay-chain "rococo-local" --runtime \
     target/release/wbuild/parachain-template-runtime/parachain_template_runtime.wasm named-preset development
 ```
 
-**Note**: the `relay-chain` and `para-id` flags are mandatory information required by
-Omni Node, and for parachain template case the value for `para-id` must be set to `{{PARACHAIN_ID}}`, since this
-is also the value injected through [ParachainInfo](https://docs.rs/staging-parachain-info/0.17.0/staging_parachain_info/)
-pallet into the `parachain-template-runtime`'s storage. The `relay-chain` value is set in accordance
+**Note**: the `relay-chain` flag is required by Omni Node. The `relay-chain` value is set in accordance
 with the relay chain ID where this instantiation of parachain-template will connect to.
 
 #### Run Omni Node
@@ -224,7 +221,7 @@ Build the `parachain-template-runtime` as mentioned before in this guide and use
 again but this time by passing `--raw-storage` flag:
 
 ```sh
-chain-spec-builder create --raw-storage --relay-chain "rococo-local" --para-id {{PARACHAIN_ID}} --runtime \
+chain-spec-builder create --raw-storage --relay-chain "rococo-local" --runtime \
     target/release/wbuild/parachain-template-runtime/parachain_template_runtime.wasm named-preset development
 ```
 

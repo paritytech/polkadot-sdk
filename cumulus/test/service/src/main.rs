@@ -20,7 +20,7 @@ use std::sync::Arc;
 
 use cli::{AuthoringPolicy, RelayChainCli, Subcommand, TestCollatorCli};
 use cumulus_primitives_core::relay_chain::CollatorPair;
-use cumulus_test_service::{chain_spec, new_partial, AnnounceBlockFn};
+use cumulus_test_service::{new_partial, AnnounceBlockFn};
 use sc_cli::{CliConfiguration, SubstrateCli};
 use sp_core::Pair;
 
@@ -85,11 +85,6 @@ fn main() -> Result<(), sc_cli::Error> {
 			)
 			.map_err(|err| format!("Relay chain argument error: {}", err))?;
 
-			let parachain_id = chain_spec::Extensions::try_get(&*parachain_config.chain_spec)
-				.map(|e| e.para_id)
-				.ok_or("Could not find parachain extension in chain-spec.")?;
-
-			tracing::info!("Parachain id: {:?}", parachain_id);
 			tracing::info!(
 				"Is collating: {}",
 				if parachain_config.role.is_authority() { "yes" } else { "no" }
@@ -120,7 +115,6 @@ fn main() -> Result<(), sc_cli::Error> {
 								parachain_config,
 								collator_key,
 								relay_chain_config,
-								parachain_id.into(),
 								cli.disable_block_announcements.then(wrap_announce_block),
 								cli.fail_pov_recovery,
 								|_| Ok(jsonrpsee::RpcModule::new(())),
@@ -138,7 +132,6 @@ fn main() -> Result<(), sc_cli::Error> {
 								parachain_config,
 								collator_key,
 								relay_chain_config,
-								parachain_id.into(),
 								cli.disable_block_announcements.then(wrap_announce_block),
 								cli.fail_pov_recovery,
 								|_| Ok(jsonrpsee::RpcModule::new(())),

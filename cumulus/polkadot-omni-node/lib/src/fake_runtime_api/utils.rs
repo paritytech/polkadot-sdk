@@ -15,7 +15,7 @@
 // limitations under the License.
 
 pub(crate) mod imports {
-	pub use cumulus_primitives_core::{ClaimQueueOffset, CoreSelector};
+	pub use cumulus_primitives_core::{ClaimQueueOffset, CoreSelector, ParaId};
 	pub use parachains_common::{AccountId, Balance, Nonce};
 	pub use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 	pub use sp_runtime::{
@@ -174,7 +174,11 @@ macro_rules! impl_node_runtime_apis {
 					unimplemented!()
 				}
 			}
-
+			impl cumulus_primitives_core::GetParachainInfo<$block> for $runtime {
+				fn parachain_id() -> ParaId {
+					unimplemented!()
+				}
+			}
 			#[cfg(feature = "try-runtime")]
 			impl frame_try_runtime::TryRuntime<$block> for $runtime {
 				fn on_runtime_upgrade(

@@ -26,6 +26,23 @@ _Note:_ `chain-spec-builder` binary is published on [crates.io](https://crates.i
 Please note that below usage is backed by integration tests. The commands' examples are wrapped
 around by the `bash!(...)` macro calls.
 
+<!-- TODO: https://github.com/paritytech/polkadot-sdk/issues/8740 -->
+### Deprecation notice for `CreateCmd`'s `para-id` flag
+
+<!-- TODO: https://github.com/paritytech/polkadot-sdk/issues/8747 -->
+`para-id` flag is deprecated. Runtimes relying on generating the chain
+specification with this tool should implement `cumulus_primitives_core::GetParachainInfo`
+trait, a new runtime API designed to provide the parachain ID from the `parachain-info`
+pallet. The `para-id` flag will be removed and nodes support for extracting the
+parachain id from the chain specification will stop from `stable2512`.
+
+For reference, generating a chain specification with a `para_id` field can still
+be done until `stable2512` like below:
+
+```bash
+chain-spec-builder -c "/dev/stdout" create --relay-chain "dev" --para-id 1000 -r $runtime_path named-preset "staging"
+```
+
 ### Generate chains-spec using default config from runtime
 
 Query the default genesis config from the provided runtime WASM blob and use it in the chain spec.
@@ -73,7 +90,7 @@ storage (`-s`) version of chain spec:
 
 <!-- docify::embed!("tests/test.rs", cmd_create_with_patch_raw)-->
 
-Refer to [*patch file*](#patch-file) for some details on the patch file format.
+Refer to [_patch file_](#patch-file) for some details on the patch file format.
 
 _Note:_ [`GenesisBuilder::get_preset`](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset)
 and
@@ -86,7 +103,7 @@ Build the chain spec using provided full genesis config json file. No defaults w
 
 <!-- docify::embed!("tests/test.rs", cmd_create_full_raw)-->
 
-Refer to [*full config file*](#full-genesis-config-file) for some details on the full file format.
+Refer to [_full config file_](#full-genesis-config-file) for some details on the full file format.
 
 _Note_: [`GenesisBuilder::build_state`](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/trait.GenesisBuilder.html#method.build_state)
 runtime function is called.
@@ -95,48 +112,52 @@ runtime function is called.
 
 <!-- docify::embed!("tests/test.rs", cmd_create_with_patch_plain)-->
 
-Refer to [*patch file*](#patch-file) for some details on the patch file format.
+Refer to [_patch file_](#patch-file) for some details on the patch file format.
 
 ### Generate human readable chain spec using provided full genesis config
 
 <!-- docify::embed!("tests/test.rs", cmd_create_full_plain)-->
 
-Refer to [*full config file*](#full-genesis-config-file) for some details on the full file format.
-
+Refer to [_full config file_](#full-genesis-config-file) for some details on the full file format.
 
 ## Patch and full genesis config files
+
 This section provides details on the files that can be used with `create patch` or `create full` subcommands.
 
 ### Patch file
+
 The patch file for genesis config contains the key-value pairs valid for given runtime, that needs to be customized,
-	e.g:
+ e.g:
+
 ```ignore
 {
-	"balances": {
-		"balances": [
-			[
-				"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
-			    1000000000000000
-			],
-			[
-				"5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y",
-			     1000000000000000
-			],
-			[
-				"5CcjiSgG2KLuKAsqkE2Nak1S2FbAcMr5SxRASUuwR3zSNV2b",
-			    5000000000000000
-			]
-		]
-	},
-	"sudo": {
-		"key": "5Ff3iXP75ruzroPWRP2FYBHWnmGGBSb63857BgnzCoXNxfPo"
-	}
+ "balances": {
+  "balances": [
+   [
+    "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
+       1000000000000000
+   ],
+   [
+    "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y",
+        1000000000000000
+   ],
+   [
+    "5CcjiSgG2KLuKAsqkE2Nak1S2FbAcMr5SxRASUuwR3zSNV2b",
+       5000000000000000
+   ]
+  ]
+ },
+ "sudo": {
+  "key": "5Ff3iXP75ruzroPWRP2FYBHWnmGGBSb63857BgnzCoXNxfPo"
+ }
 }
 ```
+
 The rest of genesis config keys will be initialized with default values.
 
 ### Full genesis config file
-The full genesis config file must contain values for *all* the keys present in the genesis config for given runtime. The
+
+The full genesis config file must contain values for _all_ the keys present in the genesis config for given runtime. The
 format of the file is similar to patch format. Example is not provided here as it heavily depends on the runtime.
 
 ### Extra tools

@@ -86,7 +86,7 @@ pub fn yet_another_parachain_config(
 	GenericChainSpec::builder(
 		yet_another_parachain_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain: relay.into(), para_id },
+		Extensions { relay_chain: relay.into() },
 	)
 	.with_name("Yet Another Parachain")
 	.with_id("yet_another_parachain")
