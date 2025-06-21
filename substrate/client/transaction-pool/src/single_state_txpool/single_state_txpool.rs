@@ -334,7 +334,7 @@ where
 		.map(|mut outcome| outcome.expect_watcher().into_stream().boxed())
 	}
 
-	fn report_invalid(
+	async fn report_invalid(
 		&self,
 		_at: Option<<Self::Block as BlockT>::Hash>,
 		invalid_tx_errors: TxInvalidityReportMap<TxHash<Self>>,

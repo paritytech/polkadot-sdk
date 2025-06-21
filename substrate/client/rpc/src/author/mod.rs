@@ -153,7 +153,7 @@ where
 		Ok(self.pool.ready().map(|tx| tx.data().encode().into()).collect())
 	}
 
-	fn remove_extrinsic(
+	async fn remove_extrinsic(
 		&self,
 		ext: &Extensions,
 		bytes_or_hash: Vec<hash::ExtrinsicOrHash<TxHash<P>>>,
@@ -173,6 +173,7 @@ where
 		Ok(self
 			.pool
 			.report_invalid(None, hashes)
+			.await
 			.into_iter()
 			.map(|tx| tx.hash().clone())
 			.collect())
