@@ -152,7 +152,12 @@ where
 		PaymentStatus::Success
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_successful(_: &Self::Source, _: &Self::Beneficiary, asset: Self::AssetKind, amount: Self::Balance) {
+	fn ensure_successful(
+		_: &Self::Source,
+		_: &Self::Beneficiary,
+		asset: Self::AssetKind,
+		amount: Self::Balance,
+	) {
 		<F as fungibles::Create<_>>::create(asset.clone(), A::get(), true, amount).unwrap();
 		<F as fungibles::Mutate<_>>::mint_into(asset, &A::get(), amount).unwrap();
 	}

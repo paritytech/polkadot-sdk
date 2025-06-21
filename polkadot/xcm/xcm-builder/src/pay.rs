@@ -152,7 +152,12 @@ impl<
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_successful(_: &Self::Source, _: &Self::Beneficiary, asset_kind: Self::AssetKind, _: Self::Balance) {
+	fn ensure_successful(
+		_: &Self::Source,
+		_: &Self::Beneficiary,
+		asset_kind: Self::AssetKind,
+		_: Self::Balance,
+	) {
 		let locatable = AssetKindToLocatableAsset::try_convert(asset_kind).unwrap();
 		Router::ensure_successful_delivery(Some(locatable.location));
 	}

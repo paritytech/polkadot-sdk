@@ -35,4 +35,4 @@ pub use misc::{
 	Precision, Preservation, Provenance, Restriction, UnityAssetBalanceConversion,
 	UnityOrOuterConversion, WithdrawConsequence, WithdrawReasons,
 };
-pub use pay::{Pay, PayFromAccount, PaymentStatus, PayWithFungible, PayWithFungibles};
+pub use pay::{Pay, PayFromAccount, PayWithFungible, PayWithFungibles, PaymentStatus};
