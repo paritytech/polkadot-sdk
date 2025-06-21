@@ -15,6 +15,46 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! > Made with *Substrate*, for *Polkadot*.
+//!
+//! [![github]](https://github.com/paritytech/substrate/frame/multi-asset-bounties) -
+//! [![polkadot]](https://polkadot.com)
+//!
+//! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white
+//! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&labelColor=555555&logo=github
+//!
+//!
+//! # Multi Asset Bounties Pallet ( `pallet-multi-asset-bounties` )
+//!
+//! ## Bounty
+//!
+//! > NOTE: This pallet is tightly coupled with pallet-treasury.
+//!
+//! A bounty is a reward for completing a specified body of work or achieving a defined set of
+//! objectives.  The work must be completed for a predefined amount to be paid out. A curator is
+//! assigned when the bounty is funded, and is responsible for awarding the bounty once the
+//! objectives are met. To support parallel execution and better governance, a bounty can be split
+//! into multiple child bounties. Each child bounty represents a smaller task derived from the
+//! parent bounty. The parent bounty curator may assign a separate curator to each child bounty at
+//! creation time. The curator may be unassigned, resulting in a new curator election. A bounty can
+//! be canceled either before a curator is assigned, while active, or during a pending payout, which
+//! results in slashing the curator’s deposit if one was assigned.
+//!
+//! > NOTE: A parent bounty cannot be closed if it has any active child bounties associated with it.
+//! 
+//! ### Terminology
+//! 
+//! TODO: Add terminology. See example in https://github.com/paritytech/polkadot-sdk/blob/252f3953247c7e9b9776c63cdeee35b4d51e9b24/substrate/frame/treasury/src/lib.rs#L40
+//! 
+//! ### Example
+//! 
+//! TODO: Add examples. See example in https://github.com/paritytech/polkadot-sdk/blob/252f3953247c7e9b9776c63cdeee35b4d51e9b24/substrate/frame/treasury/src/lib.rs#L49C1-L49C16
+//! 
+//! ## Pallet API
+//! 
+//! See the [`pallet`] module for more information about the interfaces this pallet exposes,
+//! including its configuration trait, dispatchables, storage items, events and errors.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod weights;
@@ -49,25 +89,44 @@ type BeneficiaryLookupOf<T, I = ()> = pallet_treasury::BeneficiaryLookupOf<T, I>
 pub type BountyIndex = u32;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
-/// A bounty proposal.
+/// A bounty funded.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct Bounty<AccountId, Balance, BlockNumber, AssetKind, PaymentId, Beneficiary> {
-	/// The account proposing it.
-	pub proposer: AccountId,
 	/// The kind of asset this bounty is rewarded in.
 	pub asset_kind: AssetKind,
-	/// The (total) amount of the `asset_kind` that should be paid if the bounty is rewarded.
+	/// The (total) amount that should be paid if the bounty is rewarded, including beneficiary payout and curator fee.
+	/// 
+	/// The asset class determined by [`asset_kind`].
 	pub value: Balance,
-	/// The curator fee in the `asset_kind`. Included in value.
+	/// The fee that the parent curator receives upon successful payout.
+	/// 
+	/// The asset class determined by [`asset_kind`].
 	pub fee: Balance,
 	/// The deposit of curator.
-	///
+	/// 
 	/// The asset class determined by the [`pallet_treasury::Config::Currency`].
 	pub curator_deposit: Balance,
-	/// The amount held on deposit (reserved) for making this proposal.
-	///
+	/// The status of this bounty.
+	pub status: BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary>,
+}
+
+/// A child-bounty funded. Similar to [`Bounty`], but without [`asset_kind`].
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub struct ChildBounty<AccountId, Balance, BlockNumber, PaymentId, Beneficiary> {
+	/// The parent bounty index of this child-bounty.
+	pub parent_bounty: BountyIndex,
+	/// The (total) amount that should be paid if the child-bounty is rewarded, including beneficiary payout and child curator fee (of ).
+	/// 
+	/// The asset class determined by [`asset_kind`].
+	pub value: Balance,
+	/// The fee that the parent curator receives upon successful payout.
+	/// 
+	/// The asset class determined by [`asset_kind`].
+	pub fee: Balance,
+	/// The deposit of curator.
+	/// 
 	/// The asset class determined by the [`pallet_treasury::Config::Currency`].
-	pub bond: Balance,
+	pub curator_deposit: Balance,
 	/// The status of this bounty.
 	pub status: BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary>,
 }
@@ -80,11 +139,12 @@ pub enum BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary> {
 		/// The status of the bounty amount transfer from the source (e.g. Treasury) to
 		/// the bounty account.
 		///
-		/// Once `check_payment_status` confirms the payment succeeded, the bounty will transition to
-		/// [`BountyStatus::Funded`].
+		/// Once `check_payment_status` confirms the payment succeeded, the bounty will transition
+		/// to [`BountyStatus::Funded`].
 		payment_status: PaymentState<PaymentId>,
 	},
-	/// The bounty funding has been attempted with a curator and waiting to confirm the funds allocation.
+	/// The bounty funding has been attempted with a curator and waiting to confirm the funds
+	/// allocation.
 	FundingAttempedWithCurator {
 		/// The assigned curator of this bounty.
 		curator: AccountId,
@@ -119,7 +179,7 @@ pub enum BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary> {
 		curator_stash: Beneficiary,
 		/// The beneficiary of the bounty.
 		beneficiary: Beneficiary,
-        // TODO: Remove since BountyDeposityPayoutDelay it is set to 0 (https://github.com/polkadot-fellows/runtimes/blob/43a8f2373129db30709e46ea8bc2baa72c782852/relay/polkadot/src/lib.rs#L794)
+		// TODO: Remove since BountyDeposityPayoutDelay it is set to 0 (https://github.com/polkadot-fellows/runtimes/blob/43a8f2373129db30709e46ea8bc2baa72c782852/relay/polkadot/src/lib.rs#L794)
 		// unlock_at: BlockNumber,
 	},
 	/// The bounty payout has been attempted.
@@ -194,139 +254,141 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config + pallet_treasury::Config<I> {
-        /// Weight information for extrinsics in this pallet.
+		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
-    }
+	}
 
-    #[pallet::call]
-    impl<T: Config<I>, I: 'static> Pallet<T, I> {
-        // TODO: Propose and approve a new bounty, initiating the funding from the treasury to the
-        // bounty account. Combine `pallet_bounties` `propose_bounty` and `approve_bounty` calls.
-        #[pallet::call_index(0)]
-        #[pallet::weight(<T as Config<I>>::WeightInfo::propose_bounty(description.len() as u32))]
-        pub fn fund_bounty(
-            origin: OriginFor<T>,
-            asset_kind: Box<T::AssetKind>,
-            #[pallet::compact] value: BalanceOf<T, I>,
-            description: Vec<u8>,
-        ) -> DispatchResult {
-            Ok(())
-        }
+	#[pallet::call]
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		// TODO: Propose and approve a new bounty, initiating the funding from the treasury to the
+		// bounty account. Combine `pallet_bounties` `propose_bounty` and `approve_bounty` calls.
+		#[pallet::call_index(0)]
+		#[pallet::weight(<T as Config<I>>::WeightInfo::propose_bounty(description.len() as u32))]
+		pub fn fund_bounty(
+			origin: OriginFor<T>,
+			asset_kind: Box<T::AssetKind>,
+			#[pallet::compact] value: BalanceOf<T, I>,
+			description: Vec<u8>,
+		) -> DispatchResult {
+			Ok(())
+		}
 
-		// TODO: Propose and approve a new bounty and propose a curator simultaneously. This call is a shortcut to calling `fund_bounty` and `propose_curator` separately. Combine `pallet_bounties` `propose_bounty` and `approve_bounty_with_curator` calls.
+		// TODO: Propose and approve a new bounty and propose a curator simultaneously. This call is
+		// a shortcut to calling `fund_bounty` and `propose_curator` separately. Combine
+		// `pallet_bounties` `propose_bounty` and `approve_bounty_with_curator` calls.
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::approve_bounty_with_curator())]
 		pub fn fund_bounty_with_curator(
 			origin: OriginFor<T>,
 			asset_kind: Box<T::AssetKind>,
-            #[pallet::compact] value: BalanceOf<T, I>,
-            description: Vec<u8>,
+			#[pallet::compact] value: BalanceOf<T, I>,
+			description: Vec<u8>,
 			curator: AccountIdLookupOf<T>,
 			#[pallet::compact] fee: BalanceOf<T, I>,
 		) -> DispatchResult {
 			Ok(())
 		}
 
-        // TODO: Same as `pallet_bounties` `propose_curator` call.
-        #[pallet::call_index(2)]
+		// TODO: Same as `pallet_bounties` `propose_curator` call.
+		#[pallet::call_index(2)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::propose_curator())]
-        pub fn propose_curator(
+		pub fn propose_curator(
 			origin: OriginFor<T>,
 			#[pallet::compact] bounty_id: BountyIndex,
 		) -> DispatchResult {
-            Ok(())
-        }
+			Ok(())
+		}
 
-        // TODO: Unassign curator from a bounty. Same as `pallet_bounties` `unassign_curator` call without handling Proposed, Approved and ApprovedWithCurator status. 
-        #[pallet::call_index(3)]
+		// TODO: Unassign curator from a bounty. Same as `pallet_bounties` `unassign_curator` call
+		// without handling Proposed, Approved and ApprovedWithCurator status.
+		#[pallet::call_index(3)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::unassign_curator())]
-        pub fn unassign_curator(
+		pub fn unassign_curator(
 			origin: OriginFor<T>,
 			#[pallet::compact] bounty_id: BountyIndex,
 			curator: AccountIdLookupOf<T>,
 			#[pallet::compact] fee: BalanceOf<T, I>,
 		) -> DispatchResult {
-            Ok(())
-        }
+			Ok(())
+		}
 
-        // TODO: Accept the curator role for a bounty. Same as `pallet_bounties` `accept_curator` call.
-        #[pallet::call_index(4)]
+		// TODO: Accept the curator role for a bounty. Same as `pallet_bounties` `accept_curator`
+		// call.
+		#[pallet::call_index(4)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::accept_curator())]
-        pub fn accept_curator(
+		pub fn accept_curator(
 			origin: OriginFor<T>,
 			#[pallet::compact] bounty_id: BountyIndex,
 			stash: BeneficiaryLookupOf<T, I>,
 		) -> DispatchResult {
-            Ok(())
-        }
+			Ok(())
+		}
 
-        // TODO: Award bounty to a beneficiary account/location. Same as `pallet_bounties` `award_bounty` call.
-        #[pallet::call_index(5)]
+		// TODO: Award bounty to a beneficiary account/location. Same as `pallet_bounties`
+		// `award_bounty` call.
+		#[pallet::call_index(5)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::award_bounty())]
 		pub fn award_bounty(
 			origin: OriginFor<T>,
 			#[pallet::compact] bounty_id: BountyIndex,
 			beneficiary: BeneficiaryLookupOf<T, I>,
 		) -> DispatchResult {
-            Ok(())
-        }
+			Ok(())
+		}
 
-        // TODO: Claim the payout from an awarded bounty. Same as `pallet_bounties` `claim_bounty` call.
-        #[pallet::call_index(6)]
+		// TODO: Claim the payout from an awarded bounty. Same as `pallet_bounties` `claim_bounty`
+		// call.
+		#[pallet::call_index(6)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::claim_bounty())]
 		pub fn claim_bounty(
 			origin: OriginFor<T>,
 			#[pallet::compact] bounty_id: BountyIndex,
 		) -> DispatchResult {
-            Ok(())
-        }
+			Ok(())
+		}
 
-        // TODO: Cancel an active bounty. Same as `pallet_bounties` `close_bounty` call without handling Proposed, Approved and ApprovedWithCurator status. 
-        #[pallet::call_index(7)]
+		// TODO: Cancel an active bounty. Same as `pallet_bounties` `close_bounty` call without
+		// handling Proposed, Approved and ApprovedWithCurator status.
+		#[pallet::call_index(7)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::close_bounty_proposed()
 			.max(<T as Config<I>>::WeightInfo::close_bounty_active()))]
 		pub fn close_bounty(
 			origin: OriginFor<T>,
 			#[pallet::compact] bounty_id: BountyIndex,
 		) -> DispatchResultWithPostInfo {
-            Ok(
-				Some(<T as Config<I>>::WeightInfo::close_bounty_proposed()).into()
-			)
-        }
+			Ok(Some(<T as Config<I>>::WeightInfo::close_bounty_proposed()).into())
+		}
 
-        // TODO: Extend the expiry time of an active bounty. Same as `pallet_bounties` `extend_bounty_expiry` call.
-        #[pallet::call_index(8)]
+		// TODO: Extend the expiry time of an active bounty. Same as `pallet_bounties`
+		// `extend_bounty_expiry` call.
+		#[pallet::call_index(8)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::extend_bounty_expiry())]
 		pub fn extend_bounty_expiry(
 			origin: OriginFor<T>,
 			#[pallet::compact] bounty_id: BountyIndex,
 			_remark: Vec<u8>,
 		) -> DispatchResult {
-            Ok(())
-        }
+			Ok(())
+		}
 
-        // TODO: Retry a payment for funding, refund or payout of a bounty. Same as `pallet_bounties` `process_payment` call in https://github.com/paritytech/polkadot-sdk/blob/252f3953247c7e9b9776c63cdeee35b4d51e9b24/substrate/frame/bounties/src/lib.rs#L1212.
-        #[pallet::call_index(9)]
+		// TODO: Retry a payment for funding, refund or payout of a bounty. Same as `pallet_bounties` `process_payment` call in https://github.com/paritytech/polkadot-sdk/blob/252f3953247c7e9b9776c63cdeee35b4d51e9b24/substrate/frame/bounties/src/lib.rs#L1212.
+		#[pallet::call_index(9)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::approve_bounty_with_curator())]
 		pub fn process_payment(
 			origin: OriginFor<T>,
 			#[pallet::compact] bounty_id: BountyIndex,
 		) -> DispatchResultWithPostInfo {
-            Ok(
-				Some(<T as Config<I>>::WeightInfo::approve_bounty_with_curator()).into()
-			)
-        }
+			Ok(Some(<T as Config<I>>::WeightInfo::approve_bounty_with_curator()).into())
+		}
 
-        // TODO: Check and update the payment status of a bounty. Same as `pallet_bounties` `check_payment_status` call in https://github.com/paritytech/polkadot-sdk/blob/252f3953247c7e9b9776c63cdeee35b4d51e9b24/substrate/frame/bounties/src/lib.rs#L1323C10-L1323C30.
-        #[pallet::call_index(10)]
+		// TODO: Check and update the payment status of a bounty. Same as `pallet_bounties` `check_payment_status` call in https://github.com/paritytech/polkadot-sdk/blob/252f3953247c7e9b9776c63cdeee35b4d51e9b24/substrate/frame/bounties/src/lib.rs#L1323C10-L1323C30.
+		#[pallet::call_index(10)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::approve_bounty_with_curator())]
 		pub fn check_payment_status(
 			origin: OriginFor<T>,
 			#[pallet::compact] bounty_id: BountyIndex,
 		) -> DispatchResultWithPostInfo {
-            Ok(
-				Some(<T as Config<I>>::WeightInfo::approve_bounty_with_curator()).into()
-			)
-        }
-    }
+			Ok(Some(<T as Config<I>>::WeightInfo::approve_bounty_with_curator()).into())
+		}
+	}
 }
