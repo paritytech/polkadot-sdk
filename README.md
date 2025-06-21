@@ -24,6 +24,9 @@ If you want to get an example node running quickly you can execute the following
 curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/scripts/getting-started.sh | bash
 ```
 
+## 👩🏽‍💻 Building
+In order to build this project you need to install some dependencies, follow the instructions in [this guide](https://docs.polkadot.com/develop/parachains/install-polkadot-sdk).
+
 ## 📚 Documentation
 
 * [Polkadot Documentation Portal](https://docs.polkadot.com)
