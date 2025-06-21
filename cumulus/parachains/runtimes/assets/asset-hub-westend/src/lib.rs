@@ -107,7 +107,7 @@ use xcm::{
 
 #[cfg(feature = "runtime-benchmarks")]
 use frame_support::traits::PalletInfoAccess;
-
+use sp_runtime::traits::ConvertInto;
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
 	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
@@ -295,6 +295,24 @@ pub type AssetsFreezerInstance = pallet_assets_freezer::Instance1;
 impl pallet_assets_freezer::Config<AssetsFreezerInstance> for Runtime {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type RuntimeEvent = RuntimeEvent;
+}
+
+parameter_types! {
+	pub const TrustBackedMinVestedTransfer: Balance = 100 * CENTS;
+}
+
+pub type TrustBackedAssetsVestingInstance = pallet_assets_vesting::Instance1;
+
+impl pallet_assets_vesting::Config<TrustBackedAssetsVestingInstance> for Runtime {
+	type ForceOrigin = EnsureRoot<AccountId>;
+	type Assets = Assets;
+	type Freezer = AssetsFreezer;
+	type BlockNumberToBalance = ConvertInto;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type WeightInfo = ();
+	type MinVestedTransfer = TrustBackedMinVestedTransfer;
+	type BlockNumberProvider = System;
+	const MAX_VESTING_SCHEDULES: u32 = 28;
 }
 
 parameter_types! {
@@ -565,6 +583,24 @@ pub type ForeignAssetsFreezerInstance = pallet_assets_freezer::Instance2;
 impl pallet_assets_freezer::Config<ForeignAssetsFreezerInstance> for Runtime {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type RuntimeEvent = RuntimeEvent;
+}
+
+parameter_types! {
+	pub const ForeignMinVestedTransfer: Balance = 1;
+}
+
+pub type ForeignAssetsVestingInstance = pallet_assets_vesting::Instance2;
+
+impl pallet_assets_vesting::Config<ForeignAssetsVestingInstance> for Runtime {
+	type ForceOrigin = EnsureRoot<AccountId>;
+	type Assets = ForeignAssets;
+	type Freezer = ForeignAssetsFreezer;
+	type BlockNumberToBalance = ConvertInto;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type WeightInfo = ();
+	type MinVestedTransfer = ForeignMinVestedTransfer;
+	type BlockNumberProvider = System;
+	const MAX_VESTING_SCHEDULES: u32 = 28;
 }
 
 parameter_types! {
@@ -1170,6 +1206,10 @@ construct_runtime!(
 		AssetsFreezer: pallet_assets_freezer::<Instance1> = 57,
 		ForeignAssetsFreezer: pallet_assets_freezer::<Instance2> = 58,
 		PoolAssetsFreezer: pallet_assets_freezer::<Instance3> = 59,
+
+		AssetsVesting: pallet_assets_vesting::<Instance1> = 80,
+		ForeignAssetsVesting: pallet_assets_vesting::<Instance2> = 81,
+
 		Revive: pallet_revive = 60,
 
 		AssetRewards: pallet_asset_rewards = 61,
@@ -1456,6 +1496,8 @@ mod benches {
 		[pallet_assets, Local]
 		[pallet_assets, Foreign]
 		[pallet_assets, Pool]
+		[pallet_assets_vesting, LocalVesting]
+		[pallet_assets_vesting, ForeignVesting]
 		[pallet_asset_conversion, AssetConversion]
 		[pallet_asset_rewards, AssetRewards]
 		[pallet_asset_conversion_tx_payment, AssetTxPayment]
@@ -1887,6 +1929,9 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 			type Foreign = pallet_assets::Pallet::<Runtime, ForeignAssetsInstance>;
 			type Pool = pallet_assets::Pallet::<Runtime, PoolAssetsInstance>;
 
+			type LocalVesting = pallet_assets::Pallet::<Runtime, TrustBackedAssetsVestingInstance>;
+			type ForeignVesting = pallet_assets::Pallet::<Runtime, ForeignAssetsVestingInstance>;
+
 			type ToRococo = XcmBridgeHubRouterBench<Runtime, ToRococoXcmRouterInstance>;
 
 			let mut list = Vec::<BenchmarkList>::new();
@@ -2275,6 +2320,9 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 			type Local = pallet_assets::Pallet::<Runtime, TrustBackedAssetsInstance>;
 			type Foreign = pallet_assets::Pallet::<Runtime, ForeignAssetsInstance>;
 			type Pool = pallet_assets::Pallet::<Runtime, PoolAssetsInstance>;
+
+			type LocalVesting = pallet_assets::Pallet::<Runtime, TrustBackedAssetsVestingInstance>;
+			type ForeignVesting = pallet_assets::Pallet::<Runtime, ForeignAssetsVestingInstance>;
 
 			type ToRococo = XcmBridgeHubRouterBench<Runtime, ToRococoXcmRouterInstance>;
 
