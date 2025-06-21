@@ -461,7 +461,7 @@ impl ChainApi for TestApi {
 			.unwrap_or(64);
 
 		if longevity == 0 {
-			return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::AncientBirthBlock)))
+			return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::BadProof)))
 		}
 
 		let mut validity = ValidTransaction {
