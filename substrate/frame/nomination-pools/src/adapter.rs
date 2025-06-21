@@ -95,9 +95,9 @@ pub trait StakeStrategy {
 		Self::CoreStaking::bonding_duration()
 	}
 
-	/// See [`StakingInterface::current_era`].
-	fn current_era() -> EraIndex {
-		Self::CoreStaking::current_era()
+	/// See [`StakingInterface::active_era`].
+	fn active_era() -> EraIndex {
+		Self::CoreStaking::active_era()
 	}
 
 	/// See [`StakingInterface::minimum_nominator_bond`].
