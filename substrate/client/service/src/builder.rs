@@ -463,10 +463,19 @@ pub struct SpawnTasksParams<'a, TBl: BlockT, TCl, TExPool, TRpc, Backend> {
 	pub telemetry: Option<&'a mut Telemetry>,
 }
 
+pub struct SpawnTaskHandlers<Block: BlockT> {
+	/// RPC handlers for the in-memory RPC server.
+	pub rpc_handlers: RpcHandlers,
+
+	/// Specific handler for the RPC transactions.
+	pub transaction_v2_handles:
+		Vec<sc_rpc_spec_v2::transaction::TransactionMonitorHandle<Block::Hash>>,
+}
+
 /// Spawn the tasks that are required to run a node.
 pub fn spawn_tasks<TBl, TBackend, TExPool, TRpc, TCl>(
 	params: SpawnTasksParams<TBl, TCl, TExPool, TRpc, TBackend>,
-) -> Result<RpcHandlers, Error>
+) -> Result<SpawnTaskHandlers<TBl>, Error>
 where
 	TCl: ProvideRuntimeApi<TBl>
 		+ HeaderMetadata<TBl, Error = sp_blockchain::Error>
@@ -628,7 +637,11 @@ where
 		rpc_id_provider,
 	)?;
 
+	let mut transaction_v2_handles = Vec::with_capacity(2);
+	transaction_v2_handles.push(rpc_server_handle.transaction_v2_handle);
+
 	let listen_addrs = rpc_server_handle
+		.server
 		.listen_addrs()
 		.into_iter()
 		.map(|socket_addr| {
@@ -639,7 +652,11 @@ where
 		.collect();
 
 	let in_memory_rpc = {
-		let mut module = gen_rpc_module()?;
+		let result = gen_rpc_module()?;
+		// Take in memory RPC into account.
+		transaction_v2_handles.push(result.transaction_v2_handle);
+
+		let mut module = result.module;
 		module.extensions_mut().insert(DenyUnsafe::No);
 		module
 	};
@@ -653,9 +670,9 @@ where
 		sc_informant::build(client.clone(), network, sync_service.clone()),
 	);
 
-	task_manager.keep_alive((config.base_path, rpc_server_handle));
+	task_manager.keep_alive((config.base_path, rpc_server_handle.server));
 
-	Ok(in_memory_rpc_handle)
+	Ok(SpawnTaskHandlers { rpc_handlers: in_memory_rpc_handle, transaction_v2_handles })
 }
 
 /// Returns a future that forwards imported transactions to the transaction networking protocol.
@@ -750,6 +767,15 @@ where
 	Ok(telemetry.handle())
 }
 
+/// RPC module data structure.
+pub struct RpcModuleData<Hash: Clone> {
+	/// The RPC module used to instantiate the RPC server.
+	pub module: RpcModule<()>,
+
+	/// Specific handler for the RPC transactions.
+	pub transaction_v2_handle: sc_rpc_spec_v2::transaction::TransactionMonitorHandle<Hash>,
+}
+
 /// Generate RPC module using provided configuration
 pub fn gen_rpc_module<TBl, TBackend, TCl, TRpc, TExPool>(
 	spawn_handle: SpawnTaskHandle,
@@ -765,7 +791,7 @@ pub fn gen_rpc_module<TBl, TBackend, TCl, TRpc, TExPool>(
 	backend: Arc<TBackend>,
 	rpc_builder: &(dyn Fn(SubscriptionTaskExecutor) -> Result<RpcModule<TRpc>, Error>),
 	metrics: Option<sc_rpc_spec_v2::transaction::TransactionMetrics>,
-) -> Result<RpcModule<()>, Error>
+) -> Result<RpcModuleData<TBl::Hash>, Error>
 where
 	TBl: BlockT,
 	TCl: ProvideRuntimeApi<TBl>
@@ -816,13 +842,13 @@ where
 	)
 	.into_rpc();
 
-	let transaction_v2 = sc_rpc_spec_v2::transaction::Transaction::new(
+	let (transaction_v2, transaction_v2_handle) = sc_rpc_spec_v2::transaction::Transaction::new(
 		client.clone(),
 		transaction_pool.clone(),
 		task_executor.clone(),
 		metrics,
-	)
-	.into_rpc();
+	);
+	let transaction_v2 = transaction_v2.into_rpc();
 
 	let chain_head_v2 = sc_rpc_spec_v2::chain_head::ChainHead::new(
 		client.clone(),
@@ -893,7 +919,7 @@ where
 	let extra_rpcs = rpc_builder(task_executor.clone())?;
 	rpc_api.merge(extra_rpcs).map_err(|e| Error::Application(e.into()))?;
 
-	Ok(rpc_api)
+	Ok(RpcModuleData { module: rpc_api, transaction_v2_handle })
 }
 
 /// Parameters to pass into [`build_network`].

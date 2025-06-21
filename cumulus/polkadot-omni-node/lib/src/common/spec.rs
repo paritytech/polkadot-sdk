@@ -346,7 +346,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				})
 			};
 
-			sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+			let spawn_result = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 				rpc_builder,
 				client: client.clone(),
 				transaction_pool: transaction_pool.clone(),
@@ -404,6 +404,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				recovery_handle: Box::new(overseer_handle.clone()),
 				sync_service,
 				prometheus_registry: prometheus_registry.as_ref(),
+				rpc_transaction_v2_handles: spawn_result.transaction_v2_handles,
 			})?;
 
 			start_bootnode_tasks(StartBootnodeTasksParams {

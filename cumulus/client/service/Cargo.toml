@@ -15,6 +15,7 @@ workspace = true
 async-channel = { workspace = true }
 futures = { workspace = true }
 prometheus = { workspace = true }
+schnellru = { workspace = true }
 
 # Substrate
 sc-client-api = { workspace = true, default-features = true }
