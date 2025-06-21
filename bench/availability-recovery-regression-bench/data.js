@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1750433984898,
+  "lastUpdate": 1750501988554,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -60491,6 +60491,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.432447984266663,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pgherveou@gmail.com",
+            "name": "PG Herveou",
+            "username": "pgherveou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "41160dce396fb98be6c2c4664bb2124a57e35a49",
+          "message": "[pallet-revive] Make Runtime call dispatchable as eth transaction (#8883)\n\nMake RuntimeCall dispatchable as eth transaction.\n\nBy sending a transaction to\n`0x6d6f646c70792f70616464720000000000000000`, using the encoded runtime\ncall as input, the call will be executed by the origin indicated by the\nEthereum signature (0xEE account_id).\n\nsee https://github.com/paritytech/foundry-polkadot/issues/130\n\ne.g sending a remark_with_event\n```\ncast wallet import dev-account --private-key 5fb92d6e98884f76de468fa3f6278f8807c48bebc13595d45af5bdc4da702133\ncast send --account dev-account 0x6d6f646c70792f70616464720000000000000000 0x0007143132333435\n```\n\nalso merged in #8901 and #8920\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2025-06-21T09:32:23Z",
+          "tree_id": "52230c17ebc7b6edb9d1aedfb5b806f1fdc31439",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/41160dce396fb98be6c2c4664bb2124a57e35a49"
+        },
+        "date": 1750501970190,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.19630116406666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.296325133866668,
             "unit": "seconds"
           }
         ]
