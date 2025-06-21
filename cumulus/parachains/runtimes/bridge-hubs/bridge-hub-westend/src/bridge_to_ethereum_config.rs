@@ -223,7 +223,7 @@ parameter_types! {
 		},
 		electra: Fork {
 			version: hex!("05000000"),
-			epoch: 80000000000, // setting to a future epoch for local testing to remain on Deneb.
+			epoch: 0,
 		},
 	};
 }
