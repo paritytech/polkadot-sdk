@@ -731,7 +731,7 @@ where
 				.map(|tx| removed.push(tx.clone()));
 		}
 
-		self.listener.transactions_invalidated(&remove_from_pool);
+		self.listener.transactions_invalidated(&remove_from_pool, "".to_string());
 
 		removed
 	}

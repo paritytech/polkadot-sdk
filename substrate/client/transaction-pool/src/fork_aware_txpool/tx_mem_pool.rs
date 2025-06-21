@@ -606,7 +606,7 @@ where
 		let invalid_hashes_subtrees_len = invalid_hashes_subtrees.len();
 
 		self.listener
-			.transactions_invalidated(&invalid_hashes_subtrees.into_iter().collect::<Vec<_>>());
+			.transactions_invalidated(&invalid_hashes_subtrees.into_iter().collect::<Vec<_>>(), "".to_string());
 
 		trace!(
 			target: LOG_TARGET,
