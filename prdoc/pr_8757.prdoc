@@ -1,0 +1,29 @@
+title: Allow sending transactions from an Ethereum address derived account id
+doc:
+- audience: Runtime Dev
+  description: |-
+    We always allowed signing transactions using an Bitcoin/Eth style SECP256k1 key. The account in this case is simply the blake2 hash of the public key.
+
+    This address derivation is problematic: It requires the public key in order to derive the account id. On Ethereum you simply can't know the public key of an address. This is why the mapping in pallet_revive is defined as `address <-> account_id`.
+
+    This PR adds a new signature variant that allows signing a transaction with an account id as origin that matches this mapping.
+
+    ## Why is this important?
+
+    ### Example1
+    A wallet contains an SECP256k1 key and wants to interact with native Polkadot APIs. It can sign the transaction using this key. However, without this change the origin of that transaction will be different than the one it would appear under if it had signed an Ethereum transaction.
+
+    ### Example2
+    A chain using an Ethereum style address (like Mythical) wants to send some tokens to one of their users account on AssetHub. How would they know what is the address of that user on AssetHub? With this change they can just pad the address with `0xEE` and rely on the fact that the user can interact with AssetHub using their existing key.
+
+    ## Why a new variant?
+    We can't modify the existing variant. Otherwise the same signature would suddenly map to a different account making people lose access to their funds. Instead, we add a new variant that adds control over an additional account for the same signature.
+
+    ## A new `KeccakSigner` and `KeccakSignature`
+    After considering feedback by @Moliholy I am convinced that we should use keccak instead of blake2b for this new `MultiSignature` variant. Reasoning is that this will make it much simpler for Ethereum tooling to generate such signatures. Since this signature is specifically created for Ethereum interop it just makes sense to also use keccak here.
+    To that end I made the `ecdsa::{KeccakSigner, KeccakSignature}` generic over their hash algorithm. Please note that I am using tags here and not the `Hasher` trait directly. This makes things more complicated but it was necessary: All Hasher implementations are in higher level crates and can't be directly referenced here. But I would have to reference it in order to make this a non breaking change. The `Signer` and `Signature` types behave exactly the same way as before.
+crates:
+- name: sp-runtime
+  bump: major
+- name: sp-core
+  bump: major
