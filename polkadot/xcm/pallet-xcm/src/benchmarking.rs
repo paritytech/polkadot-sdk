@@ -470,7 +470,7 @@ mod benchmarks {
 		let bad_location: Location = Plurality { id: BodyId::Unit, part: BodyPart::Voice }.into();
 		let bad_location = VersionedLocation::from(bad_location)
 			.into_version(older_xcm_version)
-			.expect("Version convertion should work");
+			.expect("Version conversion should work");
 		let current_version = T::AdvertisedXcmVersion::get();
 		VersionNotifyTargets::<T>::insert(
 			current_version,
