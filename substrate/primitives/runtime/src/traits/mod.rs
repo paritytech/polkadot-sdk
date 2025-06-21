@@ -1327,6 +1327,8 @@ pub trait Block:
 	fn header(&self) -> &Self::Header;
 	/// Returns a reference to the list of extrinsics.
 	fn extrinsics(&self) -> &[Self::Extrinsic];
+	/// Returns a mutable reference to the list of extrinsics.
+	fn extrinsics_mut(&mut self) -> &mut [Self::Extrinsic];
 	/// Split the block into header and list of extrinsics.
 	fn deconstruct(self) -> (Self::Header, Vec<Self::Extrinsic>);
 	/// Creates new block from header and extrinsics.
@@ -1402,13 +1404,41 @@ where
 	}
 }
 
-/// An extrinsic on which we can get access to call.
-pub trait ExtrinsicCall: ExtrinsicLike {
+/// An extrinsic on which we can get access to the call.
+pub trait BaseExtrinsicCall: ExtrinsicLike {
 	/// The type of the call.
 	type Call;
+}
 
+/// An extrinsic on which we can get access to call.
+pub trait ExtrinsicCall: BaseExtrinsicCall {
 	/// Get the call of the extrinsic.
 	fn call(&self) -> &Self::Call;
+}
+
+/// An extrinsic on which we can get access to the call in a lazy fashion.
+pub trait LazyExtrinsicCall: BaseExtrinsicCall {
+	/// Get the call of the extrinsic. Decode on the spot if needed.
+	fn try_get_or_decode_call(&mut self) -> Result<&Self::Call, codec::Error>;
+}
+
+/// An extrinsic that will be lazily decoded.
+pub trait LazyExtrinsic<'a>: ExtrinsicLike + LazyExtrinsicCall {
+	/// A structure similar to this one, but with all the fields referencing decoded values.
+	type ExtrinsicRef: ExtrinsicLike + ExtrinsicCall;
+
+	/// Tries to return a similar structure, but with all the fields referencing decoded values.
+	fn try_as_ref(&'a mut self) -> Result<Self::ExtrinsicRef, codec::Error>;
+
+	/// Tries to return a similar structure, but with all the fields referencing decoded values.
+	///
+	/// In case of an error it panics.
+	fn expect_as_ref(&'a mut self) -> Self::ExtrinsicRef
+	where
+		Self: Sized,
+	{
+		self.try_as_ref().expect("Error while lazy decoding extrinsic")
+	}
 }
 
 /// Something that acts like a [`SignaturePayload`](Extrinsic::SignaturePayload) of an
