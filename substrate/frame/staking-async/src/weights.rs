@@ -89,6 +89,7 @@ pub trait WeightInfo {
 	fn process_offence_queue() -> Weight;
 	fn rc_on_offence(v: u32, ) -> Weight;
 	fn rc_on_session_report() -> Weight;
+	fn migration_from_v17_to_v18_migrate_staking_ledger_step(c: u32,) -> Weight;
 }
 
 /// Weights for `pallet_staking_async` using the Substrate node and recommended hardware.
@@ -860,6 +861,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(7_u64))
 			.saturating_add(T::DbWeight::get().writes(7_u64))
 	}
+	/// Storage: `Staking::Ledger` (r:2 w:1)
+	/// Proof: `Staking::Ledger` (`max_values`: None, `max_size`: Some(1265), added: 3740, mode: `MaxEncodedLen`)
+	/// The range of component `c` is `[1, 32]`.
+	fn migration_from_v17_to_v18_migrate_staking_ledger_step(_c: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `698 + c * (3 ±0)`
+		//  Estimated: `8470`
+		// Minimum execution time: 45_000_000 picoseconds.
+		Weight::from_parts(60_791_228, 8470)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -1629,5 +1642,17 @@ impl WeightInfo for () {
 		Weight::from_parts(245_000_000, 39483)
 			.saturating_add(RocksDbWeight::get().reads(7_u64))
 			.saturating_add(RocksDbWeight::get().writes(7_u64))
+	}
+	/// Storage: `Staking::Ledger` (r:2 w:1)
+	/// Proof: `Staking::Ledger` (`max_values`: None, `max_size`: Some(1265), added: 3740, mode: `MaxEncodedLen`)
+	/// The range of component `c` is `[1, 32]`.
+	fn migration_from_v17_to_v18_migrate_staking_ledger_step(_c: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `698 + c * (3 ±0)`
+		//  Estimated: `8470`
+		// Minimum execution time: 45_000_000 picoseconds.
+		Weight::from_parts(60_791_228, 8470)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }

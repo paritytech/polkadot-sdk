@@ -33,7 +33,7 @@
 
 use crate::{
 	asset, log, BalanceOf, Bonded, Config, DecodeWithMemTracking, Error, Ledger, Pallet, Payee,
-	RewardDestination, Vec, VirtualStakers,
+	RewardDestination, TotalUnbondInEra, Vec, VirtualStakers,
 };
 use alloc::{collections::BTreeMap, fmt::Debug};
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
@@ -57,6 +57,10 @@ pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 	/// Era number at which point it'll be unlocked.
 	#[codec(compact)]
 	pub era: EraIndex,
+
+	/// Total accumulated stake to be unbonded when this chunk was created.
+	#[codec(compact)]
+	pub previous_unbonded_stake: Balance,
 }
 
 /// The ledger of a (bonded) stash.
@@ -344,30 +348,14 @@ impl<T: Config> StakingLedger<T> {
 
 	/// Remove entries from `unlocking` that are sufficiently old and reduce the
 	/// total by the sum of their balances.
-	pub(crate) fn consolidate_unlocked(self, current_era: EraIndex) -> Self {
-		let mut total = self.total;
-		let unlocking: BoundedVec<_, _> = self
-			.unlocking
-			.into_iter()
-			.filter(|chunk| {
-				if chunk.era > current_era {
-					true
-				} else {
-					total = total.saturating_sub(chunk.value);
-					false
-				}
-			})
-			.collect::<Vec<_>>()
-			.try_into()
-			.expect(
-				"filtering items from a bounded vec always leaves length less than bounds. qed",
-			);
-
+	pub(crate) fn consolidate_unlocked(self) -> Self {
+		let ((_, free), chunks) = Pallet::<T>::curate_unlocking_chunks(self.stash.clone());
+		let unlocking: Vec<_> = chunks.into_values().collect();
 		Self {
 			stash: self.stash,
-			total,
+			total: self.total.defensive_saturating_sub(free),
 			active: self.active,
-			unlocking,
+			unlocking: unlocking.try_into().expect("unlocking chunk size cannot grow; qed"),
 			controller: self.controller,
 		}
 	}
@@ -380,6 +368,14 @@ impl<T: Config> StakingLedger<T> {
 
 		while let Some(last) = self.unlocking.last_mut() {
 			if unlocking_balance.defensive_saturating_add(last.value) <= value {
+				TotalUnbondInEra::<T>::mutate_exists(last.era, |maybe_unbond| {
+					if let Some(unbond) = maybe_unbond {
+						unbond.saturating_reduce(last.value);
+						if unbond.is_zero() {
+							*maybe_unbond = None;
+						}
+					}
+				});
 				unlocking_balance += last.value;
 				self.active += last.value;
 				self.unlocking.pop();
@@ -389,6 +385,14 @@ impl<T: Config> StakingLedger<T> {
 				unlocking_balance += diff;
 				self.active += diff;
 				last.value -= diff;
+				TotalUnbondInEra::<T>::mutate_exists(last.era, |maybe_unbond| {
+					if let Some(unbond) = maybe_unbond {
+						unbond.saturating_reduce(diff);
+						if unbond.is_zero() {
+							*maybe_unbond = None;
+						}
+					}
+				});
 			}
 
 			if unlocking_balance >= value {

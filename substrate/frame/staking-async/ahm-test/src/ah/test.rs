@@ -21,7 +21,7 @@ use frame_support::assert_ok;
 use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
 use pallet_staking_async::{
 	self as staking_async, session_rotation::Rotator, ActiveEra, ActiveEraInfo, CurrentEra,
-	Event as StakingEvent,
+	ErasLowestRatioTotalStake, Event as StakingEvent,
 };
 use pallet_staking_async_rc_client::{self as rc_client, UnexpectedKind, ValidatorSetReport};
 
@@ -101,6 +101,9 @@ fn on_receive_session_report() {
 				}]
 			);
 		}
+
+		// The lowest stake proportion is zero before the election occurs.
+		assert_eq!(ErasLowestRatioTotalStake::<T>::iter().collect::<Vec<_>>(), vec![]);
 
 		// Next session we will begin election.
 		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
@@ -196,6 +199,10 @@ fn on_receive_session_report() {
 				})
 			)]
 		);
+
+		// After the election, the stake backing the lowest third is composed of only one validator
+		// backed with 100.
+		assert_eq!(ErasLowestRatioTotalStake::<T>::iter().collect::<Vec<_>>(), vec![(1, 100)]);
 	})
 }
 

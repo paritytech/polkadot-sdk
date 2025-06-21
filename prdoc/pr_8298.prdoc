@@ -1,0 +1,13 @@
+title: 'Implementation of RFC-0097: Unbonding Queue for pallet-staking-async'
+doc:
+- audience: Runtime Dev
+  description: 'Implements the unbonding queue for fast unbonding'
+crates:
+- name: pallet-staking-async-parachain-runtime
+  bump: minor
+- name: pallet-staking-async-runtime-api
+  bump: major
+- name: pallet-staking-async
+  bump: major
+- name: sp-staking
+  bump: patch

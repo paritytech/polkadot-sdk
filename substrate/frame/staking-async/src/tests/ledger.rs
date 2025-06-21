@@ -144,7 +144,8 @@ fn bond_works() {
 		assert!(ledger.clone().bond(reward_dest).is_err());
 
 		// once bonded, unbonding (or any other update) works as expected.
-		ledger.unlocking = bounded_vec![UnlockChunk { era: 42, value: 42 }];
+		ledger.unlocking =
+			bounded_vec![UnlockChunk { era: 42, value: 42, previous_unbonded_stake: 0 }];
 		ledger.active -= 42;
 		assert_ok!(ledger.update());
 	})
