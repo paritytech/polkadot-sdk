@@ -115,8 +115,8 @@ use sp_core::{ConstU128, ConstU8, ConstUint, Get, OpaqueMetadata, H256};
 use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{
-		AccountIdConversion, BlakeTwo256, Block as BlockT, ConstU32, ConvertInto, IdentityLookup,
-		Keccak256, OpaqueKeys, SaturatedConversion, Verify,
+		AccountIdConversion, BlakeTwo256, Block as BlockT, ConstU32, Convert, ConvertInto,
+		IdentityLookup, Keccak256, OpaqueKeys, SaturatedConversion, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill, Percent, Permill, RuntimeDebug,
@@ -153,6 +153,7 @@ use governance::{
 	pallet_custom_origins, AuctionAdmin, Fellows, GeneralAdmin, LeaseAdmin, Treasurer,
 	TreasurySpender,
 };
+use sp_runtime::traits::ConvertBack;
 use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
@@ -1042,10 +1043,27 @@ impl polkadot_runtime_parachains::inclusion::RewardValidators for RewardValidato
 	fn reward_bitfields(_: impl IntoIterator<Item = ValidatorIndex>) {}
 }
 
+pub struct AggregateMessageOriginConverter;
+
+impl Convert<ParaId, AggregateMessageOrigin> for AggregateMessageOriginConverter {
+	fn convert(para: ParaId) -> AggregateMessageOrigin {
+		AggregateMessageOrigin::Ump(UmpQueueId::Para(para))
+	}
+}
+impl ConvertBack<ParaId, AggregateMessageOrigin> for AggregateMessageOriginConverter {
+	fn convert_back(origin: AggregateMessageOrigin) -> ParaId {
+		match origin {
+			AggregateMessageOrigin::Ump(UmpQueueId::Para(para_id)) => para_id,
+		}
+	}
+}
+
 impl parachains_inclusion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type DisputesHandler = ParasDisputes;
 	type RewardValidators = RewardValidators;
+	type AggregateMessageOrigin = AggregateMessageOrigin;
+	type AggregateMessageOriginConverter = AggregateMessageOriginConverter;
 	type MessageQueue = MessageQueue;
 	type WeightInfo = weights::polkadot_runtime_parachains_inclusion::WeightInfo<Runtime>;
 }
