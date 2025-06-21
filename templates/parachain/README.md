@@ -105,7 +105,7 @@ Please see the installation section at [`crates.io/staging-chain-spec-builder`](
 
 ```sh
 chain-spec-builder create --relay-chain "rococo-local" --para-id {{PARACHAIN_ID}} --runtime \
-    target/release/wbuild/parachain-template-runtime/parachain_template_runtime.wasm named-preset development
+    target/production/wbuild/parachain-template-runtime/parachain_template_runtime.wasm named-preset development
 ```
 
 **Note**: the `relay-chain` and `para-id` flags are mandatory information required by
