@@ -500,10 +500,12 @@ mod test {
 			let dry_run = crate::Pallet::<Test>::dry_run_eth_transact(
 				self.tx.clone(),
 				Weight::MAX,
-				|call, mut info| {
-					let call = RuntimeCall::Contracts(call);
-					info.extension_weight = Extra::get_eth_extension(0, 0u32.into()).weight(&call);
-					let uxt: Ex = sp_runtime::generic::UncheckedExtrinsic::new_bare(call).into();
+				|eth_call, dispatch_call| {
+					let mut info = dispatch_call.get_dispatch_info();
+					info.extension_weight =
+						Extra::get_eth_extension(0, 0u32.into()).weight(&dispatch_call);
+					let uxt: Ex =
+						sp_runtime::generic::UncheckedExtrinsic::new_bare(eth_call).into();
 					pallet_transaction_payment::Pallet::<Test>::compute_fee(
 						uxt.encoded_size() as u32,
 						&info,
