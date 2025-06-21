@@ -19,7 +19,7 @@ use codec::{Decode, DecodeLimit};
 use cumulus_primitives_core::{
 	relay_chain::Slot, AbridgedHrmpChannel, ParaId, PersistedValidationData,
 };
-use cumulus_primitives_parachain_inherent::ParachainInherentData;
+use cumulus_primitives_parachain_inherent::{ExtraParachainInherentData, ParachainInherentData};
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use frame_support::{
 	dispatch::{DispatchResult, GetDispatchInfo, RawOrigin},
@@ -350,9 +350,16 @@ where
 				collator_peer_id: None,
 			};
 
+			let (inherent_data, downward_messages, horizontal_messages) =
+				inherent_data.deconstruct();
+
 			let _ = cumulus_pallet_parachain_system::Pallet::<Runtime>::set_validation_data(
 				Runtime::RuntimeOrigin::none(),
 				inherent_data,
+				ExtraParachainInherentData::new(
+					downward_messages.into_compressed(&mut usize::MAX.clone()),
+					horizontal_messages.into_compressed(&mut usize::MAX.clone()),
+				),
 			);
 			let _ = pallet_timestamp::Pallet::<Runtime>::set(
 				Runtime::RuntimeOrigin::none(),
