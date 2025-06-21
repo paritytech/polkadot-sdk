@@ -22,7 +22,7 @@
 use codec::Encode;
 use futures::future::ready;
 use parking_lot::RwLock;
-use sc_transaction_pool::ChainApi;
+use sc_transaction_pool::{ChainApi, ValidateTransactionPriority};
 use sp_blockchain::{CachedHeaderMetadata, HashAndNumber, TreeRoute};
 use sp_runtime::{
 	generic::{self, BlockId},
@@ -354,6 +354,7 @@ impl ChainApi for TestApi {
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		uxt: Arc<<Self::Block as BlockT>::Extrinsic>,
+		_: ValidateTransactionPriority,
 	) -> Self::ValidationFuture {
 		ready(self.validate_transaction_blocking(at, source, uxt))
 	}

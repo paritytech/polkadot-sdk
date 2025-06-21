@@ -125,7 +125,7 @@ fn fatp_transactions_purging_invalid_on_finalization_works() {
 
 	assert_eq!(api.validation_requests().len(), 3);
 	assert_eq!(pool.status_all()[&header01.hash()].ready, 3);
-	assert_eq!(pool.mempool_len(), (0, 3));
+	assert_eq!(block_on(pool.mempool_len()), (0, 3));
 
 	let header02 = api.push_block(2, vec![], true);
 	api.add_invalid(&xt1);
@@ -142,7 +142,7 @@ fn fatp_transactions_purging_invalid_on_finalization_works() {
 		prev_header = header;
 	}
 
-	assert_eq!(pool.mempool_len(), (0, 0));
+	assert_eq!(block_on(pool.mempool_len()), (0, 0));
 
 	assert_watcher_stream!(watcher1, [TransactionStatus::Ready, TransactionStatus::Invalid]);
 	assert_watcher_stream!(watcher2, [TransactionStatus::Ready, TransactionStatus::Invalid]);
@@ -372,7 +372,7 @@ fn fatp_watcher_invalid_single_revalidation2() {
 
 	let xt0 = uxt(Alice, 200);
 	let xt0_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
-	assert_eq!(pool.mempool_len(), (0, 1));
+	assert_eq!(block_on(pool.mempool_len()), (0, 1));
 	api.add_invalid(&xt0);
 
 	let header01 = api.push_block(1, vec![], true);
@@ -382,7 +382,7 @@ fn fatp_watcher_invalid_single_revalidation2() {
 	let xt0_events = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
 	debug!(target: LOG_TARGET, ?xt0_events, "xt0_events");
 	assert_eq!(xt0_events, vec![TransactionStatus::Invalid]);
-	assert_eq!(pool.mempool_len(), (0, 0));
+	assert_eq!(block_on(pool.mempool_len()), (0, 0));
 }
 
 #[test]
@@ -393,7 +393,7 @@ fn fatp_watcher_invalid_single_revalidation3() {
 
 	let xt0 = uxt(Alice, 150);
 	let xt0_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
-	assert_eq!(pool.mempool_len(), (0, 1));
+	assert_eq!(block_on(pool.mempool_len()), (0, 1));
 
 	let header01 = api.push_block(1, vec![], true);
 	let event = finalized_block_event(&pool, api.genesis_hash(), header01.hash());
@@ -411,7 +411,7 @@ fn fatp_watcher_invalid_single_revalidation3() {
 	let xt0_events = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
 	debug!(target: LOG_TARGET, ?xt0_events, "xt0_events");
 	assert_eq!(xt0_events, vec![TransactionStatus::Invalid]);
-	assert_eq!(pool.mempool_len(), (0, 0));
+	assert_eq!(block_on(pool.mempool_len()), (0, 0));
 }
 
 #[test]

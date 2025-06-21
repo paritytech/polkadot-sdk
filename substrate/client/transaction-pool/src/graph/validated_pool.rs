@@ -16,12 +16,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use std::{
-	collections::{HashMap, HashSet},
-	sync::Arc,
+use crate::{
+	common::{
+		sliding_stat::SyncDurationSlidingStats, tracing_log_xt::log_xt_trace, STAT_SLIDING_WINDOW,
+	},
+	insert_and_log_throttled_sync, LOG_TARGET,
 };
-
-use crate::{common::tracing_log_xt::log_xt_trace, LOG_TARGET};
 use futures::channel::mpsc::{channel, Sender};
 use indexmap::IndexMap;
 use parking_lot::{Mutex, RwLock};
@@ -31,8 +31,12 @@ use sp_runtime::{
 	traits::SaturatedConversion,
 	transaction_validity::{TransactionTag as Tag, ValidTransaction},
 };
-use std::time::Instant;
-use tracing::{debug, trace, warn};
+use std::{
+	collections::{HashMap, HashSet},
+	sync::Arc,
+	time::{Duration, Instant},
+};
+use tracing::{trace, warn, Level};
 
 use super::{
 	base_pool::{self as base, PruneStatus},
@@ -165,6 +169,7 @@ pub struct ValidatedPool<B: ChainApi, L: EventHandler<B>> {
 	pub(crate) pool: RwLock<base::BasePool<ExtrinsicHash<B>, ExtrinsicFor<B>>>,
 	import_notification_sinks: Mutex<Vec<Sender<ExtrinsicHash<B>>>>,
 	rotator: PoolRotator<ExtrinsicHash<B>>,
+	enforce_limits_stats: SyncDurationSlidingStats,
 }
 
 impl<B: ChainApi, L: EventHandler<B>> Clone for ValidatedPool<B, L> {
@@ -177,6 +182,7 @@ impl<B: ChainApi, L: EventHandler<B>> Clone for ValidatedPool<B, L> {
 			pool: RwLock::from(self.pool.read().clone()),
 			import_notification_sinks: Default::default(),
 			rotator: self.rotator.clone(),
+			enforce_limits_stats: self.enforce_limits_stats.clone(),
 		}
 	}
 }
@@ -248,6 +254,9 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 			pool: RwLock::new(base_pool),
 			import_notification_sinks: Default::default(),
 			rotator,
+			enforce_limits_stats: SyncDurationSlidingStats::new(Duration::from_secs(
+				STAT_SLIDING_WINDOW,
+			)),
 		}
 	}
 
@@ -292,7 +301,16 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 
 		// only enforce limits if there is at least one imported transaction
 		let removed = if results.iter().any(|res| res.is_ok()) {
-			self.enforce_limits()
+			let start = Instant::now();
+			let removed = self.enforce_limits();
+			insert_and_log_throttled_sync!(
+				Level::DEBUG,
+				target:"txpool",
+				prefix:"enforce_limits_stats",
+				self.enforce_limits_stats,
+				start.elapsed().into()
+			);
+			removed
 		} else {
 			Default::default()
 		};
@@ -379,7 +397,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 		if ready_limit.is_exceeded(status.ready, status.ready_bytes) ||
 			future_limit.is_exceeded(status.future, status.future_bytes)
 		{
-			debug!(
+			trace!(
 				target: LOG_TARGET,
 				ready_count = ready_limit.count,
 				ready_kb = ready_limit.total_bytes / 1024,
