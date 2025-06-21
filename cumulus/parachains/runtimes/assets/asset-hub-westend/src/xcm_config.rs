@@ -67,6 +67,9 @@ parameter_types! {
 	pub const WestendLocation: Location = Location::parent();
 	pub const GovernanceLocation: Location = Location::parent();
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::ByGenesis(WESTEND_GENESIS_HASH));
+	pub AssetHubId: u32 = 1000;
+	pub AssetHubParaLocation: Location = Location::new(
+		1, [Parachain(AssetHubId::get())]);
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into())].into();
@@ -396,6 +399,7 @@ impl xcm_executor::Config for XcmConfig {
 	type IsReserve = (
 		bridging::to_rococo::RococoAssetFromAssetHubRococo,
 		bridging::to_ethereum::EthereumAssetFromEthereum,
+		bridging::to_rococo::NonSystemParachain,
 	);
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
@@ -610,6 +614,12 @@ pub mod bridging {
 				GlobalConsensus(RococoNetwork::get()),
 				Parachain(bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID)
 			]);
+			// reserve-based transfer cases. non-system parachain i.e. id >= 2000
+			pub RandomId: u32 = 3333;
+			pub RandomParaLocation: Location = Location::new(2, [
+					GlobalConsensus(RococoNetwork::get()),
+					Parachain(RandomId::get())
+			]);
 
 			/// Set up exporters configuration.
 			/// `Option<Asset>` represents static "base fee" which is used for total delivery fee calculation.
@@ -645,6 +655,8 @@ pub mod bridging {
 		/// Allow any asset native to the Rococo ecosystem if it comes from Rococo Asset Hub.
 		pub type RococoAssetFromAssetHubRococo =
 			matching::RemoteAssetFromLocation<StartsWith<RococoEcosystem>, AssetHubRococo>;
+		pub type NonSystemParachain =
+			matching::RemoteAssetFromLocation<StartsWith<RococoEcosystem>, RandomParaLocation>;
 	}
 
 	pub mod to_ethereum {
