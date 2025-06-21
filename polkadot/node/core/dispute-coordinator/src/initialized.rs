@@ -40,8 +40,9 @@ use polkadot_node_subsystem::{
 	},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, RuntimeApiError,
 };
-use polkadot_node_subsystem_util::runtime::{
-	self, key_ownership_proof, submit_report_dispute_lost, RuntimeInfo,
+use polkadot_node_subsystem_util::{
+	runtime::{self, key_ownership_proof, submit_report_dispute_lost, RuntimeInfo},
+	ControlledValidatorIndices,
 };
 use polkadot_primitives::{
 	slashing,
@@ -98,6 +99,8 @@ pub(crate) struct Initialized {
 	/// We have the onchain state of disabled validators as well as the offchain
 	/// state that is based on the lost disputes.
 	offchain_disabled_validators: OffchainDisabledValidators,
+	/// The indices of the controlled validators, cached by session.
+	controlled_validator_indices: ControlledValidatorIndices,
 	/// This is the highest `SessionIndex` seen via `ActiveLeavesUpdate`. It doesn't matter if it
 	/// was cached successfully or not. It is used to detect ancient disputes.
 	highest_session_seen: SessionIndex,
@@ -133,6 +136,7 @@ impl Initialized {
 		highest_session_seen: SessionIndex,
 		gaps_in_cache: bool,
 		offchain_disabled_validators: OffchainDisabledValidators,
+		controlled_validator_indices: ControlledValidatorIndices,
 	) -> Self {
 		let DisputeCoordinatorSubsystem {
 			config: _,
@@ -149,6 +153,7 @@ impl Initialized {
 			keystore,
 			runtime_info,
 			offchain_disabled_validators,
+			controlled_validator_indices,
 			highest_session_seen,
 			gaps_in_cache,
 			spam_slots,
@@ -975,12 +980,12 @@ impl Initialized {
 		};
 
 		let env = match CandidateEnvironment::new(
-			&self.keystore,
 			ctx,
 			&mut self.runtime_info,
 			session,
 			relay_parent,
 			self.offchain_disabled_validators.iter(session),
+			&mut self.controlled_validator_indices,
 		)
 		.await
 		{
@@ -1450,12 +1455,12 @@ impl Initialized {
 
 		// Load environment:
 		let env = match CandidateEnvironment::new(
-			&self.keystore,
 			ctx,
 			&mut self.runtime_info,
 			session,
 			candidate_receipt.descriptor.relay_parent(),
 			self.offchain_disabled_validators.iter(session),
+			&mut self.controlled_validator_indices,
 		)
 		.await
 		{

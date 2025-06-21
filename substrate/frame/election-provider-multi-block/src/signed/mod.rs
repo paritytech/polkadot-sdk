@@ -52,8 +52,6 @@
 //!    for more or less free by the submitter itself, and by anyone else as well, in which case they
 //!    get a share of the the sum deposit. The share increases as times goes on.
 //! **Metadata update**: imagine you mis-computed your score.
-//! **whitelisted accounts**: who will not pay deposits are needed. They can still be ejected, but
-//! for free.
 //! **Permissionless `clear_old_round_data`**: Anyone can clean anyone else's data, and get a part
 //! of their deposit.
 
@@ -119,18 +117,43 @@ pub struct SubmissionMetadata<T: Config> {
 impl<T: Config> SolutionDataProvider for Pallet<T> {
 	type Solution = SolutionOf<T::MinerConfig>;
 
-	fn get_page(page: PageIndex) -> Option<Self::Solution> {
-		// note: a non-existing page will still be treated as merely an empty page. This could be
-		// re-considered.
+	// `get_page` should only be called when a leader exists.
+	// The verifier only transitions to `Status::Ongoing` when a leader is confirmed to exist.
+	// During verification, the leader should remain unchanged - it's only removed when
+	// verification fails (which immediately stops the verifier) or completes successfully.
+	fn get_page(page: PageIndex) -> Self::Solution {
 		let current_round = Self::current_round();
-		Submissions::<T>::leader(current_round).map(|(who, _score)| {
-			sublog!(info, "signed", "returning page {} of {:?}'s submission as leader.", page, who);
-			Submissions::<T>::get_page_of(current_round, &who, page).unwrap_or_default()
-		})
+		Submissions::<T>::leader(current_round)
+			.defensive()
+			.and_then(|(who, _score)| {
+				sublog!(
+					info,
+					"signed",
+					"returning page {} of {:?}'s submission as leader.",
+					page,
+					who
+				);
+				Submissions::<T>::get_page_of(current_round, &who, page)
+			})
+			.unwrap_or_default()
 	}
 
-	fn get_score() -> Option<ElectionScore> {
-		Submissions::<T>::leader(Self::current_round()).map(|(_who, score)| score)
+	// `get_score` should only be called when a leader exists.
+	fn get_score() -> ElectionScore {
+		let current_round = Self::current_round();
+		Submissions::<T>::leader(current_round)
+			.defensive()
+			.inspect(|(_who, score)| {
+				sublog!(
+					debug,
+					"signed",
+					"returning score {:?} of current leader for round {}.",
+					score,
+					current_round
+				);
+			})
+			.map(|(_who, score)| score)
+			.unwrap_or_default()
 	}
 
 	fn report_result(result: crate::verifier::VerificationResult) {
@@ -166,36 +189,7 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 				}
 			},
 			VerificationResult::Rejected => {
-				// defensive: if there is a result to be reported, then we must have had some
-				// leader.
-				if let Some((loser, metadata)) =
-					Submissions::<T>::take_leader_with_data(Self::current_round()).defensive()
-				{
-					// first, let's slash their deposit.
-					let slash = metadata.deposit;
-					let _res = T::Currency::burn_held(
-						&HoldReason::SignedSubmission.into(),
-						&loser,
-						slash,
-						Precision::BestEffort,
-						Fortitude::Force,
-					);
-					debug_assert_eq!(_res, Ok(slash));
-					Self::deposit_event(Event::<T>::Slashed(current_round, loser.clone(), slash));
-
-					// inform the verifier that they can now try again, if we're still in the signed
-					// validation phase.
-					if crate::Pallet::<T>::current_phase().is_signed_validation() &&
-						Submissions::<T>::has_leader(current_round)
-					{
-						// defensive: verifier just reported back a result, it must be in clear
-						// state.
-						let _ = <T::Verifier as AsynchronousVerifier>::start().defensive();
-					}
-				}
-			},
-			VerificationResult::DataUnavailable => {
-				unreachable!("TODO")
+				Self::handle_solution_rejection(current_round);
 			},
 		}
 	}
@@ -240,13 +234,16 @@ pub mod pallet {
 		/// Handler to the currency.
 		type Currency: Inspect<Self::AccountId>
 			+ Mutate<Self::AccountId>
-			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+			+ MutateHold<Self::AccountId, Reason: From<HoldReason>>;
 
 		/// Base deposit amount for a submission.
 		type DepositBase: CalculateBaseDeposit<BalanceOf<Self>>;
 
 		/// Extra deposit per-page.
 		type DepositPerPage: CalculatePageDeposit<BalanceOf<Self>>;
+
+		/// The fixed deposit charged upon [`Pallet::register`] from [`Invulnerables`].
+		type InvulnerableDeposit: Get<BalanceOf<Self>>;
 
 		/// Base reward that is given to the winner.
 		type RewardBase: Get<BalanceOf<Self>>;
@@ -272,9 +269,6 @@ pub mod pallet {
 		/// submitter for the winner.
 		type EstimateCallFee: EstimateCallFee<Call<Self>, BalanceOf<Self>>;
 
-		/// Overarching hold reason.
-		type RuntimeHoldReason: From<HoldReason>;
-
 		/// Provided weights of this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -286,6 +280,19 @@ pub mod pallet {
 		#[codec(index = 0)]
 		SignedSubmission,
 	}
+
+	/// Accounts whitelisted by governance to always submit their solutions.
+	///
+	/// They are different in that:
+	///
+	/// * They always pay a fixed deposit for submission, specified by
+	///   [`Config::InvulnerableDeposit`]. They pay no page deposit.
+	/// * If _ejected_ by better solution from [`SortedScores`], they will get their full deposit
+	///   back.
+	/// * They always get their tx-fee back even if they are _discarded_.
+	#[pallet::storage]
+	pub type Invulnerables<T: Config> =
+		StorageValue<_, BoundedVec<T::AccountId, ConstU32<16>>, ValueQuery>;
 
 	/// Wrapper type for signed submissions.
 	///
@@ -324,7 +331,7 @@ pub mod pallet {
 	pub(crate) struct Submissions<T: Config>(sp_std::marker::PhantomData<T>);
 
 	#[pallet::storage]
-	type SortedScores<T: Config> = StorageMap<
+	pub type SortedScores<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		u32,
@@ -482,7 +489,11 @@ pub mod pallet {
 							Pallet::<T>::settle_deposit(
 								&discarded,
 								metadata.deposit,
-								T::EjectGraceRatio::get(),
+								if Pallet::<T>::is_invulnerable(&discarded) {
+									One::one()
+								} else {
+									T::EjectGraceRatio::get()
+								},
 							);
 						}
 
@@ -517,12 +528,16 @@ pub mod pallet {
 		}
 
 		/// Get the deposit of a registration with the given number of pages.
-		fn deposit_for(pages: usize) -> BalanceOf<T> {
-			let round = Pallet::<T>::current_round();
-			let queue_size = Self::submitters_count(round);
-			let base = T::DepositBase::calculate_base_deposit(queue_size);
-			let pages = T::DepositPerPage::calculate_page_deposit(queue_size, pages);
-			base.saturating_add(pages)
+		fn deposit_for(who: &T::AccountId, pages: usize) -> BalanceOf<T> {
+			if Pallet::<T>::is_invulnerable(who) {
+				T::InvulnerableDeposit::get()
+			} else {
+				let round = Pallet::<T>::current_round();
+				let queue_size = Self::submitters_count(round);
+				let base = T::DepositBase::calculate_base_deposit(queue_size);
+				let pages = T::DepositPerPage::calculate_page_deposit(queue_size, pages);
+				base.saturating_add(pages)
+			}
 		}
 
 		fn try_mutate_page_inner(
@@ -543,7 +558,7 @@ pub mod pallet {
 
 			// update deposit.
 			let new_pages = metadata.pages.iter().filter(|x| **x).count();
-			let new_deposit = Self::deposit_for(new_pages);
+			let new_deposit = Self::deposit_for(&who, new_pages);
 			let old_deposit = metadata.deposit;
 			if new_deposit > old_deposit {
 				let to_reserve = new_deposit - old_deposit;
@@ -752,6 +767,8 @@ pub mod pallet {
 		RoundNotOver,
 		/// Bad witness data provided.
 		BadWitnessData,
+		/// Too many invulnerable accounts are provided,
+		TooManyInvulnerables,
 	}
 
 	#[pallet::call]
@@ -769,7 +786,7 @@ pub mod pallet {
 			// note: we could already check if this is a duplicate here, but prefer keeping the code
 			// simple for now.
 
-			let deposit = Submissions::<T>::deposit_for(0);
+			let deposit = Submissions::<T>::deposit_for(&who, 0);
 			let reward = T::RewardBase::get();
 			let fee = T::EstimateCallFee::estimate_call_fee(
 				&Call::register { claimed_score },
@@ -879,10 +896,30 @@ pub mod pallet {
 				Precision::BestEffort,
 			);
 			debug_assert_eq!(_res, Ok(metadata.deposit));
-			Self::deposit_event(Event::<T>::Discarded(current_round, discarded));
+
+			// maybe give back their fees
+			if Self::is_invulnerable(&discarded) {
+				let _r = T::Currency::mint_into(&discarded, metadata.fee);
+				debug_assert!(_r.is_ok());
+			}
+
+			Self::deposit_event(Event::<T>::Discarded(round, discarded));
 
 			// IFF all good, this is free of charge.
 			Ok(None.into())
+		}
+
+		/// Set the invulnerable list.
+		///
+		/// Dispatch origin must the the same as [`crate::Config::AdminOrigin`].
+		#[pallet::call_index(4)]
+		#[pallet::weight(T::DbWeight::get().writes(1))]
+		pub fn set_invulnerables(origin: OriginFor<T>, inv: Vec<T::AccountId>) -> DispatchResult {
+			<T as crate::Config>::AdminOrigin::ensure_origin(origin)?;
+			let bounded: BoundedVec<_, ConstU32<16>> =
+				inv.try_into().map_err(|_| Error::<T>::TooManyInvulnerables)?;
+			Invulnerables::<T>::set(bounded);
+			Ok(())
 		}
 	}
 
@@ -891,9 +928,10 @@ pub mod pallet {
 		/// Get the deposit amount that will be held for a solution of `pages`.
 		///
 		/// This allows an offchain application to know what [`Config::DepositPerPage`] and
-		/// [`Config::DepositBase`] are doing under the hood.
-		pub fn deposit_for(pages: u32) -> BalanceOf<T> {
-			Submissions::<T>::deposit_for(pages as usize)
+		/// [`Config::DepositBase`] are doing under the hood. It also takes into account if `who` is
+		/// [`Invulnerables`] or not.
+		pub fn deposit_for(who: T::AccountId, pages: u32) -> BalanceOf<T> {
+			Submissions::<T>::deposit_for(&who, pages as usize)
 		}
 	}
 
@@ -907,7 +945,7 @@ pub mod pallet {
 			if crate::Pallet::<T>::current_phase().is_signed_validation_opened_now() {
 				let maybe_leader = Submissions::<T>::leader(Self::current_round());
 				sublog!(
-					info,
+					debug,
 					"signed",
 					"signed validation started, sending validation start signal? {:?}",
 					maybe_leader.is_some()
@@ -919,12 +957,6 @@ pub mod pallet {
 					// and ready to accept a solution.
 					let _ = <T::Verifier as AsynchronousVerifier>::start().defensive();
 				}
-			}
-
-			if crate::Pallet::<T>::current_phase().is_unsigned_opened_now() {
-				// signed validation phase just ended, make sure you stop any ongoing operation.
-				sublog!(info, "signed", "signed validation ended, sending validation stop signal",);
-				<T::Verifier as AsynchronousVerifier>::stop();
 			}
 
 			weight_taken_into_account
@@ -945,6 +977,10 @@ impl<T: Config> Pallet<T> {
 
 	fn current_round() -> u32 {
 		crate::Pallet::<T>::round()
+	}
+
+	fn is_invulnerable(who: &T::AccountId) -> bool {
+		Invulnerables::<T>::get().contains(who)
 	}
 
 	fn settle_deposit(who: &T::AccountId, deposit: BalanceOf<T>, grace: Perbill) {
@@ -969,5 +1005,56 @@ impl<T: Config> Pallet<T> {
 		)
 		.defensive();
 		debug_assert_eq!(_res, Ok(to_slash));
+	}
+
+	/// Common logic for handling solution rejection - slash the submitter and try next solution
+	fn handle_solution_rejection(current_round: u32) {
+		if let Some((loser, metadata)) =
+			Submissions::<T>::take_leader_with_data(current_round).defensive()
+		{
+			// Slash the deposit
+			let slash = metadata.deposit;
+			let _res = T::Currency::burn_held(
+				&HoldReason::SignedSubmission.into(),
+				&loser,
+				slash,
+				Precision::BestEffort,
+				Fortitude::Force,
+			);
+			debug_assert_eq!(_res, Ok(slash));
+			Self::deposit_event(Event::<T>::Slashed(current_round, loser.clone(), slash));
+
+			// Try to start verification again if we still have submissions
+			if let crate::types::Phase::SignedValidation(remaining_blocks) =
+				crate::Pallet::<T>::current_phase()
+			{
+				// Only start verification if there are sufficient blocks remaining
+				// Note: SignedValidation(N) means N+1 blocks remaining in the phase
+				let actual_blocks_remaining = remaining_blocks.saturating_add(One::one());
+				if actual_blocks_remaining >= T::Pages::get().into() {
+					if Submissions::<T>::has_leader(current_round) {
+						// defensive: verifier just reported back a result, it must be in clear
+						// state.
+						let _ = <T::Verifier as AsynchronousVerifier>::start().defensive();
+					}
+				} else {
+					sublog!(
+						warn,
+						"signed",
+						"SignedValidation phase has {:?} blocks remaining, which are insufficient for {} pages",
+						actual_blocks_remaining,
+						T::Pages::get()
+					);
+				}
+			}
+		} else {
+			// No leader to slash; nothing to do.
+			sublog!(
+				warn,
+				"signed",
+				"Tried to slash but no leader was present for round {}",
+				current_round
+			);
+		}
 	}
 }
