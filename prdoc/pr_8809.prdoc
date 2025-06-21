@@ -1,0 +1,12 @@
+title: Add possibility of executing or mocking additional inherents in xcm-emulator
+doc:
+- audience: Runtime Dev
+  description: |-
+    With the addition of https://github.com/paritytech/polkadot-sdk/pull/8083 there is no possibility right now of making the xcm-executor work with custom inherents. Custom inherents are usually driven by killing a storage item of the form `wasInherentSet` `on_initialize` and asserting that such inherent was set `on_finalize`. Before the xcm-emulator worked as these hooks were running just for the ParachainSystem pallet, but now, they run for all pallets.
+
+    My proposal is to add an item to the xcm-emulator parachain configuration of the form `AdditionalInherentCode`, which simply executes code that returns a `DispatchResult`. Whether users want to mock a storage item or run the inherent is up to them, this hook would allow them to do both.
+
+    This item is optional, meaning that if it is non-set then it would do nothing
+crates:
+- name: xcm-emulator
+  bump: major
