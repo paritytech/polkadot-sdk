@@ -86,6 +86,7 @@ impl<
 		BeneficiaryRefToLocation,
 	>
 {
+	type Source = ();
 	type Beneficiary = Beneficiary;
 	type AssetKind = AssetKind;
 	type Balance = u128;
@@ -93,6 +94,7 @@ impl<
 	type Error = xcm::latest::Error;
 
 	fn pay(
+		_: &Self::Source,
 		who: &Self::Beneficiary,
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
@@ -150,7 +152,7 @@ impl<
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_successful(_: &Self::Beneficiary, asset_kind: Self::AssetKind, _: Self::Balance) {
+	fn ensure_successful(_: &Self::Source, _: &Self::Beneficiary, asset_kind: Self::AssetKind, _: Self::Balance) {
 		let locatable = AssetKindToLocatableAsset::try_convert(asset_kind).unwrap();
 		Router::ensure_successful_delivery(Some(locatable.location));
 	}
