@@ -299,9 +299,8 @@ where
 					return Err(Error::Overseer(SubsystemError::Context(
 						"build validator overseer for parachain node".to_owned(),
 					))),
-				IsParachainNode::No => ProtocolSide::Validator {
+				IsParachainNode::No => ProtocolSide::ValidatorExperimental {
 					keystore: keystore.clone(),
-					eviction_policy: Default::default(),
 					metrics: Metrics::register(registry)?,
 				},
 			};
@@ -520,9 +519,8 @@ where
 					return Err(Error::Overseer(SubsystemError::Context(
 						"build validator overseer for parachain node".to_owned(),
 					))),
-				IsParachainNode::No => ProtocolSide::Validator {
+				IsParachainNode::No => ProtocolSide::ValidatorExperimental {
 					keystore: keystore.clone(),
-					eviction_policy: Default::default(),
 					metrics: Metrics::register(registry)?,
 				},
 			};
