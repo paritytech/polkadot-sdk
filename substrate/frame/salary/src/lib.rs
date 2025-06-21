@@ -91,9 +91,15 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		/// Means by which we can make payments to accounts. This also defines the currency and the
-		/// balance which we use to denote that currency.
-		type Paymaster: Pay<Beneficiary = <Self as frame_system::Config>::AccountId, AssetKind = ()>;
+		/// Type for processing payments of `AssetKind` in favor of `Beneficiary`.
+		///
+		/// The `Pay` implementation determines the source account. For example, it could be
+		/// `Pallet::account_id()` or different accounts based on the `AssetKind`.
+		type Paymaster: Pay<
+			Source = (),
+			Beneficiary = <Self as frame_system::Config>::AccountId,
+			AssetKind = (),
+		>;
 
 		/// The current membership of payees.
 		type Members: RankedMembers<AccountId = <Self as frame_system::Config>::AccountId>;
@@ -423,8 +429,8 @@ pub mod pallet {
 
 			claimant.last_active = status.cycle_index;
 
-			let id =
-				T::Paymaster::pay(&beneficiary, (), payout).map_err(|_| Error::<T, I>::PayError)?;
+			let id = T::Paymaster::pay(&(), &beneficiary, (), payout)
+				.map_err(|_| Error::<T, I>::PayError)?;
 
 			claimant.status = Attempted { registered, id, amount: payout };
 
