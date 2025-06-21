@@ -32,7 +32,7 @@ pub struct DiskChainSpecLoader;
 
 impl LoadSpec for DiskChainSpecLoader {
 	fn load_spec(&self, path: &str) -> Result<Box<dyn ChainSpec>, String> {
-		Ok(Box::new(GenericChainSpec::from_json_file(path.into())?))
+		Ok(Box::new(DeprecatedGenericChainSpec::from_json_file(path.into())?))
 	}
 }
 
@@ -79,6 +79,12 @@ impl DeprecatedExtensions {
 
 /// Generic chain spec for all polkadot-parachain runtimes
 pub type GenericChainSpec = sc_service::GenericChainSpec<Extensions>;
+/// Generic chain spec which keeps chain spec loading compatible for those who provide
+/// `para_id` extension instead of implementing the runtime API
+/// `cumulus_primitives_core::GetParachainInfo`.
+// TODO: https://github.com/paritytech/polkadot-sdk/issues/8747
+// TODO: https://github.com/paritytech/polkadot-sdk/issues/8740
+pub type DeprecatedGenericChainSpec = sc_service::GenericChainSpec<DeprecatedExtensions>;
 
 #[cfg(test)]
 mod tests {
