@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1750434064548,
+  "lastUpdate": 1750502069354,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
@@ -50727,6 +50727,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.04483017904199994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pgherveou@gmail.com",
+            "name": "PG Herveou",
+            "username": "pgherveou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "41160dce396fb98be6c2c4664bb2124a57e35a49",
+          "message": "[pallet-revive] Make Runtime call dispatchable as eth transaction (#8883)\n\nMake RuntimeCall dispatchable as eth transaction.\n\nBy sending a transaction to\n`0x6d6f646c70792f70616464720000000000000000`, using the encoded runtime\ncall as input, the call will be executed by the origin indicated by the\nEthereum signature (0xEE account_id).\n\nsee https://github.com/paritytech/foundry-polkadot/issues/130\n\ne.g sending a remark_with_event\n```\ncast wallet import dev-account --private-key 5fb92d6e98884f76de468fa3f6278f8807c48bebc13595d45af5bdc4da702133\ncast send --account dev-account 0x6d6f646c70792f70616464720000000000000000 0x0007143132333435\n```\n\nalso merged in #8901 and #8920\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2025-06-21T09:32:23Z",
+          "tree_id": "52230c17ebc7b6edb9d1aedfb5b806f1fdc31439",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/41160dce396fb98be6c2c4664bb2124a57e35a49"
+        },
+        "date": 1750502051042,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 127.96199999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.033798922029999984,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.04488223873599997,
             "unit": "seconds"
           }
         ]
