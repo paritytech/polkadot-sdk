@@ -1,0 +1,10 @@
+title: "Add `ConsiderationFromLegacy` traits"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Add a trait that allows to create a `Consideration` from an exact balance deposit. This allows
+      to migrate the legacy currency deposits to the `Consideration` API.
+
+crates:
+  - name: "frame-support"
