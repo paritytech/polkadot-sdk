@@ -318,12 +318,20 @@ pub mod pallet {
 			ensure!(!other_signatories.is_empty(), Error::<T>::TooFewSignatories);
 			let other_signatories_len = other_signatories.len();
 			ensure!(other_signatories_len < max_sigs, Error::<T>::TooManySignatories);
-			let signatories = Self::ensure_sorted_and_insert(other_signatories, who)?;
+			let signatories = Self::ensure_sorted_and_insert(other_signatories, who.clone())?;
 
 			let id = Self::multi_account_id(&signatories, 1);
 
-			let call_len = call.using_encoded(|c| c.len());
-			let result = call.dispatch(RawOrigin::Signed(id).into());
+			let (call_len, call_hash) = call.using_encoded(|c| (c.len(), blake2_256(&c)));
+			let result = call.dispatch(RawOrigin::Signed(id.clone()).into());
+
+			Self::deposit_event(Event::MultisigExecuted {
+				approving: who,
+				timepoint: Self::timepoint(),
+				multisig: id,
+				call_hash,
+				result: result.map(|_| ()).map_err(|e| e.error),
+			});
 
 			result
 				.map(|post_dispatch_info| {
@@ -582,7 +590,7 @@ pub mod pallet {
 						let remaining_unreserved = T::Currency::unreserve(&who, excess);
 						if !remaining_unreserved.is_zero() {
 							defensive!(
-								"Failed to unreserve for full amount for multisig. (Call Hash, Requested, Actual): ", 
+								"Failed to unreserve for full amount for multisig. (Call Hash, Requested, Actual): ",
 								(call_hash, excess, excess.saturating_sub(remaining_unreserved))
 							);
 						}
