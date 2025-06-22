@@ -84,12 +84,12 @@ pub struct ContractResult<R, Balance> {
 	/// is `Err`. This is because on error all storage changes are rolled back including the
 	/// payment of the deposit.
 	pub storage_deposit: StorageDeposit<Balance>,
-	/// The execution result of the wasm code.
+	/// The execution result of the vm binary code.
 	pub result: Result<R, DispatchError>,
 }
 
 /// The result of the execution of a `eth_transact` call.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Default, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct EthTransactInfo<Balance> {
 	/// The amount of gas that was necessary to execute the transaction.
 	pub gas_required: Weight,
@@ -165,12 +165,12 @@ pub struct CodeUploadReturnValue<Balance> {
 	pub deposit: Balance,
 }
 
-/// Reference to an existing code hash or a new wasm module.
+/// Reference to an existing code hash or a new vm module.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub enum Code {
-	/// A wasm module as raw bytes.
+	/// A vm module as raw bytes.
 	Upload(Vec<u8>),
-	/// The code hash of an on-chain wasm blob.
+	/// The code hash of an on-chain vm binary blob.
 	Existing(sp_core::H256),
 }
 
@@ -273,4 +273,22 @@ where
 			Refund(amount) => limit.saturating_add(*amount),
 		}
 	}
+}
+
+/// Indicates whether the account nonce should be incremented after instantiating a new contract.
+///
+/// In Substrate, where transactions can be batched, the account's nonce should be incremented after
+/// each instantiation, ensuring that each instantiation uses a unique nonce.
+///
+/// For transactions sent from Ethereum wallets, which cannot be batched, the nonce should only be
+/// incremented once. In these cases, Use `BumpNonce::No` to suppress an extra nonce increment.
+///
+/// Note:
+/// The origin's nonce is already incremented pre-dispatch by the `CheckNonce` transaction
+/// extension.
+pub enum BumpNonce {
+	/// Do not increment the nonce after contract instantiation
+	No,
+	/// Increment the nonce after contract instantiation
+	Yes,
 }

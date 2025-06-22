@@ -32,6 +32,7 @@ polkadot-node-subsystem-types = { workspace = true, default-features = true }
 polkadot-overseer = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 
+sc-keystore = { workspace = true, default-features = true }
 sp-application-crypto = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }

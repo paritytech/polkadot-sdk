@@ -34,5 +34,6 @@ dave: log line matches "Block history download is complete" within 10 seconds
 dave: reports substrate_beefy_best_block is at least {{DB_BLOCK_HEIGHT}} within 180 seconds
 dave: reports substrate_beefy_best_block is greater than {{DB_BLOCK_HEIGHT}} within 60 seconds
 
-dave: count of log lines containing "error" is 0 within 10 seconds
+# The block history download runs in the background while the fresh blocks are imported. This error can pop out in the log and is acceptable: the freshly announced block may not have the parent imported yet.
+dave: count of log lines containing "error(?! importing block .*: block has an unknown parent)" is 0 within 10 seconds
 dave: count of log lines containing "verification failed" is 0 within 10 seconds

@@ -10,7 +10,6 @@
     "tokenSymbol": "UNIT"
   },
   "relay_chain": "rococo-local",
-  "para_id": 10101,
   "custom_field": "custom_value",
   "codeSubstitutes": {},
   "genesis": {
