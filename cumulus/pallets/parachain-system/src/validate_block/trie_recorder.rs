@@ -29,6 +29,8 @@ use hashbrown::{HashMap, HashSet};
 use sp_trie::{NodeCodec, ProofSizeProvider, StorageProof};
 use trie_db::{Hasher, RecordedForKey, TrieAccess};
 
+pub(crate) type SeenNodes<H> = Rc<RefCell<HashSet<<H as Hasher>::Out>>>;
+
 /// A trie recorder that only keeps track of the proof size.
 ///
 /// The internal size counting logic should align
@@ -90,7 +92,7 @@ impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeOnlyRecorder<
 
 #[derive(Clone)]
 pub struct SizeOnlyRecorderProvider<H: Hasher> {
-	seen_nodes: Rc<RefCell<HashSet<H::Out>>>,
+	seen_nodes: SeenNodes<H>,
 	encoded_size: Rc<RefCell<usize>>,
 	recorded_keys: Rc<RefCell<HashMap<Rc<[u8]>, RecordedForKey>>>,
 }
@@ -102,6 +104,14 @@ impl<H: Hasher> Default for SizeOnlyRecorderProvider<H> {
 			encoded_size: Default::default(),
 			recorded_keys: Default::default(),
 		}
+	}
+}
+
+impl<H: Hasher> SizeOnlyRecorderProvider<H> {
+	/// Use the given `seen_nodes` to populate the internal state.
+	#[cfg(not(feature = "std"))]
+	pub(crate) fn with_seen_nodes(seen_nodes: SeenNodes<H>) -> Self {
+		Self { seen_nodes, ..Default::default() }
 	}
 }
 

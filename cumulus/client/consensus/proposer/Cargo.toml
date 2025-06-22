@@ -17,6 +17,11 @@ async-trait = { workspace = true }
 thiserror = { workspace = true }
 
 # Substrate
+sc-basic-authorship = { workspace = true }
+sc-block-builder = { workspace = true }
+sc-transaction-pool-api = { workspace = true }
+sp-api = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-inherents = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
