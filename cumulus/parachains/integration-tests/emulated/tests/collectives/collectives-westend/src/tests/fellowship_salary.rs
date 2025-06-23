@@ -44,7 +44,7 @@ fn pay_salary() {
 	CollectivesWestend::execute_with(|| {
 		type RuntimeEvent = <CollectivesWestend as Chain>::RuntimeEvent;
 
-		assert_ok!(FellowshipSalaryPaymaster::pay(&pay_to, (), pay_amount));
+		assert_ok!(FellowshipSalaryPaymaster::pay(&(), &pay_to, (), pay_amount));
 		assert_expected_events!(
 			CollectivesWestend,
 			vec![
