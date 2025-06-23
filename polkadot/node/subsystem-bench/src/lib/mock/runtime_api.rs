@@ -313,8 +313,9 @@ impl MockRuntimeApi {
 						},
 						RuntimeApiMessage::Request(
 							_parent,
-							RuntimeApiRequest::ValidationCodeByHash(_, tx),
+							RuntimeApiRequest::ValidationCodeByHash(hash, tx),
 						) => {
+							gum::debug!(target: LOG_TARGET, "ValidationCodeByHash: {:?}", hash);
 							let validation_code = ValidationCode(Vec::new());
 							if let Err(err) = tx.send(Ok(Some(validation_code))) {
 								gum::error!(target: LOG_TARGET, ?err, "validation code wasn't received");

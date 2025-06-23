@@ -20,7 +20,9 @@ use crate::{
 	environment::{TestEnvironment, TestEnvironmentDependencies, GENESIS_HASH},
 	mock::{
 		approval_voting_parallel::MockApprovalVotingParallel,
+		availability_recovery::MockAvailabilityRecovery,
 		candidate_backing::MockCandidateBacking,
+		candidate_validation::MockCandidateValidation,
 		chain_api::{ChainApiState, MockChainApi},
 		network_bridge::{MockNetworkBridgeRx, MockNetworkBridgeTx},
 		prospective_parachains::MockProspectiveParachains,
@@ -99,7 +101,9 @@ fn build_overseer(
 	);
 	let chain_api_state = ChainApiState { block_headers: state.block_headers.clone() };
 	let mock_chain_api = MockChainApi::new(chain_api_state);
+	let mock_availability_recovery = MockAvailabilityRecovery::new();
 	let mock_approval_voting = MockApprovalVotingParallel::new();
+	let mock_candidate_validation = MockCandidateValidation::new();
 	let dispute_coordinator = DisputeCoordinatorSubsystem::new(
 		store,
 		config,
@@ -111,7 +115,9 @@ fn build_overseer(
 	let dummy = dummy_builder!(spawn_task_handle, overseer_metrics)
 		.replace_runtime_api(|_| mock_runtime_api)
 		.replace_chain_api(|_| mock_chain_api)
+		.replace_availability_recovery(|_| mock_availability_recovery)
 		.replace_approval_voting_parallel(|_| mock_approval_voting)
+		.replace_candidate_validation(|_| mock_candidate_validation)
 		.replace_dispute_coordinator(|_| dispute_coordinator);
 
 	let (overseer, raw_handle) = dummy.build_with_connector(overseer_connector).unwrap();

@@ -75,7 +75,7 @@ impl TestState {
 					hash,
 					receipts
 						.iter()
-						.map(|receipt| make_valid_candidate_event(hash, receipt.clone()))
+						.map(|receipt| make_candidate_backed_event(receipt.clone()))
 						.collect::<Vec<_>>(),
 				)
 			})
@@ -135,7 +135,7 @@ fn make_invalid_candidate_receipt(relay_parent: Hash) -> CandidateReceiptV2 {
 	dummy_candidate_receipt_v2_bad_sig(relay_parent, Some(Default::default()))
 }
 
-fn make_valid_candidate_event(relay_parent: Hash, receipt: CandidateReceiptV2) -> CandidateEvent {
+fn make_candidate_backed_event(receipt: CandidateReceiptV2) -> CandidateEvent {
 	CandidateEvent::CandidateBacked(
 		receipt,
 		HeadData::default(),
