@@ -1,4 +1,4 @@
-title: net/discovery: File persistence for AddrCache
+title: 'net/discovery: File persistence for AddrCache'
 doc:
 - audience: Node Dev
   description: |-
