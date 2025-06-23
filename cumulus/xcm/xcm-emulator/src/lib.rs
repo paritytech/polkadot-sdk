@@ -70,9 +70,7 @@ pub use cumulus_primitives_core::{
 	relay_chain::{BlockNumber as RelayBlockNumber, HeadData, HrmpChannelId},
 	AbridgedHrmpChannel, DmpMessageHandler, ParaId, PersistedValidationData, XcmpMessageHandler,
 };
-pub use cumulus_primitives_parachain_inherent::{
-	ExtraParachainInherentData, ParachainInherentData,
-};
+pub use cumulus_primitives_parachain_inherent::{InboundMessagesData, RawParachainInherentData};
 pub use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 pub use pallet_message_queue::{Config as MessageQueueConfig, Pallet as MessageQueuePallet};
 pub use parachains_common::{AccountId, Balance};
@@ -192,7 +190,7 @@ pub trait Network {
 		para_id: u32,
 		relay_parent_number: u32,
 		parent_head_data: HeadData,
-	) -> ParachainInherentData;
+	) -> RawParachainInherentData;
 	fn send_horizontal_messages<I: Iterator<Item = (ParaId, RelayBlockNumber, Vec<u8>)>>(
 		to_para_id: u32,
 		iter: I,
@@ -702,13 +700,13 @@ macro_rules! decl_test_parachains {
 						// 1. inherent: cumulus_pallet_parachain_system::Call::set_validation_data
 						let data = N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data);
 						let (data, mut downward_messages, mut horizontal_messages) = data.deconstruct();
-						let extra = $crate::ExtraParachainInherentData::new(
-							downward_messages.into_compressed(&mut usize::MAX.clone()),
-							horizontal_messages.into_compressed(&mut usize::MAX.clone()),
+						let inbound_messages_data = $crate::InboundMessagesData::new(
+							downward_messages.into_abridged(&mut usize::MAX.clone()),
+							horizontal_messages.into_abridged(&mut usize::MAX.clone()),
 						);
 						let set_validation_data: <Self as Chain>::RuntimeCall = $crate::ParachainSystemCall::set_validation_data {
 							data,
-							extra
+							inbound_messages_data
 						}.into();
 						$crate::assert_ok!(
 							set_validation_data.dispatch(<Self as Chain>::RuntimeOrigin::none())
@@ -1165,7 +1163,7 @@ macro_rules! decl_test_networks {
 					para_id: u32,
 					relay_parent_number: u32,
 					parent_head_data: $crate::HeadData,
-				) -> $crate::ParachainInherentData {
+				) -> $crate::RawParachainInherentData {
 					let mut sproof = $crate::RelayStateSproofBuilder::default();
 					sproof.para_id = para_id.into();
 					sproof.current_slot = $crate::polkadot_primitives::Slot::from(relay_parent_number as u64);
@@ -1198,7 +1196,7 @@ macro_rules! decl_test_networks {
 
 					let (relay_storage_root, proof) = sproof.into_state_root_and_proof();
 
-					$crate::ParachainInherentData {
+					$crate::RawParachainInherentData {
 						validation_data: $crate::PersistedValidationData {
 							parent_head: parent_head_data.clone(),
 							relay_parent_number,

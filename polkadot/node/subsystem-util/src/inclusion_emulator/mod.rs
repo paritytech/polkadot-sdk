@@ -347,7 +347,7 @@ impl Constraints {
 			let mut drop_count = 0;
 			let hrmp_watermark = hrmp_watermark_update.watermark();
 			for valid_watermark in &new.hrmp_inbound.valid_watermarks {
-				if *valid_watermark <= hrmp_watermark {
+				if *valid_watermark < hrmp_watermark {
 					drop_count += 1;
 					continue;
 				}
@@ -356,7 +356,9 @@ impl Constraints {
 			}
 			new.hrmp_inbound.valid_watermarks.drain(..drop_count);
 			// The current watermark will remain valid until updated.
-			new.hrmp_inbound.valid_watermarks.insert(0, hrmp_watermark)
+			if new.hrmp_inbound.valid_watermarks.first() != Some(&hrmp_watermark) {
+				new.hrmp_inbound.valid_watermarks.insert(0, hrmp_watermark)
+			}
 		}
 
 		for (id, outbound_hrmp_mod) in &modifications.outbound_hrmp {

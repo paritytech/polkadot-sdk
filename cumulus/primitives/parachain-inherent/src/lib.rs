@@ -16,13 +16,13 @@
 
 //! Cumulus parachain inherent
 //!
-//! The [`ParachainInherentData`] is the data that is passed by the collator to the parachain
+//! The [`RawParachainInherentData`] is the data that is passed by the collator to the parachain
 //! runtime. The runtime will use this data to execute messages from other parachains/the relay
 //! chain or to read data from the relay chain state. When the parachain is validated by a parachain
 //! validator on the relay chain, this data is checked for correctness. If the data passed by the
 //! collator to the runtime isn't correct, the parachain candidate is considered invalid.
 //!
-//! To create a [`ParachainInherentData`] for a specific relay chain block, there exists the
+//! To create a [`RawParachainInherentData`] for a specific relay chain block, there exists the
 //! `ParachainInherentDataExt` trait in `cumulus-client-parachain-inherent` that helps with this.
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -38,7 +38,6 @@ use cumulus_primitives_core::{
 	},
 	InboundDownwardMessage, InboundHrmpMessage, ParaId, PersistedValidationData,
 };
-use frame_support::defensive;
 use scale_info::TypeInfo;
 use sp_core::{bounded::BoundedSlice, Get};
 use sp_inherents::InherentIdentifier;
@@ -67,7 +66,7 @@ pub mod v0 {
 		PartialEq,
 		TypeInfo,
 	)]
-	pub struct ParachainInherentData {
+	pub struct RawParachainInherentData {
 		pub validation_data: PersistedValidationData,
 		/// A storage proof of a predefined set of keys from the relay-chain.
 		///
@@ -98,18 +97,18 @@ pub mod v0 {
 	PartialEq,
 	TypeInfo,
 )]
-pub struct HashedMessage<BlockNumber = RelayChainBlockNumber> {
-	pub sent_at: BlockNumber,
+pub struct HashedMessage {
+	pub sent_at: RelayChainBlockNumber,
 	pub msg_hash: sp_core::H256,
 }
 
-impl<BlockNumber: Copy> From<&InboundDownwardMessage<BlockNumber>> for HashedMessage<BlockNumber> {
-	fn from(msg: &InboundDownwardMessage<BlockNumber>) -> Self {
+impl From<&InboundDownwardMessage<RelayChainBlockNumber>> for HashedMessage {
+	fn from(msg: &InboundDownwardMessage<RelayChainBlockNumber>) -> Self {
 		Self { sent_at: msg.sent_at, msg_hash: MessageQueueChain::hash_msg(&msg.msg) }
 	}
 }
 
-impl From<&InboundHrmpMessage> for HashedMessage<RelayChainBlockNumber> {
+impl From<&InboundHrmpMessage> for HashedMessage {
 	fn from(msg: &InboundHrmpMessage) -> Self {
 		Self { sent_at: msg.sent_at, msg_hash: MessageQueueChain::hash_msg(&msg.data) }
 	}
@@ -135,21 +134,20 @@ pub trait InboundMessage<BlockNumber> {
 	PartialEq,
 	TypeInfo,
 )]
-pub struct InboundMessagesCollection<BlockNumber, Message: InboundMessage<BlockNumber>> {
+pub struct InboundMessagesCollection<Message: InboundMessage<RelayChainBlockNumber>> {
 	messages: Vec<Message>,
-
-	_phantom: core::marker::PhantomData<BlockNumber>,
 }
 
-impl<BlockNumber: PartialEq + PartialOrd, Message: InboundMessage<BlockNumber>>
-	InboundMessagesCollection<BlockNumber, Message>
-{
+impl<Message: InboundMessage<RelayChainBlockNumber>> InboundMessagesCollection<Message> {
 	pub fn new(messages: Vec<Message>) -> Self {
-		Self { messages, _phantom: Default::default() }
+		Self { messages }
 	}
 
 	/// Drop all the messages up to `last_processed_msg`.
-	pub fn drop_processed_messages(&mut self, last_processed_msg: &InboundMessageId<BlockNumber>) {
+	pub fn drop_processed_messages(
+		&mut self,
+		last_processed_msg: &InboundMessageId<RelayChainBlockNumber>,
+	) {
 		let mut last_processed_msg_idx = None;
 		let messages = &mut self.messages;
 		for (rev_idx, message) in messages.iter().rev().enumerate() {
@@ -169,10 +167,10 @@ impl<BlockNumber: PartialEq + PartialOrd, Message: InboundMessage<BlockNumber>>
 		}
 	}
 
-	pub fn into_compressed(
+	pub fn into_abridged(
 		self,
 		size_limit: &mut usize,
-	) -> CompressedInboundMessagesCollection<BlockNumber, Message> {
+	) -> AbridgedInboundMessagesCollection<Message> {
 		let mut messages = self.messages;
 
 		let mut maybe_split_off_pos = None;
@@ -182,7 +180,7 @@ impl<BlockNumber: PartialEq + PartialOrd, Message: InboundMessage<BlockNumber>>
 			}
 			*size_limit -= message.data().len();
 
-			maybe_split_off_pos = idx.checked_add(1);
+			maybe_split_off_pos = Some(idx + 1);
 		}
 
 		let mut compressed_messages = vec![];
@@ -191,10 +189,9 @@ impl<BlockNumber: PartialEq + PartialOrd, Message: InboundMessage<BlockNumber>>
 			compressed_messages = extra_messages.iter().map(|msg| msg.to_compressed()).collect();
 		}
 
-		CompressedInboundMessagesCollection {
-			uncompressed_messages: messages,
+		AbridgedInboundMessagesCollection {
+			full_messages: messages,
 			hashed_messages: compressed_messages,
-			_phantom: Default::default(),
 		}
 	}
 }
@@ -212,49 +209,52 @@ impl<BlockNumber: PartialEq + PartialOrd, Message: InboundMessage<BlockNumber>>
 	PartialEq,
 	TypeInfo,
 )]
-pub struct CompressedInboundMessagesCollection<BlockNumber, Message: InboundMessage<BlockNumber>> {
-	uncompressed_messages: Vec<Message>,
+pub struct AbridgedInboundMessagesCollection<Message: InboundMessage<RelayChainBlockNumber>> {
+	full_messages: Vec<Message>,
 	hashed_messages: Vec<Message::CompressedMessage>,
-
-	_phantom: core::marker::PhantomData<BlockNumber>,
 }
 
-impl<BlockNumber, Message: InboundMessage<BlockNumber>>
-	CompressedInboundMessagesCollection<BlockNumber, Message>
-{
+impl<Message: InboundMessage<RelayChainBlockNumber>> AbridgedInboundMessagesCollection<Message> {
 	pub fn messages(&self) -> (&[Message], &[Message::CompressedMessage]) {
-		(&self.uncompressed_messages, &self.hashed_messages)
+		(&self.full_messages, &self.hashed_messages)
 	}
 
-	pub fn check_advancement_rule(&self, collection_name: &str) {
-		if self.uncompressed_messages.len() == 0 && self.hashed_messages.len() > 0 {
-			panic!("[{}] Advancement rule violation: mandatory messages skipped", collection_name);
+	pub fn check_advancement_rule(&self, collection_name: &str, max_size: usize) {
+		if self.hashed_messages.len() > 0 {
+			let mut size = 0usize;
+			for msg in &self.full_messages {
+				size = size.saturating_add(msg.data().len());
+			}
+			let min_size = ((max_size as f64) * 0.75) as usize;
+
+			assert!(
+				size >= min_size,
+				"[{}] Advancement rule violation: mandatory messages size smaller than expected: \
+				{} < {}",
+				collection_name,
+				size,
+				min_size
+			);
 		}
 	}
 }
 
-impl<BlockNumber, Message: InboundMessage<BlockNumber>> Default
-	for CompressedInboundMessagesCollection<BlockNumber, Message>
+impl<Message: InboundMessage<RelayChainBlockNumber>> Default
+	for AbridgedInboundMessagesCollection<Message>
 {
 	fn default() -> Self {
-		Self {
-			uncompressed_messages: vec![],
-			hashed_messages: vec![],
-			_phantom: Default::default(),
-		}
+		Self { full_messages: vec![], hashed_messages: vec![] }
 	}
 }
 
-impl<BlockNumber: Copy + Debug> InboundMessage<BlockNumber>
-	for InboundDownwardMessage<BlockNumber>
-{
-	type CompressedMessage = HashedMessage<BlockNumber>;
+impl InboundMessage<RelayChainBlockNumber> for InboundDownwardMessage<RelayChainBlockNumber> {
+	type CompressedMessage = HashedMessage;
 
 	fn data(&self) -> &[u8] {
 		&self.msg
 	}
 
-	fn sent_at(&self) -> BlockNumber {
+	fn sent_at(&self) -> RelayChainBlockNumber {
 		self.sent_at
 	}
 
@@ -263,24 +263,25 @@ impl<BlockNumber: Copy + Debug> InboundMessage<BlockNumber>
 	}
 }
 
-pub type InboundDownwardMessages<BlockNumber = RelayChainBlockNumber> =
-	InboundMessagesCollection<BlockNumber, InboundDownwardMessage<BlockNumber>>;
+pub type InboundDownwardMessages =
+	InboundMessagesCollection<InboundDownwardMessage<RelayChainBlockNumber>>;
 
-pub type CompressedInboundDownwardMessages<BlockNumber = RelayChainBlockNumber> =
-	CompressedInboundMessagesCollection<BlockNumber, InboundDownwardMessage<BlockNumber>>;
+pub type AbridgedInboundDownwardMessages =
+	AbridgedInboundMessagesCollection<InboundDownwardMessage<RelayChainBlockNumber>>;
 
-impl<BlockNumber: Copy + Debug> CompressedInboundDownwardMessages<BlockNumber> {
+impl AbridgedInboundDownwardMessages {
 	pub fn bounded_msgs_iter<MaxMessageLen: Get<u32>>(
 		&self,
 	) -> impl Iterator<Item = BoundedSlice<u8, MaxMessageLen>> {
-		self.uncompressed_messages
+		self.full_messages
 			.iter()
 			// Note: we are not using `.defensive()` here since that prints the whole value to
 			// console. In case that the message is too long, this clogs up the log quite badly.
 			.filter_map(|m| match BoundedSlice::try_from(&m.msg[..]) {
 				Ok(bounded) => Some(bounded),
 				Err(_) => {
-					defensive!("Inbound Downward message was too long; dropping");
+					log::error!("Inbound Downward message was too long; dropping");
+					debug_assert!(false);
 					None
 				},
 			})
@@ -304,8 +305,7 @@ impl InboundMessage<RelayChainBlockNumber> for (ParaId, InboundHrmpMessage) {
 	}
 }
 
-pub type InboundHrmpMessages =
-	InboundMessagesCollection<RelayChainBlockNumber, (ParaId, InboundHrmpMessage)>;
+pub type InboundHrmpMessages = InboundMessagesCollection<(ParaId, InboundHrmpMessage)>;
 
 impl InboundHrmpMessages {
 	// Prepare horizontal messages for a more convenient processing:
@@ -326,25 +326,22 @@ impl InboundHrmpMessages {
 			(msg_a.sent_at, sender_a).cmp(&(msg_b.sent_at, sender_b))
 		});
 
-		Self { messages, _phantom: Default::default() }
+		Self { messages }
 	}
 }
 
-pub type CompressedInboundHrmpMessages<BlockNumber = RelayChainBlockNumber> =
-	CompressedInboundMessagesCollection<BlockNumber, (ParaId, InboundHrmpMessage)>;
+pub type AbridgedInboundHrmpMessages =
+	AbridgedInboundMessagesCollection<(ParaId, InboundHrmpMessage)>;
 
-impl CompressedInboundHrmpMessages {
+impl AbridgedInboundHrmpMessages {
 	pub fn get_senders(&self) -> Vec<ParaId> {
 		let mut senders = vec![];
 
-		let messages = self.uncompressed_messages.iter().map(|(sender, _msg)| sender);
+		let messages = self.full_messages.iter().map(|(sender, _msg)| sender);
 		let hashed_messages = self.hashed_messages.iter().map(|(sender, _msg)| sender);
 		for sender in messages.chain(hashed_messages) {
-			match senders.binary_search(sender) {
-				Ok(_) => {},
-				Err(pos) => {
-					senders.insert(pos, *sender);
-				},
+			if let Err(pos) = senders.binary_search(sender) {
+				senders.insert(pos, *sender);
 			}
 		}
 
@@ -352,7 +349,7 @@ impl CompressedInboundHrmpMessages {
 	}
 
 	pub fn flat_msgs_iter(&self) -> impl Iterator<Item = (ParaId, RelayChainBlockNumber, &[u8])> {
-		self.uncompressed_messages
+		self.full_messages
 			.iter()
 			.map(|&(sender, ref message)| (sender, message.sent_at, &message.data[..]))
 	}
@@ -368,7 +365,7 @@ impl CompressedInboundHrmpMessages {
 	PartialEq,
 	TypeInfo,
 )]
-pub struct ParachainInherentData {
+pub struct RawParachainInherentData {
 	pub validation_data: PersistedValidationData,
 	/// A storage proof of a predefined set of keys from the relay-chain.
 	///
@@ -396,9 +393,9 @@ pub struct ParachainInherentData {
 }
 
 // Upgrades the ParachainInherentData v0 to the newest format.
-impl Into<ParachainInherentData> for v0::ParachainInherentData {
-	fn into(self) -> ParachainInherentData {
-		ParachainInherentData {
+impl Into<RawParachainInherentData> for v0::RawParachainInherentData {
+	fn into(self) -> RawParachainInherentData {
+		RawParachainInherentData {
 			validation_data: self.validation_data,
 			relay_chain_state: self.relay_chain_state,
 			downward_messages: self.downward_messages,
@@ -410,11 +407,11 @@ impl Into<ParachainInherentData> for v0::ParachainInherentData {
 }
 
 #[cfg(feature = "std")]
-impl ParachainInherentData {
-	/// Transforms [`ParachainInherentData`] into [`v0::ParachainInherentData`]. Can be used to
-	/// create inherent data compatible with old runtimes.
-	fn as_v0(&self) -> v0::ParachainInherentData {
-		v0::ParachainInherentData {
+impl RawParachainInherentData {
+	/// Transforms [`RawParachainInherentData`] into [`v0::RawParachainInherentData`]. Can be used
+	/// to create inherent data compatible with old runtimes.
+	fn as_v0(&self) -> v0::RawParachainInherentData {
+		v0::RawParachainInherentData {
 			validation_data: self.validation_data.clone(),
 			relay_chain_state: self.relay_chain_state.clone(),
 			downward_messages: self.downward_messages.clone(),
@@ -425,7 +422,7 @@ impl ParachainInherentData {
 
 #[cfg(feature = "std")]
 #[async_trait::async_trait]
-impl sp_inherents::InherentDataProvider for ParachainInherentData {
+impl sp_inherents::InherentDataProvider for RawParachainInherentData {
 	async fn provide_inherent_data(
 		&self,
 		inherent_data: &mut sp_inherents::InherentData,
@@ -443,12 +440,12 @@ impl sp_inherents::InherentDataProvider for ParachainInherentData {
 	}
 }
 
-impl ParachainInherentData {
+impl RawParachainInherentData {
 	pub fn deconstruct(
 		self,
-	) -> (BasicParachainInherentData, InboundDownwardMessages, InboundHrmpMessages) {
+	) -> (ParachainInherentData, InboundDownwardMessages, InboundHrmpMessages) {
 		(
-			BasicParachainInherentData {
+			ParachainInherentData {
 				validation_data: self.validation_data,
 				relay_chain_state: self.relay_chain_state,
 				relay_parent_descendants: self.relay_parent_descendants,
@@ -471,7 +468,7 @@ impl ParachainInherentData {
 	PartialEq,
 	TypeInfo,
 )]
-pub struct BasicParachainInherentData {
+pub struct ParachainInherentData {
 	pub validation_data: PersistedValidationData,
 	pub relay_chain_state: sp_trie::StorageProof,
 	pub relay_parent_descendants: Vec<RelayHeader>,
@@ -489,15 +486,15 @@ pub struct BasicParachainInherentData {
 	PartialEq,
 	TypeInfo,
 )]
-pub struct ExtraParachainInherentData {
-	pub downward_messages: CompressedInboundDownwardMessages,
-	pub horizontal_messages: CompressedInboundHrmpMessages,
+pub struct InboundMessagesData {
+	pub downward_messages: AbridgedInboundDownwardMessages,
+	pub horizontal_messages: AbridgedInboundHrmpMessages,
 }
 
-impl ExtraParachainInherentData {
+impl InboundMessagesData {
 	pub fn new(
-		dmq_msgs: CompressedInboundDownwardMessages,
-		hrmp_msgs: CompressedInboundHrmpMessages,
+		dmq_msgs: AbridgedInboundDownwardMessages,
+		hrmp_msgs: AbridgedInboundHrmpMessages,
 	) -> Self {
 		Self { downward_messages: dmq_msgs, horizontal_messages: hrmp_msgs }
 	}
@@ -529,10 +526,7 @@ impl MessageQueueChain {
 	}
 
 	/// Extend the hash chain with a `HashedMessage`.
-	pub fn extend_with_hashed_msg<BlockNumber: Copy + codec::Encode>(
-		&mut self,
-		hashed_msg: &HashedMessage<BlockNumber>,
-	) -> &mut Self {
+	pub fn extend_with_hashed_msg(&mut self, hashed_msg: &HashedMessage) -> &mut Self {
 		let prev_head = self.0;
 		self.0 = BlakeTwo256::hash_of(&(prev_head, hashed_msg.sent_at, &hashed_msg.msg_hash));
 		self
@@ -561,7 +555,9 @@ impl MessageQueueChain {
 mod tests {
 	use super::*;
 
-	fn build_inbound_dm_vec(info: &[(u8, usize)]) -> Vec<InboundDownwardMessage<u8>> {
+	fn build_inbound_dm_vec(
+		info: &[(RelayChainBlockNumber, usize)],
+	) -> Vec<InboundDownwardMessage<RelayChainBlockNumber>> {
 		let mut messages = vec![];
 		for (sent_at, size) in info.iter() {
 			let data = vec![1; *size];
@@ -612,33 +608,33 @@ mod tests {
 		let msgs = InboundDownwardMessages::new(msgs_vec.clone());
 
 		let mut size_limit = 150;
-		let compressed_msgs = msgs.clone().into_compressed(&mut size_limit);
+		let compressed_msgs = msgs.clone().into_abridged(&mut size_limit);
 		assert_eq!(size_limit, 50);
-		assert_eq!(&compressed_msgs.uncompressed_messages, &msgs_vec[..1]);
+		assert_eq!(&compressed_msgs.full_messages, &msgs_vec[..1]);
 		assert_eq!(
 			compressed_msgs.hashed_messages,
 			vec![(&msgs_vec[1]).into(), (&msgs_vec[2]).into(), (&msgs_vec[3]).into()]
 		);
 
 		let mut size_limit = 200;
-		let compressed_msgs = msgs.clone().into_compressed(&mut size_limit);
+		let compressed_msgs = msgs.clone().into_abridged(&mut size_limit);
 		assert_eq!(size_limit, 0);
-		assert_eq!(&compressed_msgs.uncompressed_messages, &msgs_vec[..2]);
+		assert_eq!(&compressed_msgs.full_messages, &msgs_vec[..2]);
 		assert_eq!(
 			compressed_msgs.hashed_messages,
 			vec![(&msgs_vec[2]).into(), (&msgs_vec[3]).into()]
 		);
 
 		let mut size_limit = 399;
-		let compressed_msgs = msgs.clone().into_compressed(&mut size_limit);
+		let compressed_msgs = msgs.clone().into_abridged(&mut size_limit);
 		assert_eq!(size_limit, 49);
-		assert_eq!(&compressed_msgs.uncompressed_messages, &msgs_vec[..3]);
+		assert_eq!(&compressed_msgs.full_messages, &msgs_vec[..3]);
 		assert_eq!(compressed_msgs.hashed_messages, vec![(&msgs_vec[3]).into()]);
 
 		let mut size_limit = 400;
-		let compressed_msgs = msgs.clone().into_compressed(&mut size_limit);
+		let compressed_msgs = msgs.clone().into_abridged(&mut size_limit);
 		assert_eq!(size_limit, 0);
-		assert_eq!(&compressed_msgs.uncompressed_messages, &msgs_vec);
+		assert_eq!(&compressed_msgs.full_messages, &msgs_vec);
 		assert_eq!(compressed_msgs.hashed_messages, vec![]);
 	}
 

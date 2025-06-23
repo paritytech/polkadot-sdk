@@ -19,7 +19,7 @@ use codec::{Decode, DecodeLimit};
 use cumulus_primitives_core::{
 	relay_chain::Slot, AbridgedHrmpChannel, ParaId, PersistedValidationData,
 };
-use cumulus_primitives_parachain_inherent::{ExtraParachainInherentData, ParachainInherentData};
+use cumulus_primitives_parachain_inherent::{InboundMessagesData, RawParachainInherentData};
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use frame_support::{
 	dispatch::{DispatchResult, GetDispatchInfo, RawOrigin},
@@ -336,7 +336,7 @@ where
 
 			let (relay_parent_storage_root, relay_chain_state) =
 				sproof_builder.into_state_root_and_proof();
-			let inherent_data = ParachainInherentData {
+			let inherent_data = RawParachainInherentData {
 				validation_data: PersistedValidationData {
 					parent_head,
 					relay_parent_number: (block_number.saturated_into::<u32>() * 2 + 1).into(),
@@ -356,9 +356,9 @@ where
 			let _ = cumulus_pallet_parachain_system::Pallet::<Runtime>::set_validation_data(
 				Runtime::RuntimeOrigin::none(),
 				inherent_data,
-				ExtraParachainInherentData::new(
-					downward_messages.into_compressed(&mut usize::MAX.clone()),
-					horizontal_messages.into_compressed(&mut usize::MAX.clone()),
+				InboundMessagesData::new(
+					downward_messages.into_abridged(&mut usize::MAX.clone()),
+					horizontal_messages.into_abridged(&mut usize::MAX.clone()),
 				),
 			);
 			let _ = pallet_timestamp::Pallet::<Runtime>::set(
@@ -712,7 +712,7 @@ pub fn mock_open_hrmp_channel<
 	// to storage; they must also be included in the inherent data.
 	let inherent_data = {
 		let mut inherent_data = InherentData::default();
-		let system_inherent_data = ParachainInherentData {
+		let system_inherent_data = RawParachainInherentData {
 			validation_data: vfp,
 			relay_chain_state,
 			downward_messages: Default::default(),

@@ -19,7 +19,7 @@ use codec::Encode;
 use sc_block_builder::BlockBuilderBuilder;
 
 use crate::{construct_extrinsic, Client as TestClient};
-use cumulus_client_parachain_inherent::{BasicParachainInherentData, ExtraParachainInherentData};
+use cumulus_client_parachain_inherent::{InboundMessagesData, ParachainInherentData};
 use cumulus_primitives_core::{relay_chain::AccountId, PersistedValidationData};
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use cumulus_test_runtime::{
@@ -88,7 +88,7 @@ pub fn extrinsic_set_validation_data(
 	};
 
 	let (relay_parent_storage_root, relay_chain_state) = sproof_builder.into_state_root_and_proof();
-	let data = BasicParachainInherentData {
+	let data = ParachainInherentData {
 		validation_data: PersistedValidationData {
 			parent_head,
 			relay_parent_number: 10,
@@ -100,14 +100,17 @@ pub fn extrinsic_set_validation_data(
 		collator_peer_id: None,
 	};
 
-	let extra = ExtraParachainInherentData {
+	let inbound_messages_data = InboundMessagesData {
 		downward_messages: Default::default(),
 		horizontal_messages: Default::default(),
 	};
 
 	cumulus_test_runtime::UncheckedExtrinsic::new_bare(
 		cumulus_test_runtime::RuntimeCall::ParachainSystem(
-			cumulus_pallet_parachain_system::Call::set_validation_data { data, extra },
+			cumulus_pallet_parachain_system::Call::set_validation_data {
+				data,
+				inbound_messages_data,
+			},
 		),
 	)
 	.into()

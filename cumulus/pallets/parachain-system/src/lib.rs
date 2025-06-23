@@ -43,12 +43,11 @@ use cumulus_primitives_core::{
 	UpwardMessage, UpwardMessageSender, XcmpMessageHandler, XcmpMessageSource,
 };
 use cumulus_primitives_parachain_inherent::{
-	v0, BasicParachainInherentData, CompressedInboundDownwardMessages,
-	CompressedInboundHrmpMessages, ExtraParachainInherentData, MessageQueueChain,
-	ParachainInherentData,
+	v0, AbridgedInboundDownwardMessages, AbridgedInboundHrmpMessages, InboundMessagesData,
+	MessageQueueChain, ParachainInherentData, RawParachainInherentData,
 };
 use frame_support::{
-	dispatch::DispatchResult,
+	dispatch::{DispatchClass, DispatchResult},
 	ensure,
 	inherent::{InherentData, InherentIdentifier, ProvideInherent},
 	traits::{Get, HandleMessage},
@@ -60,7 +59,7 @@ use polkadot_runtime_parachains::{FeeTracker, GetMinFeeFactor};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Block as BlockT, BlockNumberProvider, Hash, One},
-	FixedU128, RuntimeDebug,
+	FixedU128, RuntimeDebug, SaturatedConversion,
 };
 use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm, MAX_XCM_DECODE_DEPTH};
 use xcm_builder::InspectMessageQueues;
@@ -116,14 +115,6 @@ pub use unincluded_segment::{Ancestor, UsedBandwidth};
 pub use pallet::*;
 
 const LOG_TARGET: &str = "parachain-system";
-
-/// The bandwidth limit per block that applies when receiving messages from the relay chain via
-/// DMP or XCMP. The limit is per message passing mechanism (e.g. 1 MiB for DMP, 1 MiB for XCMP).
-///
-/// The purpose of this limit is to make sure that the total size of the messages received by the
-/// parachain from the relay chain don't exceed the block size. A 1 MiB limit per message passing
-/// mechanism means a total of 2 MiB which and the max block size is 5 MiB.
-pub const INBOUND_MESSAGES_COLLECTION_SIZE_LIMIT: usize = 1024 * 1024; // 1 MiB
 
 /// Something that can check the associated relay block number.
 ///
@@ -539,11 +530,12 @@ pub mod pallet {
 			// in the proof. Because these values will be read in `validate_block` and thus,
 			// need to be reachable by the proof.
 			ProcessedDownwardMessages::<T>::kill();
-			HrmpWatermark::<T>::set(HrmpWatermark::<T>::take());
 			UpwardMessages::<T>::kill();
 			HrmpOutboundMessages::<T>::kill();
 			CustomValidationHeadData::<T>::kill();
-			weight += T::DbWeight::get().reads_writes(1, 6);
+			// The same as above. Reading here to make sure that the key is included in the proof.
+			HrmpWatermark::<T>::get();
+			weight += T::DbWeight::get().reads_writes(1, 5);
 
 			// Here, in `on_initialize` we must report the weight for both `on_initialize` and
 			// `on_finalize`.
@@ -615,8 +607,8 @@ pub mod pallet {
 		// call with `register_extra_weight_unchecked`.
 		pub fn set_validation_data(
 			origin: OriginFor<T>,
-			data: BasicParachainInherentData,
-			extra: ExtraParachainInherentData,
+			data: ParachainInherentData,
+			inbound_messages_data: InboundMessagesData,
 		) -> DispatchResult {
 			ensure_none(origin)?;
 			assert!(
@@ -633,7 +625,7 @@ pub mod pallet {
 			// ancestors.
 			//
 			// This invariant should be upheld by the `ProvideInherent` implementation.
-			let BasicParachainInherentData {
+			let ParachainInherentData {
 				validation_data: vfp,
 				relay_chain_state,
 				relay_parent_descendants,
@@ -747,11 +739,11 @@ pub mod pallet {
 
 			total_weight.saturating_accrue(Self::enqueue_inbound_downward_messages(
 				relevant_messaging_state.dmq_mqc_head,
-				extra.downward_messages,
+				inbound_messages_data.downward_messages,
 			));
 			total_weight.saturating_accrue(Self::enqueue_inbound_horizontal_messages(
 				&relevant_messaging_state.ingress_channels,
-				extra.horizontal_messages,
+				inbound_messages_data.horizontal_messages,
 				vfp.relay_parent_number,
 			));
 
@@ -940,8 +932,6 @@ pub mod pallet {
 		StorageValue<_, InboundMessageId<relay_chain::BlockNumber>>;
 
 	/// HRMP watermark that was set in a block.
-	///
-	/// This will be cleared in `on_initialize` of each new block.
 	#[pallet::storage]
 	pub type HrmpWatermark<T: Config> = StorageValue<_, relay_chain::BlockNumber, ValueQuery>;
 
@@ -1004,7 +994,7 @@ pub mod pallet {
 
 		fn create_inherent(data: &InherentData) -> Option<Self::Call> {
 			let data = match data
-				.get_data::<ParachainInherentData>(&Self::INHERENT_IDENTIFIER)
+				.get_data::<RawParachainInherentData>(&Self::INHERENT_IDENTIFIER)
 				.ok()
 				.flatten()
 			{
@@ -1014,7 +1004,7 @@ pub mod pallet {
 					// legacy data format. We try to load it and transform it into the current
 					// version.
 					let data = data
-						.get_data::<v0::ParachainInherentData>(
+						.get_data::<v0::RawParachainInherentData>(
 							&cumulus_primitives_parachain_inherent::PARACHAIN_INHERENT_IDENTIFIER_V0,
 						)
 						.ok()
@@ -1139,31 +1129,47 @@ impl<T: Config> GetChannelInfo for Pallet<T> {
 }
 
 impl<T: Config> Pallet<T> {
+	/// The bandwidth limit per block that applies when receiving messages from the relay chain via
+	/// DMP or XCMP. The limit is per message passing mechanism (e.g. 1 MiB for DMP, 1 MiB for
+	/// XCMP).
+	///
+	/// The purpose of this limit is to make sure that the total size of the messages received by
+	/// the parachain from the relay chain don't exceed the block size. Currently each message
+	/// passing mechanism can use 1/3 of the total block length which means that in total 2/3
+	/// of the block length can be used for message passing.
+	fn messages_collection_size_limit() -> usize {
+		let max_block_weight = <T as frame_system::Config>::BlockWeights::get().max_block;
+		let max_block_pov = max_block_weight.proof_size();
+		(max_block_pov / 3).saturated_into()
+	}
+
 	/// Updates inherent data to only contain messages that weren't already processed
 	/// by the runtime and to compress (hash) the remaining ones if needed.
 	///
 	/// This method doesn't check for mqc heads mismatch.
-	fn do_create_inherent(data: ParachainInherentData) -> Call<T> {
+	fn do_create_inherent(data: RawParachainInherentData) -> Call<T> {
 		let (data, mut downward_messages, mut horizontal_messages) = data.deconstruct();
 		let last_relay_block_number = LastRelayChainBlockNumber::<T>::get();
 
+		let messages_collection_size_limit = Self::messages_collection_size_limit();
 		// DMQ.
 		let last_processed_msg = LastProcessedDownwardMessage::<T>::get()
 			.unwrap_or(InboundMessageId { sent_at: last_relay_block_number, reverse_idx: 0 });
 		downward_messages.drop_processed_messages(&last_processed_msg);
-		let mut size_limit = INBOUND_MESSAGES_COLLECTION_SIZE_LIMIT;
-		let downward_messages = downward_messages.into_compressed(&mut size_limit);
+		let mut size_limit = messages_collection_size_limit;
+		let downward_messages = downward_messages.into_abridged(&mut size_limit);
 
 		// HRMP.
 		let last_processed_msg = LastProcessedHrmpMessage::<T>::get()
 			.unwrap_or(InboundMessageId { sent_at: last_relay_block_number, reverse_idx: 0 });
 		horizontal_messages.drop_processed_messages(&last_processed_msg);
-		size_limit = size_limit.saturating_add(INBOUND_MESSAGES_COLLECTION_SIZE_LIMIT);
-		let horizontal_messages = horizontal_messages.into_compressed(&mut size_limit);
+		size_limit = size_limit.saturating_add(messages_collection_size_limit);
+		let horizontal_messages = horizontal_messages.into_abridged(&mut size_limit);
 
-		let extra = ExtraParachainInherentData::new(downward_messages, horizontal_messages);
+		let inbound_messages_data =
+			InboundMessagesData::new(downward_messages, horizontal_messages);
 
-		Call::set_validation_data { data, extra }
+		Call::set_validation_data { data, inbound_messages_data }
 
 		// If MQC doesn't match after dropping messages, the runtime will panic when executing
 		// inherent.
@@ -1180,9 +1186,9 @@ impl<T: Config> Pallet<T> {
 	/// hash doesn't match the expected.
 	fn enqueue_inbound_downward_messages(
 		expected_dmq_mqc_head: relay_chain::Hash,
-		downward_messages: CompressedInboundDownwardMessages,
+		downward_messages: AbridgedInboundDownwardMessages,
 	) -> Weight {
-		downward_messages.check_advancement_rule("DMQ");
+		downward_messages.check_advancement_rule("DMQ", Self::messages_collection_size_limit());
 
 		let mut dmq_head = <LastDmqMqcHead<T>>::get();
 
@@ -1193,14 +1199,19 @@ impl<T: Config> Pallet<T> {
 			Self::deposit_event(Event::DownwardMessagesReceived { count: message_count });
 
 			// Eagerly update the MQC head hash:
-			let mut last_processed_msg = InboundMessageId { sent_at: 0, reverse_idx: 0 };
 			for msg in messages {
 				dmq_head.extend_downward(msg);
-
-				last_processed_msg.sent_at = msg.sent_at;
 			}
 			<LastDmqMqcHead<T>>::put(&dmq_head);
+			Self::deposit_event(Event::DownwardMessagesProcessed {
+				weight_used,
+				dmq_head: dmq_head.head(),
+			});
 
+			let mut last_processed_msg = InboundMessageId {
+				sent_at: messages.last().map(|msg| msg.sent_at).unwrap_or(0),
+				reverse_idx: 0,
+			};
 			for msg in hashed_messages {
 				dmq_head.extend_with_hashed_msg(&msg);
 
@@ -1211,11 +1222,6 @@ impl<T: Config> Pallet<T> {
 			LastProcessedDownwardMessage::<T>::put(last_processed_msg);
 
 			T::DmpQueue::handle_messages(downward_messages.bounded_msgs_iter());
-
-			Self::deposit_event(Event::DownwardMessagesProcessed {
-				weight_used,
-				dmq_head: dmq_head.head(),
-			});
 		}
 
 		// After hashing each message in the message queue chain submitted by the collator, we
@@ -1260,11 +1266,11 @@ impl<T: Config> Pallet<T> {
 	///            correspond to the ones found on the relay-chain.
 	fn enqueue_inbound_horizontal_messages(
 		ingress_channels: &[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
-		horizontal_messages: CompressedInboundHrmpMessages,
+		horizontal_messages: AbridgedInboundHrmpMessages,
 		relay_parent_number: relay_chain::BlockNumber,
 	) -> Weight {
 		// First, check the HRMP advancement rule.
-		horizontal_messages.check_advancement_rule("HRMP");
+		horizontal_messages.check_advancement_rule("HRMP", Self::messages_collection_size_limit());
 		// Then, check that all submitted messages are sent from channels that exist. The
 		// channel exists if its MQC head is present in `vfp.hrmp_mqc_heads`.
 		for sender in horizontal_messages.get_senders() {

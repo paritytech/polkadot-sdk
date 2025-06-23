@@ -46,7 +46,7 @@ mod benchmarks {
 		{
 			Pallet::<T>::enqueue_inbound_downward_messages(
 				head,
-				InboundDownwardMessages::new(msgs).into_compressed(&mut usize::MAX.clone()),
+				InboundDownwardMessages::new(msgs).into_abridged(&mut usize::MAX.clone()),
 			);
 		}
 

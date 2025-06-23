@@ -31,7 +31,7 @@ use cumulus_client_consensus_common::{
 	self as consensus_common, ParachainBlockImportMarker, ParachainCandidate,
 };
 use cumulus_client_consensus_proposer::ProposerInterface;
-use cumulus_client_parachain_inherent::{ParachainInherentData, ParachainInherentDataProvider};
+use cumulus_client_parachain_inherent::{ParachainInherentDataProvider, RawParachainInherentData};
 use cumulus_primitives_core::{
 	relay_chain::Hash as PHash, DigestItem, ParachainBlockData, PersistedValidationData,
 };
@@ -128,7 +128,7 @@ where
 		parent_hash: Block::Hash,
 		timestamp: impl Into<Option<Timestamp>>,
 		relay_parent_descendants: Option<RelayParentData>,
-	) -> Result<(ParachainInherentData, InherentData), Box<dyn Error + Send + Sync + 'static>> {
+	) -> Result<(RawParachainInherentData, InherentData), Box<dyn Error + Send + Sync + 'static>> {
 		let paras_inherent_data = ParachainInherentDataProvider::create_at(
 			relay_parent,
 			&self.relay_client,
@@ -172,7 +172,7 @@ where
 		validation_data: &PersistedValidationData,
 		parent_hash: Block::Hash,
 		timestamp: impl Into<Option<Timestamp>>,
-	) -> Result<(ParachainInherentData, InherentData), Box<dyn Error + Send + Sync + 'static>> {
+	) -> Result<(RawParachainInherentData, InherentData), Box<dyn Error + Send + Sync + 'static>> {
 		self.create_inherent_data_with_rp_offset(
 			relay_parent,
 			validation_data,
@@ -189,7 +189,7 @@ where
 		parent_header: &Block::Header,
 		slot_claim: &SlotClaim<P::Public>,
 		additional_pre_digest: impl Into<Option<Vec<DigestItem>>>,
-		inherent_data: (ParachainInherentData, InherentData),
+		inherent_data: (RawParachainInherentData, InherentData),
 		proposal_duration: Duration,
 		max_pov_size: usize,
 	) -> Result<Option<ParachainCandidate<Block>>, Box<dyn Error + Send + 'static>> {
@@ -252,7 +252,7 @@ where
 		parent_header: &Block::Header,
 		slot_claim: &SlotClaim<P::Public>,
 		additional_pre_digest: impl Into<Option<Vec<DigestItem>>>,
-		inherent_data: (ParachainInherentData, InherentData),
+		inherent_data: (RawParachainInherentData, InherentData),
 		proposal_duration: Duration,
 		max_pov_size: usize,
 	) -> Result<Option<(Collation, ParachainBlockData<Block>)>, Box<dyn Error + Send + 'static>> {

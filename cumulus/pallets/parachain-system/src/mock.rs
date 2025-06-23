@@ -37,7 +37,7 @@ use frame_support::{
 	},
 	weights::{Weight, WeightMeter},
 };
-use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
+use frame_system::{limits::BlockWeights, pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_core::ConstU32;
 use sp_runtime::{traits::BlakeTwo256, BuildStorage};
 use sp_version::RuntimeVersion;
@@ -67,6 +67,8 @@ parameter_types! {
 		transaction_version: 1,
 		system_version: 1,
 	};
+	pub RuntimeBlockWeights: BlockWeights =
+		BlockWeights::simple_max(Weight::from_parts(1024, 3 * 1024 * 1024));
 	pub const ParachainId: ParaId = ParaId::new(200);
 	pub const ReservedXcmpWeight: Weight = Weight::zero();
 	pub const ReservedDmpWeight: Weight = Weight::zero();
@@ -74,6 +76,7 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
+	type BlockWeights = RuntimeBlockWeights;
 	type Block = Block;
 	type Version = Version;
 	type OnSetCode = ParachainSetCode<Self>;
@@ -280,7 +283,7 @@ pub struct BlockTests {
 	relay_sproof_builder_hook:
 		Option<Box<dyn Fn(&BlockTests, RelayChainBlockNumber, &mut RelayStateSproofBuilder)>>,
 	inherent_data_hook:
-		Option<Box<dyn Fn(&BlockTests, RelayChainBlockNumber, &mut ParachainInherentData)>>,
+		Option<Box<dyn Fn(&BlockTests, RelayChainBlockNumber, &mut RawParachainInherentData)>>,
 	inclusion_delay: Option<usize>,
 	relay_block_number: Option<Box<dyn Fn(&BlockNumberFor<Test>) -> RelayChainBlockNumber>>,
 
@@ -346,7 +349,7 @@ impl BlockTests {
 
 	pub fn with_inherent_data<F>(mut self, f: F) -> Self
 	where
-		F: 'static + Fn(&BlockTests, RelayChainBlockNumber, &mut ParachainInherentData),
+		F: 'static + Fn(&BlockTests, RelayChainBlockNumber, &mut RawParachainInherentData),
 	{
 		self.inherent_data_hook = Some(Box::new(f));
 		self
@@ -416,7 +419,7 @@ impl BlockTests {
 			// to storage; they must also be included in the inherent data.
 			let inherent_data = {
 				let mut inherent_data = InherentData::default();
-				let mut system_inherent_data = ParachainInherentData {
+				let mut system_inherent_data = RawParachainInherentData {
 					validation_data: vfp.clone(),
 					relay_chain_state,
 					downward_messages: Default::default(),
