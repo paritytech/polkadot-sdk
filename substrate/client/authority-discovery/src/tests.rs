@@ -167,10 +167,3 @@ async fn when_addr_cache_is_persisted_with_authority_ids_then_when_worker_is_cre
 	// ASSERT
 	assert!(worker.contains_authority(&remote_authority_id));
 }
-
-#[test]
-fn test_tmpdir_exists() {
-	let tempdir = tempfile::tempdir().unwrap();
-	let path = tempdir.path().to_path_buf();
-	assert!(path.exists());
-}
