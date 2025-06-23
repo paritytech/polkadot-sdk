@@ -131,6 +131,7 @@ pub async fn assert_finalized_para_throughput(
 
 	Ok(())
 }
+
 // Helper function for asserting the throughput of parachains (total number of backed candidates in
 // a window of relay chain blocks), after the first session change.
 // Blocks with session changes are generally ignores.
@@ -139,6 +140,16 @@ pub async fn assert_para_throughput(
 	stop_after: u32,
 	expected_candidate_ranges: HashMap<ParaId, Range<u32>>,
 ) -> Result<(), anyhow::Error> {
+	assert!(ensure_para_throughput(relay_client, stop_after, expected_candidate_ranges).await?);
+	Ok(())
+}
+
+/// Similar to [`assert_para_throughput`], but returns a boolean instead of asserting.
+pub async fn ensure_para_throughput(
+	relay_client: &OnlineClient<PolkadotConfig>,
+	stop_after: u32,
+	expected_candidate_ranges: HashMap<ParaId, Range<u32>>,
+) -> Result<bool, anyhow::Error> {
 	// Check on backed blocks in all imported relay chain blocks. The slot-based collator
 	// builds on the best fork currently. It can happen that it builds on a fork which is not
 	// getting finalized, in which case we will lose some blocks. This makes it harder to build
@@ -226,15 +237,17 @@ pub async fn assert_para_throughput(
 	for (para_id, expected_candidate_range) in expected_candidate_ranges {
 		let actual = candidate_count
 			.get(&para_id)
-			.expect("ParaId did not have any backed candidates");
-		assert!(
-			expected_candidate_range.contains(&actual.0),
-			"Candidate count {} not within range {expected_candidate_range:?}",
-			actual.0
-		);
+			.ok_or_else(|| anyhow!("ParaId did not have any backed candidates"))?;
+		if !expected_candidate_range.contains(&actual.0) {
+			log::error!(
+				"Candidate count {} not within range {expected_candidate_range:?}",
+				actual.0
+			);
+			return Ok(false);
+		}
 	}
 
-	Ok(())
+	Ok(true)
 }
 
 /// Wait for the first block with a session change.
