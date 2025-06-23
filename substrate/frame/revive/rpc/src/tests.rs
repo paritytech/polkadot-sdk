@@ -177,6 +177,11 @@ async fn deploy_and_call() -> anyhow::Result<()> {
 		"Contract should be deployed at {contract_address:?}."
 	);
 
+	let nonce_after_deploy =
+		client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+
+	assert_eq!(nonce_after_deploy - nonce, U256::from(1), "Nonce should have increased by 1");
+
 	let initial_balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
 	assert_eq!(
 		value, initial_balance,
