@@ -57,6 +57,7 @@ default = ["std"]
 std = [
 	"binary-merkle-tree/std",
 	"codec/std",
+	"either/std",
 	"either/use_std",
 	"hash256-std-hasher/std",
 	"log/std",
