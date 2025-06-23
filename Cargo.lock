@@ -3674,20 +3674,16 @@ dependencies = [
 name = "coretime-rococo-integration-tests"
 version = "0.0.0"
 dependencies = [
- "asset-test-utils",
  "cumulus-pallet-parachain-system",
  "emulated-integration-tests-common",
  "frame-support",
- "pallet-balances",
  "pallet-broker",
  "pallet-message-queue",
- "parachains-common",
  "polkadot-runtime-parachains",
  "rococo-runtime-constants",
  "rococo-system-emulated-network",
  "sp-runtime 31.0.1",
  "staging-xcm",
- "staging-xcm-executor",
 ]
 
 [[package]]
@@ -3776,15 +3772,11 @@ dependencies = [
 name = "coretime-westend-integration-tests"
 version = "0.0.0"
 dependencies = [
- "asset-test-utils",
  "cumulus-pallet-parachain-system",
  "emulated-integration-tests-common",
  "frame-support",
- "pallet-balances",
  "pallet-broker",
  "pallet-message-queue",
- "pallet-xcm",
- "parachains-common",
  "polkadot-runtime-parachains",
  "sp-runtime 31.0.1",
  "staging-xcm",
