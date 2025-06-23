@@ -31,7 +31,6 @@ sc-client-api = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
 sc-network-types = { workspace = true, default-features = true }
 serde_json.workspace = true
-serde_with.workspace = true
 serde.workspace = true
 sc-service.workspace = true
 sp-api = { workspace = true, default-features = true }

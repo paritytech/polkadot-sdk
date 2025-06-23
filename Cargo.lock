@@ -19224,7 +19224,6 @@ dependencies = [
  "sc-service",
  "serde",
  "serde_json",
- "serde_with",
  "sp-api 26.0.0",
  "sp-authority-discovery",
  "sp-blockchain",
