@@ -34,11 +34,8 @@ mod imports {
 		collectives_westend_emulated_chain::CollectivesWestendParaPallet as CollectivesWestendPallet,
 		coretime_westend_emulated_chain::{
 			self,
-			coretime_westend_runtime::{
-				ExistentialDeposit as CoretimeWestendExistentialDeposit,
-			},
-			genesis::ED as CORETIME_WESTEND_ED,
-			CoretimeWestendParaPallet as CoretimeWestendPallet,
+			coretime_westend_runtime::ExistentialDeposit as CoretimeWestendExistentialDeposit,
+			genesis::ED as CORETIME_WESTEND_ED, CoretimeWestendParaPallet as CoretimeWestendPallet,
 		},
 		penpal_emulated_chain::{PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet},
 		people_westend_emulated_chain::PeopleWestendParaPallet as PeopleWestendPallet,
