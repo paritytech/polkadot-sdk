@@ -1,0 +1,13 @@
+title: Make `NoOpPoll` generic over `Moment`
+
+doc:
+  - audience: Runtime Developers
+    description: |
+        Makes `NoOpPoll` generic over `Moment` type to support diverse clock configurations.
+        Downstream users must now specify the `Moment` type when using `NoOpPoll`.
+
+crates:
+  - name: frame-support
+    bump: minor
+  - name: pallet-ranked-collective
+    bump: none
