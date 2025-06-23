@@ -1378,7 +1378,7 @@ version = "0.19.1"
 path = "../substrate/frame/broker"
 default-features = false
 optional = true
-version = "0.18.0"
+version = "0.18.1"
 
 [dependencies.pallet-child-bounties]
 path = "../substrate/frame/child-bounties"
@@ -1690,7 +1690,7 @@ version = "24.0.0"
 path = "../substrate/frame/scheduler"
 default-features = false
 optional = true
-version = "40.2.0"
+version = "40.2.1"
 
 [dependencies.pallet-scored-pool]
 path = "../substrate/frame/scored-pool"
@@ -1840,7 +1840,7 @@ version = "38.1.0"
 path = "../polkadot/xcm/pallet-xcm"
 default-features = false
 optional = true
-version = "18.1.1"
+version = "18.1.2"
 
 [dependencies.pallet-xcm-benchmarks]
 path = "../polkadot/xcm/pallet-xcm-benchmarks"
@@ -1852,7 +1852,7 @@ version = "18.1.1"
 path = "../bridges/modules/xcm-bridge-hub"
 default-features = false
 optional = true
-version = "0.14.3"
+version = "0.14.4"
 
 [dependencies.pallet-xcm-bridge-hub-router]
 path = "../bridges/modules/xcm-bridge-hub-router"
@@ -2368,7 +2368,7 @@ version = "0.21.0"
 path = "../cumulus/client/consensus/aura"
 default-features = false
 optional = true
-version = "0.21.0"
+version = "0.21.1"
 
 [dependencies.cumulus-client-consensus-common]
 path = "../cumulus/client/consensus/common"
@@ -2416,7 +2416,7 @@ version = "0.22.0"
 path = "../cumulus/client/relay-chain-inprocess-interface"
 default-features = false
 optional = true
-version = "0.22.0"
+version = "0.22.1"
 
 [dependencies.cumulus-relay-chain-interface]
 path = "../cumulus/client/relay-chain-interface"
@@ -2428,7 +2428,7 @@ version = "0.21.0"
 path = "../cumulus/client/relay-chain-minimal-node"
 default-features = false
 optional = true
-version = "0.22.2"
+version = "0.22.3"
 
 [dependencies.cumulus-relay-chain-rpc-interface]
 path = "../cumulus/client/relay-chain-rpc-interface"
@@ -2722,7 +2722,7 @@ version = "21.1.0"
 path = "../cumulus/polkadot-omni-node/lib"
 default-features = false
 optional = true
-version = "0.4.2"
+version = "0.4.3"
 
 [dependencies.polkadot-overseer]
 path = "../polkadot/node/overseer"
@@ -2740,7 +2740,7 @@ version = "22.0.0"
 path = "../polkadot/node/service"
 default-features = false
 optional = true
-version = "22.1.0"
+version = "22.2.0"
 
 [dependencies.polkadot-statement-distribution]
 path = "../polkadot/node/network/statement-distribution"
@@ -2788,7 +2788,7 @@ version = "41.0.0"
 path = "../substrate/client/cli"
 default-features = false
 optional = true
-version = "0.50.1"
+version = "0.50.2"
 
 [dependencies.sc-client-api]
 path = "../substrate/client/api"
@@ -2920,7 +2920,7 @@ version = "0.18.0"
 path = "../substrate/client/network"
 default-features = false
 optional = true
-version = "0.48.4"
+version = "0.48.5"
 
 [dependencies.sc-network-common]
 path = "../substrate/client/network/common"
@@ -2962,13 +2962,13 @@ version = "0.47.0"
 path = "../substrate/client/network/types"
 default-features = false
 optional = true
-version = "0.15.2"
+version = "0.15.5"
 
 [dependencies.sc-offchain]
 path = "../substrate/client/offchain"
 default-features = false
 optional = true
-version = "43.0.0"
+version = "43.0.1"
 
 [dependencies.sc-proposer-metrics]
 path = "../substrate/client/proposer-metrics"
