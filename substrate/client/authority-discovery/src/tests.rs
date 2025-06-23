@@ -20,7 +20,7 @@ use crate::{
 	new_worker_and_service_with_config,
 	worker::{
 		tests::{TestApi, TestNetwork},
-		Role,
+		AddrCache, Role,
 	},
 	WorkerConfig,
 };
@@ -39,10 +39,6 @@ pub(super) fn create_spawner() -> Box<dyn SpawnNamed> {
 }
 
 pub(super) fn test_config(path_buf: Option<std::path::PathBuf>) -> WorkerConfig {
-	if let Some(path) = path_buf.as_ref() {
-		// tempdir seems to in fact not create the dir. `fs::create_dir_all` fixes it.
-		std::fs::create_dir_all(path).unwrap();
-	}
 	WorkerConfig { persisted_cache_directory: path_buf, ..Default::default() }
 }
 
@@ -70,9 +66,10 @@ async fn get_addresses_and_authority_id() {
 
 	let test_api = Arc::new(TestApi { authorities: vec![] });
 
-	let tempdir = tempfile::tempdir();
+	let tempdir = tempfile::tempdir().unwrap();
+	let path = tempdir.path().to_path_buf();
 	let (mut worker, mut service) = new_worker_and_service_with_config(
-		test_config(tempdir.ok().map(|t| t.path().to_path_buf())),
+		test_config(Some(path)),
 		test_api,
 		network.clone(),
 		Box::pin(dht_event_rx),
@@ -118,4 +115,62 @@ async fn cryptos_are_compatible() {
 		&sp_core_public
 	));
 	assert!(libp2p_public.verify(message, sp_core_signature.as_ref()));
+}
+
+#[tokio::test]
+async fn when_addr_cache_is_persisted_with_authority_ids_then_when_worker_is_created_it_loads_the_persisted_cache(
+) {
+	// ARRANGE
+	let (_dht_event_tx, dht_event_rx) = channel(0);
+	let mut pool = LocalPool::new();
+	let key_store = MemoryKeystore::new();
+
+	let remote_authority_id: AuthorityId = pool.run_until(async {
+		key_store
+			.sr25519_generate_new(key_types::AUTHORITY_DISCOVERY, None)
+			.unwrap()
+			.into()
+	});
+	let remote_peer_id = PeerId::random();
+	let remote_addr = "/ip6/2001:db8:0:0:0:0:0:2/tcp/30333"
+		.parse::<Multiaddr>()
+		.unwrap()
+		.with(Protocol::P2p(remote_peer_id.into()));
+
+	let tempdir = tempfile::tempdir().unwrap();
+	let cache_path = tempdir.path().to_path_buf();
+
+	// persist the remote_authority_id and remote_addr in the cache
+	{
+		let mut addr_cache = AddrCache::default();
+		addr_cache.insert(remote_authority_id.clone(), vec![remote_addr.clone()]);
+		let serialized_cache = addr_cache.serialize().unwrap();
+		let path_to_save = cache_path.join(crate::worker::ADDR_CACHE_FILE_NAME);
+		AddrCache::persist(&path_to_save, serialized_cache);
+	}
+
+	let (_, from_service) = futures::channel::mpsc::channel(0);
+
+	// ACT
+	// Create a worker with the persisted cache
+	let worker = crate::worker::Worker::new(
+		from_service,
+		Arc::new(TestApi { authorities: vec![] }),
+		Arc::new(TestNetwork::default()),
+		Box::pin(dht_event_rx),
+		Role::PublishAndDiscover(key_store.into()),
+		None,
+		test_config(Some(cache_path)),
+		create_spawner(),
+	);
+
+	// ASSERT
+	assert!(worker.contains_authority(&remote_authority_id));
+}
+
+#[test]
+fn test_tmpdir_exists() {
+	let tempdir = tempfile::tempdir().unwrap();
+	let path = tempdir.path().to_path_buf();
+	assert!(path.exists());
 }

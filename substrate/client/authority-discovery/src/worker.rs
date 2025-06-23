@@ -16,10 +16,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+pub(crate) use crate::worker::addr_cache::AddrCache;
 use crate::{
 	error::{Error, Result},
 	interval::ExpIncInterval,
-	worker::addr_cache::AddrCache,
 	ServicetoWorkerMsg, WorkerConfig,
 };
 
@@ -38,7 +38,7 @@ use ip_network::IpNetwork;
 use linked_hash_set::LinkedHashSet;
 use sc_network_types::kad::{Key, PeerRecord, Record};
 
-use log::{debug, error, trace, info};
+use log::{debug, error, info, trace};
 use prometheus_endpoint::{register, Counter, CounterVec, Gauge, Opts, U64};
 use prost::Message;
 use rand::{seq::SliceRandom, thread_rng};
@@ -73,7 +73,7 @@ mod schema {
 pub mod tests;
 
 const LOG_TARGET: &str = "sub-authority-discovery";
-const ADDR_CACHE_FILE_NAME: &str = "authority_discovery_addr_cache.json";
+pub(crate) const ADDR_CACHE_FILE_NAME: &str = "authority_discovery_addr_cache.json";
 const ADDR_CACHE_PERSIST_INTERVAL: Duration = Duration::from_secs(60 * 10); // 10 minutes
 
 /// Maximum number of addresses cached per authority. Additional addresses are discarded.
@@ -366,8 +366,7 @@ where
 
 	/// Start the worker
 	pub async fn run(mut self) {
-		let mut persist_interval =
-			tokio::time::interval(ADDR_CACHE_PERSIST_INTERVAL);
+		let mut persist_interval = tokio::time::interval(ADDR_CACHE_PERSIST_INTERVAL);
 
 		loop {
 			self.start_new_lookups();
@@ -1257,6 +1256,10 @@ impl Metrics {
 #[cfg(test)]
 impl<Block: BlockT, Client, DhtEventStream> Worker<Client, Block, DhtEventStream> {
 	pub(crate) fn inject_addresses(&mut self, authority: AuthorityId, addresses: Vec<Multiaddr>) {
-		self.addr_cache.insert(authority, addresses);
+		self.addr_cache.insert(authority, addresses)
+	}
+
+	pub(crate) fn contains_authority(&self, authority: &AuthorityId) -> bool {
+		self.addr_cache.get_addresses_by_authority_id(authority).is_some()
 	}
 }

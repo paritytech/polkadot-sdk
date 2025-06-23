@@ -33,7 +33,7 @@ use std::{
 /// Cache for [`AuthorityId`] -> [`HashSet<Multiaddr>`] and [`PeerId`] -> [`HashSet<AuthorityId>`]
 /// mappings.
 #[derive(Serialize, Deserialize, Default, Clone, PartialEq, Debug)]
-pub(super) struct AddrCache {
+pub(crate) struct AddrCache {
 	/// The addresses found in `authority_id_to_addresses` are guaranteed to always match
 	/// the peerids found in `peer_id_to_authority_ids`. In other words, these two hashmaps
 	/// are similar to a bi-directional map.
@@ -58,10 +58,13 @@ impl TryFrom<&Path> for AddrCache {
 
 	fn try_from(path: &Path) -> Result<Self, Self::Error> {
 		// Try to load from the cache file if it exists and is valid.
-		load_from_file::<AddrCache>(&path)
-			.map_err(|e| Error::EncodingDecodingAddrCache(
-				format!("Failed to load AddrCache from file: {}, error: {:?}", path.display(), e)
+		load_from_file::<AddrCache>(&path).map_err(|e| {
+			Error::EncodingDecodingAddrCache(format!(
+				"Failed to load AddrCache from file: {}, error: {:?}",
+				path.display(),
+				e
 			))
+		})
 	}
 }
 impl AddrCache {
@@ -99,7 +102,6 @@ impl AddrCache {
 				authority_id,
 				addresses,
 			);
-
 			return
 		} else if peer_ids.len() > 1 {
 			log::warn!(
@@ -219,9 +221,7 @@ fn load_from_file<T: DeserializeOwned>(path: impl AsRef<Path>) -> io::Result<T> 
 	let file = File::open(path)?;
 	let reader = BufReader::new(file);
 
-	serde_json::from_reader(reader).map_err(|e| {
-		io::Error::new(io::ErrorKind::InvalidData, e)
-	})
+	serde_json::from_reader(reader).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
 }
 
 #[cfg(test)]
