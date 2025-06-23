@@ -3780,7 +3780,6 @@ dependencies = [
  "polkadot-runtime-parachains",
  "sp-runtime 31.0.1",
  "staging-xcm",
- "staging-xcm-executor",
  "westend-runtime-constants",
  "westend-system-emulated-network",
 ]
