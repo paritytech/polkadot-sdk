@@ -339,7 +339,6 @@ pub async fn assert_blocks_are_being_finalized(
 
 	Ok(())
 }
-<<<<<<< HEAD
 
 /// Asserts that parachain blocks have the correct relay parent offset.
 ///
