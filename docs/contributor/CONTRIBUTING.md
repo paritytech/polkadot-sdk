@@ -79,7 +79,7 @@ All Pull Requests must contain proper title & description, as described in [Pull
 Template](./PULL_REQUEST_TEMPLATE.md). Moreover, all pull requests must have a proper `prdoc` file attached.
 
 Some Pull Requests can be exempt of `prdoc` documentation, those must be labelled with
-[`R0-silent`](https://github.com/paritytech/labels/blob/main/ruled_labels/specs_polkadot-sdk.yaml#L89-L91).
+[`R0-silent`](https://github.com/paritytech/labels/blob/main/ruled_labels/specs_polkadot-sdk.yaml#L95-L97).
 
 Non "silent" PRs must come with documentation in the form of a `.prdoc` file.
 

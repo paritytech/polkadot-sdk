@@ -29,6 +29,7 @@ use sc_service::{
 	config::{PrometheusConfig, RpcConfiguration},
 	start_rpc_servers, TaskManager,
 };
+use sqlx::sqlite::SqlitePoolOptions;
 
 // Default port if --prometheus-port is not specified
 const DEFAULT_PROMETHEUS_PORT: u16 = 9616;
@@ -110,11 +111,18 @@ fn build_client(
 		let (api, rpc_client, rpc) = connect(node_rpc_url).await?;
 		let block_provider = SubxtBlockInfoProvider::new( api.clone(), rpc.clone()).await?;
 
-		let keep_latest_n_blocks = if database_url == IN_MEMORY_DB {
+		let (pool, keep_latest_n_blocks) = if database_url == IN_MEMORY_DB {
 			log::warn!( target: LOG_TARGET, "💾 Using in-memory database, keeping only {cache_size} blocks in memory");
-			Some(cache_size)
+			// see sqlite in-memory issue: https://github.com/launchbadge/sqlx/issues/2510
+			let pool = SqlitePoolOptions::new()
+					.max_connections(1)
+					.idle_timeout(None)
+					.max_lifetime(None)
+					.connect(database_url).await?;
+
+			(pool, Some(cache_size))
 		} else {
-			None
+			(SqlitePoolOptions::new().connect(database_url).await?, None)
 		};
 
 		let receipt_extractor = ReceiptExtractor::new(
@@ -122,7 +130,7 @@ fn build_client(
 			earliest_receipt_block).await?;
 
 		let receipt_provider = ReceiptProvider::new(
-				database_url,
+				pool,
 				block_provider.clone(),
 				receipt_extractor.clone(),
 				keep_latest_n_blocks,
