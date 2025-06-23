@@ -68,15 +68,6 @@ mod test_state;
 
 const LOG_TARGET: &str = "subsystem-bench::disputes";
 
-pub fn make_keystore() -> Arc<LocalKeystore> {
-	let keystore = Arc::new(LocalKeystore::in_memory());
-	Keystore::sr25519_generate_new(&*keystore, ValidatorId::ID, Some("//Node0"))
-		.expect("Insert key into keystore");
-	Keystore::sr25519_generate_new(&*keystore, AuthorityDiscoveryId::ID, Some("//Node0"))
-		.expect("Insert key into keystore");
-	keystore
-}
-
 fn build_overseer(
 	state: &TestState,
 	network: NetworkEmulatorHandle,
@@ -92,7 +83,7 @@ fn build_overseer(
 	let db = polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter::new(db, &[0]);
 	let store = Arc::new(db);
 	let config = DisputeCoordinatorConfig { col_dispute_data: 0 };
-	let keystore = make_keystore();
+	let keystore = state.test_authorities.keyring.local_keystore();
 	let approval_voting_parallel_enabled = true;
 	let mock_runtime_api = MockRuntimeApi::new(
 		state.config.clone(),
