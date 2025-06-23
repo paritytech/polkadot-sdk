@@ -13,7 +13,7 @@ use super::message::{Command, Message, SendMessage};
 use frame_support::{ensure, traits::Get};
 use snowbridge_core::{AgentId, ChannelId, ParaId, TokenId, TokenIdOf};
 use sp_core::{H160, H256};
-use sp_runtime::traits::MaybeEquivalence;
+use sp_runtime::traits::MaybeConvert;
 use sp_std::{iter::Peekable, marker::PhantomData, prelude::*};
 use xcm::prelude::*;
 use xcm_executor::traits::{ConvertLocation, ExportXcm};
@@ -48,7 +48,7 @@ where
 	EthereumNetwork: Get<NetworkId>,
 	OutboundQueue: SendMessage<Balance = u128>,
 	AgentHashedDescription: ConvertLocation<H256>,
-	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
+	ConvertAssetId: MaybeConvert<TokenId, Location>,
 {
 	type Ticket = (Vec<u8>, XcmHash);
 
@@ -68,7 +68,7 @@ where
 		}
 
 		// Cloning destination to avoid modifying the value so subsequent exporters can use it.
-		let dest = destination.clone().take().ok_or(SendError::MissingArgument)?;
+		let dest = destination.clone().ok_or(SendError::MissingArgument)?;
 		if dest != Here {
 			log::trace!(target: "xcm::ethereum_blob_exporter", "skipped due to unmatched remote destination {dest:?}.");
 			return Err(SendError::NotApplicable)
@@ -194,7 +194,7 @@ struct XcmConverter<'a, ConvertAssetId, Call> {
 }
 impl<'a, ConvertAssetId, Call> XcmConverter<'a, ConvertAssetId, Call>
 where
-	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
+	ConvertAssetId: MaybeConvert<TokenId, Location>,
 {
 	fn new(message: &'a Xcm<Call>, ethereum_network: NetworkId, agent_id: AgentId) -> Self {
 		Self {
@@ -413,9 +413,7 @@ where
 
 		let token_id = TokenIdOf::convert_location(&asset_id).ok_or(InvalidAsset)?;
 
-		let expected_asset_id = ConvertAssetId::convert(&token_id).ok_or(InvalidAsset)?;
-
-		ensure!(asset_id == expected_asset_id, InvalidAsset);
+		ConvertAssetId::maybe_convert(token_id).ok_or(InvalidAsset)?;
 
 		// Check if there is a SetTopic and skip over it if found.
 		let topic_id = match_expression!(self.next()?, SetTopic(id), id).ok_or(SetTopicExpected)?;

@@ -243,6 +243,10 @@ impl NetworkDHTProvider for TestNetwork {
 	fn get_providers(&self, _: KademliaKey) {
 		unimplemented!()
 	}
+
+	fn find_closest_peers(&self, _: PeerId) {
+		unimplemented!()
+	}
 }
 
 impl NetworkStateInfo for TestNetwork {

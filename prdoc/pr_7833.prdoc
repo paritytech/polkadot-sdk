@@ -1,0 +1,7 @@
+title: add poke_deposit extrinsic to pallet-society
+doc:
+- audience: Runtime Dev
+  description: This PR adds a new extrinsic `poke_deposit` to `pallet-society`. This extrinsic will be used to re-adjust the deposits made in the pallet to create a bid.
+crates:
+- name: pallet-society
+  bump: major

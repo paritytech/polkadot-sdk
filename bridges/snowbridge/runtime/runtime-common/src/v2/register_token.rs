@@ -27,8 +27,7 @@ impl<
 	> EnsureOriginWithArg<RuntimeOrigin, L>
 	for ForeignAssetOwner<IsForeign, AssetInspect, AccountId, LocationToAccountId, L>
 where
-	RuntimeOrigin::PalletsOrigin:
-		From<XcmOrigin> + TryInto<XcmOrigin, Error = RuntimeOrigin::PalletsOrigin>,
+	for<'a> &'a RuntimeOrigin::PalletsOrigin: TryInto<&'a XcmOrigin>,
 	<AssetInspect as frame_support::traits::fungibles::Inspect<AccountId>>::AssetId: From<Location>,
 {
 	type Success = L;

@@ -19,7 +19,6 @@ frame-system = { workspace = true }
 pallet-assets = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-contracts = { workspace = true, default-features = true }
-pallet-contracts-proc-macro = { workspace = true, default-features = true }
 pallet-contracts-uapi = { workspace = true }
 pallet-message-queue = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }

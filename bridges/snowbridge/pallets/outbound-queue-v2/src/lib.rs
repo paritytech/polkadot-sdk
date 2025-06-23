@@ -64,6 +64,9 @@ mod mock;
 #[cfg(test)]
 mod test;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod fixture;
+
 use alloy_core::{
 	primitives::{Bytes, FixedBytes},
 	sol_types::SolValue,
@@ -76,7 +79,10 @@ use frame_support::{
 	traits::{tokens::Balance, EnqueueMessage, Get, ProcessMessageError},
 	weights::{Weight, WeightToFee},
 };
-use snowbridge_core::{BasicOperatingMode, TokenId};
+use snowbridge_core::{
+	reward::{AddTip, AddTipError},
+	BasicOperatingMode,
+};
 use snowbridge_merkle_tree::merkle_root;
 use snowbridge_outbound_queue_primitives::{
 	v2::{
@@ -87,14 +93,16 @@ use snowbridge_outbound_queue_primitives::{
 };
 use sp_core::{H160, H256};
 use sp_runtime::{
-	traits::{BlockNumberProvider, Hash, MaybeEquivalence},
+	traits::{BlockNumberProvider, Hash},
 	DigestItem,
 };
 use sp_std::prelude::*;
 pub use types::{PendingOrder, ProcessMessageOriginOf};
 pub use weights::WeightInfo;
-use xcm::latest::{Location, NetworkId};
-type DeliveryReceiptOf<T> = DeliveryReceipt<<T as frame_system::Config>::AccountId>;
+use xcm::prelude::NetworkId;
+
+#[cfg(feature = "runtime-benchmarks")]
+use snowbridge_beacon_primitives::BeaconHeader;
 
 pub use pallet::*;
 
@@ -109,6 +117,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		type Hashing: Hash<Output = H256>;
@@ -149,7 +158,8 @@ pub mod pallet {
 		type RewardPayment: RewardLedger<Self::AccountId, Self::RewardKind, u128>;
 		/// Ethereum NetworkId
 		type EthereumNetwork: Get<NetworkId>;
-		type ConvertAssetId: MaybeEquivalence<TokenId, Location>;
+		#[cfg(feature = "runtime-benchmarks")]
+		type Helper: BenchmarkHelper<Self>;
 	}
 
 	#[pallet::event]
@@ -168,6 +178,25 @@ pub mod pallet {
 			/// The nonce assigned to this message
 			nonce: u64,
 		},
+		/// Message was not committed due to some failure condition, like an overweight message.
+		MessageRejected {
+			/// ID of the message, if known (e.g. if a message is corrupt, the ID will not be
+			/// known).
+			id: Option<H256>,
+			/// The payload of the message. Useful for debugging purposes if the message
+			/// cannot be decoded.
+			payload: Vec<u8>,
+			/// The error that was returned.
+			error: ProcessMessageError,
+		},
+		/// Message was not committed due to being overweight or the current block is full.
+		MessagePostponed {
+			/// The payload of the message. Useful for debugging purposes if the message
+			/// cannot be decoded.
+			payload: Vec<u8>,
+			/// The error that was returned.
+			reason: ProcessMessageError,
+		},
 		/// Some messages have been committed
 		MessagesCommitted {
 			/// Merkle root of the committed messages
@@ -178,7 +207,7 @@ pub mod pallet {
 		/// Set OperatingMode
 		OperatingModeChanged { mode: BasicOperatingMode },
 		/// Delivery Proof received
-		MessageDeliveryProofReceived { nonce: u64 },
+		MessageDelivered { nonce: u64 },
 	}
 
 	#[pallet::error]
@@ -244,24 +273,32 @@ pub mod pallet {
 		}
 	}
 
+	#[cfg(feature = "runtime-benchmarks")]
+	pub trait BenchmarkHelper<T> {
+		fn initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256);
+	}
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T>
 	where
-		T::AccountId: From<[u8; 32]>,
+		<T as frame_system::Config>::AccountId: From<[u8; 32]>,
 	{
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::submit_delivery_receipt())]
 		pub fn submit_delivery_receipt(
 			origin: OriginFor<T>,
 			event: Box<EventProof>,
-		) -> DispatchResult {
+		) -> DispatchResult
+		where
+			<T as frame_system::Config>::AccountId: From<[u8; 32]>,
+		{
 			let relayer = ensure_signed(origin)?;
 
 			// submit message to verifier for verification
 			T::Verifier::verify(&event.event_log, &event.proof)
 				.map_err(|e| Error::<T>::Verification(e))?;
 
-			let receipt = DeliveryReceiptOf::<T>::try_from(&event.event_log)
+			let receipt = DeliveryReceipt::try_from(&event.event_log)
 				.map_err(|_| Error::<T>::InvalidEnvelope)?;
 
 			Self::process_delivery_receipt(relayer, receipt)
@@ -287,7 +324,8 @@ pub mod pallet {
 			Self::deposit_event(Event::MessagesCommitted { root, count });
 		}
 
-		/// Process a message delivered by the MessageQueue pallet
+		/// Process a message delivered by the MessageQueue pallet.
+		/// IMPORTANT!! This method does not roll back storage changes on error.
 		pub(crate) fn do_process_message(
 			_: ProcessMessageOriginOf<T>,
 			mut message: &[u8],
@@ -296,17 +334,25 @@ pub mod pallet {
 
 			// Yield if the maximum number of messages has been processed this block.
 			// This ensures that the weight of `on_finalize` has a known maximum bound.
-			ensure!(
-				MessageLeaves::<T>::decode_len().unwrap_or(0) <
-					T::MaxMessagesPerBlock::get() as usize,
-				Yield
-			);
-
-			let nonce = Nonce::<T>::get();
+			let current_len = MessageLeaves::<T>::decode_len().unwrap_or(0);
+			if current_len >= T::MaxMessagesPerBlock::get() as usize {
+				Self::deposit_event(Event::MessagePostponed {
+					payload: message.to_vec(),
+					reason: Yield,
+				});
+				return Err(Yield);
+			}
 
 			// Decode bytes into Message
 			let Message { origin, id, fee, commands } =
-				Message::decode(&mut message).map_err(|_| Corrupt)?;
+				Message::decode(&mut message).map_err(|_| {
+					Self::deposit_event(Event::MessageRejected {
+						id: None,
+						payload: message.to_vec(),
+						error: Corrupt,
+					});
+					Corrupt
+				})?;
 
 			// Convert it to OutboundMessage and save into Messages storage
 			let commands: Vec<OutboundCommandWrapper> = commands
@@ -317,11 +363,28 @@ pub mod pallet {
 					payload: command.abi_encode(),
 				})
 				.collect();
+
+			let nonce = <Nonce<T>>::get().checked_add(1).ok_or_else(|| {
+				Self::deposit_event(Event::MessageRejected {
+					id: None,
+					payload: message.to_vec(),
+					error: Unsupported,
+				});
+				Unsupported
+			})?;
+
 			let outbound_message = OutboundMessage {
 				origin,
 				nonce,
 				topic: id,
-				commands: commands.clone().try_into().map_err(|_| Corrupt)?,
+				commands: commands.clone().try_into().map_err(|_| {
+					Self::deposit_event(Event::MessageRejected {
+						id: Some(id),
+						payload: message.to_vec(),
+						error: Corrupt,
+					});
+					Corrupt
+				})?,
 			};
 			Messages::<T>::append(outbound_message);
 
@@ -358,7 +421,7 @@ pub mod pallet {
 			};
 			<PendingOrders<T>>::insert(nonce, order);
 
-			Nonce::<T>::set(nonce.checked_add(1).ok_or(Unsupported)?);
+			<Nonce<T>>::set(nonce);
 
 			Self::deposit_event(Event::MessageAccepted { id, nonce });
 
@@ -368,7 +431,7 @@ pub mod pallet {
 		/// Process a delivery receipt from a relayer, to allocate the relayer reward.
 		pub fn process_delivery_receipt(
 			relayer: <T as frame_system::Config>::AccountId,
-			receipt: DeliveryReceiptOf<T>,
+			receipt: DeliveryReceipt,
 		) -> DispatchResult
 		where
 			<T as frame_system::Config>::AccountId: From<[u8; 32]>,
@@ -376,27 +439,45 @@ pub mod pallet {
 			// Verify that the message was submitted from the known Gateway contract
 			ensure!(T::GatewayAddress::get() == receipt.gateway, Error::<T>::InvalidGateway);
 
+			let reward_account = if receipt.reward_address == [0u8; 32] {
+				relayer
+			} else {
+				receipt.reward_address.into()
+			};
+
 			let nonce = receipt.nonce;
 
 			let order = <PendingOrders<T>>::get(nonce).ok_or(Error::<T>::InvalidPendingNonce)?;
 
 			if order.fee > 0 {
 				// Pay relayer reward
-				T::RewardPayment::register_reward(&relayer, T::DefaultRewardKind::get(), order.fee);
+				T::RewardPayment::register_reward(
+					&reward_account,
+					T::DefaultRewardKind::get(),
+					order.fee,
+				);
 			}
 
 			<PendingOrders<T>>::remove(nonce);
 
-			Self::deposit_event(Event::MessageDeliveryProofReceived { nonce });
+			Self::deposit_event(Event::MessageDelivered { nonce });
 
 			Ok(())
 		}
+	}
 
-		/// The local component of the message processing fees in native currency
-		pub(crate) fn calculate_local_fee() -> T::Balance {
-			T::WeightToFee::weight_to_fee(
-				&T::WeightInfo::do_process_message().saturating_add(T::WeightInfo::commit_single()),
-			)
+	impl<T: Config> AddTip for Pallet<T> {
+		fn add_tip(nonce: u64, amount: u128) -> Result<(), AddTipError> {
+			ensure!(amount > 0, AddTipError::AmountZero);
+			PendingOrders::<T>::try_mutate_exists(nonce, |maybe_order| -> Result<(), AddTipError> {
+				match maybe_order {
+					Some(order) => {
+						order.fee = order.fee.saturating_add(amount);
+						Ok(())
+					},
+					None => Err(AddTipError::UnknownMessage),
+				}
+			})
 		}
 	}
 }

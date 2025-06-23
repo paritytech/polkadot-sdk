@@ -66,7 +66,7 @@ pub mod example {
 			_start_weight: Weight,
 			end_weight: Option<Weight>,
 		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			if err {
 				let error: DispatchError = "The cake is a lie.".into();
 				if let Some(weight) = end_weight {
@@ -99,6 +99,7 @@ mod mock_democracy {
 
 		#[pallet::config]
 		pub trait Config: frame_system::Config + Sized {
+			#[allow(deprecated)]
 			type RuntimeEvent: From<Event<Self>>
 				+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 			type ExternalMajorityOrigin: EnsureOrigin<Self::RuntimeOrigin>;

@@ -222,6 +222,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config + Sized {
 		type WeightInfo: WeightInfo;
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The Scheduler.
@@ -783,10 +784,8 @@ pub mod pallet {
 			// - `InstantAllowed` is `true` and `origin` is `InstantOrigin`.
 			let maybe_ensure_instant = if voting_period < T::FastTrackVotingPeriod::get() {
 				Some(origin)
-			} else if let Err(origin) = T::FastTrackOrigin::try_origin(origin) {
-				Some(origin)
 			} else {
-				None
+				T::FastTrackOrigin::try_origin(origin).err()
 			};
 			if let Some(ensure_instant) = maybe_ensure_instant {
 				T::InstantOrigin::ensure_origin(ensure_instant)?;
@@ -1724,13 +1723,13 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), BadOrigin> {
 		match threshold {
 			VoteThreshold::SuperMajorityApprove => {
-				let _ = T::ExternalOrigin::ensure_origin(origin)?;
+				T::ExternalOrigin::ensure_origin(origin)?;
 			},
 			VoteThreshold::SuperMajorityAgainst => {
-				let _ = T::ExternalDefaultOrigin::ensure_origin(origin)?;
+				T::ExternalDefaultOrigin::ensure_origin(origin)?;
 			},
 			VoteThreshold::SimpleMajority => {
-				let _ = T::ExternalMajorityOrigin::ensure_origin(origin)?;
+				T::ExternalMajorityOrigin::ensure_origin(origin)?;
 			},
 		};
 		Ok(())

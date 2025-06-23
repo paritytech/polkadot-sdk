@@ -17,10 +17,7 @@
 
 #![cfg(test)]
 
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{HandleMessage, QueueFootprint},
-};
+use frame_support::{derive_impl, parameter_types, traits::HandleMessage};
 use sp_core::{bounded_vec::BoundedSlice, ConstU32};
 use sp_runtime::traits::IdentityLookup;
 
@@ -70,10 +67,6 @@ impl HandleMessage for RecordingDmpSink {
 	}
 
 	fn sweep_queue() {
-		unimplemented!()
-	}
-
-	fn footprint() -> QueueFootprint {
 		unimplemented!()
 	}
 }

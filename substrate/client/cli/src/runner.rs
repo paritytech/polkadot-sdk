@@ -252,6 +252,7 @@ mod tests {
 				keystore: sc_service::config::KeystoreConfig::InMemory,
 				database: sc_client_db::DatabaseSource::ParityDb { path: root.clone() },
 				trie_cache_maximum_size: None,
+				warm_up_trie_cache: None,
 				state_pruning: None,
 				blocks_pruning: sc_client_db::BlocksPruning::KeepAll,
 				chain_spec: Box::new(

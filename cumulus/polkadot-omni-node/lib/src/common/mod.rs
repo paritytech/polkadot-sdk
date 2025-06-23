@@ -27,7 +27,10 @@ pub mod spec;
 pub mod types;
 
 use crate::cli::AuthoringPolicy;
-use cumulus_primitives_core::{CollectCollationInfo, GetCoreSelectorApi};
+
+use cumulus_primitives_core::{
+	CollectCollationInfo, GetCoreSelectorApi, GetParachainInfo, RelayParentOffsetApi,
+};
 use sc_client_db::DbHash;
 use sc_offchain::OffchainWorkerApi;
 use serde::de::DeserializeOwned;
@@ -70,6 +73,8 @@ pub trait NodeRuntimeApi<Block: BlockT>:
 	+ OffchainWorkerApi<Block>
 	+ CollectCollationInfo<Block>
 	+ GetCoreSelectorApi<Block>
+	+ GetParachainInfo<Block>
+	+ RelayParentOffsetApi<Block>
 	+ Sized
 {
 }
@@ -82,7 +87,9 @@ impl<T, Block: BlockT> NodeRuntimeApi<Block> for T where
 		+ TaggedTransactionQueue<Block>
 		+ OffchainWorkerApi<Block>
 		+ GetCoreSelectorApi<Block>
+		+ RelayParentOffsetApi<Block>
 		+ CollectCollationInfo<Block>
+		+ GetParachainInfo<Block>
 {
 }
 
@@ -112,4 +119,8 @@ pub struct NodeExtraArgs {
 
 	/// If set, each `PoV` build by the node will be exported to this folder.
 	pub export_pov: Option<PathBuf>,
+
+	/// The maximum percentage of the maximum PoV size that the collator can use.
+	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
+	pub max_pov_percentage: Option<u32>,
 }

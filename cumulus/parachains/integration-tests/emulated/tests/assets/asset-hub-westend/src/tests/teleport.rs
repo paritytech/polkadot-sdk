@@ -27,8 +27,8 @@ fn para_origin_assertions(t: SystemParaToRelayTest) {
 	type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 
 	AssetHubWestend::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(
-		720_053_000,
-		7_203,
+		302_568_000,
+		4_000,
 	)));
 
 	AssetHubWestend::assert_parachain_system_ump_sent();
@@ -76,8 +76,9 @@ fn penpal_to_ah_foreign_assets_receiver_assertions(t: ParaToSystemParaTest) {
 	let sov_penpal_on_ahr = AssetHubWestend::sovereign_account_id_of(
 		AssetHubWestend::sibling_location_of(PenpalA::para_id()),
 	);
-	let (expected_foreign_asset_id, expected_foreign_asset_amount) =
+	let (_, expected_foreign_asset_amount) =
 		non_fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
+	let (_, fee_asset_amount) = fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
 
 	AssetHubWestend::assert_xcmp_queue_success(None);
 
@@ -89,13 +90,13 @@ fn penpal_to_ah_foreign_assets_receiver_assertions(t: ParaToSystemParaTest) {
 				pallet_balances::Event::Burned { who, amount }
 			) => {
 				who: *who == sov_penpal_on_ahr.clone().into(),
-				amount: *amount == t.args.amount,
+				amount: *amount >= fee_asset_amount / 2,
 			},
 			RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
 				who: *who == t.receiver.account_id,
 			},
 			RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, amount }) => {
-				asset_id: *asset_id == expected_foreign_asset_id,
+				asset_id: *asset_id == PenpalATeleportableAssetLocation::get(),
 				owner: *owner == t.receiver.account_id,
 				amount: *amount == expected_foreign_asset_amount,
 			},
@@ -148,10 +149,9 @@ fn ah_to_penpal_foreign_assets_receiver_assertions(t: SystemParaToParaTest) {
 				amount: *amount == expected_asset_amount,
 			},
 			// native asset for fee is deposited to receiver
-			RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, amount }) => {
+			RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
 				asset_id: *asset_id == system_para_native_asset_location,
 				owner: *owner == t.receiver.account_id,
-				amount: *amount == expected_asset_amount,
 			},
 		]
 	);
@@ -191,35 +191,68 @@ fn system_para_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResul
 }
 
 #[test]
-fn teleport_to_other_system_parachains_works() {
+fn teleport_via_limited_teleport_assets_to_other_system_parachains_works() {
 	let amount = ASSET_HUB_WESTEND_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
 	test_parachain_is_trusted_teleporter!(
-		AssetHubWestend,          // Origin
-		AssetHubWestendXcmConfig, // XCM Configuration
-		vec![BridgeHubWestend],   // Destinations
-		(native_asset, amount)
+		AssetHubWestend,        // Origin
+		vec![BridgeHubWestend], // Destinations
+		(native_asset, amount),
+		limited_teleport_assets
 	);
 }
 
 #[test]
-fn teleport_from_and_to_relay() {
+fn teleport_via_transfer_assets_to_other_system_parachains_works() {
+	let amount = ASSET_HUB_WESTEND_ED * 100;
+	let native_asset: Assets = (Parent, amount).into();
+
+	test_parachain_is_trusted_teleporter!(
+		AssetHubWestend,        // Origin
+		vec![BridgeHubWestend], // Destinations
+		(native_asset, amount),
+		transfer_assets
+	);
+}
+
+#[test]
+fn teleport_via_limited_teleport_assets_from_and_to_relay() {
 	let amount = WESTEND_ED * 100;
 	let native_asset: Assets = (Here, amount).into();
 
 	test_relay_is_trusted_teleporter!(
 		Westend,
-		WestendXcmConfig,
 		vec![AssetHubWestend],
-		(native_asset, amount)
+		(native_asset, amount),
+		limited_teleport_assets
 	);
 
 	test_parachain_is_trusted_teleporter_for_relay!(
 		AssetHubWestend,
-		AssetHubWestendXcmConfig,
 		Westend,
-		amount
+		amount,
+		limited_teleport_assets
+	);
+}
+
+#[test]
+fn teleport_via_transfer_assets_from_and_to_relay() {
+	let amount = WESTEND_ED * 100;
+	let native_asset: Assets = (Here, amount).into();
+
+	test_relay_is_trusted_teleporter!(
+		Westend,
+		vec![AssetHubWestend],
+		(native_asset, amount),
+		transfer_assets
+	);
+
+	test_parachain_is_trusted_teleporter_for_relay!(
+		AssetHubWestend,
+		Westend,
+		amount,
+		transfer_assets
 	);
 }
 

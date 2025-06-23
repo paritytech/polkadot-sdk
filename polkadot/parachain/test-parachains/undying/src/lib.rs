@@ -104,6 +104,8 @@ pub struct BlockData {
 	pub tombstones: u64,
 	/// The number of iterations to perform.
 	pub iterations: u32,
+	/// Whether or not to emit the experimental ApprovedPeer UMP signal.
+	pub experimental_send_approved_peer: bool,
 }
 
 pub fn hash_state(state: &GraveyardState) -> [u8; 32] {
@@ -162,6 +164,11 @@ pub fn execute(
 		)
 		.encode(),
 	);
+
+	if block_data.experimental_send_approved_peer {
+		upward_messages
+			.force_push(UMPSignal::ApprovedPeer(alloc::vec![1, 2, 3].try_into().unwrap()).encode());
+	}
 
 	// We need to clone the block data as the fn will mutate it's state.
 	let new_state = execute_transaction(block_data.clone());

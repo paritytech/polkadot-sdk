@@ -1,0 +1,14 @@
+title: '[pallet-revive] add get_storage_var_key for variable-sized keys'
+
+doc:
+  - audience: Runtime Dev
+    description: |-
+      This adds a new runtime ReviveApi call get_storage_var_key, which does the same as get_storage, but for variable-sized keys.
+
+crates:
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: kitchensink-runtime
+    bump: minor
+  - name: pallet-revive
+    bump: major

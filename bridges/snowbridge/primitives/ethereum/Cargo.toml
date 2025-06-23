@@ -31,10 +31,6 @@ sp-std = { workspace = true }
 
 ethabi = { workspace = true }
 
-[dev-dependencies]
-rand = { workspace = true, default-features = true }
-serde_json = { workspace = true, default-features = true }
-
 [features]
 default = ["std"]
 expensive_tests = []

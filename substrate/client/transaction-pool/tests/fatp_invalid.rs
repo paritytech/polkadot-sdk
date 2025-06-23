@@ -33,6 +33,7 @@ use sc_transaction_pool_api::{
 use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidityError};
 use substrate_test_runtime_client::Sr25519Keyring::*;
 use substrate_test_runtime_transaction_pool::uxt;
+use tracing::debug;
 
 #[test]
 fn fatp_invalid_three_views_stale_gets_rejected() {
@@ -359,7 +360,7 @@ fn fatp_watcher_invalid_single_revalidation() {
 	}
 
 	let xt0_events = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
-	log::debug!("xt0_events: {:#?}", xt0_events);
+	debug!(target: LOG_TARGET, ?xt0_events, "xt0_events");
 	assert_eq!(xt0_events, vec![TransactionStatus::Ready, TransactionStatus::Invalid]);
 }
 
@@ -379,7 +380,7 @@ fn fatp_watcher_invalid_single_revalidation2() {
 	block_on(pool.maintain(event));
 
 	let xt0_events = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
-	log::debug!("xt0_events: {:#?}", xt0_events);
+	debug!(target: LOG_TARGET, ?xt0_events, "xt0_events");
 	assert_eq!(xt0_events, vec![TransactionStatus::Invalid]);
 	assert_eq!(pool.mempool_len(), (0, 0));
 }
@@ -408,7 +409,7 @@ fn fatp_watcher_invalid_single_revalidation3() {
 	}
 
 	let xt0_events = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
-	log::debug!("xt0_events: {:#?}", xt0_events);
+	debug!(target: LOG_TARGET, ?xt0_events, "xt0_events");
 	assert_eq!(xt0_events, vec![TransactionStatus::Invalid]);
 	assert_eq!(pool.mempool_len(), (0, 0));
 }

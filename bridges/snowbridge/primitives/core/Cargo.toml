@@ -25,7 +25,6 @@ polkadot-parachain-primitives = { workspace = true }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
 
-ethabi = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-arithmetic = { workspace = true }
@@ -37,15 +36,11 @@ xcm-executor = { workspace = true }
 
 bp-relayers = { workspace = true }
 
-[dev-dependencies]
-hex = { workspace = true, default-features = true }
-
 [features]
 default = ["std"]
 std = [
 	"bp-relayers/std",
 	"codec/std",
-	"ethabi/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",

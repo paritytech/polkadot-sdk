@@ -36,9 +36,15 @@ fn main() -> Result<()> {
 
 	match cli.subcommand {
 		Some(cli::Subcommand::ExportGenesisState(params)) => {
-			// `pov_size` and `pvf_complexity` need to match the ones that we start the collator
-			// with.
-			let collator = Collator::new(params.pov_size, params.pvf_complexity);
+			// `pov_size`, `pvf_complexity` need to match the
+			// ones that we start the collator with.
+			let collator = Collator::new(
+				params.pov_size,
+				params.pvf_complexity,
+				// The value of `experimental_send_approved_peer` doesn't matter because it's not
+				// part of the state.
+				false,
+			);
 
 			let output_buf =
 				format!("0x{:?}", HexDisplay::from(&collator.genesis_head())).into_bytes();
@@ -74,7 +80,11 @@ fn main() -> Result<()> {
 			})?;
 
 			runner.run_node_until_exit(|config| async move {
-				let collator = Collator::new(cli.run.pov_size, cli.run.pvf_complexity);
+				let collator = Collator::new(
+					cli.run.pov_size,
+					cli.run.pvf_complexity,
+					cli.run.experimental_send_approved_peer,
+				);
 
 				let full_node = polkadot_service::build_full(
 					config,

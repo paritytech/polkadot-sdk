@@ -35,10 +35,10 @@ snowbridge-beacon-primitives = { workspace = true }
 snowbridge-core = { workspace = true }
 snowbridge-verification-primitives = { workspace = true }
 
-hex = { workspace = true, default-features = false }
 hex-literal = { workspace = true, default-features = true }
 
 [dev-dependencies]
+snowbridge-test-utils = { workspace = true }
 
 [features]
 default = ["std"]
@@ -47,7 +47,6 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
-	"hex/std",
 	"log/std",
 	"scale-info/std",
 	"snowbridge-beacon-primitives/std",
@@ -65,6 +64,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
+	"snowbridge-test-utils/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",

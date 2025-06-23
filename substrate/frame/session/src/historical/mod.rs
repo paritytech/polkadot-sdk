@@ -47,8 +47,10 @@ use sp_trie::{
 use frame_support::{
 	print,
 	traits::{KeyOwnerProofSystem, ValidatorSet, ValidatorSetWithIdentification},
-	Parameter, LOG_TARGET,
+	Parameter,
 };
+
+const LOG_TARGET: &'static str = "runtime::historical";
 
 use crate::{self as pallet_session, Pallet as Session};
 
@@ -70,6 +72,10 @@ pub mod pallet {
 	/// Config necessary for the historical pallet.
 	#[pallet::config]
 	pub trait Config: pallet_session::Config + frame_system::Config {
+		/// The overarching event type.
+		#[allow(deprecated)]
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
 		/// Full identification of the validator.
 		type FullIdentification: Parameter;
 
@@ -92,6 +98,15 @@ pub mod pallet {
 	/// The range of historical sessions we store. [first, last)
 	#[pallet::storage]
 	pub type StoredRange<T> = StorageValue<_, (SessionIndex, SessionIndex), OptionQuery>;
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T> {
+		/// The merkle root of the validators of the said session were stored
+		RootStored { index: SessionIndex },
+		/// The merkle roots of up to this session index were pruned
+		RootsPruned { up_to: SessionIndex },
+	}
 }
 
 impl<T: Config> Pallet<T> {
@@ -118,7 +133,9 @@ impl<T: Config> Pallet<T> {
 			} else {
 				Some((new_start, end))
 			}
-		})
+		});
+
+		Self::deposit_event(Event::<T>::RootsPruned { up_to });
 	}
 
 	fn full_id_validators() -> Vec<(T::ValidatorId, T::FullIdentification)> {
@@ -189,7 +206,10 @@ impl<T: Config, I: SessionManager<T::ValidatorId, T::FullIdentification>> NoteHi
 		if let Some(new_validators) = new_validators_and_id {
 			let count = new_validators.len() as ValidatorCount;
 			match ProvingTrie::<T>::generate_for(new_validators) {
-				Ok(trie) => <HistoricalSessions<T>>::insert(new_index, &(trie.root, count)),
+				Ok(trie) => {
+					<HistoricalSessions<T>>::insert(new_index, &(trie.root, count));
+					Pallet::<T>::deposit_event(Event::RootStored { index: new_index });
+				},
 				Err(reason) => {
 					print("Failed to generate historical ancestry-inclusion proof.");
 					print(reason);
@@ -199,6 +219,7 @@ impl<T: Config, I: SessionManager<T::ValidatorId, T::FullIdentification>> NoteHi
 			let previous_index = new_index.saturating_sub(1);
 			if let Some(previous_session) = <HistoricalSessions<T>>::get(previous_index) {
 				<HistoricalSessions<T>>::insert(new_index, previous_session);
+				Pallet::<T>::deposit_event(Event::RootStored { index: new_index });
 			}
 		}
 
@@ -255,7 +276,7 @@ impl<T: Config> ProvingTrie<T> {
 					Some(k) => k,
 				};
 
-				let full_id = (validator, full_id);
+				let id_tuple = (validator, full_id);
 
 				// map each key to the owner index.
 				for key_id in T::Keys::key_ids() {
@@ -263,12 +284,11 @@ impl<T: Config> ProvingTrie<T> {
 					let res =
 						(key_id, key).using_encoded(|k| i.using_encoded(|v| trie.insert(k, v)));
 
-					let _ = res.map_err(|_| "failed to insert into trie")?;
+					res.map_err(|_| "failed to insert into trie")?;
 				}
 
 				// map each owner index to the full identification.
-				let _ = i
-					.using_encoded(|k| full_id.using_encoded(|v| trie.insert(k, v)))
+				i.using_encoded(|k| id_tuple.using_encoded(|v| trie.insert(k, v)))
 					.map_err(|_| "failed to insert into trie")?;
 			}
 		}
@@ -348,13 +368,14 @@ impl<T: Config, D: AsRef<[u8]>> KeyOwnerProofSystem<(KeyTypeId, D)> for Pallet<T
 		let (root, count) = if proof.session == <Session<T>>::current_index() {
 			let validators = Self::full_id_validators();
 			let count = validators.len() as ValidatorCount;
-			let trie = ProvingTrie::<T>::generate_for(validators).ok()?;
+			let trie = ProvingTrie::<T>::generate_for(validators).map_err(print_error).ok()?;
 			(trie.root, count)
 		} else {
 			<HistoricalSessions<T>>::get(&proof.session)?
 		};
 
 		if count != proof.validator_count {
+			print_error("InvalidCount");
 			return None
 		}
 

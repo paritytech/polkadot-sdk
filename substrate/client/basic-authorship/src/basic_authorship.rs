@@ -290,8 +290,8 @@ where
 			"basic-authorship-proposer",
 			None,
 			Box::pin(async move {
-				// leave some time for evaluation and block finalization (33%)
-				let deadline = (self.now)() + max_duration - max_duration / 3;
+				// leave some time for evaluation and block finalization (10%)
+				let deadline = (self.now)() + max_duration - max_duration / 10;
 				let res = self
 					.propose_with(inherent_data, inherent_digests, deadline, block_size_limit)
 					.await;
@@ -606,7 +606,7 @@ mod tests {
 
 	use futures::executor::block_on;
 	use parking_lot::Mutex;
-	use sc_client_api::Backend;
+	use sc_client_api::{Backend, TrieCacheContext};
 	use sc_transaction_pool::BasicPool;
 	use sc_transaction_pool_api::{ChainEvent, MaintainedTransactionPool, TransactionSource};
 	use sp_api::Core;
@@ -777,7 +777,7 @@ mod tests {
 		let api = client.runtime_api();
 		api.execute_block(genesis_hash, proposal.block).unwrap();
 
-		let state = backend.state_at(genesis_hash).unwrap();
+		let state = backend.state_at(genesis_hash, TrieCacheContext::Untrusted).unwrap();
 
 		let storage_changes = api.into_storage_changes(&state, genesis_hash).unwrap();
 

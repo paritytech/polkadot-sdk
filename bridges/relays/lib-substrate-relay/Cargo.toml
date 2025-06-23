@@ -55,6 +55,5 @@ sp-runtime = { workspace = true, default-features = true }
 sp-trie = { workspace = true }
 
 [dev-dependencies]
-pallet-transaction-payment = { workspace = true, default-features = true }
 relay-substrate-client = { features = ["test-helpers"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }

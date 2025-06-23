@@ -19,7 +19,6 @@ docify = { workspace = true }
 futures = { features = ["thread-pool"], workspace = true }
 futures-timer = { workspace = true }
 jsonrpsee = { features = ["server"], workspace = true }
-serde_json = { workspace = true, default-features = true }
 
 minimal-template-runtime = { workspace = true }
 polkadot-sdk = { workspace = true, features = ["experimental", "node"] }

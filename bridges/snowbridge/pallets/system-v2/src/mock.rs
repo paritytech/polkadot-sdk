@@ -13,7 +13,9 @@ use snowbridge_core::{
 	gwei, meth, sibling_sovereign_account, AllowSiblingsOnly, ParaId, PricingParameters, Rewards,
 };
 
-pub use snowbridge_test_utils::{mock_origin::pallet_xcm_origin, mock_outbound_queue::*};
+pub use snowbridge_test_utils::{
+	mock_inbound_queue::*, mock_origin::pallet_xcm_origin, mock_outbound_queue::*,
+};
 use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
 	AccountId32, BuildStorage, FixedU128,
@@ -84,7 +86,7 @@ parameter_types! {
 	pub AssetHubParaId: ParaId = ParaId::new(1000);
 	pub TestParaId: u32 = 2000;
 	pub RootLocation: Location = Location::parent();
-	pub FrontendLocation: Location = Location::new(1, [Parachain(1000), PalletInstance(80)]);
+	pub FrontendLocation: Location = Location::new(1, [Parachain(1000), PalletInstance(36)]);
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -104,6 +106,7 @@ impl Contains<Location> for AllowFromAssetHub {
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type OutboundQueue = MockOkOutboundQueue;
+	type InboundQueue = MockOkInboundQueue;
 	type FrontendOrigin = pallet_xcm_origin::EnsureXcm<AllowFromAssetHub>;
 	type GovernanceOrigin = EnsureRootWithSuccess<AccountId, RootLocation>;
 	type WeightInfo = ();

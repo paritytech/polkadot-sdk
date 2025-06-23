@@ -876,12 +876,11 @@ fn report_equivocation_after_skipped_epochs_works() {
 
 		// report the equivocation, in order for the validation to pass the mapping
 		// between epoch index and session index must be checked.
-		assert!(Babe::report_equivocation_unsigned(
+		assert_ok!(Babe::report_equivocation_unsigned(
 			RuntimeOrigin::none(),
 			Box::new(equivocation_proof),
 			key_owner_proof
-		)
-		.is_ok());
+		));
 	})
 }
 

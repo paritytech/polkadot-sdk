@@ -308,6 +308,26 @@ pub struct RunCmd {
 	/// Will use the specified relay chain chainspec.
 	#[arg(long, conflicts_with_all = ["relay_chain_rpc_urls", "collator"])]
 	pub relay_chain_light_client: bool,
+
+	/// EXPERIMENTAL: This is meant to be used only if collator is overshooting the PoV size, and
+	/// building blocks that do not fit in the max_pov_size. It is a percentage of the max_pov_size
+	/// configuration of the relay-chain.
+	///
+	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
+	#[arg(long)]
+	pub experimental_max_pov_percentage: Option<u32>,
+
+	/// Disable embedded DHT bootnode.
+	///
+	/// Do not advertise the node as a parachain bootnode on the relay chain DHT.
+	#[arg(long)]
+	pub no_dht_bootnode: bool,
+
+	/// Disable DHT bootnode discovery.
+	///
+	/// Disable discovery of the parachain bootnodes via the relay chain DHT.
+	#[arg(long)]
+	pub no_dht_bootnode_discovery: bool,
 }
 
 impl RunCmd {
@@ -330,7 +350,11 @@ impl RunCmd {
 				_ => RelayChainMode::Embedded,
 			};
 
-		CollatorOptions { relay_chain_mode }
+		CollatorOptions {
+			relay_chain_mode,
+			embedded_dht_bootnode: !self.no_dht_bootnode,
+			dht_bootnode_discovery: !self.no_dht_bootnode_discovery,
+		}
 	}
 }
 
@@ -345,11 +369,15 @@ pub enum RelayChainMode {
 	LightClient,
 }
 
-/// Options only relevant for collator nodes
+/// Options only relevant for collator/parachain nodes
 #[derive(Clone, Debug)]
 pub struct CollatorOptions {
 	/// How this collator retrieves relay chain information
 	pub relay_chain_mode: RelayChainMode,
+	/// Enable embedded DHT bootnode.
+	pub embedded_dht_bootnode: bool,
+	/// Enable DHT bootnode discovery.
+	pub dht_bootnode_discovery: bool,
 }
 
 /// A non-redundant version of the `RunCmd` that sets the `validator` field when the

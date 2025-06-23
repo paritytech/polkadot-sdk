@@ -29,9 +29,11 @@ use sp_runtime::{
 	},
 };
 use std::{
+	collections::HashMap,
 	sync::Arc,
 	time::{Duration, Instant},
 };
+use tracing::{debug, trace};
 
 use super::{
 	base_pool as base,
@@ -268,11 +270,11 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 	) {
 		let now = Instant::now();
 		self.validated_pool.resubmit(revalidated_transactions);
-		log::trace!(
+		trace!(
 			target: LOG_TARGET,
-			"Resubmitted. Took {} ms. Status: {:?}",
-			now.elapsed().as_millis(),
-			self.validated_pool.status()
+			duration = ?now.elapsed(),
+			status = ?self.validated_pool.status(),
+			"Resubmitted transaction."
 		);
 	}
 
@@ -304,28 +306,43 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 		at: &HashAndNumber<B::Block>,
 		parent: <B::Block as BlockT>::Hash,
 		extrinsics: &[RawExtrinsicFor<B>],
+		known_provides_tags: Option<Arc<HashMap<ExtrinsicHash<B>, Vec<Tag>>>>,
 	) {
-		log::debug!(
+		debug!(
 			target: LOG_TARGET,
-			"Starting pruning of block {:?} (extrinsics: {})",
-			at,
-			extrinsics.len()
+			?at,
+			extrinsics_count = extrinsics.len(),
+			"Starting pruning of block."
 		);
 		// Get details of all extrinsics that are already in the pool
 		let in_pool_hashes =
 			extrinsics.iter().map(|extrinsic| self.hash_of(extrinsic)).collect::<Vec<_>>();
 		let in_pool_tags = self.validated_pool.extrinsics_tags(&in_pool_hashes);
+		// Fill unknown tags based on the known tags given in `known_provides_tags`.
+		let mut unknown_txs_count = 0usize;
+		let mut reused_txs_count = 0usize;
+		let tags = in_pool_hashes.iter().zip(in_pool_tags).map(|(tx_hash, tags)| {
+			tags.or_else(|| {
+				unknown_txs_count += 1;
+				known_provides_tags.as_ref().and_then(|inner| {
+					inner.get(&tx_hash).map(|found_tags| {
+						reused_txs_count += 1;
+						found_tags.clone()
+					})
+				})
+			})
+		});
 
 		// Zip the ones from the pool with the full list (we get pairs `(Extrinsic,
 		// Option<Vec<Tag>>)`)
-		let all = extrinsics.iter().zip(in_pool_tags.into_iter());
+		let all = extrinsics.iter().zip(tags);
 		let mut validated_counter: usize = 0;
-
 		let mut future_tags = Vec::new();
 		let now = Instant::now();
 		for (extrinsic, in_pool_tags) in all {
 			match in_pool_tags {
-				// reuse the tags for extrinsics that were found in the pool
+				// reuse the tags for extrinsics that were found in the pool or given in
+				// `known_provides_tags` cache.
 				Some(tags) => future_tags.extend(tags),
 				// if it's not found in the pool query the runtime at parent block
 				// to get validity info and tags that the extrinsic provides.
@@ -343,23 +360,36 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 							)
 							.await;
 
-						log::trace!(target: LOG_TARGET,"[{:?}] prune::revalidated {:?}", self.validated_pool.api().hash_and_length(&extrinsic.clone()).0, validity);
-
+						trace!(
+							target: LOG_TARGET,
+							tx_hash = ?self.validated_pool.api().hash_and_length(&extrinsic.clone()).0,
+							?validity,
+							"prune::revalidated"
+						);
 						if let Ok(Ok(validity)) = validity {
 							future_tags.extend(validity.provides);
 						}
 					} else {
-						log::trace!(
+						trace!(
 							target: LOG_TARGET,
-							"txpool is empty, skipping validation for block {at:?}",
+							?at,
+							"txpool is empty, skipping validation for block",
 						);
 					}
 				},
 			}
 		}
 
-		log::debug!(target: LOG_TARGET,"prune: validated_counter:{validated_counter}, took:{:?}", now.elapsed());
-
+		let known_provides_tags_len = known_provides_tags.map(|inner| inner.len()).unwrap_or(0);
+		debug!(
+			target: LOG_TARGET,
+			validated_counter,
+			known_provides_tags_len,
+			unknown_txs_count,
+			reused_txs_count,
+			duration = ?now.elapsed(),
+			"prune"
+		);
 		self.prune_tags(at, future_tags, in_pool_hashes).await
 	}
 
@@ -391,7 +421,7 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 		known_imported_hashes: impl IntoIterator<Item = ExtrinsicHash<B>> + Clone,
 	) {
 		let now = Instant::now();
-		log::trace!(target: LOG_TARGET, "Pruning at {:?}", at);
+		trace!(target: LOG_TARGET, ?at, "Pruning tags.");
 		// Prune all transactions that provide given tags
 		let prune_status = self.validated_pool.prune_tags(tags);
 
@@ -410,7 +440,13 @@ impl<B: ChainApi, L: EventHandler<B>> Pool<B, L> {
 			self.verify(at, pruned_transactions, CheckBannedBeforeVerify::Yes).await;
 
 		let pruned_hashes = reverified_transactions.keys().map(Clone::clone).collect::<Vec<_>>();
-		log::debug!(target: LOG_TARGET, "Pruning at {:?}. Resubmitting transactions: {}, reverification took: {:?}", &at, reverified_transactions.len(), now.elapsed());
+		debug!(
+			target: LOG_TARGET,
+			?at,
+			reverified_transactions = reverified_transactions.len(),
+			duration = ?now.elapsed(),
+			"Pruned. Resubmitting transactions."
+		);
 		log_xt_trace!(data: tuple, target: LOG_TARGET, &reverified_transactions, "Resubmitting transaction: {:?}");
 
 		// And finally - submit reverified transactions back to the pool
@@ -591,7 +627,7 @@ mod tests {
 			.into_iter()
 			.map(|r| r.map(|o| o.hash()))
 			.collect::<Vec<_>>();
-		log::debug!("--> {hashes:#?}");
+		debug!(hashes = ?hashes, "-->");
 
 		// then
 		hashes.into_iter().zip(initial_hashes.into_iter()).for_each(

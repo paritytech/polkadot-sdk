@@ -24,6 +24,8 @@ sp-arithmetic = { workspace = true }
 sp-core = { workspace = true }
 sp-npos-elections = { workspace = true }
 sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+
 
 [dev-dependencies]
 rand = { features = ["small_rng"], workspace = true, default-features = true }
@@ -43,6 +45,7 @@ std = [
 	"sp-io/std",
 	"sp-npos-elections/std",
 	"sp-runtime/std",
+	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",

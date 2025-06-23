@@ -14,7 +14,7 @@ use crate::v2::{
 
 use crate::v2::convert::XcmConverterError::{AssetResolutionFailed, FilterDoesNotConsumeAllAssets};
 use sp_core::H160;
-use sp_runtime::traits::MaybeEquivalence;
+use sp_runtime::traits::MaybeConvert;
 use sp_std::{iter::Peekable, marker::PhantomData, prelude::*};
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
@@ -45,6 +45,7 @@ pub enum XcmConverterError {
 	TransactParamsDecodeFailed,
 	FeeAssetResolutionFailed,
 	CallContractValueInsufficient,
+	NoCommands,
 }
 
 macro_rules! match_expression {
@@ -63,7 +64,7 @@ pub struct XcmConverter<'a, ConvertAssetId, Call> {
 }
 impl<'a, ConvertAssetId, Call> XcmConverter<'a, ConvertAssetId, Call>
 where
-	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
+	ConvertAssetId: MaybeConvert<TokenId, Location>,
 {
 	pub fn new(message: &'a Xcm<Call>, ethereum_network: NetworkId) -> Self {
 		Self {
@@ -173,8 +174,7 @@ where
 
 			// Ensure PNA already registered
 			let token_id = TokenIdOf::convert_location(&asset_id).ok_or(InvalidAsset)?;
-			let expected_asset_id = ConvertAssetId::convert(&token_id).ok_or(InvalidAsset)?;
-			ensure!(asset_id == expected_asset_id, InvalidAsset);
+			ConvertAssetId::maybe_convert(token_id).ok_or(InvalidAsset)?;
 
 			commands.push(Command::MintForeignToken { token_id, recipient, amount });
 		}
@@ -260,11 +260,6 @@ where
 		)
 		.ok_or(BeneficiaryResolutionFailed)?;
 
-		// Make sure there are reserved assets.
-		if enas.is_none() && pnas.is_none() {
-			return Err(NoReserveAssets);
-		}
-
 		let mut commands: Vec<Command> = Vec::new();
 
 		// ENA transfer commands
@@ -297,6 +292,8 @@ where
 					.push(Command::CallContract { target: target.into(), calldata, gas, value }),
 			}
 		}
+
+		ensure!(commands.len() > 0, NoCommands);
 
 		// ensure SetTopic exists
 		let topic_id = match_expression!(self.next()?, SetTopic(id), id).ok_or(SetTopicExpected)?;

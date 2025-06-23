@@ -14,11 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use codec::Encode;
 use core::cell::RefCell;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
-	traits::{Everything, Nothing},
+	traits::{Disabled, Everything, Nothing},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
@@ -39,6 +38,7 @@ use xcm_builder::{
 	IsChildSystemParachain, IsConcrete, MintLocation, RespectSuspension, SignedAccountId32AsNative,
 	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 };
+use xcm_simulator::helpers::derive_topic_id;
 
 pub type AccountId = AccountId32;
 pub type Balance = u128;
@@ -57,7 +57,7 @@ impl SendXcm for TestSendXcm {
 		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<(Location, Xcm<()>, XcmHash)> {
 		let msg = msg.take().unwrap();
-		let hash = fake_message_hash(&msg);
+		let hash = derive_topic_id(&msg);
 		let triplet = (dest.take().unwrap(), msg, hash);
 		Ok((triplet, Assets::new()))
 	}
@@ -198,6 +198,8 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmRecorder = XcmPallet;
 }
 
+/// Converts a local signed origin into an XCM location. Forms the basis for local origins
+/// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, KusamaNetwork>;
 
 impl pallet_xcm::Config for Runtime {
@@ -225,6 +227,8 @@ impl pallet_xcm::Config for Runtime {
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = pallet_xcm::TestWeightInfo;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	// Aliasing is disabled: xcm_executor::Config::Aliasers is set to `Nothing`.
+	type AuthorizedAliasConsideration = Disabled;
 }
 
 impl origin::Config for Runtime {}
@@ -251,8 +255,4 @@ pub fn kusama_like_with_balances(balances: Vec<(AccountId, Balance)>) -> sp_io::
 	let mut ext = sp_io::TestExternalities::new(t);
 	ext.execute_with(|| System::set_block_number(1));
 	ext
-}
-
-pub fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
-	message.using_encoded(sp_io::hashing::blake2_256)
 }

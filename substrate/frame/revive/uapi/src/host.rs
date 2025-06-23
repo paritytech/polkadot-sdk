@@ -368,6 +368,28 @@ pub trait HostFn: private::Sealed {
 	/// Returns the size of the pre-existing value at the specified key if any.
 	fn set_storage(flags: StorageFlags, key: &[u8], value: &[u8]) -> Option<u32>;
 
+	/// Sets the storage entry for a fixed 256‑bit key with a fixed 256‑bit value.
+	///
+	/// If the provided 32‑byte value is all zeros then the key is cleared (i.e. deleted),
+	/// mimicking Ethereum’s SSTORE behavior.
+	///
+	/// # Parameters
+	/// - `key`: The fixed 256‑bit storage key (32 bytes).
+	/// - `value`: The fixed 256‑bit storage value (32 bytes).
+	///
+	/// # Return
+	/// Returns the size (in bytes) of the pre‑existing value at the specified key, if any.
+	fn set_storage_or_clear(flags: StorageFlags, key: &[u8; 32], value: &[u8; 32]) -> Option<u32>;
+
+	/// Retrieves the storage entry for a fixed 256‑bit key.
+	///
+	/// If the key does not exist, the output buffer is filled with 32 zero bytes.
+	///
+	/// # Parameters
+	/// - `key`: The fixed 256‑bit storage key (32 bytes).
+	/// - `output`: A mutable output buffer (32 bytes) where the storage entry is written.
+	fn get_storage_or_zero(flags: StorageFlags, key: &[u8; 32], output: &mut [u8; 32]);
+
 	/// Stores the value transferred along with this call/instantiate into the supplied buffer.
 	///
 	/// # Parameters
@@ -457,33 +479,6 @@ pub trait HostFn: private::Sealed {
 	/// The chain extension returned value, if executed successfully.
 	#[unstable_hostfn]
 	fn call_chain_extension(func_id: u32, input: &[u8], output: Option<&mut &mut [u8]>) -> u32;
-
-	/// Call some dispatchable of the runtime.
-	///
-	/// # Parameters
-	///
-	/// - `call`: The call data.
-	///
-	/// # Return
-	///
-	/// Returns `Error::Success` when the dispatchable was successfully executed and
-	/// returned `Ok`. When the dispatchable was executed but returned an error
-	/// `Error::CallRuntimeFailed` is returned. The full error is not
-	/// provided because it is not guaranteed to be stable.
-	///
-	/// # Comparison with `ChainExtension`
-	///
-	/// Just as a chain extension this API allows the runtime to extend the functionality
-	/// of contracts. While making use of this function is generally easier it cannot be
-	/// used in all cases. Consider writing a chain extension if you need to do perform
-	/// one of the following tasks:
-	///
-	/// - Return data.
-	/// - Provide functionality **exclusively** to contracts.
-	/// - Provide custom weights.
-	/// - Avoid the need to keep the `Call` data structure stable.
-	#[unstable_hostfn]
-	fn call_runtime(call: &[u8]) -> Result;
 
 	/// Checks whether the caller of the current contract is the origin of the whole call stack.
 	///
@@ -686,41 +681,6 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output data buffer to write the weight left.
 	#[unstable_hostfn]
 	fn weight_left(output: &mut &mut [u8]);
-
-	/// Execute an XCM program locally, using the contract's address as the origin.
-	/// This is equivalent to dispatching `pallet_xcm::execute` through call_runtime, except that
-	/// the function is called directly instead of being dispatched.
-	///
-	/// # Parameters
-	///
-	/// - `msg`: The message, should be decodable as a [VersionedXcm](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedXcm.html),
-	///   traps otherwise.
-	/// - `output`: A reference to the output data buffer to write the [Outcome](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/v3/enum.Outcome.html)
-	///
-	/// # Return
-	///
-	/// Returns `Error::Success` when the XCM execution attempt is successful. When the XCM
-	/// execution fails, `ReturnCode::XcmExecutionFailed` is returned
-	#[unstable_hostfn]
-	fn xcm_execute(msg: &[u8]) -> Result;
-
-	/// Send an XCM program from the contract to the specified destination.
-	/// This is equivalent to dispatching `pallet_xcm::send` through `call_runtime`, except that
-	/// the function is called directly instead of being dispatched.
-	///
-	/// # Parameters
-	///
-	/// - `dest`: The XCM destination, should be decodable as [VersionedLocation](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedLocation.html),
-	///   traps otherwise.
-	/// - `msg`: The message, should be decodable as a [VersionedXcm](https://paritytech.github.io/polkadot-sdk/master/staging_xcm/enum.VersionedXcm.html),
-	///   traps otherwise.
-	///
-	/// # Return
-	///
-	/// Returns `ReturnCode::Success` when the message was successfully sent. When the XCM
-	/// execution fails, `ReturnErrorCode::XcmSendFailed` is returned.
-	#[unstable_hostfn]
-	fn xcm_send(dest: &[u8], msg: &[u8], output: &mut [u8; 32]) -> Result;
 }
 
 mod private {

@@ -21,13 +21,7 @@
 
 use super::*;
 use crate as pallet_tx_pause;
-
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU64, Everything, InsideBoth, InstanceFilter},
-};
-use frame_system::EnsureSignedBy;
-use sp_runtime::{traits::BlakeTwo256, BuildStorage};
+use frame::testing_prelude::*;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
@@ -113,7 +107,7 @@ parameter_types! {
 	pub const MaxNameLen: u32 = 50;
 }
 
-frame_support::ord_parameter_types! {
+ord_parameter_types! {
 	pub const PauseOrigin: u64 = 1;
 	pub const UnpauseOrigin: u64 = 2;
 }
@@ -141,7 +135,7 @@ impl Config for Test {
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -152,7 +146,7 @@ frame_support::construct_runtime!(
 	}
 );
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	pallet_balances::GenesisConfig::<Test> {
@@ -167,7 +161,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-	let mut ext = sp_io::TestExternalities::new(t);
+	let mut ext = TestExternalities::new(t);
 	ext.execute_with(|| {
 		System::set_block_number(1);
 	});

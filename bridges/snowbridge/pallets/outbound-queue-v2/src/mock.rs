@@ -9,15 +9,14 @@ use frame_support::{
 	BoundedVec,
 };
 
-use codec::{DecodeWithMemTracking, Encode, MaxEncodedLen};
 use hex_literal::hex;
-use scale_info::TypeInfo;
 use snowbridge_core::{
 	gwei, meth,
 	pricing::{PricingParameters, Rewards},
 	AgentId, AgentIdOf, ParaId,
 };
 use snowbridge_outbound_queue_primitives::{v2::*, Log, Proof, VerificationError, Verifier};
+use snowbridge_test_utils::mock_rewards::{BridgeReward, MockRewardLedger};
 use sp_core::{ConstU32, H160, H256};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup, Keccak256},
@@ -83,7 +82,7 @@ impl Verifier for MockVerifier {
 	}
 }
 
-const GATEWAY_ADDRESS: [u8; 20] = hex!["eda338e4dc46038493b885327842fd3e301cab39"];
+const GATEWAY_ADDRESS: [u8; 20] = hex!["b1185ede04202fe62d38f5db72f71e38ff3e8305"];
 const WETH: [u8; 20] = hex!["C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"];
 
 parameter_types! {
@@ -101,33 +100,6 @@ parameter_types! {
 
 pub const DOT: u128 = 10_000_000_000;
 
-/// Showcasing that we can handle multiple different rewards with the same pallet.
-#[derive(
-	Clone,
-	Copy,
-	Debug,
-	Decode,
-	DecodeWithMemTracking,
-	Encode,
-	Eq,
-	MaxEncodedLen,
-	PartialEq,
-	TypeInfo,
-)]
-pub enum BridgeReward {
-	/// Rewards for Snowbridge.
-	Snowbridge,
-}
-
-impl RewardLedger<<mock::Test as frame_system::Config>::AccountId, BridgeReward, u128> for () {
-	fn register_reward(
-		_relayer: &<mock::Test as frame_system::Config>::AccountId,
-		_reward: BridgeReward,
-		_reward_balance: u128,
-	) {
-	}
-}
-
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = MockVerifier;
@@ -140,11 +112,12 @@ impl crate::Config for Test {
 	type Balance = u128;
 	type WeightToFee = IdentityFee<u128>;
 	type WeightInfo = ();
-	type RewardPayment = ();
-	type ConvertAssetId = ();
+	type RewardPayment = MockRewardLedger;
 	type EthereumNetwork = EthereumNetwork;
 	type RewardKind = BridgeReward;
 	type DefaultRewardKind = DefaultMyRewardKind;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Helper = Test;
 }
 
 fn setup() {
@@ -250,4 +223,10 @@ pub fn mock_register_token_message(sibling_para_id: u32) -> Message {
 		}])
 		.unwrap(),
 	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl<T: Config> BenchmarkHelper<T> for Test {
+	// not implemented since the MockVerifier is used for tests
+	fn initialize_storage(_: BeaconHeader, _: H256) {}
 }

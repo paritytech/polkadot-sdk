@@ -17,23 +17,32 @@
 mod imports {
 
 	// Substrate
-	pub use frame_support::assert_ok;
+	pub(crate) use frame_support::assert_ok;
 
 	// Polkadot
-	pub use xcm::{latest::WESTEND_GENESIS_HASH, prelude::*};
+	pub(crate) use xcm::{latest::WESTEND_GENESIS_HASH, prelude::*};
 
 	// Cumulus
-	pub use emulated_integration_tests_common::xcm_emulator::{
-		assert_expected_events, bx, Chain, Parachain, TestExt,
+	pub(crate) use emulated_integration_tests_common::xcm_emulator::{
+		assert_expected_events, Chain, Parachain, TestExt,
 	};
-	pub use westend_system_emulated_network::{
+	pub(crate) use westend_system_emulated_network::{
+		asset_hub_westend_emulated_chain::AssetHubWestendParaPallet as AssetHubWestendPallet,
+		bridge_hub_westend_emulated_chain::BridgeHubWestendParaPallet as BridgeHubWestendPallet,
+		collectives_westend_emulated_chain::CollectivesWestendParaPallet as CollectivesWestendPallet,
 		coretime_westend_emulated_chain::{
+			self,
 			coretime_westend_runtime::ExistentialDeposit as CoretimeWestendExistentialDeposit,
 			CoretimeWestendParaPallet as CoretimeWestendPallet,
 		},
-		CoretimeWestendPara as CoretimeWestend,
+		penpal_emulated_chain::{PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet},
+		people_westend_emulated_chain::PeopleWestendParaPallet as PeopleWestendPallet,
+		westend_emulated_chain::genesis::ED as WESTEND_ED,
+		AssetHubWestendPara as AssetHubWestend, BridgeHubWestendPara as BridgeHubWestend,
+		CollectivesWestendPara as CollectivesWestend, CoretimeWestendPara as CoretimeWestend,
 		CoretimeWestendParaReceiver as CoretimeWestendReceiver,
-		CoretimeWestendParaSender as CoretimeWestendSender, WestendRelay as Westend,
+		CoretimeWestendParaSender as CoretimeWestendSender, PenpalBPara as PenpalB,
+		PeopleWestendPara as PeopleWestend, WestendRelay as Westend,
 	};
 }
 

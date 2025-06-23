@@ -1,0 +1,16 @@
+title: fix epmb solution duplicate issue + add remote mining apparatus to epm
+doc:
+- audience: Runtime Dev
+  description: |
+    Prevents the NPoS election process from accepting duplicate voters and targets.
+crates:
+- name: pallet-election-provider-multi-block
+  bump: patch
+- name: pallet-election-provider-multi-phase
+  bump: minor
+- name: frame-election-provider-solution-type
+  bump: patch
+- name: frame-election-provider-support
+  bump: patch
+- name: sp-npos-elections
+  bump: major
