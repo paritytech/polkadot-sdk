@@ -21,6 +21,6 @@ doc:
     - [x] adjust testing
 crates:
 - name: sc-service
-  bump: major
+  bump: minor
 - name: sc-rpc-spec-v2
-  bump: major
+  bump: minor
