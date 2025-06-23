@@ -455,7 +455,6 @@ mod tests {
 		}
 	}
 
-	/// Tests JSON roundtrip is stable.
 	#[test]
 	fn serde_json() {
 		let sample = || AddrCache::sample();
