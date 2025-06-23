@@ -165,7 +165,7 @@ pub mod benchmarks {
 			asset_kind: Self::AssetKind,
 			amount: Self::Balance,
 		) -> Result<Self::Id, Self::Error> {
-			O::pay(source, who, asset_kind, amount)
+			O::pay(source, beneficiary, asset_kind, amount)
 		}
 		fn check_payment(id: Self::Id) -> PaymentStatus {
 			O::check_payment(id)
