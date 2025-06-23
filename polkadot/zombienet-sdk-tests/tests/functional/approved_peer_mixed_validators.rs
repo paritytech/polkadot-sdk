@@ -58,7 +58,9 @@ async fn approved_peer_mixed_validators_test() -> Result<(), anyhow::Error> {
 								.as_str(),
 						)
 						.with_command(
-							std::env::var("OLD_POLKADOT_COMMAND").unwrap_or("polkadot").as_str(),
+							std::env::var("OLD_POLKADOT_COMMAND")
+								.unwrap_or(String::from("polkadot"))
+								.as_str(),
 						)
 				})
 			})
