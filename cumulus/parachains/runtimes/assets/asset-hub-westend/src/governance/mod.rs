@@ -30,10 +30,7 @@ use polkadot_runtime_common::{
 	prod_or_fast,
 };
 use sp_runtime::{traits::IdentityLookup, Percent};
-use xcm::latest::{
-	prelude::{InteriorLocation, PalletInstance},
-	BodyId,
-};
+use xcm::latest::BodyId;
 
 mod origins;
 pub use origins::{
@@ -42,14 +39,11 @@ pub use origins::{
 };
 mod tracks;
 pub use tracks::TracksInfo;
-use xcm_builder::PayOverXcm;
 parameter_types! {
 	pub const VoteLockingPeriod: BlockNumber = prod_or_fast!(7 * RC_DAYS, 1);
 }
 
 mod impls;
-#[cfg(feature = "runtime-benchmarks")]
-use impls::benchmarks::{OpenHrmpChannel, PayWithEnsure};
 
 impl pallet_conviction_voting::Config for Runtime {
 	type WeightInfo = weights::pallet_conviction_voting::WeightInfo<Self>;
