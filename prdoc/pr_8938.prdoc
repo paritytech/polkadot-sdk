@@ -8,6 +8,6 @@ doc:
 
 crates:
   - name: frame-support
-    bump: major
+    bump: minor
   - name: pallet-ranked-collective
     bump: minor
