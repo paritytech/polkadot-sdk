@@ -47,7 +47,7 @@ jobs:
   build-polkadot-binary:
     needs: [validate-inputs]
     if: ${{ inputs.binary == 'polkadot' || inputs.binary == 'all' }}
-    uses: "./.github/workflows/release-reusable-rc-buid.yml"
+    uses: "./.github/workflows/release-reusable-rc-build.yml"
     with:
       binary: '["polkadot", "polkadot-prepare-worker", "polkadot-execute-worker"]'
       package: polkadot
@@ -69,7 +69,7 @@ jobs:
   build-polkadot-parachain-binary:
     needs: [validate-inputs]
     if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'all' }}
-    uses: "./.github/workflows/release-reusable-rc-buid.yml"
+    uses: "./.github/workflows/release-reusable-rc-build.yml"
     with:
       binary: '["polkadot-parachain"]'
       package: "polkadot-parachain-bin"
@@ -91,12 +91,13 @@ jobs:
   build-polkadot-omni-node-binary:
     needs: [validate-inputs]
     if: ${{ inputs.binary == 'polkadot-omni-node' || inputs.binary == 'all' }}
-    uses: "./.github/workflows/release-reusable-rc-buid.yml"
+    uses: "./.github/workflows/release-reusable-rc-build.yml"
     with:
       binary: '["polkadot-omni-node"]'
       package: "polkadot-omni-node"
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: x86_64-unknown-linux-gnu
+      features: runtime-benchmarks
     secrets:
       PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
       PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
@@ -113,7 +114,7 @@ jobs:
   build-frame-omni-bencher-binary:
     needs: [validate-inputs]
     if: ${{ inputs.binary == 'frame-omni-bencher' || inputs.binary == 'all' }}
-    uses: "./.github/workflows/release-reusable-rc-buid.yml"
+    uses: "./.github/workflows/release-reusable-rc-build.yml"
     with:
       binary: '["frame-omni-bencher"]'
       package: "frame-omni-bencher"
@@ -135,7 +136,7 @@ jobs:
   build-chain-spec-builder-binary:
     needs: [validate-inputs]
     if: ${{ inputs.binary == 'chain-spec-builder' || inputs.binary == 'all' }}
-    uses: "./.github/workflows/release-reusable-rc-buid.yml"
+    uses: "./.github/workflows/release-reusable-rc-build.yml"
     with:
       binary: '["chain-spec-builder"]'
       package: staging-chain-spec-builder
@@ -157,7 +158,7 @@ jobs:
   build-polkadot-macos-binary:
     needs: [validate-inputs]
     if: ${{ inputs.binary == 'polkadot' || inputs.binary == 'all' }}
-    uses: "./.github/workflows/release-reusable-rc-buid.yml"
+    uses: "./.github/workflows/release-reusable-rc-build.yml"
     with:
       binary: '["polkadot", "polkadot-prepare-worker", "polkadot-execute-worker"]'
       package: polkadot
@@ -179,7 +180,7 @@ jobs:
   build-polkadot-parachain-macos-binary:
     needs: [validate-inputs]
     if: ${{ inputs.binary == 'polkadot-parachain' || inputs.binary == 'all' }}
-    uses: "./.github/workflows/release-reusable-rc-buid.yml"
+    uses: "./.github/workflows/release-reusable-rc-build.yml"
     with:
       binary: '["polkadot-parachain"]'
       package: polkadot-parachain-bin
@@ -201,12 +202,13 @@ jobs:
   build-polkadot-omni-node-macos-binary:
     needs: [validate-inputs]
     if: ${{ inputs.binary == 'polkadot-omni-node' || inputs.binary == 'all' }}
-    uses: "./.github/workflows/release-reusable-rc-buid.yml"
+    uses: "./.github/workflows/release-reusable-rc-build.yml"
     with:
       binary: '["polkadot-omni-node"]'
       package: polkadot-omni-node
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: aarch64-apple-darwin
+      features: runtime-benchmarks
     secrets:
       PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
       PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
@@ -223,7 +225,7 @@ jobs:
   build-frame-omni-bencher-macos-binary:
     needs: [validate-inputs]
     if: ${{ inputs.binary == 'frame-omni-bencher' || inputs.binary == 'all' }}
-    uses: "./.github/workflows/release-reusable-rc-buid.yml"
+    uses: "./.github/workflows/release-reusable-rc-build.yml"
     with:
       binary: '["frame-omni-bencher"]'
       package: frame-omni-bencher
@@ -245,7 +247,7 @@ jobs:
   build-chain-spec-builder-macos-binary:
     needs: [validate-inputs]
     if: ${{ inputs.binary == 'chain-spec-builder' || inputs.binary == 'all' }}
-    uses: "./.github/workflows/release-reusable-rc-buid.yml"
+    uses: "./.github/workflows/release-reusable-rc-build.yml"
     with:
       binary: '["chain-spec-builder"]'
       package: staging-chain-spec-builder
