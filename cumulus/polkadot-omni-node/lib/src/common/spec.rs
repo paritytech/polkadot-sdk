@@ -19,10 +19,7 @@ use crate::{
 	common::{
 		command::NodeCommandRunner,
 		rpc::BuildRpcExtensions,
-		statement_store::{
-			build_statement_store, has_validate_statement_api_at_hash, new_statement_handler_proto,
-			sparse_check_for_validate_statement_api_and_warn,
-		},
+		statement_store::{build_statement_store, new_statement_handler_proto},
 		types::{
 			ParachainBackend, ParachainBlockImport, ParachainClient, ParachainHostFunctions,
 			ParachainService,
@@ -348,16 +345,14 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
 			);
 
-			let statement_handler_proto =
-				has_validate_statement_api_at_hash(client.as_ref(), client.chain_info().best_hash)?
-					.then(|| {
-						new_statement_handler_proto(
-							&*client,
-							&parachain_config,
-							&metrics,
-							&mut net_config,
-						)
-					});
+			let statement_handler_proto = node_extra_args.enable_statement_store.then(|| {
+				new_statement_handler_proto(
+					&*client,
+					&parachain_config,
+					&metrics,
+					&mut net_config,
+				)
+			});
 
 			let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 				build_network(BuildNetworkParams {
@@ -391,22 +386,11 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			if parachain_config.offchain_worker.enabled {
 				let custom_extensions = {
 					let statement_store = statement_store.clone();
-					let client = client.clone();
-					move |hash| {
+					move |_hash| {
 						if let Some(statement_store) = &statement_store {
 							vec![Box::new(statement_store.clone().as_statement_store_ext())
 								as Box<_>]
 						} else {
-							sparse_check_for_validate_statement_api_and_warn(
-								&client,
-								hash,
-								"The runtime at the block hash used by the offchain worker provides \
-								`ValidateStatement` API, but the statement store is not enabled in \
-								the node. To enable the statement store, restart the node, the \
-								statement store will be automatically enabled when the tip of the \
-								chain provides the `ValidateStatement` runtime API."
-							);
-
 							vec![]
 						}
 					}

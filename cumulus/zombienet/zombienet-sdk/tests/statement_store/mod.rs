@@ -27,7 +27,7 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 				.with_chain("westend-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec![("-lparachain=debug").into()])
+				.with_default_args(vec!["-lparachain=debug".into()])
 				// Have to set a `with_node` outside of the loop below, so that `r` has the right
 				// type.
 				.with_node(|node| node.with_name("validator-0"));
@@ -39,7 +39,11 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("people-westend-local")
-				.with_default_args(vec!["--force-authoring".into(), ("-lparachain=debug").into()])
+				.with_default_args(vec![
+					"--force-authoring".into(),
+					"-lparachain=debug".into(),
+					"--enable-statement-store".into(),
+				])
 				.with_collator(|n| n.with_name("charlie"))
 				.with_collator(|n| n.with_name("dave"))
 		})

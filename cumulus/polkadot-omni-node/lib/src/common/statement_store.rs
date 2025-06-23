@@ -16,37 +16,17 @@
 
 use crate::common::{types::ParachainClient, ConstructNodeRuntimeApi, NodeBlock};
 use parachains_common::Hash;
-use sc_client_api::HeaderBackend;
 use sc_network::{
 	config::FullNetworkConfiguration, service::traits::NetworkService, NetworkBackend,
 };
 use sc_service::{Configuration, TaskManager};
 use sc_statement_store::Store;
-use sp_api::{ApiExt, ProvideRuntimeApi};
-use sp_statement_store::runtime_api::ValidateStatement;
 use std::sync::Arc;
 
 /// Helper function to setup the statement store in `NodeSpec::start_node`.
 ///
 /// Functions are tailored for internal usage, types are unnecessary opinionated for usage in
 /// `NodeSpec::start_node`.
-
-/// Return whether the `ValidateStatement` API is available at the given block hash.
-///
-/// Statements are validated using the `ValidateStatement` API before inclusion into the store.
-/// A node using a runtime exposing this API should have the statement store enabled.
-pub(crate) fn has_validate_statement_api_at_hash<
-	Block: NodeBlock,
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
->(
-	client: &ParachainClient<Block, RuntimeApi>,
-	hash: Block::Hash,
-) -> sc_service::error::Result<bool> {
-	client
-		.runtime_api()
-		.has_api::<dyn ValidateStatement<Block>>(hash)
-		.map_err(|e| sc_service::Error::Application(Box::new(e)))
-}
 
 /// Build the statement handler prototype. Register the notification protocol in the network
 /// configuration.
@@ -113,40 +93,4 @@ pub(crate) fn build_statement_store<
 	);
 
 	Ok(statement_store)
-}
-
-/// Check every 600 blocks if the runtime expose the `ValidateStatement` API, and log the warning if
-/// present.
-///
-/// The statement store is typically enabled when the runtime exposes the `ValidateStatement` API.
-/// But runtime upgrades and can enable the API at any moment. This check is useful to warn node
-/// operators to do some operation when the runtime exposes the `ValidateStatement` API.
-pub(crate) fn sparse_check_for_validate_statement_api_and_warn<
-	Block: NodeBlock,
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
->(
-	client: &ParachainClient<Block, RuntimeApi>,
-	hash: Block::Hash,
-	warning: &'static str,
-) {
-	match client.number(hash) {
-		Ok(Some(bn)) =>
-			if bn % 600u32.into() == 0u32.into() {
-				match client.runtime_api().has_api::<dyn ValidateStatement<Block>>(hash) {
-					Ok(true) => log::warn!("{}", warning),
-					Ok(false) => (),
-					Err(e) => log::warn!(
-						"Failed to check if the runtime supports `ValidateStatement` API, \
-						error: {}",
-						e
-					),
-				}
-			},
-		Ok(None) => log::warn!(
-			"Failed to get the block number for the block hash, header is not in the chain. \
-			hash: {}",
-			hash
-		),
-		Err(e) => log::warn!("Failed to get the block number for the block hash, error: {}", e),
-	}
 }
