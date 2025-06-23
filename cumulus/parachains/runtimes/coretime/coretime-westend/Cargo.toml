@@ -1,6 +1,6 @@
 [package]
 name = "coretime-westend-runtime"
-version = "0.13.2"
+version = "0.13.3"
 authors.workspace = true
 edition.workspace = true
 description = "Westend's Coretime parachain runtime"
