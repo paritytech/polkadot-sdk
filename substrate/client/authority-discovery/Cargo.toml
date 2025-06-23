@@ -30,9 +30,9 @@ rand = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
 sc-network-types = { workspace = true, default-features = true }
-serde_json.workspace = true
-serde.workspace = true
 sc-service.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 sp-api = { workspace = true, default-features = true }
 sp-authority-discovery = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
@@ -44,10 +44,10 @@ tokio.workspace = true
 
 [dev-dependencies]
 hex.workspace = true
-tempfile.workspace = true
 quickcheck = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
+tempfile.workspace = true
 
 [build-dependencies]
 prost-build = { workspace = true }
