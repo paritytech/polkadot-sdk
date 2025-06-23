@@ -5151,7 +5151,9 @@ dependencies = [
  "polkadot-primitives",
  "serde",
  "serde_json",
+ "sp-core 28.0.0",
  "tokio",
+ "zombienet-configuration",
  "zombienet-orchestrator",
  "zombienet-sdk",
 ]
