@@ -973,21 +973,276 @@ fn errors_with_delegating_work() {
 			Error::<Test>::Nonsense
 		);
 		assert_noop!(
-			Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 11),
-			Error::<Test>::InsufficientFunds
-		);
-		assert_noop!(
 			Voting::delegate(RuntimeOrigin::signed(1), 3, 2, Conviction::None, 10),
 			Error::<Test>::BadClass
 		);
+		assert_noop!(
+			Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 11),
+			Error::<Test>::InsufficientFunds
+		);
 		assert_noop!(Voting::undelegate(RuntimeOrigin::signed(1), 0), Error::<Test>::NotDelegating);
 
+		Polls::set(
+			vec![
+				(0, Ongoing(Tally::new(0), 0)),
+				(1, Ongoing(Tally::new(0), 0)),
+				(2, Ongoing(Tally::new(0), 0)),
+				(3, Ongoing(Tally::new(0), 0)),
+			]
+			.into_iter()
+			.collect(),
+		);
+
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 0, aye(20, 0)));
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 1, aye(20, 0)));
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 2, aye(20, 0)));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(10, 0)));
+		assert_noop!(
+			Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 10),
+			Error::<Test>::DelegateMaxVotesReached
+		);
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(2), None, 2));
+
 		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 10));
 		assert_noop!(
 			Voting::delegate(RuntimeOrigin::signed(1), 0, 5, Conviction::None, 10),
 			Error::<Test>::AlreadyDelegating
 		);
+	});
+}
+
+#[test]
+fn undelegation_cleans_empty_delegate_votes() {
+	new_test_ext().execute_with(|| {
+		let delegate = 1;
+		let delegator1 = 2;
+		let delegator2 = 3;
+		let class = 0;
+
+		Polls::set(vec![(0, Ongoing(Tally::new(0), class))].into_iter().collect());
+
+		// Two delegate to delegate.
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(delegator1), class, delegate, Conviction::None, 10));
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(delegator2), class, delegate, Conviction::None, 10));
+
+		// Both vote and delegate now has history.
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator1), 0, aye(1, 0)));
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator2), 0, aye(1, 0)));
+		assert_eq!(VotingFor::<Test>::get(delegate, class).votes.len(), 1);
+
+		// One unvotes and delegate still has history.
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(delegator1), Some(class), 0));
+		assert_eq!(VotingFor::<Test>::get(delegate, class).votes.len(), 1);
+
+		// Both unvote and history is now gone.
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(delegator2), Some(class), 0));
+		assert!(VotingFor::<Test>::get(delegate, class).votes.is_empty());
+
+		// Both vote, poll ends, one unvotes, history is gone.
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator1), 0, aye(1, 0)));
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator2), 0, aye(1, 0)));
+		Polls::set(vec![(0, Completed(10, true))].into_iter().collect());
+		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(delegator1), class));
+		assert!(VotingFor::<Test>::get(delegate, class).votes.is_empty());
+
+		// One votes, poll completes, delegate removes vote, undelegation works.
+		Polls::set(vec![(1, Ongoing(Tally::new(0), class))].into_iter().collect());
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator2), 1, aye(1, 0)));
+		Polls::set(vec![(1, Completed(10, true))].into_iter().collect());
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(delegate), Some(class), 1));
+		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(delegator2), class));
+	});
+}
+
+#[test]
+fn delegation_after_voting_works() {
+    new_test_ext().execute_with(|| {
+        let delegator = 1;
+        let delegatee = 2;
+        let class = 0;
+        let poll_0 = 0;
+        let poll_1 = 1;
+
+		Polls::set(vec![(poll_0, Ongoing(Tally::new(0), class)), (poll_1, Ongoing(Tally::new(0), class))].into_iter().collect());
+
+		// Vote, delegate, delegatee votes.
+        assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), poll_0, aye(10, 2)));
+        assert_ok!(Voting::delegate(RuntimeOrigin::signed(delegator), class, delegatee, Conviction::Locked1x, 5));
+        assert_eq!(tally(poll_0), Tally::from_parts(20, 0, 10));
+        assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll_0, aye(5, 1)));
+        assert_eq!(tally(poll_0), Tally::from_parts(25, 0, 15));
+
+		// Undelegate.
+		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(delegator), class));
+		assert_eq!(tally(poll_0), Tally::from_parts(25, 0, 15));
+
+		// ---
+
+		// Delegator and delegatee vote, then delegate.
+        assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), poll_1, aye(5, 1)));
+        assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll_1, aye(5, 1)));
+        assert_ok!(Voting::delegate(RuntimeOrigin::signed(delegator), class, delegatee, Conviction::Locked1x, 10));
+        assert_eq!(tally(poll_1), Tally::from_parts(10, 0, 10));
+
+		// Undelegate
+		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(delegator), class));
+		assert_eq!(tally(poll_1), Tally::from_parts(10, 0, 10));
+    });
+}
+
+#[test]
+fn voting_after_delegation_works() {
+    new_test_ext().execute_with(|| {
+        let delegator = 1;
+        let delegatee = 2;
+        let class = 0;
+        let poll_0 = 0;
+        let poll_1 = 1;
+
+		Polls::set(vec![(poll_0, Ongoing(Tally::new(0), class)), (poll_1, Ongoing(Tally::new(0), class))].into_iter().collect());
+
+		// Delegate, delegatee votes, vote.
+        assert_ok!(Voting::delegate(RuntimeOrigin::signed(delegator), class, delegatee, Conviction::Locked1x, 5));
+        assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll_0, aye(5, 1)));
+        assert_eq!(tally(poll_0), Tally::from_parts(10, 0, 10));
+        assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), poll_0, aye(10, 2)));
+        assert_eq!(tally(poll_0), Tally::from_parts(25, 0, 15));
+
+		// Undelegate.
+		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(delegator), class));
+		assert_eq!(tally(poll_0), Tally::from_parts(25, 0, 15));
+
+		// ---
+
+		// Delegate, vote, delegatee votes.
+        assert_ok!(Voting::delegate(RuntimeOrigin::signed(delegator), class, delegatee, Conviction::Locked1x, 10));
+        assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), poll_1, aye(5, 1)));
+        assert_eq!(tally(poll_1), Tally::from_parts(5, 0, 5));
+        assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll_1, aye(5, 1)));
+		assert_eq!(tally(poll_1), Tally::from_parts(10, 0, 10));
+
+		// Undelegate
+		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(delegator), class));
+		assert_eq!(tally(poll_1), Tally::from_parts(10, 0, 10));
+    });
+}
+
+#[test]
+fn completed_votes_arent_tracked_on_delegate() {
+    new_test_ext().execute_with(|| {
+        Polls::set(
+            vec![
+                (1, Ongoing(Tally::new(0), 0)),
+                (2, Ongoing(Tally::new(0), 0)),
+            ]
+            .into_iter()
+            .collect(),
+        );
+
+        assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 1, aye(1, 0)));
+        assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 2, aye(1, 0)));
+
+        Polls::set(
+            vec![
+                (1, Ongoing(Tally::new(0), 0)),
+                (2, Completed(10, true)),
+            ]
+            .into_iter()
+            .collect(),
+        );
+
+        assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 10));
+
+        // No vote info was added to delegate for completed poll.
+        assert_eq!(VotingFor::<Test>::get(2, 0).votes.len(), 1);
+    });
+}
+
+#[test]
+fn each_vote_type_adds_clawback_during_delegation() {
+    new_test_ext().execute_with(|| {
+        Polls::set(
+            vec![
+                (0, Ongoing(Tally::new(0), 0)),
+                (1, Ongoing(Tally::new(0), 0)),
+                (2, Ongoing(Tally::new(0), 0)),
+            ]
+            .into_iter()
+            .collect(),
+        );
+
+        assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 0, aye(1, 0)));
+        assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 1, split(1, 1)));
+        assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 2, split_abstain(1, 1, 1)));
+
+        assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 10));
+
+        // Check delegate has 3 vote records.
+        assert_eq!(VotingFor::<Test>::get(2, 0).votes.len(), 3);
+    });
+}
+
+#[test]
+fn delegation_info_is_set() {
+	new_test_ext().execute_with(|| {
+		Polls::set(
+				vec![
+					(0, Ongoing(Tally::new(0), 0)),
+				]
+				.into_iter()
+				.collect(),
+			);
+
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Locked2x, 10));
+		assert_eq!(VotingFor::<Test>::get(1, 0).maybe_delegate, Some(2));
+		assert_eq!(VotingFor::<Test>::get(1, 0).maybe_conviction, Some(Conviction::Locked2x));
+		assert_eq!(VotingFor::<Test>::get(1, 0).delegated_balance, 10);
+
+		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
+		assert_eq!(VotingFor::<Test>::get(1, 0).maybe_delegate, None);
+		assert_eq!(VotingFor::<Test>::get(1, 0).maybe_conviction, None);
+		assert_eq!(VotingFor::<Test>::get(1, 0).delegated_balance, 0);
+	});
+}
+
+#[test]
+fn voting_while_delegating_permutations_work() {
+	new_test_ext().execute_with(|| {
+		Polls::set(vec![ (0, Ongoing(Tally::new(0), 0)) ].into_iter().collect());
+
+		// Non standard (aye, nay) voting works
+
+		// delegator votes
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 0, aye(10, 1)));
+		
+		// delegate votes abstain
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 0, split(10, 10)));
+
+		// delegator delegates
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Locked1x, 10));
+		assert_eq!(tally(0), Tally::from_parts(11, 1, 20));
+		
+		// delegator changes their vote
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 0, aye(5, 1)));
+		assert_eq!(tally(0), Tally::from_parts(6, 1, 15));
+
+		// delegate changes theirs
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 0, aye(5, 1)));
+		assert_eq!(tally(0), Tally::from_parts(10, 0, 10));
+
+		// delegator removes their vote
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), None, 0));
+		assert_eq!(tally(0), Tally::from_parts(15, 0, 15));
+
+		// clean
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(2), None, 0));
+		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
+		Polls::set(vec![ (0, Ongoing(Tally::new(0), 0)) ].into_iter().collect());
+
+		// Pre-existing delegation, delegator votes first.
+
+		// Pre-existing delegation, delegate votes first.
+
 	});
 }
 
