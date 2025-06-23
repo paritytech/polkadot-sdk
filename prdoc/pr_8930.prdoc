@@ -10,10 +10,14 @@ doc:
 
 crates: 
 - name: staging-xcm-builder
-  bump: patch
+  bump: minor
 - name: frame-support
-  bump: patch
+  bump: major
 - name: pallet-salary
-  bump: patch
+  bump: minor
 - name: pallet-treasury
-  bump: patch
+  bump: minor
+- name: collectives-westend-runtime
+  bump: minor
+- name: collectives-westend-integration-tests
+  bump: minor
