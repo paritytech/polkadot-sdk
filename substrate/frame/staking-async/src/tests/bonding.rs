@@ -17,7 +17,6 @@
 
 use super::*;
 use frame_support::{hypothetically_ok, traits::Currency};
-use sp_staking::{Stake, StakingInterface};
 
 #[test]
 fn existing_stash_cannot_bond() {

@@ -308,10 +308,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxInvulnerables: Get<u32>;
 
-		/// Maximum number of disabled validators.
-		#[pallet::constant]
-		type MaxDisabledValidators: Get<u32>;
-
 		/// Maximum allowed era duration in milliseconds.
 		///
 		/// This provides a defensive upper bound to cap the effective era duration, preventing
@@ -383,7 +379,6 @@ pub mod pallet {
 			type MaxValidatorSet = ConstU32<100>;
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type MaxInvulnerables = ConstU32<20>;
-			type MaxDisabledValidators = ConstU32<100>;
 			type MaxEraDuration = ();
 			type EventListeners = ();
 			type Filter = Nothing;
