@@ -128,12 +128,12 @@ parameter_types! {
 }
 
 impl multi_block::signed::Config for Runtime {
-	type RuntimeHoldReason = RuntimeHoldReason;
 	type Currency = Balances;
 	type BailoutGraceRatio = BailoutGraceRatio;
 	type EjectGraceRatio = EjectGraceRatio;
 	type DepositBase = DepositBase;
 	type DepositPerPage = DepositPerPage;
+	type InvulnerableDeposit = ();
 	type RewardBase = RewardBase;
 	type MaxSubmissions = MaxSubmissions;
 	type EstimateCallFee = TransactionPayment;
@@ -150,6 +150,7 @@ parameter_types! {
 
 impl multi_block::unsigned::Config for Runtime {
 	type MinerPages = MinerPages;
+	type OffchainStorage = ConstBool<true>;
 	type OffchainSolver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>>;
 	type MinerTxPriority = MinerTxPriority;
 	type OffchainRepeat = OffchainRepeat;

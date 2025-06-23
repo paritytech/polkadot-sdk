@@ -29,13 +29,13 @@ pub fn collectives_send_whitelist(
 		type RuntimeOrigin = <CollectivesWestend as Chain>::RuntimeOrigin;
 		type Runtime = <CollectivesWestend as Chain>::Runtime;
 
-		let whitelist_call = RuntimeCall::PolkadotXcm(pallet_xcm::Call::<Runtime>::send {
+		let send_whitelist_call = RuntimeCall::PolkadotXcm(pallet_xcm::Call::<Runtime>::send {
 			dest: bx!(VersionedLocation::from(dest)),
 			message: bx!(VersionedXcm::from(Xcm(vec![
 				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 				Transact {
 					origin_kind: OriginKind::Xcm,
-					fallback_max_weight: Some(Weight::from_parts(5_000_000_000, 500_000)),
+					fallback_max_weight: None,
 					call: encoded_whitelist_call().into(),
 				}
 			]))),
@@ -43,7 +43,7 @@ pub fn collectives_send_whitelist(
 
 		use collectives_westend_runtime::fellowship::pallet_fellowship_origins::Origin::Fellows as FellowsOrigin;
 		let fellows_origin: RuntimeOrigin = FellowsOrigin.into();
-		assert_ok!(whitelist_call.dispatch(fellows_origin));
+		assert_ok!(send_whitelist_call.dispatch(fellows_origin));
 		assert_expected_events!(
 			CollectivesWestend,
 			vec![
