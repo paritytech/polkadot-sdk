@@ -30,7 +30,13 @@ use sp_runtime::{
 	traits::{Block as BlockT, HashingFor},
 };
 use sp_state_machine::{backend::AsTrieBackend, OverlayedChanges, StateMachine, StorageProof};
-use std::{cell::RefCell, sync::Arc};
+use std::{
+	cell::RefCell,
+	sync::{atomic::AtomicU64, Arc},
+};
+use tracing::info;
+
+use sc_client_api::StateBackend;
 
 /// Call executor that executes methods locally, querying all required
 /// data from local backend.
@@ -39,6 +45,7 @@ pub struct LocalCallExecutor<Block: BlockT, B, E> {
 	executor: E,
 	code_provider: CodeProvider<Block, B, E>,
 	execution_extensions: Arc<ExecutionExtensions<Block>>,
+	time_in_storage: Arc<AtomicU64>,
 }
 
 impl<Block: BlockT, B, E> LocalCallExecutor<Block, B, E>
@@ -60,6 +67,7 @@ where
 			executor,
 			code_provider,
 			execution_extensions: Arc::new(execution_extensions),
+			time_in_storage: Arc::new(AtomicU64::new(0)),
 		})
 	}
 }
@@ -74,6 +82,7 @@ where
 			executor: self.executor.clone(),
 			code_provider: self.code_provider.clone(),
 			execution_extensions: self.execution_extensions.clone(),
+			time_in_storage: self.time_in_storage.clone(),
 		}
 	}
 }
@@ -170,7 +179,10 @@ where
 					call_context,
 				)
 				.set_parent_hash(at_hash);
-				state_machine.execute()
+				let res = state_machine.execute();
+				self.time_in_storage
+					.fetch_add(state.time_duration(), std::sync::atomic::Ordering::Relaxed);
+				res
 			},
 			None => {
 				let mut state_machine = StateMachine::new(
@@ -184,7 +196,10 @@ where
 					call_context,
 				)
 				.set_parent_hash(at_hash);
-				state_machine.execute()
+				let res = state_machine.execute();
+				self.time_in_storage
+					.fetch_add(state.time_duration(), std::sync::atomic::Ordering::Relaxed);
+				res
 			},
 		}
 		.map_err(Into::into)
@@ -228,6 +243,13 @@ where
 			&mut self.execution_extensions.extensions(at_hash, at_number),
 		)
 		.map_err(Into::into)
+	}
+
+	fn time_in_storage(&self) -> u64 {
+		let time = self.time_in_storage.load(std::sync::atomic::Ordering::Relaxed);
+		self.time_in_storage.store(0, std::sync::atomic::Ordering::Relaxed);
+
+		time
 	}
 }
 

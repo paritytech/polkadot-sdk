@@ -550,7 +550,9 @@ impl<H: Hasher> Drop for LocalTrieCache<H> {
 			"Local value trie cache dropped: {}",
 			self.stats.value_cache
 		);
-
+		if !self.trusted {
+			return
+		}
 		let mut shared_inner = match self.shared.write_lock_inner() {
 			Some(inner) => inner,
 			None => {

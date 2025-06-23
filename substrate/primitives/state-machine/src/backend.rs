@@ -342,6 +342,11 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		unimplemented!()
 	}
 
+	///
+	fn time_duration(&self) -> u64 {
+		8 * 1000 * 1000 * 1000
+	}
+
 	/// Commit given transaction to storage.
 	fn commit(
 		&self,

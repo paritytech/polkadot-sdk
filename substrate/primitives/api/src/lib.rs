@@ -682,6 +682,8 @@ pub trait CallApiAt<Block: BlockT> {
 	/// Get the state `at` the given block.
 	fn state_at(&self, at: Block::Hash) -> Result<Self::StateBackend, ApiError>;
 
+	fn time_in_storage(&self) -> u64;
+
 	/// Initialize the `extensions` for the given block `at` by using the global extensions factory.
 	fn initialize_extensions(
 		&self,
@@ -707,6 +709,10 @@ impl<Block: BlockT, T: CallApiAt<Block>> CallApiAt<Block> for std::sync::Arc<T> 
 
 	fn state_at(&self, at: <Block as BlockT>::Hash) -> Result<Self::StateBackend, ApiError> {
 		(**self).state_at(at)
+	}
+
+	fn time_in_storage(&self) -> u64 {
+		(**self).time_in_storage()
 	}
 
 	fn initialize_extensions(

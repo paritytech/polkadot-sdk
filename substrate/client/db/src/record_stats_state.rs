@@ -119,6 +119,10 @@ impl<S: StateBackend<HashingFor<B>>, B: BlockT> StateBackend<HashingFor<B>>
 		Ok(value)
 	}
 
+	fn time_duration(&self) -> u64 {
+		self.state.time_duration()
+	}
+
 	fn storage_hash(&self, key: &[u8]) -> Result<Option<B::Hash>, Self::Error> {
 		self.state.storage_hash(key)
 	}

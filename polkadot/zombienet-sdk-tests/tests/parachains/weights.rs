@@ -346,6 +346,63 @@ async fn call_contract(
 	Ok(())
 }
 
+async fn call_contract2(
+	client: &OnlineClient<PolkadotConfig>,
+	mut call_clients: Vec<OnlineClient<PolkadotConfig>>,
+	contract: H160,
+	caller: &Keypair,
+	keys: &[Keypair],
+	nonce: u64,
+	payload: Vec<Vec<u8>>,
+) -> Result<(), anyhow::Error> {
+	let payload_sample = payload.first().cloned().expect("Payload is not empty");
+	let (ref_time, proof_size, deposit) =
+		call_params(client, contract, payload_sample, caller).await?;
+
+	let mut txs = vec![];
+	for (i_chunk, chunk) in keys.chunks(CALL_CHUNK_SIZE).enumerate() {
+		let para_client = call_clients.pop().unwrap();
+		let txs_chunk = chunk
+			.iter()
+			.enumerate()
+			.map(|(i, key)| {
+				let weight = Weight { ref_time, proof_size };
+				let payload = payload[i_chunk * CALL_CHUNK_SIZE + i].clone();
+				let call = &ahw::tx().revive().call(contract, 0, weight, deposit, payload);
+				para_client.tx().create_signed_offline(call, key, tx_params(nonce))
+			})
+			.collect::<Result<Vec<_>, _>>()?;
+		txs.extend(txs_chunk);
+	}
+	let mut finalized_blocks = std::collections::HashSet::new();
+	let mut agg = Some(Vec::new());
+	for ext in txs.into_iter() {
+		let to_submit = agg.take();
+		if let Some(mut to_submit) = to_submit {
+			to_submit.push(ext);
+			if to_submit.len() == 100 {
+				finalized_blocks.extend(submit_txs(to_submit).await?);
+				agg = Some(Vec::new());
+			} else {
+				agg = Some(to_submit);
+			}
+		} else {
+			agg = to_submit;
+		}
+	}
+
+	for block in finalized_blocks {
+		let weight = client
+			.storage()
+			.at(block)
+			.fetch(&ahw::storage().system().block_weight())
+			.await?;
+		log::info!("Weight of block {:?}: {:?}", block, weight);
+	}
+
+	Ok(())
+}
+
 async fn submit_txs(
 	txs: Vec<SubmittableExtrinsic<PolkadotConfig, OnlineClient<PolkadotConfig>>>,
 ) -> Result<std::collections::HashSet<H256>, anyhow::Error> {

@@ -39,8 +39,9 @@ use sp_runtime::{
 	traits::{Block as BlockT, Hash, HashingFor, Header as HeaderT, NumberFor, One},
 	Digest, ExtrinsicInclusionMode,
 };
-use std::marker::PhantomData;
+use std::{marker::PhantomData, time::Instant};
 
+use sp_api::__private::StateBackend;
 pub use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_trie::proof_size_extension::ProofSizeExt;
 
@@ -197,7 +198,7 @@ impl<Block: BlockT> BuiltBlock<Block> {
 pub struct BlockBuilder<'a, Block: BlockT, C: ProvideRuntimeApi<Block> + 'a> {
 	extrinsics: Vec<Block::Extrinsic>,
 	api: ApiRef<'a, C::Api>,
-	call_api_at: &'a C,
+	pub call_api_at: &'a C,
 	/// Version of the [`BlockBuilderApi`] runtime API.
 	version: u32,
 	parent_hash: Block::Hash,
@@ -314,7 +315,11 @@ where
 	/// supplied by `self.api`, combined as [`BuiltBlock`].
 	/// The storage proof will be `Some(_)` when proof recording was enabled.
 	pub fn build(mut self) -> Result<BuiltBlock<Block>, Error> {
+		let start = Instant::now();
+		let time_in_storage = self.call_api_at.time_in_storage();
+
 		let header = self.api.finalize_block(self.parent_hash)?;
+		let time_in_storage_finalize = self.call_api_at.time_in_storage();
 
 		debug_assert_eq!(
 			header.extrinsics_root().clone(),
@@ -328,10 +333,22 @@ where
 
 		let state = self.call_api_at.state_at(self.parent_hash)?;
 
+		let time_into_storage_extract_proof = state.time_duration();
+
 		let storage_changes = self
 			.api
 			.into_storage_changes(&state, self.parent_hash)
 			.map_err(sp_blockchain::Error::StorageChanges)?;
+
+		let time_into_storage_into = state.time_duration();
+		log::info!(
+			"BlockBuilder:into: Time spent in storage: {} ns {} ns {} ns {} ns total {} ns",
+			time_in_storage,
+			time_in_storage_finalize,
+			time_into_storage_extract_proof,
+			time_into_storage_into,
+			start.elapsed().as_nanos()
+		);
 
 		Ok(BuiltBlock {
 			block: <Block as BlockT>::new(header, self.extrinsics),

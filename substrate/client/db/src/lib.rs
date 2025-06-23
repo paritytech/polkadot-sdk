@@ -42,14 +42,15 @@ mod upgrade;
 mod utils;
 
 use linked_hash_map::LinkedHashMap;
-use log::{debug, trace, warn};
+use log::{debug, info, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use prometheus_endpoint::Registry;
 use std::{
 	collections::{HashMap, HashSet},
 	io,
 	path::{Path, PathBuf},
-	sync::Arc,
+	sync::{atomic::AtomicU64, Arc},
+	time::Instant,
 };
 
 use crate::{
@@ -138,6 +139,7 @@ pub struct RefTrackingState<Block: BlockT> {
 	state: DbState<HashingFor<Block>>,
 	storage: Arc<StorageDb<Block>>,
 	parent_hash: Option<Block::Hash>,
+	time_spent: Arc<AtomicU64>,
 }
 
 impl<B: BlockT> RefTrackingState<B> {
@@ -146,7 +148,7 @@ impl<B: BlockT> RefTrackingState<B> {
 		storage: Arc<StorageDb<B>>,
 		parent_hash: Option<B::Hash>,
 	) -> Self {
-		RefTrackingState { state, parent_hash, storage }
+		RefTrackingState { state, parent_hash, storage, time_spent: Arc::new(AtomicU64::default()) }
 	}
 }
 
@@ -196,11 +198,20 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 	type RawIter = RawIter<B>;
 
 	fn storage(&self, key: &[u8]) -> Result<Option<Vec<u8>>, Self::Error> {
-		self.state.storage(key)
+		let start = Instant::now();
+		let res = self.state.storage(key);
+		self.time_spent
+			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn storage_hash(&self, key: &[u8]) -> Result<Option<B::Hash>, Self::Error> {
-		self.state.storage_hash(key)
+		let start = Instant::now();
+
+		let res = self.state.storage_hash(key);
+		self.time_spent
+			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn child_storage(
@@ -208,7 +219,12 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		child_info: &ChildInfo,
 		key: &[u8],
 	) -> Result<Option<Vec<u8>>, Self::Error> {
-		self.state.child_storage(child_info, key)
+		let start = Instant::now();
+
+		let res = self.state.child_storage(child_info, key);
+		self.time_spent
+			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn child_storage_hash(
@@ -216,14 +232,24 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		child_info: &ChildInfo,
 		key: &[u8],
 	) -> Result<Option<B::Hash>, Self::Error> {
-		self.state.child_storage_hash(child_info, key)
+		let start = Instant::now();
+
+		let res = self.state.child_storage_hash(child_info, key);
+		self.time_spent
+			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn closest_merkle_value(
 		&self,
 		key: &[u8],
 	) -> Result<Option<MerkleValue<B::Hash>>, Self::Error> {
-		self.state.closest_merkle_value(key)
+		let start = Instant::now();
+
+		let res = self.state.closest_merkle_value(key);
+		self.time_spent
+			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn child_closest_merkle_value(
@@ -231,11 +257,21 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		child_info: &ChildInfo,
 		key: &[u8],
 	) -> Result<Option<MerkleValue<B::Hash>>, Self::Error> {
-		self.state.child_closest_merkle_value(child_info, key)
+		let start = Instant::now();
+
+		let res = self.state.child_closest_merkle_value(child_info, key);
+		self.time_spent
+			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn exists_storage(&self, key: &[u8]) -> Result<bool, Self::Error> {
-		self.state.exists_storage(key)
+		let start = Instant::now();
+
+		let res = self.state.exists_storage(key);
+		self.time_spent
+			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn exists_child_storage(
@@ -243,11 +279,21 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		child_info: &ChildInfo,
 		key: &[u8],
 	) -> Result<bool, Self::Error> {
-		self.state.exists_child_storage(child_info, key)
+		let start = Instant::now();
+
+		let res = self.state.exists_child_storage(child_info, key);
+		self.time_spent
+			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn next_storage_key(&self, key: &[u8]) -> Result<Option<Vec<u8>>, Self::Error> {
-		self.state.next_storage_key(key)
+		let start = Instant::now();
+
+		let res = self.state.next_storage_key(key);
+		self.time_spent
+			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn next_child_storage_key(
@@ -255,7 +301,12 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		child_info: &ChildInfo,
 		key: &[u8],
 	) -> Result<Option<Vec<u8>>, Self::Error> {
-		self.state.next_child_storage_key(child_info, key)
+		let start = Instant::now();
+
+		let res = self.state.next_child_storage_key(child_info, key);
+		self.time_spent
+			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn storage_root<'a>(
@@ -263,7 +314,12 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
 	) -> (B::Hash, BackendTransaction<HashingFor<B>>) {
-		self.state.storage_root(delta, state_version)
+		let start = Instant::now();
+
+		let res = self.state.storage_root(delta, state_version);
+		self.time_spent
+			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn child_storage_root<'a>(
@@ -272,15 +328,29 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
 	) -> (B::Hash, bool, BackendTransaction<HashingFor<B>>) {
-		self.state.child_storage_root(child_info, delta, state_version)
+		let start = Instant::now();
+
+		let res = self.state.child_storage_root(child_info, delta, state_version);
+		self.time_spent
+			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn raw_iter(&self, args: IterArgs) -> Result<Self::RawIter, Self::Error> {
-		self.state.raw_iter(args).map(|inner| RawIter { inner })
+		let start = Instant::now();
+
+		let res = self.state.raw_iter(args).map(|inner| RawIter { inner });
+		self.time_spent
+			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn register_overlay_stats(&self, stats: &StateMachineStats) {
 		self.state.register_overlay_stats(stats);
+	}
+
+	fn time_duration(&self) -> u64 {
+		self.time_spent.load(std::sync::atomic::Ordering::Relaxed)
 	}
 
 	fn usage_info(&self) -> StateUsageInfo {

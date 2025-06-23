@@ -18978,6 +18978,7 @@ dependencies = [
 name = "sc-block-builder"
 version = "0.33.0"
 dependencies = [
+ "log",
  "parity-scale-codec",
  "sp-api 26.0.0",
  "sp-block-builder",

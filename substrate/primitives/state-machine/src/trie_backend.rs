@@ -38,7 +38,8 @@ use sp_trie::{
 #[cfg(not(feature = "std"))]
 use sp_trie::{Error, NodeCodec};
 use sp_trie::{MerkleValue, PrefixedMemoryDB, StorageProof, TrieRecorderProvider};
-
+#[cfg(feature = "std")]
+use tracing::info;
 use trie_db::TrieCache as TrieCacheT;
 #[cfg(not(feature = "std"))]
 use trie_db::{node::NodeOwned, CachedValue};
@@ -448,6 +449,12 @@ where
 
 	fn closest_merkle_value(&self, key: &[u8]) -> Result<Option<MerkleValue<H::Out>>, Self::Error> {
 		self.essence.closest_merkle_value(key)
+	}
+
+	fn time_duration(&self) -> u64 {
+		#[cfg(feature = "std")]
+		info!("time_duration is not implemented for TrieBackend");
+		999
 	}
 
 	fn child_closest_merkle_value(

@@ -344,12 +344,13 @@ where
 				self.apply_extrinsics(&mut block_builder, deadline, block_size_limit).await?,
 			ExtrinsicInclusionMode::OnlyInherents => EndProposingReason::TransactionForbidden,
 		};
+		let apply_extrinsics_end = block_timer.elapsed();
 		let (block, storage_changes, proof) = block_builder.build()?.into_inner();
 		let block_took = block_timer.elapsed();
 
 		let proof =
 			PR::into_proof(proof).map_err(|e| sp_blockchain::Error::Application(Box::new(e)))?;
-
+		log::info!("BlockBuilder apply-extrinsics took: {} ns", apply_extrinsics_end.as_nanos());
 		self.print_summary(&block, end_reason, block_took, block_timer.elapsed());
 		Ok(Proposal { block, proof, storage_changes })
 	}
@@ -420,7 +421,7 @@ where
 			self.transaction_pool.ready_at_with_timeout(self.parent_hash, delay).await;
 
 		let block_size_limit = block_size_limit.unwrap_or(self.default_block_size_limit);
-
+		let time_in_storage = block_builder.call_api_at.time_in_storage();
 		debug!(target: LOG_TARGET, "Attempting to push transactions from the pool at {:?}.", self.parent_hash);
 		let mut transaction_pushed = false;
 
@@ -529,6 +530,12 @@ where
 				"Hit block size limit of `{}` without including any transaction!", block_size_limit,
 			);
 		}
+		let time_in_storage = block_builder.call_api_at.time_in_storage();
+		info!(
+			"BlockBuilder::Time spent in storage: {} ms {} ns",
+			time_in_storage / 1_000_000,
+			time_in_storage
+		);
 
 		self.transaction_pool.report_invalid(Some(self.parent_hash), unqueue_invalid);
 		Ok(end_reason)
