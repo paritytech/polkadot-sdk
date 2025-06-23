@@ -474,7 +474,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				}
 
 				// Update delegate's info if delegating
-				if let (Some(delegate), Some(conviction)) = (&voting.delegate, &voting.conviction) {
+				if let (Some(delegate), Some(conviction)) = (&voting.maybe_delegate, &voting.maybe_conviction) {
 					// Only if delegator's vote went from None to Some, otherwise the retraction will already be there
 					if vote_introduced {
 						// Calculate amount delegated to delegate
@@ -555,7 +555,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						}
 						
 						// Update delegate's voting state if delegating
-						if let (Some(delegate), Some(conviction)) = (&voting.delegate, &voting.conviction) {
+						if let (Some(delegate), Some(conviction)) = (&voting.maybe_delegate, &voting.maybe_conviction) {
 							VotingFor::<T, I>::mutate(delegate, &class, |delegate_voting| {
 								let delegates_votes = &mut delegate_voting.votes;
 								// Check vote data exists, shouldn't be possible for it not to if delegator has voted
@@ -638,7 +638,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						}
 
 						// Update delegate's voting state if delegating
-						if let (Some(delegate), Some(_)) = (&voting.delegate, &voting.conviction) {
+						if let (Some(delegate), Some(_)) = (&voting.maybe_delegate, &voting.maybe_conviction) {
 							VotingFor::<T, I>::mutate(delegate, &class, |delegate_voting| {
 								// Find the matching poll record on the delegate's account.
 								match delegate_voting.votes.binary_search_by_key(&poll_index, |v| v.poll_index)
@@ -669,7 +669,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					// Check vote existed at time of cancellation
 					if old_vote.maybe_vote.is_some() {
 						// Update delegate's voting state if delegating
-						if let (Some(delegate), Some(_)) = (&voting.delegate, &voting.conviction) {
+						if let (Some(delegate), Some(_)) = (&voting.maybe_delegate, &voting.maybe_conviction) {
 							VotingFor::<T, I>::mutate(delegate, &class, |delegate_voting| {
 								// Find the matching poll record on the delegate's account.
 								match delegate_voting.votes.binary_search_by_key(&poll_index, |v| v.poll_index)
@@ -841,7 +841,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let delegate_vote_count =
 			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<u32, DispatchError> {
 				// Ensure not already delegating
-				if voting.delegate.is_some() {
+				if voting.maybe_delegate.is_some() {
 					return Err(Error::<T, I>::AlreadyDelegating.into());
 				}
 				// Set delegation related info
@@ -859,6 +859,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				// Update voting data of chosen delegate
 				let vote_count =
 					Self::increase_upstream_delegation(&target, &class, conviction.votes(balance), ongoing_votes);
+					
 				// Extend the lock to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
 				Self::extend_lock(&who, &class, balance);
@@ -875,7 +876,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let delegate_vote_count =
 			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<u32, DispatchError> {
 				// If they're currently delegating
-				if let (Some(delegate), Some(conviction)) = (&voting.delegate, &voting.conviction) {
+				if let (Some(delegate), Some(conviction)) = (&voting.maybe_delegate, &voting.maybe_conviction) {
 					// Collect all of the delegator's votes
 					let delegators_votes: Vec<_> = voting.votes.iter().filter_map(|poll_vote|
 						if poll_vote.maybe_vote.is_some() {

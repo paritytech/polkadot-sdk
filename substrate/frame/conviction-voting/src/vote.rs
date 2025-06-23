@@ -213,10 +213,10 @@ where
 	/// The amount of balance delegated to some voting power.
 	pub delegated_balance: Balance,
 	/// A possible account to which the voting power is delegating.
-	pub delegate: Option<AccountId>,
+	pub maybe_delegate: Option<AccountId>,
 	/// The possible conviction with which the voting power is delegating. When this gets undelegated, the
 	/// relevant lock begins.
-	pub conviction: Option<Conviction>,
+	pub maybe_conviction: Option<Conviction>,
 	/// The total amount of delegations that this account has received, post-conviction-weighting.
 	pub delegations: Delegations<Balance>,
 	/// Any pre-existing locks from past voting/delegating activity.
@@ -232,8 +232,8 @@ where
 		Voting {
 			votes: Default::default(),
 			delegated_balance: Default::default(),
-			delegate: None,
-			conviction: None,
+			maybe_delegate: None,
+			maybe_conviction: None,
 			delegations: Default::default(),
 			prior: PriorLock(Zero::zero(), Default::default()),
 		}
@@ -289,8 +289,8 @@ where
 		balance: Balance,
 		maybe_conviction: Option<Conviction>,
 	) {
-		self.delegate = maybe_delegate;
+		self.maybe_delegate = maybe_delegate;
 		self.delegated_balance = balance;
-		self.conviction = maybe_conviction;
+		self.maybe_conviction = maybe_conviction;
 	}
 }
