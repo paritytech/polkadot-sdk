@@ -15180,6 +15180,7 @@ dependencies = [
  "prioritized-metered-channel",
  "rand 0.8.5",
  "sc-client-api",
+ "sc-keystore",
  "schnellru",
  "sp-application-crypto 40.1.0",
  "sp-core 36.1.0",
