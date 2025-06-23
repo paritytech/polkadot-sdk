@@ -18,7 +18,7 @@ use tokio::{
 use zombienet_sdk::subxt::{
 	self,
 	blocks::Block,
-	config::ExtrinsicParams,
+	config::{substrate::DigestItem, ExtrinsicParams},
 	dynamic::Value,
 	events::Events,
 	ext::scale_value::value,
