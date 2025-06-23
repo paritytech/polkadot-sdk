@@ -7,4 +7,4 @@ doc:
    It can be used to mock additional inherents. 
 crates:
 - name: xcm-emulator
-  bump: major
+  bump: minor
