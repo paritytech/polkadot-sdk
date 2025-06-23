@@ -1,6 +1,6 @@
 title: 'net/discovery: File persistence for AddrCache'
 doc:
-- audience: node_dev
+- audience: Node Dev
   description: |-
     Persisting the AddrCache periodically (every 10 minutes) and on worker 
     shutdown. Read AddrCache from file upon launch of worker.
