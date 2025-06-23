@@ -59,7 +59,7 @@ use cumulus_client_service::{
 	build_network, prepare_node_config, start_relay_chain_tasks, BuildNetworkParams,
 	CollatorSybilResistance, DARecoveryProfile, StartRelayChainTasksParams,
 };
-use cumulus_primitives_core::{relay_chain::ValidationCode, ParaId};
+use cumulus_primitives_core::{relay_chain::ValidationCode, GetParachainInfo, ParaId};
 use cumulus_relay_chain_inprocess_interface::RelayChainInProcessInterface;
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
 use cumulus_relay_chain_minimal_node::{
@@ -326,7 +326,6 @@ pub async fn start_node_impl<RB, Net: NetworkBackend<Block, Hash>>(
 	parachain_config: Configuration,
 	collator_key: Option<CollatorPair>,
 	relay_chain_config: Configuration,
-	para_id: ParaId,
 	wrap_announce_block: Option<Box<dyn FnOnce(AnnounceBlockFn) -> AnnounceBlockFn>>,
 	fail_pov_recovery: bool,
 	rpc_ext_builder: RB,
@@ -373,6 +372,13 @@ where
 		&parachain_config.network,
 		prometheus_registry.clone(),
 	);
+
+	let best_hash = client.chain_info().best_hash;
+	let para_id = client
+		.runtime_api()
+		.parachain_id(best_hash)
+		.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+	tracing::info!("Parachain id: {:?}", para_id);
 
 	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 		build_network(BuildNetworkParams {
@@ -772,7 +778,6 @@ impl TestNodeBuilder {
 						parachain_config,
 						self.collator_key,
 						relay_chain_config,
-						self.para_id,
 						self.wrap_announce_block,
 						false,
 						|_| Ok(jsonrpsee::RpcModule::new(())),
@@ -788,7 +793,6 @@ impl TestNodeBuilder {
 						parachain_config,
 						self.collator_key,
 						relay_chain_config,
-						self.para_id,
 						self.wrap_announce_block,
 						false,
 						|_| Ok(jsonrpsee::RpcModule::new(())),

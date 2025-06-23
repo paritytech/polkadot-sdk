@@ -32,13 +32,12 @@ use polkadot_node_primitives::{
 	disputes::ValidCandidateVotes, CandidateVotes, DisputeStatus, SignedDisputeStatement, Timestamp,
 };
 use polkadot_node_subsystem::overseer;
-use polkadot_node_subsystem_util::runtime::RuntimeInfo;
+use polkadot_node_subsystem_util::{runtime::RuntimeInfo, ControlledValidatorIndices};
 use polkadot_primitives::{
 	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, DisputeStatement,
 	ExecutorParams, Hash, IndexedVec, SessionIndex, SessionInfo, ValidDisputeStatementKind,
-	ValidatorId, ValidatorIndex, ValidatorPair, ValidatorSignature,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
-use sc_keystore::LocalKeystore;
 
 use crate::LOG_TARGET;
 
@@ -63,12 +62,12 @@ impl<'a> CandidateEnvironment<'a> {
 	///
 	/// Return: `None` in case session is outside of session window.
 	pub async fn new<Context>(
-		keystore: &LocalKeystore,
 		ctx: &mut Context,
 		runtime_info: &'a mut RuntimeInfo,
 		session_index: SessionIndex,
 		relay_parent: Hash,
 		disabled_offchain: impl IntoIterator<Item = ValidatorIndex>,
+		controlled_indices: &mut ControlledValidatorIndices,
 	) -> Option<CandidateEnvironment<'a>> {
 		let disabled_onchain = runtime_info
 			.get_disabled_validators(ctx.sender(), relay_parent)
@@ -105,7 +104,8 @@ impl<'a> CandidateEnvironment<'a> {
 			d
 		};
 
-		let controlled_indices = find_controlled_validator_indices(keystore, &session.validators);
+		let controlled_indices = controlled_indices.get(session_index, &session.validators).clone();
+
 		Some(Self { session_index, session, executor_params, controlled_indices, disabled_indices })
 	}
 
@@ -631,23 +631,4 @@ impl ImportResult {
 			None
 		}
 	}
-}
-
-/// Find indices controlled by this validator.
-///
-/// That is all `ValidatorIndex`es we have private keys for. Usually this will only be one.
-fn find_controlled_validator_indices(
-	keystore: &LocalKeystore,
-	validators: &IndexedVec<ValidatorIndex, ValidatorId>,
-) -> HashSet<ValidatorIndex> {
-	let mut controlled = HashSet::new();
-	for (index, validator) in validators.iter().enumerate() {
-		if keystore.key_pair::<ValidatorPair>(validator).ok().flatten().is_none() {
-			continue
-		}
-
-		controlled.insert(ValidatorIndex(index as _));
-	}
-
-	controlled
 }
