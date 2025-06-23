@@ -339,7 +339,7 @@ fn should_revalidate_during_maintenance() {
 	// test that pool revalidated transaction that left ready and not included in the block
 	assert_eq!(
 		futures::executor::block_on_stream(watcher).collect::<Vec<_>>(),
-		vec![TransactionStatus::Ready, TransactionStatus::Invalid],
+		vec![TransactionStatus::Ready, TransactionStatus::Invalid("".to_string())],
 	);
 }
 
@@ -401,7 +401,7 @@ fn should_not_retain_invalid_hashes_from_retracted() {
 
 	assert_eq!(
 		futures::executor::block_on_stream(watcher).collect::<Vec<_>>(),
-		vec![TransactionStatus::Ready, TransactionStatus::Invalid],
+		vec![TransactionStatus::Ready, TransactionStatus::Invalid("".to_string())],
 	);
 
 	assert_eq!(pool.status().ready, 0);
@@ -486,11 +486,11 @@ fn should_push_watchers_during_maintenance() {
 	// hash4 is now invalid
 	assert_eq!(
 		futures::executor::block_on_stream(watcher3).collect::<Vec<_>>(),
-		vec![TransactionStatus::Ready, TransactionStatus::Invalid],
+		vec![TransactionStatus::Ready, TransactionStatus::Invalid("".to_string())],
 	);
 	assert_eq!(
 		futures::executor::block_on_stream(watcher4).collect::<Vec<_>>(),
-		vec![TransactionStatus::Ready, TransactionStatus::Invalid],
+		vec![TransactionStatus::Ready, TransactionStatus::Invalid("".to_string())],
 	);
 	assert_eq!(pool.status().ready, 3);
 
