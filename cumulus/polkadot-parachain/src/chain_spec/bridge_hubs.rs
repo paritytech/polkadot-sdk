@@ -151,7 +151,7 @@ pub mod rococo {
 		GenericChainSpec::builder(
 			bridge_hub_rococo_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!"),
-			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
+			Extensions { relay_chain: relay_chain.to_string() },
 		)
 		.with_name(chain_name)
 		.with_id(super::ensure_id(id).expect("invalid id"))
@@ -200,7 +200,7 @@ pub mod westend {
 		GenericChainSpec::builder(
 			bridge_hub_westend_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!"),
-			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
+			Extensions { relay_chain: relay_chain.to_string() },
 		)
 		.with_name(chain_name)
 		.with_id(super::ensure_id(id).expect("invalid id"))

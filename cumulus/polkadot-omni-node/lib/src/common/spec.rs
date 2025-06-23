@@ -14,14 +14,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::common::{
-	command::NodeCommandRunner,
-	rpc::BuildRpcExtensions,
-	types::{
-		ParachainBackend, ParachainBlockImport, ParachainClient, ParachainHostFunctions,
-		ParachainService,
+use crate::{
+	chain_spec::DeprecatedExtensions,
+	common::{
+		command::NodeCommandRunner,
+		rpc::BuildRpcExtensions,
+		types::{
+			ParachainBackend, ParachainBlockImport, ParachainClient, ParachainHostFunctions,
+			ParachainService,
+		},
+		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
-	ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 };
 use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
 use cumulus_client_cli::CollatorOptions;
@@ -29,9 +32,10 @@ use cumulus_client_service::{
 	build_network, build_relay_chain_interface, prepare_node_config, start_relay_chain_tasks,
 	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, StartRelayChainTasksParams,
 };
-use cumulus_primitives_core::{BlockT, ParaId};
+use cumulus_primitives_core::{BlockT, GetParachainInfo, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::FutureExt;
+use log::info;
 use parachains_common::Hash;
 use polkadot_primitives::CollatorPair;
 use prometheus_endpoint::Registry;
@@ -45,7 +49,9 @@ use sc_telemetry::{TelemetryHandle, TelemetryWorker};
 use sc_tracing::tracing::Instrument;
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
+use sp_api::ProvideRuntimeApi;
 use sp_keystore::KeystorePtr;
+use sp_runtime::traits::AccountIdConversion;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
 pub(crate) trait BuildImportQueue<
@@ -142,6 +148,38 @@ pub(crate) trait BaseNodeSpec {
 	>;
 
 	type InitBlockImport: self::InitBlockImport<Self::Block, Self::RuntimeApi>;
+
+	/// Retrieves parachain id.
+	fn parachain_id(
+		client: &ParachainClient<Self::Block, Self::RuntimeApi>,
+		parachain_config: &Configuration,
+	) -> Option<ParaId> {
+		let best_hash = client.chain_info().best_hash;
+		let para_id = if let Ok(para_id) = client.runtime_api().parachain_id(best_hash) {
+			para_id
+		} else {
+			// TODO: remove this once `para_id` extension is removed: https://github.com/paritytech/polkadot-sdk/issues/8740
+			#[allow(deprecated)]
+			let id = ParaId::from(
+				DeprecatedExtensions::try_get(&*parachain_config.chain_spec)
+					.and_then(|ext| ext.para_id)?,
+			);
+			// TODO: https://github.com/paritytech/polkadot-sdk/issues/8747
+			// TODO: https://github.com/paritytech/polkadot-sdk/issues/8740
+			log::info!("Deprecation notice: the parachain id was provided via the chain spec. This way of providing the parachain id to the node is not recommended. The alternative is to implement the `cumulus_primitives_core::GetParachainInfo` runtime API in the runtime, and upgrade it on-chain. Starting with `stable2512` providing the parachain id via the chain spec will not be supported anymore.");
+			id
+		};
+
+		let parachain_account =
+			AccountIdConversion::<polkadot_primitives::AccountId>::into_account_truncating(
+				&para_id,
+			);
+
+		info!("🪪 Parachain id: {:?}", para_id);
+		info!("🧾 Parachain Account: {}", parachain_account);
+
+		Some(para_id)
+	}
 
 	/// Starts a `ServiceBuilder` for a full service.
 	///
@@ -257,7 +295,6 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 		parachain_config: Configuration,
 		polkadot_config: Configuration,
 		collator_options: CollatorOptions,
-		para_id: ParaId,
 		hwbench: Option<sc_sysinfo::HwBench>,
 		node_extra_args: NodeExtraArgs,
 	) -> Pin<Box<dyn Future<Output = sc_service::error::Result<TaskManager>>>>
@@ -275,6 +312,10 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			let client = params.client.clone();
 			let backend = params.backend.clone();
 			let mut task_manager = params.task_manager;
+
+			// Resolve parachain id based on runtime, or based on chain spec.
+			let para_id = Self::parachain_id(&client, &parachain_config)
+				.ok_or("Failed to retrieve the parachain id")?;
 			let relay_chain_fork_id = polkadot_config.chain_spec.fork_id().map(ToString::to_string);
 			let (relay_chain_interface, collator_key, relay_chain_network, paranode_rx) =
 				build_relay_chain_interface(
@@ -462,7 +503,6 @@ pub(crate) trait DynNodeSpec: NodeCommandRunner {
 		parachain_config: Configuration,
 		polkadot_config: Configuration,
 		collator_options: CollatorOptions,
-		para_id: ParaId,
 		hwbench: Option<HwBench>,
 		node_extra_args: NodeExtraArgs,
 	) -> Pin<Box<dyn Future<Output = sc_service::error::Result<TaskManager>>>>;
@@ -477,7 +517,6 @@ where
 		parachain_config: Configuration,
 		polkadot_config: Configuration,
 		collator_options: CollatorOptions,
-		para_id: ParaId,
 		hwbench: Option<HwBench>,
 		node_extra_args: NodeExtraArgs,
 	) -> Pin<Box<dyn Future<Output = sc_service::error::Result<TaskManager>>>> {
@@ -487,7 +526,6 @@ where
 					parachain_config,
 					polkadot_config,
 					collator_options,
-					para_id,
 					hwbench,
 					node_extra_args,
 				),
@@ -496,7 +534,6 @@ where
 					parachain_config,
 					polkadot_config,
 					collator_options,
-					para_id,
 					hwbench,
 					node_extra_args,
 				),
