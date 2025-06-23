@@ -128,6 +128,6 @@ pub struct NodeExtraArgs {
 	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
 	pub max_pov_percentage: Option<u32>,
 
-	/// The statement store should be enabled.
+	/// If true then the statement store will be enabled.
 	pub enable_statement_store: bool,
 }
