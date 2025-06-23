@@ -1135,6 +1135,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl cumulus_primitives_core::GetParachainInfo<Block> for Runtime {
+		fn parachain_id() -> ParaId {
+			ParachainInfo::parachain_id()
+		}
+	}
+
 	impl sp_statement_store::runtime_api::ValidateStatement<Block> for Runtime {
 		fn validate_statement(
 			_source: StatementSource,
