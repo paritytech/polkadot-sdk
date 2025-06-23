@@ -292,32 +292,6 @@ jobs:
           local-dir: "${{ env.LOCAL_DIR }}/functional"
   #
   #
-  zombienet-polkadot-functional-0018-shared-core-idle-parachain:
-    needs: [preflight]
-    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-functional-0018-shared-core-idle-parachain') }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
-    timeout-minutes: 60
-    container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
-    env:
-      ZOMBIENET_INTEGRATION_TEST_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-      CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-parachain-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-      DEBUG: ${{ needs.preflight.outputs.DEBUG }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: cp_script
-        run: |
-          cp --remove-destination ${LOCAL_DIR}/assign-core.js ${LOCAL_DIR}/functional
-
-      - name: zombienet_test
-        uses: ./.github/actions/zombienet
-        with:
-          test: "0018-shared-core-idle-parachain.zndsl"
-          local-dir: "${{ env.LOCAL_DIR }}/functional"
-  #
-  #
   zombienet-polkadot-functional-0019-coretime-collation-fetching-fairness:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-functional-0019-coretime-collation-fetching-fairness') }}
@@ -881,4 +855,33 @@ jobs:
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           test: "functional::approved_peer_mixed_validators::approved_peer_mixed_validators_test"
+          prefix: "polkadot"
+
+  #
+  #
+  zombienet-polkadot-shared-core-idle-parachain:
+    needs: [preflight]
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-functional-spam-statement-distribution-requests') }}
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
+    env:
+      # sdk tests are looking for POLKADOT_IMAGE
+      POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-parachain-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
+      ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: zombienet_test
+        uses: ./.github/actions/zombienet-sdk
+        with:
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+          test: "functional::shared_core_idle_parachain::shared_core_idle_parachain_test"
           prefix: "polkadot"
