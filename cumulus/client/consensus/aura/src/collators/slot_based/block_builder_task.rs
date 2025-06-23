@@ -21,9 +21,13 @@ use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterfa
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
-use cumulus_primitives_core::{GetCoreSelectorApi, PersistedValidationData};
+use cumulus_primitives_core::{
+	extract_relay_parent, rpsr_digest, ClaimQueueOffset, CoreSelector, CumulusDigestItem,
+	GetCoreSelectorApi, PersistedValidationData,
+};
 use cumulus_relay_chain_interface::RelayChainInterface;
 
+use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
 	Block as RelayBlock, BlockId, Hash as RelayHash, Header as RelayHeader, Id as ParaId,
 };
@@ -34,7 +38,6 @@ use crate::{
 	collators::{
 		check_validation_code_or_log,
 		slot_based::{
-			core_selector,
 			relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
 			slot_timer::{SlotInfo, SlotTimer},
 		},
@@ -247,12 +250,8 @@ where
 					},
 				};
 
-			let Ok(RelayChainData {
-				relay_parent_header,
-				max_pov_size,
-				claim_queue,
-				claimed_cores,
-			}) = relay_chain_data_cache.get_mut_relay_chain_data(relay_parent).await
+			let Ok(RelayChainData { relay_parent_header, max_pov_size, claim_queue }) =
+				relay_chain_data_cache.get_mut_relay_chain_data(relay_parent).await
 			else {
 				continue;
 			};
@@ -263,6 +262,7 @@ where
 				?claimed_cores,
 				"Claimed cores.",
 			);
+
 			if scheduled_cores.is_empty() {
 				tracing::debug!(target: LOG_TARGET, "Parachain not scheduled, skipping slot.");
 				continue;
@@ -513,6 +513,47 @@ where
 		"Relay parent descendants."
 	);
 	Ok(RelayParentData::new_with_descendants(relay_parent, required_ancestors.into()))
+}
+
+/// Determine the core for the given `para_id`.
+///
+/// Takes into account the `parent` core to find the next available core.
+async fn determine_core<Block: BlockT, RI: RelayChainInterface + 'static>(
+	relay_chain_data_cache: &mut RelayChainDataCache<RI>,
+	relay_parent: &RelayHeader,
+	para_id: ParaId,
+	parent: &Block::Header,
+) -> Result<(CoreSelector, ClaimQueueOffset), ()> {
+	// The digest should be always there and if not, we can just assume `(0, 0)` as offset and
+	// selector.
+	let (last_selector, last_offset) = CumulusDigestItem::find_select_core(parent.digest())
+		.map_or_else(|| (None, None), |(selector, offset)| (Some(selector), Some(offset)));
+
+	let last_relay_parent = match extract_relay_parent(parent.digest()) {
+		Some(last_relay_parent) => *relay_chain_data_cache
+			.get_mut_relay_chain_data(last_relay_parent)
+			.await?
+			.relay_parent_header
+			.number(),
+		None => rpsr_digest::extract_relay_parent_storage_root(parent.digest()).ok_or(())?.1,
+	};
+
+	let relay_parent_offset = relay_parent.number().saturating_sub(last_relay_parent);
+	let claim_queue = &relay_chain_data_cache
+		.get_mut_relay_chain_data(relay_parent.hash())
+		.await?
+		.claim_queue;
+
+	if relay_parent_offset > last_offset.unwrap_or_default().0 as u32 {
+		claim_queue.find_core(para_id, 0, 0)
+	} else {
+		claim_queue.find_core(
+			para_id,
+			last_selector.map_or(0, |s| s.0 as u32 + 1),
+			last_offset.map_or(0, |o| o.0 as u32 - relay_parent_offset),
+		)
+	}
+	.ok_or(())
 }
 
 #[cfg(test)]

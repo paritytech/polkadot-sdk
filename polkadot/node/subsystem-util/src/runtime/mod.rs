@@ -33,7 +33,10 @@ use polkadot_node_subsystem_types::UnpinHandle;
 use polkadot_primitives::{
 	node_features::FeatureIndex,
 	slashing,
-	vstaging::{CandidateEvent, CoreState, OccupiedCore, ScrapedOnChainVotes},
+	vstaging::{
+		CandidateEvent, ClaimQueueOffset, CoreSelector, CoreState, OccupiedCore,
+		ScrapedOnChainVotes,
+	},
 	CandidateHash, CoreIndex, EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
 	Id as ParaId, IndexedVec, NodeFeatures, SessionIndex, SessionInfo, Signed, SigningContext,
 	UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
@@ -474,7 +477,7 @@ where
 }
 
 /// A snapshot of the runtime claim queue at an arbitrary relay chain block.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct ClaimQueueSnapshot(pub BTreeMap<CoreIndex, VecDeque<ParaId>>);
 
 impl From<BTreeMap<CoreIndex, VecDeque<ParaId>>> for ClaimQueueSnapshot {
@@ -512,6 +515,45 @@ impl ClaimQueueSnapshot {
 	/// Returns an iterator over the whole claim queue.
 	pub fn iter_all_claims(&self) -> impl Iterator<Item = (&CoreIndex, &VecDeque<ParaId>)> + '_ {
 		self.0.iter()
+	}
+
+	/// Find a core for the given `para_id`.
+	///
+	/// `cores_claimed` is the number of cores already claimed from this snapshot for `para_id` at
+	/// the given `claim_queue_offset`.
+	pub fn find_core(
+		&self,
+		para_id: ParaId,
+		mut cores_claimed: u32,
+		claim_queue_offset: u32,
+	) -> Option<(CoreSelector, ClaimQueueOffset)> {
+		let mut offset_to_core_count = BTreeMap::<usize, u32>::new();
+
+		self.0.iter().for_each(|(_, ids)| {
+			ids.iter()
+				.enumerate()
+				.filter_map(|(i, id)| (*id == para_id).then(|| i))
+				.for_each(|offset| {
+					*offset_to_core_count.entry(offset).or_default() += 1;
+				});
+		});
+
+		for (claim_queue_pos, count) in offset_to_core_count {
+			if (claim_queue_pos as u32) < claim_queue_offset {
+				continue
+			}
+
+			if cores_claimed < count {
+				return Some((
+					CoreSelector(cores_claimed as u8),
+					ClaimQueueOffset(claim_queue_pos as u8),
+				))
+			}
+
+			cores_claimed -= count;
+		}
+
+		None
 	}
 }
 
@@ -583,5 +625,77 @@ pub async fn fetch_validation_code_bomb_limit(
 		Ok(polkadot_node_primitives::VALIDATION_CODE_BOMB_LIMIT as u32)
 	} else {
 		res
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	#[test]
+	fn find_core_works() {
+		let claim_queue = ClaimQueueSnapshot(BTreeMap::from_iter(
+			[
+				(
+					CoreIndex(0),
+					VecDeque::from_iter([ParaId::from(1), ParaId::from(2), ParaId::from(1)]),
+				),
+				(
+					CoreIndex(1),
+					VecDeque::from_iter([ParaId::from(1), ParaId::from(1), ParaId::from(2)]),
+				),
+				(
+					CoreIndex(2),
+					VecDeque::from_iter([ParaId::from(1), ParaId::from(2), ParaId::from(3)]),
+				),
+				(
+					CoreIndex(3),
+					VecDeque::from_iter([ParaId::from(2), ParaId::from(1), ParaId::from(3)]),
+				),
+			]
+			.into_iter(),
+		));
+
+		assert_eq!(
+			claim_queue.find_core(1u32.into(), 0, 0).unwrap(),
+			(CoreSelector(0), ClaimQueueOffset(0))
+		);
+
+		assert_eq!(
+			claim_queue.find_core(1u32.into(), 1, 0).unwrap(),
+			(CoreSelector(1), ClaimQueueOffset(0))
+		);
+
+		assert_eq!(
+			claim_queue.find_core(1u32.into(), 2, 0).unwrap(),
+			(CoreSelector(2), ClaimQueueOffset(0))
+		);
+
+		assert_eq!(
+			claim_queue.find_core(1u32.into(), 3, 0).unwrap(),
+			(CoreSelector(0), ClaimQueueOffset(1))
+		);
+
+		assert_eq!(
+			claim_queue.find_core(1u32.into(), 4, 0).unwrap(),
+			(CoreSelector(1), ClaimQueueOffset(1))
+		);
+
+		assert_eq!(
+			claim_queue.find_core(1u32.into(), 5, 0).unwrap(),
+			(CoreSelector(0), ClaimQueueOffset(2))
+		);
+
+		assert_eq!(claim_queue.find_core(1u32.into(), 6, 0), None);
+
+		assert_eq!(
+			claim_queue.find_core(1u32.into(), 0, 1).unwrap(),
+			(CoreSelector(0), ClaimQueueOffset(1))
+		);
+
+		assert_eq!(
+			claim_queue.find_core(1u32.into(), 2, 1).unwrap(),
+			(CoreSelector(0), ClaimQueueOffset(2))
+		);
 	}
 }

@@ -17,9 +17,10 @@
 
 //! Utility for caching [`RelayChainData`] for different relay blocks.
 
-use crate::collators::{claim_queue_at, cores_scheduled_for_para};
+use crate::collators::claim_queue_at;
 use cumulus_primitives_core::ClaimQueueOffset;
 use cumulus_relay_chain_interface::RelayChainInterface;
+use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
 	CoreIndex, Hash as RelayHash, Header as RelayHeader, Id as ParaId, OccupiedCoreAssumption,
 };
@@ -35,8 +36,6 @@ pub struct RelayChainData {
 	pub claim_queue: ClaimQueueSnapshot,
 	/// Maximum configured PoV size on the relay chain.
 	pub max_pov_size: u32,
-	/// The claimed cores at a relay parent.
-	pub claimed_cores: BTreeSet<CoreIndex>,
 }
 
 /// Simple helper to fetch relay chain data and cache it based on the current relay chain best block
@@ -49,7 +48,7 @@ pub struct RelayChainDataCache<RI> {
 
 impl<RI> RelayChainDataCache<RI>
 where
-	RI: RelayChainInterface + Clone + 'static,
+	RI: RelayChainInterface + 'static,
 {
 	pub fn new(relay_client: RI, para_id: ParaId) -> Self {
 		Self {
@@ -107,11 +106,6 @@ where
 			},
 		};
 
-		Ok(RelayChainData {
-			relay_parent_header,
-			claim_queue,
-			max_pov_size,
-			claimed_cores: BTreeSet::new(),
-		})
+		Ok(RelayChainData { relay_parent_header, claim_queue, max_pov_size })
 	}
 }
