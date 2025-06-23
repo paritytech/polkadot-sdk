@@ -505,7 +505,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 								},
 							}
 						})?;
-				}
+					}
 				}
 
 				// Extend the lock to `balance` (rather than setting it) since we don't know what
@@ -724,7 +724,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					});
 				}
 			}
-			
+
 			// For each of the delegator's ongoing votes
 			for poll_index in ongoing_votes {
 				match votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
@@ -732,9 +732,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					Ok(i) => {
 						// Add the clawback to the delegate
 						votes[i].retracted_votes = votes[i].retracted_votes.saturating_add(amount);
-						// And reduce the tally by that amount if the delegate has voted standard and the poll is ongoing
+						// And reduce the tally by that amount if the delegate has voted standard
 						if let Some(AccountVote::Standard { vote, .. }) = votes[i].maybe_vote {
 							T::Polls::access_poll(poll_index, |poll_status| {
+								// And poll is ongoing
 								if let PollStatus::Ongoing(tally, _) = poll_status {
 									tally.reduce(vote.aye, amount);
 								}
@@ -784,10 +785,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				}
 			}
 
-			// For all the delegator's votes (poll Ongoing, Completed, or None)
+			// For all the delegator's votes (poll Ongoing, Completed, or None/Cancelled)
 			for poll_index in delegators_votes {
-				// That the delegate has data for
 				match votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
+					// That the delegate has data for
 					Ok(i) => {
 						// Get poll state
 						let mut poll_ended = false;
