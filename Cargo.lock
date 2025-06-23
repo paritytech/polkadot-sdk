@@ -16553,6 +16553,7 @@ dependencies = [
  "staging-xcm-executor",
  "subkey",
  "substrate-wasm-builder",
+ "tokio",
  "xcm-docs",
  "xcm-simulator",
 ]
