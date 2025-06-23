@@ -38,7 +38,7 @@ pub use xcm::{
 pub use asset_test_utils;
 pub use cumulus_pallet_xcmp_queue;
 pub use parachains_common::AccountId;
-pub use xcm_emulator::Chain;
+pub use xcm_emulator::{assert_expected_events, Chain};
 
 #[macro_export]
 macro_rules! test_parachain_is_trusted_teleporter {
@@ -823,85 +823,6 @@ macro_rules! test_cross_chain_alias {
 		}
 	};
 }
-<<<<<<< HEAD
-=======
-
-/// note: $asset needs to be prefunded outside this function
-#[macro_export]
-macro_rules! create_pool_with_native_on {
-	( $chain:ident, $asset:expr, $is_foreign:expr, $asset_owner:expr ) => {
-		$crate::create_pool_with_native_on!(
-			$chain,
-			$asset,
-			$is_foreign,
-			$asset_owner,
-			1_000_000_000_000,
-			2_000_000_000_000
-		);
-	};
-
-	( $chain:ident, $asset:expr, $is_foreign:expr, $asset_owner:expr, $native_amount:expr, $asset_amount:expr ) => {
-		$crate::macros::paste::paste! {
-			<$chain as $crate::macros::TestExt>::execute_with(|| {
-				type RuntimeEvent = <$chain as $crate::macros::Chain>::RuntimeEvent;
-				let owner = $asset_owner;
-				let signed_owner = <$chain as $crate::macros::Chain>::RuntimeOrigin::signed(owner.clone());
-				let native_asset: $crate::macros::Location = $crate::macros::Parent.into();
-
-				if $is_foreign {
-					$crate::macros::assert_ok!(<$chain as [<$chain Pallet>]>::ForeignAssets::mint(
-						signed_owner.clone(),
-						$asset.clone().into(),
-						owner.clone().into(),
-						10_000_000_000_000, // For it to have more than enough.
-					));
-				} else {
-					let asset_id = match $asset.interior.last() {
-						Some($crate::macros::GeneralIndex(id)) => *id as u32,
-						_ => unreachable!(),
-					};
-					$crate::macros::assert_ok!(<$chain as [<$chain Pallet>]>::Assets::mint(
-						signed_owner.clone(),
-						asset_id.into(),
-						owner.clone().into(),
-						10_000_000_000_000, // For it to have more than enough.
-					));
-				}
-
-				$crate::macros::assert_ok!(<$chain as [<$chain Pallet>]>::AssetConversion::create_pool(
-					signed_owner.clone(),
-					Box::new(native_asset.clone()),
-					Box::new($asset.clone()),
-				));
-
-				$crate::macros::assert_expected_events!(
-					$chain,
-					vec![
-						RuntimeEvent::AssetConversion($crate::macros::pallet_asset_conversion::Event::PoolCreated { .. }) => {},
-					]
-				);
-
-				$crate::macros::assert_ok!(<$chain as [<$chain Pallet>]>::AssetConversion::add_liquidity(
-					signed_owner,
-					Box::new(native_asset),
-					Box::new($asset),
-					$native_amount,
-					$asset_amount,
-					0,
-					0,
-					owner.into()
-				));
-
-				$crate::macros::assert_expected_events!(
-					$chain,
-					vec![
-						RuntimeEvent::AssetConversion($crate::macros::pallet_asset_conversion::Event::LiquidityAdded { .. }) => {},
-					]
-				);
-			});
-		}
-	};
-}
 
 #[macro_export]
 macro_rules! assert_whitelisted {
@@ -917,4 +838,3 @@ macro_rules! assert_whitelisted {
 		);
     };
 }
->>>>>>> bade694 (Westend governance authorize_upgrade integration tests (#8787))
