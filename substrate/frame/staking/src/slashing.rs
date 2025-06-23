@@ -344,10 +344,13 @@ fn slash_nominators<T: Config>(
 		// the era slash of a nominator always grows, if the validator
 		// had a new max slash for the era.
 		let era_slash = {
+			// prior slashed based on offending validator in slash_era.
 			let own_slash_prior = prior_slash_p * nominator.value;
+			// new slash based on the current validator slash in this era.
 			let own_slash_by_validator = params.slash * nominator.value;
 			let own_slash_difference = own_slash_by_validator.saturating_sub(own_slash_prior);
 
+			// nominator already slashed in this era.
 			let mut era_slash =
 				NominatorSlashInEra::<T>::get(&params.slash_era, stash).unwrap_or_else(Zero::zero);
 			era_slash += own_slash_difference;

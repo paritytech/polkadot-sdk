@@ -776,11 +776,6 @@ pub mod pallet {
 		(Perbill, BalanceOf<T>),
 	>;
 
-	/// All slashing events on nominators, mapped by era to the highest slash value of the era.
-	#[pallet::storage]
-	pub type NominatorSlashInEra<T: Config> =
-		StorageDoubleMap<_, Twox64Concat, EraIndex, Twox64Concat, T::AccountId, BalanceOf<T>>;
-
 	/// The threshold for when users can start calling `chill_other` for other validators /
 	/// nominators. The threshold is compared to the actual number of validators / nominators
 	/// (`CountFor*`) in the system compared to the configured max (`Max*Count`).
