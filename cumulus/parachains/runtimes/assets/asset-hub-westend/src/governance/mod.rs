@@ -24,7 +24,7 @@ use frame_support::{
 };
 use frame_system::EnsureRootWithSuccess;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
-use parachains_common::pay::{LocalPay, VersionedLocatableAccount};
+use parachains_common::pay::{benchmarks::LocalPayArguments, LocalPay, VersionedLocatableAccount};
 use polkadot_runtime_common::{
 	impls::{ContainsParts, VersionedLocatableAsset},
 	prod_or_fast,
@@ -153,8 +153,7 @@ impl pallet_treasury::Config for Runtime {
 	type PayoutPeriod = PayoutSpendPeriod;
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper =
-		polkadot_runtime_common::impls::benchmarks::TreasuryArguments<ConstU8<1>, ConstU32<1001>>;
+	type BenchmarkHelper = LocalPayArguments<xcm_config::TrustBackedAssetsPalletIndex>;
 }
 
 impl pallet_asset_rate::Config for Runtime {
