@@ -34,13 +34,6 @@ fn fund_bounty_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Given
 		// When
-		assert_ok!(Bounties::propose_bounty(
-			RuntimeOrigin::signed(0),
-			Box::new(1),
-			10,
-			b"1234567890".to_vec()
-		));
-
 		// Then
 		assert_eq!(last_event(), BountiesEvent::BountyProposed { index: 0 });
 		let deposit: u64 = 85 + 5;
@@ -49,12 +42,10 @@ fn fund_bounty_works() {
 		assert_eq!(
 			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
 			Bounty {
-				proposer: 0,
 				fee: 0,
 				curator_deposit: 0,
 				asset_kind: 1,
 				value: 10,
-				bond: deposit,
 				status: BountyStatus::Proposed,
 			}
 		);

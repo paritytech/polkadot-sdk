@@ -57,8 +57,11 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+mod mock;
+mod tests;
 pub mod weights;
 pub use weights::WeightInfo;
+pub use pallet::*;
 
 extern crate alloc;
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
@@ -88,6 +91,18 @@ type BeneficiaryLookupOf<T, I = ()> = pallet_treasury::BeneficiaryLookupOf<T, I>
 /// An index of a bounty. Just a `u32`.
 pub type BountyIndex = u32;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
+type PaymentIdOf<T, I = ()> = <<T as pallet_treasury::Config<I>>::Paymaster as Pay>::Id;
+/// Convenience alias for `Bounty`.
+pub type BountyOf<T, I> = Bounty<
+	<T as frame_system::Config>::AccountId,
+	BalanceOf<T, I>,
+	BlockNumberFor<T, I>,
+	<T as pallet_treasury::Config<I>>::AssetKind,
+	PaymentIdOf<T, I>,
+	<T as pallet_treasury::Config<I>>::Beneficiary,
+>;
+type BlockNumberFor<T, I = ()> =
+	<<T as pallet_treasury::Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// A bounty funded.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -110,7 +125,7 @@ pub struct Bounty<AccountId, Balance, BlockNumber, AssetKind, PaymentId, Benefic
 	pub status: BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary>,
 }
 
-/// A child-bounty funded. Similar to [`Bounty`], but without [`asset_kind`].
+/// A child-bounty funded.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct ChildBounty<AccountId, Balance, BlockNumber, PaymentId, Beneficiary> {
 	/// The parent bounty index of this child-bounty.
@@ -134,25 +149,15 @@ pub struct ChildBounty<AccountId, Balance, BlockNumber, PaymentId, Beneficiary> 
 /// The status of a bounty proposal.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary> {
-	/// The bounty funding has been attempted and waiting to confirm the funds allocation.
-	FundingAttempted {
+	/// The bounty is proposed and waiting for approval.
+	Proposed,
+	/// The bounty is approved and waiting to confirm the funds allocation.
+	Approved {
 		/// The status of the bounty amount transfer from the source (e.g. Treasury) to
 		/// the bounty account.
 		///
-		/// Once `check_payment_status` confirms the payment succeeded, the bounty will transition
-		/// to [`BountyStatus::Funded`].
-		payment_status: PaymentState<PaymentId>,
-	},
-	/// The bounty funding has been attempted with a curator and waiting to confirm the funds
-	/// allocation.
-	FundingAttempedWithCurator {
-		/// The assigned curator of this bounty.
-		curator: AccountId,
-		/// The status of the bounty amount transfer from the source (e.g. Treasury) to
-		/// the bounty account.
-		///
-		/// Once `check_payment_status` confirms the payment succeeded, the bounty will transition
-		/// to [`BountyStatus::CuratorProposed`].
+		/// Once `check_payment_status` confirms, the bounty will transition to either
+		/// [`BountyStatus::Funded`] or [`BountyStatus::ApprovedWithCurator`].
 		payment_status: PaymentState<PaymentId>,
 	},
 	/// The bounty is funded and waiting for curator assignment.
@@ -179,8 +184,19 @@ pub enum BountyStatus<AccountId, BlockNumber, PaymentId, Beneficiary> {
 		curator_stash: Beneficiary,
 		/// The beneficiary of the bounty.
 		beneficiary: Beneficiary,
-		// TODO: Remove since BountyDeposityPayoutDelay it is set to 0 (https://github.com/polkadot-fellows/runtimes/blob/43a8f2373129db30709e46ea8bc2baa72c782852/relay/polkadot/src/lib.rs#L794)
-		// unlock_at: BlockNumber,
+		/// When the bounty can be claimed.
+		unlock_at: BlockNumber,
+	},
+	/// The bounty is approved with a curator and waiting to confirm the funds allocation.
+	ApprovedWithCurator {
+		/// The assigned curator of this bounty.
+		curator: AccountId,
+		/// The status of the bounty amount transfer from the source (e.g. Treasury) to
+		/// the bounty account.
+		///
+		/// Once `check_payment_status` confirms the payment succeeded, the bounty will transition
+		/// to [`BountyStatus::CuratorProposed`].
+		payment_status: PaymentState<PaymentId>,
 	},
 	/// The bounty payout has been attempted.
 	///
@@ -254,9 +270,117 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config + pallet_treasury::Config<I> {
+		/// The amount held on deposit for placing a bounty proposal.
+		#[pallet::constant]
+		type BountyDepositBase: Get<BalanceOf<Self, I>>;
+
+		/// The curator deposit is calculated as a percentage of the curator fee.
+		///
+		/// This deposit has optional upper and lower bounds with `CuratorDepositMax` and
+		/// `CuratorDepositMin`.
+		#[pallet::constant]
+		type CuratorDepositMultiplier: Get<Permill>;
+
+		/// Maximum amount of funds that should be placed in a deposit for making a proposal.
+		#[pallet::constant]
+		type CuratorDepositMax: Get<Option<BalanceOf<Self, I>>>;
+
+		/// Minimum amount of funds that should be placed in a deposit for making a proposal.
+		#[pallet::constant]
+		type CuratorDepositMin: Get<Option<BalanceOf<Self, I>>>;
+
+		/// Minimum value for a bounty.
+		#[pallet::constant]
+		type BountyValueMinimum: Get<BalanceOf<Self, I>>;
+
+		/// The amount held on deposit per byte within the tip report reason or bounty description.
+		#[pallet::constant]
+		type DataDepositPerByte: Get<BalanceOf<Self, I>>;
+
+		/// The overarching event type.
+		type RuntimeEvent: From<Event<Self, I>>
+			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+		/// Maximum acceptable reason length.
+		///
+		/// Benchmarks depend on this value, be sure to update weights file when changing this
+		/// value.
+		#[pallet::constant]
+		type MaximumReasonLength: Get<u32>;
+
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Handler for the unbalanced decrease when slashing for a rejected bounty.
+		type OnSlash: OnUnbalanced<pallet_treasury::NegativeImbalanceOf<Self, I>>;
+		
+		/// Helper type for benchmarks.
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper: benchmarking::ArgumentsFactory<Self::AssetKind, Self::Beneficiary>;
 	}
+
+	#[pallet::error]
+	pub enum Error<T, I = ()> {
+	}
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config<I>, I: 'static = ()> {
+		/// New bounty proposal.
+		BountyProposed { index: BountyIndex },
+		/// A bounty proposal was rejected; funds were slashed.
+		BountyRejected { index: BountyIndex, bond: BalanceOf<T, I> },
+		/// A bounty proposal is funded and became active.
+		BountyBecameActive { index: BountyIndex },
+		/// A bounty is awarded to a beneficiary.
+		BountyAwarded { index: BountyIndex, beneficiary: T::Beneficiary },
+		/// A bounty is claimed by beneficiary.
+		BountyClaimed {
+			index: BountyIndex,
+			beneficiary: T::Beneficiary,
+			curator_stash: T::Beneficiary,
+		},
+		/// Payout payments to the beneficiary and curator stash have concluded successfully.
+		BountyPayoutProcessed {
+			index: BountyIndex,
+			asset_kind: T::AssetKind,
+			/// The amount paid to the beneficiary.
+			value: BalanceOf<T, I>,
+			beneficiary: T::Beneficiary,
+		},
+		/// A bounty is cancelled.
+		BountyCanceled { index: BountyIndex },
+		/// Refund payment has concluded successfully.
+		BountyRefundProcessed { index: BountyIndex },
+		/// A bounty expiry is extended.
+		BountyExtended { index: BountyIndex },
+		/// A bounty is approved.
+		BountyApproved { index: BountyIndex },
+		/// A bounty curator is proposed.
+		CuratorProposed { bounty_id: BountyIndex, curator: T::AccountId },
+		/// A bounty curator is unassigned.
+		CuratorUnassigned { bounty_id: BountyIndex },
+		/// A bounty curator is accepted.
+		CuratorAccepted { bounty_id: BountyIndex, curator: T::AccountId },
+		/// A payment failed and can be retried.
+		PaymentFailed { index: BountyIndex, payment_id: PaymentIdOf<T, I> },
+		/// A payment happened and can be checked.
+		Paid { index: BountyIndex, payment_id: PaymentIdOf<T, I> },
+	}
+
+	/// Number of bounty proposals that have been made.
+	#[pallet::storage]
+	pub type BountyCount<T: Config<I>, I: 'static = ()> = StorageValue<_, BountyIndex, ValueQuery>;
+
+	/// Bounties that have been made.
+	#[pallet::storage]
+	pub type Bounties<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Twox64Concat, BountyIndex, BountyOf<T, I>>;
+
+	/// The description of each bounty.
+	#[pallet::storage]
+	pub type BountyDescriptions<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Twox64Concat, BountyIndex, BoundedVec<u8, T::MaximumReasonLength>>;
 
 	#[pallet::call]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -390,5 +514,53 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			Ok(Some(<T as Config<I>>::WeightInfo::approve_bounty_with_curator()).into())
 		}
+	}
+
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<SystemBlockNumberFor<T>> for Pallet<T, I> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: SystemBlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Self::try_state_bounties_count()?;
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * `BountyCount` should be greater or equals to the length of the number of items in
+	///   `Bounties`.
+	/// * `BountyCount` should be greater or equals to the length of the number of items in
+	///   `BountyDescriptions`.
+	/// * Number of items in `Bounties` should be the same as `BountyDescriptions` length.
+	fn try_state_bounties_count() -> Result<(), sp_runtime::TryRuntimeError> {
+		let bounties_length = Bounties::<T, I>::iter().count() as u32;
+
+		ensure!(
+			<BountyCount<T, I>>::get() >= bounties_length,
+			"`BountyCount` must be grater or equals the number of `Bounties` in storage"
+		);
+
+		let bounties_description_length = BountyDescriptions::<T, I>::iter().count() as u32;
+		ensure!(
+			<BountyCount<T, I>>::get() >= bounties_description_length,
+			"`BountyCount` must be grater or equals the number of `BountiesDescriptions` in storage."
+		);
+
+		ensure!(
+				bounties_length == bounties_description_length,
+				"Number of `Bounties` in storage must be the same as the Number of `BountiesDescription` in storage."
+		);
+		Ok(())
 	}
 }
