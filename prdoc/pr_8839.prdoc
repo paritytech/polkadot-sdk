@@ -7,6 +7,9 @@ doc:
 
     AddrCache is saved as authority_discovery_addr_cache.json in the 
     folder configured by net_config_path of NetworkConfiguration.
+
+    This reduces the time it takes for a node to reconnect to peers after
+    restart.
 crates:
 - name: sc-authority-discovery
   bump: patch

@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::error::Error;
-use log::{error, info, warn};
+use log::{info, warn};
 use sc_network::{multiaddr::Protocol, Multiaddr};
 use sc_network_types::PeerId;
 use serde::{Deserialize, Serialize};
@@ -53,35 +53,32 @@ fn write_to_file(path: impl AsRef<Path>, contents: &str) -> io::Result<()> {
 	Ok(())
 }
 
+impl TryFrom<&Path> for AddrCache {
+	type Error = Error;
+
+	fn try_from(path: &Path) -> Result<Self, Self::Error> {
+		// Try to load from the cache file if it exists and is valid.
+		load_from_file::<AddrCache>(&path)
+			.map_err(|e| Error::EncodingDecodingAddrCache(
+				format!("Failed to load AddrCache from file: {}, error: {:?}", path.display(), e)
+			))
+	}
+}
 impl AddrCache {
 	pub fn new() -> Self {
 		AddrCache::default()
 	}
 
-	/// Load contents of persisted cache from file, if it exists, and is valid. Create a new one
-	/// otherwise, and install a callback to persist it on change.
-	pub fn load_from_persisted_file(path: impl AsRef<Path>) -> Self {
-		// Try to load from the cache file if it exists and is valid.
-		load_from_file::<AddrCache>(&path.as_ref())
-			.map_err(|e| Error::EncodingDecodingAddrCache(
-				format!("Failed to load AddrCache from file: {}, error: {:?}", path.as_ref().display(), e)
-			))
-			.unwrap_or_else(|e| {
-				warn!(target: super::LOG_TARGET, "Failed to load AddrCache from file, using empty instead, error: {}", e);
-				AddrCache::new()
-			})
-	}
-
 	pub fn serialize(&self) -> Option<String> {
 		serde_json::to_string_pretty(self).inspect_err(|e| {
-			error!(target: super::LOG_TARGET, "Failed to serialize AddrCache to JSON: {} => skip persisting it.", e);
+			warn!(target: super::LOG_TARGET, "Failed to serialize AddrCache to JSON: {} => skip persisting it.", e);
 		}).ok()
 	}
 
 	pub fn persist(path: impl AsRef<Path>, serialized_cache: String) {
 		match write_to_file(path.as_ref(), &serialized_cache) {
 			Err(err) => {
-				error!(target: super::LOG_TARGET, "Failed to persist AddrCache on disk at path: {}, error: {}", path.as_ref().display(), err);
+				warn!(target: super::LOG_TARGET, "Failed to persist AddrCache on disk at path: {}, error: {}", path.as_ref().display(), err);
 			},
 			Ok(_) => {
 				info!(target: super::LOG_TARGET, "Successfully persisted AddrCache on disk");
@@ -223,7 +220,6 @@ fn load_from_file<T: DeserializeOwned>(path: impl AsRef<Path>) -> io::Result<T> 
 	let reader = BufReader::new(file);
 
 	serde_json::from_reader(reader).map_err(|e| {
-		error!(target: super::LOG_TARGET, "Failed to load from file: {}", e);
 		io::Error::new(io::ErrorKind::InvalidData, e)
 	})
 }
@@ -511,7 +507,7 @@ mod tests {
 		assert_eq!(sample.num_authority_ids(), 2);
 		serialize_and_write_to_file(&path, &sample).unwrap();
 		sleep(Duration::from_millis(10)); // Ensure file is written before loading
-		let cache = AddrCache::load_from_persisted_file(path);
+		let cache = AddrCache::try_from(path.as_path()).unwrap();
 		assert_eq!(cache.num_authority_ids(), 2);
 	}
 }

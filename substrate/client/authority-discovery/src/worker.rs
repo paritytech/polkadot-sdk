@@ -38,7 +38,7 @@ use ip_network::IpNetwork;
 use linked_hash_set::LinkedHashSet;
 use sc_network_types::kad::{Key, PeerRecord, Record};
 
-use log::{debug, error, trace, warn};
+use log::{debug, error, trace, info};
 use prometheus_endpoint::{register, Counter, CounterVec, Gauge, Opts, U64};
 use prost::Message;
 use rand::{seq::SliceRandom, thread_rng};
@@ -74,6 +74,7 @@ pub mod tests;
 
 const LOG_TARGET: &str = "sub-authority-discovery";
 const ADDR_CACHE_FILE_NAME: &str = "authority_discovery_addr_cache.json";
+const ADDR_CACHE_PERSIST_INTERVAL: Duration = Duration::from_secs(60 * 10); // 10 minutes
 
 /// Maximum number of addresses cached per authority. Additional addresses are discarded.
 const MAX_ADDRESSES_PER_AUTHORITY: usize = 16;
@@ -288,9 +289,15 @@ where
 		let addr_cache: AddrCache = if let Some(persisted_cache_file_path) =
 			maybe_persisted_cache_file_path.as_ref()
 		{
-			AddrCache::load_from_persisted_file(persisted_cache_file_path)
+			let loaded = AddrCache::try_from(persisted_cache_file_path.as_path())
+				.unwrap_or_else(|e| {
+					info!(target: LOG_TARGET, "Failed to load AddrCache from file, using empty instead, error: {}", e);
+					AddrCache::new()
+				});
+			info!(target: LOG_TARGET, "Loaded persisted AddrCache with {} authority ids.", loaded.num_authority_ids());
+			loaded
 		} else {
-			warn!(target: LOG_TARGET, "Warning: No persisted cache file path provided, authority discovery will not persist the address cache to disk.");
+			info!(target: LOG_TARGET, "No persisted cache file path provided, authority discovery will not persist the address cache to disk.");
 			AddrCache::new()
 		};
 
@@ -350,9 +357,9 @@ where
 			return;
 		};
 		let Some(serialized_cache) = self.addr_cache.serialize() else { return };
-		self.spawner.spawn(
-			"PersistAddrCache",
-			Some("AuthorityDiscoveryWorker"),
+		self.spawner.spawn_blocking(
+			"persist-addr-cache",
+			Some("authority-discovery-worker"),
 			Box::pin(async move { AddrCache::persist(path, serialized_cache) }),
 		)
 	}
@@ -360,7 +367,7 @@ where
 	/// Start the worker
 	pub async fn run(mut self) {
 		let mut persist_interval =
-			tokio::time::interval(Duration::from_secs(60 * 10 /* 10 minutes */));
+			tokio::time::interval(ADDR_CACHE_PERSIST_INTERVAL);
 
 		loop {
 			self.start_new_lookups();
