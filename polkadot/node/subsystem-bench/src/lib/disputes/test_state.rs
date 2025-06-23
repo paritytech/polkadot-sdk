@@ -18,13 +18,17 @@ use crate::{
 	configuration::{TestAuthorities, TestConfiguration},
 	network::{HandleNetworkMessage, NetworkMessage},
 };
+use polkadot_node_primitives::SignedDisputeStatement;
 use polkadot_node_subsystem_test_helpers::mock::new_block_import_info;
 use polkadot_overseer::BlockInfo;
 use polkadot_primitives::{
 	vstaging::{CandidateEvent, CandidateReceiptV2},
-	BlockNumber, CandidateCommitments, CoreIndex, GroupIndex, Hash, HeadData, Header,
+	BlockNumber, CandidateCommitments, CandidateHash, CoreIndex, GroupIndex, Hash, HeadData,
+	Header, SessionIndex, ValidatorId, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt_v2_bad_sig, dummy_hash};
+use sp_core::Public;
+use sp_keystore::KeystorePtr;
 use std::collections::HashMap;
 
 #[derive(Clone)]
@@ -39,6 +43,9 @@ pub struct TestState {
 	pub candidate_receipts: HashMap<Hash, Vec<CandidateReceiptV2>>,
 	// Map from generated candidate events
 	pub candidate_events: HashMap<Hash, Vec<CandidateEvent>>,
+	// Map from generated signed dispute statements (valid, invalid)
+	pub signed_dispute_statements:
+		HashMap<Hash, Vec<(SignedDisputeStatement, SignedDisputeStatement)>>,
 	// Relay chain block headers
 	pub block_headers: HashMap<Hash, Header>,
 }
@@ -73,6 +80,37 @@ impl TestState {
 				)
 			})
 			.collect();
+		let signed_dispute_statements = candidate_receipts
+			.iter()
+			.map(|(&hash, receipts)| {
+				(
+					hash,
+					receipts
+						.iter()
+						.map(|receipt| {
+							(
+								issue_explicit_statement_with_index(
+									test_authorities.keyring.local_keystore(),
+									ValidatorIndex(3),
+									test_authorities.validator_public[3].clone(),
+									receipt.hash(),
+									1,
+									true,
+								),
+								issue_explicit_statement_with_index(
+									test_authorities.keyring.local_keystore(),
+									ValidatorIndex(1),
+									test_authorities.validator_public[1].clone(),
+									receipt.hash(),
+									1,
+									false,
+								),
+							)
+						})
+						.collect::<Vec<_>>(),
+				)
+			})
+			.collect();
 		let block_headers = block_infos.iter().map(generate_block_header).collect();
 
 		Self {
@@ -81,6 +119,7 @@ impl TestState {
 			block_infos,
 			candidate_receipts,
 			candidate_events,
+			signed_dispute_statements,
 			block_headers,
 		}
 	}
@@ -120,6 +159,19 @@ fn generate_block_header(info: &BlockInfo) -> (Hash, Header) {
 			state_root: Default::default(),
 		},
 	)
+}
+
+fn issue_explicit_statement_with_index(
+	keystore: KeystorePtr,
+	index: ValidatorIndex,
+	public: ValidatorId,
+	candidate_hash: CandidateHash,
+	session: SessionIndex,
+	valid: bool,
+) -> SignedDisputeStatement {
+	SignedDisputeStatement::sign_explicit(&keystore, valid, candidate_hash, session, public)
+		.unwrap()
+		.unwrap()
 }
 
 #[async_trait::async_trait]

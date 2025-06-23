@@ -19,6 +19,7 @@ use crate::{
 	dummy_builder,
 	environment::{TestEnvironment, TestEnvironmentDependencies, GENESIS_HASH},
 	mock::{
+		approval_voting_parallel::MockApprovalVotingParallel,
 		candidate_backing::MockCandidateBacking,
 		chain_api::{ChainApiState, MockChainApi},
 		network_bridge::{MockNetworkBridgeRx, MockNetworkBridgeTx},
@@ -43,9 +44,10 @@ use polkadot_node_network_protocol::{
 	v3::{self, BackedCandidateManifest, StatementFilter},
 	view, ValidationProtocols, View,
 };
+use polkadot_node_primitives::SignedDisputeStatement;
 use polkadot_node_subsystem::messages::{
-	network_bridge_event::NewGossipTopology, AllMessages, NetworkBridgeEvent,
-	StatementDistributionMessage,
+	network_bridge_event::NewGossipTopology, AllMessages, DisputeCoordinatorMessage,
+	NetworkBridgeEvent, StatementDistributionMessage,
 };
 use polkadot_overseer::{
 	Handle as OverseerHandle, Overseer, OverseerConnector, OverseerMetrics, SpawnGlue,
@@ -56,7 +58,8 @@ use polkadot_primitives::{
 use sc_keystore::LocalKeystore;
 use sc_network_types::PeerId;
 use sc_service::SpawnTaskHandle;
-use sp_keystore::{Keystore, KeystorePtr};
+use sp_core::Public;
+use sp_keystore::Keystore;
 use sp_runtime::RuntimeAppPublic;
 use std::{
 	sync::{atomic::Ordering, Arc},
@@ -96,6 +99,7 @@ fn build_overseer(
 	);
 	let chain_api_state = ChainApiState { block_headers: state.block_headers.clone() };
 	let mock_chain_api = MockChainApi::new(chain_api_state);
+	let mock_approval_voting = MockApprovalVotingParallel::new();
 	let dispute_coordinator = DisputeCoordinatorSubsystem::new(
 		store,
 		config,
@@ -107,6 +111,7 @@ fn build_overseer(
 	let dummy = dummy_builder!(spawn_task_handle, overseer_metrics)
 		.replace_runtime_api(|_| mock_runtime_api)
 		.replace_chain_api(|_| mock_chain_api)
+		.replace_approval_voting_parallel(|_| mock_approval_voting)
 		.replace_dispute_coordinator(|_| dispute_coordinator);
 
 	let (overseer, raw_handle) = dummy.build_with_connector(overseer_connector).unwrap();
@@ -151,8 +156,27 @@ pub async fn benchmark_dispute_coordinator(
 		env.metrics().set_current_block(block_num);
 		env.import_block(block_info.clone()).await;
 
-		let valid_candidate_receipt = &state.candidate_receipts.get(&block_info.hash).unwrap()[0];
-		let invalid_candidate_receipt = &state.candidate_receipts.get(&block_info.hash).unwrap()[1];
+		let candidate_receipt1 = &state.candidate_receipts.get(&block_info.hash).unwrap()[0];
+		let candidate_receipt2 = &state.candidate_receipts.get(&block_info.hash).unwrap()[1];
+		let (valid_vote1, invalid_vote1) =
+			&state.signed_dispute_statements.get(&block_info.hash).unwrap()[0];
+		let (valid_vote2, invalid_vote2) =
+			&state.signed_dispute_statements.get(&block_info.hash).unwrap()[1];
+
+		env.send_message(AllMessages::DisputeCoordinator(
+			DisputeCoordinatorMessage::ImportStatements {
+				candidate_receipt: candidate_receipt1.clone(),
+				session: 1,
+				statements: vec![
+					(valid_vote1.clone(), ValidatorIndex(3)),
+					(invalid_vote1.clone(), ValidatorIndex(1)),
+				],
+				pending_confirmation: None,
+			},
+		))
+		.await;
+
+		gum::debug!("After First import!");
 	}
 
 	let duration: u128 = test_start.elapsed().as_millis();
