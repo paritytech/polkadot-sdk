@@ -271,6 +271,16 @@ where
 	check_version: bool,
 }
 
+#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+impl<T> CodeUpgradeAuthorization<T>
+where
+	T: Config,
+{
+	pub fn code_hash(&self) -> &T::Hash {
+		&self.code_hash
+	}
+}
+
 /// Information about the dispatch of a call, to be displayed in the
 /// [`ExtrinsicSuccess`](Event::ExtrinsicSuccess) and [`ExtrinsicFailed`](Event::ExtrinsicFailed)
 /// events.

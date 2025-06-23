@@ -79,6 +79,8 @@ async fn dht_bootnodes_test() -> Result<(), anyhow::Error> {
 		.wait_metric_with_timeout("substrate_sync_peers", |count| count == 1.0, 300u64)
 		.await?;
 
+	// In case of initial failure (alpha was first to start) the discovery is retried in 30 seconds,
+	// so timeout in double that time.
 	let log_line_options = LogLineCountOptions::new(|n| n == 1, Duration::from_secs(60), false);
 
 	log::info!("Make sure the DHT bootnode discovery was successful");

@@ -575,12 +575,11 @@ pub mod pallet {
 		SessionReportIntegrityFailed,
 		/// We could not merge the chunks, and therefore dropped the validator set.
 		ValidatorSetIntegrityFailed,
-	}
-
-	#[pallet::error]
-	pub enum Error<T> {
-		/// The session report was not valid, due to a bad end index.
-		SessionIndexNotValid,
+		/// The received session index is more than what we expected.
+		SessionSkipped,
+		/// A session in the past was received. This will not raise any errors, just emit an event
+		/// and stop processing the report.
+		SessionAlreadyProcessed,
 	}
 
 	impl<T: Config> RcClientInterface for Pallet<T> {
@@ -620,15 +619,26 @@ pub mod pallet {
 				Some(last) if report.end_index == last + 1 => {
 					// incremental -- good
 				},
-				Some(incorrect) => {
+				Some(last) if report.end_index > last + 1 => {
+					// deposit a warning event, but proceed
+					Self::deposit_event(Event::Unexpected(UnexpectedKind::SessionSkipped));
+					log!(
+						warn,
+						"Session report end index is more than expected. last_index={:?}, report.index={:?}",
+						last,
+						report.end_index
+					);
+				},
+				Some(past) => {
 					log!(
 						error,
 						"Session report end index is not valid. last_index={:?}, report.index={:?}",
-						incorrect,
+						past,
 						report.end_index
 					);
-					// NOTE: we may want to set ourself to a blocked mode at this point.
-					return Err(Error::<T>::SessionIndexNotValid.into());
+					Self::deposit_event(Event::Unexpected(UnexpectedKind::SessionAlreadyProcessed));
+					IncompleteSessionReport::<T>::kill();
+					return Ok(());
 				},
 			}
 
