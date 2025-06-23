@@ -16,4 +16,4 @@ crates:
   - name: pallet-balances
     bump: major
   - name: frame-support
-    bump: minor
+    bump: major
