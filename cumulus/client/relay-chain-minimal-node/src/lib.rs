@@ -84,7 +84,7 @@ fn build_authority_discovery_service<Block: BlockT>(
 		Box::pin(dht_event_stream),
 		authority_discovery_role,
 		prometheus_registry,
-		Arc::new(task_manager.spawn_handle()),
+		task_manager.spawn_handle(),
 	);
 
 	task_manager.spawn_handle().spawn(

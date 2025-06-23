@@ -582,7 +582,7 @@ where
 				Box::pin(dht_event_stream),
 				authority_discovery_role,
 				prometheus_registry.clone(),
-				Arc::new(task_manager.spawn_handle()),
+				task_manager.spawn_handle(),
 			);
 
 			task_manager.spawn_handle().spawn(
