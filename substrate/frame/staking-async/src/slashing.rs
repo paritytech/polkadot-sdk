@@ -41,10 +41,9 @@
 //! Based on research at <https://research.web3.foundation/Polkadot/security/slashing/npos>
 
 use crate::{
-	asset, log, session_rotation::Eras, BalanceOf, Config, NegativeImbalanceOf,
-	OffenceQueue, OffenceQueueEras, PagedExposure, Pallet, Perbill,
-	ProcessingOffence, SlashRewardFraction, UnappliedSlash, UnappliedSlashes, ValidatorSlashInEra,
-	WeightInfo,
+	asset, log, session_rotation::Eras, BalanceOf, Config, NegativeImbalanceOf, OffenceQueue,
+	OffenceQueueEras, PagedExposure, Pallet, Perbill, ProcessingOffence, SlashRewardFraction,
+	UnappliedSlash, UnappliedSlashes, ValidatorSlashInEra, WeightInfo,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -351,8 +350,7 @@ fn slash_nominators<T: Config>(
 	nominators_slashed.reserve(params.exposure.exposure_page.others.len());
 	for nominator in &params.exposure.exposure_page.others {
 		let stash = &nominator.who;
-		let prior_slashed =
-			params.prior_slash * nominator.value;
+		let prior_slashed = params.prior_slash * nominator.value;
 		let new_slash = params.slash * nominator.value;
 		// this should always be positive since prior slash is always less than the new slash or
 		// filtered out.

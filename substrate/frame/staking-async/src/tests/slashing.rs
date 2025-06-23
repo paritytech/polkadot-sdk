@@ -668,7 +668,12 @@ fn nominator_is_slashed_by_max_for_validator_in_era() {
 					validator: validator_one,
 					fraction: Perbill::from_percent(10)
 				},
-				Event::SlashComputed { offence_era: slash_era, slash_era, offender: validator_one, page: 0 },
+				Event::SlashComputed {
+					offence_era: slash_era,
+					slash_era,
+					offender: validator_one,
+					page: 0
+				},
 				Event::Slashed { staker: validator_one, amount: slash_v1_amount },
 				Event::Slashed { staker: nominator, amount: first_slash_nominator_amount }
 			]
@@ -684,8 +689,7 @@ fn nominator_is_slashed_by_max_for_validator_in_era() {
 		let slash_v2_amount = Perbill::from_percent(30) * 1000u128;
 		assert_eq!(slash_v2_amount, 300);
 		// full nominator value is slashed, even though nominator was already slashed in this era.
-		let second_slash_nominator_amount =
-			Perbill::from_percent(30) * nominated_value_v2;
+		let second_slash_nominator_amount = Perbill::from_percent(30) * nominated_value_v2;
 		assert_eq!(second_slash_nominator_amount, 75);
 
 		assert_eq!(
@@ -696,7 +700,12 @@ fn nominator_is_slashed_by_max_for_validator_in_era() {
 					validator: validator_two,
 					fraction: Perbill::from_percent(30)
 				},
-				Event::SlashComputed { offence_era: slash_era, slash_era, offender: validator_two, page: 0 },
+				Event::SlashComputed {
+					offence_era: slash_era,
+					slash_era,
+					offender: validator_two,
+					page: 0
+				},
 				Event::Slashed { staker: validator_two, amount: slash_v2_amount },
 				Event::Slashed { staker: nominator, amount: second_slash_nominator_amount }
 			]
@@ -708,7 +717,10 @@ fn nominator_is_slashed_by_max_for_validator_in_era() {
 		assert_eq!(v2_stakeable, 1000 - slash_v2_amount);
 		// 101 is slashed twice.
 		let nominator_slashable_balance = Staking::slashable_balance_of(&101);
-		assert_eq!(nominator_slashable_balance, 500 - first_slash_nominator_amount - second_slash_nominator_amount);
+		assert_eq!(
+			nominator_slashable_balance,
+			500 - first_slash_nominator_amount - second_slash_nominator_amount
+		);
 
 		// Third slash: in same era and on same validator as first, higher in-era value, but lower
 		// slash value than slash 2.
@@ -725,7 +737,12 @@ fn nominator_is_slashed_by_max_for_validator_in_era() {
 					validator: validator_one,
 					fraction: Perbill::from_percent(20),
 				},
-				Event::SlashComputed { offence_era: slash_era, slash_era, offender: validator_one, page: 0 },
+				Event::SlashComputed {
+					offence_era: slash_era,
+					slash_era,
+					offender: validator_one,
+					page: 0
+				},
 				Event::Slashed {
 					staker: validator_one,
 					amount: Perbill::from_percent(10) * 1000u128, // the slash perbill delta is 10%
@@ -739,8 +756,16 @@ fn nominator_is_slashed_by_max_for_validator_in_era() {
 		);
 
 		// 11 and 101 was further slashed, but 21 was not.
-		assert_eq!(asset::stakeable_balance::<T>(&validator_one), 1000 - slash_v1_amount - (Perbill::from_percent(10) * 1000u128));
-		assert_eq!(asset::stakeable_balance::<T>(&nominator), 500 - first_slash_nominator_amount - second_slash_nominator_amount - third_slash_nominator_amount);
+		assert_eq!(
+			asset::stakeable_balance::<T>(&validator_one),
+			1000 - slash_v1_amount - (Perbill::from_percent(10) * 1000u128)
+		);
+		assert_eq!(
+			asset::stakeable_balance::<T>(&nominator),
+			500 - first_slash_nominator_amount -
+				second_slash_nominator_amount -
+				third_slash_nominator_amount
+		);
 		assert_eq!(asset::stakeable_balance::<T>(&21), v2_stakeable);
 	});
 }
