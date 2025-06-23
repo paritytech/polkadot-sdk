@@ -67,6 +67,14 @@ where
 		let trace = core::mem::take(&mut self.trace);
 		let (mut pre, mut post) = trace;
 		let include_code = !self.config.disable_code;
+
+		let is_empty = |info: &PrestateTraceInfo| {
+			!info.storage.values().any(|v| v.is_some()) &&
+				info.balance.is_none() &&
+				info.nonce.is_none() &&
+				info.code.is_none()
+		};
+
 		if self.config.diff_mode {
 			// clean up the storage that are in pre but not in post these are just read
 			pre.iter_mut().for_each(|(addr, info)| {
@@ -78,6 +86,10 @@ where
 			});
 
 			pre.retain(|addr, pre_info| {
+				if is_empty(&pre_info) {
+					return false
+				}
+
 				let post_info = post.entry(*addr).or_insert_with_key(|addr| {
 					Self::prestate_info(
 						addr,
@@ -110,8 +122,10 @@ where
 				true
 			});
 
+			post.retain(|_, info| !is_empty(&info));
 			PrestateTrace::DiffMode { pre, post }
 		} else {
+			pre.retain(|_, info| !is_empty(&info));
 			PrestateTrace::Prestate(pre)
 		}
 	}
