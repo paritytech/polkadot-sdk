@@ -29,9 +29,9 @@ use sp_runtime::{
 use std::{
 	collections::{HashMap, HashSet},
 	sync::Arc,
-	time::{Duration, Instant},
+	time::Instant,
 };
-use tracing::{debug, trace, warn, Level};
+use tracing::{debug, trace, warn};
 
 use super::{
 	base_pool::{self as base, PruneStatus},
