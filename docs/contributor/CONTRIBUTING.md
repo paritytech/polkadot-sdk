@@ -11,6 +11,7 @@ via pull-requests and need to be approved by the maintainers.
 > directly in the repository to send a pull request.
 
 ## How?
+
 In order to build this project you need to install some dependencies, follow the instructions in [this guide](https://docs.polkadot.com/develop/parachains/install-polkadot-sdk).
 
 ## Rules
