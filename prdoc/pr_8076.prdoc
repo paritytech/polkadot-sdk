@@ -1,8 +1,8 @@
-title: 'Enable statement store in polkadot-omni-node and polkadot-parachain'
+title: 'Enable statement store with new CLI arg in polkadot-omni-node and polkadot-parachain'
 doc:
 - audience: Node Operator
   description: |-
-    In `polkadot-omni-node-lib`, when starting the node, when the runtime for the best hash contains the runtime api: `ValidateStatement`, then we start the statement store.
+    In `polkadot-omni-node-lib`, a new cli arg `--enable-statement-store` is introduced, if set to true then the statement store is enabled in the node.
 
     The statement store is an off-chain data-store for signed statements accessible via RPC and offchain worker.
     It uses the runtime api to get the allowance associated to an account.
