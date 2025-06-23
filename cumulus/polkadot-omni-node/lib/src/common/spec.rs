@@ -346,12 +346,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			);
 
 			let statement_handler_proto = node_extra_args.enable_statement_store.then(|| {
-				new_statement_handler_proto(
-					&*client,
-					&parachain_config,
-					&metrics,
-					&mut net_config,
-				)
+				new_statement_handler_proto(&*client, &parachain_config, &metrics, &mut net_config)
 			});
 
 			let (network, system_rpc_tx, tx_handler_controller, sync_service) =
