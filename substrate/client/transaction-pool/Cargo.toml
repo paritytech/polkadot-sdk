@@ -48,9 +48,14 @@ tracing = { workspace = true, default-features = true }
 [dev-dependencies]
 anyhow = { workspace = true }
 assert_matches = { workspace = true }
+chrono = { workspace = true }
 criterion = { workspace = true, default-features = true }
+cumulus-zombienet-sdk-helpers = { workspace = true }
+env_logger = { workspace = true }
 rstest = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 sp-consensus = { workspace = true, default-features = true }
 substrate-test-runtime = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
@@ -59,4 +64,5 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tracing-subscriber = { workspace = true }
 txtesttool = { workspace = true }
+zombienet-configuration = { workspace = true }
 zombienet-sdk = { workspace = true }

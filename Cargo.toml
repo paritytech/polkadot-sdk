@@ -1436,7 +1436,7 @@ trybuild = { version = "1.0.103" }
 tt-call = { version = "1.0.8" }
 tuplex = { version = "0.1", default-features = false }
 twox-hash = { version = "1.6.3", default-features = false }
-txtesttool = { version = "0.5.0", package = "substrate-txtesttool" }
+txtesttool = { version = "0.6.0", package = "substrate-txtesttool" }
 unsigned-varint = { version = "0.7.2" }
 url = { version = "2.5.4" }
 verifiable = { version = "0.1", default-features = false }
@@ -1465,6 +1465,7 @@ xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = 
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 yet-another-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/yet-another-parachain" }
 zeroize = { version = "1.7.0", default-features = false }
+zombienet-configuration = { version = "0.3.6" }
 zombienet-orchestrator = { version = "0.3.6" }
 zombienet-sdk = { version = "0.3.6" }
 zstd = { version = "0.12.4", default-features = false }
