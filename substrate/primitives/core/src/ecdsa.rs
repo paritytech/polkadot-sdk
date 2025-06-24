@@ -128,7 +128,7 @@ pub type Signature = GenericSignature<EcdsaTag>;
 pub type KeccakSignature = GenericSignature<EcdsaKeccakTag>;
 
 /// A signature that allows recovering the public key from a message.
-pub trait Recover {
+pub trait Recover: seal::Sealed {
 	/// Recover the public key from this signature and a pre-hashed message.
 	fn recover_prehashed(&self, message: &[u8; 32]) -> Option<Public>;
 
@@ -507,6 +507,12 @@ impl CryptoType for KeccakPair {
 }
 
 impl NonAggregatable for Pair {}
+
+mod seal {
+	pub trait Sealed {}
+	impl Sealed for super::Signature {}
+	impl Sealed for super::KeccakSignature {}
+}
 
 #[cfg(test)]
 mod test {
