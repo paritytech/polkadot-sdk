@@ -933,13 +933,12 @@ where
 				// is a delegate call or not
 				let mut contract = match (cached_info, &precompile) {
 					(Some(info), _) => CachedContract::Cached(info),
-					(None, None) => {
+					(None, None) =>
 						if let Some(info) = <ContractInfoOf<T>>::get(&address) {
 							CachedContract::Cached(info)
 						} else {
 							return Ok(None);
-						}
-					},
+						},
 					(None, Some(precompile)) if precompile.has_contract_info() => {
 						if let Some(info) = <ContractInfoOf<T>>::get(&address) {
 							CachedContract::Cached(info)
@@ -1185,9 +1184,9 @@ where
 			//  - Only when not delegate calling we are executing in the context of the pre-compile.
 			//    Pre-compiles itself cannot delegate call.
 			if let Some(precompile) = executable.as_precompile() {
-				if precompile.has_contract_info()
-					&& frame.delegate.is_none()
-					&& !<System<T>>::account_exists(account_id)
+				if precompile.has_contract_info() &&
+					frame.delegate.is_none() &&
+					!<System<T>>::account_exists(account_id)
 				{
 					// prefix matching pre-compiles cannot have a contract info
 					// hence we only mint once per pre-compile
@@ -1203,12 +1202,10 @@ where
 				.unwrap_or_default();
 
 			let output = match executable {
-				ExecutableOrPrecompile::Executable(executable) => {
-					executable.execute(self, entry_point, input_data)
-				},
-				ExecutableOrPrecompile::Precompile { instance, .. } => {
-					instance.call(input_data, self)
-				},
+				ExecutableOrPrecompile::Executable(executable) =>
+					executable.execute(self, entry_point, input_data),
+				ExecutableOrPrecompile::Precompile { instance, .. } =>
+					instance.call(input_data, self),
 			}
 			.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })?;
 
@@ -1250,9 +1247,8 @@ where
 			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 				let output = do_transaction();
 				match &output {
-					Ok(result) if !result.did_revert() => {
-						TransactionOutcome::Commit(Ok((true, output)))
-					},
+					Ok(result) if !result.did_revert() =>
+						TransactionOutcome::Commit(Ok((true, output))),
 					_ => TransactionOutcome::Rollback(Ok((false, output))),
 				}
 			});
