@@ -1,5 +1,6 @@
 TestConfiguration:
-- objective: DisputeCoordinator
+- objective: !DisputeCoordinator
+    n_disputes: 10
   num_blocks: 10
   n_cores: 100
   n_validators: 500

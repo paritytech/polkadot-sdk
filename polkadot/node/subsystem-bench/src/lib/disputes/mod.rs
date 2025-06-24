@@ -36,23 +36,15 @@ use polkadot_node_core_dispute_coordinator::{
 	Config as DisputeCoordinatorConfig, DisputeCoordinatorSubsystem,
 };
 use polkadot_node_metrics::metrics::Metrics;
-use polkadot_node_network_protocol::request_response::{
-	v1::DisputeRequest, IncomingRequest, ReqProtocolNames,
-};
-use polkadot_node_primitives::{InvalidDisputeVote, UncheckedDisputeMessage, ValidDisputeVote};
-use polkadot_node_subsystem::messages::{
-	AllMessages, DisputeCoordinatorMessage, ImportStatementsResult,
-};
+use polkadot_node_network_protocol::request_response::{IncomingRequest, ReqProtocolNames};
 use polkadot_overseer::{
 	Handle as OverseerHandle, Overseer, OverseerConnector, OverseerMetrics, SpawnGlue,
 };
-use polkadot_primitives::{
-	AuthorityDiscoveryId, Block, Hash, InvalidDisputeStatementKind, ValidDisputeStatementKind,
-	ValidatorId, ValidatorIndex,
-};
+use polkadot_primitives::{AuthorityDiscoveryId, Block, Hash, ValidatorId};
 use sc_keystore::LocalKeystore;
 use sc_network::request_responses::IncomingRequest as RawIncomingRequest;
 use sc_service::SpawnTaskHandle;
+use serde::{Deserialize, Serialize};
 use sp_keystore::Keystore;
 use sp_runtime::RuntimeAppPublic;
 use std::{sync::Arc, time::Instant};
@@ -61,6 +53,16 @@ pub use test_state::TestState;
 mod test_state;
 
 const LOG_TARGET: &str = "subsystem-bench::disputes";
+
+/// Parameters specific to the approvals benchmark
+#[derive(Debug, Clone, Serialize, Deserialize, clap::Parser)]
+#[clap(rename_all = "kebab-case")]
+#[allow(missing_docs)]
+pub struct DisputesOptions {
+	#[clap(short, long, default_value_t = 10)]
+	/// The number of disputes to participate in.
+	pub n_disputes: u32,
+}
 
 pub fn make_keystore() -> Arc<LocalKeystore> {
 	let keystore = Arc::new(LocalKeystore::in_memory());
@@ -183,39 +185,52 @@ pub async fn benchmark_dispute_coordinator(
 		env.metrics().set_current_block(block_num);
 		env.import_block(block_info.clone()).await;
 
-		let candidate_receipt = &state.candidate_receipts.get(&block_info.hash).unwrap()[0];
-		let peer_id = *env.authorities().peer_ids.get(1).expect("all validators have ids");
-		let payload = state.dispute_requests.get(&candidate_receipt.hash()).expect("pregenerated");
-		let (pending_response, pending_response_receiver) = futures::channel::oneshot::channel();
-		let request =
-			RawIncomingRequest { peer: peer_id, payload: payload.encode(), pending_response };
-		let peer = env
-			.authorities()
-			.validator_authority_id
-			.get(1)
-			.expect("all validators have keys");
+		let candidate_receipts =
+			state.candidate_receipts.get(&block_info.hash).expect("pregenerated");
+		for candidate_receipt in candidate_receipts.iter() {
+			let peer_id = *env.authorities().peer_ids.get(1).expect("all validators have ids");
+			let payload =
+				state.dispute_requests.get(&candidate_receipt.hash()).expect("pregenerated");
+			let (pending_response, pending_response_receiver) =
+				futures::channel::oneshot::channel();
+			let request =
+				RawIncomingRequest { peer: peer_id, payload: payload.encode(), pending_response };
+			let peer = env
+				.authorities()
+				.validator_authority_id
+				.get(1)
+				.expect("all validators have keys");
 
-		assert!(env.network().is_peer_connected(peer), "Peer {:?} is not connected", peer);
-		env.network().send_request_from_peer(peer, request).unwrap();
-		gum::info!(target: LOG_TARGET, "Dispute request sent to node from peer {:?}", pending_response_receiver.await);
+			assert!(env.network().is_peer_connected(peer), "Peer {:?} is not connected", peer);
+			env.network().send_request_from_peer(peer, request).unwrap();
+			gum::info!(target: LOG_TARGET, "Dispute request sent to node from peer {:?}", pending_response_receiver.await);
+		}
 
-		let requests_expected =
-			(state.config.n_validators * state.config.connectivity / 100) as usize - 1;
+		let candidate_hashes =
+			candidate_receipts.iter().map(|receipt| receipt.hash()).collect::<Vec<_>>();
+		let requests_expected = candidate_hashes.len() *
+			((state.config.n_validators * state.config.connectivity / 100) as usize - 1);
+
 		loop {
-			let requests_sent = state
-				.requests_tracker
-				.lock()
-				.unwrap()
-				.get(&candidate_receipt.hash())
-				.or(Some(&Default::default()))
-				.unwrap()
-				.len();
+			let requests_sent = candidate_hashes
+				.iter()
+				.map(|candidate_hash| {
+					state
+						.requests_tracker
+						.lock()
+						.unwrap()
+						.get(candidate_hash)
+						.or(Some(&Default::default()))
+						.unwrap()
+						.len()
+				})
+				.sum::<usize>();
 
+			gum::info!(target: LOG_TARGET, "Waiting for dispute requests to be sent: {}/{}", requests_sent, requests_expected);
 			if requests_sent == requests_expected {
 				break;
 			}
 
-			gum::info!(target: LOG_TARGET, "Waiting for dispute requests to be sent for candidate {}: {} / {}", candidate_receipt.hash(), requests_sent, requests_expected);
 			tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 		}
 	}

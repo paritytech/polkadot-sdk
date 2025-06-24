@@ -16,6 +16,7 @@
 
 use crate::{
 	configuration::{TestAuthorities, TestConfiguration},
+	disputes::DisputesOptions,
 	network::{HandleNetworkMessage, NetworkMessage},
 };
 use codec::Encode;
@@ -62,7 +63,7 @@ pub struct TestState {
 }
 
 impl TestState {
-	pub fn new(config: &TestConfiguration) -> Self {
+	pub fn new(config: &TestConfiguration, options: &DisputesOptions) -> Self {
 		let config = config.clone();
 		let test_authorities = config.generate_authorities();
 		let block_infos: Vec<BlockInfo> =
@@ -70,8 +71,12 @@ impl TestState {
 		let candidate_receipts: HashMap<Hash, Vec<CandidateReceiptV2>> = block_infos
 			.iter()
 			.map(|block_info| {
-				let valid = make_valid_candidate_receipt(block_info.hash);
-				(block_info.hash, vec![valid])
+				(
+					block_info.hash,
+					(0..options.n_disputes)
+						.map(|_| make_valid_candidate_receipt(block_info.hash))
+						.collect(),
+				)
 			})
 			.collect();
 

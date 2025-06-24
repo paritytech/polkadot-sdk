@@ -43,7 +43,7 @@ pub enum TestObjective {
 	// Benchmark the statement-distribution subsystem
 	StatementDistribution,
 	/// Benchmark the dispute-coordinator subsystem
-	DisputeCoordinator,
+	DisputeCoordinator(disputes::DisputesOptions),
 }
 
 impl std::fmt::Display for TestObjective {
@@ -56,7 +56,7 @@ impl std::fmt::Display for TestObjective {
 				Self::DataAvailabilityWrite => "DataAvailabilityWrite",
 				Self::ApprovalVoting(_) => "ApprovalVoting",
 				Self::StatementDistribution => "StatementDistribution",
-				Self::DisputeCoordinator => "DisputeCoordinator",
+				Self::DisputeCoordinator(_) => "DisputeCoordinator",
 			}
 		)
 	}
@@ -172,8 +172,8 @@ impl BenchCli {
 					env.runtime()
 						.block_on(statement::benchmark_statement_distribution(&mut env, &state))
 				},
-				TestObjective::DisputeCoordinator => {
-					let state = disputes::TestState::new(&test_config);
+				TestObjective::DisputeCoordinator(ref options) => {
+					let state = disputes::TestState::new(&test_config, options);
 					let mut env = disputes::prepare_test(&state, true);
 					env.runtime()
 						.block_on(disputes::benchmark_dispute_coordinator(&mut env, &state))
