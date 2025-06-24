@@ -1437,6 +1437,12 @@ impl_runtime_apis! {
 			genesis_config_presets::preset_names()
 		}
 	}
+
+	impl cumulus_primitives_core::GetParachainInfo<Block> for Runtime {
+		fn parachain_id() -> ParaId {
+			ParachainInfo::parachain_id()
+		}
+	}
 }
 
 cumulus_pallet_parachain_system::register_validate_block! {
