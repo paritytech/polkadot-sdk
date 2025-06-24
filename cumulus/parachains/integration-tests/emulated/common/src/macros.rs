@@ -20,6 +20,7 @@ pub use frame_support::{pallet_prelude::Weight, weights::WeightToFee};
 pub use pallet_assets;
 pub use pallet_balances;
 pub use pallet_message_queue;
+pub use pallet_whitelist;
 pub use pallet_xcm;
 
 // Polkadot
@@ -37,7 +38,7 @@ pub use xcm::{
 pub use asset_test_utils;
 pub use cumulus_pallet_xcmp_queue;
 pub use parachains_common::AccountId;
-pub use xcm_emulator::Chain;
+pub use xcm_emulator::{assert_expected_events, Chain};
 
 #[macro_export]
 macro_rules! test_parachain_is_trusted_teleporter {
@@ -821,4 +822,19 @@ macro_rules! test_cross_chain_alias {
 			)+
 		}
 	};
+}
+
+#[macro_export]
+macro_rules! assert_whitelisted {
+    ($chain:ident, $expected_call_hash:expr) => {
+		type RuntimeEvent = <$chain as $crate::macros::Chain>::RuntimeEvent;
+		$crate::macros::assert_expected_events!(
+			$chain,
+			vec![
+				RuntimeEvent::Whitelist($crate::macros::pallet_whitelist::Event::CallWhitelisted { call_hash }) => {
+						call_hash: *call_hash == $expected_call_hash,
+				},
+			]
+		);
+    };
 }
