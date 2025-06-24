@@ -105,7 +105,7 @@ async fn timeout<F, T>(future: F) -> Result<T, anyhow::Error>
 where
 	F: futures::Future<Output = Result<T, anyhow::Error>>,
 {
-	Ok(tokio::time::timeout(Duration::from_secs(60), future).await??)
+	tokio::time::timeout(Duration::from_secs(60), future).await?
 }
 
 async fn initialize_network() -> Result<NetworkActors, anyhow::Error> {
