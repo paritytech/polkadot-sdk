@@ -49,6 +49,7 @@ tracing = { workspace = true, default-features = true }
 anyhow = { workspace = true }
 assert_matches = { workspace = true }
 criterion = { workspace = true, default-features = true }
+rstest = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 substrate-test-runtime = { workspace = true }
