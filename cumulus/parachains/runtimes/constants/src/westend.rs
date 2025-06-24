@@ -195,3 +195,15 @@ pub mod xcm_version {
 	/// The default XCM version to set in genesis config.
 	pub const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 }
+
+pub mod locations {
+	use cumulus_primitives_core::ParaId;
+	use frame_support::parameter_types;
+	use xcm::latest::prelude::{Location, Parachain};
+	use rococo_runtime_constants::system_parachain::ASSET_HUB_ID;
+
+	parameter_types! {
+		pub AssetHubParaId: ParaId = ParaId::from(ASSET_HUB_ID);
+		pub AssetHubLocation: Location = Location::new(1, Parachain(ASSET_HUB_ID));
+	}
+}
