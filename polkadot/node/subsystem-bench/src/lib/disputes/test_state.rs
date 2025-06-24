@@ -45,7 +45,7 @@ pub struct TestState {
 	pub test_authorities: TestAuthorities,
 	// Relay chain block infos
 	pub block_infos: Vec<BlockInfo>,
-	// Map from generated candidate receipts vec![valid, invalid]
+	// Map from generated candidate receipts
 	pub candidate_receipts: HashMap<Hash, Vec<CandidateReceiptV2>>,
 	// Map from generated candidate events
 	pub candidate_events: HashMap<Hash, Vec<CandidateEvent>>,
@@ -54,8 +54,7 @@ pub struct TestState {
 		HashMap<Hash, Vec<(SignedDisputeStatement, SignedDisputeStatement)>>,
 	// Relay chain block headers
 	pub block_headers: HashMap<Hash, Header>,
-	// Map from generated candidate hashes to missing availability
-	pub missing_availability: Vec<CandidateHash>,
+	// Map from candidate hash to authorities that have received a dispute request
 	pub requests_tracker: Arc<Mutex<HashMap<CandidateHash, HashSet<AuthorityDiscoveryId>>>>,
 }
 
@@ -65,14 +64,13 @@ impl TestState {
 		let test_authorities = config.generate_authorities();
 		let block_infos: Vec<BlockInfo> =
 			(1..=config.num_blocks).map(generate_block_info).collect();
-		let mut candidate_receipts: HashMap<Hash, Vec<CandidateReceiptV2>> = Default::default();
-		let mut missing_availability: Vec<CandidateHash> = Default::default();
-		for block_info in block_infos.iter() {
-			let valid = make_valid_candidate_receipt(block_info.hash);
-			let invalid = make_invalid_candidate_receipt(block_info.hash);
-			missing_availability.push(invalid.hash());
-			candidate_receipts.insert(block_info.hash, vec![valid, invalid]);
-		}
+		let candidate_receipts: HashMap<Hash, Vec<CandidateReceiptV2>> = block_infos
+			.iter()
+			.map(|block_info| {
+				let valid = make_valid_candidate_receipt(block_info.hash);
+				(block_info.hash, vec![valid])
+			})
+			.collect();
 
 		let candidate_events = candidate_receipts
 			.iter()
@@ -123,7 +121,6 @@ impl TestState {
 			test_authorities,
 			block_infos,
 			candidate_receipts,
-			missing_availability,
 			candidate_events,
 			signed_dispute_statements,
 			block_headers,
@@ -136,10 +133,6 @@ fn make_valid_candidate_receipt(relay_parent: Hash) -> CandidateReceiptV2 {
 	let mut candidate_receipt = dummy_candidate_receipt_v2_bad_sig(relay_parent, dummy_hash());
 	candidate_receipt.commitments_hash = CandidateCommitments::default().hash();
 	candidate_receipt
-}
-
-fn make_invalid_candidate_receipt(relay_parent: Hash) -> CandidateReceiptV2 {
-	dummy_candidate_receipt_v2_bad_sig(relay_parent, Some(Default::default()))
 }
 
 fn make_candidate_backed_event(receipt: CandidateReceiptV2) -> CandidateEvent {

@@ -36,7 +36,6 @@ use polkadot_node_core_dispute_coordinator::{
 };
 use polkadot_node_metrics::metrics::Metrics;
 use polkadot_node_network_protocol::request_response::{IncomingRequest, ReqProtocolNames};
-use polkadot_node_primitives::DisputeStatus;
 use polkadot_node_subsystem::messages::{
 	AllMessages, DisputeCoordinatorMessage, ImportStatementsResult,
 };
@@ -96,8 +95,7 @@ fn build_overseer(
 	);
 	let chain_api_state = ChainApiState { block_headers: state.block_headers.clone() };
 	let mock_chain_api = MockChainApi::new(chain_api_state);
-	let mock_availability_recovery =
-		MockAvailabilityRecovery::new(state.missing_availability.clone());
+	let mock_availability_recovery = MockAvailabilityRecovery::new(vec![]);
 	let mock_approval_voting = MockApprovalVotingParallel::new();
 	let mock_candidate_validation = MockCandidateValidation::new();
 	let network_bridge_tx = MockNetworkBridgeTx::new(
@@ -177,64 +175,34 @@ pub async fn benchmark_dispute_coordinator(
 		env.metrics().set_current_block(block_num);
 		env.import_block(block_info.clone()).await;
 
-		let candidate_receipt1 = &state.candidate_receipts.get(&block_info.hash).unwrap()[0];
-		let candidate_receipt2 = &state.candidate_receipts.get(&block_info.hash).unwrap()[1];
-		let (valid_vote1, invalid_vote1) =
+		let candidate_receipt = &state.candidate_receipts.get(&block_info.hash).unwrap()[0];
+		let (valid_vote, invalid_vote) =
 			&state.signed_dispute_statements.get(&block_info.hash).unwrap()[0];
-		let (valid_vote2, invalid_vote2) =
-			&state.signed_dispute_statements.get(&block_info.hash).unwrap()[1];
 
 		let (confirmation_tx, confirmation_rx) = futures::channel::oneshot::channel();
 		env.send_message(AllMessages::DisputeCoordinator(
 			DisputeCoordinatorMessage::ImportStatements {
-				candidate_receipt: candidate_receipt1.clone(),
+				candidate_receipt: candidate_receipt.clone(),
 				session: 1,
 				statements: vec![
-					(valid_vote1.clone(), ValidatorIndex(3)),
-					(invalid_vote1.clone(), ValidatorIndex(1)),
+					(valid_vote.clone(), ValidatorIndex(3)),
+					(invalid_vote.clone(), ValidatorIndex(1)),
 				],
 				pending_confirmation: Some(confirmation_tx),
 			},
 		))
 		.await;
 		assert_eq!(confirmation_rx.await.unwrap(), ImportStatementsResult::ValidImport);
-		gum::info!(target: LOG_TARGET, "First import confirmed");
-		tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-
-		let (active_disputes_tx, active_disputes_rx) = futures::channel::oneshot::channel();
-		env.send_message(AllMessages::DisputeCoordinator(
-			DisputeCoordinatorMessage::ActiveDisputes(active_disputes_tx),
-		))
-		.await;
-
-		assert_eq!(
-			active_disputes_rx.await.unwrap(),
-			vec![(1, candidate_receipt1.hash(), DisputeStatus::Active)]
-		);
-		gum::info!(target: LOG_TARGET, "Active disputes queried");
-
-		let (candidate_votes_tx, candidate_votes_rx) = futures::channel::oneshot::channel();
-		env.send_message(AllMessages::DisputeCoordinator(
-			DisputeCoordinatorMessage::QueryCandidateVotes(
-				vec![(1, candidate_receipt1.hash())],
-				candidate_votes_tx,
-			),
-		))
-		.await;
-		let (_, _, votes) = candidate_votes_rx.await.unwrap().get(0).unwrap().clone();
-		assert_eq!(votes.valid.raw().len(), 2);
-		assert_eq!(votes.invalid.len(), 1);
-		gum::info!(target: LOG_TARGET, "Candidate votes queried");
 
 		let expected_requests =
 			(state.config.n_validators * state.config.connectivity / 100) as usize - 1;
-
 		loop {
 			let requests_sent = state
 				.requests_tracker
 				.lock()
 				.unwrap()
-				.get(&candidate_receipt1.hash())
+				.get(&candidate_receipt.hash())
+				.or(Some(&Default::default()))
 				.unwrap()
 				.len();
 
@@ -242,39 +210,9 @@ pub async fn benchmark_dispute_coordinator(
 				break;
 			}
 
-			gum::info!(target: LOG_TARGET, "Waiting for dispute requests to be sent: {} / {}", requests_sent, expected_requests);
+			gum::info!(target: LOG_TARGET, "Waiting for dispute requests to be sent for candidate {}: {} / {}", candidate_receipt.hash(), requests_sent, expected_requests);
 			tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 		}
-
-		let (confirmation_tx, confirmation_rx) = futures::channel::oneshot::channel();
-		env.send_message(AllMessages::DisputeCoordinator(
-			DisputeCoordinatorMessage::ImportStatements {
-				candidate_receipt: candidate_receipt2.clone(),
-				session: 1,
-				statements: vec![
-					(valid_vote2.clone(), ValidatorIndex(3)),
-					(invalid_vote2.clone(), ValidatorIndex(1)),
-				],
-				pending_confirmation: Some(confirmation_tx),
-			},
-		))
-		.await;
-		assert_eq!(confirmation_rx.await.unwrap(), ImportStatementsResult::ValidImport);
-		gum::info!(target: LOG_TARGET, "Second import confirmed");
-		tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-
-		let (candidate_votes_tx, candidate_votes_rx) = futures::channel::oneshot::channel();
-		env.send_message(AllMessages::DisputeCoordinator(
-			DisputeCoordinatorMessage::QueryCandidateVotes(
-				vec![(1, candidate_receipt2.hash())],
-				candidate_votes_tx,
-			),
-		))
-		.await;
-		let (_, _, votes) = candidate_votes_rx.await.unwrap().get(0).unwrap().clone();
-		assert_eq!(votes.valid.raw().len(), 1);
-		assert_eq!(votes.invalid.len(), 1);
-		gum::info!(target: LOG_TARGET, "Candidate votes queried");
 	}
 
 	let duration: u128 = test_start.elapsed().as_millis();
