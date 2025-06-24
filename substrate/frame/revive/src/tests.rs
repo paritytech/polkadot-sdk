@@ -4221,6 +4221,66 @@ fn call_tracing_works() {
 }
 
 #[test]
+fn create_call_tracing_works() {
+	use crate::evm::*;
+	let (code, code_hash) = compile_module("create2_with_value").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
+
+		let mut tracer = CallTracer::new(Default::default(), |_| U256::zero());
+
+		let Contract { addr, .. } = trace(&mut tracer, || {
+			builder::bare_instantiate(Code::Upload(code.clone()))
+				.value(100)
+				.salt(None)
+				.build_and_unwrap_contract()
+		});
+
+		let call_trace = tracer.collect_trace().unwrap();
+		assert_eq!(
+			call_trace,
+			CallTrace {
+				from: ALICE_ADDR,
+				to: addr,
+				value: Some(100.into()),
+				input: Bytes(code.clone()),
+				call_type: CallType::Create,
+				..Default::default()
+			}
+		);
+
+		let mut tracer = CallTracer::new(Default::default(), |_| U256::zero());
+		let data = b"garbage";
+		let input = (code_hash, data).encode();
+		trace(&mut tracer, || {
+			assert_ok!(builder::call(addr).data(input.clone()).build());
+		});
+
+		let call_trace = tracer.collect_trace().unwrap();
+		let child_addr = crate::address::create2(&addr, &code, data, &[1u8; 32]);
+
+		assert_eq!(
+			call_trace,
+			CallTrace {
+				from: ALICE_ADDR,
+				to: addr,
+				value: Some(0.into()),
+				input: input.clone().into(),
+				calls: vec![CallTrace {
+					from: addr,
+					input: input.clone().into(),
+					to: child_addr,
+					value: Some(0.into()),
+					call_type: CallType::Create2,
+					..Default::default()
+				},],
+				..Default::default()
+			}
+		);
+	});
+}
+
+#[test]
 fn prestate_tracing_works() {
 	use crate::evm::*;
 	use alloc::collections::BTreeMap;
