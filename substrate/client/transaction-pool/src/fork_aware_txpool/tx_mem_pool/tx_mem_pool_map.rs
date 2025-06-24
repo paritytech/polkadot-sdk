@@ -229,8 +229,6 @@ where
 	///
 	/// Insertion always results with other item's removal, the len bound is kept elsewhere
 	///
-	/// (todo which may required some cleanup)
-	///
 	/// If nothing was inserted `(None,0)` is returned.
 	pub fn try_insert_with_replacement(
 		&mut self,
