@@ -223,9 +223,10 @@ pub mod v3 {
 			return
 		};
 		tracing::debug!(
-			"Migrating inbound HRMP channel with sibling {:?}, msgs left {}.",
-			next.sender,
-			next.message_metadata.len()
+			target: LOG,
+			sibling=?next.sender,
+			msgs_left=?next.message_metadata.len(),
+			"Migrating inbound HRMP channel."
 		);
 		// We take the last element since the MQ is a FIFO and we want to keep the order.
 		let Some((block_number, format)) = next.message_metadata.pop() else {
@@ -234,9 +235,10 @@ pub mod v3 {
 			return
 		};
 		if format != XcmpMessageFormat::ConcatenatedVersionedXcm {
-			tracing::warn!(target: LOG,
-				"Dropping message with format {:?} (not ConcatenatedVersionedXcm)",
-				format
+			tracing::warn!(
+				target: LOG,
+				?format,
+				"Dropping message (not ConcatenatedVersionedXcm)"
 			);
 			v3::InboundXcmpMessages::<T>::remove(&next.sender, &block_number);
 			v3::InboundXcmpStatus::<T>::put(states);
@@ -257,7 +259,7 @@ pub mod v3 {
 
 		// Finally! We have a proper message.
 		T::XcmpQueue::enqueue_message(msg.as_bounded_slice(), next.sender);
-		tracing::debug!(target: LOG, "Migrated HRMP message to MQ: {:?}", (next.sender, block_number));
+		tracing::debug!(target: LOG, next_sender=?next.sender, ?block_number, "Migrated HRMP message to MQ");
 		v3::InboundXcmpStatus::<T>::put(states);
 	}
 }

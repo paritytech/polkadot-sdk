@@ -680,9 +680,9 @@ impl<T: Config> Pallet<T> {
 		if best_batch_footprint.msgs_count < xcms.len() {
 			tracing::error!(
 				target: LOG_TARGET,
+				used_weight=?meter.consumed_ratio(),
 				"Out of weight: cannot enqueue entire XCMP messages batch; \
-				dropped some or all messages in batch. Used weight: {:?}",
-				meter.consumed_ratio()
+				dropped some or all messages in batch."
 			);
 			return Err(());
 		}
@@ -780,15 +780,17 @@ impl<T: Config> OnQueueChanged<ParaId> for Pallet<T> {
 		if suspended && fp.ready_pages <= resume_threshold {
 			if let Err(err) = Self::send_signal(para, ChannelSignal::Resume) {
 				tracing::error!(
-					target: LOG_TARGET, error=?err,
-					"defensive: Could not send resumption signal to inbound channel of sibling {:?}; channel remains suspended.", para
+					target: LOG_TARGET,
+					error=?err,
+					sibling=?para,
+					"defensive: Could not send resumption signal to inbound channel of sibling; channel remains suspended."
 				);
 			} else {
 				suspended_channels.remove(&para);
 				<InboundXcmpSuspended<T>>::put(suspended_channels);
 			}
 		} else if !suspended && fp.ready_pages >= suspend_threshold {
-			tracing::warn!(target: LOG_TARGET, "XCMP queue for sibling {:?} is full; suspending channel.", para);
+			tracing::warn!(target: LOG_TARGET, sibling=?para, "XCMP queue for sibling is full; suspending channel.");
 
 			if let Err(err) = Self::send_signal(para, ChannelSignal::Suspend) {
 				// It will retry if `drop_threshold` is not reached, but it could be too late.
@@ -798,8 +800,10 @@ impl<T: Config> OnQueueChanged<ParaId> for Pallet<T> {
 				);
 			} else if let Err(err) = suspended_channels.try_insert(para) {
 				tracing::error!(
-					target: LOG_TARGET, error=?err,
-					"Too many channels suspended; cannot suspend sibling {:?}; further messages may be dropped.", para
+					target: LOG_TARGET,
+					error=?err,
+					sibling=?para,
+					"Too many channels suspended; cannot suspend sibling; further messages may be dropped."
 				);
 			} else {
 				<InboundXcmpSuspended<T>>::put(suspended_channels);

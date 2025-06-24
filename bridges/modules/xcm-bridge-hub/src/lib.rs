@@ -386,12 +386,12 @@ pub mod pallet {
 				let enqueued_messages = outbound_lane.queued_messages().saturating_len();
 				tracing::trace!(
 					target: LOG_TARGET,
-					"Bridge {:?} between {:?} and {:?} is closing lane_id: {:?}. {} messages remaining",
-					locations.bridge_id(),
-					locations.bridge_origin_universal_location(),
-					locations.bridge_destination_universal_location(),
-					bridge.lane_id,
-					enqueued_messages,
+					bridge_id=?locations.bridge_id(),
+					bridge_origin=?locations.bridge_origin_universal_location(),
+					bridge_destination=?locations.bridge_destination_universal_location(),
+					lane_id=?bridge.lane_id,
+					messages_remaining=?enqueued_messages,
+					"Bridge is closing.",
 				);
 
 				// deposit the `ClosingBridge` event
@@ -423,8 +423,9 @@ pub mod pallet {
 				// before by someone else. Let's not fail, though - it'll be worse for the caller
 				tracing::error!(
 					target: LOG_TARGET,
-					"Failed to unreserve during the bridge {:?} closure with error: {e:?}",
-					locations.bridge_id(),
+					error=?e,
+					bridge_id=?locations.bridge_id(),
+					"Failed to unreserve during the bridge closure with error"
 				);
 			})
 			.ok()
@@ -433,11 +434,11 @@ pub mod pallet {
 			// write something to log
 			tracing::trace!(
 				target: LOG_TARGET,
-				"Bridge {:?} between {:?} and {:?} has closed lane_id: {:?}, the bridge deposit {released_deposit:?} was returned",
-				locations.bridge_id(),
-				bridge.lane_id,
-				locations.bridge_origin_universal_location(),
-				locations.bridge_destination_universal_location(),
+				bridge_id=?locations.bridge_id(),
+				bridge_origin=?locations.bridge_origin_universal_location(),
+				bridge_destination=?locations.bridge_destination_universal_location(),
+				lane_id=?bridge.lane_id,
+				"Bridge has closed, the bridge deposit {released_deposit:?} was returned",
 			);
 
 			// deposit the `BridgePruned` event
@@ -477,11 +478,12 @@ pub mod pallet {
 				)
 				.map_err(|e| {
 					tracing::error!(
-						target: LOG_TARGET, error=?e,
-						"Failed to hold bridge deposit: {deposit:?} \
-						from bridge_owner_account: {bridge_owner_account:?} derived from \
-						bridge_origin_relative_location: {:?} with error",
-						locations.bridge_origin_relative_location(),
+						target: LOG_TARGET,
+						error=?e,
+						?deposit,
+						?bridge_owner_account,
+						bridge_origin_relative_location=?locations.bridge_origin_relative_location(),
+						"Failed to hold bridge deposit with error"
 					);
 					Error::<T, I>::FailedToReserveBridgeDeposit
 				})?;
@@ -645,7 +647,7 @@ pub mod pallet {
 			bridge_id: BridgeId,
 			bridge: BridgeOf<T, I>,
 		) -> Result<T::LaneId, sp_runtime::TryRuntimeError> {
-			tracing::info!(target: LOG_TARGET, "Checking `do_try_state_for_bridge` for bridge_id: {bridge_id:?} and bridge: {bridge:?}");
+			tracing::info!(target: LOG_TARGET, ?bridge_id, ?bridge, "Checking `do_try_state_for_bridge`");
 
 			// check `BridgeId` points to the same `LaneId` and vice versa.
 			ensure!(
@@ -691,7 +693,7 @@ pub mod pallet {
 		pub fn do_try_state_for_messages() -> Result<(), sp_runtime::TryRuntimeError> {
 			// check that all `InboundLanes` laneIds have mapping to some bridge.
 			for lane_id in pallet_bridge_messages::InboundLanes::<T, T::BridgeMessagesPalletInstance>::iter_keys() {
-				tracing::info!(target: LOG_TARGET, "Checking `do_try_state_for_messages` for `InboundLanes`'s lane_id: {lane_id:?}...");
+				tracing::info!(target: LOG_TARGET, ?lane_id, "Checking `do_try_state_for_messages` for `InboundLanes`...");
 				ensure!(
 					LaneToBridge::<T, I>::get(lane_id).is_some(),
 					"Found `LaneToBridge` inconsistency for `InboundLanes`'s lane_id - missing mapping!"
@@ -700,7 +702,7 @@ pub mod pallet {
 
 			// check that all `OutboundLanes` laneIds have mapping to some bridge.
 			for lane_id in pallet_bridge_messages::OutboundLanes::<T, T::BridgeMessagesPalletInstance>::iter_keys() {
-				tracing::info!(target: LOG_TARGET, "Checking `do_try_state_for_messages` for `OutboundLanes`'s lane_id: {lane_id:?}...");
+				tracing::info!(target: LOG_TARGET, ?lane_id, "Checking `do_try_state_for_messages` for `OutboundLanes`");
 				ensure!(
 					LaneToBridge::<T, I>::get(lane_id).is_some(),
 					"Found `LaneToBridge` inconsistency for `OutboundLanes`'s lane_id - missing mapping!"

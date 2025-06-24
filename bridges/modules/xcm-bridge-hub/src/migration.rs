@@ -65,9 +65,11 @@ impl<
 		let create_lane = CreateLane::get();
 		tracing::info!(
 			target: LOG_TARGET,
-			"OpenBridgeForLane - going to open bridge with lane_id: {lane_id:?} (create_lane: {create_lane:?}) \
-			between bridge_origin_relative_location: {bridge_origin_relative_location:?} and \
-			bridge_destination_universal_location: {bridge_destination_universal_location:?}",
+			?lane_id,
+			?create_lane,
+			?bridge_origin_relative_location,
+			?bridge_destination_universal_location,
+			"OpenBridgeForLane - going to open bridge"
 		);
 
 		let locations = match Pallet::<T, I>::bridge_locations(
@@ -78,7 +80,8 @@ impl<
 			Err(e) => {
 				tracing::error!(
 					target: LOG_TARGET,
-					"OpenBridgeForLane - on_runtime_upgrade failed to construct bridge_locations with error: {e:?}"
+					error=?e,
+					"OpenBridgeForLane - on_runtime_upgrade failed to construct bridge_locations with error"
 				);
 				return T::DbWeight::get().reads(0)
 			},
@@ -88,15 +91,20 @@ impl<
 		if let Some((bridge_id, bridge)) = Pallet::<T, I>::bridge_by_lane_id(&lane_id) {
 			tracing::info!(
 				target: LOG_TARGET,
-				"OpenBridgeForLane - bridge: {bridge:?} with bridge_id: {bridge_id:?} already exist for lane_id: {lane_id:?}!"
+				?bridge,
+				?bridge_id,
+				?lane_id,
+				"OpenBridgeForLane - already exist!"
 			);
 			if &bridge_id != locations.bridge_id() {
 				tracing::warn!(
 					target: LOG_TARGET,
-					"OpenBridgeForLane - check you parameters, because a different bridge: {bridge:?} \
-					with bridge_id: {bridge_id:?} exist for lane_id: {lane_id:?} for requested \
-					bridge_origin_relative_location: {bridge_origin_relative_location:?} and \
-					bridge_destination_universal_location: {bridge_destination_universal_location:?} !",
+					?bridge,
+					?bridge_id,
+					?lane_id,
+					?bridge_origin_relative_location,
+					?bridge_destination_universal_location,
+					"OpenBridgeForLane - check you parameters, because a different bridge exist for requested!"
 				);
 			}
 
@@ -135,9 +143,10 @@ impl<
 
 		tracing::info!(
 			target: LOG_TARGET,
-			"OpenBridgeForLane - post_upgrade found opened bridge with lane_id: {lane_id:?} \
-			between bridge_origin_relative_location: {bridge_origin_relative_location:?} and \
-			bridge_destination_universal_location: {bridge_destination_universal_location:?}",
+			?lane_id,
+			?bridge_origin_relative_location,
+			?bridge_destination_universal_location,
+			"OpenBridgeForLane - post_upgrade found opened bridge"
 		);
 
 		Ok(())

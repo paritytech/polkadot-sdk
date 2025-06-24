@@ -479,14 +479,16 @@ sp_api::mock_impl_runtime_apis! {
 				Ok(asset_id) => {
 					tracing::trace!(
 						target: "xcm::XcmPaymentApi::query_weight_to_asset_fee",
-						"query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!"
+						?asset_id,
+						"query_weight_to_asset_fee - unhandled!"
 					);
 					Err(XcmPaymentApiError::AssetNotFound)
 				},
 				Err(_) => {
 					tracing::trace!(
 						target: "xcm::XcmPaymentApi::query_weight_to_asset_fee",
-						"query_weight_to_asset_fee - failed to convert asset: {asset:?}!"
+						?asset,
+						"query_weight_to_asset_fee - failed to convert!"
 					);
 					Err(XcmPaymentApiError::VersionedConversionFailed)
 				}

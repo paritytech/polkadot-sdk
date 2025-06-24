@@ -1270,11 +1270,12 @@ impl_runtime_apis! {
 						XCM_VERSION,
 					).map_err(|e| {
 						tracing::error!(
-							target: "bridges::benchmark", error=?e,
-							"Failed to dispatch `force_xcm_version({:?}, {:?}, {:?})`",
-							RuntimeOrigin::root(),
-							bridge_to_westend_config::BridgeHubWestendLocation::get(),
-							XCM_VERSION,
+							target: "bridges::benchmark",
+							error=?e,
+							origin=?RuntimeOrigin::root(),
+							location=?bridge_to_westend_config::BridgeHubWestendLocation::get(),
+							version=?XCM_VERSION,
+							"Failed to dispatch `force_xcm_version`"
 						);
 						BenchmarkError::Stop("XcmVersion was not stored!")
 					})?;
@@ -1305,10 +1306,11 @@ impl_runtime_apis! {
 						true,
 					).map_err(|e| {
 						tracing::error!(
-							target: "bridges::benchmark", error=?e,
-							"Failed to `XcmOverBridgeHubWestend::open_bridge`({:?}, {:?})`",
-							sibling_parachain_location,
-							bridge_destination_universal_location,
+							target: "bridges::benchmark",
+							error=?e,
+							locations=?sibling_parachain_location,
+							lane_id=?bridge_destination_universal_location,
+							"Failed to `XcmOverBridgeHubWestend::open_bridge`"
 						);
 						BenchmarkError::Stop("Bridge was not opened!")
 					})?;

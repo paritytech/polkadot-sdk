@@ -93,9 +93,10 @@ where
 			Err(e) => {
 				tracing::error!(
 					target: LOG_TARGET,
-					"dispatch - payload error: {e:?} for lane_id: {:?} and message_nonce: {:?}",
-					message.key.lane_id,
-					message.key.nonce
+					error=?e,
+					lane_id=?message.key.lane_id,
+					message_nonce=?message.key.nonce,
+					"dispatch - payload error"
 				);
 				return MessageDispatchResult {
 					unspent_weight: Weight::zero(),
@@ -107,18 +108,19 @@ where
 			Ok(_) => {
 				tracing::debug!(
 					target: LOG_TARGET,
-					"dispatch - `DispatchBlob::dispatch_blob` was ok for lane_id: {:?} and message_nonce: {:?}",
-					message.key.lane_id,
-					message.key.nonce
+					lane_id=?message.key.lane_id,
+					message_nonce=?message.key.nonce,
+					"dispatch - `DispatchBlob::dispatch_blob` was ok"
 				);
 				XcmBlobMessageDispatchResult::Dispatched
 			},
 			Err(e) => {
 				tracing::error!(
 					target: LOG_TARGET,
-					"dispatch - `DispatchBlob::dispatch_blob` failed with error: {e:?} for lane_id: {:?} and message_nonce: {:?}",
-					message.key.lane_id,
-					message.key.nonce
+					error=?e,
+					lane_id=?message.key.lane_id,
+					message_nonce=?message.key.nonce,
+					"dispatch - `DispatchBlob::dispatch_blob` failed with error"
 				);
 				XcmBlobMessageDispatchResult::NotDispatched(Some(e))
 			},

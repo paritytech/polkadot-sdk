@@ -1849,11 +1849,12 @@ impl_runtime_apis! {
 						XCM_VERSION,
 					).map_err(|e| {
 						tracing::error!(
-							target: "bridges::benchmark", error=?e,
-							"Failed to dispatch `force_xcm_version({:?}, {:?}, {:?})`",
-							RuntimeOrigin::root(),
-							bridged_asset_hub,
-							XCM_VERSION,
+							target: "bridges::benchmark",
+							error=?e,
+							origin=?RuntimeOrigin::root(),
+							location=?bridged_asset_hub,
+							version=?XCM_VERSION,
+							"Failed to dispatch `force_xcm_version`"
 						);
 						BenchmarkError::Stop("XcmVersion was not stored!")
 					})?;
