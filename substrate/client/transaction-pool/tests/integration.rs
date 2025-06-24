@@ -40,7 +40,7 @@ async fn send_future_and_ready_from_many_accounts_to_parachain() {
 		.unwrap();
 
 	// Wait for the parachain collator to start block production.
-	net.wait_for_block_production("charlie").await.unwrap();
+	net.wait_for_block_production("charlie", false).await.unwrap();
 
 	// Create future & ready txs executors.
 	let ws = net.node_rpc_uri("charlie").unwrap();
@@ -92,7 +92,7 @@ async fn send_future_and_ready_from_many_accounts_to_relaychain() {
 
 	// Wait for the paracha validator to start block production & have its genesis block
 	// finalized.
-	net.wait_for_block_production("alice").await.unwrap();
+	net.wait_for_block_production("alice", false).await.unwrap();
 
 	// Create future & ready txs executors.
 	let ws = net.node_rpc_uri("alice").unwrap();
@@ -148,7 +148,7 @@ async fn send_future_mortal_txs() {
 		.unwrap();
 
 	// Wait for the parachain collator to start block production.
-	net.wait_for_block_production("alice").await.unwrap();
+	net.wait_for_block_production("alice", true).await.unwrap();
 
 	// Create txs executors.
 	let ws = net.node_rpc_uri("alice").unwrap();
@@ -221,7 +221,7 @@ async fn send_lower_priority_mortal_txs() {
 		.unwrap();
 
 	// Wait for the parachain collator to start block production.
-	net.wait_for_block_production("alice").await.unwrap();
+	net.wait_for_block_production("alice", true).await.unwrap();
 
 	// Create txs executors.
 	let ws = net.node_rpc_uri("alice").unwrap();
