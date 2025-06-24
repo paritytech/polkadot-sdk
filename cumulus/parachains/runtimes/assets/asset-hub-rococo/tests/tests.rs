@@ -1062,7 +1062,7 @@ fn change_xcm_bridge_hub_ethereum_base_fee_by_governance_works() {
 				target: "bridges::estimate",
 				actual_value=?bridging::to_ethereum::BridgeHubEthereumBaseFee::get(),
 				runtime=?<Runtime as frame_system::Config>::Version::get(),
-				"`bridging::BridgeHubEthereumBaseFee`",
+				"`bridging::BridgeHubEthereumBaseFee`"
 			);
 			(
 				bridging::to_ethereum::BridgeHubEthereumBaseFee::key().to_vec(),

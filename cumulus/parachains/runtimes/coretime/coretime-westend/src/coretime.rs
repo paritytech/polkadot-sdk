@@ -154,7 +154,7 @@ impl CoretimeInterface for CoretimeAllocator {
 			),
 			Err(e) => tracing::error!(
 				target: "runtime::coretime", error=?e,
-				"Failed to send request to update schedulable cores",
+				"Failed to send request to update schedulable cores"
 			),
 		}
 	}

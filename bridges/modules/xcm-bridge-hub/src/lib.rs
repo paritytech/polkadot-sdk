@@ -307,7 +307,7 @@ pub mod pallet {
 			let lane_id = locations.calculate_lane_id(xcm_version).map_err(|e| {
 				tracing::trace!(
 					target: LOG_TARGET, error=?e,
-					"calculate_lane_id error",
+					"calculate_lane_id error"
 				);
 				Error::<T, I>::BridgeLocations(e)
 			})?;
@@ -391,7 +391,7 @@ pub mod pallet {
 					bridge_destination=?locations.bridge_destination_universal_location(),
 					lane_id=?bridge.lane_id,
 					messages_remaining=?enqueued_messages,
-					"Bridge is closing.",
+					"Bridge is closing."
 				);
 
 				// deposit the `ClosingBridge` event
@@ -438,7 +438,8 @@ pub mod pallet {
 				bridge_origin=?locations.bridge_origin_universal_location(),
 				bridge_destination=?locations.bridge_destination_universal_location(),
 				lane_id=?bridge.lane_id,
-				"Bridge has closed, the bridge deposit {released_deposit:?} was returned",
+				bridge_deposit=?released_deposit,
+				"Bridge has closed, the bridge deposit was returned"
 			);
 
 			// deposit the `BridgePruned` event
@@ -535,10 +536,11 @@ pub mod pallet {
 			// write something to log
 			tracing::trace!(
 				target: LOG_TARGET,
-				"Bridge {:?} between {:?} and {:?} has been opened using lane_id: {lane_id:?}",
-				locations.bridge_id(),
-				locations.bridge_origin_universal_location(),
-				locations.bridge_destination_universal_location(),
+				bridge_id=?locations.bridge_id(),
+				bridge_origin=?locations.bridge_origin_universal_location(),
+				bridge_destination=?locations.bridge_destination_universal_location(),
+				lane_id=?lane_id,
+				"Bridge has been opened"
 			);
 
 			// deposit `BridgeOpened` event
@@ -586,7 +588,7 @@ pub mod pallet {
 			.map_err(|e| {
 				tracing::trace!(
 					target: LOG_TARGET, error=?e,
-					"bridge_locations error",
+					"bridge_locations error"
 				);
 				Error::<T, I>::BridgeLocations(e).into()
 			})

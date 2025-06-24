@@ -193,8 +193,7 @@ pub mod pallet {
 		pub(crate) fn on_message_sent_to_bridge(message_size: u32) {
 			tracing::trace!(
 				target: LOG_TARGET,
-				?message_size,
-				"on_message_sent_to_bridge"
+				?message_size, "on_message_sent_to_bridge"
 			);
 			let _ = Bridge::<T, I>::try_mutate(|bridge| {
 				let is_channel_with_bridge_hub_congested =
@@ -262,19 +261,14 @@ impl<T: Config<I>, I: 'static> ExporterFor for Pallet<T, I> {
 	) -> Option<(Location, Option<Asset>)> {
 		tracing::trace!(
 			target: LOG_TARGET,
-			?network,
-			?remote_location,
-			msg=?message,
-			"exporter_for",
+			?network, ?remote_location, msg=?message, "exporter_for"
 		);
 		// ensure that the message is sent to the expected bridged network (if specified).
 		if let Some(bridged_network) = T::BridgedNetworkId::get() {
 			if *network != bridged_network {
 				tracing::trace!(
 					target: LOG_TARGET,
-					bridged_network_id=?bridged_network,
-					?network,
-					"Router does not support bridging!"
+					bridged_network_id=?bridged_network, ?network, "Router does not support bridging!"
 				);
 				return None;
 			}

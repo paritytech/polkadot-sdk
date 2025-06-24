@@ -111,7 +111,7 @@ where
 					dest.pushed_front_with(GlobalConsensus(network)).map_err(|error_data| {
 						tracing::error!(
 							target: LOG_TARGET, error=?error_data,
-							"Destination is not a universal and prepending failed!",
+							"Destination is not a universal and prepending failed!"
 						);
 						SendError::NotApplicable
 					})?
@@ -131,7 +131,7 @@ where
 		.map_err(|e| {
 			tracing::error!(
 				target: LOG_TARGET, error=?e,
-				"Validate `bridge_locations` with error",
+				"Validate `bridge_locations` with error"
 			);
 			SendError::NotApplicable
 		})?;
@@ -174,7 +174,7 @@ where
 					topic_id=?id,
 					bridge_id=?locations,
 					lane_id=?bridge.lane_id,
-					"XCM message cannot be exported because of bridge error",
+					"XCM message cannot be exported because of bridge error"
 				);
 				SendError::Transport("BridgeValidateError")
 			})?;
@@ -193,7 +193,7 @@ where
 			bridge_id=?bridge_id,
 			lane_id=?bridge.lane_id,
 			nonce=?artifacts.nonce,
-			"XCM message has been enqueued",
+			"XCM message has been enqueued"
 		);
 
 		// maybe we need switch to congested state
@@ -334,7 +334,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					?bridge_id,
 					?lane_id,
 					originated_by=?bridge_origin_relative_location,
-					"Failed to resume",
+					"Failed to resume"
 				);
 
 				return
