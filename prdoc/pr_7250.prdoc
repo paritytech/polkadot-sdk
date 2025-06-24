@@ -4,7 +4,7 @@
 title: Add Missing Events for Balances Pallet
 
 doc:
-  - audience: Runtime Developers
+  - audience: Runtime Dev
     description: |
         This PR improves accounting by implementing missing events for hold, release, credit drops and debt drop operation:
 
