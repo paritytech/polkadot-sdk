@@ -9,5 +9,9 @@ doc:
 crates:
   - name: frame-support
     bump: major
+  - name: pallet-core-fellowship
+    bump: patch
   - name: pallet-ranked-collective
+    bump: patch
+  - name: pallet-salary
     bump: patch
