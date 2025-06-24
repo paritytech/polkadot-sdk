@@ -24,9 +24,7 @@ use crate::{
 use futures::{channel::mpsc::UnboundedSender, FutureExt, StreamExt};
 use polkadot_node_network_protocol::ValidationProtocols;
 use polkadot_node_subsystem::{
-	messages::{
-		ApprovalDistributionMessage, ApprovalVotingParallelMessage, NetworkBridgeTxMessage,
-	},
+	messages::{ApprovalVotingParallelMessage, NetworkBridgeTxMessage},
 	overseer, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_types::{
@@ -57,8 +55,6 @@ pub struct MockNetworkBridgeRx {
 	network_receiver: NetworkInterfaceReceiver,
 	/// Chunk request sender
 	chunk_request_sender: Option<ProtocolConfig>,
-	/// Approval voting parallel enabled.
-	approval_voting_parallel_enabled: bool,
 }
 
 impl MockNetworkBridgeTx {
@@ -75,9 +71,8 @@ impl MockNetworkBridgeRx {
 	pub fn new(
 		network_receiver: NetworkInterfaceReceiver,
 		chunk_request_sender: Option<ProtocolConfig>,
-		approval_voting_parallel_enabled: bool,
 	) -> MockNetworkBridgeRx {
-		Self { network_receiver, chunk_request_sender, approval_voting_parallel_enabled }
+		Self { network_receiver, chunk_request_sender }
 	}
 }
 
@@ -202,15 +197,9 @@ impl MockNetworkBridgeRx {
 								ValidationProtocols::V3(
 									polkadot_node_network_protocol::v3::ValidationProtocol::ApprovalDistribution(msg)
 								) => {
-									if self.approval_voting_parallel_enabled {
 										ctx.send_message(
 											ApprovalVotingParallelMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(peer_id, polkadot_node_network_protocol::ValidationProtocols::V3(msg)))
 										).await;
-									} else {
-										ctx.send_message(
-											ApprovalDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(peer_id, polkadot_node_network_protocol::ValidationProtocols::V3(msg)))
-										).await;
-									}
 								}
 								ValidationProtocols::V3(
 									polkadot_node_network_protocol::v3::ValidationProtocol::StatementDistribution(msg)
