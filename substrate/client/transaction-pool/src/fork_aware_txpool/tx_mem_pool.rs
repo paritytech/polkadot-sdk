@@ -25,6 +25,11 @@
 //! - the transaction can be invalid on some forks (and thus the associated views may not contain
 //!   it), while on other forks tx can be valid. Depending on which view is chosen to be cloned,
 //!   such transaction could not be present in the newly created view.
+//!
+//! Sync methods (with `_sync` suffix) are also exposed, and it should be safe to call them from
+//! sync or non-tokio contenxt. These methods are required for implementing some non-async methods.
+//! See https://github.com/paritytech/polkadot-sdk/issues/8912 for some more information. The implementation of the bridging
+//! is based on passing messages from sync context to tokio thread.
 
 use futures::{future::join_all, FutureExt};
 use itertools::Itertools;
