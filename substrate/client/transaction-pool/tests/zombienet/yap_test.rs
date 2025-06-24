@@ -74,7 +74,7 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 					.with_genesis_overrides(json!({
 						"balances": {
 							"devAccounts": [
-								10000, 1000000000000000000u64, "//Sender//{}"
+								100000, 1000000000000000000u64, "//Sender//{}"
 							]
 						}
 					}))
@@ -83,8 +83,8 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 						"--rpc-max-subscriptions-per-connection=256000".into(),
 						"--rpc-max-connections=128000".into(),
 						"--rpc-max-response-size=150".into(),
-						"--pool-limit=500000".into(),
-						"--pool-kbytes=2048000".into(),
+						"--pool-limit=2500000".into(),
+						"--pool-kbytes=4048000".into(),
 						"--pool-type=fork-aware".into(),
 						("-lparachain=debug,aura=debug,txpool=debug,txpoolstat=debug").into(),
 					])
@@ -128,10 +128,10 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 	}
 	.with_rpc_uri(ws)
 	.with_start_id(0)
-	.with_last_id(9999)
-	.with_txs_count(500)
+	.with_last_id(99999)
+	.with_txs_count(150)
 	.with_executor_id("txs-executor".to_string())
-	.with_send_threshold(35000)
+	.with_send_threshold(25000)
 	.build()
 	.await;
 
@@ -139,7 +139,7 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 	let execution_logs = executor.execute().await;
 	let finalized_txs = execution_logs.values().filter_map(|tx_log| tx_log.finalized()).count();
 
-	assert_eq!(finalized_txs, 5_000_000);
+	assert_eq!(finalized_txs, 15_000_000);
 
 	Ok(())
 }
