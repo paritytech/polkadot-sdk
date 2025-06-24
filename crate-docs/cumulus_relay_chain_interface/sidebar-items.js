@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["OccupiedCoreAssumption","RelayChainError"],"struct":["CommittedCandidateReceipt","InboundDownwardMessage","InboundHrmpMessage","OverseerHandle","ParaId","PersistedValidationData"],"trait":["RelayChainInterface"],"type":["PHash","PHeader","RelayChainResult","SessionIndex","StorageValue","ValidatorId"]};

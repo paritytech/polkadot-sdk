@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["OffenceError"],"struct":["OffenceDetails","OffenceSeverity"],"trait":["Offence","OffenceReportSystem","OnOffenceHandler","ReportOffence"],"type":["Kind","OffenceCount"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Runtime"],"fn":["extract_parachain_id","load_spec","run","runtime"],"macro":["construct_async_run","construct_partials"],"trait":["RuntimeResolver"]};

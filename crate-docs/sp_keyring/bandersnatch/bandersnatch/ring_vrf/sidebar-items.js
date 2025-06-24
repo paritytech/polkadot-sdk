@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["RING_DOMAIN_OVERHEAD"],"struct":["KZG","RingContext","RingVerifierData","RingVrfSignature"],"type":["RingProof","RingProver","RingVerifier"]};

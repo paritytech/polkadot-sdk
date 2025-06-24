@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"developer_hub":[["impl <a class=\"trait\" href=\"sp_runtime/traits/trait.GetRuntimeBlockType.html\" title=\"trait sp_runtime::traits::GetRuntimeBlockType\">GetRuntimeBlockType</a> for <a class=\"struct\" href=\"developer_hub/tutorial/currency_simple/pallet_v2/tests/runtime_v2/struct.Runtime.html\" title=\"struct developer_hub::tutorial::currency_simple::pallet_v2::tests::runtime_v2::Runtime\">Runtime</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["fractionalize","unify"],"struct":["Fractionalize","Unify"]};

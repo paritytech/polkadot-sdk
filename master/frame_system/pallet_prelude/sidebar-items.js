@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["AccountIdFor","BlockNumberFor","ExtrinsicFor","HeaderFor","OriginFor","RuntimeCallFor"]};

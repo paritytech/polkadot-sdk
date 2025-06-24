@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["account_recovered","deposit_poked","recovery_closed","recovery_created","recovery_initiated","recovery_removed","recovery_vouched"],"struct":["AccountRecovered","DepositPoked","RecoveryClosed","RecoveryCreated","RecoveryInitiated","RecoveryRemoved","RecoveryVouched"]};

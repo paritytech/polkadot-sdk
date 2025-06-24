@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["ItemMetadataOf","Param0","Param1"]};

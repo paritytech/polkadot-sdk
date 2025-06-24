@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["MalusType","Subcommand"],"struct":["Cli","ExportGenesisHeadCommand","ExportGenesisWasmCommand","RunCmd"]};

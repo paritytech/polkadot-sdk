@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AsEnsureOriginWithArg","EitherOfDiverse","IdentityLookup"],"trait":["ChangeMembers","IdentifyAccount","InitializeMembers"]};

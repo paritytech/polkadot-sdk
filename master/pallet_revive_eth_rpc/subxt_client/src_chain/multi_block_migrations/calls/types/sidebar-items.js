@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["clear_historic","force_set_active_cursor","force_set_cursor"],"struct":["ClearHistoric","ForceOnboardMbms","ForceSetActiveCursor","ForceSetCursor"]};

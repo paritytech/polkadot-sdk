@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["can_governance_authorize_upgrade","change_storage_constant_by_governance_works","set_storage_keys_by_governance_works","xcm_payment_api_with_native_token_works"]};

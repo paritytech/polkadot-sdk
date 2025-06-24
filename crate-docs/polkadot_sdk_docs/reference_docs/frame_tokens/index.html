@@ -1,0 +1,238 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Learn about the token-related logic in FRAME and how to apply it to your use case."><title>polkadot_sdk_docs::reference_docs::frame_tokens - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.network/favicon-32x32.png"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module frame_tokens</a></h2><div class="sidebar-elems"><h2><a href="../index.html">In polkadot_sdk_docs::reference_docs</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">reference_docs</a>::<wbr><a class="mod" href="#">frame_tokens</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/reference_docs/frame_tokens.rs.html#18-131">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Learn about the token-related logic in FRAME and how to apply it to your use case.</p>
+<h2 id="frame-tokens"><a href="#frame-tokens">FRAME Tokens</a></h2>
+<p>This reference doc serves as a high-level overview of the token-related logic in FRAME, and
+how to properly apply it to your use case.</p>
+<p>On completion of reading this doc, you should have a good understanding of:</p>
+<ul>
+<li>The distinction between token traits and trait implementations in FRAME, and why this
+distinction is helpful</li>
+<li>Token-related traits avaliable in FRAME</li>
+<li>Token-related trait implementations in FRAME</li>
+<li>How to choose the right trait or trait implementation for your use case</li>
+<li>Where to go next</li>
+</ul>
+<h3 id="getting-started"><a href="#getting-started">Getting Started</a></h3>
+<p>The most ubiquitous way to add a token to a FRAME runtime is <a href="../../../pallet_balances/index.html" title="mod pallet_balances"><code>pallet_balances</code></a>. Read
+more about pallets <a href="../../polkadot_sdk/frame_runtime/index.html#pallets" title="mod polkadot_sdk_docs::polkadot_sdk::frame_runtime">here</a>.</p>
+<p>You may then write custom pallets that interact with <a href="../../../pallet_balances/index.html" title="mod pallet_balances"><code>pallet_balances</code></a>. The fastest way to
+get started with that is by
+<a href="../frame_pallet_coupling/index.html#tight-coupling-pallets" title="mod polkadot_sdk_docs::reference_docs::frame_pallet_coupling">tightly coupling</a> your
+custom pallet to <a href="../../../pallet_balances/index.html" title="mod pallet_balances"><code>pallet_balances</code></a>.</p>
+<p>However, to keep pallets flexible and modular, it is often prefered to
+<a href="../frame_pallet_coupling/index.html#loosely--coupling-pallets" title="mod polkadot_sdk_docs::reference_docs::frame_pallet_coupling">loosely couple</a>.</p>
+<p>To achieve loose coupling,
+we separate token logic into traits and trait implementations.</p>
+<h3 id="traits-and-trait-implementations"><a href="#traits-and-trait-implementations">Traits and Trait Implementations</a></h3>
+<p>Broadly speaking, token logic in FRAME can be divided into two categories: traits and
+trait implementations.</p>
+<p><strong>Traits</strong> define common interfaces that types of tokens should implement. For example, the
+<a href="../../../frame_support/traits/tokens/fungible/regular/trait.Inspect.html" title="trait frame_support::traits::tokens::fungible::regular::Inspect"><code>fungible::Inspect</code></a> trait specifies an interface
+for <em>inspecting</em> token state such as the total issuance of the token, the balance of individual
+accounts, etc.</p>
+<p><strong>Trait implementations</strong> are concrete implementations of these traits. For example, one of the
+many traits <a href="../../../pallet_balances/index.html" title="mod pallet_balances"><code>pallet_balances</code></a> implements is
+<a href="../../../frame_support/traits/tokens/fungible/regular/trait.Inspect.html" title="trait frame_support::traits::tokens::fungible::regular::Inspect"><code>fungible::Inspect</code></a>*. It provides the concrete way
+of inspecting the total issuance, balance of accounts, etc. There can be many implementations of
+the same traits.</p>
+<p>The distinction between traits and trait implementations is helpful because it allows pallets
+and other logic to be generic over their dependencies, avoiding tight coupling.</p>
+<p>To illustrate this with an example let’s consider <a href="../../../pallet_preimage/index.html" title="mod pallet_preimage"><code>pallet_preimage</code></a>. This pallet takes a
+deposit in exchange for storing a preimage for later use. A naive implementation of the
+pallet may use <a href="../../../pallet_balances/index.html" title="mod pallet_balances"><code>pallet_balances</code></a> in a tightly coupled manner, directly calling methods
+on the pallet to reserve and unreserve deposits. This approach works well,
+until someone has a use case requiring that an asset from a different pallet such as
+<a href="../../../pallet_assets/index.html" title="mod pallet_assets"><code>pallet_assets</code></a> is used for the deposit. Rather than tightly couple <a href="../../../pallet_preimage/index.html" title="mod pallet_preimage"><code>pallet_preimage</code></a> to
+<a href="../../../pallet_balances/index.html" title="mod pallet_balances"><code>pallet_balances</code></a>, <a href="../../../pallet_assets/index.html" title="mod pallet_assets"><code>pallet_assets</code></a>, and every other token-handling pallet a user
+could possibly specify, <a href="../../../pallet_preimage/index.html" title="mod pallet_preimage"><code>pallet_preimage</code></a> does not specify a concrete pallet as a dependency
+but instead accepts any dependency which implements the
+<a href="../../../frame_support/traits/tokens/currency/reservable/trait.ReservableCurrency.html" title="trait frame_support::traits::tokens::currency::reservable::ReservableCurrency"><code>currency::ReservableCurrency</code></a>
+trait, namely via its <a href="../../../pallet_preimage/pallet/trait.Config.html#associatedtype.Currency" title="associated type pallet_preimage::pallet::Config::Currency"><code>Config::Currency</code></a>
+associated type. This allows <a href="../../../pallet_preimage/index.html" title="mod pallet_preimage"><code>pallet_preimage</code></a> to support any arbitrary pallet implementing
+this trait, without needing any knowledge of what those pallets may be or requiring changes to
+support new pallets which may be written in the future.</p>
+<p>Read more about coupling, and the benefits of loose coupling
+<a href="../frame_pallet_coupling/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_pallet_coupling">here</a>.</p>
+<h6 id="rust-advanced-tip"><a href="#rust-advanced-tip">*Rust Advanced Tip</a></h6>
+<p>The knowledge that <a href="../../../pallet_balances/index.html" title="mod pallet_balances"><code>pallet_balances</code></a> implements
+<a href="../../../frame_support/traits/tokens/fungible/regular/trait.Inspect.html" title="trait frame_support::traits::tokens::fungible::regular::Inspect"><code>fungible::Inspect</code></a> is not some arcane knowledge
+that you have to know by heart or memorize. One can simply look at the list of the implementors
+of any trait in the Rust Doc to find all implementors (e.g.
+<a href="https://paritytech.github.io/polkadot-sdk/master/frame/traits/tokens/fungible/trait.Mutate.html#implementors">https://paritytech.github.io/polkadot-sdk/master/frame/traits/tokens/fungible/trait.Mutate.html#implementors</a>),
+or use the <code>rust-analyzer</code> <code>Implementations</code> action.</p>
+<h3 id="fungible-token-traits-in-frame"><a href="#fungible-token-traits-in-frame">Fungible Token Traits in FRAME</a></h3>
+<p>The <a href="../../../frame_support/traits/tokens/fungible/index.html" title="mod frame_support::traits::tokens::fungible"><code>fungible</code></a> crate contains the latest set of FRAME
+fungible token traits, and is recommended to use for all new logic requiring a fungible token.
+See the crate documentation for more info about these fungible traits.</p>
+<p><a href="../../../frame_support/traits/tokens/fungibles/index.html" title="mod frame_support::traits::tokens::fungibles"><code>fungibles</code></a> provides very similar functionality to
+<a href="../../../frame_support/traits/tokens/fungible/index.html" title="mod frame_support::traits::tokens::fungible"><code>fungible</code></a>, except it supports managing multiple tokens.</p>
+<p>You may notice the trait <a href="../../../frame_support/traits/tokens/currency/trait.Currency.html" title="trait frame_support::traits::tokens::currency::Currency"><code>Currency</code></a> with similar
+functionality is also used in the codebase, however this trait is deprecated and existing logic
+is in the process of being migrated to <a href="../../../frame_support/traits/tokens/fungible/index.html" title="mod frame_support::traits::tokens::fungible"><code>fungible</code></a> (<a href="https://github.com/paritytech/polkadot-sdk/issues/226">tracking issue</a>).</p>
+<h3 id="fungible-token-trait-implementations-in-frame"><a href="#fungible-token-trait-implementations-in-frame">Fungible Token Trait Implementations in FRAME</a></h3>
+<p><a href="../../../pallet_balances/index.html" title="mod pallet_balances"><code>pallet_balances</code></a> implements <a href="../../../frame_support/traits/tokens/fungible/index.html" title="mod frame_support::traits::tokens::fungible"><code>fungible</code></a>, and is the most
+commonly used fungible implementation in FRAME. Most of the time, it’s used for managing the
+native token of the blockchain network it’s used in.</p>
+<p><a href="../../../pallet_assets/index.html" title="mod pallet_assets"><code>pallet_assets</code></a> implements <a href="../../../frame_support/traits/tokens/fungibles/index.html" title="mod frame_support::traits::tokens::fungibles"><code>fungibles</code></a>, and is another
+popular fungible token implementation. It supports the creation and management of multiple
+assets in a single crate, making it a good choice when a network requires more assets in
+addition to its native token.</p>
+<h3 id="non-fungible-tokens-in-frame"><a href="#non-fungible-tokens-in-frame">Non-Fungible Tokens in FRAME</a></h3>
+<p><a href="../../../pallet_nfts/index.html" title="mod pallet_nfts"><code>pallet_nfts</code></a> is recommended to use for all NFT use cases in FRAME.
+See the crate documentation for more info about this pallet.</p>
+<p><a href="../../../pallet_uniques/index.html" title="mod pallet_uniques"><code>pallet_uniques</code></a> is deprecated and should not be used.</p>
+<h2 id="what-next"><a href="#what-next">What Next?</a></h2>
+<ul>
+<li>If you are interested in implementing a single fungible token, continue reading the
+<a href="../../../frame_support/traits/tokens/fungible/index.html" title="mod frame_support::traits::tokens::fungible"><code>fungible</code></a> and <a href="../../../pallet_balances/index.html" title="mod pallet_balances"><code>pallet_balances</code></a> docs.</li>
+<li>If you are interested in implementing a set of fungible tokens, continue reading the
+<a href="../../../frame_support/traits/tokens/fungibles/index.html" title="mod frame_support::traits::tokens::fungibles"><code>fungibles</code></a> trait and <a href="../../../pallet_assets/index.html" title="mod pallet_assets"><code>pallet_assets</code></a> docs.</li>
+<li>If you are interested in implementing an NFT, continue reading the <a href="../../../pallet_nfts/index.html" title="mod pallet_nfts"><code>pallet_nfts</code></a> docs.</li>
+</ul>
+</div></details></section></div></main></body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["run"],"struct":["DirectReportGrandpaEquivocationCallBuilder","EquivocationDetectionPipelineAdapter"],"trait":["BaseSubstrateEquivocationDetectionPipeline","ReportEquivocationCallBuilder","SubstrateEquivocationDetectionPipeline"],"type":["EquivocationProofOf","KeyOwnerProofOf"]};

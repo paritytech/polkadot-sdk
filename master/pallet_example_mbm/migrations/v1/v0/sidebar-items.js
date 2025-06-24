@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["MyMap_Storage_Instance"],"type":["MyMap"]};

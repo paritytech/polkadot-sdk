@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["ChillThreshold","MaxNominatorCount","MaxStakedRewards","MaxValidatorCount","MinCommission","MinNominatorBond","MinValidatorBond"]};

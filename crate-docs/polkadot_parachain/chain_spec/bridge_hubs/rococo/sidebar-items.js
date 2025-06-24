@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["BRIDGE_HUB_ROCOCO","BRIDGE_HUB_ROCOCO_DEVELOPMENT","BRIDGE_HUB_ROCOCO_ED","BRIDGE_HUB_ROCOCO_LOCAL"],"fn":["genesis","local_config"],"type":["BridgeHubChainSpec","RuntimeApi"]};

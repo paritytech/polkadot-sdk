@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["pallet","weights"],"struct":["MetaTx","MetaTxMarker","WeightlessExtension"],"type":["MetaTxFor"]};

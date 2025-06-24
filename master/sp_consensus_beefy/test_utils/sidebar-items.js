@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Keyring"],"fn":["generate_double_voting_proof","generate_fork_voting_proof","generate_future_block_voting_proof","signed_vote"],"struct":["KeyringIter"],"trait":["BeefySignerAuthority"]};

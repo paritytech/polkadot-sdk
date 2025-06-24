@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["claim_rewards","claim_rewards_to","deregister","register"]};

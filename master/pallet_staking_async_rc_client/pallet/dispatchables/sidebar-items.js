@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["relay_new_offence","relay_session_report"]};

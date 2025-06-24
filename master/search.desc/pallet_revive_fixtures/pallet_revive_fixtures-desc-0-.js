@@ -1,0 +1,1 @@
+searchState.loadedDescShard("pallet_revive_fixtures", 0, "Fixtures used in runtime benchmarks.\nLoad a given polkavm module and returns a polkavm binary …")

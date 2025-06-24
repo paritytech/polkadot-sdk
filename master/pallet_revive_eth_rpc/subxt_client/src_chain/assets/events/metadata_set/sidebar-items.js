@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["AssetId","Decimals","IsFrozen","Name","Symbol"]};

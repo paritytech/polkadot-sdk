@@ -1,0 +1,187 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API for dry-running extrinsics and XCM programs to get the programs that need to be passed to the fees API."><title>DryRunApi in xcm_fee_payment_runtime_api::dry_run - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="xcm_fee_payment_runtime_api" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../xcm_fee_payment_runtime_api/index.html">xcm_fee_payment_runtime_api</a><span class="version">0.1.0</span></h2></div><h2 class="location"><a href="#">DryRunApi</a></h2><div class="sidebar-elems"><section><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.dry_run_call">dry_run_call</a></li><li><a href="#method.dry_run_xcm">dry_run_xcm</a></li></ul><h3><a href="#trait-implementations">Trait Implementations</a></h3><ul class="block trait-implementation"><li><a href="#impl-RuntimeApiInfo-for-dyn+DryRunApi%3CBlock,+Call,+Event,+OriginCaller%3E">RuntimeApiInfo</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In xcm_fee_payment_runtime_api::dry_run</a></h2></div></nav><div class="sidebar-resizer"></div>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../xcm_fee_payment_runtime_api/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">xcm_fee_payment_runtime_api</a>::<wbr><a href="index.html">dry_run</a>::<wbr><a class="trait" href="#">DryRunApi</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../src/xcm_fee_payment_runtime_api/dry_run.rs.html#60-66">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait DryRunApi&lt;Block: <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">BlockT</a>, Call: Encode, Event: Decode, OriginCaller: Encode&gt;: Core&lt;Block&gt; {
+    // Provided methods
+    fn <a href="#method.dry_run_call" class="fn">dry_run_call</a>(
+        &amp;self,
+        __runtime_api_at_param__: &lt;Block as <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">BlockT</a>&gt;::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
+        origin: OriginCaller,
+        call: Call
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.CallDryRunEffects.html" title="struct xcm_fee_payment_runtime_api::dry_run::CallDryRunEffects">CallDryRunEffects</a>&lt;Event&gt;, <a class="enum" href="enum.Error.html" title="enum xcm_fee_payment_runtime_api::dry_run::Error">Error</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.dry_run_xcm" class="fn">dry_run_xcm</a>(
+        &amp;self,
+        __runtime_api_at_param__: &lt;Block as <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">BlockT</a>&gt;::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
+        origin_location: <a class="enum" href="../../staging_xcm/enum.VersionedLocation.html" title="enum staging_xcm::VersionedLocation">VersionedLocation</a>,
+        xcm: <a class="enum" href="../../staging_xcm/enum.VersionedXcm.html" title="enum staging_xcm::VersionedXcm">VersionedXcm</a>&lt;Call&gt;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.XcmDryRunEffects.html" title="struct xcm_fee_payment_runtime_api::dry_run::XcmDryRunEffects">XcmDryRunEffects</a>&lt;Event&gt;, <a class="enum" href="enum.Error.html" title="enum xcm_fee_payment_runtime_api::dry_run::Error">Error</a>&gt;, ApiError&gt; { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>API for dry-running extrinsics and XCM programs to get the programs that need to be passed to the fees API.</p>
+<p>All calls return a vector of tuples (location, xcm) where each “xcm” is executed in “location”.
+If there’s local execution, the location will be “Here”.
+This vector can be used to calculate both execution and delivery fees.</p>
+<p>Calls or XCMs might fail when executed, this doesn’t mean the result of these calls will be an <code>Err</code>.
+In those cases, there might still be a valid result, with the execution error inside it.
+The only reasons why these calls might return an error are listed in the <a href="enum.Error.html" title="enum xcm_fee_payment_runtime_api::dry_run::Error"><code>Error</code></a> enum.</p>
+</div></details><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.dry_run_call" class="method"><a class="src rightside" href="../../src/xcm_fee_payment_runtime_api/dry_run.rs.html#50-67">source</a><h4 class="code-header">fn <a href="#method.dry_run_call" class="fn">dry_run_call</a>(
+    &amp;self,
+    __runtime_api_at_param__: &lt;Block as <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">BlockT</a>&gt;::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
+    origin: OriginCaller,
+    call: Call
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.CallDryRunEffects.html" title="struct xcm_fee_payment_runtime_api::dry_run::CallDryRunEffects">CallDryRunEffects</a>&lt;Event&gt;, <a class="enum" href="enum.Error.html" title="enum xcm_fee_payment_runtime_api::dry_run::Error">Error</a>&gt;, ApiError&gt;</h4></section></summary><div class="docblock"><p>Dry run call.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.dry_run_xcm" class="method"><a class="src rightside" href="../../src/xcm_fee_payment_runtime_api/dry_run.rs.html#50-67">source</a><h4 class="code-header">fn <a href="#method.dry_run_xcm" class="fn">dry_run_xcm</a>(
+    &amp;self,
+    __runtime_api_at_param__: &lt;Block as <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">BlockT</a>&gt;::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
+    origin_location: <a class="enum" href="../../staging_xcm/enum.VersionedLocation.html" title="enum staging_xcm::VersionedLocation">VersionedLocation</a>,
+    xcm: <a class="enum" href="../../staging_xcm/enum.VersionedXcm.html" title="enum staging_xcm::VersionedXcm">VersionedXcm</a>&lt;Call&gt;
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.77.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.XcmDryRunEffects.html" title="struct xcm_fee_payment_runtime_api::dry_run::XcmDryRunEffects">XcmDryRunEffects</a>&lt;Event&gt;, <a class="enum" href="enum.Error.html" title="enum xcm_fee_payment_runtime_api::dry_run::Error">Error</a>&gt;, ApiError&gt;</h4></section></summary><div class="docblock"><p>Dry run XCM program</p>
+</div></details></div><h2 id="trait-implementations" class="section-header">Trait Implementations<a href="#trait-implementations" class="anchor">§</a></h2><div id="trait-implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-RuntimeApiInfo-for-dyn+DryRunApi%3CBlock,+Call,+Event,+OriginCaller%3E" class="impl"><a class="src rightside" href="../../src/xcm_fee_payment_runtime_api/dry_run.rs.html#50-67">source</a><a href="#impl-RuntimeApiInfo-for-dyn+DryRunApi%3CBlock,+Call,+Event,+OriginCaller%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Block: <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">BlockT</a>, Call: Encode, Event: Decode, OriginCaller: Encode&gt; RuntimeApiInfo for dyn <a class="trait" href="trait.DryRunApi.html" title="trait xcm_fee_payment_runtime_api::dry_run::DryRunApi">DryRunApi</a>&lt;Block, Call, Event, OriginCaller&gt;</h3></section></summary><div class="impl-items"><details class="toggle" open><summary><section id="associatedconstant.ID" class="associatedconstant trait-impl"><a class="src rightside" href="../../src/xcm_fee_payment_runtime_api/dry_run.rs.html#50-67">source</a><a href="#associatedconstant.ID" class="anchor">§</a><h4 class="code-header">const <a class="constant">ID</a>: [<a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.array.html">8</a>] = _</h4></section></summary><div class='docblock'>The identifier of the runtime api.</div></details><details class="toggle" open><summary><section id="associatedconstant.VERSION" class="associatedconstant trait-impl"><a class="src rightside" href="../../src/xcm_fee_payment_runtime_api/dry_run.rs.html#50-67">source</a><a href="#associatedconstant.VERSION" class="anchor">§</a><h4 class="code-header">const <a class="constant">VERSION</a>: <a class="primitive" href="https://doc.rust-lang.org/1.77.0/std/primitive.u32.html">u32</a> = 1u32</h4></section></summary><div class='docblock'>The version of the runtime api.</div></details></div></details></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/xcm_fee_payment_runtime_api/dry_run/trait.DryRunApi.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

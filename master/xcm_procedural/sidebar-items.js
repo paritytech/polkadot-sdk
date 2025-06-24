@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"derive":["Builder","NumVariants","XcmWeightInfoTrait"],"macro":["impl_conversion_functions_for_junctions_v3","impl_conversion_functions_for_junctions_v4","impl_conversion_functions_for_junctions_v5","impl_conversion_functions_for_location_v4","impl_conversion_functions_for_location_v5","impl_conversion_functions_for_multilocation_v3"]};

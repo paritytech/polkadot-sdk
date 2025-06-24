@@ -1,0 +1,195 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Some sort of cost taken from account temporarily in order to offset the cost to the chain of holding some data `Footprint` in state."><title>Consideration in polkadot_sdk_frame::traits - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_sdk_frame" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../polkadot_sdk_frame/index.html">polkadot_sdk_frame</a><span class="version">0.1.0</span></h2></div><h2 class="location"><a href="#">Consideration</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.drop">drop</a></li><li><a href="#tymethod.new">new</a></li><li><a href="#tymethod.update">update</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.burn">burn</a></li></ul><h3><a href="#foreign-impls">Implementations on Foreign Types</a></h3><ul class="block"><li><a href="#impl-Consideration%3CA%3E-for-()">()</a></li></ul><h3><a href="#object-safety">Object Safety</a></h3><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In polkadot_sdk_frame::traits</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">polkadot_sdk_frame</a>::<wbr><a href="index.html">traits</a>::<wbr><a class="trait" href="#">Consideration</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait Consideration&lt;AccountId&gt;: <a class="trait" href="trait.Member.html" title="trait polkadot_sdk_frame::traits::Member">Member</a> + FullCodec + <a class="trait" href="../derive/trait.TypeInfo.html" title="trait polkadot_sdk_frame::derive::TypeInfo">TypeInfo</a> + MaxEncodedLen {
+    // Required methods
+    fn <a href="#tymethod.new" class="fn">new</a>(who: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.reference.html">&amp;AccountId</a>, new: <a class="struct" href="struct.Footprint.html" title="struct polkadot_sdk_frame::traits::Footprint">Footprint</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, DispatchError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.update" class="fn">update</a>(
+        self,
+        who: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.reference.html">&amp;AccountId</a>,
+        new: <a class="struct" href="struct.Footprint.html" title="struct polkadot_sdk_frame::traits::Footprint">Footprint</a>
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, DispatchError&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.drop" class="fn">drop</a>(self, who: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.reference.html">&amp;AccountId</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>, DispatchError&gt;;
+
+    // Provided method
+    fn <a href="#method.burn" class="fn">burn</a>(self, _: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.reference.html">&amp;AccountId</a>) { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Some sort of cost taken from account temporarily in order to offset the cost to the chain of
+holding some data <a href="struct.Footprint.html" title="struct polkadot_sdk_frame::traits::Footprint"><code>Footprint</code></a> in state.</p>
+<p>The cost may be increased, reduced or dropped entirely as the footprint changes.</p>
+<p>A single ticket corresponding to some particular datum held in storage. This is an opaque
+type, but must itself be stored and generally it should be placed alongside whatever data
+the ticket was created for.</p>
+<p>While not technically a linear type owing to the need for <code>FullCodec</code>, <em>this should be
+treated as one</em>. Don’t type to duplicate it, and remember to drop it when you’re done with
+it.</p>
+</div></details><h2 id="required-methods" class="small-section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.new" class="method"><h4 class="code-header">fn <a href="#tymethod.new" class="fn">new</a>(who: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.reference.html">&amp;AccountId</a>, new: <a class="struct" href="struct.Footprint.html" title="struct polkadot_sdk_frame::traits::Footprint">Footprint</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, DispatchError&gt;</h4></section></summary><div class="docblock"><p>Create a ticket for the <code>new</code> footprint attributable to <code>who</code>. This ticket <em>must</em> ultimately
+be consumed through <code>update</code> or <code>drop</code> once the footprint changes or is removed.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.update" class="method"><h4 class="code-header">fn <a href="#tymethod.update" class="fn">update</a>(self, who: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.reference.html">&amp;AccountId</a>, new: <a class="struct" href="struct.Footprint.html" title="struct polkadot_sdk_frame::traits::Footprint">Footprint</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, DispatchError&gt;</h4></section></summary><div class="docblock"><p>Optionally consume an old ticket and alter the footprint, enforcing the new cost to <code>who</code>
+and returning the new ticket (or an error if there was an issue).</p>
+<p>For creating tickets and dropping them, you can use the simpler <code>new</code> and <code>drop</code> instead.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.drop" class="method"><h4 class="code-header">fn <a href="#tymethod.drop" class="fn">drop</a>(self, who: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.reference.html">&amp;AccountId</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>, DispatchError&gt;</h4></section></summary><div class="docblock"><p>Consume a ticket for some <code>old</code> footprint attributable to <code>who</code> which should now been freed.</p>
+</div></details></div><h2 id="provided-methods" class="small-section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.burn" class="method"><h4 class="code-header">fn <a href="#method.burn" class="fn">burn</a>(self, _: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.reference.html">&amp;AccountId</a>)</h4></section></summary><div class="docblock"><p>Consume a ticket for some <code>old</code> footprint attributable to <code>who</code> which should be sacrificed.</p>
+<p>This is infallible. In the general case (and it is left unimplemented), then it is
+equivalent to the consideration never being dropped. Cases which can handle this properly
+should implement, but it <em>MUST</em> rely on the loss of the consideration to the owner.</p>
+</div></details></div><h2 id="object-safety" class="small-section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.75.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="foreign-impls" class="small-section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-Consideration%3CA%3E-for-()" class="impl"><a href="#impl-Consideration%3CA%3E-for-()" class="anchor">§</a><h3 class="code-header">impl&lt;A&gt; <a class="trait" href="trait.Consideration.html" title="trait polkadot_sdk_frame::traits::Consideration">Consideration</a>&lt;A&gt; for <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a></h3></section></summary><div class="impl-items"><section id="method.new" class="method trait-impl"><a href="#method.new" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.new" class="fn">new</a>(_: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.reference.html">&amp;A</a>, _: <a class="struct" href="struct.Footprint.html" title="struct polkadot_sdk_frame::traits::Footprint">Footprint</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>, DispatchError&gt;</h4></section><section id="method.update" class="method trait-impl"><a href="#method.update" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.update" class="fn">update</a>(self, _: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.reference.html">&amp;A</a>, _: <a class="struct" href="struct.Footprint.html" title="struct polkadot_sdk_frame::traits::Footprint">Footprint</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>, DispatchError&gt;</h4></section><section id="method.drop" class="method trait-impl"><a href="#method.drop" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.drop" class="fn">drop</a>(self, _: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.reference.html">&amp;A</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>, DispatchError&gt;</h4></section></div></details><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-Consideration%3CA%3E-for-FreezeConsideration%3CA,+F,+R,+D%3E" class="impl"><a href="#impl-Consideration%3CA%3E-for-FreezeConsideration%3CA,+F,+R,+D%3E" class="anchor">§</a><h3 class="code-header">impl&lt;A, F, R, D&gt; <a class="trait" href="trait.Consideration.html" title="trait polkadot_sdk_frame::traits::Consideration">Consideration</a>&lt;A&gt; for <a class="struct" href="tokens/fungible/struct.FreezeConsideration.html" title="struct polkadot_sdk_frame::traits::tokens::fungible::FreezeConsideration">FreezeConsideration</a>&lt;A, F, R, D&gt;<span class="where fmt-newline">where
+    A: 'static,
+    F: 'static + <a class="trait" href="tokens/fungible/trait.MutateFreeze.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::MutateFreeze">Mutate</a>&lt;A&gt;,
+    R: 'static + <a class="trait" href="trait.Get.html" title="trait polkadot_sdk_frame::traits::Get">Get</a>&lt;&lt;F as <a class="trait" href="tokens/fungible/trait.InspectFreeze.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::InspectFreeze">Inspect</a>&lt;A&gt;&gt;::<a class="associatedtype" href="tokens/fungible/trait.InspectFreeze.html#associatedtype.Id" title="type polkadot_sdk_frame::traits::tokens::fungible::InspectFreeze::Id">Id</a>&gt;,
+    D: 'static + <a class="trait" href="trait.Convert.html" title="trait polkadot_sdk_frame::traits::Convert">Convert</a>&lt;<a class="struct" href="struct.Footprint.html" title="struct polkadot_sdk_frame::traits::Footprint">Footprint</a>, &lt;F as <a class="trait" href="tokens/fungible/trait.Inspect.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::Inspect">Inspect</a>&lt;A&gt;&gt;::<a class="associatedtype" href="tokens/fungible/trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungible::Inspect::Balance">Balance</a>&gt;,</span></h3></section><section id="impl-Consideration%3CA%3E-for-HoldConsideration%3CA,+F,+R,+D%3E" class="impl"><a href="#impl-Consideration%3CA%3E-for-HoldConsideration%3CA,+F,+R,+D%3E" class="anchor">§</a><h3 class="code-header">impl&lt;A, F, R, D&gt; <a class="trait" href="trait.Consideration.html" title="trait polkadot_sdk_frame::traits::Consideration">Consideration</a>&lt;A&gt; for <a class="struct" href="tokens/fungible/struct.HoldConsideration.html" title="struct polkadot_sdk_frame::traits::tokens::fungible::HoldConsideration">HoldConsideration</a>&lt;A, F, R, D&gt;<span class="where fmt-newline">where
+    A: 'static,
+    F: 'static + <a class="trait" href="tokens/fungible/trait.MutateHold.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::MutateHold">Mutate</a>&lt;A&gt;,
+    R: 'static + <a class="trait" href="trait.Get.html" title="trait polkadot_sdk_frame::traits::Get">Get</a>&lt;&lt;F as <a class="trait" href="tokens/fungible/trait.InspectHold.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::InspectHold">Inspect</a>&lt;A&gt;&gt;::<a class="associatedtype" href="tokens/fungible/trait.InspectHold.html#associatedtype.Reason" title="type polkadot_sdk_frame::traits::tokens::fungible::InspectHold::Reason">Reason</a>&gt;,
+    D: 'static + <a class="trait" href="trait.Convert.html" title="trait polkadot_sdk_frame::traits::Convert">Convert</a>&lt;<a class="struct" href="struct.Footprint.html" title="struct polkadot_sdk_frame::traits::Footprint">Footprint</a>, &lt;F as <a class="trait" href="tokens/fungible/trait.Inspect.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::Inspect">Inspect</a>&lt;A&gt;&gt;::<a class="associatedtype" href="tokens/fungible/trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungible::Inspect::Balance">Balance</a>&gt;,</span></h3></section><section id="impl-Consideration%3CA%3E-for-LoneHoldConsideration%3CA,+F,+R,+D%3E" class="impl"><a href="#impl-Consideration%3CA%3E-for-LoneHoldConsideration%3CA,+F,+R,+D%3E" class="anchor">§</a><h3 class="code-header">impl&lt;A, F, R, D&gt; <a class="trait" href="trait.Consideration.html" title="trait polkadot_sdk_frame::traits::Consideration">Consideration</a>&lt;A&gt; for <a class="struct" href="tokens/fungible/struct.LoneHoldConsideration.html" title="struct polkadot_sdk_frame::traits::tokens::fungible::LoneHoldConsideration">LoneHoldConsideration</a>&lt;A, F, R, D&gt;<span class="where fmt-newline">where
+    A: 'static,
+    F: 'static + <a class="trait" href="tokens/fungible/trait.MutateHold.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::MutateHold">Mutate</a>&lt;A&gt;,
+    R: 'static + <a class="trait" href="trait.Get.html" title="trait polkadot_sdk_frame::traits::Get">Get</a>&lt;&lt;F as <a class="trait" href="tokens/fungible/trait.InspectHold.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::InspectHold">Inspect</a>&lt;A&gt;&gt;::<a class="associatedtype" href="tokens/fungible/trait.InspectHold.html#associatedtype.Reason" title="type polkadot_sdk_frame::traits::tokens::fungible::InspectHold::Reason">Reason</a>&gt;,
+    D: 'static + <a class="trait" href="trait.Convert.html" title="trait polkadot_sdk_frame::traits::Convert">Convert</a>&lt;<a class="struct" href="struct.Footprint.html" title="struct polkadot_sdk_frame::traits::Footprint">Footprint</a>, &lt;F as <a class="trait" href="tokens/fungible/trait.Inspect.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::Inspect">Inspect</a>&lt;A&gt;&gt;::<a class="associatedtype" href="tokens/fungible/trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungible::Inspect::Balance">Balance</a>&gt;,</span></h3></section><section id="impl-Consideration%3CA%3E-for-LoneFreezeConsideration%3CA,+Fx,+Rx,+D%3E" class="impl"><a href="#impl-Consideration%3CA%3E-for-LoneFreezeConsideration%3CA,+Fx,+Rx,+D%3E" class="anchor">§</a><h3 class="code-header">impl&lt;A, Fx, Rx, D&gt; <a class="trait" href="trait.Consideration.html" title="trait polkadot_sdk_frame::traits::Consideration">Consideration</a>&lt;A&gt; for <a class="struct" href="tokens/fungible/struct.LoneFreezeConsideration.html" title="struct polkadot_sdk_frame::traits::tokens::fungible::LoneFreezeConsideration">LoneFreezeConsideration</a>&lt;A, Fx, Rx, D&gt;<span class="where fmt-newline">where
+    A: 'static,
+    Fx: 'static + <a class="trait" href="tokens/fungible/trait.MutateFreeze.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::MutateFreeze">Mutate</a>&lt;A&gt;,
+    Rx: 'static + <a class="trait" href="trait.Get.html" title="trait polkadot_sdk_frame::traits::Get">Get</a>&lt;&lt;Fx as <a class="trait" href="tokens/fungible/trait.InspectFreeze.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::InspectFreeze">Inspect</a>&lt;A&gt;&gt;::<a class="associatedtype" href="tokens/fungible/trait.InspectFreeze.html#associatedtype.Id" title="type polkadot_sdk_frame::traits::tokens::fungible::InspectFreeze::Id">Id</a>&gt;,
+    D: 'static + <a class="trait" href="trait.Convert.html" title="trait polkadot_sdk_frame::traits::Convert">Convert</a>&lt;<a class="struct" href="struct.Footprint.html" title="struct polkadot_sdk_frame::traits::Footprint">Footprint</a>, &lt;Fx as <a class="trait" href="tokens/fungible/trait.Inspect.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::Inspect">Inspect</a>&lt;A&gt;&gt;::<a class="associatedtype" href="tokens/fungible/trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::traits::tokens::fungible::Inspect::Balance">Balance</a>&gt;,</span></h3></section></div><script src="../../trait.impl/frame_support/traits/storage/trait.Consideration.js" data-ignore-extern-crates="frame_support,std" async></script></section></div></main></body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["PEOPLE_POLKADOT","PEOPLE_POLKADOT_LOCAL"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["Freezes","Param0","Param1"]};

@@ -1,0 +1,1 @@
+searchState.loadedDescShard("pallet_nfts_runtime_api", 0, "Runtime API definition for the FRAME NFTs pallet.")

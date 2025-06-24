@@ -1,0 +1,1 @@
+searchState.loadedDescShard("pallet_contracts_proc_macro", 0, "Procedural macros used in the contracts module.\nThis derives <code>Debug</code> for a struct where each field must be …\nDefines a host functions set that can be imported by …")

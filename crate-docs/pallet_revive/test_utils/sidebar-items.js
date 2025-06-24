@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ALICE","BOB","CHARLIE","DJANGO","GAS_LIMIT"],"fn":["deposit_limit"],"mod":["builder"],"struct":["AccountId32"]};

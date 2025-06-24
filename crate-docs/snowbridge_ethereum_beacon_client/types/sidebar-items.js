@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["ExecutionHeaderUpdate"],"type":["CheckpointUpdate","ExecutionHeaderBuffer","NextSyncCommitteeUpdate","SyncAggregate","SyncCommittee","SyncCommitteePrepared","Update"]};

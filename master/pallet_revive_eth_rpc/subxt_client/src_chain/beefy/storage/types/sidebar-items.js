@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["authorities","genesis_block","next_authorities","set_id_session","validator_set_id"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["AmountInMax","AmountOut","KeepAlive","Path","SendTo"]};

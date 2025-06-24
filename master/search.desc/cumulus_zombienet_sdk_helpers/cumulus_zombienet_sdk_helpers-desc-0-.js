@@ -1,0 +1,1 @@
+searchState.loadedDescShard("cumulus_zombienet_sdk_helpers", 0, "Assert that finality has not stalled.\nAsserts that parachain blocks have the correct relay …\nCreate a batch call to assign cores to a parachain.\nWait for the first block with a session change.\nWait for the first block with the Nth session change.")

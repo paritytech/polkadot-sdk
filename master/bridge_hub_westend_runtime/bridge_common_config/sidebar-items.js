@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BridgeReward","BridgeRewardBeneficiaries"],"struct":["BridgeRewardPayer","RelayerStakeLease","RelayerStakeReserveId","RequiredStakeForStakeAndSlash"],"type":["BridgeRelayersInstance"]};

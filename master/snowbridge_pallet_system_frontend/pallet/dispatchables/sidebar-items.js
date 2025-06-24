@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["add_tip","register_token","set_operating_mode"]};

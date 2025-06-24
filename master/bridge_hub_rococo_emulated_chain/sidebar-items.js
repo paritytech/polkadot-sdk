@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["LOCAL_EXT_BRIDGEHUBROCOCO"],"mod":["genesis"],"static":["GLOBAL_EXT_BRIDGEHUBROCOCO"],"struct":["BridgeHubRococo","BridgeHubRococoExistentialDeposit","BridgeHubRococoRuntimeOrigin","BridgeHubRococoXcmConfig"],"trait":["BridgeHubRococoParaPallet"],"type":["EthereumBeaconClient","EthereumInboundQueue"]};

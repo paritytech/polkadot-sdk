@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["VRF_SIGNATURE_SERIALIZED_SIZE"],"struct":["VrfInput","VrfPreOutput","VrfSignData","VrfSignature"]};

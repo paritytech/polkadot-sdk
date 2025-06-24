@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Authorities","CurrentSetId","NextForced","PendingChange","SetIdSession","Stalled","State"]};

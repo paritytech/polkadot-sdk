@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["asset_ops","asset_strategies","migration","pallet","weights"],"struct":["CollectionDetails","CollectionMetadata","DestroyWitness","ItemDetails","ItemMetadata"],"type":["CollectionDetailsFor","DepositBalanceOf","ItemDetailsFor","ItemPrice"]};

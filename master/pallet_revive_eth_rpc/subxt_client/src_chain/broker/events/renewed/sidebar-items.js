@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["Begin","Core","Duration","OldCore","Price","Who","Workload"]};

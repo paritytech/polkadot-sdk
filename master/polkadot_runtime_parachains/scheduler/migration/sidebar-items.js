@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["MigrateV0ToV1","MigrateV1ToV2","MigrateV2ToV3"]};

@@ -1,0 +1,199 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Learn how Substrate and FRAME use traits and associated types to make modules generic in a type-safe manner."><title>polkadot_sdk_docs::reference_docs::trait_based_programming - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2 class="location"><a href="#">Module trait_based_programming</a></h2><div class="sidebar-elems"></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">reference_docs</a>::<wbr><a class="mod" href="#">trait_based_programming</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/reference_docs/trait_based_programming.rs.html#1-229">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Learn how Substrate and FRAME use traits and associated types to make modules generic in a
+type-safe manner.</p>
+<h2 id="trait-based-programming"><a href="#trait-based-programming">Trait-based Programming</a></h2>
+<p>This document walks you over a peculiar way of using Rust’s <code>trait</code> items. This pattern is
+abundantly used within <a href="../../../frame/index.html" title="mod frame"><code>frame</code></a> and is therefore paramount important for a smooth transition
+into it.</p>
+<p>The rest of this document assumes familiarity with the
+<a href="https://doc.rust-lang.org/book/ch19-03-advanced-traits.html">Rust book’s Advanced Traits</a>
+section.
+Moreover, we use the [<code>frame::traits::Get</code>].</p>
+<p>First, imagine we are writing a FRAME pallet. We represent this pallet with a <code>struct Pallet</code>,
+and this pallet wants to implement the functionalities of that pallet, for example a simple
+<code>transfer</code> function. For the sake of education, we are interested in having a <code>MinTransfer</code>
+amount, expressed as a [<code>frame::traits::Get</code>], which will dictate what is the minimum amount
+that can be transferred.</p>
+<p>We can foremost write this as simple as the following snippet:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">mod </span>basic {
+	<span class="kw">struct </span>Pallet;
+
+	<span class="kw">type </span>AccountId = frame::deps::sp_runtime::AccountId32;
+	<span class="kw">type </span>Balance = u128;
+	<span class="kw">type </span>MinTransfer = frame::traits::ConstU128&lt;<span class="number">10</span>&gt;;
+
+	<span class="kw">impl </span>Pallet {
+		<span class="kw">fn </span>transfer(_from: AccountId, _to: AccountId, _amount: Balance) {
+			<span class="macro">todo!</span>()
+		}
+	}
+}</code></pre></div>
+<p>In this example, we use arbitrary choices for <code>AccountId</code>, <code>Balance</code> and the <code>MinTransfer</code> type.
+This works great for <strong>one team’s purposes</strong> but we have to remember that Substrate and FRAME
+are written as generic frameworks, intended to be highly configurable.</p>
+<p>In a broad sense, there are two avenues in exposing configurability:</p>
+<ol>
+<li>For <em>values</em> that need to be generic, for example <code>MinTransfer</code>, we attach them to the
+<code>Pallet</code> struct as fields:</li>
+</ol>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">struct </span>Pallet {
+	min_transfer: u128,
+}</code></pre></div>
+<ol start="2">
+<li>For <em>types</em> that need to be generic, we would have to use generic or associated types, such
+as:</li>
+</ol>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">struct </span>Pallet&lt;AccountId&gt; {
+	min_transfer: u128,
+    _marker: std::marker::PhantomData&lt;AccountId&gt;,
+}</code></pre></div>
+<p>Substrate and FRAME, for various reasons (performance, correctness, type safety) has opted to
+use <em>types</em> to declare both <em>values</em> and <em>types</em> as generic. This is the essence of why the
+<code>Get</code> trait exists.</p>
+<p>This would bring us to the second iteration of the pallet, which would look like:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">mod </span>generic {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+	<span class="kw">struct </span>Pallet&lt;AccountId, Balance, MinTransfer&gt; {
+		_marker: std::marker::PhantomData&lt;(AccountId, Balance, MinTransfer)&gt;,
+	}
+
+	<span class="kw">impl</span>&lt;AccountId, Balance, MinTransfer&gt; Pallet&lt;AccountId, Balance, MinTransfer&gt;
+	<span class="kw">where
+		</span>Balance: frame::traits::AtLeast32BitUnsigned,
+		MinTransfer: frame::traits::Get&lt;Balance&gt;,
+		AccountId: From&lt;[u8; <span class="number">32</span>]&gt;,
+	{
+		<span class="kw">fn </span>transfer(_from: AccountId, _to: AccountId, amount: Balance) {
+			<span class="macro">assert!</span>(amount &gt;= MinTransfer::get());
+			<span class="macro">unimplemented!</span>();
+		}
+	}
+}</code></pre></div>
+<p>In this example, we managed to make all 3 of our types generic. Taking the example of the
+<code>AccountId</code>, one should read the above as following:</p>
+<blockquote>
+<p>The <code>Pallet</code> does not know what type <code>AccountId</code> concretely is, but it knows that it is
+something that adheres to being <code>From&lt;[u8; 32]&gt;</code>.</p>
+</blockquote>
+<p>This method would work, but it suffers from two downsides:</p>
+<ol>
+<li>It is verbose, each <code>impl</code> block would have to reiterate all of the trait bounds.</li>
+<li>It cannot easily share/inherit generic types. Imagine multiple pallets wanting to be generic
+over a single <code>AccountId</code>. There is no easy way to express that in this model.</li>
+</ol>
+<p>Finally, this brings us to using traits and associated types on traits to express the above.
+Trait associated types have the benefit of:</p>
+<ol>
+<li>Being less verbose, as in effect they can <em>group multiple <code>type</code>s together</em>.</li>
+<li>Can inherit from one another by declaring
+<a href="https://doc.rust-lang.org/rust-by-example/trait/supertraits.html">supertraits</a>.</li>
+</ol>
+<blockquote>
+<p>Interestingly, one downside of associated types is that declaring defaults on them is not
+stable yet. In the meantime, we have built our own custom mechanics around declaring defaults
+for associated types, see <a href="../../../pallet_default_config_example/index.html" title="mod pallet_default_config_example"><code>pallet_default_config_example</code></a>.</p>
+</blockquote>
+<p>The last iteration of our code would look like this:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">mod </span>trait_based {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+	<span class="kw">trait </span>Config {
+		<span class="kw">type </span>AccountId: From&lt;[u8; <span class="number">32</span>]&gt;;
+		<span class="kw">type </span>Balance: frame::traits::AtLeast32BitUnsigned;
+		<span class="kw">type </span>MinTransfer: frame::traits::Get&lt;<span class="self">Self</span>::Balance&gt;;
+	}
+
+	<span class="kw">struct </span>Pallet&lt;T: Config&gt;(std::marker::PhantomData&lt;T&gt;);
+	<span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+		<span class="kw">fn </span>transfer(_from: T::AccountId, _to: T::AccountId, amount: T::Balance) {
+			<span class="macro">assert!</span>(amount &gt;= T::MinTransfer::get());
+			<span class="macro">unimplemented!</span>();
+		}
+	}
+}</code></pre></div>
+<p>Notice how instead of having multiple generics, everything is generic over a single <code>&lt;T: Config&gt;</code>, and all types are fetched through <code>T</code>, for example <code>T::AccountId</code>, <code>T::MinTransfer</code>.</p>
+<p>Finally, imagine all pallets wanting to be generic over <code>AccountId</code>. This can be achieved by
+having individual <code>trait Configs</code> declare a shared <code>trait SystemConfig</code> as their
+<a href="https://doc.rust-lang.org/rust-by-example/trait/supertraits.html">supertrait</a>.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">mod </span>with_system {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+	<span class="kw">pub trait </span>SystemConfig {
+		<span class="kw">type </span>AccountId: From&lt;[u8; <span class="number">32</span>]&gt;;
+	}
+
+	<span class="kw">pub trait </span>Config: SystemConfig {
+		<span class="kw">type </span>Balance: frame::traits::AtLeast32BitUnsigned;
+		<span class="kw">type </span>MinTransfer: frame::traits::Get&lt;<span class="self">Self</span>::Balance&gt;;
+	}
+
+	<span class="kw">pub struct </span>Pallet&lt;T: Config&gt;(std::marker::PhantomData&lt;T&gt;);
+	<span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+		<span class="kw">fn </span>transfer(_from: T::AccountId, _to: T::AccountId, amount: T::Balance) {
+			<span class="macro">assert!</span>(amount &gt;= T::MinTransfer::get());
+			<span class="macro">unimplemented!</span>();
+		}
+	}
+}</code></pre></div>
+<p>In FRAME, this shared supertrait is <a href="../../../frame_system/index.html" title="mod frame_system"><code>frame::prelude::frame_system</code></a>.</p>
+<p>Notice how this made no difference in the syntax of the rest of the code. <code>T::AccountId</code> is
+still a valid type, since <code>T</code> implements <code>Config</code> and <code>Config</code> implies <code>SystemConfig</code>, which
+has a <code>type AccountId</code>.</p>
+<p>Note, in some instances one would need to use what is known as the fully-qualified-syntax to
+access a type to help the Rust compiler disambiguate.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">mod </span>fully_qualified {
+	<span class="kw">use </span><span class="kw">super</span>::with_system::<span class="kw-2">*</span>;
+
+	<span class="comment">// Simple of using fully qualified syntax.
+	</span><span class="kw">type </span>AccountIdOf&lt;T&gt; = &lt;T <span class="kw">as </span>SystemConfig&gt;::AccountId;
+}</code></pre></div>
+<p>This syntax can sometimes become more complicated when you are dealing with nested traits.
+Consider the following example, in which we fetch the <code>type Balance</code> from another trait
+<code>CurrencyTrait</code>.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">mod </span>fully_qualified_complicated {
+	<span class="kw">use </span><span class="kw">super</span>::with_system::<span class="kw-2">*</span>;
+
+	<span class="kw">trait </span>CurrencyTrait {
+		<span class="kw">type </span>Balance: frame::traits::AtLeast32BitUnsigned;
+		<span class="kw">fn </span>more_stuff() {}
+	}
+
+	<span class="kw">trait </span>Config: SystemConfig {
+		<span class="kw">type </span>Currency: CurrencyTrait;
+	}
+
+	<span class="kw">struct </span>Pallet&lt;T: Config&gt;(std::marker::PhantomData&lt;T&gt;);
+	<span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+		<span class="kw">fn </span>transfer(
+			_from: T::AccountId,
+			_to: T::AccountId,
+			_amount: &lt;&lt;T <span class="kw">as </span>Config&gt;::Currency <span class="kw">as </span>CurrencyTrait&gt;::Balance,
+		) {
+			<span class="macro">unimplemented!</span>();
+		}
+	}
+
+	<span class="doccomment">/// A common pattern in FRAME.
+	</span><span class="kw">type </span>BalanceOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>Config&gt;::Currency <span class="kw">as </span>CurrencyTrait&gt;::Balance;
+}</code></pre></div>
+<p>Notice the final <code>type BalanceOf</code> and how it is defined. Using such aliases to shorten the
+length of fully qualified syntax is a common pattern in FRAME.</p>
+<p>The above example is almost identical to the well-known (and somewhat notorious) <code>type BalanceOf</code> that is often used in the context of <a href="../../../frame_support/traits/tokens/fungible/index.html" title="mod frame_support::traits::tokens::fungible"><code>frame::traits::fungible</code></a>.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>BalanceOf&lt;T&gt; =
+	&lt;&lt;T <span class="kw">as </span>Config&gt;::Currency <span class="kw">as </span>Currency&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance;</code></pre></div>
+<h3 id="additional-resources"><a href="#additional-resources">Additional Resources</a></h3>
+<ul>
+<li><a href="https://github.com/paritytech/substrate/issues/13836">https://github.com/paritytech/substrate/issues/13836</a></li>
+<li><a href="https://www.youtube.com/watch?v=6cp10jVWNl4">Substrate Seminar - Traits and Generic Types</a></li>
+<li><a href="https://substrate.stackexchange.com/questions/2228/type-casting-to-trait-t-as-config">https://substrate.stackexchange.com/questions/2228/type-casting-to-trait-t-as-config</a></li>
+</ul>
+</div></details></section></div></main></body></html>

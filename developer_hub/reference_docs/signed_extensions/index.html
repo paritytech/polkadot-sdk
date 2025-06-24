@@ -1,0 +1,77 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Learn about the signed extensions that form a part of extrinsics. Signed extensions are, briefly, a means for different chains to extend the “basic” extrinsic format with custom data that can be checked by the runtime."><title>developer_hub::reference_docs::signed_extensions - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="developer_hub" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../developer_hub/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../../../developer_hub/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2 class="location"><a href="#">Module signed_extensions</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#modules">Modules</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">developer_hub</a>::<wbr><a href="../index.html">reference_docs</a>::<wbr><a class="mod" href="#">signed_extensions</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/developer_hub/reference_docs/signed_extensions.rs.html#1-79">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Learn about the signed extensions that form a part of extrinsics.
+Signed extensions are, briefly, a means for different chains to extend the “basic” extrinsic
+format with custom data that can be checked by the runtime.</p>
+<h2 id="example"><a href="#example">Example</a></h2>
+<p>Defining a couple of very simple signed extensions looks like the following:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub mod </span>signed_extensions_example {
+	<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
+	<span class="kw">use </span>scale_info::TypeInfo;
+	<span class="kw">use </span>sp_runtime::traits::SignedExtension;
+
+	<span class="comment">// This doesn&#39;t actually check anything, but simply allows
+	// some arbitrary `u32` to be added to the extrinsic payload
+	</span><span class="attr">#[derive(Debug, Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+	</span><span class="kw">pub struct </span>AddToPayload(<span class="kw">pub </span>u32);
+
+	<span class="kw">impl </span>SignedExtension <span class="kw">for </span>AddToPayload {
+		<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;AddToPayload&quot;</span>;
+		<span class="kw">type </span>AccountId = ();
+		<span class="kw">type </span>Call = ();
+		<span class="kw">type </span>AdditionalSigned = ();
+		<span class="kw">type </span>Pre = ();
+
+		<span class="kw">fn </span>additional_signed(
+			<span class="kw-2">&amp;</span><span class="self">self</span>,
+		) -&gt; <span class="prelude-ty">Result</span>&lt;
+			<span class="self">Self</span>::AdditionalSigned,
+			sp_runtime::transaction_validity::TransactionValidityError,
+		&gt; {
+			<span class="prelude-val">Ok</span>(())
+		}
+
+		<span class="kw">fn </span>pre_dispatch(
+			<span class="self">self</span>,
+			_who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
+			_call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
+			_info: <span class="kw-2">&amp;</span>sp_runtime::traits::DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
+			_len: usize,
+		) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Pre, sp_runtime::transaction_validity::TransactionValidityError&gt; {
+			<span class="prelude-val">Ok</span>(())
+		}
+	}
+
+	<span class="comment">// This is the opposite; nothing will be added to the extrinsic payload,
+	// but the AdditionalSigned type is `1234u32`, which will be added to the
+	// payload which will be signed.
+	</span><span class="attr">#[derive(Debug, Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+	</span><span class="kw">pub struct </span>AddToSignaturePayload;
+
+	<span class="kw">impl </span>SignedExtension <span class="kw">for </span>AddToSignaturePayload {
+		<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;AddToSignaturePayload&quot;</span>;
+		<span class="kw">type </span>AccountId = ();
+		<span class="kw">type </span>Call = ();
+		<span class="kw">type </span>AdditionalSigned = u32;
+		<span class="kw">type </span>Pre = ();
+
+		<span class="kw">fn </span>additional_signed(
+			<span class="kw-2">&amp;</span><span class="self">self</span>,
+		) -&gt; <span class="prelude-ty">Result</span>&lt;
+			<span class="self">Self</span>::AdditionalSigned,
+			sp_runtime::transaction_validity::TransactionValidityError,
+		&gt; {
+			<span class="prelude-val">Ok</span>(<span class="number">1234</span>)
+		}
+
+		<span class="kw">fn </span>pre_dispatch(
+			<span class="self">self</span>,
+			_who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
+			_call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
+			_info: <span class="kw-2">&amp;</span>sp_runtime::traits::DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
+			_len: usize,
+		) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Pre, sp_runtime::transaction_validity::TransactionValidityError&gt; {
+			<span class="prelude-val">Ok</span>(())
+		}
+	}
+}</code></pre></div>
+</div></details><h2 id="modules" class="small-section-header"><a href="#modules">Modules</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="signed_extensions_example/index.html" title="mod developer_hub::reference_docs::signed_extensions::signed_extensions_example">signed_extensions_example</a></div></li></ul></section></div></main></body></html>

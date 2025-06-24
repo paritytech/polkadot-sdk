@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AllocateAndReturnByCodec","AllocateAndReturnFatPointer","AllocateAndReturnPointer","PassAs","PassFatPointerAndDecode","PassFatPointerAndDecodeSlice","PassFatPointerAndRead","PassFatPointerAndReadWrite","PassPointerAndRead","PassPointerAndReadCopy","PassPointerAndWrite","ReturnAs"]};

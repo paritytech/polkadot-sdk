@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["next_fee_multiplier","storage_version"]};

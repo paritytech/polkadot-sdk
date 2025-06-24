@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["substrate_relay_helper",[["impl&lt;P: <a class=\"trait\" href=\"substrate_relay_helper/equivocation/trait.SubstrateEquivocationDetectionPipeline.html\" title=\"trait substrate_relay_helper::equivocation::SubstrateEquivocationDetectionPipeline\">SubstrateEquivocationDetectionPipeline</a>&gt; <a class=\"trait\" href=\"equivocation_detector/trait.EquivocationDetectionPipeline.html\" title=\"trait equivocation_detector::EquivocationDetectionPipeline\">EquivocationDetectionPipeline</a> for <a class=\"struct\" href=\"substrate_relay_helper/equivocation/struct.EquivocationDetectionPipelineAdapter.html\" title=\"struct substrate_relay_helper::equivocation::EquivocationDetectionPipelineAdapter\">EquivocationDetectionPipelineAdapter</a>&lt;P&gt;"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[751]}

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["InnerMigrateV0ToV1"],"type":["MigrateV0ToV1"]};

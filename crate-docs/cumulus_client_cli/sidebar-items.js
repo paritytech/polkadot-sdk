@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["RelayChainMode"],"fn":["extract_genesis_wasm","generate_genesis_block"],"struct":["CollatorOptions","ExportGenesisStateCommand","ExportGenesisWasmCommand","NormalizedRunCmd","PurgeChainCmd","RunCmd"]};

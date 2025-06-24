@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DefaultExtraSubcommands","NoExtraSubcommand"],"trait":["ExtraSubcommand"]};

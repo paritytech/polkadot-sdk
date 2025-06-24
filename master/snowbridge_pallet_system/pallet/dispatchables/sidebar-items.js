@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["register_token","set_operating_mode","set_pricing_parameters","set_token_transfer_fees","upgrade"]};

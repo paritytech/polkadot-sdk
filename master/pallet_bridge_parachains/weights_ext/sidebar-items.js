@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_PARACHAIN_HEAD_SIZE","EXTRA_STORAGE_PROOF_SIZE"],"trait":["WeightInfoExt"]};

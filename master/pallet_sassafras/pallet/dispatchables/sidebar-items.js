@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["plan_config_change","submit_tickets"]};

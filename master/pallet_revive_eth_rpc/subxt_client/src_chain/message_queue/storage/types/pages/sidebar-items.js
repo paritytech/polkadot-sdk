@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["Pages","Param0","Param1"]};

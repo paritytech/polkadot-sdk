@@ -1,0 +1,1 @@
+searchState.loadedDescShard("snowbridge_pallet_inbound_queue_v2_fixtures", 0, "")

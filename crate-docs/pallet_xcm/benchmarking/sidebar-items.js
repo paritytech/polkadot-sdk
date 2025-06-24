@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["helpers"],"struct":["Pallet"],"trait":["Config"]};

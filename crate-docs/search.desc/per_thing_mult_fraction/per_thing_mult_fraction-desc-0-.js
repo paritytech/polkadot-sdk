@@ -1,0 +1,1 @@
+searchState.loadedDescShard("per_thing_mult_fraction", 0, "Running\nChecks that <code>(n / d) * d &lt;= n</code>.\nChecks that <code>n / (n / d) &gt;= d</code>.\nTries to disprove <code>(n / d) * d &lt;= n</code> for any <code>PerThing</code>s.")

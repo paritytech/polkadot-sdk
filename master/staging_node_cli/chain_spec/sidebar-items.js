@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["development_config","flaming_fir_config","local_testnet_config","staging_testnet_config","testnet_genesis_patch"],"struct":["Extensions","RuntimeGenesisConfig"],"type":["AccountId","Balance","ChainSpec","Signature"]};

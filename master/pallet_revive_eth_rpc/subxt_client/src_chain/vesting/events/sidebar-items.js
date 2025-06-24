@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["vesting_completed","vesting_created","vesting_updated"],"struct":["VestingCompleted","VestingCreated","VestingUpdated"]};

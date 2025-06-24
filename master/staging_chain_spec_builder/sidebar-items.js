@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ChainSpecBuilderCmd"],"fn":["generate_chain_spec_for_runtime"],"struct":["AddCodeSubstituteCmd","ChainSpecBuilder","ConvertToRawCmd","CreateCmd","DisplayPresetCmd","ListPresetsCmd","ParachainExtension","UpdateCodeCmd","VerifyCmd"]};

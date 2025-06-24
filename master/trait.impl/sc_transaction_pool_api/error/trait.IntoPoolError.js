@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["sc_service",[]],["sc_transaction_pool_api",[]],["substrate_test_runtime_transaction_pool",[["impl <a class=\"trait\" href=\"sc_transaction_pool_api/error/trait.IntoPoolError.html\" title=\"trait sc_transaction_pool_api::error::IntoPoolError\">IntoPoolError</a> for <a class=\"struct\" href=\"substrate_test_runtime_transaction_pool/struct.Error.html\" title=\"struct substrate_test_runtime_transaction_pool::Error\">Error</a>"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[17,31,383]}

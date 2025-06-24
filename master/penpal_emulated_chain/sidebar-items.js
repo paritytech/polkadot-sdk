@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ED","LOCAL_EXT_PENPALA","LOCAL_EXT_PENPALB","PARA_ID_A","PARA_ID_B"],"fn":["genesis"],"static":["GLOBAL_EXT_PENPALA","GLOBAL_EXT_PENPALB"],"struct":["PenpalA","PenpalAssetOwner","PenpalB","PenpalRelayNetworkId","PenpalSudoAccount"],"trait":["PenpalAParaPallet","PenpalBParaPallet"]};

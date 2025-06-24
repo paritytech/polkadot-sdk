@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["create","remove","update"],"struct":["Create","Remove","Update"]};

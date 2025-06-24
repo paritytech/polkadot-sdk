@@ -1,0 +1,1 @@
+searchState.loadedDescShard("pallet_revive_proc_macro", 0, "Procedural macros used in the contracts module.\nDefines a host functions set that can be imported by …")

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["pallet_glutton","pallet_timestamp"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["DisabledValidators_Storage_Instance","MigrateDisabledToSession"],"type":["DisabledValidators"]};

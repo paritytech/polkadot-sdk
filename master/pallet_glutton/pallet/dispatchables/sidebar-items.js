@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["bloat","initialize_pallet","set_block_length","set_compute","set_storage"]};

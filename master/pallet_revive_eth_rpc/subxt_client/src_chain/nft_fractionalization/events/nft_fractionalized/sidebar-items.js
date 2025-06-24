@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["Asset","Beneficiary","Fractions","Nft","NftCollection"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["CollectionRoleOf","Param0","Param1"]};

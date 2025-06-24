@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"snowbridge_outbound_queue":[["impl&lt;T: <a class=\"trait\" href=\"snowbridge_outbound_queue/pallet/trait.Config.html\" title=\"trait snowbridge_outbound_queue::pallet::Config\">Config</a>&gt; SendMessageFeeProvider for <a class=\"struct\" href=\"snowbridge_outbound_queue/pallet/struct.Pallet.html\" title=\"struct snowbridge_outbound_queue::pallet::Pallet\">Pallet</a>&lt;T&gt;"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

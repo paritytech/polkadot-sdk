@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["migrate_all_inactive_nominators"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_FRAME_SYSTEM_PALLET_NAME","DEFAULT_PARACHAIN_SYSTEM_PALLET_NAME"],"enum":["AuraConsensusId","BlockNumber","Consensus","Runtime"],"struct":["DefaultRuntimeResolver"],"trait":["RuntimeResolver"]};

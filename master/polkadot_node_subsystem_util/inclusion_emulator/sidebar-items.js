@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["FragmentValidityError","HrmpWatermarkUpdate","ModificationError"],"fn":["validate_commitments"],"struct":["ConstraintModifications","Constraints","Fragment","InboundHrmpLimitations","OutboundHrmpChannelLimitations","OutboundHrmpChannelModification","ProspectiveCandidate","RelayChainBlockInfo"],"trait":["HypotheticalOrConcreteCandidate"]};

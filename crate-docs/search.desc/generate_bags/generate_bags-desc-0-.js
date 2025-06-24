@@ -1,0 +1,1 @@
+searchState.loadedDescShard("generate_bags", 0, "Support code to ease the process of generating bag …\nCompute the constant ratio for the thresholds.\nWrite a thresholds module to the path specified.\nCompute the list of bag thresholds.")

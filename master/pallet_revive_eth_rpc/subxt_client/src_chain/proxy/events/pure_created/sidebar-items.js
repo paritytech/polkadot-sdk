@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["DisambiguationIndex","ProxyType","Pure","Who"]};

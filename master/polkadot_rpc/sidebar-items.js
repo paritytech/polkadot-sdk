@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["create_full"],"struct":["BabeDeps","BeefyDeps","FullDeps","GrandpaDeps"],"type":["RpcExtension","SubscriptionTaskExecutor"]};

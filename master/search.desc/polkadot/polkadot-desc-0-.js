@@ -1,0 +1,1 @@
+searchState.loadedDescShard("polkadot", 0, "Polkadot CLI\nGlobal allocator. Changing it to another allocator will …")

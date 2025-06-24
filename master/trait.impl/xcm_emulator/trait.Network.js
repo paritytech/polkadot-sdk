@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["rococo_system_emulated_network",[["impl <a class=\"trait\" href=\"xcm_emulator/trait.Network.html\" title=\"trait xcm_emulator::Network\">Network</a> for <a class=\"struct\" href=\"rococo_system_emulated_network/struct.RococoMockNet.html\" title=\"struct rococo_system_emulated_network::RococoMockNet\">RococoMockNet</a>"]]],["rococo_westend_system_emulated_network",[["impl <a class=\"trait\" href=\"xcm_emulator/trait.Network.html\" title=\"trait xcm_emulator::Network\">Network</a> for <a class=\"struct\" href=\"rococo_westend_system_emulated_network/struct.RococoMockNet.html\" title=\"struct rococo_westend_system_emulated_network::RococoMockNet\">RococoMockNet</a>"],["impl <a class=\"trait\" href=\"xcm_emulator/trait.Network.html\" title=\"trait xcm_emulator::Network\">Network</a> for <a class=\"struct\" href=\"rococo_westend_system_emulated_network/struct.WestendMockNet.html\" title=\"struct rococo_westend_system_emulated_network::WestendMockNet\">WestendMockNet</a>"]]],["westend_system_emulated_network",[["impl <a class=\"trait\" href=\"xcm_emulator/trait.Network.html\" title=\"trait xcm_emulator::Network\">Network</a> for <a class=\"struct\" href=\"westend_system_emulated_network/struct.WestendMockNet.html\" title=\"struct westend_system_emulated_network::WestendMockNet\">WestendMockNet</a>"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[326,660,333]}

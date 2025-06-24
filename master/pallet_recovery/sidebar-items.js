@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DepositKind"],"mod":["pallet","weights"],"struct":["ActiveRecovery","RecoveryConfig"],"type":["AccountIdLookupOf","BalanceOf","BlockNumberFromProviderOf","FriendsOf"]};

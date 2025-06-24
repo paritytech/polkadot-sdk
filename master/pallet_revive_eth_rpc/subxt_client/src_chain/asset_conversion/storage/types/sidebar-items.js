@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["next_pool_asset_id","pools"]};

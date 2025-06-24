@@ -1,0 +1,1 @@
+searchState.loadedDescShard("frame_support_procedural_tools_derive", 0, "Use to derive parsing for parsing struct.\nself defined parsing struct. not meant for any struct, …\nself defined parsing struct or enum. not meant for any …")

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["Map16M","Param0"]};

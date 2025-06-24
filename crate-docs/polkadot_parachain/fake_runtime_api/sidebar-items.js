@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["asset_hub_polkadot_aura","aura"]};
