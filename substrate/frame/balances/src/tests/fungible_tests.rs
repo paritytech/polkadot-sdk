@@ -826,12 +826,12 @@ fn lone_hold_consideration_works() {
 				[
 					RuntimeEvent::Balances(crate::Event::Held {
 						reason: TestId::Foo,
-						who: who.clone(),
+						who,
 						amount: 10
 					}),
 					RuntimeEvent::Balances(crate::Event::Held {
 						reason: TestId::Foo,
-						who: who.clone(),
+						who,
 						amount: 5
 					})
 				]
