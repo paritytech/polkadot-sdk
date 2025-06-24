@@ -120,12 +120,12 @@ pub type GenericSignature<TAG> = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, TAG>;
 /// A signature (a 512-bit value, plus 8 bits for recovery ID).
 ///
 /// Uses blake2 during key recovery.
-pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, EcdsaTag>;
+pub type Signature = GenericSignature<EcdsaTag>;
 
 /// A signature (a 512-bit value, plus 8 bits for recovery ID).
 ///
 /// Uses keccak during key recovery.
-pub type KeccakSignature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, EcdsaKeccakTag>;
+pub type KeccakSignature = GenericSignature<EcdsaKeccakTag>;
 
 /// A signature that allows recovering the public key from a message.
 pub trait Recover {
