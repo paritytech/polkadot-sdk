@@ -74,26 +74,23 @@ use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterfa
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::{
-	ClaimQueueOffset, CoreSelector, GetCoreSelectorApi, RelayParentOffsetApi,
-};
+use cumulus_primitives_core::{GetCoreSelectorApi, RelayParentOffsetApi};
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::FutureExt;
 use polkadot_primitives::{
-	vstaging::DEFAULT_CLAIM_QUEUE_OFFSET, CollatorPair, CoreIndex, Hash as RelayHash, Id as ParaId,
-	ValidationCodeHash,
+	CollatorPair, CoreIndex, Hash as RelayHash, Id as ParaId, ValidationCodeHash,
 };
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_utils::mpsc::tracing_unbounded;
-use sp_api::{ApiExt, ProvideRuntimeApi};
+use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::AuraApi;
-use sp_core::{crypto::Pair, traits::SpawnNamed, U256};
+use sp_core::{crypto::Pair, traits::SpawnNamed};
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, Member, NumberFor, One};
+use sp_runtime::traits::{Block as BlockT, Member};
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
 mod block_builder_task;
@@ -266,4 +263,3 @@ struct CollatorMessage<Block: BlockT> {
 	/// Maximum pov size. Currently needed only for exporting PoV.
 	pub max_pov_size: u32,
 }
-

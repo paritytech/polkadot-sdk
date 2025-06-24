@@ -18,14 +18,12 @@
 //! Utility for caching [`RelayChainData`] for different relay blocks.
 
 use crate::collators::claim_queue_at;
-use cumulus_primitives_core::ClaimQueueOffset;
 use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
-	CoreIndex, Hash as RelayHash, Header as RelayHeader, Id as ParaId, OccupiedCoreAssumption,
+	Hash as RelayHash, Header as RelayHeader, Id as ParaId, OccupiedCoreAssumption,
 };
 use sp_runtime::generic::BlockId;
-use std::collections::BTreeSet;
 
 /// Contains relay chain data necessary for parachain block building.
 #[derive(Clone)]

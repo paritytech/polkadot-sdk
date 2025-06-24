@@ -25,12 +25,12 @@ use crate::collator::SlotClaim;
 use codec::Codec;
 use cumulus_client_consensus_common::{self as consensus_common, ParentSearchParams};
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
-use cumulus_primitives_core::{relay_chain::Header as RelayHeader, BlockT, ClaimQueueOffset};
+use cumulus_primitives_core::{relay_chain::Header as RelayHeader, BlockT};
 use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_node_subsystem::messages::RuntimeApiRequest;
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
-	CoreIndex, Hash as RelayHash, Id as ParaId, OccupiedCoreAssumption, ValidationCodeHash,
+	Hash as RelayHash, Id as ParaId, OccupiedCoreAssumption, ValidationCodeHash,
 	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 use sc_consensus_aura::{standalone as aura_internal, AuraApi};
