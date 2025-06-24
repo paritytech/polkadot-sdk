@@ -18,17 +18,24 @@ use crate::{
 	configuration::{TestAuthorities, TestConfiguration},
 	network::{HandleNetworkMessage, NetworkMessage},
 };
+use codec::Encode;
+use polkadot_node_network_protocol::request_response::{
+	v1::DisputeResponse, ProtocolName, Requests,
+};
 use polkadot_node_primitives::SignedDisputeStatement;
 use polkadot_node_subsystem_test_helpers::mock::new_block_import_info;
 use polkadot_overseer::BlockInfo;
 use polkadot_primitives::{
 	vstaging::{CandidateEvent, CandidateReceiptV2},
-	BlockNumber, CandidateCommitments, CandidateHash, CoreIndex, GroupIndex, Hash, HeadData,
-	Header, SessionIndex, ValidatorId,
+	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateHash, CoreIndex, GroupIndex,
+	Hash, HeadData, Header, SessionIndex, ValidatorId,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt_v2_bad_sig, dummy_hash};
 use sp_keystore::KeystorePtr;
-use std::collections::HashMap;
+use std::{
+	collections::{HashMap, HashSet},
+	sync::{Arc, Mutex},
+};
 
 #[derive(Clone)]
 pub struct TestState {
@@ -49,6 +56,7 @@ pub struct TestState {
 	pub block_headers: HashMap<Hash, Header>,
 	// Map from generated candidate hashes to missing availability
 	pub missing_availability: Vec<CandidateHash>,
+	pub requests_tracker: Arc<Mutex<HashMap<CandidateHash, HashSet<AuthorityDiscoveryId>>>>,
 }
 
 impl TestState {
@@ -108,6 +116,7 @@ impl TestState {
 			})
 			.collect();
 		let block_headers = block_infos.iter().map(generate_block_header).collect();
+		let requests_tracker = Arc::new(Mutex::new(HashMap::new()));
 
 		Self {
 			config,
@@ -118,6 +127,7 @@ impl TestState {
 			candidate_events,
 			signed_dispute_statements,
 			block_headers,
+			requests_tracker,
 		}
 	}
 }
@@ -178,7 +188,22 @@ impl HandleNetworkMessage for TestState {
 		_node_sender: &mut futures::channel::mpsc::UnboundedSender<NetworkMessage>,
 	) -> Option<NetworkMessage> {
 		match message {
-			_ => Some(message),
+			NetworkMessage::RequestFromNode(authority_id, Requests::DisputeSendingV1(req)) => {
+				let mut tracker = self.requests_tracker.lock().unwrap();
+				tracker
+					.entry(req.payload.0.candidate_receipt.hash())
+					.or_default()
+					.insert(authority_id);
+				drop(tracker);
+
+				let _ = req
+					.pending_response
+					.send(Ok(((DisputeResponse::Confirmed).encode(), ProtocolName::from(""))));
+				None
+			},
+			_ => {
+				todo!("{:?}", message);
+			},
 		}
 	}
 }

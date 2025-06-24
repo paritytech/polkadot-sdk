@@ -198,6 +198,8 @@ pub async fn benchmark_dispute_coordinator(
 		))
 		.await;
 		assert_eq!(confirmation_rx.await.unwrap(), ImportStatementsResult::ValidImport);
+		gum::info!(target: LOG_TARGET, "First import confirmed");
+		tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
 		let (active_disputes_tx, active_disputes_rx) = futures::channel::oneshot::channel();
 		env.send_message(AllMessages::DisputeCoordinator(
@@ -209,19 +211,40 @@ pub async fn benchmark_dispute_coordinator(
 			active_disputes_rx.await.unwrap(),
 			vec![(1, candidate_receipt1.hash(), DisputeStatus::Active)]
 		);
+		gum::info!(target: LOG_TARGET, "Active disputes queried");
 
-		let (query_candidate_votes_tx, query_candidate_votes_rx) =
-			futures::channel::oneshot::channel();
+		let (candidate_votes_tx, candidate_votes_rx) = futures::channel::oneshot::channel();
 		env.send_message(AllMessages::DisputeCoordinator(
 			DisputeCoordinatorMessage::QueryCandidateVotes(
 				vec![(1, candidate_receipt1.hash())],
-				query_candidate_votes_tx,
+				candidate_votes_tx,
 			),
 		))
 		.await;
-		let (_, _, votes) = query_candidate_votes_rx.await.unwrap().get(0).unwrap().clone();
+		let (_, _, votes) = candidate_votes_rx.await.unwrap().get(0).unwrap().clone();
 		assert_eq!(votes.valid.raw().len(), 2);
 		assert_eq!(votes.invalid.len(), 1);
+		gum::info!(target: LOG_TARGET, "Candidate votes queried");
+
+		let expected_requests =
+			(state.config.n_validators * state.config.connectivity / 100) as usize - 1;
+
+		loop {
+			let requests_sent = state
+				.requests_tracker
+				.lock()
+				.unwrap()
+				.get(&candidate_receipt1.hash())
+				.unwrap()
+				.len();
+
+			if requests_sent == expected_requests {
+				break;
+			}
+
+			gum::info!(target: LOG_TARGET, "Waiting for dispute requests to be sent: {} / {}", requests_sent, expected_requests);
+			tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+		}
 
 		let (confirmation_tx, confirmation_rx) = futures::channel::oneshot::channel();
 		env.send_message(AllMessages::DisputeCoordinator(
@@ -237,19 +260,21 @@ pub async fn benchmark_dispute_coordinator(
 		))
 		.await;
 		assert_eq!(confirmation_rx.await.unwrap(), ImportStatementsResult::ValidImport);
+		gum::info!(target: LOG_TARGET, "Second import confirmed");
+		tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
-		let (query_candidate_votes_tx, query_candidate_votes_rx) =
-			futures::channel::oneshot::channel();
+		let (candidate_votes_tx, candidate_votes_rx) = futures::channel::oneshot::channel();
 		env.send_message(AllMessages::DisputeCoordinator(
 			DisputeCoordinatorMessage::QueryCandidateVotes(
 				vec![(1, candidate_receipt2.hash())],
-				query_candidate_votes_tx,
+				candidate_votes_tx,
 			),
 		))
 		.await;
-		let (_, _, votes) = query_candidate_votes_rx.await.unwrap().get(0).unwrap().clone();
+		let (_, _, votes) = candidate_votes_rx.await.unwrap().get(0).unwrap().clone();
 		assert_eq!(votes.valid.raw().len(), 1);
 		assert_eq!(votes.invalid.len(), 1);
+		gum::info!(target: LOG_TARGET, "Candidate votes queried");
 	}
 
 	let duration: u128 = test_start.elapsed().as_millis();
