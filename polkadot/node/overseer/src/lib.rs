@@ -619,7 +619,7 @@ pub struct Overseer<SupportsParachains> {
 		RuntimeApiMessage,
 		NetworkBridgeTxMessage,
 		ApprovalVotingParallelMessage,
-	])]
+	], can_receive_priority_messages)]
 	approval_voting_parallel: ApprovalVotingParallel,
 	#[subsystem(GossipSupportMessage, sends: [
 		NetworkBridgeTxMessage,
@@ -639,7 +639,7 @@ pub struct Overseer<SupportsParachains> {
 		AvailabilityRecoveryMessage,
 		ChainSelectionMessage,
 		ApprovalVotingParallelMessage,
-	])]
+	], can_receive_priority_messages)]
 	dispute_coordinator: DisputeCoordinator,
 
 	#[subsystem(DisputeDistributionMessage, sends: [
