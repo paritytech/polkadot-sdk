@@ -219,8 +219,11 @@ jobs:
           {
             export SOURCE_REF_NAME=${{ github.head_ref || github.ref_name }}
             echo "SOURCE_REF_SLUG=${SOURCE_REF_NAME//\//_}"
-            cat .github/zombienet-env
+
+            # filter out comments and empty lines
+            cat .github/zombienet-env | grep -Ev '^\s*#|^\s*$'
             . .github/zombienet-env
+
             if [[ "$ZOMBIENET_PROVIDER" == "native" ]]; then
               echo "ZOMBIENET_IMAGE=${ZOMBIENET_IMAGE_FOR_NATIVE}"
               echo "ZOMBIENET_DEFAULT_RUNNER=${ZOMBIENET_DEFAULT_RUNNER_FOR_NATIVE}"
@@ -232,9 +235,6 @@ jobs:
               echo "ZOMBIENET_LARGE_RUNNER=${ZOMBIENET_RUNNER_FOR_K8S}"
             fi
 
-            # additional envs required by zombienet-sdk
-            cat .github/zombienet-sdk-env
-            . .github/zombienet-sdk-env
             if [[ "$ZOMBIE_PROVIDER" == "native" ]]; then
               echo "ZOMBIENET_SDK_IMAGE=${ZOMBIENET_SDK_IMAGE_FOR_NATIVE}"
               echo "ZOMBIENET_SDK_DEFAULT_RUNNER=${ZOMBIENET_SDK_DEFAULT_RUNNER_FOR_NATIVE}"
