@@ -3546,7 +3546,7 @@ dependencies = [
 
 [[package]]
 name = "coretime-rococo-runtime"
-version = "0.13.2"
+version = "0.13.3"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -3647,7 +3647,7 @@ dependencies = [
 
 [[package]]
 name = "coretime-westend-runtime"
-version = "0.13.2"
+version = "0.13.3"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -4059,7 +4059,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-consensus-aura"
-version = "0.21.0"
+version = "0.21.1"
 dependencies = [
  "async-trait",
  "cumulus-client-collator",
@@ -4589,7 +4589,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-relay-chain-inprocess-interface"
-version = "0.22.0"
+version = "0.22.1"
 dependencies = [
  "async-trait",
  "cumulus-primitives-core",
@@ -4635,7 +4635,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-relay-chain-minimal-node"
-version = "0.22.2"
+version = "0.22.3"
 dependencies = [
  "array-bytes",
  "async-trait",
@@ -11406,7 +11406,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-broker"
-version = "0.18.0"
+version = "0.18.1"
 dependencies = [
  "bitvec",
  "frame-benchmarking",
@@ -12838,7 +12838,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-scheduler"
-version = "40.2.0"
+version = "40.2.1"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -13297,7 +13297,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm"
-version = "18.1.1"
+version = "18.1.2"
 dependencies = [
  "bounded-collections",
  "frame-benchmarking",
@@ -13342,7 +13342,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm-bridge-hub"
-version = "0.14.3"
+version = "0.14.4"
 dependencies = [
  "bp-header-chain",
  "bp-messages",
@@ -15115,7 +15115,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-omni-node-lib"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "assert_cmd",
  "async-trait",
@@ -16004,7 +16004,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-service"
-version = "22.1.0"
+version = "22.2.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -18792,7 +18792,7 @@ dependencies = [
 
 [[package]]
 name = "sc-cli"
-version = "0.50.1"
+version = "0.50.2"
 dependencies = [
  "array-bytes",
  "chrono",
@@ -19479,7 +19479,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network"
-version = "0.48.4"
+version = "0.48.5"
 dependencies = [
  "array-bytes",
  "assert_matches",
@@ -19714,7 +19714,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network-types"
-version = "0.15.2"
+version = "0.15.5"
 dependencies = [
  "bs58",
  "ed25519-dalek",
@@ -19731,7 +19731,7 @@ dependencies = [
 
 [[package]]
 name = "sc-offchain"
-version = "43.0.0"
+version = "43.0.1"
 dependencies = [
  "array-bytes",
  "async-trait",
