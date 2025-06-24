@@ -324,10 +324,13 @@ mod tests {
 			Keyring::<ecdsa_crypto::AuthorityId>::Charlie.public(),
 			Keyring::<ecdsa_crypto::AuthorityId>::Charlie.sign(b"I am committed"),
 		);
-		assert!(rt.add_vote(charlie_vote));
+		assert!(rt.add_vote(charlie_vote.clone()));
 
 		// vote is now done
 		assert!(rt.is_done(threshold));
+
+		// Charlie can not vote twice, even he is on the list multpile times
+		assert!(!rt.add_vote(charlie_vote));
 	}
 
 	#[test]
