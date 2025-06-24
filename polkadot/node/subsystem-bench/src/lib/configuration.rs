@@ -310,8 +310,8 @@ impl AuthorityDiscovery for TestAuthorities {
 	/// Get the [`AuthorityDiscoveryId`] for the given [`PeerId`] from the local address cache.
 	async fn get_authority_ids_by_peer_id(
 		&mut self,
-		_peer_id: PeerId,
+		peer_id: PeerId,
 	) -> Option<HashSet<AuthorityDiscoveryId>> {
-		None
+		self.peer_id_to_authority.get(&peer_id).cloned().map(|id| HashSet::from([id]))
 	}
 }

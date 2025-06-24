@@ -29,21 +29,29 @@ use crate::{
 	network::{new_network, NetworkEmulatorHandle, NetworkInterface, NetworkInterfaceReceiver},
 	usage::BenchmarkUsage,
 };
+use codec::Encode;
 use colored::Colorize;
 use polkadot_dispute_distribution::DisputeDistributionSubsystem;
 use polkadot_node_core_dispute_coordinator::{
 	Config as DisputeCoordinatorConfig, DisputeCoordinatorSubsystem,
 };
 use polkadot_node_metrics::metrics::Metrics;
-use polkadot_node_network_protocol::request_response::{IncomingRequest, ReqProtocolNames};
+use polkadot_node_network_protocol::request_response::{
+	v1::DisputeRequest, IncomingRequest, ReqProtocolNames,
+};
+use polkadot_node_primitives::{InvalidDisputeVote, UncheckedDisputeMessage, ValidDisputeVote};
 use polkadot_node_subsystem::messages::{
 	AllMessages, DisputeCoordinatorMessage, ImportStatementsResult,
 };
 use polkadot_overseer::{
 	Handle as OverseerHandle, Overseer, OverseerConnector, OverseerMetrics, SpawnGlue,
 };
-use polkadot_primitives::{AuthorityDiscoveryId, Block, Hash, ValidatorId, ValidatorIndex};
+use polkadot_primitives::{
+	AuthorityDiscoveryId, Block, Hash, InvalidDisputeStatementKind, ValidDisputeStatementKind,
+	ValidatorId, ValidatorIndex,
+};
 use sc_keystore::LocalKeystore;
+use sc_network::request_responses::IncomingRequest as RawIncomingRequest;
 use sc_service::SpawnTaskHandle;
 use sp_keystore::Keystore;
 use sp_runtime::RuntimeAppPublic;
@@ -176,25 +184,22 @@ pub async fn benchmark_dispute_coordinator(
 		env.import_block(block_info.clone()).await;
 
 		let candidate_receipt = &state.candidate_receipts.get(&block_info.hash).unwrap()[0];
-		let (valid_vote, invalid_vote) =
-			&state.signed_dispute_statements.get(&block_info.hash).unwrap()[0];
+		let peer_id = *env.authorities().peer_ids.get(1).expect("all validators have ids");
+		let payload = state.dispute_requests.get(&candidate_receipt.hash()).expect("pregenerated");
+		let (pending_response, pending_response_receiver) = futures::channel::oneshot::channel();
+		let request =
+			RawIncomingRequest { peer: peer_id, payload: payload.encode(), pending_response };
+		let peer = env
+			.authorities()
+			.validator_authority_id
+			.get(1)
+			.expect("all validators have keys");
 
-		let (confirmation_tx, confirmation_rx) = futures::channel::oneshot::channel();
-		env.send_message(AllMessages::DisputeCoordinator(
-			DisputeCoordinatorMessage::ImportStatements {
-				candidate_receipt: candidate_receipt.clone(),
-				session: 1,
-				statements: vec![
-					(valid_vote.clone(), ValidatorIndex(3)),
-					(invalid_vote.clone(), ValidatorIndex(1)),
-				],
-				pending_confirmation: Some(confirmation_tx),
-			},
-		))
-		.await;
-		assert_eq!(confirmation_rx.await.unwrap(), ImportStatementsResult::ValidImport);
+		assert!(env.network().is_peer_connected(peer), "Peer {:?} is not connected", peer);
+		env.network().send_request_from_peer(peer, request).unwrap();
+		gum::info!(target: LOG_TARGET, "Dispute request sent to node from peer {:?}", pending_response_receiver.await);
 
-		let expected_requests =
+		let requests_expected =
 			(state.config.n_validators * state.config.connectivity / 100) as usize - 1;
 		loop {
 			let requests_sent = state
@@ -206,11 +211,11 @@ pub async fn benchmark_dispute_coordinator(
 				.unwrap()
 				.len();
 
-			if requests_sent == expected_requests {
+			if requests_sent == requests_expected {
 				break;
 			}
 
-			gum::info!(target: LOG_TARGET, "Waiting for dispute requests to be sent for candidate {}: {} / {}", candidate_receipt.hash(), requests_sent, expected_requests);
+			gum::info!(target: LOG_TARGET, "Waiting for dispute requests to be sent for candidate {}: {} / {}", candidate_receipt.hash(), requests_sent, requests_expected);
 			tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 		}
 	}

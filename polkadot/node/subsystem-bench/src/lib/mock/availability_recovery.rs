@@ -21,8 +21,7 @@ use std::sync::Arc;
 use futures::FutureExt;
 use polkadot_node_primitives::{AvailableData, BlockData, PoV};
 use polkadot_node_subsystem::{
-	messages::AvailabilityRecoveryMessage, overseer, RecoveryError, SpawnedSubsystem,
-	SubsystemError,
+	messages::AvailabilityRecoveryMessage, overseer, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_types::OverseerSignal;
 use polkadot_primitives::{Hash, HeadData, PersistedValidationData};

@@ -20,15 +20,19 @@ use crate::{
 };
 use codec::Encode;
 use polkadot_node_network_protocol::request_response::{
-	v1::DisputeResponse, ProtocolName, Requests,
+	v1::{DisputeRequest, DisputeResponse},
+	ProtocolName, Requests,
 };
-use polkadot_node_primitives::SignedDisputeStatement;
+use polkadot_node_primitives::{
+	InvalidDisputeVote, SignedDisputeStatement, UncheckedDisputeMessage, ValidDisputeVote,
+};
 use polkadot_node_subsystem_test_helpers::mock::new_block_import_info;
 use polkadot_overseer::BlockInfo;
 use polkadot_primitives::{
 	vstaging::{CandidateEvent, CandidateReceiptV2},
 	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateHash, CoreIndex, GroupIndex,
-	Hash, HeadData, Header, SessionIndex, ValidatorId,
+	Hash, HeadData, Header, InvalidDisputeStatementKind, SessionIndex, ValidDisputeStatementKind,
+	ValidatorId, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt_v2_bad_sig, dummy_hash};
 use sp_keystore::KeystorePtr;
@@ -45,13 +49,12 @@ pub struct TestState {
 	pub test_authorities: TestAuthorities,
 	// Relay chain block infos
 	pub block_infos: Vec<BlockInfo>,
-	// Map from generated candidate receipts
+	// Generated candidate receipts
 	pub candidate_receipts: HashMap<Hash, Vec<CandidateReceiptV2>>,
-	// Map from generated candidate events
+	// Generated candidate events
 	pub candidate_events: HashMap<Hash, Vec<CandidateEvent>>,
-	// Map from generated signed dispute statements (valid, invalid)
-	pub signed_dispute_statements:
-		HashMap<Hash, Vec<(SignedDisputeStatement, SignedDisputeStatement)>>,
+	// Generated dispute requests
+	pub dispute_requests: HashMap<CandidateHash, DisputeRequest>,
 	// Relay chain block headers
 	pub block_headers: HashMap<Hash, Header>,
 	// Map from candidate hash to authorities that have received a dispute request
@@ -84,33 +87,43 @@ impl TestState {
 				)
 			})
 			.collect();
-		let signed_dispute_statements = candidate_receipts
+		let dispute_requests = candidate_receipts
 			.iter()
-			.map(|(&hash, receipts)| {
-				(
-					hash,
-					receipts
-						.iter()
-						.map(|receipt| {
-							(
-								issue_explicit_statement_with_index(
-									test_authorities.keyring.local_keystore(),
-									test_authorities.validator_public[3].clone(),
-									receipt.hash(),
-									1,
-									true,
-								),
-								issue_explicit_statement_with_index(
-									test_authorities.keyring.local_keystore(),
-									test_authorities.validator_public[1].clone(),
-									receipt.hash(),
-									1,
-									false,
-								),
-							)
-						})
-						.collect::<Vec<_>>(),
-				)
+			.flat_map(|(_, receipts)| {
+				receipts.iter().map(|receipt| {
+					let valid = issue_explicit_statement(
+						test_authorities.keyring.local_keystore(),
+						test_authorities.validator_public[1].clone(),
+						receipt.hash(),
+						1,
+						true,
+					);
+					let invalid = issue_explicit_statement(
+						test_authorities.keyring.local_keystore(),
+						test_authorities.validator_public[3].clone(),
+						receipt.hash(),
+						1,
+						false,
+					);
+
+					(
+						receipt.hash(),
+						DisputeRequest(UncheckedDisputeMessage {
+							candidate_receipt: receipt.clone(),
+							session_index: 1,
+							valid_vote: ValidDisputeVote {
+								validator_index: ValidatorIndex(1),
+								signature: valid.validator_signature().clone(),
+								kind: ValidDisputeStatementKind::Explicit,
+							},
+							invalid_vote: InvalidDisputeVote {
+								validator_index: ValidatorIndex(3),
+								signature: invalid.validator_signature().clone(),
+								kind: InvalidDisputeStatementKind::Explicit,
+							},
+						}),
+					)
+				})
 			})
 			.collect();
 		let block_headers = block_infos.iter().map(generate_block_header).collect();
@@ -122,7 +135,7 @@ impl TestState {
 			block_infos,
 			candidate_receipts,
 			candidate_events,
-			signed_dispute_statements,
+			dispute_requests,
 			block_headers,
 			requests_tracker,
 		}
@@ -161,7 +174,7 @@ fn generate_block_header(info: &BlockInfo) -> (Hash, Header) {
 	)
 }
 
-fn issue_explicit_statement_with_index(
+fn issue_explicit_statement(
 	keystore: KeystorePtr,
 	public: ValidatorId,
 	candidate_hash: CandidateHash,
