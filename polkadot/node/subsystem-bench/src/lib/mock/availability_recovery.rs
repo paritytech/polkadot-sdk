@@ -25,17 +25,15 @@ use polkadot_node_subsystem::{
 	SubsystemError,
 };
 use polkadot_node_subsystem_types::OverseerSignal;
-use polkadot_primitives::{CandidateHash, Hash, HeadData, PersistedValidationData};
+use polkadot_primitives::{Hash, HeadData, PersistedValidationData};
 
 const LOG_TARGET: &str = "subsystem-bench::availability-recovery-mock";
 
-pub struct MockAvailabilityRecovery {
-	missing_availability: Vec<CandidateHash>,
-}
+pub struct MockAvailabilityRecovery {}
 
 impl MockAvailabilityRecovery {
-	pub fn new(missing_availability: Vec<CandidateHash>) -> Self {
-		Self { missing_availability }
+	pub fn new() -> Self {
+		Self {}
 	}
 }
 
@@ -61,21 +59,16 @@ impl MockAvailabilityRecovery {
 				orchestra::FromOrchestra::Communication { msg } => match msg {
 					AvailabilityRecoveryMessage::RecoverAvailableData(receipt, _, _, _, tx) => {
 						gum::debug!(target: LOG_TARGET, "RecoverAvailableData for candidate {:?}", receipt.hash());
-						if self.missing_availability.contains(&receipt.hash()) {
-							gum::debug!(target: LOG_TARGET, "Missing availability");
-							tx.send(Err(RecoveryError::Unavailable)).unwrap();
-						} else {
-							let available_data = AvailableData {
-								pov: Arc::new(PoV { block_data: BlockData(Vec::new()) }),
-								validation_data: PersistedValidationData {
-									parent_head: HeadData(Vec::new()),
-									relay_parent_number: 0,
-									relay_parent_storage_root: Hash::default(),
-									max_pov_size: 2,
-								},
-							};
-							tx.send(Ok(available_data)).unwrap();
-						}
+						let available_data = AvailableData {
+							pov: Arc::new(PoV { block_data: BlockData(Vec::new()) }),
+							validation_data: PersistedValidationData {
+								parent_head: HeadData(Vec::new()),
+								relay_parent_number: 0,
+								relay_parent_storage_root: Hash::default(),
+								max_pov_size: 2,
+							},
+						};
+						tx.send(Ok(available_data)).unwrap();
 					},
 				},
 			}

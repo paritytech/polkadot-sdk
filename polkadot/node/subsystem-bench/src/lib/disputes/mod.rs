@@ -95,7 +95,7 @@ fn build_overseer(
 	);
 	let chain_api_state = ChainApiState { block_headers: state.block_headers.clone() };
 	let mock_chain_api = MockChainApi::new(chain_api_state);
-	let mock_availability_recovery = MockAvailabilityRecovery::new(vec![]);
+	let mock_availability_recovery = MockAvailabilityRecovery::new();
 	let mock_approval_voting = MockApprovalVotingParallel::new();
 	let mock_candidate_validation = MockCandidateValidation::new();
 	let network_bridge_tx = MockNetworkBridgeTx::new(
