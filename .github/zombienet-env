@@ -1,5 +1,5 @@
-ZOMBIENET_IMAGE=docker.io/paritytech/zombienet:v1.3.126
-ZOMBIENET_RUNNER=zombienet-arc-runner
+ZOMBIENET_IMAGE=docker.io/paritytech/zombienet:v1.3.132
+ZOMBIENET_RUNNER=parity-zombienet
 PUSHGATEWAY_URL=http://prometheus-pushgateway.monitoring.svc.cluster.local:9091/metrics/job/zombie-metrics
 DEBUG=zombie,zombie::network-node,zombie::kube::client::logs
 ZOMBIE_PROVIDER=k8s

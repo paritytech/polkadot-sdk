@@ -25,9 +25,9 @@ const CACHE_SIZE: u32 = 1024;
 
 #[derive(Default, Clone)]
 struct FeeHistoryCacheItem {
-	base_fee: u64,
+	base_fee: u128,
 	gas_used_ratio: f64,
-	rewards: Vec<u64>,
+	rewards: Vec<u128>,
 }
 
 /// Manages the fee history cache.
@@ -47,17 +47,17 @@ impl FeeHistoryProvider {
 		let block_number: SubstrateBlockNumber =
 			block.number.try_into().expect("Block number is always valid");
 
-		let base_fee = block.base_fee_per_gas.unwrap_or_default().as_u64();
-		let gas_used = block.gas_used.as_u64();
-		let gas_used_ratio = (gas_used as f64) / (block.gas_limit.as_u64() as f64);
+		let base_fee = block.base_fee_per_gas.unwrap_or_default().as_u128();
+		let gas_used = block.gas_used.as_u128();
+		let gas_used_ratio = (gas_used as f64) / (block.gas_limit.as_u128() as f64);
 		let mut result = FeeHistoryCacheItem { base_fee, gas_used_ratio, rewards: vec![] };
 
 		let mut receipts = receipts
 			.iter()
 			.map(|receipt| {
-				let gas_used = receipt.gas_used.as_u64();
+				let gas_used = receipt.gas_used.as_u128();
 				let effective_reward =
-					receipt.effective_gas_price.as_u64().saturating_sub(base_fee);
+					receipt.effective_gas_price.as_u128().saturating_sub(base_fee);
 				(gas_used, effective_reward)
 			})
 			.collect::<Vec<_>>();
@@ -67,8 +67,8 @@ impl FeeHistoryProvider {
 		result.rewards = reward_percentiles
 			.into_iter()
 			.filter_map(|p| {
-				let target_gas = (p * gas_used as f64 / 100f64) as u64;
-				let mut sum_gas = 0u64;
+				let target_gas = (p * gas_used as f64 / 100f64) as u128;
+				let mut sum_gas = 0u128;
 				for (gas_used, reward) in &receipts {
 					sum_gas += gas_used;
 					if target_gas <= sum_gas {
