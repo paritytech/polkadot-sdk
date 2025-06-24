@@ -20595,6 +20595,7 @@ dependencies = [
  "linked-hash-map",
  "parity-scale-codec",
  "parking_lot 0.12.3",
+ "rstest",
  "sc-block-builder",
  "sc-client-api",
  "sc-transaction-pool-api",

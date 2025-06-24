@@ -23,13 +23,17 @@ use super::{
 	import_notification_sink::MultiViewImportNotificationSink,
 	metrics::{EventsMetricsCollector, MetricsLink as PrometheusMetrics},
 	multi_view_listener::MultiViewListener,
-	tx_mem_pool::{InsertionInfo, TxMemPool, TXMEMPOOL_TRANSACTION_LIMIT_MULTIPLIER},
+	tx_mem_pool::{InsertionInfo, TxMemPool},
 	view::View,
 	view_store::ViewStore,
 };
 use crate::{
 	api::FullChainApi,
-	common::tracing_log_xt::{log_xt_debug, log_xt_trace},
+	common::{
+		sliding_stat::DurationSlidingStats,
+		tracing_log_xt::{log_xt_debug, log_xt_trace},
+		STAT_SLIDING_WINDOW,
+	},
 	enactment_state::{EnactmentAction, EnactmentState},
 	fork_aware_txpool::{
 		dropped_watcher::{DroppedReason, DroppedTransaction},
@@ -40,7 +44,8 @@ use crate::{
 		base_pool::{TimedTransactionSource, Transaction},
 		BlockHash, ExtrinsicFor, ExtrinsicHash, IsValidator, Options, RawExtrinsicFor,
 	},
-	ReadyIteratorFor, LOG_TARGET,
+	insert_and_log_throttled, ReadyIteratorFor, ValidateTransactionPriority, LOG_TARGET,
+	LOG_TARGET_STAT,
 };
 use async_trait::async_trait;
 use futures::{
@@ -53,8 +58,8 @@ use parking_lot::Mutex;
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_transaction_pool_api::{
 	error::Error as TxPoolApiError, ChainEvent, ImportNotificationStream,
-	MaintainedTransactionPool, PoolStatus, TransactionFor, TransactionPool, TransactionPriority,
-	TransactionSource, TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
+	MaintainedTransactionPool, PoolStatus, TransactionFor, TransactionPool, TransactionSource,
+	TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
 };
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_core::traits::SpawnEssentialNamed;
@@ -68,15 +73,21 @@ use std::{
 	collections::{BTreeMap, HashMap, HashSet},
 	pin::Pin,
 	sync::Arc,
-	time::Instant,
+	time::{Duration, Instant},
 };
 use tokio::select;
-use tracing::{debug, info, trace, warn};
+use tracing::{debug, info, instrument, trace, warn, Level};
 
 /// The maximum block height difference before considering a view or transaction as timed-out
 /// due to a finality stall. When the difference exceeds this threshold, elements are treated
 /// as stale and are subject to cleanup.
 const FINALITY_TIMEOUT_THRESHOLD: usize = 128;
+
+/// The number of transactions that will be sent from the mempool to the newly created view during
+/// the maintain process.
+//todo [#8835]: better approach is needed - maybe time-budget approach?
+//note: yap parachain block size.
+const MEMPOOL_TO_VIEW_BATCH_SIZE: usize = 7_000;
 
 /// Fork aware transaction pool task, that needs to be polled.
 pub type ForkAwareTxPoolTask = Pin<Box<dyn Future<Output = ()> + Send>>;
@@ -112,10 +123,10 @@ where
 	///
 	/// `ready_iterator` is a closure that generates the result data to be sent to the pollers.
 	fn trigger(&mut self, at: Block::Hash, ready_iterator: impl Fn() -> T) {
-		trace!(target: LOG_TARGET, ?at, keys = ?self.pollers.keys(), "fatp::trigger");
+		debug!(target: LOG_TARGET, ?at, keys = ?self.pollers.keys(), "fatp::trigger");
 		let Some(pollers) = self.pollers.remove(&at) else { return };
 		pollers.into_iter().for_each(|p| {
-			debug!(target: LOG_TARGET, "trigger ready signal at block {}", at);
+			debug!(target: LOG_TARGET, "fatp::trigger trigger ready signal at block {}", at);
 			let _ = p.send(ready_iterator());
 		});
 	}
@@ -183,6 +194,12 @@ where
 	/// Intended to be used in the finality stall cleanups and also as a cache for all in-block
 	/// transactions.
 	included_transactions: Mutex<BTreeMap<HashAndNumber<Block>, Vec<ExtrinsicHash<ChainApi>>>>,
+
+	/// Stats for submit call durations
+	submit_stats: DurationSlidingStats,
+
+	/// Stats for submit_and_watch call durations
+	submit_and_watch_stats: DurationSlidingStats,
 }
 
 impl<ChainApi, Block> ForkAwareTxPool<ChainApi, Block>
@@ -198,7 +215,7 @@ where
 		best_block_hash: Block::Hash,
 		finalized_hash: Block::Hash,
 		finality_timeout_threshold: Option<usize>,
-	) -> (Self, ForkAwareTxPoolTask) {
+	) -> (Self, [ForkAwareTxPoolTask; 2]) {
 		Self::new_test_with_limits(
 			pool_api,
 			best_block_hash,
@@ -220,20 +237,21 @@ where
 		future_limits: crate::PoolLimit,
 		mempool_max_transactions_count: usize,
 		finality_timeout_threshold: Option<usize>,
-	) -> (Self, ForkAwareTxPoolTask) {
+	) -> (Self, [ForkAwareTxPoolTask; 2]) {
 		let (listener, listener_task) = MultiViewListener::new_with_worker(Default::default());
 		let listener = Arc::new(listener);
 
 		let (import_notification_sink, import_notification_sink_task) =
 			MultiViewImportNotificationSink::new_with_worker();
 
-		let mempool = Arc::from(TxMemPool::new(
+		let (mempool, mempool_task) = TxMemPool::new(
 			pool_api.clone(),
 			listener.clone(),
 			Default::default(),
 			mempool_max_transactions_count,
 			ready_limits.total_bytes + future_limits.total_bytes,
-		));
+		);
+		let mempool = Arc::from(mempool);
 
 		let (dropped_stream_controller, dropped_stream) =
 			MultiViewDroppedWatcherController::<ChainApi>::new();
@@ -278,8 +296,12 @@ where
 				finality_timeout_threshold: finality_timeout_threshold
 					.unwrap_or(FINALITY_TIMEOUT_THRESHOLD),
 				included_transactions: Default::default(),
+				submit_stats: DurationSlidingStats::new(Duration::from_secs(STAT_SLIDING_WINDOW)),
+				submit_and_watch_stats: DurationSlidingStats::new(Duration::from_secs(
+					STAT_SLIDING_WINDOW,
+				)),
 			},
-			combined_tasks,
+			[combined_tasks, mempool_task],
 		)
 	}
 
@@ -299,11 +321,13 @@ where
 			ExtrinsicHash<ChainApi>,
 		>,
 	) {
+		let dropped_stats = DurationSlidingStats::new(Duration::from_secs(STAT_SLIDING_WINDOW));
 		loop {
 			let Some(dropped) = dropped_stream.next().await else {
 				debug!(target: LOG_TARGET, "fatp::dropped_monitor_task: terminated...");
 				break;
 			};
+			let start = Instant::now();
 			let tx_hash = dropped.tx_hash;
 			trace!(
 				target: LOG_TARGET,
@@ -313,7 +337,7 @@ where
 			);
 			match dropped.reason {
 				DroppedReason::Usurped(new_tx_hash) => {
-					if let Some(new_tx) = mempool.get_by_hash(new_tx_hash) {
+					if let Some(new_tx) = mempool.get_by_hash(new_tx_hash).await {
 						view_store.replace_transaction(new_tx.source(), new_tx.tx(), tx_hash).await;
 					} else {
 						trace!(
@@ -328,9 +352,16 @@ where
 				},
 			};
 
-			mempool.remove_transactions(&[tx_hash]);
+			mempool.remove_transactions(&[tx_hash]).await;
 			import_notification_sink.clean_notified_items(&[tx_hash]);
 			view_store.listener.transaction_dropped(dropped);
+			insert_and_log_throttled!(
+				Level::DEBUG,
+				target:LOG_TARGET_STAT,
+				prefix:"dropped_stats",
+				dropped_stats,
+				start.elapsed().into()
+			);
 		}
 	}
 
@@ -361,13 +392,14 @@ where
 		let (import_notification_sink, import_notification_sink_task) =
 			MultiViewImportNotificationSink::new_with_worker();
 
-		let mempool = Arc::from(TxMemPool::new(
+		let (mempool, blocking_mempool_task) = TxMemPool::new(
 			pool_api.clone(),
 			listener.clone(),
 			metrics.clone(),
-			TXMEMPOOL_TRANSACTION_LIMIT_MULTIPLIER * options.total_count(),
+			options.total_count(),
 			options.ready.total_bytes + options.future.total_bytes,
-		));
+		);
+		let mempool = Arc::from(mempool);
 
 		let (dropped_stream_controller, dropped_stream) =
 			MultiViewDroppedWatcherController::<ChainApi>::new();
@@ -393,6 +425,11 @@ where
 		}
 		.boxed();
 		spawner.spawn_essential("txpool-background", Some("transaction-pool"), combined_tasks);
+		spawner.spawn_essential_blocking(
+			"txpool-background",
+			Some("transaction-pool"),
+			blocking_mempool_task,
+		);
 
 		Self {
 			mempool,
@@ -411,6 +448,10 @@ where
 			is_validator,
 			finality_timeout_threshold: FINALITY_TIMEOUT_THRESHOLD,
 			included_transactions: Default::default(),
+			submit_stats: DurationSlidingStats::new(Duration::from_secs(STAT_SLIDING_WINDOW)),
+			submit_and_watch_stats: DurationSlidingStats::new(Duration::from_secs(
+				STAT_SLIDING_WINDOW,
+			)),
 		}
 	}
 
@@ -455,8 +496,8 @@ where
 	/// Returns a number of unwatched and watched transactions in internal mempool.
 	///
 	/// Intended for use in unit tests.
-	pub fn mempool_len(&self) -> (usize, usize) {
-		self.mempool.unwatched_and_watched_count()
+	pub async fn mempool_len(&self) -> (usize, usize) {
+		self.mempool.unwatched_and_watched_count().await
 	}
 
 	/// Returns a set of future transactions for given block hash.
@@ -484,7 +525,7 @@ where
 	pub async fn ready_at_light(&self, at: Block::Hash) -> ReadyIteratorFor<ChainApi> {
 		let start = Instant::now();
 		let api = self.api.clone();
-		trace!(
+		debug!(
 			target: LOG_TARGET,
 			?at,
 			"fatp::ready_at_light"
@@ -546,19 +587,20 @@ where
 				to_be_removed = all_extrinsics.len(),
 				after_count,
 				duration = ?start.elapsed(),
-				"fatp::ready_at_light"
+				"fatp::ready_at_light -> light"
 			);
 			Box::new(tmp_view.pool.validated_pool().ready())
-		} else if let Some((most_recent_view, _)) = self
-			.view_store
-			.most_recent_view
-			.read()
-			.and_then(|at| self.view_store.get_view_at(at, true))
-		{
+		} else if let Some(most_recent_view) = self.view_store.most_recent_view.read().clone() {
 			// Fallback for the case when `at` is not on the already known fork.
 			// Falls back to the most recent view, which may include txs which
 			// are invalid or already included in the blocks but can still yield a
 			// partially valid ready set, which is still better than including nothing.
+			debug!(
+				target: LOG_TARGET,
+				?at,
+				duration = ?start.elapsed(),
+				"fatp::ready_at_light -> most_recent_view"
+			);
 			Box::new(most_recent_view.pool.validated_pool().ready())
 		} else {
 			let empty: ReadyIteratorFor<ChainApi> = Box::new(std::iter::empty());
@@ -658,6 +700,143 @@ where
 		);
 		(false, pending)
 	}
+
+	/// Refer to [`Self::submit_and_watch`]
+	async fn submit_and_watch_inner(
+		&self,
+		at: Block::Hash,
+		source: TransactionSource,
+		xt: TransactionFor<Self>,
+	) -> Result<Pin<Box<TransactionStatusStreamFor<Self>>>, ChainApi::Error> {
+		let xt = Arc::from(xt);
+
+		let insertion = match self.mempool.push_watched(source, xt.clone()).await {
+			Ok(result) => result,
+			Err(TxPoolApiError::ImmediatelyDropped) =>
+				self.attempt_transaction_replacement(source, true, xt.clone()).await?,
+			Err(e) => return Err(e.into()),
+		};
+
+		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
+		self.events_metrics_collector.report_submitted(&insertion);
+
+		match self.view_store.submit_and_watch(at, insertion.source, xt).await {
+			Err(e) => {
+				self.mempool.remove_transactions(&[insertion.hash]).await;
+				Err(e.into())
+			},
+			Ok(mut outcome) => {
+				self.mempool
+					.update_transaction_priority(outcome.hash(), outcome.priority())
+					.await;
+				Ok(outcome.expect_watcher())
+			},
+		}
+	}
+
+	/// Refer to [`Self::submit_at`]
+	async fn submit_at_inner(
+		&self,
+		source: TransactionSource,
+		xts: Vec<TransactionFor<Self>>,
+	) -> Result<Vec<Result<TxHash<Self>, ChainApi::Error>>, ChainApi::Error> {
+		let view_store = self.view_store.clone();
+		trace!(
+			target: LOG_TARGET,
+			count = xts.len(),
+			active_views_count = self.active_views_count(),
+			"fatp::submit_at"
+		);
+		log_xt_trace!(target: LOG_TARGET, xts.iter().map(|xt| self.tx_hash(xt)), "fatp::submit_at");
+		let xts = xts.into_iter().map(Arc::from).collect::<Vec<_>>();
+		let mempool_results = self.mempool.extend_unwatched(source, &xts).await;
+
+		if view_store.is_empty() {
+			return Ok(mempool_results
+				.into_iter()
+				.map(|r| r.map(|r| r.hash).map_err(Into::into))
+				.collect::<Vec<_>>())
+		}
+
+		// Submit all the transactions to the mempool
+		let retries = mempool_results
+			.into_iter()
+			.zip(xts.clone())
+			.map(|(result, xt)| async move {
+				match result {
+					Err(TxPoolApiError::ImmediatelyDropped) =>
+						self.attempt_transaction_replacement(source, false, xt).await,
+					_ => result,
+				}
+			})
+			.collect::<Vec<_>>();
+
+		let mempool_results = futures::future::join_all(retries).await;
+
+		// Collect transactions that were successfully submitted to the mempool...
+		let to_be_submitted = mempool_results
+			.iter()
+			.zip(xts)
+			.filter_map(|(result, xt)| {
+				result.as_ref().ok().map(|insertion| {
+					self.events_metrics_collector.report_submitted(&insertion);
+					(insertion.source.clone(), xt)
+				})
+			})
+			.collect::<Vec<_>>();
+
+		self.metrics
+			.report(|metrics| metrics.submitted_transactions.inc_by(to_be_submitted.len() as _));
+
+		// ... and submit them to the view_store. Please note that transactions rejected by mempool
+		// are not sent here.
+		let mempool = self.mempool.clone();
+		let results_map = view_store.submit(to_be_submitted.into_iter()).await;
+		let mut submission_results = reduce_multiview_result(results_map).into_iter();
+
+		// Note for composing final result:
+		//
+		// For each failed insertion into the mempool, the mempool result should be placed into
+		// the returned vector.
+		//
+		// For each successful insertion into the mempool, the corresponding
+		// view_store submission result needs to be examined (merged_results):
+		// - If there is an error during view_store submission, the transaction is removed from
+		// the mempool, and the final result recorded in the vector for this transaction is the
+		// view_store submission error.
+		//
+		// - If the view_store submission is successful, the transaction priority is updated in the
+		// mempool.
+		//
+		// Finally, it collects the hashes of updated transactions or submission errors (either
+		// from the mempool or view_store) into a returned vector (final_results).
+		const RESULTS_ASSUMPTION : &str =
+			"The number of Ok results in mempool is exactly the same as the size of view_store submission result. qed.";
+		let merged_results = mempool_results.into_iter().map(|result| {
+			result.map_err(Into::into).and_then(|insertion| {
+				Ok((insertion.hash, submission_results.next().expect(RESULTS_ASSUMPTION)))
+			})
+		});
+
+		let mut final_results = vec![];
+		for r in merged_results {
+			match r {
+				Ok((hash, submission_result)) => match submission_result {
+					Ok(r) => {
+						mempool.update_transaction_priority(r.hash(), r.priority()).await;
+						final_results.push(Ok(r.hash()));
+					},
+					Err(e) => {
+						mempool.remove_transactions(&[hash]).await;
+						final_results.push(Err(e));
+					},
+				},
+				Err(e) => final_results.push(Err(e)),
+			}
+		}
+
+		Ok(final_results)
+	}
 }
 
 /// Converts the input view-to-statuses map into the output vector of statuses.
@@ -731,94 +910,25 @@ where
 		source: TransactionSource,
 		xts: Vec<TransactionFor<Self>>,
 	) -> Result<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
-		let view_store = self.view_store.clone();
-		debug!(
+		let start = Instant::now();
+		trace!(
 			target: LOG_TARGET,
 			count = xts.len(),
 			active_views_count = self.active_views_count(),
 			"fatp::submit_at"
 		);
 		log_xt_trace!(target: LOG_TARGET, xts.iter().map(|xt| self.tx_hash(xt)), "fatp::submit_at");
-		let xts = xts.into_iter().map(Arc::from).collect::<Vec<_>>();
-		let mempool_results = self.mempool.extend_unwatched(source, &xts);
 
-		if view_store.is_empty() {
-			return Ok(mempool_results
-				.into_iter()
-				.map(|r| r.map(|r| r.hash).map_err(Into::into))
-				.collect::<Vec<_>>())
-		}
+		let result = self.submit_at_inner(source, xts).await;
 
-		// Submit all the transactions to the mempool
-		let retries = mempool_results
-			.into_iter()
-			.zip(xts.clone())
-			.map(|(result, xt)| async move {
-				match result {
-					Err(TxPoolApiError::ImmediatelyDropped) =>
-						self.attempt_transaction_replacement(source, false, xt).await,
-					_ => result,
-				}
-			})
-			.collect::<Vec<_>>();
-
-		let mempool_results = futures::future::join_all(retries).await;
-
-		// Collect transactions that were successfully submitted to the mempool...
-		let to_be_submitted = mempool_results
-			.iter()
-			.zip(xts)
-			.filter_map(|(result, xt)| {
-				result.as_ref().ok().map(|insertion| {
-					self.events_metrics_collector.report_submitted(&insertion);
-					(insertion.source.clone(), xt)
-				})
-			})
-			.collect::<Vec<_>>();
-
-		self.metrics
-			.report(|metrics| metrics.submitted_transactions.inc_by(to_be_submitted.len() as _));
-
-		// ... and submit them to the view_store. Please note that transactions rejected by mempool
-		// are not sent here.
-		let mempool = self.mempool.clone();
-		let results_map = view_store.submit(to_be_submitted.into_iter()).await;
-		let mut submission_results = reduce_multiview_result(results_map).into_iter();
-
-		// Note for composing final result:
-		//
-		// For each failed insertion into the mempool, the mempool result should be placed into
-		// the returned vector.
-		//
-		// For each successful insertion into the mempool, the corresponding
-		// view_store submission result needs to be examined:
-		// - If there is an error during view_store submission, the transaction is removed from
-		// the mempool, and the final result recorded in the vector for this transaction is the
-		// view_store submission error.
-		//
-		// - If the view_store submission is successful, the transaction priority is updated in the
-		// mempool.
-		//
-		// Finally, it collects the hashes of updated transactions or submission errors (either
-		// from the mempool or view_store) into a returned vector.
-		const RESULTS_ASSUMPTION : &str =
-			"The number of Ok results in mempool is exactly the same as the size of view_store submission result. qed.";
-		Ok(mempool_results
-			.into_iter()
-			.map(|result| {
-				result.map_err(Into::into).and_then(|insertion| {
-					submission_results.next().expect(RESULTS_ASSUMPTION).inspect_err(|_| {
-						mempool.remove_transactions(&[insertion.hash]);
-					})
-				})
-			})
-			.map(|r| {
-				r.map(|r| {
-					mempool.update_transaction_priority(&r);
-					r.hash()
-				})
-			})
-			.collect::<Vec<_>>())
+		insert_and_log_throttled!(
+			Level::DEBUG,
+			target:LOG_TARGET_STAT,
+			prefix:"submit_stats",
+			self.submit_stats,
+			start.elapsed().into()
+		);
+		result
 	}
 
 	/// Submits a single transaction and returns a future resolving to the submission results.
@@ -847,40 +957,29 @@ where
 	/// status updates.
 	///
 	/// Actual transaction submission process is delegated to the `ViewStore` internal instance.
+	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "fatp::submit_and_watch")]
 	async fn submit_and_watch(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> Result<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
+		let start = Instant::now();
 		trace!(
 			target: LOG_TARGET,
 			tx_hash = ?self.tx_hash(&xt),
 			views = self.active_views_count(),
 			"fatp::submit_and_watch"
 		);
-		let xt = Arc::from(xt);
-
-		let insertion = match self.mempool.push_watched(source, xt.clone()) {
-			Ok(result) => result,
-			Err(TxPoolApiError::ImmediatelyDropped) =>
-				self.attempt_transaction_replacement(source, true, xt.clone()).await?,
-			Err(e) => return Err(e.into()),
-		};
-
-		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
-		self.events_metrics_collector.report_submitted(&insertion);
-
-		self.view_store
-			.submit_and_watch(at, insertion.source, xt)
-			.await
-			.inspect_err(|_| {
-				self.mempool.remove_transactions(&[insertion.hash]);
-			})
-			.map(|mut outcome| {
-				self.mempool.update_transaction_priority(&outcome);
-				outcome.expect_watcher()
-			})
+		let result = self.submit_and_watch_inner(at, source, xt).await;
+		insert_and_log_throttled!(
+			Level::DEBUG,
+			target:LOG_TARGET_STAT,
+			prefix:"submit_and_watch_stats",
+			self.submit_and_watch_stats,
+			start.elapsed().into()
+		);
+		result
 	}
 
 	/// Reports invalid transactions to the transaction pool.
@@ -904,7 +1003,7 @@ where
 		let removed = self.view_store.report_invalid(at, invalid_tx_errors);
 
 		let removed_hashes = removed.iter().map(|tx| tx.hash).collect::<Vec<_>>();
-		self.mempool.remove_transactions(&removed_hashes);
+		self.mempool.clone().remove_transactions_sync(removed_hashes.clone());
 		self.import_notification_sink.clean_notified_items(&removed_hashes);
 
 		self.metrics
@@ -924,7 +1023,8 @@ where
 		self.view_store
 			.most_recent_view
 			.read()
-			.map(|hash| self.view_store.status()[&hash].clone())
+			.as_ref()
+			.map(|v| v.status())
 			.unwrap_or(PoolStatus { ready: 0, ready_bytes: 0, future: 0, future_bytes: 0 })
 	}
 
@@ -952,15 +1052,15 @@ where
 	/// block (for which maintain process was accomplished).
 	// todo [#5491]: api change: we probably should have at here?
 	fn ready_transaction(&self, tx_hash: &TxHash<Self>) -> Option<Arc<Self::InPoolTransaction>> {
-		let most_recent_view = self.view_store.most_recent_view.read();
-		let result = most_recent_view
-			.map(|block_hash| self.view_store.ready_transaction(block_hash, tx_hash))
-			.flatten();
+		let most_recent_view_hash =
+			self.view_store.most_recent_view.read().as_ref().map(|v| v.at.hash);
+		let result = most_recent_view_hash
+			.and_then(|block_hash| self.view_store.ready_transaction(block_hash, tx_hash));
 		trace!(
 			target: LOG_TARGET,
 			?tx_hash,
 			is_ready = result.is_some(),
-			?most_recent_view,
+			most_recent_view = ?most_recent_view_hash,
 			"ready_transaction"
 		);
 		result
@@ -1017,15 +1117,19 @@ where
 		_at: Block::Hash,
 		xt: sc_transaction_pool_api::LocalTransactionFor<Self>,
 	) -> Result<Self::Hash, Self::Error> {
-		debug!(
+		trace!(
 			target: LOG_TARGET,
 			active_views_count = self.active_views_count(),
 			"fatp::submit_local"
 		);
 		let xt = Arc::from(xt);
 
-		let result =
-			self.mempool.extend_unwatched(TransactionSource::Local, &[xt.clone()]).remove(0);
+		// note: would be nice to get rid of sync methods one day. See: #8912
+		let result = self
+			.mempool
+			.clone()
+			.extend_unwatched_sync(TransactionSource::Local, vec![xt.clone()])
+			.remove(0);
 
 		let insertion = match result {
 			Err(TxPoolApiError::ImmediatelyDropped) => self.attempt_transaction_replacement_sync(
@@ -1039,10 +1143,12 @@ where
 		self.view_store
 			.submit_local(xt)
 			.inspect_err(|_| {
-				self.mempool.remove_transactions(&[insertion.hash]);
+				self.mempool.clone().remove_transactions_sync(vec![insertion.hash]);
 			})
 			.map(|outcome| {
-				self.mempool.update_transaction_priority(&outcome);
+				self.mempool
+					.clone()
+					.update_transaction_priority_sync(outcome.hash(), outcome.priority());
 				outcome.hash()
 			})
 			.or_else(|_| Ok(insertion.hash))
@@ -1062,6 +1168,7 @@ where
 	/// block.
 	///
 	/// If the view is correctly created, `ready_at` pollers for this block will be triggered.
+	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "fatp::handle_new_block")]
 	async fn handle_new_block(&self, tree_route: &TreeRoute<Block>) {
 		let hash_and_number = match tree_route.last() {
 			Some(hash_and_number) => hash_and_number,
@@ -1076,7 +1183,7 @@ where
 		};
 
 		if self.has_view(&hash_and_number.hash) {
-			trace!(
+			debug!(
 				target: LOG_TARGET,
 				?hash_and_number,
 				"view already exists for block"
@@ -1098,7 +1205,7 @@ where
 			View::start_background_revalidation(view, self.revalidation_queue.clone()).await;
 		}
 
-		self.finality_stall_cleanup(hash_and_number);
+		self.finality_stall_cleanup(hash_and_number).await;
 	}
 
 	/// Cleans up transactions and views outdated by potential finality stalls.
@@ -1110,7 +1217,7 @@ where
 	///
 	/// Additionally, this method triggers the view store to handle and remove stale views caused by
 	/// the finality stall.
-	fn finality_stall_cleanup(&self, at: &HashAndNumber<Block>) {
+	async fn finality_stall_cleanup(&self, at: &HashAndNumber<Block>) {
 		let (oldest_block_number, finality_timedout_blocks) = {
 			let mut included_transactions = self.included_transactions.lock();
 
@@ -1154,7 +1261,7 @@ where
 		for (block_hash, tx_hashes) in finality_timedout_blocks {
 			self.view_store.listener.transactions_finality_timeout(&tx_hashes, block_hash);
 
-			self.mempool.remove_transactions(&tx_hashes);
+			self.mempool.remove_transactions(&tx_hashes).await;
 			self.import_notification_sink.clean_notified_items(&tx_hashes);
 			self.view_store.dropped_stream_controller.remove_transactions(tx_hashes.clone());
 		}
@@ -1186,6 +1293,7 @@ where
 		at: &HashAndNumber<Block>,
 		tree_route: &TreeRoute<Block>,
 	) -> Option<Arc<View<ChainApi>>> {
+		let enter = Instant::now();
 		debug!(
 			target: LOG_TARGET,
 			?at,
@@ -1193,6 +1301,7 @@ where
 			?tree_route,
 			"build_new_view"
 		);
+
 		let (mut view, view_dropped_stream, view_aggregated_stream) =
 			if let Some(origin_view) = origin_view {
 				let (mut view, view_dropped_stream, view_aggragated_stream) =
@@ -1215,6 +1324,12 @@ where
 					self.is_validator.clone(),
 				)
 			};
+		debug!(
+			target: LOG_TARGET,
+			?at,
+			duration = ?enter.elapsed(),
+			"build_new_view::clone_view"
+		);
 
 		let start = Instant::now();
 		// 1. Capture all import notification from the very beginning, so first register all
@@ -1263,6 +1378,13 @@ where
 		);
 		let view = Arc::from(view);
 		self.view_store.insert_new_view(view.clone(), tree_route).await;
+
+		debug!(
+			target: LOG_TARGET,
+			duration = ?enter.elapsed(),
+			?at,
+			"build_new_view"
+		);
 		Some(view)
 	}
 
@@ -1275,7 +1397,7 @@ where
 			return txs.clone()
 		};
 
-		trace!(
+		debug!(
 			target: LOG_TARGET,
 			?at,
 			"fetch_block_transactions from api"
@@ -1346,10 +1468,11 @@ where
 	/// If there are no views, and mempool transaction is reported as invalid for the given view,
 	/// the transaction is notified as invalid and removed from the mempool.
 	async fn update_view_with_mempool(&self, view: &View<ChainApi>) {
+		let xts_count = self.mempool.unwatched_and_watched_count().await;
 		debug!(
 			target: LOG_TARGET,
 			view_at = ?view.at,
-			xts_count = ?self.mempool.unwatched_and_watched_count(),
+			?xts_count,
 			active_views_count = self.active_views_count(),
 			"update_view_with_mempool"
 		);
@@ -1357,24 +1480,36 @@ where
 
 		let (hashes, xts_filtered): (Vec<_>, Vec<_>) = self
 			.mempool
-			.clone_transactions()
+			.with_transactions(|iter| {
+				iter.filter(|(hash, _)| !view.is_imported(&hash) && !included_xts.contains(&hash))
+					.map(|(k, v)| (*k, v.clone()))
+					//todo [#8835]: better approach is needed - maybe time-budget approach?
+					.take(MEMPOOL_TO_VIEW_BATCH_SIZE)
+					.collect::<HashMap<_, _>>()
+			})
+			.await
 			.into_iter()
-			.filter(|(hash, _)| !view.is_imported(hash))
-			.filter(|(hash, _)| !included_xts.contains(&hash))
 			.map(|(tx_hash, tx)| (tx_hash, (tx.source(), tx.tx())))
 			.unzip();
 
 		let results = view
-			.submit_many(xts_filtered)
+			.submit_many(xts_filtered, ValidateTransactionPriority::Maintained)
 			.await
 			.into_iter()
 			.zip(hashes)
-			.map(|(result, tx_hash)| {
-				result
-					.map(|outcome| self.mempool.update_transaction_priority(&outcome.into()))
-					.or_else(|_| Err(tx_hash))
+			.map(|(result, tx_hash)| async move {
+				if let Ok(outcome) = result {
+					Ok(self
+						.mempool
+						.update_transaction_priority(outcome.hash(), outcome.priority())
+						.await)
+				} else {
+					Err(tx_hash)
+				}
 			})
 			.collect::<Vec<_>>();
+
+		let results = futures::future::join_all(results).await;
 
 		let submitted_count = results.len();
 
@@ -1395,7 +1530,7 @@ where
 			for result in results {
 				if let Err(tx_hash) = result {
 					self.view_store.listener.transactions_invalidated(&[tx_hash]);
-					self.mempool.remove_transactions(&[tx_hash]);
+					self.mempool.remove_transactions(&[tx_hash]).await;
 				}
 			}
 		}
@@ -1511,11 +1646,9 @@ where
 			self.included_transactions.lock().insert(key.clone(), enacted_log);
 		});
 
-		self.metrics.report(|metrics| {
-			metrics
-				.unknown_from_block_import_txs
-				.inc_by(self.mempool.count_unknown_transactions(pruned_log.iter()) as _)
-		});
+		let unknown_count = self.mempool.count_unknown_transactions(pruned_log.iter()).await;
+		self.metrics
+			.report(|metrics| metrics.unknown_from_block_import_txs.inc_by(unknown_count as _));
 
 		//resubmit
 		{
@@ -1540,45 +1673,54 @@ where
 
 				let mut resubmitted_to_report = 0;
 
-				resubmit_transactions.extend(
-					block_transactions
-						.into_iter()
-						.map(|tx| (self.hash_of(&tx), tx))
-						.filter(|(tx_hash, _)| {
-							let contains = pruned_log.contains(&tx_hash);
+				let txs = block_transactions.into_iter().map(|tx| (self.hash_of(&tx), tx)).filter(
+					|(tx_hash, _)| {
+						let contains = pruned_log.contains(&tx_hash);
 
-							// need to count all transactions, not just filtered, here
-							resubmitted_to_report += 1;
+						// need to count all transactions, not just filtered, here
+						resubmitted_to_report += 1;
 
-							if !contains {
-								trace!(
-									target: LOG_TARGET,
-									?tx_hash,
-									?hash,
-									"Resubmitting from retracted block"
-								);
-							}
-							!contains
-						})
-						.map(|(tx_hash, tx)| {
-							//find arc if tx is known
-							self.mempool
-								.get_by_hash(tx_hash)
-								.map(|tx| (tx.source(), tx.tx()))
-								.unwrap_or_else(|| {
-									// These transactions are coming from retracted blocks, we
-									// should simply consider them external.
-									(TimedTransactionSource::new_external(true), Arc::from(tx))
-								})
-						}),
+						if !contains {
+							trace!(
+								target: LOG_TARGET,
+								?tx_hash,
+								?hash,
+								"Resubmitting from retracted block"
+							);
+						}
+						!contains
+					},
 				);
+				let mut result = vec![];
+				for (tx_hash, tx) in txs {
+					result.push(
+						//find arc if tx is known
+						self.mempool
+							.get_by_hash(tx_hash)
+							.await
+							.map(|tx| (tx.source(), tx.tx()))
+							.unwrap_or_else(|| {
+								// These transactions are coming from retracted blocks, we
+								// should simply consider them external.
+								(TimedTransactionSource::new_external(true), Arc::from(tx))
+							}),
+					);
+				}
+				resubmit_transactions.extend(result);
 
 				self.metrics.report(|metrics| {
 					metrics.resubmitted_retracted_txs.inc_by(resubmitted_to_report)
 				});
 			}
 
-			let _ = view.pool.resubmit_at(&hash_and_number, resubmit_transactions).await;
+			let _ = view
+				.pool
+				.resubmit_at(
+					&hash_and_number,
+					resubmit_transactions,
+					ValidateTransactionPriority::Maintained,
+				)
+				.await;
 		}
 	}
 
@@ -1588,6 +1730,7 @@ where
 	/// - executing the on finalized procedure for the view store,
 	/// - purging finalized transactions from the mempool and triggering mempool revalidation,
 	async fn handle_finalized(&self, finalized_hash: Block::Hash, tree_route: &[Block::Hash]) {
+		let start = Instant::now();
 		let finalized_number = self.api.block_id_to_number(&BlockId::Hash(finalized_hash));
 		debug!(
 			target: LOG_TARGET,
@@ -1616,7 +1759,7 @@ where
 				)
 				.await;
 		} else {
-			trace!(
+			debug!(
 				target: LOG_TARGET,
 				?finalized_number,
 				"handle_finalized: revalidation/cleanup skipped: could not resolve finalized block number"
@@ -1629,6 +1772,7 @@ where
 			target: LOG_TARGET,
 			active_views_count = self.active_views_count(),
 			included_transactions_len = ?self.included_transactions.lock().len(),
+			duration = ?start.elapsed(),
 			"handle_finalized after"
 		);
 	}
@@ -1647,22 +1791,20 @@ where
 	///
 	/// If no lower-priority transaction is found, the function returns an error indicating the
 	/// transaction was dropped immediately.
+	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "fatp::attempt_transaction_replacement")]
 	async fn attempt_transaction_replacement(
 		&self,
 		source: TransactionSource,
 		watched: bool,
 		xt: ExtrinsicFor<ChainApi>,
 	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, TxPoolApiError> {
-		let at = self
+		let best_view = self
 			.view_store
 			.most_recent_view
 			.read()
-			.ok_or(TxPoolApiError::ImmediatelyDropped)?;
-
-		let (best_view, _) = self
-			.view_store
-			.get_view_at(at, false)
-			.ok_or(TxPoolApiError::ImmediatelyDropped)?;
+			.as_ref()
+			.ok_or(TxPoolApiError::ImmediatelyDropped)?
+			.clone();
 
 		let (xt_hash, validated_tx) = best_view
 			.pool
@@ -1672,6 +1814,7 @@ where
 				TimedTransactionSource::from_transaction_source(source, false),
 				xt.clone(),
 				crate::graph::CheckBannedBeforeVerify::Yes,
+				ValidateTransactionPriority::Submitted,
 			)
 			.await;
 
@@ -1679,7 +1822,9 @@ where
 			return Err(TxPoolApiError::ImmediatelyDropped)
 		};
 
-		self.attempt_transaction_replacement_inner(xt, xt_hash, priority, source, watched)
+		let insertion_info =
+			self.mempool.try_insert_with_replacement(xt, priority, source, watched).await?;
+		self.post_attempt_transaction_replacement(xt_hash, insertion_info)
 	}
 
 	/// Sync version of [`Self::attempt_transaction_replacement`].
@@ -1693,7 +1838,10 @@ where
 			.view_store
 			.most_recent_view
 			.read()
-			.ok_or(TxPoolApiError::ImmediatelyDropped)?;
+			.as_ref()
+			.ok_or(TxPoolApiError::ImmediatelyDropped)?
+			.at
+			.hash;
 
 		let ValidTransaction { priority, .. } = self
 			.api
@@ -1704,20 +1852,19 @@ where
 				TransactionValidityError::Unknown(u) => TxPoolApiError::UnknownTransaction(u),
 			})?;
 		let xt_hash = self.hash_of(&xt);
-		self.attempt_transaction_replacement_inner(xt, xt_hash, priority, source, watched)
+
+		let insertion_info = self
+			.mempool
+			.clone()
+			.try_insert_with_replacement_sync(xt, priority, source, watched)?;
+		self.post_attempt_transaction_replacement(xt_hash, insertion_info)
 	}
 
-	fn attempt_transaction_replacement_inner(
+	fn post_attempt_transaction_replacement(
 		&self,
-		xt: ExtrinsicFor<ChainApi>,
 		tx_hash: ExtrinsicHash<ChainApi>,
-		priority: TransactionPriority,
-		source: TransactionSource,
-		watched: bool,
+		insertion_info: InsertionInfo<ExtrinsicHash<ChainApi>>,
 	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, TxPoolApiError> {
-		let insertion_info =
-			self.mempool.try_insert_with_replacement(xt, priority, source, watched)?;
-
 		for worst_hash in &insertion_info.removed {
 			trace!(
 				target: LOG_TARGET,
@@ -1778,7 +1925,7 @@ where
 
 		match result {
 			Err(error) => {
-				trace!(
+				debug!(
 					target: LOG_TARGET,
 					%error,
 					"enactment_state::update error"
@@ -1805,7 +1952,7 @@ where
 			ChainEvent::Finalized { hash, ref tree_route } => {
 				self.handle_finalized(hash, tree_route).await;
 
-				trace!(
+				debug!(
 					target: LOG_TARGET,
 					?tree_route,
 					?prev_finalized_block,
@@ -1815,10 +1962,10 @@ where
 		}
 
 		let duration = start.elapsed();
-
+		let mempool_len = self.mempool_len().await;
 		info!(
 			target: LOG_TARGET,
-			txs = ?self.mempool_len(),
+			txs = ?mempool_len,
 			a = self.active_views_count(),
 			i = self.inactive_views_count(),
 			views = ?self.views_stats(),
@@ -1828,7 +1975,7 @@ where
 		);
 
 		self.metrics.report(|metrics| {
-			let (unwatched, watched) = self.mempool_len();
+			let (unwatched, watched) = mempool_len;
 			let _ = (
 				self.active_views_count().try_into().map(|v| metrics.active_views.set(v)),
 				self.inactive_views_count().try_into().map(|v| metrics.inactive_views.set(v)),
