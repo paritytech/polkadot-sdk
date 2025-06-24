@@ -445,9 +445,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 								tally.reduce(approve, final_delegations);
 							}
 						} else {
-							// Vote going from none to some
+							// Voter didn't already have a vote
 							vote_introduced = true;
 						}
+
 						// Update their vote data with incoming vote
 						votes[i].maybe_vote = Some(vote);
 						i
@@ -475,7 +476,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 				// Update delegate's info if delegating
 				if let (Some(delegate), Some(conviction)) = (&voting.maybe_delegate, &voting.maybe_conviction) {
-					// Only if delegator's vote went from None to Some, otherwise the retraction will already be there
+					// Only if delegator's vote went from None to Some, otherwise the retraction data will already be there
 					if vote_introduced {
 						// Calculate amount delegated to delegate
 						let amount_delegated = conviction.votes(voting.delegated_balance);
@@ -543,22 +544,30 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			T::Polls::try_access_poll(poll_index, |poll_status| match poll_status {
 				PollStatus::Ongoing(tally, _) => {
 					
-					// If the vote data has a vote
+					// If the vote data exists
 					if let Some(account_vote) = votes[i].maybe_vote {
 						ensure!(matches!(scope, UnvoteScope::Any), Error::<T, I>::NoPermission);
+						
 						// Remove vote from tally, shouldn't be possible to fail, but we handle it gracefully.
 						tally.remove(account_vote).ok_or(ArithmeticError::Underflow)?;
+						
 						// Remove delegated votes (minus those votes retracted) only if vote was standard aye nay
 						if let Some(approve) = account_vote.as_standard() {
 							let final_delgations = delegations.saturating_sub(votes[i].retracted_votes);
 							tally.reduce(approve, final_delgations);
 						}
-						
+
+						// Remove vote and fully remove record if there are no retracted votes to track
+						votes[i].maybe_vote = None;
+						if votes[i].retracted_votes == Default::default() {
+							votes.remove(i);
+						}
+
 						// Update delegate's voting state if delegating
 						if let (Some(delegate), Some(conviction)) = (&voting.maybe_delegate, &voting.maybe_conviction) {
 							VotingFor::<T, I>::mutate(delegate, &class, |delegate_voting| {
 								let delegates_votes = &mut delegate_voting.votes;
-								// Check vote data exists, shouldn't be possible for it not to if delegator has voted
+								// Check vote data exists, shouldn't be possible for it not to if delegator has voted & poll is ongoing
 								match delegates_votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
 									Ok(i) => {
 										let amount_delegated = conviction.votes(voting.delegated_balance);
@@ -584,13 +593,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 							});
 						}
 
-
-						// Remove vote and fully remove record if there are no retracted votes to track
-						votes[i].maybe_vote = None;
-						if votes[i].retracted_votes == Default::default() {
-							votes.remove(i);
-						}
-
 						Self::deposit_event(Event::VoteRemoved { who: who.clone(), vote: account_vote });
 						T::VotingHooks::on_remove_vote(who, poll_index, Status::Ongoing);
 					}
@@ -598,6 +600,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				},
 				PollStatus::Completed(end, approved) => {
 					let old_vote = votes.remove(i);
+					
 					// If vote was cast, ensure locks
 					if let Some(account_vote) = old_vote.maybe_vote {
 						if let Some((lock_periods, balance)) =
@@ -859,7 +862,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				// Update voting data of chosen delegate
 				let vote_count =
 					Self::increase_upstream_delegation(&target, &class, conviction.votes(balance), ongoing_votes);
-					
+
 				// Extend the lock to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
 				Self::extend_lock(&who, &class, balance);
