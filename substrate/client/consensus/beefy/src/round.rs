@@ -34,8 +34,12 @@ use std::collections::BTreeMap;
 /// Does not do any validation on votes or signatures, layers above need to handle that (gossip).
 #[derive(Debug, Decode, Encode, PartialEq)]
 pub(crate) struct RoundTracker<AuthorityId: AuthorityIdBound> {
+	/// Map of votes already committed in this round.
 	votes: BTreeMap<AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
+	/// Map of expected authorities and their corresponding voting weights.
 	voting_weights: BTreeMap<AuthorityId, u32>,
+	/// Total accumulated weight from authorities that have already voted.
+	/// This value is incremented based on the voting weight of each unique vote received.
 	already_voted: u64,
 }
 
