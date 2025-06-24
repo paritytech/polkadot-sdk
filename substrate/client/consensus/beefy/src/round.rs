@@ -35,15 +35,20 @@ use std::collections::BTreeMap;
 #[derive(Debug, Decode, Encode, PartialEq)]
 pub(crate) struct RoundTracker<AuthorityId: AuthorityIdBound> {
 	votes: BTreeMap<AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
-}
-
-impl<AuthorityId: AuthorityIdBound> Default for RoundTracker<AuthorityId> {
-	fn default() -> Self {
-		Self { votes: Default::default() }
-	}
+	voting_weights: BTreeMap<AuthorityId, u32>,
+	already_voted: u64,
 }
 
 impl<AuthorityId: AuthorityIdBound> RoundTracker<AuthorityId> {
+	fn from_authority_set(authorities: &[AuthorityId]) -> Self {
+		let voting_weights = authorities.iter().fold(BTreeMap::new(), |mut acc, item| {
+			*acc.entry(item.to_owned()).or_insert(0) += 1;
+			acc
+		});
+
+		Self { votes: Default::default(), voting_weights, already_voted: 0 }
+	}
+
 	fn add_vote(
 		&mut self,
 		vote: (AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature),
@@ -52,12 +57,21 @@ impl<AuthorityId: AuthorityIdBound> RoundTracker<AuthorityId> {
 			return false;
 		}
 
+		let vote_weight = match self.voting_weights.remove(&vote.0) {
+			Some(vote_weight) => vote_weight,
+			None => {
+				return false;
+			},
+		};
+
+		self.already_voted += u64::from(vote_weight);
 		self.votes.insert(vote.0, vote.1);
+
 		true
 	}
 
 	fn is_done(&self, threshold: usize) -> bool {
-		self.votes.len() >= threshold
+		self.already_voted as usize >= threshold
 	}
 }
 
@@ -178,10 +192,22 @@ where
 			self.previous_votes.insert(vote_key, vote.clone());
 		}
 
+		let round = match self.rounds.get_mut(&vote.commitment) {
+			Some(round) => round,
+			None => {
+				self.rounds.insert(
+					vote.commitment.clone(),
+					RoundTracker::from_authority_set(self.validators()),
+				);
+
+				// Safe to unwrap due we just inserted this key
+				self.rounds.get_mut(&vote.commitment).unwrap()
+			},
+		};
+
 		// add valid vote
-		let round = self.rounds.entry(vote.commitment.clone()).or_default();
-		if round.add_vote((vote.id, vote.signature)) &&
-			round.is_done(threshold(self.validator_set.len()))
+		if round.add_vote((vote.id, vote.signature))
+			&& round.is_done(threshold(self.validator_set.len()))
 		{
 			if let Some(round) = self.rounds.remove_entry(&vote.commitment) {
 				return VoteImportResult::RoundConcluded(self.signed_commitment(round));
@@ -240,7 +266,10 @@ mod tests {
 
 	#[test]
 	fn round_tracker() {
-		let mut rt = RoundTracker::<ecdsa_crypto::AuthorityId>::default();
+		let mut rt = RoundTracker::<ecdsa_crypto::AuthorityId>::from_authority_set(&[
+			Keyring::<ecdsa_crypto::AuthorityId>::Alice.public(),
+			Keyring::<ecdsa_crypto::AuthorityId>::Bob.public(),
+		]);
 		let bob_vote = (
 			Keyring::<ecdsa_crypto::AuthorityId>::Bob.public(),
 			Keyring::<ecdsa_crypto::AuthorityId>::Bob.sign(b"I am committed"),
@@ -261,6 +290,37 @@ mod tests {
 		);
 		// adding new vote (self vote this time) allowed
 		assert!(rt.add_vote(alice_vote));
+
+		// vote is now done
+		assert!(rt.is_done(threshold));
+	}
+
+	#[test]
+	fn round_tracker_with_duplicated_authorities() {
+		// Charlie has more voting power than the others
+		let mut rt = RoundTracker::<ecdsa_crypto::AuthorityId>::from_authority_set(&[
+			Keyring::<ecdsa_crypto::AuthorityId>::Alice.public(),
+			Keyring::<ecdsa_crypto::AuthorityId>::Bob.public(),
+			Keyring::<ecdsa_crypto::AuthorityId>::Charlie.public(),
+			Keyring::<ecdsa_crypto::AuthorityId>::Charlie.public(),
+		]);
+
+		let bob_vote = (
+			Keyring::<ecdsa_crypto::AuthorityId>::Bob.public(),
+			Keyring::<ecdsa_crypto::AuthorityId>::Bob.sign(b"I am committed"),
+		);
+		assert!(rt.add_vote(bob_vote));
+
+		let threshold = 3;
+
+		// vote is not done
+		assert!(!rt.is_done(threshold));
+
+		let charlie_vote = (
+			Keyring::<ecdsa_crypto::AuthorityId>::Charlie.public(),
+			Keyring::<ecdsa_crypto::AuthorityId>::Charlie.sign(b"I am committed"),
+		);
+		assert!(rt.add_vote(charlie_vote));
 
 		// vote is now done
 		assert!(rt.is_done(threshold));
