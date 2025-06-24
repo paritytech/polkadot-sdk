@@ -507,6 +507,8 @@ impl pallet_session::Config for Runtime {
 	type Keys = SessionKeys;
 	type DisablingStrategy = ();
 	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
+	type Currency = Balances;
+	type KeyDeposit = ();
 }
 
 impl pallet_aura::Config for Runtime {
@@ -1569,6 +1571,12 @@ impl_runtime_apis! {
 		}
 		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
 			PolkadotXcm::is_trusted_teleporter(asset, location)
+		}
+	}
+
+	impl cumulus_primitives_core::GetParachainInfo<Block> for Runtime {
+		fn parachain_id() -> ParaId {
+			ParachainInfo::parachain_id()
 		}
 	}
 }
