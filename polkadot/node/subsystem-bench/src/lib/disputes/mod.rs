@@ -49,7 +49,7 @@ use polkadot_node_network_protocol::{
 use polkadot_node_primitives::{DisputeStatus, SignedDisputeStatement};
 use polkadot_node_subsystem::messages::{
 	network_bridge_event::NewGossipTopology, AllMessages, DisputeCoordinatorMessage,
-	NetworkBridgeEvent, StatementDistributionMessage,
+	ImportStatementsResult, NetworkBridgeEvent, StatementDistributionMessage,
 };
 use polkadot_overseer::{
 	Handle as OverseerHandle, Overseer, OverseerConnector, OverseerMetrics, SpawnGlue,
@@ -110,7 +110,8 @@ fn build_overseer(
 	);
 	let chain_api_state = ChainApiState { block_headers: state.block_headers.clone() };
 	let mock_chain_api = MockChainApi::new(chain_api_state);
-	let mock_availability_recovery = MockAvailabilityRecovery::new();
+	let mock_availability_recovery =
+		MockAvailabilityRecovery::new(state.missing_availability.clone());
 	let mock_approval_voting = MockApprovalVotingParallel::new();
 	let mock_candidate_validation = MockCandidateValidation::new();
 	let dispute_coordinator = DisputeCoordinatorSubsystem::new(
@@ -178,6 +179,7 @@ pub async fn benchmark_dispute_coordinator(
 		let (valid_vote2, invalid_vote2) =
 			&state.signed_dispute_statements.get(&block_info.hash).unwrap()[1];
 
+		let (confirmation_tx, confirmation_rx) = futures::channel::oneshot::channel();
 		env.send_message(AllMessages::DisputeCoordinator(
 			DisputeCoordinatorMessage::ImportStatements {
 				candidate_receipt: candidate_receipt1.clone(),
@@ -186,20 +188,63 @@ pub async fn benchmark_dispute_coordinator(
 					(valid_vote1.clone(), ValidatorIndex(3)),
 					(invalid_vote1.clone(), ValidatorIndex(1)),
 				],
-				pending_confirmation: None,
+				pending_confirmation: Some(confirmation_tx),
 			},
 		))
 		.await;
+		assert_eq!(confirmation_rx.await.unwrap(), ImportStatementsResult::ValidImport);
 
-		gum::debug!("After First import!");
-
-		let (tx, rx) = futures::channel::oneshot::channel();
+		let (active_disputes_tx, active_disputes_rx) = futures::channel::oneshot::channel();
 		env.send_message(AllMessages::DisputeCoordinator(
-			DisputeCoordinatorMessage::ActiveDisputes(tx),
+			DisputeCoordinatorMessage::ActiveDisputes(active_disputes_tx),
 		))
 		.await;
 
-		assert_eq!(rx.await.unwrap(), vec![(1, candidate_receipt1.hash(), DisputeStatus::Active)]);
+		assert_eq!(
+			active_disputes_rx.await.unwrap(),
+			vec![(1, candidate_receipt1.hash(), DisputeStatus::Active)]
+		);
+
+		let (query_candidate_votes_tx, query_candidate_votes_rx) =
+			futures::channel::oneshot::channel();
+		env.send_message(AllMessages::DisputeCoordinator(
+			DisputeCoordinatorMessage::QueryCandidateVotes(
+				vec![(1, candidate_receipt1.hash())],
+				query_candidate_votes_tx,
+			),
+		))
+		.await;
+		let (_, _, votes) = query_candidate_votes_rx.await.unwrap().get(0).unwrap().clone();
+		assert_eq!(votes.valid.raw().len(), 2);
+		assert_eq!(votes.invalid.len(), 1);
+
+		let (confirmation_tx, confirmation_rx) = futures::channel::oneshot::channel();
+		env.send_message(AllMessages::DisputeCoordinator(
+			DisputeCoordinatorMessage::ImportStatements {
+				candidate_receipt: candidate_receipt2.clone(),
+				session: 1,
+				statements: vec![
+					(valid_vote2.clone(), ValidatorIndex(3)),
+					(invalid_vote2.clone(), ValidatorIndex(1)),
+				],
+				pending_confirmation: Some(confirmation_tx),
+			},
+		))
+		.await;
+		assert_eq!(confirmation_rx.await.unwrap(), ImportStatementsResult::ValidImport);
+
+		let (query_candidate_votes_tx, query_candidate_votes_rx) =
+			futures::channel::oneshot::channel();
+		env.send_message(AllMessages::DisputeCoordinator(
+			DisputeCoordinatorMessage::QueryCandidateVotes(
+				vec![(1, candidate_receipt2.hash())],
+				query_candidate_votes_tx,
+			),
+		))
+		.await;
+		let (_, _, votes) = query_candidate_votes_rx.await.unwrap().get(0).unwrap().clone();
+		assert_eq!(votes.valid.raw().len(), 1);
+		assert_eq!(votes.invalid.len(), 1);
 	}
 
 	let duration: u128 = test_start.elapsed().as_millis();

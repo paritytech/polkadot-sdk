@@ -48,6 +48,8 @@ pub struct TestState {
 		HashMap<Hash, Vec<(SignedDisputeStatement, SignedDisputeStatement)>>,
 	// Relay chain block headers
 	pub block_headers: HashMap<Hash, Header>,
+	// Map from generated candidate hashes to missing availability
+	pub missing_availability: Vec<CandidateHash>,
 }
 
 impl TestState {
@@ -56,18 +58,15 @@ impl TestState {
 		let test_authorities = config.generate_authorities();
 		let block_infos: Vec<BlockInfo> =
 			(1..=config.num_blocks).map(generate_block_info).collect();
-		let candidate_receipts: HashMap<Hash, Vec<CandidateReceiptV2>> = block_infos
-			.iter()
-			.map(|block_info| {
-				(
-					block_info.hash,
-					vec![
-						make_valid_candidate_receipt(block_info.hash),
-						make_invalid_candidate_receipt(block_info.hash),
-					],
-				)
-			})
-			.collect();
+		let mut candidate_receipts: HashMap<Hash, Vec<CandidateReceiptV2>> = Default::default();
+		let mut missing_availability: Vec<CandidateHash> = Default::default();
+		for block_info in block_infos.iter() {
+			let valid = make_valid_candidate_receipt(block_info.hash);
+			let invalid = make_invalid_candidate_receipt(block_info.hash);
+			missing_availability.push(invalid.hash());
+			candidate_receipts.insert(block_info.hash, vec![valid, invalid]);
+		}
+
 		let candidate_events = candidate_receipts
 			.iter()
 			.map(|(&hash, receipts)| {
@@ -118,6 +117,7 @@ impl TestState {
 			test_authorities,
 			block_infos,
 			candidate_receipts,
+			missing_availability,
 			candidate_events,
 			signed_dispute_statements,
 			block_headers,
