@@ -27,6 +27,8 @@ cumulus-primitives-core.default-features = true
 cumulus-primitives-core.workspace = true
 frame-support.default-features = true
 frame-support.workspace = true
+frame-system.default-features = true
+frame-system.workspace = true
 hex-literal = { workspace = true }
 pallet-assets.default-features = true
 pallet-assets.workspace = true
@@ -36,6 +38,8 @@ pallet-bridge-messages.default-features = true
 pallet-bridge-messages.workspace = true
 pallet-message-queue.default-features = true
 pallet-message-queue.workspace = true
+pallet-whitelist.default-features = true
+pallet-whitelist.workspace = true
 pallet-xcm-bridge-hub.default-features = true
 pallet-xcm-bridge-hub.workspace = true
 parachains-common.default-features = true

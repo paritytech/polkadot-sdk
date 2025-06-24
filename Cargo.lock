@@ -5770,11 +5770,13 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-core",
  "frame-support",
+ "frame-system",
  "hex-literal",
  "pallet-assets",
  "pallet-balances",
  "pallet-bridge-messages",
  "pallet-message-queue",
+ "pallet-whitelist",
  "pallet-xcm",
  "pallet-xcm-bridge-hub",
  "parachains-common",
@@ -7373,6 +7375,25 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+]
+
+[[package]]
+name = "governance-westend-integration-tests"
+version = "0.0.0"
+dependencies = [
+ "collectives-westend-runtime",
+ "emulated-integration-tests-common",
+ "frame-support",
+ "frame-system",
+ "pallet-utility",
+ "pallet-whitelist",
+ "pallet-xcm",
+ "parity-scale-codec",
+ "sp-core 36.1.0",
+ "sp-runtime 41.1.0",
+ "staging-xcm",
+ "westend-runtime",
+ "westend-system-emulated-network",
 ]
 
 [[package]]
@@ -11006,9 +11027,9 @@ checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
 name = "orchestra"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41f6bbacc8c189a3f2e45e0fd0436e5d97f194db888e721bdbc3973e7dbed4c2"
+checksum = "19051f0b0512402f5d52d6776999f55996f01887396278aeeccbbdfbc83eef2d"
 dependencies = [
  "async-trait",
  "dyn-clonable",
@@ -11023,9 +11044,9 @@ dependencies = [
 
 [[package]]
 name = "orchestra-proc-macro"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7b1d40dd8f367db3c65bec8d3dd47d4a604ee8874480738f93191bddab4e0e0"
+checksum = "43dfaf083aef571385fccfdc3a2f8ede8d0a1863160455d4f2b014d8f7d04a3f"
 dependencies = [
  "expander",
  "indexmap 2.9.0",
@@ -15180,6 +15201,7 @@ dependencies = [
  "prioritized-metered-channel",
  "rand 0.8.5",
  "sc-client-api",
+ "sc-keystore",
  "schnellru",
  "sp-application-crypto 40.1.0",
  "sp-core 36.1.0",
@@ -19846,6 +19868,7 @@ dependencies = [
  "sp-rpc",
  "sp-runtime 41.1.0",
  "sp-version 39.0.0",
+ "substrate-prometheus-endpoint",
  "substrate-test-runtime",
  "substrate-test-runtime-client",
  "substrate-test-runtime-transaction-pool",
