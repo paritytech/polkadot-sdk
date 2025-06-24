@@ -24,10 +24,9 @@ use polkadot_overseer::BlockInfo;
 use polkadot_primitives::{
 	vstaging::{CandidateEvent, CandidateReceiptV2},
 	BlockNumber, CandidateCommitments, CandidateHash, CoreIndex, GroupIndex, Hash, HeadData,
-	Header, SessionIndex, ValidatorId, ValidatorIndex,
+	Header, SessionIndex, ValidatorId,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt_v2_bad_sig, dummy_hash};
-use sp_core::Public;
 use sp_keystore::KeystorePtr;
 use std::collections::HashMap;
 
@@ -90,7 +89,6 @@ impl TestState {
 							(
 								issue_explicit_statement_with_index(
 									test_authorities.keyring.local_keystore(),
-									ValidatorIndex(3),
 									test_authorities.validator_public[3].clone(),
 									receipt.hash(),
 									1,
@@ -98,7 +96,6 @@ impl TestState {
 								),
 								issue_explicit_statement_with_index(
 									test_authorities.keyring.local_keystore(),
-									ValidatorIndex(1),
 									test_authorities.validator_public[1].clone(),
 									receipt.hash(),
 									1,
@@ -163,7 +160,6 @@ fn generate_block_header(info: &BlockInfo) -> (Hash, Header) {
 
 fn issue_explicit_statement_with_index(
 	keystore: KeystorePtr,
-	index: ValidatorIndex,
 	public: ValidatorId,
 	candidate_hash: CandidateHash,
 	session: SessionIndex,

@@ -17,14 +17,11 @@
 //! A generic mock approval voting parallel suitable to be used in benchmarks.
 
 use futures::FutureExt;
-use polkadot_node_primitives::{AvailableData, BlockData, PoV};
 use polkadot_node_subsystem::{
-	messages::{ApprovalVotingMessage, ApprovalVotingParallelMessage},
+	messages::ApprovalVotingParallelMessage,
 	overseer, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_types::OverseerSignal;
-use polkadot_primitives::{Hash, HeadData, PersistedValidationData};
-use std::sync::Arc;
 
 const LOG_TARGET: &str = "subsystem-bench::approval-voting-parallel-mock";
 

@@ -15,57 +15,42 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-	configuration::TestAuthorities,
 	dummy_builder,
-	environment::{TestEnvironment, TestEnvironmentDependencies, GENESIS_HASH},
+	environment::{TestEnvironment, TestEnvironmentDependencies},
 	mock::{
 		approval_voting_parallel::MockApprovalVotingParallel,
 		availability_recovery::MockAvailabilityRecovery,
-		candidate_backing::MockCandidateBacking,
 		candidate_validation::MockCandidateValidation,
 		chain_api::{ChainApiState, MockChainApi},
-		network_bridge::{MockNetworkBridgeRx, MockNetworkBridgeTx},
-		prospective_parachains::MockProspectiveParachains,
 		runtime_api::{MockRuntimeApi, MockRuntimeApiCoreState},
 		AlwaysSupportsParachains,
 	},
 	network::{new_network, NetworkEmulatorHandle, NetworkInterface, NetworkInterfaceReceiver},
 	usage::BenchmarkUsage,
-	NODE_UNDER_TEST,
 };
-use bitvec::vec::BitVec;
 use colored::Colorize;
-use itertools::Itertools;
 use polkadot_node_core_dispute_coordinator::{
 	Config as DisputeCoordinatorConfig, DisputeCoordinatorSubsystem,
 };
 use polkadot_node_metrics::metrics::Metrics;
-use polkadot_node_network_protocol::{
-	grid_topology::{SessionGridTopology, TopologyPeerInfo},
-	request_response::{IncomingRequest, ReqProtocolNames},
-	v3::{self, BackedCandidateManifest, StatementFilter},
-	view, ValidationProtocols, View,
-};
-use polkadot_node_primitives::{DisputeStatus, SignedDisputeStatement};
+use polkadot_node_primitives::DisputeStatus;
 use polkadot_node_subsystem::messages::{
-	network_bridge_event::NewGossipTopology, AllMessages, DisputeCoordinatorMessage,
-	ImportStatementsResult, NetworkBridgeEvent, StatementDistributionMessage,
+	AllMessages, DisputeCoordinatorMessage,
+	ImportStatementsResult,
 };
 use polkadot_overseer::{
 	Handle as OverseerHandle, Overseer, OverseerConnector, OverseerMetrics, SpawnGlue,
 };
 use polkadot_primitives::{
-	AuthorityDiscoveryId, Block, GroupIndex, Hash, Id, ValidatorId, ValidatorIndex,
+	AuthorityDiscoveryId, ValidatorId, ValidatorIndex,
 };
 use sc_keystore::LocalKeystore;
-use sc_network_types::PeerId;
 use sc_service::SpawnTaskHandle;
-use sp_core::Public;
 use sp_keystore::Keystore;
 use sp_runtime::RuntimeAppPublic;
 use std::{
-	sync::{atomic::Ordering, Arc},
-	time::{Duration, Instant},
+	sync::Arc,
+	time::Instant,
 };
 pub use test_state::TestState;
 
