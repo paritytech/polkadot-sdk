@@ -1124,6 +1124,7 @@ where
 		);
 		let xt = Arc::from(xt);
 
+		// note: would be nice to get rid of sync methods one day. See: #8912
 		let result = self
 			.mempool
 			.clone()
