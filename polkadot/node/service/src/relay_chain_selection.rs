@@ -39,8 +39,8 @@ use super::{HeaderProvider, HeaderProviderProvider};
 use futures::channel::oneshot;
 use polkadot_node_primitives::MAX_FINALITY_LAG as PRIMITIVES_MAX_FINALITY_LAG;
 use polkadot_node_subsystem::messages::{
-	ApprovalDistributionMessage, ApprovalVotingMessage, ApprovalVotingParallelMessage,
-	ChainSelectionMessage, DisputeCoordinatorMessage, HighestApprovedAncestorBlock,
+	ApprovalVotingParallelMessage, ChainSelectionMessage, DisputeCoordinatorMessage,
+	HighestApprovedAncestorBlock,
 };
 use polkadot_node_subsystem_util::metrics::{self, prometheus};
 use polkadot_overseer::{AllMessages, Handle, PriorityLevel};
@@ -169,7 +169,6 @@ where
 		overseer: Handle,
 		metrics: Metrics,
 		spawn_handle: Option<SpawnTaskHandle>,
-		approval_voting_parallel_enabled: bool,
 	) -> Self {
 		gum::debug!(target: LOG_TARGET, "Using dispute aware relay-chain selection algorithm",);
 
@@ -180,7 +179,6 @@ where
 				overseer,
 				metrics,
 				spawn_handle,
-				approval_voting_parallel_enabled,
 			)),
 		}
 	}
@@ -232,7 +230,6 @@ pub struct SelectRelayChainInner<B, OH> {
 	overseer: OH,
 	metrics: Metrics,
 	spawn_handle: Option<SpawnTaskHandle>,
-	approval_voting_parallel_enabled: bool,
 }
 
 impl<B, OH> SelectRelayChainInner<B, OH>
@@ -247,15 +244,8 @@ where
 		overseer: OH,
 		metrics: Metrics,
 		spawn_handle: Option<SpawnTaskHandle>,
-		approval_voting_parallel_enabled: bool,
 	) -> Self {
-		SelectRelayChainInner {
-			backend,
-			overseer,
-			metrics,
-			spawn_handle,
-			approval_voting_parallel_enabled,
-		}
+		SelectRelayChainInner { backend, overseer, metrics, spawn_handle }
 	}
 
 	fn block_header(&self, hash: Hash) -> Result<PolkadotHeader, ConsensusError> {
@@ -294,7 +284,6 @@ where
 			overseer: self.overseer.clone(),
 			metrics: self.metrics.clone(),
 			spawn_handle: self.spawn_handle.clone(),
-			approval_voting_parallel_enabled: self.approval_voting_parallel_enabled,
 		}
 	}
 }
@@ -482,26 +471,18 @@ where
 		// 2. Constrain according to `ApprovedAncestor`.
 		let (subchain_head, subchain_number, subchain_block_descriptions) = {
 			let (tx, rx) = oneshot::channel();
-			if self.approval_voting_parallel_enabled {
-				overseer
-					.send_msg(
-						ApprovalVotingParallelMessage::ApprovedAncestor(
-							subchain_head,
-							target_number,
-							tx,
-						),
-						std::any::type_name::<Self>(),
-					)
-					.await;
-			} else {
-				overseer
-					.send_msg_with_priority(
-						ApprovalVotingMessage::ApprovedAncestor(subchain_head, target_number, tx),
-						std::any::type_name::<Self>(),
-						PriorityLevel::High,
-					)
-					.await;
-			}
+			overseer
+				.send_msg_with_priority(
+					ApprovalVotingParallelMessage::ApprovedAncestor(
+						subchain_head,
+						target_number,
+						tx,
+					),
+					std::any::type_name::<Self>(),
+					PriorityLevel::High,
+				)
+				.await;
+
 			match rx
 				.await
 				.map_err(Error::ApprovedAncestorCanceled)
@@ -523,25 +504,14 @@ where
 		// task for sending the message to not block here and delay finality.
 		if let Some(spawn_handle) = &self.spawn_handle {
 			let mut overseer_handle = self.overseer.clone();
-			let approval_voting_parallel_enabled = self.approval_voting_parallel_enabled;
 			let lag_update_task = async move {
-				if approval_voting_parallel_enabled {
-					overseer_handle
-						.send_msg_with_priority(
-							ApprovalVotingParallelMessage::ApprovalCheckingLagUpdate(lag),
-							std::any::type_name::<Self>(),
-							PriorityLevel::High,
-						)
-						.await;
-				} else {
-					overseer_handle
-						.send_msg_with_priority(
-							ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag),
-							std::any::type_name::<Self>(),
-							PriorityLevel::High,
-						)
-						.await;
-				}
+				overseer_handle
+					.send_msg_with_priority(
+						ApprovalVotingParallelMessage::ApprovalCheckingLagUpdate(lag),
+						std::any::type_name::<Self>(),
+						PriorityLevel::High,
+					)
+					.await;
 			};
 
 			spawn_handle.spawn(
