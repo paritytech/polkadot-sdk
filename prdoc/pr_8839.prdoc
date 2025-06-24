@@ -14,4 +14,4 @@ crates:
 - name: sc-authority-discovery
   bump: major
 - name: sc-network-types
-  bump: patch
+  bump: minor
