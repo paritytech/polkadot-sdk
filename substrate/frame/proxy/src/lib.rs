@@ -296,7 +296,7 @@ pub mod pallet {
 		///
 		/// The dispatch origin for this call must be _Signed_.
 		///
-		/// WARNING: This may be called on accounts created by `pure`, however if done, then
+		/// WARNING: This may be called on accounts created by `create_pure`, however if done, then
 		/// the unreserved fees will be inaccessible. **All access to this account will be lost.**
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::remove_proxies(T::MaxProxies::get()))]
@@ -362,16 +362,16 @@ pub mod pallet {
 		/// inaccessible.
 		///
 		/// Requires a `Signed` origin, and the sender account must have been created by a call to
-		/// `pure` with corresponding parameters.
+		/// `create_pure` with corresponding parameters.
 		///
-		/// - `spawner`: The account that originally called `pure` to create this account.
+		/// - `spawner`: The account that originally called `create_pure` to create this account.
 		/// - `index`: The disambiguation index originally passed to `create_pure`. Probably `0`.
-		/// - `proxy_type`: The proxy type originally passed to `pure`.
-		/// - `height`: The height of the chain when the call to `pure` was processed.
-		/// - `ext_index`: The extrinsic index in which the call to `pure` was processed.
+		/// - `proxy_type`: The proxy type originally passed to `create_pure`.
+		/// - `height`: The height of the chain when the call to `create_pure` was processed.
+		/// - `ext_index`: The extrinsic index in which the call to `create_pure` was processed.
 		///
 		/// Fails with `NoPermission` in case the caller is not a previously created pure
-		/// account whose `pure` call has corresponding parameters.
+		/// account whose `create_pure` call has corresponding parameters.
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::kill_pure(T::MaxProxies::get()))]
 		pub fn kill_pure(

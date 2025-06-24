@@ -34,14 +34,14 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem::{
 	messages::{
-		ApprovalVotingMessage, ApprovalVotingParallelMessage, BlockDescription,
-		ChainSelectionMessage, DisputeCoordinatorMessage, DisputeDistributionMessage,
-		ImportStatementsResult,
+		ApprovalVotingParallelMessage, BlockDescription, ChainSelectionMessage,
+		DisputeCoordinatorMessage, DisputeDistributionMessage, ImportStatementsResult,
 	},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, RuntimeApiError,
 };
-use polkadot_node_subsystem_util::runtime::{
-	self, key_ownership_proof, submit_report_dispute_lost, RuntimeInfo,
+use polkadot_node_subsystem_util::{
+	runtime::{self, key_ownership_proof, submit_report_dispute_lost, RuntimeInfo},
+	ControlledValidatorIndices,
 };
 use polkadot_primitives::{
 	slashing,
@@ -98,6 +98,8 @@ pub(crate) struct Initialized {
 	/// We have the onchain state of disabled validators as well as the offchain
 	/// state that is based on the lost disputes.
 	offchain_disabled_validators: OffchainDisabledValidators,
+	/// The indices of the controlled validators, cached by session.
+	controlled_validator_indices: ControlledValidatorIndices,
 	/// This is the highest `SessionIndex` seen via `ActiveLeavesUpdate`. It doesn't matter if it
 	/// was cached successfully or not. It is used to detect ancient disputes.
 	highest_session_seen: SessionIndex,
@@ -119,7 +121,6 @@ pub(crate) struct Initialized {
 	/// `CHAIN_IMPORT_MAX_BATCH_SIZE` and put the rest here for later processing.
 	chain_import_backlog: VecDeque<ScrapedOnChainVotes>,
 	metrics: Metrics,
-	approval_voting_parallel_enabled: bool,
 }
 
 #[overseer::contextbounds(DisputeCoordinator, prefix = self::overseer)]
@@ -133,14 +134,9 @@ impl Initialized {
 		highest_session_seen: SessionIndex,
 		gaps_in_cache: bool,
 		offchain_disabled_validators: OffchainDisabledValidators,
+		controlled_validator_indices: ControlledValidatorIndices,
 	) -> Self {
-		let DisputeCoordinatorSubsystem {
-			config: _,
-			store: _,
-			keystore,
-			metrics,
-			approval_voting_parallel_enabled,
-		} = subsystem;
+		let DisputeCoordinatorSubsystem { config: _, store: _, keystore, metrics } = subsystem;
 
 		let (participation_sender, participation_receiver) = mpsc::channel(1);
 		let participation = Participation::new(participation_sender, metrics.clone());
@@ -149,6 +145,7 @@ impl Initialized {
 			keystore,
 			runtime_info,
 			offchain_disabled_validators,
+			controlled_validator_indices,
 			highest_session_seen,
 			gaps_in_cache,
 			spam_slots,
@@ -157,7 +154,6 @@ impl Initialized {
 			participation_receiver,
 			chain_import_backlog: VecDeque::new(),
 			metrics,
-			approval_voting_parallel_enabled,
 		}
 	}
 
@@ -975,12 +971,12 @@ impl Initialized {
 		};
 
 		let env = match CandidateEnvironment::new(
-			&self.keystore,
 			ctx,
 			&mut self.runtime_info,
 			session,
 			relay_parent,
 			self.offchain_disabled_validators.iter(session),
+			&mut self.controlled_validator_indices,
 		)
 		.await
 		{
@@ -1069,21 +1065,13 @@ impl Initialized {
 				// 4. We are waiting (and blocking the whole subsystem) on a response right after -
 				// therefore even with all else failing we will never have more than
 				// one message in flight at any given time.
-				if self.approval_voting_parallel_enabled {
-					ctx.send_unbounded_message(
-						ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate(
-							candidate_hash,
-							tx,
-						),
-					);
-				} else {
-					ctx.send_unbounded_message(
-						ApprovalVotingMessage::GetApprovalSignaturesForCandidate(
-							candidate_hash,
-							tx,
-						),
-					);
-				}
+				ctx.send_unbounded_message(
+					ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate(
+						candidate_hash,
+						tx,
+					),
+				);
+
 				match rx.await {
 					Err(_) => {
 						gum::warn!(
@@ -1450,12 +1438,12 @@ impl Initialized {
 
 		// Load environment:
 		let env = match CandidateEnvironment::new(
-			&self.keystore,
 			ctx,
 			&mut self.runtime_info,
 			session,
 			candidate_receipt.descriptor.relay_parent(),
 			self.offchain_disabled_validators.iter(session),
+			&mut self.controlled_validator_indices,
 		)
 		.await
 		{
