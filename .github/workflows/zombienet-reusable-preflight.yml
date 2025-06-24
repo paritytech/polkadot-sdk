@@ -256,7 +256,6 @@ jobs:
           } >> $GITHUB_OUTPUT
 
           cat .github/zombienet-env
-          cat .github/zombienet-sdk-env
           cat .github/env
           echo "FLAKY_TESTS:"
           cat .github/zombienet-flaky-tests
