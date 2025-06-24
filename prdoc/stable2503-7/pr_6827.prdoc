@@ -15,3 +15,4 @@ crates:
   bump: minor
 - name: polkadot-runtime-parachains
   bump: minor
+  validate: false
