@@ -1809,11 +1809,8 @@ pub mod env {
 	#[stable]
 	fn block_author(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::BlockAuthor)?;
-		let block_author = self
-			.ext
-			.block_author()
-			.map(|account| <E::T as Config>::AddressMapper::to_address(&account))
-			.unwrap_or(H160::zero());
+		let block_author = self.ext.block_author().unwrap_or(H160::zero());
+
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,

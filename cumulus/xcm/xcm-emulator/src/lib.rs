@@ -142,6 +142,16 @@ where
 	}
 }
 
+// Implement optional inherent code to be executed
+// This will be executed after on-initialize and before on-finalize
+pub trait AdditionalInherentCode {
+	fn on_new_block() -> DispatchResult {
+		Ok(())
+	}
+}
+
+impl AdditionalInherentCode for () {}
+
 pub trait TestExt {
 	fn build_new_ext(storage: Storage) -> TestExternalities;
 	fn new_ext() -> TestExternalities;
@@ -269,6 +279,7 @@ pub trait Parachain: Chain {
 	type ParachainSystem;
 	type MessageProcessor: ProcessMessage + ServiceQueues;
 	type DigestProvider: Convert<BlockNumberFor<Self::Runtime>, Digest>;
+	type AdditionalInherentCode: AdditionalInherentCode;
 
 	fn init();
 
@@ -604,7 +615,8 @@ macro_rules! decl_test_parachains {
 					LocationToAccountId: $location_to_account:path,
 					ParachainInfo: $parachain_info:path,
 					MessageOrigin: $message_origin:path,
-					$( DigestProvider: $digest_provider:ty, )?
+					$( DigestProvider: $digest_provider:ty,)?
+					$( AdditionalInherentCode: $additional_inherent_code:ty,)?
 				},
 				pallets = {
 					$($pallet_name:ident: $pallet_path:path,)*
@@ -646,6 +658,7 @@ macro_rules! decl_test_parachains {
 				type ParachainInfo = $parachain_info;
 				type MessageProcessor = $crate::DefaultParaMessageProcessor<$name<N>, $message_origin>;
 				$crate::decl_test_parachains!(@inner_digest_provider $($digest_provider)?);
+				$crate::decl_test_parachains!(@inner_additional_inherent_code $($additional_inherent_code)?);
 
 				// We run an empty block during initialisation to open HRMP channels
 				// and have them ready for the next block
@@ -666,7 +679,7 @@ macro_rules! decl_test_parachains {
 
 				fn new_block() {
 					use $crate::{
-						Dispatchable, Chain, Convert, TestExt, Zero,
+						Dispatchable, Chain, Convert, TestExt, Zero, AdditionalInherentCode
 					};
 
 					let para_id = Self::para_id().into();
@@ -712,6 +725,9 @@ macro_rules! decl_test_parachains {
 						}.into();
 						$crate::assert_ok!(
 							timestamp_set.dispatch(<Self as Chain>::RuntimeOrigin::none())
+						);
+						$crate::assert_ok!(
+							<Self as Parachain>::AdditionalInherentCode::on_new_block()
 						);
 					});
 				}
@@ -775,6 +791,8 @@ macro_rules! decl_test_parachains {
 	};
 	( @inner_digest_provider $digest_provider:ty ) => { type DigestProvider = $digest_provider; };
 	( @inner_digest_provider /* none */ ) => { type DigestProvider = (); };
+	( @inner_additional_inherent_code $additional_inherent_code:ty ) => { type AdditionalInherentCode = $additional_inherent_code; };
+	( @inner_additional_inherent_code /* none */ ) => { type AdditionalInherentCode = (); };
 }
 
 #[macro_export]

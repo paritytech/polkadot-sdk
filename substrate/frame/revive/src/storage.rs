@@ -23,6 +23,7 @@ use crate::{
 	address::AddressMapper,
 	exec::{AccountIdOf, Key},
 	storage::meter::Diff,
+	tracing::if_tracing,
 	weights::WeightInfo,
 	BalanceOf, Config, ContractInfoOf, DeletionQueue, DeletionQueueCounter, Error, TrieId,
 	SENTINEL,
@@ -130,7 +131,11 @@ impl<T: Config> ContractInfo<T> {
 	/// The read is performed from the `trie_id` only. The `address` is not necessary. If the
 	/// contract doesn't store under the given `key` `None` is returned.
 	pub fn read(&self, key: &Key) -> Option<Vec<u8>> {
-		child::get_raw(&self.child_trie_info(), key.hash().as_slice())
+		let value = child::get_raw(&self.child_trie_info(), key.hash().as_slice());
+		if_tracing(|t| {
+			t.storage_read(key, value.as_deref());
+		});
+		return value
 	}
 
 	/// Returns `Some(len)` (in bytes) if a storage item exists at `key`.
@@ -156,7 +161,12 @@ impl<T: Config> ContractInfo<T> {
 		take: bool,
 	) -> Result<WriteOutcome, DispatchError> {
 		let hashed_key = key.hash();
-		self.write_raw(&hashed_key, new_value, storage_meter, take)
+		if_tracing(|t| {
+			let old = child::get_raw(&self.child_trie_info(), hashed_key.as_slice());
+			t.storage_write(key, old, new_value.as_deref());
+		});
+
+		self.write_raw(&hashed_key, new_value.as_deref(), storage_meter, take)
 	}
 
 	/// Update a storage entry into a contract's kv storage.
@@ -168,13 +178,13 @@ impl<T: Config> ContractInfo<T> {
 		new_value: Option<Vec<u8>>,
 		take: bool,
 	) -> Result<WriteOutcome, DispatchError> {
-		self.write_raw(key, new_value, None, take)
+		self.write_raw(key, new_value.as_deref(), None, take)
 	}
 
 	fn write_raw(
 		&self,
 		key: &[u8],
-		new_value: Option<Vec<u8>>,
+		new_value: Option<&[u8]>,
 		storage_meter: Option<&mut meter::NestedMeter<T>>,
 		take: bool,
 	) -> Result<WriteOutcome, DispatchError> {

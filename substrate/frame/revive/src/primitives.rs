@@ -89,7 +89,7 @@ pub struct ContractResult<R, Balance> {
 }
 
 /// The result of the execution of a `eth_transact` call.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Default, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct EthTransactInfo<Balance> {
 	/// The amount of gas that was necessary to execute the transaction.
 	pub gas_required: Weight,
@@ -273,4 +273,22 @@ where
 			Refund(amount) => limit.saturating_add(*amount),
 		}
 	}
+}
+
+/// Indicates whether the account nonce should be incremented after instantiating a new contract.
+///
+/// In Substrate, where transactions can be batched, the account's nonce should be incremented after
+/// each instantiation, ensuring that each instantiation uses a unique nonce.
+///
+/// For transactions sent from Ethereum wallets, which cannot be batched, the nonce should only be
+/// incremented once. In these cases, Use `BumpNonce::No` to suppress an extra nonce increment.
+///
+/// Note:
+/// The origin's nonce is already incremented pre-dispatch by the `CheckNonce` transaction
+/// extension.
+pub enum BumpNonce {
+	/// Do not increment the nonce after contract instantiation
+	No,
+	/// Increment the nonce after contract instantiation
+	Yes,
 }
