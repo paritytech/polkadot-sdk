@@ -54,6 +54,7 @@ GLOBAL_CONSENSUS_ROCOCO_SOVEREIGN_ACCOUNT="5HmYPhRNAenHN6xnDLQDLZq71d4BgzPrdJ2sN
 ASSET_HUB_WESTEND_SOVEREIGN_ACCOUNT_AT_BRIDGE_HUB_WESTEND="5Eg2fntNprdN3FgH4sfEaaZhYtddZQSQUqvYJ1f2mLtinVhV"
 GLOBAL_CONSENSUS_WESTEND_SOVEREIGN_ACCOUNT="5CtHyjQE8fbPaQeBrwaGph6qsSEtnMFBAZcAkxwnEfQkkYAq"
 ASSET_HUB_ROCOCO_SOVEREIGN_ACCOUNT_AT_BRIDGE_HUB_ROCOCO="5Eg2fntNprdN3FgH4sfEaaZhYtddZQSQUqvYJ1f2mLtinVhV"
+ALICE_SOVEREIGN_ACCOUNT="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
 
 # Expected sovereign accounts for rewards on BridgeHubs.
 #
@@ -178,7 +179,7 @@ function run_parachains_relay() {
     local relayer_path=$(ensure_relayer)
 
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
-        $relayer_path relay-parachains rococo-to-bridge-hub-westend \
+        $relayer_path relay-parachains bridge-hub-rococo-to-bridge-hub-westend \
         --only-free-headers \
         --source-uri ws://localhost:9942 \
         --source-version-mode Auto \
@@ -188,7 +189,7 @@ function run_parachains_relay() {
         --target-transactions-mortality 4&
 
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
-        $relayer_path relay-parachains westend-to-bridge-hub-rococo \
+        $relayer_path relay-parachains bridge-hub-westend-to-bridge-hub-rococo \
         --only-free-headers \
         --source-uri ws://localhost:9945 \
         --source-version-mode Auto \
@@ -250,6 +251,21 @@ case "$1" in
           "$GLOBAL_CONSENSUS_WESTEND_SOVEREIGN_ACCOUNT" \
           10000000000 \
           true
+      # create foreign asset pool
+      create_pool \
+          "ws://127.0.0.1:9910" \
+          "//Alice" \
+          "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }] } }')"
+      # Create liquidity in the pool
+      add_liquidity \
+          "ws://127.0.0.1:9910" \
+          "//Alice" \
+          "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }] } }')" \
+          10000000000 \
+          10000000000 \
+          "$ALICE_SOVEREIGN_ACCOUNT"
       # HRMP
       open_hrmp_channels \
           "ws://127.0.0.1:9942" \
@@ -309,6 +325,21 @@ case "$1" in
           "$GLOBAL_CONSENSUS_ROCOCO_SOVEREIGN_ACCOUNT" \
           10000000000 \
           true
+      # create foreign asset pool
+      create_pool \
+          "ws://127.0.0.1:9010" \
+          "//Alice" \
+          "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }] } }')"
+      # Create liquidity in the pool
+      add_liquidity \
+          "ws://127.0.0.1:9010" \
+          "//Alice" \
+          "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }] } }')" \
+          10000000000 \
+          10000000000 \
+          "$ALICE_SOVEREIGN_ACCOUNT"
       # HRMP
       open_hrmp_channels \
           "ws://127.0.0.1:9945" \

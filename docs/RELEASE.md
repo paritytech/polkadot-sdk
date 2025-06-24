@@ -141,13 +141,20 @@ utilizes [`cargo-semver-checks`](https://github.com/obi1kenobi/cargo-semver-chec
 
 Cadence: every 3 months for new `stable` releases and monthly for existing `stables`. Responsible: Release Team.
 
-### Steps to execute a new stable release
+### Steps to execute a new stable binary release
 
 From the main Polkadot-sdk repository in the paritytech org:
 
 1. On the cut-off date, create a new branch with the name `satbleYYMM`
-using [Branch-off stable flow](/.github/workflows/release-10_branchoff-stable.yml)
-2. Create a new rc tag from the stable branch using [RC Automation flow](/.github/workflows/release-11_rc-automation.yml)
+  using combined [Branch-off stable/tag rc flow](/.github/workflows/release-10_branchoff-stable.yml)
+2. Create a new rc tag from the stable branch using combined
+   [Branch-off stable/tag rc flow](/.github/workflows/release-10_branchoff-stable.yml)
+
+ℹ️ These first two steps can be done all in one if there are no extra actions (like crates release) are needed
+to be done in between.
+In case of a crates release: when it is done, the changes done by the Parity-Publish needs to be revereted and
+merged back to the stable branch via a PR as the direct pushes are restricted. When this is done,
+the new RC tag can be created using the flow from above.
 
 From the forked Polkadot-sdk repository in the [paritytech-release org](https://github.com/paritytech-release/polkadot-sdk/actions):
 

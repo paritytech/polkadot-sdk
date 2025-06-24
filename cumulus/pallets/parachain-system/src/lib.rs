@@ -585,16 +585,6 @@ pub mod pallet {
 			// Always try to read `UpgradeGoAhead` in `on_finalize`.
 			weight += T::DbWeight::get().reads(1);
 
-			// Post a digest that contains the information for selecting a core.
-			let selected_core = T::SelectCore::selected_core();
-			frame_system::Pallet::<T>::deposit_log(
-				cumulus_primitives_core::CumulusDigestItem::SelectCore {
-					selector: selected_core.0,
-					claim_queue_offset: selected_core.1,
-				}
-				.to_digest_item(),
-			);
-
 			weight
 		}
 	}
@@ -1847,7 +1837,7 @@ impl<T: Config> BlockNumberProvider for RelaychainDataProvider<T> {
 			.unwrap_or_else(|| Pallet::<T>::last_relay_block_number())
 	}
 
-	#[cfg(feature = "runtime-benchmarks")]
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 	fn set_block_number(block: Self::BlockNumber) {
 		let mut validation_data = ValidationData::<T>::get().unwrap_or_else(||
 			// PersistedValidationData does not impl default in non-std

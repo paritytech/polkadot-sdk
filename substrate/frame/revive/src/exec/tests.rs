@@ -17,9 +17,9 @@
 
 /// These tests exercise the executive layer.
 ///
-/// In these tests the VM/loader are mocked. Instead of dealing with wasm bytecode they use
+/// In these tests the VM/loader are mocked. Instead of dealing with vm bytecode they use
 /// simple closures. This allows you to tackle executive logic more thoroughly without writing
-/// a wasm VM code.
+/// a VM binary code.
 #[cfg(test)]
 use super::*;
 use crate::{
@@ -593,6 +593,7 @@ fn input_data_to_instantiate() {
 				vec![1, 2, 3, 4],
 				Some(&[0; 32]),
 				false,
+				BumpNonce::Yes,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -1095,6 +1096,7 @@ fn refuse_instantiate_with_value_below_existential_deposit() {
 				vec![],
 				Some(&[0; 32]),
 				false,
+				BumpNonce::Yes,
 			),
 			Err(_)
 		);
@@ -1128,6 +1130,7 @@ fn instantiation_work_with_success_output() {
 					vec![],
 					Some(&[0 ;32]),
 					false,
+					BumpNonce::Yes,
 				),
 				Ok((address, ref output)) if output.data == vec![80, 65, 83, 83] => address
 			);
@@ -1179,6 +1182,7 @@ fn instantiation_fails_with_failing_output() {
 					vec![],
 					Some(&[0; 32]),
 					false,
+					BumpNonce::Yes,
 				),
 				Ok((address, ref output)) if output.data == vec![70, 65, 73, 76] => address
 			);
@@ -1339,6 +1343,7 @@ fn termination_from_instantiate_fails() {
 					vec![],
 					Some(&[0; 32]),
 					false,
+					BumpNonce::Yes,
 				),
 				Err(ExecError {
 					error: Error::<Test>::TerminatedInConstructor.into(),
@@ -1465,6 +1470,7 @@ fn recursive_call_during_constructor_is_balance_transfer() {
 				vec![],
 				Some(&[0; 32]),
 				false,
+				BumpNonce::Yes,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -1691,6 +1697,7 @@ fn nonce() {
 				vec![],
 				Some(&[0; 32]),
 				false,
+				BumpNonce::Yes,
 			)
 			.ok();
 			assert_eq!(System::account_nonce(&ALICE), 0);
@@ -1704,6 +1711,7 @@ fn nonce() {
 				vec![],
 				Some(&[0; 32]),
 				false,
+				BumpNonce::Yes,
 			));
 			assert_eq!(System::account_nonce(&ALICE), 1);
 
@@ -1716,6 +1724,7 @@ fn nonce() {
 				vec![],
 				Some(&[0; 32]),
 				false,
+				BumpNonce::Yes,
 			));
 			assert_eq!(System::account_nonce(&ALICE), 2);
 
@@ -1728,6 +1737,7 @@ fn nonce() {
 				vec![],
 				Some(&[0; 32]),
 				false,
+				BumpNonce::Yes,
 			));
 			assert_eq!(System::account_nonce(&ALICE), 3);
 		});
@@ -2707,6 +2717,7 @@ fn immutable_data_set_overrides() {
 				vec![],
 				None,
 				false,
+				BumpNonce::Yes,
 			)
 			.unwrap()
 			.0;
