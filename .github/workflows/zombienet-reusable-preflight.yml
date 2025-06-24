@@ -65,7 +65,7 @@ on:
         description: |
           url for download polkadot built artifacts (in zip format).
 
-      # zombienet-env vars
+      # zombienet related vars
       ZOMBIENET_PROVIDER:
         value: ${{ jobs.preflight.outputs.ZOMBIENET_PROVIDER }}
         description: "Provider to use in zombienet tests."
@@ -84,33 +84,11 @@ on:
         description: |
           Large runner for zombienet tests.
 
-      PUSHGATEWAY_URL:
-        value: ${{ jobs.preflight.outputs.PUSHGATEWAY_URL }}
-        description: "Gateway (url) to push metrics related to test."
-
       DEBUG:
         value: ${{ jobs.preflight.outputs.DEBUG }}
         description: "Debug value to zombienet v1 tests."
 
-      KUBERNETES_CPU_REQUEST:
-        value: ${{ jobs.preflight.outputs.KUBERNETES_CPU_REQUEST }}
-        description: "Base cpu (request) for pod runner."
-
-      KUBERNETES_MEMORY_REQUEST:
-        value: ${{ jobs.preflight.outputs.KUBERNETES_MEMORY_REQUEST }}
-        description: "Base memory (request) for pod runner."
-
-      TEMP_IMAGES_BASE:
-        value: ${{ jobs.preflight.outputs.TEMP_IMAGES_BASE }}
-        description: |
-          Base location for 'temp' images used in tests.
-
-      FLAKY_TESTS:
-        value: ${{ jobs.preflight.outputs.FLAKY_TESTS }}
-        description: |
-          comma separated list of flaky tests to skip.
-
-      # zombienet-sdk-env vars
+      # zombienet-sdk related vars
       ZOMBIE_PROVIDER:
         value: ${{ jobs.preflight.outputs.ZOMBIE_PROVIDER }}
         description: "Provider to use in zombienet-sdk tests."
@@ -131,6 +109,29 @@ on:
       ZOMBIENET_SDK_IMAGE:
         value: ${{ jobs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
         description: "zombienet-sdk CI image"
+
+      # common vars
+      PUSHGATEWAY_URL:
+        value: ${{ jobs.preflight.outputs.PUSHGATEWAY_URL }}
+        description: "Gateway (url) to push metrics related to test."
+
+      KUBERNETES_CPU_REQUEST:
+        value: ${{ jobs.preflight.outputs.KUBERNETES_CPU_REQUEST }}
+        description: "Base cpu (request) for pod runner."
+
+      KUBERNETES_MEMORY_REQUEST:
+        value: ${{ jobs.preflight.outputs.KUBERNETES_MEMORY_REQUEST }}
+        description: "Base memory (request) for pod runner."
+
+      TEMP_IMAGES_BASE:
+        value: ${{ jobs.preflight.outputs.TEMP_IMAGES_BASE }}
+        description: |
+          Base location for 'temp' images used in tests.
+
+      FLAKY_TESTS:
+        value: ${{ jobs.preflight.outputs.FLAKY_TESTS }}
+        description: |
+          comma separated list of flaky tests to skip.
 
 jobs:
   #
@@ -206,7 +207,7 @@ jobs:
               - '${{ steps.current_file.outputs.currentWorkflowFile }}'
               - '.github/workflows/zombienet-reusable-preflight.yml'
               - '.github/zombienet-env'
-              - '.github/zombienet-sdk-env'
+              - '.github/zombienet-flaky-tests'
 
       #
       # Set environment vars (including runner/image)
