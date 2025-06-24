@@ -40,7 +40,7 @@ use polkadot_node_network_protocol::{
 use polkadot_node_primitives::{CollationSecondedSignal, PoV, Statement};
 use polkadot_node_subsystem::{
 	messages::{
-		CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage, ParentHeadData,
+		CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage, ParentHeadDataAndHash,
 	},
 	overseer, FromOrchestra, OverseerSignal,
 };
@@ -509,7 +509,7 @@ async fn distribute_collation<Context>(
 	}
 
 	let parent_head_data =
-		ParentHeadData::WithData { hash: parent_head_data_hash, head_data: parent_head_data };
+		ParentHeadDataAndHash { head_data: parent_head_data, hash: parent_head_data_hash };
 
 	let para_head = receipt.descriptor.para_head();
 	per_relay_parent.collations.insert(
@@ -748,7 +748,7 @@ async fn advertise_collation<Context>(
 				protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
 					relay_parent,
 					candidate_hash: *candidate_hash,
-					parent_head_data_hash: collation.parent_head_data.hash(),
+					parent_head_data_hash: collation.parent_head_data.hash,
 				},
 			)),
 		))
@@ -856,7 +856,7 @@ async fn send_collation(
 	request: VersionedCollationRequest,
 	receipt: CandidateReceipt,
 	pov: PoV,
-	parent_head_data: ParentHeadData,
+	parent_head_data: ParentHeadDataAndHash,
 ) {
 	let (tx, rx) = oneshot::channel();
 
@@ -864,19 +864,15 @@ async fn send_collation(
 	let peer_id = request.peer_id();
 	let candidate_hash = receipt.hash();
 
-	let result = match parent_head_data {
-		ParentHeadData::WithData { head_data, .. } =>
-			Ok(request_v2::CollationFetchingResponse::CollationWithParentHeadData {
-				receipt,
-				pov,
-				parent_head_data: head_data,
-			}),
-		ParentHeadData::OnlyHash(_) =>
-			Ok(request_v2::CollationFetchingResponse::Collation(receipt, pov)),
+	let response = OutgoingResponse {
+		result: Ok(request_v2::CollationFetchingResponse::CollationWithParentHeadData {
+			receipt,
+			pov,
+			parent_head_data: parent_head_data.head_data,
+		}),
+		reputation_changes: Vec::new(),
+		sent_feedback: Some(tx),
 	};
-
-	let response =
-		OutgoingResponse { result, reputation_changes: Vec::new(), sent_feedback: Some(tx) };
 
 	if let Err(_) = request.send_outgoing_response(response) {
 		gum::warn!(target: LOG_TARGET, "Sending collation response failed");

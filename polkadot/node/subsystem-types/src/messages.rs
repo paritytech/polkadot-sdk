@@ -1353,6 +1353,15 @@ pub struct ProspectiveValidationDataRequest {
 	pub parent_head_data: ParentHeadData,
 }
 
+/// The parent head-data data and hash.
+#[derive(Debug, Clone)]
+pub struct ParentHeadDataAndHash {
+	/// The head-data of the parent.
+	pub head_data: HeadData,
+	/// The hash of the parent head-data.
+	pub hash: Hash,
+}
+
 /// The parent head-data hash with optional data itself.
 #[derive(Debug, Clone)]
 pub enum ParentHeadData {
