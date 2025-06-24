@@ -375,6 +375,273 @@ fn abstain_voting_works() {
 }
 
 #[test]
+fn voting_while_delegating_permutations_work() {
+	let delegator = 1;
+	let delegator_two = 2;
+	let delegatee = 3;
+	let class = 0;
+	let poll = 0;
+
+	// Non standard (aye, nay) voting works.
+	new_test_ext().execute_with(|| {
+		Polls::set(vec![ (poll, Ongoing(Tally::new(0), class)) ].into_iter().collect());
+
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), poll, aye(10, 1)));
+		
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll, split(10, 10)));
+
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(delegator), class, delegatee, Conviction::Locked1x, 10));
+		assert_eq!(tally(poll), Tally::from_parts(11, 1, 20));
+		
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), poll, aye(5, 1)));
+		assert_eq!(tally(poll), Tally::from_parts(6, 1, 15));
+
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll, aye(5, 1)));
+		assert_eq!(tally(poll), Tally::from_parts(10, 0, 10));
+
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(delegator), Some(class), poll));
+		assert_eq!(tally(poll), Tally::from_parts(15, 0, 15));
+	});
+
+	// Delegator votes first.
+	new_test_ext().execute_with(|| {
+			Polls::set(vec![ (poll, Ongoing(Tally::new(0), class)) ].into_iter().collect());
+			
+			assert_ok!(Voting::delegate(RuntimeOrigin::signed(delegator), class, delegatee, Conviction::Locked1x, 10));
+			assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), 0, aye(10, 1)));
+			assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), 0, aye(5, 1)));
+
+			assert_eq!(tally(poll), Tally::from_parts(15, 0, 15));
+	});
+
+	// Delegatee votes first.
+	new_test_ext().execute_with(|| {
+			Polls::set(vec![ (poll, Ongoing(Tally::new(0), class)) ].into_iter().collect());
+
+			assert_ok!(Voting::delegate(RuntimeOrigin::signed(delegator), class, delegatee, Conviction::Locked1x, 10));
+			assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll, aye(5, 1)));
+			assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), poll, aye(10, 1)));
+
+			assert_eq!(tally(poll), Tally::from_parts(15, 0, 15));
+	});
+
+	// Delegatee and delegator vote, delegator votes again w/o removing vote.
+	new_test_ext().execute_with(|| {
+			Polls::set(vec![ (poll, Ongoing(Tally::new(0), class)) ].into_iter().collect());
+
+			assert_ok!(Voting::delegate(RuntimeOrigin::signed(delegator), class, delegatee, Conviction::Locked1x, 10));
+			assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll, aye(5, 1)));
+			assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), poll, aye(10, 1)));
+			assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), poll, nay(5, 1)));
+
+			assert_eq!(tally(poll), Tally::from_parts(5, 5, 5));
+	});
+
+	// Both voting, delegatee removes their vote, delegation removed, delegatee votes again.
+	new_test_ext().execute_with(|| {
+		Polls::set(vec![ (poll, Ongoing(Tally::new(0), class)) ].into_iter().collect());
+
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(delegator), class, delegatee, Conviction::Locked1x, 10));
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll, aye(5, 1)));
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), poll, aye(10, 1)));
+
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(delegatee), Some(class), poll));
+		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(delegator), class));
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll, aye(5, 1)));
+
+		assert_eq!(tally(poll), Tally::from_parts(15, 0, 15));
+	});
+	
+	// Delegator and delegatee vote, delegatee removes their vote, then adds it back.
+	new_test_ext().execute_with(|| {
+		Polls::set(vec![ (poll, Ongoing(Tally::new(0), class)) ].into_iter().collect());
+
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(delegator), class, delegatee, Conviction::Locked1x, 10));
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll, aye(5, 1)));
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), poll, aye(10, 1)));
+
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(delegatee), Some(class), poll));
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll, aye(5, 1)));
+
+		assert_eq!(tally(poll), Tally::from_parts(15, 0, 15));
+	});
+
+	// Multiple delegators vote first.
+	new_test_ext().execute_with(|| {
+			Polls::set(vec![ (poll, Ongoing(Tally::new(0), class)) ].into_iter().collect());
+
+			assert_ok!(Voting::delegate(RuntimeOrigin::signed(delegator), class, delegatee, Conviction::Locked1x, 10));
+			assert_ok!(Voting::delegate(RuntimeOrigin::signed(delegator_two), class, delegatee, Conviction::Locked1x, 10));
+			assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), poll, aye(10, 1)));
+			assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator_two), poll, nay(10, 1)));
+			assert_eq!(tally(poll), Tally::from_parts(10, 10, 10));
+
+			assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll, aye(5, 1)));
+			assert_eq!(tally(poll), Tally::from_parts(15, 10, 15));
+	});
+
+}
+
+#[test]
+fn all_vote_types_trigger_clawback_correctly() {
+	let delegatee = 1;
+	let delegator = 2;
+	let class = 0;
+	let poll = 0;
+	// Standard Vote.
+    new_test_ext().execute_with(|| {
+        Polls::set(vec![(poll, Ongoing(Tally::new(0), class))].into_iter().collect());
+        assert_ok!(Voting::delegate(RuntimeOrigin::signed(delegator), class, delegatee, Conviction::Locked2x, 10));
+        assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll, aye(5, 1)));
+        assert_eq!(tally(poll).ayes, 25);
+        assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), poll, aye(1, 1)));
+        assert_eq!(tally(poll).ayes, 6);
+	});
+	// Split Vote.
+	new_test_ext().execute_with(|| {
+        Polls::set(vec![(poll, Ongoing(Tally::new(0), class))].into_iter().collect());
+        assert_ok!(Voting::delegate(RuntimeOrigin::signed(delegator), class, delegatee, Conviction::Locked2x, 10));
+        assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll, aye(5, 1)));
+        assert_eq!(tally(poll).ayes, 25);
+        assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), poll, split(10, 10)));
+		assert_eq!(tally(poll), Tally::from_parts(6, 1, 15));
+	});
+	// SplitAbstain Vote.
+	new_test_ext().execute_with(|| {
+        Polls::set(vec![(poll, Ongoing(Tally::new(0), class))].into_iter().collect());
+        assert_ok!(Voting::delegate(RuntimeOrigin::signed(delegator), class, delegatee, Conviction::Locked2x, 10));
+        assert_ok!(Voting::vote(RuntimeOrigin::signed(delegatee), poll, aye(5, 1)));
+        assert_eq!(tally(poll).ayes, 25);
+        assert_ok!(Voting::vote(RuntimeOrigin::signed(delegator), poll, split_abstain(10, 0, 10)));
+        assert_eq!(tally(poll), Tally::from_parts(6, 0, 25));
+    });
+}
+
+#[test]
+fn vote_removal_removes_delegates_applicable_vote_data() {
+    new_test_ext().execute_with(|| {
+        Polls::set(
+            vec![
+                (0, Ongoing(Tally::new(0), 0)),
+                (1, Ongoing(Tally::new(0), 0)),
+            ]
+            .into_iter()
+            .collect(),
+        );
+
+        assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 10));
+
+        assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 0, aye(1, 0)));
+        assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 1, aye(1, 0)));
+        assert_eq!(VotingFor::<Test>::get(2, 0).votes.len(), 2);
+
+		Polls::set(
+            vec![
+                (0, Completed(2, true)),
+            ]
+            .into_iter()
+            .collect(),
+        );
+
+        assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), Some(0), 0));
+        assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), Some(0), 1));
+
+        assert!(VotingFor::<Test>::get(2, 0).votes.is_empty());
+    });
+}
+
+#[test]
+fn remove_other_vote_works() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			Voting::remove_other_vote(RuntimeOrigin::signed(2), 1, 0, 3),
+			Error::<Test>::NotVoter
+		);
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(10, 2)));
+		assert_noop!(
+			Voting::remove_other_vote(RuntimeOrigin::signed(2), 1, 0, 3),
+			Error::<Test>::NoPermission
+		);
+		Polls::set(vec![(3, Completed(1, true))].into_iter().collect());
+		run_to(6);
+		assert_noop!(
+			Voting::remove_other_vote(RuntimeOrigin::signed(2), 1, 0, 3),
+			Error::<Test>::NoPermissionYet
+		);
+		run_to(7);
+		assert_ok!(Voting::remove_other_vote(RuntimeOrigin::signed(2), 1, 0, 3));
+	});
+}
+
+#[test]
+fn errors_with_remove_vote_work() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			Voting::remove_vote(RuntimeOrigin::signed(1), Some(0), 3),
+			Error::<Test>::NotVoter
+		);
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(10, 2)));
+		Polls::set(vec![(3, Completed(1, true))].into_iter().collect());
+		assert_noop!(
+			Voting::remove_vote(RuntimeOrigin::signed(1), None, 3),
+			Error::<Test>::ClassNeeded
+		);
+	});
+}
+
+#[test]
+fn errors_with_vote_work() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			Voting::vote(RuntimeOrigin::signed(1), 0, aye(10, 0)),
+			Error::<Test>::NotOngoing
+		);
+		assert_noop!(
+			Voting::vote(RuntimeOrigin::signed(1), 1, aye(10, 0)),
+			Error::<Test>::NotOngoing
+		);
+		assert_noop!(
+			Voting::vote(RuntimeOrigin::signed(1), 2, aye(10, 0)),
+			Error::<Test>::NotOngoing
+		);
+		assert_noop!(
+			Voting::vote(RuntimeOrigin::signed(1), 3, aye(11, 0)),
+			Error::<Test>::InsufficientFunds
+		);
+
+		Polls::set(
+			vec![
+				(0, Ongoing(Tally::new(0), 0)),
+				(1, Ongoing(Tally::new(0), 0)),
+				(2, Ongoing(Tally::new(0), 0)),
+				(3, Ongoing(Tally::new(0), 0)),
+			]
+			.into_iter()
+			.collect(),
+		);
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 0, aye(10, 0)));
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 1, aye(10, 0)));
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 2, aye(10, 0)));
+		assert_noop!(
+			Voting::vote(RuntimeOrigin::signed(1), 3, aye(10, 0)),
+			Error::<Test>::MaxVotesReached
+		);
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), None, 2));
+
+		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 10));
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 0, aye(10, 0)));
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 1, aye(10, 0)));
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 2, aye(10, 0)));
+		assert_noop!(
+			Voting::vote(RuntimeOrigin::signed(1), 3, aye(10, 0)),
+			Error::<Test>::DelegateMaxVotesReached
+		);
+
+		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
+	});
+}
+
+#[test]
 fn voting_balance_gets_locked() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(2, 5)));
@@ -923,49 +1190,6 @@ fn delegators_votes_dont_affect_delegates_locks() {
 }
 
 #[test]
-fn errors_with_vote_work() {
-	new_test_ext().execute_with(|| {
-		assert_noop!(
-			Voting::vote(RuntimeOrigin::signed(1), 0, aye(10, 0)),
-			Error::<Test>::NotOngoing
-		);
-		assert_noop!(
-			Voting::vote(RuntimeOrigin::signed(1), 1, aye(10, 0)),
-			Error::<Test>::NotOngoing
-		);
-		assert_noop!(
-			Voting::vote(RuntimeOrigin::signed(1), 2, aye(10, 0)),
-			Error::<Test>::NotOngoing
-		);
-		assert_noop!(
-			Voting::vote(RuntimeOrigin::signed(1), 3, aye(11, 0)),
-			Error::<Test>::InsufficientFunds
-		);
-
-		Polls::set(
-			vec![
-				(0, Ongoing(Tally::new(0), 0)),
-				(1, Ongoing(Tally::new(0), 0)),
-				(2, Ongoing(Tally::new(0), 0)),
-				(3, Ongoing(Tally::new(0), 0)),
-			]
-			.into_iter()
-			.collect(),
-		);
-		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 0, aye(10, 0)));
-		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 1, aye(10, 0)));
-		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 2, aye(10, 0)));
-		assert_noop!(
-			Voting::vote(RuntimeOrigin::signed(1), 3, aye(10, 0)),
-			Error::<Test>::MaxVotesReached
-		);
-
-		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 10));
-		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
-	});
-}
-
-#[test]
 fn errors_with_delegating_work() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
@@ -1202,86 +1426,6 @@ fn delegation_info_is_set() {
 		assert_eq!(VotingFor::<Test>::get(1, 0).maybe_delegate, None);
 		assert_eq!(VotingFor::<Test>::get(1, 0).maybe_conviction, None);
 		assert_eq!(VotingFor::<Test>::get(1, 0).delegated_balance, 0);
-	});
-}
-
-#[test]
-fn voting_while_delegating_permutations_work() {
-	new_test_ext().execute_with(|| {
-		Polls::set(vec![ (0, Ongoing(Tally::new(0), 0)) ].into_iter().collect());
-
-		// Non standard (aye, nay) voting works
-
-		// delegator votes
-		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 0, aye(10, 1)));
-		
-		// delegate votes abstain
-		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 0, split(10, 10)));
-
-		// delegator delegates
-		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Locked1x, 10));
-		assert_eq!(tally(0), Tally::from_parts(11, 1, 20));
-		
-		// delegator changes their vote
-		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 0, aye(5, 1)));
-		assert_eq!(tally(0), Tally::from_parts(6, 1, 15));
-
-		// delegate changes theirs
-		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 0, aye(5, 1)));
-		assert_eq!(tally(0), Tally::from_parts(10, 0, 10));
-
-		// delegator removes their vote
-		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(1), None, 0));
-		assert_eq!(tally(0), Tally::from_parts(15, 0, 15));
-
-		// clean
-		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(2), None, 0));
-		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
-		Polls::set(vec![ (0, Ongoing(Tally::new(0), 0)) ].into_iter().collect());
-
-		// Pre-existing delegation, delegator votes first.
-
-		// Pre-existing delegation, delegate votes first.
-
-	});
-}
-
-#[test]
-fn remove_other_vote_works() {
-	new_test_ext().execute_with(|| {
-		assert_noop!(
-			Voting::remove_other_vote(RuntimeOrigin::signed(2), 1, 0, 3),
-			Error::<Test>::NotVoter
-		);
-		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(10, 2)));
-		assert_noop!(
-			Voting::remove_other_vote(RuntimeOrigin::signed(2), 1, 0, 3),
-			Error::<Test>::NoPermission
-		);
-		Polls::set(vec![(3, Completed(1, true))].into_iter().collect());
-		run_to(6);
-		assert_noop!(
-			Voting::remove_other_vote(RuntimeOrigin::signed(2), 1, 0, 3),
-			Error::<Test>::NoPermissionYet
-		);
-		run_to(7);
-		assert_ok!(Voting::remove_other_vote(RuntimeOrigin::signed(2), 1, 0, 3));
-	});
-}
-
-#[test]
-fn errors_with_remove_vote_work() {
-	new_test_ext().execute_with(|| {
-		assert_noop!(
-			Voting::remove_vote(RuntimeOrigin::signed(1), Some(0), 3),
-			Error::<Test>::NotVoter
-		);
-		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(10, 2)));
-		Polls::set(vec![(3, Completed(1, true))].into_iter().collect());
-		assert_noop!(
-			Voting::remove_vote(RuntimeOrigin::signed(1), None, 3),
-			Error::<Test>::ClassNeeded
-		);
 	});
 }
 
