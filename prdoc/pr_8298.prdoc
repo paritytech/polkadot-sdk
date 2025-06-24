@@ -1,7 +1,46 @@
 title: 'Implementation of RFC-0097: Unbonding Queue for pallet-staking-async'
 doc:
-- audience: Runtime Dev
-  description: 'Implements the unbonding queue for fast unbonding'
+- audience: [Runtime Dev, Runtime User]
+  description: |
+    # Description
+    This PR implements [RFC-0097](https://polkadot-fellows.github.io/RFCs/approved/0097-unbonding_queue.html) and its
+    [modification](https://hackmd.io/@vKfUEAWlRR2Ogaq8nYYknw/SyfioMGWgl), which introduces a variable unbonding time
+    mechanism to improve the security-liquidity trade-off in the staking system.
+
+    The unbonding queue allows for faster unbonding of staked tokens while maintaining network security by keeping a
+    minimum slashable share of stake locked for the full unbonding period.
+
+    ### Modified extrinsics:
+    - `unbond`: Enhanced to work with the unbonding queue mechanism, calculating variable unbonding times based on stake distribution.
+    - `withdraw_unbonded`: Modified to handle withdrawals from the unbonding queue with different unlock periods.
+    - `rebond`: Updated to work with the queue-based unbonding system.
+
+    ### Storage items:
+    - `ElectableStashes`: Added the stake backing up a given electable stash account.
+    - `UnbondingQueueParams`: New storage item containing configuration parameters:
+      - `min_slashable_share`: The minimum share of stake of the lowest backed validators that must remain slashable at any point in time.
+      - `lowest_ratio`: The proportion of the lowest-backed validator set.
+      - `unbond_period_lower_bound`: Minimum unbonding time in eras.
+    - `ErasLowestRatioTotalStake`: Tracks the lowest stake proportion among validators in each era.
+    - `TotalUnbondInEra`: Tracks the stake that started unbonding in a given era.
+    - `Ledger`: Added `previous_unbonded_stake` to track the accumulated stake to be unbonded at the time a given unlock chunk was created.
+
+    ### View functions:
+    - `unbonding_duration`: Used to obtain the list of funds that will be released at a given era.
+
+    ## Key features:
+    1. Variable unbonding time: Unbonding time varies based on the amount of stake in the system.
+    2. Security maintenance: Ensures a sufficient percentage of stake remains slashable at all times.
+    3. Unbonding queue management: Implements an efficient queue system for managing unbonding requests.
+
+    ### Migration v18:
+    Includes multi-block migration `LazyMigrationV17ToV18` that:
+      - Updates `StakingLedger` structure to include the new `previous_unbonded_stake` field in `UnlockChunk`.
+      - Migrates `ElectableStashes` from set-based to map-based storage (AccountId -> Balance mapping).
+      - Performs era adjustment for existing unlock chunks by subtracting the bonding duration.
+      - Uses stepped migration pattern to handle large datasets efficiently across multiple blocks.
+      - Includes comprehensive pre/post-upgrade checks for data integrity.
+
 crates:
 - name: pallet-staking-async-parachain-runtime
   bump: minor

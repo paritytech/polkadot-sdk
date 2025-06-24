@@ -886,8 +886,7 @@ impl<T: Config> Pallet<T> {
 		Eras::<T>::pending_rewards(era, &account)
 	}
 
-	/// Calculates the total stake of the lowest portion validators and stores it for the planned
-	/// era.
+	/// Calculates the total stake of the lowest portion validators and stores it for the planned era.
 	pub(crate) fn calculate_lowest_total_stake(era: EraIndex) {
 		// Only calculate if unbonding queue params have been set.
 		if let Some(params) = UnbondingQueueParams::<T>::get() {
@@ -911,9 +910,9 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Curates the unlocking chunks for a stash account by:
-	/// - Calculating immediately withdrawable balance
-	/// - Determining new unlock eras based on queue parameters
-	/// - Organizing remaining chunks by era
+	/// - Calculating immediately withdrawable balance.
+	/// - Determining new unlock eras based on queue parameters.
+	/// - Organizing remaining chunks by era.
 	///
 	/// Returns a tuple of:
 	/// - Amount that can be immediately withdrawn.
