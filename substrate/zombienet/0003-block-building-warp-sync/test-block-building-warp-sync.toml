@@ -13,18 +13,21 @@ chain_spec_path = "chain-spec.json"
   name = "alice"
   validator = true
   db_snapshot="{{DB_SNAPSHOT}}"
+  args = ["--log=sub-libp2p=debug,sync=trace,sub-authority-discovery=debug,litep2p=debug"]
 
   [[relaychain.nodes]]
   name = "bob"
   validator = true
   db_snapshot="{{DB_SNAPSHOT}}"
+  args = ["--log=sub-libp2p=debug,sync=trace,sub-authority-discovery=debug,litep2p=debug"]
 
   [[relaychain.nodes]]
   name = "charlie"
   validator = false
   db_snapshot="{{DB_SNAPSHOT}}"
+  args = ["--log=sub-libp2p=debug,sync=trace,sub-authority-discovery=debug,litep2p=debug"]
 
   [[relaychain.nodes]]
   name = "dave"
   validator = false
-  args = ["--sync warp"]
+  args = ["--log=sub-libp2p=debug,sync=trace,sub-authority-discovery=debug,litep2p=debug", "--sync warp"]
