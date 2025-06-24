@@ -1706,8 +1706,8 @@ impl_runtime_apis! {
 				Config as XcmBridgeHubRouterConfig,
 			};
 
-			use xcm_config::{AssetHubId, AssetHubParaLocation};
 			use xcm_config::bridging::to_westend::{RandomParaLocation, RandomId};
+			use testnet_parachains_constants::rococo::locations::{AssetHubParaId, AssetHubLocation};
 			parameter_types! {
 				pub ExistentialDepositAsset: Option<Asset> = Some((
 					TokenLocation::get(),
@@ -1715,7 +1715,6 @@ impl_runtime_apis! {
 				).into());
 
 				pub RandomParaId: ParaId = ParaId::new(RandomId::get());
-				pub AssetHubParaId: ParaId = ParaId::new(AssetHubId::get());
 			}
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
