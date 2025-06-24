@@ -16,12 +16,13 @@
 
 use crate::{
 	dummy_builder,
-	environment::{TestEnvironment, TestEnvironmentDependencies},
+	environment::{TestEnvironment, TestEnvironmentDependencies, GENESIS_HASH},
 	mock::{
 		approval_voting_parallel::MockApprovalVotingParallel,
 		availability_recovery::MockAvailabilityRecovery,
 		candidate_validation::MockCandidateValidation,
 		chain_api::{ChainApiState, MockChainApi},
+		network_bridge::{MockNetworkBridgeRx, MockNetworkBridgeTx},
 		runtime_api::{MockRuntimeApi, MockRuntimeApiCoreState},
 		AlwaysSupportsParachains,
 	},
@@ -29,29 +30,25 @@ use crate::{
 	usage::BenchmarkUsage,
 };
 use colored::Colorize;
+use polkadot_dispute_distribution::DisputeDistributionSubsystem;
 use polkadot_node_core_dispute_coordinator::{
 	Config as DisputeCoordinatorConfig, DisputeCoordinatorSubsystem,
 };
 use polkadot_node_metrics::metrics::Metrics;
+use polkadot_node_network_protocol::request_response::{IncomingRequest, ReqProtocolNames};
 use polkadot_node_primitives::DisputeStatus;
 use polkadot_node_subsystem::messages::{
-	AllMessages, DisputeCoordinatorMessage,
-	ImportStatementsResult,
+	AllMessages, DisputeCoordinatorMessage, ImportStatementsResult,
 };
 use polkadot_overseer::{
 	Handle as OverseerHandle, Overseer, OverseerConnector, OverseerMetrics, SpawnGlue,
 };
-use polkadot_primitives::{
-	AuthorityDiscoveryId, ValidatorId, ValidatorIndex,
-};
+use polkadot_primitives::{AuthorityDiscoveryId, Block, Hash, ValidatorId, ValidatorIndex};
 use sc_keystore::LocalKeystore;
 use sc_service::SpawnTaskHandle;
 use sp_keystore::Keystore;
 use sp_runtime::RuntimeAppPublic;
-use std::{
-	sync::Arc,
-	time::Instant,
-};
+use std::{sync::Arc, time::Instant};
 pub use test_state::TestState;
 
 mod test_state;
@@ -84,6 +81,10 @@ fn build_overseer(
 	let config = DisputeCoordinatorConfig { col_dispute_data: 0 };
 	let keystore = make_keystore();
 	let approval_voting_parallel_enabled = true;
+	let (dispute_req_receiver, dispute_req_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&ReqProtocolNames::new(GENESIS_HASH, None));
 	let mock_runtime_api = MockRuntimeApi::new(
 		state.config.clone(),
 		state.test_authorities.clone(),
@@ -99,6 +100,22 @@ fn build_overseer(
 		MockAvailabilityRecovery::new(state.missing_availability.clone());
 	let mock_approval_voting = MockApprovalVotingParallel::new();
 	let mock_candidate_validation = MockCandidateValidation::new();
+	let network_bridge_tx = MockNetworkBridgeTx::new(
+		network,
+		network_interface.subsystem_sender(),
+		state.test_authorities.clone(),
+	);
+	let network_bridge_rx = MockNetworkBridgeRx::new(
+		network_receiver,
+		Some(dispute_req_cfg),
+		approval_voting_parallel_enabled,
+	);
+	let dispute_distribution = DisputeDistributionSubsystem::new(
+		keystore.clone(),
+		dispute_req_receiver,
+		state.test_authorities.clone(),
+		Metrics::try_register(&dependencies.registry).unwrap(),
+	);
 	let dispute_coordinator = DisputeCoordinatorSubsystem::new(
 		store,
 		config,
@@ -113,6 +130,9 @@ fn build_overseer(
 		.replace_availability_recovery(|_| mock_availability_recovery)
 		.replace_approval_voting_parallel(|_| mock_approval_voting)
 		.replace_candidate_validation(|_| mock_candidate_validation)
+		.replace_network_bridge_tx(|_| network_bridge_tx)
+		.replace_network_bridge_rx(|_| network_bridge_rx)
+		.replace_dispute_distribution(|_| dispute_distribution)
 		.replace_dispute_coordinator(|_| dispute_coordinator);
 
 	let (overseer, raw_handle) = dummy.build_with_connector(overseer_connector).unwrap();
@@ -240,5 +260,5 @@ pub async fn benchmark_dispute_coordinator(
 	);
 
 	env.stop().await;
-	env.collect_resource_usage(&["dispute-coordinator"], false)
+	env.collect_resource_usage(&["dispute-coordinator", "dispute-distribution"], false)
 }
