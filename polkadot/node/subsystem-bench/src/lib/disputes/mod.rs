@@ -46,7 +46,7 @@ use polkadot_node_network_protocol::{
 	v3::{self, BackedCandidateManifest, StatementFilter},
 	view, ValidationProtocols, View,
 };
-use polkadot_node_primitives::SignedDisputeStatement;
+use polkadot_node_primitives::{DisputeStatus, SignedDisputeStatement};
 use polkadot_node_subsystem::messages::{
 	network_bridge_event::NewGossipTopology, AllMessages, DisputeCoordinatorMessage,
 	NetworkBridgeEvent, StatementDistributionMessage,
@@ -73,6 +73,15 @@ mod test_state;
 
 const LOG_TARGET: &str = "subsystem-bench::disputes";
 
+pub fn make_keystore() -> Arc<LocalKeystore> {
+	let keystore = Arc::new(LocalKeystore::in_memory());
+	Keystore::sr25519_generate_new(&*keystore, ValidatorId::ID, Some("//Node0"))
+		.expect("Insert key into keystore");
+	Keystore::sr25519_generate_new(&*keystore, AuthorityDiscoveryId::ID, Some("//Node0"))
+		.expect("Insert key into keystore");
+	keystore
+}
+
 fn build_overseer(
 	state: &TestState,
 	network: NetworkEmulatorHandle,
@@ -88,7 +97,7 @@ fn build_overseer(
 	let db = polkadot_node_subsystem_util::database::kvdb_impl::DbAdapter::new(db, &[0]);
 	let store = Arc::new(db);
 	let config = DisputeCoordinatorConfig { col_dispute_data: 0 };
-	let keystore = state.test_authorities.keyring.local_keystore();
+	let keystore = make_keystore();
 	let approval_voting_parallel_enabled = true;
 	let mock_runtime_api = MockRuntimeApi::new(
 		state.config.clone(),
@@ -183,6 +192,14 @@ pub async fn benchmark_dispute_coordinator(
 		.await;
 
 		gum::debug!("After First import!");
+
+		let (tx, rx) = futures::channel::oneshot::channel();
+		env.send_message(AllMessages::DisputeCoordinator(
+			DisputeCoordinatorMessage::ActiveDisputes(tx),
+		))
+		.await;
+
+		assert_eq!(rx.await.unwrap(), vec![(1, candidate_receipt1.hash(), DisputeStatus::Active)]);
 	}
 
 	let duration: u128 = test_start.elapsed().as_millis();
