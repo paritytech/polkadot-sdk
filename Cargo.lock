@@ -20587,7 +20587,10 @@ dependencies = [
  "anyhow",
  "assert_matches",
  "async-trait",
+ "chrono",
  "criterion",
+ "cumulus-zombienet-sdk-helpers",
+ "env_logger 0.11.3",
  "futures",
  "futures-timer",
  "indexmap 2.9.0",
@@ -20601,6 +20604,7 @@ dependencies = [
  "sc-transaction-pool-api",
  "sc-utils",
  "serde",
+ "serde_json",
  "sp-api 26.0.0",
  "sp-blockchain",
  "sp-consensus",
@@ -20619,6 +20623,7 @@ dependencies = [
  "tokio-stream",
  "tracing",
  "tracing-subscriber",
+ "zombienet-configuration",
  "zombienet-sdk",
 ]
 
@@ -24914,9 +24919,9 @@ version = "4.0.0-dev"
 
 [[package]]
 name = "substrate-txtesttool"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4116d4d42f14bc24166fd5b3d1d7b90e000e563fa648a87cb9cf27055c53625"
+checksum = "c8e742db3b239740f3ec7d4cfa5cdbc06a9820ed2dd48b073aa3b5de99bb7aed"
 dependencies = [
  "async-trait",
  "average",
