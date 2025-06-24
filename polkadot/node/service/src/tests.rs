@@ -406,6 +406,8 @@ async fn test_skeleton(
 		) => {
 			tx.send(undisputed_chain.unwrap_or((target_block_number, target_block_hash))).unwrap();
 	});
+	// Check that ApprovedAncestor and DetermineUndisputedChain are sent with high priority.
+	assert_eq!(virtual_overseer.message_counter.with_high_priority(), 2);
 }
 
 /// Straight forward test case, where the test is not
