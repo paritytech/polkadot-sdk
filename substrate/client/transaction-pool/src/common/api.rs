@@ -251,11 +251,11 @@ where
 			};
 
 			insert_and_log_throttled!(
-			Level::DEBUG,
-			target:LOG_TARGET_STAT,
-			prefix:prefix,
-			stats,
-			start.elapsed().into()
+				Level::DEBUG,
+				target:LOG_TARGET_STAT,
+				prefix:prefix,
+				stats,
+				start.elapsed().into()
 			);
 
 			validity
