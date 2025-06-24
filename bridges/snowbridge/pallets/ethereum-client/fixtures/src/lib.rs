@@ -19,7 +19,7 @@ type CheckpointUpdate = snowbridge_beacon_primitives::CheckpointUpdate<SC_SIZE>;
 type Update = snowbridge_beacon_primitives::Update<SC_SIZE, SC_BITS_SIZE>;
 
 pub fn make_checkpoint() -> Box<CheckpointUpdate> {
-    Box::new(CheckpointUpdate {
+	Box::new(CheckpointUpdate {
         header: BeaconHeader {
             slot: 64,
             proposer_index: 2,
@@ -566,7 +566,7 @@ pub fn make_checkpoint() -> Box<CheckpointUpdate> {
 }
 
 pub fn make_sync_committee_update() -> Box<Update> {
-    Box::new(Update {
+	Box::new(Update {
         attested_header: BeaconHeader {
             slot: 129,
             proposer_index: 3,
@@ -1135,7 +1135,7 @@ pub fn make_sync_committee_update() -> Box<Update> {
 }
 
 pub fn make_finalized_header_update() -> Box<Update> {
-    Box::new(Update {
+	Box::new(Update {
         attested_header: BeaconHeader {
             slot: 874,
             proposer_index: 3,
@@ -1178,7 +1178,7 @@ pub fn make_finalized_header_update() -> Box<Update> {
 }
 
 pub fn make_execution_proof() -> Box<ExecutionProof> {
-    Box::new(ExecutionProof {
+	Box::new(ExecutionProof {
         header: BeaconHeader {
             slot: 182,
             proposer_index: 7,
@@ -1233,7 +1233,7 @@ pub fn make_execution_proof() -> Box<ExecutionProof> {
 }
 
 pub fn make_inbound_fixture() -> EventFixture {
-    EventFixture {
+	EventFixture {
         event: EventProof {
             event_log: 	Log {
                 address: hex!("b1185ede04202fe62d38f5db72f71e38ff3e8305").into(),
