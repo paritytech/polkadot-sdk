@@ -30,4 +30,4 @@ doc:
     - No `WrongWinnerCount` errors occur
 crates:
 - name: pallet-election-provider-multi-block
-  bump: patch
+  bump: minor
