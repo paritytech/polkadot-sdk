@@ -31,8 +31,8 @@ num-bigint = { workspace = true }
 num-integer = { workspace = true }
 num-traits = { workspace = true }
 paste = { workspace = true }
-polkavm = { version = "0.21.0", default-features = false }
-polkavm-common = { version = "0.21.0", default-features = false, optional = true }
+polkavm = { version = "0.25.0", default-features = false }
+polkavm-common = { version = "0.25.0", default-features = false, optional = true }
 rand = { workspace = true, optional = true }
 rand_pcg = { workspace = true, optional = true }
 rlp = { workspace = true }
@@ -62,7 +62,7 @@ subxt-signer = { workspace = true, optional = true, features = ["unstable-eth"] 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
-polkavm-common = { version = "0.21.0" }
+polkavm-common = { version = "0.25.0" }
 pretty_assertions = { workspace = true }
 secp256k1 = { workspace = true, features = ["recovery"] }
 serde_json = { workspace = true }
