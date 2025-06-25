@@ -585,16 +585,6 @@ pub mod pallet {
 			// Always try to read `UpgradeGoAhead` in `on_finalize`.
 			weight += T::DbWeight::get().reads(1);
 
-			// Post a digest that contains the information for selecting a core.
-			let selected_core = T::SelectCore::selected_core();
-			frame_system::Pallet::<T>::deposit_log(
-				cumulus_primitives_core::CumulusDigestItem::SelectCore {
-					selector: selected_core.0,
-					claim_queue_offset: selected_core.1,
-				}
-				.to_digest_item(),
-			);
-
 			weight
 		}
 	}
@@ -1515,14 +1505,20 @@ impl<T: Config> Pallet<T> {
 	/// Send the ump signals
 	#[cfg(feature = "experimental-ump-signals")]
 	fn send_ump_signal() {
-		use cumulus_primitives_core::relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
+		use cumulus_primitives_core::{
+			relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR},
+			CumulusDigestItem,
+		};
 
 		UpwardMessages::<T>::mutate(|up| {
 			up.push(UMP_SEPARATOR);
 
-			// Send the core selector signal.
-			let core_selector = T::SelectCore::selected_core();
-			up.push(UMPSignal::SelectCore(core_selector.0, core_selector.1).encode());
+			if let Some((selector, offset)) =
+				CumulusDigestItem::find_select_core(&frame_system::Pallet::<T>::digest())
+			{
+				// Send the core selector signal.
+				up.push(UMPSignal::SelectCore(selector, offset).encode());
+			}
 		});
 	}
 

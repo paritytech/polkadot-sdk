@@ -26,7 +26,7 @@ use polkadot_primitives::{
 use sp_runtime::generic::BlockId;
 
 /// Contains relay chain data necessary for parachain block building.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct RelayChainData {
 	/// Current relay chain parent header.
 	pub relay_parent_header: RelayHeader,

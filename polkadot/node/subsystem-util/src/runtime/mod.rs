@@ -477,7 +477,7 @@ where
 }
 
 /// A snapshot of the runtime claim queue at an arbitrary relay chain block.
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct ClaimQueueSnapshot(pub BTreeMap<CoreIndex, VecDeque<ParaId>>);
 
 impl From<BTreeMap<CoreIndex, VecDeque<ParaId>>> for ClaimQueueSnapshot {

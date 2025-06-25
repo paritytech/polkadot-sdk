@@ -17,23 +17,9 @@
 
 use codec::{Codec, Encode};
 
-use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
-use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
-use cumulus_client_consensus_proposer::ProposerInterface;
-use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
-use cumulus_primitives_core::{
-	extract_relay_parent, rpsr_digest, ClaimQueueOffset, CoreSelector, CumulusDigestItem,
-	GetCoreSelectorApi, PersistedValidationData,
-};
-use cumulus_relay_chain_interface::RelayChainInterface;
-
-use polkadot_primitives::{
-	Block as RelayBlock, CoreIndex, Hash as RelayHash, Header as RelayHeader, Id as ParaId,
-};
-
 use super::CollatorMessage;
 use crate::{
-	collator::{self as collator_util},
+	collator as collator_util,
 	collators::{
 		check_validation_code_or_log,
 		slot_based::{
@@ -44,8 +30,19 @@ use crate::{
 	},
 	LOG_TARGET,
 };
-use cumulus_primitives_core::RelayParentOffsetApi;
+use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
+use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
+use cumulus_client_consensus_proposer::ProposerInterface;
+use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
+use cumulus_primitives_core::{
+	extract_relay_parent, rpsr_digest, ClaimQueueOffset, CoreSelector, CumulusDigestItem,
+	GetCoreSelectorApi, PersistedValidationData, RelayParentOffsetApi,
+};
+use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
+use polkadot_primitives::{
+	Block as RelayBlock, CoreIndex, Hash as RelayHash, Header as RelayHeader, Id as ParaId,
+};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::SlotDuration;
@@ -56,7 +53,7 @@ use sp_consensus_aura::AuraApi;
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member, Zero};
 use std::{collections::VecDeque, sync::Arc, time::Duration};
 
 /// Parameters for [`run_block_builder`].
@@ -320,11 +317,11 @@ where
 					tracing::debug!(
 						target: crate::LOG_TARGET,
 						unincluded_segment_len = parent.depth,
-						relay_parent = %relay_parent,
+						relay_parent = ?relay_parent,
 						relay_parent_num = %relay_parent_header.number(),
-						included_hash = %included_header_hash,
+						included_hash = ?included_header_hash,
 						included_num = %included_header.number(),
-						parent = %parent_hash,
+						parent = ?parent_hash,
 						slot = ?para_slot.slot,
 						"Not building block."
 					);
@@ -399,7 +396,11 @@ where
 				.build_block_and_import(
 					&parent_header,
 					&slot_claim,
-					None,
+					Some(vec![dbg!(CumulusDigestItem::SelectCore {
+						selector: core_selector,
+						claim_queue_offset,
+					})
+					.to_digest_item()]),
 					(parachain_inherent_data, other_inherent_data),
 					authoring_duration,
 					allowed_pov_size,
@@ -527,13 +528,17 @@ async fn determine_core<Header: HeaderT, RI: RelayChainInterface + 'static>(
 	let (last_selector, last_offset) = CumulusDigestItem::find_select_core(parent.digest())
 		.map_or_else(|| (None, None), |(selector, offset)| (Some(selector), Some(offset)));
 
-	let last_relay_parent = match extract_relay_parent(parent.digest()) {
-		Some(last_relay_parent) => *relay_chain_data_cache
-			.get_mut_relay_chain_data(last_relay_parent)
-			.await?
-			.relay_parent_header
-			.number(),
-		None => rpsr_digest::extract_relay_parent_storage_root(parent.digest()).ok_or(())?.1,
+	let last_relay_parent = if parent.number().is_zero() {
+		0
+	} else {
+		match extract_relay_parent(parent.digest()) {
+			Some(last_relay_parent) => *relay_chain_data_cache
+				.get_mut_relay_chain_data(last_relay_parent)
+				.await?
+				.relay_parent_header
+				.number(),
+			None => rpsr_digest::extract_relay_parent_storage_root(parent.digest()).ok_or(())?.1,
+		}
 	};
 
 	let relay_parent_offset = relay_parent.number().saturating_sub(last_relay_parent);
