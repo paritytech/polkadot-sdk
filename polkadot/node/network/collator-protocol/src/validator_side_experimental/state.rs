@@ -74,7 +74,13 @@ impl<B: Backend> State<B> {
 			.await;
 
 		match outcome {
-			TryAcceptOutcome::Added => {},
+			TryAcceptOutcome::Added => {
+				gum::trace!(
+					target: LOG_TARGET,
+					?peer_id,
+					"Peer connected",
+				);
+			},
 			TryAcceptOutcome::Replaced(other_peers) => {
 				gum::trace!(
 					target: LOG_TARGET,

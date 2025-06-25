@@ -191,6 +191,11 @@ impl CollationManager {
 				// Remove the fetching collations and advertisements for the deactivated RPs.
 				if let Some(deactivated_rp) = self.per_relay_parent.remove(deactivated) {
 					for advertisement in deactivated_rp.all_advertisements() {
+						gum::trace!(
+							target: LOG_TARGET,
+							?advertisement,
+							"Cancelling advertisement because relay parent got out of view"
+						);
 						self.fetching.cancel(&advertisement);
 					}
 				}
@@ -894,16 +899,12 @@ impl PerRelayParent {
 		self.advertisement_timestamps.remove(&advertisement);
 	}
 
-	fn remove_peer_advertisements(&mut self, peer_id: &PeerId) -> Vec<Advertisement> {
-		let Some(removed) = self.peer_advertisements.remove(peer_id) else { return vec![] };
-
-		removed
-			.advertisements
-			.into_iter()
-			.inspect(|advertisement| {
-				self.advertisement_timestamps.remove(advertisement);
-			})
-			.collect()
+	fn remove_peer_advertisements(&mut self, peer_id: &PeerId) {
+		if let Some(removed) = self.peer_advertisements.remove(peer_id) {
+			for advertisement in removed.advertisements {
+				self.advertisement_timestamps.remove(&advertisement);
+			}
+		}
 	}
 }
 
