@@ -7,7 +7,7 @@ default_command = "polkadot"
 chain = "rococo-local"
 default_args = [
 	"--pool-kbytes 2048000",
-	"--pool-limit 500000",
+	"--pool-limit 100000",
 	"--pool-type=fork-aware",
 	"--rpc-max-connections 15000",
 	"--rpc-max-response-size 150",
@@ -15,20 +15,28 @@ default_args = [
 	"--state-pruning=1024",
 	"-lsync=info",
 	"-ltxpool=debug",
+	"-ltxpoolstat=debug",
 ]
 [relaychain.genesis.runtimeGenesis.patch.balances]
 devAccounts = [
-	1000,
+	100000,
 	1000000000000000000,
 	"//Sender//{}",
 ]
 
 [[relaychain.nodes]]
+# command = "/home/miszka/parity/14-txpool-forks/polkadot-sdk-master-02/target/release-tokio-console/polkadot"
 name = "alice"
 rpc_port = 9944
-validator = true
+validator = false
 
 [[relaychain.nodes]]
 name = "bob"
 rpc_port = 9945
+validator = true
+
+
+[[relaychain.nodes]]
+name = "charlie"
+rpc_port = 9946
 validator = true
