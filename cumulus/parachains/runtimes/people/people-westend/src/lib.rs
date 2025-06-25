@@ -1002,8 +1002,6 @@ impl_runtime_apis! {
 					RelayLocation::get(),
 					ExistentialDeposit::get()
 				).into());
-
-				pub AssetHubParaId: ParaId = ParaId::new(AssetHubId::get());
 			}
 
 			impl pallet_xcm_benchmarks::Config for Runtime {
