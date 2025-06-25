@@ -377,6 +377,15 @@ mod view;
 mod view_store;
 
 pub use fork_aware_txpool::{ForkAwareTxPool, ForkAwareTxPoolTask};
+use indexmap::IndexMap;
+
+use crate::graph::{self, ExtrinsicHash, ValidatedTransactionFor};
+
+/// Helper type containing revalidation result for both views & mempool.
+pub(super) struct RevalidationResult<ChainApi: graph::ChainApi> {
+	revalidated: IndexMap<ExtrinsicHash<ChainApi>, ValidatedTransactionFor<ChainApi>>,
+	invalid_hashes: Vec<ExtrinsicHash<ChainApi>>,
+}
 
 mod stream_map_util {
 	use futures::Stream;

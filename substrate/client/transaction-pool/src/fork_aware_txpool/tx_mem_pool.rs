@@ -34,7 +34,7 @@
 use futures::{future::join_all, FutureExt};
 use itertools::Itertools;
 use parking_lot::RwLock;
-use sc_transaction_pool_api::{TransactionPriority, TransactionSource};
+use sc_transaction_pool_api::{error::IntoPoolError, TransactionPriority, TransactionSource};
 use sp_blockchain::HashAndNumber;
 use sp_runtime::{
 	traits::Block as BlockT,
@@ -57,15 +57,16 @@ use std::{
 use tracing::{debug, trace};
 
 use crate::{
-	common::tracing_log_xt::log_xt_trace,
-	graph,
-	graph::{base_pool::TimedTransactionSource, ExtrinsicFor, ExtrinsicHash},
+	common::{error, tracing_log_xt::log_xt_trace},
+	graph::{
+		self, base_pool::TimedTransactionSource, ExtrinsicFor, ExtrinsicHash, ValidatedTransaction,
+	},
 	ValidateTransactionPriority, LOG_TARGET,
 };
 
 use super::{
 	metrics::MetricsLink as PrometheusMetrics, multi_view_listener::MultiViewListener,
-	view_store::ViewStore,
+	view_store::ViewStore, RevalidationResult,
 };
 
 mod tx_mem_pool_map;
@@ -566,7 +567,10 @@ where
 	/// Revalidates a batch of transactions against the provided finalized block.
 	///
 	/// Returns a vector of invalid transaction hashes.
-	async fn revalidate_inner(&self, finalized_block: HashAndNumber<Block>) -> Vec<Block::Hash> {
+	async fn revalidate_inner(
+		&self,
+		finalized_block: HashAndNumber<Block>,
+	) -> RevalidationResult<ChainApi> {
 		trace!(
 			target: LOG_TARGET,
 			?finalized_block,
@@ -611,20 +615,67 @@ where
 		let input_len = validation_results.len();
 
 		let duration = start.elapsed();
-
+		let mut revalidated = indexmap::IndexMap::new();
 		let invalid_hashes = validation_results
 			.into_iter()
 			.filter_map(|(tx_hash, validation_result)| match validation_result {
-				Ok(Ok(_)) |
-				Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => None,
-				Err(_) |
-				Ok(Err(TransactionValidityError::Unknown(_))) |
-				Ok(Err(TransactionValidityError::Invalid(_))) => {
+				Ok(Ok(_)) => None,
+				Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => {
+					revalidated.insert(
+						tx_hash,
+						ValidatedTransaction::Invalid(
+							tx_hash,
+							error::Error::from(
+								sc_transaction_pool_api::error::Error::InvalidTransaction(
+									InvalidTransaction::Future,
+								),
+							),
+						),
+					);
+					None
+				},
+				Err(err) => {
 					trace!(
 						target: LOG_TARGET,
 						?tx_hash,
 						?validation_result,
 						"mempool::revalidate_inner invalid"
+					);
+					Some(tx_hash)
+				},
+				Ok(Err(TransactionValidityError::Unknown(err))) => {
+					trace!(
+						target: LOG_TARGET,
+						?tx_hash,
+						?validation_result,
+						"mempool::revalidate_inner invalid"
+					);
+					revalidated.insert(
+						tx_hash,
+						ValidatedTransaction::Unknown(
+							tx_hash,
+							error::Error::from(
+								sc_transaction_pool_api::error::Error::UnknownTransaction(err),
+							),
+						),
+					);
+					Some(tx_hash)
+				},
+				Ok(Err(TransactionValidityError::Invalid(err))) => {
+					trace!(
+						target: LOG_TARGET,
+						?tx_hash,
+						?validation_result,
+						"mempool::revalidate_inner invalid"
+					);
+					revalidated.insert(
+						tx_hash,
+						ValidatedTransaction::Invalid(
+							tx_hash,
+							error::Error::from(
+								sc_transaction_pool_api::error::Error::InvalidTransaction(err),
+							),
+						),
 					);
 					Some(tx_hash)
 				},
@@ -641,7 +692,7 @@ where
 			"mempool::revalidate_inner"
 		);
 
-		invalid_hashes
+		RevalidationResult { revalidated, invalid_hashes }
 	}
 
 	/// Removes the finalized transactions from the memory pool, using a provided list of hashes.
@@ -668,7 +719,8 @@ where
 		view_store: Arc<ViewStore<ChainApi, Block>>,
 		finalized_block: HashAndNumber<Block>,
 	) {
-		let revalidated_invalid_hashes = self.revalidate_inner(finalized_block.clone()).await;
+		let RevalidationResult { revalidated, invalid_hashes: revalidated_invalid_hashes } =
+			self.revalidate_inner(finalized_block.clone()).await;
 
 		let mut invalid_hashes_subtrees =
 			revalidated_invalid_hashes.clone().into_iter().collect::<HashSet<_>>();

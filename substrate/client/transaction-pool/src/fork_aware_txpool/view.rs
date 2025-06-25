@@ -23,13 +23,13 @@
 //!
 //! Refer to [*View*](../index.html#view) section for more details.
 
-use super::metrics::MetricsLink as PrometheusMetrics;
+use super::{metrics::MetricsLink as PrometheusMetrics, RevalidationResult};
 use crate::{
 	common::tracing_log_xt::log_xt_trace,
 	graph::{
 		self, base_pool::TimedTransactionSource, BlockHash, ExtrinsicFor, ExtrinsicHash,
 		IsValidator, TransactionFor, ValidateTransactionPriority, ValidatedPoolSubmitOutcome,
-		ValidatedTransaction, ValidatedTransactionFor,
+		ValidatedTransaction,
 	},
 	LOG_TARGET,
 };
@@ -44,11 +44,6 @@ use sp_runtime::{
 };
 use std::{sync::Arc, time::Instant};
 use tracing::{debug, instrument, trace, Level};
-
-pub(super) struct RevalidationResult<ChainApi: graph::ChainApi> {
-	revalidated: IndexMap<ExtrinsicHash<ChainApi>, ValidatedTransactionFor<ChainApi>>,
-	invalid_hashes: Vec<ExtrinsicHash<ChainApi>>,
-}
 
 /// Used to obtain result from RevalidationWorker on View side.
 pub(super) type RevalidationResultReceiver<ChainApi> =
