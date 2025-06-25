@@ -308,6 +308,17 @@ case "$1" in
           "$(jq --null-input '{ "V5": { "X2": [ { "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }, { "Parachain": 1000 } ] } }')" \
           "Rococo"
       ;;
+  open-bridge-lane-rococo-westend-local)
+      ensure_polkadot_js_api
+      # open a permissionless lane for bridging
+      open_permissionless_lane \
+          "ws://127.0.0.1:9910" \
+          1000 \
+          "ws://127.0.0.1:9942" \
+            "//Alice" \
+          "$(jq --null-input '{ "V5": { "X2": [ { "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }, { "Parachain": 1000 } ] } }')" \
+          "Westend"
+      ;;
   init-asset-hub-westend-local)
       ensure_polkadot_js_api
       # create foreign assets for native Rococo token (governance call on Westend)

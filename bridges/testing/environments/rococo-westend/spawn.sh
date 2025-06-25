@@ -62,6 +62,7 @@ if [[ $init -eq 1 ]]; then
   if [[ $permlanes -eq 1 ]]; then
     echo "Opening bridge lane."
     $helper_script open-bridge-lane-westend-rococo-local >> $westend_init_log 2>&1 &
+    $helper_script open-bridge-lane-rococo-westend-local >> $rococo_init_log 2>&1 &
   fi
 
   run_zndsl ${BASH_SOURCE%/*}/rococo-init.zndsl $rococo_dir
@@ -77,9 +78,5 @@ echo $westend_dir > $TEST_DIR/westend.env
 echo
 
 wait -n $rococo_pid $westend_pid $finality_relayer_pid $parachains_relayer_pid $messages_relayer_pid
-
-if [[ $permlanes -eq 1 ]] then
-  $
-
 
 kill -9 -$$

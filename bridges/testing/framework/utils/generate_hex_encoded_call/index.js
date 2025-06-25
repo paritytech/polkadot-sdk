@@ -120,7 +120,7 @@ function forceXcmVersion(endpoint, outputFile, dest, xcm_version) {
 		});
 }
 
-function openPermissionlessLane(endpoint, outputFile, destination_location, destination_chain = "Rococo") {
+function openPermissionlessLane(endpoint, outputFile, destination_location, destination_chain) {
 	console.log(`Generating openPermissionlessLane from RPC endpoint: ${endpoint} to outputFile: ${outputFile}, destination_location: ${destination_location}`);
 	const destination_location_json = JSON.parse(destination_location);
 	connect(endpoint)
