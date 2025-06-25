@@ -41,7 +41,9 @@ use nix::{
 use polkadot_node_core_pvf_common::{
 	compute_checksum,
 	error::InternalValidationError,
-	execute::{Handshake, JobError, JobResponse, JobResult, WorkerError, WorkerResponse},
+	execute::{
+		ExecuteRequest, Handshake, JobError, JobResponse, JobResult, WorkerError, WorkerResponse,
+	},
 	executor_interface::params_to_wasmtime_semantics,
 	framed_recv_blocking, framed_send_blocking,
 	worker::{
@@ -91,8 +93,6 @@ fn recv_execute_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
 fn recv_request(
 	stream: &mut UnixStream,
 ) -> io::Result<(PersistedValidationData, PoV, Duration, ArtifactChecksum)> {
-	use polkadot_node_core_pvf_common::execute::ExecuteRequest;
-
 	let request_bytes = framed_recv_blocking(stream)?;
 	let request = ExecuteRequest::decode(&mut &request_bytes[..]).map_err(|_| {
 		io::Error::new(
