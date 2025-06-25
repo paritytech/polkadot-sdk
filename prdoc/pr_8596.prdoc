@@ -1,0 +1,8 @@
+title: '`fatxpool`: limits handling optimizations and fixes'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR adds some optimization and fixes in handling limits in fork-aware transaction pool.
+crates:
+- name: sc-transaction-pool
+  bump: major
