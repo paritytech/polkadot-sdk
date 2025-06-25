@@ -69,12 +69,7 @@ impl Pay for TestBountiesPay {
 		STATUS.with(|s| s.borrow().get(&id).cloned().unwrap_or(PaymentStatus::InProgress))
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_successful(
-		_: &Self::Beneficiary,
-		_: Self::AssetKind,
-		_: Self::Balance,
-	) {
-	}
+	fn ensure_successful(_: &Self::Beneficiary, _: Self::AssetKind, _: Self::Balance) {}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_concluded(id: Self::Id) {
 		set_status(id, PaymentStatus::Success);
@@ -100,12 +95,7 @@ impl Pay for TestTreasuryPay {
 		PaymentStatus::InProgress
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_successful(
-		_: &Self::Beneficiary,
-		_: Self::AssetKind,
-		_: Self::Balance,
-	) {
-	}
+	fn ensure_successful(_: &Self::Beneficiary, _: Self::AssetKind, _: Self::Balance) {}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_concluded(_: Self::Id) {}
 }
@@ -373,7 +363,7 @@ pub fn get_payment_id(bounty_id: BountyIndex, to: Option<u128>) -> Option<u64> {
 	let bounty = pallet_bounties::Bounties::<Test>::get(bounty_id).expect("no bounty");
 
 	match bounty.status {
-		BountyStatus::Approved { payment_status: PaymentState::Attempted { id } } => Some(id),
+		BountyStatus::FundingAttempted { payment_status: PaymentState::Attempted { id } } => Some(id),
 		BountyStatus::ApprovedWithCurator {
 			payment_status: PaymentState::Attempted { id },
 			..

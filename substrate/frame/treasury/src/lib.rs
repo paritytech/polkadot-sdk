@@ -111,9 +111,7 @@ use frame_system::pallet_prelude::BlockNumberFor as SystemBlockNumberFor;
 pub use pallet::*;
 pub use weights::WeightInfo;
 
-pub type BalanceOf<T, I = ()> =
-	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-pub type AssetBalanceOf<T, I> = <<T as Config<I>>::Paymaster as Pay>::Balance;
+pub type BalanceOf<T, I = ()> = <<T as Config<I>>::Paymaster as Pay>::Balance;
 pub type PositiveImbalanceOf<T, I = ()> = <<T as Config<I>>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::PositiveImbalance;
@@ -178,11 +176,11 @@ pub enum PaymentState<Id> {
 /// Info regarding an approved treasury spend.
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
-pub struct SpendStatus<AssetKind, AssetBalance, Beneficiary, BlockNumber, PaymentId> {
+pub struct SpendStatus<AssetKind, Balance, Beneficiary, BlockNumber, PaymentId> {
 	// The kind of asset to be spent.
 	asset_kind: AssetKind,
 	/// The asset amount of the spend.
-	amount: AssetBalance,
+	amount: Balance,
 	/// The beneficiary of the spend.
 	beneficiary: Beneficiary,
 	/// The block number from which the spend can be claimed.
@@ -267,9 +265,11 @@ pub mod pallet {
 		type BeneficiaryLookup: StaticLookup<Target = Self::Beneficiary>;
 
 		/// Type for processing spends of [Self::AssetKind] in favor of [`Self::Beneficiary`].
-		type Paymaster: Pay<Beneficiary = Self::Beneficiary, AssetKind = Self::AssetKind>;
+		type Paymaster: Pay<
+		Balance = <Self::Currency as Currency<Self::AccountId>>::Balance,
+		Beneficiary = Self::Beneficiary, AssetKind = Self::AssetKind>;
 
-		/// Type for converting the balance of an [Self::AssetKind] to the balance of the native
+		/// Type for converting the balance of an [`Self::AssetKind`] to the balance of the native
 		/// asset, solely for the purpose of asserting the result against the maximum allowed spend
 		/// amount of the [`Self::SpendOrigin`].
 		type BalanceConverter: ConversionFromAssetBalance<
@@ -344,7 +344,7 @@ pub mod pallet {
 		SpendIndex,
 		SpendStatus<
 			T::AssetKind,
-			AssetBalanceOf<T, I>,
+			BalanceOf<T, I>,
 			T::Beneficiary,
 			BlockNumberFor<T, I>,
 			<T::Paymaster as Pay>::Id,
@@ -400,7 +400,7 @@ pub mod pallet {
 		AssetSpendApproved {
 			index: SpendIndex,
 			asset_kind: T::AssetKind,
-			amount: AssetBalanceOf<T, I>,
+			amount: BalanceOf<T, I>,
 			beneficiary: T::Beneficiary,
 			valid_from: BlockNumberFor<T, I>,
 			expire_at: BlockNumberFor<T, I>,
@@ -647,7 +647,7 @@ pub mod pallet {
 		pub fn spend(
 			origin: OriginFor<T>,
 			asset_kind: Box<T::AssetKind>,
-			#[pallet::compact] amount: AssetBalanceOf<T, I>,
+			#[pallet::compact] amount: BalanceOf<T, I>,
 			beneficiary: Box<BeneficiaryLookupOf<T, I>>,
 			valid_from: Option<BlockNumberFor<T, I>>,
 		) -> DispatchResult {
