@@ -1,4 +1,4 @@
-title: Make `NoOpPoll` generic over `Moment`
+title: "Make `NoOpPoll` generic over `Moment`"
 
 doc:
   - audience: Runtime Developers
