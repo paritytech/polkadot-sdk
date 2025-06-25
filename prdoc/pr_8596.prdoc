@@ -5,5 +5,4 @@ doc:
     This PR adds some optimization and fixes in handling limits in fork-aware transaction pool.
 crates:
 - name: sc-transaction-pool
-  bump: patch
-  validate: false
+  bump: major
