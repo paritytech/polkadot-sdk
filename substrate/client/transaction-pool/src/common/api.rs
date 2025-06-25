@@ -23,8 +23,9 @@ use crate::{
 	graph::ValidateTransactionPriority,
 	insert_and_log_throttled, LOG_TARGET, LOG_TARGET_STAT,
 };
+use async_trait::async_trait;
 use codec::Encode;
-use futures::future::{ready, Future, FutureExt, Ready};
+use futures::future::{Future, FutureExt};
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_client_api::{blockchain::HeaderBackend, BlockBackend};
 use sp_api::{ApiExt, ProvideRuntimeApi};
