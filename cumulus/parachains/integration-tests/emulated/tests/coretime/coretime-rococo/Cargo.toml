@@ -21,7 +21,6 @@ sp-runtime = { workspace = true }
 polkadot-runtime-parachains = { workspace = true, default-features = true }
 rococo-runtime-constants = { workspace = true, default-features = true }
 xcm = { workspace = true }
-xcm-executor = { workspace = true }
 
 # Cumulus
 cumulus-pallet-parachain-system = { workspace = true, default-features = true }

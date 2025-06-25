@@ -3684,7 +3684,6 @@ dependencies = [
  "rococo-system-emulated-network",
  "sp-runtime 31.0.1",
  "staging-xcm",
- "staging-xcm-executor",
 ]
 
 [[package]]
@@ -3778,7 +3777,6 @@ dependencies = [
  "frame-support",
  "pallet-broker",
  "pallet-message-queue",
- "pallet-xcm",
  "polkadot-runtime-parachains",
  "sp-runtime 31.0.1",
  "staging-xcm",
@@ -15473,6 +15471,7 @@ dependencies = [
  "libc",
  "nix 0.29.0",
  "parity-scale-codec",
+ "polkadot-node-primitives",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "sc-executor 0.32.0",
@@ -20587,7 +20586,10 @@ dependencies = [
  "anyhow",
  "assert_matches",
  "async-trait",
+ "chrono",
  "criterion",
+ "cumulus-zombienet-sdk-helpers",
+ "env_logger 0.11.3",
  "futures",
  "futures-timer",
  "indexmap 2.9.0",
@@ -20595,11 +20597,13 @@ dependencies = [
  "linked-hash-map",
  "parity-scale-codec",
  "parking_lot 0.12.3",
+ "rstest",
  "sc-block-builder",
  "sc-client-api",
  "sc-transaction-pool-api",
  "sc-utils",
  "serde",
+ "serde_json",
  "sp-api 26.0.0",
  "sp-blockchain",
  "sp-consensus",
@@ -20618,6 +20622,7 @@ dependencies = [
  "tokio-stream",
  "tracing",
  "tracing-subscriber",
+ "zombienet-configuration",
  "zombienet-sdk",
 ]
 
@@ -24913,9 +24918,9 @@ version = "4.0.0-dev"
 
 [[package]]
 name = "substrate-txtesttool"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4116d4d42f14bc24166fd5b3d1d7b90e000e563fa648a87cb9cf27055c53625"
+checksum = "c8e742db3b239740f3ec7d4cfa5cdbc06a9820ed2dd48b073aa3b5de99bb7aed"
 dependencies = [
  "async-trait",
  "average",
