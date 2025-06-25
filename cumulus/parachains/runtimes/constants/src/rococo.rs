@@ -171,7 +171,7 @@ pub mod xcm_version {
 pub mod locations {
 	use cumulus_primitives_core::ParaId;
 	use frame_support::parameter_types;
-	use westend_runtime_constants::system_parachain::ASSET_HUB_ID;
+	use rococo_runtime_constants::system_parachain::ASSET_HUB_ID;
 	use xcm::latest::prelude::{Location, Parachain};
 
 	parameter_types! {
