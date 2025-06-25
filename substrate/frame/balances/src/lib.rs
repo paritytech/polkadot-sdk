@@ -397,6 +397,10 @@ pub mod pallet {
 		Thawed { who: T::AccountId, amount: T::Balance },
 		/// The `TotalIssuance` was forcefully changed.
 		TotalIssuanceForced { old: T::Balance, new: T::Balance },
+		/// Some balance was placed on hold.
+		Held { reason: T::RuntimeHoldReason, who: T::AccountId, amount: T::Balance },
+		/// Some balance was released from hold.
+		Released { reason: T::RuntimeHoldReason, who: T::AccountId, amount: T::Balance }
 	}
 
 	#[pallet::error]

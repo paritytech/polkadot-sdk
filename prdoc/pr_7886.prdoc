@@ -1,0 +1,10 @@
+title: Add Missing Events for Balances Pallet
+doc:
+- audience: Runtime Dev
+  description: |-
+    Adding events for Held balance and Released hold.
+crates:
+- name: pallet-balances
+  bump: major
+- name: frame-support
+  bump: none
