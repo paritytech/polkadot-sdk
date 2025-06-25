@@ -946,7 +946,8 @@ impl_runtime_apis! {
 
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
-			use xcm_config::{RelayLocation, AssetHubLocation, AssetHubId};
+			use xcm_config::RelayLocation;
+			use testnet_parachains_constants::rococo::locations::{AssetHubParaId, AssetHubLocation};
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
