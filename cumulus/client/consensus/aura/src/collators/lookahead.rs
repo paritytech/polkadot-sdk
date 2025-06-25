@@ -171,7 +171,7 @@ where
 		AuraApi<Block, P::Public> + CollectCollationInfo<Block> + AuraUnincludedSegmentApi<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
-	CIDP: CreateInherentDataProviders<Block, ()> + Clone + 'static,
+	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 	CIDP::InherentDataProviders: Send,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
 	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
@@ -206,7 +206,7 @@ where
 
 		let mut collator = {
 			let params = collator_util::Params {
-				create_inherent_data_providers: params.create_inherent_data_providers.clone(),
+				create_inherent_data_providers: params.create_inherent_data_providers,
 				block_import: params.block_import,
 				relay_client: params.relay_client.clone(),
 				keystore: params.keystore.clone(),
