@@ -64,8 +64,9 @@ impl ChainApi for TestApi {
 	fn validate_transaction(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
-		_source: TransactionSource,
+		_: TransactionSource,
 		uxt: Arc<<Self::Block as BlockT>::Extrinsic>,
+		_: ValidateTransactionPriority,
 	) -> Self::ValidationFuture {
 		let uxt = (*uxt).clone();
 		let transfer = TransferData::try_from(&uxt)

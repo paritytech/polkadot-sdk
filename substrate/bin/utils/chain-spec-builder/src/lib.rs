@@ -67,11 +67,20 @@ pub struct CreateCmd {
 	/// The chain type.
 	#[arg(value_enum, short = 't', default_value = "live")]
 	chain_type: ChainType,
-	/// The para ID for your chain.
+	/// DEPRECATED: The para ID for your chain.
+	///
+	/// This flag will be removed starting with `stable2512`. Runtimes must implement a new API
+	/// called `cumulus_primitives_core::GetParachainInfo` to still be compatible with node
+	/// versions starting with `stable2512`.
+	// TODO: https://github.com/paritytech/polkadot-sdk/issues/8747
+	// TODO: https://github.com/paritytech/polkadot-sdk/issues/8740
 	#[arg(long, value_enum, short = 'p', requires = "relay_chain")]
+	#[deprecated(
+		note = "The para_id information is not required anymore and will be removed starting with `stable2512`. Runtimes must implement a new API called `cumulus_primitives_core::GetParachainInfo` to still be compatible with node versions starting with `stable2512`."
+	)]
 	pub para_id: Option<u32>,
 	/// The relay chain you wish to connect to.
-	#[arg(long, value_enum, short = 'c', requires = "para_id")]
+	#[arg(long, value_enum, short = 'c')]
 	pub relay_chain: Option<String>,
 	/// The path to runtime wasm blob.
 	#[arg(long, short, alias = "runtime-wasm-path")]
@@ -217,7 +226,12 @@ pub struct ParachainExtension {
 	/// The relay chain of the Parachain.
 	pub relay_chain: String,
 	/// The id of the Parachain.
-	pub para_id: u32,
+	// TODO: https://github.com/paritytech/polkadot-sdk/issues/8747 -->
+	// TODO: https://github.com/paritytech/polkadot-sdk/issues/8740 -->
+	#[deprecated(
+		note = "The para_id information is not required anymore and will be removed starting with `stable2512`. Runtimes must implement a new API called `cumulus_primitives_core::GetParachainInfo` to still be compatible with node versions starting with `stable2512`."
+	)]
+	pub para_id: Option<u32>,
 }
 
 type ChainSpec = GenericChainSpec<()>;
@@ -443,20 +457,34 @@ pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String
 		.with_chain_type(chain_type.clone());
 
 	let chain_spec_json_string = process_action(&cmd, &code[..], builder)?;
+	let parachain_properties = cmd.relay_chain.as_ref().map(|rc| {
+		// TODO: remove when removing the `para_id` extension: https://github.com/paritytech/polkadot-sdk/issues/8740
+		#[allow(deprecated)]
+		cmd.para_id
+			.map(|para_id| {
+				// TODO: https://github.com/paritytech/polkadot-sdk/issues/8747 -->
+				eprintln!("Note: usage of deprecated `para-id` flag is not recommended. Please consider implementing the `cumulus_primitives_core::GetParachainInfo` runtime API for your runtime. The `para-id` flag will be removed starting with `stable2512`.");
+				serde_json::json!({
+					"relay_chain": rc,
+					"para_id": para_id,
+				})
+			})
+			.unwrap_or(serde_json::json!({
+				"relay_chain": rc,
+			}))
+	});
 
-	if let (Some(para_id), Some(ref relay_chain)) = (cmd.para_id, &cmd.relay_chain) {
-		let parachain_properties = serde_json::json!({
-			"relay_chain": relay_chain,
-			"para_id": para_id,
-		});
-		let mut chain_spec_json_blob = serde_json::from_str(chain_spec_json_string.as_str())
-			.map_err(|e| format!("deserialization a json failed {e}"))?;
-		json_patch::merge(&mut chain_spec_json_blob, parachain_properties);
-		Ok(serde_json::to_string_pretty(&chain_spec_json_blob)
-			.map_err(|e| format!("to pretty failed: {e}"))?)
-	} else {
-		Ok(chain_spec_json_string)
-	}
+	let chain_spec = parachain_properties
+		.map(|props| {
+			let chain_spec_json_blob = serde_json::from_str(chain_spec_json_string.as_str())
+				.map_err(|e| format!("deserialization a json failed {e}"));
+			chain_spec_json_blob.and_then(|mut cs| {
+				json_patch::merge(&mut cs, props);
+				serde_json::to_string_pretty(&cs).map_err(|e| format!("to pretty failed: {e}"))
+			})
+		})
+		.unwrap_or(Ok(chain_spec_json_string));
+	chain_spec
 }
 
 /// Extract any chain spec and convert it to JSON

@@ -17,7 +17,7 @@
 use crate::{
 	cli::{Cli, RelayChainCli, Subcommand},
 	common::{
-		chain_spec::{Extensions, LoadSpec},
+		chain_spec::LoadSpec,
 		runtime::{
 			AuraConsensusId, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
 			RuntimeResolver,
@@ -33,11 +33,9 @@ use crate::{
 use clap::{CommandFactory, FromArgMatches};
 #[cfg(feature = "runtime-benchmarks")]
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
-use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::info;
 use sc_cli::{CliConfiguration, Result, SubstrateCli};
-use sp_runtime::traits::AccountIdConversion;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::traits::HashingFor;
 
@@ -304,24 +302,19 @@ where
 			runner.run_node_until_exit(|config| async move {
 				let node_spec =
 					new_node_spec(&config, &cmd_config.runtime_resolver, &cli.node_extra_args())?;
-				let para_id = ParaId::from(
-					Extensions::try_get(&*config.chain_spec)
-						.map(|e| e.para_id)
-						.ok_or("Could not find parachain extension in chain-spec.")?,
-				);
 
 				if cli.run.base.is_dev()? {
 					// Set default dev block time to 3000ms if not set.
 					// TODO: take block time from AURA config if set.
 					let dev_block_time = cli.dev_block_time.unwrap_or(DEFAULT_DEV_BLOCK_TIME_MS);
 					return node_spec
-						.start_manual_seal_node(config, para_id, dev_block_time)
+						.start_manual_seal_node(config, dev_block_time)
 						.map_err(Into::into);
 				}
 
 				if let Some(dev_block_time) = cli.dev_block_time {
 					return node_spec
-						.start_manual_seal_node(config, para_id, dev_block_time)
+						.start_manual_seal_node(config, dev_block_time)
 						.map_err(Into::into);
 				}
 
@@ -375,19 +368,11 @@ where
 						})
 					})
 					.flatten();
-
-				let parachain_account =
-					AccountIdConversion::<polkadot_primitives::AccountId>::into_account_truncating(
-						&para_id,
-					);
-
 				let tokio_handle = config.tokio_handle.clone();
 				let polkadot_config =
 					SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, tokio_handle)
 						.map_err(|err| format!("Relay chain argument error: {}", err))?;
 
-				info!("🪪 Parachain id: {:?}", para_id);
-				info!("🧾 Parachain Account: {}", parachain_account);
 				info!("✍️ Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
 				node_spec
@@ -395,7 +380,6 @@ where
 						config,
 						polkadot_config,
 						collator_options,
-						para_id,
 						hwbench,
 						cli.node_extra_args(),
 					)
