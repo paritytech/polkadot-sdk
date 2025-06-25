@@ -6,3 +6,4 @@ doc:
 crates:
 - name: sc-transaction-pool
   bump: minor
+  validate: false
