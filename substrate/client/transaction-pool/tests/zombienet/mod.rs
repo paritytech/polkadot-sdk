@@ -20,10 +20,12 @@
 //! across integration tests for transaction pool.
 
 use anyhow::anyhow;
+use std::time::SystemTime;
 use tracing_subscriber::EnvFilter;
 use txtesttool::scenario::{ChainType, ScenarioBuilder};
 use zombienet_sdk::{
-	subxt::SubstrateConfig, LocalFileSystem, Network, NetworkConfig, NetworkConfigExt,
+	subxt::SubstrateConfig, GlobalSettingsBuilder, LocalFileSystem, Network, NetworkConfig,
+	NetworkConfigBuilder, NetworkConfigExt, WithRelaychain,
 };
 
 /// Gathers TOML files paths for relaychains and for parachains' (that use rococo-local based
@@ -31,6 +33,10 @@ use zombienet_sdk::{
 pub mod relaychain_rococo_local_network_spec {
 	pub const HIGH_POOL_LIMIT_FATP: &'static str =
 		"tests/zombienet/network-specs/rococo-local-high-pool-limit-fatp.toml";
+	pub const LOW_POOL_LIMIT_FATP: &'static str =
+		"tests/zombienet/network-specs/rococo-local-low-pool-limit-fatp.toml";
+	pub const HIGH_POOL_LIMIT_FATP_TRACE: &'static str =
+		"tests/zombienet/network-specs/rococo-local-gossiping.toml";
 
 	/// Network specs used for fork-aware tx pool testing of parachains.
 	pub mod parachain_asset_hub_network_spec {
@@ -40,6 +46,8 @@ pub mod relaychain_rococo_local_network_spec {
 			"tests/zombienet/network-specs/asset-hub-high-pool-limit-fatp.toml";
 	}
 }
+
+mod yap_test;
 
 /// Default time that we expect to need for a full run of current tests that send future and ready
 /// txs to parachain or relaychain networks.
@@ -60,12 +68,57 @@ pub enum Error {
 /// Result of work related to network spawning.
 pub type Result<T> = std::result::Result<T, Error>;
 
+/// Environment variable defining the location of zombienet network base dir.
+const TXPOOL_TEST_DIR_ENV: &str = "TXPOOL_TEST_DIR";
+
 /// Provides logic to spawn a network based on a Zombienet toml file.
 pub struct NetworkSpawner {
 	network: Network<LocalFileSystem>,
 }
 
 impl NetworkSpawner {
+	/// Initialize the network spawner using given `builder` closure.
+	pub async fn with_closure<F>(builder: F) -> Result<NetworkSpawner>
+	where
+		F: FnOnce() -> NetworkConfigBuilder<WithRelaychain>,
+	{
+		let _ = env_logger::try_init_from_env(
+			env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+		);
+
+		let config_builder = builder();
+
+		let net_config = config_builder
+			.with_global_settings(|global_settings| match NetworkSpawner::base_dir_from_env() {
+				Some(val) => global_settings.with_base_dir(val),
+				_ => global_settings,
+			})
+			.build()
+			.map_err(|errs| {
+				let msg = errs.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(", ");
+				Error::NetworkInit(anyhow!(msg))
+			})?;
+
+		Ok(NetworkSpawner {
+			network: net_config
+				.spawn_native()
+				.await
+				.map_err(|err| Error::NetworkInit(anyhow!(err.to_string())))?,
+		})
+	}
+
+	/// Generates a directory path from an environment variable and the current timestamp.
+	/// The format is "<TENV>/test_YMD_HMS"
+	pub fn base_dir_from_env() -> Option<String> {
+		std::env::var(TXPOOL_TEST_DIR_ENV)
+			.map(|pool_test_dir| {
+				let datetime: chrono::DateTime<chrono::Local> = SystemTime::now().into();
+				let formatted_date = datetime.format("%Y%m%d_%H%M%S");
+				format!("{}/test_{}", pool_test_dir, formatted_date)
+			})
+			.ok()
+	}
+
 	/// Initialize the network spawner based on a Zombienet toml file
 	pub async fn from_toml_with_env_logger(toml_path: &'static str) -> Result<NetworkSpawner> {
 		// Initialize the subscriber with a default log level of INFO if RUST_LOG is not set
@@ -76,7 +129,15 @@ impl NetworkSpawner {
 			.with_env_filter(env_filter) // Use the env filter
 			.init();
 
-		let net_config = NetworkConfig::load_from_toml(toml_path).map_err(Error::NetworkInit)?;
+		let net_config = if let Some(base_dir) = Self::base_dir_from_env() {
+			let settings = GlobalSettingsBuilder::new().with_base_dir(base_dir).build().unwrap();
+			NetworkConfig::load_from_toml_with_settings(toml_path, &settings)
+				.map_err(Error::NetworkInit)?
+		} else {
+			tracing::info!("'{TXPOOL_TEST_DIR_ENV}' env not set, proceeding with defaults.");
+			NetworkConfig::load_from_toml(toml_path).map_err(Error::NetworkInit)?
+		};
+
 		Ok(NetworkSpawner {
 			network: net_config
 				.spawn_native()
@@ -164,4 +225,5 @@ pub fn default_zn_scenario_builder(net_spawner: &NetworkSpawner) -> ScenarioBuil
 		.with_block_monitoring(shared_params.does_block_monitoring)
 		.with_chain_type(shared_params.chain_type)
 		.with_base_dir_path(net_spawner.base_dir_path().unwrap().to_string())
+		.with_timeout_in_secs(21600) //6 hours
 }
