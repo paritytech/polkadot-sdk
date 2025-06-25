@@ -1,0 +1,14 @@
+title: Add polkadot_parachain_peer_connectivity metric
+doc:
+- audience: Node Dev
+  description: |-
+    # Description
+
+    Fixes https://github.com/paritytech/polkadot-sdk/issues/8911
+
+    ## Integration
+
+    Doesn't affect downstream projects.
+crates:
+- name: polkadot-network-bridge
+  bump: patch
