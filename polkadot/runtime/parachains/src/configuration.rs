@@ -1348,15 +1348,15 @@ impl<T: Config> Pallet<T> {
 	/// updating the configuration, giving a chance to recover from such a condition.
 	///
 	/// The actual configuration change takes place after a couple of sessions have passed. In case
-	/// this function is called more than once in the same session, then the pending configuration change
-	/// will be updated.
-	/// In other words, all the configuration changes made in the same session will be folded together in
-	/// the order they were made, and only once the scheduled session is reached will the final pending configuration
-	/// be applied.
-	// NOTE: Explicitly tell rustc not to inline this, because otherwise heuristics note the incoming
-	// closure make it attractive to inline. However, in that case, we will end up with lots of
-	// duplicated code (making this function show up on top of the heaviest functions) only for
-	// the sake of essentially avoiding an indirect call. It is not worth it.
+	/// this function is called more than once in the same session, then the pending configuration
+	/// change will be updated.
+	/// In other words, all the configuration changes made in the same session will be folded
+	/// together in the order they were made, and only once the scheduled session is reached will
+	/// the final pending configuration be applied.
+	// NOTE: Explicitly tell rustc not to inline this, because otherwise heuristics note the
+	// incoming closure make it attractive to inline. However, in that case, we will end up with
+	// lots of duplicated code (making this function show up on top of the heaviest functions) only
+	// for the sake of essentially avoiding an indirect call. It is not worth it.
 	#[inline(never)]
 	pub(crate) fn schedule_config_update(
 		updater: impl FnOnce(&mut HostConfiguration<BlockNumberFor<T>>),
