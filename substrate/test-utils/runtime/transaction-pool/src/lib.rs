@@ -85,6 +85,7 @@ pub struct ChainState {
 	pub nonces: HashMap<Hash, HashMap<AccountId, u64>>,
 	pub invalid_hashes: HashSet<Hash>,
 	pub priorities: HashMap<Hash, u64>,
+	pub valid_till_blocks: HashMap<Hash, u64>,
 }
 
 /// Test Api for transaction pool.
@@ -269,6 +270,14 @@ impl TestApi {
 			.insert(Self::hash_and_length_inner(xts).0, priority);
 	}
 
+	/// Set a transaction mortality (block at which it will expire).
+	pub fn set_valid_till(&self, xts: &Extrinsic, valid_till: u64) {
+		self.chain
+			.write()
+			.valid_till_blocks
+			.insert(Self::hash_and_length_inner(xts).0, valid_till);
+	}
+
 	/// Query validation requests received.
 	pub fn validation_requests(&self) -> Vec<Extrinsic> {
 		self.validation_requests.read().clone()
@@ -443,11 +452,24 @@ impl ChainApi for TestApi {
 		}
 
 		let priority = self.chain.read().priorities.get(&self.hash_and_length(&uxt).0).cloned();
+		let longevity = self
+			.chain
+			.read()
+			.valid_till_blocks
+			.get(&self.hash_and_length(&uxt).0)
+			.cloned()
+			.map(|valid_till| valid_till.saturating_sub(block_number.unwrap()))
+			.unwrap_or(64);
+
+		if longevity == 0 {
+			return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::BadProof)))
+		}
+
 		let mut validity = ValidTransaction {
 			priority: priority.unwrap_or(1),
 			requires,
 			provides,
-			longevity: 64,
+			longevity,
 			propagate: true,
 		};
 

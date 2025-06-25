@@ -36,7 +36,7 @@ use std::{
 	sync::Arc,
 	time::{Duration, Instant},
 };
-use tracing::{trace, warn, Level};
+use tracing::{debug, trace, warn, Level};
 
 use super::{
 	base_pool::{self as base, PruneStatus},
@@ -722,6 +722,12 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 			}
 			hashes
 		};
+		debug!(
+			target:LOG_TARGET,
+			to_remove_len=to_remove.len(),
+			futures_to_remove_len=futures_to_remove.len(),
+			"clear_stale"
+		);
 		// removing old transactions
 		self.remove_invalid(&to_remove);
 		self.remove_invalid(&futures_to_remove);
