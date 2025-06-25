@@ -68,7 +68,7 @@ parameter_types! {
 		system_version: 1,
 	};
 	pub RuntimeBlockWeights: BlockWeights =
-		BlockWeights::simple_max(Weight::from_parts(1024, 3 * 1024 * 1024));
+		BlockWeights::simple_max(Weight::from_parts(1024, 6 * 1024 * 1024));
 	pub const ParachainId: ParaId = ParaId::new(200);
 	pub const ReservedXcmpWeight: Weight = Weight::zero();
 	pub const ReservedDmpWeight: Weight = Weight::zero();
