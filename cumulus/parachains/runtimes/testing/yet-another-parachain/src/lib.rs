@@ -71,6 +71,7 @@ use frame_system::{
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_runtime::traits::LazyExtrinsic;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
@@ -547,8 +548,8 @@ impl_runtime_apis! {
 			data.create_extrinsics()
 		}
 
-		fn check_inherents(block: Block, data: sp_inherents::InherentData) -> sp_inherents::CheckInherentsResult {
-			data.check_extrinsics(&block)
+		fn check_inherents(mut block: Block, data: sp_inherents::InherentData) -> sp_inherents::CheckInherentsResult {
+			data.expect_decode_and_check_extrinsics(&mut block)
 		}
 	}
 
@@ -598,16 +599,16 @@ impl_runtime_apis! {
 
 	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance> for Runtime {
 		fn query_info(
-			uxt: <Block as BlockT>::Extrinsic,
+			mut uxt: <Block as BlockT>::Extrinsic,
 			len: u32,
 		) -> pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo<Balance> {
-			TransactionPayment::query_info(uxt, len)
+			TransactionPayment::query_info(uxt.expect_as_ref(), len)
 		}
 		fn query_fee_details(
-			uxt: <Block as BlockT>::Extrinsic,
+			mut uxt: <Block as BlockT>::Extrinsic,
 			len: u32,
 		) -> pallet_transaction_payment::FeeDetails<Balance> {
-			TransactionPayment::query_fee_details(uxt, len)
+			TransactionPayment::query_fee_details(uxt.expect_as_ref(), len)
 		}
 		fn query_weight_to_fee(weight: Weight) -> Balance {
 			TransactionPayment::weight_to_fee(weight)

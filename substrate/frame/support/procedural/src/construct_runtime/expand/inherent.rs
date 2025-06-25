@@ -56,7 +56,8 @@ pub fn expand_outer_inherent(
 		trait InherentDataExt {
 			fn create_extrinsics(&self) ->
 				#scrate::__private::Vec<<#block as #scrate::sp_runtime::traits::Block>::Extrinsic>;
-			fn check_extrinsics(&self, block: &#block) -> #scrate::inherent::CheckInherentsResult;
+			fn expect_decode_and_check_extrinsics(&self, block: &mut #block) ->
+				#scrate::inherent::CheckInherentsResult;
 		}
 
 		impl InherentDataExt for #scrate::inherent::InherentData {
@@ -81,10 +82,12 @@ pub fn expand_outer_inherent(
 				inherents
 			}
 
-			fn check_extrinsics(&self, block: &#block) -> #scrate::inherent::CheckInherentsResult {
+			fn expect_decode_and_check_extrinsics(&self, block: &mut #block) ->
+				#scrate::inherent::CheckInherentsResult
+			{
 				use #scrate::inherent::{ProvideInherent, IsFatalError};
 				use #scrate::traits::IsSubType;
-				use #scrate::sp_runtime::traits::{Block as _, ExtrinsicCall};
+				use #scrate::sp_runtime::traits::{Block as _, LazyExtrinsicCall};
 				use #scrate::__private::{sp_inherents::Error, log};
 
 				let mut result = #scrate::inherent::CheckInherentsResult::new();
@@ -116,7 +119,7 @@ pub fn expand_outer_inherent(
 				}
 
 				let mut pallet_has_inherent = [false; #pallet_count];
-				for xt in block.extrinsics() {
+				for xt in block.extrinsics_mut() {
 					// Inherents are before any other extrinsics.
 					// And signed extrinsics are not inherents.
 					if !(#scrate::sp_runtime::traits::ExtrinsicLike::is_bare(xt)) {
@@ -124,7 +127,8 @@ pub fn expand_outer_inherent(
 					}
 
 					let mut is_inherent = false;
-					let call = ExtrinsicCall::call(xt);
+					let call = LazyExtrinsicCall::try_get_or_decode_call(xt)
+						.expect("Could not decode extrinsic call");
 					#(
 						#pallet_attrs
 						{
@@ -182,7 +186,9 @@ pub fn expand_outer_inherent(
 		}
 
 		impl #scrate::traits::IsInherent<<#block as #scrate::sp_runtime::traits::Block>::Extrinsic> for #runtime {
-			fn is_inherent(ext: &<#block as #scrate::sp_runtime::traits::Block>::Extrinsic) -> bool {
+			fn is_inherent(
+				ext: &<<#block as #scrate::sp_runtime::traits::Block>::Extrinsic as #scrate::sp_runtime::traits::LazyExtrinsic>::ExtrinsicRef
+			) -> bool {
 				use #scrate::inherent::ProvideInherent;
 				use #scrate::traits::IsSubType;
 				use #scrate::sp_runtime::traits::ExtrinsicCall;

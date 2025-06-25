@@ -39,6 +39,7 @@ use polkadot_sdk::{
 	},
 	*,
 };
+use sp_runtime::traits::LazyExtrinsic;
 use sp_weights::{ConstantMultiplier, IdentityFee};
 
 pub use polkadot_sdk::{
@@ -378,10 +379,10 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 		}
 
 		fn check_inherents(
-			block: Block,
+			mut block: Block,
 			data: InherentData,
 		) -> CheckInherentsResult {
-			data.check_extrinsics(&block)
+			data.expect_decode_and_check_extrinsics(&mut block)
 		}
 	}
 
@@ -423,11 +424,11 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 		Block,
 		Balance,
 	> for Runtime {
-		fn query_info(uxt: ExtrinsicFor<Runtime>, len: u32) -> RuntimeDispatchInfo<Balance> {
-			TransactionPayment::query_info(uxt, len)
+		fn query_info(mut uxt: ExtrinsicFor<Runtime>, len: u32) -> RuntimeDispatchInfo<Balance> {
+			TransactionPayment::query_info(uxt.expect_as_ref(), len)
 		}
-		fn query_fee_details(uxt: ExtrinsicFor<Runtime>, len: u32) -> FeeDetails<Balance> {
-			TransactionPayment::query_fee_details(uxt, len)
+		fn query_fee_details(mut uxt: ExtrinsicFor<Runtime>, len: u32) -> FeeDetails<Balance> {
+			TransactionPayment::query_fee_details(uxt.expect_as_ref(), len)
 		}
 		fn query_weight_to_fee(weight: Weight) -> Balance {
 			TransactionPayment::weight_to_fee(weight)

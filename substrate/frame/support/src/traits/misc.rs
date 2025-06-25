@@ -19,7 +19,10 @@
 
 use crate::dispatch::{DispatchResult, Parameter};
 use alloc::{vec, vec::Vec};
-use codec::{CompactLen, Decode, DecodeLimit, Encode, EncodeLike, Input, MaxEncodedLen};
+use codec::{
+	CompactLen, Decode, DecodeLimit, DecodeWithMemTracking, Encode, EncodeLike, Input,
+	MaxEncodedLen,
+};
 use impl_trait_for_tuples::impl_for_tuples;
 use scale_info::{build::Fields, meta_type, Path, Type, TypeInfo, TypeParameter};
 use sp_arithmetic::traits::{CheckedAdd, CheckedMul, CheckedSub, One, Saturating};
@@ -32,7 +35,7 @@ pub use sp_runtime::traits::{
 	ConstU32, ConstU64, ConstU8, ConstUint, Get, GetDefault, TryCollect, TypedGet,
 };
 use sp_runtime::{
-	traits::{Block as BlockT, ExtrinsicCall},
+	traits::{BaseExtrinsicCall, Block as BlockT, LazyExtrinsic},
 	DispatchError,
 };
 
@@ -913,13 +916,13 @@ pub trait GetBacking {
 }
 
 /// A trait to check if an extrinsic is an inherent.
-pub trait IsInherent<Extrinsic> {
+pub trait IsInherent<Extrinsic: for<'a> LazyExtrinsic<'a>> {
 	/// Whether this extrinsic is an inherent.
-	fn is_inherent(ext: &Extrinsic) -> bool;
+	fn is_inherent(ext: &<Extrinsic as LazyExtrinsic<'_>>::ExtrinsicRef) -> bool;
 }
 
 /// Interface for types capable of constructing an inherent extrinsic.
-pub trait InherentBuilder: ExtrinsicCall {
+pub trait InherentBuilder: BaseExtrinsicCall {
 	/// Create a new inherent from a given call.
 	fn new_inherent(call: Self::Call) -> Self;
 }
@@ -928,7 +931,7 @@ impl<Address, Call, Signature, Extra> InherentBuilder
 	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, Extra>
 where
 	Address: TypeInfo,
-	Call: TypeInfo,
+	Call: DecodeWithMemTracking + TypeInfo,
 	Signature: TypeInfo,
 	Extra: TypeInfo,
 {
@@ -938,7 +941,7 @@ where
 }
 
 /// Interface for types capable of constructing a signed transaction.
-pub trait SignedTransactionBuilder: ExtrinsicCall {
+pub trait SignedTransactionBuilder: BaseExtrinsicCall {
 	type Address;
 	type Signature;
 	type Extension;
@@ -957,7 +960,7 @@ impl<Address, Call, Signature, Extension> SignedTransactionBuilder
 	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, Extension>
 where
 	Address: TypeInfo,
-	Call: TypeInfo,
+	Call: DecodeWithMemTracking + TypeInfo,
 	Signature: TypeInfo,
 	Extension: TypeInfo,
 {

@@ -33,7 +33,7 @@ use sp_api::impl_runtime_apis;
 use sp_core::OpaqueMetadata;
 use sp_runtime::{
 	generic, impl_opaque_keys,
-	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, Hash as HashT},
+	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, Hash as HashT, LazyExtrinsic},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
@@ -753,8 +753,8 @@ impl_runtime_apis! {
 			data.create_extrinsics()
 		}
 
-		fn check_inherents(block: Block, data: sp_inherents::InherentData) -> sp_inherents::CheckInherentsResult {
-			data.check_extrinsics(&block)
+		fn check_inherents(mut block: Block, data: sp_inherents::InherentData) -> sp_inherents::CheckInherentsResult {
+			data.expect_decode_and_check_extrinsics(&mut block)
 		}
 	}
 
@@ -804,16 +804,16 @@ impl_runtime_apis! {
 
 	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance> for Runtime {
 		fn query_info(
-			uxt: <Block as BlockT>::Extrinsic,
+			mut uxt: <Block as BlockT>::Extrinsic,
 			len: u32,
 		) -> pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo<Balance> {
-			TransactionPayment::query_info(uxt, len)
+			TransactionPayment::query_info(uxt.expect_as_ref(), len)
 		}
 		fn query_fee_details(
-			uxt: <Block as BlockT>::Extrinsic,
+			mut uxt: <Block as BlockT>::Extrinsic,
 			len: u32,
 		) -> pallet_transaction_payment::FeeDetails<Balance> {
-			TransactionPayment::query_fee_details(uxt, len)
+			TransactionPayment::query_fee_details(uxt.expect_as_ref(), len)
 		}
 		fn query_weight_to_fee(weight: Weight) -> Balance {
 			TransactionPayment::weight_to_fee(weight)
