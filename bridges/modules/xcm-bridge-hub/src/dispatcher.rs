@@ -120,7 +120,7 @@ where
 					error=?e,
 					lane_id=?message.key.lane_id,
 					message_nonce=?message.key.nonce,
-					"dispatch - `DispatchBlob::dispatch_blob` failed with error"
+					"dispatch - `DispatchBlob::dispatch_blob` failed"
 				);
 				XcmBlobMessageDispatchResult::NotDispatched(Some(e))
 			},

@@ -81,7 +81,7 @@ impl<
 				tracing::error!(
 					target: LOG_TARGET,
 					error=?e,
-					"OpenBridgeForLane - on_runtime_upgrade failed to construct bridge_locations with error"
+					"OpenBridgeForLane - on_runtime_upgrade failed to construct bridge_locations"
 				);
 				return T::DbWeight::get().reads(0)
 			},
@@ -112,7 +112,7 @@ impl<
 		}
 
 		if let Err(e) = Pallet::<T, I>::do_open_bridge(locations, lane_id, create_lane) {
-			tracing::error!(target: LOG_TARGET, error=?e, "OpenBridgeForLane - do_open_bridge failed with error");
+			tracing::error!(target: LOG_TARGET, error=?e, "OpenBridgeForLane - do_open_bridge failed");
 			T::DbWeight::get().reads(6)
 		} else {
 			tracing::info!(target: LOG_TARGET, "OpenBridgeForLane - do_open_bridge passed!");

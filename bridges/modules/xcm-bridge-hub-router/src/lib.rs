@@ -275,26 +275,23 @@ impl<T: Config<I>, I: 'static> ExporterFor for Pallet<T, I> {
 		}
 
 		// ensure that the message is sent to the expected bridged network and location.
-		let (bridge_hub_location, maybe_payment) = match T::Bridges::exporter_for(
-			network,
-			remote_location,
-			message,
-		) {
-			Some((bridge_hub_location, maybe_payment))
-				if bridge_hub_location.eq(&T::SiblingBridgeHubLocation::get()) =>
-				(bridge_hub_location, maybe_payment),
-			_ => {
-				tracing::trace!(
-					target: LOG_TARGET,
-					bridged_network_id=?T::BridgedNetworkId::get(),
-					sibling_bridge_hub_location=?T::SiblingBridgeHubLocation::get(),
-					?network,
-					?remote_location,
-					"Router configured does not support bridging!"
-				);
-				return None;
-			},
-		};
+		let (bridge_hub_location, maybe_payment) =
+			match T::Bridges::exporter_for(network, remote_location, message) {
+				Some((bridge_hub_location, maybe_payment))
+					if bridge_hub_location.eq(&T::SiblingBridgeHubLocation::get()) =>
+					(bridge_hub_location, maybe_payment),
+				_ => {
+					tracing::trace!(
+						target: LOG_TARGET,
+						bridged_network_id=?T::BridgedNetworkId::get(),
+						sibling_bridge_hub_location=?T::SiblingBridgeHubLocation::get(),
+						?network,
+						?remote_location,
+						"Router configured does not support bridging!"
+					);
+					return None;
+				},
+			};
 
 		// take `base_fee` from `T::Brides`, but it has to be the same `T::FeeAsset`
 		let base_fee = match maybe_payment {

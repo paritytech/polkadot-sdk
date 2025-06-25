@@ -174,7 +174,7 @@ where
 					topic_id=?id,
 					bridge_id=?locations,
 					lane_id=?bridge.lane_id,
-					"XCM message cannot be exported because of bridge error"
+					"XCM message cannot be exported"
 				);
 				SendError::Transport("BridgeValidateError")
 			})?;

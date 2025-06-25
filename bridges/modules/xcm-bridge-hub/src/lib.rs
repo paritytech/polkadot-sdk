@@ -425,7 +425,7 @@ pub mod pallet {
 					target: LOG_TARGET,
 					error=?e,
 					bridge_id=?locations.bridge_id(),
-					"Failed to unreserve during the bridge closure with error"
+					"Failed to unreserve during the bridge closure"
 				);
 			})
 			.ok()
@@ -484,7 +484,7 @@ pub mod pallet {
 						?deposit,
 						?bridge_owner_account,
 						bridge_origin_relative_location=?locations.bridge_origin_relative_location(),
-						"Failed to hold bridge deposit with error"
+						"Failed to hold bridge deposit"
 					);
 					Error::<T, I>::FailedToReserveBridgeDeposit
 				})?;
