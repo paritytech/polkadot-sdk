@@ -59,6 +59,11 @@ if [[ $init -eq 1 ]]; then
   westend_init_pid=$!
   wait -n $rococo_init_pid $westend_init_pid
 
+  if [[ $permlanes -eq 1 ]]; then
+    echo "Opening bridge lane."
+    $helper_script open-bridge-lane-westend-rococo-local >> $westend_init_log 2>&1 &
+  fi
+
   run_zndsl ${BASH_SOURCE%/*}/rococo-init.zndsl $rococo_dir
   run_zndsl ${BASH_SOURCE%/*}/westend-init.zndsl $westend_dir
 fi

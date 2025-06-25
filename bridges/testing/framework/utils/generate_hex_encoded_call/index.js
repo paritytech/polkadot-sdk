@@ -120,6 +120,37 @@ function forceXcmVersion(endpoint, outputFile, dest, xcm_version) {
 		});
 }
 
+function openPermissionlessLane(endpoint, outputFile, destination_location, destination_chain = "Rococo") {
+	console.log(`Generating openPermissionlessLane from RPC endpoint: ${endpoint} to outputFile: ${outputFile}, destination_location: ${destination_location}`);
+	const destination_location_json = JSON.parse(destination_location);
+	connect(endpoint)
+		.then((api) => {
+			let call;
+			if (destination_chain == "Rococo") {
+				call = api.tx.xcmOverAssetHubRococo.openBridge(destination_location_json, 0);
+				console.log("Using Rococo chain for openPermissionlessLane");
+			} else if (destination_chain == "Westend") {
+				call = api.tx.xcmOverAssetHubWestend.openBridge(destination_location_json, 0);
+				console.log("Using Westend chain for openPermissionlessLane");
+			} else if (destination_chain == "Kusama") {
+				call = api.tx.xcmOverAssetHubKusama.openBridge(destination_location_json, 0);
+				console.log("Using Kusama chain for openPermissionlessLane");
+			} else if (destination_chain == "Polkadot") {
+				call = api.tx.xcmOverAssetHubPolkadot.openBridge(destination_location_json, 0);
+				console.log("Using Polkadot chain for openPermissionlessLane");
+			} else {
+				console.error(`Unsupported destination chain: ${destination_chain}`);
+				exit(1);
+			}
+			writeHexEncodedBytesToOutput(call.method, outputFile);
+			exit(0);
+		})
+		.catch((e) => {
+			console.error(e);
+			exit(1);
+		});
+}
+
 if (!process.argv[2] || !process.argv[3]) {
 	console.log("usage: node ./script/generate_hex_encoded_call <type> <endpoint> <output hex-encoded data file> <input message>");
 	exit(1);
@@ -156,6 +187,9 @@ switch (type) {
 		break;
 	case 'force-xcm-version':
 		forceXcmVersion(rpcEndpoint, output, inputArgs[0], inputArgs[1]);
+		break;
+	case 'open-permissionless-lane':
+		openPermissionlessLane(rpcEndpoint, output, inputArgs[0], inputArgs[1]);
 		break;
 	case 'check':
 		console.log(`Checking nodejs installation, if you see this everything is ready!`);
