@@ -1736,7 +1736,7 @@ impl_runtime_apis! {
 					>);
 
 				fn reachable_dest() -> Option<Location> {
-					Some(AssetHubParaLocation::get())
+					Some(AssetHubLocation::get())
 				}
 
 				fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
@@ -1746,7 +1746,7 @@ impl_runtime_apis! {
 							fun: Fungible(ExistentialDeposit::get()),
 							id: AssetId(TokenLocation::get())
 						},
-						AssetHubParaLocation::get(),
+						AssetHubLocation::get(),
 					))
 				}
 
@@ -1763,7 +1763,7 @@ impl_runtime_apis! {
 
 				fn set_up_complex_asset_transfer(
 				) -> Option<(XcmAssets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
-					let dest = AssetHubParaLocation::get();
+					let dest = AssetHubLocation::get();
 
 					let fee_amount = EXISTENTIAL_DEPOSIT;
 					let fee_asset: Asset = (TokenLocation::get(), fee_amount).into();
@@ -1877,7 +1877,7 @@ impl_runtime_apis! {
 					>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(AssetHubParaId::get());
-					Ok(AssetHubParaLocation::get())
+					Ok(AssetHubLocation::get())
 				}
 				fn worst_case_holding(depositable_count: u32) -> XcmAssets {
 					// A mix of fungible, non-fungible, and concrete assets.
@@ -1904,7 +1904,7 @@ impl_runtime_apis! {
 
 			parameter_types! {
 				pub TrustedTeleporter: Option<(Location, Asset)> = Some((
-					AssetHubParaLocation::get(),
+					AssetHubLocation::get(),
 					Asset { fun: Fungible(UNITS), id: AssetId(TokenLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
@@ -1969,18 +1969,18 @@ impl_runtime_apis! {
 				fn transact_origin_and_runtime_call() -> Result<(Location, RuntimeCall), BenchmarkError> {
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(AssetHubParaId::get());
 					Ok((
-						AssetHubParaLocation::get(),
+						AssetHubLocation::get(),
 						frame_system::Call::remark_with_event {remark: vec![]}.into()
 					))
 				}
 
 				fn subscribe_origin() -> Result<Location, BenchmarkError> {
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(AssetHubParaId::get());
-					Ok(AssetHubParaLocation::get())
+					Ok(AssetHubLocation::get())
 				}
 
 				fn claimable_asset() -> Result<(Location, Location, XcmAssets), BenchmarkError> {
-					let origin = AssetHubParaLocation::get();
+					let origin = AssetHubLocation::get();
 					let assets: XcmAssets = (TokenLocation::get(), 1_000 * UNITS).into();
 					let ticket = Location { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
