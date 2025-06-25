@@ -279,10 +279,6 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config + pallet_treasury::Config<I> {
-		/// The amount held on deposit for placing a bounty proposal.
-		#[pallet::constant]
-		type BountyDepositBase: Get<BalanceOf<Self, I>>;
-
 		/// The curator deposit is calculated as a percentage of the curator fee.
 		///
 		/// This deposit has optional upper and lower bounds with `CuratorDepositMax` and
@@ -734,16 +730,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			ensure!(payment_status.is_pending_or_failed(), Error::<T, I>::UnexpectedStatus);
 		}
 
+		println!("max_amount: {:?}", maybe_max_amount);
 		if let Some(max_amount) = maybe_max_amount {
 			let native_amount = T::BalanceConverter::from_asset_balance(value, asset_kind.clone())
 				.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
+			println!("native_amount: {:?}", native_amount);
 			ensure!(native_amount >= T::BountyValueMinimum::get(), Error::<T, I>::InvalidValue);
 			ensure!(native_amount <= max_amount, Error::<T, I>::InsufficientPermission);
 
 			with_context::<SpendContext<BalanceOf<T, I>>, _>(|v| {
 				let context = v.or_default();
 				let spend = context.spend_in_context.entry(max_amount).or_default();
-
+				println!("spend: {:?}", spend);
 				if spend.checked_add(&native_amount).map(|s| s > max_amount).unwrap_or(true) {
 					Err(Error::<T, I>::InsufficientPermission)
 				} else {
