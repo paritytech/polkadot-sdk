@@ -16,10 +16,6 @@
 
 //! Cumulus parachain inherent related structures.
 
-#![cfg_attr(not(feature = "std"), no_std)]
-
-extern crate alloc;
-
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use core::fmt::Debug;
 use cumulus_primitives_core::{
