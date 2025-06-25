@@ -12,7 +12,7 @@ use snowbridge_core::TokenId;
 use snowbridge_inbound_queue_primitives::{v2::MessageToXcm, Log, Proof, VerificationError};
 use sp_core::H160;
 use sp_runtime::{
-	traits::{IdentityLookup, MaybeEquivalence},
+	traits::{IdentityLookup, MaybeConvert},
 	BuildStorage,
 };
 use sp_std::{convert::From, default::Default, marker::PhantomData};
@@ -75,12 +75,9 @@ impl<T: Config> BenchmarkHelper<T> for Test {
 }
 
 pub struct MockTokenIdConvert;
-impl MaybeEquivalence<TokenId, Location> for MockTokenIdConvert {
-	fn convert(_id: &TokenId) -> Option<Location> {
+impl MaybeConvert<TokenId, Location> for MockTokenIdConvert {
+	fn maybe_convert(_id: TokenId) -> Option<Location> {
 		Some(Location::parent())
-	}
-	fn convert_back(_loc: &Location) -> Option<TokenId> {
-		None
 	}
 }
 

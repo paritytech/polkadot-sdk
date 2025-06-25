@@ -5,9 +5,11 @@ use anyhow::anyhow;
 use tokio::time::Duration;
 
 use cumulus_zombienet_sdk_helpers::wait_for_nth_session_change;
-use subxt::{OnlineClient, PolkadotConfig};
 use zombienet_orchestrator::network::node::LogLineCountOptions;
-use zombienet_sdk::{NetworkConfig, NetworkConfigBuilder};
+use zombienet_sdk::{
+	subxt::{OnlineClient, PolkadotConfig},
+	NetworkConfig, NetworkConfigBuilder,
+};
 
 async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
@@ -75,7 +77,9 @@ async fn dht_bootnodes_test() -> Result<(), anyhow::Error> {
 		.wait_metric_with_timeout("substrate_sync_peers", |count| count == 1.0, 300u64)
 		.await?;
 
-	let log_line_options = LogLineCountOptions::new(|n| n == 1, Duration::from_secs(30), false);
+	// In case of initial failure (alpha was first to start) the discovery is retried in 30 seconds,
+	// so timeout in double that time.
+	let log_line_options = LogLineCountOptions::new(|n| n == 1, Duration::from_secs(60), false);
 
 	// Make sure the DHT bootnode discovery was successful.
 	let result = alpha

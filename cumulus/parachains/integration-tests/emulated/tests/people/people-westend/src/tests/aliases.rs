@@ -17,7 +17,7 @@
 
 use crate::imports::*;
 use emulated_integration_tests_common::{macros::AccountId, test_cross_chain_alias};
-use frame_support::{traits::ContainsPair, BoundedVec};
+use frame_support::traits::ContainsPair;
 use xcm::latest::Junctions::*;
 
 const ALLOWED: bool = true;

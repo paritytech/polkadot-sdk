@@ -13,55 +13,52 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub use xcm::{latest::WESTEND_GENESIS_HASH, prelude::*};
+#[cfg(test)]
+mod imports {
+	pub(crate) use xcm::{latest::WESTEND_GENESIS_HASH, prelude::*};
 
-pub use emulated_integration_tests_common::{
-	accounts::ALICE,
-	test_parachain_is_trusted_teleporter,
-	xcm_emulator::{assert_expected_events, bx, Chain, Parachain, RelayChain as Relay, TestExt},
-};
-pub use frame_support::assert_ok;
-pub use westend_system_emulated_network::{
-	asset_hub_westend_emulated_chain::{
-		asset_hub_westend_runtime::xcm_config::{
-			LocationToAccountId as AssetHubLocationToAccountId,
-			XcmConfig as AssetHubWestendXcmConfig,
+	pub(crate) use emulated_integration_tests_common::{
+		accounts::ALICE,
+		test_parachain_is_trusted_teleporter,
+		xcm_emulator::{assert_expected_events, bx, Chain, Parachain, TestExt},
+	};
+	pub(crate) use frame_support::assert_ok;
+	pub(crate) use westend_system_emulated_network::{
+		asset_hub_westend_emulated_chain::{
+			asset_hub_westend_runtime::xcm_config::LocationToAccountId as AssetHubLocationToAccountId,
+			genesis::ED as ASSET_HUB_WESTEND_ED,
+			AssetHubWestendParaPallet as AssetHubWestendPallet,
 		},
-		genesis::ED as ASSET_HUB_WESTEND_ED,
-		AssetHubWestendParaPallet as AssetHubWestendPallet,
-	},
-	bridge_hub_westend_emulated_chain::BridgeHubWestendParaPallet as BridgeHubWestendPallet,
-	collectives_westend_emulated_chain::{
-		collectives_westend_runtime::{
-			fellowship as collectives_fellowship,
-			xcm_config::XcmConfig as CollectivesWestendXcmConfig,
+		bridge_hub_westend_emulated_chain::BridgeHubWestendParaPallet as BridgeHubWestendPallet,
+		collectives_westend_emulated_chain::{
+			collectives_westend_runtime::{
+				fellowship as collectives_fellowship,
+				xcm_config::XcmConfig as CollectivesWestendXcmConfig,
+			},
+			genesis::ED as COLLECTIVES_WESTEND_ED,
+			CollectivesWestendParaPallet as CollectivesWestendPallet,
 		},
-		genesis::ED as COLLECTIVES_WESTEND_ED,
-		CollectivesWestendParaPallet as CollectivesWestendPallet,
-	},
-	coretime_westend_emulated_chain::{
-		coretime_westend_runtime::ExistentialDeposit as CoretimeWestendExistentialDeposit,
-		CoretimeWestendParaPallet as CoretimeWestendPallet,
-	},
-	penpal_emulated_chain::{PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet},
-	people_westend_emulated_chain::PeopleWestendParaPallet as PeopleWestendPallet,
-	westend_emulated_chain::{
-		genesis::ED as WESTEND_ED,
-		westend_runtime::{
-			governance as westend_governance, xcm_config::XcmConfig as WestendXcmConfig,
-			OriginCaller as WestendOriginCaller,
+		coretime_westend_emulated_chain::CoretimeWestendParaPallet as CoretimeWestendPallet,
+		penpal_emulated_chain::{PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet},
+		people_westend_emulated_chain::PeopleWestendParaPallet as PeopleWestendPallet,
+		westend_emulated_chain::{
+			genesis::ED as WESTEND_ED,
+			westend_runtime::{
+				governance as westend_governance, OriginCaller as WestendOriginCaller,
+			},
+			WestendRelayPallet as WestendPallet,
 		},
-		WestendRelayPallet as WestendPallet,
-	},
-	AssetHubWestendPara as AssetHubWestend, AssetHubWestendParaReceiver as AssetHubWestendReceiver,
-	AssetHubWestendParaSender as AssetHubWestendSender, BridgeHubWestendPara as BridgeHubWestend,
-	CollectivesWestendPara as CollectivesWestend,
-	CollectivesWestendParaReceiver as CollectivesWestendReceiver,
-	CollectivesWestendParaSender as CollectivesWestendSender,
-	CoretimeWestendPara as CoretimeWestend, PenpalBPara as PenpalB,
-	PeopleWestendPara as PeopleWestend, WestendRelay as Westend,
-	WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
-};
+		AssetHubWestendPara as AssetHubWestend,
+		AssetHubWestendParaReceiver as AssetHubWestendReceiver,
+		AssetHubWestendParaSender as AssetHubWestendSender,
+		BridgeHubWestendPara as BridgeHubWestend, CollectivesWestendPara as CollectivesWestend,
+		CollectivesWestendParaReceiver as CollectivesWestendReceiver,
+		CollectivesWestendParaSender as CollectivesWestendSender,
+		CoretimeWestendPara as CoretimeWestend, PenpalBPara as PenpalB,
+		PeopleWestendPara as PeopleWestend, WestendRelay as Westend,
+		WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
+	};
+}
 
 #[cfg(test)]
 mod tests;

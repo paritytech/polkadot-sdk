@@ -22,7 +22,9 @@ use crate::{Error, Keystore, KeystorePtr};
 #[cfg(feature = "bandersnatch-experimental")]
 use sp_core::bandersnatch;
 #[cfg(feature = "bls-experimental")]
-use sp_core::{bls381, ecdsa_bls381, KeccakHasher};
+use sp_core::{
+	bls381, ecdsa_bls381, proof_of_possession::ProofOfPossessionGenerator, KeccakHasher,
+};
 use sp_core::{
 	crypto::{ByteArray, KeyTypeId, Pair, VrfSecret},
 	ecdsa, ed25519, sr25519,
@@ -57,9 +59,12 @@ impl MemoryKeystore {
 			.read()
 			.get(&key_type)
 			.map(|keys| {
-				keys.values()
-					.map(|s| T::from_string(s, None).expect("seed slice is valid"))
-					.map(|p| p.public())
+				keys.iter()
+					.filter_map(|(raw_pubkey, s)| {
+						let pair = T::from_string(s, None).expect("seed slice is valid");
+						let pubkey = pair.public();
+						(pubkey.as_slice() == raw_pubkey).then_some(pubkey)
+					})
 					.collect()
 			})
 			.unwrap_or_default()
@@ -121,6 +126,18 @@ impl MemoryKeystore {
 	) -> Result<Option<T::VrfPreOutput>, Error> {
 		let pre_output = self.pair::<T>(key_type, public).map(|pair| pair.vrf_pre_output(input));
 		Ok(pre_output)
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	fn generate_proof_of_possession<T: Pair + ProofOfPossessionGenerator>(
+		&self,
+		key_type: KeyTypeId,
+		public: &T::Public,
+	) -> Result<Option<T::Signature>, Error> {
+		let proof_of_possession = self
+			.pair::<T>(key_type, public)
+			.map(|mut pair| pair.generate_proof_of_possession());
+		Ok(proof_of_possession)
 	}
 }
 
@@ -299,6 +316,15 @@ impl Keystore for MemoryKeystore {
 	}
 
 	#[cfg(feature = "bls-experimental")]
+	fn bls381_generate_proof_of_possession(
+		&self,
+		key_type: KeyTypeId,
+		public: &bls381::Public,
+	) -> Result<Option<bls381::Signature>, Error> {
+		self.generate_proof_of_possession::<bls381::Pair>(key_type, public)
+	}
+
+	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_public_keys(&self, key_type: KeyTypeId) -> Vec<ecdsa_bls381::Public> {
 		self.public_keys::<ecdsa_bls381::Pair>(key_type)
 	}
@@ -309,7 +335,24 @@ impl Keystore for MemoryKeystore {
 		key_type: KeyTypeId,
 		seed: Option<&str>,
 	) -> Result<ecdsa_bls381::Public, Error> {
-		self.generate_new::<ecdsa_bls381::Pair>(key_type, seed)
+		let pubkey = self.generate_new::<ecdsa_bls381::Pair>(key_type, seed)?;
+
+		let s: String = self
+			.keys
+			.read()
+			.get(&key_type)
+			.and_then(|inner| inner.get(pubkey.as_slice()).map(|s| s.to_string()))
+			.expect("Can Retrieve Seed");
+
+		// This is done to give the keystore access to individual keys, this is necessary to avoid
+		// redundant host functions for paired keys and re-use host functions implemented for each
+		// element of the pair.
+		self.generate_new::<ecdsa::Pair>(key_type, Some(&s))
+			.expect("seed slice is valid");
+		self.generate_new::<bls381::Pair>(key_type, Some(&s))
+			.expect("seed slice is valid");
+
+		Ok(pubkey)
 	}
 
 	#[cfg(feature = "bls-experimental")]
@@ -512,6 +555,63 @@ mod tests {
 			msg,
 			&pair.public()
 		));
+	}
+
+	#[test]
+	#[cfg(feature = "bls-experimental")]
+	fn ecdsa_bls381_generate_with_none_works() {
+		use sp_core::testing::ECDSA_BLS381;
+
+		let store = MemoryKeystore::new();
+		let ecdsa_bls381_key =
+			store.ecdsa_bls381_generate_new(ECDSA_BLS381, None).expect("Can generate key..");
+
+		let ecdsa_keys = store.ecdsa_public_keys(ECDSA_BLS381);
+		let bls381_keys = store.bls381_public_keys(ECDSA_BLS381);
+		let ecdsa_bls381_keys = store.ecdsa_bls381_public_keys(ECDSA_BLS381);
+
+		assert_eq!(ecdsa_keys.len(), 1);
+		assert_eq!(bls381_keys.len(), 1);
+		assert_eq!(ecdsa_bls381_keys.len(), 1);
+
+		let ecdsa_key = ecdsa_keys[0];
+		let bls381_key = bls381_keys[0];
+
+		let mut combined_key_raw = [0u8; ecdsa_bls381::PUBLIC_KEY_LEN];
+		combined_key_raw[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].copy_from_slice(ecdsa_key.as_ref());
+		combined_key_raw[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].copy_from_slice(bls381_key.as_ref());
+		let combined_key = ecdsa_bls381::Public::from_raw(combined_key_raw);
+
+		assert_eq!(combined_key, ecdsa_bls381_key);
+	}
+
+	#[test]
+	#[cfg(feature = "bls-experimental")]
+	fn ecdsa_bls381_generate_with_seed_works() {
+		use sp_core::testing::ECDSA_BLS381;
+
+		let store = MemoryKeystore::new();
+		let ecdsa_bls381_key = store
+			.ecdsa_bls381_generate_new(ECDSA_BLS381, Some("//Alice"))
+			.expect("Can generate key..");
+
+		let ecdsa_keys = store.ecdsa_public_keys(ECDSA_BLS381);
+		let bls381_keys = store.bls381_public_keys(ECDSA_BLS381);
+		let ecdsa_bls381_keys = store.ecdsa_bls381_public_keys(ECDSA_BLS381);
+
+		assert_eq!(ecdsa_keys.len(), 1);
+		assert_eq!(bls381_keys.len(), 1);
+		assert_eq!(ecdsa_bls381_keys.len(), 1);
+
+		let ecdsa_key = ecdsa_keys[0];
+		let bls381_key = bls381_keys[0];
+
+		let mut combined_key_raw = [0u8; ecdsa_bls381::PUBLIC_KEY_LEN];
+		combined_key_raw[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].copy_from_slice(ecdsa_key.as_ref());
+		combined_key_raw[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].copy_from_slice(bls381_key.as_ref());
+		let combined_key = ecdsa_bls381::Public::from_raw(combined_key_raw);
+
+		assert_eq!(combined_key, ecdsa_bls381_key);
 	}
 
 	#[test]

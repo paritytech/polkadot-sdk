@@ -67,7 +67,9 @@ k256 = { features = ["alloc", "ecdsa"], workspace = true }
 secp256k1 = { features = ["alloc", "recovery"], optional = true, workspace = true }
 
 # bls crypto
+sha2 = { optional = true, workspace = true }
 w3f-bls = { optional = true, workspace = true }
+
 # bandersnatch crypto
 ark-vrf = { optional = true, workspace = true, features = ["bandersnatch", "ring"] }
 
@@ -114,6 +116,7 @@ std = [
 	"secp256k1/global-context",
 	"secp256k1/std",
 	"serde/std",
+	"sha2?/std",
 	"sp-crypto-hashing/std",
 	"sp-debug-derive/std",
 	"sp-externalities/std",
@@ -153,7 +156,7 @@ full_crypto = [
 # This feature adds BLS crypto primitives.
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.
-bls-experimental = ["w3f-bls"]
+bls-experimental = ["sha2", "w3f-bls"]
 
 # This feature adds Bandersnatch crypto primitives.
 # It should not be used in production since the implementation and interface may still
