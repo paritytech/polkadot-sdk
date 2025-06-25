@@ -3684,7 +3684,6 @@ dependencies = [
  "rococo-system-emulated-network",
  "sp-runtime 31.0.1",
  "staging-xcm",
- "staging-xcm-executor",
 ]
 
 [[package]]
@@ -3778,7 +3777,6 @@ dependencies = [
  "frame-support",
  "pallet-broker",
  "pallet-message-queue",
- "pallet-xcm",
  "polkadot-runtime-parachains",
  "sp-runtime 31.0.1",
  "staging-xcm",
