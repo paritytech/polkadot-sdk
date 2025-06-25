@@ -1,8 +1,8 @@
 title: Add comprehensive tracing to XCM-related modules
 doc:
 - audience: Runtime Dev
-  description: This PR adds comprehensive tracing instrumentation to XCM-related modules
-    to significantly improve debugging capabilities for XCM execution flows. The implementation
+  description: This PR replaces `log` with `tracing` instrumentation to XCM-related modules to
+    significantly improve debugging capabilities for XCM execution flows. The implementation
     provides structured logging throughout XCM components with consistent log targets,
     making it easier to diagnose execution failures, fee calculation errors, and routing
     issues with zero runtime impact.
