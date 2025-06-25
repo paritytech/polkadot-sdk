@@ -26,9 +26,7 @@ use cumulus_relay_chain_interface::RelayChainInterface;
 mod mock;
 
 use cumulus_primitives_core::relay_chain::Header as RelayHeader;
-pub use cumulus_primitives_parachain_inherent::{
-	InboundMessagesData, ParachainInherentData, RawParachainInherentData, INHERENT_IDENTIFIER,
-};
+pub use cumulus_primitives_parachain_inherent::{ParachainInherentData, INHERENT_IDENTIFIER};
 pub use mock::{MockValidationDataInherentDataProvider, MockXcmConfig};
 
 const LOG_TARGET: &str = "parachain-inherent";
@@ -152,7 +150,7 @@ async fn collect_relay_storage_proof(
 pub struct ParachainInherentDataProvider;
 
 impl ParachainInherentDataProvider {
-	/// Create the [`RawParachainInherentData`] at the given `relay_parent`.
+	/// Create the [`ParachainInherentData`] at the given `relay_parent`.
 	///
 	/// Returns `None` if the creation failed.
 	pub async fn create_at(
@@ -161,7 +159,7 @@ impl ParachainInherentDataProvider {
 		validation_data: &PersistedValidationData,
 		para_id: ParaId,
 		relay_parent_descendants: Vec<RelayHeader>,
-	) -> Option<RawParachainInherentData> {
+	) -> Option<ParachainInherentData> {
 		// Only include next epoch authorities when the descendants include an epoch digest.
 		// Skip the first entry because this is the relay parent itself.
 		let include_next_authorities = relay_parent_descendants.iter().skip(1).any(|header| {
@@ -204,7 +202,7 @@ impl ParachainInherentDataProvider {
 			})
 			.ok()?;
 
-		Some(RawParachainInherentData {
+		Some(ParachainInherentData {
 			downward_messages,
 			horizontal_messages,
 			validation_data: validation_data.clone(),

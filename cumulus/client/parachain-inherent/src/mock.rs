@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::RawParachainInherentData;
+use crate::ParachainInherentData;
 use codec::Decode;
 use cumulus_primitives_core::{
 	relay_chain,
@@ -230,7 +230,7 @@ impl<R: Send + Sync + GenerateRandomness<u64>> InherentDataProvider
 		sproof_builder.included_para_head = self.current_para_block_head.clone();
 
 		let (relay_parent_storage_root, proof) = sproof_builder.into_state_root_and_proof();
-		let parachain_inherent_data = RawParachainInherentData {
+		let parachain_inherent_data = ParachainInherentData {
 			validation_data: PersistedValidationData {
 				parent_head: Default::default(),
 				relay_parent_storage_root,

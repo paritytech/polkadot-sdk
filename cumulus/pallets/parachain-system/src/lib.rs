@@ -36,16 +36,12 @@ use cumulus_primitives_core::{
 	relay_chain::{
 		self,
 		vstaging::{ClaimQueueOffset, CoreSelector, DEFAULT_CLAIM_QUEUE_OFFSET},
-		InboundMessageId,
 	},
 	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, GetChannelInfo,
 	ListChannelInfos, MessageSendError, OutboundHrmpMessage, ParaId, PersistedValidationData,
 	UpwardMessage, UpwardMessageSender, XcmpMessageHandler, XcmpMessageSource,
 };
-use cumulus_primitives_parachain_inherent::{
-	v0, AbridgedInboundDownwardMessages, AbridgedInboundHrmpMessages, InboundMessagesData,
-	MessageQueueChain, ParachainInherentData, RawParachainInherentData,
-};
+use cumulus_primitives_parachain_inherent::{v0, MessageQueueChain, ParachainInherentData};
 use frame_support::{
 	dispatch::{DispatchClass, DispatchResult},
 	ensure,
@@ -54,6 +50,10 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::{ensure_none, ensure_root, pallet_prelude::HeaderFor};
+use parachain_inherent::{
+	AbridgedInboundDownwardMessages, AbridgedInboundHrmpMessages, BasicParachainInherentData,
+	InboundMessageId, InboundMessagesData,
+};
 use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 use polkadot_runtime_parachains::{FeeTracker, GetMinFeeFactor};
 use scale_info::TypeInfo;
@@ -80,6 +80,7 @@ pub mod relay_state_snapshot;
 #[macro_use]
 pub mod validate_block;
 mod descendant_validation;
+pub mod parachain_inherent;
 
 use unincluded_segment::{
 	HrmpChannelUpdate, HrmpWatermarkUpdate, OutboundBandwidthLimits, SegmentTracker,
@@ -112,6 +113,7 @@ pub use cumulus_pallet_parachain_system_proc_macro::register_validate_block;
 pub use relay_state_snapshot::{MessagingStateSnapshot, RelayChainStateProof};
 pub use unincluded_segment::{Ancestor, UsedBandwidth};
 
+use crate::parachain_inherent::deconstruct_parachain_inherent_data;
 pub use pallet::*;
 
 const LOG_TARGET: &str = "parachain-system";
@@ -597,7 +599,7 @@ pub mod pallet {
 		// call with `register_extra_weight_unchecked`.
 		pub fn set_validation_data(
 			origin: OriginFor<T>,
-			data: ParachainInherentData,
+			data: BasicParachainInherentData,
 			inbound_messages_data: InboundMessagesData,
 		) -> DispatchResult {
 			ensure_none(origin)?;
@@ -615,7 +617,7 @@ pub mod pallet {
 			// ancestors.
 			//
 			// This invariant should be upheld by the `ProvideInherent` implementation.
-			let ParachainInherentData {
+			let BasicParachainInherentData {
 				validation_data: vfp,
 				relay_chain_state,
 				relay_parent_descendants,
@@ -914,23 +916,21 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ProcessedDownwardMessages<T: Config> = StorageValue<_, u32, ValueQuery>;
 
-	/// The last downward message processed before the current block.
+	/// The last processed downward message.
 	///
 	/// We need to keep track of this to filter the messages that have been already processed.
 	#[pallet::storage]
-	pub type LastProcessedDownwardMessage<T: Config> =
-		StorageValue<_, InboundMessageId<relay_chain::BlockNumber>>;
+	pub type LastProcessedDownwardMessage<T: Config> = StorageValue<_, InboundMessageId>;
 
 	/// HRMP watermark that was set in a block.
 	#[pallet::storage]
 	pub type HrmpWatermark<T: Config> = StorageValue<_, relay_chain::BlockNumber, ValueQuery>;
 
-	/// The last HRMP message processed before the current block.
+	/// The last processed HRMP message.
 	///
 	/// We need to keep track of this to filter the messages that have been already processed.
 	#[pallet::storage]
-	pub type LastProcessedHrmpMessage<T: Config> =
-		StorageValue<_, InboundMessageId<relay_chain::BlockNumber>>;
+	pub type LastProcessedHrmpMessage<T: Config> = StorageValue<_, InboundMessageId>;
 
 	/// HRMP messages that were sent in a block.
 	///
@@ -984,7 +984,7 @@ pub mod pallet {
 
 		fn create_inherent(data: &InherentData) -> Option<Self::Call> {
 			let data = match data
-				.get_data::<RawParachainInherentData>(&Self::INHERENT_IDENTIFIER)
+				.get_data::<ParachainInherentData>(&Self::INHERENT_IDENTIFIER)
 				.ok()
 				.flatten()
 			{
@@ -994,7 +994,7 @@ pub mod pallet {
 					// legacy data format. We try to load it and transform it into the current
 					// version.
 					let data = data
-						.get_data::<v0::RawParachainInherentData>(
+						.get_data::<v0::ParachainInherentData>(
 							&cumulus_primitives_parachain_inherent::PARACHAIN_INHERENT_IDENTIFIER_V0,
 						)
 						.ok()
@@ -1120,25 +1120,28 @@ impl<T: Config> GetChannelInfo for Pallet<T> {
 
 impl<T: Config> Pallet<T> {
 	/// The bandwidth limit per block that applies when receiving messages from the relay chain via
-	/// DMP or XCMP. The limit is per message passing mechanism (e.g. 1 MiB for DMP, 1 MiB for
-	/// XCMP).
+	/// DMP or XCMP.
+	///
+	/// The limit is per message passing mechanism (e.g. 1 MiB for DMP, 1 MiB for XCMP).
 	///
 	/// The purpose of this limit is to make sure that the total size of the messages received by
-	/// the parachain from the relay chain don't exceed the block size. Currently each message
-	/// passing mechanism can use 1/3 of the total block length which means that in total 2/3
-	/// of the block length can be used for message passing.
+	/// the parachain from the relay chain doesn't exceed the block size. Currently each message
+	/// passing mechanism can use 1/6 of the total block PoV which means that in total 1/3
+	/// of the block PoV can be used for message passing.
 	fn messages_collection_size_limit() -> usize {
 		let max_block_weight = <T as frame_system::Config>::BlockWeights::get().max_block;
 		let max_block_pov = max_block_weight.proof_size();
-		(max_block_pov / 3).saturated_into()
+		(max_block_pov / 6).saturated_into()
 	}
 
-	/// Updates inherent data to only contain messages that weren't already processed
-	/// by the runtime and to compress (hash) the remaining ones if needed.
+	/// Updates inherent data to only include the messages that weren't already processed
+	/// by the runtime and to compress (hash) the messages that exceed the allocated size.
 	///
-	/// This method doesn't check for mqc heads mismatch.
-	fn do_create_inherent(data: RawParachainInherentData) -> Call<T> {
-		let (data, mut downward_messages, mut horizontal_messages) = data.deconstruct();
+	/// This method doesn't check for mqc heads mismatch. If the MQC doesn't match after
+	/// dropping messages, the runtime will panic when executing the inherent.
+	fn do_create_inherent(data: ParachainInherentData) -> Call<T> {
+		let (data, mut downward_messages, mut horizontal_messages) =
+			deconstruct_parachain_inherent_data(data);
 		let last_relay_block_number = LastRelayChainBlockNumber::<T>::get();
 
 		let messages_collection_size_limit = Self::messages_collection_size_limit();
@@ -1160,9 +1163,6 @@ impl<T: Config> Pallet<T> {
 			InboundMessagesData::new(downward_messages, horizontal_messages);
 
 		Call::set_validation_data { data, inbound_messages_data }
-
-		// If MQC doesn't match after dropping messages, the runtime will panic when executing
-		// inherent.
 	}
 
 	/// Enqueue all inbound downward messages relayed by the collator into the MQ pallet.
@@ -1203,7 +1203,7 @@ impl<T: Config> Pallet<T> {
 				reverse_idx: 0,
 			};
 			for msg in hashed_messages {
-				dmq_head.extend_with_hashed_msg(&msg);
+				dmq_head.extend_with_hashed_msg(msg);
 
 				if msg.sent_at == last_processed_msg.sent_at {
 					last_processed_msg.reverse_idx += 1;
@@ -1279,7 +1279,7 @@ impl<T: Config> Pallet<T> {
 				InboundMessageId { sent_at: relay_parent_number, reverse_idx: 0 };
 			LastProcessedHrmpMessage::<T>::put(last_processed_msg);
 			HrmpWatermark::<T>::put(relay_parent_number);
-			return Weight::zero();
+			return T::DbWeight::get().reads_writes(1, 2);
 		}
 
 		let mut last_processed_block = HrmpWatermark::<T>::get();
@@ -1294,7 +1294,7 @@ impl<T: Config> Pallet<T> {
 		}
 		<LastHrmpMqcHeads<T>>::put(mqc_heads.clone());
 		for (sender, msg) in hashed_messages {
-			mqc_heads.entry(*sender).or_default().extend_with_hashed_msg(&msg);
+			mqc_heads.entry(*sender).or_default().extend_with_hashed_msg(msg);
 
 			if msg.sent_at == last_processed_msg.sent_at {
 				last_processed_msg.reverse_idx += 1;
@@ -1316,7 +1316,7 @@ impl<T: Config> Pallet<T> {
 		// Update watermark
 		HrmpWatermark::<T>::put(last_processed_block);
 
-		weight_used
+		weight_used.saturating_add(T::DbWeight::get().reads_writes(2, 3))
 	}
 
 	/// Drop blocks from the unincluded segment with respect to the latest parachain head.

@@ -50,7 +50,7 @@ fn test_inherent_compatibility() {
 	valid_inherent_data_v1
 		.put_data(
 			INHERENT_IDENTIFIER,
-			&RawParachainInherentData {
+			&ParachainInherentData {
 				validation_data: Default::default(),
 				relay_chain_state: StorageProof::empty(),
 				downward_messages: Default::default(),
@@ -65,7 +65,7 @@ fn test_inherent_compatibility() {
 	valid_inherent_data_legacy
 		.put_data(
 			PARACHAIN_INHERENT_IDENTIFIER_V0,
-			&v0::RawParachainInherentData {
+			&v0::ParachainInherentData {
 				validation_data: Default::default(),
 				relay_chain_state: StorageProof::empty(),
 				downward_messages: Default::default(),
@@ -75,7 +75,7 @@ fn test_inherent_compatibility() {
 		.expect("Put validation function params failed");
 
 	let mut valid_inherent_data_full_compatibility = sp_inherents::InherentData::new();
-	let data = RawParachainInherentData {
+	let data = ParachainInherentData {
 		validation_data: Default::default(),
 		relay_chain_state: StorageProof::empty(),
 		downward_messages: Default::default(),

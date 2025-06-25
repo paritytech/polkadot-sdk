@@ -4758,7 +4758,6 @@ dependencies = [
  "async-trait",
  "cumulus-primitives-core",
  "cumulus-test-relay-sproof-builder",
- "log",
  "parity-scale-codec",
  "scale-info",
  "sp-core 28.0.0",

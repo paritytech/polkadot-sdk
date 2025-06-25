@@ -14,7 +14,6 @@ workspace = true
 [dependencies]
 async-trait = { optional = true, workspace = true }
 codec = { features = ["derive"], workspace = true }
-log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 
 # Substrate
@@ -34,7 +33,6 @@ std = [
 	"async-trait",
 	"codec/std",
 	"cumulus-primitives-core/std",
-	"log/std",
 	"scale-info/std",
 	"sp-core/std",
 	"sp-inherents/std",

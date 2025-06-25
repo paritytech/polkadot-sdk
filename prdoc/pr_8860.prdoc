@@ -11,7 +11,7 @@ crates:
 - name: polkadot-core-primitives
   bump: minor
 - name: cumulus-primitives-parachain-inherent
-  bump: major
+  bump: minor
 - name: polkadot-runtime-parachains
   bump: patch
 - name: cumulus-client-parachain-inherent
@@ -22,7 +22,3 @@ crates:
   bump: patch
 - name: xcm-emulator
   bump: minor
-- name: cumulus-client-consensus-aura
-  bump: patch
-- name: cumulus-client-consensus-proposer
-  bump: patch

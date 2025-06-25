@@ -17,10 +17,10 @@
 //! The actual implementation of the validate block functionality.
 
 use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
+use crate::parachain_inherent::BasicParachainInherentData;
 use cumulus_primitives_core::{
 	relay_chain::Hash as RHash, ParachainBlockData, PersistedValidationData,
 };
-use cumulus_primitives_parachain_inherent::ParachainInherentData;
 
 use polkadot_parachain_primitives::primitives::{
 	HeadData, RelayChainBlockNumber, ValidationResult,
@@ -354,10 +354,10 @@ where
 	}
 }
 
-/// Extract the [`ParachainInherentData`].
+/// Extract the [`BasicParachainInherentData`].
 fn extract_parachain_inherent_data<B: BlockT, PSC: crate::Config>(
 	block: &B,
-) -> &ParachainInherentData
+) -> &BasicParachainInherentData
 where
 	B::Extrinsic: ExtrinsicCall,
 	<B::Extrinsic as ExtrinsicCall>::Call: IsSubType<crate::Call<PSC>>,

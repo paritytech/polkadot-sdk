@@ -283,7 +283,7 @@ pub struct BlockTests {
 	relay_sproof_builder_hook:
 		Option<Box<dyn Fn(&BlockTests, RelayChainBlockNumber, &mut RelayStateSproofBuilder)>>,
 	inherent_data_hook:
-		Option<Box<dyn Fn(&BlockTests, RelayChainBlockNumber, &mut RawParachainInherentData)>>,
+		Option<Box<dyn Fn(&BlockTests, RelayChainBlockNumber, &mut ParachainInherentData)>>,
 	inclusion_delay: Option<usize>,
 	relay_block_number: Option<Box<dyn Fn(&BlockNumberFor<Test>) -> RelayChainBlockNumber>>,
 
@@ -349,7 +349,7 @@ impl BlockTests {
 
 	pub fn with_inherent_data<F>(mut self, f: F) -> Self
 	where
-		F: 'static + Fn(&BlockTests, RelayChainBlockNumber, &mut RawParachainInherentData),
+		F: 'static + Fn(&BlockTests, RelayChainBlockNumber, &mut ParachainInherentData),
 	{
 		self.inherent_data_hook = Some(Box::new(f));
 		self
@@ -419,7 +419,7 @@ impl BlockTests {
 			// to storage; they must also be included in the inherent data.
 			let inherent_data = {
 				let mut inherent_data = InherentData::default();
-				let mut system_inherent_data = RawParachainInherentData {
+				let mut system_inherent_data = ParachainInherentData {
 					validation_data: vfp.clone(),
 					relay_chain_state,
 					downward_messages: Default::default(),

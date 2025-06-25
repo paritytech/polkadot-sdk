@@ -20,8 +20,8 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
+use crate::parachain_inherent::InboundDownwardMessages;
 use cumulus_primitives_core::{relay_chain::Hash as RelayHash, InboundDownwardMessage};
-use cumulus_primitives_parachain_inherent::InboundDownwardMessages;
 use frame_benchmarking::v2::*;
 use sp_runtime::traits::BlakeTwo256;
 

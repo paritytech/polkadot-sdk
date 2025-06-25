@@ -27,7 +27,7 @@ use sp_inherents::{InherentData, InherentDataProvider};
 use sp_runtime::{traits::Block as BlockT, Digest};
 use sp_state_machine::StorageProof;
 
-use cumulus_primitives_parachain_inherent::RawParachainInherentData;
+use cumulus_primitives_parachain_inherent::ParachainInherentData;
 use std::{fmt::Debug, time::Duration};
 
 /// Errors that can occur when proposing a parachain block.
@@ -72,7 +72,7 @@ pub trait ProposerInterface<Block: BlockT> {
 	async fn propose(
 		&mut self,
 		parent_header: &Block::Header,
-		paras_inherent_data: &RawParachainInherentData,
+		paras_inherent_data: &ParachainInherentData,
 		other_inherent_data: InherentData,
 		inherent_digests: Digest,
 		max_duration: Duration,
@@ -105,7 +105,7 @@ where
 	async fn propose(
 		&mut self,
 		parent_header: &B::Header,
-		paras_inherent_data: &RawParachainInherentData,
+		paras_inherent_data: &ParachainInherentData,
 		other_inherent_data: InherentData,
 		inherent_digests: Digest,
 		max_duration: Duration,
