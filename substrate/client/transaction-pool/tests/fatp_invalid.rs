@@ -445,7 +445,7 @@ fn fatp_invalid_report_stale_or_future_works_as_expected() {
 		Some(TransactionValidityError::Invalid(InvalidTransaction::Future)),
 	);
 	let invalid_txs = [xt0_report].into();
-	let result = pool.report_invalid(None, invalid_txs);
+	let result = block_on(pool.report_invalid(None, invalid_txs));
 	assert!(result.is_empty());
 	assert_ready_iterator!(header01.hash(), pool, [xt0, xt1, xt2, xt3]);
 
@@ -459,7 +459,7 @@ fn fatp_invalid_report_stale_or_future_works_as_expected() {
 		Some(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
 	);
 	let invalid_txs = [xt0_report, xt1_report].into();
-	let result = pool.report_invalid(Some(header01.hash()), invalid_txs);
+	let result = block_on(pool.report_invalid(Some(header01.hash()), invalid_txs));
 	// stale/future does not cause tx to be removed from the pool
 	assert!(result.is_empty());
 	// assert_eq!(result[0].hash, pool.api().hash_and_length(&xt0).0);
@@ -521,7 +521,7 @@ fn fatp_invalid_report_future_dont_remove_from_pool() {
 		Some(TransactionValidityError::Invalid(InvalidTransaction::BadProof)),
 	);
 	let invalid_txs = [xt0_report, xt1_report, xt4_report].into();
-	let result = pool.report_invalid(Some(header01.hash()), invalid_txs);
+	let result = block_on(pool.report_invalid(Some(header01.hash()), invalid_txs));
 
 	assert_watcher_stream!(xt4_watcher, [TransactionStatus::Ready, TransactionStatus::Invalid]);
 
@@ -570,7 +570,7 @@ fn fatp_invalid_tx_is_removed_from_the_pool() {
 	);
 	let xt1_report = (pool.api().hash_and_length(&xt1).0, None);
 	let invalid_txs = [xt0_report, xt1_report].into();
-	let result = pool.report_invalid(Some(header01.hash()), invalid_txs);
+	let result = block_on(pool.report_invalid(Some(header01.hash()), invalid_txs));
 	assert!(result.iter().any(|tx| tx.hash == pool.api().hash_and_length(&xt0).0));
 	assert_pool_status!(header01.hash(), &pool, 2, 0);
 	assert_ready_iterator!(header01.hash(), pool, [xt2, xt3]);
@@ -613,7 +613,7 @@ fn fatp_invalid_tx_is_removed_from_the_pool_future_subtree_stays() {
 		Some(TransactionValidityError::Invalid(InvalidTransaction::BadProof)),
 	);
 	let invalid_txs = [xt0_report].into();
-	let result = pool.report_invalid(Some(header01.hash()), invalid_txs);
+	let result = block_on(pool.report_invalid(Some(header01.hash()), invalid_txs));
 	assert_eq!(result[0].hash, pool.api().hash_and_length(&xt0).0);
 	assert_pool_status!(header01.hash(), &pool, 0, 0);
 	assert_ready_iterator!(header01.hash(), pool, []);
@@ -671,7 +671,7 @@ fn fatp_invalid_tx_is_removed_from_the_pool2() {
 	);
 	let xt1_report = (pool.api().hash_and_length(&xt1).0, None);
 	let invalid_txs = [xt0_report, xt1_report].into();
-	let result = pool.report_invalid(Some(header01.hash()), invalid_txs);
+	let result = block_on(pool.report_invalid(Some(header01.hash()), invalid_txs));
 	assert!(result.iter().any(|tx| tx.hash == pool.api().hash_and_length(&xt0).0));
 	assert_ready_iterator!(header01.hash(), pool, [xt2, xt3]);
 	assert_pool_status!(header02a.hash(), &pool, 2, 0);
