@@ -238,8 +238,12 @@ where
 		let (dropped_stream_controller, dropped_stream) =
 			MultiViewDroppedWatcherController::<ChainApi>::new();
 
-		let view_store =
-			Arc::new(ViewStore::new(pool_api.clone(), listener, dropped_stream_controller));
+		let view_store = Arc::new(ViewStore::new(
+			pool_api.clone(),
+			listener,
+			dropped_stream_controller,
+			import_notification_sink.clone(),
+		));
 
 		let dropped_monitor_task = Self::dropped_monitor_task(
 			dropped_stream,
@@ -372,8 +376,12 @@ where
 		let (dropped_stream_controller, dropped_stream) =
 			MultiViewDroppedWatcherController::<ChainApi>::new();
 
-		let view_store =
-			Arc::new(ViewStore::new(pool_api.clone(), listener, dropped_stream_controller));
+		let view_store = Arc::new(ViewStore::new(
+			pool_api.clone(),
+			listener,
+			dropped_stream_controller,
+			import_notification_sink.clone(),
+		));
 
 		let dropped_monitor_task = Self::dropped_monitor_task(
 			dropped_stream,
@@ -658,6 +666,153 @@ where
 		);
 		(false, pending)
 	}
+<<<<<<< HEAD
+=======
+
+	/// Refer to [`Self::submit_and_watch`]
+	async fn submit_and_watch_inner(
+		&self,
+		at: Block::Hash,
+		source: TransactionSource,
+		xt: TransactionFor<Self>,
+	) -> Result<Pin<Box<TransactionStatusStreamFor<Self>>>, ChainApi::Error> {
+		let xt = Arc::from(xt);
+
+		let insertion = match self.mempool.push_watched(source, xt.clone()).await {
+			Ok(result) => result,
+			Err(TxPoolApiError::ImmediatelyDropped) =>
+				self.attempt_transaction_replacement(source, true, xt.clone()).await?,
+			Err(e) => return Err(e.into()),
+		};
+
+		self.metrics.report(|metrics| metrics.submitted_transactions.inc());
+		self.events_metrics_collector.report_submitted(&insertion);
+
+		match self.view_store.submit_and_watch(at, insertion.source, xt).await {
+			Err(e) => {
+				self.mempool.remove_transactions(&[insertion.hash]).await;
+				Err(e.into())
+			},
+			Ok(mut outcome) => {
+				self.mempool
+					.update_transaction_priority(outcome.hash(), outcome.priority())
+					.await;
+				Ok(outcome.expect_watcher())
+			},
+		}
+	}
+
+	/// Refer to [`Self::submit_at`]
+	async fn submit_at_inner(
+		&self,
+		source: TransactionSource,
+		xts: Vec<TransactionFor<Self>>,
+	) -> Result<Vec<Result<TxHash<Self>, ChainApi::Error>>, ChainApi::Error> {
+		let view_store = self.view_store.clone();
+		trace!(
+			target: LOG_TARGET,
+			count = xts.len(),
+			active_views_count = self.active_views_count(),
+			"fatp::submit_at"
+		);
+		log_xt_trace!(target: LOG_TARGET, xts.iter().map(|xt| self.tx_hash(xt)), "fatp::submit_at");
+		let xts = xts.into_iter().map(Arc::from).collect::<Vec<_>>();
+		let mempool_results = self.mempool.extend_unwatched(source, &xts).await;
+
+		if view_store.is_empty() {
+			return Ok(mempool_results
+				.into_iter()
+				.map(|r| r.map(|r| r.hash).map_err(Into::into))
+				.collect::<Vec<_>>())
+		}
+
+		// Submit all the transactions to the mempool
+		let retries = mempool_results
+			.into_iter()
+			.zip(xts.clone())
+			.map(|(result, xt)| async move {
+				match result {
+					Err(TxPoolApiError::ImmediatelyDropped) =>
+						self.attempt_transaction_replacement(source, false, xt).await,
+					_ => result,
+				}
+			})
+			.collect::<Vec<_>>();
+
+		let mempool_results = futures::future::join_all(retries).await;
+
+		// Collect transactions that were successfully submitted to the mempool...
+		let to_be_submitted = mempool_results
+			.iter()
+			.zip(xts)
+			.filter_map(|(result, xt)| {
+				result.as_ref().ok().map(|insertion| {
+					self.events_metrics_collector.report_submitted(&insertion);
+					(insertion.source.clone(), xt)
+				})
+			})
+			.collect::<Vec<_>>();
+
+		self.metrics
+			.report(|metrics| metrics.submitted_transactions.inc_by(to_be_submitted.len() as _));
+
+		// ... and submit them to the view_store. Please note that transactions rejected by mempool
+		// are not sent here.
+		let mempool = self.mempool.clone();
+		let results_map = view_store.submit(to_be_submitted.into_iter()).await;
+		let mut submission_results = reduce_multiview_result(results_map).into_iter();
+
+		// Note for composing final result:
+		//
+		// For each failed insertion into the mempool, the mempool result should be placed into
+		// the returned vector.
+		//
+		// For each successful insertion into the mempool, the corresponding
+		// view_store submission result needs to be examined (merged_results):
+		// - If there is an error during view_store submission, the transaction is removed from
+		// the mempool, and the final result recorded in the vector for this transaction is the
+		// view_store submission error.
+		//
+		// - If the view_store submission is successful, the transaction priority is updated in the
+		// mempool.
+		//
+		// Finally, it collects the hashes of updated transactions or submission errors (either
+		// from the mempool or view_store) into a returned vector (final_results).
+		const RESULTS_ASSUMPTION : &str =
+			"The number of Ok results in mempool is exactly the same as the size of view_store submission result. qed.";
+		let merged_results = mempool_results.into_iter().map(|result| {
+			result.map_err(Into::into).and_then(|insertion| {
+				Ok((insertion.hash, submission_results.next().expect(RESULTS_ASSUMPTION)))
+			})
+		});
+
+		let mut final_results = vec![];
+		for r in merged_results {
+			match r {
+				Ok((hash, submission_result)) => match submission_result {
+					Ok(r) => {
+						mempool.update_transaction_priority(r.hash(), r.priority()).await;
+						final_results.push(Ok(r.hash()));
+					},
+					Err(e) => {
+						mempool.remove_transactions(&[hash]).await;
+						final_results.push(Err(e));
+					},
+				},
+				Err(e) => final_results.push(Err(e)),
+			}
+		}
+
+		Ok(final_results)
+	}
+
+	/// Number of notified items in import_notification_sink.
+	///
+	/// Internal detail, exposed only for testing.
+	pub fn import_notification_sink_len(&self) -> usize {
+		self.import_notification_sink.notified_items_len()
+	}
+>>>>>>> 63973cc (`fatxpool`: fix: remove invalid txs from the dropped stream controller (#8923))
 }
 
 /// Converts the input view-to-statuses map into the output vector of statuses.
