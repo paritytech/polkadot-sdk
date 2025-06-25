@@ -25,7 +25,7 @@ use sp_consensus_beefy::{
 	AuthorityIdBound, Commitment, DoubleVotingProof, SignedCommitment, ValidatorSet,
 	ValidatorSetId, VoteMessage,
 };
-use sp_runtime::traits::{Block, NumberFor};
+use sp_runtime::traits::{Block, NumberFor, One};
 use std::collections::BTreeMap;
 
 /// Tracks for each round which validators have voted/signed and
@@ -36,39 +36,34 @@ use std::collections::BTreeMap;
 pub(crate) struct RoundTracker<AuthorityId: AuthorityIdBound> {
 	/// Map of votes already committed in this round.
 	votes: BTreeMap<AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature>,
-	/// Map of expected authorities and their corresponding voting weights.
-	voting_weights: BTreeMap<AuthorityId, u32>,
 	/// Total accumulated weight from authorities that have already voted.
 	/// This value is incremented based on the voting weight of each unique vote received.
-	already_voted: u64,
+	already_voted: VoteWeight,
+}
+
+impl<AuthorityId: AuthorityIdBound> Default for RoundTracker<AuthorityId> {
+	fn default() -> Self {
+		Self { votes: Default::default(), already_voted: Default::default() }
+	}
 }
 
 impl<AuthorityId: AuthorityIdBound> RoundTracker<AuthorityId> {
-	fn from_authority_set(authorities: &[AuthorityId]) -> Self {
-		let voting_weights = authorities.iter().fold(BTreeMap::new(), |mut acc, item| {
-			*acc.entry(item.to_owned()).or_insert(0) += 1;
-			acc
-		});
-
-		Self { votes: Default::default(), voting_weights, already_voted: 0 }
-	}
-
 	fn add_vote(
 		&mut self,
 		vote: (AuthorityId, <AuthorityId as RuntimeAppPublic>::Signature),
+		vote_weight: VoteWeight,
 	) -> bool {
 		if self.votes.contains_key(&vote.0) {
 			return false;
 		}
 
-		let vote_weight = match self.voting_weights.remove(&vote.0) {
-			Some(vote_weight) => vote_weight,
+		match self.already_voted.checked_add(vote_weight) {
+			Some(aggregated_vote) => self.already_voted = aggregated_vote,
 			None => {
 				return false;
 			},
-		};
+		}
 
-		self.already_voted += u64::from(vote_weight);
 		self.votes.insert(vote.0, vote.1);
 
 		true
@@ -96,6 +91,8 @@ pub enum VoteImportResult<B: Block, AuthorityId: AuthorityIdBound> {
 	Stale,
 }
 
+pub(crate) type VoteWeight = u32;
+
 /// Keeps track of all voting rounds (block numbers) within a session.
 /// Only round numbers > `best_done` are of interest, all others are considered stale.
 ///
@@ -109,6 +106,7 @@ pub(crate) struct Rounds<B: Block, AuthorityId: AuthorityIdBound> {
 	>,
 	session_start: NumberFor<B>,
 	validator_set: ValidatorSet<AuthorityId>,
+	voting_weights: Vec<(AuthorityId, VoteWeight)>,
 	mandatory_done: bool,
 	best_done: Option<NumberFor<B>>,
 }
@@ -122,10 +120,22 @@ where
 		session_start: NumberFor<B>,
 		validator_set: ValidatorSet<AuthorityId>,
 	) -> Self {
+		let voting_weights = validator_set
+			.validators()
+			.into_iter()
+			// We are sorting and deduplicating elements, which is later used by vote_weight function
+			.fold(BTreeMap::new(), |mut acc, item| {
+				*acc.entry(item.to_owned()).or_insert(0) += 1;
+				acc
+			})
+			.into_iter()
+			.collect();
+
 		Rounds {
 			rounds: BTreeMap::new(),
 			previous_votes: BTreeMap::new(),
 			session_start,
+			voting_weights,
 			validator_set,
 			mandatory_done: false,
 			best_done: None,
@@ -142,6 +152,14 @@ where
 
 	pub(crate) fn validators(&self) -> &[AuthorityId] {
 		self.validator_set.validators()
+	}
+
+	/// Return voting weight associated with given authority or default 1 in case authority does not exist
+	pub(crate) fn vote_weight(&self, authority: &AuthorityId) -> VoteWeight {
+		match self.voting_weights.binary_search_by(|(auth, _)| auth.cmp(authority)) {
+			Ok(index) => self.voting_weights[index].1,
+			Err(_) => One::one(),
+		}
 	}
 
 	pub(crate) fn session_start(&self) -> NumberFor<B> {
@@ -196,21 +214,10 @@ where
 			self.previous_votes.insert(vote_key, vote.clone());
 		}
 
-		let round = match self.rounds.get_mut(&vote.commitment) {
-			Some(round) => round,
-			None => {
-				self.rounds.insert(
-					vote.commitment.clone(),
-					RoundTracker::from_authority_set(self.validators()),
-				);
-
-				// Safe to unwrap due we just inserted this key
-				self.rounds.get_mut(&vote.commitment).unwrap()
-			},
-		};
-
 		// add valid vote
-		if round.add_vote((vote.id, vote.signature))
+		let vote_weight = self.vote_weight(&vote.id);
+		let round = self.rounds.entry(vote.commitment.clone()).or_default();
+		if round.add_vote((vote.id, vote.signature), vote_weight)
 			&& round.is_done(threshold(self.validator_set.len()))
 		{
 			if let Some(round) = self.rounds.remove_entry(&vote.commitment) {
@@ -270,10 +277,7 @@ mod tests {
 
 	#[test]
 	fn round_tracker() {
-		let mut rt = RoundTracker::<ecdsa_crypto::AuthorityId>::from_authority_set(&[
-			Keyring::<ecdsa_crypto::AuthorityId>::Alice.public(),
-			Keyring::<ecdsa_crypto::AuthorityId>::Bob.public(),
-		]);
+		let mut rt = RoundTracker::<ecdsa_crypto::AuthorityId>::default();
 		let bob_vote = (
 			Keyring::<ecdsa_crypto::AuthorityId>::Bob.public(),
 			Keyring::<ecdsa_crypto::AuthorityId>::Bob.sign(b"I am committed"),
@@ -281,9 +285,9 @@ mod tests {
 		let threshold = 2;
 
 		// adding new vote allowed
-		assert!(rt.add_vote(bob_vote.clone()));
+		assert!(rt.add_vote(bob_vote.clone(), 1));
 		// adding existing vote not allowed
-		assert!(!rt.add_vote(bob_vote));
+		assert!(!rt.add_vote(bob_vote, 1));
 
 		// vote is not done
 		assert!(!rt.is_done(threshold));
@@ -293,7 +297,7 @@ mod tests {
 			Keyring::<ecdsa_crypto::AuthorityId>::Alice.sign(b"I am committed"),
 		);
 		// adding new vote (self vote this time) allowed
-		assert!(rt.add_vote(alice_vote));
+		assert!(rt.add_vote(alice_vote, 1));
 
 		// vote is now done
 		assert!(rt.is_done(threshold));
@@ -301,19 +305,13 @@ mod tests {
 
 	#[test]
 	fn round_tracker_with_duplicated_authorities() {
-		// Charlie has more voting power than the others
-		let mut rt = RoundTracker::<ecdsa_crypto::AuthorityId>::from_authority_set(&[
-			Keyring::<ecdsa_crypto::AuthorityId>::Alice.public(),
-			Keyring::<ecdsa_crypto::AuthorityId>::Bob.public(),
-			Keyring::<ecdsa_crypto::AuthorityId>::Charlie.public(),
-			Keyring::<ecdsa_crypto::AuthorityId>::Charlie.public(),
-		]);
+		let mut rt = RoundTracker::<ecdsa_crypto::AuthorityId>::default();
 
 		let bob_vote = (
 			Keyring::<ecdsa_crypto::AuthorityId>::Bob.public(),
 			Keyring::<ecdsa_crypto::AuthorityId>::Bob.sign(b"I am committed"),
 		);
-		assert!(rt.add_vote(bob_vote));
+		assert!(rt.add_vote(bob_vote, 1));
 
 		let threshold = 3;
 
@@ -324,13 +322,15 @@ mod tests {
 			Keyring::<ecdsa_crypto::AuthorityId>::Charlie.public(),
 			Keyring::<ecdsa_crypto::AuthorityId>::Charlie.sign(b"I am committed"),
 		);
-		assert!(rt.add_vote(charlie_vote.clone()));
+
+		// Charlie has more voting power than the others
+		assert!(rt.add_vote(charlie_vote.clone(), 2));
 
 		// vote is now done
 		assert!(rt.is_done(threshold));
 
-		// Charlie can not vote twice, even he is on the list multpile times
-		assert!(!rt.add_vote(charlie_vote));
+		// Charlie can not vote twice, even he has more voting power
+		assert!(!rt.add_vote(charlie_vote, 2));
 	}
 
 	#[test]
