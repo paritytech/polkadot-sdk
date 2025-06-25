@@ -485,6 +485,51 @@ fn fatp_linear_old_ready_becoming_stale() {
 }
 
 #[test]
+fn fatp_proper_cleanup_after_mortal_tx_becoming_invalid() {
+	sp_tracing::try_init_simple();
+
+	let (pool, api, _) = pool();
+
+	let xts = vec![uxt(Alice, 200), uxt(Alice, 201), uxt(Alice, 202)];
+
+	api.set_valid_till(&xts[0], 66);
+	api.set_valid_till(&xts[1], 66);
+	api.set_valid_till(&xts[2], 66);
+
+	let header01 = api.push_block(1, vec![], true);
+	let event = new_best_block_event(&pool, None, header01.hash());
+	block_on(pool.maintain(event));
+
+	xts.into_iter().for_each(|xt| {
+		block_on(pool.submit_one(invalid_hash(), SOURCE, xt)).unwrap();
+	});
+	assert_eq!(pool.status_all()[&header01.hash()].ready, 3);
+	assert_eq!(pool.status_all()[&header01.hash()].future, 0);
+
+	// Import enough blocks to make our transactions stale (longevity is 64)
+	let mut prev_header = header01;
+	for n in 2..67 {
+		let header = api.push_block_with_parent(prev_header.hash(), vec![], true);
+		let event = new_best_block_event(&pool, Some(prev_header.hash()), header.hash());
+		block_on(pool.maintain(event));
+
+		if n == 66 {
+			assert_eq!(pool.status_all()[&header.hash()].ready, 0);
+			assert_eq!(pool.status_all()[&header.hash()].future, 0);
+		} else {
+			assert_eq!(pool.status_all()[&header.hash()].ready, 3);
+			assert_eq!(pool.status_all()[&header.hash()].future, 0);
+		}
+		prev_header = header;
+	}
+
+	let header = api.push_block_with_parent(prev_header.hash(), vec![], true);
+	let event = finalized_block_event(&pool, prev_header.hash(), header.hash());
+	block_on(pool.maintain(event));
+	assert_eq!(pool.import_notification_sink_len(), 0);
+}
+
+#[test]
 fn fatp_fork_reorg() {
 	sp_tracing::try_init_simple();
 
@@ -1744,14 +1789,14 @@ fn fatp_transactions_purging_stale_on_finalization_works() {
 
 	assert_eq!(api.validation_requests().len(), 3);
 	assert_eq!(pool.status_all()[&header01.hash()].ready, 3);
-	assert_eq!(pool.mempool_len(), (1, 2));
+	assert_eq!(block_on(pool.mempool_len()), (1, 2));
 
 	let header02 = api.push_block(2, vec![xt1.clone(), xt2.clone(), xt3.clone()], true);
 	api.set_nonce(header02.hash(), Alice.into(), 203);
 	block_on(pool.maintain(finalized_block_event(&pool, header01.hash(), header02.hash())));
 
 	assert_eq!(pool.status_all()[&header02.hash()].ready, 0);
-	assert_eq!(pool.mempool_len(), (0, 0));
+	assert_eq!(block_on(pool.mempool_len()), (0, 0));
 
 	let xt1_events = futures::executor::block_on_stream(watcher1).collect::<Vec<_>>();
 	let xt2_events = futures::executor::block_on_stream(watcher2).collect::<Vec<_>>();
@@ -1904,7 +1949,7 @@ fn fatp_avoid_stuck_transaction() {
 	let xt4i_watcher =
 		block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt4i.clone())).unwrap();
 
-	assert_eq!(pool.mempool_len(), (0, 1));
+	assert_eq!(block_on(pool.mempool_len()), (0, 1));
 
 	let header01 = api.push_block(1, vec![xt0], true);
 	api.set_nonce(header01.hash(), Alice.into(), 201);
@@ -1941,7 +1986,7 @@ fn fatp_avoid_stuck_transaction() {
 	let xt4i_events = futures::executor::block_on_stream(xt4i_watcher).collect::<Vec<_>>();
 	debug!(target: LOG_TARGET, ?xt4i_events, "xt4i_events");
 	assert_eq!(xt4i_events, vec![TransactionStatus::Future, TransactionStatus::Dropped]);
-	assert_eq!(pool.mempool_len(), (0, 0));
+	assert_eq!(block_on(pool.mempool_len()), (0, 0));
 }
 
 #[test]
@@ -1960,7 +2005,7 @@ fn fatp_future_is_pruned_by_conflicting_tags() {
 	debug!(target: LOG_TARGET, xt2i = ?api.hash_and_length(&xt2i).0, "xt2i");
 	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2i.clone())).unwrap();
 
-	assert_eq!(pool.mempool_len(), (0, 1));
+	assert_eq!(block_on(pool.mempool_len()), (0, 1));
 
 	let header01 = api.push_block(1, vec![], true);
 	let event = new_best_block_event(&pool, None, header01.hash());
@@ -2110,7 +2155,7 @@ fn fatp_dangling_ready_gets_revalidated() {
 	// send xt2 - it will become ready on block 02a.
 	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone())).unwrap();
 	assert_pool_status!(header02a.hash(), &pool, 1, 0);
-	assert_eq!(pool.mempool_len(), (0, 1));
+	assert_eq!(block_on(pool.mempool_len()), (0, 1));
 
 	//xt2 is still ready: view was just cloned (revalidation executed in background)
 	let header02b = api.push_block_with_parent(header01.hash(), vec![], true);
