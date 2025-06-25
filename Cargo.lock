@@ -15473,6 +15473,7 @@ dependencies = [
  "libc",
  "nix 0.29.0",
  "parity-scale-codec",
+ "polkadot-node-primitives",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "sc-executor 0.32.0",
