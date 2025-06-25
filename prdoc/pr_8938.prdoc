@@ -2,51 +2,13 @@ title: Make `NoOpPoll` generic over `Moment`
 doc:
 - audience: Runtime Dev
   description: |-
-    # Description
     This PR enhances the flexibility of the `NoOpPoll` implementation by introducing a generic `Moment` parameter. This change enables support for diverse clock configurations across different runtimes, allowing `NoOpPoll` to work seamlessly with various block number implementations (e.g., `u32`, `u64`, or custom block number types).
-
-    ### Integration
-    Downstream projects using `NoOpPoll` must make these adjustments:
-
-    - Add generic parameter: Specify the Moment type when using `NoOpPoll`
-
-    - Update type annotations: Modify existing references to include the generic parameter
-
-    ### Example Migration:
-
-    ```diff
-    // Before
-    use frame_support::traits::NoOpPoll;
-
-    let _ = NoOpPoll;
-
-    // After
-    use frame_support::traits::NoOpPoll;
-    use frame_system::pallet_prelude::BlockNumberFor;
-    ```
-
-    ### Generic struct update:
-
-    ```diff
-    - pub struct NoOpPoll;
-    + pub struct NoOpPoll<Moment>(core::marker::PhantomData<Moment>);
-    ```
-    ### Polling trait implementation:
-    ```diff
-    - impl<Tally> Polling<Tally> for NoOpPoll {
-    + impl<Tally, Moment> Polling<Tally> for NoOpPoll<Moment> {
-         type Index = u8;
-         type Votes = u32;
-         type Class = u16;
-    -    type Moment = u64;
-    +    type Moment = Moment;
-    ```
 crates:
 - name: pallet-ranked-collective
-  bump: major
+  bump: patch
 - name: frame-support
-  bump: major
+  bump: minor
 - name: pallet-core-fellowship
-  bump: major
+  bump: patch
 - name: pallet-salary
-  bump: major
+  bump: patch
