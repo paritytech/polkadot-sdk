@@ -1,0 +1,33 @@
+title: 'EPMB/unsigned: fixed multi-page winner computation'
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## The issue
+
+    In `FullSupportsOfMiner`, we initially considered `MaxWinnersPerPage` as the overall maximum number of winners across pages. However, it should be calculated as `Pages * MaxWinnersPerPage` to prevent the computed solution from having a low overall total of winners, which could result in a `WrongWinnerCount` error.
+
+    This bug was identified in
+    [#staking-miner-1074](https://github.com/paritytech/polkadot-staking-miner/issues/1074) while testing the staking miner in a setup with aggressive trimming to evaluate backer bounding.
+
+    ## How to test
+
+    A test has been added to replicate this scenario:
+
+    Test configuration:
+    - `Pages=2`
+    - `MaxWinnersPerPage=2`
+    - `desired_targets=3` (3 or 4 doesn't matter here, the key point is that is strictly > `MaxWinnersPerPage`)
+    - `MaxBackersPerWinner=1`
+
+    Before the fix in this PR:
+    - `FullSupportsOfMiner` could only hold 2 winners in total (bounded by `MaxWinnersPerPage`)
+    -  But the mining algorithm needed to hold 3 winners across multiple pages
+    - This would cause a `WrongWinnerCount` error during verification
+
+    With the fix:
+    - `FullSupportsOfMiner` can now hold `Pages * MaxWinnersPerPage = 2 * 2 = 4` winners
+    - The test passes with 3 winners across 2 pages (proving it can hold more than `MaxWinnersPerPage=2`)
+    - No `WrongWinnerCount` errors occur
+crates:
+- name: pallet-election-provider-multi-block
+  bump: patch
