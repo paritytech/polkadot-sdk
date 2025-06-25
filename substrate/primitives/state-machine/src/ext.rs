@@ -32,13 +32,32 @@ use sp_core::storage::{
 use sp_externalities::{Extension, ExtensionStore, Externalities, MultiRemovalResults};
 
 use crate::{trace, warn};
-use alloc::{boxed::Box, vec::Vec};
+use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use core::{
 	any::{Any, TypeId},
 	cmp::Ordering,
+	sync::atomic::AtomicU64,
 };
 #[cfg(feature = "std")]
 use std::error;
+#[cfg(feature = "std")]
+use std::time::Instant;
+
+#[cfg(not(feature = "std"))]
+struct Instant {}
+
+#[cfg(not(feature = "std"))]
+impl Instant {
+	/// Returns the current time.
+	fn now() -> Self {
+		Self {}
+	}
+
+	/// Returns the elapsed time since this instant.
+	fn elapsed(&self) -> core::time::Duration {
+		core::time::Duration::from_nanos(0)
+	}
+}
 
 const EXT_NOT_ALLOWED_TO_FAIL: &str = "Externalities not allowed to fail within runtime";
 const BENCHMARKING_FN: &str = "\
@@ -103,6 +122,7 @@ where
 	/// Extensions registered with this instance.
 	#[cfg(feature = "std")]
 	extensions: Option<OverlayedExtensions<'a>>,
+	time_in_ext: Arc<AtomicU64>,
 }
 
 impl<'a, H, B> Ext<'a, H, B>
@@ -113,7 +133,7 @@ where
 	/// Create a new `Ext`.
 	#[cfg(not(feature = "std"))]
 	pub fn new(overlay: &'a mut OverlayedChanges<H>, backend: &'a B) -> Self {
-		Ext { overlay, backend, id: 0 }
+		Ext { overlay, backend, id: 0, time_in_ext: Arc::new(AtomicU64::new(0)) }
 	}
 
 	/// Create a new `Ext` from overlayed changes and read-only backend
@@ -122,12 +142,14 @@ where
 		overlay: &'a mut OverlayedChanges<H>,
 		backend: &'a B,
 		extensions: Option<&'a mut sp_externalities::Extensions>,
+		time_in_ext: Arc<AtomicU64>,
 	) -> Self {
 		Self {
 			overlay,
 			backend,
 			id: rand::random(),
 			extensions: extensions.map(OverlayedExtensions::new),
+			time_in_ext,
 		}
 	}
 }
@@ -163,10 +185,16 @@ where
 	B: Backend<H>,
 {
 	fn set_offchain_storage(&mut self, key: &[u8], value: Option<&[u8]>) {
-		self.overlay.set_offchain_storage(key, value)
+		let start = Instant::now();
+		let res = self.overlay.set_offchain_storage(key, value);
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn storage(&mut self, key: &[u8]) -> Option<StorageValue> {
+		let start = Instant::now();
+
 		let _guard = guard();
 		let result = self
 			.overlay
@@ -188,12 +216,15 @@ where
 					.encode()
 			),
 		);
-
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
 		result
 	}
 
 	fn storage_hash(&mut self, key: &[u8]) -> Option<Vec<u8>> {
 		let _guard = guard();
+		let start = Instant::now();
+
 		let result = self
 			.overlay
 			.storage(key)
@@ -207,11 +238,15 @@ where
 			key = %HexDisplay::from(&key),
 			?result,
 		);
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
 		result.map(|r| r.encode())
 	}
 
 	fn child_storage(&mut self, child_info: &ChildInfo, key: &[u8]) -> Option<StorageValue> {
 		let _guard = guard();
+		let start = Instant::now();
+
 		let result = self
 			.overlay
 			.child_storage(child_info, key)
@@ -228,12 +263,15 @@ where
 			key = %HexDisplay::from(&key),
 			result = ?result.as_ref().map(HexDisplay::from)
 		);
-
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
 		result
 	}
 
 	fn child_storage_hash(&mut self, child_info: &ChildInfo, key: &[u8]) -> Option<Vec<u8>> {
 		let _guard = guard();
+		let start = Instant::now();
+
 		let result = self
 			.overlay
 			.child_storage(child_info, key)
@@ -250,11 +288,14 @@ where
 			key = %HexDisplay::from(&key),
 			?result,
 		);
-
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
 		result.map(|r| r.encode())
 	}
 
 	fn exists_storage(&mut self, key: &[u8]) -> bool {
+		let start = Instant::now();
+
 		let _guard = guard();
 		let result = match self.overlay.storage(key) {
 			Some(x) => x.is_some(),
@@ -268,11 +309,14 @@ where
 			key = %HexDisplay::from(&key),
 			%result,
 		);
-
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
 		result
 	}
 
 	fn exists_child_storage(&mut self, child_info: &ChildInfo, key: &[u8]) -> bool {
+		let start = Instant::now();
+
 		let _guard = guard();
 
 		let result = match self.overlay.child_storage(child_info, key) {
@@ -291,15 +335,19 @@ where
 			key = %HexDisplay::from(&key),
 			%result,
 		);
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
 		result
 	}
 
 	fn next_storage_key(&mut self, key: &[u8]) -> Option<StorageKey> {
+		let start = Instant::now();
+
 		let mut next_backend_key =
 			self.backend.next_storage_key(key).expect(EXT_NOT_ALLOWED_TO_FAIL);
 		let mut overlay_changes = self.overlay.iter_after(key).peekable();
 
-		match (&next_backend_key, overlay_changes.peek()) {
+		let res = match (&next_backend_key, overlay_changes.peek()) {
 			(_, None) => next_backend_key,
 			(Some(_), Some(_)) => {
 				for overlay_key in overlay_changes {
@@ -329,10 +377,15 @@ where
 				// Find the next overlay key that has a value attached.
 				overlay_changes.find_map(|k| k.1.value().as_ref().map(|_| k.0.to_vec()))
 			},
-		}
+		};
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn next_child_storage_key(&mut self, child_info: &ChildInfo, key: &[u8]) -> Option<StorageKey> {
+		let start = Instant::now();
+
 		let mut next_backend_key = self
 			.backend
 			.next_child_storage_key(child_info, key)
@@ -340,7 +393,7 @@ where
 		let mut overlay_changes =
 			self.overlay.child_iter_after(child_info.storage_key(), key).peekable();
 
-		match (&next_backend_key, overlay_changes.peek()) {
+		let res = match (&next_backend_key, overlay_changes.peek()) {
 			(_, None) => next_backend_key,
 			(Some(_), Some(_)) => {
 				for overlay_key in overlay_changes {
@@ -370,10 +423,15 @@ where
 				// Find the next overlay key that has a value attached.
 				overlay_changes.find_map(|k| k.1.value().as_ref().map(|_| k.0.to_vec()))
 			},
-		}
+		};
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn place_storage(&mut self, key: StorageKey, value: Option<StorageValue>) {
+		let start = Instant::now();
+
 		let _guard = guard();
 		if is_child_storage_key(&key) {
 			warn!(target: "trie", "Refuse to directly set child storage key");
@@ -394,7 +452,8 @@ where
 					.encode()
 			),
 		);
-
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
 		self.overlay.set_storage(key, value);
 	}
 
@@ -404,6 +463,8 @@ where
 		key: StorageKey,
 		value: Option<StorageValue>,
 	) {
+		let start = Instant::now();
+
 		trace!(
 			target: "state",
 			method = "ChildPut",
@@ -414,7 +475,10 @@ where
 		);
 		let _guard = guard();
 
-		self.overlay.set_child_storage(child_info, key, value);
+		let res = self.overlay.set_child_storage(child_info, key, value);
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn kill_child_storage(
@@ -423,6 +487,8 @@ where
 		maybe_limit: Option<u32>,
 		maybe_cursor: Option<&[u8]>,
 	) -> MultiRemovalResults {
+		let start = Instant::now();
+
 		trace!(
 			target: "state",
 			method = "ChildKill",
@@ -433,6 +499,8 @@ where
 		let overlay = self.overlay.clear_child_storage(child_info);
 		let (maybe_cursor, backend, loops) =
 			self.limit_remove_from_backend(Some(child_info), None, maybe_limit, maybe_cursor);
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
 		MultiRemovalResults { maybe_cursor, backend, unique: overlay + backend, loops }
 	}
 
@@ -442,6 +510,8 @@ where
 		maybe_limit: Option<u32>,
 		maybe_cursor: Option<&[u8]>,
 	) -> MultiRemovalResults {
+		let start = Instant::now();
+
 		trace!(
 			target: "state",
 			method = "ClearPrefix",
@@ -461,6 +531,8 @@ where
 		let overlay = self.overlay.clear_prefix(prefix);
 		let (maybe_cursor, backend, loops) =
 			self.limit_remove_from_backend(None, Some(prefix), maybe_limit, maybe_cursor);
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
 		MultiRemovalResults { maybe_cursor, backend, unique: overlay + backend, loops }
 	}
 
@@ -471,6 +543,8 @@ where
 		maybe_limit: Option<u32>,
 		maybe_cursor: Option<&[u8]>,
 	) -> MultiRemovalResults {
+		let start = Instant::now();
+
 		trace!(
 			target: "state",
 			method = "ChildClearPrefix",
@@ -487,10 +561,14 @@ where
 			maybe_limit,
 			maybe_cursor,
 		);
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
 		MultiRemovalResults { maybe_cursor, backend, unique: overlay + backend, loops }
 	}
 
 	fn storage_append(&mut self, key: Vec<u8>, value: Vec<u8>) {
+		let start = Instant::now();
+
 		trace!(
 			target: "state",
 			method = "Append",
@@ -505,9 +583,13 @@ where
 		self.overlay.append_storage(key.clone(), value, || {
 			backend.storage(&key).expect(EXT_NOT_ALLOWED_TO_FAIL).unwrap_or_default()
 		});
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
 	}
 
 	fn storage_root(&mut self, state_version: StateVersion) -> Vec<u8> {
+		let start = Instant::now();
+
 		let _guard = guard();
 
 		let (root, _cached) = self.overlay.storage_root(self.backend, state_version);
@@ -520,7 +602,10 @@ where
 			cached = %_cached,
 		);
 
-		root.encode()
+		let res = root.encode();
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn child_storage_root(
@@ -529,6 +614,7 @@ where
 		state_version: StateVersion,
 	) -> Vec<u8> {
 		let _guard = guard();
+		let start = Instant::now();
 
 		let (root, _cached) = self
 			.overlay
@@ -544,10 +630,15 @@ where
 			cached = %_cached,
 		);
 
-		root.encode()
+		let res = root.encode();
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn storage_index_transaction(&mut self, index: u32, hash: &[u8], size: u32) {
+		let start = Instant::now();
+
 		trace!(
 			target: "state",
 			method = "IndexTransaction",
@@ -557,15 +648,20 @@ where
 			%size,
 		);
 
-		self.overlay.add_transaction_index(IndexOperation::Insert {
+		let res = self.overlay.add_transaction_index(IndexOperation::Insert {
 			extrinsic: index,
 			hash: hash.to_vec(),
 			size,
 		});
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	/// Renew existing piece of data storage.
 	fn storage_renew_transaction_index(&mut self, index: u32, hash: &[u8]) {
+		let start = Instant::now();
+
 		trace!(
 			target: "state",
 			method = "RenewTransactionIndex",
@@ -574,23 +670,44 @@ where
 			tx_hash = %HexDisplay::from(&hash),
 		);
 
-		self.overlay
+		let res = self
+			.overlay
 			.add_transaction_index(IndexOperation::Renew { extrinsic: index, hash: hash.to_vec() });
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn storage_start_transaction(&mut self) {
-		self.overlay.start_transaction()
+		let start = Instant::now();
+
+		let res = self.overlay.start_transaction();
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn storage_rollback_transaction(&mut self) -> Result<(), ()> {
-		self.overlay.rollback_transaction().map_err(|_| ())
+		let start = Instant::now();
+
+		let res = self.overlay.rollback_transaction().map_err(|_| ());
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn storage_commit_transaction(&mut self) -> Result<(), ()> {
-		self.overlay.commit_transaction().map_err(|_| ())
+		let start = Instant::now();
+
+		let res = self.overlay.commit_transaction().map_err(|_| ());
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn wipe(&mut self) {
+		let start = Instant::now();
+
 		for _ in 0..self.overlay.transaction_depth() {
 			self.overlay.rollback_transaction().expect(BENCHMARKING_FN);
 		}
@@ -601,9 +718,13 @@ where
 		self.overlay
 			.enter_runtime()
 			.expect("We have reset the overlay above, so we can not be in the runtime; qed");
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
 	}
 
 	fn commit(&mut self) {
+		let start = Instant::now();
+
 		// Bench always use latest state.
 		let state_version = StateVersion::default();
 		for _ in 0..self.overlay.transaction_depth() {
@@ -624,30 +745,63 @@ where
 		self.overlay
 			.enter_runtime()
 			.expect("We have reset the overlay above, so we can not be in the runtime; qed");
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
 	}
 
 	fn read_write_count(&self) -> (u32, u32, u32, u32) {
-		self.backend.read_write_count()
+		let start = Instant::now();
+
+		let res = self.backend.read_write_count();
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn reset_read_write_count(&mut self) {
-		self.backend.reset_read_write_count()
+		let start = Instant::now();
+
+		let res = self.backend.reset_read_write_count();
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn get_whitelist(&self) -> Vec<TrackedStorageKey> {
-		self.backend.get_whitelist()
+		let start = Instant::now();
+
+		let res = self.backend.get_whitelist();
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn set_whitelist(&mut self, new: Vec<TrackedStorageKey>) {
-		self.backend.set_whitelist(new)
+		let start = Instant::now();
+
+		let res = self.backend.set_whitelist(new);
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn proof_size(&self) -> Option<u32> {
-		self.backend.proof_size()
+		let start = Instant::now();
+
+		let res = self.backend.proof_size();
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
+
+		res
 	}
 
 	fn get_read_and_written_keys(&self) -> Vec<(Vec<u8>, u32, u32, bool)> {
-		self.backend.get_read_and_written_keys()
+		let start = Instant::now();
+
+		let res = self.backend.get_read_and_written_keys();
+		self.time_in_ext
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
+		res
 	}
 }
 

@@ -156,14 +156,14 @@ async fn setup_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
 				.with_collator(|n| {
 					n.with_name("collator").validator(true).with_args(vec![
 						("-linfo").into(),
-						("--warm-up-trie-cache").into(),
+						// ("--warm-up-trie-cache").into(),
 						("--pool-type=fork-aware").into(),
-						("--trie-cache-size=34359738368").into(),
+						("--trie-cache-size=0").into(),
 						("--rpc-max-subscriptions-per-connection=327680").into(),
 						("--rpc-max-connections=102400".into()),
 						("--pool-limit=819200").into(),
 						("--pool-kbytes=2048000").into(),
-						("--db-cache=1024").into(),
+						("--db-cache=128").into(),
 					])
 				})
 		})

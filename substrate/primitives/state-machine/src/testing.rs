@@ -17,6 +17,8 @@
 
 //! Test implementation for Externalities.
 
+use alloc::sync::Arc;
+use core::sync::atomic::AtomicU64;
 use std::{
 	any::{Any, TypeId},
 	panic::{AssertUnwindSafe, UnwindSafe},
@@ -62,7 +64,12 @@ where
 {
 	/// Get externalities implementation.
 	pub fn ext(&mut self) -> Ext<H, InMemoryBackend<H>> {
-		Ext::new(&mut self.overlay, &self.backend, Some(&mut self.extensions))
+		Ext::new(
+			&mut self.overlay,
+			&self.backend,
+			Some(&mut self.extensions),
+			Arc::new(AtomicU64::new(0)),
+		)
 	}
 
 	/// Create a new instance of `TestExternalities` with storage.
@@ -257,8 +264,12 @@ where
 		let proving_backend = TrieBackendBuilder::wrap(&self.backend)
 			.with_recorder(Default::default())
 			.build();
-		let mut proving_ext =
-			Ext::new(&mut self.overlay, &proving_backend, Some(&mut self.extensions));
+		let mut proving_ext = Ext::new(
+			&mut self.overlay,
+			&proving_backend,
+			Some(&mut self.extensions),
+			Arc::new(AtomicU64::new(0)),
+		);
 
 		let outcome = sp_externalities::set_and_run_with_externalities(&mut proving_ext, execute);
 		let proof = proving_backend.extract_proof().expect("Failed to extract storage proof");

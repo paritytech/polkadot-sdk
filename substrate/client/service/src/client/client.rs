@@ -1682,7 +1682,7 @@ where
 	fn state_at(&self, at: Block::Hash) -> Result<Self::StateBackend, sp_api::ApiError> {
 		self.state_at(at).map_err(Into::into)
 	}
-	fn time_in_storage(&self) -> u64 {
+	fn time_in_storage(&self) -> (u64, u64, u64) {
 		self.executor.time_in_storage()
 	}
 

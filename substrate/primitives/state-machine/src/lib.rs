@@ -127,7 +127,6 @@ impl core::fmt::Display for DefaultError {
 		write!(f, "DefaultError")
 	}
 }
-
 pub use crate::{
 	backend::{Backend, BackendTransaction, IterArgs, KeysIter, PairsIter, StorageIterator},
 	error::{Error, ExecutionError},
@@ -141,6 +140,8 @@ pub use crate::{
 	trie_backend::{TrieBackend, TrieBackendBuilder},
 	trie_backend_essence::{Storage, TrieBackendStorage},
 };
+use alloc::sync::Arc;
+use core::sync::atomic::AtomicU64;
 
 #[cfg(not(substrate_runtime))]
 pub use crate::{
@@ -157,7 +158,6 @@ mod std_reexport {
 		CompactProof, DBValue, LayoutV0, LayoutV1, MemoryDB, StorageProof, TrieMut,
 	};
 }
-
 #[cfg(feature = "std")]
 mod execution {
 	use crate::backend::AsTrieBackend;
@@ -213,6 +213,7 @@ mod execution {
 		/// Used for logging.
 		parent_hash: Option<H::Out>,
 		context: CallContext,
+		pub time_in_ext: Arc<AtomicU64>,
 	}
 
 	impl<'a, B, H, Exec> Drop for StateMachine<'a, B, H, Exec>
@@ -254,6 +255,7 @@ mod execution {
 				stats: StateMachineStats::default(),
 				parent_hash: None,
 				context,
+				time_in_ext: Arc::new(AtomicU64::new(0)),
 			}
 		}
 
@@ -278,7 +280,12 @@ mod execution {
 				.enter_runtime()
 				.expect("StateMachine is never called from the runtime; qed");
 
-			let mut ext = Ext::new(self.overlay, self.backend, Some(self.extensions));
+			let mut ext = Ext::new(
+				self.overlay,
+				self.backend,
+				Some(self.extensions),
+				self.time_in_ext.clone(),
+			);
 
 			let ext_id = ext.id;
 

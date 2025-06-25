@@ -44,6 +44,27 @@ use trie_db::TrieCache as TrieCacheT;
 #[cfg(not(feature = "std"))]
 use trie_db::{node::NodeOwned, CachedValue};
 
+use alloc::sync::Arc;
+use core::sync::atomic::AtomicU64;
+#[cfg(feature = "std")]
+use std::time::Instant;
+
+#[cfg(not(feature = "std"))]
+struct Instant {}
+
+#[cfg(not(feature = "std"))]
+impl Instant {
+	/// Returns the current time.
+	fn now() -> Self {
+		Self {}
+	}
+
+	/// Returns the elapsed time since this instant.
+	fn elapsed(&self) -> core::time::Duration {
+		core::time::Duration::from_nanos(0)
+	}
+}
+
 /// A provider of trie caches that are compatible with [`trie_db::TrieDB`].
 pub trait TrieCacheProvider<H: Hasher> {
 	/// Cache type that implements [`trie_db::TrieCache`].
@@ -223,6 +244,7 @@ pub struct TrieBackendBuilder<
 	root: H::Out,
 	recorder: Option<R>,
 	cache: Option<C>,
+	time_spent: Arc<AtomicU64>,
 }
 
 impl<S, H> TrieBackendBuilder<S, H>
@@ -232,7 +254,7 @@ where
 {
 	/// Create a new builder instance.
 	pub fn new(storage: S, root: H::Out) -> Self {
-		Self { storage, root, recorder: None, cache: None }
+		Self { storage, root, recorder: None, cache: None, time_spent: Arc::new(AtomicU64::new(0)) }
 	}
 }
 
@@ -243,7 +265,13 @@ where
 {
 	/// Create a new builder instance.
 	pub fn new_with_cache(storage: S, root: H::Out, cache: C) -> Self {
-		Self { storage, root, recorder: None, cache: Some(cache) }
+		Self {
+			storage,
+			root,
+			recorder: None,
+			cache: Some(cache),
+			time_spent: Arc::new(AtomicU64::new(0)),
+		}
 	}
 	/// Wrap the given [`TrieBackend`].
 	///
@@ -257,6 +285,7 @@ where
 			storage: other.essence.backend_storage(),
 			root: *other.essence.root(),
 			recorder: None,
+			time_spent: other.time_spent.clone(),
 			cache: other.essence.trie_node_cache.as_ref(),
 		}
 	}
@@ -278,6 +307,7 @@ where
 			root: self.root,
 			storage: self.storage,
 			recorder: self.recorder,
+			time_spent: self.time_spent,
 		}
 	}
 
@@ -288,6 +318,7 @@ where
 			root: self.root,
 			storage: self.storage,
 			recorder: self.recorder,
+			time_spent: self.time_spent,
 		}
 	}
 
@@ -301,6 +332,7 @@ where
 				self.recorder,
 			),
 			next_storage_key_cache: Default::default(),
+			time_spent: self.time_spent,
 		}
 	}
 }
@@ -348,6 +380,7 @@ pub struct TrieBackend<
 > {
 	pub(crate) essence: TrieBackendEssence<S, H, C, R>,
 	next_storage_key_cache: CacheCell<Option<CachedIter<S, H, C, R>>>,
+	pub time_spent: Arc<AtomicU64>,
 }
 
 impl<
@@ -424,11 +457,20 @@ where
 	type RawIter = crate::trie_backend_essence::RawIter<S, H, C, R>;
 
 	fn storage_hash(&self, key: &[u8]) -> Result<Option<H::Out>, Self::Error> {
-		self.essence.storage_hash(key)
+		let start = Instant::now();
+		let res = self.essence.storage_hash(key);
+		self.time_spent
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn storage(&self, key: &[u8]) -> Result<Option<StorageValue>, Self::Error> {
-		self.essence.storage(key)
+		let start = Instant::now();
+
+		let res = self.essence.storage(key);
+		self.time_spent
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn child_storage_hash(
@@ -436,7 +478,12 @@ where
 		child_info: &ChildInfo,
 		key: &[u8],
 	) -> Result<Option<H::Out>, Self::Error> {
-		self.essence.child_storage_hash(child_info, key)
+		let start = Instant::now();
+
+		let res = self.essence.child_storage_hash(child_info, key);
+		self.time_spent
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn child_storage(
@@ -444,17 +491,27 @@ where
 		child_info: &ChildInfo,
 		key: &[u8],
 	) -> Result<Option<StorageValue>, Self::Error> {
-		self.essence.child_storage(child_info, key)
+		let start = Instant::now();
+
+		let res = self.essence.child_storage(child_info, key);
+		self.time_spent
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn closest_merkle_value(&self, key: &[u8]) -> Result<Option<MerkleValue<H::Out>>, Self::Error> {
-		self.essence.closest_merkle_value(key)
+		let start = Instant::now();
+
+		let res = self.essence.closest_merkle_value(key);
+		self.time_spent
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn time_duration(&self) -> u64 {
 		#[cfg(feature = "std")]
 		info!("time_duration is not implemented for TrieBackend");
-		999
+		99999999
 	}
 
 	fn child_closest_merkle_value(
@@ -462,10 +519,17 @@ where
 		child_info: &ChildInfo,
 		key: &[u8],
 	) -> Result<Option<MerkleValue<H::Out>>, Self::Error> {
-		self.essence.child_closest_merkle_value(child_info, key)
+		let start = Instant::now();
+
+		let res = self.essence.child_closest_merkle_value(child_info, key);
+		self.time_spent
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn next_storage_key(&self, key: &[u8]) -> Result<Option<StorageKey>, Self::Error> {
+		let start = Instant::now();
+
 		let (is_cached, mut cache) = access_cache(&self.next_storage_key_cache, Option::take)
 			.map(|cache| (cache.last_key == key, cache))
 			.unwrap_or_default();
@@ -498,7 +562,8 @@ where
 				.as_ref(),
 			Some(&next_key)
 		);
-
+		self.time_spent
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
 		Ok(Some(next_key))
 	}
 
@@ -507,11 +572,21 @@ where
 		child_info: &ChildInfo,
 		key: &[u8],
 	) -> Result<Option<StorageKey>, Self::Error> {
-		self.essence.next_child_storage_key(child_info, key)
+		let start = Instant::now();
+
+		let res = self.essence.next_child_storage_key(child_info, key);
+		self.time_spent
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn raw_iter(&self, args: IterArgs) -> Result<Self::RawIter, Self::Error> {
-		self.essence.raw_iter(args)
+		let start = Instant::now();
+
+		let res = self.essence.raw_iter(args);
+		self.time_spent
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn storage_root<'a>(
@@ -522,7 +597,12 @@ where
 	where
 		H::Out: Ord,
 	{
-		self.essence.storage_root(delta, state_version)
+		let start = Instant::now();
+
+		let res = self.essence.storage_root(delta, state_version);
+		self.time_spent
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn child_storage_root<'a>(
@@ -534,7 +614,12 @@ where
 	where
 		H::Out: Ord,
 	{
-		self.essence.child_storage_root(child_info, delta, state_version)
+		let start = Instant::now();
+
+		let res = self.essence.child_storage_root(child_info, delta, state_version);
+		self.time_spent
+			.fetch_add(start.elapsed().as_nanos() as u64, core::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn register_overlay_stats(&self, _stats: &crate::stats::StateMachineStats) {}

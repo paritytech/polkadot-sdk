@@ -46,6 +46,8 @@ pub struct LocalCallExecutor<Block: BlockT, B, E> {
 	code_provider: CodeProvider<Block, B, E>,
 	execution_extensions: Arc<ExecutionExtensions<Block>>,
 	time_in_storage: Arc<AtomicU64>,
+	time_in_ext: Arc<AtomicU64>,
+	time_in_call: Arc<AtomicU64>,
 }
 
 impl<Block: BlockT, B, E> LocalCallExecutor<Block, B, E>
@@ -68,6 +70,8 @@ where
 			code_provider,
 			execution_extensions: Arc::new(execution_extensions),
 			time_in_storage: Arc::new(AtomicU64::new(0)),
+			time_in_ext: Arc::new(AtomicU64::new(0)),
+			time_in_call: Arc::new(AtomicU64::new(0)),
 		})
 	}
 }
@@ -83,6 +87,8 @@ where
 			code_provider: self.code_provider.clone(),
 			execution_extensions: self.execution_extensions.clone(),
 			time_in_storage: self.time_in_storage.clone(),
+			time_in_ext: self.time_in_ext.clone(),
+			time_in_call: self.time_in_call.clone(),
 		}
 	}
 }
@@ -146,6 +152,7 @@ where
 		call_context: CallContext,
 		extensions: &RefCell<Extensions>,
 	) -> Result<Vec<u8>, sp_blockchain::Error> {
+		let start = std::time::Instant::now();
 		let state = self.backend.state_at(at_hash, call_context.into())?;
 
 		let changes = &mut *changes.borrow_mut();
@@ -179,9 +186,20 @@ where
 					call_context,
 				)
 				.set_parent_hash(at_hash);
+				// let start = std::time::Instant::now();
 				let res = state_machine.execute();
-				self.time_in_storage
-					.fetch_add(state.time_duration(), std::sync::atomic::Ordering::Relaxed);
+				if matches!(call_context, CallContext::Onchain) {
+					self.time_in_storage
+						.fetch_add(state.time_duration(), std::sync::atomic::Ordering::Relaxed);
+					self.time_in_ext.fetch_add(
+						state_machine.time_in_ext.load(std::sync::atomic::Ordering::Relaxed),
+						std::sync::atomic::Ordering::Relaxed,
+					);
+					self.time_in_call.fetch_add(
+						start.elapsed().as_nanos() as u64,
+						std::sync::atomic::Ordering::Relaxed,
+					);
+				}
 				res
 			},
 			None => {
@@ -197,8 +215,10 @@ where
 				)
 				.set_parent_hash(at_hash);
 				let res = state_machine.execute();
-				self.time_in_storage
-					.fetch_add(state.time_duration(), std::sync::atomic::Ordering::Relaxed);
+				if matches!(call_context, CallContext::Onchain) {
+					self.time_in_storage
+						.fetch_add(state.time_duration(), std::sync::atomic::Ordering::Relaxed);
+				}
 				res
 			},
 		}
@@ -245,11 +265,14 @@ where
 		.map_err(Into::into)
 	}
 
-	fn time_in_storage(&self) -> u64 {
+	fn time_in_storage(&self) -> (u64, u64, u64) {
 		let time = self.time_in_storage.load(std::sync::atomic::Ordering::Relaxed);
 		self.time_in_storage.store(0, std::sync::atomic::Ordering::Relaxed);
-
-		time
+		let ext_time = self.time_in_ext.load(std::sync::atomic::Ordering::Relaxed);
+		self.time_in_ext.store(0, std::sync::atomic::Ordering::Relaxed);
+		let call_time = self.time_in_call.load(std::sync::atomic::Ordering::Relaxed);
+		self.time_in_call.store(0, std::sync::atomic::Ordering::Relaxed);
+		(time, ext_time, call_time)
 	}
 }
 

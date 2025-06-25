@@ -342,9 +342,13 @@ where
 
 		let time_into_storage_into = state.time_duration();
 		log::info!(
-			"BlockBuilder:into: Time spent in storage: {} ns {} ns {} ns {} ns total {} ns",
-			time_in_storage,
-			time_in_storage_finalize,
+			"BlockBuilder:into: Time spent in storage: {} ns {} ns {} ns finalize {} ns {} ns  {} ns {} ns {} ns total {} ns",
+			time_in_storage.0,
+			time_in_storage.1,
+			time_in_storage.2,
+			time_in_storage_finalize.0,
+			time_in_storage_finalize.1,
+			time_in_storage_finalize.2,
 			time_into_storage_extract_proof,
 			time_into_storage_into,
 			start.elapsed().as_nanos()

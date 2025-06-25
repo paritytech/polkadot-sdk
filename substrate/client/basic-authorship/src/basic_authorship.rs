@@ -339,18 +339,24 @@ where
 		self.apply_inherents(&mut block_builder, inherent_data)?;
 
 		let mode = block_builder.extrinsic_inclusion_mode();
+		let apply_ext_timer = time::Instant::now();
+
 		let end_reason = match mode {
 			ExtrinsicInclusionMode::AllExtrinsics =>
 				self.apply_extrinsics(&mut block_builder, deadline, block_size_limit).await?,
 			ExtrinsicInclusionMode::OnlyInherents => EndProposingReason::TransactionForbidden,
 		};
-		let apply_extrinsics_end = block_timer.elapsed();
+		let apply_extrinsics_end = apply_ext_timer.elapsed();
 		let (block, storage_changes, proof) = block_builder.build()?.into_inner();
 		let block_took = block_timer.elapsed();
 
 		let proof =
 			PR::into_proof(proof).map_err(|e| sp_blockchain::Error::Application(Box::new(e)))?;
-		log::info!("BlockBuilder apply-extrinsics took: {} ns", apply_extrinsics_end.as_nanos());
+		log::info!(
+			"BlockBuilder apply-extrinsics took: {} ns {} ms",
+			apply_extrinsics_end.as_nanos(),
+			apply_extrinsics_end.as_millis()
+		);
 		self.print_summary(&block, end_reason, block_took, block_timer.elapsed());
 		Ok(Proposal { block, proof, storage_changes })
 	}
@@ -532,9 +538,13 @@ where
 		}
 		let time_in_storage = block_builder.call_api_at.time_in_storage();
 		info!(
-			"BlockBuilder::Time spent in storage: {} ms {} ns",
-			time_in_storage / 1_000_000,
-			time_in_storage
+			"BlockBuilder::Time spent in storage: {} ms {} ns {} ms {} ns {} ms {} ns",
+			time_in_storage.0 / 1_000_000,
+			time_in_storage.0,
+			time_in_storage.1 / 1_000_000,
+			time_in_storage.1,
+			time_in_storage.2 / 1_000_000,
+			time_in_storage.2
 		);
 
 		self.transaction_pool.report_invalid(Some(self.parent_hash), unqueue_invalid);

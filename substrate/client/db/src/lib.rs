@@ -148,7 +148,7 @@ impl<B: BlockT> RefTrackingState<B> {
 		storage: Arc<StorageDb<B>>,
 		parent_hash: Option<B::Hash>,
 	) -> Self {
-		RefTrackingState { state, parent_hash, storage, time_spent: Arc::new(AtomicU64::default()) }
+		RefTrackingState { time_spent: state.time_spent.clone(), state, parent_hash, storage }
 	}
 }
 
@@ -169,6 +169,7 @@ impl<Block: BlockT> std::fmt::Debug for RefTrackingState<Block> {
 /// A raw iterator over the `RefTrackingState`.
 pub struct RawIter<B: BlockT> {
 	inner: <DbState<HashingFor<B>> as StateBackend<HashingFor<B>>>::RawIter,
+	time_spent: Arc<AtomicU64>,
 }
 
 impl<B: BlockT> StorageIterator<HashingFor<B>> for RawIter<B> {
@@ -176,18 +177,35 @@ impl<B: BlockT> StorageIterator<HashingFor<B>> for RawIter<B> {
 	type Error = <DbState<HashingFor<B>> as StateBackend<HashingFor<B>>>::Error;
 
 	fn next_key(&mut self, backend: &Self::Backend) -> Option<Result<StorageKey, Self::Error>> {
-		self.inner.next_key(&backend.state)
+		let start = Instant::now();
+
+		let res = self.inner.next_key(&backend.state);
+		// self.time_spent
+		// 	.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn next_pair(
 		&mut self,
 		backend: &Self::Backend,
 	) -> Option<Result<(StorageKey, StorageValue), Self::Error>> {
-		self.inner.next_pair(&backend.state)
+		let start = Instant::now();
+
+		let res = self.inner.next_pair(&backend.state);
+		// self.time_spent
+		// 	.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		res
 	}
 
 	fn was_complete(&self) -> bool {
-		self.inner.was_complete()
+		let start = Instant::now();
+
+		let res = self.inner.was_complete();
+
+		self.time_spent
+			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+
+		res
 	}
 }
 
@@ -200,8 +218,8 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 	fn storage(&self, key: &[u8]) -> Result<Option<Vec<u8>>, Self::Error> {
 		let start = Instant::now();
 		let res = self.state.storage(key);
-		self.time_spent
-			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		// self.time_spent
+		// .fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
 		res
 	}
 
@@ -209,8 +227,8 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		let start = Instant::now();
 
 		let res = self.state.storage_hash(key);
-		self.time_spent
-			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		// self.time_spent
+		// .fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
 		res
 	}
 
@@ -222,8 +240,8 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		let start = Instant::now();
 
 		let res = self.state.child_storage(child_info, key);
-		self.time_spent
-			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		// self.time_spent
+		// .fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
 		res
 	}
 
@@ -235,8 +253,8 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		let start = Instant::now();
 
 		let res = self.state.child_storage_hash(child_info, key);
-		self.time_spent
-			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		// self.time_spent
+		// .fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
 		res
 	}
 
@@ -247,8 +265,8 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		let start = Instant::now();
 
 		let res = self.state.closest_merkle_value(key);
-		self.time_spent
-			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		// self.time_spent
+		// 	.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
 		res
 	}
 
@@ -260,8 +278,8 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		let start = Instant::now();
 
 		let res = self.state.child_closest_merkle_value(child_info, key);
-		self.time_spent
-			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		// self.time_spent
+		// 	.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
 		res
 	}
 
@@ -269,8 +287,8 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		let start = Instant::now();
 
 		let res = self.state.exists_storage(key);
-		self.time_spent
-			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		// self.time_spent
+		// 	.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
 		res
 	}
 
@@ -282,8 +300,8 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		let start = Instant::now();
 
 		let res = self.state.exists_child_storage(child_info, key);
-		self.time_spent
-			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		// self.time_spent
+		// 	.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
 		res
 	}
 
@@ -291,8 +309,8 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		let start = Instant::now();
 
 		let res = self.state.next_storage_key(key);
-		self.time_spent
-			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		// self.time_spent
+		// 	.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
 		res
 	}
 
@@ -304,8 +322,8 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		let start = Instant::now();
 
 		let res = self.state.next_child_storage_key(child_info, key);
-		self.time_spent
-			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		// self.time_spent
+		// 	.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
 		res
 	}
 
@@ -317,8 +335,8 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		let start = Instant::now();
 
 		let res = self.state.storage_root(delta, state_version);
-		self.time_spent
-			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		// self.time_spent
+		// 	.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
 		res
 	}
 
@@ -331,17 +349,20 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		let start = Instant::now();
 
 		let res = self.state.child_storage_root(child_info, delta, state_version);
-		self.time_spent
-			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		// self.time_spent
+		// 	.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
 		res
 	}
 
 	fn raw_iter(&self, args: IterArgs) -> Result<Self::RawIter, Self::Error> {
 		let start = Instant::now();
 
-		let res = self.state.raw_iter(args).map(|inner| RawIter { inner });
-		self.time_spent
-			.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+		let res = self
+			.state
+			.raw_iter(args)
+			.map(|inner| RawIter { inner, time_spent: self.time_spent.clone() });
+		// self.time_spent
+		// 	.fetch_add(start.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
 		res
 	}
 

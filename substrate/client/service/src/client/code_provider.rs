@@ -22,7 +22,7 @@ use sc_executor::{RuntimeVersion, RuntimeVersionOf};
 use sp_core::traits::{FetchRuntimeCode, RuntimeCode};
 use sp_runtime::traits::Block as BlockT;
 use sp_state_machine::{Ext, OverlayedChanges};
-use std::sync::Arc;
+use std::sync::{atomic::AtomicU64, Arc};
 
 /// Provider for fetching `:code` of a block.
 ///
@@ -155,7 +155,7 @@ where
 	) -> sp_blockchain::Result<RuntimeVersion> {
 		let mut overlay = OverlayedChanges::default();
 
-		let mut ext = Ext::new(&mut overlay, state, None);
+		let mut ext = Ext::new(&mut overlay, state, None, Arc::new(AtomicU64::new(0)));
 
 		self.executor
 			.runtime_version(&mut ext, code)

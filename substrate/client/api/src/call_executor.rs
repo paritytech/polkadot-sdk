@@ -78,7 +78,7 @@ pub trait CallExecutor<B: BlockT>: RuntimeVersionOf {
 		extensions: &RefCell<Extensions>,
 	) -> sp_blockchain::Result<Vec<u8>>;
 
-	fn time_in_storage(&self) -> u64;
+	fn time_in_storage(&self) -> (u64, u64, u64);
 
 	/// Extract RuntimeVersion of given block
 	///
