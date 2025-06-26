@@ -65,9 +65,12 @@ use crate::{
 };
 
 use super::{
-	metrics::MetricsLink as PrometheusMetrics, multi_view_listener::MultiViewListener,
-	view_store::ViewStore, RevalidationResult, RUNTIME_API_ERROR_WHILE_VALIDATING_CUSTOM_CODE,
-	TX_IN_INVALID_TX_SUBTREE,
+	metrics::MetricsLink as PrometheusMetrics,
+	multi_view_listener::MultiViewListener,
+	transaction_validation_util::{
+		RevalidationResult, RUNTIME_API_ERROR, TX_IN_INVALID_TX_SUBTREE,
+	},
+	view_store::ViewStore,
 };
 
 mod tx_mem_pool_map;
@@ -620,18 +623,20 @@ where
 		let invalid_hashes = validation_results
 			.into_iter()
 			.filter_map(|(tx_hash, xt, validation_result)| match validation_result {
-				Ok(Ok(validity)) => revalidated.insert(
-					tx_hash,
-					ValidatedTransaction::valid_at(
-						finalized_block.number.into().as_u64(),
+				Ok(Ok(validity)) => {
+					revalidated.insert(
 						tx_hash,
-						xt.source.clone(),
-						xt.tx().clone(),
-						self.api.hash_and_length(&xt.tx()).1,
-						validity,
-					),
-				),
-
+						ValidatedTransaction::valid_at(
+							finalized_block.number.into().as_u64(),
+							tx_hash,
+							xt.source.clone(),
+							xt.tx().clone(),
+							self.api.hash_and_length(&xt.tx()).1,
+							validity,
+						),
+					);
+					None
+				},
 				Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => None,
 				Err(ref error) => {
 					trace!(
@@ -646,7 +651,7 @@ where
 						ChainApi::Error::from(
 							sc_transaction_pool_api::error::Error::InvalidTransaction(
 								sp_runtime::transaction_validity::InvalidTransaction::Custom(
-									RUNTIME_API_ERROR_WHILE_VALIDATING_CUSTOM_CODE,
+									RUNTIME_API_ERROR,
 								),
 							),
 						),

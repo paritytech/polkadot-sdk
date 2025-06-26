@@ -381,20 +381,22 @@ mod view_store;
 
 pub use fork_aware_txpool::{ForkAwareTxPool, ForkAwareTxPoolTask};
 
-/// Error code representing a case of a failure during transaction validation,
-/// unrelated to the validation outcome from the runtime. Should be used if
-/// the error originates from a place different from the runtime validation per
-/// se (e.g. checking runtime api before tx validation fails).
-pub const RUNTIME_API_ERROR_WHILE_VALIDATING_CUSTOM_CODE: u8 = 1;
+// Holds various helper constant variables and types that are useful in determining
+// transaction validity.
+mod transaction_validation_util {
+	/// Represents a failure which happens outside of validation runtime API call.
+	/// Useful as code for custom invalid transactions.
+	pub(super) const RUNTIME_API_ERROR: u8 = 1;
 
-/// Code representing a case of declaring a transaction invalid by being part of the subtree of an
-/// invalid transaction decided as such through runtime validation.
-pub const TX_IN_INVALID_TX_SUBTREE: u8 = 2;
+	/// Represents a transaction declared as invalid because it part of a subtree of
+	/// an actual invalid transaction (per outcome of runtime validation).
+	pub(super) const TX_IN_INVALID_TX_SUBTREE: u8 = 2;
 
-/// Helper type containing revalidation result for both views & mempool.
-pub(super) struct RevalidationResult<ChainApi: graph::ChainApi> {
-	revalidated: IndexMap<ExtrinsicHash<ChainApi>, ValidatedTransactionFor<ChainApi>>,
-	invalid_hashes: Vec<ValidatedTransactionFor<ChainApi>>,
+	/// Helper type containing revalidation result for both views & mempool.
+	pub(super) struct RevalidationResult<ChainApi: graph::ChainApi> {
+		revalidated: IndexMap<ExtrinsicHash<ChainApi>, ValidatedTransactionFor<ChainApi>>,
+		invalid_hashes: Vec<ValidatedTransactionFor<ChainApi>>,
+	}
 }
 
 mod stream_map_util {

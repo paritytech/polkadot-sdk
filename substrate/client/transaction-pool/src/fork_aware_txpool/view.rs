@@ -24,8 +24,8 @@
 //! Refer to [*View*](../index.html#view) section for more details.
 
 use super::{
-	metrics::MetricsLink as PrometheusMetrics, RevalidationResult,
-	RUNTIME_API_ERROR_WHILE_VALIDATING_CUSTOM_CODE,
+	metrics::MetricsLink as PrometheusMetrics,
+	transaction_validation_util::{RevalidationResult, RUNTIME_API_ERROR},
 };
 use crate::{
 	common::tracing_log_xt::log_xt_trace,
@@ -546,7 +546,7 @@ where
 						ChainApi::Error::from(
 							sc_transaction_pool_api::error::Error::InvalidTransaction(
 								sp_runtime::transaction_validity::InvalidTransaction::Custom(
-									RUNTIME_API_ERROR_WHILE_VALIDATING_CUSTOM_CODE,
+									RUNTIME_API_ERROR,
 								),
 							),
 						),
