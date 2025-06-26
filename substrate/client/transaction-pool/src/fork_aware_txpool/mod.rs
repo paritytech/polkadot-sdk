@@ -366,9 +366,6 @@
 //! [`StreamOfDropped`]: crate::fork_aware_txpool::dropped_watcher::StreamOfDropped
 //! [`Arc`]: std::sync::Arc
 
-use crate::graph::{self, ExtrinsicHash, ValidatedTransactionFor};
-use indexmap::IndexMap;
-
 mod dropped_watcher;
 pub(crate) mod fork_aware_txpool;
 mod import_notification_sink;
@@ -384,6 +381,9 @@ pub use fork_aware_txpool::{ForkAwareTxPool, ForkAwareTxPoolTask};
 // Holds various helper constant variables and types that are useful in determining
 // transaction validity.
 mod transaction_validation_util {
+	use crate::graph::{self, ExtrinsicHash, ValidatedTransactionFor};
+	use indexmap::IndexMap;
+
 	/// Represents a failure which happens outside of validation runtime API call.
 	/// Useful as code for custom invalid transactions.
 	pub(super) const RUNTIME_API_ERROR: u8 = 1;
@@ -394,8 +394,9 @@ mod transaction_validation_util {
 
 	/// Helper type containing revalidation result for both views & mempool.
 	pub(super) struct RevalidationResult<ChainApi: graph::ChainApi> {
-		revalidated: IndexMap<ExtrinsicHash<ChainApi>, ValidatedTransactionFor<ChainApi>>,
-		invalid_hashes: Vec<ValidatedTransactionFor<ChainApi>>,
+		pub(super) revalidated:
+			IndexMap<ExtrinsicHash<ChainApi>, ValidatedTransactionFor<ChainApi>>,
+		pub(super) invalid_txs: Vec<ValidatedTransactionFor<ChainApi>>,
 	}
 }
 
