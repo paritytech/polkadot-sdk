@@ -407,10 +407,6 @@ mod transaction_validation_util {
 		}
 	}
 
-	// pub(super) const RUNTIME_API_ERROR: u8 = 1;
-	//
-	// pub(super) const TX_IN_INVALID_TX_SUBTREE: u8 = 2;
-
 	/// Helper type containing revalidation result for both views & mempool.
 	pub(super) struct RevalidationResult<ChainApi: graph::ChainApi> {
 		pub(super) revalidated:
