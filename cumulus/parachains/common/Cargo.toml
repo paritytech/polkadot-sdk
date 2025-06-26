@@ -63,7 +63,6 @@ std = [
 	"pallet-message-queue/std",
 	"pallet-treasury/std",
 	"pallet-xcm/std",
-	"pallet-treasury/std",
 	"parachain-info/std",
 	"polkadot-primitives/std",
 	"polkadot-runtime-common/std",
