@@ -774,9 +774,9 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
 	// Genesis benchmarking setup needs this until we remove the pallet completely.
-	#[cfg(feature = "runtime-benchmarks")]
+	#[cfg(not(feature = "on-chain-release-build"))]
 	type Filter = Nothing;
-	#[cfg(not(feature = "runtime-benchmarks"))]
+	#[cfg(feature = "on-chain-release-build")]
 	type Filter = frame_support::traits::Everything;
 }
 
