@@ -16,7 +16,7 @@ use ethabi::Token;
 use futures::{stream::FuturesUnordered, StreamExt};
 use pallet_revive::AddressMapper;
 use rand::Rng;
-use sp_core::{bytes::to_hex, H160, H256};
+use sp_core::{H160, H256};
 use std::str::FromStr;
 use zombienet_sdk::{
 	subxt::{
@@ -49,7 +49,7 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 		call_clients.push(call_client);
 	}
 	log::info!("Network is ready, waiting for warm-up to finish");
-	wait_warmup_finish(collator).await;
+	let _ = wait_warmup_finish(collator).await;
 
 	log::info!("Warm-up finished, starting test");
 	let alice = dev::alice();
@@ -113,7 +113,7 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 		call_clients.push(call_client);
 	}
 
-	wait_warmup_finish(collator).await;
+	let _ = wait_warmup_finish(collator).await;
 	log::info!("Warm-up finished, transfering ERC20 tokens");
 
 	call_contract(
