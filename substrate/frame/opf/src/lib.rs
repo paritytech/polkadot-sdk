@@ -73,12 +73,15 @@ pub mod pallet {
 		/// Provider for the block number.
 		type BlockNumberProvider: BlockNumberProvider;
 
+		/// The duration of a round in blocks, as counted by the configured block provider.
 		type RoundDuration: Get<
 			<<Self as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber,
 		>;
 
+		/// The instance of the conviction voting pallet to use for this pallet.
 		type ConvictionVotingInstance;
 
+		/// The fungible implementation for assets in pot, and transfered to projects.
 		type Fungible: fungible::Mutate<Self::AccountId>;
 
 		/// The number of rounds after which all the votes are reset.
@@ -88,21 +91,25 @@ pub mod pallet {
 		#[pallet::constant]
 		type PotId: Get<PalletId>;
 
-		/// Weight information for extrinsics.
-		type WeightInfo: weights::WeightInfo;
-
 		/// The maximum number of projects that can be registered.
 		type MaxProjects: Get<u32>;
+
+		/// Weight information for extrinsics.
+		type WeightInfo: weights::WeightInfo;
 	}
 
+	/// Type alias to access Moment as used in pallet conviction voting.
 	pub type MomentFor<T> = <<T as pallet_conviction_voting::Config<
 		<T as Config>::ConvictionVotingInstance,
 	>>::Polls as Polling<TallyFor<T>>>::Moment;
+	/// Type alias to access the Tally as used in pallet conviction voting.
 	pub type TallyFor<T> =
 		pallet_conviction_voting::TallyOf<T, <T as Config>::ConvictionVotingInstance>;
+	/// Type alias to access the Votes as used in pallet conviction voting.
 	pub type VotesFor<T> =
 		pallet_conviction_voting::BalanceOf<T, <T as Config>::ConvictionVotingInstance>;
 
+	/// The class of the poll. We use a single class.
 	#[derive(
 		Encode,
 		Decode,
@@ -118,20 +125,34 @@ pub mod pallet {
 	)]
 	pub struct Class;
 
+	/// The index of a round.
 	pub type RoundIndex = u32;
 
+	/// The information about a project.
 	#[derive(
 		Encode, Decode, MaxEncodedLen, Clone, Debug, TypeInfo, DecodeWithMemTracking, PartialEq, Eq,
 	)]
 	pub struct ProjectInfo<AccountId> {
+		/// The owner of the project.
+		///
+		/// They can manage the project information.
 		pub(crate) owner: AccountId,
+		/// The destination account where the funds will be sent.
 		pub(crate) fund_dest: AccountId,
+		/// The name of the project.
 		pub(crate) name: BoundedVec<u8, ConstUint<256>>,
+		/// The description of the project.
 		pub(crate) description: BoundedVec<u8, ConstUint<256>>,
 	}
 
+	/// The index of a project.
 	pub type ProjectIndex = u32;
 
+	/// The index of a poll.
+	///
+	/// It is a combination of the round index and the project index.
+	/// the 32 most significant bits are the round index, and the 32 least significant bits are the
+	/// project index.
 	#[derive(
 		Encode,
 		Decode,
@@ -150,30 +171,82 @@ pub mod pallet {
 	pub struct PollIndex(u64);
 
 	impl PollIndex {
+		/// Returns the round index of the poll.
 		pub fn round_index(self) -> RoundIndex {
 			(self.0 >> 32) as RoundIndex
 		}
+		/// Returns the project index of the poll.
 		pub fn project_index(self) -> ProjectIndex {
 			(self.0 & 0xFFFFFFFF) as ProjectIndex
 		}
+		/// Creates a new poll index from the round index and project index.
 		pub fn new(round_index: RoundIndex, project_index: ProjectIndex) -> Self {
 			Self(((round_index as u64) << 32) | (project_index as u64))
 		}
 	}
 
+	/// The information about the current round.
 	#[derive(Encode, Decode, MaxEncodedLen, Clone, Debug, TypeInfo, DecodeWithMemTracking)]
 	pub struct RoundInfo<BlockNumber, Votes> {
+		/// The block number when the round started.
 		pub starting_block: BlockNumber,
-		/// This follow a precise calculation. only overall yes amount for each project.
+		/// The total amount of votes in the round. This is not the sum of all votes but the sum of
+		/// all positive votes. Projects with negative ratios are not counted.
 		pub total_vote_amount: Votes,
 	}
 
+	/// The status of a poll.
 	#[derive(Encode, Decode, MaxEncodedLen, Clone, Debug, TypeInfo, DecodeWithMemTracking)]
 	pub enum PollInfo<Tally, Moment> {
+		/// The poll is ongoing, with the current tally and class.
 		Ongoing(Tally, Class),
+		/// The poll is completed, with the moment it was completed and whether it was approved.
 		Completed(Moment, bool),
 	}
 
+	/// A vote.
+	#[derive(Encode, Decode, MaxEncodedLen, Clone, Debug, TypeInfo, DecodeWithMemTracking)]
+	pub struct VoteInSession<Vote> {
+		/// The session in which the vote was cast. Session are incremented on every new round.
+		// TODO: we can remove session concept and use round directly.
+		pub session: u32,
+		/// The vote itself.
+		pub vote: Vote,
+	}
+
+	/// The information about the votes forwarding state.
+	#[derive(Encode, Decode, MaxEncodedLen, Clone, Debug, TypeInfo, DecodeWithMemTracking)]
+	pub struct VotesForwardingInfo<AccountId> {
+		/// The current session.
+		pub session: u32,
+		/// The state of the votes forwarding of previous sessions.
+		pub forwarding: ForwardingProcess<AccountId>,
+		/// The session in which the votes were reset.
+		///
+		/// Votes from sessions before this session will not be forwarded.
+		pub reset_session: Option<u32>,
+	}
+
+	impl<AccountId> Default for VotesForwardingInfo<AccountId> {
+		fn default() -> Self {
+			Self { session: 0, forwarding: ForwardingProcess::Start, reset_session: None }
+		}
+	}
+
+	/// The state of the votes forwarding system.
+	///
+	/// It iterates on all votes and forwards the votes that needs to be forwarded.
+	#[derive(Encode, Decode, MaxEncodedLen, Clone, Debug, TypeInfo, DecodeWithMemTracking)]
+	pub enum ForwardingProcess<AccountId> {
+		/// The process is starting. No votes has bee processed.
+		Start,
+		/// The process is in the middle of processing votes.
+		LastProcessed(ProjectIndex, AccountId),
+		/// The process is finished. All votes has been processed.
+		Finished,
+	}
+
+	/// The status of polls.
 	#[pallet::storage]
 	pub type Polls<T: Config> = StorageDoubleMap<
 		_,
@@ -185,9 +258,13 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	/// The next round index.
+	///
+	/// The current round index is `NextRoundIndex - 1` (or None if next round index is 0).
 	#[pallet::storage]
 	pub type NextRoundIndex<T> = StorageValue<_, RoundIndex, ValueQuery>;
 
+	/// The current round information if there is a current round.
 	#[pallet::storage]
 	pub type Round<T: Config> = StorageValue<
 		_,
@@ -198,17 +275,23 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	/// The next project index.
+	///
+	/// This is increemented every time a new project is registered.
 	#[pallet::storage]
 	pub type NextProjectIndex<T> = StorageValue<_, ProjectIndex, ValueQuery>;
 
+	/// The projects registered in the OPF.
 	#[pallet::storage]
 	pub type Projects<T: Config> =
 		CountedStorageMap<_, Twox64Concat, ProjectIndex, ProjectInfo<T::AccountId>, OptionQuery>;
 
+	/// The state of votes forwarding system.
 	#[pallet::storage]
 	pub type VotesForwardingState<T: Config> =
-		StorageValue<_, VotesForwardingStateInfo<T::AccountId>, ValueQuery>;
+		StorageValue<_, VotesForwardingInfo<T::AccountId>, ValueQuery>;
 
+	/// The votes to forward for each project and voter.
 	#[pallet::storage]
 	pub type VotesToForward<T: Config> = StorageDoubleMap<
 		_,
@@ -221,32 +304,6 @@ pub mod pallet {
 		>,
 		OptionQuery,
 	>;
-
-	#[derive(Encode, Decode, MaxEncodedLen, Clone, Debug, TypeInfo, DecodeWithMemTracking)]
-	pub struct VoteInSession<Vote> {
-		pub session: u32,
-		pub vote: Vote,
-	}
-
-	#[derive(Encode, Decode, MaxEncodedLen, Clone, Debug, TypeInfo, DecodeWithMemTracking)]
-	pub struct VotesForwardingStateInfo<AccountId> {
-		pub session: u32,
-		pub forwarding: VoteForwardingState<AccountId>,
-		pub reset_session: Option<u32>,
-	}
-
-	impl<AccountId> Default for VotesForwardingStateInfo<AccountId> {
-		fn default() -> Self {
-			Self { session: 0, forwarding: VoteForwardingState::Start, reset_session: None }
-		}
-	}
-
-	#[derive(Encode, Decode, MaxEncodedLen, Clone, Debug, TypeInfo, DecodeWithMemTracking)]
-	pub enum VoteForwardingState<AccountId> {
-		Start,
-		LastProcessed(ProjectIndex, AccountId),
-		Finished,
-	}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -263,10 +320,11 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
+		/// The project at the given index does not exist.
 		NoProjectAtIndex,
+		/// The account is not the owner of the project.
 		AccountIsNotProjectOwner,
-		AccountAlreadyHasProject,
-		NoVoteForAccountAndProject,
+		/// The maximum number of projects has been reached.
 		MaxProjectsReached,
 	}
 
@@ -301,6 +359,13 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		/// Register a new project.
+		///
+		/// Origin must be the admin origin.
+		///
+		/// The project is registered and be voted on in the next round and forward.
+		///
+		/// There is a maximum number of projects as configured by `MaxProjects`.
 		#[pallet::call_index(0)]
 		#[pallet::weight(<T as Config>::WeightInfo::register_project())]
 		pub fn register_project(
@@ -328,6 +393,9 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Manage the project information.
+		///
+		/// Origin must be the owner of the project.
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config>::WeightInfo::manage_project_info())]
 		pub fn manage_project_info(
@@ -346,6 +414,12 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Unregister a project.
+		///
+		/// Origin must be the admin origin.
+		///
+		/// The project is removed, its current poll is not ended but the reward will not be sent
+		/// and stay in the pot for the next round.
 		#[pallet::call_index(2)]
 		#[pallet::weight(<T as Config>::WeightInfo::unregister_project())]
 		pub fn unregister_project(origin: OriginFor<T>, index: ProjectIndex) -> DispatchResult {
@@ -358,6 +432,10 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Remove the automatic forwarding of a vote for a project.
+		///
+		/// Origin must be the voter account.
+		///
 		/// This is only effective if the voter doesn't vote again.
 		/// Any new vote will override this removal.
 		#[pallet::call_index(3)]
@@ -452,7 +530,7 @@ pub mod pallet {
 				vote_record_state.reset_session = Some(vote_record_state.session);
 			}
 			vote_record_state.session += 1;
-			vote_record_state.forwarding = VoteForwardingState::Start;
+			vote_record_state.forwarding = ForwardingProcess::Start;
 			VotesForwardingState::<T>::put(vote_record_state);
 		}
 
@@ -468,12 +546,12 @@ pub mod pallet {
 
 			let mut vote_record_state = VotesForwardingState::<T>::get();
 			let mut iterator = match &vote_record_state.forwarding {
-				VoteForwardingState::Start => VotesToForward::<T>::iter(),
-				VoteForwardingState::LastProcessed(k1, k2) => {
+				ForwardingProcess::Start => VotesToForward::<T>::iter(),
+				ForwardingProcess::LastProcessed(k1, k2) => {
 					let key = VotesToForward::<T>::hashed_key_for(k1.clone(), k2.clone());
 					VotesToForward::<T>::iter_from(key)
 				},
-				VoteForwardingState::Finished => return,
+				ForwardingProcess::Finished => return,
 			};
 
 			for _ in 0..10_000 {
@@ -503,9 +581,9 @@ pub mod pallet {
 						VotesToForward::<T>::remove(project_index, &voter);
 					}
 					vote_record_state.forwarding =
-						VoteForwardingState::LastProcessed(project_index, voter);
+						ForwardingProcess::LastProcessed(project_index, voter);
 				} else {
-					vote_record_state.forwarding = VoteForwardingState::Finished;
+					vote_record_state.forwarding = ForwardingProcess::Finished;
 					break;
 				}
 			}

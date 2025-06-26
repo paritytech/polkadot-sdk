@@ -259,9 +259,9 @@ mod benchmarks {
 				crate::VoteInSession { session: 0, vote: vote.clone() },
 			);
 		}
-		VotesForwardingState::<T>::put(VotesForwardingStateInfo {
+		VotesForwardingState::<T>::put(VotesForwardingInfo {
 			session: 1,
-			forwarding: VoteForwardingState::Start,
+			forwarding: ForwardingProcess::Start,
 			reset_session: None,
 		});
 

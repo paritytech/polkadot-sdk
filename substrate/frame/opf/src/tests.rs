@@ -432,14 +432,14 @@ mod forwarding {
 			run_to_block(6);
 			assert!(matches!(
 				VotesForwardingState::<Test>::get().forwarding,
-				crate::pallet::VoteForwardingState::LastProcessed(_, _),
+				crate::pallet::ForwardingProcess::LastProcessed(_, _),
 			));
 
 			// One extra block: forwarder should process the last entry.
 			run_to_block(7);
 			assert!(matches!(
 				VotesForwardingState::<Test>::get().forwarding,
-				crate::pallet::VoteForwardingState::Finished,
+				crate::pallet::ForwardingProcess::Finished,
 			));
 
 			// Assert that the poll for round 1, project 0 has the correct support (10,001)
