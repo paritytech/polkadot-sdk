@@ -22,7 +22,10 @@ use xcm::latest::{prelude::*, Weight};
 pub trait WeightBounds<RuntimeCall> {
 	/// Return the maximum amount of weight that an attempted execution of this message could
 	/// consume.
-	fn weight(message: &mut Xcm<RuntimeCall>) -> Result<Weight, XcmError>;
+	fn weight(
+		message: &mut Xcm<RuntimeCall>,
+		weight_limit: Weight,
+	) -> Result<Weight, InstructionError>;
 
 	/// Return the maximum amount of weight that an attempted execution of this instruction could
 	/// consume.
@@ -78,7 +81,7 @@ impl WeightTrader for Tuple {
 			match Tuple.buy_weight(weight, payment.clone(), context) {
 				Ok(assets) => {
 					tracing::trace!(
-						target: "xcm::buy_weight", 
+						target: "xcm::buy_weight",
 						%weight_trader,
 						"Buy weight succeeded",
 					);
@@ -92,7 +95,7 @@ impl WeightTrader for Tuple {
 					last_error = Some(error);
 
 					tracing::trace!(
-						target: "xcm::buy_weight", 
+						target: "xcm::buy_weight",
 						?error,
 						%weight_trader,
 						"Weight trader failed",

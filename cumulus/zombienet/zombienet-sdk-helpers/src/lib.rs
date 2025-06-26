@@ -2,9 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use anyhow::anyhow;
-use codec::Decode;
+use codec::{Compact, Decode};
+use cumulus_primitives_core::{relay_chain, rpsr_digest::RPSR_CONSENSUS_ID};
+use futures::stream::StreamExt;
 use polkadot_primitives::{vstaging::CandidateReceiptV2, Id as ParaId};
 use std::{
+	cmp::max,
 	collections::{HashMap, HashSet},
 	ops::Range,
 };
@@ -13,8 +16,8 @@ use tokio::{
 	time::{sleep, Duration},
 };
 use zombienet_sdk::subxt::{
-	blocks::Block, events::Events, ext::scale_value::value, tx::DynamicPayload, utils::H256,
-	OnlineClient, PolkadotConfig,
+	blocks::Block, config::substrate::DigestItem, events::Events, ext::scale_value::value,
+	tx::DynamicPayload, utils::H256, OnlineClient, PolkadotConfig,
 };
 
 // Maximum number of blocks to wait for a session change.
@@ -294,6 +297,11 @@ pub async fn assert_finality_lag(
 		return Err(anyhow::format_err!("Unable to fetch best an finalized block!"));
 	};
 	let finality_lag = best.number() - finalized.number();
+
+	log::info!(
+		"Finality lagged by {finality_lag} blocks, maximum expected was {maximum_lag} blocks"
+	);
+
 	assert!(finality_lag <= maximum_lag, "Expected finality to lag by a maximum of {maximum_lag} blocks, but was lagging by {finality_lag} blocks.");
 	Ok(())
 }
@@ -302,20 +310,87 @@ pub async fn assert_finality_lag(
 pub async fn assert_blocks_are_being_finalized(
 	client: &OnlineClient<PolkadotConfig>,
 ) -> Result<(), anyhow::Error> {
+	let sleep_duration = Duration::from_secs(12);
 	let mut finalized_blocks = client.blocks().subscribe_finalized().await?;
 	let first_measurement = finalized_blocks
 		.next()
 		.await
 		.ok_or(anyhow::anyhow!("Can't get finalized block from stream"))??
 		.number();
-	sleep(Duration::from_secs(12)).await;
+	sleep(sleep_duration).await;
 	let second_measurement = finalized_blocks
 		.next()
 		.await
 		.ok_or(anyhow::anyhow!("Can't get finalized block from stream"))??
 		.number();
 
+	log::info!(
+		"Finalized {} blocks within {sleep_duration:?}",
+		second_measurement - first_measurement
+	);
 	assert!(second_measurement > first_measurement);
 
 	Ok(())
+}
+
+/// Asserts that parachain blocks have the correct relay parent offset.
+///
+/// # Arguments
+///
+/// * `relay_client` - Client connected to a relay chain node
+/// * `para_client` - Client connected to a parachain node
+/// * `offset` - Expected minimum offset between relay parent and highest seen relay block
+/// * `block_limit` - Number of parachain blocks to verify before completing
+pub async fn assert_relay_parent_offset(
+	relay_client: &OnlineClient<PolkadotConfig>,
+	para_client: &OnlineClient<PolkadotConfig>,
+	offset: u32,
+	block_limit: u32,
+) -> Result<(), anyhow::Error> {
+	let mut relay_block_stream = relay_client.blocks().subscribe_all().await?;
+
+	// First parachain header #0 does not contains RSPR digest item.
+	let mut para_block_stream = para_client.blocks().subscribe_all().await?.skip(1);
+	let mut highest_relay_block_seen = 0;
+	let mut num_para_blocks_seen = 0;
+	loop {
+		tokio::select! {
+			Some(Ok(relay_block)) = relay_block_stream.next() => {
+				highest_relay_block_seen = max(relay_block.number(), highest_relay_block_seen);
+				if highest_relay_block_seen > 15 && num_para_blocks_seen == 0 {
+					return Err(anyhow!("No parachain blocks produced!"))
+				}
+			},
+			Some(Ok(para_block)) = para_block_stream.next() => {
+				let logs = &para_block.header().digest.logs;
+
+				let Some((_, relay_parent_number)): Option<(H256, u32)> = logs.iter().find_map(extract_relay_parent_storage_root) else {
+					return Err(anyhow!("No RPSR digest found in header #{}", para_block.number()));
+				};
+				log::debug!("Parachain block #{} was built on relay parent #{relay_parent_number}, highest seen was {highest_relay_block_seen}", para_block.number());
+				assert!(highest_relay_block_seen < offset || relay_parent_number <= highest_relay_block_seen.saturating_sub(offset), "Relay parent is not at the correct offset! relay_parent: #{relay_parent_number} highest_seen_relay_block: #{highest_relay_block_seen}");
+				num_para_blocks_seen += 1;
+				if num_para_blocks_seen >= block_limit {
+					log::info!("Successfully verified relay parent offset of {offset} for {num_para_blocks_seen} parachain blocks.");
+					break;
+				}
+			}
+		}
+	}
+	Ok(())
+}
+
+/// Extract relay parent information from the digest logs.
+fn extract_relay_parent_storage_root(
+	digest: &DigestItem,
+) -> Option<(relay_chain::Hash, relay_chain::BlockNumber)> {
+	match digest {
+		DigestItem::Consensus(id, val) if id == &RPSR_CONSENSUS_ID => {
+			let (h, n): (relay_chain::Hash, Compact<relay_chain::BlockNumber>) =
+				Decode::decode(&mut &val[..]).ok()?;
+
+			Some((h, n.0))
+		},
+		_ => None,
+	}
 }

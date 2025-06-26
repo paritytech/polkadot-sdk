@@ -96,7 +96,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![("-lparachain=trace").into()])
 				.with_default_resources(|resources| {
-					resources.with_request_cpu(2).with_request_memory("2G")
+					resources.with_request_cpu(4).with_request_memory("4G")
 				})
 				.with_genesis_overrides(json!({
 					"configuration": {

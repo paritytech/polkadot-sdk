@@ -38,61 +38,83 @@ pub struct FixedWeightBounds<T, C, M>(PhantomData<(T, C, M)>);
 impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M: Get<u32>> WeightBounds<C>
 	for FixedWeightBounds<T, C, M>
 {
-	fn weight(message: &mut Xcm<C>) -> Result<Weight, XcmError> {
+	fn weight(message: &mut Xcm<C>, weight_limit: Weight) -> Result<Weight, InstructionError> {
 		tracing::trace!(target: "xcm::weight", ?message, "FixedWeightBounds");
 		let mut instructions_left = M::get();
-		Self::weight_with_limit(message, &mut instructions_left).inspect_err(|&error| {
-			tracing::debug!(
-				target: "xcm::weight",
-				?error,
-				?instructions_left,
-				message_length = ?message.0.len(),
-				"Weight calculation failed for message"
-			);
-		})
+		Self::weight_with_limit(message, &mut instructions_left, weight_limit).inspect_err(
+			|&error| {
+				tracing::debug!(
+					target: "xcm::weight",
+					?error,
+					?instructions_left,
+					message_length = ?message.0.len(),
+					"Weight calculation failed for message"
+				);
+			},
+		)
 	}
 	fn instr_weight(instruction: &mut Instruction<C>) -> Result<Weight, XcmError> {
 		let mut max_value = u32::MAX;
-		Self::instr_weight_with_limit(instruction, &mut max_value).inspect_err(|&error| {
-			tracing::debug!(
-				target: "xcm::weight",
-				?error,
-				?instruction,
-				instrs_limit = ?max_value,
-				"Weight calculation failed for instruction"
-			);
-		})
+		Self::instr_weight_with_limit(instruction, &mut max_value, Weight::MAX).inspect_err(
+			|&error| {
+				tracing::debug!(
+					target: "xcm::weight",
+					?error,
+					?instruction,
+					instrs_limit = ?max_value,
+					"Weight calculation failed for instruction"
+				);
+			},
+		)
 	}
 }
 
 impl<T: Get<Weight>, C: Decode + GetDispatchInfo, M> FixedWeightBounds<T, C, M> {
-	fn weight_with_limit(message: &mut Xcm<C>, instrs_limit: &mut u32) -> Result<Weight, XcmError> {
-		let mut r: Weight = Weight::zero();
-		*instrs_limit = instrs_limit
-			.checked_sub(message.0.len() as u32)
-			.ok_or_else(|| XcmError::ExceedsStackLimit)?;
-		for instruction in message.0.iter_mut() {
-			r = r
-				.checked_add(&Self::instr_weight_with_limit(instruction, instrs_limit)?)
-				.ok_or_else(|| XcmError::Overflow)?;
+	fn weight_with_limit(
+		message: &mut Xcm<C>,
+		instructions_left: &mut u32,
+		weight_limit: Weight,
+	) -> Result<Weight, InstructionError> {
+		let mut total_weight: Weight = Weight::zero();
+		for (index, instruction) in message.0.iter_mut().enumerate() {
+			let index = index.try_into().unwrap_or(InstructionIndex::MAX);
+			*instructions_left = instructions_left
+				.checked_sub(1)
+				.ok_or_else(|| InstructionError { index, error: XcmError::ExceedsStackLimit })?;
+			let instruction_weight =
+				&Self::instr_weight_with_limit(instruction, instructions_left, weight_limit)
+					.map_err(|error| InstructionError { index, error })?;
+			total_weight = total_weight
+				.checked_add(instruction_weight)
+				.ok_or(InstructionError { index, error: XcmError::Overflow })?;
+			if total_weight.any_gt(weight_limit) {
+				return Err(InstructionError {
+					index,
+					error: XcmError::WeightLimitReached(total_weight),
+				});
+			}
 		}
-		Ok(r)
+		Ok(total_weight)
 	}
+
 	fn instr_weight_with_limit(
 		instruction: &mut Instruction<C>,
-		instrs_limit: &mut u32,
+		instructions_left: &mut u32,
+		weight_limit: Weight,
 	) -> Result<Weight, XcmError> {
-		let instr_weight = match instruction {
+		let instruction_weight = match instruction {
 			Transact { ref mut call, .. } =>
 				call.ensure_decoded()
 					.map_err(|_| XcmError::FailedToDecode)?
 					.get_dispatch_info()
 					.call_weight,
 			SetErrorHandler(xcm) | SetAppendix(xcm) | ExecuteWithOrigin { xcm, .. } =>
-				Self::weight_with_limit(xcm, instrs_limit)?,
+				Self::weight_with_limit(xcm, instructions_left, weight_limit)
+					.map_err(|outcome_error| outcome_error.error)?,
 			_ => Weight::zero(),
 		};
-		T::get().checked_add(&instr_weight).ok_or_else(|| XcmError::Overflow)
+		let total_weight = T::get().checked_add(&instruction_weight).ok_or(XcmError::Overflow)?;
+		Ok(total_weight)
 	}
 }
 
@@ -104,30 +126,34 @@ where
 	M: Get<u32>,
 	Instruction<C>: xcm::latest::GetWeight<W>,
 {
-	fn weight(message: &mut Xcm<C>) -> Result<Weight, XcmError> {
+	fn weight(message: &mut Xcm<C>, weight_limit: Weight) -> Result<Weight, InstructionError> {
 		tracing::trace!(target: "xcm::weight", ?message, "WeightInfoBounds");
 		let mut instructions_left = M::get();
-		Self::weight_with_limit(message, &mut instructions_left).inspect_err(|&error| {
-			tracing::debug!(
-				target: "xcm::weight",
-				?error,
-				?instructions_left,
-				message_length = ?message.0.len(),
-				"Weight calculation failed for message"
-			);
-		})
+		Self::weight_with_limit(message, &mut instructions_left, weight_limit).inspect_err(
+			|&error| {
+				tracing::debug!(
+					target: "xcm::weight",
+					?error,
+					?instructions_left,
+					message_length = ?message.0.len(),
+					"Weight calculation failed for message"
+				);
+			},
+		)
 	}
 	fn instr_weight(instruction: &mut Instruction<C>) -> Result<Weight, XcmError> {
 		let mut max_value = u32::MAX;
-		Self::instr_weight_with_limit(instruction, &mut max_value).inspect_err(|&error| {
-			tracing::debug!(
-				target: "xcm::weight",
-				?error,
-				?instruction,
-				instrs_limit = ?max_value,
-				"Weight calculation failed for instruction"
-			);
-		})
+		Self::instr_weight_with_limit(instruction, &mut max_value, Weight::MAX).inspect_err(
+			|&error| {
+				tracing::debug!(
+					target: "xcm::weight",
+					?error,
+					?instruction,
+					instrs_limit = ?max_value,
+					"Weight calculation failed for instruction"
+				);
+			},
+		)
 	}
 }
 
@@ -138,35 +164,54 @@ where
 	M: Get<u32>,
 	Instruction<C>: xcm::latest::GetWeight<W>,
 {
-	fn weight_with_limit(message: &mut Xcm<C>, instrs_limit: &mut u32) -> Result<Weight, XcmError> {
-		let mut r: Weight = Weight::zero();
-		*instrs_limit = instrs_limit
-			.checked_sub(message.0.len() as u32)
-			.ok_or_else(|| XcmError::ExceedsStackLimit)?;
-		for instruction in message.0.iter_mut() {
-			r = r
-				.checked_add(&Self::instr_weight_with_limit(instruction, instrs_limit)?)
-				.ok_or_else(|| XcmError::Overflow)?;
+	fn weight_with_limit(
+		message: &mut Xcm<C>,
+		instructions_left: &mut u32,
+		weight_limit: Weight,
+	) -> Result<Weight, InstructionError> {
+		let mut total_weight: Weight = Weight::zero();
+		for (index, instruction) in message.0.iter_mut().enumerate() {
+			let index = index.try_into().unwrap_or(u8::MAX);
+			*instructions_left = instructions_left
+				.checked_sub(1)
+				.ok_or_else(|| InstructionError { index, error: XcmError::ExceedsStackLimit })?;
+			let instruction_weight =
+				&Self::instr_weight_with_limit(instruction, instructions_left, weight_limit)
+					.map_err(|error| InstructionError { index, error })?;
+			total_weight = total_weight
+				.checked_add(instruction_weight)
+				.ok_or(InstructionError { index, error: XcmError::Overflow })?;
+			if total_weight.any_gt(weight_limit) {
+				return Err(InstructionError {
+					index,
+					error: XcmError::WeightLimitReached(total_weight),
+				});
+			}
 		}
-		Ok(r)
+		Ok(total_weight)
 	}
+
 	fn instr_weight_with_limit(
 		instruction: &mut Instruction<C>,
-		instrs_limit: &mut u32,
+		instructions_left: &mut u32,
+		weight_limit: Weight,
 	) -> Result<Weight, XcmError> {
-		let instr_weight = match instruction {
+		let instruction_weight = match instruction {
 			Transact { ref mut call, .. } =>
 				call.ensure_decoded()
 					.map_err(|_| XcmError::FailedToDecode)?
 					.get_dispatch_info()
 					.call_weight,
-			SetErrorHandler(xcm) | SetAppendix(xcm) => Self::weight_with_limit(xcm, instrs_limit)?,
+			SetErrorHandler(xcm) | SetAppendix(xcm) =>
+				Self::weight_with_limit(xcm, instructions_left, weight_limit)
+					.map_err(|outcome_error| outcome_error.error)?,
 			_ => Weight::zero(),
 		};
-		instruction
+		let total_weight = instruction
 			.weight()
-			.checked_add(&instr_weight)
-			.ok_or_else(|| XcmError::Overflow)
+			.checked_add(&instruction_weight)
+			.ok_or(XcmError::Overflow)?;
+		Ok(total_weight)
 	}
 }
 
