@@ -15,7 +15,6 @@ workspace = true
 frame-support = { workspace = true }
 pallet-broker = { workspace = true, default-features = true }
 pallet-message-queue = { workspace = true }
-pallet-xcm = { workspace = true }
 sp-runtime = { workspace = true }
 
 # Polkadot
