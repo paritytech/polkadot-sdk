@@ -24,7 +24,7 @@ use alloy_core::{
 use asset_hub_westend_runtime::{
 	governance, xcm_config,
 	xcm_config::{
-		bridging, CheckingAccount, LocationToAccountId, StakingPot,
+		bridging, CheckingAccount, GovernanceLocation, LocationToAccountId, StakingPot,
 		TrustBackedAssetsPalletLocation, WestendLocation, XcmConfig,
 	},
 	AllPalletsWithoutSystem, Assets, Balances, Block, ExistentialDeposit, ForeignAssets,
@@ -77,7 +77,7 @@ const BOB: [u8; 32] = [2u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
 
 parameter_types! {
-	pub Governance: GovernanceOrigin<RuntimeOrigin> = GovernanceOrigin::Origin(RuntimeOrigin::root());
+	pub Governance: GovernanceOrigin<RuntimeOrigin> = GovernanceOrigin::Location(GovernanceLocation::get());
 }
 
 type AssetIdForTrustBackedAssetsConvert =
@@ -1458,6 +1458,12 @@ fn governance_authorize_upgrade_works() {
 		Runtime,
 		RuntimeOrigin,
 	>(GovernanceOrigin::Location(Location::parent())));
+
+	// ok - governance location
+	assert_ok!(parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
+		Runtime,
+		RuntimeOrigin,
+	>(GovernanceOrigin::Location(GovernanceLocation::get())));
 }
 
 #[test]

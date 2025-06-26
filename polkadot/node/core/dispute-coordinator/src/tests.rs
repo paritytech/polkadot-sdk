@@ -37,8 +37,8 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem::{
 	messages::{
-		ApprovalVotingParallelMessage, ChainApiMessage, ChainSelectionMessage,
-		DisputeCoordinatorMessage, DisputeDistributionMessage, ImportStatementsResult,
+		ApprovalVotingMessage, ChainApiMessage, ChainSelectionMessage, DisputeCoordinatorMessage,
+		DisputeDistributionMessage, ImportStatementsResult,
 	},
 	overseer::FromOrchestra,
 	OverseerSignal,
@@ -578,6 +578,7 @@ impl TestState {
 			self.config,
 			self.subsystem_keystore.clone(),
 			Metrics::default(),
+			false,
 		);
 		let backend =
 			DbBackend::new(self.db.clone(), self.config.column_config(), Metrics::default());
@@ -682,8 +683,8 @@ pub async fn handle_approval_vote_request(
 ) {
 	assert_matches!(
 		ctx_handle.recv().await,
-		AllMessages::ApprovalVotingParallel(
-			ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate(hash, tx)
+		AllMessages::ApprovalVoting(
+			ApprovalVotingMessage::GetApprovalSignaturesForCandidate(hash, tx)
 		) => {
 			assert_eq!(&hash, expected_hash);
 			tx.send(votes_to_send).unwrap();
@@ -3909,8 +3910,8 @@ fn participation_requests_reprioritized_for_newly_included() {
 
 				handle_disabled_validators_queries(&mut virtual_overseer, Vec::new()).await;
 				// Handle corresponding messages to unblock import
-				// we need to handle
-				// `ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate` for import
+				// we need to handle `ApprovalVotingMessage::GetApprovalSignaturesForCandidate` for
+				// import
 				handle_approval_vote_request(
 					&mut virtual_overseer,
 					&candidate_hash,

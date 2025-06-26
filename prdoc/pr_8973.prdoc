@@ -1,9 +1,0 @@
-title: Add polkadot_parachain_peer_connectivity metric
-doc:
-- audience: Node Dev
-  description: |-
-    Adds `polkadot_parachain_peer_connectivity` histogram metric to better understand connectivity patterns.
-
-crates:
-- name: polkadot-network-bridge
-  bump: patch

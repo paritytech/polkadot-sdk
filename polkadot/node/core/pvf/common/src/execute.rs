@@ -14,11 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{error::InternalValidationError, ArtifactChecksum};
+use crate::error::InternalValidationError;
 use codec::{Decode, Encode};
-use polkadot_node_primitives::PoV;
 use polkadot_parachain_primitives::primitives::ValidationResult;
-use polkadot_primitives::{ExecutorParams, PersistedValidationData};
+use polkadot_primitives::ExecutorParams;
 use std::time::Duration;
 
 /// The payload of the one-time handshake that is done when a worker process is created. Carries
@@ -27,19 +26,6 @@ use std::time::Duration;
 pub struct Handshake {
 	/// The executor parameters.
 	pub executor_params: ExecutorParams,
-}
-
-/// A request to execute a PVF
-#[derive(Encode, Decode)]
-pub struct ExecuteRequest {
-	/// Persisted validation data.
-	pub pvd: PersistedValidationData,
-	/// Proof-of-validity.
-	pub pov: PoV,
-	/// Execution timeout.
-	pub execution_timeout: Duration,
-	/// Checksum of the artifact to execute.
-	pub artifact_checksum: ArtifactChecksum,
 }
 
 /// The response from the execution worker.
@@ -95,8 +81,6 @@ pub enum JobResponse {
 	InvalidCandidate(String),
 	/// PoV decompression failed
 	PoVDecompressionFailure,
-	/// The artifact is corrupted, re-prepare the artifact and try again.
-	CorruptedArtifact,
 }
 
 impl JobResponse {

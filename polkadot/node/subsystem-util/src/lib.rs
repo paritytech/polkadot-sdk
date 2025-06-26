@@ -99,9 +99,6 @@ pub mod reputation;
 
 mod determine_new_blocks;
 
-mod controlled_validator_indices;
-pub use controlled_validator_indices::ControlledValidatorIndices;
-
 #[cfg(test)]
 mod tests;
 

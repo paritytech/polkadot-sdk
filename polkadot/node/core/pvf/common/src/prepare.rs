@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::ArtifactChecksum;
 use codec::{Decode, Encode};
 use std::path::PathBuf;
 
@@ -22,7 +21,7 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, Default, Encode, Decode)]
 pub struct PrepareWorkerSuccess {
 	/// Checksum of the compiled PVF.
-	pub checksum: ArtifactChecksum,
+	pub checksum: String,
 	/// Stats of the current preparation run.
 	pub stats: PrepareStats,
 }
@@ -30,8 +29,6 @@ pub struct PrepareWorkerSuccess {
 /// Result of PVF preparation if successful.
 #[derive(Debug, Clone, Default)]
 pub struct PrepareSuccess {
-	/// Checksum of the compiled PVF.
-	pub checksum: ArtifactChecksum,
 	/// Canonical path to the compiled artifact.
 	pub path: PathBuf,
 	/// Size in bytes

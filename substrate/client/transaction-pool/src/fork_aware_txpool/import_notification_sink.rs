@@ -245,13 +245,6 @@ where
 			already_notified_items.remove(i);
 		});
 	}
-
-	/// Lenght of the `already_notified_items` set.
-	///
-	/// Exposed for testing only.
-	pub fn notified_items_len(&self) -> usize {
-		self.already_notified_items.read().len()
-	}
 }
 
 #[cfg(test)]

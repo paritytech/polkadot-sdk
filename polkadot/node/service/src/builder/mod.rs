@@ -90,6 +90,8 @@ pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	#[allow(dead_code)]
 	pub malus_finality_delay: Option<u32>,
 	pub hwbench: Option<sc_sysinfo::HwBench>,
+	/// Enable approval voting processing in parallel.
+	pub enable_approval_voting_parallel: bool,
 }
 
 /// Completely built polkadot node service.
@@ -142,6 +144,7 @@ where
 				overseer_handle.clone(),
 				metrics,
 				Some(basics.task_manager.spawn_handle()),
+				params.enable_approval_voting_parallel,
 			)
 		} else {
 			SelectRelayChain::new_longest_chain(basics.backend.clone())
@@ -199,6 +202,7 @@ where
 					prepare_workers_soft_max_num,
 					prepare_workers_hard_max_num,
 					keep_finalized_for,
+					enable_approval_voting_parallel,
 				},
 			overseer_connector,
 			partial_components:
@@ -440,6 +444,7 @@ where
 				dispute_coordinator_config,
 				chain_selection_config,
 				fetch_chunks_threshold,
+				enable_approval_voting_parallel,
 			})
 		};
 

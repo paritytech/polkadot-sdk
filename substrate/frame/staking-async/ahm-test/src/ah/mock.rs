@@ -285,7 +285,6 @@ impl multi_block::verifier::Config for Runtime {
 impl multi_block::unsigned::Config for Runtime {
 	type MinerPages = ConstU32<1>;
 	type WeightInfo = ();
-	type OffchainStorage = ConstBool<true>;
 	type MinerTxPriority = ConstU64<{ u64::MAX }>;
 	type OffchainRepeat = ();
 	type OffchainSolver = SequentialPhragmen<AccountId, Perbill>;
@@ -299,10 +298,12 @@ parameter_types! {
 }
 
 impl multi_block::signed::Config for Runtime {
+	type RuntimeHoldReason = RuntimeHoldReason;
+
 	type Currency = Balances;
+
 	type EjectGraceRatio = ();
 	type BailoutGraceRatio = ();
-	type InvulnerableDeposit = ();
 	type DepositBase = DepositBase;
 	type DepositPerPage = DepositPerPage;
 	type EstimateCallFee = ConstU32<1>;

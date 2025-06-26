@@ -16,10 +16,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use async_trait::async_trait;
-use codec::Encode;
 use criterion::{criterion_group, criterion_main, Criterion};
-use futures::executor::block_on;
+
+use codec::Encode;
+use futures::{
+	executor::block_on,
+	future::{ready, Ready},
+};
 use sc_transaction_pool::*;
 use sp_blockchain::HashAndNumber;
 use sp_crypto_hashing::blake2_256;
@@ -52,18 +55,18 @@ fn to_tag(nonce: u64, from: AccountId) -> Tag {
 	data.to_vec()
 }
 
-#[async_trait]
 impl ChainApi for TestApi {
 	type Block = Block;
 	type Error = sc_transaction_pool_api::error::Error;
+	type ValidationFuture = Ready<sc_transaction_pool_api::error::Result<TransactionValidity>>;
+	type BodyFuture = Ready<sc_transaction_pool_api::error::Result<Option<Vec<Extrinsic>>>>;
 
-	async fn validate_transaction(
+	fn validate_transaction(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
-		_: TransactionSource,
+		_source: TransactionSource,
 		uxt: Arc<<Self::Block as BlockT>::Extrinsic>,
-		_: ValidateTransactionPriority,
-	) -> Result<TransactionValidity, Self::Error> {
+	) -> Self::ValidationFuture {
 		let uxt = (*uxt).clone();
 		let transfer = TransferData::try_from(&uxt)
 			.expect("uxt is expected to be bench_call (carrying TransferData)");
@@ -71,11 +74,11 @@ impl ChainApi for TestApi {
 		let from = transfer.from;
 
 		match self.block_id_to_number(&BlockId::Hash(at)) {
-			Ok(Some(num)) if num > 5 => return Ok(Err(InvalidTransaction::Stale.into())),
+			Ok(Some(num)) if num > 5 => return ready(Ok(Err(InvalidTransaction::Stale.into()))),
 			_ => {},
 		}
 
-		Ok(Ok(ValidTransaction {
+		ready(Ok(Ok(ValidTransaction {
 			priority: 4,
 			requires: if nonce > 1 && self.nonce_dependant {
 				vec![to_tag(nonce - 1, from)]
@@ -85,7 +88,7 @@ impl ChainApi for TestApi {
 			provides: vec![to_tag(nonce, from)],
 			longevity: 10,
 			propagate: true,
-		}))
+		})))
 	}
 
 	fn validate_transaction_blocking(
@@ -93,7 +96,7 @@ impl ChainApi for TestApi {
 		_at: <Self::Block as BlockT>::Hash,
 		_source: TransactionSource,
 		_uxt: Arc<<Self::Block as BlockT>::Extrinsic>,
-	) -> Result<TransactionValidity, Self::Error> {
+	) -> sc_transaction_pool_api::error::Result<TransactionValidity> {
 		unimplemented!();
 	}
 
@@ -124,11 +127,8 @@ impl ChainApi for TestApi {
 		(blake2_256(&encoded).into(), encoded.len())
 	}
 
-	async fn block_body(
-		&self,
-		_id: <Self::Block as BlockT>::Hash,
-	) -> Result<Option<Vec<<Self::Block as BlockT>::Extrinsic>>, Self::Error> {
-		Ok(None)
+	fn block_body(&self, _id: <Self::Block as BlockT>::Hash) -> Self::BodyFuture {
+		ready(Ok(None))
 	}
 
 	fn block_header(

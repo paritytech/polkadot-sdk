@@ -27,17 +27,12 @@ mod imports {
 		assert_expected_events, Chain, Parachain, TestExt,
 	};
 	pub(crate) use rococo_system_emulated_network::{
-		asset_hub_rococo_emulated_chain::genesis::ED as ASSET_HUB_ROCOCO_ED,
 		coretime_rococo_emulated_chain::{
 			coretime_rococo_runtime::ExistentialDeposit as CoretimeRococoExistentialDeposit,
-			genesis::ED as CORETIME_ROCOCO_ED, CoretimeRococoParaPallet as CoretimeRococoPallet,
+			CoretimeRococoParaPallet as CoretimeRococoPallet,
 		},
-		rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
-		AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
-		AssetHubRococoParaSender as AssetHubRococoSender, CoretimeRococoPara as CoretimeRococo,
-		CoretimeRococoParaReceiver as CoretimeRococoReceiver,
+		CoretimeRococoPara as CoretimeRococo, CoretimeRococoParaReceiver as CoretimeRococoReceiver,
 		CoretimeRococoParaSender as CoretimeRococoSender, RococoRelay as Rococo,
-		RococoRelayReceiver as RococoReceiver, RococoRelaySender as RococoSender,
 	};
 }
 

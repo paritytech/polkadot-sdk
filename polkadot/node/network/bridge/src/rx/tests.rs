@@ -42,7 +42,7 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_subsystem::{
 	messages::{
-		AllMessages, ApprovalVotingParallelMessage, BitfieldDistributionMessage,
+		AllMessages, ApprovalDistributionMessage, BitfieldDistributionMessage,
 		GossipSupportMessage, StatementDistributionMessage,
 	},
 	ActiveLeavesUpdate, FromOrchestra, OverseerSignal,
@@ -525,6 +525,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		validation_service,
 		collation_service,
 		notification_sinks,
+		approval_voting_parallel_enabled: false,
 	};
 
 	let network_bridge = run_network_in(bridge, context)
@@ -568,8 +569,8 @@ async fn assert_sends_validation_event_to_all(
 
 	assert_matches!(
 		virtual_overseer.recv().await,
-		AllMessages::ApprovalVotingParallel(
-			ApprovalVotingParallelMessage::NetworkBridgeUpdate(e)
+		AllMessages::ApprovalDistribution(
+			ApprovalDistributionMessage::NetworkBridgeUpdate(e)
 		) if e == event.focus().expect("could not focus message")
 	);
 
@@ -1009,8 +1010,8 @@ fn peer_messages_sent_via_overseer() {
 
 		assert_matches!(
 			virtual_overseer.recv().await,
-			AllMessages::ApprovalVotingParallel(
-				ApprovalVotingParallelMessage::NetworkBridgeUpdate(
+			AllMessages::ApprovalDistribution(
+				ApprovalDistributionMessage::NetworkBridgeUpdate(
 					NetworkBridgeEvent::PeerMessage(p, ValidationProtocols::V3(m))
 				)
 			) => {
@@ -1615,15 +1616,13 @@ fn network_new_topology_update() {
 
 		assert_matches!(
 			virtual_overseer.recv().await,
-			AllMessages::ApprovalVotingParallel(
-				ApprovalVotingParallelMessage::NetworkBridgeUpdate(
-					NetworkBridgeEvent::NewGossipTopology(NewGossipTopology {
-						session: 1,
-						topology: _,
-						local_index: _,
-					})
-				)
-			)
+			AllMessages::ApprovalDistribution(ApprovalDistributionMessage::NetworkBridgeUpdate(
+				NetworkBridgeEvent::NewGossipTopology(NewGossipTopology {
+					session: 1,
+					topology: _,
+					local_index: _,
+				})
+			))
 		);
 
 		// 3. Send new gossip topology and check is sent to all subsystems.

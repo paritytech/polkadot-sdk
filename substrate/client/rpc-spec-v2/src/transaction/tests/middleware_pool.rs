@@ -137,12 +137,12 @@ impl TransactionPool for MiddlewarePool {
 		Ok(watcher.boxed())
 	}
 
-	async fn report_invalid(
+	fn report_invalid(
 		&self,
 		at: Option<<Self::Block as BlockT>::Hash>,
 		invalid_tx_errors: TxInvalidityReportMap<TxHash<Self>>,
 	) -> Vec<Arc<Self::InPoolTransaction>> {
-		self.inner_pool.report_invalid(at, invalid_tx_errors).await
+		self.inner_pool.report_invalid(at, invalid_tx_errors)
 	}
 
 	fn status(&self) -> PoolStatus {

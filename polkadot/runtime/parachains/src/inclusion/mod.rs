@@ -615,12 +615,8 @@ impl<T: Config> Pallet<T> {
 				}
 			});
 		}
-		// For relay chain blocks, we're (ab)using the proof size
-		// to limit the raw transaction size of `ParaInherent` and
-		// there's no state proof (aka PoV) associated with it.
-		// Since we already accounted for bitfields size, we should
-		// not include `enact_candidate` PoV impact here.
-		(weight.set_proof_size(0), freed_cores)
+
+		(weight, freed_cores)
 	}
 
 	/// Process candidates that have been backed. Provide a set of

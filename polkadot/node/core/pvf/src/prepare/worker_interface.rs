@@ -209,7 +209,7 @@ async fn handle_response(
 	// TODO: Add `checksum` to `ArtifactPathId`. See:
 	//       https://github.com/paritytech/polkadot-sdk/issues/2399
 	let PrepareWorkerSuccess {
-		checksum,
+		checksum: _,
 		stats: PrepareStats { cpu_time_elapsed, memory_stats, observed_wasm_code_len },
 	} = match result.clone() {
 		Ok(result) => result,
@@ -266,7 +266,6 @@ async fn handle_response(
 		Ok(()) => Outcome::Concluded {
 			worker,
 			result: Ok(PrepareSuccess {
-				checksum,
 				path: artifact_path,
 				size,
 				stats: PrepareStats {

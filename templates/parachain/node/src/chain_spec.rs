@@ -16,6 +16,9 @@ pub struct Extensions {
 	/// The relay chain of the Parachain.
 	#[serde(alias = "relayChain", alias = "RelayChain")]
 	pub relay_chain: String,
+	/// The id of the Parachain.
+	#[serde(alias = "paraId", alias = "ParaId")]
+	pub para_id: u32,
 }
 
 impl Extensions {
@@ -34,7 +37,7 @@ pub fn development_chain_spec() -> ChainSpec {
 
 	ChainSpec::builder(
 		runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain: RELAY_CHAIN.into() },
+		Extensions { relay_chain: RELAY_CHAIN.into(), para_id: runtime::PARACHAIN_ID },
 	)
 	.with_name("Development")
 	.with_id("dev")
@@ -51,9 +54,10 @@ pub fn local_chain_spec() -> ChainSpec {
 	properties.insert("tokenDecimals".into(), 12.into());
 	properties.insert("ss58Format".into(), 42.into());
 
+	#[allow(deprecated)]
 	ChainSpec::builder(
 		runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain: RELAY_CHAIN.into() },
+		Extensions { relay_chain: RELAY_CHAIN.into(), para_id: runtime::PARACHAIN_ID },
 	)
 	.with_name("Local Testnet")
 	.with_id("local_testnet")

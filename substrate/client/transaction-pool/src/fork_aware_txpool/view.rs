@@ -28,8 +28,8 @@ use crate::{
 	common::tracing_log_xt::log_xt_trace,
 	graph::{
 		self, base_pool::TimedTransactionSource, BlockHash, ExtrinsicFor, ExtrinsicHash,
-		IsValidator, TransactionFor, ValidateTransactionPriority, ValidatedPoolSubmitOutcome,
-		ValidatedTransaction, ValidatedTransactionFor,
+		IsValidator, TransactionFor, ValidatedPoolSubmitOutcome, ValidatedTransaction,
+		ValidatedTransactionFor,
 	},
 	LOG_TARGET,
 };
@@ -43,7 +43,7 @@ use sp_runtime::{
 	SaturatedConversion,
 };
 use std::{sync::Arc, time::Instant};
-use tracing::{debug, instrument, trace, Level};
+use tracing::{debug, trace};
 
 pub(super) struct RevalidationResult<ChainApi: graph::ChainApi> {
 	revalidated: IndexMap<ExtrinsicHash<ChainApi>, ValidatedTransactionFor<ChainApi>>,
@@ -311,25 +311,21 @@ where
 	}
 
 	/// Imports single unvalidated extrinsic into the view.
-	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "view::submit_one")]
 	pub(super) async fn submit_one(
 		&self,
 		source: TimedTransactionSource,
 		xt: ExtrinsicFor<ChainApi>,
-		validation_priority: ValidateTransactionPriority,
 	) -> Result<ValidatedPoolSubmitOutcome<ChainApi>, ChainApi::Error> {
-		self.submit_many(std::iter::once((source, xt)), validation_priority)
+		self.submit_many(std::iter::once((source, xt)))
 			.await
 			.pop()
 			.expect("There is exactly one result, qed.")
 	}
 
 	/// Imports many unvalidated extrinsics into the view.
-	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "view::submit_many")]
 	pub(super) async fn submit_many(
 		&self,
 		xts: impl IntoIterator<Item = (TimedTransactionSource, ExtrinsicFor<ChainApi>)>,
-		validation_priority: ValidateTransactionPriority,
 	) -> Vec<Result<ValidatedPoolSubmitOutcome<ChainApi>, ChainApi::Error>> {
 		if tracing::enabled!(target: LOG_TARGET, tracing::Level::TRACE) {
 			let xts = xts.into_iter().collect::<Vec<_>>();
@@ -339,9 +335,9 @@ where
 				"view::submit_many at:{}",
 				self.at.hash
 			);
-			self.pool.submit_at(&self.at, xts, validation_priority).await
+			self.pool.submit_at(&self.at, xts).await
 		} else {
-			self.pool.submit_at(&self.at, xts, validation_priority).await
+			self.pool.submit_at(&self.at, xts).await
 		}
 	}
 
@@ -417,7 +413,7 @@ where
 			revalidation_result_tx,
 		} = finish_revalidation_worker_channels;
 
-		debug!(
+		trace!(
 			target: LOG_TARGET,
 			at_hash = ?self.at.hash,
 			"view::revalidate: at starting"
@@ -442,7 +438,7 @@ where
 			let mut should_break = false;
 			tokio::select! {
 				_ = finish_revalidation_request_rx.recv() => {
-					debug!(
+					trace!(
 						target: LOG_TARGET,
 						at_hash = ?self.at.hash,
 						"view::revalidate: finish revalidation request received"
@@ -451,13 +447,7 @@ where
 				}
 				_ = async {
 					if let Some(tx) = batch_iter.next() {
-						let validation_result = (
-							api.validate_transaction(self.at.hash,
-								tx.source.clone().into(), tx.data.clone(),
-								ValidateTransactionPriority::Maintained).await,
-							tx.hash,
-							tx
-						);
+						let validation_result = (api.validate_transaction(self.at.hash, tx.source.clone().into(), tx.data.clone()).await, tx.hash, tx);
 						validation_results.push(validation_result);
 					} else {
 						self.revalidation_worker_channels.lock().as_mut().map(|ch| ch.remove_sender());
@@ -528,7 +518,7 @@ where
 			}
 		}
 
-		debug!(
+		trace!(
 			target: LOG_TARGET,
 			at_hash = ?self.at.hash,
 			"view::revalidate: sending revalidation result"
@@ -560,7 +550,7 @@ where
 			super::revalidation_worker::RevalidationQueue<ChainApi, ChainApi::Block>,
 		>,
 	) {
-		debug!(
+		trace!(
 			target: LOG_TARGET,
 			at_hash = ?view.at.hash,
 			"view::start_background_revalidation"

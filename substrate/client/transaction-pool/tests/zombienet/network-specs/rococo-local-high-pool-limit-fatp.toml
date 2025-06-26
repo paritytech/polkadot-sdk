@@ -18,7 +18,7 @@ default_args = [
 ]
 [relaychain.genesis.runtimeGenesis.patch.balances]
 devAccounts = [
-	1000,
+	100,
 	1000000000000000000,
 	"//Sender//{}",
 ]

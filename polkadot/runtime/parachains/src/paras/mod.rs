@@ -967,10 +967,8 @@ pub mod pallet {
 					panic!("empty validation code is not allowed in genesis");
 				}
 				Pallet::<T>::initialize_para_now(&mut parachains, *id, genesis_args);
-				if genesis_args.para_kind == ParaKind::Parachain {
-					T::AssignCoretime::assign_coretime(*id)
-						.expect("Assigning coretime works at genesis; qed");
-				}
+				T::AssignCoretime::assign_coretime(*id)
+					.expect("Assigning coretime works at genesis; qed");
 			}
 			// parachains are flushed on drop
 		}

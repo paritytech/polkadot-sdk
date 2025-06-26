@@ -1,6 +1,7 @@
 use polkadot_sdk::*;
 
 use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
+use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::info;
 use parachain_template_runtime::Block;
@@ -237,10 +238,16 @@ pub fn run() -> Result<()> {
 					})
 					.flatten();
 
+				let para_id = chain_spec::Extensions::try_get(&*config.chain_spec)
+					.map(|e| e.para_id)
+					.ok_or("Could not find parachain ID in chain-spec.")?;
+
 				let polkadot_cli = RelayChainCli::new(
 					&config,
 					[RelayChainCli::executable_name()].iter().chain(cli.relay_chain_args.iter()),
 				);
+
+				let id = ParaId::from(para_id);
 
 				let tokio_handle = config.tokio_handle.clone();
 				let polkadot_config =
@@ -253,6 +260,7 @@ pub fn run() -> Result<()> {
 					config,
 					polkadot_config,
 					collator_options,
+					id,
 					hwbench,
 				)
 				.await

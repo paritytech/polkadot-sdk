@@ -14,7 +14,6 @@
 // limitations under the License.
 use crate::{common::*, imports::*};
 use asset_hub_westend_runtime::governance::pallet_custom_origins::Origin;
-use emulated_integration_tests_common::impls::Parachain;
 
 #[test]
 fn assethub_can_authorize_upgrade_for_itself() {
@@ -36,7 +35,7 @@ fn assethub_can_authorize_upgrade_for_itself() {
 	let ok_origin: AssetHubRuntimeOrigin = Origin::WhitelistedCaller.into();
 
 	// store preimage
-	let call_hash = call_hash_of::<AssetHubWestend>(&authorize_upgrade);
+	let call_hash = dispatch_note_preimage_call::<AssetHubWestend>(authorize_upgrade.clone());
 
 	// Err - when dispatch non-whitelisted
 	assert_err!(
@@ -84,16 +83,12 @@ fn assethub_can_authorize_upgrade_for_itself() {
 
 	// check after - authorized
 	AssetHubWestend::execute_with(|| {
-		assert_eq!(
-			<AssetHubWestend as Chain>::System::authorized_upgrade().unwrap().code_hash(),
-			&code_hash
-		)
+		assert!(<AssetHubWestend as Chain>::System::authorized_upgrade().is_some())
 	});
 }
 
 #[test]
 fn assethub_can_authorize_upgrade_for_relay_chain() {
-	let code_hash = [1u8; 32].into();
 	type AssetHubRuntime = <AssetHubWestend as Chain>::Runtime;
 	type AssetHubRuntimeCall = <AssetHubWestend as Chain>::RuntimeCall;
 	type AssetHubRuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
@@ -102,8 +97,6 @@ fn assethub_can_authorize_upgrade_for_relay_chain() {
 		AssetHubRuntimeCall::Utility(pallet_utility::Call::<AssetHubRuntime>::force_batch {
 			calls: vec![build_xcm_send_authorize_upgrade_call::<AssetHubWestend, Westend>(
 				AssetHubWestend::parent_location(),
-				&code_hash,
-				None,
 			)],
 		});
 
@@ -112,7 +105,8 @@ fn assethub_can_authorize_upgrade_for_relay_chain() {
 	// ok origin
 	let ok_origin: AssetHubRuntimeOrigin = Origin::WhitelistedCaller.into();
 
-	let call_hash = call_hash_of::<AssetHubWestend>(&authorize_upgrade);
+	// store preimage
+	let call_hash = dispatch_note_preimage_call::<AssetHubWestend>(authorize_upgrade.clone());
 
 	// Err - when dispatch non-whitelisted
 	assert_err!(
@@ -157,12 +151,7 @@ fn assethub_can_authorize_upgrade_for_relay_chain() {
 	));
 
 	// check after - authorized
-	Westend::execute_with(|| {
-		assert_eq!(
-			<Westend as Chain>::System::authorized_upgrade().unwrap().code_hash(),
-			&code_hash
-		)
-	});
+	Westend::execute_with(|| assert!(<Westend as Chain>::System::authorized_upgrade().is_some()));
 }
 
 #[test]
@@ -171,33 +160,20 @@ fn assethub_can_authorize_upgrade_for_system_chains() {
 	type AssetHubRuntimeCall = <AssetHubWestend as Chain>::RuntimeCall;
 	type AssetHubRuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
 
-	let code_hash_bridge_hub = [2u8; 32].into();
-	let code_hash_collectives = [3u8; 32].into();
-	let code_hash_coretime = [4u8; 32].into();
-	let code_hash_people = [5u8; 32].into();
-
 	let authorize_upgrade =
 		AssetHubRuntimeCall::Utility(pallet_utility::Call::<AssetHubRuntime>::force_batch {
 			calls: vec![
 				build_xcm_send_authorize_upgrade_call::<AssetHubWestend, BridgeHubWestend>(
 					AssetHubWestend::sibling_location_of(BridgeHubWestend::para_id()),
-					&code_hash_bridge_hub,
-					None,
 				),
 				build_xcm_send_authorize_upgrade_call::<AssetHubWestend, CollectivesWestend>(
 					AssetHubWestend::sibling_location_of(CollectivesWestend::para_id()),
-					&code_hash_collectives,
-					None,
 				),
 				build_xcm_send_authorize_upgrade_call::<AssetHubWestend, CoretimeWestend>(
 					AssetHubWestend::sibling_location_of(CoretimeWestend::para_id()),
-					&code_hash_coretime,
-					None,
 				),
 				build_xcm_send_authorize_upgrade_call::<AssetHubWestend, PeopleWestend>(
 					AssetHubWestend::sibling_location_of(PeopleWestend::para_id()),
-					&code_hash_people,
-					None,
 				),
 			],
 		});
@@ -207,7 +183,8 @@ fn assethub_can_authorize_upgrade_for_system_chains() {
 	// ok origin
 	let ok_origin: AssetHubRuntimeOrigin = Origin::WhitelistedCaller.into();
 
-	let call_hash = call_hash_of::<AssetHubWestend>(&authorize_upgrade);
+	// store preimage
+	let call_hash = dispatch_note_preimage_call::<AssetHubWestend>(authorize_upgrade.clone());
 
 	// Err - when dispatch non-whitelisted
 	assert_err!(
@@ -264,27 +241,15 @@ fn assethub_can_authorize_upgrade_for_system_chains() {
 
 	// check after - authorized
 	BridgeHubWestend::execute_with(|| {
-		assert_eq!(
-			<BridgeHubWestend as Chain>::System::authorized_upgrade().unwrap().code_hash(),
-			&code_hash_bridge_hub
-		)
+		assert!(<BridgeHubWestend as Chain>::System::authorized_upgrade().is_some())
 	});
 	CollectivesWestend::execute_with(|| {
-		assert_eq!(
-			<CollectivesWestend as Chain>::System::authorized_upgrade().unwrap().code_hash(),
-			&code_hash_collectives
-		)
+		assert!(<CollectivesWestend as Chain>::System::authorized_upgrade().is_some())
 	});
 	CoretimeWestend::execute_with(|| {
-		assert_eq!(
-			<CoretimeWestend as Chain>::System::authorized_upgrade().unwrap().code_hash(),
-			&code_hash_coretime
-		)
+		assert!(<CoretimeWestend as Chain>::System::authorized_upgrade().is_some())
 	});
 	PeopleWestend::execute_with(|| {
-		assert_eq!(
-			<PeopleWestend as Chain>::System::authorized_upgrade().unwrap().code_hash(),
-			&code_hash_people
-		)
+		assert!(<PeopleWestend as Chain>::System::authorized_upgrade().is_some())
 	});
 }

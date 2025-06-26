@@ -530,9 +530,7 @@ where
 			);
 		}
 
-		self.transaction_pool
-			.report_invalid(Some(self.parent_hash), unqueue_invalid)
-			.await;
+		self.transaction_pool.report_invalid(Some(self.parent_hash), unqueue_invalid);
 		Ok(end_reason)
 	}
 
