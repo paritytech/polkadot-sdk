@@ -27,7 +27,7 @@ use cumulus_client_service::{
 #[docify::export(cumulus_primitives)]
 use cumulus_primitives_core::{
 	relay_chain::{CollatorPair, ValidationCode},
-	ParaId,
+	GetParachainInfo, ParaId,
 };
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 
@@ -41,6 +41,7 @@ use sc_network::NetworkBlock;
 use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
+use sp_api::ProvideRuntimeApi;
 use sp_keystore::KeystorePtr;
 
 #[docify::export(wasm_executor)]
@@ -236,7 +237,6 @@ pub async fn start_parachain_node(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
-	para_id: ParaId,
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient>)> {
 	let parachain_config = prepare_node_config(parachain_config);
@@ -275,6 +275,13 @@ pub async fn start_parachain_node(
 	let validator = parachain_config.role.is_authority();
 	let transaction_pool = params.transaction_pool.clone();
 	let import_queue_service = params.import_queue.service();
+
+	// Take parachain id from runtime.
+	let best_hash = client.chain_info().best_hash;
+	let para_id = client
+		.runtime_api()
+		.parachain_id(best_hash)
+		.map_err(|_| "Failed to retrieve parachain id from runtime. Make sure you implement `cumulus_primitives_core::GetParachaiNidentity` runtime API.")?;
 
 	// NOTE: because we use Aura here explicitly, we can use `CollatorSybilResistance::Resistant`
 	// when starting the network.
