@@ -259,15 +259,14 @@ fn public_matching_works() {
 fn primitives_have_no_code() {
 	for i in 0x01..0x0A {
 		let address = H160::from_low_u64_be(i).to_fixed_bytes();
-		let precompile = <Builtin<Test>>::get::<Env>(&address).unwrap();
-		assert_eq!(precompile.code(), &[0u8; 0]);
+		let code = <Builtin<Test>>::code(&address).unwrap();
+		assert_eq!(code, &[0u8; 0]);
 	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
 #[test]
 fn benchmarking_precompile_has_code() {
-	let precompile =
-		<Builtin<Test>>::get::<Env>(&hex!("000000000000000000000000000000000000FFFF")).unwrap();
-	assert_eq!(precompile.code(), &hex!("60006000fd"));
+	let code = <Builtin<Test>>::code(&hex!("000000000000000000000000000000000000FFFF")).unwrap();
+	assert_eq!(code, EVM_REVERT);
 }

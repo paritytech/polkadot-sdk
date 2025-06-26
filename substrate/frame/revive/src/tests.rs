@@ -3719,6 +3719,12 @@ fn to_account_id_works() {
 
 #[test]
 fn code_hash_works() {
+	use crate::precompiles::{Precompile, EVM_REVERT};
+	use precompiles::NoInfo;
+
+	let builtin_precompile = H160(NoInfo::<Test>::MATCHER.base_address());
+	let primitive_precompile = H160::from_low_u64_be(1);
+
 	let (code_hash_code, self_code_hash) = compile_module("code_hash").unwrap();
 	let (dummy_code, code_hash) = compile_module("dummy").unwrap();
 
@@ -3732,8 +3738,16 @@ fn code_hash_works() {
 
 		// code hash of dummy contract
 		assert_ok!(builder::call(addr).data((dummy_addr, code_hash).encode()).build());
-		// code has of itself
+		// code hash of itself
 		assert_ok!(builder::call(addr).data((addr, self_code_hash).encode()).build());
+		// code hash of primitive pre-compile (exist but have no bytecode)
+		assert_ok!(builder::call(addr)
+			.data((primitive_precompile, crate::exec::EMPTY_CODE_HASH).encode())
+			.build());
+		// code hash of normal pre-compile (do have a bytecode)
+		assert_ok!(builder::call(addr)
+			.data((builtin_precompile, sp_io::hashing::keccak_256(&EVM_REVERT)).encode())
+			.build());
 
 		// EOA doesn't exists
 		assert_err!(

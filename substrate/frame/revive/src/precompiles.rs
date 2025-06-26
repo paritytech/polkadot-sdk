@@ -55,7 +55,7 @@ pub(crate) use builtin::{IBenchmarking, NoInfo as BenchmarkNoInfo, WithInfo as B
 const UNIMPLEMENTED: &str = "A precompile must either implement `call` or `call_with_info`";
 
 /// A minimal EVM bytecode to be returned when a pre-compile is queried for its code.
-const EVM_REVERT: &[u8] = &sp_core::hex2array!("60006000fd");
+pub(crate) const EVM_REVERT: [u8; 5] = sp_core::hex2array!("60006000fd");
 
 /// The composition of all available pre-compiles.
 ///
@@ -230,7 +230,7 @@ pub(crate) trait BuiltinPrecompile {
 	type Interface: SolInterface;
 	const MATCHER: BuiltinAddressMatcher;
 	const HAS_CONTRACT_INFO: bool;
-	const CODE: &[u8] = EVM_REVERT;
+	const CODE: &[u8] = &EVM_REVERT;
 
 	fn call(
 		_address: &[u8; 20],
@@ -285,17 +285,11 @@ pub(crate) struct Instance<E> {
 	address: [u8; 20],
 	/// This is the function inside `PrimitivePrecompile` at `address`.
 	function: fn(&[u8; 20], Vec<u8>, &mut E) -> Result<Vec<u8>, Error>,
-	/// The code that is returned when it is queried via RPC or `EXTCODESIZE`.
-	code: &'static [u8],
 }
 
 impl<E> Instance<E> {
 	pub fn has_contract_info(&self) -> bool {
 		self.has_contract_info
-	}
-
-	pub fn code(&self) -> &'static [u8] {
-		self.code
 	}
 
 	pub fn call(&self, input: Vec<u8>, env: &mut E) -> ExecResult {
@@ -325,6 +319,13 @@ pub(crate) trait Precompiles<T: Config> {
 	/// This is just used to generate a compile time error if `Builtin` is using the external
 	/// range by accident.
 	const USES_EXTERNAL_RANGE: bool;
+
+	/// Returns the code of the pre-compile.
+	///
+	/// Just used when queried by `EXTCODESIZE` or the RPC. It is just
+	/// a bogus code that is never executed. Returns None if no pre-compile
+	/// exists at the specified address.
+	fn code(address: &[u8; 20]) -> Option<&'static [u8]>;
 
 	/// Get a reference to a specific pre-compile.
 	///
@@ -410,6 +411,17 @@ impl<T: Config> Precompiles<T> for Tuple {
 		uses_external
 	};
 
+	fn code(address: &[u8; 20]) -> Option<&'static [u8]> {
+		for_tuples!(
+			#(
+				if Tuple::MATCHER.matches(address) {
+					return Some(Tuple::CODE)
+				}
+			)*
+		);
+		None
+	}
+
 	fn get<E: ExtWithInfo<T = T>>(address: &[u8; 20]) -> Option<Instance<E>> {
 		let _ = <Self as Precompiles<T>>::CHECK_COLLISION;
 		let mut instance: Option<Instance<E>> = None;
@@ -421,14 +433,12 @@ impl<T: Config> Precompiles<T> for Tuple {
 							address: *address,
 							has_contract_info: true,
 							function: Tuple::call_with_info,
-							code: Tuple::CODE,
 						})
 					} else {
 						instance = Some(Instance {
 							address: *address,
 							has_contract_info: false,
 							function: Tuple::call,
-							code: Tuple::CODE,
 						})
 					}
 				}
@@ -446,6 +456,10 @@ impl<T: Config> Precompiles<T> for (Builtin<T>, <T as Config>::Precompiles) {
 		);
 	};
 	const USES_EXTERNAL_RANGE: bool = { <T as Config>::Precompiles::USES_EXTERNAL_RANGE };
+
+	fn code(address: &[u8; 20]) -> Option<&'static [u8]> {
+		<Builtin<T>>::code(address).or_else(|| <T as Config>::Precompiles::code(address))
+	}
 
 	fn get<E: ExtWithInfo<T = T>>(address: &[u8; 20]) -> Option<Instance<E>> {
 		let _ = <Self as Precompiles<T>>::CHECK_COLLISION;

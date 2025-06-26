@@ -1863,6 +1863,9 @@ where
 	}
 
 	fn code_hash(&self, address: &H160) -> H256 {
+		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()) {
+			return sp_io::hashing::keccak_256(code).into()
+		}
 		<ContractInfoOf<T>>::get(&address)
 			.map(|contract| contract.code_hash)
 			.unwrap_or_else(|| {
@@ -1874,6 +1877,9 @@ where
 	}
 
 	fn code_size(&self, address: &H160) -> u64 {
+		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()) {
+			return code.len() as u64
+		}
 		<ContractInfoOf<T>>::get(&address)
 			.and_then(|contract| CodeInfoOf::<T>::get(contract.code_hash))
 			.map(|info| info.code_len())
