@@ -34,14 +34,14 @@
 use futures::{future::join_all, FutureExt};
 use itertools::Itertools;
 use parking_lot::RwLock;
-use sc_transaction_pool_api::{error::IntoPoolError, TransactionPriority, TransactionSource};
+use sc_transaction_pool_api::{TransactionPriority, TransactionSource};
 use sp_blockchain::HashAndNumber;
 use sp_runtime::{
 	traits::Block as BlockT,
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 };
 use std::{
-	collections::HashSet,
+	collections::{HashMap, HashSet},
 	future::Future,
 	pin::Pin,
 	sync::{
@@ -57,7 +57,7 @@ use std::{
 use tracing::{debug, trace};
 
 use crate::{
-	common::{error, tracing_log_xt::log_xt_trace},
+	common::tracing_log_xt::log_xt_trace,
 	graph::{
 		self, base_pool::TimedTransactionSource, ExtrinsicFor, ExtrinsicHash, ValidatedTransaction,
 	},
@@ -66,7 +66,7 @@ use crate::{
 
 use super::{
 	metrics::MetricsLink as PrometheusMetrics, multi_view_listener::MultiViewListener,
-	view_store::ViewStore, RevalidationResult,
+	view_store::ViewStore, RevalidationResult, RUNTIME_API_ERROR_WHILE_VALIDATING_CUSTOM_CODE,
 };
 
 mod tx_mem_pool_map;
@@ -615,69 +615,57 @@ where
 		let input_len = validation_results.len();
 
 		let duration = start.elapsed();
-		let mut revalidated = indexmap::IndexMap::new();
 		let invalid_hashes = validation_results
 			.into_iter()
 			.filter_map(|(tx_hash, validation_result)| match validation_result {
 				Ok(Ok(_)) => None,
-				Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => {
-					revalidated.insert(
-						tx_hash,
-						ValidatedTransaction::Invalid(
-							tx_hash,
-							error::Error::from(
-								sc_transaction_pool_api::error::Error::InvalidTransaction(
-									InvalidTransaction::Future,
-								),
-							),
-						),
-					);
-					None
-				},
-				Err(err) => {
+				Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => None,
+				Err(ref error) => {
 					trace!(
 						target: LOG_TARGET,
 						?tx_hash,
 						?validation_result,
-						"mempool::revalidate_inner invalid"
+						?error,
+						"mempool::revalidate_inner error during revalidation"
 					);
-					Some(tx_hash)
+					Some(ValidatedTransaction::Invalid(
+						tx_hash,
+						ChainApi::Error::from(
+							sc_transaction_pool_api::error::Error::InvalidTransaction(
+								sp_runtime::transaction_validity::InvalidTransaction::Custom(
+									RUNTIME_API_ERROR_WHILE_VALIDATING_CUSTOM_CODE,
+								),
+							),
+						),
+					))
 				},
 				Ok(Err(TransactionValidityError::Unknown(err))) => {
 					trace!(
 						target: LOG_TARGET,
 						?tx_hash,
 						?validation_result,
-						"mempool::revalidate_inner invalid"
+						"mempool::revalidate_inner cannot determine transaction validity"
 					);
-					revalidated.insert(
+					Some(ValidatedTransaction::Unknown(
 						tx_hash,
-						ValidatedTransaction::Unknown(
-							tx_hash,
-							error::Error::from(
-								sc_transaction_pool_api::error::Error::UnknownTransaction(err),
-							),
+						ChainApi::Error::from(
+							sc_transaction_pool_api::error::Error::UnknownTransaction(err),
 						),
-					);
-					Some(tx_hash)
+					))
 				},
 				Ok(Err(TransactionValidityError::Invalid(err))) => {
 					trace!(
 						target: LOG_TARGET,
 						?tx_hash,
 						?validation_result,
-						"mempool::revalidate_inner invalid"
+						"mempool::revalidate_inner transaction is invalid"
 					);
-					revalidated.insert(
+					Some(ValidatedTransaction::Invalid(
 						tx_hash,
-						ValidatedTransaction::Invalid(
-							tx_hash,
-							error::Error::from(
-								sc_transaction_pool_api::error::Error::InvalidTransaction(err),
-							),
+						ChainApi::Error::from(
+							sc_transaction_pool_api::error::Error::InvalidTransaction(err),
 						),
-					);
-					Some(tx_hash)
+					))
 				},
 			})
 			.collect::<Vec<_>>();
@@ -692,7 +680,7 @@ where
 			"mempool::revalidate_inner"
 		);
 
-		RevalidationResult { revalidated, invalid_hashes }
+		RevalidationResult { revalidated: indexmap::IndexMap::new(), invalid_hashes }
 	}
 
 	/// Removes the finalized transactions from the memory pool, using a provided list of hashes.
@@ -719,12 +707,27 @@ where
 		view_store: Arc<ViewStore<ChainApi, Block>>,
 		finalized_block: HashAndNumber<Block>,
 	) {
-		let RevalidationResult { revalidated, invalid_hashes: revalidated_invalid_hashes } =
+		let RevalidationResult { invalid_hashes: revalidated_invalid_txs, .. } =
 			self.revalidate_inner(finalized_block.clone()).await;
 
-		let mut invalid_hashes_subtrees =
-			revalidated_invalid_hashes.clone().into_iter().collect::<HashSet<_>>();
-		for tx in &revalidated_invalid_hashes {
+		let revalidated_invalid_hashes_len = revalidated_invalid_txs.len();
+		let mut revalidated_invalid_txs_to_error = HashMap::new();
+		let mut invalid_hashes_subtrees = revalidated_invalid_txs
+			.into_iter()
+			.filter_map(|validated_tx| match validated_tx {
+				ValidatedTransaction::Invalid(hash, err) => {
+					revalidated_invalid_txs_to_error.insert(hash.clone(), err);
+					Some(hash)
+				},
+				ValidatedTransaction::Unknown(hash, err) => {
+					revalidated_invalid_txs_to_error.insert(hash.clone(), err);
+					Some(hash)
+				},
+				ValidatedTransaction::Valid(_) => None,
+			})
+			.collect::<HashSet<_>>();
+
+		for tx in revalidated_invalid_txs_to_error.keys() {
 			invalid_hashes_subtrees.extend(
 				view_store
 					.remove_transaction_subtree(*tx, |_, _| {})
@@ -746,7 +749,6 @@ where
 				.inc_by(invalid_hashes_subtrees.len() as _)
 		});
 
-		let revalidated_invalid_hashes_len = revalidated_invalid_hashes.len();
 		let invalid_hashes_subtrees_len = invalid_hashes_subtrees.len();
 
 		let invalid_hashes_subtrees = invalid_hashes_subtrees.into_iter().collect::<Vec<_>>();

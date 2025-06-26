@@ -366,6 +366,9 @@
 //! [`StreamOfDropped`]: crate::fork_aware_txpool::dropped_watcher::StreamOfDropped
 //! [`Arc`]: std::sync::Arc
 
+use crate::graph::{self, ExtrinsicHash, ValidatedTransactionFor};
+use indexmap::IndexMap;
+
 mod dropped_watcher;
 pub(crate) mod fork_aware_txpool;
 mod import_notification_sink;
@@ -377,14 +380,13 @@ mod view;
 mod view_store;
 
 pub use fork_aware_txpool::{ForkAwareTxPool, ForkAwareTxPoolTask};
-use indexmap::IndexMap;
 
-use crate::graph::{self, ExtrinsicHash, ValidatedTransactionFor};
+pub const RUNTIME_API_ERROR_WHILE_VALIDATING_CUSTOM_CODE: u8 = 1u8;
 
 /// Helper type containing revalidation result for both views & mempool.
 pub(super) struct RevalidationResult<ChainApi: graph::ChainApi> {
 	revalidated: IndexMap<ExtrinsicHash<ChainApi>, ValidatedTransactionFor<ChainApi>>,
-	invalid_hashes: Vec<ExtrinsicHash<ChainApi>>,
+	invalid_hashes: Vec<ValidatedTransactionFor<ChainApi>>,
 }
 
 mod stream_map_util {

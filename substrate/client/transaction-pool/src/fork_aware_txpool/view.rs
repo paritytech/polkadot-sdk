@@ -23,7 +23,10 @@
 //!
 //! Refer to [*View*](../index.html#view) section for more details.
 
-use super::{metrics::MetricsLink as PrometheusMetrics, RevalidationResult};
+use super::{
+	metrics::MetricsLink as PrometheusMetrics, RevalidationResult,
+	RUNTIME_API_ERROR_WHILE_VALIDATING_CUSTOM_CODE,
+};
 use crate::{
 	common::tracing_log_xt::log_xt_trace,
 	graph::{
@@ -486,8 +489,19 @@ where
 		);
 		for (validation_result, tx_hash, tx) in validation_results {
 			match validation_result {
-				Ok(Err(TransactionValidityError::Invalid(_))) => {
-					invalid_hashes.push(tx_hash);
+				Ok(Err(TransactionValidityError::Invalid(error))) => {
+					trace!(
+						target: LOG_TARGET,
+						?tx_hash,
+						?error,
+						"Removing. Transaction is invalid"
+					);
+					invalid_hashes.push(ValidatedTransaction::Invalid(
+						tx_hash,
+						ChainApi::Error::from(
+							sc_transaction_pool_api::error::Error::InvalidTransaction(error),
+						),
+					));
 				},
 				Ok(Ok(validity)) => {
 					revalidated.insert(
@@ -509,7 +523,12 @@ where
 						?error,
 						"Removing. Cannot determine transaction validity"
 					);
-					invalid_hashes.push(tx_hash);
+					invalid_hashes.push(ValidatedTransaction::Unknown(
+						tx_hash,
+						ChainApi::Error::from(
+							sc_transaction_pool_api::error::Error::UnknownTransaction(error),
+						),
+					));
 				},
 				Err(error) => {
 					trace!(
@@ -518,7 +537,20 @@ where
 						%error,
 						"Removing due to error during revalidation"
 					);
-					invalid_hashes.push(tx_hash);
+					// TODO: ideally the erroring should be refactored so that we can get
+					// a `ChainApi::Error`. In this case `validate_transaction` returns a
+					// non-pool error (e.g. `common::error::Error::RuntimeApi(String)`), which we
+					// interpret as a custom invalid transaction.
+					invalid_hashes.push(ValidatedTransaction::Invalid(
+						tx_hash,
+						ChainApi::Error::from(
+							sc_transaction_pool_api::error::Error::InvalidTransaction(
+								sp_runtime::transaction_validity::InvalidTransaction::Custom(
+									RUNTIME_API_ERROR_WHILE_VALIDATING_CUSTOM_CODE,
+								),
+							),
+						),
+					));
 				},
 			}
 		}
@@ -619,8 +651,17 @@ where
 		if let Some(revalidation_result) = revalidation_result_rx.recv().await {
 			let start = Instant::now();
 			let revalidated_len = revalidation_result.revalidated.len();
+			let invalid_hashes = revalidation_result
+				.invalid_hashes
+				.iter()
+				.filter_map(|validated_tx| match validated_tx {
+					ValidatedTransaction::Invalid(hash, _) => Some(hash.clone()),
+					ValidatedTransaction::Unknown(hash, _) => Some(hash.clone()),
+					ValidatedTransaction::Valid(_) => None,
+				})
+				.collect::<Vec<_>>();
 			let validated_pool = self.pool.validated_pool();
-			validated_pool.remove_invalid(&revalidation_result.invalid_hashes);
+			validated_pool.remove_invalid(invalid_hashes.as_slice());
 			if revalidated_len > 0 {
 				self.pool.resubmit(revalidation_result.revalidated);
 			}
