@@ -86,7 +86,6 @@ use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
 };
-use crate::xcm_config::AssetHubLocation;
 
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;

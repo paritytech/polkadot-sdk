@@ -41,6 +41,7 @@ use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use sp_runtime::traits::AccountIdConversion;
 use westend_runtime_constants::system_parachain::COLLECTIVES_ID;
+use testnet_parachains_constants::westend::locations::AssetHubLocation;
 use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_builder::{
 	AccountId32Aliases, AliasChildLocation, AliasOriginRootUsingFilter,
