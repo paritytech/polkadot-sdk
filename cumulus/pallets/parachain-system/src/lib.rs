@@ -1178,14 +1178,15 @@ impl<T: Config> Pallet<T> {
 		expected_dmq_mqc_head: relay_chain::Hash,
 		downward_messages: AbridgedInboundDownwardMessages,
 	) -> Weight {
-		downward_messages.check_advancement_rule("DMQ", Self::messages_collection_size_limit());
+		downward_messages
+			.check_enough_messages_included("DMQ", Self::messages_collection_size_limit());
 
 		let mut dmq_head = <LastDmqMqcHead<T>>::get();
 
 		let (messages, hashed_messages) = downward_messages.messages();
 		let message_count = messages.len() as u32;
 		let weight_used = T::WeightInfo::enqueue_inbound_downward_messages(message_count);
-		if message_count != 0 {
+		if let Some(last_msg) = messages.last() {
 			Self::deposit_event(Event::DownwardMessagesReceived { count: message_count });
 
 			// Eagerly update the MQC head hash:
@@ -1198,10 +1199,8 @@ impl<T: Config> Pallet<T> {
 				dmq_head: dmq_head.head(),
 			});
 
-			let mut last_processed_msg = InboundMessageId {
-				sent_at: messages.last().map(|msg| msg.sent_at).unwrap_or(0),
-				reverse_idx: 0,
-			};
+			let mut last_processed_msg =
+				InboundMessageId { sent_at: last_msg.sent_at, reverse_idx: 0 };
 			for msg in hashed_messages {
 				dmq_head.extend_with_hashed_msg(msg);
 
@@ -1260,7 +1259,8 @@ impl<T: Config> Pallet<T> {
 		relay_parent_number: relay_chain::BlockNumber,
 	) -> Weight {
 		// First, check the HRMP advancement rule.
-		horizontal_messages.check_advancement_rule("HRMP", Self::messages_collection_size_limit());
+		horizontal_messages
+			.check_enough_messages_included("HRMP", Self::messages_collection_size_limit());
 		// Then, check that all submitted messages are sent from channels that exist. The
 		// channel exists if its MQC head is present in `vfp.hrmp_mqc_heads`.
 		for sender in horizontal_messages.get_senders() {
@@ -1292,7 +1292,7 @@ impl<T: Config> Pallet<T> {
 
 			mqc_heads.entry(*sender).or_default().extend_hrmp(msg);
 		}
-		<LastHrmpMqcHeads<T>>::put(mqc_heads.clone());
+		<LastHrmpMqcHeads<T>>::put(&mqc_heads);
 		for (sender, msg) in hashed_messages {
 			mqc_heads.entry(*sender).or_default().extend_with_hashed_msg(msg);
 

@@ -16,7 +16,11 @@
 
 //! Cumulus parachain inherent related structures.
 
-use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
+use alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	vec,
+	vec::Vec,
+};
 use core::fmt::Debug;
 use cumulus_primitives_core::{
 	relay_chain::{
@@ -111,11 +115,10 @@ impl<Message: InboundMessage> InboundMessagesCollection<Message> {
 	pub fn drop_processed_messages(&mut self, last_processed_msg: &InboundMessageId) {
 		let mut last_processed_msg_idx = None;
 		let messages = &mut self.messages;
-		for (rev_idx, message) in messages.iter().rev().enumerate() {
-			let idx = (messages.len() - rev_idx - 1) as u32;
+		for (idx, message) in messages.iter().enumerate().rev() {
 			let sent_at = message.sent_at();
 			if sent_at == last_processed_msg.sent_at {
-				last_processed_msg_idx = idx.checked_sub(last_processed_msg.reverse_idx);
+				last_processed_msg_idx = idx.checked_sub(last_processed_msg.reverse_idx as usize);
 				break;
 			}
 			if sent_at < last_processed_msg.sent_at {
@@ -124,7 +127,7 @@ impl<Message: InboundMessage> InboundMessagesCollection<Message> {
 			}
 		}
 		if let Some(last_processed_msg_idx) = last_processed_msg_idx {
-			messages.drain(..last_processed_msg_idx as usize + 1);
+			messages.drain(..last_processed_msg_idx + 1);
 		}
 	}
 
@@ -187,29 +190,30 @@ impl<Message: InboundMessage> AbridgedInboundMessagesCollection<Message> {
 		(&self.full_messages, &self.hashed_messages)
 	}
 
-	/// Check the advancement rule.
+	/// Check that the current collection contains as many full messages as possible.
 	///
 	/// The `AbridgedInboundMessagesCollection` is provided to the runtime by a collator.
-	/// A malicious collator could provide an invalid collection. This function checks that the
-	/// current collection respects the advancement rule. Specifically, it checks that the current
-	/// collection contains as many full messages as possible.
-	pub fn check_advancement_rule(&self, collection_name: &str, max_size: usize) {
-		if self.hashed_messages.len() > 0 {
-			let mut size = 0usize;
-			for msg in &self.full_messages {
-				size = size.saturating_add(msg.data().len());
-			}
-			let min_size = ((max_size as f64) * 0.75) as usize;
-
-			assert!(
-				size >= min_size,
-				"[{}] Advancement rule violation: mandatory messages size smaller than expected: \
-				{} < {}",
-				collection_name,
-				size,
-				min_size
-			);
+	/// A malicious collator can provide a collection that contains no full messages or fewer
+	/// full messages than possible, leading to censorship.
+	pub fn check_enough_messages_included(&self, collection_name: &str, max_size: usize) {
+		if self.hashed_messages.is_empty() {
+			return;
 		}
+
+		let mut size = 0usize;
+		for msg in &self.full_messages {
+			size = size.saturating_add(msg.data().len());
+		}
+		let min_size = ((max_size as f64) * 0.75) as usize;
+
+		assert!(
+			size >= min_size,
+			"[{}] Advancement rule violation: mandatory messages size smaller than expected: \
+			{} < {}",
+			collection_name,
+			size,
+			min_size
+		);
 	}
 }
 
@@ -307,15 +311,13 @@ pub type AbridgedInboundHrmpMessages =
 
 impl AbridgedInboundHrmpMessages {
 	/// Returns a list of all the unique senders.
-	pub fn get_senders(&self) -> Vec<ParaId> {
-		let mut senders = vec![];
+	pub fn get_senders(&self) -> BTreeSet<ParaId> {
+		let mut senders = BTreeSet::new();
 
 		let messages = self.full_messages.iter().map(|(sender, _msg)| sender);
 		let hashed_messages = self.hashed_messages.iter().map(|(sender, _msg)| sender);
 		for sender in messages.chain(hashed_messages) {
-			if let Err(pos) = senders.binary_search(sender) {
-				senders.insert(pos, *sender);
-			}
+			senders.insert(*sender);
 		}
 
 		senders

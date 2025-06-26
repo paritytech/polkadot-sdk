@@ -81,6 +81,7 @@ impl OutboundBandwidthLimits {
 
 /// The error type for updating bandwidth used by a segment.
 #[derive(RuntimeDebug)]
+#[cfg_attr(test, derive(PartialEq))]
 pub enum BandwidthUpdateError {
 	/// Too many messages submitted to HRMP channel.
 	HrmpMessagesOverflow {
@@ -709,24 +710,25 @@ mod tests {
 			.expect("nothing to compare the watermark with in default segment");
 		assert_matches!(segment.append(&ancestor, HrmpWatermarkUpdate::Trunk(0), &limits), Ok(()));
 
+		// Trunk updates are allowed when the new watermark is greater than the current one
 		for watermark in 1..5 {
 			segment
 				.append(&ancestor, HrmpWatermarkUpdate::Trunk(watermark), &limits)
 				.expect("hrmp watermark is valid");
 		}
+		// Trunk updates are not allowed when the new watermark is smaller than the current one
 		for watermark in 0..4 {
-			assert_matches!(
+			assert_eq!(
 				segment.append(&ancestor, HrmpWatermarkUpdate::Trunk(watermark), &limits),
-				Err(BandwidthUpdateError::InvalidHrmpWatermark {
-					submitted,
-					latest,
-				}) if submitted == watermark && latest == 4
+				Err(BandwidthUpdateError::InvalidHrmpWatermark { submitted: watermark, latest: 4 }),
 			);
 		}
+		// The current watermark is still valid.
 		segment
 			.append(&ancestor, HrmpWatermarkUpdate::Trunk(5), &limits)
 			.expect("hrmp watermark is valid");
 
+		// Head updates are allowed even if the new watermark is smaller than the current one
 		segment
 			.append(&ancestor, HrmpWatermarkUpdate::Head(4), &limits)
 			.expect("head updates always valid");

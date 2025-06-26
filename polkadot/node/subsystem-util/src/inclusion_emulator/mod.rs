@@ -343,21 +343,24 @@ impl Constraints {
 			new.required_parent = required_parent.clone();
 		}
 
-		if let Some(ref hrmp_watermark_update) = modifications.hrmp_watermark {
-			let mut drop_count = 0;
-			let hrmp_watermark = hrmp_watermark_update.watermark();
-			for valid_watermark in &new.hrmp_inbound.valid_watermarks {
-				if *valid_watermark < hrmp_watermark {
-					drop_count += 1;
-					continue;
-				}
-
-				break;
-			}
-			new.hrmp_inbound.valid_watermarks.drain(..drop_count);
-			// The current watermark will remain valid until updated.
-			if new.hrmp_inbound.valid_watermarks.first() != Some(&hrmp_watermark) {
-				new.hrmp_inbound.valid_watermarks.insert(0, hrmp_watermark)
+		if let Some(ref hrmp_watermark) = modifications.hrmp_watermark {
+			match new.hrmp_inbound.valid_watermarks.binary_search(&hrmp_watermark.watermark()) {
+				Ok(pos) => {
+					// Exact match, so this is OK in all cases.
+					let _ = new.hrmp_inbound.valid_watermarks.drain(..pos);
+				},
+				Err(pos) => match hrmp_watermark {
+					HrmpWatermarkUpdate::Head(hrmp_watermark) => {
+						// Updates to Head are always OK.
+						let _ = new.hrmp_inbound.valid_watermarks.drain(..pos);
+						// The current watermark will remain valid until updated.
+						new.hrmp_inbound.valid_watermarks.insert(0, *hrmp_watermark)
+					},
+					HrmpWatermarkUpdate::Trunk(n) => {
+						// Trunk update landing on disallowed watermark is not OK.
+						return Err(ModificationError::DisallowedHrmpWatermark(*n))
+					},
+				},
 			}
 		}
 
@@ -1044,6 +1047,11 @@ mod tests {
 
 		assert_eq!(
 			constraints.check_modifications(&modifications),
+			Err(ModificationError::DisallowedHrmpWatermark(7)),
+		);
+
+		assert_eq!(
+			constraints.apply_modifications(&modifications),
 			Err(ModificationError::DisallowedHrmpWatermark(7)),
 		);
 	}
