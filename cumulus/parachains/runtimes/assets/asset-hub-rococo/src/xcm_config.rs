@@ -307,7 +307,6 @@ pub type WaivedLocations = (
 /// - Sibling parachains' assets from where they originate (as `ForeignCreators`).
 pub type TrustedTeleporters = (
 	ConcreteAssetFromSystem<TokenLocation>,
-	// IsForeignConcreteAsset<bridging::to_westend::NonSystemParachain>,
 	IsForeignConcreteAsset<FromSiblingParachain<parachain_info::Pallet<Runtime>>>,
 );
 
