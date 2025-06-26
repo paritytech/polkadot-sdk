@@ -128,12 +128,12 @@ pub trait Polling<Tally> {
 }
 
 /// NoOp polling is required if pallet-referenda functionality not needed.
-pub struct NoOpPoll;
-impl<Tally> Polling<Tally> for NoOpPoll {
+pub struct NoOpPoll<Moment>(core::marker::PhantomData<Moment>);
+impl<Tally, Moment> Polling<Tally> for NoOpPoll<Moment> {
 	type Index = u8;
 	type Votes = u32;
 	type Class = u16;
-	type Moment = u64;
+	type Moment = Moment;
 
 	fn classes() -> Vec<Self::Class> {
 		vec![]
