@@ -2,6 +2,18 @@ name: Release - Build runtimes
 
 on:
   workflow_dispatch:
+    inputs:
+      chain:
+        description: The chain to use
+        default: westend-runtime
+        required: true
+        type: choice
+        options:
+          - westend-runtime
+          - all
+      runtime_dir:
+        description: The runtime_dir to be used
+        default: polkadot/runtime/westend
 
 jobs:
   check-synchronization:
@@ -9,31 +21,33 @@ jobs:
     secrets:
       fork_writer_app_key: ${{ secrets.UPSTREAM_CONTENT_SYNC_APP_KEY }}
 
-  validate-inputs:
-    needs: [check-synchronization]
-    if: ${{ needs.check-synchronization.outputs.checks_passed }} == 'true'
-    runs-on: ubuntu-latest
-    outputs:
-        release_tag: ${{ steps.validate_inputs.outputs.release_tag }}
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+  # validate-inputs:
+  #   needs: [check-synchronization]
+  #   if: ${{ needs.check-synchronization.outputs.checks_passed }} == 'true'
+  #   runs-on: ubuntu-latest
+  #   outputs:
+  #       release_tag: ${{ steps.validate_inputs.outputs.release_tag }}
+  #   steps:
+  #     - name: Checkout sources
+  #       uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
 
-      - name: Validate inputs
-        id: validate_inputs
-        run: |
-          . ./.github/scripts/common/lib.sh
+  #     - name: Validate inputs
+  #       id: validate_inputs
+  #       run: |
+  #         . ./.github/scripts/common/lib.sh
 
-          RELEASE_TAG=$(validate_stable_tag ${{ inputs.release_tag }})
-          echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
+  #         RELEASE_TAG=$(validate_stable_tag ${{ inputs.release_tag }})
+  #         echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
 
   build-runtimes:
-    needs: [ validate-inputs ]
+    # needs: [ validate-inputs ]
     uses: "./.github/workflows/release-srtool.yml"
     with:
        excluded_runtimes: "asset-hub-rococo bridge-hub-rococo coretime-rococo people-rococo rococo rococo-parachain substrate-test bp cumulus-test kitchensink minimal-template parachain-template penpal polkadot-test seedling shell frame-try sp solochain-template polkadot-sdk-docs-first pallet-staking-async-parachain pallet-staking-async-rc frame-storage-access-test yet-another-parachain"
        build_opts: "--features on-chain-release-build"
        profile: production
+       chain: ${{ inputs.chain }}
+       runtime_dir: ${{ inputs.runtime_dir }}
     permissions:
       id-token: write
       attestations: write
