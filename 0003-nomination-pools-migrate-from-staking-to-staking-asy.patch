@@ -1,0 +1,611 @@
+From 4623192fb7a865f2b3b4c2aba572f0984aa1eb51 Mon Sep 17 00:00:00 2001
+From: Paolo La Camera <paolo@parity.io>
+Date: Fri, 27 Jun 2025 07:53:04 +0000
+Subject: [PATCH 3/5] nomination-pools: migrate from staking to staking-async
+
+---
+ Cargo.lock                                    |  4 +-
+ .../nomination-pools/benchmarking/Cargo.toml  |  6 +-
+ .../benchmarking/src/inner.rs                 | 90 +++++++++++--------
+ .../nomination-pools/benchmarking/src/mock.rs | 12 +--
+ substrate/frame/nomination-pools/src/lib.rs   | 10 +--
+ .../test-delegate-stake/Cargo.toml            |  2 +-
+ .../test-delegate-stake/src/lib.rs            | 28 +++---
+ .../test-delegate-stake/src/mock.rs           | 34 +++----
+ 8 files changed, 101 insertions(+), 85 deletions(-)
+
+diff --git a/Cargo.lock b/Cargo.lock
+index 734d1c062e..1172483cce 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -12722,7 +12722,7 @@ dependencies = [
+  "pallet-balances",
+  "pallet-delegated-staking",
+  "pallet-nomination-pools",
+- "pallet-staking",
++ "pallet-staking-async",
+  "pallet-staking-reward-curve",
+  "pallet-timestamp",
+  "parity-scale-codec",
+@@ -12770,7 +12770,7 @@ dependencies = [
+  "pallet-balances",
+  "pallet-delegated-staking",
+  "pallet-nomination-pools",
+- "pallet-staking",
++ "pallet-staking-async",
+  "pallet-staking-reward-curve",
+  "pallet-timestamp",
+  "parity-scale-codec",
+diff --git a/substrate/frame/nomination-pools/benchmarking/Cargo.toml b/substrate/frame/nomination-pools/benchmarking/Cargo.toml
+index 68fe98a169..5b63e7487a 100644
+--- a/substrate/frame/nomination-pools/benchmarking/Cargo.toml
++++ b/substrate/frame/nomination-pools/benchmarking/Cargo.toml
+@@ -28,7 +28,7 @@ frame-system = { workspace = true }
+ pallet-bags-list = { workspace = true }
+ pallet-delegated-staking = { workspace = true }
+ pallet-nomination-pools = { workspace = true }
+-pallet-staking = { workspace = true }
++pallet-staking-async = { workspace = true }
+ 
+ # Substrate Primitives
+ sp-runtime = { workspace = true }
+@@ -54,7 +54,7 @@ std = [
+ 	"pallet-balances/std",
+ 	"pallet-delegated-staking/std",
+ 	"pallet-nomination-pools/std",
+-	"pallet-staking/std",
++	"pallet-staking-async/std",
+ 	"pallet-timestamp/std",
+ 	"scale-info/std",
+ 	"sp-core/std",
+@@ -72,7 +72,7 @@ runtime-benchmarks = [
+ 	"pallet-balances/runtime-benchmarks",
+ 	"pallet-delegated-staking/runtime-benchmarks",
+ 	"pallet-nomination-pools/runtime-benchmarks",
+-	"pallet-staking/runtime-benchmarks",
++	"pallet-staking-async/runtime-benchmarks",
+ 	"pallet-timestamp/runtime-benchmarks",
+ 	"sp-runtime/runtime-benchmarks",
+ 	"sp-staking/runtime-benchmarks",
+diff --git a/substrate/frame/nomination-pools/benchmarking/src/inner.rs b/substrate/frame/nomination-pools/benchmarking/src/inner.rs
+index 20c5eafbcf..0552a28994 100644
+--- a/substrate/frame/nomination-pools/benchmarking/src/inner.rs
++++ b/substrate/frame/nomination-pools/benchmarking/src/inner.rs
+@@ -36,7 +36,7 @@ use pallet_nomination_pools::{
+ 	MaxPoolMembers, MaxPoolMembersPerPool, MaxPools, Metadata, MinCreateBond, MinJoinBond,
+ 	Pallet as Pools, PoolId, PoolMembers, PoolRoles, PoolState, RewardPools, SubPoolsStorage,
+ };
+-use pallet_staking::MaxNominationsOf;
++use pallet_staking_async::MaxNominationsOf;
+ use sp_runtime::{
+ 	traits::{Bounded, StaticLookup, Zero},
+ 	Perbill,
+@@ -53,7 +53,7 @@ const MAX_SPANS: u32 = 100;
+ pub(crate) type VoterBagsListInstance = pallet_bags_list::Instance1;
+ pub trait Config:
+ 	pallet_nomination_pools::Config
+-	+ pallet_staking::Config
++	+ pallet_staking_async::Config
+ 	+ pallet_bags_list::Config<VoterBagsListInstance>
+ {
+ }
+@@ -133,10 +133,10 @@ fn migrate_to_transfer_stake<T: Config>(pool_id: PoolId) {
+ 		});
+ 
+ 	// Pool needs to have ED balance free to stake so give it some.
+-	// Note: we didn't require ED until pallet-staking migrated from locks to holds.
++	// Note: we didn't require ED until pallet-staking-async migrated from locks to holds.
+ 	let _ = CurrencyOf::<T>::mint_into(&pool_acc, CurrencyOf::<T>::minimum_balance());
+ 
+-	pallet_staking::Pallet::<T>::migrate_to_direct_staker(&pool_acc);
++	pallet_staking_async::Pallet::<T>::migrate_to_direct_staker(&pool_acc);
+ }
+ 
+ fn vote_to_balance<T: pallet_nomination_pools::Config>(
+@@ -198,10 +198,11 @@ impl<T: Config> ListScenario<T> {
+ 		)?;
+ 
+ 		// Find a destination weight that will trigger the worst case scenario
+-		let dest_weight_as_vote = <T as pallet_staking::Config>::VoterList::score_update_worst_case(
+-			&pool_origin1,
+-			is_increase,
+-		);
++		let dest_weight_as_vote =
++			<T as pallet_staking_async::Config>::VoterList::score_update_worst_case(
++				&pool_origin1,
++				is_increase,
++			);
+ 
+ 		let dest_weight: BalanceOf<T> =
+ 			dest_weight_as_vote.try_into().map_err(|_| "could not convert u64 to Balance")?;
+@@ -215,7 +216,7 @@ impl<T: Config> ListScenario<T> {
+ 			vec![account("random_validator", 0, USER_SEED)],
+ 		)?;
+ 
+-		let weight_of = pallet_staking::Pallet::<T>::weight_of_fn();
++		let weight_of = pallet_staking_async::Pallet::<T>::weight_of_fn();
+ 		assert_eq!(vote_to_balance::<T>(weight_of(&pool_origin1)).unwrap(), origin_weight);
+ 		assert_eq!(vote_to_balance::<T>(weight_of(&pool_origin2)).unwrap(), origin_weight);
+ 		assert_eq!(vote_to_balance::<T>(weight_of(&pool_dest1)).unwrap(), dest_weight);
+@@ -254,7 +255,7 @@ impl<T: Config> ListScenario<T> {
+ 		Pools::<T>::join(RuntimeOrigin::Signed(joiner.clone()).into(), amount, 1).unwrap();
+ 
+ 		// check that the vote weight is still the same as the original bonded
+-		let weight_of = pallet_staking::Pallet::<T>::weight_of_fn();
++		let weight_of = pallet_staking_async::Pallet::<T>::weight_of_fn();
+ 		assert_eq!(vote_to_balance::<T>(weight_of(&self.origin1)).unwrap(), original_bonded);
+ 
+ 		// check the member was added correctly
+@@ -268,8 +269,8 @@ impl<T: Config> ListScenario<T> {
+ 
+ #[benchmarks(
+ 	where
+-		T: pallet_staking::Config,
+-		pallet_staking::BalanceOf<T>: From<u128>,
++		T: pallet_staking_async::Config,
++		pallet_staking_async::BalanceOf<T>: From<u128>,
+ 		BalanceOf<T>: Into<u128>,
+ )]
+ mod benchmarks {
+@@ -442,12 +443,15 @@ mod benchmarks {
+ 			T::StakeAdapter::active_stake(Pool::from(pool_account.clone())),
+ 			min_create_bond
+ 		);
+-		assert_eq!(pallet_staking::Ledger::<T>::get(&pool_account).unwrap().unlocking.len(), 1);
++		assert_eq!(
++			pallet_staking_async::Ledger::<T>::get(&pool_account).unwrap().unlocking.len(),
++			1
++		);
+ 		// Set the current era
+-		pallet_staking::CurrentEra::<T>::put(EraIndex::max_value());
++		pallet_staking_async::CurrentEra::<T>::put(EraIndex::max_value());
+ 
+ 		// Add `s` count of slashing spans to storage.
+-		pallet_staking::benchmarking::add_slashing_spans::<T>(&pool_account, s);
++		pallet_staking_async::benchmarking::add_slashing_spans::<T>(&pool_account, s);
+ 		whitelist_account!(pool_account);
+ 
+ 		#[extrinsic_call]
+@@ -456,7 +460,10 @@ mod benchmarks {
+ 		// The joiners funds didn't change
+ 		assert_eq!(CurrencyOf::<T>::balance(&joiner), min_join_bond);
+ 		// The unlocking chunk was removed
+-		assert_eq!(pallet_staking::Ledger::<T>::get(pool_account).unwrap().unlocking.len(), 0);
++		assert_eq!(
++			pallet_staking_async::Ledger::<T>::get(pool_account).unwrap().unlocking.len(),
++			0
++		);
+ 	}
+ 
+ 	#[benchmark]
+@@ -478,7 +485,7 @@ mod benchmarks {
+ 		assert_eq!(CurrencyOf::<T>::balance(&joiner), min_join_bond);
+ 
+ 		// Unbond the new member
+-		pallet_staking::CurrentEra::<T>::put(0);
++		pallet_staking_async::CurrentEra::<T>::put(0);
+ 		Pools::<T>::fully_unbond(RuntimeOrigin::Signed(joiner.clone()).into(), joiner.clone())
+ 			.unwrap();
+ 
+@@ -487,12 +494,15 @@ mod benchmarks {
+ 			T::StakeAdapter::active_stake(Pool::from(pool_account.clone())),
+ 			min_create_bond
+ 		);
+-		assert_eq!(pallet_staking::Ledger::<T>::get(&pool_account).unwrap().unlocking.len(), 1);
++		assert_eq!(
++			pallet_staking_async::Ledger::<T>::get(&pool_account).unwrap().unlocking.len(),
++			1
++		);
+ 
+ 		// Set the current era to ensure we can withdraw unbonded funds
+-		pallet_staking::CurrentEra::<T>::put(EraIndex::max_value());
++		pallet_staking_async::CurrentEra::<T>::put(EraIndex::max_value());
+ 
+-		pallet_staking::benchmarking::add_slashing_spans::<T>(&pool_account, s);
++		pallet_staking_async::benchmarking::add_slashing_spans::<T>(&pool_account, s);
+ 		whitelist_account!(joiner);
+ 
+ 		#[extrinsic_call]
+@@ -500,7 +510,10 @@ mod benchmarks {
+ 
+ 		assert_eq!(CurrencyOf::<T>::balance(&joiner), min_join_bond * 2u32.into());
+ 		// The unlocking chunk was removed
+-		assert_eq!(pallet_staking::Ledger::<T>::get(&pool_account).unwrap().unlocking.len(), 0);
++		assert_eq!(
++			pallet_staking_async::Ledger::<T>::get(&pool_account).unwrap().unlocking.len(),
++			0
++		);
+ 	}
+ 
+ 	#[benchmark]
+@@ -518,7 +531,7 @@ mod benchmarks {
+ 		.unwrap();
+ 
+ 		// Unbond the creator
+-		pallet_staking::CurrentEra::<T>::put(0);
++		pallet_staking_async::CurrentEra::<T>::put(0);
+ 		// Simulate some rewards so we can check if the rewards storage is cleaned up. We check this
+ 		// here to ensure the complete flow for destroying a pool works - the reward pool account
+ 		// should never exist by time the depositor withdraws so we test that it gets cleaned
+@@ -537,13 +550,16 @@ mod benchmarks {
+ 			T::StakeAdapter::total_balance(Pool::from(pool_account.clone())),
+ 			Some(min_create_bond)
+ 		);
+-		assert_eq!(pallet_staking::Ledger::<T>::get(&pool_account).unwrap().unlocking.len(), 1);
++		assert_eq!(
++			pallet_staking_async::Ledger::<T>::get(&pool_account).unwrap().unlocking.len(),
++			1
++		);
+ 
+ 		// Set the current era to ensure we can withdraw unbonded funds
+-		pallet_staking::CurrentEra::<T>::put(EraIndex::max_value());
++		pallet_staking_async::CurrentEra::<T>::put(EraIndex::max_value());
+ 
+ 		// Some last checks that storage items we expect to get cleaned up are present
+-		assert!(pallet_staking::Ledger::<T>::contains_key(&pool_account));
++		assert!(pallet_staking_async::Ledger::<T>::contains_key(&pool_account));
+ 		assert!(BondedPools::<T>::contains_key(&1));
+ 		assert!(SubPoolsStorage::<T>::contains_key(&1));
+ 		assert!(RewardPools::<T>::contains_key(&1));
+@@ -556,7 +572,7 @@ mod benchmarks {
+ 		withdraw_unbonded(RuntimeOrigin::Signed(depositor.clone()), depositor_lookup, s);
+ 
+ 		// Pool removal worked
+-		assert!(!pallet_staking::Ledger::<T>::contains_key(&pool_account));
++		assert!(!pallet_staking_async::Ledger::<T>::contains_key(&pool_account));
+ 		assert!(!BondedPools::<T>::contains_key(&1));
+ 		assert!(!SubPoolsStorage::<T>::contains_key(&1));
+ 		assert!(!RewardPools::<T>::contains_key(&1));
+@@ -996,11 +1012,11 @@ mod benchmarks {
+ 		let slash_amount: u128 = deposit_amount.into() / 2;
+ 
+ 		// slash pool by half
+-		pallet_staking::slashing::do_slash::<T>(
++		pallet_staking_async::slashing::do_slash::<T>(
+ 			&pool_account,
+ 			slash_amount.into(),
+-			&mut pallet_staking::BalanceOf::<T>::zero(),
+-			&mut pallet_staking::NegativeImbalanceOf::<T>::zero(),
++			&mut pallet_staking_async::BalanceOf::<T>::zero(),
++			&mut pallet_staking_async::NegativeImbalanceOf::<T>::zero(),
+ 			EraIndex::zero(),
+ 		);
+ 
+@@ -1017,7 +1033,7 @@ mod benchmarks {
+ 
+ 		// Fill member's sub pools for the worst case.
+ 		for i in 1..(T::MaxUnbonding::get() + 1) {
+-			pallet_staking::CurrentEra::<T>::put(i);
++			pallet_staking_async::CurrentEra::<T>::put(i);
+ 			assert!(Pools::<T>::unbond(
+ 				RuntimeOrigin::Signed(depositor.clone()).into(),
+ 				depositor_lookup.clone(),
+@@ -1026,7 +1042,7 @@ mod benchmarks {
+ 			.is_ok());
+ 		}
+ 
+-		pallet_staking::CurrentEra::<T>::put(T::MaxUnbonding::get() + 2);
++		pallet_staking_async::CurrentEra::<T>::put(T::MaxUnbonding::get() + 2);
+ 
+ 		let slash_reporter =
+ 			create_funded_user_with_balance::<T>("slasher", 0, CurrencyOf::<T>::minimum_balance());
+@@ -1062,15 +1078,15 @@ mod benchmarks {
+ 
+ 		// slash pool by half
+ 		let slash_amount: u128 = deposit_amount.into() / 2;
+-		pallet_staking::slashing::do_slash::<T>(
++		pallet_staking_async::slashing::do_slash::<T>(
+ 			&pool_account,
+ 			slash_amount.into(),
+-			&mut pallet_staking::BalanceOf::<T>::zero(),
+-			&mut pallet_staking::NegativeImbalanceOf::<T>::zero(),
++			&mut pallet_staking_async::BalanceOf::<T>::zero(),
++			&mut pallet_staking_async::NegativeImbalanceOf::<T>::zero(),
+ 			EraIndex::zero(),
+ 		);
+ 
+-		pallet_staking::CurrentEra::<T>::put(1);
++		pallet_staking_async::CurrentEra::<T>::put(1);
+ 
+ 		// new member joins the pool who should not be affected by slash.
+ 		let min_join_bond = MinJoinBond::<T>::get().max(CurrencyOf::<T>::minimum_balance());
+@@ -1083,7 +1099,7 @@ mod benchmarks {
+ 
+ 		// Fill member's sub pools for the worst case.
+ 		for i in 0..T::MaxUnbonding::get() {
+-			pallet_staking::CurrentEra::<T>::put(i + 2); // +2 because we already set the current era to 1.
++			pallet_staking_async::CurrentEra::<T>::put(i + 2); // +2 because we already set the current era to 1.
+ 			assert!(Pools::<T>::unbond(
+ 				RuntimeOrigin::Signed(joiner.clone()).into(),
+ 				joiner_lookup.clone(),
+@@ -1092,7 +1108,7 @@ mod benchmarks {
+ 			.is_ok());
+ 		}
+ 
+-		pallet_staking::CurrentEra::<T>::put(T::MaxUnbonding::get() + 3);
++		pallet_staking_async::CurrentEra::<T>::put(T::MaxUnbonding::get() + 3);
+ 		whitelist_account!(joiner);
+ 
+ 		// Since the StakeAdapter can be different based on the runtime config, the errors could be
+diff --git a/substrate/frame/nomination-pools/benchmarking/src/mock.rs b/substrate/frame/nomination-pools/benchmarking/src/mock.rs
+index 1dcfb86b75..9a993490fe 100644
+--- a/substrate/frame/nomination-pools/benchmarking/src/mock.rs
++++ b/substrate/frame/nomination-pools/benchmarking/src/mock.rs
+@@ -63,7 +63,7 @@ impl pallet_balances::Config for Runtime {
+ 	type RuntimeFreezeReason = RuntimeFreezeReason;
+ }
+ 
+-pallet_staking_reward_curve::build! {
++pallet_staking_async::_reward_curve::build! {
+ 	const I_NPOS: sp_runtime::curve::PiecewiseLinear<'static> = curve!(
+ 		min_inflation: 0_025_000,
+ 		max_inflation: 0_100_000,
+@@ -76,19 +76,19 @@ pallet_staking_reward_curve::build! {
+ parameter_types! {
+ 	pub const RewardCurve: &'static sp_runtime::curve::PiecewiseLinear<'static> = &I_NPOS;
+ }
+-#[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
+-impl pallet_staking::Config for Runtime {
++#[derive_impl(pallet_staking_async::config_preludes::TestDefaultConfig)]
++impl pallet_staking_async::Config for Runtime {
+ 	type OldCurrency = Balances;
+ 	type Currency = Balances;
+ 	type CurrencyBalance = Balance;
+ 	type UnixTime = pallet_timestamp::Pallet<Self>;
+ 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
+-	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
++	type EraPayout = pallet_staking_async::ConvertCurve<RewardCurve>;
+ 	type ElectionProvider =
+ 		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, (), ())>;
+ 	type GenesisElectionProvider = Self::ElectionProvider;
+ 	type VoterList = VoterList;
+-	type TargetList = pallet_staking::UseValidatorsMap<Self>;
++	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
+ 	type EventListeners = (Pools, DelegatedStaking);
+ }
+ 
+@@ -167,7 +167,7 @@ frame_support::construct_runtime!(
+ 		System: frame_system,
+ 		Timestamp: pallet_timestamp,
+ 		Balances: pallet_balances,
+-		Staking: pallet_staking,
++		Staking: pallet_staking_async,
+ 		VoterList: pallet_bags_list::<Instance1>,
+ 		Pools: pallet_nomination_pools,
+ 		DelegatedStaking: pallet_delegated_staking,
+diff --git a/substrate/frame/nomination-pools/src/lib.rs b/substrate/frame/nomination-pools/src/lib.rs
+index adc0adbbff..6d93fd06b4 100644
+--- a/substrate/frame/nomination-pools/src/lib.rs
++++ b/substrate/frame/nomination-pools/src/lib.rs
+@@ -214,8 +214,8 @@
+ //! ## Design
+ //!
+ //! _Notes_: this section uses pseudo code to explain general design and does not necessarily
+-//! reflect the exact implementation. Additionally, a working knowledge of `pallet-staking`'s api is
+-//! assumed.
++//! reflect the exact implementation. Additionally, a working knowledge of `pallet-staking-async`'s
++//! api is assumed.
+ //!
+ //! ### Goals
+ //!
+@@ -325,7 +325,7 @@
+ //! ### Slashing
+ //!
+ //! This section assumes that the slash computation is executed by
+-//! `pallet_staking::StakingLedger::slash`, which passes the information to this pallet via
++//! `pallet_staking_async::StakingLedger::slash`, which passes the information to this pallet via
+ //! [`sp_staking::OnStakingUpdate::on_slash`].
+ //!
+ //! Unbonding pools need to be slashed to ensure all nominators whom where in the bonded pool while
+@@ -2634,7 +2634,7 @@ pub mod pallet {
+ 		/// root role.
+ 		///
+ 		/// This directly forwards the call to an implementation of `StakingInterface` (e.g.,
+-		/// `pallet-staking`) through [`Config::StakeAdapter`], on behalf of the bonded pool.
++		/// `pallet-staking-async`) through [`Config::StakeAdapter`], on behalf of the bonded pool.
+ 		///
+ 		/// # Note
+ 		///
+@@ -2849,7 +2849,7 @@ pub mod pallet {
+ 		/// root role, same as [`Pallet::nominate`].
+ 		///
+ 		/// This directly forwards the call to an implementation of `StakingInterface` (e.g.,
+-		/// `pallet-staking`) through [`Config::StakeAdapter`], on behalf of the bonded pool.
++		/// `pallet-staking-async`) through [`Config::StakeAdapter`], on behalf of the bonded pool.
+ 		///
+ 		/// Under certain conditions, this call can be dispatched permissionlessly (i.e. by any
+ 		/// account).
+diff --git a/substrate/frame/nomination-pools/test-delegate-stake/Cargo.toml b/substrate/frame/nomination-pools/test-delegate-stake/Cargo.toml
+index 62c2fb625f..1465d543d3 100644
+--- a/substrate/frame/nomination-pools/test-delegate-stake/Cargo.toml
++++ b/substrate/frame/nomination-pools/test-delegate-stake/Cargo.toml
+@@ -32,7 +32,7 @@ pallet-bags-list = { workspace = true, default-features = true }
+ pallet-balances = { workspace = true, default-features = true }
+ pallet-delegated-staking = { workspace = true, default-features = true }
+ pallet-nomination-pools = { workspace = true, default-features = true }
+-pallet-staking = { workspace = true, default-features = true }
++pallet-staking-async = { workspace = true, default-features = true }
+ pallet-staking-reward-curve = { workspace = true, default-features = true }
+ pallet-timestamp = { workspace = true, default-features = true }
+ 
+diff --git a/substrate/frame/nomination-pools/test-delegate-stake/src/lib.rs b/substrate/frame/nomination-pools/test-delegate-stake/src/lib.rs
+index 5c8556a5e4..7a9a205016 100644
+--- a/substrate/frame/nomination-pools/test-delegate-stake/src/lib.rs
++++ b/substrate/frame/nomination-pools/test-delegate-stake/src/lib.rs
+@@ -33,7 +33,7 @@ use pallet_nomination_pools::{
+ 	BondExtra, BondedPools, CommissionChangeRate, ConfigOp, Error as PoolsError,
+ 	Event as PoolsEvent, LastPoolId, PoolMember, PoolMembers, PoolState,
+ };
+-use pallet_staking::{
++use pallet_staking_async::{
+ 	CurrentEra, Error as StakingError, Event as StakingEvent, Payee, RewardDestination,
+ };
+ 
+@@ -249,13 +249,13 @@ fn pool_chill_e2e() {
+ 		// increased after the pool is created.
+ 		assert_ok!(Staking::set_staking_configs(
+ 			RuntimeOrigin::root(),
+-			pallet_staking::ConfigOp::Set(55), // minimum nominator bond
+-			pallet_staking::ConfigOp::Noop,
+-			pallet_staking::ConfigOp::Noop,
+-			pallet_staking::ConfigOp::Noop,
+-			pallet_staking::ConfigOp::Noop,
+-			pallet_staking::ConfigOp::Noop,
+-			pallet_staking::ConfigOp::Noop,
++			pallet_staking_async::ConfigOp::Set(55), // minimum nominator bond
++			pallet_staking_async::ConfigOp::Noop,
++			pallet_staking_async::ConfigOp::Noop,
++			pallet_staking_async::ConfigOp::Noop,
++			pallet_staking_async::ConfigOp::Noop,
++			pallet_staking_async::ConfigOp::Noop,
++			pallet_staking_async::ConfigOp::Noop,
+ 		));
+ 
+ 		// members can unbond as long as total stake of the pool is above min nominator bond
+@@ -421,7 +421,7 @@ fn pool_slash_e2e() {
+ 
+ 		// At this point, 20 are safe from slash, 30 are unlocking but vulnerable to slash, and and
+ 		// another 30 are active and vulnerable to slash. Let's slash half of them.
+-		pallet_staking::slashing::do_slash::<Runtime>(
++		pallet_staking_async::slashing::do_slash::<Runtime>(
+ 			&POOL1_BONDED,
+ 			30,
+ 			&mut Default::default(),
+@@ -677,7 +677,7 @@ fn pool_slash_proportional() {
+ 
+ 		hypothetically!({
+ 			// a very small amount is slashed
+-			pallet_staking::slashing::do_slash::<Runtime>(
++			pallet_staking_async::slashing::do_slash::<Runtime>(
+ 				&POOL1_BONDED,
+ 				3,
+ 				&mut Default::default(),
+@@ -698,7 +698,7 @@ fn pool_slash_proportional() {
+ 			);
+ 		});
+ 
+-		pallet_staking::slashing::do_slash::<Runtime>(
++		pallet_staking_async::slashing::do_slash::<Runtime>(
+ 			&POOL1_BONDED,
+ 			50,
+ 			&mut Default::default(),
+@@ -834,7 +834,7 @@ fn pool_slash_non_proportional_only_bonded_pool() {
+ 		// slash for 30. This will be deducted only from the bonded pool.
+ 		set_active_era(100);
+ 		assert_eq!(BondedPools::<T>::get(1).unwrap().points, 40);
+-		pallet_staking::slashing::do_slash::<Runtime>(
++		pallet_staking_async::slashing::do_slash::<Runtime>(
+ 			&POOL1_BONDED,
+ 			30,
+ 			&mut Default::default(),
+@@ -913,7 +913,7 @@ fn pool_slash_non_proportional_bonded_pool_and_chunks() {
+ 		// slash 50. This will be deducted only from the bonded pool and one of the unbonding pools.
+ 		set_active_era(100);
+ 		assert_eq!(BondedPools::<T>::get(1).unwrap().points, 40);
+-		pallet_staking::slashing::do_slash::<Runtime>(
++		pallet_staking_async::slashing::do_slash::<Runtime>(
+ 			&POOL1_BONDED,
+ 			50,
+ 			&mut Default::default(),
+@@ -1526,7 +1526,7 @@ fn pool_no_dangling_delegation() {
+ 		// At this point, bob's 20 that is unlocking is safe from slash, 10 (alice) + 10 (charlie)
+ 		// are also unlocking but vulnerable to slash, and another 40 are active and vulnerable to
+ 		// slash. Let's slash half of them.
+-		pallet_staking::slashing::do_slash::<Runtime>(
++		pallet_staking_async::slashing::do_slash::<Runtime>(
+ 			&POOL1_BONDED,
+ 			30,
+ 			&mut Default::default(),
+diff --git a/substrate/frame/nomination-pools/test-delegate-stake/src/mock.rs b/substrate/frame/nomination-pools/test-delegate-stake/src/mock.rs
+index 5d7b3231fe..c8ae4a1b4c 100644
+--- a/substrate/frame/nomination-pools/test-delegate-stake/src/mock.rs
++++ b/substrate/frame/nomination-pools/test-delegate-stake/src/mock.rs
+@@ -77,7 +77,7 @@ impl pallet_balances::Config for Runtime {
+ 	type RuntimeFreezeReason = RuntimeFreezeReason;
+ }
+ 
+-pallet_staking_reward_curve::build! {
++pallet_staking_async::_reward_curve::build! {
+ 	const I_NPOS: sp_runtime::curve::PiecewiseLinear<'static> = curve!(
+ 		min_inflation: 0_025_000,
+ 		max_inflation: 0_100_000,
+@@ -93,21 +93,21 @@ parameter_types! {
+ 	pub static BondingDuration: u32 = 3;
+ }
+ 
+-#[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
+-impl pallet_staking::Config for Runtime {
++#[derive_impl(pallet_staking_async::config_preludes::TestDefaultConfig)]
++impl pallet_staking_async::Config for Runtime {
+ 	type OldCurrency = Balances;
+ 	type Currency = Balances;
+ 	type UnixTime = pallet_timestamp::Pallet<Self>;
+ 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
+ 	type BondingDuration = BondingDuration;
+-	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
++	type EraPayout = pallet_staking_async::ConvertCurve<RewardCurve>;
+ 	type ElectionProvider =
+ 		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, (), ())>;
+ 	type GenesisElectionProvider = Self::ElectionProvider;
+ 	type VoterList = VoterList;
+-	type TargetList = pallet_staking::UseValidatorsMap<Self>;
++	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
+ 	type EventListeners = (Pools, DelegatedStaking);
+-	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
++	type BenchmarkingConfig = pallet_staking_async::TestBenchmarkingConfig;
+ }
+ 
+ parameter_types! {
+@@ -293,7 +293,7 @@ frame_support::construct_runtime!(
+ 		System: frame_system,
+ 		Timestamp: pallet_timestamp,
+ 		Balances: pallet_balances,
+-		Staking: pallet_staking,
++		Staking: pallet_staking_async,
+ 		VoterList: pallet_bags_list::<Instance1>,
+ 		Pools: pallet_nomination_pools,
+ 		DelegatedStaking: pallet_delegated_staking,
+@@ -330,13 +330,13 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
+ 		// set some limit for nominations.
+ 		assert_ok!(Staking::set_staking_configs(
+ 			RuntimeOrigin::root(),
+-			pallet_staking::ConfigOp::Set(10), // minimum nominator bond
+-			pallet_staking::ConfigOp::Noop,
+-			pallet_staking::ConfigOp::Noop,
+-			pallet_staking::ConfigOp::Noop,
+-			pallet_staking::ConfigOp::Noop,
+-			pallet_staking::ConfigOp::Noop,
+-			pallet_staking::ConfigOp::Noop,
++			pallet_staking_async::ConfigOp::Set(10), // minimum nominator bond
++			pallet_staking_async::ConfigOp::Noop,
++			pallet_staking_async::ConfigOp::Noop,
++			pallet_staking_async::ConfigOp::Noop,
++			pallet_staking_async::ConfigOp::Noop,
++			pallet_staking_async::ConfigOp::Noop,
++			pallet_staking_async::ConfigOp::Noop,
+ 		));
+ 
+ 		// ensure staking era is initialised.
+@@ -364,7 +364,7 @@ pub(crate) fn pool_events_since_last_call() -> Vec<pallet_nomination_pools::Even
+ 	events.into_iter().skip(already_seen).collect()
+ }
+ 
+-pub(crate) fn staking_events_since_last_call() -> Vec<pallet_staking::Event<Runtime>> {
++pub(crate) fn staking_events_since_last_call() -> Vec<pallet_staking_async::Event<Runtime>> {
+ 	let events = System::events()
+ 		.into_iter()
+ 		.map(|r| r.event)
+@@ -390,8 +390,8 @@ pub(crate) fn delegated_staking_events_since_last_call(
+ }
+ 
+ pub fn set_active_era(era: sp_staking::EraIndex) {
+-	pallet_staking::CurrentEra::<T>::put(era);
+-	pallet_staking::ActiveEra::<T>::put(pallet_staking::ActiveEraInfo {
++	pallet_staking_async::CurrentEra::<T>::put(era);
++	pallet_staking_async::ActiveEra::<T>::put(pallet_staking_async::ActiveEraInfo {
+ 		index: era,
+ 		start: Some(0),
+ 	});
+-- 
+2.50.0
+

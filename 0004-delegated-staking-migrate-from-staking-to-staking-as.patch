@@ -1,0 +1,287 @@
+From a2f7ed15167eb1d4737c11c89b4c329fd095d79c Mon Sep 17 00:00:00 2001
+From: Paolo La Camera <paolo@parity.io>
+Date: Fri, 27 Jun 2025 14:09:35 +0200
+Subject: [PATCH 4/5] delegated-staking: migrate from staking to staking-async
+
+1. Updated `pallet_staking_async::Config` implementation:
+ - Replaced `ConvertCurve<RewardCurve>` with `MockEraPayout`
+ - Added `RcClientInterface = MockRcClient`
+
+2.Added missing dependencies and mocks:
+ - Added `pallet-staking-async-rc-client` as a dev-dependency in `Cargo.toml`
+ - Created `MockEraPayout` implementing `EraPayout<Balance>` trait
+ - Created `MockRcClient` implementing `RcClientInterface` trait
+
+3. Fixed genesis configuration:
+ - Updated stakers format from 4-tuple to 3-tuple (removed controller field)
+ - Replaced `minimum_validator_count` with correct configuration
+ - Fixed `invulnerables` field to use `Default::default()` instead of empty vec
+
+4. Enhanced test validator setup:
+ - Added additional validators (18, 19, 20, 21, 22) with proper balances to support pool integration
+tests (validators need to exist now to be successfully nominated!)
+ - Updated validator count to 6 to accommodate the additional validators
+ - Ensured account 99 is not pre-configured as a validator to maintain test expectations
+---
+ Cargo.lock                                    |  3 +-
+ substrate/frame/delegated-staking/Cargo.toml  | 12 ++-
+ substrate/frame/delegated-staking/src/mock.rs | 84 ++++++++++++-------
+ .../frame/delegated-staking/src/tests.rs      | 10 +--
+ 4 files changed, 67 insertions(+), 42 deletions(-)
+
+diff --git a/Cargo.lock b/Cargo.lock
+index 1172483cce..58efad466f 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -12013,7 +12013,8 @@ dependencies = [
+  "log",
+  "pallet-balances",
+  "pallet-nomination-pools",
+- "pallet-staking",
++ "pallet-staking-async",
++ "pallet-staking-async-rc-client",
+  "pallet-staking-reward-curve",
+  "pallet-timestamp",
+  "parity-scale-codec",
+diff --git a/substrate/frame/delegated-staking/Cargo.toml b/substrate/frame/delegated-staking/Cargo.toml
+index a08caf6034..9d11f63dd2 100644
+--- a/substrate/frame/delegated-staking/Cargo.toml
++++ b/substrate/frame/delegated-staking/Cargo.toml
+@@ -25,7 +25,8 @@ sp-staking = { workspace = true }
+ frame-election-provider-support = { workspace = true }
+ pallet-balances = { workspace = true, default-features = true }
+ pallet-nomination-pools = { workspace = true, default-features = true }
+-pallet-staking = { workspace = true, default-features = true }
++pallet-staking-async = { workspace = true, default-features = true }
++pallet-staking-async-rc-client = { workspace = true, default-features = true }
+ pallet-staking-reward-curve = { workspace = true, default-features = true }
+ pallet-timestamp = { workspace = true, default-features = true }
+ sp-core = { workspace = true, default-features = true }
+@@ -41,7 +42,8 @@ std = [
+ 	"log/std",
+ 	"pallet-balances/std",
+ 	"pallet-nomination-pools/std",
+-	"pallet-staking/std",
++	"pallet-staking-async/std",
++	"pallet-staking-async-rc-client/std",
+ 	"pallet-timestamp/std",
+ 	"scale-info/std",
+ 	"sp-core/std",
+@@ -55,7 +57,8 @@ runtime-benchmarks = [
+ 	"frame-system/runtime-benchmarks",
+ 	"pallet-balances/runtime-benchmarks",
+ 	"pallet-nomination-pools/runtime-benchmarks",
+-	"pallet-staking/runtime-benchmarks",
++	"pallet-staking-async/runtime-benchmarks",
++	"pallet-staking-async-rc-client/runtime-benchmarks",
+ 	"pallet-timestamp/runtime-benchmarks",
+ 	"sp-runtime/runtime-benchmarks",
+ 	"sp-staking/runtime-benchmarks",
+@@ -66,7 +69,8 @@ try-runtime = [
+ 	"frame-system/try-runtime",
+ 	"pallet-balances/try-runtime",
+ 	"pallet-nomination-pools/try-runtime",
+-	"pallet-staking/try-runtime",
++	"pallet-staking-async/try-runtime",
++	"pallet-staking-async-rc-client/try-runtime",
+ 	"pallet-timestamp/try-runtime",
+ 	"sp-runtime/try-runtime",
+ ]
+diff --git a/substrate/frame/delegated-staking/src/mock.rs b/substrate/frame/delegated-staking/src/mock.rs
+index 0bc60b0397..58b1a405bd 100644
+--- a/substrate/frame/delegated-staking/src/mock.rs
++++ b/substrate/frame/delegated-staking/src/mock.rs
+@@ -24,6 +24,7 @@ use frame_support::{
+ 	PalletId,
+ };
+ 
++use pallet_staking_async_rc_client as rc_client;
+ use sp_runtime::{traits::IdentityLookup, BuildStorage, Perbill};
+ 
+ use frame_election_provider_support::{
+@@ -31,7 +32,7 @@ use frame_election_provider_support::{
+ 	onchain, SequentialPhragmen,
+ };
+ use frame_support::dispatch::RawOrigin;
+-use pallet_staking::{ActiveEra, ActiveEraInfo, CurrentEra};
++use pallet_staking_async::{ActiveEra, ActiveEraInfo, CurrentEra};
+ use sp_core::{ConstBool, U256};
+ use sp_runtime::traits::Convert;
+ use sp_staking::{Agent, Stake, StakingInterface};
+@@ -102,19 +103,42 @@ impl onchain::Config for OnChainSeqPhragmen {
+ 	type Bounds = ElectionsBoundsOnChain;
+ }
+ 
+-#[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
+-impl pallet_staking::Config for Runtime {
++// Mock era payout
++pub struct MockEraPayout;
++impl pallet_staking_async::EraPayout<Balance> for MockEraPayout {
++	fn era_payout(
++		_total_staked: Balance,
++		_total_issuance: Balance,
++		_era_duration_millis: u64,
++	) -> (Balance, Balance) {
++		(1000, 100)
++	}
++}
++
++// Mock RC client interface
++pub struct MockRcClient;
++impl rc_client::RcClientInterface for MockRcClient {
++	type AccountId = AccountId;
++	fn validator_set(
++		_new_validator_set: Vec<Self::AccountId>,
++		_id: u32,
++		_prune_up_to: Option<u32>,
++	) {
++	}
++}
++
++#[derive_impl(pallet_staking_async::config_preludes::TestDefaultConfig)]
++impl pallet_staking_async::Config for Runtime {
+ 	type OldCurrency = Balances;
+ 	type Currency = Balances;
+-	type UnixTime = pallet_timestamp::Pallet<Self>;
+ 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
+-	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
++	type EraPayout = MockEraPayout;
+ 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
+-	type GenesisElectionProvider = Self::ElectionProvider;
+-	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
+-	type TargetList = pallet_staking::UseValidatorsMap<Self>;
++	type VoterList = pallet_staking_async::UseNominatorsAndValidatorsMap<Self>;
++	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
+ 	type EventListeners = (Pools, DelegatedStaking);
+ 	type Filter = pallet_nomination_pools::AllPoolMembers<Self>;
++	type RcClientInterface = MockRcClient;
+ }
+ 
+ parameter_types! {
+@@ -165,7 +189,7 @@ impl pallet_nomination_pools::Config for Runtime {
+ 		pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
+ 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
+ 	type BlockNumberProvider = System;
+-	type Filter = pallet_staking::AllStakers<Runtime>;
++	type Filter = pallet_staking_async::AllStakers<Runtime>;
+ }
+ 
+ frame_support::construct_runtime!(
+@@ -173,7 +197,7 @@ frame_support::construct_runtime!(
+ 		System: frame_system,
+ 		Timestamp: pallet_timestamp,
+ 		Balances: pallet_balances,
+-		Staking: pallet_staking,
++		Staking: pallet_staking_async,
+ 		Pools: pallet_nomination_pools,
+ 		DelegatedStaking: delegated_staking,
+ 	}
+@@ -193,38 +217,34 @@ impl ExtBuilder {
+ 				(GENESIS_VALIDATOR, 10000),
+ 				(GENESIS_NOMINATOR_ONE, 1000),
+ 				(GENESIS_NOMINATOR_TWO, 2000),
++				// Additional validators for tests
++				(18, 10000),
++				(19, 10000),
++				(20, 10000),
++				(21, 10000),
++				(22, 10000),
+ 			],
+ 			..Default::default()
+ 		}
+ 		.assimilate_storage(&mut storage);
+ 
+ 		let stakers = vec![
+-			(
+-				GENESIS_VALIDATOR,
+-				GENESIS_VALIDATOR,
+-				1000,
+-				sp_staking::StakerStatus::<AccountId>::Validator,
+-			),
+-			(
+-				GENESIS_NOMINATOR_ONE,
+-				GENESIS_NOMINATOR_ONE,
+-				100,
+-				sp_staking::StakerStatus::<AccountId>::Nominator(vec![1]),
+-			),
+-			(
+-				GENESIS_NOMINATOR_TWO,
+-				GENESIS_NOMINATOR_TWO,
+-				200,
+-				sp_staking::StakerStatus::<AccountId>::Nominator(vec![1]),
+-			),
++			(GENESIS_VALIDATOR, 1000, sp_staking::StakerStatus::<AccountId>::Validator),
++			(GENESIS_NOMINATOR_ONE, 100, sp_staking::StakerStatus::<AccountId>::Nominator(vec![1])),
++			(GENESIS_NOMINATOR_TWO, 200, sp_staking::StakerStatus::<AccountId>::Nominator(vec![1])),
++			// Additional validators for pool integration tests
++			(18, 1000, sp_staking::StakerStatus::<AccountId>::Validator),
++			(19, 1000, sp_staking::StakerStatus::<AccountId>::Validator),
++			(20, 1000, sp_staking::StakerStatus::<AccountId>::Validator),
++			(21, 1000, sp_staking::StakerStatus::<AccountId>::Validator),
++			(22, 1000, sp_staking::StakerStatus::<AccountId>::Validator),
+ 		];
+ 
+-		let _ = pallet_staking::GenesisConfig::<T> {
++		let _ = pallet_staking_async::GenesisConfig::<T> {
+ 			stakers: stakers.clone(),
+ 			// ideal validator count
+-			validator_count: 2,
+-			minimum_validator_count: 1,
+-			invulnerables: vec![],
++			validator_count: 6,
++			invulnerables: Default::default(),
+ 			slash_reward_fraction: Perbill::from_percent(10),
+ 			min_nominator_bond: ExistentialDeposit::get(),
+ 			min_validator_bond: ExistentialDeposit::get(),
+diff --git a/substrate/frame/delegated-staking/src/tests.rs b/substrate/frame/delegated-staking/src/tests.rs
+index 05961d6f82..f0a7738cb1 100644
+--- a/substrate/frame/delegated-staking/src/tests.rs
++++ b/substrate/frame/delegated-staking/src/tests.rs
+@@ -21,7 +21,7 @@ use super::*;
+ use crate::mock::*;
+ use frame_support::{assert_noop, assert_ok, traits::fungible::InspectHold};
+ use pallet_nomination_pools::{Error as PoolsError, Event as PoolsEvent};
+-use pallet_staking::{Error as StakingError, RewardDestination};
++use pallet_staking_async::{Error as StakingError, RewardDestination};
+ use sp_staking::{Agent, DelegationInterface, Delegator, StakerStatus};
+ 
+ #[test]
+@@ -224,7 +224,7 @@ fn apply_pending_slash() {
+ 
+ 		start_era(4);
+ 		// slash half of the stake
+-		pallet_staking::slashing::do_slash::<T>(
++		pallet_staking_async::slashing::do_slash::<T>(
+ 			&agent,
+ 			total_staked / 2,
+ 			&mut Default::default(),
+@@ -339,7 +339,7 @@ fn allow_full_amount_to_be_delegated() {
+ 	});
+ }
+ 
+-/// Integration tests with pallet-staking.
++/// Integration tests with pallet-staking-async.
+ mod staking_integration {
+ 	use super::*;
+ 	use sp_staking::Stake;
+@@ -641,7 +641,7 @@ mod staking_integration {
+ 			// in equal parts. lets try to migrate this nominator into delegate based stake.
+ 
+ 			// all balance currently is in 200
+-			assert_eq!(pallet_staking::asset::total_balance::<T>(&agent), agent_amount);
++			assert_eq!(pallet_staking_async::asset::total_balance::<T>(&agent), agent_amount);
+ 
+ 			// to migrate, nominator needs to set an account as a proxy delegator where staked funds
+ 			// will be moved and delegated back to this old nominator account. This should be funded
+@@ -1213,7 +1213,7 @@ mod pool_integration {
+ 			assert_eq!(Pools::api_pool_pending_slash(pool_id), 0);
+ 
+ 			// slash the pool partially
+-			pallet_staking::slashing::do_slash::<T>(
++			pallet_staking_async::slashing::do_slash::<T>(
+ 				&pool_acc,
+ 				500,
+ 				&mut Default::default(),
+-- 
+2.50.0
+
