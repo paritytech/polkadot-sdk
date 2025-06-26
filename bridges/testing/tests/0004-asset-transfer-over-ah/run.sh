@@ -7,7 +7,7 @@ source "${BASH_SOURCE%/*}/../../framework/utils/zombienet.sh"
 
 export ENV_PATH=`realpath ${BASH_SOURCE%/*}/../../environments/rococo-westend`
 
-$ENV_PATH/spawn.sh --init --start-relayer --permlanes &
+$ENV_PATH/spawn.sh --init --start-relayer &
 env_pid=$!
 
 ensure_process_file $env_pid $TEST_DIR/rococo.env 600
@@ -17,6 +17,9 @@ echo
 ensure_process_file $env_pid $TEST_DIR/westend.env 300
 westend_dir=`cat $TEST_DIR/westend.env`
 echo
+
+run_zndsl ${BASH_SOURCE%/*}/ahr-open_bridge.zndsl $rococo_dir 
+run_zndsl ${BASH_SOURCE%/*}/ahw-open_bridge.zndsl $westend_dir
 
 run_zndsl ${BASH_SOURCE%/*}/roc-relayer-balance-does-not-change.zndsl $rococo_dir
 run_zndsl ${BASH_SOURCE%/*}/wnd-relayer-balance-does-not-change.zndsl $westend_dir

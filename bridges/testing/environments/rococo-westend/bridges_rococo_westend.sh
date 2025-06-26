@@ -178,7 +178,7 @@ function run_parachains_relay() {
     local relayer_path=$(ensure_relayer)
 
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
-        $relayer_path relay-parachains rococo-to-bridge-hub-westend \
+        $relayer_path relay-parachains bridge-hub-rococo-to-bridge-hub-westend \
         --only-free-headers \
         --source-uri ws://localhost:9942 \
         --source-version-mode Auto \
@@ -188,7 +188,7 @@ function run_parachains_relay() {
         --target-transactions-mortality 4&
 
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
-        $relayer_path relay-parachains westend-to-bridge-hub-rococo \
+        $relayer_path relay-parachains bridge-hub-westend-to-bridge-hub-rococo \
         --only-free-headers \
         --source-uri ws://localhost:9945 \
         --source-version-mode Auto \

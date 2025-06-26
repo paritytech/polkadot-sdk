@@ -9,7 +9,6 @@ source "$FRAMEWORK_PATH/utils/zombienet.sh"
 # whether to init the chains (open HRMP channels, set XCM version, create reserve assets, etc)
 init=0
 start_relayer=0
-permlanes=0
 while [ $# -ne 0 ]
 do
     arg="$1"
@@ -19,9 +18,6 @@ do
             ;;
         --start-relayer)
             start_relayer=1
-            ;;
-        --permlanes)
-            permlanes=1
             ;;
     esac
     shift
@@ -58,12 +54,6 @@ if [[ $init -eq 1 ]]; then
   $helper_script init-bridge-hub-westend-local >> $westend_init_log 2>&1 &
   westend_init_pid=$!
   wait -n $rococo_init_pid $westend_init_pid
-
-  if [[ $permlanes -eq 1 ]]; then
-    echo "Opening bridge lane."
-    $helper_script open-bridge-lane-westend-rococo-local >> $westend_init_log 2>&1 &
-    $helper_script open-bridge-lane-rococo-westend-local >> $rococo_init_log 2>&1 &
-  fi
 
   run_zndsl ${BASH_SOURCE%/*}/rococo-init.zndsl $rococo_dir
   run_zndsl ${BASH_SOURCE%/*}/westend-init.zndsl $westend_dir
