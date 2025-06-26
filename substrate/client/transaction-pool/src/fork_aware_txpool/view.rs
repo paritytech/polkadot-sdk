@@ -655,8 +655,8 @@ where
 				.invalid_hashes
 				.iter()
 				.filter_map(|validated_tx| match validated_tx {
-					ValidatedTransaction::Invalid(hash, _) => Some(hash.clone()),
-					ValidatedTransaction::Unknown(hash, _) => Some(hash.clone()),
+					ValidatedTransaction::Invalid(hash, _) => Some(*hash),
+					ValidatedTransaction::Unknown(hash, _) => Some(*hash),
 					ValidatedTransaction::Valid(_) => None,
 				})
 				.collect::<Vec<_>>();

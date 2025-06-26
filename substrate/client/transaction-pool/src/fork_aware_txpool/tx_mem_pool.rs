@@ -716,11 +716,11 @@ where
 			.into_iter()
 			.filter_map(|validated_tx| match validated_tx {
 				ValidatedTransaction::Invalid(hash, err) => {
-					revalidated_invalid_txs_to_error.insert(hash.clone(), err);
+					revalidated_invalid_txs_to_error.insert(hash, err);
 					Some(hash)
 				},
 				ValidatedTransaction::Unknown(hash, err) => {
-					revalidated_invalid_txs_to_error.insert(hash.clone(), err);
+					revalidated_invalid_txs_to_error.insert(hash, err);
 					Some(hash)
 				},
 				ValidatedTransaction::Valid(_) => None,
@@ -744,13 +744,18 @@ where
 		};
 
 		self.metrics.report(|metrics| {
-			metrics
-				.mempool_revalidation_invalid_txs
-				.inc_by(invalid_hashes_subtrees.len() as _)
+			revalidated_invalid_txs_to_error.into_iter().for_each(|(_, err)| {
+				let _ = metrics.mempool_revalidation_invalid_txs.inc(err).inspect_err(|error| {
+					trace!(
+						target: LOG_TARGET,
+						?error,
+						"mempool::revalidate failed to increment `mempool_revalidation_invalid_txs` metric"
+					);
+				});
+			});
 		});
 
 		let invalid_hashes_subtrees_len = invalid_hashes_subtrees.len();
-
 		let invalid_hashes_subtrees = invalid_hashes_subtrees.into_iter().collect::<Vec<_>>();
 
 		//note: here the consistency is assumed: it is expected that transaction will be

@@ -44,6 +44,7 @@ thiserror = { workspace = true }
 tokio = { workspace = true, default-features = true, features = ["macros", "time"] }
 tokio-stream = { workspace = true }
 tracing = { workspace = true, default-features = true }
+strum = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
 anyhow = { workspace = true }

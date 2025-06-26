@@ -21,12 +21,13 @@
 use sp_runtime::transaction_validity::{
 	InvalidTransaction, TransactionPriority as Priority, UnknownTransaction,
 };
+use strum::IntoStaticStr;
 
 /// Transaction pool result.
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Transaction pool error type.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, IntoStaticStr)]
 #[allow(missing_docs)]
 pub enum Error {
 	#[error("Unknown transaction validity: {0:?}")]
