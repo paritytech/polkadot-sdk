@@ -9,7 +9,7 @@ on:
         required: true
         type: choice
         options:
-          - westend-runtime
+          - westend
           - all
       runtime_dir:
         description: The runtime_dir to be used
