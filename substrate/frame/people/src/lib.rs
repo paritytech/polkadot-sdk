@@ -617,7 +617,6 @@ pub mod pallet {
 			let chunks: Vec<StaticChunk> = params.0.iter().map(|c| StaticChunk(*c)).collect();
 			Self {
 				encoded_chunks: chunks.encode(),
-				encoded_chunks: Vec::new(),
 				_phantom_data: PhantomData,
 				onboarding_size: T::MaxRingSize::get(),
 			}
