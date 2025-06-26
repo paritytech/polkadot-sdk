@@ -1,0 +1,5 @@
+title: '[subsystem-bench] Add Dispute Coordinator subsystem benchmark'
+doc:
+- audience: Node Dev
+  description: Fixes https://github.com/paritytech/polkadot-sdk/issues/8811
+crates: []
