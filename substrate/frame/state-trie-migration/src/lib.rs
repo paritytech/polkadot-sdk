@@ -326,7 +326,7 @@ pub mod pallet {
 				(Progress::LastKey(last_child), Progress::LastKey(last_top)) => {
 					let child_root = Pallet::<T>::transform_child_key_or_halt(last_top);
 					let maybe_current_child: Option<BoundedVec<u8, T::MaxKeyLen>> =
-						if let Some(next) = child_io::next_key(child_root, last_child) {
+						if let Some(next) = sp_io::child_storage_next_key(child_root, last_child) {
 							Some(next.try_into().map_err(|_| Error::<T>::KeyTooLong)?)
 						} else {
 							None
@@ -372,7 +372,7 @@ pub mod pallet {
 			let maybe_current_top = match &self.progress_top {
 				Progress::LastKey(last_top) => {
 					let maybe_top: Option<BoundedVec<u8, T::MaxKeyLen>> =
-						if let Some(next) = sp_io::storage::next_key(last_top) {
+						if let Some(next) = sp_io::storage_next_key(last_top) {
 							Some(next.try_into().map_err(|_| Error::<T>::KeyTooLong)?)
 						} else {
 							None

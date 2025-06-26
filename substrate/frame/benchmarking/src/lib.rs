@@ -43,7 +43,7 @@ pub mod __private {
 	pub use log;
 	pub use paste;
 	pub use sp_core::defer;
-	pub use sp_io::storage::root as storage_root;
+	pub use sp_io::storage_root as storage_root;
 	pub use sp_runtime::{traits::Zero, StateVersion};
 	pub use sp_storage::{well_known_keys, TrackedStorageKey};
 }

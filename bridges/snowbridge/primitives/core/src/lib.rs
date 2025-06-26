@@ -27,7 +27,7 @@ use frame_support::{traits::Contains, BoundedVec};
 use hex_literal::hex;
 use scale_info::TypeInfo;
 use sp_core::{ConstU32, H256};
-use sp_io::hashing::keccak_256;
+use sp_io::hashing_keccak_256 as keccak_256;
 use sp_runtime::{traits::AccountIdConversion, RuntimeDebug};
 use sp_std::prelude::*;
 use xcm::latest::{Asset, Junction::Parachain, Location, Result as XcmResult, XcmContext};

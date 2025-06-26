@@ -149,7 +149,7 @@ impl SendXcm for MockXcmSender {
 	}
 
 	fn deliver(xcm: Self::Ticket) -> core::result::Result<XcmHash, XcmpSendError> {
-		let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+		let hash = xcm.using_encoded(sp_io::hashing_blake2_256);
 		Ok(hash)
 	}
 }

@@ -9,7 +9,7 @@ use core::marker::PhantomData;
 use frame_support::ensure;
 use snowbridge_core::TokenId;
 use sp_core::{Get, RuntimeDebug, H160};
-use sp_io::hashing::blake2_256;
+use sp_io::hashing_blake2_256 as blake2_256;
 use sp_runtime::{traits::MaybeConvert, MultiAddress};
 use sp_std::prelude::*;
 use xcm::{

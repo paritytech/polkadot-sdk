@@ -191,7 +191,7 @@ pub mod well_known_keys {
 	use alloc::vec::Vec;
 	use codec::Encode as _;
 	use hex_literal::hex;
-	use sp_io::hashing::twox_64;
+	use sp_io::hashing_twox_64 as twox_64;
 
 	// A note on generating these magic values below:
 	//

@@ -1563,7 +1563,7 @@ impl<T: Config> Pallet<T> {
 		meter: &mut WeightMeter,
 		overweight_limit: Weight,
 	) -> MessageExecutionStatus {
-		let mut id = sp_io::hashing::blake2_256(message);
+		let mut id = sp_io::hashing_blake2_256(message);
 		use ProcessMessageError::*;
 		let prev_consumed = meter.consumed();
 

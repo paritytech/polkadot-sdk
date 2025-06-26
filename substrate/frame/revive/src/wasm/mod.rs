@@ -151,7 +151,7 @@ where
 			code_len,
 			behaviour_version: Default::default(),
 		};
-		let code_hash = H256(sp_io::hashing::keccak_256(&code));
+		let code_hash = H256(sp_io::hashing_keccak_256(&code));
 		Ok(WasmBlob { code, code_info, code_hash })
 	}
 

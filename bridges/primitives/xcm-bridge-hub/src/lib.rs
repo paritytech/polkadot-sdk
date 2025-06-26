@@ -30,7 +30,6 @@ use frame_support::{
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_core::H256;
-use sp_io::hashing::blake2_256;
 use sp_std::boxed::Box;
 use xcm::{
 	latest::prelude::*, prelude::XcmVersion, IntoVersion, VersionedInteriorLocation,
@@ -84,7 +83,7 @@ impl BridgeId {
 
 		BridgeId(
 			(universal_source, VALUES_SEPARATOR, universal_destination)
-				.using_encoded(blake2_256)
+				.using_encoded(sp_io::hashing_blake2_256)
 				.into(),
 		)
 	}

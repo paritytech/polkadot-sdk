@@ -296,7 +296,7 @@ impl SendXcm for ExecuteXcmOverSendXcm {
 		let xcm: Xcm<RuntimeCall> = ticket.into();
 
 		let origin = EXECUTE_XCM_ORIGIN.with(|o| o.borrow().clone().unwrap());
-		let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+		let mut hash = xcm.using_encoded(sp_io::hashing_blake2_256);
 		let outcome = XcmExecutor::<XcmConfig>::prepare_and_execute(
 			origin,
 			xcm,

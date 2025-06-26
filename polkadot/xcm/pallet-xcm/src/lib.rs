@@ -348,7 +348,7 @@ pub mod pallet {
 			tracing::trace!(target: "xcm::pallet_xcm::execute", ?message, ?max_weight);
 			let outcome = (|| {
 				let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
-				let mut hash = message.using_encoded(sp_io::hashing::blake2_256);
+				let mut hash = message.using_encoded(sp_io::hashing_blake2_256);
 				let message = (*message).try_into().map_err(|()| {
 					tracing::debug!(
 						target: "xcm::pallet_xcm::execute", id=?hash,
@@ -1531,7 +1531,7 @@ pub mod pallet {
 				tracing::debug!(target: "xcm::pallet_xcm::claim_assets", ?error, "Failed to calculate weight");
 				Error::<T>::UnweighableMessage
 			})?;
-			let mut hash = message.using_encoded(sp_io::hashing::blake2_256);
+			let mut hash = message.using_encoded(sp_io::hashing_blake2_256);
 			let outcome = T::XcmExecutor::prepare_and_execute(
 				origin_location,
 				message,
@@ -2274,7 +2274,7 @@ impl<T: Config> Pallet<T> {
 				tracing::debug!(target: "xcm::pallet_xcm::execute_xcm_transfer", ?error, "Failed to calculate weight");
 				Error::<T>::UnweighableMessage
 			})?;
-		let mut hash = local_xcm.using_encoded(sp_io::hashing::blake2_256);
+		let mut hash = local_xcm.using_encoded(sp_io::hashing_blake2_256);
 		let outcome = T::XcmExecutor::prepare_and_execute(
 			origin.clone(),
 			local_xcm,
@@ -3087,7 +3087,7 @@ impl<T: Config> Pallet<T> {
 			);
 			XcmDryRunApiError::VersionedConversionFailed
 		})?;
-		let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+		let mut hash = xcm.using_encoded(sp_io::hashing_blake2_256);
 
 		// To make sure we only record events from current call.
 		Router::clear_messages();

@@ -226,7 +226,7 @@ pub mod mock_msg_queue {
 			max_weight: Weight,
 		) -> Result<Weight, XcmError> {
 			let hash = Encode::using_encoded(&xcm, T::Hashing::hash);
-			let mut message_hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+			let mut message_hash = xcm.using_encoded(sp_io::hashing_blake2_256);
 			let (result, event) = match Xcm::<T::RuntimeCall>::try_from(xcm) {
 				Ok(xcm) => {
 					let location = Location::new(1, [Parachain(sender.into())]);
@@ -285,7 +285,7 @@ pub mod mock_msg_queue {
 			limit: Weight,
 		) -> Weight {
 			for (_i, (_sent_at, data)) in iter.enumerate() {
-				let mut id = sp_io::hashing::blake2_256(&data[..]);
+				let mut id = sp_io::hashing_blake2_256(&data[..]);
 				let maybe_msg = VersionedXcm::<T::RuntimeCall>::decode(&mut &data[..])
 					.map(Xcm::<T::RuntimeCall>::try_from);
 				match maybe_msg {

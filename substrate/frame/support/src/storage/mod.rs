@@ -1089,7 +1089,7 @@ impl<T, OnRemoval: PrefixIteratorOnRemoval> Iterator for PrefixIterator<T, OnRem
 
 	fn next(&mut self) -> Option<Self::Item> {
 		loop {
-			let maybe_next = sp_io::storage::next_key(&self.previous_key)
+			let maybe_next = sp_io::storage_next_key(&self.previous_key)
 				.filter(|n| n.starts_with(&self.prefix));
 			break match maybe_next {
 				Some(next) => {
@@ -1185,7 +1185,7 @@ impl<T> Iterator for KeyPrefixIterator<T> {
 
 	fn next(&mut self) -> Option<Self::Item> {
 		loop {
-			let maybe_next = sp_io::storage::next_key(&self.previous_key)
+			let maybe_next = sp_io::storage_next_key(&self.previous_key)
 				.filter(|n| n.starts_with(&self.prefix));
 
 			if let Some(next) = maybe_next {
@@ -1298,7 +1298,7 @@ impl<T> Iterator for ChildTriePrefixIterator<T> {
 				self.fetch_previous_key = false;
 				Some(self.previous_key.clone())
 			} else {
-				sp_io::default_child_storage::next_key(
+				sp_io::child_storage_next_key(
 					self.child_info.storage_key(),
 					&self.previous_key,
 				)
@@ -1447,7 +1447,7 @@ pub trait StoragePrefixedMap<Value: FullCodec> {
 		let prefix = Self::final_prefix();
 		let mut previous_key = prefix.clone().to_vec();
 		while let Some(next) =
-			sp_io::storage::next_key(&previous_key).filter(|n| n.starts_with(&prefix))
+			sp_io::storage_next_key(&previous_key).filter(|n| n.starts_with(&prefix))
 		{
 			previous_key = next;
 			let maybe_value = unhashed::get::<OldValue>(&previous_key);
@@ -1737,8 +1737,10 @@ where
 ///
 /// The storage prefix is `concat(twox_128(pallet_name), twox_128(storage_name))`.
 pub fn storage_prefix(pallet_name: &[u8], storage_name: &[u8]) -> [u8; 32] {
-	let pallet_hash = sp_io::hashing::twox_128(pallet_name);
-	let storage_hash = sp_io::hashing::twox_128(storage_name);
+	let mut pallet_hash = [0u8; 16];
+	let mut storage_hash = [0u8; 16];
+	sp_io::hashing::twox_128(pallet_name, &mut pallet_hash);
+	sp_io::hashing::twox_128(storage_name, &mut storage_hash);
 
 	let mut final_key = [0u8; 32];
 	final_key[..16].copy_from_slice(&pallet_hash);

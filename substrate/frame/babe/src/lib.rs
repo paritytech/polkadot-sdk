@@ -1045,7 +1045,7 @@ fn compute_randomness(
 		s.extend_from_slice(&vrf_output[..]);
 	}
 
-	sp_io::hashing::blake2_256(&s)
+	sp_io::hashing_blake2_256(&s)
 }
 
 pub mod migrations {

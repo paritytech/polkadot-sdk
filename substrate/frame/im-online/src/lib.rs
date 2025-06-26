@@ -565,7 +565,7 @@ impl<T: Config> Pallet<T> {
 			let residual = Permill::from_rational(1u32, session_length.saturated_into());
 			let threshold: Permill = progress.saturating_pow(6).saturating_add(residual);
 
-			let seed = sp_io::offchain::random_seed();
+			let seed = sp_io::offchain_random_seed();
 			let random = <u32>::decode(&mut TrailingZeroInput::new(seed.as_ref()))
 				.expect("input is padded with zeroes; qed");
 			let random = Permill::from_parts(random % Permill::ACCURACY);

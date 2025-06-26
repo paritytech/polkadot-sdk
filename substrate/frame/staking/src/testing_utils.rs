@@ -25,7 +25,7 @@ use rand_chacha::{
 	rand_core::{RngCore, SeedableRng},
 	ChaChaRng,
 };
-use sp_io::hashing::blake2_256;
+use sp_io::hashing_blake2_256 as blake2_256;
 
 use frame_election_provider_support::SortedListProvider;
 use frame_support::pallet_prelude::*;

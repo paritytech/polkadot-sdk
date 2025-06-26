@@ -128,7 +128,7 @@ pub mod pallet {
 		#[pallet::weight(100)]
 		pub fn indexed_call(origin: OriginFor<T>, data: Vec<u8>) -> DispatchResult {
 			frame_system::ensure_signed(origin)?;
-			let content_hash = sp_io::hashing::blake2_256(&data);
+			let content_hash = sp_io::hashing_blake2_256(&data);
 			let extrinsic_index: u32 =
 				storage::unhashed::get(well_known_keys::EXTRINSIC_INDEX).unwrap();
 			sp_io::transaction_index::index(extrinsic_index, data.len() as u32, content_hash);
@@ -195,7 +195,7 @@ pub mod pallet {
 		fn execute_read(read: u32, panic_at_end: bool) -> DispatchResult {
 			let mut next_key = vec![];
 			for _ in 0..(read as usize) {
-				if let Some(next) = sp_io::storage::next_key(&next_key) {
+				if let Some(next) = sp_io::storage_next_key(&next_key) {
 					// Read the value
 					sp_io::storage::get(&next);
 

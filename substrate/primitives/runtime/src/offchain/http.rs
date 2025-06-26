@@ -293,7 +293,9 @@ impl PendingRequest {
 		deadline: impl Into<Option<Timestamp>>,
 	) -> Vec<Result<HttpResult, PendingRequest>> {
 		let ids = requests.iter().map(|r| r.id).collect::<Vec<_>>();
-		let statuses = sp_io::offchain::http_response_wait(&ids, deadline.into());
+		let mut statuses = vec![0u32; ids.len()];
+		sp_io::offchain::http_response_wait(&ids, deadline.into(), &mut statuses[..]);
+		let statuses: Vec<RequestStatus> = statuses.iter().map(|s| RequestStatus::try_from(*s).unwrap_or(RequestStatus::Invalid)).collect();
 
 		statuses
 			.into_iter()

@@ -97,13 +97,13 @@ pub fn kill(key: &[u8]) {
 }
 
 /// Ensure keys with the given `prefix` have no entries in storage.
-#[deprecated = "Use `clear_prefix` instead"]
-pub fn kill_prefix(prefix: &[u8], limit: Option<u32>) -> sp_io::KillStorageResult {
-	// TODO: Once the network has upgraded to include the new host functions, this code can be
-	// enabled.
-	// clear_prefix(prefix, limit).into()
-	sp_io::storage::clear_prefix(prefix, limit)
-}
+// #[deprecated = "Use `clear_prefix` instead"]
+// pub fn kill_prefix(prefix: &[u8], limit: Option<u32>) -> sp_io::KillStorageResult {
+// 	// TODO: Once the network has upgraded to include the new host functions, this code can be
+// 	// enabled.
+// 	// clear_prefix(prefix, limit).into()
+// 	sp_io::storage::clear_prefix(prefix, limit)
+// }
 
 /// Partially clear the storage of all keys under a common `prefix`.
 ///
@@ -140,25 +140,16 @@ pub fn kill_prefix(prefix: &[u8], limit: Option<u32>) -> sp_io::KillStorageResul
 pub fn clear_prefix(
 	prefix: &[u8],
 	maybe_limit: Option<u32>,
-	_maybe_cursor: Option<&[u8]>,
+	maybe_cursor: Option<&[u8]>,
 ) -> sp_io::MultiRemovalResults {
-	// TODO: Once the network has upgraded to include the new host functions, this code can be
-	// enabled.
-	// sp_io::storage::clear_prefix(prefix, maybe_limit, maybe_cursor)
-	use sp_io::{KillStorageResult::*, MultiRemovalResults};
-	#[allow(deprecated)]
-	let (maybe_cursor, i) = match kill_prefix(prefix, maybe_limit) {
-		AllRemoved(i) => (None, i),
-		SomeRemaining(i) => (Some(prefix.to_vec()), i),
-	};
-	MultiRemovalResults { maybe_cursor, backend: i, unique: i, loops: i }
+	sp_io::storage_clear_prefix(prefix, maybe_limit, maybe_cursor)
 }
 
 /// Returns `true` if the storage contains any key, which starts with a certain prefix,
 /// and is longer than said prefix.
 /// This means that a key which equals the prefix will not be counted.
 pub fn contains_prefixed_key(prefix: &[u8]) -> bool {
-	match sp_io::storage::next_key(prefix) {
+	match sp_io::storage_next_key(prefix) {
 		Some(key) => key.starts_with(prefix),
 		None => false,
 	}

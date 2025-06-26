@@ -71,7 +71,7 @@ pub fn junk_collator_signature() -> CollatorSignature {
 /// This is directly from frame-benchmarking. Copy/pasted so we can use it when not compiling with
 /// "features = runtime-benchmarks".
 fn account<AccountId: Decode>(name: &'static str, index: u32, seed: u32) -> AccountId {
-	let entropy = (name, index, seed).using_encoded(sp_io::hashing::blake2_256);
+	let entropy = (name, index, seed).using_encoded(sp_io::hashing_blake2_256);
 	AccountId::decode(&mut TrailingZeroInput::new(&entropy[..]))
 		.expect("infinite input; no invalid input; qed")
 }
