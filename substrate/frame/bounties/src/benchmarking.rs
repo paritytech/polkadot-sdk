@@ -109,7 +109,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn propose_bounty(d: Linear<0, { T::MaximumReasonLength::get() }>) {
-		let (caller, curator, fee, value, description) = setup_bounty::<T, I>(0, d);
+		let (caller, _, _, value, description) = setup_bounty::<T, I>(0, d);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), value, description);
@@ -117,13 +117,13 @@ mod benchmarks {
 
 	#[benchmark]
 	fn approve_bounty() {
-		let (caller, curator, fee, value, reason) = setup_bounty::<T, I>(0, T::MaximumReasonLength::get());
+		let (caller, _, _, value, reason) = setup_bounty::<T, I>(0, T::MaximumReasonLength::get());
 		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into(), value, reason).unwrap();
 		let bounty_id = BountyCount::<T, I>::get() - 1;
 		let approve_origin = T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless).unwrap();
 
 		#[extrinsic_call]
-		approve_bounty(approve_origin, bounty_id);
+		_(approve_origin, bounty_id);
 
 	}
 
@@ -140,7 +140,7 @@ mod benchmarks {
 		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
 
 		#[extrinsic_call]
-		propose_curator(approve_origin, bounty_id, curator_lookup, fee);
+		_(approve_origin, bounty_id, curator_lookup, fee);
 
 	}
 
@@ -155,7 +155,7 @@ mod benchmarks {
 		Treasury::<T, I>::on_initialize(SystemBlockNumberFor::<T>::zero());
 
 		#[extrinsic_call]
-		approve_bounty_with_curator(approve_origin, bounty_id, curator_lookup, fee);
+		_(approve_origin, bounty_id, curator_lookup, fee);
 
 		assert_last_event::<T, I>(Event::CuratorProposed { bounty_id, curator }.into());
 	}
@@ -165,7 +165,7 @@ mod benchmarks {
 	#[benchmark]
 	fn unassign_curator() {
 		setup_pot_account::<T, I>();
-		let (curator_lookup, bounty_id) = create_bounty::<T, I>().unwrap();
+		let (curator_lookup, _) = create_bounty::<T, I>().unwrap();
 		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
 		let bounty_id = BountyCount::<T, I>::get() - 1;
 		let bounty_update_period = T::BountyUpdatePeriod::get();
@@ -182,7 +182,7 @@ mod benchmarks {
 		};
 
 		#[extrinsic_call]
-		unassign_curator(origin, bounty_id);
+		_(origin, bounty_id);
 	}
 
 	#[benchmark]
@@ -205,7 +205,7 @@ mod benchmarks {
 	#[benchmark]
 	fn award_bounty() {
 		setup_pot_account::<T, I>();
-		let (curator_lookup, bounty_id) = create_bounty::<T, I>().unwrap();
+		let (curator_lookup, _) = create_bounty::<T, I>().unwrap();
 		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
 
 		let bounty_id = BountyCount::<T, I>::get() - 1;
@@ -220,7 +220,7 @@ mod benchmarks {
 	#[benchmark]
 	fn claim_bounty() {
 		setup_pot_account::<T, I>();
-		let (curator_lookup, bounty_id) = create_bounty::<T, I>().unwrap();
+		let (curator_lookup, _) = create_bounty::<T, I>().unwrap();
 		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
 
 		let bounty_id = BountyCount::<T, I>::get() - 1;
@@ -242,7 +242,7 @@ mod benchmarks {
 	#[benchmark]
 	fn close_bounty_proposed() {
 		setup_pot_account::<T, I>();
-		let (caller, curator, fee, value, reason) = setup_bounty::<T, I>(0, 0);
+		let (caller, _, _, value, reason) = setup_bounty::<T, I>(0, 0);
 		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into(), value, reason).unwrap();
 		let bounty_id = BountyCount::<T, I>::get() - 1;
 		let approve_origin =
@@ -255,7 +255,7 @@ mod benchmarks {
 	#[benchmark]
 	fn close_bounty_active() {
 		setup_pot_account::<T, I>();
-		let (curator_lookup, bounty_id) = create_bounty::<T, I>().unwrap();
+		let (_, _) = create_bounty::<T, I>().unwrap();
 		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
 		let bounty_id = BountyCount::<T, I>::get() - 1;
 		let approve_origin =
@@ -270,7 +270,7 @@ mod benchmarks {
 	#[benchmark]
 	fn extend_bounty_expiry()  {
 		setup_pot_account::<T, I>();
-		let (curator_lookup, bounty_id) = create_bounty::<T, I>().unwrap();
+		let (curator_lookup, _) = create_bounty::<T, I>().unwrap();
 		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
 
 		let bounty_id = BountyCount::<T, I>::get() - 1;
