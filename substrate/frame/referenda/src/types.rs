@@ -406,7 +406,7 @@ impl<
 	pub fn take_submission_deposit(&mut self) -> Result<Option<Deposit<AccountId, Balance>>, ()> {
 		use ReferendumInfo::*;
 		match self {
-			// Can only refund deposit if it's appoved or cancelled.
+			// Can only refund deposit if it's approved or cancelled.
 			Approved(_, s, _) | Cancelled(_, s, _) => Ok(s.take()),
 			// Cannot refund deposit if Ongoing as this breaks assumptions.
 			Ongoing(..) | Rejected(..) | TimedOut(..) | Killed(..) => Err(()),
