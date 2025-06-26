@@ -22,9 +22,10 @@ use frame_support::{
 use xcm_executor::traits::ConvertLocation;
 
 const FELLOWSHIP_SALARY_PALLET_ID: u8 = 64;
+const SECRETARY_SALARY_PALLET_ID: U8 = 91;
 
 #[test]
-fn pay_salary() {
+fn pay_salary_technical_fellowship() {
 	let asset_id: u32 = 1984;
 	let fellowship_salary = (
 		Parent,
@@ -61,6 +62,48 @@ fn pay_salary() {
 			RuntimeEvent::Assets(pallet_assets::Event::Transferred { .. }) => {},
 			RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success: true ,.. }) => {},
 				]
+		);
+	});
+}
+
+#[test]
+fn pay_salary_secretary() {
+	const USDT_ID: u32 = 1984;
+	let secretary_salary = (
+		Parent,
+		Parachain(CollectivesPolkadot::para_id().into()),
+		PalletInstance(SECRETARY_SALARY_PALLET_ID),
+	);
+	let pay_from = LocationToAccountId::convert_location(&secretary_salary.into()).unwrap();
+	let pay_to = Polkadot::account_id_of(ALICE);
+	let pay_amount = 9_000_000_000;
+
+	AssetHubWestend::execute_with(|| {
+		type AssetHubAssets = <AssetHubWestend as AssetHubWestendPallet>::Assets;
+		// USDT registered in genesis, now mint some into the payer's account
+		assert_ok!(<AssetHubAssets as Mutate<_>>::mint_into(USDT_ID, &pay_from, pay_amount * 2));
+	});
+
+	CollectivesWestend::execute_with(|| {
+		type RuntimeEvent = <CollectivesWestend as Chain>::RuntimeEvent;
+
+		assert_ok!(SecretarySalaryPaymaster::pay(&pay_to, (), pay_amount));
+		assert_expected_events!(
+			CollectivesWetend,
+			vec![
+				RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},
+			]
+		);
+	});
+
+	AssetHubPolkadot::execute_with(|| {
+		type RuntimeEvent = <AssetHubPolkadot as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			AssetHubPolkadot,
+			vec![
+				RuntimeEvent::Assets(pallet_assets::Event::Transferred { .. }) => {},
+				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success: true ,.. }) => {},
+			]
 		);
 	});
 }

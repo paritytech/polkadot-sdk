@@ -44,6 +44,9 @@ pub mod xcm_config;
 // Fellowship configurations.
 pub mod fellowship;
 
+// Secretary Configuration
+pub mod secretary;
+
 extern crate alloc;
 
 pub use ambassador::pallet_ambassador_origins;
@@ -312,6 +315,8 @@ pub enum ProxyType {
 	Fellowship,
 	/// Ambassador proxy. Allows calls related to the Ambassador Program.
 	Ambassador,
+	/// Secretary proxy. Allows calls related to the Secretary collective
+	Secretary,
 }
 impl Default for ProxyType {
 	fn default() -> Self {
@@ -359,6 +364,13 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 					RuntimeCall::AmbassadorContent { .. } |
 					RuntimeCall::AmbassadorCore { .. } |
 					RuntimeCall::AmbassadorSalary { .. } |
+					RuntimeCall::Utility { .. } |
+					RuntimeCall::Multisig { .. }
+			),
+			ProxyType::Secretary => matches!(
+				c,
+				RuntimeCall::SecretaryCollective { .. } |
+					RuntimeCall::SecretarySalary { .. } |
 					RuntimeCall::Utility { .. } |
 					RuntimeCall::Multisig { .. }
 			),
@@ -734,6 +746,12 @@ construct_runtime!(
 		AmbassadorContent: pallet_collective_content::<Instance1> = 75,
 
 		StateTrieMigration: pallet_state_trie_migration = 80,
+
+		// The Secretary Collective
+		// pub type SecretaryCollectiveInstance = pallet_ranked_collective::instance3;
+		SecretaryCollective: pallet_ranked_collective::<Instance3> = 90,
+		// pub type SecretarySalaryInstance = pallet_salary::Instance3;
+		SecretarySalary: pallet_salary::<Instance3> = 91,
 	}
 );
 
@@ -818,12 +836,14 @@ mod benches {
 		[pallet_ranked_collective, FellowshipCollective]
 		[pallet_core_fellowship, FellowshipCore]
 		[pallet_salary, FellowshipSalary]
+		[pallet_treasury, FellowshipTreasury]
 		[pallet_referenda, AmbassadorReferenda]
 		[pallet_ranked_collective, AmbassadorCollective]
 		[pallet_collective_content, AmbassadorContent]
 		[pallet_core_fellowship, AmbassadorCore]
 		[pallet_salary, AmbassadorSalary]
-		[pallet_treasury, FellowshipTreasury]
+		[pallet_ranked_collective, SecretaryCollective]
+		[pallet_salary, SecretarySalary]
 		[pallet_asset_rate, AssetRate]
 		[cumulus_pallet_weight_reclaim, WeightReclaim]
 		// XCM
