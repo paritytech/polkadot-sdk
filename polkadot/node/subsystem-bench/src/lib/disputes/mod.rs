@@ -89,7 +89,6 @@ fn build_overseer(
 	let store = Arc::new(db);
 	let config = DisputeCoordinatorConfig { col_dispute_data: 0 };
 	let keystore = make_keystore();
-	let approval_voting_parallel_enabled = true;
 	let (dispute_req_receiver, dispute_req_cfg) = IncomingRequest::get_config_receiver::<
 		Block,
 		sc_network::NetworkWorker<Block, Hash>,
@@ -113,11 +112,7 @@ fn build_overseer(
 		network_interface.subsystem_sender(),
 		state.test_authorities.clone(),
 	);
-	let network_bridge_rx = MockNetworkBridgeRx::new(
-		network_receiver,
-		Some(dispute_req_cfg),
-		approval_voting_parallel_enabled,
-	);
+	let network_bridge_rx = MockNetworkBridgeRx::new(network_receiver, Some(dispute_req_cfg));
 	let dispute_distribution = DisputeDistributionSubsystem::new(
 		keystore.clone(),
 		dispute_req_receiver,
@@ -129,7 +124,6 @@ fn build_overseer(
 		config,
 		keystore,
 		Metrics::try_register(&dependencies.registry).unwrap(),
-		approval_voting_parallel_enabled,
 	);
 
 	let dummy = dummy_builder!(spawn_task_handle, overseer_metrics)
