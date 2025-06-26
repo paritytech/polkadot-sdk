@@ -67,6 +67,7 @@ use crate::{
 use super::{
 	metrics::MetricsLink as PrometheusMetrics, multi_view_listener::MultiViewListener,
 	view_store::ViewStore, RevalidationResult, RUNTIME_API_ERROR_WHILE_VALIDATING_CUSTOM_CODE,
+	TX_IN_INVALID_TX_SUBTREE,
 };
 
 mod tx_mem_pool_map;
@@ -743,24 +744,47 @@ where
 			});
 		};
 
+		let invalid_hashes_subtrees_len = invalid_hashes_subtrees.len();
 		self.metrics.report(|metrics| {
-			revalidated_invalid_txs_to_error.into_iter().for_each(|(_, err)| {
-				let _ = metrics.mempool_revalidation_invalid_txs.inc(err).inspect_err(|error| {
-					trace!(
-						target: LOG_TARGET,
-						?error,
-						"mempool::revalidate failed to increment `mempool_revalidation_invalid_txs` metric"
-					);
-				});
+			invalid_hashes_subtrees.iter().for_each(|tx| {
+				let maybe_err = revalidated_invalid_txs_to_error.remove(tx);
+				match maybe_err {
+					Some(err) => {
+						let _ = metrics.mempool_revalidation_invalid_txs.inc(err).inspect_err(
+							|error| {
+								trace!(
+									target: LOG_TARGET,
+									?error,
+									"mempool::revalidate failed to increment `mempool_revalidation_invalid_txs` metric"
+								);
+							},
+						);
+					},
+					None => {
+						// Report as future invalid transaction. This is for a transaction that got
+						// removed by being part of a subtree of an actual invalid transaction. It
+						// is counted towards the final number.
+						let _ = metrics
+							.mempool_revalidation_invalid_txs
+							.inc(sc_transaction_pool_api::error::Error::InvalidTransaction(
+								InvalidTransaction::Custom(TX_IN_INVALID_TX_SUBTREE),
+							))
+							.inspect_err(|error| {
+								trace!(
+									target: LOG_TARGET,
+									?error,
+									"mempool::revalidate failed to increment `mempool_revalidation_invalid_txs` metric"
+								);
+							});
+					},
+				}
 			});
 		});
-
-		let invalid_hashes_subtrees_len = invalid_hashes_subtrees.len();
-		let invalid_hashes_subtrees = invalid_hashes_subtrees.into_iter().collect::<Vec<_>>();
 
 		//note: here the consistency is assumed: it is expected that transaction will be
 		// actually removed from the listener with Invalid event. This means assumption that no view
 		// is referencing tx as ready.
+		let invalid_hashes_subtrees = invalid_hashes_subtrees.into_iter().collect::<Vec<_>>();
 		self.listener.transactions_invalidated(&invalid_hashes_subtrees);
 		view_store
 			.import_notification_sink

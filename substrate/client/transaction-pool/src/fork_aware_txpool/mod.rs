@@ -381,7 +381,13 @@ mod view_store;
 
 pub use fork_aware_txpool::{ForkAwareTxPool, ForkAwareTxPoolTask};
 
-pub const RUNTIME_API_ERROR_WHILE_VALIDATING_CUSTOM_CODE: u8 = 1u8;
+/// Code representing a case of a failure during transaction validation. It can be used
+/// as a code for a custom invalid transaction error.
+pub const RUNTIME_API_ERROR_WHILE_VALIDATING_CUSTOM_CODE: u8 = 1;
+
+/// Code representing a case of declaring a transaction invalid by being part of the subtree of an
+/// actual invalid transaction.
+pub const TX_IN_INVALID_TX_SUBTREE: u8 = 2;
 
 /// Helper type containing revalidation result for both views & mempool.
 pub(super) struct RevalidationResult<ChainApi: graph::ChainApi> {
