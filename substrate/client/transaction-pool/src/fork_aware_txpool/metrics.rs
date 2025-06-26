@@ -18,7 +18,9 @@
 
 //! Prometheus's metrics for a fork-aware transaction pool.
 
-use super::tx_mem_pool::InsertionInfo;
+use super::{
+	transaction_validation_util::InvalidTransactionCustomCode, tx_mem_pool::InsertionInfo,
+};
 use crate::{
 	common::metrics::{GenericMetricsLink, MetricsRegistrant},
 	graph::{self, BlockHash, ExtrinsicHash},
@@ -244,16 +246,52 @@ impl MempoolInvalidTxReasonCounter {
 		})
 	}
 
-	/// Increments the mempool invalid txs metric accordingly based on the error, counting invalid txs
-	/// separately per invalid tx type.
+	/// Increments the mempool invalid txs metric accordingly based on the error, counting invalid
+	/// txs separately per invalid tx type.
 	pub fn inc(&self, err: impl IntoPoolError) -> Result<(), impl IntoPoolError> {
 		err.into_pool_error().map(|err| {
 			let labels: [&'static str; 2] = match err {
-				invalid @ sc_transaction_pool_api::error::Error::InvalidTransaction(i) =>
-					[invalid.into(), i.into()],
-				unknown @ sc_transaction_pool_api::error::Error::UnknownTransaction(u) =>
-					[unknown.into(), u.into()],
-				other => [other.into(), "-"],
+				sc_transaction_pool_api::error::Error::InvalidTransaction(i) => {
+					let ty = match i {
+						sp_runtime::transaction_validity::InvalidTransaction::Call => "call",
+						sp_runtime::transaction_validity::InvalidTransaction::Stale => "stale",
+						sp_runtime::transaction_validity::InvalidTransaction::Future => "future",
+						sp_runtime::transaction_validity::InvalidTransaction::Payment => "payment",
+						sp_runtime::transaction_validity::InvalidTransaction::BadProof => "bad_proof",
+						sp_runtime::transaction_validity::InvalidTransaction::BadSigner => "bad_signature",
+						sp_runtime::transaction_validity::InvalidTransaction::Custom(code) => {
+							match InvalidTransactionCustomCode::from(code) {
+								InvalidTransactionCustomCode::InvalidInTxSubtree => "tx_in_subtree",
+								InvalidTransactionCustomCode::RuntimeApiPrerequisitesFailure => "runtime_api_failure",
+								InvalidTransactionCustomCode::CatchAll => "custom",
+							}
+						},
+						sp_runtime::transaction_validity::InvalidTransaction::BadMandatory => "bad_mandatory",
+						sp_runtime::transaction_validity::InvalidTransaction::UnknownOrigin => "unknown_origin",
+						sp_runtime::transaction_validity::InvalidTransaction::AncientBirthBlock => "ancient_birth_block",
+						sp_runtime::transaction_validity::InvalidTransaction::ExhaustsResources => "exhausted_resources",
+						sp_runtime::transaction_validity::InvalidTransaction::MandatoryValidation => "mandatory_validation",
+						sp_runtime::transaction_validity::InvalidTransaction::IndeterminateImplicit => "indeterminate_implicit",
+					};
+					["invalid", ty]
+				},
+				sc_transaction_pool_api::error::Error::UnknownTransaction(u) => {
+					let ty = match u {
+						sp_runtime::transaction_validity::UnknownTransaction::Custom(_) => "custom",
+						sp_runtime::transaction_validity::UnknownTransaction::CannotLookup => "cannot_lookup",
+						sp_runtime::transaction_validity::UnknownTransaction::NoUnsignedValidator => "no_unsigned_validator",
+					};
+					["unkown", ty]
+				},
+				sc_transaction_pool_api::error::Error::Unactionable => ["unactionable", "-"],
+				sc_transaction_pool_api::error::Error::CycleDetected => ["cycle_detected", "-"],
+				sc_transaction_pool_api::error::Error::NoTagsProvided => ["no_tags_provided", "-"],
+				sc_transaction_pool_api::error::Error::TemporarilyBanned => ["temporarily_banned", "-"],
+				sc_transaction_pool_api::error::Error::ImmediatelyDropped => ["immediately_dropped", "-"],
+				sc_transaction_pool_api::error::Error::InvalidBlockId(_) => ["invalid_block_id", "-"],
+				sc_transaction_pool_api::error::Error::AlreadyImported(_) => ["already_imported", "-"],
+				sc_transaction_pool_api::error::Error::TooLowPriority { .. } => ["too_low_priority", "-"],
+				sc_transaction_pool_api::error::Error::RejectedFutureTransaction => ["rejected_future_transaction", "-"],
 			};
 			self.inner.with_label_values(&labels).inc()
 		})

@@ -25,7 +25,7 @@
 
 use super::{
 	metrics::MetricsLink as PrometheusMetrics,
-	transaction_validation_util::{RevalidationResult, RUNTIME_API_ERROR},
+	transaction_validation_util::{InvalidTransactionCustomCode, RevalidationResult},
 };
 use crate::{
 	common::tracing_log_xt::log_xt_trace,
@@ -546,7 +546,8 @@ where
 						ChainApi::Error::from(
 							sc_transaction_pool_api::error::Error::InvalidTransaction(
 								sp_runtime::transaction_validity::InvalidTransaction::Custom(
-									RUNTIME_API_ERROR,
+									InvalidTransactionCustomCode::RuntimeApiPrerequisitesFailure
+										as u8,
 								),
 							),
 						),

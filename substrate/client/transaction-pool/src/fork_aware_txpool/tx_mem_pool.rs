@@ -67,9 +67,7 @@ use crate::{
 use super::{
 	metrics::MetricsLink as PrometheusMetrics,
 	multi_view_listener::MultiViewListener,
-	transaction_validation_util::{
-		RevalidationResult, RUNTIME_API_ERROR, TX_IN_INVALID_TX_SUBTREE,
-	},
+	transaction_validation_util::{InvalidTransactionCustomCode, RevalidationResult},
 	view_store::ViewStore,
 };
 
@@ -651,7 +649,8 @@ where
 						ChainApi::Error::from(
 							sc_transaction_pool_api::error::Error::InvalidTransaction(
 								sp_runtime::transaction_validity::InvalidTransaction::Custom(
-									RUNTIME_API_ERROR,
+									InvalidTransactionCustomCode::RuntimeApiPrerequisitesFailure
+										as u8,
 								),
 							),
 						),
@@ -778,12 +777,15 @@ where
 						);
 					},
 					None => {
-						// This is for a transaction that got part of a subtree of an actual invalid transaction.
-						// They are counted when incrementing the `mempool_revalidation_invalid_txs` metric.
+						// This is for a transaction that got part of a subtree of an actual invalid
+						// transaction. They are counted when incrementing the
+						// `mempool_revalidation_invalid_txs` metric.
 						let _ = metrics
 							.mempool_revalidation_invalid_txs
 							.inc(sc_transaction_pool_api::error::Error::InvalidTransaction(
-								InvalidTransaction::Custom(TX_IN_INVALID_TX_SUBTREE),
+								InvalidTransaction::Custom(
+									InvalidTransactionCustomCode::InvalidInTxSubtree as u8,
+								),
 							))
 							.inspect_err(|error| {
 								trace!(

@@ -384,13 +384,32 @@ mod transaction_validation_util {
 	use crate::graph::{self, ExtrinsicHash, ValidatedTransactionFor};
 	use indexmap::IndexMap;
 
-	/// Represents a failure which happens outside of validation runtime API call.
-	/// Useful as code for custom invalid transactions.
-	pub(super) const RUNTIME_API_ERROR: u8 = 1;
+	/// Custom cases of invalid transaction
+	#[repr(u8)]
+	pub(super) enum InvalidTransactionCustomCode {
+		/// Represents a failure which happens at the level of runtime API, while checking
+		/// prerequisites for transaction validation.
+		RuntimeApiPrerequisitesFailure = 0u8,
+		/// Represents a transaction declared as invalid because it part of a subtree of
+		/// an actual invalid transaction (per outcome of runtime validation).
+		InvalidInTxSubtree = 1u8,
+		/// Catch-all custom
+		CatchAll,
+	}
 
-	/// Represents a transaction declared as invalid because it part of a subtree of
-	/// an actual invalid transaction (per outcome of runtime validation).
-	pub(super) const TX_IN_INVALID_TX_SUBTREE: u8 = 2;
+	impl From<u8> for InvalidTransactionCustomCode {
+		fn from(other: u8) -> Self {
+			match other {
+				0 => Self::RuntimeApiPrerequisitesFailure,
+				1 => Self::InvalidInTxSubtree,
+				_ => Self::CatchAll,
+			}
+		}
+	}
+
+	// pub(super) const RUNTIME_API_ERROR: u8 = 1;
+	//
+	// pub(super) const TX_IN_INVALID_TX_SUBTREE: u8 = 2;
 
 	/// Helper type containing revalidation result for both views & mempool.
 	pub(super) struct RevalidationResult<ChainApi: graph::ChainApi> {
