@@ -86,6 +86,7 @@ use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
 };
+use crate::xcm_config::AssetHubLocation;
 
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;
@@ -1002,7 +1003,9 @@ impl_runtime_apis! {
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 
 			use xcm::latest::prelude::*;
-			use xcm_config::{AssetHubId, TokenRelayLocation, AssetHubParaLocation};
+			use xcm_config::TokenRelayLocation;
+			use testnet_parachains_constants::westend::locations::{AssetHubParaId, AssetHubLocation};
+
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
@@ -1010,12 +1013,12 @@ impl_runtime_apis! {
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
-						AssetHubId,
+						AssetHubParaId,
 						ParachainSystem,
 					>;
 
 				fn reachable_dest() -> Option<Location> {
-					Some(AssetHubParaLocation::get())
+					Some(AssetHubLocation::get())
 				}
 
 				fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
@@ -1025,7 +1028,7 @@ impl_runtime_apis! {
 							fun: Fungible(ExistentialDeposit::get()),
 							id: AssetId(TokenRelayLocation::get())
 						},
-						AssetHubParaLocation::get(),
+						AssetHubLocation::get(),
 					))
 				}
 
@@ -1043,13 +1046,13 @@ impl_runtime_apis! {
 							fun: NonFungible(Index(region_id.into())),
 							id: AssetId(xcm_config::BrokerPalletLocation::get())
 						},
-						AssetHubParaLocation::get(),
+						AssetHubLocation::get(),
 					))
 				}
 
 				fn set_up_complex_asset_transfer() -> Option<(Assets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
 					let native_location = Parent.into();
-					let dest = Parent.into();
+					let dest = AssetHubLocation::get();
 
 					pallet_xcm::benchmarking::helpers::native_teleport_as_asset_transfer::<Runtime>(
 						native_location,
@@ -1070,8 +1073,6 @@ impl_runtime_apis! {
 					TokenRelayLocation::get(),
 					ExistentialDeposit::get()
 				).into());
-
-				pub AssetHubParaId: ParaId = ParaId::new(AssetHubId::get());
 			}
 
 			impl pallet_xcm_benchmarks::Config for Runtime {
@@ -1081,13 +1082,13 @@ impl_runtime_apis! {
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
-						AssetHubId,
+						AssetHubParaId,
 						ParachainSystem,
 					>;
 
 				type AccountIdConverter = xcm_config::LocationToAccountId;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
-					Ok(AssetHubParaLocation::get())
+					Ok(AssetHubLocation::get())
 				}
 				fn worst_case_holding(_depositable_count: u32) -> Assets {
 					// just concrete assets according to relay chain.
@@ -1103,7 +1104,7 @@ impl_runtime_apis! {
 
 			parameter_types! {
 				pub TrustedTeleporter: Option<(Location, Asset)> = Some((
-					AssetHubParaLocation::get(),
+					AssetHubLocation::get(),
 					Asset { fun: Fungible(UNITS), id: AssetId(TokenRelayLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
@@ -1142,15 +1143,15 @@ impl_runtime_apis! {
 				}
 
 				fn transact_origin_and_runtime_call() -> Result<(Location, RuntimeCall), BenchmarkError> {
-					Ok((AssetHubParaLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
+					Ok((AssetHubLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
 				}
 
 				fn subscribe_origin() -> Result<Location, BenchmarkError> {
-					Ok(AssetHubParaLocation::get())
+					Ok(AssetHubLocation::get())
 				}
 
 				fn claimable_asset() -> Result<(Location, Location, Assets), BenchmarkError> {
-					let origin = AssetHubParaLocation::get();
+					let origin = AssetHubLocation::get();
 					let assets: Assets = (AssetId(TokenRelayLocation::get()), 1_000 * UNITS).into();
 					let ticket = Location { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
