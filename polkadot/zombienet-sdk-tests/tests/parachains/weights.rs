@@ -146,10 +146,11 @@ async fn assert_block_proposing_time_no_greater_than_1s(collator: &NetworkNode) 
 	assert_eq!(num_blocks_hit_deadline, 0.0, "There should be no blocks that hit the deadline");
 }
 
-async fn wait_warmup_finish(collator: &NetworkNode) {
+async fn wait_warmup_finish(collator: &NetworkNode) -> Result<(), anyhow::Error> {
 	while collator.reports("substrate_tasks_ended_total{kind=\"blocking\",reason=\"finished\",task_group=\"default\",task_name=\"warm-up-trie-cache\",chain=\"asset-hub-westend-local\"}").await? < 0.5 {
 		std::thread::sleep(std::time::Duration::from_secs(10));
 	}
+	Ok(())
 }
 
 async fn setup_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
