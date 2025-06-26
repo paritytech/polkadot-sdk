@@ -18,13 +18,10 @@
 //! Mocks for OPF pallet tests and benchmarks.
 
 use crate as pallet_opf;
-use frame_support::{parameter_types, PalletId, derive_impl};
-use sp_core::ConstUint;
-use sp_runtime::traits::IdentityLookup;
-use sp_runtime::BuildStorage;
+use frame_support::{derive_impl, parameter_types, traits::OnPoll, weights::WeightMeter, PalletId};
 use frame_system::RunToBlockHooks;
-use frame_support::weights::WeightMeter;
-use frame_support::traits::OnPoll;
+use sp_core::ConstUint;
+use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
 pub use frame_support::instances::Instance1;
 
@@ -100,12 +97,20 @@ impl ExtBuilder {
 
 /// advance to `n` and run hooks
 pub fn run_to_block(target: BlockNumber) {
-	frame_system::Pallet::<Test>::run_to_block_with::<AllPalletsWithSystem>(target, RunToBlockHooks::default().after_initialize(|bn| {
-		OPF::on_poll(bn, &mut WeightMeter::new());
-	}));
+	frame_system::Pallet::<Test>::run_to_block_with::<AllPalletsWithSystem>(
+		target,
+		RunToBlockHooks::default().after_initialize(|bn| {
+			OPF::on_poll(bn, &mut WeightMeter::new());
+		}),
+	);
 }
 
 /// helper: build project info
 pub fn project(owner: u64, dest: u64) -> pallet_opf::ProjectInfo<u64> {
-	pallet_opf::ProjectInfo { owner, fund_dest: dest, name: Default::default(), description: Default::default() }
+	pallet_opf::ProjectInfo {
+		owner,
+		fund_dest: dest,
+		name: Default::default(),
+		description: Default::default(),
+	}
 }

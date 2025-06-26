@@ -21,13 +21,13 @@
 
 extern crate alloc;
 
-mod weights;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
+mod weights;
 
 pub use weights::WeightInfo;
 
@@ -320,7 +320,10 @@ pub mod pallet {
 
 			Projects::<T>::insert(index, project.clone());
 
-			Self::deposit_event(Event::ProjectRegistered { project_index: index, owner: project.owner });
+			Self::deposit_event(Event::ProjectRegistered {
+				project_index: index,
+				owner: project.owner,
+			});
 
 			Ok(())
 		}
@@ -345,10 +348,7 @@ pub mod pallet {
 
 		#[pallet::call_index(2)]
 		#[pallet::weight(<T as Config>::WeightInfo::unregister_project())]
-		pub fn unregister_project(
-			origin: OriginFor<T>,
-			index: ProjectIndex,
-		) -> DispatchResult {
+		pub fn unregister_project(origin: OriginFor<T>, index: ProjectIndex) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 
 			Projects::<T>::take(&index).ok_or(Error::<T>::NoProjectAtIndex)?;
@@ -416,11 +416,7 @@ pub mod pallet {
 						);
 					}
 				}
-				Polls::<T>::insert(
-					round_index,
-					project_index,
-					PollInfo::Completed(now, true),
-				);
+				Polls::<T>::insert(round_index, project_index, PollInfo::Completed(now, true));
 			}
 
 			Round::<T>::kill();
@@ -433,8 +429,7 @@ pub mod pallet {
 				index
 			});
 
-			let round_starting_block =
-				<T as Config>::BlockNumberProvider::current_block_number();
+			let round_starting_block = <T as Config>::BlockNumberProvider::current_block_number();
 			let round_info = RoundInfo {
 				starting_block: round_starting_block,
 				total_vote_amount: Default::default(),
@@ -594,10 +589,14 @@ pub mod pallet {
 			let now = <T as pallet_conviction_voting::Config<T::ConvictionVotingInstance>>::BlockNumberProvider::current_block_number();
 			match Polls::<T>::get(round_index, project_index) {
 				Some(PollInfo::Ongoing(_, _)) => {
-					Polls::<T>::insert(round_index, project_index, PollInfo::Completed(now, approved));
+					Polls::<T>::insert(
+						round_index,
+						project_index,
+						PollInfo::Completed(now, approved),
+					);
 					Ok(())
 				},
-				_ => Err(())
+				_ => Err(()),
 			}
 		}
 
@@ -655,10 +654,11 @@ pub mod pallet {
 				Voting::Delegating { .. } => return None,
 			};
 
-			votes.binary_search_by_key(&poll_index, |i| i.0)
+			votes
+				.binary_search_by_key(&poll_index, |i| i.0)
 				.ok()
 				.and_then(|vote_index| votes.get(vote_index))
-				.and_then(|vote|vote.1.locked_if(LockedIf::Always))
+				.and_then(|vote| vote.1.locked_if(LockedIf::Always))
 				.map(|(_period, balance)| balance)
 		}
 

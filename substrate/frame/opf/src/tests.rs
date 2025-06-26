@@ -15,15 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::*;
-use crate::mock::*;
+use crate::{mock::*, *};
 use frame_support::{assert_noop, assert_ok, traits::Currency};
-use sp_runtime::DispatchError;
-use pallet_conviction_voting::{Conviction, AccountVote, Vote};
-use sp_runtime::traits::AccountIdConversion;
+use pallet_conviction_voting::{AccountVote, Conviction, Vote};
 use sp_core::Get;
+use sp_runtime::{traits::AccountIdConversion, DispatchError};
 
-/// Registry‑related unit‑tests for the OPF pallet.
+/// Registry-related unit-tests for the OPF pallet.
 mod registry {
 	use super::*;
 
@@ -210,10 +208,7 @@ mod rounds {
 		let _ = Balances::deposit_creating(&voter, balance * 2);
 
 		// Create the vote
-		let vote = AccountVote::Standard {
-			vote: Vote { aye, conviction },
-			balance,
-		};
+		let vote = AccountVote::Standard { vote: Vote { aye, conviction }, balance };
 
 		// Submit the vote
 		assert_ok!(ConvictionVoting::vote(
@@ -266,15 +261,12 @@ mod rounds {
 
 			// Status of project 0 in previous round must be Completed.
 			match Polls::<Test>::get(0, 0).unwrap() {
-				pallet::PollInfo::Completed(_, true) => {}
+				pallet::PollInfo::Completed(_, true) => {},
 				_ => panic!("poll not completed"),
 			}
 
 			// And it must exist as ongoing in round 1.
-			assert!(matches!(
-				Polls::<Test>::get(1, 0).unwrap(),
-				pallet::PollInfo::Ongoing(_, _)
-			));
+			assert!(matches!(Polls::<Test>::get(1, 0).unwrap(), pallet::PollInfo::Ongoing(_, _)));
 		});
 	}
 
@@ -345,19 +337,13 @@ mod rounds {
 			create_vote(VOTER1, 0, true, 100, Conviction::Locked1x);
 
 			// Admin removes the project while poll is ongoing.
-			assert_ok!(OPF::unregister_project(
-				frame_system::RawOrigin::Root.into(),
-				0
-			));
+			assert_ok!(OPF::unregister_project(frame_system::RawOrigin::Root.into(), 0));
 
 			// No panic when round ends.
 			run_to_block(6);
 
 			// Poll marked completed even though project was removed.
-			assert!(matches!(
-				Polls::<Test>::get(0, 0).unwrap(),
-				pallet::PollInfo::Completed(_, _)
-			));
+			assert!(matches!(Polls::<Test>::get(0, 0).unwrap(), pallet::PollInfo::Completed(_, _)));
 
 			// No reward transferred (project was unregsitered).
 			assert_eq!(Balances::free_balance(&FUND_DEST), 0);
@@ -406,8 +392,8 @@ mod rounds {
 mod forwarding {
 	use super::*;
 
-	const OWNER:      u64 = 1;
-	const FUND_DEST:  u64 = 2;
+	const OWNER: u64 = 1;
+	const FUND_DEST: u64 = 2;
 
 	/// Helper to cast a vote as a user for a given round/project.
 	fn user_vote(user: u64, round: u32, project: u32, bal: u128) {
@@ -430,7 +416,10 @@ mod forwarding {
 	#[test]
 	fn forwarder_use_multiple_blocks() {
 		ExtBuilder::build().execute_with(|| {
-			assert_ok!(OPF::register_project(frame_system::RawOrigin::Root.into(), project(OWNER, FUND_DEST)));
+			assert_ok!(OPF::register_project(
+				frame_system::RawOrigin::Root.into(),
+				project(OWNER, FUND_DEST)
+			));
 			run_to_block(1); // round 0, session 1
 
 			// Simulate 10,001 users voting in round 0, project 0.
@@ -470,7 +459,10 @@ mod forwarding {
 			let _ = Balances::deposit_creating(&3, 1_000);
 
 			// Register project 0 and start round 0 (session = 1).
-			assert_ok!(OPF::register_project(frame_system::RawOrigin::Root.into(), project(OWNER, FUND_DEST)));
+			assert_ok!(OPF::register_project(
+				frame_system::RawOrigin::Root.into(),
+				project(OWNER, FUND_DEST)
+			));
 			run_to_block(1);
 
 			// Cast a real vote via ConvictionVoting pallet.
@@ -479,7 +471,10 @@ mod forwarding {
 				pallet_conviction_voting::Pallet::<Test, frame_support::instances::Instance1>::vote(
 					frame_system::RawOrigin::Signed(3).into(),
 					poll_index,
-					AccountVote::Standard { vote: Vote { aye: true, conviction: Conviction::None }, balance: 100 },
+					AccountVote::Standard {
+						vote: Vote { aye: true, conviction: Conviction::None },
+						balance: 100
+					},
 				)
 			);
 
@@ -493,7 +488,10 @@ mod forwarding {
 	#[test]
 	fn remove_auto_forwarding_deletes_mapping() {
 		ExtBuilder::build().execute_with(|| {
-			assert_ok!(OPF::register_project(frame_system::RawOrigin::Root.into(), project(OWNER, FUND_DEST)));
+			assert_ok!(OPF::register_project(
+				frame_system::RawOrigin::Root.into(),
+				project(OWNER, FUND_DEST)
+			));
 			run_to_block(1);
 
 			// User votes in round 0, project 0
@@ -513,7 +511,10 @@ mod forwarding {
 	#[test]
 	fn remove_nonexistent_entry_is_noop() {
 		ExtBuilder::build().execute_with(|| {
-			assert_ok!(OPF::register_project(frame_system::RawOrigin::Root.into(), project(OWNER, FUND_DEST)));
+			assert_ok!(OPF::register_project(
+				frame_system::RawOrigin::Root.into(),
+				project(OWNER, FUND_DEST)
+			));
 			run_to_block(1);
 
 			// Ensure mapping does not exist, then call extrinsic.
@@ -529,7 +530,10 @@ mod forwarding {
 	fn votes_for_removed_project_are_purged() {
 		ExtBuilder::build().execute_with(|| {
 			// Create project 0, start round 0.
-			assert_ok!(OPF::register_project(frame_system::RawOrigin::Root.into(), project(OWNER, FUND_DEST)));
+			assert_ok!(OPF::register_project(
+				frame_system::RawOrigin::Root.into(),
+				project(OWNER, FUND_DEST)
+			));
 			run_to_block(1);
 
 			// User votes in round 0, project 0
@@ -565,10 +569,14 @@ mod forwarding {
 mod full_scenario {
 	use super::*;
 
-	const OWNER0:    u64 = 100; const DEST0: u64 = 10;
-	const OWNER1:    u64 = 101; const DEST1: u64 = 20;
-	const OWNER2:    u64 = 102; const DEST2: u64 = 30;
-	const OWNER3:    u64 = 103; const DEST3: u64 = 40;
+	const OWNER0: u64 = 100;
+	const DEST0: u64 = 10;
+	const OWNER1: u64 = 101;
+	const DEST1: u64 = 20;
+	const OWNER2: u64 = 102;
+	const DEST2: u64 = 30;
+	const OWNER3: u64 = 103;
+	const DEST3: u64 = 40;
 
 	// voters
 	const V1: u64 = 1;
@@ -603,11 +611,23 @@ mod full_scenario {
 			let pot = crate::mock::PotPalletId::get().into_account_truncating();
 			let _ = Balances::deposit_creating(&pot, 1_000);
 
-			// register 4 projects (indices 0‑3)
-			assert_ok!(OPF::register_project(frame_system::RawOrigin::Root.into(), project(OWNER0, DEST0)));
-			assert_ok!(OPF::register_project(frame_system::RawOrigin::Root.into(), project(OWNER1, DEST1)));
-			assert_ok!(OPF::register_project(frame_system::RawOrigin::Root.into(), project(OWNER2, DEST2)));
-			assert_ok!(OPF::register_project(frame_system::RawOrigin::Root.into(), project(OWNER3, DEST3)));
+			// register 4 projects (indices 0-3)
+			assert_ok!(OPF::register_project(
+				frame_system::RawOrigin::Root.into(),
+				project(OWNER0, DEST0)
+			));
+			assert_ok!(OPF::register_project(
+				frame_system::RawOrigin::Root.into(),
+				project(OWNER1, DEST1)
+			));
+			assert_ok!(OPF::register_project(
+				frame_system::RawOrigin::Root.into(),
+				project(OWNER2, DEST2)
+			));
+			assert_ok!(OPF::register_project(
+				frame_system::RawOrigin::Root.into(),
+				project(OWNER3, DEST3)
+			));
 
 			// Start round 0
 			run_to_block(1);
@@ -642,12 +662,11 @@ mod full_scenario {
 			assert_eq!(Balances::free_balance(&DEST0), 470);
 			assert_eq!(176, 150 * 1000 / total_positive_net);
 			assert_eq!(Balances::free_balance(&DEST1), 176);
-			assert_eq!(Balances::free_balance(&DEST2),   0); // negative → 0
-			assert_eq!(Balances::free_balance(&DEST3),   0); // removed
+			assert_eq!(Balances::free_balance(&DEST2), 0); // negative → 0
+			assert_eq!(Balances::free_balance(&DEST3), 0); // removed
 
 			// pot left with the remainder
 			assert_eq!(Balances::free_balance(&pot), 354);
 		});
 	}
 }
-

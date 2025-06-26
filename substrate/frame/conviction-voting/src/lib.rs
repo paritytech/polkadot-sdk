@@ -53,7 +53,7 @@ pub use self::{
 	pallet::*,
 	traits::{Status, VotingHooks},
 	types::{Delegations, Tally, UnvoteScope},
-	vote::{AccountVote, Casting, Delegating, Vote, Voting, LockedIf},
+	vote::{AccountVote, Casting, Delegating, LockedIf, Vote, Voting},
 	weights::WeightInfo,
 };
 use sp_runtime::traits::BlockNumberProvider;

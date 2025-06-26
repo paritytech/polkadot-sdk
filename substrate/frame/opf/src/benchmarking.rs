@@ -21,17 +21,14 @@
 
 use super::*;
 use frame_benchmarking::v2::*;
-use frame_support::BoundedVec;
+use frame_support::{
+	assert_ok,
+	traits::{fungible::Mutate, EnsureOrigin, Get, OnPoll},
+	weights::WeightMeter,
+	BoundedVec,
+};
 use frame_system::RawOrigin;
-use frame_support::traits::EnsureOrigin;
-use pallet_conviction_voting::AccountVote;
-use pallet_conviction_voting::Vote;
-use pallet_conviction_voting::Conviction;
-use frame_support::weights::WeightMeter;
-use frame_support::traits::OnPoll;
-use frame_support::assert_ok;
-use frame_support::traits::Get;
-use frame_support::traits::fungible::Mutate;
+use pallet_conviction_voting::{AccountVote, Conviction, Vote};
 
 #[benchmarks]
 mod benchmarks {
@@ -120,13 +117,17 @@ mod benchmarks {
 		let index = 0u32;
 
 		// Simulate a vote so VotesToForward entry exists
-		crate::VotesToForward::<T>::insert(index, &info.owner, crate::VoteInSession {
-			session: 1,
-			vote: AccountVote::Standard {
-				vote: Vote { aye: true, conviction: Conviction::Locked1x },
-				balance: 1u32.into(),
+		crate::VotesToForward::<T>::insert(
+			index,
+			&info.owner,
+			crate::VoteInSession {
+				session: 1,
+				vote: AccountVote::Standard {
+					vote: Vote { aye: true, conviction: Conviction::Locked1x },
+					balance: 1u32.into(),
+				},
 			},
-		});
+		);
 		assert!(crate::VotesToForward::<T>::contains_key(index, &info.owner));
 
 		#[extrinsic_call]
@@ -235,7 +236,8 @@ mod benchmarks {
 		Pallet::<T>::register_project(admin, info).unwrap();
 
 		// Start the 2nd round
-		let round_duration: u32 = T::RoundDuration::get().try_into()
+		let round_duration: u32 = T::RoundDuration::get()
+			.try_into()
 			.unwrap_or_else(|_| panic!("Round duration too large for u32"));
 		for i in 0..round_duration + 2 {
 			frame_system::Pallet::<T>::set_block_number(i.into());
@@ -251,10 +253,11 @@ mod benchmarks {
 				vote: Vote { aye: true, conviction: Conviction::Locked1x },
 				balance: 1u32.into(),
 			};
-			crate::VotesToForward::<T>::insert(0, &voter, crate::VoteInSession {
-				session: 0,
-				vote: vote.clone(),
-			});
+			crate::VotesToForward::<T>::insert(
+				0,
+				&voter,
+				crate::VoteInSession { session: 0, vote: vote.clone() },
+			);
 		}
 		VotesForwardingState::<T>::put(VotesForwardingStateInfo {
 			session: 1,
@@ -275,9 +278,5 @@ mod benchmarks {
 		assert_eq!(tally.support, n.into());
 	}
 
-	impl_benchmark_test_suite!(
-		Pallet,
-		crate::mock::ExtBuilder::build(),
-		crate::mock::Test
-	);
+	impl_benchmark_test_suite!(Pallet, crate::mock::ExtBuilder::build(), crate::mock::Test);
 }
