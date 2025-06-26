@@ -396,10 +396,10 @@ where
 				.build_block_and_import(
 					&parent_header,
 					&slot_claim,
-					Some(vec![dbg!(CumulusDigestItem::SelectCore {
+					Some(vec![CumulusDigestItem::SelectCore {
 						selector: core_selector,
 						claim_queue_offset,
-					})
+					}
 					.to_digest_item()]),
 					(parachain_inherent_data, other_inherent_data),
 					authoring_duration,

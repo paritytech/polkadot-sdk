@@ -543,7 +543,12 @@ pub enum CommittedCandidateReceiptError {
 		feature = "std",
 		error("The core index in commitments (:commitments?) doesn't match the one in descriptor (:descriptor?)")
 	)]
-	CoreIndexMismatch { descriptor: CoreIndex, commitments: CoreIndex },
+	CoreIndexMismatch {
+		/// The core index as found in the descriptor.
+		descriptor: CoreIndex,
+		/// The core index as found in the commitments.
+		commitments: CoreIndex
+	},
 	/// The core selector or claim queue offset is invalid.
 	#[cfg_attr(feature = "std", error("The core selector or claim queue offset is invalid"))]
 	InvalidSelectedCore,
