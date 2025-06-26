@@ -323,9 +323,6 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Return the origin of the whole call stack.
 	fn origin(&self) -> &Origin<Self::T>;
 
-	/// Check if a contract lives at the specified `address`.
-	fn is_contract(&self, address: &H160) -> bool;
-
 	/// Returns the account id for the given `address`.
 	fn to_account_id(&self, address: &H160) -> AccountIdOf<Self::T>;
 
@@ -337,9 +334,6 @@ pub trait PrecompileExt: sealing::Sealed {
 	fn code_size(&self, address: &H160) -> u64;
 
 	/// Check if the caller of the current contract is the origin of the whole call stack.
-	///
-	/// This can be checked with `is_contract(self.caller())` as well.
-	/// However, this function does not require any storage lookup and therefore uses less weight.
 	fn caller_is_origin(&self) -> bool;
 
 	/// Check if the caller is origin, and this origin is root.
@@ -1852,10 +1846,6 @@ where
 
 	fn origin(&self) -> &Origin<T> {
 		&self.origin
-	}
-
-	fn is_contract(&self, address: &H160) -> bool {
-		ContractInfoOf::<T>::contains_key(&address)
 	}
 
 	fn to_account_id(&self, address: &H160) -> T::AccountId {
