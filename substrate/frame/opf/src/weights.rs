@@ -24,6 +24,7 @@ pub trait WeightInfo {
 	fn on_poll_base() -> Weight;
 	fn on_poll_end_round() -> Weight;
 	fn on_poll_new_round() -> Weight;
+	fn on_poll_forward_votes(n: u32) -> Weight;
 }
 
 /// Default implementation for tests and as a fallback.
@@ -35,6 +36,7 @@ impl WeightInfo for () {
 	fn on_poll_base() -> Weight { Weight::zero() }
 	fn on_poll_end_round() -> Weight { Weight::zero() }
 	fn on_poll_new_round() -> Weight { Weight::zero() }
+	fn on_poll_forward_votes(_n: u32) -> Weight { Weight::zero() }
 }
 
 /// Weights for `pallet_opf` using the Substrate node and recommended hardware.
@@ -47,4 +49,5 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn on_poll_base() -> Weight { Weight::zero() }
 	fn on_poll_end_round() -> Weight { Weight::zero() }
 	fn on_poll_new_round() -> Weight { Weight::zero() }
+	fn on_poll_forward_votes(_n: u32) -> Weight { Weight::zero() }
 } 

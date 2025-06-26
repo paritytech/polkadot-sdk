@@ -456,7 +456,16 @@ pub mod pallet {
 			VotesForwardingState::<T>::put(vote_record_state);
 		}
 
-		pub(crate) fn on_poll_forward_votes(_weight: &mut WeightMeter) {
+		pub(crate) fn on_poll_forward_votes(weight: &mut WeightMeter) {
+			let base_weight = <T as Config>::WeightInfo::on_poll_forward_votes(0);
+			let loop_weight = <T as Config>::WeightInfo::on_poll_forward_votes(1000)
+				.saturating_sub(<T as Config>::WeightInfo::on_poll_forward_votes(500)) /
+				500;
+
+			if weight.try_consume(base_weight).is_err() {
+				return;
+			}
+
 			let mut vote_record_state = VotesForwardingState::<T>::get();
 			let mut iterator = match &vote_record_state.forwarding {
 				VoteForwardingState::Start => VotesToForward::<T>::iter(),
@@ -468,6 +477,10 @@ pub mod pallet {
 			};
 
 			for _ in 0..10_000 {
+				if weight.try_consume(loop_weight).is_err() {
+					return;
+				}
+
 				if let Some((project_index, voter, vote)) = iterator.next() {
 					let round_index =
 						NextRoundIndex::<T>::get().checked_sub(1).defensive().unwrap_or_default();
