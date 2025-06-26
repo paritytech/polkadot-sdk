@@ -115,7 +115,7 @@ pub async fn assert_finalized_para_throughput(
 
 	log::info!(
 		"Reached {stop_after} finalized relay chain blocks that contain backed candidates. The per-parachain distribution is: {:#?}",
-		candidate_count
+		candidate_count.iter().map(|(para_id, count)| format!("{para_id} has {count} backed candidates")).collect::<Vec<_>>()
 	);
 
 	for (para_id, expected_candidate_range) in expected_candidate_ranges {
@@ -217,8 +217,8 @@ pub async fn assert_para_throughput(
 	}
 
 	log::info!(
-		"Reached {stop_after} relay chain blocks that contain backed candidates. The per-parachain distribution is: {:#?}",
-		candidate_count
+		"Reached {stop_after} relay chain blocks that contain backed candidates: {:#?}",
+		candidate_count.iter().map(|(para_id, (count, _))| format!("Parachain {para_id} has {count} backed candidates")).collect::<Vec<_>>()
 	);
 
 	for (para_id, expected_candidate_range) in expected_candidate_ranges {

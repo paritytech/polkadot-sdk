@@ -233,7 +233,7 @@ pub enum CumulusDigestItem {
 impl CumulusDigestItem {
 	/// Encode this as a Substrate [`DigestItem`].
 	pub fn to_digest_item(&self) -> DigestItem {
-		DigestItem::Consensus(CUMULUS_CONSENSUS_ID, self.encode())
+		DigestItem::PreRuntime(CUMULUS_CONSENSUS_ID, self.encode())
 	}
 
 	/// Find [`CumulusDigestItem::SelectCore`] in the given `digest`.
@@ -242,7 +242,7 @@ impl CumulusDigestItem {
 	/// well-behaving runtimes should not produce headers with more than one.
 	pub fn find_select_core(digest: &Digest) -> Option<(CoreSelector, ClaimQueueOffset)> {
 		digest.convert_first(|d| match d {
-			DigestItem::Consensus(id, val) if id == &CUMULUS_CONSENSUS_ID => {
+			DigestItem::PreRuntime(id, val) if id == &CUMULUS_CONSENSUS_ID => {
 				let Ok(CumulusDigestItem::SelectCore { selector, claim_queue_offset }) =
 					CumulusDigestItem::decode_all(&mut &val[..])
 				else {

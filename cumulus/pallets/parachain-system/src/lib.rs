@@ -1511,11 +1511,11 @@ impl<T: Config> Pallet<T> {
 		};
 
 		UpwardMessages::<T>::mutate(|up| {
-			up.push(UMP_SEPARATOR);
-
 			if let Some((selector, offset)) =
 				CumulusDigestItem::find_select_core(&frame_system::Pallet::<T>::digest())
 			{
+				up.push(UMP_SEPARATOR);
+
 				// Send the core selector signal.
 				up.push(UMPSignal::SelectCore(selector, offset).encode());
 			}
