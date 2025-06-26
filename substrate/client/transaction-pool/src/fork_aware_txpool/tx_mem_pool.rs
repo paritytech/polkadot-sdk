@@ -609,17 +609,29 @@ where
 				.map(move |validation_result| {
 					xt.validated_at
 						.store(finalized_block.number.into().as_u64(), atomic::Ordering::Relaxed);
-					(xt_hash, validation_result)
+					(xt_hash, xt, validation_result)
 				})
 		});
 		let validation_results = futures::future::join_all(validations_futures).await;
 		let input_len = validation_results.len();
 
 		let duration = start.elapsed();
+		let mut revalidated = indexmap::IndexMap::new();
 		let invalid_hashes = validation_results
 			.into_iter()
-			.filter_map(|(tx_hash, validation_result)| match validation_result {
-				Ok(Ok(_)) => None,
+			.filter_map(|(tx_hash, xt, validation_result)| match validation_result {
+				Ok(Ok(validity)) => revalidated.insert(
+					tx_hash,
+					ValidatedTransaction::valid_at(
+						finalized_block.number.into().as_u64(),
+						tx_hash,
+						xt.source.clone(),
+						xt.tx().clone(),
+						self.api.hash_and_length(&xt.tx()).1,
+						validity,
+					),
+				),
+
 				Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => None,
 				Err(ref error) => {
 					trace!(
@@ -681,7 +693,7 @@ where
 			"mempool::revalidate_inner"
 		);
 
-		RevalidationResult { revalidated: indexmap::IndexMap::new(), invalid_hashes }
+		RevalidationResult { revalidated, invalid_hashes }
 	}
 
 	/// Removes the finalized transactions from the memory pool, using a provided list of hashes.
