@@ -49,9 +49,7 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 		call_clients.push(call_client);
 	}
 	log::info!("Network is ready, waiting for warm-up to finish");
-	while collator.reports("substrate_tasks_ended_total{kind=\"blocking\",reason=\"finished\",task_group=\"default\",task_name=\"warm-up-trie-cache\",chain=\"asset-hub-westend-local\"}").await? < 0.5 {
-		std::thread::sleep(std::time::Duration::from_secs(10));
-	}
+	wait_warmup_finish(collator).await;
 
 	log::info!("Warm-up finished, starting test");
 	let alice = dev::alice();
@@ -115,10 +113,7 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 		call_clients.push(call_client);
 	}
 
-	while collator.reports("substrate_tasks_ended_total{kind=\"blocking\",reason=\"finished\",task_group=\"default\",task_name=\"warm-up-trie-cache\",chain=\"asset-hub-westend-local\"}").await? < 0.5 {
-		std::thread::sleep(std::time::Duration::from_secs(10));
-	}
-
+	wait_warmup_finish(collator).await;
 	log::info!("Warm-up finished, transfering ERC20 tokens");
 
 	call_contract(
@@ -149,6 +144,12 @@ async fn assert_block_proposing_time_no_greater_than_1s(collator: &NetworkNode) 
 	let num_blocks_hit_deadline = collator.reports("substrate_proposer_end_proposal_reason{reason=\"hit_deadline\",chain=\"asset-hub-westend-local\"}").await.expect("Could not fetch report");
 	assert_eq!(num_blocks_under_1s, num_total_proposed_blocks);
 	assert_eq!(num_blocks_hit_deadline, 0.0, "There should be no blocks that hit the deadline");
+}
+
+async fn wait_warmup_finish(collator: &NetworkNode) {
+	while collator.reports("substrate_tasks_ended_total{kind=\"blocking\",reason=\"finished\",task_group=\"default\",task_name=\"warm-up-trie-cache\",chain=\"asset-hub-westend-local\"}").await? < 0.5 {
+		std::thread::sleep(std::time::Duration::from_secs(10));
+	}
 }
 
 async fn setup_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
@@ -186,7 +187,6 @@ async fn setup_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
 					])
 				})
 		})
-		// .with_global_settings(|g| g.with_base_dir("/home/alexggh/db_smart_contracts5"))
 		.build()
 		.map_err(|e| {
 			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
