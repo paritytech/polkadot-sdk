@@ -44,7 +44,8 @@ use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{Backend as BlockchainBackend, HeaderBackend};
 use sp_consensus::{Error as ConsensusError, SyncOracle};
 use sp_consensus_beefy::{
-	AuthorityIdBound, BeefyApi, ConsensusLog, PayloadProvider, ValidatorSet, BEEFY_ENGINE_ID,
+	AuthorityIdBound, BeefyApi, ConsensusLog, MmrRootHash, PayloadProvider, ValidatorSet,
+	BEEFY_ENGINE_ID,
 };
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block, Header as HeaderT, NumberFor, Zero};
@@ -806,7 +807,7 @@ where
 {
 	let id = OpaqueDigestItemId::Consensus(&BEEFY_ENGINE_ID);
 
-	let filter = |log: ConsensusLog<AuthorityId>| match log {
+	let filter = |log: ConsensusLog<AuthorityId, MmrRootHash>| match log {
 		ConsensusLog::AuthoritiesChange(validator_set) => Some(validator_set),
 		_ => None,
 	};
