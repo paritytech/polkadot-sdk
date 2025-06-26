@@ -773,9 +773,8 @@ where
 						);
 					},
 					None => {
-						// Report as future invalid transaction. This is for a transaction that got
-						// removed by being part of a subtree of an actual invalid transaction. It
-						// is counted towards the final number.
+						// This is for a transaction that got part of a subtree of an actual invalid transaction.
+						// They are counted when incrementing the `mempool_revalidation_invalid_txs` metric.
 						let _ = metrics
 							.mempool_revalidation_invalid_txs
 							.inc(sc_transaction_pool_api::error::Error::InvalidTransaction(

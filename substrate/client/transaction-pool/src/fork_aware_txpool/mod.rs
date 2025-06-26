@@ -381,12 +381,14 @@ mod view_store;
 
 pub use fork_aware_txpool::{ForkAwareTxPool, ForkAwareTxPoolTask};
 
-/// Code representing a case of a failure during transaction validation. It can be used
-/// as a code for a custom invalid transaction error.
+/// Error code representing a case of a failure during transaction validation,
+/// unrelated to the validation outcome from the runtime. Should be used if
+/// the error originates from a place different from the runtime validation per
+/// se (e.g. checking runtime api before tx validation fails).
 pub const RUNTIME_API_ERROR_WHILE_VALIDATING_CUSTOM_CODE: u8 = 1;
 
 /// Code representing a case of declaring a transaction invalid by being part of the subtree of an
-/// actual invalid transaction.
+/// invalid transaction decided as such through runtime validation.
 pub const TX_IN_INVALID_TX_SUBTREE: u8 = 2;
 
 /// Helper type containing revalidation result for both views & mempool.
