@@ -128,13 +128,8 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `144`
 		//  Estimated: `3609`
-<<<<<<< HEAD
-		// Minimum execution time: 72_035_000 picoseconds.
-		Weight::from_parts(74_356_000, 0)
-=======
 		// Minimum execution time: 71_008_000 picoseconds.
 		Weight::from_parts(73_368_000, 0)
->>>>>>> origin/master
 			.saturating_add(Weight::from_parts(0, 3609))
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(1))
