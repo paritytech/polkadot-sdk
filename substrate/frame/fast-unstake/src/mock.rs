@@ -21,12 +21,17 @@ use frame_support::{
 	assert_ok, derive_impl,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{ConstU64, Currency},
+	traits::{ConstU32, ConstU64, Currency},
 	weights::constants::WEIGHT_REF_TIME_PER_SECOND,
 };
+use frame_system::EnsureRoot;
+use pallet_staking_async::{
+	session_rotation::Eras, Exposure, IndividualExposure, StakerStatus,
+	UseNominatorsAndValidatorsMap, UseValidatorsMap,
+};
+use pallet_staking_async_rc_client as rc_client;
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
-
-use pallet_staking::{Exposure, IndividualExposure, StakerStatus};
+use sp_staking::currency_to_vote::SaturatingCurrencyToVote;
 
 pub type AccountId = u128;
 pub type BlockNumber = u64;
@@ -120,18 +125,42 @@ impl frame_election_provider_support::ElectionProvider for MockElection {
 	}
 }
 
-#[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
-impl pallet_staking::Config for Runtime {
+// Mock era payout
+pub struct MockEraPayout;
+impl pallet_staking_async::EraPayout<Balance> for MockEraPayout {
+	fn era_payout(
+		_total_staked: Balance,
+		_total_issuance: Balance,
+		_era_duration_millis: u64,
+	) -> (Balance, Balance) {
+		(1000, 100)
+	}
+}
+
+// Mock RC client interface
+pub struct MockRcClient;
+impl rc_client::RcClientInterface for MockRcClient {
+	type AccountId = AccountId;
+	fn validator_set(
+		_new_validator_set: Vec<Self::AccountId>,
+		_id: u32,
+		_prune_up_to: Option<u32>,
+	) {
+	}
+}
+
+#[derive_impl(pallet_staking_async::config_preludes::TestDefaultConfig)]
+impl pallet_staking_async::Config for Runtime {
 	type OldCurrency = Balances;
 	type Currency = Balances;
-	type UnixTime = pallet_timestamp::Pallet<Self>;
-	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
-	type BondingDuration = BondingDuration;
-	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
+	type AdminOrigin = EnsureRoot<Self::AccountId>;
 	type ElectionProvider = MockElection;
-	type GenesisElectionProvider = Self::ElectionProvider;
-	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
-	type TargetList = pallet_staking::UseValidatorsMap<Self>;
+	type VoterList = UseNominatorsAndValidatorsMap<Self>;
+	type TargetList = UseValidatorsMap<Self>;
+	type CurrencyToVote = SaturatingCurrencyToVote;
+	type EraPayout = MockEraPayout;
+	type RcClientInterface = MockRcClient;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -157,7 +186,7 @@ frame_support::construct_runtime!(
 		System: frame_system,
 		Timestamp: pallet_timestamp,
 		Balances: pallet_balances,
-		Staking: pallet_staking,
+		Staking: pallet_staking_async,
 		FastUnstake: fast_unstake,
 	}
 );
@@ -217,7 +246,7 @@ impl ExtBuilder {
 				(v, Exposure { total: 0, own: 0, others })
 			})
 			.for_each(|(validator, exposure)| {
-				pallet_staking::EraInfo::<T>::set_exposure(era, &validator, exposure);
+				Eras::<T>::upsert_exposure(era, &validator, exposure);
 			});
 	}
 
@@ -249,13 +278,18 @@ impl ExtBuilder {
 		}
 		.assimilate_storage(&mut storage);
 
-		let _ = pallet_staking::GenesisConfig::<Runtime> {
+		let _ = pallet_staking_async::GenesisConfig::<Runtime> {
 			stakers: self
 				.unexposed
 				.into_iter()
-				.map(|(x, y, z)| (x, y, z, pallet_staking::StakerStatus::Nominator(vec![42])))
-				.chain(validators_range.map(|x| (x, x, 100, StakerStatus::Validator)))
-				.chain(nominators_range.map(|x| (x, x, 100, StakerStatus::Nominator(vec![x]))))
+				.map(|(x, _y, z)| {
+					(x, z, pallet_staking_async::StakerStatus::Nominator(vec![VALIDATOR_PREFIX]))
+				})
+				.chain(validators_range.map(|x| (x, 100, StakerStatus::Validator)))
+				.chain(
+					nominators_range
+						.map(|x| (x, 100, StakerStatus::Nominator(vec![VALIDATOR_PREFIX]))),
+				)
 				.collect::<Vec<_>>(),
 			..Default::default()
 		}
@@ -272,7 +306,7 @@ impl ExtBuilder {
 			}
 
 			// because we read this value as a measure of how many validators we have.
-			pallet_staking::ValidatorCount::<Runtime>::put(VALIDATORS_PER_ERA as u32);
+			pallet_staking_async::ValidatorCount::<Runtime>::put(VALIDATORS_PER_ERA as u32);
 		});
 
 		ext
@@ -307,25 +341,25 @@ pub(crate) fn next_block(on_idle: bool) {
 }
 
 pub fn assert_unstaked(stash: &AccountId) {
-	assert!(!pallet_staking::Bonded::<T>::contains_key(stash));
-	assert!(!pallet_staking::Payee::<T>::contains_key(stash));
-	assert!(!pallet_staking::Validators::<T>::contains_key(stash));
-	assert!(!pallet_staking::Nominators::<T>::contains_key(stash));
+	assert!(!pallet_staking_async::Bonded::<T>::contains_key(stash));
+	assert!(!pallet_staking_async::Payee::<T>::contains_key(stash));
+	assert!(!pallet_staking_async::Validators::<T>::contains_key(stash));
+	assert!(!pallet_staking_async::Nominators::<T>::contains_key(stash));
 }
 
 pub fn create_exposed_nominator(exposed: AccountId, era: u32) {
 	// create an exposed nominator in passed era
-	let mut exposure = pallet_staking::EraInfo::<T>::get_full_exposure(era, &VALIDATORS_PER_ERA);
+	let mut exposure = Staking::eras_stakers(era, &VALIDATOR_PREFIX);
 	exposure.others.push(IndividualExposure { who: exposed, value: 0 as Balance });
-	pallet_staking::EraInfo::<T>::set_exposure(era, &VALIDATORS_PER_ERA, exposure);
+	Eras::<T>::upsert_exposure(era, &VALIDATOR_PREFIX, exposure);
 
 	Balances::make_free_balance_be(&exposed, 100);
 	assert_ok!(Staking::bond(
 		RuntimeOrigin::signed(exposed),
 		10,
-		pallet_staking::RewardDestination::Staked
+		pallet_staking_async::RewardDestination::Staked
 	));
-	assert_ok!(Staking::nominate(RuntimeOrigin::signed(exposed), vec![exposed]));
+	assert_ok!(Staking::nominate(RuntimeOrigin::signed(exposed), vec![VALIDATOR_PREFIX]));
 	// register the exposed one.
 	assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(exposed)));
 }
