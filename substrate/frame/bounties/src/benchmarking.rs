@@ -107,17 +107,13 @@ fn assert_last_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::
 mod benchmarks {
 	use super::*;
 
-	/*#[benchmark]
-	fn propose_bounty() {
+	#[benchmark]
+	fn propose_bounty(d: Linear<0, { T::MaximumReasonLength::get() }>) {
+		let (caller, curator, fee, value, description) = setup_bounty::<T, I>(0, d);
 
-		for d in 0..T::MaximumReasonLength::get() {
-			let (caller, curator, fee, value, description) = setup_bounty::<T, I>(0, d);
-
-			#[extrinsic_call]
-			_(RawOrigin::Signed(caller), value, description);
-		}
-
-	}*/
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller), value, description);
+	}
 
 	#[benchmark]
 	fn approve_bounty() {
@@ -286,36 +282,35 @@ mod benchmarks {
 		assert_last_event::<T, I>(Event::BountyExtended { index: bounty_id }.into());
 	}
 
-	/*#[benchmark]
-	fn spend_funds()  {
-		for b in 0..100 {
-			setup_pot_account::<T, I>();
-			create_approved_bounties::<T, I>(b)?;
+	#[benchmark]
+	fn spend_funds(b: Linear<0, 100>) {
+		setup_pot_account::<T, I>();
+		create_approved_bounties::<T, I>(b).unwrap();
 
-			let mut budget_remaining = BalanceOf::<T, I>::max_value();
-			let mut imbalance = PositiveImbalanceOf::<T, I>::zero();
-			let mut total_weight = Weight::zero();
-			let mut missed_any = false;
+		let mut budget_remaining = BalanceOf::<T, I>::max_value();
+		let mut imbalance = PositiveImbalanceOf::<T, I>::zero();
+		let mut total_weight = Weight::zero();
+		let mut missed_any = false;
 
-			#[block] {
-				<Bounties<T, I> as pallet_treasury::SpendFunds<T, I>>::spend_funds(
-					&mut budget_remaining,
-					&mut imbalance,
-					&mut total_weight,
-					&mut missed_any,
-				);
-			}
-
-
-			ensure!(!missed_any, "Missed some");
-			if b > 0 {
-				ensure!(budget_remaining < BalanceOf::<T, I>::max_value(), "Budget not used");
-				assert_last_event::<T, I>(Event::BountyBecameActive { index: b - 1 }.into())
-			} else {
-				ensure!(budget_remaining == BalanceOf::<T, I>::max_value(), "Budget used");
-			}
+		#[block]
+		{
+			<Bounties<T, I> as pallet_treasury::SpendFunds<T, I>>::spend_funds(
+				&mut budget_remaining,
+				&mut imbalance,
+				&mut total_weight,
+				&mut missed_any,
+			);
 		}
-    }*/
+
+		assert!(!missed_any, "Missed some");
+
+		if b > 0 {
+			assert!(budget_remaining < BalanceOf::<T, I>::max_value(), "Budget not used");
+			assert_last_event::<T, I>(Event::BountyBecameActive { index: b - 1 }.into());
+		} else {
+			assert!(budget_remaining == BalanceOf::<T, I>::max_value(), "Budget used");
+		}
+	}
 
 	#[benchmark]
 	fn poke_deposit() {
