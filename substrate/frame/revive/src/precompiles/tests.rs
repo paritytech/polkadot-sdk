@@ -254,3 +254,20 @@ fn public_matching_works() {
 	assert_eq!(matcher_prefix.base_address(), hex!("0000000000000000000000000000000000080000"));
 	assert_eq!(matcher_prefix.highest_address(), hex!("FFFFFFFF00000000000000000000000000080000"));
 }
+
+#[test]
+fn primitives_have_no_code() {
+	for i in 0x01..0x0A {
+		let address = H160::from_low_u64_be(i).to_fixed_bytes();
+		let precompile = <Builtin<Test>>::get::<Env>(&address).unwrap();
+		assert_eq!(precompile.code(), &[0u8; 0]);
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+#[test]
+fn benchmarking_precompile_has_code() {
+	let precompile =
+		<Builtin<Test>>::get::<Env>(&hex!("000000000000000000000000000000000000FFFF")).unwrap();
+	assert_eq!(precompile.code(), &hex!("60006000fd"));
+}

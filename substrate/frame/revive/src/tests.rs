@@ -4695,3 +4695,30 @@ fn bump_nonce_once_works() {
 		assert_eq!(err, <Error<Test>>::DuplicateContract.into());
 	});
 }
+
+#[test]
+fn code_size_for_precompiles_works() {
+	use crate::precompiles::Precompile;
+	use precompiles::NoInfo;
+
+	let builtin_precompile = H160(NoInfo::<Test>::MATCHER.base_address());
+	let primitive_precompile = H160::from_low_u64_be(1);
+
+	let (code, _code_hash) = compile_module("extcodesize").unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.value(1000)
+			.build_and_unwrap_contract();
+
+		// the primitive pre-compiles return 0 code size on eth
+		builder::bare_call(addr)
+			.data((&primitive_precompile, 0u64).encode())
+			.build_and_unwrap_result();
+
+		// other precompiles should return the minimal evm revert code
+		builder::bare_call(addr)
+			.data((&builtin_precompile, 5u64).encode())
+			.build_and_unwrap_result();
+	});
+}
