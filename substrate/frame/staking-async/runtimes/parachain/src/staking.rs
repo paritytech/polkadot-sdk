@@ -133,17 +133,18 @@ parameter_types! {
 	pub EjectGraceRatio: Perbill = Perbill::from_percent(50);
 	pub DepositBase: Balance = 5 * UNITS;
 	pub DepositPerPage: Balance = 1 * UNITS;
+	pub InvulnerableDeposit: Balance = 1 * UNITS;
 	pub RewardBase: Balance = 10 * UNITS;
 	pub MaxSubmissions: u32 = 8;
 }
 
 impl multi_block::signed::Config for Runtime {
-	type RuntimeHoldReason = RuntimeHoldReason;
 	type Currency = Balances;
 	type BailoutGraceRatio = BailoutGraceRatio;
 	type EjectGraceRatio = EjectGraceRatio;
 	type DepositBase = DepositBase;
 	type DepositPerPage = DepositPerPage;
+	type InvulnerableDeposit = InvulnerableDeposit;
 	type RewardBase = RewardBase;
 	type MaxSubmissions = MaxSubmissions;
 	type EstimateCallFee = TransactionPayment;
@@ -160,6 +161,7 @@ parameter_types! {
 
 impl multi_block::unsigned::Config for Runtime {
 	type MinerPages = ConstU32<4>;
+	type OffchainStorage = ConstBool<true>;
 	type OffchainSolver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>>;
 	type MinerTxPriority = MinerTxPriority;
 	type OffchainRepeat = OffchainRepeat;
