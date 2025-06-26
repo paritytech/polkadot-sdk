@@ -12,3 +12,6 @@ mod bootnodes;
 
 #[cfg(feature = "zombie-ci")]
 mod propagation_time;
+
+#[cfg(feature = "zombie-ci")]
+mod statement_store;
