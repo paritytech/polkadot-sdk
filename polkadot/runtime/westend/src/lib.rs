@@ -36,7 +36,7 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		fungible::HoldConsideration, tokens::UnityOrOuterConversion, AsEnsureOriginWithArg,
-		ConstU32, Contains, EitherOf, EitherOfDiverse, EnsureOriginWithArg, Everything,
+		ConstU32, Contains, EitherOf, EitherOfDiverse, EnsureOriginWithArg,
 		FromContains, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, Nothing,
 		ProcessMessage, ProcessMessageError, VariantCountOf, WithdrawReasons,
 	},
@@ -777,7 +777,7 @@ impl pallet_staking::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type Filter = Nothing;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Filter = Everything;
+	type Filter = frame_support::traits::Everything;
 }
 
 #[derive(Encode, Decode)]
