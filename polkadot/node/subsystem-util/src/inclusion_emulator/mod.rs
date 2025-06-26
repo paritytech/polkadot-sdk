@@ -350,11 +350,9 @@ impl Constraints {
 					let _ = new.hrmp_inbound.valid_watermarks.drain(..pos);
 				},
 				Err(pos) => match hrmp_watermark {
-					HrmpWatermarkUpdate::Head(hrmp_watermark) => {
+					HrmpWatermarkUpdate::Head(_) => {
 						// Updates to Head are always OK.
 						let _ = new.hrmp_inbound.valid_watermarks.drain(..pos);
-						// The current watermark will remain valid until updated.
-						new.hrmp_inbound.valid_watermarks.insert(0, *hrmp_watermark)
 					},
 					HrmpWatermarkUpdate::Trunk(n) => {
 						// Trunk update landing on disallowed watermark is not OK.
@@ -1065,7 +1063,7 @@ mod tests {
 		assert!(constraints.check_modifications(&modifications).is_ok());
 
 		let new_constraints = constraints.apply_modifications(&modifications).unwrap();
-		assert_eq!(new_constraints.hrmp_inbound.valid_watermarks, vec![7, 8]);
+		assert_eq!(new_constraints.hrmp_inbound.valid_watermarks, vec![8]);
 	}
 
 	#[test]

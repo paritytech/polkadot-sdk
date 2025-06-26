@@ -51,8 +51,8 @@ use frame_support::{
 };
 use frame_system::{ensure_none, ensure_root, pallet_prelude::HeaderFor};
 use parachain_inherent::{
-	AbridgedInboundDownwardMessages, AbridgedInboundHrmpMessages, BasicParachainInherentData,
-	InboundMessageId, InboundMessagesData,
+	deconstruct_parachain_inherent_data, AbridgedInboundDownwardMessages,
+	AbridgedInboundHrmpMessages, BasicParachainInherentData, InboundMessageId, InboundMessagesData,
 };
 use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 use polkadot_runtime_parachains::{FeeTracker, GetMinFeeFactor};
@@ -113,7 +113,6 @@ pub use cumulus_pallet_parachain_system_proc_macro::register_validate_block;
 pub use relay_state_snapshot::{MessagingStateSnapshot, RelayChainStateProof};
 pub use unincluded_segment::{Ancestor, UsedBandwidth};
 
-use crate::parachain_inherent::deconstruct_parachain_inherent_data;
 pub use pallet::*;
 
 const LOG_TARGET: &str = "parachain-system";

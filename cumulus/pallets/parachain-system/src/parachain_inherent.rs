@@ -39,7 +39,7 @@ use sp_core::{bounded::BoundedSlice, Get};
 
 /// A structure that helps identify a message inside a collection of messages sorted by `sent_at`.
 ///
-/// This structure contains a `sent_of` field and a reverse index. Using this information, we can
+/// This structure contains a `sent_at` field and a reverse index. Using this information, we can
 /// identify a message inside a sorted collection by walking back `reverse_idx` positions starting
 /// from the last message that has the provided `sent_at`.
 ///
@@ -204,7 +204,14 @@ impl<Message: InboundMessage> AbridgedInboundMessagesCollection<Message> {
 		for msg in &self.full_messages {
 			size = size.saturating_add(msg.data().len());
 		}
-		let min_size = ((max_size as f64) * 0.75) as usize;
+		// Ideally, we should check that the collection contains as many full messages as possible
+		// without exceeding `max_size`. The worst case scenario is that were the first message that
+		// had to be hashed is a max size message. So in this case, `min_size` would be
+		// `max_size - max_msg_size`. However, we can't compute this because we can't access the
+		// max downward message size from the parachain runtime.
+		// So we just check that the aggregate size of all the full messages is greater than
+		// 50% of the `max_size`. This should be a safe threshold.
+		let min_size = ((max_size as f64) * 0.5) as usize;
 
 		assert!(
 			size >= min_size,
@@ -443,7 +450,7 @@ mod tests {
 	}
 
 	#[test]
-	fn into_compressed_works() {
+	fn into_abridged_works() {
 		let msgs_vec = build_inbound_dm_vec(&[(0, 100), (0, 100), (0, 150), (0, 50)]);
 		let msgs = InboundDownwardMessages::new(msgs_vec.clone());
 
