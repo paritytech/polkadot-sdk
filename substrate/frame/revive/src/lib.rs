@@ -1965,7 +1965,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 				}
 
 				fn code(address: $crate::H160) -> Vec<u8> {
-					$crate::Pallet::code(&address)
+					$crate::Pallet::<Self>::code(&address)
 				}
 			}
 		}
