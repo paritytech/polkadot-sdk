@@ -15,6 +15,7 @@ use asset_hub_westend_runtime::Runtime as AHWRuntime;
 use ethabi::Token;
 use futures::{stream::FuturesUnordered, StreamExt};
 use pallet_revive::AddressMapper;
+use rand::Rng;
 use sp_core::{bytes::to_hex, H160, H256};
 use std::str::FromStr;
 use zombienet_sdk::{
@@ -26,12 +27,12 @@ use zombienet_sdk::{
 		sr25519::{dev, Keypair},
 		SecretUri,
 	},
-	LocalFileSystem, Network, NetworkConfigBuilder,
+	LocalFileSystem, Network, NetworkConfigBuilder, NetworkNode,
 };
 
-const KEYS_COUNT: usize = 300;
-const CHUNK_SIZE: usize = 200;
-const CALL_CHUNK_SIZE: usize = 1000;
+const KEYS_COUNT: usize = 6000;
+const CHUNK_SIZE: usize = 3000;
+const CALL_CHUNK_SIZE: usize = 3000;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn weights_test() -> Result<(), anyhow::Error> {
@@ -47,8 +48,12 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 		let call_client: OnlineClient<PolkadotConfig> = collator.wait_client().await?;
 		call_clients.push(call_client);
 	}
-	log::info!("Network is ready");
+	log::info!("Network is ready, waiting for warm-up to finish");
+	while collator.reports("substrate_tasks_ended_total{kind=\"blocking\",reason=\"finished\",task_group=\"default\",task_name=\"warm-up-trie-cache\",chain=\"asset-hub-westend-local\"}").await? < 0.5 {
+		std::thread::sleep(std::time::Duration::from_secs(10));
+	}
 
+	log::info!("Warm-up finished, starting test");
 	let alice = dev::alice();
 	let keys = create_keys(KEYS_COUNT);
 	let mut nonce = 0;
@@ -59,6 +64,7 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 	};
 
 	setup_accounts(&para_client, &alice, &keys, nonce()).await?;
+	assert_block_proposing_time_no_greater_than_1s(&collator).await;
 	log::info!("Accounts ready");
 
 	let contract_address = instantiate_contract(&para_client, &alice).await?;
@@ -80,13 +86,9 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 		mint_100_payload,
 	)
 	.await?;
+	assert_block_proposing_time_no_greater_than_1s(&collator).await;
 
-	log::info!("Transfering...");
-	let mut call_clients = vec![];
-	for _ in 0..(KEYS_COUNT / CALL_CHUNK_SIZE + 1) {
-		let call_client: OnlineClient<PolkadotConfig> = collator.wait_client().await?;
-		call_clients.push(call_client);
-	}
+	log::info!("Minting finished, preparing transfers");
 	let mut transfer_50_payload = keys
 		.iter()
 		.map(|key| {
@@ -102,6 +104,23 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 		.collect::<Vec<_>>();
 	transfer_50_payload.rotate_left(1);
 
+	log::info!("Restarting collator to ensure it starts with a clean state and waiting for warm-up to finish");
+
+	collator.restart(None).await?;
+	let mut call_clients = vec![];
+	let para_client: OnlineClient<PolkadotConfig> = collator.wait_client().await?;
+
+	for _ in 0..(KEYS_COUNT / CALL_CHUNK_SIZE + 1) {
+		let call_client: OnlineClient<PolkadotConfig> = collator.wait_client().await?;
+		call_clients.push(call_client);
+	}
+
+	while collator.reports("substrate_tasks_ended_total{kind=\"blocking\",reason=\"finished\",task_group=\"default\",task_name=\"warm-up-trie-cache\",chain=\"asset-hub-westend-local\"}").await? < 0.5 {
+		std::thread::sleep(std::time::Duration::from_secs(10));
+	}
+
+	log::info!("Warm-up finished, transfering ERC20 tokens");
+
 	call_contract(
 		&para_client,
 		call_clients,
@@ -112,11 +131,24 @@ async fn weights_test() -> Result<(), anyhow::Error> {
 		transfer_50_payload,
 	)
 	.await?;
-
-	log::info!("Test finished, sleeping for 6000 seconds to allow for manual inspection");
-	tokio::time::sleep(std::time::Duration::from_secs(6000)).await;
+	assert_block_proposing_time_no_greater_than_1s(&collator).await;
 
 	Ok(())
+}
+
+async fn assert_block_proposing_time_no_greater_than_1s(collator: &NetworkNode) {
+	let num_blocks_under_1s = collator.reports(
+		"substrate_proposer_block_proposal_time_bucket{chain=\"asset-hub-westend-local\",le=\"1\"}",
+	).await.expect("Could not fetch report");
+
+	let num_total_proposed_blocks = collator
+		.reports("substrate_proposer_block_proposal_time_count{chain=\"asset-hub-westend-local\"}")
+		.await
+		.expect("Could not fetch report");
+
+	let num_blocks_hit_deadline = collator.reports("substrate_proposer_end_proposal_reason{reason=\"hit_deadline\",chain=\"asset-hub-westend-local\"}").await.expect("Could not fetch report");
+	assert_eq!(num_blocks_under_1s, num_total_proposed_blocks);
+	assert_eq!(num_blocks_hit_deadline, 0.0, "There should be no blocks that hit the deadline");
 }
 
 async fn setup_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
@@ -127,6 +159,7 @@ async fn setup_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![("-lparachain=debug").into()])
+				.with_default_db_snapshot("https://storage.googleapis.com/zombienet-db-snaps/polkadot/test_weights/relaychain.tgz")
 				.with_node(|node| node.with_name("validator-0"))
 				.with_node(|node| node.with_name("validator-1"))
 		})
@@ -139,12 +172,21 @@ async fn setup_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
 						.as_str(),
 				)
 				.with_chain("asset-hub-westend-local")
+				.with_default_db_snapshot("https://storage.googleapis.com/zombienet-db-snaps/polkadot/test_weights/parachain.tgz")
 				.with_collator(|n| {
-					n.with_name("collator")
-						.validator(true)
-						.with_args(vec![("--warm-up-trie-cache").into(), ("-linfo").into()])
+					n.with_name("collator").validator(true).with_args(vec![
+						("--warm-up-trie-cache").into(),
+						("-linfo").into(),
+						("--pool-type=fork-aware").into(),
+						("--trie-cache-size=32212254720").into(),
+						("--rpc-max-subscriptions-per-connection=327680").into(),
+						("--rpc-max-connections=102400".into()),
+						("--pool-limit=819200").into(),
+						("--pool-kbytes=2048000").into(),
+					])
 				})
 		})
+		// .with_global_settings(|g| g.with_base_dir("/home/alexggh/db_smart_contracts5"))
 		.build()
 		.map_err(|e| {
 			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
@@ -157,9 +199,11 @@ async fn setup_network() -> Result<Network<LocalFileSystem>, anyhow::Error> {
 }
 
 fn create_keys(n: usize) -> Vec<Keypair> {
+	let mut rng = rand::thread_rng();
+	let seed: u32 = rng.gen();
 	(0..n)
 		.map(|i| {
-			let uri = SecretUri::from_str(&format!("//key{}", i)).unwrap();
+			let uri = SecretUri::from_str(&format!("//key{}_test{}", seed, i)).unwrap();
 			Keypair::from_uri(&uri).unwrap()
 		})
 		.collect()
@@ -260,7 +304,9 @@ async fn instantiate_params(
 		StorageDeposit::Refund(_) => 0,
 	};
 
-	Ok((dry_run.gas_required.ref_time, dry_run.gas_required.proof_size, deposit))
+	// Make sure we have enough gas and multiply by 4, since without it the calls fail not enough
+	// gas.
+	Ok((dry_run.gas_required.ref_time * 4, dry_run.gas_required.proof_size * 4, deposit * 4))
 }
 
 async fn call_params(
