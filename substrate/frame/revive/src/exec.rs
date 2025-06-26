@@ -815,6 +815,7 @@ where
 		skip_transfer: bool,
 		bump_nonce: BumpNonce,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
+		let deployer = T::AddressMapper::to_address(&origin);
 		let (mut stack, executable) = Stack::<'_, T, E>::new(
 			FrameArgs::Instantiate {
 				sender: origin.clone(),
@@ -830,9 +831,15 @@ where
 		)?
 		.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
 		let address = T::AddressMapper::to_address(&stack.top_frame().account_id);
-		stack
+		let result = stack
 			.run(executable, input_data, bump_nonce)
-			.map(|_| (address, stack.first_frame.last_frame_output))
+			.map(|_| (address, stack.first_frame.last_frame_output));
+		if let Ok((contract, ref output)) = result {
+			if !output.did_revert() {
+				Contracts::<T>::deposit_event(Event::Instantiated { deployer, contract });
+			}
+		}
+		result
 	}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
@@ -930,7 +937,7 @@ where
 						if let Some(info) = <ContractInfoOf<T>>::get(&address) {
 							CachedContract::Cached(info)
 						} else {
-							return Ok(None)
+							return Ok(None);
 						},
 					(None, Some(precompile)) if precompile.has_contract_info() => {
 						if let Some(info) = <ContractInfoOf<T>>::get(&address) {

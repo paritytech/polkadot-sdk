@@ -200,7 +200,8 @@ where
 	fn storage_write(&mut self, key: &Key, old_value: Option<Vec<u8>>, new_value: Option<&[u8]>) {
 		let key = Bytes::from(key.unhashed().to_vec());
 
-		self.trace
+		let old_value = self
+			.trace
 			.0
 			.entry(self.current_addr)
 			.or_default()
@@ -208,13 +209,19 @@ where
 			.entry(key.clone())
 			.or_insert_with(|| old_value.map(Into::into));
 
-		if self.config.diff_mode {
+		if !self.config.diff_mode {
+			return
+		}
+
+		if old_value.as_ref().map(|v| v.0.as_ref()) != new_value {
 			self.trace
 				.1
 				.entry(self.current_addr)
 				.or_default()
 				.storage
 				.insert(key, new_value.map(|v| v.to_vec().into()));
+		} else {
+			self.trace.1.entry(self.current_addr).or_default().storage.remove(&key);
 		}
 	}
 
