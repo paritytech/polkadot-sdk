@@ -34,7 +34,7 @@ static ALLOCATOR: RuntimeAllocator = RuntimeAllocator;
 const LOCAL_HEAP_SIZE: usize = 64 * 1024 * 1024;
 const LOCAL_HEAP_S: picoalloc::Size = picoalloc::Size::from_bytes_usize(LOCAL_HEAP_SIZE).unwrap();
 
-#[repr(transparent)]
+#[repr(align(32))] // `picoalloc` requires 32-byte alignment of the heap
 struct LocalHeap(UnsafeCell<[u8; LOCAL_HEAP_SIZE]>);
 
 // SAFETY: This is runtime-only, and runtimes are single-threaded, so this is safe.
