@@ -18,8 +18,7 @@
 
 use futures::FutureExt;
 use polkadot_node_subsystem::{
-	messages::ApprovalVotingParallelMessage,
-	overseer, SpawnedSubsystem, SubsystemError,
+	messages::ApprovalVotingParallelMessage, overseer, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_types::OverseerSignal;
 
