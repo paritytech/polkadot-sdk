@@ -1035,7 +1035,7 @@ impl_runtime_apis! {
 
 				fn set_up_complex_asset_transfer() -> Option<(Assets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
 					let native_location = Parent.into();
-					let dest = Parent.into();
+					let dest = AssetHubLocation::get();
 
 					pallet_xcm::benchmarking::helpers::native_teleport_as_asset_transfer::<Runtime>(
 						native_location,
