@@ -279,7 +279,8 @@ jobs:
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
-  # re-enabled
+  #
+  #
   zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility') }}
@@ -365,7 +366,7 @@ jobs:
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
   #
-  # fixed in : https://github.com/paritytech/polkadot-sdk/pull/8921
+  #
   zombienet-polkadot-functional-0019-coretime-collation-fetching-fairness:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-functional-0019-coretime-collation-fetching-fairness') }}
@@ -941,8 +942,7 @@ jobs:
           prefix: "polkadot"
 
   #
-  # TODO: Disabled, need to address the problem with getting old version validators for
-  # zombienet native provider
+  #
   zombienet-polkadot-approved-peer-mixed-validators:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-approved-peer-mixed-validators') }}
