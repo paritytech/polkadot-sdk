@@ -37,8 +37,8 @@ use cumulus_primitives_core::{
 		self,
 		vstaging::{ClaimQueueOffset, CoreSelector, DEFAULT_CLAIM_QUEUE_OFFSET},
 	},
-	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, GetChannelInfo,
-	InboundDownwardMessage, InboundHrmpMessage, ListChannelInfos, MessageSendError,
+	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, CumulusDigestItem,
+	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, ListChannelInfos, MessageSendError,
 	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
 	XcmpMessageHandler, XcmpMessageSource,
 };
@@ -584,6 +584,11 @@ pub mod pallet {
 
 			// Always try to read `UpgradeGoAhead` in `on_finalize`.
 			weight += T::DbWeight::get().reads(1);
+
+			if !CumulusDigestItem::core_info_exists_at_max_once(&frame_system::Pallet::<T>::digest())
+			{
+				panic!("`CumulusDigestItem::CoreInfo` must exist at max once.");
+			}
 
 			weight
 		}
@@ -1505,19 +1510,19 @@ impl<T: Config> Pallet<T> {
 	/// Send the ump signals
 	#[cfg(feature = "experimental-ump-signals")]
 	fn send_ump_signal() {
-		use cumulus_primitives_core::{
-			relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR},
-			CumulusDigestItem,
-		};
+		use cumulus_primitives_core::relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
 
 		UpwardMessages::<T>::mutate(|up| {
-			if let Some((selector, offset)) =
-				CumulusDigestItem::find_select_core(&frame_system::Pallet::<T>::digest())
+			if let Some(core_info) =
+				CumulusDigestItem::find_core_info(&frame_system::Pallet::<T>::digest())
 			{
 				up.push(UMP_SEPARATOR);
 
 				// Send the core selector signal.
-				up.push(UMPSignal::SelectCore(selector, offset).encode());
+				up.push(
+					UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset)
+						.encode(),
+				);
 			}
 		});
 	}

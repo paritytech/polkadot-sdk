@@ -521,12 +521,15 @@ impl ClaimQueueSnapshot {
 	///
 	/// `cores_claimed` is the number of cores already claimed from this snapshot for `para_id` at
 	/// the given `claim_queue_offset`.
+	///
+	/// Returns the core selector, claim queue offset, core index and the number of cores at claim
+	/// queue offset.
 	pub fn find_core(
 		&self,
 		para_id: ParaId,
 		mut cores_claimed: u32,
 		claim_queue_offset: u32,
-	) -> Option<(CoreSelector, ClaimQueueOffset, CoreIndex)> {
+	) -> Option<(CoreSelector, ClaimQueueOffset, CoreIndex, u16)> {
 		let mut offset_to_core_count = BTreeMap::<usize, Vec<CoreIndex>>::new();
 
 		self.0.iter().for_each(|(core_index, ids)| {
@@ -548,6 +551,7 @@ impl ClaimQueueSnapshot {
 					CoreSelector(cores_claimed as u8),
 					ClaimQueueOffset(offset as u8),
 					*core_index,
+					cores.len() as u16,
 				))
 			}
 
@@ -659,54 +663,54 @@ mod test {
 
 		assert_eq!(
 			claim_queue.find_core(1u32.into(), 0, 0).unwrap(),
-			(CoreSelector(0), ClaimQueueOffset(0), CoreIndex(0))
+			(CoreSelector(0), ClaimQueueOffset(0), CoreIndex(0), 3)
 		);
 
 		assert_eq!(
 			claim_queue.find_core(1u32.into(), 1, 0).unwrap(),
-			(CoreSelector(1), ClaimQueueOffset(0), CoreIndex(1))
+			(CoreSelector(1), ClaimQueueOffset(0), CoreIndex(1), 3)
 		);
 
 		assert_eq!(
 			claim_queue.find_core(1u32.into(), 2, 0).unwrap(),
-			(CoreSelector(2), ClaimQueueOffset(0), CoreIndex(2))
+			(CoreSelector(2), ClaimQueueOffset(0), CoreIndex(2), 3)
 		);
 
 		assert_eq!(
 			claim_queue.find_core(1u32.into(), 3, 0).unwrap(),
-			(CoreSelector(0), ClaimQueueOffset(1), CoreIndex(1))
+			(CoreSelector(0), ClaimQueueOffset(1), CoreIndex(1), 2)
 		);
 
 		assert_eq!(
 			claim_queue.find_core(1u32.into(), 4, 0).unwrap(),
-			(CoreSelector(1), ClaimQueueOffset(1), CoreIndex(3))
+			(CoreSelector(1), ClaimQueueOffset(1), CoreIndex(3), 2)
 		);
 
 		assert_eq!(
 			claim_queue.find_core(1u32.into(), 5, 0).unwrap(),
-			(CoreSelector(0), ClaimQueueOffset(2), CoreIndex(0))
+			(CoreSelector(0), ClaimQueueOffset(2), CoreIndex(0), 1)
 		);
 
 		assert_eq!(claim_queue.find_core(1u32.into(), 6, 0), None);
 
 		assert_eq!(
 			claim_queue.find_core(1u32.into(), 0, 1).unwrap(),
-			(CoreSelector(0), ClaimQueueOffset(1), CoreIndex(1))
+			(CoreSelector(0), ClaimQueueOffset(1), CoreIndex(1), 2)
 		);
 
 		assert_eq!(
 			claim_queue.find_core(1u32.into(), 2, 1).unwrap(),
-			(CoreSelector(0), ClaimQueueOffset(2), CoreIndex(0))
+			(CoreSelector(0), ClaimQueueOffset(2), CoreIndex(0), 1)
 		);
 
 		assert_eq!(
 			claim_queue.find_core(3u32.into(), 0, 0).unwrap(),
-			(CoreSelector(0), ClaimQueueOffset(2), CoreIndex(2))
+			(CoreSelector(0), ClaimQueueOffset(2), CoreIndex(2), 2)
 		);
 
 		assert_eq!(
 			claim_queue.find_core(3u32.into(), 1, 0).unwrap(),
-			(CoreSelector(1), ClaimQueueOffset(2), CoreIndex(3))
+			(CoreSelector(1), ClaimQueueOffset(2), CoreIndex(3), 2)
 		);
 	}
 }

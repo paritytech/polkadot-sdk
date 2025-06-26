@@ -35,7 +35,7 @@ use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockIm
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
-	extract_relay_parent, rpsr_digest, ClaimQueueOffset, CoreSelector, CumulusDigestItem,
+	extract_relay_parent, rpsr_digest, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
 	GetCoreSelectorApi, PersistedValidationData, RelayParentOffsetApi,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
@@ -235,44 +235,45 @@ where
 			let parent_header = parent.header;
 
 			// Retrieve the core selector.
-			let (core_selector, claim_queue_offset, core_index) = match determine_core(
-				&mut relay_chain_data_cache,
-				&relay_parent_header,
-				para_id,
-				&parent_header,
-			)
-			.await
-			{
-				Err(()) => {
-					tracing::debug!(
-						target: LOG_TARGET,
-						?relay_parent,
-						"Failed to determine core"
-					);
+			let (core_selector, claim_queue_offset, core_index, number_of_cores) =
+				match determine_core(
+					&mut relay_chain_data_cache,
+					&relay_parent_header,
+					para_id,
+					&parent_header,
+				)
+				.await
+				{
+					Err(()) => {
+						tracing::debug!(
+							target: LOG_TARGET,
+							?relay_parent,
+							"Failed to determine core"
+						);
 
-					continue
-				},
-				Ok(Some(res)) => {
-					tracing::debug!(
-						target: LOG_TARGET,
-						?relay_parent,
-						core_selector = ?res.0,
-						claim_queue_offset = ?res.1,
-						"Going to claim core",
-					);
+						continue
+					},
+					Ok(Some(res)) => {
+						tracing::debug!(
+							target: LOG_TARGET,
+							?relay_parent,
+							core_selector = ?res.0,
+							claim_queue_offset = ?res.1,
+							"Going to claim core",
+						);
 
-					res
-				},
-				Ok(None) => {
-					tracing::debug!(
-						target: LOG_TARGET,
-						?relay_parent,
-						"No available core"
-					);
+						res
+					},
+					Ok(None) => {
+						tracing::debug!(
+							target: LOG_TARGET,
+							?relay_parent,
+							"No available core"
+						);
 
-					continue
-				},
-			};
+						continue
+					},
+				};
 
 			let Ok(RelayChainData { max_pov_size, claim_queue, .. }) =
 				relay_chain_data_cache.get_mut_relay_chain_data(relay_parent).await
@@ -396,10 +397,11 @@ where
 				.build_block_and_import(
 					&parent_header,
 					&slot_claim,
-					Some(vec![CumulusDigestItem::SelectCore {
+					Some(vec![CumulusDigestItem::CoreInfo(CoreInfo {
 						selector: core_selector,
 						claim_queue_offset,
-					}
+						number_of_cores: number_of_cores.into(),
+					})
 					.to_digest_item()]),
 					(parachain_inherent_data, other_inherent_data),
 					authoring_duration,
@@ -522,11 +524,8 @@ async fn determine_core<Header: HeaderT, RI: RelayChainInterface + 'static>(
 	relay_parent: &RelayHeader,
 	para_id: ParaId,
 	parent: &Header,
-) -> Result<Option<(CoreSelector, ClaimQueueOffset, CoreIndex)>, ()> {
-	// The digest should be always there and if not, we can just assume `(0, 0)` as offset and
-	// selector.
-	let (last_selector, last_offset) = CumulusDigestItem::find_select_core(parent.digest())
-		.map_or_else(|| (None, None), |(selector, offset)| (Some(selector), Some(offset)));
+) -> Result<Option<(CoreSelector, ClaimQueueOffset, CoreIndex, u16)>, ()> {
+	let core_info = CumulusDigestItem::find_core_info(parent.digest());
 
 	let last_relay_parent = if parent.number().is_zero() {
 		0
@@ -550,13 +549,17 @@ async fn determine_core<Header: HeaderT, RI: RelayChainInterface + 'static>(
 	// If the offset between the last relay parent and the current one is bigger than the last
 	// claim queue offset, we can start from the beginning of the claim queue. Because there was no
 	// core yet claimed from this claim queue.
-	let res = if relay_parent_offset > last_offset.unwrap_or_default().0 as u32 {
+	let res = if relay_parent_offset >
+		core_info.as_ref().map(|ci| ci.claim_queue_offset).unwrap_or_default().0 as u32
+	{
 		claim_queue.find_core(para_id, 0, 0)
 	} else {
 		claim_queue.find_core(
 			para_id,
-			last_selector.map_or(0, |s| s.0 as u32 + 1),
-			last_offset.map_or(0, |o| o.0 as u32 - relay_parent_offset),
+			core_info.as_ref().map_or(0, |ci| ci.selector.0 as u32 + 1),
+			core_info
+				.as_ref()
+				.map_or(0, |ci| ci.claim_queue_offset.0 as u32 - relay_parent_offset),
 		)
 	};
 
