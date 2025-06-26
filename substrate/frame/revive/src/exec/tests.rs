@@ -1145,6 +1145,13 @@ fn instantiation_work_with_success_output() {
 				ContractInfo::<Test>::load_code_hash(&instantiated_contract_id).unwrap(),
 				dummy_ch
 			);
+			assert_eq!(
+				&events(),
+				&[Event::Instantiated {
+					deployer: ALICE_ADDR,
+					contract: instantiated_contract_address
+				}]
+			);
 		});
 }
 

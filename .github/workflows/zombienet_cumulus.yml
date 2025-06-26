@@ -13,7 +13,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  RUN_IN_CONTAINER: 1
   FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 1
   LOCAL_DIR: "./cumulus/zombienet/tests"
   GHA_CLUSTER_SERVER_ADDR: "https://kubernetes.default:443"
@@ -30,16 +29,18 @@ jobs:
   isdraft:
     uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
+    # TODO: reenable
+    if: false
     needs: isdraft
     uses: ./.github/workflows/zombienet-reusable-preflight.yml
 
   zombienet-cumulus-0001-sync_blocks_from_tip_without_connected_collator:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
+      image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
     env:
       # sdk tests are looking for POLKADOT_IMAGE
       POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
@@ -63,57 +64,70 @@ jobs:
   zombienet-cumulus-0002-pov_recovery:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
     env:
       RELAY_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       COL_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      DEBUG: ${{ needs.preflight.outputs.DEBUG }}
+      ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      #
+
       - name: zombienet_test
         uses: ./.github/actions/zombienet
         with:
           test: "0002-pov_recovery.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}"
           concurrency: 1
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+
 
   zombienet-cumulus-0003-full_node_catching_up:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
     env:
       RELAY_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       COL_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      DEBUG: ${{ needs.preflight.outputs.DEBUG }}
+      ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      #
+
       - name: zombienet_test
         uses: ./.github/actions/zombienet
         with:
           test: "0003-full_node_catching_up.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}"
           concurrency: 1
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
   zombienet-cumulus-0004-runtime_upgrade:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
     env:
       RELAY_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       COL_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      DEBUG: ${{ needs.preflight.outputs.DEBUG }}
+      ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -134,73 +148,85 @@ jobs:
           cp ./artifacts/zombienet/wasm_binary_spec_version_incremented.rs.compact.compressed.wasm /tmp/
           ls /tmp
 
-      #
       - name: zombienet_test
         uses: ./.github/actions/zombienet
         with:
           test: "0004-runtime_upgrade.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}"
           concurrency: 1
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+
 
   zombienet-cumulus-0005-migrate_solo_to_para:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
     env:
       RELAY_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       COL_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      DEBUG: ${{ needs.preflight.outputs.DEBUG }}
+      ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      #
       - name: zombienet_test
         uses: ./.github/actions/zombienet
         with:
           test: "0005-migrate_solo_to_para.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}"
           concurrency: 1
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
   zombienet-cumulus-0006-rpc_collator_builds_blocks:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
     env:
       RELAY_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       COL_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      DEBUG: ${{ needs.preflight.outputs.DEBUG }}
+      ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      #
       - name: zombienet_test
         uses: ./.github/actions/zombienet
         with:
           test: "0006-rpc_collator_builds_blocks.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}"
           concurrency: 1
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
   zombienet-cumulus-0007-full_node_warp_sync:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
     env:
       RELAY_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       COL_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      DEBUG: ${{ needs.preflight.outputs.DEBUG }}
+      ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      #
       - name: zombienet_test
         uses: ./.github/actions/zombienet
         with:
@@ -208,58 +234,65 @@ jobs:
           local-dir: "${{ env.LOCAL_DIR }}"
           concurrency: 1
 
-
   zombienet-cumulus-0008-elastic_authoring:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
     env:
       RELAY_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       COL_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      DEBUG: ${{ needs.preflight.outputs.DEBUG }}
+      ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      #
       - name: zombienet_test
         uses: ./.github/actions/zombienet
         with:
           test: "0008-elastic_authoring.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}"
           concurrency: 1
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
   zombienet-cumulus-0009-elastic_pov_recovery:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
     env:
       RELAY_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       COL_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      DEBUG: ${{ needs.preflight.outputs.DEBUG }}
+      ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      #
       - name: zombienet_test
         uses: ./.github/actions/zombienet
         with:
           test: "0009-elastic_pov_recovery.zndsl"
           local-dir: "${{ env.LOCAL_DIR }}"
           concurrency: 1
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
   zombienet-cumulus-0010-elastic_scaling_multiple_block_per_slot:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
+      image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
     env:
       # sdk tests are looking for POLKADOT_IMAGE
       POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
