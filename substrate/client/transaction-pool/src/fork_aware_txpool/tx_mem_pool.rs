@@ -697,8 +697,18 @@ where
 		let revalidated_invalid_hashes_len = revalidated_invalid_hashes.len();
 		let invalid_hashes_subtrees_len = invalid_hashes_subtrees.len();
 
-		self.listener
-			.transactions_invalidated(&invalid_hashes_subtrees.into_iter().collect::<Vec<_>>());
+		let invalid_hashes_subtrees = invalid_hashes_subtrees.into_iter().collect::<Vec<_>>();
+
+		//note: here the consistency is assumed: it is expected that transaction will be
+		// actually removed from the listener with Invalid event. This means assumption that no view
+		// is referencing tx as ready.
+		self.listener.transactions_invalidated(&invalid_hashes_subtrees);
+		view_store
+			.import_notification_sink
+			.clean_notified_items(&invalid_hashes_subtrees);
+		view_store
+			.dropped_stream_controller
+			.remove_transactions(invalid_hashes_subtrees);
 
 		trace!(
 			target: LOG_TARGET,
