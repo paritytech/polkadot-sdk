@@ -1,13 +1,13 @@
 name: Zombienet Polkadot
 
 on:
-  workflow_dispatch: # Disabled for being flaky
-  #push:
-  #  branches:
-  #    - master
+  workflow_dispatch:
+  push:
+   branches:
+     - master
   pull_request:
-   types: [opened, synchronize, reopened, ready_for_review, labeled]
-  #merge_group:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+  merge_group:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -279,7 +279,8 @@ jobs:
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
-  # re-enabled
+  #
+  #
   zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility') }}
@@ -365,7 +366,7 @@ jobs:
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
   #
-  # fixed in : https://github.com/paritytech/polkadot-sdk/pull/8921
+  #
   zombienet-polkadot-functional-0019-coretime-collation-fetching-fairness:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-functional-0019-coretime-collation-fetching-fairness') }}
@@ -941,8 +942,7 @@ jobs:
           prefix: "polkadot"
 
   #
-  # TODO: Disabled, need to address the problem with getting old version validators for
-  # zombienet native provider
+  #
   zombienet-polkadot-approved-peer-mixed-validators:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-approved-peer-mixed-validators') }}
@@ -1001,10 +1001,10 @@ jobs:
   zombienet-polkadot-shared-core-idle-parachain:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-shared-core-idle-parachain') }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }} # NOTE: should be zombienet-arc-runner (without quotes)
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
+      image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
     env:
       # sdk tests are looking for POLKADOT_IMAGE
       POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"

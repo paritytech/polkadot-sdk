@@ -65,7 +65,7 @@ on:
         description: |
           url for download polkadot built artifacts (in zip format).
 
-      # zombienet-env vars
+      # zombienet related vars
       ZOMBIENET_PROVIDER:
         value: ${{ jobs.preflight.outputs.ZOMBIENET_PROVIDER }}
         description: "Provider to use in zombienet tests."
@@ -84,33 +84,11 @@ on:
         description: |
           Large runner for zombienet tests.
 
-      PUSHGATEWAY_URL:
-        value: ${{ jobs.preflight.outputs.PUSHGATEWAY_URL }}
-        description: "Gateway (url) to push metrics related to test."
-
       DEBUG:
         value: ${{ jobs.preflight.outputs.DEBUG }}
         description: "Debug value to zombienet v1 tests."
 
-      KUBERNETES_CPU_REQUEST:
-        value: ${{ jobs.preflight.outputs.KUBERNETES_CPU_REQUEST }}
-        description: "Base cpu (request) for pod runner."
-
-      KUBERNETES_MEMORY_REQUEST:
-        value: ${{ jobs.preflight.outputs.KUBERNETES_MEMORY_REQUEST }}
-        description: "Base memory (request) for pod runner."
-
-      TEMP_IMAGES_BASE:
-        value: ${{ jobs.preflight.outputs.TEMP_IMAGES_BASE }}
-        description: |
-          Base location for 'temp' images used in tests.
-
-      FLAKY_TESTS:
-        value: ${{ jobs.preflight.outputs.FLAKY_TESTS }}
-        description: |
-          comma separated list of flaky tests to skip.
-
-      # zombienet-sdk-env vars
+      # zombienet-sdk related vars
       ZOMBIE_PROVIDER:
         value: ${{ jobs.preflight.outputs.ZOMBIE_PROVIDER }}
         description: "Provider to use in zombienet-sdk tests."
@@ -132,14 +110,36 @@ on:
         value: ${{ jobs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
         description: "zombienet-sdk CI image"
 
+      # common vars
+      PUSHGATEWAY_URL:
+        value: ${{ jobs.preflight.outputs.PUSHGATEWAY_URL }}
+        description: "Gateway (url) to push metrics related to test."
+
+      KUBERNETES_CPU_REQUEST:
+        value: ${{ jobs.preflight.outputs.KUBERNETES_CPU_REQUEST }}
+        description: "Base cpu (request) for pod runner."
+
+      KUBERNETES_MEMORY_REQUEST:
+        value: ${{ jobs.preflight.outputs.KUBERNETES_MEMORY_REQUEST }}
+        description: "Base memory (request) for pod runner."
+
+      TEMP_IMAGES_BASE:
+        value: ${{ jobs.preflight.outputs.TEMP_IMAGES_BASE }}
+        description: |
+          Base location for 'temp' images used in tests.
+
+      FLAKY_TESTS:
+        value: ${{ jobs.preflight.outputs.FLAKY_TESTS }}
+        description: |
+          comma separated list of flaky tests to skip.
+
 jobs:
   #
   #
   #
   preflight:
     runs-on: ubuntu-latest
-    # TODO remove this condition once zombienet tests are stabilized
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'T18-zombienet_tests')
+    if: github.event_name == 'workflow_dispatch' || ! contains(github.event.pull_request.labels.*.name, 'T19-skip-zombienet_tests')
 
     outputs:
       changes_substrate: ${{ steps.set_changes.outputs.substrate_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
@@ -206,7 +206,7 @@ jobs:
               - '${{ steps.current_file.outputs.currentWorkflowFile }}'
               - '.github/workflows/zombienet-reusable-preflight.yml'
               - '.github/zombienet-env'
-              - '.github/zombienet-sdk-env'
+              - '.github/zombienet-flaky-tests'
 
       #
       # Set environment vars (including runner/image)
@@ -219,12 +219,15 @@ jobs:
           {
             export SOURCE_REF_NAME=${{ github.head_ref || github.ref_name }}
             echo "SOURCE_REF_SLUG=${SOURCE_REF_NAME//\//_}"
-            cat .github/zombienet-env
+
+            # filter out comments and empty lines
+            cat .github/zombienet-env | grep -Ev '^\s*#|^\s*$'
             . .github/zombienet-env
+
             if [[ "$ZOMBIENET_PROVIDER" == "native" ]]; then
               echo "ZOMBIENET_IMAGE=${ZOMBIENET_IMAGE_FOR_NATIVE}"
               echo "ZOMBIENET_DEFAULT_RUNNER=${ZOMBIENET_DEFAULT_RUNNER_FOR_NATIVE}"
-              echo "ZOMBIENET_LARGE_RUNNER=${ZOMBIENET_DEFAULT_RUNNER_FOR_NATIVE}"
+              echo "ZOMBIENET_LARGE_RUNNER=${ZOMBIENET_LARGE_RUNNER_FOR_NATIVE}"
             else
               echo "ZOMBIENET_IMAGE=${ZOMBIENET_IMAGE_FOR_K8S}"
               # runner size for k8s is not relevant, it "only" spawns pods and runs the test
@@ -232,9 +235,6 @@ jobs:
               echo "ZOMBIENET_LARGE_RUNNER=${ZOMBIENET_RUNNER_FOR_K8S}"
             fi
 
-            # additional envs required by zombienet-sdk
-            cat .github/zombienet-sdk-env
-            . .github/zombienet-sdk-env
             if [[ "$ZOMBIE_PROVIDER" == "native" ]]; then
               echo "ZOMBIENET_SDK_IMAGE=${ZOMBIENET_SDK_IMAGE_FOR_NATIVE}"
               echo "ZOMBIENET_SDK_DEFAULT_RUNNER=${ZOMBIENET_SDK_DEFAULT_RUNNER_FOR_NATIVE}"
@@ -256,7 +256,6 @@ jobs:
           } >> $GITHUB_OUTPUT
 
           cat .github/zombienet-env
-          cat .github/zombienet-sdk-env
           cat .github/env
           echo "FLAKY_TESTS:"
           cat .github/zombienet-flaky-tests

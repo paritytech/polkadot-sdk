@@ -57,22 +57,28 @@ runs:
 
     - name: Copy files if specified
       if: inputs.files-to-copy != ''
+      env:
+        FILES_TO_COPY: ${{ inputs.files-to-copy }}
+        DESTINATION_PATH: ${{ inputs.destination-path }}
+        EXTRACT_PATH: ${{ inputs.extract-path }}
+        CLEANUP: ${{ inputs.cleanup }}
+
       shell: bash
       run: |
         # Create destination directory
-        mkdir -p "${{ inputs.destination-path }}"
+        mkdir -p "$DESTINATION_PATH"
 
-        echo "${{ inputs.files-to-copy }}" | tr ',' '\n' | while read -r file; do
+        echo "$FILES_TO_COPY" | tr ',' '\n' | while read -r file; do
           # trim leading and trailing whitespaces
           file="$(echo "$file" | xargs)"
           if [[ -n "$file" ]]; then
-            echo "Copying $file to ${{ inputs.destination-path }}"
-            cp -r "${{ inputs.extract-path }}/$file" "${{ inputs.destination-path }}/"
+            echo "Copying $file to $DESTINATION_PATH"
+            cp -r "$EXTRACT_PATH/$file" "$DESTINATION_PATH/"
           fi
         done
 
         # Cleanup if requested
-        if [[ "${{ inputs.cleanup }}" == "true" ]]; then
-          echo "Cleaning up downloaded artifacts in ${{ inputs.extract-path }}"
-          rm -rf "${{ inputs.extract-path }}"
+        if [[ "$CLEANUP" == "true" ]]; then
+          echo "Cleaning up downloaded artifacts in $EXTRACT_PATH"
+          rm -rf "$EXTRACT_PATH"
         fi

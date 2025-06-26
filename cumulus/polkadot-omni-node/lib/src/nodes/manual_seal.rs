@@ -22,7 +22,7 @@ use crate::common::{
 use codec::Encode;
 use cumulus_client_parachain_inherent::{MockValidationDataInherentDataProvider, MockXcmConfig};
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::{CollectCollationInfo, ParaId};
+use cumulus_primitives_core::CollectCollationInfo;
 use futures::FutureExt;
 use polkadot_primitives::UpgradeGoAhead;
 use sc_client_api::Backend;
@@ -78,7 +78,6 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 	pub fn start_node<Net>(
 		&self,
 		mut config: Configuration,
-		para_id: ParaId,
 		block_time: u64,
 	) -> sc_service::error::Result<TaskManager>
 	where
@@ -95,6 +94,9 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 			other: (_, mut telemetry, _, _),
 		} = Self::new_partial(&config)?;
 		let select_chain = LongestChain::new(backend.clone());
+
+		let para_id =
+			Self::parachain_id(&client, &config).ok_or("Failed to retrieve the parachain id")?;
 
 		// Since this is a dev node, prevent it from connecting to peers.
 		config.network.default_peers_set.in_peers = 0;

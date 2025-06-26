@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# This script executes a given zombienet test for the `native` provider.
+# It is equivalent to running run-test-local-env-manager.sh for the `k8s` provider.
+
 function run_test {
   cd "${OUTPUT_DIR}"
   for i in $(find ${OUTPUT_DIR} -name "${TEST_TO_RUN}"| head -1); do
@@ -76,5 +79,3 @@ rm_isolated_dir
 
 log INFO "Exit status is ${EXIT_STATUS}"
 exit "${EXIT_STATUS}"
-
-

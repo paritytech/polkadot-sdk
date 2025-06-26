@@ -1,13 +1,13 @@
 name: Zombienet Substrate
 
 on:
-  workflow_dispatch: # Disabled for being flaky
-  #push:
-  #  branches:
-  #    - master
+  workflow_dispatch:
+  push:
+   branches:
+     - master
   pull_request:
-   types: [opened, synchronize, reopened, ready_for_review, labeled]
-  #merge_group:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+  merge_group:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -65,6 +65,7 @@ jobs:
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
+
   zombienet-substrate-0001-basic-warp-sync:
     needs: [preflight]
     # only run if we have changes in ./substrate directory and the build workflow already finish with success status.
@@ -92,8 +93,7 @@ jobs:
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
 
-
-  # TODO: Disabled, fails 50% times
+  # TODO: Disabled, fails 1 in 50 runs
   zombienet-substrate-0002-validators-warp-sync:
     needs: [preflight]
     # only run if we have changes in ./substrate directory and the build workflow already finish with success status.
@@ -114,8 +114,6 @@ jobs:
         run: |
           cp --remove-destination ${LOCAL_DIR}/0001-basic-warp-sync/chain-spec.json ${LOCAL_DIR}/0002-validators-warp-sync
 
-      #
-
       - name: zombienet_test
         uses: ./.github/actions/zombienet
         with:
@@ -126,7 +124,8 @@ jobs:
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
-  # TODO: Disabled, occasionally (1 on ~50-70 runs) fails
+
+  # TODO: Disabled, fails 1 in 50 runs
   zombienet-substrate-0003-block-building-warp-sync:
     needs: [preflight]
     # only run if we have changes in ./substrate directory and the build workflow already finish with success status.
@@ -142,11 +141,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: cp_spec
-        shell: bash      
+        shell: bash
         run: |
           cp --remove-destination ${LOCAL_DIR}/0001-basic-warp-sync/chain-spec.json ${LOCAL_DIR}/0003-block-building-warp-sync
 
-      #
       - name: zombienet_test
         uses: ./.github/actions/zombienet
         with:
