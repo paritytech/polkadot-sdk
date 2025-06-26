@@ -1,0 +1,10 @@
+title: "paras_inherent: fix overweight warn"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+     This fixes an incorrect warning in the relay chain runtime
+
+crates:
+- name: polkadot-runtime-parachains
+  bump: patch
