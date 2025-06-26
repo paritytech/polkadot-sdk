@@ -68,4 +68,5 @@ echo $westend_dir > $TEST_DIR/westend.env
 echo
 
 wait -n $rococo_pid $westend_pid $finality_relayer_pid $parachains_relayer_pid $messages_relayer_pid
+
 kill -9 -$$
