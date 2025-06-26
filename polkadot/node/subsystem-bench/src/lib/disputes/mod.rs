@@ -203,7 +203,7 @@ pub async fn benchmark_dispute_coordinator(
 		let candidate_hashes =
 			candidate_receipts.iter().map(|receipt| receipt.hash()).collect::<Vec<_>>();
 		let requests_expected = candidate_hashes.len() *
-			((state.config.n_validators * state.config.connectivity / 100) as usize - 1);
+			(state.config.n_validators * state.config.connectivity / 100 - 1);
 
 		loop {
 			let requests_sent = candidate_hashes
@@ -214,8 +214,7 @@ pub async fn benchmark_dispute_coordinator(
 						.lock()
 						.unwrap()
 						.get(candidate_hash)
-						.or(Some(&Default::default()))
-						.unwrap()
+						.unwrap_or(&Default::default())
 						.len()
 				})
 				.sum::<usize>();
