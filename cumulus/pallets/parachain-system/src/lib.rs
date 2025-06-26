@@ -185,50 +185,6 @@ pub mod ump_constants {
 	pub const THRESHOLD_FACTOR: u32 = 2;
 }
 
-/// Trait for selecting the next core to build the candidate for.
-pub trait SelectCore {
-	/// Core selector information for the current block.
-	fn selected_core() -> (CoreSelector, ClaimQueueOffset);
-	/// Core selector information for the next block.
-	fn select_next_core() -> (CoreSelector, ClaimQueueOffset);
-}
-
-/// The default core selection policy.
-pub struct DefaultCoreSelector<T>(PhantomData<T>);
-
-impl<T: frame_system::Config> SelectCore for DefaultCoreSelector<T> {
-	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector = frame_system::Pallet::<T>::block_number().using_encoded(|b| b[0]);
-
-		(CoreSelector(core_selector), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
-	}
-
-	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector =
-			(frame_system::Pallet::<T>::block_number() + One::one()).using_encoded(|b| b[0]);
-
-		(CoreSelector(core_selector), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
-	}
-}
-
-/// Core selection policy that builds on claim queue offset 1.
-pub struct LookaheadCoreSelector<T>(PhantomData<T>);
-
-impl<T: frame_system::Config> SelectCore for LookaheadCoreSelector<T> {
-	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector = frame_system::Pallet::<T>::block_number().using_encoded(|b| b[0]);
-
-		(CoreSelector(core_selector), ClaimQueueOffset(1))
-	}
-
-	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector =
-			(frame_system::Pallet::<T>::block_number() + One::one()).using_encoded(|b| b[0]);
-
-		(CoreSelector(core_selector), ClaimQueueOffset(1))
-	}
-}
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -290,9 +246,6 @@ pub mod pallet {
 		/// that collators aren't expected to have node versions that supply the included block
 		/// in the relay-chain state proof.
 		type ConsensusHook: ConsensusHook;
-
-		/// Select core.
-		type SelectCore: SelectCore;
 
 		/// The offset between the tip of the relay chain and the parent relay block used as parent
 		/// when authoring a parachain block.
@@ -585,6 +538,7 @@ pub mod pallet {
 			// Always try to read `UpgradeGoAhead` in `on_finalize`.
 			weight += T::DbWeight::get().reads(1);
 
+			// We need to ensure that `CoreInfo` digest exists only once.
 			if !CumulusDigestItem::core_info_exists_at_max_once(&frame_system::Pallet::<T>::digest())
 			{
 				panic!("`CumulusDigestItem::CoreInfo` must exist at max once.");
@@ -1484,11 +1438,6 @@ impl<T: Config> Pallet<T> {
 				.map_or_else(|| header.encode(), |v| v)
 				.into(),
 		}
-	}
-
-	/// Returns the core selector for the next block.
-	pub fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
-		T::SelectCore::select_next_core()
 	}
 
 	/// Set a custom head data that should be returned as result of `validate_block`.
