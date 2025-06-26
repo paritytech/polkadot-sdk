@@ -761,7 +761,7 @@ parameter_types! {
 #[test]
 fn check_storage_parameter_type_works() {
 	TestExternalities::default().execute_with(|| {
-		assert_eq!(sp_io::hashing::twox_128(b":StorageParameter:"), StorageParameter::key());
+		assert_eq!(sp_io::hashing_twox_128(b":StorageParameter:"), StorageParameter::key());
 
 		assert_eq!(10, StorageParameter::get());
 

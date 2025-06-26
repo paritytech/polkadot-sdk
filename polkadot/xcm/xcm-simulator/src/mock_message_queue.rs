@@ -96,7 +96,7 @@ pub mod pallet {
 			max_weight: xcm::latest::Weight,
 		) -> Result<xcm::latest::Weight, XcmError> {
 			let hash = Encode::using_encoded(&xcm, T::Hashing::hash);
-			let mut message_hash = Encode::using_encoded(&xcm, sp_io::hashing::blake2_256);
+			let mut message_hash = Encode::using_encoded(&xcm, sp_io::hashing_blake2_256);
 			let (result, event) = match Xcm::<T::RuntimeCall>::try_from(xcm) {
 				Ok(xcm) => {
 					let location = (Parent, Parachain(sender.into()));
@@ -159,7 +159,7 @@ pub mod pallet {
 			limit: Weight,
 		) -> Weight {
 			for (_sent_at, data) in iter {
-				let mut id = sp_io::hashing::blake2_256(&data[..]);
+				let mut id = sp_io::hashing_blake2_256(&data[..]);
 				let maybe_versioned = VersionedXcm::<T::RuntimeCall>::decode(&mut &data[..]);
 				match maybe_versioned {
 					Err(_) => {

@@ -226,7 +226,7 @@ fn test_xcm_send_validate_failure() {
 		set_sender_override(
 			|_, _| return Err(SendError::NotApplicable),
 			|xcm| {
-				let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+				let hash = xcm.using_encoded(sp_io::hashing_blake2_256);
 				Ok(hash)
 			},
 		);

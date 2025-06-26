@@ -51,7 +51,7 @@ use sp_core::{
 	sr25519::{Public as SR25519Public, Signature as SR25519Signature},
 	ConstU32, H160, H256, U256,
 };
-use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
+use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing_blake2_256 as blake2_256};
 use sp_runtime::{
 	traits::{BadOrigin, Bounded, Convert, Saturating, Zero},
 	DispatchError, SaturatedConversion,

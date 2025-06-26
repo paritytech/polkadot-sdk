@@ -56,7 +56,7 @@ use pallet_revive_uapi::{ReturnErrorCode as RuntimeReturnCode, ReturnFlags};
 use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
 use pretty_assertions::{assert_eq, assert_ne};
 use sp_core::U256;
-use sp_io::hashing::blake2_256;
+use sp_io::hashing_blake2_256 as blake2_256;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
 	testing::H256,
@@ -1278,7 +1278,9 @@ fn crypto_hashes() {
 			.build_and_unwrap_contract();
 		// Perform the call.
 		let input = b"_DEAD_BEEF";
-		use sp_io::hashing::*;
+		use sp_io::hashing_keccak_256 as keccak_256;
+		use sp_io::hashing_blake2_256 as blake2_256;
+		use sp_io::hashing_blake2_128 as blake2_128;
 		// Wraps a hash function into a more dynamic form usable for testing.
 		macro_rules! dyn_hash_fn {
 			($name:ident) => {

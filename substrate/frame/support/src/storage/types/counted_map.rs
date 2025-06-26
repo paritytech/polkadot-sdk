@@ -569,7 +569,7 @@ mod test {
 		storage::{bounded_vec::BoundedVec, types::ValueQuery},
 		traits::ConstU32,
 	};
-	use sp_io::{hashing::twox_128, TestExternalities};
+	use sp_io::{hashing_twox_128 as twox_128, TestExternalities};
 	use sp_metadata_ir::{StorageEntryModifierIR, StorageEntryTypeIR, StorageHasherIR};
 
 	struct Prefix;

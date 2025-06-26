@@ -3252,6 +3252,55 @@ pub fn misc_runtime_version(code: impl AsRef<[u8]>) -> Option<Vec<u8>> {
 	maybe_len.map(|len| {version.truncate(len as usize); version})
 }
 
+/// A convenience wrapper around [`crypto::secp256k1_ecdsa_recover`]
+pub fn crypto_secp256k1_ecdsa_recover(signature: &[u8; 65], message: &[u8; 32]) -> Result<[u8; 64], EcdsaVerifyError> {
+	let mut public = Val512([0u8; 64]);
+	crypto::secp256k1_ecdsa_recover(signature, message, &mut public)?;
+	Ok(public.0)
+}
+
+/// A convenience wrapper around [`trie::blake2_256_ordered_root`]
+pub fn trie_blake2_256_ordered_root(data: Vec<Vec<u8>>, state_version: StateVersion) -> H256 {
+	let mut root = H256::default();
+	trie::blake2_256_ordered_root(data, state_version, &mut root);
+	root
+}
+
+/// A convenience wrapper around [`offchain::random_seed`]
+pub fn offchain_random_seed() -> [u8; 32] {
+	let mut seed = [0u8; 32];
+	offchain::random_seed(&mut seed);
+	seed
+}
+
+/// A convenience wrapper around [`crypto::sr25519_generate`]
+pub fn crypto_sr25519_generate(id: KeyTypeId, seed: Option<Vec<u8>>) -> sr25519::Public {
+	let mut public = sr25519::Public::default();
+	crypto::sr25519_generate(id, seed, &mut public);
+	public
+}
+
+/// A convenience wrapper around [`crypto::sr25519_sign`]
+pub fn crypto_sr25519_sign(id: KeyTypeId, pub_key: &sr25519::Public, message: &[u8]) -> Option<sr25519::Signature> {
+	let mut signature = sr25519::Signature::default();
+	crypto::sr25519_sign(id, pub_key, message, &mut signature).ok()?;
+	Some(signature)
+}
+
+/// A convenience wrapper around [`crypto::ed25519_generate`]
+pub fn crypto_ed25519_generate(id: KeyTypeId, seed: Option<Vec<u8>>) -> ed25519::Public {
+	let mut public = ed25519::Public::default();
+	crypto::ed25519_generate(id, seed, &mut public);
+	public
+}
+
+/// A convenience wrapper around [`crypto::ed25519_sign`]
+pub fn crypto_ed25519_sign(id: KeyTypeId, pub_key: &ed25519::Public, message: &[u8]) -> Option<ed25519::Signature> {
+	let mut signature = ed25519::Signature::default();
+	crypto::ed25519_sign(id, pub_key, message, &mut signature).ok()?;
+	Some(signature)
+}
+
 macro_rules! impl_hashing_wrappers {
 	($(
 		($name:ident, $wrapper_name:ident, $size:expr);

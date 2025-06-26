@@ -40,7 +40,7 @@ use frame_support::{storage::child, traits::fungible::Mutate};
 use frame_system::RawOrigin;
 use pallet_revive_fixtures::bench as bench_fixtures;
 use sp_core::{Get, H160, H256, U256};
-use sp_io::hashing::keccak_256;
+use sp_io::hashing_keccak_256 as keccak_256;
 use sp_runtime::traits::{Bounded, Hash};
 
 type StackExt<'a, T> = Stack<'a, T, WasmBlob<T>>;

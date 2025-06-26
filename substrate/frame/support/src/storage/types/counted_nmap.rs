@@ -689,7 +689,7 @@ mod test {
 		storage::types::{Key as NMapKey, ValueQuery},
 	};
 	use alloc::boxed::Box;
-	use sp_io::{hashing::twox_128, TestExternalities};
+	use sp_io::{hashing_twox_128 as twox_128, TestExternalities};
 	use sp_metadata_ir::{StorageEntryModifierIR, StorageEntryTypeIR, StorageHasherIR};
 
 	struct Prefix;

@@ -704,9 +704,8 @@ impl<T: Config> Pallet<T> {
 		who.using_encoded(|b| child::kill(&Self::id_from_index(index), b));
 	}
 
-	pub fn crowdloan_kill(index: FundIndex) -> child::KillStorageResult {
-		#[allow(deprecated)]
-		child::kill_storage(&Self::id_from_index(index), Some(T::RemoveKeysLimit::get()))
+	pub fn crowdloan_kill(index: FundIndex) -> child::MultiRemovalResults {
+		child::clear_storage(&Self::id_from_index(index), Some(T::RemoveKeysLimit::get()), None)
 	}
 
 	pub fn contribution_iterator(
@@ -841,16 +840,15 @@ impl<T: Config> crate::traits::OnSwap for Pallet<T> {
 mod crypto {
 	use alloc::vec::Vec;
 	use sp_core::ed25519;
-	use sp_io::crypto::{ed25519_generate, ed25519_sign};
 	use sp_runtime::{MultiSignature, MultiSigner};
 
 	pub fn create_ed25519_pubkey(seed: Vec<u8>) -> MultiSigner {
-		ed25519_generate(0.into(), Some(seed)).into()
+		sp_io::crypto_ed25519_generate(0.into(), Some(seed)).into()
 	}
 
 	pub fn create_ed25519_signature(payload: &[u8], pubkey: MultiSigner) -> MultiSignature {
 		let edpubkey = ed25519::Public::try_from(pubkey).unwrap();
-		let edsig = ed25519_sign(0.into(), &edpubkey, payload).unwrap();
+		let edsig = sp_io::crypto_ed25519_sign(0.into(), &edpubkey, payload).unwrap();
 		edsig.into()
 	}
 }

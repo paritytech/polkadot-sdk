@@ -1078,7 +1078,7 @@ impl<T: Config> SendXcm for Pallet<T> {
 	}
 
 	fn deliver((id, xcm): (ParaId, VersionedXcm<()>)) -> Result<XcmHash, SendError> {
-		let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+		let hash = xcm.using_encoded(sp_io::hashing_blake2_256);
 
 		match Self::send_fragment(id, XcmpMessageFormat::ConcatenatedVersionedXcm, xcm) {
 			Ok(_) => {
