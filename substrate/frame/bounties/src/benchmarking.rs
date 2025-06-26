@@ -120,38 +120,44 @@ mod benchmarks {
 		let (caller, _, _, value, reason) = setup_bounty::<T, I>(0, T::MaximumReasonLength::get());
 		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into(), value, reason).unwrap();
 		let bounty_id = BountyCount::<T, I>::get() - 1;
-		let approve_origin = T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless).unwrap();
+		let approve_origin = T::SpendOrigin::try_successful_origin()
+			.map_err(|_| BenchmarkError::Weightless)
+			.unwrap();
 
 		#[extrinsic_call]
 		_(approve_origin, bounty_id);
-
 	}
 
 	#[benchmark]
 	fn propose_curator() {
 		setup_pot_account::<T, I>();
-		let (caller, curator, fee, value, reason) = setup_bounty::<T, I>(0, T::MaximumReasonLength::get());
+		let (caller, curator, fee, value, reason) =
+			setup_bounty::<T, I>(0, T::MaximumReasonLength::get());
 		let curator_lookup = T::Lookup::unlookup(curator);
 		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into(), value, reason).unwrap();
 		let bounty_id = BountyCount::<T, I>::get() - 1;
-		let approve_origin = T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless).unwrap();
+		let approve_origin = T::SpendOrigin::try_successful_origin()
+			.map_err(|_| BenchmarkError::Weightless)
+			.unwrap();
 		Bounties::<T, I>::approve_bounty(approve_origin.clone(), bounty_id).unwrap();
 		set_block_number::<T, I>(T::SpendPeriod::get());
 		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
 
 		#[extrinsic_call]
 		_(approve_origin, bounty_id, curator_lookup, fee);
-
 	}
 
 	#[benchmark]
 	fn approve_bounty_with_curator() {
 		setup_pot_account::<T, I>();
-		let (caller, curator, fee, value, reason) = setup_bounty::<T, I>(0, T::MaximumReasonLength::get());
+		let (caller, curator, fee, value, reason) =
+			setup_bounty::<T, I>(0, T::MaximumReasonLength::get());
 		let curator_lookup = T::Lookup::unlookup(curator.clone());
 		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into(), value, reason).unwrap();
 		let bounty_id = BountyCount::<T, I>::get() - 1;
-		let approve_origin = T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless).unwrap();
+		let approve_origin = T::SpendOrigin::try_successful_origin()
+			.map_err(|_| BenchmarkError::Weightless)
+			.unwrap();
 		Treasury::<T, I>::on_initialize(SystemBlockNumberFor::<T>::zero());
 
 		#[extrinsic_call]
@@ -172,10 +178,12 @@ mod benchmarks {
 		let inactivity_timeout = T::SpendPeriod::get().saturating_add(bounty_update_period);
 		set_block_number::<T, I>(inactivity_timeout.saturating_add(2u32.into()));
 
-		// If `BountyUpdatePeriod` overflows the inactivity timeout the benchmark still executes the slash
+		// If `BountyUpdatePeriod` overflows the inactivity timeout the benchmark still executes the
+		// slash
 		let origin = if Pallet::<T, I>::treasury_block_number() <= inactivity_timeout {
 			let curator = T::Lookup::lookup(curator_lookup).map_err(<&str>::from).unwrap();
-			T::RejectOrigin::try_successful_origin().unwrap_or_else(|_| RawOrigin::Signed(curator).into())
+			T::RejectOrigin::try_successful_origin()
+				.unwrap_or_else(|_| RawOrigin::Signed(curator).into())
 		} else {
 			let caller = whitelisted_caller();
 			RawOrigin::Signed(caller).into()
@@ -188,11 +196,14 @@ mod benchmarks {
 	#[benchmark]
 	fn accept_curator() {
 		setup_pot_account::<T, I>();
-		let (caller, curator, fee, value, reason) = setup_bounty::<T, I>(0, T::MaximumReasonLength::get());
+		let (caller, curator, fee, value, reason) =
+			setup_bounty::<T, I>(0, T::MaximumReasonLength::get());
 		let curator_lookup = T::Lookup::unlookup(curator.clone());
 		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into(), value, reason).unwrap();
 		let bounty_id = BountyCount::<T, I>::get() - 1;
-		let approve_origin = T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless).unwrap();
+		let approve_origin = T::SpendOrigin::try_successful_origin()
+			.map_err(|_| BenchmarkError::Weightless)
+			.unwrap();
 		Bounties::<T, I>::approve_bounty(approve_origin.clone(), bounty_id).unwrap();
 		set_block_number::<T, I>(T::SpendPeriod::get());
 		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
@@ -228,15 +239,28 @@ mod benchmarks {
 
 		let beneficiary_account: T::AccountId = account("beneficiary", 0, SEED);
 		let beneficiary = T::Lookup::unlookup(beneficiary_account.clone());
-		Bounties::<T, I>::award_bounty(RawOrigin::Signed(curator.clone()).into(), bounty_id, beneficiary).unwrap();
+		Bounties::<T, I>::award_bounty(
+			RawOrigin::Signed(curator.clone()).into(),
+			bounty_id,
+			beneficiary,
+		)
+		.unwrap();
 
-		set_block_number::<T, I>(T::SpendPeriod::get() + T::BountyDepositPayoutDelay::get() + 1u32.into());
-		assert!(T::Currency::free_balance(&beneficiary_account).is_zero(), "Beneficiary already has balance");
+		set_block_number::<T, I>(
+			T::SpendPeriod::get() + T::BountyDepositPayoutDelay::get() + 1u32.into(),
+		);
+		assert!(
+			T::Currency::free_balance(&beneficiary_account).is_zero(),
+			"Beneficiary already has balance"
+		);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(curator), bounty_id);
 
-		assert!(!T::Currency::free_balance(&beneficiary_account).is_zero(), "Beneficiary didn't get paid");
+		assert!(
+			!T::Currency::free_balance(&beneficiary_account).is_zero(),
+			"Beneficiary didn't get paid"
+		);
 	}
 
 	#[benchmark]
@@ -245,8 +269,9 @@ mod benchmarks {
 		let (caller, _, _, value, reason) = setup_bounty::<T, I>(0, 0);
 		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into(), value, reason).unwrap();
 		let bounty_id = BountyCount::<T, I>::get() - 1;
-		let approve_origin =
-			T::RejectOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless).unwrap();
+		let approve_origin = T::RejectOrigin::try_successful_origin()
+			.map_err(|_| BenchmarkError::Weightless)
+			.unwrap();
 
 		#[extrinsic_call]
 		close_bounty(approve_origin, bounty_id);
@@ -258,8 +283,9 @@ mod benchmarks {
 		let (_, _) = create_bounty::<T, I>().unwrap();
 		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
 		let bounty_id = BountyCount::<T, I>::get() - 1;
-		let approve_origin =
-			T::RejectOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless).unwrap();
+		let approve_origin = T::RejectOrigin::try_successful_origin()
+			.map_err(|_| BenchmarkError::Weightless)
+			.unwrap();
 
 		#[extrinsic_call]
 		close_bounty(approve_origin, bounty_id);
@@ -268,7 +294,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn extend_bounty_expiry()  {
+	fn extend_bounty_expiry() {
 		setup_pot_account::<T, I>();
 		let (curator_lookup, _) = create_bounty::<T, I>().unwrap();
 		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
@@ -316,12 +342,14 @@ mod benchmarks {
 	fn poke_deposit() {
 		// Create a bounty
 		let (caller, _, _, value, reason) = setup_bounty::<T, I>(0, 5); // 5 bytes description
-		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller.clone()).into(), value, reason).unwrap();
+		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller.clone()).into(), value, reason)
+			.unwrap();
 		let bounty_id = BountyCount::<T, I>::get() - 1;
 		let old_deposit = T::Currency::reserved_balance(&caller);
 		// Modify the description to be maximum length
 		let max_description: Vec<u8> = vec![0; T::MaximumReasonLength::get() as usize];
-		let bounded_description: BoundedVec<u8, T::MaximumReasonLength> = max_description.try_into().unwrap();
+		let bounded_description: BoundedVec<u8, T::MaximumReasonLength> =
+			max_description.try_into().unwrap();
 		BountyDescriptions::<T, I>::insert(bounty_id, &bounded_description);
 
 		// Ensure caller has enough balance for new deposit
@@ -335,7 +363,13 @@ mod benchmarks {
 		let bounty = crate::Bounties::<T, I>::get(bounty_id).unwrap();
 		assert_eq!(bounty.bond, new_deposit);
 		assert_eq!(T::Currency::reserved_balance(&caller), new_deposit);
-		assert_last_event::<T, I>(Event::DepositPoked { bounty_id, proposer: caller, old_deposit: old_deposit, new_deposit: new_deposit }.into());
+		assert_last_event::<T, I>(
+			Event::DepositPoked { bounty_id, proposer: caller, old_deposit, new_deposit }.into(),
+		);
 	}
-	impl_benchmark_test_suite!(Bounties, crate::tests::ExtBuilder::default().build(), crate::tests::Test);
+	impl_benchmark_test_suite!(
+		Bounties,
+		crate::tests::ExtBuilder::default().build(),
+		crate::tests::Test
+	);
 }
