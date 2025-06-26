@@ -21,6 +21,16 @@
 
 extern crate alloc;
 
+mod weights;
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
+
+pub use weights::WeightInfo;
+
 pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
@@ -42,7 +52,7 @@ pub mod pallet {
 	use pallet_conviction_voting::{AccountVote, LockedIf, Voting, VotingHooks};
 	use sp_runtime::{
 		traits::{AccountIdConversion, BlockNumberProvider},
-		Percent, Saturating,
+		Perbill, Saturating,
 	};
 
 	#[pallet::pallet]
@@ -77,6 +87,12 @@ pub mod pallet {
 		/// Pot account Id
 		#[pallet::constant]
 		type PotId: Get<PalletId>;
+
+		/// Weight information for extrinsics.
+		type WeightInfo: weights::WeightInfo;
+
+		/// The maximum number of projects that can be registered.
+		type MaxProjects: Get<u32>;
 	}
 
 	pub type MomentFor<T> = <<T as pallet_conviction_voting::Config<
@@ -108,10 +124,10 @@ pub mod pallet {
 		Encode, Decode, MaxEncodedLen, Clone, Debug, TypeInfo, DecodeWithMemTracking, PartialEq, Eq,
 	)]
 	pub struct ProjectInfo<AccountId> {
-		owner: AccountId,
-		fund_dest: AccountId,
-		name: BoundedVec<u8, ConstUint<256>>,
-		description: BoundedVec<u8, ConstUint<256>>,
+		pub(crate) owner: AccountId,
+		pub(crate) fund_dest: AccountId,
+		pub(crate) name: BoundedVec<u8, ConstUint<256>>,
+		pub(crate) description: BoundedVec<u8, ConstUint<256>>,
 	}
 
 	pub type ProjectIndex = u32;
@@ -134,22 +150,22 @@ pub mod pallet {
 	pub struct PollIndex(u64);
 
 	impl PollIndex {
-		fn round_index(self) -> RoundIndex {
+		pub fn round_index(self) -> RoundIndex {
 			(self.0 >> 32) as RoundIndex
 		}
-		fn project_index(self) -> ProjectIndex {
+		pub fn project_index(self) -> ProjectIndex {
 			(self.0 & 0xFFFFFFFF) as ProjectIndex
 		}
-		fn new(round_index: RoundIndex, project_index: ProjectIndex) -> Self {
+		pub fn new(round_index: RoundIndex, project_index: ProjectIndex) -> Self {
 			Self(((round_index as u64) << 32) | (project_index as u64))
 		}
 	}
 
 	#[derive(Encode, Decode, MaxEncodedLen, Clone, Debug, TypeInfo, DecodeWithMemTracking)]
 	pub struct RoundInfo<BlockNumber, Votes> {
-		starting_block: BlockNumber,
+		pub starting_block: BlockNumber,
 		/// This follow a precise calculation. only overall yes amount for each project.
-		total_vote_amount: Votes,
+		pub total_vote_amount: Votes,
 	}
 
 	#[derive(Encode, Decode, MaxEncodedLen, Clone, Debug, TypeInfo, DecodeWithMemTracking)]
@@ -208,15 +224,15 @@ pub mod pallet {
 
 	#[derive(Encode, Decode, MaxEncodedLen, Clone, Debug, TypeInfo, DecodeWithMemTracking)]
 	pub struct VoteInSession<Vote> {
-		session: u32,
-		vote: Vote,
+		pub session: u32,
+		pub vote: Vote,
 	}
 
 	#[derive(Encode, Decode, MaxEncodedLen, Clone, Debug, TypeInfo, DecodeWithMemTracking)]
 	pub struct VotesForwardingStateInfo<AccountId> {
-		session: u32,
-		forwarding: VoteForwardingState<AccountId>,
-		reset_session: Option<u32>,
+		pub session: u32,
+		pub forwarding: VoteForwardingState<AccountId>,
+		pub reset_session: Option<u32>,
 	}
 
 	impl<AccountId> Default for VotesForwardingStateInfo<AccountId> {
@@ -234,7 +250,16 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event<T: Config> {}
+	pub enum Event<T: Config> {
+		/// A project was registered.
+		ProjectRegistered { project_index: ProjectIndex, owner: T::AccountId },
+		/// Project info was updated.
+		ProjectInfoUpdated { project_index: ProjectIndex, owner: T::AccountId },
+		/// A project was unregistered.
+		ProjectUnregistered { project_index: ProjectIndex },
+		/// Automatic forwarding was removed for a user.
+		AutomaticForwardingRemoved { project_index: ProjectIndex, who: T::AccountId },
+	}
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -242,107 +267,50 @@ pub mod pallet {
 		AccountIsNotProjectOwner,
 		AccountAlreadyHasProject,
 		NoVoteForAccountAndProject,
+		MaxProjectsReached,
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_poll(_n: BlockNumberFor<T>, weight: &mut WeightMeter) {
+			if weight.try_consume(<T as Config>::WeightInfo::on_poll_base()).is_err() {
+				return;
+			}
+
 			if let Some(round_info) = Round::<T>::get() {
 				if <T as Config>::BlockNumberProvider::current_block_number() >=
 					round_info.starting_block + T::RoundDuration::get()
 				{
-					let round_index =
-						NextRoundIndex::<T>::get().checked_sub(1).defensive().unwrap_or_default();
-					let pot_account = T::PotId::get().into_account_truncating();
-					let pot_balance = T::Fungible::reducible_balance(
-						&pot_account,
-						Preservation::Expendable,
-						Fortitude::Polite,
-					);
-					let now = <T as pallet_conviction_voting::Config<
-						T::ConvictionVotingInstance,
-					>>::BlockNumberProvider::current_block_number();
-
-					for (project_index, status) in Polls::<T>::iter_prefix(round_index) {
-						if let Some(project) = Projects::<T>::get(project_index) {
-							let PollInfo::Ongoing(tally, _) = status else {
-								defensive!("Impossible, polls are ended at the end of the round");
-								continue;
-							};
-							// Note: from_rational always rounds down.
-							let reward_percent = Percent::from_rational(
-								tally.ayes.saturating_sub(tally.nays),
-								round_info.total_vote_amount,
-							);
-							let reward = reward_percent.mul_floor(pot_balance);
-							if !reward.is_zero() {
-								let _ = T::Fungible::transfer(
-									&pot_account,
-									&project.fund_dest,
-									reward,
-									Preservation::Expendable,
-								);
-							}
-						}
-						Polls::<T>::insert(
-							round_index,
-							project_index,
-							PollInfo::Completed(now, true),
-						);
+					if weight.try_consume(<T as Config>::WeightInfo::on_poll_end_round()).is_err() {
+						return;
 					}
-
-					Round::<T>::kill();
+					Self::on_poll_end_round();
 				}
 			}
 
 			if Round::<T>::get().is_none() {
-				let round_index = NextRoundIndex::<T>::mutate(|next_index| {
-					let index = *next_index;
-					*next_index = next_index.saturating_add(1);
-					index
-				});
-
-				let round_starting_block =
-					<T as Config>::BlockNumberProvider::current_block_number();
-				let round_info = RoundInfo {
-					starting_block: round_starting_block,
-					total_vote_amount: Default::default(),
-				};
-				Round::<T>::put(round_info);
-
-				let mut project_ids = BTreeSet::new();
-
-				for (project_index, _project_info) in Projects::<T>::iter() {
-					let tally = TallyFor::<T>::from_parts(0u32.into(), 0u32.into(), 0u32.into());
-					let poll_status = PollInfo::Ongoing(tally, Class);
-					project_ids.insert(project_index);
-					Polls::<T>::insert(round_index, project_index, poll_status);
+				if weight.try_consume(<T as Config>::WeightInfo::on_poll_new_round()).is_err() {
+					return;
 				}
-
-				let mut vote_record_state = VotesForwardingState::<T>::get();
-
-				let reset = round_index % T::ResetVotesRoundNumber::get() == 0;
-				if reset {
-					vote_record_state.reset_session = Some(vote_record_state.session);
-				}
-				vote_record_state.session += 1;
-				vote_record_state.forwarding = VoteForwardingState::Start;
-				VotesForwardingState::<T>::put(vote_record_state);
+				Self::on_poll_new_round();
 			}
 
-			Pallet::<T>::forward_votes(weight);
+			Pallet::<T>::on_poll_forward_votes(weight);
 		}
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::call_index(1)]
-		#[pallet::weight(Weight::default())]
+		#[pallet::call_index(0)]
+		#[pallet::weight(<T as Config>::WeightInfo::register_project())]
 		pub fn register_project(
 			origin: OriginFor<T>,
 			project: ProjectInfo<T::AccountId>,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin.clone())?;
+
+			// Enforce MaxProjects
+			ensure!(Projects::<T>::count() < T::MaxProjects::get(), Error::<T>::MaxProjectsReached);
 
 			let index = NextProjectIndex::<T>::mutate(|next_index| {
 				let index = *next_index;
@@ -350,15 +318,15 @@ pub mod pallet {
 				index
 			});
 
-			Projects::<T>::insert(index, project);
+			Projects::<T>::insert(index, project.clone());
 
-			// TODO: Event
+			Self::deposit_event(Event::ProjectRegistered { project_index: index, owner: project.owner });
 
 			Ok(())
 		}
 
-		#[pallet::call_index(2)]
-		#[pallet::weight(Weight::default())]
+		#[pallet::call_index(1)]
+		#[pallet::weight(<T as Config>::WeightInfo::manage_project_info())]
 		pub fn manage_project_info(
 			origin: OriginFor<T>,
 			index: ProjectIndex,
@@ -368,29 +336,32 @@ pub mod pallet {
 
 			let old_project = Projects::<T>::take(&index).ok_or(Error::<T>::NoProjectAtIndex)?;
 			ensure!(old_project.owner == who, Error::<T>::AccountIsNotProjectOwner);
-			Projects::<T>::insert(&index, project);
+			Projects::<T>::insert(&index, project.clone());
 
-			// TODO: Event
+			Self::deposit_event(Event::ProjectInfoUpdated { project_index: index, owner: who });
 
 			Ok(())
 		}
 
-		#[pallet::call_index(3)]
-		#[pallet::weight(Weight::default())]
-		pub fn unregister_project(origin: OriginFor<T>, index: ProjectIndex) -> DispatchResult {
+		#[pallet::call_index(2)]
+		#[pallet::weight(<T as Config>::WeightInfo::unregister_project())]
+		pub fn unregister_project(
+			origin: OriginFor<T>,
+			index: ProjectIndex,
+		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 
 			Projects::<T>::take(&index).ok_or(Error::<T>::NoProjectAtIndex)?;
 
-			// TODO: Event
+			Self::deposit_event(Event::ProjectUnregistered { project_index: index });
 
 			Ok(())
 		}
 
 		/// This is only effective if the voter doesn't vote again.
 		/// Any new vote will override this removal.
-		#[pallet::call_index(4)]
-		#[pallet::weight(Weight::default())]
+		#[pallet::call_index(3)]
+		#[pallet::weight(<T as Config>::WeightInfo::remove_automatic_forwarding())]
 		pub fn remove_automatic_forwarding(
 			origin: OriginFor<T>,
 			project_index: ProjectIndex,
@@ -399,15 +370,98 @@ pub mod pallet {
 
 			VotesToForward::<T>::remove(project_index, &who);
 
-			// TODO: Event
+			Self::deposit_event(Event::AutomaticForwardingRemoved { project_index, who });
 
 			Ok(())
 		}
 	}
 
 	impl<T: Config> Pallet<T> {
-		// TODO TODO: weight: benchmark the base and the per_loop weight
-		fn forward_votes(_weight: &mut WeightMeter) {
+		pub(crate) fn on_poll_end_round() {
+			let Some(round_info) = Round::<T>::get() else {
+				defensive!();
+				return
+			};
+
+			let round_index =
+				NextRoundIndex::<T>::get().checked_sub(1).defensive().unwrap_or_default();
+			let pot_account = T::PotId::get().into_account_truncating();
+			let pot_balance = T::Fungible::reducible_balance(
+				&pot_account,
+				Preservation::Expendable,
+				Fortitude::Polite,
+			);
+			let now = <T as pallet_conviction_voting::Config<
+				T::ConvictionVotingInstance,
+			>>::BlockNumberProvider::current_block_number();
+
+			for (project_index, status) in Polls::<T>::iter_prefix(round_index) {
+				if let Some(project) = Projects::<T>::get(project_index) {
+					let PollInfo::Ongoing(tally, _) = status else {
+						defensive!("Impossible, polls are ended at the end of the round");
+						continue;
+					};
+					// Note: from_rational always rounds down.
+					let reward_percent = Perbill::from_rational(
+						tally.ayes.saturating_sub(tally.nays),
+						round_info.total_vote_amount,
+					);
+					let reward = reward_percent.mul_floor(pot_balance);
+					if !reward.is_zero() {
+						let _ = T::Fungible::transfer(
+							&pot_account,
+							&project.fund_dest,
+							reward,
+							Preservation::Expendable,
+						);
+					}
+				}
+				Polls::<T>::insert(
+					round_index,
+					project_index,
+					PollInfo::Completed(now, true),
+				);
+			}
+
+			Round::<T>::kill();
+		}
+
+		pub(crate) fn on_poll_new_round() {
+			let round_index = NextRoundIndex::<T>::mutate(|next_index| {
+				let index = *next_index;
+				*next_index = next_index.saturating_add(1);
+				index
+			});
+
+			let round_starting_block =
+				<T as Config>::BlockNumberProvider::current_block_number();
+			let round_info = RoundInfo {
+				starting_block: round_starting_block,
+				total_vote_amount: Default::default(),
+			};
+			Round::<T>::put(round_info);
+
+			let mut project_ids = BTreeSet::new();
+
+			for (project_index, _project_info) in Projects::<T>::iter() {
+				let tally = TallyFor::<T>::from_parts(0u32.into(), 0u32.into(), 0u32.into());
+				let poll_status = PollInfo::Ongoing(tally, Class);
+				project_ids.insert(project_index);
+				Polls::<T>::insert(round_index, project_index, poll_status);
+			}
+
+			let mut vote_record_state = VotesForwardingState::<T>::get();
+
+			let reset = round_index % T::ResetVotesRoundNumber::get() == 0;
+			if reset {
+				vote_record_state.reset_session = Some(vote_record_state.session);
+			}
+			vote_record_state.session += 1;
+			vote_record_state.forwarding = VoteForwardingState::Start;
+			VotesForwardingState::<T>::put(vote_record_state);
+		}
+
+		pub(crate) fn on_poll_forward_votes(_weight: &mut WeightMeter) {
 			let mut vote_record_state = VotesForwardingState::<T>::get();
 			let mut iterator = match &vote_record_state.forwarding {
 				VoteForwardingState::Start => VotesToForward::<T>::iter(),
@@ -532,6 +586,35 @@ pub mod pallet {
 				None => f(PollStatus::None),
 			}
 		}
+
+		#[cfg(feature = "runtime-benchmarks")]
+		fn end_ongoing(index: Self::Index, approved: bool) -> Result<(), ()> {
+			let round_index = index.round_index();
+			let project_index = index.project_index();
+			let now = <T as pallet_conviction_voting::Config<T::ConvictionVotingInstance>>::BlockNumberProvider::current_block_number();
+			match Polls::<T>::get(round_index, project_index) {
+				Some(PollInfo::Ongoing(_, _)) => {
+					Polls::<T>::insert(round_index, project_index, PollInfo::Completed(now, approved));
+					Ok(())
+				},
+				_ => Err(())
+			}
+		}
+
+		#[cfg(feature = "runtime-benchmarks")]
+		fn max_ongoing() -> (Self::Class, u32) {
+			(Class, T::MaxProjects::get())
+		}
+
+		#[cfg(feature = "runtime-benchmarks")]
+		fn create_ongoing(_class: Self::Class) -> Result<Self::Index, ()> {
+			let round_index = 0u32;
+			let project_index = 0u32;
+			let tally = TallyFor::<T>::from_parts(0u32.into(), 0u32.into(), 0u32.into());
+			let class = Class;
+			Polls::<T>::insert(round_index, project_index, PollInfo::Ongoing(tally, class));
+			Ok(PollIndex::new(round_index, project_index))
+		}
 	}
 
 	impl<T: Config> VotingHooks<T::AccountId, PollIndex, VotesFor<T>> for Pallet<T> {
@@ -577,6 +660,26 @@ pub mod pallet {
 				.and_then(|vote_index| votes.get(vote_index))
 				.and_then(|vote|vote.1.locked_if(LockedIf::Always))
 				.map(|(_period, balance)| balance)
+		}
+
+		#[cfg(feature = "runtime-benchmarks")]
+		fn on_vote_worst_case(_who: &T::AccountId) {
+			// Setup a simple poll for benchmarking: round 0, project 0
+			let round_index = 0u32;
+			let project_index = 0u32;
+			let tally = TallyFor::<T>::from_parts(0u32.into(), 0u32.into(), 0u32.into());
+			let class = Class;
+			Polls::<T>::insert(round_index, project_index, PollInfo::Ongoing(tally, class));
+		}
+
+		#[cfg(feature = "runtime-benchmarks")]
+		fn on_remove_vote_worst_case(_who: &T::AccountId) {
+			// Setup a simple poll for benchmarking: round 0, project 0
+			let round_index = 0u32;
+			let project_index = 0u32;
+			let tally = TallyFor::<T>::from_parts(0u32.into(), 0u32.into(), 0u32.into());
+			let class = Class;
+			Polls::<T>::insert(round_index, project_index, PollInfo::Ongoing(tally, class));
 		}
 	}
 }
