@@ -21,7 +21,11 @@ use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 
-/// The kind of the dispute offence.
+/// The kind of the slashing offence (those come from disputes).
+///
+/// Notes:
+/// Will soon be fully eclipsed by the expanded `DisputeOffenceKind` enum.
+/// Only kept for backwards compatibility through old runtime apis.
 #[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug)]
 pub enum SlashingOffenceKind {
 	/// A severe offence when a validator backed an invalid block.
@@ -54,6 +58,11 @@ impl DisputesTimeSlot {
 
 /// We store most of the information about a lost dispute on chain. This struct
 /// is required to identify and verify it.
+///
+/// Notes:
+/// Will soon be fully eclipsed by the expanded vstaging `DisputeProof` struct
+/// that uses the newer `DisputeOffenceKind` enum instead.
+/// Only kept for backwards compatibility.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug)]
 pub struct DisputeProof {
 	/// Time slot when the dispute occurred.
@@ -68,6 +77,11 @@ pub struct DisputeProof {
 
 /// Slashes that are waiting to be applied once we have validator key
 /// identification.
+///
+/// Notes:
+/// Will soon be fully eclipsed by the expanded vstaging `PendingSlashes` struct
+/// that uses the newer `DisputeOffenceKind` enum instead.
+/// Only kept for backwards compatibility.
 #[derive(Encode, Decode, TypeInfo, Debug, Clone)]
 pub struct PendingSlashes {
 	/// Indices and keys of the validators who lost a dispute and are pending

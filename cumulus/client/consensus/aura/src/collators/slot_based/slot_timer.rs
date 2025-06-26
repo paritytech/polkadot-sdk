@@ -67,7 +67,6 @@ pub(crate) struct SlotTimer<Block, Client, P> {
 ///
 /// Returns a tuple with:
 /// - `Duration`: How long to wait until the next slot.
-/// - `Timestamp`: The timestamp to pass to the inherent
 /// - `Slot`: The AURA slot used for authoring
 fn compute_next_wake_up_time(
 	para_slot_duration: SlotDuration,
@@ -75,7 +74,7 @@ fn compute_next_wake_up_time(
 	core_count: Option<u32>,
 	time_now: Duration,
 	time_offset: Duration,
-) -> (Duration, Timestamp, Slot) {
+) -> (Duration, Slot) {
 	let para_slots_per_relay_block =
 		(relay_slot_duration.as_millis() / para_slot_duration.as_millis() as u128) as u32;
 	let assigned_core_num = core_count.unwrap_or(1);
@@ -99,7 +98,7 @@ fn compute_next_wake_up_time(
 	let (duration, timestamp) =
 		time_until_next_attempt(time_now, block_production_interval, time_offset);
 	let aura_slot = Slot::from_timestamp(timestamp, para_slot_duration);
-	(duration, timestamp, aura_slot)
+	(duration, aura_slot)
 }
 
 /// Returns current duration since Unix epoch.
@@ -114,7 +113,6 @@ fn duration_now() -> Duration {
 /// Returns the duration until the next block production should be attempted.
 /// Returns:
 /// - Duration: The duration until the next attempt.
-/// - Timestamp: The time at which the attempt will take place.
 fn time_until_next_attempt(
 	now: Duration,
 	block_production_interval: Duration,
@@ -160,29 +158,25 @@ where
 	}
 
 	/// Returns a future that resolves when the next block production should be attempted.
-	pub async fn wait_until_next_slot(&mut self) -> Option<SlotInfo> {
+	pub async fn wait_until_next_slot(&mut self) -> Result<(), ()> {
 		let Ok(slot_duration) = crate::slot_duration(&*self.client) else {
 			tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
-			return None
+			return Err(())
 		};
 
-		let (time_until_next_attempt, mut next_timestamp, mut next_aura_slot) =
-			compute_next_wake_up_time(
-				slot_duration,
-				self.relay_slot_duration,
-				self.last_reported_core_num,
-				duration_now(),
-				self.time_offset,
-			);
+		let (time_until_next_attempt, mut next_aura_slot) = compute_next_wake_up_time(
+			slot_duration,
+			self.relay_slot_duration,
+			self.last_reported_core_num,
+			duration_now(),
+			self.time_offset,
+		);
 
 		match self.last_reported_slot {
 			// If we already reported a slot, we don't want to skip a slot. But we also don't want
 			// to go through all the slots if a node was halted for some reason.
 			Some(ls) if ls + 1 < next_aura_slot && next_aura_slot <= ls + 3 => {
 				next_aura_slot = ls + 1u64;
-				next_timestamp = next_aura_slot
-					.timestamp(slot_duration)
-					.expect("Timestamp does not overflow; qed");
 			},
 			None | Some(_) => {
 				tokio::time::sleep(time_until_next_attempt).await;
@@ -192,14 +186,12 @@ where
 		tracing::debug!(
 			target: LOG_TARGET,
 			?slot_duration,
-			timestamp = ?next_timestamp,
 			aura_slot = ?next_aura_slot,
 			"New block production opportunity."
 		);
 
 		self.last_reported_slot = Some(next_aura_slot);
-
-		Some(SlotInfo { slot: next_aura_slot, timestamp: next_timestamp })
+		Ok(())
 	}
 }
 
@@ -213,67 +205,64 @@ mod tests {
 	#[rstest]
 	// Test that different now timestamps have correct impact
 	//                    ||||
-	#[case(6000, Some(1), 1000, 0, 5000, 6000, 1)]
-	#[case(6000, Some(1), 0, 0, 6000, 6000, 1)]
-	#[case(6000, Some(1), 6000, 0, 6000, 12000, 2)]
-	#[case(6000, Some(0), 6000, 0, 6000, 12000, 2)]
+	#[case(6000, Some(1), 1000, 0, 5000)]
+	#[case(6000, Some(1), 0, 0, 6000)]
+	#[case(6000, Some(1), 6000, 0, 6000)]
+	#[case(6000, Some(0), 6000, 0, 6000)]
 	// Test that `None` core defaults to 1
 	//           ||||
-	#[case(6000, None, 1000, 0, 5000, 6000, 1)]
-	#[case(6000, None, 0, 0, 6000, 6000, 1)]
-	#[case(6000, None, 6000, 0, 6000, 12000, 2)]
+	#[case(6000, None, 1000, 0, 5000)]
+	#[case(6000, None, 0, 0, 6000)]
+	#[case(6000, None, 6000, 0, 6000)]
 	// Test that offset affects the current time correctly
 	//                          ||||
-	#[case(6000, Some(1), 1000, 1000, 6000, 6000, 1)]
-	#[case(6000, Some(1), 12000, 2000, 2000, 12000, 2)]
-	#[case(6000, Some(1), 12000, 6000, 6000, 12000, 2)]
-	#[case(6000, Some(1), 12000, 7000, 1000, 6000, 1)]
+	#[case(6000, Some(1), 1000, 1000, 6000)]
+	#[case(6000, Some(1), 12000, 2000, 2000)]
+	#[case(6000, Some(1), 12000, 6000, 6000)]
+	#[case(6000, Some(1), 12000, 7000, 1000)]
 	// Test that number of cores affects the block production interval
 	//           |||||||
-	#[case(6000, Some(3), 12000, 0, 2000, 14000, 2)]
-	#[case(6000, Some(2), 12000, 0, 3000, 15000, 2)]
-	#[case(6000, Some(3), 11999, 0, 1, 12000, 2)]
+	#[case(6000, Some(3), 12000, 0, 2000)]
+	#[case(6000, Some(2), 12000, 0, 3000)]
+	#[case(6000, Some(3), 11999, 0, 1)]
 	// High core count
 	//           ||||||||
-	#[case(6000, Some(12), 0, 0, 500, 500, 0)]
+	#[case(6000, Some(12), 0, 0, 500)]
 	/// Test that the minimum block interval is respected
 	/// at high core counts.
 	///          |||||||||
-	#[case(6000, Some(100), 0, 0, 500, 500, 0)]
+	#[case(6000, Some(100), 0, 0, 500)]
 	// Test that slot_duration works correctly
 	//     ||||
-	#[case(2000, Some(1), 1000, 0, 1000, 2000, 1)]
-	#[case(2000, Some(1), 3000, 0, 1000, 4000, 2)]
-	#[case(2000, Some(1), 10000, 0, 2000, 12000, 6)]
-	#[case(2000, Some(2), 1000, 0, 1000, 2000, 1)]
+	#[case(2000, Some(1), 1000, 0, 1000)]
+	#[case(2000, Some(1), 3000, 0, 1000)]
+	#[case(2000, Some(1), 10000, 0, 2000)]
+	#[case(2000, Some(2), 1000, 0, 1000)]
 	// Cores are ignored if relay_slot_duration != para_slot_duration
 	//           |||||||
-	#[case(2000, Some(3), 3000, 0, 1000, 4000, 2)]
+	#[case(2000, Some(3), 3000, 0, 1000)]
 	// For long slot durations, we should still check
 	// every relay chain block for the slot.
 	//     |||||
-	#[case(12000, None, 0, 0, 6000, 6000, 0)]
-	#[case(12000, None, 6100, 0, 5900, 12000, 1)]
-	#[case(12000, None, 6000, 2000, 2000, 6000, 0)]
-	#[case(12000, Some(2), 6000, 0, 3000, 9000, 0)]
-	#[case(12000, Some(3), 6000, 0, 2000, 8000, 0)]
-	#[case(12000, Some(3), 8100, 0, 1900, 10000, 0)]
+	#[case(12000, None, 0, 0, 6000)]
+	#[case(12000, None, 6100, 0, 5900)]
+	#[case(12000, None, 6000, 2000, 2000)]
+	#[case(12000, Some(2), 6000, 0, 3000)]
+	#[case(12000, Some(3), 6000, 0, 2000)]
+	#[case(12000, Some(3), 8100, 0, 1900)]
 	fn test_get_next_slot(
 		#[case] para_slot_millis: u64,
 		#[case] core_count: Option<u32>,
 		#[case] time_now: u64,
 		#[case] offset_millis: u64,
 		#[case] expected_wait_duration: u128,
-		#[case] expected_timestamp: u64,
-		#[case] expected_slot: u64,
 	) {
 		let para_slot_duration = SlotDuration::from_millis(para_slot_millis); // 6 second slots
 		let relay_slot_duration = Duration::from_millis(RELAY_CHAIN_SLOT_DURATION);
 		let time_now = Duration::from_millis(time_now); // 1 second passed
 		let offset = Duration::from_millis(offset_millis);
-		let expected_slot = Slot::from(expected_slot);
 
-		let (wait_duration, timestamp, aura_slot) = compute_next_wake_up_time(
+		let (wait_duration, _) = compute_next_wake_up_time(
 			para_slot_duration,
 			relay_slot_duration,
 			core_count,
@@ -282,7 +271,5 @@ mod tests {
 		);
 
 		assert_eq!(wait_duration.as_millis(), expected_wait_duration, "Wait time mismatch."); // Should wait 5 seconds
-		assert_eq!(timestamp.as_millis(), expected_timestamp, "Timestamp mismatch.");
-		assert_eq!(aura_slot, expected_slot, "AURA slot mismatch.");
 	}
 }

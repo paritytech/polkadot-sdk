@@ -216,6 +216,7 @@ impl paras::Config for Test {
 	type AssignCoretime = ();
 	type Fungible = Balances;
 	type CooldownRemovalMultiplier = ConstUint<1>;
+	type AuthorizeCurrentCodeOrigin = EnsureRoot<Self::AccountId>;
 }
 
 parameter_types! {
@@ -304,6 +305,8 @@ impl pallet_identity::Config for Test {
 	type UsernameGracePeriod = ConstU32<10>;
 	type MaxSuffixLength = ConstU32<7>;
 	type MaxUsernameLength = ConstU32<32>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 	type WeightInfo = ();
 }
 

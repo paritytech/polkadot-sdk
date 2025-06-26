@@ -115,6 +115,7 @@ impl cumulus_pallet_parachain_system::Config for Test {
 	type CheckAssociatedRelayNumber = AnyRelayNumber;
 	type ConsensusHook = ExpectParentIncluded;
 	type SelectCore = DefaultCoreSelector<Test>;
+	type RelayParentOffset = ConstU32<0>;
 }
 
 #[cfg(test)]
