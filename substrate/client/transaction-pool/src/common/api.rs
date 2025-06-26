@@ -18,16 +18,13 @@
 
 //! Chain api required for the transaction pool.
 
-use crate::LOG_TARGET;
-use codec::Encode;
-use futures::{
-	channel::{mpsc, oneshot},
-	future::{ready, Future, FutureExt, Ready},
-	lock::Mutex,
-	SinkExt, StreamExt,
+use crate::{
+	common::{sliding_stat::DurationSlidingStats, STAT_SLIDING_WINDOW},
+	graph::ValidateTransactionPriority,
+	insert_and_log_throttled, LOG_TARGET, LOG_TARGET_STAT,
 };
-use std::{marker::PhantomData, pin::Pin, sync::Arc};
-
+use codec::Encode;
+use futures::future::{ready, Future, FutureExt, Ready};
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_client_api::{blockchain::HeaderBackend, BlockBackend};
 use sp_api::{ApiExt, ProvideRuntimeApi};
@@ -39,38 +36,85 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 };
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
+use std::{
+	marker::PhantomData,
+	pin::Pin,
+	sync::Arc,
+	time::{Duration, Instant},
+};
+use tokio::sync::{mpsc, oneshot, Mutex};
 
 use super::{
 	error::{self, Error},
 	metrics::{ApiMetrics, ApiMetricsExt},
 };
 use crate::graph;
-use tracing::{trace, warn};
+use tracing::{trace, warn, Level};
 
 /// The transaction pool logic for full client.
 pub struct FullChainApi<Client, Block> {
 	client: Arc<Client>,
 	_marker: PhantomData<Block>,
 	metrics: Option<Arc<ApiMetrics>>,
-	validation_pool: mpsc::Sender<Pin<Box<dyn Future<Output = ()> + Send>>>,
+	validation_pool_normal: mpsc::Sender<Pin<Box<dyn Future<Output = ()> + Send>>>,
+	validation_pool_maintained: mpsc::Sender<Pin<Box<dyn Future<Output = ()> + Send>>>,
+	validate_transaction_normal_stats: DurationSlidingStats,
+	validate_transaction_maintained_stats: DurationSlidingStats,
 }
 
 /// Spawn a validation task that will be used by the transaction pool to validate transactions.
 fn spawn_validation_pool_task(
 	name: &'static str,
-	receiver: Arc<Mutex<mpsc::Receiver<Pin<Box<dyn Future<Output = ()> + Send>>>>>,
+	receiver_normal: Arc<Mutex<mpsc::Receiver<Pin<Box<dyn Future<Output = ()> + Send>>>>>,
+	receiver_maintained: Arc<Mutex<mpsc::Receiver<Pin<Box<dyn Future<Output = ()> + Send>>>>>,
 	spawner: &impl SpawnEssentialNamed,
+	stats: DurationSlidingStats,
+	blocking_stats: DurationSlidingStats,
 ) {
 	spawner.spawn_essential_blocking(
 		name,
 		Some("transaction-pool"),
 		async move {
 			loop {
-				let task = receiver.lock().await.next().await;
-				match task {
-					None => return,
-					Some(task) => task.await,
-				}
+				let start = Instant::now();
+
+				let task = {
+					let receiver_maintained = receiver_maintained.clone();
+					let receiver_normal = receiver_normal.clone();
+					tokio::select! {
+						Some(task) = async {
+							receiver_maintained.lock().await.recv().await
+						} => { task }
+						Some(task) = async {
+							receiver_normal.lock().await.recv().await
+						} => { task }
+						else => {
+							return
+						}
+					}
+				};
+
+				let blocking_duration = {
+					let start = Instant::now();
+					task.await;
+					start.elapsed()
+				};
+
+				insert_and_log_throttled!(
+					Level::DEBUG,
+					target:LOG_TARGET_STAT,
+					prefix:format!("validate_transaction_inner_stats"),
+					stats,
+					start.elapsed().into()
+				);
+				insert_and_log_throttled!(
+					Level::DEBUG,
+					target:LOG_TARGET_STAT,
+					prefix:format!("validate_transaction_blocking_stats"),
+					blocking_stats,
+					blocking_duration.into()
+				);
+				trace!(target:LOG_TARGET, duration=?start.elapsed(), "spawn_validation_pool_task");
 			}
 		}
 		.boxed(),
@@ -84,6 +128,9 @@ impl<Client, Block> FullChainApi<Client, Block> {
 		prometheus: Option<&PrometheusRegistry>,
 		spawner: &impl SpawnEssentialNamed,
 	) -> Self {
+		let stats = DurationSlidingStats::new(Duration::from_secs(STAT_SLIDING_WINDOW));
+		let blocking_stats = DurationSlidingStats::new(Duration::from_secs(STAT_SLIDING_WINDOW));
+
 		let metrics = prometheus.map(ApiMetrics::register).and_then(|r| match r {
 			Err(error) => {
 				warn!(
@@ -96,13 +143,41 @@ impl<Client, Block> FullChainApi<Client, Block> {
 			Ok(api) => Some(Arc::new(api)),
 		});
 
-		let (sender, receiver) = mpsc::channel(0);
+		let (sender, receiver) = mpsc::channel(1);
+		let (sender_maintained, receiver_maintained) = mpsc::channel(1);
 
 		let receiver = Arc::new(Mutex::new(receiver));
-		spawn_validation_pool_task("transaction-pool-task-0", receiver.clone(), spawner);
-		spawn_validation_pool_task("transaction-pool-task-1", receiver, spawner);
+		let receiver_maintained = Arc::new(Mutex::new(receiver_maintained));
+		spawn_validation_pool_task(
+			"transaction-pool-task-0",
+			receiver.clone(),
+			receiver_maintained.clone(),
+			spawner,
+			stats.clone(),
+			blocking_stats.clone(),
+		);
+		spawn_validation_pool_task(
+			"transaction-pool-task-1",
+			receiver,
+			receiver_maintained,
+			spawner,
+			stats.clone(),
+			blocking_stats.clone(),
+		);
 
-		FullChainApi { client, validation_pool: sender, _marker: Default::default(), metrics }
+		FullChainApi {
+			client,
+			validation_pool_normal: sender,
+			validation_pool_maintained: sender_maintained,
+			_marker: Default::default(),
+			metrics,
+			validate_transaction_normal_stats: DurationSlidingStats::new(Duration::from_secs(
+				STAT_SLIDING_WINDOW,
+			)),
+			validate_transaction_maintained_stats: DurationSlidingStats::new(Duration::from_secs(
+				STAT_SLIDING_WINDOW,
+			)),
+		}
 	}
 }
 
@@ -132,10 +207,25 @@ where
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		uxt: graph::ExtrinsicFor<Self>,
+		validation_priority: ValidateTransactionPriority,
 	) -> Self::ValidationFuture {
+		let start = Instant::now();
 		let (tx, rx) = oneshot::channel();
 		let client = self.client.clone();
-		let mut validation_pool = self.validation_pool.clone();
+		let (stats, validation_pool, prefix) =
+			if validation_priority == ValidateTransactionPriority::Maintained {
+				(
+					self.validate_transaction_maintained_stats.clone(),
+					self.validation_pool_maintained.clone(),
+					"validate_transaction_maintained_stats",
+				)
+			} else {
+				(
+					self.validate_transaction_normal_stats.clone(),
+					self.validation_pool_normal.clone(),
+					"validate_transaction_stats",
+				)
+			};
 		let metrics = self.metrics.clone();
 
 		async move {
@@ -155,10 +245,20 @@ where
 					.map_err(|e| Error::RuntimeApi(format!("Validation pool down: {:?}", e)))?;
 			}
 
-			match rx.await {
+			let validity = match rx.await {
 				Ok(r) => r,
 				Err(_) => Err(Error::RuntimeApi("Validation was canceled".into())),
-			}
+			};
+
+			insert_and_log_throttled!(
+				Level::DEBUG,
+				target:LOG_TARGET_STAT,
+				prefix:prefix,
+				stats,
+				start.elapsed().into()
+			);
+
+			validity
 		}
 		.boxed()
 	}
