@@ -27,12 +27,12 @@ async fn parachain_extrinsic_gets_finalized() -> Result<(), anyhow::Error> {
 
 	for node in [alice, bob, charlie] {
 		log::info!("Ensuring {} reports 4 node roles", node.name());
-		assert!(alice.wait_metric_with_timeout("node_roles", |p| p == 4.0, 60u64).await.is_ok());
+		assert!(node.wait_metric_with_timeout("node_roles", |p| p == 4.0, 60u64).await.is_ok());
 	}
 
 	for node in [alice, bob] {
 		log::info!("Ensuring {} is connected to at least 1 peer", node.name());
-		assert!(alice
+		assert!(node
 			.wait_metric_with_timeout("sub_libp2p_peers_count", |p| p >= 1.0, 60u64)
 			.await
 			.is_ok());

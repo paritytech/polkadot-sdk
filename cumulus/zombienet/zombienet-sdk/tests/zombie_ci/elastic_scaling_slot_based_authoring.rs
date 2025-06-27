@@ -58,9 +58,9 @@ async fn elastic_scaling_slot_based_authoring() -> Result<(), anyhow::Error> {
 	assert!(res.is_ok(), "Extrinsic failed to finalize: {:?}", res.unwrap_err());
 	log::info!("2 more cores assigned to the parachain");
 
-	for (name, block_cnt) in [("collator_single_core", 20.0), ("collator_elastic", 40.0)] {
-		log::info!("Checking block production for {name}");
-		assert!(collator_single_core
+	for (node, block_cnt) in [(collator_single_core, 20.0), (collator_elastic, 40.0)] {
+		log::info!("Checking block production for {}", node.name());
+		assert!(node
 			.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= block_cnt, 225u64)
 			.await
 			.is_ok());
@@ -68,16 +68,16 @@ async fn elastic_scaling_slot_based_authoring() -> Result<(), anyhow::Error> {
 
 	// We want to make sure that none of the consensus hook checks fail, even if the chain makes
 	// progress. If below log line occurred 1 or more times then test failed.
-	for name in ["collator_elastic", "collator_single_core"] {
-		log::info!("Ensuring none of the consensus hook checks fail at {name}");
-		let result = collator_elastic
+	for node in [collator_elastic, collator_single_core] {
+		log::info!("Ensuring none of the consensus hook checks fail at {}", node.name());
+		let result = node
 			.wait_log_line_count_with_timeout(
 				"set_validation_data inherent needs to be present in every block",
 				false,
 				LogLineCountOptions::no_occurences_within_timeout(Duration::from_secs(10)),
 			)
 			.await?;
-		assert!(result.success(), "Consensus hook failed at {name}: {:?}", result);
+		assert!(result.success(), "Consensus hook failed at {}: {:?}", node.name(), result);
 	}
 
 	log::info!("Test finished successfully");
