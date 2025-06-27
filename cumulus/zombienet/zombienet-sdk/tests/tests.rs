@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #[cfg(feature = "zombie-ci")]
-mod elastic_scaling;
+mod zombie_ci;
 
 #[cfg(feature = "zombie-ci")]
-mod sync_blocks;
-
-#[cfg(feature = "zombie-ci")]
-mod bootnodes;
+mod utils;

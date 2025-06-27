@@ -66,6 +66,7 @@ jobs:
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
+
   zombienet-substrate-0001-basic-warp-sync:
     needs: [preflight]
     # only run if we have changes in ./substrate directory and the build workflow already finish with success status.
@@ -94,7 +95,6 @@ jobs:
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
 
-
   # TODO: Disabled, fails 1 in 50 runs
   zombienet-substrate-0002-validators-warp-sync:
     needs: [preflight]
@@ -115,8 +115,6 @@ jobs:
         shell: bash
         run: |
           cp --remove-destination ${LOCAL_DIR}/0001-basic-warp-sync/chain-spec.json ${LOCAL_DIR}/0002-validators-warp-sync
-
-      #
 
       - name: zombienet_test
         uses: ./.github/actions/zombienet
@@ -148,7 +146,6 @@ jobs:
         run: |
           cp --remove-destination ${LOCAL_DIR}/0001-basic-warp-sync/chain-spec.json ${LOCAL_DIR}/0003-block-building-warp-sync
 
-      #
       - name: zombienet_test
         uses: ./.github/actions/zombienet
         with:

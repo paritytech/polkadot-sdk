@@ -79,5 +79,3 @@ rm_isolated_dir
 
 log INFO "Exit status is ${EXIT_STATUS}"
 exit "${EXIT_STATUS}"
-
-
