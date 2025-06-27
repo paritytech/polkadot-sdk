@@ -547,7 +547,7 @@ pub enum CommittedCandidateReceiptError {
 		/// The core index as found in the descriptor.
 		descriptor: CoreIndex,
 		/// The core index as found in the commitments.
-		commitments: CoreIndex
+		commitments: CoreIndex,
 	},
 	/// The core selector or claim queue offset is invalid.
 	#[cfg_attr(feature = "std", error("The core selector or claim queue offset is invalid"))]
