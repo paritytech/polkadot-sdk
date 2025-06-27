@@ -203,6 +203,77 @@ fn pool_lifecycle_e2e() {
 }
 
 #[test]
+fn pool_depositor_unbond_auto_chill() {
+	new_test_ext().execute_with(|| {
+		// Create a pool with depositor
+		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 50, 10, 10, 10));
+		assert_eq!(LastPoolId::<Runtime>::get(), 1);
+
+		// Have the pool nominate
+		assert_ok!(Pools::nominate(RuntimeOrigin::signed(10), 1, vec![1, 2, 3]));
+
+		// Clear events from setup
+		let _ = staking_events_since_last_call();
+		let _ = pool_events_since_last_call();
+
+		// Set pool to destroying state
+		assert_ok!(Pools::set_state(RuntimeOrigin::signed(10), 1, PoolState::Destroying));
+
+		// Depositor unbonds all their stake - should automatically chill the pool
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(10), 10, 50));
+
+		// Verify that chill and unbond events are emitted
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::Chilled { stash: POOL1_BONDED },
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 50 },
+			]
+		);
+
+		// Verify pool events
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::StateChanged { pool_id: 1, new_state: PoolState::Destroying },
+				PoolsEvent::Unbonded { member: 10, pool_id: 1, points: 50, balance: 50, era: 3 },
+			]
+		);
+	})
+}
+
+#[test]
+fn pool_depositor_unbond_no_auto_chill_with_other_members() {
+	new_test_ext().execute_with(|| {
+		// Create a pool with depositor
+		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 50, 10, 10, 10));
+
+		// Add another member
+		assert_ok!(Pools::join(RuntimeOrigin::signed(20), 10, 1));
+
+		// Have the pool nominate
+		assert_ok!(Pools::nominate(RuntimeOrigin::signed(10), 1, vec![1, 2, 3]));
+
+		// Clear events from setup
+		let _ = staking_events_since_last_call();
+		let _ = pool_events_since_last_call();
+
+		// Set pool to destroying state
+		assert_ok!(Pools::set_state(RuntimeOrigin::signed(10), 1, PoolState::Destroying));
+
+		// Depositor tries to unbond all their stake while other member still exists
+		// This should fail because depositor can't unbond when other members remain
+		assert_noop!(
+			Pools::unbond(RuntimeOrigin::signed(10), 10, 50),
+			PoolsError::<Runtime>::MinimumBondNotMet,
+		);
+
+		// Verify no chill event was emitted since the unbond failed
+		assert_eq!(staking_events_since_last_call(), vec![]);
+	})
+}
+
+#[test]
 fn pool_chill_e2e() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(Balances::minimum_balance(), 5);
