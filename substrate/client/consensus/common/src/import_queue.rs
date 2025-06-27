@@ -160,6 +160,7 @@ pub trait Link<B: BlockT>: Send + Sync {
 		_hash: &B::Hash,
 		_number: NumberFor<B>,
 		_success: bool,
+		_should_ban: bool,
 	) {
 	}
 

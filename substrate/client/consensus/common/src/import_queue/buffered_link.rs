@@ -84,7 +84,7 @@ impl<B: BlockT> Clone for BufferedLinkSender<B> {
 /// Internal buffered message.
 pub enum BlockImportWorkerMsg<B: BlockT> {
 	BlocksProcessed(usize, usize, Vec<(BlockImportResult<B>, B::Hash)>),
-	JustificationImported(RuntimeOrigin, B::Hash, NumberFor<B>, bool),
+	JustificationImported(RuntimeOrigin, B::Hash, NumberFor<B>, bool, bool),
 	RequestJustification(B::Hash, NumberFor<B>),
 }
 
@@ -106,8 +106,10 @@ impl<B: BlockT> Link<B> for BufferedLinkSender<B> {
 		hash: &B::Hash,
 		number: NumberFor<B>,
 		success: bool,
+		should_ban: bool,
 	) {
-		let msg = BlockImportWorkerMsg::JustificationImported(who, *hash, number, success);
+		let msg =
+			BlockImportWorkerMsg::JustificationImported(who, *hash, number, success, should_ban);
 		let _ = self.tx.unbounded_send(msg);
 	}
 
@@ -129,8 +131,8 @@ impl<B: BlockT> BufferedLinkReceiver<B> {
 		match msg {
 			BlockImportWorkerMsg::BlocksProcessed(imported, count, results) =>
 				link.blocks_processed(imported, count, results),
-			BlockImportWorkerMsg::JustificationImported(who, hash, number, success) =>
-				link.justification_imported(who, &hash, number, success),
+			BlockImportWorkerMsg::JustificationImported(who, hash, number, success, should_ban) =>
+				link.justification_imported(who, &hash, number, success, should_ban),
 			BlockImportWorkerMsg::RequestJustification(hash, number) =>
 				link.request_justification(&hash, number),
 		}

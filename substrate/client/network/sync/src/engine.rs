@@ -670,17 +670,22 @@ where
 			ToServiceCommand::BlocksProcessed(imported, count, results) => {
 				self.strategy.on_blocks_processed(imported, count, results);
 			},
-			ToServiceCommand::JustificationImported(peer_id, hash, number, success) => {
+			ToServiceCommand::JustificationImported(peer_id, hash, number, success, should_ban) => {
 				self.strategy.on_justification_import(hash, number, success);
+
 				if !success {
 					log::info!(
 						target: LOG_TARGET,
-						"💔 Invalid justification provided by {peer_id} for #{hash}",
+						"💔 Invalid justification provided by {peer_id} for #{hash} (should_ban={should_ban})",
 					);
-					self.network_service
-						.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
-					self.network_service
-						.report_peer(peer_id, ReputationChange::new_fatal("Invalid justification"));
+					if should_ban {
+						self.network_service
+							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
+						self.network_service.report_peer(
+							peer_id,
+							ReputationChange::new_fatal("Invalid justification"),
+						);
+					}
 				}
 			},
 			ToServiceCommand::AnnounceBlock(hash, data) => self.announce_block(hash, data),

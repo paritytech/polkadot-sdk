@@ -44,7 +44,7 @@ pub enum ToServiceCommand<B: BlockT> {
 		usize,
 		Vec<(Result<BlockImportStatus<NumberFor<B>>, BlockImportError>, B::Hash)>,
 	),
-	JustificationImported(PeerId, B::Hash, NumberFor<B>, bool),
+	JustificationImported(PeerId, B::Hash, NumberFor<B>, bool, bool),
 	AnnounceBlock(B::Hash, Option<Vec<u8>>),
 	NewBestBlockImported(B::Hash, NumberFor<B>),
 	EventStream(TracingUnboundedSender<SyncEvent>),
@@ -193,10 +193,11 @@ impl<B: BlockT> Link<B> for SyncingService<B> {
 		hash: &B::Hash,
 		number: NumberFor<B>,
 		success: bool,
+		should_ban: bool,
 	) {
-		let _ = self
-			.tx
-			.unbounded_send(ToServiceCommand::JustificationImported(who, *hash, number, success));
+		let _ = self.tx.unbounded_send(ToServiceCommand::JustificationImported(
+			who, *hash, number, success, should_ban,
+		));
 	}
 
 	fn request_justification(&self, hash: &B::Hash, number: NumberFor<B>) {

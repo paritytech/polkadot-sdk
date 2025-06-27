@@ -56,6 +56,7 @@ mockall::mock! {
 			hash: &B::Hash,
 			number: NumberFor<B>,
 			success: bool,
+			should_ban: bool,
 		);
 		fn request_justification(&self, hash: &B::Hash, number: NumberFor<B>);
 	}

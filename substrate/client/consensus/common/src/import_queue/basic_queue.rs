@@ -342,8 +342,9 @@ impl<B: BlockT> BlockImportWorker<B> {
 	) {
 		let started = std::time::Instant::now();
 
-		let success = match self.justification_import.as_mut() {
-			Some(justification_import) => justification_import
+		let (success, should_ban) = match self.justification_import.as_mut() {
+			Some(justification_import) => {
+				let result = justification_import
 				.import_justification(hash, number, justification)
 				.await
 				.map_err(|e| {
@@ -356,16 +357,21 @@ impl<B: BlockT> BlockImportWorker<B> {
 						e,
 					);
 					e
-				})
-				.is_ok(),
-			None => false,
+				});
+				match result {
+					Ok(()) => (true, false),
+					Err(sp_consensus::Error::OutdatedJustification) => (false, false),
+					Err(_) => (false, true),
+				}
+			},
+			None => (false, false),
 		};
 
 		if let Some(metrics) = self.metrics.as_ref() {
 			metrics.justification_import_time.observe(started.elapsed().as_secs_f64());
 		}
 
-		self.result_sender.justification_imported(who, &hash, number, success);
+		self.result_sender.justification_imported(who, &hash, number, success, should_ban);
 	}
 }
 
