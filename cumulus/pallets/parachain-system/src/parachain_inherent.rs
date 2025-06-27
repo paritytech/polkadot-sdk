@@ -127,11 +127,11 @@ impl<Message: InboundMessage> InboundMessagesCollection<Message> {
 			}
 		}
 		if let Some(last_processed_msg_idx) = last_processed_msg_idx {
-			messages.drain(..last_processed_msg_idx + 1);
+			messages.drain(..=last_processed_msg_idx);
 		}
 	}
 
-	/// Converts `self` into an `AbridgedInboundMessagesCollection`.
+	/// Converts `self` into an [`AbridgedInboundMessagesCollection`].
 	///
 	/// The first messages in `self` (up to the provided `size_limit`) are kept in their current
 	/// form (they will contain the full message data).
@@ -142,26 +142,20 @@ impl<Message: InboundMessage> InboundMessagesCollection<Message> {
 	) -> AbridgedInboundMessagesCollection<Message> {
 		let mut messages = self.messages;
 
-		let mut maybe_split_off_pos = None;
+		let mut split_off_pos = messages.len();
 		for (idx, message) in messages.iter().enumerate() {
 			if *size_limit < message.data().len() {
 				break;
 			}
 			*size_limit -= message.data().len();
 
-			maybe_split_off_pos = Some(idx + 1);
+			split_off_pos = idx + 1;
 		}
 
-		let mut compressed_messages = vec![];
-		if let Some(split_off_pos) = maybe_split_off_pos {
-			let extra_messages = messages.split_off(split_off_pos);
-			compressed_messages = extra_messages.iter().map(|msg| msg.to_compressed()).collect();
-		}
+		let extra_messages = messages.split_off(split_off_pos);
+		let hashed_messages = extra_messages.iter().map(|msg| msg.to_compressed()).collect();
 
-		AbridgedInboundMessagesCollection {
-			full_messages: messages,
-			hashed_messages: compressed_messages,
-		}
+		AbridgedInboundMessagesCollection { full_messages: messages, hashed_messages }
 	}
 }
 
@@ -312,15 +306,11 @@ pub type AbridgedInboundHrmpMessages =
 impl AbridgedInboundHrmpMessages {
 	/// Returns a list of all the unique senders.
 	pub fn get_senders(&self) -> BTreeSet<ParaId> {
-		let mut senders = BTreeSet::new();
-
-		let messages = self.full_messages.iter().map(|(sender, _msg)| sender);
-		let hashed_messages = self.hashed_messages.iter().map(|(sender, _msg)| sender);
-		for sender in messages.chain(hashed_messages) {
-			senders.insert(*sender);
-		}
-
-		senders
+		self.full_messages
+			.iter()
+			.map(|(sender, _msg)| *sender)
+			.chain(self.hashed_messages.iter().map(|(sender, _msg)| *sender))
+			.collect()
 	}
 
 	/// Returns an iterator over the deconstructed messages.
@@ -444,38 +434,45 @@ mod tests {
 
 	#[test]
 	fn into_abridged_works() {
+		let msgs = InboundDownwardMessages::new(vec![]);
+		let mut size_limit = 0;
+		let abridged_msgs = msgs.into_abridged(&mut size_limit);
+		assert_eq!(size_limit, 0);
+		assert_eq!(&abridged_msgs.full_messages, &vec![]);
+		assert_eq!(abridged_msgs.hashed_messages, vec![]);
+
 		let msgs_vec = build_inbound_dm_vec(&[(0, 100), (0, 100), (0, 150), (0, 50)]);
 		let msgs = InboundDownwardMessages::new(msgs_vec.clone());
 
 		let mut size_limit = 150;
-		let compressed_msgs = msgs.clone().into_abridged(&mut size_limit);
+		let abridged_msgs = msgs.clone().into_abridged(&mut size_limit);
 		assert_eq!(size_limit, 50);
-		assert_eq!(&compressed_msgs.full_messages, &msgs_vec[..1]);
+		assert_eq!(&abridged_msgs.full_messages, &msgs_vec[..1]);
 		assert_eq!(
-			compressed_msgs.hashed_messages,
+			abridged_msgs.hashed_messages,
 			vec![(&msgs_vec[1]).into(), (&msgs_vec[2]).into(), (&msgs_vec[3]).into()]
 		);
 
 		let mut size_limit = 200;
-		let compressed_msgs = msgs.clone().into_abridged(&mut size_limit);
+		let abridged_msgs = msgs.clone().into_abridged(&mut size_limit);
 		assert_eq!(size_limit, 0);
-		assert_eq!(&compressed_msgs.full_messages, &msgs_vec[..2]);
+		assert_eq!(&abridged_msgs.full_messages, &msgs_vec[..2]);
 		assert_eq!(
-			compressed_msgs.hashed_messages,
+			abridged_msgs.hashed_messages,
 			vec![(&msgs_vec[2]).into(), (&msgs_vec[3]).into()]
 		);
 
 		let mut size_limit = 399;
-		let compressed_msgs = msgs.clone().into_abridged(&mut size_limit);
+		let abridged_msgs = msgs.clone().into_abridged(&mut size_limit);
 		assert_eq!(size_limit, 49);
-		assert_eq!(&compressed_msgs.full_messages, &msgs_vec[..3]);
-		assert_eq!(compressed_msgs.hashed_messages, vec![(&msgs_vec[3]).into()]);
+		assert_eq!(&abridged_msgs.full_messages, &msgs_vec[..3]);
+		assert_eq!(abridged_msgs.hashed_messages, vec![(&msgs_vec[3]).into()]);
 
 		let mut size_limit = 400;
-		let compressed_msgs = msgs.clone().into_abridged(&mut size_limit);
+		let abridged_msgs = msgs.clone().into_abridged(&mut size_limit);
 		assert_eq!(size_limit, 0);
-		assert_eq!(&compressed_msgs.full_messages, &msgs_vec);
-		assert_eq!(compressed_msgs.hashed_messages, vec![]);
+		assert_eq!(&abridged_msgs.full_messages, &msgs_vec);
+		assert_eq!(abridged_msgs.hashed_messages, vec![]);
 	}
 
 	#[test]
