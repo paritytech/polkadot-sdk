@@ -450,8 +450,6 @@ mod benchmarks {
 		// Set the current era
 		pallet_staking_async::CurrentEra::<T>::put(EraIndex::max_value());
 
-		// Add `s` count of slashing spans to storage.
-		pallet_staking_async::benchmarking::add_slashing_spans::<T>(&pool_account, s);
 		whitelist_account!(pool_account);
 
 		#[extrinsic_call]
@@ -502,7 +500,6 @@ mod benchmarks {
 		// Set the current era to ensure we can withdraw unbonded funds
 		pallet_staking_async::CurrentEra::<T>::put(EraIndex::max_value());
 
-		pallet_staking_async::benchmarking::add_slashing_spans::<T>(&pool_account, s);
 		whitelist_account!(joiner);
 
 		#[extrinsic_call]
