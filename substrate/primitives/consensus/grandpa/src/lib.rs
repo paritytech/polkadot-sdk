@@ -457,6 +457,13 @@ where
 			target: log_target,
 			"Bad signature on message from id={id:?} round={round:?} set_id={set_id:?}",
 		);
+
+		localized_payload_with_buffer(round, set_id - 1, message, buf);
+		let valid = id.verify(&buf, signature);
+		log::debug!(
+			target: log_target,
+			"Signature result for id={id:?} round={round:?} set_id={:?} (previous set) valid={valid:?}", set_id
+		);
 	}
 
 	valid
