@@ -151,7 +151,8 @@ where
 
 		// [JAVIER]
 		#[cfg(feature = "doppelganger")]
-		let boxed_block_import = Box::new(DoppelGangerBlockImport::new(block_import, DoppelGangerContext::Parachain));
+		let boxed_block_import =
+			Box::new(DoppelGangerBlockImport::new(block_import, DoppelGangerContext::Parachain));
 		#[cfg(not(feature = "doppelganger"))]
 		let boxed_block_import = Box::new(block_import);
 

@@ -105,7 +105,6 @@ pub(crate) fn write_epoch_changes<Block: BlockT, F, R>(
 where
 	F: FnOnce(&[(&'static [u8], &[u8])]) -> R,
 {
-
 	warn!(
 		target: LOG_TARGET,
 		"[JAVIER] writing epoch changes {:?}",epoch_changes
@@ -113,22 +112,22 @@ where
 
 	// ensure we always use same auths
 	let mut auths = vec![];
-	for (k, v) in epoch_changes.epochs() {
+	for (_k, v) in epoch_changes.epochs() {
 		match v {
 			sc_consensus_epochs::PersistedEpoch::Genesis(_, _) => {
 				// noop
 			},
 			sc_consensus_epochs::PersistedEpoch::Regular(epoch) => {
-				if ! epoch.0.authorities.is_empty() {
+				if !epoch.0.authorities.is_empty() {
 					auths = epoch.0.authorities.clone();
 				}
-			}
+			},
 		}
 	}
 
 	warn!(target: LOG_TARGET, "[JAVIER] auths {:?}", auths);
 
-	let mut epoch_changes_augmented = epoch_changes.clone().map(|hash, n, mut epoch| {
+	let epoch_changes_augmented = epoch_changes.clone().map(|hash, n, mut epoch| {
 		warn!(target: LOG_TARGET, "[JAVIER] hash {:?}", hash);
 		warn!(target: LOG_TARGET, "[JAVIER] n {:?}", n);
 		warn!(target: LOG_TARGET, "[JAVIER] epoch {:?}", epoch);
@@ -143,7 +142,6 @@ where
 		target: LOG_TARGET,
 		"[JAVIER] writing epoch changes augmented {:?}",epoch_changes_augmented
 	);
-
 
 	BABE_EPOCH_CHANGES_CURRENT_VERSION.using_encoded(|version| {
 		let encoded_epoch_changes = epoch_changes_augmented.encode();

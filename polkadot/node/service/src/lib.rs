@@ -120,11 +120,15 @@ pub type FullBackend = sc_service::TFullBackend<Block>;
 #[cfg(feature = "doppelganger")]
 use polkadot_doppelganger_consensus::{DoppelGangerBlockImport, DoppelGangerContext};
 
-#[cfg(all(feature = "full-node",feature = "doppelganger"))]
+#[cfg(all(feature = "full-node", feature = "doppelganger"))]
 pub type FullClient = sc_service::TFullClient<
 	Block,
 	RuntimeApi,
-	WasmExecutor<(sp_io::SubstrateHostFunctions, frame_benchmarking::benchmarking::HostFunctions, polkadot_doppelganger_consensus::overrides::SignatureVerificationOverride)>,
+	WasmExecutor<(
+		sp_io::SubstrateHostFunctions,
+		frame_benchmarking::benchmarking::HostFunctions,
+		polkadot_doppelganger_consensus::overrides::SignatureVerificationOverride,
+	)>,
 >;
 #[cfg(all(feature = "full-node", not(feature = "doppelganger")))]
 pub type FullClient = sc_service::TFullClient<
@@ -132,7 +136,6 @@ pub type FullClient = sc_service::TFullClient<
 	RuntimeApi,
 	WasmExecutor<(sp_io::SubstrateHostFunctions, frame_benchmarking::benchmarking::HostFunctions)>,
 >;
-
 
 /// The minimum period of blocks on which justifications will be
 /// imported and generated.
@@ -536,7 +539,10 @@ where
 		sc_consensus_babe::import_queue(sc_consensus_babe::ImportQueueParams {
 			link: babe_link.clone(),
 			#[cfg(feature = "doppelganger")]
-			block_import: DoppelGangerBlockImport::new(block_import.clone(), DoppelGangerContext::Relaychain),
+			block_import: DoppelGangerBlockImport::new(
+				block_import.clone(),
+				DoppelGangerContext::Relaychain,
+			),
 			#[cfg(not(feature = "doppelganger"))]
 			block_import: block_import.clone(),
 			justification_import: Some(Box::new(justification_import)),
