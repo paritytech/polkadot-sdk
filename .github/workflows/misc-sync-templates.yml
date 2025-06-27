@@ -69,12 +69,8 @@ jobs:
             srtool build --package ${{ matrix.package_name }} --runtime-dir ${{ matrix.runtime_path }} --root
             
             # Generate chain spec
-            # Note that para-id is set to 1000 for both minimal/parachain templates. 
-            # `parachain-runtime` is hardcoded to use this parachain id. 
-            # `minimal` template isn't using it, but when started with Omni Node, this para id is required (any number can do it, so setting it to 1000 for convenience).
             chain-spec-builder -c dev_chain_spec.json create \
               --relay-chain "${{ matrix.relay_chain }}" \
-              --para-id 1000 \
               --runtime "${{ matrix.runtime_path }}/target/srtool/release/wbuild/${{ matrix.runtime_wasm_path }}" \
               named-preset development
 
@@ -162,9 +158,9 @@ jobs:
           [workspace]
           EOF
 
-          [ ${{ matrix.template }} != "solochain" ] && echo "# Leave out the node compilation from regular template usage." \
+          [ ${{ matrix.template }} == "parachain" ] && echo "# Leave out the node compilation from regular template usage." \
             && echo "default-members = [\"pallets/template\", \"runtime\"]" >> Cargo.toml
-          [ ${{ matrix.template }} == "solochain" ] && echo "# The node isn't yet replaceable by Omni Node."
+          [ ${{ matrix.template }} != "parachain" ] && echo "# The node isn't yet replaceable by Omni Node."
           cat << EOF >> Cargo.toml
           members = [
               "node",
