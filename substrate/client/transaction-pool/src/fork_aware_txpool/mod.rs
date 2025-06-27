@@ -386,6 +386,8 @@ mod transaction_validation_util {
 
 	/// Custom cases of invalid transaction
 	#[repr(u8)]
+	#[derive(strum::AsRefStr)]
+	#[strum(serialize_all = "snake_case")]
 	pub(super) enum InvalidTransactionCustomCode {
 		/// Represents a failure which happens at the level of runtime API, while checking
 		/// prerequisites for transaction validation.
@@ -394,7 +396,7 @@ mod transaction_validation_util {
 		/// an actual invalid transaction (per outcome of runtime validation).
 		InvalidInTxSubtree = 1u8,
 		/// Catch-all custom
-		CatchAll,
+		Unknown,
 	}
 
 	impl From<u8> for InvalidTransactionCustomCode {
@@ -402,7 +404,7 @@ mod transaction_validation_util {
 			match other {
 				0 => Self::RuntimeApiPrerequisitesFailure,
 				1 => Self::InvalidInTxSubtree,
-				_ => Self::CatchAll,
+				_ => Self::Unknown,
 			}
 		}
 	}

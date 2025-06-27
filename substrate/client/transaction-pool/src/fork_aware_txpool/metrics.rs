@@ -37,6 +37,7 @@ use sc_transaction_pool_api::{error::IntoPoolError, TransactionStatus};
 use sc_utils::mpsc;
 use std::{
 	collections::{hash_map::Entry, HashMap},
+	convert::AsRef,
 	future::Future,
 	pin::Pin,
 	time::{Duration, Instant},
@@ -250,50 +251,18 @@ impl MempoolInvalidTxReasonCounter {
 	/// txs separately per invalid tx type.
 	pub fn inc(&self, err: impl IntoPoolError) -> Result<(), impl IntoPoolError> {
 		err.into_pool_error().map(|err| {
-			let labels: [&'static str; 2] = match err {
-				sc_transaction_pool_api::error::Error::InvalidTransaction(i) => {
-					let ty = match i {
-						sp_runtime::transaction_validity::InvalidTransaction::Call => "call",
-						sp_runtime::transaction_validity::InvalidTransaction::Stale => "stale",
-						sp_runtime::transaction_validity::InvalidTransaction::Future => "future",
-						sp_runtime::transaction_validity::InvalidTransaction::Payment => "payment",
-						sp_runtime::transaction_validity::InvalidTransaction::BadProof => "bad_proof",
-						sp_runtime::transaction_validity::InvalidTransaction::BadSigner => "bad_signature",
-						sp_runtime::transaction_validity::InvalidTransaction::Custom(code) => {
-							match InvalidTransactionCustomCode::from(code) {
-								InvalidTransactionCustomCode::InvalidInTxSubtree => "tx_in_subtree",
-								InvalidTransactionCustomCode::RuntimeApiPrerequisitesFailure => "runtime_api_failure",
-								InvalidTransactionCustomCode::CatchAll => "custom",
-							}
-						},
-						sp_runtime::transaction_validity::InvalidTransaction::BadMandatory => "bad_mandatory",
-						sp_runtime::transaction_validity::InvalidTransaction::UnknownOrigin => "unknown_origin",
-						sp_runtime::transaction_validity::InvalidTransaction::AncientBirthBlock => "ancient_birth_block",
-						sp_runtime::transaction_validity::InvalidTransaction::ExhaustsResources => "exhausted_resources",
-						sp_runtime::transaction_validity::InvalidTransaction::MandatoryValidation => "mandatory_validation",
-						sp_runtime::transaction_validity::InvalidTransaction::IndeterminateImplicit => "indeterminate_implicit",
-					};
-					["invalid", ty]
+			let category = err.as_ref();
+			let ty = match err {
+				sc_transaction_pool_api::error::Error::InvalidTransaction(i) => match i {
+					sp_runtime::transaction_validity::InvalidTransaction::Custom(code) =>
+						InvalidTransactionCustomCode::from(code).as_ref().to_string(),
+					_ => i.as_ref().to_string(),
 				},
-				sc_transaction_pool_api::error::Error::UnknownTransaction(u) => {
-					let ty = match u {
-						sp_runtime::transaction_validity::UnknownTransaction::Custom(_) => "custom",
-						sp_runtime::transaction_validity::UnknownTransaction::CannotLookup => "cannot_lookup",
-						sp_runtime::transaction_validity::UnknownTransaction::NoUnsignedValidator => "no_unsigned_validator",
-					};
-					["unknown", ty]
-				},
-				sc_transaction_pool_api::error::Error::Unactionable => ["unactionable", "-"],
-				sc_transaction_pool_api::error::Error::CycleDetected => ["cycle_detected", "-"],
-				sc_transaction_pool_api::error::Error::NoTagsProvided => ["no_tags_provided", "-"],
-				sc_transaction_pool_api::error::Error::TemporarilyBanned => ["temporarily_banned", "-"],
-				sc_transaction_pool_api::error::Error::ImmediatelyDropped => ["immediately_dropped", "-"],
-				sc_transaction_pool_api::error::Error::InvalidBlockId(_) => ["invalid_block_id", "-"],
-				sc_transaction_pool_api::error::Error::AlreadyImported(_) => ["already_imported", "-"],
-				sc_transaction_pool_api::error::Error::TooLowPriority { .. } => ["too_low_priority", "-"],
-				sc_transaction_pool_api::error::Error::RejectedFutureTransaction => ["rejected_future_transaction", "-"],
+				sc_transaction_pool_api::error::Error::UnknownTransaction(u) =>
+					u.as_ref().to_string(),
+				_ => "-".to_string(),
 			};
-			self.inner.with_label_values(&labels).inc()
+			self.inner.with_label_values(&[category, ty.as_str()]).inc()
 		})
 	}
 }

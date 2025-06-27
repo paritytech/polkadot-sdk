@@ -21,19 +21,21 @@
 use sp_runtime::transaction_validity::{
 	InvalidTransaction, TransactionPriority as Priority, UnknownTransaction,
 };
-use strum::IntoStaticStr;
 
 /// Transaction pool result.
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Transaction pool error type.
-#[derive(Debug, thiserror::Error, IntoStaticStr)]
+#[derive(Debug, thiserror::Error, strum::AsRefStr)]
+#[strum(serialize_all = "snake_case")]
 #[allow(missing_docs)]
 pub enum Error {
 	#[error("Unknown transaction validity: {0:?}")]
+	#[strum(serialize = "unknown")]
 	UnknownTransaction(UnknownTransaction),
 
 	#[error("Invalid transaction validity: {0:?}")]
+	#[strum(serialize = "invalid")]
 	InvalidTransaction(InvalidTransaction),
 
 	/// The transaction validity returned no "provides" tag.
