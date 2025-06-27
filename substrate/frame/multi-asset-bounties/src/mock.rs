@@ -26,7 +26,10 @@ use alloc::collections::btree_map::BTreeMap;
 use core::cell::RefCell;
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
-	traits::{tokens::UnityAssetBalanceConversion, ConstU32, ConstU64, OnInitialize},
+	traits::{
+		tokens::{Pay, UnityAssetBalanceConversion},
+		ConstU32, ConstU64, OnInitialize,
+	},
 	weights::constants::ParityDbWeight,
 	PalletId,
 };
@@ -43,8 +46,8 @@ thread_local! {
 	pub static TEST_SPEND_ORIGIN_TRY_SUCCESSFUL_ORIGIN_ERR: RefCell<bool> = RefCell::new(false);
 }
 
-pub struct TestPay;
-impl Pay for TestPay {
+pub struct TestTreasuryPay;
+impl Pay for TestTreasuryPay {
 	type Beneficiary = u128;
 	type Balance = u64;
 	type Id = u64;
@@ -66,6 +69,46 @@ impl Pay for TestPay {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_concluded(_: Self::Id) {}
 }
+
+pub struct TestBountiesPay;
+impl PayWithSource for TestBountiesPay {
+	type Source = u128;
+	type Beneficiary = u128;
+	type Balance = u64;
+	type Id = u64;
+	type AssetKind = u32;
+	type Error = ();
+
+	fn pay(
+		_: &Self::Source,
+		to: &Self::Beneficiary,
+		asset_kind: Self::AssetKind,
+		amount: Self::Balance,
+	) -> Result<Self::Id, Self::Error> {
+		PAID.with(|paid| *paid.borrow_mut().entry((*to, asset_kind)).or_default() += amount);
+		Ok(LAST_ID.with(|lid| {
+			let x = *lid.borrow();
+			lid.replace(x + 1);
+			x
+		}))
+	}
+	fn check_payment(id: Self::Id) -> PaymentStatus {
+		STATUS.with(|s| s.borrow().get(&id).cloned().unwrap_or(PaymentStatus::InProgress))
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(
+		_: &Self::Source,
+		_: &Self::Beneficiary,
+		_: Self::AssetKind,
+		_: Self::Balance,
+	) {
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_concluded(id: Self::Id) {
+		set_status(id, PaymentStatus::Success);
+	}
+}
+
 frame_support::construct_runtime!(
 	pub enum Test
 	{
@@ -155,7 +198,7 @@ impl pallet_treasury::Config for Test {
 	type AssetKind = u32;
 	type Beneficiary = Self::AccountId;
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
-	type Paymaster = TestPay;
+	type Paymaster = TestTreasuryPay;
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = ConstU64<10>;
 	type BlockNumberProvider = System;
@@ -178,7 +221,7 @@ impl pallet_treasury::Config<Instance1> for Test {
 	type AssetKind = u32;
 	type Beneficiary = Self::AccountId;
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
-	type Paymaster = TestPay;
+	type Paymaster = TestTreasuryPay;
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = ConstU64<10>;
 	type BlockNumberProvider = System;
@@ -198,11 +241,15 @@ impl Config for Test {
 	type CuratorDepositMultiplier = CuratorDepositMultiplier;
 	type CuratorDepositMax = CuratorDepositMax;
 	type CuratorDepositMin = CuratorDepositMin;
-	type BountyValueMinimum = ConstU64<1>;
+	type BountyValueMinimum = ConstU64<2>;
 	type DataDepositPerByte = ConstU64<1>;
 	type MaximumReasonLength = ConstU32<16384>;
 	type WeightInfo = ();
 	type OnSlash = ();
+	type TreasurySource = TreasurySource<Test, ()>;
+	type BountySource = BountySource<Test, ()>;
+	type ChildBountySource = ChildBountySource<Test, ()>;
+	type Paymaster = TestBountiesPay;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -212,11 +259,15 @@ impl Config<Instance1> for Test {
 	type CuratorDepositMultiplier = CuratorDepositMultiplier;
 	type CuratorDepositMax = CuratorDepositMax;
 	type CuratorDepositMin = CuratorDepositMin;
-	type BountyValueMinimum = ConstU64<1>;
+	type BountyValueMinimum = ConstU64<2>;
 	type DataDepositPerByte = ConstU64<1>;
 	type MaximumReasonLength = ConstU32<16384>;
 	type WeightInfo = ();
 	type OnSlash = ();
+	type TreasurySource = TreasurySource<Test, Instance1>;
+	type BountySource = BountySource<Test, Instance1>;
+	type ChildBountySource = ChildBountySource<Test, Instance1>;
+	type Paymaster = TestBountiesPay;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -308,12 +359,19 @@ pub fn expect_events(e: Vec<BountiesEvent<Test>>) {
 	assert_eq!(last_events(e.len()), e);
 }
 
-pub fn get_payment_id(bounty_id: BountyIndex, to: Option<u128>) -> Option<u64> {
-	let bounty = pallet_bounties::Bounties::<Test>::get(bounty_id).expect("no bounty");
+pub fn get_payment_id(
+	parent_bounty_id: BountyIndex,
+	child_bounty_id: Option<BountyIndex>,
+	dest: Option<u128>,
+) -> Option<u64> {
+	let status =
+		pallet_bounties::Pallet::<Test>::get_bounty_status(parent_bounty_id, child_bounty_id)
+			.expect("should return bounty status");
 
-	match bounty.status {
-		BountyStatus::FundingAttempted { payment_status: PaymentState::Attempted { id } } =>
-			Some(id),
+	match status {
+		BountyStatus::FundingAttempted {
+			payment_status: PaymentState::Attempted { id }, ..
+		} => Some(id),
 		BountyStatus::ApprovedWithCurator {
 			payment_status: PaymentState::Attempted { id },
 			..
@@ -322,7 +380,7 @@ pub fn get_payment_id(bounty_id: BountyIndex, to: Option<u128>) -> Option<u64> {
 			payment_status: PaymentState::Attempted { id }, ..
 		} => Some(id),
 		BountyStatus::PayoutAttempted { curator_stash, beneficiary, .. } =>
-			to.and_then(|account| {
+			dest.and_then(|account| {
 				if account == curator_stash.0 {
 					if let PaymentState::Attempted { id } = curator_stash.1 {
 						return Some(id);
@@ -338,9 +396,30 @@ pub fn get_payment_id(bounty_id: BountyIndex, to: Option<u128>) -> Option<u64> {
 	}
 }
 
-pub fn approve_payment(account_id: u128, bounty_id: BountyIndex, asset_id: u32, amount: u64) {
-	assert_eq!(paid(account_id, asset_id), amount);
-	let payment_id = get_payment_id(bounty_id, Some(account_id)).expect("no payment attempt");
+pub fn approve_payment(
+	dest: u128,
+	parent_bounty_id: BountyIndex,
+	child_bounty_id: Option<BountyIndex>,
+	asset_kind: u32,
+	amount: u64,
+) {
+	assert_eq!(paid(dest, asset_kind), amount);
+	let payment_id =
+		get_payment_id(parent_bounty_id, child_bounty_id, Some(dest)).expect("no payment attempt");
 	set_status(payment_id, PaymentStatus::Success);
-	assert_ok!(Bounties::check_payment_status(RuntimeOrigin::signed(0), bounty_id));
+	assert_ok!(Bounties::check_status(RuntimeOrigin::signed(0), parent_bounty_id, child_bounty_id));
+}
+
+pub fn reject_payment(
+	dest: u128,
+	parent_bounty_id: BountyIndex,
+	child_bounty_id: Option<BountyIndex>,
+	asset_kind: u32,
+	amount: u64,
+) {
+	unpay(dest, asset_kind, amount);
+	let payment_id =
+		get_payment_id(parent_bounty_id, child_bounty_id, Some(dest)).expect("no payment attempt");
+	set_status(payment_id, PaymentStatus::Failure);
+	assert_ok!(Bounties::check_status(RuntimeOrigin::signed(0), parent_bounty_id, child_bounty_id));
 }
