@@ -11,6 +11,10 @@ doc:
 
     One key difference though has been introduced by #8436, where we are not allowing anymore to nominate an invalid or not existent validator. This breaks some of the tests and needs to be addressed.
 
+    Another notable difference is the removal of slashing spans (see #8316 ) which was referenced by nomination-pools's benchmarks.
+
+    Finally when pools are completely destroyed and all stake is withdrawn, the async staking pallet's kill() method is called, which emits the StakerRemoved event. Tests need to be updated to take that into account.
+
     ## Next steps
 
     We are not running benchmark vs `WAH` runtime for `staking-async`, `nomination-pools` and `delegated-staking`.
