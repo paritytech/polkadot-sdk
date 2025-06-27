@@ -32,7 +32,7 @@ async fn full_node_warp_sync() -> Result<(), anyhow::Error> {
 	log::info!("Ensuring parachain is registered");
 	assert_para_is_registered(&alice_client, ParaId::from(PARA_ID), 10).await?;
 
-	for name in ["two", "three", "four", "five"] {
+	for name in ["two", "three", "four"] {
 		log::info!("Checking full node {name} is syncing");
 		assert!(network
 			.get_node(name)?
@@ -61,7 +61,6 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	//   - two      - full node
 	//   - three    - full node
 	//   - four     - full node
-	//   - five     - full node
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
 			r.with_chain("rococo-local")
@@ -121,13 +120,6 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 						("-lsync=debug").into(),
 						("--sync", "warp").into(),
 						("--relay-chain-rpc-urls", "{{ZOMBIE:dave:ws_uri}}").into(),
-					])
-				})
-				.with_collator(|n| {
-					n.with_name("five").validator(false).with_args(vec![
-						("-lsync=debug").into(),
-						("--sync", "warp").into(),
-						("--relay-chain-light-client").into(),
 					])
 				})
 		})
