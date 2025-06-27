@@ -50,8 +50,7 @@ impl pallet_conviction_voting::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type VoteLockingPeriod = VoteLockingPeriod;
-	type MaxVotes = ConstU32<512>; // TODO check with weight
-								// TODO: review
+	type MaxVotes = ConstU32<512>;
 	type MaxTurnout =
 		frame_support::traits::tokens::currency::ActiveIssuanceOf<Balances, Self::AccountId>;
 	type Polls = Referenda;

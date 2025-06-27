@@ -316,7 +316,6 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 				origins::Origin::SmallSpender => Ok(32),
 				origins::Origin::MediumSpender => Ok(33),
 				origins::Origin::BigSpender => Ok(34),
-				_ => Err(()),
 			}
 		} else {
 			Err(())
