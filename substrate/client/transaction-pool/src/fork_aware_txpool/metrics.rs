@@ -281,7 +281,7 @@ impl MempoolInvalidTxReasonCounter {
 						sp_runtime::transaction_validity::UnknownTransaction::CannotLookup => "cannot_lookup",
 						sp_runtime::transaction_validity::UnknownTransaction::NoUnsignedValidator => "no_unsigned_validator",
 					};
-					["unkown", ty]
+					["unknown", ty]
 				},
 				sc_transaction_pool_api::error::Error::Unactionable => ["unactionable", "-"],
 				sc_transaction_pool_api::error::Error::CycleDetected => ["cycle_detected", "-"],
