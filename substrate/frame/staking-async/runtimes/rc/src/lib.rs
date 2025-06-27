@@ -1336,6 +1336,24 @@ impl parachains_session_info::Config for Runtime {
 	type ValidatorSet = Historical;
 }
 
+pub struct AggregateMessageOriginConverter;
+impl sp_runtime::traits::Convert<ParaId, AggregateMessageOrigin>
+	for AggregateMessageOriginConverter
+{
+	fn convert(para: ParaId) -> AggregateMessageOrigin {
+		AggregateMessageOrigin::Ump(UmpQueueId::Para(para))
+	}
+}
+impl sp_runtime::traits::ConvertBack<ParaId, AggregateMessageOrigin>
+	for AggregateMessageOriginConverter
+{
+	fn convert_back(origin: AggregateMessageOrigin) -> ParaId {
+		match origin {
+			AggregateMessageOrigin::Ump(UmpQueueId::Para(para_id)) => para_id,
+		}
+	}
+}
+
 impl parachains_inclusion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type DisputesHandler = ParasDisputes;
@@ -1343,6 +1361,8 @@ impl parachains_inclusion::Config for Runtime {
 		parachains_reward_points::RewardValidatorsWithEraPoints<Runtime, AssetHubStakingClient>;
 	type MessageQueue = MessageQueue;
 	type WeightInfo = weights::polkadot_runtime_parachains_inclusion::WeightInfo<Runtime>;
+	type AggregateMessageOrigin = AggregateMessageOrigin;
+	type AggregateMessageOriginConverter = AggregateMessageOriginConverter;
 }
 
 parameter_types! {
