@@ -3684,7 +3684,6 @@ dependencies = [
  "rococo-system-emulated-network",
  "sp-runtime 31.0.1",
  "staging-xcm",
- "staging-xcm-executor",
 ]
 
 [[package]]
@@ -3778,7 +3777,6 @@ dependencies = [
  "frame-support",
  "pallet-broker",
  "pallet-message-queue",
- "pallet-xcm",
  "polkadot-runtime-parachains",
  "sp-runtime 31.0.1",
  "staging-xcm",
@@ -24902,6 +24900,7 @@ dependencies = [
 name = "substrate-test-runtime-transaction-pool"
 version = "2.0.0"
 dependencies = [
+ "async-trait",
  "futures",
  "log",
  "parity-scale-codec",
