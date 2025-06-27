@@ -36,6 +36,7 @@ use pallet_nomination_pools::{
 use pallet_staking_async::{
 	CurrentEra, Error as StakingError, Event as StakingEvent, Payee, RewardDestination,
 };
+use sp_staking::StakingInterface;
 
 use pallet_delegated_staking::Event as DelegatedStakingEvent;
 

@@ -12866,6 +12866,7 @@ dependencies = [
  "pallet-delegated-staking",
  "pallet-nomination-pools",
  "pallet-staking-async",
+ "pallet-staking-async-rc-client",
  "pallet-staking-reward-curve",
  "pallet-timestamp",
  "parity-scale-codec",
