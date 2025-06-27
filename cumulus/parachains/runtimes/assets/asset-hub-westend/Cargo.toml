@@ -135,12 +135,8 @@ snowbridge-runtime-common = { workspace = true }
 [dev-dependencies]
 alloy-core = { workspace = true, features = ["sol-types"] }
 asset-test-utils = { workspace = true, default-features = true }
-hex = { workspace = true, default-features = false }
 pallet-revive-fixtures = { workspace = true, default-features = true }
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
-remote-externalities = { workspace = true, default-features = true }
-sp-tracing = { workspace = true }
-tokio = { features = ["macros"], workspace = true, default-features = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
@@ -304,7 +300,6 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"frame-try-runtime?/std",
-	"hex/std",
 	"log/std",
 	"pallet-ah-ops/std",
 	"pallet-asset-conversion-ops/std",
@@ -381,7 +376,6 @@ std = [
 	"sp-staking/std",
 	"sp-std/std",
 	"sp-storage/std",
-	"sp-tracing/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
