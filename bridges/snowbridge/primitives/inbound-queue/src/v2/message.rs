@@ -34,6 +34,7 @@ sol! {
 		struct XcmCreateAsset {
 			address token;
 			uint8 network;
+			uint64 gas_cost;
 		}
 		struct Payload {
 			address origin;
@@ -85,7 +86,7 @@ pub enum XcmPayload {
 	/// Represents raw XCM bytes
 	Raw(Vec<u8>),
 	/// A token registration template
-	CreateAsset { token: H160, network: Network },
+	CreateAsset { token: H160, network: Network, gas_cost: u64 },
 }
 
 /// Network enum for cross-chain message destination
@@ -206,7 +207,11 @@ impl TryFrom<&IGatewayV2::Payload> for XcmPayload {
 					0 => Network::Polkadot,
 					_ => return Err(MessageDecodeError),
 				};
-				XcmPayload::CreateAsset { token: H160::from(create_asset.token.as_ref()), network }
+				XcmPayload::CreateAsset {
+					token: H160::from(create_asset.token.as_ref()),
+					network,
+					gas_cost: create_asset.gas_cost,
+				}
 			},
 			_ => return Err(MessageDecodeError),
 		};

@@ -128,7 +128,7 @@ where
 
 		let mut remote_xcm: Xcm<()> = match &message.xcm {
 			XcmPayload::Raw(raw) => Self::decode_raw_xcm(raw),
-			XcmPayload::CreateAsset { token, network } => Self::make_create_asset_xcm(
+			XcmPayload::CreateAsset { token, network, .. } => Self::make_create_asset_xcm(
 				token,
 				*network,
 				message.value,

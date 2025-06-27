@@ -37,7 +37,7 @@ use snowbridge_core::{
 		AddTip, MessageId,
 		MessageId::{Inbound, Outbound},
 	},
-	AgentIdOf as LocationHashOf, AssetMetadata, TokenId, TokenIdOf,
+	AgentIdOf as LocationHashOf, AssetMetadata, ERC20TokenHandler, TokenId, TokenIdOf,
 };
 use snowbridge_outbound_queue_primitives::{
 	v2::{Command, Initializer, Message, SendMessage},
@@ -140,6 +140,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type LostTips<T: Config> =
 		StorageMap<_, Blake2_128Concat, AccountIdOf<T>, u128, ValueQuery>;
+
+	/// Registered ERC-20 tokens
+	#[pallet::storage]
+	pub type RegistedERC20Tokens<T: Config> =
+		StorageMap<_, Blake2_128Concat, H160, u64, OptionQuery>;
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -316,6 +321,15 @@ pub mod pallet {
 	impl<T: Config> MaybeConvert<TokenId, Location> for Pallet<T> {
 		fn maybe_convert(foreign_id: TokenId) -> Option<Location> {
 			snowbridge_pallet_system::Pallet::<T>::maybe_convert(foreign_id)
+		}
+	}
+
+	impl<T: Config> ERC20TokenHandler for Pallet<T> {
+		fn store(address: H160, gas_cost: u64) {
+			RegistedERC20Tokens::<T>::insert(address, gas_cost)
+		}
+		fn get(address: H160) -> Option<u64> {
+			RegistedERC20Tokens::<T>::get(address)
 		}
 	}
 }
