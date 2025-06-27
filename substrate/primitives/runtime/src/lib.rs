@@ -372,7 +372,7 @@ pub enum MultiSigner {
 	/// This is important so that the address matches the address to address mapping in
 	/// `pallet_revive`. This means that the same public key controls two accounts. But
 	/// this is already the case due to `pallet_revive`'s address mapping.
-	Eth(ecdsa::Public),
+	Eth(ecdsa::KeccakPublic),
 }
 
 impl FromEntropy for MultiSigner {
@@ -1238,9 +1238,10 @@ mod tests {
 
 	#[test]
 	fn multi_signer_eth_address_works() {
-		let pair = ecdsa::Pair::from_seed(&[0x42; 32]);
-		let ecdsa = MultiSigner::Ecdsa(pair.public()).into_account();
-		let eth = MultiSigner::Eth(pair.public()).into_account();
+		let ecdsa_pair = ecdsa::Pair::from_seed(&[0x42; 32]);
+		let eth_pair = ecdsa::KeccakPair::from_seed(&[0x42; 32]);
+		let ecdsa = MultiSigner::Ecdsa(ecdsa_pair.public()).into_account();
+		let eth = MultiSigner::Eth(eth_pair.public()).into_account();
 
 		assert_eq!(&<AccountId32 as AsRef<[u8; 32]>>::as_ref(&eth)[20..], &[0xEE; 12]);
 		assert_eq!(
