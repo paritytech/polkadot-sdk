@@ -186,7 +186,10 @@ fn pool_lifecycle_e2e() {
 		// pools is fully destroyed now.
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 50 },]
+			vec![
+				StakingEvent::StakerRemoved { stash: POOL1_BONDED },
+				StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 50 },
+			]
 		);
 		assert_eq!(
 			pool_events_since_last_call(),
