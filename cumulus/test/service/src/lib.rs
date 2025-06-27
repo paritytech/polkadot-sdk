@@ -390,6 +390,9 @@ where
 			spawn_handle: task_manager.spawn_handle(),
 			relay_chain_interface: relay_chain_interface.clone(),
 			import_queue: params.import_queue,
+			metrics: Net::register_notification_metrics(
+				parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
+			),
 			sybil_resistance_level: CollatorSybilResistance::Resistant, /* Either Aura that is
 			                                                             * resistant or null that
 			                                                             * is not producing any
