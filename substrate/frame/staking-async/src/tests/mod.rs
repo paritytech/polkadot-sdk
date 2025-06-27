@@ -1103,7 +1103,7 @@ fn reward_validator_slashing_validator_does_not_overflow() {
 		// only slashes out of bonded stake are applied. without this line, it is 0.
 		Staking::bond(RuntimeOrigin::signed(2), stake - 1, RewardDestination::Staked).unwrap();
 
-		// Override metadata and exposures of 11 so that it exposes minmal self stake and `stake` -
+		// Override metadata and exposures of 11 so that it exposes minimal self stake and `stake` -
 		// 1 from nominator 2.
 		ErasStakersOverview::<Test>::insert(
 			current_era(),
