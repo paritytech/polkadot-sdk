@@ -111,7 +111,7 @@ impl<T: frame_system::Config> pallet_people::WeightInfo for WeightInfo<T> {
 	/// Proof: `People::People` (`max_values`: None, `max_size`: Some(99), added: 2574, mode: `MaxEncodedLen`)
 	/// Storage: `People::ReservedPersonalId` (r:0 w:255)
 	/// Proof: `People::ReservedPersonalId` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `MaxEncodedLen`)
-	fn force_recognize_personhood() -> Weight {
+	fn force_recognize_personhood(_n: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `190`
 		//  Estimated: `646395`

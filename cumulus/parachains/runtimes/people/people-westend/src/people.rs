@@ -296,6 +296,6 @@ impl pallet_dummy_dim::Config for Runtime {
 }
 
 impl individuality_storage_init::Config for Runtime {
-	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::pallet_people::WeightInfo<Runtime>;
 }

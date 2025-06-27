@@ -32,17 +32,13 @@ use sp_std::{vec, vec::Vec};
 use verifiable::ring_vrf_impl::{BandersnatchVrfVerifiable, StaticChunk};
 
 #[cfg(feature = "try-runtime")]
-use alloc::collections::BTreeMap;
-#[cfg(feature = "try-runtime")]
 use codec::{Decode, Encode};
 #[cfg(feature = "try-runtime")]
-use sp_runtime::TryRuntimeError;
+use frame_support::traits::reality::PersonalId;
+
+use pallet_people::WeightInfo;
 
 pub use pallet::*;
-
-pub trait WeightInfo {}
-
-impl WeightInfo for () {}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -173,10 +169,9 @@ impl<T: Config> SteppedMigration for InitializeIndividualityPallets<T> {
 				let initial_people = get_initial_people_keys();
 				let keys_count = initial_people.len();
 
-				// TODO replace with benchmarked weight
-				let weight =
-					T::DbWeight::get().writes(1) + T::DbWeight::get().writes(keys_count as u64 * 2);
-
+				let weight = <T as pallet_people::Config>::WeightInfo::force_recognize_personhood(
+					keys_count as u32,
+				);
 				if !meter.can_consume(weight) {
 					return Ok(Some(MigrationState::InitializingPeopleForPalletPeople));
 				}
@@ -254,8 +249,8 @@ impl<T: Config> SteppedMigration for InitializeIndividualityPallets<T> {
 		ensure!(keys_count == expected_people_count, "Keys count mismatch");
 
 		// To verify all people were added to the OnboardingQueue
-		let (head, tail) = pallet_people::QueuePageIndices::<T>::get();
-		let total_in_queue = pallet_people::OnboardingQueue::get(head).len() as u32;
+		let (head, _) = pallet_people::QueuePageIndices::<T>::get();
+		let total_in_queue = pallet_people::OnboardingQueue::<T>::get(head).len() as u32;
 		ensure!(total_in_queue == expected_people_count, "OnboardingQueue count mismatch");
 
 		// To verify NextPersonalId is set correctly if people were added
