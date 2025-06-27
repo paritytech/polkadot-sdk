@@ -15,6 +15,7 @@ use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::ensure_para_throughput;
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
+use statrs::statistics::OrderStatistics;
 use subxt::utils::{AccountId32, MultiAddress};
 use zombienet_sdk::{
 	subxt::{ext::futures, OnlineClient, PolkadotConfig},
@@ -30,7 +31,7 @@ mod rococo {}
 
 const PARA_ID: u32 = 2000;
 const BEST_BLOCK_METRIC: &str = "block_height{status=\"best\"}";
-const DEV_ACCOUNTS: u32 = 3000;
+const DEV_ACCOUNTS: u32 = 6_000;
 
 #[ignore = "Slow test used to measure block propagation time in a sparsely connected network"]
 #[tokio::test(flavor = "multi_thread")]
@@ -39,12 +40,11 @@ async fn sparsely_connected_network_block_propagation_time() -> Result<(), anyho
 	tokio::time::sleep(Duration::from_secs(3)).await;
 
 	let mut num_failures = 0;
-	let mut tests_remaining = 10;
 	let mut propagation_times = Vec::new();
 
-	// Try multiple tests to get a better average.
-	while tests_remaining > 0 {
-		log::info!("Running test with {tests_remaining} tests remaining");
+	// Run many tests to get a better average.
+	while propagation_times.len() < 20 {
+		log::info!("Running test #{}", propagation_times.len() + 1);
 		if num_failures > 5 {
 			anyhow::bail!("Too many failures ({num_failures}), aborting further tests.");
 		}
@@ -58,12 +58,12 @@ async fn sparsely_connected_network_block_propagation_time() -> Result<(), anyho
 				num_failures += 1;
 			},
 		}
-		tests_remaining -= 1;
 	}
 
+	propagation_times.sort_by(|a, b| a.partial_cmp(b).unwrap());
+	log::info!("Propagation times distribution: {propagation_times:?}");
 	let avg = propagation_times.iter().sum::<f64>() / propagation_times.len() as f64;
 	log::info!("Average propagation time: {avg} seconds");
-	propagation_times.sort_by(|a, b| a.partial_cmp(b).unwrap());
 	let median = if propagation_times.len() % 2 == 0 {
 		(propagation_times[propagation_times.len() / 2 - 1] +
 			propagation_times[propagation_times.len() / 2]) /
@@ -72,7 +72,9 @@ async fn sparsely_connected_network_block_propagation_time() -> Result<(), anyho
 		propagation_times[propagation_times.len() / 2]
 	};
 	log::info!("Median propagation time: {median} seconds");
-	log::info!("Propagation times distribution: {propagation_times:?}");
+	let mut propagation_times = statrs::statistics::Data::new(propagation_times);
+	log::info!("90th percentile propagation time: {} seconds", propagation_times.percentile(90));
+	log::info!("99th percentile propagation time: {} seconds", propagation_times.percentile(99));
 
 	Ok(())
 }
