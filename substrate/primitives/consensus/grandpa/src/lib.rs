@@ -412,6 +412,20 @@ pub fn localized_payload_with_buffer<E: Encode>(
 	(message, round, set_id).encode_to(buf)
 }
 
+/// Result of checking a message signature.
+#[derive(Clone, Encode, Decode, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub enum SignatureResult {
+	/// Valid signature.
+	Valid,
+
+	/// Invalid signature.
+	Invalid,
+
+	/// Invalid signature, but the message was signed in the previous set.
+	OutdatedSet,
+}
+
 /// Check a message signature by encoding the message as a localized payload and
 /// verifying the provided signature using the expected authority id.
 pub fn check_message_signature<H, N>(
@@ -420,7 +434,7 @@ pub fn check_message_signature<H, N>(
 	signature: &AuthoritySignature,
 	round: RoundNumber,
 	set_id: SetId,
-) -> bool
+) -> SignatureResult
 where
 	H: Encode,
 	N: Encode,
@@ -439,7 +453,7 @@ pub fn check_message_signature_with_buffer<H, N>(
 	round: RoundNumber,
 	set_id: SetId,
 	buf: &mut Vec<u8>,
-) -> bool
+) -> SignatureResult
 where
 	H: Encode,
 	N: Encode,
@@ -448,25 +462,34 @@ where
 
 	localized_payload_with_buffer(round, set_id, message, buf);
 
-	let valid = id.verify(&buf, signature);
-
-	if !valid {
-		let log_target = if cfg!(feature = "std") { CLIENT_LOG_TARGET } else { RUNTIME_LOG_TARGET };
-
-		log::debug!(
-			target: log_target,
-			"Bad signature on message from id={id:?} round={round:?} set_id={set_id:?}",
-		);
-
-		localized_payload_with_buffer(round, set_id - 1, message, buf);
-		let valid = id.verify(&buf, signature);
-		log::debug!(
-			target: log_target,
-			"Signature result for id={id:?} round={round:?} set_id={:?} (previous set) valid={valid:?}", set_id
-		);
+	if id.verify(&buf, signature) {
+		return SignatureResult::Valid;
 	}
 
-	valid
+	let log_target = if cfg!(feature = "std") { CLIENT_LOG_TARGET } else { RUNTIME_LOG_TARGET };
+	log::debug!(
+		target: log_target,
+		"Bad signature on message from id={id:?} round={round:?} set_id={set_id:?}",
+	);
+
+	// Check if the signature is valid in the previous set.
+	let prev_set_id = set_id.checked_sub(1).unwrap_or(0);
+	if prev_set_id == set_id {
+		return SignatureResult::Invalid;
+	}
+
+	localized_payload_with_buffer(round, prev_set_id, message, buf);
+	let valid = id.verify(&buf, signature);
+	log::debug!(
+		target: log_target,
+		"Double check signature for id={id:?} round={round:?} previous_set={prev_set_id:?} valid={valid:?}"
+	);
+
+	if valid {
+		SignatureResult::OutdatedSet
+	} else {
+		SignatureResult::Invalid
+	}
 }
 
 /// Localizes the message to the given set and round and signs the payload.
