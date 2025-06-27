@@ -23,8 +23,9 @@ use crate::{
 	graph::ValidateTransactionPriority,
 	insert_and_log_throttled, LOG_TARGET, LOG_TARGET_STAT,
 };
+use async_trait::async_trait;
 use codec::Encode;
-use futures::future::{ready, Future, FutureExt, Ready};
+use futures::future::{Future, FutureExt};
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_client_api::{blockchain::HeaderBackend, BlockBackend};
 use sp_api::{ApiExt, ProvideRuntimeApi};
@@ -181,6 +182,7 @@ impl<Client, Block> FullChainApi<Client, Block> {
 	}
 }
 
+#[async_trait]
 impl<Client, Block> graph::ChainApi for FullChainApi<Client, Block>
 where
 	Block: BlockT,
@@ -194,21 +196,21 @@ where
 {
 	type Block = Block;
 	type Error = error::Error;
-	type ValidationFuture =
-		Pin<Box<dyn Future<Output = error::Result<TransactionValidity>> + Send>>;
-	type BodyFuture = Ready<error::Result<Option<Vec<<Self::Block as BlockT>::Extrinsic>>>>;
 
-	fn block_body(&self, hash: Block::Hash) -> Self::BodyFuture {
-		ready(self.client.block_body(hash).map_err(error::Error::from))
+	async fn block_body(
+		&self,
+		hash: Block::Hash,
+	) -> Result<Option<Vec<<Self::Block as BlockT>::Extrinsic>>, Self::Error> {
+		self.client.block_body(hash).map_err(error::Error::from)
 	}
 
-	fn validate_transaction(
+	async fn validate_transaction(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		uxt: graph::ExtrinsicFor<Self>,
 		validation_priority: ValidateTransactionPriority,
-	) -> Self::ValidationFuture {
+	) -> Result<TransactionValidity, Self::Error> {
 		let start = Instant::now();
 		let (tx, rx) = oneshot::channel();
 		let client = self.client.clone();
@@ -228,39 +230,36 @@ where
 			};
 		let metrics = self.metrics.clone();
 
-		async move {
-			metrics.report(|m| m.validations_scheduled.inc());
+		metrics.report(|m| m.validations_scheduled.inc());
 
-			{
-				validation_pool
-					.send(
-						async move {
-							let res = validate_transaction_blocking(&*client, at, source, uxt);
-							let _ = tx.send(res);
-							metrics.report(|m| m.validations_finished.inc());
-						}
-						.boxed(),
-					)
-					.await
-					.map_err(|e| Error::RuntimeApi(format!("Validation pool down: {:?}", e)))?;
-			}
-
-			let validity = match rx.await {
-				Ok(r) => r,
-				Err(_) => Err(Error::RuntimeApi("Validation was canceled".into())),
-			};
-
-			insert_and_log_throttled!(
-				Level::DEBUG,
-				target:LOG_TARGET_STAT,
-				prefix:prefix,
-				stats,
-				start.elapsed().into()
-			);
-
-			validity
+		{
+			validation_pool
+				.send(
+					async move {
+						let res = validate_transaction_blocking(&*client, at, source, uxt);
+						let _ = tx.send(res);
+						metrics.report(|m| m.validations_finished.inc());
+					}
+					.boxed(),
+				)
+				.await
+				.map_err(|e| Error::RuntimeApi(format!("Validation pool down: {:?}", e)))?;
 		}
-		.boxed()
+
+		let validity = match rx.await {
+			Ok(r) => r,
+			Err(_) => Err(Error::RuntimeApi("Validation was canceled".into())),
+		};
+
+		insert_and_log_throttled!(
+			Level::DEBUG,
+			target:LOG_TARGET_STAT,
+			prefix:prefix,
+			stats,
+			start.elapsed().into()
+		);
+
+		validity
 	}
 
 	/// Validates a transaction by calling into the runtime.
@@ -271,21 +270,21 @@ where
 		at: Block::Hash,
 		source: TransactionSource,
 		uxt: graph::ExtrinsicFor<Self>,
-	) -> error::Result<TransactionValidity> {
+	) -> Result<TransactionValidity, Self::Error> {
 		validate_transaction_blocking(&*self.client, at, source, uxt)
 	}
 
 	fn block_id_to_number(
 		&self,
 		at: &BlockId<Self::Block>,
-	) -> error::Result<Option<graph::NumberFor<Self>>> {
+	) -> Result<Option<graph::NumberFor<Self>>, Self::Error> {
 		self.client.to_number(at).map_err(|e| Error::BlockIdConversion(e.to_string()))
 	}
 
 	fn block_id_to_hash(
 		&self,
 		at: &BlockId<Self::Block>,
-	) -> error::Result<Option<graph::BlockHash<Self>>> {
+	) -> Result<Option<graph::BlockHash<Self>>, Self::Error> {
 		self.client.to_hash(at).map_err(|e| Error::BlockIdConversion(e.to_string()))
 	}
 

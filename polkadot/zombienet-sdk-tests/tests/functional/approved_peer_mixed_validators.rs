@@ -51,11 +51,17 @@ async fn approved_peer_mixed_validators_test() -> Result<(), anyhow::Error> {
 
 			(7..10).fold(r, |acc, i| {
 				acc.with_node(|node| {
-					node.with_name(&format!("old-validator-{i}")).with_image(
-						std::env::var("OLD_POLKADOT_IMAGE")
-							.expect("OLD_POLKADOT_IMAGE needs to be set")
-							.as_str(),
-					)
+					node.with_name(&format!("old-validator-{i}"))
+						.with_image(
+							std::env::var("OLD_POLKADOT_IMAGE")
+								.expect("OLD_POLKADOT_IMAGE needs to be set")
+								.as_str(),
+						)
+						.with_command(
+							std::env::var("OLD_POLKADOT_COMMAND")
+								.unwrap_or(String::from("polkadot"))
+								.as_str(),
+						)
 				})
 			})
 		})
