@@ -453,7 +453,10 @@ where
 	if !valid {
 		let log_target = if cfg!(feature = "std") { CLIENT_LOG_TARGET } else { RUNTIME_LOG_TARGET };
 
-		log::debug!(target: log_target, "Bad signature on message from {:?}", id);
+		log::debug!(
+			target: log_target,
+			"Bad signature on message from id={id:?} round={round:?} set_id={set_id:?}",
+		);
 	}
 
 	valid
