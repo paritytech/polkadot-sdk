@@ -1099,7 +1099,6 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex-literal",
- "log",
  "pallet-asset-conversion",
  "pallet-asset-conversion-ops",
  "pallet-asset-conversion-tx-payment",
@@ -1153,6 +1152,7 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "tracing",
  "xcm-runtime-apis",
 ]
 
@@ -1233,7 +1233,6 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex-literal",
- "log",
  "pallet-asset-conversion",
  "pallet-asset-conversion-ops",
  "pallet-asset-conversion-tx-payment",
@@ -1295,6 +1294,7 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "tracing",
  "westend-runtime-constants",
  "xcm-runtime-apis",
 ]
@@ -2504,7 +2504,6 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex-literal",
- "log",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
@@ -2566,6 +2565,7 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "tracing",
  "xcm-runtime-apis",
 ]
 
@@ -2586,7 +2586,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "impl-trait-for-tuples",
- "log",
  "pallet-balances",
  "pallet-bridge-grandpa",
  "pallet-bridge-messages",
@@ -2608,6 +2607,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "tracing",
 ]
 
 [[package]]
@@ -3337,7 +3337,6 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex-literal",
- "log",
  "pallet-alliance",
  "pallet-asset-rate",
  "pallet-aura",
@@ -3393,6 +3392,7 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "tracing",
  "westend-runtime-constants",
  "xcm-runtime-apis",
 ]
@@ -3707,7 +3707,6 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "log",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
@@ -3752,6 +3751,7 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "tracing",
  "xcm-runtime-apis",
 ]
 
@@ -3806,7 +3806,6 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "log",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
@@ -3850,6 +3849,7 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "tracing",
  "westend-runtime-constants",
  "xcm-runtime-apis",
 ]
@@ -4678,7 +4678,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "log",
  "pallet-balances",
  "pallet-message-queue",
  "parity-scale-codec",
@@ -4691,6 +4690,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "tracing",
 ]
 
 [[package]]
@@ -14008,7 +14008,6 @@ dependencies = [
  "bp-xcm-bridge-hub-router",
  "frame-support",
  "frame-system",
- "log",
  "pallet-balances",
  "pallet-bridge-messages",
  "pallet-xcm-bridge-hub-router",
@@ -14022,6 +14021,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "tracing",
 ]
 
 [[package]]
@@ -14032,7 +14032,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "log",
  "parity-scale-codec",
  "polkadot-runtime-parachains",
  "scale-info",
@@ -14042,6 +14041,7 @@ dependencies = [
  "sp-std 14.0.0",
  "staging-xcm",
  "staging-xcm-builder",
+ "tracing",
 ]
 
 [[package]]
@@ -14092,7 +14092,6 @@ dependencies = [
  "cumulus-primitives-utility",
  "frame-support",
  "frame-system",
- "log",
  "pallet-asset-tx-payment",
  "pallet-assets",
  "pallet-authorship",
@@ -14110,6 +14109,7 @@ dependencies = [
  "staging-parachain-info",
  "staging-xcm",
  "staging-xcm-executor",
+ "tracing",
 ]
 
 [[package]]
@@ -14378,7 +14378,6 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex-literal",
- "log",
  "pallet-asset-conversion",
  "pallet-asset-tx-payment",
  "pallet-assets",
@@ -14423,6 +14422,7 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "tracing",
  "xcm-runtime-apis",
 ]
 
@@ -14475,7 +14475,6 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "log",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
@@ -14520,6 +14519,7 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "tracing",
  "xcm-runtime-apis",
 ]
 
@@ -14577,7 +14577,6 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "log",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
@@ -14622,6 +14621,7 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "tracing",
  "westend-runtime-constants",
  "xcm-runtime-apis",
 ]
@@ -24404,7 +24404,6 @@ dependencies = [
  "frame-support",
  "hex-literal",
  "impl-trait-for-tuples",
- "log",
  "parity-scale-codec",
  "scale-info",
  "schemars",
@@ -24412,6 +24411,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-weights 27.0.0",
+ "tracing",
  "xcm-procedural",
 ]
 
@@ -28322,7 +28322,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
- "log",
  "pallet-assets",
  "pallet-balances",
  "pallet-xcm",
@@ -28335,6 +28334,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "tracing",
  "xcm-simulator",
 ]
 
@@ -28364,7 +28364,6 @@ version = "7.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
- "log",
  "pallet-balances",
  "pallet-message-queue",
  "pallet-uniques",
@@ -28380,6 +28379,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "tracing",
  "xcm-simulator",
 ]
 

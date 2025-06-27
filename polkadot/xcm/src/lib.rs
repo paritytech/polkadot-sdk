@@ -364,7 +364,7 @@ impl<C> VersionedXcm<C> {
 			Self::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut enc).map(|_| ())
 		})
 		.map_err(|e| {
-			log::error!(target: "xcm::check_is_decodable", "Decode error: {e:?} for xcm: {self:?}!");
+			tracing::error!(target: "xcm::check_is_decodable", error=?e, xcm=?self, "Decode error!");
 			()
 		})
 	}

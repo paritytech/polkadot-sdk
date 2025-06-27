@@ -122,20 +122,20 @@ pub(crate) fn simulate_message_exporter_on_bridged_chain<
 		dummy_xcm(),
 	)
 	.expect("validate_export to pass");
-	log::info!(
+	tracing::info!(
 		target: "simulate_message_exporter_on_bridged_chain",
-		"HaulBlobExporter::validate fee: {:?}",
-		fee
+		?fee,
+		"HaulBlobExporter::validate"
 	);
 	let xcm_hash =
 		HaulBlobExporter::<GrabbingHaulBlob, DestinationNetwork, DestinationVersion, ()>::deliver(
 			ticket,
 		)
 		.expect("deliver to pass");
-	log::info!(
+	tracing::info!(
 		target: "simulate_message_exporter_on_bridged_chain",
-		"HaulBlobExporter::deliver xcm_hash: {:?}",
-		xcm_hash
+		?xcm_hash,
+		"HaulBlobExporter::deliver"
 	);
 
 	GRABBED_HAUL_BLOB_PAYLOAD.with(|r| r.take().expect("Encoded message should be here"))
