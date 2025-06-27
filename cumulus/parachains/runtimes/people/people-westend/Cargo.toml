@@ -50,6 +50,7 @@ sp-keyring = { workspace = true }
 sp-offchain = { workspace = true }
 sp-runtime = { workspace = true }
 sp-session = { workspace = true }
+sp-statement-store = { workspace = true }
 sp-storage = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-version = { workspace = true }
@@ -141,6 +142,7 @@ std = [
 	"sp-offchain/std",
 	"sp-runtime/std",
 	"sp-session/std",
+	"sp-statement-store/std",
 	"sp-storage/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
