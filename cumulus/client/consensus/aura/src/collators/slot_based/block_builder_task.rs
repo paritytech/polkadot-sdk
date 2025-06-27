@@ -17,24 +17,12 @@
 
 use codec::{Codec, Encode};
 
-use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
-use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
-use cumulus_client_consensus_proposer::ProposerInterface;
-use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
-use cumulus_primitives_core::{GetCoreSelectorApi, PersistedValidationData};
-use cumulus_relay_chain_interface::RelayChainInterface;
-
-use polkadot_primitives::{
-	Block as RelayBlock, BlockId, Hash as RelayHash, Header as RelayHeader, Id as ParaId,
-};
-
 use super::CollatorMessage;
 use crate::{
-	collator::{self as collator_util},
+	collator as collator_util,
 	collators::{
 		check_validation_code_or_log,
 		slot_based::{
-			core_selector,
 			relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
 			slot_timer::{SlotInfo, SlotTimer},
 		},
@@ -42,8 +30,19 @@ use crate::{
 	},
 	LOG_TARGET,
 };
-use cumulus_primitives_core::RelayParentOffsetApi;
+use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
+use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
+use cumulus_client_consensus_proposer::ProposerInterface;
+use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
+use cumulus_primitives_core::{
+	extract_relay_parent, rpsr_digest, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
+	GetCoreSelectorApi, PersistedValidationData, RelayParentOffsetApi,
+};
+use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
+use polkadot_primitives::{
+	Block as RelayBlock, CoreIndex, Hash as RelayHash, Header as RelayHeader, Id as ParaId,
+};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::SlotDuration;
@@ -54,7 +53,7 @@ use sp_consensus_aura::AuraApi;
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member, Zero};
 use std::{collections::VecDeque, sync::Arc, time::Duration};
 
 /// Parameters for [`run_block_builder`].
@@ -205,7 +204,7 @@ where
 			};
 
 			let Ok(rp_data) = offset_relay_parent_find_descendants(
-				&relay_client,
+				&mut relay_chain_data_cache,
 				relay_best_hash,
 				relay_parent_offset,
 			)
@@ -223,6 +222,7 @@ where
 			};
 
 			let relay_parent = rp_data.relay_parent().hash();
+			let relay_parent_header = rp_data.relay_parent().clone();
 
 			let Some((included_header, parent)) =
 				crate::collators::find_parent(relay_parent, para_id, &*para_backend, &relay_client)
@@ -232,68 +232,68 @@ where
 			};
 
 			let parent_hash = parent.hash;
+			let parent_header = parent.header;
 
 			// Retrieve the core selector.
-			let (core_selector, claim_queue_offset) =
-				match core_selector(&*para_client, parent.hash, *parent.header.number()) {
-					Ok(core_selector) => core_selector,
-					Err(err) => {
-						tracing::trace!(
-							target: crate::LOG_TARGET,
-							"Unable to retrieve the core selector from the runtime API: {}",
-							err
+			let (core_selector, claim_queue_offset, core_index, number_of_cores) =
+				match determine_core(
+					&mut relay_chain_data_cache,
+					&relay_parent_header,
+					para_id,
+					&parent_header,
+				)
+				.await
+				{
+					Err(()) => {
+						tracing::debug!(
+							target: LOG_TARGET,
+							?relay_parent,
+							"Failed to determine core"
 						);
+
+						continue
+					},
+					Ok(Some(res)) => {
+						tracing::debug!(
+							target: LOG_TARGET,
+							?relay_parent,
+							core_selector = ?res.0,
+							claim_queue_offset = ?res.1,
+							"Going to claim core",
+						);
+
+						res
+					},
+					Ok(None) => {
+						tracing::debug!(
+							target: LOG_TARGET,
+							?relay_parent,
+							"No available core"
+						);
+
 						continue
 					},
 				};
 
-			let Ok(RelayChainData {
-				relay_parent_header,
-				max_pov_size,
-				scheduled_cores,
-				claimed_cores,
-			}) = relay_chain_data_cache
-				.get_mut_relay_chain_data(relay_parent, claim_queue_offset)
-				.await
+			let Ok(RelayChainData { max_pov_size, claim_queue, .. }) =
+				relay_chain_data_cache.get_mut_relay_chain_data(relay_parent).await
 			else {
 				continue;
 			};
 
-			tracing::debug!(
-				target: LOG_TARGET,
-				?relay_parent,
-				?claimed_cores,
-				"Claimed cores.",
+			slot_timer.update_scheduling(
+				claim_queue
+					.iter_claims_at_depth(claim_queue_offset.0 as usize)
+					.filter(|(_, id)| para_id == *id)
+					.count() as u32,
 			);
-			if scheduled_cores.is_empty() {
-				tracing::debug!(target: LOG_TARGET, "Parachain not scheduled, skipping slot.");
-				continue;
-			} else {
-				tracing::debug!(
-					target: LOG_TARGET,
-					?relay_parent,
-					"Parachain is scheduled on cores: {:?}",
-					scheduled_cores
-				);
-			}
-
-			slot_timer.update_scheduling(scheduled_cores.len() as u32);
-
-			let core_selector = core_selector.0 as usize % scheduled_cores.len();
-			let Some(core_index) = scheduled_cores.get(core_selector) else {
-				// This cannot really happen, as we modulo the core selector with the
-				// scheduled_cores length and we check that the scheduled_cores is not empty.
-				continue;
-			};
-
-			let parent_header = parent.header;
 
 			// We mainly call this to inform users at genesis if there is a mismatch with the
 			// on-chain data.
 			collator.collator_service().check_block_status(parent_hash, &parent_header);
 
 			let Ok(relay_slot) =
-				sc_consensus_babe::find_pre_digest::<RelayBlock>(relay_parent_header)
+				sc_consensus_babe::find_pre_digest::<RelayBlock>(&relay_parent_header)
 					.map(|babe_pre_digest| babe_pre_digest.slot())
 			else {
 				tracing::error!(target: crate::LOG_TARGET, "Relay chain does not contain babe slot. This should never happen.");
@@ -317,28 +317,18 @@ where
 				None => {
 					tracing::debug!(
 						target: crate::LOG_TARGET,
-						?core_index,
 						unincluded_segment_len = parent.depth,
-						relay_parent = %relay_parent,
+						relay_parent = ?relay_parent,
 						relay_parent_num = %relay_parent_header.number(),
-						included_hash = %included_header_hash,
+						included_hash = ?included_header_hash,
 						included_num = %included_header.number(),
-						parent = %parent_hash,
+						parent = ?parent_hash,
 						slot = ?para_slot.slot,
 						"Not building block."
 					);
 					continue
 				},
 			};
-
-			if !claimed_cores.insert(*core_index) {
-				tracing::debug!(
-					target: LOG_TARGET,
-					"Core {:?} was already claimed at this relay chain slot",
-					core_index
-				);
-				continue
-			}
 
 			tracing::debug!(
 				target: crate::LOG_TARGET,
@@ -350,7 +340,6 @@ where
 				included_num = %included_header.number(),
 				parent = %parent_hash,
 				slot = ?para_slot.slot,
-				?core_index,
 				"Building block."
 			);
 
@@ -408,7 +397,12 @@ where
 				.build_block_and_import(
 					&parent_header,
 					&slot_claim,
-					None,
+					Some(vec![CumulusDigestItem::CoreInfo(CoreInfo {
+						selector: core_selector,
+						claim_queue_offset,
+						number_of_cores: number_of_cores.into(),
+					})
+					.to_digest_item()]),
 					(parachain_inherent_data, other_inherent_data),
 					authoring_duration,
 					allowed_pov_size,
@@ -429,7 +423,7 @@ where
 				parent_header,
 				parachain_candidate: candidate,
 				validation_code_hash,
-				core_index: *core_index,
+				core_index,
 				max_pov_size: validation_data.max_pov_size,
 			}) {
 				tracing::error!(target: crate::LOG_TARGET, ?err, "Unable to send block to collation task.");
@@ -473,14 +467,17 @@ fn adjust_para_to_relay_parent_slot(
 /// The function traverses backwards from the best block until it finds the block at the specified
 /// offset, collecting all blocks in between to maintain the chain of ancestry.
 async fn offset_relay_parent_find_descendants<RelayClient>(
-	relay_client: &RelayClient,
+	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
 	relay_best_block: RelayHash,
 	relay_parent_offset: u32,
 ) -> Result<RelayParentData, ()>
 where
 	RelayClient: RelayChainInterface + Clone + 'static,
 {
-	let Ok(Some(mut relay_header)) = relay_client.header(BlockId::Hash(relay_best_block)).await
+	let Ok(mut relay_header) = relay_chain_data_cache
+		.get_mut_relay_chain_data(relay_best_block)
+		.await
+		.map(|d| d.relay_parent_header.clone())
 	else {
 		tracing::error!(target: LOG_TARGET, ?relay_best_block, "Unable to fetch best relay chain block header.");
 		return Err(())
@@ -493,20 +490,21 @@ where
 	let mut required_ancestors: VecDeque<RelayHeader> = Default::default();
 	required_ancestors.push_front(relay_header.clone());
 	while required_ancestors.len() < relay_parent_offset as usize {
-		let Ok(Some(next_header)) =
-			relay_client.header(BlockId::Hash(*relay_header.parent_hash())).await
-		else {
-			return Err(())
-		};
+		let next_header = relay_chain_data_cache
+			.get_mut_relay_chain_data(*relay_header.parent_hash())
+			.await?
+			.relay_parent_header
+			.clone();
 		required_ancestors.push_front(next_header.clone());
 		relay_header = next_header;
 	}
 
-	let Ok(Some(relay_parent)) =
-		relay_client.header(BlockId::Hash(*relay_header.parent_hash())).await
-	else {
-		return Err(())
-	};
+	let relay_parent = relay_chain_data_cache
+		.get_mut_relay_chain_data(*relay_header.parent_hash())
+		.await?
+		.relay_parent_header
+		.clone();
+
 	tracing::debug!(
 		target: LOG_TARGET,
 		relay_parent_hash = %relay_parent.hash(),
@@ -514,7 +512,58 @@ where
 		num_descendants = required_ancestors.len(),
 		"Relay parent descendants."
 	);
+
 	Ok(RelayParentData::new_with_descendants(relay_parent, required_ancestors.into()))
+}
+
+/// Determine the core for the given `para_id`.
+///
+/// Takes into account the `parent` core to find the next available core.
+async fn determine_core<Header: HeaderT, RI: RelayChainInterface + 'static>(
+	relay_chain_data_cache: &mut RelayChainDataCache<RI>,
+	relay_parent: &RelayHeader,
+	para_id: ParaId,
+	parent: &Header,
+) -> Result<Option<(CoreSelector, ClaimQueueOffset, CoreIndex, u16)>, ()> {
+	let core_info = CumulusDigestItem::find_core_info(parent.digest());
+
+	let last_relay_parent = if parent.number().is_zero() {
+		0
+	} else {
+		match extract_relay_parent(parent.digest()) {
+			Some(last_relay_parent) => *relay_chain_data_cache
+				.get_mut_relay_chain_data(last_relay_parent)
+				.await?
+				.relay_parent_header
+				.number(),
+			None => rpsr_digest::extract_relay_parent_storage_root(parent.digest()).ok_or(())?.1,
+		}
+	};
+
+	let relay_parent_offset = relay_parent.number().saturating_sub(last_relay_parent);
+	let claim_queue = &relay_chain_data_cache
+		.get_mut_relay_chain_data(relay_parent.hash())
+		.await?
+		.claim_queue;
+
+	// If the offset between the last relay parent and the current one is bigger than the last
+	// claim queue offset, we can start from the beginning of the claim queue. Because there was no
+	// core yet claimed from this claim queue.
+	let res = if relay_parent_offset >
+		core_info.as_ref().map(|ci| ci.claim_queue_offset).unwrap_or_default().0 as u32
+	{
+		claim_queue.find_core(para_id, 0, 0)
+	} else {
+		claim_queue.find_core(
+			para_id,
+			core_info.as_ref().map_or(0, |ci| ci.selector.0 as u32 + 1),
+			core_info
+				.as_ref()
+				.map_or(0, |ci| ci.claim_queue_offset.0 as u32 - relay_parent_offset),
+		)
+	};
+
+	Ok(res)
 }
 
 #[cfg(test)]
@@ -524,6 +573,7 @@ mod tests {
 	use cumulus_relay_chain_interface::*;
 	use futures::Stream;
 	use polkadot_primitives::vstaging::{CandidateEvent, CommittedCandidateReceiptV2};
+	use sp_runtime::generic::BlockId;
 	use sp_version::RuntimeVersion;
 	use std::{
 		collections::{BTreeMap, HashMap, VecDeque},
@@ -537,7 +587,9 @@ mod tests {
 
 		let client = TestRelayClient::new(headers);
 
-		let result = offset_relay_parent_find_descendants(&client, best_hash, 0).await;
+		let mut cache = RelayChainDataCache::new(client, 1.into());
+
+		let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 0).await;
 		assert!(result.is_ok());
 		let data = result.unwrap();
 		assert_eq!(data.descendants_len(), 0);
@@ -552,7 +604,9 @@ mod tests {
 
 		let client = TestRelayClient::new(headers);
 
-		let result = offset_relay_parent_find_descendants(&client, best_hash, 2).await;
+		let mut cache = RelayChainDataCache::new(client, 1.into());
+
+		let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 2).await;
 		assert!(result.is_ok());
 		let data = result.unwrap();
 		assert_eq!(data.descendants_len(), 2);
@@ -570,7 +624,9 @@ mod tests {
 
 		let client = TestRelayClient::new(headers);
 
-		let result = offset_relay_parent_find_descendants(&client, best_hash, 5).await;
+		let mut cache = RelayChainDataCache::new(client, 1.into());
+
+		let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 5).await;
 		assert!(result.is_ok());
 		let data = result.unwrap();
 		assert_eq!(data.descendants_len(), 5);
@@ -588,10 +644,12 @@ mod tests {
 
 		let client = TestRelayClient::new(headers);
 
-		let result = offset_relay_parent_find_descendants(&client, best_hash, 200).await;
+		let mut cache = RelayChainDataCache::new(client, 1.into());
+
+		let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 200).await;
 		assert!(result.is_err());
 
-		let result = offset_relay_parent_find_descendants(&client, best_hash, 101).await;
+		let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 101).await;
 		assert!(result.is_err());
 	}
 
