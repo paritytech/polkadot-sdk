@@ -52,6 +52,7 @@ impl<Delta: Get<Rank>> Convert<u16, Rank> for MinRankOfClass<Delta> {
 
 pub struct TestPay;
 impl Pay for TestPay {
+	type Source = ();
 	type Beneficiary = u64;
 	type Balance = u64;
 	type Id = u64;
@@ -59,6 +60,7 @@ impl Pay for TestPay {
 	type Error = ();
 
 	fn pay(
+		_: &Self::Source,
 		_: &Self::Beneficiary,
 		_: Self::AssetKind,
 		_: Self::Balance,
@@ -69,7 +71,13 @@ impl Pay for TestPay {
 		unreachable!()
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_successful(_: &Self::Beneficiary, _: Self::AssetKind, _: Self::Balance) {}
+	fn ensure_successful(
+		_: &Self::Source,
+		_: &Self::Beneficiary,
+		_: Self::AssetKind,
+		_: Self::Balance,
+	) {
+	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_concluded(_: Self::Id) {
 		unreachable!()
