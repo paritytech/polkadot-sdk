@@ -1,7 +1,7 @@
 # Documentation Guidelines
 
-This document is focused on documenting parts of the Polkadot SDK that relate to its external API. The list of such crates can
-be found in [CODEOWNERS](/.github/CODEOWNERS). Search for the crates auto-assigned to the `docs-audit` team.
+This document is focused on documenting parts of the Polkadot SDK that relate to its external API. The list of such
+crates can be found in [CODEOWNERS](/.github/CODEOWNERS). Search for the crates auto-assigned to the `docs-audit` team.
 
 These crates are used by external developers and need thorough documentation. They are the most concerned with FRAME
 development.
