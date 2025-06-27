@@ -28,7 +28,7 @@ frame-system = { workspace = true }
 pallet-bags-list = { workspace = true }
 pallet-delegated-staking = { workspace = true }
 pallet-nomination-pools = { workspace = true }
-pallet-staking = { workspace = true }
+pallet-staking-async = { workspace = true }
 
 # Substrate Primitives
 sp-runtime = { workspace = true }
@@ -54,7 +54,7 @@ std = [
 	"pallet-balances/std",
 	"pallet-delegated-staking/std",
 	"pallet-nomination-pools/std",
-	"pallet-staking/std",
+	"pallet-staking-async/std",
 	"pallet-timestamp/std",
 	"scale-info/std",
 	"sp-core/std",
@@ -72,7 +72,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-delegated-staking/runtime-benchmarks",
 	"pallet-nomination-pools/runtime-benchmarks",
-	"pallet-staking/runtime-benchmarks",
+	"pallet-staking-async/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",

@@ -77,7 +77,7 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
-pallet_staking_reward_curve::build! {
+pallet_staking_async::_reward_curve::build! {
 	const I_NPOS: sp_runtime::curve::PiecewiseLinear<'static> = curve!(
 		min_inflation: 0_025_000,
 		max_inflation: 0_100_000,
@@ -93,21 +93,21 @@ parameter_types! {
 	pub static BondingDuration: u32 = 3;
 }
 
-#[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
-impl pallet_staking::Config for Runtime {
+#[derive_impl(pallet_staking_async::config_preludes::TestDefaultConfig)]
+impl pallet_staking_async::Config for Runtime {
 	type OldCurrency = Balances;
 	type Currency = Balances;
 	type UnixTime = pallet_timestamp::Pallet<Self>;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type BondingDuration = BondingDuration;
-	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
+	type EraPayout = pallet_staking_async::ConvertCurve<RewardCurve>;
 	type ElectionProvider =
 		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, (), ())>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = VoterList;
-	type TargetList = pallet_staking::UseValidatorsMap<Self>;
+	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
 	type EventListeners = (Pools, DelegatedStaking);
-	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
+	type BenchmarkingConfig = pallet_staking_async::TestBenchmarkingConfig;
 }
 
 parameter_types! {
@@ -294,7 +294,7 @@ frame_support::construct_runtime!(
 		System: frame_system,
 		Timestamp: pallet_timestamp,
 		Balances: pallet_balances,
-		Staking: pallet_staking,
+		Staking: pallet_staking_async,
 		VoterList: pallet_bags_list::<Instance1>,
 		Pools: pallet_nomination_pools,
 		DelegatedStaking: pallet_delegated_staking,
@@ -331,13 +331,13 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		// set some limit for nominations.
 		assert_ok!(Staking::set_staking_configs(
 			RuntimeOrigin::root(),
-			pallet_staking::ConfigOp::Set(10), // minimum nominator bond
-			pallet_staking::ConfigOp::Noop,
-			pallet_staking::ConfigOp::Noop,
-			pallet_staking::ConfigOp::Noop,
-			pallet_staking::ConfigOp::Noop,
-			pallet_staking::ConfigOp::Noop,
-			pallet_staking::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Set(10), // minimum nominator bond
+			pallet_staking_async::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Noop,
 		));
 	});
 
@@ -362,7 +362,7 @@ pub(crate) fn pool_events_since_last_call() -> Vec<pallet_nomination_pools::Even
 	events.into_iter().skip(already_seen).collect()
 }
 
-pub(crate) fn staking_events_since_last_call() -> Vec<pallet_staking::Event<Runtime>> {
+pub(crate) fn staking_events_since_last_call() -> Vec<pallet_staking_async::Event<Runtime>> {
 	let events = System::events()
 		.into_iter()
 		.map(|r| r.event)
@@ -385,4 +385,12 @@ pub(crate) fn delegated_staking_events_since_last_call(
 	let already_seen = ObservedEventsDelegatedStaking::get();
 	ObservedEventsDelegatedStaking::set(events.len());
 	events.into_iter().skip(already_seen).collect()
+}
+
+pub fn set_active_era(era: sp_staking::EraIndex) {
+	pallet_staking_async::CurrentEra::<Runtime>::put(era);
+	pallet_staking_async::ActiveEra::<Runtime>::put(pallet_staking_async::ActiveEraInfo {
+		index: era,
+		start: Some(0),
+	});
 }

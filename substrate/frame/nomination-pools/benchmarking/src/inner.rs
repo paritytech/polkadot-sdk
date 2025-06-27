@@ -36,7 +36,7 @@ use pallet_nomination_pools::{
 	MaxPoolMembers, MaxPoolMembersPerPool, MaxPools, Metadata, MinCreateBond, MinJoinBond,
 	Pallet as Pools, PoolId, PoolMembers, PoolRoles, PoolState, RewardPools, SubPoolsStorage,
 };
-use pallet_staking::MaxNominationsOf;
+use pallet_staking_async::MaxNominationsOf;
 use sp_runtime::{
 	traits::{Bounded, StaticLookup, Zero},
 	Perbill,
@@ -53,7 +53,7 @@ const MAX_SPANS: u32 = 100;
 pub(crate) type VoterBagsListInstance = pallet_bags_list::Instance1;
 pub trait Config:
 	pallet_nomination_pools::Config
-	+ pallet_staking::Config
+	+ pallet_staking_async::Config
 	+ pallet_bags_list::Config<VoterBagsListInstance>
 {
 }
@@ -133,10 +133,10 @@ fn migrate_to_transfer_stake<T: Config>(pool_id: PoolId) {
 		});
 
 	// Pool needs to have ED balance free to stake so give it some.
-	// Note: we didn't require ED until pallet-staking migrated from locks to holds.
+	// Note: we didn't require ED until pallet-staking-async migrated from locks to holds.
 	let _ = CurrencyOf::<T>::mint_into(&pool_acc, CurrencyOf::<T>::minimum_balance());
 
-	pallet_staking::Pallet::<T>::migrate_to_direct_staker(&pool_acc);
+	pallet_staking_async::Pallet::<T>::migrate_to_direct_staker(&pool_acc);
 }
 
 fn vote_to_balance<T: pallet_nomination_pools::Config>(
@@ -198,10 +198,11 @@ impl<T: Config> ListScenario<T> {
 		)?;
 
 		// Find a destination weight that will trigger the worst case scenario
-		let dest_weight_as_vote = <T as pallet_staking::Config>::VoterList::score_update_worst_case(
-			&pool_origin1,
-			is_increase,
-		);
+		let dest_weight_as_vote =
+			<T as pallet_staking_async::Config>::VoterList::score_update_worst_case(
+				&pool_origin1,
+				is_increase,
+			);
 
 		let dest_weight: BalanceOf<T> =
 			dest_weight_as_vote.try_into().map_err(|_| "could not convert u64 to Balance")?;
@@ -215,7 +216,7 @@ impl<T: Config> ListScenario<T> {
 			vec![account("random_validator", 0, USER_SEED)],
 		)?;
 
-		let weight_of = pallet_staking::Pallet::<T>::weight_of_fn();
+		let weight_of = pallet_staking_async::Pallet::<T>::weight_of_fn();
 		assert_eq!(vote_to_balance::<T>(weight_of(&pool_origin1)).unwrap(), origin_weight);
 		assert_eq!(vote_to_balance::<T>(weight_of(&pool_origin2)).unwrap(), origin_weight);
 		assert_eq!(vote_to_balance::<T>(weight_of(&pool_dest1)).unwrap(), dest_weight);
@@ -254,7 +255,7 @@ impl<T: Config> ListScenario<T> {
 		Pools::<T>::join(RuntimeOrigin::Signed(joiner.clone()).into(), amount, 1).unwrap();
 
 		// check that the vote weight is still the same as the original bonded
-		let weight_of = pallet_staking::Pallet::<T>::weight_of_fn();
+		let weight_of = pallet_staking_async::Pallet::<T>::weight_of_fn();
 		assert_eq!(vote_to_balance::<T>(weight_of(&self.origin1)).unwrap(), original_bonded);
 
 		// check the member was added correctly
@@ -268,8 +269,8 @@ impl<T: Config> ListScenario<T> {
 
 #[benchmarks(
 	where
-		T: pallet_staking::Config,
-		pallet_staking::BalanceOf<T>: From<u128>,
+		T: pallet_staking_async::Config,
+		pallet_staking_async::BalanceOf<T>: From<u128>,
 		BalanceOf<T>: Into<u128>,
 )]
 mod benchmarks {
@@ -442,12 +443,15 @@ mod benchmarks {
 			T::StakeAdapter::active_stake(Pool::from(pool_account.clone())),
 			min_create_bond
 		);
-		assert_eq!(pallet_staking::Ledger::<T>::get(&pool_account).unwrap().unlocking.len(), 1);
+		assert_eq!(
+			pallet_staking_async::Ledger::<T>::get(&pool_account).unwrap().unlocking.len(),
+			1
+		);
 		// Set the current era
-		pallet_staking::CurrentEra::<T>::put(EraIndex::max_value());
+		pallet_staking_async::CurrentEra::<T>::put(EraIndex::max_value());
 
 		// Add `s` count of slashing spans to storage.
-		pallet_staking::benchmarking::add_slashing_spans::<T>(&pool_account, s);
+		pallet_staking_async::benchmarking::add_slashing_spans::<T>(&pool_account, s);
 		whitelist_account!(pool_account);
 
 		#[extrinsic_call]
@@ -456,7 +460,10 @@ mod benchmarks {
 		// The joiners funds didn't change
 		assert_eq!(CurrencyOf::<T>::balance(&joiner), min_join_bond);
 		// The unlocking chunk was removed
-		assert_eq!(pallet_staking::Ledger::<T>::get(pool_account).unwrap().unlocking.len(), 0);
+		assert_eq!(
+			pallet_staking_async::Ledger::<T>::get(pool_account).unwrap().unlocking.len(),
+			0
+		);
 	}
 
 	#[benchmark]
@@ -478,7 +485,7 @@ mod benchmarks {
 		assert_eq!(CurrencyOf::<T>::balance(&joiner), min_join_bond);
 
 		// Unbond the new member
-		pallet_staking::CurrentEra::<T>::put(0);
+		pallet_staking_async::CurrentEra::<T>::put(0);
 		Pools::<T>::fully_unbond(RuntimeOrigin::Signed(joiner.clone()).into(), joiner.clone())
 			.unwrap();
 
@@ -487,12 +494,15 @@ mod benchmarks {
 			T::StakeAdapter::active_stake(Pool::from(pool_account.clone())),
 			min_create_bond
 		);
-		assert_eq!(pallet_staking::Ledger::<T>::get(&pool_account).unwrap().unlocking.len(), 1);
+		assert_eq!(
+			pallet_staking_async::Ledger::<T>::get(&pool_account).unwrap().unlocking.len(),
+			1
+		);
 
 		// Set the current era to ensure we can withdraw unbonded funds
-		pallet_staking::CurrentEra::<T>::put(EraIndex::max_value());
+		pallet_staking_async::CurrentEra::<T>::put(EraIndex::max_value());
 
-		pallet_staking::benchmarking::add_slashing_spans::<T>(&pool_account, s);
+		pallet_staking_async::benchmarking::add_slashing_spans::<T>(&pool_account, s);
 		whitelist_account!(joiner);
 
 		#[extrinsic_call]
@@ -500,7 +510,10 @@ mod benchmarks {
 
 		assert_eq!(CurrencyOf::<T>::balance(&joiner), min_join_bond * 2u32.into());
 		// The unlocking chunk was removed
-		assert_eq!(pallet_staking::Ledger::<T>::get(&pool_account).unwrap().unlocking.len(), 0);
+		assert_eq!(
+			pallet_staking_async::Ledger::<T>::get(&pool_account).unwrap().unlocking.len(),
+			0
+		);
 	}
 
 	#[benchmark]
@@ -518,7 +531,7 @@ mod benchmarks {
 		.unwrap();
 
 		// Unbond the creator
-		pallet_staking::CurrentEra::<T>::put(0);
+		pallet_staking_async::CurrentEra::<T>::put(0);
 		// Simulate some rewards so we can check if the rewards storage is cleaned up. We check this
 		// here to ensure the complete flow for destroying a pool works - the reward pool account
 		// should never exist by time the depositor withdraws so we test that it gets cleaned
@@ -537,13 +550,16 @@ mod benchmarks {
 			T::StakeAdapter::total_balance(Pool::from(pool_account.clone())),
 			Some(min_create_bond)
 		);
-		assert_eq!(pallet_staking::Ledger::<T>::get(&pool_account).unwrap().unlocking.len(), 1);
+		assert_eq!(
+			pallet_staking_async::Ledger::<T>::get(&pool_account).unwrap().unlocking.len(),
+			1
+		);
 
 		// Set the current era to ensure we can withdraw unbonded funds
-		pallet_staking::CurrentEra::<T>::put(EraIndex::max_value());
+		pallet_staking_async::CurrentEra::<T>::put(EraIndex::max_value());
 
 		// Some last checks that storage items we expect to get cleaned up are present
-		assert!(pallet_staking::Ledger::<T>::contains_key(&pool_account));
+		assert!(pallet_staking_async::Ledger::<T>::contains_key(&pool_account));
 		assert!(BondedPools::<T>::contains_key(&1));
 		assert!(SubPoolsStorage::<T>::contains_key(&1));
 		assert!(RewardPools::<T>::contains_key(&1));
@@ -556,7 +572,7 @@ mod benchmarks {
 		withdraw_unbonded(RuntimeOrigin::Signed(depositor.clone()), depositor_lookup, s);
 
 		// Pool removal worked
-		assert!(!pallet_staking::Ledger::<T>::contains_key(&pool_account));
+		assert!(!pallet_staking_async::Ledger::<T>::contains_key(&pool_account));
 		assert!(!BondedPools::<T>::contains_key(&1));
 		assert!(!SubPoolsStorage::<T>::contains_key(&1));
 		assert!(!RewardPools::<T>::contains_key(&1));
@@ -997,11 +1013,11 @@ mod benchmarks {
 		let slash_amount: u128 = deposit_amount.into() / 2;
 
 		// slash pool by half
-		pallet_staking::slashing::do_slash::<T>(
+		pallet_staking_async::slashing::do_slash::<T>(
 			&pool_account,
 			slash_amount.into(),
-			&mut pallet_staking::BalanceOf::<T>::zero(),
-			&mut pallet_staking::NegativeImbalanceOf::<T>::zero(),
+			&mut pallet_staking_async::BalanceOf::<T>::zero(),
+			&mut pallet_staking_async::NegativeImbalanceOf::<T>::zero(),
 			EraIndex::zero(),
 		);
 
@@ -1018,7 +1034,7 @@ mod benchmarks {
 
 		// Fill member's sub pools for the worst case.
 		for i in 1..(T::MaxUnbonding::get() + 1) {
-			pallet_staking::CurrentEra::<T>::put(i);
+			pallet_staking_async::CurrentEra::<T>::put(i);
 			assert!(Pools::<T>::unbond(
 				RuntimeOrigin::Signed(depositor.clone()).into(),
 				depositor_lookup.clone(),
@@ -1027,7 +1043,7 @@ mod benchmarks {
 			.is_ok());
 		}
 
-		pallet_staking::CurrentEra::<T>::put(T::MaxUnbonding::get() + 2);
+		pallet_staking_async::CurrentEra::<T>::put(T::MaxUnbonding::get() + 2);
 
 		let slash_reporter =
 			create_funded_user_with_balance::<T>("slasher", 0, CurrencyOf::<T>::minimum_balance());
@@ -1063,15 +1079,15 @@ mod benchmarks {
 
 		// slash pool by half
 		let slash_amount: u128 = deposit_amount.into() / 2;
-		pallet_staking::slashing::do_slash::<T>(
+		pallet_staking_async::slashing::do_slash::<T>(
 			&pool_account,
 			slash_amount.into(),
-			&mut pallet_staking::BalanceOf::<T>::zero(),
-			&mut pallet_staking::NegativeImbalanceOf::<T>::zero(),
+			&mut pallet_staking_async::BalanceOf::<T>::zero(),
+			&mut pallet_staking_async::NegativeImbalanceOf::<T>::zero(),
 			EraIndex::zero(),
 		);
 
-		pallet_staking::CurrentEra::<T>::put(1);
+		pallet_staking_async::CurrentEra::<T>::put(1);
 
 		// new member joins the pool who should not be affected by slash.
 		let min_join_bond = MinJoinBond::<T>::get().max(CurrencyOf::<T>::minimum_balance());
@@ -1084,7 +1100,7 @@ mod benchmarks {
 
 		// Fill member's sub pools for the worst case.
 		for i in 0..T::MaxUnbonding::get() {
-			pallet_staking::CurrentEra::<T>::put(i + 2); // +2 because we already set the current era to 1.
+			pallet_staking_async::CurrentEra::<T>::put(i + 2); // +2 because we already set the current era to 1.
 			assert!(Pools::<T>::unbond(
 				RuntimeOrigin::Signed(joiner.clone()).into(),
 				joiner_lookup.clone(),
@@ -1093,7 +1109,7 @@ mod benchmarks {
 			.is_ok());
 		}
 
-		pallet_staking::CurrentEra::<T>::put(T::MaxUnbonding::get() + 3);
+		pallet_staking_async::CurrentEra::<T>::put(T::MaxUnbonding::get() + 3);
 		whitelist_account!(joiner);
 
 		// Since the StakeAdapter can be different based on the runtime config, the errors could be
