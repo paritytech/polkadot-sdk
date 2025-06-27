@@ -1177,8 +1177,7 @@ impl<T: Config> Pallet<T> {
 		expected_dmq_mqc_head: relay_chain::Hash,
 		downward_messages: AbridgedInboundDownwardMessages,
 	) -> Weight {
-		downward_messages
-			.check_enough_messages_included("DMQ", Self::messages_collection_size_limit());
+		downward_messages.check_enough_messages_included("DMQ");
 
 		let mut dmq_head = <LastDmqMqcHead<T>>::get();
 
@@ -1258,8 +1257,7 @@ impl<T: Config> Pallet<T> {
 		relay_parent_number: relay_chain::BlockNumber,
 	) -> Weight {
 		// First, check the HRMP advancement rule.
-		horizontal_messages
-			.check_enough_messages_included("HRMP", Self::messages_collection_size_limit());
+		horizontal_messages.check_enough_messages_included("HRMP");
 		// Then, check that all submitted messages are sent from channels that exist. The
 		// channel exists if its MQC head is present in `vfp.hrmp_mqc_heads`.
 		for sender in horizontal_messages.get_senders() {

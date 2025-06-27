@@ -195,31 +195,21 @@ impl<Message: InboundMessage> AbridgedInboundMessagesCollection<Message> {
 	/// The `AbridgedInboundMessagesCollection` is provided to the runtime by a collator.
 	/// A malicious collator can provide a collection that contains no full messages or fewer
 	/// full messages than possible, leading to censorship.
-	pub fn check_enough_messages_included(&self, collection_name: &str, max_size: usize) {
+	pub fn check_enough_messages_included(&self, collection_name: &str) {
 		if self.hashed_messages.is_empty() {
 			return;
 		}
 
-		let mut size = 0usize;
-		for msg in &self.full_messages {
-			size = size.saturating_add(msg.data().len());
-		}
 		// Ideally, we should check that the collection contains as many full messages as possible
-		// without exceeding `max_size`. The worst case scenario is that were the first message that
-		// had to be hashed is a max size message. So in this case, `min_size` would be
-		// `max_size - max_msg_size`. However, we can't compute this because we can't access the
-		// max downward message size from the parachain runtime.
-		// So we just check that the aggregate size of all the full messages is greater than
-		// 50% of the `max_size`. This should be a safe threshold.
-		let min_size = ((max_size as f64) * 0.5) as usize;
-
+		// without exceeding the max expected size. The worst case scenario is that were the first
+		// message that had to be hashed is a max size message. So in this case, the min expected
+		// size would be `max_expected_size - max_msg_size`. However, we can't compute this because
+		// we can't access the max downward message size from the parachain runtime.
+		// So for the moment we just check that there is at least 1 full message.
 		assert!(
-			size >= min_size,
-			"[{}] Advancement rule violation: mandatory messages size smaller than expected: \
-			{} < {}",
+			self.full_messages.len() >= 1,
+			"[{}] Advancement rule violation: mandatory messages missing",
 			collection_name,
-			size,
-			min_size
 		);
 	}
 }
