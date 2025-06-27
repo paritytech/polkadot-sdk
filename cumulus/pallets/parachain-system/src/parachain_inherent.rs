@@ -203,9 +203,12 @@ impl<Message: InboundMessage> AbridgedInboundMessagesCollection<Message> {
 		// Ideally, we should check that the collection contains as many full messages as possible
 		// without exceeding the max expected size. The worst case scenario is that were the first
 		// message that had to be hashed is a max size message. So in this case, the min expected
-		// size would be `max_expected_size - max_msg_size`. However, we can't compute this because
-		// we can't access the max downward message size from the parachain runtime.
-		// So for the moment we just check that there is at least 1 full message.
+		// size would be `max_expected_size - max_msg_size`. However, there are multiple issues:
+		// 1. The max message size config can change while we still have to process messages with
+		//    the old max message size.
+		// 2. We can't access the max downward message size from the parachain runtime.
+		//
+		// So the safest approach is to check that there is at least 1 full message.
 		assert!(
 			self.full_messages.len() >= 1,
 			"[{}] Advancement rule violation: mandatory messages missing",
@@ -522,5 +525,28 @@ mod tests {
 				(3000.into(), InboundHrmpMessage { sent_at: 4, data: vec![10] })
 			]
 		)
+	}
+
+	#[test]
+	fn check_enough_messages_included_works() {
+		let mut messages = AbridgedInboundHrmpMessages {
+			full_messages: vec![(
+				1000.into(),
+				InboundHrmpMessage { sent_at: 0, data: vec![1; 100] },
+			)],
+			hashed_messages: vec![(
+				2000.into(),
+				HashedMessage { sent_at: 1, msg_hash: Default::default() },
+			)],
+		};
+
+		messages.check_enough_messages_included("Test");
+
+		messages.full_messages = vec![];
+		let result = std::panic::catch_unwind(|| messages.check_enough_messages_included("Test"));
+		assert!(result.is_err());
+
+		messages.hashed_messages = vec![];
+		messages.check_enough_messages_included("Test");
 	}
 }
