@@ -33,7 +33,7 @@ jobs:
 
   zombienet-cumulus-0001-sync_blocks_from_tip_without_connected_collator:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) && ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-cumulus-0001-sync_blocks_from_tip_without_connected_collator') }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
@@ -60,7 +60,7 @@ jobs:
 
   zombienet-cumulus-0002-pov_recovery:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) && ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-cumulus-0002-pov_recovery') }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
@@ -86,7 +86,7 @@ jobs:
 
   zombienet-cumulus-0003-full_node_catching_up:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) && ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-cumulus-0003-full_node_catching_up') }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
@@ -112,7 +112,7 @@ jobs:
 
   zombienet-cumulus-0004-runtime_upgrade:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) && ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-cumulus-0004-runtime_upgrade') }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
     timeout-minutes: 60
     container:
@@ -153,7 +153,7 @@ jobs:
 
   zombienet-cumulus-0005-migrate_solo_to_para:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) && ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-cumulus-0005-migrate_solo_to_para') }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
     timeout-minutes: 60
     container:
@@ -179,7 +179,7 @@ jobs:
 
   zombienet-cumulus-0006-rpc_collator_builds_blocks:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) && ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-cumulus-0006-rpc_collator_builds_blocks') }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
@@ -206,7 +206,7 @@ jobs:
 
   zombienet-cumulus-0007-full_node_warp_sync:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) && ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-cumulus-0007-full_node_warp_sync') }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
@@ -232,7 +232,7 @@ jobs:
 
   zombienet-cumulus-0008-elastic_authoring:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) && ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-cumulus-0008-elastic_authoring') }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
@@ -259,7 +259,7 @@ jobs:
 
   zombienet-cumulus-0009-elastic_scaling_pov_recovery:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) && ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-cumulus-0009-elastic_scaling_pov_recovery') }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
@@ -286,7 +286,7 @@ jobs:
 
   zombienet-cumulus-0010-elastic_scaling_multiple_block_per_slot:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) && ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-cumulus-0010-elastic_scaling_multiple_block_per_slot') }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
@@ -313,7 +313,7 @@ jobs:
 
   zombienet-cumulus-0011-dht-bootnodes:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) && ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-cumulus-0011-dht-bootnodes') }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
     timeout-minutes: 60
     container:
@@ -340,7 +340,7 @@ jobs:
 
   zombienet-cumulus-0012-parachain_extrinsic_gets_finalized:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) && ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-cumulus-0012-parachain_extrinsic_gets_finalized') }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
     timeout-minutes: 60
     container:
