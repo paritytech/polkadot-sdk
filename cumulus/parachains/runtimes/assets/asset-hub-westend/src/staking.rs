@@ -225,7 +225,7 @@ parameter_types! {
 	// Six sessions in an era (6 hours).
 	pub const SessionsPerEra: SessionIndex = prod_or_fast!(6, 2);
 	/// Duration of a relay session in our blocks. Needs to be hardcoded per-runtime.
-	pub const RelaySessionDuration: BlockNumber = 10; // FAIL-CI @kianenigma
+	pub const RelaySessionDuration: BlockNumber = 1 * HOURS;
 	// 2 eras for unbonding (12 hours).
 	pub const BondingDuration: sp_staking::EraIndex = 2;
 	// 1 era in which slashes can be cancelled (6 hours).
@@ -234,9 +234,6 @@ parameter_types! {
 	// alias for 16, which is the max nominations per nominator in the runtime.
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 	pub storage PlanningEraOffset: u32 = prod_or_fast!(2, 1);
-	// Note: In WAH, this should be set closer to the ideal era duration to trigger capping more
-	// frequently. On Kusama and Polkadot, a higher value like 7 × ideal_era_duration is more
-	// appropriate. FAIL-CI @kianenigma
 	pub const MaxEraDuration: u64 = RelaySessionDuration::get() as u64 * RELAY_CHAIN_SLOT_DURATION_MILLIS as u64 * SessionsPerEra::get() as u64;
 }
 
