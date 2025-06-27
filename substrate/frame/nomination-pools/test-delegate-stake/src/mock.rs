@@ -338,7 +338,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	.unwrap();
 
 	let _ = pallet_balances::GenesisConfig::<Runtime> {
-		balances: vec![(10, 100), (20, 100), (21, 100), (22, 100)],
+		balances: vec![(10, 100), (20, 100), (21, 100), (22, 100), (1, 1000), (2, 1000), (3, 1000)],
 		..Default::default()
 	}
 	.assimilate_storage(&mut storage)
@@ -361,6 +361,43 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			pallet_staking_async::ConfigOp::Noop,
 			pallet_staking_async::ConfigOp::Noop,
 		));
+
+		// Set up validators that tests can nominate
+		// Create validator 1
+		assert_ok!(Staking::bond(
+			RuntimeOrigin::signed(1),
+			500,
+			pallet_staking_async::RewardDestination::Staked
+		));
+		assert_ok!(Staking::validate(
+			RuntimeOrigin::signed(1),
+			pallet_staking_async::ValidatorPrefs::default()
+		));
+
+		// Create validator 2
+		assert_ok!(Staking::bond(
+			RuntimeOrigin::signed(2),
+			500,
+			pallet_staking_async::RewardDestination::Staked
+		));
+		assert_ok!(Staking::validate(
+			RuntimeOrigin::signed(2),
+			pallet_staking_async::ValidatorPrefs::default()
+		));
+
+		// Create validator 3
+		assert_ok!(Staking::bond(
+			RuntimeOrigin::signed(3),
+			500,
+			pallet_staking_async::RewardDestination::Staked
+		));
+		assert_ok!(Staking::validate(
+			RuntimeOrigin::signed(3),
+			pallet_staking_async::ValidatorPrefs::default()
+		));
+
+		// Clear events from validator setup to avoid test interference
+		frame_system::Pallet::<Runtime>::reset_events();
 	});
 
 	ext
