@@ -297,6 +297,11 @@ pub async fn assert_finality_lag(
 		return Err(anyhow::format_err!("Unable to fetch best an finalized block!"));
 	};
 	let finality_lag = best.number() - finalized.number();
+
+	log::info!(
+		"Finality lagged by {finality_lag} blocks, maximum expected was {maximum_lag} blocks"
+	);
+
 	assert!(finality_lag <= maximum_lag, "Expected finality to lag by a maximum of {maximum_lag} blocks, but was lagging by {finality_lag} blocks.");
 	Ok(())
 }
@@ -305,19 +310,24 @@ pub async fn assert_finality_lag(
 pub async fn assert_blocks_are_being_finalized(
 	client: &OnlineClient<PolkadotConfig>,
 ) -> Result<(), anyhow::Error> {
+	let sleep_duration = Duration::from_secs(12);
 	let mut finalized_blocks = client.blocks().subscribe_finalized().await?;
 	let first_measurement = finalized_blocks
 		.next()
 		.await
 		.ok_or(anyhow::anyhow!("Can't get finalized block from stream"))??
 		.number();
-	sleep(Duration::from_secs(12)).await;
+	sleep(sleep_duration).await;
 	let second_measurement = finalized_blocks
 		.next()
 		.await
 		.ok_or(anyhow::anyhow!("Can't get finalized block from stream"))??
 		.number();
 
+	log::info!(
+		"Finalized {} blocks within {sleep_duration:?}",
+		second_measurement - first_measurement
+	);
 	assert!(second_measurement > first_measurement);
 
 	Ok(())
