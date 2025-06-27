@@ -212,7 +212,9 @@ impl<Block: BlockT> GrandpaJustification<Block> {
 				self.justification.round,
 				set_id,
 				&mut buf,
-			) {
+			)
+			.is_valid()
+			{
 				return Err(ClientError::BadJustification(
 					"invalid signature for precommit in grandpa justification".to_string(),
 				))

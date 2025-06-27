@@ -368,7 +368,8 @@ where
 				&$equivocation.first.1,
 				$equivocation.round_number,
 				report.set_id,
-			);
+			)
+			.is_valid();
 
 			let valid_second = check_message_signature(
 				&$message($equivocation.second.0),
@@ -376,7 +377,8 @@ where
 				&$equivocation.second.1,
 				$equivocation.round_number,
 				report.set_id,
-			);
+			)
+			.is_valid();
 
 			return valid_first && valid_second
 		};
@@ -424,6 +426,13 @@ pub enum SignatureResult {
 
 	/// Invalid signature, but the message was signed in the previous set.
 	OutdatedSet,
+}
+
+impl SignatureResult {
+	/// Returns `true` if the signature is valid.
+	pub fn is_valid(&self) -> bool {
+		matches!(self, SignatureResult::Valid)
+	}
 }
 
 /// Check a message signature by encoding the message as a localized payload and
