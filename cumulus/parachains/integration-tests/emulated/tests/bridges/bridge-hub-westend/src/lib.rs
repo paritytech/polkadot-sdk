@@ -30,7 +30,6 @@ mod imports {
 		v5,
 	};
 	pub(crate) use xcm_executor::traits::TransferType;
-
 	// Cumulus
 	pub(crate) use emulated_integration_tests_common::{
 		accounts::ALICE,

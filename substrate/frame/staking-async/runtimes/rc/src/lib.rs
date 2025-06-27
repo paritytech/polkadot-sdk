@@ -497,7 +497,7 @@ impl pallet_timestamp::Config for Runtime {
 
 impl pallet_authorship::Config for Runtime {
 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
-	type EventHandler = AssetHubStakingClient;
+	type EventHandler = StakingAhClient;
 }
 
 parameter_types! {
@@ -524,7 +524,7 @@ impl sp_runtime::traits::Convert<AccountId, Option<AccountId>> for IdentityValid
 }
 
 /// A testing type that implements SessionManager, it receives a new validator set from
-/// `AssetHubStakingClient`, but it prevents them from being passed over to the session pallet and
+/// `StakingAhClient`, but it prevents them from being passed over to the session pallet and
 /// just uses the previous session keys.
 pub struct AckButPreviousSessionValidatorsPersist<I>(core::marker::PhantomData<I>);
 
@@ -559,7 +559,7 @@ impl pallet_session::Config for Runtime {
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
 	type SessionManager = AckButPreviousSessionValidatorsPersist<
-		session_historical::NoteHistoricalRoot<Self, AssetHubStakingClient>,
+		session_historical::NoteHistoricalRoot<Self, StakingAhClient>,
 	>;
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
@@ -943,7 +943,7 @@ impl pallet_treasury::Config for Runtime {
 impl pallet_offences::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type IdentificationTuple = session_historical::IdentificationTuple<Self>;
-	type OnOffenceHandler = AssetHubStakingClient;
+	type OnOffenceHandler = StakingAhClient;
 }
 
 impl pallet_authority_discovery::Config for Runtime {
@@ -1340,7 +1340,7 @@ impl parachains_inclusion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type DisputesHandler = ParasDisputes;
 	type RewardValidators =
-		parachains_reward_points::RewardValidatorsWithEraPoints<Runtime, AssetHubStakingClient>;
+		parachains_reward_points::RewardValidatorsWithEraPoints<Runtime, StakingAhClient>;
 	type MessageQueue = MessageQueue;
 	type WeightInfo = weights::polkadot_runtime_parachains_inclusion::WeightInfo<Runtime>;
 }
@@ -1517,7 +1517,7 @@ impl assigned_slots::Config for Runtime {
 impl parachains_disputes::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RewardValidators =
-		parachains_reward_points::RewardValidatorsWithEraPoints<Runtime, AssetHubStakingClient>;
+		parachains_reward_points::RewardValidatorsWithEraPoints<Runtime, StakingAhClient>;
 	type SlashingHandler = parachains_slashing::SlashValidatorsForDisputes<ParasSlashing>;
 	type WeightInfo = weights::polkadot_runtime_parachains_disputes::WeightInfo<Runtime>;
 }
@@ -1826,7 +1826,7 @@ mod runtime {
 	pub type Coretime = coretime;
 
 	#[runtime::pallet_index(67)]
-	pub type AssetHubStakingClient = pallet_staking_async_ah_client;
+	pub type StakingAhClient = pallet_staking_async_ah_client;
 
 	// Migrations pallet
 	#[runtime::pallet_index(98)]

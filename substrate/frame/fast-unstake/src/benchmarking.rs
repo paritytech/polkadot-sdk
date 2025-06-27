@@ -47,7 +47,7 @@ fn create_unexposed_batch<T: Config>(batch_size: u32) -> Vec<T::AccountId> {
 
 fn fund_and_bond_account<T: Config>(account: &T::AccountId) {
 	let stake = CurrencyOf::<T>::minimum_balance() * 100u32.into();
-	CurrencyOf::<T>::make_free_balance_be(&account, stake * 10u32.into());
+	CurrencyOf::<T>::make_free_balance_be(&account, stake * 100u32.into());
 
 	// bond without nominating - fast-unstake works with non-nominating bonded accounts.
 	// Note that if we want to nominate a validator, we must first create a valid one; otherwise,

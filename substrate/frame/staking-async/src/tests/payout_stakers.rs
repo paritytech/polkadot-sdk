@@ -1637,7 +1637,7 @@ fn test_runtime_api_pending_rewards() {
 		}
 
 		// Add reward points
-		let reward = EraRewardPoints::<T> {
+		let reward = EraRewardPoints {
 			total: 1,
 			individual: bounded_btree_map![validator_one => 1, validator_two => 1, validator_three => 1],
 		};

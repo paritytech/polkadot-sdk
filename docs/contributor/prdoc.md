@@ -6,7 +6,7 @@ team to apply the correct crate version bumps and to generate the CHANGELOG of t
 
 ## Requirements
 
-When creating a PR, the author needs to decide with the `R0-silent` label whether the PR has to
+When creating a PR, the author needs to decide with the `R0-no-crate-publish-required` label whether the PR has to
 contain a prdoc. The `R0` label should only be placed for No-OP changes like correcting a typo in a
 comment or CI stuff. If unsure, ping the [CODEOWNERS](../../.github/CODEOWNERS) for advice.
 
@@ -77,7 +77,7 @@ downstream teams.
 
 The bump can either be `major`, `minor`, `patch` or `none`. The three first options are defined by
 [rust-lang.org](https://doc.rust-lang.org/cargo/reference/semver.html), whereas `None` should be
-picked if no other applies. The `None` option is equivalent to the `R0-silent` label, but on a crate
+picked if no other applies. The `None` option is equivalent to the `R0-no-crate-publish-required` label, but on a crate
 level. Experimental and private APIs are exempt from bumping and can be broken at any time. Please
 read the [Crate Section](../RELEASE.md) of the RELEASE doc about them.
 
@@ -148,4 +148,3 @@ If a `major` bump is truly needed, you must:
 3. Notify a release engineer or senior reviewer for approval.
 
 > Use this override sparingly, and only when you’re confident the change is safe and justified.
-

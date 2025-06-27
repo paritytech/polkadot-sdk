@@ -210,5 +210,5 @@ jobs:
             --reviewer paritytech/ci \
             --reviewer paritytech/release-engineering \
             $MAYBE_DRAFT \
-            --label "R0-silent" \
+            --label "R0-no-crate-publish-required" \
             --body "$(cat /tmp/pr_body.md)"

@@ -1,0 +1,66 @@
+[package]
+name = "pallet-ah-ops"
+description = "Operations cleanup pallet for the post-migration Asset Hub"
+license = "Apache-2.0"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true # for AHM only
+
+[dependencies]
+codec = { workspace = true, features = ["max-encoded-len"] }
+cumulus-primitives-core = { workspace = true }
+frame-benchmarking = { workspace = true, optional = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+log = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-timestamp = { workspace = true }
+pallet-utility = { workspace = true }
+scale-info = { workspace = true, features = ["derive"] }
+sp-application-crypto = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"cumulus-primitives-core/std",
+	"frame-benchmarking?/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"pallet-balances/std",
+	"pallet-timestamp/std",
+	"pallet-utility/std",
+	"scale-info/std",
+	"sp-application-crypto/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+]
+runtime-benchmarks = [
+	"cumulus-primitives-core/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"pallet-utility/try-runtime",
+	"sp-runtime/try-runtime",
+]

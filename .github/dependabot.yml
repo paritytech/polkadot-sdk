@@ -3,7 +3,7 @@ updates:
   # Update github actions:
   - package-ecosystem: github-actions
     directory: '/'
-    labels: ["A1-insubstantial", "R0-silent"]
+    labels: ["A1-insubstantial", "R0-no-crate-publish-required"]
     schedule:
       interval: weekly
     groups:
@@ -13,7 +13,7 @@ updates:
   # Update Rust dependencies:
   - package-ecosystem: "cargo"
     directory: "/"
-    labels: ["A1-insubstantial", "R0-silent"]
+    labels: ["A1-insubstantial", "R0-no-crate-publish-required"]
     schedule:
       interval: "weekly"
     groups:

@@ -15,8 +15,10 @@ to link the PR to an issue that must be closed once this is merged.*
 
 ## Integration
 
-*In depth notes about how this PR should be integrated by downstream projects. This part is mandatory, and should be
-reviewed by reviewers, if the PR does NOT have the `R0-Silent` label. In case of a `R0-Silent`, it can be ignored.*
+*In depth notes about how this PR should be integrated by downstream projects. This part is
+mandatory, and should be reviewed by reviewers, if the PR does NOT have the
+`R0-no-crate-publish-required` label. In case of a `R0-no-crate-publish-required`, it can be
+ignored.*
 
 ## Review Notes
 

@@ -274,7 +274,7 @@ fn utility_events() -> Vec<Event> {
 #[test]
 fn as_derivative_works() {
 	new_test_ext().execute_with(|| {
-		let sub_1_0 = Utility::derivative_account_id(1, 0);
+		let sub_1_0 = derivative_account_id(1, 0);
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(1), sub_1_0, 5));
 		assert_err_ignore_postinfo!(
 			Utility::as_derivative(RuntimeOrigin::signed(1), 1, Box::new(call_transfer(6, 3)),),

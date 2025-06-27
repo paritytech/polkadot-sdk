@@ -509,6 +509,18 @@ pub mod pallet {
 			Self::do_set_mode(mode);
 			Ok(())
 		}
+
+		/// manually do what this pallet was meant to do at the end of the migration.
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::DbWeight::get().writes(1))]
+		pub fn force_on_migration_end(origin: OriginFor<T>) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			Self::do_set_mode(OperatingMode::Active);
+			BufferedOffences::<T>::take().into_iter().for_each(|(slash_session, offences)| {
+				T::SendToAssetHub::relay_new_offence(slash_session, offences)
+			});
+			Ok(())
+		}
 	}
 
 	impl<T: Config>

@@ -195,3 +195,15 @@ pub mod xcm_version {
 	/// The default XCM version to set in genesis config.
 	pub const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 }
+
+pub mod locations {
+	use frame_support::parameter_types;
+	use xcm::latest::prelude::{Location, Parachain};
+
+	parameter_types! {
+		pub AssetHubLocation: Location = Location::new(1, Parachain(westend_runtime_constants::system_parachain::ASSET_HUB_ID));
+	}
+
+	/// The governance on the AssetHub.
+	pub type GovernanceLocation = AssetHubLocation;
+}
