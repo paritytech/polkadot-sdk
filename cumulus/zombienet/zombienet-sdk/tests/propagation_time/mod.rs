@@ -1,19 +1,36 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-use std::time::{Duration, Instant};
+use std::{
+	str::FromStr,
+	sync::{
+		atomic::{AtomicBool, AtomicU32, Ordering},
+		Arc,
+	},
+	time::{Duration, Instant},
+};
 
 use anyhow::anyhow;
 
 use cumulus_zombienet_sdk_helpers::ensure_para_throughput;
 use polkadot_primitives::Id as ParaId;
+use serde_json::json;
+use subxt::utils::{AccountId32, MultiAddress};
 use zombienet_sdk::{
 	subxt::{ext::futures, OnlineClient, PolkadotConfig},
+	subxt_signer::{sr25519::Keypair, SecretUri},
 	AddCollatorOptions, LocalFileSystem, Network, NetworkConfigBuilder, NetworkNode,
 };
 
+#[zombienet_sdk::subxt::subxt(runtime_metadata_path = "metadata-files/coretime-rococo-local.scale")]
+mod coretime_rococo {}
+
+#[zombienet_sdk::subxt::subxt(runtime_metadata_path = "metadata-files/rococo-local.scale")]
+mod rococo {}
+
 const PARA_ID: u32 = 2000;
 const BEST_BLOCK_METRIC: &str = "block_height{status=\"best\"}";
+const DEV_ACCOUNTS: u32 = 3000;
 
 #[ignore = "Slow test used to measure block propagation time in a sparsely connected network"]
 #[tokio::test(flavor = "multi_thread")]
@@ -55,6 +72,7 @@ async fn sparsely_connected_network_block_propagation_time() -> Result<(), anyho
 		propagation_times[propagation_times.len() / 2]
 	};
 	log::info!("Median propagation time: {median} seconds");
+	log::info!("Propagation times distribution: {propagation_times:?}");
 
 	Ok(())
 }
@@ -65,6 +83,8 @@ async fn run_network() -> Result<f64, anyhow::Error> {
 	let relay_alice = network.get_node("alice")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_alice.wait_client().await?;
+
+	start_sending_transactions(&network).await?;
 
 	log::info!("Ensuring parachain making progress");
 	let has_throughput = ensure_para_throughput(
@@ -105,7 +125,75 @@ async fn timeout<F, T>(future: F) -> Result<T, anyhow::Error>
 where
 	F: futures::Future<Output = Result<T, anyhow::Error>>,
 {
-	tokio::time::timeout(Duration::from_secs(60), future).await?
+	tokio::time::timeout(Duration::from_secs(180), future).await?
+}
+
+async fn start_sending_transactions(
+	network: &Network<LocalFileSystem>,
+) -> Result<(), anyhow::Error> {
+	let validator = network.get_node("validator")?.clone();
+	let validator_client: OnlineClient<PolkadotConfig> = validator.wait_client().await?;
+	let success_counter = Arc::new(AtomicU32::new(0));
+	tokio::spawn(async move {
+		let shutdown = Arc::new(AtomicBool::new(false));
+		let mut acc_counter = 0;
+		'outer: while !shutdown.load(Ordering::Relaxed) {
+			tokio::time::sleep(Duration::from_millis(100)).await;
+			for _ in 0..5 {
+				let tx_id = acc_counter;
+				acc_counter = (acc_counter + 1) % DEV_ACCOUNTS;
+				let key =
+					Keypair::from_uri(&SecretUri::from_str(&format!("//Alice//{tx_id}")).unwrap())
+						.unwrap();
+				let acc = AccountId32(key.public_key().0);
+				let tx = coretime_rococo::tx()
+					.balances()
+					.transfer_keep_alive(MultiAddress::Id(acc.clone()), 1);
+				let status =
+					match validator_client.tx().sign_and_submit_then_watch_default(&tx, &key).await
+					{
+						Ok(status) => status,
+						Err(e) => {
+							let e = e.to_string();
+							if e.contains("subscription dropped") || e.contains("restart required")
+							{
+								break 'outer;
+							}
+							log::error!("Transaction {tx_id} failed: {e}");
+							continue;
+						},
+					};
+				let shutdown = shutdown.clone();
+				let success_counter = success_counter.clone();
+				let validator = validator.clone();
+				tokio::spawn(async move {
+					match status.wait_for_finalized_success().await {
+						Ok(ev) => {
+							let count = success_counter.fetch_add(1, Ordering::AcqRel) + 1;
+							if count % 50 == 0 {
+								let block =
+									validator.reports(BEST_BLOCK_METRIC).await.unwrap_or(-1.0);
+								log::info!(
+									"Transaction {tx_id} succeeded with hash {} at block {block}, total successful transactions: {count}",
+									ev.extrinsic_hash(),
+								);
+							}
+						},
+						Err(e) => {
+							let e = e.to_string();
+							if e.contains("subscription dropped") || e.contains("restart required")
+							{
+								shutdown.store(true, Ordering::Relaxed);
+							} else {
+								log::error!("Transaction {tx_id} failed: {e}");
+							}
+						},
+					}
+				});
+			}
+		}
+	});
+	Ok(())
 }
 
 async fn initialize_network() -> Result<NetworkActors, anyhow::Error> {
@@ -138,11 +226,20 @@ async fn initialize_network() -> Result<NetworkActors, anyhow::Error> {
 		})
 		.with_parachain(|p| {
 			p.with_id(PARA_ID)
-				.with_default_command("test-parachain")
+				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
+				.with_chain("coretime-rococo-local")
+				.with_genesis_overrides(json!({
+					"balances": {
+						"devAccounts": [
+							DEV_ACCOUNTS, 1000000000000000000u64, "//Alice//{}"
+						]
+					}
+				}))
 				.with_default_args(vec![("-lparachain=debug").into()])
 				.with_collator(|n| {
 					n.with_name("validator").validator(true).with_args(vec![
+						("--rpc-max-subscriptions-per-connection", "128000").into(),
 						("--in-peers", "1").into(),
 						("--out-peers", "1").into(),
 						("--relay-chain-rpc-url", "{{ZOMBIE:alice:ws_uri}}").into(),
