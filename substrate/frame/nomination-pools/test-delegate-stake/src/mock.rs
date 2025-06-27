@@ -386,11 +386,3 @@ pub(crate) fn delegated_staking_events_since_last_call(
 	ObservedEventsDelegatedStaking::set(events.len());
 	events.into_iter().skip(already_seen).collect()
 }
-
-pub fn set_active_era(era: sp_staking::EraIndex) {
-	pallet_staking_async::CurrentEra::<Runtime>::put(era);
-	pallet_staking_async::ActiveEra::<Runtime>::put(pallet_staking_async::ActiveEraInfo {
-		index: era,
-		start: Some(0),
-	});
-}
