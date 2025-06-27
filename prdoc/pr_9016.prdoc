@@ -7,59 +7,19 @@ doc:
 
     As mentioned in #8077, we want to ensure that `fast-unstake`, `nomination-pools` and `delegated-staking` rely on `pallet-staking-async` and not on `pallet-staking` for tests and benchmarks.
 
-    Since the new staking-async pallet's interface is largely compatible with the old `staking` pallet and tests in these external pallet are relying on the abstract interface `sp-staking`, the number of changes is relatively small.
+    Since the new staking-async pallet's interface is largely compatible with the old `staking` pallet and tests in these external pallets are relying on the abstract interface `sp-staking`, the number of changes is relatively small.
 
-    One key difference though has been introduced by #8436, where we are not allowing anymore to nominated an invalid or not existent validator. This breaks some of the tests in the above mentioned pallets and needs to be addressed. More details below.
-
-    ## Changes
-    ###  fast-unstake
-
-    With the migration to staking-async, some functional changes are necessary in the tests:
-
-    -  Validator Nominations: All nomination calls have been updated to use valid validators (`VALIDATOR_PREFIX`) instead of self-nomination or invalid targets.
-    -  Genesis Setup: The genesis configuration has been fixed to properly set up validators and nominators with valid targets.
-    -  Exposure Creation: The `create_exposed_nominator` function has been updated to use the correct staking-async API.
-
-    The benchmarks were failing because they attempted to nominate accounts that were not properly registered as validators. #8436 added validation to prevent this issue, addressing a silent failure, but it also broke benchmarks with invalid setups.
-
-
-    ### delegated-staking
-
-    Similar to fast-unstake.
-
-    1. Updated `pallet_staking_async::Config` implementation:
-       - Replaced `ConvertCurve<RewardCurve>` with `MockEraPayout`.
-       - Added `RcClientInterface = MockRcClient`.
-
-    2. Added missing dependencies and mocks:
-       - Included `pallet-staking-async-rc-client` as a dev-dependency in `Cargo.toml`.
-       - Added `MockEraPayout` that implements the `EraPayout<Balance>` trait.
-       - Added `MockRcClient` that implements the `RcClientInterface` trait.
-
-    3. Fixed genesis configuration:
-       - Updated the stakers format from a 4-tuple to a 3-tuple (removed the controller field).
-       - Replaced `minimum_validator_count` with the correct configuration.
-       - Adjusted the `invulnerables` field to use `Default::default()` instead of an empty vector.
-
-    4. Enhanced test validator setup:
-       - Added additional validators (18, 19, 20, 21, 22) with appropriate balances to support pool integration tests (validators must exist to be successfully nominated).
-       - Increased the validator count to 6 to accommodate the new validators.
-       - Ensured that account 99 is not pre-configured as a validator to maintain test expectations.
-
-    ### nomination-pools
-
-    No functional changes in tests or benchmarks; only a trivial replacement of pallet-staking with pallet-staking-async.
-
+    One key difference though has been introduced by #8436, where we are not allowing anymore to nominate an invalid or not existent validator. This breaks some of the tests and needs to be addressed.
 
     ## Next steps
 
     We are not running benchmark vs `WAH` runtime for `staking-async`, `nomination-pools` and `delegated-staking`.
-    Once `donal-ahm` branch is merged into `master` (see #7997),   we should  add these 3 to the list. It will be handled in a separate PR.
+    Once `donal-ahm` branch is merged into `master` (see #7997), we should  add these 3 to the list. It will be handled in a separate PR. See #9019.
 crates:
 - name: pallet-fast-unstake
   bump: patch
 - name: pallet-nomination-pools-benchmarking
-  bump: patch
+  bump: minor
 - name: pallet-nomination-pools
   bump: patch
 - name: pallet-delegated-staking
