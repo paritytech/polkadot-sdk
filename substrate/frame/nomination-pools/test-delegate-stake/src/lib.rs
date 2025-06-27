@@ -519,7 +519,10 @@ fn pool_slash_e2e() {
 
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 10 }]
+			vec![
+				StakingEvent::StakerRemoved { stash: POOL1_BONDED },
+				StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 10 },
+			]
 		);
 		assert_eq!(
 			pool_events_since_last_call(),
@@ -1699,7 +1702,10 @@ fn pool_no_dangling_delegation() {
 
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 15 }]
+			vec![
+				StakingEvent::StakerRemoved { stash: POOL1_BONDED },
+				StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 15 },
+			]
 		);
 		assert_eq!(
 			pool_events_since_last_call(),
