@@ -29,7 +29,7 @@ pub fn glutton_westend_config(
 
 	GenericChainSpec::builder(
 		glutton_westend_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain: relay_chain.into(), para_id: para_id.into() },
+		Extensions { relay_chain: relay_chain.into() },
 	)
 	.with_name(&chain_type_name(para_id, &chain_type))
 	.with_id(&chain_id(para_id, &chain_type))

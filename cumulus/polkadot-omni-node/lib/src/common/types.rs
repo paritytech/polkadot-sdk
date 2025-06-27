@@ -29,10 +29,14 @@ type Header<BlockNumber> = generic::Header<BlockNumber, BlakeTwo256>;
 pub type Block<BlockNumber> = generic::Block<Header<BlockNumber>, UncheckedExtrinsic>;
 
 #[cfg(not(feature = "runtime-benchmarks"))]
-pub type ParachainHostFunctions = cumulus_client_service::ParachainHostFunctions;
+pub type ParachainHostFunctions = (
+	cumulus_client_service::ParachainHostFunctions,
+	sp_statement_store::runtime_api::HostFunctions,
+);
 #[cfg(feature = "runtime-benchmarks")]
 pub type ParachainHostFunctions = (
 	cumulus_client_service::ParachainHostFunctions,
+	sp_statement_store::runtime_api::HostFunctions,
 	frame_benchmarking::benchmarking::HostFunctions,
 );
 

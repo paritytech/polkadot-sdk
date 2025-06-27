@@ -17,7 +17,7 @@ sp-core = { workspace = true }
 sp-keyring = { workspace = true }
 
 # Cumulus
-asset-hub-westend-runtime = { workspace = true }
+asset-hub-westend-runtime = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true }
 emulated-integration-tests-common = { workspace = true }
 parachains-common = { workspace = true, default-features = true }

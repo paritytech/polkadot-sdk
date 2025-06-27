@@ -131,7 +131,7 @@ on the node side is purely an optimization, as it will be done in the runtime
 as well.
 
 We use the state of the relay parent to check whether a validator is disabled
-to avoid race conditions and ensure that disabling works well in the presense
+to avoid race conditions and ensure that disabling works well in the presence
 of re-enabling.
 
 ## Messages

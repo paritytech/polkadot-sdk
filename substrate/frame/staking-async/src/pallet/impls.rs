@@ -72,6 +72,30 @@ use sp_runtime::TryRuntimeError;
 const NPOS_MAX_ITERATIONS_COEFFICIENT: u32 = 2;
 
 impl<T: Config> Pallet<T> {
+	/// Returns the minimum required bond for participation, considering nominators,
+	/// and the chain’s existential deposit.
+	///
+	/// This function computes the smallest allowed bond among `MinValidatorBond` and
+	/// `MinNominatorBond`, but ensures it is not below the existential deposit required to keep an
+	/// account alive.
+	pub(crate) fn min_chilled_bond() -> BalanceOf<T> {
+		MinValidatorBond::<T>::get()
+			.min(MinNominatorBond::<T>::get())
+			.max(asset::existential_deposit::<T>())
+	}
+
+	/// Returns the minimum required bond for validators, defaulting to `MinNominatorBond` if not
+	/// set or less than `MinNominatorBond`.
+	pub(crate) fn min_validator_bond() -> BalanceOf<T> {
+		MinValidatorBond::<T>::get().max(Self::min_nominator_bond())
+	}
+
+	/// Returns the minimum required bond for nominators, considering the chain’s existential
+	/// deposit.
+	pub(crate) fn min_nominator_bond() -> BalanceOf<T> {
+		MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>())
+	}
+
 	/// Fetches the ledger associated with a controller or stash account, if any.
 	pub fn ledger(account: StakingAccount<T::AccountId>) -> Result<StakingLedger<T>, Error<T>> {
 		StakingLedger::<T>::get(account)
@@ -169,8 +193,8 @@ impl<T: Config> Pallet<T> {
 
 		ledger.total = ledger.total.checked_add(&extra).ok_or(ArithmeticError::Overflow)?;
 		ledger.active = ledger.active.checked_add(&extra).ok_or(ArithmeticError::Overflow)?;
-		// last check: the new active amount of ledger must be more than ED.
-		ensure!(ledger.active >= asset::existential_deposit::<T>(), Error::<T>::InsufficientBond);
+		// last check: the new active amount of ledger must be more than min bond.
+		ensure!(ledger.active >= Self::min_chilled_bond(), Error::<T>::InsufficientBond);
 
 		// NOTE: ledger must be updated prior to calling `Self::weight_of`.
 		ledger.update()?;
@@ -193,22 +217,22 @@ impl<T: Config> Pallet<T> {
 		}
 		let new_total = ledger.total;
 
-		let ed = asset::existential_deposit::<T>();
-		let used_weight =
-			if ledger.unlocking.is_empty() && (ledger.active < ed || ledger.active.is_zero()) {
-				// This account must have called `unbond()` with some value that caused the active
-				// portion to fall below existential deposit + will have no more unlocking chunks
-				// left. We can now safely remove all staking-related information.
-				Self::kill_stash(&ledger.stash)?;
+		let used_weight = if ledger.unlocking.is_empty() &&
+			(ledger.active < Self::min_chilled_bond() || ledger.active.is_zero())
+		{
+			// This account must have called `unbond()` with some value that caused the active
+			// portion to fall below existential deposit + will have no more unlocking chunks
+			// left. We can now safely remove all staking-related information.
+			Self::kill_stash(&ledger.stash)?;
 
-				T::WeightInfo::withdraw_unbonded_kill()
-			} else {
-				// This was the consequence of a partial unbond. just update the ledger and move on.
-				ledger.update()?;
+			T::WeightInfo::withdraw_unbonded_kill()
+		} else {
+			// This was the consequence of a partial unbond. just update the ledger and move on.
+			ledger.update()?;
 
-				// This is only an update, so we use less overall weight.
-				T::WeightInfo::withdraw_unbonded_update()
-			};
+			// This is only an update, so we use less overall weight.
+			T::WeightInfo::withdraw_unbonded_update()
+		};
 
 		// `old_total` should never be less than the new total because
 		// `consolidate_unlocked` strictly subtracts balance.
@@ -639,7 +663,7 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		log!(info, "[bounds {:?}] generated {} npos targets", bounds, all_targets.len());
+		log!(debug, "[bounds {:?}] generated {} npos targets", bounds, all_targets.len());
 
 		all_targets
 	}
@@ -972,7 +996,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn add_target(target: T::AccountId) {
-		let stake = (MinValidatorBond::<T>::get() + 1u32.into()) * 100u32.into();
+		let stake = (Self::min_validator_bond() + 1u32.into()) * 100u32.into();
 		<Bonded<T>>::insert(target.clone(), target.clone());
 		<Ledger<T>>::insert(target.clone(), StakingLedger::<T>::new(target.clone(), stake));
 		Self::do_add_validator(
@@ -1004,7 +1028,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		targets.into_iter().for_each(|v| {
 			let stake: BalanceOf<T> = target_stake
 				.and_then(|w| <BalanceOf<T>>::try_from(w).ok())
-				.unwrap_or_else(|| MinNominatorBond::<T>::get() * 100u32.into());
+				.unwrap_or_else(|| Self::min_nominator_bond() * 100u32.into());
 			<Bonded<T>>::insert(v.clone(), v.clone());
 			<Ledger<T>>::insert(v.clone(), StakingLedger::<T>::new(v.clone(), stake));
 			Self::do_add_validator(
@@ -1045,7 +1069,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	/// implies a new validator set has been applied, and we must increment the active era to keep
 	/// the systems in sync.
 	fn on_relay_session_report(report: rc_client::SessionReport<Self::AccountId>) {
-		log!(debug, "session report received: {}", report,);
+		log!(debug, "Received session report: {}", report,);
 		let consumed_weight = T::WeightInfo::rc_on_session_report();
 
 		let rc_client::SessionReport {
@@ -1425,11 +1449,11 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	type CurrencyToVote = T::CurrencyToVote;
 
 	fn minimum_nominator_bond() -> Self::Balance {
-		MinNominatorBond::<T>::get()
+		Self::min_nominator_bond()
 	}
 
 	fn minimum_validator_bond() -> Self::Balance {
-		MinValidatorBond::<T>::get()
+		Self::min_validator_bond()
 	}
 
 	fn stash_by_ctrl(controller: &Self::AccountId) -> Result<Self::AccountId, DispatchError> {
@@ -1803,10 +1827,16 @@ impl<T: Config> Pallet<T> {
 						));
 					}
 				} else {
-					ensure!(
-						Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
-						"bond, ledger and/or staking hold inconsistent for a bonded stash."
-					);
+					let integrity = Self::inspect_bond_state(&stash);
+					if integrity != Ok(LedgerIntegrityState::Ok) {
+						// NOTE: not using defensive! since we test these cases and it panics them
+						log!(
+							error,
+							"defensive: bonded stash {:?} has inconsistent ledger state: {:?}",
+							stash,
+							integrity
+						);
+					}
 				}
 
 				// ensure ledger consistency.
