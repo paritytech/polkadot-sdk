@@ -214,9 +214,7 @@ try-runtime = [
 	"polkadot-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-fast-runtime = [
-	"westend-runtime-constants/fast-runtime",
-]
+fast-runtime = ["westend-runtime-constants/fast-runtime"]
 
 # Enable the metadata hash generation in the wasm builder.
 metadata-hash = ["substrate-wasm-builder/metadata-hash"]

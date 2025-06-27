@@ -67,11 +67,6 @@ substrate-build-script-utils = { workspace = true, default-features = true }
 [features]
 default = []
 runtime-benchmarks = [
-	"cumulus-primitives-core/runtime-benchmarks",
-	"parachains-common/runtime-benchmarks",
-	"polkadot-omni-node-lib/runtime-benchmarks",
-	"sc-service/runtime-benchmarks",
-
 	"asset-hub-rococo-runtime/runtime-benchmarks",
 	"asset-hub-westend-runtime/runtime-benchmarks",
 	"bridge-hub-rococo-runtime/runtime-benchmarks",
@@ -79,17 +74,19 @@ runtime-benchmarks = [
 	"collectives-westend-runtime/runtime-benchmarks",
 	"coretime-rococo-runtime/runtime-benchmarks",
 	"coretime-westend-runtime/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
 	"glutton-westend-runtime/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
 	"penpal-runtime/runtime-benchmarks",
 	"people-rococo-runtime/runtime-benchmarks",
 	"people-westend-runtime/runtime-benchmarks",
+	"polkadot-omni-node-lib/runtime-benchmarks",
 	"rococo-parachain-runtime/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
 	"yet-another-parachain-runtime/runtime-benchmarks",
 ]
 try-runtime = [
-	"polkadot-omni-node-lib/try-runtime",
-
 	"asset-hub-rococo-runtime/try-runtime",
 	"asset-hub-westend-runtime/try-runtime",
 	"bridge-hub-rococo-runtime/try-runtime",
@@ -102,6 +99,7 @@ try-runtime = [
 	"penpal-runtime/try-runtime",
 	"people-rococo-runtime/try-runtime",
 	"people-westend-runtime/try-runtime",
+	"polkadot-omni-node-lib/try-runtime",
 ]
 fast-runtime = [
 	"bridge-hub-rococo-runtime/fast-runtime",
