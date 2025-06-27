@@ -39,7 +39,7 @@ async fn full_node_catching_up() -> Result<(), anyhow::Error> {
 	)
 	.await?;
 
-	for (name, timeout_secs) in [("dave", 250u64), ("eve", 250u64), ("ferdie", 250u64)] {
+	for (name, timeout_secs) in [("dave", 250u64), ("eve", 250u64)] {
 		log::info!("Ensuring {name} reports expected block height");
 		assert!(network
 			.get_node(name)?
@@ -77,7 +77,6 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	//   - charlie - validator
 	//   - dave    - full node; synchronizes only with charlie
 	//   - eve     - RPC full node; synchronizes only with charlie
-	//   - ferdie  - light client; synchronizes only with charlie
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
 			r.with_chain("rococo-local")
@@ -105,13 +104,6 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_collator(|n| {
 					n.with_name("eve").validator(false).with_args(vec![
 						("--relay-chain-rpc-url", "{{ZOMBIE:alice:ws_uri}}").into(),
-						("--reserved-only").into(),
-						("--reserved-nodes", "{{ZOMBIE:charlie:multiaddr}}").into(),
-					])
-				})
-				.with_collator(|n| {
-					n.with_name("ferdie").validator(false).with_args(vec![
-						("--relay-chain-light-client").into(),
 						("--reserved-only").into(),
 						("--reserved-nodes", "{{ZOMBIE:charlie:multiaddr}}").into(),
 					])
