@@ -31,16 +31,12 @@ extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, DecodeLimit, Encode};
-use core::{cmp, marker::PhantomData};
+use core::cmp;
 use cumulus_primitives_core::{
-	relay_chain::{
-		self,
-		vstaging::{ClaimQueueOffset, CoreSelector, DEFAULT_CLAIM_QUEUE_OFFSET},
-	},
-	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, CumulusDigestItem,
-	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, ListChannelInfos, MessageSendError,
-	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
-	XcmpMessageHandler, XcmpMessageSource,
+	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo,
+	CumulusDigestItem, GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage,
+	ListChannelInfos, MessageSendError, OutboundHrmpMessage, ParaId, PersistedValidationData,
+	UpwardMessage, UpwardMessageSender, XcmpMessageHandler, XcmpMessageSource,
 };
 use cumulus_primitives_parachain_inherent::{v0, MessageQueueChain, ParachainInherentData};
 use frame_support::{
@@ -56,7 +52,7 @@ use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 use polkadot_runtime_parachains::{FeeTracker, GetMinFeeFactor};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{Block as BlockT, BlockNumberProvider, Hash, One},
+	traits::{Block as BlockT, BlockNumberProvider, Hash},
 	BoundedSlice, FixedU128, RuntimeDebug,
 };
 use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm, MAX_XCM_DECODE_DEPTH};

@@ -36,7 +36,7 @@ use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	extract_relay_parent, rpsr_digest, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
-	GetCoreSelectorApi, PersistedValidationData, RelayParentOffsetApi,
+	PersistedValidationData, RelayParentOffsetApi,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
@@ -124,10 +124,8 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api: AuraApi<Block, P::Public>
-		+ GetCoreSelectorApi<Block>
-		+ RelayParentOffsetApi<Block>
-		+ AuraUnincludedSegmentApi<Block>,
+	Client::Api:
+		AuraApi<Block, P::Public> + RelayParentOffsetApi<Block> + AuraUnincludedSegmentApi<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RelayClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,

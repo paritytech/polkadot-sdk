@@ -653,25 +653,7 @@ fn send_upward_message_num_per_candidate() {
 			},
 			|| {
 				let v = UpwardMessages::<Test>::get();
-				#[cfg(feature = "experimental-ump-signals")]
-				{
-					assert_eq!(
-						v,
-						vec![
-							b"Mr F was here".to_vec(),
-							UMP_SEPARATOR,
-							UMPSignal::SelectCore(
-								CoreSelector(1),
-								ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)
-							)
-							.encode()
-						]
-					);
-				}
-				#[cfg(not(feature = "experimental-ump-signals"))]
-				{
-					assert_eq!(v, vec![b"Mr F was here".to_vec()]);
-				}
+				assert_eq!(v, vec![b"Mr F was here".to_vec()]);
 			},
 		)
 		.add_with_post_test(
@@ -682,25 +664,7 @@ fn send_upward_message_num_per_candidate() {
 			},
 			|| {
 				let v = UpwardMessages::<Test>::get();
-				#[cfg(feature = "experimental-ump-signals")]
-				{
-					assert_eq!(
-						v,
-						vec![
-							b"message 2".to_vec(),
-							UMP_SEPARATOR,
-							UMPSignal::SelectCore(
-								CoreSelector(2),
-								ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)
-							)
-							.encode()
-						]
-					);
-				}
-				#[cfg(not(feature = "experimental-ump-signals"))]
-				{
-					assert_eq!(v, vec![b"message 2".to_vec()]);
-				}
+				assert_eq!(v, vec![b"message 2".to_vec()]);
 			},
 		);
 }
@@ -726,24 +690,7 @@ fn send_upward_message_relay_bottleneck() {
 			|| {
 				// The message won't be sent because there is already one message in queue.
 				let v = UpwardMessages::<Test>::get();
-				#[cfg(feature = "experimental-ump-signals")]
-				{
-					assert_eq!(
-						v,
-						vec![
-							UMP_SEPARATOR,
-							UMPSignal::SelectCore(
-								CoreSelector(1),
-								ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)
-							)
-							.encode()
-						]
-					);
-				}
-				#[cfg(not(feature = "experimental-ump-signals"))]
-				{
-					assert!(v.is_empty());
-				}
+				assert!(v.is_empty());
 			},
 		)
 		.add_with_post_test(
@@ -751,25 +698,7 @@ fn send_upward_message_relay_bottleneck() {
 			|| { /* do nothing within block */ },
 			|| {
 				let v = UpwardMessages::<Test>::get();
-				#[cfg(feature = "experimental-ump-signals")]
-				{
-					assert_eq!(
-						v,
-						vec![
-							vec![0u8; 8],
-							UMP_SEPARATOR,
-							UMPSignal::SelectCore(
-								CoreSelector(2),
-								ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)
-							)
-							.encode()
-						]
-					);
-				}
-				#[cfg(not(feature = "experimental-ump-signals"))]
-				{
-					assert_eq!(v, vec![vec![0u8; 8]]);
-				}
+				assert_eq!(v, vec![vec![0u8; 8]]);
 			},
 		);
 }
@@ -1348,25 +1277,7 @@ fn ump_fee_factor_increases_and_decreases() {
 			|| {
 				// Factor decreases in `on_finalize`, but only if we are below the threshold
 				let messages = UpwardMessages::<Test>::get();
-				#[cfg(feature = "experimental-ump-signals")]
-				{
-					assert_eq!(
-						messages,
-						vec![
-							b"Test".to_vec(),
-							UMP_SEPARATOR,
-							UMPSignal::SelectCore(
-								CoreSelector(1),
-								ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)
-							)
-							.encode()
-						]
-					);
-				}
-				#[cfg(not(feature = "experimental-ump-signals"))]
-				{
-					assert_eq!(messages, vec![b"Test".to_vec()]);
-				}
+				assert_eq!(messages, vec![b"Test".to_vec()]);
 				assert_eq!(
 					UpwardDeliveryFeeFactor::<Test>::get(),
 					FixedU128::from_rational(105, 100)
@@ -1380,28 +1291,10 @@ fn ump_fee_factor_increases_and_decreases() {
 			},
 			|| {
 				let messages = UpwardMessages::<Test>::get();
-				#[cfg(feature = "experimental-ump-signals")]
-				{
-					assert_eq!(
-						messages,
-						vec![
-							b"This message will be enough to increase the fee factor".to_vec(),
-							UMP_SEPARATOR,
-							UMPSignal::SelectCore(
-								CoreSelector(2),
-								ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)
-							)
-							.encode()
-						]
-					);
-				}
-				#[cfg(not(feature = "experimental-ump-signals"))]
-				{
-					assert_eq!(
-						messages,
-						vec![b"This message will be enough to increase the fee factor".to_vec()]
-					);
-				}
+				assert_eq!(
+					messages,
+					vec![b"This message will be enough to increase the fee factor".to_vec()]
+				);
 				// Now the delivery fee factor is decreased, since we are below the threshold
 				assert_eq!(UpwardDeliveryFeeFactor::<Test>::get(), FixedU128::from_u32(1));
 			},

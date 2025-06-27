@@ -169,11 +169,6 @@ macro_rules! impl_node_runtime_apis {
 				}
 			}
 
-			impl cumulus_primitives_core::GetCoreSelectorApi<$block> for $runtime {
-				fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
-					unimplemented!()
-				}
-			}
 			impl cumulus_primitives_core::GetParachainInfo<$block> for $runtime {
 				fn parachain_id() -> ParaId {
 					unimplemented!()
