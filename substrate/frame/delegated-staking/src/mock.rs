@@ -24,6 +24,7 @@ use frame_support::{
 	PalletId,
 };
 
+use pallet_staking_async_rc_client as rc_client;
 use sp_runtime::{traits::IdentityLookup, BuildStorage, Perbill};
 
 use frame_election_provider_support::{
@@ -31,7 +32,7 @@ use frame_election_provider_support::{
 	onchain, SequentialPhragmen,
 };
 use frame_support::dispatch::RawOrigin;
-use pallet_staking::{ActiveEra, ActiveEraInfo, CurrentEra};
+use pallet_staking_async::{ActiveEra, ActiveEraInfo, CurrentEra};
 use sp_core::{ConstBool, U256};
 use sp_runtime::traits::Convert;
 use sp_staking::{Agent, Stake, StakingInterface};
@@ -102,19 +103,42 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Bounds = ElectionsBoundsOnChain;
 }
 
-#[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
-impl pallet_staking::Config for Runtime {
+// Mock era payout
+pub struct MockEraPayout;
+impl pallet_staking_async::EraPayout<Balance> for MockEraPayout {
+	fn era_payout(
+		_total_staked: Balance,
+		_total_issuance: Balance,
+		_era_duration_millis: u64,
+	) -> (Balance, Balance) {
+		(1000, 100)
+	}
+}
+
+// Mock RC client interface
+pub struct MockRcClient;
+impl rc_client::RcClientInterface for MockRcClient {
+	type AccountId = AccountId;
+	fn validator_set(
+		_new_validator_set: Vec<Self::AccountId>,
+		_id: u32,
+		_prune_up_to: Option<u32>,
+	) {
+	}
+}
+
+#[derive_impl(pallet_staking_async::config_preludes::TestDefaultConfig)]
+impl pallet_staking_async::Config for Runtime {
 	type OldCurrency = Balances;
 	type Currency = Balances;
-	type UnixTime = pallet_timestamp::Pallet<Self>;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
-	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
+	type EraPayout = MockEraPayout;
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
-	type GenesisElectionProvider = Self::ElectionProvider;
-	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
-	type TargetList = pallet_staking::UseValidatorsMap<Self>;
+	type VoterList = pallet_staking_async::UseNominatorsAndValidatorsMap<Self>;
+	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
 	type EventListeners = (Pools, DelegatedStaking);
 	type Filter = pallet_nomination_pools::AllPoolMembers<Self>;
+	type RcClientInterface = MockRcClient;
 }
 
 parameter_types! {
@@ -165,7 +189,7 @@ impl pallet_nomination_pools::Config for Runtime {
 		pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type BlockNumberProvider = System;
-	type Filter = pallet_staking::AllStakers<Runtime>;
+	type Filter = pallet_staking_async::AllStakers<Runtime>;
 }
 
 frame_support::construct_runtime!(
@@ -173,7 +197,7 @@ frame_support::construct_runtime!(
 		System: frame_system,
 		Timestamp: pallet_timestamp,
 		Balances: pallet_balances,
-		Staking: pallet_staking,
+		Staking: pallet_staking_async,
 		Pools: pallet_nomination_pools,
 		DelegatedStaking: delegated_staking,
 	}
@@ -193,38 +217,34 @@ impl ExtBuilder {
 				(GENESIS_VALIDATOR, 10000),
 				(GENESIS_NOMINATOR_ONE, 1000),
 				(GENESIS_NOMINATOR_TWO, 2000),
+				// Additional validators for tests
+				(18, 10000),
+				(19, 10000),
+				(20, 10000),
+				(21, 10000),
+				(22, 10000),
 			],
 			..Default::default()
 		}
 		.assimilate_storage(&mut storage);
 
 		let stakers = vec![
-			(
-				GENESIS_VALIDATOR,
-				GENESIS_VALIDATOR,
-				1000,
-				sp_staking::StakerStatus::<AccountId>::Validator,
-			),
-			(
-				GENESIS_NOMINATOR_ONE,
-				GENESIS_NOMINATOR_ONE,
-				100,
-				sp_staking::StakerStatus::<AccountId>::Nominator(vec![1]),
-			),
-			(
-				GENESIS_NOMINATOR_TWO,
-				GENESIS_NOMINATOR_TWO,
-				200,
-				sp_staking::StakerStatus::<AccountId>::Nominator(vec![1]),
-			),
+			(GENESIS_VALIDATOR, 1000, sp_staking::StakerStatus::<AccountId>::Validator),
+			(GENESIS_NOMINATOR_ONE, 100, sp_staking::StakerStatus::<AccountId>::Nominator(vec![1])),
+			(GENESIS_NOMINATOR_TWO, 200, sp_staking::StakerStatus::<AccountId>::Nominator(vec![1])),
+			// Additional validators for pool integration tests
+			(18, 1000, sp_staking::StakerStatus::<AccountId>::Validator),
+			(19, 1000, sp_staking::StakerStatus::<AccountId>::Validator),
+			(20, 1000, sp_staking::StakerStatus::<AccountId>::Validator),
+			(21, 1000, sp_staking::StakerStatus::<AccountId>::Validator),
+			(22, 1000, sp_staking::StakerStatus::<AccountId>::Validator),
 		];
 
-		let _ = pallet_staking::GenesisConfig::<T> {
+		let _ = pallet_staking_async::GenesisConfig::<T> {
 			stakers: stakers.clone(),
 			// ideal validator count
-			validator_count: 2,
-			minimum_validator_count: 1,
-			invulnerables: vec![],
+			validator_count: 6,
+			invulnerables: Default::default(),
 			slash_reward_fraction: Perbill::from_percent(10),
 			min_nominator_bond: ExistentialDeposit::get(),
 			min_validator_bond: ExistentialDeposit::get(),

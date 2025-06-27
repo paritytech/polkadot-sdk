@@ -25,7 +25,8 @@ sp-staking = { workspace = true }
 frame-election-provider-support = { workspace = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-nomination-pools = { workspace = true, default-features = true }
-pallet-staking = { workspace = true, default-features = true }
+pallet-staking-async = { workspace = true, default-features = true }
+pallet-staking-async-rc-client = { workspace = true, default-features = true }
 pallet-staking-reward-curve = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
@@ -41,7 +42,8 @@ std = [
 	"log/std",
 	"pallet-balances/std",
 	"pallet-nomination-pools/std",
-	"pallet-staking/std",
+	"pallet-staking-async-rc-client/std",
+	"pallet-staking-async/std",
 	"pallet-timestamp/std",
 	"scale-info/std",
 	"sp-core/std",
@@ -55,7 +57,8 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-nomination-pools/runtime-benchmarks",
-	"pallet-staking/runtime-benchmarks",
+	"pallet-staking-async-rc-client/runtime-benchmarks",
+	"pallet-staking-async/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
@@ -66,7 +69,8 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-nomination-pools/try-runtime",
-	"pallet-staking/try-runtime",
+	"pallet-staking-async-rc-client/try-runtime",
+	"pallet-staking-async/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
 ]
