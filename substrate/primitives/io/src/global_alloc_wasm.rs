@@ -20,8 +20,11 @@ use core::{
 	ptr,
 };
 
-/// The length of the offset that is stored before the pointer.
-const OFFSET_LENGTH: usize = 2;
+/// The type used to store the offset between the real pointer and the returned pointer.
+type Offset = u16;
+
+/// The length of [`Offset`].
+const OFFSET_LENGTH: usize = core::mem::size_of::<Offset>();
 
 /// Allocator used by Substrate from within the runtime.
 ///
@@ -30,9 +33,10 @@ const OFFSET_LENGTH: usize = 2;
 /// `8`. The freeing-bump allocator is storing the header in the 8 bytes before the actual pointer
 /// returned by `alloc`. The problem is that the runtime not only sees pointers allocated by this
 /// `RuntimeAllocator`, but also pointers allocated by the host. The header is stored as a
-/// little-endian `u64`. `0x00000001_00000000` is the representation of an occupied header (aka when
-/// it is used, which is the case after calling `alloc`). So, we are able to reclaim two bytes of
-/// this header for our use case.
+/// little-endian `u64`. The allocation header consists of 8 bytes. The first four bytes (as written
+/// in memory) are used to store the order of the allocation (or the link to the next slot, if
+/// unallocated). Then the least significant bit of the next byte determines whether a given slot is
+/// occupied or free, and the last three bytes are unused.
 ///
 /// The `RuntimeAllocator` aligns the pointer to the required alignment before returning it to the
 /// user code. As we are assuming the freeing-bump allocator that already aligns by `8` by default,
@@ -55,6 +59,7 @@ unsafe impl GlobalAlloc for RuntimeAllocator {
 		// excess.
 		let ptr = crate::allocator::malloc((size + align.saturating_sub(8)) as u32);
 
+		// Calculate the required alignment.
 		let ptr_offset = ptr.align_offset(align);
 
 		// Should never happen, but just to be sure.
@@ -62,23 +67,18 @@ unsafe impl GlobalAlloc for RuntimeAllocator {
 			return ptr::null_mut()
 		}
 
+		// Align the pointer.
 		let ptr = ptr.add(ptr_offset);
 
 		unsafe {
-			let offset = (ptr_offset as u16).to_ne_bytes();
-			ptr::copy(offset.as_ptr(), ptr.sub(OFFSET_LENGTH), OFFSET_LENGTH);
+			(ptr.sub(OFFSET_LENGTH) as *mut Offset).write_unaligned(ptr_offset as Offset);
 		}
 
 		ptr
 	}
 
 	unsafe fn dealloc(&self, ptr: *mut u8, _: Layout) {
-		let mut offset: [u8; OFFSET_LENGTH] = [0; OFFSET_LENGTH];
-		unsafe {
-			ptr::copy(ptr.sub(OFFSET_LENGTH), offset.as_mut_ptr(), OFFSET_LENGTH);
-		}
-
-		let offset = u16::from_ne_bytes(offset);
+		let offset = unsafe { (ptr.sub(OFFSET_LENGTH) as *const Offset).read_unaligned() };
 
 		crate::allocator::free(ptr.sub(offset as usize))
 	}
