@@ -294,3 +294,8 @@ impl pallet_dummy_dim::Config for Runtime {
 	type MaxPersonBatchSize = ConstU32<1000>;
 	type People = People;
 }
+
+impl individuality_storage_init::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::pallet_people::WeightInfo<Runtime>;
+}

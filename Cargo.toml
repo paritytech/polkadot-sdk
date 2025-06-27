@@ -115,6 +115,7 @@ members = [
 	"cumulus/parachains/integration-tests/emulated/tests/people/people-rococo",
 	"cumulus/parachains/integration-tests/emulated/tests/people/people-westend",
 	"cumulus/parachains/pallets/collective-content",
+	"cumulus/parachains/pallets/individuality-storage-init",
 	"cumulus/parachains/pallets/parachain-info",
 	"cumulus/parachains/pallets/ping",
 	"cumulus/parachains/runtimes/assets/asset-hub-rococo",
@@ -862,6 +863,7 @@ impl-serde = { version = "0.5.0", default-features = false }
 impl-trait-for-tuples = { version = "0.2.2" }
 indexmap = { version = "2.7.1" }
 indicatif = { version = "0.17.7" }
+individuality-storage-init = { path = "cumulus/parachains/pallets/individuality-storage-init", default-features = false }
 integer-sqrt = { version = "0.1.2" }
 ip_network = { version = "0.4.1" }
 is-terminal = { version = "0.4.9" }

@@ -649,7 +649,7 @@ pub mod pallet {
 		}
 	}
 
-	#[pallet::call(weight = <T as Config>::WeightInfo)]
+	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Build a ring root by including registered people.
 		///
@@ -816,6 +816,7 @@ pub mod pallet {
 		/// eligible for merging, they must be below 1/2 of max capacity, have no pending
 		/// suspensions and not be the top ring used for onboarding.
 		#[pallet::call_index(102)]
+		#[pallet::weight(<T as Config>::WeightInfo::merge_rings())]
 		pub fn merge_rings(
 			origin: OriginFor<T>,
 			base_ring_index: RingIndex,
@@ -917,6 +918,7 @@ pub mod pallet {
 		/// - `account`: The account to set the alias for.
 		/// - `call_valid_at`: The block number when the call becomes valid.
 		#[pallet::call_index(1)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_alias_account())]
 		pub fn set_alias_account(
 			origin: OriginFor<T>,
 			account: T::AccountId,
@@ -970,6 +972,7 @@ pub mod pallet {
 
 		/// Remove the mapping from a particular alias to its registered account.
 		#[pallet::call_index(2)]
+		#[pallet::weight(<T as Config>::WeightInfo::unset_alias_account())]
 		pub fn unset_alias_account(origin: OriginFor<T>) -> DispatchResult {
 			let alias = Self::ensure_personal_alias(origin)?;
 			let account = AliasToAccount::<T>::take(&alias).ok_or(Error::<T>::InvalidAccount)?;
@@ -986,6 +989,7 @@ pub mod pallet {
 		///
 		/// The origin for this call must have root privileges.
 		#[pallet::call_index(3)]
+		#[pallet::weight(<T as Config>::WeightInfo::force_recognize_personhood(people.len() as u32))]
 		pub fn force_recognize_personhood(
 			origin: OriginFor<T>,
 			people: Vec<MemberOf<T>>,
@@ -1014,6 +1018,7 @@ pub mod pallet {
 		/// - `account`: The account to set the alias for.
 		/// - `call_valid_at`: The block number when the call becomes valid.
 		#[pallet::call_index(4)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_personal_id_account())]
 		pub fn set_personal_id_account(
 			origin: OriginFor<T>,
 			account: T::AccountId,
@@ -1046,6 +1051,7 @@ pub mod pallet {
 
 		/// Unset the personal id account.
 		#[pallet::call_index(5)]
+		#[pallet::weight(<T as Config>::WeightInfo::unset_personal_id_account())]
 		pub fn unset_personal_id_account(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let id = Self::ensure_personal_identity(origin)?;
 			let mut record = People::<T>::get(id).ok_or(Error::<T>::NotPerson)?;
@@ -1061,6 +1067,7 @@ pub mod pallet {
 		/// migration is not instant as the key replacement and subsequent inclusion in a new ring
 		/// root will happen only after the next mutation session.
 		#[pallet::call_index(6)]
+		#[pallet::weight(<T as Config>::WeightInfo::migrate_included_key())]
 		pub fn migrate_included_key(
 			origin: OriginFor<T>,
 			new_key: MemberOf<T>,
@@ -1104,6 +1111,7 @@ pub mod pallet {
 		/// Migrate the key for a person who is currently onboarding. The operation is instant,
 		/// replacing the old key in the onboarding queue.
 		#[pallet::call_index(7)]
+		#[pallet::weight(<T as Config>::WeightInfo::migrate_onboarding_key())]
 		pub fn migrate_onboarding_key(
 			origin: OriginFor<T>,
 			new_key: MemberOf<T>,
@@ -1143,6 +1151,7 @@ pub mod pallet {
 
 		/// Force set the onboarding size for new people. This call requires root privileges.
 		#[pallet::call_index(8)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_onboarding_size())]
 		pub fn set_onboarding_size(
 			origin: OriginFor<T>,
 			onboarding_size: u32,

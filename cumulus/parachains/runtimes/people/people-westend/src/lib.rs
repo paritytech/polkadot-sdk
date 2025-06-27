@@ -120,7 +120,7 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
-	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
+generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
 
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
@@ -260,7 +260,7 @@ parameter_types! {
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction =
-		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFees<Runtime>>;
+	pallet_transaction_payment::FungibleAdapter<Balances, DealWithFees<Runtime>>;
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
@@ -571,7 +571,10 @@ parameter_types! {
 impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations = pallet_identity::migration::v2::LazyMigrationV1ToV2<Runtime>;
+	type Migrations = (
+		pallet_identity::migration::v2::LazyMigrationV1ToV2<Runtime>,
+		individuality_storage_init::InitializeIndividualityPallets<Runtime>,
+	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
 	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
@@ -587,7 +590,7 @@ impl pallet_migrations::Config for Runtime {
 pub struct VerifySignatureBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
 impl pallet_verify_signature::BenchmarkHelper<MultiSignature, AccountId>
-	for VerifySignatureBenchmarkHelper
+for VerifySignatureBenchmarkHelper
 {
 	fn create_signature(_entropy: &[u8], msg: &[u8]) -> (MultiSignature, AccountId) {
 		use sp_io::crypto::{sr25519_generate, sr25519_sign};
@@ -728,6 +731,9 @@ construct_runtime!(
 		Identity: pallet_identity = 50,
 		People: pallet_people = 51,
 		DummyDim: pallet_dummy_dim = 52,
+
+		// To initialize individuality pallets
+		IndividualityInit: individuality_storage_init = 61,
 
 		// Migrations pallet
 		MultiBlockMigrations: pallet_migrations = 98,

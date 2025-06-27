@@ -266,8 +266,8 @@ mod benches {
 	}
 
 	#[benchmark]
-	fn force_recognize_personhood() -> Result<(), BenchmarkError> {
-		let members = generate_members_for_ring::<T>(SEED);
+	fn force_recognize_personhood(n: Linear<1, { T::MaxRingSize::get() }>) -> Result<(), BenchmarkError> {
+		let members = generate_members::<T>(SEED, 0, n);
 
 		#[extrinsic_call]
 		_(SystemOrigin::Root, members.iter().map(|(_, m)| m.clone()).collect::<Vec<_>>());
@@ -618,7 +618,7 @@ mod benches {
 	}
 
 	#[benchmark]
-	fn remove_suspended_keys(
+	fn remove_suspended_people(
 		n: Linear<1, { T::MaxRingSize::get() }>,
 	) -> Result<(), BenchmarkError> {
 		prepare_chunks::<T>();
