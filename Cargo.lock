@@ -19136,6 +19136,7 @@ dependencies = [
  "futures-timer",
  "hex",
  "ip_network",
+ "itertools 0.11.0",
  "linked_hash_set",
  "log",
  "parity-scale-codec",

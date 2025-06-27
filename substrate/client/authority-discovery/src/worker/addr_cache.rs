@@ -32,7 +32,7 @@ use std::{
 
 /// Cache for [`AuthorityId`] -> [`HashSet<Multiaddr>`] and [`PeerId`] -> [`HashSet<AuthorityId>`]
 /// mappings.
-#[derive(Serialize, Deserialize, Default, Clone, PartialEq, Debug)]
+#[derive(Default, Clone, PartialEq, Debug)]
 pub(crate) struct AddrCache {
 	/// The addresses found in `authority_id_to_addresses` are guaranteed to always match
 	/// the peerids found in `peer_id_to_authority_ids`. In other words, these two hashmaps
@@ -43,6 +43,66 @@ pub(crate) struct AddrCache {
 	/// it's not expected that a single `AuthorityId` can have multiple `PeerId`s.
 	authority_id_to_addresses: HashMap<AuthorityId, HashSet<Multiaddr>>,
 	peer_id_to_authority_ids: HashMap<PeerId, HashSet<AuthorityId>>,
+}
+
+impl Serialize for AddrCache {
+	/// We perform SerializeAddrCache::from(self) and then
+	/// we serialize SerializeAddrCache which derives Serialize
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		SerializeAddrCache::from(self.clone()).serialize(serializer)
+	}
+}
+
+impl<'de> Deserialize<'de> for AddrCache {
+	/// We deserialize a `SerializeAddrCache` and then
+	/// we reconstruct the original `AddrCache`.
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
+		SerializeAddrCache::deserialize(deserializer).map(Into::into)
+	}
+}
+
+/// A private helper struct which is a storage optimized variant of `AddrCache`
+/// which contains the bare minimum info to reconstruct the AddrCache. We rely
+/// on the fact that the `peer_id_to_authority_ids` can be reconstructed from
+/// the `authority_id_to_addresses` field.
+#[derive(Serialize, Deserialize)]
+struct SerializeAddrCache {
+	authority_id_to_addresses: HashMap<AuthorityId, HashSet<Multiaddr>>,
+}
+
+impl From<SerializeAddrCache> for AddrCache {
+	fn from(value: SerializeAddrCache) -> Self {
+		use itertools::Itertools;
+
+		let peer_id_to_authority_ids: HashMap<PeerId, HashSet<AuthorityId>> = value
+			.authority_id_to_addresses
+			.iter()
+			.flat_map(|(authority_id, addresses)| {
+				addresses_to_peer_ids(addresses)
+					.into_iter()
+					.map(move |peer_id| (peer_id, authority_id.clone()))
+			})
+			.into_group_map()
+			.into_iter()
+			.map(|(peer_id, authority_ids)| (peer_id, authority_ids.into_iter().collect()))
+			.collect();
+
+		AddrCache {
+			authority_id_to_addresses: value.authority_id_to_addresses,
+			peer_id_to_authority_ids,
+		}
+	}
+}
+impl From<AddrCache> for SerializeAddrCache {
+	fn from(value: AddrCache) -> Self {
+		Self { authority_id_to_addresses: value.authority_id_to_addresses }
+	}
 }
 
 fn write_to_file(path: impl AsRef<Path>, contents: &str) -> io::Result<()> {
@@ -336,6 +396,12 @@ mod tests {
 	}
 
 	#[test]
+	fn test_from_to_serializable() {
+		let serializable = SerializeAddrCache::from(AddrCache::sample());
+		let roundtripped = AddrCache::from(serializable);
+		assert_eq!(roundtripped, AddrCache::sample())
+	}
+	#[test]
 	fn keeps_consistency_between_authority_id_and_peer_id() {
 		fn property(
 			authority1: TestAuthorityId,
@@ -476,18 +542,11 @@ mod tests {
 		    "5DiQDBQvjFkmUF3C8a7ape5rpRPoajmMj44Q9CTGPfVBaa6U": [
 		      "/p2p/QmZtnFaddFtzGNT8BxdHVbQrhSFdq1pWxud5z4fA4kxfDt"
 		    ]
-		  },
-		  "peer_id_to_authority_ids": {
-		    "QmZtnFaddFtzGNT8BxdHVbQrhSFdq1pWxud5z4fA4kxfDt": [
-		      "5FjfMGrqw9ck5XZaPVTKm2RE5cbwoVUfXvSGZY7KCUEFtdr7",
-		      "5DiQDBQvjFkmUF3C8a7ape5rpRPoajmMj44Q9CTGPfVBaa6U"
-		    ]
 		  }
 		}
 		"#;
-		let deserialized = serde_json::from_str::<AddrCache>(json)
-			.expect("Should be able to deserialize valid JSON into AddrCache");
-		assert_eq!(deserialized.authority_id_to_addresses.len(), 2);
+		let deserialized = serde_json::from_str::<AddrCache>(json).unwrap();
+		assert_eq!(deserialized, AddrCache::sample())
 	}
 
 	fn serialize_and_write_to_file<T: Serialize>(
