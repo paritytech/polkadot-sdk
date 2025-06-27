@@ -6,7 +6,7 @@ use tokio::time::Duration;
 
 use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 use cumulus_zombienet_sdk_helpers::submit_extrinsic_and_wait_for_finalization_success_with_timeout;
-use zombienet_orchestrator::network::node::LogLineCountOptions;
+use zombienet_orchestrator::network::node::{LogLineCount, LogLineCountOptions};
 use zombienet_sdk::{
 	subxt::{self, dynamic::Value, OnlineClient, SubstrateConfig},
 	subxt_signer::sr25519::dev,
@@ -62,16 +62,41 @@ async fn parachain_extrinsic_gets_finalized() -> Result<(), anyhow::Error> {
 			.await?;
 
 		// If above line appeared then increase expected error count
-		let error_cnt_expected = if result.success() { 0 } else { 1 };
+		let mut error_cnt_expected = if result.success() { 0 } else { 1 };
+
+		let result = node
+			.wait_log_line_count_with_timeout(
+				r"error=Pool\(InvalidTransaction\(InvalidTransaction::MandatoryValidation\)\)",
+				false,
+				LogLineCountOptions::new(move |n| n > 0, Duration::from_secs(2), true),
+			)
+			.await?;
+
+		// We want to search for lines containing 'error' but we need to ignore below line (which
+		// occasionally appears):
+		//   error=Pool(InvalidTransaction(InvalidTransaction::MandatoryValidation))
+		// In a perfect world, we could use a regex with look-around, e.g.
+		//  (?!.*error=Pool(InvalidTransaction(InvalidTransaction::MandatoryValidation))).*error.*
+		// but unfortunately, `regex` crate used by zombienet-sdk does not support look-arounds.
+		//
+		// Therefore, we will do as follows:
+		// - First, search for lines containing:
+		//   error=Pool(InvalidTransaction(InvalidTransaction::MandatoryValidation))
+		// - Add the number of such occurrences to the expected number of 'error' lines
+		// - Then, search for lines containing: error
+		if let LogLineCount::TargetReached(cnt) = result {
+			error_cnt_expected += cnt;
+		}
 
 		let result = node
 			.wait_log_line_count_with_timeout(
 				"error",
 				false,
+				// Do not wait here, we already waited in previous step
 				LogLineCountOptions::new(
 					move |n| n == error_cnt_expected,
-					Duration::from_secs(2),
-					true,
+					Duration::from_secs(0),
+					false,
 				),
 			)
 			.await?;
