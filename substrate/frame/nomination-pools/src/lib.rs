@@ -2300,6 +2300,15 @@ pub mod pallet {
 			let current_era = T::StakeAdapter::current_era();
 			let unbond_era = T::StakeAdapter::bonding_duration().saturating_add(current_era);
 
+			// If the pool is being destroyed and the depositor is unbonding all their stake,
+			// automatically chill the pool first to avoid InsufficientBond errors.
+			if bonded_pool.is_destroying_and_only_depositor(member.active_points()) &&
+				unbonding_points == member.active_points()
+			{
+				// Chill the pool to allow full unbonding
+				let _ = T::StakeAdapter::chill(Pool::from(bonded_pool.bonded_account()));
+			}
+
 			// Unbond in the actual underlying nominator.
 			let unbonding_balance = bonded_pool.dissolve(unbonding_points);
 			T::StakeAdapter::unbond(Pool::from(bonded_pool.bonded_account()), unbonding_balance)?;
