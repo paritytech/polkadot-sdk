@@ -55,8 +55,7 @@ mockall::mock! {
 			who: PeerId,
 			hash: &B::Hash,
 			number: NumberFor<B>,
-			success: bool,
-			should_ban: bool,
+			import_result: sc_consensus::JustificationImportResult,
 		);
 		fn request_justification(&self, hash: &B::Hash, number: NumberFor<B>);
 	}
