@@ -33,7 +33,7 @@ use pallet_nomination_pools::{
 	BondExtra, BondedPools, CommissionChangeRate, ConfigOp, Error as PoolsError,
 	Event as PoolsEvent, LastPoolId, PoolMember, PoolMembers, PoolState,
 };
-use pallet_staking::{
+use pallet_staking_async::{
 	CurrentEra, Error as StakingError, Event as StakingEvent, Payee, RewardDestination,
 };
 
@@ -249,13 +249,13 @@ fn pool_chill_e2e() {
 		// increased after the pool is created.
 		assert_ok!(Staking::set_staking_configs(
 			RuntimeOrigin::root(),
-			pallet_staking::ConfigOp::Set(55), // minimum nominator bond
-			pallet_staking::ConfigOp::Noop,
-			pallet_staking::ConfigOp::Noop,
-			pallet_staking::ConfigOp::Noop,
-			pallet_staking::ConfigOp::Noop,
-			pallet_staking::ConfigOp::Noop,
-			pallet_staking::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Set(55), // minimum nominator bond
+			pallet_staking_async::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Noop,
 		));
 
 		// members can unbond as long as total stake of the pool is above min nominator bond
@@ -421,7 +421,7 @@ fn pool_slash_e2e() {
 
 		// At this point, 20 are safe from slash, 30 are unlocking but vulnerable to slash, and and
 		// another 30 are active and vulnerable to slash. Let's slash half of them.
-		pallet_staking::slashing::do_slash::<Runtime>(
+		pallet_staking_async::slashing::do_slash::<Runtime>(
 			&POOL1_BONDED,
 			30,
 			&mut Default::default(),
@@ -677,7 +677,7 @@ fn pool_slash_proportional() {
 
 		hypothetically!({
 			// a very small amount is slashed
-			pallet_staking::slashing::do_slash::<Runtime>(
+			pallet_staking_async::slashing::do_slash::<Runtime>(
 				&POOL1_BONDED,
 				3,
 				&mut Default::default(),
@@ -698,7 +698,7 @@ fn pool_slash_proportional() {
 			);
 		});
 
-		pallet_staking::slashing::do_slash::<Runtime>(
+		pallet_staking_async::slashing::do_slash::<Runtime>(
 			&POOL1_BONDED,
 			50,
 			&mut Default::default(),
@@ -834,7 +834,7 @@ fn pool_slash_non_proportional_only_bonded_pool() {
 		// slash for 30. This will be deducted only from the bonded pool.
 		CurrentEra::<T>::set(Some(100));
 		assert_eq!(BondedPools::<T>::get(1).unwrap().points, 40);
-		pallet_staking::slashing::do_slash::<Runtime>(
+		pallet_staking_async::slashing::do_slash::<Runtime>(
 			&POOL1_BONDED,
 			30,
 			&mut Default::default(),
@@ -913,7 +913,7 @@ fn pool_slash_non_proportional_bonded_pool_and_chunks() {
 		// slash 50. This will be deducted only from the bonded pool and one of the unbonding pools.
 		CurrentEra::<T>::set(Some(100));
 		assert_eq!(BondedPools::<T>::get(1).unwrap().points, 40);
-		pallet_staking::slashing::do_slash::<Runtime>(
+		pallet_staking_async::slashing::do_slash::<Runtime>(
 			&POOL1_BONDED,
 			50,
 			&mut Default::default(),
@@ -1526,7 +1526,7 @@ fn pool_no_dangling_delegation() {
 		// At this point, bob's 20 that is unlocking is safe from slash, 10 (alice) + 10 (charlie)
 		// are also unlocking but vulnerable to slash, and another 40 are active and vulnerable to
 		// slash. Let's slash half of them.
-		pallet_staking::slashing::do_slash::<Runtime>(
+		pallet_staking_async::slashing::do_slash::<Runtime>(
 			&POOL1_BONDED,
 			30,
 			&mut Default::default(),

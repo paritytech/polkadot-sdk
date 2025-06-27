@@ -214,8 +214,8 @@
 //! ## Design
 //!
 //! _Notes_: this section uses pseudo code to explain general design and does not necessarily
-//! reflect the exact implementation. Additionally, a working knowledge of `pallet-staking`'s api is
-//! assumed.
+//! reflect the exact implementation. Additionally, a working knowledge of `pallet-staking-async`'s
+//! api is assumed.
 //!
 //! ### Goals
 //!
@@ -325,7 +325,7 @@
 //! ### Slashing
 //!
 //! This section assumes that the slash computation is executed by
-//! `pallet_staking::StakingLedger::slash`, which passes the information to this pallet via
+//! `pallet_staking_async::StakingLedger::slash`, which passes the information to this pallet via
 //! [`sp_staking::OnStakingUpdate::on_slash`].
 //!
 //! Unbonding pools need to be slashed to ensure all nominators whom where in the bonded pool while
@@ -2634,7 +2634,7 @@ pub mod pallet {
 		/// root role.
 		///
 		/// This directly forwards the call to an implementation of `StakingInterface` (e.g.,
-		/// `pallet-staking`) through [`Config::StakeAdapter`], on behalf of the bonded pool.
+		/// `pallet-staking-async`) through [`Config::StakeAdapter`], on behalf of the bonded pool.
 		///
 		/// # Note
 		///
@@ -2849,7 +2849,7 @@ pub mod pallet {
 		/// root role, same as [`Pallet::nominate`].
 		///
 		/// This directly forwards the call to an implementation of `StakingInterface` (e.g.,
-		/// `pallet-staking`) through [`Config::StakeAdapter`], on behalf of the bonded pool.
+		/// `pallet-staking-async`) through [`Config::StakeAdapter`], on behalf of the bonded pool.
 		///
 		/// Under certain conditions, this call can be dispatched permissionlessly (i.e. by any
 		/// account).
