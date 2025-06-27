@@ -15,14 +15,18 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
+
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::*,
 	storage_alias,
-	traits::{reality::PersonalId},
 	weights::WeightMeter,
 };
-use pallet_people::{MemberOf, PersonRecord};
+use pallet_people::MemberOf;
 use sp_core::Get;
 use sp_std::{vec, vec::Vec};
 use verifiable::ring_vrf_impl::{BandersnatchVrfVerifiable, StaticChunk};
@@ -74,14 +78,6 @@ mod people {
 		BoundedVec<StaticChunk, <T as pallet_people::Config>::ChunkPageSize>,
 		OptionQuery,
 	>;
-
-	#[storage_alias]
-	pub type People<T: Config> = StorageMap<
-		People,
-		Blake2_128Concat,
-		PersonalId,
-		PersonRecord<MemberOf<T>, <T as frame_system::Config>::AccountId>,
-	>;
 }
 
 mod identity {
@@ -112,7 +108,7 @@ impl<T: Config> SteppedMigration for InitializeIndividualityPallets<T> {
 	}
 
 	fn step(
-		mut cursor: Option<<InitializeIndividualityPallets<T> as SteppedMigration>::Cursor>,
+		cursor: Option<<InitializeIndividualityPallets<T> as SteppedMigration>::Cursor>,
 		meter: &mut WeightMeter,
 	) -> Result<
 		Option<<InitializeIndividualityPallets<T> as SteppedMigration>::Cursor>,
@@ -221,7 +217,7 @@ impl<T: Config> SteppedMigration for InitializeIndividualityPallets<T> {
 		);
 
 		ensure!(
-			people::People::<T>::iter().count() == 0,
+			pallet_people::People::<T>::iter().count() == 0,
 			"People storage should be empty before migration"
 		);
 
@@ -231,7 +227,7 @@ impl<T: Config> SteppedMigration for InitializeIndividualityPallets<T> {
 		);
 
 		let chunks = get_chunks();
-		let people = get_people::<T>();
+		let people = get_initial_people_keys();
 		let state = (chunks.len() as u32, people.len() as u32);
 
 		Ok(state.encode())
@@ -250,7 +246,7 @@ impl<T: Config> SteppedMigration for InitializeIndividualityPallets<T> {
 		ensure!(actual_chunks_count == expected_chunks_count, "Chunks count mismatch");
 
 		// To verify people were loaded correctly
-		let actual_people_count = people::People::<T>::iter().count() as u32;
+		let actual_people_count = pallet_people::People::<T>::iter().count() as u32;
 		ensure!(actual_people_count == expected_people_count, "People count mismatch");
 
 		// To check keys were populated
@@ -258,8 +254,8 @@ impl<T: Config> SteppedMigration for InitializeIndividualityPallets<T> {
 		ensure!(keys_count == expected_people_count, "Keys count mismatch");
 
 		// To verify all people were added to the OnboardingQueue
-		let (head, tail) = QueuePageIndices::<T>::get();
-		let total_in_queue = pallet_people::OnboardingQueue::get(head);
+		let (head, tail) = pallet_people::QueuePageIndices::<T>::get();
+		let total_in_queue = pallet_people::OnboardingQueue::get(head).len() as u32;
 		ensure!(total_in_queue == expected_people_count, "OnboardingQueue count mismatch");
 
 		// To verify NextPersonalId is set correctly if people were added
