@@ -365,8 +365,7 @@ mod test {
 			let weight: IXcm::Weight = IXcm::Weight::abi_decode(&weight_result.data[..])
 				.expect("XcmExecutePrecompile Failed to decode weight");
 
-			let xcm_execute_params =
-				IXcm::executeCall { message: message.encode().into(), weight };
+			let xcm_execute_params = IXcm::executeCall { message: message.encode().into(), weight };
 			let call = IXcm::IXcmCalls::execute(xcm_execute_params);
 			let encoded_call = call.abi_encode();
 
@@ -426,8 +425,7 @@ mod test {
 			let weight: IXcm::Weight = IXcm::Weight::abi_decode(&weight_result.data[..])
 				.expect("XcmExecutePrecompile Failed to decode weight");
 
-			let xcm_execute_params =
-				IXcm::executeCall { message: message.encode().into(), weight };
+			let xcm_execute_params = IXcm::executeCall { message: message.encode().into(), weight };
 			let call = IXcm::IXcmCalls::execute(xcm_execute_params);
 			let encoded_call = call.abi_encode();
 
@@ -495,8 +493,7 @@ mod test {
 			let weight: IXcm::Weight = IXcm::Weight::abi_decode(&weight_result.data[..])
 				.expect("XcmExecutePrecompile Failed to decode weight");
 
-			let xcm_execute_params =
-				IXcm::executeCall { message: message.encode().into(), weight };
+			let xcm_execute_params = IXcm::executeCall { message: message.encode().into(), weight };
 			let call = IXcm::IXcmCalls::execute(xcm_execute_params);
 			let encoded_call = call.abi_encode();
 
