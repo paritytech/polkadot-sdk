@@ -841,25 +841,26 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		ensure!(who != target, Error::<T, I>::Nonsense);
 		T::Polls::classes().binary_search(&class).map_err(|_| Error::<T, I>::BadClass)?;
 		ensure!(balance <= T::Currency::total_balance(&who), Error::<T, I>::InsufficientFunds);
-		let delegate_vote_count =
+		
+		let vote_accesses =
 			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<u32, DispatchError> {
-				// Ensure not already delegating
+				// Ensure not already delegating.
 				if voting.maybe_delegate.is_some() {
 					return Err(Error::<T, I>::AlreadyDelegating.into());
 				}
-				// Set delegation related info
+
+				// Set delegation related info.
 				voting.set_delegate_info(Some(target.clone()), balance, Some(conviction));
 				
-				// Collect all of the delegator's votes that are for ongoing polls
-				let ongoing_votes: Vec<_> = voting.votes.iter().filter_map(|poll_vote|
-					if poll_vote.maybe_vote.is_some() && T::Polls::as_ongoing(poll_vote.poll_index).is_some() {
-						Some(poll_vote.poll_index)
-					} else {
-						None
-					}
-				).collect();
+				// Collect all of the delegator's votes that are for ongoing polls.
+				let ongoing_votes: Vec<_> = voting
+					.votes
+					.iter()
+					.filter(|v| v.maybe_vote.is_some() && T::Polls::as_ongoing(v.poll_index).is_some())
+					.map(|v| v.poll_index)
+					.collect();
 				
-				// Update voting data of chosen delegate
+				// Update voting data of the chosen delegate.
 				let vote_count =
 					Self::increase_upstream_delegation(&target, &class, conviction.votes(balance), ongoing_votes);
 
@@ -869,7 +870,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				vote_count
 			})?;
 		Self::deposit_event(Event::<T, I>::Delegated(who, target));
-		Ok(delegate_vote_count)
+		Ok(vote_accesses)
 	}
 
 	/// Attempt to end the current delegation.
