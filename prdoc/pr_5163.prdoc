@@ -1,0 +1,17 @@
+title: Task(bump) Pallet Salary
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR places `pallet_salary::bump` on an offchain task, this acts as an alternative to 
+      manual execution (i.e tasks are executed in a random order).
+
+crates:
+    - name: collectives-westend-runtime
+      bump: major
+    - name: staging-xcm-builder
+      bump: patch
+    - name: pallet-salary
+      bump: major
+    - name: polkadot-sdk
+      bump: patch
