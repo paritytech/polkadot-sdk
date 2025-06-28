@@ -123,7 +123,7 @@ mod benchmarks {
 		let approve_origin = T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless).unwrap();
 
 		#[extrinsic_call]
-		_(approve_origin, bounty_id);
+		_(approve_origin as T::RuntimeOrigin, bounty_id);
 
 	}
 
@@ -140,7 +140,7 @@ mod benchmarks {
 		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
 
 		#[extrinsic_call]
-		_(approve_origin, bounty_id, curator_lookup, fee);
+		_(approve_origin as T::RuntimeOrigin, bounty_id, curator_lookup, fee);
 
 	}
 
@@ -155,7 +155,7 @@ mod benchmarks {
 		Treasury::<T, I>::on_initialize(SystemBlockNumberFor::<T>::zero());
 
 		#[extrinsic_call]
-		_(approve_origin, bounty_id, curator_lookup, fee);
+		_(approve_origin as T::RuntimeOrigin, bounty_id, curator_lookup, fee);
 
 		assert_last_event::<T, I>(Event::CuratorProposed { bounty_id, curator }.into());
 	}
@@ -182,7 +182,7 @@ mod benchmarks {
 		};
 
 		#[extrinsic_call]
-		_(origin, bounty_id);
+		_(origin as T::RuntimeOrigin, bounty_id);
 	}
 
 	#[benchmark]
@@ -262,7 +262,7 @@ mod benchmarks {
 			T::RejectOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless).unwrap();
 
 		#[extrinsic_call]
-		close_bounty(approve_origin, bounty_id);
+		close_bounty(approve_origin as T::RuntimeOrigin, bounty_id);
 
 		assert_last_event::<T, I>(Event::BountyCanceled { index: bounty_id }.into());
 	}
