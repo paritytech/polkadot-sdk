@@ -80,7 +80,6 @@ fn pay_salary_secretary() {
 		PalletInstance(SECRETARY_SALARY_PALLET_ID),
 	);
 	let pay_from = AssetHubLocationToAccountId::convert_location(&secretary_salary.into()).unwrap();
-	println!("Derived account: {:?}", pay_from);
 	let pay_to = Westend::account_id_of(ALICE);
 	let pay_amount = 9_000_000_000;
 
@@ -93,13 +92,7 @@ fn pay_salary_secretary() {
 	CollectivesWestend::execute_with(|| {
 		type RuntimeEvent = <CollectivesWestend as Chain>::RuntimeEvent;
 
-		println!("Calling pay for {:?}", pay_to);
-
 		assert_ok!(SecretarySalaryPaymaster::pay(&pay_to, (), pay_amount));
-		// Print all events
-		for event in CollectivesWestend::events() {
-			println!("Collectives Event: {:?}", event);
-		}
 		assert_expected_events!(
 			CollectivesWestend,
 			vec![
@@ -110,17 +103,6 @@ fn pay_salary_secretary() {
 
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-
-		let payer_balance =
-			<<AssetHubWestend as AssetHubWestendPallet>::Assets as FungiblesInspect<_>>::balance(
-				USDT_ID, &pay_from,
-			);
-		println!("Payer balance: {}", payer_balance);
-
-		let recipient_balance =
-			<<AssetHubWestend as AssetHubWestendPallet>::Assets as FungiblesInspect<_>>::balance(
-				USDT_ID, &pay_to,
-			);
 		println!("Recipient balance before: {}", recipient_balance);
 		assert_expected_events!(
 			AssetHubWestend,
