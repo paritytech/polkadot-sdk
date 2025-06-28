@@ -406,7 +406,7 @@ pub trait Mutate<AccountId>:
 		ensure!(Self::can_deposit(dest, amount, Extant) == Success, TokenError::CannotCreate);
 		let actual = Self::decrease_balance(source, amount, precision, expendability, force)?;
 		Self::increase_balance_on_hold(reason, dest, actual, precision)?;
-		Self::done_transfer_on_hold(reason, source, dest, actual);
+		Self::done_transfer_and_hold(reason, source, dest, actual);
 		Ok(actual)
 	}
 
