@@ -50,6 +50,7 @@ use crate::{
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
+	tracing::if_tracing,
 	vm::{CodeInfo, ContractBlob, RuntimeCosts},
 };
 use alloc::{boxed::Box, format, vec};
@@ -75,6 +76,7 @@ use frame_system::{
 	pallet_prelude::{BlockNumberFor, OriginFor},
 	Pallet as System,
 };
+use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{BadOrigin, Bounded, Convert, Dispatchable, Saturating, Zero},
@@ -105,6 +107,7 @@ pub type BalanceOf<T> =
 type TrieId = BoundedVec<u8, ConstU32<128>>;
 type CodeVec = BoundedVec<u8, ConstU32<{ limits::code::BLOB_BYTES }>>;
 type ImmutableData = BoundedVec<u8, ConstU32<{ limits::IMMUTABLE_BYTES }>>;
+pub(crate) type OnChargeTransactionBalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
 
 /// Used as a sentinel value when reading and writing contract memory.
 ///
@@ -358,6 +361,9 @@ pub mod pallet {
 			/// Number of topics is capped by [`limits::NUM_EVENT_TOPICS`].
 			topics: Vec<H256>,
 		},
+
+		/// Contract deployed by deployer at the specified address.
+		Instantiated { deployer: H160, contract: H160 },
 	}
 
 	#[pallet::error]
@@ -765,6 +771,7 @@ pub mod pallet {
 				Code::Existing(code_hash),
 				data,
 				salt,
+				BumpNonce::Yes,
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -829,7 +836,53 @@ pub mod pallet {
 				Code::Upload(code),
 				data,
 				salt,
+				BumpNonce::Yes,
 			);
+			if let Ok(retval) = &output.result {
+				if retval.result.did_revert() {
+					output.result = Err(<Error<T>>::ContractReverted.into());
+				}
+			}
+			dispatch_result(
+				output.result.map(|result| result.result),
+				output.gas_consumed,
+				T::WeightInfo::instantiate_with_code(code_len, data_len),
+			)
+		}
+
+		/// Same as [`Self::instantiate_with_code`], but intended to be dispatched **only**
+		/// by an EVM transaction through the EVM compatibility layer.
+		///
+		/// Calling this dispatchable ensures that the origin's nonce is bumped only once,
+		/// via the `CheckNonce` transaction extension. In contrast, [`Self::instantiate_with_code`]
+		/// also bumps the nonce after contract instantiation, since it may be invoked multiple
+		/// times within a batch call transaction.
+		#[pallet::call_index(10)]
+		#[pallet::weight(
+			T::WeightInfo::instantiate_with_code(code.len() as u32, data.len() as u32)
+			.saturating_add(*gas_limit)
+		)]
+		pub fn eth_instantiate_with_code(
+			origin: OriginFor<T>,
+			#[pallet::compact] value: BalanceOf<T>,
+			gas_limit: Weight,
+			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
+			code: Vec<u8>,
+			data: Vec<u8>,
+		) -> DispatchResultWithPostInfo {
+			let code_len = code.len() as u32;
+			let data_len = data.len() as u32;
+			let mut output = Self::bare_instantiate(
+				origin,
+				value,
+				gas_limit,
+				DepositLimit::Balance(storage_deposit_limit),
+				Code::Upload(code),
+				data,
+				None,
+				BumpNonce::No,
+			);
+
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
 					output.result = Err(<Error<T>>::ContractReverted.into());
@@ -1054,6 +1107,7 @@ where
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
+		bump_nonce: BumpNonce,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
@@ -1065,6 +1119,8 @@ where
 
 		let try_instantiate = || {
 			let instantiate_account = T::InstantiateOrigin::ensure_origin(origin.clone())?;
+
+			if_tracing(|t| t.instantiate_code(&code, salt.as_ref()));
 			let (executable, upload_deposit) = match code {
 				Code::Upload(code) => {
 					let upload_account = T::UploadOrigin::ensure_origin(origin)?;
@@ -1096,6 +1152,7 @@ where
 				data,
 				salt.as_ref(),
 				unchecked_deposit_limit,
+				bump_nonce,
 			);
 			storage_deposit = storage_meter
 				.try_into_deposit(&instantiate_origin, unchecked_deposit_limit)?
@@ -1119,15 +1176,18 @@ where
 	///
 	/// - `tx`: The Ethereum transaction to simulate.
 	/// - `gas_limit`: The gas limit enforced during contract execution.
-	/// - `tx_fee`: A function that returns the fee for the given call and dispatch info.
+	/// - `tx_fee`: A function that returns the fee for the computed eth_transact and actual
+	/// dispatched call
 	pub fn dry_run_eth_transact(
 		mut tx: GenericTransaction,
 		gas_limit: Weight,
-		tx_fee: impl Fn(Call<T>, DispatchInfo) -> BalanceOf<T>,
+		tx_fee: impl Fn(<T as Config>::RuntimeCall, <T as Config>::RuntimeCall) -> BalanceOf<T>,
 	) -> Result<EthTransactInfo<BalanceOf<T>>, EthTransactError>
 	where
 		<T as frame_system::Config>::RuntimeCall:
 			Dispatchable<Info = frame_support::dispatch::DispatchInfo>,
+		T: pallet_transaction_payment::Config,
+		OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
 		<T as Config>::RuntimeCall: From<crate::Call<T>>,
 		<T as Config>::RuntimeCall: Encode,
 		T::Nonce: Into<U256>,
@@ -1195,52 +1255,76 @@ where
 		};
 
 		// Dry run the call
-		let (mut result, dispatch_info) = match tx.to {
+		let (mut result, dispatch_call) = match tx.to {
 			// A contract call.
 			Some(dest) => {
-				// Dry run the call.
-				let result = crate::Pallet::<T>::bare_call(
-					T::RuntimeOrigin::signed(origin),
-					dest,
-					native_value,
-					gas_limit,
-					storage_deposit_limit,
-					input.clone(),
-				);
+				if dest == RUNTIME_PALLETS_ADDR {
+					let Ok(dispatch_call) = <T as Config>::RuntimeCall::decode(&mut &input[..])
+					else {
+						return Err(EthTransactError::Message(format!(
+							"Failed to decode pallet-call {input:?}"
+						)));
+					};
 
-				let data = match result.result {
-					Ok(return_value) => {
-						if return_value.did_revert() {
-							return Err(EthTransactError::Data(return_value.data));
-						}
-						return_value.data
-					},
-					Err(err) => {
-						log::debug!(target: LOG_TARGET, "Failed to execute call: {err:?}");
-						return extract_error(err)
-					},
-				};
+					if let Err(err) =
+						dispatch_call.clone().dispatch(RawOrigin::Signed(origin).into())
+					{
+						return Err(EthTransactError::Message(format!(
+							"Failed to dispatch call: {err:?}"
+						)));
+					};
 
-				let result = EthTransactInfo {
-					gas_required: result.gas_required,
-					storage_deposit: result.storage_deposit.charge_or_zero(),
-					data,
-					eth_gas: Default::default(),
-				};
+					let result = EthTransactInfo {
+						gas_required: dispatch_call.get_dispatch_info().total_weight(),
+						..Default::default()
+					};
 
-				let (gas_limit, storage_deposit_limit) = T::EthGasEncoder::as_encoded_values(
-					result.gas_required,
-					result.storage_deposit,
-				);
-				let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::call {
-					dest,
-					value: native_value,
-					gas_limit,
-					storage_deposit_limit,
-					data: input.clone(),
+					(result, dispatch_call)
+				} else {
+					// Dry run the call.
+					let result = crate::Pallet::<T>::bare_call(
+						T::RuntimeOrigin::signed(origin),
+						dest,
+						native_value,
+						gas_limit,
+						storage_deposit_limit,
+						input.clone(),
+					);
+
+					let data = match result.result {
+						Ok(return_value) => {
+							if return_value.did_revert() {
+								return Err(EthTransactError::Data(return_value.data));
+							}
+							return_value.data
+						},
+						Err(err) => {
+							log::debug!(target: LOG_TARGET, "Failed to execute call: {err:?}");
+							return extract_error(err);
+						},
+					};
+
+					let result = EthTransactInfo {
+						gas_required: result.gas_required,
+						storage_deposit: result.storage_deposit.charge_or_zero(),
+						data,
+						eth_gas: Default::default(),
+					};
+
+					let (gas_limit, storage_deposit_limit) = T::EthGasEncoder::as_encoded_values(
+						result.gas_required,
+						result.storage_deposit,
+					);
+					let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::call {
+						dest,
+						value: native_value,
+						gas_limit,
+						storage_deposit_limit,
+						data: input.clone(),
+					}
+					.into();
+					(result, dispatch_call)
 				}
-				.into();
-				(result, dispatch_call.get_dispatch_info())
 			},
 			// A contract deployment
 			None => {
@@ -1266,6 +1350,7 @@ where
 					Code::Upload(code.to_vec()),
 					data.to_vec(),
 					None,
+					BumpNonce::No,
 				);
 
 				let returned_data = match result.result {
@@ -1277,7 +1362,7 @@ where
 					},
 					Err(err) => {
 						log::debug!(target: LOG_TARGET, "Failed to instantiate: {err:?}");
-						return extract_error(err)
+						return extract_error(err);
 					},
 				};
 
@@ -1294,16 +1379,15 @@ where
 					result.storage_deposit,
 				);
 				let dispatch_call: <T as Config>::RuntimeCall =
-					crate::Call::<T>::instantiate_with_code {
+					crate::Call::<T>::eth_instantiate_with_code {
 						value: native_value,
 						gas_limit,
 						storage_deposit_limit,
 						code: code.to_vec(),
 						data: data.to_vec(),
-						salt: None,
 					}
 					.into();
-				(result, dispatch_call.get_dispatch_info())
+				(result, dispatch_call)
 			},
 		};
 
@@ -1311,9 +1395,9 @@ where
 			return Err(EthTransactError::Message("Invalid transaction".into()));
 		};
 
-		let eth_dispatch_call =
+		let eth_transact_call =
 			crate::Call::<T>::eth_transact { payload: unsigned_tx.dummy_signed_payload() };
-		let fee = tx_fee(eth_dispatch_call, dispatch_info);
+		let fee = tx_fee(eth_transact_call.into(), dispatch_call);
 		let raw_gas = Self::evm_fee_to_gas(fee);
 		let eth_gas =
 			T::EthGasEncoder::encode(raw_gas, result.gas_required, result.storage_deposit);
@@ -1364,13 +1448,24 @@ where
 	}
 
 	/// Get the block gas limit.
-	pub fn evm_block_gas_limit() -> U256 {
+	pub fn evm_block_gas_limit() -> U256
+	where
+		<T as frame_system::Config>::RuntimeCall:
+			Dispatchable<Info = frame_support::dispatch::DispatchInfo>,
+		T: pallet_transaction_payment::Config,
+		OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
+	{
 		let max_block_weight = T::BlockWeights::get()
 			.get(DispatchClass::Normal)
 			.max_total
 			.unwrap_or_else(|| T::BlockWeights::get().max_block);
 
+		let length_fee = pallet_transaction_payment::Pallet::<T>::length_to_fee(
+			5 * 1024 * 1024, // 5 MB
+		);
+
 		Self::evm_gas_from_weight(max_block_weight)
+			.saturating_add(Self::evm_fee_to_gas(length_fee.into()))
 	}
 
 	/// Get the gas price.
@@ -1472,7 +1567,7 @@ where
 		precision: ConversionPrecision,
 	) -> Result<BalanceOf<T>, Error<T>> {
 		if value.is_zero() {
-			return Ok(Zero::zero())
+			return Ok(Zero::zero());
 		}
 
 		let (quotient, remainder) = value.div_mod(T::NativeToEthRatio::get().into());
@@ -1509,6 +1604,13 @@ impl<T: Config> Pallet<T> {
 		Some(T::AddressMapper::to_address(&account_id))
 	}
 }
+
+/// The address used to call the runtime's pallets dispatchables
+///
+/// Note:
+/// computed with PalletId(*b"py/paddr").into_account_truncating();
+pub const RUNTIME_PALLETS_ADDR: H160 =
+	H160(hex_literal::hex!("6d6f646c70792f70616464720000000000000000"));
 
 // Set up a global reference to the boolean flag used for the re-entrancy guard.
 environmental!(executing_contract: bool);
@@ -1625,6 +1727,8 @@ sp_api::decl_runtime_apis! {
 		/// The address of the validator that produced the current block.
 		fn block_author() -> Option<H160>;
 
+		/// The address used to call the runtime's pallets dispatchables
+		fn runtime_pallets_address() -> H160;
 	}
 }
 
@@ -1674,15 +1778,19 @@ macro_rules! impl_runtime_apis_plus_revive {
 						sp_runtime::traits::Block as BlockT
 					};
 
-					let tx_fee = |pallet_call, mut dispatch_info: $crate::DispatchInfo| {
-						let call =
-							<Self as $crate::frame_system::Config>::RuntimeCall::from(pallet_call);
-						dispatch_info.extension_weight =
-							<$EthExtra>::get_eth_extension(0, 0u32.into()).weight(&call);
+					let tx_fee = |call: <Self as $crate::frame_system::Config>::RuntimeCall, dispatch_call: <Self as $crate::frame_system::Config>::RuntimeCall| {
+						use $crate::frame_support::dispatch::GetDispatchInfo;
 
+						// Get the dispatch info of the actual call dispatched
+						let mut dispatch_info = dispatch_call.get_dispatch_info();
+						dispatch_info.extension_weight =
+							<$EthExtra>::get_eth_extension(0, 0u32.into()).weight(&dispatch_call);
+
+						// Build the extrinsic
 						let uxt: <Block as BlockT>::Extrinsic =
 							$crate::sp_runtime::generic::UncheckedExtrinsic::new_bare(call).into();
 
+						// Compute the fee of the extrinsic
 						$crate::pallet_transaction_payment::Pallet::<Self>::compute_fee(
 							uxt.encoded_size() as u32,
 							&dispatch_info,
@@ -1740,6 +1848,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 						code,
 						data,
 						salt,
+						$crate::BumpNonce::Yes,
 					)
 				}
 
@@ -1833,6 +1942,11 @@ macro_rules! impl_runtime_apis_plus_revive {
 						Ok(tracer.empty_trace())
 					}
 				}
+
+				fn runtime_pallets_address() -> $crate::H160 {
+					$crate::RUNTIME_PALLETS_ADDR
+				}
+
 			}
 		}
 	};

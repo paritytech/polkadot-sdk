@@ -908,6 +908,8 @@ impl pallet_session::Config for Runtime {
 	type Keys = SessionKeys;
 	type DisablingStrategy = ();
 	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
+	type Currency = Balances;
+	type KeyDeposit = ();
 }
 
 impl pallet_aura::Config for Runtime {
@@ -1171,13 +1173,13 @@ construct_runtime!(
 		FastUnstake: pallet_fast_unstake = 82,
 		VoterList: pallet_bags_list::<Instance1> = 83,
 		DelegatedStaking: pallet_delegated_staking = 84,
-		StakingNextRcClient: pallet_staking_async_rc_client = 89,
+		StakingRcClient: pallet_staking_async_rc_client = 89,
 
 		// Election apparatus.
-		MultiBlock: pallet_election_provider_multi_block = 85,
-		MultiBlockVerifier: pallet_election_provider_multi_block::verifier = 86,
-		MultiBlockUnsigned: pallet_election_provider_multi_block::unsigned = 87,
-		MultiBlockSigned: pallet_election_provider_multi_block::signed = 88,
+		MultiBlockElection: pallet_election_provider_multi_block = 85,
+		MultiBlockElectionVerifier: pallet_election_provider_multi_block::verifier = 86,
+		MultiBlockElectionUnsigned: pallet_election_provider_multi_block::unsigned = 87,
+		MultiBlockElectionSigned: pallet_election_provider_multi_block::signed = 88,
 
 		// Governance.
 		Preimage: pallet_preimage = 90,
@@ -1332,10 +1334,10 @@ mod benches {
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
 		[pallet_conviction_voting, ConvictionVoting]
-		[pallet_election_provider_multi_block, MultiBlock]
-		[pallet_election_provider_multi_block_verifier, MultiBlockVerifier]
-		[pallet_election_provider_multi_block_unsigned, MultiBlockUnsigned]
-		[pallet_election_provider_multi_block_signed, MultiBlockSigned]
+		[pallet_election_provider_multi_block, MultiBlockElection]
+		[pallet_election_provider_multi_block_verifier, MultiBlockElectionVerifier]
+		[pallet_election_provider_multi_block_unsigned, MultiBlockElectionUnsigned]
+		[pallet_election_provider_multi_block_signed, MultiBlockElectionSigned]
 		[pallet_fast_unstake, FastUnstake]
 		[pallet_message_queue, MessageQueue]
 		[pallet_migrations, MultiBlockMigrations]
@@ -2205,6 +2207,12 @@ impl_runtime_apis! {
 		}
 		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
 			PolkadotXcm::is_trusted_teleporter(asset, location)
+		}
+	}
+
+	impl cumulus_primitives_core::GetParachainInfo<Block> for Runtime {
+		fn parachain_id() -> ParaId {
+			ParachainInfo::parachain_id()
 		}
 	}
 }
