@@ -876,41 +876,40 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///
 	/// Return the number of vote accesses upstream.
 	fn try_undelegate(who: T::AccountId, class: ClassOf<T, I>) -> Result<u32, DispatchError> {
-		let delegate_vote_count =
+		let vote_accesses =
 			VotingFor::<T, I>::try_mutate(&who, &class, |voting| -> Result<u32, DispatchError> {
-				// If they're currently delegating
-				if let (Some(delegate), Some(conviction)) = (&voting.maybe_delegate, &voting.maybe_conviction) {
-					// Collect all of the delegator's votes
-					let delegators_votes: Vec<_> = voting.votes.iter().filter_map(|poll_vote|
-						if poll_vote.maybe_vote.is_some() {
-							Some(poll_vote.poll_index)
-						} else {
-							None
-						}
-					).collect();
+				// If they're currently delegating.
+				let (delegate, conviction) = match (&voting.maybe_delegate, &voting.maybe_conviction) {
+                	(Some(d), Some(c)) => (d, c),
+                	_ => return Err(Error::<T, I>::NotDelegating.into()),
+            	};
 
-					// Update their delegate's voting data
-					let votes = Self::reduce_upstream_delegation(&delegate, &class, conviction.votes(voting.delegated_balance), delegators_votes)?;
-					
-					// Accumulate the locks
-					let now = T::BlockNumberProvider::current_block_number();
-					let lock_periods = conviction.lock_periods().into();
-					voting.prior.accumulate(
-						now.saturating_add(
-							T::VoteLockingPeriod::get().saturating_mul(lock_periods),
-						),
-						voting.delegated_balance,
-					);
+				// Collect all of the delegator's votes.
+				let delegators_votes: Vec<_> = voting
+                .votes
+                .iter()
+                .filter_map(|poll_vote| poll_vote.maybe_vote.as_ref().map(|_| poll_vote.poll_index))
+                .collect();
 
-					// Set the delegator's delegate info
-					voting.set_delegate_info(None, Default::default(), None);
-					Ok(votes)
-				} else {
-					Err(Error::<T, I>::NotDelegating.into())
-				}
+				// Update their delegate's voting data.
+				let votes = Self::reduce_upstream_delegation(&delegate, &class, conviction.votes(voting.delegated_balance), delegators_votes)?;
+				
+				// Accumulate the locks.
+				let now = T::BlockNumberProvider::current_block_number();
+				let lock_periods = conviction.lock_periods().into();
+				voting.prior.accumulate(
+					now.saturating_add(
+						T::VoteLockingPeriod::get().saturating_mul(lock_periods),
+					),
+					voting.delegated_balance,
+				);
+
+				// Set the delegator's delegate info.
+				voting.set_delegate_info(None, Default::default(), None);
+				Ok(votes)
 			})?;
 		Self::deposit_event(Event::<T, I>::Undelegated(who));
-		Ok(delegate_vote_count)
+		Ok(vote_accesses)
 	}
 
 	// Update the lock for this class to be max(old, amount)
