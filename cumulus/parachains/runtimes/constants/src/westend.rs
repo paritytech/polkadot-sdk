@@ -206,4 +206,7 @@ pub mod locations {
 		pub AssetHubParaId: ParaId = ParaId::from(ASSET_HUB_ID);
 		pub AssetHubLocation: Location = Location::new(1, Parachain(ASSET_HUB_ID));
 	}
+
+	/// The governance on the AssetHub.
+	pub type GovernanceLocation = AssetHubLocation;
 }
