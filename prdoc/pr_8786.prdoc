@@ -1,0 +1,16 @@
+title: '[PoP] Bringing Individuality to westend'
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    Brings **Individuality** project basic functionalities to westend people system chain.
+
+    Pallets that it includes:
+    - people, dummy-dim, origin-restriction - all 3 being the main actors here,
+    - verify-signature, verifiable - helper traits for the above.
+
+    This will enable users to become recognized as people through the pallet `dummy-dim` and later be onboarded in a VRF ring managed by pallet `people`. Once recognized as people, they'll be able to use calls (in this addition, such calls are only in pallet `people` but more will come) reserved for origins with an alias or personal id.
+crates:
+- name: people-westend-runtime
+  bump: major
