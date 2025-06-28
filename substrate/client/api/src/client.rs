@@ -164,6 +164,12 @@ pub trait BlockBackend<Block: BlockT> {
 	fn requires_full_sync(&self) -> bool;
 }
 
+/// Tells whether the current client configuration requires proof recording.
+pub trait EnableProofRecording {
+	/// Tells whether the current client configuration requires proof recording.
+	fn enable_proof_recording(&self) -> bool;
+}
+
 /// Provide a list of potential uncle headers for a given block.
 pub trait ProvideUncles<Block: BlockT> {
 	/// Gets the uncles of the block with `target_hash` going back `max_generation` ancestors.

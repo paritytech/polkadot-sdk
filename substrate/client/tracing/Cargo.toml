@@ -37,6 +37,7 @@ sp-core = { workspace = true, default-features = true }
 sp-rpc = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
+sp-trie = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 tracing = { workspace = true, default-features = true }
 tracing-log = { workspace = true }
