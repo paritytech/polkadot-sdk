@@ -14,15 +14,20 @@
 // limitations under the License.
 
 use crate::imports::*;
-use collectives_fellowship::FellowshipSalaryPaymaster;
+use collectives_westend_runtime::{
+	fellowship::FellowshipSalaryPaymaster, secretary::SecretarySalaryPaymaster,
+};
 use frame_support::{
 	assert_ok,
-	traits::{fungibles::Mutate, tokens::Pay},
+	traits::{
+		fungibles::{Inspect as FungiblesInspect, Mutate},
+		tokens::Pay,
+	},
 };
 use xcm_executor::traits::ConvertLocation;
 
 const FELLOWSHIP_SALARY_PALLET_ID: u8 = 64;
-const SECRETARY_SALARY_PALLET_ID: U8 = 91;
+const SECRETARY_SALARY_PALLET_ID: u8 = 91;
 
 #[test]
 fn pay_salary_technical_fellowship() {
@@ -71,11 +76,12 @@ fn pay_salary_secretary() {
 	const USDT_ID: u32 = 1984;
 	let secretary_salary = (
 		Parent,
-		Parachain(CollectivesPolkadot::para_id().into()),
+		Parachain(CollectivesWestend::para_id().into()),
 		PalletInstance(SECRETARY_SALARY_PALLET_ID),
 	);
-	let pay_from = LocationToAccountId::convert_location(&secretary_salary.into()).unwrap();
-	let pay_to = Polkadot::account_id_of(ALICE);
+	let pay_from = AssetHubLocationToAccountId::convert_location(&secretary_salary.into()).unwrap();
+	println!("Derived account: {:?}", pay_from);
+	let pay_to = Westend::account_id_of(ALICE);
 	let pay_amount = 9_000_000_000;
 
 	AssetHubWestend::execute_with(|| {
@@ -87,19 +93,37 @@ fn pay_salary_secretary() {
 	CollectivesWestend::execute_with(|| {
 		type RuntimeEvent = <CollectivesWestend as Chain>::RuntimeEvent;
 
+		println!("Calling pay for {:?}", pay_to);
+
 		assert_ok!(SecretarySalaryPaymaster::pay(&pay_to, (), pay_amount));
+		// Print all events
+		for event in CollectivesWestend::events() {
+			println!("Collectives Event: {:?}", event);
+		}
 		assert_expected_events!(
-			CollectivesWetend,
+			CollectivesWestend,
 			vec![
 				RuntimeEvent::XcmpQueue(cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }) => {},
 			]
 		);
 	});
 
-	AssetHubPolkadot::execute_with(|| {
-		type RuntimeEvent = <AssetHubPolkadot as Chain>::RuntimeEvent;
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+
+		let payer_balance =
+			<<AssetHubWestend as AssetHubWestendPallet>::Assets as FungiblesInspect<_>>::balance(
+				USDT_ID, &pay_from,
+			);
+		println!("Payer balance: {}", payer_balance);
+
+		let recipient_balance =
+			<<AssetHubWestend as AssetHubWestendPallet>::Assets as FungiblesInspect<_>>::balance(
+				USDT_ID, &pay_to,
+			);
+		println!("Recipient balance before: {}", recipient_balance);
 		assert_expected_events!(
-			AssetHubPolkadot,
+			AssetHubWestend,
 			vec![
 				RuntimeEvent::Assets(pallet_assets::Event::Transferred { .. }) => {},
 				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success: true ,.. }) => {},

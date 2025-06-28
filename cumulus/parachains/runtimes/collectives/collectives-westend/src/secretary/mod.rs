@@ -119,7 +119,7 @@ impl pallet_salary::Config<SecretarySalaryInstance> for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type Paymaster = crate::impls::benchmarks::PayWithEnsure<
 		SecretarySalaryPaymaster,
-		crate::impls::benchmarks::OpenHrmpChannel<ConstU32<1000>>,
+		OpenHrmpChannel<ConstU32<1000>>,
 	>;
 	type Members = pallet_ranked_collective::Pallet<Runtime, SecretaryCollectiveInstance>;
 
