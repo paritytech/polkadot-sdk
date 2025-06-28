@@ -700,28 +700,30 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		})
 	}
 
+	/// Increase the amount delegated to `who` and update tallies accordingly.
+	///
 	/// Return the number of votes accessed.
 	fn increase_upstream_delegation(
 		who: &T::AccountId,
 		class: &ClassOf<T, I>,
 		amount: Delegations<BalanceOf<T, I>>,
-		ongoing_votes: Vec<PollIndexOf<T, I>>,
+		delegators_ongoing_votes: Vec<PollIndexOf<T, I>>,
 	) -> Result<u32, DispatchError> {
 		VotingFor::<T, I>::try_mutate(who, class, |voting| {
-			// Increase delegate's delegation counter
+			// Increase delegate's delegation counter.
 			voting.delegations = voting.delegations.saturating_add(amount);
 			
 			let votes = &mut voting.votes;
-			let updates = (ongoing_votes.len() + votes.len()) as u32;
+			let accesses = (delegators_ongoing_votes.len() + votes.len()) as u32;
 			
-			// For each of the delegate's votes
+			// For each of the delegate's votes.
 			for PollVote { poll_index, maybe_vote, .. } in votes.iter() {
-				// If they have a standard vote recorded
+				// If they have a standard vote recorded.
 				if let Some(AccountVote::Standard { vote, .. }) = maybe_vote {
 					T::Polls::access_poll(*poll_index, |poll_status| {
-						// And the poll is currently ongoing
+						// And the poll is currently ongoing.
 						if let PollStatus::Ongoing(tally, _) = poll_status {
-							// Increase the tally by the delegated amount
+							// Increase the tally by the delegated amount.
 							tally.increase(vote.aye, amount);
 						}
 					});
@@ -729,7 +731,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			}
 
 			// For each of the delegator's ongoing votes
-			for poll_index in ongoing_votes {
+			for poll_index in delegators_ongoing_votes {
 				match votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
 					// That appear in the delegate's voting history
 					Ok(i) => {
@@ -755,7 +757,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					},
 				}
 			}
-			Ok(updates)
+			Ok(accesses)
 		})
 	}
 
