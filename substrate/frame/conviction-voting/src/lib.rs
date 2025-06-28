@@ -759,6 +759,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		})
 	}
 
+	/// Reduce the amount delegated to `who` and update tallies accordingly.
+	///
 	/// Return the number of votes accessed.
 	fn reduce_upstream_delegation(
 		who: &T::AccountId,
@@ -766,64 +768,56 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		amount: Delegations<BalanceOf<T, I>>,
 		delegators_votes: Vec<PollIndexOf<T, I>>,
 	) -> Result<u32, DispatchError> {
-		// Grab the delegate's voting data
+		// Grab the delegate's voting data.
 		VotingFor::<T, I>::try_mutate(who, class, |voting| {
-			// Reduce amount delegated to this delegate
+			// Reduce amount delegated to this delegate.
 			voting.delegations = voting.delegations.saturating_sub(amount);
 			
 			let votes = &mut voting.votes;
-			let updates = (delegators_votes.len() + votes.len()) as u32;
+			let accesses = (delegators_votes.len() + votes.len()) as u32;
 
-			// For each of the delegate's votes
+			// For each of the delegate's votes.
 			for PollVote{ poll_index, maybe_vote, ..} in votes.iter() {
-				// That are standard aye or nay
+				// That are standard aye or nay.
 				if let Some(AccountVote::Standard { vote, .. }) = maybe_vote {
 					T::Polls::access_poll(*poll_index, |poll_status| {
-						// And for an ongoing poll
+						// And for an ongoing poll.
 						if let PollStatus::Ongoing(tally, _) = poll_status {
-							// Reduce the tally by the delegated amount
+							// Reduce the tally by the delegated amount.
 							tally.reduce(vote.aye, amount);
 						}
 					});
 				}
 			}
 
-			// For all the delegator's votes (poll Ongoing, Completed, or None/Cancelled)
+			// For all the delegator's votes (poll Ongoing, Completed, or None/Cancelled).
 			for poll_index in delegators_votes {
-				match votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
-					// That the delegate has data for
-					Ok(i) => {
-						// Get poll state
-						let mut poll_ended = false;
-						T::Polls::access_poll(poll_index, |poll_status| {
-							match poll_status {
-								// If ongoing
-								PollStatus::Ongoing(tally, _) => {
-									// Remove the clawback
-									votes[i].retracted_votes = votes[i].retracted_votes.saturating_sub(amount);
-									
-									// And increase the tally by clawback amount if the delegate has voted standard
-									if let Some(AccountVote::Standard { vote, .. }) = votes[i].maybe_vote {
-										tally.increase(vote.aye, amount);
-									}
-								},
-								_ => {
-									// Poll is done or was cancelled, can remove voting record
-									poll_ended = true;
+				// That the delegate has data for.
+				if let Ok(i) = votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
+					let poll_has_ended = T::Polls::access_poll(poll_index, |poll_status| {
+						match poll_status {
+							// If ongoing.
+							PollStatus::Ongoing(tally, _) => {
+								// Remove the clawback.
+								votes[i].retracted_votes = votes[i].retracted_votes.saturating_sub(amount);
+								
+								// And increase the tally by clawback amount if the delegate has voted standard.
+								if let Some(AccountVote::Standard { vote, .. }) = votes[i].maybe_vote {
+									tally.increase(vote.aye, amount);
 								}
-							}
-						});
-						// And remove the voting data if there's no longer a reason to hold
-						if votes[i].maybe_vote.is_none() && (votes[i].retracted_votes == Default::default() || poll_ended) {
-							votes.remove(i);
+								false
+							},
+							_ => true
 						}
-					},
-					Err(_i) => {
-						// Delegate may have already removed the vote if poll completed or was cancelled
-					},
+					});
+
+					// And remove the voting data if there's no longer a reason to hold.
+					if votes[i].maybe_vote.is_none() && (votes[i].retracted_votes == Default::default() || poll_has_ended) {
+						votes.remove(i);
+					}
 				}
 			}
-			Ok(updates)
+			Ok(accesses)
 		})
 	}
 
