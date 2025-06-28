@@ -730,26 +730,25 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				}
 			}
 
-			// For each of the delegator's ongoing votes
+			// For each of the delegator's ongoing votes.
 			for poll_index in delegators_ongoing_votes {
 				match votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
-					// That appear in the delegate's voting history
+					// That appear in the delegate's voting history.
 					Ok(i) => {
-						// Add the clawback to the delegate
+						// Add the clawback to the delegate.
 						votes[i].retracted_votes = votes[i].retracted_votes.saturating_add(amount);
-						// And reduce the tally by that amount if the delegate has voted standard
+						// And reduce the tally by that amount if the delegate has voted standard.
 						if let Some(AccountVote::Standard { vote, .. }) = votes[i].maybe_vote {
 							T::Polls::access_poll(poll_index, |poll_status| {
-								// And poll is ongoing
 								if let PollStatus::Ongoing(tally, _) = poll_status {
 									tally.reduce(vote.aye, amount);
 								}
 							});
 						}
 					},
-					// That don't appear in the delegate's voting history
+					// That don't appear in the delegate's voting history.
 					Err(i) => {
-						// Insert the vote data with no vote and the clawback amount
+						// Insert the vote data with no vote and the clawback amount.
 						let poll_vote = PollVote {poll_index: poll_index, maybe_vote: None, retracted_votes: amount};
 						votes
 							.try_insert(i, poll_vote)
