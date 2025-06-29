@@ -203,7 +203,9 @@ fn invoke_wasm_build(current_dir: &Path) -> Result<()> {
 		.current_dir(current_dir)
 		.env("CARGO_TARGET_DIR", current_dir.join("target").display().to_string())
 		.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
+		.env("RUSTC_BOOTSTRAP", "1")
 		.args(["build", "--release", "--target=wasm32-unknown-unknown"])
+		.args(["-Z", "build-std=core,alloc"])
 		.output()
 		.expect("failed to execute process");
 

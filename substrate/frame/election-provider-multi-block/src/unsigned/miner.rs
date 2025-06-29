@@ -124,6 +124,8 @@ pub enum OffchainMinerError<T: Config> {
 	SolutionCallInvalid,
 	/// Failed to store a solution.
 	FailedToStoreSolution,
+	/// Cannot mine a solution with zero pages.
+	ZeroPages,
 }
 
 impl<T: Config> From<MinerError<T::MinerConfig>> for OffchainMinerError<T> {
@@ -189,9 +191,7 @@ pub trait MinerConfig {
 	///
 	/// Should equal to the onchain value set in `Verifier::Config`.
 	type MaxBackersPerWinnerFinal: Get<u32>;
-	/// Maximum number of backers, per winner, per page.
-
-	/// Maximum number of pages that we may compute.
+	/// **Maximum** number of pages that we may compute.
 	///
 	/// Must be the same as configured in the [`crate::Config`].
 	type Pages: Get<u32>;
@@ -418,7 +418,7 @@ impl<T: MinerConfig> BaseMiner<T> {
 		paged.score = score;
 
 		miner_log!(
-			info,
+			debug,
 			"mined a solution with {} pages, score {:?}, {} winners, {} voters, {} edges, and {} bytes",
 			pages,
 			score,
@@ -714,6 +714,9 @@ impl<T: Config> OffchainWorkerMiner<T> {
 		pages: PageIndex,
 		do_reduce: bool,
 	) -> Result<PagedRawSolution<T::MinerConfig>, OffchainMinerError<T>> {
+		if pages.is_zero() {
+			return Err(OffchainMinerError::<T>::ZeroPages);
+		}
 		let (voter_pages, all_targets, desired_targets) = Self::fetch_snapshot(pages)?;
 		let round = crate::Pallet::<T>::round();
 		BaseMiner::<T::MinerConfig>::mine_solution(MineInput {
@@ -746,12 +749,14 @@ impl<T: Config> OffchainWorkerMiner<T> {
 		Ok(call)
 	}
 
-	/// Mine a new checked solution, cache it, and submit it back to the chain as an unsigned
+	/// Mine a new checked solution, maybe cache it, and submit it back to the chain as an unsigned
 	/// transaction.
-	pub fn mine_check_save_submit() -> Result<(), OffchainMinerError<T>> {
+	pub(crate) fn mine_check_maybe_save_submit(save: bool) -> Result<(), OffchainMinerError<T>> {
 		sublog!(debug, "unsigned::ocw-miner", "miner attempting to compute an unsigned solution.");
 		let call = Self::mine_checked_call()?;
-		Self::save_solution(&call, crate::Snapshot::<T>::fingerprint())?;
+		if save {
+			Self::save_solution(&call, crate::Snapshot::<T>::fingerprint())?;
+		}
 		Self::submit_call(call)
 	}
 
@@ -762,7 +767,7 @@ impl<T: Config> OffchainWorkerMiner<T> {
 	/// 	1. optionally feasibility check.
 	/// 	2. snapshot-independent checks.
 	/// 		1. optionally, snapshot fingerprint.
-	pub fn check_solution(
+	pub(crate) fn check_solution(
 		paged_solution: &PagedRawSolution<T::MinerConfig>,
 		maybe_snapshot_fingerprint: Option<T::Hash>,
 		do_feasibility: bool,
@@ -773,11 +778,6 @@ impl<T: Config> OffchainWorkerMiner<T> {
 	}
 
 	fn submit_call(call: Call<T>) -> Result<(), OffchainMinerError<T>> {
-		sublog!(
-			debug,
-			"unsigned::ocw-miner",
-			"miner submitting a solution as an unsigned transaction"
-		);
 		let xt = T::create_bare(call.into());
 		frame_system::offchain::SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
 			.map(|_| {
@@ -829,7 +829,7 @@ impl<T: Config> OffchainWorkerMiner<T> {
 
 	/// Attempt to restore a solution from cache. Otherwise, compute it fresh. Either way,
 	/// submit if our call's score is greater than that of the cached solution.
-	pub fn restore_or_compute_then_maybe_submit() -> Result<(), OffchainMinerError<T>> {
+	pub(crate) fn restore_or_compute_then_maybe_submit() -> Result<(), OffchainMinerError<T>> {
 		sublog!(
 			debug,
 			"unsigned::ocw-miner",
@@ -1253,42 +1253,45 @@ mod trimming {
 
 	#[test]
 	fn trim_backers_final_works() {
-		ExtBuilder::unsigned().max_backers_per_winner_final(4).build_and_execute(|| {
-			// adjust the voters a bit, such that they are all different backings
-			let mut current_voters = Voters::get();
-			current_voters.iter_mut().for_each(|(who, stake, ..)| *stake = *who);
-			Voters::set(current_voters);
+		ExtBuilder::unsigned()
+			.max_backers_per_winner(4)
+			.max_backers_per_winner_final(4)
+			.build_and_execute(|| {
+				// adjust the voters a bit, such that they are all different backings
+				let mut current_voters = Voters::get();
+				current_voters.iter_mut().for_each(|(who, stake, ..)| *stake = *who);
+				Voters::set(current_voters);
 
-			roll_to_snapshot_created();
-			ensure_voters(3, 12);
+				roll_to_snapshot_created();
+				ensure_voters(3, 12);
 
-			let solution = mine_full_solution().unwrap();
+				let solution = mine_full_solution().unwrap();
 
-			load_mock_signed_and_start(solution);
-			let supports = roll_to_full_verification();
+				load_mock_signed_and_start(solution);
+				let supports = roll_to_full_verification();
 
-			// a solution is queued.
-			assert!(VerifierPallet::queued_score().is_some());
+				// a solution is queued.
+				assert!(VerifierPallet::queued_score().is_some());
 
-			// 30 has 1 + 3 = 4 backers -- all good
-			// 40 has 1 + 2 + 3 = 6 backers -- needs to lose 2
-			assert_eq!(
-				supports,
-				vec![
+				// 30 has 1 + 3 = 4 backers -- all good
+				// 40 has 1 + 2 + 3 = 6 backers -- needs to lose 2
+				assert_eq!(
+					supports,
 					vec![
-						(30, Support { total: 30, voters: vec![(30, 30)] }),
-						(40, Support { total: 40, voters: vec![(40, 40)] })
-					],
-					vec![
-						(30, Support { total: 14, voters: vec![(5, 5), (6, 2), (7, 7)] }),
-						(40, Support { total: 4, voters: vec![(6, 4)] })
-					],
-					vec![(40, Support { total: 7, voters: vec![(3, 3), (4, 4)] })]
-				]
-				.try_from_unbounded_paged()
-				.unwrap()
-			);
-		})
+						vec![
+							(30, Support { total: 30, voters: vec![(30, 30)] }),
+							(40, Support { total: 40, voters: vec![(40, 40)] })
+						],
+						vec![
+							(30, Support { total: 14, voters: vec![(5, 5), (6, 2), (7, 7)] }),
+							(40, Support { total: 4, voters: vec![(6, 4)] })
+						],
+						vec![(40, Support { total: 7, voters: vec![(3, 3), (4, 4)] })]
+					]
+					.try_from_unbounded_paged()
+					.unwrap()
+				);
+			})
 	}
 
 	#[test]
@@ -2233,9 +2236,55 @@ mod offchain_worker_miner {
 		});
 	}
 
-	#[test]
-	#[ignore]
-	fn multi_page_miner_on_remote_state() {
-		todo!();
+	mod no_storage {
+		use super::*;
+		#[test]
+		fn ocw_never_uses_cache_on_initial_run_or_resubmission() {
+			// When `T::OffchainStorage` is false, the offchain worker should never use cache:
+			// - Initial run: mines and submits without caching
+			// - Resubmission: re-mines fresh solution instead of restoring from cache
+			let (mut ext, pool) =
+				ExtBuilder::unsigned().offchain_storage(false).build_offchainify();
+			ext.execute_with_sanity_checks(|| {
+				let offchain_repeat = <Runtime as crate::unsigned::Config>::OffchainRepeat::get();
+				roll_to_unsigned_open();
+
+				let last_block = StorageValueRef::persistent(
+					&OffchainWorkerMiner::<Runtime>::OFFCHAIN_LAST_BLOCK,
+				);
+				let cache = StorageValueRef::persistent(
+					&OffchainWorkerMiner::<Runtime>::OFFCHAIN_CACHED_CALL,
+				);
+
+				// Initial state: no previous runs
+				assert_eq!(last_block.get::<BlockNumber>(), Ok(None));
+				assert_eq!(cache.get::<crate::unsigned::Call<Runtime>>(), Ok(None));
+
+				// First run: mines and submits without caching
+				UnsignedPallet::offchain_worker(25);
+				assert_eq!(pool.read().transactions.len(), 1);
+				let first_tx = pool.read().transactions[0].clone();
+
+				// Verify no cache is created or used
+				assert_eq!(last_block.get::<BlockNumber>(), Ok(Some(25)));
+				assert_eq!(cache.get::<crate::unsigned::Call<Runtime>>(), Ok(None));
+
+				// Clear the pool to simulate transaction processing
+				pool.try_write().unwrap().transactions.clear();
+
+				// Second run after repeat threshold: should re-mine instead of using cache
+				UnsignedPallet::offchain_worker(25 + 1 + offchain_repeat);
+				assert_eq!(pool.read().transactions.len(), 1);
+				let second_tx = pool.read().transactions[0].clone();
+
+				// Verify still no cache is used throughout the process
+				assert_eq!(last_block.get::<BlockNumber>(), Ok(Some(25 + 1 + offchain_repeat)));
+				assert_eq!(cache.get::<crate::unsigned::Call<Runtime>>(), Ok(None));
+
+				// Both transactions should be identical since the snapshot hasn't changed,
+				// but they were generated independently (no cache reuse)
+				assert_eq!(first_tx, second_tx);
+			})
+		}
 	}
 }

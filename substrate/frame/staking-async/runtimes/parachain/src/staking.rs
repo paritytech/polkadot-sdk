@@ -31,9 +31,9 @@ use sp_runtime::{
 use xcm::latest::prelude::*;
 
 parameter_types! {
-	pub storage SignedPhase: u32 = 2 * MINUTES;
+	pub storage SignedPhase: u32 = 4 * MINUTES;
 	pub storage UnsignedPhase: u32 = MINUTES;
-	pub storage SignedValidationPhase: u32 = Pages::get() + 1;
+	pub storage SignedValidationPhase: u32 = Pages::get() *2;
 
 	pub storage MaxElectingVoters: u32 = 1000;
 
@@ -114,7 +114,7 @@ impl multi_block::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type Fallback = frame_election_provider_support::onchain::OnChainExecution<OnChainConfig>;
 	type MinerConfig = Self;
-	type Verifier = MultiBlockVerifier;
+	type Verifier = MultiBlockElectionVerifier;
 	type OnRoundRotation = multi_block::CleanRound<Self>;
 	type WeightInfo = multi_block::weights::polkadot::MultiBlockWeightInfo<Self>;
 }
@@ -123,7 +123,7 @@ impl multi_block::verifier::Config for Runtime {
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
-	type SolutionDataProvider = MultiBlockSigned;
+	type SolutionDataProvider = MultiBlockElectionSigned;
 	type SolutionImprovementThreshold = SolutionImprovementThreshold;
 	type WeightInfo = multi_block::weights::polkadot::MultiBlockVerifierWeightInfo<Self>;
 }
@@ -133,17 +133,18 @@ parameter_types! {
 	pub EjectGraceRatio: Perbill = Perbill::from_percent(50);
 	pub DepositBase: Balance = 5 * UNITS;
 	pub DepositPerPage: Balance = 1 * UNITS;
+	pub InvulnerableDeposit: Balance = 1 * UNITS;
 	pub RewardBase: Balance = 10 * UNITS;
 	pub MaxSubmissions: u32 = 8;
 }
 
 impl multi_block::signed::Config for Runtime {
-	type RuntimeHoldReason = RuntimeHoldReason;
 	type Currency = Balances;
 	type BailoutGraceRatio = BailoutGraceRatio;
 	type EjectGraceRatio = EjectGraceRatio;
 	type DepositBase = DepositBase;
 	type DepositPerPage = DepositPerPage;
+	type InvulnerableDeposit = InvulnerableDeposit;
 	type RewardBase = RewardBase;
 	type MaxSubmissions = MaxSubmissions;
 	type EstimateCallFee = TransactionPayment;
@@ -160,6 +161,7 @@ parameter_types! {
 
 impl multi_block::unsigned::Config for Runtime {
 	type MinerPages = ConstU32<4>;
+	type OffchainStorage = ConstBool<true>;
 	type OffchainSolver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>>;
 	type MinerTxPriority = MinerTxPriority;
 	type OffchainRepeat = OffchainRepeat;
@@ -266,7 +268,7 @@ impl pallet_staking_async::Config for Runtime {
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 	type EraPayout = EraPayout;
 	type MaxExposurePageSize = MaxExposurePageSize;
-	type ElectionProvider = MultiBlock;
+	type ElectionProvider = MultiBlockElection;
 	type VoterList = VoterList;
 	type TargetList = UseValidatorsMap<Self>;
 	type MaxValidatorSet = MaxValidatorSet;
@@ -281,7 +283,7 @@ impl pallet_staking_async::Config for Runtime {
 	type MaxDisabledValidators = ConstU32<100>;
 	type PlanningEraOffset =
 		pallet_staking_async::PlanningEraOffsetOf<Self, RelaySessionDuration, ConstU32<10>>;
-	type RcClientInterface = StakingNextRcClient;
+	type RcClientInterface = StakingRcClient;
 }
 
 impl pallet_staking_async_rc_client::Config for Runtime {
