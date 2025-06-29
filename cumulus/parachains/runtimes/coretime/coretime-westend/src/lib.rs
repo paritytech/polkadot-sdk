@@ -1005,7 +1005,6 @@ impl_runtime_apis! {
 			use xcm_config::TokenRelayLocation;
 			use testnet_parachains_constants::westend::locations::{AssetHubParaId, AssetHubLocation};
 
-
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
 				type DeliveryHelper = polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
