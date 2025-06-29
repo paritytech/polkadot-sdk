@@ -64,7 +64,7 @@ pub trait HostFn: private::Sealed {
 	///
 	/// # Parameters
 	///
-	/// - `addr`: The target address of which to retreive the free balance.
+	/// - `addr`: The target address of which to retrieve the free balance.
 	/// - `output`: A reference to the output data buffer to write the balance.
 	fn balance_of(addr: &[u8; 20], output: &mut [u8; 32]);
 
