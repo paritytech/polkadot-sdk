@@ -266,8 +266,6 @@ pub enum RuntimeCosts {
 	ToAccountId,
 	/// Weight of calling `seal_origin`.
 	Origin,
-	/// Weight of calling `seal_is_contract`.
-	IsContract,
 	/// Weight of calling `seal_code_hash`.
 	CodeHash,
 	/// Weight of calling `seal_own_code_hash`.
@@ -447,7 +445,6 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			CallDataCopy(len) => T::WeightInfo::seal_call_data_copy(len),
 			Caller => T::WeightInfo::seal_caller(),
 			Origin => T::WeightInfo::seal_origin(),
-			IsContract => T::WeightInfo::seal_is_contract(),
 			ToAccountId => T::WeightInfo::seal_to_account_id(),
 			CodeHash => T::WeightInfo::seal_code_hash(),
 			CodeSize => T::WeightInfo::seal_code_size(),
@@ -1973,14 +1970,6 @@ pub mod env {
 		Ok(self.compute_hash_on_intermediate_buffer(
 			memory, blake2_256, input_ptr, input_len, output_ptr,
 		)?)
-	}
-
-	/// Checks whether a specified address belongs to a contract.
-	/// See [`pallet_revive_uapi::HostFn::is_contract`].
-	fn is_contract(&mut self, memory: &mut M, account_ptr: u32) -> Result<u32, TrapReason> {
-		self.charge_gas(RuntimeCosts::IsContract)?;
-		let address = memory.read_h160(account_ptr)?;
-		Ok(self.ext.is_contract(&address) as u32)
 	}
 
 	/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.

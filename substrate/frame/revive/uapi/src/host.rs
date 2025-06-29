@@ -482,9 +482,6 @@ pub trait HostFn: private::Sealed {
 
 	/// Checks whether the caller of the current contract is the origin of the whole call stack.
 	///
-	/// Prefer this over [`is_contract()`][`Self::is_contract`] when checking whether your contract
-	/// is being called by a contract or a plain account. The reason is that it performs better
-	/// since it does not need to do any storage lookups.
 	///
 	/// # Return
 	///
@@ -568,18 +565,6 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: The output buffer to write the hash result to.
 	#[unstable_hostfn]
 	fn hash_blake2_128(input: &[u8], output: &mut [u8; 16]);
-
-	/// Checks whether a specified address belongs to a contract.
-	///
-	/// # Parameters
-	///
-	/// - `address`: The address to check
-	///
-	/// # Return
-	///
-	/// Returns `true` if the address belongs to a contract.
-	#[unstable_hostfn]
-	fn is_contract(address: &[u8; 20]) -> bool;
 
 	/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
 	///

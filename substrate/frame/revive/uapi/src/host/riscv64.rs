@@ -95,7 +95,6 @@ mod sys {
 		pub fn seal_return(flags: u32, data_ptr: *const u8, data_len: u32);
 		pub fn caller(out_ptr: *mut u8);
 		pub fn origin(out_ptr: *mut u8);
-		pub fn is_contract(account_ptr: *const u8) -> ReturnCode;
 		pub fn to_account_id(address_ptr: *const u8, out_ptr: *mut u8);
 		pub fn code_hash(address_ptr: *const u8, out_ptr: *mut u8);
 		pub fn code_size(address_ptr: *const u8) -> u64;
@@ -524,12 +523,6 @@ impl HostFn for HostFnImpl {
 	#[unstable_hostfn]
 	fn hash_blake2_128(input: &[u8], output: &mut [u8; 16]) {
 		unsafe { sys::hash_blake2_128(input.as_ptr(), input.len() as u32, output.as_mut_ptr()) }
-	}
-
-	#[unstable_hostfn]
-	fn is_contract(address: &[u8; 20]) -> bool {
-		let ret_val = unsafe { sys::is_contract(address.as_ptr()) };
-		ret_val.into_bool()
 	}
 
 	#[unstable_hostfn]

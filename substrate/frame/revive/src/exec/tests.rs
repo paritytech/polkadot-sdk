@@ -783,34 +783,6 @@ fn origin_returns_proper_values() {
 }
 
 #[test]
-fn is_contract_returns_proper_values() {
-	let bob_ch = MockLoader::insert(Call, |ctx, _| {
-		// Verify that BOB is a contract
-		assert!(ctx.ext.is_contract(&BOB_ADDR));
-		// Verify that ALICE is not a contract
-		assert!(!ctx.ext.is_contract(&ALICE_ADDR));
-		exec_success()
-	});
-
-	ExtBuilder::default().build().execute_with(|| {
-		place_contract(&BOB, bob_ch);
-
-		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
-		let result = MockStack::run_call(
-			origin,
-			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
-			&mut storage_meter,
-			U256::zero(),
-			vec![],
-			false,
-		);
-		assert_matches!(result, Ok(_));
-	});
-}
-
-#[test]
 fn to_account_id_returns_proper_values() {
 	let bob_code_hash = MockLoader::insert(Call, |ctx, _| {
 		let alice_account_id = <Test as Config>::AddressMapper::to_account_id(&ALICE_ADDR);

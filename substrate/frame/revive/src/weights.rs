@@ -87,7 +87,6 @@ pub trait WeightInfo {
 	fn noop_host_fn(r: u32, ) -> Weight;
 	fn seal_caller() -> Weight;
 	fn seal_origin() -> Weight;
-	fn seal_is_contract() -> Weight;
 	fn seal_to_account_id() -> Weight;
 	fn seal_code_hash() -> Weight;
 	fn seal_own_code_hash() -> Weight;
@@ -422,16 +421,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `0`
 		// Minimum execution time: 184_000 picoseconds.
 		Weight::from_parts(206_000, 0)
-	}
-	/// Storage: `Revive::ContractInfoOf` (r:1 w:0)
-	/// Proof: `Revive::ContractInfoOf` (`max_values`: None, `max_size`: Some(242), added: 2717, mode: `Measured`)
-	fn seal_is_contract() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `306`
-		//  Estimated: `3771`
-		// Minimum execution time: 8_270_000 picoseconds.
-		Weight::from_parts(8_700_000, 3771)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
 	}
 	/// Storage: `Revive::OriginalAccount` (r:1 w:0)
 	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
@@ -1409,16 +1398,6 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 184_000 picoseconds.
 		Weight::from_parts(206_000, 0)
-	}
-	/// Storage: `Revive::ContractInfoOf` (r:1 w:0)
-	/// Proof: `Revive::ContractInfoOf` (`max_values`: None, `max_size`: Some(242), added: 2717, mode: `Measured`)
-	fn seal_is_contract() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `306`
-		//  Estimated: `3771`
-		// Minimum execution time: 8_270_000 picoseconds.
-		Weight::from_parts(8_700_000, 3771)
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
 	}
 	/// Storage: `Revive::OriginalAccount` (r:1 w:0)
 	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)

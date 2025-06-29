@@ -154,4 +154,11 @@ impl RuntimeApi {
 		let trace = self.0.call(payload).await?.map_err(|err| ClientError::TransactError(err.0))?;
 		Ok(trace.0)
 	}
+
+	/// Get the code of the given address.
+	pub async fn code(&self, address: H160) -> Result<Vec<u8>, ClientError> {
+		let payload = subxt_client::apis().revive_api().code(address);
+		let code = self.0.call(payload).await?;
+		Ok(code)
+	}
 }
