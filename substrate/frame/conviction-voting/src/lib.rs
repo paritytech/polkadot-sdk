@@ -762,7 +762,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			voting.delegations = voting.delegations.saturating_add(amount);
 
 			let votes = &mut voting.votes;
-			let accesses = (delegators_ongoing_votes.len() + votes.len()) as u32;
+			let vote_accesses = (delegators_ongoing_votes.len() + votes.len()) as u32;
 
 			// For each of the delegate's votes.
 			for VoteRecord { poll_index, maybe_vote, .. } in votes.iter() {
@@ -805,7 +805,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					},
 				}
 			}
-			Ok(accesses)
+			Ok(vote_accesses)
 		})
 	}
 
@@ -824,7 +824,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			voting.delegations = voting.delegations.saturating_sub(amount);
 
 			let votes = &mut voting.votes;
-			let accesses = (delegators_votes.len() + votes.len()) as u32;
+			let vote_accesses = (delegators_votes.len() + votes.len()) as u32;
 
 			// For each of the delegate's votes.
 			for VoteRecord { poll_index, maybe_vote, .. } in votes.iter() {
@@ -873,7 +873,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					}
 				}
 			}
-			Ok(accesses)
+			Ok(vote_accesses)
 		})
 	}
 
@@ -913,7 +913,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					.collect();
 
 				// Update voting data of the chosen delegate.
-				let vote_count = Self::increase_upstream_delegation(
+				let vote_accesses = Self::increase_upstream_delegation(
 					&target,
 					&class,
 					conviction.votes(balance),
@@ -923,7 +923,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				// Extend the lock to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
 				Self::extend_lock(&who, &class, balance);
-				vote_count
+				vote_accesses
 			})?;
 		Self::deposit_event(Event::<T, I>::Delegated(who, target));
 		Ok(vote_accesses)
@@ -952,7 +952,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					.collect();
 
 				// Update their delegate's voting data.
-				let votes = Self::reduce_upstream_delegation(
+				let vote_accesses = Self::reduce_upstream_delegation(
 					&delegate,
 					&class,
 					conviction.votes(voting.delegated_balance),
@@ -969,7 +969,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 				// Set the delegator's delegate info.
 				voting.set_delegate_info(None, Default::default(), None);
-				Ok(votes)
+				Ok(vote_accesses)
 			})?;
 		Self::deposit_event(Event::<T, I>::Undelegated(who));
 		Ok(vote_accesses)
