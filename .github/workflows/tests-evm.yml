@@ -81,7 +81,7 @@ jobs:
           echo "bash init.sh --kitchensink -- --matter-labs -- $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH"
           bash init.sh --kitchensink -- --matter-labs -- $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH
           echo "Run eth-rpc tests"
-          bash init.sh --kitchensink http://localhost:9944 --eth-rpc -- $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH
+          bash init.sh --kitchensink http://localhost:9944 --eth-rpc -- $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH 
 
       - name: Collect tests results
         if: always()
