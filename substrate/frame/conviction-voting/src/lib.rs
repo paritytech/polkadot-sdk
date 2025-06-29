@@ -433,11 +433,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					// If found.
 					Ok(i) => {
 						// And they currently have a vote.
-						if let Some(account_vote) = votes[i].maybe_vote {
+						if let Some(old_vote) = votes[i].maybe_vote {
 							// Reduce tally by the vote, shouldn't be possible to fail, but we handle it gracefully.
-							tally.remove(account_vote).ok_or(ArithmeticError::Underflow)?;
+							tally.remove(old_vote).ok_or(ArithmeticError::Underflow)?;
 							// Remove delegations from tally only if vote was standard aye nay.
-							if let Some(approve) = account_vote.as_standard() {
+							if let Some(approve) = old_vote.as_standard() {
 								// But first adjust by the current clawback amount.
 								let final_delegations = voting.delegations.saturating_sub(votes[i].retracted_votes);
 								tally.reduce(approve, final_delegations);
@@ -548,9 +548,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						tally.remove(account_vote).ok_or(ArithmeticError::Underflow)?;
 						
 						// If standard aye nay vote, remove delegated votes.
-						if let Some(approve) = account_vote.as_standard() {
-							let final_delgations = voting.delegations.saturating_sub(votes[i].retracted_votes);
-							tally.reduce(approve, final_delgations);
+						if let Some(approval) = account_vote.as_standard() {
+							let final_delegations = voting.delegations.saturating_sub(votes[i].retracted_votes);
+							tally.reduce(approval, final_delegations);
 						}
 
 						// Remove vote and fully remove record if there are no retracted votes to track.
@@ -661,19 +661,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn update_prior_lock(
 		prior_lock: &mut PriorLock<BlockNumberFor<T, I>, BalanceOf<T, I>>,
 		ending_block: BlockNumberFor<T, I>,
-		lock_periods: BlockNumberFor<T, I>,
+		lock_period_mult: BlockNumberFor<T, I>,
 		balance: BalanceOf<T, I>,
 		scope: UnvoteScope,
 	) -> DispatchResult {
 		let unlock_at = ending_block.saturating_add(
-			T::VoteLockingPeriod::get().saturating_mul(lock_periods),
+			T::VoteLockingPeriod::get().saturating_mul(lock_period_mult),
 		);
 		if T::BlockNumberProvider::current_block_number() < unlock_at {
 			ensure!(matches!(scope, UnvoteScope::Any), Error::<T, I>::NoPermissionYet);
 			prior_lock.accumulate(unlock_at, balance);
 		}
 		Ok(())
-		
 	}
 
 	/// Increase the amount delegated to `who` and update tallies accordingly.
@@ -884,7 +883,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(vote_accesses)
 	}
 
-	// Update the lock for this class to be max(old, amount)
+	// Update the lock for this class to be max(old, amount).
 	fn extend_lock(who: &T::AccountId, class: &ClassOf<T, I>, amount: BalanceOf<T, I>) {
 		ClassLocksFor::<T, I>::mutate(who, |locks| {
 			match locks.iter().position(|x| &x.0 == class) {
