@@ -19,7 +19,7 @@
 
 use crate::{ed25519, sr25519, U256};
 use alloc::{format, str, vec::Vec};
-#[cfg(all(not(feature = "std"), feature = "serde"))]
+#[cfg(feature = "serde")]
 use alloc::{string::String, vec};
 use bip39::{Language, Mnemonic};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
@@ -32,7 +32,6 @@ use itertools::Itertools;
 use rand::{rngs::OsRng, RngCore};
 use scale_info::TypeInfo;
 pub use secrecy::{ExposeSecret, SecretString};
-use sp_runtime_interface::pass_by::PassByInner;
 pub use ss58_registry::{from_known_address_format, Ss58AddressFormat, Ss58AddressFormatRegistry};
 /// Trait to zeroize a memory buffer.
 pub use zeroize::Zeroize;
@@ -1052,11 +1051,11 @@ pub trait CryptoType {
 	Hash,
 	Encode,
 	Decode,
-	PassByInner,
 	crate::RuntimeDebug,
 	TypeInfo,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[repr(transparent)]
 pub struct KeyTypeId(pub [u8; 4]);
 
 impl From<u32> for KeyTypeId {
@@ -1068,6 +1067,18 @@ impl From<u32> for KeyTypeId {
 impl From<KeyTypeId> for u32 {
 	fn from(x: KeyTypeId) -> Self {
 		u32::from_le_bytes(x.0)
+	}
+}
+
+impl From<[u8; 4]> for KeyTypeId {
+	fn from(value: [u8; 4]) -> Self {
+		Self(value)
+	}
+}
+
+impl AsRef<[u8]> for KeyTypeId {
+	fn as_ref(&self) -> &[u8] {
+		&self.0
 	}
 }
 
@@ -1208,6 +1219,7 @@ impl_from_entropy_base!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, U256);
 mod tests {
 	use super::*;
 	use crate::DeriveJunction;
+	use alloc::{string::String, vec};
 
 	struct TestCryptoTag;
 

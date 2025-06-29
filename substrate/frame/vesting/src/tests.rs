@@ -24,7 +24,7 @@ use sp_runtime::{
 };
 
 use super::{Vesting as VestingStorage, *};
-use crate::mock::{Balances, ExtBuilder, System, Test, Vesting};
+use crate::mock::{vesting_events_since_last_call, Balances, ExtBuilder, System, Test, Vesting};
 
 /// A default existential deposit.
 const ED: u64 = 256;
@@ -331,6 +331,14 @@ fn vested_transfer_works() {
 			10,
 		);
 		assert_ok!(Vesting::vested_transfer(Some(3).into(), 4, new_vesting_schedule));
+		// Verify that the last events are `VestingCreated/VestingUpdated`.
+		assert_eq!(
+			vesting_events_since_last_call(),
+			vec![
+				Event::VestingCreated { account: 4, schedule_index: 0 },
+				Event::VestingUpdated { account: 4, unvested: 1280 },
+			]
+		);
 		// Now account 4 should have vesting.
 		assert_eq!(VestingStorage::<Test>::get(&4).unwrap(), vec![new_vesting_schedule]);
 		// Ensure the transfer happened correctly.
@@ -471,6 +479,15 @@ fn force_vested_transfer_works() {
 			4,
 			new_vesting_schedule
 		));
+
+		// Verify that the last events are `VestingCreated/VestingUpdated`.
+		assert_eq!(
+			vesting_events_since_last_call(),
+			vec![
+				Event::VestingCreated { account: 4, schedule_index: 0 },
+				Event::VestingUpdated { account: 4, unvested: 1280 },
+			]
+		);
 		// Now account 4 should have vesting.
 		assert_eq!(VestingStorage::<Test>::get(&4).unwrap()[0], new_vesting_schedule);
 		assert_eq!(VestingStorage::<Test>::get(&4).unwrap().len(), 1);
@@ -1175,6 +1192,15 @@ fn remove_vesting_schedule() {
 			10,
 		);
 		assert_ok!(Vesting::vested_transfer(Some(3).into(), 4, new_vesting_schedule));
+		// Verify that the last events are `VestingCreated/VestingUpdated`.
+		assert_eq!(
+			vesting_events_since_last_call(),
+			vec![
+				Event::VestingCreated { account: 4, schedule_index: 0 },
+				Event::VestingUpdated { account: 4, unvested: 1280 },
+			]
+		);
+
 		// Now account 4 should have vesting.
 		assert_eq!(VestingStorage::<Test>::get(&4).unwrap(), vec![new_vesting_schedule]);
 		// Account 4 has 5 * 256 locked.

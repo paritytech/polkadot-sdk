@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use crate::{mock::*, DispatchError::BadOrigin, *};
 use frame_support::{assert_noop, assert_ok};
+use snowbridge_test_utils::FAILING_NONCE;
 use sp_keyring::sr25519::Keyring;
 use xcm::{latest::WESTEND_GENESIS_HASH, prelude::*};
 
@@ -16,6 +17,7 @@ fn register_tokens_succeeds() {
 			Box::new(versioned_location.clone()),
 			Box::new(versioned_location),
 			Default::default(),
+			1
 		));
 	});
 }
@@ -128,17 +130,14 @@ fn register_all_tokens_succeeds() {
 				origin,
 				Box::new(versioned_location.clone()),
 				Box::new(versioned_location),
-				Default::default()
+				Default::default(),
+				1
 			));
 
 			let reanchored_location = EthereumSystemV2::reanchor(tc.native.clone()).unwrap();
 			let foreign_token_id =
 				EthereumSystemV2::location_to_message_origin(tc.native.clone()).unwrap();
 
-			assert_eq!(
-				NativeToForeignId::<Test>::get(reanchored_location.clone()),
-				Some(foreign_token_id)
-			);
 			assert_eq!(
 				ForeignToNativeId::<Test>::get(foreign_token_id),
 				Some(reanchored_location.clone())
@@ -165,9 +164,116 @@ fn register_ethereum_native_token_fails() {
 				origin,
 				versioned_location.clone(),
 				versioned_location.clone(),
-				Default::default()
+				Default::default(),
+				1
 			),
 			Error::<Test>::LocationConversionFailed
+		);
+	});
+}
+
+#[test]
+fn add_tip_inbound_succeeds() {
+	new_test_ext(true).execute_with(|| {
+		let origin = make_xcm_origin(FrontendLocation::get());
+		let sender: AccountId = Keyring::Alice.into();
+		let message_id = MessageId::Inbound(1);
+		let amount = 1000;
+
+		assert_ok!(EthereumSystemV2::add_tip(origin, sender.clone(), message_id.clone(), amount));
+
+		System::assert_last_event(RuntimeEvent::EthereumSystemV2(Event::<Test>::TipProcessed {
+			sender: sender.clone(),
+			message_id,
+			amount,
+			success: true,
+		}));
+
+		let lost_tip = LostTips::<Test>::get(sender);
+		assert_eq!(lost_tip, 0);
+	});
+}
+
+#[test]
+fn add_tip_inbound_fails_when_nonce_is_consumed() {
+	new_test_ext(true).execute_with(|| {
+		let origin = make_xcm_origin(FrontendLocation::get());
+		let sender: AccountId = Keyring::Alice.into();
+		// In `MockOkInboundQueue`, the mocked implementation returns an error when the nonce is
+		// equal to 3, to simulate an error condition.
+		let message_id = MessageId::Inbound(FAILING_NONCE);
+		let amount = 1000;
+
+		assert_ok!(EthereumSystemV2::add_tip(origin, sender.clone(), message_id.clone(), amount));
+
+		System::assert_last_event(RuntimeEvent::EthereumSystemV2(Event::<Test>::TipProcessed {
+			sender: sender.clone(),
+			message_id,
+			amount,
+			success: false,
+		}));
+
+		let lost_tip = LostTips::<Test>::get(sender);
+		assert_eq!(lost_tip, 1000);
+	});
+}
+
+#[test]
+fn add_tip_outbound_succeeds() {
+	new_test_ext(true).execute_with(|| {
+		let origin = make_xcm_origin(FrontendLocation::get());
+		let sender: AccountId = Keyring::Alice.into();
+		let message_id = MessageId::Outbound(1);
+		let amount = 500;
+
+		assert_ok!(EthereumSystemV2::add_tip(origin, sender.clone(), message_id.clone(), amount));
+
+		System::assert_last_event(RuntimeEvent::EthereumSystemV2(Event::<Test>::TipProcessed {
+			sender: sender.clone(),
+			message_id,
+			amount,
+			success: true,
+		}));
+
+		let lost_tip = LostTips::<Test>::get(sender);
+		assert_eq!(lost_tip, 0);
+	});
+}
+
+#[test]
+fn add_tip_outbound_fails_when_pending_order_not_found() {
+	new_test_ext(false).execute_with(|| {
+		let origin = make_xcm_origin(FrontendLocation::get());
+		let sender: AccountId = Keyring::Alice.into();
+		// In `MockOkOutboundQueue`, the mocked implementation returns an error when the nonce is
+		// equal to 3, to simulate an error condition.
+		let message_id = MessageId::Outbound(FAILING_NONCE);
+		let amount = 500;
+
+		assert_ok!(EthereumSystemV2::add_tip(origin, sender.clone(), message_id.clone(), amount));
+		System::assert_last_event(RuntimeEvent::EthereumSystemV2(Event::<Test>::TipProcessed {
+			sender: sender.clone(),
+			message_id,
+			amount,
+			success: false,
+		}));
+
+		let lost_tip = LostTips::<Test>::get(sender);
+		assert_eq!(lost_tip, 500);
+	});
+}
+
+#[test]
+fn add_tip_with_wrong_origin_fails() {
+	new_test_ext(true).execute_with(|| {
+		let invalid_origin = RuntimeOrigin::root();
+		let sender: AccountId = Keyring::Alice.into();
+		let message_id = MessageId::Inbound(1);
+		let amount = 1000;
+
+		assert_noop!(
+			EthereumSystemV2::add_tip(invalid_origin, sender, message_id, amount),
+			BadOrigin
 		);
 	});
 }

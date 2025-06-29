@@ -117,3 +117,14 @@ impl ExtBuilder {
 		ext
 	}
 }
+
+parameter_types! {
+	static ObservedEventsVesting: usize = 0;
+}
+
+pub(crate) fn vesting_events_since_last_call() -> Vec<pallet_vesting::Event<Test>> {
+	let events = System::read_events_for_pallet::<pallet_vesting::Event<Test>>();
+	let already_seen = ObservedEventsVesting::get();
+	ObservedEventsVesting::set(events.len());
+	events.into_iter().skip(already_seen).collect()
+}

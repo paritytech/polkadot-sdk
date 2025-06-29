@@ -171,6 +171,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 	}
 
 	tracing::debug!(target: LOG_TARGET, ?core_index, "Submitting collation for core.");
+
 	overseer_handle
 		.send_msg(
 			CollationGenerationMessage::SubmitCollation(SubmitCollationParams {

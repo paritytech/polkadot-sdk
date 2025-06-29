@@ -74,6 +74,17 @@ pub trait InitBlockBuilder {
 		ignored_nodes: ProofRecorderIgnoredNodes<Block>,
 	) -> BlockBuilderAndSupportData;
 
+	/// Init a specific block builder using the given pre-digests.
+	///
+	/// Same as [`InitBlockBuilder::init_block_builder`] besides that it takes vector of
+	/// [`DigestItem`]'s that are passed as pre-digest to the block builder.
+	fn init_block_builder_with_pre_digests(
+		&self,
+		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
+		relay_sproof_builder: RelayStateSproofBuilder,
+		pre_digests: Vec<DigestItem>,
+	) -> BlockBuilderAndSupportData;
+
 	/// Init a specific block builder that works for the test runtime.
 	///
 	/// Same as [`InitBlockBuilder::init_block_builder`] besides that it takes a
@@ -93,9 +104,28 @@ fn init_block_builder(
 	at: Hash,
 	validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 	mut relay_sproof_builder: RelayStateSproofBuilder,
-	timestamp: u64,
+	timestamp: Option<u64>,
 	ignored_nodes: Option<ProofRecorderIgnoredNodes<Block>>,
+	extra_pre_digests: Option<Vec<DigestItem>>,
 ) -> BlockBuilderAndSupportData<'_> {
+	let timestamp = timestamp.unwrap_or_else(|| {
+		let last_timestamp =
+			client.runtime_api().get_last_timestamp(at).expect("Get last timestamp");
+
+		if last_timestamp == 0 {
+			if relay_sproof_builder.current_slot != 0u64 {
+				*relay_sproof_builder.current_slot * 6_000
+			} else {
+				std::time::SystemTime::now()
+					.duration_since(std::time::SystemTime::UNIX_EPOCH)
+					.expect("Time is always after UNIX_EPOCH; qed")
+					.as_millis() as u64
+			}
+		} else {
+			last_timestamp + client.runtime_api().slot_duration(at).unwrap().as_millis()
+		}
+	});
+
 	let slot: Slot =
 		(timestamp / client.runtime_api().slot_duration(at).unwrap().as_millis()).into();
 
@@ -104,7 +134,14 @@ fn init_block_builder(
 	}
 
 	let aura_pre_digest = Digest {
-		logs: vec![DigestItem::PreRuntime(sp_consensus_aura::AURA_ENGINE_ID, slot.encode())],
+		logs: extra_pre_digests
+			.unwrap_or_default()
+			.into_iter()
+			.chain(std::iter::once(DigestItem::PreRuntime(
+				sp_consensus_aura::AURA_ENGINE_ID,
+				slot.encode(),
+			)))
+			.collect::<Vec<_>>(),
 	};
 
 	let mut block_builder = BlockBuilderBuilder::new(client)
@@ -138,6 +175,8 @@ fn init_block_builder(
 				relay_chain_state,
 				downward_messages: Default::default(),
 				horizontal_messages: Default::default(),
+				relay_parent_descendants: Default::default(),
+				collator_peer_id: None,
 			},
 		)
 		.expect("Put validation function params failed");
@@ -161,28 +200,39 @@ impl InitBlockBuilder for Client {
 		self.init_block_builder_at(chain_info.best_hash, validation_data, relay_sproof_builder)
 	}
 
+	fn init_block_builder_with_pre_digests(
+		&self,
+		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
+		relay_sproof_builder: RelayStateSproofBuilder,
+		pre_digests: Vec<DigestItem>,
+	) -> BlockBuilderAndSupportData {
+		let chain_info = self.chain_info();
+		init_block_builder(
+			self,
+			chain_info.best_hash,
+			validation_data,
+			relay_sproof_builder,
+			None,
+			None,
+			Some(pre_digests),
+		)
+	}
+
 	fn init_block_builder_at(
 		&self,
 		at: Hash,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 	) -> BlockBuilderAndSupportData {
-		let last_timestamp = self.runtime_api().get_last_timestamp(at).expect("Get last timestamp");
-
-		let timestamp = if last_timestamp == 0 {
-			if relay_sproof_builder.current_slot != 0u64 {
-				*relay_sproof_builder.current_slot * 6_000
-			} else {
-				std::time::SystemTime::now()
-					.duration_since(std::time::SystemTime::UNIX_EPOCH)
-					.expect("Time is always after UNIX_EPOCH; qed")
-					.as_millis() as u64
-			}
-		} else {
-			last_timestamp + self.runtime_api().slot_duration(at).unwrap().as_millis()
-		};
-
-		init_block_builder(self, at, validation_data, relay_sproof_builder, timestamp, None)
+		init_block_builder(
+			self,
+			at,
+			validation_data,
+			relay_sproof_builder,
+			None,
+			None,
+			None,
+		)
 	}
 
 	fn init_block_builder_with_ignored_nodes(
@@ -198,8 +248,9 @@ impl InitBlockBuilder for Client {
 			at,
 			validation_data,
 			relay_sproof_builder,
-			timestamp,
+			Some(timestamp),
 			Some(ignored_nodes),
+			None,
 		)
 	}
 
@@ -210,7 +261,15 @@ impl InitBlockBuilder for Client {
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,
 	) -> BlockBuilderAndSupportData {
-		init_block_builder(self, at, validation_data, relay_sproof_builder, timestamp, None)
+		init_block_builder(
+			self,
+			at,
+			validation_data,
+			relay_sproof_builder,
+			Some(timestamp),
+			None,
+			None,
+		)
 	}
 }
 

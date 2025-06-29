@@ -1,0 +1,10 @@
+error[E0277]: expected a `Fn(TransactionSource, &u32)` closure, found `Result<_, _>`
+  --> tests/pallet_ui/authorize_wrong_closure_4.rs:36:23
+   |
+36 |         #[pallet::authorize(Ok(Default::default()))]
+   |                             ^^--------------------
+   |                             |
+   |                             expected an `Fn(TransactionSource, &u32)` closure, found `Result<_, _>`
+   |                             return type was inferred to be `Result<_, _>` here
+   |
+   = help: the trait `for<'a> Fn(TransactionSource, &'a u32)` is not implemented for `Result<_, _>`

@@ -20,8 +20,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 bytes = { workspace = true }
 codec = { features = ["bytes"], workspace = true }
-libsecp256k1 = { optional = true, workspace = true, default-features = true }
-log = { optional = true, workspace = true, default-features = true }
 secp256k1 = { features = ["global-context", "recovery"], optional = true, workspace = true, default-features = true }
 sp-core = { workspace = true }
 sp-crypto-hashing = { workspace = true }
@@ -34,8 +32,16 @@ sp-trie = { optional = true, workspace = true }
 tracing = { workspace = true }
 tracing-core = { workspace = true }
 
+[target.'cfg(not(substrate_runtime))'.dependencies]
+sp-keystore = { workspace = true, default-features = false }
+sp-trie = { workspace = true, default-features = false }
+sp-state-machine = { workspace = true, default-features = false }
+log = { workspace = true, default-features = true }
+libsecp256k1 = { workspace = true, default-features = false, features = ["static-context"] }
+secp256k1 = { workspace = true, default-features = false, features = ["alloc", "recovery"] }
+
 # Required for backwards compatibility reason, but only used for verifying when `UseDalekExt` is set.
-ed25519-dalek = { optional = true, workspace = true }
+ed25519-dalek = { workspace = true }
 
 docify = { workspace = true }
 
@@ -50,11 +56,11 @@ default = ["std"]
 std = [
 	"bytes/std",
 	"codec/std",
-	"ed25519-dalek",
-	"ed25519-dalek?/std",
-	"libsecp256k1",
+	"ed25519-dalek/std",
+	"libsecp256k1/std",
 	"log/std",
-	"secp256k1",
+	"secp256k1/global-context",
+	"secp256k1/std",
 	"sp-core/std",
 	"sp-crypto-hashing/std",
 	"sp-externalities/std",
@@ -99,7 +105,7 @@ improved_panic_error_reporting = []
 # This feature adds BLS crypto primitives.
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.
-bls-experimental = ["sp-keystore/bls-experimental"]
+bls-experimental = ["sp-core/bls-experimental", "sp-keystore/bls-experimental"]
 
 # This feature adds Bandersnatch crypto primitives.
 # It should not be used in production since the implementation and interface may still

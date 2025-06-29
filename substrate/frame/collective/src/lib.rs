@@ -348,6 +348,7 @@ pub mod pallet {
 			+ GetDispatchInfo;
 
 		/// The runtime event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -836,7 +837,7 @@ pub mod pallet {
 			proposal_weight_bound: Weight,
 			#[pallet::compact] length_bound: u32,
 		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 
 			Self::do_close(proposal_hash, index, proposal_weight_bound, length_bound)
 		}
@@ -885,13 +886,13 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			proposal_hash: T::Hash,
 		) -> DispatchResult {
-			let _ = ensure_signed_or_root(origin)?;
+			ensure_signed_or_root(origin)?;
 			ensure!(
 				ProposalOf::<T, I>::get(&proposal_hash).is_none(),
 				Error::<T, I>::ProposalActive
 			);
 			if let Some((who, cost)) = <CostOf<T, I>>::take(proposal_hash) {
-				let _ = cost.drop(&who)?;
+				cost.drop(&who)?;
 				Self::deposit_event(Event::ProposalCostReleased { proposal_hash, who });
 			}
 

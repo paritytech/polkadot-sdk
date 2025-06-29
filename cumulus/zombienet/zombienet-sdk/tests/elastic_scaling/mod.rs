@@ -16,3 +16,4 @@
 // limitations under the License.
 
 mod elastic_scaling_multiple_blocks_per_slot;
+mod slot_based_rp_offset;

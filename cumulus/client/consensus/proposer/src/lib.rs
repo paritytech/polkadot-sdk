@@ -28,7 +28,7 @@ use sc_transaction_pool_api::TransactionPool;
 use sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_consensus::{EnableProofRecording, Environment, Proposal};
-use sp_inherents::InherentData;
+use sp_inherents::{InherentData, InherentDataProvider};
 use sp_runtime::{traits::Block as BlockT, Digest};
 use sp_state_machine::StorageProof;
 use std::{fmt::Debug, time::Duration};
@@ -106,11 +106,9 @@ where
 			.map_err(|e| Error::proposer_creation(anyhow::Error::new(e)))?;
 
 		let mut inherent_data = other_inherent_data;
-		inherent_data
-			.put_data(
-				cumulus_primitives_parachain_inherent::INHERENT_IDENTIFIER,
-				&paras_inherent_data,
-			)
+		paras_inherent_data
+			.provide_inherent_data(&mut inherent_data)
+			.await
 			.map_err(|e| Error::proposing(anyhow::Error::new(e)))?;
 
 		proposer

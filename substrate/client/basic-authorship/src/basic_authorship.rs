@@ -379,7 +379,7 @@ where
 		}: ProposeArgs<Block>,
 	) -> Result<Proposal<Block, PR::Proof>, sp_blockchain::Error> {
 		// leave some time for evaluation and block finalization (33%)
-		let deadline = (self.now)() + max_duration - max_duration / 3;
+		let deadline = (self.now)() + max_duration - max_duration / 10;
 		let block_timer = time::Instant::now();
 		let mut block_builder = BlockBuilderBuilder::new(&*self.client)
 			.on_parent_block(self.parent_hash)
@@ -586,7 +586,9 @@ where
 			);
 		}
 
-		self.transaction_pool.report_invalid(Some(self.parent_hash), unqueue_invalid);
+		self.transaction_pool
+			.report_invalid(Some(self.parent_hash), unqueue_invalid)
+			.await;
 		Ok(end_reason)
 	}
 
@@ -662,7 +664,7 @@ mod tests {
 
 	use futures::executor::block_on;
 	use parking_lot::Mutex;
-	use sc_client_api::Backend;
+	use sc_client_api::{Backend, TrieCacheContext};
 	use sc_transaction_pool::BasicPool;
 	use sc_transaction_pool_api::{ChainEvent, MaintainedTransactionPool, TransactionSource};
 	use sp_api::Core;
@@ -835,7 +837,7 @@ mod tests {
 		let api = client.runtime_api();
 		api.execute_block(genesis_hash, proposal.block).unwrap();
 
-		let state = backend.state_at(genesis_hash).unwrap();
+		let state = backend.state_at(genesis_hash, TrieCacheContext::Untrusted).unwrap();
 
 		let storage_changes = api.into_storage_changes(&state, genesis_hash).unwrap();
 

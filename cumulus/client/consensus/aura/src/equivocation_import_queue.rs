@@ -23,43 +23,45 @@
 use codec::Codec;
 use cumulus_client_consensus_common::ParachainBlockImportMarker;
 use parking_lot::Mutex;
-use schnellru::{ByLength, LruMap};
-
+use polkadot_primitives::Hash as RHash;
 use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
 	BlockImport, BlockImportParams, ForkChoiceStrategy,
 };
 use sc_consensus_aura::standalone as aura_internal;
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_TRACE};
+use schnellru::{ByLength, LruMap};
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
-use sp_consensus::error::Error as ConsensusError;
+use sp_consensus::{error::Error as ConsensusError, BlockOrigin};
 use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
 use sp_core::crypto::Pair;
 use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
 use std::{fmt::Debug, sync::Arc};
 
-const LRU_WINDOW: u32 = 256;
+const LRU_WINDOW: u32 = 512;
 const EQUIVOCATION_LIMIT: usize = 16;
 
-struct NaiveEquivocationDefender {
-	cache: LruMap<u64, usize>,
+struct NaiveEquivocationDefender<N> {
+	/// We distinguish blocks by `(Slot, BlockNumber, RelayParent)`.
+	cache: LruMap<(u64, N, RHash), usize>,
 }
 
-impl Default for NaiveEquivocationDefender {
+impl<N: std::hash::Hash + PartialEq> Default for NaiveEquivocationDefender<N> {
 	fn default() -> Self {
 		NaiveEquivocationDefender { cache: LruMap::new(ByLength::new(LRU_WINDOW)) }
 	}
 }
 
-impl NaiveEquivocationDefender {
-	// return `true` if equivocation is beyond the limit.
-	fn insert_and_check(&mut self, slot: Slot) -> bool {
+impl<N: std::hash::Hash + PartialEq> NaiveEquivocationDefender<N> {
+	// Returns `true` if equivocation is beyond the limit.
+	fn insert_and_check(&mut self, slot: Slot, block_number: N, relay_chain_parent: RHash) -> bool {
 		let val = self
 			.cache
-			.get_or_insert(*slot, || 0)
+			.get_or_insert((*slot, block_number, relay_chain_parent), || 0)
 			.expect("insertion with ByLength limiter always succeeds; qed");
+
 		if *val == EQUIVOCATION_LIMIT {
 			true
 		} else {
@@ -70,10 +72,10 @@ impl NaiveEquivocationDefender {
 }
 
 /// A parachain block import verifier that checks for equivocation limits within each slot.
-pub struct Verifier<P, Client, Block, CIDP> {
+pub struct Verifier<P, Client, Block: BlockT, CIDP> {
 	client: Arc<Client>,
 	create_inherent_data_providers: CIDP,
-	defender: Mutex<NaiveEquivocationDefender>,
+	defender: Mutex<NaiveEquivocationDefender<NumberFor<Block>>>,
 	telemetry: Option<TelemetryHandle>,
 	_phantom: std::marker::PhantomData<fn() -> (Block, P)>,
 }
@@ -163,13 +165,33 @@ where
 						"pre_header" => ?pre_header,
 					);
 
+					// We need some kind of identifier for the relay parent, in the worst case we
+					// take the all `0` hash.
+					let relay_parent =
+						cumulus_primitives_core::rpsr_digest::extract_relay_parent_storage_root(
+							pre_header.digest(),
+						)
+						.map(|r| r.0)
+						.unwrap_or_else(|| {
+							cumulus_primitives_core::extract_relay_parent(pre_header.digest())
+								.unwrap_or_default()
+						});
+
 					block_params.header = pre_header;
 					block_params.post_digests.push(seal_digest);
 					block_params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
 					block_params.post_hash = Some(post_hash);
 
 					// Check for and reject egregious amounts of equivocations.
-					if self.defender.lock().insert_and_check(slot) {
+					//
+					// If the `origin` is `ConsensusBroadcast`, we ignore the result of the
+					// equivocation check. This `origin` is for example used by pov-recovery.
+					if self.defender.lock().insert_and_check(
+						slot,
+						*block_params.header.number(),
+						relay_parent,
+					) && !matches!(block_params.origin, BlockOrigin::ConsensusBroadcast)
+					{
 						return Err(format!(
 							"Rejecting block {:?} due to excessive equivocations at slot",
 							post_hash,
@@ -199,7 +221,7 @@ where
 			}
 		}
 
-		// check inherents.
+		// Check inherents.
 		if let Some(body) = block_params.body.clone() {
 			let block = Block::new(block_params.header.clone(), body);
 			let create_inherent_data_providers = self
@@ -281,4 +303,94 @@ where
 	};
 
 	BasicQueue::new(verifier, Box::new(block_import), None, spawner, registry)
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+	use codec::Encode;
+	use cumulus_test_client::{
+		runtime::Block, seal_block, Client, InitBlockBuilder, TestClientBuilder,
+		TestClientBuilderExt,
+	};
+	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
+	use futures::FutureExt;
+	use polkadot_primitives::{HeadData, PersistedValidationData};
+	use sc_client_api::HeaderBackend;
+	use sp_consensus_aura::sr25519;
+	use sp_tracing::try_init_simple;
+	use std::{collections::HashSet, sync::Arc};
+
+	#[test]
+	fn import_equivocated_blocks_from_recovery() {
+		try_init_simple();
+
+		let client = Arc::new(TestClientBuilder::default().build());
+
+		let verifier = Verifier::<sr25519::AuthorityPair, Client, Block, _> {
+			client: client.clone(),
+			create_inherent_data_providers: |_, _| async move {
+				Ok(sp_timestamp::InherentDataProvider::from_system_time())
+			},
+			defender: Mutex::new(NaiveEquivocationDefender::default()),
+			telemetry: None,
+			_phantom: std::marker::PhantomData,
+		};
+
+		let genesis = client.info().best_hash;
+		let mut sproof = RelayStateSproofBuilder::default();
+		sproof.included_para_head = Some(HeadData(client.header(genesis).unwrap().encode()));
+		sproof.para_id = cumulus_test_client::runtime::PARACHAIN_ID.into();
+
+		let validation_data = PersistedValidationData {
+			relay_parent_number: 1,
+			parent_head: client.header(genesis).unwrap().encode().into(),
+			..Default::default()
+		};
+
+		let block_builder = client.init_block_builder(Some(validation_data), sproof);
+		let block = block_builder.block_builder.build().unwrap();
+
+		let mut blocks = Vec::new();
+		for _ in 0..EQUIVOCATION_LIMIT + 1 {
+			blocks.push(seal_block(block.block.clone(), &client))
+		}
+
+		// sr25519 should generate a different signature every time you sign something and thus, all
+		// blocks get a different hash (even if they are the same block).
+		assert_eq!(blocks.iter().map(|b| b.hash()).collect::<HashSet<_>>().len(), blocks.len());
+
+		blocks.iter().take(EQUIVOCATION_LIMIT).for_each(|block| {
+			let mut params =
+				BlockImportParams::new(BlockOrigin::NetworkBroadcast, block.header().clone());
+			params.body = Some(block.extrinsics().to_vec());
+			verifier.verify(params).now_or_never().unwrap().unwrap();
+		});
+
+		// Now let's try some previously verified block and a block we have not verified yet.
+		//
+		// Verify should fail, because we are above the limit. However, when we change the origin to
+		// `ConsensusBroadcast`, it should work.
+		let extra_blocks =
+			vec![blocks[EQUIVOCATION_LIMIT / 2].clone(), blocks.last().unwrap().clone()];
+
+		extra_blocks.into_iter().for_each(|block| {
+			let mut params =
+				BlockImportParams::new(BlockOrigin::NetworkBroadcast, block.header().clone());
+			params.body = Some(block.extrinsics().to_vec());
+			assert!(verifier
+				.verify(params)
+				.now_or_never()
+				.unwrap()
+				.map(drop)
+				.unwrap_err()
+				.contains("excessive equivocations at slot"));
+
+			// When it comes from `pov-recovery`, we will accept it
+			let mut params =
+				BlockImportParams::new(BlockOrigin::ConsensusBroadcast, block.header().clone());
+			params.body = Some(block.extrinsics().to_vec());
+			assert!(verifier.verify(params).now_or_never().unwrap().is_ok());
+		});
+	}
 }

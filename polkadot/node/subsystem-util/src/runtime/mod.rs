@@ -16,6 +16,7 @@
 
 //! Convenient interface to runtime information.
 
+use polkadot_node_primitives::MAX_FINALITY_LAG;
 use schnellru::{ByLength, LruMap};
 
 use codec::Encode;
@@ -32,7 +33,10 @@ use polkadot_node_subsystem_types::UnpinHandle;
 use polkadot_primitives::{
 	node_features::FeatureIndex,
 	slashing,
-	vstaging::{CandidateEvent, CoreState, OccupiedCore, ScrapedOnChainVotes},
+	vstaging::{
+		CandidateEvent, ClaimQueueOffset, CoreSelector, CoreState, OccupiedCore,
+		ScrapedOnChainVotes,
+	},
 	CandidateHash, CoreIndex, EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
 	Id as ParaId, IndexedVec, NodeFeatures, SessionIndex, SessionInfo, Signed, SigningContext,
 	UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
@@ -135,7 +139,12 @@ impl RuntimeInfo {
 	/// Create with more elaborate configuration options.
 	pub fn new_with_config(cfg: Config) -> Self {
 		Self {
-			session_index_cache: LruMap::new(ByLength::new(cfg.session_cache_lru_size.max(10))),
+			// Usually messages are processed for blocks pointing to hashes from last finalized
+			// block to to best, so make this cache large enough to hold at least this amount of
+			// hashes, so that we get the benefit of caching even when finality lag is large.
+			session_index_cache: LruMap::new(ByLength::new(
+				cfg.session_cache_lru_size.max(2 * MAX_FINALITY_LAG),
+			)),
 			session_info_cache: LruMap::new(ByLength::new(cfg.session_cache_lru_size)),
 			disabled_validators_cache: LruMap::new(ByLength::new(100)),
 			pinned_blocks: LruMap::new(ByLength::new(cfg.session_cache_lru_size)),
@@ -468,7 +477,7 @@ where
 }
 
 /// A snapshot of the runtime claim queue at an arbitrary relay chain block.
-#[derive(Default)]
+#[derive(Default, Clone, Debug)]
 pub struct ClaimQueueSnapshot(pub BTreeMap<CoreIndex, VecDeque<ParaId>>);
 
 impl From<BTreeMap<CoreIndex, VecDeque<ParaId>>> for ClaimQueueSnapshot {
@@ -506,6 +515,50 @@ impl ClaimQueueSnapshot {
 	/// Returns an iterator over the whole claim queue.
 	pub fn iter_all_claims(&self) -> impl Iterator<Item = (&CoreIndex, &VecDeque<ParaId>)> + '_ {
 		self.0.iter()
+	}
+
+	/// Find a core for the given `para_id`.
+	///
+	/// `cores_claimed` is the number of cores already claimed from this snapshot for `para_id` at
+	/// the given `claim_queue_offset`.
+	///
+	/// Returns the core selector, claim queue offset, core index and the number of cores at claim
+	/// queue offset.
+	pub fn find_core(
+		&self,
+		para_id: ParaId,
+		mut cores_claimed: u32,
+		claim_queue_offset: u32,
+	) -> Option<(CoreSelector, ClaimQueueOffset, CoreIndex, u16)> {
+		let mut offset_to_core_count = BTreeMap::<usize, Vec<CoreIndex>>::new();
+
+		self.0.iter().for_each(|(core_index, ids)| {
+			ids.iter()
+				.enumerate()
+				.filter_map(|(i, id)| (*id == para_id).then(|| i))
+				.for_each(|offset| {
+					offset_to_core_count.entry(offset).or_default().push(*core_index);
+				});
+		});
+
+		for (offset, cores) in offset_to_core_count {
+			if (offset as u32) < claim_queue_offset {
+				continue
+			}
+
+			if let Some(core_index) = cores.get(cores_claimed as usize) {
+				return Some((
+					CoreSelector(cores_claimed as u8),
+					ClaimQueueOffset(offset as u8),
+					*core_index,
+					cores.len() as u16,
+				))
+			}
+
+			cores_claimed -= cores.len() as u32;
+		}
+
+		None
 	}
 }
 
@@ -577,5 +630,87 @@ pub async fn fetch_validation_code_bomb_limit(
 		Ok(polkadot_node_primitives::VALIDATION_CODE_BOMB_LIMIT as u32)
 	} else {
 		res
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	#[test]
+	fn find_core_works() {
+		let claim_queue = ClaimQueueSnapshot(BTreeMap::from_iter(
+			[
+				(
+					CoreIndex(0),
+					VecDeque::from_iter([ParaId::from(1), ParaId::from(2), ParaId::from(1)]),
+				),
+				(
+					CoreIndex(1),
+					VecDeque::from_iter([ParaId::from(1), ParaId::from(1), ParaId::from(2)]),
+				),
+				(
+					CoreIndex(2),
+					VecDeque::from_iter([ParaId::from(1), ParaId::from(2), ParaId::from(3)]),
+				),
+				(
+					CoreIndex(3),
+					VecDeque::from_iter([ParaId::from(2), ParaId::from(1), ParaId::from(3)]),
+				),
+			]
+			.into_iter(),
+		));
+
+		assert_eq!(
+			claim_queue.find_core(1u32.into(), 0, 0).unwrap(),
+			(CoreSelector(0), ClaimQueueOffset(0), CoreIndex(0), 3)
+		);
+
+		assert_eq!(
+			claim_queue.find_core(1u32.into(), 1, 0).unwrap(),
+			(CoreSelector(1), ClaimQueueOffset(0), CoreIndex(1), 3)
+		);
+
+		assert_eq!(
+			claim_queue.find_core(1u32.into(), 2, 0).unwrap(),
+			(CoreSelector(2), ClaimQueueOffset(0), CoreIndex(2), 3)
+		);
+
+		assert_eq!(
+			claim_queue.find_core(1u32.into(), 3, 0).unwrap(),
+			(CoreSelector(0), ClaimQueueOffset(1), CoreIndex(1), 2)
+		);
+
+		assert_eq!(
+			claim_queue.find_core(1u32.into(), 4, 0).unwrap(),
+			(CoreSelector(1), ClaimQueueOffset(1), CoreIndex(3), 2)
+		);
+
+		assert_eq!(
+			claim_queue.find_core(1u32.into(), 5, 0).unwrap(),
+			(CoreSelector(0), ClaimQueueOffset(2), CoreIndex(0), 1)
+		);
+
+		assert_eq!(claim_queue.find_core(1u32.into(), 6, 0), None);
+
+		assert_eq!(
+			claim_queue.find_core(1u32.into(), 0, 1).unwrap(),
+			(CoreSelector(0), ClaimQueueOffset(1), CoreIndex(1), 2)
+		);
+
+		assert_eq!(
+			claim_queue.find_core(1u32.into(), 2, 1).unwrap(),
+			(CoreSelector(0), ClaimQueueOffset(2), CoreIndex(0), 1)
+		);
+
+		assert_eq!(
+			claim_queue.find_core(3u32.into(), 0, 0).unwrap(),
+			(CoreSelector(0), ClaimQueueOffset(2), CoreIndex(2), 2)
+		);
+
+		assert_eq!(
+			claim_queue.find_core(3u32.into(), 1, 0).unwrap(),
+			(CoreSelector(1), ClaimQueueOffset(2), CoreIndex(3), 2)
+		);
 	}
 }

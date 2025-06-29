@@ -154,6 +154,12 @@ impl View {
 		self.leaves.contains_key(leaf_hash)
 	}
 
+	/// Get the block number of a leaf in the current view.
+	/// Returns `None` if leaf is not in the view.
+	pub fn block_number(&self, leaf_hash: &Hash) -> Option<BlockNumber> {
+		self.block_info_storage.get(leaf_hash).map(|block_info| block_info.block_number)
+	}
+
 	/// Activate a leaf in the view.
 	/// This will request the minimum relay parents the leaf and will load headers in the
 	/// ancestry of the leaf as needed. These are the 'implicit ancestors' of the leaf.

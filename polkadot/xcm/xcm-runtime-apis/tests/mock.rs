@@ -17,7 +17,6 @@
 //! Mock runtime for tests.
 //! Implements both runtime APIs for fee estimation and getting the messages for transfers.
 
-use codec::Encode;
 use core::{cell::RefCell, marker::PhantomData};
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types, sp_runtime,
@@ -50,6 +49,7 @@ use xcm_runtime_apis::{
 	fees::{Error as XcmPaymentApiError, XcmPaymentApi},
 	trusted_query::{Error as TrustedQueryApiError, TrustedQueryApi},
 };
+use xcm_simulator::helpers::derive_topic_id;
 
 construct_runtime! {
 	pub enum TestRuntime {
@@ -124,7 +124,7 @@ impl SendXcm for TestXcmSender {
 		Ok((ticket, fees))
 	}
 	fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
-		let hash = fake_message_hash(&ticket.1);
+		let hash = derive_topic_id(&ticket.1);
 		SENT_XCM.with(|q| q.borrow_mut().push(ticket));
 		Ok(hash)
 	}
@@ -148,10 +148,6 @@ impl InspectMessageQueues for TestXcmSender {
 				.collect()
 		})
 	}
-}
-
-pub(crate) fn fake_message_hash<Call>(message: &Xcm<Call>) -> XcmHash {
-	message.using_encoded(sp_io::hashing::blake2_256)
 }
 
 pub type XcmRouter = TestXcmSender;

@@ -1,6 +1,6 @@
 [package]
 name = "polkadot"
-description = "Implementation of a `https://polkadot.network` node in Rust based on the Substrate framework."
+description = "Implementation of a `https://polkadot.com` node in Rust based on the Substrate framework."
 license = "GPL-3.0-only"
 rust-version = "1.64.0"
 readme = "README.md"
@@ -17,7 +17,7 @@ maintenance = { status = "actively-developed" }
 # Configuration for building a .deb package - for use with `cargo-deb`
 [package.metadata.deb]
 name = "polkadot"
-extended-description = "Implementation of a https://polkadot.network node in Rust based on the Substrate framework."
+extended-description = "Implementation of a https://polkadot.com node in Rust based on the Substrate framework."
 section = "misc"
 maintainer = "security@parity.io"
 license-file = ["LICENSE", "0"]

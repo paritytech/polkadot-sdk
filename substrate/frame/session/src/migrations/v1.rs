@@ -80,10 +80,6 @@ impl<T: Config, S: MigrateDisabledValidators> UncheckedOnRuntimeUpgrade
 		let existing_disabled = DisabledValidators::<T>::get();
 
 		ensure!(source_disabled == existing_disabled, "Disabled validators mismatch");
-		ensure!(
-			NewDisabledValidators::<T>::get().len() == crate::Validators::<T>::get().len(),
-			"Disabled validators mismatch"
-		);
 		Ok(Vec::new())
 	}
 	#[cfg(feature = "try-runtime")]

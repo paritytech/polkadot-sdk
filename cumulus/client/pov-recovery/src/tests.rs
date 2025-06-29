@@ -23,15 +23,19 @@ use cumulus_primitives_core::relay_chain::{
 };
 use cumulus_relay_chain_interface::{
 	InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption, PHash, PHeader,
-	PersistedValidationData, StorageValue, ValidationCodeHash, ValidatorId,
+	PersistedValidationData, RelayChainResult, StorageValue, ValidationCodeHash, ValidatorId,
 };
 use cumulus_test_client::{
 	runtime::{Block, Header},
 	Sr25519Keyring,
 };
-use futures::{channel::mpsc, SinkExt};
+use futures::{channel::mpsc, SinkExt, Stream};
 use polkadot_node_primitives::AvailableData;
-use polkadot_node_subsystem::{messages::AvailabilityRecoveryMessage, RecoveryError, TimeoutExt};
+use polkadot_node_subsystem::{
+	messages::{AvailabilityRecoveryMessage, RuntimeApiRequest},
+	RecoveryError, TimeoutExt,
+};
+use polkadot_primitives::vstaging::CandidateEvent;
 use rstest::rstest;
 use sc_client_api::{
 	BlockImportNotification, ClientInfo, CompactProof, FinalityNotification, FinalityNotifications,
@@ -39,6 +43,7 @@ use sc_client_api::{
 };
 use sc_consensus::import_queue::RuntimeOrigin;
 use sc_utils::mpsc::{TracingUnboundedReceiver, TracingUnboundedSender};
+use sp_api::RuntimeApiInfo;
 use sp_blockchain::Info;
 use sp_runtime::{generic::SignedBlock, Justifications};
 use sp_version::RuntimeVersion;
@@ -507,6 +512,10 @@ impl RelayChainInterface for Relaychain {
 
 	async fn scheduling_lookahead(&self, _: PHash) -> RelayChainResult<u32> {
 		unimplemented!("Not needed for test")
+	}
+
+	async fn candidate_events(&self, _: PHash) -> RelayChainResult<Vec<CandidateEvent>> {
+		unimplemented!("Not needed for test");
 	}
 }
 

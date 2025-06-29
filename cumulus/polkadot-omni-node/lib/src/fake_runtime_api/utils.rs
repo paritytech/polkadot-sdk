@@ -15,7 +15,7 @@
 // limitations under the License.
 
 pub(crate) mod imports {
-	pub use cumulus_primitives_core::{ClaimQueueOffset, CoreSelector};
+	pub use cumulus_primitives_core::{ClaimQueueOffset, CoreSelector, ParaId};
 	pub use parachains_common::{AccountId, Balance, Nonce};
 	pub use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 	pub use sp_runtime::{
@@ -59,6 +59,12 @@ macro_rules! impl_node_runtime_apis {
 				}
 			}
 
+			impl cumulus_primitives_core::RelayParentOffsetApi<$block> for $runtime {
+				fn relay_parent_offset() -> u32 {
+					unimplemented!()
+				}
+			}
+
 			impl sp_consensus_aura::AuraApi<$block, $aura_id> for $runtime {
 				fn slot_duration() -> sp_consensus_aura::SlotDuration {
 					unimplemented!()
@@ -97,10 +103,6 @@ macro_rules! impl_node_runtime_apis {
 					_: $block,
 					_: sp_inherents::InherentData
 				) -> sp_inherents::CheckInherentsResult {
-					unimplemented!()
-				}
-
-				fn block_rate() -> sp_block_builder::BlockRate {
 					unimplemented!()
 				}
 			}
@@ -167,12 +169,11 @@ macro_rules! impl_node_runtime_apis {
 				}
 			}
 
-			impl cumulus_primitives_core::GetCoreSelectorApi<$block> for $runtime {
-				fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
+			impl cumulus_primitives_core::GetParachainInfo<$block> for $runtime {
+				fn parachain_id() -> ParaId {
 					unimplemented!()
 				}
 			}
-
 			#[cfg(feature = "try-runtime")]
 			impl frame_try_runtime::TryRuntime<$block> for $runtime {
 				fn on_runtime_upgrade(

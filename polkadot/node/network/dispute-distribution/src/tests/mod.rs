@@ -390,17 +390,12 @@ fn receive_rate_limit_is_enforced() {
 			rx_response_flood.await,
 			Ok(resp) => {
 				let sc_network::config::OutgoingResponse {
-					result: _,
-					reputation_changes,
+					result,
+					reputation_changes: _,
 					sent_feedback: _,
 				} = resp;
-				gum::trace!(
-					target: LOG_TARGET,
-					?reputation_changes,
-					"Received reputation changes."
-				);
-				// Received punishment for flood:
-				assert_eq!(reputation_changes.len(), 1);
+				// Received error because of flood.
+				assert!(!result.is_ok());
 			}
 		);
 		gum::trace!("Need to wait 2 patch intervals:");

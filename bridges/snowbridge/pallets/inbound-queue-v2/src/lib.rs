@@ -36,8 +36,10 @@ mod mock;
 mod test;
 
 pub use crate::weights::WeightInfo;
+use bp_relayers::RewardLedger;
 use frame_system::ensure_signed;
 use snowbridge_core::{
+	reward::{AddTip, AddTipError},
 	sparse_bitmap::{SparseBitmap, SparseBitmapImpl},
 	BasicOperatingMode,
 };
@@ -49,8 +51,6 @@ use sp_core::H160;
 use sp_runtime::traits::TryConvert;
 use sp_std::prelude::*;
 use xcm::prelude::{ExecuteXcm, Junction::*, Location, SendXcm, *};
-
-use bp_relayers::RewardLedger;
 #[cfg(feature = "runtime-benchmarks")]
 use {snowbridge_beacon_primitives::BeaconHeader, sp_core::H256};
 
@@ -79,6 +79,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The verifier for inbound messages from Ethereum.
 		type Verifier: Verifier;
@@ -184,11 +185,17 @@ pub mod pallet {
 	/// StorageMap used for encoding a SparseBitmapImpl that tracks whether a specific nonce has
 	/// been processed or not. Message nonces are unique and never repeated.
 	#[pallet::storage]
-	pub type NonceBitmap<T: Config> = StorageMap<_, Twox64Concat, u128, u128, ValueQuery>;
+	pub type NonceBitmap<T: Config> = StorageMap<_, Twox64Concat, u64, u128, ValueQuery>;
 
 	/// The current operating mode of the pallet.
 	#[pallet::storage]
 	pub type OperatingMode<T: Config> = StorageValue<_, BasicOperatingMode, ValueQuery>;
+
+	/// Keep track of tips added for a message as an additional relayer incentivization. The
+	/// key for the storage map is the nonce of the message to which the tip should be added.
+	/// The value is the tip amount, in Ether.
+	#[pallet::storage]
+	pub type Tips<T: Config> = StorageMap<_, Blake2_128Concat, u64, u128, OptionQuery>;
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -232,13 +239,17 @@ pub mod pallet {
 			let (nonce, relayer_fee) = (message.nonce, message.relayer_fee);
 
 			// Verify the message has not been processed
-			ensure!(!Nonce::<T>::get(nonce.into()), Error::<T>::InvalidNonce);
+			ensure!(!Nonce::<T>::get(nonce), Error::<T>::InvalidNonce);
 
 			let xcm =
 				T::MessageConverter::convert(message).map_err(|error| Error::<T>::from(error))?;
 
 			// Forward XCM to AH
 			let dest = Location::new(1, [Parachain(T::AssetHubParaId::get())]);
+
+			// Mark message as received
+			Nonce::<T>::set(nonce);
+
 			let message_id =
 				Self::send_xcm(dest.clone(), &relayer, xcm.clone()).map_err(|error| {
 					tracing::error!(target: LOG_TARGET, ?error, ?dest, ?xcm, "XCM send failed with error");
@@ -253,9 +264,6 @@ pub mod pallet {
 					relayer_fee,
 				);
 			}
-
-			// Mark message as received
-			Nonce::<T>::set(nonce.into());
 
 			Self::deposit_event(Event::MessageReceived { nonce, message_id });
 
@@ -285,6 +293,19 @@ pub mod pallet {
 				SendError::Fees
 			})?;
 			T::XcmSender::deliver(ticket)
+		}
+	}
+
+	impl<T: Config> AddTip for Pallet<T> {
+		fn add_tip(nonce: u64, amount: u128) -> Result<(), AddTipError> {
+			ensure!(amount > 0, AddTipError::AmountZero);
+			// If the nonce is already processed, return an error
+			ensure!(!Nonce::<T>::get(nonce.into()), AddTipError::NonceConsumed);
+			// Otherwise add the tip.
+			Tips::<T>::mutate(nonce, |tip| {
+				*tip = Some(tip.unwrap_or_default().saturating_add(amount));
+			});
+			return Ok(())
 		}
 	}
 }

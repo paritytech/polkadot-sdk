@@ -58,7 +58,7 @@ use cumulus_client_service::{
 	build_network, prepare_node_config, start_relay_chain_tasks, BuildNetworkParams,
 	CollatorSybilResistance, DARecoveryProfile, StartRelayChainTasksParams,
 };
-use cumulus_primitives_core::{relay_chain::ValidationCode, ParaId};
+use cumulus_primitives_core::{relay_chain::ValidationCode, GetParachainInfo, ParaId};
 use cumulus_relay_chain_inprocess_interface::RelayChainInProcessInterface;
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
 use cumulus_relay_chain_minimal_node::{
@@ -71,7 +71,7 @@ use frame_system_rpc_runtime_api::AccountNonceApi;
 use polkadot_node_subsystem::{errors::RecoveryError, messages::AvailabilityRecoveryMessage};
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{CandidateHash, CollatorPair, Hash as PHash, PersistedValidationData};
-use polkadot_service::{IdentifyNetworkBackend, ProvideRuntimeApi};
+use polkadot_service::ProvideRuntimeApi;
 use sc_consensus::ImportQueue;
 use sc_network::{
 	config::{FullNetworkConfiguration, TransportConfig},
@@ -325,7 +325,6 @@ pub async fn start_node_impl<RB, Net: NetworkBackend<Block, Hash>>(
 	parachain_config: Configuration,
 	collator_key: Option<CollatorPair>,
 	relay_chain_config: Configuration,
-	para_id: ParaId,
 	wrap_announce_block: Option<Box<dyn FnOnce(AnnounceBlockFn) -> AnnounceBlockFn>>,
 	fail_pov_recovery: bool,
 	rpc_ext_builder: RB,
@@ -372,6 +371,13 @@ where
 		&parachain_config.network,
 		prometheus_registry.clone(),
 	);
+
+	let best_hash = client.chain_info().best_hash;
+	let para_id = client
+		.runtime_api()
+		.parachain_id(best_hash)
+		.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+	tracing::info!("Parachain id: {:?}", para_id);
 
 	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 		build_network(BuildNetworkParams {
@@ -446,6 +452,7 @@ where
 		relay_chain_slot_duration,
 		recovery_handle,
 		sync_service: sync_service.clone(),
+		prometheus_registry: None,
 	})?;
 
 	if let Some(collator_key) = collator_key {
@@ -753,24 +760,22 @@ impl TestNodeBuilder {
 			false,
 		);
 
-		let collator_options = CollatorOptions { relay_chain_mode: self.relay_chain_mode };
+		let collator_options = CollatorOptions {
+			relay_chain_mode: self.relay_chain_mode,
+			embedded_dht_bootnode: true,
+			dht_bootnode_discovery: true,
+		};
 
 		relay_chain_config.network.node_name =
 			format!("{} (relay chain)", relay_chain_config.network.node_name);
 
-		let multiaddr = parachain_config.network.listen_addresses[0].clone();
-
-		// If the network backend is unspecified, use the default for the given chain.
-		let default_backend = relay_chain_config.chain_spec.network_backend();
-		let network_backend = relay_chain_config.network.network_backend.unwrap_or(default_backend);
 		let (task_manager, client, network, rpc_handlers, transaction_pool, backend) =
-			match network_backend {
+			match relay_chain_config.network.network_backend {
 				sc_network::config::NetworkBackendType::Libp2p =>
 					start_node_impl::<_, sc_network::NetworkWorker<_, _>>(
 						parachain_config,
 						self.collator_key,
 						relay_chain_config,
-						self.para_id,
 						self.wrap_announce_block,
 						false,
 						|_| Ok(jsonrpsee::RpcModule::new(())),
@@ -786,7 +791,6 @@ impl TestNodeBuilder {
 						parachain_config,
 						self.collator_key,
 						relay_chain_config,
-						self.para_id,
 						self.wrap_announce_block,
 						false,
 						|_| Ok(jsonrpsee::RpcModule::new(())),
@@ -799,6 +803,7 @@ impl TestNodeBuilder {
 					.expect("could not create Cumulus test service"),
 			};
 		let peer_id = network.local_peer_id();
+		let multiaddr = polkadot_test_service::get_listen_address(network.clone()).await;
 		let addr = MultiaddrWithPeerId { multiaddr, peer_id };
 
 		TestNode { task_manager, client, network, addr, rpc_handlers, transaction_pool, backend }
@@ -807,10 +812,13 @@ impl TestNodeBuilder {
 
 /// Create a Cumulus `Configuration`.
 ///
-/// By default an in-memory socket will be used, therefore you need to provide nodes if you want the
-/// node to be connected to other nodes. If `nodes_exclusive` is `true`, the node will only connect
-/// to the given `nodes` and not to any other node. The `storage_update_func` can be used to make
-/// adjustments to the runtime genesis.
+/// By default a TCP socket will be used, therefore you need to provide nodes if you want the
+/// node to be connected to other nodes.
+///
+/// If `nodes_exclusive` is `true`, the node will only connect to the given `nodes` and not to any
+/// other node.
+///
+/// The `storage_update_func` can be used to make adjustments to the runtime genesis.
 pub fn node_config(
 	storage_update_func: impl Fn(),
 	tokio_handle: tokio::runtime::Handle,
@@ -829,7 +837,6 @@ pub fn node_config(
 		Some(para_id),
 		endowed_accounts,
 		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		None,
 	));
 
 	let mut storage = spec.as_storage_builder().build_storage().expect("could not build storage");
@@ -854,11 +861,10 @@ pub fn node_config(
 
 	network_config.allow_non_globals_in_dht = true;
 
-	network_config
-		.listen_addresses
-		.push(multiaddr::Protocol::Memory(rand::random()).into());
-
-	network_config.transport = TransportConfig::MemoryOnly;
+	let addr: multiaddr::Multiaddr = "/ip4/127.0.0.1/tcp/0".parse().expect("valid address; qed");
+	network_config.listen_addresses.push(addr.clone());
+	network_config.transport =
+		TransportConfig::Normal { enable_mdns: false, allow_private_ip: true };
 
 	Ok(Configuration {
 		impl_name: "cumulus-test-node".to_string(),
@@ -870,6 +876,7 @@ pub fn node_config(
 		keystore: KeystoreConfig::InMemory,
 		database: DatabaseSource::RocksDb { path: root.join("db"), cache_size: 128 },
 		trie_cache_maximum_size: Some(64 * 1024 * 1024),
+		warm_up_trie_cache: None,
 		state_pruning: Some(PruningMode::ArchiveAll),
 		blocks_pruning: BlocksPruning::KeepAll,
 		chain_spec: spec,
@@ -973,6 +980,7 @@ pub fn construct_extrinsic(
 		.unwrap_or(2) as u64;
 	let tip = 0;
 	let tx_ext: runtime::TxExtension = (
+		frame_system::AuthorizeCall::<runtime::Runtime>::new(),
 		frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
 		frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
 		frame_system::CheckGenesis::<runtime::Runtime>::new(),
@@ -988,7 +996,7 @@ pub fn construct_extrinsic(
 	let raw_payload = runtime::SignedPayload::from_raw(
 		function.clone(),
 		tx_ext.clone(),
-		((), runtime::VERSION.spec_version, genesis_block, current_block_hash, (), (), ()),
+		((), (), runtime::VERSION.spec_version, genesis_block, current_block_hash, (), (), ()),
 	);
 	let signature = raw_payload.using_encoded(|e| caller.sign(e));
 	runtime::UncheckedExtrinsic::new_signed(
@@ -1042,6 +1050,6 @@ pub fn run_relay_chain_validator_node(
 	workers_path.pop();
 
 	tokio_handle.block_on(async move {
-		polkadot_test_service::run_validator_node(config, Some(workers_path))
+		polkadot_test_service::run_validator_node(config, Some(workers_path)).await
 	})
 }

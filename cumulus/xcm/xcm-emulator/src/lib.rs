@@ -27,7 +27,7 @@ pub use std::{
 	fmt,
 	marker::PhantomData,
 	ops::Deref,
-	sync::{LazyLock, Mutex},
+	sync::{Arc, LazyLock, Mutex},
 };
 
 // Substrate
@@ -79,12 +79,13 @@ pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueu
 
 // Polkadot
 pub use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
-use sp_core::crypto::AccountId32;
+use sp_core::{crypto::AccountId32, H256};
 pub use xcm::latest::prelude::{
 	AccountId32 as AccountId32Junction, Ancestor, Assets, Here, Location,
 	Parachain as ParachainJunction, Parent, WeightLimit, XcmHash,
 };
 pub use xcm_executor::traits::ConvertLocation;
+use xcm_simulator::helpers::TopicIdTracker;
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
@@ -140,6 +141,16 @@ where
 		)* );
 	}
 }
+
+// Implement optional inherent code to be executed
+// This will be executed after on-initialize and before on-finalize
+pub trait AdditionalInherentCode {
+	fn on_new_block() -> DispatchResult {
+		Ok(())
+	}
+}
+
+impl AdditionalInherentCode for () {}
 
 pub trait TestExt {
 	fn build_new_ext(storage: Storage) -> TestExternalities;
@@ -268,6 +279,7 @@ pub trait Parachain: Chain {
 	type ParachainSystem;
 	type MessageProcessor: ProcessMessage + ServiceQueues;
 	type DigestProvider: Convert<BlockNumberFor<Self::Runtime>, Digest>;
+	type AdditionalInherentCode: AdditionalInherentCode;
 
 	fn init();
 
@@ -603,7 +615,8 @@ macro_rules! decl_test_parachains {
 					LocationToAccountId: $location_to_account:path,
 					ParachainInfo: $parachain_info:path,
 					MessageOrigin: $message_origin:path,
-					$( DigestProvider: $digest_provider:ty, )?
+					$( DigestProvider: $digest_provider:ty,)?
+					$( AdditionalInherentCode: $additional_inherent_code:ty,)?
 				},
 				pallets = {
 					$($pallet_name:ident: $pallet_path:path,)*
@@ -645,6 +658,7 @@ macro_rules! decl_test_parachains {
 				type ParachainInfo = $parachain_info;
 				type MessageProcessor = $crate::DefaultParaMessageProcessor<$name<N>, $message_origin>;
 				$crate::decl_test_parachains!(@inner_digest_provider $($digest_provider)?);
+				$crate::decl_test_parachains!(@inner_additional_inherent_code $($additional_inherent_code)?);
 
 				// We run an empty block during initialisation to open HRMP channels
 				// and have them ready for the next block
@@ -665,7 +679,7 @@ macro_rules! decl_test_parachains {
 
 				fn new_block() {
 					use $crate::{
-						Dispatchable, Chain, Convert, TestExt, Zero,
+						Dispatchable, Chain, Convert, TestExt, Zero, AdditionalInherentCode
 					};
 
 					let para_id = Self::para_id().into();
@@ -711,6 +725,9 @@ macro_rules! decl_test_parachains {
 						}.into();
 						$crate::assert_ok!(
 							timestamp_set.dispatch(<Self as Chain>::RuntimeOrigin::none())
+						);
+						$crate::assert_ok!(
+							<Self as Parachain>::AdditionalInherentCode::on_new_block()
 						);
 					});
 				}
@@ -774,6 +791,8 @@ macro_rules! decl_test_parachains {
 	};
 	( @inner_digest_provider $digest_provider:ty ) => { type DigestProvider = $digest_provider; };
 	( @inner_digest_provider /* none */ ) => { type DigestProvider = (); };
+	( @inner_additional_inherent_code $additional_inherent_code:ty ) => { type AdditionalInherentCode = $additional_inherent_code; };
+	( @inner_additional_inherent_code /* none */ ) => { type AdditionalInherentCode = (); };
 }
 
 #[macro_export]
@@ -1198,6 +1217,8 @@ macro_rules! decl_test_networks {
 						relay_chain_state: proof,
 						downward_messages: Default::default(),
 						horizontal_messages: Default::default(),
+						relay_parent_descendants: Default::default(),
+						collator_peer_id: None,
 					}
 				}
 			}
@@ -1293,63 +1314,64 @@ macro_rules! __impl_check_assertion {
 
 #[macro_export]
 macro_rules! assert_expected_events {
-	( $chain:ident, vec![$( $event_pat:pat => { $($attr:ident : $condition:expr, )* }, )*] ) => {
-		let mut message: Vec<String> = Vec::new();
+    ( $chain:ident, vec![$( $event_pat:pat => { $($attr:ident : $condition:expr, )* }, )*] ) => {
+		let mut messages: Vec<String> = Vec::new();
 		let mut events = <$chain as $crate::Chain>::events();
 
+		// For each event pattern, we try to find a matching event.
 		$(
+			// We'll store a string representation of the first partially matching event.
+			let mut failure_message: Option<String> = None;
 			let mut event_received = false;
-			let mut meet_conditions = true;
-			let mut index_match = 0;
-			let mut event_message: Vec<String> = Vec::new();
-
-			for (index, event) in events.iter().enumerate() {
-				// Have to reset the variable to override a previous partial match
-				meet_conditions = true;
+			for index in 0..events.len() {
+				let event = &events[index];
 				match event {
 					$event_pat => {
-						event_received = true;
+						let mut event_meets_conditions = true;
 						let mut conditions_message: Vec<String> = Vec::new();
+						event_received = true;
 
 						$(
-							// We only want to record condition error messages in case it did not happened before
-							// Only the first partial match is recorded
-							if !$condition && event_message.is_empty() {
+							if !$condition {
 								conditions_message.push(
 									format!(
-										" - The attribute {:?} = {:?} did not met the condition {:?}\n",
+										" - The attribute {} = {:?} did not meet the condition {}\n",
 										stringify!($attr),
 										$attr,
 										stringify!($condition)
 									)
 								);
 							}
-							meet_conditions &= $condition;
+							event_meets_conditions &= $condition;
 						)*
 
-						// Set the index where we found a perfect match
-						if event_received && meet_conditions {
-							index_match = index;
+						if failure_message.is_none() && !conditions_message.is_empty() {
+							// Record the failure message.
+							failure_message = Some(format!(
+								"\n\n{}::\x1b[31m{}\x1b[0m was received but some of its attributes did not meet the conditions.\n\
+								 Actual event:\n{:#?}\n\
+								 Failures:\n{}",
+								stringify!($chain),
+								stringify!($event_pat),
+								event,
+								conditions_message.concat()
+							));
+						}
+
+						if event_meets_conditions {
+							// Found an event where all conditions hold.
+							failure_message = None;
+							events.remove(index);
 							break;
-						} else {
-							event_message.extend(conditions_message);
 						}
 					},
 					_ => {}
 				}
 			}
 
-			if event_received && !meet_conditions  {
-				message.push(
-					format!(
-						"\n\n{}::\x1b[31m{}\x1b[0m was received but some of its attributes did not meet the conditions:\n{}",
-						stringify!($chain),
-						stringify!($event_pat),
-						event_message.concat()
-					)
-				);
-			} else if !event_received {
-				message.push(
+			if !event_received || failure_message.is_some() {
+				// No event matching the pattern was found.
+				messages.push(
 					format!(
 						"\n\n{}::\x1b[31m{}\x1b[0m was never received. All events:\n{:#?}",
 						stringify!($chain),
@@ -1357,18 +1379,15 @@ macro_rules! assert_expected_events {
 						<$chain as $crate::Chain>::events(),
 					)
 				);
-			} else {
-				// If we find a perfect match we remove the event to avoid being potentially assessed multiple times
-				events.remove(index_match);
 			}
 		)*
 
-		if !message.is_empty() {
-			// Log events as they will not be logged after the panic
+		if !messages.is_empty() {
+			// Log all events (since they won't be logged after the panic).
 			<$chain as $crate::Chain>::events().iter().for_each(|event| {
 				$crate::log::info!(target: concat!("events::", stringify!($chain)), "{:?}", event);
 			});
-			panic!("{}", message.concat())
+			panic!("{}", messages.concat())
 		}
 	}
 }
@@ -1585,10 +1604,29 @@ where
 	pub hops_dispatchable: HashMap<String, fn(Self) -> DispatchResult>,
 	pub hops_calls: HashMap<String, Origin::RuntimeCall>,
 	pub args: Args,
+	pub topic_id_tracker: Arc<Mutex<TopicIdTracker>>,
 	_marker: PhantomData<(Destination, Hops)>,
 }
 
 /// `Test` implementation.
+impl<Origin, Destination, Hops, Args> Test<Origin, Destination, Hops, Args>
+where
+	Args: Clone,
+	Origin: Chain + Clone,
+	Destination: Chain + Clone,
+	Origin::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Origin::Runtime>> + Clone,
+	Destination::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Destination::Runtime>> + Clone,
+	Hops: Clone,
+{
+	/// Asserts that a single unique topic ID exists across all chains.
+	pub fn assert_unique_topic_id(&self) {
+		self.topic_id_tracker.lock().unwrap().assert_unique();
+	}
+	/// Inserts a topic ID for a specific chain and asserts it remains globally unique.
+	pub fn insert_unique_topic_id(&mut self, chain: &str, id: H256) {
+		self.topic_id_tracker.lock().unwrap().insert_and_assert_unique(chain, id);
+	}
+}
 impl<Origin, Destination, Hops, Args> Test<Origin, Destination, Hops, Args>
 where
 	Args: Clone,
@@ -1615,6 +1653,7 @@ where
 			hops_dispatchable: Default::default(),
 			hops_calls: Default::default(),
 			args: test_args.args,
+			topic_id_tracker: Arc::new(Mutex::new(TopicIdTracker::new())),
 			_marker: Default::default(),
 		}
 	}

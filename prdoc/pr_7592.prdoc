@@ -1,0 +1,17 @@
+title: Add `Paras` `authorize_code_hash` + `apply_authorized_code` feature
+doc:
+- audience: Runtime Dev
+  description: |-
+    This feature is useful when triggering a `Paras` pallet call from a different chain than the one where the `Paras` pallet is deployed. For example, we may want to send `Paras::force_set_current_code(para, code)` from the Collectives and/or AssetHub to the relay chain (because the relaychain governance will be migrated to the AssetHub as a part of AHM).
+    The primary reason for this approach is to avoid transferring the entire `new_code` Wasm blob between chains. Instead, we authorize the `code_hash` using `root` via `fn authorize_force_set_current_code_hash(new_authorization, expire_at)`. This authorization can later be applied by anyone using `Paras::apply_authorized_force_set_current_code(para, new_code)`. If `expire_at` is reached without the authorization being used, it is automatically removed.
+crates:
+- name: polkadot-runtime-parachains
+  bump: major
+- name: polkadot-runtime-common
+  bump: patch
+- name: rococo-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor
+- name: pallet-staking-async-rc-runtime
+  bump: minor

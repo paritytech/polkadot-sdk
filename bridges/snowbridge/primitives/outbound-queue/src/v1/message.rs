@@ -349,7 +349,7 @@ impl GasMeter for ConstantGasMeter {
 				// * No gas refund for clearing storage slot of source account in ERC20 contract
 				// * Assume dest account in ERC20 contract does not yet have a storage slot
 				// * ERC20.transferFrom possibly does other business logic besides updating balances
-				AgentExecuteCommand::TransferToken { .. } => 100_000,
+				AgentExecuteCommand::TransferToken { .. } => 200_000,
 			},
 			Command::Upgrade { initializer, .. } => {
 				let initializer_max_gas = match *initializer {
@@ -362,7 +362,7 @@ impl GasMeter for ConstantGasMeter {
 			},
 			Command::SetTokenTransferFees { .. } => 60_000,
 			Command::SetPricingParameters { .. } => 60_000,
-			Command::UnlockNativeToken { .. } => 100_000,
+			Command::UnlockNativeToken { .. } => 200_000,
 			Command::RegisterForeignToken { .. } => 1_200_000,
 			Command::MintForeignToken { .. } => 100_000,
 		}

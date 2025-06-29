@@ -104,6 +104,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// A type that is not known now, but the runtime that will contain this pallet will
 		/// know it later, therefore we define it here as an associated type.
+		#[allow(deprecated)]
 		type RuntimeEvent: IsType<<Self as frame_system::Config>::RuntimeEvent> + From<Event<Self>>;
 
 		/// A parameterize-able value that we receive later via the `Get<_>` trait.

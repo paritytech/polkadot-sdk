@@ -18,7 +18,12 @@
 //! Basic implementation for Externalities.
 
 use crate::{Backend, OverlayedChanges, StorageKey, StorageValue};
+use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
 use codec::Encode;
+use core::{
+	any::{Any, TypeId},
+	iter::FromIterator,
+};
 use hash_db::Hasher;
 use log::warn;
 use sp_core::{
@@ -30,10 +35,6 @@ use sp_core::{
 };
 use sp_externalities::{Extension, Extensions, MultiRemovalResults};
 use sp_trie::{empty_child_trie_root, LayoutV0, LayoutV1, TrieConfiguration};
-use std::{
-	any::{Any, TypeId},
-	collections::BTreeMap,
-};
 
 /// Simple Map-based Externalities impl.
 #[derive(Debug)]
@@ -93,7 +94,7 @@ impl BasicExternalities {
 		storage: &mut sp_core::storage::Storage,
 		f: impl FnOnce() -> R,
 	) -> R {
-		let mut ext = Self::new(std::mem::take(storage));
+		let mut ext = Self::new(core::mem::take(storage));
 
 		let r = ext.execute_with(f);
 

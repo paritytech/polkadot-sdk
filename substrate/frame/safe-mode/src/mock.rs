@@ -22,15 +22,9 @@
 use super::*;
 use crate as pallet_safe_mode;
 
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU64, Everything, InsideBoth, InstanceFilter, IsInVec, SafeModeNotify},
-};
-use frame_system::EnsureSignedBy;
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
+use frame::{
+	testing_prelude::*,
+	traits::{InsideBoth, InstanceFilter, IsInVec},
 };
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -56,7 +50,7 @@ impl frame_system::Config for Test {
 	type SystemWeightInfo = ();
 	type SS58Prefix = ();
 	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type MaxConsumers = ConstU32<16>;
 }
 
 /// Identifies a hold on an account's balance.
@@ -189,7 +183,7 @@ impl SafeModeNotify for MockedNotify {
 	}
 }
 
-frame_support::ord_parameter_types! {
+ord_parameter_types! {
 	pub const ForceExitOrigin: u64 = 100;
 	pub const ForceDepositOrigin: u64 = 200;
 }
@@ -214,7 +208,7 @@ impl Config for Test {
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -228,7 +222,7 @@ frame_support::construct_runtime!(
 pub const BAL_ACC0: u64 = 1234;
 pub const BAL_ACC1: u64 = 5678;
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	pallet_balances::GenesisConfig::<Test> {
@@ -242,7 +236,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-	let mut ext = sp_io::TestExternalities::new(t);
+	let mut ext = TestExternalities::new(t);
 	ext.execute_with(|| {
 		System::set_block_number(1);
 	});
