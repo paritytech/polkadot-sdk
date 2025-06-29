@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["BEST_FINALIZED_VALUE_NAME","CURRENT_AUTHORITY_SET_VALUE_NAME","PALLET_OPERATING_MODE_VALUE_NAME"],"fn":["best_finalized_key","current_authority_set_key","pallet_operating_mode_key"]};

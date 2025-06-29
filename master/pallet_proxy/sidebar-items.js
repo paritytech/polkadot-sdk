@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DepositKind"],"mod":["pallet","weights"],"struct":["Announcement","ProxyDefinition"],"type":["BlockNumberFor"]};

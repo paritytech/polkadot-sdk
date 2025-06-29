@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["NUM_ACCOUNT_PAIRS"],"fn":["derive_accounts","yet_another_parachain_config"]};

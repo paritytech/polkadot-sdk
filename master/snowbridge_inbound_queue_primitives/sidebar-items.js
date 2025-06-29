@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["LogValidationError","VerificationError"],"mod":["v1","v2"],"struct":["EthereumLocationsConverterFor","EventFixture","EventProof","Log","Proof"],"trait":["Verifier"],"type":["CallIndex"]};

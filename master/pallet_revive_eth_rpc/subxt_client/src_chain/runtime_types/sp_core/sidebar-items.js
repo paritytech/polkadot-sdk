@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["crypto","sr25519"],"struct":["OpaqueMetadata"]};

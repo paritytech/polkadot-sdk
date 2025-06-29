@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["benchmarks","pallet"],"struct":["StorageWeightReclaim"],"trait":["WeightInfo"]};

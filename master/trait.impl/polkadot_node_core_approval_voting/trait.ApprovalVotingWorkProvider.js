@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["polkadot_node_core_approval_voting",[]],["polkadot_node_core_approval_voting_parallel",[["impl&lt;T&gt; ApprovalVotingWorkProvider for <a class=\"struct\" href=\"polkadot_node_core_approval_voting_parallel/struct.WorkProviderImpl.html\" title=\"struct polkadot_node_core_approval_voting_parallel::WorkProviderImpl\">WorkProviderImpl</a>&lt;T&gt;<div class=\"where\">where\n    T: Stream&lt;Item = FromOrchestra&lt;<a class=\"enum\" href=\"polkadot_node_subsystem_types/messages/enum.ApprovalVotingMessage.html\" title=\"enum polkadot_node_subsystem_types::messages::ApprovalVotingMessage\">ApprovalVotingMessage</a>&gt;&gt; + <a class=\"trait\" href=\"https://doc.rust-lang.org/1.84.1/core/marker/trait.Unpin.html\" title=\"trait core::marker::Unpin\">Unpin</a> + <a class=\"trait\" href=\"https://doc.rust-lang.org/1.84.1/core/marker/trait.Send.html\" title=\"trait core::marker::Send\">Send</a>,</div>"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[41,868]}

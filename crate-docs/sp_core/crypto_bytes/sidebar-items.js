@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["CryptoBytes","PublicTag","SignatureTag"],"type":["PublicBytes","SignatureBytes"]};

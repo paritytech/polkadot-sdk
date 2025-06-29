@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["CONTEXT_SIZE","MAX_STATEMENT_DATA_SIZE"],"enum":["Judgement","Statement","Truth"],"mod":["identity"],"struct":["Callback","ContextualAlias"],"trait":["AddOnlyPeopleTrait","CountedMembers","PeopleTrait","StatementOracle"],"type":["Alias","Context","CustomStatement","Data","EvidenceHash","JudgementContext","PersonalId","RingIndex"]};

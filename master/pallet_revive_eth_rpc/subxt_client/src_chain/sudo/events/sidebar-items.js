@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["key_changed","sudid","sudo_as_done"],"struct":["KeyChanged","KeyRemoved","Sudid","SudoAsDone"]};

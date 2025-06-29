@@ -1,0 +1,164 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Stuff to do with the runtime’s storage."><title>frame_support::storage - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-42caa33d.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.84.1 (e71f9a9a9 2025-01-27)" data-channel="1.84.1" data-search-js="search-92e6798f.js" data-settings-js="settings-0f613d39.js" ><script src="../../static.files/storage-59e33391.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../frame_support/index.html">frame_<wbr>support</a><span class="version">28.0.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module storage</a></h2><h3><a href="#reexports">Module Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate frame_<wbr>support</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="../index.html">frame_support</a></span><h1>Module <span>storage</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/frame_support/storage/mod.rs.html#18-2224">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Stuff to do with the runtime’s storage.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.in_storage_layer"><code>pub use self::transactional::<a class="fn" href="transactional/fn.in_storage_layer.html" title="fn frame_support::storage::transactional::in_storage_layer">in_storage_layer</a>;</code></div></li><li><div class="item-name" id="reexport.with_storage_layer"><code>pub use self::transactional::<a class="fn" href="transactional/fn.with_storage_layer.html" title="fn frame_support::storage::transactional::with_storage_layer">with_storage_layer</a>;</code></div></li><li><div class="item-name" id="reexport.with_transaction"><code>pub use self::transactional::<a class="fn" href="transactional/fn.with_transaction.html" title="fn frame_support::storage::transactional::with_transaction">with_transaction</a>;</code></div></li><li><div class="item-name" id="reexport.with_transaction_unchecked"><code>pub use self::transactional::<a class="fn" href="transactional/fn.with_transaction_unchecked.html" title="fn frame_support::storage::transactional::with_transaction_unchecked">with_transaction_unchecked</a>;</code></div></li><li><div class="item-name" id="reexport.StorageEntryMetadataBuilder"><code>pub use self::types::<a class="trait" href="types/trait.StorageEntryMetadataBuilder.html" title="trait frame_support::storage::types::StorageEntryMetadataBuilder">StorageEntryMetadataBuilder</a>;</code></div></li><li><div class="item-name" id="reexport.Key"><code>pub use types::<a class="struct" href="types/struct.Key.html" title="struct frame_support::storage::types::Key">Key</a>;</code></div></li></ul><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="bounded_btree_map/index.html" title="mod frame_support::storage::bounded_btree_map">bounded_<wbr>btree_<wbr>map</a></div><div class="desc docblock-short">Traits, types and structs to support a bounded BTreeMap.</div></li><li><div class="item-name"><a class="mod" href="bounded_btree_set/index.html" title="mod frame_support::storage::bounded_btree_set">bounded_<wbr>btree_<wbr>set</a></div><div class="desc docblock-short">Traits, types and structs to support a bounded <code>BTreeSet</code>.</div></li><li><div class="item-name"><a class="mod" href="bounded_vec/index.html" title="mod frame_support::storage::bounded_vec">bounded_<wbr>vec</a></div><div class="desc docblock-short">Traits, types and structs to support putting a bounded vector into storage, as a raw value, map
+or a double map.</div></li><li><div class="item-name"><a class="mod" href="child/index.html" title="mod frame_support::storage::child">child</a></div><div class="desc docblock-short">Operation on runtime child storages.</div></li><li><div class="item-name"><a class="mod" href="hashed/index.html" title="mod frame_support::storage::hashed">hashed</a></div><div class="desc docblock-short">Operation on runtime storage using hashed keys.</div></li><li><div class="item-name"><a class="mod" href="migration/index.html" title="mod frame_support::storage::migration">migration</a></div><div class="desc docblock-short">Some utilities for helping access storage with arbitrary key types.</div></li><li><div class="item-name"><a class="mod" href="storage_noop_guard/index.html" title="mod frame_support::storage::storage_noop_guard">storage_<wbr>noop_<wbr>guard</a></div><div class="desc docblock-short">Contains the <a href="storage_noop_guard/struct.StorageNoopGuard.html" title="struct frame_support::storage::storage_noop_guard::StorageNoopGuard"><code>crate::StorageNoopGuard</code></a> for conveniently asserting
+that no storage mutation has been made by a whole code block.</div></li><li><div class="item-name"><a class="mod" href="transactional/index.html" title="mod frame_support::storage::transactional">transactional</a></div><div class="desc docblock-short">Provides functionality around the transaction storage.</div></li><li><div class="item-name"><a class="mod" href="types/index.html" title="mod frame_support::storage::types">types</a></div><div class="desc docblock-short">Storage types to build abstraction on storage, they implements storage traits such as
+StorageMap and others.</div></li><li><div class="item-name"><a class="mod" href="unhashed/index.html" title="mod frame_support::storage::unhashed">unhashed</a></div><div class="desc docblock-short">Operation on unhashed runtime storage.</div></li><li><div class="item-name"><a class="mod" href="weak_bounded_vec/index.html" title="mod frame_support::storage::weak_bounded_vec">weak_<wbr>bounded_<wbr>vec</a></div><div class="desc docblock-short">Traits, types and structs to support putting a bounded vector into storage, as a raw value, map
+or a double map.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.ChildTriePrefixIterator.html" title="struct frame_support::storage::ChildTriePrefixIterator">Child<wbr>Trie<wbr>Prefix<wbr>Iterator</a></div><div class="desc docblock-short">Iterate over a prefix of a child trie and decode raw_key and raw_value into <code>T</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.KeyLenOf.html" title="struct frame_support::storage::KeyLenOf">KeyLen<wbr>Of</a></div><div class="desc docblock-short">Utility type for converting a storage map into a <code>Get&lt;u32&gt;</code> impl which returns the maximum
+key size.</div></li><li><div class="item-name"><a class="struct" href="struct.KeyPrefixIterator.html" title="struct frame_support::storage::KeyPrefixIterator">KeyPrefix<wbr>Iterator</a></div><div class="desc docblock-short">Iterate over a prefix and decode raw_key into <code>T</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.PrefixIterator.html" title="struct frame_support::storage::PrefixIterator">Prefix<wbr>Iterator</a></div><div class="desc docblock-short">Iterate or drain over a prefix and decode raw_key and raw_value into <code>T</code>.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.TransactionOutcome.html" title="enum frame_support::storage::TransactionOutcome">Transaction<wbr>Outcome</a></div><div class="desc docblock-short">Describes on what should happen with a storage transaction.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.IterableStorageDoubleMap.html" title="trait frame_support::storage::IterableStorageDoubleMap">Iterable<wbr>Storage<wbr>Double<wbr>Map</a></div><div class="desc docblock-short">A strongly-typed double map in storage whose secondary keys and values can be iterated over.</div></li><li><div class="item-name"><a class="trait" href="trait.IterableStorageMap.html" title="trait frame_support::storage::IterableStorageMap">Iterable<wbr>Storage<wbr>Map</a></div><div class="desc docblock-short">A strongly-typed map in storage whose keys and values can be iterated over.</div></li><li><div class="item-name"><a class="trait" href="trait.IterableStorageNMap.html" title="trait frame_support::storage::IterableStorageNMap">Iterable<wbr>StorageN<wbr>Map</a></div><div class="desc docblock-short">A strongly-typed map with arbitrary number of keys in storage whose keys and values can be
+iterated over.</div></li><li><div class="item-name"><a class="trait" href="trait.PrefixIteratorOnRemoval.html" title="trait frame_support::storage::PrefixIteratorOnRemoval">Prefix<wbr>Iterator<wbr>OnRemoval</a></div><div class="desc docblock-short">Trait for specialising on removal logic of <a href="struct.PrefixIterator.html" title="struct frame_support::storage::PrefixIterator"><code>PrefixIterator</code></a>.</div></li><li><div class="item-name"><a class="trait" href="trait.StorageAppend.html" title="trait frame_support::storage::StorageAppend">Storage<wbr>Append</a></div><div class="desc docblock-short">Marker trait that will be implemented for types that support the <code>storage::append</code> api.</div></li><li><div class="item-name"><a class="trait" href="trait.StorageAppender.html" title="trait frame_support::storage::StorageAppender">Storage<wbr>Appender</a></div><div class="desc docblock-short">Append iterator to append values to a storage struct.</div></li><li><div class="item-name"><a class="trait" href="trait.StorageDecodeLength.html" title="trait frame_support::storage::StorageDecodeLength">Storage<wbr>Decode<wbr>Length</a></div><div class="desc docblock-short">It is expected that the length is at the beginning of the encoded object
+and that the length is a <code>Compact&lt;u32&gt;</code>.</div></li><li><div class="item-name"><a class="trait" href="trait.StorageDecodeNonDedupLength.html" title="trait frame_support::storage::StorageDecodeNonDedupLength">Storage<wbr>Decode<wbr>NonDedup<wbr>Length</a></div><div class="desc docblock-short">It is expected that the length is at the beginning of the encoded object and that the length is
+a <code>Compact&lt;u32&gt;</code>.</div></li><li><div class="item-name"><a class="trait" href="trait.StorageDoubleMap.html" title="trait frame_support::storage::StorageDoubleMap">Storage<wbr>Double<wbr>Map</a></div><div class="desc docblock-short">An implementation of a map with a two keys.</div></li><li><div class="item-name"><a class="trait" href="trait.StorageList.html" title="trait frame_support::storage::StorageList">Storage<wbr>List</a></div><div class="desc docblock-short">A non-continuous container type.</div></li><li><div class="item-name"><a class="trait" href="trait.StorageMap.html" title="trait frame_support::storage::StorageMap">Storage<wbr>Map</a></div><div class="desc docblock-short">A strongly-typed map in storage.</div></li><li><div class="item-name"><a class="trait" href="trait.StorageNMap.html" title="trait frame_support::storage::StorageNMap">StorageN<wbr>Map</a></div><div class="desc docblock-short">An implementation of a map with an arbitrary number of keys.</div></li><li><div class="item-name"><a class="trait" href="trait.StoragePrefixedContainer.html" title="trait frame_support::storage::StoragePrefixedContainer">Storage<wbr>Prefixed<wbr>Container</a></div><div class="desc docblock-short">Trait for storage types that store all its value after a unique prefix.</div></li><li><div class="item-name"><a class="trait" href="trait.StoragePrefixedMap.html" title="trait frame_support::storage::StoragePrefixedMap">Storage<wbr>Prefixed<wbr>Map</a></div><div class="desc docblock-short">Trait for maps that store all its value after a unique prefix.</div></li><li><div class="item-name"><a class="trait" href="trait.StorageStreamIter.html" title="trait frame_support::storage::StorageStreamIter">Storage<wbr>Stream<wbr>Iter</a></div><div class="desc docblock-short">An iterator that streams values directly from storage.</div></li><li><div class="item-name"><a class="trait" href="trait.StorageTryAppend.html" title="trait frame_support::storage::StorageTryAppend">Storage<wbr>TryAppend</a></div><div class="desc docblock-short">Marker trait that is implemented for types that support the <code>storage::append</code> api with a limit
+on the number of element.</div></li><li><div class="item-name"><a class="trait" href="trait.StorageValue.html" title="trait frame_support::storage::StorageValue">Storage<wbr>Value</a></div><div class="desc docblock-short">A trait for working with macro-generated storage values under the substrate storage API.</div></li><li><div class="item-name"><a class="trait" href="trait.TryAppendDoubleMap.html" title="trait frame_support::storage::TryAppendDoubleMap">TryAppend<wbr>Double<wbr>Map</a></div><div class="desc docblock-short">Storage double map that is capable of <a href="trait.StorageTryAppend.html" title="trait frame_support::storage::StorageTryAppend"><code>StorageTryAppend</code></a>.</div></li><li><div class="item-name"><a class="trait" href="trait.TryAppendMap.html" title="trait frame_support::storage::TryAppendMap">TryAppend<wbr>Map</a></div><div class="desc docblock-short">Storage map that is capable of <a href="trait.StorageTryAppend.html" title="trait frame_support::storage::StorageTryAppend"><code>StorageTryAppend</code></a>.</div></li><li><div class="item-name"><a class="trait" href="trait.TryAppendNMap.html" title="trait frame_support::storage::TryAppendNMap">TryAppendN<wbr>Map</a></div><div class="desc docblock-short">Storage N map that is capable of <a href="trait.StorageTryAppend.html" title="trait frame_support::storage::StorageTryAppend"><code>StorageTryAppend</code></a>.</div></li><li><div class="item-name"><a class="trait" href="trait.TryAppendValue.html" title="trait frame_support::storage::TryAppendValue">TryAppend<wbr>Value</a></div><div class="desc docblock-short">Storage value that is capable of <a href="trait.StorageTryAppend.html" title="trait frame_support::storage::StorageTryAppend"><code>StorageTryAppend</code></a>.</div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.storage_prefix.html" title="fn frame_support::storage::storage_prefix">storage_<wbr>prefix</a></div><div class="desc docblock-short">Returns the storage prefix for a specific pallet name and storage name.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>
