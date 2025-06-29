@@ -184,12 +184,22 @@ impl<BlockNumber: Ord + Copy + Zero, Balance: Ord + Copy + Zero> PriorLock<Block
 	}
 }
 
-// The voting power clawed back by a delegator for a specific poll. This happens when the delegator votes
-// and therefore retracts their voting power for the poll.
+// The voting power clawed back by a delegator for a specific poll. This happens when the delegator
+// votes and therefore retracts their voting power for the poll.
 type RetractedVotes<Balance> = Delegations<Balance>;
 
 /// Information concerning a voting power's vote in regards to a specific poll.
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct VoteRecord<PollIndex, Balance> {
 	/// The poll index this information concerns
 	pub poll_index: PollIndex,
@@ -201,10 +211,20 @@ pub struct VoteRecord<PollIndex, Balance> {
 }
 
 /// Information concerning the vote-casting of some voting power.
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 #[scale_info(skip_type_params(MaxVotes))]
 #[codec(mel_bound(Balance: MaxEncodedLen, AccountId: MaxEncodedLen, BlockNumber: MaxEncodedLen, PollIndex: MaxEncodedLen))]
-pub struct Voting<Balance, AccountId, BlockNumber, PollIndex, MaxVotes> 
+pub struct Voting<Balance, AccountId, BlockNumber, PollIndex, MaxVotes>
 where
 	MaxVotes: Get<u32>,
 {
@@ -214,8 +234,8 @@ where
 	pub delegated_balance: Balance,
 	/// A possible account to which the voting power is delegating.
 	pub maybe_delegate: Option<AccountId>,
-	/// The possible conviction with which the voting power is delegating. When this gets undelegated, the
-	/// relevant lock begins.
+	/// The possible conviction with which the voting power is delegating. When this gets
+	/// undelegated, the relevant lock begins.
 	pub maybe_conviction: Option<Conviction>,
 	/// The total amount of delegations that this account has received, post-conviction-weighting.
 	pub delegations: Delegations<Balance>,
@@ -266,9 +286,11 @@ where
 
 	/// The amount of this account's balance that must currently be locked due to voting/delegating.
 	pub fn locked_balance(&self) -> Balance {
-		let from_voting = self.votes.iter()
-    	.filter_map(|i| i.maybe_vote.as_ref().map(|v| v.balance()))
-    	.fold(self.prior.locked(), |a, i| a.max(i));
+		let from_voting = self
+			.votes
+			.iter()
+			.filter_map(|i| i.maybe_vote.as_ref().map(|v| v.balance()))
+			.fold(self.prior.locked(), |a, i| a.max(i));
 		let from_delegating = self.delegated_balance.max(self.prior.locked());
 		from_voting.max(from_delegating)
 	}
