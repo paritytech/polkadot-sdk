@@ -184,7 +184,11 @@ impl<BlockNumber: Ord + Copy + Zero, Balance: Ord + Copy + Zero> PriorLock<Block
 	}
 }
 
-/// Information concerning the delegation of some voting power.
+// The voting power clawed back by a delegator for a specific poll. This happens when the delegator
+// votes and therefore retracts their voting power for the poll.
+type RetractedVotes<Balance> = Delegations<Balance>;
+
+/// Information concerning a voting power's vote in regards to a specific poll.
 #[derive(
 	Encode,
 	Decode,
@@ -196,21 +200,17 @@ impl<BlockNumber: Ord + Copy + Zero, Balance: Ord + Copy + Zero> PriorLock<Block
 	TypeInfo,
 	MaxEncodedLen,
 )]
-pub struct Delegating<Balance, AccountId, BlockNumber> {
-	/// The amount of balance delegated.
-	pub balance: Balance,
-	/// The account to which the voting power is delegated.
-	pub target: AccountId,
-	/// The conviction with which the voting power is delegated. When this gets undelegated, the
-	/// relevant lock begins.
-	pub conviction: Conviction,
-	/// The total amount of delegations that this account has received, post-conviction-weighting.
-	pub delegations: Delegations<Balance>,
-	/// Any pre-existing locks from past voting/delegating activity.
-	pub prior: PriorLock<BlockNumber, Balance>,
+pub struct VoteRecord<PollIndex, Balance> {
+	/// The poll index this information concerns
+	pub poll_index: PollIndex,
+	/// The vote this account has cast. Can be none if only retracted_votes info is needed
+	pub maybe_vote: Option<AccountVote<Balance>>,
+	/// The amount of votes retracted from this user for this poll. Can't be more than is
+	/// delegated to them. Votes are retracted when a delegator votes in stead of their delegate.
+	pub retracted_votes: RetractedVotes<Balance>,
 }
 
-/// Information concerning the direct vote-casting of some voting power.
+/// Information concerning the vote-casting of some voting power.
 #[derive(
 	Encode,
 	Decode,
@@ -223,44 +223,24 @@ pub struct Delegating<Balance, AccountId, BlockNumber> {
 	MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(MaxVotes))]
-#[codec(mel_bound(Balance: MaxEncodedLen, BlockNumber: MaxEncodedLen, PollIndex: MaxEncodedLen))]
-pub struct Casting<Balance, BlockNumber, PollIndex, MaxVotes>
+#[codec(mel_bound(Balance: MaxEncodedLen, AccountId: MaxEncodedLen, BlockNumber: MaxEncodedLen, PollIndex: MaxEncodedLen))]
+pub struct Voting<Balance, AccountId, BlockNumber, PollIndex, MaxVotes>
 where
 	MaxVotes: Get<u32>,
 {
-	/// The current votes of the account.
-	pub votes: BoundedVec<(PollIndex, AccountVote<Balance>), MaxVotes>,
+	/// The current voting data of the account.
+	pub votes: BoundedVec<VoteRecord<PollIndex, Balance>, MaxVotes>,
+	/// The amount of balance delegated to some voting power.
+	pub delegated_balance: Balance,
+	/// A possible account to which the voting power is delegating.
+	pub maybe_delegate: Option<AccountId>,
+	/// The possible conviction with which the voting power is delegating. When this gets
+	/// undelegated, the relevant lock begins.
+	pub maybe_conviction: Option<Conviction>,
 	/// The total amount of delegations that this account has received, post-conviction-weighting.
 	pub delegations: Delegations<Balance>,
 	/// Any pre-existing locks from past voting/delegating activity.
 	pub prior: PriorLock<BlockNumber, Balance>,
-}
-
-/// An indicator for what an account is doing; it can either be delegating or voting.
-#[derive(
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Clone,
-	Eq,
-	PartialEq,
-	RuntimeDebug,
-	TypeInfo,
-	MaxEncodedLen,
-)]
-#[scale_info(skip_type_params(MaxVotes))]
-#[codec(mel_bound(
-	Balance: MaxEncodedLen, AccountId: MaxEncodedLen, BlockNumber: MaxEncodedLen,
-	PollIndex: MaxEncodedLen,
-))]
-pub enum Voting<Balance, AccountId, BlockNumber, PollIndex, MaxVotes>
-where
-	MaxVotes: Get<u32>,
-{
-	/// The account is voting directly.
-	Casting(Casting<Balance, BlockNumber, PollIndex, MaxVotes>),
-	/// The account is delegating `balance` of its balance to a `target` account with `conviction`.
-	Delegating(Delegating<Balance, AccountId, BlockNumber>),
 }
 
 impl<Balance: Default, AccountId, BlockNumber: Zero, PollIndex, MaxVotes> Default
@@ -269,11 +249,14 @@ where
 	MaxVotes: Get<u32>,
 {
 	fn default() -> Self {
-		Voting::Casting(Casting {
+		Voting {
 			votes: Default::default(),
+			delegated_balance: Default::default(),
+			maybe_delegate: None,
+			maybe_conviction: None,
 			delegations: Default::default(),
 			prior: PriorLock(Zero::zero(), Default::default()),
-		})
+		}
 	}
 }
 
@@ -283,10 +266,7 @@ where
 	MaxVotes: Get<u32>,
 {
 	fn as_mut(&mut self) -> &mut PriorLock<BlockNumber, Balance> {
-		match self {
-			Voting::Casting(Casting { prior, .. }) => prior,
-			Voting::Delegating(Delegating { prior, .. }) => prior,
-		}
+		&mut self.prior
 	}
 }
 
@@ -304,13 +284,15 @@ where
 		AsMut::<PriorLock<BlockNumber, Balance>>::as_mut(self).rejig(now);
 	}
 
-	/// The amount of this account's balance that must currently be locked due to voting.
+	/// The amount of this account's balance that must currently be locked due to voting/delegating.
 	pub fn locked_balance(&self) -> Balance {
-		match self {
-			Voting::Casting(Casting { votes, prior, .. }) =>
-				votes.iter().map(|i| i.1.balance()).fold(prior.locked(), |a, i| a.max(i)),
-			Voting::Delegating(Delegating { balance, prior, .. }) => *balance.max(&prior.locked()),
-		}
+		let from_voting = self
+			.votes
+			.iter()
+			.filter_map(|i| i.maybe_vote.as_ref().map(|v| v.balance()))
+			.fold(self.prior.locked(), |a, i| a.max(i));
+		let from_delegating = self.delegated_balance.max(self.prior.locked());
+		from_voting.max(from_delegating)
 	}
 
 	pub fn set_common(
@@ -318,13 +300,19 @@ where
 		delegations: Delegations<Balance>,
 		prior: PriorLock<BlockNumber, Balance>,
 	) {
-		let (d, p) = match self {
-			Voting::Casting(Casting { ref mut delegations, ref mut prior, .. }) =>
-				(delegations, prior),
-			Voting::Delegating(Delegating { ref mut delegations, ref mut prior, .. }) =>
-				(delegations, prior),
-		};
-		*d = delegations;
-		*p = prior;
+		self.delegations = delegations;
+		self.prior = prior;
+	}
+
+	/// Set the delegate related info of an account's voting data.
+	pub fn set_delegate_info(
+		&mut self,
+		maybe_delegate: Option<AccountId>,
+		balance: Balance,
+		maybe_conviction: Option<Conviction>,
+	) {
+		self.maybe_delegate = maybe_delegate;
+		self.delegated_balance = balance;
+		self.maybe_conviction = maybe_conviction;
 	}
 }
