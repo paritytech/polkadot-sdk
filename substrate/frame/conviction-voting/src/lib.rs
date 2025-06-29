@@ -54,7 +54,7 @@ pub use self::{
 	pallet::*,
 	traits::{Status, VotingHooks},
 	types::{Delegations, Tally, UnvoteScope},
-	vote::{AccountVote, Vote, Voting, PollVote, PriorLock},
+	vote::{AccountVote, Vote, Voting, VoteRecord, PriorLock},
 	weights::WeightInfo,
 };
 use sp_runtime::traits::BlockNumberProvider;
@@ -453,9 +453,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					// If not found.
 					Err(i) => {
 						// Add vote data, unless max vote reached.
-						let poll_vote = PollVote {poll_index: poll_index, maybe_vote: Some(vote), retracted_votes: Default::default()};
+						let vote_record = VoteRecord {poll_index: poll_index, maybe_vote: Some(vote), retracted_votes: Default::default()};
 						votes
-							.try_insert(i, poll_vote)
+							.try_insert(i, vote_record)
 							.map_err(|_| Error::<T, I>::MaxVotesReached)?;
 						vote_introduced = true;
 						i
@@ -498,9 +498,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 								// If not found.
 								Err(i) => {
 									// Add empty vote and clawback amount.
-									let poll_vote = PollVote {poll_index: poll_index, maybe_vote: None, retracted_votes: amount_delegated};
+									let vote_record = VoteRecord {poll_index: poll_index, maybe_vote: None, retracted_votes: amount_delegated};
 									delegates_votes
-										.try_insert(i, poll_vote)
+										.try_insert(i, vote_record)
 										.map_err(|_| Error::<T, I>::DelegateMaxVotesReached.into())
 								},
 							}
@@ -693,7 +693,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			let accesses = (delegators_ongoing_votes.len() + votes.len()) as u32;
 			
 			// For each of the delegate's votes.
-			for PollVote { poll_index, maybe_vote, .. } in votes.iter() {
+			for VoteRecord { poll_index, maybe_vote, .. } in votes.iter() {
 				// If they have a standard vote recorded.
 				if let Some(AccountVote::Standard { vote, .. }) = maybe_vote {
 					T::Polls::access_poll(*poll_index, |poll_status| {
@@ -725,7 +725,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					// That don't appear in the delegate's voting history.
 					Err(i) => {
 						// Insert the vote data with no vote and the clawback amount.
-						let poll_vote = PollVote {poll_index: poll_index, maybe_vote: None, retracted_votes: amount};
+						let poll_vote = VoteRecord {poll_index: poll_index, maybe_vote: None, retracted_votes: amount};
 						votes
 							.try_insert(i, poll_vote)
 							.map_err(|_| Error::<T, I>::DelegateMaxVotesReached)?;
@@ -754,7 +754,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			let accesses = (delegators_votes.len() + votes.len()) as u32;
 
 			// For each of the delegate's votes.
-			for PollVote{ poll_index, maybe_vote, ..} in votes.iter() {
+			for VoteRecord{ poll_index, maybe_vote, ..} in votes.iter() {
 				// That are standard aye or nay.
 				if let Some(AccountVote::Standard { vote, .. }) = maybe_vote {
 					T::Polls::access_poll(*poll_index, |poll_status| {
