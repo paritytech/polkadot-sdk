@@ -2185,11 +2185,12 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 			}
 
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
-			use xcm_config::{MaxAssetsIntoHolding, WestendLocation, AssetHubId,
-			AssetHubParaLocation};
+			use xcm_config::{MaxAssetsIntoHolding, WestendLocation};
 			use xcm_config::bridging::to_rococo::{RandomParaLocation, RandomId};
 
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
+			use testnet_parachains_constants::westend::locations::{AssetHubParaId,
+			AssetHubLocation};
 
 			parameter_types! {
 				pub ExistentialDepositAsset: Option<Asset> = Some((
@@ -2198,7 +2199,6 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 				).into());
 
 				pub RandomParaId: ParaId = ParaId::new(RandomId::get());
-				pub AssetHubParaId: ParaId = ParaId::new(AssetHubId::get());
 			}
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
@@ -2220,7 +2220,7 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 					>);
 
 				fn reachable_dest() -> Option<Location> {
-					Some(AssetHubParaLocation::get())
+					Some(AssetHubLocation::get())
 				}
 
 				fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
@@ -2230,7 +2230,7 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 							fun: Fungible(ExistentialDeposit::get()),
 							id: AssetId(WestendLocation::get())
 						},
-						AssetHubParaLocation::get(),
+						AssetHubLocation::get(),
 					))
 				}
 
@@ -2246,7 +2246,7 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 					// Transfer to Relay some local AH asset (local-reserve-transfer) while paying
 					// fees using teleported native token.
 					// (We don't care that Relay doesn't accept incoming unknown AH local asset)
-					let dest: Location = AssetHubParaLocation::get();
+					let dest: Location = AssetHubLocation::get();
 
 					let fee_amount = EXISTENTIAL_DEPOSIT;
 					let fee_asset: Asset = (WestendLocation::get(), fee_amount).into();
@@ -2364,7 +2364,7 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 				>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(AssetHubParaId::get());
-					Ok(AssetHubParaLocation::get())
+					Ok(AssetHubLocation::get())
 				}
 				fn worst_case_holding(depositable_count: u32) -> XcmAssets {
 					// A mix of fungible, non-fungible, and concrete assets.
@@ -2391,7 +2391,7 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 
 			parameter_types! {
 				pub TrustedTeleporter: Option<(Location, Asset)> = Some((
-					AssetHubParaLocation::get(),
+					AssetHubLocation::get(),
 					Asset { fun: Fungible(UNITS), id: AssetId(WestendLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
@@ -2503,18 +2503,18 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 				fn transact_origin_and_runtime_call() -> Result<(Location, RuntimeCall), BenchmarkError> {
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(AssetHubParaId::get());
 					Ok((
-						AssetHubParaLocation::get(),
+						AssetHubLocation::get(),
 						frame_system::Call::remark_with_event { remark: vec![] }.into()
 					))
 				}
 
 				fn subscribe_origin() -> Result<Location, BenchmarkError> {
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(AssetHubParaId::get());
-					Ok(AssetHubParaLocation::get())
+					Ok(AssetHubLocation::get())
 				}
 
 				fn claimable_asset() -> Result<(Location, Location, XcmAssets), BenchmarkError> {
-					let origin = AssetHubParaLocation::get();
+					let origin = AssetHubLocation::get();
 					let assets: XcmAssets = (AssetId(WestendLocation::get()), 1_000 * UNITS).into();
 					let ticket = Location { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
