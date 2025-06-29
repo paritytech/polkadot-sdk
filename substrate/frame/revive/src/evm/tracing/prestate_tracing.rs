@@ -223,7 +223,7 @@ where
 	fn exit_child_span_with_error(&mut self, _error: crate::DispatchError, _gas_used: Weight) {
 		self.is_create = None;
 	}
-	
+
 	fn exit_child_span(&mut self, output: &ExecReturnValue, _gas_used: Weight) {
 		let create_code = self.is_create.take();
 		if output.did_revert() {
