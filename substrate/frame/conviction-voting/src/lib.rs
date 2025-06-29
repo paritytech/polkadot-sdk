@@ -544,26 +544,26 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			T::Polls::try_access_poll(poll_index, |poll_status| match poll_status {
 				PollStatus::Ongoing(tally, _) => {
 					
-					// If the vote data exists
+					// If the vote data exists.
 					if let Some(account_vote) = votes[i].maybe_vote {
 						ensure!(matches!(scope, UnvoteScope::Any), Error::<T, I>::NoPermission);
 						
 						// Remove vote from tally, shouldn't be possible to fail, but we handle it gracefully.
 						tally.remove(account_vote).ok_or(ArithmeticError::Underflow)?;
 						
-						// Remove delegated votes (minus those votes retracted) only if vote was standard aye nay
+						// If standard aye nay vote, remove delegated votes.
 						if let Some(approve) = account_vote.as_standard() {
 							let final_delgations = delegations.saturating_sub(votes[i].retracted_votes);
 							tally.reduce(approve, final_delgations);
 						}
 
-						// Remove vote and fully remove record if there are no retracted votes to track
+						// Remove vote and fully remove record if there are no retracted votes to track.
 						votes[i].maybe_vote = None;
 						if votes[i].retracted_votes == Default::default() {
 							votes.remove(i);
 						}
 
-						// Update delegate's voting state if delegating
+						// If delegating, update delegate's voting state.
 						if let (Some(delegate), Some(conviction)) = (&voting.maybe_delegate, &voting.maybe_conviction) {
 							VotingFor::<T, I>::mutate(delegate, &class, |delegate_voting| {
 								let delegates_votes = &mut delegate_voting.votes;
@@ -601,7 +601,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				PollStatus::Completed(end, approved) => {
 					let old_vote = votes.remove(i);
 					
-					// If vote was cast, ensure locks
+					// If vote was cast, ensure locks.
 					if let Some(account_vote) = old_vote.maybe_vote {
 						if let Some((lock_periods, balance)) =
 							account_vote.locked_if(vote::LockedIf::Status(approved))
@@ -640,28 +640,22 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 							}
 						}
 
-						// Update delegate's voting state if delegating
+						// If delegating, update delegate's voting state.
 						if let (Some(delegate), Some(_)) = (&voting.maybe_delegate, &voting.maybe_conviction) {
 							VotingFor::<T, I>::mutate(delegate, &class, |delegate_voting| {
 								// Find the matching poll record on the delegate's account.
-								match delegate_voting.votes.binary_search_by_key(&poll_index, |v| v.poll_index)
+								if let Ok(idx) = delegate_voting.votes.binary_search_by_key(&poll_index, |v| v.poll_index)
 								{
-									Ok(idx) => {
-										// Remove vote record if no longer necessary
-										let poll_vote = &mut delegate_voting.votes[idx];
-										if poll_vote.maybe_vote.is_none()
-										{
-											delegate_voting.votes.remove(idx);
-										}
+									// Remove vote record if no longer necessary.
+									if delegate_voting.votes[idx].maybe_vote.is_none()
+									{
+										delegate_voting.votes.remove(idx);
 									}
-									Err(_i) => {
-										// Delegate already removed it
-									},
 								}
 							});
 						}
 
-						// Call on_remove_vote hook
+						// Call on_remove_vote hook.
 						T::VotingHooks::on_remove_vote(who, poll_index, Status::Completed);
 					}
 					Ok(())
@@ -669,25 +663,19 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				PollStatus::None => {
 					// Poll was cancelled.
 					let old_vote = votes.remove(i);
-					// Check vote existed at time of cancellation
+					// Check vote existed at time of cancellation.
 					if old_vote.maybe_vote.is_some() {
-						// Update delegate's voting state if delegating
+						// If delegating, update delegate's voting state.
 						if let (Some(delegate), Some(_)) = (&voting.maybe_delegate, &voting.maybe_conviction) {
 							VotingFor::<T, I>::mutate(delegate, &class, |delegate_voting| {
 								// Find the matching poll record on the delegate's account.
-								match delegate_voting.votes.binary_search_by_key(&poll_index, |v| v.poll_index)
+								if let Ok(idx) = delegate_voting.votes.binary_search_by_key(&poll_index, |v| v.poll_index)
 								{
-									Ok(idx) => {
-										// Remove vote record if no longer necessary
-										let poll_vote = &mut delegate_voting.votes[idx];
-										if poll_vote.maybe_vote.is_none()
-										{
-											delegate_voting.votes.remove(idx);
-										}
+									// Remove vote record if no longer necessary.
+									if delegate_voting.votes[idx].maybe_vote.is_none()
+									{
+										delegate_voting.votes.remove(idx);
 									}
-									Err(_i) => {
-										// Delegate already removed it
-									},
 								}
 							});
 						}
