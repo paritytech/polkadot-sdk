@@ -54,7 +54,7 @@ pub use self::{
 	pallet::*,
 	traits::{Status, VotingHooks},
 	types::{Delegations, Tally, UnvoteScope},
-	vote::{AccountVote, Vote, Voting, PollVote},
+	vote::{AccountVote, Vote, Voting, PollVote, PriorLock},
 	weights::WeightInfo,
 };
 use sp_runtime::traits::BlockNumberProvider;
@@ -410,7 +410,6 @@ pub mod pallet {
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
-
 	/// Actually enact a vote, if legitimate.
 	fn try_vote(
 		who: &T::AccountId,
@@ -535,15 +534,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			.ok_or(Error::<T, I>::ClassNeeded)?;
 		VotingFor::<T, I>::try_mutate(who, &class, |voting| {
 			let votes = &mut voting.votes;
-			let delegations = voting.delegations;
-			let prior = &mut voting.prior;
 			let i = votes
 				.binary_search_by_key(&poll_index, |i| i.poll_index)
 				.map_err(|_| Error::<T, I>::NotVoter)?;
 		
 			T::Polls::try_access_poll(poll_index, |poll_status| match poll_status {
 				PollStatus::Ongoing(tally, _) => {
-					
 					// If the vote data exists.
 					if let Some(account_vote) = votes[i].maybe_vote {
 						ensure!(matches!(scope, UnvoteScope::Any), Error::<T, I>::NoPermission);
@@ -553,7 +549,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						
 						// If standard aye nay vote, remove delegated votes.
 						if let Some(approve) = account_vote.as_standard() {
-							let final_delgations = delegations.saturating_sub(votes[i].retracted_votes);
+							let final_delgations = voting.delegations.saturating_sub(votes[i].retracted_votes);
 							tally.reduce(approve, final_delgations);
 						}
 
@@ -567,27 +563,26 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 						if let (Some(delegate), Some(conviction)) = (&voting.maybe_delegate, &voting.maybe_conviction) {
 							VotingFor::<T, I>::mutate(delegate, &class, |delegate_voting| {
 								let delegates_votes = &mut delegate_voting.votes;
-								// Check vote data exists, shouldn't be possible for it not to if delegator has voted & poll is ongoing
+								// Check vote data exists, shouldn't be possible for it not to if delegator has voted & poll is ongoing.
 								match delegates_votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
 									Ok(i) => {
+										// Remove clawback from delegates vote record.
 										let amount_delegated = conviction.votes(voting.delegated_balance);
-										// Remove clawback from delegates vote record
 										delegates_votes[i].retracted_votes = delegates_votes[i].retracted_votes.saturating_sub(amount_delegated);
-										// If delegate had voted
-										if let Some(delegates_vote) = delegates_votes[i].maybe_vote {
-											// And it was a standard vote
-											if let Some(approve) = delegates_vote.as_standard() {
-												// Increase tally by delegated amount
-												tally.increase(approve, conviction.votes(voting.delegated_balance));
-											}
+										
+										// If delegate had voted and was standard vote.
+										if let Some(approval) = delegates_votes[i].maybe_vote.as_ref().and_then(|v| v.as_standard()) {
+											// Increase tally by delegated amount.
+											tally.increase(approval, conviction.votes(voting.delegated_balance));
 										}
-										// And remove the voting data if there's no longer a reason to hold
+										
+										// And remove the voting data if there's no longer a reason to hold.
 										if delegates_votes[i].maybe_vote.is_none() && delegates_votes[i].retracted_votes == Default::default() {
 											delegates_votes.remove(i);
 										}
 									},
-									Err(_i) => {
-										// Shouldn't be possible
+									Err(_) => {
+										// Shouldn't be possible. Unsure if I should call out with error or remove.
 									},
 								}
 							});
@@ -601,58 +596,25 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				PollStatus::Completed(end, approved) => {
 					let old_vote = votes.remove(i);
 					
-					// If vote was cast, ensure locks.
 					if let Some(account_vote) = old_vote.maybe_vote {
 						if let Some((lock_periods, balance)) =
 							account_vote.locked_if(vote::LockedIf::Status(approved))
 						{
-							let unlock_at = end.saturating_add(
-								T::VoteLockingPeriod::get().saturating_mul(lock_periods.into()),
-							);
-							let now = T::BlockNumberProvider::current_block_number();
-							if now < unlock_at {
-								ensure!(
-									matches!(scope, UnvoteScope::Any),
-									Error::<T, I>::NoPermissionYet
-								);
-								prior.accumulate(unlock_at, balance)
-							}
-						} else if account_vote.as_standard().is_some_and(|vote| vote != approved) {
-							// Unsuccessful vote, use special hook to lock the funds too in case of
-							// conviction.
-							if let Some(to_lock) =
-								T::VotingHooks::lock_balance_on_unsuccessful_vote(who, poll_index)
-							{
-								if let AccountVote::Standard { vote, .. } = account_vote {
-									let unlock_at = end.saturating_add(
-										T::VoteLockingPeriod::get()
-											.saturating_mul(vote.conviction.lock_periods().into()),
-									);
-									let now = T::BlockNumberProvider::current_block_number();
-									if now < unlock_at {
-										ensure!(
-											matches!(scope, UnvoteScope::Any),
-											Error::<T, I>::NoPermissionYet
-										);
-										prior.accumulate(unlock_at, to_lock)
-									}
+							Self::update_prior_lock(&mut voting.prior, end, lock_periods.into(), balance, scope)?;
+						} else if let AccountVote::Standard { vote, .. } = account_vote {
+							if vote.aye != approved {
+								// Unsuccessful vote, use hook to lock the funds too in case of conviction.
+								if let Some(to_lock) =
+									T::VotingHooks::lock_balance_on_unsuccessful_vote(who, poll_index)
+								{
+									Self::update_prior_lock(&mut voting.prior, end, vote.conviction.lock_periods().into(), to_lock, scope)?;
 								}
 							}
 						}
 
 						// If delegating, update delegate's voting state.
 						if let (Some(delegate), Some(_)) = (&voting.maybe_delegate, &voting.maybe_conviction) {
-							VotingFor::<T, I>::mutate(delegate, &class, |delegate_voting| {
-								// Find the matching poll record on the delegate's account.
-								if let Ok(idx) = delegate_voting.votes.binary_search_by_key(&poll_index, |v| v.poll_index)
-								{
-									// Remove vote record if no longer necessary.
-									if delegate_voting.votes[idx].maybe_vote.is_none()
-									{
-										delegate_voting.votes.remove(idx);
-									}
-								}
-							});
+							Self::clean_delegate_vote_record(delegate, &class, poll_index);
 						}
 
 						// Call on_remove_vote hook.
@@ -663,21 +625,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				PollStatus::None => {
 					// Poll was cancelled.
 					let old_vote = votes.remove(i);
-					// Check vote existed at time of cancellation.
+					// If had voted.
 					if old_vote.maybe_vote.is_some() {
 						// If delegating, update delegate's voting state.
 						if let (Some(delegate), Some(_)) = (&voting.maybe_delegate, &voting.maybe_conviction) {
-							VotingFor::<T, I>::mutate(delegate, &class, |delegate_voting| {
-								// Find the matching poll record on the delegate's account.
-								if let Ok(idx) = delegate_voting.votes.binary_search_by_key(&poll_index, |v| v.poll_index)
-								{
-									// Remove vote record if no longer necessary.
-									if delegate_voting.votes[idx].maybe_vote.is_none()
-									{
-										delegate_voting.votes.remove(idx);
-									}
-								}
-							});
+							Self::clean_delegate_vote_record(delegate, &class, poll_index);
 						}
 
 						T::VotingHooks::on_remove_vote(who, poll_index, Status::None);
@@ -686,6 +638,42 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				},
 			})
 		})
+	}
+
+	/// Removes the voting record from the delegator's delegate if no longer needed.
+	/// 
+	/// Only called in PollStatus::Completed or PollStatus::None paths.
+	fn clean_delegate_vote_record(delegate: &T::AccountId, class: &ClassOf<T, I>, poll_index: PollIndexOf<T, I>) {
+		VotingFor::<T, I>::mutate(delegate, class, |delegate_voting| {
+			// Find the matching poll record on the delegate's account.
+			if let Ok(idx) = delegate_voting.votes.binary_search_by_key(&poll_index, |v| v.poll_index)
+			{
+				// Remove vote record if delegate has no vote for it.
+				if delegate_voting.votes[idx].maybe_vote.is_none()
+				{
+					delegate_voting.votes.remove(idx);
+				}
+			}
+		});
+	}
+
+	/// Update a prior lock during vote removal.
+	fn update_prior_lock(
+		prior_lock: &mut PriorLock<BlockNumberFor<T, I>, BalanceOf<T, I>>,
+		ending_block: BlockNumberFor<T, I>,
+		lock_periods: BlockNumberFor<T, I>,
+		balance: BalanceOf<T, I>,
+		scope: UnvoteScope,
+	) -> DispatchResult {
+		let unlock_at = ending_block.saturating_add(
+			T::VoteLockingPeriod::get().saturating_mul(lock_periods),
+		);
+		if T::BlockNumberProvider::current_block_number() < unlock_at {
+			ensure!(matches!(scope, UnvoteScope::Any), Error::<T, I>::NoPermissionYet);
+			prior_lock.accumulate(unlock_at, balance);
+		}
+		Ok(())
+		
 	}
 
 	/// Increase the amount delegated to `who` and update tallies accordingly.
