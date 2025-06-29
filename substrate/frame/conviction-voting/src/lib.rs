@@ -420,41 +420,39 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			vote.balance() <= T::Currency::total_balance(who),
 			Error::<T, I>::InsufficientFunds
 		);
-		// Call on_vote hook
+		// Call on_vote hook.
 		T::VotingHooks::on_before_vote(who, poll_index, vote)?;
 
 		T::Polls::try_access_poll(poll_index, |poll_status| {
 			let (tally, class) = poll_status.ensure_ongoing().ok_or(Error::<T, I>::NotOngoing)?;
 			VotingFor::<T, I>::try_mutate(who, &class, |voting| {
 				let votes = &mut voting.votes;
-				let delegations = &mut voting.delegations;
 				let mut vote_introduced = false;
-				// Remove update vote data and remove old votes effect on tally
+				// Search for the vote.
 				let index = match votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
-					// Found the vote for who
+					// If found.
 					Ok(i) => {
-						// Check that they have currently have a vote for this poll
+						// And they currently have a vote.
 						if let Some(account_vote) = votes[i].maybe_vote {
-							// Reduce tally by vote, shouldn't be possible to fail, but we handle it gracefully.
+							// Reduce tally by the vote, shouldn't be possible to fail, but we handle it gracefully.
 							tally.remove(account_vote).ok_or(ArithmeticError::Underflow)?;
-							// Remove delegations from tally only if vote existed and was standard
+							// Remove delegations from tally only if vote was standard aye nay.
 							if let Some(approve) = account_vote.as_standard() {
-								// Adjust by the current clawback amount
-								let final_delegations = delegations.saturating_sub(votes[i].retracted_votes);
+								// But first adjust by the current clawback amount.
+								let final_delegations = voting.delegations.saturating_sub(votes[i].retracted_votes);
 								tally.reduce(approve, final_delegations);
 							}
 						} else {
-							// Voter didn't already have a vote
 							vote_introduced = true;
 						}
 
-						// Update their vote data with incoming vote
+						// Set their vote.
 						votes[i].maybe_vote = Some(vote);
 						i
 					},
-					// Previous vote didn't exist
+					// If not found.
 					Err(i) => {
-						// Add vote data, unless max vote reached
+						// Add vote data, unless max vote reached.
 						let poll_vote = PollVote {poll_index: poll_index, maybe_vote: Some(vote), retracted_votes: Default::default()};
 						votes
 							.try_insert(i, poll_vote)
@@ -464,40 +462,42 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					},
 				};
 
-				// Add the new vote to tally, shouldn't be possible to fail, but we handle it gracefully.
+				// Now that pre-existing votes have been handled.
+				// Update tally with new vote, shouldn't be possible to fail, but we handle it gracefully.
 				tally.add(vote).ok_or(ArithmeticError::Overflow)?;
-				// Add delegations to tally if vote is standard
+				// If vote is standard, add delegations to tally.
 				if let Some(approve) = vote.as_standard() {
-					// But first adjust by current clawbacks
-					let final_delegations = delegations.saturating_sub(votes[index].retracted_votes);
+					// But first adjust by current clawbacks.
+					let final_delegations = voting.delegations.saturating_sub(votes[index].retracted_votes);
 					tally.increase(approve, final_delegations);
 				}
 
-				// Update delegate's info if delegating
+				// If delegating, update delegate's info.
 				if let (Some(delegate), Some(conviction)) = (&voting.maybe_delegate, &voting.maybe_conviction) {
-					// Only if delegator's vote went from None to Some, otherwise the retraction data will already be there
+					// But only if delegator's vote went from None to Some, otherwise the vote clawback data will already exist.
 					if vote_introduced {
-						// Calculate amount delegated to delegate
 						let amount_delegated = conviction.votes(voting.delegated_balance);
 						VotingFor::<T, I>::try_mutate(delegate, &class, |delegate_voting| -> Result<(), DispatchError> {
 							let delegates_votes = &mut delegate_voting.votes;
-							// Search for data about poll in delegates voting info
+							// Search for data about poll in delegate's voting info.
 							match delegates_votes.binary_search_by_key(&poll_index, |i| i.poll_index) {
+								// If found.
 								Ok(i) => {
-									// Update delegates clawback amount for this poll
+									// Update delegate's clawback amount for this poll.
 									delegates_votes[i].retracted_votes = delegates_votes[i].retracted_votes.saturating_add(amount_delegated);
 
+									// And update tally if delegate has standard vote recorded.
 									if let Some(delegates_vote) = delegates_votes[i].maybe_vote {
-										// And it was a standard vote
 										if let Some(approve) = delegates_vote.as_standard() {
-											// Decrease tally by delegated amount
+											// By delegated amount.
 											tally.reduce(approve, amount_delegated);
 										}
 									}
 									Ok(())
 								},
-								// Not found, add empty vote and clawback amount
+								// If not found.
 								Err(i) => {
+									// Add empty vote and clawback amount.
 									let poll_vote = PollVote {poll_index: poll_index, maybe_vote: None, retracted_votes: amount_delegated};
 									delegates_votes
 										.try_insert(i, poll_vote)
