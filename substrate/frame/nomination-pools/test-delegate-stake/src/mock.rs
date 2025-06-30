@@ -93,21 +93,43 @@ parameter_types! {
 	pub static BondingDuration: u32 = 3;
 }
 
-#[derive_impl(pallet_staking::config_preludes::TestDefaultConfig)]
-impl pallet_staking::Config for Runtime {
+// Mock era payout
+pub struct MockEraPayout;
+impl pallet_staking_async::EraPayout<Balance> for MockEraPayout {
+	fn era_payout(
+		_total_staked: Balance,
+		_total_issuance: Balance,
+		_era_duration_millis: u64,
+	) -> (Balance, Balance) {
+		(1000, 100)
+	}
+}
+
+// Mock RC client interface
+pub struct MockRcClient;
+impl pallet_staking_async_rc_client::RcClientInterface for MockRcClient {
+	type AccountId = AccountId;
+	fn validator_set(
+		_new_validator_set: Vec<Self::AccountId>,
+		_id: u32,
+		_prune_up_to: Option<u32>,
+	) {
+	}
+}
+
+#[derive_impl(pallet_staking_async::config_preludes::TestDefaultConfig)]
+impl pallet_staking_async::Config for Runtime {
 	type OldCurrency = Balances;
 	type Currency = Balances;
-	type UnixTime = pallet_timestamp::Pallet<Self>;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type BondingDuration = BondingDuration;
-	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
+	type EraPayout = MockEraPayout;
 	type ElectionProvider =
 		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, (), ())>;
-	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = VoterList;
-	type TargetList = pallet_staking::UseValidatorsMap<Self>;
+	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
 	type EventListeners = (Pools, DelegatedStaking);
-	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
+	type RcClientInterface = MockRcClient;
 }
 
 parameter_types! {
@@ -293,7 +315,7 @@ frame_support::construct_runtime!(
 		System: frame_system,
 		Timestamp: pallet_timestamp,
 		Balances: pallet_balances,
-		Staking: pallet_staking,
+		Staking: pallet_staking_async,
 		VoterList: pallet_bags_list::<Instance1>,
 		Pools: pallet_nomination_pools,
 		DelegatedStaking: pallet_delegated_staking,
@@ -315,7 +337,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	.unwrap();
 
 	let _ = pallet_balances::GenesisConfig::<Runtime> {
-		balances: vec![(10, 100), (20, 100), (21, 100), (22, 100)],
+		balances: vec![(10, 100), (20, 100), (21, 100), (22, 100), (1, 1000), (2, 1000), (3, 1000)],
 		..Default::default()
 	}
 	.assimilate_storage(&mut storage)
@@ -330,14 +352,51 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		// set some limit for nominations.
 		assert_ok!(Staking::set_staking_configs(
 			RuntimeOrigin::root(),
-			pallet_staking::ConfigOp::Set(10), // minimum nominator bond
-			pallet_staking::ConfigOp::Noop,
-			pallet_staking::ConfigOp::Noop,
-			pallet_staking::ConfigOp::Noop,
-			pallet_staking::ConfigOp::Noop,
-			pallet_staking::ConfigOp::Noop,
-			pallet_staking::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Set(10), // minimum nominator bond
+			pallet_staking_async::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Noop,
 		));
+
+		// Set up validators that tests can nominate
+		// Create validator 1
+		assert_ok!(Staking::bond(
+			RuntimeOrigin::signed(1),
+			500,
+			pallet_staking_async::RewardDestination::Staked
+		));
+		assert_ok!(Staking::validate(
+			RuntimeOrigin::signed(1),
+			pallet_staking_async::ValidatorPrefs::default()
+		));
+
+		// Create validator 2
+		assert_ok!(Staking::bond(
+			RuntimeOrigin::signed(2),
+			500,
+			pallet_staking_async::RewardDestination::Staked
+		));
+		assert_ok!(Staking::validate(
+			RuntimeOrigin::signed(2),
+			pallet_staking_async::ValidatorPrefs::default()
+		));
+
+		// Create validator 3
+		assert_ok!(Staking::bond(
+			RuntimeOrigin::signed(3),
+			500,
+			pallet_staking_async::RewardDestination::Staked
+		));
+		assert_ok!(Staking::validate(
+			RuntimeOrigin::signed(3),
+			pallet_staking_async::ValidatorPrefs::default()
+		));
+
+		// Clear events from validator setup to avoid test interference
+		frame_system::Pallet::<Runtime>::reset_events();
 	});
 
 	ext
@@ -361,7 +420,7 @@ pub(crate) fn pool_events_since_last_call() -> Vec<pallet_nomination_pools::Even
 	events.into_iter().skip(already_seen).collect()
 }
 
-pub(crate) fn staking_events_since_last_call() -> Vec<pallet_staking::Event<Runtime>> {
+pub(crate) fn staking_events_since_last_call() -> Vec<pallet_staking_async::Event<Runtime>> {
 	let events = System::events()
 		.into_iter()
 		.map(|r| r.event)

@@ -1,0 +1,34 @@
+title: '[Staking AHM] Migrated fast-unstake, nomination-pools and delegated-staking
+  from `staking` to `staking-async` for testing and benchmark'
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Why
+
+    As mentioned in #8077, we want to ensure that `fast-unstake`, `nomination-pools` and `delegated-staking` rely on `pallet-staking-async` and not on `pallet-staking` for tests and benchmarks.
+
+    Since the new staking-async pallet's interface is largely compatible with the old `staking` pallet and tests in these external pallets are relying on the abstract interface `sp-staking`, the number of changes is relatively small.
+
+    One key difference though has been introduced by #8436, where we are not allowing anymore to nominate an invalid or not existent validator. This breaks some of the tests and needs to be addressed.
+
+    Another notable difference is the removal of slashing spans (see #8316 ) which was referenced by nomination-pools's benchmarks.
+
+    Finally when pools are completely destroyed and all stake is withdrawn, the async staking pallet's kill() method is called, which emits the StakerRemoved event. Tests need to be updated to take that into account.
+
+    A notable change has been introduced in the nomination-pools: we have added automatic chilling logic to the nomination pools `unbond` function.
+    When a pool is being destroyed and the depositor is unbonding all their remaining stake, the pool automatically chills (stops nominating) before attempting to unbond.
+    This allows the unbond operation to succeed.
+
+    ## Next steps
+
+    We are not running benchmark vs `WAH` runtime for `staking-async`, `nomination-pools` and `delegated-staking`.
+    Once `donal-ahm` branch is merged into `master` (see #7997), we should  add these 3 to the list. It will be handled in a separate PR. See #9019.
+crates:
+- name: pallet-fast-unstake
+  bump: patch
+- name: pallet-nomination-pools-benchmarking
+  bump: minor
+- name: pallet-nomination-pools
+  bump: patch
+- name: pallet-delegated-staking
+  bump: patch
