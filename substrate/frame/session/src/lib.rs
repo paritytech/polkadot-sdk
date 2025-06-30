@@ -129,6 +129,7 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::{
+		fungible::{hold::Mutate as HoldMutate, Inspect},
 		Defensive, EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get,
 		OneSessionHandler, ValidatorRegistration, ValidatorSet,
 	},
@@ -415,6 +416,10 @@ pub mod pallet {
 
 		/// A conversion from account ID to validator ID.
 		///
+		/// It is also a means to check that an account id is eligible to set session keys, through
+		/// being associated with a validator id. To disable this check, use
+		/// [`sp_runtime::traits::ConvertInto`].
+		///
 		/// Its cost must be at most one storage read.
 		type ValidatorIdOf: Convert<Self::AccountId, Option<Self::ValidatorId>>;
 
@@ -440,6 +445,16 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// The currency type for placing holds when setting keys.
+		type Currency: Inspect<Self::AccountId>
+			+ HoldMutate<Self::AccountId, Reason: From<HoldReason>>;
+
+		/// The amount to be held when setting keys.
+		#[pallet::constant]
+		type KeyDeposit: Get<
+			<<Self as Config>::Currency as Inspect<<Self as frame_system::Config>::AccountId>>::Balance,
+		>;
 	}
 
 	#[pallet::genesis_config]
@@ -514,6 +529,14 @@ pub mod pallet {
 
 			T::SessionManager::start_session(0);
 		}
+	}
+
+	/// A reason for the pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		// Funds are held when settings keys
+		#[codec(index = 0)]
+		Keys,
 	}
 
 	/// The current set of validators.
@@ -823,8 +846,17 @@ impl<T: Config> Pallet<T> {
 			.ok_or(Error::<T>::NoAssociatedValidatorId)?;
 
 		ensure!(frame_system::Pallet::<T>::can_inc_consumer(account), Error::<T>::NoAccount);
+
 		let old_keys = Self::inner_set_keys(&who, keys)?;
+
+		// Place deposit on hold if this is a new registration (i.e. old_keys is None).
+		// The hold call itself will return an error if funds are insufficient.
 		if old_keys.is_none() {
+			let deposit = T::KeyDeposit::get();
+			if !deposit.is_zero() {
+				T::Currency::hold(&HoldReason::Keys.into(), account, deposit)?;
+			}
+
 			let assertion = frame_system::Pallet::<T>::inc_consumers(account).is_ok();
 			debug_assert!(assertion, "can_inc_consumer() returned true; no change since; qed");
 		}
@@ -885,6 +917,14 @@ impl<T: Config> Pallet<T> {
 			let key_data = old_keys.get_raw(*id);
 			Self::clear_key_owner(*id, key_data);
 		}
+
+		// Use release_all to handle the case where the exact amount might not be available
+		let _ = T::Currency::release_all(
+			&HoldReason::Keys.into(),
+			account,
+			frame_support::traits::tokens::Precision::BestEffort,
+		);
+
 		frame_system::Pallet::<T>::dec_consumers(account);
 
 		Ok(())

@@ -22,6 +22,7 @@
 pub mod benchmarking;
 #[cfg(test)]
 mod mock;
+pub mod precompiles;
 #[cfg(test)]
 mod tests;
 
@@ -107,6 +108,8 @@ pub trait WeightInfo {
 	fn claim_assets() -> Weight;
 	fn add_authorized_alias() -> Weight;
 	fn remove_authorized_alias() -> Weight;
+
+	fn weigh_message() -> Weight;
 }
 
 /// fallback implementation
@@ -197,6 +200,10 @@ impl WeightInfo for TestWeightInfo {
 	}
 
 	fn remove_authorized_alias() -> Weight {
+		Weight::from_parts(100_000, 0)
+	}
+
+	fn weigh_message() -> Weight {
 		Weight::from_parts(100_000, 0)
 	}
 }
@@ -3414,7 +3421,7 @@ impl<T: Config> Pallet<T> {
 	/// NOTE: `notify` gets called as part of handling an incoming message, so it should be
 	/// lightweight. Its weight is estimated during this function and stored ready for
 	/// weighing `ReportOutcome` on the way back. If it turns out to be heavier once it returns
-	/// then reporting the outcome will fail. Futhermore if the estimate is too high, then it
+	/// then reporting the outcome will fail. Furthermore if the estimate is too high, then it
 	/// may be put in the overweight queue and need to be manually executed.
 	pub fn report_outcome_notify(
 		message: &mut Xcm<()>,

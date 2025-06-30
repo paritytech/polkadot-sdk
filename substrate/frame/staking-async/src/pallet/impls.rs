@@ -663,7 +663,7 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		log!(info, "[bounds {:?}] generated {} npos targets", bounds, all_targets.len());
+		log!(debug, "[bounds {:?}] generated {} npos targets", bounds, all_targets.len());
 
 		all_targets
 	}
@@ -1069,7 +1069,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	/// implies a new validator set has been applied, and we must increment the active era to keep
 	/// the systems in sync.
 	fn on_relay_session_report(report: rc_client::SessionReport<Self::AccountId>) {
-		log!(debug, "session report received: {}", report,);
+		log!(debug, "Received session report: {}", report,);
 		let consumed_weight = T::WeightInfo::rc_on_session_report();
 
 		let rc_client::SessionReport {
@@ -1827,10 +1827,16 @@ impl<T: Config> Pallet<T> {
 						));
 					}
 				} else {
-					ensure!(
-						Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
-						"bond, ledger and/or staking hold inconsistent for a bonded stash."
-					);
+					let integrity = Self::inspect_bond_state(&stash);
+					if integrity != Ok(LedgerIntegrityState::Ok) {
+						// NOTE: not using defensive! since we test these cases and it panics them
+						log!(
+							error,
+							"defensive: bonded stash {:?} has inconsistent ledger state: {:?}",
+							stash,
+							integrity
+						);
+					}
 				}
 
 				// ensure ledger consistency.

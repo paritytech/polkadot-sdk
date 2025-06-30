@@ -625,7 +625,8 @@ pub mod pallet {
 	impl<T: Config> Get<u32> for ClaimedRewardsBound<T> {
 		fn get() -> u32 {
 			let max_total_nominators_per_validator =
-				<T::ElectionProvider as ElectionProvider>::MaxBackersPerWinner::get();
+				<T::ElectionProvider as ElectionProvider>::MaxBackersPerWinner::get() *
+					<T::ElectionProvider as ElectionProvider>::Pages::get();
 			let exposure_page_size = T::MaxExposurePageSize::get();
 			max_total_nominators_per_validator
 				.saturating_div(exposure_page_size)
@@ -863,12 +864,20 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			crate::log!(trace, "initializing with {:?}", self);
+			assert!(
+				self.validator_count <=
+					<T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get() *
+						<T::ElectionProvider as ElectionProvider>::Pages::get(),
+				"validator count is too high, `ElectionProvider` can never fulfill this"
+			);
 			ValidatorCount::<T>::put(self.validator_count);
+
 			assert!(
 				self.invulnerables.len() as u32 <= T::MaxInvulnerables::get(),
 				"Too many invulnerable validators at genesis."
 			);
 			<Invulnerables<T>>::put(&self.invulnerables);
+
 			ForceEra::<T>::put(self.force_era);
 			CanceledSlashPayout::<T>::put(self.canceled_payout);
 			SlashRewardFraction::<T>::put(self.slash_reward_fraction);
@@ -881,39 +890,80 @@ pub mod pallet {
 				MaxNominatorsCount::<T>::put(x);
 			}
 
+			// First pass: set up all validators and idle stakers
 			for &(ref stash, balance, ref status) in &self.stakers {
-				crate::log!(
-					trace,
-					"inserting genesis staker: {:?} => {:?} => {:?}",
-					stash,
-					balance,
-					status
-				);
-				assert!(
-					asset::free_to_stake::<T>(stash) >= balance,
-					"Stash does not have enough balance to bond."
-				);
-				assert_ok!(<Pallet<T>>::bond(
-					T::RuntimeOrigin::from(Some(stash.clone()).into()),
-					balance,
-					RewardDestination::Staked,
-				));
-				assert_ok!(match status {
-					crate::StakerStatus::Validator => <Pallet<T>>::validate(
-						T::RuntimeOrigin::from(Some(stash.clone()).into()),
-						Default::default(),
-					),
-					crate::StakerStatus::Nominator(votes) => <Pallet<T>>::nominate(
-						T::RuntimeOrigin::from(Some(stash.clone()).into()),
-						votes.iter().map(|l| T::Lookup::unlookup(l.clone())).collect(),
-					),
-					_ => Ok(()),
-				});
-				assert!(
-					ValidatorCount::<T>::get() <=
-						<T::ElectionProvider as ElectionProvider>::MaxWinnersPerPage::get() *
-							<T::ElectionProvider as ElectionProvider>::Pages::get()
-				);
+				match status {
+					crate::StakerStatus::Validator => {
+						crate::log!(
+							trace,
+							"inserting genesis validator: {:?} => {:?} => {:?}",
+							stash,
+							balance,
+							status
+						);
+						assert!(
+							asset::free_to_stake::<T>(stash) >= balance,
+							"Stash does not have enough balance to bond."
+						);
+						assert_ok!(<Pallet<T>>::bond(
+							T::RuntimeOrigin::from(Some(stash.clone()).into()),
+							balance,
+							RewardDestination::Staked,
+						));
+						assert_ok!(<Pallet<T>>::validate(
+							T::RuntimeOrigin::from(Some(stash.clone()).into()),
+							Default::default(),
+						));
+					},
+					crate::StakerStatus::Idle => {
+						crate::log!(
+							trace,
+							"inserting genesis idle staker: {:?} => {:?} => {:?}",
+							stash,
+							balance,
+							status
+						);
+						assert!(
+							asset::free_to_stake::<T>(stash) >= balance,
+							"Stash does not have enough balance to bond."
+						);
+						assert_ok!(<Pallet<T>>::bond(
+							T::RuntimeOrigin::from(Some(stash.clone()).into()),
+							balance,
+							RewardDestination::Staked,
+						));
+					},
+					_ => {},
+				}
+			}
+
+			// Second pass: set up all nominators (now that validators exist)
+			for &(ref stash, balance, ref status) in &self.stakers {
+				match status {
+					crate::StakerStatus::Nominator(votes) => {
+						crate::log!(
+							trace,
+							"inserting genesis nominator: {:?} => {:?} => {:?}",
+							stash,
+							balance,
+							status
+						);
+						assert!(
+							asset::free_to_stake::<T>(stash) >= balance,
+							"Stash does not have enough balance to bond."
+						);
+						assert_ok!(<Pallet<T>>::bond(
+							T::RuntimeOrigin::from(Some(stash.clone()).into()),
+							balance,
+							RewardDestination::Staked,
+						));
+						assert_ok!(<Pallet<T>>::nominate(
+							T::RuntimeOrigin::from(Some(stash.clone()).into()),
+							votes.iter().map(|l| T::Lookup::unlookup(l.clone())).collect(),
+						));
+					},
+					_ => {},
+				}
 			}
 
 			// all voters are reported to the `VoterList`.
@@ -938,24 +988,22 @@ pub mod pallet {
 				let mut rng =
 					ChaChaRng::from_seed(base_derivation.using_encoded(sp_core::blake2_256));
 
-				let validators = (0..validators)
-					.map(|index| {
-						let derivation =
-							base_derivation.replace("{}", &format!("validator{}", index));
-						let who = Self::generate_endowed_bonded_account(&derivation, &mut rng);
-						assert_ok!(<Pallet<T>>::validate(
-							T::RuntimeOrigin::from(Some(who.clone()).into()),
-							Default::default(),
-						));
-						who
-					})
-					.collect::<Vec<_>>();
+				(0..validators).for_each(|index| {
+					let derivation = base_derivation.replace("{}", &format!("validator{}", index));
+					let who = Self::generate_endowed_bonded_account(&derivation, &mut rng);
+					assert_ok!(<Pallet<T>>::validate(
+						T::RuntimeOrigin::from(Some(who.clone()).into()),
+						Default::default(),
+					));
+				});
+
+				let all_validators = Validators::<T>::iter_keys().collect::<Vec<_>>();
 
 				(0..nominators).for_each(|index| {
 					let derivation = base_derivation.replace("{}", &format!("nominator{}", index));
 					let who = Self::generate_endowed_bonded_account(&derivation, &mut rng);
 
-					let random_nominations = validators
+					let random_nominations = all_validators
 						.choose_multiple(&mut rng, MaxNominationsOf::<T>::get() as usize)
 						.map(|v| v.clone())
 						.collect::<Vec<_>>();
@@ -1569,7 +1617,9 @@ pub mod pallet {
 			let targets: BoundedVec<_, _> = targets
 				.into_iter()
 				.map(|n| {
-					if old.contains(&n) || !Validators::<T>::get(&n).blocked {
+					if old.contains(&n) ||
+						(Validators::<T>::contains_key(&n) && !Validators::<T>::get(&n).blocked)
+					{
 						Ok(n)
 					} else {
 						Err(Error::<T>::BadTarget.into())
