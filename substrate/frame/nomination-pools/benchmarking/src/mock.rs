@@ -21,13 +21,15 @@ use frame_support::{
 	derive_impl,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{ConstU64, Nothing, VariantCountOf},
+	traits::{ConstU32, ConstU64, Nothing, VariantCountOf},
 	PalletId,
 };
+use pallet_staking_async_rc_client;
 use sp_runtime::{
 	traits::{Convert, IdentityLookup},
 	BuildStorage, FixedU128, Perbill,
 };
+use sp_staking::currency_to_vote::SaturatingCurrencyToVote;
 
 type AccountId = u128;
 type BlockNumber = u64;
@@ -73,23 +75,49 @@ pallet_staking_reward_curve::build! {
 		test_precision: 0_005_000,
 	);
 }
+
 parameter_types! {
 	pub const RewardCurve: &'static sp_runtime::curve::PiecewiseLinear<'static> = &I_NPOS;
 }
+
+// Mock era payout
+pub struct MockEraPayout;
+impl pallet_staking_async::EraPayout<Balance> for MockEraPayout {
+	fn era_payout(
+		_total_staked: Balance,
+		_total_issuance: Balance,
+		_era_duration_millis: u64,
+	) -> (Balance, Balance) {
+		(1000, 100)
+	}
+}
+
+// Mock RC client interface
+pub struct MockRcClient;
+impl pallet_staking_async_rc_client::RcClientInterface for MockRcClient {
+	type AccountId = AccountId;
+	fn validator_set(
+		_new_validator_set: Vec<Self::AccountId>,
+		_id: u32,
+		_prune_up_to: Option<u32>,
+	) {
+	}
+}
+
 #[derive_impl(pallet_staking_async::config_preludes::TestDefaultConfig)]
 impl pallet_staking_async::Config for Runtime {
 	type OldCurrency = Balances;
 	type Currency = Balances;
-	type CurrencyBalance = Balance;
-	type UnixTime = pallet_timestamp::Pallet<Self>;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
-	type EraPayout = pallet_staking_async::ConvertCurve<RewardCurve>;
 	type ElectionProvider =
 		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, (), ())>;
-	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = VoterList;
 	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
+	type CurrencyToVote = SaturatingCurrencyToVote;
+	type EraPayout = MockEraPayout;
+	type RcClientInterface = MockRcClient;
 	type EventListeners = (Pools, DelegatedStaking);
+	type WeightInfo = ();
 }
 
 parameter_types! {

@@ -19,7 +19,7 @@ doc:
     ## Next steps
 
     We are still not running benchmark vs `WAH` runtime for `staking-async` and `delegated-staking`.
-    Now that `donal-ahm` branch has been merged into `master` (see #7997), we should  add these 3 to the list. It will be handled in a separate PR. See #9019.
+    Now that `donal-ahm` branch has been merged into `master` (see #7997), we should  add these 2 to the list. It will be handled in a separate PR. See #9019.
 crates:
 - name: pallet-fast-unstake
   bump: patch
