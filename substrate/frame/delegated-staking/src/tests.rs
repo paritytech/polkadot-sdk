@@ -1321,6 +1321,24 @@ mod pool_integration {
 			// for creator, 50% of stake should be slashed (250), 10% of which should go to reporter
 			// (25).
 			assert_eq!(Balances::free_balance(slash_reporter), 115 + 25);
+
+			// Ensure era state is consistent for try-runtime checks
+			let bonding_duration = BondingDuration::get();
+			let latest_era = 10;
+			for era in (latest_era.saturating_sub(bonding_duration))..=latest_era {
+				pallet_staking_async::testing_utils::setup_staking_era_state::<T>(
+					era,
+					bonding_duration,
+					Some(vec![
+						GENESIS_VALIDATOR.into(),
+						18u128.into(),
+						19u128.into(),
+						20u128.into(),
+						21u128.into(),
+						22u128.into(),
+					]),
+				);
+			}
 		});
 	}
 

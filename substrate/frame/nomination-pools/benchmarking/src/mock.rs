@@ -18,9 +18,7 @@
 use crate::VoterBagsListInstance;
 use frame_election_provider_support::VoteWeight;
 use frame_support::{
-	derive_impl,
-	pallet_prelude::*,
-	parameter_types,
+	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64, Nothing, VariantCountOf},
 	PalletId,
 };
@@ -81,17 +79,6 @@ parameter_types! {
 	pub static EraPayout: (Balance, Balance) = (1000, 100);
 }
 
-pub struct TestEraPayout;
-impl pallet_staking_async::EraPayout<Balance> for TestEraPayout {
-	fn era_payout(
-		_total_staked: Balance,
-		_total_issuance: Balance,
-		_era_duration_millis: u64,
-	) -> (Balance, Balance) {
-		EraPayout::get()
-	}
-}
-
 // Mock RC client interface
 pub struct MockRcClient;
 impl pallet_staking_async_rc_client::RcClientInterface for MockRcClient {
@@ -114,7 +101,7 @@ impl pallet_staking_async::Config for Runtime {
 	type VoterList = pallet_staking_async::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
 	type CurrencyToVote = SaturatingCurrencyToVote;
-	type EraPayout = TestEraPayout;
+	type EraPayout = pallet_staking_async::testing_utils::TestEraPayout<Balance, EraPayout>;
 	type RcClientInterface = MockRcClient;
 	type EventListeners = (Pools, DelegatedStaking);
 }

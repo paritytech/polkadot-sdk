@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![cfg(any(feature = "runtime-benchmarks", test))]
+
 use super::*;
 use crate::{self as pools};
 use frame_support::{
@@ -185,7 +187,6 @@ impl sp_staking::StakingInterface for StakingMock {
 		Ok(())
 	}
 
-	#[cfg(feature = "runtime-benchmarks")]
 	fn nominations(_: &Self::AccountId) -> Option<Vec<Self::AccountId>> {
 		Nominations::get()
 	}
@@ -221,7 +222,7 @@ impl sp_staking::StakingInterface for StakingMock {
 		unimplemented!("method currently not used in testing")
 	}
 
-	#[cfg(feature = "runtime-benchmarks")]
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	fn add_era_stakers(
 		_current_era: &EraIndex,
 		_stash: &Self::AccountId,
@@ -230,12 +231,12 @@ impl sp_staking::StakingInterface for StakingMock {
 		unimplemented!("method currently not used in testing")
 	}
 
-	#[cfg(feature = "runtime-benchmarks")]
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	fn set_current_era(_era: EraIndex) {
 		unimplemented!("method currently not used in testing")
 	}
 
-	#[cfg(feature = "runtime-benchmarks")]
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	fn max_exposure_page_size() -> sp_staking::Page {
 		unimplemented!("method currently not used in testing")
 	}
@@ -409,7 +410,7 @@ impl DelegationMigrator for DelegateMock {
 		unimplemented!("not used in current unit tests")
 	}
 
-	#[cfg(feature = "runtime-benchmarks")]
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	fn force_kill_agent(_agent: Agent<Self::AccountId>) {
 		unimplemented!("not used in current unit tests")
 	}

@@ -94,17 +94,6 @@ parameter_types! {
 	pub static EraPayout: (Balance, Balance) = (1000, 100);
 }
 
-pub struct TestEraPayout;
-impl pallet_staking_async::EraPayout<Balance> for TestEraPayout {
-	fn era_payout(
-		_total_staked: Balance,
-		_total_issuance: Balance,
-		_era_duration_millis: u64,
-	) -> (Balance, Balance) {
-		EraPayout::get()
-	}
-}
-
 // Mock RC client interface
 pub struct MockRcClient;
 impl pallet_staking_async_rc_client::RcClientInterface for MockRcClient {
@@ -123,7 +112,7 @@ impl pallet_staking_async::Config for Runtime {
 	type Currency = Balances;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type BondingDuration = BondingDuration;
-	type EraPayout = TestEraPayout;
+	type EraPayout = pallet_staking_async::testing_utils::TestEraPayout<Balance, EraPayout>;
 	type ElectionProvider =
 		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, (), ())>;
 	type VoterList = VoterList;

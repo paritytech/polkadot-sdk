@@ -19,6 +19,7 @@
 //! bonding validators, nominators, and generating different types of solutions.
 
 use crate::{Pallet as Staking, *};
+use core::marker::PhantomData;
 use frame_benchmarking::account;
 use frame_system::RawOrigin;
 use rand_chacha::{
@@ -32,6 +33,37 @@ use frame_support::pallet_prelude::*;
 use sp_runtime::{traits::StaticLookup, Perbill};
 
 const SEED: u32 = 0;
+
+/// A simple implementation of [`EraPayout`] that returns a fixed payout for testing purposes.
+///
+/// This can be used in test runtimes where `pallet-staking-async` is a dependency to avoid
+/// having to implement the `EraPayout` trait manually in each test runtime.
+///
+/// To use this, you need to provide a parameter type that returns the desired payout tuple:
+///
+/// ```ignore
+/// parameter_types! {
+///     pub static EraPayout: (Balance, Balance) = (1000, 100);
+/// }
+///
+/// impl pallet_staking_async::Config for Runtime {
+///     // ... other config items
+///     type EraPayout = TestEraPayout<Balance, EraPayout>;
+/// }
+/// ```
+pub struct TestEraPayout<Balance, EraPayoutProvider>(PhantomData<(Balance, EraPayoutProvider)>);
+
+impl<Balance: Clone, EraPayoutProvider: Get<(Balance, Balance)>> crate::EraPayout<Balance>
+	for TestEraPayout<Balance, EraPayoutProvider>
+{
+	fn era_payout(
+		_total_staked: Balance,
+		_total_issuance: Balance,
+		_era_duration_millis: u64,
+	) -> (Balance, Balance) {
+		EraPayoutProvider::get()
+	}
+}
 
 /// This function removes all validators and nominators from storage.
 pub fn clear_validators_and_nominators<T: Config>() {
@@ -240,6 +272,95 @@ pub fn create_validators_with_nominators_for_era<T: Config>(
 /// get the current era.
 pub fn current_era<T: Config>() -> EraIndex {
 	CurrentEra::<T>::get().unwrap_or(0)
+}
+
+/// Initialize BondedEras storage to satisfy try_state requirements.
+/// BondedEras must contain the range [active_era - bonding_duration .. active_era].
+pub fn initialize_bonded_eras<T: Config>(era: EraIndex, bonding_duration: u32) {
+	use frame_support::BoundedVec;
+
+	let start_era = era.saturating_sub(bonding_duration);
+	let mut bonded_eras = Vec::new();
+
+	for e in start_era..=era {
+		// Use era index as session index for simplicity in tests
+		bonded_eras.push((e, e));
+		// Initialize ErasTotalStake for each era to satisfy era_present checks
+		ErasTotalStake::<T>::insert(e, BalanceOf::<T>::zero());
+	}
+
+	let bonded_vec =
+		BoundedVec::try_from(bonded_eras).expect("BondedEras should fit within bounds");
+	BondedEras::<T>::put(bonded_vec);
+}
+
+/// Comprehensive staking era setup that satisfies try_state consistency checks.
+/// This function sets up all the required staking storage items for proper era state,
+/// allowing other pallets to use `AllPalletsWithSystem::try_state()` without issues.
+///
+/// Sets up:
+/// - CurrentEra and ActiveEra
+/// - BondedEras with proper range
+/// - ErasTotalStake for each era
+/// - ErasValidatorReward for each era
+/// - ErasValidatorPrefs for each era (if validators provided)
+/// - ErasStakersOverview for each era (if validators provided)
+pub fn setup_staking_era_state<T: Config>(
+	era: EraIndex,
+	bonding_duration: u32,
+	validators: Option<Vec<T::AccountId>>,
+) {
+	use sp_runtime::Perbill;
+
+	CurrentEra::<T>::set(Some(era));
+	ActiveEra::<T>::set(Some(ActiveEraInfo { index: era, start: None }));
+
+	initialize_bonded_eras::<T>(era, bonding_duration);
+
+	// Set up era-related storage for consistency
+	let start_era = era.saturating_sub(bonding_duration);
+	for e in start_era..=era {
+		ErasValidatorReward::<T>::insert(e, BalanceOf::<T>::zero());
+
+		// If validators are provided, set up their preferences and stakers overview
+		if let Some(ref validator_list) = validators {
+			for validator in validator_list {
+				ErasValidatorPrefs::<T>::insert(
+					e,
+					validator,
+					ValidatorPrefs { commission: Perbill::from_percent(0), blocked: false },
+				);
+
+				ErasStakersOverview::<T>::insert(
+					e,
+					validator,
+					PagedExposureMetadata {
+						total: BalanceOf::<T>::zero(),
+						own: BalanceOf::<T>::zero(),
+						nominator_count: 0,
+						page_count: 0,
+					},
+				);
+			}
+		}
+	}
+}
+
+/// Create a validator with given balance and stake.
+/// Returns the validator's account id.
+pub fn create_validator<T: Config>(n: u32, balance: BalanceOf<T>) -> T::AccountId {
+	let validator: T::AccountId = account("validator", n, SEED);
+	let _ = asset::set_stakeable_balance::<T>(&validator, balance);
+
+	let stake = MinValidatorBond::<T>::get() * 100u32.into();
+	Bonded::<T>::insert(validator.clone(), validator.clone());
+	Ledger::<T>::insert(validator.clone(), StakingLedger::<T>::new(validator.clone(), stake));
+	Pallet::<T>::do_add_validator(
+		&validator,
+		ValidatorPrefs { commission: Perbill::zero(), blocked: false },
+	);
+
+	validator
 }
 
 pub fn migrate_to_old_currency<T: Config>(who: T::AccountId) {

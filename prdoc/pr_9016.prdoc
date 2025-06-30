@@ -21,9 +21,13 @@ doc:
     ## Next steps
 
     We are still not running benchmark vs `WAH` runtime for `staking-async` and `delegated-staking`.
-    Now that `donal-ahm` branch has been merged into `master` (see #7997), we should  add these 2 to the list. It will be handled in a separate PR. See #9019.
+    Moreover `delegated-staking` has not ye any benchmarks defined yet.
+    Now that `donal-ahm` branch has been merged into `master` (see #7997), we should  add these 2 to the list, as we have done for fast-unstake (in #7997) and nomination-pools (in this PR).
+    It will be handled in a separate PR (see #9019).
 crates:
 - name: asset-hub-westend-runtime
+  bump: minor
+- name: westend-runtime
   bump: patch
 - name: pallet-fast-unstake
   bump: patch
@@ -33,3 +37,5 @@ crates:
   bump: patch
 - name: pallet-delegated-staking
   bump: patch
+- name: pallet-staking-async
+  bump: minor

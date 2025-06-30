@@ -126,17 +126,6 @@ impl frame_election_provider_support::ElectionProvider for MockElection {
 	}
 }
 
-pub struct TestEraPayout;
-impl pallet_staking_async::EraPayout<Balance> for TestEraPayout {
-	fn era_payout(
-		_total_staked: Balance,
-		_total_issuance: Balance,
-		_era_duration_millis: u64,
-	) -> (Balance, Balance) {
-		EraPayout::get()
-	}
-}
-
 // Mock RC client interface
 pub struct MockRcClient;
 impl rc_client::RcClientInterface for MockRcClient {
@@ -158,7 +147,7 @@ impl pallet_staking_async::Config for Runtime {
 	type VoterList = UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = UseValidatorsMap<Self>;
 	type CurrencyToVote = SaturatingCurrencyToVote;
-	type EraPayout = TestEraPayout;
+	type EraPayout = pallet_staking_async::testing_utils::TestEraPayout<Balance, EraPayout>;
 	type RcClientInterface = MockRcClient;
 }
 

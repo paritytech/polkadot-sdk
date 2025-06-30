@@ -71,22 +71,16 @@ fn create_funded_user_with_balance<T: pallet_nomination_pools::Config>(
 }
 
 // Create a funded validator with the given balance and set it up as a validator
-fn create_validator<T: Config>(n: u32, balance: BalanceOf<T>) -> T::AccountId {
-	let validator: T::AccountId = account("validator", n, USER_SEED);
-	CurrencyOf::<T>::set_balance(&validator, balance);
-
-	let stake = pallet_staking_async::MinValidatorBond::<T>::get() * 100u32.into();
-	pallet_staking_async::Bonded::<T>::insert(validator.clone(), validator.clone());
-	pallet_staking_async::Ledger::<T>::insert(
-		validator.clone(),
-		pallet_staking_async::StakingLedger::<T>::new(validator.clone(), stake),
-	);
-	pallet_staking_async::Pallet::<T>::do_add_validator(
-		&validator,
-		pallet_staking_async::ValidatorPrefs { commission: Perbill::zero(), blocked: false },
-	);
-
-	validator
+fn create_validator<T: Config>(n: u32, balance: BalanceOf<T>) -> T::AccountId
+where
+	T: pallet_staking_async::Config,
+	pallet_staking_async::BalanceOf<T>: From<u128>,
+	BalanceOf<T>: Into<u128>,
+{
+	// Convert balance to u128 and then to pallet_staking_async::BalanceOf<T>
+	let balance_u128: u128 = balance.into();
+	let staking_balance: pallet_staking_async::BalanceOf<T> = balance_u128.into();
+	pallet_staking_async::testing_utils::create_validator::<T>(n, staking_balance)
 }
 
 // Create a bonded pool account, bonding `balance` and giving the account `balance * 2` free
@@ -184,10 +178,12 @@ impl<T: Config> ListScenario<T> {
 	///   of storage reads and writes.
 	///
 	/// - the destination bag has at least one node, which will need its next pointer updated.
-	pub(crate) fn new(
-		origin_weight: BalanceOf<T>,
-		is_increase: bool,
-	) -> Result<Self, &'static str> {
+	pub(crate) fn new(origin_weight: BalanceOf<T>, is_increase: bool) -> Result<Self, &'static str>
+	where
+		T: pallet_staking_async::Config,
+		pallet_staking_async::BalanceOf<T>: From<u128>,
+		BalanceOf<T>: Into<u128>,
+	{
 		ensure!(!origin_weight.is_zero(), "origin weight must be greater than 0");
 
 		ensure!(
@@ -808,7 +804,7 @@ mod benchmarks {
 	fn set_commission() {
 		// Asset Hub runtime uses RelaychainDataProvider as BlockNumberProvider for nomination
 		// pools. Commission throttling needs proper relay chain block number setup in benchmarks.
-		frame_system::Pallet::<T>::set_block_number(1u32.into());
+		frame_system::Pallet::<T>::set_block_number(0u32.into());
 
 		// Create a pool - do not set a commission yet.
 		let (depositor, _pool_account) =
@@ -854,7 +850,7 @@ mod benchmarks {
 					max_increase: Perbill::from_percent(20),
 					min_delay: 0u32.into()
 				}),
-				throttle_from: Some(0u32.into()),
+				throttle_from: Some(1u32.into()),
 				claim_permission: Some(CommissionClaimPermission::Account(depositor)),
 			}
 		);
@@ -889,7 +885,7 @@ mod benchmarks {
 		// Asset Hub runtime uses RelaychainDataProvider as BlockNumberProvider for nomination
 		// pools. Setting change rate initializes throttle_from, requiring relay chain block
 		// setup.
-		frame_system::Pallet::<T>::set_block_number(1u32.into());
+		frame_system::Pallet::<T>::set_block_number(0u32.into());
 
 		// Create a pool.
 		let (depositor, _pool_account) =
@@ -914,7 +910,7 @@ mod benchmarks {
 					max_increase: Perbill::from_percent(50),
 					min_delay: 1000u32.into(),
 				}),
-				throttle_from: Some(0_u32.into()),
+				throttle_from: Some(1_u32.into()),
 				claim_permission: None,
 			}
 		);

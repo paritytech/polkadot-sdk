@@ -30,6 +30,7 @@ sp-staking = { workspace = true }
 
 # Optional: use for testing and/or fuzzing
 pallet-balances = { optional = true, workspace = true }
+pallet-staking-async = { workspace = true, features = ["testing-utils"] }
 sp-tracing = { optional = true, workspace = true }
 
 [dev-dependencies]
@@ -45,6 +46,7 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-balances?/std",
+	"pallet-staking-async/std",
 	"scale-info/std",
 	"sp-core/std",
 	"sp-io/std",
@@ -56,6 +58,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances?/runtime-benchmarks",
+	"pallet-staking-async/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 ]
@@ -63,5 +66,6 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances?/try-runtime",
+	"pallet-staking-async/try-runtime",
 	"sp-runtime/try-runtime",
 ]

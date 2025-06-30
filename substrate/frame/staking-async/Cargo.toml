@@ -36,7 +36,9 @@ frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
 frame-benchmarking = { workspace = true, default-features = true }
-frame-support = { features = ["experimental"], workspace = true, default-features = true }
+frame-support = { features = [
+	"experimental",
+], workspace = true, default-features = true }
 pallet-bags-list = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 rand_chacha = { workspace = true, default-features = true }
@@ -89,3 +91,4 @@ try-runtime = [
 	"pallet-staking-async-rc-client/try-runtime",
 	"sp-runtime/try-runtime",
 ]
+testing-utils = ["runtime-benchmarks"]
