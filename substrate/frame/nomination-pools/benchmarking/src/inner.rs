@@ -806,7 +806,8 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_commission() {
-		// Ensure we're at block 1 for proper throttle_from tracking
+		// Asset Hub runtime uses RelaychainDataProvider as BlockNumberProvider for nomination
+		// pools. Commission throttling needs proper relay chain block number setup in benchmarks.
 		frame_system::Pallet::<T>::set_block_number(1u32.into());
 
 		// Create a pool - do not set a commission yet.
@@ -885,7 +886,9 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_commission_change_rate() {
-		// Ensure we're at block 1 for proper throttle_from tracking
+		// Asset Hub runtime uses RelaychainDataProvider as BlockNumberProvider for nomination
+		// pools. Setting change rate initializes throttle_from, requiring relay chain block
+		// setup.
 		frame_system::Pallet::<T>::set_block_number(1u32.into());
 
 		// Create a pool.
