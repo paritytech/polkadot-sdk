@@ -31,7 +31,7 @@ use sc_consensus::{
 	import_queue::{BasicQueue, BoxJustificationImport, DefaultImportQueue, Verifier},
 	BlockCheckParams, ImportResult,
 };
-use sc_consensus_slots::CheckedHeader;
+use sc_consensus_slots::{check_equivocation, CheckedHeader, InherentDataProviderExt};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_TRACE};
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
@@ -223,7 +223,7 @@ where
 		+ UsageProvider<Block>
 		+ HeaderBackend<Block>,
 	I: BlockImport<Block, Error = ConsensusError> + Send + Sync + 'static,
-	P: Pair + 'static,
+	P: Pair + Send + Sync + 'static,
 	P::Public: Codec + Debug,
 	P::Signature: Codec,
 	S: sp_core::traits::SpawnEssentialNamed,
@@ -236,9 +236,24 @@ where
 		compatibility_mode,
 	});
 
-	let create_inherent_data_providers =
-		move |_, _| async move { Ok(sp_timestamp::InherentDataProvider::from_system_time()) };
-	let block_import = AuraBlockImport::new(block_import, client, create_inherent_data_providers);
+	let cidp_client = client.clone();
+	let create_inherent_data_providers = move |parent_hash, _| {
+		let cidp_client = cidp_client.clone();
+		async move {
+			let slot_duration = crate::standalone::slot_duration_at(&*cidp_client, parent_hash)?;
+			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+
+			let slot =
+						sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+							*timestamp,
+							slot_duration,
+						);
+
+			Ok((slot, timestamp))
+		}
+	};
+	let block_import =
+		AuraBlockImport::<_, _, _, _, P>::new(block_import, client, create_inherent_data_providers);
 
 	Ok(BasicQueue::new(verifier, Box::new(block_import), justification_import, spawner, registry))
 }
@@ -268,27 +283,32 @@ pub fn build_verifier<P, C, GetSlotFn, N>(
 	AuraVerifier::<_, P, _, _>::new(client, get_slot, telemetry, compatibility_mode)
 }
 
-struct AuraBlockImport<Block: BlockT, BI, Client, CIDP> {
+struct AuraBlockImport<Block: BlockT, BI, Client, CIDP, P> {
 	inner: BI,
 	client: Arc<Client>,
 	create_inherent_data_providers: CIDP,
-	_phantom: PhantomData<Block>,
+	_phantom: PhantomData<(Block, P)>,
 }
 
-impl<Block: BlockT, BI, Client, CIDP> AuraBlockImport<Block, BI, Client, CIDP> {
+impl<Block: BlockT, BI, Client, CIDP, P> AuraBlockImport<Block, BI, Client, CIDP, P> {
 	fn new(inner: BI, client: Arc<Client>, create_inherent_data_providers: CIDP) -> Self {
 		Self { inner, client, create_inherent_data_providers, _phantom: Default::default() }
 	}
 }
 
 #[async_trait::async_trait]
-impl<Block: BlockT, BI, Client, CIDP> BlockImport<Block>
-	for AuraBlockImport<Block, BI, Client, CIDP>
+impl<Block: BlockT, BI, Client, CIDP, P> BlockImport<Block>
+	for AuraBlockImport<Block, BI, Client, CIDP, P>
 where
-	Client: ProvideRuntimeApi<Block> + Send + Sync,
-	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block>,
+	Client: ProvideRuntimeApi<Block> + AuxStore + Send + Sync,
+	<Client as ProvideRuntimeApi<Block>>::Api:
+		BlockBuilderApi<Block> + AuraApi<Block, AuthorityId<P>>,
 	BI: sc_consensus::BlockImport<Block, Error = sp_consensus::Error> + Send + Sync,
 	CIDP: CreateInherentDataProviders<Block, ()> + Sync,
+	CIDP::InherentDataProviders: InherentDataProviderExt,
+	P: Pair + Send + Sync + 'static,
+	P::Public: Codec + Debug,
+	P::Signature: Codec,
 {
 	type Error = sp_consensus::Error;
 
@@ -303,14 +323,14 @@ where
 		&self,
 		mut block_params: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
+		let inherent_data_providers = self
+			.create_inherent_data_providers
+			.create_inherent_data_providers(*block_params.header.parent_hash(), ())
+			.await
+			.map_err(sp_consensus::Error::Other)?;
+
 		// Check inherents.
 		if let Some(inner_body) = block_params.body.take() {
-			let inherent_data_providers = self
-				.create_inherent_data_providers
-				.create_inherent_data_providers(*block_params.header.parent_hash(), ())
-				.await
-				.map_err(sp_consensus::Error::Other)?;
-
 			let inherent_data = inherent_data_providers
 				.create_inherent_data()
 				.await
@@ -337,6 +357,71 @@ where
 			block_params.body = Some(inner_body);
 		}
 
+		// Check equivocations.
+		let slot_now = inherent_data_providers.slot();
+		let authorities = authorities(
+			self.client.as_ref(),
+			*block_params.header.parent_hash(),
+			*block_params.header.number(),
+			&Default::default(),
+		)?;
+		// we add one to allow for some small drift.
+		// FIXME #1019 in the future, alter this queue to allow deferring of
+		// headers
+		let hash = block_params.header.hash();
+		block_params.header = check_header_equivocation::<Client, Block, P>(
+			&self.client,
+			slot_now + 1,
+			block_params.header,
+			hash,
+			&authorities[..],
+		)
+		.map_err(|e| Self::Error::Other(e.into()))?;
+
 		self.inner.import_block(block_params).await
+	}
+}
+
+/// Check that the header is valid and not an equivocation.
+fn check_header_equivocation<C, B: BlockT, P: Pair>(
+	client: &C,
+	slot_now: Slot,
+	header: B::Header,
+	hash: B::Hash,
+	authorities: &[AuthorityId<P>],
+) -> Result<B::Header, Error<B>>
+where
+	P::Public: Codec,
+	P::Signature: Codec,
+	C: sc_client_api::backend::AuxStore,
+{
+	let check_result =
+		crate::standalone::check_header_slot_and_seal::<B, P>(slot_now, header, authorities);
+
+	match check_result {
+		Ok((header, slot, _)) => {
+			let expected_author = crate::standalone::slot_author::<P>(slot, &authorities);
+			if let Some(expected) = expected_author {
+				if let Some(equivocation_proof) =
+					check_equivocation(client, slot_now, slot, &header, expected)
+						.map_err(Error::Client)?
+				{
+					log::info!(
+						target: LOG_TARGET,
+						"Slot author is equivocating at slot {} with headers {:?} and {:?}",
+						slot,
+						equivocation_proof.first_header.hash(),
+						equivocation_proof.second_header.hash(),
+					);
+				}
+			}
+			Ok(header)
+		},
+		Err(SealVerificationError::Deferred(header, _)) => Ok(header),
+		Err(SealVerificationError::Unsealed) => Err(Error::HeaderUnsealed(hash)),
+		Err(SealVerificationError::BadSeal) => Err(Error::HeaderBadSeal(hash)),
+		Err(SealVerificationError::BadSignature) => Err(Error::BadSignature(hash)),
+		Err(SealVerificationError::SlotAuthorNotFound) => Err(Error::SlotAuthorNotFound),
+		Err(SealVerificationError::InvalidPreDigest(e)) => Err(Error::from(e)),
 	}
 }
