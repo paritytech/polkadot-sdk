@@ -41,7 +41,7 @@ use frame_system::ensure_signed;
 use snowbridge_core::{
 	reward::{AddTip, AddTipError},
 	sparse_bitmap::{SparseBitmap, SparseBitmapImpl},
-	BasicOperatingMode,
+	BasicOperatingMode, ERC20TokenHandler,
 };
 use snowbridge_inbound_queue_primitives::{
 	v2::{ConvertMessage, ConvertMessageError, Message},
@@ -68,6 +68,7 @@ pub mod pallet {
 
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use snowbridge_inbound_queue_primitives::v2::XcmPayload;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -105,6 +106,8 @@ pub mod pallet {
 		type RewardPayment: RewardLedger<Self::AccountId, Self::RewardKind, u128>;
 		/// AccountId to Location converter
 		type AccountToLocation: for<'a> TryConvert<&'a Self::AccountId, Location>;
+		/// ERC-20 Token Handler
+		type TokenHandler: ERC20TokenHandler;
 		type WeightInfo: WeightInfo;
 	}
 
@@ -241,8 +244,8 @@ pub mod pallet {
 			// Verify the message has not been processed
 			ensure!(!Nonce::<T>::get(nonce), Error::<T>::InvalidNonce);
 
-			let xcm =
-				T::MessageConverter::convert(message).map_err(|error| Error::<T>::from(error))?;
+			let xcm = T::MessageConverter::convert(message.clone())
+				.map_err(|error| Error::<T>::from(error))?;
 
 			// Forward XCM to AH
 			let dest = Location::new(1, [Parachain(T::AssetHubParaId::get())]);
@@ -264,6 +267,13 @@ pub mod pallet {
 					relayer_fee,
 				);
 			}
+
+			// Store the registered token
+			let _ = match message.xcm {
+				XcmPayload::Raw { .. } => (),
+				XcmPayload::CreateAsset { token, gas_cost, .. } =>
+					T::TokenHandler::store(token, gas_cost),
+			};
 
 			Self::deposit_event(Event::MessageReceived { nonce, message_id });
 

@@ -103,6 +103,17 @@ parameter_types! {
 	pub const CreateAssetDeposit: u128 = 10_000_000_000u128;
 }
 
+pub struct MockTokenHandler;
+impl ERC20TokenHandler for MockTokenHandler {
+	fn store(_: H160, _: u64) {
+		return
+	}
+
+	fn get(_: H160) -> Option<u64> {
+		None
+	}
+}
+
 impl inbound_queue_v2::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = MockVerifier;
@@ -129,6 +140,7 @@ impl inbound_queue_v2::Config for Test {
 	type RewardKind = BridgeReward;
 	type DefaultRewardKind = SnowbridgeReward;
 	type RewardPayment = MockRewardLedger;
+	type TokenHandler = MockTokenHandler;
 }
 
 pub fn setup() {

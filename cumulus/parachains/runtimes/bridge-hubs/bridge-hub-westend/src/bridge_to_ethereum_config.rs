@@ -31,7 +31,7 @@ use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards};
 use snowbridge_outbound_queue_primitives::{
 	v1::{ConstantGasMeter, EthereumBlobExporter},
-	v2::{ConstantGasMeter as ConstantGasMeterV2, EthereumBlobExporter as EthereumBlobExporterV2},
+	v2::{ERC20TokenGasMeter, EthereumBlobExporter as EthereumBlobExporterV2},
 };
 use sp_core::H160;
 use sp_runtime::{
@@ -155,6 +155,7 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	type RewardKind = BridgeReward;
 	type DefaultRewardKind = SnowbridgeReward;
 	type RewardPayment = BridgeRelayers;
+	type TokenHandler = EthereumSystemV2;
 }
 
 impl snowbridge_pallet_outbound_queue::Config for Runtime {
@@ -184,7 +185,7 @@ impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {
 	// rs` show that the `process` function consumes less than 1% of the block capacity, which is
 	// safe enough.
 	type MaxMessagesPerBlock = ConstU32<32>;
-	type GasMeter = ConstantGasMeterV2;
+	type GasMeter = ERC20TokenGasMeter<EthereumSystemV2>;
 	type Balance = Balance;
 	type WeightToFee = WeightToFee;
 	type Verifier = snowbridge_pallet_ethereum_client::Pallet<Runtime>;

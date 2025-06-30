@@ -6,7 +6,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{pallet_prelude::ConstU32, BoundedVec};
 use scale_info::TypeInfo;
 use sp_core::{RuntimeDebug, H160, H256};
-use sp_std::vec::Vec;
+use sp_std::{marker::PhantomData, vec::Vec};
 
 use crate::{OperatingMode, SendError};
 use abi::{
@@ -17,6 +17,7 @@ use alloy_core::{
 	primitives::{Address, Bytes, FixedBytes, U256},
 	sol_types::SolValue,
 };
+use snowbridge_core::ERC20TokenHandler;
 
 pub mod abi {
 	use alloy_core::sol;
@@ -305,5 +306,22 @@ impl GasMeter for ConstantGasMeter {
 impl GasMeter for () {
 	fn maximum_dispatch_gas_used_at_most(_: &Command) -> u64 {
 		1
+	}
+}
+
+/// A meter that retrieves the gas cost for UnlockNativeToken from storage
+pub struct ERC20TokenGasMeter<TokenHandler>(PhantomData<TokenHandler>);
+impl<TokenHandler: ERC20TokenHandler> GasMeter for ERC20TokenGasMeter<TokenHandler> {
+	fn maximum_dispatch_gas_used_at_most(command: &Command) -> u64 {
+		match command {
+			Command::SetOperatingMode { .. } => 40_000,
+			Command::Upgrade { initializer, .. } => 50_000 + initializer.maximum_required_gas,
+			// Retrieve the gas cost from storage and fall back to a sensible default if not found
+			Command::UnlockNativeToken { token, .. } =>
+				TokenHandler::get(*token).unwrap_or(100_000),
+			Command::RegisterForeignToken { .. } => 1_200_000,
+			Command::MintForeignToken { .. } => 100_000,
+			Command::CallContract { gas: gas_limit, .. } => *gas_limit,
+		}
 	}
 }

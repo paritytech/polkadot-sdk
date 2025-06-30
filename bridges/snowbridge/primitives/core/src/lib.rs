@@ -26,7 +26,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{traits::Contains, BoundedVec};
 use hex_literal::hex;
 use scale_info::TypeInfo;
-use sp_core::{ConstU32, H256};
+use sp_core::{ConstU32, H160, H256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{traits::AccountIdConversion, RuntimeDebug};
 use sp_std::prelude::*;
@@ -197,4 +197,12 @@ where
 	AssetTransactor::check_out(origin, fee, &dummy_context);
 	AssetTransactor::withdraw_asset(fee, origin, None)?;
 	Ok(())
+}
+
+/// ERC20TokenHandler
+pub trait ERC20TokenHandler {
+	/// Store token address and the gas cost
+	fn store(address: H160, gas_cost: u64);
+	/// Retrieve gas cost by token address
+	fn get(address: H160) -> Option<u64>;
 }
