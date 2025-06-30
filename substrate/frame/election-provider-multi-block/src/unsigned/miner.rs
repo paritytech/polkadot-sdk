@@ -222,9 +222,9 @@ pub type PageSupportsOfMiner<T> = frame_election_provider_support::BoundedSuppor
 >;
 
 /// Helper type that computes the maximum total winners across all pages.
-pub struct MaxWinnersTotal<T: MinerConfig>(core::marker::PhantomData<T>);
+pub struct MaxWinnersFinal<T: MinerConfig>(core::marker::PhantomData<T>);
 
-impl<T: MinerConfig> frame_support::traits::Get<u32> for MaxWinnersTotal<T> {
+impl<T: MinerConfig> frame_support::traits::Get<u32> for MaxWinnersFinal<T> {
 	fn get() -> u32 {
 		T::Pages::get().saturating_mul(T::MaxWinnersPerPage::get())
 	}
@@ -237,7 +237,7 @@ impl<T: MinerConfig> frame_support::traits::Get<u32> for MaxWinnersTotal<T> {
 /// Another way to look at it, this is never wrapped in a `Vec<_>`
 pub type FullSupportsOfMiner<T> = frame_election_provider_support::BoundedSupports<
 	<T as MinerConfig>::AccountId,
-	MaxWinnersTotal<T>,
+	MaxWinnersFinal<T>,
 	<T as MinerConfig>::MaxBackersPerWinnerFinal,
 >;
 
