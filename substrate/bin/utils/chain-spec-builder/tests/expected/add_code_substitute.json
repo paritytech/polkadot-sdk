@@ -31,7 +31,6 @@
   },
   "id": "custom",
   "name": "Custom",
-  "para_id": 10101,
   "properties": {
     "tokenDecimals": 12,
     "tokenSymbol": "UNIT"
