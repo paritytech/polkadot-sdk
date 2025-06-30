@@ -69,15 +69,13 @@ fn main() -> Result<(), String> {
 	// test messages are generated at every benchmark run and they contain
 	// random data so use 0.01 as the accepted variance.
 	messages.extend(average_usage.check_network_usage(&[
-		("Received from peers", 52941.6071, 0.01),
-		("Sent to peers", 63995.2200, 0.01),
+		("Received from peers", 23.8, 0.01),
+		("Sent to peers", 227.1, 0.01),
 	]));
-	messages.extend(
-		average_usage.check_cpu_usage(&[
-			("dispute-coordinator", 0.1, 0.1),
-			("dispute-distribution", 0.1, 0.1),
-		]),
-	);
+	messages.extend(average_usage.check_cpu_usage(&[
+		("dispute-coordinator", 0.0026, 0.1),
+		("dispute-distribution", 0.0086, 0.1),
+	]));
 
 	if messages.is_empty() {
 		Ok(())
