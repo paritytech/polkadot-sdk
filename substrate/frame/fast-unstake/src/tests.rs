@@ -806,8 +806,7 @@ mod on_idle {
 			assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(VALIDATOR_PREFIX)));
 
 			// but they indeed are exposed!
-			let exposure = Staking::eras_stakers(BondingDuration::get() - 1, &VALIDATOR_PREFIX);
-			assert!(exposure.total > 0 || !exposure.others.is_empty());
+			assert!(Staking::is_exposed_in_era(&VALIDATOR_PREFIX, &(BondingDuration::get() - 1)));
 
 			// process a block, this validator is exposed and has been slashed.
 			next_block(true);
