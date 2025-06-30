@@ -23,10 +23,14 @@ use zombienet_sdk::{
 	AddCollatorOptions, LocalFileSystem, Network, NetworkConfigBuilder, NetworkNode,
 };
 
-#[zombienet_sdk::subxt::subxt(runtime_metadata_path = "metadata-files/coretime-rococo-local.scale")]
+#[zombienet_sdk::subxt::subxt(
+	runtime_metadata_path = "../../../polkadot/zombienet-sdk-tests/metadata-files/coretime-rococo-local.scale"
+)]
 mod coretime_rococo {}
 
-#[zombienet_sdk::subxt::subxt(runtime_metadata_path = "metadata-files/rococo-local.scale")]
+#[zombienet_sdk::subxt::subxt(
+	runtime_metadata_path = "../../../polkadot/zombienet-sdk-tests/metadata-files/rococo-local.scale"
+)]
 mod rococo {}
 
 const PARA_ID: u32 = 2000;
