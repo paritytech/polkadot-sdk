@@ -1,0 +1,44 @@
+title: '`fatxpool`: add labels for mempool revalidation invalid txs counting'
+doc:
+- audience: Todo
+  description: |-
+    # Description
+
+    This PR considers errors propagated from mempool revalidation in the context of fork-aware transaction pool and groups them under unique labels to count them under `mempool_revalidation_invalid_txs` prometheus metric.
+
+    Closes #7973
+
+    ## Integration
+
+    Node developers/operators can use labels like `category` & `type` to differentiate between invalid transactions, as reported by mempool revalidation.
+
+    ## Review Notes
+
+
+    Felt the need to explain myself and the big concerns looked after in the PR. Hopefully this helps reasoning about the changes:
+
+    ### 1. Refactored and moved `RevalidationResult` from `view.rs`
+
+    a) I saw an opportunity to have a shared struct to return, as the result of the revalidation for both mempool and views. As such, the returned information for both cases is represented by `RevalidationResult`.
+    b) Previously `RevalidationResult` was used just in view revalidation, and contained an index map of succesfully revalidated txs, and a vec of invalid txs hashes. To be able to succesuflly increment metrics for certain type of invalid txs, validation errors needed to be propagated (see point 2.), so I changed from a vec of invalid hashes to a vec of tuples of invalid hash and invalid reason.
+
+    ### 2. Refactored mempool `revalidate_inner` to return `RevalidationResult`
+
+    Mempool revalidation eats up validation errors in `revalidate_inner`, but it uses the errors to determine which tx hash should be included in the invalid tx hashes set. However, the errors are also useful in its caller, at an upper level, where we count the total number of invalid txs (where txs part of invalid txs subtrees are also considered). The errors can group together certain invalid txs under a label of `mempool_revalidation_invalid_txs` metric, which is incremented on every occurrence of the invalid tx type. This way we get granular breakdown of the types of invalid txs.
+
+    ### 3. Labels for grouping invalid txs (work in progress)
+
+    Counting `mempool_revalidation_invalid_txs` under different labels is currently achieved in a form which I am not entirely happy with. The labeling relies on a few aspects:
+
+    a) `validate_transaction` can fail with a `TransactionValidityError` when a transaction is considered invalid by the runtime and with a `sc_transaction_pool::common::Error::RuntimeApi(String)` error if there is an error before we get the chance to ask the runtime to determine whether the tx is invalid. So from here directly we can extract at least three types (invalid, unknown and `RuntimeApi` related). I also considered categories, because some errors are wrapped at the upper levels in a `sc_transaction_pool_api` error (looking more user facing), while `RuntimeApi` error looks more like an internal error that results in an invalid transaction (see point b) why).
+
+    b) A `RuntimeApi` error is not compatible with `RevalidationResult`, since the struct can hold information only about errors that implement `IntoPoolError`, and even if `sc_transaction_pool::common::error::Error` implements it, it returns an error if the variant is not  a `sc_transaction_pool::common::error::Error::Pool(_)` (not related, but in its turn can be made into a `sc_transaction_pool_api::error::Error`). So for this case, we have have to come up with a variant of an error that implements `IntoPoolError`, and I went with `sc_transaction_pool_api::error::Error::InvalidTransaction(sp_runtime::transaction_validity::InvalidTransaction::Custom(1))`. Disclaimer: I don't know which reasoning applies in picking the codes, but my basic instinct is for making sure we don't overlap, and reuse the codes (with public documentation scoped to the module, to clarify what they mean and where they should be used) wherever they apply.
+
+    c) Invalid txs are not just those that the runtime decides so per validation, but also those that are part of the subtree of an invalid txs per runtime validation. Before this PR, these txs count too when incrementing `mempool_revalidation_invalid_txs` metric, and now with labeling, we must give these invalid txs a type too, so went for `sc_transaction_pool_api::error::Error::InvalidTransaction(sp_runtime::transaction_validity::InvalidTransaction::Custom(2))`.
+
+    d) Now you might ask how does `sc_transaction_pool_api::error::Error` variants group invalid txs behind lables? There is a mapping between underlying `sc_transaction_pool_api::error::Error` variants to a [category, type] labels set. Category refers to the `sc_transaction_pool_api::error::Error` variant, while type usually refers to the type which is wrapped around by the variant (e.g. `sc_transaction_pool_api::error::Error::InvalidTransaction` wraps around variants of `sp_runtime::transaction_validity::InvalidTransaction`, so `type` label refers to the variant from `sp_runtime`).
+crates:
+- name: sc-transaction-pool
+  bump: major
+- name: sc-transaction-pool-api
+  bump: major

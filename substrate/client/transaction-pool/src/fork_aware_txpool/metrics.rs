@@ -18,7 +18,9 @@
 
 //! Prometheus's metrics for a fork-aware transaction pool.
 
-use super::tx_mem_pool::InsertionInfo;
+use super::{
+	transaction_validation_util::InvalidTransactionCustomCode, tx_mem_pool::InsertionInfo,
+};
 use crate::{
 	common::metrics::{GenericMetricsLink, MetricsRegistrant},
 	graph::{self, BlockHash, ExtrinsicHash},
@@ -26,15 +28,16 @@ use crate::{
 };
 use futures::{FutureExt, StreamExt};
 use prometheus_endpoint::{
-	exponential_buckets, histogram_opts, linear_buckets, register, Counter, Gauge, Histogram,
-	PrometheusError, Registry, U64,
+	exponential_buckets, histogram_opts, linear_buckets, register, Counter, CounterVec, Gauge,
+	Histogram, Opts, PrometheusError, Registry, U64,
 };
 #[cfg(doc)]
 use sc_transaction_pool_api::TransactionPool;
-use sc_transaction_pool_api::TransactionStatus;
+use sc_transaction_pool_api::{error::IntoPoolError, TransactionStatus};
 use sc_utils::mpsc;
 use std::{
 	collections::{hash_map::Entry, HashMap},
+	convert::AsRef,
 	future::Future,
 	pin::Pin,
 	time::{Duration, Instant},
@@ -74,7 +77,7 @@ pub struct Metrics {
 	/// Total number of transactions submitted from mempool to views.
 	pub submitted_from_mempool_txs: Counter<U64>,
 	/// Total number of transactions found as invalid during mempool revalidation.
-	pub mempool_revalidation_invalid_txs: Counter<U64>,
+	pub mempool_revalidation_invalid_txs: MempoolInvalidTxReasonCounter,
 	/// Total number of transactions found as invalid during view revalidation.
 	pub view_revalidation_invalid_txs: Counter<U64>,
 	/// Total number of valid transactions processed during view revalidation.
@@ -224,6 +227,46 @@ impl EventsHistograms {
 	}
 }
 
+/// Represents a labeled counter of invalid tx reasons.
+pub struct MempoolInvalidTxReasonCounter {
+	inner: CounterVec<U64>,
+}
+
+impl MempoolInvalidTxReasonCounter {
+	fn register(registry: &Registry) -> Result<Self, PrometheusError> {
+		Ok(Self {
+			inner: register(
+				CounterVec::new(
+					Opts::new(
+						"substrate_sub_txpool_mempool_revalidation_invalid_txs_total",
+						"Total number of transactions found as invalid during mempool revalidation."),
+					&["category", "type"]
+				)?,
+				registry,
+			)?
+		})
+	}
+
+	/// Increments the mempool invalid txs metric accordingly based on the error, counting invalid
+	/// txs separately per invalid tx type.
+	pub fn inc(&self, err: impl IntoPoolError) -> Result<(), impl IntoPoolError> {
+		err.into_pool_error().map(|err| {
+			let category = err.as_ref();
+			let ty = match err {
+				sc_transaction_pool_api::error::Error::InvalidTransaction(i) => match i {
+					sp_runtime::transaction_validity::InvalidTransaction::Custom(code) =>
+						InvalidTransactionCustomCode::from(code).as_ref().to_string(),
+					_ => i.as_ref().to_string(),
+				},
+				sc_transaction_pool_api::error::Error::UnknownTransaction(u) =>
+					u.as_ref().to_string(),
+				_ => "-".to_string(),
+			};
+			self.inner.with_label_values(&[category, ty.as_str()]).inc()
+		})
+	}
+}
+
 impl MetricsRegistrant for Metrics {
 	fn register(registry: &Registry) -> Result<Box<Self>, PrometheusError> {
 		Ok(Box::from(Self {
@@ -312,13 +355,7 @@ impl MetricsRegistrant for Metrics {
 				)?,
 				registry,
 			)?,
-			mempool_revalidation_invalid_txs: register(
-				Counter::new(
-					"substrate_sub_txpool_mempool_revalidation_invalid_txs_total",
-					"Total number of transactions found as invalid during mempool revalidation.",
-				)?,
-				registry,
-			)?,
+			mempool_revalidation_invalid_txs: MempoolInvalidTxReasonCounter::register(registry)?,
 			view_revalidation_invalid_txs: register(
 				Counter::new(
 					"substrate_sub_txpool_view_revalidation_invalid_txs_total",

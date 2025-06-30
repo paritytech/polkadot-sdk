@@ -378,6 +378,45 @@ mod view_store;
 
 pub use fork_aware_txpool::{ForkAwareTxPool, ForkAwareTxPoolTask};
 
+// Holds various helper constant variables and types that are useful in determining
+// transaction validity.
+mod transaction_validation_util {
+	use crate::graph::{self, ExtrinsicHash, ValidatedTransactionFor};
+	use indexmap::IndexMap;
+
+	/// Custom cases of invalid transaction
+	#[repr(u8)]
+	#[derive(strum::AsRefStr)]
+	#[strum(serialize_all = "snake_case")]
+	pub(super) enum InvalidTransactionCustomCode {
+		/// Represents a failure which happens at the level of runtime API, while checking
+		/// prerequisites for transaction validation.
+		RuntimeApiPrerequisitesFailure = 0u8,
+		/// Represents a transaction declared as invalid because it part of a subtree of
+		/// an actual invalid transaction (per outcome of runtime validation).
+		InvalidInTxSubtree = 1u8,
+		/// Catch-all custom
+		Unknown,
+	}
+
+	impl From<u8> for InvalidTransactionCustomCode {
+		fn from(other: u8) -> Self {
+			match other {
+				0 => Self::RuntimeApiPrerequisitesFailure,
+				1 => Self::InvalidInTxSubtree,
+				_ => Self::Unknown,
+			}
+		}
+	}
+
+	/// Helper type containing revalidation result for both views & mempool.
+	pub(super) struct RevalidationResult<ChainApi: graph::ChainApi> {
+		pub(super) revalidated:
+			IndexMap<ExtrinsicHash<ChainApi>, ValidatedTransactionFor<ChainApi>>,
+		pub(super) invalid_txs: Vec<ValidatedTransactionFor<ChainApi>>,
+	}
+}
+
 mod stream_map_util {
 	use futures::Stream;
 	use std::marker::Unpin;
