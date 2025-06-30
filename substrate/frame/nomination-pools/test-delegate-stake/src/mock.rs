@@ -91,17 +91,12 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
 	pub const RewardCurve: &'static sp_runtime::curve::PiecewiseLinear<'static> = &I_NPOS;
 	pub static BondingDuration: u32 = 3;
+	pub static EraPayout: (Balance, Balance) = (1000, 100);
 }
 
-// Mock era payout
-pub struct MockEraPayout;
-impl pallet_staking_async::EraPayout<Balance> for MockEraPayout {
-	fn era_payout(
-		_total_staked: Balance,
-		_total_issuance: Balance,
-		_era_duration_millis: u64,
-	) -> (Balance, Balance) {
-		(1000, 100)
+impl<B, T: Get<(B, B)>> pallet_staking_async::EraPayout<B> for T {
+	fn era_payout(_total_staked: B, _total_issuance: B, _era_duration_millis: u64) -> (B, B) {
+		T::get()
 	}
 }
 
@@ -122,7 +117,7 @@ impl pallet_staking_async::Config for Runtime {
 	type Currency = Balances;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type BondingDuration = BondingDuration;
-	type EraPayout = MockEraPayout;
+	type EraPayout = EraPayout;
 	type ElectionProvider =
 		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, (), ())>;
 	type VoterList = VoterList;

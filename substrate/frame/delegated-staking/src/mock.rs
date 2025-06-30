@@ -90,6 +90,7 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
 	pub const RewardCurve: &'static sp_runtime::curve::PiecewiseLinear<'static> = &I_NPOS;
 	pub static ElectionsBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default().build();
+	pub static EraPayout: (Balance, Balance) = (1000, 100);
 }
 pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
@@ -103,15 +104,9 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Bounds = ElectionsBoundsOnChain;
 }
 
-// Mock era payout
-pub struct MockEraPayout;
-impl pallet_staking_async::EraPayout<Balance> for MockEraPayout {
-	fn era_payout(
-		_total_staked: Balance,
-		_total_issuance: Balance,
-		_era_duration_millis: u64,
-	) -> (Balance, Balance) {
-		(1000, 100)
+impl<B, T: Get<(B, B)>> pallet_staking_async::EraPayout<B> for T {
+	fn era_payout(_total_staked: B, _total_issuance: B, _era_duration_millis: u64) -> (B, B) {
+		T::get()
 	}
 }
 
@@ -131,7 +126,7 @@ impl pallet_staking_async::Config for Runtime {
 	type OldCurrency = Balances;
 	type Currency = Balances;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
-	type EraPayout = MockEraPayout;
+	type EraPayout = EraPayout;
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type VoterList = pallet_staking_async::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;

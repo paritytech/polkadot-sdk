@@ -88,6 +88,7 @@ parameter_types! {
 	pub static BondingDuration: u32 = 3;
 	pub static CurrentEra: u32 = 0;
 	pub static Ongoing: bool = false;
+	pub static EraPayout: (Balance, Balance) = (1000, 100);
 }
 
 pub struct MockElection;
@@ -125,15 +126,9 @@ impl frame_election_provider_support::ElectionProvider for MockElection {
 	}
 }
 
-// Mock era payout
-pub struct MockEraPayout;
-impl pallet_staking_async::EraPayout<Balance> for MockEraPayout {
-	fn era_payout(
-		_total_staked: Balance,
-		_total_issuance: Balance,
-		_era_duration_millis: u64,
-	) -> (Balance, Balance) {
-		(1000, 100)
+impl<B, T: Get<(B, B)>> pallet_staking_async::EraPayout<B> for T {
+	fn era_payout(_total_staked: B, _total_issuance: B, _era_duration_millis: u64) -> (B, B) {
+		T::get()
 	}
 }
 
@@ -157,7 +152,7 @@ impl pallet_staking_async::Config for Runtime {
 	type VoterList = UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = UseValidatorsMap<Self>;
 	type CurrencyToVote = SaturatingCurrencyToVote;
-	type EraPayout = MockEraPayout;
+	type EraPayout = EraPayout;
 	type RcClientInterface = ();
 	type WeightInfo = ();
 }
