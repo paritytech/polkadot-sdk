@@ -133,7 +133,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxMessagePayloadSize: Get<u32>;
 
-		/// Max number of messages processed per block
+		/// Max number of messages processed in a batch
 		#[pallet::constant]
 		type MaxMessagesInBatch: Get<u32>;
 
