@@ -24,7 +24,7 @@ jobs:
   test-linux-stable-no-try-runtime:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
-    runs-on: cattery-gce
+    runs-on: cattery-gce-large
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
@@ -39,7 +39,7 @@ jobs:
       - name: script
         id: required
         run: |
-          forklift cargo nextest run --workspace \
+          cargo nextest run --workspace \
                    --locked \
                    --release \
                    --no-fail-fast \
