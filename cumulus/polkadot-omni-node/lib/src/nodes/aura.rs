@@ -58,16 +58,15 @@ use sc_client_api::BlockchainEvents;
 use sc_client_db::DbHash;
 use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
-	BlockCheckParams, BlockImport, BlockImportParams, DefaultImportQueue, ImportResult,
+	BlockImportParams, DefaultImportQueue,
 };
 use sc_service::{Configuration, Error, TaskManager};
 use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
 use sp_api::ProvideRuntimeApi;
-use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_consensus_aura::{inherents::AuraCreateInherentDataProviders, AuraApi};
 use sp_core::{traits::SpawnNamed, Pair};
-use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
+use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
 use std::{marker::PhantomData, sync::Arc, time::Duration};
@@ -142,87 +141,7 @@ where
 			_phantom: Default::default(),
 		};
 
-		let block_import =
-			AuraBlockImport::new(block_import, client, create_inherent_data_providers);
-
 		Ok(BasicQueue::new(verifier, Box::new(block_import), None, &spawner, registry))
-	}
-}
-
-struct AuraBlockImport<Block: BlockT, BI, Client, CIDP, AuraId> {
-	inner: BI,
-	client: Arc<Client>,
-	create_inherent_data_providers: CIDP,
-	_phantom: PhantomData<(Block, AuraId)>,
-}
-
-impl<Block: BlockT, BI, Client, CIDP, AuraId> AuraBlockImport<Block, BI, Client, CIDP, AuraId> {
-	fn new(inner: BI, client: Arc<Client>, create_inherent_data_providers: CIDP) -> Self {
-		Self { inner, client, create_inherent_data_providers, _phantom: Default::default() }
-	}
-}
-
-#[async_trait::async_trait]
-impl<Block: BlockT, BI, Client, CIDP, AuraId> BlockImport<Block>
-	for AuraBlockImport<Block, BI, Client, CIDP, AuraId>
-where
-	Client: ProvideRuntimeApi<Block> + Send + Sync,
-	Client::Api: AuraRuntimeApi<Block, AuraId>,
-	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block>,
-	AuraId: AuraIdT + Sync,
-	BI: sc_consensus::BlockImport<Block, Error = sp_consensus::Error> + Send + Sync,
-	CIDP: CreateInherentDataProviders<Block, ()> + Sync,
-	AuraId::BoundedPair: Pair,
-	<AuraId::BoundedPair as Pair>::Signature: codec::Codec,
-{
-	type Error = sp_consensus::Error;
-
-	async fn check_block(
-		&self,
-		block: BlockCheckParams<Block>,
-	) -> Result<ImportResult, Self::Error> {
-		self.inner.check_block(block).await
-	}
-
-	async fn import_block(
-		&self,
-		mut block_params: BlockImportParams<Block>,
-	) -> Result<ImportResult, Self::Error> {
-		// Check inherents.
-		if let Some(inner_body) = block_params.body.take() {
-			let inherent_data_providers = self
-				.create_inherent_data_providers
-				.create_inherent_data_providers(*block_params.header.parent_hash(), ())
-				.await
-				.map_err(sp_consensus::Error::Other)?;
-
-			let inherent_data = inherent_data_providers
-				.create_inherent_data()
-				.await
-				.map_err(|e| sp_consensus::Error::Other(e.into()))?;
-
-			let block = Block::new(block_params.header.clone(), inner_body);
-
-			let inherent_res = self
-				.client
-				.runtime_api()
-				.check_inherents(*block.header().parent_hash(), block.clone(), inherent_data)
-				.map_err(|e| sp_consensus::Error::Other(Box::new(e)))?;
-
-			if !inherent_res.ok() {
-				for (i, e) in inherent_res.into_errors() {
-					match inherent_data_providers.try_handle_error(&i, &e).await {
-						Some(res) => res.map_err(|e| sp_consensus::Error::InvalidInherents(e))?,
-						None => return Err(sp_consensus::Error::InvalidInherentsUnhandled(i)),
-					}
-				}
-			}
-
-			let (_, inner_body) = block.deconstruct();
-			block_params.body = Some(inner_body);
-		}
-
-		self.inner.import_block(block_params).await
 	}
 }
 

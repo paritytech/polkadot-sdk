@@ -29,6 +29,7 @@ use sc_client_api::{backend::AuxStore, BlockOf, UsageProvider};
 use sc_consensus::{
 	block_import::{BlockImport, BlockImportParams, ForkChoiceStrategy},
 	import_queue::{BasicQueue, BoxJustificationImport, DefaultImportQueue, Verifier},
+	BlockCheckParams, ImportResult,
 };
 use sc_consensus_slots::CheckedHeader;
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_TRACE};
@@ -39,6 +40,7 @@ use sp_consensus::Error as ConsensusError;
 use sp_consensus_aura::AuraApi;
 use sp_consensus_slots::Slot;
 use sp_core::crypto::Pair;
+use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
 use sp_runtime::{
 	traits::{Block as BlockT, Header, NumberFor},
 	DigestItem,
@@ -228,11 +230,15 @@ where
 	GetSlotFn: Fn(Block::Hash) -> sp_blockchain::Result<Slot> + Send + Sync + 'static,
 {
 	let verifier = build_verifier::<P, _, _, _>(BuildVerifierParams {
-		client,
+		client: client.clone(),
 		get_slot,
 		telemetry,
 		compatibility_mode,
 	});
+
+	let create_inherent_data_providers =
+		move |_, _| async move { Ok(sp_timestamp::InherentDataProvider::from_system_time()) };
+	let block_import = AuraBlockImport::new(block_import, client, create_inherent_data_providers);
 
 	Ok(BasicQueue::new(verifier, Box::new(block_import), justification_import, spawner, registry))
 }
@@ -260,4 +266,77 @@ pub fn build_verifier<P, C, GetSlotFn, N>(
 	>,
 ) -> AuraVerifier<C, P, GetSlotFn, N> {
 	AuraVerifier::<_, P, _, _>::new(client, get_slot, telemetry, compatibility_mode)
+}
+
+struct AuraBlockImport<Block: BlockT, BI, Client, CIDP> {
+	inner: BI,
+	client: Arc<Client>,
+	create_inherent_data_providers: CIDP,
+	_phantom: PhantomData<Block>,
+}
+
+impl<Block: BlockT, BI, Client, CIDP> AuraBlockImport<Block, BI, Client, CIDP> {
+	fn new(inner: BI, client: Arc<Client>, create_inherent_data_providers: CIDP) -> Self {
+		Self { inner, client, create_inherent_data_providers, _phantom: Default::default() }
+	}
+}
+
+#[async_trait::async_trait]
+impl<Block: BlockT, BI, Client, CIDP> BlockImport<Block>
+	for AuraBlockImport<Block, BI, Client, CIDP>
+where
+	Client: ProvideRuntimeApi<Block> + Send + Sync,
+	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block>,
+	BI: sc_consensus::BlockImport<Block, Error = sp_consensus::Error> + Send + Sync,
+	CIDP: CreateInherentDataProviders<Block, ()> + Sync,
+{
+	type Error = sp_consensus::Error;
+
+	async fn check_block(
+		&self,
+		block: BlockCheckParams<Block>,
+	) -> Result<ImportResult, Self::Error> {
+		self.inner.check_block(block).await
+	}
+
+	async fn import_block(
+		&self,
+		mut block_params: BlockImportParams<Block>,
+	) -> Result<ImportResult, Self::Error> {
+		// Check inherents.
+		if let Some(inner_body) = block_params.body.take() {
+			let inherent_data_providers = self
+				.create_inherent_data_providers
+				.create_inherent_data_providers(*block_params.header.parent_hash(), ())
+				.await
+				.map_err(sp_consensus::Error::Other)?;
+
+			let inherent_data = inherent_data_providers
+				.create_inherent_data()
+				.await
+				.map_err(|e| sp_consensus::Error::Other(e.into()))?;
+
+			let block = Block::new(block_params.header.clone(), inner_body);
+
+			let inherent_res = self
+				.client
+				.runtime_api()
+				.check_inherents(*block.header().parent_hash(), block.clone(), inherent_data)
+				.map_err(|e| sp_consensus::Error::Other(Box::new(e)))?;
+
+			if !inherent_res.ok() {
+				for (i, e) in inherent_res.into_errors() {
+					match inherent_data_providers.try_handle_error(&i, &e).await {
+						Some(res) => res.map_err(|e| sp_consensus::Error::InvalidInherents(e))?,
+						None => return Err(sp_consensus::Error::InvalidInherentsUnhandled(i)),
+					}
+				}
+			}
+
+			let (_, inner_body) = block.deconstruct();
+			block_params.body = Some(inner_body);
+		}
+
+		self.inner.import_block(block_params).await
+	}
 }
