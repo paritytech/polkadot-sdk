@@ -1,0 +1,54 @@
+# GHA for test-linux-stable-int, test-linux-stable, test-linux-stable-oldkernel
+name: tests linux stable experimental
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preflight:
+    uses: ./.github/workflows/reusable-preflight.yml
+
+  # some tests do not run with `try-runtime` feature enabled
+  # https://github.com/paritytech/polkadot-sdk/pull/4251#discussion_r1624282143
+  #
+  # all_security_features_work and nonexistent_cache_dir are currently skipped
+  # becuase runners don't have the necessary permissions to run them
+  test-linux-stable-no-try-runtime:
+    needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
+    runs-on: cattery-gce
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    env:
+      RUST_TOOLCHAIN: stable
+      # Enable debug assertions since we are running optimized builds for testing
+      # but still want to have debug assertions.
+      RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: script
+        id: required
+        run: |
+          forklift cargo nextest run --workspace \
+                   --locked \
+                   --release \
+                   --no-fail-fast \
+                   --cargo-quiet \
+                   --features experimental,ci-only-tests \
+                   --filter-expr "test(/all_security_features_work/) + test(/nonexistent_cache_dir/)"
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
