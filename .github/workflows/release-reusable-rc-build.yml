@@ -109,7 +109,7 @@ jobs:
           ./.github/scripts/release/build-linux-release.sh ${{ matrix.binaries }} ${{ inputs.package }} ${{ inputs.features }}
 
       - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@db473fddc028af60658334401dc6fa3ffd8669fd # v2.3.0
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
         with:
           subject-path: /artifacts/${{ matrix.binaries }}/${{ matrix.binaries }}
 
@@ -178,7 +178,7 @@ jobs:
         run: echo "/opt/homebrew/bin" >>  $GITHUB_PATH
 
       - name: Install rust ${{ env.RUST_VERSION }}
-        uses: actions-rust-lang/setup-rust-toolchain@9d7e65c320fdb52dcd45ffaa68deb6c02c8754d9 # v1.12.0
+        uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48 # v1.13.0
         with:
           cache: false
           toolchain: ${{ env.RUST_VERSION }}
@@ -224,7 +224,7 @@ jobs:
           ./.github/scripts/release/build-macos-release.sh ${{ matrix.binaries }} ${{ inputs.package }} ${{ inputs.features }}
 
       - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@db473fddc028af60658334401dc6fa3ffd8669fd # v2.3.0
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
         with:
           subject-path: ${{ env.ARTIFACTS_PATH }}/${{ matrix.binaries }}
 
@@ -297,7 +297,7 @@ jobs:
         . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ inputs.package }} ${VERSION}
 
     - name: Generate artifact attestation
-      uses: actions/attest-build-provenance@db473fddc028af60658334401dc6fa3ffd8669fd # v2.3.0
+      uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
       with:
         subject-path: target/production/*.deb
 
