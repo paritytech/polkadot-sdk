@@ -56,14 +56,13 @@
 pub use pallet::*;
 
 extern crate alloc;
-use alloc::vec::Vec;
+use alloc::{collections::BTreeMap, vec::Vec};
 use frame_support::{pallet_prelude::*, traits::RewardsReporter};
 use pallet_staking_async_rc_client::{self as rc_client};
 use sp_staking::{
 	offence::{OffenceDetails, OffenceSeverity},
 	SessionIndex,
 };
-use alloc::{collections::BTreeMap};
 
 /// The balance type seen from this pallet's PoV.
 pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
@@ -374,8 +373,7 @@ pub mod pallet {
 	/// is only one. In this pallet, we assume this is the case and store only the first reporter.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub type BufferedOffences<T: Config> =
-		StorageValue<_, BufferedOffencesMap<T>, ValueQuery>;
+	pub type BufferedOffences<T: Config> = StorageValue<_, BufferedOffencesMap<T>, ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound, frame_support::DebugNoBound)]
@@ -690,7 +688,7 @@ pub mod pallet {
 							slash_fraction: *fraction,
 						});
 					},
-					_ => {}
+					_ => {},
 				}
 			}
 
@@ -755,20 +753,23 @@ pub mod pallet {
 
 			// send all buffered offences to AssetHub.
 			// for one slash session, put them in one batch.
-			BufferedOffences::<T>::take().into_iter().for_each(|(slash_session, offence_map)| {
-				let offences = offence_map.iter()
-					.map(|(offender, offence)| {
-						// convert to rc_client::Offence
-						rc_client::Offence {
-							offender: offender.clone(),
-							reporters: offence.reporter.clone().into_iter().collect(),
-							slash_fraction: offence.slash_fraction,
-						}
-					})
-					.collect::<Vec<_>>();
+			BufferedOffences::<T>::take()
+				.into_iter()
+				.for_each(|(slash_session, offence_map)| {
+					let offences = offence_map
+						.iter()
+						.map(|(offender, offence)| {
+							// convert to rc_client::Offence
+							rc_client::Offence {
+								offender: offender.clone(),
+								reporters: offence.reporter.clone().into_iter().collect(),
+								slash_fraction: offence.slash_fraction,
+							}
+						})
+						.collect::<Vec<_>>();
 
-				T::SendToAssetHub::relay_new_offence(slash_session, offences)
-			});
+					T::SendToAssetHub::relay_new_offence(slash_session, offences)
+				});
 		}
 
 		fn do_set_mode(new_mode: OperatingMode) {
