@@ -93,8 +93,7 @@ impl pallet_staking_async::EraPayout<Balance> for MockEraPayout {
 }
 
 // Mock RC client interface
-pub struct MockRcClient;
-impl pallet_staking_async_rc_client::RcClientInterface for MockRcClient {
+impl pallet_staking_async_rc_client::RcClientInterface for () {
 	type AccountId = AccountId;
 	fn validator_set(
 		_new_validator_set: Vec<Self::AccountId>,
@@ -115,7 +114,7 @@ impl pallet_staking_async::Config for Runtime {
 	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
 	type CurrencyToVote = SaturatingCurrencyToVote;
 	type EraPayout = MockEraPayout;
-	type RcClientInterface = MockRcClient;
+	type RcClientInterface = ();
 	type EventListeners = (Pools, DelegatedStaking);
 	type WeightInfo = ();
 }
