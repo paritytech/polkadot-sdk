@@ -83,25 +83,19 @@ impl<T: Config>  PrimitivePrecompile for Create2<T>
         assert_eq!(salt_length, 32, "salt length must be 32 bytes");
         let salt: &[u8; 32] = salt.try_into().map_err(|_| DispatchError::from("invalid salt length"))?;
         let contract_address = crate::address::create2(&deployer, code, &[], salt);
-        println!("deployer: {:?}", deployer);
-        println!("salt: {:?}", salt);
-        println!("code: {:?}", code);
 
         let code_hash = sp_io::hashing::keccak_256(&code);
 
         let instantiate_result = env.instantiate(
             gas_limit,
-            U256::MAX, // TODO(RVE): what value to put here?
+            U256::MAX, // TODO(RVE): what value to put for deposit limit?
             H256::from(code_hash),
             endowment,
-            vec![], // input data for constructor, if any
+            vec![], // input data for constructor, if any?
             Some(salt),
             Some(&deployer),
         );
         assert!(instantiate_result.is_ok());
-        println!("instantiate_result: {:?}", instantiate_result.unwrap());
-        println!("contract_address: {:?}", contract_address);
-        println!("address: {:?}", address);
         assert_eq!(instantiate_result.unwrap(), contract_address);
 
         // Pad the contract address to 32 bytes (left padding with zeros)

@@ -990,14 +990,8 @@ where
 			FrameArgs::Instantiate { sender, executable, salt, input_data } => {
 				let deployer = T::AddressMapper::to_address(&sender);
 				let account_nonce = <System<T>>::account_nonce(&sender);
-				println!("RVE: deployer: {deployer:?}");
-				println!("RVE: executable.code(): {:?}", executable.code());
-				println!("RVE: input_data: {input_data:?}");
-				println!("RVE: salt: {salt:?}");
 				let address = if let Some(salt) = salt {
-					let result = address::create2(&deployer, executable.code(), input_data, salt);
-					println!("RVE: create2 result: {result:?}");
-					result
+					address::create2(&deployer, executable.code(), input_data, salt)
 				} else {
 					use sp_runtime::Saturating;
 					address::create1(
