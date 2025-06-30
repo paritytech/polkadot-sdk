@@ -1727,6 +1727,9 @@ sp_api::decl_runtime_apis! {
 		/// The address of the validator that produced the current block.
 		fn block_author() -> Option<H160>;
 
+		/// Get the H160 address associated to this account id
+		fn address(account_id: AccountId) -> H160;
+
 		/// The address used to call the runtime's pallets dispatchables
 		fn runtime_pallets_address() -> H160;
 	}
@@ -1767,6 +1770,11 @@ macro_rules! impl_runtime_apis_plus_revive {
 					use $crate::AddressMapper;
 					let account = <Self as $crate::Config>::AddressMapper::to_account_id(&address);
 					$crate::frame_system::Pallet::<Self>::account_nonce(account)
+				}
+
+				fn address(account_id: AccountId) -> $crate::H160 {
+					use $crate::AddressMapper;
+					<Self as $crate::Config>::AddressMapper::to_address(&account_id)
 				}
 
 				fn eth_transact(
