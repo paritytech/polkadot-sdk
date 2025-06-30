@@ -87,19 +87,6 @@ impl<T: frame_system::Config> snowbridge_pallet_outbound_queue_v2::WeightInfo fo
 			.saturating_add(Weight::from_parts(0, 1620))
 			.saturating_add(T::DbWeight::get().reads(1))
 	}
-	/// Storage: `EthereumOutboundQueueV2::MessageLeaves` (r:0 w:1)
-	/// Proof: `EthereumOutboundQueueV2::MessageLeaves` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `EthereumOutboundQueueV2::Messages` (r:0 w:1)
-	/// Proof: `EthereumOutboundQueueV2::Messages` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	fn on_initialize() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 0_000 picoseconds.
-		Weight::from_parts(1_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			.saturating_add(T::DbWeight::get().writes(2))
-	}
 	/// Storage: `EthereumOutboundQueueV2::Nonce` (r:1 w:1)
 	/// Proof: `EthereumOutboundQueueV2::Nonce` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	/// Storage: `EthereumOutboundQueueV2::PendingOrders` (r:0 w:32)

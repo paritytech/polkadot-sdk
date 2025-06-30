@@ -109,7 +109,7 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame_support::{pallet_prelude::*, weights::WeightMeter};
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
@@ -135,7 +135,7 @@ pub mod pallet {
 
 		/// Max number of messages processed per block
 		#[pallet::constant]
-		type MaxMessagesPerBlock: Get<u32>;
+		type MaxMessagesInBatch: Get<u32>;
 
 		/// Convert a weight value into a deductible fee based.
 		type WeightToFee: WeightToFee<Balance = Self::Balance>;
@@ -230,17 +230,6 @@ pub mod pallet {
 		RewardPaymentFailed,
 	}
 
-	/// Messages to be committed in the current block. This storage value is killed in
-	/// `on_initialize`, so will not end up bloating state.
-	///
-	/// Is never read in the runtime, only by offchain message relayers.
-	/// Because of this, it will never go into the PoV of a block.
-	///
-	/// Inspired by the `frame_system::Pallet::Events` storage value
-	#[pallet::storage]
-	#[pallet::unbounded]
-	pub(super) type Messages<T: Config> = StorageValue<_, Vec<OutboundMessage>, ValueQuery>;
-
 	/// Hashes of the ABI-encoded messages in the [`Messages`] storage value. Used to generate a
 	/// merkle root during `on_finalize`. This storage value is killed in `on_initialize`, so state
 	/// at each block contains only root hash of messages processed in that block. This also means
@@ -255,21 +244,31 @@ pub mod pallet {
 
 	/// Pending orders to relay
 	#[pallet::storage]
+	#[pallet::unbounded]
 	pub type PendingOrders<T: Config> =
 		StorageMap<_, Twox64Concat, u64, PendingOrder<BlockNumberFor<T>>, OptionQuery>;
 
+	/// Leaf to Order Map
+	#[pallet::storage]
+	pub type MessageLeaf<T: Config> = StorageMap<_, Twox64Concat, H256, u64, ValueQuery>;
+
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
-			// Remove storage from previous block
-			Messages::<T>::kill();
-			MessageLeaves::<T>::kill();
-			// Reserve some weight for the `on_finalize` handler
-			T::WeightInfo::on_initialize() + T::WeightInfo::commit()
-		}
+		fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
+			let mut meter = WeightMeter::with_limit(limit);
 
-		fn on_finalize(_: BlockNumberFor<T>) {
+			if meter.try_consume(T::WeightInfo::commit()).is_err() {
+				tracing::debug!(
+					"Not enough weight for on_idle. {} < {}",
+					T::WeightInfo::commit(),
+					limit
+				);
+				return meter.consumed();
+			}
+
 			Self::commit();
+
+			meter.consumed()
 		}
 	}
 
@@ -321,6 +320,23 @@ pub mod pallet {
 			// Insert merkle root into the header digest
 			<frame_system::Pallet<T>>::deposit_log(digest_item);
 
+			let leaves = MessageLeaves::<T>::get();
+
+			for leaf in leaves.into_iter() {
+				let nonce = MessageLeaf::<T>::get(leaf);
+				let _ =
+					<PendingOrders<T>>::try_mutate_exists(nonce, |maybe_order| -> DispatchResult {
+						let order = maybe_order.as_mut().ok_or(Error::<T>::InvalidPendingNonce)?;
+						if order.committed_block_number.is_none() {
+							order.committed_block_number =
+								Some(frame_system::Pallet::<T>::current_block_number());
+						}
+						Ok(())
+					});
+			}
+
+			MessageLeaves::<T>::kill();
+
 			Self::deposit_event(Event::MessagesCommitted { root, count });
 		}
 
@@ -335,7 +351,8 @@ pub mod pallet {
 			// Yield if the maximum number of messages has been processed this block.
 			// This ensures that the weight of `on_finalize` has a known maximum bound.
 			let current_len = MessageLeaves::<T>::decode_len().unwrap_or(0);
-			if current_len >= T::MaxMessagesPerBlock::get() as usize {
+			if current_len >= T::MaxMessagesInBatch::get() as usize {
+				Self::commit();
 				Self::deposit_event(Event::MessagePostponed {
 					payload: message.to_vec(),
 					reason: Yield,
@@ -386,7 +403,6 @@ pub mod pallet {
 					Corrupt
 				})?,
 			};
-			Messages::<T>::append(outbound_message);
 
 			// Convert it to an OutboundMessageWrapper (in ABI format), hash it using Keccak256 to
 			// generate a committed hash, and store it in MessageLeaves storage which can be
@@ -405,9 +421,8 @@ pub mod pallet {
 				topic: FixedBytes::from(id.as_fixed_bytes()),
 				commands: abi_commands,
 			};
-			let message_abi_encoded_hash =
-				<T as Config>::Hashing::hash(&committed_message.abi_encode());
-			MessageLeaves::<T>::append(message_abi_encoded_hash);
+			let leaf_hash = <T as Config>::Hashing::hash(&committed_message.abi_encode());
+			MessageLeaves::<T>::append(leaf_hash);
 
 			// Generate `PendingOrder` with fee attached in the message, stored
 			// into the `PendingOrders` map storage, with assigned nonce as the key.
@@ -418,8 +433,12 @@ pub mod pallet {
 				nonce,
 				fee,
 				block_number: frame_system::Pallet::<T>::current_block_number(),
+				committed_block_number: None,
+				outbound_message,
+				hash: leaf_hash,
 			};
 			<PendingOrders<T>>::insert(nonce, order);
+			<MessageLeaf<T>>::insert(leaf_hash, nonce);
 
 			<Nonce<T>>::set(nonce);
 
@@ -459,6 +478,7 @@ pub mod pallet {
 			}
 
 			<PendingOrders<T>>::remove(nonce);
+			<MessageLeaf<T>>::remove(receipt.leaf);
 
 			Self::deposit_event(Event::MessageDelivered { nonce });
 

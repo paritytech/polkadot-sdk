@@ -8,7 +8,7 @@ use sp_core::{RuntimeDebug, H160, H256};
 use sp_std::prelude::*;
 
 sol! {
-	event InboundMessageDispatched(uint64 indexed nonce, bytes32 topic, bool success, bytes32 reward_address);
+	event InboundMessageDispatched(uint64 indexed nonce, bytes32 leaf, bytes32 topic, bool success, bytes32 reward_address);
 }
 
 /// Delivery receipt
@@ -18,6 +18,8 @@ pub struct DeliveryReceipt {
 	pub gateway: H160,
 	/// The nonce of the dispatched message
 	pub nonce: u64,
+	/// The leaf hash of the dispatched message
+	pub leaf: H256,
 	/// Message topic
 	pub topic: H256,
 	/// Delivery status
@@ -44,6 +46,7 @@ impl TryFrom<&Log> for DeliveryReceipt {
 		Ok(Self {
 			gateway: log.address,
 			nonce: event.nonce,
+			leaf: H256::from_slice(event.leaf.as_ref()),
 			topic: H256::from_slice(event.topic.as_ref()),
 			success: event.success,
 			reward_address: event.reward_address.0,

@@ -6,7 +6,7 @@ use crate::fixture::make_submit_delivery_receipt_message;
 use bridge_hub_common::AggregateMessageOrigin;
 use codec::Encode;
 use frame_benchmarking::v2::*;
-use frame_support::{traits::Hooks, BoundedVec};
+use frame_support::BoundedVec;
 use frame_system::RawOrigin;
 use snowbridge_outbound_queue_primitives::v2::{Command, Initializer, Message};
 use sp_core::{H160, H256};
@@ -58,19 +58,19 @@ mod benchmarks {
 		(message, outbound_message)
 	}
 
-	/// Initialize `MaxMessagesPerBlock` messages need to be committed, in the worst-case.
+	/// Initialize `MaxMessagesInBatch` messages need to be committed, in the worst-case.
 	fn initialize_worst_case<T: Config>() {
-		for _ in 0..T::MaxMessagesPerBlock::get() {
+		for _ in 0..T::MaxMessagesInBatch::get() {
 			initialize_with_one_message::<T>();
 		}
 	}
 
 	/// Initialize with a single message
 	fn initialize_with_one_message<T: Config>() {
-		let (message, outbound_message) = build_message::<T>();
+		let (message, _) = build_message::<T>();
 		let leaf = <T as Config>::Hashing::hash(&message.encode());
 		MessageLeaves::<T>::append(leaf);
-		Messages::<T>::append(outbound_message);
+		MessageLeaf::<T>::insert(leaf, 1);
 	}
 
 	/// Benchmark for processing a message.
@@ -118,19 +118,8 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Benchmark for `on_initialize` in the worst-case
-	#[benchmark]
-	fn on_initialize() -> Result<(), BenchmarkError> {
-		initialize_worst_case::<T>();
-		#[block]
-		{
-			OutboundQueue::<T>::on_initialize(1_u32.into());
-		}
-		Ok(())
-	}
-
 	/// Benchmark the entire process flow in the worst-case. This can be used to determine
-	/// appropriate values for the configuration parameters `MaxMessagesPerBlock` and
+	/// appropriate values for the configuration parameters `MaxMessagesInBatch` and
 	/// `MaxMessagePayloadSize`
 	#[benchmark]
 	fn process() -> Result<(), BenchmarkError> {
@@ -141,8 +130,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			OutboundQueue::<T>::on_initialize(1_u32.into());
-			for _ in 0..T::MaxMessagesPerBlock::get() {
+			for _ in 0..T::MaxMessagesInBatch::get() {
 				OutboundQueue::<T>::do_process_message(origin, &message).unwrap();
 			}
 			OutboundQueue::<T>::commit();
@@ -159,14 +147,7 @@ mod benchmarks {
 
 		T::Helper::initialize_storage(message.finalized_header, message.block_roots_root);
 
-		let receipt = DeliveryReceipt::try_from(&message.event.event_log).unwrap();
-
-		let order = PendingOrder {
-			nonce: receipt.nonce,
-			fee: 0,
-			block_number: frame_system::Pallet::<T>::current_block_number(),
-		};
-		<PendingOrders<T>>::insert(receipt.nonce, order);
+		let _ = DeliveryReceipt::try_from(&message.event.event_log).unwrap();
 
 		#[block]
 		{
