@@ -70,6 +70,25 @@ fn create_funded_user_with_balance<T: pallet_nomination_pools::Config>(
 	user
 }
 
+// Create a funded validator with the given balance and set it up as a validator
+fn create_validator<T: Config>(n: u32, balance: BalanceOf<T>) -> T::AccountId {
+	let validator: T::AccountId = account("validator", n, USER_SEED);
+	CurrencyOf::<T>::set_balance(&validator, balance);
+
+	let stake = pallet_staking_async::MinValidatorBond::<T>::get() * 100u32.into();
+	pallet_staking_async::Bonded::<T>::insert(validator.clone(), validator.clone());
+	pallet_staking_async::Ledger::<T>::insert(
+		validator.clone(),
+		pallet_staking_async::StakingLedger::<T>::new(validator.clone(), stake),
+	);
+	pallet_staking_async::Pallet::<T>::do_add_validator(
+		&validator,
+		pallet_staking_async::ValidatorPrefs { commission: Perbill::zero(), blocked: false },
+	);
+
+	validator
+}
+
 // Create a bonded pool account, bonding `balance` and giving the account `balance * 2` free
 // balance.
 fn create_pool_account<T: pallet_nomination_pools::Config>(
@@ -179,23 +198,20 @@ impl<T: Config> ListScenario<T> {
 		// Burn the entire issuance.
 		CurrencyOf::<T>::set_total_issuance(Zero::zero());
 
+		// Create a proper validator that pools can nominate
+		let validator_balance = CurrencyOf::<T>::minimum_balance() * 1000u32.into();
+		let validator = create_validator::<T>(0, validator_balance);
+
 		// Create accounts with the origin weight
 		let (pool_creator1, pool_origin1) =
 			create_pool_account::<T>(USER_SEED + 1, origin_weight, Some(Perbill::from_percent(50)));
 
-		T::StakeAdapter::nominate(
-			Pool::from(pool_origin1.clone()),
-			// NOTE: these don't really need to be validators.
-			vec![account("random_validator", 0, USER_SEED)],
-		)?;
+		T::StakeAdapter::nominate(Pool::from(pool_origin1.clone()), vec![validator.clone()])?;
 
 		let (_, pool_origin2) =
 			create_pool_account::<T>(USER_SEED + 2, origin_weight, Some(Perbill::from_percent(50)));
 
-		T::StakeAdapter::nominate(
-			Pool::from(pool_origin2.clone()),
-			vec![account("random_validator", 0, USER_SEED)].clone(),
-		)?;
+		T::StakeAdapter::nominate(Pool::from(pool_origin2.clone()), vec![validator.clone()])?;
 
 		// Find a destination weight that will trigger the worst case scenario
 		let dest_weight_as_vote =
@@ -211,10 +227,7 @@ impl<T: Config> ListScenario<T> {
 		let (_, pool_dest1) =
 			create_pool_account::<T>(USER_SEED + 3, dest_weight, Some(Perbill::from_percent(50)));
 
-		T::StakeAdapter::nominate(
-			Pool::from(pool_dest1.clone()),
-			vec![account("random_validator", 0, USER_SEED)],
-		)?;
+		T::StakeAdapter::nominate(Pool::from(pool_dest1.clone()), vec![validator.clone()])?;
 
 		let weight_of = pallet_staking_async::Pallet::<T>::weight_of_fn();
 		assert_eq!(vote_to_balance::<T>(weight_of(&pool_origin1)).unwrap(), origin_weight);
@@ -643,9 +656,10 @@ mod benchmarks {
 		let min_create_bond = Pools::<T>::depositor_min_bond() * 2u32.into();
 		let (depositor, _pool_account) = create_pool_account::<T>(0, min_create_bond, None);
 
-		// Create some accounts to nominate. For the sake of benchmarking they don't need to be
-		// actual validators
-		let validators: Vec<_> = (0..n).map(|i| account("stash", USER_SEED, i)).collect();
+		// Create proper validators to nominate
+		let validator_balance = CurrencyOf::<T>::minimum_balance() * 1000u32.into();
+		let validators: Vec<_> =
+			(0..n).map(|i| create_validator::<T>(i, validator_balance)).collect();
 
 		whitelist_account!(depositor);
 
@@ -769,8 +783,9 @@ mod benchmarks {
 			create_pool_account::<T>(0, Pools::<T>::depositor_min_bond() * 2u32.into(), None);
 
 		// Nominate with the pool.
+		let validator_balance = CurrencyOf::<T>::minimum_balance() * 1000u32.into();
 		let validators: Vec<_> = (0..MaxNominationsOf::<T>::get())
-			.map(|i| account("stash", USER_SEED, i))
+			.map(|i| create_validator::<T>(i, validator_balance))
 			.collect();
 
 		assert_ok!(T::StakeAdapter::nominate(Pool::from(pool_account.clone()), validators));
