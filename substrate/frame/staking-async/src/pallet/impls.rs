@@ -1925,20 +1925,20 @@ impl<T: Config> Pallet<T> {
 		match (is_nominator, is_validator) {
 			(false, false) => {
 				if ledger.active < Self::min_chilled_bond() {
-					log!(warn, "Chilled stash {} has less than minimum bond", stash);
+					log!(warn, "Chilled stash {:?} has less than minimum bond", stash);
 				}
 				// is chilled
 			},
 			(true, false) => {
 				// Nominators must have a minimum bond.
 				if ledger.active < Self::min_nominator_bond() {
-					log!(warn, "Nominator {} has less than minimum bond", stash);
+					log!(warn, "Nominator {:?} has less than minimum bond", stash);
 				}
 			},
 			(false, true) => {
 				// Validators must have a minimum bond.
 				if ledger.active < Self::min_validator_bond() {
-					log!(warn, "Validator {} has less than minimum bond", stash);
+					log!(warn, "Validator {:?} has less than minimum bond", stash);
 				}
 			},
 			(true, true) => {
