@@ -178,7 +178,7 @@ parameter_types! {
 	/// lightweight per-page.
 	pub const MaxExposurePageSize: u32 = 64;
 
-	/// Each solution is considered "better" if it is 0.01% better.
+	/// Each solution is considered "better" if it is an epsilon better than the previous one.
 	pub SolutionImprovementThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
 }
 
