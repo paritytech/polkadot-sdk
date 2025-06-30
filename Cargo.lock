@@ -15331,6 +15331,7 @@ dependencies = [
  "polkadot-node-subsystem-util",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
+ "polkadot-subsystem-bench",
  "sc-keystore",
  "schnellru",
  "sp-application-crypto 30.0.0",

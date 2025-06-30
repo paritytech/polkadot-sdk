@@ -11,6 +11,11 @@ repository.workspace = true
 [lints]
 workspace = true
 
+[[bench]]
+name = "dispute-coordinator-regression-bench"
+path = "benches/dispute-coordinator-regression-bench.rs"
+harness = false
+
 [dependencies]
 codec = { workspace = true, default-features = true }
 fatality = { workspace = true }
@@ -38,6 +43,8 @@ sp-core = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
+
+polkadot-subsystem-bench = { workspace = true }
 
 [features]
 # If not enabled, the dispute coordinator will do nothing.
