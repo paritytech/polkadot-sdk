@@ -274,7 +274,7 @@ impl Constraints {
 	) -> Result<(), ModificationError> {
 		if let Some(HrmpWatermarkUpdate::Trunk(hrmp_watermark)) = modifications.hrmp_watermark {
 			// head updates are always valid.
-			if self.hrmp_inbound.valid_watermarks.iter().all(|w| w != &hrmp_watermark) {
+			if !self.hrmp_inbound.valid_watermarks.contains(&hrmp_watermark) {
 				return Err(ModificationError::DisallowedHrmpWatermark(hrmp_watermark))
 			}
 		}
@@ -347,7 +347,7 @@ impl Constraints {
 			match new.hrmp_inbound.valid_watermarks.binary_search(&hrmp_watermark.watermark()) {
 				Ok(pos) => {
 					// Exact match, so this is OK in all cases.
-					let _ = new.hrmp_inbound.valid_watermarks.drain(..pos + 1);
+					let _ = new.hrmp_inbound.valid_watermarks.drain(..pos);
 				},
 				Err(pos) => match hrmp_watermark {
 					HrmpWatermarkUpdate::Head(_) => {
@@ -1038,30 +1038,44 @@ mod tests {
 	}
 
 	#[test]
-	fn constraints_disallowed_trunk_watermark() {
+	fn constraints_check_trunk_watermark() {
 		let constraints = make_constraints();
 		let mut modifications = ConstraintModifications::identity();
-		modifications.hrmp_watermark = Some(HrmpWatermarkUpdate::Trunk(7));
 
+		// The current hrmp watermark is kept
+		modifications.hrmp_watermark = Some(HrmpWatermarkUpdate::Trunk(6));
+		assert!(constraints.check_modifications(&modifications).is_ok());
+		let new_constraints = constraints.apply_modifications(&modifications).unwrap();
+		assert_eq!(new_constraints.hrmp_inbound.valid_watermarks, vec![6, 8]);
+
+		modifications.hrmp_watermark = Some(HrmpWatermarkUpdate::Trunk(7));
 		assert_eq!(
 			constraints.check_modifications(&modifications),
 			Err(ModificationError::DisallowedHrmpWatermark(7)),
 		);
-
 		assert_eq!(
 			constraints.apply_modifications(&modifications),
 			Err(ModificationError::DisallowedHrmpWatermark(7)),
 		);
+
+		modifications.hrmp_watermark = Some(HrmpWatermarkUpdate::Trunk(8));
+		assert!(constraints.check_modifications(&modifications).is_ok());
+		let new_constraints = constraints.apply_modifications(&modifications).unwrap();
+		assert_eq!(new_constraints.hrmp_inbound.valid_watermarks, vec![8]);
 	}
 
 	#[test]
-	fn constraints_always_allow_head_watermark() {
+	fn constraints_check_head_watermark() {
 		let constraints = make_constraints();
 		let mut modifications = ConstraintModifications::identity();
-		modifications.hrmp_watermark = Some(HrmpWatermarkUpdate::Head(7));
 
+		modifications.hrmp_watermark = Some(HrmpWatermarkUpdate::Head(5));
 		assert!(constraints.check_modifications(&modifications).is_ok());
+		let new_constraints = constraints.apply_modifications(&modifications).unwrap();
+		assert_eq!(new_constraints.hrmp_inbound.valid_watermarks, vec![6, 8]);
 
+		modifications.hrmp_watermark = Some(HrmpWatermarkUpdate::Head(7));
+		assert!(constraints.check_modifications(&modifications).is_ok());
 		let new_constraints = constraints.apply_modifications(&modifications).unwrap();
 		assert_eq!(new_constraints.hrmp_inbound.valid_watermarks, vec![8]);
 	}
