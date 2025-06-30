@@ -78,17 +78,13 @@ fn deserialize_input_or_data<'d, D: Deserializer<'d>>(d: D) -> Result<InputOrDat
 #[serde(rename_all = "camelCase")]
 pub struct Block {
 	/// Base fee per gas
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub base_fee_per_gas: Option<U256>,
+	pub base_fee_per_gas: U256,
 	/// Blob gas used
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub blob_gas_used: Option<U256>,
+	pub blob_gas_used: U256,
 	/// Difficulty
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub difficulty: Option<U256>,
+	pub difficulty: U256,
 	/// Excess blob gas
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub excess_blob_gas: Option<U256>,
+	pub excess_blob_gas: U256,
 	/// Extra data
 	pub extra_data: Bytes,
 	/// Gas limit
@@ -131,11 +127,9 @@ pub struct Block {
 	/// Uncles
 	pub uncles: Vec<H256>,
 	/// Withdrawals
-	#[serde(default, skip_serializing_if = "Vec::is_empty")]
 	pub withdrawals: Vec<Withdrawal>,
 	/// Withdrawals root
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub withdrawals_root: Option<H256>,
+	pub withdrawals_root: H256,
 }
 
 /// Block number or tag
@@ -251,7 +245,7 @@ pub struct GenericTransaction {
 	pub access_list: Option<AccessList>,
 	/// blobVersionedHashes
 	/// List of versioned blob hashes associated with the transaction's EIP-4844 data blobs.
-	#[serde(default, skip_serializing_if = "Vec::is_empty")]
+	#[serde(default)]
 	pub blob_versioned_hashes: Vec<H256>,
 	/// blobs
 	/// Raw blob data.
@@ -483,10 +477,10 @@ pub struct Log {
 	/// log index
 	pub log_index: U256,
 	/// removed
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub removed: Option<bool>,
+	#[serde(default)]
+	pub removed: bool,
 	/// topics
-	#[serde(default, skip_serializing_if = "Vec::is_empty")]
+	#[serde(default)]
 	pub topics: Vec<H256>,
 	/// transaction hash
 	pub transaction_hash: H256,

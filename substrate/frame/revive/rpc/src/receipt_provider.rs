@@ -381,7 +381,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 					topics,
 					transaction_hash: H256::from_slice(&transaction_hash),
 					transaction_index: U256::from(transaction_index as u64),
-					removed: None,
+					removed: false,
 				})
 			})
 			.fetch_all(&self.pool)
