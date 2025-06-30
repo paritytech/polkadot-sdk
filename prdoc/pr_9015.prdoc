@@ -1,6 +1,6 @@
 title: 'consensus/grandpa: Fix high number of peer disconnects with invalid justification'
 doc:
-  - audience: [Node Dev, Node Operator]
+- audience: [Node Dev, Node Operator]
   description: |-
     A grandpa race-casse has been identified in the versi-net stack around authority set changes, which leads to the following:
 
