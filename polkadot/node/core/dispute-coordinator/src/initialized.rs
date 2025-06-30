@@ -1565,6 +1565,60 @@ impl Initialized {
 	fn session_is_ancient(&self, session_idx: SessionIndex) -> bool {
 		return session_idx < self.highest_session_seen.saturating_sub(DISPUTE_WINDOW.get() - 1)
 	}
+
+	/// Revisit active non-confirmed disputes after validators have been disabled.
+	/// Unactivates disputes where all raising parties (invalid voters) are now disabled.
+	fn revisit_active_disputes_after_disabling(
+		&mut self,
+		overlay_db: &mut OverlayedBackend<'_, impl Backend>,
+		session: SessionIndex,
+	) -> FatalResult<()> {
+		let mut recent_disputes = overlay_db.load_recent_disputes()?.unwrap_or_default();
+		let mut disputes_to_remove = Vec::new();
+
+		// Create session bounds for efficient iteration
+		let session_start = (session, CandidateHash(Hash::repeat_byte(0x00)));
+		let session_end = (session + 1, CandidateHash(Hash::repeat_byte(0x00)));
+
+		for ((dispute_session, candidate_hash), status) in
+			recent_disputes.range(&session_start..&session_end)
+		{
+			debug_assert_eq!(session, *dispute_session);
+			// Only check unconfirmed
+			if !status.is_confirmed_concluded() {
+				if let Some(votes) =
+					overlay_db.load_candidate_votes(*dispute_session, candidate_hash)?
+				{
+					// Check if all invalid voters (raising parties) are disabled
+					if !votes.invalid.is_empty() &&
+						votes.invalid.iter().all(|(_, validator_index, _)| {
+							self.offchain_disabled_validators.is_disabled(session, *validator_index)
+						}) {
+						disputes_to_remove.push((*dispute_session, *candidate_hash));
+						self.metrics.on_unactivated_dispute();
+
+						gum::info!(
+							target: LOG_TARGET,
+							session = dispute_session,
+							?candidate_hash,
+							invalid_voters = ?votes.invalid.iter().map(|(_, idx, _)| *idx).collect::<Vec<_>>(),
+							"Unactivating dispute where all raising parties are now disabled"
+						);
+					}
+				}
+			}
+		}
+
+		// Remove them from RecentDisputes (setting status to inactive)
+		if !disputes_to_remove.is_empty() {
+			for key in disputes_to_remove {
+				recent_disputes.remove(&key);
+			}
+			overlay_db.write_recent_disputes(recent_disputes);
+		}
+
+		Ok(())
+	}
 }
 
 /// Messages to be handled in this subsystem.
@@ -1789,61 +1843,5 @@ impl OffchainDisabledValidators {
 					session_disputes.against_valid.peek(&validator_index).is_some()
 			})
 			.unwrap_or(false)
-	}
-}
-
-impl Initialized {
-	/// Revisit active non-confirmed disputes after validators have been disabled.
-	/// Unactivates disputes where all raising parties (invalid voters) are now disabled.
-	fn revisit_active_disputes_after_disabling(
-		&mut self,
-		overlay_db: &mut OverlayedBackend<'_, impl Backend>,
-		session: SessionIndex,
-	) -> FatalResult<()> {
-		let mut recent_disputes = overlay_db.load_recent_disputes()?.unwrap_or_default();
-		let mut disputes_to_remove = Vec::new();
-
-		// Create session bounds for efficient iteration
-		let session_start = (session, CandidateHash(Hash::repeat_byte(0x00)));
-		let session_end = (session + 1, CandidateHash(Hash::repeat_byte(0x00)));
-
-		for ((dispute_session, candidate_hash), status) in
-			recent_disputes.range(&session_start..&session_end)
-		{
-			debug_assert_eq!(session, *dispute_session);
-			// Only check unconfirmed
-			if !status.is_confirmed_concluded() {
-				if let Some(votes) =
-					overlay_db.load_candidate_votes(*dispute_session, candidate_hash)?
-				{
-					// Check if all invalid voters (raising parties) are disabled
-					if !votes.invalid.is_empty() &&
-						votes.invalid.iter().all(|(_, validator_index, _)| {
-							self.offchain_disabled_validators.is_disabled(session, *validator_index)
-						}) {
-						disputes_to_remove.push((*dispute_session, *candidate_hash));
-						self.metrics.on_unactivated_dispute();
-
-						gum::info!(
-							target: LOG_TARGET,
-							session = dispute_session,
-							?candidate_hash,
-							invalid_voters = ?votes.invalid.iter().map(|(_, idx, _)| *idx).collect::<Vec<_>>(),
-							"Unactivating dispute where all raising parties are now disabled"
-						);
-					}
-				}
-			}
-		}
-
-		// Remove them from RecentDisputes (setting status to inactive)
-		if !disputes_to_remove.is_empty() {
-			for key in disputes_to_remove {
-				recent_disputes.remove(&key);
-			}
-			overlay_db.write_recent_disputes(recent_disputes);
-		}
-
-		Ok(())
 	}
 }
