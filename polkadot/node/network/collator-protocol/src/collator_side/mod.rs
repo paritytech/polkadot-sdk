@@ -39,9 +39,7 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::{CollationSecondedSignal, PoV, Statement};
 use polkadot_node_subsystem::{
-	messages::{
-		CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage, ParentHeadData,
-	},
+	messages::{CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage},
 	overseer, FromOrchestra, OverseerSignal,
 };
 use polkadot_node_subsystem_util::{
@@ -162,9 +160,9 @@ impl ValidatorGroup {
 				.get(candidate_hash)
 				.map_or(true, |advertised| !advertised[validator_index])
 			{
-				return ShouldAdvertiseTo::Yes
+				return ShouldAdvertiseTo::Yes;
 			} else {
-				return ShouldAdvertiseTo::AlreadyAdvertised
+				return ShouldAdvertiseTo::AlreadyAdvertised;
 			}
 		}
 
@@ -381,7 +379,6 @@ async fn distribute_collation<Context>(
 	state: &mut State,
 	id: ParaId,
 	receipt: CandidateReceipt,
-	parent_head_data_hash: Hash,
 	pov: PoV,
 	parent_head_data: HeadData,
 	result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
@@ -401,7 +398,7 @@ async fn distribute_collation<Context>(
 				candidate_hash = ?candidate_hash,
 				"Candidate relay parent is out of our view",
 			);
-			return Ok(())
+			return Ok(());
 		},
 	};
 
@@ -415,7 +412,7 @@ async fn distribute_collation<Context>(
 			"Attempting to distribute collation for a core we are not assigned to ",
 		);
 
-		return Ok(())
+		return Ok(());
 	};
 
 	let current_collations_count = per_relay_parent
@@ -431,7 +428,7 @@ async fn distribute_collation<Context>(
 			collations_limit,
 			core_index.0,
 		);
-		return Ok(())
+		return Ok(());
 	}
 
 	// We have already seen collation for this relay parent.
@@ -442,7 +439,7 @@ async fn distribute_collation<Context>(
 			?candidate_hash,
 			"Already seen this candidate",
 		);
-		return Ok(())
+		return Ok(());
 	}
 
 	let elastic_scaling = per_relay_parent.assignments.len() > 1;
@@ -468,7 +465,7 @@ async fn distribute_collation<Context>(
 			"there are no validators assigned to core",
 		);
 
-		return Ok(())
+		return Ok(());
 	}
 
 	// It's important to insert new collation interests **before**
@@ -507,12 +504,6 @@ async fn distribute_collation<Context>(
 	if let Some(result_sender) = result_sender {
 		state.collation_result_senders.insert(candidate_hash, result_sender);
 	}
-
-	let parent_head_data = if elastic_scaling {
-		ParentHeadData::WithData { hash: parent_head_data_hash, head_data: parent_head_data }
-	} else {
-		ParentHeadData::OnlyHash(parent_head_data_hash)
-	};
 
 	let para_head = receipt.descriptor.para_head();
 	per_relay_parent.collations.insert(
@@ -716,7 +707,7 @@ async fn advertise_collation<Context>(
 				?core_index,
 				"Skipping advertising to validator, validator group for core not found",
 			);
-			return
+			return;
 		};
 
 		let should_advertise = validator_group.should_advertise_to(candidate_hash, peer_ids, &peer);
@@ -731,7 +722,7 @@ async fn advertise_collation<Context>(
 					reason = ?should_advertise,
 					"Not advertising collation"
 				);
-				continue
+				continue;
 			},
 		}
 
@@ -786,7 +777,7 @@ async fn process_msg<Context>(
 		},
 		DistributeCollation {
 			candidate_receipt,
-			parent_head_data_hash,
+			parent_head_data_hash: _,
 			pov,
 			parent_head_data,
 			result_sender,
@@ -811,7 +802,6 @@ async fn process_msg<Context>(
 						state,
 						id,
 						candidate_receipt,
-						parent_head_data_hash,
 						pov,
 						parent_head_data,
 						result_sender,
@@ -859,7 +849,7 @@ async fn send_collation(
 	request: VersionedCollationRequest,
 	receipt: CandidateReceipt,
 	pov: PoV,
-	parent_head_data: ParentHeadData,
+	parent_head_data: HeadData,
 ) {
 	let (tx, rx) = oneshot::channel();
 
@@ -867,16 +857,11 @@ async fn send_collation(
 	let peer_id = request.peer_id();
 	let candidate_hash = receipt.hash();
 
-	let result = match parent_head_data {
-		ParentHeadData::WithData { head_data, .. } =>
-			Ok(request_v2::CollationFetchingResponse::CollationWithParentHeadData {
-				receipt,
-				pov,
-				parent_head_data: head_data,
-			}),
-		ParentHeadData::OnlyHash(_) =>
-			Ok(request_v2::CollationFetchingResponse::Collation(receipt, pov)),
-	};
+	let result = Ok(request_v2::CollationFetchingResponse::CollationWithParentHeadData {
+		receipt,
+		pov,
+		parent_head_data,
+	});
 
 	let response =
 		OutgoingResponse { result, reputation_changes: Vec::new(), sent_feedback: Some(tx) };
@@ -992,7 +977,7 @@ async fn handle_incoming_peer_message<Context>(
 								candidate_hash = ?&statement.payload().candidate_hash(),
 								"Seconded statement relay parent is out of our view",
 							);
-							return Ok(())
+							return Ok(());
 						},
 					};
 					match relay_parent.collations.get(&statement.payload().candidate_hash()) {
@@ -1045,7 +1030,7 @@ async fn handle_incoming_request<Context>(
 						"received a `RequestCollation` for a relay parent out of our view",
 					);
 
-					return Ok(())
+					return Ok(());
 				},
 			};
 
@@ -1069,7 +1054,7 @@ async fn handle_incoming_request<Context>(
 						"received a `RequestCollation` for a relay parent we don't have collation stored.",
 					);
 
-					return Ok(())
+					return Ok(());
 				};
 
 			state.metrics.on_collation_sent_requested();
@@ -1089,7 +1074,7 @@ async fn handle_incoming_request<Context>(
 					COST_APPARENT_FLOOD.into(),
 				)
 				.await;
-				return Ok(())
+				return Ok(());
 			}
 
 			if waiting.collation_fetch_active {
@@ -1131,7 +1116,7 @@ async fn handle_peer_view_change<Context>(
 	view: View,
 ) {
 	let Some(PeerData { view: current, unknown_heads }) = state.peer_data.get_mut(&peer_id) else {
-		return
+		return;
 	};
 
 	let added: Vec<Hash> = view.difference(&*current).cloned().collect();
@@ -1157,13 +1142,13 @@ async fn handle_peer_view_change<Context>(
 
 				unknown_heads.insert(added, ());
 
-				continue
+				continue;
 			},
 		};
 
 		for block_hash in block_hashes {
 			let Some(per_relay_parent) = state.per_relay_parent.get_mut(block_hash) else {
-				continue
+				continue;
 			};
 
 			advertise_collation(
@@ -1207,7 +1192,7 @@ async fn handle_network_msg<Context>(
 						?err,
 						"Unsupported protocol version"
 					);
-					return Ok(())
+					return Ok(());
 				},
 			};
 			if version == CollationVersion::V1 {
@@ -1224,7 +1209,7 @@ async fn handle_network_msg<Context>(
 					PeerSet::Collation,
 				))
 				.await;
-				return Ok(())
+				return Ok(());
 			}
 
 			state.peer_data.entry(peer_id).or_insert_with(|| PeerData {
@@ -1298,27 +1283,27 @@ async fn process_block_events<Context>(
 				?para_id,
 				"Failed to get relay chain block number",
 			);
-			return
+			return;
 		};
 
 		for ev in events {
 			match ev {
 				CandidateEvent::CandidateIncluded(receipt, _, _, _) => {
 					if receipt.descriptor.para_id() != para_id {
-						continue
+						continue;
 					}
 					collation_tracker.collation_included(block_number, leaf, receipt, metrics);
 				},
 				CandidateEvent::CandidateBacked(receipt, _, _, _) => {
 					if receipt.descriptor.para_id() != para_id {
-						continue
+						continue;
 					}
 
 					let Some(block_number) = maybe_block_number else { continue };
 					let Some(stats) =
 						collation_tracker.collation_backed(block_number, leaf, receipt, metrics)
 					else {
-						continue
+						continue;
 					};
 
 					// Continue measuring inclusion latency.
