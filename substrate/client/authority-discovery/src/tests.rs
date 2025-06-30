@@ -144,9 +144,8 @@ async fn when_addr_cache_is_persisted_with_authority_ids_then_when_worker_is_cre
 	{
 		let mut addr_cache = AddrCache::default();
 		addr_cache.insert(remote_authority_id.clone(), vec![remote_addr.clone()]);
-		let serialized_cache = addr_cache.serialize().unwrap();
 		let path_to_save = cache_path.join(crate::worker::ADDR_CACHE_FILE_NAME);
-		AddrCache::persist(&path_to_save, serialized_cache);
+		addr_cache.serialize_and_persist(&path_to_save);
 	}
 
 	let (_, from_service) = futures::channel::mpsc::channel(0);

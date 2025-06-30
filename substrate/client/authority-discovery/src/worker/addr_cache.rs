@@ -132,13 +132,13 @@ impl AddrCache {
 		AddrCache::default()
 	}
 
-	pub fn serialize(&self) -> Option<String> {
+	fn serialize(&self) -> Option<String> {
 		serde_json::to_string_pretty(self).inspect_err(|e| {
 			warn!(target: super::LOG_TARGET, "Failed to serialize AddrCache to JSON: {} => skip persisting it.", e);
 		}).ok()
 	}
 
-	pub fn persist(path: impl AsRef<Path>, serialized_cache: String) {
+	fn persist(path: impl AsRef<Path>, serialized_cache: String) {
 		match write_to_file(path.as_ref(), &serialized_cache) {
 			Err(err) => {
 				warn!(target: super::LOG_TARGET, "Failed to persist AddrCache on disk at path: {}, error: {}", path.as_ref().display(), err);
@@ -147,6 +147,11 @@ impl AddrCache {
 				info!(target: super::LOG_TARGET, "Successfully persisted AddrCache on disk");
 			},
 		}
+	}
+
+	pub fn serialize_and_persist(&self, path: impl AsRef<Path>) {
+		let Some(serialized) = self.serialize() else { return };
+		Self::persist(path, serialized);
 	}
 
 	/// Inserts the given [`AuthorityId`] and [`Vec<Multiaddr>`] pair for future lookups by
@@ -287,10 +292,14 @@ fn load_from_file<T: DeserializeOwned>(path: impl AsRef<Path>) -> io::Result<T> 
 #[cfg(test)]
 mod tests {
 
-	use std::{thread::sleep, time::Duration};
+	use std::{
+		thread::sleep,
+		time::{Duration, Instant},
+	};
 
 	use super::*;
 
+	use itertools::Itertools;
 	use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
 	use sc_network_types::multihash::{Code, Multihash};
 
@@ -567,5 +576,100 @@ mod tests {
 		sleep(Duration::from_millis(10)); // Ensure file is written before loading
 		let cache = AddrCache::try_from(path.as_path()).unwrap();
 		assert_eq!(cache.num_authority_ids(), 2);
+	}
+
+	fn create_cache(authority_id_count: u64, multiaddr_per_authority_count: u64) -> AddrCache {
+		let mut addr_cache = AddrCache::new();
+
+		for i in 0..authority_id_count {
+			let seed = &mut [0xab as u8; 32];
+			let i_bytes = i.to_le_bytes();
+			seed[0..8].copy_from_slice(&i_bytes);
+
+			let authority_id = AuthorityPair::from_seed(seed).public();
+			let multi_addresses = (0..multiaddr_per_authority_count)
+				.map(|j| {
+					let mut digest = [0xab; 32];
+					let j_bytes = j.to_le_bytes();
+					digest[0..8].copy_from_slice(&j_bytes);
+					let peer_id = PeerId::from_multihash(
+						Multihash::wrap(Code::Sha2_256.into(), &digest).unwrap(),
+					)
+					.unwrap();
+					Multiaddr::empty().with(Protocol::P2p(peer_id.into()))
+				})
+				.collect_vec();
+
+			assert_eq!(multi_addresses.len(), multiaddr_per_authority_count as usize);
+			addr_cache.insert(authority_id.clone(), multi_addresses);
+		}
+		assert_eq!(addr_cache.authority_id_to_addresses.len(), authority_id_count as usize);
+
+		addr_cache
+	}
+
+	/// This test is ignored by default as it takes a long time to run.
+	#[test]
+	#[ignore]
+	fn addr_cache_measure_serde_performance() {
+		let addr_cache = create_cache(2000, 16);
+
+		/// A replica of `AddrCache` that is serializable and deserializable
+		/// without any optimizations.
+		#[derive(Default, Clone, PartialEq, Debug, Serialize, Deserialize)]
+		pub(crate) struct NaiveSerdeAddrCache {
+			authority_id_to_addresses: HashMap<AuthorityId, HashSet<Multiaddr>>,
+			peer_id_to_authority_ids: HashMap<PeerId, HashSet<AuthorityId>>,
+		}
+		impl From<AddrCache> for NaiveSerdeAddrCache {
+			fn from(value: AddrCache) -> Self {
+				Self {
+					authority_id_to_addresses: value.authority_id_to_addresses,
+					peer_id_to_authority_ids: value.peer_id_to_authority_ids,
+				}
+			}
+		}
+
+		let naive = NaiveSerdeAddrCache::from(addr_cache.clone());
+		let storage_optimized = addr_cache.clone();
+
+		fn measure_clone<T: Clone>(data: &T) -> Duration {
+			let start = Instant::now();
+			let _ = data.clone();
+			start.elapsed()
+		}
+		fn measure_serialize<T: Serialize>(data: &T) -> (Duration, String) {
+			let start = Instant::now();
+			let json = serde_json::to_string_pretty(data).unwrap();
+			(start.elapsed(), json)
+		}
+		fn measure_deserialize<T: DeserializeOwned>(json: String) -> (Duration, T) {
+			let start = Instant::now();
+			let value = serde_json::from_str(&json).unwrap();
+			(start.elapsed(), value)
+		}
+
+		let serialize_naive = measure_serialize(&naive);
+		let serialize_storage_optimized = measure_serialize(&storage_optimized);
+		println!("CLONE: Naive took: {} ms", measure_clone(&naive).as_millis());
+		println!(
+			"CLONE: Storage optimized took: {} ms",
+			measure_clone(&storage_optimized).as_millis()
+		);
+		println!("SERIALIZE: Naive took: {} ms", serialize_naive.0.as_millis());
+		println!(
+			"SERIALIZE: Storage optimized took: {} ms",
+			serialize_storage_optimized.0.as_millis()
+		);
+		let deserialize_naive = measure_deserialize::<NaiveSerdeAddrCache>(serialize_naive.1);
+		let deserialize_storage_optimized =
+			measure_deserialize::<AddrCache>(serialize_storage_optimized.1);
+		println!("DESERIALIZE: Naive took: {} ms", deserialize_naive.0.as_millis());
+		println!(
+			"DESERIALIZE: Storage optimized took: {} ms",
+			deserialize_storage_optimized.0.as_millis()
+		);
+		assert_eq!(deserialize_naive.1, naive);
+		assert_eq!(deserialize_storage_optimized.1, storage_optimized);
 	}
 }

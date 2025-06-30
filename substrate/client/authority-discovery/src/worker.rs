@@ -356,11 +356,13 @@ where
 		let Some(path) = self.persisted_cache_file_path.as_ref().cloned() else {
 			return;
 		};
-		let Some(serialized_cache) = self.addr_cache.serialize() else { return };
+		let cloned_cache = self.addr_cache.clone();
 		self.spawner.spawn_blocking(
 			"persist-addr-cache",
 			Some("authority-discovery-worker"),
-			Box::pin(async move { AddrCache::persist(path, serialized_cache) }),
+			Box::pin(async move {
+				cloned_cache.serialize_and_persist(path);
+			}),
 		)
 	}
 
