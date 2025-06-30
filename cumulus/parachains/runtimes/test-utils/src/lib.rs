@@ -504,6 +504,10 @@ impl<
 		};
 
 		match governance_origin {
+			// we are simulating a case of receiving an XCM
+			// and Location::Here() is not a valid destionation for XcmRouter in the fist place
+			GovernanceOrigin::Location(location) if location == Location::here() =>
+				panic!("Location::here() not supported, use GovernanceOrigin::Origin instead"),
 			GovernanceOrigin::Location(location) =>
 				execute_xcm(call, location, None).ensure_complete().map_err(Either::Right),
 			GovernanceOrigin::LocationAndDescendOrigin(location, descend_origin) =>
