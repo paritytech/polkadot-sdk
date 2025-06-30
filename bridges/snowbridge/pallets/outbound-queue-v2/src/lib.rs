@@ -248,6 +248,10 @@ pub mod pallet {
 	pub type PendingOrders<T: Config> =
 		StorageMap<_, Twox64Concat, u64, PendingOrder<BlockNumberFor<T>>, OptionQuery>;
 
+	/// Map from Nonce to LeafHash
+	#[pallet::storage]
+	pub type NonceLeaf<T: Config> = StorageMap<_, Twox64Concat, u64, H256, ValueQuery>;
+
 	/// Map from LeafHash to Nonce
 	#[pallet::storage]
 	pub type LeafNonce<T: Config> = StorageMap<_, Twox64Concat, H256, u64, ValueQuery>;
@@ -442,6 +446,7 @@ pub mod pallet {
 			};
 			<PendingOrders<T>>::insert(nonce, order);
 			<LeafNonce<T>>::insert(leaf_hash, nonce);
+			<NonceLeaf<T>>::insert(nonce, leaf_hash);
 
 			<Nonce<T>>::set(nonce);
 
@@ -481,7 +486,9 @@ pub mod pallet {
 			}
 
 			<PendingOrders<T>>::remove(nonce);
-			<LeafNonce<T>>::remove(receipt.leaf);
+			let leaf_hash = <NonceLeaf<T>>::get(nonce);
+			<LeafNonce<T>>::remove(leaf_hash);
+			<NonceLeaf<T>>::remove(nonce);
 
 			Self::deposit_event(Event::MessageDelivered { nonce });
 
