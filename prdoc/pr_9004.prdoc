@@ -1,0 +1,10 @@
+title: 'chore: Bump bounded-collections dep'
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    Bump bounded-collections dep from `0.2.3` to `0.3.2` based on the latest [release](https://crates.io/crates/bounded-collections/0.3.2)
+crates:
+- name: sp-core
+  bump: major
