@@ -54,6 +54,9 @@ pub(crate) use builtin::{IBenchmarking, NoInfo as BenchmarkNoInfo, WithInfo as B
 
 const UNIMPLEMENTED: &str = "A precompile must either implement `call` or `call_with_info`";
 
+/// A minimal EVM bytecode to be returned when a pre-compile is queried for its code.
+pub(crate) const EVM_REVERT: [u8; 5] = sp_core::hex2array!("60006000fd");
+
 /// The composition of all available pre-compiles.
 ///
 /// This is how the rest of the pallet discovers and calls pre-compiles.
@@ -227,6 +230,7 @@ pub(crate) trait BuiltinPrecompile {
 	type Interface: SolInterface;
 	const MATCHER: BuiltinAddressMatcher;
 	const HAS_CONTRACT_INFO: bool;
+	const CODE: &[u8] = &EVM_REVERT;
 
 	fn call(
 		_address: &[u8; 20],
@@ -245,7 +249,7 @@ pub(crate) trait BuiltinPrecompile {
 	}
 }
 
-/// A low level pre-compile that does use Solidity ABI.
+/// A low level pre-compile that does not use Solidity ABI.
 ///
 /// It is used to implement the original Ethereum pre-compiles which do not
 /// use Solidity ABI but just encode inputs and outputs packed in memory.
@@ -256,6 +260,7 @@ pub(crate) trait PrimitivePrecompile {
 	type T: Config;
 	const MATCHER: BuiltinAddressMatcher;
 	const HAS_CONTRACT_INFO: bool;
+	const CODE: &[u8] = &[];
 
 	fn call(
 		_address: &[u8; 20],
@@ -315,6 +320,13 @@ pub(crate) trait Precompiles<T: Config> {
 	/// range by accident.
 	const USES_EXTERNAL_RANGE: bool;
 
+	/// Returns the code of the pre-compile.
+	///
+	/// Just used when queried by `EXTCODESIZE` or the RPC. It is just
+	/// a bogus code that is never executed. Returns None if no pre-compile
+	/// exists at the specified address.
+	fn code(address: &[u8; 20]) -> Option<&'static [u8]>;
+
 	/// Get a reference to a specific pre-compile.
 	///
 	/// Returns `None` if no pre-compile exists at `address`.
@@ -348,6 +360,7 @@ impl<P: BuiltinPrecompile> PrimitivePrecompile for P {
 	type T = <Self as BuiltinPrecompile>::T;
 	const MATCHER: BuiltinAddressMatcher = P::MATCHER;
 	const HAS_CONTRACT_INFO: bool = P::HAS_CONTRACT_INFO;
+	const CODE: &[u8] = P::CODE;
 
 	fn call(
 		address: &[u8; 20],
@@ -398,24 +411,40 @@ impl<T: Config> Precompiles<T> for Tuple {
 		uses_external
 	};
 
+	fn code(address: &[u8; 20]) -> Option<&'static [u8]> {
+		for_tuples!(
+			#(
+				if Tuple::MATCHER.matches(address) {
+					return Some(Tuple::CODE)
+				}
+			)*
+		);
+		None
+	}
+
 	fn get<E: ExtWithInfo<T = T>>(address: &[u8; 20]) -> Option<Instance<E>> {
 		let _ = <Self as Precompiles<T>>::CHECK_COLLISION;
-		let mut has_contract_info = false;
-		let mut function: Option<fn(&[u8; 20], Vec<u8>, &mut E) -> Result<Vec<u8>, Error>> = None;
+		let mut instance: Option<Instance<E>> = None;
 		for_tuples!(
 			#(
 				if Tuple::MATCHER.matches(address) {
 					if Tuple::HAS_CONTRACT_INFO {
-						has_contract_info = true;
-						function = Some(Tuple::call_with_info);
+						instance = Some(Instance {
+							address: *address,
+							has_contract_info: true,
+							function: Tuple::call_with_info,
+						})
 					} else {
-						has_contract_info = false;
-						function = Some(Tuple::call);
+						instance = Some(Instance {
+							address: *address,
+							has_contract_info: false,
+							function: Tuple::call,
+						})
 					}
 				}
 			)*
 		);
-		function.map(|function| Instance { has_contract_info, address: *address, function })
+		instance
 	}
 }
 
@@ -427,6 +456,10 @@ impl<T: Config> Precompiles<T> for (Builtin<T>, <T as Config>::Precompiles) {
 		);
 	};
 	const USES_EXTERNAL_RANGE: bool = { <T as Config>::Precompiles::USES_EXTERNAL_RANGE };
+
+	fn code(address: &[u8; 20]) -> Option<&'static [u8]> {
+		<Builtin<T>>::code(address).or_else(|| <T as Config>::Precompiles::code(address))
+	}
 
 	fn get<E: ExtWithInfo<T = T>>(address: &[u8; 20]) -> Option<Instance<E>> {
 		let _ = <Self as Precompiles<T>>::CHECK_COLLISION;
