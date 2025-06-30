@@ -4393,7 +4393,7 @@ async fn handle_disabled_validators_queries(
 /// Test for the functionality that unactivates disputes when all raising parties are disabled.
 ///
 /// This test verifies the implementation where:
-/// 1. Multiple disputes are raised by the same validator (validator 0)
+/// 1. Multiple disputes are raised by the same validator
 /// 2. When one dispute concludes against that validator, they get disabled
 /// 3. All other active disputes in that session where this validator was the sole raising party
 ///    should be unactivated (removed from recent_disputes)
@@ -4405,10 +4405,22 @@ fn disputes_unactivated_when_all_raising_parties_disabled() {
 
 			test_state.handle_resume_sync(&mut virtual_overseer, session).await;
 
-			let candidate_receipt_a = make_valid_candidate_receipt();
+			let candidate_receipt_c = make_valid_candidate_receipt();
+			let candidate_hash_c = candidate_receipt_c.hash();
+
+			let block_hash = test_state
+				.activate_leaf_at_session(
+					&mut virtual_overseer,
+					session,
+					1,
+					vec![make_candidate_included_event(candidate_receipt_c.clone())],
+				)
+				.await;
+
+			let candidate_receipt_a = make_another_valid_candidate_receipt(block_hash);
 			let candidate_hash_a = candidate_receipt_a.hash();
 
-			let mut candidate_receipt_b = make_valid_candidate_receipt();
+			let mut candidate_receipt_b = make_another_valid_candidate_receipt(block_hash);
 			candidate_receipt_b.descriptor.set_pov_hash(Hash::from(
 				[0xFF; 32], // Altering this receipt so its hash will be changed
 			));
@@ -4419,7 +4431,7 @@ fn disputes_unactivated_when_all_raising_parties_disabled() {
 				.activate_leaf_at_session(
 					&mut virtual_overseer,
 					session,
-					1,
+					2,
 					vec![
 						make_candidate_included_event(candidate_receipt_a.clone()),
 						make_candidate_included_event(candidate_receipt_b.clone()),
@@ -4508,15 +4520,67 @@ fn disputes_unactivated_when_all_raising_parties_disabled() {
 			)
 			.await;
 
-			// Verify we have 2 active disputes
+			// Import third dispute with multiple validators as invalid voters
+
+			let (valid_vote_1, invalid_vote_1) = generate_opposing_votes_pair(
+				&test_state,
+				ValidatorIndex(3),
+				ValidatorIndex(2),
+				candidate_hash_c,
+				session,
+				VoteType::Explicit,
+			)
+			.await;
+			let (valid_vote_2, invalid_vote_2) = generate_opposing_votes_pair(
+				&test_state,
+				ValidatorIndex(4),
+				ValidatorIndex(5),
+				candidate_hash_c,
+				session,
+				VoteType::Explicit,
+			)
+			.await;
+
+			let (pending_confirmation, confirmation_rx) = oneshot::channel();
+			let pending_confirmation = Some(pending_confirmation);
+
+			virtual_overseer
+				.send(FromOrchestra::Communication {
+					msg: DisputeCoordinatorMessage::ImportStatements {
+						candidate_receipt: candidate_receipt_c.clone(),
+						session,
+						statements: vec![
+							(valid_vote_1, ValidatorIndex(3)),
+							(invalid_vote_1, ValidatorIndex(2)),
+							(valid_vote_2, ValidatorIndex(4)),
+							(invalid_vote_2, ValidatorIndex(5)),
+						],
+						pending_confirmation,
+					},
+				})
+				.await;
+
+			handle_disabled_validators_queries(&mut virtual_overseer, Vec::new()).await;
+			handle_approval_vote_request(&mut virtual_overseer, &candidate_hash_c, HashMap::new())
+				.await;
+			assert_eq!(confirmation_rx.await, Ok(ImportStatementsResult::ValidImport));
+
+			participation_with_distribution(
+				&mut virtual_overseer,
+				&candidate_hash_c,
+				candidate_receipt_c.commitments_hash,
+			)
+			.await;
+
+			// Verify we have 3 active/recent disputes
 			{
 				let (tx, rx) = oneshot::channel();
 				virtual_overseer
 					.send(FromOrchestra::Communication {
-						msg: DisputeCoordinatorMessage::ActiveDisputes(tx),
+						msg: DisputeCoordinatorMessage::RecentDisputes(tx),
 					})
 					.await;
-				assert_eq!(rx.await.unwrap().len(), 2);
+				assert_eq!(rx.await.unwrap().len(), 3);
 			}
 
 			// Import enough valid votes to conclude dispute A as valid (disabling validator 2)
@@ -4557,24 +4621,32 @@ fn disputes_unactivated_when_all_raising_parties_disabled() {
 						msg: DisputeCoordinatorMessage::RecentDisputes(tx),
 					})
 					.await;
-				assert_eq!(rx.await.unwrap().len(), 1);
+				assert_eq!(rx.await.unwrap().len(), 2);
 			}
-			// and we can finalize the chain
+			// and we can finalize the chain with A and B
 			{
 				let (tx, rx) = oneshot::channel();
 
 				let base_hash = Hash::repeat_byte(0x0f);
 				let block_hash_a = Hash::repeat_byte(0x0a);
+				let block_hash_c = Hash::repeat_byte(0x0c);
 
 				virtual_overseer
 					.send(FromOrchestra::Communication {
 						msg: DisputeCoordinatorMessage::DetermineUndisputedChain {
 							base: (10, base_hash),
-							block_descriptions: vec![BlockDescription {
-								block_hash: block_hash_a,
-								session,
-								candidates: vec![candidate_hash_a, candidate_hash_b],
-							}],
+							block_descriptions: vec![
+								BlockDescription {
+									block_hash: block_hash_a,
+									session,
+									candidates: vec![candidate_hash_a, candidate_hash_b],
+								},
+								BlockDescription {
+									block_hash: block_hash_c,
+									session,
+									candidates: vec![candidate_hash_c],
+								},
+							],
 							tx,
 						},
 					})
