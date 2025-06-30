@@ -8,3 +8,15 @@ doc:
 crates:
 - name: sp-core
   bump: minor
+- name: sp-weights
+  bump: minor
+- name: polkadot-parachain-primitives
+  bump: minor
+- name: polkadot-primitives
+  bump: minor
+- name: staging-xcm
+  bump: minor
+- name: pallet-xcm
+  bump: minor
+- name: cumulus-pallet-xcmp-queue
+  bump: minor
