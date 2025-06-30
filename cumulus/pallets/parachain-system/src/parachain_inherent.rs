@@ -121,6 +121,9 @@ impl<Message: InboundMessage> InboundMessagesCollection<Message> {
 				last_processed_msg_idx = idx.checked_sub(last_processed_msg.reverse_idx as usize);
 				break;
 			}
+			// If we build on the same relay parent twice, we will receive the same messages again
+			// while `last_processed_msg` may have been increased. We need this check to make sure
+			// that the old messages are dropped.
 			if sent_at < last_processed_msg.sent_at {
 				last_processed_msg_idx = Some(idx);
 				break;
