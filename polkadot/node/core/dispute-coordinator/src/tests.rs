@@ -4393,10 +4393,12 @@ async fn handle_disabled_validators_queries(
 /// Test for the functionality that unactivates disputes when all raising parties are disabled.
 ///
 /// This test verifies the implementation where:
-/// 1. Multiple disputes are raised by the same validator
-/// 2. When one dispute concludes against that validator, they get disabled
+/// 1. Multiple disputes are raised by the same validator:
+///    candidate C is raised by 2 and 5
+///    candidate A and B are raised by 2
+/// 2. When one dispute (A) concludes against that validator, it gets disabled.
 /// 3. All other active disputes in that session where this validator was the sole raising party
-///    should be unactivated (removed from recent_disputes)
+///    should be unactivated (B).
 #[test]
 fn disputes_unactivated_when_all_raising_parties_disabled() {
 	test_harness(|mut test_state, mut virtual_overseer| {

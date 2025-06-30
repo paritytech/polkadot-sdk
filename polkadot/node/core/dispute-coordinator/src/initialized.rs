@@ -1577,35 +1577,36 @@ impl Initialized {
 		let mut disputes_to_remove = Vec::new();
 
 		// Create session bounds for efficient iteration
-		let session_start = (session, CandidateHash(Hash::repeat_byte(0x00)));
-		let session_end = (session + 1, CandidateHash(Hash::repeat_byte(0x00)));
+		let session_start = (session, CandidateHash(Hash::zero()));
+		let session_end = (session + 1, CandidateHash(Hash::zero()));
 
 		for ((dispute_session, candidate_hash), status) in
 			recent_disputes.range(&session_start..&session_end)
 		{
 			debug_assert_eq!(session, *dispute_session);
 			// Only check unconfirmed
-			if !status.is_confirmed_concluded() {
-				if let Some(votes) =
-					overlay_db.load_candidate_votes(*dispute_session, candidate_hash)?
-				{
-					// Check if all invalid voters (raising parties) are disabled
-					if !votes.invalid.is_empty() &&
-						votes.invalid.iter().all(|(_, validator_index, _)| {
-							self.offchain_disabled_validators.is_disabled(session, *validator_index)
-						}) {
-						disputes_to_remove.push((*dispute_session, *candidate_hash));
-						self.metrics.on_unactivated_dispute();
+			if status.is_confirmed_concluded() {
+				continue
+			}
+			let Some(votes) = overlay_db.load_candidate_votes(*dispute_session, candidate_hash)?
+			else {
+				continue
+			};
+			// Check if all invalid voters (raising parties) are disabled
+			if !votes.invalid.is_empty() &&
+				votes.invalid.iter().all(|(_, validator_index, _)| {
+					self.offchain_disabled_validators.is_disabled(session, *validator_index)
+				}) {
 
-						gum::info!(
-							target: LOG_TARGET,
-							session = dispute_session,
-							?candidate_hash,
-							invalid_voters = ?votes.invalid.iter().map(|(_, idx, _)| *idx).collect::<Vec<_>>(),
-							"Unactivating dispute where all raising parties are now disabled"
-						);
-					}
-				}
+				disputes_to_remove.push((*dispute_session, *candidate_hash));
+
+				gum::info!(
+					target: LOG_TARGET,
+					session = dispute_session,
+					?candidate_hash,
+					invalid_voters = ?votes.invalid.iter().map(|(_, idx, _)| *idx).collect::<Vec<_>>(),
+					"Unactivating dispute where all raising parties are now disabled"
+				);
 			}
 		}
 
@@ -1613,6 +1614,7 @@ impl Initialized {
 		if !disputes_to_remove.is_empty() {
 			for key in disputes_to_remove {
 				recent_disputes.remove(&key);
+				self.metrics.on_unactivated_dispute();
 			}
 			overlay_db.write_recent_disputes(recent_disputes);
 		}
