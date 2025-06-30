@@ -1192,7 +1192,7 @@ async fn handle_network_msg<Context>(
 						?err,
 						"Unsupported protocol version"
 					);
-					return Ok(());
+					return Ok(())
 				},
 			};
 			if version == CollationVersion::V1 {
