@@ -28,7 +28,7 @@ use frame_support::{
 	assert_ok, derive_impl, parameter_types,
 	traits::{
 		tokens::{Pay, UnityAssetBalanceConversion},
-		ConstU32, ConstU64, OnInitialize,
+		ConstU32, ConstU64, Currency, OnInitialize,
 	},
 	weights::constants::ParityDbWeight,
 	PalletId,
@@ -372,10 +372,6 @@ pub fn get_payment_id(
 		BountyStatus::FundingAttempted {
 			payment_status: PaymentState::Attempted { id }, ..
 		} => Some(id),
-		BountyStatus::ApprovedWithCurator {
-			payment_status: PaymentState::Attempted { id },
-			..
-		} => Some(id),
 		BountyStatus::RefundAttempted {
 			payment_status: PaymentState::Attempted { id }, ..
 		} => Some(id),
@@ -422,4 +418,121 @@ pub fn reject_payment(
 		get_payment_id(parent_bounty_id, child_bounty_id, Some(dest)).expect("no payment attempt");
 	set_status(payment_id, PaymentStatus::Failure);
 	assert_ok!(Bounties::check_status(RuntimeOrigin::signed(0), parent_bounty_id, child_bounty_id));
+}
+
+#[derive(Clone)]
+pub struct TestBounty {
+	pub parent_bounty_id: BountyIndex,
+	pub child_bounty_id: BountyIndex,
+	pub asset_kind: u32,
+	pub value: u64,
+	pub child_value: u64,
+	pub fee: u64,
+	pub child_fee: u64,
+	pub curator: u128,
+	pub child_curator: u128,
+	pub curator_deposit: u64,
+	pub curator_stash: u128,
+	pub child_curator_stash: u128,
+	pub beneficiary: u128,
+	pub child_beneficiary: u128,
+}
+
+pub fn setup_bounty() -> TestBounty {
+	let asset_kind = 1;
+	let value = 50;
+	let child_value = 10;
+	let fee = 10;
+	let child_fee = 6;
+	let curator = 4;
+	let child_curator = 8;
+	let curator_stash = 7;
+	let child_curator_stash = 10;
+	let beneficiary = 5;
+	let child_beneficiary = 9;
+	let expected_deposit = Bounties::calculate_curator_deposit(&fee, asset_kind).unwrap();
+	Balances::make_free_balance_be(&curator, 100);
+	Balances::make_free_balance_be(&child_curator, 100);
+
+	TestBounty {
+		parent_bounty_id: 0,
+		child_bounty_id: 0,
+		asset_kind,
+		value,
+		child_value,
+		fee,
+		child_fee,
+		curator,
+		child_curator,
+		curator_deposit: expected_deposit,
+		curator_stash,
+		child_curator_stash,
+		beneficiary,
+		child_beneficiary,
+	}
+}
+
+pub fn create_parent_bounty() -> TestBounty {
+	let mut s = setup_bounty();
+
+	assert_ok!(Bounties::fund_bounty(
+		RuntimeOrigin::root(),
+		Box::new(s.asset_kind),
+		s.value,
+		s.curator,
+		s.fee,
+		b"1234567890".to_vec()
+	));
+	let parent_bounty_id = pallet_bounties::BountyCount::<Test>::get() - 1;
+	s.parent_bounty_id = parent_bounty_id;
+
+	s
+}
+
+pub fn create_funded_parent_bounty() -> TestBounty {
+	let s = create_parent_bounty();
+
+	let parent_bounty_account = Bounties::bounty_account(s.parent_bounty_id, s.asset_kind.clone())
+		.expect("conversion failed");
+	approve_payment(parent_bounty_account, s.parent_bounty_id, None, s.asset_kind.clone(), s.value);
+
+	s
+}
+
+pub fn create_active_parent_bounty() -> TestBounty {
+	let mut s = create_funded_parent_bounty();
+
+	assert_ok!(Bounties::accept_curator(
+		RuntimeOrigin::signed(s.curator),
+		s.parent_bounty_id,
+		None,
+		s.curator_stash
+	));
+
+	s
+}
+
+pub fn create_parent_bounty_with_unassigned_curator() -> TestBounty {
+	let mut s = create_funded_parent_bounty();
+
+	assert_ok!(Bounties::unassign_curator(
+		RuntimeOrigin::signed(s.curator),
+		s.parent_bounty_id,
+		None,
+	));
+
+	s
+}
+
+pub fn create_awarded_parent_bounty() -> TestBounty {
+	let mut s = create_active_parent_bounty();
+
+	assert_ok!(Bounties::award_bounty(
+		RuntimeOrigin::signed(s.curator),
+		s.parent_bounty_id,
+		None,
+		s.beneficiary,
+	));
+
+	s
 }
