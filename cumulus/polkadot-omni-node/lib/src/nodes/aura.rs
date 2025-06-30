@@ -60,24 +60,17 @@ use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
 	BlockCheckParams, BlockImport, BlockImportParams, DefaultImportQueue, ImportResult,
 };
-use sc_consensus_aura::find_pre_digest;
 use sc_service::{Configuration, Error, TaskManager};
 use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
-use schnellru::{ByLength, LruMap};
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
-use sp_consensus::BlockOrigin;
-use sp_consensus_aura::{inherents::AuraCreateInherentDataProviders, AuraApi, Slot};
+use sp_consensus_aura::{inherents::AuraCreateInherentDataProviders, AuraApi};
 use sp_core::{traits::SpawnNamed, Pair};
 use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
-use std::{
-	marker::PhantomData,
-	sync::{Arc, Mutex},
-	time::Duration,
-};
+use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 struct Verifier<Block, Client, AuraId> {
 	client: Arc<Client>,
@@ -136,8 +129,9 @@ where
 		let relay_chain_verifier =
 			Box::new(RelayChainVerifier::new(client.clone(), |_, _| async { Ok(()) }));
 
-		let equivocation_aura_verifier = EquivocationVerifier::<AuraId::BoundedPair, _, _>::new(
+		let equivocation_aura_verifier = EquivocationVerifier::<AuraId::BoundedPair, _, _, _>::new(
 			client.clone(),
+			create_inherent_data_providers,
 			telemetry_handle,
 		);
 
@@ -159,19 +153,12 @@ struct AuraBlockImport<Block: BlockT, BI, Client, CIDP, AuraId> {
 	inner: BI,
 	client: Arc<Client>,
 	create_inherent_data_providers: CIDP,
-	defender: Mutex<NaiveEquivocationDefender<NumberFor<Block>>>,
-	_phantom: PhantomData<AuraId>,
+	_phantom: PhantomData<(Block, AuraId)>,
 }
 
 impl<Block: BlockT, BI, Client, CIDP, AuraId> AuraBlockImport<Block, BI, Client, CIDP, AuraId> {
 	fn new(inner: BI, client: Arc<Client>, create_inherent_data_providers: CIDP) -> Self {
-		Self {
-			inner,
-			client,
-			create_inherent_data_providers,
-			defender: Default::default(),
-			_phantom: Default::default(),
-		}
+		Self { inner, client, create_inherent_data_providers, _phantom: Default::default() }
 	}
 }
 
@@ -235,79 +222,7 @@ where
 			block_params.body = Some(inner_body);
 		}
 
-		if self.client.runtime_api().has_aura_api(*block_params.header.parent_hash()) {
-			let slot = find_pre_digest::<Block, <AuraId::BoundedPair as Pair>::Signature>(
-				&block_params.header,
-			)
-			.map_err(|e| sp_consensus::Error::Other(e.into()))?;
-
-			// We need some kind of identifier for the relay parent, in the worst case we
-			// take the all `0` hash.
-			let relay_parent =
-				cumulus_primitives_core::rpsr_digest::extract_relay_parent_storage_root(
-					block_params.header.digest(),
-				)
-				.map(|r| r.0)
-				.unwrap_or_else(|| {
-					cumulus_primitives_core::extract_relay_parent(block_params.header.digest())
-						.unwrap_or_default()
-				});
-
-			// Check for and reject egregious amounts of equivocations.
-			//
-			// If the `origin` is `ConsensusBroadcast`, we ignore the result of the
-			// equivocation check. This `origin` is for example used by pov-recovery.
-			if self.defender.lock().unwrap().insert_and_check(
-				slot,
-				*block_params.header.number(),
-				relay_parent,
-			) && !matches!(block_params.origin, BlockOrigin::ConsensusBroadcast)
-			{
-				return Err(sp_consensus::Error::Other(
-					format!("Rejecting block {slot:?} due to excessive equivocations at slot",)
-						.as_str()
-						.into(),
-				))
-			}
-		}
-
 		self.inner.import_block(block_params).await
-	}
-}
-
-const LRU_WINDOW: u32 = 512;
-const EQUIVOCATION_LIMIT: usize = 16;
-
-struct NaiveEquivocationDefender<N> {
-	/// We distinguish blocks by `(Slot, BlockNumber, RelayParent)`.
-	cache: LruMap<(u64, N, polkadot_primitives::Hash), usize>,
-}
-
-impl<N: std::hash::Hash + PartialEq> Default for NaiveEquivocationDefender<N> {
-	fn default() -> Self {
-		NaiveEquivocationDefender { cache: LruMap::new(ByLength::new(LRU_WINDOW)) }
-	}
-}
-
-impl<N: std::hash::Hash + PartialEq> NaiveEquivocationDefender<N> {
-	// Returns `true` if equivocation is beyond the limit.
-	fn insert_and_check(
-		&mut self,
-		slot: Slot,
-		block_number: N,
-		relay_chain_parent: polkadot_primitives::Hash,
-	) -> bool {
-		let val = self
-			.cache
-			.get_or_insert((*slot, block_number, relay_chain_parent), || 0)
-			.expect("insertion with ByLength limiter always succeeds; qed");
-
-		if *val == EQUIVOCATION_LIMIT {
-			true
-		} else {
-			*val += 1;
-			false
-		}
 	}
 }
 
@@ -727,108 +642,5 @@ where
 		task_manager.spawn_essential_handle().spawn("aura", None, fut);
 
 		Ok(())
-	}
-}
-
-#[cfg(test)]
-mod test {
-	use super::*;
-	use codec::Encode;
-	use cumulus_test_client::{
-		seal_block, InitBlockBuilder, TestClientBuilder, TestClientBuilderExt,
-	};
-	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
-	use cumulus_test_runtime::AuraId;
-	use futures::FutureExt;
-	use polkadot_primitives::{HeadData, PersistedValidationData};
-	use sc_client_api::HeaderBackend;
-	use std::{collections::HashSet, sync::Arc};
-
-	struct TestBlockImport;
-
-	#[async_trait::async_trait]
-	impl<Block: BlockT> BlockImport<Block> for TestBlockImport {
-		type Error = sp_consensus::Error;
-
-		async fn check_block(
-			&self,
-			_: BlockCheckParams<Block>,
-		) -> Result<ImportResult, Self::Error> {
-			Ok(ImportResult::Imported(Default::default()))
-		}
-
-		async fn import_block(
-			&self,
-			_: BlockImportParams<Block>,
-		) -> Result<ImportResult, Self::Error> {
-			Ok(ImportResult::Imported(Default::default()))
-		}
-	}
-
-	#[test]
-	fn import_equivocated_blocks_from_recovery() {
-		let client = Arc::new(TestClientBuilder::default().build());
-
-		let block_import: AuraBlockImport<_, _, _, _, AuraId> =
-			AuraBlockImport::new(TestBlockImport, client.clone(), |_, _| async move {
-				Ok(sp_timestamp::InherentDataProvider::from_system_time())
-			});
-
-		let genesis = client.info().best_hash;
-		let mut sproof = RelayStateSproofBuilder::default();
-		sproof.included_para_head = Some(HeadData(client.header(genesis).unwrap().encode()));
-		sproof.para_id = cumulus_test_client::runtime::PARACHAIN_ID.into();
-
-		let validation_data = PersistedValidationData {
-			relay_parent_number: 1,
-			parent_head: client.header(genesis).unwrap().encode().into(),
-			..Default::default()
-		};
-
-		let block_builder = client.init_block_builder(Some(validation_data), sproof);
-		let block = block_builder.block_builder.build().unwrap();
-
-		let mut blocks = Vec::new();
-		for _ in 0..EQUIVOCATION_LIMIT + 1 {
-			blocks.push(seal_block(block.block.clone(), &client))
-		}
-
-		// sr25519 should generate a different signature every time you sign something and thus, all
-		// blocks get a different hash (even if they are the same block).
-		assert_eq!(blocks.iter().map(|b| b.hash()).collect::<HashSet<_>>().len(), blocks.len());
-
-		blocks.iter().take(EQUIVOCATION_LIMIT).for_each(|block| {
-			let mut params =
-				BlockImportParams::new(BlockOrigin::NetworkBroadcast, block.header().clone());
-			params.body = Some(block.extrinsics().to_vec());
-			block_import.import_block(params).now_or_never().unwrap().unwrap();
-		});
-
-		// Now let's try some previously verified block and a block we have not verified yet.
-		//
-		// Verify should fail, because we are above the limit. However, when we change the origin to
-		// `ConsensusBroadcast`, it should work.
-		let extra_blocks =
-			vec![blocks[EQUIVOCATION_LIMIT / 2].clone(), blocks.last().unwrap().clone()];
-
-		extra_blocks.into_iter().for_each(|block| {
-			let mut params =
-				BlockImportParams::new(BlockOrigin::NetworkBroadcast, block.header().clone());
-			params.body = Some(block.extrinsics().to_vec());
-			assert!(block_import
-				.import_block(params)
-				.now_or_never()
-				.unwrap()
-				.map(drop)
-				.unwrap_err()
-				.to_string()
-				.contains("excessive equivocations at slot"));
-
-			// When it comes from `pov-recovery`, we will accept it
-			let mut params =
-				BlockImportParams::new(BlockOrigin::ConsensusBroadcast, block.header().clone());
-			params.body = Some(block.extrinsics().to_vec());
-			assert!(block_import.import_block(params).now_or_never().unwrap().is_ok());
-		});
 	}
 }
