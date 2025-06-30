@@ -2347,8 +2347,10 @@ fn last_frame_output_works_on_instantiate() {
 			let value = <Test as Config>::Currency::minimum_balance().into();
 
 			// Successful instantiation should set the output
-			let address =
-				ctx.ext.instantiate(Weight::MAX, U256::MAX, ok_ch, value, vec![], None, None).unwrap();
+			let address = ctx
+				.ext
+				.instantiate(Weight::MAX, U256::MAX, ok_ch, value, vec![], None, None)
+				.unwrap();
 			assert_eq!(
 				ctx.ext.last_frame_output(),
 				&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![127] }

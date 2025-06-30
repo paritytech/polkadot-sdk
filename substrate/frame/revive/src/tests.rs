@@ -51,8 +51,8 @@ use frame_support::{
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, FixedFee, IdentityFee, Weight, WeightMeter},
 };
 // use sp_runtime::traits::Bounded;
-use num_traits::Bounded;
 use frame_system::{EventRecord, Phase};
+use num_traits::Bounded;
 use pallet_revive_fixtures::compile_module;
 use pallet_revive_uapi::{ReturnErrorCode as RuntimeReturnCode, ReturnFlags};
 use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
@@ -439,40 +439,39 @@ impl Default for Origin<Test> {
 
 #[test]
 fn create2_precompile_works() {
-    use sp_core::H160;
+	use sp_core::H160;
 
 	// let create2_precompile_addr = H160(NoInfo::<Test>::MATCHER.base_address());
-    let create2_precompile_addr = H160::from_low_u64_be(0x0B); // hardcoded 11 in create2.rs
+	let create2_precompile_addr = H160::from_low_u64_be(0x0B); // hardcoded 11 in create2.rs
 
 	let (code, _) = compile_module("dummy").unwrap();
 
-    let value = [0u8; 32];
+	let value = [0u8; 32];
 	let mut code_offset = [0u8; 32];
 	code_offset[31] = 160;
 	let mut code_length = [0u8; 32];
 	let code_len = code.len() as u64;
 	code_length[24..32].copy_from_slice(&code_len.to_be_bytes());
 	let mut salt_offset = [0u8; 32];
-	salt_offset[24..32].copy_from_slice(&(code_len+160).to_be_bytes());
+	salt_offset[24..32].copy_from_slice(&(code_len + 160).to_be_bytes());
 	let mut salt_length = [0u8; 32];
 	salt_length[31] = 32;
-    let salt = [42u8; 32];
+	let salt = [42u8; 32];
 
-    let mut input = Vec::new();
-    input.extend_from_slice(&value);
-    input.extend_from_slice(&code_offset);
-    input.extend_from_slice(&code_length);
-    input.extend_from_slice(&salt_offset);
-    input.extend_from_slice(&salt_length);
-    input.extend_from_slice(&code);
-    input.extend_from_slice(&salt);
-
+	let mut input = Vec::new();
+	input.extend_from_slice(&value);
+	input.extend_from_slice(&code_offset);
+	input.extend_from_slice(&code_length);
+	input.extend_from_slice(&salt_offset);
+	input.extend_from_slice(&salt_length);
+	input.extend_from_slice(&code);
+	input.extend_from_slice(&salt);
 
 	let deployer = <Test as Config>::AddressMapper::to_address(&ALICE);
 	let contract_address_expected = create2(&deployer, code.as_slice(), &[], &salt);
 
-    ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
-        let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+	ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
 		assert_ok!(Contracts::upload_code(
 			RuntimeOrigin::signed(ALICE),
@@ -480,10 +479,8 @@ fn create2_precompile_works() {
 			deposit_limit::<Test>(),
 		));
 
-        // Call the precompile directly
-        let result = builder::bare_call(create2_precompile_addr)
-            .data(input.clone())
-            .build();
+		// Call the precompile directly
+		let result = builder::bare_call(create2_precompile_addr).data(input.clone()).build();
 
 		let result_exec = result.result.clone();
 		assert_ok!(result_exec);
@@ -495,8 +492,7 @@ fn create2_precompile_works() {
 
 		assert!(!result_result.did_revert());
 		assert_eq!(result_result.flags, ReturnFlags::empty());
-
-    });
+	});
 }
 
 #[test]
@@ -639,7 +635,6 @@ fn create1_address_from_extrinsic() {
 		assert_eq!(System::account_nonce(&ALICE), 6);
 	});
 }
-
 
 #[test]
 fn deposit_event_max_value_limit() {
