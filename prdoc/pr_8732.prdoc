@@ -23,29 +23,29 @@ crates:
   bump: minor
 - name: cumulus-pallet-xcmp-queue
   bump: minor
-- name: parachains-common
-  bump: minor
-- name: polkadot-runtime-common
-  bump: none
-- name: polkadot-runtime-parachains
-  bump: none
 - name: pallet-xcm
   bump: none
 - name: pallet-xcm-bridge-hub
   bump: minor
 - name: pallet-xcm-bridge-hub-router
   bump: minor
+- name: parachains-common
+  bump: minor
+- name: penpal-runtime
+  bump: minor
 - name: people-rococo-runtime
   bump: minor
 - name: people-westend-runtime
   bump: minor
-- name: penpal-runtime
-  bump: minor
+- name: polkadot-runtime-common
+  bump: none
+- name: polkadot-runtime-parachains
+  bump: none
 - name: staging-xcm
   bump: minor
-- name: staging-xcm-executor
-  bump: none
 - name: staging-xcm-builder
+  bump: none
+- name: staging-xcm-executor
   bump: none
 - name: xcm-runtime-apis
   bump: patch
