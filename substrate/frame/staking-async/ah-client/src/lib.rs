@@ -63,6 +63,7 @@ use sp_staking::{
 	offence::{OffenceDetails, OffenceSeverity},
 	SessionIndex,
 };
+use alloc::{collections::BTreeMap};
 
 /// The balance type seen from this pallet's PoV.
 pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
@@ -225,15 +226,15 @@ pub struct BufferedOffence<AccountId> {
 	// rc_client::Offence takes multiple reporters, but in practice there is only one. In this
 	// pallet, we assume this is the case and store only the first reporter or none if empty.
 	pub reporter: Option<AccountId>,
-	pub slash_fraction: Perbill,
+	pub slash_fraction: sp_runtime::Perbill,
 }
 
 /// A map of buffered offences, keyed by session index and then by offender account id.
 pub type BufferedOffencesMap<T> = BTreeMap<
 	SessionIndex,
 	BTreeMap<
-		T::AccountId,
-		BufferedOffence<T::AccountId>,
+		<T as frame_system::Config>::AccountId,
+		BufferedOffence<<T as frame_system::Config>::AccountId>,
 	>,
 >;
 
@@ -641,7 +642,8 @@ pub mod pallet {
 				.map(|start_session| slash_session >= start_session)
 				.unwrap_or(false);
 
-			let mut offenders_and_slashes = Vec::new();
+			// collect this for the xcm report
+			let mut offenders_and_slashes_message = Vec::new();
 
 			// notify pallet-session about the offences
 			for (offence, fraction) in offenders.iter().cloned().zip(slash_fraction) {
@@ -656,46 +658,45 @@ pub mod pallet {
 				let (offender, _full_identification) = offence.offender;
 				let reporters = offence.reporters;
 
-				if mode == OperatingMode::Buffered {
-					// In `Buffered` mode, we buffer the offences for later processing.
-					// We only keep the highest slash fraction for each offender.
-					BufferedOffences::<T>::mutate(|buffered| {
-						let entry = buffered
-							.entry(slash_session)
-							.or_default()
-							.entry(offence.offender.0.clone());
+				match mode {
+					OperatingMode::Buffered => {
+						// In `Buffered` mode, we buffer the offences for later processing.
+						// We only keep the highest slash fraction for each offender.
+						BufferedOffences::<T>::mutate(|buffered| {
+							let session_offences = buffered.entry(slash_session).or_default();
+							let entry = session_offences.entry(offender);
 
-						// if the offender already exists, we check if the new slash fraction is
-						// higher.
-						if let Some(existing) = entry.get_mut() {
-							if existing.slash_fraction < *fraction {
-								*existing = BufferedOffence {
-									reporter: offence.reporters.first().cloned(),
+							entry
+								.and_modify(|existing| {
+									if existing.slash_fraction < *fraction {
+										*existing = BufferedOffence {
+											reporter: reporters.first().cloned(),
+											slash_fraction: *fraction,
+										};
+									}
+								})
+								.or_insert(BufferedOffence {
+									reporter: reporters.first().cloned(),
 									slash_fraction: *fraction,
-								};
-							}
-						} else {
-							entry.insert(BufferedOffence {
-								reporter: offence.reporters.first().cloned(),
-								slash_fraction: *fraction,
-							});
-						}
-					});
-					continue;
+								});
+						});
+					},
+					OperatingMode::Active => {
+						// prepare an `Offence` instance for the XCM message. Note that we drop the
+						// identification.
+						offenders_and_slashes_message.push(rc_client::Offence {
+							offender,
+							reporters,
+							slash_fraction: *fraction,
+						});
+					},
+					_ => {}
 				}
-
-				// prepare an `Offence` instance for the XCM message. Note that we drop the
-				// identification.
-				offenders_and_slashes.push(rc_client::Offence {
-					offender,
-					reporters,
-					slash_fraction: *fraction,
-				});
 			}
 
-			if !offenders_and_slashes.is_empty() {
+			if !offenders_and_slashes_message.is_empty() {
 				log!(info, "sending offence report to AH");
-				T::SendToAssetHub::relay_new_offence(slash_session, offenders_and_slashes);
+				T::SendToAssetHub::relay_new_offence(slash_session, offenders_and_slashes_message);
 			}
 
 			Weight::zero()
@@ -754,13 +755,13 @@ pub mod pallet {
 
 			// send all buffered offences to AssetHub.
 			// for one slash session, put them in one batch.
-			BufferedOffences::<T>::take().into_iter().for_each(|(slash_session, offenceMap)| {
-				let offences = offenceMap.iter()
+			BufferedOffences::<T>::take().into_iter().for_each(|(slash_session, offence_map)| {
+				let offences = offence_map.iter()
 					.map(|(offender, offence)| {
 						// convert to rc_client::Offence
 						rc_client::Offence {
-							offender: (offender.clone(), DefaultExposureOf::<T>::convert(offender)),
-							reporters: offence.reporter.into_iter().collect(),
+							offender: offender.clone(),
+							reporters: offence.reporter.clone().into_iter().collect(),
 							slash_fraction: offence.slash_fraction,
 						}
 					})
