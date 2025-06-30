@@ -27,6 +27,7 @@ xcm = { workspace = true, default-features = true }
 emulated-integration-tests-common = { workspace = true }
 
 # Local
+asset-hub-westend-runtime = { workspace = true }
 collectives-westend-runtime = { workspace = true }
 westend-runtime = { workspace = true }
 westend-system-emulated-network = { workspace = true }
