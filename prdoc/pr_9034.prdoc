@@ -1,0 +1,7 @@
+title: "add try-state check for staking roles -- staker cannot be nominator a\u2026"
+doc:
+- audience: Todo
+  description: Tiny follow-up to https://github.com/paritytech/polkadot-sdk/pull/8701/files
+crates:
+- name: pallet-staking-async
+  bump: patch
