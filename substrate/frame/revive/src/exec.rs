@@ -254,7 +254,7 @@ pub trait PrecompileWithInfoExt: PrecompileExt {
 
 	/// Instantiate a contract from the given code.
 	///
-	/// Returns the original code size of the called contract.
+	/// Returns the address of the newly created contract.
 	/// The newly created account will be associated with `code`. `value` specifies the amount of
 	/// value transferred from the caller to the newly created account.
 	fn instantiate(
