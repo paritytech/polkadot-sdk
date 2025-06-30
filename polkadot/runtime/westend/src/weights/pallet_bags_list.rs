@@ -19,7 +19,7 @@
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
 //! DATE: 2025-06-30, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `a813abfb1055`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
+//! HOSTNAME: `cdae034456a8`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
 //! WASM-EXECUTION: `Compiled`, CHAIN: `None`, DB CACHE: 1024
 
 // Executed Command:
@@ -65,8 +65,8 @@ impl<T: frame_system::Config> pallet_bags_list::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `1684`
 		//  Estimated: `11506`
-		// Minimum execution time: 71_861_000 picoseconds.
-		Weight::from_parts(73_965_000, 0)
+		// Minimum execution time: 70_186_000 picoseconds.
+		Weight::from_parts(72_397_000, 0)
 			.saturating_add(Weight::from_parts(0, 11506))
 			.saturating_add(T::DbWeight::get().reads(8))
 			.saturating_add(T::DbWeight::get().writes(5))
@@ -85,8 +85,8 @@ impl<T: frame_system::Config> pallet_bags_list::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `1578`
 		//  Estimated: `8877`
-		// Minimum execution time: 68_233_000 picoseconds.
-		Weight::from_parts(70_038_000, 0)
+		// Minimum execution time: 67_336_000 picoseconds.
+		Weight::from_parts(69_746_000, 0)
 			.saturating_add(Weight::from_parts(0, 8877))
 			.saturating_add(T::DbWeight::get().reads(8))
 			.saturating_add(T::DbWeight::get().writes(5))
@@ -107,8 +107,8 @@ impl<T: frame_system::Config> pallet_bags_list::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `1889`
 		//  Estimated: `11506`
-		// Minimum execution time: 80_196_000 picoseconds.
-		Weight::from_parts(83_030_000, 0)
+		// Minimum execution time: 79_227_000 picoseconds.
+		Weight::from_parts(81_426_000, 0)
 			.saturating_add(Weight::from_parts(0, 11506))
 			.saturating_add(T::DbWeight::get().reads(11))
 			.saturating_add(T::DbWeight::get().writes(6))
@@ -131,8 +131,8 @@ impl<T: frame_system::Config> pallet_bags_list::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `4777`
 		//  Estimated: `512390`
-		// Minimum execution time: 691_830_000 picoseconds.
-		Weight::from_parts(716_933_000, 0)
+		// Minimum execution time: 711_882_000 picoseconds.
+		Weight::from_parts(719_890_000, 0)
 			.saturating_add(Weight::from_parts(0, 512390))
 			.saturating_add(T::DbWeight::get().reads(234))
 			.saturating_add(T::DbWeight::get().writes(16))
