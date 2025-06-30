@@ -16,17 +16,13 @@
 // limitations under the License.
 
 use sp_runtime::DispatchError;
-use sp_core::H160;
-
 use crate::Pallet as Contracts;
 use crate::{
-	address, limits::code, precompiles::{BuiltinAddressMatcher, Error, ExtWithInfo, Precompiles, PrimitivePrecompile}, Config
+	precompiles::{BuiltinAddressMatcher, Error, ExtWithInfo, PrimitivePrecompile}, Config
 };
 use crate::H256;
 use sp_core::U256;
-use sp_runtime::traits::Bounded;
 use crate::BalanceOf;
-use crate::MomentOf;
 use crate::address::AddressMapper;
 use core::{marker::PhantomData, num::NonZero};
 
@@ -87,17 +83,25 @@ impl<T: Config>  PrimitivePrecompile for Create2<T>
         assert_eq!(salt_length, 32, "salt length must be 32 bytes");
         let salt: &[u8; 32] = salt.try_into().map_err(|_| DispatchError::from("invalid salt length"))?;
         let contract_address = crate::address::create2(&deployer, code, &[], salt);
+        println!("deployer: {:?}", deployer);
+        println!("salt: {:?}", salt);
+        println!("code: {:?}", code);
 
         let code_hash = sp_io::hashing::keccak_256(&code);
 
         let instantiate_result = env.instantiate(
             gas_limit,
-            U256::MAX,
+            U256::MAX, // TODO(RVE): what value to put here?
             H256::from(code_hash),
             endowment,
             vec![], // input data for constructor, if any
             Some(salt),
         );
+        assert!(instantiate_result.is_ok());
+        println!("instantiate_result: {:?}", instantiate_result.unwrap());
+        println!("contract_address: {:?}", contract_address);
+        println!("address: {:?}", address);
+        // assert_eq!(instantiate_result.unwrap(), contract_address);
 
         // Pad the contract address to 32 bytes (left padding with zeros)
         let mut padded = [0u8; 32];

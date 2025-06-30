@@ -440,15 +440,11 @@ impl Default for Origin<Test> {
 #[test]
 fn create2_precompile_works() {
     use sp_core::H160;
-    use crate::precompiles::Precompile;
-	use alloy_core::sol_types::SolInterface;
-	use precompiles::{INoInfo, NoInfo};
 
 	// let create2_precompile_addr = H160(NoInfo::<Test>::MATCHER.base_address());
     let create2_precompile_addr = H160::from_low_u64_be(0x0B); // hardcoded 11 in create2.rs
 
-	let (code, code_hash) = compile_module("dummy").unwrap();
-	println!("code.len(): {}", code.len());
+	let (code, _) = compile_module("dummy").unwrap();
 
     let value = [0u8; 32];
 	let mut code_offset = [0u8; 32];
@@ -474,8 +470,9 @@ fn create2_precompile_works() {
 
 	let deployer = <Test as Config>::AddressMapper::to_address(&ALICE);
 	let contract_address_expected = create2(&deployer, code.as_slice(), &[], &salt);
-
-	println!("contract_address_expected: {:?}", contract_address_expected.as_bytes());
+	println!("deployer: {:?}", deployer);
+	println!("salt: {:?}", salt);
+	println!("code: {:?}", code);
 
     ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
         let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -490,21 +487,19 @@ fn create2_precompile_works() {
         let result = builder::bare_call(create2_precompile_addr)
             .data(input.clone())
             .build();
-		println!("result: {result:?}");
 
 		let result_exec = result.result.clone();
 		assert_ok!(result_exec);
 		let result_result = result.result.clone().unwrap();
 
 		let contract_address = &result_result.data[12..];
+		println!("contract_address: {:?}", contract_address);
 		assert_eq!(contract_address.len(), contract_address_expected.as_bytes().len());
 		assert_eq!(contract_address, contract_address_expected.as_bytes());
 
 		assert!(!result_result.did_revert());
+		assert_eq!(result_result.flags, ReturnFlags::empty());
 
-		// TODO: check if result it OK
-		// TODO: output contains the expected address
-		// TODO: check if contract deployed at the right address
     });
 }
 
