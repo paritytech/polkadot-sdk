@@ -9,7 +9,7 @@ use parachain_template_runtime::{
 	opaque::{Block, Hash},
 };
 
-use polkadot_sdk::*;
+use polkadot_sdk::{sp_consensus_aura::inherents::AuraCreateInherentDataProviders, *};
 
 // Cumulus Imports
 use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
@@ -155,14 +155,9 @@ fn build_import_queue(
 		_,
 		_,
 		_,
-		_,
 	>(
 		client,
 		block_import,
-		move |_, _| async move {
-			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-			Ok(timestamp)
-		},
 		&task_manager.spawn_essential_handle(),
 		config.prometheus_registry(),
 		telemetry,
@@ -204,7 +199,8 @@ fn start_consensus(
 	);
 
 	let params = AuraParams {
-		create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+		create_inherent_data_providers: Arc::new(move |_, ()| async move { Ok(()) })
+			as AuraCreateInherentDataProviders<Block, ()>,
 		block_import,
 		para_client: client.clone(),
 		para_backend: backend,

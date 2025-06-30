@@ -532,7 +532,7 @@ pub async fn start_slot_worker<B, C, W, SO, CIDP, Proof>(
 
 /// A header which has been checked
 pub enum CheckedHeader<H, S> {
-	/// A header which has slot in the future. this is the full header (not stripped)
+	/// A header which has slot in the future. This is the full header (not stripped)
 	/// and the slot in which it should be processed.
 	Deferred(H, Slot),
 	/// A header which is fully checked, including signature. This is the pre-header
