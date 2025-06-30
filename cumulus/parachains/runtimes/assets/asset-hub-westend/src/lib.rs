@@ -1666,6 +1666,7 @@ mod benches {
 		[pallet_message_queue, MessageQueue]
 		[pallet_migrations, MultiBlockMigrations]
 		[pallet_multisig, Multisig]
+		[pallet_nomination_pools_benchmarking, NominationPoolsBench::<Runtime>]
 		[pallet_nft_fractionalization, NftFractionalization]
 		[pallet_nfts, Nfts]
 		[pallet_proxy, Proxy]
@@ -2139,6 +2140,7 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
+			use pallet_nomination_pools_benchmarking::Pallet as NominationPoolsBench;
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			use pallet_xcm_bridge_hub_router::benchmarking::Pallet as XcmBridgeHubRouterBench;
 
@@ -2188,6 +2190,9 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
+
+			use pallet_nomination_pools_benchmarking::Pallet as NominationPoolsBench;
+			impl pallet_nomination_pools_benchmarking::Config for Runtime {}
 
 			parameter_types! {
 				pub ExistentialDepositAsset: Option<Asset> = Some((
