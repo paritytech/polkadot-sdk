@@ -70,7 +70,6 @@ mod benchmarks {
 		let (message, _) = build_message::<T>();
 		let leaf = <T as Config>::Hashing::hash(&message.encode());
 		MessageLeaves::<T>::append(leaf);
-		LeafNonce::<T>::insert(leaf, 1);
 	}
 
 	/// Benchmark for processing a message.
@@ -123,7 +122,6 @@ mod benchmarks {
 	/// `MaxMessagePayloadSize`
 	#[benchmark]
 	fn process() -> Result<(), BenchmarkError> {
-		initialize_worst_case::<T>();
 		let origin = AggregateMessageOrigin::SnowbridgeV2([1; 32].into());
 		let (enqueued_message, _) = build_message::<T>();
 		let message = enqueued_message.encode();
@@ -143,11 +141,23 @@ mod benchmarks {
 	fn submit_delivery_receipt() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 
+		let (_, outbound_message) = build_message::<T>();
+
 		let message = make_submit_delivery_receipt_message();
 
 		T::Helper::initialize_storage(message.finalized_header, message.block_roots_root);
 
-		let _ = DeliveryReceipt::try_from(&message.event.event_log).unwrap();
+		let receipt = DeliveryReceipt::try_from(&message.event.event_log).unwrap();
+
+		let order = PendingOrder {
+			nonce: receipt.nonce,
+			fee: 0,
+			block_number: frame_system::Pallet::<T>::current_block_number(),
+			hash: H256::default(),
+			committed_block_number: None,
+			outbound_message,
+		};
+		<PendingOrders<T>>::insert(receipt.nonce, order);
 
 		#[block]
 		{
