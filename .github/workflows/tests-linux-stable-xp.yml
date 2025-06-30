@@ -40,7 +40,7 @@ jobs:
       - name: script
         id: required
         run: |
-          cargo nextest run --workspace \
+          forklift cargo nextest run --workspace \
                    --locked \
                    --release \
                    --no-fail-fast \
@@ -71,7 +71,7 @@ jobs:
       - name: script
         id: required
         run: |
-          cargo nextest run --workspace \
+          forklift cargo nextest run --workspace \
                    --locked \
                    --release \
                    --no-fail-fast \
