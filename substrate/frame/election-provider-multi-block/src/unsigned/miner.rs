@@ -221,6 +221,15 @@ pub type PageSupportsOfMiner<T> = frame_election_provider_support::BoundedSuppor
 	<T as MinerConfig>::MaxBackersPerWinner,
 >;
 
+/// Helper type that computes the maximum total winners across all pages.
+pub struct MaxWinnersFinal<T: MinerConfig>(core::marker::PhantomData<T>);
+
+impl<T: MinerConfig> frame_support::traits::Get<u32> for MaxWinnersFinal<T> {
+	fn get() -> u32 {
+		T::Pages::get().saturating_mul(T::MaxWinnersPerPage::get())
+	}
+}
+
 /// The full version of [`PageSupportsOfMiner`].
 ///
 /// This should be used on a support instance that is encapsulating the full solution.
@@ -228,7 +237,7 @@ pub type PageSupportsOfMiner<T> = frame_election_provider_support::BoundedSuppor
 /// Another way to look at it, this is never wrapped in a `Vec<_>`
 pub type FullSupportsOfMiner<T> = frame_election_provider_support::BoundedSupports<
 	<T as MinerConfig>::AccountId,
-	<T as MinerConfig>::MaxWinnersPerPage,
+	MaxWinnersFinal<T>,
 	<T as MinerConfig>::MaxBackersPerWinnerFinal,
 >;
 
@@ -1333,6 +1342,52 @@ mod trimming {
 					.try_from_unbounded_paged()
 					.unwrap()
 				);
+			})
+	}
+
+	#[test]
+	fn aggressive_backer_trimming_maintains_winner_count() {
+		// Test the scenario where aggressive backer trimming is applied but the solution
+		// should still maintain the correct winner count to avoid WrongWinnerCount errors.
+		ExtBuilder::unsigned()
+			.desired_targets(3)
+			.max_winners_per_page(2)
+			.pages(2)
+			.max_backers_per_winner_final(1) // aggressive final trimming
+			.max_backers_per_winner(1) // aggressive per-page trimming
+			.build_and_execute(|| {
+				// Use default 4 targets to stay within TargetSnapshotPerBlock limit
+
+				// Adjust the voters a bit, such that they are all different backings
+				let mut current_voters = Voters::get();
+				current_voters.iter_mut().for_each(|(who, stake, ..)| *stake = *who);
+				Voters::set(current_voters);
+
+				roll_to_snapshot_created();
+
+				let solution = mine_full_solution().unwrap();
+
+				// The solution should still be valid despite aggressive trimming
+				assert!(solution.solution_pages.len() > 0);
+
+				let winner_count = solution
+					.solution_pages
+					.iter()
+					.flat_map(|page| page.unique_targets())
+					.collect::<std::collections::HashSet<_>>()
+					.len();
+
+				// We should get 3 winners.
+				// This demonstrates that FullSupportsOfMiner can accommodate winners from multiple
+				// pages and can hold more winners than MaxWinnersPerPage.
+				assert_eq!(winner_count, 3);
+
+				// Load and verify the solution passes all checks without WrongWinnerCount error
+				load_mock_signed_and_start(solution);
+				let _supports = roll_to_full_verification();
+
+				// A solution should be successfully queued
+				assert!(VerifierPallet::queued_score().is_some());
 			})
 	}
 }
