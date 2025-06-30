@@ -96,12 +96,13 @@ impl<T: Config>  PrimitivePrecompile for Create2<T>
             endowment,
             vec![], // input data for constructor, if any
             Some(salt),
+            Some(&deployer),
         );
         assert!(instantiate_result.is_ok());
         println!("instantiate_result: {:?}", instantiate_result.unwrap());
         println!("contract_address: {:?}", contract_address);
         println!("address: {:?}", address);
-        // assert_eq!(instantiate_result.unwrap(), contract_address);
+        assert_eq!(instantiate_result.unwrap(), contract_address);
 
         // Pad the contract address to 32 bytes (left padding with zeros)
         let mut padded = [0u8; 32];

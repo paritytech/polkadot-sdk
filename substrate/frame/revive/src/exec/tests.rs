@@ -1215,6 +1215,7 @@ fn instantiation_from_contract() {
 					<Test as Config>::Currency::minimum_balance().into(),
 					vec![],
 					Some(&[48; 32]),
+					None,
 				)
 				.map(|address| (address, ctx.ext.last_frame_output().clone()))
 				.unwrap();
@@ -1279,6 +1280,7 @@ fn instantiation_traps() {
 					<Test as Config>::Currency::minimum_balance().into(),
 					vec![],
 					Some(&[0; 32]),
+					None,
 				),
 				Err(ExecError {
 					error: DispatchError::Other("It's a trap!"),
@@ -1631,6 +1633,7 @@ fn nonce() {
 				ctx.ext.minimum_balance() * 100,
 				vec![],
 				Some(&[0; 32]),
+				None,
 			)
 			.ok();
 		exec_success()
@@ -1648,6 +1651,7 @@ fn nonce() {
 				ctx.ext.minimum_balance() * 100,
 				vec![],
 				Some(&[0; 32]),
+				None,
 			)
 			.unwrap();
 
@@ -2372,7 +2376,7 @@ fn last_frame_output_works_on_instantiate() {
 
 			// Successful instantiation should set the output
 			let address =
-				ctx.ext.instantiate(Weight::MAX, U256::MAX, ok_ch, value, vec![], None).unwrap();
+				ctx.ext.instantiate(Weight::MAX, U256::MAX, ok_ch, value, vec![], None, None).unwrap();
 			assert_eq!(
 				ctx.ext.last_frame_output(),
 				&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![127] }
@@ -2386,7 +2390,7 @@ fn last_frame_output_works_on_instantiate() {
 
 			// Reverted instantiation should set the output
 			ctx.ext
-				.instantiate(Weight::zero(), U256::zero(), revert_ch, value, vec![], None)
+				.instantiate(Weight::zero(), U256::zero(), revert_ch, value, vec![], None, None)
 				.unwrap();
 			assert_eq!(
 				ctx.ext.last_frame_output(),
@@ -2395,7 +2399,7 @@ fn last_frame_output_works_on_instantiate() {
 
 			// Trapped instantiation should clear the output
 			ctx.ext
-				.instantiate(Weight::zero(), U256::zero(), trap_ch, value, vec![], None)
+				.instantiate(Weight::zero(), U256::zero(), trap_ch, value, vec![], None, None)
 				.unwrap_err();
 			assert_eq!(
 				ctx.ext.last_frame_output(),
@@ -2540,6 +2544,7 @@ fn last_frame_output_is_always_reset() {
 				U256::zero(),
 				vec![],
 				None,
+				None,
 			),
 			Err(Error::<Test>::CodeNotFound.into())
 		);
@@ -2584,7 +2589,7 @@ fn immutable_data_access_checks_work() {
 
 			// Constructors can not access the immutable data
 			ctx.ext
-				.instantiate(Weight::MAX, U256::MAX, dummy_ch, value, vec![], None)
+				.instantiate(Weight::MAX, U256::MAX, dummy_ch, value, vec![], None, None)
 				.unwrap();
 
 			exec_success()
@@ -2749,7 +2754,7 @@ fn immutable_data_set_errors_with_empty_data() {
 		move |ctx, _| {
 			let value = <Test as Config>::Currency::minimum_balance().into();
 			ctx.ext
-				.instantiate(Weight::MAX, U256::MAX, dummy_ch, value, vec![], None)
+				.instantiate(Weight::MAX, U256::MAX, dummy_ch, value, vec![], None, None)
 				.unwrap();
 
 			exec_success()

@@ -265,6 +265,7 @@ pub trait PrecompileWithInfoExt: PrecompileExt {
 		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
+		origin: Option<&H160>,
 	) -> Result<H160, ExecError>;
 }
 
@@ -989,8 +990,14 @@ where
 			FrameArgs::Instantiate { sender, executable, salt, input_data } => {
 				let deployer = T::AddressMapper::to_address(&sender);
 				let account_nonce = <System<T>>::account_nonce(&sender);
+				println!("RVE: deployer: {deployer:?}");
+				println!("RVE: executable.code(): {:?}", executable.code());
+				println!("RVE: input_data: {input_data:?}");
+				println!("RVE: salt: {salt:?}");
 				let address = if let Some(salt) = salt {
-					address::create2(&deployer, executable.code(), input_data, salt)
+					let result = address::create2(&deployer, executable.code(), input_data, salt);
+					println!("RVE: create2 result: {result:?}");
+					result
 				} else {
 					use sp_runtime::Saturating;
 					address::create1(
@@ -1677,13 +1684,21 @@ where
 		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
+		origin: Option<&H160>,
 	) -> Result<H160, ExecError> {
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
 		// This is for example the case when creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
 
 		let executable = E::from_storage(code_hash, self.gas_meter_mut())?;
-		let sender = &self.top_frame().account_id;
+		let sender = if let Some(sender) = origin {
+			// If the origin is specified, we use it as the sender.
+			// This is useful for testing and benchmarking.
+			T::AddressMapper::to_account_id(sender)
+		} else {
+			// Otherwise we use the top frame's account id as the sender.
+			self.top_frame().account_id.clone()
+		};
 		let executable = self.push_frame(
 			FrameArgs::Instantiate {
 				sender: sender.clone(),
