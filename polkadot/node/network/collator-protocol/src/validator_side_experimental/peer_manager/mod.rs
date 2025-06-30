@@ -23,9 +23,8 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use crate::{
 	validator_side_experimental::{
 		common::{
-			PeerInfo, PeerState, Score, CONNECTED_PEERS_LIMIT, CONNECTED_PEERS_PARA_LIMIT,
-			INACTIVITY_DECAY, MAX_STARTUP_ANCESTRY_LOOKBACK, MAX_STORED_SCORES_PER_PARA,
-			VALID_INCLUDED_CANDIDATE_BUMP,
+			PeerInfo, Score, TryAcceptOutcome, CONNECTED_PEERS_LIMIT, CONNECTED_PEERS_PARA_LIMIT,
+			INACTIVITY_DECAY, MAX_STARTUP_ANCESTRY_LOOKBACK, VALID_INCLUDED_CANDIDATE_BUMP,
 		},
 		error::{Error, Result},
 	},
@@ -34,13 +33,10 @@ use crate::{
 pub use backend::Backend;
 use connected::ConnectedPeers;
 pub use db::Db;
-use polkadot_node_network_protocol::{
-	peer_set::{CollationVersion, PeerSet},
-	PeerId,
-};
+use polkadot_node_network_protocol::{peer_set::PeerSet, PeerId};
 use polkadot_node_subsystem::{
 	messages::{ChainApiMessage, NetworkBridgeTxMessage},
-	ActivatedLeaf, CollatorProtocolSenderTrait,
+	CollatorProtocolSenderTrait,
 };
 use polkadot_node_subsystem_util::{
 	request_candidate_events, request_candidates_pending_availability, runtime::recv_runtime,
@@ -62,34 +58,6 @@ pub struct ReputationUpdate {
 pub enum ReputationUpdateKind {
 	Bump,
 	Slash,
-}
-
-#[derive(Debug, PartialEq)]
-enum TryAcceptOutcome {
-	Added,
-	// This can hold more than one `PeerId` because before receiving the `Declare` message,
-	// one peer can hold connection slots for multiple paraids.
-	// The set can also be empty if this peer replaced some other peer's slot but that other peer
-	// maintained a connection slot for another para (therefore not disconnected).
-	// The number of peers in the set is bound to the number of scheduled paras.
-	Replaced(HashSet<PeerId>),
-	Rejected,
-}
-
-impl TryAcceptOutcome {
-	fn combine(self, other: Self) -> Self {
-		use TryAcceptOutcome::*;
-		match (self, other) {
-			(Added, Added) => Added,
-			(Rejected, Rejected) => Rejected,
-			(Added, Rejected) | (Rejected, Added) => Added,
-			(Replaced(mut replaced_a), Replaced(replaced_b)) => {
-				replaced_a.extend(replaced_b);
-				Replaced(replaced_a)
-			},
-			(_, Replaced(replaced)) | (Replaced(replaced), _) => Replaced(replaced),
-		}
-	}
 }
 
 #[derive(Debug, PartialEq)]
@@ -126,6 +94,15 @@ impl<B: Backend> PeerManager<B> {
 
 		let processed_finalized_block_number =
 			instance.db.processed_finalized_block_number().await.unwrap_or_default();
+
+		gum::trace!(
+			target: LOG_TARGET,
+			scheduled_paras = ?instance.connected.scheduled_paras().collect::<Vec<_>>(),
+			latest_finalized_block_number,
+			?latest_finalized_block_hash,
+			processed_finalized_block_number,
+			"PeerManager startup"
+		);
 
 		let bumps = extract_reputation_bumps_on_new_finalized_block(
 			sender,
@@ -173,6 +150,7 @@ impl<B: Backend> PeerManager<B> {
 	/// Process the registered paras and cleanup all data pertaining to any unregistered paras, if
 	/// any. Should be called every N finalized block notifications, since it's expected that para
 	/// deregistrations are rare.
+	#[allow(unused)]
 	pub async fn registered_paras_update(&mut self, registered_paras: BTreeSet<ParaId>) {
 		// Tell the DB to cleanup paras that are no longer registered. No need to clean up the
 		// connected peers state, since it will get automatically cleaned up as the claim queue
@@ -180,18 +158,18 @@ impl<B: Backend> PeerManager<B> {
 		self.db.prune_paras(registered_paras).await;
 	}
 
-	/// Process a potential change of the scheduled paras.
+	/// Process a potential change of the scheduled paras. Return a record of the disconnected
+	/// peers.
 	pub async fn scheduled_paras_update<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
 		scheduled_paras: BTreeSet<ParaId>,
-	) {
-		let mut prev_scheduled_paras: BTreeSet<_> =
-			self.connected.scheduled_paras().copied().collect();
+	) -> HashSet<PeerId> {
+		let prev_scheduled_paras: BTreeSet<_> = self.connected.scheduled_paras().copied().collect();
 
 		if prev_scheduled_paras == scheduled_paras {
 			// Nothing to do if the scheduled paras didn't change.
-			return
+			return HashSet::new()
 		}
 
 		// Recreate the connected peers based on the new schedule and try populating it again based
@@ -236,7 +214,9 @@ impl<B: Backend> PeerManager<B> {
 		}
 
 		// Disconnect peers that couldn't be kept.
-		self.disconnect_peers(sender, peers_to_disconnect).await;
+		self.disconnect_peers(sender, peers_to_disconnect.clone().into_iter()).await;
+
+		peers_to_disconnect
 	}
 
 	/// Process a declaration message of a peer.
@@ -245,8 +225,10 @@ impl<B: Backend> PeerManager<B> {
 		sender: &mut Sender,
 		peer_id: PeerId,
 		para_id: ParaId,
-	) {
-		let Some(peer_info) = self.connected.peer_info(&peer_id).cloned() else { return };
+	) -> bool {
+		if self.connected.peer_info(&peer_id).is_none() {
+			return false
+		}
 		let outcome = self.connected.declared(peer_id, para_id);
 
 		match outcome {
@@ -257,6 +239,7 @@ impl<B: Backend> PeerManager<B> {
 					?peer_id,
 					"Peer declared",
 				);
+				true
 			},
 			DeclarationOutcome::Switched(old_para_id) => {
 				gum::debug!(
@@ -264,10 +247,10 @@ impl<B: Backend> PeerManager<B> {
 					?para_id,
 					?old_para_id,
 					?peer_id,
-					"Peer switched collating paraid. Trying to accept it on the new one.",
+					"Peer switched collating paraid. Rejected.",
 				);
-
-				self.try_accept_connection(sender, peer_id, peer_info).await;
+				self.disconnect_peers(sender, [peer_id].into_iter()).await;
+				false
 			},
 			DeclarationOutcome::Rejected => {
 				gum::debug!(
@@ -277,7 +260,8 @@ impl<B: Backend> PeerManager<B> {
 					"Peer declared but rejected. Going to disconnect.",
 				);
 
-				self.disconnect_peers(sender, [peer_id].into_iter().collect()).await;
+				self.disconnect_peers(sender, [peer_id].into_iter()).await;
+				false
 			},
 		}
 	}
@@ -306,13 +290,13 @@ impl<B: Backend> PeerManager<B> {
 		self.connected.remove(peer_id);
 	}
 
-	/// A connection was made, triage it. Return whether or not is was kept.
+	/// A connection was made, triage it.
 	pub async fn try_accept_connection<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
 		peer_id: PeerId,
 		peer_info: PeerInfo,
-	) -> bool {
+	) -> TryAcceptOutcome {
 		let db = &self.db;
 		let reputation_query_fn = |peer_id: PeerId, para_id: ParaId| async move {
 			// Go straight to the DB. We only store in-memory the reputations of connected peers.
@@ -322,25 +306,14 @@ impl<B: Backend> PeerManager<B> {
 		let outcome = self.connected.try_accept(reputation_query_fn, peer_id, peer_info).await;
 
 		match outcome {
-			TryAcceptOutcome::Added => true,
+			TryAcceptOutcome::Added => TryAcceptOutcome::Added,
 			TryAcceptOutcome::Replaced(other_peers) => {
-				gum::trace!(
-					target: LOG_TARGET,
-					"Peer {:?} replaced the connection slots of other peers: {:?}",
-					peer_id,
-					&other_peers
-				);
-				self.disconnect_peers(sender, other_peers).await;
-				true
+				self.disconnect_peers(sender, other_peers.clone().into_iter()).await;
+				TryAcceptOutcome::Replaced(other_peers)
 			},
 			TryAcceptOutcome::Rejected => {
-				gum::debug!(
-					target: LOG_TARGET,
-					?peer_id,
-					"Peer connection was rejected",
-				);
-				self.disconnect_peers(sender, [peer_id].into_iter().collect()).await;
-				false
+				self.disconnect_peers(sender, [peer_id].into_iter()).await;
+				TryAcceptOutcome::Rejected
 			},
 		}
 	}
@@ -350,11 +323,30 @@ impl<B: Backend> PeerManager<B> {
 		self.connected.peer_score(peer_id, para_id)
 	}
 
+	/// Retrieve the peer info associated to this PeerId, if any.
+	pub fn peer_info(&self, peer_id: &PeerId) -> Option<&PeerInfo> {
+		self.connected.peer_info(peer_id)
+	}
+
+	/// Retrieve the max scores for the given paras.
+	pub async fn max_scores_for_paras(&self, paras: BTreeSet<ParaId>) -> HashMap<ParaId, Score> {
+		self.db.max_scores_for_paras(paras).await
+	}
+
+	#[cfg(test)]
+	pub fn connected_peers(&self) -> BTreeSet<PeerId> {
+		self.connected.clone().consume().0.into_keys().collect()
+	}
+
 	async fn disconnect_peers<Sender: CollatorProtocolSenderTrait>(
 		&self,
 		sender: &mut Sender,
-		peers: HashSet<PeerId>,
+		peers: impl Iterator<Item = PeerId>,
 	) {
+		let peers: Vec<_> = peers.collect();
+		if peers.is_empty() {
+			return
+		}
 		gum::trace!(
 			target: LOG_TARGET,
 			?peers,
@@ -362,10 +354,7 @@ impl<B: Backend> PeerManager<B> {
 		);
 
 		sender
-			.send_message(NetworkBridgeTxMessage::DisconnectPeers(
-				peers.into_iter().collect(),
-				PeerSet::Collation,
-			))
+			.send_message(NetworkBridgeTxMessage::DisconnectPeers(peers, PeerSet::Collation))
 			.await;
 	}
 }
@@ -430,8 +419,8 @@ async fn extract_reputation_bumps_on_new_finalized_block<Sender: CollatorProtoco
 
 	let mut ancestors =
 		get_ancestors(sender, ancestry_len as usize, latest_finalized_block_hash).await?;
-	ancestors.push(latest_finalized_block_hash);
 	ancestors.reverse();
+	ancestors.push(latest_finalized_block_hash);
 
 	gum::trace!(
 		target: LOG_TARGET,
