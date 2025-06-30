@@ -144,15 +144,17 @@ parameter_types! {
 pub struct TestSpendOrigin;
 impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for TestSpendOrigin {
 	type Success = u64;
-	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
-		Result::<frame_system::RawOrigin<_>, RuntimeOrigin>::from(o).and_then(|o| match o {
-			frame_system::RawOrigin::Root => Ok(u64::max_value()),
-			frame_system::RawOrigin::Signed(10) => Ok(5),
-			frame_system::RawOrigin::Signed(11) => Ok(10),
-			frame_system::RawOrigin::Signed(12) => Ok(20),
-			frame_system::RawOrigin::Signed(13) => Ok(50),
-			frame_system::RawOrigin::Signed(14) => Ok(500),
-			r => Err(RuntimeOrigin::from(r)),
+	fn try_origin(outer: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
+		Result::<frame_system::RawOrigin<_>, RuntimeOrigin>::from(outer.clone()).and_then(|o| {
+			match o {
+				frame_system::RawOrigin::Root => Ok(u64::max_value()),
+				frame_system::RawOrigin::Signed(10) => Ok(5),
+				frame_system::RawOrigin::Signed(11) => Ok(10),
+				frame_system::RawOrigin::Signed(12) => Ok(20),
+				frame_system::RawOrigin::Signed(13) => Ok(50),
+				frame_system::RawOrigin::Signed(14) => Ok(500),
+				_ => Err(outer),
+			}
 		})
 	}
 	#[cfg(feature = "runtime-benchmarks")]
@@ -666,6 +668,35 @@ fn spend_payout_works() {
 		System::assert_last_event(Event::<Test, _>::SpendProcessed { index: 0 }.into());
 		// cannot payout the same spend twice.
 		assert_noop!(Treasury::payout(RuntimeOrigin::signed(1), 0), Error::<Test, _>::InvalidIndex);
+	});
+}
+
+#[test]
+fn payout_extends_expiry() {
+	ExtBuilder::default().build().execute_with(|| {
+		assert_eq!(<Test as Config>::PayoutPeriod::get(), 5);
+
+		System::set_block_number(1);
+		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(6), None));
+		// Fail a payout at block 4
+		System::set_block_number(4);
+		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
+		assert_eq!(paid(6, 1), 2);
+		let payment_id = get_payment_id(0).expect("no payment attempt");
+		// spend payment is failed
+		set_status(payment_id, PaymentStatus::Failure);
+		unpay(6, 1, 2);
+
+		// check status to set the correct state
+		assert_ok!(Treasury::check_status(RuntimeOrigin::signed(1), 0));
+		System::assert_last_event(Event::<Test, _>::PaymentFailed { index: 0, payment_id }.into());
+
+		// Retrying at after the initial expiry date but before the new one succeeds
+		System::set_block_number(7);
+
+		// the payout can be retried now
+		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
+		assert_eq!(paid(6, 1), 2);
 	});
 }
 

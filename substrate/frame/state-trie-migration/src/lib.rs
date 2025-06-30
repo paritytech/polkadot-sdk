@@ -106,6 +106,7 @@ pub mod pallet {
 		CloneNoBound,
 		Encode,
 		Decode,
+		DecodeWithMemTracking,
 		scale_info::TypeInfo,
 		PartialEqNoBound,
 		EqNoBound,
@@ -127,7 +128,16 @@ pub mod pallet {
 	/// A migration task stored in state.
 	///
 	/// It tracks the last top and child keys read.
-	#[derive(Clone, Encode, Decode, scale_info::TypeInfo, PartialEq, Eq, MaxEncodedLen)]
+	#[derive(
+		Clone,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		scale_info::TypeInfo,
+		PartialEq,
+		Eq,
+		MaxEncodedLen,
+	)]
 	#[scale_info(skip_type_params(T))]
 	pub struct MigrationTask<T: Config> {
 		/// The current top trie migration progress.
@@ -404,6 +414,7 @@ pub mod pallet {
 		Copy,
 		Encode,
 		Decode,
+		DecodeWithMemTracking,
 		scale_info::TypeInfo,
 		Default,
 		Debug,
@@ -419,7 +430,17 @@ pub mod pallet {
 	}
 
 	/// How a migration was computed.
-	#[derive(Clone, Copy, Encode, Decode, scale_info::TypeInfo, Debug, PartialEq, Eq)]
+	#[derive(
+		Clone,
+		Copy,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		scale_info::TypeInfo,
+		Debug,
+		PartialEq,
+		Eq,
+	)]
 	pub enum MigrationCompute {
 		/// A signed origin triggered the migration.
 		Signed,
@@ -486,6 +507,7 @@ pub mod pallet {
 
 		/// The overarching event type.
 		#[pallet::no_default_bounds]
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The currency provider type.
@@ -815,7 +837,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			limits: MigrationLimits,
 		) -> DispatchResult {
-			let _ = T::ControlOrigin::ensure_origin(origin)?;
+			T::ControlOrigin::ensure_origin(origin)?;
 			SignedMigrationMaxLimits::<T>::put(limits);
 			Ok(())
 		}
@@ -836,7 +858,7 @@ pub mod pallet {
 			progress_top: ProgressOf<T>,
 			progress_child: ProgressOf<T>,
 		) -> DispatchResult {
-			let _ = T::ControlOrigin::ensure_origin(origin)?;
+			T::ControlOrigin::ensure_origin(origin)?;
 			MigrationProcess::<T>::mutate(|task| {
 				task.progress_top = progress_top;
 				task.progress_child = progress_child;

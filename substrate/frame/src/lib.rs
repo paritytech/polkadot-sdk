@@ -34,15 +34,21 @@
 //!
 //! This crate is organized into 3 stages:
 //!
-//! 1. preludes: `prelude`, `testing_prelude` and `runtime::prelude`, `benchmarking`,
-//!    `weights_prelude`, `try_runtime`.
-//! 2. domain-specific modules: `traits`, `hashing`, `arithmetic` and `derive`.
+//! 1. preludes: `prelude`, `testing_prelude`, `runtime::prelude`, `benchmarking::prelude`, and
+//!    `weights_prelude`.
+//! 2. domain-specific modules, like `traits`, `hashing`, `arithmetic` and `derive`.
 //! 3. Accessing frame/substrate dependencies directly: `deps`.
 //!
-//! The main intended use of this crate is for it to be used with the former, preludes:
+//! The main intended use of this crate is through preludes, which re-export most of the components
+//! needed for pallet development. Domain-specific modules serve as a backup for organization, and
+//! `deps` provides direct access to all dependencies if needed.
+//!
+//!
+//! ### Example Usage
 //!
 //! ```
 //! use polkadot_sdk_frame as frame;
+//!
 //! #[frame::pallet]
 //! pub mod pallet {
 //! 	# use polkadot_sdk_frame as frame;
@@ -74,11 +80,10 @@
 //! }
 //! ```
 //!
-//! If not in preludes, one can look into the domain-specific modules. Finally, if an import is
-//! still not feasible, one can look into `deps`.
+//! ### Features
 //!
-//! This crate also uses a `runtime` feature to include all of the types and tools needed to build
-//! FRAME-based runtimes. So, if you want to build a runtime with this, import it as
+//! This crate uses a `runtime` feature to include all types and tools needed to build FRAME-based
+//! runtimes. For runtime development, import it as:
 //!
 //! ```text
 //! polkadot-sdk-frame = { version = "foo", features = ["runtime"] }
@@ -90,10 +95,12 @@
 //! polkadot-sdk-frame = { version = "foo" }
 //! ```
 //!
-//! Notice that the preludes overlap since they have imports in common. More in detail:
-//! - `testing_prelude` brings in frame `prelude` and `runtime::prelude`;
-//! - `runtime::prelude` brings in frame `prelude`;
-//! - `benchmarking` brings in frame `prelude`.
+//! ### Prelude Relationships
+//!
+//! The preludes have overlapping imports for convenience:
+//! - `testing_prelude` includes `prelude` and `runtime::prelude`
+//! - `runtime::prelude` includes `prelude`
+//! - `benchmarking::prelude` includes `prelude`
 //!
 //! ## Naming
 //!
@@ -125,29 +132,7 @@
 //!
 //! ## Documentation
 //!
-//! See [`polkadot_sdk::frame`](../polkadot_sdk_docs/polkadot_sdk/frame_runtime/index.html).
-//!
-//! ## WARNING: Experimental
-//!
-//! **This crate and all of its content is experimental, and should not yet be used in production.**
-//!
-//! ## Maintenance Note
-//!
-//! > Notes for the maintainers of this crate, describing how the re-exports and preludes should
-//! > work.
-//!
-//! * Preludes should be extensive. The goal of this pallet is to be ONLY used with the preludes.
-//!   The domain-specific modules are just a backup, aiming to keep things organized. Don't hesitate
-//!   in adding more items to the main prelude.
-//! * The only non-module, non-prelude items exported from the top level crate is the `pallet`
-//!   macro, such that we can have the `#[frame::pallet] mod pallet { .. }` syntax working.
-//! * In most cases, you might want to create a domain-specific module, but also add it to the
-//!   preludes, such as `hashing`.
-//! * The only items that should NOT be in preludes are those that have been placed in
-//!   `frame-support`/`sp-runtime`, but in truth are related to just one pallet.
-//! * The currency related traits are kept out of the preludes to encourage a deliberate choice of
-//!   one over the other.
-//! * `runtime::apis` should expose all common runtime APIs that all FRAME-based runtimes need.
+//! For more detailed documentation and examples, see [`polkadot_sdk_frame`](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_frame/index.html).
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -189,7 +174,7 @@ pub mod prelude {
 	/// `frame_system`'s parent crate, which is mandatory in all pallets build with this crate.
 	///
 	/// Conveniently, the keyword `frame_system` is in scope as one uses `use
-	/// polkadot_sdk_frame::prelude::*`
+	/// polkadot_sdk_frame::prelude::*`.
 	#[doc(inline)]
 	pub use frame_system;
 
@@ -199,13 +184,18 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use frame_support::pallet_prelude::*;
 
-	/// Dispatch types from `frame-support`, other fundamental traits
+	/// Dispatch types from `frame-support`, other fundamental traits.
 	#[doc(no_inline)]
 	pub use frame_support::dispatch::{GetDispatchInfo, PostDispatchInfo};
-	pub use frame_support::traits::{
-		Contains, EitherOf, EstimateNextSessionRotation, Everything, IsSubType, MapSuccess,
-		NoOpPoll, OnRuntimeUpgrade, OneSessionHandler, RankedMembers, RankedMembersSwapHandler,
-		VariantCount, VariantCountOf,
+	pub use frame_support::{
+		defensive, defensive_assert,
+		traits::{
+			Contains, Defensive, DefensiveSaturating, EitherOf, EstimateNextSessionRotation,
+			Everything, InsideBoth, InstanceFilter, IsSubType, MapSuccess, NoOpPoll,
+			OnRuntimeUpgrade, OneSessionHandler, PalletInfoAccess, RankedMembers,
+			RankedMembersSwapHandler, VariantCount, VariantCountOf,
+		},
+		PalletId,
 	};
 
 	/// Pallet prelude of `frame-system`.
@@ -220,20 +210,27 @@ pub mod prelude {
 	#[doc(no_inline)]
 	pub use super::derive::*;
 
-	/// All hashing related things
+	/// All hashing related components.
 	pub use super::hashing::*;
 
-	/// All account related things.
+	/// All transaction related components.
+	pub use crate::transaction::*;
+
+	/// All account related components.
 	pub use super::account::*;
 
 	/// All arithmetic types and traits used for safe math.
 	pub use super::arithmetic::*;
 
+	/// All token related types and traits.
+	pub use super::token::*;
+
 	/// Runtime traits
 	#[doc(no_inline)]
 	pub use sp_runtime::traits::{
-		BlockNumberProvider, Bounded, Convert, DispatchInfoOf, Dispatchable, ReduceBy,
-		ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup, TrailingZeroInput,
+		AccountIdConversion, BlockNumberProvider, Bounded, Convert, ConvertBack, DispatchInfoOf,
+		Dispatchable, ReduceBy, ReplaceWithDefault, SaturatedConversion, Saturating, StaticLookup,
+		TrailingZeroInput,
 	};
 
 	/// Bounded storage related types.
@@ -281,9 +278,13 @@ pub mod benchmarking {
 	}
 
 	pub mod prelude {
-		pub use super::shared::*;
 		pub use crate::prelude::*;
-		pub use frame_benchmarking::v2::*;
+		pub use frame_benchmarking::{
+			add_benchmark, benchmarking::add_to_whitelist, v1::account, v2::*, whitelist,
+			whitelisted_caller,
+		};
+		pub use frame_support::traits::UnfilteredDispatchable;
+		pub use frame_system::{Pallet as System, RawOrigin};
 	}
 }
 
@@ -326,9 +327,11 @@ pub mod testing_prelude {
 	/// Other helper macros from `frame_support` that help with asserting in tests.
 	pub use frame_support::{
 		assert_err, assert_err_ignore_postinfo, assert_error_encoded_size, assert_noop, assert_ok,
-		assert_storage_noop, ensure, hypothetically, storage_alias,
+		assert_storage_noop, defensive, ensure, hypothetically, hypothetically_ok, storage_alias,
+		StorageNoopGuard,
 	};
 
+	pub use frame_support::traits::Everything;
 	pub use frame_system::{self, mocking::*, RunToBlockHooks};
 
 	#[deprecated(note = "Use `frame::testing_prelude::TestState` instead.")]
@@ -498,6 +501,7 @@ pub mod runtime {
 		///
 		/// crucially, this does NOT contain any tx-payment extension.
 		pub type SystemTransactionExtensionsOf<T> = (
+			frame_system::AuthorizeCall<T>,
 			frame_system::CheckNonZeroSender<T>,
 			frame_system::CheckSpecVersion<T>,
 			frame_system::CheckTxVersion<T>,
@@ -532,14 +536,28 @@ pub mod traits {
 
 /// The arithmetic types used for safe math.
 ///
-/// This is already part of the [`prelude`].
+/// This is already part of the main [`prelude`].
 pub mod arithmetic {
 	pub use sp_arithmetic::{traits::*, *};
 }
 
+/// All token related types and traits.
+pub mod token {
+	pub use frame_support::traits::{
+		tokens,
+		tokens::{
+			currency, fungible, fungibles, imbalance, nonfungible, nonfungible_v2, nonfungibles,
+			nonfungibles_v2, pay, AssetId, BalanceStatus, DepositConsequence, ExistenceRequirement,
+			Fortitude, Pay, Precision, Preservation, Provenance, WithdrawConsequence,
+			WithdrawReasons,
+		},
+		OnUnbalanced,
+	};
+}
+
 /// All derive macros used in frame.
 ///
-/// This is already part of the [`prelude`].
+/// This is already part of the main [`prelude`].
 pub mod derive {
 	pub use codec::{Decode, Encode};
 	pub use core::fmt::Debug;
@@ -548,12 +566,38 @@ pub mod derive {
 		PartialOrdNoBound, RuntimeDebugNoBound,
 	};
 	pub use scale_info::TypeInfo;
+	pub use serde;
+	/// The `serde` `Serialize`/`Deserialize` derive macros and traits.
+	///
+	/// You will either need to add `serde` as a dependency in your crate's `Cargo.toml`
+	/// or specify the `#[serde(crate = "PATH_TO_THIS_CRATE::serde")]` attribute that points
+	/// to the path where serde can be found.
+	pub use serde::{Deserialize, Serialize};
 	pub use sp_runtime::RuntimeDebug;
 }
 
+/// All hashing related components.
+///
+/// This is already part of the main [`prelude`].
 pub mod hashing {
 	pub use sp_core::{hashing::*, H160, H256, H512, U256, U512};
 	pub use sp_runtime::traits::{BlakeTwo256, Hash, Keccak256};
+}
+
+// Systems involved in transaction execution in the runtime.
+///
+/// This is already part of the [`prelude`].
+pub mod transaction {
+	pub use frame_support::traits::{CallMetadata, GetCallMetadata};
+	pub use sp_runtime::{
+		generic::ExtensionVersion,
+		impl_tx_ext_default,
+		traits::{
+			AsTransactionAuthorizedOrigin, DispatchTransaction, TransactionExtension,
+			ValidateResult,
+		},
+		transaction_validity::{InvalidTransaction, ValidTransaction},
+	};
 }
 
 /// All account management related traits.
@@ -569,13 +613,14 @@ pub mod account {
 /// Access to all of the dependencies of this crate. In case the prelude re-exports are not enough,
 /// this module can be used.
 ///
-/// Note for maintainers: Any time one uses this module to access a dependency, you can have a
-/// moment to think about whether this item could have been placed in any of the other modules and
-/// preludes in this crate. In most cases, hopefully the answer is yes.
+/// Note: Before using these direct dependencies, please check if the item you need is available
+/// through the preludes or domain-specific modules, as they provide a more organized and
+/// maintainable way to access these dependencies.
 pub mod deps {
-	// TODO: It would be great to somehow instruct RA to prefer *not* suggesting auto-imports from
-	// these. For example, we prefer `polkadot_sdk_frame::derive::CloneNoBound` rather than
-	// `polkadot_sdk_frame::deps::frame_support::CloneNoBound`.
+	// Notes for maintainers: Any time one uses this module to access a dependency, you can have a
+	// moment to think about whether this item could have been placed in any of the other modules
+	// and preludes in this crate. In most cases, hopefully the answer is yes.
+
 	pub use frame_support;
 	pub use frame_system;
 

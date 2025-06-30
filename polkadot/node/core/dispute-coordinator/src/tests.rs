@@ -37,8 +37,8 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem::{
 	messages::{
-		ApprovalVotingMessage, ChainApiMessage, ChainSelectionMessage, DisputeCoordinatorMessage,
-		DisputeDistributionMessage, ImportStatementsResult,
+		ApprovalVotingParallelMessage, ChainApiMessage, ChainSelectionMessage,
+		DisputeCoordinatorMessage, DisputeDistributionMessage, ImportStatementsResult,
 	},
 	overseer::FromOrchestra,
 	OverseerSignal,
@@ -415,13 +415,6 @@ impl TestState {
 				},
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					_new_leaf,
-					RuntimeApiRequest::Version(tx),
-				)) => {
-					tx.send(Ok(RuntimeApiRequest::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT))
-						.unwrap();
-				},
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_new_leaf,
 					RuntimeApiRequest::DisabledValidators(tx),
 				)) => {
 					tx.send(Ok(Vec::new())).unwrap();
@@ -585,7 +578,6 @@ impl TestState {
 			self.config,
 			self.subsystem_keystore.clone(),
 			Metrics::default(),
-			false,
 		);
 		let backend =
 			DbBackend::new(self.db.clone(), self.config.column_config(), Metrics::default());
@@ -690,8 +682,8 @@ pub async fn handle_approval_vote_request(
 ) {
 	assert_matches!(
 		ctx_handle.recv().await,
-		AllMessages::ApprovalVoting(
-			ApprovalVotingMessage::GetApprovalSignaturesForCandidate(hash, tx)
+		AllMessages::ApprovalVotingParallel(
+			ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate(hash, tx)
 		) => {
 			assert_eq!(&hash, expected_hash);
 			tx.send(votes_to_send).unwrap();
@@ -3917,8 +3909,8 @@ fn participation_requests_reprioritized_for_newly_included() {
 
 				handle_disabled_validators_queries(&mut virtual_overseer, Vec::new()).await;
 				// Handle corresponding messages to unblock import
-				// we need to handle `ApprovalVotingMessage::GetApprovalSignaturesForCandidate` for
-				// import
+				// we need to handle
+				// `ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate` for import
 				handle_approval_vote_request(
 					&mut virtual_overseer,
 					&candidate_hash,
@@ -4387,15 +4379,6 @@ async fn handle_disabled_validators_queries(
 	virtual_overseer: &mut VirtualOverseer,
 	disabled_validators: Vec<ValidatorIndex>,
 ) {
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			_new_leaf,
-			RuntimeApiRequest::Version(tx),
-		)) => {
-			tx.send(Ok(RuntimeApiRequest::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT)).unwrap();
-		}
-	);
 	assert_matches!(
 		virtual_overseer.recv().await,
 		AllMessages::RuntimeApi(RuntimeApiMessage::Request(

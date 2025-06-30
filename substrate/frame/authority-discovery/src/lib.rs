@@ -51,12 +51,12 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// Keys of the current authority set.
-	pub(super) type Keys<T: Config> =
+	pub type Keys<T: Config> =
 		StorageValue<_, WeakBoundedVec<AuthorityId, T::MaxAuthorities>, ValueQuery>;
 
 	#[pallet::storage]
 	/// Keys of the next authority set.
-	pub(super) type NextKeys<T: Config> =
+	pub type NextKeys<T: Config> =
 		StorageValue<_, WeakBoundedVec<AuthorityId, T::MaxAuthorities>, ValueQuery>;
 
 	#[derive(frame_support::DefaultNoBound)]
@@ -189,6 +189,7 @@ mod tests {
 		{
 			System: frame_system,
 			Session: pallet_session,
+			Balances: pallet_balances,
 			AuthorityDiscovery: pallet_authority_discovery,
 		}
 	);
@@ -210,12 +211,10 @@ mod tests {
 		type ValidatorId = AuthorityId;
 		type ValidatorIdOf = ConvertInto;
 		type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+		type DisablingStrategy = ();
 		type WeightInfo = ();
-	}
-
-	impl pallet_session::historical::Config for Test {
-		type FullIdentification = ();
-		type FullIdentificationOf = ();
+		type Currency = Balances;
+		type KeyDeposit = ();
 	}
 
 	pub type BlockNumber = u64;
@@ -230,6 +229,12 @@ mod tests {
 		type AccountId = AuthorityId;
 		type Lookup = IdentityLookup<Self::AccountId>;
 		type Block = Block;
+		type AccountData = pallet_balances::AccountData<u64>;
+	}
+
+	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+	impl pallet_balances::Config for Test {
+		type AccountStore = System;
 	}
 
 	pub struct TestSessionHandler;

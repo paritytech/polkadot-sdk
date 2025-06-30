@@ -17,9 +17,9 @@
 
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::input;
-use uapi::{HostFn, HostFnImpl as api};
+use uapi::{input, HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -28,13 +28,13 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-    input!(
-        address: &[u8; 20],
-        expected_code_hash: &[u8; 32],
-    );
+	input!(
+		address: &[u8; 20],
+		expected_code_hash: &[u8; 32],
+	);
 
-    let mut code_hash = [0u8; 32];
-    api::code_hash(address, &mut code_hash);
+	let mut code_hash = [0u8; 32];
+	api::code_hash(address, &mut code_hash);
 
-    assert!(&code_hash == expected_code_hash);
+	assert!(&code_hash == expected_code_hash);
 }

@@ -15,8 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //! Define Byte wrapper types for encoding and decoding hex strings
+
 use super::hex_serde::HexCodec;
 use alloc::{vec, vec::Vec};
+use alloy_core::hex;
 use codec::{Decode, Encode};
 use core::{
 	fmt::{Debug, Display, Formatter, Result as FmtResult},
@@ -35,7 +37,7 @@ impl FromStr for Bytes {
 
 macro_rules! impl_hex {
     ($type:ident, $inner:ty, $default:expr) => {
-        #[derive(Encode, Decode, Eq, PartialEq, TypeInfo, Clone, Serialize, Deserialize)]
+        #[derive(Encode, Decode, Eq, PartialEq, Ord, PartialOrd, TypeInfo, Clone, Serialize, Deserialize, Hash)]
         #[doc = concat!("`", stringify!($inner), "`", " wrapper type for encoding and decoding hex strings")]
         pub struct $type(#[serde(with = "crate::evm::api::hex_serde")] pub $inner);
 

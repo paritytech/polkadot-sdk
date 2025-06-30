@@ -20,11 +20,11 @@ use async_std::sync::Mutex;
 use async_trait::async_trait;
 use bp_polkadot_core::BlockNumber as RelayBlockNumber;
 use bp_runtime::HeaderIdProvider;
+use clap::Parser;
 use parachains_relay::parachains_loop::{AvailableHeader, SourceClient, TargetClient};
 use relay_substrate_client::{Client, Parachain};
 use relay_utils::metrics::{GlobalMetrics, StandaloneMetric};
 use std::sync::Arc;
-use structopt::StructOpt;
 
 use crate::{
 	cli::{
@@ -38,34 +38,34 @@ use crate::{
 };
 
 /// Parachains heads relaying params.
-#[derive(StructOpt)]
+#[derive(Parser)]
 pub struct RelayParachainsParams {
-	#[structopt(flatten)]
+	#[command(flatten)]
 	source: SourceConnectionParams,
-	#[structopt(flatten)]
+	#[command(flatten)]
 	target: TargetConnectionParams,
-	#[structopt(flatten)]
+	#[command(flatten)]
 	target_sign: TargetSigningParams,
 	/// If passed, only free headers (those, available at "free" relay chain headers)
 	/// are relayed.
-	#[structopt(long)]
+	#[arg(long)]
 	only_free_headers: bool,
-	#[structopt(flatten)]
+	#[command(flatten)]
 	prometheus_params: PrometheusParams,
 }
 
 /// Single parachains head relaying params.
-#[derive(StructOpt)]
+#[derive(Parser)]
 pub struct RelayParachainHeadParams {
-	#[structopt(flatten)]
+	#[command(flatten)]
 	source: SourceConnectionParams,
-	#[structopt(flatten)]
+	#[command(flatten)]
 	target: TargetConnectionParams,
-	#[structopt(flatten)]
+	#[command(flatten)]
 	target_sign: TargetSigningParams,
 	/// Prove parachain head at that relay block number. This relay header must be previously
 	/// proved to the target chain.
-	#[structopt(long)]
+	#[arg(long)]
 	at_relay_block: RelayBlockNumber,
 }
 

@@ -5,7 +5,7 @@
 //! block. Async Backing allows collators to build parablocks on older Relay Chain blocks and create
 //! pipelines of multiple pending parablocks. This parallel block generation increases efficiency
 //! and throughput. For more information on Async backing and its terminology, refer to the document
-//! on [the Polkadot Wiki.](https://wiki.polkadot.network/docs/maintain-guides-async-backing)
+//! on [the Polkadot SDK docs.](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/async_backing_guide/index.html)
 //!
 //! > If starting a new parachain project, please use an async backing compatible template such as
 //! > the

@@ -10,7 +10,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-westend-runtime = { workspace = true }
+westend-runtime = { workspace = true, default-features = true }
 westend-runtime-constants = { workspace = true, default-features = true }
 
 frame-system = { workspace = true, default-features = true }

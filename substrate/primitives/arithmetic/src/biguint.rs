@@ -426,7 +426,8 @@ impl BigUint {
 				let s = SHIFT as u32;
 				let nb = normalizer_bits;
 				for d in 0..n - 1 {
-					let v = self_norm.get(d) >> nb | self_norm.get(d + 1).overflowing_shl(s - nb).0;
+					let v =
+						(self_norm.get(d) >> nb) | self_norm.get(d + 1).overflowing_shl(s - nb).0;
 					r.set(d, v);
 				}
 				r.set(n - 1, self_norm.get(n - 1) >> normalizer_bits);
@@ -593,13 +594,13 @@ pub mod tests {
 	fn split_works() {
 		let a = SHIFT / 2;
 		let b = SHIFT * 3 / 2;
-		let num: Double = 1 << a | 1 << b;
+		let num: Double = (1 << a) | (1 << b);
 		assert_eq!(num, 0x_0001_0000_0001_0000);
 		assert_eq!(split(num), (1 << a, 1 << a));
 
 		let a = SHIFT / 2 + 4;
 		let b = SHIFT / 2 - 4;
-		let num: Double = 1 << (SHIFT + a) | 1 << b;
+		let num: Double = (1 << (SHIFT + a)) | (1 << b);
 		assert_eq!(num, 0x_0010_0000_0000_1000);
 		assert_eq!(split(num), (1 << a, 1 << b));
 	}

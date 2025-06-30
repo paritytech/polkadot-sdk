@@ -20,12 +20,11 @@
 use super::*;
 
 use crate as recovery;
-use frame_support::{derive_impl, parameter_types};
-use sp_runtime::BuildStorage;
+use frame::{deps::sp_io, testing_prelude::*};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -52,9 +51,9 @@ impl pallet_balances::Config for Test {
 }
 
 parameter_types! {
-	pub const ConfigDepositBase: u64 = 10;
+	pub static ConfigDepositBase: u64 = 10;
 	pub const FriendDepositFactor: u64 = 1;
-	pub const RecoveryDeposit: u64 = 10;
+	pub static RecoveryDeposit: u64 = 10;
 	// Large number of friends for benchmarking.
 	pub const MaxFriends: u32 = 128;
 }
@@ -82,5 +81,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
-	t.into()
+	let mut ext: sp_io::TestExternalities = t.into();
+	ext.execute_with(|| System::set_block_number(1));
+	ext
 }

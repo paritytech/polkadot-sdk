@@ -50,6 +50,9 @@ const LOG_TARGET: &str = "runtime::configuration";
 // `polkadot_node_network_protocol::POV_RESPONSE_SIZE`.
 const POV_SIZE_HARD_LIMIT: u32 = 16 * 1024 * 1024;
 
+// The maximum compression ratio that we use to compute the maximum uncompressed code size.
+pub(crate) const MAX_VALIDATION_CODE_COMPRESSION_RATIO: u32 = 10;
+
 /// All configuration of the runtime with respect to paras.
 #[derive(
 	Clone,
@@ -1344,13 +1347,16 @@ impl<T: Config> Pallet<T> {
 	/// will check if the previous configuration was valid. If it was invalid, we proceed with
 	/// updating the configuration, giving a chance to recover from such a condition.
 	///
-	/// The actual configuration change take place after a couple of sessions have passed. In case
-	/// this function is called more than once in a session, then the pending configuration change
-	/// will be updated and the changes will be applied at once.
-	// NOTE: Explicitly tell rustc not to inline this because otherwise heuristics note the incoming
-	// closure making it's attractive to inline. However, in this case, we will end up with lots of
-	// duplicated code (making this function to show up in the top of heaviest functions) only for
-	// the sake of essentially avoiding an indirect call. Doesn't worth it.
+	/// The actual configuration change takes place after a couple of sessions have passed. In case
+	/// this function is called more than once in the same session, then the pending configuration
+	/// change will be updated.
+	/// In other words, all the configuration changes made in the same session will be folded
+	/// together in the order they were made, and only once the scheduled session is reached will
+	/// the final pending configuration be applied.
+	// NOTE: Explicitly tell rustc not to inline this, because otherwise heuristics note the
+	// incoming closure make it attractive to inline. However, in that case, we will end up with
+	// lots of duplicated code (making this function show up on top of the heaviest functions) only
+	// for the sake of essentially avoiding an indirect call. It is not worth it.
 	#[inline(never)]
 	pub(crate) fn schedule_config_update(
 		updater: impl FnOnce(&mut HostConfiguration<BlockNumberFor<T>>),

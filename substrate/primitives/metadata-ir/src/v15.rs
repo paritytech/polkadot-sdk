@@ -23,9 +23,9 @@ use super::types::{
 };
 
 use frame_metadata::v15::{
-	CustomMetadata, CustomValueMetadata, ExtrinsicMetadata, OuterEnums, PalletMetadata,
-	RuntimeApiMetadata, RuntimeApiMethodMetadata, RuntimeApiMethodParamMetadata,
-	RuntimeMetadataV15, SignedExtensionMetadata,
+	CustomMetadata, ExtrinsicMetadata, OuterEnums, PalletMetadata, RuntimeApiMetadata,
+	RuntimeApiMethodMetadata, RuntimeApiMethodParamMetadata, RuntimeMetadataV15,
+	SignedExtensionMetadata,
 };
 use scale_info::{IntoPortable, Registry};
 
@@ -39,15 +39,7 @@ impl From<MetadataIR> for RuntimeMetadataV15 {
 		let apis =
 			registry.map_into_portable(ir.apis.into_iter().map(Into::<RuntimeApiMetadata>::into));
 		let outer_enums = Into::<OuterEnums>::into(ir.outer_enums).into_portable(&mut registry);
-
-		let view_function_groups = registry.map_into_portable(ir.view_functions.groups.into_iter());
-		let view_functions_custom_metadata = CustomValueMetadata {
-			ty: ir.view_functions.ty,
-			value: codec::Encode::encode(&view_function_groups),
-		};
-		let mut custom_map = alloc::collections::BTreeMap::new();
-		custom_map.insert("view_functions_experimental", view_functions_custom_metadata);
-		let custom = CustomMetadata { map: custom_map }.into_portable(&mut registry);
+		let custom = CustomMetadata { map: Default::default() };
 
 		Self { types: registry.into(), pallets, extrinsic, ty, apis, outer_enums, custom }
 	}

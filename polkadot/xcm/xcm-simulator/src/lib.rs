@@ -413,7 +413,7 @@ macro_rules! decl_test_network {
 			fn deliver(
 				triple: ($crate::ParaId, $crate::Location, $crate::Xcm<()>),
 			) -> Result<$crate::XcmHash, $crate::SendError> {
-				let hash = $crate::fake_message_hash(&triple.2);
+				let hash = $crate::helpers::derive_topic_id(&triple.2);
 				$crate::PARA_MESSAGE_BUS.with(|b| b.borrow_mut().push_back(triple));
 				Ok(hash)
 			}
@@ -445,10 +445,68 @@ macro_rules! decl_test_network {
 			fn deliver(
 				pair: ($crate::Location, $crate::Xcm<()>),
 			) -> Result<$crate::XcmHash, $crate::SendError> {
-				let hash = $crate::fake_message_hash(&pair.1);
+				let hash = $crate::helpers::derive_topic_id(&pair.1);
 				$crate::RELAY_MESSAGE_BUS.with(|b| b.borrow_mut().push_back(pair));
 				Ok(hash)
 			}
 		}
 	};
+}
+
+pub mod helpers {
+	use super::*;
+	use sp_runtime::testing::H256;
+	use std::collections::{HashMap, HashSet};
+
+	/// Derives a topic ID for an XCM in tests.
+	pub fn derive_topic_id<T>(message: &Xcm<T>) -> XcmHash {
+		if let Some(SetTopic(topic_id)) = message.last() {
+			*topic_id
+		} else {
+			fake_message_hash(message)
+		}
+	}
+
+	/// A test utility for tracking XCM topic IDs
+	#[derive(Clone)]
+	pub struct TopicIdTracker {
+		ids: HashMap<String, H256>,
+	}
+	impl TopicIdTracker {
+		/// Initialises a new, empty topic ID tracker.
+		pub fn new() -> Self {
+			TopicIdTracker { ids: HashMap::new() }
+		}
+
+		/// Asserts that exactly one unique topic ID is present across all captured entries.
+		pub fn assert_unique(&self) {
+			let unique_ids: HashSet<_> = self.ids.values().collect();
+			assert_eq!(
+				unique_ids.len(),
+				1,
+				"Expected exactly one topic ID, found {}: {:?}",
+				unique_ids.len(),
+				unique_ids
+			);
+		}
+
+		/// Inserts a topic ID with the given chain name in the captor.
+		pub fn insert(&mut self, chain: &str, id: H256) {
+			self.ids.insert(chain.to_string(), id);
+		}
+
+		/// Inserts a topic ID for a given chain and then asserts global uniqueness.
+		pub fn insert_and_assert_unique(&mut self, chain: &str, id: H256) {
+			if let Some(existing_id) = self.ids.get(chain) {
+				assert_eq!(
+					id, *existing_id,
+					"Topic ID mismatch for chain '{}': expected {:?}, got {:?}",
+					id, existing_id, chain
+				);
+			} else {
+				self.insert(chain, id);
+			}
+			self.assert_unique();
+		}
+	}
 }

@@ -21,6 +21,7 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
+pallet-balances = { workspace = true }
 pallet-timestamp = { workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true }
 sp-core = { features = ["serde"], workspace = true }
@@ -39,6 +40,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
+	"pallet-balances/std",
 	"pallet-timestamp/std",
 	"scale-info/std",
 	"sp-core/std",
@@ -52,6 +54,7 @@ std = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
 ]

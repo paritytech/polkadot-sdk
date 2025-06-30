@@ -98,6 +98,8 @@ pub fn extrinsic_set_validation_data(
 		relay_chain_state,
 		downward_messages: Default::default(),
 		horizontal_messages: Default::default(),
+		relay_parent_descendants: Default::default(),
+		collator_peer_id: None,
 	};
 
 	cumulus_test_runtime::UncheckedExtrinsic::new_bare(

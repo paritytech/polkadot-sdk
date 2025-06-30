@@ -166,7 +166,7 @@ impl<T: Config> StakingLedger<T> {
 	/// controller is not set in `self`, which most likely means that self was fetched directly from
 	/// [`Ledger`] instead of through the methods exposed in [`StakingLedger`]. If the ledger does
 	/// not exist in storage, it returns `None`.
-	pub(crate) fn controller(&self) -> Option<T::AccountId> {
+	pub fn controller(&self) -> Option<T::AccountId> {
 		self.controller.clone().or_else(|| {
 			defensive!("fetched a controller on a ledger instance without it.");
 			Self::paired_account(StakingAccount::Stash(self.stash.clone()))

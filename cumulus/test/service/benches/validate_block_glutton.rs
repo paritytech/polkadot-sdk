@@ -63,7 +63,7 @@ fn benchmark_block_validation(c: &mut Criterion) {
 	let endowed_accounts = vec![AccountId::from(Alice.public())];
 	let mut test_client_builder = TestClientBuilder::with_default_backend();
 	let genesis_init = test_client_builder.genesis_init_mut();
-	*genesis_init = cumulus_test_client::GenesisParameters { endowed_accounts };
+	*genesis_init = cumulus_test_client::GenesisParameters { endowed_accounts, wasm: None };
 
 	let client = test_client_builder.build_with_native_executor(None).0;
 
@@ -78,7 +78,7 @@ fn benchmark_block_validation(c: &mut Criterion) {
 			set_glutton_parameters(&client, is_first, compute_ratio, storage_ratio);
 		is_first = false;
 
-		runtime.block_on(import_block(&client, parachain_block.clone().into_block(), false));
+		runtime.block_on(import_block(&client, parachain_block.blocks()[0].clone(), false));
 
 		// Build benchmark block
 		let parent_hash = client.usage_info().chain.best_hash;
@@ -92,8 +92,8 @@ fn benchmark_block_validation(c: &mut Criterion) {
 			client.init_block_builder(Some(validation_data), Default::default());
 		let parachain_block = block_builder.build_parachain_block(*parent_header.state_root());
 
-		let proof_size_in_kb = parachain_block.storage_proof().encode().len() as f64 / 1024f64;
-		runtime.block_on(import_block(&client, parachain_block.clone().into_block(), false));
+		let proof_size_in_kb = parachain_block.proof().encoded_size() as f64 / 1024f64;
+		runtime.block_on(import_block(&client, parachain_block.blocks()[0].clone(), false));
 		let runtime = utils::get_wasm_module();
 
 		let sproof_builder: RelayStateSproofBuilder = Default::default();
@@ -109,7 +109,7 @@ fn benchmark_block_validation(c: &mut Criterion) {
 		// This is not strictly necessary for this benchmark, but
 		// let us make sure that the result of `validate_block` is what
 		// we expect.
-		verify_expected_result(&runtime, &encoded_params, parachain_block.into_block());
+		verify_expected_result(&runtime, &encoded_params, parachain_block.blocks()[0].clone());
 
 		group.bench_function(
 			format!(

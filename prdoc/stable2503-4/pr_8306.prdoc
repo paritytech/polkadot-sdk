@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fix faulty pre-upgrade migration check in pallet-session
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Fixes a pre-upgrade migration check for v1 of pallet-session.
+
+crates:
+- name: pallet-session
+  bump: patch

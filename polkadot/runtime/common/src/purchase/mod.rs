@@ -35,7 +35,9 @@ type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// The kind of statement an account needs to make for a claim to be valid.
-#[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, Copy, Eq, PartialEq, RuntimeDebug, TypeInfo,
+)]
 pub enum AccountValidity {
 	/// Account is not valid.
 	Invalid,
@@ -98,6 +100,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Balances Pallet

@@ -98,6 +98,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -418,7 +419,6 @@ pub mod pallet {
 
 	/// Hash of the best finalized header.
 	#[pallet::storage]
-	#[pallet::getter(fn best_finalized)]
 	pub type BestFinalized<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BridgedBlockId<T, I>, OptionQuery>;
 
@@ -789,12 +789,9 @@ where
 	pub fn synced_headers_grandpa_info() -> Vec<StoredHeaderGrandpaInfo<BridgedHeader<T, I>>> {
 		frame_system::Pallet::<T>::read_events_no_consensus()
 			.filter_map(|event| {
-				if let Event::<T, I>::UpdatedBestFinalizedHeader { grandpa_info, .. } =
-					event.event.try_into().ok()?
-				{
-					return Some(grandpa_info)
-				}
-				None
+				let Event::<T, I>::UpdatedBestFinalizedHeader { grandpa_info, .. } =
+					event.event.try_into().ok()?;
+				Some(grandpa_info)
 			})
 			.collect()
 	}
@@ -822,6 +819,13 @@ pub fn initialize_for_benchmarks<T: Config<I>, I: 'static>(header: BridgedHeader
 		operating_mode: bp_runtime::BasicOperatingMode::Normal,
 	})
 	.expect("only used from benchmarks; benchmarks are correct; qed");
+}
+
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// Returns the hash of the best finalized header.
+	pub fn best_finalized() -> Option<BridgedBlockId<T, I>> {
+		BestFinalized::<T, I>::get()
+	}
 }
 
 #[cfg(test)]

@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -30,7 +30,7 @@
 extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeLimit, Encode};
 use core::{cmp, marker::PhantomData};
 use cumulus_primitives_core::{
 	relay_chain::{
@@ -42,7 +42,7 @@ use cumulus_primitives_core::{
 	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
 	XcmpMessageHandler, XcmpMessageSource,
 };
-use cumulus_primitives_parachain_inherent::{MessageQueueChain, ParachainInherentData};
+use cumulus_primitives_parachain_inherent::{v0, MessageQueueChain, ParachainInherentData};
 use frame_support::{
 	defensive,
 	dispatch::DispatchResult,
@@ -53,14 +53,13 @@ use frame_support::{
 };
 use frame_system::{ensure_none, ensure_root, pallet_prelude::HeaderFor};
 use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
-use polkadot_runtime_parachains::FeeTracker;
+use polkadot_runtime_parachains::{FeeTracker, GetMinFeeFactor};
 use scale_info::TypeInfo;
-use sp_core::U256;
 use sp_runtime::{
 	traits::{Block as BlockT, BlockNumberProvider, Hash, One},
-	BoundedSlice, FixedU128, RuntimeDebug, Saturating,
+	BoundedSlice, FixedU128, RuntimeDebug,
 };
-use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm};
+use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm, MAX_XCM_DECODE_DEPTH};
 use xcm_builder::InspectMessageQueues;
 
 mod benchmarking;
@@ -78,6 +77,7 @@ pub mod consensus_hook;
 pub mod relay_state_snapshot;
 #[macro_use]
 pub mod validate_block;
+mod descendant_validation;
 
 use unincluded_segment::{
 	HrmpChannelUpdate, HrmpWatermarkUpdate, OutboundBandwidthLimits, SegmentTracker,
@@ -112,6 +112,7 @@ pub use unincluded_segment::{Ancestor, UsedBandwidth};
 
 pub use pallet::*;
 
+const LOG_TARGET: &str = "parachain-system";
 /// Something that can check the associated relay block number.
 ///
 /// Each Parachain block is built in the context of a relay chain block, this trait allows us
@@ -178,17 +179,10 @@ impl CheckAssociatedRelayNumber for RelayNumberMonotonicallyIncreases {
 pub type MaxDmpMessageLenOf<T> = <<T as Config>::DmpQueue as HandleMessage>::MaxMessageLen;
 
 pub mod ump_constants {
-	use super::FixedU128;
-
 	/// `host_config.max_upward_queue_size / THRESHOLD_FACTOR` is the threshold after which delivery
 	/// starts getting exponentially more expensive.
 	/// `2` means the price starts to increase when queue is half full.
 	pub const THRESHOLD_FACTOR: u32 = 2;
-	/// The base number the delivery fee factor gets multiplied by every time it is increased.
-	/// Also the number it gets divided by when decreased.
-	pub const EXPONENTIAL_FEE_BASE: FixedU128 = FixedU128::from_rational(105, 100); // 1.05
-	/// The base number message size in KB is multiplied by before increasing the fee factor.
-	pub const MESSAGE_SIZE_FEE_BASE: FixedU128 = FixedU128::from_rational(1, 1000); // 0.001
 }
 
 /// Trait for selecting the next core to build the candidate for.
@@ -204,15 +198,16 @@ pub struct DefaultCoreSelector<T>(PhantomData<T>);
 
 impl<T: frame_system::Config> SelectCore for DefaultCoreSelector<T> {
 	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector: U256 = frame_system::Pallet::<T>::block_number().into();
+		let core_selector = frame_system::Pallet::<T>::block_number().using_encoded(|b| b[0]);
 
-		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
+		(CoreSelector(core_selector), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
 	}
 
 	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector: U256 = (frame_system::Pallet::<T>::block_number() + One::one()).into();
+		let core_selector =
+			(frame_system::Pallet::<T>::block_number() + One::one()).using_encoded(|b| b[0]);
 
-		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
+		(CoreSelector(core_selector), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
 	}
 }
 
@@ -221,15 +216,16 @@ pub struct LookaheadCoreSelector<T>(PhantomData<T>);
 
 impl<T: frame_system::Config> SelectCore for LookaheadCoreSelector<T> {
 	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector: U256 = frame_system::Pallet::<T>::block_number().into();
+		let core_selector = frame_system::Pallet::<T>::block_number().using_encoded(|b| b[0]);
 
-		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(1))
+		(CoreSelector(core_selector), ClaimQueueOffset(1))
 	}
 
 	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector: U256 = (frame_system::Pallet::<T>::block_number() + One::one()).into();
+		let core_selector =
+			(frame_system::Pallet::<T>::block_number() + One::one()).using_encoded(|b| b[0]);
 
-		(CoreSelector(core_selector.byte(0)), ClaimQueueOffset(1))
+		(CoreSelector(core_selector), ClaimQueueOffset(1))
 	}
 }
 
@@ -247,6 +243,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config<OnSetCode = ParachainSetCode<Self>> {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Something which can be notified when the validation data is set.
@@ -296,6 +293,22 @@ pub mod pallet {
 
 		/// Select core.
 		type SelectCore: SelectCore;
+
+		/// The offset between the tip of the relay chain and the parent relay block used as parent
+		/// when authoring a parachain block.
+		///
+		/// This setting directly impacts the number of descendant headers that are expected in the
+		/// `set_validation_data` inherent.
+		///
+		/// For any setting `N` larger than zero, the inherent expects that the inherent includes
+		/// the relay parent plus `N` descendants. These headers are required to validate that new
+		/// parachain blocks are authored at the correct offset.
+		///
+		/// While this helps to reduce forks on the parachain side, it increases the delay for
+		/// processing XCM messages. So, the value should be chosen wisely.
+		///
+		/// If set to 0, this config has no impact.
+		type RelayParentOffset: Get<u32>;
 	}
 
 	#[pallet::hooks]
@@ -485,6 +498,9 @@ pub mod pallet {
 			// like for example from scheduler, we only kill the storage entry if it was not yet
 			// updated in the current block.
 			if !<DidSetValidationCode<T>>::get() {
+				// NOTE: Killing here is required to at least include the trie nodes down to the key
+				// in the proof. Because this value will be read in `validate_block` and thus,
+				// needs to be reachable by the proof.
 				NewValidationCode::<T>::kill();
 				weight += T::DbWeight::get().writes(1);
 			}
@@ -507,10 +523,25 @@ pub mod pallet {
 
 			// Remove the validation from the old block.
 			ValidationData::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			ProcessedDownwardMessages::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			HrmpWatermark::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			UpwardMessages::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			HrmpOutboundMessages::<T>::kill();
+			// NOTE: Killing here is required to at least include the trie nodes down to the key in
+			// the proof. Because this value will be read in `validate_block` and thus, needs to
+			// be reachable by the proof.
 			CustomValidationHeadData::<T>::kill();
 
 			weight += T::DbWeight::get().writes(6);
@@ -597,6 +628,8 @@ pub mod pallet {
 				relay_chain_state,
 				downward_messages,
 				horizontal_messages,
+				relay_parent_descendants,
+				collator_peer_id: _,
 			} = data;
 
 			// Check that the associated relay chain block number is as expected.
@@ -611,6 +644,23 @@ pub mod pallet {
 				relay_chain_state.clone(),
 			)
 			.expect("Invalid relay chain state proof");
+
+			let expected_rp_descendants_num = T::RelayParentOffset::get();
+
+			if expected_rp_descendants_num > 0 {
+				if let Err(err) = descendant_validation::verify_relay_parent_descendants(
+					&relay_state_proof,
+					relay_parent_descendants,
+					vfp.relay_parent_storage_root,
+					expected_rp_descendants_num,
+				) {
+					panic!(
+						"Unable to verify provided relay parent descendants. \
+						expected_rp_descendants_num: {expected_rp_descendants_num} \
+						error: {err:?}"
+					);
+				};
+			}
 
 			// Update the desired maximum capacity according to the consensus hook.
 			let (consensus_hook_weight, capacity) =
@@ -752,10 +802,6 @@ pub mod pallet {
 		HostConfigurationNotAvailable,
 		/// No validation function upgrade is currently scheduled.
 		NotScheduled,
-		/// No code upgrade has been authorized.
-		NothingAuthorized,
-		/// The given code upgrade has not been authorized.
-		Unauthorized,
 	}
 
 	/// Latest included block descendants the runtime accepted. In other words, these are
@@ -901,16 +947,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type PendingUpwardMessages<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
 
-	/// Initialization value for the delivery fee factor for UMP.
-	#[pallet::type_value]
-	pub fn UpwardInitialDeliveryFeeFactor() -> FixedU128 {
-		FixedU128::from_u32(1)
-	}
-
 	/// The factor to multiply the base delivery fee by for UMP.
 	#[pallet::storage]
 	pub type UpwardDeliveryFeeFactor<T: Config> =
-		StorageValue<_, FixedU128, ValueQuery, UpwardInitialDeliveryFeeFactor>;
+		StorageValue<_, FixedU128, ValueQuery, GetMinFeeFactor<Pallet<T>>>;
 
 	/// The number of HRMP messages we observed in `on_initialize` and thus used that number for
 	/// announcing the weight of `on_initialize` and `on_finalize`.
@@ -941,10 +981,26 @@ pub mod pallet {
 			cumulus_primitives_parachain_inherent::INHERENT_IDENTIFIER;
 
 		fn create_inherent(data: &InherentData) -> Option<Self::Call> {
-			let mut data: ParachainInherentData =
-				data.get_data(&Self::INHERENT_IDENTIFIER).ok().flatten().expect(
-					"validation function params are always injected into inherent data; qed",
-				);
+			let mut data = match data
+				.get_data::<ParachainInherentData>(&Self::INHERENT_IDENTIFIER)
+				.ok()
+				.flatten()
+			{
+				None => {
+					// Key Self::INHERENT_IDENTIFIER is expected to contain versioned inherent
+					// data. Older nodes are unaware of the new format and might provide the
+					// legacy data format. We try to load it and transform it into the current
+					// version.
+					let data = data
+						.get_data::<v0::ParachainInherentData>(
+							&cumulus_primitives_parachain_inherent::PARACHAIN_INHERENT_IDENTIFIER_V0,
+						)
+						.ok()
+						.flatten()?;
+					data.into()
+				},
+				Some(data) => data,
+			};
 
 			Self::drop_processed_messages_from_inherent(&mut data);
 
@@ -989,25 +1045,12 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> FeeTracker for Pallet<T> {
 	type Id = ();
 
-	fn get_fee_factor(_: Self::Id) -> FixedU128 {
+	fn get_fee_factor(_id: Self::Id) -> FixedU128 {
 		UpwardDeliveryFeeFactor::<T>::get()
 	}
 
-	fn increase_fee_factor(_: Self::Id, message_size_factor: FixedU128) -> FixedU128 {
-		<UpwardDeliveryFeeFactor<T>>::mutate(|f| {
-			*f = f.saturating_mul(
-				ump_constants::EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor),
-			);
-			*f
-		})
-	}
-
-	fn decrease_fee_factor(_: Self::Id) -> FixedU128 {
-		<UpwardDeliveryFeeFactor<T>>::mutate(|f| {
-			*f =
-				UpwardInitialDeliveryFeeFactor::get().max(*f / ump_constants::EXPONENTIAL_FEE_BASE);
-			*f
-		})
+	fn set_fee_factor(_id: Self::Id, val: FixedU128) {
+		UpwardDeliveryFeeFactor::<T>::set(val);
 	}
 }
 
@@ -1576,7 +1619,7 @@ impl<T: Config> Pallet<T> {
 		// However, changing this setting is expected to be rare.
 		if let Some(cfg) = HostConfiguration::<T>::get() {
 			if message_len > cfg.max_upward_message_size as usize {
-				return Err(MessageSendError::TooBig)
+				return Err(MessageSendError::TooBig);
 			}
 			let threshold =
 				cfg.max_upward_queue_size.saturating_div(ump_constants::THRESHOLD_FACTOR);
@@ -1587,9 +1630,7 @@ impl<T: Config> Pallet<T> {
 			let total_size: usize = pending_messages.iter().map(UpwardMessage::len).sum();
 			if total_size > threshold as usize {
 				// We increase the fee factor by a factor based on the new message's size in KB
-				let message_size_factor = FixedU128::from((message_len / 1024) as u128)
-					.saturating_mul(ump_constants::MESSAGE_SIZE_FEE_BASE);
-				Self::increase_fee_factor((), message_size_factor);
+				Self::increase_fee_factor((), message_len as u128);
 			}
 		} else {
 			// This storage field should carry over from the previous block. So if it's None
@@ -1622,6 +1663,42 @@ impl<T: Config> UpwardMessageSender for Pallet<T> {
 	fn send_upward_message(message: UpwardMessage) -> Result<(u32, XcmHash), MessageSendError> {
 		Self::send_upward_message(message)
 	}
+
+	fn can_send_upward_message(message: &UpwardMessage) -> Result<(), MessageSendError> {
+		let max_upward_message_size = HostConfiguration::<T>::get()
+			.map(|cfg| cfg.max_upward_message_size)
+			.ok_or(MessageSendError::Other)?;
+		if message.len() > max_upward_message_size as usize {
+			Err(MessageSendError::TooBig)
+		} else {
+			Ok(())
+		}
+	}
+
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+	fn ensure_successful_delivery() {
+		const MAX_UPWARD_MESSAGE_SIZE: u32 = 65_531 * 3;
+		const MAX_CODE_SIZE: u32 = 3 * 1024 * 1024;
+		HostConfiguration::<T>::mutate(|cfg| match cfg {
+			Some(cfg) => cfg.max_upward_message_size = MAX_UPWARD_MESSAGE_SIZE,
+			None =>
+				*cfg = Some(AbridgedHostConfiguration {
+					max_code_size: MAX_CODE_SIZE,
+					max_head_data_size: 32 * 1024,
+					max_upward_queue_count: 8,
+					max_upward_queue_size: 1024 * 1024,
+					max_upward_message_size: MAX_UPWARD_MESSAGE_SIZE,
+					max_upward_message_num_per_candidate: 2,
+					hrmp_max_message_num_per_candidate: 2,
+					validation_upgrade_cooldown: 2,
+					validation_upgrade_delay: 2,
+					async_backing_params: relay_chain::AsyncBackingParams {
+						allowed_ancestry_len: 0,
+						max_candidate_depth: 0,
+					},
+				}),
+		})
+	}
 }
 
 impl<T: Config> InspectMessageQueues for Pallet<T> {
@@ -1634,7 +1711,13 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 
 		let messages: Vec<VersionedXcm<()>> = PendingUpwardMessages::<T>::get()
 			.iter()
-			.map(|encoded_message| VersionedXcm::<()>::decode(&mut &encoded_message[..]).unwrap())
+			.map(|encoded_message| {
+				VersionedXcm::<()>::decode_all_with_depth_limit(
+					MAX_XCM_DECODE_DEPTH,
+					&mut &encoded_message[..],
+				)
+				.unwrap()
+			})
 			.collect();
 
 		if messages.is_empty() {
@@ -1754,7 +1837,7 @@ impl<T: Config> BlockNumberProvider for RelaychainDataProvider<T> {
 			.unwrap_or_else(|| Pallet::<T>::last_relay_block_number())
 	}
 
-	#[cfg(feature = "runtime-benchmarks")]
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 	fn set_block_number(block: Self::BlockNumber) {
 		let mut validation_data = ValidationData::<T>::get().unwrap_or_else(||
 			// PersistedValidationData does not impl default in non-std

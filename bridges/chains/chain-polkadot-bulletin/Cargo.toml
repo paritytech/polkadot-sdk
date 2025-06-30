@@ -18,14 +18,12 @@ codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 
 # Bridge Dependencies
-
 bp-header-chain = { workspace = true }
 bp-messages = { workspace = true }
 bp-polkadot-core = { workspace = true }
 bp-runtime = { workspace = true }
 
 # Substrate Based Dependencies
-
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-api = { workspace = true }

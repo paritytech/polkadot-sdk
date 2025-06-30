@@ -26,8 +26,9 @@
 // External crates imports
 use alloc::vec::Vec;
 
-use polkadot_sdk::*;
+use polkadot_sdk::{staging_parachain_info as parachain_info, *};
 
+use cumulus_primitives_core::ParaId;
 use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	weights::Weight,
@@ -74,6 +75,12 @@ impl_runtime_apis! {
 
 		fn authorities() -> Vec<AuraId> {
 			Authorities::<Runtime>::get().into_inner()
+		}
+	}
+
+	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
+		fn relay_parent_offset() -> u32 {
+			0
 		}
 	}
 
@@ -252,7 +259,7 @@ impl_runtime_apis! {
 			Vec<frame_benchmarking::BenchmarkList>,
 			Vec<polkadot_sdk::frame_support::traits::StorageInfo>,
 		) {
-			use frame_benchmarking::{Benchmarking, BenchmarkList};
+			use frame_benchmarking::BenchmarkList;
 			use polkadot_sdk::frame_support::traits::StorageInfoTrait;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
@@ -265,10 +272,11 @@ impl_runtime_apis! {
 			(list, storage_info)
 		}
 
+		#[allow(non_local_definitions)]
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
-			use frame_benchmarking::{BenchmarkError, Benchmarking, BenchmarkBatch};
+			use frame_benchmarking::{BenchmarkError, BenchmarkBatch};
 			use super::*;
 
 			use frame_system_benchmarking::Pallet as SystemBench;
@@ -309,6 +317,12 @@ impl_runtime_apis! {
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
 			crate::genesis_config_presets::preset_names()
+		}
+	}
+
+	impl cumulus_primitives_core::GetParachainInfo<Block> for Runtime {
+		fn parachain_id() -> ParaId {
+			parachain_info::Pallet::<Runtime>::parachain_id()
 		}
 	}
 }

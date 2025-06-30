@@ -146,15 +146,26 @@ benchmarks_instance_pallet! {
 		);
 	}
 
-	// Worst case when curator is inactive and any sender unassigns the curator.
+	// Worst case when curator is inactive and any sender unassigns the curator,
+	// or if `BountyUpdatePeriod` is large enough and `RejectOrigin` executes the call.
 	unassign_curator {
 		setup_pot_account::<T, I>();
 		let (curator_lookup, bounty_id) = create_bounty::<T, I>()?;
 		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
 		let bounty_id = BountyCount::<T, I>::get() - 1;
-		set_block_number::<T, I>(T::SpendPeriod::get() + T::BountyUpdatePeriod::get() + 2u32.into());
-		let caller = whitelisted_caller();
-	}: _(RawOrigin::Signed(caller), bounty_id)
+		let bounty_update_period = T::BountyUpdatePeriod::get();
+		let inactivity_timeout = T::SpendPeriod::get().saturating_add(bounty_update_period);
+		set_block_number::<T, I>(inactivity_timeout.saturating_add(2u32.into()));
+
+		// If `BountyUpdatePeriod` overflows the inactivity timeout the benchmark still executes the slash
+		let origin = if Pallet::<T, I>::treasury_block_number() <= inactivity_timeout {
+			let curator = T::Lookup::lookup(curator_lookup).map_err(<&str>::from)?;
+			T::RejectOrigin::try_successful_origin().unwrap_or_else(|_| RawOrigin::Signed(curator).into())
+		} else {
+			let caller = whitelisted_caller();
+			RawOrigin::Signed(caller).into()
+		};
+	}: _<T::RuntimeOrigin>(origin, bounty_id)
 
 	accept_curator {
 		setup_pot_account::<T, I>();
@@ -258,6 +269,30 @@ benchmarks_instance_pallet! {
 		} else {
 			ensure!(budget_remaining == BalanceOf::<T, I>::max_value(), "Budget used");
 		}
+	}
+
+	poke_deposit {
+		// Create a bounty
+		let (caller, _, _, value, reason) = setup_bounty::<T, I>(0, 5); // 5 bytes description
+		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller.clone()).into(), value, reason)?;
+		let bounty_id = BountyCount::<T, I>::get() - 1;
+		let old_deposit = T::Currency::reserved_balance(&caller);
+		// Modify the description to be maximum length
+		let max_description: Vec<u8> = vec![0; T::MaximumReasonLength::get() as usize];
+		let bounded_description: BoundedVec<u8, T::MaximumReasonLength> = max_description.try_into().unwrap();
+		BountyDescriptions::<T, I>::insert(bounty_id, &bounded_description);
+
+		// Ensure caller has enough balance for new deposit
+		let new_deposit = Bounties::<T, I>::calculate_bounty_deposit(&bounded_description);
+		let required_balance = new_deposit.saturating_add(minimum_balance::<T, I>());
+		T::Currency::make_free_balance_be(&caller, required_balance);
+
+	}: _(RawOrigin::Signed(caller.clone()), bounty_id)
+	verify {
+		let bounty = crate::Bounties::<T, I>::get(bounty_id).unwrap();
+		assert_eq!(bounty.bond, new_deposit);
+		assert_eq!(T::Currency::reserved_balance(&caller), new_deposit);
+		assert_last_event::<T, I>(Event::DepositPoked { bounty_id, proposer: caller, old_deposit: old_deposit, new_deposit: new_deposit }.into());
 	}
 
 	impl_benchmark_test_suite!(Bounties, crate::tests::ExtBuilder::default().build(), crate::tests::Test)

@@ -11,11 +11,13 @@ repository.workspace = true
 [lints]
 workspace = true
 
+[[bench]]
+name = "host_prepare_rococo_runtime"
+harness = false
+
 [dependencies]
 always-assert = { workspace = true }
 array-bytes = { workspace = true, default-features = true }
-blake3 = { workspace = true }
-cfg-if = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
 gum = { workspace = true, default-features = true }
@@ -28,11 +30,8 @@ tempfile = { workspace = true }
 thiserror = { workspace = true }
 tokio = { features = ["fs", "process"], workspace = true, default-features = true }
 
-codec = { features = [
-	"derive",
-], workspace = true }
+codec = { features = ["derive"], workspace = true }
 
-polkadot-core-primitives = { workspace = true, default-features = true }
 polkadot-node-core-pvf-common = { workspace = true, default-features = true }
 polkadot-node-metrics = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
@@ -48,16 +47,11 @@ sp-maybe-compressed-blob = { optional = true, workspace = true, default-features
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-criterion = { features = [
-	"async_tokio",
-	"cargo_bench_support",
-], workspace = true }
-hex-literal = { workspace = true, default-features = true }
+criterion = { features = ["async_tokio", "cargo_bench_support"], workspace = true }
 
 polkadot-node-core-pvf-common = { features = ["test-utils"], workspace = true, default-features = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
-# For benches and integration tests, depend on ourselves with the test-utils
-# feature.
+# For benches and integration tests, depend on ourselves with the test-utils feature.
 polkadot-node-core-pvf = { features = ["test-utils"], workspace = true, default-features = true }
 rococo-runtime = { workspace = true }
 
@@ -65,14 +59,10 @@ test-parachain-adder = { workspace = true }
 test-parachain-halt = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
-libc = "0.2.155"
-procfs = "0.16.0"
-rusty-fork = "0.3.0"
+libc = { workspace = true }
+procfs = { workspace = true }
+rusty-fork = { workspace = true, default-features = true }
 sc-sysinfo = { workspace = true, default-features = true }
-
-[[bench]]
-name = "host_prepare_rococo_runtime"
-harness = false
 
 [features]
 ci-only-tests = []

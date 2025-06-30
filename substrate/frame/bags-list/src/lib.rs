@@ -18,7 +18,7 @@
 //! > Made with *Substrate*, for *Polkadot*.
 //!
 //! [![github]](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/bags-list) -
-//! [![polkadot]](https://polkadot.network)
+//! [![polkadot]](https://polkadot.com)
 //!
 //! [polkadot]:
 //!     https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white
@@ -54,7 +54,7 @@
 //! can be used.
 //!
 //! Additional reading, about how this pallet is used in the context of Polkadot's staking system:
-//! <https://polkadot.network/blog/staking-update-september-2021/#bags-list-in-depth>
+//! <https://polkadot.com/blog/staking-update-september-2021/#bags-list-in-depth>
 //!
 //! ## Examples
 //!
@@ -148,7 +148,7 @@ pub use list::{notional_bag_for, Bag, List, ListError, Node};
 pub use pallet::*;
 pub use weights::WeightInfo;
 
-pub(crate) const LOG_TARGET: &str = "runtime::bags_list";
+pub(crate) const LOG_TARGET: &str = "runtime::bags-list";
 
 // syntactic sugar for logging.
 #[macro_export]
@@ -178,6 +178,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -253,15 +254,22 @@ pub mod pallet {
 	///
 	/// Nodes store links forward and back within their respective bags.
 	#[pallet::storage]
-	pub(crate) type ListNodes<T: Config<I>, I: 'static = ()> =
+	pub type ListNodes<T: Config<I>, I: 'static = ()> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, list::Node<T, I>>;
 
 	/// A bag stored in storage.
 	///
 	/// Stores a `Bag` struct, which stores head and tail pointers to itself.
 	#[pallet::storage]
-	pub(crate) type ListBags<T: Config<I>, I: 'static = ()> =
+	pub type ListBags<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, T::Score, list::Bag<T, I>>;
+
+	/// Lock all updates to this pallet.
+	///
+	/// If any nodes needs updating, removal or addition due to a temporary lock, the
+	/// [`Call::rebag`] can be used.
+	#[pallet::storage]
+	pub type Lock<T: Config<I>, I: 'static = ()> = StorageValue<_, (), OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
@@ -273,15 +281,31 @@ pub mod pallet {
 	}
 
 	#[pallet::error]
-	#[cfg_attr(test, derive(PartialEq))]
 	pub enum Error<T, I = ()> {
 		/// A error in the list interface implementation.
 		List(ListError),
+		/// Could not update a node, because the pallet is locked.
+		Locked,
 	}
 
 	impl<T, I> From<ListError> for Error<T, I> {
 		fn from(t: ListError) -> Self {
 			Error::<T, I>::List(t)
+		}
+	}
+
+	#[pallet::view_functions]
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Get the current `score` of a given account.
+		///
+		/// Returns `(current, real_score)`, the former being the current score that this pallet is
+		/// aware of, which may or may not be up to date, and the latter being the real score, as
+		/// provided by
+		// [`Config::ScoreProvider`].
+		///
+		/// If the two differ, it means this node is eligible for [`Call::rebag`].
+		pub fn scores(who: T::AccountId) -> (Option<T::Score>, Option<T::Score>) {
+			(ListNodes::<T, I>::get(&who).map(|node| node.score), T::ScoreProvider::score(&who))
 		}
 	}
 
@@ -302,9 +326,29 @@ pub mod pallet {
 		pub fn rebag(origin: OriginFor<T>, dislocated: AccountIdLookupOf<T>) -> DispatchResult {
 			ensure_signed(origin)?;
 			let dislocated = T::Lookup::lookup(dislocated)?;
-			let current_score = T::ScoreProvider::score(&dislocated);
-			let _ = Pallet::<T, I>::do_rebag(&dislocated, current_score)
-				.map_err::<Error<T, I>, _>(Into::into)?;
+			Self::ensure_unlocked().map_err(|_| Error::<T, I>::Locked)?;
+
+			let existed = ListNodes::<T, I>::contains_key(&dislocated);
+			match (existed, T::ScoreProvider::score(&dislocated)) {
+				(true, Some(current_score)) => {
+					// existed and score is updated, maybe rebag.
+					let _ = Pallet::<T, I>::do_rebag(&dislocated, current_score)
+						.map_err::<Error<T, I>, _>(Into::into)?;
+				},
+				(false, Some(current_score)) => {
+					// did not exists, and has a score now, insert!
+					Self::on_insert(dislocated.clone(), current_score)
+						.map_err::<Error<T, I>, _>(Into::into)?;
+				},
+				(true, None) => {
+					// existed, but has no new score now, remove!
+					Self::on_remove(&dislocated).map_err::<Error<T, I>, _>(Into::into)?;
+				},
+				(false, None) => {
+					// did not exists, and has no score now, do nothing.
+					return Err(Error::<T, I>::List(ListError::NodeNotFound).into());
+				},
+			}
 			Ok(())
 		}
 
@@ -326,6 +370,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let heavier = ensure_signed(origin)?;
 			let lighter = T::Lookup::lookup(lighter)?;
+			Self::ensure_unlocked().map_err(|_| Error::<T, I>::Locked)?;
 			List::<T, I>::put_in_front_of(&lighter, &heavier)
 				.map_err::<Error<T, I>, _>(Into::into)
 				.map_err::<DispatchError, _>(Into::into)
@@ -341,9 +386,10 @@ pub mod pallet {
 			heavier: AccountIdLookupOf<T>,
 			lighter: AccountIdLookupOf<T>,
 		) -> DispatchResult {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			let lighter = T::Lookup::lookup(lighter)?;
 			let heavier = T::Lookup::lookup(heavier)?;
+			Self::ensure_unlocked().map_err(|_| Error::<T, I>::Locked)?;
 			List::<T, I>::put_in_front_of(&lighter, &heavier)
 				.map_err::<Error<T, I>, _>(Into::into)
 				.map_err::<DispatchError, _>(Into::into)
@@ -392,6 +438,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(maybe_movement)
 	}
 
+	fn ensure_unlocked() -> Result<(), ListError> {
+		match Lock::<T, I>::get() {
+			None => Ok(()),
+			Some(()) => Err(ListError::Locked),
+		}
+	}
+
 	/// Equivalent to `ListBags::get`, but public. Useful for tests in outside of this crate.
 	#[cfg(feature = "std")]
 	pub fn list_bags_get(score: T::Score) -> Option<list::Bag<T, I>> {
@@ -407,6 +460,14 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 		Box::new(List::<T, I>::iter().map(|n| n.id().clone()))
 	}
 
+	fn range() -> (Self::Score, Self::Score) {
+		use frame_support::traits::Get;
+		(
+			T::BagThresholds::get().first().cloned().unwrap_or_default(),
+			T::BagThresholds::get().last().cloned().unwrap_or_default(),
+		)
+	}
+
 	fn iter_from(
 		start: &T::AccountId,
 	) -> Result<Box<dyn Iterator<Item = T::AccountId>>, Self::Error> {
@@ -418,29 +479,40 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 		ListNodes::<T, I>::count()
 	}
 
+	fn lock() {
+		Lock::<T, I>::put(())
+	}
+
+	fn unlock() {
+		Lock::<T, I>::kill()
+	}
+
 	fn contains(id: &T::AccountId) -> bool {
 		List::<T, I>::contains(id)
 	}
 
 	fn on_insert(id: T::AccountId, score: T::Score) -> Result<(), ListError> {
+		Pallet::<T, I>::ensure_unlocked()?;
 		List::<T, I>::insert(id, score)
+	}
+
+	fn on_update(id: &T::AccountId, new_score: T::Score) -> Result<(), ListError> {
+		Pallet::<T, I>::ensure_unlocked()?;
+		Pallet::<T, I>::do_rebag(id, new_score).map(|_| ())
 	}
 
 	fn get_score(id: &T::AccountId) -> Result<T::Score, ListError> {
 		List::<T, I>::get_score(id)
 	}
 
-	fn on_update(id: &T::AccountId, new_score: T::Score) -> Result<(), ListError> {
-		Pallet::<T, I>::do_rebag(id, new_score).map(|_| ())
-	}
-
 	fn on_remove(id: &T::AccountId) -> Result<(), ListError> {
+		Pallet::<T, I>::ensure_unlocked()?;
 		List::<T, I>::remove(id)
 	}
 
 	fn unsafe_regenerate(
 		all: impl IntoIterator<Item = T::AccountId>,
-		score_of: Box<dyn Fn(&T::AccountId) -> T::Score>,
+		score_of: Box<dyn Fn(&T::AccountId) -> Option<T::Score>>,
 	) -> u32 {
 		// NOTE: This call is unsafe for the same reason as SortedListProvider::unsafe_regenerate.
 		// I.e. because it can lead to many storage accesses.
@@ -487,8 +559,8 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 impl<T: Config<I>, I: 'static> ScoreProvider<T::AccountId> for Pallet<T, I> {
 	type Score = <Pallet<T, I> as SortedListProvider<T::AccountId>>::Score;
 
-	fn score(id: &T::AccountId) -> T::Score {
-		Node::<T, I>::get(id).map(|node| node.score()).unwrap_or_default()
+	fn score(id: &T::AccountId) -> Option<T::Score> {
+		Node::<T, I>::get(id).map(|node| node.score())
 	}
 
 	frame_election_provider_support::runtime_benchmarks_or_std_enabled! {

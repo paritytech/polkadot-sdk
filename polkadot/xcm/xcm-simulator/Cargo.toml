@@ -20,7 +20,6 @@ frame-support = { workspace = true, default-features = true }
 frame-system = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
-sp-std = { workspace = true, default-features = true }
 
 polkadot-core-primitives = { workspace = true, default-features = true }
 polkadot-parachain-primitives = { workspace = true, default-features = true }

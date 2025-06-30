@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Shorter availability data retention period for testnets
+
+doc:
+  - audience: Node Operator
+    description: |
+        Allows specifying a shorter availability data retention period for testnets.
+
+crates:
+- name: polkadot-service
+  bump: patch

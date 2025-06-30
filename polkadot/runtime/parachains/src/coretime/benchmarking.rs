@@ -96,4 +96,14 @@ mod benchmarks {
 			Some(BlockNumberFor::<T>::from(20u32)),
 		)
 	}
+
+	#[benchmark]
+	fn credit_account() {
+		// Setup
+		let root_origin = <T as frame_system::Config>::RuntimeOrigin::root();
+		let who: T::AccountId = whitelisted_caller();
+
+		#[extrinsic_call]
+		_(root_origin as <T as frame_system::Config>::RuntimeOrigin, who, 1_000_000u32.into())
+	}
 }

@@ -485,7 +485,7 @@ async fn handle_recover<Context>(
 				) && chunk_mapping_enabled
 				{
 					let chunk_indices =
-						availability_chunk_indices(Some(node_features), n_validators, core_index)?;
+						availability_chunk_indices(node_features, n_validators, core_index)?;
 
 					let chunk_indices: VecDeque<_> = chunk_indices
 						.iter()

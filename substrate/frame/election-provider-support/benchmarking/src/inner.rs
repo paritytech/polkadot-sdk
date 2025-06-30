@@ -37,7 +37,7 @@ fn set_up_voters_targets<AccountId: Decode + Clone>(
 	voters_len: u32,
 	targets_len: u32,
 	degree: usize,
-) -> (Vec<(AccountId, u64, impl IntoIterator<Item = AccountId>)>, Vec<AccountId>) {
+) -> (Vec<(AccountId, u64, impl Clone + IntoIterator<Item = AccountId>)>, Vec<AccountId>) {
 	// fill targets.
 	let mut targets = (0..targets_len)
 		.map(|i| frame_benchmarking::account::<AccountId>("Target", i, SEED))

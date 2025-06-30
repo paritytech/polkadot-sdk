@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # import common functions
 source "$FRAMEWORK_PATH/utils/bridges.sh"
@@ -54,6 +54,7 @@ GLOBAL_CONSENSUS_ROCOCO_SOVEREIGN_ACCOUNT="5HmYPhRNAenHN6xnDLQDLZq71d4BgzPrdJ2sN
 ASSET_HUB_WESTEND_SOVEREIGN_ACCOUNT_AT_BRIDGE_HUB_WESTEND="5Eg2fntNprdN3FgH4sfEaaZhYtddZQSQUqvYJ1f2mLtinVhV"
 GLOBAL_CONSENSUS_WESTEND_SOVEREIGN_ACCOUNT="5CtHyjQE8fbPaQeBrwaGph6qsSEtnMFBAZcAkxwnEfQkkYAq"
 ASSET_HUB_ROCOCO_SOVEREIGN_ACCOUNT_AT_BRIDGE_HUB_ROCOCO="5Eg2fntNprdN3FgH4sfEaaZhYtddZQSQUqvYJ1f2mLtinVhV"
+ALICE_SOVEREIGN_ACCOUNT="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
 
 # Expected sovereign accounts for rewards on BridgeHubs.
 #
@@ -131,13 +132,11 @@ function init_ro_wnd() {
 
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
         $relayer_path init-bridge rococo-to-bridge-hub-westend \
-	--source-host localhost \
-	--source-port 9942 \
-	--source-version-mode Auto \
-	--target-host localhost \
-	--target-port 8945 \
-	--target-version-mode Auto \
-	--target-signer //Bob
+        --source-uri ws://localhost:9942 \
+        --source-version-mode Auto \
+        --target-uri ws://localhost:8945  \
+        --target-version-mode Auto \
+        --target-signer //Bob
 }
 
 function init_wnd_ro() {
@@ -145,37 +144,11 @@ function init_wnd_ro() {
 
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
         $relayer_path init-bridge westend-to-bridge-hub-rococo \
-        --source-host localhost \
-        --source-port 9945 \
+        --source-uri ws://localhost:9945  \
         --source-version-mode Auto \
-        --target-host localhost \
-        --target-port 8943 \
+        --target-uri ws://localhost:8943 \
         --target-version-mode Auto \
         --target-signer //Bob
-}
-
-function run_relay() {
-    local relayer_path=$(ensure_relayer)
-
-    RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
-        $relayer_path relay-headers-and-messages bridge-hub-rococo-bridge-hub-westend \
-        --rococo-host localhost \
-        --rococo-port 9942 \
-        --rococo-version-mode Auto \
-        --bridge-hub-rococo-host localhost \
-        --bridge-hub-rococo-port 8943 \
-        --bridge-hub-rococo-version-mode Auto \
-        --bridge-hub-rococo-signer //Charlie \
-        --bridge-hub-rococo-transactions-mortality 4 \
-        --westend-host localhost \
-        --westend-port 9945 \
-        --westend-version-mode Auto \
-        --bridge-hub-westend-host localhost \
-        --bridge-hub-westend-port 8945 \
-        --bridge-hub-westend-version-mode Auto \
-        --bridge-hub-westend-signer //Charlie \
-        --bridge-hub-westend-transactions-mortality 4 \
-        --lane "${LANE_ID}"
 }
 
 function run_finality_relay() {
@@ -206,7 +179,7 @@ function run_parachains_relay() {
     local relayer_path=$(ensure_relayer)
 
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
-        $relayer_path relay-parachains rococo-to-bridge-hub-westend \
+        $relayer_path relay-parachains bridge-hub-rococo-to-bridge-hub-westend \
         --only-free-headers \
         --source-uri ws://localhost:9942 \
         --source-version-mode Auto \
@@ -216,7 +189,7 @@ function run_parachains_relay() {
         --target-transactions-mortality 4&
 
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
-        $relayer_path relay-parachains westend-to-bridge-hub-rococo \
+        $relayer_path relay-parachains bridge-hub-westend-to-bridge-hub-rococo \
         --only-free-headers \
         --source-uri ws://localhost:9945 \
         --source-version-mode Auto \
@@ -255,11 +228,6 @@ function run_messages_relay() {
 }
 
 case "$1" in
-  run-relay)
-    init_wnd_ro
-    init_ro_wnd
-    run_relay
-    ;;
   run-finality-relay)
     init_wnd_ro
     init_ro_wnd
@@ -283,6 +251,21 @@ case "$1" in
           "$GLOBAL_CONSENSUS_WESTEND_SOVEREIGN_ACCOUNT" \
           10000000000 \
           true
+      # create foreign asset pool
+      create_pool \
+          "ws://127.0.0.1:9910" \
+          "//Alice" \
+          "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }] } }')"
+      # Create liquidity in the pool
+      add_liquidity \
+          "ws://127.0.0.1:9910" \
+          "//Alice" \
+          "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }] } }')" \
+          10000000000 \
+          10000000000 \
+          "$ALICE_SOVEREIGN_ACCOUNT"
       # HRMP
       open_hrmp_channels \
           "ws://127.0.0.1:9942" \
@@ -342,6 +325,21 @@ case "$1" in
           "$GLOBAL_CONSENSUS_ROCOCO_SOVEREIGN_ACCOUNT" \
           10000000000 \
           true
+      # create foreign asset pool
+      create_pool \
+          "ws://127.0.0.1:9010" \
+          "//Alice" \
+          "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }] } }')"
+      # Create liquidity in the pool
+      add_liquidity \
+          "ws://127.0.0.1:9010" \
+          "//Alice" \
+          "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }] } }')" \
+          10000000000 \
+          10000000000 \
+          "$ALICE_SOVEREIGN_ACCOUNT"
       # HRMP
       open_hrmp_channels \
           "ws://127.0.0.1:9945" \
@@ -481,7 +479,6 @@ case "$1" in
   *)
     echo "A command is require. Supported commands for:
     Local (zombienet) run:
-          - run-relay
           - run-finality-relay
           - run-parachains-relay
           - run-messages-relay

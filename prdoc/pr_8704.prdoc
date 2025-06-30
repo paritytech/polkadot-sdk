@@ -1,0 +1,10 @@
+title: '[AHM] Repot the weights of epmb pallet to expose kusama and polkadot weights'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Adds updated weights for the `pallet-election-provider-multi-block` pallet to reflect the anticipated configuration in Polkadot and Kusama-like networks.
+crates:
+- name: pallet-election-provider-multi-block
+  bump: major
+- name: pallet-staking-async-parachain-runtime
+  bump: major

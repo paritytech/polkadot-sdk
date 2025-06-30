@@ -18,7 +18,7 @@
 //! Provides a type that wraps another type and provides a default value.
 
 use crate::traits::{Bounded, One, Zero};
-use codec::{Compact, CompactAs, Decode, Encode, HasCompact, MaxEncodedLen};
+use codec::{Compact, CompactAs, Decode, DecodeWithMemTracking, Encode, HasCompact, MaxEncodedLen};
 use core::{
 	fmt::Display,
 	marker::PhantomData,
@@ -41,7 +41,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// Passes through arithmetical and many other operations to the inner value.
 /// Type information for metadata is the same as the inner value's type.
-#[derive(Encode, Decode, Debug, MaxEncodedLen)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Debug, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct TypeWithDefault<T, D: Get<T>>(T, PhantomData<D>);
 

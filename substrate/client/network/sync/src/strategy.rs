@@ -176,6 +176,34 @@ pub enum SyncingAction<B: BlockT> {
 	Finished,
 }
 
+// Note: Ideally we can deduce this information with #[derive(derive_more::Debug)].
+// However, we'd need a bump to the latest version 2 of the crate.
+impl<B> std::fmt::Debug for SyncingAction<B>
+where
+	B: BlockT,
+{
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match &self {
+			Self::StartRequest { peer_id, key, remove_obsolete, .. } => {
+				write!(
+					f,
+					"StartRequest {{ peer_id: {:?}, key: {:?}, remove_obsolete: {:?} }}",
+					peer_id, key, remove_obsolete
+				)
+			},
+			Self::CancelRequest { peer_id, key } => {
+				write!(f, "CancelRequest {{ peer_id: {:?}, key: {:?} }}", peer_id, key)
+			},
+			Self::DropPeer(peer) => write!(f, "DropPeer({:?})", peer),
+			Self::ImportBlocks { blocks, .. } => write!(f, "ImportBlocks({:?})", blocks),
+			Self::ImportJustifications { hash, number, .. } => {
+				write!(f, "ImportJustifications({:?}, {:?})", hash, number)
+			},
+			Self::Finished => write!(f, "Finished"),
+		}
+	}
+}
+
 impl<B: BlockT> SyncingAction<B> {
 	/// Returns `true` if the syncing action has completed.
 	pub fn is_finished(&self) -> bool {

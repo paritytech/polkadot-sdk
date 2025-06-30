@@ -25,7 +25,7 @@ use polkadot_primitives::{
 };
 
 use super::{v1, IsRequest, Protocol};
-use crate::v2::StatementFilter;
+use crate::v3::StatementFilter;
 
 /// Request a candidate with statements.
 #[derive(Debug, Clone, Encode, Decode)]

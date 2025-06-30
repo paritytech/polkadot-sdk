@@ -1,0 +1,424 @@
+name: Command - Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      cmd:
+        description: "Command to run"
+        required: true
+      pr_num:
+        description: "PR number"
+        required: true
+      pr_branch:
+        description: "PR branch"
+        required: true
+      runner:
+        description: "Runner to use"
+        required: true
+      image:
+        description: "Image to use"
+        required: true
+      is_org_member:
+        description: "Is the user an org member"
+        required: true
+      repo:
+        description: "Repository to use"
+        required: true
+      comment_id:
+        description: "Comment ID"
+        required: true
+      is_quiet:
+        description: "Quiet mode"
+        required: false
+        default: "false"
+
+permissions: # allow the action to comment on the PR
+  contents: read
+  issues: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  before-cmd:
+    runs-on: ubuntu-latest
+    env:
+      JOB_NAME: "cmd"
+      CMD: ${{ github.event.inputs.cmd }}
+      PR_BRANCH: ${{ github.event.inputs.pr_branch }}
+      PR_NUM: ${{ github.event.inputs.pr_num }}
+    outputs:
+      job_url: ${{ steps.build-link.outputs.job_url }}
+      run_url: ${{ steps.build-link.outputs.run_url }}
+    steps:
+      - name: Build workflow link
+        if: ${{ github.event.inputs.is_quiet == 'false' }}
+        id: build-link
+        run: |
+          # Get exactly the CMD job link, filtering out the other jobs
+          jobLink=$(curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs | jq '.jobs[] | select(.name | contains("${{ env.JOB_NAME }}")) | .html_url')
+
+          runLink=$(curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }} | jq '.html_url')
+
+          echo "job_url=${jobLink}"
+          echo "run_url=${runLink}"
+          echo "job_url=$jobLink" >> $GITHUB_OUTPUT
+          echo "run_url=$runLink" >> $GITHUB_OUTPUT
+
+      - name: Comment PR (Start)
+        # No need to comment on prdoc start or if --quiet
+        if: ${{ github.event.inputs.is_quiet == 'false' && !startsWith(github.event.inputs.cmd, 'prdoc') && !startsWith(github.event.inputs.cmd, 'fmt')}}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            let job_url = ${{ steps.build-link.outputs.job_url }}
+            let cmd = process.env.CMD;
+            github.rest.issues.createComment({
+              issue_number: ${{ env.PR_NUM }},
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `Command "${cmd}" has started 🚀 [See logs here](${job_url})`
+            })
+
+      - name: Debug info
+        env:
+          CMD: ${{ github.event.inputs.cmd }}
+          PR_BRANCH: ${{ github.event.inputs.pr_branch }}
+          PR_NUM: ${{ github.event.inputs.pr_num }}
+          RUNNER: ${{ github.event.inputs.runner }}
+          IMAGE: ${{ github.event.inputs.image }}
+          IS_ORG_MEMBER: ${{ github.event.inputs.is_org_member }}
+          REPO: ${{ github.event.inputs.repo }}
+          COMMENT_ID: ${{ github.event.inputs.comment_id }}
+          IS_QUIET: ${{ github.event.inputs.is_quiet }}
+        run: |
+          echo "Running command: $CMD"
+          echo "PR number: $PR_NUM"
+          echo "PR branch: $PR_BRANCH"
+          echo "Runner: $RUNNER"
+          echo "Image: $IMAGE"
+          echo "Is org member: $IS_ORG_MEMBER"
+          echo "Repository: $REPO"
+          echo "Comment ID: $COMMENT_ID"
+          echo "Is quiet: $IS_QUIET"
+
+  cmd:
+    needs: [before-cmd]
+    env:
+      CMD: ${{ github.event.inputs.cmd }}
+      PR_BRANCH: ${{ github.event.inputs.pr_branch }}
+      PR_NUM: ${{ github.event.inputs.pr_num }}
+      REPO: ${{ github.event.inputs.repo }}
+    runs-on: ${{ github.event.inputs.runner }}
+    container:
+      image: ${{ github.event.inputs.image }}
+    timeout-minutes: 1440 # 24 hours per runtime
+    # lowerdown permissions to separate permissions context for executable parts by contributors
+    permissions:
+      contents: read
+      pull-requests: none
+      actions: none
+      issues: none
+    outputs:
+      cmd_output: ${{ steps.cmd.outputs.cmd_output }}
+      subweight: ${{ steps.subweight.outputs.result }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.REPO }}
+          ref: ${{ env.PR_BRANCH }}
+
+      # In order to run prdoc without specifying the PR number, we need to add the PR number as an argument automatically
+      - name: Prepare PR Number argument
+        id: pr-arg
+        run: |
+          CMD="${CMD}"
+          if echo "$CMD" | grep -q "prdoc" && ! echo "$CMD" | grep -qE "\-\-pr[[:space:]=][0-9]+"; then
+            echo "arg=--pr ${PR_NUM}" >> $GITHUB_OUTPUT
+          else
+            echo "arg=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run cmd
+        id: cmd
+        env:
+          PR_ARG: ${{ steps.pr-arg.outputs.arg }}
+          IS_ORG_MEMBER: ${{ github.event.inputs.is_org_member }}
+          RUNNER: ${{ github.event.inputs.runner }}
+          IMAGE: ${{ github.event.inputs.image }}
+        run: |
+          echo "Running command: '${CMD} ${PR_ARG}' on '${RUNNER}' runner, container: '${IMAGE}'"
+          echo "RUST_NIGHTLY_VERSION: ${RUST_NIGHTLY_VERSION}"
+          echo "IS_ORG_MEMBER: ${IS_ORG_MEMBER}"
+
+          git config --global --add safe.directory $GITHUB_WORKSPACE
+          git config user.name "cmd[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # if the user is not an org member, we need to use the bot's path from master to avoid unwanted modifications
+          if [ "${IS_ORG_MEMBER}" = "true" ]; then
+            # safe to run commands from current branch
+            BOT_PATH=.github
+          else
+            # going to run commands from master
+            TMP_DIR=/tmp/polkadot-sdk
+            git clone --depth 1 --branch master https://github.com/paritytech/polkadot-sdk $TMP_DIR
+            BOT_PATH=$TMP_DIR/.github
+          fi
+
+          # install deps and run a command from master
+          python3 -m pip install -r $BOT_PATH/scripts/generate-prdoc.requirements.txt
+          python3 $BOT_PATH/scripts/cmd/cmd.py $CMD $PR_ARG
+          git status > /tmp/cmd/git_status.log
+          git diff > /tmp/cmd/git_diff.log
+
+          if [ -f /tmp/cmd/command_output.log ]; then
+            CMD_OUTPUT=$(cat /tmp/cmd/command_output.log)
+            # export to summary to display in the PR
+            echo "$CMD_OUTPUT" >> $GITHUB_STEP_SUMMARY
+            # should be multiline, otherwise it captures the first line only
+            echo 'cmd_output<<EOF' >> $GITHUB_OUTPUT
+            echo "$CMD_OUTPUT" >> $GITHUB_OUTPUT
+            echo 'EOF' >> $GITHUB_OUTPUT
+          fi
+
+          git add -A
+          git diff HEAD > /tmp/cmd/command_diff.patch -U0
+          git commit -m "tmp cmd: $CMD" || true
+          # without push, as we're saving the diff to an artifact and subweight will compare the local branch with the remote branch
+
+      - name: Upload command output
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: command-output
+          path: /tmp/cmd/command_output.log
+
+      - name: Upload command diff
+        uses: actions/upload-artifact@v4
+        with:
+          name: command-diff
+          path: /tmp/cmd/command_diff.patch
+
+      - name: Upload git status
+        uses: actions/upload-artifact@v4
+        with:
+          name: git-status
+          path: /tmp/cmd/git_status.log
+
+      - name: Upload git diff
+        uses: actions/upload-artifact@v4
+        with:
+          name: git-diff
+          path: /tmp/cmd/git_diff.log
+
+      - name: Install subweight for bench
+        if: startsWith(github.event.inputs.cmd, 'bench')
+        run: cargo install subweight
+
+      - name: Run Subweight for bench
+        id: subweight
+        if: startsWith(github.event.inputs.cmd, 'bench')
+        shell: bash
+        run: |
+          git fetch
+          git remote -v
+          echo $(git log -n 2 --oneline)
+
+          result=$(subweight compare commits \
+            --path-pattern "./**/weights/**/*.rs,./**/weights.rs" \
+            --method asymptotic \
+            --format markdown \
+            --no-color \
+            --change added changed \
+            --ignore-errors \
+            refs/remotes/origin/master $PR_BRANCH)
+
+          echo $result
+
+          echo $result > /tmp/cmd/subweight.log
+          # Though github claims that it supports 1048576 bytes in GITHUB_OUTPUT in fact it only supports ~200000 bytes of a multiline string
+          if [ $(wc -c < "/tmp/cmd/subweight.log") -gt 200000 ]; then
+            echo "Subweight result is too large, truncating..."
+            echo "Please check subweight.log for the full output"
+            result="Please check subweight.log for the full output"
+          fi
+          echo "Trying to save subweight result to GITHUB_OUTPUT"
+          # Save the multiline result to the output
+          {
+            echo "result<<EOF"
+            echo "$result"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Upload Subweight
+        uses: actions/upload-artifact@v4
+        if: startsWith(github.event.inputs.cmd, 'bench')
+        with:
+          name: subweight
+          path: /tmp/cmd/subweight.log
+
+  after-cmd:
+    needs: [cmd, before-cmd]
+    env:
+      CMD: ${{ github.event.inputs.cmd }}
+      PR_BRANCH: ${{ github.event.inputs.pr_branch }}
+      PR_NUM: ${{ github.event.inputs.pr_num }}
+      REPO: ${{ github.event.inputs.repo }}
+    runs-on: ubuntu-latest
+    steps:
+      # needs to be able to trigger CI, as default token does not retrigger
+      - uses: actions/create-github-app-token@v2
+        id: generate_token
+        with:
+          app-id: ${{ secrets.CMD_BOT_APP_ID }}
+          private-key: ${{ secrets.CMD_BOT_APP_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.generate_token.outputs.token }}
+          repository: ${{ env.REPO }}
+          ref: ${{ env.PR_BRANCH }}
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: command-diff
+          path: command-diff
+
+      - name: Apply & Commit changes
+        run: |
+          ls -lsa .
+
+          git config --global --add safe.directory $GITHUB_WORKSPACE
+          git config user.name "cmd[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global pull.rebase false
+
+          echo "Applying $file"
+          git apply "command-diff/command_diff.patch" --unidiff-zero --allow-empty
+
+          rm -rf command-diff
+
+          git status
+
+          if [ -n "$(git status --porcelain)" ]; then
+
+            git remote -v
+
+            push_changes() {
+              git push origin "HEAD:$PR_BRANCH"
+            }
+
+            git add .
+            git restore --staged Cargo.lock # ignore changes in Cargo.lock
+            git commit -m "Update from ${{ github.actor }} running command '$CMD'" || true
+
+            # Attempt to push changes
+            if ! push_changes; then
+              echo "Push failed, trying to rebase..."
+              git pull --rebase origin $PR_BRANCH
+              # After successful rebase, try pushing again
+              push_changes
+            fi
+          else
+            echo "Nothing to commit";
+          fi
+
+      - name: Comment PR (End)
+        # No need to comment on prdoc success or --quiet
+        #TODO: return "&& !contains(github.event.comment.body, '--quiet')"
+        if: ${{ github.event.inputs.is_quiet == 'false' && needs.cmd.result == 'success' && !startsWith(github.event.inputs.cmd, 'prdoc') && !startsWith(github.event.inputs.cmd, 'fmt') }}
+        uses: actions/github-script@v7
+        env:
+          SUBWEIGHT: "${{ needs.cmd.outputs.subweight }}"
+          CMD_OUTPUT: "${{ needs.cmd.outputs.cmd_output }}"
+          PR_NUM: ${{ github.event.inputs.pr_num }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            let runUrl = ${{ needs.before-cmd.outputs.run_url }};
+            let subweight = process.env.SUBWEIGHT || '';
+            let cmdOutput = process.env.CMD_OUTPUT || '';
+            let cmd = process.env.CMD;
+            console.log(cmdOutput);
+
+            let subweightCollapsed = subweight.trim() !== ''
+              ? `<details>\n\n<summary>Subweight results:</summary>\n\n${subweight}\n\n</details>`
+              : '';
+
+            let cmdOutputCollapsed = cmdOutput.trim() !== ''
+              ? `<details>\n\n<summary>Command output:</summary>\n\n${cmdOutput}\n\n</details>`
+              : '';
+
+            github.rest.issues.createComment({
+              issue_number: ${{ env.PR_NUM }},
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `Command "${cmd}" has finished ✅ [See logs here](${runUrl})${subweightCollapsed}${cmdOutputCollapsed}`
+            })
+
+  finish:
+    needs: [before-cmd, cmd, after-cmd]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    env:
+      CMD_OUTPUT: "${{ needs.cmd.outputs.cmd_output }}"
+      CMD: ${{ github.event.inputs.cmd }}
+      PR_NUM: ${{ github.event.inputs.pr_num }}
+      COMMENT_ID: ${{ github.event.inputs.comment_id }}
+    steps:
+      - name: Comment PR (Failure)
+        if: ${{ needs.cmd.result == 'failure' || needs.after-cmd.result == 'failure' || needs.before-cmd.result == 'failure' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            let jobUrl = ${{ needs.before-cmd.outputs.job_url }};
+            let cmdOutput = process.env.CMD_OUTPUT;
+            let cmd = process.env.CMD;
+            let cmdOutputCollapsed = '';
+            if (cmdOutput && cmdOutput.trim() !== '') {
+              cmdOutputCollapsed = `<details>\n\n<summary>Command output:</summary>\n\n${cmdOutput}\n\n</details>`
+            }
+
+            github.rest.issues.createComment({
+              issue_number: ${{ env.PR_NUM }},
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `Command "${cmd}" has failed ❌! [See logs here](${jobUrl})${cmdOutputCollapsed}`
+            })
+
+      - name: Add 😕 reaction on failure
+        if: ${{ needs.cmd.result == 'failure' || needs.after-cmd.result == 'failure' || needs.before-cmd.result == 'failure' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.rest.reactions.createForIssueComment({
+              comment_id: ${{ env.COMMENT_ID }},
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              content: 'confused'
+            })
+
+      - name: Add 👍 reaction on success
+        if: ${{ needs.cmd.result == 'success' && needs.after-cmd.result == 'success' && needs.before-cmd.result == 'success' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.rest.reactions.createForIssueComment({
+              comment_id: ${{ env.COMMENT_ID }},
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              content: '+1'
+            })

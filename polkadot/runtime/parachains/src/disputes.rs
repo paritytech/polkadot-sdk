@@ -21,7 +21,7 @@ use crate::{
 };
 use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use bitvec::{bitvec, order::Lsb0 as BitOrderLsb0};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::cmp::Ordering;
 use frame_support::{ensure, weights::Weight};
 use frame_system::pallet_prelude::*;
@@ -55,14 +55,14 @@ pub mod migration;
 const LOG_TARGET: &str = "runtime::disputes";
 
 /// Whether the dispute is local or remote.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub enum DisputeLocation {
 	Local,
 	Remote,
 }
 
 /// The result of a dispute, whether the candidate is deemed valid (for) or invalid (against).
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub enum DisputeResult {
 	Valid,
 	Invalid,
@@ -83,8 +83,9 @@ impl RewardValidators for () {
 
 /// Punishment hooks for disputes.
 pub trait SlashingHandler<BlockNumber> {
-	/// Punish a series of validators who were for an invalid parablock. This is
-	/// expected to be a major punishment.
+	/// Punish a series of validators who were for an invalid parablock.
+	/// This is expected to trigger a large punishment for backers
+	/// and a medium punishment for other approvers.
 	fn punish_for_invalid(
 		session: SessionIndex,
 		candidate_hash: CandidateHash,
@@ -92,8 +93,8 @@ pub trait SlashingHandler<BlockNumber> {
 		backers: impl IntoIterator<Item = ValidatorIndex>,
 	);
 
-	/// Punish a series of validators who were against a valid parablock. This
-	/// is expected to be a minor punishment.
+	/// Punish a series of validators who were against a valid parablock.
+	/// This is expected to be a minor punishment.
 	fn punish_against_valid(
 		session: SessionIndex,
 		candidate_hash: CandidateHash,
@@ -372,6 +373,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + configuration::Config + session_info::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type RewardValidators: RewardValidators;
 		type SlashingHandler: SlashingHandler<BlockNumberFor<Self>>;

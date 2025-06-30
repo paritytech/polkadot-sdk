@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use alloc::{vec, vec::Vec};
-use codec::{Decode, Encode, Error, Input};
+use codec::{Decode, DecodeWithMemTracking, Encode, Error, Input};
 use core::cmp;
 use scale_info::TypeInfo;
 use sp_application_crypto::RuntimeAppPublic;
@@ -50,7 +50,7 @@ impl<TAuthorityId: Clone, TSignature: Clone> KnownSignature<&TAuthorityId, &TSig
 /// height [block_number](Commitment::block_number).
 /// GRANDPA validators collect signatures on commitments and a stream of such signed commitments
 /// (see [SignedCommitment]) forms the BEEFY protocol.
-#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode, TypeInfo)]
+#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub struct Commitment<TBlockNumber> {
 	///  A collection of payloads to be signed, see [`Payload`] for details.
 	///

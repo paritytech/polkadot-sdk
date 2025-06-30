@@ -28,7 +28,7 @@ fn ui() {
 	std::env::set_var("SKIP_WASM_BUILD", "1");
 
 	// Warnings are part of our UI.
-	std::env::set_var("RUSTFLAGS", "--deny warnings");
+	std::env::set_var("CARGO_ENCODED_RUSTFLAGS", "--deny=warnings");
 
 	let t = trybuild::TestCases::new();
 	t.compile_fail("tests/ui/*.rs");

@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{
+	deprecation::extract_or_return_allow_attrs,
 	pallet::{parse::event::PalletEventDepositAttr, Def},
 	COUNTER,
 };
@@ -97,7 +98,6 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 
 	let deprecation = match crate::deprecation::get_deprecation_enum(
 		&quote::quote! {#frame_support},
-		&event.attrs,
 		event_item.variants.iter().enumerate().map(|(index, item)| {
 			let index = crate::deprecation::variant_index_for_deprecation(index as u8, item);
 
@@ -120,9 +120,10 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 			#frame_support::CloneNoBound,
 			#frame_support::EqNoBound,
 			#frame_support::PartialEqNoBound,
-			#frame_support::RuntimeDebugNoBound,
+			#frame_support::DebugNoBound,
 			#frame_support::__private::codec::Encode,
 			#frame_support::__private::codec::Decode,
+			#frame_support::__private::codec::DecodeWithMemTracking,
 			#frame_support::__private::scale_info::TypeInfo,
 		)]
 	));
@@ -134,9 +135,12 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 		#[scale_info(skip_type_params(#event_use_gen), capture_docs = #capture_docs)]
 	));
 
+	// Extracts #[allow] attributes, necessary so that we don't run into compiler warnings
+	let maybe_allow_attrs: Vec<syn::Attribute> =
+		extract_or_return_allow_attrs(&event_item.attrs).collect();
+
 	let deposit_event = if let Some(deposit_event) = &event.deposit_event {
 		let event_use_gen = &event.gen_kind.type_use_gen(event.attr_span);
-		let trait_use_gen = &def.trait_use_generics(event.attr_span);
 		let type_impl_gen = &def.type_impl_generics(event.attr_span);
 		let type_use_gen = &def.type_use_generics(event.attr_span);
 		let pallet_ident = &def.pallet_struct.pallet;
@@ -145,14 +149,15 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 
 		quote::quote_spanned!(*fn_span =>
 			impl<#type_impl_gen> #pallet_ident<#type_use_gen> #completed_where_clause {
+				#(#maybe_allow_attrs)*
 				#fn_vis fn deposit_event(event: Event<#event_use_gen>) {
 					let event = <
-						<T as Config #trait_use_gen>::RuntimeEvent as
+						<T as #frame_system::Config>::RuntimeEvent as
 						From<Event<#event_use_gen>>
 					>::from(event);
 
 					let event = <
-						<T as Config #trait_use_gen>::RuntimeEvent as
+						<T as #frame_system::Config>::RuntimeEvent as
 						Into<<T as #frame_system::Config>::RuntimeEvent>
 					>::into(event);
 
@@ -179,10 +184,12 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 
 		#deposit_event
 
+		#(#maybe_allow_attrs)*
 		impl<#event_impl_gen> From<#event_ident<#event_use_gen>> for () #event_where_clause {
 			fn from(_: #event_ident<#event_use_gen>) {}
 		}
 
+		#(#maybe_allow_attrs)*
 		impl<#event_impl_gen> #event_ident<#event_use_gen> #event_where_clause {
 			#[allow(dead_code)]
 			#[doc(hidden)]

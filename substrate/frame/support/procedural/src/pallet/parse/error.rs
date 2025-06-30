@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use super::helper;
+use crate::deprecation::extract_or_return_allow_attrs;
 use quote::ToTokens;
 use syn::{spanned::Spanned, Fields};
 
@@ -38,6 +39,8 @@ pub struct VariantDef {
 	pub field: Option<VariantField>,
 	/// The `cfg` attributes.
 	pub cfg_attrs: Vec<syn::Attribute>,
+	/// The `allow` attributes.
+	pub maybe_allow_attrs: Vec<syn::Attribute>,
 }
 
 /// This checks error declaration as a enum declaration with only variants without fields nor
@@ -53,8 +56,6 @@ pub struct ErrorDef {
 	pub error: keyword::Error,
 	/// The span of the pallet::error attribute.
 	pub attr_span: proc_macro2::Span,
-	/// Attributes
-	pub attrs: Vec<syn::Attribute>,
 }
 
 impl ErrorDef {
@@ -72,6 +73,8 @@ impl ErrorDef {
 			let msg = "Invalid pallet::error, `Error` must be public";
 			return Err(syn::Error::new(item.span(), msg))
 		}
+
+		crate::deprecation::prevent_deprecation_attr_on_outer_enum(&item.attrs)?;
 
 		let instances =
 			vec![helper::check_type_def_gen_no_bounds(&item.generics, item.ident.span())?];
@@ -92,18 +95,27 @@ impl ErrorDef {
 					Fields::Named(_) => Some(VariantField { is_named: true }),
 					Fields::Unnamed(_) => Some(VariantField { is_named: false }),
 				};
-				if variant.discriminant.is_some() {
-					let msg = "Invalid pallet::error, unexpected discriminant, discriminants \
-						are not supported";
-					let span = variant.discriminant.as_ref().unwrap().0.span();
-					return Err(syn::Error::new(span, msg))
+
+				match &variant.discriminant {
+					None |
+					Some((_, syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Int(_), .. }))) => {},
+					Some((_, expr)) => {
+						let msg = "Invalid pallet::error, only integer discriminants are supported";
+						return Err(syn::Error::new(expr.span(), msg))
+					},
 				}
 				let cfg_attrs: Vec<syn::Attribute> = helper::get_item_cfg_attrs(&variant.attrs);
+				let maybe_allow_attrs = extract_or_return_allow_attrs(&variant.attrs).collect();
 
-				Ok(VariantDef { ident: variant.ident.clone(), field: field_ty, cfg_attrs })
+				Ok(VariantDef {
+					ident: variant.ident.clone(),
+					field: field_ty,
+					cfg_attrs,
+					maybe_allow_attrs,
+				})
 			})
 			.collect::<Result<_, _>>()?;
 
-		Ok(ErrorDef { attr_span, index, variants, instances, error, attrs: item.attrs.clone() })
+		Ok(ErrorDef { attr_span, index, variants, instances, error })
 	}
 }

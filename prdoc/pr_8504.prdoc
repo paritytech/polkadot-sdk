@@ -1,0 +1,74 @@
+title: Fix generated address returned by Substrate RPC runtime call
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Description
+
+    When dry-running a contract deployment through the runtime API, the returned address does not match the actual address that will be used when the transaction is submitted. This inconsistency occurs because the address derivation logic doesn't properly account for the difference between transaction execution and dry-run execution contexts.
+
+    The issue stems from the `create1` address derivation logic in `exec.rs`:
+
+    ```rust
+    address::create1(
+        &deployer,
+        // the Nonce from the origin has been incremented pre-dispatch, so we
+        // need to subtract 1 to get the nonce at the time of the call.
+        if origin_is_caller {
+            account_nonce.saturating_sub(1u32.into()).saturated_into()
+        } else {
+            account_nonce.saturated_into()
+        },
+    )
+    ```
+
+    The code correctly subtracts 1 from the account nonce during a transaction execution (because the nonce is incremented pre-dispatch), but doesn't account for execution context - whether it's a real transaction or a dry run through the RPC.
+
+    ## Review Notes
+
+    This PR adds a new condition to check for the `ExecContext` when calculating the nonce for address derivation:
+
+    ```rust
+    address::create1(
+        &deployer,
+        // the Nonce from the origin has been incremented pre-dispatch, so we
+        // need to subtract 1 to get the nonce at the time of the call.
+        if origin_is_caller && matches!(exec_context, ExecContext::Transaction) {
+            account_nonce.saturating_sub(1u32.into()).saturated_into()
+        } else {
+            account_nonce.saturated_into()
+        },
+    )
+    ```
+
+    A new test `nonce_not_incremented_in_dry_run()` has been added to verify the behavior.
+
+    ## Before Fix
+
+    - Dry-run contract deployment returns address derived with nonce N
+    - Actual transaction deployment creates contract at address derived with nonce N-1
+    - Result: Inconsistent addresses between simulation and actual execution
+
+    ## After Fix
+
+    - Dry-run and actual transaction deployments both create contracts at the same address
+    - Result: Consistent contract addresses regardless of execution context
+    - Added test case to verify nonce handling in different execution contexts
+
+    This fix ensures that users can rely on the address returned by a dry run to match the actual address that will be used when the transaction is submitted.
+
+    Fixes https://github.com/paritytech/contract-issues/issues/37
+
+    # Checklist
+
+    * [x] My PR includes a detailed description as outlined in the "Description" and its two subsections above.
+    * [x] My PR follows the [labeling requirements](
+    https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process
+    ) of this project (at minimum one label for `T` required)
+        * External contributors: ask maintainers to put the right label on your PR.
+    * [x] I have made corresponding changes to the documentation (if applicable)
+    * [x] I have added tests that prove my fix is effective or that my feature works (if applicable)
+crates:
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: pallet-revive
+  bump: major

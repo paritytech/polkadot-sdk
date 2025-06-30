@@ -73,6 +73,7 @@ pub mod pallet {
 		> + frame_system::Config
 	{
 		/// Overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Type previously used to derive the account ID for a pool. Indicates that the pool's
@@ -153,7 +154,7 @@ pub mod pallet {
 			asset1: Box<T::AssetKind>,
 			asset2: Box<T::AssetKind>,
 		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 
 			let pool_id = T::PoolLocator::pool_id(&asset1, &asset2)
 				.map_err(|_| Error::<T>::InvalidAssetPair)?;

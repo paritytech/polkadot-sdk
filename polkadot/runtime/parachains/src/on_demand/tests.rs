@@ -98,6 +98,7 @@ fn place_order_run_to_blocknumber(para_id: ParaId, blocknumber: Option<BlockNumb
 	if let Some(bn) = blocknumber {
 		run_to_block(bn, |n| if n == bn { Some(Default::default()) } else { None });
 	}
+	#[allow(deprecated)]
 	OnDemand::place_order_allow_death(RuntimeOrigin::signed(alice), amt, para_id).unwrap()
 }
 
@@ -266,6 +267,7 @@ fn spot_traffic_decreases_between_idle_blocks() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn place_order_works() {
 	let alice = 1u64;
 	let amt = 10_000_000u128;
@@ -308,6 +310,7 @@ fn place_order_works() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn place_order_keep_alive_keeps_alive() {
 	let alice = 1u64;
 	let amt = 1u128; // The same as crate::mock's EXISTENTIAL_DEPOSIT
@@ -315,6 +318,8 @@ fn place_order_keep_alive_keeps_alive() {
 	let para_id = ParaId::from(111);
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		let config = configuration::ActiveConfig::<Test>::get();
+
 		// Initialize the parathread and wait for it to be ready.
 		schedule_blank_para(para_id, ParaKind::Parathread);
 		Balances::make_free_balance_be(&alice, amt);
@@ -326,6 +331,71 @@ fn place_order_keep_alive_keeps_alive() {
 		assert_noop!(
 			OnDemand::place_order_keep_alive(RuntimeOrigin::signed(alice), max_amt, para_id),
 			BalancesError::<Test, _>::InsufficientBalance
+		);
+
+		Balances::make_free_balance_be(&alice, max_amt);
+		assert_ok!(OnDemand::place_order_keep_alive(
+			RuntimeOrigin::signed(alice),
+			max_amt,
+			para_id
+		),);
+
+		let queue_status = QueueStatus::<Test>::get();
+		let spot_price = queue_status.traffic.saturating_mul_int(
+			config.scheduler_params.on_demand_base_fee.saturated_into::<BalanceOf<Test>>(),
+		);
+		assert_eq!(Balances::free_balance(&alice), max_amt.saturating_sub(spot_price));
+		assert_eq!(
+			FreeEntries::<Test>::get().pop(),
+			Some(EnqueuedOrder::new(QueueIndex(0), para_id))
+		);
+	});
+}
+
+#[test]
+fn place_order_with_credits() {
+	let alice = 1u64;
+	let initial_credit = 10_000_000u128;
+	let para_id = ParaId::from(111);
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		let config = configuration::ActiveConfig::<Test>::get();
+
+		// Initialize the parathread and wait for it to be ready.
+		schedule_blank_para(para_id, ParaKind::Parathread);
+		OnDemand::credit_account(alice, initial_credit);
+		assert_eq!(Credits::<Test>::get(alice), initial_credit);
+
+		assert!(!Paras::is_parathread(para_id));
+		run_to_block(100, |n| if n == 100 { Some(Default::default()) } else { None });
+		assert!(Paras::is_parathread(para_id));
+
+		let queue_status = QueueStatus::<Test>::get();
+		let spot_price = queue_status.traffic.saturating_mul_int(
+			config.scheduler_params.on_demand_base_fee.saturated_into::<BalanceOf<Test>>(),
+		);
+
+		// Create an order and pay for it with credits.
+		assert_ok!(OnDemand::place_order_with_credits(
+			RuntimeOrigin::signed(alice),
+			initial_credit,
+			para_id
+		));
+		assert_eq!(Credits::<Test>::get(alice), initial_credit.saturating_sub(spot_price));
+		assert_eq!(
+			FreeEntries::<Test>::get().pop(),
+			Some(EnqueuedOrder::new(QueueIndex(0), para_id))
+		);
+
+		// Insufficient credits:
+		Credits::<Test>::insert(alice, 1u128);
+		assert_noop!(
+			OnDemand::place_order_with_credits(
+				RuntimeOrigin::signed(alice),
+				1_000_000u128,
+				para_id
+			),
+			Error::<Test>::InsufficientCredits
 		);
 	});
 }

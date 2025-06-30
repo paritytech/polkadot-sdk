@@ -63,7 +63,7 @@ def get_members(workspace_dir, exclude):
 def get_crates(workspace_dir, exclude_crates) -> dict:
 	crates = {}
 
-	for root, dirs, files in os.walk(workspace_dir):
+	for root, _dirs, files in os.walk(workspace_dir):
 		if "target" in root:
 			continue
 		for file in files:
@@ -125,7 +125,7 @@ def check_links(all_crates):
 	links = []
 	broken = []
 
-	for name, (path, manifest) in all_crates.items():
+	for name, (_path, manifest) in all_crates.items():
 		def check_deps(deps):
 			for dep in deps:
 				# Could be renamed:

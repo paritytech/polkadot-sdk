@@ -31,7 +31,6 @@ frame-system = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 sp-arithmetic = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 
 [dev-dependencies]
 bp-parachains = { workspace = true }
@@ -69,7 +68,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

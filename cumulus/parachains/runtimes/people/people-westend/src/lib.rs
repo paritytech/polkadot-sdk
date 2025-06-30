@@ -18,6 +18,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+mod genesis_config_presets;
 pub mod people;
 mod weights;
 pub mod xcm_config;
@@ -25,7 +26,7 @@ pub mod xcm_config;
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ClaimQueueOffset, CoreSelector, ParaId};
 use frame_support::{
@@ -37,7 +38,7 @@ use frame_support::{
 		ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Everything, InstanceFilter,
 		TransformOrigin,
 	},
-	weights::{ConstantMultiplier, Weight, WeightToFee as _},
+	weights::{ConstantMultiplier, Weight},
 	PalletId,
 };
 use frame_system::{
@@ -64,12 +65,16 @@ use sp_runtime::{
 	ApplyExtrinsicResult,
 };
 pub use sp_runtime::{MultiAddress, Perbill, Permill, RuntimeDebug};
+use sp_statement_store::{
+	runtime_api::{InvalidStatement, StatementSource, ValidStatement},
+	SignatureVerificationResult, Statement,
+};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::WeightToFee, time::*};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
-use xcm::prelude::*;
+use xcm::{prelude::*, Version as XcmVersion};
 use xcm_config::{
 	FellowshipLocation, GovernanceLocation, PriceForSiblingParachainDelivery, XcmConfig,
 	XcmOriginToTransactDispatchOrigin,
@@ -95,6 +100,7 @@ pub type BlockId = generic::BlockId<Block>;
 pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 	Runtime,
 	(
+		frame_system::AuthorizeCall<Runtime>,
 		frame_system::CheckNonZeroSender<Runtime>,
 		frame_system::CheckSpecVersion<Runtime>,
 		frame_system::CheckTxVersion<Runtime>,
@@ -113,6 +119,10 @@ pub type UncheckedExtrinsic =
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
 	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
+	pallet_session::migrations::v1::MigrateV0ToV1<
+		Runtime,
+		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
+	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
@@ -139,7 +149,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("people-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("people-westend"),
 	authoring_version: 1,
-	spec_version: 1_017_001,
+	spec_version: 1_018_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
@@ -271,6 +281,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type ConsensusHook = ConsensusHook;
 	type WeightInfo = weights::cumulus_pallet_parachain_system::WeightInfo<Runtime>;
 	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
+	type RelayParentOffset = ConstU32<0>;
 }
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
@@ -358,7 +369,10 @@ impl pallet_session::Config for Runtime {
 	// Essentially just Aura, but let's be pedantic.
 	type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
+	type DisablingStrategy = ();
 	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
+	type Currency = Balances;
+	type KeyDeposit = ();
 }
 
 impl pallet_aura::Config for Runtime {
@@ -426,6 +440,7 @@ impl pallet_multisig::Config for Runtime {
 	PartialOrd,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	RuntimeDebug,
 	MaxEncodedLen,
 	scale_info::TypeInfo,
@@ -647,6 +662,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
+		fn relay_parent_offset() -> u32 {
+			0
+		}
+	}
+
 	impl cumulus_primitives_aura::AuraUnincludedSegmentApi<Block> for Runtime {
 		fn can_build_upon(
 			included_hash: <Block as BlockT>::Hash,
@@ -790,21 +811,11 @@ impl_runtime_apis! {
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
-			let latest_asset_id: Result<AssetId, ()> = asset.clone().try_into();
-			match latest_asset_id {
-				Ok(asset_id) if asset_id.0 == xcm_config::RelayLocation::get() => {
-					// for native token
-					Ok(WeightToFee::weight_to_fee(&weight))
-				},
-				Ok(asset_id) => {
-					log::trace!(target: "xcm::xcm_runtime_apis", "query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!");
-					Err(XcmPaymentApiError::AssetNotFound)
-				},
-				Err(_) => {
-					log::trace!(target: "xcm::xcm_runtime_apis", "query_weight_to_asset_fee - failed to convert asset: {asset:?}!");
-					Err(XcmPaymentApiError::VersionedConversionFailed)
-				}
-			}
+			use crate::xcm_config::XcmConfig;
+
+			type Trader = <XcmConfig as xcm_executor::Config>::Trader;
+
+			PolkadotXcm::query_weight_to_asset_fee::<Trader>(weight, asset)
 		}
 
 		fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {
@@ -817,8 +828,8 @@ impl_runtime_apis! {
 	}
 
 	impl xcm_runtime_apis::dry_run::DryRunApi<Block, RuntimeCall, RuntimeEvent, OriginCaller> for Runtime {
-		fn dry_run_call(origin: OriginCaller, call: RuntimeCall) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
-			PolkadotXcm::dry_run_call::<Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall>(origin, call)
+		fn dry_run_call(origin: OriginCaller, call: RuntimeCall, result_xcms_version: XcmVersion) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			PolkadotXcm::dry_run_call::<Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall>(origin, call, result_xcms_version)
 		}
 
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
@@ -835,6 +846,30 @@ impl_runtime_apis! {
 				AccountId,
 				xcm_config::LocationToAccountId,
 			>::convert_location(location)
+		}
+	}
+
+	impl xcm_runtime_apis::trusted_query::TrustedQueryApi<Block> for Runtime {
+		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
+			PolkadotXcm::is_trusted_reserve(asset, location)
+		}
+		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
+			PolkadotXcm::is_trusted_teleporter(asset, location)
+		}
+	}
+
+	impl xcm_runtime_apis::authorized_aliases::AuthorizedAliasersApi<Block> for Runtime {
+		fn authorized_aliasers(target: VersionedLocation) -> Result<
+			Vec<xcm_runtime_apis::authorized_aliases::OriginAliaser>,
+			xcm_runtime_apis::authorized_aliases::Error
+		> {
+			PolkadotXcm::authorized_aliasers(target)
+		}
+		fn is_authorized_alias(origin: VersionedLocation, target: VersionedLocation) -> Result<
+			bool,
+			xcm_runtime_apis::authorized_aliases::Error
+		> {
+			PolkadotXcm::is_authorized_alias(origin, target)
 		}
 	}
 
@@ -875,7 +910,7 @@ impl_runtime_apis! {
 			Vec<frame_benchmarking::BenchmarkList>,
 			Vec<frame_support::traits::StorageInfo>,
 		) {
-			use frame_benchmarking::{Benchmarking, BenchmarkList};
+			use frame_benchmarking::BenchmarkList;
 			use frame_support::traits::StorageInfoTrait;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
@@ -894,10 +929,11 @@ impl_runtime_apis! {
 			(list, storage_info)
 		}
 
+		#[allow(non_local_definitions)]
 		fn dispatch_benchmark(
 			config: frame_benchmarking::BenchmarkConfig
 		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
-			use frame_benchmarking::{Benchmarking, BenchmarkBatch, BenchmarkError};
+			use frame_benchmarking::{BenchmarkBatch, BenchmarkError};
 			use sp_storage::TrackedStorageKey;
 
 			use frame_system_benchmarking::Pallet as SystemBench;
@@ -940,6 +976,16 @@ impl_runtime_apis! {
 
 				fn reserve_transferable_asset_and_dest() -> Option<(Asset, Location)> {
 					None
+				}
+
+				fn set_up_complex_asset_transfer() -> Option<(Assets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
+					let native_location = Parent.into();
+					let dest = Parent.into();
+
+					pallet_xcm::benchmarking::helpers::native_teleport_as_asset_transfer::<Runtime>(
+						native_location,
+						dest,
+					)
 				}
 
 				fn get_asset() -> Asset {
@@ -1038,11 +1084,11 @@ impl_runtime_apis! {
 					Ok((origin, ticket, assets))
 				}
 
-				fn fee_asset() -> Result<Asset, BenchmarkError> {
-					Ok(Asset {
+				fn worst_case_for_trader() -> Result<(Asset, WeightLimit), BenchmarkError> {
+					Ok((Asset {
 						id: AssetId(RelayLocation::get()),
 						fun: Fungible(1_000_000 * UNITS),
-					})
+					}, WeightLimit::Limited(Weight::from_parts(5000, 5000))))
 				}
 
 				fn unlockable_asset() -> Result<(Location, Location, Asset), BenchmarkError> {
@@ -1081,20 +1127,50 @@ impl_runtime_apis! {
 		}
 
 		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
-			get_preset::<RuntimeGenesisConfig>(id, |_| None)
+			get_preset::<RuntimeGenesisConfig>(id, &genesis_config_presets::get_preset)
 		}
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
-			vec![]
+			genesis_config_presets::preset_names()
 		}
 	}
 
-	impl xcm_runtime_apis::trusted_query::TrustedQueryApi<Block> for Runtime {
-		fn is_trusted_reserve(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
-			PolkadotXcm::is_trusted_reserve(asset, location)
+	impl cumulus_primitives_core::GetParachainInfo<Block> for Runtime {
+		fn parachain_id() -> ParaId {
+			ParachainInfo::parachain_id()
 		}
-		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
-			PolkadotXcm::is_trusted_teleporter(asset, location)
+	}
+
+	impl sp_statement_store::runtime_api::ValidateStatement<Block> for Runtime {
+		fn validate_statement(
+			_source: StatementSource,
+			statement: Statement,
+		) -> Result<ValidStatement, InvalidStatement> {
+			let account = match statement.verify_signature() {
+				SignatureVerificationResult::Valid(account) => account.into(),
+				SignatureVerificationResult::Invalid => {
+					log::debug!("Bad statement signature.");
+					return Err(InvalidStatement::BadProof)
+				},
+				SignatureVerificationResult::NoSignature => {
+					log::debug!("Missing statement signature.");
+					return Err(InvalidStatement::NoProof)
+				},
+			};
+
+			// For now just allow validators to store some statements.
+			// In the future we will allow people.
+			if pallet_session::Validators::<Runtime>::get().contains(&account) {
+				Ok(ValidStatement {
+					max_count: 2,
+					max_size: 1024,
+				})
+			} else {
+				Ok(ValidStatement {
+					max_count: 0,
+					max_size: 0,
+				})
+			}
 		}
 	}
 }

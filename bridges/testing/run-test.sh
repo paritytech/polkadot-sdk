@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
 
@@ -38,7 +38,7 @@ else
     export POLKADOT_BINARY=$POLKADOT_SDK_PATH/target/release/polkadot
     export POLKADOT_PARACHAIN_BINARY=$POLKADOT_SDK_PATH/target/release/polkadot-parachain
 
-    export ZOMBIENET_BINARY=~/local_bridge_testing/bin/zombienet-linux-x64
+    export ZOMBIENET_BINARY=~/local_bridge_testing/bin/zombienet
     export SUBSTRATE_RELAY_BINARY=~/local_bridge_testing/bin/substrate-relay
 fi
 

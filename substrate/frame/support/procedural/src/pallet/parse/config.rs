@@ -17,8 +17,9 @@
 
 use super::helper;
 use frame_support_procedural_tools::{get_cfg_attributes, get_doc_literals, is_using_frame_crate};
+use proc_macro_warning::Warning;
 use quote::ToTokens;
-use syn::{spanned::Spanned, token, Token, TraitItemType};
+use syn::{parse_quote, spanned::Spanned, token, Token, TraitItemType};
 
 /// List of additional token to be used for parsing.
 mod keyword {
@@ -58,11 +59,6 @@ pub struct ConfigDef {
 	pub consts_metadata: Vec<ConstMetadataDef>,
 	/// Associated types metadata.
 	pub associated_types_metadata: Vec<AssociatedTypeMetadataDef>,
-	/// Whether the trait has the associated type `Event`, note that those bounds are
-	/// checked:
-	/// * `IsType<Self as frame_system::Config>::RuntimeEvent`
-	/// * `From<Event>` or `From<Event<T>>` or `From<Event<T, I>>`
-	pub has_event_type: bool,
 	/// The where clause on trait definition but modified so `Self` is `T`.
 	pub where_clause: Option<syn::WhereClause>,
 	/// Whether a default sub-trait should be generated.
@@ -71,6 +67,8 @@ pub struct ConfigDef {
 	/// Vec will be empty if `#[pallet::config(with_default)]` is not specified or if there are
 	/// no trait items.
 	pub default_sub_trait: Option<DefaultTrait>,
+	/// Compile time warnings. Mainly for deprecated items.
+	pub warnings: Vec<Warning>,
 }
 
 /// Input definition for an associated type in pallet config.
@@ -373,6 +371,7 @@ impl ConfigDef {
 		item: &mut syn::Item,
 		enable_default: bool,
 		disable_associated_metadata: bool,
+		is_frame_system: bool,
 	) -> syn::Result<Self> {
 		let syn::Item::Trait(item) = item else {
 			let msg = "Invalid pallet::config, expected trait definition";
@@ -406,30 +405,41 @@ impl ConfigDef {
 			false
 		};
 
-		let has_frame_system_supertrait = item.supertraits.iter().any(|s| {
-			syn::parse2::<syn::Path>(s.to_token_stream())
-				.map_or(false, |b| has_expected_system_config(b, frame_system))
-		});
-
-		let mut has_event_type = false;
 		let mut consts_metadata = vec![];
 		let mut associated_types_metadata = vec![];
+		let mut warnings = vec![];
 		let mut default_sub_trait = if enable_default {
-			Some(DefaultTrait {
-				items: Default::default(),
-				has_system: has_frame_system_supertrait,
-			})
+			Some(DefaultTrait { items: Default::default(), has_system: !is_frame_system })
 		} else {
 			None
 		};
 		for trait_item in &mut item.items {
 			let is_event = check_event_type(frame_system, trait_item, has_instance)?;
-			has_event_type = has_event_type || is_event;
 
 			let mut already_no_default = false;
 			let mut already_constant = false;
 			let mut already_no_default_bounds = false;
 			let mut already_collected_associated_type = None;
+
+			// add deprecation notice for `RuntimeEvent`, iff pallet is not `frame_system`
+			if is_event && !is_frame_system {
+				if let syn::TraitItem::Type(type_event) = trait_item {
+					let allow_dep: syn::Attribute = parse_quote!(#[allow(deprecated)]);
+
+					// Check if the `#[allow(deprecated)]` attribute is present
+					if !type_event.attrs.iter().any(|attr| attr == &allow_dep) {
+						let warning = Warning::new_deprecated("RuntimeEvent")
+						.old("have `RuntimeEvent` associated type in the pallet config")
+						.new("remove it as it is redundant since associated bound gets appended automatically: \n
+							pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> { }")
+						.help_link("https://github.com/paritytech/polkadot-sdk/pull/7229")
+						.span(type_event.ident.span())
+						.build_or_panic();
+
+						warnings.push(warning);
+					}
+				}
+			}
 
 			while let Ok(Some(pallet_attr)) =
 				helper::take_first_item_pallet_attr::<PalletAttr>(trait_item)
@@ -558,6 +568,11 @@ impl ConfigDef {
 			helper::take_first_item_pallet_attr(&mut item.attrs)?;
 		let disable_system_supertrait_check = attr.is_some();
 
+		let has_frame_system_supertrait = item.supertraits.iter().any(|s| {
+			syn::parse2::<syn::Path>(s.to_token_stream())
+				.map_or(false, |b| has_expected_system_config(b, frame_system))
+		});
+
 		if !has_frame_system_supertrait && !disable_system_supertrait_check {
 			let found = if item.supertraits.is_empty() {
 				"none".to_string()
@@ -588,9 +603,9 @@ impl ConfigDef {
 			has_instance,
 			consts_metadata,
 			associated_types_metadata,
-			has_event_type,
 			where_clause,
 			default_sub_trait,
+			warnings,
 		})
 	}
 }

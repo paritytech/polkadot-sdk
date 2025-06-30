@@ -1,0 +1,12 @@
+title: '[staking] Currency Migration and Overstake fix'
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Fixes Currency to fungible migration with force-unstake of partial unbonding accounts.
+    - Removes the extrinsic `withdraw_overstake` which is not useful post fungibe migration of pallet-staking.
+
+crates:
+- name: westend-runtime
+  bump: major
+- name: pallet-staking
+  bump: major

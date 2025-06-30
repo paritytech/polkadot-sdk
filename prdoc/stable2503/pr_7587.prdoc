@@ -1,0 +1,11 @@
+title: '[AHM] Poke deposits: Indices pallet'
+doc:
+- audience: Runtime Dev
+  description: Add a new extrinsic `poke_deposit` to `pallet-indices`. This extrinsic will be used to re-adjust the deposits made in the pallet after Asset Hub Migration.
+crates:
+- name: pallet-indices
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major

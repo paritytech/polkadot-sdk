@@ -18,8 +18,9 @@
 //! The crate's tests.
 
 use super::*;
-use crate as pallet_referenda;
-use codec::{Decode, Encode, MaxEncodedLen};
+use crate::{self as pallet_referenda, types::Track};
+use alloc::borrow::Cow;
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
@@ -29,6 +30,7 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_runtime::{
+	str_array as s,
 	traits::{BlakeTwo256, Hash},
 	BuildStorage, DispatchResult, Perbill,
 };
@@ -81,6 +83,7 @@ impl pallet_scheduler::Config for Test {
 	type WeightInfo = ();
 	type OriginPrivilegeCmp = EqualPrivilegeOnly;
 	type Preimages = Preimage;
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
@@ -102,12 +105,13 @@ pub struct TestTracksInfo;
 impl TracksInfo<u64, u64> for TestTracksInfo {
 	type Id = u8;
 	type RuntimeOrigin = <RuntimeOrigin as OriginTrait>::PalletsOrigin;
-	fn tracks() -> &'static [(Self::Id, TrackInfo<u64, u64>)] {
-		static DATA: [(u8, TrackInfo<u64, u64>); 3] = [
-			(
-				0u8,
-				TrackInfo {
-					name: "root",
+
+	fn tracks() -> impl Iterator<Item = Cow<'static, Track<Self::Id, u64, u64>>> {
+		static DATA: [Track<u8, u64, u64>; 3] = [
+			Track {
+				id: 0u8,
+				info: TrackInfo {
+					name: s("root"),
 					max_deciding: 1,
 					decision_deposit: 10,
 					prepare_period: 4,
@@ -125,11 +129,11 @@ impl TracksInfo<u64, u64> for TestTracksInfo {
 						ceil: Perbill::from_percent(100),
 					},
 				},
-			),
-			(
-				1u8,
-				TrackInfo {
-					name: "none",
+			},
+			Track {
+				id: 1u8,
+				info: TrackInfo {
+					name: s("none"),
 					max_deciding: 3,
 					decision_deposit: 1,
 					prepare_period: 2,
@@ -147,11 +151,11 @@ impl TracksInfo<u64, u64> for TestTracksInfo {
 						ceil: Perbill::from_percent(100),
 					},
 				},
-			),
-			(
-				2u8,
-				TrackInfo {
-					name: "none",
+			},
+			Track {
+				id: 2u8,
+				info: TrackInfo {
+					name: s("none"),
 					max_deciding: 3,
 					decision_deposit: 1,
 					prepare_period: 2,
@@ -169,9 +173,9 @@ impl TracksInfo<u64, u64> for TestTracksInfo {
 						ceil: Perbill::from_percent(100),
 					},
 				},
-			),
+			},
 		];
-		&DATA[..]
+		DATA.iter().map(Cow::Borrowed)
 	}
 	fn track_for(id: &Self::RuntimeOrigin) -> Result<Self::Id, ()> {
 		if let Ok(system_origin) = frame_system::RawOrigin::try_from(id.clone()) {
@@ -186,7 +190,6 @@ impl TracksInfo<u64, u64> for TestTracksInfo {
 		}
 	}
 }
-impl_tracksinfo_get!(TestTracksInfo, u64, u64);
 
 impl Config for Test {
 	type WeightInfo = ();
@@ -206,6 +209,7 @@ impl Config for Test {
 	type AlarmInterval = AlarmInterval;
 	type Tracks = TestTracksInfo;
 	type Preimages = Preimage;
+	type BlockNumberProvider = System;
 }
 pub struct ExtBuilder {}
 
@@ -235,7 +239,9 @@ impl ExtBuilder {
 	}
 }
 
-#[derive(Encode, Debug, Decode, TypeInfo, Eq, PartialEq, Clone, MaxEncodedLen)]
+#[derive(
+	Encode, Debug, Decode, DecodeWithMemTracking, TypeInfo, Eq, PartialEq, Clone, MaxEncodedLen,
+)]
 pub struct Tally {
 	pub ayes: u32,
 	pub nays: u32,

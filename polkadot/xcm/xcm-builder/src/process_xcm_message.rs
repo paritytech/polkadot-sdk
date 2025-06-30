@@ -16,7 +16,7 @@
 
 //! Implementation of `ProcessMessage` for an `ExecuteXcm` implementation.
 
-use codec::{Decode, FullCodec, MaxEncodedLen};
+use codec::{Decode, DecodeLimit, FullCodec, MaxEncodedLen};
 use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	dispatch::GetDispatchInfo,
@@ -24,7 +24,7 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_weights::{Weight, WeightMeter};
-use xcm::prelude::*;
+use xcm::{prelude::*, MAX_XCM_DECODE_DEPTH};
 
 const LOG_TARGET: &str = "xcm::process-message";
 
@@ -47,24 +47,29 @@ impl<
 		meter: &mut WeightMeter,
 		id: &mut XcmHash,
 	) -> Result<bool, ProcessMessageError> {
-		let versioned_message = VersionedXcm::<Call>::decode(&mut &message[..]).map_err(|e| {
-			log::trace!(
+		let versioned_message = VersionedXcm::<Call>::decode_all_with_depth_limit(
+			MAX_XCM_DECODE_DEPTH,
+			&mut &message[..],
+		)
+		.map_err(|e| {
+			tracing::trace!(
 				target: LOG_TARGET,
-				"`VersionedXcm` failed to decode: {e:?}",
+				?e,
+				"`VersionedXcm` failed to decode",
 			);
 
 			ProcessMessageError::Corrupt
 		})?;
 		let message = Xcm::<Call>::try_from(versioned_message).map_err(|_| {
-			log::trace!(
+			tracing::trace!(
 				target: LOG_TARGET,
 				"Failed to convert `VersionedXcm` into `xcm::prelude::Xcm`!",
 			);
 
 			ProcessMessageError::Unsupported
 		})?;
-		let pre = XcmExecutor::prepare(message).map_err(|_| {
-			log::trace!(
+		let pre = XcmExecutor::prepare(message, Weight::MAX).map_err(|_| {
+			tracing::trace!(
 				target: LOG_TARGET,
 				"Failed to prepare message.",
 			);
@@ -74,7 +79,7 @@ impl<
 		// The worst-case weight:
 		let required = pre.weight_of();
 		if !meter.can_consume(required) {
-			log::trace!(
+			tracing::trace!(
 				target: LOG_TARGET,
 				"Xcm required {required} more than remaining {}",
 				meter.remaining(),
@@ -86,24 +91,29 @@ impl<
 		let (consumed, result) = match XcmExecutor::execute(origin.into(), pre, id, Weight::zero())
 		{
 			Outcome::Complete { used } => {
-				log::trace!(
+				tracing::trace!(
 					target: LOG_TARGET,
 					"XCM message execution complete, used weight: {used}",
 				);
 				(used, Ok(true))
 			},
-			Outcome::Incomplete { used, error } => {
-				log::trace!(
+			Outcome::Incomplete { used, error: InstructionError { index, error } } => {
+				tracing::trace!(
 					target: LOG_TARGET,
-					"XCM message execution incomplete, used weight: {used}, error: {error:?}",
+					?error,
+					?index,
+					?used,
+					"XCM message execution incomplete",
 				);
 				(used, Ok(false))
 			},
 			// In the error-case we assume the worst case and consume all possible weight.
-			Outcome::Error { error } => {
-				log::trace!(
+			Outcome::Error(InstructionError { error, index }) => {
+				tracing::trace!(
 					target: LOG_TARGET,
-					"XCM message execution error: {error:?}",
+					?error,
+					?index,
+					"XCM message execution error",
 				);
 				let error = match error {
 					xcm::latest::Error::ExceedsStackLimit => ProcessMessageError::StackLimitReached,
@@ -146,9 +156,11 @@ mod tests {
 	#[test]
 	fn process_message_trivial_fails() {
 		// Trap makes it fail.
-		assert!(!process(v3_xcm(false)).unwrap());
-		assert!(!process(v4_xcm(false)).unwrap());
-		assert!(!process(v5_xcm(false)).unwrap());
+		sp_io::TestExternalities::default().execute_with(|| {
+			assert!(!process(v3_xcm(false)).unwrap());
+			assert!(!process(v4_xcm(false)).unwrap());
+			assert!(!process(v5_xcm(false)).unwrap());
+		});
 	}
 
 	#[test]
@@ -166,7 +178,8 @@ mod tests {
 			type Prepared = xcm_executor::WeighedMessage<()>;
 			fn prepare(
 				message: xcm::latest::Xcm<()>,
-			) -> core::result::Result<Self::Prepared, xcm::latest::Xcm<()>> {
+				_: Weight,
+			) -> core::result::Result<Self::Prepared, InstructionError> {
 				Ok(xcm_executor::WeighedMessage::new(Weight::zero(), message))
 			}
 			fn execute(
@@ -175,7 +188,10 @@ mod tests {
 				_: &mut XcmHash,
 				_: Weight,
 			) -> Outcome {
-				Outcome::Error { error: xcm::latest::Error::ExceedsStackLimit }
+				Outcome::Error(InstructionError {
+					index: 0,
+					error: xcm::latest::Error::ExceedsStackLimit,
+				})
 			}
 			fn charge_fees(_location: impl Into<Location>, _fees: Assets) -> xcm::latest::Result {
 				unreachable!()
@@ -200,26 +216,28 @@ mod tests {
 
 	#[test]
 	fn process_message_overweight_fails() {
-		for msg in [v4_xcm(true), v4_xcm(false), v4_xcm(false), v3_xcm(false)] {
-			let msg = &msg.encode()[..];
+		sp_io::TestExternalities::default().execute_with(|| {
+			for msg in [v4_xcm(true), v4_xcm(false), v4_xcm(false), v3_xcm(false)] {
+				let msg = &msg.encode()[..];
 
-			// Errors if we stay below a weight limit of 1000.
-			for i in 0..10 {
-				let meter = &mut WeightMeter::with_limit((i * 10).into());
+				// Errors if we stay below a weight limit of 1000.
+				for i in 0..10 {
+					let meter = &mut WeightMeter::with_limit((i * 10).into());
+					let mut id = [0; 32];
+					assert_err!(
+						Processor::process_message(msg, ORIGIN, meter, &mut id),
+						Overweight(1000.into())
+					);
+					assert_eq!(meter.consumed(), 0.into());
+				}
+
+				// Works with a limit of 1000.
+				let meter = &mut WeightMeter::with_limit(1000.into());
 				let mut id = [0; 32];
-				assert_err!(
-					Processor::process_message(msg, ORIGIN, meter, &mut id),
-					Overweight(1000.into())
-				);
-				assert_eq!(meter.consumed(), 0.into());
+				assert_ok!(Processor::process_message(msg, ORIGIN, meter, &mut id));
+				assert_eq!(meter.consumed(), 1000.into());
 			}
-
-			// Works with a limit of 1000.
-			let meter = &mut WeightMeter::with_limit(1000.into());
-			let mut id = [0; 32];
-			assert_ok!(Processor::process_message(msg, ORIGIN, meter, &mut id));
-			assert_eq!(meter.consumed(), 1000.into());
-		}
+		});
 	}
 
 	fn v3_xcm(success: bool) -> VersionedXcm<RuntimeCall> {

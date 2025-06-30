@@ -21,4 +21,6 @@ pub mod xcm_version;
 
 pub use barriers::DenyExportMessageFrom;
 pub use digest_item::CustomDigestItem;
-pub use message_queue::{AggregateMessageOrigin, BridgeHubMessageRouter};
+pub use message_queue::{
+	AggregateMessageOrigin, BridgeHubDualMessageRouter, BridgeHubMessageRouter,
+};

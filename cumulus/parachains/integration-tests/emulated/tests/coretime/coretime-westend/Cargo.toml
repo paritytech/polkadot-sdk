@@ -7,18 +7,17 @@ license = "Apache-2.0"
 description = "Coretime Westend runtime integration tests with xcm-emulator"
 publish = false
 
-[dependencies]
+[lints]
+workspace = true
 
+[dependencies]
 # Substrate
 frame-support = { workspace = true }
-pallet-balances = { workspace = true }
 pallet-broker = { workspace = true, default-features = true }
-pallet-identity = { workspace = true }
 pallet-message-queue = { workspace = true }
 sp-runtime = { workspace = true }
 
 # Polkadot
-polkadot-runtime-common = { workspace = true, default-features = true }
 polkadot-runtime-parachains = { workspace = true, default-features = true }
 westend-runtime-constants = { workspace = true, default-features = true }
 xcm = { workspace = true }

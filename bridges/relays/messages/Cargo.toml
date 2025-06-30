@@ -20,7 +20,6 @@ num-traits = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 
 # Bridge Dependencies
-
 bp-messages = { workspace = true, default-features = true }
 finality-relay = { workspace = true }
 relay-utils = { workspace = true }

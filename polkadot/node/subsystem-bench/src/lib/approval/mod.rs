@@ -851,11 +851,7 @@ fn build_overseer(
 		network_interface.subsystem_sender(),
 		state.test_authorities.clone(),
 	);
-	let mock_rx_bridge = MockNetworkBridgeRx::new(
-		network_receiver,
-		None,
-		state.options.approval_voting_parallel_enabled,
-	);
+	let mock_rx_bridge = MockNetworkBridgeRx::new(network_receiver, None);
 	let overseer_metrics = OverseerMetrics::try_register(&dependencies.registry).unwrap();
 	let task_handle = spawn_task_handle.clone();
 	let dummy = dummy_builder!(task_handle, overseer_metrics)

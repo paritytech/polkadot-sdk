@@ -108,7 +108,7 @@ pub fn canonicalize(
 		overlay_db.delete_blocks_at_height(i);
 
 		for b in at_height {
-			let _ = visit_and_remove_block_entry(b, overlay_db, &mut visited_candidates)?;
+			visit_and_remove_block_entry(b, overlay_db, &mut visited_candidates)?;
 		}
 	}
 
@@ -219,7 +219,7 @@ pub fn add_block_entry(
 		let mut blocks_at_height = store.load_blocks_at_height(&number)?;
 		if blocks_at_height.contains(&entry.block_hash()) {
 			// seems we already have a block entry for this block. nothing to do here.
-			return Ok(Vec::new())
+			return Ok(Vec::new());
 		}
 
 		blocks_at_height.push(entry.block_hash());
@@ -372,7 +372,7 @@ pub fn revert_to(
 			if child_entry.parent_hash() != hash {
 				return Err(SubsystemError::Context(
 					"revert below last finalized block or corrupted storage".to_string(),
-				))
+				));
 			}
 
 			(children, children_height)

@@ -131,9 +131,6 @@ use sp_version::RuntimeVersion;
 #[cfg(feature = "std")]
 use std::cell::RefCell;
 
-/// Maximum nesting level for extrinsics.
-pub const MAX_EXTRINSIC_DEPTH: u32 = 256;
-
 /// Declares given traits as runtime apis.
 ///
 /// The macro will create two declarations, one for using on the client side and one for using

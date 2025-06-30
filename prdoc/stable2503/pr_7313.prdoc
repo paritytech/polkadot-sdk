@@ -1,0 +1,21 @@
+title: "[XCM] add generic location to account converter that also works with external ecosystems"
+
+doc:
+- audience: Runtime Dev
+  description: |
+    Adds a new `ExternalConsensusLocationsConverterFor` struct to handle external global 
+    consensus locations and their child locations.
+    This struct extends the functionality of existing converters (`GlobalConsensusParachainConvertsFor`
+    and `EthereumLocationsConverterFor`) while maintaining backward compatibility.
+
+crates:
+  - name: snowbridge-router-primitives
+    bump: minor
+  - name: staging-xcm-builder
+    bump: minor
+  - name: asset-hub-rococo-runtime
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: penpal-runtime
+    bump: minor

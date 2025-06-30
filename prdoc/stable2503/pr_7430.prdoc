@@ -1,0 +1,28 @@
+title: '[pallet-revive] fix tracing gas used'
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Charge the nested gas meter for loading the code of the child contract, so that we can properly associate the gas cost to the child call frame.
+    - Move the enter_child_span and exit_child_span around the do_transaction closure to  properly capture all failures
+    - Add missing trace capture for call transfer
+crates:
+- name: pallet-revive-fixtures
+  bump: minor
+- name: pallet-revive
+  bump: minor
+- name: pallet-revive-uapi
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: pallet-migrations
+  bump: minor
+- name: frame-support
+  bump: minor
+- name: people-rococo-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
+- name: rococo-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor

@@ -18,11 +18,15 @@
 
 use crate::{CandidateHash, SessionIndex, ValidatorId, ValidatorIndex};
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 
-/// The kind of the dispute offence.
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, TypeInfo, Debug)]
+/// The kind of the slashing offence (those come from disputes).
+///
+/// Notes:
+/// Will soon be fully eclipsed by the expanded `DisputeOffenceKind` enum.
+/// Only kept for backwards compatibility through old runtime apis.
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug)]
 pub enum SlashingOffenceKind {
 	/// A severe offence when a validator backed an invalid block.
 	#[codec(index = 0)]
@@ -34,7 +38,9 @@ pub enum SlashingOffenceKind {
 
 /// Timeslots should uniquely identify offences and are used for the offence
 /// deduplication.
-#[derive(Eq, PartialEq, Ord, PartialOrd, Clone, Encode, Decode, TypeInfo, Debug)]
+#[derive(
+	Eq, PartialEq, Ord, PartialOrd, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug,
+)]
 pub struct DisputesTimeSlot {
 	// The order of the fields matters for `derive(Ord)`.
 	/// Session index when the candidate was backed/included.
@@ -52,7 +58,12 @@ impl DisputesTimeSlot {
 
 /// We store most of the information about a lost dispute on chain. This struct
 /// is required to identify and verify it.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Debug)]
+///
+/// Notes:
+/// Will soon be fully eclipsed by the expanded vstaging `DisputeProof` struct
+/// that uses the newer `DisputeOffenceKind` enum instead.
+/// Only kept for backwards compatibility.
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug)]
 pub struct DisputeProof {
 	/// Time slot when the dispute occurred.
 	pub time_slot: DisputesTimeSlot,
@@ -66,6 +77,11 @@ pub struct DisputeProof {
 
 /// Slashes that are waiting to be applied once we have validator key
 /// identification.
+///
+/// Notes:
+/// Will soon be fully eclipsed by the expanded vstaging `PendingSlashes` struct
+/// that uses the newer `DisputeOffenceKind` enum instead.
+/// Only kept for backwards compatibility.
 #[derive(Encode, Decode, TypeInfo, Debug, Clone)]
 pub struct PendingSlashes {
 	/// Indices and keys of the validators who lost a dispute and are pending

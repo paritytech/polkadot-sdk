@@ -28,6 +28,8 @@ sp-runtime = { workspace = true }
 cumulus-pallet-parachain-system = { workspace = true }
 
 [dev-dependencies]
+rstest = { workspace = true }
+
 # Cumulus
 cumulus-pallet-parachain-system = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }

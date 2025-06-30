@@ -1,0 +1,33 @@
+[package]
+name = "revive-dev-node"
+description = "A development Substrate-based Substrate node, equipped with pallet-revive."
+version = "0.0.0"
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+edition.workspace = true
+publish = false
+build = "build.rs"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+clap = { features = ["derive"], workspace = true }
+docify = { workspace = true }
+futures = { features = ["thread-pool"], workspace = true }
+futures-timer = { workspace = true }
+jsonrpsee = { features = ["server"], workspace = true }
+
+polkadot-sdk = { workspace = true, features = ["experimental", "node"] }
+revive-dev-runtime = { workspace = true }
+
+[build-dependencies]
+polkadot-sdk = { workspace = true, features = ["substrate-build-script-utils"] }
+
+[features]
+default = ["std"]
+std = [
+	"polkadot-sdk/std",
+	"revive-dev-runtime/std",
+]

@@ -61,7 +61,7 @@ pub trait AuthorApi<Hash, BlockHash> {
 
 	/// Remove given extrinsic from the pool and temporarily ban it to prevent reimporting.
 	#[method(name = "author_removeExtrinsic", with_extensions)]
-	fn remove_extrinsic(
+	async fn remove_extrinsic(
 		&self,
 		bytes_or_hash: Vec<hash::ExtrinsicOrHash<Hash>>,
 	) -> Result<Vec<Hash>, Error>;

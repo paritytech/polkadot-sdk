@@ -19,10 +19,10 @@
 //!
 //! See [`TestApi`] for more information.
 
+use async_trait::async_trait;
 use codec::Encode;
-use futures::future::ready;
 use parking_lot::RwLock;
-use sc_transaction_pool::ChainApi;
+use sc_transaction_pool::{ChainApi, ValidateTransactionPriority};
 use sp_blockchain::{CachedHeaderMetadata, HashAndNumber, TreeRoute};
 use sp_runtime::{
 	generic::{self, BlockId},
@@ -85,6 +85,7 @@ pub struct ChainState {
 	pub nonces: HashMap<Hash, HashMap<AccountId, u64>>,
 	pub invalid_hashes: HashSet<Hash>,
 	pub priorities: HashMap<Hash, u64>,
+	pub valid_till_blocks: HashMap<Hash, u64>,
 }
 
 /// Test Api for transaction pool.
@@ -269,6 +270,14 @@ impl TestApi {
 			.insert(Self::hash_and_length_inner(xts).0, priority);
 	}
 
+	/// Set a transaction mortality (block at which it will expire).
+	pub fn set_valid_till(&self, xts: &Extrinsic, valid_till: u64) {
+		self.chain
+			.write()
+			.valid_till_blocks
+			.insert(Self::hash_and_length_inner(xts).0, valid_till);
+	}
+
 	/// Query validation requests received.
 	pub fn validation_requests(&self) -> Vec<Extrinsic> {
 		self.validation_requests.read().clone()
@@ -343,19 +352,19 @@ impl TagFrom for AccountId {
 	}
 }
 
+#[async_trait]
 impl ChainApi for TestApi {
 	type Block = Block;
 	type Error = Error;
-	type ValidationFuture = futures::future::Ready<Result<TransactionValidity, Error>>;
-	type BodyFuture = futures::future::Ready<Result<Option<Vec<Extrinsic>>, Error>>;
 
-	fn validate_transaction(
+	async fn validate_transaction(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		uxt: Arc<<Self::Block as BlockT>::Extrinsic>,
-	) -> Self::ValidationFuture {
-		ready(self.validate_transaction_blocking(at, source, uxt))
+		_: ValidateTransactionPriority,
+	) -> Result<TransactionValidity, Error> {
+		self.validate_transaction_blocking(at, source, uxt)
 	}
 
 	fn validate_transaction_blocking(
@@ -442,11 +451,24 @@ impl ChainApi for TestApi {
 		}
 
 		let priority = self.chain.read().priorities.get(&self.hash_and_length(&uxt).0).cloned();
+		let longevity = self
+			.chain
+			.read()
+			.valid_till_blocks
+			.get(&self.hash_and_length(&uxt).0)
+			.cloned()
+			.map(|valid_till| valid_till.saturating_sub(block_number.unwrap()))
+			.unwrap_or(64);
+
+		if longevity == 0 {
+			return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::BadProof)))
+		}
+
 		let mut validity = ValidTransaction {
 			priority: priority.unwrap_or(1),
 			requires,
 			provides,
-			longevity: 64,
+			longevity,
 			propagate: true,
 		};
 
@@ -483,13 +505,11 @@ impl ChainApi for TestApi {
 		Self::hash_and_length_inner(ex)
 	}
 
-	fn block_body(&self, hash: <Self::Block as BlockT>::Hash) -> Self::BodyFuture {
-		futures::future::ready(Ok(self
-			.chain
-			.read()
-			.block_by_hash
-			.get(&hash)
-			.map(|b| b.extrinsics().to_vec())))
+	async fn block_body(
+		&self,
+		hash: <Self::Block as BlockT>::Hash,
+	) -> Result<Option<Vec<Extrinsic>>, Error> {
+		Ok(self.chain.read().block_by_hash.get(&hash).map(|b| b.extrinsics().to_vec()))
 	}
 
 	fn block_header(

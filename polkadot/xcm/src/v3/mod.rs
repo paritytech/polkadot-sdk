@@ -20,15 +20,15 @@ use super::v4::{
 	Instruction as NewInstruction, PalletInfo as NewPalletInfo,
 	QueryResponseInfo as NewQueryResponseInfo, Response as NewResponse, Xcm as NewXcm,
 };
-use crate::DoubleEncoded;
+use crate::{utils::decode_xcm_instructions, DoubleEncoded};
 use alloc::{vec, vec::Vec};
 use bounded_collections::{parameter_types, BoundedVec};
 use codec::{
-	self, decode_vec_with_len, Compact, Decode, Encode, Error as CodecError, Input as CodecInput,
+	self, Decode, DecodeWithMemTracking, Encode, Error as CodecError, Input as CodecInput,
 	MaxEncodedLen,
 };
 use core::{fmt::Debug, result};
-use derivative::Derivative;
+use derive_where::derive_where;
 use scale_info::TypeInfo;
 
 mod junction;
@@ -57,36 +57,17 @@ pub const VERSION: super::Version = 3;
 /// An identifier for a query.
 pub type QueryId = u64;
 
-#[derive(Derivative, Default, Encode, TypeInfo)]
-#[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
+#[derive(Default, DecodeWithMemTracking, Encode, TypeInfo)]
+#[derive_where(Clone, Eq, PartialEq, Debug)]
 #[codec(encode_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub struct Xcm<Call>(pub Vec<Instruction<Call>>);
 
-/// The maximal number of instructions in an XCM before decoding fails.
-///
-/// This is a deliberate limit - not a technical one.
-pub const MAX_INSTRUCTIONS_TO_DECODE: u8 = 100;
-
-environmental::environmental!(instructions_count: u8);
-
 impl<Call> Decode for Xcm<Call> {
 	fn decode<I: CodecInput>(input: &mut I) -> core::result::Result<Self, CodecError> {
-		instructions_count::using_once(&mut 0, || {
-			let number_of_instructions: u32 = <Compact<u32>>::decode(input)?.into();
-			instructions_count::with(|count| {
-				*count = count.saturating_add(number_of_instructions as u8);
-				if *count > MAX_INSTRUCTIONS_TO_DECODE {
-					return Err(CodecError::from("Max instructions exceeded"))
-				}
-				Ok(())
-			})
-			.unwrap_or(Ok(()))?;
-			let decoded_instructions = decode_vec_with_len(input, number_of_instructions as usize)?;
-			Ok(Self(decoded_instructions))
-		})
+		Ok(Xcm(decode_xcm_instructions(input)?))
 	}
 }
 
@@ -236,7 +217,9 @@ parameter_types! {
 	pub MaxPalletsInfo: u32 = 64;
 }
 
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
+)]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub struct PalletInfo {
@@ -284,7 +267,9 @@ impl TryInto<NewPalletInfo> for PalletInfo {
 	}
 }
 
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
+)]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub enum MaybeErrorCode {
@@ -309,7 +294,9 @@ impl Default for MaybeErrorCode {
 }
 
 /// Response data to a query.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
+)]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub enum Response {
@@ -360,7 +347,7 @@ impl TryFrom<NewResponse> for Response {
 }
 
 /// Information regarding the composition of a query response.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub struct QueryResponseInfo {
@@ -386,7 +373,7 @@ impl TryFrom<NewQueryResponseInfo> for QueryResponseInfo {
 }
 
 /// An optional weight limit.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub enum WeightLimit {
@@ -415,7 +402,7 @@ impl From<WeightLimit> for Option<Weight> {
 }
 
 /// Basically just the XCM (more general) version of `ParachainDispatchOrigin`.
-#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub enum OriginKind {
@@ -475,16 +462,17 @@ impl XcmContext {
 /// This is the inner XCM format and is version-sensitive. Messages are typically passed using the
 /// outer XCM format, known as `VersionedXcm`.
 #[derive(
-	Derivative,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	xcm_procedural::XcmWeightInfoTrait,
 	xcm_procedural::Builder,
 )]
-#[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
+#[derive_where(Clone, Eq, PartialEq, Debug)]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
+#[codec(decode_with_mem_tracking_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
@@ -1453,6 +1441,7 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 #[cfg(test)]
 mod tests {
 	use super::{prelude::*, *};
+	use crate::MAX_INSTRUCTIONS_TO_DECODE;
 
 	#[test]
 	fn decoding_respects_limit() {

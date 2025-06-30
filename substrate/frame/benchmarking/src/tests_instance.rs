@@ -40,6 +40,7 @@ mod pallet_test {
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config + OtherConfig {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type LowerBound: Get<u32>;
@@ -84,6 +85,11 @@ frame_support::construct_runtime!(
 		TestPallet: pallet_test,
 		TestPallet2: pallet_test::<Instance2>,
 	}
+);
+
+crate::define_benchmarks!(
+	[pallet_test, TestPallet]
+	[pallet_test, TestPallet2]
 );
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -186,11 +192,6 @@ mod benchmarks {
 #[test]
 fn ensure_correct_instance_is_selected() {
 	use crate::utils::Benchmarking;
-
-	crate::define_benchmarks!(
-		[pallet_test, TestPallet]
-		[pallet_test, TestPallet2]
-	);
 
 	let whitelist = vec![];
 

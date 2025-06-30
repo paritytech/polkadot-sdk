@@ -14,13 +14,15 @@
 // limitations under the License.
 
 use crate::imports::*;
+use emulated_integration_tests_common::{snowbridge, snowbridge::WETH};
+use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 use xcm::opaque::v5;
+use xcm_executor::traits::ConvertLocation;
 
 mod asset_transfers;
 mod claim_assets;
 mod register_bridged_assets;
 mod send_xcm;
-mod snowbridge;
 mod teleport;
 
 pub(crate) fn asset_hub_westend_location() -> Location {
@@ -76,8 +78,8 @@ pub(crate) fn weth_at_asset_hubs() -> Location {
 	Location::new(
 		2,
 		[
-			GlobalConsensus(Ethereum { chain_id: snowbridge::CHAIN_ID }),
-			AccountKey20 { network: None, key: snowbridge::WETH },
+			GlobalConsensus(Ethereum { chain_id: snowbridge::SEPOLIA_ID }),
+			AccountKey20 { network: None, key: WETH },
 		],
 	)
 }
@@ -236,4 +238,21 @@ pub(crate) fn assert_bridge_hub_westend_message_received() {
 			]
 		);
 	})
+}
+
+pub fn snowbridge_sovereign() -> sp_runtime::AccountId32 {
+	use asset_hub_rococo_runtime::xcm_config::UniversalLocation as AssetHubRococoUniversalLocation;
+	let ethereum_sovereign: AccountId = AssetHubRococo::execute_with(|| {
+		ExternalConsensusLocationsConverterFor::<
+			AssetHubRococoUniversalLocation,
+			[u8; 32],
+		>::convert_location(&Location::new(
+			2,
+			[xcm::v5::Junction::GlobalConsensus(EthereumNetwork::get())],
+		))
+			.unwrap()
+			.into()
+	});
+
+	ethereum_sovereign
 }

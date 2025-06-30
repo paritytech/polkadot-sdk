@@ -32,7 +32,7 @@
 //! The best chain contains all the candidates pending availability and a subsequent chain
 //! of candidates that have reached the backing quorum and are better than any other backable forks
 //! according to the fork selection rule (more on this rule later). It has a length of size at most
-//! `max_candidate_depth + 1`.
+//! `num_of_pending_candidates + num_of_assigned_cores_for_para`.
 //!
 //! The unconnected storage keeps a record of seconded/backable candidates that may be
 //! added to the best chain in the future.
@@ -100,13 +100,10 @@
 //! bounded. This means that higher-level code needs to be selective about limiting the amount of
 //! candidates that are considered.
 //!
-//! Practically speaking, the collator-protocol will not allow more than `max_candidate_depth + 1`
-//! collations to be fetched at a relay parent and statement-distribution will not allow more than
-//! `max_candidate_depth + 1` seconded candidates at a relay parent per each validator in the
-//! backing group. Considering the `allowed_ancestry_len` configuration value, the number of
-//! candidates in a `FragmentChain` (including its unconnected storage) should not exceed:
-//!
-//! `allowed_ancestry_len * (max_candidate_depth + 1) * backing_group_size`.
+//! Practically speaking, the collator-protocol will limit the number of fetched collations per
+//! core, to the number of claim queue assignments for the paraid on that core.
+//! Statement-distribution will not allow more than `scheduler_params.lookahead` seconded candidates
+//! at a relay parent per each validator in the backing group.
 //!
 //! The code in this module is not designed for speed or efficiency, but conceptual simplicity.
 //! Our assumption is that the amount of candidates and parachains we consider will be reasonably
@@ -453,8 +450,8 @@ pub(crate) struct Scope {
 	pending_availability: Vec<PendingAvailability>,
 	/// The base constraints derived from the latest included candidate.
 	base_constraints: Constraints,
-	/// Equal to `max_candidate_depth`.
-	max_depth: usize,
+	/// Maximum length of the best backable chain (including candidates pending availability).
+	max_backable_len: usize,
 }
 
 /// An error variant indicating that ancestors provided to a scope
@@ -474,7 +471,8 @@ pub(crate) struct UnexpectedAncestor {
 impl Scope {
 	/// Define a new [`Scope`].
 	///
-	/// All arguments are straightforward except the ancestors.
+	/// `max_backable_len` should be the maximum length of the best backable chain (excluding
+	/// pending availability candidates).
 	///
 	/// Ancestors should be in reverse order, starting with the parent
 	/// of the `relay_parent`, and proceeding backwards in block number
@@ -492,7 +490,7 @@ impl Scope {
 		relay_parent: RelayChainBlockInfo,
 		base_constraints: Constraints,
 		pending_availability: Vec<PendingAvailability>,
-		max_depth: usize,
+		max_backable_len: usize,
 		ancestors: impl IntoIterator<Item = RelayChainBlockInfo>,
 	) -> Result<Self, UnexpectedAncestor> {
 		let mut ancestors_map = BTreeMap::new();
@@ -517,8 +515,8 @@ impl Scope {
 		Ok(Scope {
 			relay_parent,
 			base_constraints,
+			max_backable_len: max_backable_len + pending_availability.len(),
 			pending_availability,
-			max_depth,
 			ancestors: ancestors_map,
 			ancestors_by_hash,
 		})
@@ -1192,7 +1190,7 @@ impl FragmentChain {
 		let Some(mut earliest_rp) = self.earliest_relay_parent() else { return };
 
 		loop {
-			if self.best_chain.chain.len() > self.scope.max_depth {
+			if self.best_chain.chain.len() >= self.scope.max_backable_len {
 				break;
 			}
 

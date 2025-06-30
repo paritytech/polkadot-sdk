@@ -20,7 +20,7 @@
 #[allow(deprecated)]
 use super::PreimageProvider;
 use alloc::vec::Vec;
-use codec::{Codec, Decode, Encode, EncodeLike, MaxEncodedLen};
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
 use core::{fmt::Debug, result::Result};
 use scale_info::TypeInfo;
 use sp_runtime::{traits::Saturating, DispatchError, RuntimeDebug};
@@ -35,7 +35,18 @@ pub type Period<BlockNumber> = (BlockNumber, u32);
 pub type Priority = u8;
 
 /// The dispatch time of a scheduled task.
-#[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Copy,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum DispatchTime<BlockNumber> {
 	/// At specified block.
 	At(BlockNumber),

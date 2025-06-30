@@ -65,6 +65,12 @@ const LOG_TARGET: &str = "sub-libp2p";
 /// [`Litep2pNetworkBackend`](super::Litep2pNetworkBackend).
 #[derive(Debug)]
 pub enum NetworkServiceCommand {
+	/// Find peers closest to `target` in the DHT.
+	FindClosestPeers {
+		/// Target peer ID.
+		target: PeerId,
+	},
+
 	/// Get value from DHT.
 	GetValue {
 		/// Record key.
@@ -267,6 +273,10 @@ impl NetworkSigner for Litep2pNetworkService {
 }
 
 impl NetworkDHTProvider for Litep2pNetworkService {
+	fn find_closest_peers(&self, target: PeerId) {
+		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::FindClosestPeers { target });
+	}
+
 	fn get_value(&self, key: &KademliaKey) {
 		let _ = self.cmd_tx.unbounded_send(NetworkServiceCommand::GetValue { key: key.clone() });
 	}

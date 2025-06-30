@@ -116,7 +116,7 @@ use crate::{
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
 	wasm::{CodeInfo, RuntimeCosts, WasmBlob},
 };
-use codec::{Codec, Decode, Encode, HasCompact, MaxEncodedLen};
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode, HasCompact, MaxEncodedLen};
 use core::fmt::Debug;
 use environmental::*;
 use frame_support::{
@@ -276,6 +276,7 @@ pub mod pallet {
 
 		/// The overarching event type.
 		#[pallet::no_default_bounds]
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The overarching call type.
@@ -1382,7 +1383,9 @@ pub mod pallet {
 }
 
 /// The type of origins supported by the contracts pallet.
-#[derive(Clone, Encode, Decode, PartialEq, TypeInfo, RuntimeDebugNoBound)]
+#[derive(
+	Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, RuntimeDebugNoBound,
+)]
 pub enum Origin<T: Config> {
 	Root,
 	Signed(T::AccountId),

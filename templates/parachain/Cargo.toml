@@ -10,7 +10,7 @@ edition.workspace = true
 publish = false
 
 [dependencies]
-docify = "0.2.9"
+docify = { workspace = true }
 
 [features]
 generate-readme = []

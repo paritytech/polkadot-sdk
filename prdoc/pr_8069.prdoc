@@ -1,0 +1,17 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Benchmark storage access on block validation
+
+doc:
+  - audience: [Runtime Dev, Node Dev]
+    description: |
+      Adds checking storage weights on block validation for both read and write benchmarks.
+
+crates:
+  - name: cumulus-pallet-parachain-system
+    bump: minor
+  - name: frame-benchmarking-cli
+    bump: minor
+  - name: frame-storage-access-test-runtime
+    bump: major

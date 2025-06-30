@@ -112,14 +112,14 @@ def main():
         runtimesMatrix = {x['name']: x for x in runtimesMatrix}
         print(f'Filtered out runtimes: {runtimesMatrix}')
 
-        compile_bencher = os.system(f"cargo install --path substrate/utils/frame/omni-bencher --locked --profile {profile}")
+        compile_bencher = os.system(f"cargo install -q --path substrate/utils/frame/omni-bencher --locked --profile {profile}")
         if compile_bencher != 0:
             print_and_log('❌ Failed to compile frame-omni-bencher')
             sys.exit(1)
 
         # loop over remaining runtimes to collect available pallets
         for runtime in runtimesMatrix.values():
-            build_command = f"forklift cargo build -p {runtime['package']} --profile {profile} --features={runtime['bench_features']}"
+            build_command = f"forklift cargo build -q -p {runtime['package']} --profile {profile} --features={runtime['bench_features']}"
             print(f'-- building "{runtime["name"]}" with `{build_command}`')
             build_status = os.system(build_command)
             if build_status != 0:

@@ -33,7 +33,6 @@ sp-keystore = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
-
 std = [
 	"codec/std",
 	"enumflags2/std",

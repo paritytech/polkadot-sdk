@@ -17,9 +17,9 @@
 
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::input;
-use uapi::{HostFn, HostFnImpl as api};
+use uapi::{input, HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -30,6 +30,9 @@ pub extern "C" fn deploy() {}
 pub extern "C" fn call() {
 	input!(address: &[u8; 20],);
 
+	let mut output = [0; 512];
+	let ptr = &mut &mut output[..];
+
 	// Delegate call into passed address.
 	let input = [0u8; 0];
 	api::delegate_call(
@@ -39,6 +42,9 @@ pub extern "C" fn call() {
 		u64::MAX,
 		&[u8::MAX; 32],
 		&input,
-		None
-	).unwrap();
+		Some(ptr),
+	)
+	.unwrap();
+
+	assert_eq!(ptr.len(), 0);
 }

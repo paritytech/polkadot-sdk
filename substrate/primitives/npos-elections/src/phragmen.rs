@@ -95,9 +95,9 @@ pub fn seq_phragmen<AccountId: IdentifierT, P: PerThing128>(
 
 	let mut assignments =
 		voters.into_iter().filter_map(|v| v.into_assignment()).collect::<Vec<_>>();
-	let _ = assignments
+	assignments
 		.iter_mut()
-		.try_for_each(|a| a.try_normalize().map_err(crate::Error::ArithmeticError))?;
+		.try_for_each(|a| a.try_normalize().map_err(|_| crate::Error::ArithmeticError))?;
 	let winners = winners
 		.into_iter()
 		.map(|w_ptr| (w_ptr.borrow().who.clone(), w_ptr.borrow().backed_stake))
@@ -205,7 +205,7 @@ pub fn seq_phragmen_core<AccountId: IdentifierT>(
 		// edge of all candidates that eventually have a non-zero weight must be elected.
 		debug_assert!(voter.edges.iter().all(|e| e.candidate.borrow().elected));
 		// inc budget to sum the budget.
-		voter.try_normalize_elected().map_err(crate::Error::ArithmeticError)?;
+		voter.try_normalize_elected().map_err(|_| crate::Error::ArithmeticError)?;
 	}
 
 	Ok((candidates, voters))

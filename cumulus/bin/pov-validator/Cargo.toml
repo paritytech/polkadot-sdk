@@ -8,19 +8,19 @@ license.workspace = true
 homepage.workspace = true
 description = "A tool for validating PoVs locally"
 
-[dependencies]
-anyhow.workspace = true
-clap = { workspace = true, features = ["derive"] }
-codec.workspace = true
-polkadot-node-primitives.workspace = true
-polkadot-parachain-primitives.workspace = true
-polkadot-primitives.workspace = true
-sc-executor.workspace = true
-sp-core.workspace = true
-sp-io.workspace = true
-sp-maybe-compressed-blob.workspace = true
-tracing-subscriber.workspace = true
-tracing.workspace = true
-
 [lints]
 workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
+codec = { workspace = true }
+polkadot-node-primitives = { workspace = true }
+polkadot-parachain-primitives = { workspace = true }
+polkadot-primitives = { workspace = true }
+sc-executor = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-maybe-compressed-blob = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

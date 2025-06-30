@@ -294,7 +294,7 @@
 //!
 //! ## Other Resources
 //!
-//! - [PBA Book - FRAME Tips & Tricks](https://polkadot-blockchain-academy.github.io/pba-book/substrate/tips-tricks/page.html?highlight=perthing#substrate-and-frame-tips-and-tricks)
+//! - [PBA Lectures on YouTube](https://www.youtube.com/playlist?list=PL-w_i5kwVqbni1Ch2j_RwTIXiB-bwnYqq)
 #![allow(dead_code)]
 #[allow(unused_variables)]
 mod fake_runtime_types {

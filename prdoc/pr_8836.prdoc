@@ -1,0 +1,19 @@
+title: '`fatxpool`: `report_invalid` is now aync'
+doc:
+- audience: Node Dev
+  description: '[`TransactionPool::report_invalid`](https://github.com/paritytech/polkadot-sdk/blob/74dafaee5c600fd2c8a59a280f647f94ccf0a755/substrate/client/transaction-pool/api/src/lib.rs#L314)
+    is now `async`, function was typically used in async context, seems right to be
+    fully async.'
+crates:
+- name: sc-basic-authorship
+  bump: major
+- name: sc-rpc-api
+  bump: major
+- name: sc-rpc-spec-v2
+  bump: major
+- name: sc-rpc
+  bump: major
+- name: sc-transaction-pool-api
+  bump: major
+- name: sc-transaction-pool
+  bump: major

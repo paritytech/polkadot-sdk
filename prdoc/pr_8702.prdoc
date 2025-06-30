@@ -1,0 +1,16 @@
+title: '[AHM] Relax the requirement for RC-Client to receive +1 session reports'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Something that we learned in westend: if `ah-client` decides to go to `Buffered` mode ever again, it might skip some sessions. Atm, we were enforcing sessions to be strictly incremented by one once received by RC client. This could cause us to drop some validator reward points.
+
+    As a simple fix, this PR relaxes this check such that if the last repot was `x`:
+
+    1. x+1 is our expected behavior
+    2. x+2 and more is still accepted, but we emit warning events
+    3. x and below is still dropped. This can only happen due to: unforeseen bug in RC, or XCM failing to send messages in order.
+crates:
+- name: pallet-staking-async-rc-client
+  bump: major
+- name: pallet-staking-async
+  bump: major

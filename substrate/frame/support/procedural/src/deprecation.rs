@@ -36,7 +36,28 @@ fn deprecation_msg_formatter(msg: &str) -> String {
 	)
 }
 
-fn parse_deprecated_meta(crate_: &TokenStream, attr: &syn::Attribute) -> Result<TokenStream> {
+// Should we generate a #crate_::__private::metadata_ir::ItemDeprecationInfoIR
+// or a #crate_::__private::metadata_ir::VariantDeprecationInfoIR? In other words,
+// are we targeting variant deprecation information, or generic item deprecation
+// information.
+#[derive(Copy, Clone, PartialEq)]
+enum DeprecationTarget {
+	Item,
+	Variant,
+}
+
+fn parse_deprecated_meta(
+	crate_: &TokenStream,
+	attr: &syn::Attribute,
+	target: DeprecationTarget,
+) -> Result<TokenStream> {
+	let target = match target {
+		DeprecationTarget::Item =>
+			quote! { #crate_::__private::metadata_ir::ItemDeprecationInfoIR },
+		DeprecationTarget::Variant =>
+			quote! { #crate_::__private::metadata_ir::VariantDeprecationInfoIR },
+	};
+
 	match &attr.meta {
 		Meta::List(meta_list) => {
 			let parsed = meta_list
@@ -60,14 +81,19 @@ fn parse_deprecated_meta(crate_: &TokenStream, attr: &syn::Attribute) -> Result<
 				Ok::<(Option<&syn::Lit>, Option<&syn::Lit>), Error>(acc)
 			})?;
 			note.map_or_else(
-		  || Err(Error::new(attr.span(), deprecation_msg_formatter("Invalid deprecation attribute: missing `note`"))),
+				|| {
+					Err(Error::new(
+						attr.span(),
+						deprecation_msg_formatter("Invalid deprecation attribute: missing `note`"),
+					))
+				},
 				|note| {
 					let since = if let Some(str) = since {
 						quote! { Some(#str) }
 					} else {
 						quote! { None }
 					};
-					let doc = quote! { #crate_::__private::metadata_ir::DeprecationStatusIR::Deprecated { note: #note, since: #since }};
+					let doc = quote! { #target::Deprecated { note: #note, since: #since }};
 					Ok(doc)
 				},
 			)
@@ -77,14 +103,12 @@ fn parse_deprecated_meta(crate_: &TokenStream, attr: &syn::Attribute) -> Result<
 			..
 		}) => {
 			// #[deprecated = "lit"]
-			let doc = quote! { #crate_::__private::metadata_ir::DeprecationStatusIR::Deprecated { note: #lit, since: None } };
+			let doc = quote! { #target::Deprecated { note: #lit, since: None } };
 			Ok(doc)
 		},
 		Meta::Path(_) => {
 			// #[deprecated]
-			Ok(
-				quote! { #crate_::__private::metadata_ir::DeprecationStatusIR::DeprecatedWithoutNote },
-			)
+			Ok(quote! { #target::DeprecatedWithoutNote })
 		},
 		_ => Err(Error::new(
 			attr.span(),
@@ -93,50 +117,60 @@ fn parse_deprecated_meta(crate_: &TokenStream, attr: &syn::Attribute) -> Result<
 	}
 }
 
+fn find_deprecation_attr(attrs: &[syn::Attribute]) -> Option<&syn::Attribute> {
+	attrs.iter().find(|a| a.path().is_ident("deprecated"))
+}
+
+fn parse_deprecation(
+	path: &TokenStream,
+	attrs: &[syn::Attribute],
+	target: DeprecationTarget,
+) -> Result<Option<TokenStream>> {
+	find_deprecation_attr(attrs)
+		.map(|a| parse_deprecated_meta(path, a, target))
+		.transpose()
+}
+
 /// collects deprecation attribute if its present.
 pub fn get_deprecation(path: &TokenStream, attrs: &[syn::Attribute]) -> Result<TokenStream> {
-	parse_deprecation(path, attrs).map(|item| {
+	parse_deprecation(path, attrs, DeprecationTarget::Item).map(|item| {
 		item.unwrap_or_else(|| {
-			quote! {#path::__private::metadata_ir::DeprecationStatusIR::NotDeprecated}
+			quote! {#path::__private::metadata_ir::ItemDeprecationInfoIR::NotDeprecated}
 		})
 	})
 }
 
-fn parse_deprecation(path: &TokenStream, attrs: &[syn::Attribute]) -> Result<Option<TokenStream>> {
-	attrs
-		.iter()
-		.find(|a| a.path().is_ident("deprecated"))
-		.map(|a| parse_deprecated_meta(path, a))
-		.transpose()
+/// Call this on enum attributes to return an error if the #[deprecation] attribute is found.
+pub fn prevent_deprecation_attr_on_outer_enum(parent_attrs: &[syn::Attribute]) -> Result<()> {
+	if let Some(attr) = find_deprecation_attr(parent_attrs) {
+		return Err(Error::new(
+			attr.span(),
+			"The `#[deprecated]` attribute should be applied to individual variants, not the enum as a whole.",
+		));
+	}
+	Ok(())
 }
 
 /// collects deprecation attribute if its present for enum-like types
 pub fn get_deprecation_enum<'a>(
 	path: &TokenStream,
-	parent_attrs: &[syn::Attribute],
 	children_attrs: impl Iterator<Item = (u8, &'a [syn::Attribute])>,
 ) -> Result<TokenStream> {
-	let parent_deprecation = parse_deprecation(path, parent_attrs)?;
-
 	let children = children_attrs
 		.filter_map(|(key, attributes)| {
-			let key = quote::quote! { #path::__private::codec::Compact(#key as u8) };
-			let deprecation_status = parse_deprecation(path, attributes).transpose();
+			let deprecation_status =
+				parse_deprecation(path, attributes, DeprecationTarget::Variant).transpose();
 			deprecation_status.map(|item| item.map(|item| quote::quote! { (#key, #item) }))
 		})
 		.collect::<Result<Vec<TokenStream>>>()?;
-	match (parent_deprecation, children.as_slice()) {
-		(None, []) =>
-			Ok(quote::quote! { #path::__private::metadata_ir::DeprecationInfoIR::NotDeprecated }),
-		(None, _) => {
-			let children = quote::quote! { #path::__private::scale_info::prelude::collections::BTreeMap::from([#( #children),*]) };
-			Ok(
-				quote::quote! { #path::__private::metadata_ir::DeprecationInfoIR::VariantsDeprecated(#children) },
-			)
-		},
-		(Some(depr), _) => Ok(
-			quote::quote! { #path::__private::metadata_ir::DeprecationInfoIR::ItemDeprecated(#depr) },
-		),
+
+	if children.is_empty() {
+		Ok(
+			quote::quote! { #path::__private::metadata_ir::EnumDeprecationInfoIR::nothing_deprecated() },
+		)
+	} else {
+		let children = quote::quote! { #path::__private::scale_info::prelude::collections::BTreeMap::from([#( #children),*]) };
+		Ok(quote::quote! { #path::__private::metadata_ir::EnumDeprecationInfoIR(#children) })
 	}
 }
 
@@ -178,4 +212,22 @@ pub fn variant_index_for_deprecation(index: u8, item: &Variant) -> u8 {
 			})
 		})
 		.unwrap_or(index)
+}
+
+/// Filters all of the `allow` and `deprecated` attributes.
+///
+/// `allow` attributes are returned as is while `deprecated` attributes are replaced by
+/// `#[allow(deprecated)]`.
+pub fn extract_or_return_allow_attrs(
+	items: &[syn::Attribute],
+) -> impl Iterator<Item = syn::Attribute> + '_ {
+	items.iter().filter_map(|attr| {
+		attr.path().is_ident("allow").then(|| attr.clone()).or_else(|| {
+			attr.path().is_ident("deprecated").then(|| {
+				syn::parse_quote! {
+					#[allow(deprecated)]
+				}
+			})
+		})
+	})
 }

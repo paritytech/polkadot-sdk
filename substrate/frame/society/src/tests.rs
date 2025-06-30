@@ -1321,3 +1321,151 @@ fn drop_candidate_works() {
 		assert_eq!(candidates(), vec![]);
 	});
 }
+
+#[test]
+fn poke_deposit_fails_for_non_bidder() {
+	EnvBuilder::new().execute(|| {
+		assert_noop!(Society::poke_deposit(Origin::signed(20)), Error::<Test>::NotBidder);
+		assert_eq!(Balances::reserved_balance(20), 0);
+
+		// Also fails for vouched bid (no deposit)
+		assert_ok!(Society::vouch(Origin::signed(10), 20, 100, 0));
+		assert_noop!(Society::poke_deposit(Origin::signed(20)), Error::<Test>::NoDeposit);
+		assert_eq!(Balances::reserved_balance(20), 0);
+	});
+}
+
+#[test]
+fn poke_deposit_works_when_deposit_increases() {
+	EnvBuilder::new().execute(|| {
+		// Place initial bid with initial deposit
+		assert_ok!(Society::bid(Origin::signed(20), 0));
+
+		// Verify initial state
+		let old_deposit = Parameters::<Test>::get().unwrap().candidate_deposit;
+		assert_eq!(Balances::reserved_balance(20), old_deposit);
+
+		// Verify bid storage
+		let bids = Bids::<Test>::get();
+		let bid = bids.iter().find(|b| b.who == 20).unwrap();
+		assert_eq!(bid.kind, BidKind::Deposit(old_deposit));
+
+		// Change parameters to require higher deposit
+		let new_deposit = old_deposit.saturating_add(2);
+		assert_ok!(Society::set_parameters(
+			Origin::signed(10), // founder
+			10,
+			8,
+			3,
+			new_deposit,
+		));
+
+		// Poke deposit and verify it's free when changed
+		let result = Society::poke_deposit(Origin::signed(20));
+		assert_ok!(result.as_ref());
+		assert_eq!(result.unwrap(), Pays::No.into());
+
+		// Verify balances were updated correctly
+		assert_eq!(Balances::reserved_balance(20), new_deposit);
+
+		// Verify bid storage was updated
+		let bids = Bids::<Test>::get();
+		let bid = bids.iter().find(|b| b.who == 20).unwrap();
+		assert_eq!(bid.kind, BidKind::Deposit(new_deposit));
+
+		// Verify correct event was emitted
+		System::assert_has_event(
+			Event::<Test>::DepositPoked { who: 20, old_deposit, new_deposit }.into(),
+		);
+	});
+}
+
+#[test]
+fn poke_deposit_works_when_deposit_decreases() {
+	EnvBuilder::new().execute(|| {
+		// Set high initial deposit
+		let old_deposit = 30;
+		assert_ok!(Society::set_parameters(Origin::signed(10), 10, 8, 3, old_deposit,));
+
+		// Place bid with high deposit
+		assert_ok!(Society::bid(Origin::signed(20), 0));
+		assert_eq!(Balances::reserved_balance(20), old_deposit);
+
+		// Verify bid storage
+		let bids = Bids::<Test>::get();
+		let bid = bids.iter().find(|b| b.who == 20).unwrap();
+		assert_eq!(bid.kind, BidKind::Deposit(old_deposit));
+
+		// Change parameters to require lower deposit
+		let new_deposit = old_deposit - 25;
+		assert_ok!(Society::set_parameters(Origin::signed(10), 10, 8, 3, new_deposit,));
+
+		// Poke deposit
+		let result = Society::poke_deposit(Origin::signed(20));
+		assert_ok!(result.as_ref());
+		assert_eq!(result.unwrap(), Pays::No.into());
+
+		// Verify balances were updated correctly
+		assert_eq!(Balances::reserved_balance(20), new_deposit);
+
+		// Verify bid storage was updated
+		let bids = Bids::<Test>::get();
+		let bid = bids.iter().find(|b| b.who == 20).unwrap();
+		assert_eq!(bid.kind, BidKind::Deposit(new_deposit));
+
+		// Verify event
+		System::assert_has_event(
+			Event::<Test>::DepositPoked { who: 20, old_deposit, new_deposit }.into(),
+		);
+	});
+}
+
+#[test]
+fn poke_deposit_charges_fee_when_unchanged() {
+	EnvBuilder::new().execute(|| {
+		// Place bid
+		assert_ok!(Society::bid(Origin::signed(20), 0));
+
+		let deposit = Parameters::<Test>::get().unwrap().candidate_deposit;
+		assert_eq!(Balances::reserved_balance(20), deposit);
+
+		// Verify initial bid storage
+		let bids = Bids::<Test>::get();
+		let bid = bids.iter().find(|b| b.who == 20).unwrap();
+		assert_eq!(bid.kind, BidKind::Deposit(deposit));
+
+		// Poke deposit without changing parameters
+		let result = Society::poke_deposit(Origin::signed(20));
+		assert_ok!(result.as_ref());
+		assert_eq!(result.unwrap(), Pays::Yes.into());
+
+		// Verify nothing changed
+		assert_eq!(Balances::reserved_balance(20), deposit);
+		let bids = Bids::<Test>::get();
+		let bid = bids.iter().find(|b| b.who == 20).unwrap();
+		assert_eq!(bid.kind, BidKind::Deposit(deposit));
+
+		// Verify no event was emitted
+		assert!(!System::events().iter().any(|record| matches!(
+			record.event,
+			RuntimeEvent::Society(Event::DepositPoked { .. })
+		)));
+	});
+}
+
+#[test]
+fn poke_deposit_handles_insufficient_balance() {
+	EnvBuilder::new().execute(|| {
+		assert_ok!(Society::bid(Origin::signed(20), 0));
+		let initial_deposit = Parameters::<Test>::get().unwrap().candidate_deposit;
+
+		// Change parameters to require higher deposit
+		assert_ok!(Society::set_parameters(Origin::signed(10), 10, 8, 3, initial_deposit + 50,));
+
+		// Should fail due to insufficient balance
+		assert_noop!(
+			Society::poke_deposit(Origin::signed(20)),
+			pallet_balances::Error::<Test>::InsufficientBalance
+		);
+	});
+}

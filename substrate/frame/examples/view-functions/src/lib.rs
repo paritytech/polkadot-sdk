@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This pallet demonstrates the use of the `pallet::view_functions_experimental` api for service
+//! This pallet demonstrates the use of the `pallet::view_functions` api for service
 //! work.
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -58,17 +58,17 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type SomeMap<T: Config> = StorageMap<_, Twox64Concat, u32, u32, OptionQuery>;
 
-	#[pallet::view_functions_experimental]
+	#[pallet::view_functions]
 	impl<T: Config> Pallet<T>
 	where
 		T::AccountId: From<SomeType1> + SomeAssociation1,
 	{
-		/// Query value no args.
+		/// Query value with no input args.
 		pub fn get_value() -> Option<u32> {
 			SomeValue::<T>::get()
 		}
 
-		/// Query value with args.
+		/// Query value with input args.
 		pub fn get_value_with_arg(key: u32) -> Option<u32> {
 			SomeMap::<T>::get(key)
 		}
@@ -96,17 +96,17 @@ pub mod pallet2 {
 	pub type SomeMap<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, u32, u32, OptionQuery>;
 
-	#[pallet::view_functions_experimental]
+	#[pallet::view_functions]
 	impl<T: Config<I>, I: 'static> Pallet<T, I>
 	where
 		T::AccountId: From<SomeType1> + SomeAssociation1,
 	{
-		/// Query value no args.
+		/// Query value with no input args.
 		pub fn get_value() -> Option<u32> {
 			SomeValue::<T, I>::get()
 		}
 
-		/// Query value with args.
+		/// Query value with input args.
 		pub fn get_value_with_arg(key: u32) -> Option<u32> {
 			SomeMap::<T, I>::get(key)
 		}

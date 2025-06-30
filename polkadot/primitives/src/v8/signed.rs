@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 
 use alloc::vec::Vec;
@@ -47,7 +47,7 @@ impl<Payload, RealPayload> Signed<Payload, RealPayload> {
 }
 
 /// Unchecked signed data, can be converted to `Signed` by checking the signature.
-#[derive(Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub struct UncheckedSigned<Payload, RealPayload = Payload> {
 	/// The payload is part of the signed data. The rest is the signing context,
 	/// which is known both at signing and at validation.

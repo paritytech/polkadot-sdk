@@ -57,7 +57,7 @@ pub struct TransactionPoolParams {
 	pub tx_ban_seconds: Option<u64>,
 
 	/// The type of transaction pool to be instantiated.
-	#[arg(long, value_enum, default_value_t = TransactionPoolType::SingleState)]
+	#[arg(long, value_enum, default_value_t = TransactionPoolType::ForkAware)]
 	pub pool_type: TransactionPoolType,
 }
 

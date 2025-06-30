@@ -281,6 +281,12 @@ impl<B: BlockT> Behaviour<B> {
 		self.discovery.add_self_reported_address(peer_id, supported_protocols, addr);
 	}
 
+	/// Start finding closest peerst to the target `PeerId`. Will later produce either a
+	/// `ClosestPeersFound` or `ClosestPeersNotFound` event.
+	pub fn find_closest_peers(&mut self, target: PeerId) {
+		self.discovery.find_closest_peers(target);
+	}
+
 	/// Start querying a record from the DHT. Will later produce either a `ValueFound` or a
 	/// `ValueNotFound` event.
 	pub fn get_value(&mut self, key: RecordKey) {
@@ -393,6 +399,18 @@ impl From<DiscoveryOut> for BehaviourOut {
 				BehaviourOut::None
 			},
 			DiscoveryOut::Discovered(peer_id) => BehaviourOut::Discovered(peer_id),
+			DiscoveryOut::ClosestPeersFound(target, peers, duration) => BehaviourOut::Dht(
+				DhtEvent::ClosestPeersFound(
+					target.into(),
+					peers
+						.into_iter()
+						.map(|(p, addrs)| (p.into(), addrs.into_iter().map(Into::into).collect()))
+						.collect(),
+				),
+				Some(duration),
+			),
+			DiscoveryOut::ClosestPeersNotFound(target, duration) =>
+				BehaviourOut::Dht(DhtEvent::ClosestPeersNotFound(target.into()), Some(duration)),
 			DiscoveryOut::ValueFound(results, duration) =>
 				BehaviourOut::Dht(DhtEvent::ValueFound(results.into()), Some(duration)),
 			DiscoveryOut::ValueNotFound(key, duration) =>
@@ -406,8 +424,10 @@ impl From<DiscoveryOut> for BehaviourOut {
 				),
 			DiscoveryOut::ValuePutFailed(key, duration) =>
 				BehaviourOut::Dht(DhtEvent::ValuePutFailed(key.into()), Some(duration)),
-			DiscoveryOut::StartProvidingFailed(key) =>
-				BehaviourOut::Dht(DhtEvent::StartProvidingFailed(key.into()), None),
+			DiscoveryOut::StartedProviding(key, duration) =>
+				BehaviourOut::Dht(DhtEvent::StartedProviding(key.into()), Some(duration)),
+			DiscoveryOut::StartProvidingFailed(key, duration) =>
+				BehaviourOut::Dht(DhtEvent::StartProvidingFailed(key.into()), Some(duration)),
 			DiscoveryOut::ProvidersFound(key, providers, duration) => BehaviourOut::Dht(
 				DhtEvent::ProvidersFound(
 					key.into(),
@@ -415,6 +435,8 @@ impl From<DiscoveryOut> for BehaviourOut {
 				),
 				Some(duration),
 			),
+			DiscoveryOut::NoMoreProviders(key, duration) =>
+				BehaviourOut::Dht(DhtEvent::NoMoreProviders(key.into()), Some(duration)),
 			DiscoveryOut::ProvidersNotFound(key, duration) =>
 				BehaviourOut::Dht(DhtEvent::ProvidersNotFound(key.into()), Some(duration)),
 			DiscoveryOut::RandomKademliaStarted => BehaviourOut::RandomKademliaStarted,

@@ -72,6 +72,7 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		keystore: KeystoreConfig::InMemory,
 		database: DatabaseSource::RocksDb { path: root.join("db"), cache_size: 128 },
 		trie_cache_maximum_size: Some(64 * 1024 * 1024),
+		warm_up_trie_cache: None,
 		state_pruning: Some(PruningMode::ArchiveAll),
 		blocks_pruning: BlocksPruning::KeepAll,
 		chain_spec: spec,

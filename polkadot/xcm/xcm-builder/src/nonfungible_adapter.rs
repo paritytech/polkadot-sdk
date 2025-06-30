@@ -17,7 +17,7 @@
 //! Adapters to work with [`frame_support::traits::tokens::nonfungible`] through XCM.
 
 use crate::MintLocation;
-use core::{marker::PhantomData, result};
+use core::{fmt::Debug, marker::PhantomData, result};
 use frame_support::{
 	ensure,
 	traits::{tokens::nonfungible, Get},
@@ -34,14 +34,17 @@ const LOG_TARGET: &str = "xcm::nonfungible_adapter";
 /// Only works for transfers.
 pub struct NonFungibleTransferAdapter<NonFungible, Matcher, AccountIdConverter, AccountId>(
 	PhantomData<(NonFungible, Matcher, AccountIdConverter, AccountId)>,
-);
+)
+where
+	NonFungible: nonfungible::Transfer<AccountId>;
 impl<
 		NonFungible: nonfungible::Transfer<AccountId>,
 		Matcher: MatchesNonFungible<NonFungible::ItemId>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Clone, // can't get away without it since Currency is generic over it.
-	> TransactAsset
-	for NonFungibleTransferAdapter<NonFungible, Matcher, AccountIdConverter, AccountId>
+		AccountId: Clone + Debug, // can't get away without it since Currency is generic over it.
+	> TransactAsset for NonFungibleTransferAdapter<NonFungible, Matcher, AccountIdConverter, AccountId>
+where
+	NonFungible::ItemId: Debug,
 {
 	fn transfer_asset(
 		what: &Asset,
@@ -49,20 +52,22 @@ impl<
 		to: &Location,
 		context: &XcmContext,
 	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
-		log::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
-			"transfer_asset what: {:?}, from: {:?}, to: {:?}, context: {:?}",
-			what,
-			from,
-			to,
-			context,
+			?what,
+			?from,
+			?to,
+			?context,
+			"transfer_asset",
 		);
 		// Check we handle this asset.
 		let instance = Matcher::matches_nonfungible(what).ok_or(MatchError::AssetNotHandled)?;
 		let destination = AccountIdConverter::convert_location(to)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
-		NonFungible::transfer(&instance, &destination)
-			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
+		NonFungible::transfer(&instance, &destination).map_err(|e| {
+			tracing::debug!(target: LOG_TARGET, ?e, ?instance, ?destination, "Failed to transfer non-fungible asset");
+			XcmError::FailedToTransactAsset(e.into())
+		})?;
 		Ok(what.clone().into())
 	}
 }
@@ -76,15 +81,21 @@ pub struct NonFungibleMutateAdapter<
 	AccountIdConverter,
 	AccountId,
 	CheckingAccount,
->(PhantomData<(NonFungible, Matcher, AccountIdConverter, AccountId, CheckingAccount)>);
+>(PhantomData<(NonFungible, Matcher, AccountIdConverter, AccountId, CheckingAccount)>)
+where
+	NonFungible: nonfungible::Mutate<AccountId>,
+	NonFungible::ItemId: Debug;
 
 impl<
 		NonFungible: nonfungible::Mutate<AccountId>,
 		Matcher: MatchesNonFungible<NonFungible::ItemId>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Clone + Eq, // can't get away without it since Currency is generic over it.
+		AccountId: Clone + Eq + Debug, /* can't get away without it since Currency is generic
+		                                * over it. */
 		CheckingAccount: Get<Option<(AccountId, MintLocation)>>,
 	> NonFungibleMutateAdapter<NonFungible, Matcher, AccountIdConverter, AccountId, CheckingAccount>
+where
+	NonFungible::ItemId: Debug,
 {
 	fn can_accrue_checked(instance: NonFungible::ItemId) -> XcmResult {
 		ensure!(NonFungible::owner(&instance).is_none(), XcmError::NotDepositable);
@@ -111,18 +122,21 @@ impl<
 		NonFungible: nonfungible::Mutate<AccountId>,
 		Matcher: MatchesNonFungible<NonFungible::ItemId>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Clone + Eq, // can't get away without it since Currency is generic over it.
+		AccountId: Clone + Eq + Debug, /* can't get away without it since Currency is generic
+		                                * over it. */
 		CheckingAccount: Get<Option<(AccountId, MintLocation)>>,
 	> TransactAsset
 	for NonFungibleMutateAdapter<NonFungible, Matcher, AccountIdConverter, AccountId, CheckingAccount>
+where
+	NonFungible::ItemId: Debug,
 {
-	fn can_check_in(_origin: &Location, what: &Asset, context: &XcmContext) -> XcmResult {
-		log::trace!(
+	fn can_check_in(origin: &Location, what: &Asset, context: &XcmContext) -> XcmResult {
+		tracing::trace!(
 			target: LOG_TARGET,
-			"can_check_in origin: {:?}, what: {:?}, context: {:?}",
-			_origin,
-			what,
-			context,
+			?origin,
+			?what,
+			?context,
+			"can_check_in",
 		);
 		// Check we handle this asset.
 		let instance = Matcher::matches_nonfungible(what).ok_or(MatchError::AssetNotHandled)?;
@@ -136,13 +150,13 @@ impl<
 		}
 	}
 
-	fn check_in(_origin: &Location, what: &Asset, context: &XcmContext) {
-		log::trace!(
+	fn check_in(origin: &Location, what: &Asset, context: &XcmContext) {
+		tracing::trace!(
 			target: LOG_TARGET,
-			"check_in origin: {:?}, what: {:?}, context: {:?}",
-			_origin,
-			what,
-			context,
+			?origin,
+			?what,
+			?context,
+			"check_in",
 		);
 		if let Some(instance) = Matcher::matches_nonfungible(what) {
 			match CheckingAccount::get() {
@@ -156,13 +170,13 @@ impl<
 		}
 	}
 
-	fn can_check_out(_dest: &Location, what: &Asset, context: &XcmContext) -> XcmResult {
-		log::trace!(
+	fn can_check_out(dest: &Location, what: &Asset, context: &XcmContext) -> XcmResult {
+		tracing::trace!(
 			target: LOG_TARGET,
-			"can_check_out dest: {:?}, what: {:?}, context: {:?}",
-			_dest,
-			what,
-			context,
+			?dest,
+			?what,
+			?context,
+			"can_check_out",
 		);
 		// Check we handle this asset.
 		let instance = Matcher::matches_nonfungible(what).ok_or(MatchError::AssetNotHandled)?;
@@ -176,13 +190,13 @@ impl<
 		}
 	}
 
-	fn check_out(_dest: &Location, what: &Asset, context: &XcmContext) {
-		log::trace!(
+	fn check_out(dest: &Location, what: &Asset, context: &XcmContext) {
+		tracing::trace!(
 			target: LOG_TARGET,
-			"check_out dest: {:?}, what: {:?}, context: {:?}",
-			_dest,
-			what,
-			context,
+			?dest,
+			?what,
+			?context,
+			"check_out",
 		);
 		if let Some(instance) = Matcher::matches_nonfungible(what) {
 			match CheckingAccount::get() {
@@ -197,19 +211,21 @@ impl<
 	}
 
 	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
-		log::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
-			"deposit_asset what: {:?}, who: {:?}, context: {:?}",
-			what,
-			who,
-			context,
+			?what,
+			?who,
+			?context,
+			"deposit_asset",
 		);
 		// Check we handle this asset.
 		let instance = Matcher::matches_nonfungible(what).ok_or(MatchError::AssetNotHandled)?;
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
-		NonFungible::mint_into(&instance, &who)
-			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))
+		NonFungible::mint_into(&instance, &who).map_err(|e| {
+			tracing::debug!(target: LOG_TARGET, ?e, ?instance, ?who, "Failed to mint asset");
+			XcmError::FailedToTransactAsset(e.into())
+		})
 	}
 
 	fn withdraw_asset(
@@ -217,19 +233,21 @@ impl<
 		who: &Location,
 		maybe_context: Option<&XcmContext>,
 	) -> result::Result<xcm_executor::AssetsInHolding, XcmError> {
-		log::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
-			"withdraw_asset what: {:?}, who: {:?}, maybe_context: {:?}",
-			what,
-			who,
-			maybe_context,
+			?what,
+			?who,
+			?maybe_context,
+			"withdraw_asset"
 		);
 		// Check we handle this asset.
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		let instance = Matcher::matches_nonfungible(what).ok_or(MatchError::AssetNotHandled)?;
-		NonFungible::burn(&instance, Some(&who))
-			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
+		NonFungible::burn(&instance, Some(&who)).map_err(|e| {
+			tracing::debug!(target: LOG_TARGET, ?e, ?instance, ?who, "Failed to burn asset");
+			XcmError::FailedToTransactAsset(e.into())
+		})?;
 		Ok(what.clone().into())
 	}
 }
@@ -239,15 +257,21 @@ impl<
 /// Works for everything.
 pub struct NonFungibleAdapter<NonFungible, Matcher, AccountIdConverter, AccountId, CheckingAccount>(
 	PhantomData<(NonFungible, Matcher, AccountIdConverter, AccountId, CheckingAccount)>,
-);
+)
+where
+	NonFungible: nonfungible::Mutate<AccountId> + nonfungible::Transfer<AccountId>,
+	NonFungible::ItemId: Debug;
 impl<
 		NonFungible: nonfungible::Mutate<AccountId> + nonfungible::Transfer<AccountId>,
 		Matcher: MatchesNonFungible<NonFungible::ItemId>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Clone + Eq, // can't get away without it since Currency is generic over it.
+		AccountId: Clone + Eq + Debug, /* can't get away without it since Currency is generic
+		                                * over it. */
 		CheckingAccount: Get<Option<(AccountId, MintLocation)>>,
 	> TransactAsset
 	for NonFungibleAdapter<NonFungible, Matcher, AccountIdConverter, AccountId, CheckingAccount>
+where
+	NonFungible::ItemId: Debug,
 {
 	fn can_check_in(origin: &Location, what: &Asset, context: &XcmContext) -> XcmResult {
 		NonFungibleMutateAdapter::<

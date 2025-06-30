@@ -205,7 +205,7 @@ pub fn prepare_test(
 		state.test_authorities.clone(),
 	);
 	let network_bridge_rx =
-		network_bridge::MockNetworkBridgeRx::new(network_receiver, Some(chunk_req_v2_cfg), false);
+		network_bridge::MockNetworkBridgeRx::new(network_receiver, Some(chunk_req_v2_cfg));
 
 	let runtime_api = MockRuntimeApi::new(
 		state.config.clone(),

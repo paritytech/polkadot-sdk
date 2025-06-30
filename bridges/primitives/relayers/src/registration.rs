@@ -37,12 +37,12 @@
 //! that guarantees that their transactions are valid. Such relayers get priority
 //! for free, but they risk to lose their stake.
 
-use crate::RewardsAccountParams;
+use crate::{PayRewardFromAccount, RewardsAccountParams};
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{Get, Zero},
+	traits::{Get, IdentifyAccount, Zero},
 	DispatchError, DispatchResult,
 };
 
@@ -63,8 +63,33 @@ impl<AccountId, LaneId: Decode + Encode> From<RewardsAccountParams<LaneId>>
 	}
 }
 
+impl<AccountId: Decode + Encode, LaneId: Decode + Encode> IdentifyAccount
+	for ExplicitOrAccountParams<AccountId, LaneId>
+{
+	type AccountId = AccountId;
+
+	fn into_account(self) -> Self::AccountId {
+		match self {
+			ExplicitOrAccountParams::Explicit(account_id) => account_id,
+			ExplicitOrAccountParams::Params(params) =>
+				PayRewardFromAccount::<(), AccountId, LaneId, ()>::rewards_account(params),
+		}
+	}
+}
+
 /// Relayer registration.
-#[derive(Copy, Clone, Debug, Decode, Encode, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Copy,
+	Clone,
+	Debug,
+	Decode,
+	DecodeWithMemTracking,
+	Encode,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct Registration<BlockNumber, Balance> {
 	/// The last block number, where this registration is considered active.
 	///
@@ -105,9 +130,9 @@ pub trait StakeAndSlash<AccountId, BlockNumber, Balance> {
 	/// `beneficiary`.
 	///
 	/// Returns `Ok(_)` with non-zero balance if we have failed to repatriate some portion of stake.
-	fn repatriate_reserved<LaneId: Decode + Encode>(
+	fn repatriate_reserved(
 		relayer: &AccountId,
-		beneficiary: ExplicitOrAccountParams<AccountId, LaneId>,
+		beneficiary: &AccountId,
 		amount: Balance,
 	) -> Result<Balance, DispatchError>;
 }
@@ -128,9 +153,9 @@ where
 		Zero::zero()
 	}
 
-	fn repatriate_reserved<LaneId: Decode + Encode>(
+	fn repatriate_reserved(
 		_relayer: &AccountId,
-		_beneficiary: ExplicitOrAccountParams<AccountId, LaneId>,
+		_beneficiary: &AccountId,
 		_amount: Balance,
 	) -> Result<Balance, DispatchError> {
 		Ok(Zero::zero())

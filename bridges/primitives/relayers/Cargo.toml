@@ -28,7 +28,6 @@ sp-runtime = { workspace = true }
 sp-std = { workspace = true }
 
 [dev-dependencies]
-hex = { workspace = true, default-features = true }
 hex-literal = { workspace = true, default-features = true }
 
 [features]
