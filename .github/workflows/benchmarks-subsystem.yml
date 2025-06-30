@@ -113,6 +113,7 @@ jobs:
           benchmark-data-dir-path: ./bench/${{ env.BENCH }}
           github-token: ${{ steps.app-token.outputs.token }}
           auto-push: true
+          max-items-in-chart: 500
 
       - name: Generate ${{ env.BENCH }}
         env:
@@ -125,6 +126,7 @@ jobs:
           benchmark-data-dir-path: ./bench/${{ env.BENCH }}
           github-token: ${{ steps.app-token.outputs.token }}
           auto-push: true
+          max-items-in-chart: 500
 
       - name: Generate ${{ env.BENCH }}
         env:
@@ -137,6 +139,7 @@ jobs:
           benchmark-data-dir-path: ./bench/${{ env.BENCH }}
           github-token: ${{ steps.app-token.outputs.token }}
           auto-push: true
+          max-items-in-chart: 500
 
       - name: Generate ${{ env.BENCH }}
         env:
@@ -149,3 +152,4 @@ jobs:
           benchmark-data-dir-path: ./bench/${{ env.BENCH }}
           github-token: ${{ steps.app-token.outputs.token }}
           auto-push: true
+          max-items-in-chart: 500
