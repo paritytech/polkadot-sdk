@@ -472,8 +472,8 @@ fn create2_precompile_works() {
     input.extend_from_slice(&salt);
 
 
-let deployer = <Test as Config>::AddressMapper::to_address(&ALICE);
-let contract_address_expected = create2(&deployer, code.as_slice(), &[], &salt);
+	let deployer = <Test as Config>::AddressMapper::to_address(&ALICE);
+	let contract_address_expected = create2(&deployer, code.as_slice(), &[], &salt);
 
 	println!("contract_address_expected: {:?}", contract_address_expected.as_bytes());
 

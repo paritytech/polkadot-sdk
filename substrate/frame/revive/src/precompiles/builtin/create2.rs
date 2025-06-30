@@ -44,6 +44,8 @@ impl<T: Config>  PrimitivePrecompile for Create2<T>
 		env: &mut impl ExtWithInfo<T = Self::T>,
     ) -> Result<Vec<u8>, Error> {
 
+        // TODO(RVE): replace asserts with Err?
+
         // TODO(RVE): what value to put here?
         let gas_limit = frame_support::weights::Weight::MAX;
 
@@ -53,61 +55,43 @@ impl<T: Config>  PrimitivePrecompile for Create2<T>
         if input.len() < 160 {
             Err(DispatchError::from("invalid input length"))?;
         }
-        let endowment: &[u8; 32] = input[0..32].try_into().map_err(|_| DispatchError::from("invalid endowment"))?;
-        let code_offset: &[u8; 32] = input[32..64].try_into().map_err(|_| DispatchError::from("invalid code offset length"))?;
-        let code_length: &[u8; 32] = input[64..96].try_into().map_err(|_| DispatchError::from("invalid code length length"))?;
-        let salt_offset: &[u8; 32] = input[96..128].try_into().map_err(|_| DispatchError::from("invalid salt offset length"))?;
-        let salt_length: &[u8; 32] = input[128..160].try_into().map_err(|_| DispatchError::from("invalid salt length length"))?;
-
-        let code_offset1: u128 = u128::from_be_bytes(code_offset[0..16].try_into().map_err(|_| DispatchError::from("invalid code offset"))?);
-        let code_offset2: u128 = u128::from_be_bytes(code_offset[16..32].try_into().map_err(|_| DispatchError::from("invalid code offset"))?);
-        let code_length1: u128 = u128::from_be_bytes(code_length[0..16].try_into().map_err(|_| DispatchError::from("invalid code length"))?);
-        let code_length2: u128 = u128::from_be_bytes(code_length[16..32].try_into().map_err(|_| DispatchError::from("invalid code length"))?);
-        println!("code_offset1: {code_offset1}, code_offset2: {code_offset2}");
-        println!("code_length1: {code_length1}, code_length2: {code_length2}");
-
-        let salt_offset1: u128 = u128::from_be_bytes(salt_offset[0..16].try_into().map_err(|_| DispatchError::from("invalid salt offset"))?);
-        let salt_offset2: u128 = u128::from_be_bytes(salt_offset[16..32].try_into().map_err(|_| DispatchError::from("invalid salt offset"))?);
-        let salt_length1: u128 = u128::from_be_bytes(salt_length[0..16].try_into().map_err(|_| DispatchError::from("invalid salt length"))?);
-        let salt_length2: u128 = u128::from_be_bytes(salt_length[16..32].try_into().map_err(|_| DispatchError::from("invalid salt length"))?);
-
-        println!("salt_offset1: {salt_offset1}, salt_offset2: {salt_offset2}");
-        println!("salt_length1: {salt_length1}, salt_length2: {salt_length2}");
+        let endowment = U256::from_big_endian(input[0..32].try_into().map_err(|_| DispatchError::from("invalid endowment"))?);
+        let code_offset = U256::from_big_endian(input[32..64].try_into().map_err(|_| DispatchError::from("invalid code offset length"))?);
+        let code_length = U256::from_big_endian(input[64..96].try_into().map_err(|_| DispatchError::from("invalid code length length"))?);
+        let salt_offset = U256::from_big_endian(input[96..128].try_into().map_err(|_| DispatchError::from("invalid salt offset length"))?);
+        let salt_length = U256::from_big_endian(input[128..160].try_into().map_err(|_| DispatchError::from("invalid salt length length"))?);
 
         {
-            assert_eq!(input.len(), salt_offset2 as usize + salt_length2 as usize, "input length does not match expected length");
+            assert_eq!(input.len(), salt_offset.low_u64() as usize + salt_length.low_u64() as usize, "input length does not match expected length");
         }
 
         // TODO(RVE): this could potentially panic if the offsets are out of bounds.
-        let code_offset = code_offset2 as usize;
-        let code_length = code_length2 as usize;
-        let salt_offset = salt_offset2 as usize;
-        let salt_length = salt_length2 as usize;
+        let code_offset = code_offset.low_u64() as usize;
+        let code_length = code_length.low_u64() as usize;
+        let salt_offset: usize = salt_offset.low_u64() as usize;
+        let salt_length = salt_length.low_u64() as usize;
         let code = &input[code_offset..code_offset + code_length];
         let salt = &input[salt_offset..salt_offset + salt_length];
 
-        println!("salt.len(): {}", salt.len());
+        println!("salt_offset: {salt_offset}");
+
 
         let caller = env.caller();
         let deployer_account_id = caller.account_id().map_err(|_| DispatchError::from("caller account_id is None"))?;
         let deployer = T::AddressMapper::to_address(deployer_account_id);
 
-
-        println!("deployer: {deployer:?}");
+        // TODO(RVE): address::create2 requires 32 byte salt so salt_length is pointless?
+        assert_eq!(salt_length, 32, "salt length must be 32 bytes");
         let salt: &[u8; 32] = salt.try_into().map_err(|_| DispatchError::from("invalid salt length"))?;
-
         let contract_address = crate::address::create2(&deployer, code, &[], salt);
 
-        let endowment_val = u32::from_be_bytes(endowment[28..32].try_into().unwrap());
         let code_hash = sp_io::hashing::keccak_256(&code);
-        // env.inst
+
         let instantiate_result = env.instantiate(
-            // frame_system::RawOrigin::Signed(deployer_account_id.clone()).into(),
-// endowment_val.into(),
             gas_limit,
             U256::MAX,
             H256::from(code_hash),
-            endowment_val.into(),
+            endowment,
             vec![], // input data for constructor, if any
             Some(salt),
         );
