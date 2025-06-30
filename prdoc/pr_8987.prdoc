@@ -1,6 +1,6 @@
 title: 'EPMB/unsigned: fixed multi-page winner computation'
 doc:
-- audience: Runtime Dev
+- audience: Runtime User
   description: |-
     In `FullSupportsOfMiner`, we initially considered `MaxWinnersPerPage` as the overall maximum number of winners across pages.
     However, it should be calculated as `Pages * MaxWinnersPerPage` to prevent the computed solution from having a low overall total of winners, which could result in a `WrongWinnerCount` error.
