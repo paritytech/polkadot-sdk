@@ -1005,7 +1005,7 @@ where
 	/// The transaction pool implementation will determine which transactions should be
 	/// removed from the pool. Transactions that depend on invalid transactions will also
 	/// be removed.
-	fn report_invalid(
+	async fn report_invalid(
 		&self,
 		at: Option<<Self::Block as BlockT>::Hash>,
 		invalid_tx_errors: TxInvalidityReportMap<TxHash<Self>>,
@@ -1018,7 +1018,7 @@ where
 		let removed = self.view_store.report_invalid(at, invalid_tx_errors);
 
 		let removed_hashes = removed.iter().map(|tx| tx.hash).collect::<Vec<_>>();
-		self.mempool.clone().remove_transactions_sync(removed_hashes.clone());
+		self.mempool.remove_transactions(&removed_hashes).await;
 		self.import_notification_sink.clean_notified_items(&removed_hashes);
 
 		self.metrics
