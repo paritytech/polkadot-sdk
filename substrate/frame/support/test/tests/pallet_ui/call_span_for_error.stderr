@@ -17,6 +17,9 @@ help: the type constructed contains `frame_support::pallet_prelude::DispatchErro
    |                        this argument influences the type of `Err`
 note: tuple variant defined here
   --> $RUST/core/src/result.rs
+   |
+   |     Err(#[stable(feature = "rust1", since = "1.0.0")] E),
+   |     ^^^
 help: call `Into::into` on this expression to convert `frame_support::pallet_prelude::DispatchError` into `DispatchErrorWithPostInfo<PostDispatchInfo>`
    |
 32 |             return Err(DispatchError::BadOrigin.into());
