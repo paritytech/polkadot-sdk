@@ -94,14 +94,20 @@ parameter_types! {
 	pub static EraPayout: (Balance, Balance) = (1000, 100);
 }
 
-impl<B, T: Get<(B, B)>> pallet_staking_async::EraPayout<B> for T {
-	fn era_payout(_total_staked: B, _total_issuance: B, _era_duration_millis: u64) -> (B, B) {
-		T::get()
+pub struct TestEraPayout;
+impl pallet_staking_async::EraPayout<Balance> for TestEraPayout {
+	fn era_payout(
+		_total_staked: Balance,
+		_total_issuance: Balance,
+		_era_duration_millis: u64,
+	) -> (Balance, Balance) {
+		EraPayout::get()
 	}
 }
 
 // Mock RC client interface
-impl pallet_staking_async_rc_client::RcClientInterface for () {
+pub struct MockRcClient;
+impl pallet_staking_async_rc_client::RcClientInterface for MockRcClient {
 	type AccountId = AccountId;
 	fn validator_set(
 		_new_validator_set: Vec<Self::AccountId>,
@@ -117,13 +123,13 @@ impl pallet_staking_async::Config for Runtime {
 	type Currency = Balances;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type BondingDuration = BondingDuration;
-	type EraPayout = EraPayout;
+	type EraPayout = TestEraPayout;
 	type ElectionProvider =
 		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, (), ())>;
 	type VoterList = VoterList;
 	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
 	type EventListeners = (Pools, DelegatedStaking);
-	type RcClientInterface = ();
+	type RcClientInterface = MockRcClient;
 }
 
 parameter_types! {
