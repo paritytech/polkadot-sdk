@@ -128,6 +128,29 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 	Ok((v_stash, nominators, planned_era))
 }
 
+pub fn prepare_unbonding_scenario<T: Config>() {
+	Staking::<T>::set_staking_configs(
+		RawOrigin::Root.into(),
+		ConfigOp::Noop,
+		ConfigOp::Noop,
+		ConfigOp::Noop,
+		ConfigOp::Noop,
+		ConfigOp::Noop,
+		ConfigOp::Noop,
+		ConfigOp::Noop,
+		ConfigOp::Set(UnbondingQueueConfig {
+			min_slashable_share: Perbill::from_percent(50),
+			lowest_ratio: Perbill::from_percent(34),
+			unbond_period_lower_bound: 2,
+		}),
+	)
+	.expect("failed to set staking configs");
+
+	for _ in 0..T::BondingDuration::get() {
+		Eras::<T>::set_lowest_stake(0, 1000u32.into());
+	}
+}
+
 struct ListScenario<T: Config> {
 	/// Stash that is expected to be moved.
 	origin_stash1: T::AccountId,
@@ -220,7 +243,7 @@ impl<T: Config> ListScenario<T> {
 
 const USER_SEED: u32 = 999666;
 
-#[benchmarks]
+#[benchmarks(where T: core::fmt::Debug)]
 mod benchmarks {
 	use super::*;
 
@@ -292,6 +315,8 @@ mod benchmarks {
 		let amount = origin_weight - scenario.dest_weight;
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created before")?;
 		let original_bonded: BalanceOf<T> = ledger.active;
+
+		prepare_unbonding_scenario::<T>();
 
 		whitelist_account!(controller);
 
@@ -766,7 +791,11 @@ mod benchmarks {
 		// so the sum of unlocking chunks puts voter into the dest bag.
 		assert!(value * l.into() + origin_weight > origin_weight);
 		assert!(value * l.into() + origin_weight <= dest_weight);
-		let unlock_chunk = UnlockChunk::<BalanceOf<T>> { value, era: EraIndex::zero() };
+		let unlock_chunk = UnlockChunk::<BalanceOf<T>> {
+			value,
+			era: Zero::zero(),
+			previous_unbonded_stake: Zero::zero(),
+		};
 
 		let controller = scenario.origin_controller1;
 		let mut staking_ledger = Ledger::<T>::get(controller.clone()).unwrap();
@@ -832,6 +861,11 @@ mod benchmarks {
 			ConfigOp::Set(Percent::max_value()),
 			ConfigOp::Set(Perbill::max_value()),
 			ConfigOp::Set(Percent::max_value()),
+			ConfigOp::Set(UnbondingQueueConfig {
+				min_slashable_share: Perbill::from_percent(50),
+				lowest_ratio: Perbill::from_percent(34),
+				unbond_period_lower_bound: 2,
+			}),
 		);
 
 		assert_eq!(MinNominatorBond::<T>::get(), BalanceOf::<T>::max_value());
@@ -855,6 +889,7 @@ mod benchmarks {
 			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,
+			ConfigOp::Remove,
 		);
 
 		assert!(!MinNominatorBond::<T>::exists());
@@ -864,6 +899,7 @@ mod benchmarks {
 		assert!(!ChillThreshold::<T>::exists());
 		assert!(!MinCommission::<T>::exists());
 		assert!(!MaxStakedRewards::<T>::exists());
+		assert!(!UnbondingQueueParams::<T>::exists());
 	}
 
 	#[benchmark]
@@ -887,6 +923,7 @@ mod benchmarks {
 			ConfigOp::Set(0),
 			ConfigOp::Set(Percent::from_percent(0)),
 			ConfigOp::Set(Zero::zero()),
+			ConfigOp::Noop,
 			ConfigOp::Noop,
 		)?;
 
@@ -1182,6 +1219,60 @@ mod benchmarks {
 		}
 
 		ensure!(Rotator::<T>::active_era() == initial_active_era + 1, "active era not bumped");
+		Ok(())
+	}
+
+	#[benchmark]
+	fn migration_from_v17_to_v18_migrate_staking_ledger_step(
+		c: Linear<1, { T::MaxUnlockingChunks::get() }>,
+	) -> Result<(), BenchmarkError> {
+		clear_validators_and_nominators::<T>();
+		let _ = crate::migrations::v18::v17::Ledger::<T>::clear(u32::MAX, None);
+		let mut meter = frame_support::weights::WeightMeter::new();
+		let stash = create_funded_user::<T>("stash", USER_SEED, 100);
+
+		let mut unlocking = vec![];
+		for _ in 0..c {
+			unlocking
+				.push(crate::migrations::v18::v17::UnlockChunk { value: 100_u32.into(), era: 10 });
+		}
+		crate::migrations::v18::v17::Ledger::<T>::insert(
+			stash.clone(),
+			crate::migrations::v18::v17::StakingLedger {
+				stash: stash.clone(),
+				total: 600_u32.into(),
+				active: 500_u32.into(),
+				controller: None,
+				unlocking: unlocking.clone().try_into().unwrap(),
+			},
+		);
+
+		#[block]
+		{
+			crate::migrations::v18::LazyMigrationV17ToV18::<T>::do_migrate_staking_ledger(
+				&mut meter, &mut None,
+			);
+		}
+
+		assert_eq!(
+			Ledger::<T>::get(&stash),
+			Some(StakingLedger {
+				stash,
+				total: 600_u32.into(),
+				active: 500_u32.into(),
+				controller: None,
+				unlocking: unlocking
+					.into_iter()
+					.map(|u| UnlockChunk {
+						value: u.value,
+						era: u.era.saturating_sub(T::BondingDuration::get()),
+						previous_unbonded_stake: u32::MAX.into()
+					})
+					.collect::<Vec<_>>()
+					.try_into()
+					.unwrap(),
+			})
+		);
 		Ok(())
 	}
 
