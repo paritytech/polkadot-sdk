@@ -981,24 +981,27 @@ impl_runtime_apis! {
 			use xcm_config::RocRelayLocation;
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
+			use testnet_parachains_constants::rococo::locations::{AssetHubParaId, AssetHubLocation};
+
+			parameter_types! {
+				pub ExistentialDepositAsset: Option<Asset> = Some((
+					RocRelayLocation::get(),
+					ExistentialDeposit::get()
+				).into());
+			}
+
 			impl pallet_xcm::benchmarking::Config for Runtime {
-				type DeliveryHelper = (
-					cumulus_primitives_utility::ToParentDeliveryHelper<
-						xcm_config::XcmConfig,
-						ExistentialDepositAsset,
-						xcm_config::PriceForParentDelivery,
-					>,
+				type DeliveryHelper =
 					polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
-						RandomParaId,
+						AssetHubParaId,
 						ParachainSystem,
-					>
-				);
+					>;
 
 				fn reachable_dest() -> Option<Location> {
-					Some(Parent.into())
+					Some(AssetHubLocation::get())
 				}
 
 				fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
@@ -1006,9 +1009,9 @@ impl_runtime_apis! {
 					Some((
 						Asset {
 							fun: Fungible(ExistentialDeposit::get()),
-							id: AssetId(Parent.into())
+							id: AssetId(RocRelayLocation::get())
 						},
-						Parent.into(),
+						AssetHubLocation::get(),
 					))
 				}
 
@@ -1026,13 +1029,13 @@ impl_runtime_apis! {
 							fun: NonFungible(Index(region_id.into())),
 							id: AssetId(xcm_config::BrokerPalletLocation::get())
 						},
-						ParentThen(Parachain(RandomParaId::get().into()).into()).into(),
+						AssetHubLocation::get(),
 					))
 				}
 
 				fn set_up_complex_asset_transfer() -> Option<(Assets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
 					let native_location = Parent.into();
-					let dest = Parent.into();
+					let dest = AssetHubLocation::get();
 
 					pallet_xcm::benchmarking::helpers::native_teleport_as_asset_transfer::<Runtime>(
 						native_location,
@@ -1042,39 +1045,24 @@ impl_runtime_apis! {
 
 				fn get_asset() -> Asset {
 					Asset {
-						id: AssetId(Location::parent()),
+						id: AssetId(RocRelayLocation::get()),
 						fun: Fungible(ExistentialDeposit::get()),
 					}
 				}
 			}
 
-			parameter_types! {
-				pub ExistentialDepositAsset: Option<Asset> = Some((
-					RocRelayLocation::get(),
-					ExistentialDeposit::get()
-				).into());
-				pub const RandomParaId: ParaId = ParaId::new(43211234);
-			}
-
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
-				type DeliveryHelper = (
-					cumulus_primitives_utility::ToParentDeliveryHelper<
-						xcm_config::XcmConfig,
-						ExistentialDepositAsset,
-						xcm_config::PriceForParentDelivery,
-					>,
-					polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
+				type DeliveryHelper = polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
-						RandomParaId,
+						AssetHubParaId,
 						ParachainSystem,
-					>
-				);
+					>;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
-					Ok(RocRelayLocation::get())
+					Ok(AssetHubLocation::get())
 				}
 				fn worst_case_holding(_depositable_count: u32) -> Assets {
 					// just concrete assets according to relay chain.
@@ -1089,8 +1077,8 @@ impl_runtime_apis! {
 			}
 
 			parameter_types! {
-				pub const TrustedTeleporter: Option<(Location, Asset)> = Some((
-					RocRelayLocation::get(),
+				pub TrustedTeleporter: Option<(Location, Asset)> = Some((
+					AssetHubLocation::get(),
 					Asset { fun: Fungible(UNITS), id: AssetId(RocRelayLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
@@ -1129,15 +1117,15 @@ impl_runtime_apis! {
 				}
 
 				fn transact_origin_and_runtime_call() -> Result<(Location, RuntimeCall), BenchmarkError> {
-					Ok((RocRelayLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
+					Ok((AssetHubLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
 				}
 
 				fn subscribe_origin() -> Result<Location, BenchmarkError> {
-					Ok(RocRelayLocation::get())
+					Ok(AssetHubLocation::get())
 				}
 
 				fn claimable_asset() -> Result<(Location, Location, Assets), BenchmarkError> {
-					let origin = RocRelayLocation::get();
+					let origin = AssetHubLocation::get();
 					let assets: Assets = (AssetId(RocRelayLocation::get()), 1_000 * UNITS).into();
 					let ticket = Location { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))

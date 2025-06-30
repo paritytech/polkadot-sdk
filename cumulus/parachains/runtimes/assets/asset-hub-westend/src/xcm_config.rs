@@ -42,9 +42,9 @@ use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use snowbridge_outbound_queue_primitives::v2::exporter::PausableExporter;
 use sp_runtime::traits::{AccountIdConversion, TryConvertInto};
+use testnet_parachains_constants::westend::locations::AssetHubParaId;
 use westend_runtime_constants::{
-	system_parachain::{ASSET_HUB_ID, COLLECTIVES_ID},
-	xcm::body::FELLOWSHIP_ADMIN_INDEX,
+	system_parachain::COLLECTIVES_ID, xcm::body::FELLOWSHIP_ADMIN_INDEX,
 };
 use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
 use xcm_builder::{
@@ -67,7 +67,6 @@ parameter_types! {
 	pub const RootLocation: Location = Location::here();
 	pub const WestendLocation: Location = Location::parent();
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::ByGenesis(WESTEND_GENESIS_HASH));
-	pub const AssetHubParaId: crate::ParaId = crate::ParaId::new(ASSET_HUB_ID);
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into())].into();
@@ -406,6 +405,7 @@ impl xcm_executor::Config for XcmConfig {
 	type IsReserve = (
 		bridging::to_rococo::RococoAssetFromAssetHubRococo,
 		bridging::to_ethereum::EthereumAssetFromEthereum,
+		bridging::to_rococo::NonSystemParachain,
 	);
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
@@ -660,6 +660,12 @@ pub mod bridging {
 				GlobalConsensus(RococoNetwork::get()),
 				Parachain(bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID)
 			]);
+			// reserve-based transfer cases. non-system parachain i.e. id >= 2000
+			pub RandomId: u32 = 3333;
+			pub RandomParaLocation: Location = Location::new(2, [
+					GlobalConsensus(RococoNetwork::get()),
+					Parachain(RandomId::get())
+			]);
 
 			/// Set up exporters configuration.
 			/// `Option<Asset>` represents static "base fee" which is used for total delivery fee calculation.
@@ -695,6 +701,8 @@ pub mod bridging {
 		/// Allow any asset native to the Rococo ecosystem if it comes from Rococo Asset Hub.
 		pub type RococoAssetFromAssetHubRococo =
 			matching::RemoteAssetFromLocation<StartsWith<RococoEcosystem>, AssetHubRococo>;
+		pub type NonSystemParachain =
+			matching::RemoteAssetFromLocation<StartsWith<RococoEcosystem>, RandomParaLocation>;
 	}
 
 	pub mod to_ethereum {
