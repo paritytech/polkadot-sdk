@@ -4,6 +4,8 @@
 use anyhow::anyhow;
 use tokio::time::Duration;
 
+use crate::utils::initialize_network;
+
 use cumulus_zombienet_sdk_helpers::wait_for_nth_session_change;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{
@@ -63,16 +65,16 @@ async fn dht_bootnodes_test() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
+	log::info!("Spawning network");
 	let config = build_network_config().await?;
-	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
-	let mut network = spawn_fn(config).await?;
+	let mut network = initialize_network(config).await?;
 
 	let relay_node = network.get_node("validator-0")?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
 	let alpha = network.get_node("alpha")?;
 
-	// Make sure the collators connect to each other.
+	log::info!("Make sure the collators connect to each other");
 	alpha
 		.wait_metric_with_timeout("substrate_sync_peers", |count| count == 1.0, 300u64)
 		.await?;
@@ -81,7 +83,7 @@ async fn dht_bootnodes_test() -> Result<(), anyhow::Error> {
 	// so timeout in double that time.
 	let log_line_options = LogLineCountOptions::new(|n| n == 1, Duration::from_secs(60), false);
 
-	// Make sure the DHT bootnode discovery was successful.
+	log::info!("Make sure the DHT bootnode discovery was successful");
 	let result = alpha
 		.wait_log_line_count_with_timeout(
 			".* Parachain bootnode discovery on the relay chain DHT succeeded",
@@ -107,12 +109,12 @@ async fn dht_bootnodes_test() -> Result<(), anyhow::Error> {
 
 	let gamma = network.get_node("gamma")?;
 
-	// Make sure the new collator has connected to the existing collators.
+	log::info!("Make sure the new collator has connected to the existing collators");
 	gamma
 		.wait_metric_with_timeout("substrate_sync_peers", |count| count == 2.0, 300u64)
 		.await?;
 
-	// Make sure the DHT bootnode discovery was successful.
+	log::info!("Make sure the DHT bootnode discovery was successful");
 	let result = gamma
 		.wait_log_line_count_with_timeout(
 			".* Parachain bootnode discovery on the relay chain DHT succeeded",
@@ -120,7 +122,6 @@ async fn dht_bootnodes_test() -> Result<(), anyhow::Error> {
 			log_line_options,
 		)
 		.await?;
-
 	assert!(result.success());
 
 	log::info!("Test finished successfully.");

@@ -13,18 +13,21 @@ chain_spec_path = "chain-spec.json"
   name = "alice"
   validator = true
   db_snapshot="{{DB_SNAPSHOT}}"
+  args = ["--log=sync=trace"]
 
   [[relaychain.nodes]]
   name = "bob"
   validator = true
   db_snapshot="{{DB_SNAPSHOT}}"
+  args = ["--log=sync=trace"]
 
   [[relaychain.nodes]]
   name = "charlie"
   validator = false
   db_snapshot="{{DB_SNAPSHOT}}"
+  args = ["--log=sync=trace"]
 
   [[relaychain.nodes]]
   name = "dave"
   validator = false
-  args = ["--sync warp"]
+  args = ["--log=sync=trace", "--sync warp"]
