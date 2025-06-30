@@ -538,7 +538,7 @@ impl<I: pallet_session::SessionManager<AccountId>> pallet_session::SessionManage
 		match <I as pallet_session::SessionManager<_>>::new_session(new_index) {
 			Some(_new_ignored) => {
 				let current_validators = pallet_session::Validators::<Runtime>::get();
-				tracing::info!(target: "runtime", ">> received {} validators, but overriding with {} old ones", _new_ignored.len(), current_validators.len());
+				log::info!(target: "runtime", ">> received {} validators, but overriding with {} old ones", _new_ignored.len(), current_validators.len());
 				Some(current_validators)
 			},
 			None => None,
@@ -635,7 +635,7 @@ impl ah_client::SendToAssetHub for StakingXcmToAssetHub {
 			},
 		]);
 		if let Err(err) = send_xcm::<xcm_config::XcmRouter>(AssetHubLocation::get(), message) {
-			tracing::error!(target: "runtime::ah-client", error=?err, "Failed to send relay offence message");
+			log::error!(target: "runtime::ah-client", "Failed to send relay offence message: {:?}", err);
 		}
 	}
 }
@@ -1039,7 +1039,7 @@ where
 			.into();
 		let raw_payload = SignedPayload::new(call, tx_ext)
 			.map_err(|e| {
-				tracing::warn!(target: "runtime", error=?e, "Unable to create signed payload");
+				log::warn!("Unable to create signed payload: {:?}", e);
 			})
 			.ok()?;
 		let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
@@ -2531,11 +2531,11 @@ sp_api::impl_runtime_apis! {
 					Ok(WeightToFee::weight_to_fee(&weight))
 				},
 				Ok(asset_id) => {
-					tracing::trace!(target: "xcm::xcm_runtime_apis", ?asset_id, "query_weight_to_asset_fee - unhandled!");
+					log::trace!(target: "xcm::xcm_runtime_apis", "query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!");
 					Err(XcmPaymentApiError::AssetNotFound)
 				},
 				Err(_) => {
-					tracing::trace!(target: "xcm::xcm_runtime_apis", ?asset, "query_weight_to_asset_fee - failed to convert!");
+					log::trace!(target: "xcm::xcm_runtime_apis", "query_weight_to_asset_fee - failed to convert asset: {asset:?}!");
 					Err(XcmPaymentApiError::VersionedConversionFailed)
 				}
 			}
@@ -2575,7 +2575,7 @@ sp_api::impl_runtime_apis! {
 	#[cfg(feature = "try-runtime")]
 	impl frame_try_runtime::TryRuntime<Block> for Runtime {
 		fn on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -> (Weight, Weight) {
-			tracing::info!(target: "try-runtime", "on_runtime_upgrade westend.");
+			log::info!("try-runtime::on_runtime_upgrade westend.");
 			let weight = Executive::try_runtime_upgrade(checks).unwrap();
 			(weight, BlockWeights::get().max_block)
 		}
