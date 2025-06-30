@@ -2,4 +2,6 @@ title: '[subsystem-bench] Add Dispute Coordinator subsystem benchmark'
 doc:
 - audience: Node Dev
   description: Adds a subsystem benchmark for the Dispute subsystems
-crates: []
+crates:
+  - name: polkadot-node-core-dispute-coordinator
+    bump: none
