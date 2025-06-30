@@ -30,16 +30,16 @@ doc:
     Part of: https://github.com/paritytech/polkadot-sdk/issues/8872
 crates:
 - name: sp-consensus-grandpa
-  bump: patch
+  bump: minor
 - name: bp-header-chain
   bump: patch
 - name: sc-consensus-grandpa
   bump: patch
 - name: sp-blockchain
-  bump: patch
+  bump: minor
 - name: sp-consensus
   bump: patch
 - name: sc-consensus
-  bump: patch
+  bump: minor
 - name: sc-network-sync
   bump: patch
