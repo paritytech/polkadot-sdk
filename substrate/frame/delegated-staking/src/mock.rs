@@ -32,7 +32,7 @@ use frame_election_provider_support::{
 	onchain, SequentialPhragmen,
 };
 use frame_support::dispatch::RawOrigin;
-use pallet_staking_async::{ActiveEra, ActiveEraInfo, CurrentEra};
+use pallet_staking_async::ActiveEraInfo;
 use sp_core::{ConstBool, U256};
 use sp_runtime::traits::Convert;
 use sp_staking::{Agent, Stake, StakingInterface};
@@ -90,6 +90,7 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
 	pub const RewardCurve: &'static sp_runtime::curve::PiecewiseLinear<'static> = &I_NPOS;
 	pub static ElectionsBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default().build();
+	pub static BondingDuration: u32 = 3;
 	pub static EraPayout: (Balance, Balance) = (1000, 100);
 }
 pub struct OnChainSeqPhragmen;
@@ -132,6 +133,7 @@ impl pallet_staking_async::Config for Runtime {
 	type OldCurrency = Balances;
 	type Currency = Balances;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
+	type BondingDuration = BondingDuration;
 	type EraPayout = TestEraPayout;
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type VoterList = pallet_staking_async::UseNominatorsAndValidatorsMap<Self>;
@@ -257,7 +259,11 @@ impl ExtBuilder {
 		ext.execute_with(|| {
 			// for events to be deposited.
 			frame_system::Pallet::<Runtime>::set_block_number(1);
-			// set era for staking.
+			// set era for staking and initialize bonded eras.
+			for era in 0..=BondingDuration::get() {
+				start_era(era);
+			}
+			// Set current era back to 0
 			start_era(0);
 		});
 
@@ -269,13 +275,23 @@ impl ExtBuilder {
 		ext.execute_with(test);
 		ext.execute_with(|| {
 			#[cfg(feature = "try-runtime")]
-			<AllPalletsWithSystem as frame_support::traits::TryState<u64>>::try_state(
-				frame_system::Pallet::<Runtime>::block_number(),
-				frame_support::traits::TryStateSelect::All,
-			)
-			.unwrap();
-			#[cfg(not(feature = "try-runtime"))]
-			DelegatedStaking::do_try_state().unwrap();
+			{
+				// Run delegated staking try_state specifically
+				DelegatedStaking::do_try_state().unwrap();
+				// Run other pallets' try_state individually, avoiding staking era setup complexity
+				frame_system::Pallet::<Runtime>::try_state(
+					frame_system::Pallet::<Runtime>::block_number(),
+				)
+				.unwrap();
+				pallet_balances::Pallet::<Runtime>::try_state(
+					frame_system::Pallet::<Runtime>::block_number(),
+				)
+				.unwrap();
+				pallet_nomination_pools::Pallet::<Runtime>::try_state(frame_system::Pallet::<
+					Runtime,
+				>::block_number())
+				.unwrap();
+			}
 		});
 	}
 }
@@ -319,8 +335,28 @@ pub(crate) fn setup_delegation_stake(
 }
 
 pub(crate) fn start_era(era: sp_staking::EraIndex) {
+	use frame_support::BoundedVec;
+	use pallet_staking_async::{ActiveEra, BondedEras, CurrentEra, ErasTotalStake};
+
 	CurrentEra::<T>::set(Some(era));
 	ActiveEra::<T>::set(Some(ActiveEraInfo { index: era, start: None }));
+
+	// Initialize BondedEras to satisfy try_state requirements
+	// BondedEras must contain the range [active_era - bonding_duration .. active_era]
+	let bonding_duration = BondingDuration::get();
+	let start_era = era.saturating_sub(bonding_duration);
+	let mut bonded_eras = Vec::new();
+
+	for e in start_era..=era {
+		// Use era index as session index for simplicity in tests
+		bonded_eras.push((e, e as u32));
+		// Initialize ErasTotalStake for each era to satisfy era_present checks
+		ErasTotalStake::<T>::insert(e, 0u128);
+	}
+
+	let bonded_vec =
+		BoundedVec::try_from(bonded_eras).expect("BondedEras should fit within bounds");
+	BondedEras::<T>::put(bonded_vec);
 }
 
 pub(crate) fn eq_stake(who: AccountId, total: Balance, active: Balance) -> bool {
