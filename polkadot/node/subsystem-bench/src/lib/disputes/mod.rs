@@ -197,7 +197,8 @@ pub async fn benchmark_dispute_coordinator(
 
 			assert!(env.network().is_peer_connected(peer), "Peer {:?} is not connected", peer);
 			env.network().send_request_from_peer(peer, request).unwrap();
-			gum::info!(target: LOG_TARGET, "Dispute request sent to node from peer {:?}", pending_response_receiver.await);
+			let res = pending_response_receiver.await.expect("dispute request sent");
+			gum::debug!(target: LOG_TARGET, "Dispute request sent to node from peer {:?}", res);
 		}
 
 		let candidate_hashes =
