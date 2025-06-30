@@ -323,6 +323,11 @@ mod benchmarks {
 		let scenario = ListScenario::<T>::new(origin_weight, true).unwrap();
 		let extra = scenario.dest_weight - origin_weight;
 
+		// Ensure the creator has enough free balance to bond the extra amount
+		let current_balance = CurrencyOf::<T>::balance(&scenario.creator1);
+		let required_balance = current_balance + extra + CurrencyOf::<T>::minimum_balance();
+		CurrencyOf::<T>::set_balance(&scenario.creator1, required_balance);
+
 		// creator of the src pool will bond-extra, bumping itself to dest bag.
 
 		#[extrinsic_call]
@@ -801,6 +806,9 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_commission() {
+		// Ensure we're at block 1 for proper throttle_from tracking
+		frame_system::Pallet::<T>::set_block_number(1u32.into());
+
 		// Create a pool - do not set a commission yet.
 		let (depositor, _pool_account) =
 			create_pool_account::<T>(0, Pools::<T>::depositor_min_bond() * 2u32.into(), None);
@@ -845,7 +853,7 @@ mod benchmarks {
 					max_increase: Perbill::from_percent(20),
 					min_delay: 0u32.into()
 				}),
-				throttle_from: Some(1u32.into()),
+				throttle_from: Some(0u32.into()),
 				claim_permission: Some(CommissionClaimPermission::Account(depositor)),
 			}
 		);
@@ -877,7 +885,10 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_commission_change_rate() {
-		// Create a pool
+		// Ensure we're at block 1 for proper throttle_from tracking
+		frame_system::Pallet::<T>::set_block_number(1u32.into());
+
+		// Create a pool.
 		let (depositor, _pool_account) =
 			create_pool_account::<T>(0, Pools::<T>::depositor_min_bond() * 2u32.into(), None);
 
@@ -900,7 +911,7 @@ mod benchmarks {
 					max_increase: Perbill::from_percent(50),
 					min_delay: 1000u32.into(),
 				}),
-				throttle_from: Some(1_u32.into()),
+				throttle_from: Some(0_u32.into()),
 				claim_permission: None,
 			}
 		);
