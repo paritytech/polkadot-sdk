@@ -37,13 +37,13 @@ jobs:
       - name: script
         run: |
           forklift cargo build --locked --profile production -p pallet-revive-eth-rpc --bin eth-rpc
-          forklift cargo build --bin substrate-node
+          forklift cargo build -p staging-node-cli --bin substrate-node
 
       - name: Checkout evm-tests
         uses: actions/checkout@v4
         with:
           repository: paritytech/evm-test-suite
-          ref: 737881404f7c5d32e53565ff19e94c21b79d498d
+          ref: 72d1dace20c8fea4c2404383cc422299b26f1961
           path: evm-test-suite
 
       - uses: actions/setup-node@v4
@@ -58,7 +58,7 @@ jobs:
           echo "Change to the evm-test-suite directory"
           cd evm-test-suite
           echo "Download the resolc binary"
-          wget https://github.com/paritytech/revive/releases/download/v0.1.0-dev.9/resolc -q
+          wget -O resolc https://github.com/paritytech/revive/releases/download/v0.3.0/resolc-x86_64-unknown-linux-musl -q
           chmod +x resolc
           mv resolc /usr/local/bin
           resolc --version
@@ -74,7 +74,7 @@ jobs:
           # cat matter-labs-tests/hardhat.config.ts | grep batchSize
 
           echo "Installing solc"
-          wget https://github.com/ethereum/solidity/releases/download/v0.8.28/solc-static-linux -q
+          wget https://github.com/ethereum/solidity/releases/download/v0.8.30/solc-static-linux -q
           chmod +x solc-static-linux
           mv solc-static-linux /usr/local/bin/solc
           echo "Run the tests"
