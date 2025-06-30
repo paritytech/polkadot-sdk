@@ -289,9 +289,9 @@ where
 		let addr_cache: AddrCache = if let Some(persisted_cache_file_path) =
 			maybe_persisted_cache_file_path.as_ref()
 		{
-			let loaded = AddrCache::try_from(persisted_cache_file_path.as_path())
-				.unwrap_or_else(|e| {
-					info!(target: LOG_TARGET, "Failed to load AddrCache from file, using empty instead, error: {}", e);
+			let loaded =
+				AddrCache::try_from(persisted_cache_file_path.as_path()).unwrap_or_else(|e| {
+					info!(target: LOG_TARGET, "Failed to load AddrCache from file, using empty instead: {}", e);
 					AddrCache::new()
 				});
 			info!(target: LOG_TARGET, "Loaded persisted AddrCache with {} authority ids.", loaded.num_authority_ids());
