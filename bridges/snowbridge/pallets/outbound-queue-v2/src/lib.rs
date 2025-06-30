@@ -248,9 +248,15 @@ pub mod pallet {
 	pub type PendingOrders<T: Config> =
 		StorageMap<_, Twox64Concat, u64, PendingOrder<BlockNumberFor<T>>, OptionQuery>;
 
-	/// Leaf to Order Map
+	/// Map from LeafHash to Nonce
 	#[pallet::storage]
-	pub type MessageLeaf<T: Config> = StorageMap<_, Twox64Concat, H256, u64, ValueQuery>;
+	pub type LeafNonce<T: Config> = StorageMap<_, Twox64Concat, H256, u64, ValueQuery>;
+
+	/// Historical leaves indexed by block number (used for generating proofs; needs pruning)
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub(super) type HistoryMessageLeaves<T: Config> =
+		StorageMap<_, Twox64Concat, BlockNumberFor<T>, Vec<H256>, OptionQuery>;
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -316,21 +322,19 @@ pub mod pallet {
 			let root = merkle_root::<<T as Config>::Hashing, _>(MessageLeaves::<T>::stream_iter());
 
 			let digest_item: DigestItem = CustomDigestItem::SnowbridgeV2(root).into();
-
 			// Insert merkle root into the header digest
 			<frame_system::Pallet<T>>::deposit_log(digest_item);
 
+			let at = frame_system::Pallet::<T>::current_block_number();
 			let leaves = MessageLeaves::<T>::get();
+			HistoryMessageLeaves::<T>::insert(at, leaves.clone());
 
 			for leaf in leaves.into_iter() {
-				let nonce = MessageLeaf::<T>::get(leaf);
+				let nonce = LeafNonce::<T>::get(leaf);
 				let _ =
 					<PendingOrders<T>>::try_mutate_exists(nonce, |maybe_order| -> DispatchResult {
 						let order = maybe_order.as_mut().ok_or(Error::<T>::InvalidPendingNonce)?;
-						if order.committed_block_number.is_none() {
-							order.committed_block_number =
-								Some(frame_system::Pallet::<T>::current_block_number());
-						}
+						order.committed_block_number = Some(at);
 						Ok(())
 					});
 			}
@@ -352,7 +356,6 @@ pub mod pallet {
 			// This ensures that the weight of `on_finalize` has a known maximum bound.
 			let current_len = MessageLeaves::<T>::decode_len().unwrap_or(0);
 			if current_len >= T::MaxMessagesInBatch::get() as usize {
-				Self::commit();
 				Self::deposit_event(Event::MessagePostponed {
 					payload: message.to_vec(),
 					reason: Yield,
@@ -438,7 +441,7 @@ pub mod pallet {
 				hash: leaf_hash,
 			};
 			<PendingOrders<T>>::insert(nonce, order);
-			<MessageLeaf<T>>::insert(leaf_hash, nonce);
+			<LeafNonce<T>>::insert(leaf_hash, nonce);
 
 			<Nonce<T>>::set(nonce);
 
@@ -478,7 +481,7 @@ pub mod pallet {
 			}
 
 			<PendingOrders<T>>::remove(nonce);
-			<MessageLeaf<T>>::remove(receipt.leaf);
+			<LeafNonce<T>>::remove(receipt.leaf);
 
 			Self::deposit_event(Event::MessageDelivered { nonce });
 

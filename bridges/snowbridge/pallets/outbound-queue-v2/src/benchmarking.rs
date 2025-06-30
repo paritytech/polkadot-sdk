@@ -70,7 +70,7 @@ mod benchmarks {
 		let (message, _) = build_message::<T>();
 		let leaf = <T as Config>::Hashing::hash(&message.encode());
 		MessageLeaves::<T>::append(leaf);
-		MessageLeaf::<T>::insert(leaf, 1);
+		LeafNonce::<T>::insert(leaf, 1);
 	}
 
 	/// Benchmark for processing a message.
