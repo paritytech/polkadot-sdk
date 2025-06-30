@@ -4,16 +4,18 @@ doc:
 - audience: Runtime Dev
   description: |-
     As mentioned in #8077, we want to ensure that `fast-unstake`, `nomination-pools` and `delegated-staking` rely on `pallet-staking-async` and not on `pallet-staking` for tests and benchmarks.
-    Since the new staking-async pallet's interface is largely compatible with the old `staking` pallet and tests in these external pallets are relying on the abstract interface `sp-staking`, the number of changes is relatively small.
+    Since the new staking-async pallet's interface is largely compatible with the old `staking` pallet and tests in these external pallets are relying on the abstract interface `sp-staking`,
+    the number of changes is relatively small.
 
     Some key differences:
-    - We no longer allow the nomination of an invalid or non-existent validator (#8436). This change breaks some tests and needs to be addressed. 	•	Another notable difference is the removal of slashing spans (see #8316), which were referenced by the nomination pools' benchmarks. 	•	When pools are completely destroyed and all stake is withdrawn, the async staking pallet's kill() method is called, emitting the StakerRemoved event. Tests need to be updated to account for this
+    - We no longer allow the nomination of an invalid or non-existent validator (#8436). This change breaks some tests and needs to be addressed. 
     - Removal of slashing spans (#8316), which were referenced by the nomination pools' benchmarks.
     - When pools are completely destroyed and all stake is withdrawn, the async staking pallet's kill() method is called, which emits the StakerRemoved event. Tests need to be updated to take that into account.
     - Asset Hub runtime uses RelaychainDataProvider as BlockNumberProvider for nomination pools. Commission throttling needs proper relay chain block number setup in nomination pool benchmarks.
 
     Driven-by improvement in the nomination pools:
-    - addition of automatic chilling logic to the ⁠unbond function. When a pool is being destroyed and the depositor is unbonding all their remaining stake, the pool automatically chills (stops nominating) before attempting to unbond. This ensures the unbond operation succeeds. 	•	The Asset Hub runtime uses RelaychainDataProvider as the BlockNumberProvider for nomination pools. Commission throttling requires proper relay chain block number setup in benchmarks.
+    - addition of automatic chilling logic to the ⁠unbond function. When a pool is being destroyed and the depositor is unbonding all their remaining stake, the pool automatically chills (stops nominating)
+    before attempting to unbond. This ensures the unbond operation succeeds.
 
 
     ## Next steps
