@@ -4309,7 +4309,8 @@ fn prestate_tracing_works() {
 	use crate::evm::*;
 	use alloc::collections::BTreeMap;
 
-	let (code, _code_hash) = compile_module("tracing").unwrap();
+	let (dummy_code, _) = compile_module("dummy").unwrap();
+	let (code, _) = compile_module("tracing").unwrap();
 	let (callee_code, _) = compile_module("tracing_callee").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
@@ -4322,8 +4323,16 @@ fn prestate_tracing_works() {
 			.value(10_000_000)
 			.build_and_unwrap_contract();
 
-		let test_cases = vec![
+		// redact balance so that tests are resilient to weight changes
+		let alice_redacted_balance = Some(U256::from(1));
+
+		let test_cases: Vec<(Box<dyn FnOnce()>, _, _)> = vec![
 			(
+				Box::new(|| {
+					builder::bare_call(addr)
+						.data((3u32, addr_callee).encode())
+						.build_and_unwrap_result();
+				}),
 				PrestateTracerConfig {
 					diff_mode: false,
 					disable_storage: false,
@@ -4333,7 +4342,7 @@ fn prestate_tracing_works() {
 					(
 						ALICE_ADDR,
 						PrestateTraceInfo {
-							balance: Some(U256::from(89994487u64)),
+							balance: alice_redacted_balance,
 							nonce: Some(2),
 							..Default::default()
 						},
@@ -4363,6 +4372,11 @@ fn prestate_tracing_works() {
 				])),
 			),
 			(
+				Box::new(|| {
+					builder::bare_call(addr)
+						.data((3u32, addr_callee).encode())
+						.build_and_unwrap_result();
+				}),
 				PrestateTracerConfig {
 					diff_mode: true,
 					disable_storage: false,
@@ -4381,7 +4395,7 @@ fn prestate_tracing_works() {
 							addr,
 							PrestateTraceInfo {
 								balance: Some(U256::from(9_999_900u64)),
-								code: Some(Bytes(code)),
+								code: Some(Bytes(code.clone())),
 								nonce: Some(1),
 								..Default::default()
 							},
@@ -4405,15 +4419,74 @@ fn prestate_tracing_works() {
 					]),
 				},
 			),
+			(
+				Box::new(|| {
+					builder::bare_instantiate(Code::Upload(dummy_code.clone()))
+						.salt(None)
+						.build_and_unwrap_result();
+				}),
+				PrestateTracerConfig {
+					diff_mode: true,
+					disable_storage: false,
+					disable_code: false,
+				},
+				PrestateTrace::DiffMode {
+					pre: BTreeMap::from([(
+						ALICE_ADDR,
+						PrestateTraceInfo {
+							balance: alice_redacted_balance,
+							nonce: Some(2),
+							..Default::default()
+						},
+					)]),
+					post: BTreeMap::from([
+						(
+							ALICE_ADDR,
+							PrestateTraceInfo {
+								balance: alice_redacted_balance,
+								nonce: Some(3),
+								..Default::default()
+							},
+						),
+						(
+							create1(&ALICE_ADDR, 1),
+							PrestateTraceInfo {
+								code: Some(dummy_code.clone().into()),
+								balance: Some(U256::from(0)),
+								nonce: Some(1),
+								..Default::default()
+							},
+						),
+					]),
+				},
+			),
 		];
 
-		for (config, expected_trace) in test_cases {
+		for (exec_call, config, expected_trace) in test_cases.into_iter() {
 			let mut tracer = PrestateTracer::<Test>::new(config);
 			trace(&mut tracer, || {
-				builder::bare_call(addr).data((3u32, addr_callee).encode()).build()
+				exec_call();
 			});
 
-			let trace = tracer.collect_trace();
+			let mut trace = tracer.collect_trace();
+
+			// redact alice balance
+			match trace {
+				PrestateTrace::DiffMode { ref mut pre, ref mut post } => {
+					pre.get_mut(&ALICE_ADDR).map(|info| {
+						info.balance = alice_redacted_balance;
+					});
+					post.get_mut(&ALICE_ADDR).map(|info| {
+						info.balance = alice_redacted_balance;
+					});
+				},
+				PrestateTrace::Prestate(ref mut pre) => {
+					pre.get_mut(&ALICE_ADDR).map(|info| {
+						info.balance = alice_redacted_balance;
+					});
+				},
+			}
+
 			assert_eq!(trace, expected_trace);
 		}
 	});

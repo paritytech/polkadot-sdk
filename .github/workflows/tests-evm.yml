@@ -43,7 +43,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: paritytech/evm-test-suite
-          ref: 6ffa85740a82d9cdb90629f9e3dbca5dc175c5e9
+          ref: 737881404f7c5d32e53565ff19e94c21b79d498d
           path: evm-test-suite
 
       - uses: actions/setup-node@v4
@@ -80,6 +80,8 @@ jobs:
           echo "Run the tests"
           echo "bash init.sh --kitchensink -- --matter-labs -- $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH"
           bash init.sh --kitchensink -- --matter-labs -- $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH
+          echo "Run eth-rpc tests"
+          bash init.sh --kitchensink http://localhost:9944 --eth-rpc -- $NODE_BIN_PATH $ETH_RPC_PATH $RESOLC_PATH 
 
       - name: Collect tests results
         if: always()
