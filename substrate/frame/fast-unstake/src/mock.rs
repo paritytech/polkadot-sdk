@@ -154,7 +154,6 @@ impl pallet_staking_async::Config for Runtime {
 	type CurrencyToVote = SaturatingCurrencyToVote;
 	type EraPayout = EraPayout;
 	type RcClientInterface = ();
-	type WeightInfo = ();
 }
 
 parameter_types! {

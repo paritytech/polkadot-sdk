@@ -111,7 +111,6 @@ impl pallet_staking_async::Config for Runtime {
 	type EraPayout = EraPayout;
 	type RcClientInterface = ();
 	type EventListeners = (Pools, DelegatedStaking);
-	type WeightInfo = ();
 }
 
 parameter_types! {
