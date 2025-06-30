@@ -61,20 +61,23 @@ impl<T: Config>  PrimitivePrecompile for Create2<T>
         let salt_offset = U256::from_big_endian(input[96..128].try_into().map_err(|_| DispatchError::from("invalid salt offset length"))?);
         let salt_length = U256::from_big_endian(input[128..160].try_into().map_err(|_| DispatchError::from("invalid salt length length"))?);
 
-        {
-            assert_eq!(input.len(), salt_offset.low_u64() as usize + salt_length.low_u64() as usize, "input length does not match expected length");
-        }
+        // check offsets and lengths are not out of bounds for u64
+        assert!(code_offset.low_u64() <= u64::MAX, "code_offset is out of bounds");
+        assert!(code_length.low_u64() <= u64::MAX, "code_length is out of bounds");
+        assert!(salt_offset.low_u64() <= u64::MAX, "salt_offset is out of bounds");
+        assert!(salt_length.low_u64() <= u64::MAX, "salt_length is out of bounds");
 
-        // TODO(RVE): this could potentially panic if the offsets are out of bounds.
+        assert!((code_offset + code_length).low_u64() <= u64::MAX, "code_offset + code_length is out of bounds");
+        assert!((salt_offset + salt_length).low_u64() <= u64::MAX, "salt_offset + salt_length is out of bounds");
+
+        assert_eq!(input.len(), salt_offset.low_u64() as usize + salt_length.low_u64() as usize, "input length does not match expected length");
+
         let code_offset = code_offset.low_u64() as usize;
         let code_length = code_length.low_u64() as usize;
         let salt_offset: usize = salt_offset.low_u64() as usize;
         let salt_length = salt_length.low_u64() as usize;
         let code = &input[code_offset..code_offset + code_length];
         let salt = &input[salt_offset..salt_offset + salt_length];
-
-        println!("salt_offset: {salt_offset}");
-
 
         let caller = env.caller();
         let deployer_account_id = caller.account_id().map_err(|_| DispatchError::from("caller account_id is None"))?;
