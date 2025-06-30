@@ -37,6 +37,7 @@ const LOG_TARGET: &str = "subsystem-bench::network-bridge";
 const ALLOWED_PROTOCOLS: &[&str] = &[
 	"/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff/req_chunk/2",
 	"/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff/req_attested_candidate/2",
+	"/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff/send_dispute/1",
 ];
 
 /// A mock of the network bridge tx subsystem.
@@ -211,7 +212,7 @@ impl MockNetworkBridgeRx {
 							},
 							NetworkMessage::RequestFromPeer(request) => {
 								if let Some(protocol) = self.chunk_request_sender.as_mut() {
-									assert!(ALLOWED_PROTOCOLS.contains(&&*protocol.name));
+									assert!(ALLOWED_PROTOCOLS.contains(&&*protocol.name), "Unexpected protocol {:?}", protocol.name);
 									if let Some(inbound_queue) = protocol.inbound_queue.as_ref() {
 										inbound_queue
 											.send(request)

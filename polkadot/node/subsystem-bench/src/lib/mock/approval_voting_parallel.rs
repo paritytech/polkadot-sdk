@@ -14,30 +14,26 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! A generic mock availability recovery suitable to be used in benchmarks.
-
-use std::sync::Arc;
+//! A generic mock approval voting parallel suitable to be used in benchmarks.
 
 use futures::FutureExt;
-use polkadot_node_primitives::{AvailableData, BlockData, PoV};
 use polkadot_node_subsystem::{
-	messages::AvailabilityRecoveryMessage, overseer, SpawnedSubsystem, SubsystemError,
+	messages::ApprovalVotingParallelMessage, overseer, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_types::OverseerSignal;
-use polkadot_primitives::{Hash, HeadData, PersistedValidationData};
 
-const LOG_TARGET: &str = "subsystem-bench::availability-recovery-mock";
+const LOG_TARGET: &str = "subsystem-bench::approval-voting-parallel-mock";
 
-pub struct MockAvailabilityRecovery {}
+pub struct MockApprovalVotingParallel {}
 
-impl MockAvailabilityRecovery {
+impl MockApprovalVotingParallel {
 	pub fn new() -> Self {
 		Self {}
 	}
 }
 
-#[overseer::subsystem(AvailabilityRecovery, error=SubsystemError, prefix=self::overseer)]
-impl<Context> MockAvailabilityRecovery {
+#[overseer::subsystem(ApprovalVotingParallel, error=SubsystemError, prefix=self::overseer)]
+impl<Context> MockApprovalVotingParallel {
 	fn start(self, ctx: Context) -> SpawnedSubsystem {
 		let future = self.run(ctx).map(|_| Ok(())).boxed();
 
@@ -45,8 +41,8 @@ impl<Context> MockAvailabilityRecovery {
 	}
 }
 
-#[overseer::contextbounds(AvailabilityRecovery, prefix = self::overseer)]
-impl MockAvailabilityRecovery {
+#[overseer::contextbounds(ApprovalVotingParallel, prefix = self::overseer)]
+impl MockApprovalVotingParallel {
 	async fn run<Context>(self, mut ctx: Context) {
 		loop {
 			let msg = ctx.recv().await.expect("Overseer never fails us");
@@ -56,19 +52,11 @@ impl MockAvailabilityRecovery {
 						return
 					},
 				orchestra::FromOrchestra::Communication { msg } => match msg {
-					AvailabilityRecoveryMessage::RecoverAvailableData(receipt, _, _, _, tx) => {
-						gum::debug!(target: LOG_TARGET, "RecoverAvailableData for candidate {:?}", receipt.hash());
-						let available_data = AvailableData {
-							pov: Arc::new(PoV { block_data: BlockData(Vec::new()) }),
-							validation_data: PersistedValidationData {
-								parent_head: HeadData(Vec::new()),
-								relay_parent_number: 0,
-								relay_parent_storage_root: Hash::default(),
-								max_pov_size: 2,
-							},
-						};
-						tx.send(Ok(available_data)).unwrap();
+					ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate(hash, tx) => {
+						gum::debug!(target: LOG_TARGET, "GetApprovalSignaturesForCandidate for candidate {:?}", hash);
+						tx.send(Default::default()).unwrap();
 					},
+					_ => todo!("Subsystem received unexpected message, {:?}", msg),
 				},
 			}
 		}

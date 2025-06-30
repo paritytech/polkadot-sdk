@@ -20,7 +20,7 @@
 use clap::Parser;
 use color_eyre::eyre;
 use colored::Colorize;
-use polkadot_subsystem_bench::{approval, availability, configuration, statement};
+use polkadot_subsystem_bench::{approval, availability, configuration, disputes, statement};
 use pyroscope::PyroscopeAgent;
 use pyroscope_pprofrs::{pprof_backend, PprofConfig};
 use serde::{Deserialize, Serialize};
@@ -42,6 +42,8 @@ pub enum TestObjective {
 	ApprovalVoting(approval::ApprovalsOptions),
 	// Benchmark the statement-distribution subsystem
 	StatementDistribution,
+	/// Benchmark the dispute-coordinator subsystem
+	DisputeCoordinator(disputes::DisputesOptions),
 }
 
 impl std::fmt::Display for TestObjective {
@@ -54,6 +56,7 @@ impl std::fmt::Display for TestObjective {
 				Self::DataAvailabilityWrite => "DataAvailabilityWrite",
 				Self::ApprovalVoting(_) => "ApprovalVoting",
 				Self::StatementDistribution => "StatementDistribution",
+				Self::DisputeCoordinator(_) => "DisputeCoordinator",
 			}
 		)
 	}
@@ -168,6 +171,12 @@ impl BenchCli {
 					let mut env = statement::prepare_test(&state, true);
 					env.runtime()
 						.block_on(statement::benchmark_statement_distribution(&mut env, &state))
+				},
+				TestObjective::DisputeCoordinator(ref options) => {
+					let state = disputes::TestState::new(&test_config, options);
+					let mut env = disputes::prepare_test(&state, true);
+					env.runtime()
+						.block_on(disputes::benchmark_dispute_coordinator(&mut env, &state))
 				},
 			};
 			println!("\n{}\n{}", benchmark_name.purple(), usage);
