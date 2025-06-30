@@ -1275,6 +1275,7 @@ serde = { version = "1.0.214", default-features = false }
 serde-big-array = { version = "0.3.2" }
 serde_derive = { version = "1.0.117" }
 serde_json = { version = "1.0.132", default-features = false }
+serde_with = { version = "3.12.0", default-features = false, features = ["hex", "macros"] }
 serde_yaml = { version = "0.9" }
 sha1 = { version = "0.10.6" }
 sha2 = { version = "0.10.7", default-features = false }
