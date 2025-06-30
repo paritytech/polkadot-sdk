@@ -1,0 +1,10 @@
+title: Rve/add create2 precompile builtin
+doc:
+- audience: Runtime Dev
+  description: |-
+    fixed https://github.com/paritytech/contract-issues/issues/99
+
+    Add a builtin precompile for create2 opcode
+crates:
+- name: pallet-revive
+  bump: patch
