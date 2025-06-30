@@ -1603,6 +1603,20 @@ impl<T: Config> Pallet<T> {
 		let account_id = T::FindAuthor::find_author(pre_runtime_digests)?;
 		Some(T::AddressMapper::to_address(&account_id))
 	}
+
+	/// Returns the code at `address`.
+	///
+	/// This takes pre-compiles into account.
+	pub fn code(address: &H160) -> Vec<u8> {
+		use precompiles::{All, Precompiles};
+		if let Some(code) = <All<T>>::code(address.as_fixed_bytes()) {
+			return code.into()
+		}
+		<ContractInfoOf<T>>::get(&address)
+			.and_then(|contract| <PristineCode<T>>::get(contract.code_hash))
+			.map(|code| code.into())
+			.unwrap_or_default()
+	}
 }
 
 /// The address used to call the runtime's pallets dispatchables
@@ -1732,6 +1746,9 @@ sp_api::decl_runtime_apis! {
 
 		/// The address used to call the runtime's pallets dispatchables
 		fn runtime_pallets_address() -> H160;
+
+		/// The code at the specified address taking pre-compiles into account.
+		fn code(address: H160) -> Vec<u8>;
 	}
 }
 
@@ -1955,6 +1972,9 @@ macro_rules! impl_runtime_apis_plus_revive {
 					$crate::RUNTIME_PALLETS_ADDR
 				}
 
+				fn code(address: $crate::H160) -> Vec<u8> {
+					$crate::Pallet::<Self>::code(&address)
+				}
 			}
 		}
 	};
