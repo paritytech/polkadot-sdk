@@ -41,6 +41,9 @@ pub enum Error {
 	/// Justification requirements not met.
 	#[error("Invalid justification")]
 	InvalidJustification,
+	/// The justification provided is outdated and corresponds to a previous set.
+	#[error("Import failed with outdated justification")]
+	OutdatedJustification,
 	/// Error from the client while importing.
 	#[error("Import failed: {0}")]
 	ClientImport(String),

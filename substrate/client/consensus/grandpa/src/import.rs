@@ -795,7 +795,13 @@ where
 		);
 
 		let justification = match justification {
-			Err(e) => return Err(ConsensusError::ClientImport(e.to_string())),
+			Err(e) => {
+				return match e {
+					sp_blockchain::Error::OutdatedJustification =>
+						Err(ConsensusError::OutdatedJustification),
+					_ => Err(ConsensusError::ClientImport(e.to_string())),
+				};
+			},
 			Ok(justification) => justification,
 		};
 

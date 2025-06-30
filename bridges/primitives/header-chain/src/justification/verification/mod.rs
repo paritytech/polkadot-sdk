@@ -306,7 +306,9 @@ trait JustificationVerifier<Header: HeaderT> {
 				justification.round,
 				context.authority_set_id,
 				&mut signature_buffer,
-			) {
+			)
+			.is_valid()
+			{
 				self.process_invalid_signature_vote(precommit_idx).map_err(Error::Precommit)?;
 				continue
 			}
