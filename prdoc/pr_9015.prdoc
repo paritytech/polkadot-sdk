@@ -38,7 +38,7 @@ crates:
 - name: sp-blockchain
   bump: minor
 - name: sp-consensus
-  bump: patch
+  bump: minor
 - name: sc-consensus
   bump: minor
 - name: sc-network-sync
