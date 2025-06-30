@@ -62,4 +62,3 @@ else
     cp "$BASE_DIR/$name/$name.log" "$TARGET_DIR/$name.log"
   done
 fi
-

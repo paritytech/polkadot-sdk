@@ -5171,6 +5171,7 @@ dependencies = [
  "anyhow",
  "cumulus-zombienet-sdk-helpers",
  "env_logger 0.11.3",
+ "futures",
  "log",
  "polkadot-primitives",
  "serde",
@@ -5179,6 +5180,7 @@ dependencies = [
  "sp-keyring",
  "sp-statement-store",
  "tokio",
+ "zombienet-configuration",
  "zombienet-orchestrator",
  "zombienet-sdk",
 ]
