@@ -625,7 +625,8 @@ pub mod pallet {
 	impl<T: Config> Get<u32> for ClaimedRewardsBound<T> {
 		fn get() -> u32 {
 			let max_total_nominators_per_validator =
-				<T::ElectionProvider as ElectionProvider>::MaxBackersPerWinner::get();
+				<T::ElectionProvider as ElectionProvider>::MaxBackersPerWinner::get() *
+					<T::ElectionProvider as ElectionProvider>::Pages::get();
 			let exposure_page_size = T::MaxExposurePageSize::get();
 			max_total_nominators_per_validator
 				.saturating_div(exposure_page_size)
@@ -987,24 +988,22 @@ pub mod pallet {
 				let mut rng =
 					ChaChaRng::from_seed(base_derivation.using_encoded(sp_core::blake2_256));
 
-				let validators = (0..validators)
-					.map(|index| {
-						let derivation =
-							base_derivation.replace("{}", &format!("validator{}", index));
-						let who = Self::generate_endowed_bonded_account(&derivation, &mut rng);
-						assert_ok!(<Pallet<T>>::validate(
-							T::RuntimeOrigin::from(Some(who.clone()).into()),
-							Default::default(),
-						));
-						who
-					})
-					.collect::<Vec<_>>();
+				(0..validators).for_each(|index| {
+					let derivation = base_derivation.replace("{}", &format!("validator{}", index));
+					let who = Self::generate_endowed_bonded_account(&derivation, &mut rng);
+					assert_ok!(<Pallet<T>>::validate(
+						T::RuntimeOrigin::from(Some(who.clone()).into()),
+						Default::default(),
+					));
+				});
+
+				let all_validators = Validators::<T>::iter_keys().collect::<Vec<_>>();
 
 				(0..nominators).for_each(|index| {
 					let derivation = base_derivation.replace("{}", &format!("nominator{}", index));
 					let who = Self::generate_endowed_bonded_account(&derivation, &mut rng);
 
-					let random_nominations = validators
+					let random_nominations = all_validators
 						.choose_multiple(&mut rng, MaxNominationsOf::<T>::get() as usize)
 						.map(|v| v.clone())
 						.collect::<Vec<_>>();
