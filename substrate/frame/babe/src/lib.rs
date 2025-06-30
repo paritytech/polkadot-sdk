@@ -935,11 +935,14 @@ impl<T: Config> OnTimestampSet<T::Moment> for Pallet<T> {
 		let timestamp_slot = moment / slot_duration;
 		let timestamp_slot = Slot::from(timestamp_slot.saturated_into::<u64>());
 
-		assert_eq!(
-			CurrentSlot::<T>::get(),
-			timestamp_slot,
-			"Timestamp slot must match `CurrentSlot`"
-		);
+		if CurrentSlot::<T>::get() != timestamp_slot {
+			log::warn!(
+				target: LOG_TARGET,
+				"Timestamp slot {:?} does not match `CurrentSlot` {:?}!",
+				timestamp_slot,
+				CurrentSlot::<T>::get(),
+			);
+		}
 	}
 }
 

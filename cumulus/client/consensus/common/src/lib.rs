@@ -237,13 +237,14 @@ pub fn relay_slot_and_timestamp(
 	relay_chain_slot_duration: Duration,
 ) -> Option<(Slot, Timestamp)> {
 	sc_consensus_babe::find_pre_digest::<PBlock>(relay_parent_header)
+		.ok()
+		.flatten()
 		.map(|babe_pre_digest| {
 			let slot = babe_pre_digest.slot();
 			let t = Timestamp::new(relay_chain_slot_duration.as_millis() as u64 * *slot);
 
 			(slot, t)
 		})
-		.ok()
 }
 
 /// Reads abridged host configuration from the relay chain storage at the given relay parent.

@@ -102,7 +102,8 @@ where
 		import_params.finalized = false;
 		import_params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
 
-		let pre_digest = find_pre_digest::<B>(&import_params.header)?;
+		let pre_digest = find_pre_digest::<B>(&import_params.header)?
+			.ok_or_else(|| format!("{}", sc_consensus_babe::Error::<B>::NoPreRuntimeDigest))?;
 
 		let parent_hash = import_params.header.parent_hash();
 		let parent = self

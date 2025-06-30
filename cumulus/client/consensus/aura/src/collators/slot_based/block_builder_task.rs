@@ -292,13 +292,13 @@ where
 			// on-chain data.
 			collator.collator_service().check_block_status(parent_hash, &parent_header);
 
-			let Ok(relay_slot) =
+			let Ok(Some(pre_digest)) =
 				sc_consensus_babe::find_pre_digest::<RelayBlock>(relay_parent_header)
-					.map(|babe_pre_digest| babe_pre_digest.slot())
 			else {
 				tracing::error!(target: crate::LOG_TARGET, "Relay chain does not contain babe slot. This should never happen.");
 				continue;
 			};
+			let relay_slot = pre_digest.slot();
 
 			let included_header_hash = included_header.hash();
 
