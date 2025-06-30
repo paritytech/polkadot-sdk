@@ -1,0 +1,17 @@
+title: '[Staking] [AHM] Fixes insufficient slashing of nominators and some other small
+  issues.'
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## TODO
+
+    - [x] Remove call::withdraw_stake in staking-async. This was removed from original staking pallet but ended up unintentionally in the fork (516).
+    - [x] Remove `MaxDisabledValidators` from config. This is not needed anymore since disabled logic moved to pallet-session.
+    - [x] Ensure nominators are slashed per validator they have voted even if the slash perbill is lower than their previous slash in the era. (517)
+crates:
+- name: pallet-staking-async
+  bump: major
+- name: pallet-staking-async-parachain-runtime
+  bump: major
+- name: pallet-staking
+  bump: major
