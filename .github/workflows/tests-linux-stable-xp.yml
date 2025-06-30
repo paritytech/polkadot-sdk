@@ -43,7 +43,6 @@ jobs:
                    --locked \
                    --release \
                    --no-fail-fast \
-                   --cargo-quiet \
                    --features experimental,ci-only-tests \
                    --filter-expr "test(/all_security_features_work/) + test(/nonexistent_cache_dir/)"
       - name: Stop all workflows if failed
