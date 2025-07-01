@@ -5,7 +5,7 @@ title: Update system parachains XCM benchmarking for sibling parachain delivery
 doc:
  - audience: Runtime Dev
    description: |
-     Updates XCM benchmarking configs to support asset delivery to system
+     Updates cumulus::parachain runtime XCM benchmarking to support asset delivery to system
      parachains instead of relay chain.
 
 crates:
@@ -26,4 +26,6 @@ crates:
  - name: people-rococo-runtime
    bump: minor
  - name: people-westend-runtime
+   bump: minor
+ - name: testnet-parachains-constants
    bump: minor
