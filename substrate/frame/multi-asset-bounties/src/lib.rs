@@ -203,14 +203,12 @@ pub enum BountyStatus<AccountId, PaymentId, Beneficiary> {
 		curator_stash: (Beneficiary, PaymentState<PaymentId>),
 	},
 	/// The bounty is closed, and the funds are being refunded to the original source (e.g.,
-	/// Treasury). Once `check_payment_status` confirms the payment succeeded, the bounty is
+	/// Treasury). Once `check_status` confirms the payment succeeded, child-/the bounty is
 	/// finalized and removed from storage.
 	RefundAttempted {
 		/// The curator of this bounty.
 		curator: Option<AccountId>,
-		/// The refund status.
-		///
-		/// Once the refund is successful, the bounty is removed from the storage.
+		/// The refund payment status.
 		payment_status: PaymentState<PaymentId>,
 	},
 }
@@ -1152,7 +1150,11 @@ pub mod pallet {
 		/// ## Details
 		/// - If the child-/bounty status is `FundingAttempted`, it checks if the funding payment
 		///   has succeeded. If successful, the bounty becomes `Funded`.
-		///
+		/// - If the child-/bounty status is `RefundAttempted`, it checks if the refund payment has
+		///   succeeded. If successful, the child-/bounty is removed from storage.
+		/// - If the child-/bounty status is `PayoutAttempted`, it checks the 2 payout payments have
+		///   succeeded. If both succeed, the child-/bounty is removed from storage.
+		/// 
 		/// ### Parameters
 		/// - `parent_bounty_id`: Index of parent bounty.
 		/// - `child_bounty_id`: Index of child-bounty.
@@ -1279,6 +1281,8 @@ pub mod pallet {
 		/// ## Details
 		/// - If the child-/bounty status is `FundingAttempted`, it retries the funding payment from
 		///   funding source the child-/bounty account/location.
+		/// - If the child-/bounty status is `RefundAttempted`, it retries the refund payment from
+		///   the child-/bounty account/location to the funding source.
 		/// - If the child-/bounty status is `PayoutAttempted`, it retries the payout payments from
 		///   the child-/bounty account/location to the beneficiary and curator stash
 		///   accounts/locations.
