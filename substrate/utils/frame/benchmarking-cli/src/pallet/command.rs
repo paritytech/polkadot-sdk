@@ -617,7 +617,7 @@ impl PalletCmd {
 			.collect();
 
 		if benchmarks_to_run.is_empty() {
-			return Err("No benchmarks found which match your input. Try `--list --all` to list all available benchmarks.".into())
+			return Err("No benchmarks found which match your input. Try `--list --all` to list all available benchmarks. Make sure pallet is in `define_benchmarks!`".into())
 		}
 
 		Ok(benchmarks_to_run)
