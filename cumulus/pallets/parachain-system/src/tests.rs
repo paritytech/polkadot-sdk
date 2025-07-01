@@ -323,11 +323,11 @@ fn inherent_processed_messages_are_ignored() {
 		.with_relay_sproof_builder(|_, relay_block_num, sproof| match relay_block_num {
 			3 => {
 				sproof.dmq_mqc_head =
-					Some(MessageQueueChain::default().extend_downward(&mk_dmp(3)).head());
+					Some(MessageQueueChain::default().extend_downward(&mk_dmp(3, 0)).head());
 				sproof.upsert_inbound_channel(ParaId::from(200)).mqc_head = Some(
 					MessageQueueChain::default()
-						.extend_hrmp(&mk_hrmp(2))
-						.extend_hrmp(&mk_hrmp(3))
+						.extend_hrmp(&mk_hrmp(2, 1))
+						.extend_hrmp(&mk_hrmp(3, 1))
 						.head(),
 				);
 			},
@@ -335,8 +335,9 @@ fn inherent_processed_messages_are_ignored() {
 		})
 		.with_inherent_data(|_, relay_block_num, data| match relay_block_num {
 			3 => {
-				data.downward_messages.push(mk_dmp(3));
-				data.horizontal_messages.insert(ParaId::from(200), vec![mk_hrmp(2), mk_hrmp(3)]);
+				data.downward_messages.push(mk_dmp(3, 0));
+				data.horizontal_messages
+					.insert(ParaId::from(200), vec![mk_hrmp(2, 1), mk_hrmp(3, 1)]);
 			},
 			_ => unreachable!(),
 		})
@@ -345,13 +346,13 @@ fn inherent_processed_messages_are_ignored() {
 			HANDLED_DMP_MESSAGES.with(|m| {
 				let m = m.borrow();
 				// NOTE: if this fails, then run the test without benchmark features.
-				assert_eq!(&*m, &[mk_dmp(3).msg]);
+				assert_eq!(&*m, &[mk_dmp(3, 0).msg]);
 			});
 			HANDLED_XCMP_MESSAGES.with(|m| {
 				let m = m.borrow_mut();
 				assert_eq!(
 					&*m,
-					&[(ParaId::from(200), 2, b"2".to_vec()), (ParaId::from(200), 3, b"3".to_vec()),]
+					&[(ParaId::from(200), 2, vec![2]), (ParaId::from(200), 3, vec![3]),]
 				);
 			});
 		})
@@ -359,16 +360,204 @@ fn inherent_processed_messages_are_ignored() {
 		.add(3, || {
 			HANDLED_DMP_MESSAGES.with(|m| {
 				let m = m.borrow();
-				assert_eq!(&*m, &[mk_dmp(3).msg]);
+				assert_eq!(&*m, &[mk_dmp(3, 0).msg]);
 			});
 			HANDLED_XCMP_MESSAGES.with(|m| {
 				let m = m.borrow_mut();
 				assert_eq!(
 					&*m,
-					&[(ParaId::from(200), 2, b"2".to_vec()), (ParaId::from(200), 3, b"3".to_vec()),]
+					&[(ParaId::from(200), 2, vec![2]), (ParaId::from(200), 3, vec![3]),]
 				);
 			});
 		});
+}
+
+#[test]
+fn inherent_messages_are_compressed() {
+	CONSENSUS_HOOK.with(|c| {
+		*c.borrow_mut() = Box::new(|_| (Weight::zero(), NonZeroU32::new(2).unwrap().into()))
+	});
+
+	let mut dmp_msgs = vec![];
+	let mut hrmp_msgs = vec![];
+
+	// Batch 1
+	dmp_msgs.extend(vec![mk_dmp(1, 1024 * 100); 10]);
+	hrmp_msgs.push((ParaId::new(100), mk_hrmp(1, 24576)));
+	hrmp_msgs.extend(vec![(ParaId::new(100), mk_hrmp(1, 1024 * 100)); 9]);
+	hrmp_msgs.push((ParaId::new(200), mk_hrmp(1, 1024 * 100)));
+
+	// Batch 2
+	dmp_msgs.extend(vec![mk_dmp(2, 1024 * 100); 10]);
+	hrmp_msgs.extend(vec![(ParaId::new(200), mk_hrmp(1, 1024 * 100)); 10]);
+
+	// Batch 3
+	dmp_msgs.extend(vec![mk_dmp(2, 1024 * 100); 5]);
+	hrmp_msgs.extend(vec![(ParaId::new(100), mk_hrmp(2, 1024 * 100)); 15]);
+
+	// Batch 4
+	hrmp_msgs.extend(vec![(ParaId::new(200), mk_hrmp(2, 1024 * 100)); 1]);
+
+	let dmp_msgs_clone = dmp_msgs.clone();
+	let hrmp_msgs_clone = hrmp_msgs.clone();
+	let mut test = BlockTests::new()
+		.with_inclusion_delay(1)
+		.with_relay_block_number(|block_number| 4.max(*block_number as RelayChainBlockNumber))
+		.with_relay_sproof_builder(move |_, relay_block_num, sproof| match relay_block_num {
+			4 => {
+				let mut dmp_mqc = MessageQueueChain::default();
+				for msg in &dmp_msgs_clone {
+					dmp_mqc.extend_downward(msg);
+				}
+				sproof.dmq_mqc_head = Some(dmp_mqc.head());
+
+				for (sender, msg) in &hrmp_msgs_clone {
+					let mqc_head =
+						sproof.upsert_inbound_channel(*sender).mqc_head.get_or_insert_default();
+					let mut mqc = MessageQueueChain::new(*mqc_head);
+					mqc.extend_hrmp(msg);
+					*mqc_head = mqc.head();
+				}
+			},
+			_ => unreachable!(),
+		});
+
+	let dmp_msgs_clone = dmp_msgs.clone();
+	let hrmp_msgs_clone = hrmp_msgs.clone();
+	test = test.with_inherent_data(move |_, relay_block_num, data| match relay_block_num {
+		4 => {
+			data.downward_messages.extend(dmp_msgs_clone.iter().cloned());
+
+			for (sender, msg) in &hrmp_msgs_clone {
+				let entry = data.horizontal_messages.entry(*sender).or_default();
+				entry.push(msg.clone())
+			}
+		},
+		_ => unreachable!(),
+	});
+
+	let dmp_msgs_clone = dmp_msgs.clone();
+	let hrmp_msgs_clone = hrmp_msgs.clone();
+	test = test.add(1, move || {
+		HANDLED_DMP_MESSAGES.with(|m| {
+			let m = m.borrow();
+			assert_eq!(
+				&*m,
+				&dmp_msgs_clone[..10].into_iter().map(|msg| msg.msg.clone()).collect::<Vec<_>>()
+			);
+		});
+		assert_eq!(
+			LastProcessedDownwardMessage::<Test>::get(),
+			Some(InboundMessageId { sent_at: 1, reverse_idx: 0 })
+		);
+
+		HANDLED_XCMP_MESSAGES.with(|m| {
+			let m = m.borrow_mut();
+			assert_eq!(
+				&*m,
+				&hrmp_msgs_clone[..11]
+					.iter()
+					.map(|(sender, msg)| (*sender, msg.sent_at, msg.data.clone()))
+					.collect::<Vec<_>>()
+			);
+		});
+		assert_eq!(
+			LastProcessedHrmpMessage::<Test>::get(),
+			Some(InboundMessageId { sent_at: 1, reverse_idx: 10 })
+		);
+		assert_eq!(HrmpWatermark::<Test>::get(), 0);
+	});
+
+	let dmp_msgs_clone = dmp_msgs.clone();
+	let hrmp_msgs_clone = hrmp_msgs.clone();
+	test = test.add(2, move || {
+		HANDLED_DMP_MESSAGES.with(|m| {
+			let m = m.borrow();
+			assert_eq!(
+				&*m,
+				&dmp_msgs_clone[..20].iter().map(|msg| msg.msg.clone()).collect::<Vec<_>>()
+			);
+		});
+		assert_eq!(
+			LastProcessedDownwardMessage::<Test>::get(),
+			Some(InboundMessageId { sent_at: 2, reverse_idx: 5 })
+		);
+
+		HANDLED_XCMP_MESSAGES.with(|m| {
+			let m = m.borrow_mut();
+			assert_eq!(
+				&*m,
+				&hrmp_msgs_clone[..21]
+					.iter()
+					.map(|(sender, msg)| (*sender, msg.sent_at, msg.data.clone()))
+					.collect::<Vec<_>>()
+			);
+		});
+		assert_eq!(
+			LastProcessedHrmpMessage::<Test>::get(),
+			Some(InboundMessageId { sent_at: 1, reverse_idx: 0 })
+		);
+		assert_eq!(HrmpWatermark::<Test>::get(), 1);
+	});
+
+	let dmp_msgs_clone = dmp_msgs.clone();
+	let hrmp_msgs_clone = hrmp_msgs.clone();
+	test = test.add(3, move || {
+		HANDLED_DMP_MESSAGES.with(|m| {
+			let m = m.borrow();
+			assert_eq!(
+				&*m,
+				&dmp_msgs_clone[..25].iter().map(|msg| msg.msg.clone()).collect::<Vec<_>>()
+			);
+		});
+		assert_eq!(
+			LastProcessedDownwardMessage::<Test>::get(),
+			Some(InboundMessageId { sent_at: 2, reverse_idx: 0 })
+		);
+
+		HANDLED_XCMP_MESSAGES.with(|m| {
+			let m = m.borrow_mut();
+			assert_eq!(
+				&*m,
+				&hrmp_msgs_clone[..36]
+					.iter()
+					.map(|(sender, msg)| (*sender, msg.sent_at, msg.data.clone()))
+					.collect::<Vec<_>>()
+			);
+		});
+		assert_eq!(
+			LastProcessedHrmpMessage::<Test>::get(),
+			Some(InboundMessageId { sent_at: 2, reverse_idx: 1 })
+		);
+		assert_eq!(HrmpWatermark::<Test>::get(), 1);
+	});
+
+	test.add(4, move || {
+		HANDLED_DMP_MESSAGES.with(|m| {
+			let m = m.borrow();
+			assert_eq!(&*m, &dmp_msgs[..25].iter().map(|msg| msg.msg.clone()).collect::<Vec<_>>());
+		});
+		assert_eq!(
+			LastProcessedDownwardMessage::<Test>::get(),
+			Some(InboundMessageId { sent_at: 2, reverse_idx: 0 })
+		);
+
+		HANDLED_XCMP_MESSAGES.with(|m| {
+			let m = m.borrow_mut();
+			assert_eq!(
+				&*m,
+				&hrmp_msgs[..37]
+					.iter()
+					.map(|(sender, msg)| (*sender, msg.sent_at, msg.data.clone()))
+					.collect::<Vec<_>>()
+			);
+		});
+		assert_eq!(
+			LastProcessedHrmpMessage::<Test>::get(),
+			Some(InboundMessageId { sent_at: 2, reverse_idx: 0 })
+		);
+		assert_eq!(HrmpWatermark::<Test>::get(), 2);
+	});
 }
 
 #[test]
@@ -956,18 +1145,18 @@ fn receive_dmp_after_pause() {
 		.with_relay_sproof_builder(|_, relay_block_num, sproof| match relay_block_num {
 			1 => {
 				sproof.dmq_mqc_head =
-					Some(MessageQueueChain::default().extend_downward(&mk_dmp(1)).head());
+					Some(MessageQueueChain::default().extend_downward(&mk_dmp(1, 0)).head());
 			},
 			2 => {
 				// no new messages, mqc stayed the same.
 				sproof.dmq_mqc_head =
-					Some(MessageQueueChain::default().extend_downward(&mk_dmp(1)).head());
+					Some(MessageQueueChain::default().extend_downward(&mk_dmp(1, 0)).head());
 			},
 			3 => {
 				sproof.dmq_mqc_head = Some(
 					MessageQueueChain::default()
-						.extend_downward(&mk_dmp(1))
-						.extend_downward(&mk_dmp(3))
+						.extend_downward(&mk_dmp(1, 0))
+						.extend_downward(&mk_dmp(3, 0))
 						.head(),
 				);
 			},
@@ -975,20 +1164,20 @@ fn receive_dmp_after_pause() {
 		})
 		.with_inherent_data(|_, relay_block_num, data| match relay_block_num {
 			1 => {
-				data.downward_messages.push(mk_dmp(1));
+				data.downward_messages.push(mk_dmp(1, 0));
 			},
 			2 => {
 				// no new messages
 			},
 			3 => {
-				data.downward_messages.push(mk_dmp(3));
+				data.downward_messages.push(mk_dmp(3, 0));
 			},
 			_ => unreachable!(),
 		})
 		.add(1, || {
 			HANDLED_DMP_MESSAGES.with(|m| {
 				let mut m = m.borrow_mut();
-				assert_eq!(&*m, &[(mk_dmp(1).msg.clone())]);
+				assert_eq!(&*m, &[(mk_dmp(1, 0).msg.clone())]);
 				m.clear();
 			});
 		})
@@ -996,7 +1185,7 @@ fn receive_dmp_after_pause() {
 		.add(3, || {
 			HANDLED_DMP_MESSAGES.with(|m| {
 				let mut m = m.borrow_mut();
-				assert_eq!(&*m, &[(mk_dmp(3).msg.clone())]);
+				assert_eq!(&*m, &[(mk_dmp(3, 0).msg.clone())]);
 				m.clear();
 			});
 		});
@@ -1019,7 +1208,7 @@ fn receive_dmp_many() {
 			let mut msgs = vec![];
 			for _ in 1..=rng.gen_range(1..=100) {
 				// Just use the same message multiple times per block.
-				msgs.push(mk_dmp(block));
+				msgs.push(mk_dmp(block, 0));
 			}
 			sent_in_block.push(msgs);
 		}
@@ -1066,18 +1255,18 @@ fn receive_hrmp() {
 				// 200 - doesn't exist yet
 				// 300 - one new message
 				sproof.upsert_inbound_channel(ParaId::from(300)).mqc_head =
-					Some(MessageQueueChain::default().extend_hrmp(&mk_hrmp(1)).head());
+					Some(MessageQueueChain::default().extend_hrmp(&mk_hrmp(1, 1)).head());
 			},
 			2 => {
 				// 200 - now present with one message
 				// 300 - two new messages
 				sproof.upsert_inbound_channel(ParaId::from(200)).mqc_head =
-					Some(MessageQueueChain::default().extend_hrmp(&mk_hrmp(4)).head());
+					Some(MessageQueueChain::default().extend_hrmp(&mk_hrmp(4, 1)).head());
 				sproof.upsert_inbound_channel(ParaId::from(300)).mqc_head = Some(
 					MessageQueueChain::default()
-						.extend_hrmp(&mk_hrmp(1))
-						.extend_hrmp(&mk_hrmp(2))
-						.extend_hrmp(&mk_hrmp(3))
+						.extend_hrmp(&mk_hrmp(1, 1))
+						.extend_hrmp(&mk_hrmp(2, 1))
+						.extend_hrmp(&mk_hrmp(3, 1))
 						.head(),
 				);
 			},
@@ -1085,13 +1274,13 @@ fn receive_hrmp() {
 				// 200 - no new messages
 				// 300 - is gone
 				sproof.upsert_inbound_channel(ParaId::from(200)).mqc_head =
-					Some(MessageQueueChain::default().extend_hrmp(&mk_hrmp(4)).head());
+					Some(MessageQueueChain::default().extend_hrmp(&mk_hrmp(4, 1)).head());
 			},
 			_ => unreachable!(),
 		})
 		.with_inherent_data(|_, relay_block_num, data| match relay_block_num {
 			1 => {
-				data.horizontal_messages.insert(ParaId::from(300), vec![mk_hrmp(1)]);
+				data.horizontal_messages.insert(ParaId::from(300), vec![mk_hrmp(1, 1)]);
 			},
 			2 => {
 				data.horizontal_messages.insert(
@@ -1100,11 +1289,11 @@ fn receive_hrmp() {
 						// can't be sent at the block 1 actually. However, we cheat here
 						// because we want to test the case where there are multiple messages
 						// but the harness at the moment doesn't support block skipping.
-						mk_hrmp(2).clone(),
-						mk_hrmp(3).clone(),
+						mk_hrmp(2, 1).clone(),
+						mk_hrmp(3, 1).clone(),
 					],
 				);
-				data.horizontal_messages.insert(ParaId::from(200), vec![mk_hrmp(4)]);
+				data.horizontal_messages.insert(ParaId::from(200), vec![mk_hrmp(4, 1)]);
 			},
 			3 => {},
 			_ => unreachable!(),
@@ -1112,7 +1301,7 @@ fn receive_hrmp() {
 		.add(1, || {
 			HANDLED_XCMP_MESSAGES.with(|m| {
 				let mut m = m.borrow_mut();
-				assert_eq!(&*m, &[(ParaId::from(300), 1, b"1".to_vec())]);
+				assert_eq!(&*m, &[(ParaId::from(300), 1, vec![1])]);
 				m.clear();
 			});
 		})
@@ -1122,9 +1311,9 @@ fn receive_hrmp() {
 				assert_eq!(
 					&*m,
 					&[
-						(ParaId::from(300), 2, b"2".to_vec()),
-						(ParaId::from(300), 3, b"3".to_vec()),
-						(ParaId::from(200), 4, b"4".to_vec()),
+						(ParaId::from(300), 2, vec![2]),
+						(ParaId::from(300), 3, vec![3]),
+						(ParaId::from(200), 4, vec![4]),
 					]
 				);
 				m.clear();
@@ -1159,19 +1348,19 @@ fn receive_hrmp_after_pause() {
 		.with_relay_sproof_builder(|_, relay_block_num, sproof| match relay_block_num {
 			1 => {
 				sproof.upsert_inbound_channel(ALICE).mqc_head =
-					Some(MessageQueueChain::default().extend_hrmp(&mk_hrmp(1)).head());
+					Some(MessageQueueChain::default().extend_hrmp(&mk_hrmp(1, 1)).head());
 			},
 			2 => {
 				// 300 - no new messages, mqc stayed the same.
 				sproof.upsert_inbound_channel(ALICE).mqc_head =
-					Some(MessageQueueChain::default().extend_hrmp(&mk_hrmp(1)).head());
+					Some(MessageQueueChain::default().extend_hrmp(&mk_hrmp(1, 1)).head());
 			},
 			3 => {
 				// 300 - new message.
 				sproof.upsert_inbound_channel(ALICE).mqc_head = Some(
 					MessageQueueChain::default()
-						.extend_hrmp(&mk_hrmp(1))
-						.extend_hrmp(&mk_hrmp(3))
+						.extend_hrmp(&mk_hrmp(1, 1))
+						.extend_hrmp(&mk_hrmp(3, 1))
 						.head(),
 				);
 			},
@@ -1179,20 +1368,20 @@ fn receive_hrmp_after_pause() {
 		})
 		.with_inherent_data(|_, relay_block_num, data| match relay_block_num {
 			1 => {
-				data.horizontal_messages.insert(ALICE, vec![mk_hrmp(1)]);
+				data.horizontal_messages.insert(ALICE, vec![mk_hrmp(1, 1)]);
 			},
 			2 => {
 				// no new messages
 			},
 			3 => {
-				data.horizontal_messages.insert(ALICE, vec![mk_hrmp(3)]);
+				data.horizontal_messages.insert(ALICE, vec![mk_hrmp(3, 1)]);
 			},
 			_ => unreachable!(),
 		})
 		.add(1, || {
 			HANDLED_XCMP_MESSAGES.with(|m| {
 				let mut m = m.borrow_mut();
-				assert_eq!(&*m, &[(ALICE, 1, b"1".to_vec())]);
+				assert_eq!(&*m, &[(ALICE, 1, vec![1])]);
 				m.clear();
 			});
 		})
@@ -1200,7 +1389,7 @@ fn receive_hrmp_after_pause() {
 		.add(3, || {
 			HANDLED_XCMP_MESSAGES.with(|m| {
 				let mut m = m.borrow_mut();
-				assert_eq!(&*m, &[(ALICE, 3, b"3".to_vec())]);
+				assert_eq!(&*m, &[(ALICE, 3, vec![3])]);
 				m.clear();
 			});
 		});
@@ -1224,7 +1413,7 @@ fn receive_hrmp_many() {
 			let mut msgs = vec![];
 			for _ in 1..=rng.gen_range(1..=100) {
 				// Just use the same message multiple times per block.
-				msgs.push(mk_hrmp(block));
+				msgs.push(mk_hrmp(block, 0));
 			}
 			sent_in_block.push(msgs);
 		}
