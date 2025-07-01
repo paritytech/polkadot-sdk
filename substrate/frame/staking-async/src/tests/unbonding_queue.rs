@@ -239,7 +239,7 @@ fn rebonding_after_one_era_and_unbonding_should_place_the_new_unbond_era_in_the_
 				UnlockChunk { value: 500, era: 2, previous_unbonded_stake: 0 }
 			]
 		);
-		assert_eq!(Staking::unbonding_duration(11), vec![(1 + 2, 10), (2 + 2, 500)]);
+		assert_eq!(Staking::unbonding_duration(11), vec![(1 + 2, 10), (2 + 3, 500)]);
 		assert_eq!(TotalUnbondInEra::<T>::get(1), Some(10));
 		assert_eq!(TotalUnbondInEra::<T>::get(2), Some(500));
 

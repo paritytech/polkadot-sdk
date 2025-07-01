@@ -926,7 +926,8 @@ impl<T: Config> Pallet<T> {
 			Ok(l) => l,
 			Err(_) => return ((current_era, Zero::zero()), BTreeMap::new()),
 		};
-		let target_era = current_era.saturating_add(1).saturating_sub(T::BondingDuration::get());
+		let earliest_considered_era =
+			current_era.saturating_add(1).saturating_sub(T::BondingDuration::get());
 		let (min_unlock_era, min_slashable_share) = match UnbondingQueueParams::<T>::get() {
 			None => (T::BondingDuration::get(), Zero::zero()),
 			Some(params) => (params.unbond_period_lower_bound, params.min_slashable_share),
@@ -940,10 +941,13 @@ impl<T: Config> Pallet<T> {
 				free.saturating_accrue(chunk.value);
 			} else {
 				let mut final_era = chunk.era.defensive_saturating_add(min_unlock_era);
-				for era in (target_era..=chunk.era).rev() {
-					let mut total_unbond = BalanceOf::<T>::zero();
-					let era_total_amount =
-						TotalUnbondInEra::<T>::get(chunk.era).unwrap_or_default();
+				let era_total_amount =
+					TotalUnbondInEra::<T>::get(chunk.era).unwrap_or(Zero::zero());
+				let lowest_stake = Eras::<T>::get_lowest_stake(chunk.era);
+				let threshold = (Perbill::from_percent(100) - min_slashable_share) * lowest_stake;
+
+				let mut total_unbond = BalanceOf::<T>::zero();
+				for era in (earliest_considered_era..=chunk.era).rev() {
 					let unbond = if era == chunk.era {
 						era_total_amount.min(
 							chunk.previous_unbonded_stake.defensive_saturating_add(chunk.value),
@@ -953,9 +957,6 @@ impl<T: Config> Pallet<T> {
 					};
 					total_unbond.saturating_accrue(unbond);
 
-					let lowest_stake = Eras::<T>::get_lowest_stake(chunk.era);
-					let threshold =
-						(Perbill::from_percent(100) - min_slashable_share) * lowest_stake;
 					if total_unbond >= threshold {
 						final_era = final_era
 							.max(chunk.era.defensive_saturating_add(T::BondingDuration::get()));
