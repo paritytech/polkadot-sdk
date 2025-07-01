@@ -20,7 +20,7 @@ use crate::{
 	precompiles::{BuiltinAddressMatcher, Error, ExtWithInfo, PrimitivePrecompile},
 	BalanceOf, Config, H256,
 };
-use alloc::vec::{self, Vec};
+use alloc::{vec, vec::Vec};
 use core::{marker::PhantomData, num::NonZero};
 use sp_core::U256;
 use sp_runtime::DispatchError;
