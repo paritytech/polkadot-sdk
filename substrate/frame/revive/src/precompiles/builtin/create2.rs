@@ -18,7 +18,7 @@
 use crate::{
 	address::AddressMapper,
 	precompiles::{BuiltinAddressMatcher, Error, ExtWithInfo, PrimitivePrecompile},
-	BalanceOf, Config, Pallet as Contracts, H256,
+	BalanceOf, Config, H256,
 };
 use core::{marker::PhantomData, num::NonZero};
 use sp_core::U256;
@@ -32,7 +32,7 @@ impl<T: Config> PrimitivePrecompile for Create2<T> {
 	const HAS_CONTRACT_INFO: bool = true;
 
 	fn call_with_info(
-		address: &[u8; 20],
+		_address: &[u8; 20],
 		input: Vec<u8>,
 		env: &mut impl ExtWithInfo<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
@@ -42,7 +42,7 @@ impl<T: Config> PrimitivePrecompile for Create2<T> {
 		let gas_limit = frame_support::weights::Weight::MAX;
 
 		// TODO(RVE): what value to put here?
-		let storage_deposit_limit = crate::DepositLimit::<BalanceOf<Self::T>>::UnsafeOnlyForDryRun;
+		let _storage_deposit_limit = crate::DepositLimit::<BalanceOf<Self::T>>::UnsafeOnlyForDryRun;
 
 		if input.len() < 160 {
 			Err(DispatchError::from("invalid input length"))?;

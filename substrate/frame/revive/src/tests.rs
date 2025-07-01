@@ -50,15 +50,12 @@ use frame_support::{
 	},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, FixedFee, IdentityFee, Weight, WeightMeter},
 };
-// use sp_runtime::traits::Bounded;
 use frame_system::{EventRecord, Phase};
-use num_traits::Bounded;
 use pallet_revive_fixtures::compile_module;
 use pallet_revive_uapi::{ReturnErrorCode as RuntimeReturnCode, ReturnFlags};
 use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
 use pretty_assertions::{assert_eq, assert_ne};
 use sp_core::U256;
-//use crate::U256;
 use sp_io::hashing::blake2_256;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
