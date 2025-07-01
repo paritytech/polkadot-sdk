@@ -106,7 +106,7 @@ unsafe impl GlobalAlloc for RuntimeAllocator {
 		if let Some(pointer) = local_allocator().alloc(align, size) {
 			pointer.as_ptr()
 		} else {
-			crate::allocator::malloc(layout.size() as u32)
+			crate::global_alloc_wasm_legacy::HostAllocator.alloc(layout)
 		}
 	}
 
@@ -115,7 +115,7 @@ unsafe impl GlobalAlloc for RuntimeAllocator {
 			// SAFETY: We've checked that the pointer is from the local allocator.
 			unsafe { local_allocator().free(NonNull::new_unchecked(ptr)) }
 		} else {
-			crate::allocator::free(ptr)
+			crate::global_alloc_wasm_legacy::HostAllocator.dealloc(ptr)
 		}
 	}
 
@@ -138,7 +138,7 @@ unsafe impl GlobalAlloc for RuntimeAllocator {
 		// The local allocator is full, so fall back to the host allocator.
 
 		let size = layout.size();
-		let ptr = crate::allocator::malloc(layout.size() as u32);
+		let ptr = crate::global_alloc_wasm_legacy::HostAllocator.alloc(layout);
 		if !ptr.is_null() {
 			// SAFETY: as allocation succeeded, the region from `ptr`
 			// of size `size` is guaranteed to be valid for writes.

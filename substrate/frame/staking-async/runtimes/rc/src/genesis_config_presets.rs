@@ -17,8 +17,8 @@
 //! Genesis configs presets for the Westend runtime
 
 use crate::{
-	AssetHubStakingClientConfig, BabeConfig, BalancesConfig, ConfigurationConfig, RegistrarConfig,
-	RuntimeGenesisConfig, SessionConfig, SessionKeys, SudoConfig, BABE_GENESIS_EPOCH_CONFIG,
+	BabeConfig, BalancesConfig, ConfigurationConfig, RegistrarConfig, RuntimeGenesisConfig,
+	SessionConfig, SessionKeys, StakingAhClientConfig, SudoConfig, BABE_GENESIS_EPOCH_CONFIG,
 };
 #[cfg(not(feature = "std"))]
 use alloc::format;
@@ -197,7 +197,7 @@ fn westend_testnet_genesis(
 		sudo: SudoConfig { key: Some(root_key) },
 		configuration: ConfigurationConfig { config: default_parachains_host_configuration() },
 		registrar: RegistrarConfig { next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID },
-		asset_hub_staking_client: AssetHubStakingClientConfig {
+		staking_ah_client: StakingAhClientConfig {
 			operating_mode: pallet_staking_async_ah_client::OperatingMode::Active,
 			..Default::default()
 		}
