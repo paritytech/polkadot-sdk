@@ -1223,14 +1223,15 @@ mod benchmarks {
 		c: Linear<1, { T::MaxUnlockingChunks::get() }>,
 	) -> Result<(), BenchmarkError> {
 		clear_validators_and_nominators::<T>();
-		let _ = crate::migrations::v18::v17::Ledger::<T>::clear(u32::MAX, None);
 		let mut meter = frame_support::weights::WeightMeter::new();
 		let stash = create_funded_user::<T>("stash", USER_SEED, 100);
 
 		let mut unlocking = vec![];
-		for _ in 0..c {
-			unlocking
-				.push(crate::migrations::v18::v17::UnlockChunk { value: 100_u32.into(), era: 10 });
+		for era in 0..c {
+			unlocking.push(crate::migrations::v18::v17::UnlockChunk {
+				value: 100_u32.into(),
+				era: 10 + era,
+			});
 		}
 		crate::migrations::v18::v17::Ledger::<T>::insert(
 			stash.clone(),
