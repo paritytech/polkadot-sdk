@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod bootnodes;
-mod elastic_scaling_multiple_blocks_per_slot;
-mod elastic_scaling_pov_recovery;
-mod elastic_scaling_slot_based_authoring;
-mod elastic_scaling_slot_based_rp_offset;
+mod elastic_scaling;
 mod full_node_catching_up;
 mod full_node_warp_sync;
 mod migrate_solo;

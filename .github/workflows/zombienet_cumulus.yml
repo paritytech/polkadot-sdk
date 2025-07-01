@@ -254,7 +254,7 @@ jobs:
           gh-token: ${{ secrets.GITHUB_TOKEN }}
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-          test: "zombie_ci::elastic_scaling_slot_based_authoring::elastic_scaling_slot_based_authoring"
+          test: "zombie_ci::elastic_scaling::slot_based_authoring::elastic_scaling_slot_based_authoring"
           prefix: "cumulus"
 
   zombienet-cumulus-0009-elastic_scaling_pov_recovery:
@@ -281,7 +281,7 @@ jobs:
           gh-token: ${{ secrets.GITHUB_TOKEN }}
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-          test: "zombie_ci::elastic_scaling_pov_recovery::elastic_scaling_pov_recovery"
+          test: "zombie_ci::elastic_scaling::pov_recovery::elastic_scaling_pov_recovery"
           prefix: "cumulus"
 
   zombienet-cumulus-0010-elastic_scaling_multiple_block_per_slot:
@@ -308,7 +308,7 @@ jobs:
           gh-token: ${{ secrets.GITHUB_TOKEN }}
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-          test: "zombie_ci::elastic_scaling_multiple_blocks_per_slot::elastic_scaling_multiple_blocks_per_slot"
+          test: "zombie_ci::elastic_scaling::multiple_blocks_per_slot::elastic_scaling_multiple_blocks_per_slot"
           prefix: "cumulus"
 
   zombienet-cumulus-0011-dht-bootnodes:
@@ -389,5 +389,5 @@ jobs:
           gh-token: ${{ secrets.GITHUB_TOKEN }}
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-          test: "zombie_ci::elastic_scaling_slot_based_rp_offset::elastic_scaling_slot_based_relay_parent_offset_test"
+          test: "zombie_ci::elastic_scaling::slot_based_rp_offset::elastic_scaling_slot_based_relay_parent_offset_test"
           prefix: "cumulus"
