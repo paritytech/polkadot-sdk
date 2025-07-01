@@ -10,22 +10,22 @@ doc:
 
 crates:
  - name: asset-hub-rococo-runtime
-   bump: minor
+   bump: patch
  - name: asset-hub-westend-runtime
-   bump: minor
+   bump: major
  - name: bridge-hub-rococo-runtime
-   bump: minor
+   bump: patch
  - name: bridge-hub-westend-runtime
-   bump: minor
+   bump: patch
  - name: collectives-westend-runtime
-   bump: minor
+   bump: patch
  - name: coretime-rococo-runtime
-   bump: minor
+   bump: patch
  - name: coretime-westend-runtime
    bump: major
  - name: people-rococo-runtime
-   bump: minor
+   bump: patch
  - name: people-westend-runtime
-   bump: minor
+   bump: major
  - name: testnet-parachains-constants
-   bump: minor
+   bump: patch
