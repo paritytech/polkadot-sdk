@@ -1303,3 +1303,87 @@ fn award_bounty_fails() {
 		);
 	})
 }
+
+#[test]
+fn close_bounty_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given
+		let s = create_funded_parent_bounty();
+
+		// When
+		assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), s.parent_bounty_id, None,));
+
+		// Then
+		let payment_id =
+			get_payment_id(s.parent_bounty_id, None, None).expect("no payment attempt");
+		assert_eq!(
+			last_event(),
+			BountiesEvent::BountyCanceled { index: s.parent_bounty_id, child_index: None }
+		);
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id).unwrap(),
+			Bounty {
+				asset_kind: s.asset_kind,
+				value: s.value,
+				fee: s.fee,
+				curator_deposit: 0,
+				status: BountyStatus::RefundAttempted {
+					curator: Some(s.curator),
+					payment_status: PaymentState::Attempted { id: payment_id }
+				},
+			}
+		);
+
+		// Given
+		let s = create_parent_bounty_with_unassigned_curator();
+
+		// When
+		assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), s.parent_bounty_id, None,));
+
+		// Then
+		let payment_id =
+			get_payment_id(s.parent_bounty_id, None, None).expect("no payment attempt");
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id).unwrap(),
+			Bounty {
+				asset_kind: s.asset_kind,
+				value: s.value,
+				fee: s.fee,
+				curator_deposit: 0,
+				status: BountyStatus::RefundAttempted {
+					curator: None,
+					payment_status: PaymentState::Attempted { id: payment_id }
+				},
+			}
+		);
+	})
+}
+
+#[test]
+fn close_bounty_fails() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given
+		let s = create_parent_bounty();
+
+		// When/Then
+		assert_noop!(
+			Bounties::close_bounty(RuntimeOrigin::root(), s.parent_bounty_id, None,),
+			Error::<Test>::UnexpectedStatus
+		);
+
+		// Given
+		let s = create_funded_parent_bounty();
+
+		// When/Then
+		assert_noop!(
+			Bounties::close_bounty(RuntimeOrigin::none(), s.parent_bounty_id, None,),
+			BadOrigin
+		);
+
+		// When/Then
+		assert_noop!(
+			Bounties::close_bounty(RuntimeOrigin::root(), 3, None,),
+			Error::<Test>::InvalidIndex
+		);
+	})
+}
