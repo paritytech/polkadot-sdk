@@ -320,7 +320,7 @@ impl pallet_assets_vesting::Config<TrustBackedAssetsVestingInstance> for Runtime
 	type Assets = Assets;
 	type Freezer = AssetsFreezer;
 	type BlockNumberToBalance = ConvertInto;
-	type WeightInfo = weights::pallet_assets_vesting_local_vesting::WeightInfo<Self>;
+	type WeightInfo = ();
 	type MinVestedTransfer = TrustBackedMinVestedTransfer;
 	type BlockNumberProvider = System;
 	const MAX_VESTING_SCHEDULES: u32 = 28;
@@ -624,7 +624,7 @@ impl pallet_assets_vesting::Config<ForeignAssetsVestingInstance> for Runtime {
 	type Assets = ForeignAssets;
 	type Freezer = ForeignAssetsFreezer;
 	type BlockNumberToBalance = ConvertInto;
-	type WeightInfo = weights::pallet_assets_vesting_foreign_vesting::WeightInfo<Self>;
+	type WeightInfo = ();
 	type MinVestedTransfer = ForeignMinVestedTransfer;
 	type BlockNumberProvider = System;
 	const MAX_VESTING_SCHEDULES: u32 = 28;

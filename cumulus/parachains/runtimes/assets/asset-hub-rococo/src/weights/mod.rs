@@ -28,8 +28,6 @@ pub mod pallet_asset_rewards;
 pub mod pallet_assets_foreign;
 pub mod pallet_assets_local;
 pub mod pallet_assets_pool;
-pub mod pallet_assets_vesting_foreign_vesting;
-pub mod pallet_assets_vesting_local_vesting;
 pub mod pallet_balances;
 pub mod pallet_collator_selection;
 pub mod pallet_message_queue;
