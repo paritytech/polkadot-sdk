@@ -214,7 +214,7 @@ impl ExtBuilder {
 					(assets[0].id, 12, 10, 20, 5 * assets[0].minimum_balance),
 				])
 				.into_iter()
-				.map(|(id, who, begin, length, liquid)| (id.encode(), who, begin, length, liquid))
+				.map(|(id, who, begin, length, liquid)| (id, who, begin, length, liquid))
 				.collect(),
 		}
 		.assimilate_storage(&mut t)

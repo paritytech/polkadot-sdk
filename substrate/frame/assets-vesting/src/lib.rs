@@ -79,6 +79,8 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>:
 		frame_system::Config<RuntimeEvent: From<Event<Self, I>>>
+	where
+		AssetIdOf<Self, I>: MaybeSerializeDeserialize,
 	{
 		/// An Origin that can control the `force` calls.
 		type ForceOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -134,7 +136,7 @@ pub mod pallet {
 	pub struct Pallet<T, I = ()>(_);
 
 	pub type GenesisVestingSchedule<T, I> =
-		(Vec<u8>, AccountIdOf<T>, BlockNumberFor<T>, BlockNumberFor<T>, BalanceOf<T, I>);
+		(AssetIdOf<T, I>, AccountIdOf<T>, BlockNumberFor<T>, BlockNumberFor<T>, BalanceOf<T, I>);
 
 	#[pallet::genesis_config]
 	#[derive(DefaultNoBound)]
@@ -151,9 +153,7 @@ pub mod pallet {
 			// * begin - Block when the account will start to vest
 			// * length - Number of blocks from `begin` until fully vested
 			// * liquid - Number of units which can be spent before vesting begins
-			for &(ref id, ref who, begin, length, liquid) in self.vesting.iter() {
-				let asset = AssetIdOf::<T, I>::decode(&mut TrailingZeroInput::new(id))
-					.expect("Invalid AssetId encoding");
+			for &(ref asset, ref who, begin, length, liquid) in self.vesting.iter() {
 				let balance = T::Assets::total_balance(asset.clone(), who);
 				assert!(!balance.is_zero(), "Assets must be init'd before vesting");
 
@@ -162,7 +162,7 @@ pub mod pallet {
 				let length_as_balance = T::BlockNumberToBalance::convert(length);
 				let per_block = (frozen / length_as_balance.max(One::one())).max(One::one());
 
-				Pallet::<T, I>::add_vesting_schedule(asset, who, frozen, per_block, begin)
+				Pallet::<T, I>::add_vesting_schedule(asset.clone(), who, frozen, per_block, begin)
 					.map_err(|err| {
 						let DispatchError::Module(ModuleError { message: Some(message), .. }) =
 							err.into()
@@ -669,6 +669,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 impl<T: Config<I>, I: 'static> VestedInspect<T::AccountId> for Pallet<T, I>
 where
+	AssetIdOf<T, I>: MaybeSerializeDeserialize,
 	BalanceOf<T, I>: MaybeSerializeDeserialize + Debug,
 {
 	type Moment = BlockNumberFor<T>;
@@ -758,6 +759,7 @@ impl<T: Config<I>, I: 'static> VestedMutate<T::AccountId> for Pallet<T, I> {
 
 impl<T: Config<I>, I: 'static> VestedTransfer<T::AccountId> for Pallet<T, I>
 where
+	AssetIdOf<T, I>: MaybeSerializeDeserialize,
 	BalanceOf<T, I>: MaybeSerializeDeserialize + Debug,
 {
 	type Moment = BlockNumberFor<T>;

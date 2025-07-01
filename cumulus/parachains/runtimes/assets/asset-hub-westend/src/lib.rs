@@ -597,7 +597,7 @@ impl pallet_assets_vesting::Config<ForeignAssetsVestingInstance> for Runtime {
 	type Freezer = ForeignAssetsFreezer;
 	type BlockNumberToBalance = ConvertInto;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type WeightInfo = weights::pallet_assets_vesting::WeightInfo<Self>;
+	type WeightInfo = weights::pallet_assets_vesting_foreign_vesting::WeightInfo<Self>;
 	type MinVestedTransfer = ForeignMinVestedTransfer;
 	type BlockNumberProvider = System;
 	const MAX_VESTING_SCHEDULES: u32 = 28;
