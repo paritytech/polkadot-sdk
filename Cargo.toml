@@ -675,7 +675,7 @@ blake2 = { version = "0.10.4", default-features = false }
 blake2b_simd = { version = "1.0.2", default-features = false }
 blake3 = { version = "1.5" }
 bn = { package = "substrate-bn", version = "0.6", default-features = false }
-bounded-collections = { version = "0.2.4", default-features = false }
+bounded-collections = { version = "0.3.2", default-features = false }
 bounded-vec = { version = "0.7" }
 bp-asset-hub-rococo = { path = "cumulus/parachains/runtimes/assets/asset-hub-rococo/bridge-primitives", default-features = false }
 bp-asset-hub-westend = { path = "cumulus/parachains/runtimes/assets/asset-hub-westend/bridge-primitives", default-features = false }
