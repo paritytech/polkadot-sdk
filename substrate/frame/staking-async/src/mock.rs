@@ -436,7 +436,6 @@ impl crate::pallet::pallet::Config for Test {
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
 	type MaxInvulnerables = ConstU32<20>;
-	type MaxDisabledValidators = ConstU32<100>;
 	type MaxEraDuration = MaxEraDuration;
 	type PlanningEraOffset = PlanningEraOffset;
 	type Filter = MockedRestrictList;
