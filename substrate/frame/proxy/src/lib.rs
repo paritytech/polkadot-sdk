@@ -79,7 +79,7 @@ pub struct ProxyDefinition<AccountId, ProxyType, BlockNumber> {
 }
 
 /// Details surrounding a specific instance of an announcement to make a call.
-#[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Copy, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 pub struct Announcement<AccountId, Hash, BlockNumber> {
 	/// The account which made the announcement.
 	real: AccountId,
@@ -93,6 +93,7 @@ pub struct Announcement<AccountId, Hash, BlockNumber> {
 #[derive(
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Clone,
 	Copy,
 	Eq,
@@ -100,7 +101,6 @@ pub struct Announcement<AccountId, Hash, BlockNumber> {
 	RuntimeDebug,
 	MaxEncodedLen,
 	TypeInfo,
-	DecodeWithMemTracking,
 )]
 pub enum DepositKind {
 	/// Proxy registration deposit

@@ -44,7 +44,7 @@ use crate::{AccountVote, Conviction, Vote};
 	MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(Total))]
-#[codec(mel_bound(Votes: MaxEncodedLen))]
+#[codec(mel_bound(Votes: MaxEncodedLen + DecodeWithMemTracking))]
 pub struct Tally<Votes: Clone + PartialEq + Eq + Debug + TypeInfo + Codec, Total> {
 	/// The number of aye votes, expressed in terms of post-conviction lock-vote.
 	pub ayes: Votes,
