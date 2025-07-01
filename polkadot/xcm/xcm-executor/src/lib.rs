@@ -984,7 +984,16 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let reanchor_context = Config::UniversalLocation::get();
 					assets
 						.reanchor(&dest, &reanchor_context)
-						.map_err(|()| XcmError::LocationFull)?;
+						.map_err(|()| {
+							tracing::debug!(
+								target: "xcm::process_instruction::transfer_reserve_asset",
+								?assets,
+								?dest,
+								?reanchor_context,
+								"Failed to reanchor assets to destination in context"
+							);
+							XcmError::LocationFull
+						})?;
 					let mut message = vec![ReserveAssetDeposited(assets), ClearOrigin];
 					message.extend(xcm.0.into_iter());
 					self.send(dest, Xcm(message), FeeReason::TransferReserveAsset)?;
@@ -1265,7 +1274,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 								let teleport_fees = self
 									.holding
 									.try_take(fees_filter)
-									.map_err(|_| XcmError::NotHoldingFees)?;
+									.map_err(|error| {
+										tracing::debug!(
+											target: "xcm::process_instruction::initiate_transfer", ?error,
+											"Failed to take specified teleport fees from holding"
+										);
+										XcmError::NotHoldingFees
+									})?;
 								Self::do_teleport_assets(
 									teleport_fees,
 									&destination,
@@ -1277,7 +1292,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 								let reserve_deposit_fees = self
 									.holding
 									.try_take(fees_filter)
-									.map_err(|_| XcmError::NotHoldingFees)?;
+									.map_err(|error| {
+										tracing::debug!(
+											target: "xcm::process_instruction::initiate_transfer", ?error,
+											"Failed to take specified reserve deposit fees from holding"
+										);
+										XcmError::NotHoldingFees
+									})?;
 								Self::do_reserve_deposit_assets(
 									reserve_deposit_fees,
 									&destination,
@@ -1289,7 +1310,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 								let reserve_withdraw_fees = self
 									.holding
 									.try_take(fees_filter)
-									.map_err(|_| XcmError::NotHoldingFees)?;
+									.map_err(|error| {
+										tracing::debug!(
+											target: "xcm::process_instruction::initiate_transfer", ?error,
+											"Failed to take specified reserve withdraw fees from holding"
+										);
+										XcmError::NotHoldingFees
+									})?;
 								Self::do_reserve_withdraw_assets(
 									reserve_withdraw_fees,
 									&mut self.holding,
@@ -1437,7 +1464,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				// Pay for execution fees.
 				let result = Config::TransactionalProcessor::process(|| {
 					let max_fee =
-						self.holding.try_take(asset.into()).map_err(|_| XcmError::NotHoldingFees)?;
+						self.holding.try_take(asset.into()).map_err(|error| {
+							tracing::debug!(
+								target: "xcm::process_instruction::pay_fees", ?error,
+								"Failed to take fees from holding"
+							);
+							XcmError::NotHoldingFees
+						})?;
 					let unspent =
 						self.trader.buy_weight(self.message_weight, max_fee, &self.context)?;
 					// Move unspent to the `fees` register, it can later be moved to holding
@@ -1563,7 +1596,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					.collect::<Result<Vec<_>, XcmError>>()?;
 				let QueryResponseInfo { destination, query_id, max_weight } = response_info;
 				let response =
-					Response::PalletsInfo(pallets.try_into().map_err(|_| XcmError::Overflow)?);
+					Response::PalletsInfo(pallets.try_into().map_err(|error| {
+						tracing::debug!(
+							target: "xcm::process_instruction::query_pallet", ?error,
+							"Failed to convert pallets to response info"
+						);
+						XcmError::Overflow
+					})?);
 				let querier = Self::to_querier(self.cloned_origin(), &destination)?;
 				let instruction = QueryResponse { query_id, response, max_weight, querier };
 				let message = Xcm(vec![instruction]);
@@ -1621,7 +1660,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let origin = self.context.origin.as_ref().ok_or(XcmError::BadOrigin)?.clone();
 				let universal_source = Config::UniversalLocation::get()
 					.within_global(origin)
-					.map_err(|()| XcmError::Unanchored)?;
+					.map_err(|()| {
+						tracing::debug!(
+							target: "xcm::process_instruction::export_message",
+							"Failed to reanchor origin to universal location",
+						);
+						XcmError::Unanchored
+					})?;
 				let hash = (self.origin_ref(), &destination).using_encoded(blake2_128);
 				let channel = u32::decode(&mut hash.as_ref()).unwrap_or(0);
 				// Hash identifies the lane on the exporter which we use. We use the pairwise

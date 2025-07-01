@@ -22,13 +22,13 @@ use crate::{
 	call_builder::CallSetup,
 	exec::Stack,
 	tests::{ExtBuilder, Test},
-	wasm::WasmBlob,
+	vm::ContractBlob,
 };
 use alloy_core::hex as alloy_hex;
 use core::num::NonZero;
 use sp_core::hex2array as hex;
 
-type Env<'a> = Stack<'a, Test, WasmBlob<Test>>;
+type Env<'a> = Stack<'a, Test, ContractBlob<Test>>;
 
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -253,4 +253,20 @@ fn public_matching_works() {
 
 	assert_eq!(matcher_prefix.base_address(), hex!("0000000000000000000000000000000000080000"));
 	assert_eq!(matcher_prefix.highest_address(), hex!("FFFFFFFF00000000000000000000000000080000"));
+}
+
+#[test]
+fn primitives_have_no_code() {
+	for i in 0x01..0x0A {
+		let address = H160::from_low_u64_be(i).to_fixed_bytes();
+		let code = <Builtin<Test>>::code(&address).unwrap();
+		assert_eq!(code, &[0u8; 0]);
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+#[test]
+fn benchmarking_precompile_has_code() {
+	let code = <Builtin<Test>>::code(&hex!("000000000000000000000000000000000000FFFF")).unwrap();
+	assert_eq!(code, EVM_REVERT);
 }
