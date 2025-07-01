@@ -231,9 +231,7 @@ where
 	) -> HashMap<Block::Hash, Vec<Result<ViewStoreSubmitOutcome<ChainApi>, ChainApi::Error>>> {
 		let submit_futures = {
 			let active_views = self.active_views.read();
-			active_views
-				.iter()
-				.map(|(_, view)| {
+			active_views.values().map(|view| {
 					let view = view.clone();
 					let xts = xts.clone();
 					async move {
@@ -261,9 +259,7 @@ where
 	) -> Result<ViewStoreSubmitOutcome<ChainApi>, ChainApi::Error> {
 		let active_views = self
 			.active_views
-			.read()
-			.iter()
-			.map(|(_, view)| view.clone())
+			.read().values().map(|view| view.clone())
 			.collect::<Vec<_>>();
 
 		let tx_hash = self.api.hash_and_length(&xt).0;
@@ -308,9 +304,7 @@ where
 		};
 		let submit_futures = {
 			let active_views = self.active_views.read();
-			active_views
-				.iter()
-				.map(|(_, view)| {
+			active_views.values().map(|view| {
 					let view = view.clone();
 					let xt = xt.clone();
 					let source = source.clone();
@@ -667,9 +661,7 @@ where
 		let start = Instant::now();
 		let finish_revalidation_futures = {
 			let active_views = self.active_views.read();
-			active_views
-				.iter()
-				.map(|(_, view)| {
+			active_views.values().map(|view| {
 					let view = view.clone();
 					async move { view.finish_revalidation().await }
 				})

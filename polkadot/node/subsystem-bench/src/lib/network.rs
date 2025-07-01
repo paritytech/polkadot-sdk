@@ -149,6 +149,9 @@ impl RateLimit {
 
 /// A wrapper for both gossip and request/response protocols along with the destination
 /// peer(`AuthorityDiscoveryId``).
+// Dev note: clippy warning is because RequestFromNode is at least 1160 bytes and second 
+// largest variant is MessageFromPeer which is at least 240 bytes.
+#[allow(clippy::large_enum_variant)]
 pub enum NetworkMessage {
 	/// A gossip message from peer to node.
 	MessageFromPeer(PeerId, VersionedValidationProtocol),
@@ -784,7 +787,7 @@ pub fn new_network(
 	handlers: Vec<Arc<dyn HandleNetworkMessage + Sync + Send>>,
 ) -> (NetworkEmulatorHandle, NetworkInterface, NetworkInterfaceReceiver) {
 	let n_peers = config.n_validators;
-	gum::info!(target: LOG_TARGET, "{}",format!("Initializing emulation for a {} peer network.", n_peers).bright_blue());
+	gum::info!(target: LOG_TARGET, "{}",format!("Initializing emulation for a {n_peers} peer network.").bright_blue());
 	gum::info!(target: LOG_TARGET, "{}",format!("connectivity {}%, latency {:?}", config.connectivity, config.latency).bright_black());
 
 	let metrics =
@@ -828,7 +831,7 @@ pub fn new_network(
 		peers[*peer].disconnect();
 	}
 
-	gum::info!(target: LOG_TARGET, "{}",format!("Network created, connected validator count {}", connected_count).bright_black());
+	gum::info!(target: LOG_TARGET, "{}",format!("Network created, connected validator count {connected_count}").bright_black());
 
 	let handle = NetworkEmulatorHandle {
 		peers,
@@ -982,14 +985,14 @@ impl Metrics {
 	/// Increment total sent for a peer.
 	pub fn on_peer_sent(&self, peer_index: usize, bytes: usize) {
 		self.peer_total_sent
-			.with_label_values(vec![format!("node{}", peer_index).as_str()].as_slice())
+			.with_label_values(vec![format!("node{peer_index}").as_str()].as_slice())
 			.inc_by(bytes as u64);
 	}
 
 	/// Increment total received for a peer.
 	pub fn on_peer_received(&self, peer_index: usize, bytes: usize) {
 		self.peer_total_received
-			.with_label_values(vec![format!("node{}", peer_index).as_str()].as_slice())
+			.with_label_values(vec![format!("node{peer_index}").as_str()].as_slice())
 			.inc_by(bytes as u64);
 	}
 }
