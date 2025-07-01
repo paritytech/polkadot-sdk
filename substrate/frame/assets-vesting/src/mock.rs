@@ -17,7 +17,7 @@
 
 use crate as pallet_assets_vesting;
 pub use frame::{
-	deps::{codec::Encode, sp_runtime::traits::Identity},
+	deps::sp_runtime::traits::Identity,
 	testing_prelude::{Get, *},
 };
 use std::collections::HashSet;
@@ -94,7 +94,6 @@ impl pallet_assets_vesting::Config for Test {
 	type Assets = Assets;
 	type Freezer = AssetsFreezer;
 	type BlockNumberToBalance = Identity;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type WeightInfo = ();
 	type MinVestedTransfer = MinVestedTransfer;
 	type BlockNumberProvider = System;

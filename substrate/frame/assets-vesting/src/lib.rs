@@ -81,6 +81,7 @@ pub mod pallet {
 		frame_system::Config<RuntimeEvent: From<Event<Self, I>>>
 	where
 		AssetIdOf<Self, I>: MaybeSerializeDeserialize,
+		AssetFreezeReasonOf<Self, I>: From<FreezeReason<I>>,
 	{
 		/// An Origin that can control the `force` calls.
 		type ForceOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -92,14 +93,13 @@ pub mod pallet {
 		/// Type represents interactions between assets
 		#[cfg(feature = "runtime-benchmarks")]
 		type Assets: Mutate<AccountIdOf<Self>> + Create<AccountIdOf<Self>>;
-		
+
 		/// Type allows handling fungibles' freezes.
 		type Freezer: MutateFreeze<
-				AccountIdOf<Self>,
-				Id = Self::RuntimeFreezeReason,
-				AssetId = AssetIdOf<Self, I>,
-				Balance = BalanceOf<Self, I>,
-			>;
+			AccountIdOf<Self>,
+			AssetId = AssetIdOf<Self, I>,
+			Balance = BalanceOf<Self, I>,
+		>;
 
 		/// Convert the block number into a balance.
 		type BlockNumberToBalance: Convert<BlockNumberFor<Self>, BalanceOf<Self, I>>;

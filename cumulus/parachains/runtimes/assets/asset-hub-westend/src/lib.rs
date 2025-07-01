@@ -308,7 +308,6 @@ impl pallet_assets_vesting::Config<TrustBackedAssetsVestingInstance> for Runtime
 	type Assets = Assets;
 	type Freezer = AssetsFreezer;
 	type BlockNumberToBalance = ConvertInto;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type WeightInfo = weights::pallet_assets_vesting_local_vesting::WeightInfo<Self>;
 	type MinVestedTransfer = TrustBackedMinVestedTransfer;
 	type BlockNumberProvider = System;
@@ -596,7 +595,6 @@ impl pallet_assets_vesting::Config<ForeignAssetsVestingInstance> for Runtime {
 	type Assets = ForeignAssets;
 	type Freezer = ForeignAssetsFreezer;
 	type BlockNumberToBalance = ConvertInto;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type WeightInfo = weights::pallet_assets_vesting_foreign_vesting::WeightInfo<Self>;
 	type MinVestedTransfer = ForeignMinVestedTransfer;
 	type BlockNumberProvider = System;

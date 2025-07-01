@@ -18,7 +18,10 @@
 //! Module to manage types related to vesting.
 
 use super::*;
+use fungibles::InspectFreeze;
 
+pub(crate) type AssetFreezeReasonOf<T, I> =
+	<<T as Config<I>>::Freezer as InspectFreeze<AccountIdOf<T>>>::Id;
 pub(crate) type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 pub(crate) type AssetIdOf<T, I = ()> =
 	<<T as Config<I>>::Assets as Inspect<AccountIdOf<T>>>::AssetId;
