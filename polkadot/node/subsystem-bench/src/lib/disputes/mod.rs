@@ -17,15 +17,15 @@
 //! Subsystem benchmark for the dispute coordinator and dispute distribution subsystems.
 //!
 //! Scenarios:
-//! 1. Dispute participation
-//! 	- Dispute distribution receives a DisputeRequest message from Validator 1 with votes
-//! 		- valid (Validator 1)
-//! 		- invalid (Validator 3)
-//! 	- Dispute distribution sends DisputeCoordinatorMessage::ImportStatements
-//! 	- Dispute coordinator imports the votes and participate in the dispute.
-//! 	- Dispute coordinator sends DisputeDistributionMessage::SendDispute
-//! 	- Dispute distribution sends DisputeRequest to all validators.
-//! 2. TODO: Dispute confirmed: we need 1/3+1 votes per candidate
+//! 1. Dispute participation.
+//!   - Dispute distribution receives a DisputeRequest message from Validator 1 with votes:
+//!     - valid (Validator 1).
+//!     - invalid (Validator 3) <- malicious.
+//!   - Dispute distribution sends DisputeCoordinatorMessage::ImportStatements.
+//!   - Dispute coordinator imports the votes and participate in the dispute.
+//!   - Dispute coordinator sends DisputeDistributionMessage::SendDispute.
+//!   - Dispute distribution sends DisputeRequest to all validators.
+//! 2. TODO: Dispute confirmed: we need 1/3+1 votes per candidate.
 //! 3. TODO: Dispute concluded: we need 2/3+1 votes per candidate. Here we can test db population
 //! 4. TODO: Spamming: a combination of scenario 3 + multiple of scenario 1
 
