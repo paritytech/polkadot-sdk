@@ -1499,7 +1499,6 @@ pub mod pallet {
 				let previous_unbonded_stake =
 					TotalUnbondInEra::<T>::get(current_era).unwrap_or(Zero::zero());
 
-				// TODO: check this execution path
 				if let Some(chunk) =
 					ledger.unlocking.last_mut().filter(|chunk| chunk.era == current_era)
 				{

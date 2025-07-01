@@ -145,10 +145,6 @@ pub fn prepare_unbonding_scenario<T: Config>() {
 		}),
 	)
 	.expect("failed to set staking configs");
-
-	for _ in 0..T::BondingDuration::get() {
-		Eras::<T>::set_lowest_stake(0, 1000u32.into());
-	}
 }
 
 struct ListScenario<T: Config> {
