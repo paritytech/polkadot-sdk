@@ -264,7 +264,6 @@ impl pallet_staking_async::Config for Runtime {
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = ();
 	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
-	type MaxDisabledValidators = ConstU32<100>;
 	type PlanningEraOffset = PlanningEraOffset;
 	type RcClientInterface = StakingRcClient;
 	type MaxEraDuration = MaxEraDuration;
