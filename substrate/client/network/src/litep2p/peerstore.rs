@@ -40,7 +40,7 @@ use std::{
 };
 
 /// Logging target for the file.
-const LOG_TARGET: &str = "sub-libp2p::peerstore";
+const LOG_TARGET: &str = "sub-litep2p::peerstore";
 
 /// We don't accept nodes whose reputation is under this value.
 pub const BANNED_THRESHOLD: i32 = 71 * (i32::MIN / 100);

@@ -47,7 +47,7 @@ pub mod peerset;
 mod tests;
 
 /// Logging target for the file.
-const LOG_TARGET: &str = "sub-libp2p::notification";
+const LOG_TARGET: &str = "sub-litep2p::notification";
 
 /// Wrapper over `litep2p`'s notification sink.
 pub struct Litep2pMessageSink {

@@ -59,7 +59,7 @@ use std::{
 };
 
 /// Logging target for the file.
-const LOG_TARGET: &str = "sub-libp2p";
+const LOG_TARGET: &str = "sub-litep2p";
 
 /// Commands sent by [`Litep2pNetworkService`] to
 /// [`Litep2pNetworkBackend`](super::Litep2pNetworkBackend).

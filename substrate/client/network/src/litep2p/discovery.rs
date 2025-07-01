@@ -59,7 +59,7 @@ use std::{
 };
 
 /// Logging target for the file.
-const LOG_TARGET: &str = "sub-libp2p::discovery";
+const LOG_TARGET: &str = "sub-litep2p::discovery";
 
 /// Kademlia query interval.
 const KADEMLIA_QUERY_INTERVAL: Duration = Duration::from_secs(5);

@@ -52,7 +52,7 @@ mod metrics;
 mod tests;
 
 /// Logging target for the file.
-const LOG_TARGET: &str = "sub-libp2p::request-response";
+const LOG_TARGET: &str = "sub-litep2p::request-response";
 
 /// Type containing information related to an outbound request.
 #[derive(Debug)]

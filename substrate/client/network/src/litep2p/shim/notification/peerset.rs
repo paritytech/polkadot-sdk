@@ -64,7 +64,7 @@ use std::{
 };
 
 /// Logging target for the file.
-const LOG_TARGET: &str = "sub-libp2p::peerset";
+const LOG_TARGET: &str = "sub-litep2p::peerset";
 
 /// Default backoff for connection re-attempts.
 const DEFAULT_BACKOFF: Duration = Duration::from_secs(5);
