@@ -940,14 +940,12 @@ impl<T: Config> Pallet<T> {
 				// We can immediately withdraw these funds.
 				free.saturating_accrue(chunk.value);
 			} else {
+				// Optimistically set the final releasing era to the minimum possible.
 				let mut final_era = chunk.era.defensive_saturating_add(min_unlock_era);
-				let era_total_amount =
-					TotalUnbondInEra::<T>::get(chunk.era).unwrap_or(Zero::zero());
-				let lowest_stake = Eras::<T>::get_lowest_stake(chunk.era);
-				let threshold = (Perbill::from_percent(100) - min_slashable_share) * lowest_stake;
-
 				let mut total_unbond = BalanceOf::<T>::zero();
+
 				for era in (earliest_considered_era..=chunk.era).rev() {
+					let era_total_amount = TotalUnbondInEra::<T>::get(era).unwrap_or(Zero::zero());
 					let unbond = if era == chunk.era {
 						era_total_amount.min(
 							chunk.previous_unbonded_stake.defensive_saturating_add(chunk.value),
@@ -957,6 +955,9 @@ impl<T: Config> Pallet<T> {
 					};
 					total_unbond.saturating_accrue(unbond);
 
+					let lowest_stake = Eras::<T>::get_lowest_stake(era);
+					let threshold =
+						(Perbill::from_percent(100) - min_slashable_share) * lowest_stake;
 					if total_unbond >= threshold {
 						final_era = final_era
 							.max(chunk.era.defensive_saturating_add(T::BondingDuration::get()));

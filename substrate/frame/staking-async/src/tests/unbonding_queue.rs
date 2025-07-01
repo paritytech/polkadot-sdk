@@ -201,8 +201,9 @@ fn correct_unbond_era_is_being_calculated_without_config_set() {
 fn rebonding_after_one_era_and_unbonding_should_place_the_new_unbond_era_in_the_queue() {
 	ExtBuilder::default().has_unbonding_queue_config(true).build_and_execute(|| {
 		// Start at era 1 with known minimum lowest stake
+		Session::roll_until_active_era(10);
 		let current_era = Staking::current_era();
-		assert_eq!(current_era, 1);
+		assert_eq!(current_era, 10);
 
 		// First unbond
 		assert_eq!(
@@ -221,13 +222,13 @@ fn rebonding_after_one_era_and_unbonding_should_place_the_new_unbond_era_in_the_
 				.unwrap()
 				.unlocking
 				.into_inner(),
-			vec![UnlockChunk { value: 10, era: 1, previous_unbonded_stake: 0 }]
+			vec![UnlockChunk { value: 10, era: 10, previous_unbonded_stake: 0 }]
 		);
-		assert_eq!(Staking::unbonding_duration(11), vec![(1 + 2, 10)]);
-		assert_eq!(TotalUnbondInEra::<T>::get(1), Some(10));
+		assert_eq!(Staking::unbonding_duration(11), vec![(10 + 2, 10)]);
+		assert_eq!(TotalUnbondInEra::<T>::get(10), Some(10));
 
 		// Second unbond
-		Session::roll_until_active_era(2);
+		Session::roll_until_active_era(11);
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 500));
 		assert_eq!(
 			StakingLedger::<Test>::get(StakingAccount::Stash(11))
@@ -235,13 +236,13 @@ fn rebonding_after_one_era_and_unbonding_should_place_the_new_unbond_era_in_the_
 				.unlocking
 				.into_inner(),
 			vec![
-				UnlockChunk { value: 10, era: 1, previous_unbonded_stake: 0 },
-				UnlockChunk { value: 500, era: 2, previous_unbonded_stake: 0 }
+				UnlockChunk { value: 10, era: 10, previous_unbonded_stake: 0 },
+				UnlockChunk { value: 500, era: 11, previous_unbonded_stake: 0 }
 			]
 		);
-		assert_eq!(Staking::unbonding_duration(11), vec![(1 + 2, 10), (2 + 3, 500)]);
-		assert_eq!(TotalUnbondInEra::<T>::get(1), Some(10));
-		assert_eq!(TotalUnbondInEra::<T>::get(2), Some(500));
+		assert_eq!(Staking::unbonding_duration(11), vec![(10 + 2, 10), (11 + 2, 500)]);
+		assert_eq!(TotalUnbondInEra::<T>::get(10), Some(10));
+		assert_eq!(TotalUnbondInEra::<T>::get(11), Some(500));
 
 		assert_ok!(Staking::rebond(RuntimeOrigin::signed(11), 490));
 		assert_eq!(
@@ -250,13 +251,13 @@ fn rebonding_after_one_era_and_unbonding_should_place_the_new_unbond_era_in_the_
 				.unlocking
 				.into_inner(),
 			vec![
-				UnlockChunk { value: 10, era: 1, previous_unbonded_stake: 0 },
-				UnlockChunk { value: 10, era: 2, previous_unbonded_stake: 0 }
+				UnlockChunk { value: 10, era: 10, previous_unbonded_stake: 0 },
+				UnlockChunk { value: 10, era: 11, previous_unbonded_stake: 0 }
 			]
 		);
-		assert_eq!(Staking::unbonding_duration(11), vec![(1 + 2, 10), (2 + 2, 10)]);
-		assert_eq!(TotalUnbondInEra::<T>::get(1), Some(10));
-		assert_eq!(TotalUnbondInEra::<T>::get(2), Some(10));
+		assert_eq!(Staking::unbonding_duration(11), vec![(10 + 2, 10), (11 + 2, 10)]);
+		assert_eq!(TotalUnbondInEra::<T>::get(10), Some(10));
+		assert_eq!(TotalUnbondInEra::<T>::get(11), Some(10));
 
 		// Rebond so that the last chunk gets removed and part of the previous one gets subtracted.
 		assert_ok!(Staking::rebond(RuntimeOrigin::signed(11), 15));
@@ -265,11 +266,11 @@ fn rebonding_after_one_era_and_unbonding_should_place_the_new_unbond_era_in_the_
 				.unwrap()
 				.unlocking
 				.into_inner(),
-			vec![UnlockChunk { value: 5, era: 1, previous_unbonded_stake: 0 }]
+			vec![UnlockChunk { value: 5, era: 10, previous_unbonded_stake: 0 }]
 		);
-		assert_eq!(Staking::unbonding_duration(11), vec![(1 + 2, 5)]);
-		assert_eq!(TotalUnbondInEra::<T>::get(1), Some(5));
-		assert_eq!(TotalUnbondInEra::<T>::get(2), None);
+		assert_eq!(Staking::unbonding_duration(11), vec![(10 + 2, 5)]);
+		assert_eq!(TotalUnbondInEra::<T>::get(10), Some(5));
+		assert_eq!(TotalUnbondInEra::<T>::get(11), None);
 	});
 }
 
