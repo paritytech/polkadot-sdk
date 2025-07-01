@@ -258,6 +258,120 @@ fn fund_bounty_fails() {
 }
 
 #[test]
+fn fund_child_bounty_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given
+		let mut s = create_active_parent_bounty();
+
+		// When
+		assert_ok!(Bounties::fund_child_bounty(
+			RuntimeOrigin::signed(s.curator),
+			s.parent_bounty_id,
+			s.child_value,
+			Some(s.child_curator),
+			Some(s.child_fee),
+			b"1234567890".to_vec()
+		));
+		s.child_bounty_id =
+			pallet_bounties::TotalChildBountiesPerParent::<Test>::get(s.parent_bounty_id) - 1;
+
+		// Then
+		let payment_id = get_payment_id(s.parent_bounty_id, Some(s.child_bounty_id), None)
+			.expect("no payment attempt");
+		expect_events(vec![
+			BountiesEvent::Paid {
+				index: s.parent_bounty_id,
+				child_index: Some(s.child_bounty_id),
+				payment_id,
+			},
+			BountiesEvent::ChildBountyFunded {
+				index: s.parent_bounty_id,
+				child_index: s.child_bounty_id,
+			},
+		]);
+		assert_eq!(
+			pallet_bounties::ChildBounties::<Test>::get(s.parent_bounty_id, s.child_bounty_id)
+				.unwrap(),
+			ChildBounty {
+				parent_bounty: s.parent_bounty_id,
+				value: s.child_value,
+				fee: s.child_fee,
+				curator_deposit: 0,
+				status: BountyStatus::FundingAttempted {
+					curator: s.child_curator,
+					payment_status: PaymentState::Attempted { id: payment_id }
+				}
+			}
+		);
+		assert_eq!(
+			pallet_bounties::TotalChildBountiesPerParent::<Test>::get(s.parent_bounty_id),
+			1
+		);
+		assert_eq!(pallet_bounties::ChildBountiesPerParent::<Test>::get(s.parent_bounty_id), 1);
+		assert_eq!(
+			pallet_bounties::ChildBountyDescriptions::<Test>::get(
+				s.parent_bounty_id,
+				s.child_bounty_id
+			)
+			.unwrap(),
+			b"1234567890".to_vec()
+		);
+		assert_eq!(
+			pallet_bounties::ChildBountiesValuePerParent::<Test>::get(s.parent_bounty_id),
+			s.child_value
+		);
+		assert_eq!(
+			pallet_bounties::ChildBountiesCuratorFeesPerParent::<Test>::get(s.parent_bounty_id),
+			s.child_fee
+		);
+
+		// Given
+		let mut s = create_active_parent_bounty();
+
+		// When
+		assert_ok!(Bounties::fund_child_bounty(
+			RuntimeOrigin::signed(s.curator),
+			s.parent_bounty_id,
+			s.child_value,
+			None,
+			None,
+			b"1234567890".to_vec()
+		));
+		s.child_bounty_id =
+			pallet_bounties::TotalChildBountiesPerParent::<Test>::get(s.parent_bounty_id) - 1;
+
+		// Then
+		let payment_id = get_payment_id(s.parent_bounty_id, Some(s.child_bounty_id), None)
+			.expect("no payment attempt");
+		expect_events(vec![
+			BountiesEvent::Paid {
+				index: s.parent_bounty_id,
+				child_index: Some(s.child_bounty_id),
+				payment_id,
+			},
+			BountiesEvent::ChildBountyFunded {
+				index: s.parent_bounty_id,
+				child_index: s.child_bounty_id,
+			},
+		]);
+		assert_eq!(
+			pallet_bounties::ChildBounties::<Test>::get(s.parent_bounty_id, s.child_bounty_id)
+				.unwrap(),
+			ChildBounty {
+				parent_bounty: s.parent_bounty_id,
+				value: s.child_value,
+				fee: s.child_fee,
+				curator_deposit: 0,
+				status: BountyStatus::FundingAttempted {
+					curator: s.child_curator,
+					payment_status: PaymentState::Attempted { id: payment_id }
+				}
+			}
+		);
+	})
+}
+
+#[test]
 fn check_status_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Given: Bounty status is `FundingAtttemped` and payment fails
@@ -349,10 +463,7 @@ fn check_status_works() {
 		// Then
 		assert_eq!(
 			last_event(),
-			BountiesEvent::BountyRefundProcessed {
-				index: s.parent_bounty_id,
-				child_index: None,
-			}
+			BountiesEvent::BountyRefundProcessed { index: s.parent_bounty_id, child_index: None }
 		);
 		assert_eq!(Balances::free_balance(s.curator), 100); // initial 100
 		assert_eq!(pallet_bounties::Bounties::<Test>::iter().count(), 4 - 1);
@@ -554,9 +665,9 @@ fn retry_payment_works() {
 		assert_eq!(
 			pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id).unwrap().status,
 			BountyStatus::RefundAttempted {
-					curator: Some(s.curator),
-					payment_status: PaymentState::Attempted { id: payment_id }
-				},
+				curator: Some(s.curator),
+				payment_status: PaymentState::Attempted { id: payment_id }
+			},
 		);
 
 		// Given: bounty status `PayoutAttempted` with 1 payment failed (beneficiary)

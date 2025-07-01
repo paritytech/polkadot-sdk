@@ -234,6 +234,7 @@ parameter_types! {
 	pub const CuratorDepositMultiplier: Permill = Permill::from_percent(50);
 	pub const CuratorDepositMax: Balance = 1_000;
 	pub const CuratorDepositMin: Balance = 3;
+	pub static MaxActiveChildBountyCount: u32 = 3;
 }
 
 impl Config for Test {
@@ -242,6 +243,8 @@ impl Config for Test {
 	type CuratorDepositMax = CuratorDepositMax;
 	type CuratorDepositMin = CuratorDepositMin;
 	type BountyValueMinimum = ConstU64<2>;
+	type ChildBountyValueMinimum = ConstU64<1>;
+	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
 	type DataDepositPerByte = ConstU64<1>;
 	type MaximumReasonLength = ConstU32<16384>;
 	type WeightInfo = ();
@@ -260,6 +263,8 @@ impl Config<Instance1> for Test {
 	type CuratorDepositMax = CuratorDepositMax;
 	type CuratorDepositMin = CuratorDepositMin;
 	type BountyValueMinimum = ConstU64<2>;
+	type ChildBountyValueMinimum = ConstU64<1>;
+	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
 	type DataDepositPerByte = ConstU64<1>;
 	type MaximumReasonLength = ConstU32<16384>;
 	type WeightInfo = ();
@@ -540,11 +545,7 @@ pub fn create_awarded_parent_bounty() -> TestBounty {
 pub fn create_canceled_parent_bounty() -> TestBounty {
 	let mut s = create_active_parent_bounty();
 
-	assert_ok!(Bounties::close_bounty(
-		RuntimeOrigin::root(),
-		s.parent_bounty_id,
-		None,
-	));
+	assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), s.parent_bounty_id, None,));
 
 	s
 }
