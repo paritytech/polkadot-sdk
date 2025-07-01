@@ -76,7 +76,13 @@ fn add_vesting_schedules<T: Config<I>, I: 'static>(
 		total_locked += locked;
 
 		let schedule = VestingInfo::new(locked, per_block, starting_block.into());
-		Pallet::<T, I>::do_vested_transfer(id.clone(), &source, target, schedule)?;
+		Pallet::<T, I>::do_vested_transfer(
+			id.clone(),
+			&source,
+			target,
+			schedule,
+			Preservation::Expendable,
+		)?;
 	}
 
 	Ok(total_locked)

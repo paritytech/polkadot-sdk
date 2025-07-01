@@ -299,7 +299,13 @@ pub mod pallet {
 		) -> DispatchResult {
 			let transactor = ensure_signed(origin)?;
 			let target = T::Lookup::lookup(target)?;
-			Self::do_vested_transfer(asset, &transactor, &target, schedule)
+			Self::do_vested_transfer(
+				asset,
+				&transactor,
+				&target,
+				schedule,
+				Preservation::Expendable,
+			)
 		}
 
 		/// Force a vested transfer.
@@ -329,7 +335,7 @@ pub mod pallet {
 			T::ForceOrigin::ensure_origin(origin)?;
 			let target = T::Lookup::lookup(target)?;
 			let source = T::Lookup::lookup(source)?;
-			Self::do_vested_transfer(asset, &source, &target, schedule)
+			Self::do_vested_transfer(asset, &source, &target, schedule, Preservation::Expendable)
 		}
 
 		/// Merge two vesting schedules together, creating a new vesting schedule that unlocks over
@@ -481,6 +487,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		source: &T::AccountId,
 		target: &T::AccountId,
 		schedule: VestingInfo<BalanceOf<T, I>, BlockNumberFor<T>>,
+		preservation: Preservation,
 	) -> DispatchResult {
 		// Validate user inputs.
 		ensure!(schedule.locked() >= T::MinVestedTransfer::get(), Error::<T, I>::AmountLow);
@@ -497,13 +504,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			schedule.starting_block(),
 		)?;
 
-		T::Assets::transfer(
-			asset.clone(),
-			source,
-			target,
-			schedule.locked(),
-			Preservation::Expendable,
-		)?;
+		T::Assets::transfer(asset.clone(), source, target, schedule.locked(), preservation)?;
 
 		// We can't let this fail because the currency transfer has already happened.
 		// Must be successful as it has been checked before.
@@ -766,6 +767,8 @@ where
 	) -> DispatchResult {
 		use storage::with_storage_layer;
 		let schedule = VestingInfo::new(locked, per_block, starting_block);
-		with_storage_layer(|| Self::do_vested_transfer(asset, source, target, schedule))
+		with_storage_layer(|| {
+			Self::do_vested_transfer(asset, source, target, schedule, Preservation::Expendable)
+		})
 	}
 }
