@@ -1,19 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-/// @dev The XCM Precompile contract address.
+/// @dev The on-chain address of the XCM (Cross-Consensus Messaging) precompile.
 address constant XCM_PRECOMPILE_ADDRESS = address(0xA0000);
 
-/// @title An interface for interacting with `pallet_xcm`
-/// @notice Provides functions for executing and sending XCM messages.
-/// Learn more about XCM: https://docs.polkadot.com/develop/interoperability/
-/// @dev All parameters must be encoded using the SCALE codec.
+/// @title XCM Precompile Interface
+/// @notice A low-level interface for interacting with `pallet_xcm`.
+/// It forwards calls directly to the corresponding dispatchable functions, providing access to XCM execution and message passing.
+/// Learn more about XCM: https://docs.polkadot.com/develop/interoperability
+/// @dev All parameters must be encoded using the SCALE codec. See https://docs.polkadot.com/polkadot-protocol/parachain-basics/data-encoding
 interface IXcm {
-    /// @notice Weight v2
+    /// @notice Weight v2. See https://docs.polkadot.com/polkadot-protocol/parachain-basics/blocks-transactions-fees/fees/#transactions-weights-and-fees
     struct Weight {
-        /// The computational time used to execute some logic based on reference hardware.
+        /// @custom:property The computational time used to execute some logic based on reference hardware.
         uint64 refTime;
-        /// The size of the proof needed to execute some logic.
+        /// @custom:property The size of the proof needed to execute some logic.
         uint64 proofSize;
     }
 
@@ -21,6 +22,7 @@ interface IXcm {
     /// @dev Internally calls `pallet_xcm::execute`.
     /// @param message A SCALE-encoded Versioned XCM message.
     /// @param weight The maximum allowed `Weight` for execution.
+    /// @dev Call @custom:function weighMessage(message) to ensure sufficient weight allocation.
     /// @return Raw SCALE-encoded `DispatchResultWithPostInfo`. See https://paritytech.github.io/polkadot-sdk/master/frame_support/dispatch/type.DispatchResultWithPostInfo
     function execute(bytes calldata message, Weight calldata weight)
         external
