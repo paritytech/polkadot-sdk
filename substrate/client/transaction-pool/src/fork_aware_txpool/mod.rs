@@ -378,8 +378,7 @@ mod view_store;
 
 pub use fork_aware_txpool::{ForkAwareTxPool, ForkAwareTxPoolTask};
 
-// Holds various helper constant variables and types that are useful in determining
-// transaction validity.
+// Holds various helper types useful in determining transaction validity.
 mod transaction_validation_util {
 	use crate::graph::{self, ExtrinsicHash, ValidatedTransactionFor};
 	use indexmap::IndexMap;
