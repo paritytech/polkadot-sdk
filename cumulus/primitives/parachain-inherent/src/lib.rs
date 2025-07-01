@@ -29,14 +29,14 @@
 
 extern crate alloc;
 
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use cumulus_primitives_core::{
 	relay_chain::{
-		vstaging::ApprovedPeerId, BlakeTwo256, Hash as RelayHash, HashT as _, Header as RelayHeader,
+		vstaging::ApprovedPeerId, BlakeTwo256, BlockNumber as RelayChainBlockNumber,
+		Hash as RelayHash, HashT as _, Header as RelayHeader,
 	},
 	InboundDownwardMessage, InboundHrmpMessage, ParaId, PersistedValidationData,
 };
-
-use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use scale_info::TypeInfo;
 use sp_inherents::InherentIdentifier;
 
@@ -138,8 +138,8 @@ impl Into<ParachainInherentData> for v0::ParachainInherentData {
 
 #[cfg(feature = "std")]
 impl ParachainInherentData {
-	/// Transforms [`ParachainInherentData`] into [`v0::ParachainInherentData`]. Can be used to
-	/// create inherent data compatible with old runtimes.
+	/// Transforms [`ParachainInherentData`] into [`v0::ParachainInherentData`]. Can be used
+	/// to create inherent data compatible with old runtimes.
 	fn as_v0(&self) -> v0::ParachainInherentData {
 		v0::ParachainInherentData {
 			validation_data: self.validation_data.clone(),
@@ -170,6 +170,33 @@ impl sp_inherents::InherentDataProvider for ParachainInherentData {
 	}
 }
 
+/// An inbound message whose content was hashed.
+#[derive(
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+	sp_core::RuntimeDebug,
+	Clone,
+	PartialEq,
+	TypeInfo,
+)]
+pub struct HashedMessage {
+	pub sent_at: RelayChainBlockNumber,
+	pub msg_hash: sp_core::H256,
+}
+
+impl From<&InboundDownwardMessage<RelayChainBlockNumber>> for HashedMessage {
+	fn from(msg: &InboundDownwardMessage<RelayChainBlockNumber>) -> Self {
+		Self { sent_at: msg.sent_at, msg_hash: MessageQueueChain::hash_msg_data(&msg.msg) }
+	}
+}
+
+impl From<&InboundHrmpMessage> for HashedMessage {
+	fn from(msg: &InboundHrmpMessage) -> Self {
+		Self { sent_at: msg.sent_at, msg_hash: MessageQueueChain::hash_msg_data(&msg.data) }
+	}
+}
+
 /// This struct provides ability to extend a message queue chain (MQC) and compute a new head.
 ///
 /// MQC is an instance of a [hash chain] applied to a message queue. Using a hash chain it's
@@ -191,31 +218,31 @@ impl MessageQueueChain {
 		Self(hash)
 	}
 
+	/// Hash the provided message data.
+	fn hash_msg_data(msg: &Vec<u8>) -> sp_core::H256 {
+		BlakeTwo256::hash_of(msg)
+	}
+
+	/// Extend the hash chain with a `HashedMessage`.
+	pub fn extend_with_hashed_msg(&mut self, hashed_msg: &HashedMessage) -> &mut Self {
+		let prev_head = self.0;
+		self.0 = BlakeTwo256::hash_of(&(prev_head, hashed_msg.sent_at, &hashed_msg.msg_hash));
+		self
+	}
+
 	/// Extend the hash chain with an HRMP message. This method should be used only when
 	/// this chain is tracking HRMP.
 	pub fn extend_hrmp(&mut self, horizontal_message: &InboundHrmpMessage) -> &mut Self {
-		let prev_head = self.0;
-		self.0 = BlakeTwo256::hash_of(&(
-			prev_head,
-			horizontal_message.sent_at,
-			BlakeTwo256::hash_of(&horizontal_message.data),
-		));
-		self
+		self.extend_with_hashed_msg(&horizontal_message.into())
 	}
 
 	/// Extend the hash chain with a downward message. This method should be used only when
 	/// this chain is tracking DMP.
 	pub fn extend_downward(&mut self, downward_message: &InboundDownwardMessage) -> &mut Self {
-		let prev_head = self.0;
-		self.0 = BlakeTwo256::hash_of(&(
-			prev_head,
-			downward_message.sent_at,
-			BlakeTwo256::hash_of(&downward_message.msg),
-		));
-		self
+		self.extend_with_hashed_msg(&downward_message.into())
 	}
 
-	/// Return the current mead of the message queue hash chain.
+	/// Return the current head of the message queue chain.
 	/// This is agreed to be the zero hash for an empty chain.
 	pub fn head(&self) -> RelayHash {
 		self.0

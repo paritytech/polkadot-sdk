@@ -1,0 +1,24 @@
+title: XCMP and DMP improvements
+doc:
+- audience: [Runtime Dev, Node Dev, Node Operator]
+  description: |
+    This PR changes the parachain receiving logic for XCMP and DMP by adding some offchain processing
+    before forwarding the messages to the parachain set_validation_data inherent.
+    This enables us to relax the advancement rule.
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: major
+- name: polkadot-core-primitives
+  bump: minor
+- name: cumulus-primitives-parachain-inherent
+  bump: minor
+- name: polkadot-runtime-parachains
+  bump: patch
+- name: cumulus-client-parachain-inherent
+  bump: minor
+- name: polkadot-node-subsystem-util
+  bump: patch
+- name: parachains-runtimes-test-utils
+  bump: patch
+- name: xcm-emulator
+  bump: minor
