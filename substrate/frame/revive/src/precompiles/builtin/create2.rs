@@ -73,23 +73,22 @@ impl<T: Config> PrimitivePrecompile for Create2<T> {
 		);
 
 		// check offsets and lengths are not out of bounds for u64
-		assert!(code_offset.low_u64() <= u64::MAX, "code_offset is out of bounds");
-		assert!(code_length.low_u64() <= u64::MAX, "code_length is out of bounds");
-		assert!(salt_offset.low_u64() <= u64::MAX, "salt_offset is out of bounds");
-		assert!(salt_length.low_u64() <= u64::MAX, "salt_length is out of bounds");
+		assert!(code_offset <= U256::from(u64::MAX), "code_offset is out of bounds");
+		assert!(code_length <= U256::from(u64::MAX), "code_length is out of bounds");
+		assert!(salt_offset <= U256::from(u64::MAX), "salt_offset is out of bounds");
+		assert!(salt_length <= U256::from(u64::MAX), "salt_length is out of bounds");
 
 		assert!(
-			(code_offset + code_length).low_u64() <= u64::MAX,
+			(code_offset + code_length) <= U256::from(u64::MAX),
 			"code_offset + code_length is out of bounds"
 		);
 		assert!(
-			(salt_offset + salt_length).low_u64() <= u64::MAX,
+			(salt_offset + salt_length) <= U256::from(u64::MAX),
 			"salt_offset + salt_length is out of bounds"
 		);
-
 		assert_eq!(
 			input.len(),
-			salt_offset.low_u64() as usize + salt_length.low_u64() as usize,
+			(salt_offset + salt_length).low_u64() as usize,
 			"input length does not match expected length"
 		);
 
