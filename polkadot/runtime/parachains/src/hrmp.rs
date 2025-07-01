@@ -1226,7 +1226,7 @@ impl<T: Config> Pallet<T> {
 
 		// The current watermark will remain valid until updated.
 		if let Some(last_watermark) = HrmpWatermarks::<T>::get(&recipient) {
-			if valid_watermarks.first().unwrap_or(&Zero::zero()) > &last_watermark {
+			if valid_watermarks.first().map_or(false, |w| w > &last_watermark) {
 				valid_watermarks.insert(0, last_watermark);
 			}
 		}
