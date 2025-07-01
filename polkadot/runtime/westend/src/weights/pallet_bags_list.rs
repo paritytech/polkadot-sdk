@@ -19,7 +19,7 @@
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
 //! DATE: 2025-07-01, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `c6c7203fd79a`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
+//! HOSTNAME: `66f1737e2c94`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
 //! WASM-EXECUTION: `Compiled`, CHAIN: `None`, DB CACHE: 1024
 
 // Executed Command:
@@ -65,7 +65,7 @@ impl<T: frame_system::Config> pallet_bags_list::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `1684`
 		//  Estimated: `11506`
-		// Minimum execution time: 71_475_000 picoseconds.
+		// Minimum execution time: 71_398_000 picoseconds.
 		Weight::from_parts(73_741_000, 0)
 			.saturating_add(Weight::from_parts(0, 11506))
 			.saturating_add(T::DbWeight::get().reads(8))
@@ -85,8 +85,8 @@ impl<T: frame_system::Config> pallet_bags_list::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `1578`
 		//  Estimated: `8877`
-		// Minimum execution time: 69_045_000 picoseconds.
-		Weight::from_parts(71_356_000, 0)
+		// Minimum execution time: 69_243_000 picoseconds.
+		Weight::from_parts(71_825_000, 0)
 			.saturating_add(Weight::from_parts(0, 8877))
 			.saturating_add(T::DbWeight::get().reads(8))
 			.saturating_add(T::DbWeight::get().writes(5))
@@ -107,8 +107,8 @@ impl<T: frame_system::Config> pallet_bags_list::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `1889`
 		//  Estimated: `11506`
-		// Minimum execution time: 81_223_000 picoseconds.
-		Weight::from_parts(84_131_000, 0)
+		// Minimum execution time: 79_898_000 picoseconds.
+		Weight::from_parts(83_764_000, 0)
 			.saturating_add(Weight::from_parts(0, 11506))
 			.saturating_add(T::DbWeight::get().reads(11))
 			.saturating_add(T::DbWeight::get().writes(6))
@@ -131,8 +131,8 @@ impl<T: frame_system::Config> pallet_bags_list::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `4777`
 		//  Estimated: `512390`
-		// Minimum execution time: 714_448_000 picoseconds.
-		Weight::from_parts(730_527_000, 0)
+		// Minimum execution time: 711_092_000 picoseconds.
+		Weight::from_parts(722_007_000, 0)
 			.saturating_add(Weight::from_parts(0, 512390))
 			.saturating_add(T::DbWeight::get().reads(234))
 			.saturating_add(T::DbWeight::get().writes(16))

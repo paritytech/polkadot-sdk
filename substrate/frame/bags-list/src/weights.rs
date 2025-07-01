@@ -37,7 +37,7 @@
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
 //! DATE: 2025-07-01, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `c6c7203fd79a`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
+//! HOSTNAME: `66f1737e2c94`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
 //! WASM-EXECUTION: `Compiled`, CHAIN: `None`, DB CACHE: `1024`
 
 // Executed Command:
@@ -94,8 +94,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `1818`
 		//  Estimated: `11506`
-		// Minimum execution time: 71_722_000 picoseconds.
-		Weight::from_parts(74_690_000, 11506)
+		// Minimum execution time: 70_816_000 picoseconds.
+		Weight::from_parts(73_697_000, 11506)
 			.saturating_add(T::DbWeight::get().reads(8_u64))
 			.saturating_add(T::DbWeight::get().writes(5_u64))
 	}
@@ -113,8 +113,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `1712`
 		//  Estimated: `8877`
-		// Minimum execution time: 68_745_000 picoseconds.
-		Weight::from_parts(70_947_000, 8877)
+		// Minimum execution time: 68_640_000 picoseconds.
+		Weight::from_parts(70_632_000, 8877)
 			.saturating_add(T::DbWeight::get().reads(8_u64))
 			.saturating_add(T::DbWeight::get().writes(5_u64))
 	}
@@ -134,8 +134,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `2024`
 		//  Estimated: `11506`
-		// Minimum execution time: 79_541_000 picoseconds.
-		Weight::from_parts(81_667_000, 11506)
+		// Minimum execution time: 79_740_000 picoseconds.
+		Weight::from_parts(81_090_000, 11506)
 			.saturating_add(T::DbWeight::get().reads(11_u64))
 			.saturating_add(T::DbWeight::get().writes(6_u64))
 	}
@@ -157,8 +157,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `4920`
 		//  Estimated: `512390`
-		// Minimum execution time: 706_597_000 picoseconds.
-		Weight::from_parts(731_890_000, 512390)
+		// Minimum execution time: 706_288_000 picoseconds.
+		Weight::from_parts(716_009_000, 512390)
 			.saturating_add(T::DbWeight::get().reads(234_u64))
 			.saturating_add(T::DbWeight::get().writes(16_u64))
 	}
@@ -180,8 +180,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `1818`
 		//  Estimated: `11506`
-		// Minimum execution time: 71_722_000 picoseconds.
-		Weight::from_parts(74_690_000, 11506)
+		// Minimum execution time: 70_816_000 picoseconds.
+		Weight::from_parts(73_697_000, 11506)
 			.saturating_add(RocksDbWeight::get().reads(8_u64))
 			.saturating_add(RocksDbWeight::get().writes(5_u64))
 	}
@@ -199,8 +199,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `1712`
 		//  Estimated: `8877`
-		// Minimum execution time: 68_745_000 picoseconds.
-		Weight::from_parts(70_947_000, 8877)
+		// Minimum execution time: 68_640_000 picoseconds.
+		Weight::from_parts(70_632_000, 8877)
 			.saturating_add(RocksDbWeight::get().reads(8_u64))
 			.saturating_add(RocksDbWeight::get().writes(5_u64))
 	}
@@ -220,8 +220,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `2024`
 		//  Estimated: `11506`
-		// Minimum execution time: 79_541_000 picoseconds.
-		Weight::from_parts(81_667_000, 11506)
+		// Minimum execution time: 79_740_000 picoseconds.
+		Weight::from_parts(81_090_000, 11506)
 			.saturating_add(RocksDbWeight::get().reads(11_u64))
 			.saturating_add(RocksDbWeight::get().writes(6_u64))
 	}
@@ -243,8 +243,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `4920`
 		//  Estimated: `512390`
-		// Minimum execution time: 706_597_000 picoseconds.
-		Weight::from_parts(731_890_000, 512390)
+		// Minimum execution time: 706_288_000 picoseconds.
+		Weight::from_parts(716_009_000, 512390)
 			.saturating_add(RocksDbWeight::get().reads(234_u64))
 			.saturating_add(RocksDbWeight::get().writes(16_u64))
 	}
