@@ -177,7 +177,7 @@ fn next_offence<T: Config>() -> Option<(EraIndex, T::AccountId, OffenceRecord<T:
 
 /// Infallible function to process an offence.
 pub(crate) fn process_offence<T: Config>() -> Weight {
-	// We do manual weight racking for early-returns, and use benchmarks for the final two branches.
+	// We do manual weight tracking for early-returns, and use benchmarks for the final two branches.
 	let mut incomplete_consumed_weight = Weight::from_parts(0, 0);
 	let mut add_db_reads_writes = |reads, writes| {
 		incomplete_consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
@@ -353,7 +353,7 @@ fn slash_nominators<T: Config>(
 		let prior_slashed = params.prior_slash * nominator.value;
 		let new_slash = params.slash * nominator.value;
 		// this should always be positive since prior slash is always less than the new slash or
-		// filtered out.
+		// filtered out when offence is reported (`Pallet::on_new_offences`).
 		let slash_diff = new_slash.defensive_saturating_sub(prior_slashed);
 
 		if slash_diff == Zero::zero() {
