@@ -774,15 +774,8 @@ where
 		per_block: BalanceOf<T, I>,
 		starting_block: BlockNumberFor<T>,
 	) -> DispatchResult {
-		use storage::{with_transaction, TransactionOutcome};
+		use storage::with_storage_layer;
 		let schedule = VestingInfo::new(locked, per_block, starting_block);
-		with_transaction(|| -> TransactionOutcome<DispatchResult> {
-			let result = Self::do_vested_transfer(asset, source, target, schedule);
-
-			match &result {
-				Ok(()) => TransactionOutcome::Commit(result),
-				_ => TransactionOutcome::Rollback(result),
-			}
-		})
+		with_storage_layer(|| Self::do_vested_transfer(asset, source, target, schedule))
 	}
 }
