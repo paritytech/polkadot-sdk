@@ -184,6 +184,7 @@ impl multi_block::unsigned::miner::MinerConfig for Runtime {
 
 parameter_types! {
 	pub const BagThresholds: &'static [u64] = &bag_thresholds::THRESHOLDS;
+	pub const AutoRebagNumber: u32 = 10;
 }
 
 type VoterBagsListInstance = pallet_bags_list::Instance1;
@@ -193,6 +194,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type WeightInfo = weights::pallet_bags_list::WeightInfo<Runtime>;
 	type BagThresholds = BagThresholds;
 	type Score = sp_npos_elections::VoteWeight;
+	type MaxAutoRebagPerBlock = AutoRebagNumber;
 }
 
 pub struct EraPayout;
