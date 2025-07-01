@@ -26,7 +26,7 @@
 //! 	- Dispute coordinator sends DisputeDistributionMessage::SendDispute
 //! 	- Dispute distribution sends DisputeRequest to all validators.
 //! 2. TODO: Dispute confirmed: we need 1/3+1 votes per candidate
-//! 3. TODO: Dispute concluded: we need 2/3+1 votes per candidate
+//! 3. TODO: Dispute concluded: we need 2/3+1 votes per candidate. Here we can test db population
 //! 4. TODO: Spamming: a combination of scenario 3 + multiple of scenario 1
 
 use crate::{
