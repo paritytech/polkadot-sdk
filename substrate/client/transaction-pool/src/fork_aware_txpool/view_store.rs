@@ -19,6 +19,7 @@
 //! Transaction pool view store. Basically block hash to view map with some utility methods.
 
 use super::{
+	import_notification_sink::MultiViewImportNotificationSink,
 	multi_view_listener::{MultiViewListener, TxStatusStream},
 	view::{View, ViewPoolObserver},
 };
@@ -171,6 +172,10 @@ where
 	pub(super) most_recent_view: RwLock<Option<Arc<View<ChainApi>>>>,
 	/// The controller of multi view dropped stream.
 	pub(super) dropped_stream_controller: MultiViewDroppedWatcherController<ChainApi>,
+	/// Util providing an aggregated stream of transactions that were imported to ready queue in
+	/// any view. Reference kept here for clean up purposes.
+	pub(super) import_notification_sink:
+		MultiViewImportNotificationSink<Block::Hash, ExtrinsicHash<ChainApi>>,
 	/// The map used to synchronize replacement of transactions between maintain and dropped
 	/// notifcication threads. It is meant to assure that replaced transaction is also removed from
 	/// newly built views in maintain process.
@@ -202,6 +207,10 @@ where
 		api: Arc<ChainApi>,
 		listener: Arc<MultiViewListener<ChainApi>>,
 		dropped_stream_controller: MultiViewDroppedWatcherController<ChainApi>,
+		import_notification_sink: MultiViewImportNotificationSink<
+			Block::Hash,
+			ExtrinsicHash<ChainApi>,
+		>,
 	) -> Self {
 		Self {
 			api,
@@ -210,6 +219,7 @@ where
 			listener,
 			most_recent_view: RwLock::from(None),
 			dropped_stream_controller,
+			import_notification_sink,
 			pending_txs_tasks: Default::default(),
 		}
 	}

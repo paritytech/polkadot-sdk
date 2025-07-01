@@ -256,8 +256,12 @@ where
 		let (dropped_stream_controller, dropped_stream) =
 			MultiViewDroppedWatcherController::<ChainApi>::new();
 
-		let view_store =
-			Arc::new(ViewStore::new(pool_api.clone(), listener, dropped_stream_controller));
+		let view_store = Arc::new(ViewStore::new(
+			pool_api.clone(),
+			listener,
+			dropped_stream_controller,
+			import_notification_sink.clone(),
+		));
 
 		let dropped_monitor_task = Self::dropped_monitor_task(
 			dropped_stream,
@@ -404,8 +408,12 @@ where
 		let (dropped_stream_controller, dropped_stream) =
 			MultiViewDroppedWatcherController::<ChainApi>::new();
 
-		let view_store =
-			Arc::new(ViewStore::new(pool_api.clone(), listener, dropped_stream_controller));
+		let view_store = Arc::new(ViewStore::new(
+			pool_api.clone(),
+			listener,
+			dropped_stream_controller,
+			import_notification_sink.clone(),
+		));
 
 		let dropped_monitor_task = Self::dropped_monitor_task(
 			dropped_stream,
@@ -837,6 +845,13 @@ where
 
 		Ok(final_results)
 	}
+
+	/// Number of notified items in import_notification_sink.
+	///
+	/// Internal detail, exposed only for testing.
+	pub fn import_notification_sink_len(&self) -> usize {
+		self.import_notification_sink.notified_items_len()
+	}
 }
 
 /// Converts the input view-to-statuses map into the output vector of statuses.
@@ -990,7 +1005,7 @@ where
 	/// The transaction pool implementation will determine which transactions should be
 	/// removed from the pool. Transactions that depend on invalid transactions will also
 	/// be removed.
-	fn report_invalid(
+	async fn report_invalid(
 		&self,
 		at: Option<<Self::Block as BlockT>::Hash>,
 		invalid_tx_errors: TxInvalidityReportMap<TxHash<Self>>,
@@ -1003,7 +1018,7 @@ where
 		let removed = self.view_store.report_invalid(at, invalid_tx_errors);
 
 		let removed_hashes = removed.iter().map(|tx| tx.hash).collect::<Vec<_>>();
-		self.mempool.clone().remove_transactions_sync(removed_hashes.clone());
+		self.mempool.remove_transactions(&removed_hashes).await;
 		self.import_notification_sink.clean_notified_items(&removed_hashes);
 
 		self.metrics
