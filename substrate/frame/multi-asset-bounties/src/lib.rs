@@ -670,7 +670,7 @@ pub mod pallet {
 				Error::<T, I>::InvalidValue
 			);
 			ensure!(
-				ChildBountiesPerParent::<T, I>::get(parent_bounty_id) <=
+				ChildBountiesPerParent::<T, I>::get(parent_bounty_id) <
 					T::MaxActiveChildBountyCount::get() as u32,
 				Error::<T, I>::TooManyChildBounties,
 			);
@@ -746,8 +746,8 @@ pub mod pallet {
 			);
 
 			Self::deposit_event(Event::<T, I>::ChildBountyFunded {
-				index: child_bounty_id,
-				child_index: parent_bounty_id,
+				index: parent_bounty_id,
+				child_index: child_bounty_id,
 			});
 
 			Ok(())
