@@ -2186,7 +2186,6 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			use xcm_config::{MaxAssetsIntoHolding, WestendLocation};
-			use xcm_config::bridging::to_rococo::{RandomParaLocation, RandomId};
 
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 			use testnet_parachains_constants::westend::locations::{AssetHubParaId,
