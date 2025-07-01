@@ -177,7 +177,8 @@ fn next_offence<T: Config>() -> Option<(EraIndex, T::AccountId, OffenceRecord<T:
 
 /// Infallible function to process an offence.
 pub(crate) fn process_offence<T: Config>() -> Weight {
-	// We do manual weight tracking for early-returns, and use benchmarks for the final two branches.
+	// We do manual weight tracking for early-returns, and use benchmarks for the final two
+	// branches.
 	let mut incomplete_consumed_weight = Weight::from_parts(0, 0);
 	let mut add_db_reads_writes = |reads, writes| {
 		incomplete_consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
