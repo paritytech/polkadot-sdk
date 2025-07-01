@@ -85,17 +85,14 @@ pub mod pallet {
 
 		/// Type represents interactions between assets
 		#[cfg(not(feature = "runtime-benchmarks"))]
-		type Assets: Inspect<AccountIdOf<Self>> + Mutate<AccountIdOf<Self>>;
+		type Assets: Mutate<AccountIdOf<Self>>;
 
 		/// Type represents interactions between assets
 		#[cfg(feature = "runtime-benchmarks")]
-		type Assets: Inspect<AccountIdOf<Self>>
-			+ Mutate<AccountIdOf<Self>>
-			+ Create<AccountIdOf<Self>>;
-
+		type Assets: Mutate<AccountIdOf<Self>> + Create<AccountIdOf<Self>>;
+		
 		/// Type allows handling fungibles' freezes.
-		type Freezer: Inspect<AccountIdOf<Self>, AssetId = AssetIdOf<Self, I>, Balance = BalanceOf<Self, I>>
-			+ MutateFreeze<
+		type Freezer: MutateFreeze<
 				AccountIdOf<Self>,
 				Id = Self::RuntimeFreezeReason,
 				AssetId = AssetIdOf<Self, I>,
@@ -104,9 +101,6 @@ pub mod pallet {
 
 		/// Convert the block number into a balance.
 		type BlockNumberToBalance: Convert<BlockNumberFor<Self>, BalanceOf<Self, I>>;
-
-		/// The overarching freeze reason.
-		type RuntimeFreezeReason: From<FreezeReason<I>>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
