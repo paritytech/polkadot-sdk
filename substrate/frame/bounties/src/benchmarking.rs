@@ -108,7 +108,7 @@ mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn propose_bounty(d: Linear<0, { T::MaximumReasonLength::get() }>)  {
+	fn propose_bounty(d: Linear<0, { T::MaximumReasonLength::get() }>) {
 		let (caller, _, _, value, description) = setup_bounty::<T, I>(0, d);
 
 		#[extrinsic_call]
@@ -120,8 +120,8 @@ mod benchmarks {
 		let (caller, _, _, value, reason) = setup_bounty::<T, I>(0, T::MaximumReasonLength::get());
 		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into(), value, reason)?;
 		let bounty_id = BountyCount::<T, I>::get() - 1;
-		let approve_origin = T::SpendOrigin::try_successful_origin()
-			.map_err(|_| BenchmarkError::Weightless)?;
+		let approve_origin =
+			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
 		#[extrinsic_call]
 		_(approve_origin as T::RuntimeOrigin, bounty_id);
@@ -137,8 +137,8 @@ mod benchmarks {
 		let curator_lookup = T::Lookup::unlookup(curator);
 		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into(), value, reason).unwrap();
 		let bounty_id = BountyCount::<T, I>::get() - 1;
-		let approve_origin = T::SpendOrigin::try_successful_origin()
-			.map_err(|_| BenchmarkError::Weightless)?;
+		let approve_origin =
+			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		Bounties::<T, I>::approve_bounty(approve_origin.clone(), bounty_id).unwrap();
 		set_block_number::<T, I>(T::SpendPeriod::get());
 		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
@@ -157,8 +157,8 @@ mod benchmarks {
 		let curator_lookup = T::Lookup::unlookup(curator.clone());
 		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into(), value, reason).unwrap();
 		let bounty_id = BountyCount::<T, I>::get() - 1;
-		let approve_origin = T::SpendOrigin::try_successful_origin()
-			.map_err(|_| BenchmarkError::Weightless)?;
+		let approve_origin =
+			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		Treasury::<T, I>::on_initialize(SystemBlockNumberFor::<T>::zero());
 
 		#[extrinsic_call]
@@ -206,8 +206,8 @@ mod benchmarks {
 		let curator_lookup = T::Lookup::unlookup(curator.clone());
 		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into(), value, reason)?;
 		let bounty_id = BountyCount::<T, I>::get() - 1;
-		let approve_origin = T::SpendOrigin::try_successful_origin()
-			.map_err(|_| BenchmarkError::Weightless)?;
+		let approve_origin =
+			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		Bounties::<T, I>::approve_bounty(approve_origin.clone(), bounty_id)?;
 		set_block_number::<T, I>(T::SpendPeriod::get());
 		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
@@ -278,8 +278,8 @@ mod benchmarks {
 		let (caller, _, _, value, reason) = setup_bounty::<T, I>(0, 0);
 		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into(), value, reason)?;
 		let bounty_id = BountyCount::<T, I>::get() - 1;
-		let approve_origin = T::RejectOrigin::try_successful_origin()
-			.map_err(|_| BenchmarkError::Weightless)?;
+		let approve_origin =
+			T::RejectOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
 		#[extrinsic_call]
 		close_bounty(approve_origin, bounty_id);
@@ -293,8 +293,8 @@ mod benchmarks {
 		let (_, _) = create_bounty::<T, I>()?;
 		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
 		let bounty_id = BountyCount::<T, I>::get() - 1;
-		let approve_origin = T::RejectOrigin::try_successful_origin()
-			.map_err(|_| BenchmarkError::Weightless)?;
+		let approve_origin =
+			T::RejectOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
 		#[extrinsic_call]
 		close_bounty(approve_origin as T::RuntimeOrigin, bounty_id);
