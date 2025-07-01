@@ -1706,7 +1706,6 @@ impl_runtime_apis! {
 				Config as XcmBridgeHubRouterConfig,
 			};
 
-			use xcm_config::bridging::to_westend::{RandomParaLocation, RandomId};
 			use testnet_parachains_constants::rococo::locations::{AssetHubParaId, AssetHubLocation};
 			parameter_types! {
 				pub ExistentialDepositAsset: Option<Asset> = Some((
@@ -1714,7 +1713,7 @@ impl_runtime_apis! {
 					ExistentialDeposit::get()
 				).into());
 
-				pub RandomParaId: ParaId = ParaId::new(RandomId::get());
+				pub RandomParaId: ParaId = ParaId::new(43211234);
 			}
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
@@ -1911,7 +1910,7 @@ impl_runtime_apis! {
 				// AssetHubRococo trusts AssetHubWestend as reserve for WNDs
 				pub TrustedReserve: Option<(Location, Asset)> = Some(
 					(
-						RandomParaLocation::get(),
+						xcm_config::bridging::to_westend::AssetHubWestend::get(),
 						Asset::from((xcm_config::bridging::to_westend::WndLocation::get(), 1000000000000 as u128))
 					)
 				);
