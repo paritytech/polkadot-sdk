@@ -149,7 +149,7 @@ impl RateLimit {
 
 /// A wrapper for both gossip and request/response protocols along with the destination
 /// peer(`AuthorityDiscoveryId``).
-// Dev note: clippy warning is because RequestFromNode is at least 1160 bytes and second 
+// Dev note: clippy warning is because RequestFromNode is at least 1160 bytes and second
 // largest variant is MessageFromPeer which is at least 240 bytes.
 #[allow(clippy::large_enum_variant)]
 pub enum NetworkMessage {
