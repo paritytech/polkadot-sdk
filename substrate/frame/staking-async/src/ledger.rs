@@ -55,6 +55,10 @@ pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 	#[codec(compact)]
 	pub value: Balance,
 	/// Era number when the chunk was created.
+	///
+	/// Note: historically this field represented the *unlocking* era, but since storage version
+	/// v18 (which introduced dynamic unbonding duration), it now reflects the *creation* era of
+	/// the chunk.
 	#[codec(compact)]
 	pub era: EraIndex,
 	/// Total accumulated stake to be unbonded when this chunk was created.
