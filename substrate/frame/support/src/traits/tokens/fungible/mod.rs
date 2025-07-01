@@ -265,6 +265,7 @@ impl<
 	PartialEqNoBound,
 	Encode,
 	Decode,
+	codec::DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	RuntimeDebugNoBound,
