@@ -424,7 +424,7 @@ pub enum SignatureResult {
 	/// Invalid signature.
 	Invalid,
 
-	/// Invalid signature, but the message was signed in the previous set.
+	/// Valid signature, but the message was signed in the previous set.
 	OutdatedSet,
 }
 
