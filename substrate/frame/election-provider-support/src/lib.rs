@@ -457,6 +457,13 @@ pub trait ElectionProvider {
 	/// election result.
 	type MaxBackersPerWinner: Get<u32>;
 
+	/// Same as [`MaxBackersPerWinner`], but across all pages.
+	///
+	/// If [`Pages`] is set to 0, a reasonable value is [`MaxBackersPerWinner`]. For multi-page
+	/// elections, a reasonable value is the range of [`MaxBackersPerWinner`] to [`Pages`] *
+	/// [`MaxBackersPerWinner`].
+	type MaxBackersPerWinnerFinal: Get<u32>;
+
 	/// The number of pages that this election provider supports.
 	type Pages: Get<PageIndex>;
 
@@ -563,6 +570,7 @@ where
 	type DataProvider = DataProvider;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type MaxBackersPerWinnerFinal = MaxBackersPerWinner;
 
 	fn elect(_page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		Err("`NoElection` cannot do anything.")

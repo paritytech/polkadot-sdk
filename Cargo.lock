@@ -13527,6 +13527,7 @@ dependencies = [
  "sp-staking",
  "sp-std 14.0.0",
  "sp-storage 19.0.0",
+ "sp-tracing 16.0.0",
  "sp-transaction-pool",
  "sp-version 29.0.0",
  "staging-parachain-info",

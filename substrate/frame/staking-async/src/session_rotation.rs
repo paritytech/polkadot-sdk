@@ -372,7 +372,8 @@ impl<T: Config> Eras<T> {
 	}
 }
 
-#[cfg(any(feature = "try-runtime", test))]
+#[cfg(any(feature = "try-runtime", test, feature = "runtime-benchmarks"))]
+#[allow(unused)]
 impl<T: Config> Eras<T> {
 	/// Ensure the given era is present, i.e. has not been pruned yet.
 	pub(crate) fn era_present(era: EraIndex) -> Result<(), sp_runtime::TryRuntimeError> {
