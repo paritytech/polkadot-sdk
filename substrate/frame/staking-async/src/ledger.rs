@@ -358,7 +358,12 @@ impl<T: Config> StakingLedger<T> {
 			stash: self.stash,
 			total: self.total.defensive_saturating_sub(free),
 			active: self.active,
-			unlocking: unlocking.try_into().expect("unlocking chunk size cannot grow; qed"),
+			unlocking: unlocking
+				.into_iter()
+				.flatten()
+				.collect::<Vec<_>>()
+				.try_into()
+				.expect("unlocking chunk size cannot grow; qed"),
 			controller: self.controller,
 		}
 	}

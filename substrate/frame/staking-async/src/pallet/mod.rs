@@ -2577,7 +2577,10 @@ pub mod pallet {
 			if !free.is_zero() {
 				result.push((current_era, free));
 			}
-			let rest = chunks.into_iter().map(|(era, UnlockChunk { value, .. })| (era, value));
+			let rest = chunks.into_iter().map(|(era, v)| {
+				let sum_stake = v.into_iter().map(|UnlockChunk { value, .. }| value).sum();
+				(era, sum_stake)
+			});
 			result.extend(rest);
 			result
 		}

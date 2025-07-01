@@ -917,10 +917,10 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns a tuple of:
 	/// - Amount that can be immediately withdrawn.
-	/// - Map of era to remaining unlock chunks.
+	/// - Map of era to remaining unlock chunks expected to be released in that era.
 	pub(crate) fn curate_unlocking_chunks(
 		stash: T::AccountId,
-	) -> ((EraIndex, BalanceOf<T>), BTreeMap<EraIndex, UnlockChunk<BalanceOf<T>>>) {
+	) -> ((EraIndex, BalanceOf<T>), BTreeMap<EraIndex, Vec<UnlockChunk<BalanceOf<T>>>>) {
 		let current_era = CurrentEra::<T>::get().unwrap_or(Zero::zero());
 		let ledger = match Self::ledger(Stash(stash)) {
 			Ok(l) => l,
@@ -932,7 +932,7 @@ impl<T: Config> Pallet<T> {
 			None => (T::BondingDuration::get(), Zero::zero()),
 			Some(params) => (params.unbond_period_lower_bound, params.min_slashable_share),
 		};
-		let mut result = BTreeMap::new();
+		let mut result: BTreeMap<EraIndex, Vec<UnlockChunk<BalanceOf<T>>>> = BTreeMap::new();
 		let mut free = BalanceOf::<T>::zero();
 		for chunk in ledger.unlocking.into_iter() {
 			let max_release_era = chunk.era.defensive_saturating_add(T::BondingDuration::get());
@@ -959,15 +959,19 @@ impl<T: Config> Pallet<T> {
 					let threshold =
 						(Perbill::from_percent(100) - min_slashable_share) * lowest_stake;
 					if total_unbond >= threshold {
-						final_era = final_era
-							.max(chunk.era.defensive_saturating_add(T::BondingDuration::get()));
+						final_era =
+							final_era.max(era.defensive_saturating_add(T::BondingDuration::get()));
 						break;
 					}
 				}
 				if final_era <= current_era {
 					free.saturating_accrue(chunk.value);
 				} else {
-					result.insert(final_era, chunk);
+					if let Some(elem) = result.get_mut(&final_era) {
+						elem.push(chunk);
+					} else {
+						result.insert(final_era, vec![chunk]);
+					}
 				}
 			}
 		}
