@@ -1,0 +1,12 @@
+title: Add extra information to the harmless error logs during validate_transaction
+doc:
+- audience: Node Dev
+  description: |-
+    # Description
+
+    Fixes https://github.com/paritytech/polkadot-sdk/issues/5936
+
+    Since we are still receiving reports about this error, I suggest adding an extra line to prevent further questions.
+crates:
+- name: sp-api-proc-macro
+  bump: none
