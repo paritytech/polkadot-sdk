@@ -6,4 +6,4 @@ doc:
 
 crates:
 - name: sp-api-proc-macro
-  bump: none
+  bump: patch
