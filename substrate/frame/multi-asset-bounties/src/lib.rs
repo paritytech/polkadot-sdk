@@ -920,61 +920,6 @@ pub mod pallet {
 			Ok(Some(<T as Config<I>>::WeightInfo::close_bounty_proposed()).into())
 		}
 
-		/// Retry the funding, refund or payout payments.
-		///
-		/// ## Dispatch Origin
-		/// Must be signed.
-		///
-		/// ## Details
-		/// - If the bounty status is `FundingAttempted`, it retries the funding payment from
-		///   funding source the child-/bounty account/location.
-		///
-		/// ### Parameters
-		/// - `parent_bounty_id`: Index of parent bounty.
-		/// - `child_bounty_id`: Index of child-bounty.
-		///
-		/// ## Complexity
-		/// - O(1).
-		#[pallet::call_index(9)]
-		// TODO: change weight
-		#[pallet::weight(<T as Config<I>>::WeightInfo::approve_bounty_with_curator())]
-		pub fn retry_payment(
-			origin: OriginFor<T>,
-			#[pallet::compact] parent_bounty_id: BountyIndex,
-			child_bounty_id: Option<BountyIndex>,
-		) -> DispatchResultWithPostInfo {
-			use BountyStatus::*;
-
-			ensure_signed(origin)?;
-			let (asset_kind, value, _, _, status) =
-				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
-
-			let (new_status, weight) = match status {
-				FundingAttempted { ref payment_status, ref curator } => {
-					let new_payment_status = Self::do_process_funding_payment(
-						parent_bounty_id,
-						child_bounty_id,
-						value,
-						asset_kind,
-						Some(payment_status.clone()),
-					)?;
-					// TODO: change weight
-					(
-						FundingAttempted {
-							payment_status: new_payment_status,
-							curator: curator.clone(),
-						},
-						<T as Config<I>>::WeightInfo::approve_bounty_with_curator(),
-					)
-				},
-				_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
-			};
-
-			Self::update_bounty_details(parent_bounty_id, child_bounty_id, new_status, None, None)?;
-
-			Ok(Some(weight).into())
-		}
-
 		/// Check and update the payment status of a child-/bounty.
 		///
 		/// ## Dispatch Origin
@@ -995,7 +940,7 @@ pub mod pallet {
 		///
 		/// ## Complexity
 		/// - O(1).
-		#[pallet::call_index(10)]
+		#[pallet::call_index(9)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::approve_bounty_with_curator())]
 		pub fn check_status(
 			origin: OriginFor<T>,
@@ -1071,6 +1016,82 @@ pub mod pallet {
 							<T as Config<I>>::WeightInfo::approve_bounty_with_curator(),
 						),
 					}
+				},
+				_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
+			};
+
+			Self::update_bounty_details(parent_bounty_id, child_bounty_id, new_status, None, None)?;
+
+			Ok(Some(weight).into())
+		}
+
+		/// Retry the funding, refund or payout payments.
+		///
+		/// ## Dispatch Origin
+		/// Must be signed.
+		///
+		/// ## Details
+		/// - If the bounty status is `FundingAttempted`, it retries the funding payment from
+		///   funding source the child-/bounty account/location.
+		///
+		/// ### Parameters
+		/// - `parent_bounty_id`: Index of parent bounty.
+		/// - `child_bounty_id`: Index of child-bounty.
+		///
+		/// ## Complexity
+		/// - O(1).
+		#[pallet::call_index(10)]
+		// TODO: change weight
+		#[pallet::weight(<T as Config<I>>::WeightInfo::approve_bounty_with_curator())]
+		pub fn retry_payment(
+			origin: OriginFor<T>,
+			#[pallet::compact] parent_bounty_id: BountyIndex,
+			child_bounty_id: Option<BountyIndex>,
+		) -> DispatchResultWithPostInfo {
+			use BountyStatus::*;
+
+			ensure_signed(origin)?;
+			let (asset_kind, value, fee, _, status) =
+				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
+
+			let (new_status, weight) = match status {
+				FundingAttempted { ref payment_status, ref curator } => {
+					let new_payment_status = Self::do_process_funding_payment(
+						parent_bounty_id,
+						child_bounty_id,
+						value,
+						asset_kind,
+						Some(payment_status.clone()),
+					)?;
+					// TODO: change weight
+					(
+						FundingAttempted {
+							payment_status: new_payment_status,
+							curator: curator.clone(),
+						},
+						<T as Config<I>>::WeightInfo::approve_bounty_with_curator(),
+					)
+				},
+				PayoutAttempted { ref curator, ref curator_stash, ref beneficiary } => {
+					let (new_beneficiary_payment_status, new_curator_payment_status) =
+						Self::do_process_payout_payments(
+							parent_bounty_id,
+							child_bounty_id,
+							asset_kind,
+							value,
+							fee,
+							(beneficiary.0.clone(), Some(beneficiary.1.clone())),
+							(curator_stash.0.clone(), Some(curator_stash.1.clone())),
+						)?;
+					// TODO: change weight
+					(
+						PayoutAttempted {
+							curator: curator.clone(),
+							beneficiary: (beneficiary.0.clone(), new_beneficiary_payment_status),
+							curator_stash: (curator_stash.0.clone(), new_curator_payment_status),
+						},
+						<T as Config<I>>::WeightInfo::approve_bounty_with_curator(),
+					)
 				},
 				_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
 			};
@@ -1306,7 +1327,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Some(child_bounty_id) => {
 				ChildBounties::<T, I>::remove(parent_bounty_id, child_bounty_id);
 				ChildBountyDescriptions::<T, I>::remove(parent_bounty_id, child_bounty_id);
-				ChildBountiesPerParent::<T, I>::mutate(parent_bounty_id, |count| count.saturating_dec());
+				ChildBountiesPerParent::<T, I>::mutate(parent_bounty_id, |count| {
+					count.saturating_dec()
+				});
 			},
 		}
 	}
@@ -1447,9 +1470,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		))
 	}
 
-	/// Queries the status of the payment from the child-/bounty account/location to the beneficiary and curator stash
-	/// 
-	/// If both payments succeed, the child-/bounty is removed and the curator deposit is unreserved.
+	/// Queries the status of the payment from the child-/bounty account/location to the beneficiary
+	/// and curator stash
+	///
+	/// If both payments succeed, the child-/bounty is removed and the curator deposit is
+	/// unreserved.
 	fn do_check_payout_payment_status(
 		parent_bounty_id: BountyIndex,
 		child_bounty_id: Option<BountyIndex>,
