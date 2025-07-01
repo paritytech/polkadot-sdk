@@ -332,7 +332,7 @@ pub mod pallet {
 			target: AccountIdLookupOf<T>,
 			schedule: VestingInfo<BalanceOf<T, I>, BlockNumberFor<T>>,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::ForceOrigin::ensure_origin(origin)?;
 			let target = T::Lookup::lookup(target)?;
 			let source = T::Lookup::lookup(source)?;
 			Self::do_vested_transfer(asset, &source, &target, schedule)
@@ -407,7 +407,7 @@ pub mod pallet {
 			target: <T::Lookup as StaticLookup>::Source,
 			schedule_index: u32,
 		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
+			T::ForceOrigin::ensure_origin(origin)?;
 			let who = T::Lookup::lookup(target)?;
 
 			let schedules_count =
