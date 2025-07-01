@@ -364,3 +364,30 @@ jobs:
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           test: "zombie_ci::parachain_extrinsic_get_finalized::parachain_extrinsic_gets_finalized"
           prefix: "cumulus"
+
+  zombienet-cumulus-0013-elastic_scaling_slot_based_rp_offset:
+    needs: [preflight]
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) && ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-cumulus-0013-elastic_scaling_slot_based_rp_offset') }}
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
+    env:
+      # sdk tests are looking for POLKADOT_IMAGE
+      POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
+      ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: zombienet_test
+        uses: ./.github/actions/zombienet-sdk
+        with:
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+          test: "zombie_ci::elastic_scaling_slot_based_rp_offset::elastic_scaling_slot_based_relay_parent_offset_test"
+          prefix: "cumulus"
