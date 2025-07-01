@@ -194,39 +194,6 @@ where
 			params.body = Some(inner_body);
 		}
 
-		// Check for equivocation.
-		let authorities = sc_consensus_aura::authorities::<<P as Pair>::Public, _, _>(
-			self.client.as_ref(),
-			parent_hash,
-			*params.header.number(),
-			&self.compatibility_mode,
-		)
-		.map_err(|e| sp_consensus::Error::Other(Box::new(e)))?;
-		let slot_now = create_inherent_data_providers.slot();
-		let expected_author = sc_consensus_aura::standalone::slot_author::<P>(slot, &authorities);
-		if let (true, Some(expected)) = (self.check_for_equivocation, expected_author) {
-			if let Some(equivocation_proof) = sc_consensus_slots::check_equivocation(
-				self.client.as_ref(),
-				// we add one to allow for some small drift.
-				// FIXME #1019 in the future, alter this queue to allow deferring of
-				// headers
-				slot_now + 1,
-				slot,
-				&params.header,
-				expected,
-			)
-			.map_err(|e| sp_consensus::Error::Other(Box::new(e)))?
-			{
-				tracing::info!(
-					target: LOG_TARGET,
-					"Slot author is equivocating at slot {} with headers {:?} and {:?}",
-					slot,
-					equivocation_proof.first_header.hash(),
-					equivocation_proof.second_header.hash(),
-				);
-			}
-		}
-
 		// If the channel exists and it is required to execute the block, we will execute the block
 		// here. This is done to collect the storage proof and to prevent re-execution, we push
 		// downwards the state changes. `StateAction::ApplyChanges` is ignored, because it either
