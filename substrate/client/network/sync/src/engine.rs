@@ -682,7 +682,6 @@ where
 							"💔 Outdated justification provided by {peer_id} for #{hash}",
 						);
 					},
-
 					sc_consensus::JustificationImportResult::Failure => {
 						log::info!(
 							target: LOG_TARGET,
