@@ -694,7 +694,6 @@ where
 							ReputationChange::new_fatal("Invalid justification"),
 						);
 					},
-
 					_ => {
 						log::debug!(
 							target: LOG_TARGET,
