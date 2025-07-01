@@ -694,7 +694,7 @@ where
 							ReputationChange::new_fatal("Invalid justification"),
 						);
 					},
-					_ => {
+					sc_consensus::JustificationImportResult::Success => {
 						log::debug!(
 							target: LOG_TARGET,
 							"Justification for block #{hash} ({number}) imported from {peer_id} successfully",
