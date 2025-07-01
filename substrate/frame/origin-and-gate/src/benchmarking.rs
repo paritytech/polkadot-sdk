@@ -19,6 +19,7 @@
 
 use super::*;
 use frame_benchmarking::{v2::*, BenchmarkError};
+use frame_system::{RawOrigin};
 use sp_runtime::traits::DispatchTransaction;
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
@@ -26,8 +27,21 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 }
 
 #[benchmarks]
-mod benches {
+mod benchmarks {
 	use super::*;
+
+	// This will measure the execution time of `set_dummy`.
+	#[benchmark]
+	fn set_dummy_benchmark() {
+		// This is the benchmark setup phase.
+		// `set_dummy` is a constant time function, hence we hard-code some random value here.
+		let value = 1000u64.into();
+		#[extrinsic_call]
+		set_dummy(RawOrigin::Root, value); // The execution phase is just running `set_dummy` extrinsic call
+
+		// This is the optional benchmark verification phase, asserting certain states.
+		assert_eq!(Dummy::<T>::get(), Some(value))
+	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

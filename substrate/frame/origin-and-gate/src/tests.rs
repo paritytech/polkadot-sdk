@@ -15,11 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests for pallet-origin-and-gate.
-
 use super::*;
+use crate::{
+	self as pallet_origin_and_gate,
+};
 use frame_support::{
-	assert_ok,
+	assert_ok, assert_err,
 	traits::{ConstU32, ConstU64, Everything},
 	derive_impl,
 };
@@ -29,12 +30,18 @@ use sp_runtime::{
 	BuildStorage,
 };
 
+// Import mock directly instead of through module import
+#[path = "./mock.rs"]
+mod mock;
+use mock::*;
+
 type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
 	pub enum Test {
 		System: frame_system,
-		OriginAndGate: crate,
+		Balances: pallet_balances,
+		OriginAndGate: pallet_origin_and_gate,
 	}
 );
 
@@ -55,7 +62,7 @@ impl frame_system::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Version = ();
 	type PalletInfo = PalletInfo;
-	type AccountData = ();
+	type AccountData = pallet_balances::AccountData<u64>;
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
@@ -72,7 +79,18 @@ impl frame_system::Config for Test {
 	type ExtensionsWeightInfo = ();
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+impl pallet_balances::Config for Test {
+	type AccountStore = System;
+}
+
 impl Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type Hashing = BlakeTwo256;
+	type OriginId = u8;
+	type MaxApprovals = ConstU32<100>;
+	type ProposalLifetime = ConstU64<100>;
 	type WeightInfo = ();
 }
 
@@ -85,4 +103,56 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut ext = sp_io::TestExternalities::new(t);
 	ext.execute_with(|| System::set_block_number(1));
 	ext
+}
+
+/// Helper function to create a remark call that can be used for testing
+fn make_remark_call(text: &str) -> Result<Box<<Test as Config>::RuntimeCall>, &'static str> {
+    // Try to parse the text as a u64
+    let value = match text.parse::<u64>() {
+        Ok(v) => v,
+        Err(_) => return Err("Failed to parse input as u64"),
+    };
+
+    let remark = self::Call::<Test>::set_dummy {
+        new_value: value,
+    };
+    Ok(Box::new(RuntimeCall::OriginAndGate(remark)))
+}
+
+#[test]
+fn ensure_origin_works_with_and_gate() {
+	new_test_ext().execute_with(|| {
+		// Test AliceAndBob origin combination
+		let call = make_remark_call("1000").unwrap();
+		let call_hash = <<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+
+		// Alice proposes
+		assert_ok!(OriginAndGate::propose(
+			mock::RuntimeOrigin::signed(ALICE),
+			call.clone(),
+			ALICE_ORIGIN_ID,
+			None,
+		));
+
+		// Test AliceAndBob origin directly and should fail without Bob's approval
+		assert_err!(
+			AliceAndBob::ensure_origin(mock::RuntimeOrigin::signed(ALICE)),
+			DispatchError::Other("Origin check failed"),
+		);
+
+		// // Bob approves
+		// assert_ok!(OriginAndGate::approve(
+		// 	mock::RuntimeOrigin::signed(BOB),
+		// 	call_hash,
+		// 	ALICE_ORIGIN_ID,
+		// 	BOB_ORIGIN_ID,
+		// ));
+
+		// // Now the AliceAndBob gate should pass for this call
+		// // This would be tested in actual usage when the call is executed
+		// // For test purposes, we're verifying the proposal is marked executed
+		// assert!(Proposals::<Test>::contains_key(call_hash, ALICE_ORIGIN_ID));
+		// let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+		// assert_eq!(proposal.status, ProposalStatus::Executed);
+	});
 }

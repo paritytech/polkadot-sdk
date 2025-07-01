@@ -6,7 +6,7 @@ edition.workspace = true
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
-description = "FRAME pallet for implementing And Gate for EnsureOrigin"
+description = "FRAME pallet for implementing AND Gate for EnsureOrigin"
 readme = "README.md"
 
 [lints]
@@ -21,6 +21,7 @@ frame-benchmarking = { workspace = true, optional = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
+pallet-balances = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
 sp-arithmetic = { workspace = true }
@@ -37,6 +38,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
+	"pallet-balances/std",
 	"pallet-transaction-payment/std",
 	"scale-info/std",
 	"sp-arithmetic/std",
