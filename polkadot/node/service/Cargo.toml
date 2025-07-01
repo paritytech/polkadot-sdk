@@ -105,7 +105,7 @@ westend-runtime-constants = { optional = true, workspace = true, default-feature
 
 # Polkadot Runtimes
 rococo-runtime = { optional = true, workspace = true }
-westend-runtime = { optional = true, workspace = true }
+westend-runtime = { optional = true, workspace = true, default-features = true }
 
 # Polkadot Subsystems
 polkadot-approval-distribution = { optional = true, workspace = true, default-features = true }
@@ -206,6 +206,7 @@ runtime-benchmarks = [
 	"rococo-runtime?/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"westend-runtime-constants?/runtime-benchmarks",
 	"westend-runtime?/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
 	"xcm/runtime-benchmarks",

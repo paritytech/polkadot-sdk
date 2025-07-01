@@ -16,6 +16,7 @@ codec = { workspace = true }
 
 # Substrate
 frame-support = { workspace = true }
+frame-system = { workspace = true }
 pallet-asset-conversion = { workspace = true }
 pallet-asset-rewards = { workspace = true }
 pallet-assets = { workspace = true }

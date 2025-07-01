@@ -409,6 +409,12 @@ impl ExtBuilder {
 		SignedMaxSubmissions::set(s);
 		self
 	}
+
+	pub(crate) fn max_winners_per_page(self, w: u32) -> Self {
+		MaxWinnersPerPage::set(w);
+		self
+	}
+
 	#[allow(unused)]
 	pub(crate) fn add_voter(self, who: AccountId, stake: Balance, targets: Vec<AccountId>) -> Self {
 		staking::VOTERS.with(|v| v.borrow_mut().push((who, stake, targets.try_into().unwrap())));
