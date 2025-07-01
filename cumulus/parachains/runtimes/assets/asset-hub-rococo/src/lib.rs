@@ -1416,7 +1416,7 @@ impl_runtime_apis! {
 
 		fn block_rate() -> sp_block_builder::BlockRate {
 			sp_block_builder::BlockRate {
-				block_time: core::time::Duration::from_millis(500),
+				block_time: sp_block_builder::BlockTime::Regularly { every: core::time::Duration::from_secs(6) } ,
 				block_building_time: core::time::Duration::from_millis(500),
 			}
 		}

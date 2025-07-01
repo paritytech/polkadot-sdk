@@ -26,7 +26,7 @@ use core::time::Duration;
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{traits::Block as BlockT, ApplyExtrinsicResult};
 
-#[derive(Encode, Decode, scale_info::TypeInfo)]
+#[derive(Encode, Decode, scale_info::TypeInfo, Debug)]
 pub struct BlockRate {
 	/// Time between individual blocks.
 	pub block_time: BlockTime,
@@ -34,7 +34,7 @@ pub struct BlockRate {
 	pub block_building_time: Duration,
 }
 
-#[derive(Encode, Decode, scale_info::TypeInfo)]
+#[derive(Encode, Decode, scale_info::TypeInfo, Debug)]
 pub enum BlockTime {
 	/// Blocks are expected every X.
 	Regularly {

@@ -46,9 +46,9 @@ pub mod elastic_scaling {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling.rs"));
 }
 
-pub mod elastic_scaling_multi_block_slot {
+pub mod pov_bundling {
 	#[cfg(feature = "std")]
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_multi_block_slot.rs"));
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_pov_bundling.rs"));
 }
 
 pub mod sync_backing {
@@ -62,7 +62,6 @@ mod test_pallet;
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
-use codec::Encode;
 use frame_support::{derive_impl, traits::OnRuntimeUpgrade, PalletId};
 use sp_api::{decl_runtime_apis, impl_runtime_apis};
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -120,22 +119,8 @@ impl_opaque_keys! {
 pub const PARACHAIN_ID: u32 = 100;
 
 #[cfg(all(
-	feature = "elastic-scaling-multi-block-slot",
-	not(any(
-		feature = "elastic-scaling",
-		feature = "elastic-scaling-500ms",
-		feature = "relay-parent-offset"
-	))
-))]
-pub const BLOCK_PROCESSING_VELOCITY: u32 = 6;
-
-#[cfg(all(
-	feature = "elastic-scaling-500ms",
-	not(any(
-		feature = "elastic-scaling",
-		feature = "elastic-scaling-multi-block-slot",
-		feature = "relay-parent-offset"
-	))
+	any(feature = "elastic-scaling-500ms", feature = "pov-bundling"),
+	not(any(feature = "elastic-scaling", feature = "relay-parent-offset"))
 ))]
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 12;
 
@@ -145,7 +130,7 @@ pub const BLOCK_PROCESSING_VELOCITY: u32 = 3;
 #[cfg(not(any(
 	feature = "elastic-scaling",
 	feature = "elastic-scaling-500ms",
-	feature = "elastic-scaling-multi-block-slot",
+	feature = "pov-bundling",
 	feature = "relay-parent-offset"
 )))]
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
@@ -569,9 +554,16 @@ impl_runtime_apis! {
 		}
 
 		fn block_rate() -> sp_block_builder::BlockRate {
-			sp_block_builder::BlockRate {
-				block_time: sp_block_builder::BlockTime::Regularly { every:  core::time::Duration::from_secs(6) },
-				block_building_time: core::time::Duration::from_secs(2),
+			if cfg!(feature = "pov-bundling") {
+				sp_block_builder::BlockRate {
+					block_time: sp_block_builder::BlockTime::Regularly { every: core::time::Duration::from_millis(500) },
+					block_building_time: core::time::Duration::from_millis(500),
+				}
+			} else {
+				sp_block_builder::BlockRate {
+					block_time: sp_block_builder::BlockTime::Regularly { every: core::time::Duration::from_secs(6) },
+					block_building_time: core::time::Duration::from_secs(2),
+				}
 			}
 		}
 	}

@@ -18,25 +18,29 @@
 use anyhow::anyhow;
 
 use cumulus_zombienet_sdk_helpers::{
-	assert_finality_lag, assert_para_throughput, create_assign_core_call,
+	assert_finality_lag, assert_para_blocks_throughput, assert_para_throughput,
+	create_assign_core_call,
 };
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_sdk::{
-	subxt::{OnlineClient, PolkadotConfig},
+	subxt::{
+		backend::{legacy::LegacyRpcMethods, rpc::RpcClient},
+		OnlineClient, PolkadotConfig,
+	},
 	subxt_signer::sr25519::dev,
 	NetworkConfig, NetworkConfigBuilder,
 };
 
 const PARA_ID: u32 = 2400;
 
-/// This test spawns a parachain network.
-/// Initially, one core is assigned. We expect the parachain to produce 1 block per relay.
-/// As we increase the number of cores via `assign_core`, we expect the block pace to increase too.
-/// **Note:** The runtime in use here has 6s slot duration, so multiple blocks will be produced per
-/// slot.
+/// A test that ensures that PoV bundling works.
+///
+/// Initially, one core is assigned. We expect the parachain to produce 12 block per relay core.
+/// As we increase the number of cores via `assign_core`, we expect the blocks to spread over the
+/// relay cores.
 #[tokio::test(flavor = "multi_thread")]
-async fn elastic_scaling_multiple_block_per_slot() -> Result<(), anyhow::Error> {
+async fn pov_bundling() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
@@ -47,17 +51,17 @@ async fn elastic_scaling_multiple_block_per_slot() -> Result<(), anyhow::Error> 
 	let network = spawn_fn(config).await?;
 
 	let relay_node = network.get_node("validator-0")?;
-	let para_node_elastic = network.get_node("collator-1")?;
+	let para_node = network.get_node("collator-1")?;
 
+	let para_client = para_node.wait_client().await?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
+	let relay_rpc_client =
+		LegacyRpcMethods::new(RpcClient::from_url(relay_node.ws_uri()).await.unwrap());
 	let alice = dev::alice();
-	assert_para_throughput(
-		&relay_client,
-		10,
-		[(ParaId::from(PARA_ID), 8..11)].into_iter().collect(),
-	)
-	.await?;
-	assert_finality_lag(&para_node_elastic.wait_client().await?, 5).await?;
+
+	assert_para_blocks_throughput(&para_client, 72, &relay_rpc_client, &relay_client, 6..9).await?;
+	// 3 relay chain blocks
+	assert_finality_lag(&para_client, 36).await?;
 
 	let assign_cores_call = create_assign_core_call(&[(2, PARA_ID), (3, PARA_ID)]);
 
@@ -70,13 +74,8 @@ async fn elastic_scaling_multiple_block_per_slot() -> Result<(), anyhow::Error> 
 		.await?;
 	log::info!("2 more cores assigned to each parachain");
 
-	assert_para_throughput(
-		&relay_client,
-		15,
-		[(ParaId::from(PARA_ID), 39..46)].into_iter().collect(),
-	)
-	.await?;
-	assert_finality_lag(&para_node_elastic.wait_client().await?, 20).await?;
+	assert_para_throughput(&relay_client, 15, [(ParaId::from(PARA_ID), 39..46)]).await?;
+	assert_finality_lag(&para_client, 20).await?;
 
 	let assign_cores_call = create_assign_core_call(&[(4, PARA_ID), (5, PARA_ID), (6, PARA_ID)]);
 	// Assign two extra cores to each parachain.
@@ -88,13 +87,8 @@ async fn elastic_scaling_multiple_block_per_slot() -> Result<(), anyhow::Error> 
 		.await?;
 	log::info!("3 more cores assigned to each parachain");
 
-	assert_para_throughput(
-		&relay_client,
-		10,
-		[(ParaId::from(PARA_ID), 52..61)].into_iter().collect(),
-	)
-	.await?;
-	assert_finality_lag(&para_node_elastic.wait_client().await?, 30).await?;
+	assert_para_throughput(&relay_client, 10, [(ParaId::from(PARA_ID), 52..61)]).await?;
+	assert_finality_lag(&para_client, 30).await?;
 	log::info!("Test finished successfully");
 	Ok(())
 }
@@ -131,11 +125,11 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			p.with_id(PARA_ID)
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_chain("elastic-scaling-multi-block-slot")
+				.with_chain("pov-bundling")
 				.with_default_args(vec![
 					("--authoring").into(),
 					("slot-based").into(),
-					("-lparachain=trace,aura=debug").into(),
+					("-laura=trace").into(),
 				])
 				.with_collator(|n| n.with_name("collator-0"))
 				.with_collator(|n| n.with_name("collator-1"))

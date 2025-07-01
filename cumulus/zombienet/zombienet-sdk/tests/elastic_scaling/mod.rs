@@ -15,5 +15,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod elastic_scaling_multiple_blocks_per_slot;
+mod pov_bundling;
 mod slot_based_rp_offset;

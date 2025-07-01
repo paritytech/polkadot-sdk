@@ -280,7 +280,7 @@ where
 					},
 				};
 
-			let Ok(RelayChainData { max_pov_size, claim_queue, .. }) =
+			let Ok(RelayChainData { max_pov_size, .. }) =
 				relay_chain_data_cache.get_mut_relay_chain_data(relay_parent).await
 			else {
 				continue;
@@ -390,6 +390,8 @@ where
 					relay_chain_slot_duration.as_millis() / bt.as_millis(),
 				_ => 1,
 			};
+
+			tracing::trace!(target: LOG_TARGET, %blocks_per_core, ?block_rate, "Block rate configuration");
 
 			let mut blocks = Vec::new();
 			let mut proofs = Vec::new();

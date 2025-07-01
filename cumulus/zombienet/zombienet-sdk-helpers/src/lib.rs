@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use anyhow::anyhow;
-use codec::{Compact, Decode};
-use cumulus_primitives_core::{relay_chain, rpsr_digest::RPSR_CONSENSUS_ID};
-use futures::stream::StreamExt;
+use codec::{Compact, Decode, Encode};
+use cumulus_primitives_core::{relay_chain, rpsr_digest::RPSR_CONSENSUS_ID, CumulusDigestItem};
+use futures::{stream::StreamExt, TryStreamExt};
 use polkadot_primitives::{vstaging::CandidateReceiptV2, Id as ParaId};
+use sp_runtime::traits::Zero;
 use std::{
 	cmp::max,
 	collections::{HashMap, HashSet},
@@ -16,8 +17,14 @@ use tokio::{
 	time::{sleep, Duration},
 };
 use zombienet_sdk::subxt::{
-	blocks::Block, config::substrate::DigestItem, events::Events, ext::scale_value::value,
-	tx::DynamicPayload, utils::H256, OnlineClient, PolkadotConfig,
+	backend::{legacy::LegacyRpcMethods, Backend},
+	blocks::Block,
+	config::{substrate::DigestItem, Header},
+	events::Events,
+	ext::scale_value::value,
+	tx::DynamicPayload,
+	utils::H256,
+	Config, OnlineClient, PolkadotConfig,
 };
 
 // Maximum number of blocks to wait for a session change.
@@ -80,14 +87,9 @@ pub async fn assert_finalized_para_throughput(
 		let block = block?;
 		log::debug!("Finalized relay chain block {}", block.number());
 		let events = block.events().await?;
-		let is_session_change = events.iter().any(|event| {
-			event.as_ref().is_ok_and(|event| {
-				event.pallet_name() == "Session" && event.variant_name() == "NewSession"
-			})
-		});
 
 		// Do not count blocks with session changes, no backed blocks there.
-		if is_session_change {
+		if is_session_change(&block).await? {
 			continue
 		}
 
@@ -131,16 +133,28 @@ pub async fn assert_finalized_para_throughput(
 	Ok(())
 }
 
-// Helper function for asserting the throughput of parachains.
+/// Returns `true` if the `block` is a session change.
+async fn is_session_change(
+	block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+) -> Result<bool, anyhow::Error> {
+	let events = block.events().await?;
+	Ok(events.iter().any(|event| {
+		event.as_ref().is_ok_and(|event| {
+			event.pallet_name() == "Session" && event.variant_name() == "NewSession"
+		})
+	}))
+}
+
+// Helper function for asserting the throughput of parachain candidates on the relay chain.
 //
-// The troughput is measured as total number of backed candidates in a window of relay chain blocks,
-// after the first session change. Blocks with session changes are generally ignored.
+// The throughput is measured as total number of backed candidates in a window of relay chain
+// blocks, after the first session change. Blocks with session changes are generally ignored.
 //
 // `stop_after`: Number of relay chain blocks after which the recording should be stopped.
 pub async fn assert_para_throughput(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	stop_after: u32,
-	expected_candidate_ranges: HashMap<ParaId, Range<u32>>,
+	expected_candidate_ranges: impl Into<HashMap<ParaId, Range<u32>>>,
 ) -> Result<(), anyhow::Error> {
 	// Check on backed blocks in all imported relay chain blocks. The slot-based collator
 	// builds on the best fork currently. It can happen that it builds on a fork which is not
@@ -150,6 +164,7 @@ pub async fn assert_para_throughput(
 	let mut blocks_sub = relay_client.blocks().subscribe_all().await?;
 	let mut candidate_count: HashMap<ParaId, (u32, u32)> = HashMap::new();
 	let mut start_height: Option<u32> = None;
+	let expected_candidate_ranges = expected_candidate_ranges.into();
 
 	let valid_para_ids: Vec<ParaId> = expected_candidate_ranges.keys().cloned().collect();
 
@@ -159,18 +174,13 @@ pub async fn assert_para_throughput(
 	let mut session_change_seen_at = 0u32;
 	while let Some(block) = blocks_sub.next().await {
 		let block = block?;
-		let block_number = Into::<u32>::into(block.number());
+		let block_number = u32::from(block.number());
 
 		let events = block.events().await?;
 		let mut para_ids_to_increment: HashSet<ParaId> = Default::default();
-		let is_session_change = events.iter().any(|event| {
-			event.as_ref().is_ok_and(|event| {
-				event.pallet_name() == "Session" && event.variant_name() == "NewSession"
-			})
-		});
 
 		// Do not count blocks with session changes, no backed blocks there.
-		if is_session_change {
+		if is_session_change(&block).await? {
 			if block_number == session_change_seen_at {
 				continue;
 			}
@@ -245,6 +255,103 @@ pub async fn assert_para_throughput(
 	Ok(())
 }
 
+/// Returns the header of the relay parent used by the given parachain `block`.
+async fn relay_parent_for(
+	block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+	relay_rpc_client: &LegacyRpcMethods<PolkadotConfig>,
+) -> Result<<PolkadotConfig as Config>::Header, anyhow::Error> {
+	let substrate_digest =
+		sp_runtime::generic::Digest::decode(&mut &block.header().digest.encode()[..])
+			.expect("`subxt::Digest` and `substrate::Digest` should encode and decode; qed");
+
+	match CumulusDigestItem::find_relay_block_identifier(&substrate_digest).unwrap() {
+		cumulus_primitives_core::RelayBlockIdentifier::ByHash(hash) => relay_rpc_client
+			.chain_get_header(Some(hash))
+			.await?
+			.ok_or_else(|| anyhow!("Could not fetch relay chain header: {hash:?}")),
+		cumulus_primitives_core::RelayBlockIdentifier::ByStorageRoot {
+			storage_root,
+			block_number,
+		} => {
+			let block_hash = relay_rpc_client
+				.chain_get_block_hash(Some(block_number.into()))
+				.await?
+				.ok_or_else(|| anyhow!("Could not fetch block hash for block: {}", block_number))?;
+
+			let header = relay_rpc_client
+				.chain_get_header(Some(block_hash))
+				.await?
+				.ok_or_else(|| anyhow!("Could not fetch real chain header: {block_hash:?}"))?;
+
+			assert_eq!(storage_root, header.state_root, "Storage roots should match");
+			Ok(header)
+		},
+	}
+}
+
+/// Assert that `stop_after` parachain blocks are included via `expected_relay_blocks`.
+///
+/// It waits for `stop_after` parachain blocks to be finalized. Then it ensures that these parachain
+/// blocks are included on the relay chain using the given number of `expected_relay_blocks`.
+pub async fn assert_para_blocks_throughput(
+	para_client: &OnlineClient<PolkadotConfig>,
+	stop_after: usize,
+	relay_rpc_client: &LegacyRpcMethods<PolkadotConfig>,
+	relay_client: &OnlineClient<PolkadotConfig>,
+	expected_relay_blocks: Range<u32>,
+) -> Result<(), anyhow::Error> {
+	// Wait for the first session, block production on the parachain will start after that.
+	wait_for_first_session_change(&mut relay_client.blocks().subscribe_best().await?).await?;
+
+	let finalized_stream = para_client.blocks().subscribe_finalized().await?;
+
+	let finalized_blocks = finalized_stream
+		.try_filter(|b| futures::future::ready(!b.number().is_zero()))
+		.take(stop_after)
+		.try_collect::<Vec<_>>()
+		.await?;
+
+	let first_relay_header = relay_parent_for(&finalized_blocks[0], relay_rpc_client).await?;
+	let last_relay_header =
+		relay_parent_for(finalized_blocks.last().unwrap(), relay_rpc_client).await?;
+
+	let mut relay_blocks_without_session_change = 0;
+	let mut current_relay_header = last_relay_header.clone();
+	while current_relay_header.number() >= first_relay_header.number() {
+		let block = relay_rpc_client
+			.chain_get_block(Some(current_relay_header.hash()))
+			.await?
+			.ok_or_else(|| {
+				anyhow!("Could not fetch relay block: {:?}", current_relay_header.hash())
+			})?
+			.block;
+
+		let block = relay_client.blocks().at(block.header.hash()).await?;
+
+		if !is_session_change(&block).await? {
+			relay_blocks_without_session_change += 1;
+		}
+
+		current_relay_header = relay_rpc_client
+			.chain_get_header(Some(current_relay_header.parent_hash))
+			.await?
+			.ok_or_else(|| {
+				anyhow!(
+					"Could not fetch relay chain header: {:?}",
+					current_relay_header.parent_hash
+				)
+			})?;
+	}
+
+	assert!(
+		expected_relay_blocks.contains(&relay_blocks_without_session_change),
+		"{relay_blocks_without_session_change} relay chain blocks is not in the \
+		 expected range of {relay_blocks_without_session_change} relay chain blocks.",
+	);
+
+	Ok(())
+}
+
 /// Wait for the first block with a session change.
 ///
 /// The session change is detected by inspecting the events in the block.
@@ -269,14 +376,8 @@ pub async fn wait_for_nth_session_change(
 	while let Some(block) = blocks_sub.next().await {
 		let block = block?;
 		log::debug!("Finalized relay chain block {}", block.number());
-		let events = block.events().await?;
-		let is_session_change = events.iter().any(|event| {
-			event.as_ref().is_ok_and(|event| {
-				event.pallet_name() == "Session" && event.variant_name() == "NewSession"
-			})
-		});
 
-		if is_session_change {
+		if is_session_change(&block).await? {
 			sessions_to_wait -= 1;
 			if sessions_to_wait == 0 {
 				return Ok(())
@@ -376,7 +477,11 @@ pub async fn assert_relay_parent_offset(
 					return Err(anyhow!("No RPSR digest found in header #{}", para_block.number()));
 				};
 				log::debug!("Parachain block #{} was built on relay parent #{relay_parent_number}, highest seen was {highest_relay_block_seen}", para_block.number());
-				assert!(highest_relay_block_seen < offset || relay_parent_number <= highest_relay_block_seen.saturating_sub(offset), "Relay parent is not at the correct offset! relay_parent: #{relay_parent_number} highest_seen_relay_block: #{highest_relay_block_seen}");
+				assert!(
+					highest_relay_block_seen < offset ||
+					relay_parent_number <= highest_relay_block_seen.saturating_sub(offset),
+					"Relay parent is not at the correct offset! relay_parent: #{relay_parent_number} highest_seen_relay_block: #{highest_relay_block_seen}",
+				);
 				num_para_blocks_seen += 1;
 				if num_para_blocks_seen >= block_limit {
 					log::info!("Successfully verified relay parent offset of {offset} for {num_para_blocks_seen} parachain blocks.");
