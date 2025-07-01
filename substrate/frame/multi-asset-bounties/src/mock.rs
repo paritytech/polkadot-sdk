@@ -536,3 +536,15 @@ pub fn create_awarded_parent_bounty() -> TestBounty {
 
 	s
 }
+
+pub fn create_canceled_parent_bounty() -> TestBounty {
+	let mut s = create_active_parent_bounty();
+
+	assert_ok!(Bounties::close_bounty(
+		RuntimeOrigin::root(),
+		s.parent_bounty_id,
+		None,
+	));
+
+	s
+}

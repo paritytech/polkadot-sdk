@@ -1066,6 +1066,28 @@ pub mod pallet {
 						),
 					}
 				},
+				RefundAttempted { ref payment_status, ref curator } => {
+					let new_payment_status = Self::do_check_refund_payment_status(
+						parent_bounty_id,
+						child_bounty_id,
+						asset_kind,
+						value,
+						curator_deposit,
+						payment_status.clone(),
+						curator.clone(),
+					)?;
+					// TODO: change weight
+					match new_payment_status {
+						PaymentState::Succeeded => return Ok(Pays::No.into()),
+						_ => (
+							BountyStatus::RefundAttempted {
+								payment_status: new_payment_status,
+								curator: curator.clone(),
+							},
+							<T as Config<I>>::WeightInfo::approve_bounty_with_curator(),
+						),
+					}
+				},
 				PayoutAttempted { ref curator, ref curator_stash, ref beneficiary } => {
 					let (new_curator_stash_payment_status, new_beneficiary_payment_status) =
 						Self::do_check_payout_payment_status(
@@ -1157,6 +1179,23 @@ pub mod pallet {
 					// TODO: change weight
 					(
 						FundingAttempted {
+							payment_status: new_payment_status,
+							curator: curator.clone(),
+						},
+						<T as Config<I>>::WeightInfo::approve_bounty_with_curator(),
+					)
+				},
+				RefundAttempted { ref payment_status, ref curator } => {
+					let new_payment_status = Self::do_process_refund_payment(
+						parent_bounty_id,
+						child_bounty_id,
+						asset_kind,
+						value,
+						Some(payment_status.clone()),
+					)?;
+					// TODO: change weight
+					(
+						RefundAttempted {
 							payment_status: new_payment_status,
 							curator: curator.clone(),
 						},
@@ -1530,6 +1569,43 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		});
 
 		Ok(PaymentState::Attempted { id })
+	}
+
+	/// Queries the status of the refund payment from the child-/bounty account/location to the funding source.
+	/// 
+	/// If the payment succeeds, the child-/bounty is removed and the curator deposit is unreserved.
+	fn do_check_refund_payment_status(
+		parent_bounty_id: BountyIndex,
+		child_bounty_id: Option<BountyIndex>,
+		asset_kind: T::AssetKind,
+		value: BalanceOf<T, I>,
+		curator_deposit: BalanceOf<T, I>,
+		payment_status: PaymentState<PaymentIdOf<T, I>>,
+		curator: Option<T::AccountId>,
+	) -> Result<PaymentState<PaymentIdOf<T, I>>, DispatchError> {
+		let payment_id = payment_status.get_attempt_id().ok_or(Error::<T, I>::UnexpectedStatus)?;
+
+		match <T as pallet::Config<I>>::Paymaster::check_payment(payment_id) {
+			PaymentStatus::Success => {
+				if let Some(curator) = curator {
+					// Cancelled by council, refund deposit of the working curator.
+					let err_amount = T::Currency::unreserve(&curator, curator_deposit);
+					debug_assert!(err_amount.is_zero());
+				}
+				// refund succeeded, cleanup the bounty
+				Self::remove_bounty(parent_bounty_id, child_bounty_id);
+				Self::deposit_event(Event::<T, I>::BountyRefundProcessed { index: parent_bounty_id, child_index: child_bounty_id });
+				Ok(PaymentState::Succeeded)
+			},
+			PaymentStatus::InProgress =>
+			// nothing new to report
+				Err(Error::<T, I>::RefundInconclusive.into()),
+			PaymentStatus::Unknown | PaymentStatus::Failure => {
+				// assume payment has failed, allow user to retry
+				Self::deposit_event(Event::<T, I>::PaymentFailed { index: parent_bounty_id, child_index: child_bounty_id, payment_id });
+				Ok(PaymentState::Failed)
+			},
+		}
 	}
 
 	/// Initializes payments from the child-/bounty account/location to the curator stash and

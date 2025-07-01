@@ -307,15 +307,57 @@ fn check_status_works() {
 			BountiesEvent::BountyFundingProcessed { index: s.parent_bounty_id, child_index: None }
 		);
 		assert_eq!(
-			pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id).unwrap(),
-			Bounty {
-				asset_kind: s.asset_kind,
-				value: s.value,
-				fee: s.fee,
-				curator_deposit: 0,
-				status: BountyStatus::Funded { curator: s.curator },
+			pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id).unwrap().status,
+			BountyStatus::Funded { curator: s.curator }
+		);
+
+		// Given: Bounty status is `RefundAttempted` and payment fails
+		let s = create_canceled_parent_bounty();
+		let payment_id =
+			get_payment_id(s.parent_bounty_id, None, None).expect("no payment attempt");
+		set_status(payment_id, PaymentStatus::Failure);
+
+		// When
+		assert_ok!(Bounties::check_status(RuntimeOrigin::signed(1), s.parent_bounty_id, None));
+
+		// Then
+		assert_eq!(
+			last_event(),
+			BountiesEvent::PaymentFailed {
+				index: s.parent_bounty_id,
+				child_index: None,
+				payment_id
 			}
 		);
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id).unwrap().status,
+			BountyStatus::RefundAttempted {
+				curator: Some(s.curator),
+				payment_status: PaymentState::Failed
+			}
+		);
+
+		// Given: Bounty status is `RefundAttempted` and payment succeeds
+		let s = create_canceled_parent_bounty();
+		let payment_id =
+			get_payment_id(s.parent_bounty_id, None, None).expect("no payment attempt");
+		set_status(payment_id, PaymentStatus::Success);
+
+		// When
+		assert_ok!(Bounties::check_status(RuntimeOrigin::signed(1), s.parent_bounty_id, None));
+
+		// Then
+		assert_eq!(
+			last_event(),
+			BountiesEvent::BountyRefundProcessed {
+				index: s.parent_bounty_id,
+				child_index: None,
+			}
+		);
+		assert_eq!(Balances::free_balance(s.curator), 100); // initial 100
+		assert_eq!(pallet_bounties::Bounties::<Test>::iter().count(), 4 - 1);
+		assert_eq!(pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id), None);
+		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(s.parent_bounty_id), None);
 
 		// Given: Bounty status is `PayoutAttempted` with 2 payments failed
 		let s = create_awarded_parent_bounty();
@@ -343,17 +385,11 @@ fn check_status_works() {
 			},
 		]);
 		assert_eq!(
-			pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id).unwrap(),
-			Bounty {
-				asset_kind: s.asset_kind,
-				value: s.value,
-				fee: s.fee,
-				curator_deposit: s.curator_deposit,
-				status: BountyStatus::PayoutAttempted {
-					curator: s.curator,
-					beneficiary: (s.beneficiary, PaymentState::Failed),
-					curator_stash: (s.curator_stash, PaymentState::Failed)
-				},
+			pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id).unwrap().status,
+			BountyStatus::PayoutAttempted {
+				curator: s.curator,
+				beneficiary: (s.beneficiary, PaymentState::Failed),
+				curator_stash: (s.curator_stash, PaymentState::Failed)
 			}
 		);
 
@@ -376,17 +412,11 @@ fn check_status_works() {
 			payment_id: curator_payment_id,
 		}]);
 		assert_eq!(
-			pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id).unwrap(),
-			Bounty {
-				asset_kind: s.asset_kind,
-				value: s.value,
-				fee: s.fee,
-				curator_deposit: s.curator_deposit,
-				status: BountyStatus::PayoutAttempted {
-					curator: s.curator,
-					beneficiary: (s.beneficiary, PaymentState::Succeeded),
-					curator_stash: (s.curator_stash, PaymentState::Failed)
-				},
+			pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id).unwrap().status,
+			BountyStatus::PayoutAttempted {
+				curator: s.curator,
+				beneficiary: (s.beneficiary, PaymentState::Succeeded),
+				curator_stash: (s.curator_stash, PaymentState::Failed)
 			}
 		);
 
@@ -411,7 +441,7 @@ fn check_status_works() {
 			beneficiary: s.beneficiary,
 		}]);
 		assert_eq!(Balances::free_balance(s.curator), 100); // initial 100
-		assert_eq!(pallet_bounties::Bounties::<Test>::iter().count(), 5 - 1);
+		assert_eq!(pallet_bounties::Bounties::<Test>::iter().count(), 7 - 1 - 1);
 		assert_eq!(pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id), None);
 		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(s.parent_bounty_id), None);
 	});
@@ -448,6 +478,15 @@ fn check_status_fails() {
 		assert_noop!(
 			Bounties::check_status(RuntimeOrigin::signed(1), s.parent_bounty_id, None),
 			Error::<Test>::UnexpectedStatus
+		);
+
+		// Given
+		let s = create_canceled_parent_bounty();
+
+		// Then
+		assert_noop!(
+			Bounties::check_status(RuntimeOrigin::signed(1), s.parent_bounty_id, None),
+			Error::<Test>::RefundInconclusive
 		);
 
 		// Given
@@ -495,6 +534,31 @@ fn retry_payment_works() {
 			}
 		);
 
+		// Given: bounty status `RefundAttempted`
+		let s = create_canceled_parent_bounty();
+		let payment_id =
+			get_payment_id(s.parent_bounty_id, None, None).expect("no payment attempt");
+		set_status(payment_id, PaymentStatus::Failure);
+		assert_ok!(Bounties::check_status(RuntimeOrigin::signed(1), s.parent_bounty_id, None));
+
+		// When
+		assert_ok!(Bounties::retry_payment(RuntimeOrigin::signed(1), s.parent_bounty_id, None));
+
+		// Then
+		let payment_id =
+			get_payment_id(s.parent_bounty_id, None, None).expect("no payment attempt");
+		assert_eq!(
+			last_event(),
+			BountiesEvent::Paid { index: s.parent_bounty_id, child_index: None, payment_id }
+		);
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id).unwrap().status,
+			BountyStatus::RefundAttempted {
+					curator: Some(s.curator),
+					payment_status: PaymentState::Attempted { id: payment_id }
+				},
+		);
+
 		// Given: bounty status `PayoutAttempted` with 1 payment failed (beneficiary)
 		let s = create_awarded_parent_bounty();
 		let beneficiary_payment_id = get_payment_id(s.parent_bounty_id, None, Some(s.beneficiary))
@@ -520,23 +584,17 @@ fn retry_payment_works() {
 			}
 		);
 		assert_eq!(
-			pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id).unwrap(),
-			Bounty {
-				asset_kind: s.asset_kind,
-				value: s.value,
-				fee: s.fee,
-				curator_deposit: 5,
-				status: BountyStatus::PayoutAttempted {
-					curator: s.curator,
-					beneficiary: (
-						s.beneficiary,
-						PaymentState::Attempted { id: beneficiary_payment_id }
-					),
-					curator_stash: (
-						s.curator_stash,
-						PaymentState::Attempted { id: curator_stash_payment_id }
-					)
-				},
+			pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id).unwrap().status,
+			BountyStatus::PayoutAttempted {
+				curator: s.curator,
+				beneficiary: (
+					s.beneficiary,
+					PaymentState::Attempted { id: beneficiary_payment_id }
+				),
+				curator_stash: (
+					s.curator_stash,
+					PaymentState::Attempted { id: curator_stash_payment_id }
+				)
 			}
 		);
 
@@ -573,23 +631,17 @@ fn retry_payment_works() {
 			},
 		]);
 		assert_eq!(
-			pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id).unwrap(),
-			Bounty {
-				asset_kind: s.asset_kind,
-				value: s.value,
-				fee: s.fee,
-				curator_deposit: 5,
-				status: BountyStatus::PayoutAttempted {
-					curator: s.curator,
-					beneficiary: (
-						s.beneficiary,
-						PaymentState::Attempted { id: beneficiary_payment_id }
-					),
-					curator_stash: (
-						s.curator_stash,
-						PaymentState::Attempted { id: curator_stash_payment_id }
-					)
-				},
+			pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id).unwrap().status,
+			BountyStatus::PayoutAttempted {
+				curator: s.curator,
+				beneficiary: (
+					s.beneficiary,
+					PaymentState::Attempted { id: beneficiary_payment_id }
+				),
+				curator_stash: (
+					s.curator_stash,
+					PaymentState::Attempted { id: curator_stash_payment_id }
+				)
 			}
 		);
 	});
@@ -621,6 +673,18 @@ fn retry_payment_fails() {
 
 		// Given
 		let s = create_parent_bounty();
+		let payment_id =
+			get_payment_id(s.parent_bounty_id, None, None).expect("no payment attempt");
+		set_status(payment_id, PaymentStatus::Success);
+
+		// When/Then
+		assert_noop!(
+			Bounties::retry_payment(RuntimeOrigin::signed(1), s.parent_bounty_id, None),
+			Error::<Test>::UnexpectedStatus
+		);
+
+		// Given
+		let s = create_canceled_parent_bounty();
 		let payment_id =
 			get_payment_id(s.parent_bounty_id, None, None).expect("no payment attempt");
 		set_status(payment_id, PaymentStatus::Success);
