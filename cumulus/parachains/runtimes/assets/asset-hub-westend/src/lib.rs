@@ -2198,7 +2198,7 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 					ExistentialDeposit::get()
 				).into());
 
-				pub RandomParaId: ParaId = ParaId::new(RandomId::get());
+				pub RandomParaId: ParaId = ParaId::new(43211234);
 			}
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
@@ -2398,7 +2398,7 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 				// AssetHubWestend trusts AssetHubRococo as reserve for ROCs
 				pub TrustedReserve: Option<(Location, Asset)> = Some(
 					(
-						RandomParaLocation::get(),
+						xcm_config::bridging::to_rococo::AssetHubRococo::get(),
 						Asset::from((xcm_config::bridging::to_rococo::RocLocation::get(), 1000000000000 as u128))
 					)
 				);
