@@ -679,6 +679,27 @@ where
 			total_locked_now
 		})
 	}
+
+	fn can_add_vesting_schedule(
+		asset: AssetIdOf<T, I>,
+		who: &T::AccountId,
+		locked: BalanceOf<T, I>,
+		per_block: BalanceOf<T, I>,
+		starting_block: BlockNumberFor<T>,
+	) -> DispatchResult {
+		// Check for `per_block` or `locked` of 0.
+		if !VestingInfo::new(locked, per_block, starting_block).is_valid() {
+			return Err(Error::<T, I>::InvalidScheduleParams.into())
+		}
+
+		ensure!(
+			(Vesting::<T, I>::decode_len(asset, who).unwrap_or_default() as u32) <
+				T::MAX_VESTING_SCHEDULES,
+			Error::<T, I>::AtMaxVestingSchedules
+		);
+
+		Ok(())
+	}
 }
 
 impl<T: Config<I>, I: 'static> VestedMutate<T::AccountId> for Pallet<T, I> {
@@ -714,27 +735,6 @@ impl<T: Config<I>, I: 'static> VestedMutate<T::AccountId> for Pallet<T, I> {
 		Ok(())
 	}
 
-	fn can_add_vesting_schedule(
-		asset: AssetIdOf<T, I>,
-		who: &T::AccountId,
-		locked: BalanceOf<T, I>,
-		per_block: BalanceOf<T, I>,
-		starting_block: BlockNumberFor<T>,
-	) -> DispatchResult {
-		// Check for `per_block` or `locked` of 0.
-		if !VestingInfo::new(locked, per_block, starting_block).is_valid() {
-			return Err(Error::<T, I>::InvalidScheduleParams.into())
-		}
-
-		ensure!(
-			(Vesting::<T, I>::decode_len(asset, who).unwrap_or_default() as u32) <
-				T::MAX_VESTING_SCHEDULES,
-			Error::<T, I>::AtMaxVestingSchedules
-		);
-
-		Ok(())
-	}
-
 	fn remove_vesting_schedule(
 		asset: AssetIdOf<T, I>,
 		who: &T::AccountId,
@@ -756,10 +756,6 @@ where
 	AssetIdOf<T, I>: MaybeSerializeDeserialize,
 	BalanceOf<T, I>: MaybeSerializeDeserialize + Debug,
 {
-	type Moment = BlockNumberFor<T>;
-	type AssetId = AssetIdOf<T, I>;
-	type Balance = BalanceOf<T, I>;
-
 	fn vested_transfer(
 		asset: AssetIdOf<T, I>,
 		source: &T::AccountId,

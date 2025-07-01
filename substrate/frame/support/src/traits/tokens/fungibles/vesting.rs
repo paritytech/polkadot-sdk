@@ -32,6 +32,15 @@ pub trait Inspect<AccountId> {
 	/// Get the amount that is currently being vested and cannot be transferred out of this asset
 	/// account. Returns `None` if the asset account has no vesting schedule.
 	fn vesting_balance(asset: Self::AssetId, who: &AccountId) -> Option<Self::Balance>;
+
+	/// Checks if `add_vesting_schedule` would work against `who`.
+	fn can_add_vesting_schedule(
+		asset: Self::AssetId,
+		who: &AccountId,
+		locked: Self::Balance,
+		per_block: Self::Balance,
+		starting_block: Self::Moment,
+	) -> DispatchResult;
 }
 
 /// A vesting schedule over a fungible asset class. This allows a particular currency to have
@@ -53,15 +62,6 @@ pub trait Mutate<AccountId>: Inspect<AccountId> {
 		starting_block: Self::Moment,
 	) -> DispatchResult;
 
-	/// Checks if `add_vesting_schedule` would work against `who`.
-	fn can_add_vesting_schedule(
-		asset: Self::AssetId,
-		who: &AccountId,
-		locked: Self::Balance,
-		per_block: Self::Balance,
-		starting_block: Self::Moment,
-	) -> DispatchResult;
-
 	/// Remove a vesting schedule for a given asset account.
 	///
 	/// NOTE: This doesn't alter the free balance of the asset account.
@@ -73,16 +73,7 @@ pub trait Mutate<AccountId>: Inspect<AccountId> {
 }
 
 /// A vested transfer over an asset. This allows a transferred amount to vest over time.
-pub trait Transfer<AccountId> {
-	/// The quantity used to denote time; usually just a `BlockNumber`.
-	type Moment;
-
-	/// Means of identifying one asset class from another.
-	type AssetId: AssetId;
-
-	/// The balance type that this schedule applies to.
-	type Balance;
-
+pub trait Transfer<AccountId>: Inspect<AccountId> {
 	/// Execute a vested transfer from `source` to `target` with the given schedule:
 	/// 	- `frozen`: The amount of assets to be transferred and for the vesting schedule to apply
 	///    to.
@@ -111,13 +102,32 @@ pub trait Transfer<AccountId> {
 
 // A no-op implementation of `VestedTransfer` for pallets that require this trait, but users may
 // not want to implement this functionality
-pub struct NoVestedTransfers<A, B>(core::marker::PhantomData<(A, B)>);
+pub struct NoVestedTransfers<T>(core::marker::PhantomData<T>);
 
-impl<AccountId, Id: AssetId, Balance> Transfer<AccountId> for NoVestedTransfers<Id, Balance> {
-	type Moment = ();
-	type AssetId = Id;
-	type Balance = Balance;
+impl<AccountId, T: Inspect<AccountId>> Inspect<AccountId> for NoVestedTransfers<T> {
+	type Moment = T::Moment;
+	type AssetId = T::AssetId;
+	type Balance = T::Balance;
 
+	fn vesting_balance(asset: Self::AssetId, who: &AccountId) -> Option<Self::Balance> {
+		T::vesting_balance(asset, who)
+	}
+
+	fn can_add_vesting_schedule(
+		asset: Self::AssetId,
+		who: &AccountId,
+		locked: Self::Balance,
+		per_block: Self::Balance,
+		starting_block: Self::Moment,
+	) -> DispatchResult {
+		T::can_add_vesting_schedule(asset, who, locked, per_block, starting_block)
+	}
+}
+
+impl<AccountId, T> Transfer<AccountId> for NoVestedTransfers<T>
+where
+	T: Inspect<AccountId>,
+{
 	fn vested_transfer(
 		_asset: Self::AssetId,
 		_source: &AccountId,
