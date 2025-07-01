@@ -23,6 +23,7 @@ use crate::{
 use core::{marker::PhantomData, num::NonZero};
 use sp_core::U256;
 use sp_runtime::DispatchError;
+use alloc::vec::Vec;
 
 pub struct Create2<T>(PhantomData<T>);
 
