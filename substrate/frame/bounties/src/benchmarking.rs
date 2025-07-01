@@ -135,11 +135,11 @@ mod benchmarks {
 		let (caller, curator, fee, value, reason) =
 			setup_bounty::<T, I>(0, T::MaximumReasonLength::get());
 		let curator_lookup = T::Lookup::unlookup(curator);
-		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into(), value, reason).unwrap();
+		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into(), value, reason)?;
 		let bounty_id = BountyCount::<T, I>::get() - 1;
 		let approve_origin =
 			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		Bounties::<T, I>::approve_bounty(approve_origin.clone(), bounty_id).unwrap();
+		Bounties::<T, I>::approve_bounty(approve_origin.clone(), bounty_id)?;
 		set_block_number::<T, I>(T::SpendPeriod::get());
 		Treasury::<T, I>::on_initialize(frame_system::Pallet::<T>::block_number());
 
@@ -155,7 +155,7 @@ mod benchmarks {
 		let (caller, curator, fee, value, reason) =
 			setup_bounty::<T, I>(0, T::MaximumReasonLength::get());
 		let curator_lookup = T::Lookup::unlookup(curator.clone());
-		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into(), value, reason).unwrap();
+		Bounties::<T, I>::propose_bounty(RawOrigin::Signed(caller).into(), value, reason)?;
 		let bounty_id = BountyCount::<T, I>::get() - 1;
 		let approve_origin =
 			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
