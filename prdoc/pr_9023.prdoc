@@ -15,4 +15,4 @@ doc:
     It also adds new documentation to the precompile, directing developers to the official Polkadot XCM documentation. Additionally, it explicitly sets return values for both functions to clarify that the return value matches what is returned by `pallet_xcm::send()` and `pallet_xcm::execute()`.
 crates:
 - name: pallet-xcm
-  bump: minor
+  bump: major
