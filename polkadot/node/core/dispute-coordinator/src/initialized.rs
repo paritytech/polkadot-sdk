@@ -1597,7 +1597,6 @@ impl Initialized {
 				votes.invalid.iter().all(|(_, validator_index, _)| {
 					self.offchain_disabled_validators.is_disabled(session, *validator_index)
 				}) {
-
 				disputes_to_remove.push((*dispute_session, *candidate_hash));
 
 				gum::info!(
