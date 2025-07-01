@@ -491,7 +491,7 @@ where
 	let valid = id.verify(&buf, signature);
 	log::debug!(
 		target: log_target,
-		"Double check signature for id={id:?} round={round:?} previous_set={prev_set_id:?} valid={valid:?}"
+		"Previous set signature check for id={id:?} round={round:?} previous_set={prev_set_id:?} valid={valid:?}"
 	);
 
 	if valid {
