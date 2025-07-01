@@ -10,7 +10,7 @@ mod sync_blocks;
 #[cfg(feature = "zombie-ci")]
 mod bootnodes;
 
-#[cfg(feature = "zombie-ci")]
+#[cfg(all(feature = "zombie-ci", feature = "zombie-metadata"))]
 mod propagation_time;
 
 #[cfg(feature = "zombie-ci")]
