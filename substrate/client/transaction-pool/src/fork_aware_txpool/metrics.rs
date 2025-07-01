@@ -249,7 +249,7 @@ impl MempoolInvalidTxReasonCounter {
 
 	/// Increments the mempool invalid txs metric accordingly based on the error, counting invalid
 	/// txs separately per invalid tx type.
-	pub fn inc(&self, err: impl IntoPoolError) -> Result<(), impl IntoPoolError> {
+	pub fn observe_error(&self, err: impl IntoPoolError) -> Result<(), impl IntoPoolError> {
 		err.into_pool_error().map(|err| {
 			let category = err.as_ref();
 			let ty = match err {

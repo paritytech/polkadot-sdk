@@ -766,7 +766,7 @@ where
 				let maybe_err = invalid_txs_to_error.remove(tx);
 				match maybe_err {
 					Some(err) => {
-						let _ = metrics.mempool_revalidation_invalid_txs.inc(err).inspect_err(
+						let _ = metrics.mempool_revalidation_invalid_txs.observe_error(err).inspect_err(
 							|error| {
 								trace!(
 									target: LOG_TARGET,
@@ -782,7 +782,7 @@ where
 						// `mempool_revalidation_invalid_txs` metric.
 						let _ = metrics
 							.mempool_revalidation_invalid_txs
-							.inc(sc_transaction_pool_api::error::Error::InvalidTransaction(
+							.observe_error(sc_transaction_pool_api::error::Error::InvalidTransaction(
 								InvalidTransaction::Custom(
 									InvalidTransactionCustomCode::InvalidInTxSubtree as u8,
 								),

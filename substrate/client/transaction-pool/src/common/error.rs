@@ -24,8 +24,7 @@ use sc_transaction_pool_api::error::Error as TxPoolError;
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Transaction pool error type.
-#[derive(Debug, thiserror::Error, strum::AsRefStr)]
-#[strum(serialize_all = "snake_case")]
+#[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
 pub enum Error {
 	#[error("Transaction pool error: {0}")]
