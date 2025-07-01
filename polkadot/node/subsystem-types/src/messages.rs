@@ -781,6 +781,9 @@ pub enum RuntimeApiRequest {
 	/// Get the maximum uncompressed code size.
 	/// `V12`
 	ValidationCodeBombLimit(SessionIndex, RuntimeApiSender<u32>),
+	/// Get the paraids at the relay parent.
+	/// `V14`
+	ParaidsAtRelayParent(RuntimeApiSender<HashSet<ParaId>>),
 }
 
 impl RuntimeApiRequest {
@@ -830,6 +833,9 @@ impl RuntimeApiRequest {
 
 	/// `SchedulingLookahead`
 	pub const SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT: u32 = 13;
+
+	/// `ParaidsAtRelayParent`
+	pub const PARAIDS_AT_RELAY_PARENT_RUNTIME_REQUIREMENT: u32 = 14;
 }
 
 /// A message to the Runtime API subsystem.

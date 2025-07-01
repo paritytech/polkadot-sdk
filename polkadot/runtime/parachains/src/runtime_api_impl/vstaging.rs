@@ -56,3 +56,7 @@ pub fn validation_code_bomb_limit<T: initializer::Config>() -> u32 {
 	configuration::ActiveConfig::<T>::get().max_code_size *
 		configuration::MAX_VALIDATION_CODE_COMPRESSION_RATIO
 }
+
+pub fn para_ids_at_relay_parent(relay_parent: Hash) -> HashSet<ParaId> {
+	todo!()
+}

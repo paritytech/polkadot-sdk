@@ -78,6 +78,7 @@ pub(crate) struct RequestResultCache {
 	backing_constraints: LruMap<(Hash, ParaId), Option<Constraints>>,
 	scheduling_lookahead: LruMap<SessionIndex, u32>,
 	validation_code_bomb_limits: LruMap<SessionIndex, u32>,
+	para_ids_at_relay_parent: LruMap<Hash, HashSet<ParaId>>,
 }
 
 impl Default for RequestResultCache {
@@ -602,6 +603,21 @@ impl RequestResultCache {
 	pub(crate) fn validation_code_bomb_limit(&mut self, session: SessionIndex) -> Option<u32> {
 		self.validation_code_bomb_limits.get(&session).copied()
 	}
+
+	pub(crate) fn para_ids_at_relay_parent(
+		&mut self,
+		relay_parent: &Hash,
+	) -> Option<&HashSet<ParaId>> {
+		self.para_ids_at_relay_parent.get(relay_parent).map(|v| &*v)
+	}
+
+	pub(crate) fn cache_para_ids_at_relay_parent(
+		&mut self,
+		relay_parent: Hash,
+		value: HashSet<ParaId>,
+	) {
+		self.para_ids_at_relay_parent.insert(relay_parent, value);
+	}
 }
 
 pub(crate) enum RequestResult {
@@ -655,4 +671,5 @@ pub(crate) enum RequestResult {
 	BackingConstraints(Hash, ParaId, Option<Constraints>),
 	SchedulingLookahead(SessionIndex, u32),
 	ValidationCodeBombLimit(SessionIndex, u32),
+	ParaIdsAtRelayParent(Hash, Vec<ParaId>),
 }

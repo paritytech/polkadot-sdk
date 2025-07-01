@@ -191,6 +191,9 @@ where
 				.cache_scheduling_lookahead(session_index, scheduling_lookahead),
 			ValidationCodeBombLimit(session_index, limit) =>
 				self.requests_cache.cache_validation_code_bomb_limit(session_index, limit),
+			ParaIdsAtRelayParent(relay_parent, para_ids) => {
+				self.requests_cache.cache_para_ids_at_relay_parent(relay_parent, para_ids);
+			},
 		}
 	}
 
@@ -368,6 +371,9 @@ where
 					Some(Request::ValidationCodeBombLimit(index, sender))
 				}
 			},
+			Request::ParaidsAtRelayParent(sender) =>
+				query!(para_ids_at_relay_parent(relay_parent: Hash), sender)
+					.map(|sender| Request::ParaidsAtRelayParent(sender)),
 		}
 	}
 
@@ -701,6 +707,12 @@ where
 			ver = Request::VALIDATION_CODE_BOMB_LIMIT_RUNTIME_REQUIREMENT,
 			sender,
 			result = (index)
+		),
+		Request::ParaidsAtRelayParent(sender) => query!(
+			ParaIdsAtRelayParent,
+			para_ids_at_relay_parent(relay_parent: Hash),
+			ver = Request::PARA_IDS_AT_RELAY_PARENT_RUNTIME_REQUIREMENT,
+			sender
 		),
 	}
 }
