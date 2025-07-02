@@ -485,7 +485,7 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use frame_support::weights::constants::{WEIGHT_REF_TIME_PER_MILLIS, WEIGHT_PROOF_SIZE_PER_KB};
+	use frame_support::weights::constants::{WEIGHT_PROOF_SIZE_PER_KB, WEIGHT_REF_TIME_PER_MILLIS};
 	use pallet_staking_async::WeightInfo;
 
 	fn weight_diff(block: Weight, op: Weight) {
@@ -506,8 +506,7 @@ mod tests {
 	#[test]
 	fn polkadot_prune_era() {
 		sp_tracing::try_init_simple();
-		let prune_era =
-			<Runtime as pallet_staking_async::Config>::WeightInfo::prune_era(600);
+		let prune_era = <Runtime as pallet_staking_async::Config>::WeightInfo::prune_era(600);
 		let block_weight = <Runtime as frame_system::Config>::BlockWeights::get().max_block;
 		weight_diff(block_weight, prune_era);
 	}
@@ -515,8 +514,7 @@ mod tests {
 	#[test]
 	fn kusama_prune_era() {
 		sp_tracing::try_init_simple();
-		let prune_era =
-			<Runtime as pallet_staking_async::Config>::WeightInfo::prune_era(1000);
+		let prune_era = <Runtime as pallet_staking_async::Config>::WeightInfo::prune_era(1000);
 		let block_weight = <Runtime as frame_system::Config>::BlockWeights::get().max_block;
 		weight_diff(block_weight, prune_era);
 	}

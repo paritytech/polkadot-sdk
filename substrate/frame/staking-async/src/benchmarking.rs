@@ -1191,9 +1191,7 @@ mod benchmarks {
 	//
 	// this benchmark populates all storage items that get removed in `fn prune_era` manually,
 	// and attempts to then remove them.
-	fn prune_era(
-		v: Linear<1, { T::MaxValidatorSet::get() }>,
-	) -> Result<(), BenchmarkError> {
+	fn prune_era(v: Linear<1, { T::MaxValidatorSet::get() }>) -> Result<(), BenchmarkError> {
 		let validators = v;
 		let era = 7;
 
