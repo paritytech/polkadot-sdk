@@ -229,18 +229,15 @@ mod tests {
 			assert_eq!(staking_classic::UnappliedSlashes::<rc::Runtime>::get(4).len(), 1);
 
 			// there is a buffered offence in the AHClient.
-			assert_eq!(ah_client::BufferedOffences::<rc::Runtime>::get().len(), 1);
-			assert_eq!(
-				ah_client::BufferedOffences::<rc::Runtime>::get()[0],
-				(
-					current_session,
-					vec![rc_client::Offence {
-						offender: 5,
-						reporters: vec![],
-						slash_fraction: Perbill::from_percent(100),
-					}],
-				)
-			);
+			let buffered_offences = ah_client::BufferedOffences::<rc::Runtime>::get();
+			assert_eq!(buffered_offences.len(), 1);
+			assert!(buffered_offences.contains_key(&current_session));
+			let session_offences = buffered_offences.get(&current_session).unwrap();
+			assert_eq!(session_offences.len(), 1);
+			assert!(session_offences.contains_key(&5));
+			let offence = session_offences.get(&5).unwrap();
+			assert_eq!(offence.slash_fraction, Perbill::from_percent(100));
+			assert_eq!(offence.reporter, None);
 		});
 
 		// Ensure AH still does not receive any offence while migration is ongoing.
