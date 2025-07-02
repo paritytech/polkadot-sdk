@@ -140,7 +140,10 @@ jobs:
           ref: ${{ matrix.branch == 'master' && matrix.branch || '' }}
 
       - name: script
+        shell: bash
         run: |
+          # Fail the step if any command in a pipeline errors out.
+          set -euo pipefail 
           ARTIFACTS_DIR=./artifacts
           BENCH_TRIE_READ=::trie::read::small
           BENCH_NODE_IMPORT=::node::import::sr25519::transfer_keep_alive::paritydb::small
