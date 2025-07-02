@@ -258,20 +258,21 @@ pub fn new_partial(
 		.build(),
 	);
 
-	let import_queue = cumulus_client_consensus_aura::import_queue::<AuthorityPair, _, _, _, _, _>(
-		ImportQueueParams {
-			block_import: block_import.clone(),
-			client: client.clone(),
-			get_slot: move |_| {
-				let timestamp = sp_timestamp::Timestamp::current();
-				let slot = Slot::from_timestamp(timestamp, slot_duration);
-				Ok(slot)
-			},
-			spawner: &task_manager.spawn_essential_handle(),
-			registry: None,
-			telemetry: None,
-		},
-	)?;
+	let import_queue =
+		cumulus_client_consensus_aura::equivocation_import_queue::fully_verifying_import_queue::<
+			AuthorityPair,
+			_,
+			_,
+			_,
+			_,
+		>(
+			client.clone(),
+			block_import.clone(),
+			move |_, _| async move { Ok(sp_timestamp::InherentDataProvider::from_system_time()) },
+			&task_manager.spawn_essential_handle(),
+			config.prometheus_registry(),
+			None,
+		)?;
 
 	let params = PartialComponents {
 		backend,

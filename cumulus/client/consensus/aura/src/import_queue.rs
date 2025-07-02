@@ -49,51 +49,6 @@ pub struct ImportQueueParams<'a, I, C, GetSlotFn, S> {
 	pub telemetry: Option<TelemetryHandle>,
 }
 
-/// Start an import queue for the Aura consensus algorithm.
-pub fn import_queue<P, Block, I, C, S, GetSlotFn>(
-	ImportQueueParams {
-		block_import,
-		client,
-		get_slot,
-		spawner,
-		registry,
-		telemetry,
-	}: ImportQueueParams<'_, I, C, GetSlotFn, S>,
-) -> Result<DefaultImportQueue<Block>, sp_consensus::Error>
-where
-	Block: BlockT,
-	C::Api: BlockBuilderApi<Block> + AuraApi<Block, P::Public> + ApiExt<Block>,
-	C: 'static
-		+ ProvideRuntimeApi<Block>
-		+ BlockOf
-		+ Send
-		+ Sync
-		+ AuxStore
-		+ UsageProvider<Block>
-		+ HeaderBackend<Block>,
-	I: BlockImport<Block, Error = ConsensusError>
-		+ ParachainBlockImportMarker
-		+ Send
-		+ Sync
-		+ 'static,
-	P: Pair + Send + Sync + 'static,
-	P::Public: Debug + Codec,
-	P::Signature: Codec,
-	S: sp_core::traits::SpawnEssentialNamed,
-	GetSlotFn: Fn(Block::Hash) -> sp_blockchain::Result<Slot> + Send + Sync + 'static,
-{
-	sc_consensus_aura::import_queue::<P, _, _, _, _, _>(sc_consensus_aura::ImportQueueParams {
-		block_import,
-		justification_import: None,
-		client,
-		get_slot,
-		spawner,
-		registry,
-		telemetry,
-		compatibility_mode: CompatibilityMode::None,
-	})
-}
-
 /// Parameters of [`build_verifier`].
 pub struct BuildVerifierParams<C, GetSlotFn> {
 	/// The client to interact with the chain.

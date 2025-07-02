@@ -155,9 +155,11 @@ fn build_import_queue(
 		_,
 		_,
 		_,
+		_,
 	>(
 		client,
 		block_import,
+		move |_, _| async move { Ok(sp_timestamp::InherentDataProvider::from_system_time()) },
 		&task_manager.spawn_essential_handle(),
 		config.prometheus_registry(),
 		telemetry,

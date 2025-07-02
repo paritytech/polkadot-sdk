@@ -59,7 +59,7 @@ use std::{
 
 mod import_queue;
 
-pub use import_queue::{build_verifier, import_queue, BuildVerifierParams, ImportQueueParams};
+pub use import_queue::{build_verifier, BuildVerifierParams, ImportQueueParams};
 use polkadot_node_primitives::PoV;
 pub use sc_consensus_aura::{
 	slot_duration, standalone::slot_duration_at, AuraVerifier, BuildAuraWorkerParams,
