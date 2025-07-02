@@ -4,7 +4,7 @@
 use anyhow::anyhow;
 use codec::{Compact, Decode, Encode};
 use cumulus_primitives_core::{relay_chain, rpsr_digest::RPSR_CONSENSUS_ID, CumulusDigestItem};
-use futures::{stream::StreamExt, TryStreamExt};
+use futures::{pin_mut, select, stream::StreamExt, TryStreamExt};
 use polkadot_primitives::{vstaging::CandidateReceiptV2, Id as ParaId};
 use sp_runtime::traits::Zero;
 use std::{
@@ -303,13 +303,37 @@ pub async fn assert_para_blocks_throughput(
 	// Wait for the first session, block production on the parachain will start after that.
 	wait_for_first_session_change(&mut relay_client.blocks().subscribe_best().await?).await?;
 
-	let finalized_stream = para_client.blocks().subscribe_finalized().await?;
+	let finalized_stream = para_client.blocks().subscribe_finalized().await?.fuse();
+	let finalized_relay_blocks = relay_client.blocks().subscribe_finalized().await?.fuse();
+	let start_relay_block = relay_client.blocks().at_latest().await?.number();
 
-	let finalized_blocks = finalized_stream
-		.try_filter(|b| futures::future::ready(!b.number().is_zero()))
-		.take(stop_after)
-		.try_collect::<Vec<_>>()
-		.await?;
+	let mut finalized_blocks = Vec::new();
+
+	pin_mut!(finalized_stream);
+	pin_mut!(finalized_relay_blocks);
+
+	loop {
+		select! {
+			finalized = finalized_stream.select_next_some() => {
+				let finalized = finalized?;
+				if !finalized.number().is_zero() {
+					finalized_blocks.push(finalized);
+
+					if finalized_blocks.len() >= stop_after {
+						break
+					}
+				}
+			},
+			finalized = finalized_relay_blocks.select_next_some() => {
+				// `start_relay_block` maybe not being finalized at the beginning, but we just
+				// need some good estimation to ensure the tests ends at some point if there is some issue.
+				if finalized?.number().saturating_sub(start_relay_block) >= expected_relay_blocks.end {
+					panic!("Already processed more relay chain blocks than allowed in the range.")
+				}
+			},
+			complete => { panic!("Both streams should not finish"); }
+		}
+	}
 
 	let first_relay_header = relay_parent_for(&finalized_blocks[0], relay_rpc_client).await?;
 	let last_relay_header =

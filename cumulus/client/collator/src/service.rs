@@ -21,6 +21,7 @@
 use cumulus_client_network::WaitToAnnounce;
 use cumulus_primitives_core::{CollationInfo, CollectCollationInfo, ParachainBlockData};
 
+use polkadot_primitives::vstaging::UMP_SEPARATOR;
 use sc_client_api::BlockBackend;
 use sp_api::{ApiExt, ProvideRuntimeApi, StorageProof};
 use sp_consensus::BlockStatus;
@@ -35,7 +36,7 @@ use polkadot_node_primitives::{
 use codec::Encode;
 use futures::channel::oneshot;
 use parking_lot::Mutex;
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 /// The logging target.
 const LOG_TARGET: &str = "cumulus-collator";
@@ -243,6 +244,7 @@ where
 
 		let mut api_version = 0;
 		let mut upward_messages = Vec::new();
+		let mut upward_message_signals = HashSet::<Vec<u8>>::with_capacity(4);
 		let mut horizontal_messages = Vec::new();
 		let mut new_validation_code = None;
 		let mut processed_downward_messages = 0;
@@ -263,7 +265,18 @@ where
 				.ok()
 				.flatten()?;
 
-			upward_messages.extend(collation_info.upward_messages);
+			collation_info
+				.upward_messages
+				.iter()
+				.rev()
+				.take_while(|m| **m != UMP_SEPARATOR)
+				.for_each(|s| {
+					upward_message_signals.insert(s.clone());
+				});
+
+			upward_messages.extend(
+				collation_info.upward_messages.into_iter().take_while(|m| *m != UMP_SEPARATOR),
+			);
 			horizontal_messages.extend(collation_info.horizontal_messages);
 			api_version = version;
 			new_validation_code = new_validation_code.take().or(collation_info.new_validation_code);
@@ -290,6 +303,12 @@ where
 				block_data?.encode()
 			}),
 		});
+
+		// If we got some signals, push them now.
+		if !upward_message_signals.is_empty() {
+			upward_messages.push(UMP_SEPARATOR);
+			upward_messages.extend(upward_message_signals.into_iter());
+		}
 
 		let upward_messages = upward_messages
 			.try_into()

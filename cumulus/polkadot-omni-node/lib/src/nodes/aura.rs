@@ -274,7 +274,7 @@ where
 	) where
 		CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 		CIDP::InherentDataProviders: Send,
-		CHP: cumulus_client_consensus_common::ValidationCodeHashProvider<Hash> + Send + 'static,
+		CHP: cumulus_client_consensus_common::ValidationCodeHashProvider<Hash> + Send + Sync + 'static,
 		Proposer: ProposerInterface<Block> + Send + Sync + 'static,
 		CS: CollatorServiceInterface<Block> + Send + Sync + Clone + 'static,
 		Spawner: SpawnNamed,

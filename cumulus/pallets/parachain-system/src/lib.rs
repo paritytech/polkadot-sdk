@@ -1457,10 +1457,10 @@ impl<T: Config> Pallet<T> {
 	fn send_ump_signal() {
 		use cumulus_primitives_core::relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
 
-		UpwardMessages::<T>::mutate(|up| {
-			if let Some(core_info) =
-				CumulusDigestItem::find_core_info(&frame_system::Pallet::<T>::digest())
-			{
+		if let Some(core_info) =
+			CumulusDigestItem::find_core_info(&frame_system::Pallet::<T>::digest())
+		{
+			UpwardMessages::<T>::mutate(|up| {
 				up.push(UMP_SEPARATOR);
 
 				// Send the core selector signal.
@@ -1468,8 +1468,8 @@ impl<T: Config> Pallet<T> {
 					UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset)
 						.encode(),
 				);
-			}
-		});
+			});
+		}
 	}
 
 	/// Open HRMP channel for using it in benchmarks or tests.
