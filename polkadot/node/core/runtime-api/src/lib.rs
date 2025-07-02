@@ -371,8 +371,8 @@ where
 					Some(Request::ValidationCodeBombLimit(index, sender))
 				}
 			},
-			Request::ParaidsAtRelayParent(sender) =>
-				query!(para_ids(), sender).map(|sender| Request::ParaidsAtRelayParent(sender)),
+			Request::ParaIds(sender) =>
+				query!(para_ids(), sender).map(|sender| Request::ParaIds(sender)),
 		}
 	}
 
@@ -707,7 +707,7 @@ where
 			sender,
 			result = (index)
 		),
-		Request::ParaidsAtRelayParent(sender) => query!(
+		Request::ParaIds(sender) => query!(
 			ParaIdsAtRelayParent,
 			para_ids(),
 			ver = Request::PARAIDS_AT_RELAY_PARENT_RUNTIME_REQUIREMENT,

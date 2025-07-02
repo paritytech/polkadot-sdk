@@ -317,7 +317,7 @@ sp_api::decl_runtime_apis! {
 		/***** Added in v14 *****/
 		/// Retrieve paraids at relay parent
 		#[api_version(14)]
-		fn para_ids() -> Vec<u32>;
+		fn para_ids() -> Vec<ppp::Id>;
 
 	}
 }

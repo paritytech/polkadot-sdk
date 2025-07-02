@@ -783,7 +783,7 @@ pub enum RuntimeApiRequest {
 	ValidationCodeBombLimit(SessionIndex, RuntimeApiSender<u32>),
 	/// Get the paraids at the relay parent.
 	/// `V14`
-	ParaidsAtRelayParent(RuntimeApiSender<Vec<ParaId>>),
+	ParaIds(RuntimeApiSender<Vec<ParaId>>),
 }
 
 impl RuntimeApiRequest {
@@ -834,7 +834,7 @@ impl RuntimeApiRequest {
 	/// `SchedulingLookahead`
 	pub const SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT: u32 = 13;
 
-	/// `ParaidsAtRelayParent`
+	/// `ParaIds`
 	pub const PARAIDS_AT_RELAY_PARENT_RUNTIME_REQUIREMENT: u32 = 14;
 }
 

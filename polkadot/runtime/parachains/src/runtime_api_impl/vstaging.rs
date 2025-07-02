@@ -60,5 +60,5 @@ pub fn validation_code_bomb_limit<T: initializer::Config>() -> u32 {
 }
 
 pub fn para_ids<T: initializer::Config>() -> Vec<ParaId> {
-	paras::Heads::<T>::iter().map(|(para_id, _)| para_id).collect()
+	paras::Heads::<T>::iter_keys().collect()
 }

@@ -2413,10 +2413,8 @@ sp_api::impl_runtime_apis! {
 			parachains_staging_runtime_api_impl::validation_code_bomb_limit::<Runtime>()
 		}
 
-		fn para_ids() -> Vec<u32> {
-			parachains_staging_runtime_api_impl::para_ids::<Runtime>().into_iter()
-				.map(|id| id.into())
-				.collect()
+		fn para_ids() -> Vec<ParaId> {
+			parachains_staging_runtime_api_impl::para_ids::<Runtime>()
 		}
 	}
 
