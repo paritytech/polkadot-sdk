@@ -1,0 +1,21 @@
+title: add benchmark for prune-era
+doc:
+- audience: Todo
+  description: null
+crates:
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: pallet-election-provider-multi-block
+  bump: minor
+- name: pallet-election-provider-multi-phase
+  bump: minor
+- name: frame-election-provider-support
+  bump: minor
+- name: pallet-fast-unstake
+  bump: minor
+- name: pallet-staking-async-parachain-runtime
+  bump: minor
+- name: pallet-staking-async
+  bump: minor
+- name: frame-benchmarking-cli
+  bump: minor
