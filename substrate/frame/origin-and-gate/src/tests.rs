@@ -16,18 +16,13 @@
 // limitations under the License.
 
 use super::*;
+use crate::{self as pallet_origin_and_gate};
 use assert_matches::assert_matches;
-use crate::{
-	self as pallet_origin_and_gate,
-};
-use frame_support::{
-	assert_ok,
-};
+use frame_support::assert_ok;
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-	DispatchError,
+	BuildStorage, DispatchError,
 };
 
 // Import mock directly instead of through module import
@@ -37,16 +32,14 @@ pub use mock::*;
 
 /// Helper function to create a remark call that can be used for testing
 fn make_remark_call(text: &str) -> Result<Box<<Test as Config>::RuntimeCall>, &'static str> {
-    // Try to parse the text as a u64
-    let value = match text.parse::<u64>() {
-        Ok(v) => v,
-        Err(_) => return Err("Failed to parse input as u64"),
-    };
+	// Try to parse the text as a u64
+	let value = match text.parse::<u64>() {
+		Ok(v) => v,
+		Err(_) => return Err("Failed to parse input as u64"),
+	};
 
-    let remark = self::Call::<Test>::set_dummy {
-        new_value: value,
-    };
-    Ok(Box::new(RuntimeCall::OriginAndGate(remark)))
+	let remark = self::Call::<Test>::set_dummy { new_value: value };
+	Ok(Box::new(RuntimeCall::OriginAndGate(remark)))
 }
 
 #[test]
@@ -74,10 +67,7 @@ fn ensure_origin_works_with_and_gate() {
 
 		// Prior to Bob's approval we dispatching a signed extrinsic to test AliceAndBob
 		// origin directly and expect it to fail without Bob's approval
-		assert_matches!(
-			AliceAndBob::ensure_origin(RuntimeOrigin::signed(ALICE)).is_err(),
-			true
-		);
+		assert_matches!(AliceAndBob::ensure_origin(RuntimeOrigin::signed(ALICE)).is_err(), true);
 
 		// Approval by Bob dispatching a signed extrinsic
 		assert_ok!(OriginAndGate::approve(
@@ -96,7 +86,11 @@ fn ensure_origin_works_with_and_gate() {
 		assert!(System::events().iter().any(|r| {
 			matches!(
 				r.event,
-				mock::RuntimeEvent::OriginAndGate(crate::Event::ProposalExecuted { proposal_hash: call_hash, origin_id, result })
+				mock::RuntimeEvent::OriginAndGate(crate::Event::ProposalExecuted {
+					proposal_hash: call_hash,
+					origin_id,
+					result
+				})
 			)
 		}))
 	});
@@ -120,7 +114,6 @@ fn test_direct_and_gate_impossible_with_root_origin() {
 		assert!(AliceAndBob::ensure_origin(RuntimeOrigin::root()).is_err());
 	});
 }
-
 
 #[test]
 fn proposal_is_approved_but_does_not_execute_and_status_remains_pending_when_only_proposed() {
@@ -229,12 +222,8 @@ fn approve_propagates_errors_other_than_insufficient_approvals() {
 		approvals.try_push(ALICE_ORIGIN_ID).unwrap();
 		approvals.try_push(BOB_ORIGIN_ID).unwrap(); // We already have 2 approvals
 
-		let proposal_info = ProposalInfo {
-			call_hash,
-			expiry: None,
-			approvals,
-			status: ProposalStatus::Pending,
-		};
+		let proposal_info =
+			ProposalInfo { call_hash, expiry: None, approvals, status: ProposalStatus::Pending };
 
 		// Skip calling `propose` and instead store proposal directly in storage
 		// but not the `call` to execute
@@ -271,19 +260,17 @@ fn approve_propagates_errors_other_than_insufficient_approvals() {
 				const PROPOSAL_NOT_FOUND_INDEX: u8 = 1;
 
 				assert!(
-					!(module_error.index == origin_and_gate_index &&
-					module_error.error[0] == INSUFFICIENT_APPROVALS_INDEX),
+					!(module_error.index == origin_and_gate_index
+						&& module_error.error[0] == INSUFFICIENT_APPROVALS_INDEX),
 					"Encountered InsufficientApprovals error that should have been ignored"
 				);
 
 				// Additional verification that we actually got `ProposalNotFound` error
 				if module_error.index == origin_and_gate_index {
 					assert_eq!(
-						module_error.error[0],
-						PROPOSAL_NOT_FOUND_INDEX,
+						module_error.error[0], PROPOSAL_NOT_FOUND_INDEX,
 						"Expected `ProposalNotFound` error (index {}) but got error index: {}",
-						PROPOSAL_NOT_FOUND_INDEX,
-						module_error.error[0]
+						PROPOSAL_NOT_FOUND_INDEX, module_error.error[0]
 					);
 				} else {
 					panic!("Error from unexpected pallet index: {}", module_error.index);

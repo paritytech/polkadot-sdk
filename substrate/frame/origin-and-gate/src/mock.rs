@@ -17,14 +17,14 @@
 
 use crate::{self as pallet_origin_and_gate, AndGate};
 use frame_support::{
-    derive_impl, parameter_types,
+	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64, EnsureOrigin, Everything},
 };
 use frame_system::{self as system, RawOrigin};
 use sp_core::H256;
 use sp_runtime::{
-    traits::{BlakeTwo256, IdentityLookup},
-    BuildStorage, Perbill,
+	traits::{BlakeTwo256, IdentityLookup},
+	BuildStorage, Perbill,
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -34,15 +34,15 @@ pub type BlockNumber = u64;
 // Custom origins for testing
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CustomOriginType {
-    Alice,
-    Bob,
-    None,
+	Alice,
+	Bob,
+	None,
 }
 
 impl Default for CustomOriginType {
-    fn default() -> Self {
-        Self::None
-    }
+	fn default() -> Self {
+		Self::None
+	}
 }
 
 pub const ALICE: AccountId = 1;
@@ -59,42 +59,44 @@ pub const ROOT_ORIGIN_ID: u8 = 0;
 pub struct AliceOrigin;
 
 impl EnsureOrigin<RuntimeOrigin> for AliceOrigin {
-    type Success = ();
+	type Success = ();
 
 	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
-		<RuntimeOrigin as Into<Result<RawOrigin<AccountId>, RuntimeOrigin>>>::into(o)
-			.and_then(|o| match o {
+		<RuntimeOrigin as Into<Result<RawOrigin<AccountId>, RuntimeOrigin>>>::into(o).and_then(
+			|o| match o {
 				RawOrigin::Signed(who) if who == ALICE => Ok(()),
 				r => Err(RuntimeOrigin::from(r)),
-			})
+			},
+		)
 	}
 
-    #[cfg(feature = "runtime-benchmarks")]
-    fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
-        let alice_origin = RuntimeOrigin::from(RawOrigin::Signed(ALICE));
-        Ok(alice_origin)
-    }
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+		let alice_origin = RuntimeOrigin::from(RawOrigin::Signed(ALICE));
+		Ok(alice_origin)
+	}
 }
 
 // Custom origin checks if sender is Bob
 pub struct BobOrigin;
 
 impl EnsureOrigin<RuntimeOrigin> for BobOrigin {
-    type Success = ();
+	type Success = ();
 
 	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
-		<RuntimeOrigin as Into<Result<RawOrigin<AccountId>, RuntimeOrigin>>>::into(o)
-			.and_then(|o| match o {
+		<RuntimeOrigin as Into<Result<RawOrigin<AccountId>, RuntimeOrigin>>>::into(o).and_then(
+			|o| match o {
 				RawOrigin::Signed(who) if who == BOB => Ok(()),
 				r => Err(RuntimeOrigin::from(r)),
-			})
+			},
+		)
 	}
 
-    #[cfg(feature = "runtime-benchmarks")]
-    fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
-        let bob_origin = RuntimeOrigin::from(RawOrigin::Signed(BOB));
-        Ok(bob_origin)
-    }
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+		let bob_origin = RuntimeOrigin::from(RawOrigin::Signed(BOB));
+		Ok(bob_origin)
+	}
 }
 
 // Type aliases for origin wrappers for use in tests
@@ -105,19 +107,19 @@ pub type SignedByBob = frame_system::EnsureSignedBy<BobOrigin, AccountId>;
 pub type AliceAndBob = AndGate<AliceOrigin, BobOrigin>;
 
 frame_support::construct_runtime!(
-    pub enum Test {
-        System: frame_system,
+	pub enum Test {
+		System: frame_system,
 		Balances: pallet_balances,
-        OriginAndGate: pallet_origin_and_gate,
-    }
+		OriginAndGate: pallet_origin_and_gate,
+	}
 );
 
 parameter_types! {
-    pub const BlockHashCount: u64 = 250;
-    pub const MaximumBlockWeight: u64 = 1024;
-    pub const MaximumBlockLength: u32 = 2 * 1024;
-    pub const AvailableBlockRatio: Perbill = Perbill::one();
-    pub const SS58Prefix: u8 = 42;
+	pub const BlockHashCount: u64 = 250;
+	pub const MaximumBlockWeight: u64 = 1024;
+	pub const MaximumBlockLength: u32 = 2 * 1024;
+	pub const AvailableBlockRatio: Perbill = Perbill::one();
+	pub const SS58Prefix: u8 = 42;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
@@ -160,35 +162,33 @@ impl pallet_balances::Config for Test {
 }
 
 impl Clone for MaxApprovals {
-    fn clone(&self) -> Self {
-        *self
-    }
+	fn clone(&self) -> Self {
+		*self
+	}
 }
 
 impl Copy for MaxApprovals {}
 
 parameter_types! {
-    pub const MaxApprovals: u32 = 10;
-    pub const ProposalLifetime: BlockNumber = 100;
+	pub const MaxApprovals: u32 = 10;
+	pub const ProposalLifetime: BlockNumber = 100;
 }
 
 impl pallet_origin_and_gate::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
-    type RuntimeCall = RuntimeCall;
-    type MaxApprovals = MaxApprovals;
-    type Hashing = BlakeTwo256;
-    type OriginId = u8;
-    type ProposalLifetime = ProposalLifetime;
-    type WeightInfo = ();
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type MaxApprovals = MaxApprovals;
+	type Hashing = BlakeTwo256;
+	type OriginId = u8;
+	type ProposalLifetime = ProposalLifetime;
+	type WeightInfo = ();
 }
 
 // This function basically just builds a genesis storage key/value store according to
 // our desired mockup.
 #[cfg(any(feature = "runtime-benchmarks", test))]
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	let t = frame_system::GenesisConfig::<Test>::default()
-		.build_storage()
-		.unwrap();
+	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let mut ext = sp_io::TestExternalities::new(t);
 	ext.execute_with(|| System::set_block_number(1));
 	ext

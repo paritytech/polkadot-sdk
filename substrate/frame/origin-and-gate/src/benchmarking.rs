@@ -26,7 +26,7 @@ use sp_runtime::traits::DispatchTransaction;
 // Import mock directly instead of through module import
 #[path = "./mock.rs"]
 pub mod mock;
-pub use mock::{Test, new_test_ext};
+pub use mock::{new_test_ext, Test};
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
