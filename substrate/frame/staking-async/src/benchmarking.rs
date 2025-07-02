@@ -1024,7 +1024,7 @@ mod benchmarks {
 		// create at least one validator with a full page of exposure, as per `MaxExposurePageSize`.
 		let all_validators = crate::testing_utils::create_validators_with_nominators_for_era::<T>(
 			// we create more validators, but all of the nominators will back the first one
-			ValidatorCount::<T>::get(),
+			ValidatorCount::<T>::get().min(1),
 			// create two full exposure pages
 			2 * T::MaxExposurePageSize::get(),
 			16,
