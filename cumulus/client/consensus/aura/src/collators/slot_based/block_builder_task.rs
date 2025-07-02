@@ -420,10 +420,24 @@ where
 			};
 
 			let new_block_hash = candidate.block.header().hash();
+			let new_block_num = candidate.block.header().number();
 
 			// Announce the newly built block to our peers.
 			collator.collator_service().announce_block(new_block_hash, None);
 
+			tracing::debug!(
+				target: crate::LOG_TARGET,
+				%new_block_hash,
+				%new_block_num,
+				relay_parent = %relay_parent,
+				relay_parent_num = %relay_parent_header.number(),
+				relay_parent_offset,
+				included_hash = %included_header_hash,
+				included_num = %included_header.number(),
+				parent = %parent_hash,
+				?core_index,
+				"Block was built."
+			);
 			if let Err(err) = collator_sender.unbounded_send(CollatorMessage {
 				relay_parent,
 				parent_header,
