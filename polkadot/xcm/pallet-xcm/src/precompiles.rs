@@ -62,7 +62,7 @@ where
 		};
 
 		match input {
-			IXcmCalls::xcmSend(IXcm::xcmSendCall { destination, message }) => {
+			IXcmCalls::send(IXcm::sendCall { destination, message }) => {
 				let _ = env.charge(<Runtime as Config>::WeightInfo::send())?;
 
 				let final_destination = VersionedLocation::decode_all(&mut &destination[..])
@@ -89,7 +89,7 @@ where
 					)
 				})
 			},
-			IXcmCalls::xcmExecute(IXcm::xcmExecuteCall { message, weight }) => {
+			IXcmCalls::execute(IXcm::executeCall { message, weight }) => {
 				let max_weight = Weight::from_parts(weight.refTime, weight.proofSize);
 				let weight_to_charge =
 					max_weight.saturating_add(<Runtime as Config>::WeightInfo::execute());
@@ -202,11 +202,11 @@ mod test {
 			let versioned_dest: VersionedLocation = RelayLocation::get().into();
 			let versioned_message: VersionedXcm<()> = VersionedXcm::from(message.clone());
 
-			let xcm_send_params = IXcm::xcmSendCall {
+			let xcm_send_params = IXcm::sendCall {
 				destination: versioned_dest.encode().into(),
 				message: versioned_message.encode().into(),
 			};
-			let call = IXcm::IXcmCalls::xcmSend(xcm_send_params);
+			let call = IXcm::IXcmCalls::send(xcm_send_params);
 			let encoded_call = call.abi_encode();
 
 			let result = pallet_revive::Pallet::<Test>::bare_call(
@@ -250,11 +250,11 @@ mod test {
 			let destination: VersionedLocation = Parachain(OTHER_PARA_ID).into();
 			let versioned_message: VersionedXcm<()> = VersionedXcm::from(message.clone());
 
-			let xcm_send_params = IXcm::xcmSendCall {
+			let xcm_send_params = IXcm::sendCall {
 				destination: destination.encode().into(),
 				message: versioned_message.encode().into(),
 			};
-			let call = IXcm::IXcmCalls::xcmSend(xcm_send_params);
+			let call = IXcm::IXcmCalls::send(xcm_send_params);
 			let encoded_call = call.abi_encode();
 
 			let result = pallet_revive::Pallet::<Test>::bare_call(
@@ -298,11 +298,11 @@ mod test {
 			let destination: VersionedLocation = VersionedLocation::from(Location::ancestor(8));
 			let versioned_message: VersionedXcm<RuntimeCall> = VersionedXcm::from(message);
 
-			let xcm_send_params = IXcm::xcmSendCall {
+			let xcm_send_params = IXcm::sendCall {
 				destination: destination.encode().into(),
 				message: versioned_message.encode().into(),
 			};
-			let call = IXcm::IXcmCalls::xcmSend(xcm_send_params);
+			let call = IXcm::IXcmCalls::send(xcm_send_params);
 			let encoded_call = call.abi_encode();
 
 			let result = pallet_revive::Pallet::<Test>::bare_call(
@@ -365,9 +365,8 @@ mod test {
 			let weight: IXcm::Weight = IXcm::Weight::abi_decode(&weight_result.data[..])
 				.expect("XcmExecutePrecompile Failed to decode weight");
 
-			let xcm_execute_params =
-				IXcm::xcmExecuteCall { message: message.encode().into(), weight };
-			let call = IXcm::IXcmCalls::xcmExecute(xcm_execute_params);
+			let xcm_execute_params = IXcm::executeCall { message: message.encode().into(), weight };
+			let call = IXcm::IXcmCalls::execute(xcm_execute_params);
 			let encoded_call = call.abi_encode();
 
 			let result = pallet_revive::Pallet::<Test>::bare_call(
@@ -426,9 +425,8 @@ mod test {
 			let weight: IXcm::Weight = IXcm::Weight::abi_decode(&weight_result.data[..])
 				.expect("XcmExecutePrecompile Failed to decode weight");
 
-			let xcm_execute_params =
-				IXcm::xcmExecuteCall { message: message.encode().into(), weight };
-			let call = IXcm::IXcmCalls::xcmExecute(xcm_execute_params);
+			let xcm_execute_params = IXcm::executeCall { message: message.encode().into(), weight };
+			let call = IXcm::IXcmCalls::execute(xcm_execute_params);
 			let encoded_call = call.abi_encode();
 
 			let result = pallet_revive::Pallet::<Test>::bare_call(
@@ -495,9 +493,8 @@ mod test {
 			let weight: IXcm::Weight = IXcm::Weight::abi_decode(&weight_result.data[..])
 				.expect("XcmExecutePrecompile Failed to decode weight");
 
-			let xcm_execute_params =
-				IXcm::xcmExecuteCall { message: message.encode().into(), weight };
-			let call = IXcm::IXcmCalls::xcmExecute(xcm_execute_params);
+			let xcm_execute_params = IXcm::executeCall { message: message.encode().into(), weight };
+			let call = IXcm::IXcmCalls::execute(xcm_execute_params);
 			let encoded_call = call.abi_encode();
 
 			let result = pallet_revive::Pallet::<Test>::bare_call(
