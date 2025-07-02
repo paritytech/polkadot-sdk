@@ -435,9 +435,10 @@ mod tests {
 				})
 				.collect();
 
-			assert!(
-				offence_events.len() >= 1,
-				"Expected at least one offence to be reported, got: {:?}",
+			assert_eq!(
+				offence_events.len(),
+				3,
+				"Expected exactly 3 offences to be reported, got: {:?}",
 				staking_events
 			);
 
@@ -455,33 +456,45 @@ mod tests {
 				staking_events
 			);
 
-			// Verify at least one offence was processed for validator 2
+			// Verify exactly how many offences remain for validator 2
 			let remaining_offences =
 				pallet_staking_async::OffenceQueue::<ah::Runtime>::iter_prefix(1)
 					.filter(|(validator, _)| *validator == 2)
 					.count();
-			// Some offences should have been processed
-			assert!(remaining_offences < 3, "Some offences should have been processed");
+			// All offences should have been processed
+			assert_eq!(
+				remaining_offences, 0,
+				"Expected 0 remaining offences, got {}",
+				remaining_offences
+			);
 			// offence is deferred by two eras, ie 1 + 2 = 3. Note that this is one era less than
 			// staking-classic since slashing happens in multi-block, and we want to apply all
 			// slashes before the era 4 starts.
 			// Check if at least one of the validators has an unapplied slash
 			// Check for unapplied slashes for validator 2 with any of the slash fractions
-			let has_unapplied_slash = pallet_staking_async::UnappliedSlashes::<ah::Runtime>::get(
+			// Check for unapplied slashes - count how many are actually present
+			let slash_100_present = pallet_staking_async::UnappliedSlashes::<ah::Runtime>::get(
 				3,
 				(2, Perbill::from_percent(100), 0),
 			)
-			.is_some() || pallet_staking_async::UnappliedSlashes::<
-				ah::Runtime,
-			>::get(3, (2, Perbill::from_percent(90), 0))
-			.is_some() || pallet_staking_async::UnappliedSlashes::<
-				ah::Runtime,
-			>::get(3, (2, Perbill::from_percent(70), 0))
+			.is_some();
+			let slash_90_present = pallet_staking_async::UnappliedSlashes::<ah::Runtime>::get(
+				3,
+				(2, Perbill::from_percent(90), 0),
+			)
+			.is_some();
+			let slash_70_present = pallet_staking_async::UnappliedSlashes::<ah::Runtime>::get(
+				3,
+				(2, Perbill::from_percent(70), 0),
+			)
 			.is_some();
 
-			assert!(
-				has_unapplied_slash,
-				"Expected at least one unapplied slash for validator 2 to be present"
+			let total_slashes =
+				slash_100_present as u8 + slash_90_present as u8 + slash_70_present as u8;
+			assert_eq!(
+				total_slashes, 1,
+				"Expected exactly 1 unapplied slash for validator 2, got {} (100%:{}, 90%:{}, 70%:{})",
+				total_slashes, slash_100_present, slash_90_present, slash_70_present
 			);
 		});
 
