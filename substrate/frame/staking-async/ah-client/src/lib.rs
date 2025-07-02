@@ -289,8 +289,16 @@ pub mod pallet {
 
 		/// Maximum number of offences to batch in a single message to AssetHub.
 		///
-		/// Used only during `Buffered` mode. Offences are accumulated while buffered and sent
-		/// together once the pallet transitions to `Active` mode.
+		/// Used during `Active` mode to limit batch size when processing buffered offences
+		/// in `on_initialize`. During `Buffered` mode, offences are accumulated without batching.
+		/// When transitioning from `Buffered` to `Active` mode (via `on_migration_end`),
+		/// buffered offences remain stored and are processed gradually by `on_initialize`
+		/// using this batch size limit to prevent block overload.
+		///
+		/// **Performance characteristics** (benchmarked with 50 steps, 20 repeats):
+		/// - Base cost: ~48ms (XCM infrastructure overhead)
+		/// - Per-offence cost: ~0.113ms (linear scaling)
+		/// - At batch size 50: ~54ms total (~0.9% of 6-second block time)
 		type MaxOffenceBatchSize: Get<u32>;
 
 		/// Interface to talk to the local Session pallet.
@@ -779,25 +787,8 @@ pub mod pallet {
 			);
 			Self::do_set_mode(OperatingMode::Active);
 
-			// send all buffered offences to AssetHub.
-			// for one slash session, put them in one batch.
-			BufferedOffences::<T>::take()
-				.into_iter()
-				.for_each(|(slash_session, offence_map)| {
-					let offences = offence_map
-						.iter()
-						.map(|(offender, offence)| {
-							// convert to rc_client::Offence
-							rc_client::Offence {
-								offender: offender.clone(),
-								reporters: offence.reporter.clone().into_iter().collect(),
-								slash_fraction: offence.slash_fraction,
-							}
-						})
-						.collect::<Vec<_>>();
-
-					T::SendToAssetHub::relay_new_offence(slash_session, offences)
-				});
+			// Buffered offences will be processed gradually by on_initialize
+			// using MaxOffenceBatchSize to prevent block overload.
 		}
 
 		fn do_set_mode(new_mode: OperatingMode) {
