@@ -98,6 +98,8 @@ impl pallet_assets_vesting::Config for Test {
 	type MinVestedTransfer = MinVestedTransfer;
 	type BlockNumberProvider = System;
 	const MAX_VESTING_SCHEDULES: u32 = 3;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 // Test Externalities

@@ -22,11 +22,8 @@ use frame::benchmarking::prelude::*;
 
 const SEED: u32 = 0;
 
-fn create_asset<T: Config<I>, I: 'static>() -> Result<AssetIdOf<T, I>, DispatchError>
-where
-	AssetIdOf<T, I>: Zero,
-{
-	let id = AssetIdOf::<T, I>::zero();
+fn create_asset<T: Config<I>, I: 'static>() -> Result<AssetIdOf<T, I>, DispatchError> {
+	let id = T::BenchmarkHelper::asset_id();
 	let admin = account::<AccountIdOf<T>>("admin", 0, SEED);
 
 	T::Assets::create(id.clone(), admin, true, 1u32.into())?;
@@ -88,10 +85,7 @@ fn add_vesting_schedules<T: Config<I>, I: 'static>(
 	Ok(total_locked)
 }
 
-#[instance_benchmarks(
-where
-	AssetIdOf<T, I>: Zero
-)]
+#[instance_benchmarks]
 mod benchmarks {
 	use super::*;
 	use frame::traits::tokens::Preservation::Preserve;

@@ -20,15 +20,13 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 
-// Make the WASM binary available.
+extern crate alloc; // Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 mod genesis_config_presets;
 mod weights;
 pub mod xcm_config;
-
-extern crate alloc;
 
 use alloc::{vec, vec::Vec};
 use assets_common::{
@@ -308,6 +306,8 @@ impl pallet_assets_vesting::Config<TrustBackedAssetsVestingInstance> for Runtime
 	type MinVestedTransfer = TrustBackedMinVestedTransfer;
 	type BlockNumberProvider = System;
 	const MAX_VESTING_SCHEDULES: u32 = 28;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 parameter_types! {
@@ -547,6 +547,8 @@ impl pallet_assets_vesting::Config<ForeignAssetsVestingInstance> for Runtime {
 	type MinVestedTransfer = ForeignMinVestedTransfer;
 	type BlockNumberProvider = System;
 	const MAX_VESTING_SCHEDULES: u32 = 28;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ForeignAssetsBenchmarkHelper;
 }
 
 parameter_types! {
@@ -1276,6 +1278,17 @@ pub type Executive = frame_executive::Executive<
 	AllPalletsWithSystem,
 	Migrations,
 >;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct ForeignAssetsBenchmarkHelper;
+
+impl pallet_assets_vesting::BenchmarkHelper<Runtime, ForeignAssetsVestingInstance>
+	for ForeignAssetsBenchmarkHelper
+{
+	fn asset_id() -> xcm::v5::Location {
+		xcm::v5::Junctions::Here.into()
+	}
+}
 
 #[cfg(feature = "runtime-benchmarks")]
 pub struct AssetConversionTxHelper;

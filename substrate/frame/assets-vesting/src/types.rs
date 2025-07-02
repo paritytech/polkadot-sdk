@@ -178,3 +178,18 @@ where
 		starting_block.saturating_add(duration)
 	}
 }
+
+/// Helper methods for benchmarking `pallet-assets-vesting`.
+pub trait BenchmarkHelper<T: Config<I>, I: 'static> {
+	/// Retrieves the asset id to be used in the benchmarking tests.
+	fn asset_id() -> AssetIdOf<T, I>;
+}
+
+impl<T: Config<I>, I: 'static> BenchmarkHelper<T, I> for ()
+where
+	AssetIdOf<T, I>: Zero,
+{
+	fn asset_id() -> AssetIdOf<T, I> {
+		Zero::zero()
+	}
+}

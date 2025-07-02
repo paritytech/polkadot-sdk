@@ -116,6 +116,10 @@ pub mod pallet {
 
 		/// Maximum number of vesting schedules an account may have at a given moment.
 		const MAX_VESTING_SCHEDULES: u32;
+
+		/// The benchmarking helper
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper: BenchmarkHelper<Self, I>;
 	}
 
 	#[pallet::extra_constants]
