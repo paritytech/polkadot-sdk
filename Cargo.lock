@@ -13080,8 +13080,9 @@ dependencies = [
  "pallet-utility",
  "parity-scale-codec",
  "paste",
- "polkavm 0.25.0",
+ "polkavm 0.26.0",
  "polkavm-common 0.25.0",
+ "polkavm-common 0.26.0",
  "pretty_assertions",
  "rand 0.8.5",
  "rand_pcg",
@@ -17101,19 +17102,6 @@ dependencies = [
 
 [[package]]
 name = "polkavm"
-version = "0.25.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "643c98b9cb27449cffe54c2b500fe8d55d7aa7f29acdd90c56e5cd196fe3d728"
-dependencies = [
- "libc",
- "log",
- "polkavm-assembler 0.25.0",
- "polkavm-common 0.25.0",
- "polkavm-linux-raw 0.25.0",
-]
-
-[[package]]
-name = "polkavm"
 version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fa028f713d0613f0f08b8b3367402cb859218854f6b96fcbe39a501862894d6f"
@@ -17130,15 +17118,6 @@ name = "polkavm-assembler"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fa96d6d868243acc12de813dd48e756cbadcc8e13964c70d272753266deadc1"
-dependencies = [
- "log",
-]
-
-[[package]]
-name = "polkavm-assembler"
-version = "0.25.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51fcf86a40f3d2191cc2b65357e774eda67875cbc31843f505a69b70f8679922"
 dependencies = [
  "log",
 ]
@@ -17168,8 +17147,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28732f89f1e730d908fd816db50ee2afcb8368345ded9f9bc78fbd710db7a4be"
 dependencies = [
  "blake3",
- "log",
- "polkavm-assembler 0.25.0",
 ]
 
 [[package]]
@@ -17178,6 +17155,7 @@ version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49a5794b695626ba70d29e66e3f4f4835767452a6723f3a0bc20884b07088fe8"
 dependencies = [
+ "blake3",
  "log",
  "polkavm-assembler 0.26.0",
 ]
@@ -17265,12 +17243,6 @@ name = "polkavm-linux-raw"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26e85d3456948e650dff0cfc85603915847faf893ed1e66b020bb82ef4557120"
-
-[[package]]
-name = "polkavm-linux-raw"
-version = "0.25.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30993b46019e02b9d3de07e09d84f5b4474244ec966028fa95a38547076ffd93"
 
 [[package]]
 name = "polkavm-linux-raw"
