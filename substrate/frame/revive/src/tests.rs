@@ -442,7 +442,11 @@ fn calling_plain_account_is_balance_transfer() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
 		assert!(!<AccountInfoOf<Test>>::contains_key(BOB_ADDR));
 		assert_eq!(test_utils::get_balance(&BOB_FALLBACK), 0);
-		let result = builder::bare_call(BOB_ADDR).value(42.into()).build_and_unwrap_result();
+
+		let result = builder::bare_call(BOB_ADDR)
+			.value(crate::BalanceWithDust { value: 42, dust: 0 })
+			.build_and_unwrap_result();
+
 		assert_eq!(
 			test_utils::get_balance(&BOB_FALLBACK),
 			42 + <Test as Config>::Currency::minimum_balance()

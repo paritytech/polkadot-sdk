@@ -25,7 +25,8 @@ use crate::{
 	storage::meter::Diff,
 	tracing::if_tracing,
 	weights::WeightInfo,
-	AccountInfoOf, BalanceOf, Config, DeletionQueue, DeletionQueueCounter, Error, TrieId, SENTINEL,
+	AccountInfoOf, BalanceOf, BalanceWithDust, Config, DeletionQueue, DeletionQueueCounter, Error,
+	TrieId, SENTINEL,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -43,8 +44,25 @@ use sp_runtime::{
 	DispatchError, RuntimeDebug,
 };
 
+pub enum AccountIdOrAddress<T: Config> {
+	/// An account that is a contract.
+	AccountId(AccountIdOf<T>),
+	/// An externally owned account (EOA).
+	Address(H160),
+}
+
 /// Represents the account information for a contract or an externally owned account (EOA).
-#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	DefaultNoBound,
+	Encode,
+	Decode,
+	CloneNoBound,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 #[scale_info(skip_type_params(T))]
 pub struct AccountInfo<T: Config> {
 	/// The type of the account.
@@ -56,13 +74,24 @@ pub struct AccountInfo<T: Config> {
 }
 
 /// The account type is used to distinguish between contracts and externally owned accounts.
-#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	DefaultNoBound,
+	Encode,
+	Decode,
+	CloneNoBound,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 #[scale_info(skip_type_params(T))]
 pub enum AccountType<T: Config> {
 	/// An account that is a contract.
 	Contract(ContractInfo<T>),
 
 	/// An account that is an externally owned account (EOA).
+	#[default]
 	EOA,
 }
 
@@ -92,6 +121,29 @@ pub struct ContractInfo<T: Config> {
 	immutable_data_len: u32,
 }
 
+impl<T: Config> From<H160> for AccountIdOrAddress<T> {
+	fn from(address: H160) -> Self {
+		AccountIdOrAddress::Address(address)
+	}
+}
+
+impl<T: Config> AccountIdOrAddress<T> {
+	pub fn address(&self) -> H160 {
+		match self {
+			AccountIdOrAddress::AccountId(id) =>
+				<T::AddressMapper as AddressMapper<T>>::to_address(id),
+			AccountIdOrAddress::Address(address) => *address,
+		}
+	}
+
+	pub fn account_id(&self) -> AccountIdOf<T> {
+		match self {
+			AccountIdOrAddress::AccountId(id) => id.clone(),
+			AccountIdOrAddress::Address(address) => T::AddressMapper::to_account_id(address),
+		}
+	}
+}
+
 impl<T: Config> From<ContractInfo<T>> for AccountType<T> {
 	fn from(contract_info: ContractInfo<T>) -> Self {
 		AccountType::Contract(contract_info)
@@ -99,9 +151,22 @@ impl<T: Config> From<ContractInfo<T>> for AccountType<T> {
 }
 
 impl<T: Config> AccountInfo<T> {
-	fn has_contract(address: &H160) -> bool {
+	/// Returns true if the account is a contract.
+	fn is_contract(address: &H160) -> bool {
 		let Some(info) = <AccountInfoOf<T>>::get(address) else { return false };
 		matches!(info.account_type, AccountType::Contract(_))
+	}
+
+	/// Returns the balance of the account at the given address.
+	pub fn balance(account: AccountIdOrAddress<T>) -> BalanceWithDust<BalanceOf<T>> {
+		use frame_support::traits::{
+			fungible::Inspect,
+			tokens::{Fortitude::Polite, Preservation::Preserve},
+		};
+
+		let value = T::Currency::reducible_balance(&account.account_id(), Preserve, Polite);
+		let dust = <AccountInfoOf<T>>::get(account.address()).map(|a| a.dust).unwrap_or_default();
+		BalanceWithDust { value, dust }
 	}
 
 	/// Loads the contract information for a given address.
@@ -122,7 +187,7 @@ impl<T: Config> ContractInfo<T> {
 		nonce: T::Nonce,
 		code_hash: sp_core::H256,
 	) -> Result<Self, DispatchError> {
-		if <AccountInfo<T>>::has_contract(address) {
+		if <AccountInfo<T>>::is_contract(address) {
 			return Err(Error::<T>::DuplicateContract.into());
 		}
 

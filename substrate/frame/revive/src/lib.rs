@@ -67,7 +67,6 @@ use frame_support::{
 	pallet_prelude::DispatchClass,
 	traits::{
 		fungible::{Inspect, Mutate, MutateHold},
-		tokens::{Fortitude::Polite, Preservation::Preserve},
 		ConstU32, ConstU64, EnsureOrigin, Get, IsType, OriginTrait, Time,
 	},
 	weights::WeightMeter,
@@ -129,7 +128,7 @@ const LOG_TARGET: &str = "runtime::revive";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{pallet_prelude::*, traits::FindAuthor};
+	use frame_support::{pallet_prelude::*, traits::FindAuthor, PalletId};
 	use frame_system::pallet_prelude::*;
 	use sp_core::U256;
 	use sp_runtime::Perbill;
@@ -344,7 +343,7 @@ pub mod pallet {
 			type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 			type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
 			type ChainId = ConstU64<42>;
-			type NativeToEthRatio = ConstU32<1>;
+			type NativeToEthRatio = ConstU32<10_000_000>;
 			type EthGasEncoder = ();
 			type FindAuthor = ();
 		}
@@ -535,6 +534,15 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
+			use frame_support::traits::fungible::Mutate;
+
+			// Create Dust account
+			let account_id = Pallet::<T>::dust_account_id();
+			let min = T::Currency::minimum_balance();
+			if <T as Config>::Currency::balance(&account_id) < min {
+				let _ = <T as Config>::Currency::set_balance(&account_id, min);
+			}
+
 			for id in &self.mapped_accounts {
 				if let Err(err) = T::AddressMapper::map(id) {
 					log::error!(target: LOG_TARGET, "Failed to map account {id:?}: {err:?}");
@@ -669,6 +677,13 @@ pub mod pallet {
 				max_events_size,
 				storage_size_limit
 			);
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		pub fn dust_account_id() -> <T as frame_system::Config>::AccountId {
+			use sp_runtime::traits::AccountIdConversion;
+			PalletId(*b"py/revdt").into_account_truncating()
 		}
 	}
 
@@ -1440,10 +1455,8 @@ where
 
 	/// Get the balance with EVM decimals of the given `address`.
 	pub fn evm_balance(address: &H160) -> U256 {
-		let account = T::AddressMapper::to_account_id(&address);
-		let value = T::Currency::reducible_balance(&account, Preserve, Polite);
-		let dust = 0; // TODO
-		Self::convert_native_to_evm(BalanceWithDust { value, dust })
+		let balance = AccountInfo::<T>::balance(address.clone().into());
+		Self::convert_native_to_evm(balance)
 	}
 
 	/// Get the nonce for the given `address`.

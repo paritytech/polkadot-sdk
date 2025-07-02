@@ -22,11 +22,12 @@ use crate::{
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
 	primitives::{BumpNonce, ExecReturnValue, StorageDeposit},
 	runtime_decl_for_revive_api::{Decode, Encode, RuntimeDebugNoBound, TypeInfo},
-	storage::{self, meter::Diff, WriteOutcome},
+	storage::{self, meter::Diff, AccountIdOrAddress, WriteOutcome},
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, CodeInfo, CodeInfoOf, Config,
-	ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, RuntimeCosts,
+	ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, Pallet, Pallet as Contracts,
+	RuntimeCosts,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -36,7 +37,7 @@ use frame_support::{
 	storage::{with_transaction, TransactionOutcome},
 	traits::{
 		fungible::{Inspect, Mutate},
-		tokens::{Fortitude, Preservation},
+		tokens::Preservation,
 		Time,
 	},
 	weights::Weight,
@@ -49,7 +50,7 @@ use frame_system::{
 use sp_core::{
 	ecdsa::Public as ECDSAPublic,
 	sr25519::{Public as SR25519Public, Signature as SR25519Signature},
-	ConstU32, H160, H256, U256,
+	ConstU32, Get, H160, H256, U256,
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
@@ -1058,7 +1059,6 @@ where
 		if let (CachedContract::Cached(contract), ExportedFunction::Call) =
 			(&frame.contract_info, frame.entry_point)
 		{
-			// TODO add dust
 			AccountInfoOf::<T>::insert(
 				T::AddressMapper::to_address(&frame.account_id),
 				AccountInfo { account_type: contract.clone().into(), dust: 0 },
@@ -1342,7 +1342,7 @@ where
 				// when it is popped from the stack.
 				<AccountInfoOf<T>>::insert(
 					T::AddressMapper::to_address(account_id),
-					AccountInfo { account_type: contract.into(), dust: 0 }, // TODO handle dust
+					AccountInfo { account_type: contract.into(), dust: 0 },
 				);
 				if let Some(f) = self.frames_mut().skip(1).find(|f| f.account_id == *account_id) {
 					f.contract_info.invalidate();
@@ -1362,7 +1362,7 @@ where
 			if let Some(contract) = contract {
 				<AccountInfoOf<T>>::insert(
 					T::AddressMapper::to_address(&self.first_frame.account_id),
-					AccountInfo { account_type: contract.clone().into(), dust: 0 }, /* TODO handle dust */
+					AccountInfo { account_type: contract.clone().into(), dust: 0 },
 				);
 			}
 		}
@@ -1392,13 +1392,8 @@ where
 			return Ok(Default::default());
 		}
 
-		// TODO handle dust
-		let BalanceWithDust { value, dust } = value;
-
 		if <System<T>>::account_exists(to) {
-			return T::Currency::transfer(from, to, value, Preservation::Preserve)
-				.map(|_| Default::default())
-				.map_err(|_| Error::<T>::TransferFailed.into());
+			return Self::transfer_with_dust(from, to, value).map(|_| Default::default())
 		}
 
 		let origin = origin.account_id()?;
@@ -1406,10 +1401,8 @@ where
 		with_transaction(|| -> TransactionOutcome<ExecResult> {
 			let res = match T::Currency::transfer(origin, to, ed, Preservation::Preserve)
 				.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds.into())
-				.and_then(|_| {
-					T::Currency::transfer(from, to, value, Preservation::Preserve)
-						.map_err(|_| Error::<T>::TransferFailed.into())
-				}) {
+				.and_then(|_| Self::transfer_with_dust(from, to, value))
+			{
 				Ok(_) => {
 					// ed is taken from the transaction signer so it should be
 					// limited by the storage deposit
@@ -1419,13 +1412,69 @@ where
 				Err(err) => TransactionOutcome::Rollback(Err(err)),
 			};
 
-			if !dust.is_zero() {
-				// let addr =
-				// ContractInfoOf
-			}
-
 			res
 		})
+	}
+
+	fn transfer_with_dust(
+		from: &AccountIdOf<T>,
+		to: &AccountIdOf<T>,
+		value: BalanceWithDust<BalanceOf<T>>,
+	) -> Result<(), ExecError> {
+		let BalanceWithDust { value, dust } = value;
+
+		let transfer = |from, to, value| {
+			T::Currency::transfer(from, to, value, Preservation::Preserve)
+				.map_err(|_| ExecError::from(Error::<T>::TransferFailed))?;
+			return Ok(())
+		};
+
+		let transfer_dust = |from: &mut AccountInfo<T>, to: &mut AccountInfo<T>, dust| {
+			from.dust
+				.checked_sub(dust)
+				.ok_or_else(|| ExecError::from(Error::<T>::TransferFailed))?;
+			to.dust
+				.checked_add(dust)
+				.ok_or_else(|| ExecError::from(Error::<T>::TransferFailed))?;
+			Ok::<(), ExecError>(())
+		};
+
+		if dust.is_zero() {
+			return transfer(from, to, value)
+		}
+
+		let from_addr = <T::AddressMapper as AddressMapper<T>>::to_address(from);
+		let mut from_info = AccountInfoOf::<T>::get(&from_addr).unwrap_or_default();
+
+		let to_addr = <T::AddressMapper as AddressMapper<T>>::to_address(to);
+		let mut to_info = AccountInfoOf::<T>::get(&to_addr).unwrap_or_default();
+
+		let dust_account_id = Pallet::<T>::dust_account_id();
+		let plank = T::NativeToEthRatio::get();
+
+		if from_info.dust < dust {
+			transfer(from, &dust_account_id, 1u32.into())?;
+			from_info
+				.dust
+				.checked_add(plank)
+				.ok_or_else(|| ExecError::from(Error::<T>::TransferFailed))?;
+		}
+
+		transfer(from, to, value)?;
+		transfer_dust(&mut from_info, &mut to_info, dust)?;
+
+		if to_info.dust.saturating_add(dust) >= plank {
+			transfer(&dust_account_id, to, 1u32.into())?;
+			to_info
+				.dust
+				.checked_sub(plank)
+				.ok_or_else(|| ExecError::from(Error::<T>::TransferFailed))?;
+		}
+
+		AccountInfoOf::<T>::set(&from_addr, Some(from_info));
+		AccountInfoOf::<T>::set(&to_addr, Some(to_info));
+
+		Ok(())
 	}
 
 	/// Same as `transfer` but `from` is an `Origin`.
@@ -1481,9 +1530,8 @@ where
 
 	/// Returns the *free* balance of the supplied AccountId.
 	fn account_balance(&self, who: &T::AccountId) -> U256 {
-		let value = T::Currency::reducible_balance(who, Preservation::Preserve, Fortitude::Polite);
-		let dust = 0; // TODO handle dust
-		crate::Pallet::<T>::convert_native_to_evm(BalanceWithDust { value, dust })
+		let balance = AccountInfo::<T>::balance(AccountIdOrAddress::AccountId(who.clone()));
+		crate::Pallet::<T>::convert_native_to_evm(balance)
 	}
 
 	/// Certain APIs, e.g. `{set,get}_immutable_data` behave differently depending
