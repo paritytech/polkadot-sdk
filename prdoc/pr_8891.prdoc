@@ -1,0 +1,11 @@
+title: 'RuntimeAllocator: Align returned pointers'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Rust recently switched the default alignment of u128 to 16bytes: https://blog.rust-lang.org/2024/03/30/i128-layout-update/ This broke the assumption of our host allocator that the biggest alignment is 8 bytes.
+
+    To fix the alignment issue, the runtime allocator now takes care of aligned the returned pointer. We are abusing the fact that we know how the host allocator is working and storing some extra data in its header. This is not a perfect solution as we don't align the host side pointers, but the host side is mainly allocating `u8` arrays that should be fine with the `8byte` alignment. Any node side change would be a consensus breaking change.
+
+crates:
+- name: sp-io
+  bump: patch
