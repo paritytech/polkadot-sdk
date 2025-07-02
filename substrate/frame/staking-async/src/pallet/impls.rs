@@ -212,10 +212,31 @@ impl<T: Config> Pallet<T> {
 	pub(super) fn do_withdraw_unbonded(controller: &T::AccountId) -> Result<Weight, DispatchError> {
 		let mut ledger = Self::ledger(Controller(controller.clone()))?;
 		let (stash, old_total) = (ledger.stash.clone(), ledger.total);
-		if let Some(current_era) = CurrentEra::<T>::get() {
-			ledger = ledger.consolidate_unlocked(current_era)
-		}
+		let active_era = Rotator::<T>::active_era();
+
+		// check the oldest era for which offences are not processed.
+		let oldest_unprocessed_offence_era = OffenceQueueEras::<T>::get()
+			.as_ref()
+			.and_then(|eras| eras.first())
+			.copied()
+			.unwrap_or(u32::MAX);
+
+		// If there are unprocessed offences older than the current active era, withdrawals are only
+		// allowed up to the last era for which offences have been processed.
+		// Note: This situation is extremely unlikely, since offences have `SlashDeferDuration` eras
+		// to be processed. If it ever occurs, it likely indicates offence spam and that we're
+		// struggling to keep up with processing.
+		let earliest_era_to_withdraw = active_era
+			.min(oldest_unprocessed_offence_era.saturating_sub(1));
+
+		// withdraw unbonded balance from the ledger until earliest_era_to_withdraw.
+		ledger = ledger.consolidate_unlocked(earliest_era_to_withdraw);
+
 		let new_total = ledger.total;
+		debug_assert!(
+			new_total <= old_total,
+			"consolidate_unlocked should never increase the total balance of the ledger"
+		);
 
 		let used_weight = if ledger.unlocking.is_empty() &&
 			(ledger.active < Self::min_chilled_bond() || ledger.active.is_zero())

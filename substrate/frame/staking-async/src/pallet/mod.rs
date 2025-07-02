@@ -1414,8 +1414,8 @@ pub mod pallet {
 			let unlocking =
 				Self::ledger(Controller(controller.clone())).map(|l| l.unlocking.len())?;
 
-			// if there are no unlocking chunks available, try to withdraw chunks older than
-			// `BondingDuration` to proceed with the unbonding.
+			// if there are no unlocking chunks available, try to remove any chunks by withdrawing
+			// funds that have fully unbonded.
 			let maybe_withdraw_weight = {
 				if unlocking == T::MaxUnlockingChunks::get() as usize {
 					Some(Self::do_withdraw_unbonded(&controller)?)
@@ -1492,10 +1492,14 @@ pub mod pallet {
 			Ok(actual_weight.into())
 		}
 
-		/// Remove any unlocked chunks from the `unlocking` queue from our management.
+		/// Remove any stake that has been fully unbonded and is ready for withdrawal.
 		///
-		/// This essentially frees up that balance to be used by the stash account to do whatever
-		/// it wants.
+		/// Stake is considered fully unbonded once [`Config::BondingDuration`] has elapsed since
+		/// the unbonding was initiated. In rare cases—such as when offences for the unbonded era
+		/// have been reported but not yet processed—withdrawal is restricted to eras for which
+		/// all offences have been processed.
+		///
+		/// The unlocked stake will be returned as free balance in the stash account.
 		///
 		/// The dispatch origin for this call must be _Signed_ by the controller.
 		///
@@ -1505,8 +1509,8 @@ pub mod pallet {
 		///
 		/// ## Parameters
 		///
-		/// - `num_slashing_spans`: **Deprecated**. This parameter is retained for backward
-		/// compatibility. It no longer has any effect.
+		/// - `num_slashing_spans`: **Deprecated**. Retained only for backward compatibility;
+		///   this parameter has no effect.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::withdraw_unbonded_kill())]
 		pub fn withdraw_unbonded(
