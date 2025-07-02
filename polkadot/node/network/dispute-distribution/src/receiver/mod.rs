@@ -72,6 +72,9 @@ const COST_NOT_A_VALIDATOR: Rep = Rep::CostMajor("Reporting peer was not a valid
 const COST_INVALID_IMPORT: Rep =
 	Rep::CostMinor("Import was deemed invalid by dispute-coordinator.");
 
+/// Re-export the `PEER_QUEUE_CAPACITY` constant.
+pub use peer_queues::PEER_QUEUE_CAPACITY;
+
 /// How many votes must have arrived in the last `BATCH_COLLECTING_INTERVAL`
 ///
 /// in order for a batch to stay alive and not get flushed/imported to the dispute-coordinator.

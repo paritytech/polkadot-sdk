@@ -49,7 +49,7 @@ mod error;
 pub use error::{Error, FatalError, JfyiError, Result};
 
 use self::error::JfyiErrorResult;
-use crate::{Metrics, LOG_TARGET, SEND_RATE_LIMIT};
+use crate::{receiver::PEER_QUEUE_CAPACITY, Metrics, LOG_TARGET, SEND_RATE_LIMIT};
 
 /// Messages as sent by background tasks.
 #[derive(Debug)]
@@ -266,7 +266,7 @@ impl<M: 'static + Send + Sync> DisputeSender<M> {
 
 		// Iterates in order of insertion:
 		let mut should_rate_limit = true;
-		for (candidate_hash, dispute) in self.disputes.iter_mut() {
+		for (idx, (candidate_hash, dispute)) in self.disputes.iter_mut().enumerate() {
 			if have_new_sessions || dispute.has_failed_sends() {
 				if should_rate_limit {
 					self.rate_limit
@@ -276,13 +276,18 @@ impl<M: 'static + Send + Sync> DisputeSender<M> {
 				let sends_happened = dispute
 					.refresh_sends(ctx, runtime, &self.active_sessions, &self.metrics)
 					.await?;
-				// Only rate limit if we actually sent something out _and_ it was not just because
+				// Rate limit if we actually sent something out _and_ it was not just because
 				// of errors on previous sends.
 				//
 				// Reasoning: It would not be acceptable to slow down the whole subsystem, just
 				// because of a few bad peers having problems. It is actually better to risk
 				// running into their rate limit in that case and accept a minor reputation change.
-				should_rate_limit = sends_happened && have_new_sessions;
+				//
+				// Furthermore, we want to limit the number of `DisputeRequest` messages we are
+				// sending in a single burst up to the queue capacity of the peer. Otherwise they
+				// will be rejected and an unnecessary network traffic will be generated.
+				should_rate_limit =
+					(sends_happened && have_new_sessions) || (idx % PEER_QUEUE_CAPACITY == 0);
 			}
 		}
 		Ok(())
