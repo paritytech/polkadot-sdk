@@ -31,6 +31,7 @@ prometheus-endpoint.default-features = true
 prometheus-endpoint.workspace = true
 prost = { workspace = true }
 rand = { workspace = true, default-features = true }
+<<<<<<< HEAD
 sc-client-api.default-features = true
 sc-client-api.workspace = true
 sc-network-types.default-features = true
@@ -49,9 +50,32 @@ sp-keystore.default-features = true
 sp-keystore.workspace = true
 sp-runtime.default-features = true
 sp-runtime.workspace = true
+=======
+sc-client-api = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sc-network-types = { workspace = true, default-features = true }
+sc-service.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sp-api = { workspace = true, default-features = true }
+sp-authority-discovery = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+>>>>>>> ee6d22b9 (net/discovery: File persistence for `AddrCache` (#8839))
 thiserror = { workspace = true }
+tokio.workspace = true
 
 [dev-dependencies]
+hex.workspace = true
 quickcheck = { workspace = true }
 sp-tracing = { default-features = true, workspace = true }
 substrate-test-runtime-client = { workspace = true }
+<<<<<<< HEAD
+=======
+tempfile.workspace = true
+
+[build-dependencies]
+prost-build = { workspace = true }
+>>>>>>> ee6d22b9 (net/discovery: File persistence for `AddrCache` (#8839))
