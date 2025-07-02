@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! `VestingSchedule` and `VestedTransfer` traits for working with vesting schedules.
+//! `Inspect`, `Mutate` and `Transfer` traits for working with vesting schedules.
 //!
 //! See the [`crate::traits::fungibles`] doc for more information about fungibles traits.
 
