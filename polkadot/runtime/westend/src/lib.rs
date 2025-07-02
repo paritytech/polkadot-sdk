@@ -894,6 +894,7 @@ impl ah_client::Config for Runtime {
 	type PointsPerBlock = ConstU32<20>;
 	type MaxOffenceBatchSize = ConstU32<50>;
 	type Fallback = Staking;
+	type WeightInfo = ah_client::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_fast_unstake::Config for Runtime {
@@ -2143,6 +2144,7 @@ mod benches {
 		[pallet_scheduler, Scheduler]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_staking, Staking]
+		[pallet_staking_async_ah_client, StakingAhClient]
 		[pallet_sudo, Sudo]
 		[frame_system, SystemBench::<Runtime>]
 		[frame_system_extensions, SystemExtensionsBench::<Runtime>]
