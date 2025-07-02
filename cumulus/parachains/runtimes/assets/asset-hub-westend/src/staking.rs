@@ -102,7 +102,10 @@ impl multi_block::Config for Runtime {
 	type MinerConfig = Self;
 	type Verifier = MultiBlockElectionVerifier;
 	// we chill and do nothing in the fallback.
+	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Fallback = multi_block::Continue<Self>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Fallback = frame_election_provider_support::onchain::OnChainExecution<OnChainConfig>;
 	// Revert back to signed phase if nothing is submitted and queued, so we prolong the election.
 	type AreWeDone = multi_block::RevertToSignedIfNotQueuedOf<Self>;
 	type OnRoundRotation = multi_block::CleanRound<Self>;
