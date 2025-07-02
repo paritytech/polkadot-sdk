@@ -13,9 +13,9 @@ function run_test {
     # Apparently inCI=true works properly only with k8s provider
     unset ZOMBIENET_IMAGE
     if [ -z "$ZOMBIE_BASE_DIR" ]; then
-      ${ZOMBIE_COMMAND} -p native -c $CONCURRENCY -d $ZOMBIE_BASE_DIR test $i
-    else
       ${ZOMBIE_COMMAND} -p native -c $CONCURRENCY test $i
+    else
+      ${ZOMBIE_COMMAND} -p native -c $CONCURRENCY -d $ZOMBIE_BASE_DIR test $i
     fi;
     EXIT_STATUS=$?
   done;
