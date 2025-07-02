@@ -100,8 +100,8 @@ pub trait Transfer<AccountId>: Inspect<AccountId> {
 	) -> DispatchResult;
 }
 
-// A no-op implementation of `VestedTransfer` for pallets that require this trait, but users may
-// not want to implement this functionality
+/// A wrapper of an implementation of [Inspect], but implements [Transfer] as no-op, always failing.
+/// For pallets that require this trait but users may not want to implement this functionality
 pub struct NoVestedTransfers<T>(core::marker::PhantomData<T>);
 
 impl<AccountId, T: Inspect<AccountId>> Inspect<AccountId> for NoVestedTransfers<T> {
