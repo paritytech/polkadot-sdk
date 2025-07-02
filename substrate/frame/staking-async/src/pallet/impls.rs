@@ -226,8 +226,8 @@ impl<T: Config> Pallet<T> {
 		// Note: This situation is extremely unlikely, since offences have `SlashDeferDuration` eras
 		// to be processed. If it ever occurs, it likely indicates offence spam and that we're
 		// struggling to keep up with processing.
-		let earliest_era_to_withdraw = active_era
-			.min(oldest_unprocessed_offence_era.saturating_sub(1));
+		let earliest_era_to_withdraw =
+			active_era.min(oldest_unprocessed_offence_era.saturating_sub(1));
 
 		// withdraw unbonded balance from the ledger until earliest_era_to_withdraw.
 		ledger = ledger.consolidate_unlocked(earliest_era_to_withdraw);

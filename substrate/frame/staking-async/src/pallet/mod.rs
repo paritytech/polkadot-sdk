@@ -1509,8 +1509,8 @@ pub mod pallet {
 		///
 		/// ## Parameters
 		///
-		/// - `num_slashing_spans`: **Deprecated**. Retained only for backward compatibility;
-		///   this parameter has no effect.
+		/// - `num_slashing_spans`: **Deprecated**. Retained only for backward compatibility; this
+		///   parameter has no effect.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::withdraw_unbonded_kill())]
 		pub fn withdraw_unbonded(
