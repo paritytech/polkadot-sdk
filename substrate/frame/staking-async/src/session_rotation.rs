@@ -120,6 +120,9 @@ impl<T: Config> Eras<T> {
 		<ErasValidatorReward<T>>::remove(era);
 		<ErasRewardPoints<T>>::remove(era);
 		<ErasTotalStake<T>>::remove(era);
+
+		// register the weight of the pruning.
+		Pallet::<T>::register_weight(T::WeightInfo::prune_era(ValidatorCount::<T>::get()));
 	}
 
 	pub(crate) fn set_validator_prefs(era: EraIndex, stash: &T::AccountId, prefs: ValidatorPrefs) {
