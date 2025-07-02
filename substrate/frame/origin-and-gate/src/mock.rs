@@ -17,7 +17,8 @@
 
 use crate::{self as pallet_origin_and_gate, AndGate};
 use frame_support::{
-    derive_impl, parameter_types, traits::EnsureOrigin,
+    derive_impl, parameter_types,
+	traits::{ConstU32, ConstU64, EnsureOrigin, Everything},
 };
 use frame_system::{self as system, RawOrigin};
 use sp_core::H256;
@@ -51,8 +52,8 @@ pub const CHARLIE: AccountId = 3;
 // Origin identifiers
 pub const ALICE_ORIGIN_ID: u8 = 1;
 pub const BOB_ORIGIN_ID: u8 = 2;
+pub const CHARLIE_ORIGIN_ID: u8 = 3;
 pub const ROOT_ORIGIN_ID: u8 = 0;
-
 
 // Custom origin checks if sender is Alice
 pub struct AliceOrigin;
@@ -121,34 +122,50 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl system::Config for Test {
-    type BaseCallFilter = frame_support::traits::Everything;
-    type BlockWeights = ();
-    type BlockLength = ();
-    type RuntimeOrigin = RuntimeOrigin;
-    type RuntimeCall = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
-    type Hash = H256;
-    type Hashing = BlakeTwo256;
-    type AccountId = AccountId;
-    type Lookup = IdentityLookup<Self::AccountId>;
-    type Block = Block;
-    type BlockHashCount = BlockHashCount;
-    type DbWeight = ();
-    type Version = ();
-    type PalletInfo = PalletInfo;
+	type BaseCallFilter = Everything;
+	type BlockWeights = ();
+	type BlockLength = ();
+	type DbWeight = ();
+	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeCall = RuntimeCall;
+	type Nonce = u64;
+	type Hash = H256;
+	type Hashing = BlakeTwo256;
+	type AccountId = u64;
+	type Lookup = IdentityLookup<Self::AccountId>;
+	type Block = Block;
+	type RuntimeEvent = RuntimeEvent;
+	type Version = ();
+	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
-    type OnNewAccount = ();
-    type OnKilledAccount = ();
-    type SystemWeightInfo = ();
-    type SS58Prefix = SS58Prefix;
-    type OnSetCode = ();
-    type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type OnNewAccount = ();
+	type OnKilledAccount = ();
+	type SystemWeightInfo = ();
+	type SS58Prefix = ();
+	type OnSetCode = ();
+	type MaxConsumers = ConstU32<16>;
+	type BlockHashCount = ConstU64<250>;
+	type RuntimeTask = ();
+	type PreInherents = ();
+	type PostInherents = ();
+	type PostTransactions = ();
+	type SingleBlockMigrations = ();
+	type MultiBlockMigrator = ();
+	type ExtensionsWeightInfo = ();
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
 }
+
+impl Clone for MaxApprovals {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl Copy for MaxApprovals {}
 
 parameter_types! {
     pub const MaxApprovals: u32 = 10;
@@ -163,4 +180,16 @@ impl pallet_origin_and_gate::Config for Test {
     type OriginId = u8;
     type ProposalLifetime = ProposalLifetime;
     type WeightInfo = ();
+}
+
+// This function basically just builds a genesis storage key/value store according to
+// our desired mockup.
+#[cfg(any(feature = "runtime-benchmarks", test))]
+pub fn new_test_ext() -> sp_io::TestExternalities {
+	let t = frame_system::GenesisConfig::<Test>::default()
+		.build_storage()
+		.unwrap();
+	let mut ext = sp_io::TestExternalities::new(t);
+	ext.execute_with(|| System::set_block_number(1));
+	ext
 }

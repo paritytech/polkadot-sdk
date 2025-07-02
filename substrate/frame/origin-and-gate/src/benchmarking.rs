@@ -18,9 +18,15 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
+// use crate::{pallet as pallet_origin_and_gate, Pallet as OriginAndGate};
+
 use frame_benchmarking::{v2::*, BenchmarkError};
-use frame_system::{RawOrigin};
 use sp_runtime::traits::DispatchTransaction;
+
+// Import mock directly instead of through module import
+#[path = "./mock.rs"]
+pub mod mock;
+pub use mock::{Test, new_test_ext};
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
@@ -29,13 +35,17 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 #[benchmarks]
 mod benchmarks {
 	use super::*;
+	#[cfg(test)]
+	use crate::Pallet as OriginAndGate;
+	use frame_system::RawOrigin;
 
 	// This will measure the execution time of `set_dummy`.
 	#[benchmark]
-	fn set_dummy_benchmark() {
+	fn set_dummy() {
 		// This is the benchmark setup phase.
 		// `set_dummy` is a constant time function, hence we hard-code some random value here.
-		let value = 1000u64.into();
+		let value: T::Balance = 1000u32.into();
+
 		#[extrinsic_call]
 		set_dummy(RawOrigin::Root, value); // The execution phase is just running `set_dummy` extrinsic call
 
@@ -43,5 +53,5 @@ mod benchmarks {
 		assert_eq!(Dummy::<T>::get(), Some(value))
 	}
 
-	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
+	impl_benchmark_test_suite!(OriginAndGate, crate::mock::new_test_ext(), crate::mock::Test);
 }

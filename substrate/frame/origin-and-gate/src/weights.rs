@@ -19,14 +19,14 @@ use frame_support::weights::Weight;
 
 /// Weight functions needed for pallet origins "AND Gate".
 pub trait WeightInfo {
-    fn set_dummy_benchmark() -> Weight;
+    fn set_dummy() -> Weight;
 	fn propose() -> Weight;
 	fn approve() -> Weight;
 }
 
 // For tests
 impl WeightInfo for () {
-	fn set_dummy_benchmark() -> Weight { Weight::from_parts(10_000_000, 0) }
+	fn set_dummy() -> Weight { Weight::from_parts(10_000_000, 0) }
 	fn propose() -> Weight { Weight::zero() }
 	fn approve() -> Weight { Weight::zero() }
 }

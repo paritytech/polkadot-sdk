@@ -8,6 +8,8 @@ The pallet provides a stateful mechanism for tracking proposal approvals from mu
 
 The primary use case is to enforce that a dispatch has been approved by two different origin types (for example, requiring both governance council approval and technical committee approval).
 
+This opens the possibility for on-chain collectives to approve proposals individually and asynchronously in governance workflows using rank-weighted voting with different approval weights that correspond to each of the different rank-based voting ranks that have been defined. The on-chain collectives do not need to coordinate to sign the same transaction, as they can each individually submit their own approval.
+
 ## Key Features
 
 - **Stateful origin approval tracking**: Store proposals and track approvals across multiple blocks
