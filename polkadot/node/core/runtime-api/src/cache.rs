@@ -78,7 +78,7 @@ pub(crate) struct RequestResultCache {
 	backing_constraints: LruMap<(Hash, ParaId), Option<Constraints>>,
 	scheduling_lookahead: LruMap<SessionIndex, u32>,
 	validation_code_bomb_limits: LruMap<SessionIndex, u32>,
-	para_ids_at_relay_parent: LruMap<Hash, HashSet<ParaId>>,
+	para_ids: LruMap<Hash, Vec<ParaId>>,
 }
 
 impl Default for RequestResultCache {
@@ -119,6 +119,7 @@ impl Default for RequestResultCache {
 			backing_constraints: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			scheduling_lookahead: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			validation_code_bomb_limits: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			para_ids: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 		}
 	}
 }
@@ -604,19 +605,12 @@ impl RequestResultCache {
 		self.validation_code_bomb_limits.get(&session).copied()
 	}
 
-	pub(crate) fn para_ids_at_relay_parent(
-		&mut self,
-		relay_parent: &Hash,
-	) -> Option<&HashSet<ParaId>> {
-		self.para_ids_at_relay_parent.get(relay_parent).map(|v| &*v)
+	pub(crate) fn para_ids(&mut self, relay_parent: &Hash) -> Option<&Vec<ParaId>> {
+		self.para_ids.get(relay_parent).map(|v| &*v)
 	}
 
-	pub(crate) fn cache_para_ids_at_relay_parent(
-		&mut self,
-		relay_parent: Hash,
-		value: HashSet<ParaId>,
-	) {
-		self.para_ids_at_relay_parent.insert(relay_parent, value);
+	pub(crate) fn cache_para_ids(&mut self, relay_parent: Hash, value: Vec<ParaId>) {
+		self.para_ids.insert(relay_parent, value);
 	}
 }
 

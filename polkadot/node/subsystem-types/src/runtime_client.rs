@@ -357,6 +357,10 @@ pub trait RuntimeApiSubsystemClient {
 	// === v12 ===
 	/// Fetch the maximum uncompressed code size.
 	async fn validation_code_bomb_limit(&self, at: Hash) -> Result<u32, ApiError>;
+
+	// == v14 ==
+	/// Fetch the list of all parachain IDs registered in the relay chain.
+	async fn para_ids(&self, relay_parent: Hash) -> Result<Vec<Id>, ApiError>;
 }
 
 /// Default implementation of [`RuntimeApiSubsystemClient`] using the client.
@@ -649,6 +653,13 @@ where
 
 	async fn validation_code_bomb_limit(&self, at: Hash) -> Result<u32, ApiError> {
 		self.client.runtime_api().validation_code_bomb_limit(at)
+	}
+
+	async fn para_ids(&self, relay_parent: Hash) -> Result<Vec<Id>, ApiError> {
+		self.client
+			.runtime_api()
+			.para_ids(relay_parent)
+			.map(|ids| ids.into_iter().map(Id::from).collect())
 	}
 }
 

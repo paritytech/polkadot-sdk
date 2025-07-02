@@ -1141,8 +1141,8 @@ sp_api::impl_runtime_apis! {
 			staging_runtime_impl::validation_code_bomb_limit::<Runtime>()
 		}
 
-		fn para_ids_at_relay_parent(relay_parent: Hash) -> HashSet<ParaId> {
-			staging_runtime_impl::para_ids_at_relay_parent::<Runtime>()
+		fn para_ids() -> Vec<u32> {
+			staging_runtime_impl::para_ids::<Runtime>().into_iter().map(|p| p.into()).collect()
 		}
 	}
 

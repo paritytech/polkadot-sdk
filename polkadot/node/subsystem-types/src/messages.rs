@@ -783,7 +783,7 @@ pub enum RuntimeApiRequest {
 	ValidationCodeBombLimit(SessionIndex, RuntimeApiSender<u32>),
 	/// Get the paraids at the relay parent.
 	/// `V14`
-	ParaidsAtRelayParent(RuntimeApiSender<HashSet<ParaId>>),
+	ParaidsAtRelayParent(RuntimeApiSender<Vec<ParaId>>),
 }
 
 impl RuntimeApiRequest {

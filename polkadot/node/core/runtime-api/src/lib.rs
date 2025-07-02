@@ -192,7 +192,7 @@ where
 			ValidationCodeBombLimit(session_index, limit) =>
 				self.requests_cache.cache_validation_code_bomb_limit(session_index, limit),
 			ParaIdsAtRelayParent(relay_parent, para_ids) => {
-				self.requests_cache.cache_para_ids_at_relay_parent(relay_parent, para_ids);
+				self.requests_cache.cache_para_ids(relay_parent, para_ids);
 			},
 		}
 	}
@@ -372,8 +372,7 @@ where
 				}
 			},
 			Request::ParaidsAtRelayParent(sender) =>
-				query!(para_ids_at_relay_parent(relay_parent: Hash), sender)
-					.map(|sender| Request::ParaidsAtRelayParent(sender)),
+				query!(para_ids(), sender).map(|sender| Request::ParaidsAtRelayParent(sender)),
 		}
 	}
 
@@ -710,8 +709,8 @@ where
 		),
 		Request::ParaidsAtRelayParent(sender) => query!(
 			ParaIdsAtRelayParent,
-			para_ids_at_relay_parent(relay_parent: Hash),
-			ver = Request::PARA_IDS_AT_RELAY_PARENT_RUNTIME_REQUIREMENT,
+			para_ids(),
+			ver = Request::PARAIDS_AT_RELAY_PARENT_RUNTIME_REQUIREMENT,
 			sender
 		),
 	}
