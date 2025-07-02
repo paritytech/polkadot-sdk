@@ -892,6 +892,7 @@ impl ah_client::Config for Runtime {
 	type MinimumValidatorSetSize = ConstU32<1>;
 	type UnixTime = Timestamp;
 	type PointsPerBlock = ConstU32<20>;
+	type MaxOffenceBatchSize = ConstU32<50>;
 	type Fallback = Staking;
 }
 
