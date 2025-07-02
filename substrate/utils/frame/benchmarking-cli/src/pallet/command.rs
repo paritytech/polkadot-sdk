@@ -648,6 +648,7 @@ impl PalletCmd {
 
 		let included = extrinsic_filter.is_empty() ||
 			extrinsic_filter == "*" ||
+			extrinsic_filter == "all" ||
 			extrinsics.contains(&&extrinsic[..]);
 
 		let excluded = self

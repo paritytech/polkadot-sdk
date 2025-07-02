@@ -89,6 +89,30 @@ ord_parameter_types! {
 	pub const WestendStakingMiner: AccountId = AccountId::from(hex_literal::hex!("b65991822483a6c3bd24b1dcf6afd3e270525da1f9c8c22a4373d1e1079e236a"));
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+parameter_types! {
+	pub BenchElectionBounds: frame_election_provider_support::bounds::ElectionBounds =
+		frame_election_provider_support::bounds::ElectionBoundsBuilder::default().build();
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct OnChainConfig;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl frame_election_provider_support::onchain::Config for OnChainConfig {
+	// unbounded
+	type Bounds = BenchElectionBounds;
+	// We should not need sorting, as our bounds are large enough for the number of
+	// nominators/validators in this test setup.
+	type Sort = ConstBool<false>;
+	type DataProvider = Staking;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type Solver = frame_election_provider_support::SequentialPhragmen<AccountId, Perbill>;
+	type System = Runtime;
+	type WeightInfo = ();
+}
+
 impl multi_block::Config for Runtime {
 	type Pages = Pages;
 	type UnsignedPhase = UnsignedPhase;
