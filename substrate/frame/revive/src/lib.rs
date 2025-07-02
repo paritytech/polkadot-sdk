@@ -540,7 +540,7 @@ pub mod pallet {
 			let account_id = Pallet::<T>::dust_account_id();
 			let min = T::Currency::minimum_balance();
 			if <T as Config>::Currency::balance(&account_id) < min {
-				let _ = <T as Config>::Currency::set_balance(&account_id, min);
+				<T as Config>::Currency::set_balance(&account_id, min);
 			}
 
 			for id in &self.mapped_accounts {

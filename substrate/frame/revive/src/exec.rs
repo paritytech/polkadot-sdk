@@ -1430,10 +1430,12 @@ where
 		};
 
 		let transfer_dust = |from: &mut AccountInfo<T>, to: &mut AccountInfo<T>, dust| {
-			from.dust
+			from.dust = from
+				.dust
 				.checked_sub(dust)
 				.ok_or_else(|| ExecError::from(Error::<T>::TransferFailed))?;
-			to.dust
+			to.dust = to
+				.dust
 				.checked_add(dust)
 				.ok_or_else(|| ExecError::from(Error::<T>::TransferFailed))?;
 			Ok::<(), ExecError>(())
@@ -1454,7 +1456,7 @@ where
 
 		if from_info.dust < dust {
 			transfer(from, &dust_account_id, 1u32.into())?;
-			from_info
+			from_info.dust = from_info
 				.dust
 				.checked_add(plank)
 				.ok_or_else(|| ExecError::from(Error::<T>::TransferFailed))?;
@@ -1465,7 +1467,7 @@ where
 
 		if to_info.dust.saturating_add(dust) >= plank {
 			transfer(&dust_account_id, to, 1u32.into())?;
-			to_info
+			to_info.dust = to_info
 				.dust
 				.checked_sub(plank)
 				.ok_or_else(|| ExecError::from(Error::<T>::TransferFailed))?;
