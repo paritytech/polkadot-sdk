@@ -19,7 +19,7 @@
 //!
 //! This extends the Substrate provided AuRa consensus implementation to make it compatible for
 //! parachains. The main entry points for of this consensus algorithm are [`AuraConsensus::build`]
-//! and [`fn@import_queue`].
+//! and [`fn@equivocation_import_queue::fully_verifying_import_queue`].
 //!
 //! For more information about AuRa, the Substrate crate should be checked.
 
