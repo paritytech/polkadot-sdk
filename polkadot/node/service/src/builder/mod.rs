@@ -480,6 +480,7 @@ where
 			);
 		}
 
+		let network_config = config.network.clone();
 		let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 			config,
 			backend: backend.clone(),
@@ -568,6 +569,7 @@ where
 					public_addresses: auth_disc_public_addresses,
 					// Require that authority discovery records are signed.
 					strict_record_validation: true,
+					persisted_cache_directory: network_config.net_config_path,
 					..Default::default()
 				},
 				client.clone(),
@@ -575,6 +577,7 @@ where
 				Box::pin(dht_event_stream),
 				authority_discovery_role,
 				prometheus_registry.clone(),
+				task_manager.spawn_handle(),
 			);
 
 			task_manager.spawn_handle().spawn(
