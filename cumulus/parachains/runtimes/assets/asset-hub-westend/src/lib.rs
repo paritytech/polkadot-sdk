@@ -119,7 +119,6 @@ use xcm::{
 
 #[cfg(feature = "runtime-benchmarks")]
 use frame_support::traits::PalletInfoAccess;
-use sp_runtime::traits::ConvertInto;
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
 	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
@@ -1378,8 +1377,8 @@ construct_runtime!(
 		ForeignAssetsFreezer: pallet_assets_freezer::<Instance2> = 58,
 		PoolAssetsFreezer: pallet_assets_freezer::<Instance3> = 59,
 
-		AssetsVesting: pallet_assets_vesting::<Instance1> = 80,
-		ForeignAssetsVesting: pallet_assets_vesting::<Instance2> = 81,
+		AssetsVesting: pallet_assets_vesting::<Instance1> = 62,
+		ForeignAssetsVesting: pallet_assets_vesting::<Instance2> = 63,
 
 		Revive: pallet_revive = 60,
 
@@ -1616,6 +1615,7 @@ pub type Executive = frame_executive::Executive<
 #[cfg(feature = "runtime-benchmarks")]
 pub struct ForeignAssetsBenchmarkHelper;
 
+#[cfg(feature = "runtime-benchmarks")]
 impl pallet_assets_vesting::BenchmarkHelper<Runtime, ForeignAssetsVestingInstance>
 	for ForeignAssetsBenchmarkHelper
 {
@@ -2602,8 +2602,8 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 			type Foreign = pallet_assets::Pallet::<Runtime, ForeignAssetsInstance>;
 			type Pool = pallet_assets::Pallet::<Runtime, PoolAssetsInstance>;
 
-			type LocalVesting = pallet_assets::Pallet::<Runtime, TrustBackedAssetsVestingInstance>;
-			type ForeignVesting = pallet_assets::Pallet::<Runtime, ForeignAssetsVestingInstance>;
+			type LocalVesting = pallet_assets_vesting::Pallet::<Runtime, TrustBackedAssetsVestingInstance>;
+			type ForeignVesting = pallet_assets_vesting::Pallet::<Runtime, ForeignAssetsVestingInstance>;
 
 			type ToRococo = XcmBridgeHubRouterBench<Runtime, ToRococoXcmRouterInstance>;
 

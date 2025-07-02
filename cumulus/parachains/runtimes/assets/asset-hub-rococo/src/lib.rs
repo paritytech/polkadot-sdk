@@ -1152,8 +1152,8 @@ construct_runtime!(
 		ForeignAssetsFreezer: pallet_assets_freezer::<Instance2> = 58,
 		PoolAssetsFreezer: pallet_assets_freezer::<Instance3> = 59,
 
-		AssetsVesting: pallet_assets_vesting::<Instance1> = 80,
-		ForeignAssetsVesting: pallet_assets_vesting::<Instance2> = 81,
+		AssetsVesting: pallet_assets_vesting::<Instance1> = 62,
+		ForeignAssetsVesting: pallet_assets_vesting::<Instance2> = 63,
 
 		AssetRewards: pallet_asset_rewards = 60,
 
@@ -1282,6 +1282,7 @@ pub type Executive = frame_executive::Executive<
 #[cfg(feature = "runtime-benchmarks")]
 pub struct ForeignAssetsBenchmarkHelper;
 
+#[cfg(feature = "runtime-benchmarks")]
 impl pallet_assets_vesting::BenchmarkHelper<Runtime, ForeignAssetsVestingInstance>
 	for ForeignAssetsBenchmarkHelper
 {
