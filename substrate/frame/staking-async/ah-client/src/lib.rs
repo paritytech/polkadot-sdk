@@ -857,8 +857,6 @@ pub mod pallet {
 		}
 
 		/// Process buffered offences and send them to AssetHub in batches.
-		///
-		/// Returns the weight consumed by processing.
 		pub(crate) fn process_buffered_offences() -> Weight {
 			let max_batch_size = T::MaxOffenceBatchSize::get() as usize;
 
@@ -911,7 +909,6 @@ pub mod pallet {
 				let batch_size = offences_to_send.len();
 				T::SendToAssetHub::relay_new_offence(slash_session, offences_to_send);
 
-				// Use benchmarked weight for processing buffered offences
 				T::WeightInfo::process_buffered_offences(batch_size as u32)
 			} else {
 				Weight::zero()
