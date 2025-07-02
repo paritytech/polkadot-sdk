@@ -3,7 +3,7 @@ doc:
 - audience:
   - Runtime User
   - Runtime Dev
-  description: null
+  description: Bump spec_version to 1_019_001 and reorder prdocs
 crates:
 - name: asset-hub-rococo-runtime
   bump: none
