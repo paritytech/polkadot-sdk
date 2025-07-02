@@ -6,11 +6,13 @@ address constant XCM_PRECOMPILE_ADDRESS = address(0xA0000);
 
 /// @title XCM Precompile Interface
 /// @notice A low-level interface for interacting with `pallet_xcm`.
-/// It forwards calls directly to the corresponding dispatchable functions, providing access to XCM execution and message passing.
+/// It forwards calls directly to the corresponding dispatchable functions, 
+/// providing access to XCM execution and message passing.
 /// Learn more about XCM: https://docs.polkadot.com/develop/interoperability
 /// @dev All parameters must be encoded using the SCALE codec. See https://docs.polkadot.com/polkadot-protocol/parachain-basics/data-encoding
 interface IXcm {
-    /// @notice Weight v2. See https://docs.polkadot.com/polkadot-protocol/parachain-basics/blocks-transactions-fees/fees/#transactions-weights-and-fees
+    /// @notice Weight v2
+    /// @dev See https://docs.polkadot.com/polkadot-protocol/parachain-basics/blocks-transactions-fees/fees/#transactions-weights-and-fees
     struct Weight {
         /// @custom:property The computational time used to execute some logic based on reference hardware.
         uint64 refTime;
