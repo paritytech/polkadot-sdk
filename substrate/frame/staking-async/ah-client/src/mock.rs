@@ -17,8 +17,6 @@
 
 //! Mock runtime for pallet-staking-async-ah-client tests.
 
-#![cfg(any(test, feature = "runtime-benchmarks"))]
-
 use crate::*;
 use frame_support::{derive_impl, parameter_types, weights::Weight};
 use pallet_staking_async_rc_client as rc_client;

@@ -14,7 +14,7 @@ scale-info = { workspace = true, features = ["derive"] }
 serde = { features = ["alloc", "derive"], workspace = true }
 
 sp-core = { workspace = true }
-sp-io = { workspace = true, optional = true }
+sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-staking = { workspace = true }
 
@@ -40,7 +40,7 @@ std = [
 	"scale-info/std",
 	"serde/std",
 	"sp-core/std",
-	"sp-io?/std",
+	"sp-io/std",
 	"sp-runtime/std",
 	"sp-staking/std",
 ]
@@ -49,7 +49,6 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-staking-async-rc-client/runtime-benchmarks",
-	"sp-io",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 ]

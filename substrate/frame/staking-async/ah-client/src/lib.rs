@@ -55,7 +55,7 @@
 
 pub use pallet::*;
 
-#[cfg(any(test, feature = "runtime-benchmarks"))]
+#[cfg(test)]
 pub mod mock;
 
 extern crate alloc;
