@@ -241,7 +241,7 @@ pub type BufferedOffencesMap<T> = BTreeMap<
 pub mod pallet {
 	use crate::*;
 	use alloc::vec;
-	use frame_support::traits::UnixTime;
+	use frame_support::traits::{Hooks, UnixTime};
 	use frame_system::pallet_prelude::*;
 	use pallet_session::{historical, SessionManager};
 	use sp_runtime::{Perbill, Saturating};
@@ -540,6 +540,89 @@ pub mod pallet {
 			T::AdminOrigin::ensure_origin(origin)?;
 			Self::on_migration_end();
 			Ok(())
+		}
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
+			let mut weight = Weight::zero();
+
+			let mode = Mode::<T>::get();
+			weight = weight.saturating_add(T::DbWeight::get().reads(1));
+			if mode != OperatingMode::Active {
+				return weight;
+			}
+
+			// Check if we have any buffered offences to send
+			let buffered_offences = BufferedOffences::<T>::get();
+			weight = weight.saturating_add(T::DbWeight::get().reads(1));
+			if buffered_offences.is_empty() {
+				return weight;
+			}
+
+			let max_batch_size = T::MaxOffenceBatchSize::get() as usize;
+
+			// Process and remove offences one session at a time
+			let offences_sent = BufferedOffences::<T>::mutate(|buffered| {
+				let first_session_key = buffered.keys().next().copied()?;
+
+				let session_map = buffered.get_mut(&first_session_key)?;
+
+				// Take up to max_batch_size offences from this session
+				let (offences_to_send, offenders_to_remove): (Vec<_>, Vec<_>) = session_map
+					.iter()
+					.take(max_batch_size)
+					.map(|(offender, offence)| {
+						let offence_to_send = rc_client::Offence {
+							offender: offender.clone(),
+							reporters: offence.reporter.clone().into_iter().collect(),
+							slash_fraction: offence.slash_fraction,
+						};
+						(offence_to_send, offender.clone())
+					})
+					.unzip();
+
+				if !offences_to_send.is_empty() {
+					// Remove the processed offenders from the session map
+					for offender in &offenders_to_remove {
+						session_map.remove(offender);
+					}
+
+					// Remove the entire session if it's now empty
+					if session_map.is_empty() {
+						buffered.remove(&first_session_key);
+						log!(debug, "Cleared all offences for session {}", first_session_key);
+					}
+
+					Some((first_session_key, offences_to_send))
+				} else {
+					None
+				}
+			});
+
+			if let Some((slash_session, offences_to_send)) = offences_sent {
+				log!(
+					info,
+					"Sending {} buffered offences for session {} to AssetHub",
+					offences_to_send.len(),
+					slash_session
+				);
+
+				let batch_size = offences_to_send.len();
+				T::SendToAssetHub::relay_new_offence(slash_session, offences_to_send);
+
+				// TODO: Replace with proper benchmarking weight
+				// let processing_weight =
+				// T::WeightInfo::process_buffered_offences(batch_size as u32);
+				// For now, use conservative estimate based on batch size
+				let computation_weight = T::DbWeight::get().reads(batch_size as u64);
+				weight = weight
+					.saturating_add(T::DbWeight::get().reads_writes(1, 1))
+					.saturating_add(computation_weight);
+			}
+
+			weight
 		}
 	}
 
