@@ -30,8 +30,6 @@ use sp_runtime::traits::{Block as BlockT, Header as _, NumberFor};
 use sp_trie::proof_size_extension::ProofSizeExt;
 use std::sync::Arc;
 
-use crate::LOG_TARGET;
-
 /// Handle for receiving the block and the storage proof from the [`SlotBasedBlockImport`].
 ///
 /// This handle should be passed to [`Params`](super::Params) or can also be dropped if the node is

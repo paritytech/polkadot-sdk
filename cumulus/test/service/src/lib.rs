@@ -24,22 +24,19 @@ pub mod bench_utils;
 pub mod chain_spec;
 
 use cumulus_client_collator::service::CollatorService;
-use cumulus_client_consensus_aura::{
-	collators::{
-		lookahead::{self as aura, Params as AuraParams},
-		slot_based::{
-			self as slot_based, Params as SlotBasedParams, SlotBasedBlockImport,
-			SlotBasedBlockImportHandle,
-		},
+use cumulus_client_consensus_aura::collators::{
+	lookahead::{self as aura, Params as AuraParams},
+	slot_based::{
+		self as slot_based, Params as SlotBasedParams, SlotBasedBlockImport,
+		SlotBasedBlockImportHandle,
 	},
-	ImportQueueParams,
 };
 use cumulus_client_consensus_proposer::Proposer;
 use cumulus_test_runtime::{Hash, Header, NodeBlock as Block, RuntimeApi};
 use prometheus::Registry;
 use runtime::AccountId;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
-use sp_consensus_aura::{inherents::AuraCreateInherentDataProviders, sr25519::AuthorityPair, Slot};
+use sp_consensus_aura::{inherents::AuraCreateInherentDataProviders, sr25519::AuthorityPair};
 use std::{
 	collections::HashSet,
 	future::Future,
@@ -272,7 +269,7 @@ pub fn new_partial(
 			&task_manager.spawn_essential_handle(),
 			config.prometheus_registry(),
 			None,
-		)?;
+		);
 
 	let params = PartialComponents {
 		backend,

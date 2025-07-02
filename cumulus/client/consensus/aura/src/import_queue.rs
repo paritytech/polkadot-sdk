@@ -17,21 +17,10 @@
 
 //! Parachain specific wrapper for the AuRa import queue.
 
-use codec::Codec;
-use cumulus_client_consensus_common::ParachainBlockImportMarker;
 use prometheus_endpoint::Registry;
-use sc_client_api::{backend::AuxStore, BlockOf, UsageProvider};
-use sc_consensus::{import_queue::DefaultImportQueue, BlockImport};
 use sc_consensus_aura::{AuraVerifier, CompatibilityMode};
 use sc_telemetry::TelemetryHandle;
-use sp_api::{ApiExt, ProvideRuntimeApi};
-use sp_block_builder::BlockBuilder as BlockBuilderApi;
-use sp_blockchain::HeaderBackend;
-use sp_consensus::Error as ConsensusError;
-use sp_consensus_aura::{AuraApi, Slot};
-use sp_core::crypto::Pair;
-use sp_runtime::traits::Block as BlockT;
-use std::{fmt::Debug, sync::Arc};
+use std::sync::Arc;
 
 /// Parameters for [`import_queue`].
 pub struct ImportQueueParams<'a, I, C, GetSlotFn, S> {
