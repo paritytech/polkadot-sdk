@@ -1735,7 +1735,7 @@ impl_runtime_apis! {
 					>);
 
 				fn reachable_dest() -> Option<Location> {
-					Some(AssetHubLocation::get())
+					Some(Location::new(1, [Parachain(RandomParaId::get())]))
 				}
 
 				fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
