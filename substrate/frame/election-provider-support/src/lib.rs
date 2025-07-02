@@ -148,6 +148,7 @@
 //!         type BlockNumber = BlockNumber;
 //!         type Error = &'static str;
 //!         type MaxBackersPerWinner = T::MaxBackersPerWinner;
+//! 		type MaxBackersPerWinnerFinal = T::MaxBackersPerWinner;
 //!         type MaxWinnersPerPage = T::MaxWinnersPerPage;
 //!         type Pages = T::Pages;
 //!         type DataProvider = T::DataProvider;
