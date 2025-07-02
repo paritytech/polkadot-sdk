@@ -16,6 +16,6 @@ crates:
 - name: pallet-staking-async-parachain-runtime
   bump: minor
 - name: pallet-staking-async
-  bump: minor
+  bump: patch
 - name: frame-benchmarking-cli
   bump: minor
