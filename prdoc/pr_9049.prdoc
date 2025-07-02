@@ -1,0 +1,11 @@
+title: '[WIP] limit buffered offence growth'
+doc:
+- audience: Runtime Dev
+  description: |-
+    TODO/Open questions:
+    - Should we send this in multiple blocks (on init)?
+    - Put a hard limit on size of offence in one xcm.
+    - Simple Benchmark
+crates:
+- name: pallet-staking-async-ah-client
+  bump: major
