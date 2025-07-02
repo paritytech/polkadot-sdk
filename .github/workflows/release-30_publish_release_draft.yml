@@ -15,9 +15,20 @@ on:
         description: Tag matching the actual release candidate with the format polkadot-stableYYMM(-X)-rcX or polkadot-stableYYMM(-X)
         required: true
         type: string
+  workflow_run:
+    workflows: ["Release - Build runtimes"]
+    types:
+      - completed
 
 jobs:
+
+  check-succeeded:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Previous workflow succeeded!"
   check-synchronization:
+    needs: [check-succeeded]
     uses: paritytech-release/sync-workflows/.github/workflows/check-synchronization.yml@main
 
   validate-inputs:
