@@ -1,7 +1,7 @@
 title: add benchmark for prune-era
 doc:
-- audience: Todo
-  description: null
+- audience: Runtime Dev
+  description: Add benchmarking and weight calculation for `prune_era` in `staking-async`.
 crates:
 - name: asset-hub-westend-runtime
   bump: minor
