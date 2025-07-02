@@ -17,26 +17,9 @@
 
 //! Parachain specific wrapper for the AuRa import queue.
 
-use prometheus_endpoint::Registry;
 use sc_consensus_aura::{AuraVerifier, CompatibilityMode};
 use sc_telemetry::TelemetryHandle;
 use std::sync::Arc;
-
-/// Parameters for [`import_queue`].
-pub struct ImportQueueParams<'a, I, C, GetSlotFn, S> {
-	/// The block import to use.
-	pub block_import: I,
-	/// The client to interact with the chain.
-	pub client: Arc<C>,
-	/// Callback to get the current slot.
-	pub get_slot: GetSlotFn,
-	/// The spawner to spawn background tasks.
-	pub spawner: &'a S,
-	/// The prometheus registry.
-	pub registry: Option<&'a Registry>,
-	/// The telemetry handle.
-	pub telemetry: Option<TelemetryHandle>,
-}
 
 /// Parameters of [`build_verifier`].
 pub struct BuildVerifierParams<C, GetSlotFn> {
