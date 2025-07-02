@@ -19225,6 +19225,7 @@ dependencies = [
  "async-trait",
  "futures",
  "futures-timer",
+ "hex",
  "ip_network",
  "linked_hash_set",
  "log",
@@ -19236,6 +19237,9 @@ dependencies = [
  "sc-client-api",
  "sc-network",
  "sc-network-types",
+ "sc-service",
+ "serde",
+ "serde_json",
  "sp-api 26.0.0",
  "sp-authority-discovery",
  "sp-blockchain",
@@ -19245,7 +19249,9 @@ dependencies = [
  "sp-tracing 16.0.0",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
+ "tempfile",
  "thiserror 1.0.65",
+ "tokio",
 ]
 
 [[package]]
@@ -20235,6 +20241,8 @@ dependencies = [
  "multihash 0.19.1",
  "quickcheck",
  "rand 0.8.5",
+ "serde",
+ "serde_with",
  "thiserror 1.0.65",
  "zeroize",
 ]
@@ -21376,6 +21384,34 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "serde_with"
+version = "3.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d6b6f7f2fcb69f747921f79f3926bd1e203fce4fef62c268dd3abfb6d86029aa"
+dependencies = [
+ "base64 0.22.1",
+ "chrono",
+ "hex",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "serde_with_macros",
+ "time",
+]
+
+[[package]]
+name = "serde_with_macros"
+version = "3.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d00caa5193a3c8362ac2b73be6b9e768aa5a4b2f721d8f4b339600c3cb51f8e"
+dependencies = [
+ "darling",
+ "proc-macro2 1.0.95",
+ "quote 1.0.40",
+ "syn 2.0.98",
 ]
 
 [[package]]
