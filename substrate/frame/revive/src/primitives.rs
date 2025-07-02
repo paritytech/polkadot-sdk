@@ -24,7 +24,7 @@ use frame_support::weights::Weight;
 use pallet_revive_uapi::ReturnFlags;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{Saturating, Zero},
+	traits::{One, Saturating, Zero},
 	DispatchError, RuntimeDebug,
 };
 
@@ -108,12 +108,38 @@ pub enum EthTransactError {
 	Message(String),
 }
 
-/// Precision used for converting between Native and EVM balances.
-pub enum ConversionPrecision {
-	/// Exact conversion without any rounding.
-	Exact,
-	/// Conversion that rounds up to the nearest whole number.
-	RoundUp,
+/// A Balance amount along with some "dust" to represent the lowest decimals that can't be expressed
+/// in the native currency
+#[derive(Default, Clone, Copy, Eq, Encode, Decode, TypeInfo, PartialEq, Debug)]
+pub struct BalanceWithDust<Balance> {
+	/// The value expressed in the native currency
+	pub value: Balance,
+	/// The dust, representing up to 1 unit of the native currency.
+	/// The dust will be bounded between 0 and `crate::Config::NativeToEthRatio`
+	pub dust: u32,
+}
+
+impl<Balance: Zero + One + Saturating> BalanceWithDust<Balance> {
+	/// Creates a new `BalanceWithDust` with the given value and dust.
+	pub fn new(value: Balance, dust: u32) -> Self {
+		Self { value, dust }
+	}
+
+	pub fn from_value(value: Balance) -> Self {
+		Self { value, dust: 0 }
+	}
+
+	pub fn is_zero(&self) -> bool {
+		self.value.is_zero() && self.dust == 0
+	}
+
+	pub fn into_rounded_balance(self) -> Balance {
+		if self.dust == 0 {
+			self.value
+		} else {
+			self.value.saturating_add(Balance::one())
+		}
+	}
 }
 
 /// Result type of a `bare_code_upload` call.

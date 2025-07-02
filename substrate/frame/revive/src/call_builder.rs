@@ -32,8 +32,9 @@ use crate::{
 	storage::meter::Meter,
 	transient_storage::MeterEntry,
 	vm::{PreparedCall, Runtime},
-	BalanceOf, BumpNonce, Code, CodeInfoOf, Config, ContractBlob, ContractInfo, ContractInfoOf,
-	DepositLimit, Error, GasMeter, MomentOf, Origin, Pallet as Contracts, PristineCode, Weight,
+	AccountInfo, AccountInfoOf, BalanceOf, BumpNonce, Code, CodeInfoOf, Config, ContractBlob,
+	ContractInfo, ContractInfoOf, DepositLimit, Error, GasMeter, MomentOf, Origin,
+	Pallet as Contracts, PristineCode, Weight,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::{storage::child, traits::fungible::Mutate};
@@ -94,7 +95,7 @@ where
 			// Whitelist the contract's contractInfo as it is already accounted for in the call
 			// benchmark
 			frame_benchmarking::benchmarking::add_to_whitelist(
-				crate::ContractInfoOf::<T>::hashed_key_for(&T::AddressMapper::to_address(
+				AccountInfoOf::<T>::hashed_key_for(&T::AddressMapper::to_address(
 					&contract.account_id,
 				))
 				.into(),
@@ -264,7 +265,7 @@ where
 
 		let outcome = Contracts::<T>::bare_instantiate(
 			origin,
-			0u32.into(),
+			Default::default(),
 			Weight::MAX,
 			DepositLimit::Balance(default_deposit_limit::<T>()),
 			Code::Upload(module.code),
@@ -277,7 +278,10 @@ where
 		let account_id = T::AddressMapper::to_fallback_account_id(&address);
 		let result = Contract { caller, address, account_id };
 
-		ContractInfoOf::<T>::insert(&address, result.info()?);
+		AccountInfoOf::<T>::insert(
+			&address,
+			AccountInfo { account_type: result.info()?.into(), dust: 0 },
+		);
 
 		Ok(result)
 	}
@@ -309,7 +313,10 @@ where
 			info.write(&Key::Fix(item.0), Some(item.1.clone()), None, false)
 				.map_err(|_| "Failed to write storage to restoration dest")?;
 		}
-		<ContractInfoOf<T>>::insert(&self.address, info);
+		<AccountInfoOf<T>>::insert(
+			&self.address,
+			AccountInfo { account_type: info.into(), dust: 0 },
+		);
 		Ok(())
 	}
 
@@ -351,7 +358,7 @@ where
 
 	/// Get the `ContractInfo` of the `addr` or an error if it no longer exists.
 	pub fn address_info(addr: &T::AccountId) -> Result<ContractInfo<T>, &'static str> {
-		ContractInfoOf::<T>::get(T::AddressMapper::to_address(addr))
+		<AccountInfo<T>>::load_contract(&T::AddressMapper::to_address(addr))
 			.ok_or("Expected contract to exist at this point.")
 	}
 

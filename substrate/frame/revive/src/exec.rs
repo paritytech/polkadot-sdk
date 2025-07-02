@@ -25,8 +25,8 @@ use crate::{
 	storage::{self, meter::Diff, WriteOutcome},
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
-	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, ConversionPrecision,
-	Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, RuntimeCosts,
+	BalanceOf, BalanceWithDust, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, Error,
+	Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, RuntimeCosts,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -1381,10 +1381,13 @@ where
 		value: U256,
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 	) -> ExecResult {
-		let value = crate::Pallet::<T>::convert_evm_to_native(value, ConversionPrecision::Exact)?;
+		let value = crate::Pallet::<T>::convert_evm_to_native(value)?;
 		if value.is_zero() {
 			return Ok(Default::default());
 		}
+
+		// TODO handle dust
+		let BalanceWithDust { value, dust } = value;
 
 		if <System<T>>::account_exists(to) {
 			return T::Currency::transfer(from, to, value, Preservation::Preserve)
@@ -1395,7 +1398,7 @@ where
 		let origin = origin.account_id()?;
 		let ed = <T as Config>::Currency::minimum_balance();
 		with_transaction(|| -> TransactionOutcome<ExecResult> {
-			match T::Currency::transfer(origin, to, ed, Preservation::Preserve)
+			let res = match T::Currency::transfer(origin, to, ed, Preservation::Preserve)
 				.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds.into())
 				.and_then(|_| {
 					T::Currency::transfer(from, to, value, Preservation::Preserve)
@@ -1408,7 +1411,14 @@ where
 					TransactionOutcome::Commit(Ok(Default::default()))
 				},
 				Err(err) => TransactionOutcome::Rollback(Err(err)),
+			};
+
+			if !dust.is_zero() {
+				// let addr =
+				// ContractInfoOf
 			}
+
+			res
 		})
 	}
 
@@ -1465,10 +1475,8 @@ where
 
 	/// Returns the *free* balance of the supplied AccountId.
 	fn account_balance(&self, who: &T::AccountId) -> U256 {
-		crate::Pallet::<T>::convert_native_to_evm(T::Currency::reducible_balance(
-			who,
-			Preservation::Preserve,
-			Fortitude::Polite,
+		crate::Pallet::<T>::convert_native_to_evm(BalanceWithDust::from_value(
+			T::Currency::reducible_balance(who, Preservation::Preserve, Fortitude::Polite),
 		))
 	}
 

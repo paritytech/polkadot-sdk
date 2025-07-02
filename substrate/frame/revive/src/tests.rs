@@ -30,9 +30,9 @@ use crate::{
 	tests::test_utils::{get_contract, get_contract_checked},
 	tracing::trace,
 	weights::WeightInfo,
-	AccountId32Mapper, BalanceOf, BumpNonce, Code, CodeInfoOf, Config, ContractInfo,
-	ContractInfoOf, DeletionQueueCounter, DepositLimit, Error, EthTransactError, HoldReason,
-	Origin, Pallet, PristineCode, H160,
+	AccountId32Mapper, AccountInfoOf, BalanceOf, BalanceWithDust, BumpNonce, Code, CodeInfoOf,
+	Config, ContractInfo, ContractInfoOf, DeletionQueueCounter, DepositLimit, Error,
+	EthTransactError, HoldReason, Origin, Pallet, PristineCode, H160,
 };
 
 use crate::test_utils::builder::Contract;
@@ -96,8 +96,8 @@ macro_rules! assert_refcount {
 pub mod test_utils {
 	use super::{CodeHashLockupDepositPercent, Contracts, DepositPerByte, DepositPerItem, Test};
 	use crate::{
-		address::AddressMapper, exec::AccountIdOf, BalanceOf, CodeInfo, CodeInfoOf, Config,
-		ContractInfo, ContractInfoOf, PristineCode,
+		address::AddressMapper, exec::AccountIdOf, AccountInfo, AccountInfoOf, BalanceOf, CodeInfo,
+		CodeInfoOf, Config, ContractInfo, ContractInfoOf, PristineCode,
 	};
 	use codec::{Encode, MaxEncodedLen};
 	use frame_support::traits::fungible::{InspectHold, Mutate};
@@ -109,7 +109,10 @@ pub mod test_utils {
 		let address =
 			<<Test as Config>::AddressMapper as AddressMapper<Test>>::to_address(&address);
 		let contract = <ContractInfo<Test>>::new(&address, 0, code_hash).unwrap();
-		<ContractInfoOf<Test>>::insert(address, contract);
+		<AccountInfoOf<Test>>::insert(
+			address,
+			AccountInfo { account_type: contract.into(), dust: 0 },
+		);
 	}
 	pub fn set_balance(who: &AccountIdOf<Test>, amount: u64) {
 		let _ = <Test as Config>::Currency::set_balance(who, amount);
@@ -439,7 +442,9 @@ fn calling_plain_account_is_balance_transfer() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
 		assert!(!<ContractInfoOf<Test>>::contains_key(BOB_ADDR));
 		assert_eq!(test_utils::get_balance(&BOB_FALLBACK), 0);
-		let result = builder::bare_call(BOB_ADDR).value(42).build_and_unwrap_result();
+		let result = builder::bare_call(BOB_ADDR)
+			.value(BalanceWithDust::from_value(42))
+			.build_and_unwrap_result();
 		assert_eq!(
 			test_utils::get_balance(&BOB_FALLBACK),
 			42 + <Test as Config>::Currency::minimum_balance()
@@ -470,7 +475,7 @@ fn instantiate_and_call_and_deposit_event() {
 
 		// Check at the end to get hash on error easily
 		let Contract { addr, account_id } = builder::bare_instantiate(Code::Existing(code_hash))
-			.value(value)
+			.value(BalanceWithDust::from_value(value))
 			.build_and_unwrap_contract();
 		assert!(ContractInfoOf::<Test>::contains_key(&addr));
 

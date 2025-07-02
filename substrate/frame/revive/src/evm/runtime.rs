@@ -20,8 +20,8 @@ use crate::{
 		api::{GenericTransaction, TransactionSigned},
 		GasEncoder,
 	},
-	AccountIdOf, AddressMapper, BalanceOf, Config, ConversionPrecision, MomentOf,
-	OnChargeTransactionBalanceOf, Pallet, LOG_TARGET, RUNTIME_PALLETS_ADDR,
+	AccountIdOf, AddressMapper, BalanceOf, Config, MomentOf, OnChargeTransactionBalanceOf, Pallet,
+	LOG_TARGET, RUNTIME_PALLETS_ADDR,
 };
 use alloc::vec::Vec;
 use codec::{Decode, DecodeLimit, DecodeWithMemTracking, Encode};
@@ -313,14 +313,11 @@ pub trait EthExtra {
 			return Err(InvalidTransaction::Call);
 		}
 
-		let value = crate::Pallet::<Self::Config>::convert_evm_to_native(
-			value.unwrap_or_default(),
-			ConversionPrecision::Exact,
-		)
-		.map_err(|err| {
-			log::debug!(target: LOG_TARGET, "Failed to convert value to native: {err:?}");
-			InvalidTransaction::Call
-		})?;
+		let value = crate::Pallet::<Self::Config>::convert_evm_to_native(value.unwrap_or_default())
+			.map_err(|err| {
+				log::debug!(target: LOG_TARGET, "Failed to convert value to native: {err:?}");
+				InvalidTransaction::Call
+			})?;
 
 		let data = input.to_vec();
 
@@ -341,14 +338,14 @@ pub trait EthExtra {
 					InvalidTransaction::Call
 				})?;
 
-				if value != 0u32.into() {
+				if !value.is_zero() {
 					log::debug!(target: LOG_TARGET, "Runtime pallets address cannot be called with value");
 					return Err(InvalidTransaction::Call)
 				}
 
 				call
 			} else {
-				crate::Call::call::<Self::Config> {
+				crate::Call::eth_call::<Self::Config> {
 					dest,
 					value,
 					gas_limit,

@@ -49,7 +49,9 @@ use crate::{
 	},
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
-	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
+	storage::{
+		meter::Meter as StorageMeter, AccountInfo, AccountType, ContractInfo, DeletionQueueManager,
+	},
 	tracing::if_tracing,
 	vm::{CodeInfo, ContractBlob, RuntimeCosts},
 };
@@ -79,7 +81,7 @@ use frame_system::{
 use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{BadOrigin, Bounded, Convert, Dispatchable, Saturating, Zero},
+	traits::{BadOrigin, Bounded, Convert, Dispatchable, Saturating},
 	AccountId32, DispatchError,
 };
 
@@ -457,8 +459,6 @@ pub mod pallet {
 		ExecutionFailed = 0x27,
 		/// Failed to convert a U256 to a Balance.
 		BalanceConversionFailed = 0x28,
-		/// Failed to convert an EVM balance to a native balance.
-		DecimalPrecisionLoss = 0x29,
 		/// Immutable data can only be set during deploys and only be read during calls.
 		/// Additionally, it is only valid to set the data once and it must not be empty.
 		InvalidImmutableAccess = 0x2A,
@@ -494,6 +494,10 @@ pub mod pallet {
 	/// A mapping from a contract's code hash to its code info.
 	#[pallet::storage]
 	pub(crate) type CodeInfoOf<T: Config> = StorageMap<_, Identity, H256, CodeInfo<T>>;
+
+	/// The data associated to a contract or externally owned account.
+	#[pallet::storage]
+	pub(crate) type AccountInfoOf<T: Config> = StorageMap<_, Identity, H160, AccountInfo<T>>;
 
 	/// The code associated with a given account.
 	#[pallet::storage]
@@ -730,7 +734,7 @@ pub mod pallet {
 			let mut output = Self::bare_call(
 				origin,
 				dest,
-				value,
+				BalanceWithDust::from_value(value),
 				gas_limit,
 				DepositLimit::Balance(storage_deposit_limit),
 				data,
@@ -765,7 +769,7 @@ pub mod pallet {
 			let data_len = data.len() as u32;
 			let mut output = Self::bare_instantiate(
 				origin,
-				value,
+				BalanceWithDust::from_value(value),
 				gas_limit,
 				DepositLimit::Balance(storage_deposit_limit),
 				Code::Existing(code_hash),
@@ -830,7 +834,7 @@ pub mod pallet {
 			let data_len = data.len() as u32;
 			let mut output = Self::bare_instantiate(
 				origin,
-				value,
+				BalanceWithDust::from_value(value),
 				gas_limit,
 				DepositLimit::Balance(storage_deposit_limit),
 				Code::Upload(code),
@@ -864,7 +868,7 @@ pub mod pallet {
 		)]
 		pub fn eth_instantiate_with_code(
 			origin: OriginFor<T>,
-			#[pallet::compact] value: BalanceOf<T>,
+			value: BalanceWithDust<BalanceOf<T>>,
 			gas_limit: Weight,
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 			code: Vec<u8>,
@@ -893,6 +897,35 @@ pub mod pallet {
 				output.gas_consumed,
 				T::WeightInfo::instantiate_with_code(code_len, data_len),
 			)
+		}
+
+		/// Same as [`Self::call`], but intended to be dispatched **only**
+		/// by an EVM transaction through the EVM compatibility layer.
+		#[pallet::call_index(11)]
+		#[pallet::weight(T::WeightInfo::call().saturating_add(*gas_limit))]
+		pub fn eth_call(
+			origin: OriginFor<T>,
+			dest: H160,
+			value: BalanceWithDust<BalanceOf<T>>,
+			gas_limit: Weight,
+			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
+			data: Vec<u8>,
+		) -> DispatchResultWithPostInfo {
+			let mut output = Self::bare_call(
+				origin,
+				dest,
+				value,
+				gas_limit,
+				DepositLimit::Balance(storage_deposit_limit),
+				data,
+			);
+
+			if let Ok(return_value) = &output.result {
+				if return_value.did_revert() {
+					output.result = Err(<Error<T>>::ContractReverted.into());
+				}
+			}
+			dispatch_result(output.result, output.gas_consumed, T::WeightInfo::call())
 		}
 
 		/// Upload new `code` without instantiating a contract from it.
@@ -951,12 +984,15 @@ pub mod pallet {
 			code_hash: sp_core::H256,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			<ContractInfoOf<T>>::try_mutate(&dest, |contract| {
-				let contract = if let Some(contract) = contract {
-					contract
-				} else {
+			<AccountInfoOf<T>>::try_mutate(&dest, |account| {
+				let Some(account) = account else {
 					return Err(<Error<T>>::ContractNotFound.into());
 				};
+
+				let AccountType::Contract(ref mut contract) = account.account_type else {
+					return Err(<Error<T>>::ContractNotFound.into());
+				};
+
 				<CodeInfo<T>>::increment_refcount(code_hash)?;
 				<CodeInfo<T>>::decrement_refcount(contract.code_hash)?;
 				contract.code_hash = code_hash;
@@ -1043,7 +1079,7 @@ where
 	pub fn bare_call(
 		origin: OriginFor<T>,
 		dest: H160,
-		value: BalanceOf<T>,
+		value: BalanceWithDust<BalanceOf<T>>,
 		gas_limit: Weight,
 		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
 		data: Vec<u8>,
@@ -1101,7 +1137,7 @@ where
 	/// more information to the caller useful to estimate the cost of the operation.
 	pub fn bare_instantiate(
 		origin: OriginFor<T>,
-		value: BalanceOf<T>,
+		value: BalanceWithDust<BalanceOf<T>>,
 		gas_limit: Weight,
 		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
 		code: Code,
@@ -1229,8 +1265,7 @@ where
 
 		// Convert the value to the native balance type.
 		let evm_value = tx.value.unwrap_or_default();
-		let native_value = match Self::convert_evm_to_native(evm_value, ConversionPrecision::Exact)
-		{
+		let native_value = match Self::convert_evm_to_native(evm_value) {
 			Ok(v) => v,
 			Err(_) => return Err(EthTransactError::Message("Failed to convert value".into())),
 		};
@@ -1315,7 +1350,7 @@ where
 						result.gas_required,
 						result.storage_deposit,
 					);
-					let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::call {
+					let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::eth_call {
 						dest,
 						value: native_value,
 						gas_limit,
@@ -1410,7 +1445,10 @@ where
 	/// Get the balance with EVM decimals of the given `address`.
 	pub fn evm_balance(address: &H160) -> U256 {
 		let account = T::AddressMapper::to_account_id(&address);
-		Self::convert_native_to_evm(T::Currency::reducible_balance(&account, Preserve, Polite))
+		// TODO add dust
+		Self::convert_native_to_evm(BalanceWithDust::from_value(T::Currency::reducible_balance(
+			&account, Preserve, Polite,
+		)))
 	}
 
 	/// Get the nonce for the given `address`.
@@ -1425,7 +1463,7 @@ where
 	/// Convert a substrate fee into a gas value, using the fixed `GAS_PRICE`.
 	/// The gas is calculated as `fee / GAS_PRICE`, rounded up to the nearest integer.
 	pub fn evm_fee_to_gas(fee: BalanceOf<T>) -> U256 {
-		let fee = Self::convert_native_to_evm(fee);
+		let fee = Self::convert_native_to_evm(BalanceWithDust::from_value(fee));
 		let gas_price = GAS_PRICE.into();
 		let (quotient, remainder) = fee.div_mod(gas_price);
 		if remainder.is_zero() {
@@ -1438,7 +1476,8 @@ where
 	/// Convert a gas value into a substrate fee
 	fn evm_gas_to_fee(gas: U256, gas_price: U256) -> Result<BalanceOf<T>, Error<T>> {
 		let fee = gas.saturating_mul(gas_price);
-		Self::convert_evm_to_native(fee, ConversionPrecision::RoundUp)
+		let value = Self::convert_evm_to_native(fee)?;
+		Ok(value.into_rounded_balance())
 	}
 
 	/// Convert a weight to a gas value.
@@ -1504,8 +1543,10 @@ where
 
 	/// Query storage of a specified contract under a specified key.
 	pub fn get_storage(address: H160, key: [u8; 32]) -> GetStorageResult {
-		let contract_info =
-			ContractInfoOf::<T>::get(&address).ok_or(ContractAccessError::DoesntExist)?;
+		let account = AccountInfoOf::<T>::get(&address).ok_or(ContractAccessError::DoesntExist)?;
+		let AccountType::Contract(contract_info) = account.account_type else {
+			return Err(ContractAccessError::DoesntExist)
+		};
 
 		let maybe_value = contract_info.read(&Key::from_fixed(key));
 		Ok(maybe_value)
@@ -1513,8 +1554,10 @@ where
 
 	/// Query storage of a specified contract under a specified variable-sized key.
 	pub fn get_storage_var_key(address: H160, key: Vec<u8>) -> GetStorageResult {
-		let contract_info =
-			ContractInfoOf::<T>::get(&address).ok_or(ContractAccessError::DoesntExist)?;
+		let account = AccountInfoOf::<T>::get(&address).ok_or(ContractAccessError::DoesntExist)?;
+		let AccountType::Contract(contract_info) = account.account_type else {
+			return Err(ContractAccessError::DoesntExist)
+		};
 
 		let maybe_value = contract_info.read(
 			&Key::try_from_var(key)
@@ -1557,28 +1600,25 @@ where
 	}
 
 	/// Convert a native balance to EVM balance.
-	fn convert_native_to_evm(value: BalanceOf<T>) -> U256 {
-		value.into().saturating_mul(T::NativeToEthRatio::get().into())
+	fn convert_native_to_evm(value: BalanceWithDust<BalanceOf<T>>) -> U256 {
+		let BalanceWithDust { value, dust } = value;
+		value
+			.into()
+			.saturating_mul(T::NativeToEthRatio::get().into())
+			.saturating_add(dust.into())
 	}
 
 	/// Convert an EVM balance to a native balance.
-	fn convert_evm_to_native(
-		value: U256,
-		precision: ConversionPrecision,
-	) -> Result<BalanceOf<T>, Error<T>> {
+	fn convert_evm_to_native(value: U256) -> Result<BalanceWithDust<BalanceOf<T>>, Error<T>> {
 		if value.is_zero() {
-			return Ok(Zero::zero());
+			return Ok(Default::default())
 		}
 
 		let (quotient, remainder) = value.div_mod(T::NativeToEthRatio::get().into());
-		match (precision, remainder.is_zero()) {
-			(ConversionPrecision::Exact, false) => Err(Error::<T>::DecimalPrecisionLoss),
-			(_, true) => quotient.try_into().map_err(|_| Error::<T>::BalanceConversionFailed),
-			(_, false) => quotient
-				.saturating_add(U256::one())
-				.try_into()
-				.map_err(|_| Error::<T>::BalanceConversionFailed),
-		}
+		let value = quotient.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?;
+		let dust = remainder.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?;
+
+		Ok(BalanceWithDust::new(value, dust))
 	}
 }
 

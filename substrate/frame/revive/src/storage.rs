@@ -25,8 +25,7 @@ use crate::{
 	storage::meter::Diff,
 	tracing::if_tracing,
 	weights::WeightInfo,
-	BalanceOf, Config, ContractInfoOf, DeletionQueue, DeletionQueueCounter, Error, TrieId,
-	SENTINEL,
+	AccountInfoOf, BalanceOf, Config, DeletionQueue, DeletionQueueCounter, Error, TrieId, SENTINEL,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -43,6 +42,29 @@ use sp_runtime::{
 	traits::{Hash, Saturating, Zero},
 	DispatchError, RuntimeDebug,
 };
+
+/// Represents the account information for a contract or an externally owned account (EOA).
+#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[scale_info(skip_type_params(T))]
+pub struct AccountInfo<T: Config> {
+	/// The type of the account.
+	pub account_type: AccountType<T>,
+
+	// The  amount that was transferred to this account that is less than the
+	// NativeToEthRatio, and can be represented in the native currency
+	pub dust: u32,
+}
+
+/// The account type is used to distinguish between contracts and externally owned accounts.
+#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[scale_info(skip_type_params(T))]
+pub enum AccountType<T: Config> {
+	/// An account that is a contract.
+	Contract(ContractInfo<T>),
+
+	/// An account that is an externally owned account (EOA).
+	EOA,
+}
 
 /// Information for managing an account and its sub trie abstraction.
 /// This is the required info to cache for an account.
@@ -70,6 +92,26 @@ pub struct ContractInfo<T: Config> {
 	immutable_data_len: u32,
 }
 
+impl<T: Config> From<ContractInfo<T>> for AccountType<T> {
+	fn from(contract_info: ContractInfo<T>) -> Self {
+		AccountType::Contract(contract_info)
+	}
+}
+
+impl<T: Config> AccountInfo<T> {
+	fn has_contract(address: &H160) -> bool {
+		let Some(info) = <AccountInfoOf<T>>::get(address) else { return false };
+		matches!(info.account_type, AccountType::Contract(_))
+	}
+
+	/// Loads the contract information for a given address.
+	pub fn load_contract(address: &H160) -> Option<ContractInfo<T>> {
+		let Some(info) = <AccountInfoOf<T>>::get(address) else { return None };
+		let AccountType::Contract(contract_info) = info.account_type else { return None };
+		Some(contract_info)
+	}
+}
+
 impl<T: Config> ContractInfo<T> {
 	/// Constructs a new contract info **without** writing it to storage.
 	///
@@ -80,7 +122,7 @@ impl<T: Config> ContractInfo<T> {
 		nonce: T::Nonce,
 		code_hash: sp_core::H256,
 	) -> Result<Self, DispatchError> {
-		if <ContractInfoOf<T>>::contains_key(address) {
+		if <AccountInfo<T>>::has_contract(address) {
 			return Err(Error::<T>::DuplicateContract.into());
 		}
 
@@ -321,7 +363,7 @@ impl<T: Config> ContractInfo<T> {
 
 	/// Returns the code hash of the contract specified by `account` ID.
 	pub fn load_code_hash(account: &AccountIdOf<T>) -> Option<sp_core::H256> {
-		<ContractInfoOf<T>>::get(&T::AddressMapper::to_address(account)).map(|i| i.code_hash)
+		<AccountInfo<T>>::load_contract(&T::AddressMapper::to_address(account)).map(|i| i.code_hash)
 	}
 
 	/// Returns the amount of immutable bytes of this contract.
