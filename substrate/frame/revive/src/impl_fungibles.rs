@@ -299,7 +299,7 @@ mod tests {
 	use crate::{
 		test_utils::{builder::*, ALICE},
 		tests::{Contracts, ExtBuilder, RuntimeOrigin, Test},
-		Code, ContractInfoOf,
+		AccountInfoOf, Code,
 	};
 	use frame_support::assert_ok;
 
@@ -324,7 +324,7 @@ mod tests {
 				EU256::abi_decode_validate(&result.data).expect("Failed to decode ABI response");
 			assert_eq!(balance, EU256::from(amount));
 			// Contract is uploaded.
-			assert_eq!(ContractInfoOf::<Test>::contains_key(&addr), true);
+			assert_eq!(AccountInfoOf::<Test>::contains_key(&addr), true);
 		});
 	}
 

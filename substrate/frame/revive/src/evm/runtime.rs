@@ -601,9 +601,9 @@ mod test {
 
 		assert_eq!(
 			call,
-			crate::Call::call::<Test> {
+			crate::Call::eth_call::<Test> {
 				dest: tx.to.unwrap(),
-				value: tx.value.unwrap_or_default().as_u64(),
+				value: tx.value.unwrap_or_default().as_u64().into(),
 				data: tx.input.to_vec(),
 				gas_limit,
 				storage_deposit_limit
@@ -624,7 +624,7 @@ mod test {
 		assert_eq!(
 			call,
 			crate::Call::eth_instantiate_with_code::<Test> {
-				value: tx.value.unwrap_or_default().as_u64(),
+				value: tx.value.unwrap_or_default().as_u64().into(),
 				code,
 				data,
 				gas_limit,

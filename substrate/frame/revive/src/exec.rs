@@ -25,8 +25,8 @@ use crate::{
 	storage::{self, meter::Diff, WriteOutcome},
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
-	BalanceOf, BalanceWithDust, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, Error,
-	Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, RuntimeCosts,
+	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, CodeInfo, CodeInfoOf, Config,
+	ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, RuntimeCosts,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -714,8 +714,9 @@ impl<T: Config> CachedContract<T> {
 	/// Load the `contract_info` from storage if necessary.
 	fn load(&mut self, account_id: &T::AccountId) {
 		if let CachedContract::Invalidated = self {
-			let contract = <ContractInfoOf<T>>::get(T::AddressMapper::to_address(account_id));
-			if let Some(contract) = contract {
+			if let Some(contract) =
+				AccountInfo::<T>::load_contract(&T::AddressMapper::to_address(account_id))
+			{
 				*self = CachedContract::Cached(contract);
 			}
 		}
@@ -934,13 +935,13 @@ where
 				let mut contract = match (cached_info, &precompile) {
 					(Some(info), _) => CachedContract::Cached(info),
 					(None, None) =>
-						if let Some(info) = <ContractInfoOf<T>>::get(&address) {
+						if let Some(info) = AccountInfo::<T>::load_contract(&address) {
 							CachedContract::Cached(info)
 						} else {
 							return Ok(None);
 						},
 					(None, Some(precompile)) if precompile.has_contract_info() => {
-						if let Some(info) = <ContractInfoOf<T>>::get(&address) {
+						if let Some(info) = AccountInfo::<T>::load_contract(&address) {
 							CachedContract::Cached(info)
 						} else {
 							let info = ContractInfo::new(&address, 0u32.into(), H256::zero())?;
@@ -960,7 +961,8 @@ where
 							_phantom: Default::default(),
 						}
 					} else {
-						let Some(info) = ContractInfoOf::<T>::get(&delegated_call.callee) else {
+						let Some(info) = AccountInfo::<T>::load_contract(&delegated_call.callee)
+						else {
 							return Ok(None);
 						};
 						let executable = E::from_storage(info.code_hash, gas_meter)?;
@@ -1056,9 +1058,10 @@ where
 		if let (CachedContract::Cached(contract), ExportedFunction::Call) =
 			(&frame.contract_info, frame.entry_point)
 		{
-			<ContractInfoOf<T>>::insert(
+			// TODO add dust
+			AccountInfoOf::<T>::insert(
 				T::AddressMapper::to_address(&frame.account_id),
-				contract.clone(),
+				AccountInfo { account_type: contract.clone().into(), dust: 0 },
 			);
 		}
 
@@ -1337,7 +1340,10 @@ where
 				// because that case is already handled by the optimization above. Only the first
 				// cache needs to be invalidated because that one will invalidate the next cache
 				// when it is popped from the stack.
-				<ContractInfoOf<T>>::insert(T::AddressMapper::to_address(account_id), contract);
+				<AccountInfoOf<T>>::insert(
+					T::AddressMapper::to_address(account_id),
+					AccountInfo { account_type: contract.into(), dust: 0 }, // TODO handle dust
+				);
 				if let Some(f) = self.frames_mut().skip(1).find(|f| f.account_id == *account_id) {
 					f.contract_info.invalidate();
 				}
@@ -1354,9 +1360,9 @@ where
 				contract.as_deref_mut(),
 			);
 			if let Some(contract) = contract {
-				<ContractInfoOf<T>>::insert(
+				<AccountInfoOf<T>>::insert(
 					T::AddressMapper::to_address(&self.first_frame.account_id),
-					contract,
+					AccountInfo { account_type: contract.clone().into(), dust: 0 }, /* TODO handle dust */
 				);
 			}
 		}
@@ -1475,9 +1481,9 @@ where
 
 	/// Returns the *free* balance of the supplied AccountId.
 	fn account_balance(&self, who: &T::AccountId) -> U256 {
-		crate::Pallet::<T>::convert_native_to_evm(BalanceWithDust::from_value(
-			T::Currency::reducible_balance(who, Preservation::Preserve, Fortitude::Polite),
-		))
+		let value = T::Currency::reducible_balance(who, Preservation::Preserve, Fortitude::Polite);
+		let dust = 0; // TODO handle dust
+		crate::Pallet::<T>::convert_native_to_evm(BalanceWithDust { value, dust })
 	}
 
 	/// Certain APIs, e.g. `{set,get}_immutable_data` behave differently depending
@@ -1564,7 +1570,7 @@ where
 
 		info.queue_trie_for_deletion();
 		let account_address = T::AddressMapper::to_address(&frame.account_id);
-		ContractInfoOf::<T>::remove(&account_address);
+		AccountInfoOf::<T>::remove(&account_address); // TODO handle dust
 		ImmutableDataOf::<T>::remove(&account_address);
 		<CodeInfo<T>>::decrement_refcount(info.code_hash)?;
 
@@ -1863,7 +1869,7 @@ where
 	}
 
 	fn is_contract(&self, address: &H160) -> bool {
-		ContractInfoOf::<T>::contains_key(&address)
+		AccountInfo::<T>::load_contract(&address).map(|_| true).unwrap_or_default()
 	}
 
 	fn to_account_id(&self, address: &H160) -> T::AccountId {
@@ -1871,7 +1877,7 @@ where
 	}
 
 	fn code_hash(&self, address: &H160) -> H256 {
-		<ContractInfoOf<T>>::get(&address)
+		<AccountInfo<T>>::load_contract(&address)
 			.map(|contract| contract.code_hash)
 			.unwrap_or_else(|| {
 				if System::<T>::account_exists(&T::AddressMapper::to_account_id(address)) {
@@ -1882,7 +1888,7 @@ where
 	}
 
 	fn code_size(&self, address: &H160) -> u64 {
-		<ContractInfoOf<T>>::get(&address)
+		<AccountInfo<T>>::load_contract(&address)
 			.and_then(|contract| CodeInfoOf::<T>::get(contract.code_hash))
 			.map(|info| info.code_len())
 			.unwrap_or_default()

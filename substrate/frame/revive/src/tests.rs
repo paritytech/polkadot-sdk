@@ -30,9 +30,9 @@ use crate::{
 	tests::test_utils::{get_contract, get_contract_checked},
 	tracing::trace,
 	weights::WeightInfo,
-	AccountId32Mapper, AccountInfoOf, BalanceOf, BalanceWithDust, BumpNonce, Code, CodeInfoOf,
-	Config, ContractInfo, ContractInfoOf, DeletionQueueCounter, DepositLimit, Error,
-	EthTransactError, HoldReason, Origin, Pallet, PristineCode, H160,
+	AccountId32Mapper, AccountInfo, AccountInfoOf, BalanceOf, BumpNonce, Code, CodeInfoOf, Config,
+	ContractInfo, DeletionQueueCounter, DepositLimit, Error, EthTransactError, HoldReason, Origin,
+	Pallet, PristineCode, H160,
 };
 
 use crate::test_utils::builder::Contract;
@@ -97,7 +97,7 @@ pub mod test_utils {
 	use super::{CodeHashLockupDepositPercent, Contracts, DepositPerByte, DepositPerItem, Test};
 	use crate::{
 		address::AddressMapper, exec::AccountIdOf, AccountInfo, AccountInfoOf, BalanceOf, CodeInfo,
-		CodeInfoOf, Config, ContractInfo, ContractInfoOf, PristineCode,
+		CodeInfoOf, Config, ContractInfo, PristineCode,
 	};
 	use codec::{Encode, MaxEncodedLen};
 	use frame_support::traits::fungible::{InspectHold, Mutate};
@@ -130,7 +130,7 @@ pub mod test_utils {
 		get_contract_checked(addr).unwrap()
 	}
 	pub fn get_contract_checked(addr: &H160) -> Option<ContractInfo<Test>> {
-		ContractInfoOf::<Test>::get(addr)
+		AccountInfo::<Test>::load_contract(addr)
 	}
 	pub fn get_code_deposit(code_hash: &sp_core::H256) -> BalanceOf<Test> {
 		crate::CodeInfoOf::<Test>::get(code_hash).unwrap().deposit()
@@ -440,11 +440,9 @@ impl Default for Origin<Test> {
 fn calling_plain_account_is_balance_transfer() {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
-		assert!(!<ContractInfoOf<Test>>::contains_key(BOB_ADDR));
+		assert!(!<AccountInfoOf<Test>>::contains_key(BOB_ADDR));
 		assert_eq!(test_utils::get_balance(&BOB_FALLBACK), 0);
-		let result = builder::bare_call(BOB_ADDR)
-			.value(BalanceWithDust::from_value(42))
-			.build_and_unwrap_result();
+		let result = builder::bare_call(BOB_ADDR).value(42.into()).build_and_unwrap_result();
 		assert_eq!(
 			test_utils::get_balance(&BOB_FALLBACK),
 			42 + <Test as Config>::Currency::minimum_balance()
@@ -475,9 +473,9 @@ fn instantiate_and_call_and_deposit_event() {
 
 		// Check at the end to get hash on error easily
 		let Contract { addr, account_id } = builder::bare_instantiate(Code::Existing(code_hash))
-			.value(BalanceWithDust::from_value(value))
+			.value(value.into())
 			.build_and_unwrap_contract();
-		assert!(ContractInfoOf::<Test>::contains_key(&addr));
+		assert!(AccountInfoOf::<Test>::contains_key(&addr));
 
 		assert_eq!(
 			System::events(),
@@ -557,7 +555,7 @@ fn create1_address_from_extrinsic() {
 			let Contract { addr, .. } = builder::bare_instantiate(Code::Existing(code_hash))
 				.salt(None)
 				.build_and_unwrap_contract();
-			assert!(ContractInfoOf::<Test>::contains_key(&addr));
+			assert!(AccountInfoOf::<Test>::contains_key(&addr));
 			assert_eq!(
 				addr,
 				create1(&<Test as Config>::AddressMapper::to_address(&ALICE), nonce - 1)
@@ -569,7 +567,7 @@ fn create1_address_from_extrinsic() {
 			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary.clone()))
 				.salt(None)
 				.build_and_unwrap_contract();
-			assert!(ContractInfoOf::<Test>::contains_key(&addr));
+			assert!(AccountInfoOf::<Test>::contains_key(&addr));
 			assert_eq!(
 				addr,
 				create1(&<Test as Config>::AddressMapper::to_address(&ALICE), nonce - 1)
@@ -587,7 +585,7 @@ fn deposit_event_max_value_limit() {
 		// Create
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary))
-			.value(30_000)
+			.value(30_000.into())
 			.build_and_unwrap_contract();
 
 		// Call contract with allowed storage value.
@@ -613,7 +611,7 @@ fn run_out_of_fuel_engine() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary))
-			.value(100 * min_balance)
+			.value((100 * min_balance).into())
 			.build_and_unwrap_contract();
 
 		// Call the contract with a fixed gas limit. It must run out of gas because it just
@@ -714,7 +712,7 @@ fn storage_work() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let min_balance = Contracts::min_balance();
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.value(min_balance * 100)
+			.value((min_balance * 100).into())
 			.build_and_unwrap_contract();
 
 		builder::bare_call(addr).build_and_unwrap_result();
@@ -729,7 +727,7 @@ fn storage_max_value_limit() {
 		// Create
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary))
-			.value(30_000)
+			.value(30_000.into())
 			.build_and_unwrap_contract();
 		get_contract(&addr);
 
@@ -755,7 +753,7 @@ fn clear_storage_on_zero_value() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let min_balance = Contracts::min_balance();
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.value(min_balance * 100)
+			.value((min_balance * 100).into())
 			.build_and_unwrap_contract();
 
 		builder::bare_call(addr).build_and_unwrap_result();
@@ -770,7 +768,7 @@ fn transient_storage_work() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let min_balance = Contracts::min_balance();
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.value(min_balance * 100)
+			.value((min_balance * 100).into())
 			.build_and_unwrap_contract();
 
 		builder::bare_call(addr).build_and_unwrap_result();
@@ -830,7 +828,7 @@ fn deploy_and_call_other_contract() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let Contract { addr: caller_addr, account_id: caller_account } =
 			builder::bare_instantiate(Code::Upload(caller_binary))
-				.value(100_000)
+				.value(100_000.into())
 				.build_and_unwrap_contract();
 
 		let callee_addr = create2(
@@ -921,13 +919,13 @@ fn delegate_call() {
 		// Instantiate the 'caller'
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_binary))
-				.value(300_000)
+				.value(300_000.into())
 				.build_and_unwrap_contract();
 
 		// Instantiate the 'callee'
 		let Contract { addr: callee_addr, .. } =
 			builder::bare_instantiate(Code::Upload(callee_binary))
-				.value(100_000)
+				.value(100_000.into())
 				.build_and_unwrap_contract();
 
 		assert_ok!(builder::call(caller_addr)
@@ -947,7 +945,7 @@ fn delegate_call_non_existant_is_noop() {
 		// Instantiate the 'caller'
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_binary))
-				.value(300_000)
+				.value(300_000.into())
 				.build_and_unwrap_contract();
 
 		assert_ok!(builder::call(caller_addr)
@@ -970,19 +968,19 @@ fn delegate_call_with_weight_limit() {
 		// Instantiate the 'caller'
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_binary))
-				.value(300_000)
+				.value(300_000.into())
 				.build_and_unwrap_contract();
 
 		// Instantiate the 'callee'
 		let Contract { addr: callee_addr, .. } =
 			builder::bare_instantiate(Code::Upload(callee_binary))
-				.value(100_000)
+				.value(100_000.into())
 				.build_and_unwrap_contract();
 
 		// fails, not enough weight
 		assert_err!(
 			builder::bare_call(caller_addr)
-				.value(1337)
+				.value(1337.into())
 				.data((callee_addr, 100u64, 100u64).encode())
 				.build()
 				.result,
@@ -1007,20 +1005,20 @@ fn delegate_call_with_deposit_limit() {
 		// Instantiate the 'caller'
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_binary))
-				.value(300_000)
+				.value(300_000.into())
 				.build_and_unwrap_contract();
 
 		// Instantiate the 'callee'
 		let Contract { addr: callee_addr, .. } =
 			builder::bare_instantiate(Code::Upload(callee_binary))
-				.value(100_000)
+				.value(100_000.into())
 				.build_and_unwrap_contract();
 
 		// Delegate call will write 1 storage and deposit of 2 (1 item) + 32 (bytes) is required.
 		// + 32 + 16 for blake2_128concat
 		// Fails, not enough deposit
 		let ret = builder::bare_call(caller_addr)
-			.value(1337)
+			.value(1337.into())
 			.data((callee_addr, 81u64).encode())
 			.build_and_unwrap_result();
 		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
@@ -1040,7 +1038,7 @@ fn transfer_expendable_cannot_kill_account() {
 
 		// Instantiate the BOB contract.
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary))
-			.value(1_000)
+			.value(1_000.into())
 			.build_and_unwrap_contract();
 
 		// Check that the BOB contract has been instantiated.
@@ -1079,7 +1077,7 @@ fn cannot_self_destruct_through_draining() {
 
 		// Instantiate the BOB contract.
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary))
-			.value(value)
+			.value(value.into())
 			.build_and_unwrap_contract();
 		let account = <Test as Config>::AddressMapper::to_account_id(&addr);
 
@@ -1147,7 +1145,7 @@ fn cannot_self_destruct_while_live() {
 
 		// Instantiate the BOB contract.
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary))
-			.value(100_000)
+			.value(100_000.into())
 			.build_and_unwrap_contract();
 
 		// Check that the BOB contract has been instantiated.
@@ -1175,7 +1173,7 @@ fn self_destruct_works() {
 
 		// Instantiate the BOB contract.
 		let contract = builder::bare_instantiate(Code::Upload(binary))
-			.value(100_000)
+			.value(100_000.into())
 			.build_and_unwrap_contract();
 
 		// Check that the BOB contract has been instantiated.
@@ -1252,7 +1250,7 @@ fn destroy_contract_and_transfer_funds() {
 		// construction.
 		let Contract { addr: addr_bob, .. } =
 			builder::bare_instantiate(Code::Upload(caller_binary))
-				.value(200_000)
+				.value(200_000.into())
 				.data(callee_code_hash.as_ref().to_vec())
 				.build_and_unwrap_contract();
 
@@ -1292,7 +1290,7 @@ fn crypto_hashes() {
 
 		// Instantiate the CRYPTO_HASHES contract.
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary))
-			.value(100_000)
+			.value(100_000.into())
 			.build_and_unwrap_contract();
 		// Perform the call.
 		let input = b"_DEAD_BEEF";
@@ -1329,7 +1327,7 @@ fn transfer_return_code() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
 
 		let contract = builder::bare_instantiate(Code::Upload(binary))
-			.value(min_balance * 100)
+			.value((min_balance * 100).into())
 			.build_and_unwrap_contract();
 
 		// Contract has only the minimal balance so any transfer will fail.
@@ -1351,7 +1349,7 @@ fn call_return_code() {
 		let _ = <Test as Config>::Currency::set_balance(&CHARLIE, 1000 * min_balance);
 
 		let bob = builder::bare_instantiate(Code::Upload(caller_code))
-			.value(min_balance * 100)
+			.value((min_balance * 100).into())
 			.build_and_unwrap_contract();
 
 		// BOB cannot pay the ed which is needed to pull DJANGO into existence
@@ -1397,7 +1395,7 @@ fn call_return_code() {
 
 		let django = builder::bare_instantiate(Code::Upload(callee_code))
 			.origin(RuntimeOrigin::signed(CHARLIE))
-			.value(min_balance * 100)
+			.value((min_balance * 100).into())
 			.build_and_unwrap_contract();
 
 		// Sending more than the contract has will make the transfer fail.
@@ -1455,7 +1453,7 @@ fn instantiate_return_code() {
 		assert_ok!(builder::instantiate_with_code(callee_code).value(min_balance * 100).build());
 
 		let contract = builder::bare_instantiate(Code::Upload(caller_code))
-			.value(min_balance * 100)
+			.value((min_balance * 100).into())
 			.build_and_unwrap_contract();
 
 		// bob cannot pay the ED to create the contract as he has no money
@@ -1512,7 +1510,7 @@ fn lazy_removal_works() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
 
 		let contract = builder::bare_instantiate(Code::Upload(code))
-			.value(min_balance * 100)
+			.value((min_balance * 100).into())
 			.build_and_unwrap_contract();
 
 		let info = get_contract(&contract.addr);
@@ -1525,7 +1523,7 @@ fn lazy_removal_works() {
 		assert_ok!(builder::call(contract.addr).build());
 
 		// Contract info should be gone
-		assert!(!<ContractInfoOf::<Test>>::contains_key(&contract.addr));
+		assert!(!<AccountInfoOf::<Test>>::contains_key(&contract.addr));
 
 		// But value should be still there as the lazy removal did not run, yet.
 		assert_matches!(child::get(trie, &[99]), Some(42));
@@ -1548,7 +1546,7 @@ fn lazy_batch_removal_works() {
 
 		for i in 0..3u8 {
 			let contract = builder::bare_instantiate(Code::Upload(code.clone()))
-				.value(min_balance * 100)
+				.value((min_balance * 100).into())
 				.salt(Some([i; 32]))
 				.build_and_unwrap_contract();
 
@@ -1562,7 +1560,7 @@ fn lazy_batch_removal_works() {
 			// there as the lazy removal did not run, yet.
 			assert_ok!(builder::call(contract.addr).build());
 
-			assert!(!<ContractInfoOf::<Test>>::contains_key(&contract.addr));
+			assert!(!<AccountInfoOf::<Test>>::contains_key(&contract.addr));
 			assert_matches!(child::get(trie, &[99]), Some(42));
 
 			tries.push(trie.clone())
@@ -1618,7 +1616,7 @@ fn lazy_removal_partial_remove_works() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
 
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.value(min_balance * 100)
+			.value((min_balance * 100).into())
 			.build_and_unwrap_contract();
 
 		let info = get_contract(&addr);
@@ -1627,13 +1625,16 @@ fn lazy_removal_partial_remove_works() {
 		for val in &vals {
 			info.write(&Key::Fix(val.0), Some(val.2.clone()), None, false).unwrap();
 		}
-		<ContractInfoOf<Test>>::insert(&addr, info.clone());
+		<AccountInfoOf<Test>>::insert(
+			&addr,
+			AccountInfo { account_type: info.clone().into(), dust: 0 },
+		);
 
 		// Terminate the contract
 		assert_ok!(builder::call(addr).build());
 
 		// Contract info should be gone
-		assert!(!<ContractInfoOf::<Test>>::contains_key(&addr));
+		assert!(!<AccountInfoOf::<Test>>::contains_key(&addr));
 
 		let trie = info.child_trie_info();
 
@@ -1682,7 +1683,7 @@ fn lazy_removal_does_no_run_on_low_remaining_weight() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
 
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.value(min_balance * 100)
+			.value((min_balance * 100).into())
 			.build_and_unwrap_contract();
 
 		let info = get_contract(&addr);
@@ -1695,7 +1696,7 @@ fn lazy_removal_does_no_run_on_low_remaining_weight() {
 		assert_ok!(builder::call(addr).build());
 
 		// Contract info should be gone
-		assert!(!<ContractInfoOf::<Test>>::contains_key(&addr));
+		assert!(!<AccountInfoOf::<Test>>::contains_key(&addr));
 
 		// But value should be still there as the lazy removal did not run, yet.
 		assert_matches!(child::get(trie, &[99]), Some(42));
@@ -1736,7 +1737,7 @@ fn lazy_removal_does_not_use_all_weight() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
 
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.value(min_balance * 100)
+			.value((min_balance * 100).into())
 			.build_and_unwrap_contract();
 
 		let info = get_contract(&addr);
@@ -1752,13 +1753,16 @@ fn lazy_removal_does_not_use_all_weight() {
 		for val in &vals {
 			info.write(&Key::Fix(val.0), Some(val.2.clone()), None, false).unwrap();
 		}
-		<ContractInfoOf<Test>>::insert(&addr, info.clone());
+		<AccountInfoOf<Test>>::insert(
+			&addr,
+			AccountInfo { account_type: info.clone().into(), dust: 0 },
+		);
 
 		// Terminate the contract
 		assert_ok!(builder::call(addr).build());
 
 		// Contract info should be gone
-		assert!(!<ContractInfoOf::<Test>>::contains_key(&addr));
+		assert!(!<AccountInfoOf::<Test>>::contains_key(&addr));
 
 		let trie = info.child_trie_info();
 
@@ -1810,7 +1814,7 @@ fn deletion_queue_ring_buffer_overflow() {
 		// add 3 contracts to the deletion queue
 		for i in 0..3u8 {
 			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
-				.value(min_balance * 100)
+				.value((min_balance * 100).into())
 				.salt(Some([i; 32]))
 				.build_and_unwrap_contract();
 
@@ -1824,7 +1828,7 @@ fn deletion_queue_ring_buffer_overflow() {
 			// there as the lazy removal did not run, yet.
 			assert_ok!(builder::call(addr).build());
 
-			assert!(!<ContractInfoOf::<Test>>::contains_key(&addr));
+			assert!(!<AccountInfoOf::<Test>>::contains_key(&addr));
 			assert_matches!(child::get(trie, &[99]), Some(42));
 
 			tries.push(trie.clone())
@@ -1851,18 +1855,18 @@ fn refcounter() {
 
 		// Create two contracts with the same code and check that they do in fact share it.
 		let Contract { addr: addr0, .. } = builder::bare_instantiate(Code::Upload(binary.clone()))
-			.value(min_balance * 100)
+			.value((min_balance * 100).into())
 			.salt(Some([0; 32]))
 			.build_and_unwrap_contract();
 		let Contract { addr: addr1, .. } = builder::bare_instantiate(Code::Upload(binary.clone()))
-			.value(min_balance * 100)
+			.value((min_balance * 100).into())
 			.salt(Some([1; 32]))
 			.build_and_unwrap_contract();
 		assert_refcount!(code_hash, 2);
 
 		// Sharing should also work with the usual instantiate call
 		let Contract { addr: addr2, .. } = builder::bare_instantiate(Code::Existing(code_hash))
-			.value(min_balance * 100)
+			.value((min_balance * 100).into())
 			.salt(Some([2; 32]))
 			.build_and_unwrap_contract();
 		assert_refcount!(code_hash, 3);
@@ -1897,11 +1901,11 @@ fn gas_estimation_for_subcalls() {
 
 		let Contract { addr: addr_caller, .. } =
 			builder::bare_instantiate(Code::Upload(caller_code))
-				.value(min_balance * 100)
+				.value((min_balance * 100).into())
 				.build_and_unwrap_contract();
 
 		let Contract { addr: addr_dummy, .. } = builder::bare_instantiate(Code::Upload(dummy_code))
-			.value(min_balance * 100)
+			.value((min_balance * 100).into())
 			.build_and_unwrap_contract();
 
 		// Run the test for all of those weight limits for the subcall
@@ -1973,7 +1977,7 @@ fn call_runtime_reentrancy_guarded() {
 
 		let Contract { addr: addr_callee, .. } =
 			builder::bare_instantiate(Code::Upload(callee_code))
-				.value(min_balance * 100)
+				.value((min_balance * 100).into())
 				.salt(Some([1; 32]))
 				.build_and_unwrap_contract();
 
@@ -2009,7 +2013,7 @@ fn sr25519_verify() {
 
 		// Instantiate the sr25519_verify contract.
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary))
-			.value(100_000)
+			.value(100_000.into())
 			.build_and_unwrap_contract();
 
 		let call_with = |message: &[u8; 11]| {
@@ -2259,7 +2263,7 @@ fn instantiate_with_below_existential_deposit_works() {
 
 		// Instantiate the BOB contract.
 		let Contract { addr, account_id } = builder::bare_instantiate(Code::Upload(binary))
-			.value(value)
+			.value(value.into())
 			.build_and_unwrap_contract();
 
 		// Ensure the contract was stored and get expected deposit amount to be reserved.
@@ -2470,7 +2474,7 @@ fn slash_cannot_kill_account() {
 		let min_balance = Contracts::min_balance();
 
 		let Contract { addr, account_id } = builder::bare_instantiate(Code::Upload(binary))
-			.value(value)
+			.value(value.into())
 			.build_and_unwrap_contract();
 
 		// Drop previous events
@@ -2541,7 +2545,7 @@ fn contract_reverted() {
 			.build_and_unwrap_result();
 		assert_eq!(result.result.flags, flags);
 		assert_eq!(result.result.data, buffer);
-		assert!(!<ContractInfoOf<Test>>::contains_key(result.addr));
+		assert!(!<AccountInfoOf<Test>>::contains_key(result.addr));
 
 		// Pass empty flags and therefore successfully instantiate the contract for later use.
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Existing(code_hash))
@@ -2571,7 +2575,7 @@ fn set_code_hash() {
 
 		// Instantiate the 'caller'
 		let Contract { addr: contract_addr, .. } = builder::bare_instantiate(Code::Upload(binary))
-			.value(300_000)
+			.value(300_000.into())
 			.build_and_unwrap_contract();
 		// upload new code
 		assert_ok!(Contracts::upload_code(
@@ -2752,7 +2756,7 @@ fn deposit_limit_in_nested_instantiate() {
 		// Create caller contract
 		let Contract { addr: addr_caller, account_id: caller_id } =
 			builder::bare_instantiate(Code::Upload(binary_caller))
-				.value(10_000u64) // this balance is later passed to the deployed contract
+				.value(10_000u64.into()) // this balance is later passed to the deployed contract
 				.build_and_unwrap_contract();
 		// Deploy a contract to get its occupied storage size
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary_callee))
@@ -2767,7 +2771,8 @@ fn deposit_limit_in_nested_instantiate() {
 		// - 2 for the storage item of 0 bytes being created in the callee constructor
 		// - 48 for the key
 		let callee_min_deposit = {
-			let callee_info_len = ContractInfoOf::<Test>::get(&addr).unwrap().encoded_size() as u64;
+			let callee_info_len =
+				AccountInfo::<Test>::load_contract(&addr).unwrap().encoded_size() as u64;
 			let code_deposit = test_utils::lockup_deposit(&code_hash_callee);
 			callee_info_len + code_deposit + 2 + ED + 2 + 48
 		};
@@ -4075,7 +4080,7 @@ fn tracing_works_for_transfers() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
 		let mut tracer = CallTracer::new(Default::default(), |_| U256::zero());
 		trace(&mut tracer, || {
-			builder::bare_call(BOB_ADDR).value(10_000_000).build_and_unwrap_result();
+			builder::bare_call(BOB_ADDR).value(10_000_000.into()).build_and_unwrap_result();
 		});
 
 		let trace = tracer.collect_trace();
@@ -4105,7 +4110,7 @@ fn call_tracing_works() {
 			builder::bare_instantiate(Code::Upload(binary_callee)).build_and_unwrap_contract();
 
 		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code)).value(10_000_000).build_and_unwrap_contract();
+			builder::bare_instantiate(Code::Upload(code)).value(10_000_000.into()).build_and_unwrap_contract();
 
 
 		let tracer_configs = vec![
@@ -4260,7 +4265,7 @@ fn create_call_tracing_works() {
 
 		let Contract { addr, .. } = trace(&mut tracer, || {
 			builder::bare_instantiate(Code::Upload(code.clone()))
-				.value(100)
+				.value(100.into())
 				.salt(None)
 				.build_and_unwrap_contract()
 		});
@@ -4325,7 +4330,7 @@ fn prestate_tracing_works() {
 				.build_and_unwrap_contract();
 
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
-			.value(10_000_000)
+			.value(10_000_000.into())
 			.build_and_unwrap_contract();
 
 		// redact balance so that tests are resilient to weight changes
@@ -4588,7 +4593,7 @@ fn pure_precompile_works() {
 			let id = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-				.value(1000)
+				.value(1000.into())
 				.build_and_unwrap_contract();
 
 			let result = builder::bare_call(addr)
@@ -4657,7 +4662,7 @@ fn precompiles_work() {
 			let id = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-				.value(1000)
+				.value(1000.into())
 				.build_and_unwrap_contract();
 
 			let result = builder::bare_call(addr)
@@ -4702,7 +4707,7 @@ fn precompiles_with_info_creates_contract() {
 			let id = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-				.value(1000)
+				.value(1000.into())
 				.build_and_unwrap_contract();
 
 			let result = builder::bare_call(addr)

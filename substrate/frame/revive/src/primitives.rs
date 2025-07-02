@@ -110,7 +110,18 @@ pub enum EthTransactError {
 
 /// A Balance amount along with some "dust" to represent the lowest decimals that can't be expressed
 /// in the native currency
-#[derive(Default, Clone, Copy, Eq, Encode, Decode, TypeInfo, PartialEq, Debug)]
+#[derive(
+	Default,
+	codec::DecodeWithMemTracking,
+	Clone,
+	Copy,
+	Eq,
+	Encode,
+	Decode,
+	TypeInfo,
+	PartialEq,
+	Debug,
+)]
 pub struct BalanceWithDust<Balance> {
 	/// The value expressed in the native currency
 	pub value: Balance,
@@ -119,14 +130,16 @@ pub struct BalanceWithDust<Balance> {
 	pub dust: u32,
 }
 
+impl<Balance> From<Balance> for BalanceWithDust<Balance> {
+	fn from(value: Balance) -> Self {
+		Self { value, dust: 0 }
+	}
+}
+
 impl<Balance: Zero + One + Saturating> BalanceWithDust<Balance> {
 	/// Creates a new `BalanceWithDust` with the given value and dust.
 	pub fn new(value: Balance, dust: u32) -> Self {
 		Self { value, dust }
-	}
-
-	pub fn from_value(value: Balance) -> Self {
-		Self { value, dust: 0 }
 	}
 
 	pub fn is_zero(&self) -> bool {

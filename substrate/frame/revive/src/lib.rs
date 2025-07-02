@@ -499,10 +499,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type AccountInfoOf<T: Config> = StorageMap<_, Identity, H160, AccountInfo<T>>;
 
-	/// The code associated with a given account.
-	#[pallet::storage]
-	pub(crate) type ContractInfoOf<T: Config> = StorageMap<_, Identity, H160, ContractInfo<T>>;
-
 	/// The immutable data associated with a given account.
 	#[pallet::storage]
 	pub(crate) type ImmutableDataOf<T: Config> = StorageMap<_, Identity, H160, ImmutableData>;
@@ -734,7 +730,7 @@ pub mod pallet {
 			let mut output = Self::bare_call(
 				origin,
 				dest,
-				BalanceWithDust::from_value(value),
+				Into::<BalanceWithDust<_>>::into(value),
 				gas_limit,
 				DepositLimit::Balance(storage_deposit_limit),
 				data,
@@ -769,7 +765,7 @@ pub mod pallet {
 			let data_len = data.len() as u32;
 			let mut output = Self::bare_instantiate(
 				origin,
-				BalanceWithDust::from_value(value),
+				Into::<BalanceWithDust<_>>::into(value),
 				gas_limit,
 				DepositLimit::Balance(storage_deposit_limit),
 				Code::Existing(code_hash),
@@ -834,7 +830,7 @@ pub mod pallet {
 			let data_len = data.len() as u32;
 			let mut output = Self::bare_instantiate(
 				origin,
-				BalanceWithDust::from_value(value),
+				Into::<BalanceWithDust<_>>::into(value),
 				gas_limit,
 				DepositLimit::Balance(storage_deposit_limit),
 				Code::Upload(code),
@@ -1445,10 +1441,9 @@ where
 	/// Get the balance with EVM decimals of the given `address`.
 	pub fn evm_balance(address: &H160) -> U256 {
 		let account = T::AddressMapper::to_account_id(&address);
-		// TODO add dust
-		Self::convert_native_to_evm(BalanceWithDust::from_value(T::Currency::reducible_balance(
-			&account, Preserve, Polite,
-		)))
+		let value = T::Currency::reducible_balance(&account, Preserve, Polite);
+		let dust = 0; // TODO
+		Self::convert_native_to_evm(BalanceWithDust { value, dust })
 	}
 
 	/// Get the nonce for the given `address`.
@@ -1463,7 +1458,7 @@ where
 	/// Convert a substrate fee into a gas value, using the fixed `GAS_PRICE`.
 	/// The gas is calculated as `fee / GAS_PRICE`, rounded up to the nearest integer.
 	pub fn evm_fee_to_gas(fee: BalanceOf<T>) -> U256 {
-		let fee = Self::convert_native_to_evm(BalanceWithDust::from_value(fee));
+		let fee = Self::convert_native_to_evm(Into::<BalanceWithDust<_>>::into(fee));
 		let gas_price = GAS_PRICE.into();
 		let (quotient, remainder) = fee.div_mod(gas_price);
 		if remainder.is_zero() {

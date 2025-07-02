@@ -33,8 +33,8 @@ use crate::{
 	transient_storage::MeterEntry,
 	vm::{PreparedCall, Runtime},
 	AccountInfo, AccountInfoOf, BalanceOf, BumpNonce, Code, CodeInfoOf, Config, ContractBlob,
-	ContractInfo, ContractInfoOf, DepositLimit, Error, GasMeter, MomentOf, Origin,
-	Pallet as Contracts, PristineCode, Weight,
+	ContractInfo, DepositLimit, Error, GasMeter, MomentOf, Origin, Pallet as Contracts,
+	PristineCode, Weight,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::{storage::child, traits::fungible::Mutate};
