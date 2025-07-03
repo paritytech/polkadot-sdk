@@ -67,7 +67,7 @@ jobs:
         run: |
           gh workflow run .github/workflows/release-30_publish_release_draft.yml \
             --repo ${{ github.repository }} \
-            --ref ${{ needs.validate-inputs.outputs.release_tag }} \
+            --ref ${{ github.ref }} \
             -f release_tag=${{ needs.validate-inputs.outputs.release_tag }} \
             -f build_run_id=${{ github.run_id }}
             -f runtimes=${{ fromJSON(needs.build-runtimes.outputs.published_runtimes) }}
