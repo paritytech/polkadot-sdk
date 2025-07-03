@@ -601,7 +601,9 @@ mod tests {
 
 			// Check that offences were processed for multiple validators
 			let staking_events = ah::mock::staking_events_since_last_call();
-			let offence_events: Vec<_> = staking_events
+
+			// Verify that OffenceReported events were emitted for all validators
+			let offence_reported_events: Vec<_> = staking_events
 				.iter()
 				.filter_map(|event| {
 					if let pallet_staking_async::Event::OffenceReported {
@@ -610,14 +612,14 @@ mod tests {
 						fraction,
 					} = event
 					{
-						Some((*offence_era, *validator, *fraction))
+						Some((offence_era, validator, fraction))
 					} else {
 						None
 					}
 				})
 				.collect();
 
-			// Check for SlashComputed events
+			// Verify that SlashComputed events were emitted for all three validators
 			let slash_computed_events: Vec<_> = staking_events
 				.iter()
 				.filter_map(|event| {
@@ -628,7 +630,7 @@ mod tests {
 						page,
 					} = event
 					{
-						Some((*offence_era, *slash_era, *offender, *page))
+						Some((offence_era, slash_era, offender, page))
 					} else {
 						None
 					}
@@ -643,37 +645,39 @@ mod tests {
 				slash_computed_events
 			);
 
-			// Verify SlashComputed events contain expected data
-			// offence_era should be 1, slash_era should be 3 (1 + 2 era deferral), page should be 0
-			for (offence_era, slash_era, offender, page) in &slash_computed_events {
-				assert_eq!(*offence_era, 1, "Offence era should be 1");
-				assert_eq!(*slash_era, 3, "Slash era should be 3 (1 + 2 era deferral)");
-				assert_eq!(*page, 0, "Page should be 0");
-				assert!(
-					[1, 2, 5].contains(offender),
-					"Offender should be one of validators 1, 2, or 5"
-				);
-			}
+			// Verify specific SlashComputed events for each validator
+			assert!(
+				slash_computed_events.contains(&(&1, &3, &1, &0)),
+				"Expected SlashComputed event for validator 1: offence_era=1, slash_era=3, offender=1, page=0"
+			);
+			assert!(
+				slash_computed_events.contains(&(&1, &3, &2, &0)),
+				"Expected SlashComputed event for validator 2: offence_era=1, slash_era=3, offender=2, page=0"
+			);
+			assert!(
+				slash_computed_events.contains(&(&1, &3, &5, &0)),
+				"Expected SlashComputed event for validator 5: offence_era=1, slash_era=3, offender=5, page=0"
+			);
 
 			assert_eq!(
-				offence_events.len(),
+				offence_reported_events.len(),
 				9,
 				"Expected exactly 9 offences to be reported (3 sessions × 3 validators), got: {:?}",
 				staking_events
 			);
 
 			// Verify that we have offences for all three validators
-			let validator_1_offences: Vec<_> = offence_events
+			let validator_1_offences: Vec<_> = offence_reported_events
 				.iter()
-				.filter(|(era, validator, _)| *era == 1 && *validator == 1)
+				.filter(|(era, validator, _)| **era == 1 && **validator == 1)
 				.collect();
-			let validator_2_offences: Vec<_> = offence_events
+			let validator_2_offences: Vec<_> = offence_reported_events
 				.iter()
-				.filter(|(era, validator, _)| *era == 1 && *validator == 2)
+				.filter(|(era, validator, _)| **era == 1 && **validator == 2)
 				.collect();
-			let validator_5_offences: Vec<_> = offence_events
+			let validator_5_offences: Vec<_> = offence_reported_events
 				.iter()
-				.filter(|(era, validator, _)| *era == 1 && *validator == 5)
+				.filter(|(era, validator, _)| **era == 1 && **validator == 5)
 				.collect();
 
 			assert_eq!(
