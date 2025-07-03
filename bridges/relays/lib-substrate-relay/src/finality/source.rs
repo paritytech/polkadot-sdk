@@ -87,7 +87,7 @@ impl<P: SubstrateFinalitySyncPipeline, SourceClnt: Client<P::SourceChain>>
 			self.persistent_proofs_stream(block_number + One::one()).await?.fuse();
 		let next_ephemeral_proof = self.ephemeral_proofs_stream(block_number).await?.fuse();
 
-		// in perfect world we'll need to return justfication for the requested `block_number`
+		// in perfect world we'll need to return justification for the requested `block_number`
 		let (header, maybe_proof) = self.header_and_finality_proof(block_number).await?;
 		if let Some(proof) = maybe_proof {
 			return Ok((header, proof))
