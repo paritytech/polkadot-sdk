@@ -330,7 +330,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	// This is a regresion test so that we still remain compatible with runtimes that use
+	// This is a regression test so that we still remain compatible with runtimes that use
 	// `para-id` in chain specs, instead of implementing the
 	// `cumulus_primitives_core::GetParachainInfo`.
 	async fn omni_node_dev_mode_works_without_getparachaininfo() {
