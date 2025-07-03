@@ -635,8 +635,7 @@ fn really_old_offences_are_ignored() {
 		.build_and_execute(|| {
 			Session::roll_until_active_era(100);
 
-			let expected_oldest_reportable_offence =
-				active_era() - (SlashDeferDuration::get() - 1);
+			let expected_oldest_reportable_offence = active_era() - (SlashDeferDuration::get() - 1);
 
 			assert_eq!(expected_oldest_reportable_offence, 74);
 
@@ -670,13 +669,11 @@ fn really_old_offences_are_ignored() {
 			// THEN: offence is reported.
 			assert_eq!(
 				staking_events_since_last_call(),
-				vec![
-					Event::OffenceReported {
-						offence_era: 74,
-						validator: 11,
-						fraction: Perbill::from_percent(10)
-					}
-				]
+				vec![Event::OffenceReported {
+					offence_era: 74,
+					validator: 11,
+					fraction: Perbill::from_percent(10)
+				}]
 			);
 
 			// AND: computed in the next block.
@@ -684,14 +681,12 @@ fn really_old_offences_are_ignored() {
 
 			assert_eq!(
 				staking_events_since_last_call(),
-				vec![
-					Event::SlashComputed {
-						offence_era: 74,
-						slash_era: 101,
-						offender: 11,
-						page: 0
-					},
-				]
+				vec![Event::SlashComputed {
+					offence_era: 74,
+					slash_era: 101,
+					offender: 11,
+					page: 0
+				},]
 			);
 
 			// Slash is applied at the start of the next era.
@@ -709,7 +704,7 @@ fn really_old_offences_are_ignored() {
 					Event::Slashed { staker: 101, amount: 25 }
 				]
 			);
-	});
+		});
 }
 
 #[test]
