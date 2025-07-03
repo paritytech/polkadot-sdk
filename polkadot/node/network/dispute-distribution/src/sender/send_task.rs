@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{hash_map::Entry, HashMap, HashSet},
 	time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -61,7 +61,9 @@ pub struct SendTask<M> {
 	/// Rejected deliveries - if the peer is overloaded (its queue is full) it will reject the
 	/// message. To avoid unnecessary network load we will slow down sending further messages to
 	/// that peer.
-	rejected_deliveries: HashMap<AuthorityDiscoveryId, Timestamp>,
+	/// The value of the `HashMap` is the timestamp of the last rejection and the number of
+	/// attempts.
+	rejected_deliveries: HashMap<AuthorityDiscoveryId, (Timestamp, usize)>,
 
 	/// Whether we have any tasks failed since the last refresh.
 	has_failed_sends: bool,
@@ -229,10 +231,23 @@ impl<M: 'static + Send + Sync> SendTask<M> {
 						"Peer refused to accept our request, marking it as rejected."
 					);
 
-					self.rejected_deliveries.insert(
-						authority.clone(),
-						SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
-					);
+					match self.rejected_deliveries.entry(authority.clone()) {
+						// If the peer is already in the rejected list, increase the number of
+						// attempts.
+						Entry::Occupied(mut entry) => {
+							let (timestamp, attempts) = entry.get_mut();
+							*timestamp =
+								SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+							*attempts += 1;
+						},
+						// Otherwise, insert it with the current timestamp and one attempt.
+						Entry::Vacant(entry) => {
+							entry.insert((
+								SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+								1,
+							));
+						},
+					}
 				}
 
 				self.has_failed_sends = true;
@@ -323,7 +338,7 @@ async fn send_requests<Context, M: 'static + Send + Sync>(
 	ctx: &mut Context,
 	tx: NestingSender<M, TaskFinish>,
 	receivers: Vec<AuthorityDiscoveryId>,
-	rejected_deliveries: &HashMap<AuthorityDiscoveryId, Timestamp>,
+	rejected_deliveries: &HashMap<AuthorityDiscoveryId, (Timestamp, usize)>,
 	req: DisputeRequest,
 	metrics: &Metrics,
 ) -> Result<HashMap<AuthorityDiscoveryId, DeliveryStatus>> {
@@ -337,8 +352,9 @@ async fn send_requests<Context, M: 'static + Send + Sync>(
 		"Sending dispute request to authorities."
 	);
 	for receiver in receivers {
-		if let Some(timestamp) = rejected_deliveries.get(&receiver) {
-			if now - *timestamp < 6 {
+		if let Some((last_retry_time, num_retries)) = rejected_deliveries.get(&receiver) {
+			// Context for the backoff logic: https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/retry-backoff.html
+			if now < *last_retry_time + (2 ^ *num_retries as u64) {
 				gum::debug!(
 					target: LOG_TARGET,
 					?receiver,
