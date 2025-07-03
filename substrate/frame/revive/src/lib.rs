@@ -1875,7 +1875,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 					$crate::Pallet::<Self>::bare_call(
 						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin),
 						dest,
-						value,
+						Into::<$crate::BalanceWithDust<_>>::into(value),
 						gas_limit.unwrap_or(blockweights.max_block),
 						$crate::DepositLimit::Balance(storage_deposit_limit.unwrap_or(u128::MAX)),
 						input_data,
@@ -1898,7 +1898,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 					$crate::Pallet::<Self>::prepare_dry_run(&origin);
 					$crate::Pallet::<Self>::bare_instantiate(
 						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin),
-						value,
+						Into::<$crate::BalanceWithDust<_>>::into(value),
 						gas_limit.unwrap_or(blockweights.max_block),
 						$crate::DepositLimit::Balance(storage_deposit_limit.unwrap_or(u128::MAX)),
 						code,
