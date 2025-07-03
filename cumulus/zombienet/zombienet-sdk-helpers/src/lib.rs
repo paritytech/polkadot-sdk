@@ -289,16 +289,33 @@ async fn relay_parent_for(
 	}
 }
 
+/// Count the number of `CandidateBacked` events for the given `para_id`.
+async fn count_candidate_backed_events(
+	para_id: ParaId,
+	block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+) -> Result<usize, anyhow::Error> {
+	let events = block.events().await?;
+
+	find_event_and_decode_fields::<CandidateReceiptV2<H256>>(
+		&events,
+		"ParaInclusion",
+		"CandidateBacked",
+	)
+	.map(|events| events.iter().filter(|e| e.descriptor.para_id() == para_id).count())
+}
+
 /// Assert that `stop_after` parachain blocks are included via `expected_relay_blocks`.
 ///
 /// It waits for `stop_after` parachain blocks to be finalized. Then it ensures that these parachain
 /// blocks are included on the relay chain using the given number of `expected_relay_blocks`.
 pub async fn assert_para_blocks_throughput(
+	para_id: ParaId,
 	para_client: &OnlineClient<PolkadotConfig>,
 	stop_after: usize,
 	relay_rpc_client: &LegacyRpcMethods<PolkadotConfig>,
 	relay_client: &OnlineClient<PolkadotConfig>,
 	expected_relay_blocks: Range<u32>,
+	expected_candidates_per_relay_block: Range<usize>,
 ) -> Result<(), anyhow::Error> {
 	// Wait for the first session, block production on the parachain will start after that.
 	wait_for_first_session_change(&mut relay_client.blocks().subscribe_best().await?).await?;
@@ -325,10 +342,13 @@ pub async fn assert_para_blocks_throughput(
 				}
 			},
 			finalized = finalized_relay_blocks.select_next_some() => {
+				let num_relay_chain_blocks = finalized?.number().saturating_sub(start_relay_block);
+
 				// `start_relay_block` maybe not being finalized at the beginning, but we just
 				// need some good estimation to ensure the tests ends at some point if there is some issue.
-				if finalized?.number().saturating_sub(start_relay_block) >= expected_relay_blocks.end {
-					panic!("Already processed more relay chain blocks than allowed in the range.")
+				if num_relay_chain_blocks >= expected_relay_blocks.end {
+					panic!("Already processed more relay chain blocks ({num_relay_chain_blocks}) \
+						than allowed in the range ({expected_relay_blocks:?}).")
 				}
 			},
 			complete => { panic!("Both streams should not finish"); }
@@ -355,6 +375,13 @@ pub async fn assert_para_blocks_throughput(
 		if !is_session_change(&block).await? {
 			relay_blocks_without_session_change += 1;
 		}
+
+		let candidate_count = count_candidate_backed_events(para_id, &block).await?;
+
+		assert!(
+			expected_candidates_per_relay_block.contains(&candidate_count),
+			"Expected `CandidateBacked` count of {expected_candidates_per_relay_block:?} but only got {candidate_count}",
+		);
 
 		current_relay_header = relay_rpc_client
 			.chain_get_header(Some(current_relay_header.parent_hash))

@@ -59,7 +59,16 @@ async fn pov_bundling() -> Result<(), anyhow::Error> {
 		LegacyRpcMethods::new(RpcClient::from_url(relay_node.ws_uri()).await.unwrap());
 	let alice = dev::alice();
 
-	assert_para_blocks_throughput(&para_client, 72, &relay_rpc_client, &relay_client, 6..9).await?;
+	assert_para_blocks_throughput(
+		PARA_ID.into(),
+		&para_client,
+		72,
+		&relay_rpc_client,
+		&relay_client,
+		6..9,
+		1..2,
+	)
+	.await?;
 	// 3 relay chain blocks
 	assert_finality_lag(&para_client, 36).await?;
 
@@ -74,7 +83,16 @@ async fn pov_bundling() -> Result<(), anyhow::Error> {
 		.await?;
 	log::info!("2 more cores assigned to each parachain");
 
-	assert_para_blocks_throughput(&para_client, 72, &relay_rpc_client, &relay_client, 6..9).await?;
+	assert_para_blocks_throughput(
+		PARA_ID.into(),
+		&para_client,
+		72,
+		&relay_rpc_client,
+		&relay_client,
+		6..9,
+		2..4,
+	)
+	.await?;
 	assert_finality_lag(&para_client, 36).await?;
 
 	let assign_cores_call = create_assign_core_call(&[(4, PARA_ID), (5, PARA_ID), (6, PARA_ID)]);
@@ -87,7 +105,16 @@ async fn pov_bundling() -> Result<(), anyhow::Error> {
 		.await?;
 	log::info!("3 more cores assigned to each parachain");
 
-	assert_para_blocks_throughput(&para_client, 72, &relay_rpc_client, &relay_client, 6..9).await?;
+	assert_para_blocks_throughput(
+		PARA_ID.into(),
+		&para_client,
+		72,
+		&relay_rpc_client,
+		&relay_client,
+		6..9,
+		5..7,
+	)
+	.await?;
 	assert_finality_lag(&para_client, 36).await?;
 	log::info!("Test finished successfully");
 	Ok(())
@@ -129,7 +156,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_args(vec![
 					("--authoring").into(),
 					("slot-based").into(),
-					("-laura=trace").into(),
+					("-lparachain=debug,aura=trace").into(),
 				])
 				.with_collator(|n| n.with_name("collator-0"))
 				.with_collator(|n| n.with_name("collator-1"))

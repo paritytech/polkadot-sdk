@@ -1329,7 +1329,11 @@ impl<T: Config> Pallet<T> {
 		//
 		// If this fails, the parachain needs to wait for ancestors to be included before
 		// a new block is allowed.
-		assert!(new_len < capacity.get(), "no space left for the block in the unincluded segment");
+		assert!(
+			new_len < capacity.get(),
+			"No space left for the block in the unincluded segment: {new_len} < {}",
+			capacity.get()
+		);
 		weight_used
 	}
 
