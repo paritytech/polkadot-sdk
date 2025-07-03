@@ -27761,6 +27761,7 @@ dependencies = [
  "pallet-proxy",
  "pallet-recovery",
  "pallet-referenda",
+ "pallet-remote-proxy",
  "pallet-root-testing",
  "pallet-scheduler",
  "pallet-session",
