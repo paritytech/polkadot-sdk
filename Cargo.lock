@@ -19198,7 +19198,6 @@ dependencies = [
  "sc-client-api",
  "sc-network",
  "sc-network-types",
- "sc-service",
  "serde",
  "serde_json",
  "sp-api 26.0.0",
