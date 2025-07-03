@@ -2388,12 +2388,11 @@ fn storage_deposit_callee_works() {
 	let (binary_callee, _code_hash_callee) = compile_module("store_call").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		let min_balance = Contracts::min_balance();
 
 		// Create both contracts: Constructors do nothing.
 		let Contract { addr: addr_caller, .. } =
 			builder::bare_instantiate(Code::Upload(binary_caller)).build_and_unwrap_contract();
-		let Contract { addr: addr_callee, account_id } =
+		let Contract { addr: addr_callee, .. } =
 			builder::bare_instantiate(Code::Upload(binary_callee)).build_and_unwrap_contract();
 
 		assert_ok!(builder::call(addr_caller).data((100u32, &addr_callee).encode()).build());
@@ -2401,7 +2400,7 @@ fn storage_deposit_callee_works() {
 		let callee = get_contract(&addr_callee);
 		let deposit = DepositPerByte::get() * 100 + DepositPerItem::get() * 1 + 48;
 
-		assert_eq!(test_utils::get_balance(&account_id), min_balance);
+		assert_eq!(Pallet::<Test>::evm_balance(&addr_caller), U256::zero());
 		assert_eq!(
 			callee.total_deposit(),
 			deposit + test_utils::contract_base_deposit(&addr_callee)
@@ -4685,7 +4684,7 @@ fn precompiles_work() {
 			// no account or contract info should be created for a NoInfo pre-compile
 			assert!(test_utils::get_contract_checked(&precompile_addr).is_none());
 			assert!(!System::account_exists(&id));
-			assert_eq!(test_utils::get_balance(&id), 0u64);
+			assert_eq!(Pallet::<Test>::evm_balance(&precompile_addr), U256::zero());
 
 			assert_eq!(result.flags, ReturnFlags::empty());
 			assert_eq!(u32::from_le_bytes(result.data[..4].try_into().unwrap()), error_code as u32);
@@ -4730,7 +4729,7 @@ fn precompiles_with_info_creates_contract() {
 			// a pre-compile with contract info should create an account on first call
 			assert!(test_utils::get_contract_checked(&precompile_addr).is_some());
 			assert!(System::account_exists(&id));
-			assert_eq!(test_utils::get_balance(&id), 1u64);
+			assert_eq!(Pallet::<Test>::evm_balance(&precompile_addr), U256::from(0));
 
 			assert_eq!(result.flags, ReturnFlags::empty());
 			assert_eq!(u32::from_le_bytes(result.data[..4].try_into().unwrap()), error_code as u32);
