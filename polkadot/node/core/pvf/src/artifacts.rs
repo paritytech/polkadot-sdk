@@ -56,7 +56,7 @@
 
 use crate::{host::PrecheckResultSender, worker_interface::WORKER_DIR_PREFIX};
 use always_assert::always;
-use polkadot_node_core_pvf_common::{error::PrepareError, pvf::PvfPrepData};
+use polkadot_node_core_pvf_common::{error::PrepareError, pvf::PvfPrepData, ArtifactChecksum};
 use polkadot_parachain_primitives::primitives::ValidationCodeHash;
 use polkadot_primitives::ExecutorParamsPrepHash;
 use std::{
@@ -120,11 +120,12 @@ impl ArtifactId {
 pub struct ArtifactPathId {
 	pub(crate) id: ArtifactId,
 	pub(crate) path: PathBuf,
+	pub(crate) checksum: ArtifactChecksum,
 }
 
 impl ArtifactPathId {
-	pub(crate) fn new(artifact_id: ArtifactId, path: &Path) -> Self {
-		Self { id: artifact_id, path: path.to_owned() }
+	pub(crate) fn new(artifact_id: ArtifactId, path: &Path, checksum: ArtifactChecksum) -> Self {
+		Self { id: artifact_id, path: path.to_owned(), checksum }
 	}
 }
 
@@ -135,6 +136,8 @@ pub enum ArtifactState {
 	/// That means that the artifact should be accessible through the path obtained by the artifact
 	/// id (unless, it was removed externally).
 	Prepared {
+		/// The checksum of the compiled artifact.
+		checksum: ArtifactChecksum,
 		/// The path of the compiled artifact.
 		path: PathBuf,
 		/// The time when the artifact was last needed.
@@ -212,6 +215,21 @@ impl Artifacts {
 		self.inner.keys().cloned().collect()
 	}
 
+	#[cfg(feature = "test-utils")]
+	pub fn replace_artifact_checksum(
+		&mut self,
+		checksum: ArtifactChecksum,
+		new_checksum: ArtifactChecksum,
+	) {
+		for artifact in self.inner.values_mut() {
+			if let ArtifactState::Prepared { checksum: c, .. } = artifact {
+				if *c == checksum {
+					*c = new_checksum;
+				}
+			}
+		}
+	}
+
 	/// Create an empty table and the cache directory on-disk if it doesn't exist.
 	pub async fn new(cache_path: &Path) -> Self {
 		// Make sure that the cache path directory and all its parents are created.
@@ -265,13 +283,14 @@ impl Artifacts {
 		&mut self,
 		artifact_id: ArtifactId,
 		path: PathBuf,
+		checksum: ArtifactChecksum,
 		last_time_needed: SystemTime,
 		size: u64,
 	) {
 		// See the precondition.
 		always!(self
 			.inner
-			.insert(artifact_id, ArtifactState::Prepared { path, last_time_needed, size })
+			.insert(artifact_id, ArtifactState::Prepared { path, checksum, last_time_needed, size })
 			.is_none());
 	}
 
@@ -376,18 +395,21 @@ mod tests {
 		artifacts.insert_prepared(
 			artifact_id1.clone(),
 			path1.clone(),
+			Default::default(),
 			mock_now - Duration::from_secs(5),
 			1024,
 		);
 		artifacts.insert_prepared(
 			artifact_id2.clone(),
 			path2.clone(),
+			Default::default(),
 			mock_now - Duration::from_secs(10),
 			1024,
 		);
 		artifacts.insert_prepared(
 			artifact_id3.clone(),
 			path3.clone(),
+			Default::default(),
 			mock_now - Duration::from_secs(15),
 			1024,
 		);
@@ -421,18 +443,21 @@ mod tests {
 		artifacts.insert_prepared(
 			artifact_id1.clone(),
 			path1.clone(),
+			Default::default(),
 			mock_now - Duration::from_secs(5),
 			1024,
 		);
 		artifacts.insert_prepared(
 			artifact_id2.clone(),
 			path2.clone(),
+			Default::default(),
 			mock_now - Duration::from_secs(10),
 			1024,
 		);
 		artifacts.insert_prepared(
 			artifact_id3.clone(),
 			path3.clone(),
+			Default::default(),
 			mock_now - Duration::from_secs(15),
 			1024,
 		);

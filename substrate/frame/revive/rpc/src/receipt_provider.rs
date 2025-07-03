@@ -65,12 +65,11 @@ impl BlockInfo for SubstrateBlock {
 impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	/// Create a new `ReceiptProvider` with the given database URL and block provider.
 	pub async fn new(
-		database_url: &str,
+		pool: SqlitePool,
 		block_provider: B,
 		receipt_extractor: ReceiptExtractor,
 		keep_latest_n_blocks: Option<usize>,
 	) -> Result<Self, sqlx::Error> {
-		let pool = SqlitePool::connect(database_url).await?;
 		sqlx::migrate!().run(&pool).await?;
 		Ok(Self {
 			pool,
