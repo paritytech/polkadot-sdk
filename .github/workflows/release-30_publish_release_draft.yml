@@ -22,7 +22,6 @@ on:
       runtimes:
         description: Runtimes to be published
         required: true
-        type: string
 
 
 jobs:
@@ -148,7 +147,7 @@ jobs:
     continue-on-error: true
     runs-on: ubuntu-latest
     strategy:
-      matrix: ${{ inputs.runtimes }}
+      matrix: ${{ fromJSON(inputs.runtimes) }}
 
     steps:
       - name: Checkout sources
