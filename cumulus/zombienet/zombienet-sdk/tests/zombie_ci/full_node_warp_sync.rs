@@ -1,5 +1,115 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
+// This file is part of Cumulus.
 // SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! Test for warp syncing nodes.
+//!
+//! ## How to update this test?
+//!
+//! Usually, this action is required after changes suffered by `cumulus-test-runtime` or
+//! `rococo-local`. The test starts a relaychain + parachain network, where a few nodes are started
+//! based on existing db snapshots, while the rest of the nodes are warp synced to the latest
+//! state. Updating the test means updating the chain specs used to start both relaychain and
+//! parachain nodes, but also the snapshots.
+//!
+//! ### Updating chain specs
+//!
+//! Existing chain specs are found under [./warp-sync-parachain-spec.json] and
+//! [./warp-sync-relaychain-spec.json]. We need to replace them with the updated chain specs.
+//!
+//! #### For parachain
+//!
+//! 1. We need to rebuild `cumulus-test-runtime`:
+//!
+//! ```bash
+//! cargo build -p cumulus-test-runtime --release
+//! ```
+//!
+//! 	2. Build `chain-spec-builder`:
+//!
+//!	```bash
+//!	cargo build -p staging-chain-spec-builder --release
+//!	```
+//!
+//! 3. Generate the chain spec:
+//! ```bash
+//! target/release/chain-spec-builder create -r target/release/wbuild/cumulus-test-runtime/cumulus_test_runtime.wasm named-preset development
+//! ```
+//!
+//! 4. Replace the chain spec:
+//! ```bash
+//! mv chain_spec.json cumulus/zombienet/zombienet-sdk/tests/zombie_ci/warp-sync-parachain-spec.json
+//! ```
+//!
+//! #### For relaychain
+//!
+//! 1. Build the `polkadot` binary
+//! ```bash
+//! cargo build -p polkadot --release
+//! ```
+//!
+//! 2. Export `rococo-local` chainspec:
+//! ```bash
+//! polkadot export-chain-spec --chain rococo-local > chain_specc.json
+//! ```
+//!
+//! 3. Replace the chain spec:
+//! ```bash
+//! mv chain_spec.json cumulus/zombienet/zombienet-sdk/tests/zombie_ci/warp-sync-relaychain-spec.json
+//! ```
+//!
+//! ### Update snapshots
+//!
+//! For this we need to have the zombienet network running from genesis for a while, with same
+//! nodes, and archive final db states of `alice` and `eve`. Actual steps below:
+//!
+//! #### Modify the test
+//!
+//! 1. Comment the `with_db_snapshot` setters.
+//! 2. make `alice` and `eve` archive nodes by adding:
+//! ```ignore
+//! .with_args(vec![("--state-prunning", "archive")])
+//! ```
+//! 3. Increase the `wait_metric_with_timeout(.., .., 225u64)` timeout parameter to something like
+//! `86400u64` (a day worth of running, which should be sufficient time for the node to reach the
+//! 930th best block on `eve`).
+//!
+//! #### Run the test
+//! ```bash
+//! ZOMBIENET_SDK_BASE_DIR=<absolute-existing-dir-path> ZOMBIE_PROVIDER=native cargo nextest run --release \
+//! -p cumulus-zombienet-sdk-tests --features zombie-ci --no-capture -- full_node_warp_sync
+//! ```
+//!
+//! #### Archive/compress the databases
+//!
+//! 1. For relaychain:
+//!
+//! ```bash
+//! cd $ZOMBIENET_SDK_BASE_DIR/alice
+//! tar -czf alice-db.tgz data/
+//! ```
+//!
+//! 2. For parachain:
+//!
+//! ```bash
+//! cd $ZOMBIENET_SDK_BASE_DIR/eve
+//! tar -czf eve-db.tgz data/ relay-data/
+//! ```
+//!
+//! 3. Upload the archives to public URL (CI/CD team can help), and update the const's in this file
+//!    to point to them.
 
 use anyhow::anyhow;
 
