@@ -218,6 +218,8 @@ impl TryFrom<OldError> for Error {
 
 impl MaxEncodedLen for Error {
 	fn max_encoded_len() -> usize {
+		// TODO: max_encoded_len doesn't quite work here as it tries to take notice of the fields
+		// marked `codec(skip)`. We can hard-code it with the right answer for now.
 		1 + Weight::max_encoded_len()
 	}
 }
