@@ -17,3 +17,5 @@ crates:
     bump: major
   - name: frame-support
     bump: major
+  - name pallet-contracts
+    bump: minor
