@@ -266,16 +266,23 @@ impl<M: 'static + Send + Sync> DisputeSender<M> {
 
 		// Iterates in order of insertion:
 		let mut should_rate_limit = true;
-		for (idx, (candidate_hash, dispute)) in self.disputes.iter_mut().enumerate() {
+		let mut sent_messages_in_a_burst = 0;
+		for (candidate_hash, dispute) in self.disputes.iter_mut() {
 			if have_new_sessions || dispute.has_failed_sends() {
 				if should_rate_limit {
 					self.rate_limit
 						.limit("while going through new sessions/failed sends", *candidate_hash)
 						.await;
+					sent_messages_in_a_burst = 0;
 				}
 				let sends_happened = dispute
 					.refresh_sends(ctx, runtime, &self.active_sessions, &self.metrics)
 					.await?;
+
+				if sends_happened {
+					sent_messages_in_a_burst += 1;
+				}
+
 				// Rate limit if we actually sent something out _and_ it was not just because
 				// of errors on previous sends.
 				//
@@ -286,8 +293,8 @@ impl<M: 'static + Send + Sync> DisputeSender<M> {
 				// Furthermore, we want to limit the number of `DisputeRequest` messages we are
 				// sending in a single burst up to the queue capacity of the peer. Otherwise they
 				// will be rejected and an unnecessary network traffic will be generated.
-				should_rate_limit =
-					(sends_happened && have_new_sessions) || (idx % PEER_QUEUE_CAPACITY == 0);
+				should_rate_limit = (sends_happened && have_new_sessions) ||
+					(sent_messages_in_a_burst % PEER_QUEUE_CAPACITY == 0);
 			}
 		}
 		Ok(())
