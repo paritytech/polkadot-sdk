@@ -1,0 +1,31 @@
+title: '[stable2506] Bump spec_version to 1_019_001 and reorder prdocs'
+doc:
+- audience:
+  - Runtime User
+  - Runtime Dev
+  description: Bump spec_version to 1_019_001 and reorder prdocs
+crates:
+- name: asset-hub-rococo-runtime
+  bump: none
+- name: asset-hub-westend-runtime
+  bump: none
+- name: bridge-hub-rococo-runtime
+  bump: none
+- name: bridge-hub-westend-runtime
+  bump: none
+- name: collectives-westend-runtime
+  bump: none
+- name: coretime-rococo-runtime
+  bump: none
+- name: coretime-westend-runtime
+  bump: none
+- name: glutton-westend-runtime
+  bump: none
+- name: people-rococo-runtime
+  bump: none
+- name: people-westend-runtime
+  bump: none
+- name: rococo-runtime
+  bump: none
+- name: westend-runtime
+  bump: none
