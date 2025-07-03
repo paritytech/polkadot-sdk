@@ -17,8 +17,6 @@
 
 //! Benchmarking setup for pallet-staking-async-ah-client
 
-#![cfg(feature = "runtime-benchmarks")]
-
 use super::*;
 use frame_benchmarking::v2::*;
 use frame_support::traits::Get;
