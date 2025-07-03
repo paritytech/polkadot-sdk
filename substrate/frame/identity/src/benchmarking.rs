@@ -621,7 +621,6 @@ mod benchmarks {
 		let who_account = public.into_account();
 		let who_lookup = T::Lookup::unlookup(who_account.clone());
 
-
 		// Verify signature here to avoid surprise errors at runtime
 		assert!(signature.verify(&bounded_username[..], &who_account));
 		let use_allocation = match p {
