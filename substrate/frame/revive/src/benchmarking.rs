@@ -26,7 +26,7 @@ use crate::{
 	limits,
 	precompiles::{self, run::builtin as run_builtin_precompile},
 	storage::WriteOutcome,
-	ConversionPrecision, Pallet as Contracts, *,
+	Pallet as Contracts, *,
 };
 use alloc::{vec, vec::Vec};
 use codec::{Encode, MaxEncodedLen};
@@ -45,7 +45,10 @@ use sp_consensus_babe::{
 	BABE_ENGINE_ID,
 };
 use sp_consensus_slots::Slot;
-use sp_runtime::generic::{Digest, DigestItem};
+use sp_runtime::{
+	generic::{Digest, DigestItem},
+	traits::Zero,
+};
 
 /// How many runs we do per API benchmark.
 ///
@@ -1741,7 +1744,7 @@ mod benchmarks {
 			}
 		};
 
-		assert!(ContractInfoOf::<T>::get(&addr).is_none());
+		assert!(AccountInfoOf::<T>::get(&addr).is_none());
 
 		let result;
 		#[block]
@@ -1758,12 +1761,11 @@ mod benchmarks {
 		}
 
 		assert_ok!(result);
-		assert!(ContractInfoOf::<T>::get(&addr).is_some());
+		assert!(AccountInfo::<T>::load_contract(&addr).is_some());
 		assert_eq!(
 			T::Currency::balance(&account_id),
 			Pallet::<T>::min_balance() +
-				Pallet::<T>::convert_evm_to_native(value.into(), ConversionPrecision::Exact)
-					.unwrap()
+				Pallet::<T>::convert_evm_to_native(value.into()).unwrap().value
 		);
 		Ok(())
 	}
