@@ -42,7 +42,6 @@ use frame_support::{
 		OnUnbalanced,
 	},
 	weights::Weight,
-	StorageDoubleMap,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_staking_async_rc_client::{self as rc_client};
@@ -2033,6 +2032,7 @@ impl<T: Config> Pallet<T> {
 		// (4) Ensure all slashes older than (active era - 1) are applied.
 		// We will look at all eras before the active era as it can take 1 era for slashes
 		// to be applied.
+		use frame_support::StorageDoubleMap;
 		for era in (active_era.saturating_sub(T::BondingDuration::get()))..(active_era) {
 			// all unapplied slashes are expected to be applied in 1 era.
 			ensure!(
