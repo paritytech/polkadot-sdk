@@ -249,8 +249,6 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 }
 
 /// Create the JSON-RPC module.
-// Dev note: Err variant is at least 176 bytes, hence clippy warning.
-#[allow(clippy::result_large_err)]
 fn rpc_module(is_dev: bool, client: Client) -> Result<RpcModule<()>, sc_service::Error> {
 	let eth_api = EthRpcServerImpl::new(client.clone())
 		.with_accounts(if is_dev { vec![crate::Account::default()] } else { vec![] })
