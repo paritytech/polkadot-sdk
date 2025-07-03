@@ -15,7 +15,7 @@ doc:
 crates:
   - name: pallet-balances
     bump: major
+  - name pallet-contracts
+    bump: none
   - name: frame-support
     bump: major
-  - name pallet-contracts
-    bump: minor
