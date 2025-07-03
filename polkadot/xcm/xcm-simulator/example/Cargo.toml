@@ -35,7 +35,7 @@ xcm-executor = { workspace = true, default-features = true }
 xcm-simulator = { workspace = true, default-features = true }
 
 [dev-dependencies]
-sp-tracing = { features = ["test-utils"], workspace = true }
+sp-tracing = { workspace = true }
 
 [features]
 default = []
