@@ -24,7 +24,7 @@ sp-io = { workspace = true, default-features = true, optional = true }
 anyhow = { workspace = true, default-features = true }
 cargo_metadata = { workspace = true }
 pallet-revive-uapi = { workspace = true }
-polkavm-linker = { version = "0.21.0" }
+polkavm-linker = { version = "0.25.0" }
 toml = { workspace = true }
 
 [features]

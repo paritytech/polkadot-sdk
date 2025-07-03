@@ -43,24 +43,9 @@ on:
         description: |
           True iff there are changes in templates directory or the current workflow
 
-      ZOMBIENET_IMAGE:
-        value: ${{ jobs.preflight.outputs.ZOMBIENET_IMAGE }}
-        description: "ZOMBIENET CI image"
-
       CI_IMAGE:
         value: ${{ jobs.preflight.outputs.CI_IMAGE }}
         description: "CI image"
-
-
-      ZOMBIENET_RUNNER:
-        value: ${{ jobs.preflight.outputs.ZOMBIENET_RUNNER }}
-        description: |
-          Main runner for zombienet tests.
-
-      TEMP_IMAGES_BASE:
-        value: ${{ jobs.preflight.outputs.TEMP_IMAGES_BASE }}
-        description: |
-          Base location for 'temp' images used in tests.
 
       DOCKER_IMAGES_VERSION:
         value: ${{ jobs.preflight.outputs.DOCKER_IMAGES_VERSION }}
@@ -80,27 +65,55 @@ on:
         description: |
           url for download polkadot built artifacts (in zip format).
 
-      FLAKY_TESTS:
-        value: ${{ jobs.preflight.outputs.FLAKY_TESTS }}
-        description: |
-          comma separated list of flaky tests to skip.
+      # zombienet related vars
+      ZOMBIENET_PROVIDER:
+        value: ${{ jobs.preflight.outputs.ZOMBIENET_PROVIDER }}
+        description: "Provider to use in zombienet tests."
 
-      # Zombie vars
-      PUSHGATEWAY_URL:
-        value: ${{ jobs.preflight.outputs.PUSHGATEWAY_URL }}
-        description: "Gateway (url) to push metrics related to test."
+      ZOMBIENET_IMAGE:
+        value: ${{ jobs.preflight.outputs.ZOMBIENET_IMAGE }}
+        description: "ZOMBIENET CI image"
+
+      ZOMBIENET_DEFAULT_RUNNER:
+        value: ${{ jobs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER }}
+        description: |
+          Main runner for zombienet tests.
+
+      ZOMBIENET_LARGE_RUNNER:
+        value: ${{ jobs.preflight.outputs.ZOMBIENET_LARGE_RUNNER }}
+        description: |
+          Large runner for zombienet tests.
+
       DEBUG:
         value: ${{ jobs.preflight.outputs.DEBUG }}
         description: "Debug value to zombienet v1 tests."
+
+      # zombienet-sdk related vars
       ZOMBIE_PROVIDER:
         value: ${{ jobs.preflight.outputs.ZOMBIE_PROVIDER }}
         description: "Provider to use in zombienet-sdk tests."
       RUST_LOG:
         value: ${{ jobs.preflight.outputs.RUST_LOG }}
         description: "Log value to use in zombinet-sdk tests."
-      RUN_IN_CI:
-        value: ${{ jobs.preflight.outputs.RUN_IN_CI }}
-        description: "Internal flag to make zombienet aware of the env."
+
+      ZOMBIENET_SDK_DEFAULT_RUNNER:
+        value: ${{ jobs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
+        description: |
+          Main runner for zombienet-sdk tests.
+
+      ZOMBIENET_SDK_LARGE_RUNNER:
+        value: ${{ jobs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
+        description: |
+          Large runner for zombienet-sdk tests.
+
+      ZOMBIENET_SDK_IMAGE:
+        value: ${{ jobs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
+        description: "zombienet-sdk CI image"
+
+      # common vars
+      PUSHGATEWAY_URL:
+        value: ${{ jobs.preflight.outputs.PUSHGATEWAY_URL }}
+        description: "Gateway (url) to push metrics related to test."
 
       KUBERNETES_CPU_REQUEST:
         value: ${{ jobs.preflight.outputs.KUBERNETES_CPU_REQUEST }}
@@ -110,14 +123,23 @@ on:
         value: ${{ jobs.preflight.outputs.KUBERNETES_MEMORY_REQUEST }}
         description: "Base memory (request) for pod runner."
 
+      TEMP_IMAGES_BASE:
+        value: ${{ jobs.preflight.outputs.TEMP_IMAGES_BASE }}
+        description: |
+          Base location for 'temp' images used in tests.
+
+      FLAKY_TESTS:
+        value: ${{ jobs.preflight.outputs.FLAKY_TESTS }}
+        description: |
+          comma separated list of flaky tests to skip.
+
 jobs:
   #
   #
   #
   preflight:
     runs-on: ubuntu-latest
-    # TODO remove this condition once zombienet tests are stabilized
-    if: contains(github.event.pull_request.labels.*.name, 'T18-zombienet_tests')
+    if: github.event_name == 'workflow_dispatch' || ! contains(github.event.pull_request.labels.*.name, 'T19-skip-zombienet_tests')
 
     outputs:
       changes_substrate: ${{ steps.set_changes.outputs.substrate_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
@@ -128,24 +150,29 @@ jobs:
 
       CI_IMAGE: ${{ steps.set_vars.outputs.IMAGE }}
 
-      ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}
-      ZOMBIENET_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_RUNNER }}
-
-      TEMP_IMAGES_BASE: ${{ steps.set_vars.outputs.TEMP_IMAGES_BASE }}
-
       # images versions
       DOCKER_IMAGES_VERSION: ${{ steps.set_images_version.outputs.DOCKER_IMAGES_VERSION }}
 
-      # common vars
-      PUSHGATEWAY_URL: ${{ steps.set_vars.outputs.PUSHGATEWAY_URL }}
       SOURCE_REF_SLUG: ${{ steps.set_vars.outputs.SOURCE_REF_SLUG }}
+
+      # zombienet-env vars
+      ZOMBIENET_PROVIDER: ${{ steps.set_vars.outputs.ZOMBIENET_PROVIDER }}
+      ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}
+      ZOMBIENET_DEFAULT_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_DEFAULT_RUNNER }}
+      ZOMBIENET_LARGE_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_LARGE_RUNNER }}
+      PUSHGATEWAY_URL: ${{ steps.set_vars.outputs.PUSHGATEWAY_URL }}
       DEBUG: ${{ steps.set_vars.outputs.DEBUG }}
-      ZOMBIE_PROVIDER: ${{ steps.set_vars.outputs.ZOMBIE_PROVIDER }}
-      RUST_LOG: ${{ steps.set_vars.outputs.RUST_LOG }}
-      RUN_IN_CI: ${{ steps.set_vars.outputs.RUN_IN_CI }}
       KUBERNETES_CPU_REQUEST: ${{ steps.set_vars.outputs.KUBERNETES_CPU_REQUEST }}
       KUBERNETES_MEMORY_REQUEST: ${{ steps.set_vars.outputs.KUBERNETES_MEMORY_REQUEST }}
+      TEMP_IMAGES_BASE: ${{ steps.set_vars.outputs.TEMP_IMAGES_BASE }}
       FLAKY_TESTS: ${{ steps.set_vars.outputs.FLAKY_TESTS }}
+
+      # zombienet-sdk vars
+      RUST_LOG: ${{ steps.set_vars.outputs.RUST_LOG }}
+      ZOMBIE_PROVIDER: ${{ steps.set_vars.outputs.ZOMBIE_PROVIDER }}
+      ZOMBIENET_SDK_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_SDK_IMAGE }}
+      ZOMBIENET_SDK_DEFAULT_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
+      ZOMBIENET_SDK_LARGE_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
 
     steps:
       - uses: actions/checkout@v4
@@ -179,6 +206,7 @@ jobs:
               - '${{ steps.current_file.outputs.currentWorkflowFile }}'
               - '.github/workflows/zombienet-reusable-preflight.yml'
               - '.github/zombienet-env'
+              - '.github/zombienet-flaky-tests'
 
       #
       # Set environment vars (including runner/image)
@@ -187,14 +215,50 @@ jobs:
         id: set_vars
         shell: bash
         run: |
-          export SOURCE_REF_NAME=${{ github.head_ref || github.ref_name }}
-          echo "SOURCE_REF_SLUG=${SOURCE_REF_NAME//\//_}" >> $GITHUB_OUTPUT
-          #
-          cat .github/zombienet-env >> $GITHUB_OUTPUT
+          # below section shall only print variables set for GITHUB_OUTPUT
+          {
+            export SOURCE_REF_NAME=${{ github.head_ref || github.ref_name }}
+            echo "SOURCE_REF_SLUG=${SOURCE_REF_NAME//\//_}"
+
+            # filter out comments and empty lines
+            cat .github/zombienet-env | grep -Ev '^\s*#|^\s*$'
+            . .github/zombienet-env
+
+            if [[ "$ZOMBIENET_PROVIDER" == "native" ]]; then
+              echo "ZOMBIENET_IMAGE=${ZOMBIENET_IMAGE_FOR_NATIVE}"
+              echo "ZOMBIENET_DEFAULT_RUNNER=${ZOMBIENET_DEFAULT_RUNNER_FOR_NATIVE}"
+              echo "ZOMBIENET_LARGE_RUNNER=${ZOMBIENET_LARGE_RUNNER_FOR_NATIVE}"
+            else
+              echo "ZOMBIENET_IMAGE=${ZOMBIENET_IMAGE_FOR_K8S}"
+              # runner size for k8s is not relevant, it "only" spawns pods and runs the test
+              echo "ZOMBIENET_DEFAULT_RUNNER=${ZOMBIENET_RUNNER_FOR_K8S}"
+              echo "ZOMBIENET_LARGE_RUNNER=${ZOMBIENET_RUNNER_FOR_K8S}"
+            fi
+
+            if [[ "$ZOMBIE_PROVIDER" == "native" ]]; then
+              echo "ZOMBIENET_SDK_IMAGE=${ZOMBIENET_SDK_IMAGE_FOR_NATIVE}"
+              echo "ZOMBIENET_SDK_DEFAULT_RUNNER=${ZOMBIENET_SDK_DEFAULT_RUNNER_FOR_NATIVE}"
+              echo "ZOMBIENET_SDK_LARGE_RUNNER=${ZOMBIENET_SDK_LARGE_RUNNER_FOR_NATIVE}"
+            else
+              echo "ZOMBIENET_SDK_IMAGE=${ZOMBIENET_SDK_IMAGE_FOR_K8S}"
+              # runner size for k8s is not relevant, it "only" spawns pods and runs the test
+              echo "ZOMBIENET_SDK_DEFAULT_RUNNER=${ZOMBIENET_SDK_RUNNER_FOR_K8S}"
+              echo "ZOMBIENET_SDK_LARGE_RUNNER=${ZOMBIENET_SDK_RUNNER_FOR_K8S}"
+            fi
+
+            # Trick for multline strings: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#example-of-a-multiline-string
+            echo 'FLAKY_TESTS<<EOF'
+            cat .github/zombienet-flaky-tests
+            echo EOF
+
+            # global img from ci
+            cat .github/env
+          } >> $GITHUB_OUTPUT
+
           cat .github/zombienet-env
-          # global imga from ci
-          cat .github/env >> $GITHUB_OUTPUT
           cat .github/env
+          echo "FLAKY_TESTS:"
+          cat .github/zombienet-flaky-tests
 
       #
       #
@@ -204,7 +268,9 @@ jobs:
         shell: bash
         run: |
           export DOCKER_IMAGES_VERSION=${{ github.event.pull_request.head.sha }}
-          if [[ ${{ github.event_name }} == "merge_group" ]]; then export DOCKER_IMAGES_VERSION="${GITHUB_SHA::8}"; fi
+          if [[ ${{ github.event_name }} == "merge_group" || ${{ github.event_name }} == "workflow_dispatch" ]]; then
+            export DOCKER_IMAGES_VERSION="${GITHUB_SHA}";
+          fi
           echo "DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION}" >> $GITHUB_OUTPUT
 
       - name: log
@@ -212,8 +278,9 @@ jobs:
         run: |
           echo "workflow file: ${{ steps.current_file.outputs.currentWorkflowFile }}"
           echo "Modified: ${{ steps.set_changes.outputs.modified_keys }}"
-          echo "ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}"
           echo "CI_IMAGE: ${{ steps.set_vars.outputs.IMAGE }}"
+          echo "ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}"
+          echo "ZOMBIENET_SDK_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_SDK_IMAGE }}"
 
   #
   #
@@ -224,21 +291,25 @@ jobs:
     steps:
       - name: Info vars
         run: |
-          echo "CI_IMAGE: ${{ needs.preflight.outputs.CI_IMAGE }}"
+          echo "zombienet vars"
+          echo "ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}"
+          echo "ZOMBIENET_DEFAULT_RUNNER: ${{ needs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER }}"
+          echo "ZOMBIENET_LARGE_RUNNER: ${{ needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER }}"
           echo "ZOMBIENET_IMAGE: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}"
-          echo "CI_IMAGE: ${{ needs.preflight.outputs.CI_IMAGE }}"
-          echo "ZOMBIENET_RUNNER: ${{ needs.preflight.outputs.ZOMBIENET_RUNNER }}"
-          echo "DOCKER_IMAGES_VERSION: ${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-          echo "SOURCE_REF_SLUG: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}"
           echo "PUSHGATEWAY_URL: ${{ needs.preflight.outputs.PUSHGATEWAY_URL }}"
           echo "DEBUG: ${{ needs.preflight.outputs.DEBUG }}"
-          echo "ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}"
-          echo "RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}"
-          echo "RUN_IN_CI: ${{ needs.preflight.outputs.RUN_IN_CI }}"
           echo "KUBERNETES_CPU_REQUEST: ${{ needs.preflight.outputs.KUBERNETES_CPU_REQUEST }}"
           echo "KUBERNETES_MEMORY_REQUEST: ${{ needs.preflight.outputs.KUBERNETES_MEMORY_REQUEST }}"
           echo "FLAKY_TESTS: ${{ needs.preflight.outputs.FLAKY_TESTS }}"
-          #
+          echo "zombienet-sdk vars"
+          echo "RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}"
+          echo "ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}"
+          echo "ZOMBIENET_SDK_RUNNER: ${{ needs.preflight.outputs.ZOMBIENET_SDK_RUNNER }}"
+          echo "ZOMBIENET_SDK_IMAGE: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}"
+          echo "other vars"
+          echo "CI_IMAGE: ${{ needs.preflight.outputs.CI_IMAGE }}"
+          echo "DOCKER_IMAGES_VERSION: ${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+          echo "SOURCE_REF_SLUG: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}"
           echo "github.ref: ${{ github.ref }}"
           echo "github.ref_name: ${{ github.ref_name }}"
           echo "github.sha: ${{ github.sha }}"
@@ -261,8 +332,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh --version
+
           export SHA=${{ github.event.pull_request.head.sha }}
-          if [[ ${{ github.event_name }} == "merge_group" ]]; then export SHA="${GITHUB_SHA::8}"; fi
+          if [[ ${{ github.event_name }} == "merge_group" || ${{ github.event_name }} == "workflow_dispatch" ]]; then
+            # Full SHA is needed to query GH run status
+            export SHA="${GITHUB_SHA}";
+          fi
           DELAYER=10
           while true; do
             # In case of multiple runs take the most recent one (with greatest databaseId)
@@ -280,7 +355,7 @@ jobs:
             DELAYER=1
           done
 
-          #check if the build succeeded
+          # check if the build succeeded
           RUN_INFO=($(gh run ls -c $SHA -w "Build and push images" --json conclusion,databaseId --jq 'max_by(.databaseId) | .conclusion, .databaseId'))
           CONCLUSION=${RUN_INFO[@]:0:1}
           BUILD_RUN_ID=${RUN_INFO[@]:1:1}

@@ -243,6 +243,41 @@ function force_create_foreign_asset() {
     send_governance_transact "${relay_url}" "${relay_chain_seed}" "${runtime_para_id}" "${hex_encoded_data}" 200000000 12000
 }
 
+function create_pool() {
+    local runtime_para_endpoint=$1
+    local seed=$2
+    local native_asset_id=$3
+    local foreign_asset_id=$4
+    
+    call_polkadot_js_api \
+        --ws "${runtime_para_endpoint?}" \
+        --seed "${seed?}" \
+        tx.assetConversion.createPool \
+            "${native_asset_id}" \
+            "${foreign_asset_id}"
+    }
+    
+function add_liquidity() {
+    local runtime_para_endpoint=$1
+    local seed=$2
+    local native_asset_id=$3
+    local foreign_asset_id=$4
+    local native_asset_amount=$5
+    local foreign_asset_amount=$6
+    local pool_owner_account_id=$7
+    
+    call_polkadot_js_api \
+        --ws "${runtime_para_endpoint?}" \
+        --seed "${seed?}" \
+        tx.assetConversion.addLiquidity \
+            "${native_asset_id}" \
+            "${foreign_asset_id}" \
+            "${native_asset_amount}" \
+            "${foreign_asset_amount}" \
+            "1" \
+            "1" \
+            "${pool_owner_account_id}"
+}
 function limited_reserve_transfer_assets() {
     local url=$1
     local seed=$2
