@@ -1004,3 +1004,7 @@ pub(crate) fn restrict(who: &AccountId) {
 pub(crate) fn remove_from_restrict_list(who: &AccountId) {
 	RestrictedAccounts::mutate(|l| l.retain(|x| x != who));
 }
+
+pub(crate) fn era_offence_count(era: EraIndex) -> u32 {
+	OffenceQueue::<T>::iter_prefix_values(era).count() as u32
+}

@@ -1325,6 +1325,11 @@ fn withdrawals_are_blocked_for_unprocessed_offence_eras() {
 	ExtBuilder::default()
 		.slash_defer_duration(2)
 		.bonding_duration(3)
+		.add_staker(61, 1000, StakerStatus::Validator)
+		.add_staker(71, 1000, StakerStatus::Validator)
+		.add_staker(81, 1000, StakerStatus::Validator)
+		.add_staker(91, 1000, StakerStatus::Validator)
+		.validator_count(6)
 		.build_and_execute(|| {
 			let bonding_duration = BondingDuration::get();
 			assert_eq!(bonding_duration, 3);
@@ -1332,51 +1337,87 @@ fn withdrawals_are_blocked_for_unprocessed_offence_eras() {
 			let blocks_per_era = Period::get() * SessionsPerEra::get() as u64;
 			assert_eq!(blocks_per_era, 15);
 
-			// Set up nominator and validator
-			let validator = 300;
+			// Set up nominator.
+			let validator = 11;
 			let nominator = 301;
-			bond_validator(validator, 1000);
 			bond_nominator(nominator, 500, vec![validator]);
 
-			// create unbonding chunks for next 4 eras.
-			let mut unbond_val_in_era = vec![0 as Balance; 6];
-			let mut block_height = System::block_number();
+			// create unbonding chunks for the next two eras.
+			Session::roll_until_active_era(2);
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(nominator), 100));
+			Session::roll_until_active_era(3);
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(nominator), 150));
 
-			for e in 2..=5 {
-				Session::roll_until_active_era(e);
+			Session::roll_until_active_era(5);
 
-				// sanity check that we have expected number of blocks in the era.
-				assert_eq!(System::block_number(), block_height + blocks_per_era);
-				block_height = System::block_number();
-
-				// initiate unbonding in each era.
-				unbond_val_in_era[e as usize] = e as Balance * 5;
-				assert_ok!(Staking::unbond(RuntimeOrigin::signed(nominator), unbond_val_in_era[e as usize]));
+			// Lets go to one block before start of era 6.
+			for _i in 1..blocks_per_era {
+				Session::roll_next();
 			}
 
-			// current era is 5.
-			assert_eq!(active_era(), 5);
+			// one block before era 6 starts, lets spam the offence pipeline.
+			add_slash_in_era(21, 3, Perbill::from_percent(10));
+			add_slash_in_era(61, 3, Perbill::from_percent(10));
+			add_slash_in_era(71, 3, Perbill::from_percent(10));
+			add_slash_in_era(81, 3, Perbill::from_percent(10));
+			add_slash_in_era(91, 3, Perbill::from_percent(10));
 
-			// ensure the unbond chunks are created correctly.
-			assert_eq!(unbond_val_in_era, vec![0, 0, 10, 15, 20, 25]);
-			let expected_chunks: BoundedVec<UnlockChunk<Balance>, MaxUnlockingChunks> =
-				bounded_vec![
-					// era is unbond_era + bonding_duration, starting from era 2 + 3.
-					UnlockChunk { era: 5, value: 10},
-					UnlockChunk { era: 6, value: 15},
-					UnlockChunk { era: 7, value: 20},
-					UnlockChunk { era: 8, value: 25},
-				];
+			// lets roll to era 6.
+			Session::roll_next();
+			assert_eq!(active_era(), 6);
 
-			assert_eq!(
-				Ledger::<T>::get(nominator).unwrap().unlocking,
-				expected_chunks
-			);
+			// and we created 5 offences, of which 1 would be processed since we rolled one block.
+			assert_eq!(era_offence_count(3), 5 - 1);
+			assert_eq!(OffenceQueueEras::<T>::get().unwrap(), vec![3]);
 
+			// GIVEN Scenario: Our nominator has unbonding chunks scheduled for eras 5 and 6.
+			// The current active era is 6, so both chunks would normally be eligible for
+			// withdrawal. However, offences from era 3 (which can affect withdrawals in era 6) is
+			// unprocessed.Therefore, withdrawal from era 6 should be blocked until those offences
+			// are handled.
 
+			// Unbonding chunks
+			let expected_chunks: BoundedVec<UnlockChunk<Balance>, MaxUnlockingChunks> = bounded_vec![
+				// era is unbond_era + bonding_duration, starting from era 2 + 3.
+				UnlockChunk { era: 5, value: 100 },
+				UnlockChunk { era: 6, value: 150 },
+			];
 
+			assert_eq!(Ledger::<T>::get(nominator).unwrap().unlocking, expected_chunks);
 
-	});
+			// all nominator balance other than ED is staked.
+			let nominator_balance_pre_withdraw = Balances::free_balance(&nominator);
+			assert_eq!(nominator_balance_pre_withdraw, 1);
+
+			// WHEN the nominator tries to withdraw unbonded funds.
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(nominator), 0));
+
+			// THEN only the first unbonding chunk is withdrawn, as the second one is blocked by
+			// unprocessed offences.
+			let nominator_balance_post_withdraw_1 = Balances::free_balance(&nominator);
+			// free balance increases by unlock chunk 1 value.
+			assert_eq!(nominator_balance_post_withdraw_1, nominator_balance_pre_withdraw + 100);
+
+			// lets roll one more block.
+			Session::roll_next();
+			// there are still offences for era 3.
+			assert_eq!(era_offence_count(3), 3);
+			// withdrawal is still blocked.
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(nominator), 0));
+			assert_eq!(Balances::free_balance(&nominator), nominator_balance_post_withdraw_1);
+
+			// WHEN: all offences are processed.
+			while era_offence_count(3) > 0 {
+				Session::roll_next();
+			}
+
+			assert_eq!(era_offence_count(3), 0);
+			assert_eq!(OffenceQueueEras::<T>::get(), None);
+
+			// now withdrawing for era 3 should be unblocked.
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(nominator), 0));
+			assert_eq!(Balances::free_balance(&nominator), nominator_balance_post_withdraw_1 + 150);
+		});
 }
 
 mod paged_slashing {

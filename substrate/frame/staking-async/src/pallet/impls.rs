@@ -214,20 +214,35 @@ impl<T: Config> Pallet<T> {
 		let (stash, old_total) = (ledger.stash.clone(), ledger.total);
 		let active_era = Rotator::<T>::active_era();
 
-		// check the oldest era for which offences are not processed.
-		let oldest_unprocessed_offence_era = OffenceQueueEras::<T>::get()
+		// get lowest era for which all offences are processed and withdrawals can be allowed.
+		let earliest_unlock_era_by_offence_queue = OffenceQueueEras::<T>::get()
 			.as_ref()
 			.and_then(|eras| eras.first())
 			.copied()
-			.unwrap_or(u32::MAX);
+			.unwrap_or(active_era)
+			// above returns earliest era for which offences are processed, so we subtract one to
+			// get the last era for which all offences are processed.
+			.saturating_sub(1)
+			// Unlock chunks are keyed by the era they were initiated plus Bonding Duration.
+			// We do the same to processed offence era so they can be compared.
+			.saturating_add(T::BondingDuration::get());
 
-		// If there are unprocessed offences older than the current active era, withdrawals are only
+		// If there are unprocessed offences older than the active era, withdrawals are only
 		// allowed up to the last era for which offences have been processed.
 		// Note: This situation is extremely unlikely, since offences have `SlashDeferDuration` eras
 		// to be processed. If it ever occurs, it likely indicates offence spam and that we're
 		// struggling to keep up with processing.
-		let earliest_era_to_withdraw =
-			active_era.min(oldest_unprocessed_offence_era.saturating_sub(1));
+		let earliest_era_to_withdraw = active_era.min(earliest_unlock_era_by_offence_queue);
+
+		log!(
+			debug,
+			"Withdrawing unbonded stake. Active_era is: {:?} | \
+			Earliest era for which all offences are processed: {:?} | \
+			Earliest era we can allow withdrawing: {:?}",
+			active_era,
+			earliest_unlock_era_by_offence_queue,
+			earliest_era_to_withdraw
+		);
 
 		// withdraw unbonded balance from the ledger until earliest_era_to_withdraw.
 		ledger = ledger.consolidate_unlocked(earliest_era_to_withdraw);
