@@ -70,6 +70,15 @@ use sp_staking::{
 /// The balance type seen from this pallet's PoV.
 pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 
+/// Type alias for offence details
+pub type OffenceDetailsOf<T> = OffenceDetails<
+	<T as frame_system::Config>::AccountId,
+	(
+		<T as frame_system::Config>::AccountId,
+		sp_staking::Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
+	),
+>;
+
 const LOG_TARGET: &str = "runtime::staking-async::ah-client";
 
 // syntactic sugar for logging.
@@ -861,10 +870,7 @@ pub mod pallet {
 
 		/// Handle offences in Buffered mode.
 		fn on_offence_buffered(
-			offenders: &[OffenceDetails<
-				T::AccountId,
-				(T::AccountId, sp_staking::Exposure<T::AccountId, BalanceOf<T>>),
-			>],
+			offenders: &[OffenceDetailsOf<T>],
 			slash_fraction: &[Perbill],
 			slash_session: SessionIndex,
 		) -> Weight {
@@ -908,7 +914,6 @@ pub mod pallet {
 					});
 
 					// Return unit for the map operation
-					()
 				})
 				.collect();
 
@@ -917,10 +922,7 @@ pub mod pallet {
 
 		/// Handle offences in Active mode.
 		fn on_offence_active(
-			offenders: &[OffenceDetails<
-				T::AccountId,
-				(T::AccountId, sp_staking::Exposure<T::AccountId, BalanceOf<T>>),
-			>],
+			offenders: &[OffenceDetailsOf<T>],
 			slash_fraction: &[Perbill],
 			slash_session: SessionIndex,
 		) -> Weight {
