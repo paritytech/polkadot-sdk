@@ -2448,6 +2448,12 @@ impl<T: Config> BlockNumberProvider for Pallet<T> {
 	}
 }
 
+impl<T: Config> Get<&'static str> for Pallet<T> {
+	fn get() -> &'static str {
+		"System"
+	}
+}
+
 /// Implement StoredMap for a simple single-item, provide-when-not-default system. This works fine
 /// for storing a single item which allows the account to continue existing as long as it's not
 /// empty/default.

@@ -292,6 +292,11 @@ pub mod pallet {
 
 	#[pallet::extra_constants]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// The name of the block number provider configured for this pallet.
+		fn block_number_provider_name() -> &'static str {
+			T::BlockNumberProvider::get()
+		}
+
 		/// Gets this pallet's derived pot account.
 		fn pot_account() -> T::AccountId {
 			Self::account_id()
@@ -1075,6 +1080,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		})?;
 
 		Ok(())
+	}
+}
+
+impl<T: Config<I>, I: 'static> Get<&'static str> for Pallet<T, I> {
+	fn get() -> &'static str {
+		"Treasury"
 	}
 }
 
