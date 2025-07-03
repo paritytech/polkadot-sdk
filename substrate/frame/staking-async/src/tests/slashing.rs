@@ -1320,6 +1320,65 @@ fn proportional_ledger_slash_works() {
 	});
 }
 
+#[test]
+fn withdrawals_are_blocked_for_unprocessed_offence_eras() {
+	ExtBuilder::default()
+		.slash_defer_duration(2)
+		.bonding_duration(3)
+		.build_and_execute(|| {
+			let bonding_duration = BondingDuration::get();
+			assert_eq!(bonding_duration, 3);
+			// we have 15 blocks per era.
+			let blocks_per_era = Period::get() * SessionsPerEra::get() as u64;
+			assert_eq!(blocks_per_era, 15);
+
+			// Set up nominator and validator
+			let validator = 300;
+			let nominator = 301;
+			bond_validator(validator, 1000);
+			bond_nominator(nominator, 500, vec![validator]);
+
+			// create unbonding chunks for next 4 eras.
+			let mut unbond_val_in_era = vec![0 as Balance; 6];
+			let mut block_height = System::block_number();
+
+			for e in 2..=5 {
+				Session::roll_until_active_era(e);
+
+				// sanity check that we have expected number of blocks in the era.
+				assert_eq!(System::block_number(), block_height + blocks_per_era);
+				block_height = System::block_number();
+
+				// initiate unbonding in each era.
+				unbond_val_in_era[e as usize] = e as Balance * 5;
+				assert_ok!(Staking::unbond(RuntimeOrigin::signed(nominator), unbond_val_in_era[e as usize]));
+			}
+
+			// current era is 5.
+			assert_eq!(active_era(), 5);
+
+			// ensure the unbond chunks are created correctly.
+			assert_eq!(unbond_val_in_era, vec![0, 0, 10, 15, 20, 25]);
+			let expected_chunks: BoundedVec<UnlockChunk<Balance>, MaxUnlockingChunks> =
+				bounded_vec![
+					// era is unbond_era + bonding_duration, starting from era 2 + 3.
+					UnlockChunk { era: 5, value: 10},
+					UnlockChunk { era: 6, value: 15},
+					UnlockChunk { era: 7, value: 20},
+					UnlockChunk { era: 8, value: 25},
+				];
+
+			assert_eq!(
+				Ledger::<T>::get(nominator).unwrap().unlocking,
+				expected_chunks
+			);
+
+
+
+
+	});
+}
+
 mod paged_slashing {
 	use super::*;
 	use crate::slashing::OffenceRecord;
