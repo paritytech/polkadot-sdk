@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{self as pallet_origin_and_gate, AndGate};
+// Import pallet types directly
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64, EnsureOrigin, Everything},
@@ -58,6 +59,12 @@ pub const ROOT_ORIGIN_ID: u8 = 0;
 // Custom origin checks if sender is Alice
 pub struct AliceOrigin;
 
+impl AliceOrigin {
+	pub fn origin_type() -> CustomOriginType {
+		CustomOriginType::Alice
+	}
+}
+
 impl EnsureOrigin<RuntimeOrigin> for AliceOrigin {
 	type Success = ();
 
@@ -79,6 +86,12 @@ impl EnsureOrigin<RuntimeOrigin> for AliceOrigin {
 
 // Custom origin checks if sender is Bob
 pub struct BobOrigin;
+
+impl BobOrigin {
+	pub fn origin_type() -> CustomOriginType {
+		CustomOriginType::Bob
+	}
+}
 
 impl EnsureOrigin<RuntimeOrigin> for BobOrigin {
 	type Success = ();
