@@ -36,12 +36,13 @@ use frame_election_provider_support::{
 use frame_support::{
 	defensive,
 	dispatch::WithPostDispatchInfo,
-	pallet_prelude::*, StorageDoubleMap,
+	pallet_prelude::*,
 	traits::{
 		Defensive, DefensiveSaturating, Get, Imbalance, InspectLockableCurrency, LockableCurrency,
 		OnUnbalanced,
 	},
 	weights::Weight,
+	StorageDoubleMap,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_staking_async_rc_client::{self as rc_client};
@@ -1126,6 +1127,16 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		Self::register_weight(consumed_weight);
 	}
 
+	/// Accepts offences only if they are from era `active_era - (SlashDeferDuration - 1)` or newer.
+	///
+	/// Slashes for offences are applied `SlashDeferDuration` eras after the offence occurred.
+	/// Accepting offences older than this range would not leave enough time for slashes to be
+	/// applied.
+	///
+	/// Note: The validator set report that we send to the relay chain contains the pruning
+	/// information for a relay chain, but we conservatively keep some extra sessions, so it is
+	/// possible that an offence report is created for a session between SlashDeferDuration and
+	/// BondingDuration eras before the active era. But they will be dropped here.
 	fn on_new_offences(
 		slash_session: SessionIndex,
 		offences: Vec<rc_client::Offence<T::AccountId>>,
@@ -1162,6 +1173,9 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 			}
 		};
 
+		let oldest_reportable_offence_era =
+			active_era.index.saturating_sub(T::SlashDeferDuration::get().saturating_sub(1));
+
 		let invulnerables = Invulnerables::<T>::get();
 
 		for o in offences {
@@ -1173,6 +1187,17 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 				continue
 			}
 
+			// ignore offence if too old to report.
+			if offence_era < oldest_reportable_offence_era {
+				log!(warn, "🦹 on_new_offences: offence era {:?} too old; Can only accept offences from era {:?} or newer", offence_era, oldest_reportable_offence_era);
+				Self::deposit_event(Event::<T>::OffenceIgnored {
+					validator: validator.clone(),
+					fraction: slash_fraction,
+					offence_era,
+				});
+				// will emit an event for each validator in the report.
+				continue;
+			}
 			let Some(exposure_overview) = <ErasStakersOverview<T>>::get(&offence_era, &validator)
 			else {
 				// defensive: this implies offence is for a discarded era, and should already be
@@ -1959,11 +1984,15 @@ impl<T: Config> Pallet<T> {
 		let offence_queue_eras = OffenceQueueEras::<T>::get().unwrap_or_default().into_inner();
 		let mut sorted_offence_queue_eras = offence_queue_eras.clone();
 		sorted_offence_queue_eras.sort();
-		ensure!(sorted_offence_queue_eras == offence_queue_eras, "Offence queue eras are not sorted");
+		ensure!(
+			sorted_offence_queue_eras == offence_queue_eras,
+			"Offence queue eras are not sorted"
+		);
 
 		// (2) Ensure oldest offence queue era is old enough.
 		let active_era = Rotator::<T>::active_era();
-		let oldest_unprocessed_offence_era = offence_queue_eras.first().cloned().unwrap_or(active_era);
+		let oldest_unprocessed_offence_era =
+			offence_queue_eras.first().cloned().unwrap_or(active_era);
 
 		// how old is the oldest unprocessed offence era?
 		// given bonding duration = 28, the ideal value is between 0 and 2 eras.
@@ -1991,12 +2020,7 @@ impl<T: Config> Pallet<T> {
 		for e in offence_queue_eras {
 			let count = OffenceQueue::<T>::iter_prefix(e).count();
 			ensure!(count > 0, "Offence queue is empty for era listed in offence queue eras");
-			log!(
-				warn,
-				"Offence queue for era {:?} has {:?} offences queued",
-				e,
-				count
-			);
+			log!(warn, "Offence queue for era {:?} has {:?} offences queued", e, count);
 		}
 
 		// (4) Ensure all slashes older than (active era - 1) are applied.
@@ -2004,7 +2028,10 @@ impl<T: Config> Pallet<T> {
 		// to be applied.
 		for era in (active_era.saturating_sub(T::BondingDuration::get()))..(active_era) {
 			// all unapplied slashes are expected to be applied in 1 era.
-			ensure!(!UnappliedSlashes::<T>::contains_prefix(era), "Unapplied slashes for recently passed era found");
+			ensure!(
+				!UnappliedSlashes::<T>::contains_prefix(era),
+				"Unapplied slashes for recently passed era found"
+			);
 		}
 
 		Ok(())

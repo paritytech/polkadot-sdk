@@ -1156,6 +1156,12 @@ pub mod pallet {
 		/// Something occurred that should never happen under normal operation.
 		/// Logged as an event for fail-safe observability.
 		Unexpected(UnexpectedKind),
+		/// An offence was reported that was too old to be processed, and thus was dropped.
+		OffenceIgnored {
+			offence_era: EraIndex,
+			validator: T::AccountId,
+			fraction: Perbill,
+		},
 	}
 
 	/// Represents unexpected or invariant-breaking conditions encountered during execution.
