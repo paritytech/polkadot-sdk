@@ -25,9 +25,4 @@ sp-core = { workspace = true, default-features = true }
 statrs = "0.18.0"
 
 [features]
-zombie-metadata = []
 zombie-ci = []
-
-[build-dependencies]
-substrate-build-script-utils = { workspace = true, default-features = true }
-subwasmlib = { git = "https://github.com/chevdor/subwasm", rev = "v0.21.3" }

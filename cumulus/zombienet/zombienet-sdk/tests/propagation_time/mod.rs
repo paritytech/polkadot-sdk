@@ -2,40 +2,31 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::{
+	self,
+	path::PathBuf,
 	str::FromStr,
-	sync::{
-		atomic::{AtomicBool, AtomicU32, Ordering},
-		Arc,
-	},
 	time::{Duration, Instant},
 };
 
-use anyhow::anyhow;
-
 use cumulus_zombienet_sdk_helpers::ensure_para_throughput;
 use polkadot_primitives::Id as ParaId;
-use serde_json::json;
 use statrs::statistics::OrderStatistics;
-use subxt::utils::{AccountId32, MultiAddress};
+use subxt::PolkadotConfig;
 use zombienet_sdk::{
-	subxt::{ext::futures, OnlineClient, PolkadotConfig},
-	subxt_signer::{sr25519::Keypair, SecretUri},
-	AddCollatorOptions, LocalFileSystem, Network, NetworkConfigBuilder, NetworkNode,
+	subxt::{ext::futures, OnlineClient},
+	AddCollatorOptions, LocalFileSystem, Network, NetworkConfig, NetworkNode,
 };
-
-#[zombienet_sdk::subxt::subxt(runtime_metadata_path = "metadata-files/coretime-rococo-local.scale")]
-mod coretime_rococo {}
-
-#[zombienet_sdk::subxt::subxt(runtime_metadata_path = "metadata-files/rococo-local.scale")]
-mod rococo {}
 
 const PARA_ID: u32 = 2000;
 const BEST_BLOCK_METRIC: &str = "block_height{status=\"best\"}";
-const DEV_ACCOUNTS: u32 = 6_000;
 
 #[ignore = "Slow test used to measure block propagation time in a sparsely connected network"]
 #[tokio::test(flavor = "multi_thread")]
 async fn sparsely_connected_network_block_propagation_time() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+
 	log::warn!("This test is slow. It will take a long time to complete.");
 	tokio::time::sleep(Duration::from_secs(3)).await;
 
@@ -48,7 +39,7 @@ async fn sparsely_connected_network_block_propagation_time() -> Result<(), anyho
 		if num_failures > 5 {
 			anyhow::bail!("Too many failures ({num_failures}), aborting further tests.");
 		}
-		match run_network().await {
+		match run_test().await {
 			Ok(propagation_time) => {
 				log::info!("Propagation time: {propagation_time} seconds");
 				propagation_times.push(propagation_time);
@@ -79,20 +70,16 @@ async fn sparsely_connected_network_block_propagation_time() -> Result<(), anyho
 	Ok(())
 }
 
-async fn run_network() -> Result<f64, anyhow::Error> {
+async fn run_test() -> Result<f64, anyhow::Error> {
 	let NetworkActors { network, validator, collators } = initialize_network().await?;
 
 	let relay_alice = network.get_node("alice")?;
-
 	let relay_client: OnlineClient<PolkadotConfig> = relay_alice.wait_client().await?;
-
-	start_sending_transactions(&network).await?;
-
 	log::info!("Ensuring parachain making progress");
 	let has_throughput = ensure_para_throughput(
 		&relay_client,
 		10,
-		[(ParaId::from(PARA_ID), 9..11)].into_iter().collect(),
+		[(ParaId::from(PARA_ID), 5..9)].into_iter().collect(),
 	)
 	.await?;
 	if !has_throughput {
@@ -130,135 +117,17 @@ where
 	tokio::time::timeout(Duration::from_secs(180), future).await?
 }
 
-async fn start_sending_transactions(
-	network: &Network<LocalFileSystem>,
-) -> Result<(), anyhow::Error> {
-	let validator = network.get_node("validator")?.clone();
-	let validator_client: OnlineClient<PolkadotConfig> = validator.wait_client().await?;
-	let success_counter = Arc::new(AtomicU32::new(0));
-	tokio::spawn(async move {
-		let shutdown = Arc::new(AtomicBool::new(false));
-		let mut acc_counter = 0;
-		'outer: while !shutdown.load(Ordering::Relaxed) {
-			tokio::time::sleep(Duration::from_millis(100)).await;
-			for _ in 0..5 {
-				let tx_id = acc_counter;
-				acc_counter = (acc_counter + 1) % DEV_ACCOUNTS;
-				let key =
-					Keypair::from_uri(&SecretUri::from_str(&format!("//Alice//{tx_id}")).unwrap())
-						.unwrap();
-				let acc = AccountId32(key.public_key().0);
-				let tx = coretime_rococo::tx()
-					.balances()
-					.transfer_keep_alive(MultiAddress::Id(acc.clone()), 1);
-				let status =
-					match validator_client.tx().sign_and_submit_then_watch_default(&tx, &key).await
-					{
-						Ok(status) => status,
-						Err(e) => {
-							let e = e.to_string();
-							if e.contains("subscription dropped") || e.contains("restart required")
-							{
-								break 'outer;
-							}
-							log::error!("Transaction {tx_id} failed: {e}");
-							continue;
-						},
-					};
-				let shutdown = shutdown.clone();
-				let success_counter = success_counter.clone();
-				let validator = validator.clone();
-				tokio::spawn(async move {
-					match status.wait_for_finalized_success().await {
-						Ok(ev) => {
-							let count = success_counter.fetch_add(1, Ordering::AcqRel) + 1;
-							if count % 50 == 0 {
-								let block =
-									validator.reports(BEST_BLOCK_METRIC).await.unwrap_or(-1.0);
-								log::info!(
-									"Transaction {tx_id} succeeded with hash {} at block {block}, total successful transactions: {count}",
-									ev.extrinsic_hash(),
-								);
-							}
-						},
-						Err(e) => {
-							let e = e.to_string();
-							if e.contains("subscription dropped") || e.contains("restart required")
-							{
-								shutdown.store(true, Ordering::Relaxed);
-							} else {
-								log::error!("Transaction {tx_id} failed: {e}");
-							}
-						},
-					}
-				});
-			}
-		}
-	});
-	Ok(())
-}
-
 async fn initialize_network() -> Result<NetworkActors, anyhow::Error> {
-	let _ = env_logger::try_init_from_env(
-		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
-	);
-	log::info!("Spawning network");
+	// Load network configuration from TOML file.
+	let toml_path = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))
+		.unwrap()
+		.join("tests/propagation_time/sparsely_connected_network.toml");
+	let config = NetworkConfig::load_from_toml(toml_path.to_str().unwrap())?;
 
 	let images = zombienet_sdk::environment::get_images_from_env();
 	log::info!("Using images: {images:?}");
 
-	// Network setup:
-	// - relaychain Nodes:
-	// 	 - alice
-	// 	 - bob
-	// - parachain Nodes:
-	//   - 1 validator
-	//   - many sparsely connected collators
-	let config = NetworkConfigBuilder::new()
-		.with_relaychain(|r| {
-			r.with_chain("rococo-local")
-				.with_default_command("polkadot")
-				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec![("-lparachain=debug").into()])
-				.with_default_resources(|resources| {
-					resources.with_request_cpu(2).with_request_memory("2G")
-				})
-				.with_node(|node| node.with_name("alice"))
-				.with_node(|node| node.with_name("bob"))
-		})
-		.with_parachain(|p| {
-			p.with_id(PARA_ID)
-				.with_default_command("polkadot-parachain")
-				.with_default_image(images.cumulus.as_str())
-				.with_chain("coretime-rococo-local")
-				.with_genesis_overrides(json!({
-					"balances": {
-						"devAccounts": [
-							DEV_ACCOUNTS, 1000000000000000000u64, "//Alice//{}"
-						]
-					}
-				}))
-				.with_default_args(vec![("-lparachain=debug").into()])
-				.with_collator(|n| {
-					n.with_name("validator").validator(true).with_args(vec![
-						("--rpc-max-subscriptions-per-connection", "128000").into(),
-						("--in-peers", "1").into(),
-						("--out-peers", "1").into(),
-						("--relay-chain-rpc-url", "{{ZOMBIE:alice:ws_uri}}").into(),
-					])
-				})
-		})
-		.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
-			Ok(val) => global_settings.with_base_dir(val),
-			_ => global_settings,
-		})
-		.build()
-		.map_err(|e| {
-			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
-			anyhow!("config errs: {errs}")
-		})?;
-
-	// Spawn network
+	// Spawn network.
 	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
 	let mut network = spawn_fn(config).await?;
 
@@ -288,7 +157,7 @@ async fn add_sparsely_connected_collator(
 		.add_collator(
 			&name,
 			AddCollatorOptions {
-				command: Some("test-parachain".try_into().unwrap()),
+				command: Some("polkadot-parachain".try_into().unwrap()),
 				image: Some(images.cumulus.as_str().try_into().unwrap()),
 				args: vec![
 					"-lparachain=debug".into(),

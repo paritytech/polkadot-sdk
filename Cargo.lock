@@ -5192,8 +5192,6 @@ dependencies = [
  "sp-keyring",
  "sp-statement-store",
  "statrs",
- "substrate-build-script-utils",
- "subwasmlib",
  "subxt 0.38.1",
  "tokio",
  "zombienet-orchestrator",
