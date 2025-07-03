@@ -9,8 +9,6 @@ crates:
   bump: minor
 - name: pallet-bounties
   bump: minor
-- name: pallet-conviction-voting
-  bump: minor
 - name: pallet-democracy
   bump: minor
 - name: pallet-proxy
