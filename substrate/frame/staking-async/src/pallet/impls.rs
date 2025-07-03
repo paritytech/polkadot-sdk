@@ -37,6 +37,7 @@ use frame_support::{
 	defensive,
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
+	StorageDoubleMap,
 	traits::{
 		Defensive, DefensiveSaturating, Get, Imbalance, InspectLockableCurrency, LockableCurrency,
 		OnUnbalanced,
@@ -214,6 +215,11 @@ impl<T: Config> Pallet<T> {
 		let (stash, old_total) = (ledger.stash.clone(), ledger.total);
 		let active_era = Rotator::<T>::active_era();
 
+		// Ensure last era slashes are applied. Else we block the withdrawals.
+		if active_era > 1 {
+			Self::ensure_era_slashes_applied(active_era.saturating_sub(1))?;
+		}
+
 		// get lowest era for which all offences are processed and withdrawals can be allowed.
 		let earliest_unlock_era_by_offence_queue = OffenceQueueEras::<T>::get()
 			.as_ref()
@@ -283,6 +289,16 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Ok(used_weight)
+	}
+
+	fn ensure_era_slashes_applied(
+		era: EraIndex,
+	) -> Result<(), DispatchError> {
+		ensure!(
+				!UnappliedSlashes::<T>::contains_prefix(era),
+				Error::<T>::UnappliedSlashesInPreviousEra
+		);
+		Ok(())
 	}
 
 	pub(super) fn do_payout_stakers(
@@ -2032,13 +2048,11 @@ impl<T: Config> Pallet<T> {
 		// (4) Ensure all slashes older than (active era - 1) are applied.
 		// We will look at all eras before the active era as it can take 1 era for slashes
 		// to be applied.
-		use frame_support::StorageDoubleMap;
 		for era in (active_era.saturating_sub(T::BondingDuration::get()))..(active_era) {
-			// all unapplied slashes are expected to be applied in 1 era.
-			ensure!(
-				!UnappliedSlashes::<T>::contains_prefix(era),
-				"Unapplied slashes for recently passed era found"
-			);
+			// all unapplied slashes are expected to be applied until the active era. If this is not
+			// the case, then we need to use a permissionless call to apply all of them.
+			// See `Call::apply_slash` for more details.
+			Self::ensure_era_slashes_applied(era)?;
 		}
 
 		Ok(())

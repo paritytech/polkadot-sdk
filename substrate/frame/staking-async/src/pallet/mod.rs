@@ -1251,6 +1251,9 @@ pub mod pallet {
 		/// Account is restricted from participation in staking. This may happen if the account is
 		/// staking in another way already, such as via pool.
 		Restricted,
+		/// Unapplied slashes in the recently concluded era is blocking this operation.
+		/// See `Call::apply_slash` to apply them.
+		UnappliedSlashesInPreviousEra,
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -2450,11 +2453,21 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 
-		/// Manually applies a deferred slash for a given era.
+		/// Manually and permissionlessly applies a deferred slash for a given era.
 		///
 		/// Normally, slashes are automatically applied shortly after the start of the `slash_era`.
-		/// This function exists as a **fallback mechanism** in case slashes were not applied due to
-		/// unexpected reasons. It allows anyone to manually apply an unapplied slash.
+		/// The automatic application of slashes is handled by the pallet's internal logic, and it
+		/// tries to apply one slash page per block of the era.
+		/// If for some reason, one era is not enough for applying all slash pages, the remaining
+		/// slashes need to be manually (permissionlessly) applied.
+		///
+		/// For a given era x, if at era x+1, slashes are still unapplied, all withdrawals get
+		/// blocked, and these need to be manually applied by calling this function.
+		/// This function exists as a **fallback mechanism** for this extreme situation, but we
+		/// never expect to encounter this in normal scenarios.
+		///
+		/// The parameters for this call can be queried by looking at the `UnappliedSlashes` storage
+		/// for eras older than the active era.
 		///
 		/// ## Parameters
 		/// - `slash_era`: The staking era in which the slash was originally scheduled.
@@ -2465,7 +2478,8 @@ pub mod pallet {
 		///
 		/// ## Behavior
 		/// - The function is **permissionless**—anyone can call it.
-		/// - The `slash_era` **must be the current era or a past era**. If it is in the future, the
+		/// - The `slash_era` **must be the current era or a past era**.
+		/// If it is in the future, the
 		///   call fails with `EraNotStarted`.
 		/// - The fee is waived if the slash is successfully applied.
 		///
