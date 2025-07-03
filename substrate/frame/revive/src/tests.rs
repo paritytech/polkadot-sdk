@@ -26,16 +26,14 @@ use crate::{
 	exec::Key,
 	limits,
 	storage::DeletionQueueManager,
-	test_utils::*,
+	test_utils::{builder::Contract, *},
 	tests::test_utils::{get_contract, get_contract_checked},
 	tracing::trace,
 	weights::WeightInfo,
-	AccountId32Mapper, AccountInfo, AccountInfoOf, BalanceOf, BumpNonce, Code, CodeInfoOf, Config,
-	ContractInfo, DeletionQueueCounter, DepositLimit, Error, EthTransactError, HoldReason, Origin,
-	Pallet, PristineCode, H160,
+	AccountId32Mapper, AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, BumpNonce, Code,
+	CodeInfoOf, Config, ContractInfo, DeletionQueueCounter, DepositLimit, Error, EthTransactError,
+	HoldReason, Origin, Pallet, PristineCode, H160,
 };
-
-use crate::test_utils::builder::Contract;
 use assert_matches::assert_matches;
 use codec::Encode;
 use frame_support::{
@@ -45,7 +43,7 @@ use frame_support::{
 	storage::child,
 	traits::{
 		fungible::{BalancedHold, Inspect, Mutate, MutateHold},
-		tokens::Preservation,
+		tokens::{Fortitude::Polite, Preservation, Preservation::Preserve},
 		ConstU32, ConstU64, FindAuthor, OnIdle, OnInitialize, StorageVersion,
 	},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, FixedFee, IdentityFee, Weight, WeightMeter},
@@ -55,7 +53,7 @@ use pallet_revive_fixtures::compile_module;
 use pallet_revive_uapi::{ReturnErrorCode as RuntimeReturnCode, ReturnFlags};
 use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
 use pretty_assertions::{assert_eq, assert_ne};
-use sp_core::U256;
+use sp_core::{Get, U256};
 use sp_io::hashing::blake2_256;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
@@ -94,7 +92,10 @@ macro_rules! assert_refcount {
 }
 
 pub mod test_utils {
-	use super::{CodeHashLockupDepositPercent, Contracts, DepositPerByte, DepositPerItem, Test};
+	use super::{
+		BalanceWithDust, CodeHashLockupDepositPercent, Contracts, DepositPerByte, DepositPerItem,
+		Test,
+	};
 	use crate::{
 		address::AddressMapper, exec::AccountIdOf, AccountInfo, AccountInfoOf, BalanceOf, CodeInfo,
 		CodeInfoOf, Config, ContractInfo, PristineCode,
@@ -176,6 +177,23 @@ pub mod test_utils {
 		let bytes = u.to_le_bytes();
 		buffer[..8].copy_from_slice(&bytes);
 		buffer
+	}
+
+	pub fn set_balance_with_dust(address: &H160, value: BalanceWithDust<BalanceOf<Test>>) {
+		use frame_support::traits::Currency;
+		let ed = <Test as Config>::Currency::minimum_balance();
+		let BalanceWithDust { value, dust } = value;
+		let account_id = <Test as Config>::AddressMapper::to_account_id(&address);
+		<Test as Config>::Currency::set_balance(&account_id, ed + value);
+		if dust > 0 {
+			AccountInfoOf::<Test>::mutate(&address, |account| {
+				if let Some(account) = account {
+					account.dust = dust;
+				} else {
+					*account = Some(AccountInfo { dust, ..Default::default() });
+				}
+			});
+		}
 	}
 }
 
@@ -402,6 +420,8 @@ impl ExtBuilder {
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
+
+		crate::GenesisConfig::<Test>::default().assimilate_storage(&mut t).unwrap();
 		let mut ext = sp_io::TestExternalities::new(t);
 		ext.register_extension(KeystoreExt::new(MemoryKeystore::new()));
 		ext.execute_with(|| {
@@ -453,6 +473,119 @@ fn calling_plain_account_is_balance_transfer() {
 		);
 		assert_eq!(result, Default::default());
 	});
+}
+
+#[test]
+fn transfer_with_dust_works() {
+	struct TestCase {
+		description: &'static str,
+		from_balance: BalanceWithDust<u64>,
+		to_balance: BalanceWithDust<u64>,
+		dust_account_balance: u64,
+		amount: BalanceWithDust<u64>,
+		expected_from_balance: BalanceWithDust<u64>,
+		expected_to_balance: BalanceWithDust<u64>,
+		expected_dust_account_balance: u64,
+	}
+
+	let plank: u32 = <Test as Config>::NativeToEthRatio::get();
+
+	let test_cases = vec![
+		TestCase {
+			description: "without dust",
+			from_balance: BalanceWithDust { value: 100, dust: 0 },
+			to_balance: BalanceWithDust { value: 0, dust: 0 },
+			dust_account_balance: 0,
+			amount: BalanceWithDust { value: 1, dust: 0 },
+			expected_from_balance: BalanceWithDust { value: 99, dust: 0 },
+			expected_to_balance: BalanceWithDust { value: 1, dust: 0 },
+			expected_dust_account_balance: 0,
+		},
+		TestCase {
+			description: "with dust",
+			from_balance: BalanceWithDust { value: 100, dust: 0 },
+			to_balance: BalanceWithDust { value: 0, dust: 0 },
+			dust_account_balance: 0,
+			amount: BalanceWithDust { value: 1, dust: 10 },
+			expected_from_balance: BalanceWithDust { value: 98, dust: plank - 10 },
+			expected_to_balance: BalanceWithDust { value: 1, dust: 10 },
+			expected_dust_account_balance: 1,
+		},
+		TestCase {
+			description: "with existing dust",
+			from_balance: BalanceWithDust { value: 100, dust: 5 },
+			to_balance: BalanceWithDust { value: 0, dust: plank - 5 },
+			dust_account_balance: 1,
+			amount: BalanceWithDust { value: 1, dust: 10 },
+			expected_from_balance: BalanceWithDust { value: 98, dust: plank - 5 },
+			expected_to_balance: BalanceWithDust { value: 2, dust: 5 },
+			expected_dust_account_balance: 1,
+		},
+		TestCase {
+			description: "with enough existing dust",
+			from_balance: BalanceWithDust { value: 100, dust: 10 },
+			to_balance: BalanceWithDust { value: 0, dust: plank - 10 },
+			dust_account_balance: 1,
+			amount: BalanceWithDust { value: 1, dust: 10 },
+			expected_from_balance: BalanceWithDust { value: 99, dust: 0 },
+			expected_to_balance: BalanceWithDust { value: 2, dust: 0 },
+			expected_dust_account_balance: 0,
+		},
+	];
+
+	for TestCase {
+		description,
+		from_balance,
+		to_balance,
+		dust_account_balance,
+		amount,
+		expected_from_balance,
+		expected_to_balance,
+		expected_dust_account_balance,
+	} in test_cases.into_iter()
+	{
+		let dust_account_id = Pallet::<Test>::dust_account_id();
+		ExtBuilder::default().build().execute_with(|| {
+			test_utils::set_balance_with_dust(&ALICE_ADDR, from_balance);
+			test_utils::set_balance_with_dust(&BOB_ADDR, to_balance);
+			<Test as Config>::Currency::mint_into(&dust_account_id, dust_account_balance).unwrap();
+
+			let total_issuance = <Test as Config>::Currency::total_issuance();
+
+			let result = builder::bare_call(BOB_ADDR).value(amount).build_and_unwrap_result();
+			assert_eq!(result, Default::default(), "{description} tx failed");
+
+			assert_eq!(
+				Pallet::<Test>::evm_balance(&ALICE_ADDR),
+				Pallet::<Test>::convert_native_to_evm(expected_from_balance),
+				"{description}: invalid from balance"
+			);
+
+			assert_eq!(
+				Pallet::<Test>::evm_balance(&BOB_ADDR),
+				Pallet::<Test>::convert_native_to_evm(expected_to_balance),
+				"{description}: invalid to balance"
+			);
+
+			assert_eq!(
+				<Test as Config>::Currency::reducible_balance(&dust_account_id, Preserve, Polite),
+				expected_dust_account_balance,
+				"{description}: invalid dust balance"
+			);
+
+			assert_eq!(
+				total_issuance,
+				<Test as Config>::Currency::total_issuance(),
+				"{description}: total issuance has not changed"
+			);
+
+			assert_eq!(
+				(expected_from_balance.dust + expected_to_balance.dust) / plank,
+				expected_dust_account_balance as u32,
+				"{description}: Total dust should match the balance held by the dust_account",
+			);
+		});
+	}
 }
 
 #[test]
