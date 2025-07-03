@@ -201,7 +201,7 @@
 //! ```
 //!
 //! The bytes representing `call_data` and `transaction_extensions_extra` can be obtained as
-//! descibed above. `transaction_extensions_implicit` is constructed by SCALE encoding the
+//! described above. `transaction_extensions_implicit` is constructed by SCALE encoding the
 //! ["implicit" data][sp_runtime::traits::TransactionExtension::Implicit] for each transaction
 //! extension that the chain is using, in order.
 //!
@@ -214,7 +214,7 @@
 //!
 //! A General transaction does not have a signature method hardcoded in the check logic of the
 //! extrinsic, such as a traditionally signed transaction. Instead, general transactions should have
-//! one or more extensions in the transaction extension pipeline that auhtorize origins in some way,
+//! one or more extensions in the transaction extension pipeline that authorize origins in some way,
 //! one of which could be the traditional signature check that happens for all signed transactions
 //! in the [Checkable](sp_runtime::traits::Checkable) implementation of
 //! [UncheckedExtrinsic](sp_runtime::generic::UncheckedExtrinsic). Therefore, it is up to each
