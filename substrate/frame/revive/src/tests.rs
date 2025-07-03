@@ -1384,11 +1384,13 @@ fn call_return_code() {
 		// The ED is charged from the call origin.
 		let alice_before = test_utils::get_balance(&ALICE_FALLBACK);
 		assert_eq!(test_utils::get_balance(&DJANGO_FALLBACK), 0);
+
+		let value = Pallet::<Test>::convert_native_to_evm(1u64.into());
 		let result = builder::bare_call(bob.addr)
 			.data(
 				AsRef::<[u8]>::as_ref(&DJANGO_ADDR)
 					.iter()
-					.chain(&u256_bytes(1))
+					.chain(&value.to_little_endian())
 					.cloned()
 					.collect(),
 			)
@@ -1403,11 +1405,12 @@ fn call_return_code() {
 			.build_and_unwrap_contract();
 
 		// Sending more than the contract has will make the transfer fail.
+		let value = Pallet::<Test>::convert_native_to_evm((min_balance * 300).into());
 		let result = builder::bare_call(bob.addr)
 			.data(
 				AsRef::<[u8]>::as_ref(&django.addr)
 					.iter()
-					.chain(&u256_bytes(min_balance * 300))
+					.chain(&value.to_little_endian())
 					.chain(&0u32.to_le_bytes())
 					.cloned()
 					.collect(),
@@ -1417,11 +1420,12 @@ fn call_return_code() {
 
 		// Contract has enough balance but callee reverts because "1" is passed.
 		<Test as Config>::Currency::set_balance(&bob.account_id, min_balance + 1000);
+		let value = Pallet::<Test>::convert_native_to_evm(5u64.into());
 		let result = builder::bare_call(bob.addr)
 			.data(
 				AsRef::<[u8]>::as_ref(&django.addr)
 					.iter()
-					.chain(&u256_bytes(5))
+					.chain(&value.to_little_endian())
 					.chain(&1u32.to_le_bytes())
 					.cloned()
 					.collect(),
@@ -1434,7 +1438,7 @@ fn call_return_code() {
 			.data(
 				AsRef::<[u8]>::as_ref(&django.addr)
 					.iter()
-					.chain(&u256_bytes(5))
+					.chain(&value.to_little_endian())
 					.chain(&2u32.to_le_bytes())
 					.cloned()
 					.collect(),
@@ -4084,7 +4088,7 @@ fn tracing_works_for_transfers() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
 		let mut tracer = CallTracer::new(Default::default(), |_| U256::zero());
 		trace(&mut tracer, || {
-			builder::bare_call(BOB_ADDR).value(10_000_000.into()).build_and_unwrap_result();
+			builder::bare_call(BOB_ADDR).value(10.into()).build_and_unwrap_result();
 		});
 
 		let trace = tracer.collect_trace();
@@ -4217,7 +4221,7 @@ fn call_tracing_works() {
 												CallTrace {
 													from: addr,
 													to: BOB_ADDR,
-													value: Some(U256::from(100)),
+													value: Some(U256::from(1_000_000_000)),
 													call_type: CallType::Call,
 													..Default::default()
 												}
@@ -4280,7 +4284,7 @@ fn create_call_tracing_works() {
 			CallTrace {
 				from: ALICE_ADDR,
 				to: addr,
-				value: Some(100.into()),
+				value: Some(Pallet::<Test>::convert_native_to_evm(100.into())),
 				input: Bytes(code.clone()),
 				call_type: CallType::Create,
 				..Default::default()
@@ -4377,7 +4381,7 @@ fn prestate_tracing_works() {
 					(
 						addr,
 						PrestateTraceInfo {
-							balance: Some(U256::from(10_000_000u64)),
+							balance: Some(U256::from(10_000_000_000_000u128)),
 							code: Some(Bytes(code.clone())),
 							nonce: Some(1),
 							..Default::default()
@@ -4401,14 +4405,14 @@ fn prestate_tracing_works() {
 						(
 							BOB_ADDR,
 							PrestateTraceInfo {
-								balance: Some(U256::from(100u64)),
+								balance: Some(U256::from(1_000_000_000u64)),
 								..Default::default()
 							},
 						),
 						(
 							addr,
 							PrestateTraceInfo {
-								balance: Some(U256::from(9_999_900u64)),
+								balance: Some(U256::from(9_999_000_000_000u128)),
 								code: Some(Bytes(code.clone())),
 								nonce: Some(1),
 								..Default::default()
@@ -4419,14 +4423,14 @@ fn prestate_tracing_works() {
 						(
 							BOB_ADDR,
 							PrestateTraceInfo {
-								balance: Some(U256::from(200u64)),
+								balance: Some(U256::from(2_000_000_000u64)),
 								..Default::default()
 							},
 						),
 						(
 							addr,
 							PrestateTraceInfo {
-								balance: Some(U256::from(9_999_800u64)),
+								balance: Some(U256::from(99_98_000_000_000u64)),
 								..Default::default()
 							},
 						),
@@ -4536,68 +4540,67 @@ fn pure_precompile_works() {
 
 	let cases = vec![
 		(
-			// ECRecover
+			"ECRecover",
 			H160::from_low_u64_be(1),
 			hex!("18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001c73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75feeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549").to_vec(),
 			hex!("000000000000000000000000a94f5374fce5edbc8e2a8697c15331677e6ebf0b").to_vec(),
 		),
 		(
-			// Sha256
+			"Sha256",
 			H160::from_low_u64_be(2),
 			hex!("ec07171c4f0f0e2b").to_vec(),
 			hex!("d0591ea667763c69a5f5a3bae657368ea63318b2c9c8349cccaf507e3cbd7c7a").to_vec(),
 		),
 		(
-			// Ripemd160
+			"Ripemd160",
 			H160::from_low_u64_be(3),
 			hex!("ec07171c4f0f0e2b").to_vec(),
 			hex!("000000000000000000000000a9c5ebaf7589fd8acfd542c3a008956de84fbeb7").to_vec(),
 		),
 		(
-			// Identity
+			"Identity",
 			H160::from_low_u64_be(4),
 			[42u8; 128].to_vec(),
 			[42u8; 128].to_vec(),
 		),
 		(
-			// Modexp
+			"Modexp",
 			H160::from_low_u64_be(5),
 			hex!("00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002003fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2efffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f").to_vec(),
 			hex!("0000000000000000000000000000000000000000000000000000000000000001").to_vec(),
 		),
 		(
-			// Bn128Add
+			"Bn128Add",
 			H160::from_low_u64_be(6),
 			hex!("18b18acfb4c2c30276db5411368e7185b311dd124691610c5d3b74034e093dc9063c909c4720840cb5134cb9f59fa749755796819658d32efc0d288198f3726607c2b7f58a84bd6145f00c9c2bc0bb1a187f20ff2c92963a88019e7c6a014eed06614e20c147e940f2d70da3f74c9a17df361706a4485c742bd6788478fa17d7").to_vec(),
 			hex!("2243525c5efd4b9c3d3c45ac0ca3fe4dd85e830a4ce6b65fa1eeaee202839703301d1d33be6da8e509df21cc35964723180eed7532537db9ae5e7d48f195c915").to_vec(),
 		),
 		(
-			// Bn128Mul
+			"Bn128Mul",
 			H160::from_low_u64_be(7),
 			hex!("2bd3e6d0f3b142924f5ca7b49ce5b9d54c4703d7ae5648e61d02268b1a0a9fb721611ce0a6af85915e2f1d70300909ce2e49dfad4a4619c8390cae66cefdb20400000000000000000000000000000000000000000000000011138ce750fa15c2").to_vec(),
 			hex!("070a8d6a982153cae4be29d434e8faef8a47b274a053f5a4ee2a6c9c13c31e5c031b8ce914eba3a9ffb989f9cdd5b0f01943074bf4f0f315690ec3cec6981afc").to_vec(),
 		),
 		(
-			// Bn128Pairing
+			"Bn128Pairing",
 			H160::from_low_u64_be(8),
 			hex!("1c76476f4def4bb94541d57ebba1193381ffa7aa76ada664dd31c16024c43f593034dd2920f673e204fee2811c678745fc819b55d3e9d294e45c9b03a76aef41209dd15ebff5d46c4bd888e51a93cf99a7329636c63514396b4a452003a35bf704bf11ca01483bfa8b34b43561848d28905960114c8ac04049af4b6315a416782bb8324af6cfc93537a2ad1a445cfd0ca2a71acd7ac41fadbf933c2a51be344d120a2a4cf30c1bf9845f20c6fe39e07ea2cce61f0c9bb048165fe5e4de877550111e129f1cf1097710d41c4ac70fcdfa5ba2023c6ff1cbeac322de49d1b6df7c2032c61a830e3c17286de9462bf242fca2883585b93870a73853face6a6bf411198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c21800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa").to_vec(),
 			hex!("0000000000000000000000000000000000000000000000000000000000000001").to_vec(),
 		),
 		(
-			// Blake2F
+			"Blake2F",
 			H160::from_low_u64_be(9),
 			hex!("0000000048c9bdf267e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f3af54fa5d182e6ad7f520e511f6c3e2b8c68059b6bbd41fbabd9831f79217e1319cde05b61626300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000001").to_vec(),
 			hex!("08c9bcf367e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f3af54fa5d282e6ad7f520e511f6c3e2b8c68059b9442be0454267ce079217e1319cde05b").to_vec(),
 		),
 	];
 
-	for (precompile_addr, input, output) in cases {
+	for (description, precompile_addr, input, output) in cases {
 		let (code, _code_hash) = compile_module("call_and_return").unwrap();
 		ExtBuilder::default().build().execute_with(|| {
-			let id = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-				.value(1000.into())
+				.value(1_000.into())
 				.build_and_unwrap_contract();
 
 			let result = builder::bare_call(addr)
@@ -4610,11 +4613,15 @@ fn pure_precompile_works() {
 				)
 				.build_and_unwrap_result();
 
-			assert_eq!(test_utils::get_balance(&id), 101u64);
+			assert_eq!(
+				Pallet::<Test>::evm_balance(&precompile_addr),
+				U256::from(100),
+				"{description}: unexpected balance"
+			);
 			assert_eq!(
 				alloy_core::hex::encode(result.data),
 				alloy_core::hex::encode(output),
-				"Unexpected output for precompile: {precompile_addr:?}",
+				"{description} Unexpected output for precompile: {precompile_addr:?}",
 			);
 			assert_eq!(result.flags, ReturnFlags::empty());
 		});

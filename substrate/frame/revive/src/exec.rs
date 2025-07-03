@@ -1425,7 +1425,10 @@ where
 
 		let transfer = |from, to, value| {
 			T::Currency::transfer(from, to, value, Preservation::Preserve)
-				.map_err(|_| ExecError::from(Error::<T>::TransferFailed))?;
+				.map_err(|err| {
+					log::debug!(target: crate::LOG_TARGET, "Transfer failed: from {from:?} to {to:?} (value: ${value:?}). Err: {err:?}");
+					ExecError::from(Error::<T>::TransferFailed)
+				})?;
 			return Ok(())
 		};
 

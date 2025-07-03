@@ -39,8 +39,8 @@ pub extern "C" fn call() {
 			u64::MAX, // How much ref_time to devote for the execution. u64::MAX = use all.
 			u64::MAX, /* How much proof_size to devote for the execution. u64::MAX = use
 			           * all. */
-			&[u8::MAX; 32],   // No deposit limit.
-			&u256_bytes(100), // Value transferred
+			&[u8::MAX; 32],             // No deposit limit.
+			&u256_bytes(1_000_000_000), // Value transferred
 			&[],
 			None,
 		);
