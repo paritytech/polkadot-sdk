@@ -218,8 +218,7 @@ impl TryFrom<OldError> for Error {
 
 impl MaxEncodedLen for Error {
 	fn max_encoded_len() -> usize {
-		// 1 byte for enum discriminant + largest variant data
-		1 + Weight::max_encoded_len().max(u64::max_encoded_len())
+		1 + Weight::max_encoded_len()
 	}
 }
 
