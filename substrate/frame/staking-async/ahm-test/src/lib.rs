@@ -542,6 +542,49 @@ mod tests {
 				"Should have offence queued for validator 5"
 			);
 
+			// Verify specific OffenceRecord structure for all three validators
+			let offence_record_v1 =
+				pallet_staking_async::OffenceQueue::<ah::Runtime>::get(1, 1).unwrap();
+			assert_eq!(
+				offence_record_v1,
+				pallet_staking_async::slashing::OffenceRecord {
+					reporter: None,
+					reported_era: 1,
+					exposure_page: 0,
+					slash_fraction: Perbill::from_percent(85), /* Should be the highest slash
+					                                            * fraction for validator 1 */
+					prior_slash_fraction: Perbill::from_percent(0),
+				}
+			);
+
+			let offence_record_v2 =
+				pallet_staking_async::OffenceQueue::<ah::Runtime>::get(1, 2).unwrap();
+			assert_eq!(
+				offence_record_v2,
+				pallet_staking_async::slashing::OffenceRecord {
+					reporter: None,
+					reported_era: 1,
+					exposure_page: 0,
+					slash_fraction: Perbill::from_percent(100), /* Should be the highest slash
+					                                             * fraction for validator 2 */
+					prior_slash_fraction: Perbill::from_percent(0),
+				}
+			);
+
+			let offence_record_v5 =
+				pallet_staking_async::OffenceQueue::<ah::Runtime>::get(1, 5).unwrap();
+			assert_eq!(
+				offence_record_v5,
+				pallet_staking_async::slashing::OffenceRecord {
+					reporter: None,
+					reported_era: 1,
+					exposure_page: 0,
+					slash_fraction: Perbill::from_percent(55), /* Should be the highest slash
+					                                            * fraction for validator 5 */
+					prior_slash_fraction: Perbill::from_percent(0),
+				}
+			);
+
 			// NOTE:
 			// - We sent 9 total offences across 3 sessions (3 offences per session)
 			// - Each session's offences trigger OffenceReported events when received
@@ -573,6 +616,44 @@ mod tests {
 					}
 				})
 				.collect();
+
+			// Check for SlashComputed events
+			let slash_computed_events: Vec<_> = staking_events
+				.iter()
+				.filter_map(|event| {
+					if let pallet_staking_async::Event::SlashComputed {
+						offence_era,
+						slash_era,
+						offender,
+						page,
+					} = event
+					{
+						Some((*offence_era, *slash_era, *offender, *page))
+					} else {
+						None
+					}
+				})
+				.collect();
+
+			// Should have SlashComputed events for all three validators
+			assert_eq!(
+				slash_computed_events.len(),
+				3,
+				"Expected exactly 3 SlashComputed events (one per validator), got: {:?}",
+				slash_computed_events
+			);
+
+			// Verify SlashComputed events contain expected data
+			// offence_era should be 1, slash_era should be 3 (1 + 2 era deferral), page should be 0
+			for (offence_era, slash_era, offender, page) in &slash_computed_events {
+				assert_eq!(*offence_era, 1, "Offence era should be 1");
+				assert_eq!(*slash_era, 3, "Slash era should be 3 (1 + 2 era deferral)");
+				assert_eq!(*page, 0, "Page should be 0");
+				assert!(
+					[1, 2, 5].contains(offender),
+					"Offender should be one of validators 1, 2, or 5"
+				);
+			}
 
 			assert_eq!(
 				offence_events.len(),
