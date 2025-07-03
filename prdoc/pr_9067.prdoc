@@ -6,16 +6,16 @@ doc:
     - Make some fields public
 crates:
 - name: pallet-balances
-  bump: major
+  bump: minor
 - name: pallet-bounties
-  bump: major
+  bump: minor
 - name: pallet-conviction-voting
-  bump: major
+  bump: minor
 - name: pallet-democracy
-  bump: major
+  bump: minor
 - name: pallet-proxy
-  bump: major
+  bump: minor
 - name: frame-support
-  bump: major
+  bump: minor
 - name: pallet-treasury
-  bump: major
+  bump: minor
