@@ -13,8 +13,9 @@ use zombienet_sdk::{
 };
 
 const PARA_ID: u32 = 2000;
-const DB_SNAPSHOT_RELAYCHAIN: &str = "https://storage.googleapis.com/zombienet-db-snaps/cumulus/0007-full_node_warp_sync/relaychain-12523fe793bff9f6d68651816879a09eec2c1462.tgz";
-const DB_SNAPSHOT_PARACHAIN: &str = "https://storage.googleapis.com/zombienet-db-snaps/cumulus/0007-full_node_warp_sync/parachain-f9bb05af6bef7afa50368540f5033f62359e9e5d.tgz";
+
+const DB_SNAPSHOT_RELAYCHAIN: &str = "https://storage.googleapis.com/zombienet-db-snaps/zombienet/0007-full_node_warp_sync_db/alice-db.tgz";
+const DB_SNAPSHOT_PARACHAIN: &str = "https://storage.googleapis.com/zombienet-db-snaps/zombienet/0007-full_node_warp_sync_db/eve-db.tgz";
 
 #[tokio::test(flavor = "multi_thread")]
 async fn full_node_warp_sync() -> Result<(), anyhow::Error> {
