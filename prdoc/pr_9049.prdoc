@@ -14,5 +14,7 @@ doc:
 crates:
 - name: pallet-staking-async-ah-client
   bump: major
+- name: pallet-staking-async-rc-runtime
+  bump: minor
 - name: westend-runtime
   bump: minor
