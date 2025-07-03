@@ -117,6 +117,11 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		_ => 5,
 	};
 
+	// Provide multiple RPC urls to increase a chance that some node behind url
+	// will be have RPC server up and running.
+	let mut rpc_urls = vec!["{{ZOMBIE:ferdie:ws_uri}}".to_string()];
+	rpc_urls.extend((1..=validator_cnt).map(|i| format!("{{{{ZOMBIE:validator-{i}:ws_uri}}}}")));
+
 	// Network setup:
 	// - relaychain nodes:
 	// 	 - ferdie
@@ -202,15 +207,13 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_collator(|c| {
 					c.with_name("one").validator(true).with_args(build_collator_args(vec![
 						"--use-null-consensus".into(),
-						("--relay-chain-rpc-url", "{{ZOMBIE:ferdie:ws_uri}}").into(),
+						("--relay-chain-rpc-url", rpc_urls.clone()).into()
 					]))
 				})
 				.with_collator(|c| {
-					c.with_name("two").validator(false).with_args(build_collator_args(vec![(
-						"--relay-chain-rpc-url",
-						"{{ZOMBIE:ferdie:ws_uri}}",
-					)
-						.into()]))
+					c.with_name("two").validator(false).with_args(build_collator_args(vec![
+						("--relay-chain-rpc-url", rpc_urls).into()
+					]))
 				})
 		})
 		.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
