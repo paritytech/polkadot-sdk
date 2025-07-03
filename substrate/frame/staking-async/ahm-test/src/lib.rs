@@ -366,46 +366,27 @@ mod tests {
 				"Should have 9 offences total (three per session for validators 1, 2, and 5)"
 			);
 
-			// Verify the first session has validators 1, 2, and 5 with their highest slash
+			// Verify all sessions have the correct buffered offences with their highest slash
 			// fractions
-			let first_session_offences = buffered_offences.get(&current_session).unwrap();
 			assert_eq!(
-				first_session_offences
+				buffered_offences
 					.iter()
-					.map(|(id, offence)| (*id, offence.slash_fraction))
+					.flat_map(|(session, offences)| offences.iter().map(move |(id, offence)| (
+						*session,
+						*id,
+						offence.slash_fraction
+					)))
 					.collect::<Vec<_>>(),
 				vec![
-					(1, Perbill::from_percent(75)),  // highest of 75%, 60%
-					(2, Perbill::from_percent(100)), // highest of 50%, 100%, 25%
-					(5, Perbill::from_percent(55))   // single offence
-				]
-			);
-
-			// Verify the second session has validators 1, 2, and 5
-			let second_session_offences = buffered_offences.get(&next_session).unwrap();
-			assert_eq!(
-				second_session_offences
-					.iter()
-					.map(|(id, offence)| (*id, offence.slash_fraction))
-					.collect::<Vec<_>>(),
-				vec![
-					(1, Perbill::from_percent(85)), // single offence
-					(2, Perbill::from_percent(90)), // highest of 90% and 80%
-					(5, Perbill::from_percent(45))  // single offence
-				]
-			);
-
-			// Verify the third session has validators 1, 2, and 5
-			let third_session_offences = buffered_offences.get(&third_session).unwrap();
-			assert_eq!(
-				third_session_offences
-					.iter()
-					.map(|(id, offence)| (*id, offence.slash_fraction))
-					.collect::<Vec<_>>(),
-				vec![
-					(1, Perbill::from_percent(65)), // single offence
-					(2, Perbill::from_percent(70)), // single offence
-					(5, Perbill::from_percent(40))  // single offence
+					(current_session, 1, Perbill::from_percent(75)), // highest of 75%, 60%
+					(current_session, 2, Perbill::from_percent(100)), // highest of 50%, 100%, 25%
+					(current_session, 5, Perbill::from_percent(55)), // single offence
+					(next_session, 1, Perbill::from_percent(85)),    // single offence
+					(next_session, 2, Perbill::from_percent(90)),    // highest of 90% and 80%
+					(next_session, 5, Perbill::from_percent(45)),    // single offence
+					(third_session, 1, Perbill::from_percent(65)),   // single offence
+					(third_session, 2, Perbill::from_percent(70)),   // single offence
+					(third_session, 5, Perbill::from_percent(40)),   // single offence
 				]
 			);
 		});
