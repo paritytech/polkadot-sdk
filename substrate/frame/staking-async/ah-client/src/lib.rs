@@ -58,6 +58,12 @@ pub use pallet::*;
 #[cfg(test)]
 pub mod mock;
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+pub mod weights;
+
+pub use weights::WeightInfo;
+
 extern crate alloc;
 use alloc::{collections::BTreeMap, vec::Vec};
 use frame_support::{pallet_prelude::*, traits::RewardsReporter};
@@ -960,9 +966,3 @@ pub mod pallet {
 		}
 	}
 }
-
-#[cfg(feature = "runtime-benchmarks")]
-pub mod benchmarking;
-pub mod weights;
-
-pub use weights::WeightInfo;

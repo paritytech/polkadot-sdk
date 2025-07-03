@@ -285,7 +285,8 @@ mod tests {
 				None,
 			));
 
-			// Create another offence for validator 2 in same session (should replace the 90% one)
+			// Create another offence for validator 2 in same session (should be discarded as it's
+			// lower than the 90% one)
 			assert_ok!(RootOffences::create_offence(
 				rc::RuntimeOrigin::root(),
 				vec![(2, Perbill::from_percent(80))],
@@ -368,96 +369,44 @@ mod tests {
 			// Verify the first session has validators 1, 2, and 5 with their highest slash
 			// fractions
 			let first_session_offences = buffered_offences.get(&current_session).unwrap();
-			assert_eq!(first_session_offences.len(), 3, "First session should have 3 offences");
-
-			// Validator 2 should have 100% slash (highest of 50%, 100%, 25%)
-			assert!(first_session_offences.contains_key(&2));
-			let offence_v2_first = first_session_offences.get(&2).unwrap();
 			assert_eq!(
-				offence_v2_first.slash_fraction,
-				Perbill::from_percent(100),
-				"Should keep only the highest slash fraction for validator 2 in first session"
-			);
-			assert_eq!(offence_v2_first.reporter, None);
-
-			// Validator 1 should have 75% slash (highest of 75%, 60%)
-			assert!(first_session_offences.contains_key(&1));
-			let offence_v1_first = first_session_offences.get(&1).unwrap();
-			assert_eq!(
-				offence_v1_first.slash_fraction,
-				Perbill::from_percent(75),
-				"Should keep only the highest slash fraction for validator 1 in first session"
-			);
-
-			// Validator 5 should have 55% slash
-			assert!(first_session_offences.contains_key(&5));
-			let offence_v5_first = first_session_offences.get(&5).unwrap();
-			assert_eq!(
-				offence_v5_first.slash_fraction,
-				Perbill::from_percent(55),
-				"Validator 5 should have 55% slash fraction in first session"
+				first_session_offences
+					.iter()
+					.map(|(id, offence)| (*id, offence.slash_fraction))
+					.collect::<Vec<_>>(),
+				vec![
+					(1, Perbill::from_percent(75)),  // highest of 75%, 60%
+					(2, Perbill::from_percent(100)), // highest of 50%, 100%, 25%
+					(5, Perbill::from_percent(55))   // single offence
+				]
 			);
 
 			// Verify the second session has validators 1, 2, and 5
 			let second_session_offences = buffered_offences.get(&next_session).unwrap();
-			assert_eq!(second_session_offences.len(), 3, "Second session should have 3 offences");
-
-			// Validator 2 should have 90% (highest of 90% and 80%)
-			assert!(second_session_offences.contains_key(&2));
-			let offence_v2_second = second_session_offences.get(&2).unwrap();
 			assert_eq!(
-				offence_v2_second.slash_fraction,
-				Perbill::from_percent(90),
-				"Should keep only the highest slash fraction for validator 2 in second session"
-			);
-
-			// Validator 1 should have 85%
-			assert!(second_session_offences.contains_key(&1));
-			let offence_v1_second = second_session_offences.get(&1).unwrap();
-			assert_eq!(
-				offence_v1_second.slash_fraction,
-				Perbill::from_percent(85),
-				"Validator 1 should have 85% slash fraction in second session"
-			);
-
-			// Validator 5 should have 45%
-			assert!(second_session_offences.contains_key(&5));
-			let offence_v5_second = second_session_offences.get(&5).unwrap();
-			assert_eq!(
-				offence_v5_second.slash_fraction,
-				Perbill::from_percent(45),
-				"Validator 5 should have 45% slash fraction in second session"
+				second_session_offences
+					.iter()
+					.map(|(id, offence)| (*id, offence.slash_fraction))
+					.collect::<Vec<_>>(),
+				vec![
+					(1, Perbill::from_percent(85)), // single offence
+					(2, Perbill::from_percent(90)), // highest of 90% and 80%
+					(5, Perbill::from_percent(45))  // single offence
+				]
 			);
 
 			// Verify the third session has validators 1, 2, and 5
 			let third_session_offences = buffered_offences.get(&third_session).unwrap();
-			assert_eq!(third_session_offences.len(), 3, "Third session should have 3 offences");
-
-			// Validator 2 should have 70%
-			assert!(third_session_offences.contains_key(&2));
-			let offence_v2_third = third_session_offences.get(&2).unwrap();
 			assert_eq!(
-				offence_v2_third.slash_fraction,
-				Perbill::from_percent(70),
-				"Validator 2 should have 70% slash fraction in third session"
-			);
-
-			// Validator 1 should have 65%
-			assert!(third_session_offences.contains_key(&1));
-			let offence_v1_third = third_session_offences.get(&1).unwrap();
-			assert_eq!(
-				offence_v1_third.slash_fraction,
-				Perbill::from_percent(65),
-				"Validator 1 should have 65% slash fraction in third session"
-			);
-
-			// Validator 5 should have 40%
-			assert!(third_session_offences.contains_key(&5));
-			let offence_v5_third = third_session_offences.get(&5).unwrap();
-			assert_eq!(
-				offence_v5_third.slash_fraction,
-				Perbill::from_percent(40),
-				"Validator 5 should have 40% slash fraction in third session"
+				third_session_offences
+					.iter()
+					.map(|(id, offence)| (*id, offence.slash_fraction))
+					.collect::<Vec<_>>(),
+				vec![
+					(1, Perbill::from_percent(65)), // single offence
+					(2, Perbill::from_percent(70)), // single offence
+					(5, Perbill::from_percent(40))  // single offence
+				]
 			);
 		});
 
@@ -527,20 +476,6 @@ mod tests {
 			assert!(pallet_staking_async::OffenceQueue::<ah::Runtime>::get(1, 1).is_some());
 			assert!(pallet_staking_async::OffenceQueue::<ah::Runtime>::get(1, 2).is_some());
 			assert!(pallet_staking_async::OffenceQueue::<ah::Runtime>::get(1, 5).is_some());
-
-			// Check that we have offences queued for all three validators
-			assert!(
-				pallet_staking_async::OffenceQueue::<ah::Runtime>::contains_key(1, 1),
-				"Should have offence queued for validator 1"
-			);
-			assert!(
-				pallet_staking_async::OffenceQueue::<ah::Runtime>::contains_key(1, 2),
-				"Should have offence queued for validator 2"
-			);
-			assert!(
-				pallet_staking_async::OffenceQueue::<ah::Runtime>::contains_key(1, 5),
-				"Should have offence queued for validator 5"
-			);
 
 			// Verify specific OffenceRecord structure for all three validators
 			let offence_record_v1 =
@@ -638,65 +573,38 @@ mod tests {
 				.collect();
 
 			// Should have SlashComputed events for all three validators
+			// Note: OffenceQueue uses StorageDoubleMap with Twox64Concat hasher, so iteration order
+			// depends on hash(validator_id).
 			assert_eq!(
-				slash_computed_events.len(),
-				3,
-				"Expected exactly 3 SlashComputed events (one per validator), got: {:?}",
-				slash_computed_events
+				slash_computed_events,
+				vec![
+					(&1, &3, &5, &0), /* validator 5: offence_era=1, slash_era=3, offender=5,
+					                   * page=0 */
+					(&1, &3, &1, &0), /* validator 1: offence_era=1, slash_era=3, offender=1,
+					                   * page=0 */
+					(&1, &3, &2, &0), /* validator 2: offence_era=1, slash_era=3, offender=2,
+					                   * page=0 */
+				]
 			);
 
-			// Verify specific SlashComputed events for each validator
-			assert!(
-				slash_computed_events.contains(&(&1, &3, &1, &0)),
-				"Expected SlashComputed event for validator 1: offence_era=1, slash_era=3, offender=1, page=0"
-			);
-			assert!(
-				slash_computed_events.contains(&(&1, &3, &2, &0)),
-				"Expected SlashComputed event for validator 2: offence_era=1, slash_era=3, offender=2, page=0"
-			);
-			assert!(
-				slash_computed_events.contains(&(&1, &3, &5, &0)),
-				"Expected SlashComputed event for validator 5: offence_era=1, slash_era=3, offender=5, page=0"
-			);
-
+			// Verify all OffenceReported events (9 total: 3 sessions × 3 validators)
+			// Note: order follows the sequence of offence processing [1, 2, 5] within each session
 			assert_eq!(
-				offence_reported_events.len(),
-				9,
-				"Expected exactly 9 offences to be reported (3 sessions × 3 validators), got: {:?}",
-				staking_events
-			);
-
-			// Verify that we have offences for all three validators
-			let validator_1_offences: Vec<_> = offence_reported_events
-				.iter()
-				.filter(|(era, validator, _)| **era == 1 && **validator == 1)
-				.collect();
-			let validator_2_offences: Vec<_> = offence_reported_events
-				.iter()
-				.filter(|(era, validator, _)| **era == 1 && **validator == 2)
-				.collect();
-			let validator_5_offences: Vec<_> = offence_reported_events
-				.iter()
-				.filter(|(era, validator, _)| **era == 1 && **validator == 5)
-				.collect();
-
-			assert_eq!(
-				validator_1_offences.len(),
-				3,
-				"Expected 3 offences reported for validator 1, got: {:?}",
-				validator_1_offences
-			);
-			assert_eq!(
-				validator_2_offences.len(),
-				3,
-				"Expected 3 offences reported for validator 2, got: {:?}",
-				validator_2_offences
-			);
-			assert_eq!(
-				validator_5_offences.len(),
-				3,
-				"Expected 3 offences reported for validator 5, got: {:?}",
-				validator_5_offences
+				offence_reported_events,
+				vec![
+					(&1, &1, &Perbill::from_percent(75)), /* validator 1, session 1 (highest of
+					                                       * 75%, 60%) */
+					(&1, &2, &Perbill::from_percent(100)), /* validator 2, session 1 (highest of
+					                                        * 50%, 100%, 25%) */
+					(&1, &5, &Perbill::from_percent(55)), // validator 5, session 1
+					(&1, &1, &Perbill::from_percent(85)), // validator 1, session 2
+					(&1, &2, &Perbill::from_percent(90)), /* validator 2, session 2 (highest of
+					                                       * 90%, 80%) */
+					(&1, &5, &Perbill::from_percent(45)), // validator 5, session 2
+					(&1, &1, &Perbill::from_percent(65)), // validator 1, session 3
+					(&1, &2, &Perbill::from_percent(70)), // validator 2, session 3
+					(&1, &5, &Perbill::from_percent(40)), // validator 5, session 3
+				]
 			);
 
 			// Verify that all offences have been processed (no longer in queue)
