@@ -15,22 +15,19 @@ on:
         description: Tag matching the actual release candidate with the format polkadot-stableYYMM(-X)-rcX or polkadot-stableYYMM(-X)
         required: true
         type: string
-  workflow_run:
-    workflows: ["Release - Build runtimes"]
-    types:
-      - completed
+      build_run_id:
+        description: Run ID of the current release workflow run to be used to download the artifacts
+        required: true
+        type: string
+      runtimes:
+        description: Runtimes to be published
+        required: true
+        type: string
+
 
 jobs:
-
-  check-succeeded:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "Previous workflow succeeded!"
   check-synchronization:
-    needs: [check-succeeded]
     uses: paritytech-release/sync-workflows/.github/workflows/check-synchronization.yml@main
-
   validate-inputs:
     needs: [ check-synchronization ]
     if: ${{ needs.check-synchronization.outputs.checks_passed }} == 'true'
@@ -50,22 +47,23 @@ jobs:
           RELEASE_TAG=$(validate_stable_tag ${{ inputs.release_tag }})
           echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
 
-  build-runtimes:
-    needs: [ validate-inputs ]
-    uses: "./.github/workflows/release-srtool.yml"
-    with:
-       excluded_runtimes: "asset-hub-rococo bridge-hub-rococo coretime-rococo people-rococo rococo rococo-parachain substrate-test bp cumulus-test kitchensink minimal-template parachain-template penpal polkadot-test seedling shell frame-try sp solochain-template polkadot-sdk-docs-first pallet-staking-async-parachain pallet-staking-async-rc frame-storage-access-test yet-another-parachain"
-       build_opts: "--features on-chain-release-build"
-       profile: production
-    permissions:
-      id-token: write
-      attestations: write
-      contents: read
+  # build-runtimes:
+  #   needs: [ validate-inputs ]
+  #   uses: "./.github/workflows/release-srtool.yml"
+  #   with:
+  #      excluded_runtimes: "asset-hub-rococo bridge-hub-rococo coretime-rococo people-rococo rococo rococo-parachain substrate-test bp cumulus-test kitchensink minimal-template parachain-template penpal polkadot-test seedling shell frame-try sp solochain-template polkadot-sdk-docs-first pallet-staking-async-parachain pallet-staking-async-rc frame-storage-access-test yet-another-parachain"
+  #      build_opts: "--features on-chain-release-build"
+  #      profile: production
+  #   permissions:
+  #     id-token: write
+  #     attestations: write
+  #     contents: read
 
   publish-release-draft:
     runs-on: ubuntu-latest
     environment: release
-    needs: [ validate-inputs, build-runtimes ]
+    # needs: [ validate-inputs, build-runtimes ]
+    needs: [ validate-inputs ]
     outputs:
       release_url: ${{ steps.create-release.outputs.html_url }}
       asset_upload_url: ${{ steps.create-release.outputs.upload_url }}
@@ -76,6 +74,8 @@ jobs:
 
       - name: Download artifacts
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          run-id: ${{ github.event.inputs.build_run_id }}
 
       - name: Prepare tooling
         run: |
@@ -143,12 +143,12 @@ jobs:
             --notes-file ${{ github.workspace}}/scripts/release/RELEASE_DRAFT.md
 
   publish-runtimes:
-    needs: [ validate-inputs, build-runtimes, publish-release-draft ]
+    needs: [ validate-inputs, publish-release-draft ]
     environment: release
     continue-on-error: true
     runs-on: ubuntu-latest
     strategy:
-      matrix: ${{ fromJSON(needs.build-runtimes.outputs.published_runtimes) }}
+      matrix: ${{ inputs.runtimes }}
 
     steps:
       - name: Checkout sources
