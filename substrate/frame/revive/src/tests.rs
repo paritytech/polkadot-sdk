@@ -1502,11 +1502,12 @@ fn call_return_code() {
 		// Contract calls into Django which is no valid contract
 		// This will be a balance transfer into a new account
 		// with more than the contract has which will make the transfer fail
+		let value = Pallet::<Test>::convert_native_to_evm((min_balance * 200).into());
 		let result = builder::bare_call(bob.addr)
 			.data(
 				AsRef::<[u8]>::as_ref(&DJANGO_ADDR)
 					.iter()
-					.chain(&u256_bytes(min_balance * 200))
+					.chain(&value.to_little_endian())
 					.cloned()
 					.collect(),
 			)
