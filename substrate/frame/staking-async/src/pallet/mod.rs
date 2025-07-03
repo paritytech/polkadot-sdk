@@ -1469,7 +1469,8 @@ pub mod pallet {
 				// Note: we used current era before, but that is meant to be used for only election.
 				// The right value to use here is the active era.
 
-				let era = session_rotation::Rotator::<T>::active_era().saturating_add(T::BondingDuration::get());
+				let era = session_rotation::Rotator::<T>::active_era()
+					.saturating_add(T::BondingDuration::get());
 				if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
 					// To keep the chunk count down, we only keep one chunk per era. Since
 					// `unlocking` is a FiFo queue, if a chunk exists for `era` we know that it will

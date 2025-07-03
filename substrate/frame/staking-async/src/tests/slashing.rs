@@ -1429,7 +1429,6 @@ fn withdrawals_are_blocked_for_unprocessed_and_unapplied_slashes() {
 			Session::roll_until_active_era(3);
 			assert_ok!(Staking::unbond(RuntimeOrigin::signed(nominator), 150));
 
-
 			// Rationale: We want to simulate a backlog of offences from era 3 that remain
 			// unprocessed by the time unbonding becomes possible in era 6.
 			//
@@ -1480,8 +1479,10 @@ fn withdrawals_are_blocked_for_unprocessed_and_unapplied_slashes() {
 
 			// WHEN: the nominator tries to withdraw unbonded funds while there are unapplied
 			// offence in the last era.
-			assert_noop!(Staking::withdraw_unbonded(RuntimeOrigin::signed(nominator), 0),
-				Error::<T>::UnappliedSlashesInPreviousEra);
+			assert_noop!(
+				Staking::withdraw_unbonded(RuntimeOrigin::signed(nominator), 0),
+				Error::<T>::UnappliedSlashesInPreviousEra
+			);
 
 			// let's clear the slashes by manually applying them.
 			apply_pending_slashes_from_previous_era();

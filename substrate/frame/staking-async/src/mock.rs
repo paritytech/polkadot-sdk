@@ -1020,10 +1020,6 @@ pub(crate) fn apply_pending_slashes_from_previous_era() {
 
 pub(crate) fn apply_pending_slashes_from_era(era: EraIndex) {
 	for (key, _) in UnappliedSlashes::<T>::iter_prefix(era) {
-		assert_ok!(Staking::apply_slash(
-			RuntimeOrigin::signed(1),
-			era,
-			key
-		));
+		assert_ok!(Staking::apply_slash(RuntimeOrigin::signed(1), era, key));
 	}
 }

@@ -37,12 +37,12 @@ use frame_support::{
 	defensive,
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
-	StorageDoubleMap,
 	traits::{
 		Defensive, DefensiveSaturating, Get, Imbalance, InspectLockableCurrency, LockableCurrency,
 		OnUnbalanced,
 	},
 	weights::Weight,
+	StorageDoubleMap,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_staking_async_rc_client::{self as rc_client};
@@ -291,12 +291,10 @@ impl<T: Config> Pallet<T> {
 		Ok(used_weight)
 	}
 
-	fn ensure_era_slashes_applied(
-		era: EraIndex,
-	) -> Result<(), DispatchError> {
+	fn ensure_era_slashes_applied(era: EraIndex) -> Result<(), DispatchError> {
 		ensure!(
-				!UnappliedSlashes::<T>::contains_prefix(era),
-				Error::<T>::UnappliedSlashesInPreviousEra
+			!UnappliedSlashes::<T>::contains_prefix(era),
+			Error::<T>::UnappliedSlashesInPreviousEra
 		);
 		Ok(())
 	}
