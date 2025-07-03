@@ -1,3 +1,20 @@
+// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 use super::*;
 use crate as pallet_derivatives;
 use frame_support::{assert_err, assert_ok, traits::tokens::asset_ops::common_strategies::*};
@@ -17,8 +34,10 @@ fn predefined_id_collection() {
 			DispatchError::BadOrigin,
 		);
 
-		PredefinedIdDerivativeCollections::create_derivative(RuntimeOrigin::signed(1), id.clone())
-			.unwrap();
+		assert_ok!(PredefinedIdDerivativeCollections::create_derivative(
+			RuntimeOrigin::signed(1),
+			id.clone()
+		));
 
 		// EnsureDerivativeCreateOrigin yielded a strategy to assign the item's owner to the
 		// parachain's sovereign account.
@@ -45,8 +64,10 @@ fn predefined_id_collection() {
 			DispatchError::BadOrigin,
 		);
 
-		PredefinedIdDerivativeCollections::destroy_derivative(RuntimeOrigin::root(), id.clone())
-			.unwrap();
+		assert_ok!(PredefinedIdDerivativeCollections::destroy_derivative(
+			RuntimeOrigin::root(),
+			id.clone()
+		));
 		assert!(
 			unique_items::ItemOwner::<Test, PredefinedIdCollectionsInstance>::get(&id).is_none()
 		);
@@ -75,8 +96,10 @@ fn auto_id_collection() {
 			DispatchError::BadOrigin,
 		);
 
-		AutoIdDerivativeCollections::create_derivative(RuntimeOrigin::signed(3), id_a.clone())
-			.unwrap();
+		assert_ok!(AutoIdDerivativeCollections::create_derivative(
+			RuntimeOrigin::signed(3),
+			id_a.clone()
+		));
 
 		let derivative_id_a = AutoIdDerivativeCollections::get_derivative(&id_a).unwrap();
 
@@ -94,8 +117,10 @@ fn auto_id_collection() {
 			pallet_derivatives::Error::<Test, AutoIdCollectionsInstance>::DerivativeAlreadyExists,
 		);
 
-		AutoIdDerivativeCollections::create_derivative(RuntimeOrigin::signed(5), id_b.clone())
-			.unwrap();
+		assert_ok!(AutoIdDerivativeCollections::create_derivative(
+			RuntimeOrigin::signed(5),
+			id_b.clone()
+		));
 
 		let derivative_id_b = AutoIdDerivativeCollections::get_derivative(&id_b).unwrap();
 
@@ -121,13 +146,17 @@ fn auto_id_collection() {
 			DispatchError::BadOrigin,
 		);
 
-		AutoIdDerivativeCollections::destroy_derivative(RuntimeOrigin::root(), id_a.clone())
-			.unwrap();
+		assert_ok!(AutoIdDerivativeCollections::destroy_derivative(
+			RuntimeOrigin::root(),
+			id_a.clone()
+		));
 		assert!(unique_items::ItemOwner::<Test, AutoIdCollectionsInstance>::get(&derivative_id_a)
 			.is_none());
 
-		AutoIdDerivativeCollections::destroy_derivative(RuntimeOrigin::root(), id_b.clone())
-			.unwrap();
+		assert_ok!(AutoIdDerivativeCollections::destroy_derivative(
+			RuntimeOrigin::root(),
+			id_b.clone()
+		));
 		assert!(unique_items::ItemOwner::<Test, AutoIdCollectionsInstance>::get(&derivative_id_b)
 			.is_none());
 
@@ -157,20 +186,18 @@ fn local_nfts() {
 
 		// Mint NFT within the collection
 		let nft_local_id = 112;
-		PredefinedIdNfts::create(WithConfig::new(
+		assert_ok!(PredefinedIdNfts::create(WithConfig::new(
 			ConfigValue(nft_initial_owner),
 			PredefinedId::from((collection_id, nft_local_id)),
-		))
-		.unwrap();
+		)));
 
 		// The NFT should be deposited to the correct account
 		assert_eq!(
 			unique_items::ItemOwner::<Test, PredefinedIdNftsInstance>::get(&(
 				collection_id,
 				nft_local_id
-			))
-			.unwrap(),
-			nft_initial_owner,
+			)),
+			Some(nft_initial_owner),
 		);
 
 		let local_nfts_pallet_index = <PredefinedIdNfts as PalletInfoAccess>::index() as u8;
@@ -206,9 +233,8 @@ fn local_nfts() {
 			unique_items::ItemOwner::<Test, PredefinedIdNftsInstance>::get(&(
 				collection_id,
 				nft_local_id
-			))
-			.unwrap(),
-			nft_beneficiary,
+			)),
+			Some(nft_beneficiary),
 		);
 	});
 }
@@ -224,11 +250,10 @@ fn derivative_nfts() {
 			[Parachain(foreign_para_id), PalletInstance(42), GeneralIndex(1)],
 		));
 		let foreign_nft_id = Index(112);
-		AutoIdDerivativeCollections::create_derivative(
+		assert_ok!(AutoIdDerivativeCollections::create_derivative(
 			RuntimeOrigin::signed(1),
 			foreign_collection_id.clone(),
-		)
-		.unwrap();
+		));
 
 		let derivative_collection_id =
 			AutoIdDerivativeCollections::get_derivative(&foreign_collection_id).unwrap();
@@ -274,9 +299,8 @@ fn derivative_nfts() {
 
 		// The derivative NFT should be deposited to the correct beneficiary
 		assert_eq!(
-			unique_items::ItemOwner::<Test, PredefinedIdNftsInstance>::get(&derivative_full_nft_id)
-				.unwrap(),
-			nft_beneficiary,
+			unique_items::ItemOwner::<Test, PredefinedIdNftsInstance>::get(&derivative_full_nft_id),
+			Some(nft_beneficiary),
 		);
 		// The derivative NFT is deposited within the correct collection
 		assert_eq!(derivative_collection_id, derivative_full_nft_id.0);
@@ -341,9 +365,8 @@ fn derivative_nfts() {
 
 		// The derivative NFT should be deposited to the correct beneficiary
 		assert_eq!(
-			unique_items::ItemOwner::<Test, PredefinedIdNftsInstance>::get(&derivative_full_nft_id)
-				.unwrap(),
-			another_nft_beneficiary,
+			unique_items::ItemOwner::<Test, PredefinedIdNftsInstance>::get(&derivative_full_nft_id),
+			Some(another_nft_beneficiary),
 		);
 	});
 }

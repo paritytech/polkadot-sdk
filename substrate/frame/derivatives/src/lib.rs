@@ -32,38 +32,51 @@
 //! The `pallet-derivatives` can be helpful when another pallet, which hosts the derivative assets,
 //! doesn't provide a good enough way to create new assets in the context of them being derivatives.
 //!
-//! This mainly concerns derivative NFT collections because they should be creatable by an
-//! unprivileged user, in contrast to how fungible derivative assets are usually registered using a
-//! privileged origin (root or some collective).
+//! For instance, the asset hosting pallet might have an asset class (NFT collection or fungible
+//! currency) creation extrinsic, but among its parameters, there could be things like some admin
+//! account, currency decimals, various permissions, etc. When creating a regular (i.e.,
+//! non-derivative) asset class via such an extrinsic, these parameters allow one to conveniently
+//! set all the needed data for the asset class.
+//! However, when creating a derivative asset class, we usually can't allow an arbitrary user to
+//! influence such parameters since they should be set per the original asset class owner's desires.
+//! Thus, we can either require a privileged origin for derivative asset classes (such as Root or
+//! some collective) or we could provide an alternative API where the sensitive parameters are
+//! omitted (and set by the chain runtime automatically).
 //!
-//! Fungible derivatives require a privileged origin to be registered since they could be used as
-//! fee payment assets. Conversely, Derivative NFT collections contain unique derivative objects
-//! that don't affect the chain's fee system. They don't represent a payment asset but rather some
-//! logical entity that can interact with the given chain's functionality (e.g., NFT
-//! fractionalization). These interactions can be the reason why a user might want to transfer an
-//! NFT.
+//! The first approach dominates in the ecosystem at the moment since:
+//! 1. It is simple
+//! 2. There was no pallet to make such an alternative API without rewriting individual
+//!    asset-hosting pallets
+//! 3. Only fungible derivatives were ever made (with rare exceptions like an NFT derivative
+//!    collection on Karura).
 //!
-//! Requiring a privileged origin in this case is raising an unreasonable barrier for NFT
-//! interoperability between chains.
+//! The fungible derivatives are one of the reasons because they almost always have at least
+//! decimals and symbol information that should be correct, so only a privileged origin is
+//! acceptable to do the registration, since there is no way (at the time of writing) to communicate
+//! asset data between chains directly (this will be fixed when Fellowship RFC 125 will be
+//! implemented).
 //!
-//! However, a local NFT-hosting pallet might not provide a way for a regular user to create a
-//! derivative collection without giving that user ownership and collection configuration
-//! capabilities (e.g., `pallet-nfts` creates a collection owned by the transaction signer and
-//! always requires the signer to supply the collection's initial configuration). A regular user
-//! should not be able to influence the properties of a derivative collection and, of course, should
-//! not be its owner. The chain itself should manage such a collection in some way (e.g., by
-//! providing ownership to the reserve location's sovereign account).
+//! Derivative NFT collections and their tokens, on the other hand, just need to point to the
+//! originals. An NFT derivative is meant to participate in mechanisms unique to the given hosting
+//! chain, such as NFT fractionalization, nesting, etc., where only its ID is needed to do said
+//! interactions.
 //!
-//! In this case, an intermediate API is needed to create derivative NFT collections safely.
-//! `pallet-derivatives` provides such an API. The `create_derivative` and `destroy_derivative` take
-//! only the original ID value as a parameter, and the pallet's config completely defines the actual
-//! logic.
+//! In the future, there could be interactions where NFT data is needed. These interactions will be
+//! able to leverage XCM Asset Metadata instructions from Fellowship RFC 125. However, even with the
+//! IDs only, there are use cases (as mentioned above), and more could be discovered. Requiring a
+//! privileged origin where no sensitive parameters are needed for registering derivative NFT
+//! collections is raising an unreasonable barrier for NFT interoperability between chains. So,
+//! providing an API for unprivileged derivative registration is a preferable choice in this case.
 //!
-//! NOTE: Currently, only the bare minimum data can be assigned to the derivative collections since
-//! the only thing available during the creation is its original ID. The transaction signer is
-//! untrusted, so we can't allow them to provide additional data. However, in the future, this
-//! pallet might be configured to send an XCM program with the `ReportMetadata` instruction (XCM v6)
-//! during the `create_derivative` execution to fetch the metadata from the reserve origin itself.
+//! Moreover, the future data communication via XCM can benefit both fungible and non-fungible
+//! derivative collections registration.
+//! 1. The `create_derivative` extrinsic of this pallet can be configured to initiate the
+//!    registration process
+//! by sending the `ReportMetadata` instruction to the reserve chain. It can be configured such that
+//! this can be done by anyone.
+//! 2. The reserve chain will decide whether to send the data or an error depending on its state.
+//! 3. Our chain will handle the reserve chain's response and decide whether it is okay to register
+//!    the given asset.
 //!
 //! #### The second scenario
 //!
@@ -94,12 +107,12 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use sp_runtime::DispatchResult;
-use xcm_builder::unique_instances::{
-	derivatives::{DerivativesRegistry, IterDerivativesRegistry},
-	DerivativesExtra,
-};
 
 pub use pallet::*;
+
+pub mod misc;
+
+pub use misc::*;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -125,9 +138,7 @@ type DerivativeExtraOf<T, I> = <T as Config<I>>::DerivativeExtra;
 pub mod pallet {
 	use super::*;
 
-
 	#[pallet::pallet]
-	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	#[pallet::config]
@@ -355,6 +366,10 @@ impl WeightInfo for TestWeightInfo {
 /// The `NoStoredMapping` adapter calls the `CreateOp` (which should take the `Original` value and
 /// return a `Derivative` one) and returns `None`, indicating that the mapping between the original
 /// and the derivative shouldn't be saved.
+///
+/// This adapter can be used when the types of the `Original` and the `Derivative` are the same,
+/// or they can be computed from one another.
+/// (in these cases, the pallet-derivatives is used as an a derivative-creation API only)
 pub struct NoStoredMapping<CreateOp>(PhantomData<CreateOp>);
 impl<CreateOp, Original, Derivative>
 	Create<DeriveAndReportId<Original, Option<SaveMappingTo<Derivative>>>>
@@ -375,6 +390,9 @@ where
 /// (which should take the `Original` value and return a `Derivative` one),
 /// and returns `Some(SaveMappingTo(DERIVATIVE_VALUE))`, indicating that the mapping should be
 /// saved.
+///
+/// This adapter can be used when the types of the `Original` and the `Derivative` differ
+/// and can't be computed from one another.
 pub struct StoreMapping<CreateOp>(PhantomData<CreateOp>);
 impl<CreateOp, Original, Derivative>
 	Create<DeriveAndReportId<Original, Option<SaveMappingTo<Derivative>>>> for StoreMapping<CreateOp>

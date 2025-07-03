@@ -1,21 +1,42 @@
-//! Utilities for working with unique instances derivatives.
+// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! Miscellaneous traits and types for working with unique instances derivatives.
 
 use core::marker::PhantomData;
 use frame_support::{
-	ensure,
+	ensure, parameter_types,
 	traits::{
 		tokens::asset_ops::{
-			common_strategies::{ConfigValueMarker, DeriveAndReportId, WithConfig},
+			common_strategies::{
+				AutoId, ConfigValue, ConfigValueMarker, DeriveAndReportId, Owner, WithConfig,
+			},
 			Create,
 		},
 		Incrementable,
 	},
 };
-use sp_runtime::{traits::FallibleConvert, DispatchError, DispatchResult};
+use sp_runtime::{
+	traits::{FallibleConvert, TypedGet},
+	DispatchError, DispatchResult,
+};
 use xcm::latest::prelude::*;
-use xcm_executor::traits::{Error, MatchesInstance};
-
-use super::NonFungibleAsset;
+use xcm_builder::unique_instances::NonFungibleAsset;
+use xcm_executor::traits::{ConvertLocation, Error, MatchesInstance};
 
 /// A registry abstracts the mapping between an `Original` entity and a `Derivative` entity.
 ///
@@ -230,5 +251,54 @@ impl<
 		ensure!(Registry::get_original(&instance_id).is_err(), Error::AssetNotHandled);
 
 		Ok(instance_id)
+	}
+}
+
+parameter_types! {
+	pub OwnerConvertedLocationDefaultErr: DispatchError = DispatchError::Other("OwnerConvertedLocation: failed to convert the location");
+}
+
+/// Converts a given `AssetId` to a `WithConfig` strategy with the owner account set to the asset's
+/// location converted to an account ID.
+pub struct OwnerConvertedLocation<CL, IdAssignment, Err = OwnerConvertedLocationDefaultErr>(
+	PhantomData<(CL, IdAssignment, Err)>,
+);
+impl<AccountId, CL, Err, ReportedId>
+	FallibleConvert<
+		AssetId,
+		WithConfig<ConfigValue<Owner<AccountId>>, DeriveAndReportId<AssetId, ReportedId>>,
+	> for OwnerConvertedLocation<CL, DeriveAndReportId<AssetId, ReportedId>, Err>
+where
+	CL: ConvertLocation<AccountId>,
+	Err: TypedGet,
+	Err::Type: Into<DispatchError>,
+{
+	fn fallible_convert(
+		AssetId(location): AssetId,
+	) -> Result<
+		WithConfig<ConfigValue<Owner<AccountId>>, DeriveAndReportId<AssetId, ReportedId>>,
+		DispatchError,
+	> {
+		CL::convert_location(&location)
+			.map(|account| {
+				WithConfig::new(ConfigValue(account), DeriveAndReportId::from(AssetId(location)))
+			})
+			.ok_or(Err::get().into())
+	}
+}
+impl<AccountId, CL, Err, ReportedId>
+	FallibleConvert<AssetId, WithConfig<ConfigValue<Owner<AccountId>>, AutoId<ReportedId>>>
+	for OwnerConvertedLocation<CL, AutoId<ReportedId>, Err>
+where
+	CL: ConvertLocation<AccountId>,
+	Err: TypedGet,
+	Err::Type: Into<DispatchError>,
+{
+	fn fallible_convert(
+		AssetId(location): AssetId,
+	) -> Result<WithConfig<ConfigValue<Owner<AccountId>>, AutoId<ReportedId>>, DispatchError> {
+		CL::convert_location(&location)
+			.map(|account| WithConfig::new(ConfigValue(account), AutoId::auto()))
+			.ok_or(Err::get().into())
 	}
 }

@@ -1,21 +1,33 @@
+// Copyright (C) Parity Technologies (UK) Ltd.
+// This file is part of Polkadot.
+
+// Polkadot is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Polkadot is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+
 //! Utilities for redefining and auto-implementing the unique instances operations.
 
 use core::marker::PhantomData;
 use frame_support::traits::tokens::asset_ops::{
-	common_strategies::{
-		AutoId, ChangeOwnerFrom, CheckState, ConfigValue, DeriveAndReportId, IfOwnedBy, Owner,
-		WithConfig,
-	},
+	common_strategies::{ChangeOwnerFrom, CheckState, ConfigValue, IfOwnedBy, Owner, WithConfig},
 	AssetDefinition, Restore, RestoreStrategy, Stash, StashStrategy, Update, UpdateStrategy,
 };
 use sp_runtime::{
-	traits::{parameter_types, Convert, FallibleConvert, TypedGet},
+	traits::{Convert, TypedGet},
 	DispatchError, DispatchResult,
 };
 
 use super::NonFungibleAsset;
 use xcm::latest::prelude::*;
-use xcm_executor::traits::ConvertLocation;
 
 /// The `UniqueInstancesOps` is a tool for combining
 /// different implementations of `Restore`, `Update`, and `Stash` operations
@@ -140,54 +152,5 @@ pub struct ExtractAssetId;
 impl Convert<NonFungibleAsset, AssetId> for ExtractAssetId {
 	fn convert((asset_id, _): NonFungibleAsset) -> AssetId {
 		asset_id
-	}
-}
-
-parameter_types! {
-	pub OwnerConvertedLocationDefaultErr: DispatchError = DispatchError::Other("OwnerConvertedLocation: failed to convert the location");
-}
-
-/// Converts a given `AssetId` to a `WithConfig` strategy with the owner account set to the asset's
-/// location converted to an account ID.
-pub struct OwnerConvertedLocation<CL, IdAssignment, Err = OwnerConvertedLocationDefaultErr>(
-	PhantomData<(CL, IdAssignment, Err)>,
-);
-impl<AccountId, CL, Err, ReportedId>
-	FallibleConvert<
-		AssetId,
-		WithConfig<ConfigValue<Owner<AccountId>>, DeriveAndReportId<AssetId, ReportedId>>,
-	> for OwnerConvertedLocation<CL, DeriveAndReportId<AssetId, ReportedId>, Err>
-where
-	CL: ConvertLocation<AccountId>,
-	Err: TypedGet,
-	Err::Type: Into<DispatchError>,
-{
-	fn fallible_convert(
-		AssetId(location): AssetId,
-	) -> Result<
-		WithConfig<ConfigValue<Owner<AccountId>>, DeriveAndReportId<AssetId, ReportedId>>,
-		DispatchError,
-	> {
-		CL::convert_location(&location)
-			.map(|account| {
-				WithConfig::new(ConfigValue(account), DeriveAndReportId::from(AssetId(location)))
-			})
-			.ok_or(Err::get().into())
-	}
-}
-impl<AccountId, CL, Err, ReportedId>
-	FallibleConvert<AssetId, WithConfig<ConfigValue<Owner<AccountId>>, AutoId<ReportedId>>>
-	for OwnerConvertedLocation<CL, AutoId<ReportedId>, Err>
-where
-	CL: ConvertLocation<AccountId>,
-	Err: TypedGet,
-	Err::Type: Into<DispatchError>,
-{
-	fn fallible_convert(
-		AssetId(location): AssetId,
-	) -> Result<WithConfig<ConfigValue<Owner<AccountId>>, AutoId<ReportedId>>, DispatchError> {
-		CL::convert_location(&location)
-			.map(|account| WithConfig::new(ConfigValue(account), AutoId::auto()))
-			.ok_or(Err::get().into())
 	}
 }
