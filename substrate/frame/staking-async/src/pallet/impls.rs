@@ -219,6 +219,7 @@ impl<T: Config> Pallet<T> {
 			.as_ref()
 			.and_then(|eras| eras.first())
 			.copied()
+			// if nothing in queue, use the active era.
 			.unwrap_or(active_era)
 			// above returns earliest era for which offences are processed, so we subtract one to
 			// get the last era for which all offences are processed.

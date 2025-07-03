@@ -1411,12 +1411,16 @@ fn withdrawals_are_blocked_for_unprocessed_offence_eras() {
 				Session::roll_next();
 			}
 
+			// ensure all offences are processed.
 			assert_eq!(era_offence_count(3), 0);
 			assert_eq!(OffenceQueueEras::<T>::get(), None);
 
 			// now withdrawing for era 3 should be unblocked.
 			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(nominator), 0));
 			assert_eq!(Balances::free_balance(&nominator), nominator_balance_post_withdraw_1 + 150);
+
+			// final check we are all this time still in Era 6.
+			assert_eq!(active_era(), 6);
 		});
 }
 
