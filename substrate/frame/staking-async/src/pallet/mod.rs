@@ -734,7 +734,7 @@ pub mod pallet {
 	/// This eliminates the need for expensive iteration and sorting when fetching the next offence
 	/// to process.
 	#[pallet::storage]
-	pub type OffenceQueueEras<T: Config> = StorageValue<_, BoundedVec<u32, T::BondingDuration>>;
+	pub type OffenceQueueEras<T: Config> = StorageValue<_, WeakBoundedVec<u32, T::BondingDuration>>;
 
 	/// Tracks the currently processed offence record from the `OffenceQueue`.
 	///

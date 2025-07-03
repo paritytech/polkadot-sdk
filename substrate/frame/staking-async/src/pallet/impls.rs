@@ -1261,7 +1261,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 							)
 						});
 					} else {
-						let mut eras = BoundedVec::default();
+						let mut eras = WeakBoundedVec::default();
 						log!(debug, "🦹 inserting offence era {} into empty queue", offence_era);
 						let _ = eras
 							.try_push(offence_era)
