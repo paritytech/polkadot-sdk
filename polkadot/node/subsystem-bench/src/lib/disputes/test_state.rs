@@ -74,7 +74,7 @@ impl TestState {
 				(
 					block_info.hash,
 					(0..options.n_disputes)
-						.map(|_| make_valid_candidate_receipt(block_info.hash))
+						.map(|_| make_candidate_receipt(block_info.hash))
 						.collect(),
 				)
 			})
@@ -147,7 +147,7 @@ impl TestState {
 	}
 }
 
-fn make_valid_candidate_receipt(relay_parent: Hash) -> CandidateReceiptV2 {
+fn make_candidate_receipt(relay_parent: Hash) -> CandidateReceiptV2 {
 	let mut candidate_receipt = dummy_candidate_receipt_v2_bad_sig(relay_parent, dummy_hash());
 	candidate_receipt.commitments_hash = CandidateCommitments::default().hash();
 	candidate_receipt
