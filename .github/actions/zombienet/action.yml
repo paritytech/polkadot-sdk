@@ -72,9 +72,6 @@ runs:
           export PATH=$(pwd)/bin:$PATH
           chmod +x $(pwd)/bin/*
 
-          # create base dir
-          mkdir -p $ZOMBIE_BASE_DIR
-
           ./.github/scripts/run-zombienet-test.sh \
             "$(pwd)/$LOCAL_PATH" \
             $CONCURRENCY \
