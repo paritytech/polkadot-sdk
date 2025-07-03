@@ -127,7 +127,7 @@
 
 mod impls;
 pub mod migration;
-#[cfg(any(test, feature = "runtime-benchmarks"))]
+#[cfg(all(feature = "std", any(test, feature = "runtime-benchmarks")))]
 mod mock;
 #[cfg(test)]
 mod tests;

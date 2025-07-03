@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![cfg(any(feature = "runtime-benchmarks", test))]
+#![cfg(all(feature = "std", any(feature = "runtime-benchmarks", test)))]
 
 use crate::{self as delegated_staking, types::AgentLedgerOuter};
 use frame_support::{
