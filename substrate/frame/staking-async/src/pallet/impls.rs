@@ -36,7 +36,7 @@ use frame_election_provider_support::{
 use frame_support::{
 	defensive,
 	dispatch::WithPostDispatchInfo,
-	pallet_prelude::*,
+	pallet_prelude::*, StorageDoubleMap,
 	traits::{
 		Defensive, DefensiveSaturating, Get, Imbalance, InspectLockableCurrency, LockableCurrency,
 		OnUnbalanced,
@@ -1719,6 +1719,7 @@ impl<T: Config> Pallet<T> {
 		Self::check_payees()?;
 		Self::check_paged_exposures()?;
 		Self::check_count()?;
+		Self::check_slash_health()?;
 
 		Ok(())
 	}
@@ -1950,6 +1951,63 @@ impl<T: Config> Pallet<T> {
 				Ok(())
 			})
 			.collect::<Result<(), TryRuntimeError>>()
+	}
+
+	/// Ensures offence pipeline and slashing is in a healthy state.
+	fn check_slash_health() -> Result<(), TryRuntimeError> {
+		// (1) Ensure offence queue is sorted
+		let offence_queue_eras = OffenceQueueEras::<T>::get().unwrap_or_default().into_inner();
+		let mut sorted_offence_queue_eras = offence_queue_eras.clone();
+		sorted_offence_queue_eras.sort();
+		ensure!(sorted_offence_queue_eras == offence_queue_eras, "Offence queue eras are not sorted");
+
+		// (2) Ensure oldest offence queue era is old enough.
+		let active_era = Rotator::<T>::active_era();
+		let oldest_unprocessed_offence_era = offence_queue_eras.first().cloned().unwrap_or(active_era);
+
+		// how old is the oldest unprocessed offence era?
+		// given bonding duration = 28, the ideal value is between 0 and 2 eras.
+		// anything close to bonding duration is terrible.
+		let oldest_unprocessed_offence_age =
+			active_era.saturating_sub(oldest_unprocessed_offence_era);
+
+		// warn if less than 26 eras old.
+		if oldest_unprocessed_offence_age > 2.min(T::BondingDuration::get()) {
+			log!(
+				warn,
+				"Offence queue has unprocessed offences from older than 2 eras: oldest offence era in queue {:?} (active era: {:?})",
+				oldest_unprocessed_offence_era,
+				active_era
+			);
+		}
+
+		// error if the oldest unprocessed offence era closer to bonding duration.
+		ensure!(
+			oldest_unprocessed_offence_age < T::BondingDuration::get() - 1,
+			"offences from era less than 3 eras old from active era not processed yet"
+		);
+
+		// (3) Report count of offences in the queue.
+		for e in offence_queue_eras {
+			let count = OffenceQueue::<T>::iter_prefix(e).count();
+			ensure!(count > 0, "Offence queue is empty for era listed in offence queue eras");
+			log!(
+				warn,
+				"Offence queue for era {:?} has {:?} offences queued",
+				e,
+				count
+			);
+		}
+
+		// (4) Ensure all slashes older than (active era - 1) are applied.
+		// We will look at all eras before the active era as it can take 1 era for slashes
+		// to be applied.
+		for era in (active_era.saturating_sub(T::BondingDuration::get()))..(active_era) {
+			// all unapplied slashes are expected to be applied in 1 era.
+			ensure!(!UnappliedSlashes::<T>::contains_prefix(era), "Unapplied slashes for recently passed era found");
+		}
+
+		Ok(())
 	}
 
 	fn ensure_ledger_role_and_min_bond(ctrl: &T::AccountId) -> Result<(), TryRuntimeError> {
