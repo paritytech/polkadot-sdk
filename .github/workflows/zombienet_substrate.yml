@@ -125,7 +125,6 @@ jobs:
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
 
-  # TODO: Disabled, fails 1 in 50 runs
   zombienet-substrate-0003-block-building-warp-sync:
     needs: [preflight]
     # only run if we have changes in ./substrate directory and the build workflow already finish with success status.

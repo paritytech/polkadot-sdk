@@ -35,7 +35,6 @@ jobs:
   #
   # functional
   #
-  # TODO: Disabled, occasionally (1 on ~50-70 runs) fails
   zombienet-polkadot-functional-0001-parachains-pvf:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-functional-0001-parachains-pvf') }}
