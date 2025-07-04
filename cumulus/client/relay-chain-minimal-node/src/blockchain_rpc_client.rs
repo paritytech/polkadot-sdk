@@ -474,7 +474,10 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 		Ok(self.rpc_client.parachain_host_validation_code_bomb_limit(at).await?)
 	}
 
-	async fn para_ids(&self, at: Hash) -> Result<Vec<ParaId>, sp_api::ApiError> {
+	async fn para_ids(
+		&self,
+		at: Hash,
+	) -> Result<Vec<ParaId>, sp_api::ApiError> {
 		Ok(self.rpc_client.parachain_host_para_ids(at).await?)
 	}
 }

@@ -360,7 +360,7 @@ pub trait RuntimeApiSubsystemClient {
 
 	// == v14 ==
 	/// Fetch the list of all parachain IDs registered in the relay chain.
-	async fn para_ids(&self, relay_parent: Hash) -> Result<Vec<Id>, ApiError>;
+	async fn para_ids(&self, at: Hash) -> Result<Vec<Id>, ApiError>;
 }
 
 /// Default implementation of [`RuntimeApiSubsystemClient`] using the client.
@@ -655,10 +655,10 @@ where
 		self.client.runtime_api().validation_code_bomb_limit(at)
 	}
 
-	async fn para_ids(&self, relay_parent: Hash) -> Result<Vec<Id>, ApiError> {
+	async fn para_ids(&self, at: Hash) -> Result<Vec<Id>, ApiError> {
 		self.client
 			.runtime_api()
-			.para_ids(relay_parent)
+			.para_ids(at)
 			.map(|ids| ids.into_iter().map(Id::from).collect())
 	}
 }
