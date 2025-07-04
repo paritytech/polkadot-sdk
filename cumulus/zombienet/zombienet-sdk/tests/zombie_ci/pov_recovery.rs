@@ -47,15 +47,15 @@ async fn pov_recovery() -> Result<(), anyhow::Error> {
 	log::info!("Registering parachain para_id = {PARA_ID}");
 	network.register_parachain(PARA_ID).await?;
 
-	let relay_ferdie = network.get_node("ferdie")?;
-	let relay_client: OnlineClient<PolkadotConfig> = relay_ferdie.wait_client().await?;
+	let validator = network.get_node("validator-0")?;
+	let validator_client: OnlineClient<PolkadotConfig> = validator.wait_client().await?;
 
 	log::info!("Ensuring parachain is registered within 30 blocks");
-	assert_para_is_registered(&relay_client, ParaId::from(PARA_ID), 30).await?;
+	assert_para_is_registered(&validator_client, ParaId::from(PARA_ID), 30).await?;
 
 	log::info!("Ensuring parachain making progress");
 	assert_para_throughput(
-		&relay_client,
+		&validator_client,
 		20,
 		[(ParaId::from(PARA_ID), 2..20)].into_iter().collect(),
 	)
@@ -111,7 +111,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 
 	// If all nodes running on one machine and there are too much of them,
 	// then they don't get enough CPU time and others might fail trying to connect to them.
-	// eg. 'one' and 'two' trying to connect to 'ferdie' rpc but it is still initializing.
+	// eg. 'one' and 'two' trying to connect to validators rpc but it is still initializing.
 	let validator_cnt = match zombienet_sdk::environment::get_provider_from_env() {
 		Provider::K8s => 13,
 		_ => 5,
@@ -119,16 +119,14 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 
 	// Provide multiple RPC urls to increase a chance that some node behind url
 	// will be have RPC server up and running.
-	let mut rpc_urls = vec!["{{ZOMBIE:ferdie:ws_uri}}".to_string()];
+	let mut rpc_urls = vec![];
 	rpc_urls.extend((0..validator_cnt).map(|i| format!("{{{{ZOMBIE:validator-{i}:ws_uri}}}}")));
 
 	// Network setup:
 	// - relaychain nodes:
-	// 	 - ferdie
-	// 	   - full node
 	// 	 - validator[0-validator_cnt]
 	// 	   - validator
-	// 	   - synchronize only with ferdie
+	// 	   - synchronize only with validator-0
 	// - parachain nodes
 	//   - bob
 	//     - collator which is the only one producing blocks
@@ -162,17 +160,17 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 						}
 				}))
 				.with_node(|node| {
-					node.with_name("ferdie").validator(false).with_args(vec![
+					node.with_name("validator-0").validator(true).with_args(vec![
 						("-lparachain::availability=trace,sync=info,parachain=debug,libp2p_mdns=debug,info").into(),
 					])
 				});
 
-			(0..validator_cnt).fold(r, |acc, i| {
+			(1..validator_cnt).fold(r, |acc, i| {
 				acc.with_node(|node| {
 					node.with_name(&format!("validator-{i}")).with_args(vec![
 						("-lparachain::availability=trace,sync=debug,parachain=debug,libp2p_mdns=debug").into(),
 						("--reserved-only").into(),
-						("--reserved-nodes", "{{ZOMBIE:ferdie:multiaddr}}").into(),
+						("--reserved-nodes", "{{ZOMBIE:validator-0:multiaddr}}").into(),
 					])
 				})
 			})
@@ -241,7 +239,7 @@ fn build_collator_args(in_args: Vec<Arg>) -> Vec<Arg> {
 	let remaining_args: Vec<Arg> = vec![
 		("--").into(),
 		("--reserved-only").into(),
-		("--reserved-nodes", "{{ZOMBIE:ferdie:multiaddr}}").into(),
+		("--reserved-nodes", "{{ZOMBIE:validator-0:multiaddr}}").into(),
 	];
 
 	[start_args, in_args, remaining_args].concat()
