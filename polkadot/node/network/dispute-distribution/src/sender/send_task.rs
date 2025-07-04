@@ -359,6 +359,7 @@ async fn send_requests<Context, M: 'static + Send + Sync>(
 					target: LOG_TARGET,
 					?receiver,
 					candidate_hash = %req.0.candidate_receipt.hash(),
+					num_retries=*num_retries,
 					"Skipping sending to peer, it rejected our request recently."
 				);
 				continue;
@@ -367,6 +368,7 @@ async fn send_requests<Context, M: 'static + Send + Sync>(
 				target: LOG_TARGET,
 				?receiver,
 				candidate_hash = %req.0.candidate_receipt.hash(),
+				num_retries=*num_retries,
 				"Peer rejected our request, but enough time has passed, sending again."
 			);
 		}
