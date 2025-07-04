@@ -120,7 +120,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	// Provide multiple RPC urls to increase a chance that some node behind url
 	// will be have RPC server up and running.
 	let mut rpc_urls = vec!["{{ZOMBIE:ferdie:ws_uri}}".to_string()];
-	rpc_urls.extend((1..=validator_cnt).map(|i| format!("{{{{ZOMBIE:validator-{i}:ws_uri}}}}")));
+	rpc_urls.extend((0..validator_cnt).map(|i| format!("{{{{ZOMBIE:validator-{i}:ws_uri}}}}")));
 
 	// Network setup:
 	// - relaychain nodes:
