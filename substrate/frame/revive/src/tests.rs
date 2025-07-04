@@ -546,7 +546,7 @@ fn transfer_with_dust_works() {
 			let total_issuance = <Test as Config>::Currency::total_issuance();
 
 			let result = builder::bare_call(BOB_ADDR)
-				.value(Pallet::<Test>::convert_native_to_evm(amount))
+				.evm_value(Pallet::<Test>::convert_native_to_evm(amount))
 				.build_and_unwrap_result();
 			assert_eq!(result, Default::default(), "{description} tx failed");
 
@@ -605,7 +605,7 @@ fn instantiate_and_call_and_deposit_event() {
 
 		// Check at the end to get hash on error easily
 		let Contract { addr, account_id } = builder::bare_instantiate(Code::Existing(code_hash))
-			.value(Pallet::<Test>::convert_native_to_evm(value))
+			.native_value(value)
 			.build_and_unwrap_contract();
 		assert!(AccountInfoOf::<Test>::contains_key(&addr));
 
@@ -717,7 +717,7 @@ fn deposit_event_max_value_limit() {
 		// Create
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary))
-			.value(30_000.into())
+			.native_value(30_000)
 			.build_and_unwrap_contract();
 
 		// Call contract with allowed storage value.
@@ -743,7 +743,7 @@ fn run_out_of_fuel_engine() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary))
-			.value((100 * min_balance).into())
+			.native_value(100 * min_balance)
 			.build_and_unwrap_contract();
 
 		// Call the contract with a fixed gas limit. It must run out of gas because it just
@@ -844,7 +844,7 @@ fn storage_work() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let min_balance = Contracts::min_balance();
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.value((min_balance * 100).into())
+			.native_value(min_balance * 100)
 			.build_and_unwrap_contract();
 
 		builder::bare_call(addr).build_and_unwrap_result();
@@ -859,7 +859,7 @@ fn storage_max_value_limit() {
 		// Create
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary))
-			.value(30_000.into())
+			.native_value(30_000)
 			.build_and_unwrap_contract();
 		get_contract(&addr);
 
@@ -885,7 +885,7 @@ fn clear_storage_on_zero_value() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let min_balance = Contracts::min_balance();
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.value((min_balance * 100).into())
+			.native_value(min_balance * 100)
 			.build_and_unwrap_contract();
 
 		builder::bare_call(addr).build_and_unwrap_result();
@@ -900,7 +900,7 @@ fn transient_storage_work() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let min_balance = Contracts::min_balance();
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.value((min_balance * 100).into())
+			.native_value(min_balance * 100)
 			.build_and_unwrap_contract();
 
 		builder::bare_call(addr).build_and_unwrap_result();
@@ -960,7 +960,7 @@ fn deploy_and_call_other_contract() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let Contract { addr: caller_addr, account_id: caller_account } =
 			builder::bare_instantiate(Code::Upload(caller_binary))
-				.value(Pallet::<Test>::convert_native_to_evm(100_000u64))
+				.native_value(100_000)
 				.build_and_unwrap_contract();
 
 		let callee_addr = create2(
@@ -1051,13 +1051,13 @@ fn delegate_call() {
 		// Instantiate the 'caller'
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_binary))
-				.value(300_000.into())
+				.native_value(300_000)
 				.build_and_unwrap_contract();
 
 		// Instantiate the 'callee'
 		let Contract { addr: callee_addr, .. } =
 			builder::bare_instantiate(Code::Upload(callee_binary))
-				.value(100_000.into())
+				.native_value(100_000)
 				.build_and_unwrap_contract();
 
 		assert_ok!(builder::call(caller_addr)
@@ -1077,7 +1077,7 @@ fn delegate_call_non_existant_is_noop() {
 		// Instantiate the 'caller'
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_binary))
-				.value(300_000.into())
+				.native_value(300_000)
 				.build_and_unwrap_contract();
 
 		assert_ok!(builder::call(caller_addr)
@@ -1100,19 +1100,19 @@ fn delegate_call_with_weight_limit() {
 		// Instantiate the 'caller'
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_binary))
-				.value(300_000.into())
+				.native_value(300_000)
 				.build_and_unwrap_contract();
 
 		// Instantiate the 'callee'
 		let Contract { addr: callee_addr, .. } =
 			builder::bare_instantiate(Code::Upload(callee_binary))
-				.value(100_000.into())
+				.native_value(100_000)
 				.build_and_unwrap_contract();
 
 		// fails, not enough weight
 		assert_err!(
 			builder::bare_call(caller_addr)
-				.value(1337.into())
+				.native_value(1337)
 				.data((callee_addr, 100u64, 100u64).encode())
 				.build()
 				.result,
@@ -1137,20 +1137,20 @@ fn delegate_call_with_deposit_limit() {
 		// Instantiate the 'caller'
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_binary))
-				.value(Pallet::<Test>::convert_native_to_evm(300_000u64))
+				.native_value(300_000)
 				.build_and_unwrap_contract();
 
 		// Instantiate the 'callee'
 		let Contract { addr: callee_addr, .. } =
 			builder::bare_instantiate(Code::Upload(callee_binary))
-				.value(Pallet::<Test>::convert_native_to_evm(100_000u64))
+				.native_value(100_000)
 				.build_and_unwrap_contract();
 
 		// Delegate call will write 1 storage and deposit of 2 (1 item) + 32 (bytes) is required.
 		// + 32 + 16 for blake2_128concat
 		// Fails, not enough deposit
 		let ret = builder::bare_call(caller_addr)
-			.value(Pallet::<Test>::convert_native_to_evm(1337u64))
+			.native_value(1337)
 			.data((callee_addr, 81u64).encode())
 			.build_and_unwrap_result();
 		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
@@ -1170,7 +1170,7 @@ fn transfer_expendable_cannot_kill_account() {
 
 		// Instantiate the BOB contract.
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary))
-			.value(1_000.into())
+			.native_value(1_000)
 			.build_and_unwrap_contract();
 
 		// Check that the BOB contract has been instantiated.
@@ -1209,7 +1209,7 @@ fn cannot_self_destruct_through_draining() {
 
 		// Instantiate the BOB contract.
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary))
-			.value(Pallet::<Test>::convert_native_to_evm(value))
+			.native_value(value)
 			.build_and_unwrap_contract();
 		let account = <Test as Config>::AddressMapper::to_account_id(&addr);
 
@@ -1277,7 +1277,7 @@ fn cannot_self_destruct_while_live() {
 
 		// Instantiate the BOB contract.
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary))
-			.value(100_000.into())
+			.native_value(100_000)
 			.build_and_unwrap_contract();
 
 		// Check that the BOB contract has been instantiated.
@@ -1305,7 +1305,7 @@ fn self_destruct_works() {
 
 		// Instantiate the BOB contract.
 		let contract = builder::bare_instantiate(Code::Upload(binary))
-			.value(Pallet::<Test>::convert_native_to_evm(100_000u64))
+			.native_value(100_000)
 			.build_and_unwrap_contract();
 
 		// Check that the BOB contract has been instantiated.
@@ -1382,7 +1382,7 @@ fn destroy_contract_and_transfer_funds() {
 		// construction.
 		let Contract { addr: addr_bob, .. } =
 			builder::bare_instantiate(Code::Upload(caller_binary))
-				.value(Pallet::<Test>::convert_native_to_evm(200_000u64))
+				.native_value(200_000)
 				.data(callee_code_hash.as_ref().to_vec())
 				.build_and_unwrap_contract();
 
@@ -1422,7 +1422,7 @@ fn crypto_hashes() {
 
 		// Instantiate the CRYPTO_HASHES contract.
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary))
-			.value(100_000.into())
+			.native_value(100_000)
 			.build_and_unwrap_contract();
 		// Perform the call.
 		let input = b"_DEAD_BEEF";
@@ -1459,7 +1459,7 @@ fn transfer_return_code() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
 
 		let contract = builder::bare_instantiate(Code::Upload(binary))
-			.value(Pallet::<Test>::convert_native_to_evm(min_balance * 100))
+			.native_value(min_balance * 100)
 			.build_and_unwrap_contract();
 
 		// Contract has only the minimal balance so any transfer will fail.
@@ -1481,7 +1481,7 @@ fn call_return_code() {
 		let _ = <Test as Config>::Currency::set_balance(&CHARLIE, 1000 * min_balance);
 
 		let bob = builder::bare_instantiate(Code::Upload(caller_code))
-			.value(Pallet::<Test>::convert_native_to_evm(min_balance * 100))
+			.native_value(min_balance * 100)
 			.build_and_unwrap_contract();
 
 		// BOB cannot pay the ed which is needed to pull DJANGO into existence
@@ -1530,7 +1530,7 @@ fn call_return_code() {
 
 		let django = builder::bare_instantiate(Code::Upload(callee_code))
 			.origin(RuntimeOrigin::signed(CHARLIE))
-			.value((min_balance * 100).into())
+			.native_value(min_balance * 100)
 			.build_and_unwrap_contract();
 
 		// Sending more than the contract has will make the transfer fail.
@@ -1590,7 +1590,7 @@ fn instantiate_return_code() {
 		assert_ok!(builder::instantiate_with_code(callee_code).value(min_balance * 100).build());
 
 		let contract = builder::bare_instantiate(Code::Upload(caller_code))
-			.value((min_balance * 100).into())
+			.native_value(min_balance * 100)
 			.build_and_unwrap_contract();
 
 		// bob cannot pay the ED to create the contract as he has no money
@@ -1647,7 +1647,7 @@ fn lazy_removal_works() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
 
 		let contract = builder::bare_instantiate(Code::Upload(code))
-			.value((min_balance * 100).into())
+			.native_value(min_balance * 100)
 			.build_and_unwrap_contract();
 
 		let info = get_contract(&contract.addr);
@@ -1683,7 +1683,7 @@ fn lazy_batch_removal_works() {
 
 		for i in 0..3u8 {
 			let contract = builder::bare_instantiate(Code::Upload(code.clone()))
-				.value((min_balance * 100).into())
+				.native_value(min_balance * 100)
 				.salt(Some([i; 32]))
 				.build_and_unwrap_contract();
 
@@ -1753,7 +1753,7 @@ fn lazy_removal_partial_remove_works() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
 
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.value((min_balance * 100).into())
+			.native_value(min_balance * 100)
 			.build_and_unwrap_contract();
 
 		let info = get_contract(&addr);
@@ -1817,7 +1817,7 @@ fn lazy_removal_does_no_run_on_low_remaining_weight() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
 
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.value((min_balance * 100).into())
+			.native_value(min_balance * 100)
 			.build_and_unwrap_contract();
 
 		let info = get_contract(&addr);
@@ -1871,7 +1871,7 @@ fn lazy_removal_does_not_use_all_weight() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
 
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.value((min_balance * 100).into())
+			.native_value(min_balance * 100)
 			.build_and_unwrap_contract();
 
 		let info = get_contract(&addr);
@@ -1945,7 +1945,7 @@ fn deletion_queue_ring_buffer_overflow() {
 		// add 3 contracts to the deletion queue
 		for i in 0..3u8 {
 			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
-				.value((min_balance * 100).into())
+				.native_value(min_balance * 100)
 				.salt(Some([i; 32]))
 				.build_and_unwrap_contract();
 
@@ -1986,18 +1986,18 @@ fn refcounter() {
 
 		// Create two contracts with the same code and check that they do in fact share it.
 		let Contract { addr: addr0, .. } = builder::bare_instantiate(Code::Upload(binary.clone()))
-			.value((min_balance * 100).into())
+			.native_value(min_balance * 100)
 			.salt(Some([0; 32]))
 			.build_and_unwrap_contract();
 		let Contract { addr: addr1, .. } = builder::bare_instantiate(Code::Upload(binary.clone()))
-			.value((min_balance * 100).into())
+			.native_value(min_balance * 100)
 			.salt(Some([1; 32]))
 			.build_and_unwrap_contract();
 		assert_refcount!(code_hash, 2);
 
 		// Sharing should also work with the usual instantiate call
 		let Contract { addr: addr2, .. } = builder::bare_instantiate(Code::Existing(code_hash))
-			.value((min_balance * 100).into())
+			.native_value(min_balance * 100)
 			.salt(Some([2; 32]))
 			.build_and_unwrap_contract();
 		assert_refcount!(code_hash, 3);
@@ -2032,11 +2032,11 @@ fn gas_estimation_for_subcalls() {
 
 		let Contract { addr: addr_caller, .. } =
 			builder::bare_instantiate(Code::Upload(caller_code))
-				.value((min_balance * 100).into())
+				.native_value(min_balance * 100)
 				.build_and_unwrap_contract();
 
 		let Contract { addr: addr_dummy, .. } = builder::bare_instantiate(Code::Upload(dummy_code))
-			.value((min_balance * 100).into())
+			.native_value(min_balance * 100)
 			.build_and_unwrap_contract();
 
 		// Run the test for all of those weight limits for the subcall
@@ -2108,7 +2108,7 @@ fn call_runtime_reentrancy_guarded() {
 
 		let Contract { addr: addr_callee, .. } =
 			builder::bare_instantiate(Code::Upload(callee_code))
-				.value((min_balance * 100).into())
+				.native_value(min_balance * 100)
 				.salt(Some([1; 32]))
 				.build_and_unwrap_contract();
 
@@ -2144,7 +2144,7 @@ fn sr25519_verify() {
 
 		// Instantiate the sr25519_verify contract.
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary))
-			.value(100_000.into())
+			.native_value(100_000)
 			.build_and_unwrap_contract();
 
 		let call_with = |message: &[u8; 11]| {
@@ -2394,7 +2394,7 @@ fn instantiate_with_below_existential_deposit_works() {
 
 		// Instantiate the BOB contract.
 		let Contract { addr, account_id } = builder::bare_instantiate(Code::Upload(binary))
-			.value(Pallet::<Test>::convert_native_to_evm(value))
+			.native_value(value)
 			.build_and_unwrap_contract();
 
 		// Ensure the contract was stored and get expected deposit amount to be reserved.
@@ -2604,7 +2604,7 @@ fn slash_cannot_kill_account() {
 		let min_balance = Contracts::min_balance();
 
 		let Contract { addr, account_id } = builder::bare_instantiate(Code::Upload(binary))
-			.value(Pallet::<Test>::convert_native_to_evm(value))
+			.native_value(value)
 			.build_and_unwrap_contract();
 
 		// Drop previous events
@@ -2705,7 +2705,7 @@ fn set_code_hash() {
 
 		// Instantiate the 'caller'
 		let Contract { addr: contract_addr, .. } = builder::bare_instantiate(Code::Upload(binary))
-			.value(300_000.into())
+			.native_value(300_000)
 			.build_and_unwrap_contract();
 		// upload new code
 		assert_ok!(Contracts::upload_code(
@@ -2886,7 +2886,7 @@ fn deposit_limit_in_nested_instantiate() {
 		// Create caller contract
 		let Contract { addr: addr_caller, account_id: caller_id } =
 			builder::bare_instantiate(Code::Upload(binary_caller))
-				.value(Pallet::<Test>::convert_native_to_evm(10_000u64)) // this balance is later passed to the deployed contract
+				.native_value(10_000) // this balance is later passed to the deployed contract
 				.build_and_unwrap_contract();
 		// Deploy a contract to get its occupied storage size
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary_callee))
@@ -4210,7 +4210,7 @@ fn tracing_works_for_transfers() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
 		let mut tracer = CallTracer::new(Default::default(), |_| U256::zero());
 		trace(&mut tracer, || {
-			builder::bare_call(BOB_ADDR).value(10.into()).build_and_unwrap_result();
+			builder::bare_call(BOB_ADDR).evm_value(10.into()).build_and_unwrap_result();
 		});
 
 		let trace = tracer.collect_trace();
@@ -4240,7 +4240,7 @@ fn call_tracing_works() {
 			builder::bare_instantiate(Code::Upload(binary_callee)).build_and_unwrap_contract();
 
 		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code)).value(10_000_000.into()).build_and_unwrap_contract();
+			builder::bare_instantiate(Code::Upload(code)).evm_value(10_000_000.into()).build_and_unwrap_contract();
 
 
 		let tracer_configs = vec![
@@ -4395,7 +4395,7 @@ fn create_call_tracing_works() {
 
 		let Contract { addr, .. } = trace(&mut tracer, || {
 			builder::bare_instantiate(Code::Upload(code.clone()))
-				.value(100.into())
+				.evm_value(100.into())
 				.salt(None)
 				.build_and_unwrap_contract()
 		});
@@ -4460,7 +4460,7 @@ fn prestate_tracing_works() {
 				.build_and_unwrap_contract();
 
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
-			.value(Pallet::<Test>::convert_native_to_evm(10))
+			.native_value(10)
 			.build_and_unwrap_contract();
 
 		// redact balance so that tests are resilient to weight changes
@@ -4722,7 +4722,7 @@ fn pure_precompile_works() {
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-				.value(1_000.into())
+				.native_value(1_000)
 				.build_and_unwrap_contract();
 
 			let result = builder::bare_call(addr)
@@ -4795,7 +4795,7 @@ fn precompiles_work() {
 			let id = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-				.value(1000.into())
+				.native_value(1000)
 				.build_and_unwrap_contract();
 
 			let result = builder::bare_call(addr)
@@ -4840,7 +4840,7 @@ fn precompiles_with_info_creates_contract() {
 			let id = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-				.value(1000.into())
+				.native_value(1000)
 				.build_and_unwrap_contract();
 
 			let result = builder::bare_call(addr)
