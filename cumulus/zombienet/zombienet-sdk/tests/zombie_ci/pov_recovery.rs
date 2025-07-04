@@ -97,8 +97,7 @@ async fn pov_recovery() -> Result<(), anyhow::Error> {
 
 		assert!(
 			result.success(),
-			"Failed importing blocks using PoV recovery by {name}: {:?}",
-			result
+			"Failed importing blocks using PoV recovery by {name}: {result:?}"
 		);
 	}
 

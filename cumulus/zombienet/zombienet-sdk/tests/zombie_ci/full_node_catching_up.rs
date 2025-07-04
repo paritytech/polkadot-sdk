@@ -60,7 +60,7 @@ async fn full_node_catching_up() -> Result<(), anyhow::Error> {
 		)
 		.await?;
 
-	assert!(result.success(), "Consensus hook failed at charlie: {:?}", result);
+	assert!(result.success(), "Consensus hook failed at charlie: {result:?}");
 
 	Ok(())
 }

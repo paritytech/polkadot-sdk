@@ -118,7 +118,7 @@ async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 		)
 		.await?;
 
-	assert!(result.success(), "Failed importing blocks using PoV recovery by {name}: {:?}", result);
+	assert!(result.success(), "Failed importing blocks using PoV recovery by {name}: {result:?}");
 
 	log::info!("Test finished successfully");
 	Ok(())

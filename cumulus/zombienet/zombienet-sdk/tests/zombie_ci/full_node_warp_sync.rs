@@ -6,7 +6,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-// 	http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -39,9 +39,9 @@
 //!
 //! 2. Build `chain-spec-builder`:
 //!
-//!	```bash
-//!	cargo build -p staging-chain-spec-builder --release
-//!	```
+//! ```bash
+//! cargo build -p staging-chain-spec-builder --release
+//! ```
 //!
 //! 3. Generate the chain spec:
 //! ```bash
@@ -83,8 +83,8 @@
 //! .with_args(vec![("--state-pruning", "archive")])
 //! ```
 //! 3. Increase the `wait_metric_with_timeout(.., .., 225u64)` timeout parameter to something like
-//! `86400u64` (a day worth of running, which should be sufficient time for the node to reach the
-//! 930th best block on `eve`).
+//!    `86400u64` (a day worth of running, which should be sufficient time for the node to reach the
+//!    930th best block on `eve`).
 //!
 //! #### Run the test
 //! ```bash
@@ -161,10 +161,10 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 
 	// Network setup:
 	// - relaychain nodes:
-	// 	 - alice    - validator
-	// 	 - bob      - validator
-	// 	 - charlie  - validator
-	// 	 - dave     - validator
+	//   - alice    - validator
+	//   - bob      - validator
+	//   - charlie  - validator
+	//   - dave     - validator
 	// - parachain nodes
 	//   - eve      - collator
 	//   - ferdie   - collator
