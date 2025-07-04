@@ -143,7 +143,7 @@ jobs:
           GITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
         run: |
           gh release create ${{ env.REL_TAG }} \
-            --repo paritytech/polkadot-sdk \
+            --repo ${{ github.repository }} \
             --draft \
             --title "Polkadot ${{ env.REL_TAG }}" \
             --notes-file ${{ github.workspace}}/scripts/release/RELEASE_DRAFT.md
