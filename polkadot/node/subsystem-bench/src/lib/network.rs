@@ -149,6 +149,7 @@ impl RateLimit {
 
 /// A wrapper for both gossip and request/response protocols along with the destination
 /// peer(`AuthorityDiscoveryId``).
+#[derive(Debug)]
 pub enum NetworkMessage {
 	/// A gossip message from peer to node.
 	MessageFromPeer(PeerId, VersionedValidationProtocol),
@@ -1027,6 +1028,13 @@ impl RequestExt for Requests {
 			},
 			// Requested by PeerId
 			Requests::AttestedCandidateV2(_) => None,
+			Requests::DisputeSendingV1(request) => {
+				if let Recipient::Authority(authority_id) = &request.peer {
+					Some(authority_id)
+				} else {
+					None
+				}
+			},
 			request => {
 				unimplemented!("RequestAuthority not implemented for {:?}", request)
 			},
@@ -1050,6 +1058,7 @@ impl RequestExt for Requests {
 			Requests::ChunkFetching(outgoing_request) => outgoing_request.pending_response,
 			Requests::AvailableDataFetchingV1(outgoing_request) =>
 				outgoing_request.pending_response,
+			Requests::DisputeSendingV1(outgoing_request) => outgoing_request.pending_response,
 			_ => unimplemented!("unsupported request type"),
 		}
 	}
@@ -1063,6 +1072,8 @@ impl RequestExt for Requests {
 				std::mem::replace(&mut outgoing_request.pending_response, new_sender),
 			Requests::AttestedCandidateV2(outgoing_request) =>
 				std::mem::replace(&mut outgoing_request.pending_response, new_sender),
+			Requests::DisputeSendingV1(outgoing_request) =>
+				std::mem::replace(&mut outgoing_request.pending_response, new_sender),
 			_ => unimplemented!("unsupported request type"),
 		}
 	}
@@ -1075,6 +1086,7 @@ impl RequestExt for Requests {
 				outgoing_request.payload.encoded_size(),
 			Requests::AttestedCandidateV2(outgoing_request) =>
 				outgoing_request.payload.encoded_size(),
+			Requests::DisputeSendingV1(outgoing_request) => outgoing_request.payload.encoded_size(),
 			_ => unimplemented!("received an unexpected request"),
 		}
 	}
