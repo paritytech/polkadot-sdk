@@ -329,7 +329,9 @@ impl<T: Config<I>, I: 'static> ExporterFor for Pallet<T, I> {
 			target: LOG_TARGET,
 			?network,
 			?remote_location,
-			"Going to send message ({message_size} bytes) over bridge. Computed bridge fee {fee:?} using fee factor {fee_factor}"
+			bridge_fee=?fee,
+			%fee_factor,
+			"Going to send message ({message_size} bytes) over bridge."
 		);
 
 		Some((bridge_hub_location, fee))
