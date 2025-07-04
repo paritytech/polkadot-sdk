@@ -130,14 +130,14 @@ impl BenchCli {
 			.expect("File exists")
 			.test_configurations;
 		let num_steps = test_sequence.len();
-		gum::info!("{}", format!("Sequence contains {} step(s)", num_steps).bright_purple());
+		gum::info!("{}", format!("Sequence contains {num_steps} step(s)").bright_purple());
 
 		for (index, CliTestConfiguration { objective, mut test_config }) in
 			test_sequence.into_iter().enumerate()
 		{
 			let benchmark_name = format!("{} #{} {}", &self.path, index + 1, objective);
 			gum::info!(target: LOG_TARGET, "{}", format!("Step {}/{}", index + 1, num_steps).bright_purple(),);
-			gum::info!(target: LOG_TARGET, "[{}] {}", format!("objective = {:?}", objective).green(), test_config);
+			gum::info!(target: LOG_TARGET, "[{}] {}", format!("objective = {objective:?}").green(), test_config);
 			test_config.generate_pov_sizes();
 
 			let usage = match objective {
