@@ -15,7 +15,7 @@ function run_test {
     if [ -z "$ZOMBIE_BASE_DIR" ]; then
       ${ZOMBIE_COMMAND} -p native -c $CONCURRENCY test $i
     else
-      ${ZOMBIE_COMMAND} -p native -c $CONCURRENCY -d $ZOMBIE_BASE_DIR test $i
+      ${ZOMBIE_COMMAND} -p native -c $CONCURRENCY -d $ZOMBIE_BASE_DIR -f test $i
     fi;
     EXIT_STATUS=$?
   done;
