@@ -17,6 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::arg_enums::TracingReceiver;
+use crate::error;
 use clap::Args;
 use sc_service::config::BasePath;
 use std::path::PathBuf;
@@ -93,7 +94,7 @@ pub struct SharedParams {
 
 impl SharedParams {
 	/// Specify custom base path.
-	pub fn base_path(&self) -> Result<Option<BasePath>, crate::Error> {
+	pub fn base_path(&self) -> error::Result<Option<BasePath>> {
 		match &self.base_path {
 			Some(r) => Ok(Some(r.clone().into())),
 			// If `dev` is enabled, we use the temp base path.

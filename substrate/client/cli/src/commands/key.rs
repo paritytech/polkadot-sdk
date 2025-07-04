@@ -22,7 +22,7 @@ use super::{
 	generate::GenerateCmd, generate_node_key::GenerateNodeKeyCmd, insert_key::InsertKeyCmd,
 	inspect_key::InspectKeyCmd, inspect_node_key::InspectNodeKeyCmd,
 };
-use crate::{Error, SubstrateCli};
+use crate::{Result, SubstrateCli};
 
 /// Key utilities for the cli.
 #[derive(Debug, clap::Subcommand)]
@@ -46,7 +46,7 @@ pub enum KeySubcommand {
 
 impl KeySubcommand {
 	/// run the key subcommands
-	pub fn run<C: SubstrateCli>(&self, cli: &C) -> Result<(), Error> {
+	pub fn run<C: SubstrateCli>(&self, cli: &C) -> Result<()> {
 		match self {
 			KeySubcommand::GenerateNodeKey(cmd) => {
 				let chain_spec = cli.load_spec(cmd.chain.as_deref().unwrap_or(""))?;

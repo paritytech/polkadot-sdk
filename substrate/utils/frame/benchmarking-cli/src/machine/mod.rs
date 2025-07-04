@@ -203,7 +203,7 @@ impl MachineCmd {
 	fn check_failed(&self, e: Error) -> Result<()> {
 		if !self.allow_fail {
 			error!("Failing since --allow-fail is not set");
-			Err(sc_cli::Error::Application(Box::new(e)))
+			Err(sc_cli::Error::Application(Box::new(e)).boxed())
 		} else {
 			warn!("Ignoring error since --allow-fail is set: {:?}", e);
 			Ok(())

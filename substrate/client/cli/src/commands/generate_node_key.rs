@@ -18,7 +18,7 @@
 
 //! Implementation of the `generate-node-key` subcommand
 
-use crate::{build_network_key_dir_or_default, Error, NODE_KEY_ED25519_FILE};
+use crate::{build_network_key_dir_or_default, Error, Result, NODE_KEY_ED25519_FILE};
 use clap::{Args, Parser};
 use libp2p_identity::{ed25519, Keypair};
 use sc_service::BasePath;
@@ -70,14 +70,14 @@ pub struct GenerateNodeKeyCmd {
 
 impl GenerateKeyCmdCommon {
 	/// Run the command
-	pub fn run(&self) -> Result<(), Error> {
+	pub fn run(&self) -> Result<()> {
 		generate_key(&self.file, self.bin, None, &None, false, None)
 	}
 }
 
 impl GenerateNodeKeyCmd {
 	/// Run the command
-	pub fn run(&self, chain_spec_id: &str, executable_name: &String) -> Result<(), Error> {
+	pub fn run(&self, chain_spec_id: &str, executable_name: &String) -> Result<()> {
 		generate_key(
 			&self.common.file,
 			self.common.bin,
@@ -100,7 +100,7 @@ fn generate_key(
 	base_path: &Option<PathBuf>,
 	default_base_path: bool,
 	executable_name: Option<&String>,
-) -> Result<(), Error> {
+) -> Result<()> {
 	let keypair = ed25519::Keypair::generate();
 
 	let secret = keypair.secret();
@@ -125,7 +125,7 @@ fn generate_key(
 			let key_path = network_path.join(NODE_KEY_ED25519_FILE);
 			if key_path.exists() {
 				eprintln!("Skip generation, a key already exists in {:?}", key_path);
-				return Err(Error::KeyAlreadyExistsInPath(key_path));
+				return Err(Error::KeyAlreadyExistsInPath(key_path).boxed());
 			} else {
 				eprintln!("Generating key in {:?}", key_path);
 				fs::write(key_path, file_data)?
@@ -134,7 +134,7 @@ fn generate_key(
 		(None, None, false) => io::stdout().lock().write_all(&file_data)?,
 		(_, _, _) => {
 			// This should not happen, arguments are marked as mutually exclusive.
-			return Err(Error::Input("Mutually exclusive arguments provided".into()));
+			return Err(Error::Input("Mutually exclusive arguments provided".into()).boxed());
 		},
 	}
 

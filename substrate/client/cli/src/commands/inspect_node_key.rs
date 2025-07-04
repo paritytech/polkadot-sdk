@@ -18,7 +18,7 @@
 
 //! Implementation of the `inspect-node-key` subcommand
 
-use crate::Error;
+use crate::Result;
 use clap::Parser;
 use libp2p_identity::Keypair;
 use std::{
@@ -52,7 +52,7 @@ pub struct InspectNodeKeyCmd {
 
 impl InspectNodeKeyCmd {
 	/// runs the command
-	pub fn run(&self) -> Result<(), Error> {
+	pub fn run(&self) -> Result<()> {
 		let mut file_data = match &self.file {
 			Some(file) => fs::read(&file)?,
 			None => {

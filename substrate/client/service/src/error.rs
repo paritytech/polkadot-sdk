@@ -23,7 +23,7 @@ use sp_blockchain;
 use sp_consensus;
 
 /// Service Result typedef.
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, Box<Error>>;
 
 /// Service errors.
 #[derive(Debug, thiserror::Error)]
@@ -64,6 +64,13 @@ pub enum Error {
 	Other(String),
 }
 
+// impl Error {
+// 	/// Box this error.
+// 	fn boxed(self) -> Box<Error> {
+// 		Box::new(self)
+// 	}
+// }
+
 impl<'a> From<&'a str> for Error {
 	fn from(s: &'a str) -> Self {
 		Error::Other(s.into())
@@ -75,3 +82,24 @@ impl From<String> for Error {
 		Error::Other(s)
 	}
 }
+
+macro_rules! impl_into_boxed {
+	($variant:ident($t:ty)) => {
+		impl From<$t> for Box<Error> {
+			fn from(e: $t) -> Box<Error> {
+				Box::new(e.into())
+			}
+		}
+	};
+}
+
+impl_into_boxed!(Other(String));
+impl_into_boxed!(Other(&str));
+impl_into_boxed!(Client(sp_blockchain::Error));
+impl_into_boxed!(Io(std::io::Error));
+impl_into_boxed!(Consensus(sp_consensus::Error));
+impl_into_boxed!(Network(sc_network::error::Error));
+impl_into_boxed!(Keystore(sc_keystore::Error));
+impl_into_boxed!(Telemetry(sc_telemetry::Error));
+impl_into_boxed!(Prometheus(prometheus_endpoint::PrometheusError));
+impl_into_boxed!(Application(Box<dyn std::error::Error + Send + Sync + 'static>));

@@ -309,7 +309,7 @@ fn rpc_interface(
 			 a validator. Use `--unsafe-rpc-external` or `--rpc-methods=unsafe` if you understand \
 			 the risks. See the options description for more information."
 				.to_owned(),
-		));
+		).boxed());
 	}
 
 	if is_external || is_unsafe_external {

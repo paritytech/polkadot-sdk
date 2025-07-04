@@ -20,10 +20,10 @@ pub enum Error {
 	PolkadotService(#[from] polkadot_service::Error),
 
 	#[error(transparent)]
-	SubstrateCli(#[from] sc_cli::Error),
+	SubstrateCli(#[from] sc_cli::Error>),
 
 	#[error(transparent)]
-	SubstrateService(#[from] sc_service::Error),
+	SubstrateService(#[from] sc_service::Error>),
 
 	#[error(transparent)]
 	SubstrateTracing(#[from] sc_tracing::logging::Error),

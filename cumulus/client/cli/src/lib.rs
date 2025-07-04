@@ -77,7 +77,7 @@ impl PurgeChainCmd {
 					sc_cli::Error::Input(format!(
 						"Cannot purge custom database implementation of: {}",
 						chain_label,
-					))
+					)).boxed()
 				})
 			})
 			.collect::<sc_cli::Result<Vec<_>>>()?;

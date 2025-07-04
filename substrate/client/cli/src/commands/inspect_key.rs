@@ -20,7 +20,7 @@
 
 use crate::{
 	utils::{self, print_from_public, print_from_uri},
-	with_crypto_scheme, CryptoSchemeFlag, Error, KeystoreParams, NetworkSchemeFlag, OutputTypeFlag,
+	with_crypto_scheme, CryptoSchemeFlag, Result, KeystoreParams, NetworkSchemeFlag, OutputTypeFlag,
 };
 use clap::Parser;
 use sp_core::crypto::{ExposeSecret, SecretString, SecretUri, Ss58Codec};
@@ -74,7 +74,7 @@ pub struct InspectKeyCmd {
 
 impl InspectKeyCmd {
 	/// Run the command
-	pub fn run(&self) -> Result<(), Error> {
+	pub fn run(&self) -> Result<()> {
 		let uri = utils::read_uri(self.uri.as_ref())?;
 		let password = self.keystore_params.read_password()?;
 
@@ -120,7 +120,7 @@ fn expect_public_from_phrase<Pair: sp_core::Pair>(
 	expect_public: &str,
 	suri: &str,
 	password: Option<&SecretString>,
-) -> Result<(), Error> {
+) -> Result<()> {
 	let secret_uri = SecretUri::from_str(suri).map_err(|e| format!("{:?}", e))?;
 	let expected_public = if let Some(public) = expect_public.strip_prefix("0x") {
 		let hex_public = array_bytes::hex2bytes(public)

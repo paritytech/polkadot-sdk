@@ -310,7 +310,7 @@
 
 use clap::Parser;
 use sc_cli::{
-	Error, GenerateCmd, GenerateKeyCmdCommon, InspectKeyCmd, InspectNodeKeyCmd, SignCmd, VanityCmd,
+	Result, GenerateCmd, GenerateKeyCmdCommon, InspectKeyCmd, InspectNodeKeyCmd, SignCmd, VanityCmd,
 	VerifyCmd,
 };
 
@@ -346,7 +346,7 @@ pub enum Subkey {
 }
 
 /// Run the subkey command, given the appropriate runtime.
-pub fn run() -> Result<(), Error> {
+pub fn run() -> Result<()> {
 	match Subkey::parse() {
 		Subkey::GenerateNodeKey(cmd) => cmd.run(),
 		Subkey::Generate(cmd) => cmd.run(),

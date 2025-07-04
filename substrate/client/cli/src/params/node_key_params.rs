@@ -119,7 +119,7 @@ impl NodeKeyParams {
 						role.is_authority() &&
 						!is_dev && !key_path.exists()
 					{
-						return Err(Error::NetworkKeyNotFound(key_path))
+						return Err(Error::NetworkKeyNotFound(key_path).boxed())
 					}
 					sc_network::config::Secret::File(key_path)
 				};
@@ -137,10 +137,10 @@ fn invalid_node_key(e: impl std::fmt::Display) -> error::Error {
 
 /// Parse a Ed25519 secret key from a hex string into a `sc_network::Secret`.
 fn parse_ed25519_secret(hex: &str) -> error::Result<sc_network::config::Ed25519Secret> {
-	H256::from_str(hex).map_err(invalid_node_key).and_then(|bytes| {
+	H256::from_str(hex).map_err(|e| invalid_node_key(e).boxed()).and_then(|bytes| {
 		ed25519::SecretKey::try_from_bytes(bytes)
 			.map(sc_network::config::Secret::Input)
-			.map_err(invalid_node_key)
+			.map_err(|e| invalid_node_key(e).boxed())
 	})
 }
 
@@ -170,7 +170,7 @@ mod tests {
 					NodeKeyConfig::Ed25519(sc_network::config::Secret::Input(ref ski))
 						if node_key_type == NodeKeyType::Ed25519 && &sk[..] == ski.as_ref() =>
 						Ok(()),
-					_ => Err(error::Error::Input("Unexpected node key config".into())),
+					_ => Err(error::Error::Input("Unexpected node key config".into()).boxed()),
 				})
 			})
 		}
@@ -242,7 +242,7 @@ mod tests {
 							if typ == NodeKeyType::Ed25519 &&
 								f == &dir.join(NODE_KEY_ED25519_FILE) =>
 							Ok(()),
-						_ => Err(error::Error::Input("Unexpected node key config".into())),
+						_ => Err(error::Error::Input("Unexpected node key config".into()).boxed()),
 					})
 				},
 				unsafe_force_node_key_generation,
@@ -257,7 +257,7 @@ mod tests {
 			some_config_dir(&PathBuf::from_str("x").unwrap(), true, Role::Authority, false).is_ok()
 		);
 		assert!(matches!(
-			some_config_dir(&PathBuf::from_str("x").unwrap(), false, Role::Authority, false),
+			some_config_dir(&PathBuf::from_str("x").unwrap(), false, Role::Authority, false).map_err(|e| *e),
 			Err(Error::NetworkKeyNotFound(_))
 		));
 

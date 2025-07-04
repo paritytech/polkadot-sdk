@@ -162,7 +162,7 @@ where
 						Err(ApplyExtrinsicFailed(Validity(TransactionValidityError::Invalid(
 							InvalidTransaction::ExhaustsResources,
 						)))) => break, // Block is full
-						Err(e) => return Err(Error::Client(e)),
+						Err(e) => return Err(Error::Client(e).boxed()),
 					}
 					num_ext += 1;
 				}

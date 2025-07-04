@@ -23,7 +23,7 @@ use std::path::PathBuf;
 use sp_core::crypto;
 
 /// Result type alias for the CLI.
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, Box<Error>>;
 
 /// Error type for the CLI.
 #[derive(Debug, thiserror::Error)]
@@ -96,6 +96,13 @@ pub enum Error {
 	KeyAlreadyExistsInPath(PathBuf),
 }
 
+impl Error {
+	/// Box this error.
+	pub fn boxed(self) -> Box<Error> {
+		Box::new(self)
+	}
+}
+
 impl From<&str> for Error {
 	fn from(s: &str) -> Error {
 		Error::Input(s.to_string())
@@ -119,3 +126,33 @@ impl From<array_bytes::Error> for Error {
 		Error::HexDataConversion(e)
 	}
 }
+
+impl From<Box<sc_service::Error>> for Error {
+	fn from(e: Box<sc_service::Error>) -> Error {
+		Error::Service(*e)
+	}
+}
+
+macro_rules! impl_into_boxed {
+	($variant:ident($t:ty)) => {
+		impl From<$t> for Box<Error> {
+			fn from(e: $t) -> Box<Error> {
+				Box::new(e.into())
+			}
+		}
+	};
+}
+
+impl_into_boxed!(Input(String));
+impl_into_boxed!(Input(&str));
+impl_into_boxed!(Io(std::io::Error));
+impl_into_boxed!(Cli(clap::Error));
+impl_into_boxed!(Service(sc_service::Error));
+impl_into_boxed!(Service(Box<sc_service::Error>));
+impl_into_boxed!(Client(sp_blockchain::Error));
+impl_into_boxed!(Codec(codec::Error));
+impl_into_boxed!(InvalidUri(crypto::PublicError));
+impl_into_boxed!(KeyStorage(sc_keystore::Error));
+impl_into_boxed!(HexDataConversion(array_bytes::Error));
+impl_into_boxed!(Application(Box<dyn std::error::Error + Send + Sync + 'static>));
+impl_into_boxed!(GlobalLoggerError(sc_tracing::logging::Error));

@@ -19,7 +19,7 @@
 //! Implementation of the `insert` subcommand
 
 use crate::{
-	utils, with_crypto_scheme, CryptoScheme, Error, KeystoreParams, SharedParams, SubstrateCli,
+	utils, with_crypto_scheme, CryptoScheme, Error, Result, KeystoreParams, SharedParams, SubstrateCli,
 };
 use clap::Parser;
 use sc_keystore::LocalKeystore;
@@ -56,7 +56,7 @@ pub struct InsertKeyCmd {
 
 impl InsertKeyCmd {
 	/// Run the command
-	pub fn run<C: SubstrateCli>(&self, cli: &C) -> Result<(), Error> {
+	pub fn run<C: SubstrateCli>(&self, cli: &C) -> Result<()> {
 		let suri = utils::read_uri(self.suri.as_ref())?;
 		let base_path = self
 			.shared_params
@@ -86,7 +86,7 @@ impl InsertKeyCmd {
 	}
 }
 
-fn to_vec<P: sp_core::Pair>(uri: &str, pass: Option<SecretString>) -> Result<Vec<u8>, Error> {
+fn to_vec<P: sp_core::Pair>(uri: &str, pass: Option<SecretString>) -> Result<Vec<u8>> {
 	let p = utils::pair_from_suri::<P>(uri, pass)?;
 	Ok(p.public().as_ref().to_vec())
 }

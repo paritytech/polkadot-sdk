@@ -18,7 +18,7 @@
 
 //! Implementation of the `generate` subcommand
 use crate::{
-	utils::print_from_uri, with_crypto_scheme, CryptoSchemeFlag, Error, KeystoreParams,
+	utils::print_from_uri, with_crypto_scheme, CryptoSchemeFlag, Result, Error, KeystoreParams,
 	NetworkSchemeFlag, OutputTypeFlag,
 };
 use bip39::Mnemonic;
@@ -52,7 +52,7 @@ pub struct GenerateCmd {
 
 impl GenerateCmd {
 	/// Run the command
-	pub fn run(&self) -> Result<(), Error> {
+	pub fn run(&self) -> Result<()> {
 		let words = match self.words {
 			Some(words_count) if [12, 15, 18, 21, 24].contains(&words_count) => Ok(words_count),
 			Some(_) => Err(Error::Input(
