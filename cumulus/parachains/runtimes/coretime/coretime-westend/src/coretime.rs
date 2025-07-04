@@ -292,10 +292,10 @@ impl CoretimeInterface for CoretimeAllocator {
 			Balances::reducible_balance(&stash, Preservation::Expendable, Fortitude::Polite);
 
 		if value > 0 {
-			tracing::debug!(target: "runtime::coretime", ?value, "Going to burn stashed tokens at RC");
+			tracing::debug!(target: "runtime::coretime", %value, "Going to burn stashed tokens at RC");
 			match burn_at_relay(&stash, value) {
 				Ok(()) => {
-					tracing::debug!(target: "runtime::coretime", ?value, "Successfully burnt tokens");
+					tracing::debug!(target: "runtime::coretime", %value, "Successfully burnt tokens");
 				},
 				Err(err) => {
 					tracing::error!(target: "runtime::coretime", error=?err, "burn_at_relay failed");

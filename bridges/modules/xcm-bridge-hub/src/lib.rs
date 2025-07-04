@@ -390,7 +390,7 @@ pub mod pallet {
 					bridge_origin=?locations.bridge_origin_universal_location(),
 					bridge_destination=?locations.bridge_destination_universal_location(),
 					lane_id=?bridge.lane_id,
-					messages_remaining=?enqueued_messages,
+					messages_remaining=%enqueued_messages,
 					"Bridge is closing."
 				);
 

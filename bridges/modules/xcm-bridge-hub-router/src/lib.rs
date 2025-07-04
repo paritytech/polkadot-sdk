@@ -131,8 +131,8 @@ pub mod pallet {
 
 			tracing::info!(
 				target: LOG_TARGET,
-				from=?previous_factor,
-				to=?bridge.delivery_fee_factor,
+				from=%previous_factor,
+				to=%bridge.delivery_fee_factor,
 				"Bridge channel is uncongested. Decreased fee factor"
 			);
 			Self::deposit_event(Event::DeliveryFeeFactorDecreased {
@@ -162,7 +162,7 @@ pub mod pallet {
 			tracing::info!(
 				target: LOG_TARGET,
 				?bridge_id,
-				congested=?is_congested,
+				congested=%is_congested,
 				"Received bridge status"
 			);
 
@@ -215,8 +215,8 @@ pub mod pallet {
 
 				tracing::info!(
 					target: LOG_TARGET,
-					from=?previous_factor,
-					to=?bridge.delivery_fee_factor,
+					from=%previous_factor,
+					to=%bridge.delivery_fee_factor,
 					"Bridge channel is congested. Increased fee factor"
 				);
 				Self::deposit_event(Event::DeliveryFeeFactorIncreased {
@@ -329,7 +329,7 @@ impl<T: Config<I>, I: 'static> ExporterFor for Pallet<T, I> {
 			target: LOG_TARGET,
 			?network,
 			?remote_location,
-			"Going to send message to ({message_size} bytes) over bridge. Computed bridge fee {fee:?} using fee factor {fee_factor}"
+			"Going to send message ({message_size} bytes) over bridge. Computed bridge fee {fee:?} using fee factor {fee_factor}"
 		);
 
 		Some((bridge_hub_location, fee))

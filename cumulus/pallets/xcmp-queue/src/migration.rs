@@ -225,7 +225,7 @@ pub mod v3 {
 		tracing::debug!(
 			target: LOG,
 			sibling=?next.sender,
-			msgs_left=?next.message_metadata.len(),
+			msgs_left=%next.message_metadata.len(),
 			"Migrating inbound HRMP channel."
 		);
 		// We take the last element since the MQ is a FIFO and we want to keep the order.

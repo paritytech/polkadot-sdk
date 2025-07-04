@@ -277,7 +277,7 @@ pub mod pallet {
 			if meter.try_consume(Self::on_idle_weight()).is_err() {
 				tracing::debug!(
 					target: LOG_TARGET,
-					on_idle=?Self::on_idle_weight(), ?limit,
+					on_idle=%Self::on_idle_weight(), %limit,
 					"Not enough weight for on_idle."
 				);
 				return meter.consumed()

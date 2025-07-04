@@ -1028,8 +1028,8 @@ fn change_xcm_bridge_hub_router_base_fee_by_governance_works() {
 		|| {
 			tracing::error!(
 				target: "bridges::estimate",
-				actual_value=?bridging::XcmBridgeHubRouterBaseFee::get(),
-				runtime=?<Runtime as frame_system::Config>::Version::get(),
+				actual_value=%bridging::XcmBridgeHubRouterBaseFee::get(),
+				runtime=%<Runtime as frame_system::Config>::Version::get(),
 				"`bridging::XcmBridgeHubRouterBaseFee`"
 			);
 			(
@@ -1060,8 +1060,8 @@ fn change_xcm_bridge_hub_ethereum_base_fee_by_governance_works() {
 		|| {
 			tracing::error!(
 				target: "bridges::estimate",
-				actual_value=?bridging::to_ethereum::BridgeHubEthereumBaseFee::get(),
-				runtime=?<Runtime as frame_system::Config>::Version::get(),
+				actual_value=%bridging::to_ethereum::BridgeHubEthereumBaseFee::get(),
+				runtime=%<Runtime as frame_system::Config>::Version::get(),
 				"`bridging::BridgeHubEthereumBaseFee`"
 			);
 			(

@@ -192,7 +192,7 @@ where
 			topic_id=?id,
 			bridge_id=?bridge_id,
 			lane_id=?bridge.lane_id,
-			nonce=?artifacts.nonce,
+			nonce=%artifacts.nonce,
 			"XCM message has been enqueued"
 		);
 

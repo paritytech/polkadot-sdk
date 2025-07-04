@@ -48,7 +48,7 @@ pub fn check_sane_fees_values(
 	sp_tracing::try_init_simple();
 	tracing::error!(
 		target: "bridges::estimate",
-		?label, constant=?const_name, ?actual, ?estimated,
+		%label, constant=%const_name, %actual, %estimated,
 		"{diff_to_estimated:.2?})\n[+] estimated(+33%): {estimated_plus_overestimate} ({diff_to_estimated_plus_overestimate:.2?}"
 	);
 
