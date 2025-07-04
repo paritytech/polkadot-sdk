@@ -443,11 +443,9 @@ fn create2_precompile_works() {
 
 	let (code, _) = compile_module("dummy").unwrap();
 
-	let value = [0u8; 32];
 	let salt = [42u8; 32];
 
 	let mut input = Vec::new();
-	input.extend_from_slice(&value);
 	input.extend_from_slice(&salt);
 	input.extend_from_slice(&code);
 

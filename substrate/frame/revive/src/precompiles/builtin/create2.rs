@@ -17,18 +17,18 @@
 
 use crate::{
 	address::AddressMapper,
-	precompiles::{BuiltinAddressMatcher, Error, ExtWithInfo, PrimitivePrecompile}, Config, H256,
+	precompiles::{BuiltinAddressMatcher, Error, ExtWithInfo, PrimitivePrecompile},
+	Config, H256,
 };
 use alloc::{vec, vec::Vec};
 use core::{marker::PhantomData, num::NonZero};
+use sp_arithmetic::traits::SaturatedConversion;
 use sp_core::U256;
 use sp_runtime::DispatchError;
-use sp_arithmetic::traits::SaturatedConversion;
-
 
 // upload the code before instantiate like in try_upload_code
 // maybe dont need to change instantiate, could be fine to always use create2 address
-// replace asserts with return Err
+// take endowment/value from the env
 
 pub struct Create2<T>(PhantomData<T>);
 
@@ -42,8 +42,6 @@ impl<T: Config> PrimitivePrecompile for Create2<T> {
 		input: Vec<u8>,
 		env: &mut impl ExtWithInfo<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		// TODO(RVE): replace asserts with Err?
-
 		let gas_limit = env.gas_meter().gas_left();
 
 		let storage_deposit_limit = env.storage_meter().available();
@@ -51,12 +49,11 @@ impl<T: Config> PrimitivePrecompile for Create2<T> {
 		if input.len() < 64 {
 			Err(DispatchError::from("invalid input length"))?;
 		}
-		let endowment = U256::from_big_endian(
-			input[0..32].try_into().map_err(|_| DispatchError::from("invalid endowment"))?,
-		);
-		let salt: &[u8; 32] = &input[32..64].try_into()
+		let endowment = env.value_transferred();
+		let salt: &[u8; 32] = &input[0..32]
+			.try_into()
 			.map_err(|_| DispatchError::from("invalid salt length"))?;
-		let code = &input[64..];
+		let code = &input[32..];
 
 		let caller = env.caller();
 		let deployer_account_id = caller
@@ -70,7 +67,8 @@ impl<T: Config> PrimitivePrecompile for Create2<T> {
 
 		let instantiate_address = env.instantiate(
 			gas_limit,
-			U256::from(storage_deposit_limit.saturated_into::<u128>()), // Convert to U256 for deposit limit
+			U256::from(storage_deposit_limit.saturated_into::<u128>()), /* Convert to U256 for
+			                                                             * deposit limit */
 			H256::from(code_hash),
 			endowment,
 			vec![], // input data for constructor, if any?
