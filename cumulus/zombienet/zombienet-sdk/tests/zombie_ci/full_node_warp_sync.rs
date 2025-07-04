@@ -37,7 +37,7 @@
 //! cargo build -p cumulus-test-runtime --release
 //! ```
 //!
-//! 	2. Build `chain-spec-builder`:
+//! 2. Build `chain-spec-builder`:
 //!
 //!	```bash
 //!	cargo build -p staging-chain-spec-builder --release
@@ -62,7 +62,7 @@
 //!
 //! 2. Export `rococo-local` chainspec:
 //! ```bash
-//! polkadot export-chain-spec --chain rococo-local > chain_specc.json
+//! polkadot export-chain-spec --chain rococo-local > chain_spec.json
 //! ```
 //!
 //! 3. Replace the chain spec:
@@ -80,7 +80,7 @@
 //! 1. Comment the `with_db_snapshot` setters.
 //! 2. make `alice` and `eve` archive nodes by adding:
 //! ```ignore
-//! .with_args(vec![("--state-prunning", "archive")])
+//! .with_args(vec![("--state-pruning", "archive")])
 //! ```
 //! 3. Increase the `wait_metric_with_timeout(.., .., 225u64)` timeout parameter to something like
 //! `86400u64` (a day worth of running, which should be sufficient time for the node to reach the
