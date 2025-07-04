@@ -3,9 +3,13 @@
 
 use anyhow::anyhow;
 use codec::{Compact, Decode, Encode};
-use cumulus_primitives_core::{relay_chain, rpsr_digest::RPSR_CONSENSUS_ID, CumulusDigestItem};
+use cumulus_primitives_core::{
+	relay_chain, rpsr_digest::RPSR_CONSENSUS_ID, CoreInfo, CumulusDigestItem, RelayBlockIdentifier,
+};
 use futures::{pin_mut, select, stream::StreamExt, TryStreamExt};
-use polkadot_primitives::{vstaging::CandidateReceiptV2, Id as ParaId};
+use polkadot_primitives::{
+	vstaging::CandidateReceiptV2, BlakeTwo256, HashT, HeadData, Id as ParaId,
+};
 use sp_runtime::traits::Zero;
 use std::{
 	cmp::max,
@@ -59,8 +63,7 @@ fn find_event_and_decode_fields<T: Decode>(
 	for event in events.iter() {
 		let event = event?;
 		if event.pallet_name() == pallet && event.variant_name() == variant {
-			let field_bytes = event.field_bytes().to_vec();
-			result.push(T::decode(&mut &field_bytes[..])?);
+			result.push(T::decode(&mut &event.field_bytes()[..])?);
 		}
 	}
 	Ok(result)
@@ -255,53 +258,43 @@ pub async fn assert_para_throughput(
 	Ok(())
 }
 
-/// Returns the header of the relay parent used by the given parachain `block`.
-async fn relay_parent_for(
+/// Returns [`CoreInfo`] for the given parachain block.
+fn find_core_info(
 	block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
-	relay_rpc_client: &LegacyRpcMethods<PolkadotConfig>,
-) -> Result<<PolkadotConfig as Config>::Header, anyhow::Error> {
+) -> Result<CoreInfo, anyhow::Error> {
 	let substrate_digest =
 		sp_runtime::generic::Digest::decode(&mut &block.header().digest.encode()[..])
 			.expect("`subxt::Digest` and `substrate::Digest` should encode and decode; qed");
 
-	match CumulusDigestItem::find_relay_block_identifier(&substrate_digest).unwrap() {
-		cumulus_primitives_core::RelayBlockIdentifier::ByHash(hash) => relay_rpc_client
-			.chain_get_header(Some(hash))
-			.await?
-			.ok_or_else(|| anyhow!("Could not fetch relay chain header: {hash:?}")),
-		cumulus_primitives_core::RelayBlockIdentifier::ByStorageRoot {
-			storage_root,
-			block_number,
-		} => {
-			let block_hash = relay_rpc_client
-				.chain_get_block_hash(Some(block_number.into()))
-				.await?
-				.ok_or_else(|| anyhow!("Could not fetch block hash for block: {}", block_number))?;
-
-			let header = relay_rpc_client
-				.chain_get_header(Some(block_hash))
-				.await?
-				.ok_or_else(|| anyhow!("Could not fetch real chain header: {block_hash:?}"))?;
-
-			assert_eq!(storage_root, header.state_root, "Storage roots should match");
-			Ok(header)
-		},
-	}
+	CumulusDigestItem::find_core_info(&substrate_digest)
+		.ok_or_else(|| anyhow!("Failed to find `CoreInfo` digest"))
 }
 
-/// Count the number of `CandidateBacked` events for the given `para_id`.
-async fn count_candidate_backed_events(
+/// Returns [`RelayBlockIdentifier`] for the given parachain block.
+fn find_relay_block_identifier(
+	block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+) -> Result<RelayBlockIdentifier, anyhow::Error> {
+	let substrate_digest =
+		sp_runtime::generic::Digest::decode(&mut &block.header().digest.encode()[..])
+			.expect("`subxt::Digest` and `substrate::Digest` should encode and decode; qed");
+
+	CumulusDigestItem::find_relay_block_identifier(&substrate_digest)
+		.ok_or_else(|| anyhow!("Failed to find `RelayBlockIdentifier` digest"))
+}
+
+/// Find the `CandidateIncluded` events for the given `para_id`.
+async fn find_candidate_included_events(
 	para_id: ParaId,
 	block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
-) -> Result<usize, anyhow::Error> {
+) -> Result<Vec<CandidateReceiptV2<H256>>, anyhow::Error> {
 	let events = block.events().await?;
 
 	find_event_and_decode_fields::<CandidateReceiptV2<H256>>(
 		&events,
 		"ParaInclusion",
-		"CandidateBacked",
+		"CandidateIncluded",
 	)
-	.map(|events| events.iter().filter(|e| e.descriptor.para_id() == para_id).count())
+	.map(|events| events.into_iter().filter(|e| e.descriptor.para_id() == para_id).collect())
 }
 
 /// Assert that `stop_after` parachain blocks are included via `expected_relay_blocks`.
@@ -320,48 +313,74 @@ pub async fn assert_para_blocks_throughput(
 	// Wait for the first session, block production on the parachain will start after that.
 	wait_for_first_session_change(&mut relay_client.blocks().subscribe_best().await?).await?;
 
+	para_client
+		.blocks()
+		.subscribe_finalized()
+		.await?
+		.try_filter(|b| {
+			futures::future::ready(find_core_info(b).map_or(false, |info| {
+				expected_candidates_per_relay_block.contains(&(info.number_of_cores.0 as usize))
+			}))
+		})
+		.next()
+		.await
+		.transpose()?;
+
 	let finalized_stream = para_client.blocks().subscribe_finalized().await?.fuse();
 	let finalized_relay_blocks = relay_client.blocks().subscribe_finalized().await?.fuse();
-	let start_relay_block = relay_client.blocks().at_latest().await?.number();
+	let start_relay_block = relay_client
+		.blocks()
+		.subscribe_best()
+		.await?
+		.next()
+		.await
+		.ok_or_else(|| anyhow!("Could not get a best block from the relay chain"))??;
 
-	let mut finalized_blocks = Vec::new();
+	let mut finalized_parachain_blocks = Vec::new();
 
 	pin_mut!(finalized_stream);
 	pin_mut!(finalized_relay_blocks);
 
-	loop {
+	let last_finalized_relay_block = loop {
 		select! {
 			finalized = finalized_stream.select_next_some() => {
 				let finalized = finalized?;
-				if !finalized.number().is_zero() {
-					finalized_blocks.push(finalized);
-
-					if finalized_blocks.len() >= stop_after {
-						break
-					}
+				if !finalized.number().is_zero() && finalized_parachain_blocks.len() < stop_after {
+					finalized_parachain_blocks.push(finalized);
 				}
 			},
 			finalized = finalized_relay_blocks.select_next_some() => {
-				let num_relay_chain_blocks = finalized?.number().saturating_sub(start_relay_block);
+				let finalized = finalized?;
+				let num_relay_chain_blocks = finalized.number().saturating_sub(start_relay_block.number());
+
+				// If we have recorded enough parachain blocks
+				if finalized_parachain_blocks.len() >= stop_after {
+					break finalized
+				}
 
 				// `start_relay_block` maybe not being finalized at the beginning, but we just
 				// need some good estimation to ensure the tests ends at some point if there is some issue.
 				if num_relay_chain_blocks >= expected_relay_blocks.end {
-					panic!("Already processed more relay chain blocks ({num_relay_chain_blocks}) \
-						than allowed in the range ({expected_relay_blocks:?}).")
+					return Err(anyhow!("Already processed more relay chain blocks ({num_relay_chain_blocks}) \
+						than allowed in the range ({expected_relay_blocks:?})."))
 				}
 			},
 			complete => { panic!("Both streams should not finish"); }
 		}
-	}
+	};
 
-	let first_relay_header = relay_parent_for(&finalized_blocks[0], relay_rpc_client).await?;
-	let last_relay_header =
-		relay_parent_for(finalized_blocks.last().unwrap(), relay_rpc_client).await?;
+	// The number of cores occupied by the parachain candidates, ignoring session changes.
+	let mut occupied_relay_chain_blocks = 0;
+	// Did we found the first candidate matching one of our expected parachain blocks?
+	let mut found_first_candidate = false;
+	let mut current_relay_header = last_finalized_relay_block.header().clone();
+	loop {
+		if current_relay_header.number().is_zero() {
+			return Err(anyhow!(
+				"Reached relay genesis block without finding all parachain blocks?"
+			));
+		}
 
-	let mut relay_blocks_without_session_change = 0;
-	let mut current_relay_header = last_relay_header.clone();
-	while current_relay_header.number() >= first_relay_header.number() {
 		let block = relay_rpc_client
 			.chain_get_block(Some(current_relay_header.hash()))
 			.await?
@@ -372,16 +391,51 @@ pub async fn assert_para_blocks_throughput(
 
 		let block = relay_client.blocks().at(block.header.hash()).await?;
 
+		let included_events = find_candidate_included_events(para_id, &block).await?;
+
+		let included_parachain_block_identifiers = included_events
+			.iter()
+			.filter_map(|i| {
+				finalized_parachain_blocks.iter().rev().find_map(|p| {
+					(BlakeTwo256::hash_of(p.header()) == i.descriptor.para_head()).then(|| {
+						find_core_info(&p)
+							.and_then(|c| find_relay_block_identifier(&p).map(|rbi| (c, rbi)))
+					})
+				})
+			})
+			.collect::<Result<Vec<_>, _>>()?;
+
+		finalized_parachain_blocks.retain(|b| {
+			let core_info = find_core_info(b).unwrap();
+			let rbi = find_relay_block_identifier(b).unwrap();
+
+			!included_parachain_block_identifiers.contains(&(core_info, rbi))
+		});
+
+		dbg!(block.number());
+
 		if !is_session_change(&block).await? {
-			relay_blocks_without_session_change += 1;
+			found_first_candidate |= !included_parachain_block_identifiers.is_empty();
+
+			if found_first_candidate {
+				occupied_relay_chain_blocks += 1;
+			}
+
+			if !included_parachain_block_identifiers.is_empty() &&
+				!expected_candidates_per_relay_block
+					.contains(&included_parachain_block_identifiers.len())
+			{
+				return Err(anyhow!(
+					"{} candidates did not match the expected {expected_candidates_per_relay_block:?} \
+					candidates per relay chain block", included_parachain_block_identifiers.len()
+				))
+			}
 		}
 
-		let candidate_count = count_candidate_backed_events(para_id, &block).await?;
-
-		assert!(
-			expected_candidates_per_relay_block.contains(&candidate_count),
-			"Expected `CandidateBacked` count of {expected_candidates_per_relay_block:?} but only got {candidate_count}",
-		);
+		dbg!(finalized_parachain_blocks.len());
+		if finalized_parachain_blocks.is_empty() {
+			break
+		}
 
 		current_relay_header = relay_rpc_client
 			.chain_get_header(Some(current_relay_header.parent_hash))
@@ -394,11 +448,9 @@ pub async fn assert_para_blocks_throughput(
 			})?;
 	}
 
-	assert!(
-		expected_relay_blocks.contains(&relay_blocks_without_session_change),
-		"{relay_blocks_without_session_change} relay chain blocks is not in the \
-		 expected range of {relay_blocks_without_session_change} relay chain blocks.",
-	);
+	if !expected_relay_blocks.contains(&occupied_relay_chain_blocks) {
+		return Err(anyhow!("{occupied_relay_chain_blocks} did not match the expected {expected_candidates_per_relay_block:?} relay chain blocks"))
+	}
 
 	Ok(())
 }

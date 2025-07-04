@@ -226,6 +226,7 @@ pub struct CoreInfo {
 }
 
 /// Identifier for a relay chain block used by [`CumulusDigestItem`].
+#[derive(Clone, Debug, PartialEq)]
 pub enum RelayBlockIdentifier {
 	/// The block is identified using its block hash.
 	ByHash(relay_chain::Hash),
