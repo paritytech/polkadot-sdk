@@ -42,6 +42,7 @@ jq -r '.relay.nodes[].name' "$ZOMBIE_JSON" | while read -r name; do
     # Fetching logs from k8s
     if ! kubectl logs "$name" -c "$name" -n "$NS" > "$TARGET_DIR/$name.log" ; then
       echo "::warning ::Failed to fetch logs for $name"
+    fi
   else
     # zombienet v1 dump the logs to the `/logs` directory
     if [ ! -f "$TARGET_DIR/$name.log" ]; then
