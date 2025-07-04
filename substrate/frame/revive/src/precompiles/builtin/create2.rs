@@ -17,8 +17,7 @@
 
 use crate::{
 	address::AddressMapper,
-	precompiles::{BuiltinAddressMatcher, Error, ExtWithInfo, PrimitivePrecompile},
-	BalanceOf, Config, H256,
+	precompiles::{BuiltinAddressMatcher, Error, ExtWithInfo, PrimitivePrecompile}, Config, H256,
 };
 use alloc::{vec, vec::Vec};
 use core::{marker::PhantomData, num::NonZero};
@@ -27,10 +26,9 @@ use sp_runtime::DispatchError;
 use sp_arithmetic::traits::SaturatedConversion;
 
 
-// only get salt and code from input
-// expose deposit meter and use gas meter from env
 // upload the code before instantiate like in try_upload_code
 // maybe dont need to change instantiate, could be fine to always use create2 address
+// replace asserts with return Err
 
 pub struct Create2<T>(PhantomData<T>);
 
@@ -46,10 +44,8 @@ impl<T: Config> PrimitivePrecompile for Create2<T> {
 	) -> Result<Vec<u8>, Error> {
 		// TODO(RVE): replace asserts with Err?
 
-		// TODO(RVE): what value to put here?
 		let gas_limit = env.gas_meter().gas_left();
 
-		// TODO(RVE): what value to put here?
 		let storage_deposit_limit = env.storage_meter().available();
 
 		if input.len() < 64 {
@@ -81,7 +77,9 @@ impl<T: Config> PrimitivePrecompile for Create2<T> {
 			Some(salt),
 			Some(&deployer),
 		)?;
-		assert_eq!(instantiate_address, contract_address);
+		if instantiate_address != contract_address {
+			Err(DispatchError::from("contract address mismatch"))?;
+		}
 
 		// Pad the contract address to 32 bytes (left padding with zeros)
 		let mut padded = [0u8; 32];
