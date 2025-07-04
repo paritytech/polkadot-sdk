@@ -20,6 +20,8 @@
 
 use crate::{Pallet as Staking, *};
 use core::marker::PhantomData;
+
+#[cfg(feature = "runtime-benchmarks")]
 use frame_benchmarking::account;
 use frame_system::RawOrigin;
 use rand_chacha::{
