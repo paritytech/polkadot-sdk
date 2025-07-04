@@ -29,6 +29,9 @@ use sp_runtime::{
 	traits::{ConstU16, ConvertToValue, Identity, Replace}
 };
 
+#[cfg(feature = "runtime-benchmarks")]
+use crate::impls::benchmarks::OpenHrmpChannel;
+
 use xcm::prelude::*;
 use xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
 

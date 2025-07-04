@@ -19,10 +19,7 @@ use collectives_westend_runtime::{
 };
 use frame_support::{
 	assert_ok,
-	traits::{
-		fungibles::{Inspect as FungiblesInspect, Mutate},
-		tokens::Pay,
-	},
+	traits::{fungibles::Mutate, tokens::Pay},
 };
 use xcm_executor::traits::ConvertLocation;
 
@@ -103,7 +100,6 @@ fn pay_salary_secretary() {
 
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-		println!("Recipient balance before: {}", recipient_balance);
 		assert_expected_events!(
 			AssetHubWestend,
 			vec![
