@@ -24,6 +24,13 @@ use alloc::{vec, vec::Vec};
 use core::{marker::PhantomData, num::NonZero};
 use sp_core::U256;
 use sp_runtime::DispatchError;
+use sp_arithmetic::traits::SaturatedConversion;
+
+
+// only get salt and code from input
+// expose deposit meter and use gas meter from env
+// upload the code before instantiate like in try_upload_code
+// maybe dont need to change instantiate, could be fine to always use create2 address
 
 pub struct Create2<T>(PhantomData<T>);
 
@@ -40,64 +47,20 @@ impl<T: Config> PrimitivePrecompile for Create2<T> {
 		// TODO(RVE): replace asserts with Err?
 
 		// TODO(RVE): what value to put here?
-		let gas_limit = frame_support::weights::Weight::MAX;
+		let gas_limit = env.gas_meter().gas_left();
 
 		// TODO(RVE): what value to put here?
-		let _storage_deposit_limit = crate::DepositLimit::<BalanceOf<Self::T>>::UnsafeOnlyForDryRun;
+		let storage_deposit_limit = env.storage_meter().available();
 
-		if input.len() < 160 {
+		if input.len() < 64 {
 			Err(DispatchError::from("invalid input length"))?;
 		}
 		let endowment = U256::from_big_endian(
 			input[0..32].try_into().map_err(|_| DispatchError::from("invalid endowment"))?,
 		);
-		let code_offset = U256::from_big_endian(
-			input[32..64]
-				.try_into()
-				.map_err(|_| DispatchError::from("invalid code offset length"))?,
-		);
-		let code_length = U256::from_big_endian(
-			input[64..96]
-				.try_into()
-				.map_err(|_| DispatchError::from("invalid code length length"))?,
-		);
-		let salt_offset = U256::from_big_endian(
-			input[96..128]
-				.try_into()
-				.map_err(|_| DispatchError::from("invalid salt offset length"))?,
-		);
-		let salt_length = U256::from_big_endian(
-			input[128..160]
-				.try_into()
-				.map_err(|_| DispatchError::from("invalid salt length length"))?,
-		);
-
-		// check offsets and lengths are not out of bounds for u64
-		assert!(code_offset <= U256::from(u64::MAX), "code_offset is out of bounds");
-		assert!(code_length <= U256::from(u64::MAX), "code_length is out of bounds");
-		assert!(salt_offset <= U256::from(u64::MAX), "salt_offset is out of bounds");
-		assert!(salt_length <= U256::from(u64::MAX), "salt_length is out of bounds");
-
-		assert!(
-			(code_offset + code_length) <= U256::from(u64::MAX),
-			"code_offset + code_length is out of bounds"
-		);
-		assert!(
-			(salt_offset + salt_length) <= U256::from(u64::MAX),
-			"salt_offset + salt_length is out of bounds"
-		);
-		assert_eq!(
-			input.len(),
-			(salt_offset + salt_length).low_u64() as usize,
-			"input length does not match expected length"
-		);
-
-		let code_offset = code_offset.low_u64() as usize;
-		let code_length = code_length.low_u64() as usize;
-		let salt_offset: usize = salt_offset.low_u64() as usize;
-		let salt_length = salt_length.low_u64() as usize;
-		let code = &input[code_offset..code_offset + code_length];
-		let salt = &input[salt_offset..salt_offset + salt_length];
+		let salt: &[u8; 32] = &input[32..64].try_into()
+			.map_err(|_| DispatchError::from("invalid salt length"))?;
+		let code = &input[64..];
 
 		let caller = env.caller();
 		let deployer_account_id = caller
@@ -105,25 +68,20 @@ impl<T: Config> PrimitivePrecompile for Create2<T> {
 			.map_err(|_| DispatchError::from("caller account_id is None"))?;
 		let deployer = T::AddressMapper::to_address(deployer_account_id);
 
-		// TODO(RVE): address::create2 requires 32 byte salt so salt_length is pointless?
-		assert_eq!(salt_length, 32, "salt length must be 32 bytes");
-		let salt: &[u8; 32] =
-			salt.try_into().map_err(|_| DispatchError::from("invalid salt length"))?;
 		let contract_address = crate::address::create2(&deployer, code, &[], salt);
 
 		let code_hash = sp_io::hashing::keccak_256(&code);
 
-		let instantiate_result = env.instantiate(
+		let instantiate_address = env.instantiate(
 			gas_limit,
-			U256::MAX, // TODO(RVE): what value to put for deposit limit?
+			U256::from(storage_deposit_limit.saturated_into::<u128>()), // Convert to U256 for deposit limit
 			H256::from(code_hash),
 			endowment,
 			vec![], // input data for constructor, if any?
 			Some(salt),
 			Some(&deployer),
-		);
-		assert!(instantiate_result.is_ok());
-		assert_eq!(instantiate_result.unwrap(), contract_address);
+		)?;
+		assert_eq!(instantiate_address, contract_address);
 
 		// Pad the contract address to 32 bytes (left padding with zeros)
 		let mut padded = [0u8; 32];

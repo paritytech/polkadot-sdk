@@ -444,25 +444,12 @@ fn create2_precompile_works() {
 	let (code, _) = compile_module("dummy").unwrap();
 
 	let value = [0u8; 32];
-	let mut code_offset = [0u8; 32];
-	code_offset[31] = 160;
-	let mut code_length = [0u8; 32];
-	let code_len = code.len() as u64;
-	code_length[24..32].copy_from_slice(&code_len.to_be_bytes());
-	let mut salt_offset = [0u8; 32];
-	salt_offset[24..32].copy_from_slice(&(code_len + 160).to_be_bytes());
-	let mut salt_length = [0u8; 32];
-	salt_length[31] = 32;
 	let salt = [42u8; 32];
 
 	let mut input = Vec::new();
 	input.extend_from_slice(&value);
-	input.extend_from_slice(&code_offset);
-	input.extend_from_slice(&code_length);
-	input.extend_from_slice(&salt_offset);
-	input.extend_from_slice(&salt_length);
-	input.extend_from_slice(&code);
 	input.extend_from_slice(&salt);
+	input.extend_from_slice(&code);
 
 	let deployer = <Test as Config>::AddressMapper::to_address(&ALICE);
 	let contract_address_expected = create2(&deployer, code.as_slice(), &[], &salt);

@@ -313,7 +313,7 @@ where
 	}
 
 	/// The amount of balance that is still available from the original `limit`.
-	fn available(&self) -> BalanceOf<T> {
+	pub fn available(&self) -> BalanceOf<T> {
 		self.total_deposit.available(&self.limit)
 	}
 
