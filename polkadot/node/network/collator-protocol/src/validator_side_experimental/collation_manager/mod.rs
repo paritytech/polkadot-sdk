@@ -209,7 +209,7 @@ impl CollationManager {
 		let mut removed_blocked = vec![];
 		self.blocked_from_seconding.retain(|_, collations| {
 			collations.retain(|collation| {
-				let remove = self
+				let remove = !self
 					.per_relay_parent
 					.contains_key(&collation.candidate_receipt.descriptor.relay_parent());
 

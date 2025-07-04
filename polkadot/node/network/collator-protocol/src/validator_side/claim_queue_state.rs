@@ -351,10 +351,13 @@ impl ClaimQueueState {
 	/// Example: if a path is [A, B, C, D] and `removed` contains [A, B] then both A and B will be
 	/// removed. But if `target` contains [B, C] then nothing will be removed.
 	pub(crate) fn remove_pruned_ancestors(&mut self, targets: &HashSet<Hash>) {
-		// First remove all entries from candidates for each removed relay parent. Any claimed
-		// entries for it can't be undone anymore.
+		// First remove all entries from candidates for each removed relay parent. Any Seconded
+		// entries for it can't be undone anymore, but the claimed ones may need to be freed.
+		let mut removed_claims = HashSet::with_capacity(targets.len());
 		for removed in targets {
-			self.candidates.remove(removed);
+			if let Some(removed) = self.candidates.remove(removed) {
+				removed_claims.extend(removed.into_iter());
+			}
 		}
 
 		// All the blocks that should be pruned are in the front of `block_state`. Since `target` is
@@ -365,6 +368,14 @@ impl ClaimQueueState {
 					self.block_state.pop_front();
 				},
 				_ => break,
+			}
+		}
+
+		for claim_info in self.block_state.iter_mut() {
+			if let ClaimState::Pending(Some(candidate_hash)) = claim_info.claimed {
+				if removed_claims.contains(&candidate_hash) {
+					claim_info.claimed = ClaimState::Free;
+				}
 			}
 		}
 	}
@@ -387,8 +398,6 @@ impl ClaimQueueState {
 
 		let relay_parent = if let Some(rp) = maybe_relay_parent { rp } else { return false };
 
-		// Release the last possible claim
-		// Collect the iterator first because peekable iters can't be reversed
 		let window = self.get_window_mut(&relay_parent);
 		for w in window {
 			if w.claimed == ClaimState::Pending(Some(*candidate_hash)) ||

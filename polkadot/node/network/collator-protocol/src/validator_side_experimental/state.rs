@@ -187,7 +187,9 @@ impl<B: Backend> State<B> {
 			err.split()?.log();
 		}
 
-		// Process potential changes in the registered paras set. TODO: we need a new runtime API
+		// TODO: Process potential changes in the registered paras set. We should actually only do
+		// this when there is a new session. If the runtime API does not exist, we should just
+		// prune in an LRU manner if we exceed some limit. Use the API in https://github.com/paritytech/polkadot-sdk/pull/9055.
 		// for it self.peer_manager.registered_paras_update(registered_paras);
 
 		Ok(())
