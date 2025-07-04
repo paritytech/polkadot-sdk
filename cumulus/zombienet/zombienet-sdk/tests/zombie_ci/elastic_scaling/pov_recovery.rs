@@ -125,6 +125,7 @@ async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 }
 
 async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
+	// images are not relevant for `native`, but we leave it here in case we use `k8s` some day
 	let images = zombienet_sdk::environment::get_images_from_env();
 	log::info!("Using images: {images:?}");
 
@@ -205,6 +206,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 						("--disable-block-announcements").into(),
 						("--in-peers", "0").into(),
 						("--out-peers", "0").into(),
+						("--").into(),
 						("--reserved-only").into(),
 						("--reserved-nodes", "{{ZOMBIE:alice:multiaddr}}").into()
 					]))
