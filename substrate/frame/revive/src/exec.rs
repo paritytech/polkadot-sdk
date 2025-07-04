@@ -1399,7 +1399,7 @@ where
 		let origin = origin.account_id()?;
 		let ed = <T as Config>::Currency::minimum_balance();
 		with_transaction(|| -> TransactionOutcome<ExecResult> {
-			let res = match T::Currency::transfer(origin, to, ed, Preservation::Preserve)
+			match T::Currency::transfer(origin, to, ed, Preservation::Preserve)
 				.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds.into())
 				.and_then(|_| Self::transfer_with_dust(from, to, value))
 			{
@@ -1410,9 +1410,7 @@ where
 					TransactionOutcome::Commit(Ok(Default::default()))
 				},
 				Err(err) => TransactionOutcome::Rollback(Err(err)),
-			};
-
-			res
+			}
 		})
 	}
 
@@ -1629,7 +1627,7 @@ where
 
 		info.queue_trie_for_deletion();
 		let account_address = T::AddressMapper::to_address(&frame.account_id);
-		AccountInfoOf::<T>::remove(&account_address); // TODO handle dust
+		AccountInfoOf::<T>::remove(&account_address);
 		ImmutableDataOf::<T>::remove(&account_address);
 		<CodeInfo<T>>::decrement_refcount(info.code_hash)?;
 

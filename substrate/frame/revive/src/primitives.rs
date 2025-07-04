@@ -110,18 +110,7 @@ pub enum EthTransactError {
 
 /// A Balance amount along with some "dust" to represent the lowest decimals that can't be expressed
 /// in the native currency
-#[derive(
-	Default,
-	codec::DecodeWithMemTracking,
-	Clone,
-	Copy,
-	Eq,
-	Encode,
-	Decode,
-	TypeInfo,
-	PartialEq,
-	Debug,
-)]
+#[derive(Default, Clone, Copy, Eq, Encode, Decode, TypeInfo, PartialEq, Debug)]
 pub struct BalanceWithDust<Balance> {
 	/// The value expressed in the native currency
 	pub value: Balance,
