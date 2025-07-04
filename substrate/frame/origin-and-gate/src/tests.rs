@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use super::*;
-use crate::{self as pallet_origin_and_gate};
+use crate::{self as pallet_origin_and_gate, mock::OriginId};
 use assert_matches::assert_matches;
 use frame_support::{assert_noop, assert_ok};
 use sp_core::H256;
@@ -47,174 +47,846 @@ fn make_remark_call(text: &str) -> Result<Box<<Test as Config>::RuntimeCall>, &'
 mod unit_test {
 	use super::*;
 
-    /// Helper function to create dummy call for use with testing
-    fn create_dummy_call(value: u64) -> Box<<Test as Config>::RuntimeCall> {
-        let call = Call::<Test>::set_dummy { new_value: value };
-        Box::new(RuntimeCall::OriginAndGate(call))
-    }
+	/// Helper function to create dummy call for use with testing
+	fn create_dummy_call(value: u64) -> Box<<Test as Config>::RuntimeCall> {
+		let call = Call::<Test>::set_dummy { new_value: value };
+		Box::new(RuntimeCall::OriginAndGate(call))
+	}
 
-    #[test]
-    fn set_dummy_works() {
-        new_test_ext().execute_with(|| {
-            // Check initial value is None
-            assert_eq!(Dummy::<Test>::get(), None);
+	// TODO: Organise tests into further submodules for each pallet function
+	// (e.g. propose, add_approval, cancel_proposal, withdraw_approval, set_dummy)
 
-            // Set dummy value
-            assert_ok!(OriginAndGate::set_dummy(RuntimeOrigin::root(), 1000));
+	#[test]
+	fn set_dummy_works() {
+		new_test_ext().execute_with(|| {
+			// Check initial value is None
+			assert_eq!(Dummy::<Test>::get(), None);
 
-            // Check value set
-            assert_eq!(Dummy::<Test>::get(), Some(1000));
+			// Set dummy value
+			assert_ok!(OriginAndGate::set_dummy(RuntimeOrigin::root(), 1000));
 
-            // Set new value
-            assert_ok!(OriginAndGate::set_dummy(RuntimeOrigin::root(), 100));
+			// Check value set
+			assert_eq!(Dummy::<Test>::get(), Some(1000));
 
-            // Check value updated
-            assert_eq!(Dummy::<Test>::get(), Some(100));
-        });
-    }
+			// Set new value
+			assert_ok!(OriginAndGate::set_dummy(RuntimeOrigin::root(), 100));
 
-    #[test]
-    fn set_dummy_privileged_call_fails_with_non_root_origin() {
-        new_test_ext().execute_with(|| {
-            // Attempt to set with signed origin should fail
-            assert_noop!(
-                OriginAndGate::set_dummy(RuntimeOrigin::signed(1), 1000),
-                DispatchError::BadOrigin
-            );
-        });
-    }
+			// Check value updated
+			assert_eq!(Dummy::<Test>::get(), Some(100));
+		});
+	}
 
-    #[test]
-    fn propose_a_proposal_creates_new_proposal() {
-        new_test_ext().execute_with(|| {
-            System::set_block_number(1);
+	#[test]
+	fn set_dummy_privileged_call_fails_with_non_root_origin() {
+		new_test_ext().execute_with(|| {
+			// Attempt to set with signed origin should fail
+			assert_noop!(
+				OriginAndGate::set_dummy(RuntimeOrigin::signed(1), 1000),
+				DispatchError::BadOrigin
+			);
+		});
+	}
 
-            // Create call
-            let call = create_dummy_call(1000);
-            let call_hash = <<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+	#[test]
+	fn propose_a_proposal_creates_new_proposal() {
+		new_test_ext().execute_with(|| {
+			System::set_block_number(1);
 
-            // Propose using Alice's origin
-            assert_ok!(OriginAndGate::propose(
-                RuntimeOrigin::signed(ALICE),
-                call,
-                ALICE_ORIGIN_ID,
-                None,
-            ));
+			// Create call
+			let call = create_dummy_call(1000);
+			let call_hash = <<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
 
-            // Verify proposal stored
-            let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
-            assert_eq!(proposal.status, ProposalStatus::Pending);
-            assert_eq!(proposal.approvals.len(), 1);
-            assert_eq!(proposal.approvals[0], ALICE_ORIGIN_ID);
+			// Propose using Alice's origin
+			assert_ok!(OriginAndGate::propose(
+				RuntimeOrigin::signed(ALICE),
+				call,
+				ALICE_ORIGIN_ID,
+				None,
+			));
 
-            // Verify event emitted
-            System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCreated {
-                proposal_hash: call_hash,
-                origin_id: ALICE_ORIGIN_ID,
-            }));
-        });
-    }
+			// Verify proposal stored
+			let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+			assert_eq!(proposal.status, ProposalStatus::Pending);
+			assert_eq!(proposal.approvals.len(), 1);
+			assert_eq!(proposal.approvals[0], ALICE_ORIGIN_ID);
 
-    #[test]
-    fn approve_of_proposal_adds_approval() {
-        new_test_ext().execute_with(|| {
-            System::set_block_number(1);
+			// Verify event emitted
+			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCreated {
+				proposal_hash: call_hash,
+				origin_id: ALICE_ORIGIN_ID,
+			}));
+		});
+	}
 
-            // Create call
-            let call = create_dummy_call(1000);
-            let call_hash = <<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+	#[test]
+	fn duplicate_proposals_create_unique_entries_with_warning() {
+		new_test_ext().execute_with(|| {
+			System::set_block_number(1);
 
-            // Propose using Alice's origin
-            assert_ok!(OriginAndGate::propose(
-                RuntimeOrigin::signed(ALICE),
-                call,
-                ALICE_ORIGIN_ID,
-                None,
-            ));
+			// Create identical call parameters
+			let call = make_remark_call("1000").unwrap();
+			let call_hash = <Test as Config>::Hashing::hash_of(&call);
+			let origin_id = ALICE_ORIGIN_ID;
+			let expiry = None;
 
-            // Approve using Bob's origin
-            assert_ok!(OriginAndGate::approve(
-                RuntimeOrigin::signed(BOB),
-                call_hash,
-                ALICE_ORIGIN_ID,
-                BOB_ORIGIN_ID,
-            ));
+			// First proposal should succeed
+			assert_ok!(OriginAndGate::propose(
+				RuntimeOrigin::signed(ALICE),
+				call.clone(),
+				origin_id,
+				expiry,
+			));
 
-            // Verify approval added
-            let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
-            assert_eq!(proposal.approvals.len(), REQUIRED_APPROVALS as usize);
-            assert!(proposal.approvals.contains(&BOB_ORIGIN_ID));
+			// Second identical proposal should fail with ProposalAlreadyExists
+			// assert_noop!(
+			// 	OriginAndGate::propose(
+			// 		RuntimeOrigin::signed(ALICE),
+			// 		call.clone(),
+			// 		origin_id,
+			// 		expiry,
+			// 	),
+			// 	Error::<Test>::ProposalAlreadyExists
+			// );
 
-            // Verify event emitted
-            System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalApproved {
-                proposal_hash: call_hash,
-                origin_id: ALICE_ORIGIN_ID,
-                approving_origin_id: BOB_ORIGIN_ID,
-            }));
-        });
-    }
+			// Even from a different user with same parameters
+			// assert_noop!(
+			// 	OriginAndGate::propose(
+			// 		RuntimeOrigin::signed(BOB),
+			// 		call.clone(),
+			// 		origin_id,
+			// 		expiry,
+			// 	),
+			// 	Error::<Test>::ProposalAlreadyExists
+			// );
 
-    #[test]
-    fn duplicate_approval_of_proposal_fails() {
-        new_test_ext().execute_with(|| {
-            System::set_block_number(1);
+			// TODO - we don't want it to fail, we want it to
+			// provide the user with a warning of what duplicate was
+			// detected, but still create a new unique proposal entry
+			// and emit associated events.
+			// because if there's a chance of a hash collision we
+			// must handle that since proposals stored as hashes with
+			// proposal_hash
+		});
+	}
 
-            // Create call
-            let call = create_dummy_call(42);
-            let call_hash = <<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+	#[test]
+	fn approve_of_proposal_adds_approval() {
+		new_test_ext().execute_with(|| {
+			System::set_block_number(1);
 
-            // Propose using Alice's origin
-            assert_ok!(OriginAndGate::propose(
-                RuntimeOrigin::signed(ALICE),
-                call,
-                ALICE_ORIGIN_ID,
-                None,
-            ));
+			// Create call
+			let call = create_dummy_call(1000);
+			let call_hash = <<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
 
-            // Try approve again with same origin
-            assert_noop!(
-                OriginAndGate::approve(
-                    RuntimeOrigin::signed(ALICE),
-                    call_hash,
-                    ALICE_ORIGIN_ID,
-                    ALICE_ORIGIN_ID,
-                ),
-                Error::<Test>::AlreadyApproved
-            );
-        });
-    }
+			// Propose using Alice's origin
+			assert_ok!(OriginAndGate::propose(
+				RuntimeOrigin::signed(ALICE),
+				call,
+				ALICE_ORIGIN_ID,
+				None,
+			));
 
-    #[test]
-    fn approve_non_existent_proposal_fails() {
-        new_test_ext().execute_with(|| {
-            // Create non-existent call hash
-            let call_hash = H256::repeat_byte(0xab);
+			// Approve using Bob's origin
+			assert_ok!(OriginAndGate::add_approval(
+				RuntimeOrigin::signed(BOB),
+				call_hash,
+				ALICE_ORIGIN_ID,
+				BOB_ORIGIN_ID,
+			));
 
-            // Try approve non-existent proposal
-            assert_noop!(
-                OriginAndGate::approve(
-                    RuntimeOrigin::signed(BOB),
-                    call_hash,
-                    ALICE_ORIGIN_ID,
-                    BOB_ORIGIN_ID,
-                ),
-                Error::<Test>::ProposalNotFound
-            );
-        });
-    }
+			// Verify approval added
+			let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+			assert_eq!(proposal.approvals.len(), REQUIRED_APPROVALS as usize);
+			assert!(proposal.approvals.contains(&BOB_ORIGIN_ID));
 
-    #[test]
-    fn and_gate_requires_two_origins_not_individual() {
-        new_test_ext().execute_with(|| {
-            // Direct use of AndGate should fail for any single origin
-            assert!(AliceAndBob::ensure_origin(RuntimeOrigin::signed(ALICE)).is_err());
-            assert!(AliceAndBob::ensure_origin(RuntimeOrigin::signed(BOB)).is_err());
-            assert!(AliceAndBob::ensure_origin(RuntimeOrigin::root()).is_err());
+			// Verify event emitted
+			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::OriginApprovalAdded {
+				proposal_hash: call_hash,
+				origin_id: ALICE_ORIGIN_ID,
+				approving_origin_id: BOB_ORIGIN_ID,
+			}));
+		});
+	}
 
-            // Rely on integration tests to verify full approval workflow
-            // Verifies trait implementation works as expected
-        });
-    }
+	#[test]
+	fn duplicate_approval_of_proposal_fails() {
+		new_test_ext().execute_with(|| {
+			System::set_block_number(1);
+
+			// Create call
+			let call = create_dummy_call(42);
+			let call_hash = <<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+
+			// Propose using Alice's origin
+			assert_ok!(OriginAndGate::propose(
+				RuntimeOrigin::signed(ALICE),
+				call,
+				ALICE_ORIGIN_ID,
+				None,
+			));
+
+			// Try approve again with same origin
+			assert_noop!(
+				OriginAndGate::add_approval(
+					RuntimeOrigin::signed(ALICE),
+					call_hash,
+					ALICE_ORIGIN_ID,
+					ALICE_ORIGIN_ID,
+				),
+				Error::<Test>::OriginAlreadyApproved
+			);
+		});
+	}
+
+	#[test]
+	fn approve_non_existent_proposal_fails() {
+		new_test_ext().execute_with(|| {
+			// Create non-existent call hash
+			let call_hash = H256::repeat_byte(0xab);
+
+			// Try approve non-existent proposal
+			assert_noop!(
+				OriginAndGate::add_approval(
+					RuntimeOrigin::signed(BOB),
+					call_hash,
+					ALICE_ORIGIN_ID,
+					BOB_ORIGIN_ID,
+				),
+				Error::<Test>::ProposalNotFound
+			);
+		});
+	}
+
+	#[test]
+	fn and_gate_requires_two_origins_not_individual() {
+		new_test_ext().execute_with(|| {
+			// Direct use of AndGate should fail for any single origin
+			// to represent real-world scenario where single account
+			// cannot simultaneously satisfy multiple origin requirements
+			assert!(AliceAndBob::ensure_origin(RuntimeOrigin::signed(ALICE)).is_err());
+			assert!(AliceAndBob::ensure_origin(RuntimeOrigin::signed(BOB)).is_err());
+			assert!(AliceAndBob::ensure_origin(RuntimeOrigin::root()).is_err());
+
+			// Rely on integration tests to verify full approval workflow
+			// Verifies trait implementation works as expected
+		});
+	}
+
+	#[test]
+	fn proposal_cancellation_only_by_proposer_and_only_when_pending_status() {
+		new_test_ext().execute_with(|| {
+			System::set_block_number(1);
+
+			let call = make_remark_call("1000").unwrap();
+			let call_hash = <Test as Config>::Hashing::hash_of(&call);
+
+			// Create proposal
+			assert_ok!(OriginAndGate::propose(
+				RuntimeOrigin::signed(ALICE),
+				call.clone(),
+				ALICE_ORIGIN_ID,
+				None,
+			));
+
+			// Verify proposal exists
+			assert!(Proposals::<Test>::contains_key(call_hash, ALICE_ORIGIN_ID));
+
+			// Read pallet storage to verify proposal is marked as pending
+			assert!(Proposals::<Test>::contains_key(call_hash, ALICE_ORIGIN_ID));
+			let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+			assert_eq!(proposal.status, ProposalStatus::Pending);
+
+			// Cancel proposal
+			assert_ok!(OriginAndGate::cancel_proposal(
+				RuntimeOrigin::signed(ALICE),
+				call_hash,
+				ALICE_ORIGIN_ID,
+			));
+
+			// Verify proposal no longer exists
+			assert!(!Proposals::<Test>::contains_key(call_hash, ALICE_ORIGIN_ID));
+
+			// Verify proposal calls no longer exists
+			assert!(!ProposalCalls::<Test>::contains_key(call_hash));
+
+			// Verify event
+			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCancelled {
+				proposal_hash: call_hash,
+				origin_id: ALICE_ORIGIN_ID,
+			}));
+
+			// Non-proposer cannot cancel
+			assert_ok!(OriginAndGate::propose(
+				RuntimeOrigin::signed(ALICE),
+				call.clone(),
+				ALICE_ORIGIN_ID,
+				None,
+			));
+
+			assert_noop!(
+				OriginAndGate::cancel_proposal(
+					RuntimeOrigin::signed(BOB),
+					call_hash,
+					ALICE_ORIGIN_ID,
+				),
+				Error::<Test>::NotAuthorized
+			);
+
+			// Proposal without pending status cannot be cancelled
+			assert_ok!(OriginAndGate::propose(
+				RuntimeOrigin::signed(ALICE),
+				call.clone(),
+				ALICE_ORIGIN_ID,
+				None,
+			));
+
+			// Create proposal info with sufficient approvals
+			let mut approvals = BoundedVec::default();
+			approvals.try_push(ALICE_ORIGIN_ID.into()).unwrap();
+			approvals.try_push(BOB_ORIGIN_ID.into()).unwrap(); // Already have 2 approvals
+
+			let proposal_info = ProposalInfo {
+				call_hash,
+				expiry: None,
+				approvals,
+				status: ProposalStatus::Executed,
+				proposer: ALICE,
+			};
+
+			// Skip calling `propose` and instead store proposal directly in storage
+			// but not the `call` to execute since here that does not matter
+			Proposals::<Test>::insert(call_hash, ALICE_ORIGIN_ID, proposal_info);
+
+			// Verify proposal created with Alice's approval and remains `Pending`
+			let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+			assert_eq!(proposal.status, ProposalStatus::Executed);
+
+			assert_noop!(
+				OriginAndGate::cancel_proposal(
+					RuntimeOrigin::signed(BOB),
+					call_hash,
+					ALICE_ORIGIN_ID,
+				),
+				Error::<Test>::ProposalAlreadyExecuted
+			);
+		});
+	}
+
+	#[test]
+	fn proposal_cancellation_by_proposer_properly_cleans_storage() {
+		new_test_ext().execute_with(|| {
+			System::set_block_number(1);
+
+			// Create call using specific value for identification
+			let call = make_remark_call("test_cancel_cleanup").unwrap();
+			let call_hash = <Test as Config>::Hashing::hash_of(&call);
+
+			// Create proposal with approvals
+			assert_ok!(OriginAndGate::propose(
+				RuntimeOrigin::signed(ALICE),
+				call.clone(),
+				ALICE_ORIGIN_ID,
+				None,
+			));
+
+			// Add Bob's approval
+			assert_ok!(OriginAndGate::add_approval(
+				RuntimeOrigin::signed(BOB),
+				call_hash,
+				ALICE_ORIGIN_ID,
+				BOB_ORIGIN_ID,
+			));
+
+			// Verify storage before cancellation
+			assert!(Proposals::<Test>::contains_key(call_hash, ALICE_ORIGIN_ID));
+			assert!(ProposalCalls::<Test>::contains_key(call_hash));
+
+			// Verify approvals storage contains entries
+			assert!(Approvals::<Test>::get((call_hash, ALICE_ORIGIN_ID), ALICE_ORIGIN_ID).is_some());
+			assert!(Approvals::<Test>::get((call_hash, ALICE_ORIGIN_ID), BOB_ORIGIN_ID).is_some());
+
+			// Verify proposal has approvals
+			let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+			assert_eq!(proposal.approvals.len(), REQUIRED_APPROVALS as usize); // Alice (proposer) and Bob
+			assert!(proposal.approvals.contains(&ALICE_ORIGIN_ID));
+			assert!(proposal.approvals.contains(&BOB_ORIGIN_ID));
+
+			// Cancel proposal
+			assert_ok!(OriginAndGate::cancel_proposal(
+				RuntimeOrigin::signed(ALICE),
+				call_hash,
+				ALICE_ORIGIN_ID,
+			));
+
+			// Verify all storage is cleaned up
+			assert!(!Proposals::<Test>::contains_key(call_hash, ALICE_ORIGIN_ID));
+			assert!(!ProposalCalls::<Test>::contains_key(call_hash));
+
+			// Verify approvals storage is cleaned up
+			assert!(Approvals::<Test>::get((call_hash, ALICE_ORIGIN_ID), ALICE_ORIGIN_ID).is_none());
+			assert!(Approvals::<Test>::get((call_hash, ALICE_ORIGIN_ID), BOB_ORIGIN_ID).is_none());
+
+			// Verify event
+			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCancelled {
+				proposal_hash: call_hash,
+				origin_id: ALICE_ORIGIN_ID,
+			}));
+
+			// Try to cancel again and should fail as proposal no longer exists
+			assert_noop!(
+				OriginAndGate::cancel_proposal(
+					RuntimeOrigin::signed(ALICE),
+					call_hash,
+					ALICE_ORIGIN_ID,
+				),
+				Error::<Test>::ProposalNotFound
+			);
+
+			// Create a new proposal and try have non-proposer cancel it
+			assert_ok!(OriginAndGate::propose(
+				RuntimeOrigin::signed(ALICE),
+				call.clone(),
+				ALICE_ORIGIN_ID,
+				None,
+			));
+
+			// Verify BOB cannot cancel ALICE's proposal
+			assert_noop!(
+				OriginAndGate::cancel_proposal(
+					RuntimeOrigin::signed(BOB),
+					call_hash,
+					ALICE_ORIGIN_ID,
+				),
+				Error::<Test>::NotAuthorized
+			);
+
+			// Storage should still exist after failed cancellation
+			assert!(Proposals::<Test>::contains_key(call_hash, ALICE_ORIGIN_ID));
+			assert!(ProposalCalls::<Test>::contains_key(call_hash));
+		});
+	}
+
+	#[test]
+	fn approval_withdrawn_by_an_origin_that_previously_approved() {
+		new_test_ext().execute_with(|| {
+			System::set_block_number(1);
+
+			let call = make_remark_call("1000").unwrap();
+			let call_hash = <Test as Config>::Hashing::hash_of(&call);
+
+			// Create proposal
+			assert_ok!(OriginAndGate::propose(
+				RuntimeOrigin::signed(ALICE),
+				call.clone(),
+				ALICE_ORIGIN_ID,
+				None,
+			));
+
+			// Bob approves
+			assert_ok!(OriginAndGate::add_approval(
+				RuntimeOrigin::signed(BOB),
+				call_hash,
+				ALICE_ORIGIN_ID,
+				BOB_ORIGIN_ID,
+			));
+
+			// Verify approval exists
+			let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+			assert!(proposal.approvals.contains(&BOB_ORIGIN_ID));
+
+			// Bob withdraws approval
+			assert_ok!(OriginAndGate::withdraw_approval(
+				RuntimeOrigin::signed(BOB),
+				call_hash,
+				ALICE_ORIGIN_ID,
+				BOB_ORIGIN_ID,
+			));
+
+			// Verify approval removed
+			let updated_proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+			assert!(!updated_proposal.approvals.contains(&BOB_ORIGIN_ID));
+
+			// Verify updated proposal status reflects that an approval
+			// was cancelled by Bob and has status `Pending`
+			assert_eq!(updated_proposal.status, ProposalStatus::Pending);
+
+			// Verify event
+			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::OriginApprovalWithdrawn {
+				proposal_hash: call_hash,
+				origin_id: ALICE_ORIGIN_ID,
+				withdrawing_origin_id: BOB_ORIGIN_ID,
+			}));
+		});
+	}
+
+	#[test]
+	fn approve_after_expiry_fails() {
+		new_test_ext().execute_with(|| {
+			let starting_block = 1;
+			System::set_block_number(starting_block);
+
+			let call = make_remark_call("1000").unwrap();
+			let call_hash = <Test as Config>::Hashing::hash_of(&call);
+			let expiry = Some(starting_block + 10); // Expire after 10 blocks
+
+			// Create proposal with expiry
+			assert_ok!(OriginAndGate::propose(
+				RuntimeOrigin::signed(ALICE),
+				call.clone(),
+				ALICE_ORIGIN_ID,
+				expiry,
+			));
+
+			// Advance past expiry
+			System::set_block_number(starting_block + 11);
+
+			// Attempt to approve after expiry should fail
+			assert_noop!(
+				OriginAndGate::add_approval(
+					RuntimeOrigin::signed(BOB),
+					call_hash,
+					ALICE_ORIGIN_ID,
+					BOB_ORIGIN_ID,
+				),
+				Error::<Test>::ProposalExpired
+			);
+
+			// Verify proposal marked as expired
+			let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+			assert_eq!(proposal.status, ProposalStatus::Expired);
+		});
+	}
+
+	#[test]
+	fn additional_approvals_after_required_approvals_count_are_rejected() {
+		new_test_ext().execute_with(|| {
+			System::set_block_number(1);
+
+			let call = make_remark_call("1000").unwrap();
+			let call_hash = <Test as Config>::Hashing::hash_of(&call);
+
+			// Create proposal
+			assert_ok!(OriginAndGate::propose(
+				RuntimeOrigin::signed(ALICE),
+				call.clone(),
+				ALICE_ORIGIN_ID,
+				None,
+			));
+
+			// First approval (already counts as one from proposal)
+			let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+			assert_eq!(proposal.approvals.len(), 1); // Proposer counts as first approval
+
+			// Second approval from Bob
+			assert_ok!(OriginAndGate::add_approval(
+				RuntimeOrigin::signed(BOB),
+				call_hash,
+				ALICE_ORIGIN_ID,
+				BOB_ORIGIN_ID,
+			));
+
+			// Verify call was executed and assume REQUIRED_APPROVALS == 2
+			let executed_proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+			assert_eq!(executed_proposal.status, ProposalStatus::Executed);
+
+			// Trying additional approval should fail since already executed
+			assert_noop!(
+				OriginAndGate::add_approval(
+					RuntimeOrigin::signed(CHARLIE),
+					call_hash,
+					ALICE_ORIGIN_ID,
+					CHARLIE_ORIGIN_ID,
+				),
+				Error::<Test>::ProposalAlreadyExecuted
+			);
+
+			// Verify proposal status is still `Executed`
+			// despite additional approval confirming the approval did not override its status
+			let executed_proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+			assert_eq!(executed_proposal.status, ProposalStatus::Executed);
+		});
+	}
+
+	#[test]
+	fn proposal_cancellation_cleans_up_all_storage() {
+		new_test_ext().execute_with(|| {
+			System::set_block_number(1);
+
+			let call = make_remark_call("1000").unwrap();
+			let call_hash = <Test as Config>::Hashing::hash_of(&call);
+
+			// Create proposal
+			assert_ok!(OriginAndGate::propose(
+				RuntimeOrigin::signed(ALICE),
+				call.clone(),
+				ALICE_ORIGIN_ID,
+				None,
+			));
+
+			// Add BOB approval
+			assert_ok!(OriginAndGate::add_approval(
+				RuntimeOrigin::signed(BOB),
+				call_hash,
+				ALICE_ORIGIN_ID,
+				BOB_ORIGIN_ID,
+			));
+
+			// Verify approval stored in Approvals storage map
+			assert!(Approvals::<Test>::get((call_hash, ALICE_ORIGIN_ID), BOB_ORIGIN_ID).is_some());
+
+			// Cancel proposal
+			assert_ok!(OriginAndGate::cancel_proposal(
+				RuntimeOrigin::signed(ALICE),
+				call_hash,
+				ALICE_ORIGIN_ID,
+			));
+
+			// Verify proposal no longer exists
+			assert!(!Proposals::<Test>::contains_key(call_hash, ALICE_ORIGIN_ID));
+
+			// Verify proposal calls no longer exists
+			assert!(!ProposalCalls::<Test>::contains_key(call_hash));
+
+			// Verify approvals storage is also cleaned up
+			assert!(Approvals::<Test>::get((call_hash, ALICE_ORIGIN_ID), BOB_ORIGIN_ID).is_none());
+
+			// Create another proposal and cancel it
+			assert_ok!(OriginAndGate::propose(
+				RuntimeOrigin::signed(ALICE),
+				call.clone(),
+				ALICE_ORIGIN_ID,
+				None,
+			));
+
+			// Add Bob approval
+			assert_ok!(OriginAndGate::add_approval(
+				RuntimeOrigin::signed(BOB),
+				call_hash,
+				ALICE_ORIGIN_ID,
+				BOB_ORIGIN_ID,
+			));
+
+			// Verify approvals now exist
+			assert!(Approvals::<Test>::get((call_hash, ALICE_ORIGIN_ID), BOB_ORIGIN_ID).is_some());
+
+			// Cancel proposal
+			assert_ok!(OriginAndGate::cancel_proposal(
+				RuntimeOrigin::signed(ALICE),
+				call_hash,
+				ALICE_ORIGIN_ID,
+			));
+
+			// Verify all storage is cleaned up after cancellation
+			assert!(!Proposals::<Test>::contains_key(call_hash, ALICE_ORIGIN_ID));
+			assert!(!ProposalCalls::<Test>::contains_key(call_hash));
+			assert!(Approvals::<Test>::get((call_hash, ALICE_ORIGIN_ID), BOB_ORIGIN_ID).is_none());
+		});
+	}
+
+	#[test]
+	fn max_approvals_enforced() {
+		new_test_ext().execute_with(|| {
+			System::set_block_number(1);
+
+			let call = make_remark_call("1000").unwrap();
+			let call_hash = <Test as Config>::Hashing::hash_of(&call);
+
+			// Create proposal as Alice
+			assert_ok!(OriginAndGate::propose(
+				RuntimeOrigin::signed(ALICE),
+				call.clone(),
+				ALICE_ORIGIN_ID,
+				None,
+			));
+
+			// Add Bob's approval
+			assert_ok!(OriginAndGate::add_approval(
+				RuntimeOrigin::signed(BOB),
+				call_hash,
+				ALICE_ORIGIN_ID,
+				BOB_ORIGIN_ID,
+			));
+
+			// REQUIRED_APPROVALS is set to 2 in mock so with Alice + Bob we are at max approvals
+			let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+			assert_eq!(proposal.approvals.len(), REQUIRED_APPROVALS as usize);
+
+			// Try to add Charlie's approval should fail as already at max approvals
+			assert_noop!(
+				OriginAndGate::add_approval(
+					RuntimeOrigin::signed(CHARLIE),
+					call_hash,
+					ALICE_ORIGIN_ID,
+					CHARLIE_ORIGIN_ID,
+				),
+				Error::<Test>::TooManyApprovals
+			);
+		});
+	}
+
+	#[test]
+	fn withdraw_approval_works() {
+		new_test_ext().execute_with(|| {
+			System::set_block_number(1);
+
+			let call = make_remark_call("1000").unwrap();
+			let call_hash = <Test as Config>::Hashing::hash_of(&call);
+
+			// Create proposal
+			assert_ok!(OriginAndGate::propose(
+				RuntimeOrigin::signed(ALICE),
+				call.clone(),
+				ALICE_ORIGIN_ID,
+				None,
+			));
+
+			// Add Bob's approval
+			assert_ok!(OriginAndGate::add_approval(
+				RuntimeOrigin::signed(BOB),
+				call_hash,
+				ALICE_ORIGIN_ID,
+				BOB_ORIGIN_ID,
+			));
+
+			// Verify proposal has both approvals
+			let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+			assert_eq!(proposal.approvals.len(), REQUIRED_APPROVALS as usize); // Alice (proposer) and Bob
+			assert!(proposal.approvals.contains(&ALICE_ORIGIN_ID));
+			assert!(proposal.approvals.contains(&BOB_ORIGIN_ID));
+
+			// Verify approval stored in Approvals storage map
+			assert!(Approvals::<Test>::get((call_hash, ALICE_ORIGIN_ID), BOB_ORIGIN_ID).is_some());
+
+			// Bob withdraws approval
+			assert_ok!(OriginAndGate::withdraw_approval(
+				RuntimeOrigin::signed(BOB),
+				call_hash,
+				ALICE_ORIGIN_ID,
+				BOB_ORIGIN_ID,
+			));
+
+			// Verify Bob's approval removed from proposal
+			let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+			assert_eq!(proposal.approvals.len(), (REQUIRED_APPROVALS - 1) as usize); // Only Alice (proposer) remains
+			assert!(proposal.approvals.contains(&ALICE_ORIGIN_ID));
+			assert!(!proposal.approvals.contains(&BOB_ORIGIN_ID));
+
+			// Verify approval no longer in Approvals storage map
+			assert!(Approvals::<Test>::get((call_hash, ALICE_ORIGIN_ID), BOB_ORIGIN_ID).is_none());
+
+			// Verify event
+			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::OriginApprovalWithdrawn {
+				proposal_hash: call_hash,
+				origin_id: ALICE_ORIGIN_ID,
+				withdrawing_origin_id: BOB_ORIGIN_ID,
+			}));
+
+			// Alice withdraws approval
+			assert_ok!(OriginAndGate::withdraw_approval(
+				RuntimeOrigin::signed(ALICE),
+				call_hash,
+				ALICE_ORIGIN_ID,
+				ALICE_ORIGIN_ID,
+			));
+
+			// Verify Alice's approval removed from proposal
+			let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+			assert_eq!(proposal.approvals.len(), 0); // No approvals remain
+			assert!(!proposal.approvals.contains(&ALICE_ORIGIN_ID));
+
+			// Verify approval no longer in Approvals storage map
+			assert!(Approvals::<Test>::get((call_hash, ALICE_ORIGIN_ID), ALICE_ORIGIN_ID).is_none());
+
+			// Verify event
+			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::OriginApprovalWithdrawn {
+				proposal_hash: call_hash,
+				origin_id: ALICE_ORIGIN_ID,
+				withdrawing_origin_id: ALICE_ORIGIN_ID,
+			}));
+
+			// Cannot withdraw twice
+			assert_noop!(
+				OriginAndGate::withdraw_approval(
+					RuntimeOrigin::signed(BOB),
+					call_hash,
+					ALICE_ORIGIN_ID,
+					BOB_ORIGIN_ID,
+				),
+				Error::<Test>::OriginApprovalNotFound
+			);
+
+			// Create another proposal for error case testing
+			let call2 = make_remark_call("2000").unwrap();
+			let call_hash2 = <Test as Config>::Hashing::hash_of(&call2);
+
+			// Create proposal
+			assert_ok!(OriginAndGate::propose(
+				RuntimeOrigin::signed(ALICE),
+				call2.clone(),
+				ALICE_ORIGIN_ID,
+				None,
+			));
+
+			// Try to withdraw Charlie's approval that does not exist
+			assert_noop!(
+				OriginAndGate::withdraw_approval(
+					RuntimeOrigin::signed(CHARLIE),
+					call_hash2,
+					ALICE_ORIGIN_ID,
+					CHARLIE_ORIGIN_ID,
+				),
+				Error::<Test>::OriginApprovalNotFound
+			);
+		});
+	}
+
+	#[test]
+	fn proposal_cancellation_not_allowed_for_non_pending_status() {
+		new_test_ext().execute_with(|| {
+			System::set_block_number(1);
+
+			let call = make_remark_call("1000").unwrap();
+			let call_hash = <Test as Config>::Hashing::hash_of(&call);
+
+			// Create proposal
+			assert_ok!(OriginAndGate::propose(
+				RuntimeOrigin::signed(ALICE),
+				call.clone(),
+				ALICE_ORIGIN_ID,
+				None,
+			));
+
+			// Create proposal info with sufficient approvals and executed status
+			let mut approvals = BoundedVec::<u8, MaxApprovals>::default();
+			approvals.try_push(ALICE_ORIGIN_ID.into()).unwrap();
+			approvals.try_push(BOB_ORIGIN_ID.into()).unwrap(); // Already have 2 approvals
+
+			let proposal_info = ProposalInfo {
+				call_hash,
+				expiry: None,
+				approvals,
+				status: ProposalStatus::Executed,
+				proposer: ALICE,
+			};
+
+			// Override proposal with executed status
+			Proposals::<Test>::insert(call_hash, ALICE_ORIGIN_ID, proposal_info);
+
+			// Verify proposal status is executed
+			let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+			assert_eq!(proposal.status, ProposalStatus::Executed);
+
+			// Attempt to cancel executed proposal should fail
+			assert_noop!(
+				OriginAndGate::cancel_proposal(
+					RuntimeOrigin::signed(ALICE),
+					call_hash,
+					ALICE_ORIGIN_ID,
+				),
+				Error::<Test>::ProposalAlreadyExecuted
+			);
+		});
+	}
 }
 
 /// Integration tests for origin-and-gate pallet focusing on verifying end-to-end
@@ -225,71 +897,71 @@ mod unit_test {
 mod integration_test {
 	use super::*;
 
-    #[test]
-    fn and_gate_direct_impossible_with_signed_origins() {
-        new_test_ext().execute_with(|| {
-            // Test signed origins cannot satisfy AndGate directly
-            // to represent real-world scenario where single account
-            // cannot simultaneously satisfy multiple origin requirements
-            assert!(AliceAndBob::try_origin(RuntimeOrigin::signed(ALICE)).is_err());
-            assert!(AliceAndBob::try_origin(RuntimeOrigin::signed(BOB)).is_err());
-        });
-    }
+	#[test]
+	fn and_gate_direct_impossible_with_signed_origins() {
+		new_test_ext().execute_with(|| {
+			// Test signed origins cannot satisfy AndGate directly
+			// to represent real-world scenario where single account
+			// cannot simultaneously satisfy multiple origin requirements
+			assert!(AliceAndBob::try_origin(RuntimeOrigin::signed(ALICE)).is_err());
+			assert!(AliceAndBob::try_origin(RuntimeOrigin::signed(BOB)).is_err());
+		});
+	}
 
-    #[test]
-    fn and_gate_direct_impossible_with_root_origin() {
-        new_test_ext().execute_with(|| {
-            // Test even root origin cannot bypass AndGate requirements
-            assert!(AliceAndBob::try_origin(RuntimeOrigin::root()).is_err());
-        });
-    }
+	#[test]
+	fn and_gate_direct_impossible_with_root_origin() {
+		new_test_ext().execute_with(|| {
+			// Test even root origin cannot bypass AndGate requirements
+			assert!(AliceAndBob::try_origin(RuntimeOrigin::root()).is_err());
+		});
+	}
 
-    #[test]
-    fn origin_id_correctly_tracked_in_proposal_workflow() {
-        new_test_ext().execute_with(|| {
-            // Set block number for event verification
-            System::set_block_number(1);
+	#[test]
+	fn origin_id_correctly_tracked_in_proposal_workflow() {
+		new_test_ext().execute_with(|| {
+			// Set block number for event verification
+			System::set_block_number(1);
 
-            // Create test call to be used in proposal
-            let call: RuntimeCall = Call::set_dummy { new_value: 1000 }.into();
-            let call_hash = <Test as Config>::Hashing::hash_of(&call);
+			// Create test call to be used in proposal
+			let call: RuntimeCall = Call::set_dummy { new_value: 1000 }.into();
+			let call_hash = <Test as Config>::Hashing::hash_of(&call);
 
-            // Propose using Alice's origin and get origin ID dynamically
-            let alice_origin_id = ALICE_ORIGIN_ID;
+			// Propose using Alice's origin and get origin ID dynamically
+			let alice_origin_id = ALICE_ORIGIN_ID;
 
-            assert_ok!(OriginAndGate::propose(
-                RuntimeOrigin::signed(ALICE),
-                Box::new(call.clone()),
-                alice_origin_id,
-                None
-            ));
+			assert_ok!(OriginAndGate::propose(
+				RuntimeOrigin::signed(ALICE),
+				Box::new(call.clone()),
+				alice_origin_id,
+				None
+			));
 
-            // Bob approves proposal with dynamically determined origin ID
-            let bob_origin_id = BOB_ORIGIN_ID;
+			// Bob approves proposal with dynamically determined origin ID
+			let bob_origin_id = BOB_ORIGIN_ID;
 
-            assert_ok!(OriginAndGate::approve(
-                RuntimeOrigin::signed(BOB),
-                call_hash,
-                alice_origin_id,
-                bob_origin_id,
-            ));
+			assert_ok!(OriginAndGate::add_approval(
+				RuntimeOrigin::signed(BOB),
+				call_hash,
+				alice_origin_id,
+				bob_origin_id,
+			));
 
-            // Verify proposal exists and has both approvals
-            let proposal = Proposals::<Test>::get(call_hash, alice_origin_id).unwrap();
-            assert_eq!(proposal.approvals.len(), REQUIRED_APPROVALS as usize);
+			// Verify proposal exists and has both approvals
+			let proposal = Proposals::<Test>::get(call_hash, alice_origin_id).unwrap();
+			assert_eq!(proposal.approvals.len(), REQUIRED_APPROVALS as usize);
 
-            // Verify both origin IDs are in approvals
-            assert!(proposal.approvals.contains(&alice_origin_id));
-            assert!(proposal.approvals.contains(&bob_origin_id));
+			// Verify both origin IDs are in approvals
+			assert!(proposal.approvals.contains(&alice_origin_id));
+			assert!(proposal.approvals.contains(&bob_origin_id));
 
-            // Verify approval event emitted with correct origin IDs
-            System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalApproved {
-                proposal_hash: call_hash,
-                origin_id: alice_origin_id,
-                approving_origin_id: bob_origin_id,
-            }));
-        });
-    }
+			// Verify approval event emitted with correct origin IDs
+			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::OriginApprovalAdded {
+				proposal_hash: call_hash,
+				origin_id: alice_origin_id,
+				approving_origin_id: bob_origin_id,
+			}));
+		});
+	}
 
 	mod origin_enforcement {
 		use super::*;
@@ -302,7 +974,8 @@ mod integration_test {
 
 				// Generate call hash
 				let call = make_remark_call("1000").unwrap();
-				let call_hash = <<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				let call_hash =
+					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
 
 				// let call = Box::new(mock::RuntimeCall::System(frame_system::Call::remark {
 				// 	remark: vec![1, 2, 3, 4],
@@ -319,10 +992,13 @@ mod integration_test {
 
 				// Prior to Bob's approval we dispatching a signed extrinsic to test AliceAndBob
 				// origin directly and expect it to fail without Bob's approval
-				assert_matches!(AliceAndBob::ensure_origin(RuntimeOrigin::signed(ALICE)).is_err(), true);
+				assert_matches!(
+					AliceAndBob::ensure_origin(RuntimeOrigin::signed(ALICE)).is_err(),
+					true
+				);
 
 				// Approval by Bob dispatching a signed extrinsic
-				assert_ok!(OriginAndGate::approve(
+				assert_ok!(OriginAndGate::add_approval(
 					RuntimeOrigin::signed(BOB),
 					call_hash,
 					ALICE_ORIGIN_ID,
@@ -374,7 +1050,8 @@ mod integration_test {
 
 				// Generate call hash
 				let call = make_remark_call("1000").unwrap();
-				let call_hash = <<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				let call_hash =
+					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
 
 				// Proposal by Alice
 				assert_ok!(OriginAndGate::propose(
@@ -385,7 +1062,7 @@ mod integration_test {
 				));
 
 				// Try to approve with same origin ID and Alice approving should fail
-				let result = OriginAndGate::approve(
+				let result = OriginAndGate::add_approval(
 					RuntimeOrigin::signed(ALICE),
 					call_hash,
 					ALICE_ORIGIN_ID,
@@ -394,7 +1071,7 @@ mod integration_test {
 				assert!(result.is_err());
 
 				// Try to approve with same origin ID and Bob approving should fail
-				let result = OriginAndGate::approve(
+				let result = OriginAndGate::add_approval(
 					RuntimeOrigin::signed(BOB),
 					call_hash,
 					ALICE_ORIGIN_ID,
@@ -415,7 +1092,8 @@ mod integration_test {
 
 				// Generate call hash
 				let call = make_remark_call("1000").unwrap();
-				let call_hash = <<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				let call_hash =
+					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
 
 				// Proposal by Alice
 				assert_ok!(OriginAndGate::propose(
@@ -442,13 +1120,15 @@ mod integration_test {
 		use super::*;
 
 		#[test]
-		fn proposal_is_approved_but_does_not_execute_and_status_remains_pending_when_only_proposed() {
+		fn proposal_is_approved_but_does_not_execute_and_status_remains_pending_when_only_proposed()
+		{
 			new_test_ext().execute_with(|| {
 				System::set_block_number(1);
 
 				// Create a dummy proposal
 				let call = make_remark_call("1000").unwrap();
-				let call_hash = <<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				let call_hash =
+					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
 
 				// Alice proposes through `propose` pallet call that automatically adds Alice as first approval
 				assert_ok!(OriginAndGate::propose(
@@ -464,7 +1144,9 @@ mod integration_test {
 				assert_eq!(proposal.approvals.len(), 1); // Only Alice (the proposer) approved so far
 
 				// Verify Alice's approval is recorded in Approvals storage
-				assert!(Approvals::<Test>::contains_key((call_hash, ALICE_ORIGIN_ID), ALICE_ORIGIN_ID));
+				assert!(
+					Approvals::<Test>::get((call_hash, ALICE_ORIGIN_ID), ALICE_ORIGIN_ID).is_some()
+				);
 
 				// At this point the proposal should have `Pending` status sinc only have Alice's approval
 				// and it is less than `REQUIRED_APPROVALS`
@@ -485,7 +1167,6 @@ mod integration_test {
 			});
 		}
 
-
 		#[test]
 		fn proposal_successfully_executes_and_status_becomes_executed_with_two_approvals() {
 			new_test_ext().execute_with(|| {
@@ -493,7 +1174,8 @@ mod integration_test {
 
 				// Create dummy proposal
 				let call = make_remark_call("1000").unwrap();
-				let call_hash = <<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				let call_hash =
+					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
 
 				// Alice proposes through `propose` pallet call that automatically adds Alice as first approval
 				assert_ok!(OriginAndGate::propose(
@@ -508,7 +1190,7 @@ mod integration_test {
 				assert_eq!(proposal.status, ProposalStatus::Pending);
 
 				// Adding Bob's approval should trigger execution since now have `REQUIRED_APPROVALS` approvals
-				assert_ok!(OriginAndGate::approve(
+				assert_ok!(OriginAndGate::add_approval(
 					RuntimeOrigin::signed(BOB),
 					call_hash,
 					ALICE_ORIGIN_ID,
@@ -520,11 +1202,11 @@ mod integration_test {
 				assert_eq!(proposal.status, ProposalStatus::Executed);
 				assert_eq!(proposal.approvals.len(), REQUIRED_APPROVALS as usize); // Alice + Bob
 
-				// Verify both `ProposalApproved` and `ProposalExecuted` events were emitted
+				// Verify both `OriginApprovalAdded` and `ProposalExecuted` events were emitted
 				let events = System::events();
 				assert!(events.iter().any(|record| matches!(
 					record.event,
-					mock::RuntimeEvent::OriginAndGate(Event::ProposalApproved { proposal_hash, .. })
+					mock::RuntimeEvent::OriginAndGate(Event::OriginApprovalAdded { proposal_hash, .. })
 					if proposal_hash == call_hash
 				)));
 
@@ -545,12 +1227,17 @@ mod integration_test {
 				let call_hash = H256::repeat_byte(0xab);
 
 				// Create proposal info with sufficient approvals
-				let mut approvals = BoundedVec::default();
-				approvals.try_push(ALICE_ORIGIN_ID).unwrap();
-				approvals.try_push(BOB_ORIGIN_ID).unwrap(); // We already have 2 approvals
+				let mut approvals = BoundedVec::<OriginId, MaxApprovals>::default();
+				approvals.try_push(ALICE_ORIGIN_ID.into()).unwrap();
+				approvals.try_push(BOB_ORIGIN_ID.into()).unwrap(); // Already have 2 approvals
 
-				let proposal_info =
-					ProposalInfo { call_hash, expiry: None, approvals, status: ProposalStatus::Pending };
+				let proposal_info = ProposalInfo {
+					call_hash,
+					expiry: None,
+					approvals,
+					status: ProposalStatus::Pending,
+					proposer: ALICE,
+				};
 
 				// Skip calling `propose` and instead store proposal directly in storage
 				// but not the `call` to execute
@@ -562,7 +1249,7 @@ mod integration_test {
 
 				// Approval of proposal by Bob means we have enough approvals to try execution but
 				// should fail with `ProposalNotFound` because we did not store the `call` to execute
-				let result = OriginAndGate::approve(
+				let result = OriginAndGate::add_approval(
 					RuntimeOrigin::signed(BOB),
 					call_hash,
 					ALICE_ORIGIN_ID,

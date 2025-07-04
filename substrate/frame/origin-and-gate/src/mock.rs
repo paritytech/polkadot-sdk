@@ -182,8 +182,12 @@ impl Clone for MaxApprovals {
 
 impl Copy for MaxApprovals {}
 
+// Move to parameter_types instead
+pub type OriginId = u8;
+
 parameter_types! {
 	pub const MaxApprovals: u32 = 10;
+	// TODO: Add OriginId
 	pub const ProposalLifetime: BlockNumber = 100;
 }
 
@@ -192,7 +196,7 @@ impl pallet_origin_and_gate::Config for Test {
 	type RuntimeCall = RuntimeCall;
 	type MaxApprovals = MaxApprovals;
 	type Hashing = BlakeTwo256;
-	type OriginId = u8;
+	type OriginId = OriginId;
 	type ProposalLifetime = ProposalLifetime;
 	type WeightInfo = ();
 }

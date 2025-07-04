@@ -189,8 +189,11 @@ pub mod pallet {
 				Error::NotAuthorized => 3,
 				Error::ProposalAlreadyExecuted => 4,
 				Error::ProposalExpired => 5,
-				Error::AlreadyApproved => 6,
-				Error::InsufficientApprovals => 7,
+				Error::ProposalCancelled => 6,
+				Error::OriginAlreadyApproved => 7,
+				Error::InsufficientApprovals => 8,
+				Error::ProposalNotPending => 9,
+				Error::OriginApprovalNotFound => 10,
 			}
 		}
 
@@ -202,6 +205,7 @@ pub mod pallet {
 				T::Hash,
 				BlockNumberFor<T>,
 				T::OriginId,
+				T::AccountId,
 				T::MaxApprovals,
 			>,
 		) -> DispatchResult {
@@ -285,13 +289,18 @@ pub mod pallet {
 				expiry: expiry_block,
 				approvals,
 				status: ProposalStatus::Pending,
+				proposer: who.clone(),
 			};
 
 			// Store proposal metadata (bounded storage)
 			<Proposals<T>>::insert(proposal_hash, origin_id.clone(), proposal_info);
 
 			// Mark first approval in approvals storage (bounded)
-			<Approvals<T>>::insert((proposal_hash, origin_id.clone()), origin_id.clone(), true);
+			<Approvals<T>>::insert(
+				(proposal_hash, origin_id.clone()),
+				origin_id.clone(),
+				who.clone(),
+			);
 
 			// Store actual call data (unbounded)
 			<ProposalCalls<T>>::insert(proposal_hash, call);
@@ -304,8 +313,8 @@ pub mod pallet {
 
 		/// Approve a previously submitted proposal.
 		#[pallet::call_index(1)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::approve())]
-		pub fn approve(
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::add_approval())]
+		pub fn add_approval(
 			origin: OriginFor<T>,
 			call_hash: T::Hash,
 			origin_id: T::OriginId,
@@ -342,11 +351,15 @@ pub mod pallet {
 
 			// Check if origin_id already approved
 			if <Approvals<T>>::contains_key((call_hash, origin_id), approving_origin_id) {
-				return Err(Error::<T>::AlreadyApproved.into());
+				return Err(Error::<T>::OriginAlreadyApproved.into());
 			}
 
-			// Add to storage to mark that this origin is approved
-			<Approvals<T>>::insert((call_hash, origin_id), approving_origin_id, true);
+			// Add to storage to mark this origin as approved
+			<Approvals<T>>::insert(
+				(call_hash, origin_id.clone()),
+				approving_origin_id.clone(),
+				who.clone(),
+			);
 
 			// Add to proposal's approvals list if not yet present
 			if !proposal_info.approvals.contains(&approving_origin_id) {
@@ -359,7 +372,7 @@ pub mod pallet {
 			<Proposals<T>>::insert(call_hash, origin_id.clone(), &proposal_info);
 
 			// Emit approval event
-			Self::deposit_event(Event::ProposalApproved {
+			Self::deposit_event(Event::OriginApprovalAdded {
 				proposal_hash: call_hash,
 				origin_id: origin_id.clone(),
 				approving_origin_id,
@@ -395,6 +408,115 @@ pub mod pallet {
 			Ok(().into())
 		}
 
+		/// Cancel pending proposal is only callable by original proposer
+		#[pallet::call_index(2)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::cancel_proposal())]
+		pub fn cancel_proposal(
+			origin: OriginFor<T>,
+			proposal_hash: T::Hash,
+			origin_id: T::OriginId,
+		) -> DispatchResultWithPostInfo {
+			// Check extrinsic was signed
+			let who = ensure_signed(origin)?;
+
+			// Get proposal info
+			let mut proposal = Proposals::<T>::get(&proposal_hash, &origin_id)
+				.ok_or(Error::<T>::ProposalNotFound)?;
+
+			// Ensure proposal is in a pending state
+			ensure!(proposal.status == ProposalStatus::Pending, Error::<T>::ProposalNotPending);
+
+			// Ensure caller is original proposer
+			ensure!(who == proposal.proposer, Error::<T>::NotAuthorized);
+
+			// Update proposal status to Cancelled
+			// TODO: Potentially remove since this is just for completeness
+			// and potentially unnecessary since status will be removed from storage
+			// shortly after and proposal cancelled event will be emitted
+			// at lower cost
+			proposal.status = ProposalStatus::Cancelled;
+
+			// Clean up all approvals from Approvals storage efficiently
+			<Approvals<T>>::remove_prefix((proposal_hash, origin_id.clone()), None);
+
+			// Update storage with cancelled status
+			Proposals::<T>::insert(&proposal_hash, &origin_id, proposal);
+
+			// Remove actual call data (unbounded) to save storage
+			<ProposalCalls<T>>::remove(proposal_hash);
+
+			// Remove proposal from storage to clean up all approvals
+			Proposals::<T>::remove(&proposal_hash, &origin_id);
+
+			// Emit event
+			Self::deposit_event(Event::ProposalCancelled { proposal_hash, origin_id });
+
+			Ok(().into())
+		}
+
+		/// Withdraw an approval for the proposal associated with an origin.
+		///
+		/// Only callable by an origin that has approved the proposal.
+		///
+		/// - `origin`: Must be a valid authority (i.e. entity) that approves the proposal.
+		/// - `proposal_hash`: The proposal hash to withdraw approval for.
+		/// - `origin_id`: The origin id that the proposal belongs to.
+		/// - `withdrawing_origin_id`: The origin id to withdraw the approval for since
+		///    the account might need to specify which of their multiple origin authorities
+		///    they approved with that they are now withdrawing approval for.
+		#[pallet::call_index(3)]
+		#[pallet::weight((<T as pallet::Config>::WeightInfo::withdraw_approval(), DispatchClass::Normal))]
+		pub fn withdraw_approval(
+			origin: OriginFor<T>,
+			proposal_hash: T::Hash,
+			origin_id: T::OriginId,
+			withdrawing_origin_id: T::OriginId,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+
+			// Get proposal info
+			let mut proposal = Proposals::<T>::get(&proposal_hash, &origin_id)
+				.ok_or(Error::<T>::ProposalNotFound)?;
+
+			ensure!(proposal.status == ProposalStatus::Pending, Error::<T>::ProposalNotPending);
+
+			// Verify approval exists and check authorisation such that only original approver can withdraw
+			// their approval using our mapping from OriginId to AccountId where only the account that originally
+			// granted approval can withdraw it
+			let approval_account = <Approvals<T>>::get(
+				(proposal_hash, origin_id.clone()),
+				withdrawing_origin_id.clone(),
+			)
+			.ok_or(Error::<T>::OriginApprovalNotFound)?;
+
+			ensure!(approval_account == who, Error::<T>::NotAuthorized);
+
+			// Find position of withdrawing_origin_id in approvals vector
+			let pos = proposal
+				.approvals
+				.iter()
+				.position(|a| a == &withdrawing_origin_id)
+				.ok_or(Error::<T>::OriginApprovalNotFound)?;
+
+			// Remove approval at found position
+			proposal.approvals.swap_remove(pos);
+
+			// Update proposal in storage
+			Proposals::<T>::insert(&proposal_hash, &origin_id, &proposal);
+
+			// Remove approval from Approvals storage
+			<Approvals<T>>::remove((proposal_hash, origin_id), withdrawing_origin_id);
+
+			// Emit event
+			Self::deposit_event(Event::OriginApprovalWithdrawn {
+				proposal_hash,
+				origin_id,
+				withdrawing_origin_id,
+			});
+
+			Ok(().into())
+		}
+
 		/// A privileged call; in this case it resets our dummy value to something new.
 		/// Implementation of a privileged call. The `origin` parameter is ROOT because
 		/// it's not (directly) from an extrinsic, but rather the system as a whole has decided
@@ -405,7 +527,7 @@ pub mod pallet {
 		///
 		/// The weight for this extrinsic we use our own weight object `WeightForSetDummy`
 		/// or set_dummy() extrinsic to determine its weight
-		#[pallet::call_index(2)]
+		#[pallet::call_index(4)]
 		// #[pallet::weight(WeightForSetDummy::<T>(<BalanceOf<T>>::from(100u64.into())))]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_dummy())]
 		pub fn set_dummy(
@@ -449,8 +571,8 @@ pub mod pallet {
 			proposal_hash: T::Hash,
 			origin_id: T::OriginId,
 		},
-		/// A proposal has been approved.
-		ProposalApproved {
+		/// An origin has added their approval of a proposal.
+		OriginApprovalAdded {
 			proposal_hash: T::Hash,
 			origin_id: T::OriginId,
 			approving_origin_id: T::OriginId,
@@ -465,6 +587,17 @@ pub mod pallet {
 		ProposalExpired {
 			proposal_hash: T::Hash,
 			origin_id: T::OriginId,
+		},
+		/// A proposal has been cancelled.
+		ProposalCancelled {
+			proposal_hash: T::Hash,
+			origin_id: T::OriginId,
+		},
+		/// An origin has withdrawn their approval of a proposal.
+		OriginApprovalWithdrawn {
+			proposal_hash: T::Hash,
+			origin_id: T::OriginId,
+			withdrawing_origin_id: T::OriginId,
 		},
 		SetDummy {
 			balance: BalanceOf<T>,
@@ -481,14 +614,20 @@ pub mod pallet {
 		TooManyApprovals,
 		/// The caller is not authorized to approve
 		NotAuthorized,
+		/// The proposal is not pending
+		ProposalNotPending,
 		/// The proposal has already been executed
 		ProposalAlreadyExecuted,
 		/// The proposal has expired
 		ProposalExpired,
-		/// The proposal is already approved
-		AlreadyApproved,
+		/// The proposal was cancelled
+		ProposalCancelled,
+		/// The proposal was already approved by the origin
+		OriginAlreadyApproved,
 		/// The proposal does not have enough approvals
 		InsufficientApprovals,
+		/// The origin approval could not be found
+		OriginApprovalNotFound,
 	}
 
 	/// Status of proposal
@@ -500,12 +639,14 @@ pub mod pallet {
 		Executed,
 		/// Proposal has expired
 		Expired,
+		/// Proposal has been cancelled
+		Cancelled,
 	}
 
 	/// Info about specific proposal
 	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 	#[scale_info(skip_type_params(MaxApprovals))]
-	pub struct ProposalInfo<Hash, BlockNumber, OriginId, MaxApprovals: Get<u32>> {
+	pub struct ProposalInfo<Hash, BlockNumber, OriginId, AccountId, MaxApprovals: Get<u32>> {
 		/// The call hash of this proposal to execute
 		pub call_hash: Hash,
 		/// The block number after which this proposal expires
@@ -514,6 +655,8 @@ pub mod pallet {
 		pub approvals: BoundedVec<OriginId, MaxApprovals>,
 		/// The current status of this proposal
 		pub status: ProposalStatus,
+		/// The original proposer of this proposal
+		pub proposer: AccountId,
 	}
 
 	/// Storage for proposals
@@ -525,7 +668,7 @@ pub mod pallet {
 		T::Hash,
 		Blake2_128Concat,
 		T::OriginId,
-		ProposalInfo<T::Hash, BlockNumberFor<T>, T::OriginId, T::MaxApprovals>,
+		ProposalInfo<T::Hash, BlockNumberFor<T>, T::OriginId, T::AccountId, T::MaxApprovals>,
 		OptionQuery,
 	>;
 
@@ -535,11 +678,11 @@ pub mod pallet {
 	pub type Approvals<T: Config> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
-		(T::Hash, T::OriginId),
+		(T::Hash, T::OriginId), // e.g. (proposal_hash, origin_id)
 		Blake2_128Concat,
-		T::OriginId,
-		bool,
-		ValueQuery,
+		T::OriginId,  // e.g. approving_origin_id or withdrawing_origin_id
+		T::AccountId, // e.g. account that added the approval
+		OptionQuery,
 	>;
 
 	/// Storage for calls themselves that is unbounded since

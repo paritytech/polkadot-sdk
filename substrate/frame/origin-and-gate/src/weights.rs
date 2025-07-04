@@ -21,7 +21,9 @@ use frame_support::weights::Weight;
 pub trait WeightInfo {
 	fn set_dummy() -> Weight;
 	fn propose() -> Weight;
-	fn approve() -> Weight;
+	fn add_approval() -> Weight;
+	fn cancel_proposal() -> Weight;
+	fn withdraw_approval() -> Weight;
 }
 
 // For tests
@@ -32,7 +34,13 @@ impl WeightInfo for () {
 	fn propose() -> Weight {
 		Weight::zero()
 	}
-	fn approve() -> Weight {
+	fn add_approval() -> Weight {
+		Weight::zero()
+	}
+	fn cancel_proposal() -> Weight {
+		Weight::zero()
+	}
+	fn withdraw_approval() -> Weight {
 		Weight::zero()
 	}
 }
