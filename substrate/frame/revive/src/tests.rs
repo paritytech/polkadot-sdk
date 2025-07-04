@@ -4460,7 +4460,7 @@ fn prestate_tracing_works() {
 				.build_and_unwrap_contract();
 
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
-			.value(Pallet::<Test>::convert_native_to_evm(10_000_000))
+			.value(Pallet::<Test>::convert_native_to_evm(10))
 			.build_and_unwrap_contract();
 
 		// redact balance so that tests are resilient to weight changes
