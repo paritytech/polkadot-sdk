@@ -17,9 +17,8 @@
 
 use super::{deposit_limit, GAS_LIMIT};
 use crate::{
-	address::AddressMapper, AccountIdOf, BalanceOf, BalanceWithDust, BumpNonce, Code, Config,
-	ContractResult, DepositLimit, ExecReturnValue, InstantiateReturnValue, OriginFor, Pallet,
-	Weight,
+	address::AddressMapper, AccountIdOf, BalanceOf, BumpNonce, Code, Config, ContractResult,
+	DepositLimit, ExecReturnValue, InstantiateReturnValue, OriginFor, Pallet, Weight, U256,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;
@@ -133,7 +132,7 @@ builder!(
 builder!(
 	bare_instantiate(
 		origin: OriginFor<T>,
-		value: BalanceWithDust<BalanceOf<T>>,
+		value: U256,
 		gas_limit: Weight,
 		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
 		code: Code,
@@ -199,7 +198,7 @@ builder!(
 	bare_call(
 		origin: OriginFor<T>,
 		dest: H160,
-		value: BalanceWithDust<BalanceOf<T>>,
+		value: U256,
 		gas_limit: Weight,
 		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
 		data: Vec<u8>,

@@ -1562,16 +1562,20 @@ mod benchmarks {
 	}
 
 	// t: with or without some value to transfer
+	// d: with or without dust value to transfer
 	// i: size of the input data
 	#[benchmark(pov_mode = Measured)]
-	fn seal_call(t: Linear<0, 1>, i: Linear<0, { limits::code::BLOB_BYTES }>) {
-		let Contract { account_id: callee, .. } =
+	fn seal_call(t: Linear<0, 1>, d: Linear<0, 1>, i: Linear<0, { limits::code::BLOB_BYTES }>) {
+		let Contract { account_id: callee, address: callee_addr, .. } =
 			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
+
 		let callee_bytes = callee.encode();
 		let callee_len = callee_bytes.len() as u32;
 
-		let value: BalanceOf<T> = (1_000_000 * t).into();
-		let value_bytes = Into::<U256>::into(value).encode();
+		let value: BalanceOf<T> = (1_000_000u32 * t).into();
+		let dust = 100u32 * d;
+		let evm_value = Pallet::<T>::convert_native_to_evm(BalanceWithDust { value, dust });
+		let value_bytes = evm_value.encode();
 
 		let deposit: BalanceOf<T> = (u32::MAX - 100).into();
 		let deposit_bytes = Into::<U256>::into(deposit).encode();
@@ -1583,6 +1587,7 @@ mod benchmarks {
 		// This is why we set the input here instead of passig it as pointer to the `bench_call`.
 		setup.set_data(vec![42; i as usize]);
 		setup.set_origin(Origin::from_account_id(setup.contract().account_id.clone()));
+		setup.set_balance(value + 1u32.into() + Pallet::<T>::min_balance());
 
 		let (mut ext, _) = setup.ext();
 		let mut runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
@@ -1602,7 +1607,12 @@ mod benchmarks {
 			);
 		}
 
-		assert_ok!(result);
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		assert_eq!(
+			Pallet::<T>::evm_balance(&callee_addr),
+			evm_value,
+			"{callee_addr:?} balance should hold {evm_value:?}"
+		);
 	}
 
 	// d: 1 if the associated pre-compile has a contract info that needs to be loaded
@@ -1700,20 +1710,27 @@ mod benchmarks {
 			);
 		}
 
-		assert_ok!(result);
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
 		Ok(())
 	}
 
-	// t: value to transfer
-	// i: size of input in bytes
+	// t: with or without some value to transfer
+	// d: with or without dust value to transfer
+	// i: size of the input data
 	#[benchmark(pov_mode = Measured)]
-	fn seal_instantiate(i: Linear<0, { limits::code::BLOB_BYTES }>) -> Result<(), BenchmarkError> {
+	fn seal_instantiate(
+		t: Linear<0, 1>,
+		d: Linear<0, 1>,
+		i: Linear<0, { limits::code::BLOB_BYTES }>,
+	) -> Result<(), BenchmarkError> {
 		let code = VmBinaryModule::dummy();
 		let hash = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?.info()?.code_hash;
 		let hash_bytes = hash.encode();
 
-		let value: BalanceOf<T> = 1_000_000u32.into();
-		let value_bytes = Into::<U256>::into(value).encode();
+		let value: BalanceOf<T> = (1_000_000u32 * t).into();
+		let dust = 100u32 * d;
+		let evm_value = Pallet::<T>::convert_native_to_evm(BalanceWithDust { value, dust });
+		let value_bytes = evm_value.encode();
 		let value_len = value_bytes.len() as u32;
 
 		let deposit: BalanceOf<T> = BalanceOf::<T>::max_value();
@@ -1722,7 +1739,7 @@ mod benchmarks {
 
 		let mut setup = CallSetup::<T>::default();
 		setup.set_origin(Origin::from_account_id(setup.contract().account_id.clone()));
-		setup.set_balance(value + (Pallet::<T>::min_balance() * 2u32.into()));
+		setup.set_balance(value + 1u32.into() + (Pallet::<T>::min_balance() * 2u32.into()));
 
 		let account_id = &setup.contract().account_id.clone();
 		let (mut ext, _) = setup.ext();
@@ -1733,7 +1750,6 @@ mod benchmarks {
 		let salt = [42u8; 32];
 		let deployer = T::AddressMapper::to_address(&account_id);
 		let addr = crate::address::create2(&deployer, &code.code, &input, &salt);
-		let account_id = T::AddressMapper::to_fallback_account_id(&addr);
 		let mut memory = memory!(hash_bytes, input, deposit_bytes, value_bytes, salt,);
 
 		let mut offset = {
@@ -1753,19 +1769,20 @@ mod benchmarks {
 				memory.as_mut_slice(),
 				u64::MAX,                                           // ref_time_limit
 				u64::MAX,                                           // proof_size_limit
-				pack_hi_lo(offset(input_len), offset(deposit_len)), // deopsit_ptr + value_ptr
+				pack_hi_lo(offset(input_len), offset(deposit_len)), // deposit_ptr + value_ptr
 				pack_hi_lo(input_len, 0),                           // input_data_len + input_data
 				pack_hi_lo(0, SENTINEL),                            // output_len_ptr + output_ptr
 				pack_hi_lo(SENTINEL, offset(value_len)),            // address_ptr + salt_ptr
 			);
 		}
 
-		assert_ok!(result);
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
 		assert!(AccountInfo::<T>::load_contract(&addr).is_some());
+
 		assert_eq!(
-			T::Currency::balance(&account_id),
-			Pallet::<T>::min_balance() +
-				Pallet::<T>::convert_evm_to_native(value.into()).unwrap().value
+			Pallet::<T>::evm_balance(&addr),
+			evm_value,
+			"{addr:?} balance should hold {evm_value:?}"
 		);
 		Ok(())
 	}

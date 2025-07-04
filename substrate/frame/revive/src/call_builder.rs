@@ -278,11 +278,7 @@ where
 		let account_id = T::AddressMapper::to_fallback_account_id(&address);
 		let result = Contract { caller, address, account_id };
 
-		AccountInfoOf::<T>::insert(
-			&address,
-			AccountInfo { account_type: result.info()?.into(), dust: 0 },
-		);
-
+		AccountInfo::<T>::insert_contract(&address, result.info()?);
 		Ok(result)
 	}
 

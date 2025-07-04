@@ -1059,9 +1059,9 @@ where
 		if let (CachedContract::Cached(contract), ExportedFunction::Call) =
 			(&frame.contract_info, frame.entry_point)
 		{
-			AccountInfoOf::<T>::insert(
-				T::AddressMapper::to_address(&frame.account_id),
-				AccountInfo { account_type: contract.clone().into(), dust: 0 },
+			AccountInfo::<T>::insert_contract(
+				&T::AddressMapper::to_address(&frame.account_id),
+				contract.clone(),
 			);
 		}
 
@@ -1340,9 +1340,9 @@ where
 				// because that case is already handled by the optimization above. Only the first
 				// cache needs to be invalidated because that one will invalidate the next cache
 				// when it is popped from the stack.
-				<AccountInfoOf<T>>::insert(
-					T::AddressMapper::to_address(account_id),
-					AccountInfo { account_type: contract.into(), dust: 0 },
+				AccountInfo::<T>::insert_contract(
+					&T::AddressMapper::to_address(account_id),
+					contract,
 				);
 				if let Some(f) = self.frames_mut().skip(1).find(|f| f.account_id == *account_id) {
 					f.contract_info.invalidate();
@@ -1360,9 +1360,9 @@ where
 				contract.as_deref_mut(),
 			);
 			if let Some(contract) = contract {
-				<AccountInfoOf<T>>::insert(
-					T::AddressMapper::to_address(&self.first_frame.account_id),
-					AccountInfo { account_type: contract.clone().into(), dust: 0 },
+				AccountInfo::<T>::insert_contract(
+					&T::AddressMapper::to_address(&self.first_frame.account_id),
+					contract.clone(),
 				);
 			}
 		}

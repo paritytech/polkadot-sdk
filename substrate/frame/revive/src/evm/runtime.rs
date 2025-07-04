@@ -313,12 +313,7 @@ pub trait EthExtra {
 			return Err(InvalidTransaction::Call);
 		}
 
-		let value = crate::Pallet::<Self::Config>::convert_evm_to_native(value.unwrap_or_default())
-			.map_err(|err| {
-				log::debug!(target: LOG_TARGET, "Failed to convert value to native: {err:?}");
-				InvalidTransaction::Call
-			})?;
-
+		let value = value.unwrap_or_default();
 		let data = input.to_vec();
 
 		let (gas_limit, storage_deposit_limit) =

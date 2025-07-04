@@ -42,8 +42,8 @@ use sp_core::{H160, H256, U256};
 use sp_runtime::{traits::AccountIdConversion, DispatchError};
 
 use super::{
-	address::AddressMapper, pallet, BalanceOf, BalanceWithDust, Bounded, Config, ContractResult,
-	DepositLimit, MomentOf, Pallet, Weight,
+	address::AddressMapper, pallet, BalanceOf, Bounded, Config, ContractResult, DepositLimit,
+	MomentOf, Pallet, Weight,
 };
 use ethereum_standards::IERC20;
 
@@ -75,7 +75,7 @@ where
 		let ContractResult { result, .. } = Self::bare_call(
 			T::RuntimeOrigin::signed(Self::checking_account()),
 			asset_id,
-			BalanceWithDust::default(),
+			Default::default(),
 			GAS_LIMIT,
 			DepositLimit::Balance(
 				<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
@@ -111,7 +111,7 @@ where
 		let ContractResult { result, .. } = Self::bare_call(
 			T::RuntimeOrigin::signed(account_id.clone()),
 			asset_id,
-			BalanceWithDust::default(),
+			Default::default(),
 			GAS_LIMIT,
 			DepositLimit::Balance(
 				<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
@@ -186,7 +186,7 @@ where
 		let ContractResult { result, gas_consumed, .. } = Self::bare_call(
 			T::RuntimeOrigin::signed(who.clone()),
 			asset_id,
-			BalanceWithDust::default(),
+			Default::default(),
 			GAS_LIMIT,
 			DepositLimit::Balance(
 				<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
@@ -223,7 +223,7 @@ where
 		let ContractResult { result, .. } = Self::bare_call(
 			T::RuntimeOrigin::signed(Self::checking_account()),
 			asset_id,
-			BalanceWithDust::default(),
+			Default::default(),
 			GAS_LIMIT,
 			DepositLimit::Balance(
 				<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),

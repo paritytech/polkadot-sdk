@@ -138,10 +138,10 @@ pub trait WeightInfo {
 	fn seal_get_transient_storage(n: u32, ) -> Weight;
 	fn seal_contains_transient_storage(n: u32, ) -> Weight;
 	fn seal_take_transient_storage(n: u32, ) -> Weight;
-	fn seal_call(t: u32, i: u32, ) -> Weight;
+	fn seal_call(t: u32, d: u32, i: u32, ) -> Weight;
 	fn seal_call_precompile(d: u32, i: u32, ) -> Weight;
 	fn seal_delegate_call() -> Weight;
-	fn seal_instantiate(i: u32, ) -> Weight;
+	fn seal_instantiate(i: u32, d: u32) -> Weight;
 	fn sha2_256(n: u32, ) -> Weight;
 	fn identity(n: u32, ) -> Weight;
 	fn ripemd_160(n: u32, ) -> Weight;
@@ -928,7 +928,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
 	/// The range of component `t` is `[0, 1]`.
 	/// The range of component `i` is `[0, 262144]`.
-	fn seal_call(t: u32, i: u32, ) -> Weight {
+	fn seal_call(t: u32, _d: u32, i: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1545 + t * (206 ±0)`
 		//  Estimated: `5010 + t * (2608 ±0)`
@@ -986,7 +986,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
 	/// The range of component `i` is `[0, 262144]`.
-	fn seal_instantiate(i: u32, ) -> Weight {
+	fn seal_instantiate(i: u32,_d: u32 ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1260`
 		//  Estimated: `4728`
@@ -1915,7 +1915,7 @@ impl WeightInfo for () {
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
 	/// The range of component `t` is `[0, 1]`.
 	/// The range of component `i` is `[0, 262144]`.
-	fn seal_call(t: u32, i: u32, ) -> Weight {
+	fn seal_call(t: u32, i: u32, _d: u32 ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1545 + t * (206 ±0)`
 		//  Estimated: `5010 + t * (2608 ±0)`
@@ -1973,7 +1973,7 @@ impl WeightInfo for () {
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
 	/// The range of component `i` is `[0, 262144]`.
-	fn seal_instantiate(i: u32, ) -> Weight {
+	fn seal_instantiate(i: u32, _d: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1260`
 		//  Estimated: `4728`

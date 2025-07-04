@@ -534,15 +534,6 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			use frame_support::traits::fungible::Mutate;
-
-			// Create Dust account
-			let account_id = Pallet::<T>::dust_account_id();
-			let min = T::Currency::minimum_balance();
-			if <T as Config>::Currency::balance(&account_id) < min {
-				<T as Config>::Currency::set_balance(&account_id, min);
-			}
-
 			for id in &self.mapped_accounts {
 				if let Err(err) = T::AddressMapper::map(id) {
 					log::error!(target: LOG_TARGET, "Failed to map account {id:?}: {err:?}");
@@ -681,9 +672,15 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		/// The dust account ID used for exchange Plank for dust.
 		pub fn dust_account_id() -> <T as frame_system::Config>::AccountId {
 			use sp_runtime::traits::AccountIdConversion;
 			PalletId(*b"py/revdt").into_account_truncating()
+		}
+
+		/// Returns true if the evm value carries dust.
+		pub fn has_dust(value: U256) -> bool {
+			value % U256::from(<T>::NativeToEthRatio::get()) != U256::zero()
 		}
 	}
 
@@ -745,7 +742,7 @@ pub mod pallet {
 			let mut output = Self::bare_call(
 				origin,
 				dest,
-				Into::<BalanceWithDust<_>>::into(value),
+				Pallet::<T>::convert_native_to_evm(value),
 				gas_limit,
 				DepositLimit::Balance(storage_deposit_limit),
 				data,
@@ -780,7 +777,7 @@ pub mod pallet {
 			let data_len = data.len() as u32;
 			let mut output = Self::bare_instantiate(
 				origin,
-				Into::<BalanceWithDust<_>>::into(value),
+				Pallet::<T>::convert_native_to_evm(value),
 				gas_limit,
 				DepositLimit::Balance(storage_deposit_limit),
 				Code::Existing(code_hash),
@@ -845,7 +842,7 @@ pub mod pallet {
 			let data_len = data.len() as u32;
 			let mut output = Self::bare_instantiate(
 				origin,
-				Into::<BalanceWithDust<_>>::into(value),
+				Pallet::<T>::convert_native_to_evm(value),
 				gas_limit,
 				DepositLimit::Balance(storage_deposit_limit),
 				Code::Upload(code),
@@ -879,7 +876,7 @@ pub mod pallet {
 		)]
 		pub fn eth_instantiate_with_code(
 			origin: OriginFor<T>,
-			value: BalanceWithDust<BalanceOf<T>>,
+			value: U256,
 			gas_limit: Weight,
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 			code: Vec<u8>,
@@ -917,7 +914,7 @@ pub mod pallet {
 		pub fn eth_call(
 			origin: OriginFor<T>,
 			dest: H160,
-			value: BalanceWithDust<BalanceOf<T>>,
+			value: U256,
 			gas_limit: Weight,
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 			data: Vec<u8>,
@@ -1090,7 +1087,7 @@ where
 	pub fn bare_call(
 		origin: OriginFor<T>,
 		dest: H160,
-		value: BalanceWithDust<BalanceOf<T>>,
+		value: U256,
 		gas_limit: Weight,
 		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
 		data: Vec<u8>,
@@ -1110,7 +1107,7 @@ where
 				dest,
 				&mut gas_meter,
 				&mut storage_meter,
-				Self::convert_native_to_evm(value),
+				value,
 				data,
 				storage_deposit_limit.is_unchecked(),
 			)?;
@@ -1148,7 +1145,7 @@ where
 	/// more information to the caller useful to estimate the cost of the operation.
 	pub fn bare_instantiate(
 		origin: OriginFor<T>,
-		value: BalanceWithDust<BalanceOf<T>>,
+		value: U256,
 		gas_limit: Weight,
 		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
 		code: Code,
@@ -1195,7 +1192,7 @@ where
 				executable,
 				&mut gas_meter,
 				&mut storage_meter,
-				Self::convert_native_to_evm(value),
+				value,
 				data,
 				salt.as_ref(),
 				unchecked_deposit_limit,
@@ -1275,12 +1272,7 @@ where
 		}
 
 		// Convert the value to the native balance type.
-		let evm_value = tx.value.unwrap_or_default();
-		let native_value = match Self::convert_evm_to_native(evm_value) {
-			Ok(v) => v,
-			Err(_) => return Err(EthTransactError::Message("Failed to convert value".into())),
-		};
-
+		let value = tx.value.unwrap_or_default();
 		let input = tx.input.clone().to_vec();
 
 		let extract_error = |err| {
@@ -1331,7 +1323,7 @@ where
 					let result = crate::Pallet::<T>::bare_call(
 						T::RuntimeOrigin::signed(origin),
 						dest,
-						native_value,
+						value,
 						gas_limit,
 						storage_deposit_limit,
 						input.clone(),
@@ -1363,7 +1355,7 @@ where
 					);
 					let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::eth_call {
 						dest,
-						value: native_value,
+						value,
 						gas_limit,
 						storage_deposit_limit,
 						data: input.clone(),
@@ -1390,7 +1382,7 @@ where
 				// Dry run the call.
 				let result = crate::Pallet::<T>::bare_instantiate(
 					T::RuntimeOrigin::signed(origin),
-					native_value,
+					value,
 					gas_limit,
 					storage_deposit_limit,
 					Code::Upload(code.to_vec()),
@@ -1426,7 +1418,7 @@ where
 				);
 				let dispatch_call: <T as Config>::RuntimeCall =
 					crate::Call::<T>::eth_instantiate_with_code {
-						value: native_value,
+						value,
 						gas_limit,
 						storage_deposit_limit,
 						code: code.to_vec(),
@@ -1471,7 +1463,7 @@ where
 	/// Convert a substrate fee into a gas value, using the fixed `GAS_PRICE`.
 	/// The gas is calculated as `fee / GAS_PRICE`, rounded up to the nearest integer.
 	pub fn evm_fee_to_gas(fee: BalanceOf<T>) -> U256 {
-		let fee = Self::convert_native_to_evm(Into::<BalanceWithDust<_>>::into(fee));
+		let fee = Self::convert_native_to_evm(fee);
 		let gas_price = GAS_PRICE.into();
 		let (quotient, remainder) = fee.div_mod(gas_price);
 		if remainder.is_zero() {
@@ -1608,8 +1600,8 @@ where
 	}
 
 	/// Convert a native balance to EVM balance.
-	fn convert_native_to_evm(value: BalanceWithDust<BalanceOf<T>>) -> U256 {
-		let BalanceWithDust { value, dust } = value;
+	fn convert_native_to_evm(value: impl Into<BalanceWithDust<BalanceOf<T>>>) -> U256 {
+		let BalanceWithDust { value, dust } = value.into();
 		value
 			.into()
 			.saturating_mul(T::NativeToEthRatio::get().into())

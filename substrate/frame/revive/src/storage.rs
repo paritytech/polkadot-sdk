@@ -175,6 +175,17 @@ impl<T: Config> AccountInfo<T> {
 		let AccountType::Contract(contract_info) = info.account_type else { return None };
 		Some(contract_info)
 	}
+
+	/// Insert a contract, existing dust if any will be unchanged.
+	pub fn insert_contract(address: &H160, contract: ContractInfo<T>) {
+		AccountInfoOf::<T>::mutate(address, |account| {
+			if let Some(account) = account {
+				account.account_type = contract.clone().into();
+			} else {
+				*account = Some(AccountInfo { account_type: contract.clone().into(), dust: 0 });
+			}
+		});
+	}
 }
 
 impl<T: Config> ContractInfo<T> {
