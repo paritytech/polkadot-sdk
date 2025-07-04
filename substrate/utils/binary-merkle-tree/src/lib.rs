@@ -228,8 +228,7 @@ where
 
 /// Construct a Merkle Proof for leaves given by indices.
 ///
-/// This is a raw version of the [`merkle_proof`] function that does not require leaves to be
-/// hashed first.
+/// This is a raw version of the [`merkle_proof`] function that expects the hashes of the leaves and not the leaves itself.
 ///
 /// The function constructs a (partial) Merkle Tree first and stores all elements required
 /// to prove requested item (leaf) given the root hash.
