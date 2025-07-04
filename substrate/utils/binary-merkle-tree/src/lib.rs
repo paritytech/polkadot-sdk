@@ -240,7 +240,7 @@ where
 /// # Panic
 ///
 /// The function will panic if given `leaf_index` is greater than the number of leaves.
-pub fn merkle_proof_raw<H, I, T>(leaves: I, leaf_index: u32) -> MerkleProof<H::Out, H::Out>
+pub fn merkle_proof_raw<H, I>(leaves: I, leaf_index: u32) -> MerkleProof<H::Out, H::Out>
 where
 	H: Hasher,
 	H::Out: Default + Copy + AsRef<[u8]>,
