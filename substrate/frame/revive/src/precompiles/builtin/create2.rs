@@ -65,10 +65,11 @@ impl<T: Config> PrimitivePrecompile for Create2<T> {
 
 		let code_hash = sp_io::hashing::keccak_256(&code);
 
+		// TODO: upload code to storage if not already uploaded
+
 		let instantiate_address = env.instantiate(
 			gas_limit,
-			U256::from(storage_deposit_limit.saturated_into::<u128>()), /* Convert to U256 for
-			                                                             * deposit limit */
+			U256::from(storage_deposit_limit.saturated_into::<u128>()),
 			H256::from(code_hash),
 			endowment,
 			vec![], // input data for constructor, if any?
