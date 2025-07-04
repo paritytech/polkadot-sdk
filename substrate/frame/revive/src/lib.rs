@@ -1087,7 +1087,7 @@ where
 	pub fn bare_call(
 		origin: OriginFor<T>,
 		dest: H160,
-		value: U256,
+		evm_value: U256,
 		gas_limit: Weight,
 		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
 		data: Vec<u8>,
@@ -1107,7 +1107,7 @@ where
 				dest,
 				&mut gas_meter,
 				&mut storage_meter,
-				value,
+				evm_value,
 				data,
 				storage_deposit_limit.is_unchecked(),
 			)?;
@@ -1145,7 +1145,7 @@ where
 	/// more information to the caller useful to estimate the cost of the operation.
 	pub fn bare_instantiate(
 		origin: OriginFor<T>,
-		value: U256,
+		evm_value: U256,
 		gas_limit: Weight,
 		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
 		code: Code,
@@ -1192,7 +1192,7 @@ where
 				executable,
 				&mut gas_meter,
 				&mut storage_meter,
-				value,
+				evm_value,
 				data,
 				salt.as_ref(),
 				unchecked_deposit_limit,
@@ -1600,7 +1600,7 @@ where
 	}
 
 	/// Convert a native balance to EVM balance.
-	fn convert_native_to_evm(value: impl Into<BalanceWithDust<BalanceOf<T>>>) -> U256 {
+	pub fn convert_native_to_evm(value: impl Into<BalanceWithDust<BalanceOf<T>>>) -> U256 {
 		let BalanceWithDust { value, dust } = value.into();
 		value
 			.into()
@@ -1867,7 +1867,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 					$crate::Pallet::<Self>::bare_call(
 						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin),
 						dest,
-						Into::<$crate::BalanceWithDust<_>>::into(value),
+						$crate::Pallet::<Self>::convert_native_to_evm(value),
 						gas_limit.unwrap_or(blockweights.max_block),
 						$crate::DepositLimit::Balance(storage_deposit_limit.unwrap_or(u128::MAX)),
 						input_data,
@@ -1890,7 +1890,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 					$crate::Pallet::<Self>::prepare_dry_run(&origin);
 					$crate::Pallet::<Self>::bare_instantiate(
 						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin),
-						Into::<$crate::BalanceWithDust<_>>::into(value),
+						$crate::Pallet::<Self>::convert_native_to_evm(value),
 						gas_limit.unwrap_or(blockweights.max_block),
 						$crate::DepositLimit::Balance(storage_deposit_limit.unwrap_or(u128::MAX)),
 						code,
