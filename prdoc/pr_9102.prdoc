@@ -1,20 +1,12 @@
 title: '`polkadot-omni-node`: pass timestamp inherent data for block import'
 doc:
-- audience: Todo
+- audience: [ Runtime Dev, Node Dev ] 
   description: |-
-    # Description
+    This should allow aura runtimes to check timestamp inherent data when syncing/importing blocks
+    that include timestamp inherent data.
 
-    This should allow aura runtimes that check timestamp inherent data to sync/import blocks that include timestamp inherent data.
-
-    Closes #8907
-
-    ## Integration
-
-    Runtime developers can check timestamp inherent data while using `polkadot-omni-node-lib`/`polkadot-omni-node`/`polkadot-parachain` binaries. This change is backwards compatible and doesn't require runtimes to check the timestamp inherent, but they are able to do it now if needed.
-
-    ## Review Notes
-
-    N/A
+    Runtime developers can check timestamp inherent data while using `polkadot-omni-node-lib`/`polkadot-omni-node`/`polkadot-parachain` binaries.
+    This change is backwards compatible and doesn't require runtimes to check the timestamp inherent, but they are able to do it now if needed.
 crates:
 - name: polkadot-omni-node-lib
-  bump: major
+  bump: minor 
