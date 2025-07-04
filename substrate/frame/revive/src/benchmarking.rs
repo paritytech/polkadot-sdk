@@ -223,6 +223,60 @@ mod benchmarks {
 		assert_eq!(T::Currency::balance(&account_id), value + Pallet::<T>::min_balance());
 	}
 
+	// `c`: Size of the code in bytes.
+	// `i`: Size of the input in bytes.
+	// `d`: with or without dust value to transfer
+	#[benchmark(pov_mode = Measured)]
+	fn eth_instantiate_with_code(
+		c: Linear<0, { limits::code::STATIC_MEMORY_BYTES / limits::code::BYTES_PER_INSTRUCTION }>,
+		i: Linear<0, { limits::code::BLOB_BYTES }>,
+		d: Linear<0, 1>,
+	) {
+		let input = vec![42u8; i as usize];
+
+		let value = Pallet::<T>::min_balance();
+		let dust = 42u32 * d;
+		let evm_value = Pallet::<T>::convert_native_to_evm(BalanceWithDust { value, dust });
+
+		let caller = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+		let VmBinaryModule { code, .. } = VmBinaryModule::sized(c);
+		let origin = RawOrigin::Signed(caller.clone());
+		Contracts::<T>::map_account(origin.clone().into()).unwrap();
+		let deployer = T::AddressMapper::to_address(&caller);
+		let nonce = System::<T>::account_nonce(&caller).try_into().unwrap_or_default();
+		let addr = crate::address::create1(&deployer, nonce);
+		let account_id = T::AddressMapper::to_fallback_account_id(&addr);
+		let storage_deposit = default_deposit_limit::<T>();
+
+		assert!(AccountInfoOf::<T>::get(&deployer).is_none());
+
+		#[extrinsic_call]
+		_(origin, evm_value, Weight::MAX, storage_deposit, code, input);
+
+		let deposit =
+			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id);
+		// uploading the code reserves some balance in the callers account
+		let code_deposit =
+			T::Currency::balance_on_hold(&HoldReason::CodeUploadDepositReserve.into(), &caller);
+		let mapping_deposit =
+			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &caller);
+
+		assert_eq!(
+			Pallet::<T>::evm_balance(&deployer),
+			Pallet::<T>::convert_native_to_evm(
+				caller_funding::<T>() -
+					Pallet::<T>::min_balance() -
+					Pallet::<T>::min_balance() -
+					value - deposit - code_deposit -
+					mapping_deposit,
+			) - dust,
+		);
+
+		// contract has the full value
+		assert_eq!(Pallet::<T>::evm_balance(&addr), evm_value);
+	}
+
 	// `i`: Size of the input in bytes.
 	// `s`: Size of e salt in bytes.
 	#[benchmark(pov_mode = Measured)]
@@ -303,6 +357,53 @@ mod benchmarks {
 		);
 		// contract should have received the value
 		assert_eq!(T::Currency::balance(&instance.account_id), before + value);
+		// contract should still exist
+		instance.info()?;
+
+		Ok(())
+	}
+
+	// `d`: with or without dust value to transfer
+	#[benchmark(pov_mode = Measured)]
+	fn eth_call(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		let data = vec![42u8; 1024];
+		let instance =
+			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
+
+		let value = Pallet::<T>::min_balance();
+		let dust = 42u32 * d;
+		let evm_value = Pallet::<T>::convert_native_to_evm(BalanceWithDust { value, dust });
+
+		let caller_addr = T::AddressMapper::to_address(&instance.caller);
+		let origin = RawOrigin::Signed(instance.caller.clone());
+		let before = Pallet::<T>::evm_balance(&instance.address);
+		let storage_deposit = default_deposit_limit::<T>();
+		#[extrinsic_call]
+		_(origin, instance.address, evm_value, Weight::MAX, storage_deposit, data);
+		let deposit = T::Currency::balance_on_hold(
+			&HoldReason::StorageDepositReserve.into(),
+			&instance.account_id,
+		);
+		let code_deposit = T::Currency::balance_on_hold(
+			&HoldReason::CodeUploadDepositReserve.into(),
+			&instance.caller,
+		);
+		let mapping_deposit =
+			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &instance.caller);
+		// value and value transferred via call should be removed from the caller
+		assert_eq!(
+			Pallet::<T>::evm_balance(&caller_addr),
+			Pallet::<T>::convert_native_to_evm(
+				caller_funding::<T>() -
+					Pallet::<T>::min_balance() -
+					Pallet::<T>::min_balance() -
+					value - deposit - code_deposit -
+					mapping_deposit,
+			) - dust,
+		);
+
+		// contract should have received the value
+		assert_eq!(Pallet::<T>::evm_balance(&instance.address), before + evm_value);
 		// contract should still exist
 		instance.info()?;
 

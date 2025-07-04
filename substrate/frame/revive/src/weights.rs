@@ -76,8 +76,10 @@ pub trait WeightInfo {
 	fn call_with_code_per_byte(c: u32, ) -> Weight;
 	fn basic_block_compilation(b: u32, ) -> Weight;
 	fn instantiate_with_code(c: u32, i: u32, ) -> Weight;
+	fn eth_instantiate_with_code(c: u32, i: u32, _d: u32) -> Weight { Self::instantiate_with_code(c, i) }
 	fn instantiate(i: u32, ) -> Weight;
 	fn call() -> Weight;
+	fn eth_call(_d: u32) -> Weight { Self::call() }
 	fn upload_code(c: u32, ) -> Weight;
 	fn remove_code() -> Weight;
 	fn set_code() -> Weight;

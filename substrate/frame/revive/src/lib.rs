@@ -871,7 +871,7 @@ pub mod pallet {
 		/// times within a batch call transaction.
 		#[pallet::call_index(10)]
 		#[pallet::weight(
-			T::WeightInfo::instantiate_with_code(code.len() as u32, data.len() as u32)
+			T::WeightInfo::eth_instantiate_with_code(code.len() as u32, data.len() as u32, Pallet::<T>::has_dust(*value).into())
 			.saturating_add(*gas_limit)
 		)]
 		pub fn eth_instantiate_with_code(
@@ -910,7 +910,7 @@ pub mod pallet {
 		/// Same as [`Self::call`], but intended to be dispatched **only**
 		/// by an EVM transaction through the EVM compatibility layer.
 		#[pallet::call_index(11)]
-		#[pallet::weight(T::WeightInfo::call().saturating_add(*gas_limit))]
+		#[pallet::weight(T::WeightInfo::eth_call(Pallet::<T>::has_dust(*value).into()).saturating_add(*gas_limit))]
 		pub fn eth_call(
 			origin: OriginFor<T>,
 			dest: H160,
