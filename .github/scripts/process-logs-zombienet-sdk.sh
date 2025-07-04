@@ -36,36 +36,52 @@ make_url() {
 TARGET_DIR="$BASE_DIR/logs"
 mkdir -p "$TARGET_DIR"
 
-if [[ "$ZOMBIE_PROVIDER" == "k8s" ]]; then
-  echo "Relay nodes:"
-  jq -r '.relay.nodes[].name' "$ZOMBIE_JSON" | while read -r name; do
+echo "Relay nodes:"
+jq -r '.relay.nodes[].name' "$ZOMBIE_JSON" | while read -r name; do
+  if [[ "$ZOMBIE_PROVIDER" == "k8s" ]]; then
     # Fetching logs from k8s
     if ! kubectl logs "$name" -c "$name" -n "$NS" > "$TARGET_DIR/$name.log" ; then
       echo "::warning ::Failed to fetch logs for $name"
+  else
+    # zombienet v1 dump the logs to the `/logs` directory
+    if [ ! -f "$TARGET_DIR/$name.log" ]; then
+      # `sdk` use this pattern to store the logs in native provider
+      cp "$BASE_DIR/$name/$name.log" "$TARGET_DIR/$name.log"
     fi
-    echo -e "\t$name: $(make_url "$name")"
-  done
-  echo ""
 
-  # Handle parachains grouped by paraId
-  jq -r '.parachains | to_entries[] | "\(.key)"' "$ZOMBIE_JSON" | while read -r para_id; do
-    echo "ParaId: $para_id"
-    jq -r --arg pid "$para_id" '.parachains[$pid][] .collators[].name' "$ZOMBIE_JSON" | while read -r name; do
+    # send logs to loki
+    if [ -d "$LOKI_DIR_FOR_NATIVE_LOGS" ]; then
+      echo "send logs to loki for node: $name";
+      awk -v NS="$NS" -v NAME="$name" '{print NS" "NAME" " $0}' $TARGET_DIR/$name.log >> $LOKI_DIR_FOR_NATIVE_LOGS/to-loki.log
+    fi
+  fi
+  echo -e "\t$name: $(make_url "$name")"
+done
+echo ""
+
+# Handle parachains grouped by paraId
+jq -r '.parachains | to_entries[] | "\(.key)"' "$ZOMBIE_JSON" | while read -r para_id; do
+  echo "ParaId: $para_id"
+  jq -r --arg pid "$para_id" '.parachains[$pid][] .collators[].name' "$ZOMBIE_JSON" | while read -r name; do
+    if [[ "$ZOMBIE_PROVIDER" == "k8s" ]]; then
       # Fetching logs from k8s
       if ! kubectl logs "$name" -c "$name" -n "$NS" > "$TARGET_DIR/$name.log" ; then
         echo "::warning ::Failed to fetch logs for $name"
       fi
-      echo -e "\t$name: $(make_url "$name")"
-    done
-    echo ""
-  done
-else
-  jq -r '[.relay.nodes[].name] + [.parachains[][] .collators[].name] | .[]' "$ZOMBIE_JSON" | while read -r name; do
-    cp "$BASE_DIR/$name/$name.log" "$TARGET_DIR/$name.log"
-    if [ -d "$LOKI_DIR_FOR_NATIVE_LOGS" ]; then
-      echo "send logs to loki for node: $name";
-      awk -v NS="$NS" -v NAME="$NAME" '{print NS" "NAME" " $0}' $BASE_DIR/$name/$name.log >> $LOKI_DIR_FOR_NATIVE_LOGS/to-loki.log
-    fi
-  done
-fi
+    else
+      # zombienet v1 dump the logs to the `/logs` directory
+      if [ ! -f "$TARGET_DIR/$name.log" ]; then
+        # `sdk` use this pattern to store the logs in native provider
+        cp "$BASE_DIR/$name/$name.log" "$TARGET_DIR/$name.log"
+      fi
 
+      # send logs to loki
+      if [ -d "$LOKI_DIR_FOR_NATIVE_LOGS" ]; then
+        echo "send logs to loki for node: $name";
+        awk -v NS="$NS" -v NAME="$name" '{print NS" "NAME" " $0}' $TARGET_DIR/$name.log >> $LOKI_DIR_FOR_NATIVE_LOGS/to-loki.log
+      fi
+    fi
+    echo -e "\t$name: $(make_url "$name")"
+  done
+  echo ""
+done
