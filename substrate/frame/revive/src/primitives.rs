@@ -110,12 +110,12 @@ pub enum EthTransactError {
 
 /// A Balance amount along with some "dust" to represent the lowest decimals that can't be expressed
 /// in the native currency
-#[derive(Default, Clone, Copy, Eq, Encode, Decode, TypeInfo, PartialEq, Debug)]
+#[derive(Default, Clone, Copy, Eq, PartialEq, Debug)]
 pub struct BalanceWithDust<Balance> {
 	/// The value expressed in the native currency
 	pub value: Balance,
 	/// The dust, representing up to 1 unit of the native currency.
-	/// The dust will be bounded between 0 and `crate::Config::NativeToEthRatio`
+	/// The dust is bounded between 0 and `crate::Config::NativeToEthRatio`
 	pub dust: u32,
 }
 
@@ -131,10 +131,12 @@ impl<Balance: Zero + One + Saturating> BalanceWithDust<Balance> {
 		Self { value, dust }
 	}
 
+	/// Returns true if both the value and dust are zero.
 	pub fn is_zero(&self) -> bool {
 		self.value.is_zero() && self.dust == 0
 	}
 
+	/// Returns the Balance rounded to the nearest whole unit if the dust is non-zero.
 	pub fn into_rounded_balance(self) -> Balance {
 		if self.dust == 0 {
 			self.value

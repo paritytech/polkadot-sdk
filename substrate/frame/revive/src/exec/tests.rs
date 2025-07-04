@@ -267,6 +267,7 @@ fn transfer_to_nonexistent_account_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		let ed = <Test as Config>::Currency::minimum_balance();
 		let value = 1024;
+		let evm_value = Pallet::<Test>::convert_native_to_evm(value);
 		let mut storage_meter = storage::meter::Meter::new(u64::MAX);
 
 		// Transfers to nonexistent accounts should work
@@ -277,7 +278,7 @@ fn transfer_to_nonexistent_account_works() {
 			&Origin::from_account_id(ALICE),
 			&BOB,
 			&CHARLIE,
-			Pallet::<Test>::convert_native_to_evm(value),
+			evm_value,
 			&mut storage_meter,
 		));
 		assert_eq!(get_balance(&ALICE), ed);
@@ -292,7 +293,7 @@ fn transfer_to_nonexistent_account_works() {
 				&Origin::from_account_id(ALICE),
 				&BOB,
 				&DJANGO,
-				Pallet::<Test>::convert_native_to_evm(value),
+				evm_value,
 				&mut storage_meter
 			),
 			<Error<Test>>::StorageDepositNotEnoughFunds,
@@ -306,7 +307,7 @@ fn transfer_to_nonexistent_account_works() {
 				&Origin::from_account_id(ALICE),
 				&BOB,
 				&EVE,
-				Pallet::<Test>::convert_native_to_evm(value),
+				evm_value,
 				&mut storage_meter
 			),
 			<Error<Test>>::TransferFailed

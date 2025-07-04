@@ -75,7 +75,7 @@ where
 		let ContractResult { result, .. } = Self::bare_call(
 			T::RuntimeOrigin::signed(Self::checking_account()),
 			asset_id,
-			Default::default(),
+			U256::zero(),
 			GAS_LIMIT,
 			DepositLimit::Balance(
 				<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
@@ -111,7 +111,7 @@ where
 		let ContractResult { result, .. } = Self::bare_call(
 			T::RuntimeOrigin::signed(account_id.clone()),
 			asset_id,
-			Default::default(),
+			U256::zero(),
 			GAS_LIMIT,
 			DepositLimit::Balance(
 				<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
@@ -186,7 +186,7 @@ where
 		let ContractResult { result, gas_consumed, .. } = Self::bare_call(
 			T::RuntimeOrigin::signed(who.clone()),
 			asset_id,
-			Default::default(),
+			U256::zero(),
 			GAS_LIMIT,
 			DepositLimit::Balance(
 				<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
@@ -223,7 +223,7 @@ where
 		let ContractResult { result, .. } = Self::bare_call(
 			T::RuntimeOrigin::signed(Self::checking_account()),
 			asset_id,
-			Default::default(),
+			U256::zero(),
 			GAS_LIMIT,
 			DepositLimit::Balance(
 				<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),

@@ -903,7 +903,11 @@ pub mod pallet {
 			dispatch_result(
 				output.result.map(|result| result.result),
 				output.gas_consumed,
-				T::WeightInfo::instantiate_with_code(code_len, data_len),
+				T::WeightInfo::eth_instantiate_with_code(
+					code_len,
+					data_len,
+					Pallet::<T>::has_dust(value).into(),
+				),
 			)
 		}
 
@@ -933,7 +937,11 @@ pub mod pallet {
 					output.result = Err(<Error<T>>::ContractReverted.into());
 				}
 			}
-			dispatch_result(output.result, output.gas_consumed, T::WeightInfo::call())
+			dispatch_result(
+				output.result,
+				output.gas_consumed,
+				T::WeightInfo::eth_call(Pallet::<T>::has_dust(value).into()),
+			)
 		}
 
 		/// Upload new `code` without instantiating a contract from it.
