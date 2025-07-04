@@ -70,6 +70,26 @@ impl<T: frame_system::Config> snowbridge_pallet_system::WeightInfo for WeightInf
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
+	/// Storage: EthereumSystem Channels (r:1 w:0)
+	/// Proof: EthereumSystem Channels (max_values: None, max_size: Some(12), added: 2487, mode: MaxEncodedLen)
+	/// Storage: EthereumOutboundQueue PalletOperatingMode (r:1 w:0)
+	/// Proof: EthereumOutboundQueue PalletOperatingMode (max_values: Some(1), max_size: Some(1), added: 496, mode: MaxEncodedLen)
+	/// Storage: MessageQueue BookStateFor (r:2 w:2)
+	/// Proof: MessageQueue BookStateFor (max_values: None, max_size: Some(52), added: 2527, mode: MaxEncodedLen)
+	/// Storage: MessageQueue ServiceHead (r:1 w:0)
+	/// Proof: MessageQueue ServiceHead (max_values: Some(1), max_size: Some(5), added: 500, mode: MaxEncodedLen)
+	/// Storage: MessageQueue Pages (r:0 w:1)
+	/// Proof: MessageQueue Pages (max_values: None, max_size: Some(65585), added: 68060, mode: MaxEncodedLen)
+	fn force_update_channel() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `256`
+		//  Estimated: `6044`
+		// Minimum execution time: 41_000_000 picoseconds.
+		Weight::from_parts(41_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 6044))
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
 	/// Storage: `EthereumSystem::Channels` (r:1 w:0)
 	/// Proof: `EthereumSystem::Channels` (`max_values`: None, `max_size`: Some(76), added: 2551, mode: `MaxEncodedLen`)
 	/// Storage: `EthereumSystem::PricingParameters` (r:1 w:0)
@@ -88,6 +108,26 @@ impl<T: frame_system::Config> snowbridge_pallet_system::WeightInfo for WeightInf
 		Weight::from_parts(30_447_000, 0)
 			.saturating_add(Weight::from_parts(0, 3601))
 			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+	/// Storage: EthereumSystem Agents (r:1 w:0)
+	/// Proof: EthereumSystem Agents (max_values: None, max_size: Some(40), added: 2515, mode: MaxEncodedLen)
+	/// Storage: EthereumOutboundQueue PalletOperatingMode (r:1 w:0)
+	/// Proof: EthereumOutboundQueue PalletOperatingMode (max_values: Some(1), max_size: Some(1), added: 496, mode: MaxEncodedLen)
+	/// Storage: MessageQueue BookStateFor (r:2 w:2)
+	/// Proof: MessageQueue BookStateFor (max_values: None, max_size: Some(52), added: 2527, mode: MaxEncodedLen)
+	/// Storage: MessageQueue ServiceHead (r:1 w:0)
+	/// Proof: MessageQueue ServiceHead (max_values: Some(1), max_size: Some(5), added: 500, mode: MaxEncodedLen)
+	/// Storage: MessageQueue Pages (r:0 w:1)
+	/// Proof: MessageQueue Pages (max_values: None, max_size: Some(65585), added: 68060, mode: MaxEncodedLen)
+	fn force_transfer_native_from_agent() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `252`
+		//  Estimated: `6044`
+		// Minimum execution time: 42_000_000 picoseconds.
+		Weight::from_parts(42_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 6044))
+			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
 	/// Storage: `EthereumSystem::Channels` (r:1 w:0)

@@ -52,7 +52,10 @@ use snowbridge_outbound_queue_primitives::{
 };
 use sp_core::{RuntimeDebug, H160, H256};
 use sp_io::hashing::blake2_256;
-use sp_runtime::{traits::MaybeConvert, DispatchError, SaturatedConversion};
+use sp_runtime::{
+	traits::{BadOrigin, MaybeConvert},
+	DispatchError, SaturatedConversion,
+};
 use sp_std::prelude::*;
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
@@ -66,6 +69,20 @@ pub type BalanceOf<T> =
 	<<T as pallet::Config>::Token as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 pub type PricingParametersOf<T> = PricingParametersRecord<BalanceOf<T>>;
+
+/// Ensure origin location is a sibling
+fn ensure_sibling<T>(location: &Location) -> Result<(ParaId, H256), DispatchError>
+where
+	T: Config,
+{
+	match location.unpack() {
+		(1, [Parachain(para_id)]) => {
+			let agent_id = agent_id_of::<T>(location)?;
+			Ok(((*para_id).into(), agent_id))
+		},
+		_ => Err(BadOrigin.into()),
+	}
+}
 
 /// Hash the location to produce an agent id
 pub fn agent_id_of<T: Config>(location: &Location) -> Result<H256, DispatchError> {
@@ -333,6 +350,69 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Sends a message to the Gateway contract to update an arbitrary channel
+		///
+		/// Fee required: No
+		///
+		/// - `origin`: Must be root
+		/// - `channel_id`: ID of channel
+		/// - `mode`: Initial operating mode of the channel
+		/// - `outbound_fee`: Fee charged to users for sending outbound messages to Polkadot
+		#[pallet::call_index(6)]
+		#[pallet::weight(T::WeightInfo::force_update_channel())]
+		pub fn force_update_channel(
+			origin: OriginFor<T>,
+			channel_id: ChannelId,
+			mode: OperatingMode,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			ensure!(Channels::<T>::contains_key(channel_id), Error::<T>::NoChannel);
+
+			let command = Command::UpdateChannel { channel_id, mode };
+			Self::send(PRIMARY_GOVERNANCE_CHANNEL, command, PaysFee::<T>::No)?;
+
+			Self::deposit_event(Event::<T>::UpdateChannel { channel_id, mode });
+			Ok(())
+		}
+
+		/// Sends a message to the Gateway contract to transfer ether from an agent to `recipient`.
+		///
+		/// Privileged. Can only be called by root.
+		///
+		/// Fee required: No
+		///
+		/// - `origin`: Must be root
+		/// - `location`: Location used to resolve the agent
+		/// - `recipient`: Recipient of funds
+		/// - `amount`: Amount to transfer
+		#[pallet::call_index(8)]
+		#[pallet::weight(T::WeightInfo::force_transfer_native_from_agent())]
+		pub fn force_transfer_native_from_agent(
+			origin: OriginFor<T>,
+			location: Box<VersionedLocation>,
+			recipient: H160,
+			amount: u128,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			// Ensure that location is some consensus system on a sibling parachain
+			let location: Location =
+				(*location).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
+			let (_, agent_id) =
+				ensure_sibling::<T>(&location).map_err(|_| Error::<T>::InvalidLocation)?;
+
+			let pays_fee = PaysFee::<T>::No;
+
+			Self::do_transfer_native_from_agent(
+				agent_id,
+				PRIMARY_GOVERNANCE_CHANNEL,
+				recipient,
+				amount,
+				pays_fee,
+			)
+		}
+
 		/// Sends a message to the Gateway contract to update fee related parameters for
 		/// token transfers.
 		///
@@ -430,6 +510,28 @@ pub mod pallet {
 			}
 
 			T::OutboundQueue::deliver(ticket).map_err(|err| Error::<T>::Send(err))?;
+			Ok(())
+		}
+
+		/// Issue a `Command::TransferNativeFromAgent` command. The command will be sent on the
+		/// channel `channel_id`
+		pub fn do_transfer_native_from_agent(
+			agent_id: H256,
+			channel_id: ChannelId,
+			recipient: H160,
+			amount: u128,
+			pays_fee: PaysFee<T>,
+		) -> DispatchResult {
+			ensure!(Agents::<T>::contains_key(agent_id), Error::<T>::NoAgent);
+
+			let command = Command::TransferNativeFromAgent { agent_id, recipient, amount };
+			Self::send(channel_id, command, pays_fee)?;
+
+			Self::deposit_event(Event::<T>::TransferNativeFromAgent {
+				agent_id,
+				recipient,
+				amount,
+			});
 			Ok(())
 		}
 

@@ -6,7 +6,7 @@ use crate::{OperatingMode, SendError, SendMessageFeeProvider};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use ethabi::Token;
 use scale_info::TypeInfo;
-use snowbridge_core::{pricing::UD60x18, ChannelId};
+use snowbridge_core::{pricing::UD60x18, AgentId, ChannelId};
 use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
 use sp_core::{RuntimeDebug, H160, H256, U256};
 use sp_std::{borrow::ToOwned, vec, vec::Vec};
@@ -74,11 +74,15 @@ pub enum Command {
 		/// Optionally invoke an initializer in the implementation contract
 		initializer: Option<Initializer>,
 	},
+	/// An UpdateChannel message was sent to the Gateway
+	UpdateChannel { channel_id: ChannelId, mode: OperatingMode },
 	/// Set the global operating mode of the Gateway contract
 	SetOperatingMode {
 		/// The new operating mode
 		mode: OperatingMode,
 	},
+	/// An TransferNativeFromAgent message was sent to the Gateway
+	TransferNativeFromAgent { agent_id: AgentId, recipient: H160, amount: u128 },
 	/// Set token fees of the Gateway contract
 	SetTokenTransferFees {
 		/// The fee(DOT) for the cost of creating asset on AssetHub
@@ -136,7 +140,9 @@ impl Command {
 		match self {
 			Command::AgentExecute { .. } => 0,
 			Command::Upgrade { .. } => 1,
+			Command::UpdateChannel { .. } => 4,
 			Command::SetOperatingMode { .. } => 5,
+			Command::TransferNativeFromAgent { .. } => 6,
 			Command::SetTokenTransferFees { .. } => 7,
 			Command::SetPricingParameters { .. } => 8,
 			Command::UnlockNativeToken { .. } => 9,
@@ -158,8 +164,18 @@ impl Command {
 					Token::FixedBytes(impl_code_hash.as_bytes().to_owned()),
 					initializer.clone().map_or(Token::Bytes(vec![]), |i| Token::Bytes(i.params)),
 				])]),
+			Command::UpdateChannel { channel_id, mode } => ethabi::encode(&[Token::Tuple(vec![
+				Token::FixedBytes(channel_id.as_ref().to_owned()),
+				Token::Uint(U256::from((*mode) as u64)),
+			])]),
 			Command::SetOperatingMode { mode } =>
 				ethabi::encode(&[Token::Tuple(vec![Token::Uint(U256::from((*mode) as u64))])]),
+			Command::TransferNativeFromAgent { agent_id, recipient, amount } =>
+				ethabi::encode(&[Token::Tuple(vec![
+					Token::FixedBytes(agent_id.as_bytes().to_owned()),
+					Token::Address(*recipient),
+					Token::Uint(U256::from(*amount)),
+				])]),
 			Command::SetTokenTransferFees {
 				create_asset_xcm,
 				transfer_asset_xcm,
@@ -360,6 +376,8 @@ impl GasMeter for ConstantGasMeter {
 				// the the initializer is called.
 				50_000 + initializer_max_gas
 			},
+			Command::UpdateChannel { .. } => 50_000,
+			Command::TransferNativeFromAgent { .. } => 60_000,
 			Command::SetTokenTransferFees { .. } => 60_000,
 			Command::SetPricingParameters { .. } => 60_000,
 			Command::UnlockNativeToken { .. } => 200_000,
