@@ -58,8 +58,7 @@ where
 
 /// Construct a root hash of a Binary Merkle Tree created from given leaves.
 ///
-/// This is a raw version of the [`merkle_root`] function that does not require leaves to be
-/// hashed first.
+/// This is a raw version of the [`merkle_root`] function that expects the hashes of the leaves and not the leaves itself.
 ///
 /// See crate-level docs for details about Merkle Tree construction.
 ///
