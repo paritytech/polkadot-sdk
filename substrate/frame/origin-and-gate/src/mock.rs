@@ -186,7 +186,7 @@ impl Copy for MaxApprovals {}
 pub type OriginId = u8;
 
 parameter_types! {
-	pub const MaxApprovals: u32 = 10;
+	pub const MaxApprovals: u32 = 2;
 	// TODO: Add OriginId
 	pub const ProposalLifetime: BlockNumber = 100;
 }

@@ -265,12 +265,18 @@ pub mod pallet {
 				Error::<T>::ProposalAlreadyExists
 			);
 
+			// Get current block number
+			let current_block = frame_system::Pallet::<T>::block_number();
+
 			// Determine expiration block number if provided or otherwise use default
 			let expiry_block = match expiry {
-				Some(expiry_block) => Some(expiry_block),
+				Some(expiry_block) => {
+					// Check expiry not in the past
+					ensure!(current_block <= expiry_block, Error::<T>::ProposalExpired);
+					Some(expiry_block)
+				},
 				None => {
 					// If no expiry was provided then use proposal lifetime config
-					let current_block = frame_system::Pallet::<T>::block_number();
 					Some(current_block.saturating_add(T::ProposalLifetime::get()))
 				},
 			};
@@ -326,15 +332,6 @@ pub mod pallet {
 			let mut proposal_info =
 				<Proposals<T>>::get(&call_hash, &origin_id).ok_or(Error::<T>::ProposalNotFound)?;
 
-			// Check if proposal still pending
-			if proposal_info.status != ProposalStatus::Pending {
-				return match proposal_info.status {
-					ProposalStatus::Executed => Err(Error::<T>::ProposalAlreadyExecuted.into()),
-					ProposalStatus::Expired => Err(Error::<T>::ProposalExpired.into()),
-					_ => Err(Error::<T>::ProposalNotFound.into()),
-				};
-			}
-
 			// Check if proposal has expired
 			if let Some(expiry) = proposal_info.expiry {
 				let current_block = frame_system::Pallet::<T>::block_number();
@@ -347,6 +344,15 @@ pub mod pallet {
 					});
 					return Err(Error::<T>::ProposalExpired.into());
 				}
+			}
+
+			// Check if proposal still pending
+			if proposal_info.status != ProposalStatus::Pending {
+				return match proposal_info.status {
+					ProposalStatus::Executed => Err(Error::<T>::ProposalAlreadyExecuted.into()),
+					ProposalStatus::Expired => Err(Error::<T>::ProposalExpired.into()),
+					_ => Err(Error::<T>::ProposalNotFound.into()),
+				};
 			}
 
 			// Check if origin_id already approved
