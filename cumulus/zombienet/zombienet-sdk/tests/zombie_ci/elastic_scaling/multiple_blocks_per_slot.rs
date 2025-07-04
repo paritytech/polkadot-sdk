@@ -89,8 +89,10 @@ async fn elastic_scaling_multiple_blocks_per_slot() -> Result<(), anyhow::Error>
 }
 
 async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
+	// images are not relevant for `native`, but we leave it here in case we use `k8s` some day
 	let images = zombienet_sdk::environment::get_images_from_env();
 	log::info!("Using images: {images:?}");
+
 	NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
 			let r = r
@@ -99,6 +101,8 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![("-lparachain=trace").into()])
 				.with_default_resources(|resources| {
+					// These settings are applicable only for `k8s` provider.
+					// Leaving them in case we switch to `k8s` some day.
 					resources.with_request_cpu(4).with_request_memory("4G")
 				})
 				.with_genesis_overrides(json!({

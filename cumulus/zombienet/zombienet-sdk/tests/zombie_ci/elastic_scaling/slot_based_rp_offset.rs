@@ -19,6 +19,7 @@ async fn elastic_scaling_slot_based_relay_parent_offset_test() -> Result<(), any
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
+	// images are not relevant for `native`, but we leave it here in case we use `k8s` some day
 	let images = zombienet_sdk::environment::get_images_from_env();
 
 	let config = NetworkConfigBuilder::new()

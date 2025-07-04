@@ -147,6 +147,8 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
 				.with_default_resources(|resources| {
+					// These settings are applicable only for `k8s` provider.
+					// Leaving them in case we switch to `k8s` some day.
 					resources
 						.with_request_cpu(1)
 						.with_request_memory("2G")
@@ -187,6 +189,8 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_default_resources(|resources| {
+					// These settings are applicable only for `k8s` provider.
+					// Leaving them in case we switch to `k8s` some day.
 					resources
 						.with_request_cpu(1)
 						.with_request_memory("2G")

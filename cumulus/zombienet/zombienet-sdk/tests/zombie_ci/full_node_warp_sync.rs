@@ -156,6 +156,7 @@ async fn full_node_warp_sync() -> Result<(), anyhow::Error> {
 }
 
 async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
+	// images are not relevant for `native`, but we leave it here in case we use `k8s` some day
 	let images = zombienet_sdk::environment::get_images_from_env();
 	log::info!("Using images: {images:?}");
 

@@ -59,6 +59,7 @@ async fn sync_blocks_from_tip_without_connected_collator() -> Result<(), anyhow:
 }
 
 async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
+	// images are not relevant for `native`, but we leave it here in case we use `k8s` some day
 	let images = zombienet_sdk::environment::get_images_from_env();
 	log::info!("Using images: {images:?}");
 
@@ -78,6 +79,8 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![("-lparachain=debug").into()])
 				.with_default_resources(|resources| {
+					// These settings are applicable only for `k8s` provider.
+					// Leaving them in case we switch to `k8s` some day.
 					resources.with_request_cpu(2).with_request_memory("2G")
 				})
 				.with_node(|node| node.with_name("alice"))
