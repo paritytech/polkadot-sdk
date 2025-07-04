@@ -1253,6 +1253,9 @@ mod benchmarks {
 		};
 		ErasRewardPoints::<T>::insert(era, reward_points);
 
+		// `ErasTotalStake`
+		ErasTotalStake::<T>::insert(era, BalanceOf::<T>::max_value());
+
 		#[block]
 		{
 			Eras::<T>::prune_era(era);
