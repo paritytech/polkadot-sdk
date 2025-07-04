@@ -16,8 +16,8 @@ crates:
 - name: pallet-balances
   bump: major
 - name pallet-contracts
-  bump: none
+  bump: patch
 - name: pallet-revive
-  bump: none
+  bump: patch
 - name: frame-support
   bump: major
