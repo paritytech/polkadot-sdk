@@ -3,7 +3,7 @@ title: Add `para_ids` Runtime API
 doc:
   - audience: "Node Dev"
     description: |
-      Add a new runtime API for querying the registered paraids at a relay parent (both on-demand parachains and parachains holding bulk coretime).
+      Add a new runtime API for querying the registered paraids at a relay parent (both on-demand parachains and parachains).
 
       This can be used for pruning the reputation database for the new collator protocol, so that we don't keep storing reputations indefinitely for parachains that have been offboarded.
 
