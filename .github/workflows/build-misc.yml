@@ -66,7 +66,8 @@ jobs:
 
       - name: Build
         id: required
-        run: FORKLIFT_general_logLevel=trace forklift cargo +nightly check -p pallet-revive-uapi --no-default-features --target riscv64imac-unknown-none-elf -Zbuild-std=core || ls -al target/debug/deps/libunicode_ident*
+        run: FORKLIFT_general_logLevel=trace forklift cargo +nightly check -p pallet-revive-uapi --no-default-features --target riscv64imac-unknown-none-elf -Zbuild-std=core
+      - run:  ls -al target/debug/deps/libunicode_ident*
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
