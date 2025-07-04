@@ -20,9 +20,6 @@ inputs:
   gh-token:
     description: "GITHUB_TOKEN to use for downloading artifacts"
     required: true
-  zombie-base-dir:
-    description: "GITHUB_TOKEN to use for downloading artifacts"
-    default: "/tmp/zombienet"
 
 runs:
   using: "composite"
@@ -75,8 +72,7 @@ runs:
           ./.github/scripts/run-zombienet-test.sh \
             "$(pwd)/$LOCAL_PATH" \
             $CONCURRENCY \
-            "$TEST_NAME" \
-            $ZOMBIE_BASE_DIR
+            "$TEST_NAME"
         else
           # no need to check other runner variables. for k8s they shall store the same value
           if [[ $ZOMBIENET_DEFAULT_RUNNER == "parity-zombienet" ]]; then

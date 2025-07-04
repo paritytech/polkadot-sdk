@@ -9,6 +9,8 @@ LOKI_URL_FOR_NODE='https://grafana.teleport.parity.io/explore?orgId=1&left=%7B%2
 BASE_DIR=$(ls -dt /tmp/zombie-* | head -1)
 ZOMBIE_JSON="$BASE_DIR/zombie.json"
 
+LOKI_DIR_FOR_NATIVE_LOGS="/tmp/zombienet"
+
 if [[ ! -f "$ZOMBIE_JSON" ]]; then
   echo "Zombie file $ZOMBIE_JSON not present"
   exit 1
@@ -60,6 +62,10 @@ if [[ "$ZOMBIE_PROVIDER" == "k8s" ]]; then
 else
   jq -r '[.relay.nodes[].name] + [.parachains[][] .collators[].name] | .[]' "$ZOMBIE_JSON" | while read -r name; do
     cp "$BASE_DIR/$name/$name.log" "$TARGET_DIR/$name.log"
+    if [ -d "$LOKI_DIR_FOR_NATIVE_LOGS" ]; then
+      echo "send logs to loki for node: $name";
+      awk -v NS="$NS" -v NAME="$NAME" '{print NS" "NAME" " $0}' $BASE_DIR/$name/$name.log >> $LOKI_DIR_FOR_NATIVE_LOGS/to-loki.log
+    fi
   done
 fi
 
