@@ -191,8 +191,8 @@ where
 				.cache_scheduling_lookahead(session_index, scheduling_lookahead),
 			ValidationCodeBombLimit(session_index, limit) =>
 				self.requests_cache.cache_validation_code_bomb_limit(session_index, limit),
-			ParaIdsAtRelayParent(relay_parent, para_ids) => {
-				self.requests_cache.cache_para_ids(relay_parent, para_ids);
+			ParaIds(session_index, para_ids) => {
+				self.requests_cache.cache_para_ids(session_index, para_ids);
 			},
 		}
 	}
@@ -371,8 +371,15 @@ where
 					Some(Request::ValidationCodeBombLimit(index, sender))
 				}
 			},
-			Request::ParaIds(sender) =>
-				query!(para_ids(), sender).map(|sender| Request::ParaIds(sender)),
+			Request::ParaIds(index, sender) => {
+				if let Some(value) = self.requests_cache.para_ids(index) {
+					self.metrics.on_cached_request();
+					let _ = sender.send(Ok(value.clone()));
+					None
+				} else {
+					Some(Request::ParaIds(index, sender))
+				}
+			},
 		}
 	}
 
@@ -707,11 +714,12 @@ where
 			sender,
 			result = (index)
 		),
-		Request::ParaIds(sender) => query!(
-			ParaIdsAtRelayParent,
+		Request::ParaIds(index, sender) => query!(
+			ParaIds,
 			para_ids(),
-			ver = Request::PARAIDS_AT_RELAY_PARENT_RUNTIME_REQUIREMENT,
-			sender
+			ver = Request::PARAIDS_RUNTIME_REQUIREMENT,
+			sender,
+			result = (index)
 		),
 	}
 }

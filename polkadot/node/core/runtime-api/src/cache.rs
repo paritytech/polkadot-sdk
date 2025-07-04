@@ -78,7 +78,7 @@ pub(crate) struct RequestResultCache {
 	backing_constraints: LruMap<(Hash, ParaId), Option<Constraints>>,
 	scheduling_lookahead: LruMap<SessionIndex, u32>,
 	validation_code_bomb_limits: LruMap<SessionIndex, u32>,
-	para_ids: LruMap<Hash, Vec<ParaId>>,
+	para_ids: LruMap<SessionIndex, Vec<ParaId>>,
 }
 
 impl Default for RequestResultCache {
@@ -605,12 +605,12 @@ impl RequestResultCache {
 		self.validation_code_bomb_limits.get(&session).copied()
 	}
 
-	pub(crate) fn para_ids(&mut self, relay_parent: &Hash) -> Option<&Vec<ParaId>> {
-		self.para_ids.get(relay_parent).map(|v| &*v)
+	pub(crate) fn para_ids(&mut self, session_index: SessionIndex) -> Option<&Vec<ParaId>> {
+		self.para_ids.get(&session_index).map(|v| &*v)
 	}
 
-	pub(crate) fn cache_para_ids(&mut self, relay_parent: Hash, value: Vec<ParaId>) {
-		self.para_ids.insert(relay_parent, value);
+	pub(crate) fn cache_para_ids(&mut self, session_index: SessionIndex, value: Vec<ParaId>) {
+		self.para_ids.insert(session_index, value);
 	}
 }
 
@@ -665,5 +665,5 @@ pub(crate) enum RequestResult {
 	BackingConstraints(Hash, ParaId, Option<Constraints>),
 	SchedulingLookahead(SessionIndex, u32),
 	ValidationCodeBombLimit(SessionIndex, u32),
-	ParaIdsAtRelayParent(Hash, Vec<ParaId>),
+	ParaIds(SessionIndex, Vec<ParaId>),
 }
