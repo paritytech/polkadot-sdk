@@ -528,6 +528,14 @@ fn instantiate_and_call_and_deposit_event() {
 						source: ALICE,
 						dest: account_id.clone(),
 						transferred: 341,
+          }),
+          topics: vec![],
+        },
+        EventRecord {
+          phase:Phase::Initialization,
+					event: RuntimeEvent::Contracts(crate::Event::Instantiated {
+						deployer: ALICE_ADDR,
+						contract: addr
 					}),
 					topics: vec![],
 				},
@@ -2276,6 +2284,14 @@ fn instantiate_with_zero_balance_works() {
 						source: ALICE,
 						dest: account_id,
 						transferred: 336,
+          }),
+          topics: vec![],
+        },
+        EventRecord {
+          phase: Phase::Initialization,
+					event: RuntimeEvent::Contracts(crate::Event::Instantiated {
+						deployer: ALICE_ADDR,
+						contract: addr,
 					}),
 					topics: vec![],
 				},
@@ -2365,6 +2381,14 @@ fn instantiate_with_below_existential_deposit_works() {
 						source: ALICE,
 						dest: account_id.clone(),
 						transferred: 336,
+          }),
+          topics: vec![],
+        },
+        EventRecord {
+          phase: Phase::Initialization,
+					event: RuntimeEvent::Contracts(crate::Event::Instantiated {
+						deployer: ALICE_ADDR,
+						contract: addr,
 					}),
 					topics: vec![],
 				},
@@ -3815,6 +3839,12 @@ fn to_account_id_works() {
 
 #[test]
 fn code_hash_works() {
+	use crate::precompiles::{Precompile, EVM_REVERT};
+	use precompiles::NoInfo;
+
+	let builtin_precompile = H160(NoInfo::<Test>::MATCHER.base_address());
+	let primitive_precompile = H160::from_low_u64_be(1);
+
 	let (code_hash_code, self_code_hash) = compile_module("code_hash").unwrap();
 	let (dummy_code, code_hash) = compile_module("dummy").unwrap();
 
@@ -3828,8 +3858,16 @@ fn code_hash_works() {
 
 		// code hash of dummy contract
 		assert_ok!(builder::call(addr).data((dummy_addr, code_hash).encode()).build());
-		// code has of itself
+		// code hash of itself
 		assert_ok!(builder::call(addr).data((addr, self_code_hash).encode()).build());
+		// code hash of primitive pre-compile (exist but have no bytecode)
+		assert_ok!(builder::call(addr)
+			.data((primitive_precompile, crate::exec::EMPTY_CODE_HASH).encode())
+			.build());
+		// code hash of normal pre-compile (do have a bytecode)
+		assert_ok!(builder::call(addr)
+			.data((builtin_precompile, sp_io::hashing::keccak_256(&EVM_REVERT)).encode())
+			.build());
 
 		// EOA doesn't exists
 		assert_err!(
@@ -4405,7 +4443,8 @@ fn prestate_tracing_works() {
 	use crate::evm::*;
 	use alloc::collections::BTreeMap;
 
-	let (code, _code_hash) = compile_module("tracing").unwrap();
+	let (dummy_code, _) = compile_module("dummy").unwrap();
+	let (code, _) = compile_module("tracing").unwrap();
 	let (callee_code, _) = compile_module("tracing_callee").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
@@ -4418,8 +4457,16 @@ fn prestate_tracing_works() {
 			.value(10_000_000)
 			.build_and_unwrap_contract();
 
-		let test_cases = vec![
+		// redact balance so that tests are resilient to weight changes
+		let alice_redacted_balance = Some(U256::from(1));
+
+		let test_cases: Vec<(Box<dyn FnOnce()>, _, _)> = vec![
 			(
+				Box::new(|| {
+					builder::bare_call(addr)
+						.data((3u32, addr_callee).encode())
+						.build_and_unwrap_result();
+				}),
 				PrestateTracerConfig {
 					diff_mode: false,
 					disable_storage: false,
@@ -4429,7 +4476,7 @@ fn prestate_tracing_works() {
 					(
 						ALICE_ADDR,
 						PrestateTraceInfo {
-							balance: Some(U256::from(89994487u64)),
+							balance: alice_redacted_balance,
 							nonce: Some(2),
 							..Default::default()
 						},
@@ -4459,6 +4506,11 @@ fn prestate_tracing_works() {
 				])),
 			),
 			(
+				Box::new(|| {
+					builder::bare_call(addr)
+						.data((3u32, addr_callee).encode())
+						.build_and_unwrap_result();
+				}),
 				PrestateTracerConfig {
 					diff_mode: true,
 					disable_storage: false,
@@ -4477,7 +4529,7 @@ fn prestate_tracing_works() {
 							addr,
 							PrestateTraceInfo {
 								balance: Some(U256::from(9_999_900u64)),
-								code: Some(Bytes(code)),
+								code: Some(Bytes(code.clone())),
 								nonce: Some(1),
 								..Default::default()
 							},
@@ -4501,15 +4553,74 @@ fn prestate_tracing_works() {
 					]),
 				},
 			),
+			(
+				Box::new(|| {
+					builder::bare_instantiate(Code::Upload(dummy_code.clone()))
+						.salt(None)
+						.build_and_unwrap_result();
+				}),
+				PrestateTracerConfig {
+					diff_mode: true,
+					disable_storage: false,
+					disable_code: false,
+				},
+				PrestateTrace::DiffMode {
+					pre: BTreeMap::from([(
+						ALICE_ADDR,
+						PrestateTraceInfo {
+							balance: alice_redacted_balance,
+							nonce: Some(2),
+							..Default::default()
+						},
+					)]),
+					post: BTreeMap::from([
+						(
+							ALICE_ADDR,
+							PrestateTraceInfo {
+								balance: alice_redacted_balance,
+								nonce: Some(3),
+								..Default::default()
+							},
+						),
+						(
+							create1(&ALICE_ADDR, 1),
+							PrestateTraceInfo {
+								code: Some(dummy_code.clone().into()),
+								balance: Some(U256::from(0)),
+								nonce: Some(1),
+								..Default::default()
+							},
+						),
+					]),
+				},
+			),
 		];
 
-		for (config, expected_trace) in test_cases {
+		for (exec_call, config, expected_trace) in test_cases.into_iter() {
 			let mut tracer = PrestateTracer::<Test>::new(config);
 			trace(&mut tracer, || {
-				builder::bare_call(addr).data((3u32, addr_callee).encode()).build()
+				exec_call();
 			});
 
-			let trace = tracer.collect_trace();
+			let mut trace = tracer.collect_trace();
+
+			// redact alice balance
+			match trace {
+				PrestateTrace::DiffMode { ref mut pre, ref mut post } => {
+					pre.get_mut(&ALICE_ADDR).map(|info| {
+						info.balance = alice_redacted_balance;
+					});
+					post.get_mut(&ALICE_ADDR).map(|info| {
+						info.balance = alice_redacted_balance;
+					});
+				},
+				PrestateTrace::Prestate(ref mut pre) => {
+					pre.get_mut(&ALICE_ADDR).map(|info| {
+						info.balance = alice_redacted_balance;
+					});
+				},
+			}
+
 			assert_eq!(trace, expected_trace);
 		}
 	});
@@ -4789,5 +4900,32 @@ fn bump_nonce_once_works() {
 			.unwrap_err();
 
 		assert_eq!(err, <Error<Test>>::DuplicateContract.into());
+	});
+}
+
+#[test]
+fn code_size_for_precompiles_works() {
+	use crate::precompiles::Precompile;
+	use precompiles::NoInfo;
+
+	let builtin_precompile = H160(NoInfo::<Test>::MATCHER.base_address());
+	let primitive_precompile = H160::from_low_u64_be(1);
+
+	let (code, _code_hash) = compile_module("extcodesize").unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.value(1000)
+			.build_and_unwrap_contract();
+
+		// the primitive pre-compiles return 0 code size on eth
+		builder::bare_call(addr)
+			.data((&primitive_precompile, 0u64).encode())
+			.build_and_unwrap_result();
+
+		// other precompiles should return the minimal evm revert code
+		builder::bare_call(addr)
+			.data((&builtin_precompile, 5u64).encode())
+			.build_and_unwrap_result();
 	});
 }

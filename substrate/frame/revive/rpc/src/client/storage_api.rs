@@ -47,17 +47,6 @@ impl StorageApi {
 		Ok(info)
 	}
 
-	/// Get the contract code for the given contract address.
-	pub async fn get_contract_code(
-		&self,
-		contract_address: &H160,
-	) -> Result<Option<Vec<u8>>, ClientError> {
-		let ContractInfo { code_hash, .. } = self.get_contract_info(contract_address).await?;
-		let query = subxt_client::storage().revive().pristine_code(code_hash);
-		let result = self.0.fetch(&query).await?.map(|v| v.0);
-		Ok(result)
-	}
-
 	/// Get the contract trie id for the given contract address.
 	pub async fn get_contract_trie_id(&self, address: &H160) -> Result<Vec<u8>, ClientError> {
 		let ContractInfo { trie_id, .. } = self.get_contract_info(address).await?;
