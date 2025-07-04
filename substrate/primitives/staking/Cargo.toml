@@ -26,7 +26,6 @@ sp-runtime = { workspace = true }
 
 [features]
 default = ["std"]
-serde = ["dep:serde"]
 std = [
 	"codec/std",
 	"scale-info/std",

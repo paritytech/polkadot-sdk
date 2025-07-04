@@ -160,13 +160,7 @@ mod remote_tests {
 			transport,
 			state_snapshot: maybe_state_snapshot.clone(),
 			child_trie: false,
-			pallets: vec![
-				"Staking".into(),
-				"System".into(),
-				"Balances".into(),
-				"NominationPools".into(),
-				"DelegatedStaking".into(),
-			],
+			pallets: vec!["Staking".into(), "System".into(), "Balances".into()],
 			..Default::default()
 		};
 		let mut ext = Builder::<Block>::default()
@@ -187,53 +181,14 @@ mod remote_tests {
 			use frame_support::traits::Currency;
 			let _ = Balances::deposit_creating(&alice, 100_000 * UNITS);
 
-			// iterate over all pools
-			pallet_nomination_pools::BondedPools::<Runtime>::iter_keys().for_each(|k| {
-				if pallet_nomination_pools::Pallet::<Runtime>::api_pool_needs_delegate_migration(k)
-				{
-					assert_ok!(
-						pallet_nomination_pools::Pallet::<Runtime>::migrate_pool_to_delegate_stake(
-							RuntimeOrigin::signed(alice.clone()).into(),
-							k,
-						)
-					);
-				}
-			});
+			// Pool migration no longer needed as they are moved to Asset Hub
 
 			// member migration stats
 			let mut success = 0;
 			let mut direct_stakers = 0;
 			let mut unexpected_errors = 0;
 
-			// iterate over all pool members
-			pallet_nomination_pools::PoolMembers::<Runtime>::iter_keys().for_each(|k| {
-				if pallet_nomination_pools::Pallet::<Runtime>::api_member_needs_delegate_migration(
-					k.clone(),
-				) {
-					// reasons migrations can fail:
-					let is_direct_staker = pallet_staking::Bonded::<Runtime>::contains_key(&k);
-
-					let migration = pallet_nomination_pools::Pallet::<Runtime>::migrate_delegation(
-						RuntimeOrigin::signed(alice.clone()).into(),
-						sp_runtime::MultiAddress::Id(k.clone()),
-					);
-
-					if is_direct_staker {
-						// if the member is a direct staker, the migration should fail until pool
-						// member unstakes all funds from pallet-staking.
-						direct_stakers += 1;
-						assert_eq!(
-							migration.unwrap_err(),
-							pallet_delegated_staking::Error::<Runtime>::AlreadyStaking.into()
-						);
-					} else if migration.is_err() {
-						unexpected_errors += 1;
-						log::error!(target: "remote_test", "Unexpected error {:?} while migrating {:?}", migration.unwrap_err(), k);
-					} else {
-						success += 1;
-					}
-				}
-			});
+			// Member migration no longer needed as they are moved to Asset Hub
 
 			log::info!(
 				target: "remote_test",
@@ -263,14 +218,7 @@ mod remote_tests {
 			transport,
 			state_snapshot: maybe_state_snapshot.clone(),
 			child_trie: false,
-			pallets: vec![
-				"Staking".into(),
-				"System".into(),
-				"Balances".into(),
-				"NominationPools".into(),
-				"DelegatedStaking".into(),
-				"VoterList".into(),
-			],
+			pallets: vec!["Staking".into(), "System".into(), "Balances".into(), "VoterList".into()],
 			..Default::default()
 		};
 		let mut ext = Builder::<Block>::default()
