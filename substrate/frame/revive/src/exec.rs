@@ -1458,6 +1458,12 @@ where
 		let plank = T::NativeToEthRatio::get();
 
 		if from_info.dust < dust {
+			// If the dust account does not exist, we need to create it.
+			if System::<T>::account_exists(&dust_account_id) {
+				let ed = <T as Config>::Currency::minimum_balance();
+				T::Currency::set_balance(&dust_account_id, ed);
+			}
+
 			transfer(from, &dust_account_id, 1u32.into())?;
 			from_info.dust = from_info
 				.dust
