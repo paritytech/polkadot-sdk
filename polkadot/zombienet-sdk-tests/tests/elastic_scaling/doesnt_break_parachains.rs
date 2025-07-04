@@ -104,8 +104,8 @@ async fn doesnt_break_parachains_test() -> Result<(), anyhow::Error> {
 	assert_eq!(
 		cq,
 		[
-			(CoreIndex(0), std::iter::repeat(para_id).take(3).collect()),
-			(CoreIndex(1), std::iter::repeat(para_id).take(3).collect()),
+			(CoreIndex(0), std::iter::repeat_n(para_id, 3).collect()),
+			(CoreIndex(1), std::iter::repeat_n(para_id, 3).collect()),
 		]
 		.into_iter()
 		.collect()
