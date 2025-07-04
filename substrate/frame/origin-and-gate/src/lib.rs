@@ -28,15 +28,13 @@ use frame_support::{
 		ClassifyDispatch, DispatchClass, DispatchResult, GetDispatchInfo, Pays, PaysFee, WeighData,
 	},
 	pallet_prelude::*,
-	traits::IsSubType,
+	traits::{EnsureOrigin, Get, IsSubType},
 	weights::Weight,
 };
-use frame_support::{
-	pallet_prelude::*,
-	traits::{EnsureOrigin, Get},
+use frame_system::{
+	self, ensure_signed,
+	pallet_prelude::{BlockNumberFor, *},
 };
-use frame_system::{self, pallet_prelude::*};
-use frame_system::{ensure_signed, pallet_prelude::BlockNumberFor};
 use log::info;
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -121,8 +119,7 @@ impl<T: pallet_balances::Config> PaysFee<(&BalanceOf<T>,)> for WeightForSetDummy
 
 #[frame_support::pallet]
 pub mod pallet {
-	use super::WeightInfo;
-	use super::*;
+	use super::{WeightInfo, *};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::{Dispatchable, Hash, One};
@@ -209,8 +206,9 @@ pub mod pallet {
 				T::MaxApprovals,
 			>,
 		) -> DispatchResult {
-			// Check for minimum number of approvals (customize this logic based on your requirements)
-			// Note that for the "AND Gate" pattern, we require a minimum of 2 approvals
+			// Check for minimum number of approvals (customize this logic based on your
+			// requirements) Note that for the "AND Gate" pattern, we require a minimum of 2
+			// approvals
 			if proposal_info.approvals.len() >= REQUIRED_APPROVALS as usize {
 				// Retrieve the actual call from storage
 				if let Some(call) = <ProposalCalls<T>>::get(proposal_hash) {
@@ -384,7 +382,8 @@ pub mod pallet {
 				approving_origin_id,
 			});
 
-			// Pass a clone of proposal info so original does not get modified if execution attempt fails
+			// Pass a clone of proposal info so original does not get modified if execution attempt
+			// fails
 			match Self::check_and_execute_proposal(call_hash, origin_id, proposal_info.clone()) {
 				// Success case results in proposal being executed
 				Ok(_) => {},
@@ -467,9 +466,9 @@ pub mod pallet {
 		/// - `origin`: Must be a valid authority (i.e. entity) that approves the proposal.
 		/// - `proposal_hash`: The proposal hash to withdraw approval for.
 		/// - `origin_id`: The origin id that the proposal belongs to.
-		/// - `withdrawing_origin_id`: The origin id to withdraw the approval for since
-		///    the account might need to specify which of their multiple origin authorities
-		///    they approved with that they are now withdrawing approval for.
+		/// - `withdrawing_origin_id`: The origin id to withdraw the approval for since the account
+		///   might need to specify which of their multiple origin authorities they approved with
+		///   that they are now withdrawing approval for.
 		#[pallet::call_index(3)]
 		#[pallet::weight((<T as pallet::Config>::WeightInfo::withdraw_approval(), DispatchClass::Normal))]
 		pub fn withdraw_approval(
@@ -486,9 +485,9 @@ pub mod pallet {
 
 			ensure!(proposal.status == ProposalStatus::Pending, Error::<T>::ProposalNotPending);
 
-			// Verify approval exists and check authorisation such that only original approver can withdraw
-			// their approval using our mapping from OriginId to AccountId where only the account that originally
-			// granted approval can withdraw it
+			// Verify approval exists and check authorisation such that only original approver can
+			// withdraw their approval using our mapping from OriginId to AccountId where only
+			// the account that originally granted approval can withdraw it
 			let approval_account = <Approvals<T>>::get(
 				(proposal_hash, origin_id.clone()),
 				withdrawing_origin_id.clone(),

@@ -727,7 +727,8 @@ mod unit_test {
 			Approvals::<Test>::insert((call_hash, ALICE_ORIGIN_ID), ALICE_ORIGIN_ID, ALICE);
 			Approvals::<Test>::insert((call_hash, ALICE_ORIGIN_ID), BOB_ORIGIN_ID, BOB);
 
-			// Verify test setup correct with `REQUIRED_APPROVALS` and proposal is still 'Pending' status
+			// Verify test setup correct with `REQUIRED_APPROVALS` and proposal is still 'Pending'
+			// status
 			let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
 			assert_eq!(proposal.approvals.len(), REQUIRED_APPROVALS as usize);
 			assert_eq!(proposal.status, ProposalStatus::Pending);
@@ -1020,7 +1021,8 @@ mod integration_test {
 				// let call = Box::new(mock::RuntimeCall::System(frame_system::Call::remark {
 				// 	remark: vec![1, 2, 3, 4],
 				// }));
-				// let call_hash = <<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				// let call_hash = <<Test as Config>::Hashing as
+				// sp_runtime::traits::Hash>::hash_of(&call);
 
 				// Proposal by Alice dispatching a signed extrinsic
 				assert_ok!(OriginAndGate::propose(
@@ -1170,7 +1172,8 @@ mod integration_test {
 				let call_hash =
 					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
 
-				// Alice proposes through `propose` pallet call that automatically adds Alice as first approval
+				// Alice proposes through `propose` pallet call that automatically adds Alice as
+				// first approval
 				assert_ok!(OriginAndGate::propose(
 					RuntimeOrigin::signed(ALICE),
 					call,
@@ -1188,8 +1191,8 @@ mod integration_test {
 					Approvals::<Test>::get((call_hash, ALICE_ORIGIN_ID), ALICE_ORIGIN_ID).is_some()
 				);
 
-				// At this point the proposal should have `Pending` status sinc only have Alice's approval
-				// and it is less than `REQUIRED_APPROVALS`
+				// At this point the proposal should have `Pending` status sinc only have Alice's
+				// approval and it is less than `REQUIRED_APPROVALS`
 
 				let events = System::events();
 				// Verify `ProposalCreated` event was emitted
@@ -1217,7 +1220,8 @@ mod integration_test {
 				let call_hash =
 					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
 
-				// Alice proposes through `propose` pallet call that automatically adds Alice as first approval
+				// Alice proposes through `propose` pallet call that automatically adds Alice as
+				// first approval
 				assert_ok!(OriginAndGate::propose(
 					RuntimeOrigin::signed(ALICE),
 					call,
@@ -1229,7 +1233,8 @@ mod integration_test {
 				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
 				assert_eq!(proposal.status, ProposalStatus::Pending);
 
-				// Adding Bob's approval should trigger execution since now have `REQUIRED_APPROVALS` approvals
+				// Adding Bob's approval should trigger execution since now have
+				// `REQUIRED_APPROVALS` approvals
 				assert_ok!(OriginAndGate::add_approval(
 					RuntimeOrigin::signed(BOB),
 					call_hash,
@@ -1288,7 +1293,8 @@ mod integration_test {
 				assert_eq!(proposal.status, ProposalStatus::Pending);
 
 				// Approval of proposal by Bob means we have enough approvals to try execution but
-				// should fail with `ProposalNotFound` because we did not store the `call` to execute
+				// should fail with `ProposalNotFound` because we did not store the `call` to
+				// execute
 				let result = OriginAndGate::add_approval(
 					RuntimeOrigin::signed(BOB),
 					call_hash,
@@ -1296,8 +1302,8 @@ mod integration_test {
 					BOB_ORIGIN_ID,
 				);
 
-				// Verify error is fully propagated and is not `InsufficientApprovals` error since we
-				// silently ignore that error
+				// Verify error is fully propagated and is not `InsufficientApprovals` error since
+				// we silently ignore that error
 				assert!(result.is_err(), "Expected error but got success");
 
 				// Ensure any error type other than `InsufficientApprovals` is propagated.
@@ -1314,8 +1320,8 @@ mod integration_test {
 						const PROPOSAL_NOT_FOUND_INDEX: u8 = 1;
 
 						assert!(
-							!(module_error.index == origin_and_gate_index
-								&& module_error.error[0] == INSUFFICIENT_APPROVALS_INDEX),
+							!(module_error.index == origin_and_gate_index &&
+								module_error.error[0] == INSUFFICIENT_APPROVALS_INDEX),
 							"Encountered InsufficientApprovals error that should have been ignored"
 						);
 
