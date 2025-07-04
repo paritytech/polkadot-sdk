@@ -1186,7 +1186,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	// `v`: validators, e.g. 600 in Polkadot and 1000 in Kusama.
 	//
 	// this benchmark populates all storage items that get removed in `fn prune_era` manually,
