@@ -65,8 +65,7 @@ impl<T: Config> PrimitivePrecompile for Create2<T> {
 
 		let code_hash = sp_io::hashing::keccak_256(&code);
 
-		// TODO: upload code to storage if not already uploaded
-
+		// uploading the code is handled in the instantiate call
 		let instantiate_address = env.instantiate(
 			gas_limit,
 			U256::from(storage_deposit_limit.saturated_into::<u128>()),
