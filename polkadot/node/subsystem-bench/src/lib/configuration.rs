@@ -18,14 +18,16 @@
 
 use crate::keyring::Keyring;
 use itertools::Itertools;
+use polkadot_node_network_protocol::authority_discovery::AuthorityDiscovery;
 use polkadot_primitives::{AssignmentId, AuthorityDiscoveryId, ValidatorId, ValidatorPair};
 use rand::thread_rng;
 use rand_distr::{Distribution, Normal, Uniform};
+use sc_network::Multiaddr;
 use sc_network_types::PeerId;
 use serde::{Deserialize, Serialize};
 use sp_consensus_babe::AuthorityId;
 use sp_core::Pair;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// Peer networking latency configuration.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -277,6 +279,12 @@ pub struct TestAuthorities {
 	pub validator_pairs: Vec<ValidatorPair>,
 }
 
+impl std::fmt::Debug for TestAuthorities {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "TestAuthorities")
+	}
+}
+
 /// Sample latency (in milliseconds) from a normal distribution with parameters
 /// specified in `maybe_peer_latency`.
 pub fn random_latency(maybe_peer_latency: Option<&PeerLatency>) -> usize {
@@ -287,4 +295,23 @@ pub fn random_latency(maybe_peer_latency: Option<&PeerLatency>) -> usize {
 				.sample(&mut thread_rng())
 		})
 		.unwrap_or(0.0) as usize
+}
+
+#[async_trait::async_trait]
+impl AuthorityDiscovery for TestAuthorities {
+	/// Get the addresses for the given [`AuthorityDiscoveryId`] from the local address cache.
+	async fn get_addresses_by_authority_id(
+		&mut self,
+		_authority: AuthorityDiscoveryId,
+	) -> Option<HashSet<Multiaddr>> {
+		None
+	}
+
+	/// Get the [`AuthorityDiscoveryId`] for the given [`PeerId`] from the local address cache.
+	async fn get_authority_ids_by_peer_id(
+		&mut self,
+		peer_id: PeerId,
+	) -> Option<HashSet<AuthorityDiscoveryId>> {
+		self.peer_id_to_authority.get(&peer_id).cloned().map(|id| HashSet::from([id]))
+	}
 }
