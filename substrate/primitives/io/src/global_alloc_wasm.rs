@@ -17,69 +17,177 @@
 
 use core::{
 	alloc::{GlobalAlloc, Layout},
-	ptr,
+	cell::UnsafeCell,
+	ptr::NonNull,
 };
 
-/// The type used to store the offset between the real pointer and the returned pointer.
-type Offset = u16;
-
-/// The length of [`Offset`].
-const OFFSET_LENGTH: usize = core::mem::size_of::<Offset>();
-
 /// Allocator used by Substrate from within the runtime.
-///
-/// The allocator needs to align the returned pointer to given layout. We assume that on the host
-/// side the freeing-bump allocator is used with a fixed alignment of `8` and a `HEADER_SIZE` of
-/// `8`. The freeing-bump allocator is storing the header in the 8 bytes before the actual pointer
-/// returned by `alloc`. The problem is that the runtime not only sees pointers allocated by this
-/// `RuntimeAllocator`, but also pointers allocated by the host. The header is stored as a
-/// little-endian `u64`. The allocation header consists of 8 bytes. The first four bytes (as written
-/// in memory) are used to store the order of the allocation (or the link to the next slot, if
-/// unallocated). Then the least significant bit of the next byte determines whether a given slot is
-/// occupied or free, and the last three bytes are unused.
-///
-/// The `RuntimeAllocator` aligns the pointer to the required alignment before returning it to the
-/// user code. As we are assuming the freeing-bump allocator that already aligns by `8` by default,
-/// we only need to take care of alignments above `8`. The offset is stored in two bytes before the
-/// pointer that we return to the user. Depending on the alignment, we may write into the header,
-/// but given the assumptions above this should be no problem.
 struct RuntimeAllocator;
 
 #[global_allocator]
 static ALLOCATOR: RuntimeAllocator = RuntimeAllocator;
 
+/// The size of the local heap.
+///
+/// This should be as big as possible, but it should still leave enough space
+/// under the maximum memory usage limit to allow the host allocator to service the host calls.
+const LOCAL_HEAP_SIZE: usize = 64 * 1024 * 1024;
+const LOCAL_HEAP_S: picoalloc::Size = picoalloc::Size::from_bytes_usize(LOCAL_HEAP_SIZE).unwrap();
+
+#[repr(align(32))] // `picoalloc` requires 32-byte alignment of the heap
+struct LocalHeap(UnsafeCell<[u8; LOCAL_HEAP_SIZE]>);
+
+// SAFETY: This is runtime-only, and runtimes are single-threaded, so this is safe.
+unsafe impl Send for LocalHeap {}
+
+// SAFETY: This is runtime-only, and runtimes are single-threaded, so this is safe.
+unsafe impl Sync for LocalHeap {}
+
+// Preallocate a bunch of space statically for use by the local allocator.
+//
+// This should be relatively cheap as long as all of this space is full of zeros,
+// since none of this memory will be physically paged-in until it's actually used.
+static LOCAL_HEAP: LocalHeap = LocalHeap(UnsafeCell::new([0; LOCAL_HEAP_SIZE]));
+
+impl picoalloc::Env for RuntimeAllocator {
+	fn total_space(&self) -> picoalloc::Size {
+		LOCAL_HEAP_S
+	}
+
+	unsafe fn allocate_address_space(&mut self) -> *mut u8 {
+		LOCAL_HEAP.0.get().cast()
+	}
+
+	unsafe fn expand_memory_until(&mut self, _base: *mut u8, size: picoalloc::Size) -> bool {
+		size <= LOCAL_HEAP_S
+	}
+
+	unsafe fn free_address_space(&mut self, _base: *mut u8) {}
+}
+
+/// The local allocator used to manage the local heap.
+struct LocalAllocator(UnsafeCell<picoalloc::Allocator<RuntimeAllocator>>);
+
+// SAFETY: This is runtime-only, and runtimes are single-threaded, so this is safe.
+unsafe impl Send for LocalAllocator {}
+
+// SAFETY: This is runtime-only, and runtimes are single-threaded, so this is safe.
+unsafe impl Sync for LocalAllocator {}
+
+static LOCAL_ALLOCATOR: LocalAllocator =
+	LocalAllocator(UnsafeCell::new(picoalloc::Allocator::new(RuntimeAllocator)));
+
+fn local_allocator() -> &'static mut picoalloc::Allocator<RuntimeAllocator> {
+	// SAFETY: This is only called when allocating memory, and the allocator
+	// doesn't trigger the global allocator recursively, so only a single
+	// &mut will ever exist at the same time.
+	unsafe { &mut *LOCAL_ALLOCATOR.0.get() }
+}
+
+/// Checks whether a given pointer came from the local allocator.
+fn is_local_pointer(ptr: *mut u8) -> bool {
+	ptr.addr() >= LOCAL_HEAP.0.get().addr() &&
+		ptr.addr() < LOCAL_HEAP.0.get().addr() + LOCAL_HEAP_SIZE
+}
+
 unsafe impl GlobalAlloc for RuntimeAllocator {
 	unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-		let align = layout.align();
-		let size = layout.size();
+		// These should never fail, but let's do proper error checking anyway.
+		let Some(align) = picoalloc::Size::from_bytes_usize(layout.align()) else {
+			return core::ptr::null_mut();
+		};
 
-		// Allocate for the required size, plus a potential alignment.
-		//
-		// As the host side already aligns the pointer by `8`, we only need to account for any
-		// excess.
-		let ptr = crate::allocator::malloc((size + align.saturating_sub(8)) as u32);
+		let Some(size) = picoalloc::Size::from_bytes_usize(layout.size()) else {
+			return core::ptr::null_mut();
+		};
 
-		// Calculate the required alignment.
-		let ptr_offset = ptr.align_offset(align);
-
-		// Should never happen, but just to be sure.
-		if ptr_offset > u16::MAX as usize || ptr.is_null() {
-			return ptr::null_mut()
+		// Try to allocate memory from the local pool, and only fall back
+		// to the host allocator if this fails.
+		if let Some(pointer) = local_allocator().alloc(align, size) {
+			pointer.as_ptr()
+		} else {
+			crate::global_alloc_wasm_legacy::HostAllocator.alloc(layout)
 		}
-
-		// Align the pointer.
-		let ptr = ptr.add(ptr_offset);
-
-		unsafe {
-			(ptr.sub(OFFSET_LENGTH) as *mut Offset).write_unaligned(ptr_offset as Offset);
-		}
-
-		ptr
 	}
 
 	unsafe fn dealloc(&self, ptr: *mut u8, _: Layout) {
-		let offset = unsafe { (ptr.sub(OFFSET_LENGTH) as *const Offset).read_unaligned() };
+		if is_local_pointer(ptr) {
+			// SAFETY: We've checked that the pointer is from the local allocator.
+			unsafe { local_allocator().free(NonNull::new_unchecked(ptr)) }
+		} else {
+			crate::global_alloc_wasm_legacy::HostAllocator.dealloc(ptr)
+		}
+	}
 
-		crate::allocator::free(ptr.sub(offset as usize))
+	unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
+		let Some(align) = picoalloc::Size::from_bytes_usize(layout.align()) else {
+			return core::ptr::null_mut();
+		};
+
+		let Some(size) = picoalloc::Size::from_bytes_usize(layout.size()) else {
+			return core::ptr::null_mut();
+		};
+
+		// First try the local allocator. Use its `alloc_zeroed` as its
+		// smart enough to not unnecessarily zero-fill the memory if it's
+		// the very first allocation which touches this region of the heap.
+		if let Some(pointer) = local_allocator().alloc_zeroed(align, size) {
+			return pointer.as_ptr();
+		}
+
+		// The local allocator is full, so fall back to the host allocator.
+
+		let size = layout.size();
+		let ptr = crate::global_alloc_wasm_legacy::HostAllocator.alloc(layout);
+		if !ptr.is_null() {
+			// SAFETY: as allocation succeeded, the region from `ptr`
+			// of size `size` is guaranteed to be valid for writes.
+			unsafe { core::ptr::write_bytes(ptr, 0, size) };
+		}
+		ptr
+	}
+
+	unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
+		if is_local_pointer(ptr) {
+			let Some(align) = picoalloc::Size::from_bytes_usize(layout.align()) else {
+				return core::ptr::null_mut();
+			};
+
+			let Some(new_size_s) = picoalloc::Size::from_bytes_usize(new_size) else {
+				return core::ptr::null_mut();
+			};
+
+			// If the pointer comes from the local allocator try to efficiently reallocate it.
+			// If possible this will (unlike the host allocator) resize the allocation in-place.
+
+			// SAFETY: We've checked that the pointer is from the local allocator.
+			if let Some(pointer) =
+				unsafe { local_allocator().realloc(NonNull::new_unchecked(ptr), align, new_size_s) }
+			{
+				return pointer.as_ptr();
+			}
+		}
+
+		// The pointer was allocated by the host, or the local allocator is full.
+		// Fall back to the default `realloc` implementation.
+
+		// SAFETY: the caller must ensure that the `new_size` does not overflow.
+		// `layout.align()` comes from a `Layout` and is thus guaranteed to be valid.
+		let new_layout = unsafe { Layout::from_size_align_unchecked(new_size, layout.align()) };
+		// SAFETY: the caller must ensure that `new_layout` is greater than zero.
+		let new_ptr = unsafe { self.alloc(new_layout) };
+		if !new_ptr.is_null() {
+			// SAFETY: the previously allocated block cannot overlap the newly allocated block.
+			// The safety contract for `dealloc` must be upheld by the caller.
+			unsafe {
+				core::ptr::copy_nonoverlapping(
+					ptr,
+					new_ptr,
+					core::cmp::min(layout.size(), new_size),
+				);
+				self.dealloc(ptr, layout);
+			}
+		}
+		new_ptr
 	}
 }
