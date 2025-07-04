@@ -21,6 +21,7 @@ pub mod approval;
 pub mod availability;
 pub mod configuration;
 pub(crate) mod display;
+pub mod disputes;
 pub(crate) mod environment;
 pub(crate) mod keyring;
 pub(crate) mod mock;

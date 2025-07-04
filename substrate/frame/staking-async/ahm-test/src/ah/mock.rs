@@ -347,7 +347,6 @@ impl pallet_staking_async::Config for Runtime {
 	type HistoryDepth = ConstU32<7>;
 	type MaxControllersInDeprecationBatch = ();
 
-	type MaxDisabledValidators = MaxValidators;
 	type MaxValidatorSet = MaxValidators;
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type MaxInvulnerables = MaxValidators;
