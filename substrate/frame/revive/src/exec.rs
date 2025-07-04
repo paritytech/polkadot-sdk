@@ -1459,7 +1459,7 @@ where
 
 		if from_info.dust < dust {
 			// If the dust account does not exist, we need to create it.
-			if System::<T>::account_exists(&dust_account_id) {
+			if !System::<T>::account_exists(&dust_account_id) {
 				let ed = <T as Config>::Currency::minimum_balance();
 				T::Currency::set_balance(&dust_account_id, ed);
 			}
