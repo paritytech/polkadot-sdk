@@ -1721,8 +1721,8 @@ impl_runtime_apis! {
 			type Foreign = pallet_assets::Pallet::<Runtime, ForeignAssetsInstance>;
 			type Pool = pallet_assets::Pallet::<Runtime, PoolAssetsInstance>;
 
-			type LocalVesting = pallet_assets::Pallet::<Runtime, TrustBackedAssetsVestingInstance>;
-			type ForeignVesting = pallet_assets::Pallet::<Runtime, ForeignAssetsVestingInstance>;
+			type LocalVesting = pallet_assets_vesting::Pallet::<Runtime, TrustBackedAssetsVestingInstance>;
+			type ForeignVesting = pallet_assets_vesting::Pallet::<Runtime, ForeignAssetsVestingInstance>;
 
 			type ToWestend = XcmBridgeHubRouterBench<Runtime, ToWestendXcmRouterInstance>;
 

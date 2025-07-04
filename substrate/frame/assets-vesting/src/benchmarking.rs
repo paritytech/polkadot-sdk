@@ -222,12 +222,16 @@ mod benchmarks {
 	) -> Result<(), BenchmarkError> {
 		let id = create_asset::<T, I>()?;
 
+		// Prepare schedule vested transfer of `MinVestedTransfer` across 20 blocks.
+		// Note: MinVestedTransfer might be 1
+		let transfer_amount = T::MinVestedTransfer::get() * 20_u32.into();
+
 		// Initialize `source` with max balance.
 		let source = account::<AccountIdOf<T>>("transfer_source", 0, SEED);
 		initialize_asset_account_with_balance::<T, I>(
 			id.clone(),
 			&source,
-			T::Assets::minimum_balance(id.clone()) + T::MinVestedTransfer::get(),
+			T::Assets::minimum_balance(id.clone()) + transfer_amount,
 		);
 
 		// Initialize `target`.
@@ -238,8 +242,6 @@ mod benchmarks {
 		let orig_balance = T::Assets::total_balance(id.clone(), &target);
 		let mut expected_balance = add_vesting_schedules::<T, I>(id.clone(), &target, s)?;
 
-		// Prepare schedule vested transfer of `MinVestedTransfer` across 20 blocks.
-		let transfer_amount = T::MinVestedTransfer::get();
 		let per_block = transfer_amount.checked_div(&20_u32.into()).unwrap();
 		expected_balance += transfer_amount;
 
