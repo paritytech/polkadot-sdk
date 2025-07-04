@@ -75,7 +75,18 @@ jobs:
       #   uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
       #   with:
       #     run-id: ${{ github.event.inputs.build_run_id }}
+
+      - name: Generate content write token for the release automation
+        id: generate_write_token
+        uses: actions/create-github-app-token@v2
+        with:
+            app-id: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
+            private-key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
+            owner: EgorPopelyaev
+            repositories: polkadot-sdk
       - name: Download artifacts
+        env:
+          GITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
         run: |
           mkdir -p ${{ github.workspace}}/runtimes/
           gh run download ${{ github.event.inputs.build_run_id }} --dir ${{ github.workspace}}/runtimes
@@ -125,15 +136,6 @@ jobs:
           path: |
             scripts/release/context.json
             **/*-srtool-digest.json
-
-      - name: Generate content write token for the release automation
-        id: generate_write_token
-        uses: actions/create-github-app-token@v2
-        with:
-            app-id: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
-            private-key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
-            owner: EgorPopelyaev
-            repositories: polkadot-sdk
 
       - name: Create draft release
         id: create-release
