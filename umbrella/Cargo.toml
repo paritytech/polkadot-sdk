@@ -114,6 +114,7 @@ std = [
 	"pallet-node-authorization?/std",
 	"pallet-nomination-pools-benchmarking?/std",
 	"pallet-nomination-pools-runtime-api?/std",
+	"pallet-nomination-pools-test-delegate-stake?/std",
 	"pallet-nomination-pools?/std",
 	"pallet-offences-benchmarking?/std",
 	"pallet-offences?/std",
@@ -647,6 +648,7 @@ runtime-full = [
 	"pallet-nomination-pools",
 	"pallet-nomination-pools-benchmarking",
 	"pallet-nomination-pools-runtime-api",
+	"pallet-nomination-pools-test-delegate-stake",
 	"pallet-offences",
 	"pallet-offences-benchmarking",
 	"pallet-origin-restriction",
@@ -1541,6 +1543,11 @@ path = "../substrate/frame/nomination-pools/benchmarking"
 default-features = false
 optional = true
 path = "../substrate/frame/nomination-pools/runtime-api"
+
+[dependencies.pallet-nomination-pools-test-delegate-stake]
+default-features = false
+optional = true
+path = "../substrate/frame/nomination-pools/test-delegate-stake"
 
 [dependencies.pallet-offences]
 default-features = false

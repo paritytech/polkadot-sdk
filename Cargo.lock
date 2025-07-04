@@ -16327,6 +16327,7 @@ dependencies = [
  "pallet-nomination-pools",
  "pallet-nomination-pools-benchmarking",
  "pallet-nomination-pools-runtime-api",
+ "pallet-nomination-pools-test-delegate-stake",
  "pallet-offences",
  "pallet-offences-benchmarking",
  "pallet-origin-restriction",
