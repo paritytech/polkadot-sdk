@@ -678,7 +678,8 @@ fn on_offence_previous_era() {
 		assert_eq!(SlashDeferredDuration::get(), 2);
 		assert_eq!(Rotator::<Runtime>::era_start_session_index(1), Some(5));
 		// 1 era is reserved for the application of slashes.
-		let oldest_reportable_era = Rotator::<Runtime>::active_era() - (SlashDeferredDuration::get() - 1);
+		let oldest_reportable_era =
+			Rotator::<Runtime>::active_era() - (SlashDeferredDuration::get() - 1);
 		assert_eq!(oldest_reportable_era, 2);
 
 		// WHEN we report an offence older than Era 2 (oldest reportable era).
@@ -730,14 +731,12 @@ fn on_offence_previous_era() {
 		roll_next();
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![
-				staking_async::Event::SlashComputed {
-					offence_era: 2,
-					slash_era: 4,
-					offender: 3,
-					page: 0
-				},
-			]
+			vec![staking_async::Event::SlashComputed {
+				offence_era: 2,
+				slash_era: 4,
+				offender: 3,
+				page: 0
+			},]
 		);
 
 		// roll to the next era.
@@ -751,9 +750,7 @@ fn on_offence_previous_era() {
 		roll_next();
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![
-				staking_async::Event::Slashed { staker: 3, amount: 50 }
-			]
+			vec![staking_async::Event::Slashed { staker: 3, amount: 50 }]
 		);
 
 		// nothing left
