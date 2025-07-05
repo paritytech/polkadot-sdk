@@ -357,12 +357,14 @@ pub mod pallet {
 			T::Currency::reserve(&who, deposit)?;
 
 			Proxies::<T>::insert(&pure, (bounded_proxies, deposit));
+			let extrinsic_index = <frame_system::Pallet<T>>::extrinsic_index().ok_or_else(|| Error::<T>::BadContext)?;
 			Self::deposit_event(Event::PureCreated {
 				pure,
 				who,
 				proxy_type,
 				disambiguation_index: index,
 				at: T::BlockNumberProvider::current_block_number(),
+				extrinsic_index,
 			});
 
 			Ok(())
@@ -684,6 +686,7 @@ pub mod pallet {
 			proxy_type: T::ProxyType,
 			disambiguation_index: u16,
 			at: BlockNumberFor<T>,
+			extrinsic_index: u32,
 		},
 		/// A pure proxy was killed by its spawner.
 		PureKilled {
@@ -739,6 +742,8 @@ pub mod pallet {
 		Unannounced,
 		/// Cannot add self as proxy.
 		NoSelfProxy,
+		/// Bad context.
+		BadContext,
 	}
 
 	/// The set of account proxies. Maps the account which has delegated to the accounts
