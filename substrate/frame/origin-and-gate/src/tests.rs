@@ -196,7 +196,7 @@ mod unit_test {
 
 			// Verify approval added
 			let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
-			assert_eq!(proposal.approvals.len(), REQUIRED_APPROVALS as usize);
+			assert_eq!(proposal.approvals.len(), MaxApprovals::get() as usize);
 			assert!(proposal.approvals.contains(&BOB_ORIGIN_ID));
 
 			// Verify event emitted
@@ -358,6 +358,7 @@ mod unit_test {
 
 			// Skip calling `propose` and instead store proposal directly in storage
 			// but not the `call` to execute since here that does not matter
+			// Override proposal with `Executed` status
 			Proposals::<Test>::insert(call_hash2, ALICE_ORIGIN_ID, proposal_info);
 
 			// Verify proposal remains `Executed`
@@ -558,7 +559,7 @@ mod unit_test {
 				BOB_ORIGIN_ID,
 			));
 
-			// Verify call was executed and assume REQUIRED_APPROVALS == 2
+			// Verify call was executed and assume MaxApprovals::get() == 2
 			let executed_proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
 			assert_eq!(executed_proposal.status, ProposalStatus::Executed);
 
@@ -689,15 +690,15 @@ mod unit_test {
 			System::set_block_number(1);
 
 			// Create test scenario where we can verify
-			// that max approvals defined by `REQUIRED_APPROVALS`
-			// is being enforced separately from automatic execution logic
-			// where upon `REQUIRED_APPROVALS` being met the proposal
-			// auto-executes
+			// that max approvals defined by `MaxApprovals::get()`
+			// as a configurable parameter of the pallet
+			// where upon `MaxApprovals::get()` being met the proposal
+			// will be executed.
 			//
-			// Manually create a proposal that with `REQUIRED_APPROVALS` it
+			// Manually create a proposal that with `MaxApprovals::get()` it
 			// is forced to have 'Pending' status instead of 'Executed' status
 			// even though it was executed to prevent it was not executed
-			// and then add a `REQUIRED_APPROVALS` + 1 approval to test
+			// and then add a `MaxApprovals::get()` + 1 approval to test
 			// that it returns `TooManyApprovals`
 
 			// Create a call for our test
@@ -705,7 +706,7 @@ mod unit_test {
 			let call_hash = <Test as Config>::Hashing::hash_of(&call);
 
 			// Manually create and insert proposal with approvals at
-			// the `REQUIRED_APPROVALS` limit and forced not to
+			// the `MaxApprovals::get()` limit and forced not to
 			// change from 'Pending' status
 			let mut approvals = BoundedVec::default();
 			approvals.try_push(ALICE_ORIGIN_ID).unwrap();
@@ -727,10 +728,10 @@ mod unit_test {
 			Approvals::<Test>::insert((call_hash, ALICE_ORIGIN_ID), ALICE_ORIGIN_ID, ALICE);
 			Approvals::<Test>::insert((call_hash, ALICE_ORIGIN_ID), BOB_ORIGIN_ID, BOB);
 
-			// Verify test setup correct with `REQUIRED_APPROVALS` and proposal is still 'Pending'
+			// Verify test setup correct with `MaxApprovals::get()` and proposal is still 'Pending'
 			// status
 			let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
-			assert_eq!(proposal.approvals.len(), REQUIRED_APPROVALS as usize);
+			assert_eq!(proposal.approvals.len(), MaxApprovals::get() as usize);
 			assert_eq!(proposal.status, ProposalStatus::Pending);
 
 			// Try to add Charlie's approval to check that it fails with `TooManyApprovals`
@@ -894,7 +895,7 @@ mod unit_test {
 				None,
 			));
 
-			// Add Bob's approval triggers execution if REQUIRED_APPROVALS value met
+			// Add Bob's approval triggers execution if MaxApprovals::get() value met
 			assert_ok!(OriginAndGate::add_approval(
 				RuntimeOrigin::signed(BOB),
 				call_hash,
@@ -902,12 +903,12 @@ mod unit_test {
 				BOB_ORIGIN_ID,
 			));
 
-			assert_eq!(REQUIRED_APPROVALS as usize, 2);
+			assert_eq!(MaxApprovals::get() as usize, 2);
 
 			// Verify proposal now Executed
 			let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
 			assert_eq!(proposal.status, ProposalStatus::Executed);
-			assert_eq!(proposal.approvals.len(), REQUIRED_APPROVALS as usize);
+			assert_eq!(proposal.approvals.len(), MaxApprovals::get() as usize);
 
 			// Try add Charlie's approval but should fail with ProposalAlreadyExecuted
 			assert_noop!(
@@ -989,7 +990,7 @@ mod integration_test {
 
 			// Verify proposal exists and has both approvals
 			let proposal = Proposals::<Test>::get(call_hash, alice_origin_id).unwrap();
-			assert_eq!(proposal.approvals.len(), REQUIRED_APPROVALS as usize);
+			assert_eq!(proposal.approvals.len(), MaxApprovals::get() as usize);
 
 			// Verify both origin IDs are in approvals
 			assert!(proposal.approvals.contains(&alice_origin_id));
@@ -1162,8 +1163,7 @@ mod integration_test {
 		use super::*;
 
 		#[test]
-		fn proposal_is_approved_but_does_not_execute_and_status_remains_pending_when_only_proposed()
-		{
+		fn proposal_approved_but_does_not_execute_and_status_remains_pending_when_only_proposed() {
 			new_test_ext().execute_with(|| {
 				System::set_block_number(1);
 
@@ -1192,7 +1192,7 @@ mod integration_test {
 				);
 
 				// At this point the proposal should have `Pending` status sinc only have Alice's
-				// approval and it is less than `REQUIRED_APPROVALS`
+				// approval and it is less than `MaxApprovals::get()`
 
 				let events = System::events();
 				// Verify `ProposalCreated` event was emitted
@@ -1234,7 +1234,7 @@ mod integration_test {
 				assert_eq!(proposal.status, ProposalStatus::Pending);
 
 				// Adding Bob's approval should trigger execution since now have
-				// `REQUIRED_APPROVALS` approvals
+				// `MaxApprovals::get()` approvals
 				assert_ok!(OriginAndGate::add_approval(
 					RuntimeOrigin::signed(BOB),
 					call_hash,
@@ -1245,7 +1245,7 @@ mod integration_test {
 				// Verify proposal status changed to `Executed`
 				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
 				assert_eq!(proposal.status, ProposalStatus::Executed);
-				assert_eq!(proposal.approvals.len(), REQUIRED_APPROVALS as usize); // Alice + Bob
+				assert_eq!(proposal.approvals.len(), MaxApprovals::get() as usize); // Alice + Bob
 
 				// Verify both `OriginApprovalAdded` and `ProposalExecuted` events were emitted
 				let events = System::events();

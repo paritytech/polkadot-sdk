@@ -143,6 +143,8 @@ pub mod pallet {
 		type OriginId: Parameter + Member + TypeInfo + Copy + Ord + MaxEncodedLen;
 
 		/// The maximum number of approvals for a single proposal.
+		/// The original specification by Dr Gavin Wood requires exactly two approvals to satisfy
+		/// the "AND Gate" pattern for two origins.
 		#[pallet::constant]
 		type MaxApprovals: Get<u32> + Clone;
 
@@ -156,10 +158,6 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
-
-	// Constant for the required number of approvals. The original specification by Dr Gavin Wood
-	// requires exactly two approvals to satisfy the "AND Gate" pattern for two origins
-	pub const REQUIRED_APPROVALS: u8 = 2;
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -209,7 +207,7 @@ pub mod pallet {
 			// Check for minimum number of approvals (customize this logic based on your
 			// requirements) Note that for the "AND Gate" pattern, we require a minimum of 2
 			// approvals
-			if proposal_info.approvals.len() >= REQUIRED_APPROVALS as usize {
+			if proposal_info.approvals.len() >= T::MaxApprovals::get() as usize {
 				// Retrieve the actual call from storage
 				if let Some(call) = <ProposalCalls<T>>::get(proposal_hash) {
 					// Execute the call with root origin
