@@ -69,18 +69,21 @@ fn find_event_and_decode_fields<T: Decode>(
 	Ok(result)
 }
 
-// Helper function for asserting the throughput of parachains (total number of backed candidates in
-// a window of relay chain blocks), after the first session change.
-// Blocks with session changes are generally ignores.
+// Helper function for asserting the throughput of parachains, after the first session change.
+//
+// The throughput is measured as total number of backed candidates in a window of relay chain
+// blocks. Relay chain blocks with session changes are generally ignores.
 pub async fn assert_finalized_para_throughput(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	stop_after: u32,
-	expected_candidate_ranges: HashMap<ParaId, Range<u32>>,
+	expected_candidate_ranges: impl Into<HashMap<ParaId, Range<u32>>>,
+	expected_number_of_blocks: impl Into<HashMap<ParaId, (OnlineClient<PolkadotConfig>, Range<u32>)>>,
 ) -> Result<(), anyhow::Error> {
 	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
-	let mut candidate_count: HashMap<ParaId, u32> = HashMap::new();
+	let mut candidate_count: HashMap<ParaId, Vec<CandidateReceiptV2<H256>>> = HashMap::new();
 	let mut current_block_count = 0;
 
+	let expected_candidate_ranges = expected_candidate_ranges.into();
 	let valid_para_ids: Vec<ParaId> = expected_candidate_ranges.keys().cloned().collect();
 
 	// Wait for the first session, block production on the parachain will start after that.
@@ -107,10 +110,12 @@ pub async fn assert_finalized_para_throughput(
 		for receipt in receipts {
 			let para_id = receipt.descriptor.para_id();
 			log::debug!("Block backed for para_id {para_id}");
+
 			if !valid_para_ids.contains(&para_id) {
 				return Err(anyhow!("Invalid ParaId detected: {}", para_id));
 			};
-			*(candidate_count.entry(para_id).or_default()) += 1;
+
+			candidate_count.entry(para_id).or_default().push(receipt);
 		}
 
 		if current_block_count == stop_after {
@@ -120,17 +125,66 @@ pub async fn assert_finalized_para_throughput(
 
 	log::info!(
 		"Reached {stop_after} finalized relay chain blocks that contain backed candidates. The per-parachain distribution is: {:#?}",
-		candidate_count.iter().map(|(para_id, count)| format!("{para_id} has {count} backed candidates")).collect::<Vec<_>>()
+		candidate_count.iter().map(|(para_id, receipts)| format!("{para_id} has {} backed candidates", receipts.len())).collect::<Vec<_>>()
 	);
 
 	for (para_id, expected_candidate_range) in expected_candidate_ranges {
-		let actual = candidate_count
+		let receipts = candidate_count
 			.get(&para_id)
-			.expect("ParaId did not have any backed candidates");
-		assert!(
-			expected_candidate_range.contains(actual),
-			"Candidate count {actual} not within range {expected_candidate_range:?}"
-		);
+			.ok_or_else(|| anyhow!("ParaId did not have any backed candidates"))?;
+
+		if !expected_candidate_range.contains(&(receipts.len() as u32)) {
+			return Err(anyhow!(
+				"Candidate count {} not within range {expected_candidate_range:?}",
+				receipts.len()
+			))
+		}
+	}
+
+	for (para_id, (para_client, expected_number_of_blocks)) in expected_number_of_blocks.into() {
+		let receipts = candidate_count
+			.get(&para_id)
+			.ok_or_else(|| anyhow!("ParaId did not have any backed candidates"))?;
+
+		let mut num_blocks = 0;
+
+		for receipt in receipts {
+			// We "abuse" the fact that the parachain is using `BlakeTwo256` as hash and thus, the
+			// `para_head` hash and the hash of the `header` should be equal.
+			let mut next_para_block_hash = receipt.descriptor().para_head();
+
+			let mut relay_identifier = None;
+			let mut core_info = None;
+
+			loop {
+				let block = para_client.blocks().at(next_para_block_hash).await?;
+
+				// Genesis block is not part of a candidate :)
+				if block.number() == 0 {
+					break
+				}
+
+				let ri = find_relay_block_identifier(&block)?;
+				let ci = find_core_info(&block)?;
+
+				// If the core changes or the relay identifier, we found all blocks for the
+				// candidate.
+				if *relay_identifier.get_or_insert(ri.clone()) != ri ||
+					*core_info.get_or_insert(ci.clone()) != ci
+				{
+					break
+				}
+
+				num_blocks += 1;
+				next_para_block_hash = block.header().parent_hash;
+			}
+		}
+
+		if !expected_number_of_blocks.contains(&num_blocks) {
+			return Err(anyhow!(
+				"Block number count {num_blocks} not within range {expected_number_of_blocks:?}",
+			))
+		}
 	}
 
 	Ok(())
@@ -574,12 +628,15 @@ pub async fn assert_relay_parent_offset(
 				}
 			},
 			Some(Ok(para_block)) = para_block_stream.next() => {
-				let logs = &para_block.header().digest.logs;
+				let relay_block_identifier = find_relay_block_identifier(&para_block)?;
 
-				let Some((_, relay_parent_number)): Option<(H256, u32)> = logs.iter().find_map(extract_relay_parent_storage_root) else {
-					return Err(anyhow!("No RPSR digest found in header #{}", para_block.number()));
+				let relay_parent_number = match relay_block_identifier {
+					RelayBlockIdentifier::ByHash(block_hash) => relay_client.blocks().at(block_hash).await?.number(),
+					RelayBlockIdentifier::ByStorageRoot { block_number, .. } => block_number,
 				};
+
 				log::debug!("Parachain block #{} was built on relay parent #{relay_parent_number}, highest seen was {highest_relay_block_seen}", para_block.number());
+
 				assert!(
 					highest_relay_block_seen < offset ||
 					relay_parent_number <= highest_relay_block_seen.saturating_sub(offset),
@@ -593,20 +650,6 @@ pub async fn assert_relay_parent_offset(
 			}
 		}
 	}
+
 	Ok(())
-}
-
-/// Extract relay parent information from the digest logs.
-fn extract_relay_parent_storage_root(
-	digest: &DigestItem,
-) -> Option<(relay_chain::Hash, relay_chain::BlockNumber)> {
-	match digest {
-		DigestItem::Consensus(id, val) if id == &RPSR_CONSENSUS_ID => {
-			let (h, n): (relay_chain::Hash, Compact<relay_chain::BlockNumber>) =
-				Decode::decode(&mut &val[..]).ok()?;
-
-			Some((h, n.0))
-		},
-		_ => None,
-	}
 }

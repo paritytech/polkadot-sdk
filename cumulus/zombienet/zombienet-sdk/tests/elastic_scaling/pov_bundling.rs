@@ -18,7 +18,7 @@
 use anyhow::anyhow;
 
 use cumulus_zombienet_sdk_helpers::{
-	assert_finality_lag, assert_para_blocks_throughput, assert_para_throughput,
+	assert_finality_lag, assert_finalized_para_throughput, assert_para_throughput,
 	create_assign_core_call,
 };
 use polkadot_primitives::Id as ParaId;
@@ -55,22 +55,17 @@ async fn pov_bundling() -> Result<(), anyhow::Error> {
 
 	let para_client = para_node.wait_client().await?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
-	let relay_rpc_client =
-		LegacyRpcMethods::new(RpcClient::from_url(relay_node.ws_uri()).await.unwrap());
 	let alice = dev::alice();
 
-	assert_para_blocks_throughput(
-		PARA_ID.into(),
-		&para_client,
-		72,
-		&relay_rpc_client,
+	assert_finalized_para_throughput(
 		&relay_client,
-		6..9,
-		1..2,
+		6,
+		[(ParaId::from(PARA_ID), 4..6)],
+		[(ParaId::from(PARA_ID), (para_client.clone(), 48..72))],
 	)
 	.await?;
 	// 3 relay chain blocks
-	assert_finality_lag(&para_client, 36).await?;
+	assert_finality_lag(&para_client, 72).await?;
 
 	let assign_cores_call = create_assign_core_call(&[(2, PARA_ID), (3, PARA_ID)]);
 
@@ -81,19 +76,16 @@ async fn pov_bundling() -> Result<(), anyhow::Error> {
 		.inspect(|_| log::info!("Tx send, waiting for finalization"))?
 		.wait_for_finalized_success()
 		.await?;
-	log::info!("2 more cores assigned to each parachain");
+	log::info!("2 more cores assigned to the parachain");
 
-	assert_para_blocks_throughput(
-		PARA_ID.into(),
-		&para_client,
-		72,
-		&relay_rpc_client,
+	assert_finalized_para_throughput(
 		&relay_client,
-		6..9,
-		2..4,
+		6,
+		[(ParaId::from(PARA_ID), 12..18)],
+		[(ParaId::from(PARA_ID), (para_client.clone(), 48..72))],
 	)
 	.await?;
-	assert_finality_lag(&para_client, 36).await?;
+	assert_finality_lag(&para_client, 72).await?;
 
 	let assign_cores_call = create_assign_core_call(&[(4, PARA_ID), (5, PARA_ID), (6, PARA_ID)]);
 	// Assign two extra cores to each parachain.
@@ -103,19 +95,17 @@ async fn pov_bundling() -> Result<(), anyhow::Error> {
 		.await?
 		.wait_for_finalized_success()
 		.await?;
-	log::info!("3 more cores assigned to each parachain");
+	log::info!("3 more cores assigned to the parachain");
 
-	assert_para_blocks_throughput(
-		PARA_ID.into(),
-		&para_client,
-		72,
-		&relay_rpc_client,
+	assert_finalized_para_throughput(
 		&relay_client,
-		6..9,
-		5..7,
+		6,
+		[(ParaId::from(PARA_ID), 24..36)],
+		[(ParaId::from(PARA_ID), (para_client.clone(), 48..72))],
 	)
 	.await?;
-	assert_finality_lag(&para_client, 36).await?;
+
+	assert_finality_lag(&para_client, 72).await?;
 	log::info!("Test finished successfully");
 	Ok(())
 }
