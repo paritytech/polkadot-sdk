@@ -1917,7 +1917,7 @@ impl WeightInfo for () {
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
 	/// The range of component `t` is `[0, 1]`.
 	/// The range of component `i` is `[0, 262144]`.
-	fn seal_call(t: u32, i: u32, _d: u32 ) -> Weight {
+	fn seal_call(t: u32, _d: u32, i: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1545 + t * (206 ±0)`
 		//  Estimated: `5010 + t * (2608 ±0)`
