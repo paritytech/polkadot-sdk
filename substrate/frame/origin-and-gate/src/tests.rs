@@ -183,9 +183,10 @@ mod unit_test {
 
 				let call = make_remark_call("1000").unwrap();
 				let call_hash = <Test as Config>::Hashing::hash_of(&call);
-				let expiry = Some(starting_block + 10); // Expire after 10 blocks
+				// Expire after 10 blocks
+				let expiry = Some(starting_block + <Test as Config>::ProposalLifetime::get());
 
-				System::set_block_number(starting_block + 11);
+				System::set_block_number(expiry.unwrap() + 1);
 
 				// Create proposal
 				let result = OriginAndGate::propose(
@@ -628,12 +629,12 @@ mod unit_test {
 		fn approve_after_expiry_fails() {
 			new_test_ext().execute_with(|| {
 				let starting_block = 1;
-				// Override the `ProposalLifetime` value of the runtime in mock
 				System::set_block_number(starting_block);
 
 				let call = make_remark_call("1000").unwrap();
 				let call_hash = <Test as Config>::Hashing::hash_of(&call);
-				let expiry = Some(starting_block + 10); // Expire after 10 blocks
+				// Expire after 10 blocks when `ProposalLifetime` is set to 10
+				let expiry = Some(starting_block + <Test as Config>::ProposalLifetime::get());
 
 				// Manually create and insert proposal but with empty `approvals`
 				// without the proposer automatically approving that normally occurs.
@@ -654,7 +655,7 @@ mod unit_test {
 				ProposalCalls::<Test>::insert(call_hash, call);
 
 				// Advance past expiry
-				System::set_block_number(starting_block + 11);
+				System::set_block_number(expiry.unwrap() + 1);
 
 				// Proposal should be marked as Pending due to override
 				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
