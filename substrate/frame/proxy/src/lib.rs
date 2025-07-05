@@ -742,8 +742,6 @@ pub mod pallet {
 		Unannounced,
 		/// Cannot add self as proxy.
 		NoSelfProxy,
-		/// Bad context.
-		BadContext,
 	}
 
 	/// The set of account proxies. Maps the account which has delegated to the accounts
