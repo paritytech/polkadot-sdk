@@ -58,7 +58,8 @@ where
 
 /// Construct a root hash of a Binary Merkle Tree created from given leaves.
 ///
-/// This is a raw version of the [`merkle_root`] function that expects the hashes of the leaves and not the leaves itself.
+/// This is a raw version of the [`merkle_root`] function that expects the hashes of the leaves and
+/// not the leaves itself.
 ///
 /// See crate-level docs for details about Merkle Tree construction.
 ///
@@ -228,7 +229,8 @@ where
 
 /// Construct a Merkle Proof for leaves given by indices.
 ///
-/// This is a raw version of the [`merkle_proof`] function that expects the hashes of the leaves and not the leaves itself.
+/// This is a raw version of the [`merkle_proof`] function that expects the hashes of the leaves and
+/// not the leaves itself.
 ///
 /// The function constructs a (partial) Merkle Tree first and stores all elements required
 /// to prove requested item (leaf) given the root hash.
