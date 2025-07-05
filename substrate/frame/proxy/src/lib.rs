@@ -362,6 +362,7 @@ pub mod pallet {
 				who,
 				proxy_type,
 				disambiguation_index: index,
+				at: T::BlockNumberProvider::current_block_number(),
 			});
 
 			Ok(())
@@ -682,6 +683,7 @@ pub mod pallet {
 			who: T::AccountId,
 			proxy_type: T::ProxyType,
 			disambiguation_index: u16,
+			at: BlockNumberFor<T>,
 		},
 		/// A pure proxy was killed by its spawner.
 		PureKilled {
