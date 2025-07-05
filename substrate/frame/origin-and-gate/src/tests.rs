@@ -425,7 +425,7 @@ mod unit_test {
 		}
 
 		#[test]
-		fn proposal_cancellation_not_allowed_for_non_pending_status() {
+		fn proposal_cancellation_not_allowed_for_executed_status() {
 			new_test_ext().execute_with(|| {
 				System::set_block_number(1);
 
@@ -594,6 +594,37 @@ mod unit_test {
 		}
 
 		#[test]
+		fn approve_with_wrong_call_hash_fails_to_find_proposal() {
+			new_test_ext().execute_with(|| {
+				let call = make_remark_call("1000").unwrap();
+				let call_hash = <Test as Config>::Hashing::hash_of(&call);
+
+				// Alice proposes
+				assert_ok!(OriginAndGate::propose(
+					RuntimeOrigin::signed(ALICE),
+					call.clone(),
+					ALICE_ORIGIN_ID,
+					None,
+				));
+
+				// Use different call hash
+				let wrong_call = make_remark_call("2000").unwrap();
+				let wrong_call_hash = <Test as Config>::Hashing::hash_of(&wrong_call);
+
+				// Bob tries approve but should fail
+				assert_noop!(
+					OriginAndGate::add_approval(
+						RuntimeOrigin::signed(BOB),
+						wrong_call_hash,
+						ALICE_ORIGIN_ID,
+						BOB_ORIGIN_ID,
+					),
+					Error::<Test>::ProposalNotFound
+				);
+			});
+		}
+
+		#[test]
 		fn approve_after_expiry_fails() {
 			new_test_ext().execute_with(|| {
 				let starting_block = 1;
@@ -607,7 +638,7 @@ mod unit_test {
 				// Manually create and insert proposal but with empty `approvals`
 				// without the proposer automatically approving that normally occurs.
 				// Instead delay that to occur later
-				let mut approvals = BoundedVec::default();
+				let approvals = BoundedVec::default();
 
 				let proposal_info = ProposalInfo {
 					call_hash,
@@ -690,9 +721,11 @@ mod unit_test {
 				));
 
 				// Alice cancels proposal
-				assert_ok!(
-					OriginAndGate::cancel_proposal(RuntimeOrigin::signed(ALICE), call_hash, ALICE_ORIGIN_ID,)
-				);
+				assert_ok!(OriginAndGate::cancel_proposal(
+					RuntimeOrigin::signed(ALICE),
+					call_hash,
+					ALICE_ORIGIN_ID,
+				));
 
 				// Bob tries to approve cancelled proposal
 				assert_noop!(
@@ -1132,7 +1165,7 @@ mod integration_test {
 					None,
 				));
 
-				// Prior to Bob's approval we dispatching a signed extrinsic to test AliceAndBob
+				// Prior to Bob's approval we dispatch a signed extrinsic to test AliceAndBob
 				// origin directly and expect it to fail without Bob's approval
 				assert_matches!(
 					AliceAndBob::ensure_origin(RuntimeOrigin::signed(ALICE)).is_err(),
