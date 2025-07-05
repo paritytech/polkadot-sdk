@@ -357,7 +357,7 @@ pub mod pallet {
 			T::Currency::reserve(&who, deposit)?;
 
 			Proxies::<T>::insert(&pure, (bounded_proxies, deposit));
-			let extrinsic_index = <frame_system::Pallet<T>>::extrinsic_index().ok_or_else(|| Error::<T>::BadContext)?;
+			let extrinsic_index = <frame_system::Pallet<T>>::extrinsic_index().unwrap_or_default();
 			Self::deposit_event(Event::PureCreated {
 				pure,
 				who,
