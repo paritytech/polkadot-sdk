@@ -180,15 +180,16 @@ pub mod pallet {
 			match error {
 				Error::ProposalAlreadyExists => 0,
 				Error::ProposalNotFound => 1,
-				Error::TooManyApprovals => 2,
-				Error::NotAuthorized => 3,
-				Error::ProposalAlreadyExecuted => 4,
-				Error::ProposalExpired => 5,
-				Error::ProposalCancelled => 6,
-				Error::OriginAlreadyApproved => 7,
-				Error::InsufficientApprovals => 8,
-				Error::ProposalNotPending => 9,
-				Error::OriginApprovalNotFound => 10,
+				Error::CannotApproveOwnProposalUsingDifferentOrigin => 2,
+				Error::TooManyApprovals => 3,
+				Error::NotAuthorized => 4,
+				Error::ProposalAlreadyExecuted => 5,
+				Error::ProposalExpired => 6,
+				Error::ProposalCancelled => 7,
+				Error::OriginAlreadyApproved => 8,
+				Error::InsufficientApprovals => 9,
+				Error::ProposalNotPending => 10,
+				Error::OriginApprovalNotFound => 11,
 			}
 		}
 
@@ -327,6 +328,11 @@ pub mod pallet {
 			// Try to fetch proposal from storage first
 			let mut proposal_info =
 				<Proposals<T>>::get(&call_hash, &origin_id).ok_or(Error::<T>::ProposalNotFound)?;
+
+			// Check if caller is same as proposer of proposal but using a different origin ID
+			if who == proposal_info.proposer && approving_origin_id != origin_id {
+				return Err(Error::<T>::CannotApproveOwnProposalUsingDifferentOrigin.into());
+			}
 
 			// Check if proposal has expired
 			if let Some(expiry) = proposal_info.expiry {
@@ -613,6 +619,8 @@ pub mod pallet {
 		ProposalAlreadyExists,
 		/// The proposal could not be found
 		ProposalNotFound,
+		/// The proposer cannot approve their own proposal with different origin ID
+		CannotApproveOwnProposalUsingDifferentOrigin,
 		/// The proposal has too many approvals
 		TooManyApprovals,
 		/// The caller is not authorized to approve

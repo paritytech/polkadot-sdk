@@ -517,6 +517,33 @@ mod unit_test {
 		}
 
 		#[test]
+		fn cannot_approve_own_proposal_with_different_origin_id() {
+			new_test_ext().execute_with(|| {
+				let call = make_remark_call("1000").unwrap();
+				let call_hash = <Test as Config>::Hashing::hash_of(&call);
+
+				// Alice proposes
+				assert_ok!(OriginAndGate::propose(
+					RuntimeOrigin::signed(ALICE),
+					call.clone(),
+					ALICE_ORIGIN_ID,
+					None,
+				));
+
+				// Alice tries to approve with different origin ID should fail
+				assert_noop!(
+					OriginAndGate::add_approval(
+						RuntimeOrigin::signed(ALICE),
+						call_hash,
+						ALICE_ORIGIN_ID,
+						BOB_ORIGIN_ID,
+					),
+					Error::<Test>::CannotApproveOwnProposalUsingDifferentOrigin
+				);
+			});
+		}
+
+		#[test]
 		fn duplicate_approval_of_proposal_fails() {
 			new_test_ext().execute_with(|| {
 				System::set_block_number(1);
@@ -649,7 +676,39 @@ mod unit_test {
 		}
 
 		#[test]
-		fn additional_approvals_after_required_approvals_count_are_rejected() {
+		fn approval_after_cancelled_fails() {
+			new_test_ext().execute_with(|| {
+				let call = make_remark_call("1000").unwrap();
+				let call_hash = <Test as Config>::Hashing::hash_of(&call);
+
+				// Alice proposes
+				assert_ok!(OriginAndGate::propose(
+					RuntimeOrigin::signed(ALICE),
+					call.clone(),
+					ALICE_ORIGIN_ID,
+					None,
+				));
+
+				// Alice cancels proposal
+				assert_ok!(
+					OriginAndGate::cancel_proposal(RuntimeOrigin::signed(ALICE), call_hash, ALICE_ORIGIN_ID,)
+				);
+
+				// Bob tries to approve cancelled proposal
+				assert_noop!(
+					OriginAndGate::add_approval(
+						RuntimeOrigin::signed(BOB),
+						call_hash,
+						ALICE_ORIGIN_ID,
+						BOB_ORIGIN_ID,
+					),
+					Error::<Test>::ProposalNotFound
+				);
+			});
+		}
+
+		#[test]
+		fn approval_after_executed_fails() {
 			new_test_ext().execute_with(|| {
 				System::set_block_number(1);
 
