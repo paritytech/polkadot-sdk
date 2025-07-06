@@ -20,6 +20,7 @@ use codec::{Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncoded
 use scale_info::TypeInfo;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sp_core::{RuntimeDebug, TypeId, H256};
+use sp_io::hashing::blake2_256;
 use sp_std::fmt::Debug;
 
 /// Trait representing a generic `LaneId` type.
@@ -179,7 +180,7 @@ impl LaneIdType for HashedLaneId {
 			} else {
 				(endpoint2, VALUES_SEPARATOR, endpoint1)
 			}
-			.using_encoded(sp_io::hashing_blake2_256)
+			.using_encoded(blake2_256)
 			.into(),
 		))
 	}

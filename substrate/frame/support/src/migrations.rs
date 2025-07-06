@@ -30,7 +30,7 @@ use core::marker::PhantomData;
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_arithmetic::traits::Bounded;
 use sp_core::Get;
-use sp_io::hashing_twox_128 as twox_128;
+use sp_io::hashing::twox_128;
 use sp_runtime::traits::Zero;
 
 /// Handles storage migration pallet versioning.
@@ -323,10 +323,13 @@ impl<P: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>> frame_support::traits
 {
 	fn on_runtime_upgrade() -> frame_support::weights::Weight {
 		let hashed_prefix = twox_128(P::get().as_bytes());
-		let r =  sp_io::storage_clear_prefix(&hashed_prefix, None, None);
+		let r = sp_io::storage_clear_prefix(&hashed_prefix, None, None);
 		let keys_removed = match r.maybe_cursor {
 			Some(_) => {
-				log::error!("`clear_prefix` failed to remove all keys for {}. THIS SHOULD NEVER HAPPEN! 🚨", P::get());
+				log::error!(
+					"`clear_prefix` failed to remove all keys for {}. THIS SHOULD NEVER HAPPEN! 🚨",
+					P::get()
+				);
 				r.backend
 			},
 			None => r.backend,

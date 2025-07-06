@@ -133,7 +133,7 @@ where
 	fn deliver(
 		(config, para, blob): (HostConfiguration<BlockNumberFor<T>>, ParaId, Vec<u8>),
 	) -> Result<XcmHash, SendError> {
-		let hash = sp_io::hashing_blake2_256(&blob[..]);
+		let hash = sp_io::hashing::blake2_256(&blob[..]);
 		dmp::Pallet::<T>::queue_downward_message(&config, para, blob)
 			.map(|()| hash)
 			.map_err(|error| {

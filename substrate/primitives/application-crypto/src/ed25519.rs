@@ -56,7 +56,8 @@ impl RuntimePublic for Public {
 	fn generate_proof_of_possession(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {
 		let proof_of_possession_statement = Pair::proof_of_possession_statement(self);
 		let mut out = Self::Signature::default();
-		sp_io::crypto::ed25519_sign(key_type, self, &proof_of_possession_statement, &mut out).ok()?;
+		sp_io::crypto::ed25519_sign(key_type, self, &proof_of_possession_statement, &mut out)
+			.ok()?;
 		Some(out)
 	}
 

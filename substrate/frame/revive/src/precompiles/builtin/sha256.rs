@@ -36,7 +36,7 @@ impl<T: Config> PrimitivePrecompile for Sha256<T> {
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
 		env.gas_meter_mut().charge(RuntimeCosts::HashSha256(input.len() as _))?;
-		let data = sp_io::hashing_sha2_256(&input).to_vec();
+		let data = sp_io::hashing::sha2_256(&input).to_vec();
 		Ok(data)
 	}
 }

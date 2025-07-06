@@ -500,7 +500,7 @@ pub mod pallet {
 
 			// This should be set such that it is discarded after the first epoch half
 			let tickets_longevity = epoch_length / 2 - current_slot_idx;
-			let tickets_tag = tickets.using_encoded(|bytes| sp_io::hashing_blake2_256(bytes));
+			let tickets_tag = tickets.using_encoded(|bytes| sp_io::hashing::blake2_256(bytes));
 
 			ValidTransaction::with_tag_prefix("Sassafras")
 				.priority(TransactionPriority::max_value())
@@ -676,7 +676,7 @@ impl<T: Config> Pallet<T> {
 		buf[..RANDOMNESS_LENGTH].copy_from_slice(&accumulator[..]);
 		buf[RANDOMNESS_LENGTH..].copy_from_slice(&next_epoch_index.to_le_bytes());
 
-		let next_randomness = sp_io::hashing_blake2_256(&buf);
+		let next_randomness = sp_io::hashing::blake2_256(&buf);
 		NextRandomness::<T>::put(&next_randomness);
 
 		next_randomness
@@ -690,7 +690,7 @@ impl<T: Config> Pallet<T> {
 		buf[..RANDOMNESS_LENGTH].copy_from_slice(&accumulator[..]);
 		buf[RANDOMNESS_LENGTH..].copy_from_slice(&randomness[..]);
 
-		let accumulator = sp_io::hashing_blake2_256(&buf);
+		let accumulator = sp_io::hashing::blake2_256(&buf);
 		RandomnessAccumulator::<T>::put(accumulator);
 	}
 
@@ -737,7 +737,7 @@ impl<T: Config> Pallet<T> {
 		let genesis_hash = frame_system::Pallet::<T>::parent_hash();
 		let mut buf = genesis_hash.as_ref().to_vec();
 		buf.extend_from_slice(&slot.to_le_bytes());
-		let randomness = sp_io::hashing_blake2_256(buf.as_slice());
+		let randomness = sp_io::hashing::blake2_256(buf.as_slice());
 		RandomnessAccumulator::<T>::put(randomness);
 
 		let next_randomness = Self::update_epoch_randomness(1);

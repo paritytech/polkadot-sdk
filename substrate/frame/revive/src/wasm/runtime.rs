@@ -1834,7 +1834,11 @@ pub mod env {
 	) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::HashKeccak256(input_len))?;
 		Ok(self.compute_hash_on_intermediate_buffer(
-			memory, sp_io::hashing_keccak_256, input_ptr, input_len, output_ptr,
+			memory,
+			sp_io::hashing::keccak_256,
+			input_ptr,
+			input_len,
+			output_ptr,
 		)?)
 	}
 
@@ -1958,7 +1962,11 @@ pub mod env {
 	) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::HashBlake128(input_len))?;
 		Ok(self.compute_hash_on_intermediate_buffer(
-			memory, sp_io::hashing_blake2_128, input_ptr, input_len, output_ptr,
+			memory,
+			sp_io::hashing::blake2_128,
+			input_ptr,
+			input_len,
+			output_ptr,
 		)?)
 	}
 
@@ -1973,7 +1981,11 @@ pub mod env {
 	) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::HashBlake256(input_len))?;
 		Ok(self.compute_hash_on_intermediate_buffer(
-			memory, sp_io::hashing_blake2_256, input_ptr, input_len, output_ptr,
+			memory,
+			sp_io::hashing::blake2_256,
+			input_ptr,
+			input_len,
+			output_ptr,
 		)?)
 	}
 

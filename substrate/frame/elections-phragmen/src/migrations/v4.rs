@@ -78,7 +78,7 @@ pub fn pre_migration<T: crate::Config, N: AsRef<str>>(new: N) {
 
 	// the next key must exist, and start with the hash of `OLD_PREFIX`.
 	let next_key = sp_io::storage_next_key(OLD_PREFIX).unwrap();
-	assert!(next_key.starts_with(&sp_io::hashing_twox_128(OLD_PREFIX)));
+	assert!(next_key.starts_with(&sp_io::hashing::twox_128(OLD_PREFIX)));
 
 	// ensure nothing is stored in the new prefix.
 	assert!(
@@ -86,7 +86,7 @@ pub fn pre_migration<T: crate::Config, N: AsRef<str>>(new: N) {
 			// either nothing is there
 			true,
 			// or we ensure that it has no common prefix with twox_128(new).
-			|next_key| !next_key.starts_with(&sp_io::hashing_twox_128(new.as_bytes()))
+			|next_key| !next_key.starts_with(&sp_io::hashing::twox_128(new.as_bytes()))
 		),
 		"unexpected next_key({}) = {:?}",
 		new,

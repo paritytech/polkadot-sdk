@@ -187,5 +187,5 @@ pub fn run_test<T>(test: impl FnOnce() -> T) -> T {
 }
 
 pub(crate) fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
-	message.using_encoded(sp_io::hashing_blake2_256)
+	message.using_encoded(sp_io::hashing::blake2_256)
 }

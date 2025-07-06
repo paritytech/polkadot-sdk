@@ -26,7 +26,7 @@ use codec::{Decode, Encode};
 use scale_info::meta_type;
 
 use frame_support::{derive_impl, pallet_prelude::PalletInfoAccess, view_functions::ViewFunction};
-use sp_io::hashing_twox_128 as twox_128;
+use sp_io::hashing::twox_128;
 use sp_metadata_ir::{
 	ItemDeprecationInfoIR, PalletViewFunctionMetadataIR, PalletViewFunctionParamMetadataIR,
 };

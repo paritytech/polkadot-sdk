@@ -51,7 +51,7 @@ use snowbridge_outbound_queue_primitives::{
 	OperatingMode, SendError,
 };
 use sp_core::{RuntimeDebug, H160, H256};
-use sp_io::hashing_blake2_256 as blake2_256;
+use sp_io::hashing::blake2_256;
 use sp_runtime::{traits::MaybeConvert, DispatchError, SaturatedConversion};
 use sp_std::prelude::*;
 use xcm::prelude::*;

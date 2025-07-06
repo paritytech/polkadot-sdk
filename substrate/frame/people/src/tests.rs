@@ -2843,7 +2843,7 @@ fn replay_protection_for_identity() {
 			let other_tx_ext = (frame_system::CheckNonce::<Test>::from(0),);
 			// Here we simply ignore implicit as they are null.
 			let msg = (&EXTENSION_VERSION, &call, &other_tx_ext)
-				.using_encoded(sp_io::hashing_blake2_256);
+				.using_encoded(sp_io::hashing::blake2_256);
 			let signature = Simple::sign(&alice_sec, &msg).unwrap();
 			(
 				AsPerson::<Test>::new(Some(AsPersonInfo::AsPersonalIdentityWithProof(
@@ -2918,7 +2918,7 @@ fn replay_protection_for_alias() {
 			let other_tx_ext = (frame_system::CheckNonce::<Test>::from(0),);
 			// The message is the hash over the extension version, call, and other extensions.
 			let msg = (&EXTENSION_VERSION, &call, &other_tx_ext)
-				.using_encoded(sp_io::hashing_blake2_256);
+				.using_encoded(sp_io::hashing::blake2_256);
 			// Open a commitment (using Alice’s public key and public data)
 			let commitment = Simple::open(&alice_pub, Some(alice_pub).into_iter()).unwrap();
 			// Create a VRF proof and compute the alias output from the call message.

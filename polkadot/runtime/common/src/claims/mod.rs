@@ -31,7 +31,7 @@ pub use pallet::*;
 use polkadot_primitives::ValidityError;
 use scale_info::TypeInfo;
 use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
-use sp_io::{crypto_secp256k1_ecdsa_recover as secp256k1_ecdsa_recover, hashing_keccak_256 as keccak_256};
+use sp_io::{crypto_secp256k1_ecdsa_recover as secp256k1_ecdsa_recover, keccak_256};
 use sp_runtime::{
 	impl_tx_ext_default,
 	traits::{

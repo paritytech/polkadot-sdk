@@ -75,12 +75,7 @@ impl<'a> Drop for StorageNoopGuard<'a> {
 		if std::thread::panicking() {
 			return
 		}
-		assert_eq!(
-			sp_io::storage_root(),
-			self.storage_root,
-			"{}",
-			self.error_message,
-		);
+		assert_eq!(sp_io::storage_root(), self.storage_root, "{}", self.error_message,);
 	}
 }
 

@@ -18,7 +18,7 @@
 use crate::*;
 use frame_support::traits::tokens::fungible::Inspect;
 use mock::*;
-use sp_io::hashing_blake2_256 as blake2_256;
+use sp_io::hashing::blake2_256;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::{
 	generic::Era,

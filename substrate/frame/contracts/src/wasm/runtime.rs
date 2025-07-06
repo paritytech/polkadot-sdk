@@ -33,10 +33,7 @@ use frame_support::{
 };
 use pallet_contracts_proc_macro::define_env;
 use pallet_contracts_uapi::{CallFlags, ReturnFlags};
-use sp_io::hashing_blake2_128 as blake2_128;
-use sp_io::hashing_blake2_256 as blake2_256;
-use sp_io::hashing_keccak_256 as keccak_256;
-use sp_io::hashing_sha2_256 as sha2_256;
+use sp_io::hashing::{blake2_128, blake2_256, keccak_256, sha2_256};
 use sp_runtime::{
 	traits::{Bounded, Zero},
 	DispatchError, RuntimeDebug,

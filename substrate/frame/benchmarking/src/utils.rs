@@ -22,6 +22,7 @@ use frame_support::{dispatch::DispatchErrorWithPostInfo, pallet_prelude::*, trai
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
+use sp_io::hashing::blake2_256;
 use sp_runtime::{
 	traits::TrailingZeroInput, transaction_validity::TransactionValidityError, DispatchError,
 };
@@ -489,7 +490,7 @@ pub trait BenchmarkingSetup<T, I = ()> {
 
 /// Grab an account, seeded by a name and index.
 pub fn account<AccountId: Decode>(name: &'static str, index: u32, seed: u32) -> AccountId {
-	let entropy = (name, index, seed).using_encoded(sp_io::hashing_blake2_256);
+	let entropy = (name, index, seed).using_encoded(blake2_256);
 	Decode::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
 		.expect("infinite length input; no invalid inputs for type; qed")
 }

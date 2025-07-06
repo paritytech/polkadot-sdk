@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use super::super::LOG_TARGET;
-use sp_io::hashing_twox_128 as twox_128;
+use sp_io::hashing::twox_128;
 
 use frame_support::{
 	traits::{

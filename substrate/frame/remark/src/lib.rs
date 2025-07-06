@@ -70,7 +70,7 @@ pub mod pallet {
 		pub fn store(origin: OriginFor<T>, remark: Vec<u8>) -> DispatchResultWithPostInfo {
 			ensure!(!remark.is_empty(), Error::<T>::Empty);
 			let sender = ensure_signed(origin)?;
-			let content_hash = sp_io::hashing_blake2_256(&remark);
+			let content_hash = sp_io::hashing::blake2_256(&remark);
 			let extrinsic_index = <frame_system::Pallet<T>>::extrinsic_index()
 				.ok_or_else(|| Error::<T>::BadContext)?;
 			sp_io::transaction_index::index(extrinsic_index, remark.len() as u32, content_hash);

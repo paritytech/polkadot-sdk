@@ -22,7 +22,7 @@ use alloc::vec::Vec;
 use core::marker::PhantomData;
 use frame_support::traits::{fungible::MutateHold, tokens::Precision};
 use sp_core::{Get, H160};
-use sp_io::hashing_keccak_256 as keccak_256;
+use sp_io::hashing::keccak_256;
 use sp_runtime::{AccountId32, DispatchResult, Saturating};
 
 /// Map between the native chain account id `T` and an Ethereum [`H160`].

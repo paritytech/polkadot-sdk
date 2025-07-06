@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use sp_core::H256;
+use sp_io::hashing::keccak_256;
 use sp_std::prelude::*;
 
 use snowbridge_ethereum::{mpt, Receipt};
@@ -24,10 +25,10 @@ fn apply_merkle_proof(proof: &[Vec<u8>]) -> Option<(H256, Vec<u8>)> {
 	};
 	let item_to_prove: mpt::ShortNode = rlp::decode(first_bytes).ok()?;
 
-	let final_hash: Option<[u8; 32]> = iter.try_fold(sp_io::hashing_keccak_256(first_bytes), |acc, x| {
+	let final_hash: Option<[u8; 32]> = iter.try_fold(keccak_256(first_bytes), |acc, x| {
 		let node: Box<dyn mpt::Node> = x.as_slice().try_into().ok()?;
 		if (*node).contains_hash(acc.into()) {
-			return Some(sp_io::hashing_keccak_256(x))
+			return Some(keccak_256(x))
 		}
 		None
 	});

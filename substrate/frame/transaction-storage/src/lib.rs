@@ -217,7 +217,7 @@ pub mod pallet {
 			let chunks = data.chunks(CHUNK_SIZE).map(|c| c.to_vec()).collect();
 			let root = sp_io::trie_blake2_256_ordered_root(chunks, sp_runtime::StateVersion::V1);
 
-			let content_hash = sp_io::hashing_blake2_256(&data);
+			let content_hash = sp_io::hashing::blake2_256(&data);
 			let extrinsic_index =
 				frame_system::Pallet::<T>::extrinsic_index().ok_or(Error::<T>::BadContext)?;
 			sp_io::transaction_index::index(extrinsic_index, data.len() as u32, content_hash);

@@ -48,6 +48,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{pallet_prelude::*, traits::HandleMessage, weights::WeightMeter};
 	use frame_system::pallet_prelude::*;
+	use sp_io::hashing::twox_128;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
@@ -242,7 +243,8 @@ pub mod pallet {
 				},
 				MigrationState::StartedCleanup { cursor } => {
 					log::debug!(target: LOG, "Cleaning up");
-					let hashed_prefix = sp_io::hashing_twox_128(<Pallet<T> as PalletInfoAccess>::name().as_bytes());
+					let hashed_prefix =
+						twox_128(<Pallet<T> as PalletInfoAccess>::name().as_bytes());
 
 					let result = frame_support::storage::unhashed::clear_prefix(
 						&hashed_prefix,

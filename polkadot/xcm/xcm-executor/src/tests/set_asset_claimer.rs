@@ -45,7 +45,7 @@ fn set_asset_claimer() {
 	// We create an XCVM instance instead of calling `XcmExecutor::<_>::prepare_and_execute` so we
 	// can inspect its fields.
 	let mut vm =
-		XcmExecutor::<XcmConfig>::new(sender, xcm.using_encoded(sp_io::hashing_blake2_256));
+		XcmExecutor::<XcmConfig>::new(sender, xcm.using_encoded(sp_io::hashing::blake2_256));
 	vm.message_weight =
 		XcmExecutor::<XcmConfig>::prepare(xcm.clone(), Weight::MAX).unwrap().weight_of();
 
@@ -72,7 +72,7 @@ fn do_not_set_asset_claimer_none() {
 	// We create an XCVM instance instead of calling `XcmExecutor::<_>::prepare_and_execute` so we
 	// can inspect its fields.
 	let mut vm =
-		XcmExecutor::<XcmConfig>::new(sender, xcm.using_encoded(sp_io::hashing_blake2_256));
+		XcmExecutor::<XcmConfig>::new(sender, xcm.using_encoded(sp_io::hashing::blake2_256));
 	vm.message_weight =
 		XcmExecutor::<XcmConfig>::prepare(xcm.clone(), Weight::MAX).unwrap().weight_of();
 
@@ -102,7 +102,7 @@ fn trap_then_set_asset_claimer() {
 	// We create an XCVM instance instead of calling `XcmExecutor::<_>::prepare_and_execute` so we
 	// can inspect its fields.
 	let mut vm =
-		XcmExecutor::<XcmConfig>::new(sender, xcm.using_encoded(sp_io::hashing_blake2_256));
+		XcmExecutor::<XcmConfig>::new(sender, xcm.using_encoded(sp_io::hashing::blake2_256));
 	vm.message_weight =
 		XcmExecutor::<XcmConfig>::prepare(xcm.clone(), Weight::MAX).unwrap().weight_of();
 
@@ -132,7 +132,7 @@ fn set_asset_claimer_then_trap() {
 	// We create an XCVM instance instead of calling `XcmExecutor::<_>::prepare_and_execute` so we
 	// can inspect its fields.
 	let mut vm =
-		XcmExecutor::<XcmConfig>::new(sender, xcm.using_encoded(sp_io::hashing_blake2_256));
+		XcmExecutor::<XcmConfig>::new(sender, xcm.using_encoded(sp_io::hashing::blake2_256));
 	vm.message_weight =
 		XcmExecutor::<XcmConfig>::prepare(xcm.clone(), Weight::MAX).unwrap().weight_of();
 

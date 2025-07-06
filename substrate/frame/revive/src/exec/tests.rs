@@ -37,7 +37,7 @@ use frame_support::{assert_err, assert_ok, parameter_types};
 use frame_system::AccountInfo;
 use pallet_revive_uapi::ReturnFlags;
 use pretty_assertions::assert_eq;
-use sp_io::hashing_keccak_256 as keccak_256;
+use sp_io::hashing::keccak_256;
 use sp_runtime::DispatchError;
 use std::{cell::RefCell, collections::hash_map::HashMap, rc::Rc};
 

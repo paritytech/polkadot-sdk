@@ -20,7 +20,7 @@ use frame_support::{
 	traits::{Get, StorageVersion},
 	weights::Weight,
 };
-use sp_io::hashing_twox_128 as twox_128;
+use sp_io::hashing::twox_128;
 
 /// The old prefix.
 pub const OLD_PREFIX: &[u8] = b"GrandpaFinality";

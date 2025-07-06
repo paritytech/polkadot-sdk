@@ -104,7 +104,7 @@ use core::{fmt::Debug, marker::PhantomData};
 use pallet_prelude::{BlockNumberFor, HeaderFor};
 #[cfg(feature = "std")]
 use serde::Serialize;
-use sp_io::hashing_blake2_256 as blake2_256;
+use sp_io::hashing::blake2_256;
 #[cfg(feature = "runtime-benchmarks")]
 use sp_runtime::traits::TrailingZeroInput;
 use sp_runtime::{

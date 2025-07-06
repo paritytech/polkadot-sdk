@@ -165,7 +165,7 @@ fn twox<BlockNumber: UniqueSaturatedInto<u64>>(
 	let mut data = [0; 8 + KX_PUBLIC_SIZE];
 	data[..8].copy_from_slice(&block_number.to_le_bytes());
 	data[8..].copy_from_slice(kx_public);
-	u64::from_le_bytes(sp_io::hashing_twox_64(&data))
+	u64::from_le_bytes(sp_io::hashing::twox_64(&data))
 }
 
 ////////////////////////////////////////////////////////////////////////////////

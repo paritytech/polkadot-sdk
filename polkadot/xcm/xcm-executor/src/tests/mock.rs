@@ -43,7 +43,7 @@ pub fn instantiate_executor(
 	message: Xcm<<XcmConfig as Config>::RuntimeCall>,
 ) -> (XcmExecutor<XcmConfig>, Weight) {
 	let mut vm =
-		XcmExecutor::<XcmConfig>::new(origin, message.using_encoded(sp_io::hashing_blake2_256));
+		XcmExecutor::<XcmConfig>::new(origin, message.using_encoded(sp_io::hashing::blake2_256));
 	let weight = XcmExecutor::<XcmConfig>::prepare(message.clone(), Weight::MAX)
 		.unwrap()
 		.weight_of();

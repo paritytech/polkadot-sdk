@@ -25,7 +25,7 @@ use frame_support::{
 	weights::Weight,
 };
 use sp_core::hexdisplay::HexDisplay;
-use sp_io::{hashing_twox_128 as twox_128, storage_next_key};
+use sp_io::{storage_next_key, twox_128};
 
 use crate as pallet_bounties;
 

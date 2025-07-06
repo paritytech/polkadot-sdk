@@ -1657,7 +1657,7 @@ impl<T: Config> Pallet<T> {
 
 		// The relay ump does not use using_encoded
 		// We apply the same this to use the same hash
-		let hash = sp_io::hashing_blake2_256(&message);
+		let hash = sp_io::hashing::blake2_256(&message);
 		Self::deposit_event(Event::UpwardMessageSent { message_hash: Some(hash) });
 		Ok((0, hash))
 	}

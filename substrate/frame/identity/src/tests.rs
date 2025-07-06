@@ -31,8 +31,7 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use sp_core::H256;
-use sp_io::crypto_sr25519_generate as sr25519_generate;
-use sp_io::crypto_sr25519_sign as sr25519_sign;
+use sp_io::{crypto_sr25519_generate as sr25519_generate, crypto_sr25519_sign as sr25519_sign};
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
 	traits::{BadOrigin, BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},

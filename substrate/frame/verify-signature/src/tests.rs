@@ -29,7 +29,7 @@ use frame_support::{
 	traits::OriginTrait,
 };
 use frame_system::Call as SystemCall;
-use sp_io::hashing_blake2_256 as blake2_256;
+use sp_io::hashing::blake2_256;
 use sp_runtime::{
 	generic::ExtensionVersion,
 	testing::{TestSignature, UintAuthorityId},

@@ -22,7 +22,7 @@ use crate::{Config, WeightInfo};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{pallet_prelude::TransactionSource, traits::OriginTrait};
 use scale_info::TypeInfo;
-use sp_runtime::{	
+use sp_runtime::{
 	impl_tx_ext_default,
 	traits::{
 		transaction_extension::TransactionExtension, AsTransactionAuthorizedOrigin, DispatchInfoOf,
@@ -141,7 +141,7 @@ where
 		//   model).
 		//
 		// The encoded bytes of the payload are then hashed using `blake2_256`.
-		let msg = inherited_implication.using_encoded(sp_io::hashing_blake2_256);
+		let msg = inherited_implication.using_encoded(sp_io::hashing::blake2_256);
 
 		// The extension was enabled, so the signature must match.
 		if !signature.verify(&msg[..], account) {
