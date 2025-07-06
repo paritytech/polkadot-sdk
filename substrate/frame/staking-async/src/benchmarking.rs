@@ -959,23 +959,6 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn migrate_currency() -> Result<(), BenchmarkError> {
-		let (stash, _ctrl) =
-			create_stash_controller::<T>(USER_SEED, 100, RewardDestination::Staked)?;
-		let stake = asset::staked::<T>(&stash);
-		migrate_to_old_currency::<T>(stash.clone());
-		// no holds
-		assert!(asset::staked::<T>(&stash).is_zero());
-		whitelist_account!(stash);
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(stash.clone()), stash.clone());
-
-		assert_eq!(asset::staked::<T>(&stash), stake);
-		Ok(())
-	}
-
-	#[benchmark]
 	fn apply_slash() -> Result<(), BenchmarkError> {
 		let era = EraIndex::one();
 		ActiveEra::<T>::put(ActiveEraInfo { index: era, start: None });
