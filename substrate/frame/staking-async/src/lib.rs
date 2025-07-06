@@ -155,7 +155,7 @@
 //! Processed:              P (within next few blocks)                                        
 //! Slash Applied:                                                                       S     
 //! Withdraw:                                                                            ❌    ✓
-//! 
+//!
 //! With BondingDuration = 28 and SlashDeferDuration = 27:
 //! - User unbonds in era 90
 //! - Offence occurs in era 90
@@ -163,7 +163,7 @@
 //! - Processed in era 92 (within next few blocks after reporting)
 //! - Slash deferred for 27 eras, applied at era 117 (90 + 27)
 //! - Cannot withdraw unbonded chunks until era 118 (90 + 28)
-//! 
+//!
 //! The 28-era bonding duration ensures that any offences committed before or during
 //! unbonding have time to be reported, processed, and applied before funds can be
 //! withdrawn. This provides a window for governance to cancel slashes that may have
