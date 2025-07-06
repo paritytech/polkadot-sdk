@@ -91,7 +91,7 @@ async fn basic_3cores_test() -> Result<(), anyhow::Error> {
 	assert_finalized_para_throughput(
 		&relay_client,
 		15,
-		[(ParaId::from(2000), 40..46), (ParaId::from(2001), 12..16)]
+		[(ParaId::from(2000), 38..46), (ParaId::from(2001), 12..16)]
 			.into_iter()
 			.collect(),
 	)

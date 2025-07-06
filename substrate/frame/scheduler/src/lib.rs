@@ -88,7 +88,7 @@ pub mod weights;
 extern crate alloc;
 
 use alloc::{boxed::Box, vec::Vec};
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{borrow::Borrow, cmp::Ordering, marker::PhantomData};
 use frame_support::{
 	dispatch::{DispatchResult, GetDispatchInfo, Parameter, RawOrigin},
@@ -126,7 +126,18 @@ pub type BlockNumberFor<T> =
 	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// The configuration of the retry mechanism for a given task along with its current state.
-#[derive(Clone, Copy, RuntimeDebug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Clone,
+	Copy,
+	RuntimeDebug,
+	PartialEq,
+	Eq,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+)]
 pub struct RetryConfig<Period> {
 	/// Initial amount of retries allowed.
 	total_retries: u8,
@@ -1213,15 +1224,16 @@ impl<T: Config> Pallet<T> {
 
 		let mut incomplete_since = now + One::one();
 		let mut when = IncompleteSince::<T>::take().unwrap_or(now);
-		let mut executed = 0;
+		let mut is_first = true; // first task from the first agenda.
 
 		let max_items = T::MaxScheduledPerBlock::get();
 		let mut count_down = max;
 		let service_agenda_base_weight = T::WeightInfo::service_agenda_base(max_items);
 		while count_down > 0 && when <= now && weight.can_consume(service_agenda_base_weight) {
-			if !Self::service_agenda(weight, &mut executed, now, when, u32::MAX) {
+			if !Self::service_agenda(weight, is_first, now, when, u32::MAX) {
 				incomplete_since = incomplete_since.min(when);
 			}
+			is_first = false;
 			when.saturating_inc();
 			count_down.saturating_dec();
 		}
@@ -1229,6 +1241,12 @@ impl<T: Config> Pallet<T> {
 		if incomplete_since <= now {
 			Self::deposit_event(Event::AgendaIncomplete { when: incomplete_since });
 			IncompleteSince::<T>::put(incomplete_since);
+		} else {
+			// The next scheduler iteration should typically start from `now + 1` (`next_iter_now`).
+			// However, if the [`Config::BlockNumberProvider`] is not a local block number provider,
+			// then `next_iter_now` could be `now + n` where `n > 1`. In this case, we want to start
+			// from `now + 1` to ensure we don't miss any agendas.
+			IncompleteSince::<T>::put(now + One::one());
 		}
 	}
 
@@ -1236,7 +1254,7 @@ impl<T: Config> Pallet<T> {
 	/// later block.
 	fn service_agenda(
 		weight: &mut WeightMeter,
-		executed: &mut u32,
+		mut is_first: bool,
 		now: BlockNumberFor<T>,
 		when: BlockNumberFor<T>,
 		max: u32,
@@ -1272,7 +1290,7 @@ impl<T: Config> Pallet<T> {
 				agenda[agenda_index as usize] = Some(task);
 				break
 			}
-			let result = Self::service_task(weight, now, when, agenda_index, *executed == 0, task);
+			let result = Self::service_task(weight, now, when, agenda_index, is_first, task);
 			agenda[agenda_index as usize] = match result {
 				Err((Unavailable, slot)) => {
 					dropped += 1;
@@ -1283,7 +1301,7 @@ impl<T: Config> Pallet<T> {
 					slot
 				},
 				Ok(()) => {
-					*executed += 1;
+					is_first = false;
 					None
 				},
 			};

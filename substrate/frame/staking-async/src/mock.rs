@@ -137,6 +137,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Test {
 	// Staking is the source of truth for voter bags list, since they are not kept up to date.
 	type ScoreProvider = Staking;
 	type BagThresholds = BagThresholds;
+	type MaxAutoRebagPerBlock = ();
 	type Score = VoteWeight;
 }
 
@@ -175,6 +176,7 @@ impl ElectionProvider for TestElectionProvider {
 	type BlockNumber = BlockNumber;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type MaxBackersPerWinnerFinal = MaxBackersPerWinner;
 	type Pages = Pages;
 	type DataProvider = Staking;
 	type Error = onchain::Error;
@@ -312,16 +314,29 @@ pub mod session_mock {
 				if QueuedBufferSessions::get() == 0 {
 					// buffer time has passed
 					Active::set(q);
-					Rotator::<Test>::end_session(ending, Some((Timestamp::get(), id)));
+					<Staking as rc_client::AHStakingInterface>::on_relay_session_report(
+						rc_client::SessionReport::new_terminal(
+							ending,
+							// TODO: currently we use `Eras::reward_active_era()` to set validator
+							// points in our tests. We should improve this and find a good way to
+							// set this value instead.
+							vec![],
+							Some((Timestamp::get(), id)),
+						),
+					);
 					Queued::reset();
 					QueuedId::reset();
 				} else {
 					QueuedBufferSessions::mutate(|s| *s -= 1);
-					Rotator::<Test>::end_session(ending, None);
+					<Staking as rc_client::AHStakingInterface>::on_relay_session_report(
+						rc_client::SessionReport::new_terminal(ending, vec![], None),
+					);
 				}
 			} else {
 				// just end the session.
-				Rotator::<Test>::end_session(ending, None);
+				<Staking as rc_client::AHStakingInterface>::on_relay_session_report(
+					rc_client::SessionReport::new_terminal(ending, vec![], None),
+				);
 			}
 			CurrentIndex::set(ending + 1);
 		}
@@ -385,6 +400,7 @@ ord_parameter_types! {
 
 parameter_types! {
 	pub static RemainderRatio: Perbill = Perbill::from_percent(50);
+	pub static MaxEraDuration: u64 = time_per_era() * 7;
 }
 pub struct OneTokenPerMillisecond;
 impl EraPayout<Balance> for OneTokenPerMillisecond {
@@ -421,7 +437,7 @@ impl crate::pallet::pallet::Config for Test {
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
 	type MaxInvulnerables = ConstU32<20>;
-	type MaxDisabledValidators = ConstU32<100>;
+	type MaxEraDuration = MaxEraDuration;
 	type PlanningEraOffset = PlanningEraOffset;
 	type Filter = MockedRestrictList;
 	type RcClientInterface = session_mock::Session;

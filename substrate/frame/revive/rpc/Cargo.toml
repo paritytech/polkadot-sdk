@@ -9,6 +9,9 @@ repository.workspace = true
 description = "An Ethereum JSON-RPC server for pallet-revive."
 default-run = "eth-rpc"
 
+[lints]
+workspace = true
+
 [[bin]]
 name = "eth-rpc"
 path = "src/main.rs"

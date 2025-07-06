@@ -22,7 +22,6 @@ error[E0050]: method `test` has 2 parameters but the declaration in trait `Api::
 30 | |     impl Api<Block> for MockApi {
 31 | |         fn test(self, data: u64) {}
 ...  |
-34 | |     }
 35 | | }
    | |_^ expected 3 parameters, found 2
    |
@@ -41,7 +40,6 @@ error[E0050]: method `test2` has 2 parameters but the declaration in trait `Api:
 30 | |     impl Api<Block> for MockApi {
 31 | |         fn test(self, data: u64) {}
 ...  |
-34 | |     }
 35 | | }
    | |_^ expected 3 parameters, found 2
    |

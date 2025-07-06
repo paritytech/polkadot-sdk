@@ -38,6 +38,7 @@ sp-state-machine = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 
 [dev-dependencies]
+pretty_assertions = { workspace = true }
 regex = { workspace = true }
 sp-application-crypto = { features = ["serde"], workspace = true }
 sp-consensus-babe = { features = ["serde"], workspace = true }

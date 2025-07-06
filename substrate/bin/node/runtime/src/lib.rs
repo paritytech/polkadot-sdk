@@ -687,8 +687,9 @@ impl pallet_session::Config for Runtime {
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
 	type DisablingStrategy = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy;
-
 	type WeightInfo = pallet_session::weights::SubstrateWeight<Runtime>;
+	type Currency = Balances;
+	type KeyDeposit = ();
 }
 
 impl pallet_session::historical::Config for Runtime {
@@ -932,17 +933,19 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 
 parameter_types! {
 	pub const BagThresholds: &'static [u64] = &voter_bags::THRESHOLDS;
+	pub const AutoRebagNumber: u32 = 10;
 }
 
 type VoterBagsListInstance = pallet_bags_list::Instance1;
 impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = pallet_bags_list::weights::SubstrateWeight<Runtime>;
 	/// The voter bags-list is loosely kept up to date, and the real source of truth for the score
 	/// of each node is the staking pallet.
 	type ScoreProvider = Staking;
 	type BagThresholds = BagThresholds;
+	type MaxAutoRebagPerBlock = AutoRebagNumber;
 	type Score = VoteWeight;
-	type WeightInfo = pallet_bags_list::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -1683,6 +1686,8 @@ impl pallet_identity::Config for Runtime {
 	type UsernameGracePeriod = ConstU32<{ 30 * DAYS }>;
 	type MaxSuffixLength = ConstU32<7>;
 	type MaxUsernameLength = ConstU32<32>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 	type WeightInfo = pallet_identity::weights::SubstrateWeight<Runtime>;
 }
 
