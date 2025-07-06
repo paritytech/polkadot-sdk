@@ -350,6 +350,13 @@ fn close_works() {
 		assert_eq!(
 			System::events(),
 			vec![
+				record(RuntimeEvent::Balances(pallet_balances::Event::Held {
+					reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
+						HoldReason::ProposalSubmission,
+					),
+					who: 1,
+					amount: 0,
+				})),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -490,6 +497,13 @@ fn close_with_prime_works() {
 		assert_eq!(
 			System::events(),
 			vec![
+				record(RuntimeEvent::Balances(pallet_balances::Event::Held {
+					reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
+						HoldReason::ProposalSubmission,
+					),
+					who: 1,
+					amount: 0,
+				})),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -558,6 +572,13 @@ fn close_with_voting_prime_works() {
 		assert_eq!(
 			System::events(),
 			vec![
+				record(RuntimeEvent::Balances(pallet_balances::Event::Held {
+					reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
+						HoldReason::ProposalSubmission,
+					),
+					who: 1,
+					amount: 0,
+				})),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -644,6 +665,13 @@ fn close_with_no_prime_but_majority_works() {
 		assert_eq!(
 			System::events(),
 			vec![
+				record(RuntimeEvent::Balances(pallet_balances::Event::Held {
+					reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
+						HoldReason::ProposalSubmission,
+					),
+					who: 5,
+					amount: 2,
+				})),
 				record(RuntimeEvent::CollectiveMajority(CollectiveEvent::Proposed {
 					account: 5,
 					proposal_index: 0,
@@ -682,6 +710,13 @@ fn close_with_no_prime_but_majority_works() {
 				record(RuntimeEvent::CollectiveMajority(CollectiveEvent::Executed {
 					proposal_hash: hash,
 					result: Err(DispatchError::BadOrigin)
+				})),
+				record(RuntimeEvent::Balances(pallet_balances::Event::Released {
+					reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
+						HoldReason::ProposalSubmission,
+					),
+					who: 5,
+					amount: 2,
 				})),
 				record(RuntimeEvent::CollectiveMajority(CollectiveEvent::ProposalCostReleased {
 					proposal_hash: hash,
@@ -820,7 +855,15 @@ fn propose_works() {
 
 		assert_eq!(
 			System::events(),
-			vec![record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
+			vec![
+				record(RuntimeEvent::Balances(pallet_balances::Event::Held {
+					reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
+						HoldReason::ProposalSubmission,
+					),
+					who: 1,
+					amount: 0,
+				})),
+			record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 				account: 1,
 				proposal_index: 0,
 				proposal_hash: hash,
@@ -1007,6 +1050,13 @@ fn motions_vote_after_works() {
 		assert_eq!(
 			System::events(),
 			vec![
+				record(RuntimeEvent::Balances(pallet_balances::Event::Held {
+					reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
+						HoldReason::ProposalSubmission,
+					),
+					who: 1,
+					amount: 0,
+				})),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -1152,9 +1202,16 @@ fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
 		assert_eq!(
 			System::events(),
 			vec![
+				record(RuntimeEvent::Balances(pallet_balances::Event::Held {
+					reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
+						HoldReason::ProposalSubmission,
+					),
+					who: 1,
+					amount: 0,
+				})),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
-					proposal_index: 0,
+					proposal_index: 0, // 0 is the proposal that failed to execute?
 					proposal_hash: hash,
 					threshold: 2
 				})),
@@ -1278,6 +1335,13 @@ fn motions_disapproval_works() {
 		assert_eq!(
 			System::events(),
 			vec![
+				record(RuntimeEvent::Balances(pallet_balances::Event::Held {
+					reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
+						HoldReason::ProposalSubmission,
+					),
+					who: 1,
+					amount: 0,
+				})),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -1337,6 +1401,13 @@ fn motions_approval_works() {
 		assert_eq!(
 			System::events(),
 			vec![
+				record(RuntimeEvent::Balances(pallet_balances::Event::Held {
+					reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
+						HoldReason::ProposalSubmission,
+					),
+					who: 1,
+					amount: 0,
+				})),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -1387,11 +1458,12 @@ fn motion_with_no_votes_closes_with_disapproval() {
 		));
 		assert_eq!(
 			System::events()[0],
-			record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
-				account: 1,
-				proposal_index: 0,
-				proposal_hash: hash,
-				threshold: 3
+			record(RuntimeEvent::Balances(pallet_balances::Event::Held {
+				reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
+					HoldReason::ProposalSubmission,
+				),
+				who: 1,
+				amount: 0,
 			}))
 		);
 
@@ -1417,6 +1489,15 @@ fn motion_with_no_votes_closes_with_disapproval() {
 		// Events show that the close ended in a disapproval.
 		assert_eq!(
 			System::events()[1],
+			record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
+				account: 1,
+				proposal_index: 0,
+				proposal_hash: hash,
+				threshold: 3
+			}))
+		);
+		assert_eq!(
+			System::events()[2],
 			record(RuntimeEvent::Collective(CollectiveEvent::Closed {
 				proposal_hash: hash,
 				yes: 0,
@@ -1424,7 +1505,7 @@ fn motion_with_no_votes_closes_with_disapproval() {
 			}))
 		);
 		assert_eq!(
-			System::events()[2],
+			System::events()[3],
 			record(RuntimeEvent::Collective(CollectiveEvent::Disapproved { proposal_hash: hash }))
 		);
 	})
@@ -1485,6 +1566,13 @@ fn disapprove_proposal_works() {
 		assert_eq!(
 			System::events(),
 			vec![
+				record(RuntimeEvent::Balances(pallet_balances::Event::Held {
+					reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
+						HoldReason::ProposalSubmission,
+					),
+					who: 1,
+					amount: 0,
+				})),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -1621,6 +1709,13 @@ fn kill_proposal_with_deposit() {
 		assert_eq!(
 			System::events(),
 			vec![
+				record(RuntimeEvent::Balances(pallet_balances::Event::BurnedHeld {
+					reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
+						HoldReason::ProposalSubmission,
+					),
+					who: 1,
+					amount: 2,
+				})),
 				record(RuntimeEvent::Collective(CollectiveEvent::ProposalCostBurned {
 					proposal_hash: last_hash.unwrap(),
 					who: 1,
