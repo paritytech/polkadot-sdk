@@ -145,6 +145,31 @@
 //! - BondingDuration: 28
 //! - Withdrawal allowed only for chunks with era ≤ 97 (70 - 1 + 28)
 //!
+//! **Withdrawal Timeline Example with an Offence**:
+//! ```text
+//! Era:        90    91    92    93    94    95    96    97    98    99    100   ...  117   118
+//!             |     |     |     |     |     |     |     |     |     |     |          |     |
+//! Unbond:     U                                                                             
+//! Offence:    X                                                                             
+//! Reported:               R                                                                 
+//! Processed:              P (within next few blocks)                                        
+//! Slash Applied:                                                                       S     
+//! Withdraw:                                                                            ❌    ✓
+//! 
+//! With BondingDuration = 28 and SlashDeferDuration = 27:
+//! - User unbonds in era 90
+//! - Offence occurs in era 90
+//! - Reported in era 92 (typically within 2 days)
+//! - Processed in era 92 (within next few blocks after reporting)
+//! - Slash deferred for 27 eras, applied at era 117 (90 + 27)
+//! - Cannot withdraw unbonded chunks until era 118 (90 + 28)
+//! 
+//! The 28-era bonding duration ensures that any offences committed before or during
+//! unbonding have time to be reported, processed, and applied before funds can be
+//! withdrawn. This provides a window for governance to cancel slashes that may have
+//! resulted from software bugs.
+//! ```
+//!
 //! **Key Restrictions**:
 //! 1. Cannot withdraw if previous era has unapplied slashes
 //! 2. Cannot withdraw funds from eras with unprocessed offences
