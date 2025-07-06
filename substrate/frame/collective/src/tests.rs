@@ -863,12 +863,13 @@ fn propose_works() {
 					who: 1,
 					amount: 0,
 				})),
-			record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
-				account: 1,
-				proposal_index: 0,
-				proposal_hash: hash,
-				threshold: 3
-			}))]
+				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
+					account: 1,
+					proposal_index: 0,
+					proposal_hash: hash,
+					threshold: 3
+				}))
+			]
 		);
 	});
 }
@@ -1264,6 +1265,13 @@ fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
 		assert_eq!(
 			System::events(),
 			vec![
+				record(RuntimeEvent::Balances(pallet_balances::Event::Held {
+					reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
+						HoldReason::ProposalSubmission,
+					),
+					who: 1,
+					amount: 0,
+				})),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 1,
