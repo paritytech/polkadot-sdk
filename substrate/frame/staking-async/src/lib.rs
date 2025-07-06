@@ -159,7 +159,7 @@
 //! With BondingDuration = 28 and SlashDeferDuration = 27:
 //! - User unbonds in era 90
 //! - Offence occurs in era 90
-//! - Reported in era 92 (typically within 2 days)
+//! - Reported in era 92 (typically within 2 days, but reportable until Era 116)
 //! - Processed in era 92 (within next few blocks after reporting)
 //! - Slash deferred for 27 eras, applied at era 117 (90 + 27)
 //! - Cannot withdraw unbonded chunks until era 118 (90 + 28)
@@ -173,12 +173,6 @@
 //! **Key Restrictions**:
 //! 1. Cannot withdraw if previous era has unapplied slashes
 //! 2. Cannot withdraw funds from eras with unprocessed offences
-//!
-//! ### Error Handling
-//!
-//! - `UnappliedSlashesInPreviousEra`: Withdrawal blocked due to pending slashes
-//! - Offences arriving after deadline emit `OffenceIgnored` event
-//! - Missing exposure data causes offence to be discarded
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
