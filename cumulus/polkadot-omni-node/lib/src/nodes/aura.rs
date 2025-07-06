@@ -139,7 +139,7 @@ where
 		});
 
 		let relay_chain_verifier =
-			Box::new(RelayChainVerifier::new(client.clone(), |_, _| async { Ok(()) }));
+			Box::new(RelayChainVerifier::new(client.clone(), inherent_data_providers));
 
 		let verifier = Verifier {
 			client,
