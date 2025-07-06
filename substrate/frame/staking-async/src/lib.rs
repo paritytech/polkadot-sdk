@@ -43,9 +43,117 @@
 //!
 //! TODO
 //!
-//! ## Slashing of Validators and Exposures
+//! ## Slashing Pipeline and Withdrawal Restrictions
 //!
-//! TODO
+//! This pallet implements a robust slashing mechanism that ensures the integrity of the staking
+//! system while preventing stakers from withdrawing funds that might still be subject to slashing.
+//!
+//! ### Overview of the Slashing Pipeline
+//!
+//! The slashing process consists of multiple phases:
+//!
+//! 1. **Offence Reporting**: Offences are reported from the relay chain through `on_new_offences`
+//! 2. **Queuing**: Valid offences are added to the `OffenceQueue` for processing
+//! 3. **Processing**: Offences are processed incrementally over multiple blocks
+//! 4. **Application**: Slashes are either applied immediately or deferred based on configuration
+//!
+//! ### Phase 1: Offence Reporting
+//!
+//! Offences are reported from the relay chain (e.g., from BABE, GRANDPA, BEEFY, or parachain
+//! modules) through the `on_new_offences` function:
+//!
+//! ```text
+//! struct Offence {
+//!     offender: AccountId,        // The validator being slashed
+//!     reporters: Vec<AccountId>,  // Who reported the offence (may be empty)
+//!     slash_fraction: Perbill,    // Percentage of stake to slash
+//! }
+//! ```
+//!
+//! **Reporting Deadlines**:
+//! - With deferred slashing: Offences must be reported within `SlashDeferDuration - 1` eras
+//! - With immediate slashing: Offences can be reported up to `BondingDuration` eras old
+//!
+//! Example: If `SlashDeferDuration = 27` and current era is 100:
+//! - Oldest reportable offence: Era 74 (100 - 26)
+//! - Offences from era 73 or earlier are rejected
+//!
+//! ### Phase 2: Queuing
+//!
+//! When an offence passes validation, it's added to the queue:
+//!
+//! 1. **Storage**: Added to `OffenceQueue`: `(EraIndex, AccountId) -> OffenceRecord`
+//! 2. **Era Tracking**: Era added to `OffenceQueueEras` (sorted vector of eras with offences)
+//! 3. **Duplicate Handling**: If an offence already exists for the same validator in the same era,
+//!    only the higher slash fraction is kept
+//!
+//! ### Phase 3: Processing
+//!
+//! Offences are processed incrementally in `on_initialize` each block:
+//!
+//! ```text
+//! 1. Load oldest offence from queue
+//! 2. Move to ProcessingOffence storage
+//! 3. For each exposure page (from last to first):
+//!    - Calculate slash for validator's own stake
+//!    - Calculate slash for each nominator (pro-rata based on exposure)
+//!    - Track total slash and reward amounts
+//! 4. Once all pages processed, create UnappliedSlash
+//! ```
+//!
+//! **Key Features**:
+//! - **Page-by-page processing**: Large validator sets don't overwhelm a single block
+//! - **Pro-rata slashing**: Nominators slashed proportionally to their stake
+//! - **Reward calculation**: A portion goes to reporters (if any)
+//!
+//! ### Phase 4: Application
+//!
+//! Based on `SlashDeferDuration`, slashes are either:
+//!
+//! **Immediate (SlashDeferDuration = 0)**:
+//! - Applied right away in the same block
+//! - Funds deducted from staking ledger immediately
+//!
+//! **Deferred (SlashDeferDuration > 0)**:
+//! - Stored in `UnappliedSlashes` for future application
+//! - Applied at era: `offence_era + SlashDeferDuration`
+//! - Can be cancelled by governance before application
+//!
+//! ### Storage Items Involved
+//!
+//! - `OffenceQueue`: Pending offences to process
+//! - `OffenceQueueEras`: Sorted list of eras with offences
+//! - `ProcessingOffence`: Currently processing offence
+//! - `ValidatorSlashInEra`: Tracks highest slash per validator per era
+//! - `UnappliedSlashes`: Deferred slashes waiting for application
+//!
+//! ### Withdrawal Restrictions
+//!
+//! To maintain slashing guarantees, withdrawals are restricted:
+//!
+//! **Withdrawal Era Calculation**:
+//! ```text
+//! earliest_era_to_withdraw = min(
+//!     active_era,
+//!     last_fully_processed_offence_era + BondingDuration
+//! )
+//! ```
+//!
+//! **Example**:
+//! - Active era: 100
+//! - Oldest unprocessed offence: Era 70
+//! - BondingDuration: 28
+//! - Withdrawal allowed only for chunks with era ≤ 97 (70 - 1 + 28)
+//!
+//! **Key Restrictions**:
+//! 1. Cannot withdraw if previous era has unapplied slashes
+//! 2. Cannot withdraw funds from eras with unprocessed offences
+//!
+//! ### Error Handling
+//!
+//! - `UnappliedSlashesInPreviousEra`: Withdrawal blocked due to pending slashes
+//! - Offences arriving after deadline emit `OffenceIgnored` event
+//! - Missing exposure data causes offence to be discarded
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
