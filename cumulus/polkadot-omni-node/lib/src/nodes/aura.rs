@@ -128,7 +128,7 @@ where
 		let spawner = task_manager.spawn_essential_handle();
 
 		let relay_chain_verifier =
-			Box::new(RelayChainVerifier::new(client.clone(), |_, _| async { Ok(()) }));
+			Box::new(RelayChainVerifier::new(client.clone(), inherent_data_providers));
 
 		let equivocation_aura_verifier =
 			EquivocationVerifier::<<AuraId as AppCrypto>::Pair, _, _, _>::new(
