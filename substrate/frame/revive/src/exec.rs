@@ -1454,7 +1454,12 @@ where
 				Preservation::Preserve,
 				Precision::Exact,
 				Fortitude::Polite,
-			)?;
+			)
+			.map_err(|err| {
+				log::debug!(target: crate::LOG_TARGET, "Burning 1 plank from {from:?} failed. Err: {err:?}");
+				ExecError::from(Error::<T>::TransferFailed)
+			})?;
+
 			from_info.dust = from_info
 				.dust
 				.checked_add(plank)

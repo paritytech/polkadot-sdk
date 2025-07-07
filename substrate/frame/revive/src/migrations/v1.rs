@@ -107,7 +107,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 		use codec::Decode;
 
 		// Check the state of the storage after the migration.
-		let prev_map = BTreeMap::<H160, ContractInfo<T>>::decode(&mut &prev[..])
+		let prev_map = BTreeMap::<H160, crate::ContractInfo<T>>::decode(&mut &prev[..])
 			.expect("Failed to decode the previous storage state");
 
 		// Check the len of prev and post are the same.
