@@ -108,8 +108,8 @@ pub trait Verifier<B: BlockT>: Send + Sync {
 	) -> Result<BlockImportParams<B>, String>;
 	/// Slow verification of block data. This method can make runtime calls. It is safe for this
 	/// method to assume that the parent block has been imported. This method is called
-	/// after the block starts being gossipped, but before it gets imported, in sorted order for each
-	/// block.
+	/// after the block starts being gossipped, but before it gets imported, in sorted order for
+	/// each block.
 	async fn verify_slow(
 		&self,
 		block: BlockImportParams<B>,
