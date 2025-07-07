@@ -19,7 +19,10 @@ use codec::{DecodeAll, DecodeLimit, Encode};
 use core::{fmt, marker::PhantomData, num::NonZero};
 use pallet_revive::{
 	precompiles::{
-		alloy::{self, sol_types::{Revert, SolValue}},
+		alloy::{
+			self,
+			sol_types::{Revert, SolValue},
+		},
 		AddressMatcher, Error, Ext, Precompile,
 	},
 	DispatchInfo, Origin,
@@ -35,9 +38,7 @@ const LOG_TARGET: &str = "xcm::precompiles";
 
 fn revert(error: &impl fmt::Debug, message: &str) -> Error {
 	error!(target: LOG_TARGET, ?error, "{}", message);
-	Error::Revert(Revert {
-		reason:format!("{:?}",error)
-	})
+	Error::Revert(Revert { reason: format!("{:?}", error) })
 }
 
 pub struct XcmPrecompile<T>(PhantomData<T>);
