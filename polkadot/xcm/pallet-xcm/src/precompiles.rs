@@ -35,7 +35,7 @@ const LOG_TARGET: &str = "xcm::precompiles";
 
 fn revert(error: &impl fmt::Debug, message: &str) -> Error {
 	error!(target: LOG_TARGET, ?error, "{}", message);
-	Error::Revert(message.into())
+	Error::Revert(format!("{:?}",error).into())
 }
 
 pub struct XcmPrecompile<T>(PhantomData<T>);
