@@ -11,7 +11,7 @@ requests = { memory = "2G", cpu = "1" }
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config.scheduler_params]
 max_validators_per_core = 1
-num_cores = 4
+num_cores = 2
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config.approval_voting_params]
 max_approval_coalesce_count = 5
@@ -32,7 +32,7 @@ args = [
 	"--reserved-only",
 	"--reserved-nodes {{'alice'|zombie('multiAddress')}}"
 ]
-count = 8
+count = 4
 
 # Slot based authoring with 3 cores and 6s slot duration
 [[parachains]]
