@@ -8,5 +8,5 @@ doc:
 crates:
 - name: polkadot-dispute-distribution
   bump: patch
-- name: sc-network
+- name: polkadot-node-network-protocol
   bump: minor
