@@ -1551,10 +1551,8 @@ where
 
 	/// Query storage of a specified contract under a specified key.
 	pub fn get_storage(address: H160, key: [u8; 32]) -> GetStorageResult {
-		let account = AccountInfoOf::<T>::get(&address).ok_or(ContractAccessError::DoesntExist)?;
-		let AccountType::Contract(contract_info) = account.account_type else {
-			return Err(ContractAccessError::DoesntExist)
-		};
+		let contract_info =
+			AccountInfo::<T>::load_contract(&address).ok_or(ContractAccessError::DoesntExist)?;
 
 		let maybe_value = contract_info.read(&Key::from_fixed(key));
 		Ok(maybe_value)
@@ -1562,10 +1560,8 @@ where
 
 	/// Query storage of a specified contract under a specified variable-sized key.
 	pub fn get_storage_var_key(address: H160, key: Vec<u8>) -> GetStorageResult {
-		let account = AccountInfoOf::<T>::get(&address).ok_or(ContractAccessError::DoesntExist)?;
-		let AccountType::Contract(contract_info) = account.account_type else {
-			return Err(ContractAccessError::DoesntExist)
-		};
+		let contract_info =
+			AccountInfo::<T>::load_contract(&address).ok_or(ContractAccessError::DoesntExist)?;
 
 		let maybe_value = contract_info.read(
 			&Key::try_from_var(key)

@@ -32,9 +32,8 @@ use crate::{
 	storage::meter::Meter,
 	transient_storage::MeterEntry,
 	vm::{PreparedCall, Runtime},
-	AccountInfo, AccountInfoOf, BalanceOf, BumpNonce, Code, CodeInfoOf, Config, ContractBlob,
-	ContractInfo, DepositLimit, Error, GasMeter, MomentOf, Origin, Pallet as Contracts,
-	PristineCode, Weight,
+	AccountInfo, BalanceOf, BumpNonce, Code, CodeInfoOf, Config, ContractBlob, ContractInfo,
+	DepositLimit, Error, GasMeter, MomentOf, Origin, Pallet as Contracts, PristineCode, Weight,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::{storage::child, traits::fungible::Mutate};
@@ -265,7 +264,7 @@ where
 
 		let outcome = Contracts::<T>::bare_instantiate(
 			origin,
-			Default::default(),
+			U256::zero(),
 			Weight::MAX,
 			DepositLimit::Balance(default_deposit_limit::<T>()),
 			Code::Upload(module.code),
@@ -309,10 +308,8 @@ where
 			info.write(&Key::Fix(item.0), Some(item.1.clone()), None, false)
 				.map_err(|_| "Failed to write storage to restoration dest")?;
 		}
-		<AccountInfoOf<T>>::insert(
-			&self.address,
-			AccountInfo { account_type: info.into(), dust: 0 },
-		);
+
+		AccountInfo::<T>::insert_contract(&self.address, info);
 		Ok(())
 	}
 
