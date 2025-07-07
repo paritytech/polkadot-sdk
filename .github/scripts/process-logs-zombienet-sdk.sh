@@ -11,6 +11,16 @@ ZOMBIE_JSON="$BASE_DIR/zombie.json"
 
 LOKI_DIR_FOR_NATIVE_LOGS="/tmp/zombienet"
 
+JQ_QUERY_RELAY_V1='.relay.nodes[].name'
+JQ_QUERY_RELAY_SDK='.relay.nodes[].name'
+
+JQ_QUERY_PARAS_V1='.parachains | to_entries[] | "\(.key)"'
+JQ_QUERY_PARAS_SDK='.paras | to_entries[] | "\(.key)"'
+
+JQ_QUERY_PARA_NODES_V1='.paras[$pid].nodes[].name'
+JQ_QUERY_PARA_NODES_SDK='.parachains[$pid][] .collators[].name'
+
+
 if [[ ! -f "$ZOMBIE_JSON" ]]; then
   echo "Zombie file $ZOMBIE_JSON not present"
   exit 1
@@ -37,7 +47,17 @@ TARGET_DIR="$BASE_DIR/logs"
 mkdir -p "$TARGET_DIR"
 
 echo "Relay nodes:"
-jq -r '.relay.nodes[].name' "$ZOMBIE_JSON" | while read -r name; do
+
+JQ_QUERY_RELAY=$JQ_QUERY_RELAY_V1
+JQ_QUERY_PARAS=$JQ_QUERY_PARA_NODES_V1
+JQ_QUERY_PARA_NODES=$JQ_QUERY_PARAS_V1
+if [[ $(echo "$NS" | grep -E "zombie-[A-Fa-f0-9]+-") ]]; then
+    JQ_QUERY_RELAY=$JQ_QUERY_RELAY_SDK
+    JQ_QUERY_PARAS=$JQ_QUERY_PARA_NODES_SDK
+    JQ_QUERY_PARA_NODES=$JQ_QUERY_PARAS_SDK
+fi;
+
+jq -r $JQ_QUERY_RELAY "$ZOMBIE_JSON" | while read -r name; do
   if [[ "$ZOMBIE_PROVIDER" == "k8s" ]]; then
     # Fetching logs from k8s
     if ! kubectl logs "$name" -c "$name" -n "$NS" > "$TARGET_DIR/$name.log" ; then
@@ -61,9 +81,9 @@ done
 echo ""
 
 # Handle parachains grouped by paraId
-jq -r '.parachains | to_entries[] | "\(.key)"' "$ZOMBIE_JSON" | while read -r para_id; do
+jq -r $JQ_QUERY_PARAS "$ZOMBIE_JSON" | while read -r para_id; do
   echo "ParaId: $para_id"
-  jq -r --arg pid "$para_id" '.parachains[$pid][] .collators[].name' "$ZOMBIE_JSON" | while read -r name; do
+  jq -r --arg pid "$para_id" $JQ_QUERY_PARA_NODES "$ZOMBIE_JSON" | while read -r name; do
     if [[ "$ZOMBIE_PROVIDER" == "k8s" ]]; then
       # Fetching logs from k8s
       if ! kubectl logs "$name" -c "$name" -n "$NS" > "$TARGET_DIR/$name.log" ; then
