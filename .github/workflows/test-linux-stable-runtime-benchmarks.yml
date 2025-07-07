@@ -40,7 +40,7 @@ jobs:
         uses: actions/checkout@v4
       - name: script
         id: required
-        run: forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet --cargo-quiet
+        run: forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
