@@ -18,7 +18,6 @@
 //! Benchmarks for the revive pallet.
 
 #![cfg(feature = "runtime-benchmarks")]
-
 use crate::{
 	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, VmBinaryModule},
 	evm::runtime::GAS_PRICE,
@@ -33,6 +32,7 @@ use codec::{Encode, MaxEncodedLen};
 use frame_benchmarking::v2::*;
 use frame_support::{
 	self, assert_ok,
+	migrations::SteppedMigration,
 	storage::child,
 	traits::fungible::InspectHold,
 	weights::{Weight, WeightMeter},
@@ -2248,6 +2248,28 @@ mod benchmarks {
 		{
 			prepared.call().unwrap();
 		}
+	}
+
+	#[benchmark]
+	fn v1_migration_step() {
+		use crate::migrations::v1;
+		let addr = H160::from([1u8; 20]);
+		let contract_info = ContractInfo::new(&addr, 1u32.into(), Default::default()).unwrap();
+
+		v1::old::ContractInfoOf::<T>::insert(addr, contract_info.clone());
+		let mut meter = WeightMeter::new();
+		assert_eq!(AccountInfo::<T>::load_contract(&addr), None);
+
+		#[block]
+		{
+			v1::Migration::<T>::step(None, &mut meter).unwrap();
+		}
+
+		assert_eq!(v1::old::ContractInfoOf::<T>::get(&addr), None);
+		assert_eq!(AccountInfo::<T>::load_contract(&addr).unwrap(), contract_info);
+
+		// uses twice the weight once for migration and then for checking if there is another key.
+		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v1_migration_step() * 2);
 	}
 
 	impl_benchmark_test_suite!(

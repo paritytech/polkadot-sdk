@@ -34,7 +34,7 @@ use core::marker::PhantomData;
 use frame_support::{
 	storage::child::{self, ChildInfo},
 	weights::{Weight, WeightMeter},
-	CloneNoBound, DefaultNoBound,
+	CloneNoBound, DebugNoBound, DefaultNoBound,
 };
 use scale_info::TypeInfo;
 use sp_core::{Get, H160};
@@ -97,7 +97,7 @@ pub enum AccountType<T: Config> {
 
 /// Information for managing an account and its sub trie abstraction.
 /// This is the required info to cache for an account.
-#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, DebugNoBound, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct ContractInfo<T: Config> {
 	/// Unique ID for the subtree encoded as a bytes vector.

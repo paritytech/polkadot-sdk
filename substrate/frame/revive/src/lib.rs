@@ -37,6 +37,7 @@ mod transient_storage;
 mod vm;
 
 pub mod evm;
+pub mod migrations;
 pub mod precompiles;
 pub mod test_utils;
 pub mod tracing;
