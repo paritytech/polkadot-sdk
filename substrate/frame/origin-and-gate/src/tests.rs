@@ -42,16 +42,25 @@ fn make_remark_call(text: &str) -> Result<Box<<Test as Config>::RuntimeCall>, &'
 	Ok(Box::new(RuntimeCall::OriginAndGate(remark)))
 }
 
+/// Helper function to create dummy call for use with testing
+fn create_dummy_call(value: u64) -> Box<<Test as Config>::RuntimeCall> {
+	let call = Call::<Test>::set_dummy { new_value: value };
+	Box::new(RuntimeCall::OriginAndGate(call))
+}
+
+/// Helper function to get current timepoint
+/// Uses actual extrinsic index for more accurate testing
+fn current_timepoint() -> Timepoint<BlockNumberFor<Test>> {
+	Timepoint {
+		height: System::block_number(),
+		index: System::extrinsic_index().unwrap_or_default(),
+	}
+}
+
 /// Unit tests that focus on testing individual pallet functions in isolation
 /// rather than complex workflows covered by integration tests that are in ../tests
 mod unit_test {
 	use super::*;
-
-	/// Helper function to create dummy call for use with testing
-	fn create_dummy_call(value: u64) -> Box<<Test as Config>::RuntimeCall> {
-		let call = Call::<Test>::set_dummy { new_value: value };
-		Box::new(RuntimeCall::OriginAndGate(call))
-	}
 
 	mod set_dummy {
 		use super::*;
@@ -96,10 +105,15 @@ mod unit_test {
 			new_test_ext().execute_with(|| {
 				System::set_block_number(1);
 
-				// Create call
 				let call = create_dummy_call(1000);
 				let call_hash =
 					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+
+				// Record current block and extrinsic index
+				let alice_submission_timepoint = Timepoint {
+					height: System::block_number(),
+					index: System::extrinsic_index().unwrap_or_default(),
+				};
 
 				// Propose using Alice's origin
 				assert_ok!(OriginAndGate::propose(
@@ -115,10 +129,11 @@ mod unit_test {
 				assert_eq!(proposal.approvals.len(), 1);
 				assert_eq!(proposal.approvals[0], ALICE_ORIGIN_ID);
 
-				// Verify event emitted
+				// Verify proposal creation event with timepoint
 				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCreated {
 					proposal_hash: call_hash,
 					origin_id: ALICE_ORIGIN_ID,
+					timepoint: alice_submission_timepoint,
 				}));
 			});
 		}
@@ -249,6 +264,7 @@ mod unit_test {
 				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCancelled {
 					proposal_hash: call_hash,
 					origin_id: ALICE_ORIGIN_ID,
+					timepoint: current_timepoint(),
 				}));
 
 				// Non-proposer cannot cancel
@@ -292,8 +308,6 @@ mod unit_test {
 					proposer: ALICE,
 				};
 
-				// Skip calling `propose` and instead store proposal directly in storage
-				// but not the `call` to execute since here that does not matter
 				// Override proposal with `Executed` status
 				Proposals::<Test>::insert(call_hash2, ALICE_ORIGIN_ID, proposal_info);
 
@@ -346,6 +360,7 @@ mod unit_test {
 				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCancelled {
 					proposal_hash: call_hash,
 					origin_id: ALICE_ORIGIN_ID,
+					timepoint: current_timepoint(),
 				}));
 
 				// Verify proposal no longer exists
@@ -442,7 +457,7 @@ mod unit_test {
 				));
 
 				// Create proposal info with sufficient approvals and executed status
-				let mut approvals = BoundedVec::<u8, MaxApprovals>::default();
+				let mut approvals = BoundedVec::default();
 				approvals.try_push(ALICE_ORIGIN_ID.into()).unwrap();
 				approvals.try_push(BOB_ORIGIN_ID.into()).unwrap(); // Already have 2 approvals
 
@@ -513,6 +528,7 @@ mod unit_test {
 					proposal_hash: call_hash,
 					origin_id: ALICE_ORIGIN_ID,
 					approving_origin_id: BOB_ORIGIN_ID,
+					timepoint: current_timepoint(),
 				}));
 			});
 		}
@@ -880,29 +896,28 @@ mod unit_test {
 					BOB_ORIGIN_ID,
 				));
 
+				let execution_timepoint = current_timepoint();
+
 				assert_eq!(MaxApprovals::get() as usize, 2);
 
 				// Verify proposal now Executed
 				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
 				assert_eq!(proposal.status, ProposalStatus::Executed);
-				assert_eq!(proposal.approvals.len(), MaxApprovals::get() as usize);
+				assert_eq!(proposal.approvals.len(), MaxApprovals::get() as usize); // Alice + Bob
 
-				// Try add Charlie's approval but should fail with ProposalAlreadyExecuted
-				assert_noop!(
-					OriginAndGate::add_approval(
-						RuntimeOrigin::signed(CHARLIE),
-						call_hash,
-						ALICE_ORIGIN_ID,
-						CHARLIE_ORIGIN_ID,
-					),
-					Error::<Test>::ProposalAlreadyExecuted
-				);
+				// Verify both `OriginApprovalAdded` and `ProposalExecuted` events were emitted
+				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::OriginApprovalAdded {
+					proposal_hash: call_hash,
+					origin_id: ALICE_ORIGIN_ID,
+					approving_origin_id: BOB_ORIGIN_ID,
+					timepoint: execution_timepoint,
+				}));
 
-				// Verify event was emitted for proposal execution
 				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalExecuted {
 					proposal_hash: call_hash,
 					origin_id: ALICE_ORIGIN_ID,
 					result: Ok(()),
+					timepoint: execution_timepoint,
 				}));
 			});
 		}
@@ -953,6 +968,7 @@ mod unit_test {
 						proposal_hash: call_hash,
 						origin_id: ALICE_ORIGIN_ID,
 						withdrawing_origin_id: ALICE_ORIGIN_ID,
+						timepoint: current_timepoint(),
 					},
 				));
 			});
@@ -979,7 +995,7 @@ mod unit_test {
 				assert_eq!(proposal.approvals.len(), 1 as usize); // Alice (proposer)
 				assert!(proposal.approvals.contains(&ALICE_ORIGIN_ID));
 
-				// Verify approval stored in Approvals storage map
+				// Verify approval stored in Approvals storage
 				assert!(
 					Approvals::<Test>::get((call_hash, ALICE_ORIGIN_ID), ALICE_ORIGIN_ID).is_some()
 				);
@@ -1008,6 +1024,7 @@ mod unit_test {
 						proposal_hash: call_hash,
 						origin_id: ALICE_ORIGIN_ID,
 						withdrawing_origin_id: ALICE_ORIGIN_ID,
+						timepoint: current_timepoint(),
 					},
 				));
 
@@ -1047,9 +1064,176 @@ mod unit_test {
 			});
 		}
 	}
+
+	mod race_condition {
+		use super::*;
+
+		#[test]
+		fn test_race_condition_approval_after_execution() {
+			new_test_ext().execute_with(|| {
+				System::set_block_number(1);
+
+				// Create proposal
+				let call = make_remark_call("1000").unwrap();
+				let call_hash =
+					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+
+				// Alice proposes
+				assert_ok!(OriginAndGate::propose(
+					RuntimeOrigin::signed(ALICE),
+					call.clone(),
+					ALICE_ORIGIN_ID,
+					None,
+				));
+
+				let alice_submission_timepoint = current_timepoint();
+
+				// Verify proposal created with Alice's approval and remains `Pending`
+				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+				assert_eq!(proposal.status, ProposalStatus::Pending);
+
+				// Bob approves should trigger execution
+				assert_ok!(OriginAndGate::add_approval(
+					RuntimeOrigin::signed(BOB),
+					call_hash,
+					ALICE_ORIGIN_ID,
+					BOB_ORIGIN_ID,
+				));
+
+				let execution_timepoint = current_timepoint();
+
+				// Verify proposal status changed to `Executed`
+				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+				assert_eq!(proposal.status, ProposalStatus::Executed);
+
+				// Charlie tries approve after execution
+				assert_noop!(
+					OriginAndGate::add_approval(
+						RuntimeOrigin::signed(CHARLIE),
+						call_hash,
+						ALICE_ORIGIN_ID,
+						CHARLIE_ORIGIN_ID,
+					),
+					Error::<Test>::ProposalAlreadyExecuted
+				);
+
+				// Verify approval events with timepoint
+				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::OriginApprovalAdded {
+					proposal_hash: call_hash,
+					origin_id: ALICE_ORIGIN_ID,
+					approving_origin_id: BOB_ORIGIN_ID,
+					timepoint: execution_timepoint,
+				}));
+
+				// Verify execution event with timepoint
+				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalExecuted {
+					proposal_hash: call_hash,
+					origin_id: ALICE_ORIGIN_ID,
+					result: Ok(()),
+					timepoint: execution_timepoint,
+				}));
+			});
+		}
+
+		#[test]
+		fn test_race_condition_withdrawal_after_execution() {
+			new_test_ext().execute_with(|| {
+				System::set_block_number(1);
+
+				// Create proposal
+				let call = make_remark_call("1000").unwrap();
+				let call_hash =
+					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+
+				// Alice proposes
+				assert_ok!(OriginAndGate::propose(
+					RuntimeOrigin::signed(ALICE),
+					call.clone(),
+					ALICE_ORIGIN_ID,
+					None,
+				));
+
+				let alice_submission_timepoint = current_timepoint();
+
+				// Bob approves that should trigger execution
+				assert_ok!(OriginAndGate::add_approval(
+					RuntimeOrigin::signed(BOB),
+					call_hash,
+					ALICE_ORIGIN_ID,
+					BOB_ORIGIN_ID,
+				));
+
+				let execution_timepoint = current_timepoint();
+
+				// Verify proposal status changed to `Executed`
+				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+				assert_eq!(proposal.status, ProposalStatus::Executed);
+
+				// Alice tries to withdraw her approval after execution
+				assert_noop!(
+					OriginAndGate::withdraw_approval(
+						RuntimeOrigin::signed(ALICE),
+						call_hash,
+						ALICE_ORIGIN_ID,
+						ALICE_ORIGIN_ID,
+					),
+					Error::<Test>::ProposalAlreadyExecuted
+				);
+			});
+		}
+
+		#[test]
+		fn test_race_condition_execution_after_expiry() {
+			new_test_ext().execute_with(|| {
+				System::set_block_number(1);
+
+				// Create proposal with expiry at block 10
+				let call = make_remark_call("1000").unwrap();
+				let call_hash =
+					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+
+				assert_ok!(OriginAndGate::propose(
+					RuntimeOrigin::signed(ALICE),
+					call.clone(),
+					ALICE_ORIGIN_ID,
+					Some(10), // Expires at block 10
+				));
+
+				let alice_submission_timepoint = current_timepoint();
+				assert_eq!(alice_submission_timepoint.height, 1);
+				assert_eq!(alice_submission_timepoint.index, 0);
+
+				// Skip to block 11 that expired
+				System::set_block_number(11);
+
+				// Check proposal status before attempting approval
+				let proposal_before = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+				assert_eq!(proposal_before.status, ProposalStatus::Pending);
+
+				// Bob tries approve after expiry
+				let result = OriginAndGate::add_approval(
+					RuntimeOrigin::signed(BOB),
+					call_hash,
+					ALICE_ORIGIN_ID,
+					BOB_ORIGIN_ID,
+				);
+
+				// Verify call fails with ProposalExpired error
+				assert_err!(result, Error::<Test>::ProposalExpired);
+
+				// Since transaction failed the proposal status should still be Pending
+				// because status update is rolled back when transaction fails
+				let proposal_after = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+				assert_eq!(proposal_after.status, ProposalStatus::Pending);
+
+				// Note: Cannot verify ProposalExpired event because events rolled back
+				// when transaction fails in Substrate test framework
+			});
+		}
+	}
 }
 
-/// Integration tests for origin-and-gate pallet focusing on verifying end-to-end
+/// Integration tests for this pallet focusing on verifying end-to-end
 /// workflows and interactions between components rather than isolated functions,
 /// testing the pallet's public API from an external perspective of real-world usage
 /// patterns, and with complex workflows and edge cases handled in dedicated integration
@@ -1132,8 +1316,9 @@ mod integration_test {
 			// Verify approval event emitted with correct origin IDs
 			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::OriginApprovalAdded {
 				proposal_hash: call_hash,
-				origin_id: alice_origin_id,
-				approving_origin_id: bob_origin_id,
+				origin_id: ALICE_ORIGIN_ID,
+				approving_origin_id: BOB_ORIGIN_ID,
+				timepoint: current_timepoint(),
 			}));
 		});
 	}
@@ -1181,22 +1366,21 @@ mod integration_test {
 					BOB_ORIGIN_ID,
 				));
 
+				let execution_timepoint = current_timepoint();
+
 				// Read pallet storage to verify the proposal is marked as executed as the
 				// AliceAndBob origin should now pass for this call.
 				assert!(Proposals::<Test>::contains_key(call_hash, ALICE_ORIGIN_ID));
 				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
 				assert_eq!(proposal.status, ProposalStatus::Executed);
 
-				assert!(System::events().iter().any(|r| {
-					matches!(
-						r.event,
-						mock::RuntimeEvent::OriginAndGate(crate::Event::ProposalExecuted {
-							proposal_hash: call_hash,
-							origin_id,
-							result
-						})
-					)
-				}))
+				// Verify execution event with execution timepoint
+				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalExecuted {
+					proposal_hash: call_hash,
+					origin_id: ALICE_ORIGIN_ID,
+					result: Ok(()),
+					timepoint: execution_timepoint,
+				}));
 			});
 		}
 
@@ -1305,6 +1489,12 @@ mod integration_test {
 				let call_hash =
 					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
 
+				// Record current block and extrinsic index
+				let alice_submission_timepoint = Timepoint {
+					height: System::block_number(),
+					index: System::extrinsic_index().unwrap_or_default(),
+				};
+
 				// Alice proposes through `propose` pallet call that automatically adds Alice as
 				// first approval
 				assert_ok!(OriginAndGate::propose(
@@ -1327,19 +1517,20 @@ mod integration_test {
 				// At this point the proposal should have `Pending` status sinc only have Alice's
 				// approval and it is less than `MaxApprovals::get()`
 
-				let events = System::events();
 				// Verify `ProposalCreated` event was emitted
-				assert!(events.iter().any(|record| matches!(
-					record.event,
-					mock::RuntimeEvent::OriginAndGate(Event::ProposalCreated { proposal_hash, .. })
-					if proposal_hash == call_hash
-				)));
+				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCreated {
+					proposal_hash: call_hash,
+					origin_id: ALICE_ORIGIN_ID,
+					timepoint: alice_submission_timepoint,
+				}));
 
 				// Verify no `ProposalExecuted` event was emitted
-				assert!(!events.iter().any(|record| matches!(
-					record.event,
-					mock::RuntimeEvent::OriginAndGate(Event::ProposalExecuted { .. })
-				)));
+				assert!(!System::events().iter().any(|record| {
+					matches!(
+						record.event,
+						mock::RuntimeEvent::OriginAndGate(Event::ProposalExecuted { .. })
+					)
+				}));
 			});
 		}
 
@@ -1375,23 +1566,28 @@ mod integration_test {
 					BOB_ORIGIN_ID,
 				));
 
+				let execution_timepoint = current_timepoint();
+
 				// Verify proposal status changed to `Executed`
 				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
 				assert_eq!(proposal.status, ProposalStatus::Executed);
 				assert_eq!(proposal.approvals.len(), MaxApprovals::get() as usize); // Alice + Bob
 
 				// Verify both `OriginApprovalAdded` and `ProposalExecuted` events were emitted
-				let events = System::events();
-				assert!(events.iter().any(|record| matches!(
-					record.event,
-					mock::RuntimeEvent::OriginAndGate(Event::OriginApprovalAdded { proposal_hash, .. })
-					if proposal_hash == call_hash
-				)));
+				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::OriginApprovalAdded {
+					proposal_hash: call_hash,
+					origin_id: ALICE_ORIGIN_ID,
+					approving_origin_id: BOB_ORIGIN_ID,
+					timepoint: execution_timepoint,
+				}));
 
-				assert!(events.iter().any(|record| matches!(
-					record.event,
-					mock::RuntimeEvent::OriginAndGate(Event::ProposalExecuted { .. })
-				)));
+				// Verify proposal creation event with timepoint
+				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalExecuted {
+					proposal_hash: call_hash,
+					origin_id: ALICE_ORIGIN_ID,
+					result: Ok(()),
+					timepoint: execution_timepoint,
+				}));
 			});
 		}
 
@@ -1475,5 +1671,387 @@ mod integration_test {
 				}
 			});
 		}
+	}
+}
+
+/// Tests verifying technical requirements for AndGate
+mod andgate_requirements {
+	use super::*;
+
+	#[test]
+	fn andgate_requires_asynchronous_origin_approval() {
+		new_test_ext().execute_with(|| {
+			System::set_block_number(1);
+			let alice_submission_timepoint = current_timepoint();
+
+			// Create call that requires both Alice and Bob's approval
+			let call = create_dummy_call(1000);
+			let call_hash = <Test as Config>::Hashing::hash_of(&call);
+
+			// Alice proposes and approves
+			assert_ok!(OriginAndGate::propose(
+				RuntimeOrigin::signed(ALICE),
+				call.clone(),
+				ALICE_ORIGIN_ID,
+				None,
+			));
+
+			// Verify proposal creation event with timepoint
+			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCreated {
+				proposal_hash: call_hash,
+				origin_id: ALICE_ORIGIN_ID,
+				timepoint: alice_submission_timepoint,
+			}));
+
+			// Verify proposal pending and not executed yet since only Alice approved
+			let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+			assert_eq!(proposal.status, ProposalStatus::Pending);
+			assert_eq!(Dummy::<Test>::get(), None); // Call not executed yet
+
+			// No ExecutedCalls entry should exist yet
+			assert!(ExecutedCalls::<Test>::get(alice_submission_timepoint).is_none());
+
+			// Time passing simulated by different block
+			System::set_block_number(2);
+			let execution_timepoint = current_timepoint();
+
+			// Ensure timepoints different
+			assert_ne!(alice_submission_timepoint, execution_timepoint);
+
+			// Bob approves
+			assert_ok!(OriginAndGate::add_approval(
+				RuntimeOrigin::signed(BOB),
+				call_hash,
+				ALICE_ORIGIN_ID,
+				BOB_ORIGIN_ID,
+			));
+
+			// Verify execution successful after both approvals
+			assert_eq!(Dummy::<Test>::get(), Some(1000));
+
+			// Verify ExecutedCalls storage is updated with call hash at execution timepoint
+			assert_eq!(ExecutedCalls::<Test>::get(execution_timepoint), Some(call_hash));
+
+			// Verify proposal marked executed
+			let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+			assert_eq!(proposal.status, ProposalStatus::Executed);
+
+			// Verify execution event with execution timepoint
+			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalExecuted {
+				proposal_hash: call_hash,
+				origin_id: ALICE_ORIGIN_ID,
+				result: Ok(()),
+				timepoint: execution_timepoint,
+			}));
+		});
+	}
+
+	#[test]
+	fn andgate_retains_state_between_origin_approvals() {
+		new_test_ext().execute_with(|| {
+			System::set_block_number(1);
+			let alice_submission_timepoint = current_timepoint();
+
+			// Create call
+			let call = create_dummy_call(1000);
+			let call_hash = <Test as Config>::Hashing::hash_of(&call);
+
+			// Alice proposes
+			assert_ok!(OriginAndGate::propose(
+				RuntimeOrigin::signed(ALICE),
+				call.clone(),
+				ALICE_ORIGIN_ID,
+				None,
+			));
+
+			// Verify proposal creation event with timepoint
+			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCreated {
+				proposal_hash: call_hash,
+				origin_id: ALICE_ORIGIN_ID,
+				timepoint: alice_submission_timepoint,
+			}));
+
+			// Simulate system restart or state reset with the exception of storage
+			// by advancing blocks and clearing events
+			System::set_block_number(100);
+			System::reset_events();
+			let execution_timepoint = current_timepoint();
+
+			// Ensure timepoints are different since blocks advanced
+			assert_ne!(alice_submission_timepoint, execution_timepoint);
+
+			// Verify state is retained after events cleared and blocks advanced
+			let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+			assert_eq!(proposal.status, ProposalStatus::Pending);
+			assert_eq!(proposal.approvals.len(), 1);
+			assert_eq!(proposal.approvals[0], ALICE_ORIGIN_ID);
+
+			// No ExecutedCalls entries should exist at either timepoint
+			assert!(ExecutedCalls::<Test>::get(alice_submission_timepoint).is_none());
+			assert!(ExecutedCalls::<Test>::get(execution_timepoint).is_none());
+
+			// Bob approves proposal later
+			assert_ok!(OriginAndGate::add_approval(
+				RuntimeOrigin::signed(BOB),
+				call_hash,
+				ALICE_ORIGIN_ID,
+				BOB_ORIGIN_ID,
+			));
+
+			// Verify execution occurred
+			assert_eq!(Dummy::<Test>::get(), Some(1000));
+
+			// Verify ExecutedCalls storage updated with call hash at execution timepoint
+			assert_eq!(ExecutedCalls::<Test>::get(execution_timepoint), Some(call_hash));
+
+			// Verify proposal marked executed
+			let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+			assert_eq!(proposal.status, ProposalStatus::Executed);
+
+			// Verify execution event with execution timepoint
+			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalExecuted {
+				proposal_hash: call_hash,
+				origin_id: ALICE_ORIGIN_ID,
+				result: Ok(()),
+				timepoint: execution_timepoint,
+			}));
+		});
+	}
+
+	#[test]
+	fn andgate_direct_synchronous_approval_should_fail() {
+		new_test_ext().execute_with(|| {
+			System::set_block_number(1);
+			let current_timepoint = current_timepoint();
+
+			// Create call that typically requires AliceAndBob origin
+			let call = create_dummy_call(1000);
+			let call_hash = <Test as Config>::Hashing::hash_of(&call);
+
+			// Direct attempt using AndGate should fail
+			// Note: This test explicitly validates that a synchronous approach fails
+			// that shows why asynchronous proposal system is necessary
+			assert_noop!(
+				OriginAndGate::set_dummy(RuntimeOrigin::signed(ALICE), 1000),
+				DispatchError::BadOrigin
+			);
+
+			// Verify state not changed
+			assert_eq!(Dummy::<Test>::get(), None);
+
+			// Verify no ExecutedCalls entry created since synchronous approach failed
+			assert!(ExecutedCalls::<Test>::get(current_timepoint).is_none());
+
+			// No proposal should exist in storage
+			assert!(Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).is_none());
+			assert!(Proposals::<Test>::get(call_hash, BOB_ORIGIN_ID).is_none());
+		});
+	}
+
+	#[test]
+	fn andgate_as_ensureorigin_should_function_asynchronously() {
+		new_test_ext().execute_with(|| {
+			System::set_block_number(1);
+			let alice_submission_timepoint = current_timepoint();
+
+			// Validates AndGate implements EnsureOrigin through asynchronous
+			// proposal mechanism and not direct origin checks
+
+			// Create call
+			let call = create_dummy_call(1000);
+			let call_hash = <Test as Config>::Hashing::hash_of(&call);
+
+			// Submit with first origin
+			assert_ok!(OriginAndGate::propose(
+				RuntimeOrigin::signed(ALICE),
+				call.clone(),
+				ALICE_ORIGIN_ID,
+				None,
+			));
+
+			// Verify proposal creation event with timepoint
+			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCreated {
+				proposal_hash: call_hash,
+				origin_id: ALICE_ORIGIN_ID,
+				timepoint: alice_submission_timepoint,
+			}));
+
+			// Try execute with one origin should fail
+			let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+			assert_eq!(proposal.status, ProposalStatus::Pending);
+			assert_eq!(Dummy::<Test>::get(), None);
+
+			// No ExecutedCalls entry should exist yet
+			assert!(ExecutedCalls::<Test>::get(alice_submission_timepoint).is_none());
+
+			// Skip to next block for approval
+			System::set_block_number(2);
+			let execution_timepoint = current_timepoint();
+
+			// Check timepoints differ
+			assert_ne!(alice_submission_timepoint, execution_timepoint);
+
+			// Approve with second origin to allow execution
+			assert_ok!(OriginAndGate::add_approval(
+				RuntimeOrigin::signed(BOB),
+				call_hash,
+				ALICE_ORIGIN_ID,
+				BOB_ORIGIN_ID,
+			));
+
+			// Verify execution successful after both origins approved
+			assert_eq!(Dummy::<Test>::get(), Some(1000));
+
+			// Verify ExecutedCalls storage updated with call hash at execution timepoint
+			assert_eq!(ExecutedCalls::<Test>::get(execution_timepoint), Some(call_hash));
+
+			// Verify proposal marked as executed
+			let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+			assert_eq!(proposal.status, ProposalStatus::Executed);
+
+			// Verify execution event with execution timepoint
+			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalExecuted {
+				proposal_hash: call_hash,
+				origin_id: ALICE_ORIGIN_ID,
+				result: Ok(()),
+				timepoint: execution_timepoint,
+			}));
+		});
+	}
+
+	#[test]
+	fn andgate_fulfills_technical_specification_requirements() {
+		new_test_ext().execute_with(|| {
+			// Validates all requirements from technical spec:
+			// 1. Two independent EnsureOrigin implementations must both agree
+			// 2. Origins cannot be collected together ensuring asynchronous workflow
+			// 3. Module retains state over proposal hashes
+			// 4. Origins approve at different times
+			// 5. Timepoint tracking ensures timestamp of approval and execution
+			// 6. ExecutedCalls storage maps execution timepoints to call hashes
+
+			System::set_block_number(1);
+			let alice_submission_timepoint = current_timepoint();
+
+			// Create two different calls for testing
+			let call1 = create_dummy_call(1000);
+			let call2 = create_dummy_call(2000);
+			let call_hash1 = <Test as Config>::Hashing::hash_of(&call1);
+			let call_hash2 = <Test as Config>::Hashing::hash_of(&call2);
+
+			// Requirement 1 & 2: Two independent origins must approve asynchronously
+			// Alice proposes first call
+			assert_ok!(OriginAndGate::propose(
+				RuntimeOrigin::signed(ALICE),
+				call1.clone(),
+				ALICE_ORIGIN_ID,
+				None,
+			));
+
+			// Verify proposal creation event with timepoint
+			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCreated {
+				proposal_hash: call_hash1,
+				origin_id: ALICE_ORIGIN_ID,
+				timepoint: alice_submission_timepoint,
+			}));
+
+			// Skip to block for Bob's proposal
+			System::set_block_number(5);
+			let bob_submission_timepoint = current_timepoint();
+
+			// Ensure timepoints differ
+			assert_ne!(alice_submission_timepoint, bob_submission_timepoint);
+
+			// Bob proposes second call
+			assert_ok!(OriginAndGate::propose(
+				RuntimeOrigin::signed(BOB),
+				call2.clone(),
+				BOB_ORIGIN_ID,
+				None,
+			));
+
+			// Verify proposal creation event with timepoint
+			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCreated {
+				proposal_hash: call_hash2,
+				origin_id: BOB_ORIGIN_ID,
+				timepoint: bob_submission_timepoint,
+			}));
+
+			// Requirement 3: Module retains state over proposal hashes
+			// Verify both proposals stored correctly
+			let proposal1 = Proposals::<Test>::get(call_hash1, ALICE_ORIGIN_ID).unwrap();
+			let proposal2 = Proposals::<Test>::get(call_hash2, BOB_ORIGIN_ID).unwrap();
+			assert_eq!(proposal1.status, ProposalStatus::Pending);
+			assert_eq!(proposal2.status, ProposalStatus::Pending);
+
+			// No ExecutedCalls entries should exist yet
+			assert!(ExecutedCalls::<Test>::get(alice_submission_timepoint).is_none());
+			assert!(ExecutedCalls::<Test>::get(bob_submission_timepoint).is_none());
+
+			// Requirement 4: Origins approve at different times
+			// Skip to block
+			System::set_block_number(10);
+			let first_execution_timepoint = current_timepoint();
+
+			// Ensure execution timepoint differs from submission timepoints
+			assert_ne!(alice_submission_timepoint, first_execution_timepoint);
+			assert_ne!(bob_submission_timepoint, first_execution_timepoint);
+
+			// Alice approves Bob's proposal
+			assert_ok!(OriginAndGate::add_approval(
+				RuntimeOrigin::signed(ALICE),
+				call_hash2,
+				BOB_ORIGIN_ID,
+				ALICE_ORIGIN_ID,
+			));
+
+			// Verify first call execution and ExecutedCalls entry
+			assert_eq!(ExecutedCalls::<Test>::get(first_execution_timepoint), Some(call_hash2));
+
+			// Verify first execution event with timepoint
+			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalExecuted {
+				proposal_hash: call_hash2,
+				origin_id: BOB_ORIGIN_ID,
+				result: Ok(()),
+				timepoint: first_execution_timepoint,
+			}));
+
+			// Skip to new block for second approval
+			System::set_block_number(11);
+			let second_execution_timepoint = current_timepoint();
+
+			// Ensure second execution timepoint differs
+			assert_ne!(first_execution_timepoint, second_execution_timepoint);
+
+			// Bob approves Alice's proposal
+			assert_ok!(OriginAndGate::add_approval(
+				RuntimeOrigin::signed(BOB),
+				call_hash1,
+				ALICE_ORIGIN_ID,
+				BOB_ORIGIN_ID,
+			));
+
+			// Verify second call execution and ExecutedCalls entry
+			assert_eq!(ExecutedCalls::<Test>::get(second_execution_timepoint), Some(call_hash1));
+
+			// Verify both calls executed
+			// Last executed call wins which appears to conflict
+			// with comment below so need to verify
+			assert_eq!(Dummy::<Test>::get(), Some(1000));
+
+			// Verify second execution event with timepoint
+			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalExecuted {
+				proposal_hash: call_hash1,
+				origin_id: ALICE_ORIGIN_ID,
+				result: Ok(()),
+				timepoint: second_execution_timepoint,
+			}));
+
+			// Verify both proposals marked as executed
+			let proposal1 = Proposals::<Test>::get(call_hash1, ALICE_ORIGIN_ID).unwrap();
+			let proposal2 = Proposals::<Test>::get(call_hash2, BOB_ORIGIN_ID).unwrap();
+			assert_eq!(proposal1.status, ProposalStatus::Executed);
+			assert_eq!(proposal2.status, ProposalStatus::Executed);
+		});
 	}
 }
