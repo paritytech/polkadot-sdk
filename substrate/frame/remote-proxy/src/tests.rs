@@ -638,3 +638,49 @@ fn clean_up_works_and_old_blocks_are_rejected() {
 			.for_each(|(b, _)| assert!(*b >= 31 && *b <= 40));
 	});
 }
+
+#[test]
+fn on_validation_data_does_not_insert_duplicates() {
+	new_test_ext().execute_with(|| {
+		let data1 = PersistedValidationData {
+			parent_head: Default::default(),
+			relay_parent_number: 10,
+			relay_parent_storage_root: H256::from_low_u64_be(1),
+			max_pov_size: 0,
+		};
+
+		RemoteProxy::on_validation_data(&data1);
+		let expected_roots = vec![(10u64, H256::from_low_u64_be(1))];
+		assert_eq!(BlockToRoot::<Test>::get().into_inner(), expected_roots);
+
+		let data2 = PersistedValidationData {
+			parent_head: Default::default(),
+			relay_parent_number: 10,
+			relay_parent_storage_root: H256::from_low_u64_be(2),
+			max_pov_size: 0,
+		};
+		RemoteProxy::on_validation_data(&data2);
+
+		assert_eq!(
+			BlockToRoot::<Test>::get().into_inner(),
+			expected_roots,
+			"Roots should not change for the same block number"
+		);
+
+		let data3 = PersistedValidationData {
+			parent_head: Default::default(),
+			relay_parent_number: 11,
+			relay_parent_storage_root: H256::from_low_u64_be(3),
+			max_pov_size: 0,
+		};
+		RemoteProxy::on_validation_data(&data3);
+
+		let expected_roots_2 =
+			vec![(10u64, H256::from_low_u64_be(1)), (11u64, H256::from_low_u64_be(3))];
+		assert_eq!(
+			BlockToRoot::<Test>::get().into_inner(),
+			expected_roots_2,
+			"A new block should be added"
+		);
+	});
+}

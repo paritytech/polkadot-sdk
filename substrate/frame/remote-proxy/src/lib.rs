@@ -221,8 +221,10 @@ pub mod pallet {
 
 				// We always remove all the old items before, thus there should always be space in
 				// the vector.
-				let _res = roots.try_push((block, hash));
-				debug_assert!(_res.is_ok());
+				if roots.last().map_or(true, |(b, _)| *b != block) {
+					let _res = roots.try_push((block, hash));
+					debug_assert!(_res.is_ok());
+				}
 			});
 		}
 
