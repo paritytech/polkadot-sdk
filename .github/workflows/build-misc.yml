@@ -65,7 +65,7 @@ jobs:
           rustup +nightly show
 
       - name: download forklift
-        run: ./download-forklift.sh -v master && forklift version
+        run: /builds/download-forklift.sh -v master && forklift version
 
       - name: Build
         id: required
