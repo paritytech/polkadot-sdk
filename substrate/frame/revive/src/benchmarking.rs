@@ -446,22 +446,6 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_is_contract() {
-		let Contract { account_id, .. } =
-			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
-
-		build_runtime!(runtime, memory: [account_id.encode(), ]);
-
-		let result;
-		#[block]
-		{
-			result = runtime.bench_is_contract(memory.as_mut_slice(), 0);
-		}
-
-		assert_eq!(result.unwrap(), 1);
-	}
-
-	#[benchmark(pov_mode = Measured)]
 	fn seal_to_account_id() {
 		// use a mapped address for the benchmark, to ensure that we bench the worst
 		// case (and not the fallback case).
