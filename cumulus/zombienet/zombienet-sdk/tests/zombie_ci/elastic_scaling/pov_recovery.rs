@@ -133,7 +133,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	// - relaychain nodes:
 	// 	 - alice
 	// 	   - validator
-	// 	 - validator[0-7]
+	// 	 - validator[0-3]
 	// 	   - validator
 	// 	   - synchronize only with alice
 	// - parachain nodes
@@ -160,7 +160,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					"configuration": {
 						"config": {
 							"scheduler_params": {
-								"num_cores": 4,
+								"num_cores": 2,
 								"max_validators_per_core": 1
 							},
 							"approval_voting_params": {
@@ -173,7 +173,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				// type.
 				.with_node(|node| node.with_name("alice").with_args(vec![]));
 
-			(0..8).fold(r, |acc, i| {
+			(0..4).fold(r, |acc, i| {
 				acc.with_node(|node| {
 					node.with_name(&format!("validator-{i}")).with_args(vec![
 						("-lruntime=debug,parachain=trace").into(),
