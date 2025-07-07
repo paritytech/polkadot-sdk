@@ -180,6 +180,15 @@ jobs:
           gh run download ${{ github.event.inputs.build_run_id }} --dir ${{ github.workspace}}/runtimes
           ls -la ${{ github.workspace}}/runtimes
 
+      - name: Debug
+        run: |
+          echo "GITHUB_WORKSPACE: "
+          ls -la ${{ github.workspace}}
+          echo "runtimes: "
+          ls -la ${{ github.workspace}}/runtimes
+          echo "release-notes-context: "
+          ls -la ${{ github.workspace}}/release-notes-context
+
       - name: Get runtime info
         env:
           JSON: ${{ github.workspace}}/release-notes-context/${{ matrix.chain }}-runtime/${{ matrix.chain }}-srtool-digest.json
