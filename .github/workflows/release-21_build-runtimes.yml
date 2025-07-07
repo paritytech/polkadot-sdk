@@ -78,4 +78,4 @@ jobs:
             --ref ${{ github.ref }} \
             -f release_tag=${{ needs.validate-inputs.outputs.release_tag }} \
             -f build_run_id=${{ github.run_id }} \
-            -f runtimes='${{ needs.build-runtimes.outputs.published_runtimes }}'
+            -f runtimes=${{ needs.build-runtimes.outputs.published_runtimes }}

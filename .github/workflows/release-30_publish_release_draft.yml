@@ -195,7 +195,7 @@ jobs:
           mv "${{ env.ASSET }}" "$VERSIONED_ASSET"
 
           gh release upload ${{ needs.validate-inputs.outputs.release_tag }} \
-            --repo EgorPopelyav/polkadot-sdk "$VERSIONED_ASSET"
+            --repo EgorPopelyaev/polkadot-sdk "$VERSIONED_ASSET"
 
   publish-release-artifacts:
     needs: [ validate-inputs, publish-release-draft ]
@@ -246,13 +246,13 @@ jobs:
         run: |
           if [[ ${{ matrix.target }} == "aarch64-apple-darwin" ]]; then
             gh release upload ${{ needs.validate-inputs.outputs.release_tag }} \
-              --repo EgorPopelyav/polkadot-sdk \
+              --repo EgorPopelyaev/polkadot-sdk \
               ${{ matrix.binary }}-aarch64-apple-darwin \
               ${{ matrix.binary }}-aarch64-apple-darwin.asc \
               ${{ matrix.binary }}-aarch64-apple-darwin.sha256
           else
             gh release upload ${{ needs.validate-inputs.outputs.release_tag }} \
-              --repo EgorPopelyav/polkadot-sdk \
+              --repo EgorPopelyaev/polkadot-sdk \
               ${{ matrix.binary }} \
               ${{ matrix.binary }}.asc \
               ${{ matrix.binary }}.sha256
