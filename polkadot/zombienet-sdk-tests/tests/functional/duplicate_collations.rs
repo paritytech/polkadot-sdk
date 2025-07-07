@@ -99,12 +99,8 @@ async fn duplicate_collations_test() -> Result<(), anyhow::Error> {
 
 	log::info!("2 more cores assigned to parachain-2000");
 
-	assert_para_throughput(
-		&relay_client,
-		15,
-		[(ParaId::from(2000), 40..46)].into_iter().collect(),
-	)
-	.await?;
+	assert_para_throughput(&relay_client, 15, [(ParaId::from(2000), 40..46)].into_iter().collect())
+		.await?;
 
 	let log_line_options = LogLineCountOptions::new(
 		|n| n == 1,
