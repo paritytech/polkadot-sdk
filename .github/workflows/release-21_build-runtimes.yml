@@ -65,10 +65,11 @@ jobs:
         id: generate_write_token
         uses: actions/create-github-app-token@v2
         with:
-            app-id: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
-            private-key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
-            owner: EgorPopelyaev
+            app-id: ${{ vars.POLKADOT_SDK_RELEASE_RW_APP_ID }}
+            private-key: ${{ secrets.POLKADOT_SDK_RELEASE_RW_APP_KEY }}
+            owner: paritytech
             repositories: polkadot-sdk
+
       - name: Trigger publish_release_draft workflow
         env:
           GITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
