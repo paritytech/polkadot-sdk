@@ -6,7 +6,7 @@
 
 use anyhow::anyhow;
 
-use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_finalized_para_throughput};
+use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_sdk::{
@@ -91,7 +91,7 @@ async fn shared_core_idle_parachain_test() -> Result<(), anyhow::Error> {
 
 	// Check that para 2000 is essentially getting 12-second block time, while para 2001 does not
 	// produce anything.
-	assert_finalized_para_throughput(
+	assert_para_throughput(
 		&relay_client,
 		15,
 		[(ParaId::from(2000), 5..9)].into_iter().collect(),
