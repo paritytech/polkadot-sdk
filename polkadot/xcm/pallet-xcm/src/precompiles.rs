@@ -14,7 +14,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{Config, VersionedLocation, VersionedXcm, Weight, WeightInfo};
-use alloc::vec::Vec;
+use alloc::{format, vec::Vec};
 use codec::{DecodeAll, DecodeLimit, Encode};
 use core::{fmt, marker::PhantomData, num::NonZero};
 use pallet_revive::{
@@ -27,7 +27,6 @@ use pallet_revive::{
 	},
 	DispatchInfo, Origin,
 };
-use std::format;
 use tracing::error;
 use xcm::MAX_XCM_DECODE_DEPTH;
 use xcm_executor::traits::WeightBounds;
@@ -513,7 +512,6 @@ mod test {
 				Ok(value) => value,
 				Err(err) => panic!("XcmExecutePrecompile call failed with error: {err:?}"),
 			};
-
 			assert!(return_value.did_revert());
 			assert_eq!(Balances::total_balance(&ALICE), CUSTOM_INITIAL_BALANCE);
 			assert_eq!(Balances::total_balance(&BOB), CUSTOM_INITIAL_BALANCE);
