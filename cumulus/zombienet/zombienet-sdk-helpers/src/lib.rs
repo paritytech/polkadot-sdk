@@ -2,33 +2,25 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use anyhow::anyhow;
-use codec::{Compact, Decode, Encode};
-use cumulus_primitives_core::{
-	relay_chain, rpsr_digest::RPSR_CONSENSUS_ID, CoreInfo, CumulusDigestItem, RelayBlockIdentifier,
-};
+use codec::{Decode, Encode};
+use cumulus_primitives_core::{CoreInfo, CumulusDigestItem, RelayBlockIdentifier};
 use futures::{pin_mut, select, stream::StreamExt, TryStreamExt};
-use polkadot_primitives::{
-	vstaging::CandidateReceiptV2, BlakeTwo256, HashT, HeadData, Id as ParaId,
-};
+use polkadot_primitives::{vstaging::CandidateReceiptV2, BlakeTwo256, HashT, Id as ParaId};
 use sp_runtime::traits::Zero;
-use std::{
-	cmp::max,
-	collections::{HashMap, HashSet},
-	ops::Range,
-};
+use std::{cmp::max, collections::HashMap, ops::Range};
 use tokio::{
 	join,
 	time::{sleep, Duration},
 };
 use zombienet_sdk::subxt::{
-	backend::{legacy::LegacyRpcMethods, Backend},
+	backend::legacy::LegacyRpcMethods,
 	blocks::Block,
-	config::{substrate::DigestItem, Header},
+	config::Header,
 	events::Events,
 	ext::scale_value::value,
 	tx::DynamicPayload,
 	utils::H256,
-	Config, OnlineClient, PolkadotConfig,
+	OnlineClient, PolkadotConfig,
 };
 
 // Maximum number of blocks to wait for a session change.
@@ -73,7 +65,7 @@ fn find_event_and_decode_fields<T: Decode>(
 //
 // The throughput is measured as total number of backed candidates in a window of relay chain
 // blocks. Relay chain blocks with session changes are generally ignores.
-pub async fn assert_finalized_para_throughput(
+pub async fn assert_para_throughput(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	stop_after: u32,
 	expected_candidate_ranges: impl Into<HashMap<ParaId, Range<u32>>>,
@@ -84,6 +76,7 @@ pub async fn assert_finalized_para_throughput(
 	let mut current_block_count = 0;
 
 	let expected_candidate_ranges = expected_candidate_ranges.into();
+	let expected_number_of_blocks = expected_number_of_blocks.into();
 	let valid_para_ids: Vec<ParaId> = expected_candidate_ranges.keys().cloned().collect();
 
 	// Wait for the first session, block production on the parachain will start after that.
@@ -141,7 +134,7 @@ pub async fn assert_finalized_para_throughput(
 		}
 	}
 
-	for (para_id, (para_client, expected_number_of_blocks)) in expected_number_of_blocks.into() {
+	for (para_id, (para_client, expected_number_of_blocks)) in expected_number_of_blocks {
 		let receipts = candidate_count
 			.get(&para_id)
 			.ok_or_else(|| anyhow!("ParaId did not have any backed candidates"))?;
@@ -202,115 +195,6 @@ async fn is_session_change(
 	}))
 }
 
-// Helper function for asserting the throughput of parachain candidates on the relay chain.
-//
-// The throughput is measured as total number of backed candidates in a window of relay chain
-// blocks, after the first session change. Blocks with session changes are generally ignored.
-//
-// `stop_after`: Number of relay chain blocks after which the recording should be stopped.
-pub async fn assert_para_throughput(
-	relay_client: &OnlineClient<PolkadotConfig>,
-	stop_after: u32,
-	expected_candidate_ranges: impl Into<HashMap<ParaId, Range<u32>>>,
-) -> Result<(), anyhow::Error> {
-	// Check on backed blocks in all imported relay chain blocks. The slot-based collator
-	// builds on the best fork currently. It can happen that it builds on a fork which is not
-	// getting finalized, in which case we will lose some blocks. This makes it harder to build
-	// stable asserts. Once we are building on older relay parents, this can be changed to
-	// finalized blocks again.
-	let mut blocks_sub = relay_client.blocks().subscribe_all().await?;
-	let mut candidate_count: HashMap<ParaId, (u32, u32)> = HashMap::new();
-	let mut start_height: Option<u32> = None;
-	let expected_candidate_ranges = expected_candidate_ranges.into();
-
-	let valid_para_ids: Vec<ParaId> = expected_candidate_ranges.keys().cloned().collect();
-
-	// Wait for the first session, block production on the parachain will start after that.
-	wait_for_first_session_change(&mut blocks_sub).await?;
-
-	let mut session_change_seen_at = 0u32;
-	while let Some(block) = blocks_sub.next().await {
-		let block = block?;
-		let block_number = u32::from(block.number());
-
-		let events = block.events().await?;
-		let mut para_ids_to_increment: HashSet<ParaId> = Default::default();
-
-		// Do not count blocks with session changes, no backed blocks there.
-		if is_session_change(&block).await? {
-			if block_number == session_change_seen_at {
-				continue;
-			}
-
-			// Increment the start height to account for a block level that has no
-			// backed blocks.
-			start_height = start_height.map(|h| h + 1);
-			session_change_seen_at = block_number;
-			continue;
-		}
-
-		let receipts = find_event_and_decode_fields::<CandidateReceiptV2<H256>>(
-			&events,
-			"ParaInclusion",
-			"CandidateBacked",
-		)?;
-
-		for receipt in receipts {
-			let para_id = receipt.descriptor.para_id();
-			if !valid_para_ids.contains(&para_id) {
-				return Err(anyhow!("Invalid ParaId detected: {}", para_id));
-			};
-			log::debug!(
-				"Block backed for para_id {para_id} at relay: #{} ({})",
-				block.number(),
-				block.hash()
-			);
-			let (counter, accounted_block_height) = candidate_count.entry(para_id).or_default();
-			if block_number > *accounted_block_height {
-				*counter += 1;
-				// Increment later to count multiple descriptors in the same block.
-				para_ids_to_increment.insert(para_id);
-			}
-		}
-
-		for para_id in para_ids_to_increment.iter() {
-			candidate_count.entry(*para_id).or_default().1 = block_number;
-		}
-
-		if block_number - *start_height.get_or_insert_with(|| block_number - 1) >= stop_after {
-			log::info!(
-				"Finished condition: block_height: {:?}, start_height: {:?}",
-				block.number(),
-				start_height
-			);
-			break;
-		}
-	}
-
-	log::info!(
-		"Reached {stop_after} relay chain blocks that contain backed candidates: {:#?}",
-		candidate_count
-			.iter()
-			.map(|(para_id, (count, _))| format!(
-				"Parachain {para_id} has {count} backed candidates"
-			))
-			.collect::<Vec<_>>()
-	);
-
-	for (para_id, expected_candidate_range) in expected_candidate_ranges {
-		let actual = candidate_count
-			.get(&para_id)
-			.expect("ParaId did not have any backed candidates");
-
-		assert!(
-			expected_candidate_range.contains(&actual.0),
-			"Candidate count {} not within range {expected_candidate_range:?}",
-			actual.0
-		);
-	}
-
-	Ok(())
-}
 
 /// Returns [`CoreInfo`] for the given parachain block.
 fn find_core_info(
