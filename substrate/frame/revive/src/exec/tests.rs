@@ -30,7 +30,7 @@ use crate::{
 		test_utils::{get_balance, place_contract, set_balance},
 		ExtBuilder, RuntimeEvent as MetaEvent, Test,
 	},
-	AddressMapper, Error,
+	AddressMapper, Error, Pallet,
 };
 use assert_matches::assert_matches;
 use frame_support::{assert_err, assert_ok, parameter_types};

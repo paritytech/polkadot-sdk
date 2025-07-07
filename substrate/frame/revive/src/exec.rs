@@ -26,8 +26,7 @@ use crate::{
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, CodeInfo, CodeInfoOf, Config,
-	ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, Pallet, Pallet as Contracts,
-	RuntimeCosts,
+	ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, RuntimeCosts,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -37,7 +36,7 @@ use frame_support::{
 	storage::{with_transaction, TransactionOutcome},
 	traits::{
 		fungible::{Inspect, Mutate},
-		tokens::Preservation,
+		tokens::{Fortitude, Precision, Preservation},
 		Time,
 	},
 	weights::Weight,
@@ -1446,17 +1445,16 @@ where
 		let to_addr = <T::AddressMapper as AddressMapper<T>>::to_address(to);
 		let mut to_info = AccountInfoOf::<T>::get(&to_addr).unwrap_or_default();
 
-		let dust_account_id = Pallet::<T>::dust_account_id();
 		let plank = T::NativeToEthRatio::get();
 
 		if from_info.dust < dust {
-			// If the dust account does not exist, we need to create it.
-			if !System::<T>::account_exists(&dust_account_id) {
-				let ed = <T as Config>::Currency::minimum_balance();
-				T::Currency::set_balance(&dust_account_id, ed);
-			}
-
-			transfer(from, &dust_account_id, 1u32.into())?;
+			T::Currency::burn_from(
+				from,
+				1u32.into(),
+				Preservation::Preserve,
+				Precision::Exact,
+				Fortitude::Polite,
+			)?;
 			from_info.dust = from_info
 				.dust
 				.checked_add(plank)
@@ -1467,7 +1465,7 @@ where
 		transfer_dust(&mut from_info, &mut to_info, dust)?;
 
 		if to_info.dust.saturating_add(dust) >= plank {
-			transfer(&dust_account_id, to, 1u32.into())?;
+			T::Currency::mint_into(to, 1u32.into())?;
 			to_info.dust = to_info
 				.dust
 				.checked_sub(plank)

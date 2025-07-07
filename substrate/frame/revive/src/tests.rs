@@ -43,7 +43,7 @@ use frame_support::{
 	storage::child,
 	traits::{
 		fungible::{BalancedHold, Inspect, Mutate, MutateHold},
-		tokens::{Fortitude::Polite, Preservation, Preservation::Preserve},
+		tokens::Preservation,
 		ConstU32, ConstU64, FindAuthor, OnIdle, OnInitialize, StorageVersion,
 	},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, FixedFee, IdentityFee, Weight, WeightMeter},
@@ -411,13 +411,9 @@ impl ExtBuilder {
 		self.set_associated_consts();
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		let checking_account = Pallet::<Test>::checking_account();
-		let dust_account = Pallet::<Test>::dust_account_id();
 
 		pallet_balances::GenesisConfig::<Test> {
-			balances: vec![
-				(checking_account.clone(), 1_000_000_000_000),
-				(dust_account, <Test as Config>::Currency::minimum_balance()),
-			],
+			balances: vec![(checking_account.clone(), 1_000_000_000_000)],
 			..Default::default()
 		}
 		.assimilate_storage(&mut t)
@@ -464,11 +460,10 @@ fn transfer_with_dust_works() {
 		description: &'static str,
 		from_balance: BalanceWithDust<u64>,
 		to_balance: BalanceWithDust<u64>,
-		dust_account_balance: u64,
 		amount: BalanceWithDust<u64>,
 		expected_from_balance: BalanceWithDust<u64>,
 		expected_to_balance: BalanceWithDust<u64>,
-		expected_dust_account_balance: u64,
+		total_issuance_diff: i64,
 	}
 
 	let plank: u32 = <Test as Config>::NativeToEthRatio::get();
@@ -478,51 +473,46 @@ fn transfer_with_dust_works() {
 			description: "without dust",
 			from_balance: BalanceWithDust { value: 100, dust: 0 },
 			to_balance: BalanceWithDust { value: 0, dust: 0 },
-			dust_account_balance: 0,
 			amount: BalanceWithDust { value: 1, dust: 0 },
 			expected_from_balance: BalanceWithDust { value: 99, dust: 0 },
 			expected_to_balance: BalanceWithDust { value: 1, dust: 0 },
-			expected_dust_account_balance: 0,
+			total_issuance_diff: 0,
 		},
 		TestCase {
 			description: "with dust",
 			from_balance: BalanceWithDust { value: 100, dust: 0 },
 			to_balance: BalanceWithDust { value: 0, dust: 0 },
-			dust_account_balance: 0,
 			amount: BalanceWithDust { value: 1, dust: 10 },
 			expected_from_balance: BalanceWithDust { value: 98, dust: plank - 10 },
 			expected_to_balance: BalanceWithDust { value: 1, dust: 10 },
-			expected_dust_account_balance: 1,
+			total_issuance_diff: 1,
 		},
 		TestCase {
 			description: "just dust",
 			from_balance: BalanceWithDust { value: 100, dust: 0 },
 			to_balance: BalanceWithDust { value: 0, dust: 0 },
-			dust_account_balance: 0,
 			amount: BalanceWithDust { value: 0, dust: 10 },
 			expected_from_balance: BalanceWithDust { value: 99, dust: plank - 10 },
 			expected_to_balance: BalanceWithDust { value: 0, dust: 10 },
-			expected_dust_account_balance: 1,
+			total_issuance_diff: 1,
 		},
 		TestCase {
 			description: "with existing dust",
 			from_balance: BalanceWithDust { value: 100, dust: 5 },
 			to_balance: BalanceWithDust { value: 0, dust: plank - 5 },
-			dust_account_balance: 1,
 			amount: BalanceWithDust { value: 1, dust: 10 },
 			expected_from_balance: BalanceWithDust { value: 98, dust: plank - 5 },
 			expected_to_balance: BalanceWithDust { value: 2, dust: 5 },
-			expected_dust_account_balance: 1,
+			total_issuance_diff: 0,
 		},
 		TestCase {
 			description: "with enough existing dust",
 			from_balance: BalanceWithDust { value: 100, dust: 10 },
 			to_balance: BalanceWithDust { value: 0, dust: plank - 10 },
-			dust_account_balance: 1,
 			amount: BalanceWithDust { value: 1, dust: 10 },
 			expected_from_balance: BalanceWithDust { value: 99, dust: 0 },
 			expected_to_balance: BalanceWithDust { value: 2, dust: 0 },
-			expected_dust_account_balance: 0,
+			total_issuance_diff: -1,
 		},
 	];
 
@@ -530,18 +520,15 @@ fn transfer_with_dust_works() {
 		description,
 		from_balance,
 		to_balance,
-		dust_account_balance,
 		amount,
 		expected_from_balance,
 		expected_to_balance,
-		expected_dust_account_balance,
+		total_issuance_diff,
 	} in test_cases.into_iter()
 	{
-		let dust_account_id = Pallet::<Test>::dust_account_id();
 		ExtBuilder::default().build().execute_with(|| {
 			test_utils::set_balance_with_dust(&ALICE_ADDR, from_balance);
 			test_utils::set_balance_with_dust(&BOB_ADDR, to_balance);
-			<Test as Config>::Currency::mint_into(&dust_account_id, dust_account_balance).unwrap();
 
 			let total_issuance = <Test as Config>::Currency::total_issuance();
 			let evm_value = Pallet::<Test>::convert_native_to_evm(amount);
@@ -566,21 +553,9 @@ fn transfer_with_dust_works() {
 			);
 
 			assert_eq!(
-				<Test as Config>::Currency::reducible_balance(&dust_account_id, Preserve, Polite),
-				expected_dust_account_balance,
-				"{description}: invalid dust balance"
-			);
-
-			assert_eq!(
-				total_issuance,
-				<Test as Config>::Currency::total_issuance(),
-				"{description}: total issuance has not changed"
-			);
-
-			assert_eq!(
-				(expected_from_balance.dust + expected_to_balance.dust) / plank,
-				expected_dust_account_balance as u32,
-				"{description}: Total dust should match the balance held by the dust_account",
+				total_issuance as i64 - total_issuance_diff,
+				<Test as Config>::Currency::total_issuance() as i64,
+				"{description}: total issuance should match"
 			);
 		});
 	}

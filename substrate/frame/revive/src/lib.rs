@@ -129,7 +129,7 @@ const LOG_TARGET: &str = "runtime::revive";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{pallet_prelude::*, traits::FindAuthor, PalletId};
+	use frame_support::{pallet_prelude::*, traits::FindAuthor};
 	use frame_system::pallet_prelude::*;
 	use sp_core::U256;
 	use sp_runtime::Perbill;
@@ -673,12 +673,6 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// The dust account ID used for exchange Plank for dust.
-		pub fn dust_account_id() -> <T as frame_system::Config>::AccountId {
-			use sp_runtime::traits::AccountIdConversion;
-			PalletId(*b"py/revdt").into_account_truncating()
-		}
-
 		/// Returns true if the evm value carries dust.
 		pub fn has_dust(value: U256) -> bool {
 			value % U256::from(<T>::NativeToEthRatio::get()) != U256::zero()
