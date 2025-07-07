@@ -2867,7 +2867,7 @@ fn instantiate_with_zero_balance_works() {
 							HoldReason::CodeUploadDepositReserve,
 						),
 						who: ALICE,
-						amount: 352,
+						amount: deposit_expected,
 					}),
 					topics: vec![],
 				},
