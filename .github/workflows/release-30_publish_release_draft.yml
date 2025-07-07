@@ -187,17 +187,18 @@ jobs:
           echo "runtimes: "
           ls -la ${{ github.workspace}}/runtimes
           echo "release-notes-context: "
-          ls -la ${{ github.workspace}}/release-notes-context
+          ls -la ${{ github.workspace}}/release-notes-context/runtimes
 
       - name: Get runtime info
         env:
-          JSON: ${{ github.workspace}}/release-notes-context/${{ matrix.chain }}-runtime/${{ matrix.chain }}-srtool-digest.json
+          JSON: ${{ github.workspace}}/release-notes-context/runtimes/${{ matrix.chain }}-runtime/${{ matrix.chain }}-srtool-digest.json
         run: |
           cd ${{ github.workspace}}/runtimes
           >>$GITHUB_ENV echo ASSET=$(find ${{ matrix.chain }}-runtime -name '*.compact.compressed.wasm')
           >>$GITHUB_ENV echo SPEC=$(<${JSON} jq -r .runtimes.compact.subwasm.core_version.specVersion)
 
       - name: Upload compressed ${{ matrix.chain }} v${{ env.SPEC }} wasm
+        working-directory: ${{ github.workspace}}/runtimes
         env:
           GITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
         run: |
