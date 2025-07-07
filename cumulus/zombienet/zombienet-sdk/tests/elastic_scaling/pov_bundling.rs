@@ -18,8 +18,7 @@
 use anyhow::anyhow;
 
 use cumulus_zombienet_sdk_helpers::{
-	assert_finality_lag, assert_finalized_para_throughput, assert_para_throughput,
-	create_assign_core_call,
+	assert_finality_lag, assert_para_throughput, create_assign_core_call,
 };
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
@@ -57,7 +56,7 @@ async fn pov_bundling() -> Result<(), anyhow::Error> {
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 	let alice = dev::alice();
 
-	assert_finalized_para_throughput(
+	assert_para_throughput(
 		&relay_client,
 		6,
 		[(ParaId::from(PARA_ID), 4..6)],
@@ -78,7 +77,7 @@ async fn pov_bundling() -> Result<(), anyhow::Error> {
 		.await?;
 	log::info!("2 more cores assigned to the parachain");
 
-	assert_finalized_para_throughput(
+	assert_para_throughput(
 		&relay_client,
 		6,
 		[(ParaId::from(PARA_ID), 12..18)],
@@ -97,7 +96,7 @@ async fn pov_bundling() -> Result<(), anyhow::Error> {
 		.await?;
 	log::info!("3 more cores assigned to the parachain");
 
-	assert_finalized_para_throughput(
+	assert_para_throughput(
 		&relay_client,
 		6,
 		[(ParaId::from(PARA_ID), 24..36)],
