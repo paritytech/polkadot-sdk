@@ -8,5 +8,16 @@ zombienet-polkadot-functional-spam-statement-distribution-requests
 zombienet-polkadot-misc-0001-parachains-paritydb
 zombienet-polkadot-functional-duplicate-collations
 zombienet-substrate-0002-validators-warp-sync
-zombienet-cumulus-0009-elastic_scaling_pov_recovery
+zombienet-cumulus-0001-sync_blocks_from_tip_without_connected_collator
+zombienet-cumulus-0002-pov_recovery
+zombienet-cumulus-0003-full_node_catching_up
+zombienet-cumulus-0004-runtime_upgrade
+zombienet-cumulus-0005-migrate_solo_to_para
+zombienet-cumulus-0006-rpc_collator_builds_blocks
+zombienet-cumulus-0007-full_node_warp_sync
+zombienet-cumulus-0008-elastic_authoring
+#zombienet-cumulus-0009-elastic_scaling_pov_recovery
 zombienet-cumulus-0010-elastic_scaling_multiple_block_per_slot
+zombienet-cumulus-0011-dht-bootnodes
+zombienet-cumulus-0012-parachain_extrinsic_gets_finalized
+zombienet-cumulus-0013-elastic_scaling_slot_based_rp_offset
