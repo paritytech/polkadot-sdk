@@ -1756,7 +1756,7 @@ where
 				salt,
 				input_data: input_data.as_ref(),
 			},
-			value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
+			value,
 			gas_limit,
 			deposit_limit.saturated_into::<BalanceOf<T>>(),
 			self.is_read_only(),
@@ -1811,8 +1811,6 @@ where
 			if !self.allows_reentry(&dest) {
 				return Err(<Error<T>>::ReentranceDenied.into());
 			}
-
-			let value = value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?;
 
 			// We ignore instantiate frames in our search for a cached contract.
 			// Otherwise it would be possible to recursively call a contract from its own

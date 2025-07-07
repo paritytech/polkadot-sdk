@@ -341,12 +341,12 @@ pub enum RuntimeCosts {
 	/// Weight of reading and decoding the input to a precompile.
 	PrecompileDecode(u32),
 	/// Weight of the transfer performed during a call.
-	/// parameter `with_dust` indicates whether the transfer has a `dust` value.
-	CallTransferSurcharge { with_dust: bool },
+	/// parameter `dust_transfer` indicates whether the transfer has a `dust` value.
+	CallTransferSurcharge { dust_transfer: bool },
 	/// Weight per byte that is cloned by supplying the `CLONE_INPUT` flag.
 	CallInputCloned(u32),
-	/// Weight of calling `seal_instantiate` for the given input length.
-	Instantiate { input_data_len: u32, transfer_with_dust: bool },
+	/// Weight of calling `seal_instantiate`.
+	Instantiate { input_data_len: u32, balance_transfer: bool, dust_transfer: bool },
 	/// Weight of calling `Ripemd160` precompile for the given input size.
 	Ripemd160(u32),
 	/// Weight of calling `Sha256` precompile for the given input size.
@@ -496,10 +496,15 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			PrecompileBase => T::WeightInfo::seal_call_precompile(0, 0),
 			PrecompileWithInfoBase => T::WeightInfo::seal_call_precompile(1, 0),
 			PrecompileDecode(len) => cost_args!(seal_call_precompile, 0, len),
-			CallTransferSurcharge { with_dust } => cost_args!(seal_call, 1, with_dust.into(), 0),
+			CallTransferSurcharge { dust_transfer } =>
+				cost_args!(seal_call, 1, dust_transfer.into(), 0),
 			CallInputCloned(len) => cost_args!(seal_call, 0, 0, len),
-			Instantiate { input_data_len, transfer_with_dust } =>
-				T::WeightInfo::seal_instantiate(input_data_len, transfer_with_dust.into()),
+			Instantiate { input_data_len, balance_transfer, dust_transfer } =>
+				T::WeightInfo::seal_instantiate(
+					input_data_len,
+					balance_transfer.into(),
+					dust_transfer.into(),
+				),
 			HashSha256(len) => T::WeightInfo::sha2_256(len),
 			Ripemd160(len) => T::WeightInfo::ripemd_160(len),
 			HashKeccak256(len) => T::WeightInfo::seal_hash_keccak_256(len),
@@ -1094,7 +1099,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					}
 
 					self.charge_gas(RuntimeCosts::CallTransferSurcharge {
-						with_dust: Pallet::<E::T>::has_dust(value),
+						dust_transfer: Pallet::<E::T>::has_dust(value),
 					})?;
 				}
 				self.ext.call(
@@ -1165,14 +1170,16 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			Ok(value) => {
 				self.charge_gas(RuntimeCosts::Instantiate {
 					input_data_len,
-					transfer_with_dust: Pallet::<E::T>::has_dust(value),
+					balance_transfer: Pallet::<E::T>::has_balance(value),
+					dust_transfer: Pallet::<E::T>::has_dust(value),
 				})?;
 				value
 			},
 			Err(err) => {
 				self.charge_gas(RuntimeCosts::Instantiate {
 					input_data_len,
-					transfer_with_dust: false,
+					balance_transfer: false,
+					dust_transfer: false,
 				})?;
 				return Err(err.into());
 			},

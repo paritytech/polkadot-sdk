@@ -58,7 +58,7 @@ use sp_io::hashing::blake2_256;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
 	testing::H256,
-	traits::{BlakeTwo256, Convert, IdentityLookup, One},
+	traits::{BlakeTwo256, Convert, IdentityLookup, One, Zero},
 	AccountId32, BuildStorage, DispatchError, Perbill, TokenError,
 };
 
@@ -544,10 +544,13 @@ fn transfer_with_dust_works() {
 			<Test as Config>::Currency::mint_into(&dust_account_id, dust_account_balance).unwrap();
 
 			let total_issuance = <Test as Config>::Currency::total_issuance();
+			let evm_value = Pallet::<Test>::convert_native_to_evm(amount);
 
-			let result = builder::bare_call(BOB_ADDR)
-				.evm_value(Pallet::<Test>::convert_native_to_evm(amount))
-				.build_and_unwrap_result();
+			assert_eq!(Pallet::<Test>::has_dust(evm_value), !amount.dust.is_zero());
+			assert_eq!(Pallet::<Test>::has_balance(evm_value), !amount.value.is_zero());
+
+			let result =
+				builder::bare_call(BOB_ADDR).evm_value(evm_value).build_and_unwrap_result();
 			assert_eq!(result, Default::default(), "{description} tx failed");
 
 			assert_eq!(
@@ -4938,7 +4941,7 @@ fn code_size_for_precompiles_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.value(1000)
+			.native_value(1000)
 			.build_and_unwrap_contract();
 
 		// the primitive pre-compiles return 0 code size on eth

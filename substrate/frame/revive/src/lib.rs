@@ -682,6 +682,11 @@ pub mod pallet {
 		pub fn has_dust(value: U256) -> bool {
 			value % U256::from(<T>::NativeToEthRatio::get()) != U256::zero()
 		}
+
+		/// Returns true if the evm value carries balance.
+		pub fn has_balance(value: U256) -> bool {
+			value >= U256::from(<T>::NativeToEthRatio::get())
+		}
 	}
 
 	#[pallet::call]
@@ -1660,7 +1665,7 @@ impl<T: Config> Pallet<T> {
 		if let Some(code) = <All<T>>::code(address.as_fixed_bytes()) {
 			return code.into()
 		}
-		<ContractInfoOf<T>>::get(&address)
+		AccountInfo::<T>::load_contract(&address)
 			.and_then(|contract| <PristineCode<T>>::get(contract.code_hash))
 			.map(|code| code.into())
 			.unwrap_or_default()
