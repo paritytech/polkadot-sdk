@@ -22,7 +22,7 @@ pallet-revive-proc-macro = { workspace = true }
 scale-info = { features = ["derive"], optional = true, workspace = true }
 
 [target.'cfg(target_arch = "riscv64")'.dependencies]
-polkavm-derive = { version = "0.25.0" }
+polkavm-derive = { version = "0.26.0" }
 
 [features]
 default = ["scale"]

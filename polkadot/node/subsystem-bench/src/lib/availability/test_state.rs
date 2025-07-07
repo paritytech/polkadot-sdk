@@ -181,7 +181,7 @@ impl TestState {
 
 		// Generate all candidates
 		let candidates_count = config.n_cores * config.num_blocks;
-		gum::info!(target: LOG_TARGET,"{}", format!("Pre-generating {} candidates.", candidates_count).bright_blue());
+		gum::info!(target: LOG_TARGET,"{}", format!("Pre-generating {candidates_count} candidates.").bright_blue());
 		test_state.candidates = (0..candidates_count)
 			.map(|index| {
 				let pov_size = test_state.pov_sizes.next().expect("This is a cycle; qed");

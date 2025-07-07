@@ -272,7 +272,8 @@ impl HandleNetworkMessage for TestState {
 		node_sender: &mut futures::channel::mpsc::UnboundedSender<NetworkMessage>,
 	) -> Option<NetworkMessage> {
 		match message {
-			NetworkMessage::RequestFromNode(_authority_id, Requests::AttestedCandidateV2(req)) => {
+			NetworkMessage::RequestFromNode(_authority_id, requests) => {
+				let Requests::AttestedCandidateV2(req) = *requests else { return None };
 				let payload = req.payload;
 				let candidate_receipt = self
 					.commited_candidate_receipts
