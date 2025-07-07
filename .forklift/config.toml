@@ -13,6 +13,10 @@ threadsCount = 6
 [cache]
 extraEnv = ["RUNTIME_METADATA_HASH"]
 
+[cache.extraMetadata]
+  github_run_id="$GITHUB_RUN_ID"
+  github_job="$GITHUB_JOB"
+
 [metrics]
 enabled = true
 pushEndpoint = "placeholder"
