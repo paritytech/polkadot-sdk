@@ -204,7 +204,7 @@ impl TestConfiguration {
 		let keyring = Keyring::default();
 
 		let key_seeds = (0..self.n_validators)
-			.map(|peer_index| format!("//Node{}", peer_index))
+			.map(|peer_index| format!("//Node{peer_index}"))
 			.collect_vec();
 
 		let keys = key_seeds

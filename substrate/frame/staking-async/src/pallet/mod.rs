@@ -620,8 +620,7 @@ pub mod pallet {
 	impl<T: Config> Get<u32> for ClaimedRewardsBound<T> {
 		fn get() -> u32 {
 			let max_total_nominators_per_validator =
-				<T::ElectionProvider as ElectionProvider>::MaxBackersPerWinner::get() *
-					<T::ElectionProvider as ElectionProvider>::Pages::get();
+				<T::ElectionProvider as ElectionProvider>::MaxBackersPerWinnerFinal::get();
 			let exposure_page_size = T::MaxExposurePageSize::get();
 			max_total_nominators_per_validator
 				.saturating_div(exposure_page_size)
@@ -1294,6 +1293,7 @@ pub mod pallet {
 				MaxNominationsOf::<T>::get(),
 				<Self as ElectionDataProvider>::MaxVotesPerVoter::get()
 			);
+
 			// and that MaxNominations is always greater than 1, since we count on this.
 			assert!(!MaxNominationsOf::<T>::get().is_zero());
 
