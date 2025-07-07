@@ -324,9 +324,6 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Return the origin of the whole call stack.
 	fn origin(&self) -> &Origin<Self::T>;
 
-	/// Check if a contract lives at the specified `address`.
-	fn is_contract(&self, address: &H160) -> bool;
-
 	/// Returns the account id for the given `address`.
 	fn to_account_id(&self, address: &H160) -> AccountIdOf<Self::T>;
 
@@ -338,9 +335,6 @@ pub trait PrecompileExt: sealing::Sealed {
 	fn code_size(&self, address: &H160) -> u64;
 
 	/// Check if the caller of the current contract is the origin of the whole call stack.
-	///
-	/// This can be checked with `is_contract(self.caller())` as well.
-	/// However, this function does not require any storage lookup and therefore uses less weight.
 	fn caller_is_origin(&self) -> bool;
 
 	/// Check if the caller is origin, and this origin is root.
@@ -1925,15 +1919,15 @@ where
 		&self.origin
 	}
 
-	fn is_contract(&self, address: &H160) -> bool {
-		AccountInfo::<T>::load_contract(&address).map(|_| true).unwrap_or_default()
-	}
-
 	fn to_account_id(&self, address: &H160) -> T::AccountId {
 		T::AddressMapper::to_account_id(address)
 	}
 
 	fn code_hash(&self, address: &H160) -> H256 {
+		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()) {
+			return sp_io::hashing::keccak_256(code).into()
+		}
+
 		<AccountInfo<T>>::load_contract(&address)
 			.map(|contract| contract.code_hash)
 			.unwrap_or_else(|| {
@@ -1945,6 +1939,10 @@ where
 	}
 
 	fn code_size(&self, address: &H160) -> u64 {
+		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()) {
+			return code.len() as u64
+		}
+
 		<AccountInfo<T>>::load_contract(&address)
 			.and_then(|contract| CodeInfoOf::<T>::get(contract.code_hash))
 			.map(|info| info.code_len())

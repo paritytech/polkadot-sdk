@@ -64,6 +64,10 @@ impl<T: Config> Precompiles<T> for (Production<T>, Benchmarking<T>) {
 	const USES_EXTERNAL_RANGE: bool =
 		Production::<T>::USES_EXTERNAL_RANGE || Benchmarking::<T>::USES_EXTERNAL_RANGE;
 
+	fn code(address: &[u8; 20]) -> Option<&'static [u8]> {
+		<Production<T>>::code(address).or_else(|| Benchmarking::<T>::code(address))
+	}
+
 	fn get<E: ExtWithInfo<T = T>>(address: &[u8; 20]) -> Option<Instance<E>> {
 		let _ = <Self as Precompiles<T>>::CHECK_COLLISION;
 		<Production<T>>::get(address).or_else(|| Benchmarking::<T>::get(address))
