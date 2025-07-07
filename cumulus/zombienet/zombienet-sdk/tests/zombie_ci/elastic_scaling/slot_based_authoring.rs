@@ -4,7 +4,7 @@
 use anyhow::anyhow;
 use std::time::Duration;
 
-use crate::utils::{initialize_network, wait_node_is_up, BEST_BLOCK_METRIC};
+use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 
 use cumulus_zombienet_sdk_helpers::{
 	create_assign_core_call, submit_extrinsic_and_wait_for_finalization_success_with_timeout,
@@ -36,13 +36,13 @@ async fn elastic_scaling_slot_based_authoring() -> Result<(), anyhow::Error> {
 	let collator_single_core = network.get_node("collator-single-core")?;
 
 	log::info!("Checking if alice is up");
-	assert!(wait_node_is_up(alice, 60u64).await.is_ok());
+	assert!(alice.wait_until_is_up(60u64).await.is_ok());
 
 	log::info!("Checking if collator-elastic is up");
-	assert!(wait_node_is_up(collator_elastic, 60u64).await.is_ok());
+	assert!(collator_elastic.wait_until_is_up(60u64).await.is_ok());
 
 	log::info!("Checking if collator-single-core is up");
-	assert!(wait_node_is_up(collator_single_core, 60u64).await.is_ok());
+	assert!(collator_single_core.wait_until_is_up(60u64).await.is_ok());
 
 	log::info!("Assigning cores for the parachain");
 	let assign_cores_call = create_assign_core_call(&[(0, PARA_ID_1), (1, PARA_ID_1)]);

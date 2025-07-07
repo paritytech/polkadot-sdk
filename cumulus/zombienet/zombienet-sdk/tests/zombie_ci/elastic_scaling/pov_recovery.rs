@@ -4,7 +4,7 @@
 use anyhow::anyhow;
 use std::{sync::Arc, time::Duration};
 
-use crate::utils::{initialize_network, wait_node_is_up, BEST_BLOCK_METRIC};
+use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 
 use cumulus_zombienet_sdk_helpers::{
 	assert_para_is_registered, assert_para_throughput, create_assign_core_call,
@@ -37,10 +37,10 @@ async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 	let collator_elastic = network.get_node("collator-elastic")?;
 
 	log::info!("Checking if alice is up");
-	assert!(wait_node_is_up(alice, 60u64).await.is_ok());
+	assert!(alice.wait_until_is_up(60u64).await.is_ok());
 
 	log::info!("Checking if collator-elastic is up");
-	assert!(wait_node_is_up(collator_elastic, 60u64).await.is_ok());
+	assert!(collator_elastic.wait_until_is_up(60u64).await.is_ok());
 
 	log::info!("Assigning cores for the parachain");
 	let assign_cores_call = create_assign_core_call(&[(0, PARA_ID), (1, PARA_ID)]);

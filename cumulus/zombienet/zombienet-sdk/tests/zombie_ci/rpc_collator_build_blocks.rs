@@ -4,7 +4,7 @@
 use anyhow::anyhow;
 use std::time::Duration;
 
-use crate::utils::{initialize_network, wait_node_is_up, BEST_BLOCK_METRIC};
+use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 use polkadot_primitives::Id as ParaId;
@@ -65,7 +65,7 @@ async fn rpc_collator_builds_blocks() -> Result<(), anyhow::Error> {
 	network.get_node("three")?.restart(Some(Duration::from_secs(20))).await?;
 
 	log::info!("Checking if dave is up");
-	assert!(wait_node_is_up(dave, 10u64).await.is_ok());
+	assert!(dave.wait_until_is_up(10u64).await.is_ok());
 
 	log::info!("Ensuring dave reports expected block height");
 	assert!(dave
