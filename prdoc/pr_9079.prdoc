@@ -28,5 +28,5 @@ doc:
 crates:
   - name: pallet-staking-async
     bump: major
-  - name: staking-async-rc-client
+  - name: pallet-staking-async-rc-client
     bump: patch
