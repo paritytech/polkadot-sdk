@@ -1197,6 +1197,8 @@ fn self_destruct_works() {
 			.value(100_000)
 			.build_and_unwrap_contract();
 
+		let hold_balance = test_utils::contract_base_deposit(&contract.addr);
+
 		// Check that the BOB contract has been instantiated.
 		let _ = get_contract(&contract.addr);
 
@@ -1237,7 +1239,7 @@ fn self_destruct_works() {
 						),
 						source: contract.account_id.clone(),
 						dest: ALICE,
-						amount: 628,
+						amount: hold_balance,
 					}),
 					topics: vec![],
 				},
