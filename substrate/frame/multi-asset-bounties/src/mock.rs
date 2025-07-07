@@ -562,7 +562,7 @@ pub fn create_child_bounty_with_curator() -> TestBounty {
 		b"1234567890".to_vec()
 	));
 	s.child_bounty_id =
-			pallet_bounties::TotalChildBountiesPerParent::<Test>::get(s.parent_bounty_id) - 1;
+		pallet_bounties::TotalChildBountiesPerParent::<Test>::get(s.parent_bounty_id) - 1;
 
 	s
 }
@@ -574,12 +574,12 @@ pub fn create_child_bounty_without_curator() -> TestBounty {
 		RuntimeOrigin::signed(s.curator),
 		s.parent_bounty_id,
 		s.child_value,
-		Some(s.child_curator),
-		Some(s.child_fee),
+		None,
+		None,
 		b"1234567890".to_vec()
 	));
 	s.child_bounty_id =
-			pallet_bounties::TotalChildBountiesPerParent::<Test>::get(s.parent_bounty_id) - 1;
+		pallet_bounties::TotalChildBountiesPerParent::<Test>::get(s.parent_bounty_id) - 1;
 
 	s
 }
