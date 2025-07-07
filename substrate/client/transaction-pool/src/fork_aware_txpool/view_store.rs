@@ -259,8 +259,7 @@ where
 		&self,
 		xt: ExtrinsicFor<ChainApi>,
 	) -> Result<ViewStoreSubmitOutcome<ChainApi>, ChainApi::Error> {
-		let active_views =
-			self.active_views.read().values().map(|view| view.clone()).collect::<Vec<_>>();
+		let active_views = self.active_views.read().values().cloned().collect::<Vec<_>>();
 
 		let tx_hash = self.api.hash_and_length(&xt).0;
 

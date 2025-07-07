@@ -155,7 +155,7 @@ pub enum NetworkMessage {
 	/// A gossip message from node to a peer.
 	MessageFromNode(AuthorityDiscoveryId, VersionedValidationProtocol),
 	/// A request originating from our node
-	RequestFromNode(AuthorityDiscoveryId, Requests),
+	RequestFromNode(AuthorityDiscoveryId, Box<Requests>),
 	/// A request originating from an emulated peer
 	RequestFromPeer(IncomingRequest),
 }
@@ -351,7 +351,7 @@ impl NetworkInterface {
 							// usage for the node.
 							let send_task = Self::proxy_send_request(
 								peer.clone(),
-								request,
+								*request,
 								tx_network.clone(),
 								task_rx_limiter.clone(),
 							)
@@ -876,7 +876,8 @@ impl NetworkEmulatorHandle {
 	pub fn send_request_to_peer(&self, peer_id: &AuthorityDiscoveryId, request: Requests) {
 		let peer = self.peer(peer_id);
 		assert!(peer.is_connected(), "forward request only for connected peers.");
-		peer.handle().receive(NetworkMessage::RequestFromNode(peer_id.clone(), request));
+		peer.handle()
+			.receive(NetworkMessage::RequestFromNode(peer_id.clone(), Box::new(request)));
 	}
 
 	/// Send a message from a peer to the node.
