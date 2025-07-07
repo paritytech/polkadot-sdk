@@ -135,9 +135,9 @@ pub mod pallet {
 	use super::*;
 	use cumulus_pallet_parachain_system::OnSystemEvent;
 	use cumulus_primitives_core::PersistedValidationData;
-	use frame_support::{dispatch_context, pallet_prelude::*, traits::IsSubType};
+	use frame_support::{dispatch_context, pallet_prelude::*};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::traits::{Dispatchable, StaticLookup, Zero};
+	use sp_runtime::traits::{StaticLookup, Zero};
 
 	type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
@@ -454,47 +454,15 @@ pub mod pallet {
 
 			ensure!(def.delay.is_zero(), Error::<T, I>::Unannounced);
 
-			Self::do_proxy(def, real, call);
+			let proxy_def = pallet_proxy::ProxyDefinition {
+				delegate: def.delegate,
+				proxy_type: def.proxy_type,
+				delay: Zero::zero(),
+			};
+
+			pallet_proxy::Pallet::<T>::do_proxy(proxy_def, real, call);
 
 			Ok(())
-		}
-
-		// TODO: Make upstream public and use that one.
-		fn do_proxy(
-			def: ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>,
-			real: T::AccountId,
-			call: <T as pallet_proxy::Config>::RuntimeCall,
-		) {
-			use frame_support::traits::{InstanceFilter as _, OriginTrait as _};
-			// This is a freshly authenticated new account, the origin restrictions doesn't apply.
-			let mut origin: T::RuntimeOrigin = frame_system::RawOrigin::Signed(real).into();
-			origin.add_filter(move |c: &<T as frame_system::Config>::RuntimeCall| {
-				let c = <T as pallet_proxy::Config>::RuntimeCall::from_ref(c);
-				// We make sure the proxy call does not modify proxies.
-				match c.is_sub_type() {
-					// Proxy call cannot add or remove a proxy with more permissions than it already
-					// has.
-					Some(pallet_proxy::Call::add_proxy { ref proxy_type, .. }) |
-					Some(pallet_proxy::Call::remove_proxy { ref proxy_type, .. })
-						if !def.proxy_type.is_superset(proxy_type) =>
-						false,
-					// Proxy call cannot remove all proxies or kill pure proxies unless it has full
-					// permissions.
-					Some(pallet_proxy::Call::remove_proxies { .. }) |
-					Some(pallet_proxy::Call::kill_pure { .. })
-						if def.proxy_type != T::ProxyType::default() =>
-						false,
-					_ => def.proxy_type.filter(c),
-				}
-			});
-			let e = call.dispatch(origin);
-			frame_system::Pallet::<T>::deposit_event(
-				<T as pallet_proxy::Config>::RuntimeEvent::from(
-					pallet_proxy::Event::ProxyExecuted {
-						result: e.map(|_| ()).map_err(|e| e.error),
-					},
-				),
-			);
 		}
 	}
 }
