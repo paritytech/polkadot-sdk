@@ -19,8 +19,8 @@
 //! Module implementing the logic for verifying and importing AuRa blocks.
 
 use crate::{
-	authorities, standalone::SealVerificationError, AuthorityId, CompatibilityMode, Error,
-	LOG_TARGET,
+	authorities, find_pre_digest, standalone::SealVerificationError, AuthorityId,
+	CompatibilityMode, Error, LOG_TARGET,
 };
 use codec::Codec;
 use log::{debug, info, trace};
@@ -58,7 +58,7 @@ fn check_header<C, B: BlockT, P: Pair>(
 	hash: B::Hash,
 	authorities: &[AuthorityId<P>],
 	check_for_equivocation: CheckForEquivocation,
-) -> Result<CheckedHeader<B::Header, (Slot, DigestItem)>, Error<B>>
+) -> Result<CheckedHeader<B::Header, DigestItem>, Error<B>>
 where
 	P::Public: Codec,
 	P::Signature: Codec,
@@ -86,7 +86,7 @@ where
 				}
 			}
 
-			Ok(CheckedHeader::Checked(header, (slot, seal)))
+			Ok(CheckedHeader::Checked(header, seal))
 		},
 		Err(SealVerificationError::Deferred(header, slot)) =>
 			Ok(CheckedHeader::Deferred(header, slot)),
@@ -173,7 +173,7 @@ where
 	CIDP: CreateInherentDataProviders<B, ()> + Send + Sync,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
-	async fn verify(
+	async fn verify_fast(
 		&self,
 		mut block: BlockImportParams<B>,
 	) -> Result<BlockImportParams<B>, String> {
@@ -191,6 +191,9 @@ where
 
 		let hash = block.header.hash();
 		let parent_hash = *block.header.parent_hash();
+		// TODO #9064: Track authorities in pre digest instead of making a runtime call
+		// TODO Question: is it a problem that this authorities fn also calls initialize_block on
+		// the runtime API? Does that present a different problem to us?
 		let authorities = authorities(
 			self.client.as_ref(),
 			parent_hash,
@@ -204,11 +207,6 @@ where
 			.create_inherent_data_providers(parent_hash, ())
 			.await
 			.map_err(|e| Error::<B>::Client(sp_blockchain::Error::Application(e)))?;
-
-		let mut inherent_data = create_inherent_data_providers
-			.create_inherent_data()
-			.await
-			.map_err(Error::<B>::Inherent)?;
 
 		let slot_now = create_inherent_data_providers.slot();
 
@@ -225,50 +223,11 @@ where
 		)
 		.map_err(|e| e.to_string())?;
 		match checked_header {
-			CheckedHeader::Checked(pre_header, (slot, seal)) => {
-				// if the body is passed through, we need to use the runtime
-				// to check that the internally-set timestamp in the inherents
-				// actually matches the slot set in the seal.
-				if let Some(inner_body) = block.body.take() {
-					let new_block = B::new(pre_header.clone(), inner_body);
-
-					inherent_data.aura_replace_inherent_data(slot);
-
-					// skip the inherents verification if the runtime API is old or not expected to
-					// exist.
-					if self
-						.client
-						.runtime_api()
-						.has_api_with::<dyn BlockBuilderApi<B>, _>(parent_hash, |v| v >= 2)
-						.map_err(|e| e.to_string())?
-					{
-						self.check_inherents(
-							new_block.clone(),
-							parent_hash,
-							inherent_data,
-							create_inherent_data_providers,
-						)
-						.await
-						.map_err(|e| e.to_string())?;
-					}
-
-					let (_, inner_body) = new_block.deconstruct();
-					block.body = Some(inner_body);
-				}
-
-				trace!(target: LOG_TARGET, "Checked {:?}; importing.", pre_header);
-				telemetry!(
-					self.telemetry;
-					CONSENSUS_TRACE;
-					"aura.checked_and_importing";
-					"pre_header" => ?pre_header,
-				);
-
+			CheckedHeader::Checked(pre_header, seal) => {
 				block.header = pre_header;
 				block.post_digests.push(seal);
 				block.fork_choice = Some(ForkChoiceStrategy::LongestChain);
 				block.post_hash = Some(hash);
-
 				Ok(block)
 			},
 			CheckedHeader::Deferred(a, b) => {
@@ -284,6 +243,71 @@ where
 				Err(format!("Header {:?} rejected: too far in the future", hash))
 			},
 		}
+	}
+
+	async fn verify_slow(
+		&self,
+		mut block: BlockImportParams<B>,
+	) -> Result<BlockImportParams<B>, String> {
+		if block.with_state() || block.state_action.skip_execution_checks() {
+			return Ok(block)
+		}
+
+		// if the body is passed through, we need to use the runtime
+		// to check that the internally-set timestamp in the inherents
+		// actually matches the slot set in the seal.
+		if let Some(inner_body) = block.body.take() {
+			let parent_hash = *block.header.parent_hash();
+
+			let create_inherent_data_providers = self
+				.create_inherent_data_providers
+				.create_inherent_data_providers(parent_hash, ())
+				.await
+				.map_err(|e| Error::<B>::Client(sp_blockchain::Error::Application(e)))?;
+
+			let mut inherent_data = create_inherent_data_providers
+				.create_inherent_data()
+				.await
+				.map_err(Error::<B>::Inherent)?;
+
+			let new_block = B::new(block.header.clone(), inner_body);
+
+			let slot = find_pre_digest::<B, P::Signature>(&block.header).map_err(|e| {
+				format!("Could not find pre-digest in header {:?}: {}", block.header, e)
+			})?;
+			inherent_data.aura_replace_inherent_data(slot);
+
+			// skip the inherents verification if the runtime API is old or not expected to
+			// exist.
+			if self
+				.client
+				.runtime_api()
+				.has_api_with::<dyn BlockBuilderApi<B>, _>(parent_hash, |v| v >= 2)
+				.map_err(|e| e.to_string())?
+			{
+				self.check_inherents(
+					new_block.clone(),
+					parent_hash,
+					inherent_data,
+					create_inherent_data_providers,
+				)
+				.await
+				.map_err(|e| e.to_string())?;
+			}
+
+			let (_, inner_body) = new_block.deconstruct();
+			block.body = Some(inner_body);
+		}
+
+		trace!(target: LOG_TARGET, "Checked {:?}; importing.", block.header);
+		telemetry!(
+			self.telemetry;
+			CONSENSUS_TRACE;
+			"aura.checked_and_importing";
+			"pre_header" => ?block.header,
+		);
+
+		Ok(block)
 	}
 }
 

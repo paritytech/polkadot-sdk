@@ -119,7 +119,7 @@ impl PassThroughVerifier {
 /// This `Verifier` accepts all data as valid.
 #[async_trait::async_trait]
 impl<B: BlockT> Verifier<B> for PassThroughVerifier {
-	async fn verify(
+	async fn verify_fast(
 		&self,
 		mut block: BlockImportParams<B>,
 	) -> Result<BlockImportParams<B>, String> {
@@ -127,6 +127,13 @@ impl<B: BlockT> Verifier<B> for PassThroughVerifier {
 			block.fork_choice = Some(ForkChoiceStrategy::LongestChain);
 		};
 		block.finalized = self.finalized;
+		Ok(block)
+	}
+
+	async fn verify_slow(
+		&self,
+		block: BlockImportParams<B>,
+	) -> Result<BlockImportParams<B>, String> {
 		Ok(block)
 	}
 }
@@ -628,11 +635,21 @@ struct VerifierAdapter<B: BlockT> {
 
 #[async_trait::async_trait]
 impl<B: BlockT> Verifier<B> for VerifierAdapter<B> {
-	async fn verify(&self, block: BlockImportParams<B>) -> Result<BlockImportParams<B>, String> {
+	async fn verify_fast(
+		&self,
+		block: BlockImportParams<B>,
+	) -> Result<BlockImportParams<B>, String> {
 		let hash = block.header.hash();
 		self.verifier.lock().await.verify(block).await.inspect_err(|e| {
 			self.failed_verifications.lock().insert(hash, e.clone());
 		})
+	}
+
+	async fn verify_slow(
+		&self,
+		block: BlockImportParams<B>,
+	) -> Result<BlockImportParams<B>, String> {
+		Ok(block)
 	}
 }
 

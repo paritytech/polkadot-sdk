@@ -419,6 +419,7 @@ async fn import_many_blocks<B: BlockT, V: Verifier<B>>(
 			},
 		};
 
+		let peer = block.origin.clone();
 		let block_number = block.header.as_ref().map(|h| *h.number());
 		let block_hash = block.hash;
 		let import_result = if has_error {
@@ -433,10 +434,27 @@ async fn import_many_blocks<B: BlockT, V: Verifier<B>>(
 			);
 			match verification_fut.await {
 				Ok(SingleBlockVerificationOutcome::Imported(import_status)) => Ok(import_status),
-				Ok(SingleBlockVerificationOutcome::Verified(import_parameters)) => {
-					// The actual import.
-					import_single_block_metered(import_handle, import_parameters, metrics.as_ref())
-						.await
+				Ok(SingleBlockVerificationOutcome::Verified(mut import_parameters)) => {
+					match verifier.verify_slow(import_parameters.import_block).await {
+						Ok(import_block) => {
+							import_parameters.import_block = import_block;
+							// The actual import.
+							import_single_block_metered(
+								import_handle,
+								import_parameters,
+								metrics.as_ref(),
+							)
+							.await
+						},
+						Err(msg) => {
+							debug!(
+								target: LOG_TARGET,
+								"Slow verification failed for block {}: {}",
+								import_parameters.hash, msg
+							);
+							Err(BlockImportError::VerificationFailed(peer, msg))
+						},
+					}
 				},
 				Err(e) => Err(e),
 			}
@@ -506,11 +524,18 @@ mod tests {
 
 	#[async_trait::async_trait]
 	impl Verifier<Block> for () {
-		async fn verify(
+		async fn verify_fast(
 			&self,
 			block: BlockImportParams<Block>,
 		) -> Result<BlockImportParams<Block>, String> {
 			Ok(BlockImportParams::new(block.origin, block.header))
+		}
+
+		async fn verify_slow(
+			&self,
+			block: BlockImportParams<Block>,
+		) -> Result<BlockImportParams<Block>, String> {
+			Ok(block)
 		}
 	}
 

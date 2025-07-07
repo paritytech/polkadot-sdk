@@ -95,13 +95,19 @@ where
 	B: BlockT,
 	C: HeaderBackend<B> + HeaderMetadata<B, Error = sp_blockchain::Error>,
 {
-	async fn verify(
+	async fn verify_fast(
 		&self,
 		mut import_params: BlockImportParams<B>,
 	) -> Result<BlockImportParams<B>, String> {
 		import_params.finalized = false;
 		import_params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
+		Ok(import_params)
+	}
 
+	async fn verify_slow(
+		&self,
+		mut import_params: BlockImportParams<B>,
+	) -> Result<BlockImportParams<B>, String> {
 		let pre_digest = find_pre_digest::<B>(&import_params.header)?;
 
 		let parent_hash = import_params.header.parent_hash();

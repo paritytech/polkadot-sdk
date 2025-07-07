@@ -1127,7 +1127,14 @@ where
 	CIDP: CreateInherentDataProviders<Block, ()> + Send + Sync,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
-	async fn verify(
+	async fn verify_fast(
+		&self,
+		block: BlockImportParams<Block>,
+	) -> Result<BlockImportParams<Block>, String> {
+		Ok(block)
+	}
+
+	async fn verify_slow(
 		&self,
 		mut block: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {
@@ -1173,6 +1180,12 @@ where
 
 		let slot_now = create_inherent_data_providers.slot();
 
+		// TODO Question: this code fetches the parent header just to get the block number from it.
+		// Is this really necessary? Won't the parent block number always be block.number - 1? If
+		// so, we can actually move this block of code into `verify_fast` because it won't require
+		// having the parent imported.
+		// TODO Note to self: if I can actually fix this, don't forget to also do the same check as
+		// the `if` above (for skipping verification)
 		let parent_header_metadata = self
 			.client
 			.header_metadata(parent_hash)

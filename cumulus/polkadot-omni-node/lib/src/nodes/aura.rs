@@ -87,14 +87,25 @@ where
 	Client::Api: AuraRuntimeApi<Block, AuraId>,
 	AuraId: AuraIdT + Sync,
 {
-	async fn verify(
+	async fn verify_fast(
 		&self,
 		block_import: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {
 		if self.client.runtime_api().has_aura_api(*block_import.header.parent_hash()) {
-			self.aura_verifier.verify(block_import).await
+			self.aura_verifier.verify_fast(block_import).await
 		} else {
-			self.relay_chain_verifier.verify(block_import).await
+			self.relay_chain_verifier.verify_fast(block_import).await
+		}
+	}
+
+	async fn verify_slow(
+		&self,
+		block_import: BlockImportParams<Block>,
+	) -> Result<BlockImportParams<Block>, String> {
+		if self.client.runtime_api().has_aura_api(*block_import.header.parent_hash()) {
+			self.aura_verifier.verify_slow(block_import).await
+		} else {
+			self.relay_chain_verifier.verify_slow(block_import).await
 		}
 	}
 }

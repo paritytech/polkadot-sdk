@@ -64,12 +64,19 @@ struct ManualSealVerifier;
 
 #[async_trait::async_trait]
 impl<B: BlockT> Verifier<B> for ManualSealVerifier {
-	async fn verify(
+	async fn verify_fast(
 		&self,
 		mut block: BlockImportParams<B>,
 	) -> Result<BlockImportParams<B>, String> {
 		block.finalized = false;
 		block.fork_choice = Some(ForkChoiceStrategy::LongestChain);
+		Ok(block)
+	}
+
+	async fn verify_slow(
+		&self,
+		block: BlockImportParams<B>,
+	) -> Result<BlockImportParams<B>, String> {
 		Ok(block)
 	}
 }

@@ -52,7 +52,14 @@ where
 	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block>,
 	CIDP: CreateInherentDataProviders<Block, ()>,
 {
-	async fn verify(
+	async fn verify_fast(
+		&self,
+		block_params: BlockImportParams<Block>,
+	) -> Result<BlockImportParams<Block>, String> {
+		Ok(block_params)
+	}
+
+	async fn verify_slow(
 		&self,
 		mut block_params: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {

@@ -98,9 +98,22 @@ pub struct IncomingBlock<B: BlockT> {
 /// Verify a justification of a block
 #[async_trait::async_trait]
 pub trait Verifier<B: BlockT>: Send + Sync {
-	/// Verify the given block data and return the `BlockImportParams` to
-	/// continue the block import process.
-	async fn verify(&self, block: BlockImportParams<B>) -> Result<BlockImportParams<B>, String>;
+	/// Fast verification of block data. This method should never make any runtime calls. It should
+	/// never assume that the parent block has been imported. This method is called after the block
+	/// is received, before it starts being gossipped. This method will not necessarily be called on
+	/// blocks in sorted order.
+	async fn verify_fast(
+		&self,
+		block: BlockImportParams<B>,
+	) -> Result<BlockImportParams<B>, String>;
+	/// Slow verification of block data. This method can make runtime calls. It is safe for this
+	/// method to assume that the parent block has been imported. This method is called
+	/// after the block starts being gossipped, but before it gets imported, in sorted order for each
+	/// block.
+	async fn verify_slow(
+		&self,
+		block: BlockImportParams<B>,
+	) -> Result<BlockImportParams<B>, String>;
 }
 
 /// Blocks import queue API.
@@ -227,10 +240,21 @@ pub async fn import_single_block<B: BlockT, V: Verifier<B>>(
 	block: IncomingBlock<B>,
 	verifier: &V,
 ) -> BlockImportResult<B> {
+	let peer = block.origin.clone();
 	match verify_single_block_metered(import_handle, block_origin, block, verifier, None).await? {
 		SingleBlockVerificationOutcome::Imported(import_status) => Ok(import_status),
-		SingleBlockVerificationOutcome::Verified(import_parameters) =>
-			import_single_block_metered(import_handle, import_parameters, None).await,
+		SingleBlockVerificationOutcome::Verified(mut import_parameters) => {
+			import_parameters.import_block =
+				verifier.verify_slow(import_parameters.import_block).await.map_err(|msg| {
+					debug!(
+						target: LOG_TARGET,
+						"Slow verification failed for block {}: {}",
+						import_parameters.hash, msg
+					);
+					BlockImportError::VerificationFailed(peer, msg)
+				})?;
+			import_single_block_metered(import_handle, import_parameters, None).await
+		},
 	}
 }
 
@@ -357,7 +381,7 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 		import_block.state_action = StateAction::ExecuteIfPossible;
 	}
 
-	let import_block = verifier.verify(import_block).await.map_err(|msg| {
+	let import_block = verifier.verify_fast(import_block).await.map_err(|msg| {
 		if let Some(ref peer) = peer {
 			trace!(
 				target: LOG_TARGET,

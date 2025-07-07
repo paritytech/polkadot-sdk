@@ -197,13 +197,20 @@ impl Verifier<TestBlock> for TestVerifier {
 	/// Verify the given data and return the BlockImportParams and an optional
 	/// new set of validators to import. If not, err with an Error-Message
 	/// presented to the User in the logs.
-	async fn verify(
+	async fn verify_fast(
 		&self,
 		mut block: BlockImportParams<TestBlock>,
 	) -> Result<BlockImportParams<TestBlock>, String> {
 		// apply post-sealing mutations (i.e. stripping seal, if desired).
 		(self.mutator)(&mut block.header, Stage::PostSeal);
-		self.inner.verify(block).await
+		self.inner.verify_fast(block).await
+	}
+
+	async fn verify_slow(
+		&self,
+		block: BlockImportParams<TestBlock>,
+	) -> Result<BlockImportParams<TestBlock>, String> {
+		self.inner.verify_slow(block).await
 	}
 }
 

@@ -50,7 +50,14 @@ pub struct VerifyNothing;
 
 #[async_trait::async_trait]
 impl<Block: BlockT> Verifier<Block> for VerifyNothing {
-	async fn verify(
+	async fn verify_fast(
+		&self,
+		params: BlockImportParams<Block>,
+	) -> Result<BlockImportParams<Block>, String> {
+		Ok(params)
+	}
+
+	async fn verify_slow(
 		&self,
 		params: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {

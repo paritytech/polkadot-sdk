@@ -437,7 +437,7 @@ where
 	Algorithm: PowAlgorithm<B> + Send + Sync,
 	Algorithm::Difficulty: 'static + Send,
 {
-	async fn verify(
+	async fn verify_fast(
 		&self,
 		mut block: BlockImportParams<B>,
 	) -> Result<BlockImportParams<B>, String> {
@@ -450,6 +450,13 @@ where
 		block.insert_intermediate(INTERMEDIATE_KEY, intermediate);
 		block.post_hash = Some(hash);
 
+		Ok(block)
+	}
+
+	async fn verify_slow(
+		&self,
+		block: BlockImportParams<B>,
+	) -> Result<BlockImportParams<B>, String> {
 		Ok(block)
 	}
 }

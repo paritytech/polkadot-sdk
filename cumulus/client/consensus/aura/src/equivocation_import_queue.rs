@@ -120,7 +120,7 @@ where
 
 	CIDP: CreateInherentDataProviders<Block, ()>,
 {
-	async fn verify(
+	async fn verify_fast(
 		&self,
 		mut block_params: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {
@@ -134,15 +134,21 @@ where
 		}
 
 		let post_hash = block_params.header.hash();
+		// TODO #9064: I think once the authorities and slot duration are tracked in the pre-digest,
+		// I will no longer need the parent hash. So I'm keeping all this code in verify_fast for
+		// now even though it needs the parent hash, even though verify_fast should not assume that
+		// the parent block is imported.
 		let parent_hash = *block_params.header.parent_hash();
 
 		// check seal and update pre-hash/post-hash
 		{
+			// TODO #9064: Track authorities in pre digest instead of making a runtime call
 			let authorities = aura_internal::fetch_authorities(self.client.as_ref(), parent_hash)
 				.map_err(|e| {
 				format!("Could not fetch authorities at {:?}: {}", parent_hash, e)
 			})?;
 
+			// TODO #9064: Track slot duration in pre digest instead of making a runtime call
 			let slot_duration = self
 				.client
 				.runtime_api()
@@ -221,9 +227,22 @@ where
 			}
 		}
 
+		Ok(block_params)
+	}
+
+	async fn verify_slow(
+		&self,
+		mut block_params: BlockImportParams<Block>,
+	) -> Result<BlockImportParams<Block>, String> {
+		if block_params.state_action.skip_execution_checks() || block_params.with_state() {
+			return Ok(block_params)
+		}
+
 		// Check inherents.
 		if let Some(body) = block_params.body.clone() {
 			let block = Block::new(block_params.header.clone(), body);
+			let parent_hash = *block_params.header.parent_hash();
+
 			let create_inherent_data_providers = self
 				.create_inherent_data_providers
 				.create_inherent_data_providers(parent_hash, ())
@@ -254,7 +273,6 @@ where
 				}
 			}
 		}
-
 		Ok(block_params)
 	}
 }
