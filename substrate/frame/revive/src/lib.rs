@@ -1455,7 +1455,7 @@ where
 
 	/// Get the balance with EVM decimals of the given `address`.
 	pub fn evm_balance(address: &H160) -> U256 {
-		let balance = AccountInfo::<T>::balance(address.clone().into());
+		let balance = AccountInfo::<T>::balance((*address).into());
 		Self::convert_native_to_evm(balance)
 	}
 
