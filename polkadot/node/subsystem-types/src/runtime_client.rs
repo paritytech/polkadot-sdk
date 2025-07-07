@@ -656,10 +656,7 @@ where
 	}
 
 	async fn para_ids(&self, at: Hash) -> Result<Vec<Id>, ApiError> {
-		self.client
-			.runtime_api()
-			.para_ids(at)
-			.map(|ids| ids.into_iter().map(Id::from).collect())
+		self.client.runtime_api().para_ids(at)
 	}
 }
 
