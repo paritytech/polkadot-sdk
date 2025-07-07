@@ -1,0 +1,67 @@
+title: '[Xcm Precompile] [Solution 2] Revert xcm precompile call with a verbose error'
+doc:
+- audience: Runtime User
+  description: |-
+    This PR improves error handling for the XCM precompile by returning detailed error information instead of generic error messages.
+
+
+    before
+
+    ```rust
+    fn revert(error: &impl fmt::Debug, message: &str) -> Error {
+        error!(target: LOG_TARGET, ?error, "{}", message);
+        Error::Revert(message.into())
+    }
+    ```
+
+
+    after
+    ```rust
+
+    fn revert(error: &impl fmt::Debug, message: &str) -> Error {
+        error!(target: LOG_TARGET, ?error, "{}", message);
+        Error::Revert(Revert {
+            reason: format!("{:?}",error)
+        })
+    }
+    ```
+
+    This change significantly improves the developer experience by providing actionable error information instead of generic failure messages, while maintaining the simplicity of string-based error reporting. This approach still places some burden on developers to interpret error details. Additionally it also requires developer to parse strings as opposed to concrete errors e.g. `XcmPrecompileError(error)` which isn’t ideal.
+
+
+    Example error developers would get as reason for a revert:
+
+    Using viem we get
+
+    Before:
+    ``` log
+    Error:  Execution reverted with reason: revert: XCM execute failed: message may be invalid or execution constraints not satisfied.
+
+    Request Arguments:
+    from:  0xf24FF3a9CF04c71Dbc94D0b566f7A27B94566cac
+    to:    0x00000000000000000000000000000000000a0000
+    data:  0xd3b7e04d00000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000fa00000000000000000000000000000000000000000000000000000000000000fa000000000000000000000000000000000000000000000000000000000000000530510000400000007ffe77648171300000007ffe7764817000d000400000007ffe7764817000101000101010101010101010101010101010101010101010101010101010101010101000400000007ffe776481700000000000000000000000000
+
+    Details: execution reverted: revert: XCM execute failed: message may be invalid or execution constraints not satisfied
+    Version: viem@2.31.6
+    Full error:  TransactionExecutionError: Execution reverted with reason: revert: XCM execute failed: message may be invalid or execution constraints not satisfied.
+    ```
+
+    After: 
+    ```log
+    Error:  Execution reverted with reason: revert: DispatchErrorWithPostInfo { post_info: PostDispatchInfo { actual_weight: Some(Weight { ref_time: 23149000, proof_size: 1485 }), pays_fee: Yes }, error: Module(ModuleError { index: 31, error: [28, 0, 37, 0], message: Some("LocalExecutionIncompleteWithError") }) }.
+
+    Request Arguments:
+    from:  0xf24FF3a9CF04c71Dbc94D0b566f7A27B94566cac
+    to:    0x00000000000000000000000000000000000a0000
+    data:  0xd3b7e04d00000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000fa00000000000000000000000000000000000000000000000000000000000000fa000000000000000000000000000000000000000000000000000000000000000530510000400000007ffe77648171300000007ffe7764817000d000400000007ffe7764817000101000101010101010101010101010101010101010101010101010101010101010101000400000007ffe776481700000000000000000000000000
+
+    Details: execution reverted: revert: DispatchErrorWithPostInfo { post_info: PostDispatchInfo { actual_weight: Some(Weight { ref_time: 23149000, proof_size: 1485 }), pays_fee: Yes }, error: Module(ModuleError { index: 31, error: [28, 0, 37, 0], message: Some("LocalExecutionIncompleteWithError") }) }
+    Version: viem@2.31.6
+    Full error:  TransactionExecutionError: Execution reverted with reason: revert: DispatchErrorWithPostInfo { post_info: PostDispatchInfo { actual_weight: Some(Weight { ref_time: 23149000, proof_size: 1485 }), pays_fee: Yes }, error: Module(ModuleError { index: 31, error: [28, 0, 37, 0], message: Some("LocalExecutionIncompleteWithError") }) }.
+
+    ```
+
+crates:
+- name: pallet-xcm
+  bump: major
