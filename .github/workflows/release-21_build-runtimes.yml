@@ -5,14 +5,20 @@ on:
     inputs:
       chain:
         description: The chain to use
-        default: westend-runtime
+        default: all
         required: true
         type: choice
         options:
-          - westend
           - all
+          - westend
+          - asset-hub-westend
+          - bridge-hub-westend
+          - collectives-westend
+          - coretime-westend
+          - glutton-westend
+          - people-westend
       runtime_dir:
-        description: The runtime_dir to be used
+        description: The runtime_dir to be used (this parameter is optional and needed only in case of the single runtime build, set it accordingly to the runtime you want to build)
         default: polkadot/runtime/westend
 
       release_tag:
