@@ -23,6 +23,7 @@ use crate::{
 	session_rotation::{Eras, Rotator},
 	ConfigOp, Pallet as Staking,
 };
+use alloc::collections::BTreeMap;
 use codec::Decode;
 pub use frame_benchmarking::{
 	impl_benchmark_test_suite, v2::*, whitelist_account, whitelisted_caller, BenchmarkError,
@@ -1023,7 +1024,7 @@ mod benchmarks {
 		// create at least one validator with a full page of exposure, as per `MaxExposurePageSize`.
 		let all_validators = crate::testing_utils::create_validators_with_nominators_for_era::<T>(
 			// we create more validators, but all of the nominators will back the first one
-			ValidatorCount::<T>::get(),
+			ValidatorCount::<T>::get().max(1),
 			// create two full exposure pages
 			2 * T::MaxExposurePageSize::get(),
 			16,
@@ -1182,6 +1183,85 @@ mod benchmarks {
 		}
 
 		ensure!(Rotator::<T>::active_era() == initial_active_era + 1, "active era not bumped");
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	// `v`: validators, e.g. 600 in Polkadot and 1000 in Kusama.
+	//
+	// this benchmark populates all storage items that get removed in `fn prune_era` manually,
+	// and attempts to then remove them.
+	fn prune_era(v: Linear<1, { T::MaxValidatorSet::get() }>) -> Result<(), BenchmarkError> {
+		let validators = v;
+		let era = 7;
+
+		// Note: the number we are looking for here is not `MaxElectableVoters`, as these are unique
+		// nominators. One unique nominator can be exposed behind multiple validators. The right
+		// value is as follows:
+		let max_total_nominators_per_validator =
+			<T::ElectionProvider as ElectionProvider>::MaxBackersPerWinnerFinal::get();
+		let exposed_nominators_per_validator = max_total_nominators_per_validator / validators;
+
+		// `ValidatorPrefs`
+		for i in 0..validators {
+			let validator = account::<T::AccountId>("validator", i, SEED);
+			ErasValidatorPrefs::<T>::insert(era, validator.clone(), ValidatorPrefs::default())
+		}
+
+		// `ClaimedRewards`
+		let pages: WeakBoundedVec<_, _> = (0..crate::ClaimedRewardsBound::<T>::get())
+			.collect::<Vec<_>>()
+			.try_into()
+			.unwrap();
+		for i in 0..validators {
+			let validator = account::<T::AccountId>("validator", i, SEED);
+			ClaimedRewards::<T>::insert(era, validator.clone(), pages.clone())
+		}
+
+		// `ErasStakersPaged` + `ErasStakersOverview`
+		(0..validators)
+			.map(|validator_index| account::<T::AccountId>("validator", validator_index, SEED))
+			.for_each(|validator| {
+				let exposure = sp_staking::Exposure::<T::AccountId, BalanceOf<T>> {
+					own: BalanceOf::<T>::max_value(),
+					total: BalanceOf::<T>::max_value(),
+					others: (0..exposed_nominators_per_validator)
+						.map(|n| {
+							let nominator = account::<T::AccountId>("nominator", n, SEED);
+							IndividualExposure {
+								who: nominator,
+								value: BalanceOf::<T>::max_value(),
+							}
+						})
+						.collect::<Vec<_>>(),
+				};
+				Eras::<T>::upsert_exposure(era, &validator, exposure);
+			});
+
+		// `ErasValidatorReward`
+		ErasValidatorReward::<T>::insert(era, BalanceOf::<T>::max_value());
+
+		// `ErasRewardPoints`
+		let reward_points = crate::EraRewardPoints::<T> {
+			total: 77777,
+			individual: (0..validators)
+				.map(|v| account::<T::AccountId>("validator", v, SEED))
+				.map(|v| (v, 7))
+				.collect::<BTreeMap<_, _>>()
+				.try_into()
+				.unwrap(),
+		};
+		ErasRewardPoints::<T>::insert(era, reward_points);
+
+		// `ErasTotalStake`
+		ErasTotalStake::<T>::insert(era, BalanceOf::<T>::max_value());
+
+		#[block]
+		{
+			Eras::<T>::prune_era(era);
+		}
+		Eras::<T>::era_absent(era)?;
+
 		Ok(())
 	}
 
