@@ -64,6 +64,9 @@ jobs:
           rustup show
           rustup +nightly show
 
+      - name: download forklift
+        run: ./download-forklift.sh -v master && forklift version
+
       - name: Build
         id: required
         run: FORKLIFT_general_logLevel=trace forklift cargo +nightly check -p pallet-revive-uapi --no-default-features --target riscv64imac-unknown-none-elf -Zbuild-std=core
