@@ -641,7 +641,6 @@ where
 						target: LOG_TARGET,
 						?tx_hash,
 						?validation_result,
-						?error,
 						"mempool::revalidate_inner error during revalidation"
 					);
 					Some(ValidatedTransaction::Invalid(
