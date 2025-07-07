@@ -27,6 +27,9 @@ on:
 jobs:
   check-synchronization:
     uses: paritytech-release/sync-workflows/.github/workflows/check-synchronization.yml@main
+    secrets:
+      fork_writer_app_key: ${{ secrets.UPSTREAM_CONTENT_SYNC_APP_KEY }}
+
   validate-inputs:
     needs: [ check-synchronization ]
     if: ${{ needs.check-synchronization.outputs.checks_passed }} == 'true'
