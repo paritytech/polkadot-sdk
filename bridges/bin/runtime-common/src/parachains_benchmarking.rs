@@ -28,7 +28,7 @@ use bp_runtime::{grow_storage_value, record_all_trie_keys, Chain, UnverifiedStor
 use codec::Encode;
 use frame_support::traits::Get;
 use sp_std::prelude::*;
-use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
+use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, RandomState, TrieMut};
 
 /// Prepare proof of messages for the `receive_messages_proof` call.
 ///
@@ -52,7 +52,7 @@ where
 	let mut parachain_heads = Vec::with_capacity(parachains.len());
 	let mut storage_keys = Vec::with_capacity(parachains.len());
 	let mut state_root = Default::default();
-	let mut mdb = MemoryDB::default();
+	let mut mdb = MemoryDB::<_, RandomState>::default();
 	{
 		let mut trie =
 			TrieDBMutBuilderV1::<RelayBlockHasher>::new(&mut mdb, &mut state_root).build();

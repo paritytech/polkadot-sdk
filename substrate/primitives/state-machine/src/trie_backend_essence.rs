@@ -27,7 +27,7 @@ use crate::{
 use alloc::sync::Arc;
 use alloc::{boxed::Box, vec::Vec};
 use codec::Codec;
-use core::marker::PhantomData;
+use core::{hash::BuildHasher, marker::PhantomData};
 use hash_db::{self, AsHashDB, HashDB, HashDBRef, Hasher, Prefix};
 #[cfg(feature = "std")]
 use parking_lot::RwLock;
@@ -795,9 +795,10 @@ impl<H: Hasher> TrieBackendStorage<H> for Arc<dyn Storage<H>> {
 	}
 }
 
-impl<H, KF> TrieBackendStorage<H> for sp_trie::GenericMemoryDB<H, KF>
+impl<H, KF, RS> TrieBackendStorage<H> for sp_trie::GenericMemoryDB<H, KF, RS>
 where
 	H: Hasher,
+	RS: BuildHasher + Send + Sync + Default,
 	KF: sp_trie::KeyFunction<H> + Send + Sync,
 {
 	fn get(&self, key: &H::Out, prefix: Prefix) -> Result<Option<DBValue>> {

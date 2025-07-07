@@ -26,7 +26,7 @@ use bp_runtime::{
 };
 use codec::Encode;
 use sp_std::{ops::RangeInclusive, prelude::*};
-use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
+use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, RandomState, TrieMut};
 
 /// Dummy message generation function.
 pub fn generate_dummy_message(_: MessageNonce) -> MessagePayload {
@@ -69,7 +69,7 @@ where
 	let message_count = message_nonces.end().saturating_sub(*message_nonces.start()) + 1;
 	let mut storage_keys = Vec::with_capacity(message_count as usize + 1);
 	let mut root = Default::default();
-	let mut mdb = MemoryDB::default();
+	let mut mdb = MemoryDB::<_, RandomState>::default();
 	{
 		let mut trie =
 			TrieDBMutBuilderV1::<HasherOf<BridgedChain>>::new(&mut mdb, &mut root).build();
@@ -152,7 +152,7 @@ where
 	let storage_key =
 		storage_keys::inbound_lane_data_key(ThisChain::WITH_CHAIN_MESSAGES_PALLET_NAME, &lane).0;
 	let mut root = Default::default();
-	let mut mdb = MemoryDB::default();
+	let mut mdb = MemoryDB::<_, RandomState>::default();
 	{
 		let mut trie =
 			TrieDBMutBuilderV1::<HasherOf<BridgedChain>>::new(&mut mdb, &mut root).build();

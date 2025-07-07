@@ -17,7 +17,9 @@
 //! The actual implementation of the validate block functionality.
 
 use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
-use crate::parachain_inherent::BasicParachainInherentData;
+use crate::{
+	parachain_inherent::BasicParachainInherentData, validate_block::build_seed_from_head_data,
+};
 use cumulus_primitives_core::{
 	relay_chain::Hash as RHash, ParachainBlockData, PersistedValidationData,
 };
@@ -141,6 +143,13 @@ where
 
 	let block_data = codec::decode_from_bytes::<ParachainBlockData<B>>(block_data)
 		.expect("Invalid parachain block data");
+
+	// Initialize hashmaps randomness.
+	sp_trie::add_extra_randomness(build_seed_from_head_data(
+		&block_data,
+		relay_parent_number,
+		relay_parent_storage_root,
+	));
 
 	let mut parent_header =
 		codec::decode_from_bytes::<B::Header>(parachain_head.clone()).expect("Invalid parent head");

@@ -27,6 +27,7 @@ pub mod cache;
 mod error;
 mod node_codec;
 mod node_header;
+mod hasher_random_state;
 #[cfg(feature = "std")]
 pub mod recorder;
 pub mod recorder_ext;
@@ -36,6 +37,14 @@ mod trie_stream;
 
 #[cfg(feature = "std")]
 pub mod proof_size_extension;
+
+#[cfg(feature = "std")]
+pub use std::hash::RandomState;
+
+#[cfg(not(feature = "std"))]
+pub use hasher_random_state::RandomState;
+
+pub use hasher_random_state::add_extra_randomness;
 
 use alloc::{borrow::Borrow, boxed::Box, vec, vec::Vec};
 use core::marker::PhantomData;
@@ -48,6 +57,7 @@ use hash_db::{Hasher, Prefix};
 pub use memory_db::{prefixed_key, HashKey, KeyFunction, PrefixedKey};
 /// The Substrate format implementation of `NodeCodec`.
 pub use node_codec::NodeCodec;
+
 pub use storage_proof::{CompactProof, StorageProof, StorageProofError};
 /// Trie codec reexport, mainly child trie support
 /// for trie compact proof.
@@ -192,13 +202,16 @@ pub type HashDB<'a, H> = dyn hash_db::HashDB<H, trie_db::DBValue> + 'a;
 /// Reexport from `hash_db`, with genericity set for `Hasher` trait.
 /// This uses a `KeyFunction` for prefixing keys internally (avoiding
 /// key conflict for non random keys).
-pub type PrefixedMemoryDB<H> = memory_db::MemoryDB<H, memory_db::PrefixedKey<H>, trie_db::DBValue>;
+pub type PrefixedMemoryDB<H, RS = RandomState> =
+	memory_db::MemoryDB<H, memory_db::PrefixedKey<H>, trie_db::DBValue, RS>;
 /// Reexport from `hash_db`, with genericity set for `Hasher` trait.
 /// This uses a noops `KeyFunction` (key addressing must be hashed or using
 /// an encoding scheme that avoid key conflict).
-pub type MemoryDB<H> = memory_db::MemoryDB<H, memory_db::HashKey<H>, trie_db::DBValue>;
+pub type MemoryDB<H, RS = RandomState> =
+	memory_db::MemoryDB<H, memory_db::HashKey<H>, trie_db::DBValue, RS>;
 /// Reexport from `hash_db`, with genericity set for `Hasher` trait.
-pub type GenericMemoryDB<H, KF> = memory_db::MemoryDB<H, KF, trie_db::DBValue>;
+pub type GenericMemoryDB<H, KF, RS = RandomState> =
+	memory_db::MemoryDB<H, KF, trie_db::DBValue, RS>;
 
 /// Persistent trie database read-access interface for a given hasher.
 pub type TrieDB<'a, 'cache, L> = trie_db::TrieDB<'a, 'cache, L>;
@@ -717,7 +730,7 @@ mod tests {
 
 	#[test]
 	fn default_trie_root() {
-		let mut db = MemoryDB::default();
+		let mut db = MemoryDB::<_, RandomState>::default();
 		let mut root = TrieHash::<LayoutV1>::default();
 		let mut empty = TrieDBMutBuilder::<LayoutV1>::new(&mut db, &mut root).build();
 		empty.commit();
@@ -864,7 +877,7 @@ mod tests {
 			.make_with(seed.as_fixed_bytes_mut());
 
 			let real = L::trie_root(x.clone());
-			let mut memdb = MemoryDB::default();
+			let mut memdb = MemoryDB::<_, RandomState>::default();
 			let mut root = Default::default();
 
 			let mut memtrie = populate_trie::<L>(&mut memdb, &mut root, &x);
@@ -964,7 +977,7 @@ mod tests {
 			),
 		];
 
-		let mut mdb = MemoryDB::default();
+		let mut mdb = MemoryDB::<_, RandomState>::default();
 		let mut root = Default::default();
 		let _ = populate_trie::<Layout>(&mut mdb, &mut root, &pairs);
 
@@ -987,7 +1000,7 @@ mod tests {
 			(array_bytes::hex2bytes_unchecked("0203"), array_bytes::hex2bytes_unchecked("0405")),
 		];
 
-		let mut memdb = MemoryDB::default();
+		let mut memdb = MemoryDB::<_, RandomState>::default();
 		let mut root = Default::default();
 		populate_trie::<LayoutV1>(&mut memdb, &mut root, &pairs);
 
@@ -1020,7 +1033,7 @@ mod tests {
 			(array_bytes::hex2bytes_unchecked("0203"), array_bytes::hex2bytes_unchecked("0405")),
 		];
 
-		let mut memdb = MemoryDB::default();
+		let mut memdb = MemoryDB::<_, RandomState>::default();
 		let mut root = Default::default();
 		populate_trie::<LayoutV1>(&mut memdb, &mut root, &pairs);
 

@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::*;
+use crate::{validate_block::build_seed_from_head_data, *};
 use codec::{Decode, DecodeAll, Encode};
 use cumulus_primitives_core::{ParachainBlockData, PersistedValidationData};
 use cumulus_test_client::{
@@ -31,7 +31,11 @@ use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use polkadot_parachain_primitives::primitives::ValidationResult;
 #[cfg(feature = "experimental-ump-signals")]
 use relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
+use sp_runtime::{
+	testing::{Block as TestBlock, Header as TestHeader, MockCallU64, TestXt},
+	traits::{Block as BlockT, Header as HeaderT},
+};
+use sp_trie::CompactProof;
 
 use std::{env, process::Command};
 
@@ -486,4 +490,31 @@ fn validate_block_handles_ump_signal() {
 				.encode()
 		]
 	);
+}
+
+type TestExtrinsic = TestXt<MockCallU64, ()>;
+
+#[test]
+fn test_build_seed_from_head_data() {
+	// Test with empty block data, relay storage root should be used in this case.
+	let mut block_data = ParachainBlockData::new(vec![], CompactProof { encoded_nodes: vec![] });
+	let relay_parent_number = 42;
+	let relay_parent_storage_root = Hash::repeat_byte(0xde);
+	let seed =
+		build_seed_from_head_data(&block_data, relay_parent_number, relay_parent_storage_root);
+	assert_eq!(seed, 16059518370053021406);
+
+	// Test with non-empty block data and check seed changes.
+	block_data = ParachainBlockData::new(
+		vec![TestBlock::new(
+			TestHeader::new_from_number(10),
+			vec![TestExtrinsic::new_bare(MockCallU64(10))],
+		)],
+		CompactProof { encoded_nodes: vec![] },
+	);
+
+	let seed =
+		build_seed_from_head_data(&block_data, relay_parent_number, relay_parent_storage_root);
+
+	assert_eq!(seed, 16306309943353352429);
 }
