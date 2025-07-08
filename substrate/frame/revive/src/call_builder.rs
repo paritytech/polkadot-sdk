@@ -94,7 +94,7 @@ where
 			// Whitelist the contract's contractInfo as it is already accounted for in the call
 			// benchmark
 			frame_benchmarking::benchmarking::add_to_whitelist(
-				AccountInfoOf::<T>::hashed_key_for(&T::AddressMapper::to_address(
+				crate::AccountInfoOf::<T>::hashed_key_for(&T::AddressMapper::to_address(
 					&contract.account_id,
 				))
 				.into(),
