@@ -122,7 +122,7 @@ pub async fn assert_finalized_para_throughput(
 	for (para_id, expected_candidate_range) in expected_candidate_ranges {
 		let actual = candidate_count
 			.get(&para_id)
-			.expect(&format!("ParaId: {para_id} did not have any backed candidates"));
+			.unwrap_or_else(|| panic!("ParaId: {para_id} did not have any backed candidates"));
 		assert!(
 			expected_candidate_range.contains(actual),
 			"Candidate count {actual} not within range {expected_candidate_range:?}"
