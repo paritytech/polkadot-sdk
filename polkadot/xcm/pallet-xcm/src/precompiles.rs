@@ -25,7 +25,7 @@ use pallet_revive::{
 	DispatchInfo, Origin,
 };
 use tracing::error;
-use xcm::{IdentifyVersion, MAX_XCM_DECODE_DEPTH, v3, v4};
+use xcm::{v3, v4, IdentifyVersion, MAX_XCM_DECODE_DEPTH};
 use xcm_executor::traits::WeightBounds;
 
 alloy::sol!("src/precompiles/IXcm.sol");
