@@ -13074,7 +13074,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-session"
-version = "28.0.0"
+version = "40.0.1"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -13148,7 +13148,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking"
-version = "28.0.0"
+version = "40.1.1"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
