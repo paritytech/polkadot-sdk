@@ -13565,7 +13565,7 @@ dependencies = [
  "jsonrpsee",
  "log",
  "parachain-template-runtime",
- "polkadot-sdk 2503.0.1",
+ "polkadot-sdk 2503.1.1",
  "serde",
  "substrate-prometheus-endpoint",
 ]
