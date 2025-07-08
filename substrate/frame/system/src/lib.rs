@@ -2003,8 +2003,7 @@ impl<T: Config> Pallet<T> {
 			<BlockHash<T>>::remove(to_remove);
 		}
 
-		let version = T::Version::get().state_version();
-		let storage_root = T::Hash::decode(&mut &sp_io::storage::root(version)[..])
+		let storage_root = T::Hash::decode(&mut &sp_io::storage_root()[..])
 			.expect("Node is configured to use the same hash; qed");
 
 		HeaderFor::<T>::new(number, extrinsics_root, storage_root, parent_hash, digest)
@@ -2308,7 +2307,7 @@ impl<T: Config> Pallet<T> {
 
 		if check_version {
 			let current_version = T::Version::get();
-			let Some(new_version) = sp_io::misc::runtime_version(code)
+			let Some(new_version) = sp_io::misc_runtime_version(code)
 				.and_then(|v| RuntimeVersion::decode(&mut &v[..]).ok())
 			else {
 				return CanSetCodeResult::InvalidVersion(Error::<T>::FailedToExtractRuntimeVersion)

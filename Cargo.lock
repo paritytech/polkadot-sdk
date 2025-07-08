@@ -13077,6 +13077,7 @@ dependencies = [
  "pallet-revive-uapi",
  "polkavm-linker 0.21.0",
  "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
  "sp-io 30.0.0",
  "toml 0.8.19",
 ]
