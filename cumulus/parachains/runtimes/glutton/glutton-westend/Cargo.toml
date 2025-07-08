@@ -54,8 +54,8 @@ xcm-executor.workspace = true
 xcm.workspace = true
 
 [build-dependencies]
-substrate-wasm-builder.default-features = true
 substrate-wasm-builder.workspace = true
+substrate-wasm-builder.default-features = true
 
 [features]
 default = ["std"]

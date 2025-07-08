@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-omni-node"
-version = "0.5.0"
+version = "0.6.0"
 authors.workspace = true
 edition.workspace = true
 build = "build.rs"
@@ -17,8 +17,8 @@ color-eyre = { workspace = true }
 polkadot-omni-node-lib.workspace = true
 
 [build-dependencies]
-substrate-build-script-utils.default-features = true
 substrate-build-script-utils.workspace = true
+substrate-build-script-utils.default-features = true
 
 [features]
 default = []

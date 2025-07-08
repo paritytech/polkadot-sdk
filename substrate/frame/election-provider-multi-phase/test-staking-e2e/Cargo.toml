@@ -21,38 +21,26 @@ log = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true, default-features = true }
 
-sp-core = { default-features = true, workspace = true }
-sp-io = { default-features = true, workspace = true }
-sp-npos-elections = { default-features = false, workspace = true }
-sp-runtime = { default-features = true, workspace = true }
-sp-staking = { default-features = true, workspace = true }
-sp-tracing = { default-features = true, workspace = true }
+sp-core = { default-features = true, path = "../../../primitives/core" }
+sp-io = { default-features = true, path = "../../../primitives/io" }
+sp-npos-elections = { default-features = false, path = "../../../primitives/npos-elections" }
+sp-runtime = { default-features = true, path = "../../../primitives/runtime" }
+sp-staking = { default-features = true, path = "../../../primitives/staking" }
+sp-tracing = { default-features = true, path = "../../../primitives/tracing" }
 
-frame-election-provider-support = { default-features = true, workspace = true }
-frame-support = { default-features = true, workspace = true }
-frame-system = { default-features = true, workspace = true }
+frame-election-provider-support = { default-features = true, path = "../../election-provider-support" }
+frame-support = { default-features = true, path = "../../support" }
+frame-system = { default-features = true, path = "../../system" }
 
-pallet-bags-list = { default-features = true, workspace = true }
-pallet-balances = { default-features = true, workspace = true }
-pallet-delegated-staking = { default-features = true, workspace = true }
-pallet-election-provider-multi-phase = { default-features = true, workspace = true }
-pallet-nomination-pools = { default-features = true, workspace = true }
-pallet-session = { default-features = true, workspace = true }
-pallet-staking = { default-features = true, workspace = true }
-pallet-timestamp = { default-features = true, workspace = true }
+pallet-bags-list = { default-features = true, path = "../../bags-list" }
+pallet-balances = { default-features = true, path = "../../balances" }
+pallet-delegated-staking = { default-features = true, path = "../../delegated-staking" }
+pallet-election-provider-multi-phase = { default-features = true, path = ".." }
+pallet-nomination-pools = { default-features = true, path = "../../nomination-pools" }
+pallet-session = { default-features = true, path = "../../session" }
+pallet-staking = { default-features = true, path = "../../staking" }
+pallet-timestamp = { default-features = true, path = "../../timestamp" }
 
 [features]
 try-runtime = [
-	"frame-election-provider-support/try-runtime",
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"pallet-bags-list/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-delegated-staking/try-runtime",
-	"pallet-election-provider-multi-phase/try-runtime",
-	"pallet-nomination-pools/try-runtime",
-	"pallet-session/try-runtime",
-	"pallet-staking/try-runtime",
-	"pallet-timestamp/try-runtime",
-	"sp-runtime/try-runtime",
 ]

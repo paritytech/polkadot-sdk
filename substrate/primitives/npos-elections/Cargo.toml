@@ -24,7 +24,7 @@ sp-core.workspace = true
 sp-runtime.workspace = true
 
 [dev-dependencies]
-substrate-test-utils = { workspace = true }
+substrate-test-utils = { path = "../../test-utils" }
 
 [features]
 default = ["std"]

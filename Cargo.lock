@@ -1182,7 +1182,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.30.2"
+version = "0.31.0"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -3291,7 +3291,7 @@ dependencies = [
 
 [[package]]
 name = "collectives-westend-runtime"
-version = "18.1.0"
+version = "19.0.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -4171,7 +4171,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-cli"
-version = "0.22.0"
+version = "0.23.0"
 dependencies = [
  "clap",
  "parity-scale-codec",
@@ -4187,7 +4187,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-collator"
-version = "0.22.0"
+version = "0.23.0"
 dependencies = [
  "async-trait",
  "cumulus-client-consensus-common",
@@ -4217,7 +4217,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-consensus-aura"
-version = "0.22.1"
+version = "0.23.0"
 dependencies = [
  "async-trait",
  "cumulus-client-collator",
@@ -4268,7 +4268,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-consensus-common"
-version = "0.22.0"
+version = "0.23.0"
 dependencies = [
  "async-trait",
  "cumulus-client-pov-recovery",
@@ -4315,7 +4315,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-consensus-relay-chain"
-version = "0.22.0"
+version = "0.23.0"
 dependencies = [
  "async-trait",
  "cumulus-client-consensus-common",
@@ -4337,7 +4337,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-network"
-version = "0.22.0"
+version = "0.23.0"
 dependencies = [
  "async-trait",
  "cumulus-primitives-core",
@@ -4370,7 +4370,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-parachain-inherent"
-version = "0.16.0"
+version = "0.17.0"
 dependencies = [
  "async-trait",
  "cumulus-primitives-core",
@@ -4389,7 +4389,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-pov-recovery"
-version = "0.22.0"
+version = "0.23.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -4421,7 +4421,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-service"
-version = "0.23.0"
+version = "0.24.0"
 dependencies = [
  "cumulus-client-cli",
  "cumulus-client-collator",
@@ -4763,7 +4763,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-relay-chain-inprocess-interface"
-version = "0.23.1"
+version = "0.24.0"
 dependencies = [
  "async-trait",
  "cumulus-primitives-core",
@@ -4790,7 +4790,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-relay-chain-interface"
-version = "0.22.0"
+version = "0.23.0"
 dependencies = [
  "async-trait",
  "cumulus-primitives-core",
@@ -4808,7 +4808,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-relay-chain-minimal-node"
-version = "0.23.2"
+version = "0.24.0"
 dependencies = [
  "array-bytes",
  "async-trait",
@@ -4841,7 +4841,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-relay-chain-rpc-interface"
-version = "0.22.0"
+version = "0.23.0"
 dependencies = [
  "async-trait",
  "cumulus-primitives-core",
@@ -5761,7 +5761,7 @@ dependencies = [
 
 [[package]]
 name = "emulated-integration-tests-common"
-version = "20.1.0"
+version = "21.0.0"
 dependencies = [
  "asset-test-utils",
  "bp-messages",
@@ -6435,7 +6435,7 @@ dependencies = [
 
 [[package]]
 name = "frame-benchmarking-cli"
-version = "47.2.0"
+version = "48.0.0"
 dependencies = [
  "Inflector",
  "array-bytes",
@@ -6676,7 +6676,7 @@ dependencies = [
 
 [[package]]
 name = "frame-omni-bencher"
-version = "0.11.1"
+version = "0.12.0"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -6694,7 +6694,7 @@ dependencies = [
 
 [[package]]
 name = "frame-remote-externalities"
-version = "0.50.0"
+version = "0.51.0"
 dependencies = [
  "futures",
  "indicatif",
@@ -6872,7 +6872,7 @@ dependencies = [
 
 [[package]]
 name = "frame-system"
-version = "40.1.0"
+version = "40.2.0"
 dependencies = [
  "cfg-if",
  "criterion",
@@ -6893,7 +6893,7 @@ dependencies = [
 
 [[package]]
 name = "frame-system-benchmarking"
-version = "40.0.0"
+version = "40.0.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -7379,7 +7379,7 @@ dependencies = [
 
 [[package]]
 name = "governance-westend-integration-tests"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "collectives-westend-runtime",
  "emulated-integration-tests-common",
@@ -8863,7 +8863,7 @@ dependencies = [
  "pallet-example-mbm",
  "pallet-example-tasks",
  "parity-scale-codec",
- "polkadot-sdk 2503.0.1",
+ "polkadot-sdk 2503.1.1",
  "primitive-types 0.13.1",
  "scale-info",
  "serde_json",
@@ -10096,7 +10096,7 @@ dependencies = [
  "futures-timer",
  "jsonrpsee",
  "minimal-template-runtime",
- "polkadot-sdk 2503.0.1",
+ "polkadot-sdk 2503.1.1",
 ]
 
 [[package]]
@@ -10105,7 +10105,7 @@ version = "0.1.0"
 dependencies = [
  "pallet-minimal-template",
  "parity-scale-codec",
- "polkadot-sdk 2503.0.1",
+ "polkadot-sdk 2503.1.1",
  "scale-info",
  "serde_json",
 ]
@@ -10158,7 +10158,7 @@ dependencies = [
 
 [[package]]
 name = "mmr-gadget"
-version = "44.0.0"
+version = "45.0.0"
 dependencies = [
  "futures",
  "log",
@@ -11400,7 +11400,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-balances"
-version = "41.1.0"
+version = "41.1.1"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -12366,7 +12366,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-migrations"
-version = "10.1.0"
+version = "10.1.1"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -12390,7 +12390,7 @@ name = "pallet-minimal-template"
 version = "0.1.0"
 dependencies = [
  "parity-scale-codec",
- "polkadot-sdk 2503.0.1",
+ "polkadot-sdk 2503.1.1",
  "scale-info",
 ]
 
@@ -12835,7 +12835,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive-eth-rpc"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -12872,7 +12872,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive-fixtures"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "anyhow",
  "cargo_metadata",
@@ -13178,7 +13178,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-state-trie-migration"
-version = "44.1.0"
+version = "45.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-remote-externalities",
@@ -13580,7 +13580,7 @@ dependencies = [
  "log",
  "pallet-parachain-template",
  "parity-scale-codec",
- "polkadot-sdk 2503.0.1",
+ "polkadot-sdk 2503.1.1",
  "scale-info",
  "serde_json",
  "smallvec",
@@ -14274,7 +14274,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "assert_cmd",
  "color-eyre",
@@ -14295,7 +14295,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-approval-distribution"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "assert_matches",
  "futures",
@@ -14323,7 +14323,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-availability-bitfield-distribution"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "assert_matches",
  "bitvec",
@@ -14348,7 +14348,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-availability-distribution"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "assert_matches",
  "fatality",
@@ -14378,7 +14378,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-availability-recovery"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -14419,7 +14419,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-cli"
-version = "23.0.0"
+version = "24.0.0"
 dependencies = [
  "clap",
  "frame-benchmarking-cli",
@@ -14444,7 +14444,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-collator-protocol"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "assert_matches",
  "bitvec",
@@ -14485,7 +14485,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-dispute-distribution"
-version = "22.1.0"
+version = "23.0.0"
 dependencies = [
  "assert_matches",
  "async-channel 1.9.0",
@@ -14529,7 +14529,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-gossip-support"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -14558,7 +14558,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-network-bridge"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "always-assert",
  "assert_matches",
@@ -14587,7 +14587,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-collation-generation"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "assert_matches",
  "futures",
@@ -14609,7 +14609,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-approval-voting"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -14651,7 +14651,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-approval-voting-parallel"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -14682,7 +14682,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-av-store"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "assert_matches",
  "bitvec",
@@ -14708,7 +14708,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-backing"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "assert_matches",
  "bitvec",
@@ -14736,7 +14736,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-bitfield-signing"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "futures",
  "polkadot-node-subsystem",
@@ -14752,7 +14752,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-candidate-validation"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -14780,7 +14780,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-chain-api"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "futures",
  "maplit",
@@ -14800,7 +14800,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-chain-selection"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "assert_matches",
  "futures",
@@ -14820,7 +14820,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-dispute-coordinator"
-version = "22.0.1"
+version = "23.0.0"
 dependencies = [
  "assert_matches",
  "fatality",
@@ -14847,7 +14847,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-parachains-inherent"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "async-trait",
  "futures",
@@ -14863,7 +14863,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-prospective-parachains"
-version = "21.0.0"
+version = "22.0.0"
 dependencies = [
  "assert_matches",
  "fatality",
@@ -14883,7 +14883,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-provisioner"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "bitvec",
  "fatality",
@@ -14903,7 +14903,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-pvf"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "always-assert",
  "array-bytes",
@@ -14945,7 +14945,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-pvf-checker"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "futures",
  "futures-timer",
@@ -15029,7 +15029,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-core-runtime-api"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "async-trait",
  "futures",
@@ -15050,7 +15050,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-metrics"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "bs58",
  "futures",
@@ -15073,7 +15073,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-network-protocol"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "async-channel 1.9.0",
  "async-trait",
@@ -15121,7 +15121,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-subsystem"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "polkadot-node-subsystem-types",
  "polkadot-overseer",
@@ -15150,7 +15150,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-subsystem-types"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "async-trait",
  "derive_more 0.99.17",
@@ -15177,7 +15177,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-subsystem-util"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "assert_matches",
  "fatality",
@@ -15213,7 +15213,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-omni-node"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "color-eyre",
  "polkadot-omni-node-lib",
@@ -15222,7 +15222,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-omni-node-lib"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "assert_cmd",
  "async-trait",
@@ -15307,7 +15307,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-overseer"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -15419,7 +15419,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-rpc"
-version = "23.0.0"
+version = "24.0.0"
 dependencies = [
  "jsonrpsee",
  "mmr-rpc",
@@ -15451,7 +15451,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-runtime-common"
-version = "19.1.0"
+version = "19.1.1"
 dependencies = [
  "bitvec",
  "frame-benchmarking",
@@ -15582,7 +15582,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-sdk"
-version = "2503.0.1"
+version = "2503.1.1"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -16003,7 +16003,7 @@ dependencies = [
  "parachain-template-runtime",
  "parity-scale-codec",
  "polkadot-omni-node-lib",
- "polkadot-sdk 2503.0.1",
+ "polkadot-sdk 2503.1.1",
  "polkadot-sdk-docs-first-pallet",
  "polkadot-sdk-docs-first-runtime",
  "polkadot-sdk-frame",
@@ -16118,7 +16118,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-service"
-version = "23.1.0"
+version = "24.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -16234,7 +16234,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-statement-distribution"
-version = "22.0.1"
+version = "23.0.0"
 dependencies = [
  "arrayvec 0.7.4",
  "assert_matches",
@@ -16495,7 +16495,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-voter-bags"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "clap",
  "generate-bags",
@@ -18056,7 +18056,7 @@ dependencies = [
 
 [[package]]
 name = "rococo-runtime"
-version = "22.1.0"
+version = "23.0.0"
 dependencies = [
  "binary-merkle-tree",
  "bitvec",
@@ -18686,7 +18686,7 @@ dependencies = [
 
 [[package]]
 name = "sc-authority-discovery"
-version = "0.49.0"
+version = "0.50.0"
 dependencies = [
  "async-trait",
  "futures",
@@ -18756,7 +18756,7 @@ dependencies = [
 
 [[package]]
 name = "sc-chain-spec"
-version = "42.0.0"
+version = "43.0.0"
 dependencies = [
  "array-bytes",
  "clap",
@@ -18797,7 +18797,7 @@ dependencies = [
 
 [[package]]
 name = "sc-cli"
-version = "0.51.1"
+version = "0.52.0"
 dependencies = [
  "array-bytes",
  "chrono",
@@ -18899,7 +18899,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus"
-version = "0.48.0"
+version = "0.49.0"
 dependencies = [
  "async-trait",
  "futures",
@@ -18922,7 +18922,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-aura"
-version = "0.49.0"
+version = "0.50.0"
 dependencies = [
  "async-trait",
  "futures",
@@ -18960,7 +18960,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-babe"
-version = "0.49.0"
+version = "0.50.0"
 dependencies = [
  "async-trait",
  "fork-tree",
@@ -19002,7 +19002,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-babe-rpc"
-version = "0.49.0"
+version = "0.50.0"
 dependencies = [
  "futures",
  "jsonrpsee",
@@ -19028,7 +19028,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-beefy"
-version = "28.0.0"
+version = "29.0.0"
 dependencies = [
  "array-bytes",
  "async-channel 1.9.0",
@@ -19067,7 +19067,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-beefy-rpc"
-version = "28.0.0"
+version = "29.0.0"
 dependencies = [
  "futures",
  "jsonrpsee",
@@ -19088,7 +19088,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-epochs"
-version = "0.48.0"
+version = "0.49.0"
 dependencies = [
  "fork-tree",
  "parity-scale-codec",
@@ -19100,7 +19100,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-grandpa"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "ahash 0.8.11",
  "array-bytes",
@@ -19149,7 +19149,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-grandpa-rpc"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "finality-grandpa",
  "futures",
@@ -19173,7 +19173,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-manual-seal"
-version = "0.50.0"
+version = "0.51.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -19211,7 +19211,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-pow"
-version = "0.48.0"
+version = "0.49.0"
 dependencies = [
  "async-trait",
  "futures",
@@ -19235,7 +19235,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-slots"
-version = "0.48.0"
+version = "0.49.0"
 dependencies = [
  "async-trait",
  "futures",
@@ -19409,7 +19409,7 @@ dependencies = [
 
 [[package]]
 name = "sc-informant"
-version = "0.48.0"
+version = "0.49.0"
 dependencies = [
  "console",
  "futures",
@@ -19438,7 +19438,7 @@ dependencies = [
 
 [[package]]
 name = "sc-mixnet"
-version = "0.19.0"
+version = "0.20.0"
 dependencies = [
  "array-bytes",
  "arrayvec 0.7.4",
@@ -19465,7 +19465,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network"
-version = "0.49.2"
+version = "0.50.0"
 dependencies = [
  "array-bytes",
  "assert_matches",
@@ -19534,7 +19534,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network-gossip"
-version = "0.49.0"
+version = "0.50.0"
 dependencies = [
  "ahash 0.8.11",
  "async-trait",
@@ -19557,7 +19557,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network-light"
-version = "0.48.0"
+version = "0.49.0"
 dependencies = [
  "array-bytes",
  "async-channel 1.9.0",
@@ -19577,7 +19577,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network-statement"
-version = "0.31.0"
+version = "0.32.0"
 dependencies = [
  "array-bytes",
  "async-channel 1.9.0",
@@ -19596,7 +19596,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network-sync"
-version = "0.48.0"
+version = "0.49.0"
 dependencies = [
  "array-bytes",
  "async-channel 1.9.0",
@@ -19667,7 +19667,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network-transactions"
-version = "0.48.0"
+version = "0.49.0"
 dependencies = [
  "array-bytes",
  "futures",
@@ -19685,7 +19685,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network-types"
-version = "0.15.4"
+version = "0.16.0"
 dependencies = [
  "bs58",
  "bytes",
@@ -19704,7 +19704,7 @@ dependencies = [
 
 [[package]]
 name = "sc-offchain"
-version = "44.0.1"
+version = "45.0.0"
 dependencies = [
  "async-trait",
  "bytes",
@@ -19753,7 +19753,7 @@ dependencies = [
 
 [[package]]
 name = "sc-rpc"
-version = "44.0.0"
+version = "45.0.0"
 dependencies = [
  "assert_matches",
  "futures",
@@ -19791,7 +19791,7 @@ dependencies = [
 
 [[package]]
 name = "sc-rpc-api"
-version = "0.48.0"
+version = "0.49.0"
 dependencies = [
  "jsonrpsee",
  "parity-scale-codec",
@@ -19810,7 +19810,7 @@ dependencies = [
 
 [[package]]
 name = "sc-rpc-server"
-version = "21.0.0"
+version = "22.0.0"
 dependencies = [
  "dyn-clone",
  "forwarded-header-value",
@@ -19833,7 +19833,7 @@ dependencies = [
 
 [[package]]
 name = "sc-rpc-spec-v2"
-version = "0.49.1"
+version = "0.50.0"
 dependencies = [
  "array-bytes",
  "assert_matches",
@@ -19909,7 +19909,7 @@ dependencies = [
 
 [[package]]
 name = "sc-service"
-version = "0.50.0"
+version = "0.51.0"
 dependencies = [
  "async-trait",
  "directories",
@@ -20051,7 +20051,7 @@ dependencies = [
 
 [[package]]
 name = "sc-sync-state-rpc"
-version = "0.49.0"
+version = "0.50.0"
 dependencies = [
  "jsonrpsee",
  "parity-scale-codec",
@@ -21726,7 +21726,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-system-frontend"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -21750,7 +21750,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-system-v2"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -23881,7 +23881,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "staging-chain-spec-builder"
-version = "10.0.0"
+version = "11.0.0"
 dependencies = [
  "clap",
  "cmd_lib",
@@ -23911,7 +23911,7 @@ dependencies = [
  "node-rpc",
  "node-testing",
  "parity-scale-codec",
- "polkadot-sdk 2503.0.1",
+ "polkadot-sdk 2503.1.1",
  "pretty_assertions",
  "rand 0.8.5",
  "regex",
@@ -23932,7 +23932,7 @@ dependencies = [
 
 [[package]]
 name = "staging-node-inspect"
-version = "0.27.0"
+version = "0.28.0"
 dependencies = [
  "clap",
  "parity-scale-codec",
@@ -24144,7 +24144,7 @@ dependencies = [
 
 [[package]]
 name = "subkey"
-version = "24.0.0"
+version = "25.0.0"
 dependencies = [
  "clap",
  "sc-cli",
@@ -24240,7 +24240,7 @@ dependencies = [
 
 [[package]]
 name = "substrate-frame-rpc-support"
-version = "44.0.0"
+version = "45.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -24257,7 +24257,7 @@ dependencies = [
 
 [[package]]
 name = "substrate-frame-rpc-system"
-version = "43.0.0"
+version = "44.0.0"
 dependencies = [
  "assert_matches",
  "docify",
@@ -24336,7 +24336,7 @@ dependencies = [
 
 [[package]]
 name = "substrate-rpc-client"
-version = "0.48.0"
+version = "0.49.0"
 dependencies = [
  "async-trait",
  "jsonrpsee",
@@ -24366,7 +24366,7 @@ dependencies = [
 
 [[package]]
 name = "substrate-state-trie-migration-rpc"
-version = "42.0.0"
+version = "43.0.0"
 dependencies = [
  "jsonrpsee",
  "parity-scale-codec",
@@ -27097,7 +27097,7 @@ dependencies = [
 
 [[package]]
 name = "westend-runtime"
-version = "22.3.0"
+version = "23.0.0"
 dependencies = [
  "approx",
  "binary-merkle-tree",
