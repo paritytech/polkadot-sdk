@@ -18,9 +18,7 @@
 //! Implementations of public traits, namely [`DelegationInterface`] and [`OnStakingUpdate`].
 
 use super::*;
-#[cfg(any(feature = "runtime-benchmarks", test))]
-use sp_staking::DelegationMigrator;
-use sp_staking::{DelegationInterface, OnStakingUpdate};
+use sp_staking::{DelegationInterface, DelegationMigrator, OnStakingUpdate};
 
 impl<T: Config> DelegationInterface for Pallet<T> {
 	type Balance = BalanceOf<T>;
@@ -101,7 +99,6 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 	}
 }
 
-#[cfg(any(feature = "runtime-benchmarks", test))]
 impl<T: Config> DelegationMigrator for Pallet<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
@@ -125,6 +122,7 @@ impl<T: Config> DelegationMigrator for Pallet<T> {
 	}
 
 	/// Only used for testing.
+	#[cfg(feature = "runtime-benchmarks")]
 	fn force_kill_agent(agent: Agent<Self::AccountId>) {
 		<Agents<T>>::remove(agent.clone().get());
 		<Delegators<T>>::iter()

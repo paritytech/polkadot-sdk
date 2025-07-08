@@ -30,7 +30,7 @@ sp-staking = { workspace = true }
 
 # Optional: use for testing and/or fuzzing
 pallet-balances = { optional = true, workspace = true }
-pallet-staking-async = { workspace = true, features = ["testing-utils"] }
+pallet-staking-async = { workspace = true }
 sp-tracing = { optional = true, workspace = true }
 
 [dev-dependencies]
