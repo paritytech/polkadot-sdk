@@ -13239,7 +13239,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-runtime-api"
-version = "14.0.0"
+version = "26.0.0"
 dependencies = [
  "parity-scale-codec",
  "sp-api 36.0.1",
