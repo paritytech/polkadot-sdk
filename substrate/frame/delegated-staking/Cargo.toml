@@ -78,4 +78,5 @@ try-runtime = [
 ]
 testing-utils = [
 	"pallet-staking-async/testing-utils",
+	"runtime-benchmarks",
 ]
