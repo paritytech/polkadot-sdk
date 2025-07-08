@@ -68,36 +68,3 @@ pub struct MemoryOptimizedValidationParams {
 	pub relay_parent_number: cumulus_primitives_core::relay_chain::BlockNumber,
 	pub relay_parent_storage_root: cumulus_primitives_core::relay_chain::Hash,
 }
-#[cfg(any(test, not(feature = "std")))]
-#[doc(hidden)]
-use crate::{BlockT, RelayChainBlockNumber};
-#[cfg(any(test, not(feature = "std")))]
-#[doc(hidden)]
-use cumulus_primitives_core::ParachainBlockData;
-/// Build a seed from the head data of the parachain block, use both the relay parent storage root
-/// and the hash of the blocks in the block data, to make sure the seed changes every block and that
-/// the user cannot find about it ahead of time.
-#[cfg(any(test, not(feature = "std")))]
-#[doc(hidden)]
-fn build_seed_from_head_data<B: BlockT>(
-	block_data: &ParachainBlockData<B>,
-	relay_parent_number: RelayChainBlockNumber,
-	relay_parent_storage_root: crate::relay_chain::Hash,
-) -> usize {
-	let relay_parent_seed: usize = relay_parent_storage_root.as_fixed_bytes()[..size_of::<usize>()]
-		.try_into()
-		.map(|bytes| usize::from_be_bytes(bytes))
-		.unwrap_or(relay_parent_number as usize);
-	let hash_seed: usize = block_data
-		.blocks()
-		.iter()
-		.filter_map(|block| {
-			block.hash().as_ref()[..size_of::<usize>()]
-				.try_into()
-				.map(|bytes| usize::from_be_bytes(bytes))
-				.ok()
-		})
-		.fold(relay_parent_seed, |acc, hash| acc ^ hash);
-
-	hash_seed
-}

@@ -17,9 +17,7 @@
 //! The actual implementation of the validate block functionality.
 
 use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
-use crate::{
-	parachain_inherent::BasicParachainInherentData, validate_block::build_seed_from_head_data,
-};
+use crate::parachain_inherent::BasicParachainInherentData;
 use cumulus_primitives_core::{
 	relay_chain::Hash as RHash, ParachainBlockData, PersistedValidationData,
 };
@@ -38,10 +36,11 @@ use frame_support::{
 };
 use sp_core::storage::{ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
-use sp_io::KillStorageResult;
+use sp_io::{hashing::blake2_128, KillStorageResult};
 use sp_runtime::traits::{
 	Block as BlockT, ExtrinsicCall, ExtrinsicLike, HashingFor, Header as HeaderT,
 };
+
 use sp_state_machine::OverlayedChanges;
 use sp_trie::ProofSizeProvider;
 use trie_recorder::SizeOnlyRecorderProvider;
@@ -147,7 +146,6 @@ where
 	// Initialize hashmaps randomness.
 	sp_trie::add_extra_randomness(build_seed_from_head_data(
 		&block_data,
-		relay_parent_number,
 		relay_parent_storage_root,
 	));
 
@@ -400,6 +398,29 @@ fn validate_validation_data(
 		relay_parent_storage_root, validation_data.relay_parent_storage_root,
 		"Relay parent storage root doesn't match",
 	);
+}
+
+// Build a seed from the head data of the parachain block, use both the relay parent storage root
+// and the hash of the blocks in the block data, to make sure the seed changes every block and that
+// the user cannot find about it ahead of time.
+fn build_seed_from_head_data<B: BlockT>(
+	block_data: &ParachainBlockData<B>,
+	relay_parent_storage_root: crate::relay_chain::Hash,
+) -> usize {
+	let mut bytes_to_hash = Vec::with_capacity(
+		block_data.blocks().len() * size_of::<B::Hash>() + size_of::<crate::relay_chain::Hash>(),
+	);
+
+	bytes_to_hash.extend_from_slice(relay_parent_storage_root.as_ref());
+	block_data.blocks().iter().for_each(|block| {
+		bytes_to_hash.extend_from_slice(block.header().hash().as_ref());
+	});
+
+	let hash_seed =
+		usize::from_be_bytes(blake2_128(&bytes_to_hash)[..size_of::<usize>()].try_into().expect(
+			"Hash output is 16 bytes; we are taking the first bytes to fit into usize; qed",
+		));
+	hash_seed
 }
 
 /// Run the given closure with the externalities and recorder set.
