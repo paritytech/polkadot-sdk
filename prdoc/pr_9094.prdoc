@@ -9,4 +9,4 @@ crates:
 - name: polkadot-availability-bitfield-distribution
   bump: patch
 - name: polkadot-node-network-protocol
-  bump: patch
+  bump: minor
