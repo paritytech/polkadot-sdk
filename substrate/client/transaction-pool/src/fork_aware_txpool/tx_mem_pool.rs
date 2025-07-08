@@ -748,7 +748,7 @@ where
 			});
 		};
 
-		let invalid_hashes_len = invalid_hashes_subtrees.len();
+		let invalid_hashes_subtrees_len = invalid_hashes_subtrees.len();
 
 		//note: here the consistency is assumed: it is expected that transaction will be
 		// actually removed from the listener with Invalid event. This means assumption that no view
@@ -766,7 +766,7 @@ where
 			target: LOG_TARGET,
 			?finalized_block,
 			revalidated_invalid_hashes_len,
-			invalid_hashes_len,
+			invalid_hashes_subtrees_len,
 			"mempool::revalidate"
 		);
 	}
