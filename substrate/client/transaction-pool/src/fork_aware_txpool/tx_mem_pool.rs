@@ -722,13 +722,13 @@ where
 		view_store: Arc<ViewStore<ChainApi, Block>>,
 		finalized_block: HashAndNumber<Block>,
 	) {
-		let RevalidationResult { invalid_hashes, .. } =
+		let RevalidationResult { invalid_hashes: revalidated_invalid_hashes, .. } =
 			self.revalidate_inner(finalized_block.clone()).await;
 
 		let mut invalid_hashes_subtrees =
-			invalid_hashes.clone().into_iter().collect::<HashSet<_>>();
-
-		for tx in invalid_hashes {
+			revalidated_invalid_hashes.clone().into_iter().collect::<HashSet<_>>();
+		let revalidated_invalid_hashes_len = revalidated_invalid_hashes.len();
+		for tx in revalidated_invalid_hashes {
 			let txs_in_subtree = view_store
 				.remove_transaction_subtree(tx, |_, _| {})
 				.into_iter()
@@ -748,7 +748,6 @@ where
 			});
 		};
 
-		// Report invalid transactions.
 		let invalid_hashes_len = invalid_hashes_subtrees.len();
 
 		//note: here the consistency is assumed: it is expected that transaction will be
@@ -766,6 +765,7 @@ where
 		trace!(
 			target: LOG_TARGET,
 			?finalized_block,
+			revalidated_invalid_hashes_len,
 			invalid_hashes_len,
 			"mempool::revalidate"
 		);

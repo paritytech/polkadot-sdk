@@ -628,20 +628,16 @@ where
 		if let Some(revalidation_result) = revalidation_result_rx.recv().await {
 			let start = Instant::now();
 			let revalidated_len = revalidation_result.revalidated.len();
-			let invalid_hashes =
-				revalidation_result.invalid_hashes.iter().map(|h| *h).collect::<Vec<_>>();
-
-			// Remove all invalid txs.
 			let validated_pool = self.pool.validated_pool();
-			validated_pool.remove_invalid(invalid_hashes.as_slice());
-
+			validated_pool.remove_invalid(&revalidation_result.invalid_hashes);
 			if revalidated_len > 0 {
 				self.pool.resubmit(revalidation_result.revalidated);
 			}
 
 			self.metrics.report(|metrics| {
 				let _ = (
-					invalid_hashes
+					revalidation_result
+						.invalid_hashes
 						.len()
 						.try_into()
 						.map(|v| metrics.view_revalidation_invalid_txs.inc_by(v)),
@@ -653,7 +649,7 @@ where
 
 			debug!(
 				target: LOG_TARGET,
-				invalid = invalid_hashes.len(),
+				invalid = revalidation_result.invalid_hashes.len(),
 				revalidated = revalidated_len,
 				at_hash = ?self.at.hash,
 				duration = ?start.elapsed(),
