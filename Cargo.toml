@@ -1431,7 +1431,7 @@ tracing-futures = { version = "0.2.4" }
 tracing-log = { version = "0.2.0" }
 tracing-subscriber = { version = "0.3.18" }
 tracking-allocator = { path = "polkadot/node/tracking-allocator", default-features = false, package = "staging-tracking-allocator" }
-trie-bench = { git = "https://github.com/paritytech/trie.git", branch = "alexggh/allow_usage_of_custom_hasher"}
+trie-bench = { git = "https://github.com/paritytech/trie.git", branch = "alexggh/allow_usage_of_custom_hasher" }
 trie-db = { git = "https://github.com/paritytech/trie.git", branch = "alexggh/allow_usage_of_custom_hasher", default-features = false }
 trie-root = { git = "https://github.com/paritytech/trie.git", branch = "alexggh/allow_usage_of_custom_hasher", default-features = false }
 trie-standardmap = { version = "0.16.0" }
