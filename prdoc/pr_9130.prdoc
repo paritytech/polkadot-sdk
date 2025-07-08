@@ -1,0 +1,9 @@
+title: Modified ToParachainDeliveryHelper utilize `WithdrawAsset` based worst-case fee estimation instead of `ClearOrigin`
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR contains modified `ToParachainDeliveryHelper` to utilize `WithdrawAsset` based worst-case fee estimation instead of `ClearOrigin`.
+
+crates:
+- name: polkadot-runtime-common
+  bump: patch
