@@ -18,9 +18,7 @@
 
 //! Prometheus's metrics for a fork-aware transaction pool.
 
-use super::{
-	transaction_validation_util::InvalidTransactionCustomCode, tx_mem_pool::InsertionInfo,
-};
+use super::tx_mem_pool::InsertionInfo;
 use crate::{
 	common::metrics::{GenericMetricsLink, MetricsRegistrant},
 	graph::{self, BlockHash, ExtrinsicHash},
@@ -33,11 +31,10 @@ use prometheus_endpoint::{
 };
 #[cfg(doc)]
 use sc_transaction_pool_api::TransactionPool;
-use sc_transaction_pool_api::{error::IntoPoolError, TransactionStatus};
+use sc_transaction_pool_api::TransactionStatus;
 use sc_utils::mpsc;
 use std::{
 	collections::{hash_map::Entry, HashMap},
-	convert::AsRef,
 	future::Future,
 	pin::Pin,
 	time::{Duration, Instant},
@@ -247,23 +244,9 @@ impl MempoolInvalidTxReasonCounter {
 		})
 	}
 
-	/// Increments the mempool invalid txs metric accordingly based on the error, counting invalid
-	/// txs separately per invalid tx type.
-	pub fn observe_error(&self, err: impl IntoPoolError) -> Result<(), impl IntoPoolError> {
-		err.into_pool_error().map(|err| {
-			let category = err.as_ref();
-			let ty = match err {
-				sc_transaction_pool_api::error::Error::InvalidTransaction(i) => match i {
-					sp_runtime::transaction_validity::InvalidTransaction::Custom(code) =>
-						InvalidTransactionCustomCode::from(code).as_ref().to_string(),
-					_ => i.as_ref().to_string(),
-				},
-				sc_transaction_pool_api::error::Error::UnknownTransaction(u) =>
-					u.as_ref().to_string(),
-				_ => "-".to_string(),
-			};
-			self.inner.with_label_values(&[category, ty.as_str()]).inc()
-		})
+	// Increments the mempool invalid txs metrics based on a custom category & type.
+	pub fn observe(&self, category: &str, ty: &str, count: u64) {
+		self.inner.with_label_values(&[category, ty]).inc_by(count)
 	}
 }
 

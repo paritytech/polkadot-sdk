@@ -24,8 +24,7 @@
 //! Refer to [*View*](../index.html#view) section for more details.
 
 use super::{
-	metrics::MetricsLink as PrometheusMetrics,
-	transaction_validation_util::{InvalidTransactionCustomCode, RevalidationResult},
+	metrics::MetricsLink as PrometheusMetrics, transaction_validation_util::RevalidationResult,
 };
 use crate::{
 	common::tracing_log_xt::log_xt_trace,
@@ -431,9 +430,8 @@ where
 		//out of the view...
 		//todo: revalidate future, remove if invalid [#5496]
 
-		let mut invalid_txs = Vec::new();
+		let mut invalid_hashes = Vec::new();
 		let mut revalidated = IndexMap::new();
-
 		let mut validation_results = vec![];
 		let mut batch_iter = batch.into_iter();
 		loop {
@@ -450,8 +448,10 @@ where
 				_ = async {
 					if let Some(tx) = batch_iter.next() {
 						let validation_result = (
-							api.validate_transaction(self.at.hash,
-								tx.source.clone().into(), tx.data.clone(),
+							api.validate_transaction(
+								self.at.hash,
+								tx.source.clone().into(),
+								tx.data.clone(),
 								ValidateTransactionPriority::Maintained).await,
 							tx.hash,
 							tx
@@ -489,19 +489,14 @@ where
 		);
 		for (validation_result, tx_hash, tx) in validation_results {
 			match validation_result {
-				Ok(Err(TransactionValidityError::Invalid(error))) => {
+				Ok(Err(TransactionValidityError::Invalid(_))) => {
 					trace!(
 						target: LOG_TARGET,
 						?tx_hash,
-						?error,
+						?validation_result,
 						"Removing. Transaction is invalid"
 					);
-					invalid_txs.push(ValidatedTransaction::Invalid(
-						tx_hash,
-						ChainApi::Error::from(
-							sc_transaction_pool_api::error::Error::InvalidTransaction(error),
-						),
-					));
+					invalid_hashes.push(tx_hash);
 				},
 				Ok(Ok(validity)) => {
 					revalidated.insert(
@@ -516,42 +511,23 @@ where
 						),
 					);
 				},
-				Ok(Err(TransactionValidityError::Unknown(error))) => {
+				Ok(Err(TransactionValidityError::Unknown(_))) => {
 					trace!(
 						target: LOG_TARGET,
 						?tx_hash,
-						?error,
+						?validation_result,
 						"Removing. Cannot determine transaction validity"
 					);
-					invalid_txs.push(ValidatedTransaction::Unknown(
-						tx_hash,
-						ChainApi::Error::from(
-							sc_transaction_pool_api::error::Error::UnknownTransaction(error),
-						),
-					));
+					invalid_hashes.push(tx_hash);
 				},
-				Err(error) => {
+				Err(_) => {
 					trace!(
 						target: LOG_TARGET,
 						?tx_hash,
-						%error,
+						?validation_result,
 						"Removing due to error during revalidation"
 					);
-					// TODO: ideally the erroring should be refactored so that we can get
-					// a `ChainApi::Error`. In this case `validate_transaction` returns a
-					// non-pool error (e.g. `common::error::Error::RuntimeApi(String)`), which we
-					// interpret as a custom invalid transaction.
-					invalid_txs.push(ValidatedTransaction::Invalid(
-						tx_hash,
-						ChainApi::Error::from(
-							sc_transaction_pool_api::error::Error::InvalidTransaction(
-								sp_runtime::transaction_validity::InvalidTransaction::Custom(
-									InvalidTransactionCustomCode::RuntimeApiPrerequisitesFailure
-										as u8,
-								),
-							),
-						),
-					));
+					invalid_hashes.push(tx_hash);
 				},
 			}
 		}
@@ -562,7 +538,7 @@ where
 			"view::revalidate: sending revalidation result"
 		);
 		if let Err(error) = revalidation_result_tx
-			.send(RevalidationResult { invalid_txs, revalidated })
+			.send(RevalidationResult { invalid_hashes, revalidated })
 			.await
 		{
 			trace!(
@@ -652,25 +628,20 @@ where
 		if let Some(revalidation_result) = revalidation_result_rx.recv().await {
 			let start = Instant::now();
 			let revalidated_len = revalidation_result.revalidated.len();
-			let invalid_txs = revalidation_result
-				.invalid_txs
-				.iter()
-				.filter_map(|validated_tx| match validated_tx {
-					ValidatedTransaction::Invalid(hash, _) => Some(*hash),
-					ValidatedTransaction::Unknown(hash, _) => Some(*hash),
-					ValidatedTransaction::Valid(_) => None,
-				})
-				.collect::<Vec<_>>();
+			let invalid_hashes =
+				revalidation_result.invalid_hashes.iter().map(|h| *h).collect::<Vec<_>>();
+
+			// Remove all invalid txs.
 			let validated_pool = self.pool.validated_pool();
-			validated_pool.remove_invalid(invalid_txs.as_slice());
+			validated_pool.remove_invalid(invalid_hashes.as_slice());
+
 			if revalidated_len > 0 {
 				self.pool.resubmit(revalidation_result.revalidated);
 			}
 
 			self.metrics.report(|metrics| {
 				let _ = (
-					revalidation_result
-						.invalid_txs
+					invalid_hashes
 						.len()
 						.try_into()
 						.map(|v| metrics.view_revalidation_invalid_txs.inc_by(v)),
@@ -682,7 +653,7 @@ where
 
 			debug!(
 				target: LOG_TARGET,
-				invalid = revalidation_result.invalid_txs.len(),
+				invalid = invalid_hashes.len(),
 				revalidated = revalidated_len,
 				at_hash = ?self.at.hash,
 				duration = ?start.elapsed(),
