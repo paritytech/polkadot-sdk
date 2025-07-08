@@ -7,7 +7,7 @@ import { getApis, GlobalTimeout, logger, nullifySigned } from "../src/utils";
 test(
 	`unsigned solution on ${Presets.FakeDev}`,
 	async () => {
-		const killHandle = await runPresetUntilLaunched(Presets.FakeDev);
+		const killZn = await runPresetUntilLaunched(Presets.FakeDev);
 		const apis = await getApis();
 
 		const steps = [
@@ -16,7 +16,6 @@ test(
 			// by block 10 we will plan a new era
 			Observe.on(Chain.Parachain, "Staking", "SessionRotated")
 				.withDataCheck((x: any) => x.active_era == 0 && x.planned_era == 1)
-				.byBlock(30)
 				.onPass(() => {
 					nullifySigned(apis.paraApi).then((ok) => {
 						logger.verbose("Nullified signed phase:", ok);
@@ -58,8 +57,7 @@ test(
 			steps.map((s) => s.build()),
 			true,
 			() => {
-				// test runner will run these upon completion.
-				killHandle();
+				killZn();
 			}
 		);
 

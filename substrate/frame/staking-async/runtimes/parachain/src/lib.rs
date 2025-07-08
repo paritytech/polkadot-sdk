@@ -1165,12 +1165,6 @@ construct_runtime!(
 
 		StateTrieMigration: pallet_state_trie_migration = 70,
 
-		// Election apparatus.
-		MultiBlockElection: pallet_election_provider_multi_block = 85,
-		MultiBlockElectionVerifier: pallet_election_provider_multi_block::verifier = 86,
-		MultiBlockElectionUnsigned: pallet_election_provider_multi_block::unsigned = 87,
-		MultiBlockElectionSigned: pallet_election_provider_multi_block::signed = 88,
-
 		// Staking.
 		Staking: pallet_staking_async = 80,
 		NominationPools: pallet_nomination_pools = 81,
@@ -1178,6 +1172,12 @@ construct_runtime!(
 		VoterList: pallet_bags_list::<Instance1> = 83,
 		DelegatedStaking: pallet_delegated_staking = 84,
 		StakingRcClient: pallet_staking_async_rc_client = 89,
+
+		// Election apparatus.
+		MultiBlockElection: pallet_election_provider_multi_block = 85,
+		MultiBlockElectionVerifier: pallet_election_provider_multi_block::verifier = 86,
+		MultiBlockElectionUnsigned: pallet_election_provider_multi_block::unsigned = 87,
+		MultiBlockElectionSigned: pallet_election_provider_multi_block::signed = 88,
 
 		// Governance.
 		Preimage: pallet_preimage = 90,
@@ -2208,6 +2208,12 @@ impl_runtime_apis! {
 		}
 		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
 			PolkadotXcm::is_trusted_teleporter(asset, location)
+		}
+	}
+
+	impl cumulus_primitives_core::GetParachainInfo<Block> for Runtime {
+		fn parachain_id() -> ParaId {
+			ParachainInfo::parachain_id()
 		}
 	}
 }

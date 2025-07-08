@@ -206,6 +206,13 @@ parameter_types! {
 	/// TODO: need a maximum solution length for each runtime.
 	pub DepositPerPage: Balance = 1 * UNITS;
 
+	/// * Polkadot: 20 DOT
+	/// * Kusama: 1 KSM
+	///
+	///
+	/// Fixed deposit for invulnerable accounts.
+	pub InvulnerableDeposit: Balance = UNITS;
+
 	/// * Polkadot: 20%
 	/// * Kusama: 10%
 	///
@@ -298,12 +305,12 @@ impl multi_block::verifier::Config for Runtime {
 }
 
 impl multi_block::signed::Config for Runtime {
-	type RuntimeHoldReason = RuntimeHoldReason;
 	type Currency = Balances;
 	type BailoutGraceRatio = BailoutGraceRatio;
 	type EjectGraceRatio = EjectGraceRatio;
 	type DepositBase = DepositBase;
 	type DepositPerPage = DepositPerPage;
+	type InvulnerableDeposit = InvulnerableDeposit;
 	type RewardBase = RewardBase;
 	type MaxSubmissions = MaxSubmissions;
 	type EstimateCallFee = TransactionPayment;
@@ -327,6 +334,7 @@ impl multi_block::unsigned::Config for Runtime {
 	type OffchainSolver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>, Balancing>;
 	type MinerTxPriority = MinerTxPriority;
 	type OffchainRepeat = OffchainRepeat;
+	type OffchainStorage = ConstBool<true>;
 	type WeightInfo = multi_block::weights::polkadot::MultiBlockUnsignedWeightInfo<Self>;
 }
 
@@ -366,6 +374,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type WeightInfo = weights::pallet_bags_list::WeightInfo<Runtime>;
 	type BagThresholds = BagThresholds;
 	type Score = sp_npos_elections::VoteWeight;
+	type MaxAutoRebagPerBlock = ();
 }
 
 pub struct EraPayout;
@@ -442,7 +451,6 @@ impl pallet_staking_async::Config for Runtime {
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
 	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
 	type MaxEraDuration = MaxEraDuration;
-	type MaxDisabledValidators = ConstU32<100>;
 	type PlanningEraOffset =
 		pallet_staking_async::PlanningEraOffsetOf<Self, RelaySessionDuration, ConstU32<10>>;
 	type RcClientInterface = StakingRcClient;
@@ -671,6 +679,22 @@ mod tests {
 			op.proof_size() / WEIGHT_PROOF_SIZE_PER_KB,
 			op.proof_size() as f64 / block.proof_size() as f64
 		);
+	}
+
+	#[test]
+	fn polkadot_prune_era() {
+		sp_tracing::try_init_simple();
+		let prune_era = <Runtime as pallet_staking_async::Config>::WeightInfo::prune_era(600);
+		let block_weight = <Runtime as frame_system::Config>::BlockWeights::get().max_block;
+		weight_diff(block_weight, prune_era);
+	}
+
+	#[test]
+	fn kusama_prune_era() {
+		sp_tracing::try_init_simple();
+		let prune_era = <Runtime as pallet_staking_async::Config>::WeightInfo::prune_era(1000);
+		let block_weight = <Runtime as frame_system::Config>::BlockWeights::get().max_block;
+		weight_diff(block_weight, prune_era);
 	}
 
 	#[test]

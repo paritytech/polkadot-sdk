@@ -261,6 +261,7 @@ impl<T: Config> ElectionProvider for InitiateEmergencyPhase<T> {
 	type Pages = T::Pages;
 	type MaxBackersPerWinner = <T::Verifier as Verifier>::MaxBackersPerWinner;
 	type MaxWinnersPerPage = <T::Verifier as Verifier>::MaxWinnersPerPage;
+	type MaxBackersPerWinnerFinal = <T::Verifier as Verifier>::MaxBackersPerWinnerFinal;
 
 	fn elect(_page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		Pallet::<T>::phase_transition(Phase::Emergency);
@@ -306,6 +307,7 @@ impl<T: Config> ElectionProvider for Continue<T> {
 	type Pages = T::Pages;
 	type MaxBackersPerWinner = <T::Verifier as Verifier>::MaxBackersPerWinner;
 	type MaxWinnersPerPage = <T::Verifier as Verifier>::MaxWinnersPerPage;
+	type MaxBackersPerWinnerFinal = <T::Verifier as Verifier>::MaxBackersPerWinnerFinal;
 
 	fn elect(_page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		Err("'Continue' fallback will do nothing")
@@ -1521,6 +1523,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 	type Pages = T::Pages;
 	type MaxWinnersPerPage = <T::Verifier as Verifier>::MaxWinnersPerPage;
 	type MaxBackersPerWinner = <T::Verifier as Verifier>::MaxBackersPerWinner;
+	type MaxBackersPerWinnerFinal = <T::Verifier as Verifier>::MaxBackersPerWinnerFinal;
 
 	fn elect(remaining: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		match Self::status() {

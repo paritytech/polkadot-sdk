@@ -25,7 +25,7 @@ harness = false
 [dependencies]
 bip39 = { workspace = true, default-features = false, features = ["alloc"] }
 bitflags = { workspace = true }
-bounded-collections = { workspace = true }
+bounded-collections = { workspace = true, features = ["scale-codec"] }
 bs58 = { optional = true, workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 dyn-clonable = { optional = true, workspace = true }

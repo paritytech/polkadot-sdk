@@ -12,6 +12,14 @@ interface IEvent {
 	data: any | undefined;
 }
 
+interface IBlock {
+	chain: Chain;
+	number: number;
+	hash: string;
+	events: IEvent[];
+	weights: any;
+}
+
 // Print an event.
 function pe(e: IEvent): string {
 	return `${e.module} ${e.event} ${e.data ? safeJsonStringify(e.data) : "no data"}`;
@@ -27,7 +35,7 @@ interface IObservableEvent {
 
 export class Observe {
 	e: IObservableEvent;
-	onPass: () => void = () => {};
+	onPass: () => void = () => { };
 
 	constructor(
 		chain: Chain,
@@ -35,16 +43,15 @@ export class Observe {
 		event: string,
 		dataCheck: ((data: any) => boolean) | undefined = undefined,
 		byBlock: number | undefined = undefined,
-		onPass: () => void = () => {}
+		onPass: () => void = () => { }
 	) {
 		this.e = { chain, module, event, dataCheck, byBlock };
 		this.onPass = onPass;
 	}
 
 	toString(): string {
-		return `Observe(${this.e.chain}, ${this.e.module}, ${this.e.event}, ${
-			this.e.dataCheck ? "dataCheck" : "no dataCheck"
-		}, ${this.e.byBlock ? this.e.byBlock : "no byBlock"})`;
+		return `Observe(${this.e.chain}, ${this.e.module}, ${this.e.event}, ${this.e.dataCheck ? "dataCheck" : "no dataCheck"
+			}, ${this.e.byBlock ? this.e.byBlock : "no byBlock"})`;
 	}
 
 	// Static builder entry point
@@ -59,7 +66,7 @@ export class ObserveBuilder {
 	private event: string;
 	private dataCheck?: (data: any) => boolean;
 	private byBlockVal?: number;
-	private onPassCallback: () => void = () => {};
+	private onPassCallback: () => void = () => { };
 
 	constructor(chain: Chain, module: string, event: string) {
 		this.chain = chain;
@@ -107,9 +114,9 @@ export class TestCase {
 	eventSequence: Observe[];
 	onKill: () => void;
 	allowPerChainInterleavedEvents: boolean = false;
-	private resolveTestPromise: (outcome: EventOutcome) => void = () => {};
+	private resolveTestPromise: (outcome: EventOutcome) => void = () => { };
 
-	constructor(e: Observe[], interleave: boolean = false, onKill: () => void = () => {}) {
+	constructor(e: Observe[], interleave: boolean = false, onKill: () => void = () => { }) {
 		this.eventSequence = e;
 		this.onKill = onKill;
 		this.allowPerChainInterleavedEvents = interleave;
@@ -160,31 +167,30 @@ export class TestCase {
 		}
 	}
 
-	onBlock(chain: Chain, block: number, weights: any, events: IEvent[]) {
+	onBlock(block_data: IBlock) {
 		// sort from small to big
-		logger.debug(`Processing ${chain} block ${block}, events: ${events.length}`);
+		logger.debug(`Processing ${block_data.chain} block ${block_data.number}, events: ${block_data.events.length}`);
 		const firstTimeOut = this.eventSequence
 			.filter((e) => e.e.byBlock)
-			.map((e) => e.e.byBlock!)
-			.sort((x, y) => x - y);
-		if (firstTimeOut.length > 0 && block > firstTimeOut[0]!) {
+			.sort((x, y) => x.e.byBlock! - y.e.byBlock!);
+		if (firstTimeOut.length > 0 && block_data.number > firstTimeOut[0]!.e.byBlock!) {
 			logger.error(
-				`Block ${block} is past the first timeout at block ${firstTimeOut[0]}, exiting.`
+				`Block ${block_data.number} is past the first timeout at block ${firstTimeOut[0]}, exiting.`
 			);
 			this.resolveTestPromise(EventOutcome.TimedOut);
 		}
 
-		for (const e of events) {
-			this.onEvent(e, chain);
+		for (const e of block_data.events) {
+			this.onEvent(e, block_data.chain, block_data.number);
 		}
 	}
 
-	onEvent(e: IEvent, chain: Chain) {
+	onEvent(e: IEvent, chain: Chain, block_number: number) {
 		if (!this.eventSequence.length) {
 			logger.warn(`No events to process for ${chain}, event: ${pe(e)}`);
 			return;
 		}
-		logger.verbose(`Processing ${chain} event: ${pe(e)}`);
+		logger.verbose(`[#${block_number}][${chain}] Processing event: ${pe(e)}`);
 		const [primary, maybeSecondary] = this.nextEvent(chain);
 
 		if (this.match(primary.e, e, chain)) {
@@ -195,9 +201,8 @@ export class TestCase {
 				logger.info("All events processed.");
 				this.resolveTestPromise(EventOutcome.Done);
 			} else {
-				const nextExpected = logger.info(
-					`Next expected event: ${this.eventSequence[0]!.toString()}, remaining: ${
-						this.eventSequence.length
+				logger.verbose(
+					`Next expected event: ${this.eventSequence[0]!.toString()}, remaining events: ${this.eventSequence.length
 					}`
 				);
 			}
@@ -208,7 +213,7 @@ export class TestCase {
 			// when we check secondary events, we must have at least 2 items in the list, so no
 			// need to check for the end of list.
 		} else {
-			logger.verbose(`event not relevant`);
+			logger.debug(`event not relevant`);
 		}
 	}
 }
@@ -235,10 +240,16 @@ export async function runTest(test: TestCase, apis: ApiDeclerations): Promise<Ev
 					event: e.event.value.type,
 					data: e.event.value.value,
 				}));
-			test.onBlock(Chain.Relay, block.number, weights, interested);
+			test.onBlock({
+				chain: Chain.Relay,
+				number: block.number,
+				hash: block.hash,
+				events: interested,
+				weights: weights,
+			});
 		});
 
-		paraClient.blocks$.subscribe(async (block) => {
+		paraClient.finalizedBlock$.subscribe(async (block) => {
 			const events = await paraApi.query.System.Events.getValue({ at: block.hash });
 			const weights = await paraApi.query.System.BlockWeight.getValue({ at: block.hash });
 			const interested = events
@@ -255,7 +266,13 @@ export async function runTest(test: TestCase, apis: ApiDeclerations): Promise<Ev
 					event: e.event.value.type,
 					data: e.event.value.value,
 				}));
-			test.onBlock(Chain.Parachain, block.number, weights, interested);
+			test.onBlock({
+				chain: Chain.Parachain,
+				number: block.number,
+				hash: block.hash,
+				events: interested,
+				weights: weights,
+			});
 		});
 	});
 
@@ -272,6 +289,7 @@ export async function runTest(test: TestCase, apis: ApiDeclerations): Promise<Ev
 	const finalOutcome = await completionPromise;
 	rcClient.destroy();
 	paraClient.destroy();
+	logger.info(`Test completed with outcome: ${finalOutcome}, calling onKill...`);
 	test.onKill();
 	return finalOutcome;
 }

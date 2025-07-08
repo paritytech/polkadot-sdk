@@ -13,8 +13,8 @@ setup:
     echo "🧹 Killing any existing zombienet or chain processes..."
     pkill -f zombienet || true
     pkill -f chain-spec-builder || true
-    pkill -f pallet-staking-async-rc-runtime || true
-    pkill -f pallet-staking-async-parachain-runtime || true
+    pkill -f polkadot || true
+    pkill -f polkadot-parachain || true
 
     just install || echo "🚧 Generate and installed missing descriptors..."
     just build-and-generate-chains
@@ -40,6 +40,7 @@ setup:
       done
     done
 
+    echo "✅ ports detected, chains running, generating descriptors..."
     just generate-descriptors
 
     echo "🧹 Cleaning up chain processes..."

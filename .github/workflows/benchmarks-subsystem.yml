@@ -48,6 +48,10 @@ jobs:
               name: "polkadot-statement-distribution",
               bench: "statement-distribution-regression-bench",
             },
+            {
+              name: "polkadot-node-core-dispute-coordinator",
+              bench: "dispute-coordinator-regression-bench",
+            },
           ]
     steps:
       - name: Checkout
@@ -141,6 +145,18 @@ jobs:
       - name: Generate ${{ env.BENCH }}
         env:
           BENCH: statement-distribution-regression-bench
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: "customSmallerIsBetter"
+          name: ${{ env.BENCH }}
+          output-file-path: ./charts/${{ env.BENCH }}/${{ env.BENCH }}.json
+          benchmark-data-dir-path: ./bench/${{ env.BENCH }}
+          github-token: ${{ steps.app-token.outputs.token }}
+          auto-push: true
+
+      - name: Generate ${{ env.BENCH }}
+        env:
+          BENCH: dispute-coordinator-regression-bench
         uses: benchmark-action/github-action-benchmark@v1
         with:
           tool: "customSmallerIsBetter"

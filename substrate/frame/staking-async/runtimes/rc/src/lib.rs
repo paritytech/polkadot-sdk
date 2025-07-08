@@ -725,6 +725,10 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureAssetHub {
 	}
 }
 
+parameter_types! {
+	pub const MaxOffenceBatchSize: u32 = 50;
+}
+
 impl pallet_staking_async_ah_client::Config for Runtime {
 	type CurrencyBalance = Balance;
 	type AssetHubOrigin =
@@ -735,7 +739,9 @@ impl pallet_staking_async_ah_client::Config for Runtime {
 	type MinimumValidatorSetSize = ConstU32<1>;
 	type UnixTime = Timestamp;
 	type PointsPerBlock = ConstU32<20>;
+	type MaxOffenceBatchSize = MaxOffenceBatchSize;
 	type Fallback = Staking;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -929,6 +935,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type WeightInfo = ();
 	type BagThresholds = BagThresholds;
 	type Score = sp_npos_elections::VoteWeight;
+	type MaxAutoRebagPerBlock = ();
 }
 
 parameter_types! {

@@ -2,12 +2,12 @@ import { test, expect } from "bun:test";
 import { Presets } from "../src";
 import { runPresetUntilLaunched, spawnMiner } from "../src/cmd";
 import { Chain, EventOutcome, Observe, runTest, TestCase } from "../src/test-case";
-import { getApis, GlobalTimeout, logger, nullifySigned, nullifyUnsigned } from "../src/utils";
+import { getApis, GlobalTimeout, logger, nullifyUnsigned } from "../src/utils";
 
 test(
 	`signed solution on ${Presets.FakeDev}`,
 	async () => {
-		const killHandle = await runPresetUntilLaunched(Presets.FakeDev);
+		const killZn = await runPresetUntilLaunched(Presets.FakeDev);
 		const apis = await getApis();
 		const killMiner = await spawnMiner();
 
@@ -68,9 +68,8 @@ test(
 			steps.map((s) => s.build()),
 			true,
 			() => {
-				// test runner will run these upon completion.
 				killMiner();
-				killHandle();
+				killZn();
 			}
 		);
 

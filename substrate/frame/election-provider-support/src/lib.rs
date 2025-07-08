@@ -148,6 +148,7 @@
 //!         type BlockNumber = BlockNumber;
 //!         type Error = &'static str;
 //!         type MaxBackersPerWinner = T::MaxBackersPerWinner;
+//! 		type MaxBackersPerWinnerFinal = T::MaxBackersPerWinner;
 //!         type MaxWinnersPerPage = T::MaxWinnersPerPage;
 //!         type Pages = T::Pages;
 //!         type DataProvider = T::DataProvider;
@@ -457,6 +458,13 @@ pub trait ElectionProvider {
 	/// election result.
 	type MaxBackersPerWinner: Get<u32>;
 
+	/// Same as [`Self::MaxBackersPerWinner`], but across all pages.
+	///
+	/// If [`Self::Pages`] is set to 0, a reasonable value is [`Self::MaxBackersPerWinner`]. For
+	/// multi-page elections, a reasonable value is the range of [`Self::MaxBackersPerWinner`] to
+	/// [`Self::Pages`] * [`Self::MaxBackersPerWinner`].
+	type MaxBackersPerWinnerFinal: Get<u32>;
+
 	/// The number of pages that this election provider supports.
 	type Pages: Get<PageIndex>;
 
@@ -563,6 +571,7 @@ where
 	type DataProvider = DataProvider;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type MaxBackersPerWinnerFinal = MaxBackersPerWinner;
 
 	fn elect(_page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		Err("`NoElection` cannot do anything.")
