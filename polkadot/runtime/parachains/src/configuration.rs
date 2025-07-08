@@ -18,7 +18,7 @@
 //!
 //! Configuration can change only at session boundaries and is buffered until then.
 
-use crate::{inclusion::MAX_UPWARD_MESSAGE_SIZE_BOUND, shared};
+use crate::shared;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::{pallet_prelude::*, DefaultNoBound};
@@ -876,7 +876,6 @@ pub mod pallet {
 		))]
 		pub fn set_max_upward_queue_size(origin: OriginFor<T>, new: u32) -> DispatchResult {
 			ensure_root(origin)?;
-			ensure!(new <= MAX_UPWARD_MESSAGE_SIZE_BOUND, Error::<T>::InvalidNewValue);
 
 			Self::schedule_config_update(|config| {
 				config.max_upward_queue_size = new;
