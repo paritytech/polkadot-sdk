@@ -20,17 +20,17 @@
 
 use core::{
 	hash::Hasher as CoreHasher,
-	sync::atomic::{AtomicU64, Ordering},
+	sync::atomic::{AtomicUsize, Ordering},
 };
 
 use core::hash::BuildHasher;
 use hashbrown::DefaultHashBuilder;
 
 // Extra randomness to be used besides the one provided by the `DefaultHashBuilder`.
-static EXTRA_RANDOMNESS: AtomicU64 = AtomicU64::new(0x082efa98ec4e6c89);
+static EXTRA_RANDOMNESS: AtomicUsize = AtomicUsize::new(0x082efa98);
 
 /// Adds extra randomness to be used by all new instances of RandomState.
-pub fn add_extra_randomness(extra_randomness: u64) {
+pub fn add_extra_randomness(extra_randomness: usize) {
 	EXTRA_RANDOMNESS.store(extra_randomness, Ordering::Relaxed);
 }
 
@@ -38,7 +38,7 @@ pub fn add_extra_randomness(extra_randomness: u64) {
 #[derive(Copy, Clone, Debug)]
 pub struct RandomState {
 	default: DefaultHashBuilder,
-	extra_randomness: u64,
+	extra_randomness: usize,
 }
 
 impl Default for RandomState {
@@ -58,7 +58,7 @@ impl BuildHasher for RandomState {
 	#[inline(always)]
 	fn build_hasher(&self) -> Self::Hasher {
 		let mut hasher = self.default.build_hasher();
-		hasher.write_u64(self.extra_randomness);
+		hasher.write_usize(self.extra_randomness);
 
 		hasher
 	}

@@ -83,18 +83,18 @@ fn build_seed_from_head_data<B: BlockT>(
 	block_data: &ParachainBlockData<B>,
 	relay_parent_number: RelayChainBlockNumber,
 	relay_parent_storage_root: crate::relay_chain::Hash,
-) -> u64 {
-	let relay_parent_seed: u64 = relay_parent_storage_root.as_fixed_bytes()[..size_of::<u64>()]
+) -> usize {
+	let relay_parent_seed: usize = relay_parent_storage_root.as_fixed_bytes()[..size_of::<usize>()]
 		.try_into()
-		.map(|bytes| u64::from_be_bytes(bytes))
-		.unwrap_or(relay_parent_number as u64);
-	let hash_seed: u64 = block_data
+		.map(|bytes| usize::from_be_bytes(bytes))
+		.unwrap_or(relay_parent_number as usize);
+	let hash_seed: usize = block_data
 		.blocks()
 		.iter()
 		.filter_map(|block| {
-			block.hash().as_ref()[..size_of::<u64>()]
+			block.hash().as_ref()[..size_of::<usize>()]
 				.try_into()
-				.map(|bytes| u64::from_be_bytes(bytes))
+				.map(|bytes| usize::from_be_bytes(bytes))
 				.ok()
 		})
 		.fold(relay_parent_seed, |acc, hash| acc ^ hash);
