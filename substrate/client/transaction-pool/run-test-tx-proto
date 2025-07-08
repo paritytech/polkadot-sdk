@@ -1,0 +1,55 @@
+#!/bin/bash -x
+
+T=`date +"%y%m%d_%H%M%S"`
+export
+BASE_DIR="/home/miszka/parity/14-txpool-forks/polkadot-sdk/substrate/client/transaction-pool/test-tx-proto/run_yap_$T"
+# export PATH=/home/miszka/parity/14-txpool-forks/polkadot-sdk-master-03/target/release/:$PATH
+export PATH=/home/miszka/parity/14-txpool-forks/polkadot-sdk-2506/target/release:$PATH
+
+function run_case() {
+  export PER_ACCOUNT_TXS_COUNT=10
+  export ACCOUNTS_COUNT=7000
+  export SEND_THRESHOLD=$1
+  export NODE_COUNT=$2
+
+  export TXPOOL_TEST_DIR=$BASE_DIR/test_ts${SEND_THRESHOLD}_nc$NODE_COUNT
+  mkdir -p $TXPOOL_TEST_DIR
+
+  LOG_FILE=$TXPOOL_TEST_DIR/cargo_log
+  echo "dir:" $LOG_FILE
+  cargo test  --release --test integration -- --ignored tx_proto_test_yap &> >(tee $LOG_FILE)
+}
+
+run_case 1000  3
+run_case 2000  3
+run_case 3000  3
+run_case 4000  3
+run_case 6000  3
+run_case 8000  3
+run_case 10000 3
+
+run_case 1000  5
+run_case 2000  5
+run_case 3000  5
+run_case 4000  5
+run_case 6000  5
+run_case 8000  5
+run_case 10000 5
+
+
+run_case 1000  10
+run_case 2000  10
+run_case 3000  10
+run_case 4000  10
+run_case 6000  10
+run_case 8000  10
+run_case 10000 10
+
+
+run_case 1000  15
+run_case 2000  15
+run_case 3000  15
+run_case 4000  15
+run_case 6000  15
+run_case 8000  15
+run_case 10000 15
