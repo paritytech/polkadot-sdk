@@ -57,7 +57,7 @@ use sp_application_crypto::{bls381, ecdsa_bls381};
 use sp_core::{OpaqueMetadata, RuntimeDebug};
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV1},
-	PrefixedMemoryDB, RandomState, StorageProof,
+	PrefixedMemoryDB, StorageProof,
 };
 use trie_db::{Trie, TrieMut};
 
@@ -479,7 +479,7 @@ fn code_using_trie() -> u64 {
 	]
 	.to_vec();
 
-	let mut mdb = PrefixedMemoryDB::<_, RandomState>::default();
+	let mut mdb = PrefixedMemoryDB::default();
 	let mut root = core::default::Default::default();
 	{
 		let mut t = TrieDBMutBuilderV1::<Hashing>::new(&mut mdb, &mut root).build();

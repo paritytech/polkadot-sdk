@@ -77,7 +77,7 @@ where
 	where
 		I: IntoIterator<Item = (Key, Value)>,
 	{
-		let mut db = MemoryDB::default();
+		let mut db = MemoryDB::from_null_node(&[0u8][..], [0u8][..].into());
 		let mut root = Default::default();
 
 		{

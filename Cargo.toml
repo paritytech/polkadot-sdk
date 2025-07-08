@@ -841,7 +841,7 @@ governor = { version = "0.6.0" }
 gum = { path = "polkadot/node/gum", default-features = false, package = "tracing-gum" }
 gum-proc-macro = { path = "polkadot/node/gum/proc-macro", default-features = false, package = "tracing-gum-proc-macro" }
 handlebars = { version = "5.1.0" }
-hash-db = { git = "https://github.com/paritytech/trie.git", branch = "alexggh/allow_usage_of_custom_hasher", default-features = false }
+hash-db = { path = "/home/alexggh/ssd2/repos/cheme/hash-db", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
 hashbrown = "0.15.3"
 hex = { version = "0.4.3", default-features = false }
@@ -899,7 +899,7 @@ log = { version = "0.4.22", default-features = false }
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
 memmap2 = { version = "0.9.3" }
-memory-db = { git = "https://github.com/paritytech/trie.git", branch = "alexggh/allow_usage_of_custom_hasher", default-features = false }
+memory-db = { path = "/home/alexggh/ssd2/repos/cheme/memory-db", default-features = false }
 merkleized-metadata = { version = "0.5.0" }
 merlin = { version = "3.0", default-features = false }
 messages-relay = { path = "bridges/relays/messages" }
@@ -1431,9 +1431,9 @@ tracing-futures = { version = "0.2.4" }
 tracing-log = { version = "0.2.0" }
 tracing-subscriber = { version = "0.3.18" }
 tracking-allocator = { path = "polkadot/node/tracking-allocator", default-features = false, package = "staging-tracking-allocator" }
-trie-bench = { git = "https://github.com/paritytech/trie.git", branch = "alexggh/allow_usage_of_custom_hasher"}
-trie-db = { git = "https://github.com/paritytech/trie.git", branch = "alexggh/allow_usage_of_custom_hasher", default-features = false }
-trie-root = { git = "https://github.com/paritytech/trie.git", branch = "alexggh/allow_usage_of_custom_hasher", default-features = false }
+trie-bench = { path = "/home/alexggh/ssd2/repos/cheme/test-support/trie-bench"}
+trie-db = { path = "/home/alexggh/ssd2/repos/cheme/trie-db", default-features = false }
+trie-root = { path = "/home/alexggh/ssd2/repos/cheme/trie-root", default-features = false }
 trie-standardmap = { version = "0.16.0" }
 trybuild = { version = "1.0.103" }
 tt-call = { version = "1.0.8" }

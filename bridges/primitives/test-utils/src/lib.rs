@@ -27,7 +27,7 @@ use codec::Encode;
 use sp_consensus_grandpa::{AuthorityId, AuthoritySignature, AuthorityWeight, SetId};
 use sp_runtime::traits::{Header as HeaderT, One, Zero};
 use sp_std::prelude::*;
-use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, RandomState, TrieMut};
+use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
 
 // Re-export all our test account utilities
 pub use keyring::*;
@@ -176,7 +176,7 @@ pub fn prepare_parachain_heads_proof<H: HeaderT>(
 ) -> (H::Hash, ParaHeadsProof, Vec<(ParaId, ParaHash)>) {
 	let mut parachains = Vec::with_capacity(heads.len());
 	let mut root = Default::default();
-	let mut mdb = MemoryDB::<_, RandomState>::default();
+	let mut mdb = MemoryDB::default();
 	let mut storage_keys = vec![];
 	{
 		let mut trie = TrieDBMutBuilderV1::<H::Hashing>::new(&mut mdb, &mut root).build();
