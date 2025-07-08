@@ -32,6 +32,12 @@ sp-tracing = { workspace = true }
 
 [dev-dependencies]
 pallet-staking-async = { workspace = true, features = ["testing-utils"] }
+# HACK: Self-dependency to enable runtime-benchmarks during tests.
+# This is needed because Cargo doesn't automatically propagate features from dev-dependencies
+# to the main crate. When tests run, sp-staking needs runtime-benchmarks enabled for the
+# DelegationMigrator trait to include the force_kill_agent method, but dev-dependency features
+# alone don't achieve this. This self-dependency ensures feature unification works correctly.
+pallet-delegated-staking = { workspace = true, features = ["runtime-benchmarks"] }
 
 [features]
 default = ["std"]
@@ -75,8 +81,4 @@ try-runtime = [
 	"pallet-staking-async/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
-]
-testing-utils = [
-	"pallet-staking-async/testing-utils",
-	"runtime-benchmarks",
 ]

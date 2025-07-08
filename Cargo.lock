@@ -12107,6 +12107,7 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-balances",
+ "pallet-delegated-staking",
  "pallet-nomination-pools",
  "pallet-staking-async",
  "pallet-staking-async-rc-client",

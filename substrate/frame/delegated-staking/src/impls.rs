@@ -122,7 +122,7 @@ impl<T: Config> DelegationMigrator for Pallet<T> {
 	}
 
 	/// Only used for testing.
-	#[cfg(any(feature = "runtime-benchmarks", test))]
+	#[cfg(feature = "runtime-benchmarks")]
 	fn force_kill_agent(agent: Agent<Self::AccountId>) {
 		<Agents<T>>::remove(agent.clone().get());
 		<Delegators<T>>::iter()
