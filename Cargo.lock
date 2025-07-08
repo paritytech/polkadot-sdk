@@ -13095,7 +13095,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-session-benchmarking"
-version = "28.0.0"
+version = "40.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
