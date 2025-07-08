@@ -25,7 +25,7 @@ use pallet_revive::{
 	DispatchInfo, Origin,
 };
 use tracing::error;
-use xcm::MAX_XCM_DECODE_DEPTH;
+use xcm::{IdentifyVersion, MAX_XCM_DECODE_DEPTH, v3, v4};
 use xcm_executor::traits::WeightBounds;
 
 alloy::sol!("src/precompiles/IXcm.sol");
@@ -100,6 +100,11 @@ where
 					&mut &message[..],
 				)
 				.map_err(|error| revert(&error, "XCM execute failed: Invalid message format"))?;
+
+				let version = final_message.identify_version();
+				if version == v3::VERSION || version == v4::VERSION {
+					return Err(revert(&(), "Only version 5 and onwards are supported."));
+				}
 
 				let result = crate::Pallet::<Runtime>::execute(
 					frame_origin,
