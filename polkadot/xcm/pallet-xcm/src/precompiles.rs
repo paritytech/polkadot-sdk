@@ -167,7 +167,7 @@ mod test {
 			},
 			H160,
 		},
-		DepositLimit,
+		DepositLimit, U256,
 	};
 	use polkadot_parachain_primitives::primitives::Id as ParaId;
 	use sp_runtime::traits::AccountIdConversion;
@@ -212,7 +212,7 @@ mod test {
 			let result = pallet_revive::Pallet::<Test>::bare_call(
 				RuntimeOrigin::signed(ALICE),
 				xcm_precompile_addr,
-				0u128,
+				U256::zero(),
 				Weight::MAX,
 				DepositLimit::UnsafeOnlyForDryRun,
 				encoded_call,
@@ -260,7 +260,7 @@ mod test {
 			let result = pallet_revive::Pallet::<Test>::bare_call(
 				RuntimeOrigin::signed(ALICE),
 				xcm_precompile_addr,
-				0u128,
+				U256::zero(),
 				Weight::MAX,
 				DepositLimit::UnsafeOnlyForDryRun,
 				encoded_call,
@@ -308,7 +308,7 @@ mod test {
 			let result = pallet_revive::Pallet::<Test>::bare_call(
 				RuntimeOrigin::signed(ALICE),
 				xcm_precompile_addr,
-				0u128,
+				U256::zero(),
 				Weight::MAX,
 				DepositLimit::UnsafeOnlyForDryRun,
 				encoded_call,
@@ -350,7 +350,7 @@ mod test {
 			let xcm_weight_results = pallet_revive::Pallet::<Test>::bare_call(
 				RuntimeOrigin::signed(ALICE),
 				xcm_precompile_addr,
-				0u128,
+				U256::zero(),
 				Weight::MAX,
 				DepositLimit::UnsafeOnlyForDryRun,
 				encoded_weight_call,
@@ -372,7 +372,7 @@ mod test {
 			let result = pallet_revive::Pallet::<Test>::bare_call(
 				RuntimeOrigin::signed(ALICE),
 				xcm_precompile_addr,
-				0u128,
+				U256::zero(),
 				Weight::MAX,
 				DepositLimit::UnsafeOnlyForDryRun,
 				encoded_call,
@@ -410,7 +410,7 @@ mod test {
 			let xcm_weight_results = pallet_revive::Pallet::<Test>::bare_call(
 				RuntimeOrigin::signed(ALICE),
 				xcm_precompile_addr,
-				0u128,
+				U256::zero(),
 				Weight::MAX,
 				DepositLimit::UnsafeOnlyForDryRun,
 				encoded_weight_call,
@@ -432,7 +432,7 @@ mod test {
 			let result = pallet_revive::Pallet::<Test>::bare_call(
 				RuntimeOrigin::signed(ALICE),
 				xcm_precompile_addr,
-				0u128,
+				U256::zero(),
 				Weight::MAX,
 				DepositLimit::UnsafeOnlyForDryRun,
 				encoded_call,
@@ -478,7 +478,7 @@ mod test {
 			let xcm_weight_results = pallet_revive::Pallet::<Test>::bare_call(
 				RuntimeOrigin::signed(ALICE),
 				xcm_precompile_addr,
-				0u128,
+				U256::zero(),
 				Weight::MAX,
 				DepositLimit::UnsafeOnlyForDryRun,
 				encoded_weight_call,
@@ -500,7 +500,7 @@ mod test {
 			let result = pallet_revive::Pallet::<Test>::bare_call(
 				RuntimeOrigin::signed(ALICE),
 				xcm_precompile_addr,
-				0u128,
+				U256::zero(),
 				Weight::MAX,
 				DepositLimit::UnsafeOnlyForDryRun,
 				encoded_call,
