@@ -93,7 +93,7 @@ use snowbridge_outbound_queue_primitives::{
 };
 use sp_core::{H160, H256};
 use sp_runtime::{
-	traits::{BlockNumberProvider, Convert, Debug, Hash},
+	traits::{BlockNumberProvider, Debug, Hash},
 	DigestItem,
 };
 use sp_std::prelude::*;
@@ -128,8 +128,9 @@ pub mod pallet {
 			+ Eq
 			+ PartialEq
 			+ TypeInfo
-			+ Debug;
-		type AggregateMessageOriginConverter: Convert<H256, Self::AggregateMessageOrigin>;
+			+ Debug
+			+ From<H256>;
+
 		type MessageQueue: EnqueueMessage<Self::AggregateMessageOrigin>;
 
 		/// Measures the maximum gas used to execute a command on Ethereum

@@ -470,25 +470,6 @@ impl crate::inclusion::WeightInfo for InclusionWeightInfo {
 	}
 }
 
-pub struct AggregateMessageOriginConverter;
-
-impl sp_runtime::traits::Convert<ParaId, AggregateMessageOrigin>
-	for AggregateMessageOriginConverter
-{
-	fn convert(para: ParaId) -> AggregateMessageOrigin {
-		AggregateMessageOrigin::Ump(UmpQueueId::Para(para))
-	}
-}
-impl sp_runtime::traits::ConvertBack<ParaId, AggregateMessageOrigin>
-	for AggregateMessageOriginConverter
-{
-	fn convert_back(origin: AggregateMessageOrigin) -> ParaId {
-		match origin {
-			AggregateMessageOrigin::Ump(UmpQueueId::Para(para_id)) => para_id,
-		}
-	}
-}
-
 impl crate::inclusion::Config for Test {
 	type WeightInfo = InclusionWeightInfo;
 	type RuntimeEvent = RuntimeEvent;
@@ -496,7 +477,6 @@ impl crate::inclusion::Config for Test {
 	type RewardValidators = TestRewardValidators;
 	type MessageQueue = MessageQueue;
 	type AggregateMessageOrigin = AggregateMessageOrigin;
-	type AggregateMessageOriginConverter = AggregateMessageOriginConverter;
 }
 
 impl crate::paras_inherent::Config for Test {
