@@ -76,6 +76,12 @@ where
 				)
 				.map_err(|error| revert(&error, "XCM send failed: Invalid message format"))?;
 
+				// We don't allow older XCM versions.
+				let version = final_message.identify_version();
+				if version == v3::VERSION || version == v4::VERSION {
+					return Err(revert(&(), "Only version 5 and onwards are supported."));
+				}
+
 				crate::Pallet::<Runtime>::send(
 					frame_origin,
 					final_destination.into(),
@@ -101,6 +107,7 @@ where
 				)
 				.map_err(|error| revert(&error, "XCM execute failed: Invalid message format"))?;
 
+				// We don't allow older XCM versions.
 				let version = final_message.identify_version();
 				if version == v3::VERSION || version == v4::VERSION {
 					return Err(revert(&(), "Only version 5 and onwards are supported."));
@@ -141,6 +148,12 @@ where
 				let mut final_message = converted_message.try_into().map_err(|error| {
 					revert(&error, "XCM weightMessage: Conversion to Xcm failed")
 				})?;
+
+				// We don't allow older XCM versions.
+				let version = final_message.identify_version();
+				if version == v3::VERSION || version == v4::VERSION {
+					return Err(revert(&(), "Only version 5 and onwards are supported."));
+				}
 
 				let weight = <<Runtime>::Weigher>::weight(&mut final_message, Weight::MAX)
 					.map_err(|error| {
