@@ -25,7 +25,7 @@ extern crate alloc;
 use crate::currency_to_vote::CurrencyToVote;
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, FullCodec, HasCompact, MaxEncodedLen};
-use core::ops::Sub;
+use core::ops::{Add, AddAssign, Sub, SubAssign};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Zero},
@@ -402,7 +402,31 @@ impl<
 		Balance: HasCompact + AtLeast32BitUnsigned + Copy + codec::MaxEncodedLen,
 	> Exposure<AccountId, Balance>
 {
-	/// Splits an `Exposure` into `PagedExposureMetadata` and multiple chunks of
+	/// Splits self into two instances of exposures.
+	///
+	/// `n_others` individual exposures are consumed from self and returned as part of the new
+	/// exposure.
+	///
+	/// Since this method splits `others` of a single exposure, `total.own` will be the same for
+	/// both `self` and the returned exposure.
+	pub fn split_others(&mut self, n_others: u32) -> Self {
+		let head_others: Vec<_> =
+			self.others.drain(..(n_others as usize).min(self.others.len())).collect();
+
+		let total_others_head: Balance = head_others
+			.iter()
+			.fold(Zero::zero(), |acc: Balance, o| acc.saturating_add(o.value));
+
+		self.total = self.total.saturating_sub(total_others_head);
+
+		Self {
+			total: total_others_head.saturating_add(self.own),
+			own: self.own,
+			others: head_others,
+		}
+	}
+
+	/// Converts an `Exposure` into `PagedExposureMetadata` and multiple chunks of
 	/// `IndividualExposure` with each chunk having maximum of `page_size` elements.
 	pub fn into_pages(
 		self,
@@ -423,7 +447,6 @@ impl<
 					value: individual.value,
 				})
 			}
-
 			exposure_pages.push(ExposurePage { page_total, others });
 		}
 
@@ -455,6 +478,19 @@ impl<A, B: Default + HasCompact> Default for ExposurePage<A, B> {
 	}
 }
 
+/// Returns an exposure page from a set of individual exposures.
+impl<A, B: HasCompact + Default + AddAssign + SubAssign + Clone> From<Vec<IndividualExposure<A, B>>>
+	for ExposurePage<A, B>
+{
+	fn from(exposures: Vec<IndividualExposure<A, B>>) -> Self {
+		exposures.into_iter().fold(ExposurePage::default(), |mut page, e| {
+			page.page_total += e.value.clone();
+			page.others.push(e);
+			page
+		})
+	}
+}
+
 /// Metadata for Paged Exposure of a validator such as total stake across pages and page count.
 ///
 /// In combination with the associated `ExposurePage`s, it can be used to reconstruct a full
@@ -472,6 +508,7 @@ impl<A, B: Default + HasCompact> Default for ExposurePage<A, B> {
 	TypeInfo,
 	Default,
 	MaxEncodedLen,
+	Copy,
 )]
 pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 	/// The total balance backing this validator.
@@ -484,6 +521,42 @@ pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 	pub nominator_count: u32,
 	/// Number of pages of nominators.
 	pub page_count: Page,
+}
+
+impl<Balance> PagedExposureMetadata<Balance>
+where
+	Balance: HasCompact
+		+ codec::MaxEncodedLen
+		+ Add<Output = Balance>
+		+ Sub<Output = Balance>
+		+ sp_runtime::Saturating
+		+ PartialEq
+		+ Copy
+		+ sp_runtime::traits::Debug,
+{
+	/// Consumes self and returns the result of the metadata updated with `other_balances` and
+	/// of adding `other_num` nominators to the metadata.
+	///
+	/// `Max` is a getter of the maximum number of nominators per page.
+	pub fn update_with<Max: sp_core::Get<u32>>(
+		self,
+		others_balance: Balance,
+		others_num: u32,
+	) -> Self {
+		let page_limit = Max::get().max(1);
+		let new_nominator_count = self.nominator_count.saturating_add(others_num);
+		let new_page_count = new_nominator_count
+			.saturating_add(page_limit)
+			.saturating_sub(1)
+			.saturating_div(page_limit);
+
+		Self {
+			total: self.total.saturating_add(others_balance),
+			own: self.own,
+			nominator_count: new_nominator_count,
+			page_count: new_page_count,
+		}
+	}
 }
 
 /// A type that belongs only in the context of an `Agent`.
@@ -646,3 +719,114 @@ pub trait DelegationMigrator {
 }
 
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);
+
+#[cfg(test)]
+mod tests {
+	use sp_core::ConstU32;
+
+	use super::*;
+
+	#[test]
+	fn update_with_works() {
+		let metadata = PagedExposureMetadata::<u32> {
+			total: 1000,
+			own: 0, // don't care
+			nominator_count: 10,
+			page_count: 1,
+		};
+
+		assert_eq!(
+			metadata.update_with::<ConstU32<10>>(1, 1),
+			PagedExposureMetadata { total: 1001, own: 0, nominator_count: 11, page_count: 2 },
+		);
+
+		assert_eq!(
+			metadata.update_with::<ConstU32<5>>(1, 1),
+			PagedExposureMetadata { total: 1001, own: 0, nominator_count: 11, page_count: 3 },
+		);
+
+		assert_eq!(
+			metadata.update_with::<ConstU32<4>>(1, 1),
+			PagedExposureMetadata { total: 1001, own: 0, nominator_count: 11, page_count: 3 },
+		);
+
+		assert_eq!(
+			metadata.update_with::<ConstU32<1>>(1, 1),
+			PagedExposureMetadata { total: 1001, own: 0, nominator_count: 11, page_count: 11 },
+		);
+	}
+
+	#[test]
+	fn individual_exposures_to_exposure_works() {
+		let exposure_1 = IndividualExposure { who: 1, value: 10u32 };
+		let exposure_2 = IndividualExposure { who: 2, value: 20 };
+		let exposure_3 = IndividualExposure { who: 3, value: 30 };
+
+		let exposure_page: ExposurePage<u32, u32> = vec![exposure_1, exposure_2, exposure_3].into();
+
+		assert_eq!(
+			exposure_page,
+			ExposurePage { page_total: 60, others: vec![exposure_1, exposure_2, exposure_3] },
+		);
+	}
+
+	#[test]
+	fn empty_individual_exposures_to_exposure_works() {
+		let empty_exposures: Vec<IndividualExposure<u32, u32>> = vec![];
+
+		let exposure_page: ExposurePage<u32, u32> = empty_exposures.into();
+		assert_eq!(exposure_page, ExposurePage { page_total: 0, others: vec![] });
+	}
+
+	#[test]
+	fn exposure_split_others_works() {
+		let exposure = Exposure {
+			total: 100,
+			own: 20,
+			others: vec![
+				IndividualExposure { who: 1, value: 20u32 },
+				IndividualExposure { who: 2, value: 20 },
+				IndividualExposure { who: 3, value: 20 },
+				IndividualExposure { who: 4, value: 20 },
+			],
+		};
+
+		let mut exposure_0 = exposure.clone();
+		// split others with with 0 `n_others` is a noop and returns an empty exposure (with `own`
+		// only).
+		let split_exposure = exposure_0.split_others(0);
+		assert_eq!(exposure_0, exposure);
+		assert_eq!(split_exposure, Exposure { total: 20, own: 20, others: vec![] });
+
+		let mut exposure_1 = exposure.clone();
+		// split individual exposures so that the returned exposure has 1 individual exposure.
+		let split_exposure = exposure_1.split_others(1);
+		assert_eq!(exposure_1.own, 20);
+		assert_eq!(exposure_1.total, 20 + 3 * 20);
+		assert_eq!(exposure_1.others.len(), 3);
+
+		assert_eq!(split_exposure.own, 20);
+		assert_eq!(split_exposure.total, 20 + 1 * 20);
+		assert_eq!(split_exposure.others.len(), 1);
+
+		let mut exposure_3 = exposure.clone();
+		// split individual exposures so that the returned exposure has 3 individual exposures,
+		// which are consumed from the original exposure.
+		let split_exposure = exposure_3.split_others(3);
+		assert_eq!(exposure_3.own, 20);
+		assert_eq!(exposure_3.total, 20 + 1 * 20);
+		assert_eq!(exposure_3.others.len(), 1);
+
+		assert_eq!(split_exposure.own, 20);
+		assert_eq!(split_exposure.total, 20 + 3 * 20);
+		assert_eq!(split_exposure.others.len(), 3);
+
+		let mut exposure_max = exposure.clone();
+		// split others with with more `n_others` than the number of others in the exposure
+		// consumes all the individual exposures of the original Exposure and returns them in the
+		// new exposure.
+		let split_exposure = exposure_max.split_others(u32::MAX);
+		assert_eq!(split_exposure, exposure);
+		assert_eq!(exposure_max, Exposure { total: 20, own: 20, others: vec![] });
+	}
+}

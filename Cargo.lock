@@ -6538,7 +6538,7 @@ dependencies = [
 
 [[package]]
 name = "frame-election-provider-solution-type"
-version = "16.1.1"
+version = "13.0.0"
 dependencies = [
  "frame-election-provider-support",
  "frame-support",
@@ -6554,7 +6554,7 @@ dependencies = [
 
 [[package]]
 name = "frame-election-provider-support"
-version = "40.1.1"
+version = "28.0.0"
 dependencies = [
  "frame-election-provider-solution-type",
  "frame-support",
@@ -6567,11 +6567,12 @@ dependencies = [
  "sp-io 40.0.1",
  "sp-npos-elections",
  "sp-runtime 41.1.0",
+ "sp-std 14.0.0",
 ]
 
 [[package]]
 name = "frame-election-solution-type-fuzzer"
-version = "2.0.0"
+version = "2.0.0-alpha.5"
 dependencies = [
  "frame-election-provider-solution-type",
  "frame-election-provider-support",
@@ -11356,7 +11357,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-bags-list"
-version = "39.1.0"
+version = "27.0.0"
 dependencies = [
  "aquamarine",
  "docify",
@@ -11376,7 +11377,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-bags-list-fuzzer"
-version = "4.0.0"
+version = "4.0.0-dev"
 dependencies = [
  "frame-election-provider-support",
  "honggfuzz",
@@ -11385,7 +11386,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-bags-list-remote-tests"
-version = "4.0.0"
+version = "4.0.0-dev"
 dependencies = [
  "frame-election-provider-support",
  "frame-remote-externalities",
@@ -11930,8 +11931,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-election-provider-multi-phase"
-version = "39.2.0"
+name = "pallet-election-provider-multi-block"
+version = "0.9.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -11939,7 +11940,31 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-balances",
- "pallet-election-provider-support-benchmarking",
+ "parity-scale-codec",
+ "parking_lot 0.12.3",
+ "rand 0.8.5",
+ "scale-info",
+ "sp-arithmetic 26.1.0",
+ "sp-core 36.1.0",
+ "sp-io 40.0.1",
+ "sp-npos-elections",
+ "sp-runtime 41.1.0",
+ "sp-std 14.0.0",
+ "sp-tracing 17.1.0",
+]
+
+[[package]]
+name = "pallet-election-provider-multi-phase"
+version = "27.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-election-provider-support",
+ "frame-remote-externalities",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "log",
+ "pallet-balances",
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "rand 0.8.5",
@@ -11951,11 +11976,12 @@ dependencies = [
  "sp-runtime 41.1.0",
  "sp-tracing 17.1.0",
  "strum 0.26.3",
+ "tokio",
 ]
 
 [[package]]
 name = "pallet-election-provider-support-benchmarking"
-version = "39.0.0"
+version = "27.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -13146,6 +13172,49 @@ dependencies = [
  "sp-staking",
  "sp-tracing 17.1.0",
  "substrate-test-utils",
+]
+
+[[package]]
+name = "pallet-staking-async"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-election-provider-support",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-bags-list",
+ "pallet-balances",
+ "pallet-staking-async-rc-client",
+ "parity-scale-codec",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "scale-info",
+ "serde",
+ "sp-application-crypto 40.1.0",
+ "sp-core 36.1.0",
+ "sp-io 40.0.1",
+ "sp-npos-elections",
+ "sp-runtime 41.1.0",
+ "sp-staking",
+ "sp-tracing 17.1.0",
+ "substrate-test-utils",
+]
+
+[[package]]
+name = "pallet-staking-async-rc-client"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "impl-trait-for-tuples",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 36.1.0",
+ "sp-runtime 41.1.0",
+ "sp-staking",
+ "staging-xcm",
 ]
 
 [[package]]
@@ -22910,7 +22979,7 @@ dependencies = [
 
 [[package]]
 name = "sp-npos-elections"
-version = "36.2.0"
+version = "26.0.0"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -22923,7 +22992,7 @@ dependencies = [
 
 [[package]]
 name = "sp-npos-elections-fuzzer"
-version = "2.0.0"
+version = "2.0.0-alpha.5"
 dependencies = [
  "clap",
  "honggfuzz",
@@ -23197,7 +23266,7 @@ dependencies = [
 
 [[package]]
 name = "sp-staking"
-version = "38.0.0"
+version = "26.0.0"
 dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",

@@ -324,8 +324,8 @@ pub mod session_mock {
 							Some((Timestamp::get(), id)),
 						),
 					);
-					Queued::reset();
-					QueuedId::reset();
+					let _ = Queued::take();
+					let _ = QueuedId::take();
 				} else {
 					QueuedBufferSessions::mutate(|s| *s -= 1);
 					<Staking as rc_client::AHStakingInterface>::on_relay_session_report(
@@ -417,6 +417,7 @@ impl EraPayout<Balance> for OneTokenPerMillisecond {
 }
 
 impl crate::pallet::pallet::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type OldCurrency = Balances;
 	type Currency = Balances;
