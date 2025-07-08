@@ -16,6 +16,12 @@ name: Preflight
 
 on:
   workflow_call:
+    inputs:
+      CHECKOUT_SHA:
+        description: "Checkout sha to use in the workflow"
+        required: false
+        type: string
+        default: ${{ github.sha }}
     # Map the workflow outputs to job outputs
     outputs:
       changes_rust:
@@ -71,7 +77,6 @@ on:
         description: "Sha of the current revision, 8-symbols long"
 
 jobs:
-
   #
   #
   #
@@ -99,8 +104,9 @@ jobs:
       COMMIT_SHA_SHORT: ${{ steps.set_vars.outputs.COMMIT_SHA_SHORT }}
 
     steps:
-
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.CHECKOUT_SHA || github.sha }}
 
       #
       # Set changes
@@ -174,7 +180,6 @@ jobs:
           #
           export REF_NAME=${{ github.ref_name }}
           echo "REF_SLUG=${REF_NAME//\//_}" >> $GITHUB_OUTPUT
-
 
       - name: log
         shell: bash
