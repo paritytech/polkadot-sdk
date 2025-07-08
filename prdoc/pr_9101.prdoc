@@ -14,10 +14,14 @@ doc:
     [weights compare](https://weights.tasty.limo/compare?unit=weight&ignore_errors=true&threshold=10&method=asymptotic&repo=polkadot-sdk&old=master&new=pg/eth-decimals&path_pattern=substrate/frame/**/src/weights.rs,polkadot/runtime/*/src/weights/**/*.rs,polkadot/bridges/modules/*/src/weights.rs,cumulus/**/weights/*.rs,cumulus/**/weights/xcm/*.rs,cumulus/**/src/weights.rs)
 crates:
 - name: pallet-revive
-  bump: patch
+  bump: major
 - name: pallet-revive-fixtures
-  bump: patch
+  bump: major
 - name: assets-common
-  bump: patch
+  bump: major
 - name: asset-hub-westend-runtime
-  bump: patch
+  bump: major
+- name: pallet-xcm
+  bump: major
+- name: pallet-assets
+  bump: major
