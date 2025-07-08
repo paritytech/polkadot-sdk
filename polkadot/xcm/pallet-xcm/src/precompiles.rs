@@ -39,10 +39,19 @@ fn revert(error: &impl fmt::Debug, message: &str) -> Error {
 }
 
 // We don't allow XCM versions older than 5.
-fn revert_on_old_versions<RuntimeCall>(message: &VersionedXcm<RuntimeCall>) -> Result<(), Error> {
+fn check_location_version(location: &VersionedLocation) -> Result<(), Error> {
+	let version = location.identify_version();
+	if version < v5::VERSION {
+		return Err(Error::Revert("Only XCM version 5 and onwards are supported.".into()));
+	}
+	Ok(())
+}
+
+// We don't allow XCM versions older than 5.
+fn check_xcm_version<RuntimeCall>(message: &VersionedXcm<RuntimeCall>) -> Result<(), Error> {
 	let version = message.identify_version();
 	if version < v5::VERSION {
-		return Err(Error::Revert("Only version 5 and onwards are supported.".into()));
+		return Err(Error::Revert("Only XCM version 5 and onwards are supported.".into()));
 	}
 	Ok(())
 }
@@ -79,13 +88,15 @@ where
 						revert(&error, "XCM send failed: Invalid destination format")
 					})?;
 
+				check_location_version(&final_destination)?;
+
 				let final_message = VersionedXcm::<()>::decode_all_with_depth_limit(
 					MAX_XCM_DECODE_DEPTH,
 					&mut &message[..],
 				)
 				.map_err(|error| revert(&error, "XCM send failed: Invalid message format"))?;
 
-				revert_on_old_versions(&final_message)?;
+				check_xcm_version(&final_message)?;
 
 				crate::Pallet::<Runtime>::send(
 					frame_origin,
@@ -112,7 +123,7 @@ where
 				)
 				.map_err(|error| revert(&error, "XCM execute failed: Invalid message format"))?;
 
-				revert_on_old_versions(&final_message)?;
+				check_xcm_version(&final_message)?;
 
 				let result = crate::Pallet::<Runtime>::execute(
 					frame_origin,
@@ -146,7 +157,7 @@ where
 				)
 				.map_err(|error| revert(&error, "XCM weightMessage: Invalid message format"))?;
 
-				revert_on_old_versions(&converted_message)?;
+				check_xcm_version(&converted_message)?;
 
 				let mut final_message = converted_message.try_into().map_err(|error| {
 					revert(&error, "XCM weightMessage: Conversion to Xcm failed")
@@ -186,7 +197,7 @@ mod test {
 	};
 	use polkadot_parachain_primitives::primitives::Id as ParaId;
 	use sp_runtime::traits::AccountIdConversion;
-	use xcm::prelude::*;
+	use xcm::{prelude::*, v4};
 
 	const BOB: AccountId = AccountId::new([1u8; 32]);
 	const CHARLIE: AccountId = AccountId::new([2u8; 32]);
@@ -311,7 +322,104 @@ mod test {
 			]);
 
 			let destination: VersionedLocation = VersionedLocation::from(Location::ancestor(8));
+			let versioned_message: VersionedXcm<()> = VersionedXcm::from(message.clone());
+
+			let xcm_send_params = IXcm::sendCall {
+				destination: destination.encode().into(),
+				message: versioned_message.encode().into(),
+			};
+			let call = IXcm::IXcmCalls::send(xcm_send_params);
+			let encoded_call = call.abi_encode();
+
+			let result = pallet_revive::Pallet::<Test>::bare_call(
+				RuntimeOrigin::signed(ALICE),
+				xcm_precompile_addr,
+				0u128,
+				Weight::MAX,
+				DepositLimit::UnsafeOnlyForDryRun,
+				encoded_call,
+			);
+			let return_value = match result.result {
+				Ok(value) => value,
+				Err(err) => panic!("XcmSendPrecompile call failed with error: {err:?}"),
+			};
+			assert!(return_value.did_revert());
+		});
+	}
+
+	#[test]
+	fn send_fails_on_old_location_version() {
+		use codec::Encode;
+
+		let balances = vec![
+			(ALICE, CUSTOM_INITIAL_BALANCE),
+			(ParaId::from(OTHER_PARA_ID).into_account_truncating(), CUSTOM_INITIAL_BALANCE),
+		];
+		new_test_ext_with_balances(balances).execute_with(|| {
+			let xcm_precompile_addr = H160::from(
+				hex::const_decode_to_array(b"00000000000000000000000000000000000A0000").unwrap(),
+			);
+
+			let sender: Location = AccountId32 { network: None, id: ALICE.into() }.into();
+			let message = Xcm(vec![
+				ReserveAssetDeposited((Parent, SEND_AMOUNT).into()),
+				ClearOrigin,
+				buy_execution((Parent, SEND_AMOUNT)),
+				DepositAsset { assets: AllCounted(1).into(), beneficiary: sender.clone() },
+			]);
+
+			// Old location, will fail.
+			let destination: VersionedLocation =
+				VersionedLocation::V4(v4::Junction::Parachain(OTHER_PARA_ID).into());
 			let versioned_message: VersionedXcm<RuntimeCall> = VersionedXcm::from(message);
+
+			let xcm_send_params = IXcm::sendCall {
+				destination: destination.encode().into(),
+				message: versioned_message.encode().into(),
+			};
+			let call = IXcm::IXcmCalls::send(xcm_send_params);
+			let encoded_call = call.abi_encode();
+
+			let result = pallet_revive::Pallet::<Test>::bare_call(
+				RuntimeOrigin::signed(ALICE),
+				xcm_precompile_addr,
+				0u128,
+				Weight::MAX,
+				DepositLimit::UnsafeOnlyForDryRun,
+				encoded_call,
+			);
+			let return_value = match result.result {
+				Ok(value) => value,
+				Err(err) => panic!("XcmSendPrecompile call failed with error: {err:?}"),
+			};
+			assert!(return_value.did_revert());
+		});
+	}
+
+	#[test]
+	fn send_fails_on_old_xcm_version() {
+		use codec::Encode;
+
+		let balances = vec![
+			(ALICE, CUSTOM_INITIAL_BALANCE),
+			(ParaId::from(OTHER_PARA_ID).into_account_truncating(), CUSTOM_INITIAL_BALANCE),
+		];
+		new_test_ext_with_balances(balances).execute_with(|| {
+			let xcm_precompile_addr = H160::from(
+				hex::const_decode_to_array(b"00000000000000000000000000000000000A0000").unwrap(),
+			);
+
+			let sender: Location = AccountId32 { network: None, id: ALICE.into() }.into();
+			let message = Xcm(vec![
+				ReserveAssetDeposited((Parent, SEND_AMOUNT).into()),
+				ClearOrigin,
+				buy_execution((Parent, SEND_AMOUNT)),
+				DepositAsset { assets: AllCounted(1).into(), beneficiary: sender.clone() },
+			]);
+			let v4_message: v4::Xcm<RuntimeCall> = message.try_into().unwrap();
+
+			let destination: VersionedLocation = Parachain(OTHER_PARA_ID).into();
+			let versioned_message: VersionedXcm<RuntimeCall> = VersionedXcm::V4(v4_message);
 
 			let xcm_send_params = IXcm::sendCall {
 				destination: destination.encode().into(),
@@ -527,6 +635,125 @@ mod test {
 			assert!(return_value.did_revert());
 			assert_eq!(Balances::total_balance(&ALICE), CUSTOM_INITIAL_BALANCE);
 			assert_eq!(Balances::total_balance(&BOB), CUSTOM_INITIAL_BALANCE);
+		});
+	}
+
+	#[test]
+	fn execute_fails_on_old_version() {
+		use codec::Encode;
+
+		let balances = vec![
+			(ALICE, CUSTOM_INITIAL_BALANCE),
+			(ParaId::from(OTHER_PARA_ID).into_account_truncating(), CUSTOM_INITIAL_BALANCE),
+		];
+		new_test_ext_with_balances(balances).execute_with(|| {
+			let xcm_precompile_addr = H160::from(
+				hex::const_decode_to_array(b"00000000000000000000000000000000000A0000").unwrap(),
+			);
+
+			let dest: Location = Junction::AccountId32 { network: None, id: BOB.into() }.into();
+			assert_eq!(Balances::total_balance(&ALICE), CUSTOM_INITIAL_BALANCE);
+
+			let message = Xcm(vec![
+				WithdrawAsset((Here, SEND_AMOUNT).into()),
+				buy_execution((Here, SEND_AMOUNT)),
+				DepositAsset { assets: AllCounted(1).into(), beneficiary: dest },
+			]);
+			let versioned_message = VersionedXcm::from(message.clone());
+
+			let weight_params = weighMessageCall { message: versioned_message.encode().into() };
+			let weight_call = IXcm::IXcmCalls::weighMessage(weight_params);
+			let encoded_weight_call = weight_call.abi_encode();
+
+			let xcm_weight_results = pallet_revive::Pallet::<Test>::bare_call(
+				RuntimeOrigin::signed(ALICE),
+				xcm_precompile_addr,
+				0u128,
+				Weight::MAX,
+				DepositLimit::UnsafeOnlyForDryRun,
+				encoded_weight_call,
+			);
+
+			let weight_result = match xcm_weight_results.result {
+				Ok(value) => value,
+				Err(err) =>
+					panic!("XcmExecutePrecompile Failed to decode weight with error {err:?}"),
+			};
+
+			let weight: IXcm::Weight = IXcm::Weight::abi_decode(&weight_result.data[..])
+				.expect("XcmExecutePrecompile Failed to decode weight");
+
+			// Using a V4 message to check that it fails.
+			let v4_message: v4::Xcm<RuntimeCall> = message.try_into().unwrap();
+			let versioned_message = VersionedXcm::V4(v4_message);
+
+			let xcm_execute_params =
+				IXcm::executeCall { message: versioned_message.encode().into(), weight };
+			let call = IXcm::IXcmCalls::execute(xcm_execute_params);
+			let encoded_call = call.abi_encode();
+
+			let result = pallet_revive::Pallet::<Test>::bare_call(
+				RuntimeOrigin::signed(ALICE),
+				xcm_precompile_addr,
+				0u128,
+				Weight::MAX,
+				DepositLimit::UnsafeOnlyForDryRun,
+				encoded_call,
+			);
+
+			let return_value = match result.result {
+				Ok(value) => value,
+				Err(err) => panic!("XcmExecutePrecompile call failed with error: {err:?}"),
+			};
+			assert!(return_value.did_revert());
+			assert_eq!(Balances::total_balance(&ALICE), CUSTOM_INITIAL_BALANCE);
+			assert_eq!(Balances::total_balance(&BOB), 0);
+		});
+	}
+
+	#[test]
+	fn weight_fails_on_old_version() {
+		use codec::Encode;
+
+		let balances = vec![
+			(ALICE, CUSTOM_INITIAL_BALANCE),
+			(ParaId::from(OTHER_PARA_ID).into_account_truncating(), CUSTOM_INITIAL_BALANCE),
+		];
+		new_test_ext_with_balances(balances).execute_with(|| {
+			let xcm_precompile_addr = H160::from(
+				hex::const_decode_to_array(b"00000000000000000000000000000000000A0000").unwrap(),
+			);
+
+			let dest: Location = Junction::AccountId32 { network: None, id: BOB.into() }.into();
+			assert_eq!(Balances::total_balance(&ALICE), CUSTOM_INITIAL_BALANCE);
+
+			let message: Xcm<RuntimeCall> = Xcm(vec![
+				WithdrawAsset((Here, SEND_AMOUNT).into()),
+				buy_execution((Here, SEND_AMOUNT)),
+				DepositAsset { assets: AllCounted(1).into(), beneficiary: dest },
+			]);
+			let v4_message: v4::Xcm<RuntimeCall> = message.try_into().unwrap();
+			let versioned_message = VersionedXcm::V4(v4_message);
+
+			let weight_params = weighMessageCall { message: versioned_message.encode().into() };
+			let weight_call = IXcm::IXcmCalls::weighMessage(weight_params);
+			let encoded_weight_call = weight_call.abi_encode();
+
+			let xcm_weight_results = pallet_revive::Pallet::<Test>::bare_call(
+				RuntimeOrigin::signed(ALICE),
+				xcm_precompile_addr,
+				0u128,
+				Weight::MAX,
+				DepositLimit::UnsafeOnlyForDryRun,
+				encoded_weight_call,
+			);
+
+			let result = match xcm_weight_results.result {
+				Ok(value) => value,
+				Err(err) =>
+					panic!("XcmExecutePrecompile Failed to decode weight with error {err:?}"),
+			};
+			assert!(result.did_revert());
 		});
 	}
 }
