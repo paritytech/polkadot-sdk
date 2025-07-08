@@ -26,8 +26,8 @@ if [[ ! -f "$ZOMBIE_JSON" ]]; then
   exit 1
 fi
 
-# Extract namespace
-NS=$(jq -r '.ns' "$ZOMBIE_JSON")
+# Extract namespace (ns in sdk / namespace in v1)
+NS=$(jq -r '.ns // .namespace' "$ZOMBIE_JSON")
 # test start time in milliseconds
 FROM=$(jq -r '.start_time_ts' "$ZOMBIE_JSON")
 # current time in milliseconds
