@@ -39,17 +39,8 @@ fn revert(error: &impl fmt::Debug, message: &str) -> Error {
 }
 
 // We don't allow XCM versions older than 5.
-fn check_location_version(location: &VersionedLocation) -> Result<(), Error> {
-	let version = location.identify_version();
-	if version < v5::VERSION {
-		return Err(Error::Revert("Only XCM version 5 and onwards are supported.".into()));
-	}
-	Ok(())
-}
-
-// We don't allow XCM versions older than 5.
-fn check_xcm_version<RuntimeCall>(message: &VersionedXcm<RuntimeCall>) -> Result<(), Error> {
-	let version = message.identify_version();
+fn ensure_xcm_version<V: IdentifyVersion>(input: &V) -> Result<(), Error> {
+	let version = input.identify_version();
 	if version < v5::VERSION {
 		return Err(Error::Revert("Only XCM version 5 and onwards are supported.".into()));
 	}
@@ -88,7 +79,7 @@ where
 						revert(&error, "XCM send failed: Invalid destination format")
 					})?;
 
-				check_location_version(&final_destination)?;
+				ensure_xcm_version(&final_destination)?;
 
 				let final_message = VersionedXcm::<()>::decode_all_with_depth_limit(
 					MAX_XCM_DECODE_DEPTH,
@@ -96,7 +87,7 @@ where
 				)
 				.map_err(|error| revert(&error, "XCM send failed: Invalid message format"))?;
 
-				check_xcm_version(&final_message)?;
+				ensure_xcm_version(&final_message)?;
 
 				crate::Pallet::<Runtime>::send(
 					frame_origin,
@@ -123,7 +114,7 @@ where
 				)
 				.map_err(|error| revert(&error, "XCM execute failed: Invalid message format"))?;
 
-				check_xcm_version(&final_message)?;
+				ensure_xcm_version(&final_message)?;
 
 				let result = crate::Pallet::<Runtime>::execute(
 					frame_origin,
@@ -157,7 +148,7 @@ where
 				)
 				.map_err(|error| revert(&error, "XCM weightMessage: Invalid message format"))?;
 
-				check_xcm_version(&converted_message)?;
+				ensure_xcm_version(&converted_message)?;
 
 				let mut final_message = converted_message.try_into().map_err(|error| {
 					revert(&error, "XCM weightMessage: Conversion to Xcm failed")
