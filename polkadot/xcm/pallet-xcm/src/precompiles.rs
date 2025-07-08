@@ -25,7 +25,7 @@ use pallet_revive::{
 	DispatchInfo, Origin,
 };
 use tracing::error;
-use xcm::{v3, v4, IdentifyVersion, MAX_XCM_DECODE_DEPTH};
+use xcm::{v5, IdentifyVersion, MAX_XCM_DECODE_DEPTH};
 use xcm_executor::traits::WeightBounds;
 
 alloy::sol!("src/precompiles/IXcm.sol");
@@ -78,7 +78,7 @@ where
 
 				// We don't allow older XCM versions.
 				let version = final_message.identify_version();
-				if version == v3::VERSION || version == v4::VERSION {
+				if version < v5::VERSION {
 					return Err(revert(&(), "Only version 5 and onwards are supported."));
 				}
 
@@ -109,7 +109,7 @@ where
 
 				// We don't allow older XCM versions.
 				let version = final_message.identify_version();
-				if version == v3::VERSION || version == v4::VERSION {
+				if version < v5::VERSION {
 					return Err(revert(&(), "Only version 5 and onwards are supported."));
 				}
 
@@ -145,15 +145,15 @@ where
 				)
 				.map_err(|error| revert(&error, "XCM weightMessage: Invalid message format"))?;
 
+				// We don't allow older XCM versions.
+				let version = converted_message.identify_version();
+				if version < v5::VERSION {
+					return Err(revert(&(), "Only version 5 and onwards are supported."));
+				}
+
 				let mut final_message = converted_message.try_into().map_err(|error| {
 					revert(&error, "XCM weightMessage: Conversion to Xcm failed")
 				})?;
-
-				// We don't allow older XCM versions.
-				let version = final_message.identify_version();
-				if version == v3::VERSION || version == v4::VERSION {
-					return Err(revert(&(), "Only version 5 and onwards are supported."));
-				}
 
 				let weight = <<Runtime>::Weigher>::weight(&mut final_message, Weight::MAX)
 					.map_err(|error| {
