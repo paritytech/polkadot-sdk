@@ -25,7 +25,7 @@ use crate::{
 use async_trait::async_trait;
 use codec::Encode;
 use parking_lot::Mutex;
-use sc_transaction_pool_api::error;
+use sc_transaction_pool_api::error::IntoPoolError;
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_runtime::{
 	generic::BlockId,
@@ -70,10 +70,26 @@ impl TestApi {
 	}
 }
 
+#[derive(thiserror::Error, Debug)]
+#[error(transparent)]
+struct Error(#[from] sc_transaction_pool_api::error::Error);
+
+impl AsRef<str> for Error {
+	fn as_ref(&self) -> &str {
+		self.0.to_string().leak()
+	}
+}
+
+impl IntoPoolError for Error {
+	fn into_pool_error(self) -> std::result::Result<sc_transaction_pool_api::error::Error, Self> {
+		Ok(self.0)
+	}
+}
+
 #[async_trait]
 impl ChainApi for TestApi {
 	type Block = Block;
-	type Error = error::Error;
+	type Error = Error;
 
 	/// Verify extrinsic at given block.
 	async fn validate_transaction(

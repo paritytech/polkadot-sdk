@@ -21,6 +21,7 @@ use codec::Encode;
 use criterion::{criterion_group, criterion_main, Criterion};
 use futures::executor::block_on;
 use sc_transaction_pool::*;
+use sc_transaction_pool_api::error::IntoPoolError;
 use sp_blockchain::HashAndNumber;
 use sp_crypto_hashing::blake2_256;
 use sp_runtime::{
@@ -52,10 +53,26 @@ fn to_tag(nonce: u64, from: AccountId) -> Tag {
 	data.to_vec()
 }
 
+#[derive(thiserror::Error, Debug)]
+#[error(transparent)]
+struct Error(#[from] sc_transaction_pool_api::error::Error);
+
+impl IntoPoolError for Error {
+	fn into_pool_error(self) -> std::result::Result<sc_transaction_pool_api::error::Error, Self> {
+		Ok(self.0)
+	}
+}
+
+impl AsRef<str> for Error {
+	fn as_ref(&self) -> &str {
+		self.0.to_string().leak()
+	}
+}
+
 #[async_trait]
 impl ChainApi for TestApi {
 	type Block = Block;
-	type Error = sc_transaction_pool_api::error::Error;
+	type Error = Error;
 
 	async fn validate_transaction(
 		&self,

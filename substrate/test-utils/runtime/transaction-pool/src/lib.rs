@@ -57,6 +57,12 @@ impl sc_transaction_pool_api::error::IntoPoolError for Error {
 	}
 }
 
+impl AsRef<str> for Error {
+	fn as_ref(&self) -> &str {
+		self.0.to_string().leak()
+	}
+}
+
 pub enum IsBestBlock {
 	Yes,
 	No,
