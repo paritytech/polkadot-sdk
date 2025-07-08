@@ -81,6 +81,7 @@ done
 echo ""
 
 # Handle parachains grouped by paraId
+echo "JQ_QUERY_PARAS: $JQ_QUERY_PARAS"
 jq -r $JQ_QUERY_PARAS "$ZOMBIE_JSON" | while read -r para_id; do
   echo "ParaId: $para_id"
   jq -r --arg pid "$para_id" $JQ_QUERY_PARA_NODES "$ZOMBIE_JSON" | while read -r name; do
