@@ -19,7 +19,7 @@ jobs:
     # needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
     with:
-      CHECKOUT_SHA: "252649fc0105efc8b32b2e1a3649bd6d09f8bd53"
+      CHECKOUT_SHA: "771c9988e2a636a150d97c10e3122af8068d1687"
 
   # https://github.com/paritytech/ci_cd/issues/864
   test-linux-stable-runtime-benchmarks:
@@ -42,7 +42,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: "252649fc0105efc8b32b2e1a3649bd6d09f8bd53"
+          ref: "771c9988e2a636a150d97c10e3122af8068d1687"
       - name: script
         id: required
         run: forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
