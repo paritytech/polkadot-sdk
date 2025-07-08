@@ -65,10 +65,11 @@ pub const STAKING_ID: LockIdentifier = *b"staking ";
 
 const SEED: u32 = 0;
 
-/// A simple implementation of [`EraPayout`] that returns a fixed payout for testing purposes.
+/// A simple implementation of [`pallet_staking_async::EraPayout`] that returns a fixed payout for
+/// testing purposes.
 ///
 /// This can be used in test runtimes where `pallet-staking-async` is a dependency to avoid
-/// having to implement the `EraPayout` trait manually in each test runtime.
+/// having to implement the `pallet_staking_async::EraPayout` trait manually in each test runtime.
 ///
 /// To use this, you need to provide a parameter type that returns the desired payout tuple:
 ///

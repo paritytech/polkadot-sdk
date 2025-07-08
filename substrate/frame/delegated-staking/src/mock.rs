@@ -331,14 +331,8 @@ pub(crate) fn start_era(era: sp_staking::EraIndex) {
 	pallet_staking_async_testing_utils::setup_staking_era_state::<T>(
 		era,
 		BondingDuration::get(),
-		Some(vec![
-			GENESIS_VALIDATOR.into(),
-			18u128.into(),
-			19u128.into(),
-			20u128.into(),
-			21u128.into(),
-			22u128.into(),
-		]), // Include all test validators
+		Some(vec![GENESIS_VALIDATOR, 18u128, 19u128, 20u128, 21u128, 22u128]), /* Include all
+		                                                                        * test validators */
 	);
 }
 
