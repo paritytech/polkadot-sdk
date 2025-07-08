@@ -72,7 +72,7 @@ impl TestApi {
 
 #[derive(thiserror::Error, Debug)]
 #[error(transparent)]
-struct Error(#[from] sc_transaction_pool_api::error::Error);
+pub(crate) struct Error(#[from] pub sc_transaction_pool_api::error::Error);
 
 impl AsRef<str> for Error {
 	fn as_ref(&self) -> &str {
