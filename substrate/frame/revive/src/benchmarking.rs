@@ -1564,6 +1564,7 @@ mod benchmarks {
 		// This is why we set the input here instead of passig it as pointer to the `bench_call`.
 		setup.set_data(vec![42; i as usize]);
 		setup.set_origin(Origin::from_account_id(setup.contract().account_id.clone()));
+		setup.set_balance(value + Pallet::<T>::min_balance());
 
 		let (mut ext, _) = setup.ext();
 		let mut runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
@@ -1583,7 +1584,7 @@ mod benchmarks {
 			);
 		}
 
-		assert_ok!(result);
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
 	}
 
 	// d: 1 if the associated pre-compile has a contract info that needs to be loaded
