@@ -35,10 +35,11 @@ use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	extract_relay_parent, rpsr_digest, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
-	PersistedValidationData, RelayParentOffsetApi,
+	PersistedValidationData, RelayParentOffsetApi, SlotSchedule,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
+use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
 	Block as RelayBlock, CoreIndex, Hash as RelayHash, Header as RelayHeader, Id as ParaId,
 };
@@ -132,6 +133,7 @@ where
 	Client::Api: AuraApi<Block, P::Public>
 		+ RelayParentOffsetApi<Block>
 		+ AuraUnincludedSegmentApi<Block>
+		+ SlotSchedule<Block>
 		+ BlockBuilder<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RelayClient: RelayChainInterface + Clone + 'static,
@@ -311,8 +313,55 @@ where
 				"Claiming slot."
 			);
 
+			let mut cores = match determine_cores(
+				&mut relay_chain_data_cache,
+				&relay_parent_header,
+				para_id,
+				&initial_parent.header,
+			)
+			.await
+			{
+				Ok(Some(core)) => core,
+				Ok(None) => {
+					tracing::debug!(
+						target: crate::LOG_TARGET,
+						relay_parent = ?relay_parent,
+						"Not cores scheduled."
+					);
+					continue;
+				},
+				Err(()) => {
+					tracing::error!(
+						target: crate::LOG_TARGET,
+						relay_parent = ?relay_parent,
+						"Failed to determine cores."
+					);
+
+					break;
+				},
+			};
+
+			let slot_schedule = match para_client
+				.runtime_api()
+				.next_slot_schedule(initial_parent.hash, cores.total_cores())
+			{
+				Ok(schedule) => schedule,
+				Err(error) => {
+					tracing::debug!(
+						target: crate::LOG_TARGET,
+						block = ?initial_parent.hash,
+						?error,
+						"Failed to fetch `slot_schedule`, assuming one block with 2s"
+					);
+					vec![Duration::from_secs(2)]
+				},
+			};
+
+			let blocks_per_core = (slot_schedule.len() as u32 / cores.total_cores()).max(1);
+
 			let mut pov_parent_header = initial_parent.header;
 			let mut pov_parent_hash = initial_parent.hash;
+			let mut slot_schedule = slot_schedule.into_iter();
 
 			loop {
 				match build_collation_for_core(
@@ -323,37 +372,36 @@ where
 					max_pov_size,
 					para_id,
 					&relay_client,
-					&*para_client,
-					&mut relay_chain_data_cache,
 					&code_hash_provider,
-					relay_chain_slot_duration,
 					&slot_claim,
 					&collator_sender,
 					authoring_duration,
 					&mut collator,
 					allowed_pov_size,
+					cores.core_info(),
+					cores.core_index(),
+					(&mut slot_schedule).take(blocks_per_core as usize),
 				)
 				.await
 				{
-					NextBlockProductionStep::NextCore { last_block_header } => {
-						pov_parent_header = last_block_header;
+					Ok(Some(header)) => {
+						pov_parent_header = header;
 						pov_parent_hash = pov_parent_header.hash();
 					},
-					NextBlockProductionStep::NextSlot => break,
-					NextBlockProductionStep::Stop => return,
+					// Let's wait for the next slot
+					Ok(None) => break,
+					Err(()) => return,
+				}
+
+				if !cores.advance() {
+					break
 				}
 			}
 		}
 	}
 }
 
-enum NextBlockProductionStep<Block: BlockT> {
-	NextCore { last_block_header: Block::Header },
-	NextSlot,
-	Stop,
-}
-
-async fn build_collation_for_core<Block: BlockT, P, Client, RelayClient, BI, CIDP, Proposer, CS>(
+async fn build_collation_for_core<Block: BlockT, P, RelayClient, BI, CIDP, Proposer, CS>(
 	pov_parent_header: Block::Header,
 	pov_parent_hash: Block::Hash,
 	relay_parent_header: &RelayHeader,
@@ -361,30 +409,17 @@ async fn build_collation_for_core<Block: BlockT, P, Client, RelayClient, BI, CID
 	max_pov_size: u32,
 	para_id: ParaId,
 	relay_client: &impl RelayChainInterface,
-	para_client: &Client,
-	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
 	code_hash_provider: &impl consensus_common::ValidationCodeHashProvider<Block::Hash>,
-	relay_chain_slot_duration: Duration,
 	slot_claim: &SlotClaim<P::Public>,
 	collator_sender: &sc_utils::mpsc::TracingUnboundedSender<CollatorMessage<Block>>,
 	authoring_duration: Duration,
 	collator: &mut Collator<Block, P, BI, CIDP, RelayClient, Proposer, CS>,
 	allowed_pov_size: usize,
-) -> NextBlockProductionStep<Block>
+	core_info: CoreInfo,
+	core_index: CoreIndex,
+	block_schedule: impl Iterator<Item = Duration>,
+) -> Result<Option<Block::Header>, ()>
 where
-	Client: ProvideRuntimeApi<Block>
-		+ UsageProvider<Block>
-		+ BlockOf
-		+ AuxStore
-		+ HeaderBackend<Block>
-		+ BlockBackend<Block>
-		+ Send
-		+ Sync
-		+ 'static,
-	Client::Api: AuraApi<Block, P::Public>
-		+ RelayParentOffsetApi<Block>
-		+ AuraUnincludedSegmentApi<Block>
-		+ BlockBuilder<Block>,
 	RelayClient: RelayChainInterface + 'static,
 	P: Pair,
 	P::Public: AppPublic + Member + Codec,
@@ -408,77 +443,12 @@ where
 			?pov_parent_hash,
 			"Could not fetch validation code hash",
 		);
-		return NextBlockProductionStep::Stop
+
+		return Err(())
 	};
 
 	check_validation_code_or_log(&validation_code_hash, para_id, relay_client, relay_parent_hash)
 		.await;
-
-	let Ok(block_rate) = para_client.runtime_api().block_rate(pov_parent_hash) else {
-		tracing::error!(
-			target: crate::LOG_TARGET,
-			"Failed to fetch block rate."
-		);
-		return NextBlockProductionStep::Stop
-	};
-
-	// Retrieve the core selector.
-	let (core_selector, claim_queue_offset, core_index, number_of_cores) = match determine_core(
-		relay_chain_data_cache,
-		relay_parent_header,
-		para_id,
-		&pov_parent_header,
-	)
-	.await
-	{
-		Err(()) => {
-			tracing::debug!(
-				target: LOG_TARGET,
-				relay_parent = ?relay_parent_hash,
-				"Failed to determine core"
-			);
-
-			return NextBlockProductionStep::Stop
-		},
-		Ok(Some(res)) => {
-			tracing::debug!(
-				target: LOG_TARGET,
-				relay_parent = ?relay_parent_hash,
-				core_selector = ?res.0,
-				claim_queue_offset = ?res.1,
-				number_of_cores = %res.3,
-				"Going to claim core",
-			);
-
-			res
-		},
-		Ok(None) => {
-			tracing::debug!(
-				target: LOG_TARGET,
-				relay_parent = ?relay_parent_hash,
-				"No available core"
-			);
-
-			return NextBlockProductionStep::NextSlot
-		},
-	};
-
-	let block_time = block_rate.block_time.as_regular();
-
-	let (blocks_per_core, max_blocks_per_relay_slot) = match block_time {
-		Some(bt) if bt < relay_chain_slot_duration => (
-			(relay_chain_slot_duration.as_millis() / number_of_cores as u128) / bt.as_millis(),
-			relay_chain_slot_duration.as_millis() / bt.as_millis(),
-		),
-		_ => (1, 1),
-	};
-
-	tracing::trace!(
-		target: LOG_TARGET,
-		%blocks_per_core,
-		?block_rate,
-		"Block rate configuration",
-	);
 
 	let mut blocks = Vec::new();
 	let mut proofs = Vec::new();
@@ -487,8 +457,8 @@ where
 	let mut parent_hash = pov_parent_hash;
 	let mut parent_header = pov_parent_header.clone();
 
-	for _ in 0..blocks_per_core {
-		let expected_block_end = Instant::now() + block_time.unwrap_or_default();
+	for block_time in block_schedule {
+		let expected_block_end = Instant::now() + block_time;
 
 		let (parachain_inherent_data, other_inherent_data) = match collator
 			.create_inherent_data(
@@ -501,7 +471,7 @@ where
 		{
 			Err(err) => {
 				tracing::error!(target: crate::LOG_TARGET, ?err, "Failed to create inherent data.");
-				return NextBlockProductionStep::NextSlot
+				return Ok(None)
 			},
 			Ok(x) => x,
 		};
@@ -510,12 +480,7 @@ where
 			.build_block_and_import(
 				&parent_header,
 				slot_claim,
-				Some(vec![CumulusDigestItem::CoreInfo(CoreInfo {
-					selector: core_selector,
-					claim_queue_offset,
-					number_of_cores: number_of_cores.into(),
-				})
-				.to_digest_item()]),
+				Some(vec![CumulusDigestItem::CoreInfo(core_info.clone()).to_digest_item()]),
 				(parachain_inherent_data, other_inherent_data),
 				authoring_duration,
 				allowed_pov_size,
@@ -523,7 +488,7 @@ where
 			.await
 		else {
 			tracing::error!(target: crate::LOG_TARGET, "Unable to build block at slot.");
-			return NextBlockProductionStep::NextSlot;
+			return Ok(None);
 		};
 
 		parent_hash = res.block.header().hash();
@@ -555,11 +520,9 @@ where
 		max_pov_size: validation_data.max_pov_size,
 	}) {
 		tracing::error!(target: crate::LOG_TARGET, ?err, "Unable to send block to collation task.");
-		NextBlockProductionStep::Stop
-	} else if max_blocks_per_relay_slot > 1 && core_selector.0 as u16 + 1 < number_of_cores {
-		NextBlockProductionStep::NextCore { last_block_header: parent_header }
+		Err(())
 	} else {
-		NextBlockProductionStep::NextSlot
+		Ok(Some(parent_header))
 	}
 }
 
@@ -646,15 +609,55 @@ where
 	Ok(RelayParentData::new_with_descendants(relay_parent, required_ancestors.into()))
 }
 
-/// Determine the core for the given `para_id`.
+/// Return value of [`determine_cores`].
+struct Cores {
+	selector: CoreSelector,
+	claim_queue_offset: ClaimQueueOffset,
+	core_indices: Vec<CoreIndex>,
+}
+
+impl Cores {
+	/// Returns the current [`CoreInfo`].
+	fn core_info(&self) -> CoreInfo {
+		CoreInfo {
+			selector: self.selector,
+			claim_queue_offset: self.claim_queue_offset,
+			number_of_cores: (self.core_indices.len() as u16).into(),
+		}
+	}
+
+	/// Returns the current [`CoreIndex`].
+	fn core_index(&self) -> CoreIndex {
+		self.core_indices[self.selector.0 as usize]
+	}
+
+	/// Advance to the next available core.
+	///
+	/// Returns `false` if there is no core left.
+	fn advance(&mut self) -> bool {
+		if self.selector.0 as usize + 1 < self.core_indices.len() {
+			self.selector.0 += 1;
+			true
+		} else {
+			false
+		}
+	}
+
+	/// Returns the total number of cores.
+	fn total_cores(&self) -> u32 {
+		self.core_indices.len() as u32
+	}
+}
+
+/// Determine the cores for the given `para_id`.
 ///
-/// Takes into account the `parent` core to find the next available core.
-async fn determine_core<Header: HeaderT, RI: RelayChainInterface + 'static>(
+/// Takes into account the `parent` core to find the next available cores.
+async fn determine_cores<Header: HeaderT, RI: RelayChainInterface + 'static>(
 	relay_chain_data_cache: &mut RelayChainDataCache<RI>,
 	relay_parent: &RelayHeader,
 	para_id: ParaId,
 	parent: &Header,
-) -> Result<Option<(CoreSelector, ClaimQueueOffset, CoreIndex, u16)>, ()> {
+) -> Result<Option<Cores>, ()> {
 	let core_info = CumulusDigestItem::find_core_info(parent.digest());
 
 	let last_relay_parent = if parent.number().is_zero() {
@@ -682,18 +685,21 @@ async fn determine_core<Header: HeaderT, RI: RelayChainInterface + 'static>(
 	let res = if relay_parent_offset >
 		core_info.as_ref().map(|ci| ci.claim_queue_offset).unwrap_or_default().0 as u32
 	{
-		claim_queue.find_core(para_id, 0, 0)
+		claim_queue.find_cores(para_id, 0)
 	} else {
-		claim_queue.find_core(
+		claim_queue.find_cores(
 			para_id,
-			core_info.as_ref().map_or(0, |ci| ci.selector.0 as u32 + 1),
 			core_info
 				.as_ref()
 				.map_or(0, |ci| ci.claim_queue_offset.0 as u32 - relay_parent_offset),
 		)
 	};
 
-	Ok(res)
+	Ok(res.map(|(cores, claim_queue_offset)| Cores {
+		selector: CoreSelector(0),
+		claim_queue_offset,
+		core_indices: cores,
+	}))
 }
 
 #[cfg(test)]

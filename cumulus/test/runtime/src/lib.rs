@@ -62,6 +62,7 @@ mod test_pallet;
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
+use core::time::Duration;
 use frame_support::{derive_impl, traits::OnRuntimeUpgrade, PalletId};
 use sp_api::{decl_runtime_apis, impl_runtime_apis};
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -627,6 +628,16 @@ impl_runtime_apis! {
 			ParachainInfo::parachain_id()
 		}
 
+	}
+
+	impl cumulus_primitives_core::SlotSchedule<Block> for Runtime {
+		fn next_slot_schedule(num_cores: u32) -> Vec<Duration> {
+			const TARGET_BLOCK_INTERVAL: u32 = 12;
+
+			let block_time = Duration::from_secs(2) * num_cores / TARGET_BLOCK_INTERVAL;
+
+			vec![block_time.min(Duration::from_millis(500)); TARGET_BLOCK_INTERVAL as usize]
+		}
 	}
 }
 

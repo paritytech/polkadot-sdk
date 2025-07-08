@@ -33,10 +33,7 @@ use polkadot_node_subsystem_types::UnpinHandle;
 use polkadot_primitives::{
 	node_features::FeatureIndex,
 	slashing,
-	vstaging::{
-		CandidateEvent, ClaimQueueOffset, CoreSelector, CoreState, OccupiedCore,
-		ScrapedOnChainVotes,
-	},
+	vstaging::{CandidateEvent, ClaimQueueOffset, CoreState, OccupiedCore, ScrapedOnChainVotes},
 	CandidateHash, CoreIndex, EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
 	Id as ParaId, IndexedVec, NodeFeatures, SessionIndex, SessionInfo, Signed, SigningContext,
 	UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
@@ -517,48 +514,33 @@ impl ClaimQueueSnapshot {
 		self.0.iter()
 	}
 
-	/// Find a core for the given `para_id`.
+	/// Find cores for the given `para_id` at the given `claim_queue_offset`.
 	///
-	/// `cores_claimed` is the number of cores already claimed from this snapshot for `para_id` at
-	/// the given `claim_queue_offset`.
-	///
-	/// Returns the core selector, claim queue offset, core index and the number of cores at claim
-	/// queue offset.
-	pub fn find_core(
+	/// It is not guaranteed that at the given `claim_queue_offset` cores are available for
+	/// the `para_id`. Thus, the claim queue offset for the core indices is returned as well.
+	pub fn find_cores(
 		&self,
 		para_id: ParaId,
-		mut cores_claimed: u32,
 		claim_queue_offset: u32,
-	) -> Option<(CoreSelector, ClaimQueueOffset, CoreIndex, u16)> {
-		let mut offset_to_core_count = BTreeMap::<usize, Vec<CoreIndex>>::new();
+	) -> Option<(Vec<CoreIndex>, ClaimQueueOffset)> {
+		let mut offset_to_cores = BTreeMap::<usize, Vec<CoreIndex>>::new();
 
 		self.0.iter().for_each(|(core_index, ids)| {
 			ids.iter()
 				.enumerate()
 				.filter_map(|(i, id)| (*id == para_id).then(|| i))
 				.for_each(|offset| {
-					offset_to_core_count.entry(offset).or_default().push(*core_index);
+					offset_to_cores.entry(offset).or_default().push(*core_index);
 				});
 		});
 
-		for (offset, cores) in offset_to_core_count {
-			if (offset as u32) < claim_queue_offset {
-				continue
+		offset_to_cores.into_iter().find_map(|(offset, cores)| {
+			if (offset as u32) >= claim_queue_offset {
+				Some((cores, ClaimQueueOffset(offset as u8)))
+			} else {
+				None
 			}
-
-			if let Some(core_index) = cores.get(cores_claimed as usize) {
-				return Some((
-					CoreSelector(cores_claimed as u8),
-					ClaimQueueOffset(offset as u8),
-					*core_index,
-					cores.len() as u16,
-				))
-			}
-
-			cores_claimed -= cores.len() as u32;
-		}
-
-		None
+		})
 	}
 }
 
@@ -638,7 +620,7 @@ mod test {
 	use super::*;
 
 	#[test]
-	fn find_core_works() {
+	fn find_cores_works() {
 		let claim_queue = ClaimQueueSnapshot(BTreeMap::from_iter(
 			[
 				(
@@ -661,56 +643,67 @@ mod test {
 			.into_iter(),
 		));
 
-		assert_eq!(
-			claim_queue.find_core(1u32.into(), 0, 0).unwrap(),
-			(CoreSelector(0), ClaimQueueOffset(0), CoreIndex(0), 3)
-		);
+		// Test finding cores for para_id 1 at offset 0
+		let (cores, actual_offset) = claim_queue.find_cores(1u32.into(), 0).unwrap();
+		assert_eq!(cores.len(), 3);
+		assert!(cores.contains(&CoreIndex(0)));
+		assert!(cores.contains(&CoreIndex(1)));
+		assert!(cores.contains(&CoreIndex(2)));
+		assert_eq!(actual_offset, ClaimQueueOffset(0));
 
-		assert_eq!(
-			claim_queue.find_core(1u32.into(), 1, 0).unwrap(),
-			(CoreSelector(1), ClaimQueueOffset(0), CoreIndex(1), 3)
-		);
+		// Test finding cores for para_id 1 at offset 1
+		let (cores, actual_offset) = claim_queue.find_cores(1u32.into(), 1).unwrap();
+		assert_eq!(cores.len(), 2);
+		assert!(cores.contains(&CoreIndex(1)));
+		assert!(cores.contains(&CoreIndex(3)));
+		assert_eq!(actual_offset, ClaimQueueOffset(1));
 
-		assert_eq!(
-			claim_queue.find_core(1u32.into(), 2, 0).unwrap(),
-			(CoreSelector(2), ClaimQueueOffset(0), CoreIndex(2), 3)
-		);
+		// Test finding cores for para_id 1 at offset 2
+		let (cores, actual_offset) = claim_queue.find_cores(1u32.into(), 2).unwrap();
+		assert_eq!(cores.len(), 1);
+		assert!(cores.contains(&CoreIndex(0)));
+		assert_eq!(actual_offset, ClaimQueueOffset(2));
 
-		assert_eq!(
-			claim_queue.find_core(1u32.into(), 3, 0).unwrap(),
-			(CoreSelector(0), ClaimQueueOffset(1), CoreIndex(1), 2)
-		);
+		// Test finding cores for para_id 1 at offset 3 (no cores at this offset)
+		assert_eq!(claim_queue.find_cores(1u32.into(), 3), None);
 
-		assert_eq!(
-			claim_queue.find_core(1u32.into(), 4, 0).unwrap(),
-			(CoreSelector(1), ClaimQueueOffset(1), CoreIndex(3), 2)
-		);
+		// Test finding cores for para_id 2 at offset 0
+		let (cores, actual_offset) = claim_queue.find_cores(2u32.into(), 0).unwrap();
+		assert_eq!(cores.len(), 1);
+		assert!(cores.contains(&CoreIndex(3)));
+		assert_eq!(actual_offset, ClaimQueueOffset(0));
 
-		assert_eq!(
-			claim_queue.find_core(1u32.into(), 5, 0).unwrap(),
-			(CoreSelector(0), ClaimQueueOffset(2), CoreIndex(0), 1)
-		);
+		// Test finding cores for para_id 2 at offset 1
+		let (cores, actual_offset) = claim_queue.find_cores(2u32.into(), 1).unwrap();
+		assert_eq!(cores.len(), 2);
+		assert!(cores.contains(&CoreIndex(0)));
+		assert!(cores.contains(&CoreIndex(2)));
+		assert_eq!(actual_offset, ClaimQueueOffset(1));
 
-		assert_eq!(claim_queue.find_core(1u32.into(), 6, 0), None);
+		// Test finding cores for para_id 2 at offset 2
+		let (cores, actual_offset) = claim_queue.find_cores(2u32.into(), 2).unwrap();
+		assert_eq!(cores.len(), 1);
+		assert!(cores.contains(&CoreIndex(1)));
+		assert_eq!(actual_offset, ClaimQueueOffset(2));
 
-		assert_eq!(
-			claim_queue.find_core(1u32.into(), 0, 1).unwrap(),
-			(CoreSelector(0), ClaimQueueOffset(1), CoreIndex(1), 2)
-		);
+		// Test finding cores for para_id 3 at offset 0 (should find at offset 2)
+		let (cores, actual_offset) = claim_queue.find_cores(3u32.into(), 0).unwrap();
+		assert_eq!(cores.len(), 2);
+		assert!(cores.contains(&CoreIndex(2)));
+		assert!(cores.contains(&CoreIndex(3)));
+		assert_eq!(actual_offset, ClaimQueueOffset(2));
 
-		assert_eq!(
-			claim_queue.find_core(1u32.into(), 2, 1).unwrap(),
-			(CoreSelector(0), ClaimQueueOffset(2), CoreIndex(0), 1)
-		);
+		// Test finding cores for para_id 3 at offset 2
+		let (cores, actual_offset) = claim_queue.find_cores(3u32.into(), 2).unwrap();
+		assert_eq!(cores.len(), 2);
+		assert!(cores.contains(&CoreIndex(2)));
+		assert!(cores.contains(&CoreIndex(3)));
+		assert_eq!(actual_offset, ClaimQueueOffset(2));
 
-		assert_eq!(
-			claim_queue.find_core(3u32.into(), 0, 0).unwrap(),
-			(CoreSelector(0), ClaimQueueOffset(2), CoreIndex(2), 2)
-		);
+		// Test finding cores for para_id 3 at offset 3 (no cores at this offset)
+		assert_eq!(claim_queue.find_cores(3u32.into(), 3), None);
 
-		assert_eq!(
-			claim_queue.find_core(3u32.into(), 1, 0).unwrap(),
-			(CoreSelector(1), ClaimQueueOffset(2), CoreIndex(3), 2)
-		);
+		// Test finding cores for non-existent para_id
+		assert_eq!(claim_queue.find_cores(99u32.into(), 0), None);
 	}
 }

@@ -49,7 +49,9 @@ use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 #[allow(deprecated)]
 use cumulus_client_service::CollatorSybilResistance;
-use cumulus_primitives_core::{relay_chain::ValidationCode, GetParachainInfo, ParaId};
+use cumulus_primitives_core::{
+	relay_chain::ValidationCode, GetParachainInfo, ParaId, SlotSchedule,
+};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::prelude::*;
 use polkadot_primitives::CollatorPair;
@@ -216,6 +218,7 @@ where
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
+		+ SlotSchedule<Block>
 		+ GetParachainInfo<Block>,
 	AuraId: AuraIdT + Sync,
 {
@@ -247,7 +250,7 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 	StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
-	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId> + SlotSchedule<Block>,
 	AuraId: AuraIdT + Sync,
 {
 	#[docify::export_content]
@@ -274,7 +277,10 @@ where
 	) where
 		CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 		CIDP::InherentDataProviders: Send,
-		CHP: cumulus_client_consensus_common::ValidationCodeHashProvider<Hash> + Send + Sync + 'static,
+		CHP: cumulus_client_consensus_common::ValidationCodeHashProvider<Hash>
+			+ Send
+			+ Sync
+			+ 'static,
 		Proposer: ProposerInterface<Block> + Send + Sync + 'static,
 		CS: CollatorServiceInterface<Block> + Send + Sync + Clone + 'static,
 		Spawner: SpawnNamed,
@@ -298,7 +304,7 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 	> for StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
-	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId> + SlotSchedule<Block>,
 	AuraId: AuraIdT + Sync,
 {
 	fn start_consensus(
