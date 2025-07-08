@@ -733,6 +733,10 @@ pub mod pallet {
 		/// instruction that caused the error.
 		#[codec(index = 28)]
 		LocalExecutionIncompleteWithError { index: InstructionIndex, error: ExecutionError },
+		/// Network native asset reserve transfers are temporarily disabled during Asset Hub Migration.
+		/// Use `limited_reserve_transfer_assets` instead.
+		#[codec(index = 29)]
+		NetworkAssetReserveTransferDisabled,
 	}
 
 	impl<T: Config> From<SendError> for Error<T> {
@@ -1486,6 +1490,11 @@ pub mod pallet {
 			let (fees_transfer_type, assets_transfer_type) =
 				Self::find_fee_and_assets_transfer_types(&assets, fee_asset_item, &dest)?;
 
+			// Check for network native asset reserve transfers in preparation for the Asset Hub Migration.
+			// This check will be removed after the migration and the determined reserve location adjusted accordingly.
+			// For more information, see https://github.com/paritytech/polkadot-sdk/issues/9054.
+			Self::ensure_network_asset_reserve_transfer_allowed(&assets, &assets_transfer_type, &fees_transfer_type)?;
+
 			Self::do_transfer_assets(
 				origin,
 				dest,
@@ -2010,6 +2019,116 @@ impl<T: Config> Pallet<T> {
 			fees_transfer_type.ok_or(Error::<T>::Empty)?,
 			assets_transfer_type.ok_or(Error::<T>::Empty)?,
 		))
+	}
+
+	/// Check if the given asset ID represents a network native asset based on our UniversalLocation.
+	///
+	/// Returns true if the asset is a native network asset (DOT, KSM, WND) that should be blocked
+	/// during Asset Hub Migration.
+	fn is_network_native_asset(asset_id: &AssetId) -> bool {
+		let universal_location = T::UniversalLocation::get();
+		let asset_location = &asset_id.0;
+
+		match universal_location.len() {
+			// Case 1: We are on the Relay Chain itself.
+			// UniversalLocation: GlobalConsensus(Network).
+			// Network asset ID: Here.
+			1 => {
+				if let Some(Junction::GlobalConsensus(network)) = universal_location.first() {
+					let is_target_network = match network {
+						NetworkId::Polkadot | NetworkId::Kusama => true,
+						NetworkId::ByGenesis(genesis_hash) => {
+							// Check if this is Westend by genesis hash
+							*genesis_hash == xcm::v5::WESTEND_GENESIS_HASH
+						},
+						_ => false,
+					};
+					is_target_network && asset_location.is_here()
+				} else {
+					false
+				}
+			},
+			// Case 2: We are on a parachain within one of the specified networks.
+			// UniversalLocation: GlobalConsensus(Network)/Parachain(id).
+			// Network asset ID: Parent.
+			2 => {
+				if let (Some(Junction::GlobalConsensus(network)), Some(Junction::Parachain(_))) =
+					(universal_location.first(), universal_location.last()) {
+					let is_target_network = match network {
+						NetworkId::Polkadot | NetworkId::Kusama => true,
+						NetworkId::ByGenesis(genesis_hash) => {
+							// Check if this is Westend by genesis hash
+							*genesis_hash == xcm::v5::WESTEND_GENESIS_HASH
+						},
+						_ => false,
+					};
+					is_target_network && *asset_location == Location::parent()
+				} else {
+					false
+				}
+			},
+			// Case 3: We are outside the specified networks (e.g., external chain).
+			// Check if the asset ID ends with GlobalConsensus(Polkadot|Kusama|Westend).
+			_ => {
+				if let Some(last_junction) = asset_location.interior.last() {
+					match last_junction {
+						Junction::GlobalConsensus(NetworkId::Polkadot) |
+						Junction::GlobalConsensus(NetworkId::Kusama) => true,
+						Junction::GlobalConsensus(NetworkId::ByGenesis(genesis_hash)) => {
+							// Check if this is Westend by genesis hash.
+							*genesis_hash == xcm::v5::WESTEND_GENESIS_HASH
+						},
+						_ => false,
+					}
+				} else {
+					false
+				}
+			},
+		}
+	}
+
+	/// Check if network native asset reserve transfers should be blocked during Asset Hub Migration.
+	///
+	/// During the Asset Hub Migration (AHM), the native network asset's reserve will move
+	/// from the Relay Chain to Asset Hub. The `transfer_assets` function automatically determines
+	/// reserves based on asset ID location, which would incorrectly assume Relay Chain as the reserve.
+	///
+	/// This function blocks native network asset reserve transfers to prevent issues during
+	/// the migration. Users should use `limited_reserve_transfer_assets` instead, which allows
+	/// explicit reserve specification.
+	fn ensure_network_asset_reserve_transfer_allowed(
+		assets: &[Asset],
+		assets_transfer_type: &TransferType,
+		fees_transfer_type: &TransferType,
+	) -> Result<(), Error<T>> {
+		// Check if any reserve transfer (LocalReserve, DestinationReserve, or RemoteReserve)
+		// is being attempted.
+		let is_reserve_transfer = matches!(
+			assets_transfer_type,
+			TransferType::LocalReserve | TransferType::DestinationReserve | TransferType::RemoteReserve(_)
+		) || matches!(
+			fees_transfer_type,
+			TransferType::LocalReserve | TransferType::DestinationReserve | TransferType::RemoteReserve(_)
+		);
+
+		if !is_reserve_transfer {
+			// If not a reserve transfer (e.g., teleport), allow it.
+			return Ok(());
+		}
+
+		// Check if any asset is a network native asset.
+		for asset in assets {
+			if Self::is_network_native_asset(&asset.id) {
+				tracing::debug!(
+					target: "xcm::pallet_xcm::transfer_assets",
+					asset_id = ?asset.id, ?assets_transfer_type, ?fees_transfer_type,
+					"Network native asset reserve transfer blocked during Asset Hub Migration. Use `limited_reserve_transfer_assets` instead."
+				);
+				return Err(Error::<T>::NetworkAssetReserveTransferDisabled);
+			}
+		}
+
+		Ok(())
 	}
 
 	fn do_reserve_transfer_assets(
