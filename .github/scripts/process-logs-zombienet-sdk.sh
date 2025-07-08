@@ -76,6 +76,11 @@ jq -r $JQ_QUERY_RELAY "$ZOMBIE_JSON" | while read -r name; do
 done
 echo ""
 
+# Debug
+echo "\n"
+cat $ZOMBIE_JSON
+echo "\n"
+
 # Handle parachains grouped by paraId
 jq -r '.paras // .parachains | to_entries[] | "\(.key)"' "$ZOMBIE_JSON" | while read -r para_id; do
   echo "ParaId: $para_id"
