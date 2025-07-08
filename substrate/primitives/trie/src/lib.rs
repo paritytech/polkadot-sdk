@@ -57,7 +57,6 @@ use hash_db::{Hasher, Prefix};
 pub use memory_db::{prefixed_key, HashKey, KeyFunction, PrefixedKey};
 /// The Substrate format implementation of `NodeCodec`.
 pub use node_codec::NodeCodec;
-
 pub use storage_proof::{CompactProof, StorageProof, StorageProofError};
 /// Trie codec reexport, mainly child trie support
 /// for trie compact proof.
@@ -730,7 +729,7 @@ mod tests {
 
 	#[test]
 	fn default_trie_root() {
-		let mut db = MemoryDB::<_, RandomState>::default();
+		let mut db = MemoryDB::default();
 		let mut root = TrieHash::<LayoutV1>::default();
 		let mut empty = TrieDBMutBuilder::<LayoutV1>::new(&mut db, &mut root).build();
 		empty.commit();
@@ -877,7 +876,7 @@ mod tests {
 			.make_with(seed.as_fixed_bytes_mut());
 
 			let real = L::trie_root(x.clone());
-			let mut memdb = MemoryDB::<_, RandomState>::default();
+			let mut memdb = MemoryDB::default();
 			let mut root = Default::default();
 
 			let mut memtrie = populate_trie::<L>(&mut memdb, &mut root, &x);
@@ -977,7 +976,7 @@ mod tests {
 			),
 		];
 
-		let mut mdb = MemoryDB::<_, RandomState>::default();
+		let mut mdb = MemoryDB::default();
 		let mut root = Default::default();
 		let _ = populate_trie::<Layout>(&mut mdb, &mut root, &pairs);
 
@@ -1000,7 +999,7 @@ mod tests {
 			(array_bytes::hex2bytes_unchecked("0203"), array_bytes::hex2bytes_unchecked("0405")),
 		];
 
-		let mut memdb = MemoryDB::<_, RandomState>::default();
+		let mut memdb = MemoryDB::default();
 		let mut root = Default::default();
 		populate_trie::<LayoutV1>(&mut memdb, &mut root, &pairs);
 
@@ -1033,7 +1032,7 @@ mod tests {
 			(array_bytes::hex2bytes_unchecked("0203"), array_bytes::hex2bytes_unchecked("0405")),
 		];
 
-		let mut memdb = MemoryDB::<_, RandomState>::default();
+		let mut memdb = MemoryDB::default();
 		let mut root = Default::default();
 		populate_trie::<LayoutV1>(&mut memdb, &mut root, &pairs);
 
