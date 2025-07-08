@@ -124,19 +124,19 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 	// honest-validator-1: reports parachain_candidate_disputes_total is at least 1 within 600
 	// seconds
 	honest_validator
-		.wait_metric_with_timeout(parachain_candidate_dispute_metric, |d| d >= 1.0, 600 as u64)
+		.wait_metric_with_timeout(parachain_candidate_dispute_metric, |d| d >= 1.0, 600_u64)
 		.await?;
 	// honest-validator: reports polkadot_parachain_candidate_dispute_concluded{validity="invalid"}
 	// is at least 1 within 200 seconds
 	honest_validator
-		.wait_metric_with_timeout(concluded_dispute_metric, |d| d >= 1.0, 200 as u64)
+		.wait_metric_with_timeout(concluded_dispute_metric, |d| d >= 1.0, 200_u64)
 		.await?;
 	// honest-validator: log line contains "Disabled validators detected" within 180 seconds
 	let result = honest_validator
 		.wait_log_line_count_with_timeout(
 			"Disabled validators detected",
 			true,
-			LogLineCountOptions::new(|n| n == 1, Duration::from_secs(180 as u64), false),
+			LogLineCountOptions::new(|n| n == 1, Duration::from_secs(180_u64), false),
 		)
 		.await?;
 	assert!(result.success());
