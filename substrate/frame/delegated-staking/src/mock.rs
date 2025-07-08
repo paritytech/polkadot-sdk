@@ -17,9 +17,6 @@
 
 #![cfg(all(feature = "std", any(feature = "runtime-benchmarks", test)))]
 
-#[cfg(test)]
-use crate::{self as delegated_staking, types::AgentLedgerOuter};
-#[cfg(not(test))]
 use crate as delegated_staking;
 use frame_support::{
 	derive_impl,
@@ -36,16 +33,17 @@ use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
 };
-#[cfg(test)]
-use frame_support::dispatch::RawOrigin;
 use sp_core::{ConstBool, U256};
 use sp_runtime::traits::Convert;
+
 #[cfg(test)]
-use sp_staking::{Agent, DelegationInterface, Stake, StakingInterface};
+use crate::types::AgentLedgerOuter;
 #[cfg(test)]
-use frame_support::{assert_ok, traits::Currency};
+use frame_support::{assert_ok, dispatch::RawOrigin, traits::Currency};
 #[cfg(test)]
 use sp_runtime::BuildStorage;
+#[cfg(test)]
+use sp_staking::{Agent, DelegationInterface, Stake, StakingInterface};
 
 #[cfg(test)]
 pub type T = Runtime;
@@ -137,7 +135,7 @@ impl pallet_staking_async::Config for Runtime {
 	type Currency = Balances;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type BondingDuration = BondingDuration;
-	type EraPayout = pallet_staking_async::testing_utils::TestEraPayout<Balance, EraPayout>;
+	type EraPayout = pallet_staking_async_testing_utils::TestEraPayout<Balance, EraPayout>;
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type VoterList = pallet_staking_async::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
@@ -330,7 +328,7 @@ pub(crate) fn setup_delegation_stake(
 
 #[cfg(test)]
 pub(crate) fn start_era(era: sp_staking::EraIndex) {
-	pallet_staking_async::testing_utils::setup_staking_era_state::<T>(
+	pallet_staking_async_testing_utils::setup_staking_era_state::<T>(
 		era,
 		BondingDuration::get(),
 		Some(vec![

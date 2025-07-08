@@ -8,7 +8,7 @@ doc:
     the number of changes is relatively small.
 
     Some key differences:
-    - We no longer allow the nomination of an invalid or non-existent validator (#8436). This change breaks some tests and needs to be addressed. 
+    - We no longer allow the nomination of an invalid or non-existent validator (#8436). This change breaks some tests and needs to be addressed.
     - Removal of slashing spans (#8316), which were referenced by the nomination pools' benchmarks.
     - When pools are completely destroyed and all stake is withdrawn, the async staking pallet's kill() method is called, which emits the StakerRemoved event. Tests need to be updated to take that into account.
     - Asset Hub runtime uses RelaychainDataProvider as BlockNumberProvider for nomination pools. Commission throttling needs proper relay chain block number setup in nomination pool benchmarks.
@@ -16,14 +16,8 @@ doc:
     Driven-by improvement in the nomination pools:
     - addition of automatic chilling logic to the ⁠unbond function. When a pool is being destroyed and the depositor is unbonding all their remaining stake, the pool automatically chills (stops nominating)
     before attempting to unbond. This ensures the unbond operation succeeds.
+    - addition of `pallet-staking-async-testing-utils` intended for use by pallets external to staking-async like nomination-pools and delegated-staking to properly setup staking-async environment in their tests.
 
-
-    ## Next steps
-
-    We are still not running benchmark vs `WAH` runtime for `staking-async` and `delegated-staking`.
-    Moreover `delegated-staking` has not ye any benchmarks defined yet.
-    Now that `donal-ahm` branch has been merged into `master` (see #7997), we should  add these 2 to the list, as we have done for fast-unstake (in #7997) and nomination-pools (in this PR).
-    It will be handled in a separate PR (see #9019).
 crates:
 - name: asset-hub-westend-runtime
   bump: minor
@@ -39,3 +33,5 @@ crates:
   bump: patch
 - name: pallet-staking-async
   bump: minor
+- name: pallet-staking-async-testing-utils
+  bump: major

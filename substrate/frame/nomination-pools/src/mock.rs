@@ -26,11 +26,11 @@ use frame_support::{
 };
 use frame_system::{EnsureSignedBy, RawOrigin};
 use sp_runtime::{BuildStorage, DispatchResult, FixedU128};
+#[cfg(feature = "runtime-benchmarks")]
+use sp_staking::Page;
 use sp_staking::{
 	Agent, DelegationInterface, DelegationMigrator, Delegator, OnStakingUpdate, Stake,
 };
-#[cfg(feature = "runtime-benchmarks")]
-use sp_staking::Page;
 
 pub type BlockNumber = u64;
 pub type AccountId = u128;

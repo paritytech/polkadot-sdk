@@ -1326,7 +1326,7 @@ mod pool_integration {
 			let bonding_duration = BondingDuration::get();
 			let latest_era = 10;
 			for era in (latest_era.saturating_sub(bonding_duration))..=latest_era {
-				pallet_staking_async::testing_utils::setup_staking_era_state::<T>(
+				pallet_staking_async_testing_utils::setup_staking_era_state::<T>(
 					era,
 					bonding_duration,
 					Some(vec![

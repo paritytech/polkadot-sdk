@@ -101,7 +101,7 @@ impl pallet_staking_async::Config for Runtime {
 	type VoterList = pallet_staking_async::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
 	type CurrencyToVote = SaturatingCurrencyToVote;
-	type EraPayout = pallet_staking_async::testing_utils::TestEraPayout<Balance, EraPayout>;
+	type EraPayout = pallet_staking_async_testing_utils::TestEraPayout<Balance, EraPayout>;
 	type RcClientInterface = MockRcClient;
 	type EventListeners = (Pools, DelegatedStaking);
 }

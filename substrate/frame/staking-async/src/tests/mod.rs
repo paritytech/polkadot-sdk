@@ -18,7 +18,7 @@
 //! Tests for the module.
 
 use super::*;
-use crate::{asset, ledger::StakingLedgerInspect, mock::Session};
+use crate::{asset, ledger::StakingLedgerInspect, mock::Session, testing_utils};
 use frame_election_provider_support::{
 	bounds::{DataProviderBounds, ElectionBoundsBuilder},
 	SortedListProvider,

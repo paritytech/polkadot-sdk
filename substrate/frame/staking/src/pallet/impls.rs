@@ -1872,22 +1872,14 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 		Validators::<T>::remove_all();
 	}
 
+	#[cfg(feature = "runtime-benchmarks")]
+	fn score_update_worst_case(_who: &T::AccountId, _is_increase: bool) -> Self::Score {
+		unimplemented!()
+	}
+
 	fn lock() {}
 
 	fn unlock() {}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn score_update_worst_case(_who: &T::AccountId, is_increase: bool) -> Self::Score {
-		use frame_support::traits::fungible::Inspect;
-		use sp_runtime::traits::Bounded;
-		if is_increase {
-			Self::Score::max_value()
-		} else {
-			// Should be enough e.g. to ensure valid pool creation while running benchmarks for the
-			// nomination-pools pallet
-			T::Currency::minimum_balance()
-		}
-	}
 }
 
 /// A simple voter list implementation that does not require any additional pallets. Note, this
@@ -1965,20 +1957,14 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsM
 		Validators::<T>::remove_all();
 	}
 
+	#[cfg(feature = "runtime-benchmarks")]
+	fn score_update_worst_case(_who: &T::AccountId, _is_increase: bool) -> Self::Score {
+		unimplemented!()
+	}
+
 	fn lock() {}
 
 	fn unlock() {}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn score_update_worst_case(_who: &T::AccountId, is_increase: bool) -> Self::Score {
-		if is_increase {
-			VoteWeight::MAX
-		} else {
-			// We don't return VoteWeight::MIN  for worst case decrease e.g. to ensure valid pool
-			// creation while running benchmark for the nomination-pool pallet
-			10u64
-		}
-	}
 }
 
 impl<T: Config> StakingInterface for Pallet<T> {

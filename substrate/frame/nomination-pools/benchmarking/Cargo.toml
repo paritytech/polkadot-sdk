@@ -30,6 +30,7 @@ pallet-delegated-staking = { workspace = true }
 pallet-nomination-pools = { workspace = true }
 pallet-staking-async = { workspace = true }
 pallet-staking-async-rc-client = { workspace = true }
+pallet-staking-async-testing-utils = { workspace = true }
 
 # Substrate Primitives
 sp-runtime = { workspace = true }
@@ -57,6 +58,7 @@ std = [
 	"pallet-delegated-staking/std",
 	"pallet-nomination-pools/std",
 	"pallet-staking-async-rc-client/std",
+	"pallet-staking-async-testing-utils/std",
 	"pallet-staking-async/std",
 	"pallet-timestamp/std",
 	"scale-info/std",
@@ -76,11 +78,9 @@ runtime-benchmarks = [
 	"pallet-delegated-staking/runtime-benchmarks",
 	"pallet-nomination-pools/runtime-benchmarks",
 	"pallet-staking-async-rc-client/runtime-benchmarks",
+	"pallet-staking-async-testing-utils/runtime-benchmarks",
 	"pallet-staking-async/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
-]
-testing-utils = [
-	"pallet-staking-async/testing-utils",
 ]

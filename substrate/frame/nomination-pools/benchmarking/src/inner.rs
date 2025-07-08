@@ -80,7 +80,7 @@ where
 	// Convert balance to u128 and then to pallet_staking_async::BalanceOf<T>
 	let balance_u128: u128 = balance.into();
 	let staking_balance: pallet_staking_async::BalanceOf<T> = balance_u128.into();
-	pallet_staking_async::testing_utils::create_validator::<T>(n, staking_balance)
+	pallet_staking_async_testing_utils::create_validator::<T>(n, staking_balance)
 }
 
 // Create a bonded pool account, bonding `balance` and giving the account `balance * 2` free

@@ -35,6 +35,7 @@ docify = { workspace = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-staking-async = { workspace = true, default-features = true }
 pallet-staking-async-rc-client = { workspace = true, default-features = true }
+pallet-staking-async-testing-utils = { workspace = true, default-features = true }
 pallet-staking-reward-curve = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 sp-core = { workspace = true }
@@ -69,6 +70,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-staking-async-rc-client/runtime-benchmarks",
+	"pallet-staking-async-testing-utils/runtime-benchmarks",
 	"pallet-staking-async/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
@@ -80,10 +82,8 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-staking-async-rc-client/try-runtime",
+	"pallet-staking-async-testing-utils/try-runtime",
 	"pallet-staking-async/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
-]
-testing-utils = [
-	"pallet-staking-async/testing-utils",
 ]
