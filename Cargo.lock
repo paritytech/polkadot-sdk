@@ -13231,7 +13231,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-reward-fn"
-version = "19.0.0"
+version = "22.0.1"
 dependencies = [
  "log",
  "sp-arithmetic 26.1.0",
