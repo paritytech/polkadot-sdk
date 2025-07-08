@@ -34,7 +34,7 @@ use snowbridge_outbound_queue_primitives::{
 	v1::{ConstantGasMeter, EthereumBlobExporter},
 	v2::{ConstantGasMeter as ConstantGasMeterV2, EthereumBlobExporter as EthereumBlobExporterV2},
 };
-use sp_core::{H160};
+use sp_core::H160;
 use sp_runtime::{
 	traits::{ConstU32, ConstU8, Keccak256},
 	FixedU128,
@@ -287,9 +287,8 @@ pub struct AllowFromEthereumFrontend;
 impl Contains<Location> for AllowFromEthereumFrontend {
 	fn contains(location: &Location) -> bool {
 		match location.unpack() {
-			(1, [Parachain(para_id), PalletInstance(index)]) => {
-				return *para_id == ASSET_HUB_ID && *index == FRONTEND_PALLET_INDEX
-			},
+			(1, [Parachain(para_id), PalletInstance(index)]) =>
+				return *para_id == ASSET_HUB_ID && *index == FRONTEND_PALLET_INDEX,
 			_ => false,
 		}
 	}
