@@ -28,8 +28,8 @@ jobs:
       matrix:
         partition: [1/2, 2/2]
       fail-fast: false
-    if: ${{ needs.preflight.outputs.changes_rust }}
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    # if: ${{ needs.preflight.outputs.changes_rust }}
+    runs-on: parity-test
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
@@ -46,12 +46,6 @@ jobs:
       - name: script
         id: required
         run: forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet --partition count:${{ matrix.partition }}
-      # - name: Stop all workflows if failed
-      #   if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
-      #   uses: ./.github/actions/workflow-stopper
-      #   with:
-      #     app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
-      #     app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
   test-linux-stable-runtime-benchmarks2:
     needs: [preflight]
@@ -59,8 +53,8 @@ jobs:
       matrix:
         partition: [1/2, 2/2]
       fail-fast: false
-    if: ${{ needs.preflight.outputs.changes_rust }}
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    # if: ${{ needs.preflight.outputs.changes_rust }}
+    runs-on: parity-test
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
@@ -75,12 +69,6 @@ jobs:
       - name: script
         id: required
         run: forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet --partition count:${{ matrix.partition }}
-      # - name: Stop all workflows if failed
-      #   if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
-      #   uses: ./.github/actions/workflow-stopper
-      #   with:
-      #     app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
-      #     app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
   test-linux-stable-runtime-benchmarks3:
     needs: [preflight]
@@ -88,8 +76,8 @@ jobs:
       matrix:
         partition: [1/2, 2/2]
       fail-fast: false
-    if: ${{ needs.preflight.outputs.changes_rust }}
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    # if: ${{ needs.preflight.outputs.changes_rust }}
+    runs-on: parity-test
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
@@ -104,9 +92,3 @@ jobs:
       - name: script
         id: required
         run: forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet --partition count:${{ matrix.partition }}
-      # - name: Stop all workflows if failed
-      #   if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
-      #   uses: ./.github/actions/workflow-stopper
-      #   with:
-      #     app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
-      #     app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
