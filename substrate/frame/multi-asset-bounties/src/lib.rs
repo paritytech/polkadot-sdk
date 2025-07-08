@@ -79,10 +79,7 @@ use frame_system::pallet_prelude::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{
-		AccountIdConversion, BadOrigin, BlockNumberProvider, Saturating, StaticLookup, TryConvert,
-		Zero,
-	},
+	traits::{AccountIdConversion, BadOrigin, Saturating, StaticLookup, TryConvert, Zero},
 	Permill, RuntimeDebug,
 };
 
@@ -288,10 +285,6 @@ pub mod pallet {
 		/// The amount held on deposit per byte within the tip report reason or bounty description.
 		#[pallet::constant]
 		type DataDepositPerByte: Get<BalanceOf<Self, I>>;
-
-		/// The overarching event type.
-		type RuntimeEvent: From<Event<Self, I>>
-			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Maximum acceptable reason length.
 		///
@@ -779,20 +772,35 @@ pub mod pallet {
 			curator: AccountIdLookupOf<T>,
 			#[pallet::compact] fee: BalanceOf<T, I>,
 		) -> DispatchResult {
-			let max_amount = T::SpendOrigin::ensure_origin(origin)?;
+			let maybe_sender = ensure_signed(origin.clone())
+				.map(Some)
+				.or_else(|_| T::SpendOrigin::ensure_origin(origin.clone()).map(|_| None))?;
 			let curator = T::Lookup::lookup(curator)?;
 
-			let (asset_kind, value, _, _, status, _, _) =
+			let (asset_kind, value, _, _, status, parent_curator, _) =
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 			ensure!(status == BountyStatus::CuratorUnassigned, Error::<T, I>::UnexpectedStatus);
 			ensure!(fee < value, Error::<T, I>::InvalidFee);
 
-			let native_amount =
-				<T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(
-					value, asset_kind,
-				)
-				.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
-			ensure!(native_amount <= max_amount, Error::<T, I>::InsufficientPermission);
+			match child_bounty_id {
+				// Only `SpendOrigin` can propose curator for parent bounty
+				None => {
+					ensure!(maybe_sender.is_none(), BadOrigin);
+					let max_amount = T::SpendOrigin::ensure_origin(origin)?;
+					let native_amount =
+						<T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(
+							value, asset_kind,
+						)
+						.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
+					ensure!(native_amount <= max_amount, Error::<T, I>::InsufficientPermission);
+				},
+				// Only `SpendOrigin` can propose curator for parent bounty
+				Some(_) => {
+					let parent_curator = parent_curator.ok_or(Error::<T, I>::UnexpectedStatus)?;
+					let sender = maybe_sender.ok_or(BadOrigin)?;
+					ensure!(sender == parent_curator, BadOrigin);
+				},
+			};
 
 			let new_status = BountyStatus::Funded { curator: curator.clone() };
 			Self::update_bounty_details(
@@ -843,7 +851,7 @@ pub mod pallet {
 			let signer = ensure_signed(origin)?;
 			let stash = T::BeneficiaryLookup::lookup(stash)?;
 
-			let (asset_kind, value, fee, _, status, _, _) =
+			let (asset_kind, _, fee, _, status, _, _) =
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 
 			let BountyStatus::Funded { ref curator } = status else {
@@ -907,7 +915,7 @@ pub mod pallet {
 				.map(Some)
 				.or_else(|_| T::RejectOrigin::ensure_origin(origin).map(|_| None))?;
 
-			let (_, _, _, mut curator_deposit, status, _, _) =
+			let (_, _, _, mut curator_deposit, status, parent_curator, _) =
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 
 			let slash_curator = |curator: &T::AccountId, curator_deposit: &mut BalanceOf<T, I>| {
@@ -918,9 +926,17 @@ pub mod pallet {
 
 			match status {
 				BountyStatus::Funded { ref curator } => {
-					// Child-/Bounty curator has been proposed, but not accepted yet.
-					// `RejectOrigin` or curator himself can unassign from this bounty.
-					ensure!(maybe_sender.map_or(true, |sender| sender == *curator), BadOrigin);
+					// A bounty curator has been proposed, but not accepted yet.
+					// Either `RejectOrigin`, parent bounty curator or the proposed
+					// curator can unassign the child-/bounty curator.
+					ensure!(
+						maybe_sender.map_or(true, |sender| {
+							sender == *curator ||
+								parent_curator
+									.map_or(false, |parent_curator| sender == parent_curator)
+						}),
+						BadOrigin
+					);
 				},
 				BountyStatus::Active { ref curator, .. } => {
 					// The child-/bounty is active.
@@ -930,14 +946,24 @@ pub mod pallet {
 							slash_curator(curator, &mut curator_deposit);
 							// Continue to change bounty status below...
 						},
-						Some(sender) => {
+						Some(sender) if sender == *curator => {
 							// This is the curator, willingly giving up their role. Give back their
 							// deposit.
-							ensure!(sender == *curator, BadOrigin);
 							let err_amount = T::Currency::unreserve(curator, curator_deposit);
 							debug_assert!(err_amount.is_zero());
 							curator_deposit = Zero::zero();
 							// Continue to change bounty status below...
+						},
+						Some(sender) => {
+							if let Some(parent_curator) = parent_curator {
+								// If the parent curator is calling this function, slash the child
+								// curator.
+								if sender == parent_curator && *curator != parent_curator {
+									slash_curator(curator, &mut curator_deposit);
+								} else {
+									return Err(BadOrigin.into());
+								}
+							}
 						},
 					}
 				},
@@ -1127,7 +1153,13 @@ pub mod pallet {
 				payment_status: payment_status.clone(),
 				curator: maybe_curator.clone(),
 			};
-			Self::update_bounty_details(parent_bounty_id, child_bounty_id, new_status, None, None);
+			let _ = Self::update_bounty_details(
+				parent_bounty_id,
+				child_bounty_id,
+				new_status,
+				None,
+				None,
+			);
 
 			Self::deposit_event(Event::<T, I>::BountyCanceled {
 				index: parent_bounty_id,
@@ -1172,8 +1204,15 @@ pub mod pallet {
 			use BountyStatus::*;
 
 			ensure_signed(origin)?;
-			let (asset_kind, value, fee, curator_deposit, status, parent_curator, parent_curator_stash) =
-				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
+			let (
+				asset_kind,
+				value,
+				fee,
+				curator_deposit,
+				status,
+				parent_curator,
+				parent_curator_stash,
+			) = Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 
 			let (new_status, weight) = match status {
 				FundingAttempted { ref payment_status, curator } => {
@@ -1183,62 +1222,30 @@ pub mod pallet {
 						payment_status.clone(),
 					)?;
 					// TODO: change weight
-					match new_payment_status {
+					let new_status = match new_payment_status {
 						PaymentState::Succeeded => {
-							if let Some(child_bounty_id) = child_bounty_id {
-								if let Some(curator_stash) = parent_curator_stash {
-									if let Some(parent_curator) = parent_curator {
-										if curator == parent_curator {
-											(
-												BountyStatus::Active {
-													curator,
-													curator_stash,
-												},
-												<T as Config<I>>::WeightInfo::approve_bounty_with_curator(),
-											)
-										} else {
-											(
-												BountyStatus::Funded { curator },
-												<T as Config<I>>::WeightInfo::approve_bounty_with_curator(),
-											)
-										}
-									} else {
-										(
-											BountyStatus::Funded { curator },
-											<T as Config<I>>::WeightInfo::approve_bounty_with_curator(),
-										)
-									}
-								} else {
-									(
-										BountyStatus::Funded { curator },
-										<T as Config<I>>::WeightInfo::approve_bounty_with_curator(),
-									)
+							match (child_bounty_id, parent_curator_stash, parent_curator) {
+								(Some(_), Some(curator_stash), Some(parent_curator)) if curator == parent_curator => {
+									BountyStatus::Active { curator, curator_stash }
 								}
-							} else {
-								(
-									BountyStatus::Funded { curator },
-									<T as Config<I>>::WeightInfo::approve_bounty_with_curator(),
-								)
+								_ => BountyStatus::Funded { curator },
 							}
+						}
+						_ => BountyStatus::FundingAttempted {
+							payment_status: new_payment_status,
+							curator,
 						},
-						_ => (
-							BountyStatus::FundingAttempted {
-								payment_status: new_payment_status,
-								curator,
-							},
-							<T as Config<I>>::WeightInfo::approve_bounty_with_curator(),
-						),
-					}
+					};
+
+					let weight = <T as Config<I>>::WeightInfo::approve_bounty_with_curator();
+
+					(new_status, weight)
 				},
 				RefundAttempted { ref payment_status, ref curator } => {
 					let new_payment_status = Self::do_check_refund_payment_status(
 						parent_bounty_id,
 						child_bounty_id,
-						asset_kind,
-						value,
-						curator_deposit,
 						payment_status.clone(),
-						curator.clone(),
 					)?;
 					// TODO: change weight
 					match new_payment_status {
@@ -1247,6 +1254,17 @@ pub mod pallet {
 								// Unreserve the curator deposit when payment succeeds
 								let err_amount = T::Currency::unreserve(&curator, curator_deposit);
 								debug_assert!(err_amount.is_zero()); // Ensure nothing remains reserved
+							}
+							if let Some(_) = child_bounty_id {
+								// Revert the value and curator fee back to parent bounty
+								ChildBountiesValuePerParent::<T, I>::mutate(
+									parent_bounty_id,
+									|total_value| *total_value = total_value.saturating_sub(value),
+								);
+								ChildBountiesCuratorFeesPerParent::<T, I>::mutate(
+									parent_bounty_id,
+									|total_fees| *total_fees = total_fees.saturating_sub(fee),
+								);
 							}
 							// refund succeeded, cleanup the bounty
 							Self::remove_bounty(parent_bounty_id, child_bounty_id);
@@ -1268,9 +1286,7 @@ pub mod pallet {
 							child_bounty_id,
 							asset_kind,
 							value,
-							curator.clone(),
 							fee,
-							curator_deposit,
 							curator_stash.clone(),
 							beneficiary.clone(),
 						)?;
@@ -1525,7 +1541,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 	}
 
-	/// Returns the asset class, value, curator fee, curator deposit, status, parent curator, and parent curator stash of a child-/bounty.
+	/// Returns the asset class, value, curator fee, curator deposit, status, parent curator, and
+	/// parent curator stash of a child-/bounty.
 	///
 	/// The asset class is always derived from the parent bounty.
 	pub fn get_bounty_details(
@@ -1545,11 +1562,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	> {
 		let parent_bounty =
 			Bounties::<T, I>::get(parent_bounty_id).ok_or(Error::<T, I>::InvalidIndex)?;
-		let (parent_curator, parent_curator_stash) = if let BountyStatus::Active { curator, curator_stash } = &parent_bounty.status {
-			(Some(curator.clone()), Some(curator_stash.clone()))
-		} else {
-			(None, None)
-		};
+		let (parent_curator, parent_curator_stash) =
+			if let BountyStatus::Active { curator, curator_stash } = &parent_bounty.status {
+				(Some(curator.clone()), Some(curator_stash.clone()))
+			} else {
+				(None, None)
+			};
 		match child_bounty_id {
 			None => Ok((
 				parent_bounty.asset_kind,
@@ -1558,7 +1576,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				parent_bounty.curator_deposit,
 				parent_bounty.status,
 				parent_curator,
-				parent_curator_stash
+				parent_curator_stash,
 			)),
 			Some(child_bounty_id) => {
 				let child_bounty = ChildBounties::<T, I>::get(parent_bounty_id, child_bounty_id)
@@ -1570,7 +1588,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					child_bounty.curator_deposit,
 					child_bounty.status,
 					parent_curator,
-					parent_curator_stash
+					parent_curator_stash,
 				))
 			},
 		}
@@ -1617,23 +1635,34 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Calculates amount the beneficiary and curator stash during child-/bounty payout.
 	fn calculate_curator_fee_and_payout(
 		parent_bounty_id: BountyIndex,
+		child_bounty_id: Option<BountyIndex>,
 		fee: BalanceOf<T, I>,
 		value: BalanceOf<T, I>,
 	) -> (BalanceOf<T, I>, BalanceOf<T, I>) {
-		// Get total child bounties curator fees, and subtract it from the parent
-		// curator fee (the fee in present referenced bounty, `self`).
-		let children_fee = ChildBountiesCuratorFeesPerParent::<T, I>::get(parent_bounty_id);
-		debug_assert!(children_fee <= fee);
-		let final_fee = fee.saturating_sub(children_fee);
+		match child_bounty_id {
+			None => {
+				// Get total child bounties curator fees, and subtract it from the parent
+				// curator fee (the fee in present referenced bounty, `self`).
+				let children_fee = ChildBountiesCuratorFeesPerParent::<T, I>::get(parent_bounty_id);
+				debug_assert!(children_fee <= fee);
+				let final_fee = fee.saturating_sub(children_fee);
 
-		// Get total child bounties value, and subtract it from the parent
-		// value (the value in present referenced bounty, `self`).
-		let children_value = ChildBountiesValuePerParent::<T, I>::get(parent_bounty_id);
-		debug_assert!(children_value <= value);
-		let value_remaining = value.saturating_sub(children_value);
-		let payout = value_remaining.saturating_sub(final_fee);
+				// Get total child bounties value, and subtract it from the parent
+				// value (the value in present referenced bounty, `self`).
+				let children_value = ChildBountiesValuePerParent::<T, I>::get(parent_bounty_id);
+				debug_assert!(children_value <= value);
+				let value_remaining = value.saturating_sub(children_value);
+				let payout = value_remaining.saturating_sub(final_fee);
 
-		(final_fee, payout)
+				return (final_fee, payout);
+			},
+			Some(_) => {
+				let curator_fee = fee.min(value);
+				let payout = value.saturating_sub(curator_fee);
+
+				return (curator_fee, payout);
+			},
+		}
 	}
 
 	/// Cleanup a child-/bounty from the storage.
@@ -1644,6 +1673,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				BountyDescriptions::<T, I>::remove(parent_bounty_id);
 				ChildBountiesPerParent::<T, I>::remove(parent_bounty_id);
 				TotalChildBountiesPerParent::<T, I>::remove(parent_bounty_id);
+				debug_assert!(ChildBountiesValuePerParent::<T, I>::get(parent_bounty_id).is_zero());
+				debug_assert!(
+					ChildBountiesCuratorFeesPerParent::<T, I>::get(parent_bounty_id).is_zero()
+				);
 			},
 			Some(child_bounty_id) => {
 				ChildBounties::<T, I>::remove(parent_bounty_id, child_bounty_id);
@@ -1760,11 +1793,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn do_check_refund_payment_status(
 		parent_bounty_id: BountyIndex,
 		child_bounty_id: Option<BountyIndex>,
-		asset_kind: T::AssetKind,
-		value: BalanceOf<T, I>,
-		curator_deposit: BalanceOf<T, I>,
 		payment_status: PaymentState<PaymentIdOf<T, I>>,
-		curator: Option<T::AccountId>,
 	) -> Result<PaymentState<PaymentIdOf<T, I>>, DispatchError> {
 		let payment_id = payment_status.get_attempt_id().ok_or(Error::<T, I>::UnexpectedStatus)?;
 
@@ -1814,7 +1843,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		ensure!(process_curator_stash || process_beneficiary, Error::<T, I>::UnexpectedStatus);
 
 		let (final_fee, payout) =
-			Self::calculate_curator_fee_and_payout(parent_bounty_id, fee, value);
+			Self::calculate_curator_fee_and_payout(parent_bounty_id, child_bounty_id, fee, value);
 
 		let source = match child_bounty_id {
 			None => Self::bounty_account(parent_bounty_id, asset_kind.clone())?,
@@ -1840,20 +1869,26 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 
 		if process_curator_stash {
-			let id = <T as Config<I>>::Paymaster::pay(
-				&source,
-				&curator_stash_account,
-				asset_kind.clone(),
-				final_fee,
-			)
-			.map_err(|_| Error::<T, I>::PayoutError)?;
-			curator_stash_status = Some(PaymentState::Attempted { id });
+			// If the final fee is zero we skip curator stash payment.
+			curator_stash_status = if final_fee.is_zero() {
+				Some(PaymentState::Succeeded)
+			} else {
+				let id = <T as Config<I>>::Paymaster::pay(
+					&source,
+					&curator_stash_account,
+					asset_kind.clone(),
+					final_fee,
+				)
+				.map_err(|_| Error::<T, I>::PayoutError)?;
 
-			Self::deposit_event(Event::<T, I>::Paid {
-				index: parent_bounty_id,
-				child_index: child_bounty_id,
-				payment_id: id,
-			});
+				Self::deposit_event(Event::<T, I>::Paid {
+					index: parent_bounty_id,
+					child_index: child_bounty_id,
+					payment_id: id,
+				});
+
+				Some(PaymentState::Attempted { id })
+			};
 		}
 
 		// Both will always be `Some` if we are here
@@ -1873,9 +1908,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		child_bounty_id: Option<BountyIndex>,
 		asset_kind: T::AssetKind,
 		value: BalanceOf<T, I>,
-		curator: T::AccountId,
 		fee: BalanceOf<T, I>,
-		curator_deposit: BalanceOf<T, I>,
 		curator_stash: (T::Beneficiary, PaymentState<PaymentIdOf<T, I>>),
 		beneficiary: (T::Beneficiary, PaymentState<PaymentIdOf<T, I>>),
 	) -> Result<(PaymentState<PaymentIdOf<T, I>>, PaymentState<PaymentIdOf<T, I>>), DispatchError>
@@ -1919,8 +1952,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		// best scenario, both payments have succeeded,
 		if payments_succeeded >= 2 {
-			let (_final_fee, payout) =
-				Self::calculate_curator_fee_and_payout(parent_bounty_id, fee, value);
+			let (_final_fee, payout) = Self::calculate_curator_fee_and_payout(
+				parent_bounty_id,
+				child_bounty_id,
+				fee,
+				value,
+			);
 			Self::deposit_event(Event::<T, I>::BountyPayoutProcessed {
 				index: parent_bounty_id,
 				child_index: child_bounty_id,
