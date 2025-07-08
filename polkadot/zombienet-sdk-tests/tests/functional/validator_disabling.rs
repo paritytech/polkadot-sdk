@@ -5,17 +5,15 @@
 
 use anyhow::anyhow;
 
-use cumulus_zombienet_sdk_helpers::{
-	assert_finalized_para_throughput, wait_for_first_session_change,
-};
+use cumulus_zombienet_sdk_helpers::assert_finalized_para_throughput;
 use polkadot_primitives::{BlockNumber, CandidateHash, DisputeState, SessionIndex};
 use serde_json::json;
 use tokio::time::Duration;
+use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
 	NetworkConfigBuilder,
 };
-use zombienet_orchestrator::network::node::LogLineCountOptions;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn validator_disabling_test() -> Result<(), anyhow::Error> {
@@ -123,12 +121,13 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 	let concluded_dispute_metric =
 		"polkadot_parachain_candidate_dispute_concluded{validity=\"invalid\"}";
 	let parachain_candidate_dispute_metric = "parachain_candidate_disputes_total";
-	// honest-validator-1: reports parachain_candidate_disputes_total is at least 1 within 600 seconds
+	// honest-validator-1: reports parachain_candidate_disputes_total is at least 1 within 600
+	// seconds
 	honest_validator
 		.wait_metric_with_timeout(parachain_candidate_dispute_metric, |d| d >= 1.0, 600 as u64)
 		.await?;
-	// honest-validator: reports polkadot_parachain_candidate_dispute_concluded{validity="invalid"} is 
-	// at least 1 within 200 seconds
+	// honest-validator: reports polkadot_parachain_candidate_dispute_concluded{validity="invalid"}
+	// is at least 1 within 200 seconds
 	honest_validator
 		.wait_metric_with_timeout(concluded_dispute_metric, |d| d >= 1.0, 200 as u64)
 		.await?;
