@@ -28,8 +28,8 @@ jobs:
       matrix:
         run: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
       fail-fast: false
-    if: ${{ needs.preflight.outputs.changes_rust }}
-    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    # if: ${{ needs.preflight.outputs.changes_rust }}
+    runs-on: parity-test
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
@@ -45,7 +45,7 @@ jobs:
           ref: "771c9988e2a636a150d97c10e3122af8068d1687"
       - name: script
         id: required
-        run: cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
+        run: forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
       # - name: Stop all workflows if failed
       #   if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
       #   uses: ./.github/actions/workflow-stopper
