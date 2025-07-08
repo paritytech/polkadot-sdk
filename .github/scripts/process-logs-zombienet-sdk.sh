@@ -14,8 +14,6 @@ LOKI_DIR_FOR_NATIVE_LOGS="/tmp/zombienet"
 JQ_QUERY_RELAY_V1='.relay[].name'
 JQ_QUERY_RELAY_SDK='.relay.nodes[].name'
 
-JQ_QUERY_PARAS_V1='.paras | to_entries[] | "\(.key)"'
-JQ_QUERY_PARAS_SDK='.parachains | to_entries[] | "\(.key)"'
 
 JQ_QUERY_PARA_NODES_V1='.paras[$pid].nodes[].name'
 JQ_QUERY_PARA_NODES_SDK='.parachains[$pid][] .collators[].name'
@@ -49,11 +47,9 @@ mkdir -p "$TARGET_DIR"
 echo "Relay nodes:"
 
 JQ_QUERY_RELAY=$JQ_QUERY_RELAY_V1
-JQ_QUERY_PARAS=$JQ_QUERY_PARAS_V1
 JQ_QUERY_PARA_NODES=$JQ_QUERY_PARA_NODES_V1
 if [[ $(echo "$NS" | grep -E "zombie-[A-Fa-f0-9]+-") ]]; then
     JQ_QUERY_RELAY=$JQ_QUERY_RELAY_SDK
-    JQ_QUERY_PARAS=$JQ_QUERY_PARAS_SDK
     JQ_QUERY_PARA_NODES=$JQ_QUERY_PARA_NODES_SDK
 fi;
 
@@ -81,8 +77,7 @@ done
 echo ""
 
 # Handle parachains grouped by paraId
-echo "JQ_QUERY_PARAS: $JQ_QUERY_PARAS"
-jq -r "'$JQ_QUERY_PARAS'" "$ZOMBIE_JSON" | while read -r para_id; do
+jq -r '.paras // .parachains | to_entries[] | "\(.key)"' "$ZOMBIE_JSON" | while read -r para_id; do
   echo "ParaId: $para_id"
   jq -r --arg pid "$para_id" "'$JQ_QUERY_PARA_NODES'" "$ZOMBIE_JSON" | while read -r name; do
     if [[ "$ZOMBIE_PROVIDER" == "k8s" ]]; then
