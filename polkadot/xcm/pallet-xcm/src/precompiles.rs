@@ -14,15 +14,12 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{Config, VersionedLocation, VersionedXcm, Weight, WeightInfo};
-use alloc::{format, vec::Vec};
+use alloc::vec::Vec;
 use codec::{DecodeAll, DecodeLimit, Encode};
 use core::{fmt, marker::PhantomData, num::NonZero};
 use pallet_revive::{
 	precompiles::{
-		alloy::{
-			self,
-			sol_types::{Revert, SolValue},
-		},
+		alloy::{self, sol_types::SolValue},
 		AddressMatcher, Error, Ext, Precompile,
 	},
 	DispatchInfo, Origin,
@@ -35,10 +32,11 @@ alloy::sol!("src/precompiles/IXcm.sol");
 use IXcm::IXcmCalls;
 
 const LOG_TARGET: &str = "xcm::precompiles";
+const RETURN_VALUE: &str = "";
 
 fn revert(error: &impl fmt::Debug, message: &str) -> Error {
 	error!(target: LOG_TARGET, ?error, "{}", message);
-	Error::Revert(Revert { reason: format!("{:?}", error) })
+	Error::Revert(message.into())
 }
 
 pub struct XcmPrecompile<T>(PhantomData<T>);
@@ -84,7 +82,7 @@ where
 					final_destination.into(),
 					final_message.into(),
 				)
-				.map(|message_id| message_id.encode())
+				.map(|_| RETURN_VALUE.encode())
 				.map_err(|error| {
 					revert(
 						&error,
@@ -120,7 +118,7 @@ where
 				let actual_weight = frame_support::dispatch::extract_actual_weight(&result, &pre);
 				env.adjust_gas(charged_amount, actual_weight);
 
-				result.map(|post_dispatch_info| post_dispatch_info.encode()).map_err(|error| {
+				result.map(|_| RETURN_VALUE.encode()).map_err(|error| {
 					revert(
 							&error,
 							"XCM execute failed: message may be invalid or execution constraints not satisfied"
