@@ -13074,12 +13074,13 @@ dependencies = [
 
 [[package]]
 name = "pallet-session"
-version = "40.0.1"
+version = "28.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
  "impl-trait-for-tuples",
  "log",
+ "pallet-balances",
  "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
@@ -13094,7 +13095,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-session-benchmarking"
-version = "40.0.0"
+version = "28.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -13108,10 +13109,10 @@ dependencies = [
  "parity-scale-codec",
  "rand 0.8.5",
  "scale-info",
- "sp-core 36.1.0",
  "sp-io 40.0.1",
  "sp-runtime 31.0.1",
  "sp-session",
+ "sp-staking",
 ]
 
 [[package]]
@@ -13147,7 +13148,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking"
-version = "40.1.1"
+version = "28.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -13219,7 +13220,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-reward-curve"
-version = "12.0.0"
+version = "11.0.0"
 dependencies = [
  "proc-macro-crate 3.1.0",
  "proc-macro2 1.0.93",
@@ -13230,7 +13231,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-reward-fn"
-version = "22.0.1"
+version = "19.0.0"
 dependencies = [
  "log",
  "sp-arithmetic 26.1.0",
@@ -13238,7 +13239,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-runtime-api"
-version = "26.0.0"
+version = "14.0.0"
 dependencies = [
  "parity-scale-codec",
  "sp-api 36.0.1",

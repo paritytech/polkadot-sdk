@@ -110,6 +110,14 @@ pub use dispatch::{
 	OriginTrait, TryMapSuccess, TryWithMorphedArg, UnfilteredDispatchable,
 };
 
+
+/// Trait for reporting additional validator reward points
+pub trait RewardsReporter<ValidatorId> {
+	/// The input is an iterator of tuples of validator account IDs and the amount of points they
+	/// should be rewarded.
+	fn reward_by_ids(validators_points: impl IntoIterator<Item = (ValidatorId, u32)>);
+}
+
 mod voting;
 pub use voting::{ClassCountOf, NoOpPoll, PollStatus, Polling, VoteTally};
 
