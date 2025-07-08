@@ -14,7 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+// We do not declare all features used by `construct_runtime`
+#[allow(unexpected_cfgs)]
 mod parachain;
+
+// We do not declare all features used by `construct_runtime`
+#[allow(unexpected_cfgs)]
 mod relay_chain;
 
 #[cfg(test)]
@@ -101,6 +106,7 @@ pub fn para_ext(para_id: u32) -> sp_io::TestExternalities {
 
 	pallet_balances::GenesisConfig::<Runtime> {
 		balances: vec![(ALICE, INITIAL_BALANCE), (parent_account_id(), INITIAL_BALANCE)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
@@ -125,6 +131,7 @@ pub fn relay_ext() -> sp_io::TestExternalities {
 			(child_account_id(1), INITIAL_BALANCE),
 			(child_account_id(2), INITIAL_BALANCE),
 		],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

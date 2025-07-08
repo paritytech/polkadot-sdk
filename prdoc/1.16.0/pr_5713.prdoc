@@ -1,0 +1,10 @@
+title: "pallet-treasury: Improve `remove_approval` benchmark"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Fix the `remove_approval` benchmark when `SpendOrigin` doesn't return any `succesful_origin`.
+
+crates:
+  - name: pallet-treasury
+    bump: patch

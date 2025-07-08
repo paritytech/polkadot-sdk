@@ -27,14 +27,15 @@ use crate::{
 		api::ChainHeadApiServer,
 		chain_head_follow::ChainHeadFollower,
 		error::Error as ChainHeadRpcError,
-		event::{FollowEvent, MethodResponse, OperationError},
-		subscription::{SubscriptionManagement, SubscriptionManagementError},
+		event::{FollowEvent, MethodResponse, OperationError, OperationId, OperationStorageItems},
+		subscription::{StopHandle, SubscriptionManagement, SubscriptionManagementError},
+		FollowEventSendError, FollowEventSender,
 	},
-	common::events::StorageQuery,
+	common::{events::StorageQuery, storage::QueryResult},
 	hex_string, SubscriptionTaskExecutor,
 };
 use codec::Encode;
-use futures::{channel::oneshot, future::FutureExt};
+use futures::{channel::oneshot, future::FutureExt, SinkExt};
 use jsonrpsee::{
 	core::async_trait, server::ResponsePayload, types::SubscriptionId, ConnectionId, Extensions,
 	MethodResponseFuture, PendingSubscriptionSink,
@@ -51,8 +52,15 @@ use sp_core::{traits::CallContext, Bytes};
 use sp_rpc::list::ListOrValue;
 use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
+use tokio::sync::mpsc;
 
 pub(crate) const LOG_TARGET: &str = "rpc-spec-v2";
+
+/// The buffer capacity for each storage query.
+///
+/// This is small because the underlying JSON-RPC server has
+/// its down buffer capacity per connection as well.
+const STORAGE_QUERY_BUF: usize = 16;
 
 /// The configuration of [`ChainHead`].
 pub struct ChainHeadConfig {
@@ -65,11 +73,10 @@ pub struct ChainHeadConfig {
 	/// Stop all subscriptions if the distance between the leaves and the current finalized
 	/// block is larger than this value.
 	pub max_lagging_distance: usize,
-	/// The maximum number of items reported by the `chainHead_storage` before
-	/// pagination is required.
-	pub operation_max_storage_items: usize,
 	/// The maximum number of `chainHead_follow` subscriptions per connection.
 	pub max_follow_subscriptions_per_connection: usize,
+	/// The maximum number of pending messages per subscription.
+	pub subscription_buffer_cap: usize,
 }
 
 /// Maximum pinned blocks across all connections.
@@ -87,10 +94,6 @@ const MAX_PINNED_DURATION: Duration = Duration::from_secs(60);
 /// Note: The lower limit imposed by the spec is 16.
 const MAX_ONGOING_OPERATIONS: usize = 16;
 
-/// The maximum number of items the `chainHead_storage` can return
-/// before paginations is required.
-const MAX_STORAGE_ITER_ITEMS: usize = 5;
-
 /// Stop all subscriptions if the distance between the leaves and the current finalized
 /// block is larger than this value.
 const MAX_LAGGING_DISTANCE: usize = 128;
@@ -105,8 +108,8 @@ impl Default for ChainHeadConfig {
 			subscription_max_pinned_duration: MAX_PINNED_DURATION,
 			subscription_max_ongoing_operations: MAX_ONGOING_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
-			operation_max_storage_items: MAX_STORAGE_ITER_ITEMS,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		}
 	}
 }
@@ -121,14 +124,13 @@ pub struct ChainHead<BE: Backend<Block>, Block: BlockT, Client> {
 	executor: SubscriptionTaskExecutor,
 	/// Keep track of the pinned blocks for each subscription.
 	subscriptions: SubscriptionManagement<Block, BE>,
-	/// The maximum number of items reported by the `chainHead_storage` before
-	/// pagination is required.
-	operation_max_storage_items: usize,
 	/// Stop all subscriptions if the distance between the leaves and the current finalized
 	/// block is larger than this value.
 	max_lagging_distance: usize,
 	/// Phantom member to pin the block type.
 	_phantom: PhantomData<Block>,
+	/// The maximum number of pending messages per subscription.
+	subscription_buffer_cap: usize,
 }
 
 impl<BE: Backend<Block>, Block: BlockT, Client> ChainHead<BE, Block, Client> {
@@ -150,8 +152,8 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHead<BE, Block, Client> {
 				config.max_follow_subscriptions_per_connection,
 				backend,
 			),
-			operation_max_storage_items: config.operation_max_storage_items,
 			max_lagging_distance: config.max_lagging_distance,
+			subscription_buffer_cap: config.subscription_buffer_cap,
 			_phantom: PhantomData,
 		}
 	}
@@ -200,6 +202,7 @@ where
 		let backend = self.backend.clone();
 		let client = self.client.clone();
 		let max_lagging_distance = self.max_lagging_distance;
+		let subscription_buffer_cap = self.subscription_buffer_cap;
 
 		let fut = async move {
 			// Ensure the current connection ID has enough space to accept a new subscription.
@@ -235,6 +238,7 @@ where
 				with_runtime,
 				sub_id.clone(),
 				max_lagging_distance,
+				subscription_buffer_cap,
 			);
 			let result = chain_head_follow.generate_events(sink, sub_data).await;
 			if let Err(SubscriptionManagementError::BlockDistanceTooLarge) = result {
@@ -322,7 +326,7 @@ where
 					return;
 				}
 
-				let _ = block_guard.response_sender().unbounded_send(event);
+				let _ = block_guard.response_sender().send(event).await;
 			};
 			executor.spawn_blocking("substrate-rpc-subscription", Some("rpc"), fut.boxed());
 
@@ -426,20 +430,11 @@ where
 				Err(_) => return ResponsePayload::error(ChainHeadRpcError::InvalidBlock),
 			};
 
-		let mut storage_client = ChainHeadStorage::<Client, Block, BE>::new(
-			self.client.clone(),
-			self.operation_max_storage_items,
-		);
-		let operation = block_guard.operation();
-		let operation_id = operation.operation_id();
+		let mut storage_client = ChainHeadStorage::<Client, Block, BE>::new(self.client.clone());
 
-		// The number of operations we are allowed to execute.
-		let num_operations = operation.num_reserved();
-		let discarded = items.len().saturating_sub(num_operations);
-		let mut items = items;
-		items.truncate(num_operations);
+		// Storage items are never discarded.
+		let (rp, rp_fut) = method_started_response(block_guard.operation().operation_id(), Some(0));
 
-		let (rp, rp_fut) = method_started_response(operation_id, Some(discarded));
 		let fut = async move {
 			// Wait for the server to send out the response and if it produces an error no event
 			// should be generated.
@@ -447,10 +442,20 @@ where
 				return;
 			}
 
-			storage_client.generate_events(block_guard, hash, items, child_trie).await;
+			let (tx, rx) = tokio::sync::mpsc::channel(STORAGE_QUERY_BUF);
+			let operation_id = block_guard.operation().operation_id();
+			let stop_handle = block_guard.operation().stop_handle().clone();
+			let response_sender = block_guard.response_sender();
+
+			// May fail if the channel is closed or the connection is closed.
+			// which is okay to ignore.
+			let _ = futures::future::join(
+				storage_client.generate_events(hash, items, child_trie, tx),
+				process_storage_items(rx, response_sender, operation_id, &stop_handle),
+			)
+			.await;
 		};
-		self.executor
-			.spawn_blocking("substrate-rpc-subscription", Some("rpc"), fut.boxed());
+		self.executor.spawn("substrate-rpc-subscription", Some("rpc"), fut.boxed());
 
 		rp
 	}
@@ -527,7 +532,7 @@ where
 					})
 				});
 
-			let _ = block_guard.response_sender().unbounded_send(event);
+			let _ = block_guard.response_sender().send(event).await;
 		};
 		self.executor
 			.spawn_blocking("substrate-rpc-subscription", Some("rpc"), fut.boxed());
@@ -588,13 +593,9 @@ where
 			return Ok(())
 		}
 
-		let Some(operation) = self.subscriptions.get_operation(&follow_subscription, &operation_id)
-		else {
-			return Ok(())
-		};
-
-		if !operation.submit_continue() {
-			// Continue called without generating a `WaitingForContinue` event.
+		// WaitingForContinue event is never emitted, in such cases
+		// emit an `InvalidContinue error`.
+		if self.subscriptions.get_operation(&follow_subscription, &operation_id).is_some() {
 			Err(ChainHeadRpcError::InvalidContinue.into())
 		} else {
 			Ok(())
@@ -616,12 +617,13 @@ where
 			return Ok(())
 		}
 
-		let Some(operation) = self.subscriptions.get_operation(&follow_subscription, &operation_id)
+		let Some(mut operation) =
+			self.subscriptions.get_operation(&follow_subscription, &operation_id)
 		else {
 			return Ok(())
 		};
 
-		operation.stop_operation();
+		operation.stop();
 
 		Ok(())
 	}
@@ -656,4 +658,47 @@ where
 	executor.spawn_blocking("substrate-rpc-subscription", Some("rpc"), blocking_fut.boxed());
 
 	rx
+}
+
+async fn process_storage_items<Hash>(
+	mut storage_query_stream: mpsc::Receiver<QueryResult>,
+	mut sender: FollowEventSender<Hash>,
+	operation_id: String,
+	stop_handle: &StopHandle,
+) -> Result<(), FollowEventSendError> {
+	loop {
+		tokio::select! {
+			_ = stop_handle.stopped() => {
+				break;
+			},
+
+			maybe_storage = storage_query_stream.recv() => {
+				let Some(storage) = maybe_storage else {
+					break;
+				};
+
+				let item = match storage {
+					QueryResult::Err(error) => {
+						return sender
+						.send(FollowEvent::OperationError(OperationError { operation_id, error }))
+						.await
+					}
+					QueryResult::Ok(Some(v)) => v,
+					QueryResult::Ok(None) => continue,
+				};
+
+				sender
+					.send(FollowEvent::OperationStorageItems(OperationStorageItems {
+						operation_id: operation_id.clone(),
+						items: vec![item],
+				})).await?;
+			},
+		}
+	}
+
+	sender
+		.send(FollowEvent::OperationStorageDone(OperationId { operation_id }))
+		.await?;
+
+	Ok(())
 }

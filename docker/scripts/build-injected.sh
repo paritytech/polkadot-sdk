@@ -40,7 +40,7 @@ VCS_REF=${VCS_REF:-01234567}
 echo "Using engine: $ENGINE"
 echo "Using Dockerfile: $DOCKERFILE"
 echo "Using context: $CONTEXT"
-echo "Building ${IMAGE}:latest container image for ${BINARY} v${VERSION} from ${ARTIFACTS_FOLDER} hang on!"
+echo "Building ${IMAGE}:latest container image for ${BINARY} ${VERSION} from ${ARTIFACTS_FOLDER} hang on!"
 echo "ARTIFACTS_FOLDER=$ARTIFACTS_FOLDER"
 echo "CONTEXT=$CONTEXT"
 

@@ -38,7 +38,7 @@ use crate::{
 		request_response::{Error, JustificationRequest, BEEFY_SYNC_LOG_TARGET},
 	},
 	justification::{decode_and_verify_finality_proof, BeefyVersionedFinalityProof},
-	metric_inc,
+	metric_inc, metric_set,
 	metrics::{register_metrics, OnDemandOutgoingRequestsMetrics},
 	KnownPeers,
 };
@@ -241,6 +241,8 @@ impl<B: Block, AuthorityId: AuthorityIdBound> OnDemandJustificationsEngine<B, Au
 		// We received the awaited response. Our 'receiver' will never generate any other response,
 		// meaning we're done with current state. Move the engine to `State::Idle`.
 		self.state = State::Idle;
+
+		metric_set!(self.metrics, beefy_on_demand_live_peers, self.live_peers.lock().len() as u64);
 
 		let block = req_info.block;
 		match self.process_response(&peer, &req_info, resp) {

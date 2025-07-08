@@ -84,12 +84,10 @@ impl OverseerGen for DisputeValidCandidates {
 		RuntimeClient: RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + 'static,
 		Spawner: 'static + SpawnNamed + Clone + Unpin,
 	{
-		let spawner = args.spawner.clone();
 		let validation_filter = ReplaceValidationResult::new(
 			self.fake_validation,
 			self.fake_validation_error,
 			f64::from(self.percentage),
-			SpawnGlue(spawner.clone()),
 		);
 
 		validator_overseer_builder(

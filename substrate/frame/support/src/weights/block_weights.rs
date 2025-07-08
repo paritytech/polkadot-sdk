@@ -16,8 +16,8 @@
 // limitations under the License.
 
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
-//! DATE: 2024-04-08 (Y/M/D)
-//! HOSTNAME: `runner-anb7yjbi-project-674-concurrent-0`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
+//! DATE: 2024-11-08 (Y/M/D)
+//! HOSTNAME: `runner-wiukf8gn-project-674-concurrent-0`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
 //!
 //! SHORT-NAME: `block`, LONG-NAME: `BlockExecution`, RUNTIME: `Development`
 //! WARMUPS: `10`, REPEAT: `100`
@@ -39,21 +39,21 @@ use sp_core::parameter_types;
 use sp_weights::{constants::WEIGHT_REF_TIME_PER_NANOS, Weight};
 
 parameter_types! {
-	/// Time to execute an empty block.
+	/// Weight of executing an empty block.
 	/// Calculated by multiplying the *Average* with `1.0` and adding `0`.
 	///
 	/// Stats nanoseconds:
-	///   Min, Max: 440_235, 661_535
-	///   Average:  453_383
-	///   Median:   449_925
-	///   Std-Dev:  22021.99
+	///   Min, Max: 419_969, 685_012
+	///   Average:  431_614
+	///   Median:   427_388
+	///   Std-Dev:  26437.34
 	///
 	/// Percentiles nanoseconds:
-	///   99th: 474_045
-	///   95th: 466_455
-	///   75th: 455_056
+	///   99th: 456_205
+	///   95th: 443_420
+	///   75th: 431_833
 	pub const BlockExecutionWeight: Weight =
-		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(453_383), 0);
+		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(431_614), 0);
 }
 
 #[cfg(test)]

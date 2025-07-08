@@ -17,8 +17,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-sp-api = { workspace = true }
 pallet-nomination-pools = { workspace = true }
+sp-api = { workspace = true }
 
 [features]
 default = ["std"]

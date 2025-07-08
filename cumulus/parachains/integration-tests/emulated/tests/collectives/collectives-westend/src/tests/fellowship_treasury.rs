@@ -13,13 +13,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::*;
+use crate::imports::*;
 use frame_support::{
 	assert_ok, dispatch::RawOrigin, instances::Instance1, sp_runtime::traits::Dispatchable,
 	traits::fungible::Inspect,
 };
 use polkadot_runtime_common::impls::VersionedLocatableAsset;
 use westend_runtime_constants::currency::UNITS;
+use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
 use xcm_executor::traits::ConvertLocation;
 
 // Fund Fellowship Treasury from Westend Treasury and spend from Fellowship Treasury.
@@ -37,6 +38,12 @@ fn fellowship_treasury_spend() {
 			&AssetHubWestend::account_id_of(ALICE),
 		)
 	});
+
+	let check_account = AssetHubWestend::execute_with(|| {
+		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::check_account()
+	});
+	// prefund Asset Hub checking account so we accept teleport from relay
+	AssetHubWestend::fund_accounts(vec![(check_account, treasury_balance)]);
 
 	Westend::execute_with(|| {
 		type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
@@ -57,6 +64,8 @@ fn fellowship_treasury_spend() {
 			treasury_balance * 2,
 		));
 
+		Dmp::make_parachain_reachable(1000);
+
 		let native_asset = Location::here();
 		let asset_hub_location: Location = [Parachain(1000)].into();
 		let treasury_location: Location = (Parent, PalletInstance(37)).into();
@@ -64,11 +73,12 @@ fn fellowship_treasury_spend() {
 		let teleport_call = RuntimeCall::Utility(pallet_utility::Call::<Runtime>::dispatch_as {
 			as_origin: bx!(WestendOriginCaller::system(RawOrigin::Signed(treasury_account))),
 			call: bx!(RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::teleport_assets {
-				dest: bx!(VersionedLocation::V4(asset_hub_location.clone())),
-				beneficiary: bx!(VersionedLocation::V4(treasury_location)),
-				assets: bx!(VersionedAssets::V4(
-					Asset { id: native_asset.clone().into(), fun: treasury_balance.into() }.into()
-				)),
+				dest: bx!(VersionedLocation::from(asset_hub_location.clone())),
+				beneficiary: bx!(VersionedLocation::from(treasury_location)),
+				assets: bx!(VersionedAssets::from(Assets::from(Asset {
+					id: native_asset.clone().into(),
+					fun: treasury_balance.into()
+				}))),
 				fee_asset_item: 0,
 			})),
 		});
@@ -101,12 +111,12 @@ fn fellowship_treasury_spend() {
 		let native_asset = Location::parent();
 
 		let treasury_spend_call = RuntimeCall::Treasury(pallet_treasury::Call::<Runtime>::spend {
-			asset_kind: bx!(VersionedLocatableAsset::V4 {
-				location: asset_hub_location.clone(),
-				asset_id: native_asset.into(),
-			}),
+			asset_kind: bx!(VersionedLocatableAsset::from((
+				asset_hub_location.clone(),
+				native_asset.into()
+			))),
 			amount: fellowship_treasury_balance,
-			beneficiary: bx!(VersionedLocation::V4(fellowship_treasury_location)),
+			beneficiary: bx!(VersionedLocation::from(fellowship_treasury_location)),
 			valid_from: None,
 		});
 
@@ -179,12 +189,12 @@ fn fellowship_treasury_spend() {
 
 		let fellowship_treasury_spend_call =
 			RuntimeCall::FellowshipTreasury(pallet_treasury::Call::<Runtime, Instance1>::spend {
-				asset_kind: bx!(VersionedLocatableAsset::V4 {
-					location: asset_hub_location,
-					asset_id: native_asset.into(),
-				}),
+				asset_kind: bx!(VersionedLocatableAsset::from((
+					asset_hub_location,
+					native_asset.into()
+				))),
 				amount: fellowship_spend_balance,
-				beneficiary: bx!(VersionedLocation::V4(alice_location)),
+				beneficiary: bx!(VersionedLocation::from(alice_location)),
 				valid_from: None,
 			});
 

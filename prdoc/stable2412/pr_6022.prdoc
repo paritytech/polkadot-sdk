@@ -1,0 +1,14 @@
+title: '[Coretime chain] Add high assignment count mitigation to testnets'
+doc:
+- audience: Runtime User
+  description: |
+    We can handle a maximum of 28 assignments inside one XCM, while it's possible to have 80 (if a
+    region is interlaced 79 times). This can be chunked on the coretime chain side but currently the
+    relay does not support this. This PR truncates the additional assignments on Rococo and Westend
+    to mitigate this until the relay is fixed. The first 27 assignments are taken, the final 28th is
+    used to pad with idle to complete the mask. Any other assignments are dropped.
+crates:
+- name: coretime-rococo-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch

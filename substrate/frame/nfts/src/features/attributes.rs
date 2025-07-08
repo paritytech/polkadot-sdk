@@ -225,7 +225,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Error::<T, I>::MaxAttributesLimitReached
 		);
 
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = T::BlockNumberProvider::current_block_number();
 		ensure!(deadline >= now, Error::<T, I>::DeadlineExpired);
 
 		let item_details =

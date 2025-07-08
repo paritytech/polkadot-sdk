@@ -1,12 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Polkadot is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -16,24 +16,19 @@
 
 //! Version 3 of the Cross-Consensus Message format data structures.
 
-#[allow(deprecated)]
-use super::v2::{
-	Instruction as OldInstruction, OriginKind as OldOriginKind, Response as OldResponse,
-	WeightLimit as OldWeightLimit, Xcm as OldXcm,
-};
 use super::v4::{
 	Instruction as NewInstruction, PalletInfo as NewPalletInfo,
 	QueryResponseInfo as NewQueryResponseInfo, Response as NewResponse, Xcm as NewXcm,
 };
-use crate::DoubleEncoded;
+use crate::{utils::decode_xcm_instructions, DoubleEncoded};
 use alloc::{vec, vec::Vec};
 use bounded_collections::{parameter_types, BoundedVec};
 use codec::{
-	self, decode_vec_with_len, Compact, Decode, Encode, Error as CodecError, Input as CodecInput,
+	self, Decode, DecodeWithMemTracking, Encode, Error as CodecError, Input as CodecInput,
 	MaxEncodedLen,
 };
 use core::{fmt::Debug, result};
-use derivative::Derivative;
+use derive_where::derive_where;
 use scale_info::TypeInfo;
 
 mod junction;
@@ -56,79 +51,23 @@ pub use traits::{
 	SendError, SendResult, SendXcm, Weight, XcmHash,
 };
 
-/// Basically just the XCM (more general) version of `ParachainDispatchOrigin`.
-#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
-#[scale_info(replace_segment("staging_xcm", "xcm"))]
-#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
-pub enum OriginKind {
-	/// Origin should just be the native dispatch origin representation for the sender in the
-	/// local runtime framework. For Cumulus/Frame chains this is the `Parachain` or `Relay` origin
-	/// if coming from a chain, though there may be others if the `MultiLocation` XCM origin has a
-	/// primary/native dispatch origin form.
-	Native,
-
-	/// Origin should just be the standard account-based origin with the sovereign account of
-	/// the sender. For Cumulus/Frame chains, this is the `Signed` origin.
-	SovereignAccount,
-
-	/// Origin should be the super-user. For Cumulus/Frame chains, this is the `Root` origin.
-	/// This will not usually be an available option.
-	Superuser,
-
-	/// Origin should be interpreted as an XCM native origin and the `MultiLocation` should be
-	/// encoded directly in the dispatch origin unchanged. For Cumulus/Frame chains, this will be
-	/// the `pallet_xcm::Origin::Xcm` type.
-	Xcm,
-}
-
-impl From<OldOriginKind> for OriginKind {
-	fn from(old: OldOriginKind) -> Self {
-		use OldOriginKind::*;
-		match old {
-			Native => Self::Native,
-			SovereignAccount => Self::SovereignAccount,
-			Superuser => Self::Superuser,
-			Xcm => Self::Xcm,
-		}
-	}
-}
-
 /// This module's XCM version.
 pub const VERSION: super::Version = 3;
 
 /// An identifier for a query.
 pub type QueryId = u64;
 
-#[derive(Derivative, Default, Encode, TypeInfo)]
-#[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
+#[derive(Default, DecodeWithMemTracking, Encode, TypeInfo)]
+#[derive_where(Clone, Eq, PartialEq, Debug)]
 #[codec(encode_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub struct Xcm<Call>(pub Vec<Instruction<Call>>);
 
-/// The maximal number of instructions in an XCM before decoding fails.
-///
-/// This is a deliberate limit - not a technical one.
-pub const MAX_INSTRUCTIONS_TO_DECODE: u8 = 100;
-
-environmental::environmental!(instructions_count: u8);
-
 impl<Call> Decode for Xcm<Call> {
 	fn decode<I: CodecInput>(input: &mut I) -> core::result::Result<Self, CodecError> {
-		instructions_count::using_once(&mut 0, || {
-			let number_of_instructions: u32 = <Compact<u32>>::decode(input)?.into();
-			instructions_count::with(|count| {
-				*count = count.saturating_add(number_of_instructions as u8);
-				if *count > MAX_INSTRUCTIONS_TO_DECODE {
-					return Err(CodecError::from("Max instructions exceeded"))
-				}
-				Ok(())
-			})
-			.unwrap_or(Ok(()))?;
-			let decoded_instructions = decode_vec_with_len(input, number_of_instructions as usize)?;
-			Ok(Self(decoded_instructions))
-		})
+		Ok(Xcm(decode_xcm_instructions(input)?))
 	}
 }
 
@@ -278,7 +217,9 @@ parameter_types! {
 	pub MaxPalletsInfo: u32 = 64;
 }
 
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
+)]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub struct PalletInfo {
@@ -326,7 +267,9 @@ impl TryInto<NewPalletInfo> for PalletInfo {
 	}
 }
 
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
+)]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub enum MaybeErrorCode {
@@ -351,7 +294,9 @@ impl Default for MaybeErrorCode {
 }
 
 /// Response data to a query.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
+)]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub enum Response {
@@ -402,7 +347,7 @@ impl TryFrom<NewResponse> for Response {
 }
 
 /// Information regarding the composition of a query response.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub struct QueryResponseInfo {
@@ -428,7 +373,7 @@ impl TryFrom<NewQueryResponseInfo> for QueryResponseInfo {
 }
 
 /// An optional weight limit.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub enum WeightLimit {
@@ -456,14 +401,29 @@ impl From<WeightLimit> for Option<Weight> {
 	}
 }
 
-impl From<OldWeightLimit> for WeightLimit {
-	fn from(x: OldWeightLimit) -> Self {
-		use OldWeightLimit::*;
-		match x {
-			Limited(w) => Self::Limited(Weight::from_parts(w, DEFAULT_PROOF_SIZE)),
-			Unlimited => Self::Unlimited,
-		}
-	}
+/// Basically just the XCM (more general) version of `ParachainDispatchOrigin`.
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+pub enum OriginKind {
+	/// Origin should just be the native dispatch origin representation for the sender in the
+	/// local runtime framework. For Cumulus/Frame chains this is the `Parachain` or `Relay` origin
+	/// if coming from a chain, though there may be others if the `MultiLocation` XCM origin has a
+	/// primary/native dispatch origin form.
+	Native,
+
+	/// Origin should just be the standard account-based origin with the sovereign account of
+	/// the sender. For Cumulus/Frame chains, this is the `Signed` origin.
+	SovereignAccount,
+
+	/// Origin should be the super-user. For Cumulus/Frame chains, this is the `Root` origin.
+	/// This will not usually be an available option.
+	Superuser,
+
+	/// Origin should be interpreted as an XCM native origin and the `MultiLocation` should be
+	/// encoded directly in the dispatch origin unchanged. For Cumulus/Frame chains, this will be
+	/// the `pallet_xcm::Origin::Xcm` type.
+	Xcm,
 }
 
 /// Contextual data pertaining to a specific list of XCM instructions.
@@ -502,16 +462,17 @@ impl XcmContext {
 /// This is the inner XCM format and is version-sensitive. Messages are typically passed using the
 /// outer XCM format, known as `VersionedXcm`.
 #[derive(
-	Derivative,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	xcm_procedural::XcmWeightInfoTrait,
 	xcm_procedural::Builder,
 )]
-#[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
+#[derive_where(Clone, Eq, PartialEq, Debug)]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
+#[codec(decode_with_mem_tracking_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
@@ -819,6 +780,7 @@ pub enum Instruction<Call> {
 	/// Kind: *Command*
 	///
 	/// Errors:
+	#[builder(pays_fees)]
 	BuyExecution { fees: MultiAsset, weight_limit: WeightLimit },
 
 	/// Refund any surplus weight previously bought with `BuyExecution`.
@@ -1327,31 +1289,6 @@ pub mod opaque {
 	pub type Instruction = super::Instruction<()>;
 }
 
-// Convert from a v2 response to a v3 response.
-impl TryFrom<OldResponse> for Response {
-	type Error = ();
-	fn try_from(old_response: OldResponse) -> result::Result<Self, ()> {
-		match old_response {
-			OldResponse::Assets(assets) => Ok(Self::Assets(assets.try_into()?)),
-			OldResponse::Version(version) => Ok(Self::Version(version)),
-			OldResponse::ExecutionResult(error) => Ok(Self::ExecutionResult(match error {
-				Some((i, e)) => Some((i, e.try_into()?)),
-				None => None,
-			})),
-			OldResponse::Null => Ok(Self::Null),
-		}
-	}
-}
-
-// Convert from a v2 XCM to a v3 XCM.
-#[allow(deprecated)]
-impl<Call> TryFrom<OldXcm<Call>> for Xcm<Call> {
-	type Error = ();
-	fn try_from(old_xcm: OldXcm<Call>) -> result::Result<Self, ()> {
-		Ok(Xcm(old_xcm.0.into_iter().map(TryInto::try_into).collect::<result::Result<_, _>>()?))
-	}
-}
-
 // Convert from a v4 XCM to a v3 XCM.
 impl<Call> TryFrom<NewXcm<Call>> for Xcm<Call> {
 	type Error = ();
@@ -1501,112 +1438,10 @@ impl<Call> TryFrom<NewInstruction<Call>> for Instruction<Call> {
 	}
 }
 
-/// Default value for the proof size weight component when converting from V2. Set at 64 KB.
-/// NOTE: Make sure this is removed after we properly account for PoV weights.
-const DEFAULT_PROOF_SIZE: u64 = 64 * 1024;
-
-// Convert from a v2 instruction to a v3 instruction.
-impl<Call> TryFrom<OldInstruction<Call>> for Instruction<Call> {
-	type Error = ();
-	fn try_from(old_instruction: OldInstruction<Call>) -> result::Result<Self, ()> {
-		use OldInstruction::*;
-		Ok(match old_instruction {
-			WithdrawAsset(assets) => Self::WithdrawAsset(assets.try_into()?),
-			ReserveAssetDeposited(assets) => Self::ReserveAssetDeposited(assets.try_into()?),
-			ReceiveTeleportedAsset(assets) => Self::ReceiveTeleportedAsset(assets.try_into()?),
-			QueryResponse { query_id, response, max_weight } => Self::QueryResponse {
-				query_id,
-				response: response.try_into()?,
-				max_weight: Weight::from_parts(max_weight, DEFAULT_PROOF_SIZE),
-				querier: None,
-			},
-			TransferAsset { assets, beneficiary } => Self::TransferAsset {
-				assets: assets.try_into()?,
-				beneficiary: beneficiary.try_into()?,
-			},
-			TransferReserveAsset { assets, dest, xcm } => Self::TransferReserveAsset {
-				assets: assets.try_into()?,
-				dest: dest.try_into()?,
-				xcm: xcm.try_into()?,
-			},
-			HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity } =>
-				Self::HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity },
-			HrmpChannelAccepted { recipient } => Self::HrmpChannelAccepted { recipient },
-			HrmpChannelClosing { initiator, sender, recipient } =>
-				Self::HrmpChannelClosing { initiator, sender, recipient },
-			Transact { origin_type, require_weight_at_most, call } => Self::Transact {
-				origin_kind: origin_type.into(),
-				require_weight_at_most: Weight::from_parts(
-					require_weight_at_most,
-					DEFAULT_PROOF_SIZE,
-				),
-				call: call.into(),
-			},
-			ReportError { query_id, dest, max_response_weight } => {
-				let response_info = QueryResponseInfo {
-					destination: dest.try_into()?,
-					query_id,
-					max_weight: Weight::from_parts(max_response_weight, DEFAULT_PROOF_SIZE),
-				};
-				Self::ReportError(response_info)
-			},
-			DepositAsset { assets, max_assets, beneficiary } => Self::DepositAsset {
-				assets: (assets, max_assets).try_into()?,
-				beneficiary: beneficiary.try_into()?,
-			},
-			DepositReserveAsset { assets, max_assets, dest, xcm } => {
-				let assets = (assets, max_assets).try_into()?;
-				Self::DepositReserveAsset { assets, dest: dest.try_into()?, xcm: xcm.try_into()? }
-			},
-			ExchangeAsset { give, receive } => {
-				let give = give.try_into()?;
-				let want = receive.try_into()?;
-				Self::ExchangeAsset { give, want, maximal: true }
-			},
-			InitiateReserveWithdraw { assets, reserve, xcm } => Self::InitiateReserveWithdraw {
-				assets: assets.try_into()?,
-				reserve: reserve.try_into()?,
-				xcm: xcm.try_into()?,
-			},
-			InitiateTeleport { assets, dest, xcm } => Self::InitiateTeleport {
-				assets: assets.try_into()?,
-				dest: dest.try_into()?,
-				xcm: xcm.try_into()?,
-			},
-			QueryHolding { query_id, dest, assets, max_response_weight } => {
-				let response_info = QueryResponseInfo {
-					destination: dest.try_into()?,
-					query_id,
-					max_weight: Weight::from_parts(max_response_weight, DEFAULT_PROOF_SIZE),
-				};
-				Self::ReportHolding { response_info, assets: assets.try_into()? }
-			},
-			BuyExecution { fees, weight_limit } =>
-				Self::BuyExecution { fees: fees.try_into()?, weight_limit: weight_limit.into() },
-			ClearOrigin => Self::ClearOrigin,
-			DescendOrigin(who) => Self::DescendOrigin(who.try_into()?),
-			RefundSurplus => Self::RefundSurplus,
-			SetErrorHandler(xcm) => Self::SetErrorHandler(xcm.try_into()?),
-			SetAppendix(xcm) => Self::SetAppendix(xcm.try_into()?),
-			ClearError => Self::ClearError,
-			ClaimAsset { assets, ticket } => {
-				let assets = assets.try_into()?;
-				let ticket = ticket.try_into()?;
-				Self::ClaimAsset { assets, ticket }
-			},
-			Trap(code) => Self::Trap(code),
-			SubscribeVersion { query_id, max_response_weight } => Self::SubscribeVersion {
-				query_id,
-				max_response_weight: Weight::from_parts(max_response_weight, DEFAULT_PROOF_SIZE),
-			},
-			UnsubscribeVersion => Self::UnsubscribeVersion,
-		})
-	}
-}
-
 #[cfg(test)]
 mod tests {
 	use super::{prelude::*, *};
+	use crate::MAX_INSTRUCTIONS_TO_DECODE;
 
 	#[test]
 	fn decoding_respects_limit() {

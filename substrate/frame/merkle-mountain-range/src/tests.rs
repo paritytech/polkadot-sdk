@@ -17,19 +17,21 @@
 
 use crate::{mock::*, *};
 
-use frame_support::traits::{Get, OnInitialize};
-use sp_core::{
-	offchain::{testing::TestOffchainExt, OffchainDbExt, OffchainWorkerExt},
-	H256,
-};
-use sp_mmr_primitives::{mmr_lib::helper, utils, Compact, LeafProof};
-use sp_runtime::BuildStorage;
+use crate::primitives::{mmr_lib::helper, utils, Compact, LeafProof};
 
-pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
+use frame::{
+	deps::sp_core::{
+		offchain::{testing::TestOffchainExt, OffchainDbExt, OffchainWorkerExt},
+		H256,
+	},
+	testing_prelude::*,
+};
+
+pub(crate) fn new_test_ext() -> TestState {
 	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
 }
 
-fn register_offchain_ext(ext: &mut sp_io::TestExternalities) {
+fn register_offchain_ext(ext: &mut TestState) {
 	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
 	ext.register_extension(OffchainWorkerExt::new(offchain));
@@ -54,7 +56,7 @@ pub(crate) fn hex(s: &str) -> H256 {
 	s.parse().unwrap()
 }
 
-type BlockNumber = frame_system::pallet_prelude::BlockNumberFor<Test>;
+type BlockNumber = BlockNumberFor<Test>;
 
 fn decode_node(
 	v: Vec<u8>,
@@ -517,7 +519,7 @@ fn should_verify() {
 }
 
 fn generate_and_verify_batch_proof(
-	ext: &mut sp_io::TestExternalities,
+	ext: &mut TestExternalities,
 	block_numbers: &Vec<u64>,
 	blocks_to_add: usize,
 ) {
@@ -719,7 +721,6 @@ fn should_verify_on_the_next_block_since_there_is_no_pruning_yet() {
 
 #[test]
 fn should_verify_canonicalized() {
-	use frame_support::traits::Hooks;
 	sp_tracing::init_for_tests();
 
 	// How deep is our fork-aware storage (in terms of blocks/leaves, nodes will be more).
@@ -810,6 +811,7 @@ fn generating_and_verifying_ancestry_proofs_works_correctly() {
 		for prev_block_number in 1usize..=500 {
 			let proof =
 				Pallet::<Test>::generate_ancestry_proof(prev_block_number as u64, None).unwrap();
+			assert!(Pallet::<Test>::is_ancestry_proof_optimal(&proof));
 			assert_eq!(
 				Pallet::<Test>::verify_ancestry_proof(root, proof),
 				Ok(prev_roots[prev_block_number - 1])

@@ -1,0 +1,12 @@
+title: Avoid unnecessary block gap updates
+
+doc:
+  - audience: Node Dev
+    description: |
+      Previously, the block gap storage in database and state in `BlockchainDb` could be updated even if no changes occurred.
+      This commit refines the logic to ensure updates only occur when the block gap value actually changes, reducing unnecessary
+      writes and enhancing overall efficiency.
+
+crates:
+  - name: sc-client-db
+    bump: none

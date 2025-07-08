@@ -1,0 +1,17 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "[pallet-contracts] remove riscv support"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      RISC-V support is now being built inside the new fork pallet-revive
+
+crates:
+  - name: pallet-contracts
+    bump: patch
+  - name: pallet-contracts-fixtures
+    bump: patch
+  - name: pallet-contracts-uapi
+    bump: patch

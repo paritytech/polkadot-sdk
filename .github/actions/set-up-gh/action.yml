@@ -1,5 +1,5 @@
-name: 'install gh'
-description: 'Install the gh cli in a debian based distro and switches to the PR branch.'
+name: "install gh"
+description: "Install the gh cli in a debian based distro and switches to the PR branch."
 inputs:
   pr-number:
     description: "Number of the PR"
@@ -9,28 +9,20 @@ inputs:
     required: true
 outputs:
   branch:
-    description: 'Branch name for the PR'
+    description: "Branch name for the PR"
     value: ${{ steps.branch.outputs.branch }}
 runs:
   using: "composite"
   steps:
-      - name: Instal gh cli
-        shell: bash
-        # Here it would get the script from previous step
-        run: |
-          (type -p wget >/dev/null || (apt update && apt-get install wget -y))
-          mkdir -p -m 755 /etc/apt/keyrings
-          wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null 
-          chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
-          echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-          apt update
-          apt install gh -y
-          git config --global --add safe.directory '*'
-      - run: gh pr checkout ${{ inputs.pr-number }}
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ inputs.GH_TOKEN }}
-      - name: Export branch name
-        shell: bash
-        run: echo "branch=$(git rev-parse --abbrev-ref HEAD)" >> "$GITHUB_OUTPUT"
-        id: branch
+    - name: Set up git
+      shell: bash
+      # Here it would get the script from previous step
+      run: git config --global --add safe.directory '*'
+    - run: gh pr checkout ${{ inputs.pr-number }}
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.GH_TOKEN }}
+    - name: Export branch name
+      shell: bash
+      run: echo "branch=$(git rev-parse --abbrev-ref HEAD)" >> "$GITHUB_OUTPUT"
+      id: branch

@@ -16,12 +16,11 @@
 
 //! Unit tests for Gossip Support Subsystem.
 
-use std::{collections::HashSet, time::Duration};
+use std::{collections::HashSet, sync::LazyLock, time::Duration};
 
 use assert_matches::assert_matches;
 use async_trait::async_trait;
 use futures::{executor, future, Future};
-use lazy_static::lazy_static;
 use quickcheck::quickcheck;
 use rand::seq::SliceRandom as _;
 
@@ -56,39 +55,29 @@ const AUTHORITY_KEYRINGS: &[Sr25519Keyring] = &[
 	Sr25519Keyring::Ferdie,
 ];
 
-lazy_static! {
-	static ref AUTHORITIES: Vec<AuthorityDiscoveryId> =
-		AUTHORITY_KEYRINGS.iter().map(|k| k.public().into()).collect();
+static AUTHORITIES: LazyLock<Vec<AuthorityDiscoveryId>> =
+	LazyLock::new(|| AUTHORITY_KEYRINGS.iter().map(|k| k.public().into()).collect());
 
-	static ref AUTHORITIES_WITHOUT_US: Vec<AuthorityDiscoveryId> = {
-		let mut a = AUTHORITIES.clone();
-		a.pop(); // remove FERDIE.
-		a
-	};
+static AUTHORITIES_WITHOUT_US: LazyLock<Vec<AuthorityDiscoveryId>> = LazyLock::new(|| {
+	let mut a = AUTHORITIES.clone();
+	a.pop(); // remove FERDIE.
+	a
+});
 
-	static ref PAST_PRESENT_FUTURE_AUTHORITIES: Vec<AuthorityDiscoveryId> = {
-		(0..50)
-			.map(|_| AuthorityDiscoveryPair::generate().0.public())
-			.chain(AUTHORITIES.clone())
-			.collect()
-	};
+static PAST_PRESENT_FUTURE_AUTHORITIES: LazyLock<Vec<AuthorityDiscoveryId>> = LazyLock::new(|| {
+	(0..50)
+		.map(|_| AuthorityDiscoveryPair::generate().0.public())
+		.chain(AUTHORITIES.clone())
+		.collect()
+});
 
-	// [2 6]
-	// [4 5]
-	// [1 3]
-	// [0  ]
+static EXPECTED_SHUFFLING: LazyLock<Vec<usize>> = LazyLock::new(|| vec![6, 4, 0, 5, 2, 3, 1]);
 
-	static ref EXPECTED_SHUFFLING: Vec<usize> = vec![6, 4, 0, 5, 2, 3, 1];
+static ROW_NEIGHBORS: LazyLock<Vec<ValidatorIndex>> =
+	LazyLock::new(|| vec![ValidatorIndex::from(2)]);
 
-	static ref ROW_NEIGHBORS: Vec<ValidatorIndex> = vec![
-		ValidatorIndex::from(2),
-	];
-
-	static ref COLUMN_NEIGHBORS: Vec<ValidatorIndex> = vec![
-		ValidatorIndex::from(3),
-		ValidatorIndex::from(5),
-	];
-}
+static COLUMN_NEIGHBORS: LazyLock<Vec<ValidatorIndex>> =
+	LazyLock::new(|| vec![ValidatorIndex::from(3), ValidatorIndex::from(5)]);
 
 type VirtualOverseer =
 	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<GossipSupportMessage>;
@@ -273,6 +262,38 @@ async fn overseer_recv(overseer: &mut VirtualOverseer) -> AllMessages {
 	msg
 }
 
+async fn provide_info_for_finalized(overseer: &mut VirtualOverseer, test_session: SessionIndex) {
+	assert_matches!(
+		overseer_recv(overseer).await,
+		AllMessages::ChainApi(ChainApiMessage::FinalizedBlockNumber(
+			channel,
+		)) => {
+			channel.send(Ok(1)).unwrap();
+		}
+	);
+
+	assert_matches!(
+		overseer_recv(overseer).await,
+		AllMessages::ChainApi(ChainApiMessage::FinalizedBlockHash(
+			_,
+			channel,
+		)) => {
+			channel.send(Ok(Some(Hash::repeat_byte(0xAA)))).unwrap();
+		}
+	);
+
+	assert_matches!(
+		overseer_recv(overseer).await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			_,
+			RuntimeApiRequest::SessionIndexForChild(tx),
+		)) => {
+			// assert_eq!(relay_parent, hash);
+			tx.send(Ok(test_session)).unwrap();
+		}
+	);
+}
+
 async fn test_neighbors(overseer: &mut VirtualOverseer, expected_session: SessionIndex) {
 	assert_matches!(
 		overseer_recv(overseer).await,
@@ -386,6 +407,7 @@ fn issues_a_connection_request_on_new_session() {
 					assert_eq!(peer_set, PeerSet::Validation);
 				}
 			);
+			provide_info_for_finalized(overseer, 1).await;
 
 			test_neighbors(overseer, 1).await;
 
@@ -538,6 +560,7 @@ fn issues_connection_request_to_past_present_future() {
 					assert_eq!(peer_set, PeerSet::Validation);
 				}
 			);
+			provide_info_for_finalized(overseer, 1).await;
 
 			// Ensure neighbors are unaffected
 			test_neighbors(overseer, 1).await;
@@ -618,6 +641,7 @@ fn issues_update_authorities_after_session() {
 				}
 			);
 
+			provide_info_for_finalized(overseer, 1).await;
 			// Ensure neighbors are unaffected
 			assert_matches!(
 				overseer_recv(overseer).await,
@@ -889,6 +913,7 @@ fn test_quickly_connect_to_authorities_that_changed_address() {
 				}
 			);
 
+			provide_info_for_finalized(overseer, 1).await;
 			// Ensure neighbors are unaffected
 			assert_matches!(
 				overseer_recv(overseer).await,
@@ -1182,6 +1207,7 @@ fn disconnect_when_not_in_past_present_future() {
 				}
 			);
 
+			provide_info_for_finalized(overseer, 1).await;
 			virtual_overseer
 		},
 	);
@@ -1279,13 +1305,13 @@ fn issues_a_connection_request_when_last_request_was_mostly_unresolved() {
 					assert_eq!(peer_set, PeerSet::Validation);
 				}
 			);
+			provide_info_for_finalized(overseer, 1).await;
 
 			test_neighbors(overseer, 1).await;
 
 			virtual_overseer
 		})
 	};
-
 	assert_eq!(state.last_session_index, Some(1));
 	assert!(state.last_failure.is_some());
 	state.last_failure = state.last_failure.and_then(|i| i.checked_sub(BACKOFF_DURATION));
@@ -1349,6 +1375,158 @@ fn issues_a_connection_request_when_last_request_was_mostly_unresolved() {
 
 	assert_eq!(state.last_session_index, Some(1));
 	assert!(state.last_failure.is_none());
+}
+
+// Test that topology is updated for all sessions we still have unfinalized blocks for.
+#[test]
+fn updates_topology_for_all_finalized_blocks() {
+	let hash = Hash::repeat_byte(0xAA);
+	let mock_authority_discovery =
+		MockAuthorityDiscovery::new(PAST_PRESENT_FUTURE_AUTHORITIES.clone());
+	test_harness(
+		make_subsystem_with_authority_discovery(mock_authority_discovery.clone()),
+		|mut virtual_overseer| async move {
+			let overseer = &mut virtual_overseer;
+			overseer_signal_active_leaves(overseer, hash).await;
+			let active_session = 5;
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					relay_parent,
+					RuntimeApiRequest::SessionIndexForChild(tx),
+				)) => {
+					assert_eq!(relay_parent, hash);
+					tx.send(Ok(active_session)).unwrap();
+				}
+			);
+
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					relay_parent,
+					RuntimeApiRequest::SessionInfo(s, tx),
+				)) => {
+					assert_eq!(relay_parent, hash);
+					assert_eq!(s, active_session);
+					tx.send(Ok(Some(make_session_info()))).unwrap();
+				}
+			);
+
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					relay_parent,
+					RuntimeApiRequest::Authorities(tx),
+				)) => {
+					assert_eq!(relay_parent, hash);
+					tx.send(Ok(PAST_PRESENT_FUTURE_AUTHORITIES.clone())).unwrap();
+				}
+			);
+
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ConnectToResolvedValidators {
+					validator_addrs,
+					peer_set,
+				}) => {
+					let all_without_ferdie: Vec<_> = PAST_PRESENT_FUTURE_AUTHORITIES
+						.iter()
+						.cloned()
+						.filter(|p| p != &Sr25519Keyring::Ferdie.public().into())
+						.collect();
+
+					let addrs = get_multiaddrs(all_without_ferdie, mock_authority_discovery.clone()).await;
+
+					assert_eq!(validator_addrs, addrs);
+					assert_eq!(peer_set, PeerSet::Validation);
+				}
+			);
+
+			// Ensure first time we update the topology we also update topology for the session last
+			// finalized is in.
+			provide_info_for_finalized(overseer, 1).await;
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					relay_parent,
+					RuntimeApiRequest::SessionInfo(s, tx),
+				)) => {
+					assert_eq!(relay_parent, hash);
+					assert_eq!(s, 1);
+					tx.send(Ok(Some(make_session_info()))).unwrap();
+				}
+			);
+			// Ensure  we received topology for the session last finalized is in and the current
+			// active session
+			test_neighbors(overseer, 1).await;
+			test_neighbors(overseer, active_session).await;
+
+			let mut block_number = 3;
+			// As finalized progresses, we should update topology for all sessions until we caught
+			// up with the known sessions.
+			for finalized in 2..active_session {
+				block_number += 1;
+				overseer
+					.send(FromOrchestra::Signal(OverseerSignal::BlockFinalized(
+						Hash::repeat_byte(block_number as u8),
+						block_number,
+					)))
+					.timeout(TIMEOUT)
+					.await
+					.expect("signal send timeout");
+				provide_info_for_finalized(overseer, finalized).await;
+				assert_matches!(
+					overseer_recv(overseer).await,
+					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						relay_parent,
+						RuntimeApiRequest::SessionInfo(s, tx),
+					)) => {
+						assert_eq!(relay_parent, hash);
+						assert_eq!(s, finalized);
+						tx.send(Ok(Some(make_session_info()))).unwrap();
+					}
+				);
+				test_neighbors(overseer, finalized).await;
+
+				block_number += 1;
+				overseer
+					.send(FromOrchestra::Signal(OverseerSignal::BlockFinalized(
+						Hash::repeat_byte(block_number as u8),
+						block_number,
+					)))
+					.timeout(TIMEOUT)
+					.await
+					.expect("signal send timeout");
+				provide_info_for_finalized(overseer, finalized).await;
+			}
+
+			// No topology update is sent once finalized block is in the active session.
+			block_number += 1;
+			overseer
+				.send(FromOrchestra::Signal(OverseerSignal::BlockFinalized(
+					Hash::repeat_byte(block_number as u8),
+					block_number,
+				)))
+				.timeout(TIMEOUT)
+				.await
+				.expect("signal send timeout");
+			provide_info_for_finalized(overseer, active_session).await;
+
+			// Code becomes no-op after we caught up with the last finalized block being in the
+			// active session.
+			block_number += 1;
+			overseer
+				.send(FromOrchestra::Signal(OverseerSignal::BlockFinalized(
+					Hash::repeat_byte(block_number as u8),
+					block_number,
+				)))
+				.timeout(TIMEOUT)
+				.await
+				.expect("signal send timeout");
+
+			virtual_overseer
+		},
+	);
 }
 
 // note: this test was added at a time where the default `rand::SliceRandom::shuffle`

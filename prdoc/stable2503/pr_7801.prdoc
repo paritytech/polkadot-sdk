@@ -1,0 +1,25 @@
+title: add poke_deposit extrinsic to pallet-proxy
+doc:
+- audience: Runtime Dev
+  description: This PR adds a new extrinsic `poke_deposit` to `pallet-proxy`. This extrinsic will be used to re-adjust the deposits made in the pallet to create a proxy or to create an announcement.
+crates:
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: coretime-rococo-runtime
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
+- name: people-rococo-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: pallet-proxy
+  bump: major

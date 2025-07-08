@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fix memory leak in litep2p public addresses
+
+doc:
+  - audience: [ Node Dev, Node Operator ]
+    description: |
+     This PR bounds the number of public addresses of litep2p to 32 entries.
+     This ensures we do not increase the number of addresses over time, and that the DHT
+     authority records will not exceed the upper size limit.
+
+crates:
+  - name: sc-network
+    bump: patch

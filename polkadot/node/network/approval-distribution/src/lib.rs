@@ -24,44 +24,52 @@
 #![warn(missing_docs)]
 
 use self::metrics::Metrics;
-use futures::{channel::oneshot, select, FutureExt as _};
+use futures::{select, FutureExt as _};
 use itertools::Itertools;
 use net_protocol::peer_set::{ProtocolVersion, ValidationVersion};
-use polkadot_node_jaeger as jaeger;
 use polkadot_node_network_protocol::{
 	self as net_protocol, filter_by_peer_version,
 	grid_topology::{RandomRouting, RequiredRouting, SessionGridTopologies, SessionGridTopology},
 	peer_set::MAX_NOTIFICATION_SIZE,
-	v1 as protocol_v1, v2 as protocol_v2, v3 as protocol_v3, PeerId,
-	UnifiedReputationChange as Rep, Versioned, View,
+	v3 as protocol_v3, PeerId, UnifiedReputationChange as Rep, ValidationProtocols, View,
 };
-use polkadot_node_primitives::approval::{
-	v1::{
-		AssignmentCertKind, BlockApprovalMeta, IndirectAssignmentCert, IndirectSignedApprovalVote,
+use polkadot_node_primitives::{
+	approval::{
+		criteria::{AssignmentCriteria, InvalidAssignment},
+		time::{Clock, ClockExt, SystemClock, TICK_TOO_FAR_IN_FUTURE},
+		v1::{BlockApprovalMeta, DelayTranche, RelayVRFStory},
+		v2::{
+			AsBitIndex, AssignmentCertKindV2, CandidateBitfield, IndirectAssignmentCertV2,
+			IndirectSignedApprovalVoteV2,
+		},
 	},
-	v2::{
-		AsBitIndex, AssignmentCertKindV2, CandidateBitfield, IndirectAssignmentCertV2,
-		IndirectSignedApprovalVoteV2,
-	},
+	DISPUTE_WINDOW,
 };
 use polkadot_node_subsystem::{
 	messages::{
-		ApprovalCheckResult, ApprovalDistributionMessage, ApprovalVotingMessage,
-		AssignmentCheckResult, NetworkBridgeEvent, NetworkBridgeTxMessage,
+		ApprovalDistributionMessage, ApprovalVotingMessage, CheckedIndirectAssignment,
+		CheckedIndirectSignedApprovalVote, NetworkBridgeEvent, NetworkBridgeTxMessage,
+		RuntimeApiMessage,
 	},
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
-use polkadot_node_subsystem_util::reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL};
+use polkadot_node_subsystem_util::{
+	reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL},
+	runtime::{Config as RuntimeInfoConfig, ExtendedSessionInfo, RuntimeInfo},
+};
 use polkadot_primitives::{
-	BlockNumber, CandidateIndex, Hash, SessionIndex, ValidatorIndex, ValidatorSignature,
+	BlockNumber, CandidateHash, CandidateIndex, CoreIndex, DisputeStatement, GroupIndex, Hash,
+	SessionIndex, Slot, ValidDisputeStatementKind, ValidatorIndex, ValidatorSignature,
 };
 use rand::{CryptoRng, Rng, SeedableRng};
 use std::{
 	collections::{hash_map, BTreeMap, HashMap, HashSet, VecDeque},
+	sync::Arc,
 	time::Duration,
 };
 
-mod metrics;
+/// Approval distribution metrics.
+pub mod metrics;
 
 #[cfg(test)]
 mod tests;
@@ -86,6 +94,9 @@ const MAX_BITFIELD_SIZE: usize = 500;
 /// The Approval Distribution subsystem.
 pub struct ApprovalDistribution {
 	metrics: Metrics,
+	slot_duration_millis: u64,
+	clock: Arc<dyn Clock + Send + Sync>,
+	assignment_criteria: Arc<dyn AssignmentCriteria + Send + Sync>,
 }
 
 /// Contains recently finalized
@@ -148,8 +159,6 @@ enum ApprovalEntryError {
 	InvalidCandidateIndex,
 	DuplicateApproval,
 	UnknownAssignment,
-	#[allow(dead_code)]
-	AssignmentsFollowedDifferentPaths(RequiredRouting, RequiredRouting),
 }
 
 impl ApprovalEntry {
@@ -161,7 +170,7 @@ impl ApprovalEntry {
 		Self {
 			validator_index: assignment.validator,
 			assignment,
-			approvals: HashMap::with_capacity(candidates.len()),
+			approvals: HashMap::new(),
 			assignment_claimed_candidates: candidates,
 			routing_info,
 		}
@@ -303,7 +312,7 @@ impl Default for AggressionConfig {
 	fn default() -> Self {
 		AggressionConfig {
 			l1_threshold: Some(16),
-			l2_threshold: Some(28),
+			l2_threshold: Some(64),
 			resend_unfinalized_period: Some(8),
 		}
 	}
@@ -343,9 +352,6 @@ pub struct State {
 	/// Tracks recently finalized blocks.
 	recent_outdated_blocks: RecentlyOutdated,
 
-	/// HashMap from active leaves to spans
-	spans: HashMap<Hash, jaeger::PerLeafSpan>,
-
 	/// Aggression configuration.
 	aggression_config: AggressionConfig,
 
@@ -354,6 +360,9 @@ pub struct State {
 
 	/// Aggregated reputation change
 	reputation: ReputationAggregator,
+
+	/// Slot duration in millis
+	slot_duration_millis: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -488,11 +497,19 @@ struct BlockEntry {
 	knowledge: Knowledge,
 	/// A votes entry for each candidate indexed by [`CandidateIndex`].
 	candidates: Vec<CandidateEntry>,
+	/// Information about candidate metadata.
+	candidates_metadata: Vec<(CandidateHash, CoreIndex, GroupIndex)>,
 	/// The session index of this block.
 	session: SessionIndex,
 	/// Approval entries for whole block. These also contain all approvals in the case of multiple
 	/// candidates being claimed by assignments.
 	approval_entries: HashMap<(ValidatorIndex, CandidateBitfield), ApprovalEntry>,
+	/// The block vrf story.
+	vrf_story: RelayVRFStory,
+	/// The block slot.
+	slot: Slot,
+	/// Backing off from re-sending messages to peers.
+	last_resent_at_block_number: Option<u32>,
 }
 
 impl BlockEntry {
@@ -547,7 +564,7 @@ impl BlockEntry {
 		&mut self,
 		approval: IndirectSignedApprovalVoteV2,
 	) -> Result<(RequiredRouting, HashSet<PeerId>), ApprovalEntryError> {
-		let mut required_routing = None;
+		let mut required_routing: Option<RequiredRouting> = None;
 		let mut peers_randomly_routed_to = HashSet::new();
 
 		if self.candidates.len() < approval.candidate_indices.len() as usize {
@@ -574,16 +591,11 @@ impl BlockEntry {
 				peers_randomly_routed_to
 					.extend(approval_entry.routing_info().peers_randomly_routed.iter());
 
-				if let Some(required_routing) = required_routing {
-					if required_routing != approval_entry.routing_info().required_routing {
-						// This shouldn't happen since the required routing is computed based on the
-						// validator_index, so two assignments from the same validators will have
-						// the same required routing.
-						return Err(ApprovalEntryError::AssignmentsFollowedDifferentPaths(
-							required_routing,
-							approval_entry.routing_info().required_routing,
-						))
-					}
+				if let Some(current_required_routing) = required_routing {
+					required_routing = Some(
+						current_required_routing
+							.combine(approval_entry.routing_info().required_routing),
+					);
 				} else {
 					required_routing = Some(approval_entry.routing_info().required_routing)
 				}
@@ -646,6 +658,41 @@ enum MessageSource {
 	Local,
 }
 
+// Encountered error while validating an assignment.
+#[derive(Debug)]
+enum InvalidAssignmentError {
+	// The vrf check for the assignment failed.
+	#[allow(dead_code)]
+	CryptoCheckFailed(InvalidAssignment),
+	// The assignment did not claim any valid candidate.
+	NoClaimedCandidates,
+	// Claimed invalid candidate.
+	#[allow(dead_code)]
+	ClaimedInvalidCandidateIndex {
+		claimed_index: usize,
+		max_index: usize,
+	},
+	// The assignment claimes more candidates than the maximum allowed.
+	OversizedClaimedBitfield,
+	// `SessionInfo`  was not found for the block hash in the assignment.
+	#[allow(dead_code)]
+	SessionInfoNotFound(polkadot_node_subsystem_util::runtime::Error),
+}
+
+// Encountered error while validating an approval.
+#[derive(Debug)]
+enum InvalidVoteError {
+	// The candidate index was out of bounds.
+	CandidateIndexOutOfBounds,
+	// The validator index was out of bounds.
+	ValidatorIndexOutOfBounds,
+	// The signature of the vote was invalid.
+	InvalidSignature,
+	// `SessionInfo` was not found for the block hash in the approval.
+	#[allow(dead_code)]
+	SessionInfoNotFound(polkadot_node_subsystem_util::runtime::Error),
+}
+
 impl MessageSource {
 	fn peer_id(&self) -> Option<PeerId> {
 		match self {
@@ -662,16 +709,26 @@ enum PendingMessage {
 
 #[overseer::contextbounds(ApprovalDistribution, prefix = self::overseer)]
 impl State {
+	/// Build State with specified slot duration.
+	pub fn with_config(slot_duration_millis: u64) -> Self {
+		Self { slot_duration_millis, ..Default::default() }
+	}
+
 	async fn handle_network_msg<
 		N: overseer::SubsystemSender<NetworkBridgeTxMessage>,
 		A: overseer::SubsystemSender<ApprovalVotingMessage>,
+		RA: overseer::SubsystemSender<RuntimeApiMessage>,
 	>(
 		&mut self,
 		approval_voting_sender: &mut A,
 		network_sender: &mut N,
+		runtime_api_sender: &mut RA,
 		metrics: &Metrics,
 		event: NetworkBridgeEvent<net_protocol::ApprovalDistributionMessage>,
 		rng: &mut (impl CryptoRng + Rng),
+		assignment_criteria: &(impl AssignmentCriteria + ?Sized),
+		clock: &(impl Clock + ?Sized),
+		session_info_provider: &mut RuntimeInfo,
 	) {
 		match event {
 			NetworkBridgeEvent::PeerConnected(peer_id, role, version, authority_ids) => {
@@ -727,10 +784,14 @@ impl State {
 				self.process_incoming_peer_message(
 					approval_voting_sender,
 					network_sender,
+					runtime_api_sender,
 					metrics,
 					peer_id,
 					message,
 					rng,
+					assignment_criteria,
+					clock,
+					session_info_provider,
 				)
 				.await;
 			},
@@ -776,28 +837,31 @@ impl State {
 	async fn handle_new_blocks<
 		N: overseer::SubsystemSender<NetworkBridgeTxMessage>,
 		A: overseer::SubsystemSender<ApprovalVotingMessage>,
+		RA: overseer::SubsystemSender<RuntimeApiMessage>,
 	>(
 		&mut self,
 		approval_voting_sender: &mut A,
 		network_sender: &mut N,
+		runtime_api_sender: &mut RA,
 		metrics: &Metrics,
 		metas: Vec<BlockApprovalMeta>,
 		rng: &mut (impl CryptoRng + Rng),
+		assignment_criteria: &(impl AssignmentCriteria + ?Sized),
+		clock: &(impl Clock + ?Sized),
+		session_info_provider: &mut RuntimeInfo,
 	) {
 		let mut new_hashes = HashSet::new();
-		for meta in &metas {
-			let mut span = self
-				.spans
-				.get(&meta.hash)
-				.map(|span| span.child(&"handle-new-blocks"))
-				.unwrap_or_else(|| jaeger::Span::new(meta.hash, &"handle-new-blocks"))
-				.with_string_tag("block-hash", format!("{:?}", meta.hash))
-				.with_stage(jaeger::Stage::ApprovalDistribution);
 
+		gum::debug!(
+			target: LOG_TARGET,
+			"Got new blocks {:?}",
+			metas.iter().map(|m| (m.hash, m.number)).collect::<Vec<_>>(),
+		);
+
+		for meta in metas {
 			match self.blocks.entry(meta.hash) {
 				hash_map::Entry::Vacant(entry) => {
 					let candidates_count = meta.candidates.len();
-					span.add_uint_tag("candidates-count", candidates_count as u64);
 					let mut candidates = Vec::with_capacity(candidates_count);
 					candidates.resize_with(candidates_count, Default::default);
 
@@ -809,6 +873,10 @@ impl State {
 						candidates,
 						session: meta.session,
 						approval_entries: HashMap::new(),
+						candidates_metadata: meta.candidates,
+						vrf_story: meta.vrf_story,
+						slot: meta.slot,
+						last_resent_at_block_number: None,
 					});
 
 					self.topologies.inc_session_refs(meta.session);
@@ -822,12 +890,6 @@ impl State {
 				_ => continue,
 			}
 		}
-
-		gum::debug!(
-			target: LOG_TARGET,
-			"Got new blocks {:?}",
-			metas.iter().map(|m| (m.hash, m.number)).collect::<Vec<_>>(),
-		);
 
 		{
 			for (peer_id, PeerEntry { view, version }) in self.peer_views.iter() {
@@ -883,11 +945,15 @@ impl State {
 							self.import_and_circulate_assignment(
 								approval_voting_sender,
 								network_sender,
+								runtime_api_sender,
 								metrics,
 								MessageSource::Peer(peer_id),
 								assignment,
 								claimed_indices,
 								rng,
+								assignment_criteria,
+								clock,
+								session_info_provider,
 							)
 							.await;
 						},
@@ -895,9 +961,11 @@ impl State {
 							self.import_and_circulate_approval(
 								approval_voting_sender,
 								network_sender,
+								runtime_api_sender,
 								metrics,
 								MessageSource::Peer(peer_id),
 								approval_vote,
+								session_info_provider,
 							)
 							.await;
 						},
@@ -943,17 +1011,22 @@ impl State {
 		.await;
 	}
 
-	async fn process_incoming_assignments<A, N, R>(
+	async fn process_incoming_assignments<A, N, R, RA>(
 		&mut self,
 		approval_voting_sender: &mut A,
 		network_sender: &mut N,
+		runtime_api_sender: &mut RA,
 		metrics: &Metrics,
 		peer_id: PeerId,
 		assignments: Vec<(IndirectAssignmentCertV2, CandidateBitfield)>,
 		rng: &mut R,
+		assignment_criteria: &(impl AssignmentCriteria + ?Sized),
+		clock: &(impl Clock + ?Sized),
+		session_info_provider: &mut RuntimeInfo,
 	) where
 		A: overseer::SubsystemSender<ApprovalVotingMessage>,
 		N: overseer::SubsystemSender<NetworkBridgeTxMessage>,
+		RA: overseer::SubsystemSender<RuntimeApiMessage>,
 		R: CryptoRng + Rng,
 	{
 		for (assignment, claimed_indices) in assignments {
@@ -978,11 +1051,15 @@ impl State {
 			self.import_and_circulate_assignment(
 				approval_voting_sender,
 				network_sender,
+				runtime_api_sender,
 				metrics,
 				MessageSource::Peer(peer_id),
 				assignment,
 				claimed_indices,
 				rng,
+				assignment_criteria,
+				clock,
+				session_info_provider,
 			)
 			.await;
 		}
@@ -992,13 +1069,16 @@ impl State {
 	async fn process_incoming_approvals<
 		N: overseer::SubsystemSender<NetworkBridgeTxMessage>,
 		A: overseer::SubsystemSender<ApprovalVotingMessage>,
+		RA: overseer::SubsystemSender<RuntimeApiMessage>,
 	>(
 		&mut self,
 		approval_voting_sender: &mut A,
 		network_sender: &mut N,
+		runtime_api_sender: &mut RA,
 		metrics: &Metrics,
 		peer_id: PeerId,
 		approvals: Vec<IndirectSignedApprovalVoteV2>,
+		session_info_provider: &mut RuntimeInfo,
 	) {
 		gum::trace!(
 			target: LOG_TARGET,
@@ -1028,33 +1108,38 @@ impl State {
 			self.import_and_circulate_approval(
 				approval_voting_sender,
 				network_sender,
+				runtime_api_sender,
 				metrics,
 				MessageSource::Peer(peer_id),
 				approval_vote,
+				session_info_provider,
 			)
 			.await;
 		}
 	}
 
-	async fn process_incoming_peer_message<A, N, R>(
+	async fn process_incoming_peer_message<A, N, RA, R>(
 		&mut self,
 		approval_voting_sender: &mut A,
 		network_sender: &mut N,
+		runtime_api_sender: &mut RA,
 		metrics: &Metrics,
 		peer_id: PeerId,
-		msg: Versioned<
-			protocol_v1::ApprovalDistributionMessage,
-			protocol_v2::ApprovalDistributionMessage,
-			protocol_v3::ApprovalDistributionMessage,
-		>,
+		msg: ValidationProtocols<protocol_v3::ApprovalDistributionMessage>,
 		rng: &mut R,
+		assignment_criteria: &(impl AssignmentCriteria + ?Sized),
+		clock: &(impl Clock + ?Sized),
+		session_info_provider: &mut RuntimeInfo,
 	) where
 		A: overseer::SubsystemSender<ApprovalVotingMessage>,
 		N: overseer::SubsystemSender<NetworkBridgeTxMessage>,
+		RA: overseer::SubsystemSender<RuntimeApiMessage>,
 		R: CryptoRng + Rng,
 	{
 		match msg {
-			Versioned::V3(protocol_v3::ApprovalDistributionMessage::Assignments(assignments)) => {
+			ValidationProtocols::V3(protocol_v3::ApprovalDistributionMessage::Assignments(
+				assignments,
+			)) => {
 				gum::trace!(
 					target: LOG_TARGET,
 					peer_id = %peer_id,
@@ -1067,57 +1152,30 @@ impl State {
 				self.process_incoming_assignments(
 					approval_voting_sender,
 					network_sender,
+					runtime_api_sender,
 					metrics,
 					peer_id,
 					sanitized_assignments,
 					rng,
+					assignment_criteria,
+					clock,
+					session_info_provider,
 				)
 				.await;
 			},
-			Versioned::V1(protocol_v1::ApprovalDistributionMessage::Assignments(assignments)) |
-			Versioned::V2(protocol_v2::ApprovalDistributionMessage::Assignments(assignments)) => {
-				gum::trace!(
-					target: LOG_TARGET,
-					peer_id = %peer_id,
-					num = assignments.len(),
-					"Processing assignments from a peer",
-				);
-
-				let sanitized_assignments =
-					self.sanitize_v1_assignments(peer_id, network_sender, assignments).await;
-
-				self.process_incoming_assignments(
-					approval_voting_sender,
-					network_sender,
-					metrics,
-					peer_id,
-					sanitized_assignments,
-					rng,
-				)
-				.await;
-			},
-			Versioned::V3(protocol_v3::ApprovalDistributionMessage::Approvals(approvals)) => {
+			ValidationProtocols::V3(protocol_v3::ApprovalDistributionMessage::Approvals(
+				approvals,
+			)) => {
 				let sanitized_approvals =
 					self.sanitize_v2_approvals(peer_id, network_sender, approvals).await;
 				self.process_incoming_approvals(
 					approval_voting_sender,
 					network_sender,
+					runtime_api_sender,
 					metrics,
 					peer_id,
 					sanitized_approvals,
-				)
-				.await;
-			},
-			Versioned::V1(protocol_v1::ApprovalDistributionMessage::Approvals(approvals)) |
-			Versioned::V2(protocol_v2::ApprovalDistributionMessage::Approvals(approvals)) => {
-				let sanitized_approvals =
-					self.sanitize_v1_approvals(peer_id, network_sender, approvals).await;
-				self.process_incoming_approvals(
-					approval_voting_sender,
-					network_sender,
-					metrics,
-					peer_id,
-					sanitized_approvals,
+					session_info_provider,
 				)
 				.await;
 			},
@@ -1143,7 +1201,7 @@ impl State {
 			if let Some(peer_entry) = self.peer_views.get_mut(&peer_id) {
 				(Some(std::mem::replace(&mut peer_entry.view, view.clone())), peer_entry.version)
 			} else {
-				// This shouldn't happen, but if it does we assume protocol version 1.
+				// This shouldn't happen, but if it does we assume protocol version 3.
 				gum::warn!(
 					target: LOG_TARGET,
 					?peer_id,
@@ -1151,7 +1209,7 @@ impl State {
 					"Peer view change for missing `peer_entry`"
 				);
 
-				(None, ValidationVersion::V1.into())
+				(None, ValidationVersion::V3.into())
 			};
 
 		let old_finalized_number = old_view.map(|v| v.finalized_number).unwrap_or(0);
@@ -1210,7 +1268,6 @@ impl State {
 			if let Some(block_entry) = self.blocks.remove(relay_block) {
 				self.topologies.dec_session_refs(block_entry.session);
 			}
-			self.spans.remove(&relay_block);
 		});
 
 		// If a block was finalized, this means we may need to move our aggression
@@ -1218,35 +1275,52 @@ impl State {
 		self.enable_aggression(network_sender, Resend::No, metrics).await;
 	}
 
-	async fn import_and_circulate_assignment<A, N, R>(
+	// When finality is lagging as a last resort nodes start sending the messages they have
+	// multiples times. This means it is safe to accept duplicate messages without punishing the
+	// peer and reduce the reputation and can end up banning the Peer, which in turn will create
+	// more no-shows.
+	fn accept_duplicates_from_validators(
+		blocks_by_number: &BTreeMap<BlockNumber, Vec<Hash>>,
+		topologies: &SessionGridTopologies,
+		aggression_config: &AggressionConfig,
+		entry: &BlockEntry,
+		peer: PeerId,
+	) -> bool {
+		let topology = topologies.get_topology(entry.session);
+		let min_age = blocks_by_number.iter().next().map(|(num, _)| num);
+		let max_age = blocks_by_number.iter().rev().next().map(|(num, _)| num);
+
+		// Return if we don't have at least 1 block.
+		let (min_age, max_age) = match (min_age, max_age) {
+			(Some(min), Some(max)) => (*min, *max),
+			_ => return false,
+		};
+
+		let age = max_age.saturating_sub(min_age);
+
+		aggression_config.should_trigger_aggression(age) &&
+			topology.map(|topology| topology.is_validator(&peer)).unwrap_or(false)
+	}
+
+	async fn import_and_circulate_assignment<A, N, RA, R>(
 		&mut self,
 		approval_voting_sender: &mut A,
 		network_sender: &mut N,
+		runtime_api_sender: &mut RA,
 		metrics: &Metrics,
 		source: MessageSource,
 		assignment: IndirectAssignmentCertV2,
 		claimed_candidate_indices: CandidateBitfield,
 		rng: &mut R,
+		assignment_criteria: &(impl AssignmentCriteria + ?Sized),
+		clock: &(impl Clock + ?Sized),
+		session_info_provider: &mut RuntimeInfo,
 	) where
 		A: overseer::SubsystemSender<ApprovalVotingMessage>,
 		N: overseer::SubsystemSender<NetworkBridgeTxMessage>,
+		RA: overseer::SubsystemSender<RuntimeApiMessage>,
 		R: CryptoRng + Rng,
 	{
-		let _span = self
-			.spans
-			.get(&assignment.block_hash)
-			.map(|span| {
-				span.child(if source.peer_id().is_some() {
-					"peer-import-and-distribute-assignment"
-				} else {
-					"local-import-and-distribute-assignment"
-				})
-			})
-			.unwrap_or_else(|| jaeger::Span::new(&assignment.block_hash, "distribute-assignment"))
-			.with_string_tag("block-hash", format!("{:?}", assignment.block_hash))
-			.with_optional_peer_id(source.peer_id().as_ref())
-			.with_stage(jaeger::Stage::ApprovalDistribution);
-
 		let block_hash = assignment.block_hash;
 		let validator_index = assignment.validator;
 
@@ -1292,20 +1366,29 @@ impl State {
 					if peer_knowledge.contains(&message_subject, message_kind) {
 						// wasn't included before
 						if !peer_knowledge.received.insert(message_subject.clone(), message_kind) {
-							gum::debug!(
-								target: LOG_TARGET,
-								?peer_id,
-								?message_subject,
-								"Duplicate assignment",
-							);
-
-							modify_reputation(
-								&mut self.reputation,
-								network_sender,
+							if !Self::accept_duplicates_from_validators(
+								&self.blocks_by_number,
+								&self.topologies,
+								&self.aggression_config,
+								entry,
 								peer_id,
-								COST_DUPLICATE_MESSAGE,
-							)
-							.await;
+							) {
+								gum::debug!(
+									target: LOG_TARGET,
+									?peer_id,
+									?message_subject,
+									"Duplicate assignment",
+								);
+
+								modify_reputation(
+									&mut self.reputation,
+									network_sender,
+									peer_id,
+									COST_DUPLICATE_MESSAGE,
+								)
+								.await;
+							}
+
 							metrics.on_assignment_duplicate();
 						} else {
 							gum::trace!(
@@ -1355,35 +1438,47 @@ impl State {
 				return
 			}
 
-			let (tx, rx) = oneshot::channel();
+			let result = Self::check_assignment_valid(
+				assignment_criteria,
+				&entry,
+				&assignment,
+				&claimed_candidate_indices,
+				session_info_provider,
+				runtime_api_sender,
+			)
+			.await;
 
-			approval_voting_sender
-				.send_message(ApprovalVotingMessage::CheckAndImportAssignment(
-					assignment.clone(),
-					claimed_candidate_indices.clone(),
-					tx,
-				))
-				.await;
-
-			let timer = metrics.time_awaiting_approval_voting();
-			let result = match rx.await {
-				Ok(result) => result,
-				Err(_) => {
-					gum::debug!(target: LOG_TARGET, "The approval voting subsystem is down");
-					return
-				},
-			};
-			drop(timer);
-
-			gum::trace!(
-				target: LOG_TARGET,
-				?source,
-				?message_subject,
-				?result,
-				"Checked assignment",
-			);
 			match result {
-				AssignmentCheckResult::Accepted => {
+				Ok(checked_assignment) => {
+					let current_tranche = clock.tranche_now(self.slot_duration_millis, entry.slot);
+					let too_far_in_future =
+						current_tranche + TICK_TOO_FAR_IN_FUTURE as DelayTranche;
+
+					if checked_assignment.tranche() >= too_far_in_future {
+						gum::debug!(
+							target: LOG_TARGET,
+							hash = ?block_hash,
+							?peer_id,
+							"Got an assignment too far in the future",
+						);
+						modify_reputation(
+							&mut self.reputation,
+							network_sender,
+							peer_id,
+							COST_ASSIGNMENT_TOO_FAR_IN_THE_FUTURE,
+						)
+						.await;
+						metrics.on_assignment_far();
+
+						return
+					}
+
+					approval_voting_sender
+						.send_message(ApprovalVotingMessage::ImportAssignment(
+							checked_assignment,
+							None,
+						))
+						.await;
 					modify_reputation(
 						&mut self.reputation,
 						network_sender,
@@ -1396,47 +1491,12 @@ impl State {
 						peer_knowledge.received.insert(message_subject.clone(), message_kind);
 					}
 				},
-				AssignmentCheckResult::AcceptedDuplicate => {
-					// "duplicate" assignments aren't necessarily equal.
-					// There is more than one way each validator can be assigned to each core.
-					// cf. https://github.com/paritytech/polkadot/pull/2160#discussion_r557628699
-					if let Some(peer_knowledge) = entry.known_by.get_mut(&peer_id) {
-						peer_knowledge.received.insert(message_subject.clone(), message_kind);
-					}
-					gum::debug!(
-						target: LOG_TARGET,
-						hash = ?block_hash,
-						?peer_id,
-						"Got an `AcceptedDuplicate` assignment",
-					);
-					metrics.on_assignment_duplicatevoting();
-
-					return
-				},
-				AssignmentCheckResult::TooFarInFuture => {
-					gum::debug!(
-						target: LOG_TARGET,
-						hash = ?block_hash,
-						?peer_id,
-						"Got an assignment too far in the future",
-					);
-					modify_reputation(
-						&mut self.reputation,
-						network_sender,
-						peer_id,
-						COST_ASSIGNMENT_TOO_FAR_IN_THE_FUTURE,
-					)
-					.await;
-					metrics.on_assignment_far();
-
-					return
-				},
-				AssignmentCheckResult::Bad(error) => {
+				Err(error) => {
 					gum::info!(
 						target: LOG_TARGET,
 						hash = ?block_hash,
 						?peer_id,
-						%error,
+						?error,
 						"Got a bad assignment from peer",
 					);
 					modify_reputation(
@@ -1577,6 +1637,64 @@ impl State {
 		}
 	}
 
+	async fn check_assignment_valid<RA: overseer::SubsystemSender<RuntimeApiMessage>>(
+		assignment_criteria: &(impl AssignmentCriteria + ?Sized),
+		entry: &BlockEntry,
+		assignment: &IndirectAssignmentCertV2,
+		claimed_candidate_indices: &CandidateBitfield,
+		runtime_info: &mut RuntimeInfo,
+		runtime_api_sender: &mut RA,
+	) -> Result<CheckedIndirectAssignment, InvalidAssignmentError> {
+		let ExtendedSessionInfo { ref session_info, .. } = runtime_info
+			.get_session_info_by_index(runtime_api_sender, assignment.block_hash, entry.session)
+			.await
+			.map_err(|err| InvalidAssignmentError::SessionInfoNotFound(err))?;
+
+		if claimed_candidate_indices.len() > session_info.n_cores as usize {
+			return Err(InvalidAssignmentError::OversizedClaimedBitfield)
+		}
+
+		let claimed_cores: Vec<CoreIndex> = claimed_candidate_indices
+			.iter_ones()
+			.map(|candidate_index| {
+				entry.candidates_metadata.get(candidate_index).map(|(_, core, _)| *core).ok_or(
+					InvalidAssignmentError::ClaimedInvalidCandidateIndex {
+						claimed_index: candidate_index,
+						max_index: entry.candidates_metadata.len(),
+					},
+				)
+			})
+			.collect::<Result<Vec<_>, InvalidAssignmentError>>()?;
+
+		let Ok(claimed_cores) = claimed_cores.try_into() else {
+			return Err(InvalidAssignmentError::NoClaimedCandidates)
+		};
+
+		let backing_groups = claimed_candidate_indices
+			.iter_ones()
+			.flat_map(|candidate_index| {
+				entry.candidates_metadata.get(candidate_index).map(|(_, _, group)| *group)
+			})
+			.collect::<Vec<_>>();
+
+		assignment_criteria
+			.check_assignment_cert(
+				claimed_cores,
+				assignment.validator,
+				&polkadot_node_primitives::approval::criteria::Config::from(session_info),
+				entry.vrf_story.clone(),
+				&assignment.cert,
+				backing_groups,
+			)
+			.map_err(|err| InvalidAssignmentError::CryptoCheckFailed(err))
+			.map(|tranche| {
+				CheckedIndirectAssignment::from_checked(
+					assignment.clone(),
+					claimed_candidate_indices.clone(),
+					tranche,
+				)
+			})
+	}
 	// Checks if an approval can be processed.
 	// Returns true if we can continue with processing the approval and false otherwise.
 	async fn check_approval_can_be_processed<
@@ -1586,6 +1704,9 @@ impl State {
 		assignments_knowledge_key: &Vec<(MessageSubject, MessageKind)>,
 		approval_knowledge_key: &(MessageSubject, MessageKind),
 		entry: &mut BlockEntry,
+		blocks_by_number: &BTreeMap<BlockNumber, Vec<Hash>>,
+		topologies: &SessionGridTopologies,
+		aggression_config: &AggressionConfig,
 		reputation: &mut ReputationAggregator,
 		peer_id: PeerId,
 		metrics: &Metrics,
@@ -1614,20 +1735,27 @@ impl State {
 						.received
 						.insert(approval_knowledge_key.0.clone(), approval_knowledge_key.1)
 					{
-						gum::trace!(
-							target: LOG_TARGET,
-							?peer_id,
-							?approval_knowledge_key,
-							"Duplicate approval",
-						);
-
-						modify_reputation(
-							reputation,
-							network_sender,
+						if !Self::accept_duplicates_from_validators(
+							blocks_by_number,
+							topologies,
+							aggression_config,
+							entry,
 							peer_id,
-							COST_DUPLICATE_MESSAGE,
-						)
-						.await;
+						) {
+							gum::trace!(
+								target: LOG_TARGET,
+								?peer_id,
+								?approval_knowledge_key,
+								"Duplicate approval",
+							);
+							modify_reputation(
+								reputation,
+								network_sender,
+								peer_id,
+								COST_DUPLICATE_MESSAGE,
+							)
+							.await;
+						}
 						metrics.on_approval_duplicate();
 					}
 					return false
@@ -1666,29 +1794,17 @@ impl State {
 	async fn import_and_circulate_approval<
 		N: overseer::SubsystemSender<NetworkBridgeTxMessage>,
 		A: overseer::SubsystemSender<ApprovalVotingMessage>,
+		RA: overseer::SubsystemSender<RuntimeApiMessage>,
 	>(
 		&mut self,
 		approval_voting_sender: &mut A,
 		network_sender: &mut N,
+		runtime_api_sender: &mut RA,
 		metrics: &Metrics,
 		source: MessageSource,
 		vote: IndirectSignedApprovalVoteV2,
+		session_info_provider: &mut RuntimeInfo,
 	) {
-		let _span = self
-			.spans
-			.get(&vote.block_hash)
-			.map(|span| {
-				span.child(if source.peer_id().is_some() {
-					"peer-import-and-distribute-approval"
-				} else {
-					"local-import-and-distribute-approval"
-				})
-			})
-			.unwrap_or_else(|| jaeger::Span::new(&vote.block_hash, "distribute-approval"))
-			.with_string_tag("block-hash", format!("{:?}", vote.block_hash))
-			.with_optional_peer_id(source.peer_id().as_ref())
-			.with_stage(jaeger::Stage::ApprovalDistribution);
-
 		let block_hash = vote.block_hash;
 		let validator_index = vote.validator;
 		let candidate_indices = &vote.candidate_indices;
@@ -1731,6 +1847,9 @@ impl State {
 				&assignments_knowledge_keys,
 				&approval_knwowledge_key,
 				entry,
+				&self.blocks_by_number,
+				&self.topologies,
+				&self.aggression_config,
 				&mut self.reputation,
 				peer_id,
 				metrics,
@@ -1740,31 +1859,16 @@ impl State {
 				return
 			}
 
-			let (tx, rx) = oneshot::channel();
+			let result =
+				Self::check_vote_valid(&vote, &entry, session_info_provider, runtime_api_sender)
+					.await;
 
-			approval_voting_sender
-				.send_message(ApprovalVotingMessage::CheckAndImportApproval(vote.clone(), tx))
-				.await;
-
-			let timer = metrics.time_awaiting_approval_voting();
-			let result = match rx.await {
-				Ok(result) => result,
-				Err(_) => {
-					gum::debug!(target: LOG_TARGET, "The approval voting subsystem is down");
-					return
-				},
-			};
-			drop(timer);
-
-			gum::trace!(
-				target: LOG_TARGET,
-				?peer_id,
-				?result,
-				?vote,
-				"Checked approval",
-			);
 			match result {
-				ApprovalCheckResult::Accepted => {
+				Ok(vote) => {
+					approval_voting_sender
+						.send_message(ApprovalVotingMessage::ImportApproval(vote, None))
+						.await;
+
 					modify_reputation(
 						&mut self.reputation,
 						network_sender,
@@ -1782,7 +1886,7 @@ impl State {
 							.insert(approval_knwowledge_key.0.clone(), approval_knwowledge_key.1);
 					}
 				},
-				ApprovalCheckResult::Bad(error) => {
+				Err(err) => {
 					modify_reputation(
 						&mut self.reputation,
 						network_sender,
@@ -1790,10 +1894,11 @@ impl State {
 						COST_INVALID_MESSAGE,
 					)
 					.await;
+
 					gum::info!(
 						target: LOG_TARGET,
 						?peer_id,
-						%error,
+						?err,
 						"Got a bad approval from peer",
 					);
 					metrics.on_approval_bad();
@@ -1839,7 +1944,7 @@ impl State {
 		// approval.
 		metrics.on_approval_imported();
 
-		// Dispatch a ApprovalDistributionV1Message::Approval(vote)
+		// Dispatch a ApprovalDistributionV3Message::Approval(vote)
 		// to all peers required by the topology, with the exception of the source peer.
 		let topology = self.topologies.get_topology(entry.session);
 		let source_peer = source.peer_id();
@@ -1891,6 +1996,50 @@ impl State {
 		}
 	}
 
+	// Checks if the approval vote is valid.
+	async fn check_vote_valid<RA: overseer::SubsystemSender<RuntimeApiMessage>>(
+		vote: &IndirectSignedApprovalVoteV2,
+		entry: &BlockEntry,
+		runtime_info: &mut RuntimeInfo,
+		runtime_api_sender: &mut RA,
+	) -> Result<CheckedIndirectSignedApprovalVote, InvalidVoteError> {
+		if vote.candidate_indices.len() > entry.candidates_metadata.len() {
+			return Err(InvalidVoteError::CandidateIndexOutOfBounds)
+		}
+
+		let candidate_hashes = vote
+			.candidate_indices
+			.iter_ones()
+			.flat_map(|candidate_index| {
+				entry
+					.candidates_metadata
+					.get(candidate_index)
+					.map(|(candidate_hash, _, _)| *candidate_hash)
+			})
+			.collect::<Vec<_>>();
+
+		let ExtendedSessionInfo { ref session_info, .. } = runtime_info
+			.get_session_info_by_index(runtime_api_sender, vote.block_hash, entry.session)
+			.await
+			.map_err(|err| InvalidVoteError::SessionInfoNotFound(err))?;
+
+		let pubkey = session_info
+			.validators
+			.get(vote.validator)
+			.ok_or(InvalidVoteError::ValidatorIndexOutOfBounds)?;
+		DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(
+			candidate_hashes.clone(),
+		))
+		.check_signature(
+			&pubkey,
+			*candidate_hashes.first().unwrap(),
+			entry.session,
+			&vote.signature,
+		)
+		.map_err(|_| InvalidVoteError::InvalidSignature)
+		.map(|_| CheckedIndirectSignedApprovalVote::from_checked(vote.clone()))
+	}
+
 	/// Retrieve approval signatures from state for the given relay block/indices:
 	fn get_approval_signatures(
 		&mut self,
@@ -1898,14 +2047,6 @@ impl State {
 	) -> HashMap<ValidatorIndex, (Hash, Vec<CandidateIndex>, ValidatorSignature)> {
 		let mut all_sigs = HashMap::new();
 		for (hash, index) in indices {
-			let _span = self
-				.spans
-				.get(&hash)
-				.map(|span| span.child("get-approval-signatures"))
-				.unwrap_or_else(|| jaeger::Span::new(&hash, "get-approval-signatures"))
-				.with_string_tag("block-hash", format!("{:?}", hash))
-				.with_stage(jaeger::Stage::ApprovalDistribution);
-
 			let block_entry = match self.blocks.get(&hash) {
 				None => {
 					gum::debug!(
@@ -2119,18 +2260,43 @@ impl State {
 			&self.topologies,
 			|block_entry| {
 				let block_age = max_age - block_entry.number;
+				// We want to resend only for blocks of min_age, there is no point in
+				// resending for blocks newer than that, because we are just going to create load
+				// and not gain anything.
+				let diff_from_min_age = block_entry.number - min_age;
+
+				// We want to back-off on resending for blocks that have been resent recently, to
+				// give time for nodes to process all the extra messages, if we still have not
+				// finalized we are going to resend again after unfinalized_period * 2 since the
+				// last resend.
+				let blocks_since_last_sent = block_entry
+					.last_resent_at_block_number
+					.map(|last_resent_at_block_number| max_age - last_resent_at_block_number);
+
+				let can_resend_at_this_age = blocks_since_last_sent
+					.zip(config.resend_unfinalized_period)
+					.map(|(blocks_since_last_sent, unfinalized_period)| {
+						blocks_since_last_sent >= unfinalized_period * 2
+					})
+					.unwrap_or(true);
 
 				if resend == Resend::Yes &&
-					config
-						.resend_unfinalized_period
-						.as_ref()
-						.map_or(false, |p| block_age > 0 && block_age % p == 0)
-				{
+					config.resend_unfinalized_period.as_ref().map_or(false, |p| {
+						block_age > 0 &&
+							block_age % p == 0 && diff_from_min_age == 0 &&
+							can_resend_at_this_age
+					}) {
 					// Retry sending to all peers.
 					for (_, knowledge) in block_entry.known_by.iter_mut() {
 						knowledge.sent = Knowledge::default();
 					}
-
+					block_entry.last_resent_at_block_number = Some(max_age);
+					gum::debug!(
+						target: LOG_TARGET,
+						block_number = ?block_entry.number,
+						?max_age,
+						"Aggression enabled with resend for block",
+					);
 					true
 				} else {
 					false
@@ -2188,41 +2354,6 @@ impl State {
 		.await;
 	}
 
-	// Filter out invalid candidate index and certificate core bitfields.
-	// For each invalid assignment we also punish the peer.
-	async fn sanitize_v1_assignments(
-		&mut self,
-		peer_id: PeerId,
-		sender: &mut impl overseer::SubsystemSender<NetworkBridgeTxMessage>,
-		assignments: Vec<(IndirectAssignmentCert, CandidateIndex)>,
-	) -> Vec<(IndirectAssignmentCertV2, CandidateBitfield)> {
-		let mut sanitized_assignments = Vec::new();
-		for (cert, candidate_index) in assignments.into_iter() {
-			let cert_bitfield_bits = match cert.cert.kind {
-				AssignmentCertKind::RelayVRFDelay { core_index } => core_index.0 as usize + 1,
-				// We don't want to run the VRF yet, but the output is always bounded by `n_cores`.
-				// We assume `candidate_bitfield` length for the core bitfield and we just check
-				// against `MAX_BITFIELD_SIZE` later.
-				AssignmentCertKind::RelayVRFModulo { .. } => candidate_index as usize + 1,
-			};
-
-			let candidate_bitfield_bits = candidate_index as usize + 1;
-
-			// Ensure bitfields length under hard limit.
-			if cert_bitfield_bits > MAX_BITFIELD_SIZE || candidate_bitfield_bits > MAX_BITFIELD_SIZE
-			{
-				// Punish the peer for the invalid message.
-				modify_reputation(&mut self.reputation, sender, peer_id, COST_OVERSIZED_BITFIELD)
-					.await;
-				gum::debug!(target: LOG_TARGET, block_hash = ?cert.block_hash, ?candidate_index, validator_index = ?cert.validator, kind = ?cert.cert.kind, "Bad assignment v1, invalid candidate index");
-			} else {
-				sanitized_assignments.push((cert.into(), candidate_index.into()))
-			}
-		}
-
-		sanitized_assignments
-	}
-
 	// Filter out oversized candidate and certificate core bitfields.
 	// For each invalid assignment we also punish the peer.
 	async fn sanitize_v2_assignments(
@@ -2266,33 +2397,6 @@ impl State {
 		}
 
 		sanitized_assignments
-	}
-
-	// Filter out obviously invalid candidate indices.
-	async fn sanitize_v1_approvals(
-		&mut self,
-		peer_id: PeerId,
-		sender: &mut impl overseer::SubsystemSender<NetworkBridgeTxMessage>,
-		approval: Vec<IndirectSignedApprovalVote>,
-	) -> Vec<IndirectSignedApprovalVoteV2> {
-		let mut sanitized_approvals = Vec::new();
-		for approval in approval.into_iter() {
-			if approval.candidate_index as usize > MAX_BITFIELD_SIZE {
-				// Punish the peer for the invalid message.
-				modify_reputation(&mut self.reputation, sender, peer_id, COST_OVERSIZED_BITFIELD)
-					.await;
-				gum::debug!(
-					target: LOG_TARGET,
-					block_hash = ?approval.block_hash,
-					candidate_index = ?approval.candidate_index,
-					"Bad approval v1, invalid candidate index"
-				);
-			} else {
-				sanitized_approvals.push(approval.into())
-			}
-		}
-
-		sanitized_approvals
 	}
 
 	// Filter out obviously invalid candidate indices.
@@ -2468,16 +2572,48 @@ async fn modify_reputation(
 #[overseer::contextbounds(ApprovalDistribution, prefix = self::overseer)]
 impl ApprovalDistribution {
 	/// Create a new instance of the [`ApprovalDistribution`] subsystem.
-	pub fn new(metrics: Metrics) -> Self {
-		Self { metrics }
+	pub fn new(
+		metrics: Metrics,
+		slot_duration_millis: u64,
+		assignment_criteria: Arc<dyn AssignmentCriteria + Send + Sync>,
+	) -> Self {
+		Self::new_with_clock(
+			metrics,
+			slot_duration_millis,
+			Arc::new(SystemClock),
+			assignment_criteria,
+		)
+	}
+
+	/// Create a new instance of the [`ApprovalDistribution`] subsystem, with a custom clock.
+	pub fn new_with_clock(
+		metrics: Metrics,
+		slot_duration_millis: u64,
+		clock: Arc<dyn Clock + Send + Sync>,
+		assignment_criteria: Arc<dyn AssignmentCriteria + Send + Sync>,
+	) -> Self {
+		Self { metrics, slot_duration_millis, clock, assignment_criteria }
 	}
 
 	async fn run<Context>(self, ctx: Context) {
-		let mut state = State::default();
+		let mut state =
+			State { slot_duration_millis: self.slot_duration_millis, ..Default::default() };
 		// According to the docs of `rand`, this is a ChaCha12 RNG in practice
 		// and will always be chosen for strong performance and security properties.
 		let mut rng = rand::rngs::StdRng::from_entropy();
-		self.run_inner(ctx, &mut state, REPUTATION_CHANGE_INTERVAL, &mut rng).await
+		let mut session_info_provider = RuntimeInfo::new_with_config(RuntimeInfoConfig {
+			keystore: None,
+			session_cache_lru_size: DISPUTE_WINDOW.get(),
+		});
+
+		self.run_inner(
+			ctx,
+			&mut state,
+			REPUTATION_CHANGE_INTERVAL,
+			&mut rng,
+			&mut session_info_provider,
+		)
+		.await
 	}
 
 	/// Used for testing.
@@ -2487,11 +2623,14 @@ impl ApprovalDistribution {
 		state: &mut State,
 		reputation_interval: Duration,
 		rng: &mut (impl CryptoRng + Rng),
+		session_info_provider: &mut RuntimeInfo,
 	) {
 		let new_reputation_delay = || futures_timer::Delay::new(reputation_interval).fuse();
 		let mut reputation_delay = new_reputation_delay();
 		let mut approval_voting_sender = ctx.sender().clone();
 		let mut network_sender = ctx.sender().clone();
+		let mut runtime_api_sender = ctx.sender().clone();
+
 		loop {
 			select! {
 				_ = reputation_delay => {
@@ -2507,8 +2646,9 @@ impl ApprovalDistribution {
 						},
 					};
 
-
-					self.handle_from_orchestra(message, &mut approval_voting_sender, &mut network_sender, state, rng).await;
+					if self.handle_from_orchestra(message, &mut approval_voting_sender, &mut network_sender, &mut runtime_api_sender, state, rng, session_info_provider).await {
+						return;
+					}
 
 				},
 			}
@@ -2516,80 +2656,101 @@ impl ApprovalDistribution {
 	}
 
 	/// Handles a from orchestra message received by approval distribution subystem.
+	///
+	/// Returns `true` if the subsystem should be stopped.
 	pub async fn handle_from_orchestra<
 		N: overseer::SubsystemSender<NetworkBridgeTxMessage>,
 		A: overseer::SubsystemSender<ApprovalVotingMessage>,
+		RA: overseer::SubsystemSender<RuntimeApiMessage>,
 	>(
 		&self,
 		message: FromOrchestra<ApprovalDistributionMessage>,
 		approval_voting_sender: &mut A,
 		network_sender: &mut N,
+		runtime_api_sender: &mut RA,
 		state: &mut State,
 		rng: &mut (impl CryptoRng + Rng),
-	) {
+		session_info_provider: &mut RuntimeInfo,
+	) -> bool {
 		match message {
 			FromOrchestra::Communication { msg } =>
 				Self::handle_incoming(
 					approval_voting_sender,
 					network_sender,
+					runtime_api_sender,
 					state,
 					msg,
 					&self.metrics,
 					rng,
+					self.assignment_criteria.as_ref(),
+					self.clock.as_ref(),
+					session_info_provider,
 				)
 				.await,
-			FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) => {
+			FromOrchestra::Signal(OverseerSignal::ActiveLeaves(_update)) => {
 				gum::trace!(target: LOG_TARGET, "active leaves signal (ignored)");
 				// the relay chain blocks relevant to the approval subsystems
 				// are those that are available, but not finalized yet
 				// activated and deactivated heads hence are irrelevant to this subsystem, other
 				// than for tracing purposes.
-				if let Some(activated) = update.activated {
-					let head = activated.hash;
-					let approval_distribution_span =
-						jaeger::PerLeafSpan::new(activated.span, "approval-distribution");
-					state.spans.insert(head, approval_distribution_span);
-				}
 			},
 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, number)) => {
 				gum::trace!(target: LOG_TARGET, number = %number, "finalized signal");
 				state.handle_block_finalized(network_sender, &self.metrics, number).await;
 			},
-			FromOrchestra::Signal(OverseerSignal::Conclude) => return,
+			FromOrchestra::Signal(OverseerSignal::Conclude) => return true,
 		}
+		false
 	}
 
 	async fn handle_incoming<
 		N: overseer::SubsystemSender<NetworkBridgeTxMessage>,
 		A: overseer::SubsystemSender<ApprovalVotingMessage>,
+		RA: overseer::SubsystemSender<RuntimeApiMessage>,
 	>(
 		approval_voting_sender: &mut A,
 		network_sender: &mut N,
+		runtime_api_sender: &mut RA,
 		state: &mut State,
 		msg: ApprovalDistributionMessage,
 		metrics: &Metrics,
 		rng: &mut (impl CryptoRng + Rng),
+		assignment_criteria: &(impl AssignmentCriteria + ?Sized),
+		clock: &(impl Clock + ?Sized),
+		session_info_provider: &mut RuntimeInfo,
 	) {
 		match msg {
 			ApprovalDistributionMessage::NetworkBridgeUpdate(event) => {
 				state
-					.handle_network_msg(approval_voting_sender, network_sender, metrics, event, rng)
+					.handle_network_msg(
+						approval_voting_sender,
+						network_sender,
+						runtime_api_sender,
+						metrics,
+						event,
+						rng,
+						assignment_criteria,
+						clock,
+						session_info_provider,
+					)
 					.await;
 			},
 			ApprovalDistributionMessage::NewBlocks(metas) => {
 				state
-					.handle_new_blocks(approval_voting_sender, network_sender, metrics, metas, rng)
+					.handle_new_blocks(
+						approval_voting_sender,
+						network_sender,
+						runtime_api_sender,
+						metrics,
+						metas,
+						rng,
+						assignment_criteria,
+						clock,
+						session_info_provider,
+					)
 					.await;
 			},
 			ApprovalDistributionMessage::DistributeAssignment(cert, candidate_indices) => {
-				let _span = state
-					.spans
-					.get(&cert.block_hash)
-					.map(|span| span.child("import-and-distribute-assignment"))
-					.unwrap_or_else(|| jaeger::Span::new(&cert.block_hash, "distribute-assignment"))
-					.with_string_tag("block-hash", format!("{:?}", cert.block_hash))
-					.with_stage(jaeger::Stage::ApprovalDistribution);
-
 				gum::debug!(
 					target: LOG_TARGET,
 					?candidate_indices,
@@ -2602,11 +2763,15 @@ impl ApprovalDistribution {
 					.import_and_circulate_assignment(
 						approval_voting_sender,
 						network_sender,
+						runtime_api_sender,
 						&metrics,
 						MessageSource::Local,
 						cert,
 						candidate_indices,
 						rng,
+						assignment_criteria,
+						clock,
+						session_info_provider,
 					)
 					.await;
 			},
@@ -2622,9 +2787,11 @@ impl ApprovalDistribution {
 					.import_and_circulate_approval(
 						approval_voting_sender,
 						network_sender,
+						runtime_api_sender,
 						metrics,
 						MessageSource::Local,
 						vote,
+						session_info_provider,
 					)
 					.await;
 			},
@@ -2683,50 +2850,16 @@ async fn send_assignments_batched_inner(
 	sender: &mut impl overseer::SubsystemSender<NetworkBridgeTxMessage>,
 	batch: impl IntoIterator<Item = (IndirectAssignmentCertV2, CandidateBitfield)>,
 	peers: Vec<PeerId>,
-	peer_version: ValidationVersion,
+	_peer_version: ValidationVersion,
 ) {
-	if peer_version == ValidationVersion::V3 {
-		sender
-			.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-				peers,
-				Versioned::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
-					protocol_v3::ApprovalDistributionMessage::Assignments(
-						batch.into_iter().collect(),
-					),
-				)),
-			))
-			.await;
-	} else {
-		// Create a batch of v1 assignments from v2 assignments that are compatible with v1.
-		// `IndirectAssignmentCertV2` -> `IndirectAssignmentCert`
-		let batch = batch
-			.into_iter()
-			.filter_map(|(cert, candidates)| {
-				cert.try_into().ok().map(|cert| {
-					(
-						cert,
-						// First 1 bit index is the candidate index.
-						candidates
-							.first_one()
-							.map(|index| index as CandidateIndex)
-							.expect("Assignment was checked for not being empty; qed"),
-					)
-				})
-			})
-			.collect();
-		let message = if peer_version == ValidationVersion::V1 {
-			Versioned::V1(protocol_v1::ValidationProtocol::ApprovalDistribution(
-				protocol_v1::ApprovalDistributionMessage::Assignments(batch),
-			))
-		} else {
-			Versioned::V2(protocol_v2::ValidationProtocol::ApprovalDistribution(
-				protocol_v2::ApprovalDistributionMessage::Assignments(batch),
-			))
-		};
-		sender
-			.send_message(NetworkBridgeTxMessage::SendValidationMessage(peers, message))
-			.await;
-	}
+	sender
+		.send_message(NetworkBridgeTxMessage::SendValidationMessage(
+			peers,
+			ValidationProtocols::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
+				protocol_v3::ApprovalDistributionMessage::Assignments(batch.into_iter().collect()),
+			)),
+		))
+		.await;
 }
 
 /// Send assignments while honoring the `max_notification_size` of the protocol.
@@ -2739,45 +2872,7 @@ pub(crate) async fn send_assignments_batched(
 	v2_assignments: impl IntoIterator<Item = (IndirectAssignmentCertV2, CandidateBitfield)> + Clone,
 	peers: &[(PeerId, ProtocolVersion)],
 ) {
-	let v1_peers = filter_by_peer_version(peers, ValidationVersion::V1.into());
-	let v2_peers = filter_by_peer_version(peers, ValidationVersion::V2.into());
 	let v3_peers = filter_by_peer_version(peers, ValidationVersion::V3.into());
-
-	// V1 and V2 validation protocol do not have any changes with regard to
-	// ApprovalDistributionMessage so they can be treated the same.
-	if !v1_peers.is_empty() || !v2_peers.is_empty() {
-		// Older peers(v1) do not understand `AssignmentsV2` messages, so we have to filter these
-		// out.
-		let v1_assignments = v2_assignments
-			.clone()
-			.into_iter()
-			.filter(|(_, candidates)| candidates.count_ones() == 1);
-
-		let mut v1_batches = v1_assignments.peekable();
-
-		while v1_batches.peek().is_some() {
-			let batch: Vec<_> = v1_batches.by_ref().take(MAX_ASSIGNMENT_BATCH_SIZE).collect();
-			if !v1_peers.is_empty() {
-				send_assignments_batched_inner(
-					network_sender,
-					batch.clone(),
-					v1_peers.clone(),
-					ValidationVersion::V1,
-				)
-				.await;
-			}
-
-			if !v2_peers.is_empty() {
-				send_assignments_batched_inner(
-					network_sender,
-					batch,
-					v2_peers.clone(),
-					ValidationVersion::V2,
-				)
-				.await;
-			}
-		}
-	}
 
 	if !v3_peers.is_empty() {
 		let mut v3 = v2_assignments.into_iter().peekable();
@@ -2801,44 +2896,7 @@ pub(crate) async fn send_approvals_batched(
 	approvals: impl IntoIterator<Item = IndirectSignedApprovalVoteV2> + Clone,
 	peers: &[(PeerId, ProtocolVersion)],
 ) {
-	let v1_peers = filter_by_peer_version(peers, ValidationVersion::V1.into());
-	let v2_peers = filter_by_peer_version(peers, ValidationVersion::V2.into());
 	let v3_peers = filter_by_peer_version(peers, ValidationVersion::V3.into());
-
-	if !v1_peers.is_empty() || !v2_peers.is_empty() {
-		let mut batches = approvals
-			.clone()
-			.into_iter()
-			.filter(|approval| approval.candidate_indices.count_ones() == 1)
-			.filter_map(|val| val.try_into().ok())
-			.peekable();
-
-		while batches.peek().is_some() {
-			let batch: Vec<_> = batches.by_ref().take(MAX_APPROVAL_BATCH_SIZE).collect();
-
-			if !v1_peers.is_empty() {
-				sender
-					.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-						v1_peers.clone(),
-						Versioned::V1(protocol_v1::ValidationProtocol::ApprovalDistribution(
-							protocol_v1::ApprovalDistributionMessage::Approvals(batch.clone()),
-						)),
-					))
-					.await;
-			}
-
-			if !v2_peers.is_empty() {
-				sender
-					.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-						v2_peers.clone(),
-						Versioned::V2(protocol_v2::ValidationProtocol::ApprovalDistribution(
-							protocol_v2::ApprovalDistributionMessage::Approvals(batch),
-						)),
-					))
-					.await;
-			}
-		}
-	}
 
 	if !v3_peers.is_empty() {
 		let mut batches = approvals.into_iter().peekable();
@@ -2849,7 +2907,7 @@ pub(crate) async fn send_approvals_batched(
 			sender
 				.send_message(NetworkBridgeTxMessage::SendValidationMessage(
 					v3_peers.clone(),
-					Versioned::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
+					ValidationProtocols::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
 						protocol_v3::ApprovalDistributionMessage::Approvals(batch),
 					)),
 				))

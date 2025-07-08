@@ -29,6 +29,7 @@ pub use sp_core::crypto::{DeriveError, Pair, SecretStringError};
 pub use sp_core::{
 	self,
 	crypto::{ByteArray, CryptoType, Derive, IsWrappedBy, Public, Signature, UncheckedFrom, Wraps},
+	proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
 	RuntimeDebug,
 };
 
@@ -177,6 +178,18 @@ macro_rules! app_crypto_pair_common {
 			}
 		}
 
+		impl $crate::ProofOfPossessionVerifier for Pair {
+			fn verify_proof_of_possession(
+				proof_of_possession: &Self::Signature,
+				allegedly_possessed_pubkey: &Self::Public,
+			) -> bool {
+				<$pair>::verify_proof_of_possession(
+					&proof_of_possession.0,
+					allegedly_possessed_pubkey.as_ref(),
+				)
+			}
+		}
+
 		impl $crate::AppCrypto for Pair {
 			type Public = Public;
 			type Pair = Pair;
@@ -251,6 +264,7 @@ macro_rules! app_crypto_public_full_crypto {
 				Clone, Eq, Hash, PartialEq, PartialOrd, Ord,
 				$crate::codec::Encode,
 				$crate::codec::Decode,
+				$crate::codec::DecodeWithMemTracking,
 				$crate::RuntimeDebug,
 				$crate::codec::MaxEncodedLen,
 				$crate::scale_info::TypeInfo,
@@ -287,6 +301,7 @@ macro_rules! app_crypto_public_not_full_crypto {
 				Clone, Eq, Hash, PartialEq, Ord, PartialOrd,
 				$crate::codec::Encode,
 				$crate::codec::Decode,
+				$crate::codec::DecodeWithMemTracking,
 				$crate::RuntimeDebug,
 				$crate::codec::MaxEncodedLen,
 				$crate::scale_info::TypeInfo,
@@ -432,6 +447,7 @@ macro_rules! app_crypto_signature_full_crypto {
 			#[derive(Clone, Eq, PartialEq,
 				$crate::codec::Encode,
 				$crate::codec::Decode,
+				$crate::codec::DecodeWithMemTracking,
 				$crate::RuntimeDebug,
 				$crate::scale_info::TypeInfo,
 			)]
@@ -466,6 +482,7 @@ macro_rules! app_crypto_signature_not_full_crypto {
 			#[derive(Clone, Eq, PartialEq,
 				$crate::codec::Encode,
 				$crate::codec::Decode,
+				$crate::codec::DecodeWithMemTracking,
 				$crate::RuntimeDebug,
 				$crate::scale_info::TypeInfo,
 			)]

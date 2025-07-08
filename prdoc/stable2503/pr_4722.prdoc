@@ -1,0 +1,33 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Implement pallet view functions
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Read-only view functions can now be defined on pallets. These functions provide an interface for querying state,
+      from both outside and inside the runtime. Common queries can be defined on pallets, without users having to
+      access the storage directly.
+      
+  - audience: Runtime User
+    description: |
+      Querying the runtime state is now easier with the introduction of pallet view functions. Clients can call commonly
+      defined view functions rather than accessing the storage directly. These are similar to the Runtime APIs, but
+      are defined within the runtime itself.
+
+crates:
+  - name: frame-support
+    bump: minor
+  - name: sp-metadata-ir
+    bump: major
+  - name: frame-support-procedural
+    bump: patch
+  - name: pallet-example-view-functions
+    bump: patch
+  - name: cumulus-pov-validator
+    bump: none
+  - name: cumulus-pallet-weight-reclaim
+    bump: patch
+  - name: westend-runtime
+    bump: minor

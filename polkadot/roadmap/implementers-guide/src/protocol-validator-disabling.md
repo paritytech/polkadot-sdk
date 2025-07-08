@@ -111,7 +111,7 @@ checking (% for 30-ish malicious in a row).
 There are also censorship or liveness issues if backing is suddenly dominated by malicious nodes but in general even if
 some honest blocks get backed liveness should be preserved.
 
-> **Note:** It is worth noting that is is fundamentally a defense in depth strategy because if we assume disputes are
+> **Note:** It is worth noting that is fundamentally a defense in depth strategy because if we assume disputes are
 > perfect it should not be a real concern. In reality disputes and determinism are difficult to get right, and
 > non-determinism and happen so defense in depth is crucial when handling those subsystems.
 

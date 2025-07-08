@@ -8,31 +8,32 @@
 #[cfg(test)]
 mod tests;
 
-pub mod inbound;
+pub mod location;
 pub mod operating_mode;
-pub mod outbound;
 pub mod pricing;
+pub mod reward;
 pub mod ringbuffer;
+pub mod sparse_bitmap;
 
+pub use location::{AgentId, AgentIdOf, TokenId, TokenIdOf};
 pub use polkadot_parachain_primitives::primitives::{
 	Id as ParaId, IsSystem, Sibling as SiblingParaId,
 };
 pub use ringbuffer::{RingBufferMap, RingBufferMapImpl};
 pub use sp_core::U256;
 
-use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::traits::Contains;
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use frame_support::{traits::Contains, BoundedVec};
 use hex_literal::hex;
 use scale_info::TypeInfo;
-use sp_core::H256;
+use sp_core::{ConstU32, H256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{traits::AccountIdConversion, RuntimeDebug};
 use sp_std::prelude::*;
-use xcm::prelude::{Junction::Parachain, Location};
-use xcm_builder::{DescribeAllTerminal, DescribeFamily, DescribeLocation, HashedDescription};
+use xcm::latest::{Asset, Junction::Parachain, Location, Result as XcmResult, XcmContext};
+use xcm_executor::traits::TransactAsset;
 
 /// The ID of an agent contract
-pub type AgentId = H256;
 pub use operating_mode::BasicOperatingMode;
 
 pub use pricing::{PricingParameters, Rewards};
@@ -67,7 +68,17 @@ pub const ROC: u128 = 1_000_000_000_000;
 
 /// Identifier for a message channel
 #[derive(
-	Clone, Copy, Encode, Decode, PartialEq, Eq, Default, RuntimeDebug, MaxEncodedLen, TypeInfo,
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	PartialEq,
+	Eq,
+	Default,
+	RuntimeDebug,
+	MaxEncodedLen,
+	TypeInfo,
 )]
 pub struct ChannelId([u8; 32]);
 
@@ -151,16 +162,39 @@ pub const PRIMARY_GOVERNANCE_CHANNEL: ChannelId =
 pub const SECONDARY_GOVERNANCE_CHANNEL: ChannelId =
 	ChannelId::new(hex!("0000000000000000000000000000000000000000000000000000000000000002"));
 
-pub struct DescribeHere;
-impl DescribeLocation for DescribeHere {
-	fn describe_location(l: &Location) -> Option<Vec<u8>> {
-		match l.unpack() {
-			(0, []) => Some(Vec::<u8>::new().encode()),
-			_ => None,
+/// Metadata to include in the instantiated ERC20 token contract
+#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, TypeInfo)]
+pub struct AssetMetadata {
+	pub name: BoundedVec<u8, ConstU32<METADATA_FIELD_MAX_LEN>>,
+	pub symbol: BoundedVec<u8, ConstU32<METADATA_FIELD_MAX_LEN>>,
+	pub decimals: u8,
+}
+
+#[cfg(any(test, feature = "std", feature = "runtime-benchmarks"))]
+impl Default for AssetMetadata {
+	fn default() -> Self {
+		AssetMetadata {
+			name: BoundedVec::truncate_from(vec![]),
+			symbol: BoundedVec::truncate_from(vec![]),
+			decimals: 0,
 		}
 	}
 }
 
-/// Creates an AgentId from a Location. An AgentId is a unique mapping to a Agent contract on
-/// Ethereum which acts as the sovereign account for the Location.
-pub type AgentIdOf = HashedDescription<H256, (DescribeHere, DescribeFamily<DescribeAllTerminal>)>;
+/// Maximum length of a string field in ERC20 token metada
+const METADATA_FIELD_MAX_LEN: u32 = 32;
+
+/// Helper function that validates `fee` can be burned, then withdraws it from `origin` and burns
+/// it.
+/// Note: Make sure this is called from a transactional storage context so that side-effects
+/// are rolled back on errors.
+pub fn burn_for_teleport<AssetTransactor>(origin: &Location, fee: &Asset) -> XcmResult
+where
+	AssetTransactor: TransactAsset,
+{
+	let dummy_context = XcmContext { origin: None, message_id: Default::default(), topic: None };
+	AssetTransactor::can_check_out(origin, fee, &dummy_context)?;
+	AssetTransactor::check_out(origin, fee, &dummy_context);
+	AssetTransactor::withdraw_asset(fee, origin, None)?;
+	Ok(())
+}

@@ -22,7 +22,8 @@ use std::{
 use futures::channel::oneshot;
 use polkadot_node_subsystem::{messages::ChainApiMessage, overseer};
 use polkadot_primitives::{
-	BlockNumber, CandidateHash, CandidateReceipt, ExecutorParams, Hash, SessionIndex,
+	vstaging::CandidateReceiptV2 as CandidateReceipt, BlockNumber, CandidateHash, ExecutorParams,
+	Hash, SessionIndex,
 };
 
 use crate::{
@@ -405,7 +406,7 @@ impl CandidateComparator {
 		candidate: &CandidateReceipt,
 	) -> FatalResult<Self> {
 		let candidate_hash = candidate.hash();
-		let n = get_block_number(sender, candidate.descriptor().relay_parent).await?;
+		let n = get_block_number(sender, candidate.descriptor().relay_parent()).await?;
 
 		if n.is_none() {
 			gum::warn!(

@@ -66,14 +66,11 @@ use self::{
 
 const COST_INVALID_REQUEST: Rep = Rep::CostMajor("Received message could not be decoded.");
 const COST_INVALID_SIGNATURE: Rep = Rep::Malicious("Signatures were invalid.");
-const COST_INVALID_IMPORT: Rep =
-	Rep::Malicious("Import was deemed invalid by dispute-coordinator.");
 const COST_NOT_A_VALIDATOR: Rep = Rep::CostMajor("Reporting peer was not a validator.");
-/// Mildly punish peers exceeding their rate limit.
-///
-/// For honest peers this should rarely happen, but if it happens we would not want to disconnect
-/// too quickly. Minor cost should suffice for disconnecting any real flooder.
-const COST_APPARENT_FLOOD: Rep = Rep::CostMinor("Peer exceeded the rate limit.");
+
+/// Invalid imports can be caused by flooding, e.g. by a disabled validator.
+const COST_INVALID_IMPORT: Rep =
+	Rep::CostMinor("Import was deemed invalid by dispute-coordinator.");
 
 /// How many votes must have arrived in the last `BATCH_COLLECTING_INTERVAL`
 ///
@@ -308,7 +305,7 @@ where
 			);
 			req.send_outgoing_response(OutgoingResponse {
 				result: Err(()),
-				reputation_changes: vec![COST_APPARENT_FLOOD],
+				reputation_changes: vec![],
 				sent_feedback: None,
 			})
 			.map_err(|_| JfyiError::SendResponses(vec![peer]))?;
@@ -331,7 +328,7 @@ where
 			.runtime
 			.get_session_info_by_index(
 				&mut self.sender,
-				payload.0.candidate_receipt.descriptor.relay_parent,
+				payload.0.candidate_receipt.descriptor.relay_parent(),
 				payload.0.session_index,
 			)
 			.await?;

@@ -98,22 +98,26 @@ where
 		let fut = self.0.call(req);
 
 		async move {
-			let res = fut.await.map_err(|err| err.into())?;
-
 			Ok(match maybe_intercept {
 				InterceptRequest::Deny =>
 					http_response(StatusCode::METHOD_NOT_ALLOWED, HttpBody::empty()),
-				InterceptRequest::No => res,
+				InterceptRequest::No => fut.await.map_err(|err| err.into())?,
 				InterceptRequest::Health => {
-					let health = parse_rpc_response(res.into_body()).await?;
-					http_ok_response(serde_json::to_string(&health)?)
-				},
-				InterceptRequest::Readiness => {
-					let health = parse_rpc_response(res.into_body()).await?;
-					if (!health.is_syncing && health.peers > 0) || !health.should_have_peers {
-						http_ok_response(HttpBody::empty())
+					let res = fut.await.map_err(|err| err.into())?;
+					if let Ok(health) = parse_rpc_response(res.into_body()).await {
+						http_ok_response(serde_json::to_string(&health)?)
 					} else {
 						http_internal_error()
+					}
+				},
+				InterceptRequest::Readiness => {
+					let res = fut.await.map_err(|err| err.into())?;
+					match parse_rpc_response(res.into_body()).await {
+						Ok(health)
+							if (!health.is_syncing && health.peers > 0) ||
+								!health.should_have_peers =>
+							http_ok_response(HttpBody::empty()),
+						_ => http_internal_error(),
 					}
 				},
 			})

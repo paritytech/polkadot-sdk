@@ -1,0 +1,151 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Follow up work on TransactionExtension - fix weights and clean up UncheckedExtrinsic
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR removes the redundant extension version byte from the signed v4 extrinsic, previously
+      unused and defaulted to 0. The extension version byte is also made to be part of the inherited
+      implication handed to extensions in General transactions. Also, some system extensions
+      benchmarks were adjusted through whitelisting to not count the reads for frequently read
+      storage keys.
+
+crates:
+  - name: node-testing
+    bump: patch
+  - name: pallet-example-offchain-worker
+    bump: patch
+  - name: sp-runtime
+    bump: major
+  - name: substrate-test-utils
+    bump: patch
+  - name: pallet-alliance
+    bump: patch
+  - name: pallet-asset-conversion
+    bump: patch
+  - name: pallet-asset-conversion-ops
+    bump: patch
+  - name: pallet-asset-rate
+    bump: patch
+  - name: pallet-assets
+    bump: patch
+  - name: pallet-authorship
+    bump: patch
+  - name: pallet-bags-list
+    bump: patch
+  - name: pallet-balances
+    bump: patch
+  - name: pallet-beefy-mmr
+    bump: patch
+  - name: frame-benchmarking
+    bump: patch
+  - name: pallet-bounties
+    bump: patch
+  - name: pallet-broker
+    bump: patch
+  - name: pallet-child-bounties
+    bump: patch
+  - name: pallet-collective
+    bump: patch
+  - name: pallet-contracts
+    bump: patch
+  - name: pallet-conviction-voting
+    bump: patch
+  - name: pallet-core-fellowship
+    bump: patch
+  - name: pallet-democracy
+    bump: patch
+  - name: pallet-election-provider-multi-phase
+    bump: patch
+  - name: pallet-elections-phragmen
+    bump: patch
+  - name: pallet-fast-unstake
+    bump: patch
+  - name: pallet-glutton
+    bump: patch
+  - name: pallet-identity
+    bump: patch
+  - name: pallet-im-online
+    bump: patch
+  - name: pallet-indices
+    bump: patch
+  - name: pallet-lottery
+    bump: patch
+  - name: pallet-membership
+    bump: patch
+  - name: pallet-message-queue
+    bump: patch
+  - name: pallet-migrations
+    bump: patch
+  - name: pallet-multisig
+    bump: patch
+  - name: pallet-nft-fractionalization
+    bump: patch
+  - name: pallet-nfts
+    bump: patch
+  - name: pallet-nis
+    bump: patch
+  - name: pallet-nomination-pools
+    bump: patch
+  - name: pallet-parameters
+    bump: patch
+  - name: pallet-preimage
+    bump: patch
+  - name: pallet-proxy
+    bump: patch
+  - name: pallet-ranked-collective
+    bump: patch
+  - name: pallet-recovery
+    bump: patch
+  - name: pallet-referenda
+    bump: patch
+  - name: pallet-remark
+    bump: patch
+  - name: pallet-revive
+    bump: patch
+  - name: pallet-safe-mode
+    bump: patch
+  - name: pallet-salary
+    bump: patch
+  - name: pallet-scheduler
+    bump: patch
+  - name: pallet-session
+    bump: patch
+  - name: pallet-society
+    bump: patch
+  - name: pallet-staking
+    bump: patch
+  - name: pallet-state-trie-migration
+    bump: patch
+  - name: pallet-sudo
+    bump: patch
+  - name: frame-support
+    bump: patch
+  - name: pallet-timestamp
+    bump: patch
+  - name: pallet-tips
+    bump: patch
+  - name: pallet-asset-conversion-tx-payment
+    bump: patch
+  - name: pallet-transaction-payment
+    bump: patch
+  - name: pallet-transaction-storage
+    bump: patch
+  - name: pallet-treasury
+    bump: patch
+  - name: pallet-tx-pause
+    bump: patch
+  - name: pallet-uniques
+    bump: patch
+  - name: pallet-utility
+    bump: patch
+  - name: pallet-verify-signature
+    bump: patch
+  - name: pallet-vesting
+    bump: patch
+  - name: pallet-whitelist
+    bump: patch
+  - name: sp-runtime
+    bump: major

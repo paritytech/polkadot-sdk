@@ -1,0 +1,10 @@
+title: '[eth-indexer] subscribe to finalize blocks instead of best blocks'
+doc:
+- audience: Runtime Dev
+  description: 'For eth-indexer, it''s probably safer to use `subscribe_finalized`
+    and index these blocks into the DB rather than `subscribe_best`
+
+    '
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor

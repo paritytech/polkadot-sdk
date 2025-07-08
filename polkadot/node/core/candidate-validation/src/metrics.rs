@@ -20,7 +20,6 @@ use polkadot_node_metrics::metrics::{self, prometheus};
 #[derive(Clone)]
 pub(crate) struct MetricsInner {
 	pub(crate) validation_requests: prometheus::CounterVec<prometheus::U64>,
-	pub(crate) validate_from_chain_state: prometheus::Histogram,
 	pub(crate) validate_from_exhaustive: prometheus::Histogram,
 	pub(crate) validate_candidate_exhaustive: prometheus::Histogram,
 }
@@ -44,13 +43,6 @@ impl Metrics {
 				},
 			}
 		}
-	}
-
-	/// Provide a timer for `validate_from_chain_state` which observes on drop.
-	pub fn time_validate_from_chain_state(
-		&self,
-	) -> Option<metrics::prometheus::prometheus::HistogramTimer> {
-		self.0.as_ref().map(|metrics| metrics.validate_from_chain_state.start_timer())
 	}
 
 	/// Provide a timer for `validate_from_exhaustive` which observes on drop.
@@ -81,13 +73,6 @@ impl metrics::Metrics for Metrics {
 					),
 					&["validity"],
 				)?,
-				registry,
-			)?,
-			validate_from_chain_state: prometheus::register(
-				prometheus::Histogram::with_opts(prometheus::HistogramOpts::new(
-					"polkadot_parachain_candidate_validation_validate_from_chain_state",
-					"Time spent within `candidate_validation::validate_from_chain_state`",
-				))?,
 				registry,
 			)?,
 			validate_from_exhaustive: prometheus::register(

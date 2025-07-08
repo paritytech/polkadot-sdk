@@ -1,0 +1,14 @@
+title: '`basic-authorship`: debug level is now less spammy'
+doc:
+- audience: Node Dev
+  description: |-
+    The `debug` level in `sc-basic-authorship`  is now less spammy. Previously it was outputing logs per individual transactions. It made quite hard to follow the logs (and also generates unneeded traffic in grafana).
+
+    Now debug level only show some internal details, without spamming output with per-transaction logs. They were moved to `trace` level.
+
+    I also added the `EndProposingReason` to the summary INFO message. This allows us to know what was the block limit (which is very useful for debugging).
+crates:
+- name: sc-basic-authorship
+  bump: major
+- name: sc-proposer-metrics
+  bump: major

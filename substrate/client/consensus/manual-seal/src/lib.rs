@@ -353,7 +353,7 @@ mod tests {
 	use sp_inherents::InherentData;
 	use sp_runtime::generic::{Digest, DigestItem};
 	use substrate_test_runtime_client::{
-		AccountKeyring::*, DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
+		DefaultTestClientBuilderExt, Sr25519Keyring::*, TestClientBuilder, TestClientBuilderExt,
 	};
 	use substrate_test_runtime_transaction_pool::{uxt, TestApi};
 

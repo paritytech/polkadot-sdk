@@ -25,7 +25,15 @@ use std::path::PathBuf;
 #[derive(Debug, Parser)]
 pub enum Subcommand {
 	/// Build a chain specification.
+	/// DEPRECATED: `build-spec` command will be removed after 1/04/2026. Use `export-chain-spec`
+	/// command instead.
+	#[deprecated(
+		note = "build-spec command will be removed after 1/04/2026. Use export-chain-spec command instead"
+	)]
 	BuildSpec(sc_cli::BuildSpecCmd),
+
+	/// Export the chain specification.
+	ExportChainSpec(sc_cli::ExportChainSpecCmd),
 
 	/// Validate blocks.
 	CheckBlock(sc_cli::CheckBlockCmd),
@@ -79,7 +87,7 @@ pub struct RunCmd {
 
 	/// Disable the BEEFY gadget.
 	///
-	/// Currently enabled by default on 'Rococo', 'Wococo' and 'Versi'.
+	/// Currently enabled by default.
 	#[arg(long)]
 	pub no_beefy: bool,
 
@@ -92,12 +100,6 @@ pub struct RunCmd {
 	/// Enable the block authoring backoff that is triggered when finality is lagging.
 	#[arg(long)]
 	pub force_authoring_backoff: bool,
-
-	/// Add the destination address to the 'Jaeger' agent.
-	///
-	/// Must be valid socket address, of format `IP:Port` (commonly `127.0.0.1:6831`).
-	#[arg(long)]
-	pub jaeger_agent: Option<String>,
 
 	/// Add the destination address to the `pyroscope` agent.
 	///
@@ -151,6 +153,12 @@ pub struct RunCmd {
 	/// TESTING ONLY: disable the version check between nodes and workers.
 	#[arg(long, hide = true)]
 	pub disable_worker_version_check: bool,
+
+	/// How long finalized data should be kept in the availability store (in hours).
+	/// Only used for testnets. If not specified, set to 1 hour. Always set to 25 hours for live
+	/// networks.
+	#[arg(long)]
+	pub keep_finalized_for: Option<u32>,
 }
 
 #[allow(missing_docs)]

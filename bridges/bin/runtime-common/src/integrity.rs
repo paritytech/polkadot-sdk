@@ -21,16 +21,15 @@
 
 use bp_header_chain::ChainWithGrandpa;
 use bp_messages::{ChainWithMessages, InboundLaneData, MessageNonce};
-use bp_runtime::Chain;
+use bp_runtime::{AccountIdOf, Chain};
 use codec::Encode;
 use frame_support::{storage::generator::StorageValue, traits::Get, weights::Weight};
 use frame_system::limits;
-use pallet_bridge_messages::WeightInfoExt as _;
+use pallet_bridge_messages::{ThisChainOf, WeightInfoExt as _};
 
 // Re-export to avoid include all dependencies everywhere.
 #[doc(hidden)]
 pub mod __private {
-	pub use bp_xcm_bridge_hub;
 	pub use static_assertions;
 }
 
@@ -66,39 +65,38 @@ macro_rules! assert_bridge_messages_pallet_types(
 		with_bridged_chain_messages_instance: $i:path,
 		this_chain: $this:path,
 		bridged_chain: $bridged:path,
+		expected_payload_type: $payload:path,
 	) => {
 		{
-			use $crate::messages_xcm_extension::XcmAsPlainPayload;
 			use $crate::integrity::__private::static_assertions::assert_type_eq_all;
 			use bp_messages::ChainWithMessages;
 			use bp_runtime::Chain;
-			use pallet_bridge_messages::Config as MessagesConfig;
+			use pallet_bridge_messages::Config as BridgeMessagesConfig;
 
 			// if one of asserts fail, then either bridge isn't configured properly (or alternatively - non-standard
 			// configuration is used), or something has broke existing configuration (meaning that all bridged chains
 			// and relays will stop functioning)
 
-			assert_type_eq_all!(<$r as MessagesConfig<$i>>::ThisChain, $this);
-			assert_type_eq_all!(<$r as MessagesConfig<$i>>::BridgedChain, $bridged);
+			assert_type_eq_all!(<$r as BridgeMessagesConfig<$i>>::ThisChain, $this);
+			assert_type_eq_all!(<$r as BridgeMessagesConfig<$i>>::BridgedChain, $bridged);
 
-			assert_type_eq_all!(<$r as MessagesConfig<$i>>::OutboundPayload, XcmAsPlainPayload);
-			assert_type_eq_all!(<$r as MessagesConfig<$i>>::InboundPayload, XcmAsPlainPayload);
+			assert_type_eq_all!(<$r as BridgeMessagesConfig<$i>>::OutboundPayload, $payload);
+			assert_type_eq_all!(<$r as BridgeMessagesConfig<$i>>::InboundPayload, $payload);
 		}
 	}
 );
 
 /// Macro that combines four other macro calls - `assert_chain_types`, `assert_bridge_types`,
 /// and `assert_bridge_messages_pallet_types`. It may be used
-/// at the chain that is implementing complete standard messages bridge (i.e. with bridge GRANDPA
-/// and messages pallets deployed).
+/// at the chain that is implementing standard messages bridge with messages pallets deployed.
 #[macro_export]
 macro_rules! assert_complete_bridge_types(
 	(
 		runtime: $r:path,
-		with_bridged_chain_grandpa_instance: $gi:path,
 		with_bridged_chain_messages_instance: $mi:path,
 		this_chain: $this:path,
 		bridged_chain: $bridged:path,
+		expected_payload_type: $payload:path,
 	) => {
 		$crate::assert_chain_types!(runtime: $r, this_chain: $this);
 		$crate::assert_bridge_messages_pallet_types!(
@@ -106,6 +104,7 @@ macro_rules! assert_complete_bridge_types(
 			with_bridged_chain_messages_instance: $mi,
 			this_chain: $this,
 			bridged_chain: $bridged,
+			expected_payload_type: $payload,
 		);
 	}
 );
@@ -175,12 +174,6 @@ where
 	MI: 'static,
 {
 	assert!(
-		!R::ActiveOutboundLanes::get().is_empty(),
-		"ActiveOutboundLanes ({:?}) must not be empty",
-		R::ActiveOutboundLanes::get(),
-	);
-
-	assert!(
 		pallet_bridge_messages::BridgedChainOf::<R, MI>::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX
 			<= pallet_bridge_messages::BridgedChainOf::<R, MI>::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
 		"MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX ({}) of {:?} is larger than \
@@ -192,12 +185,43 @@ where
 	);
 }
 
-/// Parameters for asserting bridge pallet names.
+/// Parameters for asserting bridge GRANDPA pallet names.
 #[derive(Debug)]
-pub struct AssertBridgePalletNames<'a> {
+struct AssertBridgeGrandpaPalletNames<'a> {
 	/// Name of the GRANDPA pallet, deployed at this chain and used to bridge with the bridged
 	/// chain.
 	pub with_bridged_chain_grandpa_pallet_name: &'a str,
+}
+
+/// Tests that bridge pallet names used in `construct_runtime!()` macro call are matching constants
+/// from chain primitives crates.
+fn assert_bridge_grandpa_pallet_names<R, GI>(params: AssertBridgeGrandpaPalletNames)
+where
+	R: pallet_bridge_grandpa::Config<GI>,
+	GI: 'static,
+{
+	// check that the bridge GRANDPA pallet has required name
+	assert_eq!(
+			pallet_bridge_grandpa::PalletOwner::<R, GI>::storage_value_final_key().to_vec(),
+			bp_runtime::storage_value_key(
+				params.with_bridged_chain_grandpa_pallet_name,
+				"PalletOwner",
+			)
+			.0,
+		);
+	assert_eq!(
+		pallet_bridge_grandpa::PalletOperatingMode::<R, GI>::storage_value_final_key().to_vec(),
+		bp_runtime::storage_value_key(
+			params.with_bridged_chain_grandpa_pallet_name,
+			"PalletOperatingMode",
+		)
+		.0,
+	);
+}
+
+/// Parameters for asserting bridge messages pallet names.
+#[derive(Debug)]
+struct AssertBridgeMessagesPalletNames<'a> {
 	/// Name of the messages pallet, deployed at this chain and used to bridge with the bridged
 	/// chain.
 	pub with_bridged_chain_messages_pallet_name: &'a str,
@@ -205,27 +229,25 @@ pub struct AssertBridgePalletNames<'a> {
 
 /// Tests that bridge pallet names used in `construct_runtime!()` macro call are matching constants
 /// from chain primitives crates.
-fn assert_bridge_pallet_names<R, GI, MI>(params: AssertBridgePalletNames)
+fn assert_bridge_messages_pallet_names<R, MI>(params: AssertBridgeMessagesPalletNames)
 where
-	R: pallet_bridge_grandpa::Config<GI> + pallet_bridge_messages::Config<MI>,
-	GI: 'static,
+	R: pallet_bridge_messages::Config<MI>,
 	MI: 'static,
 {
-	// check that the bridge GRANDPA pallet has required name
-	assert_eq!(
-		pallet_bridge_grandpa::PalletOwner::<R, GI>::storage_value_final_key().to_vec(),
-		bp_runtime::storage_value_key(
-			params.with_bridged_chain_grandpa_pallet_name,
-			"PalletOwner",
-		).0,
-	);
-
 	// check that the bridge messages pallet has required name
 	assert_eq!(
 		pallet_bridge_messages::PalletOwner::<R, MI>::storage_value_final_key().to_vec(),
 		bp_runtime::storage_value_key(
 			params.with_bridged_chain_messages_pallet_name,
 			"PalletOwner",
+		)
+		.0,
+	);
+	assert_eq!(
+		pallet_bridge_messages::PalletOperatingMode::<R, MI>::storage_value_final_key().to_vec(),
+		bp_runtime::storage_value_key(
+			params.with_bridged_chain_messages_pallet_name,
+			"PalletOperatingMode",
 		)
 		.0,
 	);
@@ -252,9 +274,11 @@ pub fn assert_complete_with_relay_chain_bridge_constants<R, GI, MI>(
 	assert_chain_constants::<R>(params.this_chain_constants);
 	assert_bridge_grandpa_pallet_constants::<R, GI>();
 	assert_bridge_messages_pallet_constants::<R, MI>();
-	assert_bridge_pallet_names::<R, GI, MI>(AssertBridgePalletNames {
+	assert_bridge_grandpa_pallet_names::<R, GI>(AssertBridgeGrandpaPalletNames {
 		with_bridged_chain_grandpa_pallet_name:
 			<R as pallet_bridge_grandpa::Config<GI>>::BridgedChain::WITH_CHAIN_GRANDPA_PALLET_NAME,
+	});
+	assert_bridge_messages_pallet_names::<R, MI>(AssertBridgeMessagesPalletNames {
 		with_bridged_chain_messages_pallet_name:
 			<R as pallet_bridge_messages::Config<MI>>::BridgedChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
 	});
@@ -262,21 +286,43 @@ pub fn assert_complete_with_relay_chain_bridge_constants<R, GI, MI>(
 
 /// All bridge-related constants tests for the complete standard parachain messages bridge
 /// (i.e. with bridge GRANDPA, parachains and messages pallets deployed).
-pub fn assert_complete_with_parachain_bridge_constants<R, GI, MI, RelayChain>(
+pub fn assert_complete_with_parachain_bridge_constants<R, PI, MI>(
 	params: AssertCompleteBridgeConstants,
 ) where
 	R: frame_system::Config
-		+ pallet_bridge_grandpa::Config<GI>
+		+ pallet_bridge_parachains::Config<PI>
 		+ pallet_bridge_messages::Config<MI>,
-	GI: 'static,
+	<R as pallet_bridge_parachains::BoundedBridgeGrandpaConfig<R::BridgesGrandpaPalletInstance>>::BridgedRelayChain: ChainWithGrandpa,
+	PI: 'static,
 	MI: 'static,
-	RelayChain: ChainWithGrandpa,
 {
 	assert_chain_constants::<R>(params.this_chain_constants);
-	assert_bridge_grandpa_pallet_constants::<R, GI>();
+	assert_bridge_grandpa_pallet_constants::<R, R::BridgesGrandpaPalletInstance>();
 	assert_bridge_messages_pallet_constants::<R, MI>();
-	assert_bridge_pallet_names::<R, GI, MI>(AssertBridgePalletNames {
-		with_bridged_chain_grandpa_pallet_name: RelayChain::WITH_CHAIN_GRANDPA_PALLET_NAME,
+	assert_bridge_grandpa_pallet_names::<R, R::BridgesGrandpaPalletInstance>(
+		AssertBridgeGrandpaPalletNames {
+			with_bridged_chain_grandpa_pallet_name:
+				<<R as pallet_bridge_parachains::BoundedBridgeGrandpaConfig<
+					R::BridgesGrandpaPalletInstance,
+				>>::BridgedRelayChain>::WITH_CHAIN_GRANDPA_PALLET_NAME,
+		},
+	);
+	assert_bridge_messages_pallet_names::<R, MI>(AssertBridgeMessagesPalletNames {
+		with_bridged_chain_messages_pallet_name:
+			<R as pallet_bridge_messages::Config<MI>>::BridgedChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
+	});
+}
+
+/// All bridge-related constants tests for the standalone messages bridge deployment (only with
+/// messages pallets deployed).
+pub fn assert_standalone_messages_bridge_constants<R, MI>(params: AssertCompleteBridgeConstants)
+where
+	R: frame_system::Config + pallet_bridge_messages::Config<MI>,
+	MI: 'static,
+{
+	assert_chain_constants::<R>(params.this_chain_constants);
+	assert_bridge_messages_pallet_constants::<R, MI>();
+	assert_bridge_messages_pallet_names::<R, MI>(AssertBridgeMessagesPalletNames {
 		with_bridged_chain_messages_pallet_name:
 			<R as pallet_bridge_messages::Config<MI>>::BridgedChain::WITH_CHAIN_MESSAGES_PALLET_NAME,
 	});
@@ -319,8 +365,11 @@ pub fn check_message_lane_weights<
 	);
 
 	// check that weights allow us to receive delivery confirmations
-	let max_incoming_inbound_lane_data_proof_size =
-		InboundLaneData::<()>::encoded_size_hint_u32(this_chain_max_unrewarded_relayers as _);
+	let max_incoming_inbound_lane_data_proof_size = InboundLaneData::<
+		AccountIdOf<ThisChainOf<T, MessagesPalletInstance>>,
+	>::encoded_size_hint_u32(
+		this_chain_max_unrewarded_relayers as _
+	);
 	pallet_bridge_messages::ensure_able_to_receive_confirmation::<Weights<T, MessagesPalletInstance>>(
 		C::max_extrinsic_size(),
 		C::max_extrinsic_weight(),

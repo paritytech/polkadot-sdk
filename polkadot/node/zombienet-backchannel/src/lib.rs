@@ -21,7 +21,6 @@
 
 use codec;
 use futures_util::{SinkExt, StreamExt};
-use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use std::{env, sync::Mutex};
 use tokio::sync::broadcast;
@@ -30,9 +29,7 @@ use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 mod errors;
 use errors::BackchannelError;
 
-lazy_static! {
-	pub static ref ZOMBIENET_BACKCHANNEL: Mutex<Option<ZombienetBackchannel>> = Mutex::new(None);
-}
+pub static ZOMBIENET_BACKCHANNEL: Mutex<Option<ZombienetBackchannel>> = Mutex::new(None);
 
 #[derive(Debug)]
 pub struct ZombienetBackchannel {
@@ -131,7 +128,7 @@ impl ZombienetBackchannel {
 			tokio::spawn(async move {
 				while let Ok(item) = rx_relay.recv().await {
 					if write
-						.send(Message::Text(serde_json::to_string(&item).unwrap()))
+						.send(Message::Text(serde_json::to_string(&item).unwrap().into()))
 						.await
 						.is_err()
 					{

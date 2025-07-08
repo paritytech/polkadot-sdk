@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fix error message on pallet macro
+
+doc:
+  - audience: Runtime Dev
+    description: |
+        Improve error message for pallet macro generated code.
+
+crates:
+  - name: frame-support-procedural
+    bump: patch

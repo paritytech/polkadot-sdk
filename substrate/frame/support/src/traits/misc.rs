@@ -28,13 +28,16 @@ use sp_core::bounded::bounded_vec::TruncateFrom;
 use core::cmp::Ordering;
 #[doc(hidden)]
 pub use sp_runtime::traits::{
-	ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128, ConstU16, ConstU32,
-	ConstU64, ConstU8, Get, GetDefault, TryCollect, TypedGet,
+	ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstInt, ConstU128, ConstU16,
+	ConstU32, ConstU64, ConstU8, ConstUint, Get, GetDefault, TryCollect, TypedGet,
 };
-use sp_runtime::{traits::Block as BlockT, DispatchError};
+use sp_runtime::{
+	traits::{Block as BlockT, ExtrinsicCall},
+	DispatchError,
+};
 
 #[doc(hidden)]
-pub const DEFENSIVE_OP_PUBLIC_ERROR: &str = "a defensive failure has been triggered; please report the block number at https://github.com/paritytech/substrate/issues";
+pub const DEFENSIVE_OP_PUBLIC_ERROR: &str = "a defensive failure has been triggered; please report the block number at https://github.com/paritytech/polkadot-sdk/issues";
 #[doc(hidden)]
 pub const DEFENSIVE_OP_INTERNAL_ERROR: &str = "Defensive failure has been triggered!";
 
@@ -46,6 +49,10 @@ pub trait VariantCount {
 
 impl VariantCount for () {
 	const VARIANT_COUNT: u32 = 0;
+}
+
+impl VariantCount for u8 {
+	const VARIANT_COUNT: u32 = 256;
 }
 
 /// Adapter for `Get<u32>` to access `VARIANT_COUNT` from `trait pub trait VariantCount {`.
@@ -62,7 +69,7 @@ impl<T: VariantCount> Get<u32> for VariantCountOf<T> {
 #[macro_export]
 macro_rules! defensive {
 	() => {
-		frame_support::__private::log::error!(
+		$crate::__private::log::error!(
 			target: "runtime::defensive",
 			"{}",
 			$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR
@@ -70,7 +77,7 @@ macro_rules! defensive {
 		debug_assert!(false, "{}", $crate::traits::DEFENSIVE_OP_INTERNAL_ERROR);
 	};
 	($error:expr $(,)?) => {
-		frame_support::__private::log::error!(
+		$crate::__private::log::error!(
 			target: "runtime::defensive",
 			"{}: {:?}",
 			$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR,
@@ -79,7 +86,7 @@ macro_rules! defensive {
 		debug_assert!(false, "{}: {:?}", $crate::traits::DEFENSIVE_OP_INTERNAL_ERROR, $error);
 	};
 	($error:expr, $proof:expr $(,)?) => {
-		frame_support::__private::log::error!(
+		$crate::__private::log::error!(
 			target: "runtime::defensive",
 			"{}: {:?}: {:?}",
 			$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR,
@@ -468,6 +475,17 @@ where
 	}
 }
 
+/// Defensively truncate a value and convert it into its bounded form.
+pub trait DefensiveTruncateInto<T> {
+	/// Defensively truncate a value and convert it into its bounded form.
+	fn defensive_truncate_into(self) -> T;
+}
+
+impl<T, U: DefensiveTruncateFrom<T>> DefensiveTruncateInto<U> for T {
+	fn defensive_truncate_into(self) -> U {
+		U::defensive_truncate_from(self)
+	}
+}
 /// Defensively calculates the minimum of two values.
 ///
 /// Can be used in contexts where we assume the receiver value to be (strictly) smaller.
@@ -484,7 +502,7 @@ pub trait DefensiveMin<T> {
 	/// assert_eq!(4, 4_u32.defensive_min(4_u32));
 	/// ```
 	///
-	/// ```#[cfg_attr(debug_assertions, should_panic)]
+	/// ```should_panic
 	/// use frame_support::traits::DefensiveMin;
 	/// // min(4, 3) panics.
 	/// 4_u32.defensive_min(3_u32);
@@ -501,7 +519,7 @@ pub trait DefensiveMin<T> {
 	/// assert_eq!(3, 3_u32.defensive_strict_min(4_u32));
 	/// ```
 	///
-	/// ```#[cfg_attr(debug_assertions, should_panic)]
+	/// ```should_panic
 	/// use frame_support::traits::DefensiveMin;
 	/// // min(4, 4) panics.
 	/// 4_u32.defensive_strict_min(4_u32);
@@ -548,7 +566,7 @@ pub trait DefensiveMax<T> {
 	/// assert_eq!(4, 4_u32.defensive_max(4_u32));
 	/// ```
 	///
-	/// ```#[cfg_attr(debug_assertions, should_panic)]
+	/// ```should_panic
 	/// use frame_support::traits::DefensiveMax;
 	/// // max(4, 5) panics.
 	/// 4_u32.defensive_max(5_u32);
@@ -565,7 +583,7 @@ pub trait DefensiveMax<T> {
 	/// assert_eq!(4, 4_u32.defensive_strict_max(3_u32));
 	/// ```
 	///
-	/// ```#[cfg_attr(debug_assertions, should_panic)]
+	/// ```should_panic
 	/// use frame_support::traits::DefensiveMax;
 	/// // max(4, 4) panics.
 	/// 4_u32.defensive_strict_max(4_u32);
@@ -894,53 +912,66 @@ pub trait GetBacking {
 	fn get_backing(&self) -> Option<Backing>;
 }
 
-/// A trait to ensure the inherent are before non-inherent in a block.
-///
-/// This is typically implemented on runtime, through `construct_runtime!`.
-pub trait EnsureInherentsAreFirst<Block: sp_runtime::traits::Block>:
-	IsInherent<<Block as sp_runtime::traits::Block>::Extrinsic>
-{
-	/// Ensure the position of inherent is correct, i.e. they are before non-inherents.
-	///
-	/// On error return the index of the inherent with invalid position (counting from 0). On
-	/// success it returns the index of the last inherent. `0` therefore means that there are no
-	/// inherents.
-	fn ensure_inherents_are_first(block: &Block) -> Result<u32, u32>;
-}
-
 /// A trait to check if an extrinsic is an inherent.
 pub trait IsInherent<Extrinsic> {
 	/// Whether this extrinsic is an inherent.
 	fn is_inherent(ext: &Extrinsic) -> bool;
 }
 
-/// An extrinsic on which we can get access to call.
-pub trait ExtrinsicCall: sp_runtime::traits::Extrinsic {
-	/// Get the call of the extrinsic.
-	fn call(&self) -> &Self::Call;
+/// Interface for types capable of constructing an inherent extrinsic.
+pub trait InherentBuilder: ExtrinsicCall {
+	/// Create a new inherent from a given call.
+	fn new_inherent(call: Self::Call) -> Self;
 }
 
-#[cfg(feature = "std")]
-impl<Call, Extra> ExtrinsicCall for sp_runtime::testing::TestXt<Call, Extra>
-where
-	Call: codec::Codec + Sync + Send + TypeInfo,
-	Extra: TypeInfo,
-{
-	fn call(&self) -> &Self::Call {
-		&self.call
-	}
-}
-
-impl<Address, Call, Signature, Extra> ExtrinsicCall
+impl<Address, Call, Signature, Extra> InherentBuilder
 	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, Extra>
 where
 	Address: TypeInfo,
 	Call: TypeInfo,
 	Signature: TypeInfo,
-	Extra: sp_runtime::traits::SignedExtension + TypeInfo,
+	Extra: TypeInfo,
 {
-	fn call(&self) -> &Self::Call {
-		&self.function
+	fn new_inherent(call: Self::Call) -> Self {
+		Self::new_bare(call)
+	}
+}
+
+/// Interface for types capable of constructing a signed transaction.
+pub trait SignedTransactionBuilder: ExtrinsicCall {
+	type Address;
+	type Signature;
+	type Extension;
+
+	/// Create a new signed transaction from a given call and extension using the provided signature
+	/// data.
+	fn new_signed_transaction(
+		call: Self::Call,
+		signed: Self::Address,
+		signature: Self::Signature,
+		tx_ext: Self::Extension,
+	) -> Self;
+}
+
+impl<Address, Call, Signature, Extension> SignedTransactionBuilder
+	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, Extension>
+where
+	Address: TypeInfo,
+	Call: TypeInfo,
+	Signature: TypeInfo,
+	Extension: TypeInfo,
+{
+	type Address = Address;
+	type Signature = Signature;
+	type Extension = Extension;
+
+	fn new_signed_transaction(
+		call: Self::Call,
+		signed: Address,
+		signature: Signature,
+		tx_ext: Extension,
+	) -> Self {
+		Self::new_signed(call, signed, signature, tx_ext)
 	}
 }
 
@@ -960,6 +991,13 @@ pub trait EstimateCallFee<Call, Balance> {
 impl<Call, Balance: From<u32>, const T: u32> EstimateCallFee<Call, Balance> for ConstU32<T> {
 	fn estimate_call_fee(_: &Call, _: crate::dispatch::PostDispatchInfo) -> Balance {
 		T.into()
+	}
+}
+
+#[cfg(feature = "std")]
+impl<Call, Balance: From<u32>, const T: u64> EstimateCallFee<Call, Balance> for ConstU64<T> {
+	fn estimate_call_fee(_: &Call, _: crate::dispatch::PostDispatchInfo) -> Balance {
+		(T as u32).into()
 	}
 }
 
@@ -995,7 +1033,7 @@ impl<T: Encode> Encode for WrapperOpaque<T> {
 impl<T: Decode> Decode for WrapperOpaque<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, codec::Error> {
 		Ok(Self(T::decode_all_with_depth_limit(
-			sp_api::MAX_EXTRINSIC_DEPTH,
+			crate::MAX_EXTRINSIC_DEPTH,
 			&mut &<Vec<u8>>::decode(input)?[..],
 		)?))
 	}
@@ -1059,7 +1097,7 @@ impl<T: Decode> WrapperKeepOpaque<T> {
 	///
 	/// Returns `None` if the decoding failed.
 	pub fn try_decode(&self) -> Option<T> {
-		T::decode_all_with_depth_limit(sp_api::MAX_EXTRINSIC_DEPTH, &mut &self.data[..]).ok()
+		T::decode_all_with_depth_limit(crate::MAX_EXTRINSIC_DEPTH, &mut &self.data[..]).ok()
 	}
 
 	/// Returns the length of the encoded `T`.
@@ -1208,6 +1246,13 @@ pub trait AccountTouch<AssetId, AccountId> {
 
 	/// Create an account for `who` of the `asset` with a deposit taken from the `depositor`.
 	fn touch(asset: AssetId, who: &AccountId, depositor: &AccountId) -> DispatchResult;
+}
+
+/// Trait for reporting additional validator reward points
+pub trait RewardsReporter<ValidatorId> {
+	/// The input is an iterator of tuples of validator account IDs and the amount of points they
+	/// should be rewarded.
+	fn reward_by_ids(validators_points: impl IntoIterator<Item = (ValidatorId, u32)>);
 }
 
 #[cfg(test)]
@@ -1381,7 +1426,7 @@ mod test {
 
 	#[test]
 	fn test_opaque_wrapper_decode_limit() {
-		let limit = sp_api::MAX_EXTRINSIC_DEPTH as usize;
+		let limit = crate::MAX_EXTRINSIC_DEPTH as usize;
 		let mut ok_bytes = vec![0u8; limit];
 		ok_bytes.push(1u8);
 		let mut err_bytes = vec![0u8; limit + 1];

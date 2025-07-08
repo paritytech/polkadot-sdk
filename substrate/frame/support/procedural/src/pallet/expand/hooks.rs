@@ -324,15 +324,13 @@ pub fn expand_hooks(def: &mut Def) -> proc_macro2::TokenStream {
 						Self as #frame_support::traits::Hooks<
 							#frame_system::pallet_prelude::BlockNumberFor::<T>
 						>
-					>::try_state(n).map_err(|err| {
+					>::try_state(n).inspect_err(|err| {
 						#frame_support::__private::log::error!(
 							target: #frame_support::LOG_TARGET,
 							"❌ {:?} try_state checks failed: {:?}",
 							#pallet_name,
 							err
 						);
-
-						err
 					})
 				}
 			}

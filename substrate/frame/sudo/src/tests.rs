@@ -108,7 +108,7 @@ fn sudo_unchecked_weight_basics() {
 		let sudo_unchecked_weight_call =
 			SudoCall::sudo_unchecked_weight { call, weight: Weight::from_parts(1_000, 0) };
 		let info = sudo_unchecked_weight_call.get_dispatch_info();
-		assert_eq!(info.weight, Weight::from_parts(1_000, 0));
+		assert_eq!(info.call_weight, Weight::from_parts(1_000, 0));
 	});
 }
 

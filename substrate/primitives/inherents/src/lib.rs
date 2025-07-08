@@ -98,10 +98,10 @@
 //! and production.
 //!
 //! ```
-//! # use sp_runtime::testing::ExtrinsicWrapper;
+//! # use sp_runtime::testing::{MockCallU64, TestXt};
 //! # use sp_inherents::{InherentIdentifier, InherentData};
 //! # use futures::FutureExt;
-//! # type Block = sp_runtime::testing::Block<ExtrinsicWrapper<()>>;
+//! # type Block = sp_runtime::testing::Block<TestXt<MockCallU64, ()>>;
 //! # const INHERENT_IDENTIFIER: InherentIdentifier = *b"testinh0";
 //! # struct InherentDataProvider;
 //! # #[async_trait::async_trait]

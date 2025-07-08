@@ -81,7 +81,6 @@ pub enum Outcome {
 	/// final destination location.
 	RenameTmpFile {
 		worker: IdleWorker,
-		result: PrepareWorkerResult,
 		err: String,
 		// Unfortunately `PathBuf` doesn't implement `Encode`/`Decode`, so we do a fallible
 		// conversion to `Option<String>`.
@@ -210,7 +209,7 @@ async fn handle_response(
 	// TODO: Add `checksum` to `ArtifactPathId`. See:
 	//       https://github.com/paritytech/polkadot-sdk/issues/2399
 	let PrepareWorkerSuccess {
-		checksum: _,
+		checksum,
 		stats: PrepareStats { cpu_time_elapsed, memory_stats, observed_wasm_code_len },
 	} = match result.clone() {
 		Ok(result) => result,
@@ -267,6 +266,7 @@ async fn handle_response(
 		Ok(()) => Outcome::Concluded {
 			worker,
 			result: Ok(PrepareSuccess {
+				checksum,
 				path: artifact_path,
 				size,
 				stats: PrepareStats {
@@ -287,7 +287,6 @@ async fn handle_response(
 			);
 			Outcome::RenameTmpFile {
 				worker,
-				result,
 				err: format!("{:?}", err),
 				src: tmp_file.to_str().map(String::from),
 				dest: artifact_path.to_str().map(String::from),

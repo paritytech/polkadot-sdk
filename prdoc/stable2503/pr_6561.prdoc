@@ -1,0 +1,11 @@
+title: 'slot-based-collator: Move spawning of the futures'
+doc:
+- audience: Node Dev
+  description: "Move spawning of the slot-based collator into the `run` function.\
+    \ Also the tasks are being spawned as blocking task and not just as normal tasks.\r\
+    \n"
+crates:
+- name: cumulus-client-consensus-aura
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: major

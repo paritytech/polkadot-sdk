@@ -1,0 +1,16 @@
+title: 'frame-benchmarking: Use correct components for pallet instances'
+doc:
+- audience: Runtime Dev
+  description: |-
+    When benchmarking multiple instances of the same pallet, each instance was executed with the components of all instances. While actually each instance should only be executed with the components generated for the particular instance. The problem here was that in the runtime only the pallet-name was used to determine if a certain pallet should be benchmarked. When using instances, the pallet name is the same for both of these instances. The solution is to also take the instance name into account.
+
+    The fix requires to change the `Benchmark` runtime api to also take the `instance`. The node side is written in a backwards compatible way to also support runtimes which do not yet support the `instance` parameter.
+crates:
+- name: frame-benchmarking
+  bump: major
+- name: frame-benchmarking-cli
+  bump: major
+- name: sc-client-db
+  bump: none
+- name: pallet-referenda
+  bump: none

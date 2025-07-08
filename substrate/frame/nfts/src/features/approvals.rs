@@ -46,7 +46,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		collection: T::CollectionId,
 		item: T::ItemId,
 		delegate: T::AccountId,
-		maybe_deadline: Option<frame_system::pallet_prelude::BlockNumberFor<T>>,
+		maybe_deadline: Option<BlockNumberFor<T, I>>,
 	) -> DispatchResult {
 		ensure!(
 			Self::is_pallet_feature_enabled(PalletFeature::Approvals),
@@ -65,7 +65,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			ensure!(check_origin == details.owner, Error::<T, I>::NoPermission);
 		}
 
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = T::BlockNumberProvider::current_block_number();
 		let deadline = maybe_deadline.map(|d| d.saturating_add(now));
 
 		details
@@ -111,7 +111,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let maybe_deadline = details.approvals.get(&delegate).ok_or(Error::<T, I>::NotDelegate)?;
 
 		let is_past_deadline = if let Some(deadline) = maybe_deadline {
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			now > *deadline
 		} else {
 			false

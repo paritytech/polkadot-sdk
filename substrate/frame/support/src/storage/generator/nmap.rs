@@ -305,9 +305,8 @@ where
 
 			final_key
 		};
-		unhashed::take(old_key.as_ref()).map(|value| {
+		unhashed::take(old_key.as_ref()).inspect(|value| {
 			unhashed::put(Self::storage_n_map_final_key::<K, _>(key).as_ref(), &value);
-			value
 		})
 	}
 }

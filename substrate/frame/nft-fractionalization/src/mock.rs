@@ -20,19 +20,10 @@
 use super::*;
 use crate as pallet_nft_fractionalization;
 
-use frame_support::{
-	construct_runtime, derive_impl, parameter_types,
-	traits::{AsEnsureOriginWithArg, ConstU32, ConstU64},
-	BoundedVec, PalletId,
-};
-use frame_system::EnsureSigned;
+use frame::{deps::sp_runtime::MultiSignature, testing_prelude::*, traits::Verify};
 use pallet_nfts::PalletFeatures;
-use sp_runtime::{
-	traits::{IdentifyAccount, IdentityLookup, Verify},
-	BuildStorage, MultiSignature,
-};
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 type Signature = MultiSignature;
 type AccountPublic = <Signature as Verify>::Signer;
 type AccountId = <AccountPublic as IdentifyAccount>::AccountId;
@@ -77,6 +68,7 @@ impl pallet_assets::Config for Test {
 	type MetadataDepositPerByte = ConstU64<1>;
 	type ApprovalDeposit = ConstU64<1>;
 	type StringLimit = ConstU32<50>;
+	type Holder = ();
 	type Freezer = ();
 	type Extra = ();
 	type CallbackHandle = ();
@@ -115,6 +107,7 @@ impl pallet_nfts::Config for Test {
 	type OffchainSignature = Signature;
 	type OffchainPublic = AccountPublic;
 	type WeightInfo = ();
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 	pallet_nfts::runtime_benchmarks_enabled! {
 		type Helper = ();
 	}
@@ -148,10 +141,10 @@ impl Config for Test {
 }
 
 // Build genesis storage according to the mock runtime.
-pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
+pub(crate) fn new_test_ext() -> TestExternalities {
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
-	let mut ext = sp_io::TestExternalities::new(t);
+	let mut ext = TestExternalities::new(t);
 	ext.execute_with(|| System::set_block_number(1));
 	ext
 }

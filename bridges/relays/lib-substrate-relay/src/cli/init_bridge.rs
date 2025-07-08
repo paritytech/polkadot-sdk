@@ -24,21 +24,21 @@ use crate::{
 	finality_base::engine::Engine,
 };
 use bp_runtime::Chain as ChainBase;
+use clap::Parser;
 use relay_substrate_client::{AccountKeyPairOf, Chain, UnsignedTransaction};
 use sp_core::Pair;
-use structopt::StructOpt;
 
 /// Bridge initialization params.
-#[derive(StructOpt)]
+#[derive(Parser)]
 pub struct InitBridgeParams {
-	#[structopt(flatten)]
+	#[command(flatten)]
 	source: SourceConnectionParams,
-	#[structopt(flatten)]
+	#[command(flatten)]
 	target: TargetConnectionParams,
-	#[structopt(flatten)]
+	#[command(flatten)]
 	target_sign: TargetSigningParams,
 	/// Generates all required data, but does not submit extrinsic
-	#[structopt(long)]
+	#[arg(long)]
 	dry_run: bool,
 }
 

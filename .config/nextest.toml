@@ -21,8 +21,7 @@ retries = 5
 # The number of threads to run tests with. Supported values are either an integer or
 # the string "num-cpus". Can be overridden through the `--test-threads` option.
 # test-threads = "num-cpus"
-
-test-threads = 20
+test-threads = "num-cpus"
 
 # The number of threads required for each test. This is generally used in overrides to
 # mark certain tests as heavier than others. However, it can also be set as a global parameter.
@@ -123,4 +122,11 @@ serial-integration = { max-threads = 1 }
 # More info can be found here: https://github.com/paritytech/ci_cd/issues/754
 [[profile.default.overrides]]
 filter = 'test(/(^ui$|_ui|ui_)/)'
+test-group = 'serial-integration'
+
+# Running eth-rpc tests sequentially
+# These tests rely on a shared resource (the RPC and Node) 
+# and would cause race conditions due to transaction nonces if run in parallel.
+[[profile.default.overrides]]
+filter = 'package(pallet-revive-eth-rpc) and test(/^tests::/)'
 test-group = 'serial-integration'

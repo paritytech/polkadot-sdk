@@ -1,0 +1,18 @@
+title: Removes constraint in BlockNumberProvider from treasury
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    https://github.com/paritytech/polkadot-sdk/pull/3970 updated the treasury pallet to support
+    relay chain block number provider. However, it added a constraint to the `BlockNumberProvider`
+    trait to have the same block number type as `frame_system`:
+
+    ```rust
+    type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
+    ```
+
+    This PR removes that constraint and allows the treasury pallet to use any block number type.
+
+crates:
+- name: pallet-treasury
+  bump: major

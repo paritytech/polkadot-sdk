@@ -1,0 +1,11 @@
+title: New `staking::manual_slash` extrinsic
+
+doc:
+  - audience: Runtime Dev
+    description: A new `manual_slash` extrinsic that allows slashing a validator's stake manually by governance.
+
+crates:
+  - name: pallet-staking
+    bump: major
+  - name: westend-runtime
+    bump: major

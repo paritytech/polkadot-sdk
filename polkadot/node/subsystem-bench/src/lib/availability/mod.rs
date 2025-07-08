@@ -22,9 +22,7 @@ use crate::{
 		av_store::{MockAvailabilityStore, NetworkAvailabilityState},
 		chain_api::{ChainApiState, MockChainApi},
 		network_bridge::{self, MockNetworkBridgeRx, MockNetworkBridgeTx},
-		runtime_api::{
-			node_features_with_chunk_mapping_enabled, MockRuntimeApi, MockRuntimeApiCoreState,
-		},
+		runtime_api::{default_node_features, MockRuntimeApi, MockRuntimeApiCoreState},
 		AlwaysSupportsParachains,
 	},
 	network::new_network,
@@ -49,10 +47,7 @@ use polkadot_node_subsystem::{
 	messages::{AllMessages, AvailabilityRecoveryMessage},
 	Overseer, OverseerConnector, SpawnGlue,
 };
-use polkadot_node_subsystem_types::{
-	messages::{AvailabilityStoreMessage, NetworkBridgeEvent},
-	Span,
-};
+use polkadot_node_subsystem_types::messages::{AvailabilityStoreMessage, NetworkBridgeEvent};
 use polkadot_overseer::{metrics::Metrics as OverseerMetrics, Handle as OverseerHandle};
 use polkadot_primitives::{Block, CoreIndex, GroupIndex, Hash};
 use sc_network::request_responses::{IncomingRequest as RawIncomingRequest, ProtocolConfig};
@@ -356,12 +351,12 @@ pub async fn benchmark_availability_read(
 
 		let block_time = Instant::now().sub(block_start_ts).as_millis() as u64;
 		env.metrics().set_block_time(block_time);
-		gum::info!(target: LOG_TARGET, "All work for block completed in {}", format!("{:?}ms", block_time).cyan());
+		gum::info!(target: LOG_TARGET, "All work for block completed in {}", format!("{block_time:?}ms").cyan());
 	}
 
 	let duration: u128 = test_start.elapsed().as_millis();
 	let availability_bytes = availability_bytes / 1024;
-	gum::info!(target: LOG_TARGET, "All blocks processed in {}", format!("{:?}ms", duration).cyan());
+	gum::info!(target: LOG_TARGET, "All blocks processed in {}", format!("{duration:?}ms").cyan());
 	gum::info!(target: LOG_TARGET,
 		"Throughput: {}",
 		format!("{} KiB/block", availability_bytes / env.config().num_blocks as u128).bright_red()
@@ -372,7 +367,7 @@ pub async fn benchmark_availability_read(
 	);
 
 	env.stop().await;
-	env.collect_resource_usage(&["availability-recovery"])
+	env.collect_resource_usage(&["availability-recovery"], false)
 }
 
 pub async fn benchmark_availability_write(
@@ -394,10 +389,10 @@ pub async fn benchmark_availability_write(
 				candidate_hash: backed_candidate.hash(),
 				n_validators: config.n_validators as u32,
 				available_data,
-				expected_erasure_root: backed_candidate.descriptor().erasure_root,
+				expected_erasure_root: backed_candidate.descriptor().erasure_root(),
 				tx,
 				core_index: CoreIndex(core_index as u32),
-				node_features: node_features_with_chunk_mapping_enabled(),
+				node_features: default_node_features(),
 			},
 		))
 		.await;
@@ -421,7 +416,7 @@ pub async fn benchmark_availability_write(
 
 		// Inform bitfield distribution about our view of current test block
 		let message = polkadot_node_subsystem_types::messages::BitfieldDistributionMessage::NetworkBridgeUpdate(
-			NetworkBridgeEvent::OurViewChange(OurView::new(vec![(relay_block_hash, Arc::new(Span::Disabled))], 0))
+			NetworkBridgeEvent::OurViewChange(OurView::new(vec![relay_block_hash], 0))
 		);
 		env.send_message(AllMessages::BitfieldDistribution(message)).await;
 
@@ -495,20 +490,19 @@ pub async fn benchmark_availability_write(
 
 		let block_time = Instant::now().sub(block_start_ts).as_millis() as u64;
 		env.metrics().set_block_time(block_time);
-		gum::info!(target: LOG_TARGET, "All work for block completed in {}", format!("{:?}ms", block_time).cyan());
+		gum::info!(target: LOG_TARGET, "All work for block completed in {}", format!("{block_time:?}ms").cyan());
 	}
 
 	let duration: u128 = test_start.elapsed().as_millis();
-	gum::info!(target: LOG_TARGET, "All blocks processed in {}", format!("{:?}ms", duration).cyan());
+	gum::info!(target: LOG_TARGET, "All blocks processed in {}", format!("{duration:?}ms").cyan());
 	gum::info!(target: LOG_TARGET,
 		"Avg block time: {}",
 		format!("{} ms", test_start.elapsed().as_millis() / env.config().num_blocks as u128).red()
 	);
 
 	env.stop().await;
-	env.collect_resource_usage(&[
-		"availability-distribution",
-		"bitfield-distribution",
-		"availability-store",
-	])
+	env.collect_resource_usage(
+		&["availability-distribution", "bitfield-distribution", "availability-store"],
+		false,
+	)
 }

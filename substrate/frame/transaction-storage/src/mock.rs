@@ -21,10 +21,7 @@ use crate::{
 	self as pallet_transaction_storage, TransactionStorageProof, DEFAULT_MAX_BLOCK_TRANSACTIONS,
 	DEFAULT_MAX_TRANSACTION_SIZE,
 };
-use frame_support::{
-	derive_impl,
-	traits::{ConstU32, OnFinalize, OnInitialize},
-};
+use frame_support::{derive_impl, traits::ConstU32};
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
 pub type Block = frame_system::mocking::MockBlock<Test>;
@@ -68,6 +65,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		system: Default::default(),
 		balances: pallet_balances::GenesisConfig::<Test> {
 			balances: vec![(1, 1000000000), (2, 100), (3, 100), (4, 100)],
+			..Default::default()
 		},
 		transaction_storage: pallet_transaction_storage::GenesisConfig::<Test> {
 			storage_period: 10,
@@ -80,15 +78,13 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	t.into()
 }
 
-pub fn run_to_block(n: u64, f: impl Fn() -> Option<TransactionStorageProof>) {
-	while System::block_number() < n {
-		if let Some(proof) = f() {
-			TransactionStorage::check_proof(RuntimeOrigin::none(), proof).unwrap();
-		}
-		TransactionStorage::on_finalize(System::block_number());
-		System::on_finalize(System::block_number());
-		System::set_block_number(System::block_number() + 1);
-		System::on_initialize(System::block_number());
-		TransactionStorage::on_initialize(System::block_number());
-	}
+pub fn run_to_block(n: u64, f: impl Fn() -> Option<TransactionStorageProof> + 'static) {
+	System::run_to_block_with::<AllPalletsWithSystem>(
+		n,
+		frame_system::RunToBlockHooks::default().before_finalize(|_| {
+			if let Some(proof) = f() {
+				TransactionStorage::check_proof(RuntimeOrigin::none(), proof).unwrap();
+			}
+		}),
+	);
 }

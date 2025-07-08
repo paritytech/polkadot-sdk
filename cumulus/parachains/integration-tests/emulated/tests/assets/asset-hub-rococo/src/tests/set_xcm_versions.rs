@@ -67,7 +67,7 @@ fn system_para_sets_relay_xcm_supported_version() {
 	AssetHubRococo::execute_with(|| {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 
-		AssetHubRococo::assert_dmp_queue_complete(Some(Weight::from_parts(1_019_210_000, 200_000)));
+		AssetHubRococo::assert_dmp_queue_complete(Some(Weight::from_parts(115_294_000, 0)));
 
 		assert_expected_events!(
 			AssetHubRococo,

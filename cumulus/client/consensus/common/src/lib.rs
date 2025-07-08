@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use codec::Decode;
 use polkadot_primitives::{
@@ -39,6 +40,7 @@ mod tests;
 
 pub use parent_search::*;
 
+pub use cumulus_relay_chain_streams::finalized_heads;
 pub use parachain_consensus::run_parachain_consensus;
 
 use level_monitor::LevelMonitor;
@@ -185,7 +187,7 @@ where
 	}
 
 	async fn import_block(
-		&mut self,
+		&self,
 		mut params: sc_consensus::BlockImportParams<Block>,
 	) -> Result<sc_consensus::ImportResult, Self::Error> {
 		// Blocks are stored within the backend by using POST hash.

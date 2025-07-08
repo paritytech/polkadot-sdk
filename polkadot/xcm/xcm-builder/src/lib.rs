@@ -21,6 +21,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
+extern crate core;
 
 #[cfg(test)]
 mod tests;
@@ -42,9 +43,9 @@ mod barriers;
 pub use barriers::{
 	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	AllowUnpaidExecutionFrom, DenyReserveTransferToRelayChain, DenyThenTry, IsChildSystemParachain,
-	IsParentsOnly, IsSiblingSystemParachain, RespectSuspension, TakeWeightCredit,
-	TrailingSetTopicAsId, WithComputedOrigin,
+	AllowUnpaidExecutionFrom, DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry,
+	IsChildSystemParachain, IsParentsOnly, IsSiblingSystemParachain, RespectSuspension,
+	TakeWeightCredit, TrailingSetTopicAsId, WithComputedOrigin,
 };
 
 mod controller;
@@ -82,8 +83,9 @@ pub use location_conversion::{
 	ChildParachainConvertsVia, DescribeAccountId32Terminal, DescribeAccountIdTerminal,
 	DescribeAccountKey20Terminal, DescribeAllTerminal, DescribeBodyTerminal, DescribeFamily,
 	DescribeLocation, DescribePalletTerminal, DescribeTerminus, DescribeTreasuryVoiceTerminal,
-	GlobalConsensusConvertsFor, GlobalConsensusParachainConvertsFor, HashedDescription,
-	LocalTreasuryVoiceConvertsVia, ParentIsPreset, SiblingParachainConvertsVia,
+	ExternalConsensusLocationsConverterFor, GlobalConsensusConvertsFor,
+	GlobalConsensusParachainConvertsFor, HashedDescription, LocalTreasuryVoiceConvertsVia,
+	ParentIsPreset, SiblingParachainConvertsVia,
 };
 
 mod matches_location;
@@ -108,14 +110,14 @@ pub use nonfungible_adapter::{
 };
 
 mod origin_aliases;
-pub use origin_aliases::AliasForeignAccountId32;
+pub use origin_aliases::*;
 
 mod origin_conversion;
 pub use origin_conversion::{
 	BackingToPlurality, ChildParachainAsNative, ChildSystemParachainAsSuperuser, EnsureXcmOrigin,
-	OriginToPluralityVoice, ParentAsSuperuser, RelayChainAsNative, SiblingParachainAsNative,
-	SiblingSystemParachainAsSuperuser, SignedAccountId32AsNative, SignedAccountKey20AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation,
+	LocationAsSuperuser, OriginToPluralityVoice, ParentAsSuperuser, RelayChainAsNative,
+	SiblingParachainAsNative, SiblingSystemParachainAsSuperuser, SignedAccountId32AsNative,
+	SignedAccountKey20AsNative, SignedToAccountId32, SovereignSignedViaLocation,
 };
 
 mod pay;
@@ -132,11 +134,13 @@ pub use routing::{
 mod transactional;
 pub use transactional::FrameTransactionalProcessor;
 
+#[allow(deprecated)]
+pub use universal_exports::UnpaidLocalExporter;
 mod universal_exports;
 pub use universal_exports::{
 	ensure_is_remote, BridgeBlobDispatcher, BridgeMessage, DispatchBlob, DispatchBlobError,
-	ExporterFor, HaulBlob, HaulBlobError, HaulBlobExporter, NetworkExportTable,
-	NetworkExportTableItem, SovereignPaidRemoteExporter, UnpaidLocalExporter, UnpaidRemoteExporter,
+	ExporterFor, HaulBlob, HaulBlobError, HaulBlobExporter, LocalExporter, NetworkExportTable,
+	NetworkExportTableItem, SovereignPaidRemoteExporter, UnpaidRemoteExporter,
 };
 
 mod weight;

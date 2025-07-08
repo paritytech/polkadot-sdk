@@ -1,0 +1,9 @@
+title: 'pallet-revive: Remove unused dependencies'
+doc:
+- audience: Runtime Dev
+  description: The dependency on `pallet_balances` doesn't seem to be necessary. At
+    least everything compiles for me without it. Removed this dependency and a few
+    others that seem to be left overs.
+crates:
+- name: pallet-revive
+  bump: major

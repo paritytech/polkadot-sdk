@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Substrate is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Substrate is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+// along with Substrate. If not, see <https://www.gnu.org/licenses/>.
 
 //! Bitswap server for Substrate.
 //!
@@ -23,6 +24,7 @@
 use crate::{
 	request_responses::{IncomingRequest, OutgoingResponse, ProtocolConfig},
 	types::ProtocolName,
+	MAX_RESPONSE_SIZE,
 };
 
 use cid::{self, Version};
@@ -47,7 +49,7 @@ const LOG_TARGET: &str = "bitswap";
 // https://github.com/ipfs/js-ipfs-bitswap/blob/
 // d8f80408aadab94c962f6b88f343eb9f39fa0fcc/src/decision-engine/index.js#L16
 // We set it to the same value as max substrate protocol message
-const MAX_PACKET_SIZE: u64 = 16 * 1024 * 1024;
+const MAX_PACKET_SIZE: u64 = MAX_RESPONSE_SIZE;
 
 /// Max number of queued responses before denying requests.
 const MAX_REQUEST_QUEUE: usize = 20;
@@ -468,7 +470,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn transaction_found() {
-		let mut client = TestClientBuilder::with_tx_storage(u32::MAX).build();
+		let client = TestClientBuilder::with_tx_storage(u32::MAX).build();
 		let mut block_builder = BlockBuilderBuilder::new(&client)
 			.on_parent_block(client.chain_info().genesis_hash)
 			.with_parent_block_number(0)

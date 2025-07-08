@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Fellowship custom origins.
 
@@ -31,7 +31,17 @@ pub mod pallet_origins {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
-	#[derive(PartialEq, Eq, Clone, MaxEncodedLen, Encode, Decode, TypeInfo, RuntimeDebug)]
+	#[derive(
+		PartialEq,
+		Eq,
+		Clone,
+		MaxEncodedLen,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		TypeInfo,
+		RuntimeDebug,
+	)]
 	#[pallet::origin]
 	pub enum Origin {
 		/// Origin aggregated through weighted votes of those with rank 1 or above; `Success` is 1.
@@ -136,15 +146,18 @@ pub mod pallet_origins {
 	macro_rules! decl_unit_ensures {
 		( $name:ident: $success_type:ty = $success:expr ) => {
 			pub struct $name;
-			impl<O: Into<Result<Origin, O>> + From<Origin>>
-				EnsureOrigin<O> for $name
+			impl<O: OriginTrait + From<Origin>> EnsureOrigin<O> for $name
+			where
+				for <'a> &'a O::PalletsOrigin: TryInto<&'a Origin>,
 			{
 				type Success = $success_type;
 				fn try_origin(o: O) -> Result<Self::Success, O> {
-					o.into().and_then(|o| match o {
-						Origin::$name => Ok($success),
-						r => Err(O::from(r)),
-					})
+					match o.caller().try_into() {
+						Ok(Origin::$name) => return Ok($success),
+						_ => (),
+					}
+
+					Err(o)
 				}
 				#[cfg(feature = "runtime-benchmarks")]
 				fn try_successful_origin() -> Result<O, ()> {
@@ -177,17 +190,20 @@ pub mod pallet_origins {
 			}
 		) => {
 			$vis struct $name;
-			impl<O: Into<Result<Origin, O>> + From<Origin>>
-				EnsureOrigin<O> for $name
+			impl<O: OriginTrait + From<Origin>> EnsureOrigin<O> for $name
+			where
+				for <'a> &'a O::PalletsOrigin: TryInto<&'a Origin>,
 			{
 				type Success = $success_type;
 				fn try_origin(o: O) -> Result<Self::Success, O> {
-					o.into().and_then(|o| match o {
+					match o.caller().try_into() {
 						$(
-							Origin::$item => Ok($success),
+							Ok(Origin::$item) => return Ok($success),
 						)*
-						r => Err(O::from(r)),
-					})
+						_ => (),
+					}
+
+					Err(o)
 				}
 				#[cfg(feature = "runtime-benchmarks")]
 				fn try_successful_origin() -> Result<O, ()> {

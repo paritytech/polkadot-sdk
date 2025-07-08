@@ -13,13 +13,13 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-log = { workspace = true }
-scale-info = { features = ["derive", "serde"], workspace = true }
-serde = { optional = true, workspace = true, default-features = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+log = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-session = { workspace = true }
+scale-info = { features = ["derive", "serde"], workspace = true }
+serde = { optional = true, workspace = true, default-features = true }
 sp-consensus-beefy = { features = ["serde"], workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
 sp-session = { workspace = true }
@@ -36,6 +36,7 @@ sp-core = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-staking = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true }
+sp-tracing = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

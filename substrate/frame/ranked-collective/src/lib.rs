@@ -42,24 +42,23 @@
 
 extern crate alloc;
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
+use frame_support::{
+	dispatch::{DispatchResultWithPostInfo, PostDispatchInfo},
+	ensure, impl_ensure_origin_with_arg_ignoring_arg,
+	traits::{
+		EnsureOrigin, EnsureOriginWithArg, OriginTrait, PollStatus, Polling, RankedMembers,
+		RankedMembersSwapHandler, VoteTally,
+	},
+	CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+};
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::Saturating;
 use sp_runtime::{
 	traits::{Convert, StaticLookup},
 	ArithmeticError::Overflow,
 	DispatchError, Perbill, RuntimeDebug,
-};
-
-use frame_support::{
-	dispatch::{DispatchResultWithPostInfo, PostDispatchInfo},
-	ensure, impl_ensure_origin_with_arg_ignoring_arg,
-	traits::{
-		EnsureOrigin, EnsureOriginWithArg, PollStatus, Polling, RankedMembers,
-		RankedMembersSwapHandler, VoteTally,
-	},
-	CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 
 #[cfg(test)]
@@ -90,6 +89,7 @@ pub type Votes = u32;
 	TypeInfo,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(T, I, M))]
@@ -189,7 +189,18 @@ impl MemberRecord {
 }
 
 /// Record needed for every vote.
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	PartialEq,
+	Eq,
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum VoteRecord {
 	/// Vote was an aye with given vote weight.
 	Aye(Votes),
@@ -268,10 +279,9 @@ impl<T: Config<I>, I: 'static, const MIN_RANK: u16> EnsureOrigin<T::RuntimeOrigi
 	type Success = Rank;
 
 	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
-		let who = <frame_system::EnsureSigned<_> as EnsureOrigin<_>>::try_origin(o)?;
-		match Members::<T, I>::get(&who) {
+		match o.as_signer().and_then(|who| Members::<T, I>::get(who)) {
 			Some(MemberRecord { rank, .. }) if rank >= MIN_RANK => Ok(rank),
-			_ => Err(frame_system::RawOrigin::Signed(who).into()),
+			_ => Err(o),
 		}
 	}
 
@@ -294,10 +304,12 @@ impl<T: Config<I>, I: 'static> EnsureOriginWithArg<T::RuntimeOrigin, Rank> for E
 	type Success = (T::AccountId, Rank);
 
 	fn try_origin(o: T::RuntimeOrigin, min_rank: &Rank) -> Result<Self::Success, T::RuntimeOrigin> {
-		let who = <frame_system::EnsureSigned<_> as EnsureOrigin<_>>::try_origin(o)?;
-		match Members::<T, I>::get(&who) {
-			Some(MemberRecord { rank, .. }) if rank >= *min_rank => Ok((who, rank)),
-			_ => Err(frame_system::RawOrigin::Signed(who).into()),
+		let Some(who) = o.as_signer() else {
+			return Err(o);
+		};
+		match Members::<T, I>::get(who) {
+			Some(MemberRecord { rank, .. }) if rank >= *min_rank => Ok((who.clone(), rank)),
+			_ => Err(o),
 		}
 	}
 
@@ -319,10 +331,12 @@ impl<T: Config<I>, I: 'static, const MIN_RANK: u16> EnsureOrigin<T::RuntimeOrigi
 	type Success = T::AccountId;
 
 	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
-		let who = <frame_system::EnsureSigned<_> as EnsureOrigin<_>>::try_origin(o)?;
-		match Members::<T, I>::get(&who) {
-			Some(MemberRecord { rank, .. }) if rank >= MIN_RANK => Ok(who),
-			_ => Err(frame_system::RawOrigin::Signed(who).into()),
+		let Some(who) = o.as_signer() else {
+			return Err(o);
+		};
+		match Members::<T, I>::get(who) {
+			Some(MemberRecord { rank, .. }) if rank >= MIN_RANK => Ok(who.clone()),
+			_ => Err(o),
 		}
 	}
 
@@ -347,10 +361,12 @@ impl<T: Config<I>, I: 'static, const MIN_RANK: u16> EnsureOrigin<T::RuntimeOrigi
 	type Success = (T::AccountId, Rank);
 
 	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
-		let who = <frame_system::EnsureSigned<_> as EnsureOrigin<_>>::try_origin(o)?;
-		match Members::<T, I>::get(&who) {
-			Some(MemberRecord { rank, .. }) if rank >= MIN_RANK => Ok((who, rank)),
-			_ => Err(frame_system::RawOrigin::Signed(who).into()),
+		let Some(who) = o.as_signer() else {
+			return Err(o);
+		};
+		match Members::<T, I>::get(who) {
+			Some(MemberRecord { rank, .. }) if rank >= MIN_RANK => Ok((who.clone(), rank)),
+			_ => Err(o),
 		}
 	}
 
@@ -392,6 +408,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// The runtime event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 

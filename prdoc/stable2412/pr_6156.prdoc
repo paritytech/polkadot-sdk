@@ -1,0 +1,23 @@
+title: "Use bool::then instead of then_some with function calls"
+doc:
+- audience: Node Dev
+  description: |-
+    Fix misusage of `bool::then_some`.
+
+crates:
+- name: polkadot-omni-node-lib
+  bump: patch
+- name: polkadot-cli
+  bump: patch
+- name: polkadot-collator-protocol
+  bump: patch
+- name: sc-network
+  bump: patch
+- name: sc-network-sync
+  bump: patch
+- name: pallet-contracts-proc-macro
+  bump: patch
+- name: frame-support-procedural
+  bump: patch
+- name: frame-support
+  bump: patch

@@ -1,0 +1,10 @@
+title: "Size limits implemented for fork aware transaction pool"
+
+doc:
+  - audience: Node Dev
+    description: |
+      Size limits are now obeyed in fork aware transaction pool
+
+crates:
+  - name: sc-transaction-pool
+    bump: minor

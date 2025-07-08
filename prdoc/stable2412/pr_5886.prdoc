@@ -1,0 +1,18 @@
+title: Bump some dependencies
+doc:
+- audience: Runtime Dev
+  description: |-
+    This bumps `ethbloom`, `ethereum-types`, `primitive-types` and `rlp` to their latest version.
+
+    Fixes: https://github.com/paritytech/polkadot-sdk/issues/5870
+crates:
+- name: sc-consensus-babe
+  bump: patch
+- name: pallet-babe
+  bump: patch
+- name: pallet-revive
+  bump: patch
+- name: sp-runtime
+  bump: patch
+- name: bp-polkadot-core
+  bump: major

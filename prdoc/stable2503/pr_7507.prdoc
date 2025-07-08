@@ -1,0 +1,9 @@
+title: 'Fix compilation warnings '
+doc:
+- audience: Runtime Dev
+  description: This should fix some compilation warnings discovered under rustc 1.83
+crates:
+- name: pallet-example-view-functions
+  bump: minor
+- name: sp-consensus-beefy
+  bump: minor

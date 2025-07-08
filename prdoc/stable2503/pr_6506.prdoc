@@ -1,0 +1,10 @@
+title: Zero refund check for FungibleAdapter
+doc:
+- audience: Runtime User
+  description: |-
+    `FungibleAdapter` will now check if the _refund amount_ is zero before calling deposit & emitting an event.
+
+    Fixes https://github.com/paritytech/polkadot-sdk/issues/6469.
+crates:
+- name: pallet-transaction-payment
+  bump: patch

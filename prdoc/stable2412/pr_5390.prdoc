@@ -1,0 +1,55 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Remove NetworkIds for testnets Rococo and Westend
+
+doc:
+  - audience: [Runtime Dev, Runtime User]
+    description: |
+      Implemetation of https://github.com/polkadot-fellows/RFCs/pull/108, in the version 5 of XCM, 
+      Remove `Westend` and `Rococo` from the included `NetworkId`s to improve the stability of the language.
+
+      `NetworkId::Rococo` and `NetworkId::Westend` can just use `NetworkId::ByGenesis` by importing their genesis 
+      block hash
+
+crates:
+  - name: staging-xcm
+    bump: major
+  - name: pallet-xcm-bridge-hub
+    bump: patch
+  - name: snowbridge-pallet-system
+    bump: patch
+  - name: asset-hub-rococo-runtime
+    bump: patch
+  - name: asset-hub-westend-runtime
+    bump: patch
+  - name: bridge-hub-rococo-runtime
+    bump: patch
+  - name: bridge-hub-westend-runtime
+    bump: patch
+  - name: collectives-westend-runtime
+    bump: patch
+  - name: contracts-rococo-runtime
+    bump: patch
+  - name: coretime-rococo-runtime
+    bump: patch
+  - name: coretime-westend-runtime
+    bump: patch
+  - name: glutton-westend-runtime
+    bump: patch
+  - name: people-rococo-runtime
+    bump: patch
+  - name: people-westend-runtime
+    bump: patch
+  - name: penpal-runtime
+    bump: patch
+  - name: rococo-parachain-runtime
+    bump: patch
+  - name: xcm-runtime-apis
+    bump: patch
+  - name: rococo-runtime
+    bump: patch
+  - name: westend-runtime
+    bump: patch
+  - name: assets-common
+    bump: patch

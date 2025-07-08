@@ -33,6 +33,7 @@ pub const CHANGED_IN_ATTRIBUTE: &str = "changed_in";
 ///
 /// Is used when a trait method was renamed.
 pub const RENAMED_ATTRIBUTE: &str = "renamed";
+
 /// All attributes that we support in the declaration of a runtime api trait.
 pub const SUPPORTED_ATTRIBUTE_NAMES: &[&str] =
 	&[CORE_TRAIT_ATTRIBUTE, API_VERSION_ATTRIBUTE, CHANGED_IN_ATTRIBUTE, RENAMED_ATTRIBUTE];

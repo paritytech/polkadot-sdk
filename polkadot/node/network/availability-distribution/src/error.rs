@@ -23,7 +23,7 @@ use polkadot_primitives::SessionIndex;
 
 use futures::channel::oneshot;
 
-use polkadot_node_subsystem::{ChainApiError, SubsystemError};
+use polkadot_node_subsystem::{ChainApiError, RuntimeApiError, SubsystemError};
 use polkadot_node_subsystem_util::runtime;
 
 use crate::LOG_TARGET;
@@ -54,6 +54,9 @@ pub enum Error {
 	#[fatal]
 	#[error("Retrieving response from Chain API unexpectedly failed with error: {0}")]
 	ChainApi(#[from] ChainApiError),
+
+	#[error("Failed to get node features from the runtime")]
+	FailedNodeFeatures(#[source] RuntimeApiError),
 
 	// av-store will drop the sender on any error that happens.
 	#[error("Response channel to obtain chunk failed")]
@@ -108,6 +111,7 @@ pub fn log_error(
 				JfyiError::NoSuchCachedSession { .. } |
 				JfyiError::QueryAvailableDataResponseChannel(_) |
 				JfyiError::QueryChunkResponseChannel(_) |
+				JfyiError::FailedNodeFeatures(_) |
 				JfyiError::ErasureCoding(_) => gum::warn!(target: LOG_TARGET, error = %jfyi, ctx),
 				JfyiError::FetchPoV(_) |
 				JfyiError::SendResponse |

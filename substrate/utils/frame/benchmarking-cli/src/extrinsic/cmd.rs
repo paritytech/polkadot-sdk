@@ -118,7 +118,8 @@ impl ExtrinsicCmd {
 				return Err("Unknown pallet or extrinsic. Use --list for a complete list.".into()),
 		};
 
-		let bench = Benchmark::new(client, self.params.bench.clone(), inherent_data, digest_items);
+		let bench =
+			Benchmark::new(client, self.params.bench.clone(), inherent_data, digest_items, false);
 		let stats = bench.bench_extrinsic(ext_builder)?;
 		info!(
 			"Executing a {}::{} extrinsic takes[ns]:\n{:?}",

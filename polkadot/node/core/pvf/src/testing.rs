@@ -72,7 +72,7 @@ pub fn build_workers_and_get_paths() -> (PathBuf, PathBuf) {
 			"--bin=polkadot-execute-worker",
 		];
 
-		if cfg!(build_type = "release") {
+		if cfg!(build_profile = "release") {
 			build_args.push("--release");
 		}
 

@@ -27,6 +27,7 @@ use crate::{
 		System,
 	},
 };
+use codec::Decode;
 use frame_support::traits::OnRuntimeUpgrade;
 use pallet_migrations::WeightInfo as _;
 
@@ -51,10 +52,18 @@ fn lazy_migration_works() {
 		let mut last_decodable = 0;
 		for block in 2..=65 {
 			run_to_block(block);
+
 			let mut decodable = 0;
 			for i in 0..1024 {
-				if crate::MyMap::<T>::get(i).is_some() {
+				let key = crate::MyMap::<T>::hashed_key_for(i);
+				let value =
+					frame_support::storage::unhashed::get_raw(&key[..]).expect("value exists");
+
+				if let Ok(value) = u64::decode(&mut &value[..]) {
+					assert_eq!(value, i as u64);
 					decodable += 1;
+				} else {
+					assert_eq!(u32::decode(&mut &value[..]).expect("not migrated yet"), i);
 				}
 			}
 

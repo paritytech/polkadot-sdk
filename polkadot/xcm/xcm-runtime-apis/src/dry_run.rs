@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
+// SPDX-License-Identifier: Apache-2.0
 
-// Substrate is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Substrate is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Runtime API definition for dry-running XCM-related extrinsics.
 //! This API can be used to simulate XCMs and, for example, find the fees
@@ -57,8 +57,18 @@ sp_api::decl_runtime_apis! {
 	/// Calls or XCMs might fail when executed, this doesn't mean the result of these calls will be an `Err`.
 	/// In those cases, there might still be a valid result, with the execution error inside it.
 	/// The only reasons why these calls might return an error are listed in the [`Error`] enum.
-	pub trait DryRunApi<Call: Encode, Event: Decode, OriginCaller: Encode> {
-		/// Dry run call.
+	#[api_version(2)]
+	pub trait DryRunApi<Call, Event, OriginCaller>
+	where
+		Call: Encode,
+		Event: Decode,
+		OriginCaller: Encode
+	{
+		/// Dry run call V2.
+		fn dry_run_call(origin: OriginCaller, call: Call, result_xcms_version: XcmVersion) -> Result<CallDryRunEffects<Event>, Error>;
+
+		/// Dry run call V1.
+		#[changed_in(2)]
 		fn dry_run_call(origin: OriginCaller, call: Call) -> Result<CallDryRunEffects<Event>, Error>;
 
 		/// Dry run XCM program

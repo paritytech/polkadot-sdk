@@ -15,26 +15,68 @@
 
 use crate::imports::*;
 use emulated_integration_tests_common::{
-	test_parachain_is_trusted_teleporter_for_relay, test_relay_is_trusted_teleporter,
+	test_parachain_is_trusted_teleporter, test_parachain_is_trusted_teleporter_for_relay,
+	test_relay_is_trusted_teleporter,
 };
 
 #[test]
-fn teleport_from_and_to_relay() {
+fn teleport_via_limited_teleport_assets_from_and_to_relay() {
 	let amount = ROCOCO_ED * 100;
 	let native_asset: Assets = (Here, amount).into();
 
 	test_relay_is_trusted_teleporter!(
 		Rococo,
-		RococoXcmConfig,
 		vec![PeopleRococo],
-		(native_asset, amount)
+		(native_asset, amount),
+		limited_teleport_assets
 	);
 
 	test_parachain_is_trusted_teleporter_for_relay!(
 		PeopleRococo,
-		PeopleRococoXcmConfig,
 		Rococo,
-		amount
+		amount,
+		limited_teleport_assets
+	);
+}
+
+#[test]
+fn teleport_via_transfer_assets_from_and_to_relay() {
+	let amount = ROCOCO_ED * 100;
+	let native_asset: Assets = (Here, amount).into();
+
+	test_relay_is_trusted_teleporter!(
+		Rococo,
+		vec![PeopleRococo],
+		(native_asset, amount),
+		transfer_assets
+	);
+
+	test_parachain_is_trusted_teleporter_for_relay!(PeopleRococo, Rococo, amount, transfer_assets);
+}
+
+#[test]
+fn teleport_via_limited_teleport_assets_to_other_system_parachains_works() {
+	let amount = ROCOCO_ED * 100;
+	let native_asset: Assets = (Parent, amount).into();
+
+	test_parachain_is_trusted_teleporter!(
+		PeopleRococo,         // Origin
+		vec![AssetHubRococo], // Destinations
+		(native_asset, amount),
+		limited_teleport_assets
+	);
+}
+
+#[test]
+fn teleport_via_transfer_assets_to_other_system_parachains_works() {
+	let amount = ROCOCO_ED * 100;
+	let native_asset: Assets = (Parent, amount).into();
+
+	test_parachain_is_trusted_teleporter!(
+		PeopleRococo,         // Origin
+		vec![AssetHubRococo], // Destinations
+		(native_asset, amount),
+		transfer_assets
 	);
 }
 
@@ -107,7 +149,9 @@ fn limited_teleport_native_assets_from_system_para_to_relay_fails() {
 	let delivery_fees = PeopleRococo::execute_with(|| {
 		xcm_helpers::teleport_assets_delivery_fees::<
 			<PeopleRococoXcmConfig as xcm_executor::Config>::XcmSender,
-		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
+		>(
+			test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest
+		)
 	});
 
 	// Sender's balance is reduced

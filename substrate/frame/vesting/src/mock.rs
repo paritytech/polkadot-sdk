@@ -94,6 +94,7 @@ impl ExtBuilder {
 				(12, 10 * self.existential_deposit),
 				(13, 9999 * self.existential_deposit),
 			],
+			..Default::default()
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
@@ -115,4 +116,15 @@ impl ExtBuilder {
 		ext.execute_with(|| System::set_block_number(1));
 		ext
 	}
+}
+
+parameter_types! {
+	static ObservedEventsVesting: usize = 0;
+}
+
+pub(crate) fn vesting_events_since_last_call() -> Vec<pallet_vesting::Event<Test>> {
+	let events = System::read_events_for_pallet::<pallet_vesting::Event<Test>>();
+	let already_seen = ObservedEventsVesting::get();
+	ObservedEventsVesting::set(events.len());
+	events.into_iter().skip(already_seen).collect()
 }

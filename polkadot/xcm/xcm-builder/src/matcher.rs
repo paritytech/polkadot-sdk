@@ -1,12 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
-// Substrate is free software: you can redistribute it and/or modify
+// Polkadot is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Substrate is distributed in the hope that it will be useful,
+// Polkadot is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
@@ -178,6 +178,20 @@ mod tests {
 	use super::*;
 	use std::{vec, vec::Vec};
 	use xcm::latest::prelude::*;
+
+	#[test]
+	fn match_next_inst_works() {
+		let test_cases: Vec<(Vec<Instruction<()>>, bool)> =
+			vec![(vec![ClearOrigin], true), (vec![Trap(0)], false)];
+
+		for (mut xcm, expected) in test_cases.into_iter() {
+			let result = xcm.matcher().match_next_inst(|inst| match inst {
+				ClearOrigin => Ok(()),
+				_ => Err(ProcessMessageError::Unsupported),
+			});
+			assert_eq!(result.is_ok(), expected);
+		}
+	}
 
 	#[test]
 	fn match_next_inst_while_works() {

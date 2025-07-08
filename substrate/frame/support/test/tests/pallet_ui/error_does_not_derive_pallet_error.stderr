@@ -5,12 +5,12 @@ error[E0277]: the trait bound `MyError: PalletError` is not satisfied
    |                     ^^^^^^^^^^^^^^ the trait `PalletError` is not implemented for `MyError`
    |
    = help: the following other types implement trait `PalletError`:
-             bool
-             i8
-             i16
-             i32
-             i64
-             i128
-             u8
-             u16
+             ()
+             (TupleElement0, TupleElement1)
+             (TupleElement0, TupleElement1, TupleElement2)
+             (TupleElement0, TupleElement1, TupleElement2, TupleElement3)
+             (TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4)
+             (TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5)
+             (TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6)
+             (TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7)
            and $N others

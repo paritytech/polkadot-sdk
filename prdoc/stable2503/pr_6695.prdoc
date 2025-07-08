@@ -1,0 +1,8 @@
+title: '[pallet-revive] bugfix decoding 64bit args in the decoder'
+doc:
+- audience: Runtime Dev
+  description: The argument index of the next argument is dictated by the size of
+    the current one.
+crates:
+- name: pallet-revive-proc-macro
+  bump: patch

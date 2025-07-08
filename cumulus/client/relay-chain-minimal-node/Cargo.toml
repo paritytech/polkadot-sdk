@@ -5,43 +5,46 @@ version = "0.7.0"
 edition.workspace = true
 description = "Minimal node implementation to be used in tandem with RPC or light-client mode."
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
 
 [dependencies]
 # polkadot deps
-polkadot-primitives = { workspace = true, default-features = true }
 polkadot-core-primitives = { workspace = true, default-features = true }
-polkadot-overseer = { workspace = true, default-features = true }
-polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-node-network-protocol = { workspace = true, default-features = true }
+polkadot-node-subsystem-util = { workspace = true, default-features = true }
+polkadot-overseer = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
 
 polkadot-network-bridge = { workspace = true, default-features = true }
 polkadot-service = { workspace = true, default-features = true }
 
 # substrate deps
+prometheus-endpoint = { workspace = true, default-features = true }
 sc-authority-discovery = { workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
 sc-network-common = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
-sc-client-api = { workspace = true, default-features = true }
-prometheus-endpoint = { workspace = true, default-features = true }
 sc-tracing = { workspace = true, default-features = true }
 sc-utils = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
-sp-consensus-babe = { workspace = true, default-features = true }
-sp-consensus = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
-tokio = { features = ["macros"], workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+sp-consensus-babe = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
 
 # cumulus deps
+cumulus-client-bootnodes = { workspace = true, default-features = true }
+cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
 cumulus-relay-chain-rpc-interface = { workspace = true, default-features = true }
-cumulus-primitives-core = { workspace = true, default-features = true }
 
 array-bytes = { workspace = true, default-features = true }
-tracing = { workspace = true, default-features = true }
+async-channel = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
+tracing = { workspace = true, default-features = true }

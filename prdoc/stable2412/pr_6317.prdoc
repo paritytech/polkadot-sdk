@@ -1,0 +1,12 @@
+title: eth-rpc fixes
+doc:
+- audience: Runtime Dev
+  description: |
+    Various fixes for the release of eth-rpc & ah-westend-runtime:
+    - Bump asset-hub westend spec version
+    - Fix the status of the Receipt to properly report failed transactions
+    - Fix value conversion between native and eth decimal representation
+
+crates:
+- name: asset-hub-westend-runtime
+  bump: patch

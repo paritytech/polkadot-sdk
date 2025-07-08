@@ -106,6 +106,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// The runtime event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The origin permissioned to create a conversion rate for an asset.

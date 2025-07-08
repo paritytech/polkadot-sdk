@@ -5,6 +5,8 @@ version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -18,9 +20,11 @@ log = { workspace = true, default-features = true }
 tracing = { workspace = true, default-features = true }
 
 # Substrate
+prometheus-endpoint = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
 sc-consensus-babe = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-consensus-slots = { workspace = true, default-features = true }
@@ -29,15 +33,15 @@ sp-runtime = { workspace = true, default-features = true }
 sp-timestamp = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
-prometheus-endpoint = { workspace = true, default-features = true }
 
 # Polkadot
 polkadot-primitives = { workspace = true, default-features = true }
 
 # Cumulus
+cumulus-client-pov-recovery = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
-cumulus-client-pov-recovery = { workspace = true, default-features = true }
+cumulus-relay-chain-streams = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 
 [dev-dependencies]

@@ -1,0 +1,10 @@
+title: 'pallet-membership: Do not verify the `MembershipChanged` in bechmarks'
+doc:
+- audience: Runtime Dev
+  description: |-
+    There is no need to verify in the `pallet-membership` benchmark that the `MemembershipChanged` implementation works as the pallet thinks it should work. If you for example set it to `()`, `get_prime()` will always return `None`.
+
+    TLDR: Remove the checks of `MembershipChanged` in the benchmarks to support any kind of implementation.
+crates:
+- name: pallet-membership
+  bump: patch

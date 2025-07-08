@@ -1,0 +1,14 @@
+title: '[pallet-revive] change some getter APIs to return value in register'
+doc:
+- audience: Runtime Dev
+  description: Call data, return data and code sizes can never exceed `u32::MAX`;
+    they are also not generic. Hence we know that they are guaranteed to always fit
+    into a 64bit register and `revive` can just zero extend them into a 256bit integer
+    value. Which is slightly more efficient than passing them on the stack.
+crates:
+- name: pallet-revive-fixtures
+  bump: major
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-uapi
+  bump: major

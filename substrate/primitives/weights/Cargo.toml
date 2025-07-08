@@ -19,11 +19,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 bounded-collections = { workspace = true }
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+schemars = { optional = true, workspace = true }
 serde = { optional = true, features = ["alloc", "derive"], workspace = true }
 smallvec = { workspace = true, default-features = true }
 sp-arithmetic = { workspace = true }
 sp-debug-derive = { workspace = true }
-schemars = { optional = true, workspace = true }
 
 [features]
 default = ["std"]
@@ -47,6 +47,4 @@ serde = [
 	"sp-arithmetic/serde",
 ]
 
-json-schema = [
-	"dep:schemars",
-]
+json-schema = ["dep:schemars"]

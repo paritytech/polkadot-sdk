@@ -1,0 +1,10 @@
+title: '[pallet-revive] Update typeInfo'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Update typeinfo impl to make it transparent for subxt
+
+    see https://github.com/paritytech/subxt/pull/1845
+crates:
+- name: pallet-revive
+  bump: minor

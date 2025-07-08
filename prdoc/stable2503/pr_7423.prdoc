@@ -1,0 +1,17 @@
+title: Fix issue with InitiateTransfer and UnpaidExecution
+doc:
+- audience: Runtime Dev
+  description: 
+    Fix issue where setting the `remote_fees` field of `InitiateTransfer` to `None` could lead to unintended bypassing of fees in certain conditions.
+    `UnpaidExecution` is now appended **after** origin alteration.
+    If planning to use `UnpaidExecution`, you need to set `preserve_origin = true`.
+
+    The `AllowExplicitUnpaidExecutionFrom` barrier now allows instructions for receiving funds before origin altering instructions before
+    the actual `UnpaidExecution`.
+    It takes a new generic, `Aliasers`, needed for executing `AliasOrigin` to see if the effective origin is allowed to use `UnpaidExecution`.
+    This should be set to the same value as `Aliasers` in the XCM configuration.
+crates:
+- name: staging-xcm-builder
+  bump: patch
+- name: staging-xcm-executor
+  bump: patch

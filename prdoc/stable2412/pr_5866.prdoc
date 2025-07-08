@@ -1,0 +1,23 @@
+title: "[pallet-revive] Ethereum JSON-RPC integration"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Related PR: https://github.com/paritytech/revive-ethereum-rpc/pull/5
+
+      Changes Included:
+      -  A new pallet::call  eth_transact.
+      - A custom UncheckedExtrinsic struct to dispatch unsigned eth_transact calls from an Ethereum JSON-RPC proxy.
+      - Generated types and traits to support implementing a JSON-RPC Ethereum proxy.
+crates:
+  - name: pallet-revive
+    bump: major
+  - name: pallet-revive-fixtures
+    bump: patch
+  - name: pallet-revive-mock-network 
+    bump: patch
+  - name: pallet-revive-uapi
+    bump: patch
+  - name: polkadot-sdk
+    bump: patch
+

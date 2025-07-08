@@ -44,7 +44,7 @@ impl MetricsLink {
 }
 
 /// The reason why proposing a block ended.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum EndProposingReason {
 	NoMoreTransactions,
 	HitDeadline,

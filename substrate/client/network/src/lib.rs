@@ -291,6 +291,9 @@ pub use service::{
 };
 pub use types::ProtocolName;
 
+/// Log target for `sc-network`.
+const LOG_TARGET: &str = "sub-libp2p";
+
 /// The maximum allowed number of established connections per peer.
 ///
 /// Typically, and by design of the network behaviours in this crate,
@@ -302,3 +305,6 @@ const MAX_CONNECTIONS_PER_PEER: usize = 2;
 
 /// The maximum number of concurrent established connections that were incoming.
 const MAX_CONNECTIONS_ESTABLISHED_INCOMING: u32 = 10_000;
+
+/// Maximum response size limit.
+pub const MAX_RESPONSE_SIZE: u64 = 16 * 1024 * 1024;

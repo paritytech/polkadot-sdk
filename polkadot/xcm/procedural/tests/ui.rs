@@ -16,7 +16,6 @@
 
 //! UI tests for XCM procedural macros
 
-#[cfg(not(feature = "disable-ui-tests"))]
 #[test]
 fn ui() {
 	// Only run the ui tests when `RUN_UI_TESTS` is set.

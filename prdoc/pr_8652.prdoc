@@ -1,0 +1,10 @@
+title: '[pallet-revive] impl_revive_api macro'
+doc:
+- audience: Runtime Dev
+  description: Move pallet-revive runtime api implementation in a macro, so that we
+    don't repeat the code for every runtime.
+crates:
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: pallet-revive
+  bump: minor

@@ -1,0 +1,17 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Extend state tracking of chainHead to capture notification gaps
+
+doc:
+  - audience: Node Dev
+    description: |
+      This PR extends the state tracking of the RPC-v2 chainHead methods.
+      ChainHead tracks the reported blocks to detect notification gaps.
+      This state tracking ensures we can detect `NewBlock` events for
+      which we did not report previously the parent hash.
+
+crates:
+  - name: sc-rpc-spec-v2
+    bump: minor
+

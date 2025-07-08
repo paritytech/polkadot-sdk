@@ -1,0 +1,8 @@
+title: '[pallet-revive] Remove revive events'
+doc:
+- audience: Runtime Dev
+  description: Remove all pallet::events except for the `ContractEmitted` event that
+    is emitted by contracts
+crates:
+- name: pallet-revive
+  bump: major

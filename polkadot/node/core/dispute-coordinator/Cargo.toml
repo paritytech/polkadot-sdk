@@ -5,39 +5,49 @@ description = "The node-side components that participate in disputes"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
 
+[[bench]]
+name = "dispute-coordinator-regression-bench"
+path = "benches/dispute-coordinator-regression-bench.rs"
+harness = false
+required-features = ["subsystem-benchmarks"]
+
 [dependencies]
+codec = { workspace = true, default-features = true }
+fatality = { workspace = true }
 futures = { workspace = true }
 gum = { workspace = true, default-features = true }
-codec = { workspace = true, default-features = true }
-kvdb = { workspace = true }
-thiserror = { workspace = true }
 schnellru = { workspace = true }
-fatality = { workspace = true }
+thiserror = { workspace = true }
 
-polkadot-primitives = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-node-subsystem-util = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
 
 sc-keystore = { workspace = true, default-features = true }
 
-
 [dev-dependencies]
+assert_matches = { workspace = true }
+futures-timer = { workspace = true }
 kvdb-memorydb = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
-sp-keyring = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
-assert_matches = { workspace = true }
+polkadot-primitives = { workspace = true, features = ["test"] }
 polkadot-primitives-test-helpers = { workspace = true }
-futures-timer = { workspace = true }
 sp-application-crypto = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
+
+polkadot-subsystem-bench = { workspace = true }
 
 [features]
 # If not enabled, the dispute coordinator will do nothing.
 disputes = []
+subsystem-benchmarks = []

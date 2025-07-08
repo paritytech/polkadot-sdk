@@ -1,19 +1,20 @@
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use polkadot_sdk::*;
 
@@ -31,7 +32,7 @@ use sp_core::{
 	storage::well_known_keys,
 	traits::{CallContext, CodeExecutor, RuntimeCode},
 };
-use sp_runtime::traits::BlakeTwo256;
+use sp_runtime::{generic::ExtrinsicFormat, traits::BlakeTwo256};
 use sp_state_machine::TestExternalities as CoreTestExternalities;
 use staging_node_cli::service::RuntimeExecutor;
 
@@ -146,11 +147,11 @@ fn test_blocks(
 ) -> Vec<(Vec<u8>, Hash)> {
 	let mut test_ext = new_test_ext(genesis_config);
 	let mut block1_extrinsics = vec![CheckedExtrinsic {
-		signed: None,
+		format: ExtrinsicFormat::Bare,
 		function: RuntimeCall::Timestamp(pallet_timestamp::Call::set { now: 0 }),
 	}];
 	block1_extrinsics.extend((0..20).map(|i| CheckedExtrinsic {
-		signed: Some((alice(), signed_extra(i, 0))),
+		format: ExtrinsicFormat::Signed(alice(), tx_ext(i, 0)),
 		function: RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
 			dest: bob().into(),
 			value: 1 * DOLLARS,

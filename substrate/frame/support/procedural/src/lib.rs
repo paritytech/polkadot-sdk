@@ -23,6 +23,7 @@
 mod benchmark;
 mod construct_runtime;
 mod crate_version;
+mod deprecation;
 mod derive_impl;
 mod dummy_part_checker;
 mod dynamic_params;
@@ -320,9 +321,10 @@ pub fn derive_debug_no_bound(input: TokenStream) -> TokenStream {
 /// This behaviour is useful to prevent bloating the runtime WASM blob from unneeded code.
 #[proc_macro_derive(RuntimeDebugNoBound)]
 pub fn derive_runtime_debug_no_bound(input: TokenStream) -> TokenStream {
-	if cfg!(any(feature = "std", feature = "try-runtime")) {
-		no_bound::debug::derive_debug_no_bound(input)
-	} else {
+	let try_runtime_or_std_impl: proc_macro2::TokenStream =
+		no_bound::debug::derive_debug_no_bound(input.clone()).into();
+
+	let stripped_impl = {
 		let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
 		let name = &input.ident;
@@ -337,8 +339,22 @@ pub fn derive_runtime_debug_no_bound(input: TokenStream) -> TokenStream {
 				}
 			};
 		)
-		.into()
-	}
+	};
+
+	let frame_support = match generate_access_from_frame_or_crate("frame-support") {
+		Ok(frame_support) => frame_support,
+		Err(e) => return e.to_compile_error().into(),
+	};
+
+	quote::quote!(
+		#frame_support::try_runtime_or_std_enabled! {
+			#try_runtime_or_std_impl
+		}
+		#frame_support::try_runtime_and_std_not_enabled! {
+			#stripped_impl
+		}
+	)
+	.into()
 }
 
 /// Derive [`PartialEq`] but do not bound any generic.
@@ -360,6 +376,7 @@ pub fn derive_eq_no_bound(input: TokenStream) -> TokenStream {
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
 	quote::quote_spanned!(name.span() =>
+		#[allow(deprecated)]
 		const _: () = {
 			impl #impl_generics ::core::cmp::Eq for #name #ty_generics #where_clause {}
 		};
@@ -682,6 +699,7 @@ pub fn derive_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
 		input.into(),
 		custom_attrs.disambiguation_path,
 		custom_attrs.no_aggregated_types,
+		custom_attrs.generics,
 	)
 	.unwrap_or_else(|r| r.into_compile_error())
 	.into()
@@ -800,6 +818,7 @@ pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
 	if item.ident != "RuntimeCall" &&
 		item.ident != "RuntimeEvent" &&
 		item.ident != "RuntimeTask" &&
+		item.ident != "RuntimeViewFunction" &&
 		item.ident != "RuntimeOrigin" &&
 		item.ident != "RuntimeHoldReason" &&
 		item.ident != "RuntimeFreezeReason" &&
@@ -809,10 +828,10 @@ pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
 		return syn::Error::new_spanned(
 			item,
 			"`#[inject_runtime_type]` can only be attached to `RuntimeCall`, `RuntimeEvent`, \
-			`RuntimeTask`, `RuntimeOrigin`, `RuntimeParameters` or `PalletInfo`",
+			`RuntimeTask`, `RuntimeViewFunction`, `RuntimeOrigin`, `RuntimeParameters` or `PalletInfo`",
 		)
 		.to_compile_error()
-		.into()
+		.into();
 	}
 	tokens
 }
@@ -958,6 +977,15 @@ pub fn event(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ---
 ///
+/// Documentation for this macro can be found at `frame_support::pallet_macros::include_metadata`.
+#[proc_macro_attribute]
+pub fn include_metadata(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
+///
+/// ---
+///
 /// Documentation for this macro can be found at `frame_support::pallet_macros::generate_deposit`.
 #[proc_macro_attribute]
 pub fn generate_deposit(_: TokenStream, _: TokenStream) -> TokenStream {
@@ -1061,6 +1089,16 @@ pub fn inherent(_: TokenStream, _: TokenStream) -> TokenStream {
 /// Documentation for this macro can be found at `frame_support::pallet_macros::validate_unsigned`.
 #[proc_macro_attribute]
 pub fn validate_unsigned(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
+///
+/// ---
+///
+/// Documentation for this macro can be found at
+/// `frame_support::pallet_macros::view_functions`.
+#[proc_macro_attribute]
+pub fn view_functions(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
@@ -1221,7 +1259,7 @@ pub fn import_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 			"`#[import_section]` can only be applied to a valid pallet module",
 		)
 		.to_compile_error()
-		.into()
+		.into();
 	}
 
 	if let Some(ref mut content) = internal_mod.content {
@@ -1311,4 +1349,162 @@ pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream
 	dynamic_params::dynamic_aggregated_params_internal(attrs.into(), input.into())
 		.unwrap_or_else(|r| r.into_compile_error())
 		.into()
+}
+
+/// Allows to authorize some general transactions with specific dispatchable functions
+/// (dispatchable functions a.k.a. calls).
+///
+/// This attribute allows to specify a special validation logic for a specific call.
+/// A general transaction with this specific call can then be validated by the given function,
+/// and if valid then dispatched with the origin `frame_system::Origin::Authorized`.
+///
+/// To ensure the origin of the call is the authorization process, the call must check the origin
+/// with `frame_system::ensure_authorized` function.
+///
+/// To enable the authorization process on the extrinsic, the runtime must use
+/// `frame_system::AuthorizeCall` transaction extension in the transaction extension pipeline.
+///
+/// To enable the creation of authorized call from offchain worker. The runtime should implement
+/// `frame_system::CreateAuthorizedTransaction`. This trait allows to specify which transaction
+/// extension to use when creating a transaction for an authorized call.
+///
+/// # Usage in the pallet
+///
+/// ## Example/Overview:
+///
+/// ```
+/// # #[allow(unused)]
+/// #[frame_support::pallet]
+/// pub mod pallet {
+///     use frame_support::pallet_prelude::*;
+///     use frame_system::pallet_prelude::*;
+///
+///     #[pallet::pallet]
+///     pub struct Pallet<T>(_);
+///
+///     #[pallet::config]
+///     pub trait Config: frame_system::Config {}
+///
+///     #[pallet::call]
+///     impl<T: Config> Pallet<T> {
+///         #[pallet::weight(Weight::zero())]
+///         #[pallet::authorize(|_source, foo| if *foo == 42 {
+///             // The amount to refund, here we refund nothing
+///             let refund = Weight::zero();
+///             // The validity, here we accept the call and it provides itself.
+///             // See `ValidTransaction` for more information.
+///             let validity = ValidTransaction::with_tag_prefix("my-pallet")
+///                 .and_provides("some_call")
+///                 .into();
+///             Ok((validity, refund))
+///         } else {
+///             Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
+///         })]
+///         #[pallet::weight_of_authorize(Weight::zero())]
+///         #[pallet::call_index(0)]
+///         pub fn some_call(origin: OriginFor<T>, arg: u32) -> DispatchResult {
+///             ensure_authorized(origin)?;
+///
+///             Ok(())
+///         }
+///
+///         #[pallet::weight(Weight::zero())]
+///         // We can also give the callback as a function
+///         #[pallet::authorize(Self::authorize_some_other_call)]
+///         #[pallet::weight_of_authorize(Weight::zero())]
+///         #[pallet::call_index(1)]
+///         pub fn some_other_call(origin: OriginFor<T>, arg: u32) -> DispatchResult {
+///             ensure_authorized(origin)?;
+///
+///             Ok(())
+///         }
+///     }
+///
+///     impl<T: Config> Pallet<T> {
+///         fn authorize_some_other_call(
+///             source: TransactionSource,
+///             foo: &u32
+///         ) -> TransactionValidityWithRefund {
+///             if *foo == 42 {
+///                 let refund = Weight::zero();
+///                 let validity = ValidTransaction::default();
+///                 Ok((validity, refund))
+///             } else {
+///                 Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
+///             }
+///         }
+///     }
+///
+///     #[frame_benchmarking::v2::benchmarks]
+///     mod benchmarks {
+///         use super::*;
+///         use frame_benchmarking::v2::BenchmarkError;
+///
+///         #[benchmark]
+///         fn authorize_some_call() -> Result<(), BenchmarkError> {
+///             let call = Call::<T>::some_call { arg: 42 };
+///
+///             #[block]
+///             {
+///                 use frame_support::pallet_prelude::Authorize;
+///                 call.authorize(TransactionSource::External)
+///                     .ok_or("Call must give some authorization")??;
+///             }
+///
+///             Ok(())
+///         }
+///     }
+/// }
+/// ```
+///
+/// ## Specification:
+///
+/// Authorize process comes with 2 attributes macro on top of the authorized call:
+///
+/// * `#[pallet::authorize($authorized_function)]` - defines the function that authorizes the call.
+///   First argument is the transaction source `TransactionSource` then followed by the same as call
+///   arguments but by reference `&`. Return type is `TransactionValidityWithRefund`.
+/// * `#[pallet::weight_of_authorize($weight)]` - defines the value of the weight of the authorize
+///   function. This attribute is similar to `#[pallet::weight]`:
+///   * it can be ignore in `dev_mode`
+///   * it can be automatically infered from weight info. For the call `foo` the function
+///     `authorize_foo` in the weight info will be used. (weight info needs to be provided in the
+///     call attribute: `#[pallet::call(weight = T::WeightInfo)]`).
+///   * it can be a fixed value like `Weight::from_all(0)` (not recommended in production).
+///
+///   The weight must be small enough so that nodes don't get DDOS by validating transactions.
+///
+/// Then in the call it must be ensured that the origin is the authorization process. This can
+/// be done using `frame_system::ensure_authorized` function.
+///
+/// # The macro expansion
+///
+/// From the given "authorize" function and weight, the macro will implement the trait
+/// `Authorize` on the call.
+///
+/// # How to benchmark
+///
+/// The authorize function is used as the implementation of the trait
+/// `Authorize` for the call.
+/// To benchmark a call variant, use the function
+/// `Authorize::authorize` on a call value.
+/// See the example in the first section.
+#[proc_macro_attribute]
+pub fn authorize(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
+/// Allows to define the weight of the authorize function.
+///
+/// See [`authorize`](macro@authorize) for more information on how authorization works.
+///
+/// Defines the value of the weight of the authorize function. This attribute is similar to
+/// `#[pallet::weight]`:
+/// * it can be ignore in `dev_mode`
+/// * it can be automatically infered from weight info. For the call `foo` the function
+///   `authorize_foo` in the weight info will be used.
+/// * it can be a fixed value like `Weight::from_all(0)` (not recommended in production).
+#[proc_macro_attribute]
+pub fn weight_of_authorize(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
 }

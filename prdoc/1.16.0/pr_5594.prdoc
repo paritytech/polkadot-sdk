@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Add debugging info for `StorageWeightReclaim`"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      - Includes extrinsic index to be displayed in the logs when the consumed weight is higher than the measured one.
+
+crates:
+  - name: cumulus-primitives-storage-weight-reclaim
+    bump: patch

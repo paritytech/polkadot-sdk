@@ -326,7 +326,7 @@ mod tests {
 	fn offchain_api() -> (Api, AsyncApi) {
 		sp_tracing::try_init_simple();
 		let mock = Arc::new(TestNetwork());
-		let shared_client = SharedClient::new();
+		let shared_client = SharedClient::new().unwrap();
 
 		AsyncApi::new(mock, false, shared_client)
 	}
@@ -375,7 +375,7 @@ mod tests {
 	}
 
 	#[test]
-	fn should_set_and_get_local_storage() {
+	fn should_set_get_and_clear_local_storage() {
 		// given
 		let kind = StorageKind::PERSISTENT;
 		let mut api = offchain_db();
@@ -387,6 +387,12 @@ mod tests {
 
 		// then
 		assert_eq!(api.local_storage_get(kind, key), Some(b"value".to_vec()));
+
+		// when
+		api.local_storage_clear(kind, key);
+
+		// then
+		assert_eq!(api.local_storage_get(kind, key), None);
 	}
 
 	#[test]

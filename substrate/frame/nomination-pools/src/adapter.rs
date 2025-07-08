@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::*;
+use frame_support::traits::tokens::{Fortitude::Polite, Preservation::Expendable};
 use sp_staking::{Agent, DelegationInterface, DelegationMigrator, Delegator};
 
 /// Types of stake strategies.
@@ -245,8 +246,10 @@ pub trait StakeStrategy {
 /// strategy in an existing runtime, storage migration is required. See
 /// [`migration::unversioned::DelegationStakeMigration`]. For new runtimes, it is highly recommended
 /// to use the [`DelegateStake`] strategy.
+#[deprecated = "consider migrating to DelegateStake"]
 pub struct TransferStake<T: Config, Staking: StakingInterface>(PhantomData<(T, Staking)>);
 
+#[allow(deprecated)]
 impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T::AccountId>>
 	StakeStrategy for TransferStake<T, Staking>
 {
@@ -262,7 +265,8 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 		pool_account: Pool<Self::AccountId>,
 		_: Member<Self::AccountId>,
 	) -> BalanceOf<T> {
-		T::Currency::balance(&pool_account.0).saturating_sub(Self::active_stake(pool_account))
+		// free/liquid balance of the pool account.
+		T::Currency::reducible_balance(&pool_account.get(), Expendable, Polite)
 	}
 
 	fn total_balance(pool_account: Pool<Self::AccountId>) -> Option<BalanceOf<T>> {
@@ -460,6 +464,6 @@ impl<
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn remove_as_agent(pool: Pool<Self::AccountId>) {
-		Delegation::migrate_to_direct_staker(pool.into())
+		Delegation::force_kill_agent(pool.into())
 	}
 }

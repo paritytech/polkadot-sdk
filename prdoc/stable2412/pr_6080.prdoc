@@ -1,0 +1,22 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Assets in pool with native can be used in query_weight_to_asset_fee in Asset Hubs
+
+doc:
+  - audience: Runtime User
+    description: |
+      `query_weight_to_asset_fee` now works with assets in a pool with the native asset in both
+      Westend and Rococo asset hubs.
+      This means all the information you get from `query_acceptable_payment_assets` can be used
+      directly in `query_weight_to_asset_fee` to get the correct fees that need to be paid.
+
+crates:
+  - name: assets-common
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: asset-hub-rococo-runtime
+    bump: minor
+  - name: emulated-integration-tests-common
+    bump: minor

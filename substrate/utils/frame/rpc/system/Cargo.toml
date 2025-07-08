@@ -16,16 +16,12 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-futures = { workspace = true }
 codec = { workspace = true, default-features = true }
 docify = { workspace = true }
-jsonrpsee = { features = [
-	"client-core",
-	"macros",
-	"server-core",
-], workspace = true }
-log = { workspace = true, default-features = true }
 frame-system-rpc-runtime-api = { workspace = true, default-features = true }
+futures = { workspace = true }
+jsonrpsee = { features = ["client-core", "macros", "server-core"], workspace = true }
+log = { workspace = true, default-features = true }
 sc-rpc-api = { workspace = true, default-features = true }
 sc-transaction-pool-api = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
@@ -35,8 +31,8 @@ sp-core = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 
 [dev-dependencies]
-sc-transaction-pool = { workspace = true, default-features = true }
-tokio = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
+sc-transaction-pool = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
+tokio = { workspace = true, default-features = true }

@@ -4,11 +4,11 @@ WORKDIR /polkadot
 COPY . /polkadot
 
 RUN cargo fetch
-RUN cargo build --locked --release
+RUN cargo build --workspace --locked --profile production
 
 FROM docker.io/parity/base-bin:latest
 
-COPY --from=builder /polkadot/target/release/parachain-template-node /usr/local/bin
+COPY --from=builder /polkadot/target/production/parachain-template-node /usr/local/bin
 
 USER root
 RUN useradd -m -u 1001 -U -s /bin/sh -d /polkadot polkadot && \

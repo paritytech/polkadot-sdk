@@ -154,5 +154,5 @@
 //!   match the one claimed in the block header.
 //!
 //! > Example taken from [this
-//! > lecture](https://polkadot-blockchain-academy.github.io/pba-book/substrate/wasm/page.html#example-2-block-import-9)
+//! > lecture](https://www.youtube.com/watch?v=v0cKuddbF_Q&list=PL-w_i5kwVqbkRmfDn5nzeuU1S_FFW8dDg&index=4)
 //! > of the Polkadot Blockchain Academy.

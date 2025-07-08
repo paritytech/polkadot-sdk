@@ -1,0 +1,45 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: XCMv5 - Add ExecuteWithOrigin instruction
+
+doc:
+  - audience: [Runtime User, Runtime Dev]
+    description: |
+      Added a new instruction to XCMv5, ExecuteWithOrigin, that allows you to specify an interior origin
+      and a set of instructions that will be executed using that origin.
+      The origins you can choose are `None` to clear it during the execution of the inner instructions,
+      or `Some(InteriorLocation)` to descend into an interior location.
+      These two options mimic the behaviour of `ClearOrigin` and `DescendOrigin` respectively.
+      Crucially, this instruction goes back to the previous origin once the execution of those inner
+      instructions end.
+      This allows use-cases like a parent location paying fees with one interior location, fetching funds
+      with another, claiming assets on behalf of many different ones, etc.
+
+crates:
+  - name: staging-xcm
+    bump: major
+  - name: staging-xcm-executor
+    bump: minor
+  - name: staging-xcm-builder
+    bump: minor
+  - name: asset-hub-rococo-runtime
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: bridge-hub-rococo-runtime
+    bump: minor
+  - name: bridge-hub-westend-runtime
+    bump: minor
+  - name: people-rococo-runtime
+    bump: minor
+  - name: people-westend-runtime
+    bump: minor
+  - name: coretime-rococo-runtime
+    bump: minor
+  - name: coretime-westend-runtime
+    bump: minor
+  - name: rococo-runtime
+    bump: minor
+  - name: westend-runtime
+    bump: minor

@@ -8,6 +8,7 @@ TestConfiguration:
     stop_when_approved: true
     coalesce_tranche_diff: 12
     num_no_shows_per_candidate: 0
+    approval_voting_parallel_enabled: false
     workdir_prefix: "/tmp/"
   n_validators: 500
   n_cores: 100

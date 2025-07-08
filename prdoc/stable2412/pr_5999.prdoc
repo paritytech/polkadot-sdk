@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Westend: Constant yearly emission"
+
+doc:
+  - audience: Runtime User
+    description: |
+      Integrating the new inflation approach from https://github.com/polkadot-fellows/runtimes/pull/471
+      into Westend first to check that it is working.
+
+
+crates:
+  - name: westend-runtime
+    bump: patch

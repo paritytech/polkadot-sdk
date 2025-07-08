@@ -42,7 +42,7 @@ use polkadot_cli::{
 use polkadot_node_subsystem::SpawnGlue;
 use polkadot_node_subsystem_types::{ChainApiBackend, OverseerSignal, RuntimeApiSubsystemClient};
 use polkadot_node_subsystem_util::request_candidate_events;
-use polkadot_primitives::CandidateEvent;
+use polkadot_primitives::vstaging::CandidateEvent;
 use sp_core::traits::SpawnNamed;
 
 // Filter wrapping related types.

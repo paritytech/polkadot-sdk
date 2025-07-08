@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use core::fmt::Debug;
 use cumulus_primitives_core::ParaId;
 use frame_support::{
 	pallet_prelude::Get,
@@ -33,8 +34,9 @@ impl<IsForeign: ContainsPair<Location, Location>> ContainsPair<Asset, Location>
 	for IsForeignConcreteAsset<IsForeign>
 {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
-		log::trace!(target: "xcm::contains", "IsForeignConcreteAsset asset: {:?}, origin: {:?}", asset, origin);
-		matches!(asset.id, AssetId(ref id) if IsForeign::contains(id, origin))
+		let result = matches!(asset.id, AssetId(ref id) if IsForeign::contains(id, origin));
+		tracing::trace!(target: "xcm::contains", ?asset, ?origin, ?result, "IsForeignConcreteAsset");
+		result
 	}
 }
 
@@ -43,10 +45,11 @@ impl<IsForeign: ContainsPair<Location, Location>> ContainsPair<Asset, Location>
 pub struct FromSiblingParachain<SelfParaId, L = Location>(
 	core::marker::PhantomData<(SelfParaId, L)>,
 );
-impl<SelfParaId: Get<ParaId>, L: TryFrom<Location> + TryInto<Location> + Clone> ContainsPair<L, L>
-	for FromSiblingParachain<SelfParaId, L>
+impl<SelfParaId: Get<ParaId>, L: TryFrom<Location> + TryInto<Location> + Clone + Debug>
+	ContainsPair<L, L> for FromSiblingParachain<SelfParaId, L>
 {
 	fn contains(a: &L, b: &L) -> bool {
+		tracing::trace!(target: "xcm:contains", ?a, ?b, "FromSiblingParachain");
 		// We convert locations to latest
 		let a = match ((*a).clone().try_into(), (*b).clone().try_into()) {
 			(Ok(a), Ok(b)) if a.starts_with(&b) => a, // `a` needs to be from `b` at least
@@ -70,10 +73,11 @@ pub struct FromNetwork<UniversalLocation, ExpectedNetworkId, L = Location>(
 impl<
 		UniversalLocation: Get<InteriorLocation>,
 		ExpectedNetworkId: Get<NetworkId>,
-		L: TryFrom<Location> + TryInto<Location> + Clone,
+		L: TryFrom<Location> + TryInto<Location> + Clone + Debug,
 	> ContainsPair<L, L> for FromNetwork<UniversalLocation, ExpectedNetworkId, L>
 {
 	fn contains(a: &L, b: &L) -> bool {
+		tracing::trace!(target: "xcm:contains", ?a, ?b, "FromNetwork");
 		// We convert locations to latest
 		let a = match ((*a).clone().try_into(), (*b).clone().try_into()) {
 			(Ok(a), Ok(b)) if a.starts_with(&b) => a, // `a` needs to be from `b` at least
@@ -86,11 +90,7 @@ impl<
 		match ensure_is_remote(universal_source.clone(), a.clone()) {
 			Ok((network_id, _)) => network_id == ExpectedNetworkId::get(),
 			Err(e) => {
-				log::trace!(
-					target: "xcm::contains",
-					"FromNetwork origin: {:?} is not remote to the universal_source: {:?} {:?}",
-					a, universal_source, e
-				);
+				tracing::debug!(target: "xcm::contains", origin = ?a, ?universal_source, error = ?e, "FromNetwork origin is not remote to the universal_source");
 				false
 			},
 		}
@@ -102,28 +102,49 @@ impl<
 pub struct RemoteAssetFromLocation<AssetsAllowedNetworks, OriginLocation>(
 	core::marker::PhantomData<(AssetsAllowedNetworks, OriginLocation)>,
 );
-impl<AssetsAllowedNetworks: Contains<Location>, OriginLocation: Get<Location>>
-	ContainsPair<Asset, Location> for RemoteAssetFromLocation<AssetsAllowedNetworks, OriginLocation>
+impl<
+		L: TryInto<Location> + Clone,
+		AssetsAllowedNetworks: Contains<Location>,
+		OriginLocation: Get<Location>,
+	> ContainsPair<L, L> for RemoteAssetFromLocation<AssetsAllowedNetworks, OriginLocation>
 {
-	fn contains(asset: &Asset, origin: &Location) -> bool {
+	fn contains(asset: &L, origin: &L) -> bool {
+		let Ok(asset) = asset.clone().try_into() else {
+			return false;
+		};
+		let Ok(origin) = origin.clone().try_into() else {
+			return false;
+		};
 		let expected_origin = OriginLocation::get();
 		// ensure `origin` is expected `OriginLocation`
-		if !expected_origin.eq(origin) {
-			log::trace!(
+		if !expected_origin.eq(&origin) {
+			tracing::trace!(
 				target: "xcm::contains",
-				"RemoteAssetFromLocation asset: {:?}, origin: {:?} is not from expected {:?}",
-				asset, origin, expected_origin,
+				?asset,
+				?origin,
+				?expected_origin,
+				"RemoteAssetFromLocation: Asset is not from expected origin"
 			);
-			return false
+			return false;
 		} else {
-			log::trace!(
+			tracing::trace!(
 				target: "xcm::contains",
-				"RemoteAssetFromLocation asset: {asset:?}, origin: {origin:?}",
+				?asset,
+				?origin,
+				"RemoteAssetFromLocation",
 			);
 		}
 
 		// ensure `asset` is from remote consensus listed in `AssetsAllowedNetworks`
-		AssetsAllowedNetworks::contains(&asset.id.0)
+		AssetsAllowedNetworks::contains(&asset)
+	}
+}
+impl<AssetsAllowedNetworks: Contains<Location>, OriginLocation: Get<Location>>
+	ContainsPair<Asset, Location> for RemoteAssetFromLocation<AssetsAllowedNetworks, OriginLocation>
+{
+	fn contains(asset: &Asset, origin: &Location) -> bool {
+		tracing::trace!(target: "xcm:contains", ?asset, ?origin, "RemoteAssetFromLocation");
+		<Self as ContainsPair<Location, Location>>::contains(&asset.id.0, origin)
 	}
 }
 
@@ -131,10 +152,11 @@ impl<AssetsAllowedNetworks: Contains<Location>, OriginLocation: Get<Location>>
 mod tests {
 	use super::*;
 	use frame_support::parameter_types;
+	use xcm::latest::{ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
 
 	parameter_types! {
-		pub UniversalLocation: InteriorLocation = [GlobalConsensus(Rococo), Parachain(1000)].into();
-		pub ExpectedNetworkId: NetworkId = Wococo;
+		pub UniversalLocation: InteriorLocation = [GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)), Parachain(1000)].into();
+		pub ExpectedNetworkId: NetworkId = ByGenesis(WESTEND_GENESIS_HASH);
 	}
 
 	#[test]
@@ -143,26 +165,30 @@ mod tests {
 		let asset: Location = (
 			Parent,
 			Parent,
-			GlobalConsensus(Wococo),
+			GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
 			Parachain(1000),
 			PalletInstance(1),
 			GeneralIndex(1),
 		)
 			.into();
-		let origin: Location = (Parent, Parent, GlobalConsensus(Wococo), Parachain(1000)).into();
+		let origin: Location =
+			(Parent, Parent, GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1000))
+				.into();
 		assert!(FromNetwork::<UniversalLocation, ExpectedNetworkId>::contains(&asset, &origin));
 
 		// asset and origin from local consensus fails
 		let asset: Location = (
 			Parent,
 			Parent,
-			GlobalConsensus(Rococo),
+			GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)),
 			Parachain(1000),
 			PalletInstance(1),
 			GeneralIndex(1),
 		)
 			.into();
-		let origin: Location = (Parent, Parent, GlobalConsensus(Rococo), Parachain(1000)).into();
+		let origin: Location =
+			(Parent, Parent, GlobalConsensus(ByGenesis(ROCOCO_GENESIS_HASH)), Parachain(1000))
+				.into();
 		assert!(!FromNetwork::<UniversalLocation, ExpectedNetworkId>::contains(&asset, &origin));
 
 		// asset and origin from here fails
@@ -180,14 +206,16 @@ mod tests {
 			GeneralIndex(1),
 		)
 			.into();
-		let origin: Location = (Parent, Parent, GlobalConsensus(Wococo), Parachain(1000)).into();
+		let origin: Location =
+			(Parent, Parent, GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)), Parachain(1000))
+				.into();
 		assert!(!FromNetwork::<UniversalLocation, ExpectedNetworkId>::contains(&asset, &origin));
 
 		// origin from different consensus fails
 		let asset: Location = (
 			Parent,
 			Parent,
-			GlobalConsensus(Wococo),
+			GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH)),
 			Parachain(1000),
 			PalletInstance(1),
 			GeneralIndex(1),

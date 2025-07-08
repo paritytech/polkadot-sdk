@@ -21,12 +21,7 @@
 
 use crate::{mock_helpers::*, Event, Historic};
 
-use frame_support::{
-	derive_impl,
-	migrations::*,
-	traits::{OnFinalize, OnInitialize},
-	weights::Weight,
-};
+use frame_support::{derive_impl, migrations::*, weights::Weight};
 use frame_system::EventRecord;
 use sp_core::H256;
 
@@ -113,18 +108,18 @@ pub fn test_closure<R>(f: impl FnOnce() -> R) -> R {
 	ext.execute_with(f)
 }
 
-pub fn run_to_block(n: u32) {
-	while System::block_number() < n as u64 {
-		log::debug!("Block {}", System::block_number());
-		System::set_block_number(System::block_number() + 1);
-		System::on_initialize(System::block_number());
-		Migrations::on_initialize(System::block_number());
-		// Executive calls this:
-		<Migrations as MultiStepMigrator>::step();
-
-		Migrations::on_finalize(System::block_number());
-		System::on_finalize(System::block_number());
-	}
+pub fn run_to_block(n: u64) {
+	System::run_to_block_with::<AllPalletsWithSystem>(
+		n,
+		frame_system::RunToBlockHooks::default()
+			.before_initialize(|bn| {
+				log::debug!("Block {bn}");
+			})
+			.after_initialize(|_| {
+				// Executive calls this:
+				<Migrations as MultiStepMigrator>::step();
+			}),
+	);
 }
 
 /// Returns the historic migrations, sorted by their identifier.
