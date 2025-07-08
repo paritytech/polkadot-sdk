@@ -24,7 +24,7 @@ scale-info = { features = [
 ], workspace = true }
 
 frame-election-provider-support = { workspace = true }
-frame-support = { workspace = true }
+frame-support = { workspace = true, features = ["experimental"] }
 frame-system = { workspace = true }
 
 sp-arithmetic = { workspace = true }

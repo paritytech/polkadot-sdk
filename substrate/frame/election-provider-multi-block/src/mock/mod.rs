@@ -183,6 +183,7 @@ impl Get<Phase<Runtime>> for AreWeDone {
 }
 
 impl crate::verifier::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
 	type SolutionImprovementThreshold = SolutionImprovementThreshold;
 	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
@@ -216,6 +217,7 @@ impl MinerConfig for Runtime {
 }
 
 impl crate::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
 	type SignedPhase = SignedPhase;
 	type SignedValidationPhase = SignedValidationPhase;
 	type UnsignedPhase = UnsignedPhase;
