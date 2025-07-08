@@ -11,11 +11,11 @@ ZOMBIE_JSON="$BASE_DIR/zombie.json"
 
 LOKI_DIR_FOR_NATIVE_LOGS="/tmp/zombienet"
 
-JQ_QUERY_RELAY_V1='.relay.nodes[].name'
+JQ_QUERY_RELAY_V1='.relay[].name'
 JQ_QUERY_RELAY_SDK='.relay.nodes[].name'
 
-JQ_QUERY_PARAS_V1='.parachains | to_entries[] | "\(.key)"'
-JQ_QUERY_PARAS_SDK='.paras | to_entries[] | "\(.key)"'
+JQ_QUERY_PARAS_V1='.paras | to_entries[] | "\(.key)"'
+JQ_QUERY_PARAS_SDK='.parachains | to_entries[] | "\(.key)"'
 
 JQ_QUERY_PARA_NODES_V1='.paras[$pid].nodes[].name'
 JQ_QUERY_PARA_NODES_SDK='.parachains[$pid][] .collators[].name'
@@ -49,12 +49,12 @@ mkdir -p "$TARGET_DIR"
 echo "Relay nodes:"
 
 JQ_QUERY_RELAY=$JQ_QUERY_RELAY_V1
-JQ_QUERY_PARAS=$JQ_QUERY_PARA_NODES_V1
-JQ_QUERY_PARA_NODES=$JQ_QUERY_PARAS_V1
+JQ_QUERY_PARAS=$JQ_QUERY_PARAS_V1
+JQ_QUERY_PARA_NODES=$JQ_QUERY_PARA_NODES_V1
 if [[ $(echo "$NS" | grep -E "zombie-[A-Fa-f0-9]+-") ]]; then
     JQ_QUERY_RELAY=$JQ_QUERY_RELAY_SDK
-    JQ_QUERY_PARAS=$JQ_QUERY_PARA_NODES_SDK
-    JQ_QUERY_PARA_NODES=$JQ_QUERY_PARAS_SDK
+    JQ_QUERY_PARAS=$JQ_QUERY_PARAS_SDK
+    JQ_QUERY_PARA_NODES=$JQ_QUERY_PARA_NODES_SDK
 fi;
 
 jq -r $JQ_QUERY_RELAY "$ZOMBIE_JSON" | while read -r name; do
