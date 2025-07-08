@@ -38,6 +38,15 @@ fn revert(error: &impl fmt::Debug, message: &str) -> Error {
 	Error::Revert(message.into())
 }
 
+// We don't allow XCM versions older than 5.
+fn revert_on_old_versions<RuntimeCall>(message: &VersionedXcm<RuntimeCall>) -> Result<(), Error> {
+	let version = message.identify_version();
+	if version < v5::VERSION {
+		return Err(Error::Revert("Only version 5 and onwards are supported.".into()));
+	}
+	Ok(())
+}
+
 pub struct XcmPrecompile<T>(PhantomData<T>);
 
 impl<Runtime> Precompile for XcmPrecompile<Runtime>
@@ -76,11 +85,7 @@ where
 				)
 				.map_err(|error| revert(&error, "XCM send failed: Invalid message format"))?;
 
-				// We don't allow older XCM versions.
-				let version = final_message.identify_version();
-				if version < v5::VERSION {
-					return Err(revert(&(), "Only version 5 and onwards are supported."));
-				}
+				revert_on_old_versions(&final_message)?;
 
 				crate::Pallet::<Runtime>::send(
 					frame_origin,
@@ -107,11 +112,7 @@ where
 				)
 				.map_err(|error| revert(&error, "XCM execute failed: Invalid message format"))?;
 
-				// We don't allow older XCM versions.
-				let version = final_message.identify_version();
-				if version < v5::VERSION {
-					return Err(revert(&(), "Only version 5 and onwards are supported."));
-				}
+				revert_on_old_versions(&final_message)?;
 
 				let result = crate::Pallet::<Runtime>::execute(
 					frame_origin,
@@ -145,11 +146,7 @@ where
 				)
 				.map_err(|error| revert(&error, "XCM weightMessage: Invalid message format"))?;
 
-				// We don't allow older XCM versions.
-				let version = converted_message.identify_version();
-				if version < v5::VERSION {
-					return Err(revert(&(), "Only version 5 and onwards are supported."));
-				}
+				revert_on_old_versions(&converted_message)?;
 
 				let mut final_message = converted_message.try_into().map_err(|error| {
 					revert(&error, "XCM weightMessage: Conversion to Xcm failed")
