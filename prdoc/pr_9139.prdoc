@@ -4,9 +4,7 @@ doc:
   - Runtime Dev
   - Runtime User
   description: |-
-    Let's expose more constants, similar as `AdvertisedXcmVersion`.
-
-    ![image](https://github.com/user-attachments/assets/5ddc265f-546b-45a0-8235-3f53c3108823)
+    Exposes more constants (UniversalLocation, MaxLockers, MaxRemoteLockConsumers), similar as `AdvertisedXcmVersion`.
 crates:
 - name: pallet-xcm
   bump: patch
