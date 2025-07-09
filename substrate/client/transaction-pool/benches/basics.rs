@@ -21,7 +21,6 @@ use codec::Encode;
 use criterion::{criterion_group, criterion_main, Criterion};
 use futures::executor::block_on;
 use sc_transaction_pool::*;
-use sc_transaction_pool_api::error::{IntoMetricsLabel, IntoPoolError};
 use sp_blockchain::HashAndNumber;
 use sp_crypto_hashing::blake2_256;
 use sp_runtime::{

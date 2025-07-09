@@ -98,9 +98,9 @@ pub(super) enum InvalidTxReason {
 impl InvalidTxReason {
 	pub(super) fn reason(&self) -> &String {
 		match self {
-			InvalidTxReason::Invalid(inner) => inner,
-			InvalidTxReason::Unknown(inner) => inner,
-			InvalidTxReason::Subtree(inner) => inner,
+			InvalidTxReason::Invalid(inner) |
+			InvalidTxReason::Unknown(inner) |
+			InvalidTxReason::Subtree(inner) |
 			InvalidTxReason::ValidationFailed(inner) => inner,
 		}
 	}
@@ -602,7 +602,7 @@ where
 		&self,
 		view_store: Arc<ViewStore<ChainApi, Block>>,
 		finalized_block: HashAndNumber<Block>,
-	) -> (HashSet<ExtrinsicHash<ChainApi>>, usize) {
+	) -> HashSet<ExtrinsicHash<ChainApi>> {
 		trace!(
 			target: LOG_TARGET,
 			?finalized_block,
@@ -688,7 +688,7 @@ where
 			let txs_in_subtree = view_store
 				.remove_transaction_subtree(*tx, |_, _| {})
 				.into_iter()
-				.map(|tx| ((tx.hash, InvalidTxReason::Subtree(reason.to_string()))));
+				.map(|tx| (tx.hash, InvalidTxReason::Subtree(reason.to_string())));
 			invalid_hashes_subtrees.extend(txs_in_subtree);
 		}
 
@@ -708,12 +708,13 @@ where
 			?finalized_block,
 			input_len,
 			count,
-			invalid_hashes = invalid_hashes.len(),
+			invalid_hashes_subtrees_len = invalid_hashes.len(),
+			revalidated_invalid_hashes_len,
 			?duration,
 			"mempool::revalidate_inner"
 		);
 
-		(invalid_hashes, revalidated_invalid_hashes_len)
+		invalid_hashes
 	}
 
 	/// Removes the finalized transactions from the memory pool, using a provided list of hashes.
@@ -740,7 +741,7 @@ where
 		view_store: Arc<ViewStore<ChainApi, Block>>,
 		finalized_block: HashAndNumber<Block>,
 	) {
-		let (invalid_hashes_subtrees, revalidated_invalid_hashes_len) =
+		let invalid_hashes_subtrees =
 			self.revalidate_inner(view_store.clone(), finalized_block.clone()).await;
 		{
 			let mut transactions = self.transactions.write().await;
@@ -752,7 +753,6 @@ where
 		//note: here the consistency is assumed: it is expected that transaction will be
 		// actually removed from the listener with Invalid event. This means assumption that no view
 		// is referencing tx as ready.
-		let invalid_hashes_subtrees_len = invalid_hashes_subtrees.len();
 		let invalid_hashes_subtrees = invalid_hashes_subtrees.into_iter().collect::<Vec<_>>();
 		self.listener.transactions_invalidated(invalid_hashes_subtrees.as_slice());
 		view_store
@@ -765,8 +765,6 @@ where
 		trace!(
 			target: LOG_TARGET,
 			?finalized_block,
-			revalidated_invalid_hashes_len,
-			invalid_hashes_subtrees_len,
 			"mempool::revalidate"
 		);
 	}
