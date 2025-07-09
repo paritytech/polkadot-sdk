@@ -146,7 +146,10 @@ where
 	}
 
 	fn time_slot(&self) -> Self::TimeSlot {
-		self.time_slot.clone()
+		// Always return a dummy DisputesTimeSlot to make offence tracking less granular.
+		// This ensures that all offences within a session are treated as a single offence,
+		// preventing attackers from overwhelming offence processing with spammy offences.
+		DisputesTimeSlot::new(self.time_slot.session_index, CandidateHash::default())
 	}
 
 	fn slash_fraction(&self, _offenders: u32) -> Perbill {

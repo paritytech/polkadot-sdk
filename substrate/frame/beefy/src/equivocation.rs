@@ -44,6 +44,7 @@ use sp_consensus_beefy::{
 	FutureBlockVotingProof, ValidatorSetId, KEY_TYPE as BEEFY_KEY_TYPE,
 };
 use sp_runtime::{
+	traits::Zero,
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
 		TransactionValidityError, ValidTransaction,
@@ -71,7 +72,7 @@ pub struct TimeSlot<N: Copy + Clone + PartialOrd + Ord + Eq + PartialEq + Encode
 /// BEEFY equivocation offence report.
 pub struct EquivocationOffence<Offender, N>
 where
-	N: Copy + Clone + PartialOrd + Ord + Eq + PartialEq + Encode + Decode,
+	N: Copy + Clone + PartialOrd + Ord + Eq + PartialEq + Encode + Decode + Zero,
 {
 	/// Time slot at which this incident happened.
 	pub time_slot: TimeSlot<N>,
@@ -87,7 +88,7 @@ where
 
 impl<Offender: Clone, N> Offence<Offender> for EquivocationOffence<Offender, N>
 where
-	N: Copy + Clone + PartialOrd + Ord + Eq + PartialEq + Encode + Decode,
+	N: Copy + Clone + PartialOrd + Ord + Eq + PartialEq + Encode + Decode + Zero,
 {
 	const ID: Kind = *b"beefy:equivocati";
 	type TimeSlot = TimeSlot<N>;
@@ -105,7 +106,11 @@ where
 	}
 
 	fn time_slot(&self) -> Self::TimeSlot {
-		self.time_slot
+		// Always return a TimeSlot with round=0 to make offence tracking less granular.
+		// This ensures that all offences within a validator set are treated as a single offence,
+		// preventing attackers from overwhelming offence processing with spammy offences.
+		// We keep the set_id to maintain per-validator-set tracking but use zero round.
+		TimeSlot { set_id: self.time_slot.set_id, round: Zero::zero() }
 	}
 
 	fn slash_fraction(&self, offenders_count: u32) -> Perbill {
@@ -313,7 +318,8 @@ where
 		let offender = evidence.checked_offender::<P>().ok_or(InvalidTransaction::BadProof)?;
 
 		// Check if the offence has already been reported, and if so then we can discard the report.
-		let time_slot = TimeSlot { set_id: evidence.set_id(), round: *evidence.round_number() };
+		// We need to check using the same time slot that will be used in the offence report.
+		let time_slot = TimeSlot { set_id: evidence.set_id(), round: Zero::zero() };
 		if R::is_known_offence(&[offender], &time_slot) {
 			Err(InvalidTransaction::Stale.into())
 		} else {

@@ -95,7 +95,11 @@ impl<Offender: Clone> Offence<Offender> for EquivocationOffence<Offender> {
 	}
 
 	fn time_slot(&self) -> Self::TimeSlot {
-		self.time_slot
+		// Always return a dummy TimeSlot with set_id=0 and round=0 to make offence tracking less
+		// granular. This ensures that all offences within a session are treated as a single
+		// offence, preventing attackers from overwhelming offence processing with spammy
+		// offences.
+		TimeSlot { set_id: 0, round: 0 }
 	}
 
 	// The formula is min((3k / n)^2, 1)
@@ -163,8 +167,8 @@ where
 		let offender = P::check_proof(key, key_owner_proof).ok_or(InvalidTransaction::BadProof)?;
 
 		// Check if the offence has already been reported, and if so then we can discard the report.
-		let time_slot =
-			TimeSlot { set_id: equivocation_proof.set_id(), round: equivocation_proof.round() };
+		// We need to check using the same time slot that will be used in the offence report.
+		let time_slot = TimeSlot { set_id: 0, round: 0 };
 		if R::is_known_offence(&[offender], &time_slot) {
 			Err(InvalidTransaction::Stale.into())
 		} else {
