@@ -8,7 +8,8 @@ compressionLevel = 3
 jobNameVariable = "CI_JOB_NAME"
 jobsBlackList = []
 logLevel = "warn"
-threadsCount = 6
+threadsCount = 4
+packageSuffix = "test"
 
 [cache]
 extraEnv = ["RUNTIME_METADATA_HASH"]
