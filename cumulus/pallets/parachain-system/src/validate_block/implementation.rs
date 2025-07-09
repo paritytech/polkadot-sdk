@@ -400,9 +400,11 @@ fn validate_validation_data(
 	);
 }
 
-// Build a seed from the head data of the parachain block, use both the relay parent storage root
-// and the hash of the blocks in the block data, to make sure the seed changes every block and that
-// the user cannot find about it ahead of time.
+/// Build a seed from the head data of the parachain block. 
+///
+/// Uses both the relay parent storage root and the hash of the blocks 
+/// in the block data, to make sure the seed changes every block and that
+/// the user cannot find about it ahead of time.
 fn build_seed_from_head_data<B: BlockT>(
 	block_data: &ParachainBlockData<B>,
 	relay_parent_storage_root: crate::relay_chain::Hash,
