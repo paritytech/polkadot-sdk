@@ -67,23 +67,23 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
+	"snowbridge-pallet-outbound-queue-v2/runtime-benchmarks",
 	"snowbridge-pallet-system/runtime-benchmarks",
+	"snowbridge-test-utils/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"polkadot-primitives/runtime-benchmarks",
-	"snowbridge-pallet-outbound-queue-v2/runtime-benchmarks",
-	"snowbridge-test-utils/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
 	"pallet-xcm/try-runtime",
+	"snowbridge-pallet-outbound-queue-v2/try-runtime",
 	"snowbridge-pallet-system/try-runtime",
 	"sp-runtime/try-runtime",
-	"pallet-balances/try-runtime",
-	"snowbridge-pallet-outbound-queue-v2/try-runtime"
 ]

@@ -14,51 +14,51 @@ workspace = true
 anyhow = { workspace = true }
 async-std = { workspace = true }
 async-trait = { workspace = true }
-bp-header-chain.workspace = true
 bp-header-chain.default-features = true
-bp-messages.workspace = true
+bp-header-chain.workspace = true
 bp-messages.default-features = true
-bp-parachains.workspace = true
+bp-messages.workspace = true
 bp-parachains.default-features = true
-bp-polkadot-core.workspace = true
+bp-parachains.workspace = true
 bp-polkadot-core.default-features = true
-bp-relayers.workspace = true
+bp-polkadot-core.workspace = true
 bp-relayers.default-features = true
-bp-runtime.workspace = true
+bp-relayers.workspace = true
 bp-runtime.default-features = true
+bp-runtime.workspace = true
 clap = { workspace = true, features = ["derive"] }
 codec = { workspace = true, default-features = true }
 equivocation-detector.workspace = true
 finality-relay.workspace = true
-frame-support.workspace = true
 frame-support.default-features = true
-frame-system.workspace = true
+frame-support.workspace = true
 frame-system.default-features = true
+frame-system.workspace = true
 futures = { workspace = true }
 hex = { workspace = true, default-features = true }
 log = { workspace = true }
 messages-relay.workspace = true
 num-traits = { workspace = true, default-features = true }
-pallet-balances.workspace = true
 pallet-balances.default-features = true
-pallet-bridge-grandpa.workspace = true
+pallet-balances.workspace = true
 pallet-bridge-grandpa.default-features = true
-pallet-bridge-messages.workspace = true
+pallet-bridge-grandpa.workspace = true
 pallet-bridge-messages.default-features = true
-pallet-bridge-parachains.workspace = true
+pallet-bridge-messages.workspace = true
 pallet-bridge-parachains.default-features = true
-pallet-grandpa.workspace = true
+pallet-bridge-parachains.workspace = true
 pallet-grandpa.default-features = true
+pallet-grandpa.workspace = true
 parachains-relay.workspace = true
 rbtag = { workspace = true }
 relay-substrate-client.workspace = true
 relay-utils.workspace = true
-sp-consensus-grandpa.workspace = true
 sp-consensus-grandpa.default-features = true
-sp-core.workspace = true
+sp-consensus-grandpa.workspace = true
 sp-core.default-features = true
-sp-runtime.workspace = true
+sp-core.workspace = true
 sp-runtime.default-features = true
+sp-runtime.workspace = true
 sp-trie.workspace = true
 strum = { features = ["derive"], workspace = true, default-features = true }
 thiserror = { workspace = true }

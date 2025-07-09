@@ -11,12 +11,12 @@ publish = false
 workspace = true
 
 [dependencies]
-coretime-rococo-runtime.workspace = true
 coretime-rococo-runtime.default-features = true
+coretime-rococo-runtime.workspace = true
 cumulus-primitives-core.workspace = true
 emulated-integration-tests-common.workspace = true
 frame-support.workspace = true
-parachains-common.workspace = true
 parachains-common.default-features = true
+parachains-common.workspace = true
 sp-core.workspace = true
 testnet-parachains-constants = { features = ["rococo"], workspace = true, default-features = true }
