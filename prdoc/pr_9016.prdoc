@@ -22,16 +22,18 @@ crates:
 - name: asset-hub-westend-runtime
   bump: minor
 - name: westend-runtime
-  bump: patch
+  bump: major
 - name: pallet-fast-unstake
   bump: patch
 - name: pallet-nomination-pools-benchmarking
   bump: minor
 - name: pallet-nomination-pools
-  bump: patch
-- name: pallet-delegated-staking
-  bump: patch
-- name: pallet-staking-async
   bump: minor
+- name: pallet-delegated-staking
+  bump: minor
+- name: pallet-staking-async
+  bump: patch
 - name: pallet-staking-async-testing-utils
-  bump: major
+  bump: patch
+- name: polkadot-sdk
+  bump: patch
