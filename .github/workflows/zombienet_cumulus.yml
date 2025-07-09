@@ -58,6 +58,9 @@ jobs:
           test: "zombie_ci::sync_blocks::sync_blocks_from_tip_without_connected_collator"
           prefix: "cumulus"
 
+  # Disabled, occasionally fails
+  # Takes too much CPU when spawning all nodes at the same time
+  # Re-enable when https://github.com/paritytech/zombienet-sdk/issues/371 is implemented
   zombienet-cumulus-0002-pov_recovery:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) && ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-cumulus-0002-pov_recovery') }}
@@ -177,6 +180,9 @@ jobs:
           test: "zombie_ci::migrate_solo::migrate_solo_to_para"
           prefix: "cumulus"
 
+  # Disabled, occasionally fails
+  # Takes too much CPU when spawning all nodes at the same time
+  # Re-enable when https://github.com/paritytech/zombienet-sdk/issues/371 is implemented
   zombienet-cumulus-0006-rpc_collator_builds_blocks:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) && ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-cumulus-0006-rpc_collator_builds_blocks') }}
@@ -257,6 +263,9 @@ jobs:
           test: "zombie_ci::elastic_scaling::slot_based_authoring::elastic_scaling_slot_based_authoring"
           prefix: "cumulus"
 
+
+  # Disabled, occasionally fails
+  # See https://github.com/paritytech/polkadot-sdk/issues/8986
   zombienet-cumulus-0009-elastic_scaling_pov_recovery:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) && ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-cumulus-0009-elastic_scaling_pov_recovery') }}
@@ -284,6 +293,8 @@ jobs:
           test: "zombie_ci::elastic_scaling::pov_recovery::elastic_scaling_pov_recovery"
           prefix: "cumulus"
 
+  # Disabled, occasionally fails.
+  # See https://github.com/paritytech/polkadot-sdk/issues/8999
   zombienet-cumulus-0010-elastic_scaling_multiple_block_per_slot:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) && ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-cumulus-0010-elastic_scaling_multiple_block_per_slot') }}
