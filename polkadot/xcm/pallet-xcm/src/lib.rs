@@ -1489,12 +1489,24 @@ pub mod pallet {
 			let (fees_transfer_type, assets_transfer_type) =
 				Self::find_fee_and_assets_transfer_types(&assets, fee_asset_item, &dest)?;
 
-			// Check for network native asset reserve transfers in preparation for the Asset Hub
+			// We check for network native asset reserve transfers in preparation for the Asset Hub
 			// Migration. This check will be removed after the migration and the determined
 			// reserve location adjusted accordingly. For more information, see https://github.com/paritytech/polkadot-sdk/issues/9054.
+
+			// Extract fee asset and check both assets and fees separately.
+			let fee_asset = assets.get(fee_asset_item as usize).ok_or(Error::<T>::Empty)?;
+			let mut remaining_assets = assets.clone();
+			remaining_assets.remove(fee_asset_item as usize);
+
+			// Check remaining assets with their transfer type
 			Self::ensure_network_asset_reserve_transfer_allowed(
-				&assets,
+				&remaining_assets,
 				&assets_transfer_type,
+			)?;
+
+			// Check fee asset with its transfer type
+			Self::ensure_network_asset_reserve_transfer_allowed(
+				&[fee_asset.clone()],
 				&fees_transfer_type,
 			)?;
 
@@ -2105,18 +2117,12 @@ impl<T: Config> Pallet<T> {
 	/// explicit reserve specification.
 	fn ensure_network_asset_reserve_transfer_allowed(
 		assets: &[Asset],
-		assets_transfer_type: &TransferType,
-		fees_transfer_type: &TransferType,
+		transfer_type: &TransferType,
 	) -> Result<(), Error<T>> {
 		// Check if any reserve transfer (LocalReserve, DestinationReserve, or RemoteReserve)
 		// is being attempted.
 		let is_reserve_transfer = matches!(
-			assets_transfer_type,
-			TransferType::LocalReserve |
-				TransferType::DestinationReserve |
-				TransferType::RemoteReserve(_)
-		) || matches!(
-			fees_transfer_type,
+			transfer_type,
 			TransferType::LocalReserve |
 				TransferType::DestinationReserve |
 				TransferType::RemoteReserve(_)
@@ -2132,7 +2138,7 @@ impl<T: Config> Pallet<T> {
 			if Self::is_network_native_asset(&asset.id) {
 				tracing::debug!(
 					target: "xcm::pallet_xcm::transfer_assets",
-					asset_id = ?asset.id, ?assets_transfer_type, ?fees_transfer_type,
+					asset_id = ?asset.id, ?transfer_type,
 					"Network native asset reserve transfer blocked during Asset Hub Migration. Use `limited_reserve_transfer_assets` instead."
 				);
 				// It's error-prone to try to determine the reserve in this circumstances.
