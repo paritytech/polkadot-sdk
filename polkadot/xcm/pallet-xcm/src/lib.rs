@@ -733,10 +733,6 @@ pub mod pallet {
 		/// instruction that caused the error.
 		#[codec(index = 28)]
 		LocalExecutionIncompleteWithError { index: InstructionIndex, error: ExecutionError },
-		/// Network native asset reserve transfers are temporarily disabled during Asset Hub Migration.
-		/// Use `limited_reserve_transfer_assets` instead.
-		#[codec(index = 29)]
-		NetworkAssetReserveTransferDisabled,
 	}
 
 	impl<T: Config> From<SendError> for Error<T> {
@@ -2124,7 +2120,8 @@ impl<T: Config> Pallet<T> {
 					asset_id = ?asset.id, ?assets_transfer_type, ?fees_transfer_type,
 					"Network native asset reserve transfer blocked during Asset Hub Migration. Use `limited_reserve_transfer_assets` instead."
 				);
-				return Err(Error::<T>::NetworkAssetReserveTransferDisabled);
+				// It's error-prone to try to determine the reserve in this circumstances.
+				return Err(Error::<T>::InvalidAssetUnknownReserve);
 			}
 		}
 
