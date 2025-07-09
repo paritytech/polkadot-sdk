@@ -12718,6 +12718,7 @@ dependencies = [
 name = "pallet-multi-asset-bounties"
 version = "1.0.0"
 dependencies = [
+ "docify",
  "frame-benchmarking",
  "frame-support",
  "frame-system",

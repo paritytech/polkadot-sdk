@@ -31,7 +31,7 @@
 //! > NOTE: This pallet is tightly coupled with pallet-treasury.
 //!
 //! A bounty is a reward for completing a specified body of work or achieving a defined set of
-//! objectives.  The work must be completed for a predefined amount to be paid out. A curator is
+//! objectives. The work must be completed for a predefined amount to be paid out. A curator is
 //! assigned when the bounty is funded, and is responsible for awarding the bounty once the
 //! objectives are met. To support parallel execution and better governance, a bounty can be split
 //! into multiple child bounties. Each child bounty represents a smaller task derived from the
@@ -44,11 +44,29 @@
 //!
 //! ### Terminology
 //!
-//! TODO: Add terminology. See example in https://github.com/paritytech/polkadot-sdk/blob/252f3953247c7e9b9776c63cdeee35b4d51e9b24/substrate/frame/treasury/src/lib.rs#L40
+//! - **Bounty:** A reward for a predefined body of work upon completion.
+//! - **Parent Bounty:** A Treasury-funded bounty that defines the total reward and may be
+//!   subdivided into multiple child bounties.
+//! - **Child Bounty:** A subtask or milestone funded by a parent bounty. It may carry its own
+//!   curator, fee, and reward similar to the parent bounty.
+//! - **Curator:** An account managing the bounty and assigning a payout address receiving the
+//!   reward for the completion of work.
+//! - **Curator fee:** The reserved upfront payment for a curator for work related to the bounty.
+//! - **Curator stash:** An account/location chosen by the curator that receives the curator fee
+//!   when the child-/bounty is awarded.
+//! - **Curator deposit:** The payment in native asset from a candidate willing to curate a funded
+//!   bounty. The deposit is returned when/if the bounty is completed.
+//! - **Bounty value:** The total amount in a given asset kind that should be paid to the
+//!   Beneficiary and Curator stash if the bounty is rewarded.
+//! - **Beneficiary:** The account/location to which the total or part of the bounty is assigned to.
 //!
 //! ### Example
 //!
-//! TODO: Add examples. See example in https://github.com/paritytech/polkadot-sdk/blob/252f3953247c7e9b9776c63cdeee35b4d51e9b24/substrate/frame/treasury/src/lib.rs#L49C1-L49C16
+//! 1. Fund a parent bounty approved by spend origin of some asset kind with a proposed curator.
+#![doc = docify::embed!("src/tests.rs", fund_bounty_works)]
+//!
+//! 2. Award a bounty to a beneficiary.
+#![doc = docify::embed!("src/tests.rs", award_bounty_works)]
 //!
 //! ## Pallet API
 //!
@@ -104,13 +122,13 @@ type ChildBountyOf<T, I> = ChildBounty<
 	<T as pallet_treasury::Config<I>>::Beneficiary,
 >;
 
-/// A bounty funded.
+/// A parent bounty funded.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct Bounty<AccountId, Balance, AssetKind, PaymentId, Beneficiary> {
-	/// The kind of asset this bounty is rewarded in.
+	/// The kind of asset this parent bounty is rewarded in.
 	pub asset_kind: AssetKind,
-	/// The (total) amount that should be paid if the bounty is rewarded, including beneficiary
-	/// payout and curator fee.
+	/// The (total) amount that should be paid if the parent bounty is rewarded, including
+	/// beneficiary payout and curator fee.
 	///
 	/// The asset class determined by [`asset_kind`].
 	pub value: Balance,
@@ -122,7 +140,7 @@ pub struct Bounty<AccountId, Balance, AssetKind, PaymentId, Beneficiary> {
 	///
 	/// The asset class determined by the [`pallet_treasury::Config::Currency`].
 	pub curator_deposit: Balance,
-	/// The status of this bounty.
+	/// The status of this parent bounty.
 	pub status: BountyStatus<AccountId, PaymentId, Beneficiary>,
 }
 
@@ -132,7 +150,7 @@ pub struct ChildBounty<AccountId, Balance, PaymentId, Beneficiary> {
 	/// The parent bounty index of this child-bounty.
 	pub parent_bounty: BountyIndex,
 	/// The (total) amount that should be paid if the child-bounty is rewarded, including
-	/// beneficiary payout and child curator fee (of ).
+	/// beneficiary payout and child curator fee.
 	///
 	/// The asset class determined by the parent bounty [`asset_kind`].
 	pub value: Balance,
@@ -140,15 +158,15 @@ pub struct ChildBounty<AccountId, Balance, PaymentId, Beneficiary> {
 	///
 	/// The asset class determined by the parent bounty [`asset_kind`].
 	pub fee: Balance,
-	/// The deposit of curator.
+	/// The deposit of child curator.
 	///
 	/// The asset class determined by the [`pallet_treasury::Config::Currency`].
 	pub curator_deposit: Balance,
-	/// The status of this bounty.
+	/// The status of this child-bounty.
 	pub status: BountyStatus<AccountId, PaymentId, Beneficiary>,
 }
 
-/// The status of a bounty proposal.
+/// The status of a child-/bounty proposal.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum BountyStatus<AccountId, PaymentId, Beneficiary> {
 	/// The child-/bounty funding has been attempted is waiting to confirm the funds allocation.
@@ -192,30 +210,29 @@ pub enum BountyStatus<AccountId, PaymentId, Beneficiary> {
 	/// child-/bounty is finalized and removed from storage. If either payment fails, you can retry
 	/// one or both using `retry_payment`.
 	PayoutAttempted {
-		/// The curator of this bounty.
+		/// The curator of this child-/bounty.
 		curator: AccountId,
 		/// The beneficiary stash account/location with its payout payment status.
 		beneficiary: (Beneficiary, PaymentState<PaymentId>),
 		/// The curator stash account/location with its payout payment status.
 		curator_stash: (Beneficiary, PaymentState<PaymentId>),
 	},
-	/// The bounty is closed, and the funds are being refunded to the original source (e.g.,
-	/// Treasury). Once `check_status` confirms the payment succeeded, child-/the bounty is
+	/// The child-/bounty is closed, and the funds are being refunded to the original source (e.g.,
+	/// Treasury). Once `check_status` confirms the payment succeeded, the child-/bounty is
 	/// finalized and removed from storage.
 	RefundAttempted {
-		/// The curator of this bounty.
+		/// The curator of this child-/bounty.
 		curator: Option<AccountId>,
 		/// The refund payment status.
 		payment_status: PaymentState<PaymentId>,
 	},
 }
 
-/// The state of payments associated with each bounty and its `BountyStatus`.
+/// The state of payments associated with each child-/bounty status.
 ///
-/// When a payment is initiated using `Paymaster::pay`, the payment enters in a pending state,
-/// thus supporting asynchronous payments. Calling `check_payment_status` updates the payment state
-/// and advances the bounty lifecycle. The `process_payment` can be called to retry a payment in
-/// `Failed` or `Pending` state.
+/// When a payment is initiated via `Paymaster::pay`, it begins in the `Pending` state. The
+/// `check_status` call updates the payment state and advances the child-/bounty status. The
+/// `retry_payment` call can be used to reattempt payments in either `Pending` or `Failed` states.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
 pub enum PaymentState<Id> {
 	/// Pending claim.
@@ -266,11 +283,11 @@ pub mod pallet {
 		#[pallet::constant]
 		type CuratorDepositMax: Get<Option<BalanceOf<Self, I>>>;
 
-		/// Minimum amount of funds that should be placed in a deposit for making a proposal.
+		/// Minimum amount of funds that should be placed in a deposit for accepting curator role.
 		#[pallet::constant]
 		type CuratorDepositMin: Get<Option<BalanceOf<Self, I>>>;
 
-		/// Minimum value for a bounty.
+		/// Minimum value for a parent bounty.
 		#[pallet::constant]
 		type BountyValueMinimum: Get<BalanceOf<Self, I>>;
 
@@ -281,10 +298,6 @@ pub mod pallet {
 		/// Maximum number of child bounties that can be added to a parent bounty.
 		#[pallet::constant]
 		type MaxActiveChildBountyCount: Get<u32>;
-
-		/// The amount held on deposit per byte within the tip report reason or bounty description.
-		#[pallet::constant]
-		type DataDepositPerByte: Get<BalanceOf<Self, I>>;
 
 		/// Maximum acceptable reason length.
 		///
@@ -299,27 +312,28 @@ pub mod pallet {
 		/// Handler for the unbalanced decrease when slashing for a rejected bounty.
 		type OnSlash: OnUnbalanced<pallet_treasury::NegativeImbalanceOf<Self, I>>;
 
-		/// Converts an `AssetKind` into the treasury funding source.
+		/// Converts an `AssetKind` into the treasury account/location.
 		///
-		/// Used when the treasury funds a bounty.
+		/// Used when initiating funding and refund payments to and from a parent bounty.
 		type TreasurySource: TryConvert<
 			Self::AssetKind,
 			<<Self as pallet::Config<I>>::Paymaster as PayWithSource>::Source,
 		>;
 
-		/// Type used to derive the account/location of a bounty.
+		/// Converts a parent bounty index and `AssetKind` into its account/location.
 		///
-		/// The account/location is derived from asset kind/class `AssetKind` and
-		/// parent bounty `BountyIndex`.
+		/// Used when initiating the funding, refund, and payout payments to and from a parent
+		/// bounty.
 		type BountySource: TryConvert<
 			(BountyIndex, Self::AssetKind),
 			<<Self as pallet::Config<I>>::Paymaster as PayWithSource>::Source,
 		>;
 
-		/// Type used to derive the account/location of a child-bounty.
+		/// Converts a parent bounty index, child bounty index, and `AssetKind` into the
+		/// child-bounty account/location.
 		///
-		/// The account/location is derived from asset kind/class `AssetKind`,
-		/// parent bounty and child-bounty `BountyIndex`.
+		/// Used when initiating the funding, refund, and payout payments to and from a
+		/// child-bounty.
 		type ChildBountySource: TryConvert<
 			(BountyIndex, BountyIndex, Self::AssetKind),
 			<<Self as pallet::Config<I>>::Paymaster as PayWithSource>::Source,
@@ -371,7 +385,8 @@ pub mod pallet {
 		RefundInconclusive,
 		/// Child-/bounty payout has not concluded yet.
 		PayoutInconclusive,
-		/// The child-/bounty account could not be derived from the index and asset kind.
+		/// The child-/bounty or treasury account could not be derived from the indexes and asset
+		/// kind.
 		FailedToConvertSource,
 		/// The parent bounty cannot be closed because it has active child bounties.
 		HasActiveChildBounty,
@@ -465,6 +480,8 @@ pub mod pallet {
 		StorageMap<_, Twox64Concat, BountyIndex, BountyOf<T, I>>;
 
 	/// Child bounties that have been added.
+	///
+	/// Indexed by `(parent_bounty_id, child_bounty_id)`.
 	#[pallet::storage]
 	pub type ChildBounties<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
@@ -480,7 +497,9 @@ pub mod pallet {
 	pub type BountyDescriptions<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, BountyIndex, BoundedVec<u8, T::MaximumReasonLength>>;
 
-	/// The description of each child-bounty. Indexed by `(parent_id, child_id)`.
+	/// The description of each child-bounty.
+	///
+	/// Indexed by `(parent_bounty_id, child_bounty_id)`.
 	#[pallet::storage]
 	pub type ChildBountyDescriptions<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
@@ -492,22 +511,29 @@ pub mod pallet {
 	>;
 
 	/// Number of active child bounties per parent bounty.
-	/// Map of parent bounty index to number of child bounties.
+	///
+	/// Indexed by `parent_bounty_id`.
 	#[pallet::storage]
 	pub type ChildBountiesPerParent<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, BountyIndex, u32, ValueQuery>;
 
 	/// Number of total child bounties per parent bounty, including completed bounties.
+	///
+	/// Indexed by `parent_bounty_id`.
 	#[pallet::storage]
 	pub type TotalChildBountiesPerParent<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, BountyIndex, u32, ValueQuery>;
 
 	/// The cumulative child-bounty value for each parent bounty.
+	///
+	/// Indexed by `parent_bounty_id`.
 	#[pallet::storage]
 	pub type ChildBountiesValuePerParent<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, BountyIndex, BalanceOf<T, I>, ValueQuery>;
 
 	/// The cumulative child-bounty curator fees for each parent bounty.
+	///
+	/// Indexed by `parent_bounty_id`.
 	#[pallet::storage]
 	pub type ChildBountiesCuratorFeesPerParent<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, BountyIndex, BalanceOf<T, I>, ValueQuery>;
@@ -520,8 +546,8 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		/// Fund a new parent bounty, iniitiating the payment from the treasury to the bounty
-		/// account/location.
+		/// Fund a new parent bounty with a proposed curator, iniitiating the payment from the
+		/// treasury to the bounty account/location.
 		///
 		/// ## Dispatch Origin
 		/// Must be [`Config::SpendOrigin`] with the `Success` value being at least
@@ -529,19 +555,19 @@ pub mod pallet {
 		/// against the maximum spendable amount of the [`Config::SpendOrigin`].
 		///
 		/// ## Details
-		/// - The `SpendOrigin` must have sufficient permissions to approve the bounty.
+		/// - The `SpendOrigin` must have sufficient permissions to fund the bounty.
 		/// - In case of a funding failure, the bounty status must be updated with the
 		///   `check_status` call before retrying with `retry_payment` call.
 		///
 		/// ### Parameters
 		/// - `asset_kind`: An indicator of the specific asset class to be funded.
 		/// - `value`: The total payment amount of this parent bounty, curator fee included.
-		/// - `curator`: Address of parent bounty curator.
-		/// - `fee`: Payment fee to parent bounty curator for execution.
-		/// - `description`: The description of this bounty.
+		/// - `curator`: Address of bounty curator.
+		/// - `fee`: Payment fee to bounty curator for execution.
+		/// - `description`: Description of this bounty.
 		///
 		/// ## Events
-		/// Emits [`Event::BountyFunded`] if successful.
+		/// Emits [`Event::BountyFunded`] and [`Event::Paid`] if successful.
 		///
 		/// ## Complexity
 		/// - O(1).
@@ -604,8 +630,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Fund a new child-bounty, initiating the payment from the parent bounty
-		/// to the child-bounty account/location.
+		/// Fund a new child-bounty with a proposed curator, initiating the payment from the parent
+		/// bounty to the child-bounty account/location.
 		///
 		/// ## Dispatch Origin
 		/// Must be signed by the parent curator.
@@ -623,10 +649,10 @@ pub mod pallet {
 		/// - `value`: The total payment amount of this child-bounty, curator fee included.
 		/// - `curator`: Address of child-bounty curator.
 		/// - `fee`: Payment fee to child-bounty curator for execution.
-		/// - `description`: The description of this bounty.
+		/// - `description`: The description of this child-bounty.
 		///
 		/// ## Events
-		/// Emits [`Event::BountyFunded`] if successful.
+		/// Emits [`Event::BountyFunded`] and [`Event::Paid`] if successful.
 		///
 		/// ## Complexity
 		/// - O(1).
@@ -745,18 +771,20 @@ pub mod pallet {
 		/// Propose a new curator for a child-/bounty after the previous was unassigned.
 		///
 		/// ## Dispatch Origin
-		/// Must be called from `T::SpendOrigin`.
+		/// Must be signed by `T::SpendOrigin` for a parent bounty, or by the parent bounty curator
+		/// for a child-bounty.
 		///
 		/// ## Details
 		/// - The child-/bounty must be in the `CuratorUnassigned` state.
-		/// - The `SpendOrigin` must have sufficient permissions to propose the curator.
-		/// - The curator fee must be less than the total bounty value.
+		/// - For a parent bounty, the `SpendOrigin` must have sufficient permissions to propose the
+		///   curator.
+		/// - The curator fee must be less than the child-/bounty value.
 		///
 		/// ### Parameters
 		/// - `parent_bounty_id`: Index of parent bounty.
 		/// - `child_bounty_id`: Index of child-bounty.
 		/// - `curator`: Account to be proposed as the curator.
-		/// - `fee`: Curator fee.
+		/// - `fee`: Payment fee to bounty curator for execution.
 		///
 		/// ## Events
 		/// Emits [`Event::CuratorProposed`] if successful.
@@ -826,7 +854,7 @@ pub mod pallet {
 		/// Must be signed by the proposed curator.
 		///
 		/// ## Details
-		/// - The bounty must be in the `Funded` state.
+		/// - The child-/bounty must be in the `Funded` state.
 		/// - The curator must accept the role by calling this function.
 		/// - A deposit will be reserved from the curator and refunded upon successful payout.
 		///
@@ -887,11 +915,13 @@ pub mod pallet {
 		/// This function can only be called by the `RejectOrigin` or the child-/bounty curator.
 		///
 		/// ## Details
-		/// - If this function is called by the `RejectOrigin`, we assume that the curator is
-		///   malicious or inactive. As a result, we will slash the curator when possible.
-		/// - If the origin is the curator, we take this as a sign they are unable to do their job
-		///   and they willingly give up. We could slash them, but for now we allow them to recover
-		///   their deposit and exit without issue. (We may want to change this if it is abused).
+		/// - If this function is called by the `RejectOrigin`, or by the parent curator in the case
+		///   of a child bounty, we assume that the curator is malicious or inactive. As a result,
+		///   we will slash the curator when possible.
+		/// - If the origin is the child-/bounty curator, we take this as a sign they are unable to
+		///   do their job and they willingly give up. We could slash them, but for now we allow
+		///   them to recover their deposit and exit without issue. (We may want to change this if
+		///   it is abused).
 		/// - If successful, the child-/bounty status is updated to `CuratorUnassigned`. To
 		///   reactivate the bounty, a new curator must be proposed and must accept the role.
 		///
@@ -956,8 +986,8 @@ pub mod pallet {
 						},
 						Some(sender) => {
 							if let Some(parent_curator) = parent_curator {
-								// If the parent curator is calling this function, slash the child
-								// curator.
+								// If the parent curator is unassigning a different child curator,
+								// slash the child curator deposit.
 								if sender == parent_curator && *curator != parent_curator {
 									slash_curator(curator, &mut curator_deposit);
 								} else {
@@ -997,9 +1027,9 @@ pub mod pallet {
 		/// - The child-/bounty must be in the `Active` state.
 		/// - if awarding a parent bounty it must not have active or funded child bounties.
 		/// - Initiates two payout payments from the child-/bounty account: child-/bounty `value` to
-		///   the beneficiary, and `fee` to the curator's stash account.
-		/// - If successful the bounty status is updated to `PayoutAttempted`.
-		/// - In case of a payout failure, the child-/bounty status must be updated with the
+		///   the beneficiary, and `fee` to the curator stash account.
+		/// - If successful the child-/bounty status is updated to `PayoutAttempted`.
+		/// - In case of a payout failure, the child-/bounty status must be updated with
 		/// `check_status` call before retrying with `retry_payment` call.
 		///
 		/// ### Parameters
@@ -1008,7 +1038,8 @@ pub mod pallet {
 		/// - `beneficiary`: Account/location to be awarded the child-/bounty.
 		///
 		/// ## Events
-		/// Emits [`Event::BountyAwarded`] if successful.
+		/// Emits [`Event::BountyAwarded`] and [`Event::Paid`] for each payment initiated if
+		/// successful.
 		///
 		/// ## Complexity
 		/// - O(1).
@@ -1033,43 +1064,35 @@ pub mod pallet {
 				);
 			}
 
-			match status {
-				BountyStatus::Active { ref curator, curator_stash } => {
-					ensure!(signer == *curator, Error::<T, I>::RequireCurator);
+			let BountyStatus::Active { ref curator, curator_stash } = status else {
+				return Err(Error::<T, I>::UnexpectedStatus.into())
+			};
+			ensure!(signer == *curator, Error::<T, I>::RequireCurator);
 
-					let (beneficiary_payment_status, curator_payment_status) =
-						Self::do_process_payout_payments(
-							parent_bounty_id,
-							child_bounty_id,
-							asset_kind,
-							value,
-							fee,
-							(beneficiary.clone(), None),
-							(curator_stash.clone(), None),
-						)?;
+			let (beneficiary_payment_status, curator_payment_status) =
+				Self::do_process_payout_payments(
+					parent_bounty_id,
+					child_bounty_id,
+					asset_kind,
+					value,
+					fee,
+					(beneficiary.clone(), None),
+					(curator_stash.clone(), None),
+				)?;
 
-					let new_status = BountyStatus::PayoutAttempted {
-						curator: curator.clone(),
-						beneficiary: (beneficiary.clone(), beneficiary_payment_status.clone()),
-						curator_stash: (curator_stash.clone(), curator_payment_status.clone()),
-					};
-					Self::update_bounty_details(
-						parent_bounty_id,
-						child_bounty_id,
-						new_status,
-						None,
-						None,
-					)?;
+			let new_status = BountyStatus::PayoutAttempted {
+				curator: curator.clone(),
+				beneficiary: (beneficiary.clone(), beneficiary_payment_status.clone()),
+				curator_stash: (curator_stash.clone(), curator_payment_status.clone()),
+			};
+			Self::update_bounty_details(parent_bounty_id, child_bounty_id, new_status, None, None)?;
 
-					Self::deposit_event(Event::<T, I>::BountyAwarded {
-						index: parent_bounty_id,
-						child_index: child_bounty_id,
-						beneficiary,
-						curator_stash,
-					});
-				},
-				_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
-			}
+			Self::deposit_event(Event::<T, I>::BountyAwarded {
+				index: parent_bounty_id,
+				child_index: child_bounty_id,
+				beneficiary,
+				curator_stash,
+			});
 
 			Ok(())
 		}
@@ -1078,23 +1101,24 @@ pub mod pallet {
 		/// initialized.
 		///
 		/// ## Dispatch Origin
-		/// A parent bounty can only be cancelled by the `T::RejectOrigin`. A child bounty can be
+		/// A parent bounty can only be cancelled by the `T::RejectOrigin`. A child-bounty can be
 		/// cancelled either by the parent bounty curator or `T::RejectOrigin`.
 		///
 		/// ## Details
 		/// - If the child-/bounty is in the `Funded` state, a refund payment is initiated.
 		/// - If the child-/bounty is in the `Active` state, a refund payment is initiated and the
 		///   child-/bounty status is updated with the curator account/location.
-		/// - If the child-/bounty is already in the payout phase, it cannot be canceled.
+		/// - If the child-/bounty is in the funding or payout phase, it cannot be canceled.
 		/// - In case of a refund failure, the child-/bounty status must be updated with the
 		/// `check_status` call before retrying with `retry_payment` call.
 		///
 		/// ### Parameters
-		/// - `bounty_id`: The index of the bounty to cancel.
+		/// - `parent_bounty_id`: Index of parent bounty.
+		/// - `child_bounty_id`: Index of child-bounty.
 		///
 		/// ## Events
-		/// - Emits `BountyCanceled` if the child-/bounty was already funded and is being refunded.
-		/// - Emits `Paid` if the child-/bounty refund payment is initiated.
+		/// Emits [`Event::BountyCanceled`] and [`Event::Paid`] if the child-/bounty was already
+		/// funded and is being refunded.
 		///
 		/// ## Complexity
 		/// - O(1).
@@ -1188,9 +1212,9 @@ pub mod pallet {
 		/// - `child_bounty_id`: Index of child-bounty.
 		///
 		/// ## Events
-		/// - Emits `BountyBecameActive` when the bounty transitions to `Active`.
-		/// - Emits `BountyPayoutProcessed` when the payout payments complete successfully.
-		/// - Emits `BountyRefundProcessed` when the refund payment completes successfully.
+		/// Emits `BountyBecameActive` when the bounty transitions to `Active`.
+		/// Emits `BountyPayoutProcessed` when the payout payments complete successfully.
+		/// Emits `BountyRefundProcessed` when the refund payment completes successfully.
 		///
 		/// ## Complexity
 		/// - O(1).
@@ -1225,12 +1249,12 @@ pub mod pallet {
 					let new_status = match new_payment_status {
 						PaymentState::Succeeded => {
 							match (child_bounty_id, parent_curator_stash, parent_curator) {
-								(Some(_), Some(curator_stash), Some(parent_curator)) if curator == parent_curator => {
-									BountyStatus::Active { curator, curator_stash }
-								}
+								(Some(_), Some(curator_stash), Some(parent_curator))
+									if curator == parent_curator =>
+									BountyStatus::Active { curator, curator_stash },
 								_ => BountyStatus::Funded { curator },
 							}
-						}
+						},
 						_ => BountyStatus::FundingAttempted {
 							payment_status: new_payment_status,
 							curator,
@@ -1346,7 +1370,7 @@ pub mod pallet {
 		/// - `child_bounty_id`: Index of child-bounty.
 		///
 		/// ## Events
-		/// - Emits `Paid` for each individual payment initiated.
+		/// Emits [`Event::Paid`] for each payment initiated.
 		///
 		/// ## Complexity
 		/// - O(1).

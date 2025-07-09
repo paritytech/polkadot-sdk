@@ -29,6 +29,7 @@ use sp_runtime::traits::Dispatchable;
 type UtilityCall = pallet_utility::Call<Test>;
 type BountiesCall = crate::Call<Test>;
 
+#[docify::export]
 #[test]
 fn fund_bounty_works() {
 	ExtBuilder::default().build_and_execute(|| {
@@ -441,7 +442,7 @@ fn fund_child_bounty_fails() {
 			Bounties::fund_child_bounty(
 				RuntimeOrigin::signed(s.curator),
 				s.parent_bounty_id,
-				51,
+				s.value + 1,
 				None,
 				None,
 				b"1234567890".to_vec()
@@ -456,7 +457,7 @@ fn fund_child_bounty_fails() {
 				s.parent_bounty_id,
 				s.child_value,
 				None,
-				Some(11),
+				Some(s.child_value + 1),
 				b"1234567890".to_vec()
 			),
 			Error::<Test>::InvalidFee
@@ -2012,6 +2013,7 @@ fn propose_curator_fails() {
 	});
 }
 
+#[docify::export]
 #[test]
 fn award_bounty_works() {
 	ExtBuilder::default().build_and_execute(|| {

@@ -244,7 +244,6 @@ impl Config for Test {
 	type BountyValueMinimum = ConstU64<2>;
 	type ChildBountyValueMinimum = ConstU64<1>;
 	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
-	type DataDepositPerByte = ConstU64<1>;
 	type MaximumReasonLength = ConstU32<16384>;
 	type WeightInfo = ();
 	type OnSlash = ();
@@ -263,7 +262,6 @@ impl Config<Instance1> for Test {
 	type BountyValueMinimum = ConstU64<2>;
 	type ChildBountyValueMinimum = ConstU64<1>;
 	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
-	type DataDepositPerByte = ConstU64<1>;
 	type MaximumReasonLength = ConstU32<16384>;
 	type WeightInfo = ();
 	type OnSlash = ();
