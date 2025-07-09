@@ -29,6 +29,8 @@ use alloc::{
 };
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_election_provider_support::{bounds::ElectionBoundsBuilder, onchain, SequentialPhragmen};
+#[cfg(not(feature = "on-chain-release-build"))]
+use frame_support::traits::Nothing;
 use frame_support::{
 	derive_impl,
 	dynamic_params::{dynamic_pallet_params, dynamic_params},
@@ -37,7 +39,7 @@ use frame_support::{
 	traits::{
 		fungible::HoldConsideration, tokens::UnityOrOuterConversion, AsEnsureOriginWithArg,
 		ConstU32, Contains, EitherOf, EitherOfDiverse, EnsureOriginWithArg, FromContains,
-		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, Nothing, ProcessMessage,
+		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage,
 		ProcessMessageError, VariantCountOf, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter},
