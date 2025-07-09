@@ -2027,7 +2027,7 @@ version = "36.1.0"
 default-features = false
 optional = true
 path = "../substrate/primitives/crypto/ec-utils"
-version = "0.15.0"
+version = "0.15.1"
 
 [dependencies.sp-crypto-hashing]
 default-features = false
