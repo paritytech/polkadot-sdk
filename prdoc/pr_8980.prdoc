@@ -1,8 +1,0 @@
-title: Fix revive-fixtures build script
-doc:
-- audience: Runtime Dev
-  description: |-
-    Fix compilation issue with pallet-revive-fixtures build.rs script.
-crates:
-- name: pallet-revive-fixtures
-  bump: patch
