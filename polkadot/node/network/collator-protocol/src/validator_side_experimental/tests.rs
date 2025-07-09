@@ -3091,12 +3091,90 @@ async fn test_outdated_fetching_collations_are_pruned() {
 		.is_none());
 }
 
+#[tokio::test]
+// Test that a v1 advertisement cannot claim a future slot.
+async fn test_single_collation_per_rp_for_v1_advertisement() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+
+	let db = MockDb::default();
+	let mut state = make_state(db.clone(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	let first_peer = peer_id(1);
+	let second_peer = peer_id(2);
+
+	// Make two v1 advertisements on the same RP. They will both try to claim the same slot, which
+	// is not possible. Only one will make it.
+	let (first_ccr, mut first_adv) = dummy_candidate(
+		get_hash(10),
+		100.into(),
+		first_peer,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		dummy_pvd().hash(),
+	);
+
+	let (_, mut second_adv) = dummy_candidate(
+		get_hash(10),
+		100.into(),
+		second_peer,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		Hash::from_low_u64_be(1),
+	);
+
+	// Make them v1 advertisements.
+	second_adv.prospective_candidate = None;
+	first_adv.prospective_candidate = None;
+
+	state.handle_peer_connected(&mut sender, first_peer, CollationVersion::V1).await;
+	state.handle_declare(&mut sender, first_peer, 100.into()).await;
+	state
+		.handle_peer_connected(&mut sender, second_peer, CollationVersion::V1)
+		.await;
+	state.handle_declare(&mut sender, second_peer, 100.into()).await;
+
+	test_state.handle_advertisement(&mut state, first_adv).await;
+
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(first_adv).await;
+
+	test_state.handle_advertisement(&mut state, second_adv).await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_no_messages().await;
+
+	test_state
+		.handle_fetched_collation(&mut state, first_adv, first_ccr.to_plain(), None)
+		.await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_no_messages().await;
+	test_state
+		.second_collation(&mut state, first_peer, CollationVersion::V1, first_ccr)
+		.await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_no_messages().await;
+
+	// Still, adding a v2 advertisement would work.
+	let (_, third_adv) = dummy_candidate(
+		get_hash(10),
+		100.into(),
+		second_peer,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		Hash::from_low_u64_be(2),
+	);
+	test_state.handle_advertisement(&mut state, third_adv).await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(third_adv).await;
+}
+
 // Launching new collations:
-// - fetch_one_collation_at_a_time_for_v1_advertisement ( check that rate limiting works based on
-//   the relay parent and that once the candidate is fetched, we get the right candidate hash)
 // - multiple candidates per relay parent (including from implicit view and which occupy future
-//   claims)
-// - Test fairness according to claim queue and rate limiting according to the claim queue
+//   claims, including which will make claims across different leaves)
+// - Test fairness according to claim queue and rate limiting according to the claim queue (we
+//   already do but test a more complex case maybe with multiple paras)
 // - test delay, test prioritisation
 
 // LATER:
