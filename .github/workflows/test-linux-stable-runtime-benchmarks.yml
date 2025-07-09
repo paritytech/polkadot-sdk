@@ -67,10 +67,11 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: "771c9988e2a636a150d97c10e3122af8068d1687"
+      - name: fl
+        run: /builds/download-forklift.sh -v master && forklift version && forklift config show
       - name: script
         id: required
         run: |
-          /builds/download-forklift.sh -v master && forklift version
           forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
       # - name: Stop all workflows if failed
       #   if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
