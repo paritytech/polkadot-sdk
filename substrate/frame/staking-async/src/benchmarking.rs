@@ -234,13 +234,12 @@ mod benchmarking_utils {
 	}
 }
 
-// Import benchmarking utilities
-#[cfg(feature = "runtime-benchmarks")]
-use benchmarking_utils::*;
-
-// Re-export utilities for tests
-#[cfg(test)]
-pub use benchmarking_utils::*;
+use benchmarking_utils::{
+	clear_validators_and_nominators, create_funded_user, create_stash_controller,
+	create_stash_controller_with_balance, create_unique_stash_controller, create_validators,
+	create_validators_with_nominators_for_era, create_validators_with_seed,
+	migrate_to_old_currency,
+};
 
 const SEED: u32 = 0;
 const MAX_SLASHES: u32 = 1000;

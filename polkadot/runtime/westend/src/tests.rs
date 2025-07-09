@@ -151,7 +151,6 @@ mod remote_tests {
 		if var("RUN_MIGRATION_TESTS").is_err() {
 			return;
 		}
-		use frame_support::assert_ok;
 		sp_tracing::try_init_simple();
 
 		let transport: Transport = var("WS").unwrap_or("ws://127.0.0.1:9900".to_string()).into();
@@ -184,9 +183,9 @@ mod remote_tests {
 			// Pool migration no longer needed as they are moved to Asset Hub
 
 			// member migration stats
-			let mut success = 0;
-			let mut direct_stakers = 0;
-			let mut unexpected_errors = 0;
+			let success = 0;
+			let direct_stakers = 0;
+			let unexpected_errors = 0;
 
 			// Member migration no longer needed as they are moved to Asset Hub
 
