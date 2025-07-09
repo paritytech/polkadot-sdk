@@ -409,7 +409,7 @@ impl TestEnvironment {
 
 					if let Some(task_name) = metric.label_value("task_name") {
 						usage.push(ResourceUsage {
-							resource_name: format!("{}/{}", subsystem, task_name),
+							resource_name: format!("{subsystem}/{task_name}"),
 							total: metric.value(),
 							per_block: metric.value() / num_blocks,
 						});
