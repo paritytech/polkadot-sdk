@@ -474,6 +474,8 @@ fn instantiate_and_call_and_deposit_event() {
 			.build_and_unwrap_contract();
 		assert!(ContractInfoOf::<Test>::contains_key(&addr));
 
+		let hold_balance = test_utils::contract_base_deposit(&addr);
+
 		assert_eq!(
 			System::events(),
 			vec![
@@ -535,7 +537,7 @@ fn instantiate_and_call_and_deposit_event() {
 						),
 						source: ALICE,
 						dest: account_id.clone(),
-						transferred: 341,
+						transferred: hold_balance,
 					}),
 					topics: vec![],
 				},
