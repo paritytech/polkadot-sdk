@@ -18,12 +18,22 @@
 //! Testing utilities for pallet-staking-async internal tests.
 
 use super::*;
+use codec::Encode;
 use frame_benchmarking::account;
+use frame_election_provider_support::SortedListProvider;
 use frame_support::traits::fungible::Mutate;
 use frame_system::RawOrigin;
+use rand_chacha::{
+	rand_core::{RngCore, SeedableRng},
+	ChaChaRng,
+};
+use sp_io::hashing::blake2_256;
+use sp_runtime::{traits::StaticLookup, Perbill};
 
 const SEED: u32 = 0;
 const STAKING_ID: frame_support::traits::LockIdentifier = *b"staking ";
+
+pub type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 /// Create a funded user.
 pub fn create_funded_user<T: Config>(
@@ -92,4 +102,101 @@ pub fn migrate_to_old_currency<T: Config>(who: T::AccountId) {
 
 	// replicate old behaviour of explicit increment of consumer.
 	let _ = frame_system::Pallet::<T>::inc_consumers(&who);
+}
+
+/// Clear all validators and nominators.
+pub fn clear_validators_and_nominators<T: Config>() {
+	#[allow(deprecated)]
+	Validators::<T>::remove_all();
+	#[allow(deprecated)]
+	Nominators::<T>::remove_all();
+	T::VoterList::unsafe_clear();
+}
+
+/// Create a stash and controller pair with fixed balance.
+pub fn create_stash_controller_with_balance<T: Config>(
+	n: u32,
+	balance: BalanceOf<T>,
+	destination: RewardDestination<T::AccountId>,
+) -> Result<(T::AccountId, T::AccountId), &'static str> {
+	let staker = account("stash", n, SEED);
+	let _ = T::Currency::set_balance(&staker, balance);
+	Pallet::<T>::bond(RawOrigin::Signed(staker.clone()).into(), balance, destination)?;
+	Ok((staker.clone(), staker))
+}
+
+/// Create validators.
+pub fn create_validators<T: Config>(
+	max: u32,
+	balance_factor: u32,
+) -> Result<Vec<AccountIdLookupOf<T>>, &'static str> {
+	create_validators_with_seed::<T>(max, balance_factor, 0)
+}
+
+/// Create validators with seed.
+pub fn create_validators_with_seed<T: Config>(
+	max: u32,
+	balance_factor: u32,
+	seed: u32,
+) -> Result<Vec<AccountIdLookupOf<T>>, &'static str> {
+	let mut validators: Vec<AccountIdLookupOf<T>> = Vec::with_capacity(max as usize);
+	for i in 0..max {
+		let (stash, controller) =
+			create_stash_controller::<T>(i + seed, balance_factor, RewardDestination::Staked)?;
+		let validator_prefs =
+			ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
+		Pallet::<T>::validate(RawOrigin::Signed(controller).into(), validator_prefs)?;
+		let stash_lookup = T::Lookup::unlookup(stash);
+		validators.push(stash_lookup);
+	}
+	Ok(validators)
+}
+
+/// Create validators with nominators for era.
+pub fn create_validators_with_nominators_for_era<T: Config>(
+	validators: u32,
+	nominators: u32,
+	edge_per_nominator: usize,
+	randomize_stake: bool,
+	to_nominate: Option<u32>,
+) -> Result<Vec<AccountIdLookupOf<T>>, &'static str> {
+	clear_validators_and_nominators::<T>();
+	let mut validators_stash: Vec<AccountIdLookupOf<T>> = Vec::with_capacity(validators as usize);
+	let mut rng = ChaChaRng::from_seed(SEED.using_encoded(blake2_256));
+
+	for i in 0..validators {
+		let balance_factor = if randomize_stake { rng.next_u32() % 255 + 10 } else { 100u32 };
+		let (v_stash, v_controller) =
+			create_stash_controller::<T>(i, balance_factor, RewardDestination::Staked)?;
+		let validator_prefs =
+			ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
+		Pallet::<T>::validate(RawOrigin::Signed(v_controller.clone()).into(), validator_prefs)?;
+		let stash_lookup = T::Lookup::unlookup(v_stash.clone());
+		validators_stash.push(stash_lookup.clone());
+	}
+
+	let to_nominate = to_nominate.unwrap_or(validators_stash.len() as u32) as usize;
+	let validator_chosen = validators_stash[0..to_nominate].to_vec();
+
+	for j in 0..nominators {
+		let balance_factor = if randomize_stake { rng.next_u32() % 255 + 10 } else { 100u32 };
+		let (_n_stash, n_controller) =
+			create_stash_controller::<T>(u32::MAX - j, balance_factor, RewardDestination::Staked)?;
+		let mut available_validators = validator_chosen.clone();
+		let mut selected_validators: Vec<AccountIdLookupOf<T>> =
+			Vec::with_capacity(edge_per_nominator);
+
+		for _ in 0..validators.min(edge_per_nominator as u32) {
+			let selected = rng.next_u32() as usize % available_validators.len();
+			let validator = available_validators.remove(selected);
+			selected_validators.push(validator);
+			if available_validators.is_empty() {
+				break
+			}
+		}
+		Pallet::<T>::nominate(RawOrigin::Signed(n_controller.clone()).into(), selected_validators)?;
+	}
+
+	ValidatorCount::<T>::put(validators);
+	Ok(validator_chosen)
 }
