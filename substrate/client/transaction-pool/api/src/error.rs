@@ -113,8 +113,13 @@ impl IntoPoolError for Error {
 	}
 }
 
-/// Instances of the implementor will be described by labels.
+/// Provide a representation of the underlying instance as a prometheus metric label.
 pub trait IntoMetricsLabel {
+	/// Short string representation of the underlying instance.
+	///
+	/// This is intended to be used for a prometheus metric that tracks this instance
+	/// with the goal of distributing the observations as a breakdown, where an unique
+	/// label represents a group of same instance, observed many times.
 	fn label(&self) -> String;
 }
 

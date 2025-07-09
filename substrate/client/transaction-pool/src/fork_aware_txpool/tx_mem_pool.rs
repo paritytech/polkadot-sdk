@@ -647,7 +647,7 @@ where
 		let input_len = validation_results.len();
 
 		let duration = start.elapsed();
-		let mut invalid_hashes = validation_results
+		let invalid_hashes = validation_results
 			.into_iter()
 			.filter_map(|(tx_hash, validation_result)| match validation_result {
 				Ok(Ok(_) | Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) =>
