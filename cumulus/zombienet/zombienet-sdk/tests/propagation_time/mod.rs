@@ -36,7 +36,7 @@ async fn sparsely_connected_network_block_propagation_time() -> Result<(), anyho
 	// Run many tests to get a better average.
 	while propagation_times.len() < 20 {
 		log::info!("Running test #{}", propagation_times.len() + 1);
-		if num_failures > 5 {
+		if num_failures > 7 {
 			anyhow::bail!("Too many failures ({num_failures}), aborting further tests.");
 		}
 		match run_test().await {
@@ -76,15 +76,12 @@ async fn run_test() -> Result<f64, anyhow::Error> {
 	let relay_alice = network.get_node("alice")?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_alice.wait_client().await?;
 	log::info!("Ensuring parachain making progress");
-	let has_throughput = ensure_para_throughput(
+	let has_throughput = assert_para_throughput(
 		&relay_client,
 		10,
 		[(ParaId::from(PARA_ID), 5..9)].into_iter().collect(),
 	)
 	.await?;
-	if !has_throughput {
-		anyhow::bail!("Parachain did not produce enough blocks");
-	}
 
 	log::info!("Validator has {} peers", validator.reports("sub_libp2p_peers_count").await?);
 

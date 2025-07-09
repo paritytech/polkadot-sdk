@@ -12,7 +12,6 @@ error: use of deprecated constant `WhereSection::_w`:
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^
    |
@@ -28,7 +27,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -42,7 +40,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -69,7 +66,6 @@ error[E0277]: the trait bound `RawOrigin<_>: TryFrom<OriginCaller>` is not satis
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `TryFrom<OriginCaller>` is not implemented for `RawOrigin<_>`
    |
@@ -84,7 +80,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -112,7 +107,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -121,7 +115,6 @@ note: required by a bound in `frame_system::Event`
    |
    |     pub enum Event<T: Config> {
    |                       ^^^^^^ required by this bound in `Event`
-   = note: this error originates in the derive macro `Clone` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0369]: binary operation `==` cannot be applied to type `&frame_system::Event<Runtime>`
   --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
@@ -131,7 +124,6 @@ error[E0369]: binary operation `==` cannot be applied to type `&frame_system::Ev
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^
    |
@@ -156,7 +148,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -165,7 +156,6 @@ note: required by a bound in `frame_system::Event`
    |
    |     pub enum Event<T: Config> {
    |                       ^^^^^^ required by this bound in `Event`
-   = note: this error originates in the derive macro `Eq` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `frame_system::Event<Runtime>: Encode` is not satisfied
   --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
@@ -175,7 +165,6 @@ error[E0277]: the trait bound `frame_system::Event<Runtime>: Encode` is not sati
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Encode` is not implemented for `frame_system::Event<Runtime>`
    |
@@ -190,7 +179,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -209,7 +197,6 @@ error[E0277]: the trait bound `frame_system::Event<Runtime>: Decode` is not sati
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Decode` is not implemented for `frame_system::Event<Runtime>`
    |
@@ -235,7 +222,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -244,7 +230,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
    = note: 1 redundant requirement hidden
    = note: required for `&frame_system::Event<Runtime>` to implement `std::fmt::Debug`
    = note: required for the cast from `&&frame_system::Event<Runtime>` to `&dyn std::fmt::Debug`
-   = note: this error originates in the derive macro `self::sp_api_hidden_includes_construct_runtime::hidden_include::__private::Debug` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
   --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
@@ -254,7 +239,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -263,7 +247,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
    = note: 1 redundant requirement hidden
    = note: required for `&frame_system::Error<Runtime>` to implement `std::fmt::Debug`
    = note: required for the cast from `&&frame_system::Error<Runtime>` to `&dyn std::fmt::Debug`
-   = note: this error originates in the derive macro `self::sp_api_hidden_includes_construct_runtime::hidden_include::__private::Debug` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
   --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
@@ -273,11 +256,8 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
-   |
-   = note: this error originates in the derive macro `Clone` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
   --> tests/construct_runtime_ui/deprecated_where_block.rs:21:13
@@ -293,7 +273,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -308,11 +287,8 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
-   |
-   = note: this error originates in the derive macro `PartialEq` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
   --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
@@ -322,11 +298,8 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
-   |
-   = note: this error originates in the derive macro `self::sp_api_hidden_includes_construct_runtime::hidden_include::__private::Debug` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
   --> tests/construct_runtime_ui/deprecated_where_block.rs:26:11
@@ -342,7 +315,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -358,13 +330,11 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
    = help: the trait `Callable<T>` is implemented for `Pallet<T>`
    = note: required for `Pallet<Runtime>` to implement `Callable<Runtime>`
-   = note: this error originates in the derive macro `Clone` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
   --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
@@ -374,13 +344,11 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
    = help: the trait `Callable<T>` is implemented for `Pallet<T>`
    = note: required for `Pallet<Runtime>` to implement `Callable<Runtime>`
-   = note: this error originates in the derive macro `PartialEq` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0369]: binary operation `==` cannot be applied to type `&frame_system::Call<Runtime>`
   --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
@@ -390,7 +358,6 @@ error[E0369]: binary operation `==` cannot be applied to type `&frame_system::Ca
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^
    |
@@ -415,7 +382,6 @@ error[E0277]: the trait bound `frame_system::Call<Runtime>: Encode` is not satis
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Encode` is not implemented for `frame_system::Call<Runtime>`
    |
@@ -430,7 +396,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -449,7 +414,6 @@ error[E0277]: the trait bound `frame_system::Call<Runtime>: Decode` is not satis
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Decode` is not implemented for `frame_system::Call<Runtime>`
    |
@@ -464,7 +428,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -484,7 +447,6 @@ error[E0599]: the method `get_dispatch_info` exists for reference `&Call<Runtime
 22 | |          Block = Block,
 23 | |          NodeBlock = Block,
 ...  |
-27 | |      }
 28 | |  }
    | |__^ method cannot be called on `&Call<Runtime>` due to unsatisfied trait bounds
    |
@@ -515,7 +477,6 @@ error[E0599]: the method `is_feeless` exists for reference `&Call<Runtime>`, but
 22 | |          Block = Block,
 23 | |          NodeBlock = Block,
 ...  |
-27 | |      }
 28 | |  }
    | |__^ method cannot be called on `&Call<Runtime>` due to unsatisfied trait bounds
    |
@@ -546,7 +507,6 @@ error[E0599]: the method `get_call_name` exists for reference `&Call<Runtime>`, 
 22 | |          Block = Block,
 23 | |          NodeBlock = Block,
 ...  |
-27 | |      }
 28 | |  }
    | |__^ method cannot be called on `&Call<Runtime>` due to unsatisfied trait bounds
    |
@@ -586,7 +546,6 @@ error[E0599]: the function or associated item `storage_metadata` exists for stru
 22 | |          Block = Block,
 23 | |          NodeBlock = Block,
 ...  |
-27 | |      }
 28 | |  }
    | |__^ function or associated item cannot be called on `Pallet<Runtime>` due to unsatisfied trait bounds
    |
@@ -611,7 +570,6 @@ error[E0599]: the function or associated item `call_functions` exists for struct
 22 | |          Block = Block,
 23 | |          NodeBlock = Block,
 ...  |
-27 | |      }
 28 | |  }
    | |__^ function or associated item cannot be called on `Pallet<Runtime>` due to unsatisfied trait bounds
    |
@@ -636,7 +594,6 @@ error[E0599]: the function or associated item `pallet_view_functions_metadata` e
 22 | |          Block = Block,
 23 | |          NodeBlock = Block,
 ...  |
-27 | |      }
 28 | |  }
    | |__^ function or associated item cannot be called on `Pallet<Runtime>` due to unsatisfied trait bounds
    |
@@ -661,7 +618,6 @@ error[E0599]: the variant or associated item `event_metadata` exists for enum `E
 22 | |          Block = Block,
 23 | |          NodeBlock = Block,
 ...  |
-27 | |      }
 28 | |  }
    | |__^ variant or associated item cannot be called on `Event<Runtime>` due to unsatisfied trait bounds
    |
@@ -686,7 +642,6 @@ error[E0599]: the function or associated item `pallet_constants_metadata` exists
 22 | |          Block = Block,
 23 | |          NodeBlock = Block,
 ...  |
-27 | |      }
 28 | |  }
    | |__^ function or associated item cannot be called on `Pallet<Runtime>` due to unsatisfied trait bounds
    |
@@ -711,7 +666,6 @@ error[E0599]: the function or associated item `error_metadata` exists for struct
 22 | |          Block = Block,
 23 | |          NodeBlock = Block,
 ...  |
-27 | |      }
 28 | |  }
    | |__^ function or associated item cannot be called on `Pallet<Runtime>` due to unsatisfied trait bounds
    |
@@ -736,7 +690,6 @@ error[E0599]: the function or associated item `pallet_documentation_metadata` ex
 22 | |          Block = Block,
 23 | |          NodeBlock = Block,
 ...  |
-27 | |      }
 28 | |  }
    | |__^ function or associated item cannot be called on `Pallet<Runtime>` due to unsatisfied trait bounds
    |
@@ -761,7 +714,6 @@ error[E0599]: the function or associated item `pallet_associated_types_metadata`
 22 | |          Block = Block,
 23 | |          NodeBlock = Block,
 ...  |
-27 | |      }
 28 | |  }
    | |__^ function or associated item cannot be called on `Pallet<Runtime>` due to unsatisfied trait bounds
    |
@@ -782,7 +734,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -806,7 +757,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -825,7 +775,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -844,7 +793,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -853,7 +801,6 @@ note: required by a bound in `GenesisConfig`
    |
    |     pub struct GenesisConfig<T: Config> {
    |                                 ^^^^^^ required by this bound in `GenesisConfig`
-   = note: this error originates in the derive macro `Default` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
   --> tests/construct_runtime_ui/deprecated_where_block.rs:20:1
@@ -863,7 +810,6 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ the trait `Config` is not implemented for `Runtime`
    |
@@ -890,10 +836,7 @@ error[E0282]: type annotations needed
 22 | |         Block = Block,
 23 | |         NodeBlock = Block,
 ...  |
-27 | |     }
 28 | | }
    | |_^ cannot infer type
    |
    = note: this error originates in the macro `frame_support::construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-error: internal compiler error: compiler/rustc_middle/src/ty/normalize_erasing_regions.rs:168:90: Failed to normalize std::rc::Rc<std::boxed::Box<dyn [Binder { value: Trait(std::ops::Fn<(&<Runtime as frame_system::Config>::RuntimeCall,)>), bound_vars: [Region(BrAnon)] }, Binder { value: Projection(Output = bool), bound_vars: [Region(BrAnon)] }] + '{erased}, std::alloc::Global>, std::alloc::Global>, maybe try to call `try_normalize_erasing_regions` instead
