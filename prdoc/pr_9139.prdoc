@@ -1,0 +1,12 @@
+title: Expose more constants for pallet-xcm
+doc:
+- audience:
+  - Runtime Dev
+  - Runtime User
+  description: |-
+    Let's expose more constants, similar as `AdvertisedXcmVersion`.
+
+    ![image](https://github.com/user-attachments/assets/5ddc265f-546b-45a0-8235-3f53c3108823)
+crates:
+- name: pallet-xcm
+  bump: patch
