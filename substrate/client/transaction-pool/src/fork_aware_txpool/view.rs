@@ -45,7 +45,6 @@ use sp_runtime::{
 use std::{sync::Arc, time::Instant};
 use tracing::{debug, instrument, trace, Level};
 
-/// Helper type containing revalidation result for both views & mempool.
 pub(super) struct RevalidationResult<ChainApi: graph::ChainApi> {
 	revalidated: IndexMap<ExtrinsicHash<ChainApi>, ValidatedTransactionFor<ChainApi>>,
 	invalid_hashes: Vec<ExtrinsicHash<ChainApi>>,
