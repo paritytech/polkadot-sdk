@@ -80,7 +80,7 @@ pub trait ChainApi: Send + Sync {
 	/// Block type.
 	type Block: BlockT;
 	/// Error type.
-	type Error: From<error::Error> + error::IntoPoolError + AsRef<str>;
+	type Error: From<error::Error> + error::IntoPoolError + error::IntoMetricsLabel;
 
 	/// Asynchronously verify extrinsic at given block.
 	async fn validate_transaction(
@@ -702,7 +702,7 @@ mod tests {
 		assert_eq!(pool.validated_pool().status().future, 0);
 
 		// then
-		assert_matches!(res.unwrap_err().0, error::Error::TemporarilyBanned);
+		assert_matches!(res.unwrap_err(), error::Error::TemporarilyBanned);
 	}
 
 	#[test]
@@ -724,7 +724,7 @@ mod tests {
 			.map(|o| o.hash());
 
 		// then
-		assert_matches!(res.unwrap_err().0, error::Error::Unactionable);
+		assert_matches!(res.unwrap_err(), error::Error::Unactionable);
 	}
 
 	#[test]
@@ -991,7 +991,7 @@ mod tests {
 		// then
 		assert_eq!(pool.validated_pool().status().ready, 0);
 		assert_eq!(pool.validated_pool().status().future, 0);
-		assert_matches!(err.0, error::Error::NoTagsProvided);
+		assert_matches!(err, error::Error::NoTagsProvided);
 	}
 
 	mod listener {
@@ -1243,9 +1243,7 @@ mod tests {
 					block_on(pool.submit_one(&api.expect_hash_and_number(1), SOURCE, xt.into()));
 				assert!(matches!(
 					result,
-					Err(crate::common::tests::Error(
-						sc_transaction_pool_api::error::Error::ImmediatelyDropped
-					))
+					Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped)
 				));
 			}
 			{

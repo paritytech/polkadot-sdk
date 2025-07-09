@@ -34,7 +34,7 @@
 use futures::{future::join_all, FutureExt};
 use itertools::Itertools;
 use parking_lot::RwLock;
-use sc_transaction_pool_api::{TransactionPriority, TransactionSource};
+use sc_transaction_pool_api::{error::IntoMetricsLabel, TransactionPriority, TransactionSource};
 use sp_blockchain::HashAndNumber;
 use sp_runtime::{
 	traits::Block as BlockT,
@@ -58,15 +58,13 @@ use tracing::{debug, trace};
 
 use crate::{
 	common::tracing_log_xt::log_xt_trace,
-	graph::{
-		self, base_pool::TimedTransactionSource, ExtrinsicFor, ExtrinsicHash, ValidatedTransaction,
-	},
+	graph::{self, base_pool::TimedTransactionSource, ExtrinsicFor, ExtrinsicHash},
 	ValidateTransactionPriority, LOG_TARGET,
 };
 
 use super::{
 	metrics::MetricsLink as PrometheusMetrics, multi_view_listener::MultiViewListener,
-	transaction_validation_util::RevalidationResult, view_store::ViewStore,
+	view_store::ViewStore,
 };
 
 mod tx_mem_pool_map;
@@ -78,6 +76,39 @@ pub(crate) const TXMEMPOOL_REVALIDATION_PERIOD: u64 = 10;
 pub(crate) const TXMEMPOOL_MAX_REVALIDATION_BATCH_SIZE: usize = 1000;
 
 const SYNC_BRIDGE_EXPECT: &str = "The mempool blocking task shall not be terminated. qed.";
+
+#[derive(strum::Display)]
+#[strum(serialize_all = "snake_case")]
+/// Provides a type safe way of determining the category and reason of why
+/// a transaction is marked as invalid, useful to extract labels in the context of
+/// `mempool_revalidation_invalid_txs` metric.
+pub(super) enum InvalidTxReason {
+	/// Coresponds to invalid validity.
+	Invalid(String),
+	/// Corresponds to unknown validity.
+	Unknown(String),
+	/// Corresponds to a transaction which is marked as invalid because it is part of a subtree of
+	/// a transaction with invalid or unknown validities.
+	Subtree(String),
+	/// Corresponds to a transaction for which a validity couldn't be determined due to a failure
+	/// during the validation, or because of a missing runtime prerequisite.
+	ValidationFailed(String),
+}
+
+impl InvalidTxReason {
+	pub(super) fn reason(&self) -> &String {
+		match self {
+			InvalidTxReason::Invalid(inner) => inner,
+			InvalidTxReason::Unknown(inner) => inner,
+			InvalidTxReason::Subtree(inner) => inner,
+			InvalidTxReason::ValidationFailed(inner) => inner,
+		}
+	}
+
+	pub(super) fn category(&self) -> String {
+		self.to_string()
+	}
+}
 
 /// Represents the transaction in the intermediary buffer.
 pub(crate) struct TxInMemPool<ChainApi, Block>
@@ -569,8 +600,9 @@ where
 	/// Returns a vector of invalid transaction hashes.
 	async fn revalidate_inner(
 		&self,
+		view_store: Arc<ViewStore<ChainApi, Block>>,
 		finalized_block: HashAndNumber<Block>,
-	) -> RevalidationResult<ChainApi> {
+	) -> (HashSet<ExtrinsicHash<ChainApi>>, usize) {
 		trace!(
 			target: LOG_TARGET,
 			?finalized_block,
@@ -608,32 +640,18 @@ where
 				.map(move |validation_result| {
 					xt.validated_at
 						.store(finalized_block.number.into().as_u64(), atomic::Ordering::Relaxed);
-					(xt_hash, xt, validation_result)
+					(xt_hash, validation_result)
 				})
 		});
 		let validation_results = futures::future::join_all(validations_futures).await;
 		let input_len = validation_results.len();
 
 		let duration = start.elapsed();
-		let mut revalidated = indexmap::IndexMap::new();
-		let invalid_hashes = validation_results
+		let mut invalid_hashes = validation_results
 			.into_iter()
-			.filter_map(|(tx_hash, xt, validation_result)| match validation_result {
-				Ok(Ok(validity)) => {
-					revalidated.insert(
-						tx_hash,
-						ValidatedTransaction::valid_at(
-							finalized_block.number.into().as_u64(),
-							tx_hash,
-							xt.source.clone(),
-							xt.tx().clone(),
-							self.api.hash_and_length(&xt.tx()).1,
-							validity,
-						),
-					);
-					None
-				},
-				Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => None,
+			.filter_map(|(tx_hash, validation_result)| match validation_result {
+				Ok(Ok(_) | Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) =>
+					None,
 				Err(ref error) => {
 					trace!(
 						target: LOG_TARGET,
@@ -641,14 +659,7 @@ where
 						?validation_result,
 						"mempool::revalidate_inner error during revalidation"
 					);
-					self.metrics.report(|metrics| {
-						metrics.mempool_revalidation_invalid_txs.observe(
-							"validation_failure",
-							error.as_ref(),
-							1,
-						);
-					});
-					Some(tx_hash)
+					Some((tx_hash, InvalidTxReason::ValidationFailed(error.label())))
 				},
 				Ok(Err(TransactionValidityError::Unknown(error))) => {
 					trace!(
@@ -657,14 +668,7 @@ where
 						?validation_result,
 						"mempool::revalidate_inner cannot determine transaction validity"
 					);
-					self.metrics.report(|metrics| {
-						metrics.mempool_revalidation_invalid_txs.observe(
-							"unknown",
-							error.as_ref(),
-							1,
-						);
-					});
-					Some(tx_hash)
+					Some((tx_hash, InvalidTxReason::Unknown(error.as_ref().to_string())))
 				},
 				Ok(Err(TransactionValidityError::Invalid(error))) => {
 					trace!(
@@ -673,17 +677,43 @@ where
 						?validation_result,
 						"mempool::revalidate_inner transaction is invalid"
 					);
-					self.metrics.report(|metrics| {
-						metrics.mempool_revalidation_invalid_txs.observe(
-							"invalid",
-							error.as_ref(),
-							1,
-						)
-					});
-					Some(tx_hash)
+					Some((tx_hash, InvalidTxReason::Invalid(error.as_ref().to_string())))
 				},
 			})
 			.collect::<Vec<_>>();
+
+		let mut invalid_hashes_subtrees = Vec::new();
+		// Include also subtree txs.
+		for (tx, reason) in &invalid_hashes {
+			let txs_in_subtree = view_store
+				.remove_transaction_subtree(*tx, |_, _| {})
+				.into_iter()
+				.map(|tx| ((tx.hash, InvalidTxReason::Subtree(reason.to_string()))));
+			invalid_hashes_subtrees.extend(txs_in_subtree);
+		}
+
+		let revalidated_invalid_hashes_len = invalid_hashes
+			.iter()
+			.filter(
+				|(_, reason)| {
+					if let InvalidTxReason::Subtree(_) = reason {
+						true
+					} else {
+						false
+					}
+				},
+			)
+			.count();
+
+		let invalid_hashes = invalid_hashes
+			.into_iter()
+			.chain(invalid_hashes_subtrees)
+			.map(|(tx, reason)| {
+				self.metrics
+					.report(|metrics| metrics.mempool_revalidation_invalid_txs.observe(&reason, 1));
+				tx
+			})
+			.collect::<HashSet<_>>();
 
 		debug!(
 			target: LOG_TARGET,
@@ -695,7 +725,7 @@ where
 			"mempool::revalidate_inner"
 		);
 
-		RevalidationResult { revalidated, invalid_hashes }
+		(invalid_hashes, revalidated_invalid_hashes_len)
 	}
 
 	/// Removes the finalized transactions from the memory pool, using a provided list of hashes.
@@ -722,25 +752,8 @@ where
 		view_store: Arc<ViewStore<ChainApi, Block>>,
 		finalized_block: HashAndNumber<Block>,
 	) {
-		let RevalidationResult { invalid_hashes: revalidated_invalid_hashes, .. } =
-			self.revalidate_inner(finalized_block.clone()).await;
-
-		let mut invalid_hashes_subtrees =
-			revalidated_invalid_hashes.clone().into_iter().collect::<HashSet<_>>();
-		let revalidated_invalid_hashes_len = revalidated_invalid_hashes.len();
-		for tx in revalidated_invalid_hashes {
-			let txs_in_subtree = view_store
-				.remove_transaction_subtree(tx, |_, _| {})
-				.into_iter()
-				.map(|tx| tx.hash);
-			self.metrics.report(|metrics| {
-				let _ = txs_in_subtree.len().try_into().map(|count| {
-					metrics.mempool_revalidation_invalid_txs.observe("subtree", "-", count)
-				});
-			});
-			invalid_hashes_subtrees.extend(txs_in_subtree);
-		}
-
+		let (invalid_hashes_subtrees, revalidated_invalid_hashes_len) =
+			self.revalidate_inner(view_store.clone(), finalized_block.clone()).await;
 		{
 			let mut transactions = self.transactions.write().await;
 			invalid_hashes_subtrees.iter().for_each(|tx_hash| {
@@ -748,16 +761,15 @@ where
 			});
 		};
 
-		let invalid_hashes_subtrees_len = invalid_hashes_subtrees.len();
-
 		//note: here the consistency is assumed: it is expected that transaction will be
 		// actually removed from the listener with Invalid event. This means assumption that no view
 		// is referencing tx as ready.
+		let invalid_hashes_subtrees_len = invalid_hashes_subtrees.len();
 		let invalid_hashes_subtrees = invalid_hashes_subtrees.into_iter().collect::<Vec<_>>();
-		self.listener.transactions_invalidated(&invalid_hashes_subtrees);
+		self.listener.transactions_invalidated(invalid_hashes_subtrees.as_slice());
 		view_store
 			.import_notification_sink
-			.clean_notified_items(&invalid_hashes_subtrees);
+			.clean_notified_items(invalid_hashes_subtrees.as_slice());
 		view_store
 			.dropped_stream_controller
 			.remove_transactions(invalid_hashes_subtrees);

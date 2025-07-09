@@ -26,7 +26,7 @@ use sp_runtime::transaction_validity::{
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Transaction pool error type.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, strum::AsRefStr)]
 #[allow(missing_docs)]
 pub enum Error {
 	#[error("Unknown transaction validity: {0:?}")]
@@ -110,5 +110,16 @@ pub trait IntoPoolError: std::error::Error + Send + Sized + Sync {
 impl IntoPoolError for Error {
 	fn into_pool_error(self) -> std::result::Result<Error, Self> {
 		Ok(self)
+	}
+}
+
+/// Instances of the implementor will be described by labels.
+pub trait IntoMetricsLabel {
+	fn label(&self) -> String;
+}
+
+impl IntoMetricsLabel for Error {
+	fn label(&self) -> String {
+		self.as_ref().to_string()
 	}
 }

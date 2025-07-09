@@ -18,7 +18,7 @@
 
 //! Prometheus's metrics for a fork-aware transaction pool.
 
-use super::tx_mem_pool::InsertionInfo;
+use super::tx_mem_pool::{InsertionInfo, InvalidTxReason};
 use crate::{
 	common::metrics::{GenericMetricsLink, MetricsRegistrant},
 	graph::{self, BlockHash, ExtrinsicHash},
@@ -244,9 +244,11 @@ impl MempoolInvalidTxReasonCounter {
 		})
 	}
 
-	// Increments the mempool invalid txs metrics based on a custom category & type.
-	pub fn observe(&self, category: &str, ty: &str, count: u64) {
-		self.inner.with_label_values(&[category, ty]).inc_by(count)
+	// Increments the mempool invalid txs metrics based on a custom category & reason.
+	pub fn observe(&self, label: &InvalidTxReason, count: u64) {
+		self.inner
+			.with_label_values(&[label.category().as_str(), label.reason().as_str()])
+			.inc_by(count)
 	}
 }
 

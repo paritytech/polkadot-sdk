@@ -378,20 +378,6 @@ mod view_store;
 
 pub use fork_aware_txpool::{ForkAwareTxPool, ForkAwareTxPoolTask};
 
-// Holds various helper types useful in determining transaction validity.
-mod transaction_validation_util {
-
-	use crate::graph::{self, ExtrinsicHash, ValidatedTransactionFor};
-	use indexmap::IndexMap;
-
-	/// Helper type containing revalidation result for both views & mempool.
-	pub(super) struct RevalidationResult<ChainApi: graph::ChainApi> {
-		pub(super) revalidated:
-			IndexMap<ExtrinsicHash<ChainApi>, ValidatedTransactionFor<ChainApi>>,
-		pub(super) invalid_hashes: Vec<ExtrinsicHash<ChainApi>>,
-	}
-}
-
 mod stream_map_util {
 	use futures::Stream;
 	use std::marker::Unpin;

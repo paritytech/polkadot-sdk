@@ -49,3 +49,9 @@ impl sc_transaction_pool_api::error::IntoPoolError for Error {
 		}
 	}
 }
+
+impl sc_transaction_pool_api::error::IntoMetricsLabel for Error {
+	fn label(&self) -> String {
+		self.as_ref().to_string()
+	}
+}
