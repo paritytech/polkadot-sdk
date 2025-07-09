@@ -252,6 +252,7 @@ pub mod pallet {
 		type Weigher: WeightBounds<<Self as Config>::RuntimeCall>;
 
 		/// This chain's Universal Location.
+		#[pallet::constant]
 		type UniversalLocation: Get<InteriorLocation>;
 
 		/// The runtime `Origin` type.
@@ -283,9 +284,11 @@ pub mod pallet {
 		type SovereignAccountOf: ConvertLocation<Self::AccountId>;
 
 		/// The maximum number of local XCM locks that a single account may have.
+		#[pallet::constant]
 		type MaxLockers: Get<u32>;
 
 		/// The maximum number of consumers a single remote lock may have.
+		#[pallet::constant]
 		type MaxRemoteLockConsumers: Get<u32>;
 
 		/// The ID type for local consumers of remote locks.
