@@ -36,4 +36,4 @@ crates:
 - name: pallet-staking-async-testing-utils
   bump: patch
 - name: polkadot-sdk
-  bump: patch
+  bump: minor
