@@ -326,7 +326,9 @@ pub enum InconsistentError<BlockNumber> {
 	},
 	/// `validation_upgrade_delay` is less than or equal 1.
 	ValidationUpgradeDelayIsTooLow { validation_upgrade_delay: BlockNumber },
-	/// Maximum UMP message size ([`MAX_UPWARD_MESSAGE_SIZE_BOUND`](crate::inclusion::MAX_UPWARD_MESSAGE_SIZE_BOUND)) exceeded.
+	/// Maximum UMP message size
+	/// ([`MAX_UPWARD_MESSAGE_SIZE_BOUND`](crate::inclusion::MAX_UPWARD_MESSAGE_SIZE_BOUND))
+	/// exceeded.
 	MaxUpwardMessageSizeExceeded { max_message_size: u32 },
 	/// Maximum HRMP message num ([`MAX_HORIZONTAL_MESSAGE_NUM`]) exceeded.
 	MaxHorizontalMessageNumExceeded { max_message_num: u32 },
