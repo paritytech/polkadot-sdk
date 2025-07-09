@@ -15,7 +15,9 @@ doc:
 crates:
 - name: pallet-balances
   bump: major
-- name pallet-contracts
+- name: pallet-contracts
+  bump: patch
+- name: pallet-offences-benchmarking
   bump: patch
 - name: pallet-revive
   bump: patch
