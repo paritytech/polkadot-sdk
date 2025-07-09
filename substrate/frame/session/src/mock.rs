@@ -21,15 +21,7 @@ use super::*;
 use crate as pallet_session;
 #[cfg(feature = "historical")]
 use crate::historical as pallet_session_historical;
-<<<<<<< HEAD
-
 use codec::Encode;
-use frame_support::{derive_impl, parameter_types, traits::ConstU64};
-use sp_core::crypto::key_types::DUMMY;
-use sp_runtime::{impl_opaque_keys, testing::UintAuthorityId, BuildStorage};
-use sp_staking::SessionIndex;
-use sp_state_machine::BasicExternalities;
-=======
 use frame_support::{derive_impl, parameter_types, traits::ConstU64};
 use pallet_balances::{self, AccountData};
 use sp_core::crypto::key_types::DUMMY;
@@ -40,7 +32,7 @@ use sp_runtime::{
 	BuildStorage,
 };
 use sp_staking::SessionIndex;
->>>>>>> origin/master
+use sp_state_machine::BasicExternalities;
 use std::collections::BTreeMap;
 
 impl_opaque_keys! {
@@ -219,10 +211,10 @@ pub fn reset_before_session_end_called() {
 	BeforeSessionEndCalled::mutate(|b| *b = false);
 }
 
-<<<<<<< HEAD
 pub fn create_set_keys_proof(owner: u64, public: &UintAuthorityId) -> Vec<u8> {
-	public.sign(&owner.encode()).unwrap().encode()
-=======
+    public.sign(&owner.encode()).unwrap().encode()
+}
+
 parameter_types! {
 	pub static LastSessionEventIndex: usize = 0;
 }
@@ -239,7 +231,6 @@ pub fn session_hold(who: u64) -> u64 {
 		&crate::HoldReason::Keys.into(),
 		&who,
 	)
->>>>>>> origin/master
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

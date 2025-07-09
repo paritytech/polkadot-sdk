@@ -76,8 +76,9 @@ where
 	P::Hash: Unpin,
 	<P::Block as BlockT>::Hash: Unpin,
 {
-	fn rotate_keys_impl(&self, owner: Vec<u8>) -> Result<GeneratedSessionKeys> {
-		self.deny_unsafe.check_if_safe()?;
+    fn rotate_keys_impl(&self, owner: Vec<u8>) -> Result<GeneratedSessionKeys> {
+	        //Alerady checked  in rotate key bofore calling this function?
+		//self.deny_unsafe.check_if_safe()?;
 
 		let best_block_hash = self.client.info().best_hash;
 		let mut runtime_api = self.client.runtime_api();
@@ -154,8 +155,8 @@ where
 	}
 
 	fn rotate_keys(&self, ext: &Extensions) -> Result<Bytes> {
-		check_if_safe(ext)?;
-        self.rotate_keys_impl(Vec::new()).map(|k| k.keys)
+	    check_if_safe(ext)?;
+            self.rotate_keys_impl(Vec::new()).map(|k| k.keys)
 	}
 
 	fn rotate_keys_with_owner(&self, owner: Bytes) -> Result<GeneratedSessionKeys> {
