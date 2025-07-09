@@ -14,6 +14,9 @@ build = "build.rs"
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[lints]
+workspace = true
+
 [dependencies]
 clap = { features = ["derive"], workspace = true }
 futures = { features = ["thread-pool"], workspace = true }

@@ -5,7 +5,7 @@
 
 use anyhow::anyhow;
 
-use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_finalized_para_throughput};
+use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_sdk::{
@@ -63,12 +63,8 @@ async fn sync_backing_test() -> Result<(), anyhow::Error> {
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
-	assert_finalized_para_throughput(
-		&relay_client,
-		15,
-		[(ParaId::from(2500), 5..9)].into_iter().collect(),
-	)
-	.await?;
+	assert_para_throughput(&relay_client, 15, [(ParaId::from(2500), 5..9)].into_iter().collect())
+		.await?;
 
 	// Assert the parachain finalized block height is also on par with the number of backed
 	// candidates.
