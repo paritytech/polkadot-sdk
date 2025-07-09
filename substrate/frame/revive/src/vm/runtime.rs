@@ -1065,6 +1065,11 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		let deposit_limit = memory.read_u256(deposit_ptr)?;
 
+		// we do check this in exec.rs but we want to error out early
+		if input_data_len > limits::CALLDATA_BYTES {
+			Err(<Error<E::T>>::CallDataTooLarge)?;
+		}
+
 		let input_data = if flags.contains(CallFlags::CLONE_INPUT) {
 			let input = self.input_data.as_ref().ok_or(Error::<E::T>::InputForwarded)?;
 			charge_gas!(self, RuntimeCosts::CallInputCloned(input.len() as u32))?;
@@ -1160,6 +1165,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let deposit_limit: U256 = memory.read_u256(deposit_ptr)?;
 		let value = memory.read_u256(value_ptr)?;
 		let code_hash = memory.read_h256(code_hash_ptr)?;
+		if input_data_len > limits::CALLDATA_BYTES {
+			Err(<Error<E::T>>::CallDataTooLarge)?;
+		}
 		let input_data = memory.read(input_data_ptr, input_data_len)?;
 		let salt = if salt_ptr == SENTINEL {
 			None
@@ -1497,6 +1505,9 @@ pub mod env {
 		data_len: u32,
 	) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::CopyFromContract(data_len))?;
+		if data_len > limits::CALLDATA_BYTES {
+			Err(<Error<E::T>>::ReturnDataTooLarge)?;
+		}
 		Err(TrapReason::Return(ReturnData { flags, data: memory.read(data_ptr, data_len)? }))
 	}
 

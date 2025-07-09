@@ -1088,6 +1088,13 @@ where
 		let frame = self.top_frame();
 		let entry_point = frame.entry_point;
 
+		if u32::try_from(input_data.len())
+			.map(|len| len > limits::CALLDATA_BYTES)
+			.unwrap_or(true)
+		{
+			Err(<Error<T>>::CallDataTooLarge)?;
+		}
+
 		if_tracing(|tracer| {
 			tracer.enter_child_span(
 				self.caller().account_id().map(T::AddressMapper::to_address).unwrap_or_default(),
@@ -1201,6 +1208,15 @@ where
 				ExecutableOrPrecompile::Precompile { instance, .. } =>
 					instance.call(input_data, self),
 			}
+			.and_then(|output| {
+				if u32::try_from(output.data.len())
+					.map(|len| len > limits::CALLDATA_BYTES)
+					.unwrap_or(true)
+				{
+					Err(<Error<T>>::ReturnDataTooLarge)?;
+				}
+				Ok(output)
+			})
 			.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })?;
 
 			// Avoid useless work that would be reverted anyways.
