@@ -16,7 +16,9 @@ codec = { features = ["derive"], workspace = true }
 enumflags2 = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
+serde = { optional = true, features = [
+	"derive",
+], workspace = true, default-features = true }
 serde_json = { features = ["alloc"], workspace = true }
 
 # Substrate
@@ -46,6 +48,7 @@ sp-consensus-aura = { workspace = true }
 sp-core = { workspace = true }
 sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true }
+sp-io = { workspace = true }
 sp-keyring = { workspace = true }
 sp-offchain = { workspace = true }
 sp-runtime = { workspace = true }
@@ -81,6 +84,13 @@ parachain-info = { workspace = true }
 parachains-common = { workspace = true }
 testnet-parachains-constants = { features = ["westend"], workspace = true }
 
+# Individuality
+pallet-dummy-dim = { workspace = true }
+pallet-origin-restriction = { workspace = true }
+pallet-people = { workspace = true }
+pallet-verify-signature = { workspace = true }
+verifiable = { workspace = true }
+
 [dev-dependencies]
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
 
@@ -113,16 +123,20 @@ std = [
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
+	"pallet-dummy-dim/std",
 	"pallet-identity/std",
 	"pallet-message-queue/std",
 	"pallet-migrations/std",
 	"pallet-multisig/std",
+	"pallet-origin-restriction/std",
+	"pallet-people/std",
 	"pallet-proxy/std",
 	"pallet-session/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
+	"pallet-verify-signature/std",
 	"pallet-xcm-benchmarks?/std",
 	"pallet-xcm/std",
 	"parachain-info/std",
@@ -138,6 +152,7 @@ std = [
 	"sp-core/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
+	"sp-io/std",
 	"sp-keyring/std",
 	"sp-offchain/std",
 	"sp-runtime/std",
@@ -148,6 +163,7 @@ std = [
 	"sp-version/std",
 	"substrate-wasm-builder",
 	"testnet-parachains-constants/std",
+	"verifiable/std",
 	"westend-runtime-constants/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
@@ -167,14 +183,18 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
+	"pallet-dummy-dim/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-migrations/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
+	"pallet-origin-restriction/runtime-benchmarks",
+	"pallet-people/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
+	"pallet-verify-signature/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
@@ -201,15 +221,19 @@ try-runtime = [
 	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-collator-selection/try-runtime",
+	"pallet-dummy-dim/try-runtime",
 	"pallet-identity/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-migrations/try-runtime",
 	"pallet-multisig/try-runtime",
+	"pallet-origin-restriction/try-runtime",
+	"pallet-people/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-utility/try-runtime",
+	"pallet-verify-signature/try-runtime",
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
 	"parachains-common/try-runtime",
@@ -217,7 +241,7 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 
-# A feature that should be enabled when the runtime should be built for on-chain
-# deployment. This will disable stuff that shouldn't be part of the on-chain wasm
-# to make it smaller, like logging for example.
+# A feature that should be enabled when the runtime should be built for on-chain deployment. This
+# will disable stuff that shouldn't be part of the on-chain wasm to make it smaller, like logging
+# for example.
 on-chain-release-build = []
