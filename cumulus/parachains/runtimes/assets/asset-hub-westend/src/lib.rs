@@ -1670,6 +1670,7 @@ mod benches {
 		[pallet_nfts, Nfts]
 		[pallet_proxy, Proxy]
 		[pallet_session, SessionBench::<Runtime>]
+		[pallet_staking_async, Staking]
 		[pallet_uniques, Uniques]
 		[pallet_utility, Utility]
 		[pallet_timestamp, Timestamp]

@@ -481,3 +481,41 @@ where
 		UncheckedExtrinsic::new_bare(call)
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use frame_support::weights::constants::{WEIGHT_PROOF_SIZE_PER_KB, WEIGHT_REF_TIME_PER_MILLIS};
+	use pallet_staking_async::WeightInfo;
+
+	fn weight_diff(block: Weight, op: Weight) {
+		log::info!(
+			target: "runtime",
+			"ref_time: {:?}ms {:.4} of total",
+			op.ref_time() / WEIGHT_REF_TIME_PER_MILLIS,
+			op.ref_time() as f64 / block.ref_time() as f64
+		);
+		log::info!(
+			target: "runtime",
+			"proof_size: {:?}kb {:.4} of total",
+			op.proof_size() / WEIGHT_PROOF_SIZE_PER_KB,
+			op.proof_size() as f64 / block.proof_size() as f64
+		);
+	}
+
+	#[test]
+	fn polkadot_prune_era() {
+		sp_tracing::try_init_simple();
+		let prune_era = <Runtime as pallet_staking_async::Config>::WeightInfo::prune_era(600);
+		let block_weight = <Runtime as frame_system::Config>::BlockWeights::get().max_block;
+		weight_diff(block_weight, prune_era);
+	}
+
+	#[test]
+	fn kusama_prune_era() {
+		sp_tracing::try_init_simple();
+		let prune_era = <Runtime as pallet_staking_async::Config>::WeightInfo::prune_era(1000);
+		let block_weight = <Runtime as frame_system::Config>::BlockWeights::get().max_block;
+		weight_diff(block_weight, prune_era);
+	}
+}
