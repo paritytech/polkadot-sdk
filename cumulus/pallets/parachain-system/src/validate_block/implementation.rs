@@ -408,7 +408,7 @@ fn validate_validation_data(
 fn build_seed_from_head_data<B: BlockT>(
 	block_data: &ParachainBlockData<B>,
 	relay_parent_storage_root: crate::relay_chain::Hash,
-) -> usize {
+) -> [u8; 16] {
 	let mut bytes_to_hash = Vec::with_capacity(
 		block_data.blocks().len() * size_of::<B::Hash>() + size_of::<crate::relay_chain::Hash>(),
 	);
@@ -418,11 +418,7 @@ fn build_seed_from_head_data<B: BlockT>(
 		bytes_to_hash.extend_from_slice(block.header().hash().as_ref());
 	});
 
-	let hash_seed =
-		usize::from_be_bytes(blake2_128(&bytes_to_hash)[..size_of::<usize>()].try_into().expect(
-			"Hash output is 16 bytes; we are taking the first bytes to fit into usize; qed",
-		));
-	hash_seed
+	blake2_128(&bytes_to_hash)
 }
 
 /// Run the given closure with the externalities and recorder set.
