@@ -2,8 +2,7 @@ title: 'babe: keep stateless verification in `Verifier`, move everything else to
   import queue'
 doc:
 - audience: Node Operator
-  description: 'We agreed to split https://github.com/paritytech/polkadot-sdk/pull/8446
-    into two PRs: one for BABE (this one) and one for AURA. This is the easier one.'
+  description: Only do stateless verification without runtime calls in the `BabeVerifier`, do all other verification in the import queue.
 crates:
 - name: polkadot-service
   bump: patch
