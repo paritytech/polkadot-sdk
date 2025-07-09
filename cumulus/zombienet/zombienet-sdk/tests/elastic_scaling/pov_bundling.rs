@@ -59,8 +59,8 @@ async fn pov_bundling() -> Result<(), anyhow::Error> {
 	assert_para_throughput(
 		&relay_client,
 		6,
-		[(ParaId::from(PARA_ID), 4..6)],
-		[(ParaId::from(PARA_ID), (para_client.clone(), 48..72))],
+		[(ParaId::from(PARA_ID), 4..7)],
+		[(ParaId::from(PARA_ID), (para_client.clone(), 48..73))],
 	)
 	.await?;
 	// 3 relay chain blocks
@@ -80,8 +80,8 @@ async fn pov_bundling() -> Result<(), anyhow::Error> {
 	assert_para_throughput(
 		&relay_client,
 		6,
-		[(ParaId::from(PARA_ID), 12..18)],
-		[(ParaId::from(PARA_ID), (para_client.clone(), 48..72))],
+		[(ParaId::from(PARA_ID), 12..19)],
+		[(ParaId::from(PARA_ID), (para_client.clone(), 48..73))],
 	)
 	.await?;
 	assert_finality_lag(&para_client, 72).await?;
@@ -99,8 +99,8 @@ async fn pov_bundling() -> Result<(), anyhow::Error> {
 	assert_para_throughput(
 		&relay_client,
 		6,
-		[(ParaId::from(PARA_ID), 24..36)],
-		[(ParaId::from(PARA_ID), (para_client.clone(), 48..72))],
+		[(ParaId::from(PARA_ID), 24..37)],
+		[(ParaId::from(PARA_ID), (para_client.clone(), 48..73))],
 	)
 	.await?;
 
