@@ -1,0 +1,19 @@
+title: 'babe: keep stateless verification in `Verifier`, move everything else to the
+  import queue'
+doc:
+- audience: Node Operator
+  description: 'We agreed to split https://github.com/paritytech/polkadot-sdk/pull/8446
+    into two PRs: one for BABE (this one) and one for AURA. This is the easier one.'
+crates:
+- name: polkadot-service
+  bump: patch
+- name: sc-consensus-babe-rpc
+  bump: patch
+- name: sc-consensus-babe
+  bump: patch
+- name: sp-consensus-babe
+  bump: patch
+- name: sp-consensus
+  bump: patch
+- name: sp-inherents
+  bump: patch
