@@ -705,23 +705,37 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_balance() {
-		build_runtime!(runtime, memory: [[0u8;32], ]);
+		build_runtime!(runtime, contract, memory: [[0u8;32], ]);
+		contract.set_balance(BalanceWithDust {
+			value: Pallet::<T>::min_balance() * 2u32.into(),
+			dust: 42u32,
+		});
+
 		let result;
 		#[block]
 		{
 			result = runtime.bench_balance(memory.as_mut_slice(), 0);
 		}
 		assert_ok!(result);
-		assert_eq!(U256::from_little_endian(&memory[..]), runtime.ext().balance());
+		assert_eq!(
+			U256::from_little_endian(&memory[..]),
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust {
+				value: Pallet::<T>::min_balance(),
+				dust: 42
+			})
+		);
 	}
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_balance_of() {
 		let len = <sp_core::U256 as MaxEncodedLen>::max_encoded_len();
 		let account = account::<T::AccountId>("target", 0, 0);
+		<T as Config>::AddressMapper::bench_map(&account).unwrap();
+
 		let address = T::AddressMapper::to_address(&account);
 		let balance = Pallet::<T>::min_balance() * 2u32.into();
 		T::Currency::set_balance(&account, balance);
+		AccountInfoOf::<T>::insert(&address, AccountInfo { dust: 42, ..Default::default() });
 
 		build_runtime!(runtime, memory: [vec![0u8; len], address.0, ]);
 
@@ -732,7 +746,13 @@ mod benchmarks {
 		}
 
 		assert_ok!(result);
-		assert_eq!(U256::from_little_endian(&memory[..len]), runtime.ext().balance_of(&address));
+		assert_eq!(
+			U256::from_little_endian(&memory[..len]),
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust {
+				value: Pallet::<T>::min_balance(),
+				dust: 42
+			})
+		);
 	}
 
 	#[benchmark(pov_mode = Measured)]

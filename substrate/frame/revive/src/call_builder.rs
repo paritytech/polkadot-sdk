@@ -32,8 +32,9 @@ use crate::{
 	storage::meter::Meter,
 	transient_storage::MeterEntry,
 	vm::{PreparedCall, Runtime},
-	AccountInfo, BalanceOf, BumpNonce, Code, CodeInfoOf, Config, ContractBlob, ContractInfo,
-	DepositLimit, Error, GasMeter, MomentOf, Origin, Pallet as Contracts, PristineCode, Weight,
+	AccountInfo, BalanceOf, BalanceWithDust, BumpNonce, Code, CodeInfoOf, Config, ContractBlob,
+	ContractInfo, DepositLimit, Error, GasMeter, MomentOf, Origin, Pallet as Contracts,
+	PristineCode, Weight,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::{storage::child, traits::fungible::Mutate};
@@ -124,7 +125,7 @@ where
 	}
 
 	/// Set the contract's balance.
-	pub fn set_balance(&mut self, value: BalanceOf<T>) {
+	pub fn set_balance(&mut self, value: impl Into<BalanceWithDust<BalanceOf<T>>>) {
 		self.contract.set_balance(value);
 	}
 
@@ -361,8 +362,12 @@ where
 	}
 
 	/// Set the balance of the contract to the supplied amount.
-	pub fn set_balance(&self, balance: BalanceOf<T>) {
-		T::Currency::set_balance(&self.account_id, balance);
+	pub fn set_balance(&self, value: impl Into<BalanceWithDust<BalanceOf<T>>>) {
+		let BalanceWithDust { value, dust } = value.into();
+		T::Currency::set_balance(&self.account_id, value);
+		crate::AccountInfoOf::<T>::mutate(&self.address, |account| {
+			account.as_mut().map(|a| a.dust = dust);
+		});
 	}
 
 	/// Returns `true` iff all storage entries related to code storage exist.
