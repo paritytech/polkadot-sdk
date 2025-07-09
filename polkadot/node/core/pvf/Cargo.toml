@@ -70,7 +70,7 @@ test-parachain-halt = { workspace = true }
 libc = { workspace = true }
 procfs = { workspace = true }
 rusty-fork = { workspace = true, default-features = true }
-sc-sysinfo = { default-features = true, path = "../../../../substrate/client/sysinfo" }
+sc-sysinfo = { workspace = true, default-features = true }
 
 [[bench]]
 name = "host_prepare_rococo_runtime"
