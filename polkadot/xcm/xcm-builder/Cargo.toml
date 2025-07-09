@@ -52,6 +52,13 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-salary/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-runtime-parachains/runtime-benchmarks",
+	"polkadot-test-runtime/runtime-benchmarks"
 ]
 std = [
 	"codec/std",
@@ -70,4 +77,5 @@ std = [
 	"tracing/std",
 	"xcm-executor/std",
 	"xcm/std",
+	"primitive-types/std"
 ]

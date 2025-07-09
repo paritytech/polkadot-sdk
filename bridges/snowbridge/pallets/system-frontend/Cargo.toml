@@ -71,6 +71,8 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"snowbridge-test-utils/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -78,4 +80,5 @@ try-runtime = [
 	"pallet-asset-conversion/try-runtime",
 	"pallet-xcm/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-balances/try-runtime"
 ]
