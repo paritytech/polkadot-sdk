@@ -888,10 +888,10 @@ where
 		who: &T::AccountId,
 		amount: T::Balance,
 		reasons: WithdrawReasons,
-	) {
+	) -> DispatchResult {
 		if reasons.is_empty() || amount.is_zero() {
 			Self::remove_lock(id, who);
-			return
+			return Ok(())
 		}
 
 		let mut new_lock = Some(BalanceLock { id, amount, reasons: reasons.into() });
@@ -902,7 +902,7 @@ where
 		if let Some(lock) = new_lock {
 			locks.push(lock)
 		}
-		Self::update_locks(who, &locks[..]);
+		Self::update_locks(who, &locks[..])
 	}
 
 	// Extend a lock on the balance of `who`.
@@ -912,9 +912,9 @@ where
 		who: &T::AccountId,
 		amount: T::Balance,
 		reasons: WithdrawReasons,
-	) {
+	) -> DispatchResult {
 		if amount.is_zero() || reasons.is_empty() {
-			return
+			return Ok(())
 		}
 		let mut new_lock = Some(BalanceLock { id, amount, reasons: reasons.into() });
 		let mut locks = Self::locks(who)
@@ -934,13 +934,13 @@ where
 		if let Some(lock) = new_lock {
 			locks.push(lock)
 		}
-		Self::update_locks(who, &locks[..]);
+		Self::update_locks(who, &locks[..])
 	}
 
-	fn remove_lock(id: LockIdentifier, who: &T::AccountId) {
+	fn remove_lock(id: LockIdentifier, who: &T::AccountId) -> DispatchResult {
 		let mut locks = Self::locks(who);
 		locks.retain(|l| l.id != id);
-		Self::update_locks(who, &locks[..]);
+		Self::update_locks(who, &locks[..])
 	}
 }
 

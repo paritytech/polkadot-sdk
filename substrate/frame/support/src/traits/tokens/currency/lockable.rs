@@ -43,7 +43,7 @@ pub trait LockableCurrency<AccountId>: Currency<AccountId> {
 		who: &AccountId,
 		amount: Self::Balance,
 		reasons: WithdrawReasons,
-	);
+	) -> DispatchResult;
 
 	/// Changes a balance lock (selected by `id`) so that it becomes less liquid in all
 	/// parameters or creates a new one if it does not exist.
@@ -58,10 +58,10 @@ pub trait LockableCurrency<AccountId>: Currency<AccountId> {
 		who: &AccountId,
 		amount: Self::Balance,
 		reasons: WithdrawReasons,
-	);
+	) -> DispatchResult;
 
 	/// Remove an existing lock.
-	fn remove_lock(id: LockIdentifier, who: &AccountId);
+	fn remove_lock(id: LockIdentifier, who: &AccountId) -> DispatchResult;
 }
 
 /// A inspect interface for a currency whose accounts can have liquidity restrictions.

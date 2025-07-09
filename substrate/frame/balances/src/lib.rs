@@ -207,6 +207,7 @@ pub mod pallet {
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{fungible::Credit, tokens::Precision, VariantCount, VariantCountOf},
+		PalletError,
 	};
 	use frame_system::pallet_prelude::*;
 
@@ -425,6 +426,21 @@ pub mod pallet {
 		IssuanceDeactivated,
 		/// The delta cannot be zero.
 		DeltaZero,
+		/// The number of locks exceed `MaxLocks`.
+		TooManyLocks,
+		/// An unexpected/defensive error was triggered.
+		Unexpected(UnexpectedKind),
+	}
+
+	/// Defensive/unexpected errors.
+	///
+	/// In case of observation in explorers, report it as an issue in polkadot-sdk.
+	#[derive(
+		Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, RuntimeDebug, PalletError,
+	)]
+	pub enum UnexpectedKind {
+		/// Balance was altered/dusted during updating the lock.
+		BalanceUpdated,
 	}
 
 	/// The total units issued in the system.
@@ -1123,25 +1139,19 @@ pub mod pallet {
 		}
 
 		/// Update the account entry for `who`, given the locks.
-		pub(crate) fn update_locks(who: &T::AccountId, locks: &[BalanceLock<T::Balance>]) {
-			let bounded_locks = WeakBoundedVec::<_, T::MaxLocks>::force_from(
-				locks.to_vec(),
-				Some("Balances Update Locks"),
-			);
+		pub(crate) fn update_locks(
+			who: &T::AccountId,
+			locks: &[BalanceLock<T::Balance>],
+		) -> DispatchResult {
+			let bounded_locks = WeakBoundedVec::<_, T::MaxLocks>::try_from(locks.to_vec())
+				.map_err(|_| Error::<T, I>::TooManyLocks)?;
 
-			if locks.len() as u32 > T::MaxLocks::get() {
-				log::warn!(
-					target: LOG_TARGET,
-					"Warning: A user has more currency locks than expected. \
-					A runtime configuration adjustment may be needed."
-				);
-			}
 			let freezes = Freezes::<T, I>::get(who);
 			let mut prev_frozen = Zero::zero();
 			let mut after_frozen = Zero::zero();
-			// No way this can fail since we do not alter the existential balances.
-			// TODO: Revisit this assumption.
-			let res = Self::mutate_account(who, |b| {
+
+			// could fail due to consumer limits..
+			let (_, maybe_dusted) = Self::mutate_account(who, |b| {
 				prev_frozen = b.frozen;
 				b.frozen = Zero::zero();
 				for l in locks.iter() {
@@ -1151,11 +1161,12 @@ pub mod pallet {
 					b.frozen = b.frozen.max(l.amount);
 				}
 				after_frozen = b.frozen;
-			});
-			// debug_assert!(res.is_ok());
-			if let Ok((_, maybe_dust)) = res {
-				debug_assert!(maybe_dust.is_none(), "Not altering main balance; qed");
-			}
+			})?;
+			// ..but nothing should be dusted as this is only a frozen balance update.
+			ensure!(
+				maybe_dusted.is_none(),
+				Error::<T, I>::Unexpected(UnexpectedKind::BalanceUpdated)
+			);
 
 			match locks.is_empty() {
 				true => Locks::<T, I>::remove(who),
@@ -1169,6 +1180,8 @@ pub mod pallet {
 				let amount = after_frozen.saturating_sub(prev_frozen);
 				Self::deposit_event(Event::Locked { who: who.clone(), amount });
 			}
+
+			Ok(())
 		}
 
 		/// Update the account entry for `who`, given the locks.

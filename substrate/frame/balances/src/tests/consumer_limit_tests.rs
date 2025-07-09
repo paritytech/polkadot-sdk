@@ -96,20 +96,9 @@ fn lock_behavior_when_consumer_limit_fully_exhausted() {
 				assert_ok!(System::inc_consumers_without_limit(&1));
 			});
 
-			// Now try to set a lock - this will create the lock, but fail to update the frozen
-			// amount.
-			Balances::set_lock(ID_1, &1, 20, WithdrawReasons::all());
-			assert_eq!(Balances::locks(&1).len(), 1);
-			assert_eq!(Balances::locks(&1)[0].amount, 20);
-
-			// frozen amount is not updated.
-			assert_eq!(get_test_account_data(1).frozen, 0);
-
-			// And this allows the account to transfer (almost) all funds out of the account
-			assert_ok!(Balances::transfer_allow_death(
-				frame_system::RawOrigin::Signed(1).into(),
-				2,
-				90,
-			));
+			assert_noop!(
+				Balances::set_lock(ID_1, &1, 20, WithdrawReasons::all()),
+				DispatchError::TooManyConsumers
+			);
 		});
 }
