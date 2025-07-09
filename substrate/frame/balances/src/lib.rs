@@ -1057,7 +1057,7 @@ pub mod pallet {
 					frame_system::Pallet::<T>::dec_consumers(who);
 				}
 				if !did_consume && does_consume {
-					frame_system::Pallet::<T>::inc_consumers(who)?;
+					frame_system::Pallet::<T>::inc_consumers_without_limit(who)?;
 				}
 				if does_consume && frame_system::Pallet::<T>::consumers(who) == 0 {
 					// NOTE: This is a failsafe and should not happen for normal accounts. A normal
