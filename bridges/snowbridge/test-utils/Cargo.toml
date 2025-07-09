@@ -23,7 +23,8 @@ frame-system.default-features = true
 frame-system.workspace = true
 hex = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
-pallet-asset-conversion = { workspace = true, default-features = true }
+pallet-asset-conversion.default-features = true
+pallet-asset-conversion.workspace = true
 pallet-xcm.default-features = true
 pallet-xcm.workspace = true
 scale-info = { features = ["derive"], workspace = true, default-features = true }

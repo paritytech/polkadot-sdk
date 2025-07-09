@@ -1,7 +1,7 @@
 [package]
 name = "snowbridge-pallet-system-frontend"
 description = "Snowbridge System Frontend Pallet"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
 repository.workspace = true
@@ -25,7 +25,7 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-support.workspace = true
 frame-system.workspace = true
 log = { workspace = true }
-pallet-asset-conversion = { workspace = true }
+pallet-asset-conversion.workspace = true
 pallet-xcm.workspace = true
 scale-info = { features = ["derive"], workspace = true }
 snowbridge-core.workspace = true
