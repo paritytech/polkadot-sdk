@@ -33,7 +33,7 @@ sp-state-machine.workspace = true
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
-sp-staking = { default-features = true, path = "../../primitives/staking" }
+sp-staking = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

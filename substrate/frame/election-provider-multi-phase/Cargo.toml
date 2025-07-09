@@ -32,14 +32,14 @@ sp-runtime.workspace = true
 strum = { features = ["derive"], optional = true, workspace = true }
 
 [dev-dependencies]
-frame-benchmarking = { default-features = true, path = "../benchmarking" }
-pallet-balances = { default-features = true, path = "../balances" }
+frame-benchmarking = { default-features = true, workspace = true }
+pallet-balances = { default-features = true, workspace = true }
 parking_lot = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
-sp-core = { default-features = false, path = "../../primitives/core" }
-sp-io = { default-features = true, path = "../../primitives/io" }
-sp-npos-elections = { default-features = false, path = "../../primitives/npos-elections" }
-sp-tracing = { default-features = true, path = "../../primitives/tracing" }
+sp-core = { default-features = false, workspace = true }
+sp-io = { default-features = true, workspace = true }
+sp-npos-elections = { default-features = false, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

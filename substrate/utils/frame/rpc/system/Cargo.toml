@@ -40,7 +40,7 @@ sp-runtime.default-features = true
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-sc-transaction-pool = { default-features = true, path = "../../../../client/transaction-pool" }
-sp-tracing = { default-features = true, path = "../../../../primitives/tracing" }
-substrate-test-runtime-client = { path = "../../../../test-utils/runtime/client" }
+sc-transaction-pool = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
+substrate-test-runtime-client = { workspace = true }
 tokio = { workspace = true, default-features = true }

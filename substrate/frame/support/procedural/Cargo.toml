@@ -35,15 +35,15 @@ syn = { features = ["full", "parsing", "visit-mut"], workspace = true }
 
 [dev-dependencies]
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
-frame-support = { default-features = false, path = ".." }
-frame-system = { default-features = false, path = "../../system" }
+frame-support = { default-features = false, workspace = true }
+frame-system = { default-features = false, workspace = true }
 pretty_assertions = { workspace = true }
 regex = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-sp-core = { default-features = false, path = "../../../primitives/core" }
-sp-io = { default-features = false, path = "../../../primitives/io" }
-sp-metadata-ir = { default-features = false, path = "../../../primitives/metadata-ir" }
-sp-runtime = { features = ["serde"], default-features = false, path = "../../../primitives/runtime" }
+sp-core = { default-features = false, workspace = true }
+sp-io = { default-features = false, workspace = true }
+sp-metadata-ir = { default-features = false, workspace = true }
+sp-runtime = { features = ["serde"], default-features = false, workspace = true }
 static_assertions = { workspace = true }
 
 [features]

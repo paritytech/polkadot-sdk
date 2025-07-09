@@ -29,8 +29,8 @@ polkadot-primitives.default-features = true
 thiserror = { workspace = true }
 
 [dev-dependencies]
-polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
-polkadot-primitives = { features = ["test"], default-features = false, path = "../../../primitives" }
-polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
-sp-application-crypto = { default-features = true, path = "../../../../substrate/primitives/application-crypto" }
-sp-keystore = { default-features = true, path = "../../../../substrate/primitives/keystore" }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-primitives = { features = ["test"], default-features = false, workspace = true }
+polkadot-primitives-test-helpers = { workspace = true }
+sp-application-crypto = { default-features = true, workspace = true }
+sp-keystore = { default-features = true, workspace = true }

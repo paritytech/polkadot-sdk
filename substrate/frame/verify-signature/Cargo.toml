@@ -27,7 +27,7 @@ sp-runtime.workspace = true
 sp-weights = { features = ["serde"], workspace = true }
 
 [dev-dependencies]
-sp-core = { default-features = true, path = "../../primitives/core" }
+sp-core = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

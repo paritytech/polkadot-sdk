@@ -30,8 +30,8 @@ sc-consensus-babe.default-features = true
 codec = { workspace = true, default-features = true }
 futures = { features = ["thread-pool"], workspace = true }
 maplit = { workspace = true }
-polkadot-node-primitives = { default-features = true, path = "../../primitives" }
-polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
-polkadot-primitives = { default-features = true, path = "../../../primitives" }
-sp-blockchain = { default-features = true, path = "../../../../substrate/primitives/blockchain" }
-sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }
+polkadot-node-primitives = { default-features = true, workspace = true }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-primitives = { default-features = true, workspace = true }
+sp-blockchain = { default-features = true, workspace = true }
+sp-core = { default-features = true, workspace = true }

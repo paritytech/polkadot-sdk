@@ -22,7 +22,7 @@ sp-io.workspace = true
 sp-std.workspace = true
 
 [dev-dependencies]
-bp-runtime = { default-features = false, path = "../runtime" }
+bp-runtime = { default-features = false, workspace = true }
 hex = { workspace = true, default-features = true }
 hex-literal = { workspace = true, default-features = true }
 

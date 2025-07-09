@@ -44,7 +44,7 @@ xcm-executor.workspace = true
 xcm.workspace = true
 
 [dev-dependencies]
-pallet-message-queue = { default-features = false, path = "../../../../substrate/frame/message-queue" }
+pallet-message-queue = { default-features = false, workspace = true }
 
 [features]
 default = ["std"]

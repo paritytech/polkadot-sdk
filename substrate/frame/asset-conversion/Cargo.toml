@@ -29,8 +29,8 @@ sp-io.workspace = true
 sp-runtime.workspace = true
 
 [dev-dependencies]
-pallet-assets = { default-features = true, path = "../assets" }
-pallet-balances = { default-features = true, path = "../balances" }
+pallet-assets = { default-features = true, workspace = true }
+pallet-balances = { default-features = true, workspace = true }
 primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }
 
 [features]

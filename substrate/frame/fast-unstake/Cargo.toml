@@ -29,12 +29,12 @@ sp-staking.workspace = true
 docify = { workspace = true }
 
 [dev-dependencies]
-pallet-balances = { default-features = true, path = "../balances" }
-pallet-staking = { default-features = true, path = "../staking" }
-pallet-staking-reward-curve = { default-features = true, path = "../staking/reward-curve" }
-pallet-timestamp = { default-features = true, path = "../timestamp" }
-sp-core = { default-features = false, path = "../../primitives/core" }
-sp-tracing = { default-features = true, path = "../../primitives/tracing" }
+pallet-balances = { default-features = true, workspace = true }
+pallet-staking = { default-features = true, workspace = true }
+pallet-staking-reward-curve = { default-features = true, workspace = true }
+pallet-timestamp = { default-features = true, workspace = true }
+sp-core = { default-features = false, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]
