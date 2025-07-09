@@ -52,6 +52,7 @@ mod fungible_conformance_tests;
 mod fungible_tests;
 mod general_tests;
 mod reentrancy_tests;
+mod consumer_limit_tests;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -78,6 +79,9 @@ pub enum TestId {
 impl VariantCount for TestId {
 	const VARIANT_COUNT: u32 = 3;
 }
+
+pub(crate) type AccountId = <Test as frame_system::Config>::AccountId;
+pub(crate) type Balance = <Test as Config>::Balance;
 
 frame_support::construct_runtime!(
 	pub enum Test {
@@ -348,4 +352,27 @@ fn check_whitelist() {
 	assert!(whitelist.contains("c2261276cc9d1f8598ea4b6a74b15c2f1ccde6872881f893a21de93dfe970cd5"));
 	// Total Issuance
 	assert!(whitelist.contains("c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80"));
+}
+
+/// This pallet runs tests twice, once with system as `type AccountStore` and once this pallet. This
+/// function will return the right value based on the `UseSystem` flag.
+///
+/// TODO: should use these in all tests.
+pub(crate) fn get_test_account_data(who: AccountId) -> AccountData<Balance> {
+	if UseSystem::get() {
+		<SystemAccountStore as StoredMap<_, _>>::get(&who)
+	} else {
+		<BalancesAccountStore as StoredMap<_, _>>::get(&who)
+	}
+}
+
+/// Same as `get_test_account_data`, but returns a `frame_system::AccountInfo` with the data filled
+/// in.
+pub(crate) fn get_test_account(
+	who: AccountId,
+) -> frame_system::AccountInfo<u32, AccountData<Balance>> {
+	let mut system_account = frame_system::Account::<Test>::get(&who);
+	let account_data = get_test_account_data(who);
+	system_account.data = account_data;
+	system_account
 }
