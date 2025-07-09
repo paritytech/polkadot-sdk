@@ -2039,8 +2039,10 @@ impl<T: Config> Pallet<T> {
 	/// Check if the given asset ID represents a network native asset based on our
 	/// UniversalLocation.
 	///
-	/// Returns true if the asset is a native network asset (DOT, KSM, WND) that should be blocked
-	/// during Asset Hub Migration.
+	/// Returns true if the asset is a native network asset (DOT, KSM, WND, PAS) that should be
+	/// blocked during Asset Hub Migration.
+	///
+	/// NOTE: Paseo uses `NetworkId::Polkadot`, so it is covered here.
 	fn is_network_native_asset(asset_id: &AssetId) -> bool {
 		let universal_location = T::UniversalLocation::get();
 		let asset_location = &asset_id.0;
