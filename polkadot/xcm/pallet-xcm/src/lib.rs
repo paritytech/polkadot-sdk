@@ -1486,10 +1486,14 @@ pub mod pallet {
 			let (fees_transfer_type, assets_transfer_type) =
 				Self::find_fee_and_assets_transfer_types(&assets, fee_asset_item, &dest)?;
 
-			// Check for network native asset reserve transfers in preparation for the Asset Hub Migration.
-			// This check will be removed after the migration and the determined reserve location adjusted accordingly.
-			// For more information, see https://github.com/paritytech/polkadot-sdk/issues/9054.
-			Self::ensure_network_asset_reserve_transfer_allowed(&assets, &assets_transfer_type, &fees_transfer_type)?;
+			// Check for network native asset reserve transfers in preparation for the Asset Hub
+			// Migration. This check will be removed after the migration and the determined
+			// reserve location adjusted accordingly. For more information, see https://github.com/paritytech/polkadot-sdk/issues/9054.
+			Self::ensure_network_asset_reserve_transfer_allowed(
+				&assets,
+				&assets_transfer_type,
+				&fees_transfer_type,
+			)?;
 
 			Self::do_transfer_assets(
 				origin,
@@ -2017,7 +2021,8 @@ impl<T: Config> Pallet<T> {
 		))
 	}
 
-	/// Check if the given asset ID represents a network native asset based on our UniversalLocation.
+	/// Check if the given asset ID represents a network native asset based on our
+	/// UniversalLocation.
 	///
 	/// Returns true if the asset is a native network asset (DOT, KSM, WND) that should be blocked
 	/// during Asset Hub Migration.
@@ -2049,7 +2054,8 @@ impl<T: Config> Pallet<T> {
 			// Network asset ID: Parent.
 			2 => {
 				if let (Some(Junction::GlobalConsensus(network)), Some(Junction::Parachain(_))) =
-					(universal_location.first(), universal_location.last()) {
+					(universal_location.first(), universal_location.last())
+				{
 					let is_target_network = match network {
 						NetworkId::Polkadot | NetworkId::Kusama => true,
 						NetworkId::ByGenesis(genesis_hash) => {
@@ -2083,11 +2089,13 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Check if network native asset reserve transfers should be blocked during Asset Hub Migration.
+	/// Check if network native asset reserve transfers should be blocked during Asset Hub
+	/// Migration.
 	///
 	/// During the Asset Hub Migration (AHM), the native network asset's reserve will move
 	/// from the Relay Chain to Asset Hub. The `transfer_assets` function automatically determines
-	/// reserves based on asset ID location, which would incorrectly assume Relay Chain as the reserve.
+	/// reserves based on asset ID location, which would incorrectly assume Relay Chain as the
+	/// reserve.
 	///
 	/// This function blocks native network asset reserve transfers to prevent issues during
 	/// the migration. Users should use `limited_reserve_transfer_assets` instead, which allows
@@ -2101,10 +2109,14 @@ impl<T: Config> Pallet<T> {
 		// is being attempted.
 		let is_reserve_transfer = matches!(
 			assets_transfer_type,
-			TransferType::LocalReserve | TransferType::DestinationReserve | TransferType::RemoteReserve(_)
+			TransferType::LocalReserve |
+				TransferType::DestinationReserve |
+				TransferType::RemoteReserve(_)
 		) || matches!(
 			fees_transfer_type,
-			TransferType::LocalReserve | TransferType::DestinationReserve | TransferType::RemoteReserve(_)
+			TransferType::LocalReserve |
+				TransferType::DestinationReserve |
+				TransferType::RemoteReserve(_)
 		);
 
 		if !is_reserve_transfer {
