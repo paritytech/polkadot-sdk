@@ -118,7 +118,7 @@ pub trait IntoMetricsLabel {
 	/// Short string representation of the underlying instance.
 	///
 	/// This is intended to be used for a prometheus metric that tracks this instance
-	/// with the goal of distributing the observations as a breakdown, where an unique
+	/// with the goal of distributing the observations over multiple groups, where an unique
 	/// label represents a group of same instance, observed many times.
 	fn label(&self) -> String;
 }
