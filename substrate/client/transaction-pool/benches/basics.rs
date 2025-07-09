@@ -53,26 +53,10 @@ fn to_tag(nonce: u64, from: AccountId) -> Tag {
 	data.to_vec()
 }
 
-#[derive(thiserror::Error, Debug)]
-#[error(transparent)]
-struct Error(#[from] sc_transaction_pool_api::error::Error);
-
-impl IntoPoolError for Error {
-	fn into_pool_error(self) -> std::result::Result<sc_transaction_pool_api::error::Error, Self> {
-		Ok(self.0)
-	}
-}
-
-impl IntoMetricsLabel for Error {
-	fn label(&self) -> String {
-		self.0.to_string()
-	}
-}
-
 #[async_trait]
 impl ChainApi for TestApi {
 	type Block = Block;
-	type Error = Error;
+	type Error = sc_transaction_pool_api::error::Error;
 
 	async fn validate_transaction(
 		&self,

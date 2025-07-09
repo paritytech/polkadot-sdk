@@ -25,7 +25,7 @@ use crate::{
 use async_trait::async_trait;
 use codec::Encode;
 use parking_lot::Mutex;
-use sc_transaction_pool_api::error::{Error as ApiError, IntoMetricsLabel, IntoPoolError};
+use sc_transaction_pool_api::error;
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_runtime::{
 	generic::BlockId,
@@ -39,8 +39,6 @@ use substrate_test_runtime::{
 	substrate_test_pallet::pallet::Call as PalletCall, BalancesCall, Block, BlockNumber, Extrinsic,
 	ExtrinsicBuilder, Hashing, RuntimeCall, Transfer, TransferData, H256,
 };
-
-use super::error;
 
 type Pool<Api> = crate::graph::Pool<Api, ()>;
 
@@ -75,7 +73,7 @@ impl TestApi {
 #[async_trait]
 impl ChainApi for TestApi {
 	type Block = Block;
-	type Error = ApiError;
+	type Error = error::Error;
 
 	/// Verify extrinsic at given block.
 	async fn validate_transaction(

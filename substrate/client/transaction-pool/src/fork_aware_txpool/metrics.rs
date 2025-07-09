@@ -236,11 +236,16 @@ impl MempoolInvalidTxReasonCounter {
 				CounterVec::new(
 					Opts::new(
 						"substrate_sub_txpool_mempool_revalidation_invalid_txs_total",
-						"Total number of transactions found as invalid during mempool revalidation."),
-					&["category", "type"]
+						r#"Total number of transactions found as invalid during mempool revalidation.
+						They are broken down into `category` and `reason` labels.
+						- `category` can be `invalid`, `unknown`, `subtree` or `validation_failure`.
+						- `reason` is more nuanced, but is worth mentioning that for `subtree` category,
+						   the underlying reason can be one of the other categories."#,
+					),
+					&["category", "reason"],
 				)?,
 				registry,
-			)?
+			)?,
 		})
 	}
 

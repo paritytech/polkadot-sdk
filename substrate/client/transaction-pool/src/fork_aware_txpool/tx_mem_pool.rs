@@ -692,19 +692,7 @@ where
 			invalid_hashes_subtrees.extend(txs_in_subtree);
 		}
 
-		let revalidated_invalid_hashes_len = invalid_hashes
-			.iter()
-			.filter(
-				|(_, reason)| {
-					if let InvalidTxReason::Subtree(_) = reason {
-						true
-					} else {
-						false
-					}
-				},
-			)
-			.count();
-
+		let revalidated_invalid_hashes_len = invalid_hashes.len();
 		let invalid_hashes = invalid_hashes
 			.into_iter()
 			.chain(invalid_hashes_subtrees)
