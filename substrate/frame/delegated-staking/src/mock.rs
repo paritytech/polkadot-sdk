@@ -36,17 +36,25 @@ use frame_election_provider_support::{
 use sp_core::{ConstBool, U256};
 use sp_runtime::traits::Convert;
 
+#[cfg(test)]
 use crate::types::AgentLedgerOuter;
+#[cfg(test)]
 use frame_support::{assert_ok, dispatch::RawOrigin, traits::Currency};
+#[cfg(test)]
 use sp_runtime::BuildStorage;
+#[cfg(test)]
 use sp_staking::{Agent, DelegationInterface, Stake, StakingInterface};
 
+#[cfg(test)]
 pub type T = Runtime;
 type Block = frame_system::mocking::MockBlock<Runtime>;
 pub type AccountId = u128;
 
+#[cfg(test)]
 pub const GENESIS_VALIDATOR: AccountId = 1;
+#[cfg(test)]
 pub const GENESIS_NOMINATOR_ONE: AccountId = 101;
+#[cfg(test)]
 pub const GENESIS_NOMINATOR_TWO: AccountId = 102;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
