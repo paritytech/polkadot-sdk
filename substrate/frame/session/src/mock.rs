@@ -212,6 +212,7 @@ pub fn reset_before_session_end_called() {
 }
 
 pub fn create_set_keys_proof(owner: u64, public: &UintAuthorityId) -> Vec<u8> {
+    //TODO: This should change to generate_proof_of_possesion
     public.sign(&owner.encode()).unwrap().encode()
 }
 

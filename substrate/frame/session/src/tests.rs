@@ -523,7 +523,7 @@ fn set_keys_should_fail_with_insufficient_funds() {
 		// Attempt to set keys with an account that has insufficient funds
 		// Should fail with Err(Token(FundsUnavailable)) from `pallet-balances`
 		assert_err!(
-			Session::set_keys(RuntimeOrigin::signed(account_id), keys, vec![]),
+			Session::set_keys(RuntimeOrigin::signed(account_id), keys, create_set_keys_proof(account_id, &UintAuthorityId(account_id))),
 			sp_runtime::TokenError::FundsUnavailable
 		);
 	});
@@ -543,7 +543,7 @@ fn set_keys_should_hold_funds() {
 		});
 
 		// Set keys and check the operation succeeds
-		let res = Session::set_keys(RuntimeOrigin::signed(account_id), keys, vec![]);
+		let res = Session::set_keys(RuntimeOrigin::signed(account_id), keys, create_set_keys_proof(account_id, &UintAuthorityId(account_id)));
 		assert_ok!(res);
 
 		// Check that the funds are held
@@ -568,7 +568,7 @@ fn purge_keys_should_unhold_funds() {
 		frame_system::Pallet::<Test>::inc_providers(&account_id);
 
 		// First set the keys to reserve the deposit
-		let res = Session::set_keys(RuntimeOrigin::signed(account_id), keys, vec![]);
+		let res = Session::set_keys(RuntimeOrigin::signed(account_id), keys, create_set_keys_proof(account_id, &UintAuthorityId(account_id)));
 		assert_ok!(res);
 
 		// Check the reserved balance after setting keys
@@ -605,7 +605,7 @@ fn existing_validators_without_hold_are_except() {
 		assert_ok!(Session::set_keys(
 			RuntimeOrigin::signed(1),
 			UintAuthorityId(7).into(),
-			Default::default()
+			create_set_keys_proof(1, &UintAuthorityId(7))
 		));
 		assert_eq!(session_hold(1), 0);
 
