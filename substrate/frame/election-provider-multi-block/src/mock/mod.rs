@@ -254,8 +254,9 @@ impl ElectionProvider for MockFallback {
 	type Error = String;
 	type DataProvider = staking::MockStaking;
 	type Pages = ConstU32<1>;
-	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
 
 	fn elect(_remaining: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		unreachable!()

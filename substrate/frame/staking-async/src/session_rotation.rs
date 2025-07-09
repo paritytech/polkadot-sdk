@@ -120,6 +120,9 @@ impl<T: Config> Eras<T> {
 		<ErasValidatorReward<T>>::remove(era);
 		<ErasRewardPoints<T>>::remove(era);
 		<ErasTotalStake<T>>::remove(era);
+
+		// register the weight of the pruning.
+		Pallet::<T>::register_weight(T::WeightInfo::prune_era(ValidatorCount::<T>::get()));
 	}
 
 	pub(crate) fn set_validator_prefs(era: EraIndex, stash: &T::AccountId, prefs: ValidatorPrefs) {
@@ -372,7 +375,8 @@ impl<T: Config> Eras<T> {
 	}
 }
 
-#[cfg(any(feature = "try-runtime", test))]
+#[cfg(any(feature = "try-runtime", test, feature = "runtime-benchmarks"))]
+#[allow(unused)]
 impl<T: Config> Eras<T> {
 	/// Ensure the given era is present, i.e. has not been pruned yet.
 	pub(crate) fn era_present(era: EraIndex) -> Result<(), sp_runtime::TryRuntimeError> {
