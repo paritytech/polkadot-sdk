@@ -15,7 +15,7 @@
 
 use crate::{Config, VersionedLocation, VersionedXcm, Weight, WeightInfo};
 use alloc::vec::Vec;
-use codec::{DecodeAll, DecodeLimit, Encode};
+use codec::{DecodeAll, DecodeLimit};
 use core::{fmt, marker::PhantomData, num::NonZero};
 use pallet_revive::{
 	precompiles::{
@@ -25,7 +25,7 @@ use pallet_revive::{
 	DispatchInfo, Origin,
 };
 use tracing::error;
-use xcm::MAX_XCM_DECODE_DEPTH;
+use xcm::{v5, IdentifyVersion, MAX_XCM_DECODE_DEPTH};
 use xcm_executor::traits::WeightBounds;
 
 alloy::sol!("src/precompiles/IXcm.sol");
@@ -36,6 +36,15 @@ const LOG_TARGET: &str = "xcm::precompiles";
 fn revert(error: &impl fmt::Debug, message: &str) -> Error {
 	error!(target: LOG_TARGET, ?error, "{}", message);
 	Error::Revert(message.into())
+}
+
+// We don't allow XCM versions older than 5.
+fn ensure_xcm_version<V: IdentifyVersion>(input: &V) -> Result<(), Error> {
+	let version = input.identify_version();
+	if version < v5::VERSION {
+		return Err(Error::Revert("Only XCM version 5 and onwards are supported.".into()));
+	}
+	Ok(())
 }
 
 pub struct XcmPrecompile<T>(PhantomData<T>);
@@ -70,18 +79,22 @@ where
 						revert(&error, "XCM send failed: Invalid destination format")
 					})?;
 
+				ensure_xcm_version(&final_destination)?;
+
 				let final_message = VersionedXcm::<()>::decode_all_with_depth_limit(
 					MAX_XCM_DECODE_DEPTH,
 					&mut &message[..],
 				)
 				.map_err(|error| revert(&error, "XCM send failed: Invalid message format"))?;
 
+				ensure_xcm_version(&final_message)?;
+
 				crate::Pallet::<Runtime>::send(
 					frame_origin,
 					final_destination.into(),
 					final_message.into(),
 				)
-				.map(|message_id| message_id.encode())
+				.map(|_| Vec::new())
 				.map_err(|error| {
 					revert(
 						&error,
@@ -101,6 +114,8 @@ where
 				)
 				.map_err(|error| revert(&error, "XCM execute failed: Invalid message format"))?;
 
+				ensure_xcm_version(&final_message)?;
+
 				let result = crate::Pallet::<Runtime>::execute(
 					frame_origin,
 					final_message.into(),
@@ -117,7 +132,7 @@ where
 				let actual_weight = frame_support::dispatch::extract_actual_weight(&result, &pre);
 				env.adjust_gas(charged_amount, actual_weight);
 
-				result.map(|post_dispatch_info| post_dispatch_info.encode()).map_err(|error| {
+				result.map(|_| Vec::new()).map_err(|error| {
 					revert(
 							&error,
 							"XCM execute failed: message may be invalid or execution constraints not satisfied"
@@ -132,6 +147,8 @@ where
 					&mut &message[..],
 				)
 				.map_err(|error| revert(&error, "XCM weightMessage: Invalid message format"))?;
+
+				ensure_xcm_version(&converted_message)?;
 
 				let mut final_message = converted_message.try_into().map_err(|error| {
 					revert(&error, "XCM weightMessage: Conversion to Xcm failed")
