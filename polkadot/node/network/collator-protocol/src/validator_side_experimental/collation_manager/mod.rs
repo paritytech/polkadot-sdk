@@ -359,69 +359,52 @@ impl CollationManager {
 		let mut requests = vec![];
 		let leaves: Vec<_> = self.claim_queue_state.leaves().copied().collect();
 
-		// TODO: add some debug/trace logs in here
 		for leaf in leaves {
 			let free_slots = self.claim_queue_state.free_slots(&leaf);
-			let Some(parents) = self.implicit_view.known_allowed_relay_parents_under(&leaf, None)
+			let Some(allowed_parents) =
+				self.implicit_view.known_allowed_relay_parents_under(&leaf, None)
 			else {
 				continue
 			};
 
+			if !free_slots.is_empty() {
+				gum::trace!(
+					target: LOG_TARGET,
+					?leaf,
+					"Attempting to make new fetch requests for the following empty slots: {:?}",
+					free_slots
+				);
+			}
+
 			for para_id in free_slots {
 				let highest_rep_of_para = max_scores.get(&para_id).copied().unwrap_or_default();
 
-				// Try picking an advertisement.
-				let Some((advertisement, peer_rep)) = self
-					.per_relay_parent
-					.iter()
-					.filter_map(|(rp, per_rp)| parents.contains(rp).then_some(per_rp))
-					.flat_map(|per_rp| per_rp.eligible_advertisements(&para_id))
-					.filter_map(|adv| {
-						(!self.fetching.contains(&adv)).then(|| {
-							(
-								adv,
-								connected_rep_query_fn(&adv.peer_id, &adv.para_id)
-									.unwrap_or_default(),
-							)
-						})
-					})
-					.max_by_key(|(_, score)| *score)
-				else {
+				let Some(advertisement) = self.pick_best_advertisement(
+					now,
+					leaf,
+					allowed_parents,
+					para_id,
+					highest_rep_of_para,
+					&connected_rep_query_fn,
+				) else {
 					continue
 				};
 
-				let Some(per_rp) = self.per_relay_parent.get(&advertisement.relay_parent) else {
+				// This here may also claim a slot of another leaf if eligible.
+				if self.claim_queue_state.claim_pending_slot(
+					advertisement.prospective_candidate.map(|p| p.candidate_hash),
+					&advertisement.relay_parent,
+					&para_id,
+				) {
+					let req = self.fetching.launch(&advertisement);
+					requests.push(req);
 					continue
-				};
-
-				let Some(advertisement_timestamp) =
-					per_rp.advertisement_timestamps.get(advertisement)
-				else {
-					continue
-				};
-
-				let doesnt_have_better_peers = peer_rep >= highest_rep_of_para;
-				let time_since_advertisement = now.duration_since(*advertisement_timestamp);
-				if peer_rep >= INSTANT_FETCH_REP_THRESHOLD ||
-					time_since_advertisement >= UNDER_THRESHOLD_FETCH_DELAY ||
-					doesnt_have_better_peers
-				{
-					// This here may also claim a slot of another leaf if eligible.
-					if self.claim_queue_state.claim_pending_slot(
-						advertisement.prospective_candidate.map(|p| p.candidate_hash),
-						&advertisement.relay_parent,
-						&para_id,
-					) {
-						let req = self.fetching.launch(&advertisement);
-						requests.push(req);
-						continue
-					}
 				} else {
-					gum::debug!(
+					gum::warn!(
 						target: LOG_TARGET,
-						?time_since_advertisement,
-						?highest_rep_of_para,
-						"Skipping advertisement, as the peer doesn't have a high enough reputation to warrant a fetch now"
+						?leaf,
+						"Could not claim a slot for the chosen advertisement {:?}",
+						advertisement
 					);
 				}
 			}
@@ -627,6 +610,63 @@ impl CollationManager {
 		};
 
 		(peer_id, unblocked_can_second)
+	}
+
+	fn pick_best_advertisement<RepQueryFn: Fn(&PeerId, &ParaId) -> Option<Score>>(
+		&self,
+		now: Instant,
+		leaf: Hash,
+		allowed_rps: &[Hash],
+		para_id: ParaId,
+		highest_rep_of_para: Score,
+		connected_rep_query_fn: &RepQueryFn,
+	) -> Option<Advertisement> {
+		// Find the best eligible advertisement.
+		let Some((advertisement, peer_rep)) = self
+			.per_relay_parent
+			.iter()
+			// Only check advertisements for relay parents within the view of this leaf.
+			.filter_map(|(rp, per_rp)| allowed_rps.contains(rp).then_some(per_rp))
+			.flat_map(|per_rp| per_rp.eligible_advertisements(&para_id, leaf))
+			.filter_map(|adv| {
+				// Check that we're not already fetching this advertisement.
+				(!self.fetching.contains(&adv)).then(|| {
+					// And query the in-memory reputation for prioritisation purposes
+					(adv, connected_rep_query_fn(&adv.peer_id, &adv.para_id).unwrap_or_default())
+				})
+			})
+			// Pick the one with the maximum score.
+			.max_by_key(|(_, score)| *score)
+		else {
+			return None
+		};
+
+		let Some(per_rp) = self.per_relay_parent.get(&advertisement.relay_parent) else {
+			return None
+		};
+
+		let Some(advertisement_timestamp) = per_rp.advertisement_timestamps.get(advertisement)
+		else {
+			return None
+		};
+
+		let doesnt_have_better_peers = peer_rep >= highest_rep_of_para;
+		let time_since_advertisement = now.duration_since(*advertisement_timestamp);
+		if peer_rep >= INSTANT_FETCH_REP_THRESHOLD ||
+			time_since_advertisement >= UNDER_THRESHOLD_FETCH_DELAY ||
+			doesnt_have_better_peers
+		{
+			Some(*advertisement)
+		} else {
+			gum::debug!(
+				target: LOG_TARGET,
+				?time_since_advertisement,
+				?highest_rep_of_para,
+				"Skipping advertisement, as the peer doesn't have a high enough reputation to warrant a fetch now"
+			);
+
+			None
+		}
 	}
 
 	async fn get_our_core_schedule<Sender: CollatorProtocolSenderTrait>(
@@ -849,15 +889,29 @@ impl PerRelayParent {
 	fn eligible_advertisements<'a>(
 		&'a self,
 		para_id: &'a ParaId,
+		leaf: Hash,
 	) -> impl Iterator<Item = &'a Advertisement> + 'a {
 		self.peer_advertisements
 			.values()
 			.flat_map(|list| list.advertisements.iter())
 			.filter(move |adv| {
-				// TODO: We could instead directly look at only the declared peerids.
+				// Only fetch an advertisement if it's either a V2 advertisement or it's a V1
+				// advertisement on the active leaf.
+				let is_v2_or_on_active_leaf = (adv.prospective_candidate.is_none() &&
+					leaf == adv.relay_parent) ||
+					adv.prospective_candidate.is_some();
+
+				let already_fetched = adv
+					.prospective_candidate
+					.map(|p| self.fetched_collations.contains_key(&p.candidate_hash))
+					.unwrap_or(false);
+
+				is_v2_or_on_active_leaf &&
+				// Check that the declared paraid matches.
 				(&adv.para_id == para_id) &&
-				// We can be pretty sure that this is true
-				!adv.prospective_candidate.map(|p| self.fetched_collations.contains_key(&p.candidate_hash)).unwrap_or(false)
+				// And check that it's not already fetched, just to be safe.
+				// Should never happen because we remove the advertisement after it's fetched.
+				!already_fetched
 			})
 	}
 

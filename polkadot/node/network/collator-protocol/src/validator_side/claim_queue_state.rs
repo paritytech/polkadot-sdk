@@ -520,6 +520,10 @@ impl ClaimQueueState {
 
 				claim_found = true;
 				break
+			} else if maybe_candidate_hash.is_none() {
+				// If this is a v1 candidate (pre async backing) which does not contain a candidate
+				// hash, we only allow one claim on the one relay parent.
+				break
 			}
 		}
 
