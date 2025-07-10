@@ -1109,7 +1109,7 @@ where
 			);
 			std::fs::write(path, encoded).map_err(|_| "fs::write failed")?;
 
-			// pending_ext was consumed when creating the snapshot, need to reinitailize it
+			// pending_ext was consumed when creating the snapshot, need to reinitialize it
 			return Ok(TestExternalities::from_raw_snapshot(
 				raw_storage,
 				storage_root,
