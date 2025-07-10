@@ -867,6 +867,9 @@ impl Get<Option<BalancingConfig>> for OffchainRandomBalancing {
 
 pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
+	type Sort = ConstBool<true>;
+	type MaxBackersPerWinner = ConstU32<0>; // Wrong but unused FAIL-CI
+	type MaxWinnersPerPage = ConstU32<0>; // Wrong but unused FAIL-CI
 	type System = Runtime;
 	type Solver = SequentialPhragmen<
 		AccountId,
@@ -879,6 +882,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 }
 
 impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
+	type MaxBackersPerWinner = ConstU32<0>; // Wrong but unused FAIL-CI
 	type AccountId = AccountId;
 	type MaxLength = MinerMaxLength;
 	type MaxWeight = MinerMaxWeight;
@@ -899,6 +903,7 @@ impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
 }
 
 impl pallet_election_provider_multi_phase::Config for Runtime {
+	type MaxBackersPerWinner = ConstU32<0>; // Wrong but unused FAIL-CI
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type EstimateCallFee = TransactionPayment;
@@ -1568,14 +1573,6 @@ where
 	}
 }
 
-impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
-where
-	RuntimeCall: From<LocalCall>,
-{
-	fn create_inherent(call: RuntimeCall) -> UncheckedExtrinsic {
-		generic::UncheckedExtrinsic::new_bare(call).into()
-	}
-}
 
 impl frame_system::offchain::SigningTypes for Runtime {
 	type Public = <Signature as traits::Verify>::Signer;

@@ -1402,6 +1402,15 @@ where
 	}
 }
 
+/// An extrinsic on which we can get access to call.
+pub trait ExtrinsicCall: ExtrinsicLike {
+	/// The type of the call.
+	type Call;
+
+	/// Get the call of the extrinsic.
+	fn call(&self) -> &Self::Call;
+}
+
 /// Something that acts like a [`SignaturePayload`](Extrinsic::SignaturePayload) of an
 /// [`Extrinsic`].
 pub trait SignaturePayload {
@@ -1569,7 +1578,7 @@ impl Dispatchable for () {
 }
 
 /// Dispatchable impl containing an arbitrary value which panics if it actually is dispatched.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo)]
 pub struct FakeDispatchable<Inner>(pub Inner);
 impl<Inner> From<Inner> for FakeDispatchable<Inner> {
 	fn from(inner: Inner) -> Self {

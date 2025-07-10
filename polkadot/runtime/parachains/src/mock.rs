@@ -106,6 +106,10 @@ where
 	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
 		UncheckedExtrinsic::new_bare(call)
 	}
+
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
+		unimplemented!("test")
+	}
 }
 
 parameter_types! {

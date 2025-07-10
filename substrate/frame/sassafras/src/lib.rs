@@ -50,7 +50,7 @@
 extern crate alloc;
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use log::{debug, error, trace, warn};
+use log::{debug, trace, warn};
 use scale_info::TypeInfo;
 
 use alloc::vec::Vec;
@@ -61,7 +61,7 @@ use frame_support::{
 	BoundedVec, WeakBoundedVec,
 };
 use frame_system::{
-	offchain::{CreateInherent, SubmitTransaction},
+	offchain::{CreateInherent},
 	pallet_prelude::BlockNumberFor,
 };
 use sp_consensus_sassafras::{
@@ -998,17 +998,8 @@ impl<T: Config> Pallet<T> {
 	/// The submitted tickets are added to the next epoch outstanding tickets as long as the
 	/// extrinsic is called within the first half of the epoch. Tickets received during the
 	/// second half are dropped.
-	pub fn submit_tickets_unsigned_extrinsic(tickets: Vec<TicketEnvelope>) -> bool {
-		let tickets = BoundedVec::truncate_from(tickets);
-		let call = Call::submit_tickets { tickets };
-		let xt = T::create_inherent(call.into());
-		match SubmitTransaction::<T, Call<T>>::submit_transaction(xt) {
-			Ok(_) => true,
-			Err(e) => {
-				error!(target: LOG_TARGET, "Error submitting tickets {:?}", e);
-				false
-			},
-		}
+	pub fn submit_tickets_unsigned_extrinsic(_tickets: Vec<TicketEnvelope>) -> bool {
+		unimplemented!("FAIL-CI unused to make it compile")
 	}
 
 	/// Epoch length
