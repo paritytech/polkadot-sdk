@@ -1393,11 +1393,6 @@ where
 				// if the body is passed through and the block was executed,
 				// we need to use the runtime to check that the internally-set
 				// timestamp in the inherents actually matches the slot set in the seal.
-				let create_inherent_data_providers = self
-					.create_inherent_data_providers
-					.create_inherent_data_providers(parent_hash, ())
-					.await
-					.map_err(Self::Error::Other)?;
 				let mut inherent_data = create_inherent_data_providers
 					.create_inherent_data()
 					.await
