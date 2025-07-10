@@ -102,6 +102,7 @@ use sp_runtime::{
 };
 
 type BalanceOf<T, I = ()> = pallet_treasury::BalanceOf<T, I>;
+type AssetBalanceOf<T, I = ()> = pallet_treasury::AssetBalanceOf<T, I>;
 type BeneficiaryLookupOf<T, I = ()> = pallet_treasury::BeneficiaryLookupOf<T, I>;
 /// An index of a bounty. Just a `u32`.
 pub type BountyIndex = u32;
@@ -111,6 +112,7 @@ type PaymentIdOf<T, I = ()> = <<T as crate::Config<I>>::Paymaster as PayWithSour
 pub type BountyOf<T, I> = Bounty<
 	<T as frame_system::Config>::AccountId,
 	BalanceOf<T, I>,
+	AssetBalanceOf<T, I>,
 	<T as pallet_treasury::Config<I>>::AssetKind,
 	PaymentIdOf<T, I>,
 	<T as pallet_treasury::Config<I>>::Beneficiary,
@@ -118,24 +120,25 @@ pub type BountyOf<T, I> = Bounty<
 type ChildBountyOf<T, I> = ChildBounty<
 	<T as frame_system::Config>::AccountId,
 	BalanceOf<T, I>,
+	AssetBalanceOf<T, I>,
 	PaymentIdOf<T, I>,
 	<T as pallet_treasury::Config<I>>::Beneficiary,
 >;
 
 /// A parent bounty funded.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct Bounty<AccountId, Balance, AssetKind, PaymentId, Beneficiary> {
+pub struct Bounty<AccountId, Balance, AssetBalance, AssetKind, PaymentId, Beneficiary> {
 	/// The kind of asset this parent bounty is rewarded in.
 	pub asset_kind: AssetKind,
 	/// The (total) amount that should be paid if the parent bounty is rewarded, including
 	/// beneficiary payout and curator fee.
 	///
 	/// The asset class determined by [`asset_kind`].
-	pub value: Balance,
+	pub value: AssetBalance,
 	/// The fee that the parent curator receives upon successful payout.
 	///
 	/// The asset class determined by [`asset_kind`].
-	pub fee: Balance,
+	pub fee: AssetBalance,
 	/// The deposit of curator.
 	///
 	/// The asset class determined by the [`pallet_treasury::Config::Currency`].
@@ -146,18 +149,18 @@ pub struct Bounty<AccountId, Balance, AssetKind, PaymentId, Beneficiary> {
 
 /// A child-bounty funded.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct ChildBounty<AccountId, Balance, PaymentId, Beneficiary> {
+pub struct ChildBounty<AccountId, Balance, AssetBalance, PaymentId, Beneficiary> {
 	/// The parent bounty index of this child-bounty.
 	pub parent_bounty: BountyIndex,
 	/// The (total) amount that should be paid if the child-bounty is rewarded, including
 	/// beneficiary payout and child curator fee.
 	///
 	/// The asset class determined by the parent bounty [`asset_kind`].
-	pub value: Balance,
+	pub value: AssetBalance,
 	/// The fee that the child curator receives upon successful payout.
 	///
 	/// The asset class determined by the parent bounty [`asset_kind`].
-	pub fee: Balance,
+	pub fee: AssetBalance,
 	/// The deposit of child curator.
 	///
 	/// The asset class determined by the [`pallet_treasury::Config::Currency`].
@@ -342,7 +345,7 @@ pub mod pallet {
 		/// Type for processing payments of [`Self::AssetKind`] from [`Self::Source`] in favor of
 		/// [`Self::Beneficiary`].
 		type Paymaster: PayWithSource<
-			Balance = BalanceOf<Self, I>,
+			Balance = AssetBalanceOf<Self, I>,
 			Source = Self::Beneficiary,
 			Beneficiary = Self::Beneficiary,
 			AssetKind = Self::AssetKind,
@@ -427,7 +430,7 @@ pub mod pallet {
 			child_index: Option<BountyIndex>,
 			asset_kind: T::AssetKind,
 			/// The amount paid to the beneficiary.
-			value: BalanceOf<T, I>,
+			value: AssetBalanceOf<T, I>,
 			beneficiary: T::Beneficiary,
 		},
 		/// Funding payment has concluded successfully.
@@ -529,14 +532,14 @@ pub mod pallet {
 	/// Indexed by `parent_bounty_id`.
 	#[pallet::storage]
 	pub type ChildBountiesValuePerParent<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Twox64Concat, BountyIndex, BalanceOf<T, I>, ValueQuery>;
+		StorageMap<_, Twox64Concat, BountyIndex, AssetBalanceOf<T, I>, ValueQuery>;
 
 	/// The cumulative child-bounty curator fees for each parent bounty.
 	///
 	/// Indexed by `parent_bounty_id`.
 	#[pallet::storage]
 	pub type ChildBountiesCuratorFeesPerParent<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Twox64Concat, BountyIndex, BalanceOf<T, I>, ValueQuery>;
+		StorageMap<_, Twox64Concat, BountyIndex, AssetBalanceOf<T, I>, ValueQuery>;
 
 	/// Temporarily tracks spending limits within the current block to prevent overspending.
 	#[derive(Default)]
@@ -576,9 +579,9 @@ pub mod pallet {
 		pub fn fund_bounty(
 			origin: OriginFor<T>,
 			asset_kind: Box<T::AssetKind>,
-			#[pallet::compact] value: BalanceOf<T, I>,
+			#[pallet::compact] value: AssetBalanceOf<T, I>,
 			curator: AccountIdLookupOf<T>,
-			#[pallet::compact] fee: BalanceOf<T, I>,
+			#[pallet::compact] fee: AssetBalanceOf<T, I>,
 			description: Vec<u8>,
 		) -> DispatchResult {
 			let max_amount = T::SpendOrigin::ensure_origin(origin)?;
@@ -661,9 +664,9 @@ pub mod pallet {
 		pub fn fund_child_bounty(
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
-			#[pallet::compact] value: BalanceOf<T, I>,
+			#[pallet::compact] value: AssetBalanceOf<T, I>,
 			curator: Option<AccountIdLookupOf<T>>,
-			fee: Option<BalanceOf<T, I>>,
+			fee: Option<AssetBalanceOf<T, I>>,
 			description: Vec<u8>,
 		) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
@@ -798,7 +801,7 @@ pub mod pallet {
 			#[pallet::compact] parent_bounty_id: BountyIndex,
 			child_bounty_id: Option<BountyIndex>,
 			curator: AccountIdLookupOf<T>,
-			#[pallet::compact] fee: BalanceOf<T, I>,
+			#[pallet::compact] fee: AssetBalanceOf<T, I>,
 		) -> DispatchResult {
 			let maybe_sender = ensure_signed(origin.clone())
 				.map(Some)
@@ -1505,7 +1508,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Calculate the deposit required for a curator.
 	pub fn calculate_curator_deposit(
-		fee: &BalanceOf<T, I>,
+		fee: &AssetBalanceOf<T, I>,
 		asset_kind: T::AssetKind,
 	) -> Result<BalanceOf<T, I>, Error<T, I>> {
 		let fee = <T as pallet_treasury::Config<I>>::BalanceConverter::from_asset_balance(
@@ -1575,8 +1578,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> Result<
 		(
 			T::AssetKind,
-			BalanceOf<T, I>,
-			BalanceOf<T, I>,
+			AssetBalanceOf<T, I>,
+			AssetBalanceOf<T, I>,
 			BalanceOf<T, I>,
 			BountyStatus<T::AccountId, PaymentIdOf<T, I>, T::Beneficiary>,
 			Option<T::AccountId>,
@@ -1623,7 +1626,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		parent_bounty_id: BountyIndex,
 		child_bounty_id: Option<BountyIndex>,
 		new_status: BountyStatus<T::AccountId, PaymentIdOf<T, I>, T::Beneficiary>,
-		maybe_fee: Option<BalanceOf<T, I>>,
+		maybe_fee: Option<AssetBalanceOf<T, I>>,
 		maybe_curator_deposit: Option<BalanceOf<T, I>>,
 	) -> Result<(), DispatchError> {
 		match child_bounty_id {
@@ -1660,9 +1663,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn calculate_curator_fee_and_payout(
 		parent_bounty_id: BountyIndex,
 		child_bounty_id: Option<BountyIndex>,
-		fee: BalanceOf<T, I>,
-		value: BalanceOf<T, I>,
-	) -> (BalanceOf<T, I>, BalanceOf<T, I>) {
+		fee: AssetBalanceOf<T, I>,
+		value: AssetBalanceOf<T, I>,
+	) -> (AssetBalanceOf<T, I>, AssetBalanceOf<T, I>) {
 		match child_bounty_id {
 			None => {
 				// Get total child bounties curator fees, and subtract it from the parent
@@ -1717,7 +1720,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		parent_bounty_id: BountyIndex,
 		child_bounty_id: Option<BountyIndex>,
 		asset_kind: T::AssetKind,
-		value: BalanceOf<T, I>,
+		value: AssetBalanceOf<T, I>,
 		maybe_payment_status: Option<PaymentState<PaymentIdOf<T, I>>>,
 	) -> Result<PaymentState<PaymentIdOf<T, I>>, DispatchError> {
 		if let Some(payment_status) = maybe_payment_status {
@@ -1782,7 +1785,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		parent_bounty_id: BountyIndex,
 		child_bounty_id: Option<BountyIndex>,
 		asset_kind: T::AssetKind,
-		value: BalanceOf<T, I>,
+		value: AssetBalanceOf<T, I>,
 		payment_status: Option<PaymentState<PaymentIdOf<T, I>>>,
 	) -> Result<PaymentState<PaymentIdOf<T, I>>, DispatchError> {
 		if let Some(payment_status) = payment_status {
@@ -1850,8 +1853,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		parent_bounty_id: BountyIndex,
 		child_bounty_id: Option<BountyIndex>,
 		asset_kind: T::AssetKind,
-		value: BalanceOf<T, I>,
-		fee: BalanceOf<T, I>,
+		value: AssetBalanceOf<T, I>,
+		fee: AssetBalanceOf<T, I>,
 		beneficiary: (T::Beneficiary, Option<PaymentState<PaymentIdOf<T, I>>>),
 		curator_stash: (T::Beneficiary, Option<PaymentState<PaymentIdOf<T, I>>>),
 	) -> Result<(PaymentState<PaymentIdOf<T, I>>, PaymentState<PaymentIdOf<T, I>>), DispatchError>
@@ -1931,8 +1934,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		parent_bounty_id: BountyIndex,
 		child_bounty_id: Option<BountyIndex>,
 		asset_kind: T::AssetKind,
-		value: BalanceOf<T, I>,
-		fee: BalanceOf<T, I>,
+		value: AssetBalanceOf<T, I>,
+		fee: AssetBalanceOf<T, I>,
 		curator_stash: (T::Beneficiary, PaymentState<PaymentIdOf<T, I>>),
 		beneficiary: (T::Beneficiary, PaymentState<PaymentIdOf<T, I>>),
 	) -> Result<(PaymentState<PaymentIdOf<T, I>>, PaymentState<PaymentIdOf<T, I>>), DispatchError>
