@@ -27,7 +27,6 @@ use sp_consensus_beefy::{
 };
 use sp_runtime::traits::{Block, NumberFor, One};
 use std::collections::BTreeMap;
-use std::collections::HashMap;
 
 /// Tracks for each round which validators have voted/signed and
 /// whether the local `self` validator has voted/signed.
@@ -107,8 +106,7 @@ pub(crate) struct Rounds<B: Block, AuthorityId: AuthorityIdBound> {
 	>,
 	session_start: NumberFor<B>,
 	validator_set: ValidatorSet<AuthorityId>,
-	/// Voting weights associated with authority on index of validator_set
-	voting_weights: Vec<VoteWeight>,
+	voting_weights: Vec<(AuthorityId, VoteWeight)>,
 	mandatory_done: bool,
 	best_done: Option<NumberFor<B>>,
 }
@@ -122,19 +120,15 @@ where
 		session_start: NumberFor<B>,
 		validator_set: ValidatorSet<AuthorityId>,
 	) -> Self {
-		// Step 1: aggregate voting weights
-		let weight_map =
-			validator_set.validators().into_iter().fold(HashMap::new(), |mut map, auth| {
-				*map.entry(auth.clone()).or_insert(0) += 1;
-				map
-			});
-
-		// Step 2: build weights vector in same order and size as original authorities
 		let voting_weights = validator_set
 			.validators()
 			.into_iter()
-			// Safe to unwrap due we have the same elements as above
-			.map(|auth| *weight_map.get(auth).unwrap())
+			// We are sorting and deduplicating elements, which is later used by vote_weight function
+			.fold(BTreeMap::new(), |mut acc, item| {
+				*acc.entry(item.to_owned()).or_insert(0) += 1;
+				acc
+			})
+			.into_iter()
 			.collect();
 
 		Rounds {
@@ -162,10 +156,10 @@ where
 
 	/// Return voting weight associated with given authority
 	pub(crate) fn vote_weight(&self, authority: &AuthorityId) -> Option<VoteWeight> {
-		self.validators()
-			.iter()
-			.position(|id| id == authority)
-			.map(|pos| self.voting_weights[pos])
+		self.voting_weights
+			.binary_search_by(|(auth, _)| auth.cmp(authority))
+			.ok()
+			.map(|pos| self.voting_weights[pos].1)
 	}
 
 	pub(crate) fn session_start(&self) -> NumberFor<B> {
