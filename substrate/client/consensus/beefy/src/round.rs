@@ -375,6 +375,57 @@ mod tests {
 			],
 			rounds.validators()
 		);
+
+		// Ensure that by default all authorities have equal weight
+		for authority in rounds.validators() {
+			assert_eq!(rounds.vote_weight(authority), 1);
+		}
+	}
+
+	#[test]
+	fn new_rounds_with_duplicated_authorities() {
+		sp_tracing::try_init_simple();
+
+		let validators = ValidatorSet::<ecdsa_crypto::AuthorityId>::new(
+			vec![
+				Keyring::Alice.public(),
+				Keyring::Alice.public(),
+				Keyring::Alice.public(),
+				Keyring::Bob.public(),
+				Keyring::Charlie.public(),
+				Keyring::Charlie.public(),
+				Keyring::Dave.public(),
+			],
+			42,
+		)
+		.unwrap();
+
+		let session_start = 1u64.into();
+		let rounds =
+			Rounds::<Block, ecdsa_crypto::AuthorityId>::new(session_start, validators.clone());
+
+		assert_eq!(42, rounds.validator_set_id());
+		assert_eq!(1, rounds.session_start());
+		assert_eq!(rounds.validator_set(), &validators);
+		assert_eq!(
+			&vec![
+				Keyring::<ecdsa_crypto::AuthorityId>::Alice.public(),
+				Keyring::<ecdsa_crypto::AuthorityId>::Alice.public(),
+				Keyring::<ecdsa_crypto::AuthorityId>::Alice.public(),
+				Keyring::<ecdsa_crypto::AuthorityId>::Bob.public(),
+				Keyring::<ecdsa_crypto::AuthorityId>::Charlie.public(),
+				Keyring::<ecdsa_crypto::AuthorityId>::Charlie.public(),
+				Keyring::<ecdsa_crypto::AuthorityId>::Dave.public(),
+			],
+			rounds.validators()
+		);
+
+		assert_eq!(rounds.vote_weight(&Keyring::<ecdsa_crypto::AuthorityId>::Alice.public()), 3);
+		assert_eq!(rounds.vote_weight(&Keyring::<ecdsa_crypto::AuthorityId>::Bob.public()), 1);
+		assert_eq!(rounds.vote_weight(&Keyring::<ecdsa_crypto::AuthorityId>::Charlie.public()), 2);
+		assert_eq!(rounds.vote_weight(&Keyring::<ecdsa_crypto::AuthorityId>::Dave.public()), 1);
+		// Eve is not part of the committee, should have default weight
+		assert_eq!(rounds.vote_weight(&Keyring::<ecdsa_crypto::AuthorityId>::Eve.public()), 1);
 	}
 
 	#[test]
