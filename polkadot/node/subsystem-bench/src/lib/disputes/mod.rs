@@ -197,23 +197,41 @@ pub async fn benchmark_dispute_coordinator(
 		let candidate_receipts =
 			state.candidate_receipts.get(&block_info.hash).expect("pregenerated");
 		for candidate_receipt in candidate_receipts.iter() {
-			let peer_id = *env.authorities().peer_ids.get(1).expect("all validators have ids");
-			let payload =
+			let payloads =
 				state.dispute_requests.get(&candidate_receipt.hash()).expect("pregenerated");
-			let (pending_response, pending_response_receiver) =
-				futures::channel::oneshot::channel();
-			let request =
-				RawIncomingRequest { peer: peer_id, payload: payload.encode(), pending_response };
-			let peer = env
-				.authorities()
-				.validator_authority_id
-				.get(1)
-				.expect("all validators have keys");
+			let (pending_response_receivers, validator_indices): (Vec<_>, Vec<_>) = payloads
+				.iter()
+				.map(|payload| {
+					let validator_index = payload.0.valid_vote.validator_index.0 as usize;
+					let peer_id = *env
+						.authorities()
+						.peer_ids
+						.get(validator_index)
+						.expect("all validators have ids");
+					let (pending_response, pending_response_receiver) =
+						futures::channel::oneshot::channel();
+					let request = RawIncomingRequest {
+						peer: peer_id,
+						payload: payload.encode(),
+						pending_response,
+					};
+					let peer = env
+						.authorities()
+						.validator_authority_id
+						.get(validator_index)
+						.expect("all validators have keys");
 
-			assert!(env.network().is_peer_connected(peer), "Peer {peer:?} is not connected");
-			env.network().send_request_from_peer(peer, request).unwrap();
-			let res = pending_response_receiver.await.expect("dispute request sent");
-			gum::debug!(target: LOG_TARGET, "Dispute request sent to node from peer {res:?}");
+					assert!(
+						env.network().is_peer_connected(peer),
+						"Peer {peer:?} is not connected"
+					);
+					env.network().send_request_from_peer(peer, request).unwrap();
+					(pending_response_receiver, validator_index)
+				})
+				.unzip();
+
+			let _ = futures::future::join_all(pending_response_receivers).await;
+			gum::debug!(target: LOG_TARGET, "Dispute request sent to node from peers {validator_indices:?}");
 		}
 
 		let candidate_hashes =

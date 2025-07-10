@@ -55,7 +55,7 @@ pub struct TestState {
 	// Generated candidate events
 	pub candidate_events: HashMap<Hash, Vec<CandidateEvent>>,
 	// Generated dispute requests
-	pub dispute_requests: HashMap<CandidateHash, DisputeRequest>,
+	pub dispute_requests: HashMap<CandidateHash, Vec<DisputeRequest>>,
 	// Relay chain block headers
 	pub block_headers: HashMap<Hash, Header>,
 	// Map from candidate hash to authorities that have received a dispute request
@@ -68,6 +68,7 @@ impl TestState {
 		let test_authorities = config.generate_authorities();
 		let block_infos: Vec<BlockInfo> =
 			(1..=config.num_blocks).map(generate_block_info).collect();
+		// Generate candidate receipts for each dispute
 		let candidate_receipts: HashMap<Hash, Vec<CandidateReceiptV2>> = block_infos
 			.iter()
 			.map(|block_info| {
@@ -92,7 +93,7 @@ impl TestState {
 				)
 			})
 			.collect();
-		let dispute_requests = candidate_receipts
+		let dispute_requests: HashMap<CandidateHash, Vec<DisputeRequest>> = candidate_receipts
 			.iter()
 			.flat_map(|(_, receipts)| {
 				receipts.iter().map(|receipt| {
@@ -113,7 +114,7 @@ impl TestState {
 
 					(
 						receipt.hash(),
-						DisputeRequest(UncheckedDisputeMessage {
+						vec![DisputeRequest(UncheckedDisputeMessage {
 							candidate_receipt: receipt.clone(),
 							session_index: 1,
 							valid_vote: ValidDisputeVote {
@@ -126,7 +127,7 @@ impl TestState {
 								signature: invalid.validator_signature().clone(),
 								kind: InvalidDisputeStatementKind::Explicit,
 							},
-						}),
+						})],
 					)
 				})
 			})
