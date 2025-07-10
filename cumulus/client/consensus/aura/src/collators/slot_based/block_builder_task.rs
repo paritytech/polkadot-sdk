@@ -21,7 +21,7 @@ use crate::{
 	collators::{
 		check_validation_code_or_log,
 		slot_based::{
-			relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
+			relay_chain_data_cache::RelayChainDataCache,
 			slot_timer::{SlotInfo, SlotTimer},
 		},
 		RelayParentData,
@@ -39,7 +39,6 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
-use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
 	Block as RelayBlock, CoreIndex, Hash as RelayHash, Header as RelayHeader, Id as ParaId,
 };
@@ -167,11 +166,7 @@ where
 			max_pov_percentage,
 		} = params;
 
-		let mut slot_timer = SlotTimer::<_, _, P>::new_with_offset(
-			para_client.clone(),
-			slot_offset,
-			relay_chain_slot_duration,
-		);
+		let mut slot_timer = SlotTimer::new_with_offset(slot_offset, relay_chain_slot_duration);
 
 		let mut collator = {
 			let params = collator_util::Params {
@@ -228,6 +223,9 @@ where
 				continue;
 			};
 
+			// Use the slot calculated from relay parent
+			let slot_info = para_slot;
+
 			let relay_parent = rp_data.relay_parent().hash();
 			let relay_parent_header = rp_data.relay_parent().clone();
 
@@ -273,9 +271,9 @@ where
 			let included_header_hash = included_header.hash();
 
 			let slot_claim = match crate::collators::can_build_upon::<_, _, P>(
-				para_slot.slot,
+				slot_info.slot,
 				relay_slot,
-				para_slot.timestamp,
+				slot_info.timestamp,
 				initial_parent.hash,
 				included_header_hash,
 				&*para_client,
@@ -293,7 +291,7 @@ where
 						included_hash = ?included_header_hash,
 						included_num = %included_header.number(),
 						initial_parent = ?initial_parent.hash,
-						slot = ?para_slot.slot,
+						slot = ?slot_info.slot,
 						"Not eligible to claim slot."
 					);
 					continue
@@ -309,7 +307,7 @@ where
 				included_hash = ?included_header_hash,
 				included_num = %included_header.number(),
 				initial_parent = ?initial_parent.hash,
-				slot = ?para_slot.slot,
+				slot = ?slot_info.slot,
 				"Claiming slot."
 			);
 
