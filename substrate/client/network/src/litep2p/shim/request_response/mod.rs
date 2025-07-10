@@ -444,7 +444,7 @@ impl RequestResponseProtocol {
 							request,
 							tx,
 							None,
-							IfDisconnected::ImmediateError,
+							IfDisconnected::TryConnect,
 						);
 
 						// since remote peer doesn't support the main protocol (`self.protocol`),

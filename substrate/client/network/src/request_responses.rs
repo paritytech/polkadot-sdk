@@ -1002,7 +1002,7 @@ impl NetworkBehaviour for RequestResponsesBehaviour {
 						// We can error if not connected because the
 						// previous attempt would have tried to establish a
 						// connection already or errored and we wouldn't have gotten here.
-						IfDisconnected::ImmediateError,
+						IfDisconnected::TryConnect,
 					);
 				}
 			}
