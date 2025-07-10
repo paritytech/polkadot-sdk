@@ -161,7 +161,7 @@ pub mod pallet {
 
 			tracing::info!(
 				target: LOG_TARGET,
-				?bridge_id,
+				from=?bridge_id,
 				congested=%is_congested,
 				"Received bridge status"
 			);
@@ -302,7 +302,7 @@ impl<T: Config<I>, I: 'static> ExporterFor for Pallet<T, I> {
 						target: LOG_TARGET,
 						bridged_network_id=?T::BridgedNetworkId::get(),
 						fee_asset=?T::FeeAsset::get(),
-						?invalid_asset,
+						with=?invalid_asset,
 						?bridge_hub_location,
 						?network,
 						?remote_location,
@@ -327,8 +327,7 @@ impl<T: Config<I>, I: 'static> ExporterFor for Pallet<T, I> {
 
 		tracing::info!(
 			target: LOG_TARGET,
-			?network,
-			?remote_location,
+			to=?(network, remote_location),
 			bridge_fee=?fee,
 			%fee_factor,
 			"Going to send message ({message_size} bytes) over bridge."
