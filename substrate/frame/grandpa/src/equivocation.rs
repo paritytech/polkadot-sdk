@@ -163,8 +163,9 @@ where
 		let offender = P::check_proof(key, key_owner_proof).ok_or(InvalidTransaction::BadProof)?;
 
 		// Check if the offence has already been reported, and if so then we can discard the report.
-		let time_slot =
-			TimeSlot { set_id: equivocation_proof.set_id(), round: equivocation_proof.round() };
+		// Note: we use round 0 to match the offence reporting logic, ensuring all offences
+		// in a set_id are treated as duplicates regardless of the actual round.
+		let time_slot = TimeSlot { set_id: equivocation_proof.set_id(), round: 0 };
 		if R::is_known_offence(&[offender], &time_slot) {
 			Err(InvalidTransaction::Stale.into())
 		} else {
@@ -185,7 +186,6 @@ where
 		// set count when the offence since it is required to calculate the
 		// slash amount.
 		let set_id = equivocation_proof.set_id();
-		let round = equivocation_proof.round();
 		let session_index = key_owner_proof.session();
 		let validator_set_count = key_owner_proof.validator_count();
 
@@ -221,8 +221,11 @@ where
 			return Err(Error::<T>::InvalidEquivocationProof.into())
 		}
 
+		// Note: we want to treat multiple offences by a unique validator in the same set_id
+		// (session) as duplicate to avoid excessive number of offences. Hence, we use round 0
+		// for all offences within a session. This makes the timeslot unique per session.
 		let offence = EquivocationOffence {
-			time_slot: TimeSlot { set_id, round },
+			time_slot: TimeSlot { set_id, round: 0 },
 			session_index,
 			offender,
 			validator_set_count,
