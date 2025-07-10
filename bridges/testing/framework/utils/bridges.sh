@@ -189,14 +189,14 @@ function open_hrmp_channels() {
             ${max_message_size}
 }
 
-function open_permissionless_lane() {
+function open_bridge_lane() {
     local runtime_para_endpoint=$1
     local runtime_para_id=$2
     local relay_url=$3
     local seed=$4
     local destination_xcm_location=$5
     local destination_chain_name=$6
-    echo "  calling open_permissionless_lane:"
+    echo "  calling open_bridge_lane:"
     echo "      runtime_para_endpoint: ${runtime_para_endpoint}"
     echo "      seed: ${seed}"
     echo "      destination_xcm_location: ${destination_xcm_location}"

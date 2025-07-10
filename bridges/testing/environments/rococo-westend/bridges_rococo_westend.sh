@@ -300,7 +300,7 @@ case "$1" in
   open-bridge-lane-westend-rococo-local)
       ensure_polkadot_js_api
       # open a permissionless lane for bridging
-      open_permissionless_lane \
+      open_bridge_lane \
           "ws://127.0.0.1:9010" \
           1000 \
           "ws://127.0.0.1:9945" \
@@ -311,7 +311,7 @@ case "$1" in
   open-bridge-lane-rococo-westend-local)
       ensure_polkadot_js_api
       # open a permissionless lane for bridging
-      open_permissionless_lane \
+      open_bridge_lane \
           "ws://127.0.0.1:9910" \
           1000 \
           "ws://127.0.0.1:9942" \
