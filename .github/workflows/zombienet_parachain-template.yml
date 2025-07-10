@@ -1,13 +1,13 @@
 name: Zombienet Parachain Templates
 
 on:
-  workflow_dispatch: # Disabled for being flaky
-  #push:
-  #  branches:
-  #    - master
+  workflow_dispatch:
+  push:
+   branches:
+     - master
   pull_request:
-   types: [opened, synchronize, reopened, ready_for_review, labeled]
-  #merge_group:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+  merge_group:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -23,13 +23,11 @@ jobs:
   isdraft:
     uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
-    # TODO: reenable
-    if: false
     needs: isdraft
     uses: ./.github/workflows/zombienet-reusable-preflight.yml
 
 
-  zombienet-parachain-template-smoke:
+  zombienet-parachain-template-0001-minimal_template_block_production:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-parachain-template-smoke') }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
@@ -53,9 +51,59 @@ jobs:
           gh-token: ${{ secrets.GITHUB_TOKEN }}
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-          # This pattern shall cover:
-          # - minimal_template_block_production_test
-          # - parachain_template_block_production_test
-          # - solochain_template_block_production_test
-          test: "template"
+          test: "smoke::minimal_template_block_production_test"
+          prefix: "parachain-templates"
+
+  zombienet-parachain-template-0002-parachain_template_block_production:
+    needs: [preflight]
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-parachain-template-smoke') }}
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
+    timeout-minutes: 30
+    container:
+      image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
+    env:
+      # sdk tests are looking for POLKADOT_IMAGE
+      POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
+      RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
+      FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: zombienet_test
+        uses: ./.github/actions/zombienet-sdk
+        with:
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+          test: "smoke::parachain_template_block_production_test"
+          prefix: "parachain-templates"
+
+  zombienet-parachain-template-0003-solochain_template_block_production:
+    needs: [preflight]
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-parachain-template-smoke') }}
+    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
+    timeout-minutes: 30
+    container:
+      image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
+    env:
+      # sdk tests are looking for POLKADOT_IMAGE
+      POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
+      RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
+      FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: zombienet_test
+        uses: ./.github/actions/zombienet-sdk
+        with:
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+          test: "smoke::solochain_template_block_production_test"
           prefix: "parachain-templates"
