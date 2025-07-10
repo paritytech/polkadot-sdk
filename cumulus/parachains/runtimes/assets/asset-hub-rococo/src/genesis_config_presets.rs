@@ -22,6 +22,7 @@ use frame_support::build_struct_json_patch;
 use hex_literal::hex;
 use parachains_common::{AccountId, AuraId};
 use bp_asset_hub_westend::AccountPublic;
+use sp_runtime::traits::IdentifyAccount;
 use sp_core::crypto::UncheckedInto;
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
@@ -29,7 +30,7 @@ use testnet_parachains_constants::rococo::{currency::UNITS as ROC, xcm_version::
 use xcm::latest::prelude::*;
 use xcm_builder::GlobalConsensusConvertsFor;
 use xcm_executor::traits::ConvertLocation;
-use sp_core::{Pair, Public, sr25519};
+use sp_core::{Pair, Public};
 
 const ASSET_HUB_ROCOCO_ED: Balance = ExistentialDeposit::get();
 
