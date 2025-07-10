@@ -2087,7 +2087,7 @@ impl<T: Config> Pallet<T> {
 				}
 			},
 			// Case 3: We are not on a relay or parachain. We return false.
-			_ => false
+			_ => false,
 		}
 	}
 
