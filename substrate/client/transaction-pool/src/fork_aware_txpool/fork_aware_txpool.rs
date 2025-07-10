@@ -654,7 +654,7 @@ where
 			select! {
 				ready = ready_at => Some(ready),
 				_ = timeout => {
-					warn!(
+					debug!(
 						target: LOG_TARGET,
 						?at,
 						"Timeout fired waiting for transaction pool at block. Proceeding with production."
