@@ -57,6 +57,28 @@ fn current_timepoint() -> Timepoint<BlockNumberFor<Test>> {
 	}
 }
 
+/// Helper function to check if proposal exists in storage
+fn proposal_exists(proposal_hash: H256, origin_id: OriginId) -> bool {
+	Proposals::<Test>::get(proposal_hash, origin_id).is_some()
+}
+
+/// Helper function to check if proposal call exists in storage
+fn proposal_call_exists(proposal_hash: H256) -> bool {
+	ProposalCalls::<Test>::get(proposal_hash).is_some()
+}
+
+/// Helper function to check if any approvals exist for a proposal
+fn proposal_has_approvals(proposal_hash: H256, origin_id: OriginId) -> bool {
+	// Cannot directly check if any entries exist with a specific prefix in a double map
+	// Testing purposes only simplification since in a real scenario we might need
+	// a more sophisticated approach
+	let proposal = Proposals::<Test>::get(proposal_hash, origin_id);
+	match proposal {
+		Some(p) => !p.approvals.is_empty(),
+		None => false,
+	}
+}
+
 /// Unit tests that focus on testing individual pallet functions in isolation
 /// rather than complex workflows covered by integration tests that are in ../tests
 mod unit_test {
@@ -299,6 +321,7 @@ mod unit_test {
 				let mut approvals = BoundedVec::default();
 				approvals.try_push(ALICE_ORIGIN_ID.into()).unwrap();
 				approvals.try_push(BOB_ORIGIN_ID.into()).unwrap(); // Already have 2 approvals
+				let executed_at = Some(System::block_number());
 
 				let proposal_info = ProposalInfo {
 					call_hash: call_hash2,
@@ -306,6 +329,7 @@ mod unit_test {
 					approvals,
 					status: ProposalStatus::Executed,
 					proposer: ALICE,
+					executed_at,
 				};
 
 				// Override proposal with `Executed` status
@@ -460,6 +484,7 @@ mod unit_test {
 				let mut approvals = BoundedVec::default();
 				approvals.try_push(ALICE_ORIGIN_ID.into()).unwrap();
 				approvals.try_push(BOB_ORIGIN_ID.into()).unwrap(); // Already have 2 approvals
+				let executed_at = Some(System::block_number());
 
 				let proposal_info = ProposalInfo {
 					call_hash,
@@ -467,6 +492,7 @@ mod unit_test {
 					approvals,
 					status: ProposalStatus::Executed,
 					proposer: ALICE,
+					executed_at,
 				};
 
 				// Override proposal with executed status
@@ -664,6 +690,7 @@ mod unit_test {
 					status: ProposalStatus::Pending, /* Force pending even enough approvals to
 					                                  * execute */
 					proposer: ALICE,
+					executed_at: None,
 				};
 
 				// Insert custom proposal directly into storage
@@ -773,11 +800,11 @@ mod unit_test {
 					None,
 				));
 
-				// First approval (already counts as one from proposal)
+				// Proposal that includes approval
 				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
-				assert_eq!(proposal.approvals.len(), 1); // Proposer counts as first approval
+				assert_eq!(proposal.approvals.len(), 1);
 
-				// Second approval from Bob
+				// Approval from Bob
 				assert_ok!(OriginAndGate::add_approval(
 					RuntimeOrigin::signed(BOB),
 					call_hash,
@@ -834,6 +861,7 @@ mod unit_test {
 				let mut approvals = BoundedVec::default();
 				approvals.try_push(ALICE_ORIGIN_ID).unwrap();
 				approvals.try_push(BOB_ORIGIN_ID).unwrap();
+				let executed_at = Some(System::block_number());
 
 				let proposal_info = ProposalInfo {
 					call_hash,
@@ -842,6 +870,7 @@ mod unit_test {
 					status: ProposalStatus::Pending, /* Force pending even enough approvals to
 					                                  * execute */
 					proposer: ALICE,
+					executed_at,
 				};
 
 				// Insert custom proposal directly into storage
@@ -1231,6 +1260,685 @@ mod unit_test {
 			});
 		}
 	}
+
+	mod storage_cleanup_after_execution {
+		use super::*;
+
+		#[test]
+		fn storage_cleanup_does_not_happen_during_execution() {
+			new_test_ext().execute_with(|| {
+				System::set_block_number(1);
+
+				// Create proposal
+				let call = make_remark_call("1000").unwrap();
+				let call_hash =
+					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+
+				// Alice proposes
+				assert_ok!(OriginAndGate::propose(
+					RuntimeOrigin::signed(ALICE),
+					call.clone(),
+					ALICE_ORIGIN_ID,
+					None,
+				));
+
+				// Bob approves and triggers execution
+				assert_ok!(OriginAndGate::add_approval(
+					RuntimeOrigin::signed(BOB),
+					call_hash,
+					ALICE_ORIGIN_ID,
+					BOB_ORIGIN_ID,
+				));
+
+				// Verify proposal exists in storage before execution
+				assert!(proposal_exists(call_hash, ALICE_ORIGIN_ID));
+				assert!(proposal_call_exists(call_hash));
+				assert!(proposal_has_approvals(call_hash, ALICE_ORIGIN_ID));
+
+				// Verify execution event emitted
+				let execution_timepoint = current_timepoint();
+				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalExecuted {
+					proposal_hash: call_hash,
+					origin_id: ALICE_ORIGIN_ID,
+					result: Ok(()),
+					timepoint: execution_timepoint,
+				}));
+			});
+		}
+	}
+
+	mod storage_cleanup_after_cancellation {
+		use super::*;
+
+		#[test]
+		fn storage_cleanup_after_cancellation_works() {
+			new_test_ext().execute_with(|| {
+				System::set_block_number(1);
+
+				// Create proposal
+				let call = make_remark_call("1000").unwrap();
+				let call_hash =
+					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+
+				// Alice proposes
+				assert_ok!(OriginAndGate::propose(
+					RuntimeOrigin::signed(ALICE),
+					call.clone(),
+					ALICE_ORIGIN_ID,
+					None,
+				));
+
+				// Verify proposal exists in storage before cancellation
+				assert!(proposal_exists(call_hash, ALICE_ORIGIN_ID));
+				assert!(proposal_call_exists(call_hash));
+				assert!(proposal_has_approvals(call_hash, ALICE_ORIGIN_ID));
+
+				// Alice cancels proposal
+				assert_ok!(OriginAndGate::cancel_proposal(
+					RuntimeOrigin::signed(ALICE),
+					call_hash,
+					ALICE_ORIGIN_ID,
+				));
+
+				// Verify proposal and all related storage cleaned up
+				assert!(!proposal_exists(call_hash, ALICE_ORIGIN_ID));
+				assert!(!proposal_call_exists(call_hash));
+				assert!(!proposal_has_approvals(call_hash, ALICE_ORIGIN_ID));
+
+				// Verify cancellation event emitted
+				let cancellation_timepoint = current_timepoint();
+				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCancelled {
+					proposal_hash: call_hash,
+					origin_id: ALICE_ORIGIN_ID,
+					timepoint: cancellation_timepoint,
+				}));
+			});
+		}
+	}
+
+	mod clean_proposal {
+		use super::*;
+
+		#[test]
+		fn clean_works_for_expired_proposals() {
+			new_test_ext().execute_with(|| {
+				// Set retention period to 50 blocks for this test
+				NonCancelledProposalRetentionPeriod::set(50);
+
+				System::set_block_number(1);
+
+				// Create proposal with expiry at block 10
+				let call = make_remark_call("1000").unwrap();
+				let call_hash =
+					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+
+				assert_ok!(OriginAndGate::propose(
+					RuntimeOrigin::signed(ALICE),
+					call.clone(),
+					ALICE_ORIGIN_ID,
+					Some(10), // Expires at block 10
+				));
+
+				// Verify proposal is in pending state before expiry
+				assert!(proposal_exists(call_hash, ALICE_ORIGIN_ID));
+				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+				assert_eq!(proposal.status, ProposalStatus::Pending);
+
+				// Advance to block 10 where the proposal should expire
+				System::set_block_number(10);
+
+				// Manually run the on_initialize hook to process expiring proposals
+				// marking them from pending to expired
+				OriginAndGate::on_initialize(10);
+
+				// Advance to block 11 after expiry
+				System::set_block_number(11);
+
+				// Try to add approval which should fail due to expiry
+				let result = OriginAndGate::add_approval(
+					RuntimeOrigin::signed(BOB),
+					call_hash,
+					ALICE_ORIGIN_ID,
+					BOB_ORIGIN_ID,
+				);
+				assert_err!(result, Error::<Test>::ProposalExpired);
+
+				// Verify proposal still exists in storage but is marked as expired
+				assert!(proposal_exists(call_hash, ALICE_ORIGIN_ID));
+				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+				assert_eq!(proposal.status, ProposalStatus::Expired);
+
+				// Verify that the ProposalExpired event was emitted
+				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalExpired {
+					proposal_hash: call_hash,
+					origin_id: ALICE_ORIGIN_ID,
+					timepoint: Timepoint { height: 10, index: 0 },
+				}));
+
+				// Advance to block 60 to satisfy the retention period
+				// expiry at block 10 + retention period 50 = block 60)
+				System::set_block_number(60);
+
+				// Clean up expired proposal that may be initiated via governance proposal
+				assert_ok!(OriginAndGate::clean(
+					RuntimeOrigin::signed(ALICE),
+					call_hash,
+					ALICE_ORIGIN_ID,
+				));
+
+				// Verify proposal and all related storage has been cleaned up
+				assert!(!proposal_exists(call_hash, ALICE_ORIGIN_ID));
+				assert!(!proposal_call_exists(call_hash));
+				assert!(!proposal_has_approvals(call_hash, ALICE_ORIGIN_ID));
+
+				// Verify clean event emitted
+				let cleanup_timepoint = current_timepoint();
+				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCleaned {
+					proposal_hash: call_hash,
+					origin_id: ALICE_ORIGIN_ID,
+					timepoint: cleanup_timepoint,
+				}));
+			});
+		}
+
+		#[test]
+		fn clean_fails_for_pending_proposals() {
+			new_test_ext().execute_with(|| {
+				System::set_block_number(1);
+
+				// Create proposal
+				let call = make_remark_call("1000").unwrap();
+				let call_hash =
+					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+
+				assert_ok!(OriginAndGate::propose(
+					RuntimeOrigin::signed(ALICE),
+					call.clone(),
+					ALICE_ORIGIN_ID,
+					None,
+				));
+
+				// Try clean pending proposal should fail
+				assert_noop!(
+					OriginAndGate::clean(RuntimeOrigin::signed(ALICE), call_hash, ALICE_ORIGIN_ID,),
+					Error::<Test>::ProposalNotInExpiredOrExecutedState
+				);
+
+				// Verify proposal still exists
+				assert!(proposal_exists(call_hash, ALICE_ORIGIN_ID));
+			});
+		}
+	}
+
+	mod proposal_retention_period {
+		use super::*;
+
+		#[test]
+		fn clean_fails_before_retention_period_elapsed() {
+			new_test_ext().execute_with(|| {
+				// Automatically expire proposals after 10 blocks if proposal does not have an expiry
+				ProposalLifetime::set(10);
+				// Set retention period to 50 blocks for this test
+				NonCancelledProposalRetentionPeriod::set(50);
+
+				System::set_block_number(1);
+
+				// Create proposal
+				let call = make_remark_call("1000").unwrap();
+				let call_hash = <<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+
+				// Alice proposes
+				assert_ok!(OriginAndGate::propose(
+					RuntimeOrigin::signed(ALICE),
+					call.clone(),
+					ALICE_ORIGIN_ID,
+					None,
+				));
+
+				// Bob approves and triggers execution
+				assert_ok!(OriginAndGate::add_approval(
+					RuntimeOrigin::signed(BOB),
+					call_hash,
+					ALICE_ORIGIN_ID,
+					BOB_ORIGIN_ID,
+				));
+
+				// Verify proposal is marked as executed but still exists in storage
+				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+				assert_eq!(proposal.status, ProposalStatus::Executed);
+				assert!(proposal_exists(call_hash, ALICE_ORIGIN_ID));
+				assert!(proposal_call_exists(call_hash));
+				assert!(proposal_has_approvals(call_hash, ALICE_ORIGIN_ID));
+
+				println!("clean_fails_before_retention_period_elapsed - Proposal executed_at: {:?}, Current block: {}", proposal.executed_at, System::block_number());
+
+				// Try to clean immediately after execution should fail
+				// where retention period starts from execution block + 50 blocks
+				assert_noop!(
+					OriginAndGate::clean(RuntimeOrigin::signed(ALICE), call_hash, ALICE_ORIGIN_ID),
+					Error::<Test>::ProposalRetentionPeriodNotElapsed
+				);
+
+				// Advance to block 60 since no expiry set so we use proposal lifetime of 10 blocks instead
+				// and retention period of 50 blocks
+				System::set_block_number(60);
+
+				// Clean should still fail
+				assert_noop!(
+					OriginAndGate::clean(RuntimeOrigin::signed(ALICE), call_hash, ALICE_ORIGIN_ID),
+					Error::<Test>::ProposalRetentionPeriodNotElapsed
+				);
+
+				// Advance to block 61 that is past retention period
+				System::set_block_number(61);
+
+				// Clean should now succeed
+				assert_ok!(OriginAndGate::clean(
+					RuntimeOrigin::signed(ALICE),
+					call_hash,
+					ALICE_ORIGIN_ID,
+				));
+
+				// Verify proposal and all related storage cleaned up
+				assert!(!proposal_exists(call_hash, ALICE_ORIGIN_ID));
+				assert!(!proposal_call_exists(call_hash));
+				assert!(!proposal_has_approvals(call_hash, ALICE_ORIGIN_ID));
+
+				// Verify clean event emitted
+				let cleanup_timepoint = current_timepoint();
+				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCleaned {
+					proposal_hash: call_hash,
+					origin_id: ALICE_ORIGIN_ID,
+					timepoint: cleanup_timepoint,
+				}));
+
+				// Reset retention period to default
+				NonCancelledProposalRetentionPeriod::set(0);
+			});
+		}
+
+		#[test]
+		fn clean_after_expiry_respects_retention_period() {
+			new_test_ext().execute_with(|| {
+				// Set retention period to 50 blocks for this test
+				NonCancelledProposalRetentionPeriod::set(50);
+
+				System::set_block_number(1);
+
+				// Create proposal with expiry at block 10
+				let call = make_remark_call("1000").unwrap();
+				let call_hash =
+					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+
+				assert_ok!(OriginAndGate::propose(
+					RuntimeOrigin::signed(ALICE),
+					call.clone(),
+					ALICE_ORIGIN_ID,
+					Some(10), // Expires at block 10
+				));
+
+				// Manually run the on_initialize hook to process expiring proposals
+				// marking them from pending to expired
+				OriginAndGate::on_initialize(10);
+
+				// Advance to block 11 (after expiry)
+				System::set_block_number(11);
+
+				// Try to add approval which should fail due to expiry
+				let result = OriginAndGate::add_approval(
+					RuntimeOrigin::signed(BOB),
+					call_hash,
+					ALICE_ORIGIN_ID,
+					BOB_ORIGIN_ID,
+				);
+				assert_err!(result, Error::<Test>::ProposalExpired);
+
+				// Verify proposal is marked as expired
+				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+				assert_eq!(proposal.status, ProposalStatus::Expired);
+
+				// Try to clean immediately after expiry should fail
+				// where retention period starts from expiry block 10 + 50 blocks = block 60
+				assert_noop!(
+					OriginAndGate::clean(RuntimeOrigin::signed(ALICE), call_hash, ALICE_ORIGIN_ID),
+					Error::<Test>::ProposalRetentionPeriodNotElapsed
+				);
+
+				// Advance to block 59 just before retention period ends
+				System::set_block_number(59);
+
+				// Clean should still fail
+				assert_noop!(
+					OriginAndGate::clean(RuntimeOrigin::signed(ALICE), call_hash, ALICE_ORIGIN_ID),
+					Error::<Test>::ProposalRetentionPeriodNotElapsed
+				);
+
+				// Advance to block 60 (exactly at retention period end)
+				System::set_block_number(60);
+
+				// Clean should now succeed
+				assert_ok!(OriginAndGate::clean(
+					RuntimeOrigin::signed(ALICE),
+					call_hash,
+					ALICE_ORIGIN_ID,
+				));
+
+				// Verify proposal and all related storage cleaned up
+				assert!(!proposal_exists(call_hash, ALICE_ORIGIN_ID));
+				assert!(!proposal_call_exists(call_hash));
+				assert!(!proposal_has_approvals(call_hash, ALICE_ORIGIN_ID));
+
+				// Verify clean event emitted
+				let cleanup_timepoint = current_timepoint();
+				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCleaned {
+					proposal_hash: call_hash,
+					origin_id: ALICE_ORIGIN_ID,
+					timepoint: cleanup_timepoint,
+				}));
+
+				// Reset retention period to default
+				NonCancelledProposalRetentionPeriod::set(0);
+			});
+		}
+
+		#[test]
+		fn clean_after_cancellation_does_not_respect_retention_period() {
+			new_test_ext().execute_with(|| {
+				// Set retention period to 50 blocks for this test
+				NonCancelledProposalRetentionPeriod::set(50);
+
+				System::set_block_number(1);
+
+				// Create proposal with expiry at block 100
+				let call = make_remark_call("1000").unwrap();
+				let call_hash =
+					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+
+				assert_ok!(OriginAndGate::propose(
+					RuntimeOrigin::signed(ALICE),
+					call.clone(),
+					ALICE_ORIGIN_ID,
+					Some(100), // Expires at block 100
+				));
+
+				// Cancel proposal at block 5
+				System::set_block_number(5);
+				assert_ok!(OriginAndGate::cancel_proposal(
+					RuntimeOrigin::signed(ALICE),
+					call_hash,
+					ALICE_ORIGIN_ID,
+				));
+
+				assert!(!proposal_exists(call_hash, ALICE_ORIGIN_ID));
+				assert!(!proposal_call_exists(call_hash));
+				assert!(!proposal_has_approvals(call_hash, ALICE_ORIGIN_ID));
+			});
+		}
+
+		#[test]
+		fn executed_proposal_without_expiry_uses_executed_block() {
+			new_test_ext().execute_with(|| {
+				ProposalLifetime::set(10);
+				// Set retention period to 50 blocks for this test
+				NonCancelledProposalRetentionPeriod::set(50);
+
+				System::set_block_number(1);
+
+				// Create proposal without expiry
+				let call = make_remark_call("1000").unwrap();
+				let call_hash =
+					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+
+				// Alice proposes
+				assert_ok!(OriginAndGate::propose(
+					RuntimeOrigin::signed(ALICE),
+					call.clone(),
+					ALICE_ORIGIN_ID,
+					None, // No expiry
+				));
+
+				// Change to block 5
+				System::set_block_number(5);
+
+				// Bob approves and triggers execution
+				assert_ok!(OriginAndGate::add_approval(
+					RuntimeOrigin::signed(BOB),
+					call_hash,
+					ALICE_ORIGIN_ID,
+					BOB_ORIGIN_ID,
+				));
+
+				// Verify proposal marked as executed
+				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+				assert_eq!(proposal.status, ProposalStatus::Executed);
+				println!(
+					"Proposal executed_at: {:?}, Current block: {}",
+					proposal.executed_at,
+					System::block_number()
+				);
+
+				// Try clean immediately after execution should fail
+				assert_noop!(
+					OriginAndGate::clean(RuntimeOrigin::signed(ALICE), call_hash, ALICE_ORIGIN_ID),
+					Error::<Test>::ProposalRetentionPeriodNotElapsed
+				);
+
+				// Advance to block 65 where execution at block 5 +
+				// proposal lifetime of 10 (instead of expiry) +
+				// retention period 50 = block 65
+				System::set_block_number(65);
+				println!("After advancing current block: {}", System::block_number());
+
+				// Clean should now succeed
+				assert_ok!(OriginAndGate::clean(
+					RuntimeOrigin::signed(ALICE),
+					call_hash,
+					ALICE_ORIGIN_ID,
+				));
+
+				// Verify proposal and all related storage cleaned up
+				assert!(!proposal_exists(call_hash, ALICE_ORIGIN_ID));
+				assert!(!proposal_call_exists(call_hash));
+				assert!(!proposal_has_approvals(call_hash, ALICE_ORIGIN_ID));
+
+				// Reset retention period to default
+				NonCancelledProposalRetentionPeriod::set(0);
+			});
+		}
+	}
+
+	mod automatic_expiry {
+		use super::*;
+
+		#[test]
+		fn proposals_automatically_expire_on_block_advancement() {
+			new_test_ext().execute_with(|| {
+				// Start at block 1
+				System::set_block_number(1);
+
+				// Create multiple proposals with different expiry blocks
+				// Proposal 1: Expires at block 10
+				let call1 = make_remark_call("1001").unwrap();
+				let call_hash1 =
+					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call1);
+				assert_ok!(OriginAndGate::propose(
+					RuntimeOrigin::signed(ALICE),
+					call1.clone(),
+					ALICE_ORIGIN_ID,
+					Some(10), // Expires at block 10
+				));
+
+				// Proposal 2: Expires at block 10 as well
+				let call2 = make_remark_call("1002").unwrap();
+				let call_hash2 =
+					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call2);
+				assert_ok!(OriginAndGate::propose(
+					RuntimeOrigin::signed(BOB),
+					call2.clone(),
+					BOB_ORIGIN_ID,
+					Some(10), // Expires at block 10
+				));
+
+				// Proposal 3: Expires at block 15
+				let call3 = make_remark_call("1003").unwrap();
+				let call_hash3 =
+					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call3);
+				assert_ok!(OriginAndGate::propose(
+					RuntimeOrigin::signed(ALICE),
+					call3.clone(),
+					ALICE_ORIGIN_ID,
+					Some(15), // Expires at block 15
+				));
+
+				// Verify all proposals are in Pending status
+				assert_eq!(
+					Proposals::<Test>::get(call_hash1, ALICE_ORIGIN_ID).unwrap().status,
+					ProposalStatus::Pending
+				);
+				assert_eq!(
+					Proposals::<Test>::get(call_hash2, BOB_ORIGIN_ID).unwrap().status,
+					ProposalStatus::Pending
+				);
+				assert_eq!(
+					Proposals::<Test>::get(call_hash3, ALICE_ORIGIN_ID).unwrap().status,
+					ProposalStatus::Pending
+				);
+
+				// Verify proposals are tracked in ExpiringProposals
+				assert!(ExpiringProposals::<Test>::get(10).contains(&(call_hash1, ALICE_ORIGIN_ID)));
+				assert!(ExpiringProposals::<Test>::get(10).contains(&(call_hash2, BOB_ORIGIN_ID)));
+				assert!(ExpiringProposals::<Test>::get(15).contains(&(call_hash3, ALICE_ORIGIN_ID)));
+
+				// Advance to block 10 that should trigger on_initialize and expire the first two
+				// proposals
+				System::set_block_number(10);
+				OriginAndGate::on_initialize(10);
+
+				// Verify first two proposals are now expired
+				assert_eq!(
+					Proposals::<Test>::get(call_hash1, ALICE_ORIGIN_ID).unwrap().status,
+					ProposalStatus::Expired
+				);
+				assert_eq!(
+					Proposals::<Test>::get(call_hash2, BOB_ORIGIN_ID).unwrap().status,
+					ProposalStatus::Expired
+				);
+				// Third proposal should still be pending
+				assert_eq!(
+					Proposals::<Test>::get(call_hash3, ALICE_ORIGIN_ID).unwrap().status,
+					ProposalStatus::Pending
+				);
+
+				// Verify expiry events were emitted
+				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalExpired {
+					proposal_hash: call_hash1,
+					origin_id: ALICE_ORIGIN_ID,
+					timepoint: Timepoint { height: 10, index: 0 },
+				}));
+				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalExpired {
+					proposal_hash: call_hash2,
+					origin_id: BOB_ORIGIN_ID,
+					timepoint: Timepoint { height: 10, index: 0 },
+				}));
+
+				// Verify ExpiringProposals for block 10 is now empty by being consumed
+				assert!(ExpiringProposals::<Test>::get(10).is_empty());
+
+				// Advance to block 15 that should expire the third proposal
+				System::set_block_number(15);
+				OriginAndGate::on_initialize(15);
+
+				// Verify third proposal is now expired
+				assert_eq!(
+					Proposals::<Test>::get(call_hash3, ALICE_ORIGIN_ID).unwrap().status,
+					ProposalStatus::Expired
+				);
+
+				// Verify expiry event was emitted for third proposal
+				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalExpired {
+					proposal_hash: call_hash3,
+					origin_id: ALICE_ORIGIN_ID,
+					timepoint: Timepoint { height: 15, index: 0 },
+				}));
+
+				// Verify ExpiringProposals for block 15 is now empty
+				assert!(ExpiringProposals::<Test>::get(15).is_empty());
+			});
+		}
+
+		#[test]
+		fn max_proposals_to_expire_per_block_is_enforced() {
+			new_test_ext().execute_with(|| {
+				// Set max proposals to expire per block to 2 for this test
+				MaxProposalsToExpirePerBlock::set(2);
+
+				// Start at block 1
+				System::set_block_number(1);
+
+				// Create 5 proposals all expiring at block 10
+				let mut call_hashes = Vec::new();
+
+				for i in 0..5 {
+					let call = make_remark_call(&format!("100{}", i)).unwrap();
+					let call_hash =
+						<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+					call_hashes.push((call_hash, ALICE_ORIGIN_ID));
+
+					assert_ok!(OriginAndGate::propose(
+						RuntimeOrigin::signed(ALICE),
+						call.clone(),
+						ALICE_ORIGIN_ID,
+						Some(10), // All expire at block 10
+					));
+				}
+
+				// Verify all proposals are in Pending status
+				for (hash, origin_id) in &call_hashes {
+					assert_eq!(
+						Proposals::<Test>::get(hash, origin_id).unwrap().status,
+						ProposalStatus::Pending
+					);
+				}
+
+				// Verify ExpiringProposals for block 10 contains all 5 proposals
+				assert_eq!(ExpiringProposals::<Test>::get(10).len(), 5);
+
+				// Advance to block 10 that should trigger on_initialize and expire only the first 2
+				// proposals due to MaxProposalsToExpirePerBlock limit
+				System::set_block_number(10);
+				OriginAndGate::on_initialize(10);
+
+				// Count how many proposals were expired
+				let expired_count = call_hashes
+					.iter()
+					.filter(|(hash, origin_id)| {
+						Proposals::<Test>::get(hash, origin_id)
+							.map(|p| p.status == ProposalStatus::Expired)
+							.unwrap_or(false)
+					})
+					.count();
+
+				// Verify only 2 proposals were expired due to the limit
+				assert_eq!(expired_count, 2);
+
+				// Verify we have exactly 2 ProposalExpired events
+				let events = System::events();
+				let expiry_events = events
+					.iter()
+					.filter(|event| {
+						matches!(
+							event.event,
+							RuntimeEvent::OriginAndGate(Event::ProposalExpired { .. })
+						)
+					})
+					.count();
+				assert_eq!(expiry_events, 2);
+
+				// Reset the parameter for other tests
+				MaxProposalsToExpirePerBlock::set(10);
+			});
+		}
+	}
 }
 
 /// Integration tests for this pallet focusing on verifying end-to-end
@@ -1351,12 +2059,36 @@ mod integration_test {
 					None,
 				));
 
+				let proposal_timepoint = current_timepoint();
+
+				// Verify proposal creation event with timepoint
+				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCreated {
+					proposal_hash: call_hash,
+					origin_id: ALICE_ORIGIN_ID,
+					timepoint: proposal_timepoint.clone(),
+				}));
+
+				// Verify proposal pending and not executed yet since only Alice approved
+				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+				assert_eq!(proposal.status, ProposalStatus::Pending);
+				assert_eq!(Dummy::<Test>::get(), None); // Call not executed yet
+
+				// No ExecutedCalls entry should exist yet
+				assert!(ExecutedCalls::<Test>::get(current_timepoint()).is_none());
+
 				// Prior to Bob's approval we dispatch a signed extrinsic to test AliceAndBob
 				// origin directly and expect it to fail without Bob's approval
 				assert_matches!(
 					AliceAndBob::ensure_origin(RuntimeOrigin::signed(ALICE)).is_err(),
 					true
 				);
+
+				// Time passing simulated by different block
+				System::set_block_number(2);
+				let execution_timepoint = current_timepoint();
+
+				// Ensure timepoints different
+				assert_ne!(proposal_timepoint, execution_timepoint);
 
 				// Approval by Bob dispatching a signed extrinsic
 				assert_ok!(OriginAndGate::add_approval(
@@ -1366,9 +2098,13 @@ mod integration_test {
 					BOB_ORIGIN_ID,
 				));
 
-				let execution_timepoint = current_timepoint();
+				// Verify execution successful after both approvals
+				assert_eq!(Dummy::<Test>::get(), Some(1000));
 
-				// Read pallet storage to verify the proposal is marked as executed as the
+				// Verify ExecutedCalls storage updated with call hash at execution timepoint
+				assert_eq!(ExecutedCalls::<Test>::get(execution_timepoint), Some(call_hash));
+
+				// Verify proposal marked executed as the
 				// AliceAndBob origin should now pass for this call.
 				assert!(Proposals::<Test>::contains_key(call_hash, ALICE_ORIGIN_ID));
 				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
@@ -1604,6 +2340,7 @@ mod integration_test {
 				let mut approvals = BoundedVec::<OriginId, MaxApprovals>::default();
 				approvals.try_push(ALICE_ORIGIN_ID.into()).unwrap();
 				approvals.try_push(BOB_ORIGIN_ID.into()).unwrap(); // Already have 2 approvals
+				let executed_at = Some(System::block_number());
 
 				let proposal_info = ProposalInfo {
 					call_hash,
@@ -1611,6 +2348,7 @@ mod integration_test {
 					approvals,
 					status: ProposalStatus::Pending,
 					proposer: ALICE,
+					executed_at,
 				};
 
 				// Skip calling `propose` and instead store proposal directly in storage
@@ -1729,7 +2467,7 @@ mod andgate_requirements {
 			// Verify execution successful after both approvals
 			assert_eq!(Dummy::<Test>::get(), Some(1000));
 
-			// Verify ExecutedCalls storage is updated with call hash at execution timepoint
+			// Verify ExecutedCalls storage updated with call hash at execution timepoint
 			assert_eq!(ExecutedCalls::<Test>::get(execution_timepoint), Some(call_hash));
 
 			// Verify proposal marked executed

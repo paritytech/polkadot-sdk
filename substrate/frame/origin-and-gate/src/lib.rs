@@ -25,11 +25,13 @@ use codec::{Decode, DecodeWithMemTracking, Encode, Error as CodecError};
 use core::marker::PhantomData;
 use frame_support::{
 	dispatch::{
-		ClassifyDispatch, DispatchClass, DispatchResult, GetDispatchInfo, Pays, PaysFee, WeighData,
+		ClassifyDispatch, DispatchClass, DispatchResult, DispatchResultWithPostInfo,
+		GetDispatchInfo, Pays, PaysFee, WeighData,
 	},
 	pallet_prelude::*,
-	traits::{EnsureOrigin, Get, IsSubType},
+	traits::{EnsureOrigin, Get, IsSubType, IsType},
 	weights::Weight,
+	BoundedVec, Parameter,
 };
 use frame_system::{
 	self, ensure_signed,
@@ -166,6 +168,44 @@ pub mod pallet {
 		#[pallet::constant]
 		type ProposalLifetime: Get<BlockNumberFor<Self>>;
 
+		/// How long to retain proposal data after it reaches a terminal state of (Executed,
+		/// Expired).
+		///
+		/// Inclusions:
+		///   - Retention period starts after the proposal's expiry time, or after the current block
+		///     after
+		/// termination through Execution if no expiry is set, and allows on-chain queries before
+		/// final cleanup.
+		///
+		/// Exclusions:
+		///   - Retention does not occur for proposals with Cancelled status that are cleaned up
+		///     immediately as
+		///   they have not completed their normal lifecycle.
+		///
+		/// Benefits:
+		///   - On-chain Queryability: Providing the option to retain proposal data in storage to
+		///     provide on-chain queryability allows other pallets, smart contracts, or runtime
+		///     logic to query the
+		///    status and details of recently executed or expired proposals. Whilst events are
+		/// emitted and    can be found in block explorers, or off-chain indexing could be used,
+		/// they are not directly    queryable on-chain. Chains with storage constraints may opt
+		/// to disable retention to save on    storage space.
+		///   - UX: User interfaces can easily show recently executed or expired proposals without
+		///     needing to scan through event logs, providing better UX for governance participants.
+		///   - Dispute Resolution: For dispute about a proposal outcome the data may be readily
+		///     available for a period allowing for easier verification and resolution.
+		///   - Governance Analytics: Retention allows for easier on-chain analytics about proposal
+		///     outcomes, success rates, and participation metrics.
+		///   - Potential Recovery Actions: Governance systems may opt to challenge or reverse
+		///     decisions within a certain timeframe after execution.
+		#[pallet::constant]
+		type NonCancelledProposalRetentionPeriod: Get<BlockNumberFor<Self>>;
+
+		/// Maximum number of proposals to check for expiry per block.
+		/// This limits the on_initialize processing to prevent excessive resource usage.
+		#[pallet::constant]
+		type MaxProposalsToExpirePerBlock: Get<u32>;
+
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -175,8 +215,41 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
-			Weight::zero()
+		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+			// Process proposals that expire in this block
+			let expiring = ExpiringProposals::<T>::take(n);
+
+			// Limit to MaxProposalsToExpirePerBlock to prevent excessive resource usage
+			let max_to_process = T::MaxProposalsToExpirePerBlock::get();
+			let to_process = expiring.len().min(max_to_process as usize);
+			let mut processed = 0;
+
+			// Process only up to the configured limit
+			for (proposal_hash, origin_id) in expiring.into_iter().take(to_process) {
+				if let Some(mut proposal_info) = Proposals::<T>::get(&proposal_hash, &origin_id) {
+					// Only update status if the proposal is still pending
+					if proposal_info.status == ProposalStatus::Pending {
+						proposal_info.status = ProposalStatus::Expired;
+						Proposals::<T>::insert(proposal_hash, origin_id.clone(), proposal_info);
+
+						// Emit an event
+						Self::deposit_event(Event::ProposalExpired {
+							proposal_hash,
+							origin_id,
+							timepoint: Timepoint {
+								height: frame_system::Pallet::<T>::block_number(),
+								index: frame_system::Pallet::<T>::extrinsic_index()
+									.unwrap_or_default(),
+							},
+						});
+					}
+				}
+				processed += 1;
+			}
+
+			// Return weight based on actual number processed
+			// TODO: Replace with actual weight calculation from WeightInfo
+			Weight::from_parts(processed as u64 * 10_000_000, 0)
 		}
 
 		fn on_finalize(_n: BlockNumberFor<T>) {
@@ -203,7 +276,9 @@ pub mod pallet {
 				Error::OriginAlreadyApproved => 8,
 				Error::InsufficientApprovals => 9,
 				Error::ProposalNotPending => 10,
-				Error::OriginApprovalNotFound => 11,
+				Error::ProposalNotInExpiredOrExecutedState => 11,
+				Error::OriginApprovalNotFound => 12,
+				Error::ProposalRetentionPeriodNotElapsed => 13,
 			}
 		}
 
@@ -230,16 +305,11 @@ pub mod pallet {
 
 					// Update proposal status
 					proposal_info.status = ProposalStatus::Executed;
-					<Proposals<T>>::insert(proposal_hash, origin_id, proposal_info);
-
-					// Clean up call data since it's no longer needed
-					<ProposalCalls<T>>::remove(proposal_hash);
+					proposal_info.executed_at = Some(frame_system::Pallet::<T>::block_number());
+					<Proposals<T>>::insert(proposal_hash, origin_id.clone(), proposal_info);
 
 					// Create timepoint for execution
-					let execution_timepoint = Timepoint {
-						height: frame_system::Pallet::<T>::block_number(),
-						index: frame_system::Pallet::<T>::extrinsic_index().unwrap_or_default(),
-					};
+					let execution_timepoint = Self::current_timepoint();
 
 					// Store in ExecutedCalls mapping
 					<ExecutedCalls<T>>::insert(execution_timepoint.clone(), proposal_hash);
@@ -259,6 +329,70 @@ pub mod pallet {
 
 			// Return an error when there aren't enough approvals
 			Err(Error::<T>::InsufficientApprovals.into())
+		}
+
+		/// Helper to clean up all storage related to a proposal
+		fn remove_proposal_storage(proposal_hash: T::Hash, origin_id: T::OriginId) {
+			<ProposalCalls<T>>::remove(proposal_hash);
+			<Approvals<T>>::remove_prefix((proposal_hash, origin_id.clone()), None);
+			<Proposals<T>>::remove(proposal_hash, origin_id);
+		}
+
+		/// Helper to check if terminal proposal (Executed, Expired, Cancelled) is eligible for
+		/// cleanup based on retention period
+		fn is_terminal_proposal_eligible_for_cleanup(
+			proposal: &ProposalInfo<
+				T::Hash,
+				BlockNumberFor<T>,
+				T::OriginId,
+				T::AccountId,
+				T::MaxApprovals,
+			>,
+		) -> bool {
+			// Get current block number
+			let current_block = frame_system::Pallet::<T>::block_number();
+
+			// Check if proposal in terminal state and not pending
+			if (proposal.status == ProposalStatus::Executed ||
+				proposal.status == ProposalStatus::Expired ||
+				proposal.status == ProposalStatus::Cancelled) &&
+				proposal.status != ProposalStatus::Pending
+			{
+				// Cancelled proposals are always eligible for cleanup immediately
+				if proposal.status == ProposalStatus::Cancelled {
+					return true;
+				}
+
+				// Calculate cleanup eligibility block for executed and expired proposals
+				let cleanup_eligible_block = match proposal.expiry {
+					// If proposal has expiry then use that as base
+					Some(expiry) =>
+						expiry.saturating_add(T::NonCancelledProposalRetentionPeriod::get()),
+					// If no expiry then use execution block as base for executed proposals
+					None => {
+						// Only executed proposals can reach here without an expiry
+						// Add retention period to the execution block
+						proposal
+							.executed_at
+							.unwrap_or(current_block)
+							.saturating_add(T::NonCancelledProposalRetentionPeriod::get())
+					},
+				};
+
+				// Proposal is eligible for cleanup if we passed cleanup_eligible_block
+				current_block >= cleanup_eligible_block
+			} else {
+				// Non-terminal proposals are not eligible for cleanup
+				false
+			}
+		}
+
+		/// Helper function to get the current timepoint
+		fn current_timepoint() -> Timepoint<BlockNumberFor<T>> {
+			Timepoint {
+				height: frame_system::Pallet::<T>::block_number(),
+				index: frame_system::Pallet::<T>::extrinsic_index().unwrap_or_default(),
+			}
 		}
 	}
 
@@ -281,7 +415,7 @@ pub mod pallet {
 
 			// Check if given proposal already exists
 			ensure!(
-				!<Proposals<T>>::contains_key(&proposal_hash, &origin_id),
+				!<Proposals<T>>::contains_key(proposal_hash, origin_id),
 				Error::<T>::ProposalAlreadyExists
 			);
 
@@ -316,6 +450,7 @@ pub mod pallet {
 				approvals,
 				status: ProposalStatus::Pending,
 				proposer: who.clone(),
+				executed_at: None,
 			};
 
 			// Store proposal metadata (bounded storage)
@@ -331,11 +466,15 @@ pub mod pallet {
 			// Store actual call data (unbounded) to save storage
 			<ProposalCalls<T>>::insert(proposal_hash, call);
 
+			// Add proposal to expiry tracking for automatic expiry
+			ExpiringProposals::<T>::mutate(expiry_block.unwrap(), |proposals| {
+				if let Err(_) = proposals.try_push((proposal_hash, origin_id.clone())) {
+					log::warn!("Too many proposals expiring in the same block. Some proposals may not be automatically expired.");
+				}
+			});
+
 			// Create timepoint for submission
-			let submission_timepoint = Timepoint {
-				height: frame_system::Pallet::<T>::block_number(),
-				index: frame_system::Pallet::<T>::extrinsic_index().unwrap_or_default(),
-			};
+			let submission_timepoint = Self::current_timepoint();
 
 			// Emit event
 			Self::deposit_event(Event::ProposalCreated {
@@ -376,10 +515,7 @@ pub mod pallet {
 					Self::deposit_event(Event::ProposalExpired {
 						proposal_hash: call_hash,
 						origin_id,
-						timepoint: Timepoint {
-							height: current_block,
-							index: frame_system::Pallet::<T>::extrinsic_index().unwrap_or_default(),
-						},
+						timepoint: Self::current_timepoint(),
 					});
 					return Err(Error::<T>::ProposalExpired.into());
 				}
@@ -417,10 +553,7 @@ pub mod pallet {
 			<Proposals<T>>::insert(call_hash, origin_id.clone(), &proposal_info);
 
 			// Emit approval event
-			let approval_timepoint = Timepoint {
-				height: frame_system::Pallet::<T>::block_number(),
-				index: frame_system::Pallet::<T>::extrinsic_index().unwrap_or_default(),
-			};
+			let approval_timepoint = Self::current_timepoint();
 			Self::deposit_event(Event::OriginApprovalAdded {
 				proposal_hash: call_hash,
 				origin_id: origin_id.clone(),
@@ -487,23 +620,14 @@ pub mod pallet {
 			// at lower cost
 			proposal.status = ProposalStatus::Cancelled;
 
-			// Clean up all approvals from Approvals storage efficiently
-			<Approvals<T>>::remove_prefix((proposal_hash, origin_id.clone()), None);
-
 			// Update storage with cancelled status
-			Proposals::<T>::insert(&proposal_hash, &origin_id, proposal);
+			<Proposals<T>>::insert(&proposal_hash, &origin_id, proposal);
 
-			// Remove actual call data (unbounded) to save storage
-			<ProposalCalls<T>>::remove(proposal_hash);
-
-			// Remove proposal from storage to clean up all approvals
-			Proposals::<T>::remove(&proposal_hash, &origin_id);
+			// Clean up all storage related to the proposal
+			Self::remove_proposal_storage(proposal_hash, origin_id.clone());
 
 			// Emit event
-			let cancellation_timepoint = Timepoint {
-				height: frame_system::Pallet::<T>::block_number(),
-				index: frame_system::Pallet::<T>::extrinsic_index().unwrap_or_default(),
-			};
+			let cancellation_timepoint = Self::current_timepoint();
 			Self::deposit_event(Event::ProposalCancelled {
 				proposal_hash,
 				origin_id,
@@ -534,7 +658,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			// Get proposal info
-			let mut proposal = Proposals::<T>::get(&proposal_hash, &origin_id)
+			let mut proposal = <Proposals<T>>::get(&proposal_hash, &origin_id)
 				.ok_or(Error::<T>::ProposalNotFound)?;
 
 			// Check if proposal was already executed
@@ -567,16 +691,13 @@ pub mod pallet {
 			proposal.approvals.swap_remove(pos);
 
 			// Update proposal in storage
-			Proposals::<T>::insert(&proposal_hash, &origin_id, &proposal);
+			<Proposals<T>>::insert(&proposal_hash, &origin_id, &proposal);
 
 			// Remove approval from Approvals storage
 			<Approvals<T>>::remove((proposal_hash, origin_id), withdrawing_origin_id);
 
 			// Emit event
-			let withdrawal_timepoint = Timepoint {
-				height: frame_system::Pallet::<T>::block_number(),
-				index: frame_system::Pallet::<T>::extrinsic_index().unwrap_or_default(),
-			};
+			let withdrawal_timepoint = Self::current_timepoint();
 			Self::deposit_event(Event::OriginApprovalWithdrawn {
 				proposal_hash,
 				origin_id,
@@ -621,16 +742,61 @@ pub mod pallet {
 			Ok(())
 		}
 
-		// /// A dummy function for use in tests and benchmarks
-		// #[pallet::call_index(3)]
-		// #[pallet::weight(<T as pallet::Config>::WeightInfo::set_dummy())]
-		// pub fn dummy_benchmark(
-		//     origin: OriginFor<T>,
-		//     remark: Vec<u8>,
-		// ) -> DispatchResultWithPostInfo {
-		//     ensure_signed(origin)?;
-		//     Ok(().into())
-		// }
+		/// Clean up storage for a proposal that is no longer pending
+		#[pallet::call_index(5)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::clean())]
+		pub fn clean(
+			origin: OriginFor<T>,
+			proposal_hash: T::Hash,
+			origin_id: T::OriginId,
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
+
+			// Get proposal info
+			let proposal = <Proposals<T>>::get(&proposal_hash, &origin_id)
+				.ok_or(Error::<T>::ProposalNotFound)?;
+
+			// Ensure proposal is in terminal state (Expired, Executed, or Cancelled)
+			// and not in the Pending state
+			ensure!(
+				(proposal.status == ProposalStatus::Expired ||
+					proposal.status == ProposalStatus::Executed ||
+					proposal.status == ProposalStatus::Cancelled) &&
+					proposal.status != ProposalStatus::Pending,
+				Error::<T>::ProposalNotInExpiredOrExecutedState
+			);
+
+			// Check if proposal has passed retention period
+			ensure!(
+				Self::is_terminal_proposal_eligible_for_cleanup(&proposal),
+				Error::<T>::ProposalRetentionPeriodNotElapsed
+			);
+
+			// Clean up all storage
+			Self::remove_proposal_storage(proposal_hash, origin_id.clone());
+
+			// Emit cleanup event
+			let cleanup_timepoint = Self::current_timepoint();
+
+			Self::deposit_event(Event::ProposalCleaned {
+				proposal_hash,
+				origin_id,
+				timepoint: cleanup_timepoint,
+			});
+
+			Ok(().into())
+		}
+
+		/// A dummy function for use in tests and benchmarks
+		#[pallet::call_index(6)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_dummy())]
+		pub fn dummy_benchmark(
+			origin: OriginFor<T>,
+			remark: Vec<u8>,
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
+			Ok(().into())
+		}
 	}
 
 	#[pallet::event]
@@ -678,6 +844,12 @@ pub mod pallet {
 		SetDummy {
 			balance: BalanceOf<T>,
 		},
+		/// A proposal's storage was cleaned up
+		ProposalCleaned {
+			proposal_hash: T::Hash,
+			origin_id: T::OriginId,
+			timepoint: Timepoint<BlockNumberFor<T>>,
+		},
 	}
 
 	#[pallet::error]
@@ -706,6 +878,11 @@ pub mod pallet {
 		InsufficientApprovals,
 		/// Origin approval could not be found
 		OriginApprovalNotFound,
+		/// Proposal not in a terminal state(Expired, Executed,
+		/// or Cancelled) and cannot be cleaned
+		ProposalNotInExpiredOrExecutedState,
+		/// Proposal retention period has not elapsed yet
+		ProposalRetentionPeriodNotElapsed,
 	}
 
 	/// Status of proposal
@@ -735,6 +912,8 @@ pub mod pallet {
 		pub status: ProposalStatus,
 		/// Original proposer of this proposal
 		pub proposer: AccountId,
+		/// Block number when this proposal was executed
+		pub executed_at: Option<BlockNumber>,
 	}
 
 	/// Storage for proposals
@@ -776,6 +955,18 @@ pub mod pallet {
 	#[pallet::getter(fn executed_calls)]
 	pub type ExecutedCalls<T: Config> =
 		StorageMap<_, Blake2_128Concat, Timepoint<BlockNumberFor<T>>, T::Hash, OptionQuery>;
+
+	/// Tracks proposals by their expiry block for automatic expiry processing.
+	/// Maps expiry block number to a vector of (proposal_hash, origin_id) tuples.
+	#[pallet::storage]
+	#[pallet::getter(fn expiring_proposals)]
+	pub type ExpiringProposals<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		BlockNumberFor<T>,
+		BoundedVec<(T::Hash, T::OriginId), ConstU32<1000>>,
+		ValueQuery,
+	>;
 
 	#[pallet::storage]
 	pub(super) type Dummy<T: Config> = StorageValue<_, T::Balance>;

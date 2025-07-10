@@ -24,6 +24,7 @@ pub trait WeightInfo {
 	fn add_approval() -> Weight;
 	fn cancel_proposal() -> Weight;
 	fn withdraw_approval() -> Weight;
+	fn clean() -> Weight;
 }
 
 // For tests
@@ -41,6 +42,9 @@ impl WeightInfo for () {
 		Weight::zero()
 	}
 	fn withdraw_approval() -> Weight {
-		Weight::zero()
+		Weight::from_parts(10_000, 0)
+	}
+	fn clean() -> Weight {
+		Weight::from_parts(10_000, 0)
 	}
 }
