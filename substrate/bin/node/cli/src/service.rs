@@ -22,7 +22,7 @@
 
 use polkadot_sdk::{
 	sc_consensus_beefy as beefy, sc_consensus_grandpa as grandpa,
-	sp_consensus_babe::inherents::BabeCreateInherentDataProvidersWithTimestamp,
+	sp_consensus_babe::inherents::BabeCreateInherentDataProviders,
 	sp_consensus_beefy as beefy_primitives, *,
 };
 
@@ -191,7 +191,7 @@ pub fn new_partial(
 					Block,
 					FullClient,
 					FullBeefyBlockImport<FullGrandpaBlockImport>,
-					BabeCreateInherentDataProvidersWithTimestamp<Block>,
+					BabeCreateInherentDataProviders<Block>,
 					FullSelectChain,
 				>,
 				grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
@@ -276,7 +276,7 @@ pub fn new_partial(
 				slot_duration,
 			);
 			Ok((slot, timestamp))
-		}) as BabeCreateInherentDataProvidersWithTimestamp<Block>,
+		}) as BabeCreateInherentDataProviders<Block>,
 		select_chain.clone(),
 		OffchainTransactionPoolFactory::new(transaction_pool.clone()),
 	)?;
@@ -294,8 +294,7 @@ pub fn new_partial(
 					slot_duration,
 				);
 				Ok((slot, timestamp))
-			})
-				as BabeCreateInherentDataProvidersWithTimestamp<Block>,
+			}) as BabeCreateInherentDataProviders<Block>,
 			spawner: &task_manager.spawn_essential_handle(),
 			registry: config.prometheus_registry(),
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
@@ -419,7 +418,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 			Block,
 			FullClient,
 			FullBeefyBlockImport<FullGrandpaBlockImport>,
-			BabeCreateInherentDataProvidersWithTimestamp<Block>,
+			BabeCreateInherentDataProviders<Block>,
 			FullSelectChain,
 		>,
 		&sc_consensus_babe::BabeLink<Block>,

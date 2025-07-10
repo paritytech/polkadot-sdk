@@ -238,11 +238,12 @@ impl TestNetFactory for BabeTestNet {
 			client.clone(),
 			client.clone(),
 			Arc::new(move |_, _| async {
+				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 				let slot = InherentDataProvider::from_timestamp_and_slot_duration(
-					Timestamp::current(),
+					*timestamp,
 					SlotDuration::from_millis(SLOT_DURATION_MS),
 				);
-				Ok((slot,))
+				Ok((slot, timestamp))
 			}) as BabeCreateInherentDataProviders<TestBlock>,
 			longest_chain,
 			OffchainTransactionPoolFactory::new(RejectAllTxPool::default()),

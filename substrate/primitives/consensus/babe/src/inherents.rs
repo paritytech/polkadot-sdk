@@ -27,21 +27,11 @@ pub type InherentType = sp_consensus_slots::Slot;
 
 /// Create inherent data providers for BABE with timestamp.
 #[cfg(feature = "std")]
-pub type BabeCreateInherentDataProvidersWithTimestamp<Block> = std::sync::Arc<
-	dyn sp_inherents::CreateInherentDataProviders<
-		Block,
-		(),
-		InherentDataProviders = (InherentDataProvider, sp_timestamp::InherentDataProvider),
-	>,
->;
-
-/// Create inherent data providers for BABE.
-#[cfg(feature = "std")]
 pub type BabeCreateInherentDataProviders<Block> = std::sync::Arc<
 	dyn sp_inherents::CreateInherentDataProviders<
 		Block,
 		(),
-		InherentDataProviders = (InherentDataProvider,),
+		InherentDataProviders = (InherentDataProvider, sp_timestamp::InherentDataProvider),
 	>,
 >;
 
