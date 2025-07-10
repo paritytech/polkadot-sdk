@@ -123,6 +123,8 @@ mod tests {
 				.pre_migration()
 				// set session keys for all "potential" validators
 				.session_keys(vec![1, 2, 3, 4, 5, 6, 7, 8])
+				// set a very low MaxOffenceBatchSize to test batching behavior
+				.max_offence_batch_size(2)
 				.build(),
 		);
 		shared::put_ah_state(ah::ExtBuilder::default().build());
@@ -217,29 +219,175 @@ mod tests {
 					<<rc::Runtime as ah_client::Config>::PointsPerBlock as Get<u32>>::get()
 			);
 
-			// let's create a new offence.
+			// Verify buffered mode doesn't send anything to AH
+			let offence_counter_before = shared::CounterRCAHNewOffence::get();
+
+			// Create multiple offences for same validator (2) to test "keep highest"
+			// behavior.
+			// First create an offence with 50% slash
 			assert_ok!(RootOffences::create_offence(
 				rc::RuntimeOrigin::root(),
-				vec![(5, Perbill::from_percent(100))],
+				vec![(2, Perbill::from_percent(50))],
 				None,
 				None,
 			));
 
-			// no new unapplied slashes are created (other than the previously created).
+			// Create second offence for validator 2 with higher slash - should be kept
+			assert_ok!(RootOffences::create_offence(
+				rc::RuntimeOrigin::root(),
+				vec![(2, Perbill::from_percent(100))],
+				None,
+				None,
+			));
+
+			// Create third offence for validator 2 with lower slash - should be ignored
+			assert_ok!(RootOffences::create_offence(
+				rc::RuntimeOrigin::root(),
+				vec![(2, Perbill::from_percent(25))],
+				None,
+				None,
+			));
+
+			// Create offences for validator 1 in the same session to test multiple validators
+			assert_ok!(RootOffences::create_offence(
+				rc::RuntimeOrigin::root(),
+				vec![(1, Perbill::from_percent(75))],
+				None,
+				None,
+			));
+
+			// Create another offence for validator 1 with lower slash - should be ignored
+			assert_ok!(RootOffences::create_offence(
+				rc::RuntimeOrigin::root(),
+				vec![(1, Perbill::from_percent(60))],
+				None,
+				None,
+			));
+
+			// Add a third validator (validator 5) to test MaxOffenceBatchSize=2 behavior
+			// when we have more than 2 offences in a single session
+			assert_ok!(RootOffences::create_offence(
+				rc::RuntimeOrigin::root(),
+				vec![(5, Perbill::from_percent(55))],
+				None,
+				None,
+			));
+
+			// Move to the next session to create offences in different sessions for batching test
+			rc::roll_to_next_session(false);
+			let next_session = pallet_session::CurrentIndex::<rc::Runtime>::get();
+
+			// Create offences for validator 2 in the new session to test batching
+			assert_ok!(RootOffences::create_offence(
+				rc::RuntimeOrigin::root(),
+				vec![(2, Perbill::from_percent(90))],
+				None,
+				None,
+			));
+
+			// Create another offence for validator 2 in same session (should be discarded as it's
+			// lower than the 90% one)
+			assert_ok!(RootOffences::create_offence(
+				rc::RuntimeOrigin::root(),
+				vec![(2, Perbill::from_percent(80))],
+				None,
+				None,
+			));
+
+			// Create offences for validator 1 in the new session
+			assert_ok!(RootOffences::create_offence(
+				rc::RuntimeOrigin::root(),
+				vec![(1, Perbill::from_percent(85))],
+				None,
+				None,
+			));
+
+			// Create offences for validator 5 in the new session
+			assert_ok!(RootOffences::create_offence(
+				rc::RuntimeOrigin::root(),
+				vec![(5, Perbill::from_percent(45))],
+				None,
+				None,
+			));
+
+			// Move to another session and create more offences
+			rc::roll_to_next_session(false);
+			let third_session = pallet_session::CurrentIndex::<rc::Runtime>::get();
+
+			// Create offences for validator 2 in third session
+			assert_ok!(RootOffences::create_offence(
+				rc::RuntimeOrigin::root(),
+				vec![(2, Perbill::from_percent(70))],
+				None,
+				None,
+			));
+
+			// Create offences for validator 1 in third session
+			assert_ok!(RootOffences::create_offence(
+				rc::RuntimeOrigin::root(),
+				vec![(1, Perbill::from_percent(65))],
+				None,
+				None,
+			));
+
+			// Create offences for validator 5 in third session
+			assert_ok!(RootOffences::create_offence(
+				rc::RuntimeOrigin::root(),
+				vec![(5, Perbill::from_percent(40))],
+				None,
+				None,
+			));
+
+			// Verify nothing was sent to AH in buffered mode
+			assert_eq!(
+				shared::CounterRCAHNewOffence::get(),
+				offence_counter_before,
+				"No offences should be sent to AH in buffered mode"
+			);
+
+			// no new unapplied slashes are created in staking-classic (other than the previously
+			// created).
 			assert_eq!(staking_classic::UnappliedSlashes::<rc::Runtime>::get(4).len(), 1);
 
-			// there is a buffered offence in the AHClient.
-			assert_eq!(ah_client::BufferedOffences::<rc::Runtime>::get().len(), 1);
+			// Verify buffered offences are stored correctly
+			let buffered_offences = ah_client::BufferedOffences::<rc::Runtime>::get();
 			assert_eq!(
-				ah_client::BufferedOffences::<rc::Runtime>::get()[0],
-				(
-					current_session,
-					vec![rc_client::Offence {
-						offender: 5,
-						reporters: vec![],
-						slash_fraction: Perbill::from_percent(100),
-					}],
-				)
+				buffered_offences.len(),
+				3,
+				"Should have buffered offences for exactly 3 sessions"
+			);
+			assert!(buffered_offences.contains_key(&current_session));
+
+			// Count total offences across all sessions
+			let total_offences: usize =
+				buffered_offences.values().map(|session_map| session_map.len()).sum();
+			assert_eq!(
+				total_offences, 9,
+				"Should have 9 offences total (three per session for validators 1, 2, and 5)"
+			);
+
+			// Verify all sessions have the correct buffered offences with their highest slash
+			// fractions
+			assert_eq!(
+				buffered_offences
+					.iter()
+					.flat_map(|(session, offences)| offences.iter().map(move |(id, offence)| (
+						*session,
+						*id,
+						offence.slash_fraction
+					)))
+					.collect::<Vec<_>>(),
+				vec![
+					(current_session, 1, Perbill::from_percent(75)), // highest of 75%, 60%
+					(current_session, 2, Perbill::from_percent(100)), // highest of 50%, 100%, 25%
+					(current_session, 5, Perbill::from_percent(55)), // single offence
+					(next_session, 1, Perbill::from_percent(85)),    // single offence
+					(next_session, 2, Perbill::from_percent(90)),    // highest of 90% and 80%
+					(next_session, 5, Perbill::from_percent(45)),    // single offence
+					(third_session, 1, Perbill::from_percent(65)),   // single offence
+					(third_session, 2, Perbill::from_percent(70)),   // single offence
+					(third_session, 5, Perbill::from_percent(40)),   // single offence
+				]
 			);
 		});
 
@@ -256,11 +404,44 @@ mod tests {
 
 		// SCENE (3): AHM migration ends.
 		shared::in_rc(|| {
+			// Before migration ends, verify we have 9 buffered offences across multiple sessions
+			let buffered_before = ah_client::BufferedOffences::<rc::Runtime>::get();
+			let total_offences_before: usize =
+				buffered_before.values().map(|session_map| session_map.len()).sum();
+			assert_eq!(total_offences_before, 9);
+
 			ah_client::Pallet::<rc::Runtime>::on_migration_end();
 			assert_eq!(ah_client::Mode::<rc::Runtime>::get(), OperatingMode::Active);
 
-			// offence in the migration period is reported to AH.
-			assert_eq!(shared::CounterRCAHNewOffence::get(), 1);
+			// We have 3 sessions containing offences (3 validators per session = 9 total offences).
+			// Since we have 3 offences per session but MaxOffenceBatchSize = 2, only the first 2
+			// offences from each session will be sent in the first batch, and the remaining 1
+			// offence per session will be sent in subsequent batches.
+
+			// After migration ends, buffered offences should start being processed.
+			// Let's advance to trigger on_initialize processing
+			rc::roll_next();
+
+			// With MaxOffenceBatchSize = 2 and 3 offences per session, each session will be
+			// processed in multiple batches (2 + 1 offences per session) We have 3 sessions, each
+			// requiring 2 batches = 6 total batches to process.
+			// Roll 6 blocks to process all 6 batches
+			for _ in 0..6 {
+				rc::roll_next();
+			}
+
+			let total_calls = shared::CounterRCAHNewOffence::get();
+			assert_eq!(
+				total_calls, 6,
+				"Expected exactly 6 calls total (3 sessions × 2 calls per session), got {}",
+				total_calls
+			);
+
+			// All buffered offences should be cleared now
+			assert!(
+				ah_client::BufferedOffences::<rc::Runtime>::get().is_empty(),
+				"All buffered offences should be processed"
+			);
 		});
 
 		let mut post_migration_era_reward_points = 0;
@@ -271,46 +452,235 @@ mod tests {
 			// reports come in
 			assert_eq!(pallet_staking_async::ForceEra::<ah::Runtime>::get(), Forcing::NotForcing);
 
+			// Verify all offences were properly queued in staking-async.
+			// Should have offences for validators 1, 2, and 5 from different sessions
+			assert!(pallet_staking_async::OffenceQueue::<ah::Runtime>::get(1, 1).is_some());
+			assert!(pallet_staking_async::OffenceQueue::<ah::Runtime>::get(1, 2).is_some());
+			assert!(pallet_staking_async::OffenceQueue::<ah::Runtime>::get(1, 5).is_some());
+
+			// Verify specific OffenceRecord structure for all three validators
+			let offence_record_v1 =
+				pallet_staking_async::OffenceQueue::<ah::Runtime>::get(1, 1).unwrap();
 			assert_eq!(
-				pallet_staking_async::OffenceQueue::<ah::Runtime>::get(1, 5).unwrap(),
+				offence_record_v1,
 				pallet_staking_async::slashing::OffenceRecord {
 					reporter: None,
 					reported_era: 1,
 					exposure_page: 0,
-					slash_fraction: Perbill::from_percent(100),
+					slash_fraction: Perbill::from_percent(85), /* Should be the highest slash
+					                                            * fraction for validator 1 */
 					prior_slash_fraction: Perbill::from_percent(0),
 				}
 			);
 
-			// next block would process this offence
-			ah::roll_next();
-
+			let offence_record_v2 =
+				pallet_staking_async::OffenceQueue::<ah::Runtime>::get(1, 2).unwrap();
 			assert_eq!(
-				ah::mock::staking_events_since_last_call(),
+				offence_record_v2,
+				pallet_staking_async::slashing::OffenceRecord {
+					reporter: None,
+					reported_era: 1,
+					exposure_page: 0,
+					slash_fraction: Perbill::from_percent(100), /* Should be the highest slash
+					                                             * fraction for validator 2 */
+					prior_slash_fraction: Perbill::from_percent(0),
+				}
+			);
+
+			let offence_record_v5 =
+				pallet_staking_async::OffenceQueue::<ah::Runtime>::get(1, 5).unwrap();
+			assert_eq!(
+				offence_record_v5,
+				pallet_staking_async::slashing::OffenceRecord {
+					reporter: None,
+					reported_era: 1,
+					exposure_page: 0,
+					slash_fraction: Perbill::from_percent(55), /* Should be the highest slash
+					                                            * fraction for validator 5 */
+					prior_slash_fraction: Perbill::from_percent(0),
+				}
+			);
+
+			// NOTE:
+			// - We sent 9 total offences across 3 sessions (3 offences per session)
+			// - Each session's offences trigger OffenceReported events when received
+			// - But only the highest slash fraction per validator per era gets queued for
+			//   processing
+			// - So we see 9 OffenceReported events but only 3 offences in the processing queue
+			// - The queue processing happens one offence per block in staking-async pallet.
+
+			// Process all queued offences (one offence per block)
+			// We have 3 offences queued (one per validator), so we need to roll 3 times
+			for _ in 0..3 {
+				ah::roll_next();
+			}
+
+			// Check that offences were processed for multiple validators
+			let staking_events = ah::mock::staking_events_since_last_call();
+
+			// Verify that OffenceReported events were emitted for all validators
+			let offence_reported_events: Vec<_> = staking_events
+				.iter()
+				.filter_map(|event| {
+					if let pallet_staking_async::Event::OffenceReported {
+						offence_era,
+						validator,
+						fraction,
+					} = event
+					{
+						Some((offence_era, validator, fraction))
+					} else {
+						None
+					}
+				})
+				.collect();
+
+			// Verify that SlashComputed events were emitted for all three validators
+			let slash_computed_events: Vec<_> = staking_events
+				.iter()
+				.filter_map(|event| {
+					if let pallet_staking_async::Event::SlashComputed {
+						offence_era,
+						slash_era,
+						offender,
+						page,
+					} = event
+					{
+						Some((offence_era, slash_era, offender, page))
+					} else {
+						None
+					}
+				})
+				.collect();
+
+			// Should have SlashComputed events for all three validators
+			// Note: OffenceQueue uses StorageDoubleMap with Twox64Concat hasher, so iteration order
+			// depends on hash(validator_id).
+			assert_eq!(
+				slash_computed_events,
 				vec![
-					pallet_staking_async::Event::OffenceReported {
-						offence_era: 1,
-						validator: 5,
-						fraction: Perbill::from_percent(100)
-					},
-					pallet_staking_async::Event::SlashComputed {
-						offence_era: 1,
-						slash_era: 3,
-						offender: 5,
-						page: 0
-					},
+					(&1, &3, &5, &0), /* validator 5: offence_era=1, slash_era=3, offender=5,
+					                   * page=0 */
+					(&1, &3, &1, &0), /* validator 1: offence_era=1, slash_era=3, offender=1,
+					                   * page=0 */
+					(&1, &3, &2, &0), /* validator 2: offence_era=1, slash_era=3, offender=2,
+					                   * page=0 */
 				]
 			);
 
-			assert_eq!(pallet_staking_async::OffenceQueue::<ah::Runtime>::get(1, 5), None);
+			// Verify all OffenceReported events (9 total: 3 sessions × 3 validators)
+			// Note: order follows the sequence of offence processing [1, 2, 5] within each session
+			assert_eq!(
+				offence_reported_events,
+				vec![
+					(&1, &1, &Perbill::from_percent(75)), /* validator 1, session 1 (highest of
+					                                       * 75%, 60%) */
+					(&1, &2, &Perbill::from_percent(100)), /* validator 2, session 1 (highest of
+					                                        * 50%, 100%, 25%) */
+					(&1, &5, &Perbill::from_percent(55)), // validator 5, session 1
+					(&1, &1, &Perbill::from_percent(85)), // validator 1, session 2
+					(&1, &2, &Perbill::from_percent(90)), /* validator 2, session 2 (highest of
+					                                       * 90%, 80%) */
+					(&1, &5, &Perbill::from_percent(45)), // validator 5, session 2
+					(&1, &1, &Perbill::from_percent(65)), // validator 1, session 3
+					(&1, &2, &Perbill::from_percent(70)), // validator 2, session 3
+					(&1, &5, &Perbill::from_percent(40)), // validator 5, session 3
+				]
+			);
+
+			// Verify that all offences have been processed (no longer in queue)
+			assert!(
+				!pallet_staking_async::OffenceQueue::<ah::Runtime>::contains_key(1, 1),
+				"Expected no remaining offences for validator 1"
+			);
+			assert!(
+				!pallet_staking_async::OffenceQueue::<ah::Runtime>::contains_key(1, 2),
+				"Expected no remaining offences for validator 2"
+			);
+			assert!(
+				!pallet_staking_async::OffenceQueue::<ah::Runtime>::contains_key(1, 5),
+				"Expected no remaining offences for validator 5"
+			);
 			// offence is deferred by two eras, ie 1 + 2 = 3. Note that this is one era less than
 			// staking-classic since slashing happens in multi-block, and we want to apply all
 			// slashes before the era 4 starts.
-			assert!(pallet_staking_async::UnappliedSlashes::<ah::Runtime>::get(
+			// Check if at least one of the validators has an unapplied slash
+			// Check for unapplied slashes for all validators with any of the slash fractions
+
+			// Check validator 2 slashes
+			let slash_v2_100_present = pallet_staking_async::UnappliedSlashes::<ah::Runtime>::get(
 				3,
-				(5, Perbill::from_percent(100), 0)
+				(2, Perbill::from_percent(100), 0),
 			)
-			.is_some());
+			.is_some();
+			let slash_v2_90_present = pallet_staking_async::UnappliedSlashes::<ah::Runtime>::get(
+				3,
+				(2, Perbill::from_percent(90), 0),
+			)
+			.is_some();
+			let slash_v2_70_present = pallet_staking_async::UnappliedSlashes::<ah::Runtime>::get(
+				3,
+				(2, Perbill::from_percent(70), 0),
+			)
+			.is_some();
+
+			let total_slashes_v2 =
+				slash_v2_100_present as u8 + slash_v2_90_present as u8 + slash_v2_70_present as u8;
+			assert_eq!(
+				total_slashes_v2, 1,
+				"Expected exactly 1 unapplied slash for validator 2, got {} (100%:{}, 90%:{}, 70%:{})",
+				total_slashes_v2, slash_v2_100_present, slash_v2_90_present, slash_v2_70_present
+			);
+
+			// Check validator 1 slashes
+			let slash_v1_75_present = pallet_staking_async::UnappliedSlashes::<ah::Runtime>::get(
+				3,
+				(1, Perbill::from_percent(75), 0),
+			)
+			.is_some();
+			let slash_v1_85_present = pallet_staking_async::UnappliedSlashes::<ah::Runtime>::get(
+				3,
+				(1, Perbill::from_percent(85), 0),
+			)
+			.is_some();
+			let slash_v1_65_present = pallet_staking_async::UnappliedSlashes::<ah::Runtime>::get(
+				3,
+				(1, Perbill::from_percent(65), 0),
+			)
+			.is_some();
+
+			let total_slashes_v1 =
+				slash_v1_75_present as u8 + slash_v1_85_present as u8 + slash_v1_65_present as u8;
+			assert_eq!(
+				total_slashes_v1, 1,
+				"Expected exactly 1 unapplied slash for validator 1, got {} (75%:{}, 85%:{}, 65%:{})",
+				total_slashes_v1, slash_v1_75_present, slash_v1_85_present, slash_v1_65_present
+			);
+
+			// Check validator 5 slashes
+			let slash_v5_55_present = pallet_staking_async::UnappliedSlashes::<ah::Runtime>::get(
+				3,
+				(5, Perbill::from_percent(55), 0),
+			)
+			.is_some();
+			let slash_v5_45_present = pallet_staking_async::UnappliedSlashes::<ah::Runtime>::get(
+				3,
+				(5, Perbill::from_percent(45), 0),
+			)
+			.is_some();
+			let slash_v5_40_present = pallet_staking_async::UnappliedSlashes::<ah::Runtime>::get(
+				3,
+				(5, Perbill::from_percent(40), 0),
+			)
+			.is_some();
+
+			let total_slashes_v5 =
+				slash_v5_55_present as u8 + slash_v5_45_present as u8 + slash_v5_40_present as u8;
+			assert_eq!(
+				total_slashes_v5, 1,
+				"Expected exactly 1 unapplied slash for validator 5, got {} (55%:{}, 45%:{}, 40%:{})",
+				total_slashes_v5, slash_v5_55_present, slash_v5_45_present, slash_v5_40_present
+			);
 		});
 
 		// NOW: lets verify we kick off the election at the appropriate time
@@ -332,11 +702,7 @@ mod tests {
 
 		let mut post_migration_session_block_number = 0;
 		shared::in_rc(|| {
-			assert_eq!(pallet_session::CurrentIndex::<rc::Runtime>::get(), 12);
-			rc::roll_until_matches(
-				|| pallet_session::CurrentIndex::<rc::Runtime>::get() == 13,
-				true,
-			);
+			rc::roll_to_next_session(true);
 			post_migration_session_block_number =
 				frame_system::Pallet::<rc::Runtime>::block_number();
 
@@ -351,27 +717,56 @@ mod tests {
 			assert_eq!(pallet_staking_async::CurrentEra::<ah::Runtime>::get(), Some(1 + 1));
 
 			// by now one session report should have been received in staking
+			let rc_events = ah::rc_client_events_since_last_call();
+			// We expect 7 events: 6 separate OffenceReceived events (due to MaxOffenceBatchSize=2
+			// with 3 offences per session = 2 batches per session × 3 sessions) + 1
+			// SessionReportReceived
+			assert_eq!(rc_events.len(), 7);
+
+			// Check that we have 6 separate OffenceReceived events due to MaxOffenceBatchSize=2
+			let offence_events: Vec<_> = rc_events
+				.iter()
+				.filter(|event| matches!(event, rc_client::Event::OffenceReceived { .. }))
+				.collect();
 			assert_eq!(
-				ah::rc_client_events_since_last_call(),
-				vec![
-					rc_client::Event::OffenceReceived { slash_session: 12, offences_count: 1 },
-					rc_client::Event::SessionReportReceived {
-						end_index: 12,
-						activation_timestamp: None,
-						validator_points_counts: 1,
-						leftover: false
-					}
-				]
+				offence_events.len(),
+				6,
+				"Should have 6 separate offence events due to batch size limit"
 			);
 
-			assert_eq!(
-				ah::mock::staking_events_since_last_call(),
-				vec![pallet_staking_async::Event::SessionRotated {
-					starting_session: 13,
-					active_era: 1,
-					planned_era: 2
-				}]
-			);
+			// With MaxOffenceBatchSize=2 and 3 offences per session, we expect:
+			// - 3 events with 2 offences each (first batch from each session)
+			// - 3 events with 1 offence each (second batch from each session)
+			let mut two_offence_events = 0;
+			let mut one_offence_events = 0;
+			for event in &offence_events {
+				if let rc_client::Event::OffenceReceived { offences_count, .. } = event {
+					match *offences_count {
+						2 => two_offence_events += 1,
+						1 => one_offence_events += 1,
+						_ => panic!("Unexpected offence count: {}", offences_count),
+					}
+				}
+			}
+			assert_eq!(two_offence_events, 3, "Should have 3 events with 2 offences each");
+			assert_eq!(one_offence_events, 3, "Should have 3 events with 1 offence each");
+
+			// The last event should be the session report
+			assert!(matches!(
+				rc_events.last().unwrap(),
+				rc_client::Event::SessionReportReceived {
+					validator_points_counts: 1,
+					leftover: false,
+					..
+				}
+			));
+
+			let staking_events = ah::mock::staking_events_since_last_call();
+			assert_eq!(staking_events.len(), 1);
+			assert!(matches!(
+				staking_events[0],
+				pallet_staking_async::Event::SessionRotated { active_era: 1, planned_era: 2, .. }
+			));
 
 			// all expected era reward points are here
 			assert_eq!(
