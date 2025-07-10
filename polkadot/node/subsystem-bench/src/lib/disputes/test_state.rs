@@ -130,20 +130,39 @@ impl TestState {
 					.zip(validator_indices.clone())
 					.zip(misbehaving_indices.clone())
 					.map(|((receipt, validator_index), misbehaving_index)| {
-						let valid = issue_explicit_statement(
-							test_authorities.keyring.local_keystore(),
-							test_authorities.validator_public[validator_index as usize].clone(),
-							receipt.hash(),
-							1,
-							true,
-						);
-						let invalid = issue_explicit_statement(
-							test_authorities.keyring.local_keystore(),
-							test_authorities.validator_public[misbehaving_index as usize].clone(),
-							receipt.hash(),
-							1,
-							false,
-						);
+						let statements = vec![
+							(
+								issue_explicit_statement(
+									test_authorities.keyring.local_keystore(),
+									test_authorities.validator_public[validator_index as usize]
+										.clone(),
+									receipt.hash(),
+									1,
+									options.concluded_valid,
+								),
+								ValidatorIndex(validator_index),
+							),
+							(
+								issue_explicit_statement(
+									test_authorities.keyring.local_keystore(),
+									test_authorities.validator_public[misbehaving_index as usize]
+										.clone(),
+									receipt.hash(),
+									1,
+									!options.concluded_valid, // votes against the supermajority
+								),
+								ValidatorIndex(misbehaving_index),
+							),
+						];
+
+						let valid = statements
+							.iter()
+							.find(|(s, _)| s.statement().indicates_validity())
+							.expect("One statement generates as valid");
+						let invalid = statements
+							.iter()
+							.find(|(s, _)| s.statement().indicates_invalidity())
+							.expect("One statement generates as invalid");
 
 						(
 							receipt.hash(),
@@ -151,13 +170,13 @@ impl TestState {
 								candidate_receipt: receipt.clone(),
 								session_index: 1,
 								valid_vote: ValidDisputeVote {
-									validator_index: ValidatorIndex(validator_index),
-									signature: valid.validator_signature().clone(),
+									validator_index: valid.1,
+									signature: valid.0.validator_signature().clone(),
 									kind: ValidDisputeStatementKind::Explicit,
 								},
 								invalid_vote: InvalidDisputeVote {
-									validator_index: ValidatorIndex(misbehaving_index),
-									signature: invalid.validator_signature().clone(),
+									validator_index: invalid.1,
+									signature: invalid.0.validator_signature().clone(),
 									kind: InvalidDisputeStatementKind::Explicit,
 								},
 							})],

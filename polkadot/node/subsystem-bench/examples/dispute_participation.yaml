@@ -1,7 +1,8 @@
 TestConfiguration:
 - objective: !DisputeCoordinator
     n_disputes: 50
-    misbehaving_validators: [3]
+    misbehaving_validators: [3, 5]
+    concluded_valid: false
   num_blocks: 10
   n_cores: 100
   n_validators: 500

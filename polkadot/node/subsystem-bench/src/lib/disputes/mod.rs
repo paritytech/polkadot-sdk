@@ -81,6 +81,9 @@ pub struct DisputesOptions {
 	/// Validators that vote against the supermajority. Must be within validator
 	/// range and not include the node under test (index 0).
 	pub misbehaving_validators: Vec<u32>,
+	#[clap(short, long, default_value_t = true)]
+	/// Whether to conclude the dispute as valid.
+	pub concluded_valid: bool,
 }
 
 pub fn make_keystore() -> Arc<LocalKeystore> {
