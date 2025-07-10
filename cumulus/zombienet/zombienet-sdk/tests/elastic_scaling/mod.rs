@@ -16,4 +16,5 @@
 // limitations under the License.
 
 mod pov_bundling;
+mod pov_bundling_3cores_glutton;
 mod slot_based_rp_offset;
