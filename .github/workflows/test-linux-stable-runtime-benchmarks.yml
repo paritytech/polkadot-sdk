@@ -18,8 +18,6 @@ jobs:
   preflight:
     # needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
-    with:
-      CHECKOUT_SHA: "771c9988e2a636a150d97c10e3122af8068d1687"
 
   # https://github.com/paritytech/ci_cd/issues/864
 
@@ -65,10 +63,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: "111bf4d82a4a8e090122c7e3c441e32515de8da5"
+
       - name: fl
-        run: /builds/download-forklift.sh -v master && forklift version && forklift config show
+        run: /builds/download-forklift.sh -v 0.14.1 && forklift version && forklift config show    
       - name: script
         id: required
         run: |

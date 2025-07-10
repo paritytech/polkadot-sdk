@@ -36,6 +36,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: fl
+        run: /builds/download-forklift.sh -v 0.14.1 && forklift version && forklift config show         
       - name: script
         id: required
         run: WASM_BUILD_NO_COLOR=1 forklift cargo test -p staging-node-cli --release --locked -- --ignored
@@ -62,6 +64,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: fl
+        run: /builds/download-forklift.sh -v 0.14.1 && forklift version && forklift config show         
       - name: script
         id: required
         run: forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet --cargo-quiet
@@ -98,6 +102,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: fl
+        run: /builds/download-forklift.sh -v 0.14.1 && forklift version && forklift config show        
       - name: script
         id: required
         run: |
@@ -146,6 +152,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: fl
+        run: /builds/download-forklift.sh -v 0.14.1 && forklift version && forklift config show            
       - name: script
         id: required
         run: |
