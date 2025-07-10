@@ -18,6 +18,7 @@ use crate::{
 	configuration::{TestAuthorities, TestConfiguration},
 	disputes::DisputesOptions,
 	network::{HandleNetworkMessage, NetworkMessage},
+	NODE_UNDER_TEST,
 };
 use codec::Encode;
 use polkadot_node_network_protocol::request_response::{
@@ -36,6 +37,7 @@ use polkadot_primitives::{
 	ValidatorId, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt_v2_bad_sig, dummy_hash};
+use rand::{seq::SliceRandom, thread_rng, Rng};
 use sp_keystore::KeystorePtr;
 use std::{
 	collections::{HashMap, HashSet},
@@ -93,43 +95,74 @@ impl TestState {
 				)
 			})
 			.collect();
+
+		let misbehaving: HashSet<u32> = HashSet::from_iter(options.misbehaving_validators.clone());
+		assert!(!misbehaving.is_empty(), "At least one misbehaving validator must be specified");
+		assert!(
+			misbehaving
+				.iter()
+				.all(|&i| i != NODE_UNDER_TEST && i < config.n_validators as u32),
+			"Misbehaving validators should be within validators range. Index {NODE_UNDER_TEST} is reserved for the node under test"
+		);
+		let mut rng = thread_rng();
+		let mut available_indices: Vec<u32> =
+			(1..config.n_validators as u32).filter(|i| !misbehaving.contains(i)).collect();
+		available_indices.shuffle(&mut rng);
+		let validator_indices = available_indices
+			.iter()
+			.take(options.n_disputes as usize)
+			.cloned()
+			.collect::<Vec<_>>();
+		let misbehaving_indices = (0..options.n_disputes)
+			.map(|_| {
+				*misbehaving
+					.iter()
+					.nth(rng.gen_range(0..misbehaving.len()))
+					.expect("At least one misbehaving validator")
+			})
+			.collect::<Vec<_>>();
+
 		let dispute_requests: HashMap<CandidateHash, Vec<DisputeRequest>> = candidate_receipts
 			.iter()
 			.flat_map(|(_, receipts)| {
-				receipts.iter().map(|receipt| {
-					let valid = issue_explicit_statement(
-						test_authorities.keyring.local_keystore(),
-						test_authorities.validator_public[1].clone(),
-						receipt.hash(),
-						1,
-						true,
-					);
-					let invalid = issue_explicit_statement(
-						test_authorities.keyring.local_keystore(),
-						test_authorities.validator_public[3].clone(),
-						receipt.hash(),
-						1,
-						false,
-					);
+				receipts
+					.iter()
+					.zip(validator_indices.clone())
+					.zip(misbehaving_indices.clone())
+					.map(|((receipt, validator_index), misbehaving_index)| {
+						let valid = issue_explicit_statement(
+							test_authorities.keyring.local_keystore(),
+							test_authorities.validator_public[validator_index as usize].clone(),
+							receipt.hash(),
+							1,
+							true,
+						);
+						let invalid = issue_explicit_statement(
+							test_authorities.keyring.local_keystore(),
+							test_authorities.validator_public[misbehaving_index as usize].clone(),
+							receipt.hash(),
+							1,
+							false,
+						);
 
-					(
-						receipt.hash(),
-						vec![DisputeRequest(UncheckedDisputeMessage {
-							candidate_receipt: receipt.clone(),
-							session_index: 1,
-							valid_vote: ValidDisputeVote {
-								validator_index: ValidatorIndex(1),
-								signature: valid.validator_signature().clone(),
-								kind: ValidDisputeStatementKind::Explicit,
-							},
-							invalid_vote: InvalidDisputeVote {
-								validator_index: ValidatorIndex(3),
-								signature: invalid.validator_signature().clone(),
-								kind: InvalidDisputeStatementKind::Explicit,
-							},
-						})],
-					)
-				})
+						(
+							receipt.hash(),
+							vec![DisputeRequest(UncheckedDisputeMessage {
+								candidate_receipt: receipt.clone(),
+								session_index: 1,
+								valid_vote: ValidDisputeVote {
+									validator_index: ValidatorIndex(validator_index),
+									signature: valid.validator_signature().clone(),
+									kind: ValidDisputeStatementKind::Explicit,
+								},
+								invalid_vote: InvalidDisputeVote {
+									validator_index: ValidatorIndex(misbehaving_index),
+									signature: invalid.validator_signature().clone(),
+									kind: InvalidDisputeStatementKind::Explicit,
+								},
+							})],
+						)
+					})
 			})
 			.collect();
 		let block_headers = block_infos.iter().map(generate_block_header).collect();

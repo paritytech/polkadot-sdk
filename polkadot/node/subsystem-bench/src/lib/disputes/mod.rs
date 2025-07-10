@@ -77,6 +77,10 @@ pub struct DisputesOptions {
 	#[clap(short, long, default_value_t = 10)]
 	/// The number of disputes to participate in.
 	pub n_disputes: u32,
+	#[clap(short, long, default_value = "3")]
+	/// Validators that vote against the supermajority. Must be within validator
+	/// range and not include the node under test (index 0).
+	pub misbehaving_validators: Vec<u32>,
 }
 
 pub fn make_keystore() -> Arc<LocalKeystore> {
