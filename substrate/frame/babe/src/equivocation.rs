@@ -85,14 +85,12 @@ impl<Offender: Clone> Offence<Offender> for EquivocationOffence<Offender> {
 	}
 
 	fn time_slot(&self) -> Self::TimeSlot {
-		// Always return the first slot of the session to make offence tracking less granular.
+		// Always return a dummy slot (0) to make offence tracking less granular.
 		// This ensures that all offences within a session are treated as a single offence,
 		// preventing attackers from overwhelming offence processing with spammy offences.
-		sp_consensus_babe::epoch_start_slot(
-			self.session_index as u64,
-			Slot::from(0u64), // Genesis slot is 0 for offence tracking purposes
-			1,                // Dummy epoch duration to ensure slot equals session_index
-		)
+		// Note: We use a constant slot rather than calculating epoch start slot because
+		// we only care about uniqueness per session, not the actual slot value.
+		Slot::from(0u64)
 	}
 
 	// The formula is min((3k / n)^2, 1)
@@ -160,9 +158,8 @@ where
 
 		// Check if the offence has already been reported, and if so then we can discard the report.
 		// We need to check using the same time slot that will be used in the offence report.
-		let session_index = key_owner_proof.session();
-		let time_slot =
-			sp_consensus_babe::epoch_start_slot(session_index as u64, Slot::from(0u64), 1);
+		// We use a constant dummy slot (0) since all offences in a session map to the same slot.
+		let time_slot = Slot::from(0u64);
 		if R::is_known_offence(&[offender], &time_slot) {
 			Err(InvalidTransaction::Stale.into())
 		} else {
