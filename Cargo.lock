@@ -24000,6 +24000,7 @@ dependencies = [
  "ahash 0.8.11",
  "array-bytes 6.2.2",
  "criterion",
+ "foldhash",
  "hash-db 0.16.0 (git+https://github.com/paritytech/trie.git?branch=alexggh/allow_usage_of_custom_hasher)",
  "hashbrown 0.15.3",
  "memory-db 0.34.0",

@@ -25,7 +25,7 @@ use core::{
 };
 
 use core::hash::BuildHasher;
-use hashbrown::DefaultHashBuilder;
+use foldhash::quality::RandomState as FoldHashBuilder;
 
 // Constants to represent the state of the global extra randomness.
 // UNINITIALIZED: The extra randomness has not been set yet.
@@ -43,7 +43,7 @@ struct GlobalExtraRandomnesss {
 	randomness: UnsafeCell<[u8; 16]>,
 }
 
-// Extra randomness to be used besides the one provided by the `DefaultHashBuilder`.
+// Extra randomness to be used besides the one provided by the `FoldHashBuilder`.
 static EXTRA_RANDOMNESS: GlobalExtraRandomnesss = GlobalExtraRandomnesss {
 	initialized: AtomicU8::new(UNINITIALIZED),
 	randomness: UnsafeCell::new([0u8; 16]),
@@ -79,10 +79,10 @@ fn extra_randomness() -> Option<&'static [u8; 16]> {
 	}
 }
 
-/// A wrapper around `DefaultHashBuilder` that adds extra randomness to the hashers it creates.
+/// A wrapper around `FoldHashBuilder` that adds extra randomness to the hashers it creates.
 #[derive(Copy, Clone, Debug)]
 pub struct RandomState {
-	default: DefaultHashBuilder,
+	default: FoldHashBuilder,
 	extra_randomness: Option<&'static [u8; 16]>,
 }
 
@@ -90,15 +90,15 @@ impl Default for RandomState {
 	#[inline(always)]
 	fn default() -> Self {
 		RandomState {
-			// DefaultHashBuild already uses a random seed, so we use that as the base.
-			default: DefaultHashBuilder::default(),
+			// FoldHashBuilder already uses a random seed, so we use that as the base.
+			default: FoldHashBuilder::default(),
 			extra_randomness: extra_randomness(),
 		}
 	}
 }
 
 impl BuildHasher for RandomState {
-	type Hasher = <DefaultHashBuilder as BuildHasher>::Hasher;
+	type Hasher = <FoldHashBuilder as BuildHasher>::Hasher;
 
 	#[inline(always)]
 	fn build_hasher(&self) -> Self::Hasher {
