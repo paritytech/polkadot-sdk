@@ -479,7 +479,7 @@ where
 		));
 		let raw_payload = SignedPayload::new(call, tx_ext)
 			.map_err(|e| {
-				log::warn!("Unable to create signed payload: {:?}", e);
+				tracing::warn!(target: "runtime::staking", error=?e, "Unable to create signed payload");
 			})
 			.ok()?;
 		let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
