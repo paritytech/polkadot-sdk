@@ -48,6 +48,8 @@ use std::{
 pub struct TestState {
 	// Full test config
 	pub config: TestConfiguration,
+	// Disputes Options
+	pub options: DisputesOptions,
 	// Authority keys for the network emulation.
 	pub test_authorities: TestAuthorities,
 	// Relay chain block infos
@@ -67,6 +69,7 @@ pub struct TestState {
 impl TestState {
 	pub fn new(config: &TestConfiguration, options: &DisputesOptions) -> Self {
 		let config = config.clone();
+		let options = options.clone();
 		let test_authorities = config.generate_authorities();
 		let block_infos: Vec<BlockInfo> =
 			(1..=config.num_blocks).map(generate_block_info).collect();
@@ -202,6 +205,7 @@ impl TestState {
 
 		Self {
 			config,
+			options,
 			test_authorities,
 			block_infos,
 			candidate_receipts,
@@ -209,6 +213,18 @@ impl TestState {
 			dispute_requests,
 			block_headers,
 			requests_tracker,
+		}
+	}
+
+	pub fn invalid_candidates(&self) -> Vec<Hash> {
+		if self.options.concluded_valid {
+			vec![]
+		} else {
+			// every disputed candidate should be invalid
+			self.candidate_receipts
+				.values()
+				.flat_map(|receipts| receipts.iter().map(|r| r.hash().0))
+				.collect::<Vec<_>>()
 		}
 	}
 }

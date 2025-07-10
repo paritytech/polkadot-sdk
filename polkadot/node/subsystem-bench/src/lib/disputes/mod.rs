@@ -131,7 +131,7 @@ fn build_overseer(
 	let mock_chain_api = MockChainApi::new(chain_api_state);
 	let mock_availability_recovery = MockAvailabilityRecovery::new();
 	let mock_approval_voting = MockApprovalVotingParallel::new();
-	let mock_candidate_validation = MockCandidateValidation::new();
+	let mock_candidate_validation = MockCandidateValidation::new(state.invalid_candidates());
 	let network_bridge_tx = MockNetworkBridgeTx::new(
 		network,
 		network_interface.subsystem_sender(),
