@@ -446,22 +446,6 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_is_contract() {
-		let Contract { account_id, .. } =
-			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
-
-		build_runtime!(runtime, memory: [account_id.encode(), ]);
-
-		let result;
-		#[block]
-		{
-			result = runtime.bench_is_contract(memory.as_mut_slice(), 0);
-		}
-
-		assert_eq!(result.unwrap(), 1);
-	}
-
-	#[benchmark(pov_mode = Measured)]
 	fn seal_to_account_id() {
 		// use a mapped address for the benchmark, to ensure that we bench the worst
 		// case (and not the fallback case).
@@ -1580,6 +1564,7 @@ mod benchmarks {
 		// This is why we set the input here instead of passig it as pointer to the `bench_call`.
 		setup.set_data(vec![42; i as usize]);
 		setup.set_origin(Origin::from_account_id(setup.contract().account_id.clone()));
+		setup.set_balance(value + Pallet::<T>::min_balance());
 
 		let (mut ext, _) = setup.ext();
 		let mut runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
@@ -1599,7 +1584,7 @@ mod benchmarks {
 			);
 		}
 
-		assert_ok!(result);
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
 	}
 
 	// d: 1 if the associated pre-compile has a contract info that needs to be loaded
