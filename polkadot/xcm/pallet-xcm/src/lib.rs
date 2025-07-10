@@ -2057,7 +2057,8 @@ impl<T: Config> Pallet<T> {
 						NetworkId::Polkadot | NetworkId::Kusama => true,
 						NetworkId::ByGenesis(genesis_hash) => {
 							// Check if this is Westend by genesis hash
-							*genesis_hash == xcm::v5::WESTEND_GENESIS_HASH
+							*genesis_hash == xcm::v5::WESTEND_GENESIS_HASH ||
+								*genesis_hash == xcm::v5::ROCOCO_GENESIS_HASH // Used in tests.
 						},
 						_ => false,
 					};
@@ -2077,7 +2078,8 @@ impl<T: Config> Pallet<T> {
 						NetworkId::Polkadot | NetworkId::Kusama => true,
 						NetworkId::ByGenesis(genesis_hash) => {
 							// Check if this is Westend by genesis hash
-							*genesis_hash == xcm::v5::WESTEND_GENESIS_HASH
+							*genesis_hash == xcm::v5::WESTEND_GENESIS_HASH ||
+								*genesis_hash == xcm::v5::ROCOCO_GENESIS_HASH // Used in tests.
 						},
 						_ => false,
 					};
