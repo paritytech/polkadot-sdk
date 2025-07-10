@@ -39,39 +39,37 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 						}
 					}
 				}))
-				// Adding honest validator.
+				// Adding malicious validator.
 				.with_node(|node| {
-					node.with_name("honest-validator")
-						.with_args(vec![("-lparachain=debug,runtime::staking=debug".into())])
+					node.with_name("malus-validator")
+						.with_image(
+							std::env::var("MALUS_IMAGE")
+								.unwrap_or("docker.io/paritypr/malus".to_string())
+								.as_str(),
+						)
+						.with_command("malus")
+						.with_subcommand("suggest-garbage-candidate")
+						.with_args(vec![
+							"-lMALUS=trace".into(),
+							// Without this the malus validator won't run on macOS.
+							"--insecure-validator-i-know-what-i-do".into(),
+						])
+						// Make it vulenrable so disabling really happens
+						.invulnerable(false)
 				});
 			// Also honest validators.
-			let r = (1..3).fold(r, |acc, i| {
+			let r = (0..3).fold(r, |acc, i| {
 				acc.with_node(|node| {
 					node.with_name(&format!("honest-validator-{i}"))
 						.with_args(vec![("-lparachain=debug,runtime::staking=debug".into())])
 				})
 			});
-			// Adding malicious validator.
-			let r = r.with_node(|node| {
-				node.with_name("malus-validator")
-					.with_image(
-						std::env::var("MALUS_IMAGE")
-							.unwrap_or("docker.io/paritypr/malus".to_string())
-							.as_str(),
-					)
-					.with_command("malus")
-					.with_subcommand("suggest-garbage-candidate")
-					.with_args(vec![
-						"-lMALUS=trace".into(),
-						// Without this the malus validator won't run on macOS.
-						"--insecure-validator-i-know-what-i-do".into(),
-					])
-			});
 			r
 		})
 		.with_parachain(|p| {
 			p.with_id(1000)
-				.with_default_command("polkadot-parachain")
+				.with_default_command("adder-collator")
+				.cumulus_based(false)
 				.with_default_image(images.cumulus.as_str())
 				.with_default_args(vec!["-lparachain=debug".into()])
 				.with_collator(|n| n.with_name("alice"))
@@ -87,7 +85,7 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 	let network = spawn_fn(config_builder).await?;
 
 	log::info!("Waiting for parablocks to be produced");
-	let honest_validator = network.get_node("honest-validator")?;
+	let honest_validator = network.get_node("honest-validator-0")?;
 	let relay_client: OnlineClient<PolkadotConfig> = honest_validator.wait_client().await?;
 
 	assert_finalized_para_throughput(
@@ -134,7 +132,7 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 	// honest-validator: log line contains "Disabled validators detected" within 180 seconds
 	let result = honest_validator
 		.wait_log_line_count_with_timeout(
-			"Disabled validators detected",
+			"*Disabled validators detected*",
 			true,
 			LogLineCountOptions::new(|n| n == 1, Duration::from_secs(180_u64), false),
 		)
