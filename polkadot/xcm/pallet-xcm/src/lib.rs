@@ -2086,23 +2086,8 @@ impl<T: Config> Pallet<T> {
 					false
 				}
 			},
-			// Case 3: We are outside the specified networks (e.g., external chain).
-			// Check if the asset ID ends with GlobalConsensus(Polkadot|Kusama|Westend).
-			_ => {
-				if let Some(last_junction) = asset_location.interior.last() {
-					match last_junction {
-						Junction::GlobalConsensus(NetworkId::Polkadot) |
-						Junction::GlobalConsensus(NetworkId::Kusama) => true,
-						Junction::GlobalConsensus(NetworkId::ByGenesis(genesis_hash)) => {
-							// Check if this is Westend by genesis hash.
-							*genesis_hash == xcm::v5::WESTEND_GENESIS_HASH
-						},
-						_ => false,
-					}
-				} else {
-					false
-				}
-			},
+			// Case 3: We are not on a relay or parachain. We return false.
+			_ => false
 		}
 	}
 
