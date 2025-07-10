@@ -126,8 +126,6 @@ pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, 
 	pub proposer: Proposer,
 	/// The generic collator service used to plug into this consensus engine.
 	pub collator_service: CS,
-	/// The amount of time to spend authoring each block.
-	pub authoring_duration: Duration,
 	/// Whether we should reinitialize the collator config (i.e. we are transitioning to aura).
 	pub reinitialize: bool,
 	/// Offset slots by a fixed duration. This can be used to create more preferrable authoring
@@ -190,7 +188,6 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		para_id,
 		proposer,
 		collator_service,
-		authoring_duration,
 		reinitialize,
 		slot_offset,
 		block_import_handle,
@@ -225,7 +222,6 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		para_id,
 		proposer,
 		collator_service,
-		authoring_duration,
 		collator_sender: tx,
 		relay_chain_slot_duration,
 		slot_offset,

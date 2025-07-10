@@ -507,7 +507,6 @@ where
 					para_id,
 					proposer,
 					collator_service,
-					authoring_duration: Duration::from_millis(2000),
 					reinitialize: false,
 					slot_offset: Duration::from_secs(1),
 					block_import_handle: slot_based_handle,

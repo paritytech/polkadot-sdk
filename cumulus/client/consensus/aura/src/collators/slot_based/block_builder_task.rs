@@ -95,8 +95,6 @@ pub struct BuilderTaskParams<
 	pub proposer: Proposer,
 	/// The generic collator service used to plug into this consensus engine.
 	pub collator_service: CS,
-	/// The amount of time to spend authoring each block.
-	pub authoring_duration: Duration,
 	/// Channel to send built blocks to the collation task.
 	pub collator_sender: sc_utils::mpsc::TracingUnboundedSender<CollatorMessage<Block>>,
 	/// Slot duration of the relay chain.
@@ -159,7 +157,6 @@ where
 			collator_service,
 			collator_sender,
 			code_hash_provider,
-			authoring_duration,
 			relay_chain_slot_duration,
 			para_backend,
 			slot_offset,
@@ -186,7 +183,7 @@ where
 
 		loop {
 			// We wait here until the next slot arrives.
-			if slot_timer.wait_until_next_slot().await.is_err() {
+			let Ok(slot_time) = slot_timer.wait_until_next_slot().await else {
 				tracing::error!(target: LOG_TARGET, "Unable to wait for next slot.");
 				return;
 			};
@@ -324,7 +321,7 @@ where
 					tracing::debug!(
 						target: crate::LOG_TARGET,
 						relay_parent = ?relay_parent,
-						"Not cores scheduled."
+						"No cores scheduled."
 					);
 					continue;
 				},
@@ -362,6 +359,8 @@ where
 			let mut slot_schedule = slot_schedule.into_iter();
 
 			loop {
+				let time_for_core = slot_time.time_left() / cores.cores_left();
+
 				match build_collation_for_core(
 					pov_parent_header,
 					pov_parent_hash,
@@ -373,12 +372,12 @@ where
 					&code_hash_provider,
 					&slot_claim,
 					&collator_sender,
-					authoring_duration,
 					&mut collator,
 					allowed_pov_size,
 					cores.core_info(),
 					cores.core_index(),
 					(&mut slot_schedule).take(blocks_per_core as usize),
+					time_for_core,
 				)
 				.await
 				{
@@ -399,6 +398,9 @@ where
 	}
 }
 
+/// Build a collation for one core.
+///
+/// One collation can be composed of multiple blocks.
 async fn build_collation_for_core<Block: BlockT, P, RelayClient, BI, CIDP, Proposer, CS>(
 	pov_parent_header: Block::Header,
 	pov_parent_hash: Block::Hash,
@@ -410,12 +412,12 @@ async fn build_collation_for_core<Block: BlockT, P, RelayClient, BI, CIDP, Propo
 	code_hash_provider: &impl consensus_common::ValidationCodeHashProvider<Block::Hash>,
 	slot_claim: &SlotClaim<P::Public>,
 	collator_sender: &sc_utils::mpsc::TracingUnboundedSender<CollatorMessage<Block>>,
-	authoring_duration: Duration,
 	collator: &mut Collator<Block, P, BI, CIDP, RelayClient, Proposer, CS>,
 	allowed_pov_size: usize,
 	core_info: CoreInfo,
 	core_index: CoreIndex,
-	block_schedule: impl Iterator<Item = Duration>,
+	block_schedule: impl ExactSizeIterator<Item = Duration>,
+	slot_time_for_core: Duration,
 ) -> Result<Option<Block::Header>, ()>
 where
 	RelayClient: RelayChainInterface + 'static,
@@ -428,6 +430,8 @@ where
 	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 {
+	let core_start = Instant::now();
+
 	let validation_data = PersistedValidationData {
 		parent_head: pov_parent_header.encode().into(),
 		relay_parent_number: *relay_parent_header.number(),
@@ -451,12 +455,32 @@ where
 	let mut blocks = Vec::new();
 	let mut proofs = Vec::new();
 	let mut ignored_nodes = IgnoredNodes::default();
+	let num_blocks = block_schedule.len();
 
 	let mut parent_hash = pov_parent_hash;
 	let mut parent_header = pov_parent_header.clone();
 
-	for block_time in block_schedule {
-		let expected_block_end = Instant::now() + block_time;
+	for (block_index, block_time) in block_schedule.enumerate() {
+		let block_start = Instant::now();
+		let slot_time_for_block =
+			slot_time_for_core.saturating_sub(core_start.elapsed()) / num_blocks as u32;
+
+		if slot_time_for_block <= Duration::from_millis(20) {
+			tracing::error!(
+				target: LOG_TARGET,
+				slot_time_for_block_ms = %slot_time_for_block.as_millis(),
+				blocks_left = %(num_blocks - block_index),
+				?core_index,
+				"Less than 20ms slot time left to produce blocks, stopping block production for core",
+			);
+
+			break
+		}
+
+		// The authoring duration is either the block time returned by the runtime or the 90% of the
+		// rest of the slot time for the block. We take here 90% because we still need to create the
+		// inherents and need to import the block afterwards.
+		let authoring_duration = block_time.min(slot_time_for_block);
 
 		let (parachain_inherent_data, other_inherent_data) = match collator
 			.create_inherent_data(
@@ -501,7 +525,9 @@ where
 		blocks.push(res.block);
 		proofs.push(res.proof);
 
-		if let Some(sleep) = expected_block_end.checked_duration_since(Instant::now()) {
+		// If there is still time left for the block in the slot, we sleep the rest of the time.
+		// This ensures that we have some steady block rate.
+		if let Some(sleep) = slot_time_for_block.checked_sub(block_start.elapsed()) {
 			tokio::time::sleep(sleep).await;
 		}
 	}
@@ -644,6 +670,11 @@ impl Cores {
 	/// Returns the total number of cores.
 	fn total_cores(&self) -> u32 {
 		self.core_indices.len() as u32
+	}
+
+	/// Returns the number of cores left.
+	fn cores_left(&self) -> u32 {
+		self.total_cores() - self.selector.0 as u32
 	}
 }
 

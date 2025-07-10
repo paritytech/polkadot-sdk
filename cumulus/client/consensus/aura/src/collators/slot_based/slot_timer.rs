@@ -27,7 +27,33 @@ pub(crate) struct SlotInfo {
 	pub slot: Slot,
 }
 
-/// Manages block-production timings based on chain parameters.
+/// Information about a slot timing, including the slot duration and exact start timestamp.
+#[derive(Debug, Clone)]
+pub(crate) struct SlotTime {
+	/// The slot duration used for this timing
+	slot_duration: Duration,
+	/// The exact timestamp when this slot started
+	slot_start_timestamp: Timestamp,
+}
+
+impl SlotTime {
+	/// Create a new SlotTime
+	pub fn new(slot_duration: Duration, slot_start_timestamp: Timestamp) -> Self {
+		Self { slot_duration, slot_start_timestamp }
+	}
+
+	/// Get the time remaining in this slot
+	pub fn time_left(&self) -> Duration {
+		let now = duration_now();
+		let slot_end_time_millis =
+			self.slot_start_timestamp.as_millis() + self.slot_duration.as_millis() as u64;
+		let slot_end_time = Duration::from_millis(slot_end_time_millis);
+
+		slot_end_time.saturating_sub(now)
+	}
+}
+
+/// Manages block-production slots based on the relay chain slot duration.
 #[derive(Debug)]
 pub(crate) struct SlotTimer {
 	/// Offset the current time by this duration.
@@ -70,7 +96,7 @@ impl SlotTimer {
 	}
 
 	/// Returns a future that resolves when the next block production should be attempted.
-	pub async fn wait_until_next_slot(&mut self) -> Result<(), ()> {
+	pub async fn wait_until_next_slot(&mut self) -> Result<SlotTime, ()> {
 		let (time_until_next_attempt, timestamp) =
 			time_until_next_slot(duration_now(), self.relay_slot_duration, self.time_offset);
 
@@ -78,11 +104,17 @@ impl SlotTimer {
 		let relay_slot_duration_for_slot = SlotDuration::from(self.relay_slot_duration);
 		let mut current_slot = Slot::from_timestamp(timestamp, relay_slot_duration_for_slot);
 
+		// Calculate the actual slot start timestamp (may be different if we're catching up)
+		let mut slot_start_timestamp = timestamp;
+
 		match self.last_reported_slot {
 			// If we already reported a slot, we don't want to skip a slot. But we also don't want
 			// to go through all the slots if a node was halted for some reason.
 			Some(ls) if ls + 1 < current_slot && current_slot <= ls + 3 => {
 				current_slot = ls + 1u64;
+				// Calculate the timestamp for the adjusted slot
+				slot_start_timestamp =
+					current_slot.timestamp(relay_slot_duration_for_slot).ok_or(())?;
 				// Don't sleep since we're catching up
 				tracing::debug!(
 					target: LOG_TARGET,
@@ -106,13 +138,15 @@ impl SlotTimer {
 		tracing::debug!(
 			target: LOG_TARGET,
 			relay_slot_duration = ?self.relay_slot_duration,
-			current_slot = ?current_slot,
+			?current_slot,
+			?slot_start_timestamp,
 			"New block production slot."
 		);
 
 		// Update internal slot tracking
 		self.last_reported_slot = Some(current_slot);
-		Ok(())
+
+		Ok(SlotTime::new(self.relay_slot_duration, slot_start_timestamp))
 	}
 }
 
