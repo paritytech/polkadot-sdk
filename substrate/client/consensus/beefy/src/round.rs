@@ -154,12 +154,12 @@ where
 		self.validator_set.validators()
 	}
 
-	/// Return voting weight associated with given authority
-	pub(crate) fn vote_weight(&self, authority: &AuthorityId) -> Option<VoteWeight> {
-		self.voting_weights
-			.binary_search_by(|(auth, _)| auth.cmp(authority))
-			.ok()
-			.map(|pos| self.voting_weights[pos].1)
+	/// Return voting weight associated with given authority or default 1 in case authority does not exist
+	pub(crate) fn vote_weight(&self, authority: &AuthorityId) -> VoteWeight {
+		match self.voting_weights.binary_search_by(|(auth, _)| auth.cmp(authority)) {
+			Ok(index) => self.voting_weights[index].1,
+			Err(_) => One::one(),
+		}
 	}
 
 	pub(crate) fn session_start(&self) -> NumberFor<B> {
@@ -215,7 +215,7 @@ where
 		}
 
 		// add valid vote
-		let vote_weight = self.vote_weight(&vote.id).unwrap_or(One::one());
+		let vote_weight = self.vote_weight(&vote.id);
 		let round = self.rounds.entry(vote.commitment.clone()).or_default();
 		if round.add_vote((vote.id, vote.signature), vote_weight)
 			&& round.is_done(threshold(self.validator_set.len()))
