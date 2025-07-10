@@ -1637,7 +1637,7 @@ fn unassign_curator_works() {
 		// Given: parent bounty status is `Funded`
 		let s = create_funded_parent_bounty();
 
-		// When: caller is the curator
+		// When: sender is the curator
 		assert_ok!(Bounties::unassign_curator(
 			RuntimeOrigin::signed(s.curator),
 			s.parent_bounty_id,
@@ -1665,7 +1665,7 @@ fn unassign_curator_works() {
 		// Given: parent bounty status is `Funded`
 		let s = create_funded_parent_bounty();
 
-		// When: caller is `RejectOrigin`
+		// When: sender is `RejectOrigin`
 		assert_ok!(Bounties::unassign_curator(RuntimeOrigin::root(), s.parent_bounty_id, None));
 
 		// Then
@@ -1699,7 +1699,7 @@ fn unassign_curator_works() {
 		// Given: child-bounty status is `Funded`
 		let s = create_funded_child_bounty();
 
-		// When: caller is the child curator
+		// When: sender is the child curator
 		assert_ok!(Bounties::unassign_curator(
 			RuntimeOrigin::signed(s.child_curator),
 			s.parent_bounty_id,
@@ -1731,7 +1731,7 @@ fn unassign_curator_works() {
 		// Given: child-bounty status is `Funded`
 		let s = create_funded_child_bounty();
 
-		// When: caller is `RejectOrigin`
+		// When: sender is `RejectOrigin`
 		assert_ok!(Bounties::unassign_curator(
 			RuntimeOrigin::root(),
 			s.parent_bounty_id,
@@ -2284,30 +2284,45 @@ fn close_bounty_works() {
 		// Given: parent bounty status is `UnassignedCurator`
 		let s = create_parent_bounty_with_unassigned_curator();
 
-		// When
+		// When: sender is `RejectOrigin`
 		assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), s.parent_bounty_id, None,));
 
 		// Then
 		let payment_id =
 			get_payment_id(s.parent_bounty_id, None, None).expect("no payment attempt");
 		assert_eq!(
-			pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id).unwrap(),
-			Bounty {
-				asset_kind: s.asset_kind,
-				value: s.value,
-				fee: s.fee,
-				curator_deposit: 0,
-				status: BountyStatus::RefundAttempted {
-					curator: None,
-					payment_status: PaymentState::Attempted { id: payment_id }
-				},
+			pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id).unwrap().status,
+			BountyStatus::RefundAttempted {
+				curator: None,
+				payment_status: PaymentState::Attempted { id: payment_id }
+			}
+		);
+
+		// Given: parent bounty status is `UnassignedCurator`
+		let s = create_parent_bounty_with_unassigned_curator();
+
+		// When: sender is parent curator
+		assert_ok!(Bounties::close_bounty(
+			RuntimeOrigin::signed(s.curator),
+			s.parent_bounty_id,
+			None,
+		));
+
+		// Then
+		let payment_id =
+			get_payment_id(s.parent_bounty_id, None, None).expect("no payment attempt");
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id).unwrap().status,
+			BountyStatus::RefundAttempted {
+				curator: None,
+				payment_status: PaymentState::Attempted { id: payment_id }
 			}
 		);
 
 		// Given: child-bounty status is `Funded`
 		let s = create_funded_child_bounty();
 
-		// When: caller is root
+		// When: sender is `RejectOrigin`
 		assert_ok!(Bounties::close_bounty(
 			RuntimeOrigin::root(),
 			s.parent_bounty_id,
@@ -2342,7 +2357,7 @@ fn close_bounty_works() {
 		// Given: child bounty status is `Funded`
 		let s = create_funded_child_bounty();
 
-		// When: caller is parent curator
+		// When: sender is parent curator
 		assert_ok!(Bounties::close_bounty(
 			RuntimeOrigin::signed(s.curator),
 			s.parent_bounty_id,
@@ -2372,7 +2387,7 @@ fn close_bounty_fails() {
 
 		// When/Then
 		assert_noop!(
-			Bounties::close_bounty(RuntimeOrigin::root(), s.parent_bounty_id, None,),
+			Bounties::close_bounty(RuntimeOrigin::root(), s.parent_bounty_id, None),
 			Error::<Test>::UnexpectedStatus
 		);
 
@@ -2381,13 +2396,19 @@ fn close_bounty_fails() {
 
 		// When/Then
 		assert_noop!(
-			Bounties::close_bounty(RuntimeOrigin::none(), s.parent_bounty_id, None,),
+			Bounties::close_bounty(RuntimeOrigin::none(), s.parent_bounty_id, None),
 			BadOrigin
 		);
 
 		// When/Then
 		assert_noop!(
-			Bounties::close_bounty(RuntimeOrigin::root(), 3, None,),
+			Bounties::close_bounty(RuntimeOrigin::signed(1), s.parent_bounty_id, None),
+			BadOrigin
+		);
+
+		// When/Then
+		assert_noop!(
+			Bounties::close_bounty(RuntimeOrigin::root(), 3, None),
 			Error::<Test>::InvalidIndex
 		);
 
@@ -2405,6 +2426,27 @@ fn close_bounty_fails() {
 		assert_noop!(
 			Bounties::close_bounty(RuntimeOrigin::root(), s.parent_bounty_id, None),
 			Error::<Test>::HasActiveChildBounty
+		);
+
+		// Given
+		let s = create_active_child_bounty();
+
+		// When/Then
+		assert_noop!(
+			Bounties::close_bounty(RuntimeOrigin::root(), s.parent_bounty_id, Some(2)),
+			Error::<Test>::InvalidIndex
+		);
+
+		// When/Then
+		assert_noop!(
+			Bounties::close_bounty(RuntimeOrigin::signed(1), s.parent_bounty_id, Some(s.child_bounty_id)),
+			BadOrigin
+		);
+
+		// When/Then
+		assert_noop!(
+			Bounties::close_bounty(RuntimeOrigin::signed(s.child_curator), s.parent_bounty_id, Some(s.child_bounty_id)),
+			BadOrigin
 		);
 	})
 }

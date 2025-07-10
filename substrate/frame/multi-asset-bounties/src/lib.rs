@@ -575,6 +575,7 @@ pub mod pallet {
 		/// ## Complexity
 		/// - O(1).
 		#[pallet::call_index(0)]
+		// TODO: change weight
 		#[pallet::weight(<T as Config<I>>::WeightInfo::propose_bounty(description.len() as u32))]
 		pub fn fund_bounty(
 			origin: OriginFor<T>,
@@ -660,6 +661,7 @@ pub mod pallet {
 		/// ## Complexity
 		/// - O(1).
 		#[pallet::call_index(1)]
+		// TODO: change weight
 		#[pallet::weight(<T as Config<I>>::WeightInfo::approve_bounty_with_curator())]
 		pub fn fund_child_bounty(
 			origin: OriginFor<T>,
@@ -795,6 +797,7 @@ pub mod pallet {
 		/// ## Complexity
 		/// - O(1).
 		#[pallet::call_index(2)]
+		// TODO: change weight
 		#[pallet::weight(<T as Config<I>>::WeightInfo::propose_curator())]
 		pub fn propose_curator(
 			origin: OriginFor<T>,
@@ -872,6 +875,7 @@ pub mod pallet {
 		/// ## Complexity
 		/// - O(1).
 		#[pallet::call_index(3)]
+		// TODO: change weight
 		#[pallet::weight(<T as Config<I>>::WeightInfo::accept_curator())]
 		pub fn accept_curator(
 			origin: OriginFor<T>,
@@ -938,6 +942,7 @@ pub mod pallet {
 		/// ## Complexity
 		/// - O(1).
 		#[pallet::call_index(4)]
+		// TODO: change weight
 		#[pallet::weight(<T as Config<I>>::WeightInfo::unassign_curator())]
 		pub fn unassign_curator(
 			origin: OriginFor<T>,
@@ -1024,7 +1029,7 @@ pub mod pallet {
 		/// initiating the payout payments to both the beneficiary and the curator.
 		///
 		/// ## Dispatch Origin
-		/// Must be signed by the curator of the child-/bounty.
+		/// This function can only be called by the `RejectOrigin` or the child-/bounty curator.
 		///
 		/// ## Details
 		/// - The child-/bounty must be in the `Active` state.
@@ -1047,6 +1052,7 @@ pub mod pallet {
 		/// ## Complexity
 		/// - O(1).
 		#[pallet::call_index(5)]
+		// TODO: change weight
 		#[pallet::weight(<T as Config<I>>::WeightInfo::award_bounty())]
 		pub fn award_bounty(
 			origin: OriginFor<T>,
@@ -1104,8 +1110,7 @@ pub mod pallet {
 		/// initialized.
 		///
 		/// ## Dispatch Origin
-		/// A parent bounty can only be cancelled by the `T::RejectOrigin`. A child-bounty can be
-		/// cancelled either by the parent bounty curator or `T::RejectOrigin`.
+		/// This function can only be called by the `RejectOrigin` or the parent bounty curator.
 		///
 		/// ## Details
 		/// - If the child-/bounty is in the `Funded` state, a refund payment is initiated.
@@ -1120,12 +1125,12 @@ pub mod pallet {
 		/// - `child_bounty_id`: Index of child-bounty.
 		///
 		/// ## Events
-		/// Emits [`Event::BountyCanceled`] and [`Event::Paid`] if the child-/bounty was already
-		/// funded and is being refunded.
+		/// Emits [`Event::BountyCanceled`] and [`Event::Paid`] if successful.
 		///
 		/// ## Complexity
 		/// - O(1).
-		#[pallet::call_index(7)]
+		#[pallet::call_index(6)]
+		// TODO: change weight
 		#[pallet::weight(<T as Config<I>>::WeightInfo::close_bounty_proposed()
 			.max(<T as Config<I>>::WeightInfo::close_bounty_active()))]
 		pub fn close_bounty(
@@ -1140,31 +1145,32 @@ pub mod pallet {
 			let (asset_kind, value, _, _, status, parent_curator, _) =
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 
-			match child_bounty_id {
-				None => {
-					ensure!(maybe_sender.is_none(), BadOrigin);
+			if child_bounty_id.is_none() {
+				ensure!(
+					ChildBountiesPerParent::<T, I>::get(parent_bounty_id) == 0,
+					Error::<T, I>::HasActiveChildBounty
+				);
+			} else {
+				if let Some(sender) = maybe_sender.as_ref() {
 					ensure!(
-						ChildBountiesPerParent::<T, I>::get(parent_bounty_id) == 0,
-						Error::<T, I>::HasActiveChildBounty
+						parent_curator.as_ref().map_or(false, |curator| sender == curator),
+						BadOrigin
 					);
-				},
-				Some(_) => {
-					match maybe_sender {
-						Some(sender) => {
-							// If the parent bounty does not have a curator, then it cannot be
-							// closed
-							let parent_curator =
-								parent_curator.ok_or(Error::<T, I>::UnexpectedStatus)?;
-							ensure!(sender == parent_curator, BadOrigin);
-						},
-						None => {}, // `RejectOrigin` is calling this function
-					}
-				},
+				}
 			}
 
 			let maybe_curator = match status {
-				BountyStatus::Funded { curator } | BountyStatus::Active { curator, .. } =>
-					Some(curator),
+				BountyStatus::Funded { curator } | BountyStatus::Active { curator, .. } => {
+					if child_bounty_id.is_none() {
+						if let Some(sender) = maybe_sender.as_ref() {
+							ensure!(
+								parent_curator.as_ref().map_or(false, |curator| sender == curator),
+								BadOrigin
+							);
+						}
+					}
+					Some(curator)
+				},
 				BountyStatus::CuratorUnassigned => None,
 				_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
 			};
@@ -1221,7 +1227,8 @@ pub mod pallet {
 		///
 		/// ## Complexity
 		/// - O(1).
-		#[pallet::call_index(9)]
+		#[pallet::call_index(7)]
+		// TODO: change weight
 		#[pallet::weight(<T as Config<I>>::WeightInfo::approve_bounty_with_curator())]
 		pub fn check_status(
 			origin: OriginFor<T>,
@@ -1377,7 +1384,7 @@ pub mod pallet {
 		///
 		/// ## Complexity
 		/// - O(1).
-		#[pallet::call_index(10)]
+		#[pallet::call_index(8)]
 		// TODO: change weight
 		#[pallet::weight(<T as Config<I>>::WeightInfo::approve_bounty_with_curator())]
 		pub fn retry_payment(
@@ -1767,7 +1774,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				});
 				Ok(PaymentState::Succeeded)
 			},
-			PaymentStatus::InProgress | PaymentStatus::Unknown => return Err(Error::<T, I>::FundingInconclusive.into()),
+			PaymentStatus::InProgress | PaymentStatus::Unknown =>
+				return Err(Error::<T, I>::FundingInconclusive.into()),
 			PaymentStatus::Failure => {
 				Self::deposit_event(Event::<T, I>::PaymentFailed {
 					index: parent_bounty_id,
