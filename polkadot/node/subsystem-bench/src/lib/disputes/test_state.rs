@@ -57,7 +57,7 @@ pub struct TestState {
 	// Generated candidate events
 	pub candidate_events: HashMap<Hash, Vec<CandidateEvent>>,
 	// Generated dispute requests
-	pub dispute_requests: HashMap<CandidateHash, Vec<DisputeRequest>>,
+	pub dispute_requests: HashMap<CandidateHash, Vec<(u32, DisputeRequest)>>,
 	// Relay chain block headers
 	pub block_headers: HashMap<Hash, Header>,
 	// Map from candidate hash to authorities that have received a dispute request
@@ -105,14 +105,6 @@ impl TestState {
 			"Misbehaving validators should be within validators range. Index {NODE_UNDER_TEST} is reserved for the node under test"
 		);
 		let mut rng = thread_rng();
-		let mut available_indices: Vec<u32> =
-			(1..config.n_validators as u32).filter(|i| !misbehaving.contains(i)).collect();
-		available_indices.shuffle(&mut rng);
-		let validator_indices = available_indices
-			.iter()
-			.take(options.n_disputes as usize)
-			.cloned()
-			.collect::<Vec<_>>();
 		let misbehaving_indices = (0..options.n_disputes)
 			.map(|_| {
 				*misbehaving
@@ -121,52 +113,68 @@ impl TestState {
 					.expect("At least one misbehaving validator")
 			})
 			.collect::<Vec<_>>();
+		let mut available_indices: Vec<u32> =
+			(1..config.n_validators as u32).filter(|i| !misbehaving.contains(i)).collect();
+		let validator_indices_per_candidate: Vec<Vec<u32>> = (0..options.n_disputes)
+			.map(|_| {
+				available_indices.shuffle(&mut rng);
+				available_indices
+					.iter()
+					.take(options.votes_per_candidate as usize)
+					.cloned()
+					.collect::<Vec<_>>()
+			})
+			.collect();
 
-		let dispute_requests: HashMap<CandidateHash, Vec<DisputeRequest>> = candidate_receipts
+		let dispute_requests: HashMap<_, _> = candidate_receipts
 			.iter()
 			.flat_map(|(_, receipts)| {
-				receipts
-					.iter()
-					.zip(validator_indices.clone())
-					.zip(misbehaving_indices.clone())
-					.map(|((receipt, validator_index), misbehaving_index)| {
-						let statements = vec![
-							(
-								issue_explicit_statement(
-									test_authorities.keyring.local_keystore(),
-									test_authorities.validator_public[validator_index as usize]
-										.clone(),
-									receipt.hash(),
-									1,
-									options.concluded_valid,
+				itertools::izip!(
+					receipts.iter(),
+					validator_indices_per_candidate.iter(),
+					misbehaving_indices.iter()
+				)
+				.map(|(receipt, validator_indices, &misbehaving_index)| {
+					let requests = validator_indices
+						.iter()
+						.map(|&validator_index| {
+							let statements = vec![
+								(
+									issue_explicit_statement(
+										test_authorities.keyring.local_keystore(),
+										test_authorities.validator_public[validator_index as usize]
+											.clone(),
+										receipt.hash(),
+										1,
+										options.concluded_valid,
+									),
+									ValidatorIndex(validator_index),
 								),
-								ValidatorIndex(validator_index),
-							),
-							(
-								issue_explicit_statement(
-									test_authorities.keyring.local_keystore(),
-									test_authorities.validator_public[misbehaving_index as usize]
-										.clone(),
-									receipt.hash(),
-									1,
-									!options.concluded_valid, // votes against the supermajority
+								(
+									issue_explicit_statement(
+										test_authorities.keyring.local_keystore(),
+										test_authorities.validator_public
+											[misbehaving_index as usize]
+											.clone(),
+										receipt.hash(),
+										1,
+										!options.concluded_valid, /* votes against the
+										                           * supermajority */
+									),
+									ValidatorIndex(misbehaving_index),
 								),
-								ValidatorIndex(misbehaving_index),
-							),
-						];
+							];
 
-						let valid = statements
-							.iter()
-							.find(|(s, _)| s.statement().indicates_validity())
-							.expect("One statement generates as valid");
-						let invalid = statements
-							.iter()
-							.find(|(s, _)| s.statement().indicates_invalidity())
-							.expect("One statement generates as invalid");
+							let valid = statements
+								.iter()
+								.find(|(s, _)| s.statement().indicates_validity())
+								.expect("One statement generates as valid");
+							let invalid = statements
+								.iter()
+								.find(|(s, _)| s.statement().indicates_invalidity())
+								.expect("One statement generates as invalid");
 
-						(
-							receipt.hash(),
-							vec![DisputeRequest(UncheckedDisputeMessage {
+							let request = DisputeRequest(UncheckedDisputeMessage {
 								candidate_receipt: receipt.clone(),
 								session_index: 1,
 								valid_vote: ValidDisputeVote {
@@ -179,9 +187,14 @@ impl TestState {
 									signature: invalid.0.validator_signature().clone(),
 									kind: InvalidDisputeStatementKind::Explicit,
 								},
-							})],
-						)
-					})
+							});
+
+							(validator_index, request)
+						})
+						.collect::<Vec<_>>();
+
+					(receipt.hash(), requests)
+				})
 			})
 			.collect();
 		let block_headers = block_infos.iter().map(generate_block_header).collect();

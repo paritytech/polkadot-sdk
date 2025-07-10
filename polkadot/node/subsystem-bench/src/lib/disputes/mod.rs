@@ -84,6 +84,9 @@ pub struct DisputesOptions {
 	#[clap(short, long, default_value_t = true)]
 	/// Whether to conclude the dispute as valid.
 	pub concluded_valid: bool,
+	#[clap(short, long, default_value_t = 1)]
+	/// The number of dispute votes per candidate.
+	pub votes_per_candidate: u32,
 }
 
 pub fn make_keystore() -> Arc<LocalKeystore> {
@@ -208,8 +211,8 @@ pub async fn benchmark_dispute_coordinator(
 				state.dispute_requests.get(&candidate_receipt.hash()).expect("pregenerated");
 			let (pending_response_receivers, validator_indices): (Vec<_>, Vec<_>) = payloads
 				.iter()
-				.map(|payload| {
-					let validator_index = payload.0.valid_vote.validator_index.0 as usize;
+				.map(|(validator_index, payload)| {
+					let validator_index = *validator_index as usize;
 					let peer_id = *env
 						.authorities()
 						.peer_ids
