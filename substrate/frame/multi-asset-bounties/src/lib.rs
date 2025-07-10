@@ -1767,8 +1767,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				});
 				Ok(PaymentState::Succeeded)
 			},
-			PaymentStatus::InProgress => return Err(Error::<T, I>::FundingInconclusive.into()),
-			PaymentStatus::Unknown | PaymentStatus::Failure => {
+			PaymentStatus::InProgress | PaymentStatus::Unknown => return Err(Error::<T, I>::FundingInconclusive.into()),
+			PaymentStatus::Failure => {
 				Self::deposit_event(Event::<T, I>::PaymentFailed {
 					index: parent_bounty_id,
 					child_index: child_bounty_id,
@@ -1832,10 +1832,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				});
 				Ok(PaymentState::Succeeded)
 			},
-			PaymentStatus::InProgress =>
+			PaymentStatus::InProgress | PaymentStatus::Unknown =>
 			// nothing new to report
 				Err(Error::<T, I>::RefundInconclusive.into()),
-			PaymentStatus::Unknown | PaymentStatus::Failure => {
+			PaymentStatus::Failure => {
 				// assume payment has failed, allow user to retry
 				Self::deposit_event(Event::<T, I>::PaymentFailed {
 					index: parent_bounty_id,
@@ -1955,12 +1955,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 							payments_progressed += 1;
 							*payment_status = PaymentState::Succeeded;
 						},
-						PaymentStatus::InProgress => {
+						PaymentStatus::InProgress | PaymentStatus::Unknown => {
 							// nothing new to report, return function without
 							// error so we could drive the next
 							// payment
 						},
-						PaymentStatus::Unknown | PaymentStatus::Failure => {
+						PaymentStatus::Failure => {
 							payments_progressed += 1;
 							Self::deposit_event(Event::<T, I>::PaymentFailed {
 								index: parent_bounty_id,
