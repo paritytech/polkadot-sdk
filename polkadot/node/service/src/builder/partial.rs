@@ -210,14 +210,7 @@ where
 			block_import: block_import.clone(),
 			justification_import: Some(Box::new(justification_import)),
 			client: client.clone(),
-			create_inherent_data_providers: Arc::new(move |_, _| async move {
-				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-				let slot = sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-					*timestamp,
-					slot_duration,
-				);
-				Ok((slot, timestamp))
-			}) as BabeCreateInherentDataProviders<Block>,
+			slot_duration,
 			spawner: &task_manager.spawn_essential_handle(),
 			registry: config.prometheus_registry(),
 			telemetry: telemetry.as_ref().map(|x| x.handle()),

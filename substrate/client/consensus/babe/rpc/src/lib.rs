@@ -244,12 +244,7 @@ mod tests {
 			block_import: block_import.clone(),
 			justification_import: None,
 			client: client.clone(),
-			create_inherent_data_providers: move |_, _| async move {
-				Ok((InherentDataProvider::from_timestamp_and_slot_duration(
-					0.into(),
-					slot_duration,
-				),))
-			},
+			slot_duration,
 			spawner: &task_executor,
 			registry: None,
 			telemetry: None,

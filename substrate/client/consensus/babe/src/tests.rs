@@ -41,7 +41,6 @@ use sp_runtime::{
 	generic::{Digest, DigestItem},
 	traits::Block as BlockT,
 };
-use sp_timestamp::Timestamp;
 use std::{cell::RefCell, task::Poll, time::Duration};
 use substrate_test_runtime_client::DefaultTestClientBuilderExt;
 
@@ -182,17 +181,7 @@ pub struct BabeTestNet {
 type TestHeader = <TestBlock as BlockT>::Header;
 
 pub struct TestVerifier {
-	inner: BabeVerifier<
-		TestBlock,
-		PeersFullClient,
-		Box<
-			dyn CreateInherentDataProviders<
-				TestBlock,
-				(),
-				InherentDataProviders = (InherentDataProvider,),
-			>,
-		>,
-	>,
+	inner: BabeVerifier<TestBlock, PeersFullClient>,
 	mutator: Mutator,
 }
 
@@ -273,13 +262,7 @@ impl TestNetFactory for BabeTestNet {
 		TestVerifier {
 			inner: BabeVerifier {
 				client: client.clone(),
-				create_inherent_data_providers: Box::new(move |_, _| async {
-					let slot = InherentDataProvider::from_timestamp_and_slot_duration(
-						Timestamp::current(),
-						SlotDuration::from_millis(SLOT_DURATION_MS),
-					);
-					Ok((slot,))
-				}),
+				slot_duration: SlotDuration::from_millis(SLOT_DURATION_MS),
 				config: data.link.config.clone(),
 				epoch_changes: data.link.epoch_changes.clone(),
 				telemetry: None,

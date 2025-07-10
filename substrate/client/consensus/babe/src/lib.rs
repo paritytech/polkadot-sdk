@@ -116,7 +116,7 @@ use sp_blockchain::{
 	Result as ClientResult,
 };
 use sp_consensus::{BlockOrigin, Environment, Error as ConsensusError, Proposer, SelectChain};
-use sp_consensus_babe::inherents::BabeInherentData;
+use sp_consensus_babe::{inherents::BabeInherentData, SlotDuration};
 use sp_consensus_slots::Slot;
 use sp_core::traits::SpawnEssentialNamed;
 use sp_inherents::{CreateInherentDataProviders, InherentData, InherentDataProvider};
@@ -139,6 +139,7 @@ pub use sp_consensus_babe::{
 };
 
 pub use aux_schema::load_block_weight as block_weight;
+use sp_timestamp::Timestamp;
 
 mod migration;
 mod verification;
@@ -969,16 +970,16 @@ impl<Block: BlockT> BabeLink<Block> {
 }
 
 /// A verifier for Babe blocks.
-pub struct BabeVerifier<Block: BlockT, Client, CIDP> {
+pub struct BabeVerifier<Block: BlockT, Client> {
 	client: Arc<Client>,
-	create_inherent_data_providers: CIDP,
+	slot_duration: SlotDuration,
 	config: BabeConfiguration,
 	epoch_changes: SharedEpochChanges<Block, Epoch>,
 	telemetry: Option<TelemetryHandle>,
 }
 
 #[async_trait::async_trait]
-impl<Block, Client, CIDP> Verifier<Block> for BabeVerifier<Block, Client, CIDP>
+impl<Block, Client> Verifier<Block> for BabeVerifier<Block, Client>
 where
 	Block: BlockT,
 	Client: HeaderMetadata<Block, Error = sp_blockchain::Error>
@@ -988,8 +989,6 @@ where
 		+ Sync
 		+ AuxStore,
 	Client::Api: BlockBuilderApi<Block> + BabeApi<Block>,
-	CIDP: CreateInherentDataProviders<Block, ()> + Send + Sync,
-	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
 	async fn verify(
 		&self,
@@ -1029,13 +1028,7 @@ where
 			block.header.digest().logs().len()
 		);
 
-		let create_inherent_data_providers = self
-			.create_inherent_data_providers
-			.create_inherent_data_providers(parent_hash, ())
-			.await
-			.map_err(|e| Error::<Block>::Client(ConsensusError::from(e).into()))?;
-
-		let slot_now = create_inherent_data_providers.slot();
+		let slot_now = Slot::from_timestamp(Timestamp::current(), self.slot_duration);
 
 		let parent_header_metadata = self
 			.client
@@ -1809,7 +1802,7 @@ where
 }
 
 /// Parameters passed to [`import_queue`].
-pub struct ImportQueueParams<'a, Block: BlockT, BI, Client, CIDP, Spawn> {
+pub struct ImportQueueParams<'a, Block: BlockT, BI, Client, Spawn> {
 	/// The BABE link that is created by [`block_import`].
 	pub link: BabeLink<Block>,
 	/// The block import that should be wrapped.
@@ -1818,11 +1811,8 @@ pub struct ImportQueueParams<'a, Block: BlockT, BI, Client, CIDP, Spawn> {
 	pub justification_import: Option<BoxJustificationImport<Block>>,
 	/// The client to interact with the internals of the node.
 	pub client: Arc<Client>,
-	/// Used to crate the inherent data providers.
-	///
-	/// These inherent data providers are then used to create the inherent data that is
-	/// passed to the `check_inherents` runtime call.
-	pub create_inherent_data_providers: CIDP,
+	/// Slot duration.
+	pub slot_duration: SlotDuration,
 	/// Spawner for spawning futures.
 	pub spawner: &'a Spawn,
 	/// Registry for prometheus metrics.
@@ -1840,17 +1830,17 @@ pub struct ImportQueueParams<'a, Block: BlockT, BI, Client, CIDP, Spawn> {
 ///
 /// The block import object provided must be the `BabeBlockImport` or a wrapper
 /// of it, otherwise crucial import logic will be omitted.
-pub fn import_queue<Block: BlockT, Client, BI, CIDP, Spawn>(
+pub fn import_queue<Block: BlockT, Client, BI, Spawn>(
 	ImportQueueParams {
 		link: babe_link,
 		block_import,
 		justification_import,
 		client,
-		create_inherent_data_providers,
+		slot_duration,
 		spawner,
 		registry,
 		telemetry,
-	}: ImportQueueParams<'_, Block, BI, Client, CIDP, Spawn>,
+	}: ImportQueueParams<'_, Block, BI, Client, Spawn>,
 ) -> ClientResult<(DefaultImportQueue<Block>, BabeWorkerHandle<Block>)>
 where
 	BI: BlockImport<Block, Error = ConsensusError> + Send + Sync + 'static,
@@ -1862,14 +1852,12 @@ where
 		+ Sync
 		+ 'static,
 	Client::Api: BlockBuilderApi<Block> + BabeApi<Block> + ApiExt<Block>,
-	CIDP: CreateInherentDataProviders<Block, ()> + Send + Sync + 'static,
-	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 	Spawn: SpawnEssentialNamed,
 {
 	const HANDLE_BUFFER_SIZE: usize = 1024;
 
 	let verifier = BabeVerifier {
-		create_inherent_data_providers,
+		slot_duration,
 		config: babe_link.config.clone(),
 		epoch_changes: babe_link.epoch_changes.clone(),
 		telemetry,
