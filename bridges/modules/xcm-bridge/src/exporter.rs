@@ -33,16 +33,19 @@ use frame_support::{ensure, traits::Get};
 use pallet_bridge_messages::{
 	Config as BridgeMessagesConfig, Error, Pallet as BridgeMessagesPallet,
 };
+use polkadot_runtime_common::xcm_sender::PriceForMessageDelivery;
 use xcm::prelude::*;
 use xcm_builder::{HaulBlob, HaulBlobError, HaulBlobExporter};
 use xcm_executor::traits::ExportXcm;
 
 /// An easy way to access `HaulBlobExporter`.
+///
+/// Note: Set no price for `HaulBlobExporter`, because `ExportXcm for Pallet` handles the fees.
 pub type PalletAsHaulBlobExporter<T, I> = HaulBlobExporter<
 	DummyHaulBlob,
 	<T as Config<I>>::BridgedNetwork,
 	<T as Config<I>>::DestinationVersion,
-	<T as Config<I>>::MessageExportPrice,
+	(),
 >;
 /// An easy way to access associated messages pallet.
 type MessagesPallet<T, I> = BridgeMessagesPallet<T, <T as Config<I>>::BridgeMessagesPalletInstance>;
@@ -133,16 +136,28 @@ where
 			SendError::NotApplicable
 		})?;
 
-		// check if we are able to route the message. We use existing `HaulBlobExporter` for that.
-		// It will make all required changes and will encode message properly, so that the
-		// `DispatchBlob` at the bridged bridge hub will be able to decode it
-		let ((blob, id), price) = PalletAsHaulBlobExporter::<T, I>::validate(
+		// Get the potential price for a message over the bridge.
+		let price_for_delivery = message.as_ref().map(|msg| {
+			T::MessageExportPrice::price_for_delivery(locations.bridge_id().clone(), msg)
+		});
+
+		// check if we are able to route the message. We use the existing ` HaulBlobExporter ` for that.
+		// It will make all required changes and will encode a message properly, so that the
+		// `DispatchBlob` at the bridged xcm-bridge will be able to decode it.
+		let ((blob, id), mut price) = PalletAsHaulBlobExporter::<T, I>::validate(
 			network,
 			channel,
 			universal_source,
 			destination,
 			message,
 		)?;
+
+		// Add `price_for_delivery` to the `price`.
+		if let Some(delivery_prices) = price_for_delivery {
+			for dp in delivery_prices.into_inner() {
+				price.push(dp);
+			}
+		}
 
 		// Here, we know that the message is relevant to this pallet instance, so let's check for
 		// congestion defense.
