@@ -557,7 +557,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		if let Some((from, to)) = maybe_movement {
 			Self::deposit_event(Event::<T, I>::Rebagged { who: account.clone(), from, to });
 		};
-		Self::deposit_event(Event::<T, I>::ScoreUpdated { who: account.clone(), new_score });
+		if node.score != new_score {
+			Self::deposit_event(Event::<T, I>::ScoreUpdated { who: account.clone(), new_score });
+		}
 		Ok(maybe_movement)
 	}
 
