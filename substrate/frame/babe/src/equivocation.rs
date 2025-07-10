@@ -189,7 +189,15 @@ where
 		let offender = P::check_proof((KEY_TYPE, offender), key_owner_proof)
 			.ok_or(Error::<T>::InvalidKeyOwnershipProof)?;
 
-		let offence = EquivocationOffence { slot, validator_set_count, offender, session_index };
+		// Note: we want to treat multiple offences by a unique validator in the same epoch as
+		// duplicate to avoid excessive number of offences. Hence, we use first slot of the epoch
+		// as the timeslot for reporting the offence.
+		let offence = EquivocationOffence {
+			slot: Pallet::<T>::epoch_start(epoch_index),
+			validator_set_count,
+			offender,
+			session_index,
+		};
 
 		R::report_offence(reporter.into_iter().collect(), offence)
 			.map_err(|_| Error::<T>::DuplicateOffenceReport)?;

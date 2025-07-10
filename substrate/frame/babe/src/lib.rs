@@ -728,6 +728,18 @@ impl<T: Config> Pallet<T> {
 		)
 	}
 
+	/// Finds the start slot for a given epoch.
+	///
+	/// Only guaranteed to give correct results after `initialize` of the first
+	/// block in the chain (as its result is based off of `GenesisSlot`).
+	pub fn epoch_start(epoch_index: u64) -> Slot {
+		sp_consensus_babe::epoch_start_slot(
+			epoch_index,
+			GenesisSlot::<T>::get(),
+			T::EpochDuration::get(),
+		)
+	}
+
 	/// Produces information about the current epoch.
 	pub fn current_epoch() -> Epoch {
 		Epoch {
