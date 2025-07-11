@@ -171,13 +171,19 @@ impl<'a> serde::Deserialize<'a> for BlockNumberOrTagOrHash {
 		D: serde::Deserializer<'a>,
 	{
 		#[derive(Deserialize)]
-		#[serde(untagged, rename_all = "camelCase")]
+		#[serde(untagged)]
 		pub enum BlockNumberOrTagOrHashWithAlias {
 			BlockTag(BlockTag),
 			BlockNumber(U64),
-			NestedBlockNumber { block_number: U256 },
+			NestedBlockNumber {
+				#[serde(rename = "blockNumber")]
+				block_number: U256,
+			},
 			BlockHash(H256),
-			NestedBlockHash { block_hash: H256 },
+			NestedBlockHash {
+				#[serde(rename = "blockHash")]
+				block_hash: H256,
+			},
 		}
 
 		let r = BlockNumberOrTagOrHashWithAlias::deserialize(de)?;
