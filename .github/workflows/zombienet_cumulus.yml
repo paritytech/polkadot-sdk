@@ -128,6 +128,7 @@ jobs:
     steps:
       - name: Check if test is flaky
         id: check_flaky
+        shell: bash
         run: |
           if [[ "${{ contains(needs.preflight.outputs.FLAKY_TESTS, matrix.test-name) }}" == "true" ]]; then
             echo "Test ${{ matrix.test-name }} is marked as flaky, skipping"
@@ -164,4 +165,5 @@ jobs:
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           test: ${{ matrix.test-path }}
+          job-name: ${{ matrix.test-name }}
           prefix: "cumulus"
