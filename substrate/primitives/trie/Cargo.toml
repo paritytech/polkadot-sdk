@@ -52,6 +52,7 @@ default = ["std"]
 std = [
 	"ahash",
 	"codec/std",
+	"foldhash/std",
 	"hash-db/std",
 	"memory-db/std",
 	"nohash-hasher",
@@ -67,5 +68,4 @@ std = [
 	"tracing",
 	"trie-db/std",
 	"trie-root/std",
-	"foldhash/std"
 ]
