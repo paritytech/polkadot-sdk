@@ -144,14 +144,25 @@ impl AssetsInHolding {
 					// `assets`, balance, knowing that the `append` operation which follows will
 					// clobber `self`'s value and only use `assets`'s.
 					(*f.1).saturating_accrue(*g.1);
+
+					f = match f_iter.next() {
+						Some(x) => x,
+						None => break,
+					};
+					g = match g_iter.next() {
+						Some(x) => x,
+						None => break,
+					};
+
+					continue;
 				}
-				if f.0 <= g.0 {
+				if f.0 < g.0 {
 					f = match f_iter.next() {
 						Some(x) => x,
 						None => break,
 					};
 				}
-				if f.0 >= g.0 {
+				if f.0 > g.0 {
 					g = match g_iter.next() {
 						Some(x) => x,
 						None => break,
@@ -529,6 +540,11 @@ mod tests {
 	fn CF(amount: u128) -> Asset {
 		(Here, amount).into()
 	}
+		#[allow(non_snake_case)]
+	/// Concrete fungible constructor
+	fn CFP(amount: u128) -> Asset {
+		(Parent, amount).into()
+	}
 	#[allow(non_snake_case)]
 	/// Concrete non-fungible constructor
 	fn CNF(instance_id: u8) -> Asset {
@@ -544,17 +560,31 @@ mod tests {
 
 	#[test]
 	fn subsume_assets_works() {
-		let t1 = test_assets();
+		let mut t1 = test_assets();
 		let mut t2 = AssetsInHolding::new();
 		t2.subsume(CF(300));
 		t2.subsume(CNF(50));
-		let mut r1 = t1.clone();
-		r1.subsume_assets(t2.clone());
-		let mut r2 = t1.clone();
-		for a in t2.assets_iter() {
-			r2.subsume(a)
-		}
-		assert_eq!(r1, r2);
+
+		t1.subsume_assets(t2.clone());
+
+		assert!(t1.contains_asset(&CF(600)));
+		assert!(t1.contains_asset(&CNF(50)));
+		assert!(t1.contains_asset(&CNF(40)));
+	}
+
+	#[test]
+	fn subsume_assets_different_set_of_assets_works() {
+		let mut t1 = AssetsInHolding::new();
+		t1.subsume(CFP(400));
+
+		let mut t2 = AssetsInHolding::new();
+		t2.subsume(CF(100));
+		t2.subsume(CFP(100));
+
+		t1.subsume_assets(t2.clone());
+
+		assert!(t1.contains_asset(&CFP(500)));
+		assert!(t1.contains_asset(&CF(100)));
 	}
 
 	#[test]
