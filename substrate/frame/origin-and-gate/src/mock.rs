@@ -51,10 +51,10 @@ pub const BOB: AccountId = 2;
 pub const CHARLIE: AccountId = 3;
 
 // Origin identifiers
+pub const ROOT_ORIGIN_ID: u8 = 0;
 pub const ALICE_ORIGIN_ID: u8 = 1;
 pub const BOB_ORIGIN_ID: u8 = 2;
 pub const CHARLIE_ORIGIN_ID: u8 = 3;
-pub const ROOT_ORIGIN_ID: u8 = 0;
 
 // Custom origin checks if sender is Alice
 pub struct AliceOrigin;

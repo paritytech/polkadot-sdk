@@ -26,8 +26,17 @@ To use the Origin "AND Gate" pallet in your runtime, include it in your `Cargo.t
 
 ```rust
 parameter_types! {
+    // Max approvals required for proposal to execute
     pub const MaxApprovals: u32 = 10;
-    pub const ProposalLifetime: BlockNumber = 100; // 100 blocks
+
+    // How long proposal remains valid before expiring (added to the block number when proposal is created)
+    pub const ProposalLifetime: BlockNumber = 100;
+
+    // How long to keep non-cancelled proposals in storage after they are executed or expired
+    pub const NonCancelledProposalRetentionPeriod: BlockNumber = 50;
+
+    // Maximum number of proposals to expire per block to prevent excessive computation
+    pub const MaxProposalsToExpirePerBlock: u32 = 10;
 }
 
 impl pallet_origin_and_gate::Config for Runtime {
@@ -37,9 +46,18 @@ impl pallet_origin_and_gate::Config for Runtime {
     type Hashing = BlakeTwo256;
     type OriginId = u32; // Or change to specific type for your use case
     type ProposalLifetime = ProposalLifetime;
+    type NonCancelledProposalRetentionPeriod = NonCancelledProposalRetentionPeriod;
+    type MaxProposalsToExpirePerBlock = MaxProposalsToExpirePerBlock;
     type WeightInfo = pallet_origin_and_gate::weights::SubstrateWeight<Runtime>;
 }
 ```
+
+#### Configuration Parameters
+
+- **MaxApprovals**: Defines how many approvals are required for a proposal to execute. By default it is set to 2, which creates an AND gate with two origins. However, it can be set to any number to create an AND gate with more than two origins (e.g. requiring approval from 3 or more different origins).
+- **ProposalLifetime**: Defines how long (in blocks) a proposal remains valid before it expires.
+- **NonCancelledProposalRetentionPeriod**: Defines how long (in blocks) to keep executed or expired proposals in storage before they can be cleaned up. Cancelled proposals can be cleaned up immediately.
+- **MaxProposalsToExpirePerBlock**: Limits the amount of proposals expirable in a single block.
 
 ### Using the `AndGate` EnsureOrigin
 
@@ -75,8 +93,12 @@ impl<T: Config> Pallet<T> {
 1. Member of Origin A submits proposal using `propose` call
 2. Proposal is stored with unique call hash and timepoint
 3. Member of Origin B approves proposal using `approve` call
-4. `Call` is executed automatically if both required origins have approved
-5. Clean-up possible if proposal expires before all required origins approve
+4. `Call` is executed automatically if all required origins have approved (based on MaxApprovals)
+5. Proposals are cleaned up based on their status:
+   - Cancelled proposals can be cleaned up immediately
+   - Executed proposals without expiry can be cleaned up after execution block + retention period
+   - Executed/expired proposals with expiry can be cleaned up after expiry block + retention period
+   - Pending proposals cannot be cleaned up
 
 ## Examples
 
