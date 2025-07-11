@@ -36,7 +36,7 @@ jobs:
     runs-on: ${{ matrix.runner-type == 'large' && needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER || needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
     timeout-minutes: 60
     needs: [preflight]
-    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) && ! contains(needs.preflight.outputs.FLAKY_TESTS, matrix.test-name) }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) }}
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
     env:
@@ -126,18 +126,29 @@ jobs:
             cumulus-image: "test-parachain"
 
     steps:
+      - name: Check if test is flaky
+        id: check_flaky
+        run: |
+          if [[ "${{ contains(needs.preflight.outputs.FLAKY_TESTS, matrix.test-name) }}" == "true" ]]; then
+            echo "Test ${{ matrix.test-name }} is marked as flaky, skipping"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout
+        if: steps.check_flaky.outputs.skip != 'true'
         uses: actions/checkout@v4
 
       - uses: actions/download-artifact@v4.1.8
-        if: ${{ matrix.needs-wasm-binary }}
+        if: ${{ matrix.needs-wasm-binary && steps.check_flaky.outputs.skip != 'true' }}
         with:
           name: build-test-parachain-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
 
       - name: provide_wasm_binary
-        if: ${{ matrix.needs-wasm-binary }}
+        if: ${{ matrix.needs-wasm-binary && steps.check_flaky.outputs.skip != 'true' }}
         run: |
           tar -xvf artifacts.tar
           ls -ltr artifacts/*
@@ -146,6 +157,7 @@ jobs:
           rm -rf artifacts
 
       - name: zombienet_test
+        if: steps.check_flaky.outputs.skip != 'true'
         uses: ./.github/actions/zombienet-sdk
         with:
           gh-token: ${{ secrets.GITHUB_TOKEN }}
