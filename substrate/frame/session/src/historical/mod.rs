@@ -40,7 +40,11 @@ use sp_staking::SessionIndex;
 use sp_std::prelude::*;
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV0},
+<<<<<<< HEAD
 	LayoutV0, MemoryDB, Recorder, Trie, TrieMut, EMPTY_PREFIX,
+=======
+	LayoutV0, MemoryDB, RandomState, Recorder, StorageProof, Trie, TrieMut, TrieRecorder,
+>>>>>>> 7058819a (add block hashes to the randomness used by hashmaps and friends in validation context (#9127))
 };
 
 use frame_support::{
@@ -231,7 +235,7 @@ impl<T: Config> ProvingTrie<T> {
 	where
 		I: IntoIterator<Item = (T::ValidatorId, T::FullIdentification)>,
 	{
-		let mut db = MemoryDB::default();
+		let mut db = MemoryDB::with_hasher(RandomState::default());
 		let mut root = Default::default();
 
 		{

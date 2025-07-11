@@ -8302,6 +8302,20 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
+=======
+name = "memory-db"
+version = "0.34.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e300c54e3239a86f9c61cc63ab0f03862eb40b1c6e065dc6fd6ceaeff6da93d"
+dependencies = [
+ "foldhash",
+ "hash-db",
+ "hashbrown 0.15.3",
+]
+
+[[package]]
+>>>>>>> 7058819a (add block hashes to the randomness used by hashmaps and friends in validation context (#9127))
 name = "merkleized-metadata"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -20426,9 +20440,15 @@ dependencies = [
  "ahash 0.8.8",
  "array-bytes",
  "criterion",
+ "foldhash",
  "hash-db",
+<<<<<<< HEAD
  "lazy_static",
  "memory-db",
+=======
+ "hashbrown 0.15.3",
+ "memory-db 0.34.0",
+>>>>>>> 7058819a (add block hashes to the randomness used by hashmaps and friends in validation context (#9127))
  "nohash-hasher",
  "parity-scale-codec",
  "parking_lot 0.12.1",
@@ -22177,14 +22197,24 @@ dependencies = [
 
 [[package]]
 name = "trie-bench"
+<<<<<<< HEAD
 version = "0.39.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3092f400e9f7e3ce8c1756016a8b6287163ab7a11dd47d82169260cb4cc2d680"
+=======
+version = "0.42.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "972be214c558b1a5550d34c8c7e55a284f6439cefc51226d6ffbfc152de5cc58"
+>>>>>>> 7058819a (add block hashes to the randomness used by hashmaps and friends in validation context (#9127))
 dependencies = [
  "criterion",
  "hash-db",
  "keccak-hasher",
+<<<<<<< HEAD
  "memory-db",
+=======
+ "memory-db 0.34.0",
+>>>>>>> 7058819a (add block hashes to the randomness used by hashmaps and friends in validation context (#9127))
  "parity-scale-codec",
  "trie-db",
  "trie-root",

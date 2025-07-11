@@ -22,22 +22,37 @@
 
 use codec::Encode;
 
+<<<<<<< HEAD
 use sp_std::{
 	cell::{RefCell, RefMut},
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
 	rc::Rc,
 };
 use sp_trie::{NodeCodec, ProofSizeProvider, StorageProof};
+=======
+use alloc::rc::Rc;
+
+use core::cell::{RefCell, RefMut};
+use hashbrown::{HashMap, HashSet};
+use sp_trie::{NodeCodec, ProofSizeProvider, RandomState, StorageProof};
+>>>>>>> 7058819a (add block hashes to the randomness used by hashmaps and friends in validation context (#9127))
 use trie_db::{Hasher, RecordedForKey, TrieAccess};
 
 /// A trie recorder that only keeps track of the proof size.
 ///
 /// The internal size counting logic should align
 /// with ['sp_trie::recorder::Recorder'].
+<<<<<<< HEAD
 pub(crate) struct SizeOnlyRecorder<'a, H: Hasher> {
 	seen_nodes: RefMut<'a, BTreeSet<H::Out>>,
 	encoded_size: RefMut<'a, usize>,
 	recorded_keys: RefMut<'a, BTreeMap<Rc<[u8]>, RecordedForKey>>,
+=======
+pub struct SizeOnlyRecorder<'a, H: Hasher> {
+	seen_nodes: RefMut<'a, HashSet<H::Out, RandomState>>,
+	encoded_size: RefMut<'a, usize>,
+	recorded_keys: RefMut<'a, HashMap<Rc<[u8]>, RecordedForKey, RandomState>>,
+>>>>>>> 7058819a (add block hashes to the randomness used by hashmaps and friends in validation context (#9127))
 }
 
 impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeOnlyRecorder<'a, H> {
@@ -90,10 +105,17 @@ impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeOnlyRecorder<
 }
 
 #[derive(Clone)]
+<<<<<<< HEAD
 pub(crate) struct SizeOnlyRecorderProvider<H: Hasher> {
 	seen_nodes: Rc<RefCell<BTreeSet<H::Out>>>,
 	encoded_size: Rc<RefCell<usize>>,
 	recorded_keys: Rc<RefCell<BTreeMap<Rc<[u8]>, RecordedForKey>>>,
+=======
+pub struct SizeOnlyRecorderProvider<H: Hasher> {
+	seen_nodes: Rc<RefCell<HashSet<H::Out, RandomState>>>,
+	encoded_size: Rc<RefCell<usize>>,
+	recorded_keys: Rc<RefCell<HashMap<Rc<[u8]>, RecordedForKey, RandomState>>>,
+>>>>>>> 7058819a (add block hashes to the randomness used by hashmaps and friends in validation context (#9127))
 }
 
 impl<H: Hasher> SizeOnlyRecorderProvider<H> {

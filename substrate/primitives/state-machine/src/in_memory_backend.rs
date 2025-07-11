@@ -24,8 +24,18 @@ use crate::{
 use codec::Codec;
 use hash_db::Hasher;
 use sp_core::storage::{ChildInfo, StateVersion, Storage};
+<<<<<<< HEAD
 use sp_trie::{empty_trie_root, LayoutV1, PrefixedMemoryDB};
 use std::collections::{BTreeMap, HashMap};
+=======
+use sp_trie::{empty_trie_root, LayoutV1, PrefixedMemoryDB, RandomState};
+
+#[cfg(feature = "std")]
+use std::collections::HashMap as MapType;
+
+#[cfg(not(feature = "std"))]
+use alloc::collections::BTreeMap as MapType;
+>>>>>>> 7058819a (add block hashes to the randomness used by hashmaps and friends in validation context (#9127))
 
 /// Create a new empty instance of in-memory backend.
 pub fn new_in_mem<H>() -> TrieBackend<PrefixedMemoryDB<H>, H>
@@ -34,7 +44,11 @@ where
 	H::Out: Codec + Ord,
 {
 	// V1 is same as V0 for an empty trie.
-	TrieBackendBuilder::new(Default::default(), empty_trie_root::<LayoutV1<H>>()).build()
+	TrieBackendBuilder::new(
+		PrefixedMemoryDB::with_hasher(RandomState::default()),
+		empty_trie_root::<LayoutV1<H>>(),
+	)
+	.build()
 }
 
 impl<H: Hasher> TrieBackend<PrefixedMemoryDB<H>, H>

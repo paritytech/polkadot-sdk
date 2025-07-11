@@ -16,20 +16,30 @@
 // limitations under the License.
 
 use sp_state_machine::TrieCacheProvider;
+<<<<<<< HEAD
 use sp_std::{
 	boxed::Box,
 	cell::{RefCell, RefMut},
 	collections::btree_map::{BTreeMap, Entry},
 };
 use sp_trie::NodeCodec;
+=======
+use sp_trie::{NodeCodec, RandomState};
+>>>>>>> 7058819a (add block hashes to the randomness used by hashmaps and friends in validation context (#9127))
 use trie_db::{node::NodeOwned, Hasher};
 
 /// Special purpose trie cache implementation that is able to cache an unlimited number
 /// of values. To be used in `validate_block` to serve values and nodes that
 /// have already been loaded and decoded from the storage proof.
+<<<<<<< HEAD
 pub(crate) struct TrieCache<'a, H: Hasher> {
 	node_cache: RefMut<'a, BTreeMap<H::Out, NodeOwned<H::Out>>>,
 	value_cache: Option<RefMut<'a, BTreeMap<Box<[u8]>, trie_db::CachedValue<H::Out>>>>,
+=======
+pub struct TrieCache<'a, H: Hasher> {
+	node_cache: RefMut<'a, HashMap<H::Out, NodeOwned<H::Out>, RandomState>>,
+	value_cache: Option<RefMut<'a, HashMap<Box<[u8]>, trie_db::CachedValue<H::Out>, RandomState>>>,
+>>>>>>> 7058819a (add block hashes to the randomness used by hashmaps and friends in validation context (#9127))
 }
 
 impl<'a, H: Hasher> trie_db::TrieCache<NodeCodec<H>> for TrieCache<'a, H> {
@@ -65,15 +75,26 @@ impl<'a, H: Hasher> trie_db::TrieCache<NodeCodec<H>> for TrieCache<'a, H> {
 }
 
 /// Provider of [`TrieCache`] instances.
+<<<<<<< HEAD
 pub(crate) struct CacheProvider<H: Hasher> {
 	node_cache: RefCell<BTreeMap<H::Out, NodeOwned<H::Out>>>,
+=======
+pub struct CacheProvider<H: Hasher> {
+	node_cache: RefCell<HashMap<H::Out, NodeOwned<H::Out>, RandomState>>,
+>>>>>>> 7058819a (add block hashes to the randomness used by hashmaps and friends in validation context (#9127))
 	/// Cache: `storage_root` => `storage_key` => `value`.
 	///
 	/// One `block` can for example use multiple tries (child tries) and we need to distinguish the
 	/// cached (`storage_key`, `value`) between them. For this we are using the `storage_root` to
 	/// distinguish them (even if the storage root is the same for two child tries, it just means
 	/// that both are exactly the same trie and there would happen no collision).
+<<<<<<< HEAD
 	value_cache: RefCell<BTreeMap<H::Out, BTreeMap<Box<[u8]>, trie_db::CachedValue<H::Out>>>>,
+=======
+	value_cache: RefCell<
+		HashMap<H::Out, HashMap<Box<[u8]>, trie_db::CachedValue<H::Out>, RandomState>, RandomState>,
+	>,
+>>>>>>> 7058819a (add block hashes to the randomness used by hashmaps and friends in validation context (#9127))
 }
 
 impl<H: Hasher> CacheProvider<H> {
