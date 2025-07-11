@@ -32,8 +32,19 @@ jobs:
     uses: ./.github/workflows/zombienet-reusable-preflight.yml
 
   zombienet-cumulus-tests:
+    name: ${{ matrix.test-name }}
+    runs-on: ${{ matrix.runner-type == 'large' && needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER || needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
+    timeout-minutes: 60
     needs: [preflight]
-    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) }}
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) && ! contains(needs.preflight.outputs.FLAKY_TESTS, matrix.test-name) }}
+    container:
+      image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
+    env:
+      POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/${{ matrix.cumulus-image }}:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
+      ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
+
     strategy:
       fail-fast: false
       matrix:
@@ -114,12 +125,31 @@ jobs:
             runner-type: "large"
             cumulus-image: "test-parachain"
 
-    uses: ./.github/workflows/reusable-zombienet-sdk-runner.yml
-    with:
-      test-name: ${{ matrix.test-name }}
-      test-path: ${{ matrix.test-path }}
-      runner-type: ${{ matrix.runner-type }}
-      cumulus-image: ${{ matrix.cumulus-image }}
-      needs-wasm-binary: ${{ matrix.needs-wasm-binary || false }}
-      preflight-outputs: ${{ toJson(needs.preflight.outputs) }}
-    secrets: inherit
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4.1.8
+        if: ${{ matrix.needs-wasm-binary }}
+        with:
+          name: build-test-parachain-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+
+      - name: provide_wasm_binary
+        if: ${{ matrix.needs-wasm-binary }}
+        run: |
+          tar -xvf artifacts.tar
+          ls -ltr artifacts/*
+          cp ./artifacts/zombienet/wasm_binary_spec_version_incremented.rs.compact.compressed.wasm /tmp/
+          ls -ltr /tmp
+          rm -rf artifacts
+
+      - name: zombienet_test
+        uses: ./.github/actions/zombienet-sdk
+        with:
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+          test: ${{ matrix.test-path }}
+          prefix: "cumulus"
