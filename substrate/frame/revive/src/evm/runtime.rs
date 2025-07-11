@@ -20,16 +20,16 @@ use crate::{
 		api::{GenericTransaction, TransactionSigned},
 		GasEncoder,
 	},
-	AccountIdOf, AddressMapper, BalanceOf, Config, ConversionPrecision, MomentOf, Pallet,
-	LOG_TARGET,
+	AccountIdOf, AddressMapper, BalanceOf, Config, ConversionPrecision, MomentOf,
+	OnChargeTransactionBalanceOf, Pallet, LOG_TARGET, RUNTIME_PALLETS_ADDR,
 };
 use alloc::vec::Vec;
-use codec::{Decode, DecodeWithMemTracking, Encode};
+use codec::{Decode, DecodeLimit, DecodeWithMemTracking, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo},
 	traits::{InherentBuilder, IsSubType, SignedTransactionBuilder},
+	MAX_EXTRINSIC_DEPTH,
 };
-use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_core::{Get, H256, U256};
 use sp_runtime::{
@@ -117,8 +117,6 @@ impl<Address: TypeInfo, Signature: TypeInfo, E: EthExtra> ExtrinsicCall
 		self.0.call()
 	}
 }
-
-type OnChargeTransactionBalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
 
 impl<LookupSource, Signature, E, Lookup> Checkable<Lookup>
 	for UncheckedExtrinsic<LookupSource, Signature, E>
@@ -333,12 +331,31 @@ pub trait EthExtra {
 			})?;
 
 		let call = if let Some(dest) = to {
-			crate::Call::call::<Self::Config> {
-				dest,
-				value,
-				gas_limit,
-				storage_deposit_limit,
-				data,
+			if dest == RUNTIME_PALLETS_ADDR {
+				let call = CallOf::<Self::Config>::decode_all_with_depth_limit(
+					MAX_EXTRINSIC_DEPTH,
+					&mut &data[..],
+				)
+				.map_err(|_| {
+					log::debug!(target: LOG_TARGET, "Failed to decode data as Call");
+					InvalidTransaction::Call
+				})?;
+
+				if value != 0u32.into() {
+					log::debug!(target: LOG_TARGET, "Runtime pallets address cannot be called with value");
+					return Err(InvalidTransaction::Call)
+				}
+
+				call
+			} else {
+				crate::Call::call::<Self::Config> {
+					dest,
+					value,
+					gas_limit,
+					storage_deposit_limit,
+					data,
+				}
+				.into()
 			}
 		} else {
 			let blob = match polkavm::ProgramBlob::blob_length(&data) {
@@ -359,10 +376,10 @@ pub trait EthExtra {
 				code: code.to_vec(),
 				data: data.to_vec(),
 			}
+			.into()
 		};
 
 		let mut info = call.get_dispatch_info();
-		let function: CallOf<Self::Config> = call.into();
 		let nonce = nonce.unwrap_or_default().try_into().map_err(|_| {
 			log::debug!(target: LOG_TARGET, "Failed to convert nonce");
 			InvalidTransaction::Call
@@ -373,7 +390,7 @@ pub trait EthExtra {
 			.map_err(|_| InvalidTransaction::Call)?;
 
 		// Fees calculated from the extrinsic, without the tip.
-		info.extension_weight = Self::get_eth_extension(nonce, 0u32.into()).weight(&function);
+		info.extension_weight = Self::get_eth_extension(nonce, 0u32.into()).weight(&call);
 		let actual_fee: BalanceOf<Self::Config> =
 			pallet_transaction_payment::Pallet::<Self::Config>::compute_fee(
 				encoded_len as u32,
@@ -403,7 +420,7 @@ pub trait EthExtra {
 		log::debug!(target: LOG_TARGET, "Created checked Ethereum transaction with nonce: {nonce:?} and tip: {tip:?}");
 		Ok(CheckedExtrinsic {
 			format: ExtrinsicFormat::Signed(signer.into(), Self::get_eth_extension(nonce, tip)),
-			function,
+			function: call,
 		})
 	}
 }
@@ -474,14 +491,21 @@ mod test {
 			}
 		}
 
+		fn data(mut self, data: Vec<u8>) -> Self {
+			self.tx.input = Bytes(data).into();
+			self
+		}
+
 		fn estimate_gas(&mut self) {
 			let dry_run = crate::Pallet::<Test>::dry_run_eth_transact(
 				self.tx.clone(),
 				Weight::MAX,
-				|call, mut info| {
-					let call = RuntimeCall::Contracts(call);
-					info.extension_weight = Extra::get_eth_extension(0, 0u32.into()).weight(&call);
-					let uxt: Ex = sp_runtime::generic::UncheckedExtrinsic::new_bare(call).into();
+				|eth_call, dispatch_call| {
+					let mut info = dispatch_call.get_dispatch_info();
+					info.extension_weight =
+						Extra::get_eth_extension(0, 0u32.into()).weight(&dispatch_call);
+					let uxt: Ex =
+						sp_runtime::generic::UncheckedExtrinsic::new_bare(eth_call).into();
 					pallet_transaction_payment::Pallet::<Test>::compute_fee(
 						uxt.encoded_size() as u32,
 						&info,
@@ -697,5 +721,17 @@ mod test {
 		let diff = tx.gas_price.unwrap() - U256::from(GAS_PRICE);
 		let expected_tip = crate::Pallet::<Test>::evm_gas_to_fee(tx.gas.unwrap(), diff).unwrap();
 		assert_eq!(extra.1.tip(), expected_tip);
+	}
+
+	#[test]
+	fn check_runtime_pallets_addr_works() {
+		let remark: CallOf<Test> =
+			frame_system::Call::remark { remark: b"Hello, world!".to_vec() }.into();
+
+		let builder =
+			UncheckedExtrinsicBuilder::call_with(RUNTIME_PALLETS_ADDR).data(remark.encode());
+		let (call, _, _) = builder.check().unwrap();
+
+		assert_eq!(call, remark);
 	}
 }

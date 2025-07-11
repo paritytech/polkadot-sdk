@@ -39,9 +39,7 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::{CollationSecondedSignal, PoV, Statement};
 use polkadot_node_subsystem::{
-	messages::{
-		CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage, ParentHeadData,
-	},
+	messages::{CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage},
 	overseer, FromOrchestra, OverseerSignal,
 };
 use polkadot_node_subsystem_util::{
@@ -381,7 +379,6 @@ async fn distribute_collation<Context>(
 	state: &mut State,
 	id: ParaId,
 	receipt: CandidateReceipt,
-	parent_head_data_hash: Hash,
 	pov: PoV,
 	parent_head_data: HeadData,
 	result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
@@ -507,12 +504,6 @@ async fn distribute_collation<Context>(
 	if let Some(result_sender) = result_sender {
 		state.collation_result_senders.insert(candidate_hash, result_sender);
 	}
-
-	let parent_head_data = if elastic_scaling {
-		ParentHeadData::WithData { hash: parent_head_data_hash, head_data: parent_head_data }
-	} else {
-		ParentHeadData::OnlyHash(parent_head_data_hash)
-	};
 
 	let para_head = receipt.descriptor.para_head();
 	per_relay_parent.collations.insert(
@@ -786,7 +777,7 @@ async fn process_msg<Context>(
 		},
 		DistributeCollation {
 			candidate_receipt,
-			parent_head_data_hash,
+			parent_head_data_hash: _,
 			pov,
 			parent_head_data,
 			result_sender,
@@ -811,7 +802,6 @@ async fn process_msg<Context>(
 						state,
 						id,
 						candidate_receipt,
-						parent_head_data_hash,
 						pov,
 						parent_head_data,
 						result_sender,
@@ -859,7 +849,7 @@ async fn send_collation(
 	request: VersionedCollationRequest,
 	receipt: CandidateReceipt,
 	pov: PoV,
-	parent_head_data: ParentHeadData,
+	parent_head_data: HeadData,
 ) {
 	let (tx, rx) = oneshot::channel();
 
@@ -867,16 +857,11 @@ async fn send_collation(
 	let peer_id = request.peer_id();
 	let candidate_hash = receipt.hash();
 
-	let result = match parent_head_data {
-		ParentHeadData::WithData { head_data, .. } =>
-			Ok(request_v2::CollationFetchingResponse::CollationWithParentHeadData {
-				receipt,
-				pov,
-				parent_head_data: head_data,
-			}),
-		ParentHeadData::OnlyHash(_) =>
-			Ok(request_v2::CollationFetchingResponse::Collation(receipt, pov)),
-	};
+	let result = Ok(request_v2::CollationFetchingResponse::CollationWithParentHeadData {
+		receipt,
+		pov,
+		parent_head_data,
+	});
 
 	let response =
 		OutgoingResponse { result, reputation_changes: Vec::new(), sent_feedback: Some(tx) };

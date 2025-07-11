@@ -296,6 +296,7 @@ pub mod pallet {
 		type Weigher: WeightBounds<<Self as Config>::RuntimeCall>;
 
 		/// This chain's Universal Location.
+		#[pallet::constant]
 		type UniversalLocation: Get<InteriorLocation>;
 
 		/// The runtime `Origin` type.
@@ -327,9 +328,11 @@ pub mod pallet {
 		type SovereignAccountOf: ConvertLocation<Self::AccountId>;
 
 		/// The maximum number of local XCM locks that a single account may have.
+		#[pallet::constant]
 		type MaxLockers: Get<u32>;
 
 		/// The maximum number of consumers a single remote lock may have.
+		#[pallet::constant]
 		type MaxRemoteLockConsumers: Get<u32>;
 
 		/// The ID type for local consumers of remote locks.
@@ -3421,7 +3424,7 @@ impl<T: Config> Pallet<T> {
 	/// NOTE: `notify` gets called as part of handling an incoming message, so it should be
 	/// lightweight. Its weight is estimated during this function and stored ready for
 	/// weighing `ReportOutcome` on the way back. If it turns out to be heavier once it returns
-	/// then reporting the outcome will fail. Futhermore if the estimate is too high, then it
+	/// then reporting the outcome will fail. Furthermore if the estimate is too high, then it
 	/// may be put in the overweight queue and need to be manually executed.
 	pub fn report_outcome_notify(
 		message: &mut Xcm<()>,

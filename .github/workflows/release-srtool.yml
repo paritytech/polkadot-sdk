@@ -13,6 +13,10 @@ on:
         type: string
       profile:
         type: string
+      chain:
+        type: string
+      runtime_dir:
+        type: string
     outputs:
       published_runtimes:
         value: ${{ jobs.find-runtimes.outputs.runtime }}
@@ -45,6 +49,8 @@ jobs:
           id: get_runtimes_list
           env:
             EXCLUDED_RUNTIMES: ${{ inputs.excluded_runtimes }}:"substrate-test"
+            CHAIN: ${{ inputs.chain }}
+            RUNTIME_DIR: ${{ inputs.runtime_dir }}
           run: |
             . ./.github/scripts/common/lib.sh
 
@@ -52,9 +58,21 @@ jobs:
             echo "Current folder: $(pwd)"; ls -al
             ls -al
 
-            MATRIX=$(find_runtimes | tee runtimes_list.json)
-            echo $MATRIX
-            echo "runtime=$MATRIX" >> $GITHUB_OUTPUT
+            if [ "$CHAIN" == "all" ]; then
+              MATRIX=$(find_runtimes | tee runtimes_list.json)
+              echo $MATRIX
+              echo "runtime=$MATRIX" >> $GITHUB_OUTPUT
+            else
+              if [ -n "$RUNTIME_DIR" ]; then
+                # Create a custom matrix with specific chain and runtime_dir
+                MATRIX='{"include":[{"chain":"'$CHAIN'","crate":"'$CHAIN'-runtime","runtime_dir":"'$RUNTIME_DIR'"}]}'
+              else
+                echo "RUNTIME_DIR is not set"
+                exit 1
+              fi
+              echo $MATRIX
+              echo "runtime=$MATRIX" >> $GITHUB_OUTPUT
+            fi
 
   srtool:
     runs-on: ubuntu-latest
