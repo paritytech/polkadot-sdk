@@ -1152,7 +1152,7 @@ pub mod pallet {
 				}
 				after_frozen = b.frozen;
 			});
-			// debug_assert!(res.is_ok());
+			debug_assert!(res.is_ok());
 			if let Ok((_, maybe_dust)) = res {
 				debug_assert!(maybe_dust.is_none(), "Not altering main balance; qed");
 			}
