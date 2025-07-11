@@ -197,6 +197,11 @@ pub trait RewardValidators {
 	fn reward_bitfields(validators: impl IntoIterator<Item = ValidatorIndex>);
 }
 
+impl RewardValidators for () {
+	fn reward_backing(_: impl IntoIterator<Item = ValidatorIndex>) {}
+	fn reward_bitfields(_: impl IntoIterator<Item = ValidatorIndex>) {}
+}
+
 /// Reads the footprint of queues for a specific origin type.
 pub trait QueueFootprinter {
 	type Origin;
