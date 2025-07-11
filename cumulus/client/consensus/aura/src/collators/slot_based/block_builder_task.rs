@@ -354,6 +354,13 @@ where
 
 			let blocks_per_core = (slot_schedule.len() as u32 / cores.total_cores()).max(1);
 
+			tracing::debug!(
+				target: crate::LOG_TARGET,
+				%blocks_per_core,
+				core_indices = ?cores.core_indices(),
+				"Core configuration",
+			);
+
 			let mut pov_parent_header = initial_parent.header;
 			let mut pov_parent_hash = initial_parent.hash;
 			let mut slot_schedule = slot_schedule.into_iter();
@@ -648,6 +655,11 @@ impl Cores {
 			claim_queue_offset: self.claim_queue_offset,
 			number_of_cores: (self.core_indices.len() as u16).into(),
 		}
+	}
+
+	/// Returns the core indices.
+	fn core_indices(&self) -> &[CoreIndex] {
+		&self.core_indices
 	}
 
 	/// Returns the current [`CoreIndex`].
