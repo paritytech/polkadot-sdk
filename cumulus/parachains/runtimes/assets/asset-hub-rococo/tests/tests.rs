@@ -33,7 +33,7 @@ use asset_test_utils::{
 	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,
 	ExtBuilder, GovernanceOrigin, SlotDurations,
 };
-use bp_polkadot_core::Signature;
+use bp_asset_hub_rococo::Signature;
 use codec::{Decode, Encode};
 use frame_support::{
 	assert_noop, assert_ok,
@@ -1802,8 +1802,8 @@ mod bridge_to_westend_tests {
 	#[test]
 	fn can_calculate_fee_for_standalone_message_confirmation_transaction() {
 		bridge_hub_test_utils::check_sane_fees_values(
-			"bp_bridge_hub_rococo::BridgeHubRococoBaseConfirmationFeeInRocs",
-			bp_bridge_hub_rococo::BridgeHubRococoBaseConfirmationFeeInRocs::get(),
+			"bp_asset_hub_rococo::AssetHubRococoBaseConfirmationFeeInRocs",
+			bp_asset_hub_rococo::AssetHubRococoBaseConfirmationFeeInRocs::get(),
 			|| {
 				test_cases::can_calculate_fee_for_standalone_message_confirmation_transaction(
 					collator_session_keys(),
