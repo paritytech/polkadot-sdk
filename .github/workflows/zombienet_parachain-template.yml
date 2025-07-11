@@ -28,7 +28,7 @@ jobs:
 
 
   zombienet-cumulus-tests:
-    name: ${{ matrix.test-name }}
+    name: ${{ matrix.job-name }}
     runs-on: ${{ matrix.runner-type == 'large' && needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER || needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
     timeout-minutes: 30
     needs: [preflight]
@@ -45,18 +45,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - test-name: "zombienet-parachain-template-0001-minimal_template_block_production"
-            test-path: "smoke::minimal_template_block_production_test"
+          - job-name: "zombienet-parachain-template-0001-minimal_template_block_production"
+            test-filter: "smoke::minimal_template_block_production_test"
             runner-type: "default"
             cumulus-image: "test-parachain"
 
-          - test-name: "zombienet-parachain-template-0002-parachain_template_block_production"
-            test-path: "smoke::parachain_template_block_production_test"
+          - job-name: "zombienet-parachain-template-0002-parachain_template_block_production"
+            test-filter: "smoke::parachain_template_block_production_test"
             runner-type: "default"
             cumulus-image: "test-parachain"
 
-          - test-name: "zombienet-parachain-template-0003-solochain_template_block_production"
-            test-path: "smoke::solochain_template_block_production_test"
+          - job-name: "zombienet-parachain-template-0003-solochain_template_block_production"
+            test-filter: "smoke::solochain_template_block_production_test"
             runner-type: "default"
             cumulus-image: "test-parachain"
 
@@ -65,8 +65,8 @@ jobs:
         id: check_flaky
         shell: bash
         run: |
-          if [[ "${{ contains(needs.preflight.outputs.FLAKY_TESTS, matrix.test-name) }}" == "true" ]]; then
-            echo "Test ${{ matrix.test-name }} is marked as flaky, skipping"
+          if [[ "${{ contains(needs.preflight.outputs.FLAKY_TESTS, matrix.job-name) }}" == "true" ]]; then
+            echo "Test ${{ matrix.job-name }} is marked as flaky, skipping"
             echo "skip=true" >> $GITHUB_OUTPUT
           else
             echo "skip=false" >> $GITHUB_OUTPUT
@@ -80,9 +80,9 @@ jobs:
         if: steps.check_flaky.outputs.skip != 'true'
         uses: ./.github/actions/zombienet-sdk
         with:
+          test-filter: ${{ matrix.test-filter }}
+          job-name: ${{ matrix.job-name }}
+          prefix: "parachain-templates"
           gh-token: ${{ secrets.GITHUB_TOKEN }}
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-          test: ${{ matrix.test-path }}
-          job-name: ${{ matrix.test-name }}
-          prefix: "parachain-templates"

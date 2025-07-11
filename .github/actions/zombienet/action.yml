@@ -1,7 +1,7 @@
 name: "Zombienet test v1"
 description: "Runs zombienet tests"
 inputs:
-  test:
+  test-definition:
     description: "test definition (zndsl file)"
     required: true
   job-name:
@@ -30,7 +30,7 @@ runs:
     - name: common_vars
       shell: bash
       env:
-        TEST_DEFINITION: ${{ inputs.test }}
+        TEST_DEFINITION: ${{ inputs.test-definition }}
         LOCAL_PATH: ${{ inputs.local-dir }}
         CONCURRENCY: ${{ inputs.concurrency }}
       run: |
@@ -63,7 +63,7 @@ runs:
     - name: zombie_test
       shell: bash
       env:
-        TEST_DEFINITION: ${{ inputs.test }}
+        TEST_DEFINITION: ${{ inputs.test-definition }}
         LOCAL_PATH: ${{ inputs.local-dir }}
         CONCURRENCY: ${{ inputs.concurrency }}
       run: |

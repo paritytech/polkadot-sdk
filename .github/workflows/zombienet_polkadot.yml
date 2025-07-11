@@ -32,7 +32,7 @@ jobs:
     uses: ./.github/workflows/zombienet-reusable-preflight.yml
 
   zombienet-polkadot-tests:
-    name: ${{ matrix.test-name }}
+    name: ${{ matrix.job-name }}
     runs-on: ${{ matrix.runner-type == 'large' && (matrix.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER || needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER) || (matrix.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER || needs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER) }}
     timeout-minutes: 60
     needs: [preflight]
@@ -54,64 +54,64 @@ jobs:
       matrix:
         include:
           # Functional tests using traditional zombienet
-          - test-name: "zombienet-polkadot-functional-0001-parachains-pvf"
-            test-file: "0001-parachains-pvf.zndsl"
+          - job-name: "zombienet-polkadot-functional-0001-parachains-pvf"
+            test-definition: "0001-parachains-pvf.zndsl"
             local-dir: "./polkadot/zombienet_tests/functional"
             runner-type: "large"
             concurrency: 1
             use-zombienet-sdk: false
 
-          - test-name: "zombienet-polkadot-functional-0002-parachains-disputes"
-            test-file: "0002-parachains-disputes.zndsl"
+          - job-name: "zombienet-polkadot-functional-0002-parachains-disputes"
+            test-definition: "0002-parachains-disputes.zndsl"
             local-dir: "./polkadot/zombienet_tests/functional"
             runner-type: "large"
             concurrency: 1
             use-zombienet-sdk: false
 
-          - test-name: "zombienet-polkadot-functional-0003-beefy-and-mmr"
-            test-file: "0003-beefy-and-mmr.zndsl"
+          - job-name: "zombienet-polkadot-functional-0003-beefy-and-mmr"
+            test-definition: "0003-beefy-and-mmr.zndsl"
             local-dir: "./polkadot/zombienet_tests/functional"
             runner-type: "default"
             use-zombienet-sdk: false
 
-          - test-name: "zombienet-polkadot-functional-0004-parachains-disputes-garbage-candidate"
-            test-file: "0004-parachains-garbage-candidate.zndsl"
+          - job-name: "zombienet-polkadot-functional-0004-parachains-disputes-garbage-candidate"
+            test-definition: "0004-parachains-garbage-candidate.zndsl"
             local-dir: "./polkadot/zombienet_tests/functional"
             runner-type: "large"
             use-zombienet-sdk: false
 
-          - test-name: "zombienet-polkadot-functional-0006-parachains-max-tranche0"
-            test-file: "0006-parachains-max-tranche0.zndsl"
+          - job-name: "zombienet-polkadot-functional-0006-parachains-max-tranche0"
+            test-definition: "0006-parachains-max-tranche0.zndsl"
             local-dir: "./polkadot/zombienet_tests/functional"
             runner-type: "large"
             use-zombienet-sdk: false
 
-          - test-name: "zombienet-polkadot-functional-0007-dispute-freshly-finalized"
-            test-file: "0007-dispute-freshly-finalized.zndsl"
+          - job-name: "zombienet-polkadot-functional-0007-dispute-freshly-finalized"
+            test-definition: "0007-dispute-freshly-finalized.zndsl"
             local-dir: "./polkadot/zombienet_tests/functional"
             runner-type: "large"
             use-zombienet-sdk: false
 
-          - test-name: "zombienet-polkadot-functional-0008-dispute-old-finalized"
-            test-file: "0008-dispute-old-finalized.zndsl"
+          - job-name: "zombienet-polkadot-functional-0008-dispute-old-finalized"
+            test-definition: "0008-dispute-old-finalized.zndsl"
             local-dir: "./polkadot/zombienet_tests/functional"
             runner-type: "large"
             use-zombienet-sdk: false
 
-          - test-name: "zombienet-polkadot-functional-0010-validator-disabling"
-            test-file: "0010-validator-disabling.zndsl"
+          - job-name: "zombienet-polkadot-functional-0010-validator-disabling"
+            test-definition: "0010-validator-disabling.zndsl"
             local-dir: "./polkadot/zombienet_tests/functional"
             runner-type: "large"
             use-zombienet-sdk: false
 
-          - test-name: "zombienet-polkadot-functional-0013-systematic-chunk-recovery"
-            test-file: "0013-systematic-chunk-recovery.zndsl"
+          - job-name: "zombienet-polkadot-functional-0013-systematic-chunk-recovery"
+            test-definition: "0013-systematic-chunk-recovery.zndsl"
             local-dir: "./polkadot/zombienet_tests/functional"
             runner-type: "large"
             use-zombienet-sdk: false
 
-          - test-name: "zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility"
-            test-file: "0014-chunk-fetching-network-compatibility.zndsl"
+          - job-name: "zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility"
+            test-definition: "0014-chunk-fetching-network-compatibility.zndsl"
             local-dir: "./polkadot/zombienet_tests/functional"
             runner-type: "large"
             use-zombienet-sdk: false
@@ -137,16 +137,16 @@ jobs:
             additional-env:
               OLD_SUFFIX: "-old"
 
-          - test-name: "zombienet-polkadot-functional-0015-coretime-shared-core"
-            test-file: "0015-coretime-shared-core.zndsl"
+          - job-name: "zombienet-polkadot-functional-0015-coretime-shared-core"
+            test-definition: "0015-coretime-shared-core.zndsl"
             local-dir: "./polkadot/zombienet_tests/functional"
             runner-type: "large"
             use-zombienet-sdk: false
             additional-setup: |
               cp --remove-destination ./polkadot/zombienet_tests/assign-core.js ./polkadot/zombienet_tests/functional
 
-          - test-name: "zombienet-polkadot-functional-0019-coretime-collation-fetching-fairness"
-            test-file: "0019-coretime-collation-fetching-fairness.zndsl"
+          - job-name: "zombienet-polkadot-functional-0019-coretime-collation-fetching-fairness"
+            test-definition: "0019-coretime-collation-fetching-fairness.zndsl"
             local-dir: "./polkadot/zombienet_tests/functional"
             runner-type: "large"
             use-zombienet-sdk: false
@@ -154,48 +154,48 @@ jobs:
               cp --remove-destination ./polkadot/zombienet_tests/assign-core.js ./polkadot/zombienet_tests/functional
 
           # Smoke tests using traditional zombienet
-          - test-name: "zombienet-polkadot-smoke-0001-parachains-smoke-test"
-            test-file: "0001-parachains-smoke-test.zndsl"
+          - job-name: "zombienet-polkadot-smoke-0001-parachains-smoke-test"
+            test-definition: "0001-parachains-smoke-test.zndsl"
             local-dir: "./polkadot/zombienet_tests/smoke"
             runner-type: "default"
             use-zombienet-sdk: false
 
-          - test-name: "zombienet-polkadot-smoke-0002-parachains-parachains-upgrade-smoke"
-            test-file: "0002-parachains-upgrade-smoke-test.zndsl"
+          - job-name: "zombienet-polkadot-smoke-0002-parachains-parachains-upgrade-smoke"
+            test-definition: "0002-parachains-upgrade-smoke-test.zndsl"
             local-dir: "./polkadot/zombienet_tests/smoke"
             runner-type: "default"
             use-zombienet-sdk: false
 
           # TODO: Disabled
-          - test-name: "zombienet-polkadot-smoke-0003-deregister-register-validator"
-            test-file: "0003-deregister-register-validator-smoke.zndsl"
+          - job-name: "zombienet-polkadot-smoke-0003-deregister-register-validator"
+            test-definition: "0003-deregister-register-validator-smoke.zndsl"
             local-dir: "./polkadot/zombienet_tests/smoke"
             runner-type: "default"
             use-zombienet-sdk: false
 
-          - test-name: "zombienet-polkadot-smoke-0004-coretime-smoke-test"
-            test-file: "0004-coretime-smoke-test.zndsl"
+          - job-name: "zombienet-polkadot-smoke-0004-coretime-smoke-test"
+            test-definition: "0004-coretime-smoke-test.zndsl"
             local-dir: "./polkadot/zombienet_tests/smoke"
             runner-type: "large"
             use-zombienet-sdk: false
 
-          - test-name: "zombienet-polkadot-smoke-0005-precompile-pvf-smoke"
-            test-file: "0005-precompile-pvf-smoke.zndsl"
+          - job-name: "zombienet-polkadot-smoke-0005-precompile-pvf-smoke"
+            test-definition: "0005-precompile-pvf-smoke.zndsl"
             local-dir: "./polkadot/zombienet_tests/smoke"
             runner-type: "large"
             use-zombienet-sdk: false
 
           # Misc tests using traditional zombienet
           # TODO: Disabled, occasionally (1 on ~50-70 runs) fails
-          - test-name: "zombienet-polkadot-misc-0001-parachains-paritydb"
-            test-file: "0001-paritydb.zndsl"
+          - job-name: "zombienet-polkadot-misc-0001-parachains-paritydb"
+            test-definition: "0001-paritydb.zndsl"
             local-dir: "./polkadot/zombienet_tests/misc"
             runner-type: "large"
             use-zombienet-sdk: false
 
           # TODO: needs to resolve how to pass the GH_TOKEN to pods
-          # - test-name: "zombienet-polkadot-misc-0002-upgrade-node"
-          #   test-file: "0002-upgrade-node.zndsl"
+          # - job-name: "zombienet-polkadot-misc-0002-upgrade-node"
+          #   test-definition: "0002-upgrade-node.zndsl"
           #   local-dir: "./polkadot/zombienet_tests/misc"
           #   runner-type: "large"
           #   additional-env:
@@ -204,82 +204,82 @@ jobs:
           #   use-zombienet-sdk: false
 
           # Malus tests using traditional zombienet
-          - test-name: "zombienet-polkadot-malus-0001-dispute-valid"
-            test-file: "0001-dispute-valid-block.zndsl"
+          - job-name: "zombienet-polkadot-malus-0001-dispute-valid"
+            test-definition: "0001-dispute-valid-block.zndsl"
             local-dir: "./polkadot/node/malus/integrationtests"
             runner-type: "large"
             use-zombienet-sdk: false
 
           # SDK tests using zombienet-sdk
           # TODO: Disabled
-          - test-name: "zombienet-polkadot-coretime-revenue"
-            test-path: "smoke::coretime_revenue::coretime_revenue_test"
+          - job-name: "zombienet-polkadot-coretime-revenue"
+            test-filter: "smoke::coretime_revenue::coretime_revenue_test"
             runner-type: "default"
             use-zombienet-sdk: true
             cumulus-image: "colander"
 
-          - test-name: "zombienet-polkadot-elastic-scaling-slot-based-3cores"
-            test-path: "elastic_scaling::slot_based_3cores::slot_based_3cores_test"
+          - job-name: "zombienet-polkadot-elastic-scaling-slot-based-3cores"
+            test-filter: "elastic_scaling::slot_based_3cores::slot_based_3cores_test"
             runner-type: "large"
             use-zombienet-sdk: true
             cumulus-image: "test-parachain"
 
           # TODO: Disabled, fails very often with zombienet native provider
-          - test-name: "zombienet-polkadot-elastic-scaling-slot-based-12cores"
-            test-path: "elastic_scaling::slot_based_12cores::slot_based_12cores_test"
+          - job-name: "zombienet-polkadot-elastic-scaling-slot-based-12cores"
+            test-filter: "elastic_scaling::slot_based_12cores::slot_based_12cores_test"
             runner-type: "large"
             use-zombienet-sdk: true
             cumulus-image: "test-parachain"
 
-          - test-name: "zombienet-polkadot-elastic-scaling-doesnt-break-parachains"
-            test-path: "elastic_scaling::doesnt_break_parachains::doesnt_break_parachains_test"
+          - job-name: "zombienet-polkadot-elastic-scaling-doesnt-break-parachains"
+            test-filter: "elastic_scaling::doesnt_break_parachains::doesnt_break_parachains_test"
             runner-type: "large"
             use-zombienet-sdk: true
 
-          - test-name: "zombienet-polkadot-elastic-scaling-basic-3cores"
-            test-path: "elastic_scaling::basic_3cores::basic_3cores_test"
+          - job-name: "zombienet-polkadot-elastic-scaling-basic-3cores"
+            test-filter: "elastic_scaling::basic_3cores::basic_3cores_test"
             runner-type: "large"
             use-zombienet-sdk: true
             cumulus-image: "colander"
 
-          - test-name: "zombienet-polkadot-functional-sync-backing"
-            test-path: "functional::sync_backing::sync_backing_test"
+          - job-name: "zombienet-polkadot-functional-sync-backing"
+            test-filter: "functional::sync_backing::sync_backing_test"
             runner-type: "large"
             use-zombienet-sdk: true
             cumulus-image: "test-parachain"
 
-          - test-name: "zombienet-polkadot-functional-async-backing-6-seconds-rate"
-            test-path: "functional::async_backing_6_seconds_rate::async_backing_6_seconds_rate_test"
+          - job-name: "zombienet-polkadot-functional-async-backing-6-seconds-rate"
+            test-filter: "functional::async_backing_6_seconds_rate::async_backing_6_seconds_rate_test"
             runner-type: "large"
             use-zombienet-sdk: true
 
           # TODO: Disabled, occasionally (1 on ~50-100 runs) fails
-          - test-name: "zombienet-polkadot-functional-duplicate-collations"
-            test-path: "functional::duplicate_collations::duplicate_collations_test"
+          - job-name: "zombienet-polkadot-functional-duplicate-collations"
+            test-filter: "functional::duplicate_collations::duplicate_collations_test"
             runner-type: "large"
             use-zombienet-sdk: true
 
           # TODO: Disabled, occasionally (2 on ~50-70 runs) fails
-          - test-name: "zombienet-polkadot-disputes-slashing"
-            test-path: "disabling::slashing"
+          - job-name: "zombienet-polkadot-disputes-slashing"
+            test-filter: "disabling::slashing"
             runner-type: "default"
             use-zombienet-sdk: true
 
           # TODO: Disabled, occasionally (1 on ~50-100 runs) fails
-          - test-name: "zombienet-polkadot-functional-spam-statement-distribution-requests"
-            test-path: "functional::spam_statement_distribution_requests::spam_statement_distribution_requests_test"
+          - job-name: "zombienet-polkadot-functional-spam-statement-distribution-requests"
+            test-filter: "functional::spam_statement_distribution_requests::spam_statement_distribution_requests_test"
             runner-type: "large"
             use-zombienet-sdk: true
             cumulus-image: "colander"
 
-          - test-name: "zombienet-polkadot-approval-voting-coalescing"
-            test-path: "functional::approval_voting_coalescing::approval_voting_coalescing_test"
+          - job-name: "zombienet-polkadot-approval-voting-coalescing"
+            test-filter: "functional::approval_voting_coalescing::approval_voting_coalescing_test"
             runner-type: "large"
             use-zombienet-sdk: true
             cumulus-image: "colander"
 
-          - test-name: "zombienet-polkadot-approved-peer-mixed-validators"
-            test-path: "functional::approved_peer_mixed_validators::approved_peer_mixed_validators_test"
+          - job-name: "zombienet-polkadot-approved-peer-mixed-validators"
+            test-filter: "functional::approved_peer_mixed_validators::approved_peer_mixed_validators_test"
             runner-type: "large"
             use-zombienet-sdk: true
             cumulus-image: "colander"
@@ -305,8 +305,8 @@ jobs:
               OLD_POLKADOT_IMAGE: "docker.io/paritypr/polkadot-debug:master-187cddde"
               OLD_POLKADOT_COMMAND: "polkadot-old"
 
-          - test-name: "zombienet-polkadot-shared-core-idle-parachain"
-            test-path: "functional::shared_core_idle_parachain::shared_core_idle_parachain_test"
+          - job-name: "zombienet-polkadot-shared-core-idle-parachain"
+            test-filter: "functional::shared_core_idle_parachain::shared_core_idle_parachain_test"
             runner-type: "large"
             use-zombienet-sdk: true
 
@@ -315,8 +315,8 @@ jobs:
         id: check_flaky
         shell: bash
         run: |
-          if [[ "${{ contains(needs.preflight.outputs.FLAKY_TESTS, matrix.test-name) }}" == "true" ]]; then
-            echo "Test ${{ matrix.test-name }} is marked as flaky, skipping"
+          if [[ "${{ contains(needs.preflight.outputs.FLAKY_TESTS, matrix.job-name) }}" == "true" ]]; then
+            echo "Test ${{ matrix.job-name }} is marked as flaky, skipping"
             echo "skip=true" >> $GITHUB_OUTPUT
           else
             echo "skip=false" >> $GITHUB_OUTPUT
@@ -341,8 +341,8 @@ jobs:
         if: ${{ !matrix.use-zombienet-sdk && steps.check_flaky.outputs.skip != 'true' }}
         uses: ./.github/actions/zombienet
         with:
-          test: ${{ matrix.test-file }}
-          job-name: ${{ matrix.test-name }}
+          test-definition: ${{ matrix.test-definition }}
+          job-name: ${{ matrix.job-name }}
           local-dir: ${{ matrix.local-dir }}
           concurrency: ${{ matrix.concurrency || 1 }}
           gh-token: ${{ secrets.GITHUB_TOKEN }}
@@ -353,10 +353,9 @@ jobs:
         if: ${{ matrix.use-zombienet-sdk && steps.check_flaky.outputs.skip != 'true' }}
         uses: ./.github/actions/zombienet-sdk
         with:
+          test-filter: ${{ matrix.test-filter }}
+          job-name: ${{ matrix.job-name }}
+          prefix: "polkadot"
           gh-token: ${{ secrets.GITHUB_TOKEN }}
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-          test: ${{ matrix.test-path }}
-          job-name: ${{ matrix.test-name }}
-          prefix: "polkadot"
-
