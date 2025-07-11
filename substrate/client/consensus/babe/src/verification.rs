@@ -90,6 +90,10 @@ pub(super) fn check_header<B: BlockT + Sized>(
 		return Ok(CheckedHeader::Deferred(header, pre_digest.slot()))
 	}
 
+	if epoch.authorities.len() <= pre_digest.authority_index() as usize {
+		return Err(babe_err(Error::SlotAuthorNotFound))
+	}
+
 	match &pre_digest {
 		PreDigest::Primary(primary) => {
 			debug!(
