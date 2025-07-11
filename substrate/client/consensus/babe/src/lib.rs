@@ -100,7 +100,8 @@ use sc_consensus::{
 	import_queue::{BasicQueue, BoxJustificationImport, DefaultImportQueue, Verifier},
 };
 use sc_consensus_epochs::{
-	descendent_query, Epoch as EpochT, EpochChangesFor, SharedEpochChanges, ViableEpochDescriptor,
+	descendent_query, Epoch as EpochT, EpochChangesFor, SharedEpochChanges, ViableEpoch,
+	ViableEpochDescriptor,
 };
 use sc_consensus_slots::{
 	check_equivocation, BackoffAuthoringBlocksStrategy, CheckedHeader, InherentDataProviderExt,
@@ -1039,26 +1040,16 @@ where
 
 		let slot_now = Slot::from_timestamp(Timestamp::current(), self.slot_duration);
 
-		let parent_header_metadata = self
-			.client
-			.header_metadata(parent_hash)
-			.map_err(Error::<Block>::FetchParentHeader)?;
-
 		let pre_digest = find_pre_digest::<Block>(&block.header)?;
 		let (check_header, epoch_descriptor) = {
-			let epoch_changes = self.epoch_changes.shared_data();
-			let epoch_descriptor = epoch_changes
-				.epoch_descriptor_for_child_of(
-					descendent_query(&*self.client),
-					&parent_hash,
-					parent_header_metadata.number,
-					pre_digest.slot(),
-				)
-				.map_err(|e| Error::<Block>::ForkTree(Box::new(e)))?
-				.ok_or(Error::<Block>::FetchEpoch(parent_hash))?;
-			let viable_epoch = epoch_changes
-				.viable_epoch(&epoch_descriptor, |slot| Epoch::genesis(&self.config, slot))
-				.ok_or(Error::<Block>::FetchEpoch(parent_hash))?;
+			let (epoch_descriptor, viable_epoch) = query_epoch_changes(
+				&self.epoch_changes,
+				self.client.as_ref(),
+				&self.config,
+				number,
+				pre_digest.slot(),
+				parent_hash,
+			)?;
 
 			// We add one to the current slot to allow for some small drift.
 			// FIXME #1019 in the future, alter this queue to allow deferring of headers
@@ -1419,30 +1410,15 @@ where
 
 		// Check for equivocation and report it to the runtime if needed.
 		let author = {
-			let epoch_changes = self.epoch_changes.shared_data();
-			let number: U256 = number.into();
-			let epoch_descriptor = epoch_changes
-				.epoch_descriptor_for_child_of(
-					descendent_query(&*self.client),
-					&parent_hash,
-					NumberFor::<Block>::try_from(number - 1)
-						.map_err(|_| "parent block exists, hence must be able to decrement it")
-						.unwrap(),
-					babe_pre_digest.slot(),
-				)
-				.map_err(|e| ConsensusError::Other(Box::new(e)))?
-				.ok_or_else(|| {
-					ConsensusError::Other(
-						Error::<Block>::EpochUnavailable(parent_hash.to_string()).into(),
-					)
-				})?;
-			let viable_epoch = epoch_changes
-				.viable_epoch(&epoch_descriptor, |slot| Epoch::genesis(&self.config, slot))
-				.ok_or_else(|| {
-					ConsensusError::Other(
-						Error::<Block>::EpochUnavailable(parent_hash.to_string()).into(),
-					)
-				})?;
+			let (_epoch_descriptor, viable_epoch) = query_epoch_changes(
+				&self.epoch_changes,
+				self.client.as_ref(),
+				&self.config,
+				number,
+				slot,
+				parent_hash,
+			)
+			.map_err(|e| ConsensusError::Other(babe_err(e).into()))?;
 			let epoch = viable_epoch.as_ref();
 			match epoch.authorities.get(babe_pre_digest.authority_index() as usize) {
 				Some(author) => author.0.clone(),
@@ -1974,4 +1950,38 @@ where
 	aux_schema::write_epoch_changes::<Block, _, _>(&epoch_changes, |values| {
 		client.insert_aux(values, weight_keys.iter())
 	})
+}
+
+fn query_epoch_changes<Block, Client>(
+	epoch_changes: &SharedEpochChanges<Block, Epoch>,
+	client: &Client,
+	config: &BabeConfiguration,
+	block_number: NumberFor<Block>,
+	slot: Slot,
+	parent_hash: Block::Hash,
+) -> Result<
+	(ViableEpochDescriptor<Block::Hash, NumberFor<Block>, Epoch>, ViableEpoch<Epoch>),
+	Error<Block>,
+>
+where
+	Block: BlockT,
+	Client: HeaderBackend<Block> + HeaderMetadata<Block, Error = sp_blockchain::Error>,
+{
+	let block_number: U256 = block_number.into();
+	let epoch_changes = epoch_changes.shared_data();
+	let epoch_descriptor = epoch_changes
+		.epoch_descriptor_for_child_of(
+			descendent_query(&*client),
+			&parent_hash,
+			NumberFor::<Block>::try_from(block_number - 1)
+				.map_err(|_| "parent block exists, hence must be able to decrement it")
+				.unwrap(),
+			slot,
+		)
+		.map_err(|e| Error::<Block>::ForkTree(Box::new(e)))?
+		.ok_or(Error::<Block>::FetchEpoch(parent_hash))?;
+	let viable_epoch = epoch_changes
+		.viable_epoch(&epoch_descriptor, |slot| Epoch::genesis(&config, slot))
+		.ok_or(Error::<Block>::FetchEpoch(parent_hash))?;
+	Ok((epoch_descriptor, viable_epoch.into_cloned()))
 }
