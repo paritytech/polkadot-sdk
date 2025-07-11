@@ -118,7 +118,7 @@ use sp_blockchain::{
 use sp_consensus::{BlockOrigin, Environment, Error as ConsensusError, Proposer, SelectChain};
 use sp_consensus_babe::{inherents::BabeInherentData, SlotDuration};
 use sp_consensus_slots::Slot;
-use sp_core::traits::SpawnEssentialNamed;
+use sp_core::{traits::SpawnEssentialNamed, U256};
 use sp_inherents::{CreateInherentDataProviders, InherentData, InherentDataProvider};
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
@@ -1419,16 +1419,15 @@ where
 
 		// Check for equivocation and report it to the runtime if needed.
 		let author = {
-			let parent_header_metadata = self
-				.client
-				.header_metadata(parent_hash)
-				.map_err(|e| ConsensusError::Other(Box::new(e)))?;
 			let epoch_changes = self.epoch_changes.shared_data();
+			let number: U256 = number.into();
 			let epoch_descriptor = epoch_changes
 				.epoch_descriptor_for_child_of(
 					descendent_query(&*self.client),
 					&parent_hash,
-					parent_header_metadata.number,
+					NumberFor::<Block>::try_from(number - 1)
+						.map_err(|_| "parent block exists, hence must be able to decrement it")
+						.unwrap(),
 					babe_pre_digest.slot(),
 				)
 				.map_err(|e| ConsensusError::Other(Box::new(e)))?
