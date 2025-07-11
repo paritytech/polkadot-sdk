@@ -397,6 +397,20 @@ pub mod pallet {
 		Thawed { who: T::AccountId, amount: T::Balance },
 		/// The `TotalIssuance` was forcefully changed.
 		TotalIssuanceForced { old: T::Balance, new: T::Balance },
+		/// An unexpected/defensive event was triggered.
+		Unexpected(UnexpectedKind),
+	}
+
+	/// Defensive/unexpected errors/events.
+	///
+	/// In case of observation in explorers, report it as an issue in polkadot-sdk.
+	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, RuntimeDebug)]
+	pub enum UnexpectedKind {
+		/// Balance was altered/dusted during an operation that should have NOT done so.
+		BalanceUpdated,
+		/// Mutating the account failed expectedly. This might lead to storage items in `Balances`
+		/// and the underlying account in `System` to be out of sync.
+		FailedToMutateAccount,
 	}
 
 	#[pallet::error]
@@ -1152,9 +1166,18 @@ pub mod pallet {
 				}
 				after_frozen = b.frozen;
 			});
-			debug_assert!(res.is_ok());
-			if let Ok((_, maybe_dust)) = res {
-				debug_assert!(maybe_dust.is_none(), "Not altering main balance; qed");
+			match res {
+				Ok((_, None)) => {
+					// expected -- all good.
+				},
+				Ok((_, Some(_dust))) => {
+					Self::deposit_event(Event::Unexpected(UnexpectedKind::BalanceUpdated));
+					defensive!("caused unexpected dusting/balance update.");
+				},
+				_ => {
+					Self::deposit_event(Event::Unexpected(UnexpectedKind::FailedToMutateAccount));
+					defensive!("errored in mutate_account");
+				},
 			}
 
 			match locks.is_empty() {
@@ -1189,7 +1212,10 @@ pub mod pallet {
 				}
 				after_frozen = b.frozen;
 			})?;
-			debug_assert!(maybe_dust.is_none(), "Not altering main balance; qed");
+			if maybe_dust.is_some() {
+				Self::deposit_event(Event::Unexpected(UnexpectedKind::BalanceUpdated));
+				defensive!("caused unexpected dusting/balance update.");
+			}
 			if freezes.is_empty() {
 				Freezes::<T, I>::remove(who);
 			} else {

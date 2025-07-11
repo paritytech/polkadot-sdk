@@ -18,54 +18,12 @@
 //! Tests for consumer limit behavior in balance locks.
 
 use super::*;
-use frame_support::traits::{Currency, Get, LockIdentifier, LockableCurrency, WithdrawReasons};
+use frame_support::traits::{
+	fungible::{InspectFreeze, MutateFreeze},
+	Currency, Get, LockIdentifier, LockableCurrency, WithdrawReasons,
+};
 
-const ID_1: LockIdentifier = *b"1       ";
-const ID_2: LockIdentifier = *b"2       ";
-
-#[test]
-fn lock_should_work_when_consumer_limit_nearly_reached() {
-	ExtBuilder::default()
-		.existential_deposit(1)
-		.monied(true)
-		.build()
-		.execute_with(|| {
-			// Account 1 starts with 100 balance, which gives them a provider ref
-			Balances::make_free_balance_be(&1, 100);
-
-			assert_eq!(System::providers(&1), 1);
-			assert_eq!(System::consumers(&1), 0);
-
-			let max_consumers: u32 = <Test as frame_system::Config>::MaxConsumers::get();
-			for _ in 0..(max_consumers - 1) {
-				assert_ok!(System::inc_consumers(&1));
-			}
-			assert_eq!(System::consumers(&1), max_consumers - 1);
-
-			// Setting a lock should still work - this should consume the last available consumer
-			// ref because frozen balance > 0 makes the account a consumer
-			Balances::set_lock(ID_1, &1, 20, WithdrawReasons::all());
-
-			// Verify the lock was set correctly
-			assert_eq!(Balances::locks(&1).len(), 1);
-			assert_eq!(Balances::locks(&1)[0].amount, 20);
-
-			// Account should now have 16 consumer refs (15 + 1 from the lock)
-			assert_eq!(System::consumers(&1), max_consumers);
-
-			// Lock is represented as frozen balance
-			assert_eq!(get_test_account_data(1).frozen, 20);
-
-			// creating a new lock with higher value
-			Balances::set_lock(ID_2, &1, 30, WithdrawReasons::all());
-			assert_eq!(Balances::locks(&1).len(), 2);
-			assert_eq!(Balances::locks(&1)[0].amount, 20);
-			assert_eq!(Balances::locks(&1)[1].amount, 30);
-
-			// frozen amount is max of locks.
-			assert_eq!(get_test_account_data(1).frozen, 30);
-		});
-}
+const ID: LockIdentifier = *b"1       ";
 
 #[test]
 fn lock_behavior_when_consumer_limit_fully_exhausted() {
@@ -96,16 +54,67 @@ fn lock_behavior_when_consumer_limit_fully_exhausted() {
 				assert_ok!(System::inc_consumers_without_limit(&1));
 			});
 
-			// Now try to set a lock - this will create the lock, but fail to update the frozen
-			// amount.
-			Balances::set_lock(ID_1, &1, 20, WithdrawReasons::all());
+			// Now try to set a lock - this will still work because we use
+			// `inc_consumers_without_limit` in `update_lock`.
+			Balances::set_lock(ID, &1, 20, WithdrawReasons::all());
 			assert_eq!(Balances::locks(&1).len(), 1);
 			assert_eq!(Balances::locks(&1)[0].amount, 20);
+
+			// now this account has 1 more consumer reference for the lock
+			assert_eq!(System::consumers(&1), max_consumers + 1);
 
 			// frozen amount is also updated
 			assert_eq!(get_test_account_data(1).frozen, 20);
 
 			// And this account cannot transfer any funds out.
+			assert_noop!(
+				Balances::transfer_allow_death(frame_system::RawOrigin::Signed(1).into(), 2, 90,),
+				DispatchError::Token(TokenError::Frozen)
+			);
+		});
+}
+
+#[test]
+fn freeze_behavior_when_consumer_limit_fully_exhausted() {
+	ExtBuilder::default()
+		.existential_deposit(1)
+		.monied(true)
+		.build()
+		.execute_with(|| {
+			// Account 1 starts with 100 balance
+			Balances::make_free_balance_be(&1, 100);
+			assert_eq!(System::providers(&1), 1);
+			assert_eq!(System::consumers(&1), 0);
+
+			// Fill up all 16 consumer refs.
+			// Note: asset pallets prevents all the consumers to be filled and leaves one untouched.
+			// But other operations in the runtime, notably `uniques::set_accept_ownership` might.
+			let max_consumers: u32 = <Test as frame_system::Config>::MaxConsumers::get();
+			for _ in 0..max_consumers {
+				assert_ok!(System::inc_consumers(&1));
+			}
+			assert_eq!(System::consumers(&1), max_consumers);
+
+			// We cannot manually increment consumers beyond the limit
+			assert_noop!(System::inc_consumers(&1), DispatchError::TooManyConsumers);
+
+			// Although without limits it would work
+			frame_support::hypothetically!({
+				assert_ok!(System::inc_consumers_without_limit(&1));
+			});
+
+			// Now try to set a freeze - this will create the freeze, and update the frozen amount
+			// just like locks, but without requiring additional consumer references.
+			assert_ok!(Balances::set_freeze(&TestId::Foo, &1, 20));
+			assert_eq!(Balances::balance_frozen(&TestId::Foo, &1), 20);
+
+			// now this account has 1 more consumer reference for the lock
+			assert_eq!(System::consumers(&1), max_consumers + 1);
+
+			// frozen amount is also updated
+			assert_eq!(get_test_account_data(1).frozen, 20);
+
+			// And this account cannot transfer any funds out, same as with locks.
 			assert_noop!(
 				Balances::transfer_allow_death(frame_system::RawOrigin::Signed(1).into(), 2, 90,),
 				DispatchError::Token(TokenError::Frozen)
