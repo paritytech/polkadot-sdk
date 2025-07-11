@@ -65,7 +65,7 @@ where
 		// This is to avoid burning assets and decreasing the supply
 		let asset_amount = BalanceConverter::to_asset_balance(amount, asset_id)
 			.map_err(|error| {
-				log::debug!(target: "xcm::charge_weight_in_fungibles", "AssetFeeAsExistentialDepositMultiplier cannot convert to valid balance (possibly below ED): {error:?}");
+				tracing::debug!(target: "xcm::charge_weight_in_fungibles", ?error, "AssetFeeAsExistentialDepositMultiplier cannot convert to valid balance (possibly below ED)");
 				XcmError::TooExpensive
 			})?;
 		Ok(asset_amount)
@@ -78,9 +78,11 @@ impl<LocationValue: Get<Location>> ContainsPair<Asset, Location>
 	for ConcreteNativeAssetFrom<LocationValue>
 {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
-		log::trace!(target: "xcm::filter_asset_location",
-			"ConcreteNativeAsset asset: {:?}, origin: {:?}, location: {:?}",
-			asset, origin, LocationValue::get());
+		tracing::trace!(
+			target: "xcm::filter_asset_location",
+			?asset, ?origin, location=?LocationValue::get(),
+			"ConcreteNativeAsset"
+		);
 		asset.id.0 == *origin && origin == &LocationValue::get()
 	}
 }
@@ -112,7 +114,7 @@ impl<SystemParachainMatcher: Contains<Location>, Runtime: parachain_info::Config
 pub struct AllSiblingSystemParachains;
 impl Contains<Location> for AllSiblingSystemParachains {
 	fn contains(l: &Location) -> bool {
-		log::trace!(target: "xcm::contains", "AllSiblingSystemParachains location: {:?}", l);
+		tracing::trace!(target: "xcm::contains", location=?l, "AllSiblingSystemParachains");
 		match l.unpack() {
 			// System parachain
 			(1, [Parachain(id)]) => ParaId::from(*id).is_system(),
@@ -128,7 +130,7 @@ impl<AssetLocation: Get<Location>> ContainsPair<Asset, Location>
 	for ConcreteAssetFromSystem<AssetLocation>
 {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
-		log::trace!(target: "xcm::contains", "ConcreteAssetFromSystem asset: {:?}, origin: {:?}", asset, origin);
+		tracing::trace!(target: "xcm::contains", ?asset, ?origin, "ConcreteAssetFromSystem");
 		let is_system = match origin.unpack() {
 			// The Relay Chain
 			(1, []) => true,
@@ -173,10 +175,10 @@ impl ContainsPair<Location, Location> for AliasAccountId32FromSiblingSystemChain
 			},
 			_ => false,
 		};
-		log::trace!(
+		tracing::trace!(
 			target: "xcm::contains",
-			"AliasAccountId32FromSiblingSystemChain origin: {:?}, target: {:?}, result {:?}",
-			origin, target, result,
+			?origin, ?target, ?result,
+			"AliasAccountId32FromSiblingSystemChain"
 		);
 		result
 	}

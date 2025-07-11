@@ -1,0 +1,8 @@
+title: '`fatxpool`: debug levels adjusted'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR removes redundant debug message and lowers the info about timeout in `ready_at`.
+crates:
+- name: sc-transaction-pool
+  bump: patch
