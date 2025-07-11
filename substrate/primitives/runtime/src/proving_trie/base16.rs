@@ -30,7 +30,7 @@ use alloc::vec::Vec;
 use codec::MaxEncodedLen;
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV1},
-	LayoutV1, MemoryDB, Trie, TrieMut,
+	LayoutV1, MemoryDB, RandomState, Trie, TrieMut,
 };
 
 /// A helper structure for building a basic base-16 merkle trie and creating compact proofs for that
@@ -77,7 +77,7 @@ where
 	where
 		I: IntoIterator<Item = (Key, Value)>,
 	{
-		let mut db = MemoryDB::default();
+		let mut db = MemoryDB::with_hasher(RandomState::default());
 		let mut root = Default::default();
 
 		{
