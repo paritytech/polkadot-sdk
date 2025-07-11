@@ -18,7 +18,7 @@
 //! This validation is a temporary patch in preparation for the Asset Hub Migration (AHM).
 //! This module will be removed after the migration and the determined
 //! reserve location will be adjusted accordingly to be Asset Hub.
-//! For more information, see https://github.com/paritytech/polkadot-sdk/issues/9054.
+//! For more information, see <https://github.com/paritytech/polkadot-sdk/issues/9054>.
 
 use crate::{Config, Error, Pallet};
 use alloc::vec::Vec;
