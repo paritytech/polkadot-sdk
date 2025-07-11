@@ -4,7 +4,7 @@
 # The logs are prepared for upload as GitHub artifacts.
 # If Loki logging is available, the corresponding log URLs are also printed.
 # NOTE: P2838773B5F7DE937 is the loki.cicd until we switch to loki.zombienet
-LOKI_URL_FOR_NODE='https://grafana.teleport.parity.io/explore?orgId=1&left=%7B%22datasource%22:%22P2838773B5F7DE937%22,%22queries%22:%5B%7B%22refId%22:%22A%22,%22datasource%22:%7B%22type%22:%22loki%22,%22uid%22:%22P2838773B5F7DE937%22%7D,%22editorMode%22:%22code%22,%22expr%22:%22%7Bzombie_namespace%3D%5C%22{{namespace}}%5C%22,zombie_node%3D%5C%22{{podName}}%5C%22%7D%22,%22queryType%22:%22range%22%7D%5D,%22range%22:%7B%22from%22:%22{{from}}%22,%22to%22:%22{{to}}%22%7D%7D'
+LOKI_URL_FOR_NODE='https://grafana.teleport.parity.io/explore?orgId=1&left=%7B%22datasource%22:%22P2838773B5F7DE937%22,%22queries%22:%5B%7B%22refId%22:%22A%22,%22datasource%22:%7B%22type%22:%22loki%22,%22uid%22:%22P2838773B5F7DE937%22%7D,%22editorMode%22:%22code%22,%22expr%22:%22%7Bzombie_ns%3D%5C%22{{namespace}}%5C%22,zombie_node%3D%5C%22{{podName}}%5C%22%7D%22,%22queryType%22:%22range%22%7D%5D,%22range%22:%7B%22from%22:%22{{from}}%22,%22to%22:%22{{to}}%22%7D%7D'
 
 BASE_DIR=$(ls -dt /tmp/zombie-* | head -1)
 ZOMBIE_JSON="$BASE_DIR/zombie.json"
