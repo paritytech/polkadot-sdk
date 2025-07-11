@@ -25,6 +25,7 @@ pub mod accessed_nodes_tracker;
 #[cfg(feature = "std")]
 pub mod cache;
 mod error;
+#[cfg(any(not(feature = "std"), test))]
 mod hasher_random_state;
 mod node_codec;
 mod node_header;
