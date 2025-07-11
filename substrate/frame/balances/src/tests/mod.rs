@@ -193,9 +193,15 @@ impl ExtBuilder {
 	pub fn build_and_execute_with(self, f: impl Fn()) {
 		let other = self.clone();
 		UseSystem::set(false);
-		other.build().execute_with(|| f());
+		other.build().execute_with(|| {
+			f();
+			Balances::do_try_state(System::block_number()).unwrap();
+		});
 		UseSystem::set(true);
-		self.build().execute_with(|| f());
+		self.build().execute_with(|| {
+			f();
+			Balances::do_try_state(System::block_number()).unwrap();
+		});
 	}
 }
 
