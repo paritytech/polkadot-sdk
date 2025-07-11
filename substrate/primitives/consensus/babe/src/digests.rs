@@ -42,7 +42,7 @@ pub struct PrimaryPreDigest {
 }
 
 /// BABE secondary slot assignment pre-digest.
-#[derive(Clone, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo, Default)]
 pub struct SecondaryPlainPreDigest {
 	/// Authority index
 	///
@@ -80,6 +80,16 @@ pub enum PreDigest {
 	/// A secondary deterministic slot assignment with VRF outputs.
 	#[codec(index = 3)]
 	SecondaryVRF(SecondaryVRFPreDigest),
+}
+
+/// Default to use on Genesis or first Babe block.
+impl Default for PreDigest {
+	fn default() -> Self {
+		PreDigest::SecondaryPlain(SecondaryPlainPreDigest {
+			authority_index: Default::default(),
+			slot: Default::default(),
+		})
+	}
 }
 
 impl PreDigest {
