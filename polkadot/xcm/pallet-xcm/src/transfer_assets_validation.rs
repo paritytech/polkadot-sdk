@@ -20,8 +20,8 @@
 //! reserve location will be adjusted accordingly to be Asset Hub.
 //! For more information, see https://github.com/paritytech/polkadot-sdk/issues/9054.
 
-use alloc::vec::Vec;
 use crate::{Config, Error, Pallet};
+use alloc::vec::Vec;
 use hex_literal::hex;
 use sp_core::Get;
 use xcm::prelude::*;
