@@ -13,7 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests for blocking reserve transfers of WND using `pallet_xcm::transfer_assets`.
+//! Tests for the validation of `pallet_xcm::transfer_assets`.
+//! See the `pallet_xcm::transfer_assets_validation` module for more information.
 
 use crate::imports::*;
 use frame_support::{assert_err, assert_ok};
