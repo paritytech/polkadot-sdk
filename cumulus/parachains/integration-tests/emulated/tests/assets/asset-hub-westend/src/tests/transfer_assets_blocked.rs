@@ -20,7 +20,7 @@ use frame_support::{assert_err, assert_ok};
 use sp_runtime::DispatchError;
 
 // ==================================================================================
-// ======================== PenpalA <-> Westend Tests ===============================
+// ============================== PenpalA <-> Westend ===============================
 // ==================================================================================
 
 /// Test that `transfer_assets` fails when doing reserve transfer of WND from PenpalA to Westend.
@@ -102,7 +102,7 @@ fn transfer_assets_wnd_reserve_transfer_relay_to_para_fails() {
 }
 
 // ==================================================================================
-// ======================== ParaA <-> ParaB Tests ==================================
+// ============================== PenpalA <-> PenpalB ===============================
 // ==================================================================================
 
 /// Test that `transfer_assets` fails when doing reserve transfer of WND from PenpalA to PenpalB
@@ -145,7 +145,7 @@ fn transfer_assets_wnd_reserve_transfer_para_to_para_fails() {
 }
 
 // ==================================================================================
-// ====================== Test with Mixed Assets and Fees =========================
+// ============================== Mixed Assets and Fees =============================
 // ==================================================================================
 
 /// Test that `transfer_assets` fails when WND is used as fee asset in reserve transfer
