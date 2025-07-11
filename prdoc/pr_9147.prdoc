@@ -9,10 +9,10 @@ crates:
 - name: sc-consensus-babe-rpc
   bump: patch
 - name: sc-consensus-babe
-  bump: patch
+  bump: major
 - name: sp-consensus-babe
-  bump: patch
+  bump: minor
 - name: sp-consensus
-  bump: patch
+  bump: major
 - name: sp-inherents
-  bump: patch
+  bump: minor
