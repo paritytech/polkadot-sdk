@@ -294,6 +294,12 @@ pub mod pallet {
 				T::MaxApprovals,
 			>,
 		) -> DispatchResult {
+			// Ensure proposal is in Pending state
+			ensure!(
+				proposal_info.status == ProposalStatus::Pending,
+				Error::<T>::ProposalNotPending
+			);
+
 			// Check for minimum number of approvals (customize this logic based on your
 			// requirements) Note that for the "AND Gate" pattern, we require a minimum of 2
 			// approvals
@@ -494,6 +500,7 @@ pub mod pallet {
 			call_hash: T::Hash,
 			origin_id: T::OriginId,
 			approving_origin_id: T::OriginId,
+			auto_execute: bool,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
@@ -563,30 +570,33 @@ pub mod pallet {
 
 			// Pass a clone of proposal info so original does not get modified if execution attempt
 			// fails
-			match Self::check_and_execute_proposal(call_hash, origin_id, proposal_info.clone()) {
-				// Success case results in proposal being executed
-				Ok(_) => {},
-				// Check if error is specifically the `InsufficientApprovals` error since we need
-				// to silently ignore it when adding early approvals
-				Err(e) => match e {
-					DispatchError::Module(module_error) => {
-						if module_error.index == <Self as PalletInfoAccess>::index() as u8 {
-							let insufficient_approvals_index =
-								Self::error_index(Error::<T>::InsufficientApprovals);
+			if auto_execute {
+				match Self::check_and_execute_proposal(call_hash, origin_id, proposal_info.clone())
+				{
+					// Success case results in proposal being executed
+					Ok(_) => {},
+					// Check if error is specifically the `InsufficientApprovals` error since we
+					// need to silently ignore it when adding early approvals
+					Err(e) => match e {
+						DispatchError::Module(module_error) => {
+							if module_error.index == <Self as PalletInfoAccess>::index() as u8 {
+								let insufficient_approvals_index =
+									Self::error_index(Error::<T>::InsufficientApprovals);
 
-							// Propagate all errors except `InsufficientApprovals` error
-							if module_error.error[0] != insufficient_approvals_index {
+								// Propagate all errors except `InsufficientApprovals` error
+								if module_error.error[0] != insufficient_approvals_index {
+									return Err(DispatchError::Module(module_error).into());
+								}
+								// Otherwise silently ignore InsufficientApprovals error
+							} else {
+								// Error from another pallet must always be propagated
 								return Err(DispatchError::Module(module_error).into());
 							}
-							// Otherwise silently ignore InsufficientApprovals error
-						} else {
-							// Error from another pallet must always be propagated
-							return Err(DispatchError::Module(module_error).into());
-						}
+						},
+						// Non-module errors must always be propagated
+						_ => return Err(e.into()),
 					},
-					// Non-module errors must always be propagated
-					_ => return Err(e.into()),
-				},
+				}
 			}
 
 			Ok(().into())
@@ -787,8 +797,28 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		/// A dummy function for use in tests and benchmarks
+		/// Execute a proposal that has met the required approvals
 		#[pallet::call_index(6)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::execute_proposal())]
+		pub fn execute_proposal(
+			origin: OriginFor<T>,
+			proposal_hash: T::Hash,
+			origin_id: T::OriginId,
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
+
+			// Get proposal info
+			let proposal = <Proposals<T>>::get(&proposal_hash, &origin_id)
+				.ok_or(Error::<T>::ProposalNotFound)?;
+
+			// Execute the proposal
+			Self::check_and_execute_proposal(proposal_hash, origin_id, proposal)?;
+
+			Ok(().into())
+		}
+
+		/// A dummy function for use in tests and benchmarks
+		#[pallet::call_index(7)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_dummy())]
 		pub fn dummy_benchmark(
 			origin: OriginFor<T>,
@@ -819,7 +849,7 @@ pub mod pallet {
 		ProposalExecuted {
 			proposal_hash: T::Hash,
 			origin_id: T::OriginId,
-			result: DispatchResult,
+			result: Result<(), DispatchError>,
 			timepoint: Timepoint<BlockNumberFor<T>>,
 		},
 		/// A proposal has expired.
@@ -874,7 +904,7 @@ pub mod pallet {
 		ProposalCancelled,
 		/// Proposal was already approved by the origin
 		OriginAlreadyApproved,
-		/// Proposal does not have enough approvals
+		/// Proposal does not have enough approvals to execute
 		InsufficientApprovals,
 		/// Origin approval could not be found
 		OriginApprovalNotFound,

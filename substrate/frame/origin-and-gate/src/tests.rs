@@ -542,6 +542,7 @@ mod unit_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
+					true, // Auto-execute
 				));
 
 				// Verify approval added
@@ -580,6 +581,7 @@ mod unit_test {
 						call_hash,
 						ALICE_ORIGIN_ID,
 						BOB_ORIGIN_ID,
+						true, // Auto-execute
 					),
 					Error::<Test>::CannotApproveOwnProposalUsingDifferentOrigin
 				);
@@ -611,6 +613,7 @@ mod unit_test {
 						call_hash,
 						ALICE_ORIGIN_ID,
 						ALICE_ORIGIN_ID,
+						true, // Auto-execute
 					),
 					Error::<Test>::OriginAlreadyApproved
 				);
@@ -630,6 +633,7 @@ mod unit_test {
 						call_hash,
 						ALICE_ORIGIN_ID,
 						BOB_ORIGIN_ID,
+						true, // Auto-execute
 					),
 					Error::<Test>::ProposalNotFound
 				);
@@ -661,6 +665,7 @@ mod unit_test {
 						wrong_call_hash,
 						ALICE_ORIGIN_ID,
 						BOB_ORIGIN_ID,
+						true, // Auto-execute
 					),
 					Error::<Test>::ProposalNotFound
 				);
@@ -726,6 +731,7 @@ mod unit_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
+					true, // Auto-execute
 				);
 
 				let post_call_proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID);
@@ -778,6 +784,7 @@ mod unit_test {
 						call_hash,
 						ALICE_ORIGIN_ID,
 						BOB_ORIGIN_ID,
+						true, // Auto-execute
 					),
 					Error::<Test>::ProposalNotFound
 				);
@@ -810,6 +817,7 @@ mod unit_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
+					true, // Auto-execute
 				));
 
 				// Verify call was executed and assume MaxApprovals::get() == 2
@@ -823,6 +831,7 @@ mod unit_test {
 						call_hash,
 						ALICE_ORIGIN_ID,
 						CHARLIE_ORIGIN_ID,
+						true, // Auto-execute
 					),
 					Error::<Test>::ProposalAlreadyExecuted
 				);
@@ -894,6 +903,7 @@ mod unit_test {
 						call_hash,
 						ALICE_ORIGIN_ID,
 						CHARLIE_ORIGIN_ID,
+						true, // Auto-execute
 					),
 					Error::<Test>::TooManyApprovals
 				);
@@ -923,6 +933,7 @@ mod unit_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
+					true, // Auto-execute
 				));
 
 				let execution_timepoint = current_timepoint();
@@ -1127,6 +1138,7 @@ mod unit_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
+					true, // Auto-execute
 				));
 
 				let execution_timepoint = current_timepoint();
@@ -1142,6 +1154,7 @@ mod unit_test {
 						call_hash,
 						ALICE_ORIGIN_ID,
 						CHARLIE_ORIGIN_ID,
+						true, // Auto-execute
 					),
 					Error::<Test>::ProposalAlreadyExecuted
 				);
@@ -1190,6 +1203,7 @@ mod unit_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
+					true, // Auto-execute
 				));
 
 				let execution_timepoint = current_timepoint();
@@ -1245,6 +1259,7 @@ mod unit_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
+					true, // Auto-execute
 				);
 
 				// Verify call fails with ProposalExpired error
@@ -1288,6 +1303,7 @@ mod unit_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
+					true, // Auto-execute
 				));
 
 				// Verify proposal exists in storage before execution
@@ -1400,6 +1416,7 @@ mod unit_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
+					true, // Auto-execute
 				);
 				assert_err!(result, Error::<Test>::ProposalExpired);
 
@@ -1501,6 +1518,7 @@ mod unit_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
+					true, // Auto-execute
 				));
 
 				// Verify proposal is marked as executed but still exists in storage
@@ -1590,6 +1608,7 @@ mod unit_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
+					true, // Auto-execute
 				);
 				assert_err!(result, Error::<Test>::ProposalExpired);
 
@@ -1706,6 +1725,7 @@ mod unit_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
+					true, // Auto-execute
 				));
 
 				// Verify proposal marked as executed
@@ -2011,6 +2031,7 @@ mod integration_test {
 				call_hash,
 				alice_origin_id,
 				bob_origin_id,
+				true, // Auto-execute
 			));
 
 			// Verify proposal exists and has both approvals
@@ -2096,6 +2117,7 @@ mod integration_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
+					true, // Auto-execute
 				));
 
 				// Verify execution successful after both approvals
@@ -2163,6 +2185,7 @@ mod integration_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					ALICE_ORIGIN_ID,
+					true, // Auto-execute
 				);
 				assert!(result.is_err());
 
@@ -2172,6 +2195,7 @@ mod integration_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					ALICE_ORIGIN_ID,
+					true, // Auto-execute
 				);
 				assert!(result.is_err());
 
@@ -2300,6 +2324,7 @@ mod integration_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
+					true, // Auto-execute
 				));
 
 				let execution_timepoint = current_timepoint();
@@ -2367,6 +2392,7 @@ mod integration_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
+					true, // Auto-execute
 				);
 
 				// Verify error is fully propagated and is not `InsufficientApprovals` error since
@@ -2462,6 +2488,7 @@ mod andgate_requirements {
 				call_hash,
 				ALICE_ORIGIN_ID,
 				BOB_ORIGIN_ID,
+				true, // Auto-execute
 			));
 
 			// Verify execution successful after both approvals
@@ -2534,6 +2561,7 @@ mod andgate_requirements {
 				call_hash,
 				ALICE_ORIGIN_ID,
 				BOB_ORIGIN_ID,
+				true, // Auto-execute
 			));
 
 			// Verify execution occurred
@@ -2635,6 +2663,7 @@ mod andgate_requirements {
 				call_hash,
 				ALICE_ORIGIN_ID,
 				BOB_ORIGIN_ID,
+				true, // Auto-execute
 			));
 
 			// Verify execution successful after both origins approved
@@ -2741,6 +2770,7 @@ mod andgate_requirements {
 				call_hash2,
 				BOB_ORIGIN_ID,
 				ALICE_ORIGIN_ID,
+				true, // Auto-execute
 			));
 
 			// Verify first call execution and ExecutedCalls entry
@@ -2767,6 +2797,7 @@ mod andgate_requirements {
 				call_hash1,
 				ALICE_ORIGIN_ID,
 				BOB_ORIGIN_ID,
+				true, // Auto-execute
 			));
 
 			// Verify second call execution and ExecutedCalls entry
