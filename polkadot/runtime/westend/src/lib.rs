@@ -2665,10 +2665,10 @@ sp_api::impl_runtime_apis! {
 		Balance,
 	> for Runtime {
 		fn query_info(uxt: <Block as BlockT>::Extrinsic, len: u32) -> RuntimeDispatchInfo<Balance> {
-			TransactionPayment::query_info(uxt, len)
+			TransactionPayment::query_info_from_runtime_api(uxt, len)
 		}
 		fn query_fee_details(uxt: <Block as BlockT>::Extrinsic, len: u32) -> FeeDetails<Balance> {
-			TransactionPayment::query_fee_details(uxt, len)
+			TransactionPayment::query_fee_details_from_runtime_api(uxt, len)
 		}
 		fn query_weight_to_fee(weight: Weight) -> Balance {
 			TransactionPayment::weight_to_fee(weight)

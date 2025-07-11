@@ -299,7 +299,7 @@ fn query_info_and_fee_details_works() {
 			NextFeeMultiplier::<Runtime>::put(Multiplier::saturating_from_rational(3, 2));
 
 			assert_eq!(
-				TransactionPayment::query_info(xt.clone(), len),
+				TransactionPayment::query_info_from_runtime_api(xt.clone(), len),
 				RuntimeDispatchInfo {
 					weight: info.total_weight(),
 					class: info.class,
@@ -310,7 +310,7 @@ fn query_info_and_fee_details_works() {
 			);
 
 			assert_eq!(
-				TransactionPayment::query_info(unsigned_xt.clone(), len),
+				TransactionPayment::query_info_from_runtime_api(unsigned_xt.clone(), len),
 				RuntimeDispatchInfo {
 					weight: unsigned_xt_info.call_weight,
 					class: unsigned_xt_info.class,
@@ -319,7 +319,7 @@ fn query_info_and_fee_details_works() {
 			);
 
 			assert_eq!(
-				TransactionPayment::query_fee_details(xt, len),
+				TransactionPayment::query_fee_details_from_runtime_api(xt, len),
 				FeeDetails {
 					inclusion_fee: Some(InclusionFee {
 						base_fee: 5 * 2,
@@ -334,7 +334,7 @@ fn query_info_and_fee_details_works() {
 			);
 
 			assert_eq!(
-				TransactionPayment::query_fee_details(unsigned_xt, len),
+				TransactionPayment::query_fee_details_from_runtime_api(unsigned_xt, len),
 				FeeDetails { inclusion_fee: None, tip: 0 },
 			);
 		});
