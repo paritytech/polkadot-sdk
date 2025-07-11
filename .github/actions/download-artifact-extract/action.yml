@@ -1,0 +1,84 @@
+name: "Download and extract artifact"
+description: "Downloads an artifact, extracts it, and optionally copies files to a destination"
+
+inputs:
+  artifact-name:
+    description: "Name of the artifact to download"
+    required: true
+  gh-token:
+    description: "GITHUB_TOKEN to use for downloading artifacts"
+    required: true
+  run-id:
+    description: "Run ID from which to download the artifact"
+    required: true
+  extract-path:
+    description: "Path where to extract the artifact"
+    default: "."
+    required: false
+  files-to-copy:
+    description: "Comma-separated (or newline-separated, remember about |) list of files to copy from the extracted artifact"
+    required: false
+  destination-path:
+    description: "Destination path for copied files"
+    required: false
+  cleanup:
+    description: "Whether to remove downloaded artifacts after copying (true/false)"
+    required: false
+    default: "false"
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/download-artifact@v4.1.8
+      with:
+        name: ${{ inputs.artifact-name }}
+        github-token: ${{ inputs.gh-token }}
+        run-id: ${{ inputs.run-id }}
+        path: ${{ inputs.extract-path }}
+
+    - name: Extract artifact
+      shell: bash
+      working-directory: ${{ inputs.extract-path }}
+      run: |
+        if [[ -f artifacts.tar ]]; then
+          tar -xvf artifacts.tar
+        elif [[ -f *.tar ]]; then
+          tar -xvf *.tar
+        elif [[ -f *.tar.gz ]]; then
+          tar -xzvf *.tar.gz
+        elif [[ -f *.tgz ]]; then
+          tar -xzvf *.tgz
+        elif [[ -f *.zip ]]; then
+          unzip *.zip
+        else
+          echo "No archive file found to extract"
+          ls -la
+        fi
+
+    - name: Copy files if specified
+      if: inputs.files-to-copy != ''
+      env:
+        FILES_TO_COPY: ${{ inputs.files-to-copy }}
+        DESTINATION_PATH: ${{ inputs.destination-path }}
+        EXTRACT_PATH: ${{ inputs.extract-path }}
+        CLEANUP: ${{ inputs.cleanup }}
+
+      shell: bash
+      run: |
+        # Create destination directory
+        mkdir -p "$DESTINATION_PATH"
+
+        echo "$FILES_TO_COPY" | tr ',' '\n' | while read -r file; do
+          # trim leading and trailing whitespaces
+          file="$(echo "$file" | xargs)"
+          if [[ -n "$file" ]]; then
+            echo "Copying $file to $DESTINATION_PATH"
+            cp -r "$EXTRACT_PATH/$file" "$DESTINATION_PATH/"
+          fi
+        done
+
+        # Cleanup if requested
+        if [[ "$CLEANUP" == "true" ]]; then
+          echo "Cleaning up downloaded artifacts in $EXTRACT_PATH"
+          rm -rf "$EXTRACT_PATH"
+        fi

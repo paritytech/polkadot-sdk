@@ -151,6 +151,7 @@ parameter_types! {
 	pub static MinerTxPriority: u64 = 100;
 	pub static SolutionImprovementThreshold: Perbill = Perbill::zero();
 	pub static OffchainRepeat: BlockNumber = 5;
+	pub static OffchainStorage: bool = true;
 	pub static MinerMaxLength: u32 = 256;
 	pub static MinerPages: u32 = 1;
 	pub static MaxVotesPerVoter: u32 = <TestNposSolution as NposSolution>::LIMIT as u32;
@@ -193,6 +194,7 @@ impl crate::verifier::Config for Runtime {
 impl crate::unsigned::Config for Runtime {
 	type MinerPages = MinerPages;
 	type OffchainRepeat = OffchainRepeat;
+	type OffchainStorage = OffchainStorage;
 	type MinerTxPriority = MinerTxPriority;
 	type OffchainSolver = SequentialPhragmen<Self::AccountId, Perbill>;
 	type WeightInfo = ();
@@ -252,8 +254,9 @@ impl ElectionProvider for MockFallback {
 	type Error = String;
 	type DataProvider = staking::MockStaking;
 	type Pages = ConstU32<1>;
-	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
 
 	fn elect(_remaining: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		unreachable!()
@@ -354,6 +357,10 @@ impl ExtBuilder {
 		MaxBackersPerWinnerFinal::set(c);
 		self
 	}
+	pub(crate) fn offchain_storage(self, s: bool) -> Self {
+		OffchainStorage::set(s);
+		self
+	}
 	pub(crate) fn miner_tx_priority(self, p: u64) -> Self {
 		MinerTxPriority::set(p);
 		self
@@ -403,6 +410,12 @@ impl ExtBuilder {
 		SignedMaxSubmissions::set(s);
 		self
 	}
+
+	pub(crate) fn max_winners_per_page(self, w: u32) -> Self {
+		MaxWinnersPerPage::set(w);
+		self
+	}
+
 	#[allow(unused)]
 	pub(crate) fn add_voter(self, who: AccountId, stake: Balance, targets: Vec<AccountId>) -> Self {
 		staking::VOTERS.with(|v| v.borrow_mut().push((who, stake, targets.try_into().unwrap())));
@@ -431,6 +444,7 @@ impl ExtBuilder {
 				(95, 100),
 				(96, 100),
 				(97, 100),
+				(98, 100),
 				(99, 100),
 				(999, 100),
 				(9999, 100),

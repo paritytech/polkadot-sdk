@@ -321,7 +321,7 @@ where
 		/// Number of layers in a Radix16 unbalanced trie.
 		const UNBALANCED_TRIE_LAYERS: u32 = 20;
 
-		if (key.len() as u32) < (UNBALANCED_TRIE_LAYERS + 1) / 2 {
+		if (key.len() as u32) < UNBALANCED_TRIE_LAYERS.div_ceil(2) {
 			return Err("Key size too small to create the specified trie");
 		}
 
