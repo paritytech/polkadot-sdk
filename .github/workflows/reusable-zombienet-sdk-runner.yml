@@ -1,0 +1,79 @@
+name: Reusable Zombienet Cumulus Test
+
+on:
+  workflow_call:
+    inputs:
+      test-name:
+        description: "Test name (e.g., zombienet-cumulus-0007-full_node_warp_sync)"
+        required: true
+        type: string
+      test-path:
+        description: "Test path for zombienet-sdk"
+        required: true
+        type: string
+      runner-type:
+        description: "Runner type (default or large)"
+        required: false
+        type: string
+        default: "default"
+      timeout-minutes:
+        description: "Timeout in minutes"
+        required: false
+        type: number
+        default: 60
+      cumulus-image:
+        description: "Cumulus image to use"
+        required: false
+        type: string
+        default: "test-parachain"
+      needs-wasm-binary:
+        description: "Whether test needs WASM binary"
+        required: false
+        type: boolean
+        default: false
+      preflight-outputs:
+        description: "JSON string of preflight outputs"
+        required: true
+        type: string
+
+jobs:
+  zombienet-test:
+    runs-on: ${{ inputs.runner-type == 'large' && fromJson(inputs.preflight-outputs).ZOMBIENET_SDK_LARGE_RUNNER || fromJson(inputs.preflight-outputs).ZOMBIENET_SDK_DEFAULT_RUNNER }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    if: ${{ ! contains(fromJson(inputs.preflight-outputs).FLAKY_TESTS, inputs.test-name) }}
+    container:
+      image: ${{ fromJson(inputs.preflight-outputs).ZOMBIENET_SDK_IMAGE }}
+    env:
+      POLKADOT_IMAGE: "${{ fromJson(inputs.preflight-outputs).TEMP_IMAGES_BASE }}/polkadot-debug:${{ fromJson(inputs.preflight-outputs).DOCKER_IMAGES_VERSION }}"
+      CUMULUS_IMAGE: "${{ fromJson(inputs.preflight-outputs).TEMP_IMAGES_BASE }}/${{ inputs.cumulus-image }}:${{ fromJson(inputs.preflight-outputs).DOCKER_IMAGES_VERSION }}"
+      RUST_LOG: ${{ fromJson(inputs.preflight-outputs).RUST_LOG }}
+      ZOMBIE_PROVIDER: ${{ fromJson(inputs.preflight-outputs).ZOMBIE_PROVIDER }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4.1.8
+        if: ${{ inputs.needs-wasm-binary }}
+        with:
+          name: build-test-parachain-${{ fromJson(inputs.preflight-outputs).SOURCE_REF_SLUG }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ fromJson(inputs.preflight-outputs).BUILD_RUN_ID }}
+
+      - name: provide_wasm_binary
+        if: ${{ inputs.needs-wasm-binary }}
+        run: |
+          tar -xvf artifacts.tar
+          ls -ltr artifacts/*
+          cp ./artifacts/zombienet/wasm_binary_spec_version_incremented.rs.compact.compressed.wasm /tmp/
+          ls -ltr /tmp
+          rm -rf artifacts
+
+      - name: zombienet_test
+        uses: ./.github/actions/zombienet-sdk
+        with:
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ fromJson(inputs.preflight-outputs).BUILD_RUN_ID }}
+          ref-slug: ${{ fromJson(inputs.preflight-outputs).SOURCE_REF_SLUG }}
+          test: ${{ inputs.test-path }}
+          prefix: "cumulus"
