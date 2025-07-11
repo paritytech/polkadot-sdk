@@ -195,19 +195,13 @@ pub(crate) fn fast_unstake_events_since_last_call() -> Vec<super::Event<Runtime>
 }
 
 pub struct ExtBuilder {
-	unexposed: Vec<(AccountId, AccountId, Balance)>,
+	unexposed: Vec<(AccountId, Balance)>,
 }
 
 impl Default for ExtBuilder {
 	fn default() -> Self {
 		Self {
-			unexposed: vec![
-				(1, 1, 7 + 100),
-				(3, 3, 7 + 100),
-				(5, 5, 7 + 100),
-				(7, 7, 7 + 100),
-				(9, 9, 7 + 100),
-			],
+			unexposed: vec![(1, 7 + 100), (3, 7 + 100), (5, 7 + 100), (7, 7 + 100), (9, 7 + 100)],
 		}
 	}
 }
@@ -257,7 +251,7 @@ impl ExtBuilder {
 				.unexposed
 				.clone()
 				.into_iter()
-				.map(|(stash, _, balance)| (stash, balance * 2))
+				.map(|(stash, balance)| (stash, balance * 2))
 				// give stakers enough balance for stake, ed and fast unstake deposit.
 				.chain(validators_range.clone().map(|x| (x, 7 + 1 + 100)))
 				.chain(nominators_range.clone().map(|x| (x, 7 + 1 + 100)))
@@ -270,8 +264,8 @@ impl ExtBuilder {
 			stakers: self
 				.unexposed
 				.into_iter()
-				.map(|(x, _y, z)| {
-					(x, z, pallet_staking_async::StakerStatus::Nominator(vec![VALIDATOR_PREFIX]))
+				.map(|(x, y)| {
+					(x, y, pallet_staking_async::StakerStatus::Nominator(vec![VALIDATOR_PREFIX]))
 				})
 				.chain(validators_range.map(|x| (x, 100, StakerStatus::Validator)))
 				.chain(
