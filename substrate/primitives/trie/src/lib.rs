@@ -43,7 +43,7 @@ pub mod proof_size_extension;
 pub use std::hash::RandomState;
 
 #[cfg(not(feature = "std"))]
-pub use hasher_random_state::{RandomState, add_extra_randomness};
+pub use hasher_random_state::{add_extra_randomness, RandomState};
 
 use alloc::{borrow::Borrow, boxed::Box, vec, vec::Vec};
 use core::marker::PhantomData;
