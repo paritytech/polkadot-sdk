@@ -28,10 +28,14 @@ use crate::{test_cases::bridges_prelude::*, test_data};
 
 use asset_test_utils::BasicParachainRuntime;
 use bp_messages::{
-	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
-	LaneState, MessageKey, MessagesOperatingMode, OutboundLaneData,
+	source_chain::FromBridgedChainMessagesDeliveryProof,
+	target_chain::{
+		DispatchMessage, DispatchMessageData, FromBridgedChainMessagesProof, MessageDispatch,
+	},
+	LaneState, MessageKey, MessagesOperatingMode, OutboundLaneData, UnrewardedRelayersState,
 };
-use bp_runtime::BasicOperatingMode;
+use bp_polkadot_core::parachains::ParaHash;
+use bp_runtime::{BasicOperatingMode, Chain, Parachain};
 use codec::Encode;
 use frame_support::{
 	assert_ok,
@@ -70,7 +74,7 @@ pub use for_pallet_xcm_bridge_hub::open_and_close_bridge_works;
 
 // Re-export test_case from assets
 pub use asset_test_utils::include_teleports_for_native_asset_works;
-use pallet_bridge_messages::LaneIdOf;
+use pallet_bridge_messages::{BridgedChainOf, LaneIdOf};
 
 pub type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
 	parachains_runtimes_test_utils::RuntimeHelper<Runtime, AllPalletsWithoutSystem>;
@@ -658,6 +662,73 @@ where
 	assert!(estimated_fee > BalanceOf::<Runtime>::zero());
 
 	estimated_fee.into()
+}
+
+pub fn can_calculate_fee_for_standalone_message_delivery_transaction<Runtime, MPI>(
+	collator_session_key: CollatorSessionKeys<Runtime>,
+	runtime_para_id: u32,
+	compute_extrinsic_fee: fn(<Runtime as frame_system::Config>::RuntimeCall) -> u128,
+) -> u128
+where
+	Runtime: BasicParachainRuntime
+		+ pallet_bridge_messages::Config<MPI, InboundPayload = test_data::XcmAsPlainPayload>,
+	MPI: 'static,
+	RuntimeCallOf<Runtime>: From<BridgeMessagesCall<Runtime, MPI>>,
+	BridgedChainOf<Runtime, MPI>: Chain<Hash = ParaHash> + Parachain,
+{
+	run_test::<Runtime, _>(collator_session_key, runtime_para_id, vec![], || {
+		let message_proof = FromBridgedChainMessagesProof {
+			bridged_header_hash: Default::default(),
+			storage_proof: Default::default(),
+			lane: Default::default(),
+			nonces_start: Default::default(),
+			nonces_end: Default::default(),
+		};
+
+		let call = test_data::from_parachain::make_standalone_relayer_delivery_call::<Runtime, MPI>(
+			message_proof,
+			helpers::relayer_id_at_bridged_chain::<Runtime, MPI>(),
+		);
+
+		compute_extrinsic_fee(call)
+	})
+}
+
+pub fn can_calculate_fee_for_standalone_message_confirmation_transaction<Runtime, MPI>(
+	collator_session_key: CollatorSessionKeys<Runtime>,
+	runtime_para_id: u32,
+	compute_extrinsic_fee: fn(<Runtime as frame_system::Config>::RuntimeCall) -> u128,
+) -> u128
+where
+	Runtime: BasicParachainRuntime
+		+ BridgeMessagesConfig<
+			MPI,
+			InboundPayload = test_data::XcmAsPlainPayload,
+			OutboundPayload = test_data::XcmAsPlainPayload,
+		> + pallet_bridge_messages::Config<MPI, InboundPayload = test_data::XcmAsPlainPayload>,
+	MPI: 'static,
+	RuntimeCallOf<Runtime>: From<BridgeMessagesCall<Runtime, MPI>>,
+	BridgedChainOf<Runtime, MPI>: Chain<Hash = ParaHash> + Parachain,
+{
+	run_test::<Runtime, _>(collator_session_key, runtime_para_id, vec![], || {
+		let unrewarded_relayers = UnrewardedRelayersState {
+			unrewarded_relayer_entries: 1,
+			total_messages: 1,
+			..Default::default()
+		};
+		let message_delivery_proof = FromBridgedChainMessagesDeliveryProof {
+			bridged_header_hash: Default::default(),
+			storage_proof: Default::default(),
+			lane: Default::default(),
+		};
+
+		let call = test_data::from_parachain::make_standalone_relayer_confirmation_call::<
+			Runtime,
+			MPI,
+		>(message_delivery_proof, unrewarded_relayers);
+
+		compute_extrinsic_fee(call)
+	})
 }
 
 pub(crate) mod for_pallet_xcm_bridge_hub {

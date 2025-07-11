@@ -99,6 +99,7 @@ bp-bridge-hub-rococo = { workspace = true }
 bp-bridge-hub-westend = { workspace = true }
 bp-header-chain = { workspace = true }
 bp-messages = { workspace = true }
+bp-polkadot-core = { workspace = true }
 bp-relayers = { workspace = true }
 bp-runtime = { workspace = true }
 bridge-hub-common = { workspace = true }
