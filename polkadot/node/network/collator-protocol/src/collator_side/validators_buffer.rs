@@ -63,7 +63,7 @@ pub const VALIDATORS_BUFFER_CAPACITY: NonZeroUsize =
 	};
 
 /// Unique identifier of a validators group.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct ValidatorsGroupInfo {
 	/// Number of validators in the group.
 	len: usize,
@@ -74,7 +74,7 @@ struct ValidatorsGroupInfo {
 /// Ring buffer of validator groups.
 ///
 /// Tracks which peers we want to be connected to with respect to advertised collations.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ValidatorGroupsBuffer {
 	/// Validator groups identifiers we **had** advertisements for.
 	group_infos: VecDeque<ValidatorsGroupInfo>,
@@ -96,32 +96,6 @@ impl ValidatorGroupsBuffer {
 			should_be_connected: HashMap::new(),
 			cap,
 		}
-	}
-
-	/// Returns discovery ids of validators we are assigned to in this backing group window.
-	pub fn validators_to_connect(&self) -> Vec<AuthorityDiscoveryId> {
-		let validators_num = self.validators.len();
-		let bits = self
-			.should_be_connected
-			.values()
-			.fold(bitvec![0; validators_num], |acc, next| acc | next);
-
-		let mut should_be_connected: Vec<AuthorityDiscoveryId> = self
-			.validators
-			.iter()
-			.enumerate()
-			.filter_map(|(idx, authority_id)| bits[idx].then(|| authority_id.clone()))
-			.collect();
-
-		if let Some(last_group) = self.group_infos.iter().last() {
-			for validator in self.validators.iter().rev().take(last_group.len) {
-				if !should_be_connected.contains(validator) {
-					should_be_connected.push(validator.clone());
-				}
-			}
-		}
-
-		should_be_connected
 	}
 
 	/// Note a new advertisement, marking that we want to be connected to validators

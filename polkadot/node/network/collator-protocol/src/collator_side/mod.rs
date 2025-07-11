@@ -120,7 +120,7 @@ enum ShouldAdvertiseTo {
 /// Info about validators we are currently connected to.
 ///
 /// It keeps track to which validators we advertised our collation.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 struct ValidatorGroup {
 	/// Validators discovery ids. Lazily initialized when first
 	/// distributing a collation.
@@ -386,7 +386,10 @@ async fn distribute_collation<Context>(
 ) -> Result<()> {
 	let candidate_relay_parent = receipt.descriptor.relay_parent();
 	let candidate_hash = receipt.hash();
-	let cores_assigned = has_assigned_cores(&state.implicit_view, &state.per_relay_parent);
+
+	// We should already be connected to the validators, but if we aren't, we will connect to them
+	// now.
+	connect_to_validators(ctx, &state.implicit_view, &state.per_relay_parent).await;
 
 	let per_relay_parent = match state.per_relay_parent.get_mut(&candidate_relay_parent) {
 		Some(per_relay_parent) => per_relay_parent,
@@ -497,9 +500,6 @@ async fn distribute_collation<Context>(
 		group.validators = validators;
 		group
 	});
-
-	// Update a set of connected validators if necessary.
-	connect_to_validators(ctx, cores_assigned, &state.validator_groups_buf).await;
 
 	if let Some(result_sender) = result_sender {
 		state.collation_result_senders.insert(candidate_hash, result_sender);
@@ -647,19 +647,41 @@ fn has_assigned_cores(
 	false
 }
 
+fn list_of_backing_validators_in_view(
+	implicit_view: &Option<ImplicitView>,
+	per_relay_parent: &HashMap<Hash, PerRelayParent>,
+) -> Vec<AuthorityDiscoveryId> {
+	let mut backing_validators = HashSet::new();
+	let Some(implicit_view) = implicit_view else { return vec![] };
+
+	for leaf in implicit_view.leaves() {
+		if let Some(relay_parent) = per_relay_parent.get(leaf) {
+			for group in relay_parent.validator_group.values() {
+				backing_validators.extend(group.validators.iter().cloned());
+			}
+		}
+	}
+
+	backing_validators.into_iter().collect()
+}
+
 /// Updates a set of connected validators based on their advertisement-bits
 /// in a validators buffer.
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
 async fn connect_to_validators<Context>(
 	ctx: &mut Context,
-	cores_assigned: bool,
-	validator_groups_buf: &ValidatorGroupsBuffer,
+	implicit_view: &Option<ImplicitView>,
+	per_relay_parent: &HashMap<Hash, PerRelayParent>,
 ) {
+	let cores_assigned = has_assigned_cores(implicit_view, per_relay_parent);
 	// If no cores are assigned to the para, we still need to send a ConnectToValidators request to
 	// the network bridge passing an empty list of validator ids. Otherwise, it will keep connecting
 	// to the last requested validators until a new request is issued.
-	let validator_ids =
-		if cores_assigned { validator_groups_buf.validators_to_connect() } else { Vec::new() };
+	let validator_ids = if cores_assigned {
+		list_of_backing_validators_in_view(implicit_view, per_relay_parent)
+	} else {
+		Vec::new()
+	};
 
 	gum::trace!(
 		target: LOG_TARGET,
@@ -1243,6 +1265,7 @@ async fn handle_network_msg<Context>(
 		OurViewChange(view) => {
 			gum::trace!(target: LOG_TARGET, ?view, "Own view change");
 			handle_our_view_change(ctx, state, view).await?;
+			connect_to_validators(ctx, &state.implicit_view, &state.per_relay_parent).await;
 		},
 		PeerMessage(remote, msg) => {
 			handle_incoming_peer_message(ctx, runtime, state, remote, msg).await?;
@@ -1668,8 +1691,8 @@ async fn run_inner<Context>(
 				}
 			}
 			_ = reconnect_timeout => {
-				let cores_assigned = has_assigned_cores(&state.implicit_view, &state.per_relay_parent);
-				connect_to_validators(&mut ctx, cores_assigned, &state.validator_groups_buf).await;
+
+				connect_to_validators(&mut ctx, &state.implicit_view, &state.per_relay_parent).await;
 
 				gum::trace!(
 					target: LOG_TARGET,
