@@ -218,7 +218,7 @@ this, we will have to find a way to roll back selected state of the relay chain.
 Category: Runtime
 
 In the attestation process, validators may submit only one `Candidate` message for a given relay chain block. If issuing
-a `Candidate` message on a parachain block, neither a `Valid` or `Invalid` vote cannot be issued on that parachain
+a `Candidate` message on a parachain block, neither a `Valid` or `Invalid` vote can be issued on that parachain
 block, as the `Candidate` message is an implicit validity vote. Otherwise, it is illegal to cast both a `Valid` and
 `Invalid` vote on a given parachain block.
 
