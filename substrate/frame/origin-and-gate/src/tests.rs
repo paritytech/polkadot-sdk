@@ -2028,6 +2028,87 @@ mod unit_test {
 			});
 		}
 	}
+
+	mod max_approvals_scaling {
+		use super::*;
+
+		// Helper function to test a specific MaxApprovals value
+		fn test_with_max_approvals(max_approvals: u32) {
+			new_test_ext().execute_with(|| {
+				// Set MaxApprovals for this test
+				MaxApprovals::set(max_approvals);
+
+				System::set_block_number(1);
+
+				// Create a call for our test
+				let call = make_remark_call("1000").unwrap();
+				let call_hash = <Test as Config>::Hashing::hash_of(&call);
+
+				// Create proposal by Alice
+				assert_ok!(OriginAndGate::propose(
+					RuntimeOrigin::signed(ALICE),
+					call.clone(),
+					ALICE_ORIGIN_ID,
+					None, // No expiry
+				));
+
+				// Verify proposal was created with Pending status
+				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+				assert_eq!(proposal.status, ProposalStatus::Pending);
+
+				// Proposer counts as 1 approval already
+				let required_additional_approvals = max_approvals - 1;
+
+				// Add approvals from other accounts
+				let approvers = [BOB, CHARLIE];
+				let origin_ids = [BOB_ORIGIN_ID, CHARLIE_ORIGIN_ID];
+
+				// Add all but last required approval without auto-execute
+				for i in 0..required_additional_approvals - 1 {
+					assert_ok!(OriginAndGate::add_approval(
+						RuntimeOrigin::signed(approvers[i as usize]),
+						call_hash,
+						ALICE_ORIGIN_ID,
+						origin_ids[i as usize],
+						false, // Don't auto-execute
+					));
+
+					// Verify proposal still in Pending state
+					let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+					assert_eq!(proposal.status, ProposalStatus::Pending);
+				}
+
+				// Add final approval with auto-execute
+				let final_approver_index = required_additional_approvals - 1;
+				assert_ok!(OriginAndGate::add_approval(
+					RuntimeOrigin::signed(approvers[final_approver_index as usize]),
+					call_hash,
+					ALICE_ORIGIN_ID,
+					origin_ids[final_approver_index as usize],
+					true, // Auto-execute
+				));
+
+				// Verify proposal was executed
+				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+				assert_eq!(proposal.status, ProposalStatus::Executed);
+
+				// Verify dummy value was set
+				assert_eq!(Dummy::<Test>::get(), Some(1000));
+			});
+		}
+
+		#[test]
+		fn proposal_execution_requires_max_approvals_minus_one_additional_approvals() {
+			// Verifies that proposals require (MaxApprovals - 1) additional approvals
+			// after the proposer in order to auto-execute or manually execute
+
+			// Test with MaxApprovals = 2
+			test_with_max_approvals(2);
+
+			// Test with MaxApprovals = 3
+			test_with_max_approvals(3);
+		}
+	}
 }
 
 /// Integration tests for this pallet focusing on verifying end-to-end
