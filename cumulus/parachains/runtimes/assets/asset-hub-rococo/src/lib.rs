@@ -1706,8 +1706,7 @@ impl_runtime_apis! {
 				Config as XcmBridgeHubRouterConfig,
 			};
 
-			use testnet_parachains_constants::rococo::locations::{PeopleParaId,
-				AssetHubParaId, AssetHubLocation, PeopleLocation};
+			use testnet_parachains_constants::rococo::locations::{PeopleParaId, PeopleLocation};
 			parameter_types! {
 				pub ExistentialDepositAsset: Option<Asset> = Some((
 					TokenLocation::get(),
