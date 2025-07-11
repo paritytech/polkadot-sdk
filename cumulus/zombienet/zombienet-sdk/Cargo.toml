@@ -15,8 +15,10 @@ polkadot-primitives = { workspace = true, default-features = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
+futures = { workspace = true }
 zombienet-sdk = { workspace = true }
 zombienet-orchestrator = { workspace = true }
+zombienet-configuration = { workspace = true }
 cumulus-zombienet-sdk-helpers = { workspace = true }
 sp-statement-store = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }

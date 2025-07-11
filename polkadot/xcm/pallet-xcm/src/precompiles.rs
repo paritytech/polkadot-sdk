@@ -15,7 +15,7 @@
 
 use crate::{Config, VersionedLocation, VersionedXcm, Weight, WeightInfo};
 use alloc::vec::Vec;
-use codec::{DecodeAll, DecodeLimit, Encode};
+use codec::{DecodeAll, DecodeLimit};
 use core::{fmt, marker::PhantomData, num::NonZero};
 use pallet_revive::{
 	precompiles::{
@@ -32,7 +32,6 @@ alloy::sol!("src/precompiles/IXcm.sol");
 use IXcm::IXcmCalls;
 
 const LOG_TARGET: &str = "xcm::precompiles";
-const RETURN_VALUE: &str = "";
 
 fn revert(error: &impl fmt::Debug, message: &str) -> Error {
 	error!(target: LOG_TARGET, ?error, "{}", message);
@@ -95,7 +94,7 @@ where
 					final_destination.into(),
 					final_message.into(),
 				)
-				.map(|_| RETURN_VALUE.encode())
+				.map(|_| Vec::new())
 				.map_err(|error| {
 					revert(
 						&error,
@@ -133,7 +132,7 @@ where
 				let actual_weight = frame_support::dispatch::extract_actual_weight(&result, &pre);
 				env.adjust_gas(charged_amount, actual_weight);
 
-				result.map(|_| RETURN_VALUE.encode()).map_err(|error| {
+				result.map(|_| Vec::new()).map_err(|error| {
 					revert(
 							&error,
 							"XCM execute failed: message may be invalid or execution constraints not satisfied"
