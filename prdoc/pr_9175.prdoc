@@ -11,12 +11,12 @@ crates:
 - name: cumulus-client-consensus-relay-chain
   bump: patch
 - name: sc-consensus-aura
-  bump: patch
+  bump: major
 - name: sc-consensus-babe
   bump: patch
 - name: sc-consensus-pow
   bump: patch
 - name: sp-block-builder
-  bump: patch
+  bump: minor
 - name: sp-inherents
   bump: patch
