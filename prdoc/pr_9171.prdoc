@@ -1,5 +1,0 @@
-title: Improve `pr_8860.prdoc`
-doc:
-- audience: Node Operator
-  description: Improved PR doc for https://github.com/paritytech/polkadot-sdk/pull/8860
-crates: []
