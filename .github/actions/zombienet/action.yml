@@ -62,7 +62,6 @@ runs:
         TEST_NAME: ${{ inputs.test }}
         LOCAL_PATH: ${{ inputs.local-dir }}
         CONCURRENCY: ${{ inputs.concurrency }}
-        ZOMBIE_BASE_DIR: ${{ inputs.zombie-base-dir }}
       run: |
         if [[ "$ZOMBIENET_PROVIDER" == "native" ]]; then
           # set path to downloaded binaries
