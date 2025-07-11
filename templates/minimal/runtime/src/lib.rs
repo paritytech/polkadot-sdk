@@ -261,7 +261,7 @@ impl_runtime_apis! {
 			block: Block,
 			data: InherentData,
 		) -> CheckInherentsResult {
-			data.check_extrinsics(&block)
+			data.check_extrinsics_from_runtime_api(block)
 		}
 	}
 

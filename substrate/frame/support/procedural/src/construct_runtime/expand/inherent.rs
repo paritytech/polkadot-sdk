@@ -56,7 +56,14 @@ pub fn expand_outer_inherent(
 		trait InherentDataExt {
 			fn create_extrinsics(&self) ->
 				#scrate::__private::Vec<<#block as #scrate::sp_runtime::traits::Block>::Extrinsic>;
+
 			fn check_extrinsics(&self, block: &#block) -> #scrate::inherent::CheckInherentsResult;
+
+			fn check_extrinsics_from_runtime_api(&self, block: #block) ->
+				#scrate::inherent::CheckInherentsResult
+			{
+				self.check_extrinsics(&block)
+			}
 		}
 
 		impl InherentDataExt for #scrate::inherent::InherentData {
