@@ -13,14 +13,8 @@ use tokio::{
 	time::{sleep, Duration},
 };
 use zombienet_sdk::subxt::{
-	backend::legacy::LegacyRpcMethods,
-	blocks::Block,
-	config::Header,
-	events::Events,
-	ext::scale_value::value,
-	tx::DynamicPayload,
-	utils::H256,
-	OnlineClient, PolkadotConfig,
+	backend::legacy::LegacyRpcMethods, blocks::Block, config::Header, events::Events,
+	ext::scale_value::value, tx::DynamicPayload, utils::H256, OnlineClient, PolkadotConfig,
 };
 
 // Maximum number of blocks to wait for a session change.
@@ -28,6 +22,32 @@ use zombienet_sdk::subxt::{
 const WAIT_MAX_BLOCKS_FOR_SESSION: u32 = 50;
 
 /// Create a batch call to assign cores to a parachain.
+///
+/// Zombienet by default adds extra core for each registered parachain additionally to the one
+/// requested by `num_cores`. It then assigns the parachains to the extra cores allocated at the
+/// end. So, the passed core indices should be counted from zero.
+///
+/// # Example
+///
+/// Genesis patch:
+/// ```json
+/// "configuration": {
+/// 		"config": {
+/// 			"scheduler_params": {
+/// 				"num_cores": 2,
+/// 			}
+/// 		}
+/// 	}
+/// ```
+///
+/// Runs the relay chain with `2` cores and we also add two parachains.
+/// To assign these extra `2` cores, the call would look like this:
+///
+/// ```rust
+/// create_assign_core_call(&[(0, 2400), (1, 2400)])
+/// ```
+///
+/// The cores `2` and `3` are assigned to the parachains by zombienet.
 pub fn create_assign_core_call(core_and_para: &[(u32, u32)]) -> DynamicPayload {
 	let mut assign_cores = vec![];
 	for (core, para_id) in core_and_para.iter() {
@@ -194,7 +214,6 @@ async fn is_session_change(
 		})
 	}))
 }
-
 
 /// Returns [`CoreInfo`] for the given parachain block.
 fn find_core_info(

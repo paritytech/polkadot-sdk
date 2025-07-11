@@ -66,7 +66,7 @@ async fn pov_bundling() -> Result<(), anyhow::Error> {
 	// 3 relay chain blocks
 	assert_finality_lag(&para_client, 72).await?;
 
-	let assign_cores_call = create_assign_core_call(&[(2, PARA_ID), (3, PARA_ID)]);
+	let assign_cores_call = create_assign_core_call(&[(0, PARA_ID), (1, PARA_ID)]);
 
 	relay_client
 		.tx()
@@ -86,7 +86,7 @@ async fn pov_bundling() -> Result<(), anyhow::Error> {
 	.await?;
 	assert_finality_lag(&para_client, 72).await?;
 
-	let assign_cores_call = create_assign_core_call(&[(4, PARA_ID), (5, PARA_ID), (6, PARA_ID)]);
+	let assign_cores_call = create_assign_core_call(&[(2, PARA_ID), (3, PARA_ID), (4, PARA_ID)]);
 	// Assign two extra cores to each parachain.
 	relay_client
 		.tx()

@@ -55,8 +55,8 @@ async fn pov_bundling_3cores_glutton() -> Result<(), anyhow::Error> {
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 	let alice = dev::alice();
 
-	// Assign cores 2 and 3 to start with 3 cores total (core 1 is auto-assigned)
-	let assign_cores_call = create_assign_core_call(&[(2, PARA_ID), (3, PARA_ID)]);
+	// Assign cores 0 and 1 to start with 3 cores total (core 1 is auto-assigned)
+	let assign_cores_call = create_assign_core_call(&[(0, PARA_ID), (1, PARA_ID)]);
 
 	relay_client
 		.tx()
