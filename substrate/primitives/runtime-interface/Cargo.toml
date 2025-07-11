@@ -18,6 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 bytes = { workspace = true }
+byte-slice-cast = { workspace = true }
 codec = { features = ["bytes"], workspace = true }
 impl-trait-for-tuples = { workspace = true }
 primitive-types = { workspace = true }
@@ -43,6 +44,7 @@ trybuild = { workspace = true }
 default = ["std"]
 std = [
 	"bytes/std",
+	"byte-slice-cast/std",
 	"codec/std",
 	"primitive-types/std",
 	"sp-externalities/std",
