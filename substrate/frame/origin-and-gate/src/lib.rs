@@ -602,8 +602,28 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		/// Cancel pending proposal is only callable by original proposer
+		/// Execute a proposal that has met the required approvals
 		#[pallet::call_index(2)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::execute_proposal())]
+		pub fn execute_proposal(
+			origin: OriginFor<T>,
+			proposal_hash: T::Hash,
+			origin_id: T::OriginId,
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
+
+			// Get proposal info
+			let proposal = <Proposals<T>>::get(&proposal_hash, &origin_id)
+				.ok_or(Error::<T>::ProposalNotFound)?;
+
+			// Execute the proposal
+			Self::check_and_execute_proposal(proposal_hash, origin_id, proposal)?;
+
+			Ok(().into())
+		}
+
+		/// Cancel pending proposal is only callable by original proposer
+		#[pallet::call_index(3)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::cancel_proposal())]
 		pub fn cancel_proposal(
 			origin: OriginFor<T>,
@@ -657,7 +677,7 @@ pub mod pallet {
 		/// - `withdrawing_origin_id`: The origin id to withdraw the approval for since the account
 		///   might need to specify which of their multiple origin authorities they approved with
 		///   that they are now withdrawing approval for.
-		#[pallet::call_index(3)]
+		#[pallet::call_index(4)]
 		#[pallet::weight((<T as pallet::Config>::WeightInfo::withdraw_approval(), DispatchClass::Normal))]
 		pub fn withdraw_approval(
 			origin: OriginFor<T>,
@@ -728,7 +748,7 @@ pub mod pallet {
 		///
 		/// The weight for this extrinsic we use our own weight object `WeightForSetDummy`
 		/// or set_dummy() extrinsic to determine its weight
-		#[pallet::call_index(4)]
+		#[pallet::call_index(5)]
 		// #[pallet::weight(WeightForSetDummy::<T>(<BalanceOf<T>>::from(100u64.into())))]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_dummy())]
 		pub fn set_dummy(
@@ -753,7 +773,7 @@ pub mod pallet {
 		}
 
 		/// Clean up storage for a proposal that is no longer pending
-		#[pallet::call_index(5)]
+		#[pallet::call_index(6)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::clean())]
 		pub fn clean(
 			origin: OriginFor<T>,
@@ -793,26 +813,6 @@ pub mod pallet {
 				origin_id,
 				timepoint: cleanup_timepoint,
 			});
-
-			Ok(().into())
-		}
-
-		/// Execute a proposal that has met the required approvals
-		#[pallet::call_index(6)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::execute_proposal())]
-		pub fn execute_proposal(
-			origin: OriginFor<T>,
-			proposal_hash: T::Hash,
-			origin_id: T::OriginId,
-		) -> DispatchResultWithPostInfo {
-			ensure_signed(origin)?;
-
-			// Get proposal info
-			let proposal = <Proposals<T>>::get(&proposal_hash, &origin_id)
-				.ok_or(Error::<T>::ProposalNotFound)?;
-
-			// Execute the proposal
-			Self::check_and_execute_proposal(proposal_hash, origin_id, proposal)?;
 
 			Ok(().into())
 		}

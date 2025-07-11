@@ -140,6 +140,52 @@ mod benchmarks {
 	}
 
 	#[benchmark]
+	fn execute_proposal() -> Result<(), BenchmarkError> {
+		// Phase 1: Setup
+		let caller: T::AccountId = whitelisted_caller();
+		let proposer: T::AccountId = account("proposer", 0, 0);
+		let approver1: T::AccountId = account("approver1", 0, 0);
+		let call: <T as Config>::RuntimeCall =
+			frame_system::Call::<T>::remark { remark: vec![] }.into();
+		// Get hash output and convert it to T::Hash with proper type casting
+		let hash_output = <T as pallet::Config>::Hashing::hash_of(&call);
+		let call_hash = convert_hash::<T>(&hash_output);
+
+		// Convert u8 to T::OriginId using our helper
+		let origin_id = make_origin_id::<T>(ALICE_ORIGIN_ID);
+		let approving_origin_id1 = make_origin_id::<T>(BOB_ORIGIN_ID);
+		let expiry = None;
+
+		Pallet::<T>::propose(
+			RawOrigin::Signed(proposer).into(),
+			Box::new(call),
+			origin_id,
+			expiry,
+		)?;
+
+		// Add approvals but do not auto-execute
+		Pallet::<T>::add_approval(
+			RawOrigin::Signed(approver1).into(),
+			call_hash,
+			origin_id,
+			approving_origin_id1,
+			false, // Do not auto-execute
+		)?;
+
+		// Phase 2: Execution
+		#[extrinsic_call]
+		execute_proposal(RawOrigin::Signed(caller), call_hash, origin_id);
+
+		// Phase 3: Verification
+		assert!(
+			Pallet::<T>::proposals(call_hash, origin_id).is_some(),
+			"Proposal must still exist after execute_proposal"
+		);
+
+		Ok(())
+	}
+
+	#[benchmark]
 	fn cancel_proposal() -> Result<(), BenchmarkError> {
 		// Phase 1: Setup
 		let caller: T::AccountId = whitelisted_caller();
@@ -289,52 +335,6 @@ mod benchmarks {
 		assert!(
 			Pallet::<T>::proposals(call_hash, origin_id).is_none(),
 			"Proposal must not exist after cleaning"
-		);
-
-		Ok(())
-	}
-
-	#[benchmark]
-	fn execute_proposal() -> Result<(), BenchmarkError> {
-		// Phase 1: Setup
-		let caller: T::AccountId = whitelisted_caller();
-		let proposer: T::AccountId = account("proposer", 0, 0);
-		let approver1: T::AccountId = account("approver1", 0, 0);
-		let call: <T as Config>::RuntimeCall =
-			frame_system::Call::<T>::remark { remark: vec![] }.into();
-		// Get hash output and convert it to T::Hash with proper type casting
-		let hash_output = <T as pallet::Config>::Hashing::hash_of(&call);
-		let call_hash = convert_hash::<T>(&hash_output);
-
-		// Convert u8 to T::OriginId using our helper
-		let origin_id = make_origin_id::<T>(ALICE_ORIGIN_ID);
-		let approving_origin_id1 = make_origin_id::<T>(BOB_ORIGIN_ID);
-		let expiry = None;
-
-		Pallet::<T>::propose(
-			RawOrigin::Signed(proposer).into(),
-			Box::new(call),
-			origin_id,
-			expiry,
-		)?;
-
-		// Add approvals but do not auto-execute
-		Pallet::<T>::add_approval(
-			RawOrigin::Signed(approver1).into(),
-			call_hash,
-			origin_id,
-			approving_origin_id1,
-			false, // Do not auto-execute
-		)?;
-
-		// Phase 2: Execution
-		#[extrinsic_call]
-		execute_proposal(RawOrigin::Signed(caller), call_hash, origin_id);
-
-		// Phase 3: Verification
-		assert!(
-			Pallet::<T>::proposals(call_hash, origin_id).is_some(),
-			"Proposal must still exist after execute_proposal"
 		);
 
 		Ok(())
