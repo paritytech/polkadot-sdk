@@ -350,8 +350,8 @@ where
 
 		// Note: we want to treat multiple offences by a unique validator in the same session
 		// as duplicate to avoid excessive number of offences. We use the session_index as the
-		// round to ensure uniqueness across sessions while maintaining consistency within a session.
-		// This prevents offences from different sessions being treated as duplicates.
+		// round to ensure uniqueness across sessions while maintaining consistency within a
+		// session. This prevents offences from different sessions being treated as duplicates.
 		let offence = EquivocationOffence {
 			time_slot: TimeSlot { set_id, round: session_index.into() },
 			session_index,
