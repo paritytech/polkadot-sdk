@@ -615,6 +615,7 @@ needless-lifetimes = { level = "allow", priority = 2 }               # generated
 needless_option_as_deref = { level = "allow", priority = 2 }         # false positives
 nonminimal-bool = { level = "allow", priority = 2 }                  # maybe
 option-map-unit-fn = { level = "allow", priority = 2 }               # stylistic
+result_large_err = { level = "allow", priority = 2 }                 # 176 byte error variant causes this.
 stable_sort_primitive = { level = "allow", priority = 2 }            # prefer stable sort
 too-many-arguments = { level = "allow", priority = 2 }               # (Turning this on would lead to)
 type_complexity = { level = "allow", priority = 2 }                  # raison d'etre

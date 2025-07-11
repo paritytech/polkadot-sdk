@@ -16,10 +16,7 @@ permissions:
   contents: read
 
 jobs:
-  isdraft:
-    uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
-    needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
 
   build-runtimes-polkavm:
@@ -67,9 +64,13 @@ jobs:
           rustup show
           rustup +nightly show
 
+      - name: download forklift
+        run: /builds/download-forklift.sh -v master && forklift version
+
       - name: Build
         id: required
-        run: cargo +nightly check -p pallet-revive-uapi --no-default-features --target riscv64imac-unknown-none-elf -Zbuild-std=core
+        run: FORKLIFT_general_logLevel=trace forklift cargo +nightly check -p pallet-revive-uapi --no-default-features --target riscv64imac-unknown-none-elf -Zbuild-std=core
+      - run:  ls -al target/debug/deps/libunicode_ident*
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
