@@ -802,10 +802,6 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_commission() {
-		// Asset Hub runtime uses RelaychainDataProvider as BlockNumberProvider for nomination
-		// pools. Commission throttling needs proper relay chain block number setup in benchmarks.
-		frame_system::Pallet::<T>::set_block_number(0u32.into());
-
 		// Create a pool - do not set a commission yet.
 		let (depositor, _pool_account) =
 			create_pool_account::<T>(0, Pools::<T>::depositor_min_bond() * 2u32.into(), None);
@@ -882,11 +878,6 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_commission_change_rate() {
-		// Asset Hub runtime uses RelaychainDataProvider as BlockNumberProvider for nomination
-		// pools. Setting change rate initializes throttle_from, requiring relay chain block
-		// setup.
-		frame_system::Pallet::<T>::set_block_number(0u32.into());
-
 		// Create a pool.
 		let (depositor, _pool_account) =
 			create_pool_account::<T>(0, Pools::<T>::depositor_min_bond() * 2u32.into(), None);

@@ -24,7 +24,7 @@ use frame_support::{
 };
 use pallet_staking_async_rc_client;
 use sp_runtime::{
-	traits::{Convert, IdentityLookup},
+	traits::{BlockNumberProvider, Convert, IdentityLookup},
 	BuildStorage, FixedU128, Perbill,
 };
 use sp_staking::currency_to_vote::SaturatingCurrencyToVote;
@@ -133,6 +133,16 @@ impl Convert<sp_core::U256, Balance> for U256ToBalance {
 	}
 }
 
+pub struct BenchmarkBlockNumberProvider;
+impl BlockNumberProvider for BenchmarkBlockNumberProvider {
+	type BlockNumber = BlockNumber;
+
+	fn current_block_number() -> Self::BlockNumber {
+		// Always return 0 for benchmarks to ensure throttle_from is 0
+		0u64
+	}
+}
+
 parameter_types! {
 	pub static PostUnbondingPoolsWindow: u32 = 10;
 	pub const PoolsPalletId: PalletId = PalletId(*b"py/nopls");
@@ -155,7 +165,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type PalletId = PoolsPalletId;
 	type MaxPointsToBalance = MaxPointsToBalance;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
-	type BlockNumberProvider = System;
+	type BlockNumberProvider = BenchmarkBlockNumberProvider;
 	type Filter = Nothing;
 }
 
