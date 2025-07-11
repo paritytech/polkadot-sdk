@@ -11,6 +11,7 @@ resolver = "2"
 members = [
 	"substrate/frame/election-provider-multi-phase",
 	"substrate/frame/staking-async/rc-client",
+	"substrate/frame/staking-async/ah-client",
 	"substrate/frame/staking-async",
 	"substrate/frame/election-provider-multi-block",
 	"substrate/frame/election-provider-multi-phase",
@@ -617,6 +618,7 @@ while_immutable_condition = { level = "allow", priority = 2 }        # false pos
 zero-prefixed-literal = { level = "allow", priority = 2 }            # 00_1000_000
 
 [workspace.dependencies]
+pallet-staking-async-ah-client = { path = "substrate/frame/staking-async/ah-client", default-features = false }
 pallet-staking-async = { path = "substrate/frame/staking-async", default-features = false }
 pallet-staking-async-rc-client = { path = "substrate/frame/staking-async/rc-client", default-features = false }
 pallet-election-provider-multi-block = { path = "substrate/frame/election-provider-multi-block", default-features = false }

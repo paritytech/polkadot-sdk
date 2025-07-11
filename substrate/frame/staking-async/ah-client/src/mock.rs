@@ -100,6 +100,7 @@ parameter_types! {
 }
 
 impl Config for Test {
+	type RuntimeEvent = RuntimeEvent;
 	type CurrencyBalance = u128;
 	type AssetHubOrigin = frame_system::EnsureRoot<u64>;
 	type AdminOrigin = frame_system::EnsureRoot<u64>;
