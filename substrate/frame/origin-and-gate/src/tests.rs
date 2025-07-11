@@ -1767,6 +1767,73 @@ mod unit_test {
 		}
 	}
 
+	mod proposal_execution_timing {
+		use super::*;
+
+		#[test]
+		fn proposal_execution_succeeds_before_proposal_lifetime_retention_period() {
+			new_test_ext().execute_with(|| {
+				System::set_block_number(1);
+
+				let call = make_remark_call("1000").unwrap();
+				let call_hash = <Test as Config>::Hashing::hash_of(&call);
+
+				// Create proposal by Alice with no expiry
+				assert_ok!(OriginAndGate::propose(
+					RuntimeOrigin::signed(ALICE),
+					call.clone(),
+					ALICE_ORIGIN_ID,
+					None, // No expiry
+				));
+
+				// Verify proposal has Pending status
+				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+				assert_eq!(proposal.status, ProposalStatus::Pending);
+
+				// Add Bob's approval without auto-execute
+				assert_ok!(OriginAndGate::add_approval(
+					RuntimeOrigin::signed(BOB),
+					call_hash,
+					ALICE_ORIGIN_ID,
+					BOB_ORIGIN_ID,
+					false, // Do not auto-execute
+				));
+
+				// Verify proposal still has Pending status with approvals from Alice + Bob
+				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+				assert_eq!(proposal.status, ProposalStatus::Pending);
+				assert_eq!(proposal.approvals.len(), MaxApprovals::get() as usize);
+
+				// Advance block number staying within retention period
+				// ProposalLifetime = 100, NonCancelledProposalRetentionPeriod = 50
+				System::set_block_number(100); // At the end of proposal lifetime
+
+				// Execute the proposal manually
+				assert_ok!(OriginAndGate::execute_proposal(
+					RuntimeOrigin::signed(ALICE),
+					call_hash,
+					ALICE_ORIGIN_ID,
+				));
+
+				// Verify proposal has Executed status
+				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+				assert_eq!(proposal.status, ProposalStatus::Executed);
+				assert_eq!(proposal.executed_at, Some(100));
+
+				// Verify dummy value was set
+				assert_eq!(Dummy::<Test>::get(), Some(1000));
+
+				// Verify execution event was emitted
+				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalExecuted {
+					proposal_hash: call_hash,
+					origin_id: ALICE_ORIGIN_ID,
+					result: Ok(()),
+					timepoint: Timepoint { height: 100, index: 0 },
+				}));
+			});
+		}
+	}
+
 	mod automatic_expiry {
 		use super::*;
 
@@ -1781,28 +1848,30 @@ mod unit_test {
 				let call1 = make_remark_call("1001").unwrap();
 				let call_hash1 =
 					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call1);
+
+				// Proposal 2: Expires at block 10 as well
+				let call2 = make_remark_call("1002").unwrap();
+				let call_hash2 =
+					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call2);
+
+				// Proposal 3: Expires at block 15
+				let call3 = make_remark_call("1003").unwrap();
+				let call_hash3 =
+					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call3);
+
+				// Create proposals
 				assert_ok!(OriginAndGate::propose(
 					RuntimeOrigin::signed(ALICE),
 					call1.clone(),
 					ALICE_ORIGIN_ID,
 					Some(10), // Expires at block 10
 				));
-
-				// Proposal 2: Expires at block 10 as well
-				let call2 = make_remark_call("1002").unwrap();
-				let call_hash2 =
-					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call2);
 				assert_ok!(OriginAndGate::propose(
 					RuntimeOrigin::signed(BOB),
 					call2.clone(),
 					BOB_ORIGIN_ID,
 					Some(10), // Expires at block 10
 				));
-
-				// Proposal 3: Expires at block 15
-				let call3 = make_remark_call("1003").unwrap();
-				let call_hash3 =
-					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call3);
 				assert_ok!(OriginAndGate::propose(
 					RuntimeOrigin::signed(ALICE),
 					call3.clone(),
