@@ -533,6 +533,19 @@ impl<T: Config> Pallet<T> {
 		RuntimeDispatchInfo { weight: dispatch_info.total_weight(), class, partial_fee }
 	}
 
+	/// Query the data that we know about the fee of a given `call` from a runtime API.
+	pub fn query_info_from_runtime_api<
+		Extrinsic: sp_runtime::traits::ExtrinsicLike + GetDispatchInfo,
+	>(
+		unchecked_extrinsic: Extrinsic,
+		len: u32,
+	) -> RuntimeDispatchInfo<BalanceOf<T>>
+	where
+		T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+	{
+		Self::query_info(unchecked_extrinsic.expect_as_ref(), len)
+	}
+
 	/// Query the detailed fee of a given `call`.
 	pub fn query_fee_details<Extrinsic: sp_runtime::traits::ExtrinsicLike + GetDispatchInfo>(
 		unchecked_extrinsic: Extrinsic,
@@ -551,6 +564,19 @@ impl<T: Config> Pallet<T> {
 		} else {
 			Self::compute_fee_details(len, &dispatch_info, tip)
 		}
+	}
+
+	/// Query the detailed fee of a given `call` from a runtime API.
+	pub fn query_fee_details_from_runtime_api<
+		Extrinsic: sp_runtime::traits::ExtrinsicLike + GetDispatchInfo,
+	>(
+		unchecked_extrinsic: Extrinsic,
+		len: u32,
+	) -> FeeDetails<BalanceOf<T>>
+	where
+		T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
+	{
+		Self::query_fee_details(unchecked_extrinsic.expect_as_ref(), len)
 	}
 
 	/// Query information of a dispatch class, weight, and fee of a given encoded `Call`.
