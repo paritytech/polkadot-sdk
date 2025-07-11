@@ -69,7 +69,7 @@ runs:
       env:
         # don't retry sdk tests
         NEXTEST_RETRIES: 0
-        TEST_FILTER: ${{ inputs.test }}
+        TEST_FILTER: ${{ inputs.test-filter }}
         PREFIX: ${{ inputs.prefix }}
       run: |
         # RUN_IN_CI=1 shall be set only for k8s provider

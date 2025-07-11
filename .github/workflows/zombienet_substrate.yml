@@ -73,7 +73,7 @@ jobs:
             runner-type: "default"
             concurrency: 4
             additional-setup: |
-              cp --remove-destination ./substrate/zombienet/0001-basic-warp-sync/chain-spec.json $./substrate/zombienet/0002-validators-warp-sync
+              cp --remove-destination ./substrate/zombienet/0001-basic-warp-sync/chain-spec.json ./substrate/zombienet/0002-validators-warp-sync
 
           - job-name: "zombienet-substrate-0003-block-building-warp-sync"
             test-definition: "test-block-building-warp-sync.zndsl"
@@ -81,7 +81,7 @@ jobs:
             runner-type: "default"
             concurrency: 4
             additional-setup: |
-              cp --remove-destination ./substrate/zombienet/0001-basic-warp-sync/chain-spec.json $./substrate/zombienet/0003-block-building-warp-sync
+              cp --remove-destination ./substrate/zombienet/0001-basic-warp-sync/chain-spec.json ./substrate/zombienet/0003-block-building-warp-sync
 
     steps:
       - name: Check if test is flaky
