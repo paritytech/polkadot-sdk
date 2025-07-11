@@ -230,7 +230,7 @@ impl pallet_treasury::Config<Instance1> for Test {
 }
 
 parameter_types! {
-	// This will be 50% of the bounty fee.
+	// This will be 50% of the bounty value.
 	pub const CuratorDepositMultiplier: Permill = Permill::from_percent(50);
 	pub const CuratorDepositMax: Balance = 1_000;
 	pub const CuratorDepositMin: Balance = 3;
@@ -357,7 +357,6 @@ pub fn expect_events(e: Vec<BountiesEvent<Test>>) {
 pub fn get_payment_id(
 	parent_bounty_id: BountyIndex,
 	child_bounty_id: Option<BountyIndex>,
-	dest: Option<u128>,
 ) -> Option<u64> {
 	let status =
 		pallet_bounties::Pallet::<Test>::get_bounty_status(parent_bounty_id, child_bounty_id)
@@ -370,19 +369,9 @@ pub fn get_payment_id(
 		BountyStatus::RefundAttempted {
 			payment_status: PaymentState::Attempted { id }, ..
 		} => Some(id),
-		BountyStatus::PayoutAttempted { curator_stash, beneficiary, .. } =>
-			dest.and_then(|account| {
-				if account == curator_stash.0 {
-					if let PaymentState::Attempted { id } = curator_stash.1 {
-						return Some(id);
-					}
-				} else if account == beneficiary.0 {
-					if let PaymentState::Attempted { id } = beneficiary.1 {
-						return Some(id);
-					}
-				}
-				None
-			}),
+		BountyStatus::PayoutAttempted {
+			payment_status: PaymentState::Attempted { id }, ..
+		} => Some(id),
 		_ => None,
 	}
 }
@@ -395,8 +384,7 @@ pub fn approve_payment(
 	amount: u64,
 ) {
 	assert_eq!(paid(dest, asset_kind), amount);
-	let payment_id =
-		get_payment_id(parent_bounty_id, child_bounty_id, Some(dest)).expect("no payment attempt");
+	let payment_id = get_payment_id(parent_bounty_id, child_bounty_id).expect("no payment attempt");
 	set_status(payment_id, PaymentStatus::Success);
 	assert_ok!(Bounties::check_status(RuntimeOrigin::signed(0), parent_bounty_id, child_bounty_id));
 }
@@ -409,8 +397,7 @@ pub fn reject_payment(
 	amount: u64,
 ) {
 	unpay(dest, asset_kind, amount);
-	let payment_id =
-		get_payment_id(parent_bounty_id, child_bounty_id, Some(dest)).expect("no payment attempt");
+	let payment_id = get_payment_id(parent_bounty_id, child_bounty_id).expect("no payment attempt");
 	set_status(payment_id, PaymentStatus::Failure);
 	assert_ok!(Bounties::check_status(RuntimeOrigin::signed(0), parent_bounty_id, child_bounty_id));
 }
@@ -422,14 +409,10 @@ pub struct TestBounty {
 	pub asset_kind: u32,
 	pub value: u64,
 	pub child_value: u64,
-	pub fee: u64,
-	pub child_fee: u64,
 	pub curator: u128,
 	pub curator_deposit: u64,
 	pub child_curator: u128,
 	pub child_curator_deposit: u64,
-	pub curator_stash: u128,
-	pub child_curator_stash: u128,
 	pub beneficiary: u128,
 	pub child_beneficiary: u128,
 }
@@ -438,17 +421,13 @@ pub fn setup_bounty() -> TestBounty {
 	let asset_kind = 1;
 	let value = 50;
 	let child_value = 10;
-	let fee = 10;
-	let child_fee = 6;
 	let curator = 4;
 	let child_curator = 8;
-	let curator_stash = 7;
-	let child_curator_stash = 10;
 	let beneficiary = 5;
 	let child_beneficiary = 9;
-	let expected_deposit = Bounties::calculate_curator_deposit(&fee, asset_kind).unwrap();
+	let expected_deposit = Bounties::calculate_curator_deposit(&value, asset_kind).unwrap();
 	let child_expected_deposit =
-		Bounties::calculate_curator_deposit(&child_fee, asset_kind).unwrap();
+		Bounties::calculate_curator_deposit(&child_value, asset_kind).unwrap();
 	Balances::make_free_balance_be(&curator, 100);
 	Balances::make_free_balance_be(&child_curator, 100);
 
@@ -458,14 +437,10 @@ pub fn setup_bounty() -> TestBounty {
 		asset_kind,
 		value,
 		child_value,
-		fee,
-		child_fee,
 		curator,
 		curator_deposit: expected_deposit,
 		child_curator,
 		child_curator_deposit: child_expected_deposit,
-		curator_stash,
-		child_curator_stash,
 		beneficiary,
 		child_beneficiary,
 	}
@@ -479,7 +454,6 @@ pub fn create_parent_bounty() -> TestBounty {
 		Box::new(s.asset_kind),
 		s.value,
 		s.curator,
-		s.fee,
 		b"1234567890".to_vec()
 	));
 	let parent_bounty_id = pallet_bounties::BountyCount::<Test>::get() - 1;
@@ -505,7 +479,6 @@ pub fn create_active_parent_bounty() -> TestBounty {
 		RuntimeOrigin::signed(s.curator),
 		s.parent_bounty_id,
 		None,
-		s.curator_stash
 	));
 
 	s
@@ -552,7 +525,6 @@ pub fn create_child_bounty_with_curator() -> TestBounty {
 		s.parent_bounty_id,
 		s.child_value,
 		Some(s.child_curator),
-		Some(s.child_fee),
 		b"1234567890".to_vec()
 	));
 	s.child_bounty_id =
@@ -596,8 +568,7 @@ pub fn create_active_child_bounty() -> TestBounty {
 	assert_ok!(Bounties::accept_curator(
 		RuntimeOrigin::signed(s.child_curator),
 		s.parent_bounty_id,
-		Some(s.child_bounty_id),
-		s.child_curator_stash
+		Some(s.child_bounty_id)
 	));
 
 	s
