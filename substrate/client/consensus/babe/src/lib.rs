@@ -345,6 +345,15 @@ pub enum Error<B: BlockT> {
 	/// Fork tree error
 	#[error(transparent)]
 	ForkTree(Box<fork_tree::Error<sp_blockchain::Error>>),
+	/// Invalid inherent transactions.
+	#[error("Invalid inherent transactions: {0}")]
+	InvalidInherents(sp_inherents::Error),
+	/// Invalid inherent transactions.
+	#[error("Invalid inherent transactions (unhandled): {0:?}")]
+	InvalidInherentsUnhandled(sp_inherents::InherentIdentifier),
+	/// Epoch unavailable.
+	#[error("Epoch unavailable for parent hash: {0}")]
+	EpochUnavailable(String),
 }
 
 impl<B: BlockT> From<Error<B>> for String {
@@ -1240,8 +1249,13 @@ where
 		if !inherent_res.ok() {
 			for (i, e) in inherent_res.into_errors() {
 				match create_inherent_data_providers.try_handle_error(&i, &e).await {
-					Some(res) => res.map_err(|e| ConsensusError::InvalidInherents(e))?,
-					None => return Err(ConsensusError::InvalidInherentsUnhandled(i)),
+					Some(res) => res.map_err(|e| {
+						ConsensusError::Other(Error::<Block>::InvalidInherents(e).into())
+					})?,
+					None =>
+						return Err(ConsensusError::Other(
+							Error::<Block>::InvalidInherentsUnhandled(i).into(),
+						)),
 				}
 			}
 		}
@@ -1418,14 +1432,23 @@ where
 					babe_pre_digest.slot(),
 				)
 				.map_err(|e| ConsensusError::Other(Box::new(e)))?
-				.ok_or_else(|| ConsensusError::EpochUnavailable(parent_hash.to_string()))?;
+				.ok_or_else(|| {
+					ConsensusError::Other(
+						Error::<Block>::EpochUnavailable(parent_hash.to_string()).into(),
+					)
+				})?;
 			let viable_epoch = epoch_changes
 				.viable_epoch(&epoch_descriptor, |slot| Epoch::genesis(&self.config, slot))
-				.ok_or_else(|| ConsensusError::EpochUnavailable(parent_hash.to_string()))?;
+				.ok_or_else(|| {
+					ConsensusError::Other(
+						Error::<Block>::EpochUnavailable(parent_hash.to_string()).into(),
+					)
+				})?;
 			let epoch = viable_epoch.as_ref();
 			match epoch.authorities.get(babe_pre_digest.authority_index() as usize) {
 				Some(author) => author.0.clone(),
-				None => return Err(ConsensusError::SlotAuthorNotFound),
+				None =>
+					return Err(ConsensusError::Other(Error::<Block>::SlotAuthorNotFound.into())),
 			}
 		};
 		if let Err(err) = self
