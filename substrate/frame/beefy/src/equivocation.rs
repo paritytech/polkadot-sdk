@@ -330,7 +330,6 @@ where
 
 		// We check the equivocation within the context of its set id (and associated session).
 		let set_id = evidence.set_id();
-		let round = *evidence.round_number();
 		let set_id_session_index = crate::SetIdSession::<T>::get(set_id)
 			.ok_or(Error::<T>::InvalidEquivocationProofSession)?;
 
@@ -349,8 +348,12 @@ where
 
 		evidence.check_equivocation_proof()?;
 
+		// Note: we want to treat multiple offences by a unique validator in the same session
+		// as duplicate to avoid excessive number of offences. We use the session_index as the
+		// round to ensure uniqueness across sessions while maintaining consistency within a session.
+		// This prevents offences from different sessions being treated as duplicates.
 		let offence = EquivocationOffence {
-			time_slot: TimeSlot { set_id, round },
+			time_slot: TimeSlot { set_id, round: session_index.into() },
 			session_index,
 			validator_set_count: validator_count,
 			offender,
