@@ -102,14 +102,13 @@ fn lock_behavior_when_consumer_limit_fully_exhausted() {
 			assert_eq!(Balances::locks(&1).len(), 1);
 			assert_eq!(Balances::locks(&1)[0].amount, 20);
 
-			// frozen amount is not updated.
-			assert_eq!(get_test_account_data(1).frozen, 0);
+			// frozen amount is also updated
+			assert_eq!(get_test_account_data(1).frozen, 20);
 
-			// And this allows the account to transfer (almost) all funds out of the account
-			assert_ok!(Balances::transfer_allow_death(
-				frame_system::RawOrigin::Signed(1).into(),
-				2,
-				90,
-			));
+			// And this account cannot transfer any funds out.
+			assert_noop!(
+				Balances::transfer_allow_death(frame_system::RawOrigin::Signed(1).into(), 2, 90,),
+				DispatchError::Token(TokenError::Frozen)
+			);
 		});
 }

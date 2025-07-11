@@ -19,7 +19,9 @@
 
 use crate::{
 	system::AccountInfo,
-	tests::{ensure_ti_valid, Balances, ExtBuilder, System, Test, TestId, UseSystem},
+	tests::{
+		ensure_ti_valid, get_test_account, Balances, ExtBuilder, System, Test, TestId, UseSystem,
+	},
 	AccountData, ExtraFlags, TotalIssuance,
 };
 use frame_support::{
@@ -50,7 +52,7 @@ fn regression_historic_acc_does_not_evaporate_reserve() {
 		System::dec_consumers(&alice);
 
 		assert_eq!(
-			System::account(&alice),
+			get_test_account(alice),
 			AccountInfo {
 				data: AccountData {
 					free: 90,

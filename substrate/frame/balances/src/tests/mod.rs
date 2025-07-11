@@ -356,8 +356,6 @@ fn check_whitelist() {
 
 /// This pallet runs tests twice, once with system as `type AccountStore` and once this pallet. This
 /// function will return the right value based on the `UseSystem` flag.
-///
-/// TODO: should use these in all tests.
 pub(crate) fn get_test_account_data(who: AccountId) -> AccountData<Balance> {
 	if UseSystem::get() {
 		<SystemAccountStore as StoredMap<_, _>>::get(&who)

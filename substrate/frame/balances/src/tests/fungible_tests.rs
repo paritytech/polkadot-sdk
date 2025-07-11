@@ -227,11 +227,11 @@ fn freezing_and_holds_should_overlap() {
 		.build_and_execute_with(|| {
 			assert_ok!(Balances::set_freeze(&TestId::Foo, &1, 10));
 			assert_ok!(Balances::hold(&TestId::Foo, &1, 9));
-			assert_eq!(Balances::account(&1).free, 1);
+			assert_eq!(get_test_account_data(1).free, 1);
 			assert_eq!(System::consumers(&1), 1);
-			assert_eq!(Balances::account(&1).free, 1);
-			assert_eq!(Balances::account(&1).frozen, 10);
-			assert_eq!(Balances::account(&1).reserved, 9);
+			assert_eq!(get_test_account_data(1).free, 1);
+			assert_eq!(get_test_account_data(1).frozen, 10);
+			assert_eq!(get_test_account_data(1).reserved, 9);
 			assert_eq!(Balances::total_balance_on_hold(&1), 9);
 		});
 }
@@ -305,7 +305,7 @@ fn thaw_should_work() {
 			assert_ok!(Balances::thaw(&TestId::Foo, &1));
 			assert_eq!(System::consumers(&1), 0);
 			assert_eq!(Balances::balance_frozen(&TestId::Foo, &1), 0);
-			assert_eq!(Balances::account(&1).frozen, 0);
+			assert_eq!(get_test_account_data(1).frozen, 0);
 			assert_ok!(<Balances as fungible::Mutate<_>>::transfer(&1, &2, 10, Expendable));
 		});
 }
@@ -320,7 +320,7 @@ fn set_freeze_zero_should_work() {
 			assert_ok!(Balances::set_freeze(&TestId::Foo, &1, 0));
 			assert_eq!(System::consumers(&1), 0);
 			assert_eq!(Balances::balance_frozen(&TestId::Foo, &1), 0);
-			assert_eq!(Balances::account(&1).frozen, 0);
+			assert_eq!(get_test_account_data(1).frozen, 0);
 			assert_ok!(<Balances as fungible::Mutate<_>>::transfer(&1, &2, 10, Expendable));
 		});
 }
@@ -349,7 +349,7 @@ fn extend_freeze_should_work() {
 		.build_and_execute_with(|| {
 			assert_ok!(Balances::set_freeze(&TestId::Foo, &1, 5));
 			assert_ok!(Balances::extend_freeze(&TestId::Foo, &1, 10));
-			assert_eq!(Balances::account(&1).frozen, 10);
+			assert_eq!(get_test_account_data(1).frozen, 10);
 			assert_eq!(Balances::balance_frozen(&TestId::Foo, &1), 10);
 			assert_noop!(
 				<Balances as fungible::Mutate<_>>::transfer(&1, &2, 1, Expendable),
@@ -483,16 +483,16 @@ fn withdraw_precision_exact_works() {
 		.monied(true)
 		.build_and_execute_with(|| {
 			assert_ok!(Balances::set_freeze(&TestId::Foo, &1, 10));
-			assert_eq!(Balances::account(&1).free, 10);
-			assert_eq!(Balances::account(&1).frozen, 10);
+			assert_eq!(get_test_account_data(1).free, 10);
+			assert_eq!(get_test_account_data(1).frozen, 10);
 
 			// `BestEffort` will not reduce anything
 			assert_ok!(<Balances as fungible::Balanced<_>>::withdraw(
 				&1, 5, BestEffort, Preserve, Polite
 			));
 
-			assert_eq!(Balances::account(&1).free, 10);
-			assert_eq!(Balances::account(&1).frozen, 10);
+			assert_eq!(get_test_account_data(1).free, 10);
+			assert_eq!(get_test_account_data(1).frozen, 10);
 
 			assert_noop!(
 				<Balances as fungible::Balanced<_>>::withdraw(&1, 5, Exact, Preserve, Polite),
