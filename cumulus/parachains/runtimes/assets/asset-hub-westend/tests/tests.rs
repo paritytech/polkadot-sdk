@@ -57,7 +57,7 @@ use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
 use sp_keyring::Sr25519Keyring::Alice;
 use sp_runtime::{
-	generic::{Era, SignedPayload},
+	generic::{self, Era, SignedPayload},
 	traits::MaybeEquivalence,
 	Either,
 };
@@ -122,7 +122,12 @@ fn construct_extrinsic(
 		.into();
 	let payload = SignedPayload::new(call.clone(), tx_ext.clone()).unwrap();
 	let signature = payload.using_encoded(|e| sender.sign(e));
-	UncheckedExtrinsic::new_signed(call, account_id.into(), Signature::Sr25519(signature), tx_ext)
+	UncheckedExtrinsic::from(generic::UncheckedExtrinsic::new_signed(
+		call,
+		account_id.into(),
+		Signature::Sr25519(signature),
+		tx_ext,
+	))
 }
 
 fn construct_and_estimate_extrinsic_fee(call: RuntimeCall) -> Balance {
