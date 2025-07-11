@@ -1706,7 +1706,8 @@ impl_runtime_apis! {
 				Config as XcmBridgeHubRouterConfig,
 			};
 
-			use testnet_parachains_constants::rococo::locations::{AssetHubParaId, AssetHubLocation};
+			use testnet_parachains_constants::rococo::locations::{PeopleParaId,
+				AssetHubParaId, AssetHubLocation, PeopleLocation};
 			parameter_types! {
 				pub ExistentialDepositAsset: Option<Asset> = Some((
 					TokenLocation::get(),
@@ -1730,12 +1731,12 @@ impl_runtime_apis! {
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
-						AssetHubParaId,
+						PeopleParaId,
 						ParachainSystem
 					>);
 
 				fn reachable_dest() -> Option<Location> {
-					Some(Location::new(1, [Parachain(RandomParaId::get())]))
+					Some(PeopleLocation::get())
 				}
 
 				fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
@@ -1745,7 +1746,7 @@ impl_runtime_apis! {
 							fun: Fungible(ExistentialDeposit::get()),
 							id: AssetId(TokenLocation::get())
 						},
-						AssetHubLocation::get(),
+						PeopleLocation::get(),
 					))
 				}
 
@@ -1762,7 +1763,7 @@ impl_runtime_apis! {
 
 				fn set_up_complex_asset_transfer(
 				) -> Option<(XcmAssets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
-					let dest = AssetHubLocation::get();
+					let dest = PeopleLocation::get();
 
 					let fee_amount = EXISTENTIAL_DEPOSIT;
 					let fee_asset: Asset = (TokenLocation::get(), fee_amount).into();
@@ -1871,12 +1872,11 @@ impl_runtime_apis! {
 						xcm_config::XcmConfig,
 						ExistentialDepositAsset,
 						PriceForSiblingParachainDelivery,
-						AssetHubParaId,
+						PeopleParaId,
 						ParachainSystem
 					>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
-					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(AssetHubParaId::get());
-					Ok(AssetHubLocation::get())
+					Ok(PeopleLocation::get())
 				}
 				fn worst_case_holding(depositable_count: u32) -> XcmAssets {
 					// A mix of fungible, non-fungible, and concrete assets.
@@ -1903,7 +1903,7 @@ impl_runtime_apis! {
 
 			parameter_types! {
 				pub TrustedTeleporter: Option<(Location, Asset)> = Some((
-					AssetHubLocation::get(),
+					PeopleLocation::get(),
 					Asset { fun: Fungible(UNITS), id: AssetId(TokenLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
@@ -1966,20 +1966,18 @@ impl_runtime_apis! {
 				}
 
 				fn transact_origin_and_runtime_call() -> Result<(Location, RuntimeCall), BenchmarkError> {
-					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(AssetHubParaId::get());
 					Ok((
-						AssetHubLocation::get(),
+						PeopleLocation::get(),
 						frame_system::Call::remark_with_event {remark: vec![]}.into()
 					))
 				}
 
 				fn subscribe_origin() -> Result<Location, BenchmarkError> {
-					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(AssetHubParaId::get());
-					Ok(AssetHubLocation::get())
+					Ok(PeopleLocation::get())
 				}
 
 				fn claimable_asset() -> Result<(Location, Location, XcmAssets), BenchmarkError> {
-					let origin = AssetHubLocation::get();
+					let origin = PeopleLocation::get();
 					let assets: XcmAssets = (TokenLocation::get(), 1_000 * UNITS).into();
 					let ticket = Location { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
