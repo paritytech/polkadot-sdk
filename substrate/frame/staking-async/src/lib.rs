@@ -55,7 +55,7 @@ pub mod benchmarking;
 
 #[cfg(test)]
 pub(crate) mod mock;
-#[cfg(any(test, feature = "runtime-benchmarks", feature = "testing-utils"))]
+#[cfg(any(feature = "runtime-benchmarks", feature = "testing-utils", test))]
 pub mod testing_utils;
 #[cfg(test)]
 mod tests;

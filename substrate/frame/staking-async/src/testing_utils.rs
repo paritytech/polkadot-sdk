@@ -21,6 +21,7 @@ use super::*;
 use codec::Encode;
 use frame_benchmarking::account;
 use frame_election_provider_support::SortedListProvider;
+#[cfg(not(feature = "runtime-benchmarks"))]
 use frame_support::traits::fungible::Mutate;
 use frame_system::RawOrigin;
 use rand_chacha::{
@@ -43,6 +44,9 @@ pub fn create_funded_user<T: Config>(
 ) -> T::AccountId {
 	let user = account(string, n, SEED);
 	let balance = asset::existential_deposit::<T>() * balance_factor.into();
+	#[cfg(feature = "runtime-benchmarks")]
+	let _ = asset::set_stakeable_balance::<T>(&user, balance);
+	#[cfg(not(feature = "runtime-benchmarks"))]
 	let _ = T::Currency::set_balance(&user, balance);
 	user
 }
@@ -119,10 +123,22 @@ pub fn create_stash_controller_with_balance<T: Config>(
 	balance: BalanceOf<T>,
 	destination: RewardDestination<T::AccountId>,
 ) -> Result<(T::AccountId, T::AccountId), &'static str> {
-	let staker = account("stash", n, SEED);
-	let _ = T::Currency::set_balance(&staker, balance);
+	let staker = create_funded_user_with_balance::<T>("stash", n, balance);
 	Pallet::<T>::bond(RawOrigin::Signed(staker.clone()).into(), balance, destination)?;
 	Ok((staker.clone(), staker))
+}
+
+fn create_funded_user_with_balance<T: Config>(
+	string: &'static str,
+	n: u32,
+	balance: BalanceOf<T>,
+) -> T::AccountId {
+	let user = account(string, n, SEED);
+	#[cfg(feature = "runtime-benchmarks")]
+	let _ = asset::set_stakeable_balance::<T>(&user, balance);
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	let _ = T::Currency::set_balance(&user, balance);
+	user
 }
 
 /// Create validators.

@@ -850,7 +850,7 @@ mod benchmarks {
 					max_increase: Perbill::from_percent(20),
 					min_delay: 0u32.into()
 				}),
-				throttle_from: Some(0u32.into()),
+				throttle_from: Some(1u32.into()),
 				claim_permission: Some(CommissionClaimPermission::Account(depositor)),
 			}
 		);
@@ -910,7 +910,7 @@ mod benchmarks {
 					max_increase: Perbill::from_percent(50),
 					min_delay: 1000u32.into(),
 				}),
-				throttle_from: Some(0_u32.into()),
+				throttle_from: Some(1_u32.into()),
 				claim_permission: None,
 			}
 		);

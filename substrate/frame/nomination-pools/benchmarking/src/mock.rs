@@ -98,7 +98,7 @@ impl pallet_staking_async::Config for Runtime {
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type ElectionProvider =
 		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, (), ())>;
-	type VoterList = pallet_staking_async::UseNominatorsAndValidatorsMap<Self>;
+	type VoterList = VoterList;
 	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
 	type CurrencyToVote = SaturatingCurrencyToVote;
 	type EraPayout = pallet_staking_async_testing_utils::TestEraPayout<Balance, EraPayout>;

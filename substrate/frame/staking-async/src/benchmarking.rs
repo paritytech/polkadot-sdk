@@ -169,15 +169,19 @@ impl<T: Config> ListScenario<T> {
 		let validator_account = account("random_validator", 0, SEED);
 		let validator_stake = asset::existential_deposit::<T>() * 1000u32.into();
 		asset::set_stakeable_balance::<T>(&validator_account, validator_stake);
-		assert_ok!(Staking::<T>::bond(
+
+		let bond_result = Staking::<T>::bond(
 			RawOrigin::Signed(validator_account.clone()).into(),
 			validator_stake / 2u32.into(),
-			RewardDestination::Staked
-		));
-		assert_ok!(Staking::<T>::validate(
+			RewardDestination::Staked,
+		);
+		assert_ok!(bond_result);
+
+		let validate_result = Staking::<T>::validate(
 			RawOrigin::Signed(validator_account.clone()).into(),
-			Default::default()
-		));
+			Default::default(),
+		);
+		assert_ok!(validate_result);
 
 		// create accounts with the origin weight
 		let (origin_stash1, origin_controller1) = create_stash_controller_with_balance::<T>(
@@ -209,6 +213,33 @@ impl<T: Config> ListScenario<T> {
 
 		let dest_weight =
 			T::CurrencyToVote::to_currency(dest_weight_as_vote as u128, total_issuance);
+
+		// Ensure dest_weight is different from origin_weight for benchmarks to work
+		// We need the difference to be large enough that when divided by MaxUnlockingChunks,
+		// we still get a non-zero value for tests like rebond
+		let min_diff_needed = T::MaxUnlockingChunks::get().into();
+		let dest_weight = if is_increase {
+			// For increase scenarios (rebond), ensure dest_weight > origin_weight with sufficient
+			// difference
+			if dest_weight.saturating_sub(origin_weight) < min_diff_needed {
+				origin_weight + min_diff_needed + 1u32.into()
+			} else {
+				dest_weight
+			}
+		} else {
+			// For decrease scenarios (unbond), ensure origin_weight > dest_weight with sufficient
+			// difference
+			if origin_weight.saturating_sub(dest_weight) < min_diff_needed {
+				if origin_weight > min_diff_needed + 1u32.into() {
+					origin_weight - min_diff_needed - 1u32.into()
+				} else {
+					// If origin_weight is too small, use a minimal dest_weight
+					1u32.into()
+				}
+			} else {
+				dest_weight
+			}
+		};
 
 		// create an account with the worst case destination weight
 		let (_dest_stash1, dest_controller1) = create_stash_controller_with_balance::<T>(
@@ -250,9 +281,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = Staking::<T>::min_nominator_bond()
-			// we use 100 to play friendly with the list threshold values in the mock
-			.max(100u32.into());
+		let origin_weight = Staking::<T>::min_nominator_bond();
 
 		// setup the worst case list scenario.
 
@@ -298,7 +327,7 @@ mod benchmarks {
 		let scenario = ListScenario::<T>::new(origin_weight, false)?;
 
 		let controller = scenario.origin_controller1.clone();
-		let amount = origin_weight - scenario.dest_weight;
+		let amount = origin_weight.saturating_sub(scenario.dest_weight);
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created before")?;
 		let original_bonded: BalanceOf<T> = ledger.active;
 
@@ -341,9 +370,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = Staking::<T>::min_nominator_bond()
-			// we use 100 to play friendly with the list threshold values in the mock
-			.max(100u32.into());
+		let origin_weight = Staking::<T>::min_nominator_bond();
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
@@ -467,9 +494,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = Staking::<T>::min_nominator_bond()
-			// we use 100 to play friendly with the list threshold values in the mock
-			.max(100u32.into());
+		let origin_weight = Staking::<T>::min_nominator_bond();
 
 		// setup a worst case list scenario. Note we don't care about the destination position,
 		// because we are just doing an insert into the origin position.
@@ -502,9 +527,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = Staking::<T>::min_nominator_bond()
-			// we use 100 to play friendly with the list threshold values in the mock
-			.max(100u32.into());
+		let origin_weight = Staking::<T>::min_nominator_bond();
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
@@ -662,9 +685,7 @@ mod benchmarks {
 		// Clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = Staking::<T>::min_nominator_bond()
-			// we use 100 to play friendly with the list threshold values in the mock
-			.max(100u32.into());
+		let origin_weight = Staking::<T>::min_nominator_bond();
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
@@ -765,9 +786,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = Pallet::<T>::min_nominator_bond()
-			// we use 100 to play friendly with the list threshold values in the mock
-			.max(100u32.into());
+		let origin_weight = Pallet::<T>::min_nominator_bond();
 
 		// setup a worst case list scenario.
 		let scenario = ListScenario::<T>::new(origin_weight, true)?;
@@ -811,9 +830,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = Staking::<T>::min_nominator_bond()
-			// we use 100 to play friendly with the list threshold values in the mock
-			.max(100u32.into());
+		let origin_weight = Staking::<T>::min_nominator_bond();
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
@@ -890,9 +907,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = Staking::<T>::min_nominator_bond()
-			// we use 100 to play friendly with the list threshold values in the mock
-			.max(100u32.into());
+		let origin_weight = Staking::<T>::min_nominator_bond();
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
@@ -927,7 +942,7 @@ mod benchmarks {
 		clear_validators_and_nominators::<T>();
 
 		// Create a validator with a commission of 50%
-		let (stash, controller) = create_stash_controller::<T>(1, 100, RewardDestination::Staked)?;
+		let (stash, controller) = create_stash_controller::<T>(1, 1, RewardDestination::Staked)?;
 		let validator_prefs =
 			ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
 		Staking::<T>::validate(RawOrigin::Signed(controller).into(), validator_prefs)?;
