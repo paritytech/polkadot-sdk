@@ -13,8 +13,8 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+tracing = { workspace = true }
 
 # Substrate
 frame-support = { workspace = true }
@@ -63,7 +63,6 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"pallet-message-queue/std",
 	"polkadot-runtime-common/std",
 	"polkadot-runtime-parachains/std",
@@ -71,6 +70,7 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"tracing/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
