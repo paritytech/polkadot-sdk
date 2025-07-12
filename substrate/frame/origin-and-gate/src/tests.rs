@@ -149,7 +149,7 @@ mod unit_test {
 				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
 				assert_eq!(proposal.status, ProposalStatus::Pending);
 				assert_eq!(proposal.approvals.len(), 1);
-				assert_eq!(proposal.approvals[0], ALICE_ORIGIN_ID);
+				assert_eq!(proposal.approvals[0], (ALICE, ALICE_ORIGIN_ID));
 
 				// Verify proposal creation event with timepoint
 				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCreated {
@@ -318,9 +318,9 @@ mod unit_test {
 				));
 
 				// Create proposal info with sufficient approvals
-				let mut approvals = BoundedVec::default();
-				approvals.try_push(ALICE_ORIGIN_ID.into()).unwrap();
-				approvals.try_push(BOB_ORIGIN_ID.into()).unwrap(); // Already have 2 approvals
+				let mut approvals = BoundedVec::<(AccountId, OriginId), MaxApprovals>::default();
+				approvals.try_push((ALICE, ALICE_ORIGIN_ID)).unwrap();
+				approvals.try_push((BOB, BOB_ORIGIN_ID)).unwrap(); // Already have 2 approvals
 				let executed_at = Some(System::block_number());
 
 				let proposal_info = ProposalInfo {
@@ -330,6 +330,7 @@ mod unit_test {
 					status: ProposalStatus::Executed,
 					proposer: ALICE,
 					executed_at,
+					submitted_at: System::block_number(),
 				};
 
 				// Override proposal with `Executed` status
@@ -481,9 +482,9 @@ mod unit_test {
 				));
 
 				// Create proposal info with sufficient approvals and executed status
-				let mut approvals = BoundedVec::default();
-				approvals.try_push(ALICE_ORIGIN_ID.into()).unwrap();
-				approvals.try_push(BOB_ORIGIN_ID.into()).unwrap(); // Already have 2 approvals
+				let mut approvals = BoundedVec::<(AccountId, OriginId), MaxApprovals>::default();
+				approvals.try_push((ALICE, ALICE_ORIGIN_ID)).unwrap();
+				approvals.try_push((BOB, BOB_ORIGIN_ID)).unwrap(); // Already have 2 approvals
 				let executed_at = Some(System::block_number());
 
 				let proposal_info = ProposalInfo {
@@ -493,6 +494,7 @@ mod unit_test {
 					status: ProposalStatus::Executed,
 					proposer: ALICE,
 					executed_at,
+					submitted_at: System::block_number(),
 				};
 
 				// Override proposal with executed status
@@ -548,7 +550,7 @@ mod unit_test {
 				// Verify approval added
 				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
 				assert_eq!(proposal.approvals.len(), MaxApprovals::get() as usize);
-				assert!(proposal.approvals.contains(&BOB_ORIGIN_ID));
+				assert!(proposal.approvals.contains(&(BOB, BOB_ORIGIN_ID)));
 
 				// Verify event emitted
 				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::OriginApprovalAdded {
@@ -696,6 +698,7 @@ mod unit_test {
 					                                  * execute */
 					proposer: ALICE,
 					executed_at: None,
+					submitted_at: System::block_number(),
 				};
 
 				// Insert custom proposal directly into storage
@@ -867,9 +870,9 @@ mod unit_test {
 				// Manually create and insert proposal with approvals at
 				// the `MaxApprovals::get()` limit and forced not to
 				// change from 'Pending' status
-				let mut approvals = BoundedVec::default();
-				approvals.try_push(ALICE_ORIGIN_ID).unwrap();
-				approvals.try_push(BOB_ORIGIN_ID).unwrap();
+				let mut approvals = BoundedVec::<(AccountId, OriginId), MaxApprovals>::default();
+				approvals.try_push((ALICE, ALICE_ORIGIN_ID)).unwrap();
+				approvals.try_push((BOB, BOB_ORIGIN_ID)).unwrap();
 				let executed_at = Some(System::block_number());
 
 				let proposal_info = ProposalInfo {
@@ -880,6 +883,7 @@ mod unit_test {
 					                                  * execute */
 					proposer: ALICE,
 					executed_at,
+					submitted_at: System::block_number(),
 				};
 
 				// Insert custom proposal directly into storage
@@ -984,7 +988,7 @@ mod unit_test {
 
 				// Verify approval exists
 				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
-				assert!(proposal.approvals.contains(&ALICE_ORIGIN_ID));
+				assert!(proposal.approvals.contains(&(ALICE, ALICE_ORIGIN_ID)));
 
 				// Alice withdraws approval
 				assert_ok!(OriginAndGate::withdraw_approval(
@@ -996,7 +1000,7 @@ mod unit_test {
 
 				// Verify approval removed
 				let updated_proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
-				assert!(!updated_proposal.approvals.contains(&ALICE_ORIGIN_ID));
+				assert!(!updated_proposal.approvals.contains(&(ALICE, ALICE_ORIGIN_ID)));
 
 				// Verify updated proposal status reflects that an approval
 				// was cancelled by Alice and has status `Pending`
@@ -1033,7 +1037,7 @@ mod unit_test {
 				// Verify proposal has approval from Alice (proposer)
 				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
 				assert_eq!(proposal.approvals.len(), 1 as usize); // Alice (proposer)
-				assert!(proposal.approvals.contains(&ALICE_ORIGIN_ID));
+				assert!(proposal.approvals.contains(&(ALICE, ALICE_ORIGIN_ID)));
 
 				// Verify approval stored in Approvals storage
 				assert!(
@@ -1051,7 +1055,7 @@ mod unit_test {
 				// Verify Alice's approval removed from proposal
 				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
 				assert_eq!(proposal.approvals.len(), 0); // No approvals remain
-				assert!(!proposal.approvals.contains(&ALICE_ORIGIN_ID));
+				assert!(!proposal.approvals.contains(&(ALICE, ALICE_ORIGIN_ID)));
 
 				// Verify approval no longer in Approvals storage
 				assert!(
@@ -1242,7 +1246,10 @@ mod unit_test {
 					Some(10), // Expires at block 10
 				));
 
-				let alice_submission_timepoint = current_timepoint();
+				let alice_submission_timepoint = Timepoint {
+					height: System::block_number(),
+					index: System::extrinsic_index().unwrap_or_default(),
+				};
 				assert_eq!(alice_submission_timepoint.height, 1);
 				assert_eq!(alice_submission_timepoint.index, 0);
 
@@ -1537,9 +1544,9 @@ mod unit_test {
 					Error::<Test>::ProposalRetentionPeriodNotElapsed
 				);
 
-				// Advance to block 60 since no expiry set so we use proposal lifetime of 10 blocks instead
+				// Advance to block 50 since no expiry set so we use proposal lifetime of 10 blocks instead
 				// and retention period of 50 blocks
-				System::set_block_number(60);
+				System::set_block_number(50);
 
 				// Clean should still fail
 				assert_noop!(
@@ -1547,8 +1554,8 @@ mod unit_test {
 					Error::<Test>::ProposalRetentionPeriodNotElapsed
 				);
 
-				// Advance to block 61 that is past retention period
-				System::set_block_number(61);
+				// Advance to block 51 that is past retention period
+				System::set_block_number(51);
 
 				// Clean should now succeed
 				assert_ok!(OriginAndGate::clean(
@@ -2027,6 +2034,124 @@ mod unit_test {
 				MaxProposalsToExpirePerBlock::set(10);
 			});
 		}
+
+		#[test]
+		fn executed_proposals_are_removed_from_expiry_tracking() {
+			new_test_ext().execute_with(|| {
+				let starting_block = 1;
+				System::set_block_number(starting_block);
+
+				let call = make_remark_call("1000").unwrap();
+				let call_hash = <Test as Config>::Hashing::hash_of(&call);
+				let expiry_block = starting_block + 99; // Proposal expires at block 100
+				let expiry = Some(expiry_block);
+
+				// Alice proposes
+				assert_ok!(OriginAndGate::propose(
+					RuntimeOrigin::signed(ALICE),
+					call.clone(),
+					ALICE_ORIGIN_ID,
+					expiry,
+				));
+
+				// Verify proposal in ExpiringProposals storage
+				let expiring_at_block_100 = OriginAndGate::expiring_proposals(expiry_block);
+				assert!(
+					expiring_at_block_100
+						.iter()
+						.any(|(hash, id)| *hash == call_hash && *id == ALICE_ORIGIN_ID),
+					"Proposal should be in ExpiringProposals before execution"
+				);
+
+				// Bob approves with auto_execute
+				assert_ok!(OriginAndGate::add_approval(
+					RuntimeOrigin::signed(BOB),
+					call_hash,
+					ALICE_ORIGIN_ID,
+					BOB_ORIGIN_ID,
+					true,
+				));
+
+				// Verify proposal executed
+				let proposal = OriginAndGate::proposals(call_hash, ALICE_ORIGIN_ID).unwrap();
+				assert_eq!(proposal.status, ProposalStatus::Executed);
+
+				// Verify proposal removed from ExpiringProposals storage
+				let expiring_at_block_100_after_execution =
+					OriginAndGate::expiring_proposals(expiry_block);
+				assert!(
+					!expiring_at_block_100_after_execution
+						.iter()
+						.any(|(hash, id)| *hash == call_hash && *id == ALICE_ORIGIN_ID),
+					"Proposal should be removed from ExpiringProposals after execution"
+				);
+
+				// Advance to block 5 (execution block + retention period - 1)
+				let execution_block = 1; // Current block when executed
+				let retention_period = <Test as Config>::NonCancelledProposalRetentionPeriod::get();
+				System::set_block_number(execution_block + retention_period - 1);
+
+				// Clean up should fail since retention period hasn't yet elapsed
+				assert_noop!(
+					OriginAndGate::clean(RuntimeOrigin::signed(ALICE), call_hash, ALICE_ORIGIN_ID,),
+					Error::<Test>::ProposalRetentionPeriodNotElapsed
+				);
+
+				// Advance to cleanup eligible block
+				System::set_block_number(execution_block + retention_period);
+
+				// Clean up should succeed
+				assert_ok!(OriginAndGate::clean(
+					RuntimeOrigin::signed(ALICE),
+					call_hash,
+					ALICE_ORIGIN_ID,
+				));
+
+				// Verify proposal removed
+				assert!(!OriginAndGate::proposals(call_hash, ALICE_ORIGIN_ID).is_some());
+			});
+		}
+
+		#[test]
+		fn cancelled_proposals_can_be_cleaned_up_immediately() {
+			new_test_ext().execute_with(|| {
+				let starting_block = 1;
+				System::set_block_number(starting_block);
+
+				// Create proposal with expiry at block 100
+				let call = make_remark_call("2000").unwrap();
+				let call_hash = <Test as Config>::Hashing::hash_of(&call);
+				let expiry_block = starting_block + 99; // Proposal expires at block 100
+				let expiry = Some(expiry_block);
+
+				// Alice proposes
+				assert_ok!(OriginAndGate::propose(
+					RuntimeOrigin::signed(ALICE),
+					call.clone(),
+					ALICE_ORIGIN_ID,
+					expiry,
+				));
+
+				// Verify proposal is in ExpiringProposals storage
+				let expiring_proposals = OriginAndGate::expiring_proposals(expiry_block);
+				assert!(
+					expiring_proposals
+						.iter()
+						.any(|(hash, id)| *hash == call_hash && *id == ALICE_ORIGIN_ID),
+					"Proposal should be in ExpiringProposals"
+				);
+
+				// Alice cancels proposal
+				assert_ok!(OriginAndGate::cancel_proposal(
+					RuntimeOrigin::signed(ALICE),
+					call_hash,
+					ALICE_ORIGIN_ID,
+				));
+
+				// Verify proposal is removed from storage after cancellation
+				assert!(OriginAndGate::proposals(call_hash, ALICE_ORIGIN_ID).is_none());
+			});
+		}
 	}
 
 	mod max_approvals_scaling {
@@ -2189,8 +2314,8 @@ mod integration_test {
 			assert_eq!(proposal.approvals.len(), MaxApprovals::get() as usize);
 
 			// Verify both origin IDs are in approvals
-			assert!(proposal.approvals.contains(&alice_origin_id));
-			assert!(proposal.approvals.contains(&bob_origin_id));
+			assert!(proposal.approvals.contains(&(alice_origin_id.into(), ALICE_ORIGIN_ID)));
+			assert!(proposal.approvals.contains(&(bob_origin_id.into(), BOB_ORIGIN_ID)));
 
 			// Verify approval event emitted with correct origin IDs
 			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::OriginApprovalAdded {
@@ -2232,11 +2357,16 @@ mod integration_test {
 
 				let proposal_timepoint = current_timepoint();
 
+				// Verify proposal created with Alice's approval and remains `Pending`
+				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+				assert_eq!(proposal.status, ProposalStatus::Pending);
+				assert_eq!(Dummy::<Test>::get(), None); // Call not executed yet
+
 				// Verify proposal creation event with timepoint
 				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCreated {
 					proposal_hash: call_hash,
 					origin_id: ALICE_ORIGIN_ID,
-					timepoint: proposal_timepoint.clone(),
+					timepoint: proposal_timepoint,
 				}));
 
 				// Verify proposal pending and not executed yet since only Alice approved
@@ -2276,9 +2406,7 @@ mod integration_test {
 				// Verify ExecutedCalls storage updated with call hash at execution timepoint
 				assert_eq!(ExecutedCalls::<Test>::get(execution_timepoint), Some(call_hash));
 
-				// Verify proposal marked executed as the
-				// AliceAndBob origin should now pass for this call.
-				assert!(Proposals::<Test>::contains_key(call_hash, ALICE_ORIGIN_ID));
+				// Verify proposal marked executed
 				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
 				assert_eq!(proposal.status, ProposalStatus::Executed);
 
@@ -2512,9 +2640,9 @@ mod integration_test {
 				let call_hash = H256::repeat_byte(0xab);
 
 				// Create proposal info with sufficient approvals
-				let mut approvals = BoundedVec::<OriginId, MaxApprovals>::default();
-				approvals.try_push(ALICE_ORIGIN_ID.into()).unwrap();
-				approvals.try_push(BOB_ORIGIN_ID.into()).unwrap(); // Already have 2 approvals
+				let mut approvals = BoundedVec::<(AccountId, OriginId), MaxApprovals>::default();
+				approvals.try_push((ALICE, ALICE_ORIGIN_ID)).unwrap();
+				approvals.try_push((BOB, BOB_ORIGIN_ID)).unwrap(); // Already have 2 approvals
 				let executed_at = Some(System::block_number());
 
 				let proposal_info = ProposalInfo {
@@ -2524,6 +2652,7 @@ mod integration_test {
 					status: ProposalStatus::Pending,
 					proposer: ALICE,
 					executed_at,
+					submitted_at: System::block_number(),
 				};
 
 				// Skip calling `propose` and instead store proposal directly in storage
@@ -2632,7 +2761,7 @@ mod andgate_requirements {
 			// Ensure timepoints different
 			assert_ne!(alice_submission_timepoint, execution_timepoint);
 
-			// Bob approves
+			// Bob approves proposal later
 			assert_ok!(OriginAndGate::add_approval(
 				RuntimeOrigin::signed(BOB),
 				call_hash,
@@ -2699,7 +2828,7 @@ mod andgate_requirements {
 			let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
 			assert_eq!(proposal.status, ProposalStatus::Pending);
 			assert_eq!(proposal.approvals.len(), 1);
-			assert_eq!(proposal.approvals[0], ALICE_ORIGIN_ID);
+			assert!(proposal.approvals.contains(&(ALICE, ALICE_ORIGIN_ID)));
 
 			// No ExecutedCalls entries should exist at either timepoint
 			assert!(ExecutedCalls::<Test>::get(alice_submission_timepoint).is_none());

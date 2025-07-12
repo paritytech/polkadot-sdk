@@ -279,6 +279,7 @@ pub mod pallet {
 				Error::ProposalNotInExpiredOrExecutedState => 11,
 				Error::OriginApprovalNotFound => 12,
 				Error::ProposalRetentionPeriodNotElapsed => 13,
+				Error::ProposalNotEligibleForCleanup => 14,
 			}
 		}
 
@@ -300,9 +301,7 @@ pub mod pallet {
 				Error::<T>::ProposalNotPending
 			);
 
-			// Check for minimum number of approvals (customize this logic based on your
-			// requirements) Note that for the "AND Gate" pattern, we require a minimum of 2
-			// approvals
+			// Check for number of approvals required from MaxApprovals
 			if proposal_info.approvals.len() >= T::MaxApprovals::get() as usize {
 				// Retrieve the actual call from storage
 				if let Some(call) = <ProposalCalls<T>>::get(proposal_hash) {
@@ -312,6 +311,16 @@ pub mod pallet {
 					// Update proposal status
 					proposal_info.status = ProposalStatus::Executed;
 					proposal_info.executed_at = Some(frame_system::Pallet::<T>::block_number());
+
+					// Remove from ExpiringProposals if has expiry since don't need to
+					// track executed proposals for expiry
+					if let Some(expiry) = proposal_info.expiry {
+						ExpiringProposals::<T>::mutate(expiry, |proposals| {
+							proposals
+								.retain(|(hash, id)| *hash != proposal_hash || *id != origin_id);
+						});
+					}
+
 					<Proposals<T>>::insert(proposal_hash, origin_id.clone(), proposal_info);
 
 					// Create timepoint for execution
@@ -335,6 +344,54 @@ pub mod pallet {
 
 			// Return an error when there aren't enough approvals
 			Err(Error::<T>::InsufficientApprovals.into())
+		}
+
+		/// Helper function to check if a proposal expired and update its status if necessary
+		fn check_proposal_expiry(
+			proposal_hash: T::Hash,
+			origin_id: &T::OriginId,
+			proposal_info: &mut ProposalInfo<
+				T::Hash,
+				BlockNumberFor<T>,
+				T::OriginId,
+				T::AccountId,
+				T::MaxApprovals,
+			>,
+		) -> bool {
+			// Only check expiry for pending proposals
+			if proposal_info.status == ProposalStatus::Pending {
+				let current_block = frame_system::Pallet::<T>::block_number();
+
+				// Check if proposal has expired
+				if let Some(expiry) = proposal_info.expiry {
+					if current_block > expiry {
+						// Update proposal status to expired
+						proposal_info.status = ProposalStatus::Expired;
+
+						// Update storage
+						<Proposals<T>>::insert(
+							proposal_hash,
+							origin_id.clone(),
+							proposal_info.clone(),
+						);
+
+						// Emit event
+						Self::deposit_event(Event::ProposalExpired {
+							proposal_hash,
+							origin_id: origin_id.clone(),
+							timepoint: Timepoint {
+								height: current_block,
+								index: frame_system::Pallet::<T>::extrinsic_index()
+									.unwrap_or_default(),
+							},
+						});
+
+						return true;
+					}
+				}
+			}
+
+			false
 		}
 
 		/// Helper to clean up all storage related to a proposal
@@ -370,19 +427,22 @@ pub mod pallet {
 				}
 
 				// Calculate cleanup eligibility block for executed and expired proposals
-				let cleanup_eligible_block = match proposal.expiry {
-					// If proposal has expiry then use that as base
-					Some(expiry) =>
-						expiry.saturating_add(T::NonCancelledProposalRetentionPeriod::get()),
-					// If no expiry then use execution block as base for executed proposals
-					None => {
-						// Only executed proposals can reach here without an expiry
-						// Add retention period to the execution block
-						proposal
-							.executed_at
-							.unwrap_or(current_block)
-							.saturating_add(T::NonCancelledProposalRetentionPeriod::get())
+				let cleanup_eligible_block = match proposal.status {
+					// Executed proposals use execution time as base, regardless of expiry
+					ProposalStatus::Executed => proposal
+						.executed_at
+						.unwrap_or(current_block)
+						.saturating_add(T::NonCancelledProposalRetentionPeriod::get()),
+					// Expired proposals use expiry as base
+					ProposalStatus::Expired => match proposal.expiry {
+						Some(expiry) =>
+							expiry.saturating_add(T::NonCancelledProposalRetentionPeriod::get()),
+						None => current_block
+							.saturating_add(T::NonCancelledProposalRetentionPeriod::get()),
 					},
+					// This should never be reached due to the earlier check for Cancelled status
+					_ =>
+						current_block.saturating_add(T::NonCancelledProposalRetentionPeriod::get()),
 				};
 
 				// Proposal is eligible for cleanup if we passed cleanup_eligible_block
@@ -441,11 +501,15 @@ pub mod pallet {
 				},
 			};
 
+			// Store actual call data (unbounded) to save storage
+			<ProposalCalls<T>>::insert(proposal_hash, call);
+
 			// Create an empty bounded vec for approvals
-			let mut approvals = BoundedVec::<T::OriginId, T::MaxApprovals>::default();
+			let mut approvals =
+				BoundedVec::<(T::AccountId, T::OriginId), T::MaxApprovals>::default();
 
 			// Add proposer as first approval
-			if let Err(_) = approvals.try_push(origin_id.clone()) {
+			if let Err(_) = approvals.try_push((who.clone(), origin_id.clone())) {
 				return Err(Error::<T>::TooManyApprovals.into());
 			}
 
@@ -456,6 +520,7 @@ pub mod pallet {
 				approvals,
 				status: ProposalStatus::Pending,
 				proposer: who.clone(),
+				submitted_at: current_block,
 				executed_at: None,
 			};
 
@@ -468,9 +533,6 @@ pub mod pallet {
 				origin_id.clone(),
 				who.clone(),
 			);
-
-			// Store actual call data (unbounded) to save storage
-			<ProposalCalls<T>>::insert(proposal_hash, call);
 
 			// Add proposal to expiry tracking for automatic expiry
 			ExpiringProposals::<T>::mutate(expiry_block.unwrap(), |proposals| {
@@ -514,18 +576,8 @@ pub mod pallet {
 			}
 
 			// Check if proposal has expired
-			if let Some(expiry) = proposal_info.expiry {
-				let current_block = frame_system::Pallet::<T>::block_number();
-				if current_block > expiry {
-					proposal_info.status = ProposalStatus::Expired;
-					<Proposals<T>>::insert(call_hash, origin_id, proposal_info);
-					Self::deposit_event(Event::ProposalExpired {
-						proposal_hash: call_hash,
-						origin_id,
-						timepoint: Self::current_timepoint(),
-					});
-					return Err(Error::<T>::ProposalExpired.into());
-				}
+			if Self::check_proposal_expiry(call_hash, &origin_id, &mut proposal_info) {
+				return Err(Error::<T>::ProposalExpired.into());
 			}
 
 			// Check if proposal still pending
@@ -538,7 +590,10 @@ pub mod pallet {
 			}
 
 			// Check if origin_id already approved
-			if <Approvals<T>>::contains_key((call_hash, origin_id), approving_origin_id) {
+			if <Approvals<T>>::contains_key(
+				(call_hash, origin_id.clone()),
+				approving_origin_id.clone(),
+			) {
 				return Err(Error::<T>::OriginAlreadyApproved.into());
 			}
 
@@ -550,8 +605,12 @@ pub mod pallet {
 			);
 
 			// Add to proposal's approvals list if not yet present
-			if !proposal_info.approvals.contains(&approving_origin_id) {
-				if proposal_info.approvals.try_push(approving_origin_id).is_err() {
+			if !proposal_info.approvals.contains(&(who.clone(), approving_origin_id.clone())) {
+				if proposal_info
+					.approvals
+					.try_push((who.clone(), approving_origin_id.clone()))
+					.is_err()
+				{
 					return Err(Error::<T>::TooManyApprovals.into());
 				}
 			}
@@ -613,8 +672,13 @@ pub mod pallet {
 			ensure_signed(origin)?;
 
 			// Get proposal info
-			let proposal = <Proposals<T>>::get(&proposal_hash, &origin_id)
+			let mut proposal = <Proposals<T>>::get(&proposal_hash, &origin_id)
 				.ok_or(Error::<T>::ProposalNotFound)?;
+
+			// Check if proposal has expired using lazy expiry checking
+			if Self::check_proposal_expiry(proposal_hash, &origin_id, &mut proposal) {
+				return Err(Error::<T>::ProposalExpired.into());
+			}
 
 			// Execute the proposal
 			Self::check_and_execute_proposal(proposal_hash, origin_id, proposal)?;
@@ -634,30 +698,51 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			// Get proposal info
-			let mut proposal = Proposals::<T>::get(&proposal_hash, &origin_id)
+			let mut proposal_info = Proposals::<T>::get(&proposal_hash, &origin_id)
 				.ok_or(Error::<T>::ProposalNotFound)?;
 
+			// Check if proposal has expired
+			if Self::check_proposal_expiry(proposal_hash, &origin_id, &mut proposal_info) {
+				return Err(Error::<T>::ProposalExpired.into());
+			}
+
 			// Ensure proposal is in a pending state
-			ensure!(proposal.status == ProposalStatus::Pending, Error::<T>::ProposalNotPending);
+			ensure!(
+				proposal_info.status == ProposalStatus::Pending,
+				Error::<T>::ProposalNotPending
+			);
 
 			// Ensure caller is original proposer
-			ensure!(who == proposal.proposer, Error::<T>::NotAuthorized);
+			ensure!(who == proposal_info.proposer, Error::<T>::NotAuthorized);
 
 			// Update proposal status to Cancelled
 			// TODO: Potentially remove since this is just for completeness
 			// and potentially unnecessary since status will be removed from storage
 			// shortly after and proposal cancelled event will be emitted
 			// at lower cost
-			proposal.status = ProposalStatus::Cancelled;
+			proposal_info.status = ProposalStatus::Cancelled;
+
+			// Store the expiry before moving proposal_info
+			let expiry = proposal_info.expiry;
 
 			// Update storage with cancelled status
-			<Proposals<T>>::insert(&proposal_hash, &origin_id, proposal);
+			<Proposals<T>>::insert(&proposal_hash, &origin_id, proposal_info);
 
 			// Clean up all storage related to the proposal
 			Self::remove_proposal_storage(proposal_hash, origin_id.clone());
 
-			// Emit event
+			// Remove from ExpiringProposals if it has an expiry
+			// since we don't need to track cancelled proposals for expiry
+			if let Some(expiry) = expiry {
+				ExpiringProposals::<T>::mutate(expiry, |proposals| {
+					proposals.retain(|(hash, id)| *hash != proposal_hash || *id != origin_id);
+				});
+			}
+
+			// Create timepoint for cancellation
 			let cancellation_timepoint = Self::current_timepoint();
+
+			// Emit event
 			Self::deposit_event(Event::ProposalCancelled {
 				proposal_hash,
 				origin_id,
@@ -714,7 +799,7 @@ pub mod pallet {
 			let pos = proposal
 				.approvals
 				.iter()
-				.position(|a| a == &withdrawing_origin_id)
+				.position(|a| a == &(who.clone(), withdrawing_origin_id.clone()))
 				.ok_or(Error::<T>::OriginApprovalNotFound)?;
 
 			// Remove approval at found position
@@ -913,6 +998,8 @@ pub mod pallet {
 		ProposalNotInExpiredOrExecutedState,
 		/// Proposal retention period has not elapsed yet
 		ProposalRetentionPeriodNotElapsed,
+		/// Proposal is not eligible for cleanup
+		ProposalNotEligibleForCleanup,
 	}
 
 	/// Status of proposal
@@ -929,20 +1016,22 @@ pub mod pallet {
 	}
 
 	/// Info about specific proposal
-	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 	#[scale_info(skip_type_params(MaxApprovals))]
 	pub struct ProposalInfo<Hash, BlockNumber, OriginId, AccountId, MaxApprovals: Get<u32>> {
 		/// Call hash of this proposal to execute
 		pub call_hash: Hash,
 		/// Block number after which this proposal expires
 		pub expiry: Option<BlockNumber>,
-		/// List of `OriginId`s that have approved this proposal
-		pub approvals: BoundedVec<OriginId, MaxApprovals>,
+		/// List of approvals of a proposal as (AccountId, OriginId) pairs
+		pub approvals: BoundedVec<(AccountId, OriginId), MaxApprovals>,
 		/// Current status of this proposal
 		pub status: ProposalStatus,
 		/// Original proposer of this proposal
 		pub proposer: AccountId,
-		/// Block number when this proposal was executed
+		/// Block number when this proposal was submitted
+		pub submitted_at: BlockNumber,
+		/// Block number when this proposal was executed (if applicable)
 		pub executed_at: Option<BlockNumber>,
 	}
 
