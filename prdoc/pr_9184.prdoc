@@ -1,0 +1,8 @@
+title: 'FixedPoint: Support parsing `x.y` format'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This makes it easier to declare a fixed point value. The old format is also still supported.
+crates:
+- name: sp-arithmetic
+  bump: patch
