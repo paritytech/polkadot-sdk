@@ -189,14 +189,14 @@ mod unit_test {
 				let call = make_remark_call("1000").unwrap();
 				let call_hash = <Test as Config>::Hashing::hash_of(&call);
 				let origin_id = ALICE_ORIGIN_ID;
-				let expiry = None;
+				let expiry_at = None;
 
 				// First proposal should succeed
 				assert_ok!(OriginAndGate::propose(
 					RuntimeOrigin::signed(ALICE),
 					call.clone(),
 					origin_id,
-					expiry,
+					expiry_at,
 				));
 
 				// Second identical proposal should fail with ProposalAlreadyExists
@@ -205,7 +205,7 @@ mod unit_test {
 				// 		RuntimeOrigin::signed(ALICE),
 				// 		call.clone(),
 				// 		origin_id,
-				// 		expiry,
+				// 		expiry_at,
 				// 	),
 				// 	Error::<Test>::ProposalAlreadyExists
 				// );
@@ -216,7 +216,7 @@ mod unit_test {
 				// 		RuntimeOrigin::signed(BOB),
 				// 		call.clone(),
 				// 		origin_id,
-				// 		expiry,
+				// 		expiry_at,
 				// 	),
 				// 	Error::<Test>::ProposalAlreadyExists
 				// );
@@ -241,16 +241,16 @@ mod unit_test {
 				let call = make_remark_call("1000").unwrap();
 				let call_hash = <Test as Config>::Hashing::hash_of(&call);
 				// Expire after 10 blocks
-				let expiry = Some(starting_block + <Test as Config>::ProposalExpiry::get());
+				let expiry_at = Some(starting_block + <Test as Config>::ProposalExpiry::get());
 
-				System::set_block_number(expiry.unwrap() + 1);
+				System::set_block_number(expiry_at.unwrap() + 1);
 
 				// Create proposal
 				let result = OriginAndGate::propose(
 					RuntimeOrigin::signed(ALICE),
 					call.clone(),
 					ALICE_ORIGIN_ID,
-					expiry,
+					expiry_at,
 				);
 
 				// Verify returned expected error
@@ -345,7 +345,7 @@ mod unit_test {
 
 				let proposal_info = ProposalInfo {
 					call_hash: call_hash2,
-					expiry: None,
+					expiry_at: None,
 					approvals,
 					status: ProposalStatus::Executed,
 					proposer: ALICE,
@@ -509,7 +509,7 @@ mod unit_test {
 
 				let proposal_info = ProposalInfo {
 					call_hash,
-					expiry: None,
+					expiry_at: None,
 					approvals,
 					status: ProposalStatus::Executed,
 					proposer: ALICE,
@@ -703,7 +703,7 @@ mod unit_test {
 				let call = make_remark_call("1000").unwrap();
 				let call_hash = <Test as Config>::Hashing::hash_of(&call);
 				// Expire after 10 blocks when `ProposalExpiry` is set to 10
-				let expiry = Some(starting_block + <Test as Config>::ProposalExpiry::get());
+				let expiry_at = Some(starting_block + <Test as Config>::ProposalExpiry::get());
 
 				// Manually create and insert proposal but with empty `approvals`
 				// without the proposer automatically approving that normally occurs.
@@ -712,7 +712,7 @@ mod unit_test {
 
 				let proposal_info = ProposalInfo {
 					call_hash,
-					expiry,
+					expiry_at,
 					approvals,
 					status: ProposalStatus::Pending, /* Force pending even enough approvals to
 					                                  * execute */
@@ -726,7 +726,7 @@ mod unit_test {
 				ProposalCalls::<Test>::insert(call_hash, call);
 
 				// Advance past expiry
-				System::set_block_number(expiry.unwrap() + 1);
+				System::set_block_number(expiry_at.unwrap() + 1);
 
 				// Proposal should be marked as Pending due to override
 				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
@@ -744,7 +744,7 @@ mod unit_test {
 				println!(
 					"Current block: {}, Expiry: {:?}, Call hash: {:?}",
 					System::block_number(),
-					Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap().expiry.unwrap(),
+					Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap().expiry_at.unwrap(),
 					call_hash
 				);
 
@@ -897,7 +897,7 @@ mod unit_test {
 
 				let proposal_info = ProposalInfo {
 					call_hash,
-					expiry: None,
+					expiry_at: None,
 					approvals,
 					status: ProposalStatus::Pending, /* Force pending even enough approvals to
 					                                  * execute */
@@ -2070,14 +2070,14 @@ mod unit_test {
 				let call = make_remark_call("1000").unwrap();
 				let call_hash = <Test as Config>::Hashing::hash_of(&call);
 				let expiry_block = starting_block + 99; // Proposal expires at block 100
-				let expiry = Some(expiry_block);
+				let expiry_at = Some(expiry_block);
 
 				// Alice proposes
 				assert_ok!(OriginAndGate::propose(
 					RuntimeOrigin::signed(ALICE),
 					call.clone(),
 					ALICE_ORIGIN_ID,
-					expiry,
+					expiry_at,
 				));
 
 				// Verify proposal in ExpiringProposals storage
@@ -2148,14 +2148,14 @@ mod unit_test {
 				let call = make_remark_call("2000").unwrap();
 				let call_hash = <Test as Config>::Hashing::hash_of(&call);
 				let expiry_block = starting_block + 99; // Proposal expires at block 100
-				let expiry = Some(expiry_block);
+				let expiry_at = Some(expiry_block);
 
 				// Alice proposes
 				assert_ok!(OriginAndGate::propose(
 					RuntimeOrigin::signed(ALICE),
 					call.clone(),
 					ALICE_ORIGIN_ID,
-					expiry,
+					expiry_at,
 				));
 
 				// Verify proposal is in ExpiringProposals storage
@@ -2684,7 +2684,7 @@ mod integration_test {
 
 				let proposal_info = ProposalInfo {
 					call_hash,
-					expiry: None,
+					expiry_at: None,
 					approvals,
 					status: ProposalStatus::Pending,
 					proposer: ALICE,

@@ -172,8 +172,8 @@ pub mod pallet {
 		/// Expired).
 		///
 		/// Inclusions:
-		///   - Retention period starts after the proposal's expiry time, or after the current block
-		///     after
+		///   - Retention period starts after the proposal's expiry block, or after the current
+		///     block after
 		/// termination through Execution if no expiry is set, and allows on-chain queries before
 		/// final cleanup.
 		///
@@ -314,8 +314,8 @@ pub mod pallet {
 
 					// Remove from ExpiringProposals if has expiry since don't need to
 					// track executed proposals for expiry
-					if let Some(expiry) = proposal_info.expiry {
-						ExpiringProposals::<T>::mutate(expiry, |proposals| {
+					if let Some(expiry_at) = proposal_info.expiry_at {
+						ExpiringProposals::<T>::mutate(expiry_at, |proposals| {
 							proposals
 								.retain(|(hash, id)| *hash != proposal_hash || *id != origin_id);
 						});
@@ -363,8 +363,8 @@ pub mod pallet {
 				let current_block = frame_system::Pallet::<T>::block_number();
 
 				// Check if proposal has expired
-				if let Some(expiry) = proposal_info.expiry {
-					if current_block > expiry {
+				if let Some(expiry_at) = proposal_info.expiry_at {
+					if current_block > expiry_at {
 						// Update proposal status to expired
 						proposal_info.status = ProposalStatus::Expired;
 
@@ -434,9 +434,9 @@ pub mod pallet {
 						.unwrap_or(current_block)
 						.saturating_add(T::NonCancelledProposalRetentionPeriod::get()),
 					// Expired proposals use expiry as base
-					ProposalStatus::Expired => match proposal.expiry {
-						Some(expiry) =>
-							expiry.saturating_add(T::NonCancelledProposalRetentionPeriod::get()),
+					ProposalStatus::Expired => match proposal.expiry_at {
+						Some(expiry_at) =>
+							expiry_at.saturating_add(T::NonCancelledProposalRetentionPeriod::get()),
 						None => current_block
 							.saturating_add(T::NonCancelledProposalRetentionPeriod::get()),
 					},
@@ -471,7 +471,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			call: Box<<T as Config>::RuntimeCall>,
 			origin_id: T::OriginId,
-			expiry: Option<BlockNumberFor<T>>,
+			expiry_at: Option<BlockNumberFor<T>>,
 		) -> DispatchResultWithPostInfo {
 			// Check extrinsic was signed
 			let who = ensure_signed(origin)?;
@@ -489,7 +489,7 @@ pub mod pallet {
 			let current_block = frame_system::Pallet::<T>::block_number();
 
 			// Determine expiration block number if provided or otherwise use default
-			let expiry_block = match expiry {
+			let expiry_block = match expiry_at {
 				Some(expiry_block) => {
 					// Check expiry not in the past
 					ensure!(current_block <= expiry_block, Error::<T>::ProposalExpired);
@@ -516,7 +516,7 @@ pub mod pallet {
 			// Create and store proposal metadata (bounded storage)
 			let proposal_info = ProposalInfo {
 				call_hash: proposal_hash,
-				expiry: expiry_block,
+				expiry_at: expiry_block,
 				approvals,
 				status: ProposalStatus::Pending,
 				proposer: who.clone(),
@@ -723,7 +723,7 @@ pub mod pallet {
 			proposal_info.status = ProposalStatus::Cancelled;
 
 			// Store the expiry before moving proposal_info
-			let expiry = proposal_info.expiry;
+			let expiry_at = proposal_info.expiry_at;
 
 			// Update storage with cancelled status
 			<Proposals<T>>::insert(&proposal_hash, &origin_id, proposal_info);
@@ -733,8 +733,8 @@ pub mod pallet {
 
 			// Remove from ExpiringProposals if it has an expiry
 			// since we don't need to track cancelled proposals for expiry
-			if let Some(expiry) = expiry {
-				ExpiringProposals::<T>::mutate(expiry, |proposals| {
+			if let Some(expiry_at) = expiry_at {
+				ExpiringProposals::<T>::mutate(expiry_at, |proposals| {
 					proposals.retain(|(hash, id)| *hash != proposal_hash || *id != origin_id);
 				});
 			}
@@ -1014,7 +1014,7 @@ pub mod pallet {
 		/// Call hash of this proposal to execute
 		pub call_hash: Hash,
 		/// Block number after which this proposal expires
-		pub expiry: Option<BlockNumber>,
+		pub expiry_at: Option<BlockNumber>,
 		/// List of approvals of a proposal as (AccountId, OriginId) pairs
 		pub approvals: BoundedVec<(AccountId, OriginId), MaxApprovals>,
 		/// Current status of this proposal

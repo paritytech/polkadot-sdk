@@ -90,11 +90,11 @@ mod benchmarks {
 
 		// Convert u8 to T::OriginId using our helper
 		let origin_id = make_origin_id::<T>(ROOT_ORIGIN_ID);
-		let expiry = None;
+		let expiry_at = None;
 
 		// Phase 2: Execution
 		#[extrinsic_call]
-		propose(RawOrigin::Signed(caller), Box::new(call), origin_id, expiry);
+		propose(RawOrigin::Signed(caller), Box::new(call), origin_id, expiry_at);
 
 		// Phase 3: Verification
 		assert!(
@@ -119,13 +119,13 @@ mod benchmarks {
 		// Convert u8 to T::OriginId using helper
 		let origin_id = make_origin_id::<T>(ROOT_ORIGIN_ID);
 		let approving_origin_id = make_origin_id::<T>(ALICE_ORIGIN_ID);
-		let expiry = None;
+		let expiry_at = None;
 
 		Pallet::<T>::propose(
 			RawOrigin::Signed(proposer).into(),
 			Box::new(call),
 			origin_id,
-			expiry,
+			expiry_at,
 		)?;
 
 		// Phase 2: Execution
@@ -156,13 +156,13 @@ mod benchmarks {
 		// Convert u8 to T::OriginId using our helper
 		let origin_id = make_origin_id::<T>(ALICE_ORIGIN_ID);
 		let approving_origin_id1 = make_origin_id::<T>(BOB_ORIGIN_ID);
-		let expiry = None;
+		let expiry_at = None;
 
 		Pallet::<T>::propose(
 			RawOrigin::Signed(proposer).into(),
 			Box::new(call),
 			origin_id,
-			expiry,
+			expiry_at,
 		)?;
 
 		// Add approvals but do not auto-execute
@@ -199,13 +199,13 @@ mod benchmarks {
 
 		// Convert u8 to T::OriginId using our helper
 		let origin_id = make_origin_id::<T>(ROOT_ORIGIN_ID);
-		let expiry = None;
+		let expiry_at = None;
 
 		Pallet::<T>::propose(
 			RawOrigin::Signed(caller.clone()).into(),
 			Box::new(call),
 			origin_id,
-			expiry,
+			expiry_at,
 		)?;
 
 		// Phase 2: Execution
@@ -235,13 +235,13 @@ mod benchmarks {
 		// Convert u8 to T::OriginId using our helper
 		let origin_id = make_origin_id::<T>(ROOT_ORIGIN_ID);
 		let approving_origin_id = make_origin_id::<T>(ALICE_ORIGIN_ID);
-		let expiry = None;
+		let expiry_at = None;
 
 		Pallet::<T>::propose(
 			RawOrigin::Signed(proposer).into(),
 			Box::new(call),
 			origin_id,
-			expiry,
+			expiry_at,
 		)?;
 
 		Pallet::<T>::add_approval(
@@ -281,19 +281,19 @@ mod benchmarks {
 		// Convert u8 to T::OriginId using our helper
 		let origin_id = make_origin_id::<T>(ALICE_ORIGIN_ID);
 		let approving_origin_id = make_origin_id::<T>(BOB_ORIGIN_ID);
-		let expiry = None;
+		let expiry_at = None;
 		let auto_execute = false;
 
 		// Create a proposal with immediate expiry
 		let start_block = frame_system::Pallet::<T>::block_number();
-		// let expiry = Some(start_block);
+		// let expiry_at = Some(start_block);
 
 		// Ensure the proposal is created
 		Pallet::<T>::propose(
 			RawOrigin::Signed(proposer.clone()).into(),
 			Box::new(call.clone()),
 			origin_id,
-			expiry,
+			expiry_at,
 		)?;
 
 		// Verify the proposal still exists before add_approval
@@ -318,9 +318,9 @@ mod benchmarks {
 
 		// Advance block to make proposal eligible for cleaning
 		let retention_period = T::NonCancelledProposalRetentionPeriod::get();
-		let proposal_expiry = T::ProposalExpiry::get();
+		let proposal_expiry_at = T::ProposalExpiry::get();
 		frame_system::Pallet::<T>::set_block_number(
-			start_block + proposal_expiry + retention_period + 1u32.into(),
+			start_block + proposal_expiry_at + retention_period + 1u32.into(),
 		);
 
 		// Verify proposal still exists before cleaning
