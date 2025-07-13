@@ -210,10 +210,10 @@ pub async fn benchmark_dispute_coordinator(
 				.get(1)
 				.expect("all validators have keys");
 
-			assert!(env.network().is_peer_connected(peer), "Peer {:?} is not connected", peer);
+			assert!(env.network().is_peer_connected(peer), "Peer {peer:?} is not connected");
 			env.network().send_request_from_peer(peer, request).unwrap();
 			let res = pending_response_receiver.await.expect("dispute request sent");
-			gum::debug!(target: LOG_TARGET, "Dispute request sent to node from peer {:?}", res);
+			gum::debug!(target: LOG_TARGET, "Dispute request sent to node from peer {res:?}");
 		}
 
 		let candidate_hashes =
@@ -235,7 +235,7 @@ pub async fn benchmark_dispute_coordinator(
 				})
 				.sum::<usize>();
 
-			gum::info!(target: LOG_TARGET, "Waiting for dispute requests to be sent: {}/{}", requests_sent, requests_expected);
+			gum::info!(target: LOG_TARGET, "Waiting for dispute requests to be sent: {requests_sent}/{requests_expected}");
 			if requests_sent == requests_expected {
 				break;
 			}
@@ -245,7 +245,7 @@ pub async fn benchmark_dispute_coordinator(
 	}
 
 	let duration: u128 = test_start.elapsed().as_millis();
-	gum::info!(target: LOG_TARGET, "All blocks processed in {}", format!("{:?}ms", duration).cyan());
+	gum::info!(target: LOG_TARGET, "All blocks processed in {}", format!("{duration:?}ms").cyan());
 	gum::info!(target: LOG_TARGET,
 		"Avg block time: {}",
 		format!("{} ms", test_start.elapsed().as_millis() / env.config().num_blocks as u128).red()
