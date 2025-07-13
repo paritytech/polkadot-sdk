@@ -1089,20 +1089,4 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub(super) type Dummy<T: Config> = StorageValue<_, T::Balance>;
-
-	// Genesis config type.
-	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
-	pub struct GenesisConfig<T: Config> {
-		// TODO
-		pub key: Option<T::AccountId>,
-	}
-
-	// Build of genesis for the pallet.
-	#[pallet::genesis_build]
-	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
-		fn build(&self) {
-			// TODO
-		}
-	}
 }
