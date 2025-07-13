@@ -48,6 +48,9 @@ use sp_runtime::{
 	transaction_validity::{InvalidTransaction, ValidTransaction},
 };
 
+/// Type alias for dummy storage value
+pub type DummyValueOf = BoundedVec<u8, ConstU32<1024>>;
+
 pub use pallet::*;
 
 #[cfg(test)]
@@ -61,10 +64,6 @@ pub use weights::*;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-
-/// Type alias for balance type from balances pallet.
-// TODO: Remove use of balance pallet since it does not appear to be required
-pub type BalanceOf<T> = <T as pallet_balances::Config>::Balance;
 
 /// Timepoint represents a specific moment (block number and extrinsic index).
 #[derive(
@@ -113,22 +112,23 @@ where
 	}
 }
 
-struct WeightForSetDummy<T: pallet_balances::Config>(BalanceOf<T>);
+/// Custom weight implementation for `set_dummy`.
+struct WeightForSetDummy<T>(PhantomData<T>);
 
-impl<T: pallet_balances::Config> WeighData<(&BalanceOf<T>,)> for WeightForSetDummy<T> {
-	fn weigh_data(&self, target: (&BalanceOf<T>,)) -> Weight {
-		Weight::from_parts(100_000, 0)
+impl<T> WeighData<(&DummyValueOf,)> for WeightForSetDummy<T> {
+	fn weigh_data(&self, _: (&DummyValueOf,)) -> Weight {
+		Weight::from_parts(100_000_000, 0)
 	}
 }
 
-impl<T: pallet_balances::Config> ClassifyDispatch<(&BalanceOf<T>,)> for WeightForSetDummy<T> {
-	fn classify_dispatch(&self, _target: (&BalanceOf<T>,)) -> DispatchClass {
+impl<T> ClassifyDispatch<(&DummyValueOf,)> for WeightForSetDummy<T> {
+	fn classify_dispatch(&self, _: (&DummyValueOf,)) -> DispatchClass {
 		DispatchClass::Normal
 	}
 }
 
-impl<T: pallet_balances::Config> PaysFee<(&BalanceOf<T>,)> for WeightForSetDummy<T> {
-	fn pays_fee(&self, _target: (&BalanceOf<T>,)) -> Pays {
+impl<T> PaysFee<(&DummyValueOf,)> for WeightForSetDummy<T> {
+	fn pays_fee(&self, _: (&DummyValueOf,)) -> Pays {
 		Pays::Yes
 	}
 }
@@ -142,7 +142,7 @@ pub mod pallet {
 	use sp_std::{fmt::Debug, marker::PhantomData};
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + pallet_balances::Config {
+	pub trait Config: frame_system::Config {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -834,24 +834,16 @@ pub mod pallet {
 		/// The weight for this extrinsic we use our own weight object `WeightForSetDummy`
 		/// or set_dummy() extrinsic to determine its weight
 		#[pallet::call_index(5)]
-		// #[pallet::weight(WeightForSetDummy::<T>(<BalanceOf<T>>::from(100u64.into())))]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_dummy())]
-		pub fn set_dummy(
-			origin: OriginFor<T>,
-			#[pallet::compact] new_value: T::Balance,
-		) -> DispatchResult {
+		pub fn set_dummy(origin: OriginFor<T>, new_value: DummyValueOf) -> DispatchResult {
 			ensure_root(origin)?;
 
-			// Print out log or debug message in the console via log::{error, warn, info, debug,
-			// trace}, accepting format strings similar to `println!`.
-			// https://paritytech.github.io/substrate/master/sp_io/logging/fn.log.html
-			// https://paritytech.github.io/substrate/master/frame_support/constant.LOG_TARGET.html
 			info!("New value is now: {:?}", new_value);
 
 			// Put the new value into storage.
-			<Dummy<T>>::put(new_value);
+			<Dummy<T>>::put(new_value.clone());
 
-			Self::deposit_event(Event::SetDummy { balance: new_value });
+			Self::deposit_event(Event::SetDummy { dummy_value: new_value });
 
 			// All good, no refund.
 			Ok(())
@@ -957,7 +949,7 @@ pub mod pallet {
 			timepoint: Timepoint<BlockNumberFor<T>>,
 		},
 		SetDummy {
-			balance: BalanceOf<T>,
+			dummy_value: DummyValueOf,
 		},
 		/// A proposal's storage was cleaned up
 		ProposalCleaned {
@@ -1088,5 +1080,5 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
-	pub(super) type Dummy<T: Config> = StorageValue<_, T::Balance>;
+	pub(super) type Dummy<T: Config> = StorageValue<_, DummyValueOf>;
 }

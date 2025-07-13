@@ -122,7 +122,6 @@ pub type AliceAndBob = AndGate<AliceOrigin, BobOrigin>;
 frame_support::construct_runtime!(
 	pub enum Test {
 		System: frame_system,
-		Balances: pallet_balances,
 		OriginAndGate: pallet_origin_and_gate,
 	}
 );
@@ -152,7 +151,7 @@ impl system::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Version = ();
 	type PalletInfo = PalletInfo;
-	type AccountData = pallet_balances::AccountData<u64>;
+	type AccountData = ();
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
@@ -167,11 +166,6 @@ impl system::Config for Test {
 	type SingleBlockMigrations = ();
 	type MultiBlockMigrator = ();
 	type ExtensionsWeightInfo = ();
-}
-
-#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
-impl pallet_balances::Config for Test {
-	type AccountStore = System;
 }
 
 impl Clone for MaxApprovals {

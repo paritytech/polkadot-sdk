@@ -38,13 +38,23 @@ fn make_remark_call(text: &str) -> Result<Box<<Test as Config>::RuntimeCall>, &'
 		Err(_) => return Err("Failed to parse input as u64"),
 	};
 
-	let remark = self::Call::<Test>::set_dummy { new_value: value };
+	// Convert the value to a BoundedVec<u8>
+	let value_bytes = value.to_string().into_bytes();
+	let bounded_bytes: DummyValueOf =
+		BoundedVec::try_from(value_bytes).map_err(|_| "Value too large for BoundedVec")?;
+
+	let remark = self::Call::<Test>::set_dummy { new_value: bounded_bytes };
 	Ok(Box::new(RuntimeCall::OriginAndGate(remark)))
 }
 
 /// Helper function to create dummy call for use with testing
 fn create_dummy_call(value: u64) -> Box<<Test as Config>::RuntimeCall> {
-	let call = Call::<Test>::set_dummy { new_value: value };
+	// Convert the value to a BoundedVec<u8>
+	let value_bytes = value.to_string().into_bytes();
+	let bounded_bytes: DummyValueOf =
+		BoundedVec::try_from(value_bytes).expect("Value should fit in BoundedVec");
+
+	let call = Call::<Test>::set_dummy { new_value: bounded_bytes };
 	Box::new(RuntimeCall::OriginAndGate(call))
 }
 
@@ -90,20 +100,28 @@ mod unit_test {
 		#[test]
 		fn set_dummy_works() {
 			new_test_ext().execute_with(|| {
-				// Check initial value is None
+				// Check initial value
 				assert_eq!(Dummy::<Test>::get(), None);
 
 				// Set dummy value
-				assert_ok!(OriginAndGate::set_dummy(RuntimeOrigin::root(), 1000));
+				let dummy_bytes = b"1000".to_vec();
+				let bounded_dummy: DummyValueOf = BoundedVec::try_from(dummy_bytes).unwrap();
+				assert_ok!(OriginAndGate::set_dummy(RuntimeOrigin::root(), bounded_dummy.clone()));
 
 				// Check value set
-				assert_eq!(Dummy::<Test>::get(), Some(1000));
+				assert_eq!(Dummy::<Test>::get(), Some(bounded_dummy.clone()));
 
 				// Set new value
-				assert_ok!(OriginAndGate::set_dummy(RuntimeOrigin::root(), 100));
+				let new_dummy_bytes = b"100".to_vec();
+				let bounded_new_dummy: DummyValueOf =
+					BoundedVec::try_from(new_dummy_bytes).unwrap();
+				assert_ok!(OriginAndGate::set_dummy(
+					RuntimeOrigin::root(),
+					bounded_new_dummy.clone()
+				));
 
 				// Check value updated
-				assert_eq!(Dummy::<Test>::get(), Some(100));
+				assert_eq!(Dummy::<Test>::get(), Some(bounded_new_dummy));
 			});
 		}
 
@@ -111,8 +129,10 @@ mod unit_test {
 		fn set_dummy_privileged_call_fails_with_non_root_origin() {
 			new_test_ext().execute_with(|| {
 				// Attempt to set with signed origin should fail
+				let dummy_bytes = b"1000".to_vec();
+				let bounded_dummy: DummyValueOf = BoundedVec::try_from(dummy_bytes).unwrap();
 				assert_noop!(
-					OriginAndGate::set_dummy(RuntimeOrigin::signed(1), 1000),
+					OriginAndGate::set_dummy(RuntimeOrigin::signed(1), bounded_dummy),
 					DispatchError::BadOrigin
 				);
 			});
@@ -963,6 +983,11 @@ mod unit_test {
 					result: Ok(()),
 					timepoint: execution_timepoint,
 				}));
+
+				// Verify dummy value was set
+				let expected_bytes = b"1000".to_vec();
+				let expected_bounded: DummyValueOf = BoundedVec::try_from(expected_bytes).unwrap();
+				assert_eq!(Dummy::<Test>::get(), Some(expected_bounded));
 			});
 		}
 	}
@@ -1827,7 +1852,9 @@ mod unit_test {
 				assert_eq!(proposal.executed_at, Some(100));
 
 				// Verify dummy value was set
-				assert_eq!(Dummy::<Test>::get(), Some(1000));
+				let expected_bytes = b"1000".to_vec();
+				let expected_bounded: DummyValueOf = BoundedVec::try_from(expected_bytes).unwrap();
+				assert_eq!(Dummy::<Test>::get(), Some(expected_bounded));
 
 				// Verify execution event was emitted
 				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalExecuted {
@@ -2173,7 +2200,7 @@ mod unit_test {
 					RuntimeOrigin::signed(ALICE),
 					call.clone(),
 					ALICE_ORIGIN_ID,
-					None, // No expiry
+					None,
 				));
 
 				// Verify proposal was created with Pending status
@@ -2217,7 +2244,9 @@ mod unit_test {
 				assert_eq!(proposal.status, ProposalStatus::Executed);
 
 				// Verify dummy value was set
-				assert_eq!(Dummy::<Test>::get(), Some(1000));
+				let expected_bytes = b"1000".to_vec();
+				let expected_bounded: DummyValueOf = BoundedVec::try_from(expected_bytes).unwrap();
+				assert_eq!(Dummy::<Test>::get(), Some(expected_bounded));
 			});
 		}
 
@@ -2284,7 +2313,9 @@ mod integration_test {
 			System::set_block_number(1);
 
 			// Create test call to be used in proposal
-			let call: RuntimeCall = Call::set_dummy { new_value: 1000 }.into();
+			let dummy_bytes = b"1000".to_vec();
+			let bounded_dummy: DummyValueOf = BoundedVec::try_from(dummy_bytes).unwrap();
+			let call: RuntimeCall = Call::set_dummy { new_value: bounded_dummy }.into();
 			let call_hash = <Test as Config>::Hashing::hash_of(&call);
 
 			// Propose using Alice's origin and get origin ID dynamically
@@ -2400,7 +2431,9 @@ mod integration_test {
 				));
 
 				// Verify execution successful after both approvals
-				assert_eq!(Dummy::<Test>::get(), Some(1000));
+				let expected_bytes = b"1000".to_vec();
+				let expected_bounded: DummyValueOf = BoundedVec::try_from(expected_bytes).unwrap();
+				assert_eq!(Dummy::<Test>::get(), Some(expected_bounded));
 
 				// Verify ExecutedCalls storage updated with call hash at execution timepoint
 				assert_eq!(ExecutedCalls::<Test>::get(execution_timepoint), Some(call_hash));
@@ -2626,6 +2659,11 @@ mod integration_test {
 					result: Ok(()),
 					timepoint: execution_timepoint,
 				}));
+
+				// Verify dummy value was set
+				let expected_bytes = b"1000".to_vec();
+				let expected_bounded: DummyValueOf = BoundedVec::try_from(expected_bytes).unwrap();
+				assert_eq!(Dummy::<Test>::get(), Some(expected_bounded));
 			});
 		}
 
@@ -2770,7 +2808,9 @@ mod andgate_requirements {
 			));
 
 			// Verify execution successful after both approvals
-			assert_eq!(Dummy::<Test>::get(), Some(1000));
+			let expected_bytes = b"1000".to_vec();
+			let expected_bounded: DummyValueOf = BoundedVec::try_from(expected_bytes).unwrap();
+			assert_eq!(Dummy::<Test>::get(), Some(expected_bounded));
 
 			// Verify ExecutedCalls storage updated with call hash at execution timepoint
 			assert_eq!(ExecutedCalls::<Test>::get(execution_timepoint), Some(call_hash));
@@ -2843,7 +2883,9 @@ mod andgate_requirements {
 			));
 
 			// Verify execution occurred
-			assert_eq!(Dummy::<Test>::get(), Some(1000));
+			let expected_bytes = b"1000".to_vec();
+			let expected_bounded: DummyValueOf = BoundedVec::try_from(expected_bytes).unwrap();
+			assert_eq!(Dummy::<Test>::get(), Some(expected_bounded));
 
 			// Verify ExecutedCalls storage updated with call hash at execution timepoint
 			assert_eq!(ExecutedCalls::<Test>::get(execution_timepoint), Some(call_hash));
@@ -2875,8 +2917,10 @@ mod andgate_requirements {
 			// Direct attempt using AndGate should fail
 			// Note: This test explicitly validates that a synchronous approach fails
 			// that shows why asynchronous proposal system is necessary
+			let dummy_bytes = b"1000".to_vec();
+			let bounded_dummy: DummyValueOf = BoundedVec::try_from(dummy_bytes).unwrap();
 			assert_noop!(
-				OriginAndGate::set_dummy(RuntimeOrigin::signed(ALICE), 1000),
+				OriginAndGate::set_dummy(RuntimeOrigin::signed(ALICE), bounded_dummy),
 				DispatchError::BadOrigin
 			);
 
@@ -2945,7 +2989,9 @@ mod andgate_requirements {
 			));
 
 			// Verify execution successful after both origins approved
-			assert_eq!(Dummy::<Test>::get(), Some(1000));
+			let expected_bytes = b"1000".to_vec();
+			let expected_bounded: DummyValueOf = BoundedVec::try_from(expected_bytes).unwrap();
+			assert_eq!(Dummy::<Test>::get(), Some(expected_bounded));
 
 			// Verify ExecutedCalls storage updated with call hash at execution timepoint
 			assert_eq!(ExecutedCalls::<Test>::get(execution_timepoint), Some(call_hash));
@@ -3054,7 +3100,7 @@ mod andgate_requirements {
 			// Verify first call execution and ExecutedCalls entry
 			assert_eq!(ExecutedCalls::<Test>::get(first_execution_timepoint), Some(call_hash2));
 
-			// Verify first execution event with timepoint
+			// Verify execution event with timepoint
 			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalExecuted {
 				proposal_hash: call_hash2,
 				origin_id: BOB_ORIGIN_ID,
@@ -3084,9 +3130,11 @@ mod andgate_requirements {
 			// Verify both calls executed
 			// Last executed call wins which appears to conflict
 			// with comment below so need to verify
-			assert_eq!(Dummy::<Test>::get(), Some(1000));
+			let expected_bytes = b"1000".to_vec();
+			let expected_bounded: DummyValueOf = BoundedVec::try_from(expected_bytes).unwrap();
+			assert_eq!(Dummy::<Test>::get(), Some(expected_bounded));
 
-			// Verify second execution event with timepoint
+			// Verify execution event with timepoint
 			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalExecuted {
 				proposal_hash: call_hash1,
 				origin_id: ALICE_ORIGIN_ID,

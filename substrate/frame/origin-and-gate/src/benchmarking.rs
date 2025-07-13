@@ -63,12 +63,14 @@ mod benchmarks {
 	#[benchmark]
 	fn set_dummy() -> Result<(), BenchmarkError> {
 		// Phase 1: Setup
-		// `set_dummy` is a constant time function, hence we hard-code some random value here.
-		let value: T::Balance = 1000u32.into();
+		// `set_dummy` is a constant time function, hence we hard-code some test message here.
+		let raw_value: Vec<u8> = b"message".to_vec();
+		let value: DummyValueOf = BoundedVec::try_from(raw_value)
+			.map_err(|_| BenchmarkError::Stop("Failed to create BoundedVec"))?;
 
 		// Phase 2: Execution
 		#[extrinsic_call]
-		set_dummy(RawOrigin::Root, value);
+		set_dummy(RawOrigin::Root, value.clone());
 
 		// Phase 3: Verification
 		assert_eq!(Dummy::<T>::get(), Some(value));

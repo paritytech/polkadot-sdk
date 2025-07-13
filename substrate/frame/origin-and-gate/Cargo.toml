@@ -7,6 +7,7 @@ license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
 description = "FRAME pallet for implementing AND Gate for EnsureOrigin"
+documentation = "https://docs.rs/pallet-origin-and-gate"
 readme = "README.md"
 
 [lints]
@@ -21,7 +22,6 @@ frame-benchmarking = { workspace = true, optional = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
-pallet-balances = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
 sp-arithmetic = { workspace = true }
@@ -41,7 +41,6 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"pallet-balances/std",
 	"pallet-transaction-payment/std",
 	"scale-info/std",
 	"sp-arithmetic/std",
@@ -54,14 +53,12 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"sp-runtime/try-runtime",
 ]
