@@ -316,9 +316,9 @@ mod benchmarks {
 
 		// Advance block to make proposal eligible for cleaning
 		let retention_period = T::NonCancelledProposalRetentionPeriod::get();
-		let proposal_lifetime = T::ProposalLifetime::get();
+		let proposal_expiry = T::ProposalExpiry::get();
 		frame_system::Pallet::<T>::set_block_number(
-			start_block + retention_period + proposal_lifetime + 1u32.into(),
+			start_block + proposal_expiry + retention_period + 1u32.into(),
 		);
 
 		// Verify proposal still exists before cleaning

@@ -188,7 +188,7 @@ pub type OriginId = u8;
 parameter_types! {
 	pub static MaxApprovals: u32 = 2;
 	// TODO: Add OriginId
-	pub static ProposalLifetime: BlockNumber = 100;
+	pub static ProposalExpiry: BlockNumber = 100;
 	// Default retention period for terminal proposals
 	pub static NonCancelledProposalRetentionPeriod: BlockNumber = 50;
 	// Maximum number of proposals to expire per block
@@ -201,7 +201,7 @@ impl pallet_origin_and_gate::Config for Test {
 	type MaxApprovals = MaxApprovals;
 	type Hashing = BlakeTwo256;
 	type OriginId = OriginId;
-	type ProposalLifetime = ProposalLifetime;
+	type ProposalExpiry = ProposalExpiry;
 	type NonCancelledProposalRetentionPeriod = NonCancelledProposalRetentionPeriod;
 	type MaxProposalsToExpirePerBlock = MaxProposalsToExpirePerBlock;
 	type WeightInfo = ();

@@ -215,13 +215,13 @@ mod unit_test {
 		fn propose_after_expiry_fails() {
 			new_test_ext().execute_with(|| {
 				let starting_block = 1;
-				// Override the `ProposalLifetime` value of the runtime in mock
+				// Override the `ProposalExpiry` value of the runtime in mock
 				System::set_block_number(starting_block);
 
 				let call = make_remark_call("1000").unwrap();
 				let call_hash = <Test as Config>::Hashing::hash_of(&call);
 				// Expire after 10 blocks
-				let expiry = Some(starting_block + <Test as Config>::ProposalLifetime::get());
+				let expiry = Some(starting_block + <Test as Config>::ProposalExpiry::get());
 
 				System::set_block_number(expiry.unwrap() + 1);
 
@@ -682,8 +682,8 @@ mod unit_test {
 
 				let call = make_remark_call("1000").unwrap();
 				let call_hash = <Test as Config>::Hashing::hash_of(&call);
-				// Expire after 10 blocks when `ProposalLifetime` is set to 10
-				let expiry = Some(starting_block + <Test as Config>::ProposalLifetime::get());
+				// Expire after 10 blocks when `ProposalExpiry` is set to 10
+				let expiry = Some(starting_block + <Test as Config>::ProposalExpiry::get());
 
 				// Manually create and insert proposal but with empty `approvals`
 				// without the proposer automatically approving that normally occurs.
@@ -1501,7 +1501,7 @@ mod unit_test {
 		fn clean_fails_before_retention_period_elapsed() {
 			new_test_ext().execute_with(|| {
 				// Automatically expire proposals after 10 blocks if proposal does not have an expiry
-				ProposalLifetime::set(10);
+				ProposalExpiry::set(10);
 				// Set retention period to 50 blocks for this test
 				NonCancelledProposalRetentionPeriod::set(50);
 
@@ -1544,7 +1544,7 @@ mod unit_test {
 					Error::<Test>::ProposalRetentionPeriodNotElapsed
 				);
 
-				// Advance to block 50 since no expiry set so we use proposal lifetime of 10 blocks instead
+				// Advance to block 50 since no expiry set so we use proposal expiry of 10 blocks instead
 				// and retention period of 50 blocks
 				System::set_block_number(50);
 
@@ -1704,7 +1704,7 @@ mod unit_test {
 		#[test]
 		fn executed_proposal_without_expiry_uses_executed_block() {
 			new_test_ext().execute_with(|| {
-				ProposalLifetime::set(10);
+				ProposalExpiry::set(10);
 				// Set retention period to 50 blocks for this test
 				NonCancelledProposalRetentionPeriod::set(50);
 
@@ -1751,7 +1751,7 @@ mod unit_test {
 				);
 
 				// Advance to block 65 where execution at block 5 +
-				// proposal lifetime of 10 (instead of expiry) +
+				// proposal expiry of 10 (instead of expiry) +
 				// retention period 50 = block 65
 				System::set_block_number(65);
 				println!("After advancing current block: {}", System::block_number());
@@ -1778,7 +1778,7 @@ mod unit_test {
 		use super::*;
 
 		#[test]
-		fn proposal_execution_succeeds_before_proposal_lifetime_retention_period() {
+		fn proposal_execution_succeeds_before_proposal_expiry() {
 			new_test_ext().execute_with(|| {
 				System::set_block_number(1);
 
@@ -1811,9 +1811,8 @@ mod unit_test {
 				assert_eq!(proposal.status, ProposalStatus::Pending);
 				assert_eq!(proposal.approvals.len(), MaxApprovals::get() as usize);
 
-				// Advance block number staying within retention period
-				// ProposalLifetime = 100, NonCancelledProposalRetentionPeriod = 50
-				System::set_block_number(100); // At the end of proposal lifetime
+				// Advance block number staying within expiry period
+				System::set_block_number(100); // At the end of proposal expiry
 
 				// Execute the proposal manually
 				assert_ok!(OriginAndGate::execute_proposal(

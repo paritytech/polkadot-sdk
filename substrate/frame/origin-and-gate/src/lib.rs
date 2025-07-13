@@ -166,7 +166,7 @@ pub mod pallet {
 
 		/// How long a proposal is valid for measured in blocks before it expires.
 		#[pallet::constant]
-		type ProposalLifetime: Get<BlockNumberFor<Self>>;
+		type ProposalExpiry: Get<BlockNumberFor<Self>>;
 
 		/// How long to retain proposal data after it reaches a terminal state of (Executed,
 		/// Expired).
@@ -496,8 +496,8 @@ pub mod pallet {
 					Some(expiry_block)
 				},
 				None => {
-					// If no expiry was provided then use proposal lifetime config
-					Some(current_block.saturating_add(T::ProposalLifetime::get()))
+					// If no expiry was provided then use proposal expiry config
+					Some(current_block.saturating_add(T::ProposalExpiry::get()))
 				},
 			};
 
