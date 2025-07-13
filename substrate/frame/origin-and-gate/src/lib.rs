@@ -158,11 +158,11 @@ pub mod pallet {
 		/// Identifier type for different origins that must maintain uniqueness and comparability.
 		type OriginId: Parameter + Member + TypeInfo + Copy + Ord + MaxEncodedLen;
 
-		/// The maximum number of approvals for a single proposal.
+		/// The required number of approvals for a single proposal.
 		/// The original specification by Dr Gavin Wood requires exactly two approvals to satisfy
 		/// the "AND Gate" pattern for two origins.
 		#[pallet::constant]
-		type MaxApprovals: Get<u32> + Clone;
+		type RequiredApprovalsCount: Get<u32> + Clone;
 
 		/// How long a proposal is valid for measured in blocks before it expires.
 		#[pallet::constant]
@@ -292,7 +292,7 @@ pub mod pallet {
 				BlockNumberFor<T>,
 				T::OriginId,
 				T::AccountId,
-				T::MaxApprovals,
+				T::RequiredApprovalsCount,
 			>,
 		) -> DispatchResult {
 			// Ensure proposal is in Pending state
@@ -301,8 +301,8 @@ pub mod pallet {
 				Error::<T>::ProposalNotPending
 			);
 
-			// Check for number of approvals required from MaxApprovals
-			if proposal_info.approvals.len() >= T::MaxApprovals::get() as usize {
+			// Check for number of approvals required from RequiredApprovalsCount
+			if proposal_info.approvals.len() >= T::RequiredApprovalsCount::get() as usize {
 				// Retrieve the actual call from storage
 				if let Some(call) = <ProposalCalls<T>>::get(proposal_hash) {
 					// Execute the call with root origin
@@ -355,7 +355,7 @@ pub mod pallet {
 				BlockNumberFor<T>,
 				T::OriginId,
 				T::AccountId,
-				T::MaxApprovals,
+				T::RequiredApprovalsCount,
 			>,
 		) -> bool {
 			// Only check expiry for pending proposals
@@ -409,7 +409,7 @@ pub mod pallet {
 				BlockNumberFor<T>,
 				T::OriginId,
 				T::AccountId,
-				T::MaxApprovals,
+				T::RequiredApprovalsCount,
 			>,
 		) -> bool {
 			// Get current block number
@@ -514,7 +514,7 @@ pub mod pallet {
 
 			// Create an empty bounded vec for approvals
 			let mut approvals =
-				BoundedVec::<(T::AccountId, T::OriginId), T::MaxApprovals>::default();
+				BoundedVec::<(T::AccountId, T::OriginId), T::RequiredApprovalsCount>::default();
 
 			// Add proposer as first approval
 			if let Err(_) = approvals.try_push((who.clone(), origin_id.clone())) {
@@ -1033,14 +1033,20 @@ pub mod pallet {
 
 	/// Info about specific proposal
 	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
-	#[scale_info(skip_type_params(MaxApprovals))]
-	pub struct ProposalInfo<Hash, BlockNumber, OriginId, AccountId, MaxApprovals: Get<u32>> {
+	#[scale_info(skip_type_params(RequiredApprovalsCount))]
+	pub struct ProposalInfo<
+		Hash,
+		BlockNumber,
+		OriginId,
+		AccountId,
+		RequiredApprovalsCount: Get<u32>,
+	> {
 		/// Call hash of this proposal to execute
 		pub call_hash: Hash,
 		/// Block number after which this proposal expires
 		pub expiry_at: Option<BlockNumber>,
 		/// List of approvals of a proposal as (AccountId, OriginId) pairs
-		pub approvals: BoundedVec<(AccountId, OriginId), MaxApprovals>,
+		pub approvals: BoundedVec<(AccountId, OriginId), RequiredApprovalsCount>,
 		/// Current status of this proposal
 		pub status: ProposalStatus,
 		/// Original proposer of this proposal
@@ -1060,7 +1066,13 @@ pub mod pallet {
 		T::Hash,
 		Blake2_128Concat,
 		T::OriginId,
-		ProposalInfo<T::Hash, BlockNumberFor<T>, T::OriginId, T::AccountId, T::MaxApprovals>,
+		ProposalInfo<
+			T::Hash,
+			BlockNumberFor<T>,
+			T::OriginId,
+			T::AccountId,
+			T::RequiredApprovalsCount,
+		>,
 		OptionQuery,
 	>;
 

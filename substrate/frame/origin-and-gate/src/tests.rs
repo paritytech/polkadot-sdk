@@ -365,7 +365,8 @@ mod unit_test {
 				));
 
 				// Create proposal info with sufficient approvals
-				let mut approvals = BoundedVec::<(AccountId, OriginId), MaxApprovals>::default();
+				let mut approvals =
+					BoundedVec::<(AccountId, OriginId), RequiredApprovalsCount>::default();
 				approvals.try_push((ALICE, ALICE_ORIGIN_ID)).unwrap();
 				approvals.try_push((BOB, BOB_ORIGIN_ID)).unwrap(); // Already have 2 approvals
 				let executed_at = Some(System::block_number());
@@ -529,7 +530,8 @@ mod unit_test {
 				));
 
 				// Create proposal info with sufficient approvals and executed status
-				let mut approvals = BoundedVec::<(AccountId, OriginId), MaxApprovals>::default();
+				let mut approvals =
+					BoundedVec::<(AccountId, OriginId), RequiredApprovalsCount>::default();
 				approvals.try_push((ALICE, ALICE_ORIGIN_ID)).unwrap();
 				approvals.try_push((BOB, BOB_ORIGIN_ID)).unwrap(); // Already have 2 approvals
 				let executed_at = Some(System::block_number());
@@ -596,7 +598,7 @@ mod unit_test {
 
 				// Verify approval added
 				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
-				assert_eq!(proposal.approvals.len(), MaxApprovals::get() as usize);
+				assert_eq!(proposal.approvals.len(), RequiredApprovalsCount::get() as usize);
 				assert!(proposal.approvals.contains(&(BOB, BOB_ORIGIN_ID)));
 
 				// Verify event emitted
@@ -870,7 +872,7 @@ mod unit_test {
 					true, // Auto-execute
 				));
 
-				// Verify call was executed and assume MaxApprovals::get() == 2
+				// Verify call was executed and assume RequiredApprovalsCount::get() == 2
 				let executed_proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
 				assert_eq!(executed_proposal.status, ProposalStatus::Executed);
 
@@ -894,20 +896,20 @@ mod unit_test {
 		}
 
 		#[test]
-		fn max_approvals_enforced() {
+		fn required_approvals_count_enforced() {
 			new_test_ext().execute_with(|| {
 				System::set_block_number(1);
 
 				// Create test scenario where we can verify
-				// that max approvals defined by `MaxApprovals::get()`
+				// that required approvals defined by `RequiredApprovalsCount::get()`
 				// as a configurable parameter of the pallet
-				// where upon `MaxApprovals::get()` being met the proposal
+				// where upon `RequiredApprovalsCount::get()` being met the proposal
 				// will be executed.
 				//
-				// Manually create a proposal that with `MaxApprovals::get()` it
+				// Manually create a proposal that with `RequiredApprovalsCount::get()` it
 				// is forced to have 'Pending' status instead of 'Executed' status
 				// even though it was executed to prevent it was not executed
-				// and then add a `MaxApprovals::get()` + 1 approval to test
+				// and then add a `RequiredApprovalsCount::get()` + 1 approval to test
 				// that it returns `TooManyApprovals`
 
 				// Create a call for our test
@@ -915,9 +917,10 @@ mod unit_test {
 				let call_hash = <Test as Config>::Hashing::hash_of(&call);
 
 				// Manually create and insert proposal with approvals at
-				// the `MaxApprovals::get()` limit and forced not to
+				// the `RequiredApprovalsCount::get()` limit and forced not to
 				// change from 'Pending' status
-				let mut approvals = BoundedVec::<(AccountId, OriginId), MaxApprovals>::default();
+				let mut approvals =
+					BoundedVec::<(AccountId, OriginId), RequiredApprovalsCount>::default();
 				approvals.try_push((ALICE, ALICE_ORIGIN_ID)).unwrap();
 				approvals.try_push((BOB, BOB_ORIGIN_ID)).unwrap();
 				let executed_at = Some(System::block_number());
@@ -941,10 +944,10 @@ mod unit_test {
 				Approvals::<Test>::insert((call_hash, ALICE_ORIGIN_ID), ALICE_ORIGIN_ID, ALICE);
 				Approvals::<Test>::insert((call_hash, ALICE_ORIGIN_ID), BOB_ORIGIN_ID, BOB);
 
-				// Verify test setup correct with `MaxApprovals::get()` and proposal is still
-				// 'Pending' status
+				// Verify test setup correct with `RequiredApprovalsCount::get()` and proposal is
+				// still 'Pending' status
 				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
-				assert_eq!(proposal.approvals.len(), MaxApprovals::get() as usize);
+				assert_eq!(proposal.approvals.len(), RequiredApprovalsCount::get() as usize);
 				assert_eq!(proposal.status, ProposalStatus::Pending);
 
 				// Try to add Charlie's approval to check that it fails with `TooManyApprovals`
@@ -962,7 +965,7 @@ mod unit_test {
 		}
 
 		#[test]
-		fn proposal_execution_with_max_approvals() {
+		fn proposal_execution_with_required_approvals_count() {
 			new_test_ext().execute_with(|| {
 				System::set_block_number(1);
 
@@ -978,7 +981,7 @@ mod unit_test {
 					None,
 				));
 
-				// Add Bob's approval triggers execution if MaxApprovals::get() value met
+				// Add Bob's approval triggers execution if RequiredApprovalsCount::get() value met
 				assert_ok!(OriginAndGate::add_approval(
 					RuntimeOrigin::signed(BOB),
 					call_hash,
@@ -989,12 +992,12 @@ mod unit_test {
 
 				let execution_timepoint = current_timepoint();
 
-				assert_eq!(MaxApprovals::get() as usize, 2);
+				assert_eq!(RequiredApprovalsCount::get() as usize, 2);
 
 				// Verify proposal now Executed
 				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
 				assert_eq!(proposal.status, ProposalStatus::Executed);
-				assert_eq!(proposal.approvals.len(), MaxApprovals::get() as usize); // Alice + Bob
+				assert_eq!(proposal.approvals.len(), RequiredApprovalsCount::get() as usize); // Alice + Bob
 
 				// Verify both `OriginApprovalAdded` and `ProposalExecuted` events were emitted
 				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::OriginApprovalAdded {
@@ -1861,7 +1864,7 @@ mod unit_test {
 				// Verify proposal still has Pending status with approvals from Alice + Bob
 				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
 				assert_eq!(proposal.status, ProposalStatus::Pending);
-				assert_eq!(proposal.approvals.len(), MaxApprovals::get() as usize);
+				assert_eq!(proposal.approvals.len(), RequiredApprovalsCount::get() as usize);
 
 				// Advance block number staying within expiry period
 				System::set_block_number(100); // At the end of proposal expiry
@@ -2207,14 +2210,14 @@ mod unit_test {
 		}
 	}
 
-	mod max_approvals_scaling {
+	mod required_approvals_count_scaling {
 		use super::*;
 
-		// Helper function to test a specific MaxApprovals value
-		fn test_with_max_approvals(max_approvals: u32) {
+		// Helper function to test a specific RequiredApprovalsCount value
+		fn test_with_required_approvals_count(required_approvals_count: u32) {
 			new_test_ext().execute_with(|| {
-				// Set MaxApprovals for this test
-				MaxApprovals::set(max_approvals);
+				// Set RequiredApprovalsCount for this test
+				RequiredApprovalsCount::set(required_approvals_count);
 
 				System::set_block_number(1);
 
@@ -2235,7 +2238,7 @@ mod unit_test {
 				assert_eq!(proposal.status, ProposalStatus::Pending);
 
 				// Proposer counts as 1 approval already
-				let required_additional_approvals = max_approvals - 1;
+				let required_additional_approvals = required_approvals_count - 1;
 
 				// Add approvals from other accounts
 				let approvers = [BOB, CHARLIE];
@@ -2278,15 +2281,15 @@ mod unit_test {
 		}
 
 		#[test]
-		fn proposal_execution_requires_max_approvals_minus_one_additional_approvals() {
-			// Verifies that proposals require (MaxApprovals - 1) additional approvals
+		fn proposal_execution_requires_required_approvals_count_minus_one_additional_approvals() {
+			// Verifies that proposals require (RequiredApprovalsCount - 1) additional approvals
 			// after the proposer in order to auto-execute or manually execute
 
-			// Test with MaxApprovals = 2
-			test_with_max_approvals(2);
+			// Test with RequiredApprovalsCount = 2
+			test_with_required_approvals_count(2);
 
-			// Test with MaxApprovals = 3
-			test_with_max_approvals(3);
+			// Test with RequiredApprovalsCount = 3
+			test_with_required_approvals_count(3);
 		}
 	}
 }
@@ -2368,7 +2371,7 @@ mod integration_test {
 
 			// Verify proposal exists and has both approvals
 			let proposal = Proposals::<Test>::get(call_hash, alice_origin_id).unwrap();
-			assert_eq!(proposal.approvals.len(), MaxApprovals::get() as usize);
+			assert_eq!(proposal.approvals.len(), RequiredApprovalsCount::get() as usize);
 
 			// Verify both origin IDs are in approvals
 			assert!(proposal.approvals.contains(&(alice_origin_id.into(), ALICE_ORIGIN_ID)));
@@ -2611,7 +2614,7 @@ mod integration_test {
 				);
 
 				// At this point the proposal should have `Pending` status sinc only have Alice's
-				// approval and it is less than `MaxApprovals::get()`
+				// approval and it is less than `RequiredApprovalsCount::get()`
 
 				// Verify `ProposalCreated` event was emitted
 				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCreated {
@@ -2654,7 +2657,7 @@ mod integration_test {
 				assert_eq!(proposal.status, ProposalStatus::Pending);
 
 				// Adding Bob's approval should trigger execution since now have
-				// `MaxApprovals::get()` approvals
+				// `RequiredApprovalsCount::get()` approvals
 				assert_ok!(OriginAndGate::add_approval(
 					RuntimeOrigin::signed(BOB),
 					call_hash,
@@ -2668,7 +2671,7 @@ mod integration_test {
 				// Verify proposal status changed to `Executed`
 				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
 				assert_eq!(proposal.status, ProposalStatus::Executed);
-				assert_eq!(proposal.approvals.len(), MaxApprovals::get() as usize); // Alice + Bob
+				assert_eq!(proposal.approvals.len(), RequiredApprovalsCount::get() as usize); // Alice + Bob
 
 				// Verify both `OriginApprovalAdded` and `ProposalExecuted` events were emitted
 				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::OriginApprovalAdded {
@@ -2703,7 +2706,8 @@ mod integration_test {
 				let call_hash = H256::repeat_byte(0xab);
 
 				// Create proposal info with sufficient approvals
-				let mut approvals = BoundedVec::<(AccountId, OriginId), MaxApprovals>::default();
+				let mut approvals =
+					BoundedVec::<(AccountId, OriginId), RequiredApprovalsCount>::default();
 				approvals.try_push((ALICE, ALICE_ORIGIN_ID)).unwrap();
 				approvals.try_push((BOB, BOB_ORIGIN_ID)).unwrap(); // Already have 2 approvals
 				let executed_at = Some(System::block_number());

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The "AND Gate" Substrate pallet implements a flexible mechanism for `EnsureOrigin` where `MaxApprovals` may be configured to require two or more independent origins to asynchronously approve a proposal that is proposing to dispatch a call so that it may execute before its expiry block, and supports cleanup of that proposal after a configured retention period.
+The "AND Gate" Substrate pallet implements a flexible mechanism for `EnsureOrigin` where `RequiredApprovalsCount` may be configured to require two or more independent origins to asynchronously approve a proposal that is proposing to dispatch a call so that it may execute before its expiry block, and supports cleanup of that proposal after a configured retention period.
 
 ## Key Features
 ### 1. Proposal Management
@@ -10,21 +10,21 @@ The "AND Gate" Substrate pallet implements a flexible mechanism for `EnsureOrigi
 - **Creation**: Create proposals with specific origin IDs and optional expiry block
 - **States of Proposal Lifecycle**: Track proposals through its complete lifecycle
   - **Pending**: Await sufficient approvals
-  - **Executed**: Successfully executed after receiving `MaxApprovals` approvals
-  - **Expired**: Reached `ProposalExpiry` expiry block without receiving `MaxApprovals` approvals
+  - **Executed**: Successfully executed after receiving `RequiredApprovalsCount` approvals
+  - **Expired**: Reached `ProposalExpiry` expiry block without receiving `RequiredApprovalsCount` approvals
   - **Cancelled**: Explicitly cancelled proposal by the proposer includes automatic cleanup
 - **Expiry Detection & Update (Automated)**: Uses `on_initialize` hook to automatically detect expired proposals and update their status
 
 ### 2. Origin Approval System
 
 - **Multiple Origins**: Supports requiring approval from multiple different origins
-- **Configurable Threshold**: Set the number of required approvals via `MaxApprovals`
+- **Configurable Threshold**: Set the number of required approvals via `RequiredApprovalsCount`
 - **Approval Tracking**: Track which origins have approved which proposals
 - **Approval Withdrawal**: Origins can withdraw their approval before execution
 
 ### 3. Execution and Cleanup
 
-- **Proposal Exection (Automatic)**: Proposals execute automatically when approval threshold of `MaxApprovals` is met
+- **Proposal Exection (Automatic)**: Proposals execute automatically when approval threshold of `RequiredApprovalsCount` is met
 - **Storage Cleanup (Automatic)**: Terminal proposals are removed after configurable retention period `NonCancelledProposalRetentionPeriod` with the exception of cancelled proposals that are cleaned up immediately
 - **Optimized Cleanup**: Executed proposals use execution time as base for retention period calculation
 - **Cleanup Rules**:
@@ -34,7 +34,7 @@ The "AND Gate" Substrate pallet implements a flexible mechanism for `EnsureOrigi
 
 ## Configuration Parameters
 
-- **MaxApprovals**: Maximum number of origin approvals required for a proposal to execute
+- **RequiredApprovalsCount**: Maximum number of origin approvals required for a proposal to execute
 - **ProposalExpiry**: How long (measured in blocks) a proposal remains valid before expiry
 - **NonCancelledProposalRetentionPeriod**: How long to keep executed or expired proposals before cleanup (measured in blocks)
 - **MaxProposalsToExpirePerBlock**: Maximum number of proposals that can expire in a single block (measured in blocks)
@@ -44,9 +44,9 @@ The "AND Gate" Substrate pallet implements a flexible mechanism for `EnsureOrigi
 The pallet manages proposals through a complete lifecycle:
 
 1. **Creation**: A proposal is created with a specific origin ID and optional expiry.
-2. **Approval**: Origins can approve proposals, with execution occurring when `MaxApprovals` approvals are gathered.
+2. **Approval**: Origins can approve proposals, with execution occurring when `RequiredApprovalsCount` approvals are gathered.
 3. **Terminal States**: Proposals can reach terminal states through:
-   - **Execution**: When `MaxApprovals` approvals are gathered
+   - **Execution**: When `RequiredApprovalsCount` approvals are gathered
    - **Expiry**: When the `ProposalExpiry` block is reached
    - **Cancellation**: When explicitly cancelled by the proposer
 
@@ -63,7 +63,7 @@ This optimized cleanup approach ensures that storage is freed efficiently while 
 
 ```rust
 // Alice creates a proposal to create a remark call that includes the first approval
-// from an origin (ambassador fellowship). Assuming `MaxApprovals` is set to `2`
+// from an origin (ambassador fellowship). Assuming `RequiredApprovalsCount` is set to `2`
 // then it requires a second approval prior to execution
 let call = make_remark_call("test");
 let expiry = Some(100);

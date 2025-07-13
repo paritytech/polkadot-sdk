@@ -302,8 +302,11 @@ mod benchmarks {
 			"Proposal must exist before add_approval"
 		);
 
-		let max_approvals = T::MaxApprovals::get();
-		assert!(max_approvals == 2, "Benchmarking assumes max_approvals == 2");
+		let required_approvals_count = T::RequiredApprovalsCount::get();
+		assert!(
+			required_approvals_count == 2,
+			"Benchmarking assumes required_approvals_count == 2"
+		);
 
 		Pallet::<T>::add_approval(
 			RawOrigin::Signed(approver.clone()).into(),

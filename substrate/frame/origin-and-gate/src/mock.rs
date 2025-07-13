@@ -168,19 +168,19 @@ impl system::Config for Test {
 	type ExtensionsWeightInfo = ();
 }
 
-impl Clone for MaxApprovals {
+impl Clone for RequiredApprovalsCount {
 	fn clone(&self) -> Self {
 		*self
 	}
 }
 
-impl Copy for MaxApprovals {}
+impl Copy for RequiredApprovalsCount {}
 
 // Move to parameter_types instead
 pub type OriginId = u8;
 
 parameter_types! {
-	pub static MaxApprovals: u32 = 2;
+	pub static RequiredApprovalsCount: u32 = 2;
 	// TODO: Add OriginId
 	pub static ProposalExpiry: BlockNumber = 100;
 	// Default retention period for terminal proposals
@@ -192,7 +192,7 @@ parameter_types! {
 impl pallet_origin_and_gate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
-	type MaxApprovals = MaxApprovals;
+	type RequiredApprovalsCount = RequiredApprovalsCount;
 	type Hashing = BlakeTwo256;
 	type OriginId = OriginId;
 	type ProposalExpiry = ProposalExpiry;
