@@ -1107,11 +1107,11 @@ fn change_xcm_bridge_hub_router_base_fee_by_governance_works() {
 		1000,
 		Governance::get(),
 		|| {
-			log::error!(
+			tracing::error!(
 				target: "bridges::estimate",
-				"`bridging::XcmBridgeHubRouterBaseFee` actual value: {} for runtime: {}",
-				bridging::XcmBridgeHubRouterBaseFee::get(),
-				<Runtime as frame_system::Config>::Version::get(),
+				actual_value=%bridging::XcmBridgeHubRouterBaseFee::get(),
+				runtime=%<Runtime as frame_system::Config>::Version::get(),
+				"`bridging::XcmBridgeHubRouterBaseFee`"
 			);
 			(
 				bridging::XcmBridgeHubRouterBaseFee::key().to_vec(),
