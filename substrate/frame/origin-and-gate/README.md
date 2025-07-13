@@ -1,122 +1,130 @@
 # Origin "AND Gate" Pallet
 
-"AND Gate" Substrate pallet that implements a mechanism for `EnsureOrigin` that requires two independent origins to approve a dispatch before it executes.
-
 ## Overview
 
-The pallet provides a stateful mechanism for tracking proposal approvals from multiple origins across different blocks. Inspired by the multisig pallet pattern, it is adapted specifically for origin types rather than signatories.
-
-The primary use case is to enforce that a dispatch has been approved by two different origin types (for example, requiring both governance council approval and technical committee approval).
-
-This opens the possibility for on-chain collectives to approve proposals individually and asynchronously in governance workflows using rank-weighted voting with different approval weights that correspond to each of the different rank-based voting ranks that have been defined. The on-chain collectives do not need to coordinate to sign the same transaction, as they can each individually submit their own approval.
+The "AND Gate" Substrate pallet implements a flexible mechanism for `EnsureOrigin` where `MaxApprovals` may be configured to require two or more independent origins to asynchronously approve a proposal that is proposing to dispatch a call so that it may execute before its expiry block, and supports cleanup of that proposal after a configured retention period.
 
 ## Key Features
+### 1. Proposal Management
 
-- **Stateful origin approval tracking**: Store proposals and track approvals across multiple blocks
-- **Timepoint-based uniqueness**: Prevent duplicate proposals using block numbers and extrinsic indices
-- **Automatic timeout/expiration**: Clean up storage for proposals that are no longer active
-- **EnsureOrigin trait implementation**: Integrates with existing Runtime origin checks
-- **Origin entity extraction**: Extract entities from different origin types for comparison
+- **Creation**: Create proposals with specific origin IDs and optional expiry block
+- **States of Proposal Lifecycle**: Track proposals through its complete lifecycle
+  - **Pending**: Await sufficient approvals
+  - **Executed**: Successfully executed after receiving `MaxApprovals` approvals
+  - **Expired**: Reached `ProposalExpiry` expiry block without receiving `MaxApprovals` approvals
+  - **Cancelled**: Explicitly cancelled proposal by the proposer includes automatic cleanup
+- **Expiry Detection & Update (Automated)**: Uses `on_initialize` hook to automatically detect expired proposals and update their status
 
-## Usage
+### 2. Origin Approval System
 
-### Pallet Configuration
+- **Multiple Origins**: Supports requiring approval from multiple different origins
+- **Configurable Threshold**: Set the number of required approvals via `MaxApprovals`
+- **Approval Tracking**: Track which origins have approved which proposals
+- **Approval Withdrawal**: Origins can withdraw their approval before execution
 
-To use the Origin "AND Gate" pallet in your runtime, include it in your `Cargo.toml` and implement its configuration trait:
+### 3. Execution and Cleanup
 
-```rust
-parameter_types! {
-    // Max approvals required for proposal to execute
-    pub const MaxApprovals: u32 = 10;
+- **Proposal Exection (Automatic)**: Proposals execute automatically when approval threshold of `MaxApprovals` is met
+- **Storage Cleanup (Automatic)**: Terminal proposals are removed after configurable retention period `NonCancelledProposalRetentionPeriod` with the exception of cancelled proposals that are cleaned up immediately
+- **Optimized Cleanup**: Executed proposals use execution time as base for retention period calculation
+- **Cleanup Rules**:
+  - **Cancelled** proposals are eligible for immediate cleanup upon cancellation
+  - **Executed** proposals use their execution time as the base for retention period calculation
+  - **Expired** proposals use their expiry time as the base for retention period calculation
 
-    // How long proposal remains valid before expiring (added to the block number when proposal is created)
-    pub const ProposalLifetime: BlockNumber = 100;
+## Configuration Parameters
 
-    // How long to keep non-cancelled proposals in storage after they are executed or expired
-    pub const NonCancelledProposalRetentionPeriod: BlockNumber = 50;
+- **MaxApprovals**: Maximum number of origin approvals required for a proposal to execute
+- **ProposalExpiry**: How long (measured in blocks) a proposal remains valid before expiry
+- **NonCancelledProposalRetentionPeriod**: How long to keep executed or expired proposals before cleanup (measured in blocks)
+- **MaxProposalsToExpirePerBlock**: Maximum number of proposals that can expire in a single block (measured in blocks)
 
-    // Maximum number of proposals to expire per block to prevent excessive computation
-    pub const MaxProposalsToExpirePerBlock: u32 = 10;
-}
+## Proposal Lifecycle and Cleanup
 
-impl pallet_origin_and_gate::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type RuntimeCall = RuntimeCall;
-    type MaxApprovals = MaxApprovals;
-    type Hashing = BlakeTwo256;
-    type OriginId = u32; // Or change to specific type for your use case
-    type ProposalLifetime = ProposalLifetime;
-    type NonCancelledProposalRetentionPeriod = NonCancelledProposalRetentionPeriod;
-    type MaxProposalsToExpirePerBlock = MaxProposalsToExpirePerBlock;
-    type WeightInfo = pallet_origin_and_gate::weights::SubstrateWeight<Runtime>;
-}
-```
+The pallet manages proposals through a complete lifecycle:
 
-#### Configuration Parameters
+1. **Creation**: A proposal is created with a specific origin ID and optional expiry.
+2. **Approval**: Origins can approve proposals, with execution occurring when `MaxApprovals` approvals are gathered.
+3. **Terminal States**: Proposals can reach terminal states through:
+   - **Execution**: When `MaxApprovals` approvals are gathered
+   - **Expiry**: When the `ProposalExpiry` block is reached
+   - **Cancellation**: When explicitly cancelled by the proposer
 
-- **MaxApprovals**: Defines how many approvals are required for a proposal to execute. By default it is set to 2, which creates an AND gate with two origins. However, it can be set to any number to create an AND gate with more than two origins (e.g. requiring approval from 3 or more different origins).
-- **ProposalLifetime**: Defines how long (in blocks) a proposal remains valid before it expires.
-- **NonCancelledProposalRetentionPeriod**: Defines how long (in blocks) to keep executed or expired proposals in storage before they can be cleaned up. Cancelled proposals can be cleaned up immediately.
-- **MaxProposalsToExpirePerBlock**: Limits the amount of proposals expirable in a single block.
+4. **Cleanup**: Terminal proposals with the exception of cancelled proposals are retained for a configurable period before being eligible for cleanup:
+   - **Cancelled** proposals are automatically cleaned up upon cancellation
+   - **Executed** proposals use their execution block as the base for retention period calculation
+   - **Expired** proposals use their expiry block as the base for retention period calculation
 
-### Using the `AndGate` EnsureOrigin
-
-In your runtime, you can use the `AndGate` struct to require approvals from two origins:
-
-```rust
-// Define origin that requires approval from both council and technical committees
-pub type CouncilAndTechCommitteeApproval = pallet_origin_and_gate::AndGate<
-    EnsureSignedBy<CouncilMembershipOrigin, AccountId>,
-    EnsureSignedBy<TechnicalCommitteeMembershipOrigin, AccountId>
->;
-
-// Use in dispatchable calls
-#[pallet::call]
-impl<T: Config> Pallet<T> {
-    #[pallet::weight(T::WeightInfo::update_params())]
-    pub fn update_sensitive_parameter(
-        origin: OriginFor<T>,
-        new_value: u32,
-    ) -> DispatchResultWithPostInfo {
-        // Only passes if both council and technical committees approved
-        CouncilAndTechCommitteeApproval::ensure_origin(origin)?;
-
-        // Apply parameter update logic
-
-        Ok(().into())
-    }
-}
-```
-
-### Workflow
-
-1. Member of Origin A submits proposal using `propose` call
-2. Proposal is stored with unique call hash and timepoint
-3. Member of Origin B approves proposal using `approve` call
-4. `Call` is executed automatically if all required origins have approved (based on MaxApprovals)
-5. Proposals are cleaned up based on their status:
-   - Cancelled proposals can be cleaned up immediately
-   - Executed proposals without expiry can be cleaned up after execution block + retention period
-   - Executed/expired proposals with expiry can be cleaned up after expiry block + retention period
-   - Pending proposals cannot be cleaned up
+This optimized cleanup approach ensures that storage is freed efficiently while maintaining proposal history for an appropriate period.
 
 ## Examples
 
-### Submit proposal from council origin
+### Submit proposal from an origin (ambassador fellowship)
 
 ```rust
-// Example code for submitting proposal
-let call = Box::new(frame_system::Call::remark { remark: b"Hello, JAM!".to_vec() });
-OriginAndGate::propose(council_origin, call, COUNCIL_ORIGIN_ID, None)?;
+// Alice creates a proposal to create a remark call that includes the first approval
+// from an origin (ambassador fellowship). Assuming `MaxApprovals` is set to `2`
+// then it requires a second approval prior to execution
+let call = make_remark_call("test");
+let expiry = Some(100);
+assert_ok!(OriginAndGate::propose(
+    RuntimeOrigin::signed(ALICE),
+    call.clone(),
+    AMBASSADOR_ORIGIN_ID,
+    expiry,
+));
 ```
 
-### Approve proposal from technical committee origin
+### Approval of proposal by a second origin
 
 ```rust
-// Example code for approving proposal
-OriginAndGate::approve(technical_committee_origin, call_hash, COUNCIL_ORIGIN_ID, TECH_COMMITTEE_ORIGIN_ID)?;
+// Approve the proposal from an origin (technical fellowship) that is different
+// from the first origin (ambassador fellowship)
+let call_hash = <<Test as Config>::Hashing as Hash>::hash_of(&call);
+assert_ok!(OriginAndGate::approve(
+    RuntimeOrigin::signed(BOB),
+    call_hash,
+    AMBASSADOR_ORIGIN_ID,
+    TECH_ORIGIN_ID,
+));
 ```
+
+### Cancel a proposal
+
+```rust
+// Only the proposer can cancel their proposal
+assert_ok!(OriginAndGate::cancel(
+    RuntimeOrigin::signed(ALICE),
+    call_hash,
+    AMBASSADOR_ORIGIN_ID,
+));
+```
+
+### Clean up a terminal proposal
+
+```rust
+// Clean up a proposal that has reached a terminal state (expired or executed)
+// and passed the retention period
+assert_ok!(OriginAndGate::clean(
+    RuntimeOrigin::signed(ALICE),
+    call_hash,
+    AMBASSADOR_ORIGIN_ID,
+));
+```
+
+## Extended Use Cases
+
+### Conditional Approval
+
+The pallet supports conditional approval patterns:
+
+- **Concept**: Conditional approval may be based on specific criteria
+- **Stakeholder Governance**: Ensures proposals may be independently evaluated against pre-determined criteria and conditionally approved by multiple stakeholders (e.g. ambassadors, technical fellows, etc.) if they satisfy each of their requirements
 
 ## License
 
-Apache 2.0
+Licensed under the [Apache License, Version 2.0](LICENSE).
+
+## API Documentation
+
+For detailed API documentation, see the [Rust Docs](https://docs.rs/pallet-origin-and-gate).
