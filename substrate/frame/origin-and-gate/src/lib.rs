@@ -253,11 +253,11 @@ pub mod pallet {
 		}
 
 		fn on_finalize(_n: BlockNumberFor<T>) {
-			// TODO
+			unimplemented!()
 		}
 
 		fn offchain_worker(_n: BlockNumberFor<T>) {
-			// TODO
+			unimplemented!()
 		}
 	}
 
@@ -480,10 +480,18 @@ pub mod pallet {
 			let proposal_hash = <T as frame_system::Config>::Hashing::hash_of(&call);
 
 			// Check if given proposal already exists
-			ensure!(
-				!<Proposals<T>>::contains_key(proposal_hash, origin_id),
-				Error::<T>::ProposalAlreadyExists
-			);
+			let duplicate_detected = <Proposals<T>>::contains_key(proposal_hash, origin_id.clone());
+
+			// Generate unique hash if this is a duplicate proposal
+			let unique_proposal_hash = if duplicate_detected {
+				// Create unique hash by combining original hash with current block and extrinsic
+				// index
+				let timepoint = Self::current_timepoint();
+				let unique_input = (proposal_hash, timepoint.height, timepoint.index);
+				<T as frame_system::Config>::Hashing::hash_of(&unique_input)
+			} else {
+				proposal_hash
+			};
 
 			// Get current block number
 			let current_block = frame_system::Pallet::<T>::block_number();
@@ -502,7 +510,7 @@ pub mod pallet {
 			};
 
 			// Store actual call data (unbounded) to save storage
-			<ProposalCalls<T>>::insert(proposal_hash, call);
+			<ProposalCalls<T>>::insert(unique_proposal_hash, call);
 
 			// Create an empty bounded vec for approvals
 			let mut approvals =
@@ -515,7 +523,7 @@ pub mod pallet {
 
 			// Create and store proposal metadata (bounded storage)
 			let proposal_info = ProposalInfo {
-				call_hash: proposal_hash,
+				call_hash: unique_proposal_hash,
 				expiry_at: expiry_block,
 				approvals,
 				status: ProposalStatus::Pending,
@@ -525,18 +533,18 @@ pub mod pallet {
 			};
 
 			// Store proposal metadata (bounded storage)
-			<Proposals<T>>::insert(proposal_hash, origin_id.clone(), proposal_info);
+			<Proposals<T>>::insert(unique_proposal_hash, origin_id.clone(), proposal_info);
 
 			// Mark first approval in approvals storage efficiently
 			<Approvals<T>>::insert(
-				(proposal_hash, origin_id.clone()),
+				(unique_proposal_hash, origin_id.clone()),
 				origin_id.clone(),
 				who.clone(),
 			);
 
 			// Add proposal to expiry tracking for automatic expiry
 			ExpiringProposals::<T>::mutate(expiry_block.unwrap(), |proposals| {
-				if let Err(_) = proposals.try_push((proposal_hash, origin_id.clone())) {
+				if let Err(_) = proposals.try_push((unique_proposal_hash, origin_id.clone())) {
 					log::warn!("Too many proposals expiring in the same block. Some proposals may not be automatically expired.");
 				}
 			});
@@ -544,9 +552,20 @@ pub mod pallet {
 			// Create timepoint for submission
 			let submission_timepoint = Self::current_timepoint();
 
+			// Duplicates emit a warning event
+			if duplicate_detected {
+				Self::deposit_event(Event::DuplicateProposalWarning {
+					proposal_hash: unique_proposal_hash,
+					origin_id: origin_id.clone(),
+					existing_proposal_hash: proposal_hash,
+					proposer: who.clone(),
+					timepoint: submission_timepoint.clone(),
+				});
+			}
+
 			// Emit event
 			Self::deposit_event(Event::ProposalCreated {
-				proposal_hash,
+				proposal_hash: unique_proposal_hash,
 				origin_id,
 				timepoint: submission_timepoint,
 			});
@@ -716,10 +735,6 @@ pub mod pallet {
 			ensure!(who == proposal_info.proposer, Error::<T>::NotAuthorized);
 
 			// Update proposal status to Cancelled
-			// TODO: Potentially remove since this is just for completeness
-			// and potentially unnecessary since status will be removed from storage
-			// shortly after and proposal cancelled event will be emitted
-			// at lower cost
 			proposal_info.status = ProposalStatus::Cancelled;
 
 			// Store the expiry before moving proposal_info
@@ -955,6 +970,15 @@ pub mod pallet {
 		ProposalCleaned {
 			proposal_hash: T::Hash,
 			origin_id: T::OriginId,
+			timepoint: Timepoint<BlockNumberFor<T>>,
+		},
+		/// A duplicate proposal was detected but still created with a unique identifier.
+		/// Warns user that a similar proposal already exists.
+		DuplicateProposalWarning {
+			proposal_hash: T::Hash,
+			origin_id: T::OriginId,
+			existing_proposal_hash: T::Hash,
+			proposer: T::AccountId,
 			timepoint: Timepoint<BlockNumberFor<T>>,
 		},
 	}

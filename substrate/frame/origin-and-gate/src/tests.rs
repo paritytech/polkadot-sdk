@@ -199,35 +199,62 @@ mod unit_test {
 					expiry_at,
 				));
 
-				// Second identical proposal should fail with ProposalAlreadyExists
-				// assert_noop!(
-				// 	OriginAndGate::propose(
-				// 		RuntimeOrigin::signed(ALICE),
-				// 		call.clone(),
-				// 		origin_id,
-				// 		expiry_at,
-				// 	),
-				// 	Error::<Test>::ProposalAlreadyExists
-				// );
+				// Second identical proposal should also succeed but create a unique entry
+				assert_ok!(OriginAndGate::propose(
+					RuntimeOrigin::signed(ALICE),
+					call.clone(),
+					origin_id,
+					expiry_at,
+				));
 
-				// Even from a different user with same parameters
-				// assert_noop!(
-				// 	OriginAndGate::propose(
-				// 		RuntimeOrigin::signed(BOB),
-				// 		call.clone(),
-				// 		origin_id,
-				// 		expiry_at,
-				// 	),
-				// 	Error::<Test>::ProposalAlreadyExists
-				// );
+				// Check DuplicateProposalWarning event was emitted
+				let events = System::events();
+				let warning_event = events.iter().find(|e| {
+					matches!(
+						e.event,
+						RuntimeEvent::OriginAndGate(Event::DuplicateProposalWarning { .. })
+					)
+				});
+				assert!(
+					warning_event.is_some(),
+					"DuplicateProposalWarning event should have been emitted"
+				);
 
-				// TODO - we don't want it to fail, we want it to
-				// provide the user with a warning of what duplicate was
-				// detected, but still create a new unique proposal entry
-				// and emit associated events.
-				// because if there's a chance of a hash collision we
-				// must handle that since proposals stored as hashes with
-				// proposal_hash
+				// Proposal by different user with same parameters should succeed
+				assert_ok!(OriginAndGate::propose(
+					RuntimeOrigin::signed(BOB),
+					call.clone(),
+					origin_id,
+					expiry_at,
+				));
+
+				// Check another DuplicateProposalWarning event was emitted
+				let events = System::events();
+				let warning_events_count = events
+					.iter()
+					.filter(|e| {
+						matches!(
+							e.event,
+							RuntimeEvent::OriginAndGate(Event::DuplicateProposalWarning { .. })
+						)
+					})
+					.count();
+				assert_eq!(
+					warning_events_count, 2,
+					"Two DuplicateProposalWarning events should have been emitted"
+				);
+
+				// Verify we have three distinct proposal entries
+				let proposal_events = events
+					.iter()
+					.filter(|e| {
+						matches!(
+							e.event,
+							RuntimeEvent::OriginAndGate(Event::ProposalCreated { .. })
+						)
+					})
+					.count();
+				assert_eq!(proposal_events, 3, "Three distinct proposals should have been created");
 			});
 		}
 
@@ -2522,8 +2549,7 @@ mod integration_test {
 
 				// Generate call hash
 				let call = make_remark_call("1000").unwrap();
-				let call_hash =
-					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				let call_hash = <Test as Config>::Hashing::hash_of(&call);
 
 				// Proposal by Alice
 				assert_ok!(OriginAndGate::propose(
