@@ -345,5 +345,72 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark]
+	fn amend_approval() -> Result<(), BenchmarkError> {
+		// Phase 1: Setup - Create a proposal and add initial approval
+		let caller: T::AccountId = whitelisted_caller();
+		let proposer: T::AccountId = account("proposer", 0, 0);
+		let call: <T as Config>::RuntimeCall =
+			frame_system::Call::<T>::remark { remark: vec![] }.into();
+
+		// Get hash output and convert it to T::Hash with proper type casting
+		let hash_output = <T as pallet::Config>::Hashing::hash_of(&call);
+		let call_hash = convert_hash::<T>(&hash_output);
+
+		// Convert u8 to T::OriginId using our helper
+		let origin_id = make_origin_id::<T>(ALICE_ORIGIN_ID);
+		let approving_origin_id = make_origin_id::<T>(BOB_ORIGIN_ID);
+
+		// Store the call in storage for execution
+		ProposalCalls::<T>::insert(call_hash, Box::new(call));
+
+		// Create expiry block number
+		let expiry_at = Some(frame_system::Pallet::<T>::block_number() + 100u32.into());
+
+		// Create proposal
+		Pallet::<T>::propose(
+			RawOrigin::Signed(proposer.clone()).into(),
+			Box::new(frame_system::Call::<T>::remark { remark: vec![] }.into()),
+			origin_id.clone(),
+			expiry_at,
+		)?;
+
+		// Add initial approval with no remark
+		Pallet::<T>::add_approval(
+			RawOrigin::Signed(caller.clone()).into(),
+			call_hash,
+			origin_id.clone(),
+			approving_origin_id.clone(),
+			false,
+			None,
+		)?;
+
+		// Verify approval exists
+		assert!(
+			Pallet::<T>::approvals((call_hash, origin_id.clone()), approving_origin_id.clone())
+				.is_some(),
+			"Approval must exist before amending"
+		);
+
+		// Create conditional approval remark for amendment
+		let remark: Vec<u8> = vec![1, 2, 3, 4];
+
+		// Phase 2: Execution - Amend the approval with a new remark
+		#[extrinsic_call]
+		amend_approval(
+			RawOrigin::Signed(caller),
+			call_hash,
+			origin_id,
+			approving_origin_id,
+			remark,
+		);
+
+		// Phase 3: Verification
+		// The verification is implicit as the extrinsic would fail if the approval didn't exist
+		// or if the caller wasn't authorized to amend it
+
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(OriginAndGate, crate::mock::new_test_ext(), crate::mock::Test);
 }
