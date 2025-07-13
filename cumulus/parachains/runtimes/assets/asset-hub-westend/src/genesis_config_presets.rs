@@ -15,20 +15,50 @@
 
 //! # Asset Hub Westend Runtime genesis config presets
 
-use crate::*;
-use alloc::{vec, vec::Vec};
+use crate::{*, xcm_config::UniversalLocation};
+use alloc::{vec, vec::Vec, format};
 use cumulus_primitives_core::ParaId;
 use frame_support::build_struct_json_patch;
 use hex_literal::hex;
 use parachains_common::{AccountId, AuraId};
+use bp_asset_hub_rococo::AccountPublic;
+use sp_runtime::traits::IdentifyAccount;
 use sp_core::crypto::UncheckedInto;
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 use testnet_parachains_constants::westend::{
 	currency::UNITS as WND, xcm_version::SAFE_XCM_VERSION,
 };
+use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH};
+use xcm_builder::GlobalConsensusConvertsFor;
+use xcm_executor::traits::ConvertLocation;
+use sp_core::{Pair, Public};
 
 const ASSET_HUB_WESTEND_ED: Balance = ExistentialDeposit::get();
+
+parameter_types!{
+	pub const RococoNetwork: NetworkId = NetworkId::ByGenesis(ROCOCO_GENESIS_HASH);
+	pub AssetHubRococo: Location = Location::new(2, [
+		GlobalConsensus(RococoNetwork::get()),
+		Parachain(bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID)
+	]);
+}
+
+/// Helper function to generate a crypto pair from seed
+fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
+	TPublic::Pair::from_string(&format!("//{}", seed), None)
+		.expect("static values are valid; qed")
+		.public()
+}
+
+/// Helper function to generate an account ID from seed
+fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
+where
+	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
+{
+	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
+}
+
 
 fn asset_hub_westend_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
@@ -36,6 +66,8 @@ fn asset_hub_westend_genesis(
 	endowment: Balance,
 	dev_stakers: Option<(u32, u32)>,
 	id: ParaId,
+	foreign_assets: Vec<(Location, AccountId, Balance)>,
+	foreign_assets_endowed_accounts: Vec<(Location, AccountId, Balance)>,
 ) -> serde_json::Value {
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
@@ -73,6 +105,17 @@ fn asset_hub_westend_genesis(
 				),
 			],
 			dev_stakers,
+			..Default::default()
+		},
+		foreign_assets: ForeignAssetsConfig {
+			assets: foreign_assets
+				.into_iter()
+				.map(|asset| (asset.0.try_into().unwrap(), asset.1, false, asset.2))
+				.collect(),
+			accounts: foreign_assets_endowed_accounts
+				.into_iter()
+				.map(|asset| (asset.0.try_into().unwrap(), asset.1, asset.2))
+				.collect(),
 			..Default::default()
 		}
 	})
@@ -116,6 +159,8 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			ASSET_HUB_WESTEND_ED * 4096,
 			None,
 			1000.into(),
+			vec![],
+			vec![],
 		),
 		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => asset_hub_westend_genesis(
 			// initial collators.
@@ -127,6 +172,25 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			WND * 1_000_000,
 			dev_stakers,
 			1000.into(),
+			vec![
+			// bridged DOT
+			(
+				Location::new(2, [GlobalConsensus(RococoNetwork::get())]),
+				GlobalConsensusConvertsFor::<UniversalLocation, AccountId>::convert_location(
+					&Location { parents: 2, interior: [GlobalConsensus(RococoNetwork::get())].into() },
+				)
+				.unwrap(),
+				10000000,
+			),
+			],
+			vec![
+				// bridged DOT to Bob
+				(
+					Location::new(2, [GlobalConsensus(RococoNetwork::get())]),
+					get_account_id_from_seed::<sp_core::sr25519::Public>("Bob"),
+					10000000 * 4096 * 4096,
+				),
+			],
 		),
 		sp_genesis_builder::DEV_RUNTIME_PRESET => asset_hub_westend_genesis(
 			// initial collators.
@@ -140,6 +204,8 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			WND * 1_000_000,
 			dev_stakers,
 			1000.into(),
+			vec![],
+			vec![],
 		),
 		_ => return None,
 	};
