@@ -21,6 +21,7 @@ The "AND Gate" Substrate pallet implements a flexible mechanism for `EnsureOrigi
 - **Configurable Threshold**: Set the number of required approvals via `RequiredApprovalsCount`
 - **Approval Tracking**: Track which origins have approved which proposals
 - **Approval Withdrawal**: Origins can withdraw their approval before execution
+- **Conditional Approvals**: Attach conditional remarks to approvals that can be amended later
 
 ### 3. Execution and Cleanup
 
@@ -118,8 +119,35 @@ assert_ok!(OriginAndGate::clean(
 
 The pallet supports conditional approval patterns:
 
-- **Concept**: Conditional approval may be based on specific criteria
 - **Stakeholder Governance**: Ensures proposals may be independently evaluated against pre-determined criteria and conditionally approved by multiple stakeholders (e.g. ambassadors, technical fellows, etc.) if they satisfy each of their requirements
+- **Approval Remarks**: Origins can attach remarks to their approvals to document conditions or reasoning
+- **Remark Amendment**: Approvers can amend their approval remarks without removing their approval
+- **Transparency**: All approval remarks are stored on-chain for transparency and auditing
+
+#### Conditional Approval Example
+
+```rust
+// Bob approves a proposal with a conditional approval remark
+let conditional_remark = "Approved with condition: Treasury must have >1000 tokens".as_bytes().to_vec();
+assert_ok!(OriginAndGate::add_approval(
+    RuntimeOrigin::signed(BOB),
+    call_hash,
+    AMBASSADOR_ORIGIN_ID,
+    TECH_ORIGIN_ID,
+    true,  // auto-execute if threshold met
+    Some(conditional_remark),
+));
+
+// Bob later may amend his approval with an updated remark
+let amended_remark = "Approved: Treasury condition verified".as_bytes().to_vec();
+assert_ok!(OriginAndGate::amend_approval(
+    RuntimeOrigin::signed(BOB),
+    call_hash,
+    AMBASSADOR_ORIGIN_ID,
+    TECH_ORIGIN_ID,
+    amended_remark,
+));
+```
 
 ## License
 
