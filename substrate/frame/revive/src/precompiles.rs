@@ -30,6 +30,7 @@ mod builtin;
 mod tests;
 
 // exported for use in tests
+#[allow(unused_imports)]
 pub(crate) use builtin::ICreate2;
 
 pub use crate::{

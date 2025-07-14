@@ -1729,15 +1729,6 @@ where
 
 		self.storage_meter.record_charge(&StorageDeposit::Charge(deposit));
 
-		// let diff = storage::meter::Diff {
-		// 	bytes_added: deposit.saturated_into(),
-		// 	bytes_removed: 0,
-		// 	items_added: 0,
-		// 	items_removed: 0,
-		// };
-
-		// self.charge_storage(&diff);
-
 		Ok(())
 	}
 }

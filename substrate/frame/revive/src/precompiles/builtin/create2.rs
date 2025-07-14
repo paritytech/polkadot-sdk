@@ -36,6 +36,7 @@ sol! {
 	}
 }
 
+#[allow(unused_imports)]
 pub use ICreate2::*;
 
 pub struct Create2<T>(PhantomData<T>);
