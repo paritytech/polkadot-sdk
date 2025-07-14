@@ -54,7 +54,7 @@ impl<T: Config> BuiltinPrecompile for Create2<T> {
 		env: &mut impl ExtWithInfo<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
 		let (code, salt) = match input {
-			ICreate2::ICreate2Calls::create2(call) => (call.code.clone(), call.salt.clone()),
+			ICreate2::ICreate2Calls::create2(call) => (call.code.clone(), call.salt),
 		};
 		let gas_limit = env.gas_meter().gas_left();
 
