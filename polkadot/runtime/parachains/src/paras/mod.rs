@@ -705,7 +705,10 @@ pub mod pallet {
 		/// cooldown multiplied with this multiplier determines the cost.
 		type CooldownRemovalMultiplier: Get<BalanceOf<Self>>;
 
-		/// The origin that can authorize `force_set_current_code_hash`.
+		/// The origin that can authorize [`Pallet::force_set_current_code_hash`].
+		///
+		/// In the end this allows [`Pallet::apply_authorized_force_set_current_code`] to force set
+		/// the current code without paying any fee. So, the origin should be chosen with care.
 		type AuthorizeCurrentCodeOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, ParaId>;
 	}
 
@@ -1334,13 +1337,7 @@ pub mod pallet {
 			// apply/dispatch
 			Self::do_force_set_current_code_update(para, new_code);
 
-			// if ok, then allows "for free"
-			Ok(PostDispatchInfo {
-				// consume the rest of the block to prevent further transactions
-				actual_weight: Some(T::BlockWeights::get().max_block),
-				// no fee for valid upgrade
-				pays_fee: Pays::No,
-			})
+			Ok(Pays::No.into())
 		}
 	}
 
