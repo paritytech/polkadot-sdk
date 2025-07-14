@@ -164,6 +164,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					false,
 				));
 
 				// Verify proposal stored
@@ -199,6 +200,7 @@ mod unit_test {
 					origin_id,
 					expiry_at,
 					None,
+					false,
 				));
 
 				// Second identical proposal should also succeed but create a unique entry
@@ -208,6 +210,7 @@ mod unit_test {
 					origin_id,
 					expiry_at,
 					None,
+					false,
 				));
 
 				// Check DuplicateProposalWarning event was emitted
@@ -230,6 +233,7 @@ mod unit_test {
 					origin_id,
 					expiry_at,
 					None,
+					false,
 				));
 
 				// Check another DuplicateProposalWarning event was emitted
@@ -283,6 +287,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					expiry_at,
 					None,
+					false,
 				);
 
 				// Verify returned expected error
@@ -312,6 +317,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					true, // Auto-execute
 				));
 
 				// Verify proposal exists
@@ -349,6 +355,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					true, // Auto-execute
 				));
 
 				assert_noop!(
@@ -370,6 +377,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					true, // Auto-execute
 				));
 
 				// Create proposal info with sufficient approvals
@@ -387,6 +395,7 @@ mod unit_test {
 					proposer: ALICE,
 					executed_at,
 					submitted_at: System::block_number(),
+					auto_execute: true,
 				};
 
 				// Override proposal with `Executed` status
@@ -422,14 +431,13 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					false,
 				));
 
 				// Verify approvals now exist
 				assert!(
 					Approvals::<Test>::get((call_hash, ALICE_ORIGIN_ID), ALICE_ORIGIN_ID).is_some()
 				);
-
-				// Skip adding approval from Bob to avoid auto-executio
 
 				// Cancel proposal
 				assert_ok!(OriginAndGate::cancel_proposal(
@@ -475,6 +483,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					false,
 				));
 
 				// Verify approvals now exist
@@ -503,6 +512,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					false,
 				));
 
 				// Verify Bob cannot cancel Alice's proposal
@@ -539,6 +549,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					true, // Auto-execute
 				));
 
 				// Create proposal info with sufficient approvals and executed status
@@ -556,6 +567,7 @@ mod unit_test {
 					proposer: ALICE,
 					executed_at,
 					submitted_at: System::block_number(),
+					auto_execute: true,
 				};
 
 				// Override proposal with executed status
@@ -598,6 +610,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					true, // Auto-execute
 				));
 
 				// Approve using Bob's origin
@@ -606,7 +619,6 @@ mod unit_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
-					true, // Auto-execute
 					None,
 				));
 
@@ -639,6 +651,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					true, // Auto-execute
 				));
 
 				// Alice tries to approve with different origin ID should fail
@@ -648,7 +661,6 @@ mod unit_test {
 						call_hash,
 						ALICE_ORIGIN_ID,
 						BOB_ORIGIN_ID,
-						true, // Auto-execute
 						None,
 					),
 					Error::<Test>::CannotApproveOwnProposalUsingDifferentOrigin
@@ -673,6 +685,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					true, // Auto-execute
 				));
 
 				// Try approve again with same origin
@@ -682,7 +695,6 @@ mod unit_test {
 						call_hash,
 						ALICE_ORIGIN_ID,
 						ALICE_ORIGIN_ID,
-						true, // Auto-execute
 						None,
 					),
 					Error::<Test>::OriginAlreadyApproved
@@ -703,7 +715,6 @@ mod unit_test {
 						call_hash,
 						ALICE_ORIGIN_ID,
 						BOB_ORIGIN_ID,
-						true, // Auto-execute
 						None,
 					),
 					Error::<Test>::ProposalNotFound
@@ -724,6 +735,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					true, // Auto-execute
 				));
 
 				// Use different call hash
@@ -737,7 +749,6 @@ mod unit_test {
 						wrong_call_hash,
 						ALICE_ORIGIN_ID,
 						BOB_ORIGIN_ID,
-						true, // Auto-execute
 						None,
 					),
 					Error::<Test>::ProposalNotFound
@@ -770,6 +781,7 @@ mod unit_test {
 					proposer: ALICE,
 					executed_at: None,
 					submitted_at: System::block_number(),
+					auto_execute: true,
 				};
 
 				// Insert custom proposal directly into storage
@@ -805,7 +817,6 @@ mod unit_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
-					true, // Auto-execute
 					None,
 				);
 
@@ -844,6 +855,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					true, // Auto-execute
 				));
 
 				// Alice cancels proposal
@@ -860,7 +872,6 @@ mod unit_test {
 						call_hash,
 						ALICE_ORIGIN_ID,
 						BOB_ORIGIN_ID,
-						true, // Auto-execute
 						None,
 					),
 					Error::<Test>::ProposalNotFound
@@ -883,6 +894,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					true, // Auto-execute
 				));
 
 				// Proposal that includes approval
@@ -895,7 +907,6 @@ mod unit_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
-					true, // Auto-execute
 					None,
 				));
 
@@ -910,7 +921,6 @@ mod unit_test {
 						call_hash,
 						ALICE_ORIGIN_ID,
 						CHARLIE_ORIGIN_ID,
-						true, // Auto-execute
 						None,
 					),
 					Error::<Test>::ProposalAlreadyExecuted
@@ -962,6 +972,7 @@ mod unit_test {
 					proposer: ALICE,
 					executed_at,
 					submitted_at: System::block_number(),
+					auto_execute: true,
 				};
 
 				// Insert custom proposal directly into storage
@@ -985,7 +996,6 @@ mod unit_test {
 						call_hash,
 						ALICE_ORIGIN_ID,
 						CHARLIE_ORIGIN_ID,
-						true, // Auto-execute
 						None,
 					),
 					Error::<Test>::TooManyApprovals
@@ -1009,6 +1019,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					true, // Auto-execute
 				));
 
 				// Add Bob's approval triggers execution if RequiredApprovalsCount::get() value met
@@ -1017,7 +1028,6 @@ mod unit_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
-					true, // Auto-execute
 					None,
 				));
 
@@ -1072,6 +1082,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					false,
 				));
 
 				// Verify approval exists
@@ -1121,6 +1132,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					false,
 				));
 
 				// Verify proposal has approval from Alice (proposer)
@@ -1183,6 +1195,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					false,
 				));
 
 				// Try to withdraw Bob's approval that does not exist
@@ -1219,6 +1232,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					true, // Auto-execute
 				));
 
 				let alice_submission_timepoint = current_timepoint();
@@ -1233,7 +1247,6 @@ mod unit_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
-					true, // Auto-execute
 					None,
 				));
 
@@ -1250,7 +1263,6 @@ mod unit_test {
 						call_hash,
 						ALICE_ORIGIN_ID,
 						CHARLIE_ORIGIN_ID,
-						true, // Auto-execute
 						None,
 					),
 					Error::<Test>::ProposalAlreadyExecuted
@@ -1292,6 +1304,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					true, // Auto-execute
 				));
 
 				let alice_submission_timepoint = current_timepoint();
@@ -1302,7 +1315,6 @@ mod unit_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
-					true, // Auto-execute
 					None,
 				));
 
@@ -1341,6 +1353,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					Some(10), // Expires at block 10
 					None,
+					true, // Auto-execute
 				));
 
 				// Manually run the on_initialize hook to process expiring proposals
@@ -1360,7 +1373,6 @@ mod unit_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
-					true, // Auto-execute
 					None,
 				);
 
@@ -1403,6 +1415,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					true, // Auto-execute
 				));
 
 				// Bob approves and triggers execution
@@ -1411,7 +1424,6 @@ mod unit_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
-					true, // Auto-execute
 					None,
 				));
 
@@ -1452,6 +1464,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					false,
 				));
 
 				// Verify proposal exists in storage before cancellation
@@ -1504,6 +1517,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					Some(10), // Expires at block 10
 					None,
+					true, // Auto-execute
 				));
 
 				// Verify proposal is in pending state before expiry
@@ -1527,7 +1541,6 @@ mod unit_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
-					true, // Auto-execute
 					None,
 				);
 				assert_err!(result, Error::<Test>::ProposalExpired);
@@ -1586,6 +1599,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					false,
 				));
 
 				// Try clean pending proposal should fail
@@ -1624,6 +1638,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					true, // Auto-execute
 				));
 
 				// Bob approves and triggers execution
@@ -1632,7 +1647,6 @@ mod unit_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
-					true, // Auto-execute
 					None,
 				));
 
@@ -1709,6 +1723,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					Some(10), // Expires at block 10
 					None,
+					true, // Auto-execute
 				));
 
 				// Manually run the on_initialize hook to process expiring proposals
@@ -1724,7 +1739,6 @@ mod unit_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
-					true, // Auto-execute
 					None,
 				);
 				assert_err!(result, Error::<Test>::ProposalExpired);
@@ -1796,6 +1810,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					Some(100), // Expires at block 100
 					None,
+					false,
 				));
 
 				// Cancel proposal at block 5
@@ -1833,6 +1848,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None, // No expiry
 					None,
+					true, // Auto-execute
 				));
 
 				// Change to block 5
@@ -1844,7 +1860,6 @@ mod unit_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
-					true, // Auto-execute
 					None,
 				));
 
@@ -1898,26 +1913,26 @@ mod unit_test {
 				let call = make_remark_call("1000").unwrap();
 				let call_hash = <Test as Config>::Hashing::hash_of(&call);
 
-				// Create proposal by Alice with no expiry
+				// Create proposal by Alice with no expiry and without auto-execute
 				assert_ok!(OriginAndGate::propose(
 					RuntimeOrigin::signed(ALICE),
 					call.clone(),
 					ALICE_ORIGIN_ID,
 					None, // No expiry
 					None,
+					false, // Don't auto-execute
 				));
 
 				// Verify proposal has Pending status
 				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
 				assert_eq!(proposal.status, ProposalStatus::Pending);
 
-				// Add Bob's approval without auto-execute
+				// Add Bob's approval
 				assert_ok!(OriginAndGate::add_approval(
 					RuntimeOrigin::signed(BOB),
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
-					false, // Don't auto-execute
 					None,
 				));
 
@@ -1989,6 +2004,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					Some(10), // Expires at block 10'
 					None,
+					false,
 				));
 				assert_ok!(OriginAndGate::propose(
 					RuntimeOrigin::signed(BOB),
@@ -1996,6 +2012,7 @@ mod unit_test {
 					BOB_ORIGIN_ID,
 					Some(10), // Expires at block 10
 					None,
+					false,
 				));
 				assert_ok!(OriginAndGate::propose(
 					RuntimeOrigin::signed(ALICE),
@@ -2003,6 +2020,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					Some(15), // Expires at block 15
 					None,
+					false,
 				));
 
 				// Verify all proposals are in Pending status
@@ -2105,6 +2123,7 @@ mod unit_test {
 						ALICE_ORIGIN_ID,
 						Some(10), // All expire at block 10
 						None,
+						false,
 					));
 				}
 
@@ -2205,6 +2224,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					expiry_at,
 					None,
+					true, // Auto-execute
 				));
 
 				// Verify proposal in ExpiringProposals storage
@@ -2222,7 +2242,6 @@ mod unit_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
-					true,
 					None,
 				));
 
@@ -2247,7 +2266,7 @@ mod unit_test {
 
 				// Clean up should fail since retention period hasn't yet elapsed
 				assert_noop!(
-					OriginAndGate::clean(RuntimeOrigin::signed(ALICE), call_hash, ALICE_ORIGIN_ID,),
+					OriginAndGate::clean(RuntimeOrigin::signed(ALICE), call_hash, ALICE_ORIGIN_ID),
 					Error::<Test>::ProposalRetentionPeriodNotElapsed
 				);
 
@@ -2285,6 +2304,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					expiry_at,
 					None,
+					false,
 				));
 
 				// Verify proposal is in ExpiringProposals storage
@@ -2313,10 +2333,11 @@ mod unit_test {
 		use super::*;
 
 		// Helper function to test a specific RequiredApprovalsCount value
-		fn test_with_required_approvals_count(required_approvals_count: u32) {
+		fn test_with_required_approvals_count(required_approvals_count: u32, auto_execute: bool) {
 			new_test_ext().execute_with(|| {
 				// Set RequiredApprovalsCount for this test
 				RequiredApprovalsCount::set(required_approvals_count);
+				println!("[TEST DEBUG] RequiredApprovalsCount: {}", RequiredApprovalsCount::get());
 
 				System::set_block_number(1);
 
@@ -2331,11 +2352,12 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					auto_execute,
 				));
 
 				// Verify proposal was created with Pending status
-				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
-				assert_eq!(proposal.status, ProposalStatus::Pending);
+				let proposal_info = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+				assert_eq!(proposal_info.status, ProposalStatus::Pending);
 
 				// Proposer counts as 1 approval already
 				let required_additional_approvals = required_approvals_count - 1;
@@ -2344,36 +2366,45 @@ mod unit_test {
 				let approvers = [BOB, CHARLIE];
 				let origin_ids = [BOB_ORIGIN_ID, CHARLIE_ORIGIN_ID];
 
-				// Add all but last required approval without auto-execute
-				for i in 0..required_additional_approvals - 1 {
+				println!("[TEST DEBUG] required_additional_approvals: {}", required_additional_approvals);
+
+				let remaining_approvals_but_not_last = required_additional_approvals.saturating_sub(1);
+				println!("[TEST DEBUG] remaining_approvals_but_not_last: {}", remaining_approvals_but_not_last);
+				println!("[TEST DEBUG] proposal_info.approvals.len(): {}", proposal_info.approvals.len());
+
+				// Add all but last required approval
+				for i in 0..remaining_approvals_but_not_last{
 					assert_ok!(OriginAndGate::add_approval(
 						RuntimeOrigin::signed(approvers[i as usize]),
 						call_hash,
 						ALICE_ORIGIN_ID,
 						origin_ids[i as usize],
-						false, // Don't auto-execute
 						None,
 					));
 
 					// Verify proposal still in Pending state
-					let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
-					assert_eq!(proposal.status, ProposalStatus::Pending);
+					let proposal_info = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+					assert_eq!(proposal_info.status, ProposalStatus::Pending);
+					println!("[TEST DEBUG] proposal_info.approvals.len: {}", proposal_info.approvals.len());
 				}
 
-				// Add final approval with auto-execute
-				let final_approver_index = required_additional_approvals - 1;
-				assert_ok!(OriginAndGate::add_approval(
-					RuntimeOrigin::signed(approvers[final_approver_index as usize]),
-					call_hash,
-					ALICE_ORIGIN_ID,
-					origin_ids[final_approver_index as usize],
-					true, // Auto-execute
-					None,
-				));
+				println!("[TEST DEBUG] required_additional_approvals: {}", required_additional_approvals);
+
+				// Add final approval if needed
+				if required_additional_approvals > 0 {
+					let final_approver_index = required_additional_approvals - 1;
+					assert_ok!(OriginAndGate::add_approval(
+						RuntimeOrigin::signed(approvers[final_approver_index as usize]),
+						call_hash,
+						ALICE_ORIGIN_ID,
+						origin_ids[final_approver_index as usize],
+						None,
+					));
+				}
 
 				// Verify proposal was executed
-				let proposal = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
-				assert_eq!(proposal.status, ProposalStatus::Executed);
+				let proposal_info = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
+				assert_eq!(proposal_info.status, ProposalStatus::Executed);
 
 				// Verify dummy value was set
 				let expected_bytes = b"1000".to_vec();
@@ -2388,10 +2419,10 @@ mod unit_test {
 			// after the proposer in order to auto-execute or manually execute
 
 			// Test with RequiredApprovalsCount = 2
-			test_with_required_approvals_count(2);
+			test_with_required_approvals_count(2, true);
 
 			// Test with RequiredApprovalsCount = 3
-			test_with_required_approvals_count(3);
+			test_with_required_approvals_count(3, true);
 		}
 	}
 
@@ -2417,6 +2448,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					Some(remark.clone()),
+					false,
 				));
 
 				// Verify standard proposal creation event
@@ -2456,6 +2488,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					false, // Do not auto-execute
 				));
 
 				// Skip to next block for approval
@@ -2469,7 +2502,6 @@ mod unit_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
-					false, // Do not auto-execute
 					Some(remark.clone()),
 				));
 
@@ -2513,6 +2545,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					false, // Don't auto-execute
 				));
 
 				// Skip to next block for approval
@@ -2524,7 +2557,6 @@ mod unit_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
-					false, // Don't auto-execute
 					None,
 				));
 
@@ -2572,6 +2604,7 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					false,
 				));
 
 				// Try to amend Bob's non-existent approval
@@ -2654,6 +2687,7 @@ mod integration_test {
 				alice_origin_id,
 				None,
 				None,
+				true, // Auto-execute
 			));
 
 			// Bob approves proposal with dynamically determined origin ID
@@ -2664,7 +2698,6 @@ mod integration_test {
 				call_hash,
 				alice_origin_id,
 				bob_origin_id,
-				true, // Auto-execute
 				None,
 			));
 
@@ -2714,6 +2747,7 @@ mod integration_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					true, // Auto-execute
 				));
 
 				let proposal_timepoint = current_timepoint();
@@ -2758,7 +2792,6 @@ mod integration_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
-					true, // Auto-execute
 					None,
 				));
 
@@ -2820,6 +2853,7 @@ mod integration_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					true, // Auto-execute
 				));
 
 				// Try to approve with same origin ID and Alice approving should fail
@@ -2828,7 +2862,6 @@ mod integration_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					ALICE_ORIGIN_ID,
-					true, // Auto-execute
 					None,
 				);
 				assert!(result.is_err());
@@ -2839,7 +2872,6 @@ mod integration_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					ALICE_ORIGIN_ID,
-					true, // Auto-execute
 					None,
 				);
 				assert!(result.is_err());
@@ -2866,6 +2898,7 @@ mod integration_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					true, // Auto-execute
 				));
 
 				// Try execute call directly should fail
@@ -2908,6 +2941,7 @@ mod integration_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					true, // Auto-execute
 				));
 
 				// Verify proposal created with Alice's approval and remains `Pending`
@@ -2958,6 +2992,7 @@ mod integration_test {
 					ALICE_ORIGIN_ID,
 					None,
 					None,
+					true, // Auto-execute
 				));
 
 				// Verify proposal created with Alice's approval and remains `Pending`
@@ -2971,7 +3006,6 @@ mod integration_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
-					true, // Auto-execute
 					None,
 				));
 
@@ -3029,6 +3063,7 @@ mod integration_test {
 					proposer: CHARLIE,
 					executed_at,
 					submitted_at: System::block_number(),
+					auto_execute: true,
 				};
 
 				// Skip calling `propose` and instead store proposal directly in storage
@@ -3047,7 +3082,6 @@ mod integration_test {
 					call_hash,
 					ALICE_ORIGIN_ID,
 					BOB_ORIGIN_ID,
-					true, // Auto-execute
 					None,
 				);
 
@@ -3115,6 +3149,7 @@ mod andgate_requirements {
 				ALICE_ORIGIN_ID,
 				None,
 				None,
+				true, // Auto-execute
 			));
 
 			// Verify proposal creation event with timepoint
@@ -3145,7 +3180,6 @@ mod andgate_requirements {
 				call_hash,
 				ALICE_ORIGIN_ID,
 				BOB_ORIGIN_ID,
-				true, // Auto-execute
 				None,
 			));
 
@@ -3188,6 +3222,7 @@ mod andgate_requirements {
 				ALICE_ORIGIN_ID,
 				None,
 				None,
+				true, // Auto-execute
 			));
 
 			// Verify proposal creation event with timepoint
@@ -3222,7 +3257,6 @@ mod andgate_requirements {
 				call_hash,
 				ALICE_ORIGIN_ID,
 				BOB_ORIGIN_ID,
-				true, // Auto-execute
 				None,
 			));
 
@@ -3300,6 +3334,7 @@ mod andgate_requirements {
 				ALICE_ORIGIN_ID,
 				None,
 				None,
+				true, // Auto-execute
 			));
 
 			// Verify proposal creation event with timepoint
@@ -3330,7 +3365,6 @@ mod andgate_requirements {
 				call_hash,
 				ALICE_ORIGIN_ID,
 				BOB_ORIGIN_ID,
-				true, // Auto-execute
 				None,
 			));
 
@@ -3384,6 +3418,7 @@ mod andgate_requirements {
 				ALICE_ORIGIN_ID,
 				None,
 				None,
+				true, // Auto-execute
 			));
 
 			// Verify proposal creation event with timepoint
@@ -3407,6 +3442,7 @@ mod andgate_requirements {
 				BOB_ORIGIN_ID,
 				None,
 				None,
+				true, // Auto-execute
 			));
 
 			// Verify proposal creation event with timepoint
@@ -3442,7 +3478,6 @@ mod andgate_requirements {
 				call_hash2,
 				BOB_ORIGIN_ID,
 				ALICE_ORIGIN_ID,
-				true, // Auto-execute
 				None,
 			));
 
@@ -3470,7 +3505,6 @@ mod andgate_requirements {
 				call_hash1,
 				ALICE_ORIGIN_ID,
 				BOB_ORIGIN_ID,
-				true, // Auto-execute
 				None,
 			));
 

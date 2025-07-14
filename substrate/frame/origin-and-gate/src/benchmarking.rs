@@ -94,7 +94,7 @@ mod benchmarks {
 
 		// Phase 2: Execution
 		#[extrinsic_call]
-		propose(RawOrigin::Signed(caller), Box::new(call), origin_id, expiry_at);
+		propose(RawOrigin::Signed(caller), Box::new(call), origin_id, expiry_at, None, false);
 
 		// Phase 3: Verification
 		assert!(
@@ -126,11 +126,13 @@ mod benchmarks {
 			Box::new(call),
 			origin_id,
 			expiry_at,
+			None,
+			false,
 		)?;
 
 		// Phase 2: Execution
 		#[extrinsic_call]
-		add_approval(RawOrigin::Signed(caller), call_hash, origin_id, approving_origin_id, true);
+		add_approval(RawOrigin::Signed(caller), call_hash, origin_id, approving_origin_id, None);
 
 		// Phase 3: Verification
 		assert!(
@@ -163,6 +165,8 @@ mod benchmarks {
 			Box::new(call),
 			origin_id,
 			expiry_at,
+			None,
+			false, // Do not auto-execute
 		)?;
 
 		// Add approvals but do not auto-execute
@@ -171,7 +175,7 @@ mod benchmarks {
 			call_hash,
 			origin_id,
 			approving_origin_id1,
-			false, // Do not auto-execute
+			None,
 		)?;
 
 		// Phase 2: Execution
@@ -206,6 +210,8 @@ mod benchmarks {
 			Box::new(call),
 			origin_id,
 			expiry_at,
+			None,
+			false,
 		)?;
 
 		// Phase 2: Execution
@@ -242,6 +248,8 @@ mod benchmarks {
 			Box::new(call),
 			origin_id,
 			expiry_at,
+			None,
+			false,
 		)?;
 
 		Pallet::<T>::add_approval(
@@ -249,7 +257,7 @@ mod benchmarks {
 			call_hash,
 			origin_id,
 			approving_origin_id,
-			false,
+			None,
 		)?;
 
 		// Phase 2: Execution
@@ -294,6 +302,8 @@ mod benchmarks {
 			Box::new(call.clone()),
 			origin_id,
 			expiry_at,
+			None,
+			auto_execute,
 		)?;
 
 		// Verify the proposal still exists before add_approval
@@ -313,7 +323,7 @@ mod benchmarks {
 			call_hash,
 			origin_id,
 			approving_origin_id,
-			auto_execute,
+			None,
 		)?;
 
 		// Execute proposal
@@ -373,6 +383,8 @@ mod benchmarks {
 			Box::new(frame_system::Call::<T>::remark { remark: vec![] }.into()),
 			origin_id.clone(),
 			expiry_at,
+			None,
+			false,
 		)?;
 
 		// Add initial approval with no remark
@@ -381,7 +393,6 @@ mod benchmarks {
 			call_hash,
 			origin_id.clone(),
 			approving_origin_id.clone(),
-			false,
 			None,
 		)?;
 

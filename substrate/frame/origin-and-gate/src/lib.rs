@@ -301,6 +301,8 @@ pub mod pallet {
 				Error::<T>::ProposalNotPending
 			);
 
+			println!("[DEBUG] proposal_info.approvals.len: {}", proposal_info.approvals.len());
+			println!("[DEBUG] T::RequiredApprovalsCount::get() as usize: {}", T::RequiredApprovalsCount::get() as usize);
 			// Check for number of approvals required from RequiredApprovalsCount
 			if proposal_info.approvals.len() >= T::RequiredApprovalsCount::get() as usize {
 				// Retrieve the actual call from storage
@@ -557,6 +559,7 @@ pub mod pallet {
 			origin_id: T::OriginId,
 			expiry_at: Option<BlockNumberFor<T>>,
 			conditional_approval_remark: Option<Vec<u8>>,
+			auto_execute: bool,
 		) -> DispatchResultWithPostInfo {
 			// Check extrinsic was signed
 			let who = ensure_signed(origin)?;
@@ -624,6 +627,7 @@ pub mod pallet {
 				proposer: who.clone(),
 				submitted_at: current_block,
 				executed_at: None,
+				auto_execute,
 			};
 
 			// Store proposal metadata (bounded storage)
@@ -675,7 +679,6 @@ pub mod pallet {
 			call_hash: T::Hash,
 			origin_id: T::OriginId,
 			approving_origin_id: T::OriginId,
-			auto_execute: bool,
 			conditional_approval_remark: Option<Vec<u8>>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
@@ -758,8 +761,10 @@ pub mod pallet {
 				timepoint: approval_timepoint,
 			});
 
+			println!("[DEBUG] proposal_info.approvals.len: {}", proposal_info.approvals.len());
+
 			// Check if proposal can be executed now and auto-execute if requested
-			if auto_execute {
+			if proposal_info.auto_execute {
 				// Pass a clone of proposal info so original not modified if execution attempt fails
 				match Self::check_and_execute_proposal(call_hash, origin_id, proposal_info.clone())
 				{
@@ -1270,6 +1275,8 @@ pub mod pallet {
 		pub submitted_at: BlockNumber,
 		/// Block number when this proposal was executed (if applicable)
 		pub executed_at: Option<BlockNumber>,
+		/// Whether proposal should auto-execute when it reaches `RequiredApprovalsCount`
+		pub auto_execute: bool,
 	}
 
 	/// Storage for proposals
