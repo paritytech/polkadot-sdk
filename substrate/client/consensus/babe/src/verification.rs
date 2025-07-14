@@ -150,7 +150,7 @@ fn check_primary_header<B: BlockT + Sized>(
 	let authority_id = &epoch
 		.authorities
 		.get(pre_digest.authority_index as usize)
-		.ok_or(Error::SlotAuthorNotFound)
+		.ok_or(Error::SlotAuthorNotFound)?
 		.0;
 	let mut epoch_index = epoch.epoch_index;
 
@@ -207,7 +207,7 @@ fn check_secondary_plain_header<B: BlockT>(
 	let author = &epoch
 		.authorities
 		.get(pre_digest.authority_index as usize)
-		.ok_or(Error::SlotAuthorNotFound)
+		.ok_or(Error::SlotAuthorNotFound)?
 		.0;
 
 	if expected_author != author {
@@ -236,7 +236,7 @@ fn check_secondary_vrf_header<B: BlockT>(
 	let author = &epoch
 		.authorities
 		.get(pre_digest.authority_index as usize)
-		.ok_or(Error::SlotAuthorNotFound)
+		.ok_or(Error::SlotAuthorNotFound)?
 		.0;
 
 	if expected_author != author {

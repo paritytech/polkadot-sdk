@@ -334,6 +334,15 @@ pub enum Error<B: BlockT> {
 	/// Parent block has no associated weight
 	#[error("Parent block of {0} has no associated weight")]
 	ParentBlockNoAssociatedWeight(B::Hash),
+	/// Check inherents error
+	#[error("Checking inherents failed: {0}")]
+	CheckInherents(sp_inherents::Error),
+	/// Unhandled check inherents error
+	#[error("Checking inherents unhandled error: {}", String::from_utf8_lossy(.0))]
+	CheckInherentsUnhandled(sp_inherents::InherentIdentifier),
+	/// Create inherents error.
+	#[error("Creating inherents failed: {0}")]
+	CreateInherents(sp_inherents::Error),
 	/// Background worker is not running and therefore requests cannot be answered.
 	#[error("Background worker is not running")]
 	BackgroundWorkerTerminated,
@@ -346,15 +355,6 @@ pub enum Error<B: BlockT> {
 	/// Fork tree error
 	#[error(transparent)]
 	ForkTree(Box<fork_tree::Error<sp_blockchain::Error>>),
-	/// Invalid inherent transactions.
-	#[error("Invalid inherent transactions: {0}")]
-	InvalidInherents(sp_inherents::Error),
-	/// Invalid inherent transactions.
-	#[error("Invalid inherent transactions (unhandled): {0:?}")]
-	InvalidInherentsUnhandled(sp_inherents::InherentIdentifier),
-	/// Epoch unavailable.
-	#[error("Epoch unavailable for parent hash: {0}")]
-	EpochUnavailable(String),
 }
 
 impl<B: BlockT> From<Error<B>> for String {
@@ -1243,25 +1243,26 @@ where
 					.map_err(|e| ConsensusError::Other(Box::new(e)))?;
 				inherent_data.babe_replace_inherent_data(slot);
 
-				let inherent_res = self
-					.client
-					.runtime_api()
-					.check_inherents(at_hash, new_block.clone(), inherent_data)
-					.map_err(|e| ConsensusError::Other(Box::new(e)))?;
+				use sp_block_builder::CheckInherentsError;
 
-				if !inherent_res.ok() {
-					for (i, e) in inherent_res.into_errors() {
-						match create_inherent_data_providers.try_handle_error(&i, &e).await {
-							Some(res) => res.map_err(|e| {
-								ConsensusError::Other(Error::<Block>::InvalidInherents(e).into())
-							})?,
-							None =>
-								return Err(ConsensusError::Other(
-									Error::<Block>::InvalidInherentsUnhandled(i).into(),
-								)),
-						}
-					}
-				}
+				sp_block_builder::check_inherents_with_data(
+					self.client.clone(),
+					at_hash,
+					new_block.clone(),
+					&create_inherent_data_providers,
+					inherent_data,
+				)
+				.await
+				.map_err(|e| {
+					ConsensusError::Other(Box::new(match e {
+						CheckInherentsError::CreateInherentData(e) =>
+							Error::<Block>::CreateInherents(e),
+						CheckInherentsError::Client(e) => Error::RuntimeApi(e),
+						CheckInherentsError::CheckInherents(e) => Error::CheckInherents(e),
+						CheckInherentsError::CheckInherentsUnknownError(id) =>
+							Error::CheckInherentsUnhandled(id),
+					}))
+				})?;
 			}
 			let (_, inner_body) = new_block.deconstruct();
 			block.body = Some(inner_body);

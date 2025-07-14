@@ -34,6 +34,7 @@ jobs:
     timeout-minutes: 30
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
+      options: -v /tmp/zombienet:/tmp/zombienet
     env:
       # sdk tests are looking for POLKADOT_IMAGE
       POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
@@ -61,6 +62,7 @@ jobs:
     timeout-minutes: 30
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
+      options: -v /tmp/zombienet:/tmp/zombienet
     env:
       # sdk tests are looking for POLKADOT_IMAGE
       POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
@@ -88,6 +90,7 @@ jobs:
     timeout-minutes: 30
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
+      options: -v /tmp/zombienet:/tmp/zombienet
     env:
       # sdk tests are looking for POLKADOT_IMAGE
       POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
