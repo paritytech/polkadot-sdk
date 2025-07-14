@@ -10237,10 +10237,11 @@ dependencies = [
 
 [[package]]
 name = "memory-db"
-version = "0.33.0"
+version = "0.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6da20dba965bd218a14c3b335b90d3e07c09ede190c7c19b50deb23d418a322"
+checksum = "7e300c54e3239a86f9c61cc63ab0f03862eb40b1c6e065dc6fd6ceaeff6da93d"
 dependencies = [
+ "foldhash",
  "hash-db",
  "hashbrown 0.15.3",
 ]
@@ -23991,8 +23992,10 @@ dependencies = [
  "ahash 0.8.11",
  "array-bytes 6.2.2",
  "criterion",
+ "foldhash",
  "hash-db",
- "memory-db 0.33.0",
+ "hashbrown 0.15.3",
+ "memory-db 0.34.0",
  "nohash-hasher",
  "parity-scale-codec",
  "parking_lot 0.12.3",
@@ -26569,14 +26572,14 @@ dependencies = [
 
 [[package]]
 name = "trie-bench"
-version = "0.41.0"
+version = "0.42.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0445f19cd0e58d9aef1eef590739fc10c4291611722c98f8995b70ce8529f198"
+checksum = "972be214c558b1a5550d34c8c7e55a284f6439cefc51226d6ffbfc152de5cc58"
 dependencies = [
  "criterion",
  "hash-db",
  "keccak-hasher",
- "memory-db 0.33.0",
+ "memory-db 0.34.0",
  "parity-scale-codec",
  "trie-db 0.30.0",
  "trie-root",
