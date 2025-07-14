@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{
+	ContractBlob,
 	address::{self, AddressMapper},
 	gas::GasMeter,
 	limits,
@@ -267,6 +268,9 @@ pub trait PrecompileWithInfoExt: PrecompileExt {
 		salt: Option<&[u8; 32]>,
 		origin: Option<&H160>,
 	) -> Result<H160, ExecError>;
+
+	/// Uploads new code to the contract storage. If it is already present, does nothing.
+	fn try_upload_code(&mut self, code: Vec<u8>, origin: &H160, skip_transfer: bool) -> Result<(), DispatchError>;
 }
 
 /// Environment functions which are available to all pre-compiles.
@@ -1690,7 +1694,7 @@ where
 			// Otherwise we use the top frame's account id as the sender.
 			self.top_frame().account_id.clone()
 		};
-		let executable = self.push_frame(
+		let executable: Option<ExecutableOrPrecompile<T, E, Stack<'a, T, E>>> = self.push_frame(
 			FrameArgs::Instantiate {
 				sender: sender.clone(),
 				executable,
@@ -1706,6 +1710,25 @@ where
 		if_tracing(|t| t.instantiate_code(&crate::Code::Existing(code_hash), salt));
 		self.run(executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE), input_data, BumpNonce::Yes)
 			.map(|_| address)
+	}
+
+	fn try_upload_code(&mut self, code: Vec<u8>, origin: &H160, skip_transfer: bool) -> Result<(), DispatchError> {
+		let account_id = T::AddressMapper::to_account_id(origin);
+		let mut module = ContractBlob::<T>::from_code(code, account_id)?;
+		let deposit = module.store_code(skip_transfer)?;
+
+		self.storage_meter.record_charge(&StorageDeposit::Charge(deposit));
+
+		// let diff = storage::meter::Diff {
+		// 	bytes_added: deposit.saturated_into(),
+		// 	bytes_removed: 0,
+		// 	items_added: 0,
+		// 	items_removed: 0,
+		// };
+
+		// self.charge_storage(&diff);
+
+		Ok(())
 	}
 }
 

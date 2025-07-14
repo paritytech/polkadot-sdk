@@ -14,11 +14,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 use crate::{
 	address::AddressMapper,
-	precompiles::{BuiltinAddressMatcher, Error, ExtWithInfo, BuiltinPrecompile, Precompile},
-	Config, H256,
+	precompiles::{BuiltinAddressMatcher, Error, ExtWithInfo, BuiltinPrecompile},
+	Config, H256, CodeInfoOf
 };
 use alloc::{vec, vec::Vec};
 use core::{marker::PhantomData, num::NonZero};
@@ -56,9 +55,6 @@ impl<T: Config> BuiltinPrecompile for Create2<T> {
 			ICreate2::ICreate2Calls::create2(call) => {
 				(call.code.clone(), call.salt.clone())
 			}
-			_ => {
-				Err(DispatchError::from("invalid input"))?
-			}
 		};
 		let gas_limit = env.gas_meter().gas_left();
 
@@ -75,6 +71,11 @@ impl<T: Config> BuiltinPrecompile for Create2<T> {
 
 		let code_hash = sp_io::hashing::keccak_256(&code);
 
+		env.try_upload_code(code.to_vec(), &deployer, true)?;
+		if !CodeInfoOf::<T>::contains_key(H256::from(code_hash)) {
+			Err(DispatchError::from("code not found"))?;
+		}
+		
 		// uploading the code is handled in the instantiate call
 		let instantiate_address = env.instantiate(
 			gas_limit,
