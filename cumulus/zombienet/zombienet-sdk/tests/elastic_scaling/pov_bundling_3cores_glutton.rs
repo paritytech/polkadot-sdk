@@ -124,7 +124,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				])
 				.with_genesis_overrides(json!({
 					"glutton": {
-						"compute": "10000000", // 80% ref time consumption
+						"compute": "1000000000", // 80% ref time consumption
 						"storage": "0", // No storage consumption
 						"trashDataCount": 5000, // Initialize with some trash data
 						"blockLength": "0" // No block length consumption

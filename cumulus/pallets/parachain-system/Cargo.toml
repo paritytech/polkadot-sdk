@@ -39,6 +39,7 @@ sp-version = { workspace = true }
 
 # Polkadot
 polkadot-parachain-primitives = { features = ["wasm-api"], workspace = true }
+polkadot-primitives = { workspace = true }
 polkadot-runtime-parachains = { workspace = true }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
@@ -86,6 +87,7 @@ std = [
 	"log/std",
 	"pallet-message-queue/std",
 	"polkadot-parachain-primitives/std",
+	"polkadot-primitives/std",
 	"polkadot-runtime-parachains/std",
 	"scale-info/std",
 	"sp-consensus-babe/std",
