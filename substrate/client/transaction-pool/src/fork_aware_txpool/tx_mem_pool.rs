@@ -119,7 +119,6 @@ where
 		source: TransactionSource,
 		tx: ExtrinsicFor<ChainApi>,
 		bytes: usize,
-
 		validated_at: u64,
 	) -> Self {
 		Self::new(false, source, tx, bytes, validated_at)
