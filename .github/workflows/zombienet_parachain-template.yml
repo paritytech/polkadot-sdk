@@ -36,7 +36,7 @@ jobs:
       test_pattern: ${{ inputs.test_pattern }}
 
 
-  zombienet-cumulus-tests:
+  zombienet-parachain-template-tests:
     name: ${{ matrix.test.job-name }}
     runs-on: ${{ matrix.test.runner-type == 'large' && needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER || needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
     timeout-minutes: 30

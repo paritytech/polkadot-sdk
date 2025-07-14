@@ -74,7 +74,7 @@ jobs:
         shell: bash
         run: ${{ matrix.test.additional-setup }}
 
-      - name: zombienet_test (traditional)
+      - name: zombienet_test (v1)
         uses: ./.github/actions/zombienet
         with:
           test-definition: ${{ matrix.test.test-definition }}

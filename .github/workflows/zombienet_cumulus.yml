@@ -84,8 +84,8 @@ jobs:
       - name: zombienet_test
         uses: ./.github/actions/zombienet-sdk
         with:
-          test-filter: ${{ matrix.test-filter }}
-          job-name: ${{ matrix.job-name }}
+          test-filter: ${{ matrix.test.test-filter }}
+          job-name: ${{ matrix.test.job-name }}
           prefix: "cumulus"
           gh-token: ${{ secrets.GITHUB_TOKEN }}
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}

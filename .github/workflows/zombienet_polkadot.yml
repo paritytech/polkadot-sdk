@@ -79,7 +79,7 @@ jobs:
         shell: bash
         run: ${{ matrix.test.additional-setup }}
 
-      - name: zombienet_test (traditional)
+      - name: zombienet_test (v1)
         if: ${{ !matrix.test.use-zombienet-sdk }}
         uses: ./.github/actions/zombienet
         with:
