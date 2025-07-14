@@ -537,11 +537,12 @@ mod tests {
 		(Here, amount).into()
 	}
 	#[allow(non_snake_case)]
-	/// Concrete fungible constructor
+	/// Concrete fungible constructor (parent=1)
 	fn CFP(amount: u128) -> Asset {
 		(Parent, amount).into()
 	}
 	#[allow(non_snake_case)]
+	/// Concrete fungible constructor (parent=2)
 	fn CFPP(amount: u128) -> Asset {
 		((Parent, Parent), amount).into()
 	}
