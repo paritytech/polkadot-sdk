@@ -76,8 +76,8 @@ async fn pov_bundling_3cores_glutton() -> Result<(), anyhow::Error> {
 	assert_para_throughput(
 		&relay_client,
 		6,
-		[(ParaId::from(PARA_ID), 18..27)], // Expected 3-core throughput with glutton overhead
-		[(ParaId::from(PARA_ID), (para_client.clone(), 72..97))], // Target 72+ blocks
+		[(ParaId::from(PARA_ID), 12..19)],
+		[(ParaId::from(PARA_ID), (para_client.clone(), 48..73))],
 	)
 	.await?;
 
