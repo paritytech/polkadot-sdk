@@ -16,7 +16,6 @@
 // limitations under the License.
 
 use crate::{
-	ContractBlob,
 	address::{self, AddressMapper},
 	gas::GasMeter,
 	limits,
@@ -26,8 +25,9 @@ use crate::{
 	storage::{self, meter::Diff, WriteOutcome},
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
-	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, ConversionPrecision,
-	Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, RuntimeCosts,
+	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractBlob, ContractInfo, ContractInfoOf,
+	ConversionPrecision, Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts,
+	RuntimeCosts,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -270,7 +270,12 @@ pub trait PrecompileWithInfoExt: PrecompileExt {
 	) -> Result<H160, ExecError>;
 
 	/// Uploads new code to the contract storage. If it is already present, does nothing.
-	fn try_upload_code(&mut self, code: Vec<u8>, origin: &H160, skip_transfer: bool) -> Result<(), DispatchError>;
+	fn try_upload_code(
+		&mut self,
+		code: Vec<u8>,
+		origin: &H160,
+		skip_transfer: bool,
+	) -> Result<(), DispatchError>;
 }
 
 /// Environment functions which are available to all pre-compiles.
@@ -1712,7 +1717,12 @@ where
 			.map(|_| address)
 	}
 
-	fn try_upload_code(&mut self, code: Vec<u8>, origin: &H160, skip_transfer: bool) -> Result<(), DispatchError> {
+	fn try_upload_code(
+		&mut self,
+		code: Vec<u8>,
+		origin: &H160,
+		skip_transfer: bool,
+	) -> Result<(), DispatchError> {
 		let account_id = T::AddressMapper::to_account_id(origin);
 		let mut module = ContractBlob::<T>::from_code(code, account_id)?;
 		let deposit = module.store_code(skip_transfer)?;

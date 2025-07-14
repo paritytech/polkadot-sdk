@@ -436,9 +436,9 @@ impl Default for Origin<Test> {
 
 #[test]
 fn create2_precompile_works() {
-	use sp_core::H160;
-	use alloy_core::sol_types::SolInterface;
 	use crate::precompiles::ICreate2;
+	use alloy_core::sol_types::SolInterface;
+	use sp_core::H160;
 
 	// let create2_precompile_addr = H160(NoInfo::<Test>::MATCHER.base_address());
 	let create2_precompile_addr = H160::from_low_u64_be(0x0B); // hardcoded 11 in create2.rs
@@ -450,7 +450,8 @@ fn create2_precompile_works() {
 	let input = ICreate2::ICreate2Calls::create2(ICreate2::create2Call {
 		code: code.clone().into(),
 		salt: salt.clone().into(),
-	}).abi_encode();
+	})
+	.abi_encode();
 
 	let deployer = <Test as Config>::AddressMapper::to_address(&ALICE);
 	let contract_address_expected = create2(&deployer, code.as_slice(), &[], &salt);
@@ -476,9 +477,9 @@ fn create2_precompile_works() {
 
 #[test]
 fn create2_precompile_works_with_existing_code() {
-	use sp_core::H160;
-	use alloy_core::sol_types::SolInterface;
 	use crate::precompiles::ICreate2;
+	use alloy_core::sol_types::SolInterface;
+	use sp_core::H160;
 
 	// let create2_precompile_addr = H160(NoInfo::<Test>::MATCHER.base_address());
 	let create2_precompile_addr = H160::from_low_u64_be(0x0B); // hardcoded 11 in create2.rs
@@ -490,7 +491,8 @@ fn create2_precompile_works_with_existing_code() {
 	let input = ICreate2::ICreate2Calls::create2(ICreate2::create2Call {
 		code: code.clone().into(),
 		salt: salt.clone().into(),
-	}).abi_encode();
+	})
+	.abi_encode();
 
 	let deployer = <Test as Config>::AddressMapper::to_address(&ALICE);
 	let contract_address_expected = create2(&deployer, code.as_slice(), &[], &salt);

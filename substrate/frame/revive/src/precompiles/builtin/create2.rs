@@ -16,24 +16,24 @@
 // limitations under the License.
 use crate::{
 	address::AddressMapper,
-	precompiles::{BuiltinAddressMatcher, Error, ExtWithInfo, BuiltinPrecompile},
-	Config, H256, CodeInfoOf
+	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, ExtWithInfo},
+	CodeInfoOf, Config, H256,
 };
 use alloc::{vec, vec::Vec};
+use alloy_core::sol;
 use core::{marker::PhantomData, num::NonZero};
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_core::U256;
 use sp_runtime::DispatchError;
-use alloy_core::sol;
 
 // upload the code before instantiate like in try_upload_code
 // maybe dont need to change instantiate, could be fine to always use create2 address
 // take endowment/value from the env
 
 sol! {
-    interface ICreate2 {
-        function create2(bytes memory code, bytes32 salt) external payable returns (address);
-    }
+	interface ICreate2 {
+		function create2(bytes memory code, bytes32 salt) external payable returns (address);
+	}
 }
 
 pub use ICreate2::*;
@@ -43,7 +43,8 @@ pub struct Create2<T>(PhantomData<T>);
 impl<T: Config> BuiltinPrecompile for Create2<T> {
 	type T = T;
 	type Interface = ICreate2::ICreate2Calls;
-	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(0x0B).unwrap());
+	const MATCHER: BuiltinAddressMatcher =
+		BuiltinAddressMatcher::Fixed(NonZero::new(0x0B).unwrap());
 	const HAS_CONTRACT_INFO: bool = true;
 
 	fn call_with_info(
@@ -52,9 +53,7 @@ impl<T: Config> BuiltinPrecompile for Create2<T> {
 		env: &mut impl ExtWithInfo<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
 		let (code, salt) = match input {
-			ICreate2::ICreate2Calls::create2(call) => {
-				(call.code.clone(), call.salt.clone())
-			}
+			ICreate2::ICreate2Calls::create2(call) => (call.code.clone(), call.salt.clone()),
 		};
 		let gas_limit = env.gas_meter().gas_left();
 
@@ -75,7 +74,7 @@ impl<T: Config> BuiltinPrecompile for Create2<T> {
 		if !CodeInfoOf::<T>::contains_key(H256::from(code_hash)) {
 			Err(DispatchError::from("code not found"))?;
 		}
-		
+
 		// uploading the code is handled in the instantiate call
 		let instantiate_address = env.instantiate(
 			gas_limit,
