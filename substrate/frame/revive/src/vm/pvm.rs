@@ -19,6 +19,8 @@
 
 pub mod env;
 
+use polkavm_move_native::allocator::MemAllocator;
+
 use crate::{
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
@@ -331,12 +333,18 @@ enum StorageReadMode {
 pub struct Runtime<'a, E: Ext, M: ?Sized> {
 	ext: &'a mut E,
 	input_data: Option<Vec<u8>>,
+	move_allocator: MemAllocator,
 	_phantom_data: PhantomData<M>,
 }
 
 impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	pub fn new(ext: &'a mut E, input_data: Vec<u8>) -> Self {
-		Self { ext, input_data: Some(input_data), _phantom_data: Default::default() }
+		Self {
+			ext,
+			input_data: Some(input_data),
+			move_allocator: MemAllocator::default(),
+			_phantom_data: Default::default(),
+		}
 	}
 
 	/// Get a mutable reference to the inner `Ext`.
