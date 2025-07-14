@@ -31,6 +31,11 @@ pub fn asset_hub_westend_development_config() -> GenericChainSpec {
 	.with_id("asset-hub-westend-dev")
 	.with_chain_type(ChainType::Local)
 	.with_genesis_config_preset_name(sp_genesis_builder::DEV_RUNTIME_PRESET)
+	.with_genesis_config_patch(serde_json::json!({
+		"parachainInfo": {
+			"parachainId": 1000u32,
+		},
+	}))
 	.with_properties(properties)
 	.build()
 }
@@ -49,6 +54,11 @@ pub fn asset_hub_westend_local_config() -> GenericChainSpec {
 	.with_id("asset-hub-westend-local")
 	.with_chain_type(ChainType::Local)
 	.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
+	.with_genesis_config_patch(serde_json::json!({
+		"parachainInfo": {
+			"parachainId": 1000u32,
+		},
+	}))
 	.with_properties(properties)
 	.build()
 }
