@@ -90,10 +90,6 @@ pub(super) fn check_header<B: BlockT + Sized>(
 		return Ok(CheckedHeader::Deferred(header, pre_digest.slot()))
 	}
 
-	if epoch.authorities.len() <= pre_digest.authority_index() as usize {
-		return Err(babe_err(Error::SlotAuthorNotFound))
-	}
-
 	match &pre_digest {
 		PreDigest::Primary(primary) => {
 			debug!(
@@ -151,7 +147,11 @@ fn check_primary_header<B: BlockT + Sized>(
 	epoch: &Epoch,
 	c: (u64, u64),
 ) -> Result<(), Error<B>> {
-	let authority_id = &epoch.authorities[pre_digest.authority_index as usize].0;
+	let authority_id = &epoch
+		.authorities
+		.get(pre_digest.authority_index as usize)
+		.ok_or(Error::SlotAuthorNotFound)
+		.0;
 	let mut epoch_index = epoch.epoch_index;
 
 	if epoch.end_slot() <= pre_digest.slot {
@@ -204,7 +204,11 @@ fn check_secondary_plain_header<B: BlockT>(
 		secondary_slot_author(pre_digest.slot, &epoch.authorities, epoch.randomness)
 			.ok_or(Error::NoSecondaryAuthorExpected)?;
 
-	let author = &epoch.authorities[pre_digest.authority_index as usize].0;
+	let author = &epoch
+		.authorities
+		.get(pre_digest.authority_index as usize)
+		.ok_or(Error::SlotAuthorNotFound)
+		.0;
 
 	if expected_author != author {
 		return Err(Error::InvalidAuthor(expected_author.clone(), author.clone()))
@@ -229,7 +233,11 @@ fn check_secondary_vrf_header<B: BlockT>(
 		secondary_slot_author(pre_digest.slot, &epoch.authorities, epoch.randomness)
 			.ok_or(Error::NoSecondaryAuthorExpected)?;
 
-	let author = &epoch.authorities[pre_digest.authority_index as usize].0;
+	let author = &epoch
+		.authorities
+		.get(pre_digest.authority_index as usize)
+		.ok_or(Error::SlotAuthorNotFound)
+		.0;
 
 	if expected_author != author {
 		return Err(Error::InvalidAuthor(expected_author.clone(), author.clone()))
