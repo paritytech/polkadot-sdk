@@ -1,9 +1,9 @@
 title: 'Fix subsume_assets incorrectly merging two AssetsInHolding'
 doc:
 - audience: Runtime Dev
-    description: |
-      Fix subsume_assets incorrectly merging two AssetsInHolding instances under certain conditions,
-      which caused asset values to be overridden rather than summed.
+  description: |
+    Fix subsume_assets incorrectly merging two AssetsInHolding instances under certain conditions,
+    which caused asset values to be overridden rather than summed.
 
 crates:
 - name: staging-xcm-executor
