@@ -34,17 +34,23 @@ pub(crate) struct SlotTime {
 	slot_duration: Duration,
 	/// The exact timestamp when this slot started
 	slot_start_timestamp: Timestamp,
+	/// Time offset to apply when calculating time remaining
+	time_offset: Duration,
 }
 
 impl SlotTime {
 	/// Create a new SlotTime
-	pub fn new(slot_duration: Duration, slot_start_timestamp: Timestamp) -> Self {
-		Self { slot_duration, slot_start_timestamp }
+	pub fn new(
+		slot_duration: Duration,
+		slot_start_timestamp: Timestamp,
+		time_offset: Duration,
+	) -> Self {
+		Self { slot_duration, slot_start_timestamp, time_offset }
 	}
 
 	/// Get the time remaining in this slot
 	pub fn time_left(&self) -> Duration {
-		let now = duration_now();
+		let now = duration_now().saturating_sub(self.time_offset);
 		let slot_end_time_millis =
 			self.slot_start_timestamp.as_millis() + self.slot_duration.as_millis() as u64;
 		let slot_end_time = Duration::from_millis(slot_end_time_millis);
@@ -80,7 +86,7 @@ fn time_until_next_slot(
 	block_production_interval: Duration,
 	offset: Duration,
 ) -> (Duration, Timestamp) {
-	let now = now.as_millis().saturating_sub(offset.as_millis());
+	let now = now.saturating_sub(offset).as_millis();
 
 	let next_slot_time = ((now + block_production_interval.as_millis()) /
 		block_production_interval.as_millis()) *
@@ -146,7 +152,7 @@ impl SlotTimer {
 		// Update internal slot tracking
 		self.last_reported_slot = Some(current_slot);
 
-		Ok(SlotTime::new(self.relay_slot_duration, slot_start_timestamp))
+		Ok(SlotTime::new(self.relay_slot_duration, slot_start_timestamp, self.time_offset))
 	}
 }
 

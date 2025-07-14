@@ -469,8 +469,8 @@ where
 
 	for (block_index, block_time) in block_schedule.enumerate() {
 		let block_start = Instant::now();
-		let slot_time_for_block =
-			slot_time_for_core.saturating_sub(core_start.elapsed()) / num_blocks as u32;
+		let slot_time_for_block = slot_time_for_core.saturating_sub(core_start.elapsed()) /
+			(num_blocks - block_index) as u32;
 
 		if slot_time_for_block <= Duration::from_millis(20) {
 			tracing::error!(
@@ -483,6 +483,14 @@ where
 
 			break
 		}
+
+		tracing::trace!(
+			target: LOG_TARGET,
+			slot_time_for_block_ms = %slot_time_for_block.as_millis(),
+			%block_index,
+			core_index = %core_index.0,
+			"Going to build block"
+		);
 
 		// The authoring duration is either the block time returned by the runtime or the 90% of the
 		// rest of the slot time for the block. We take here 90% because we still need to create the
