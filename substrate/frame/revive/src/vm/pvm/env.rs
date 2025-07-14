@@ -35,6 +35,15 @@ use sp_core::U256;
 use sp_io::hashing::keccak_256;
 use sp_runtime::{DispatchError, SaturatedConversion};
 
+use polkavm::MemoryAccessError;
+use polkavm_move_native::{
+	allocator::MemAllocator,
+	storage::Storage,
+	types::{MoveAddress, MoveSigner, MoveType, TypeDesc},
+};
+use sha3::Digest;
+use std::mem::MaybeUninit;
+
 impl<T: Config> ContractBlob<T> {
 	/// Compile and instantiate contract.
 	///
@@ -158,7 +167,7 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 					return Some(Ok(ExecReturnValue {
 						flags: ReturnFlags::empty(),
 						data: Vec::new(),
-					}))
+					}));
 				}
 				let Some(syscall_symbol) = module.imports().get(idx) else {
 					return Some(Err(<Error<E::T>>::InvalidSyscall.into()));
@@ -954,4 +963,285 @@ pub mod env {
 		}
 		Err(TrapReason::Termination)
 	}
+
+	// Move syscalls
+	#[stable]
+	fn debug_print(
+		&mut self,
+		memory: &mut M,
+		ptr_to_type: u32,
+		ptr_to_data: u32,
+	) -> Result<u32, TrapReason> {
+		// self.charge_gas(RuntimeCosts::Exists)?;
+		let mut move_type_string = "Unknown".to_string();
+		let move_type: Result<MoveType, TrapReason> = copy_from_guest(memory, ptr_to_type);
+		// for some reason, the type is stored in RO memory, which we can't read when dynamic paging
+		// is enabled
+		if let Ok(move_type) = move_type {
+			move_type_string = move_type.to_string();
+			match move_type.type_desc {
+				TypeDesc::Bool | TypeDesc::U8 => {
+					let move_value: u8 = copy_from_guest(memory, ptr_to_data)?;
+					log::debug!(target: LOG_TARGET, "debug_print called. type ptr: 0x{ptr_to_type:X} Data ptr: 0x{ptr_to_data:X}, type: {move_type_string:?}, value: 0x{move_value}");
+				},
+				TypeDesc::U16 | TypeDesc::U32 => {
+					let move_value: u32 = copy_from_guest(memory, ptr_to_data)?;
+					log::debug!(target: LOG_TARGET, "debug_print called. type ptr: 0x{ptr_to_type:X} Data ptr: 0x{ptr_to_data:X}, type: {move_type_string:?}, value: 0x{move_value:x?}");
+				},
+				TypeDesc::Signer => {
+					let move_signer: MoveSigner = copy_from_guest(memory, ptr_to_data)?;
+					log::debug!(target: LOG_TARGET, "debug_print called. type ptr: 0x{ptr_to_type:X} Data ptr: 0x{ptr_to_data:X}, type: {move_type_string:?}, value: {move_signer:?}");
+				},
+				TypeDesc::U64 => {
+					let move_value: u64 = copy_from_guest(memory, ptr_to_data)?;
+					log::debug!(target: LOG_TARGET, "debug_print called. type ptr: 0x{ptr_to_type:X} Data ptr: 0x{ptr_to_data:X}, type: {move_type_string:?}, value: 0x{move_value:x?}");
+				},
+				TypeDesc::Vector => {
+					let vec: MoveByteVector = copy_from_guest(memory, ptr_to_data)?;
+					let len = vec.length as usize;
+					let bytes =
+						copy_bytes_from_guest(memory, vec.ptr as u32, len).expect("failed to copy");
+					let s = String::from_utf8(bytes.clone());
+					if let Ok(s) = s {
+						log::debug!(target: LOG_TARGET, "debug_print called: {s}");
+					} else {
+						log::debug!(target: LOG_TARGET, "debug_print called. type ptr: 0x{ptr_to_type:X} Data ptr: 0x{ptr_to_data:X}, type: {move_type_string:?}, value: {vec:?}, bytes: {bytes:x?}");
+					}
+				},
+				_ => {
+					let move_value: u64 = copy_from_guest(memory, ptr_to_data)?;
+					log::debug!(target: LOG_TARGET, "debug_print called. type ptr: 0x{ptr_to_type:X} Data ptr: 0x{ptr_to_data:X}, type: {move_type_string:?}, value: 0x{move_value:x}");
+				},
+			}
+		} else {
+			let move_value: u32 = copy_from_guest(memory, ptr_to_data)?;
+			log::debug!(target: LOG_TARGET, "debug_print called. type ptr: 0x{ptr_to_type:X} Data ptr: 0x{ptr_to_data:X}, type: {move_type_string:?}, value: {move_value}");
+		}
+		Ok(0)
+	}
+
+	#[stable]
+	fn move_to(
+		&mut self,
+		memory: &mut M,
+		ptr_to_signer: u32,
+		ptr_to_struct: u32,
+		ptr_to_tag: u32,
+	) -> Result<u32, TrapReason> {
+		// self.charge_gas(RuntimeCosts::Exists)?;
+		let signer_ptr: u32 = copy_from_guest(memory, ptr_to_signer)?;
+		let signer: MoveSigner =
+			copy_from_guest(memory, signer_ptr).expect("failed to copy memory");
+		let tag = memory.read(ptr_to_tag, 32)?;
+		let address = signer.0;
+		let value = from_move_byte_vector(memory, ptr_to_struct).expect("failed to copy struct");
+		log::debug!(target: LOG_TARGET,
+			"move_to called with address ptr: 0x{ptr_to_signer:X}, value ptr: 0x{ptr_to_struct:X}, address: {address:?}, value: {value:x?}",
+		);
+		self.ext
+			.get_move_global_storage()
+			.store(address, tag.try_into().expect("aah"), value.to_vec())
+			.expect("failed to store global");
+
+		Ok(0)
+	}
+
+	#[stable]
+	fn move_from(
+		&mut self,
+		memory: &mut M,
+		ptr_to_signer: u32,
+		remove: u32,
+		ptr_to_tag: u32,
+		is_mut: u32,
+	) -> Result<u32, TrapReason> {
+		// self.charge_gas(RuntimeCosts::Exists)?;
+		let signer: MoveSigner =
+			copy_from_guest(memory, ptr_to_signer).expect("failed to copy memory");
+		let tag = memory.read(ptr_to_tag, 32)?;
+		let tag_slice = tag.try_into().expect("aah");
+		let value = self
+			.ext
+			.get_move_global_storage()
+			.load(signer.0, tag_slice, remove != 0, is_mut != 0)
+			.expect("failed to retrieve global");
+		let address = to_move_byte_vector(memory, &mut self.move_allocator, value.to_vec())
+			.expect("failed to copy byte vector");
+		log::debug!(target: LOG_TARGET,
+			"move_from called with address ptr: 0x{ptr_to_signer:X}, address: {address:?}, value: {value:x?}, remove: {remove}, is_mut: {is_mut}",
+		);
+		Ok(address)
+	}
+
+	#[stable]
+	fn exists(&mut self, memory: &mut M, signer_ptr: u32, tag_ptr: u32) -> Result<u32, TrapReason> {
+		// self.charge_gas(RuntimeCosts::Exists)?;
+		log::debug!("exists: ptr: {signer_ptr:x} tag: {tag_ptr:x}");
+		let tag = memory.read(tag_ptr, 32)?;
+		let signer: MoveAddress =
+			copy_from_guest(memory, signer_ptr).expect("failed to copy memory");
+		log::debug!(target: LOG_TARGET, "exists: tag: {tag:x?} signer: {signer:x?}");
+		let result = self
+			.ext
+			.get_move_global_storage()
+			.exists(signer, tag.as_slice().try_into().expect("tag must be 32 bytes"))
+			.expect("failed to call exists");
+		Ok(result as u32)
+	}
+
+	#[stable]
+	fn release(
+		&mut self,
+		memory: &mut M,
+		ptr_to_signer: u32,
+		ptr_to_struct: u32,
+		ptr_to_tag: u32,
+	) -> Result<u32, TrapReason> {
+		// self.charge_gas(RuntimeCosts::Exists)?;
+		let signer: MoveSigner =
+			copy_from_guest(memory, ptr_to_signer).expect("failed to copy memory");
+		let tag = memory.read(ptr_to_tag, 32)?;
+		let address = signer.0;
+		let value = from_move_byte_vector(memory, ptr_to_struct).expect("failed to copy struct");
+		log::debug!(target: LOG_TARGET,
+			"release called with address ptr: 0x{ptr_to_signer:X}, value ptr: 0x{ptr_to_struct:X}, address: {address:?}, value: {value:x?}",
+		);
+		let tag_slice = tag.try_into().expect("aah");
+		self.ext
+			.get_move_global_storage()
+			.update(address, tag_slice, value.to_vec())
+			.expect("failed to store global");
+		self.ext.get_move_global_storage().release(address, tag_slice);
+		Ok(0)
+	}
+
+	#[stable]
+	fn hash_sha2_256(&mut self, memory: &mut M, ptr_to_buf: u32) -> Result<u32, TrapReason> {
+		// self.charge_gas(RuntimeCosts::Exists)?;
+		let bytes = from_move_byte_vector(memory, ptr_to_buf)?;
+		log::debug!(target: LOG_TARGET, "hash_sha2_256 called with type: ptr: 0x{ptr_to_buf:X}");
+		log::debug!(target: LOG_TARGET, "bytes: {bytes:?}");
+		let digest = sha2::Sha256::digest(&bytes);
+		log::debug!(target: LOG_TARGET, "hash_sha2_256 called with {} bytes, digest: {digest:X?}", bytes.len(),);
+		let address = to_move_byte_vector(memory, &mut self.move_allocator, digest.to_vec())?;
+		log::debug!(target: LOG_TARGET, "Allocated address for digest: 0x{address:X}");
+		Ok(address)
+	}
+
+	#[stable]
+	fn hash_sha3_256(&mut self, memory: &mut M, ptr_to_buf: u32) -> Result<u32, TrapReason> {
+		// self.charge_gas(RuntimeCosts::Exists)?;
+		let bytes = from_move_byte_vector(memory, ptr_to_buf)?;
+		log::debug!(target: LOG_TARGET, "hash_sha3_256 called with type: ptr: 0x{ptr_to_buf:X}");
+		log::debug!(target: LOG_TARGET, "bytes: {bytes:?}");
+		let digest = sha3::Sha3_256::digest(&bytes);
+		log::debug!(target: LOG_TARGET, "hash_sha3_256 called with {} bytes, digest: {digest:X?}", bytes.len(),);
+		let address = to_move_byte_vector(memory, &mut self.move_allocator, digest.to_vec())?;
+		log::debug!(target: LOG_TARGET, "Allocated address for digest: 0x{address:X}");
+		Ok(address)
+	}
+}
+
+fn copy_from_guest<T: Copy + Sized, M: Memory<C>, C: Config>(
+	memory: &mut M,
+	ptr: u32,
+) -> Result<T, TrapReason> {
+	// self.charge_gas(RuntimeCosts::Exists)?;
+	let mut uninit = MaybeUninit::<T>::uninit();
+	let signer = unsafe {
+		let dst_bytes: &mut [u8] =
+			core::slice::from_raw_parts_mut(uninit.as_mut_ptr() as *mut u8, size_of::<T>());
+		log::trace!(target: LOG_TARGET, "Reading {} bytes from guest memory at address 0x{:X}", size_of::<T>(), ptr);
+		memory.read_into_buf(ptr, dst_bytes)?;
+		log::trace!(target: LOG_TARGET, "read: {dst_bytes:x?}");
+		let signer: T = uninit.assume_init();
+		signer
+	};
+	Ok(signer)
+}
+
+fn copy_to_guest<T: Sized + Copy, M: Memory<C>, C: Config>(
+	memory: &mut M,
+	allocator: &mut MemAllocator,
+	value: &T,
+) -> Result<u32, TrapReason> {
+	log::trace!(target: LOG_TARGET, "Copying value of type {} to guest memory", core::any::type_name::<T>());
+	let size_to_write = core::mem::size_of::<T>();
+	let address = allocator
+		.alloc(size_to_write, core::mem::align_of::<T>())
+		.expect("failed to allocate");
+
+	// safety: we know we have memory, we just checked
+	let slice =
+		unsafe { core::slice::from_raw_parts((value as *const T) as *const u8, size_to_write) };
+
+	memory.write(address, slice)?;
+
+	Ok(address)
+}
+
+fn from_move_byte_vector<M: Memory<C>, C: Config>(
+	memory: &mut M,
+	ptr_to_buf: u32,
+) -> Result<Vec<u8>, TrapReason> {
+	let move_byte_vec: MoveByteVector =
+		copy_from_guest(memory, ptr_to_buf).expect("failed to copy bytes");
+	log::debug!(target: LOG_TARGET, "move_byte_vec: {move_byte_vec:?}");
+	let len = move_byte_vec.length as usize;
+	let bytes =
+		copy_bytes_from_guest(memory, move_byte_vec.ptr as u32, len).expect("failed to copy bytes");
+	Ok(bytes)
+}
+
+use polkavm_move_native::types::MoveByteVector;
+
+fn to_move_byte_vector<M: Memory<C>, C: Config>(
+	memory: &mut M,
+	allocator: &mut MemAllocator,
+	bytes: Vec<u8>,
+) -> Result<u32, TrapReason> {
+	let len = bytes.len();
+	let data_ptr =
+		copy_bytes_to_guest(memory, allocator, bytes.as_slice()).expect("failed to copy bytes");
+	log::debug!(target: LOG_TARGET, "Data copied to guest memory at address: 0x{data_ptr:X}, length: {len}",);
+	let move_byte_vec =
+		MoveByteVector { ptr: data_ptr as *mut u8, capacity: len as u64, length: len as u64 };
+	log::debug!(target: LOG_TARGET, "move_byte_vec: {move_byte_vec:?}");
+	Ok(copy_to_guest(memory, allocator, &move_byte_vec).expect("failed to copy bytes"))
+}
+
+fn copy_bytes_to_guest<M: Memory<C>, C: Config>(
+	memory: &mut M,
+	allocator: &mut MemAllocator,
+	bytes: &[u8],
+) -> Result<u32, TrapReason> {
+	let size = bytes.len();
+	let align = core::mem::align_of::<u8>(); // usually 1, but explicit for clarity
+
+	log::trace!(target: LOG_TARGET, "Copying {size} bytes to guest memory with alignment {align}");
+
+	let address = allocator.alloc(size, align).expect("failed to allocate");
+
+	memory.write(address, bytes)?;
+
+	Ok(address)
+}
+
+fn copy_bytes_from_guest<M: Memory<C>, C: Config>(
+	memory: &mut M,
+	address: u32,
+	length: usize,
+) -> Result<Vec<u8>, MemoryAccessError> {
+	log::trace!(target: LOG_TARGET, "Copying {length} bytes from guest memory at address 0x{address:X}");
+	let uninit: alloc::boxed::Box<[MaybeUninit<u8>]> = alloc::boxed::Box::new_uninit_slice(length);
+
+	let buf = unsafe {
+		let mut buf = uninit.assume_init();
+		memory.read_into_buf(address, &mut buf).expect("faild to read memory");
+		buf
+	};
+	log::trace!(target: LOG_TARGET, "read: {buf:x?}");
+
+	// Step 3: create a Vec<u8> from the slice
+	Ok(buf.to_vec())
 }

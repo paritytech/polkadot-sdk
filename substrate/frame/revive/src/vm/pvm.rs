@@ -21,6 +21,7 @@ pub mod env;
 
 #[cfg(doc)]
 pub use env::SyscallDoc;
+use polkavm_move_native::allocator::MemAllocator;
 
 use crate::{
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
@@ -331,12 +332,18 @@ enum StorageReadMode {
 pub struct Runtime<'a, E: Ext, M: ?Sized> {
 	ext: &'a mut E,
 	input_data: Option<Vec<u8>>,
+	move_allocator: MemAllocator,
 	_phantom_data: PhantomData<M>,
 }
 
 impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 	pub fn new(ext: &'a mut E, input_data: Vec<u8>) -> Self {
-		Self { ext, input_data: Some(input_data), _phantom_data: Default::default() }
+		Self {
+			ext,
+			input_data: Some(input_data),
+			move_allocator: MemAllocator::default(),
+			_phantom_data: Default::default(),
+		}
 	}
 
 	/// Get a mutable reference to the inner `Ext`.
@@ -827,7 +834,7 @@ impl<'a, E: Ext> PreparedCall<'a, E> {
 			if let Some(exec_result) =
 				self.runtime.handle_interrupt(interrupt, &self.module, &mut self.instance)
 			{
-				break exec_result
+				break exec_result;
 			}
 		};
 		self.runtime.ext().frame_meter_mut().sync_from_executor(self.instance.gas())?;
