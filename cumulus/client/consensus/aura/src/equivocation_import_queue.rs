@@ -36,7 +36,7 @@ use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_consensus::{error::Error as ConsensusError, BlockOrigin};
 use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
 use sp_core::crypto::Pair;
-use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
+use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
 use std::{fmt::Debug, sync::Arc};
 
@@ -230,29 +230,14 @@ where
 				.await
 				.map_err(|e| format!("Could not create inherent data {:?}", e))?;
 
-			let inherent_data = create_inherent_data_providers
-				.create_inherent_data()
-				.await
-				.map_err(|e| format!("Could not create inherent data {:?}", e))?;
-
-			let inherent_res = self
-				.client
-				.runtime_api()
-				.check_inherents(parent_hash, block, inherent_data)
-				.map_err(|e| format!("Unable to check block inherents {:?}", e))?;
-
-			if !inherent_res.ok() {
-				for (i, e) in inherent_res.into_errors() {
-					match create_inherent_data_providers.try_handle_error(&i, &e).await {
-						Some(res) => res.map_err(|e| format!("Inherent Error {:?}", e))?,
-						None =>
-							return Err(format!(
-								"Unknown inherent error, source {:?}",
-								String::from_utf8_lossy(&i[..])
-							)),
-					}
-				}
-			}
+			sp_block_builder::check_inherents(
+				self.client.clone(),
+				parent_hash,
+				block,
+				&create_inherent_data_providers,
+			)
+			.await
+			.map_err(|e| format!("Error checking block inherents {:?}", e))?;
 		}
 
 		Ok(block_params)
