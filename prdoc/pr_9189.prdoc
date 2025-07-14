@@ -1,0 +1,21 @@
+title: '`fatxpool`: avoid premature revalidation of transactions'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR improves handling of the following scenario:
+    ```
+    send tx1: transfer to fund new  X account
+    # wait for tx1 in block event (assume block_N)
+    send tx2: spend from X account
+    ```
+
+    Before this PR `tx2` could be invalidated (and most likely was) when `blockN-k` was finalized, because transactions are checked for being invalid on finalized block.
+
+    After this commit transactions will be revalidated on finalized blocks only if their height is greater then height of the block at which transactions was originally submitted.
+
+    Note: There are no guarantees that `tx2` will be actually included, it still may happen that it will be dropped under some circumstances. This only reduces likelihood of dropping transaction.
+
+    Fixes: #9150
+crates:
+- name: sc-transaction-pool
+  bump: minor
