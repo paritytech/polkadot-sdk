@@ -26,11 +26,14 @@ pub use pallet_xcm;
 pub use xcm::{
 	prelude::{
 		AccountId32, All, Asset, AssetId, BuyExecution, DepositAsset, ExpectTransactStatus,
-		Fungible, Here, Location, MaybeErrorCode, OriginKind, RefundSurplus, Transact, Unlimited,
-		VersionedAssets, VersionedXcm, WeightLimit, WithdrawAsset, Xcm,
+		Fungible, Here, Junction, Location, MaybeErrorCode, OriginKind, Parent, RefundSurplus,
+		Transact, Unlimited, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm,
+		WeightLimit, WithdrawAsset, Xcm,
 	},
 	v3::Location as V3Location,
 };
+
+pub use xcm_executor::traits::TransferType;
 
 // Cumulus
 pub use asset_test_utils;
@@ -653,17 +656,21 @@ macro_rules! test_dry_run_transfer_across_pk_bridge {
 				// Give some initial funds.
 				<Balances as fungible::Mutate<_>>::set_balance(&who, initial_balance);
 
-				let call = RuntimeCall::PolkadotXcm(pallet_xcm::Call::transfer_assets {
-					dest: Box::new(VersionedLocation::from($destination)),
-					beneficiary: Box::new(VersionedLocation::from(Junction::AccountId32 {
+				let beneficiary: $crate::macros::Location = $crate::macros::Junction::AccountId32 {
 						id: who.clone().into(),
 						network: None,
-					})),
-					assets: Box::new(VersionedAssets::from(vec![
-						(Parent, transfer_amount).into(),
+					}.into();
+
+				let call = RuntimeCall::PolkadotXcm($crate::macros::pallet_xcm::Call::transfer_assets_using_type_and_then {
+					dest: Box::new($crate::macros::VersionedLocation::from($destination)),
+					assets: Box::new($crate::macros::VersionedAssets::from(vec![
+						($crate::macros::Parent, transfer_amount).into(),
 					])),
-					fee_asset_item: 0,
-					weight_limit: Unlimited,
+					assets_transfer_type: Box::new($crate::macros::TransferType::LocalReserve),
+					remote_fees_id: Box::new($crate::macros::VersionedAssetId::from($crate::macros::Parent)),
+					fees_transfer_type: Box::new($crate::macros::TransferType::LocalReserve),
+					custom_xcm_on_dest: Box::new($crate::macros::VersionedXcm::<()>::from($crate::macros::Xcm::<()>::builder_unsafe().deposit_asset(AllCounted(1), beneficiary).build())),
+					weight_limit: $crate::macros::Unlimited,
 				});
 				let result = Runtime::dry_run_call(OriginCaller::system(RawOrigin::Signed(who)), call, XCM_VERSION).unwrap();
 				// We assert the dry run succeeds and sends only one message to the local bridge hub.
