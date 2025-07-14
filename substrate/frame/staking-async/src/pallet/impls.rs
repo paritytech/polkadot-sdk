@@ -1961,25 +1961,17 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Invariants:
-	/// * No cancelled slashes or unapplied slashes should exist for eras before the active era.
-	/// * All slashes for past eras should have been applied or removed.
+	/// - No cancelled slashes should exist for eras before the active era.
+	/// - No unapplied slashes should exist for eras before the active era.
 	fn check_deferred_slashes() -> Result<(), TryRuntimeError> {
 		let active_era = session_rotation::Rotator::<T>::active_era();
 
-		// Check UnappliedSlashes - iterate over all eras with slashes
-		let mut unapplied_eras = Vec::new();
+		// Ensure no unapplied slashes exist before the active era
 		for (era, _, _) in UnappliedSlashes::<T>::iter() {
-			if !unapplied_eras.contains(&era) {
-				unapplied_eras.push(era);
-			}
-		}
-
-		// Ensure no unapplied slashes exist before active era
-		for era in unapplied_eras {
 			ensure!(era >= active_era, "Found unapplied slashes for era before active era");
 		}
 
-		// Check CancelledSlashes - no cancelled slashes should exist before active era
+		// Ensure no cancelled slashes should exist before the active era
 		for (era, _) in CancelledSlashes::<T>::iter() {
 			ensure!(era >= active_era, "Found cancelled slashes for era before active era");
 		}

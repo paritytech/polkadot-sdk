@@ -995,7 +995,7 @@ fn remove_deferred() {
 			vec![(11, Perbill::from_percent(12))],
 		));
 
-		// validator 11 slash is set to be cancelled for era 3 with 12% cancellation.
+		// validator 11 slash is set to be cancelled for era 3 with upto 12% cancellation.
 		assert_eq!(CancelledSlashes::<T>::get(&3), vec![(11, Perbill::from_percent(12))]);
 
 		assert_eq!(
