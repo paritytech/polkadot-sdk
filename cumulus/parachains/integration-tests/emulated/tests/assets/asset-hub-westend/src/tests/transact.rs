@@ -309,7 +309,9 @@ fn transact_from_para_to_asset_hub_and_back_to_para() {
 			)),
 			Transact { origin_kind: OriginKind::SovereignAccount, call, fallback_max_weight: None },
 			ExpectTransactStatus(MaybeErrorCode::Success),
-			WithdrawAsset((usdt_asset_hub_pov.clone(), amount_of_usdt_we_want_from_exchange).into()),
+			WithdrawAsset(
+				(usdt_asset_hub_pov.clone(), amount_of_usdt_we_want_from_exchange).into(),
+			),
 			InitiateTransfer {
 				destination: penpal_location_ah_pov,
 				remote_fees: Some(AssetTransferFilter::ReserveDeposit(
