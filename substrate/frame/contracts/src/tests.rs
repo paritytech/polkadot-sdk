@@ -770,6 +770,18 @@ fn instantiate_and_call_and_deposit_event() {
 				},
 				EventRecord {
 					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferAndHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::StorageDepositReserve,
+						),
+						source: ALICE,
+						dest: addr.clone(),
+						transferred: 100,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
 					event: RuntimeEvent::Contracts(
 						pallet_contracts::Event::StorageDepositTransferredAndHeld {
 							from: ALICE,
@@ -1127,6 +1139,18 @@ fn deploy_and_call_other_contract() {
 				},
 				EventRecord {
 					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferAndHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::StorageDepositReserve,
+						),
+						source: ALICE,
+						dest: callee_addr.clone(),
+						transferred: 100,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
 					event: RuntimeEvent::Contracts(
 						pallet_contracts::Event::StorageDepositTransferredAndHeld {
 							from: ALICE,
@@ -1367,6 +1391,18 @@ fn self_destruct_works() {
 					event: RuntimeEvent::Contracts(crate::Event::Called {
 						caller: Origin::from_account_id(ALICE),
 						contract: addr.clone(),
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::StorageDepositReserve,
+						),
+						source: addr.clone(),
+						dest: ALICE,
+						amount: 100,
 					}),
 					topics: vec![],
 				},
@@ -2560,15 +2596,28 @@ fn upload_code_works() {
 
 		assert_eq!(
 			System::events(),
-			vec![EventRecord {
-				phase: Phase::Initialization,
-				event: RuntimeEvent::Contracts(crate::Event::CodeStored {
-					code_hash,
-					deposit_held: deposit_expected,
-					uploader: ALICE
-				}),
-				topics: vec![],
-			},]
+			vec![
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::Held {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::CodeUploadDepositReserve,
+						),
+						who: ALICE,
+						amount: deposit_expected,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Contracts(crate::Event::CodeStored {
+						code_hash,
+						deposit_held: deposit_expected,
+						uploader: ALICE
+					}),
+					topics: vec![],
+				},
+			]
 		);
 	});
 }
@@ -2650,10 +2699,32 @@ fn remove_code_works() {
 			vec![
 				EventRecord {
 					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::Held {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::CodeUploadDepositReserve,
+						),
+						who: ALICE,
+						amount: deposit_expected,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
 					event: RuntimeEvent::Contracts(crate::Event::CodeStored {
 						code_hash,
 						deposit_held: deposit_expected,
 						uploader: ALICE
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::Released {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::CodeUploadDepositReserve,
+						),
+						who: ALICE,
+						amount: deposit_expected,
 					}),
 					topics: vec![],
 				},
@@ -2697,15 +2768,28 @@ fn remove_code_wrong_origin() {
 
 		assert_eq!(
 			System::events(),
-			vec![EventRecord {
-				phase: Phase::Initialization,
-				event: RuntimeEvent::Contracts(crate::Event::CodeStored {
-					code_hash,
-					deposit_held: deposit_expected,
-					uploader: ALICE
-				}),
-				topics: vec![],
-			},]
+			vec![
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::Held {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::CodeUploadDepositReserve,
+						),
+						who: ALICE,
+						amount: deposit_expected,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Contracts(crate::Event::CodeStored {
+						code_hash,
+						deposit_held: deposit_expected,
+						uploader: ALICE
+					}),
+					topics: vec![],
+				},
+			]
 		);
 	});
 }
@@ -2778,6 +2862,17 @@ fn instantiate_with_zero_balance_works() {
 			vec![
 				EventRecord {
 					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::Held {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::CodeUploadDepositReserve,
+						),
+						who: ALICE,
+						amount: deposit_expected,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
 					event: RuntimeEvent::Contracts(crate::Event::CodeStored {
 						code_hash,
 						deposit_held: deposit_expected,
@@ -2814,6 +2909,18 @@ fn instantiate_with_zero_balance_works() {
 					event: RuntimeEvent::Contracts(crate::Event::Instantiated {
 						deployer: ALICE,
 						contract: addr.clone(),
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferAndHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::StorageDepositReserve,
+						),
+						source: ALICE,
+						dest: addr.clone(),
+						transferred: 100,
 					}),
 					topics: vec![],
 				},
@@ -2863,6 +2970,17 @@ fn instantiate_with_below_existential_deposit_works() {
 			vec![
 				EventRecord {
 					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::Held {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::CodeUploadDepositReserve,
+						),
+						who: ALICE,
+						amount: deposit_expected,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
 					event: RuntimeEvent::Contracts(crate::Event::CodeStored {
 						code_hash,
 						deposit_held: deposit_expected,
@@ -2908,6 +3026,18 @@ fn instantiate_with_below_existential_deposit_works() {
 					event: RuntimeEvent::Contracts(crate::Event::Instantiated {
 						deployer: ALICE,
 						contract: addr.clone(),
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferAndHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::StorageDepositReserve,
+						),
+						source: ALICE,
+						dest: addr.clone(),
+						transferred: 100,
 					}),
 					topics: vec![],
 				},
@@ -2985,6 +3115,18 @@ fn storage_deposit_works() {
 				},
 				EventRecord {
 					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferAndHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::StorageDepositReserve,
+						),
+						source: ALICE,
+						dest: addr.clone(),
+						transferred: 6004,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
 					event: RuntimeEvent::Contracts(
 						pallet_contracts::Event::StorageDepositTransferredAndHeld {
 							from: ALICE,
@@ -3004,6 +3146,18 @@ fn storage_deposit_works() {
 				},
 				EventRecord {
 					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferAndHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::StorageDepositReserve,
+						),
+						source: ALICE,
+						dest: addr.clone(),
+						transferred: 900,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
 					event: RuntimeEvent::Contracts(
 						pallet_contracts::Event::StorageDepositTransferredAndHeld {
 							from: ALICE,
@@ -3018,6 +3172,18 @@ fn storage_deposit_works() {
 					event: RuntimeEvent::Contracts(crate::Event::Called {
 						caller: Origin::from_account_id(ALICE),
 						contract: addr.clone(),
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::StorageDepositReserve,
+						),
+						source: addr.clone(),
+						dest: ALICE,
+						amount: 3899,
 					}),
 					topics: vec![],
 				},
