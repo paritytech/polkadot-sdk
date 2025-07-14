@@ -71,6 +71,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+mod benchmarking;
 mod mock;
 mod tests;
 pub mod weights;
@@ -933,8 +934,8 @@ pub mod pallet {
 						},
 						Some(sender) => {
 							if let Some(parent_curator) = parent_curator {
-								// If the parent curator is unassigning a different child curator,
-								// slash the child curator deposit.
+								// If the parent curator is unassigning a child curator, that is not
+								// itself, slash the child curator deposit.
 								if sender == parent_curator && *curator != parent_curator {
 									slash_curator(curator, &mut curator_deposit);
 								} else {
@@ -1079,35 +1080,39 @@ pub mod pallet {
 			let (asset_kind, value, _, status, parent_curator) =
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 
-			if child_bounty_id.is_none() {
-				ensure!(
-					ChildBountiesPerParent::<T, I>::get(parent_bounty_id) == 0,
-					Error::<T, I>::HasActiveChildBounty
-				);
-			} else {
-				if let Some(sender) = maybe_sender.as_ref() {
-					ensure!(
-						parent_curator.as_ref().map_or(false, |curator| sender == curator),
-						BadOrigin
-					);
-				}
-			}
-
 			let maybe_curator = match status {
-				BountyStatus::Funded { curator } | BountyStatus::Active { curator, .. } => {
-					if child_bounty_id.is_none() {
-						if let Some(sender) = maybe_sender.as_ref() {
-							ensure!(
-								parent_curator.as_ref().map_or(false, |curator| sender == curator),
-								BadOrigin
-							);
-						}
-					}
-					Some(curator)
-				},
+				BountyStatus::Funded { curator } | BountyStatus::Active { curator, .. } =>
+					Some(curator),
 				BountyStatus::CuratorUnassigned => None,
 				_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
 			};
+
+			match child_bounty_id {
+				None => {
+					// Parent bounty can only be closed if it has no active child bounties.
+					ensure!(
+						ChildBountiesPerParent::<T, I>::get(parent_bounty_id) == 0,
+						Error::<T, I>::HasActiveChildBounty
+					);
+					// Parent bounty can be closed by `RejectOrigin` or the curator.
+					if let Some(sender) = maybe_sender.as_ref() {
+						let is_curator =
+							maybe_curator.as_ref().map_or(false, |curator| curator == sender);
+						ensure!(is_curator, BadOrigin);
+					}
+				},
+				Some(_) => {
+					// Child-bounty can be closed by `RejectOrigin`, the curator or parent curator.
+					if let Some(sender) = maybe_sender.as_ref() {
+						let is_curator =
+							maybe_curator.as_ref().map_or(false, |curator| curator == sender);
+						let is_parent_curator = parent_curator
+							.as_ref()
+							.map_or(false, |parent_curator| parent_curator == sender);
+						ensure!(is_curator || is_parent_curator, BadOrigin);
+					}
+				},
+			}
 
 			let payment_status = Self::do_process_refund_payment(
 				parent_bounty_id,
@@ -1205,6 +1210,8 @@ pub mod pallet {
 						PaymentState::Succeeded => {
 							if let Some(curator) = curator {
 								// Unreserve the curator deposit when payment succeeds
+								// If the child curator is the parent curator, the
+								// deposit is 0
 								let err_amount = T::Currency::unreserve(&curator, curator_deposit);
 								debug_assert!(err_amount.is_zero()); // Ensure nothing remains reserved
 							}
@@ -1241,6 +1248,8 @@ pub mod pallet {
 					match new_payment_status {
 						PaymentState::Succeeded => {
 							// Unreserve the curator deposit when both payments succeed
+							// If the child curator is the parent curator, the
+							// deposit is 0
 							let err_amount = T::Currency::unreserve(&curator, curator_deposit);
 							debug_assert!(err_amount.is_zero()); // Ensure nothing remains reserved
 											// payout succeeded, cleanup the bounty
@@ -1461,20 +1470,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> Result<T::Beneficiary, DispatchError> {
 		T::ChildBountySource::try_convert((parent_bounty_id, child_bounty_id, asset_kind))
 			.map_err(|_| Error::<T, I>::FailedToConvertSource.into())
-	}
-	/// Returns the status of a child-/bounty.
-	pub fn get_bounty_status(
-		parent_bounty_id: BountyIndex,
-		child_bounty_id: Option<BountyIndex>,
-	) -> Result<BountyStatus<T::AccountId, PaymentIdOf<T, I>, T::Beneficiary>, DispatchError> {
-		match child_bounty_id {
-			None => Bounties::<T, I>::get(parent_bounty_id)
-				.map(|bounty| bounty.status)
-				.ok_or(Error::<T, I>::InvalidIndex.into()),
-			Some(child_id) => ChildBounties::<T, I>::get(parent_bounty_id, child_id)
-				.map(|bounty| bounty.status)
-				.ok_or(Error::<T, I>::InvalidIndex.into()),
-		}
 	}
 
 	/// Returns the asset kind, value, curator deposit, status and parent curator of a
