@@ -177,6 +177,7 @@ jobs:
       KUBERNETES_MEMORY_REQUEST: ${{ steps.set_vars.outputs.KUBERNETES_MEMORY_REQUEST }}
       TEMP_IMAGES_BASE: ${{ steps.set_vars.outputs.TEMP_IMAGES_BASE }}
       FLAKY_TESTS: ${{ steps.set_vars.outputs.FLAKY_TESTS }}
+      TEST_MATRIX: ${{ steps.generate_test_matrix.outputs.TEST_MATRIX }}
 
       # zombienet-sdk vars
       RUST_LOG: ${{ steps.set_vars.outputs.RUST_LOG }}
@@ -294,13 +295,16 @@ jobs:
           echo "ZOMBIENET_SDK_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_SDK_IMAGE }}"
 
       - name: Generate test matrix
-        id: parse
+        id: generate_test_matrix
+        shell: bash
         run: |
           python3 .github/scripts/parse-zombienet-tests.py \
             --matrix  ${{ inputs.tests_yaml }} \
             --flaky-tests "${{ steps.set_vars.outputs.FLAKY_TESTS }}" \
             --test-pattern "${{ inputs.test_pattern || '' }}" > matrix.json
           echo "TEST_MATRIX=$(cat matrix.json)" >> $GITHUB_OUTPUT
+          echo "TEST_MATRIX:"
+          cat matrix.json | jq '.'
   #
   #
   #
@@ -332,6 +336,7 @@ jobs:
           echo "github.ref: ${{ github.ref }}"
           echo "github.ref_name: ${{ github.ref_name }}"
           echo "github.sha: ${{ github.sha }}"
+          echo "TEST_MATRIX: ${{ needs.preflight.outputs.TEST_MATRIX }}"
   #
   #
   # Wait until the 'build and push' image workflow success
