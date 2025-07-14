@@ -153,16 +153,12 @@ impl AssetsInHolding {
 						Some(x) => x,
 						None => break,
 					};
-
-					continue;
-				}
-				if f.0 < g.0 {
+				} else if f.0 < g.0 {
 					f = match f_iter.next() {
 						Some(x) => x,
 						None => break,
 					};
-				}
-				if f.0 > g.0 {
+				} else {
 					g = match g_iter.next() {
 						Some(x) => x,
 						None => break,
@@ -540,10 +536,14 @@ mod tests {
 	fn CF(amount: u128) -> Asset {
 		(Here, amount).into()
 	}
-		#[allow(non_snake_case)]
+	#[allow(non_snake_case)]
 	/// Concrete fungible constructor
 	fn CFP(amount: u128) -> Asset {
 		(Parent, amount).into()
+	}
+	#[allow(non_snake_case)]
+	fn CFPP(amount: u128) -> Asset {
+		((Parent, Parent), amount).into()
 	}
 	#[allow(non_snake_case)]
 	/// Concrete non-fungible constructor
@@ -559,32 +559,93 @@ mod tests {
 	}
 
 	#[test]
-	fn subsume_assets_works() {
+	fn subsume_assets_equal_length_holdings() {
 		let mut t1 = test_assets();
 		let mut t2 = AssetsInHolding::new();
 		t2.subsume(CF(300));
 		t2.subsume(CNF(50));
 
-		t1.subsume_assets(t2.clone());
+		let t1_clone = t1.clone();
+		let mut t2_clone = t2.clone();
 
-		assert!(t1.contains_asset(&CF(600)));
-		assert!(t1.contains_asset(&CNF(50)));
-		assert!(t1.contains_asset(&CNF(40)));
+		t1.subsume_assets(t2.clone());
+		let mut iter = t1.into_assets_iter();
+		assert_eq!(Some(CF(600)), iter.next());
+		assert_eq!(Some(CNF(40)), iter.next());
+		assert_eq!(Some(CNF(50)), iter.next());
+		assert_eq!(None, iter.next());
+
+		t2_clone.subsume_assets(t1_clone.clone());
+		let mut iter = t2_clone.into_assets_iter();
+		assert_eq!(Some(CF(600)), iter.next());
+		assert_eq!(Some(CNF(40)), iter.next());
+		assert_eq!(Some(CNF(50)), iter.next());
+		assert_eq!(None, iter.next());
 	}
 
 	#[test]
-	fn subsume_assets_different_set_of_assets_works() {
+	fn subsume_assets_different_length_holdings() {
 		let mut t1 = AssetsInHolding::new();
 		t1.subsume(CFP(400));
+		t1.subsume(CFPP(100));
 
 		let mut t2 = AssetsInHolding::new();
 		t2.subsume(CF(100));
+		t2.subsume(CNF(50));
+		t2.subsume(CNF(40));
 		t2.subsume(CFP(100));
+		t2.subsume(CFPP(100));
+
+		let t1_clone = t1.clone();
+		let mut t2_clone = t2.clone();
+
+		t1.subsume_assets(t2);
+		let mut iter = t1.into_assets_iter();
+		assert_eq!(Some(CF(100)), iter.next());
+		assert_eq!(Some(CFP(500)), iter.next());
+		assert_eq!(Some(CFPP(200)), iter.next());
+		assert_eq!(Some(CNF(40)), iter.next());
+		assert_eq!(Some(CNF(50)), iter.next());
+		assert_eq!(None, iter.next());
+
+		t2_clone.subsume_assets(t1_clone);
+		let mut iter = t2_clone.into_assets_iter();
+		assert_eq!(Some(CF(100)), iter.next());
+		assert_eq!(Some(CFP(500)), iter.next());
+		assert_eq!(Some(CFPP(200)), iter.next());
+		assert_eq!(Some(CNF(40)), iter.next());
+		assert_eq!(Some(CNF(50)), iter.next());
+		assert_eq!(None, iter.next());
+	}
+
+	#[test]
+	fn subsume_assets_empty_holding() {
+		let mut t1 = AssetsInHolding::new();
+		let t2 = AssetsInHolding::new();
+		t1.subsume_assets(t2.clone());
+		let mut iter = t1.clone().into_assets_iter();
+		assert_eq!(None, iter.next());
+
+		t1.subsume(CFP(400));
+		t1.subsume(CNF(40));
+		t1.subsume(CFPP(100));
+
+		let t1_clone = t1.clone();
+		let mut t2_clone = t2.clone();
 
 		t1.subsume_assets(t2.clone());
+		let mut iter = t1.into_assets_iter();
+		assert_eq!(Some(CFP(400)), iter.next());
+		assert_eq!(Some(CFPP(100)), iter.next());
+		assert_eq!(Some(CNF(40)), iter.next());
+		assert_eq!(None, iter.next());
 
-		assert!(t1.contains_asset(&CFP(500)));
-		assert!(t1.contains_asset(&CF(100)));
+		t2_clone.subsume_assets(t1_clone.clone());
+		let mut iter = t2_clone.into_assets_iter();
+		assert_eq!(Some(CFP(400)), iter.next());
+		assert_eq!(Some(CFPP(100)), iter.next());
+		assert_eq!(Some(CNF(40)), iter.next());
+		assert_eq!(None, iter.next());
 	}
 
 	#[test]
