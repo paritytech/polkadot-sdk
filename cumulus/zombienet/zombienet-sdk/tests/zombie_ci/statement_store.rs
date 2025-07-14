@@ -8,12 +8,7 @@ use anyhow::anyhow;
 use core::time::Duration;
 use futures::FutureExt;
 use sp_core::{Bytes, Encode};
-use zombienet_sdk::{
-	subxt::{
-		backend::rpc::RpcClient, rpc_params, utils::url_is_secure, OnlineClient, PolkadotConfig,
-	},
-	NetworkConfigBuilder,
-};
+use zombienet_sdk::{subxt::rpc_params, NetworkConfigBuilder};
 
 fn timeout_1min<T>(
 	fut: impl std::future::Future<Output = Result<T, impl Into<anyhow::Error>>>,
@@ -79,21 +74,8 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 	let charlie = network.get_node("charlie")?;
 	let dave = network.get_node("dave")?;
 
-	let _charlie_client: OnlineClient<PolkadotConfig> =
-		charlie.wait_client_with_timeout(30u64).await?;
-	let _dave_client: OnlineClient<PolkadotConfig> =
-		charlie.wait_client_with_timeout(30u64).await?;
-
-	let charlie_rpc = if url_is_secure(charlie.ws_uri())? {
-		timeout_1min(RpcClient::from_url(&charlie.ws_uri())).await?
-	} else {
-		timeout_1min(RpcClient::from_insecure_url(&charlie.ws_uri())).await?
-	};
-	let dave_rpc = if url_is_secure(dave.ws_uri())? {
-		timeout_1min(RpcClient::from_url(&dave.ws_uri())).await?
-	} else {
-		timeout_1min(RpcClient::from_insecure_url(&dave.ws_uri())).await?
-	};
+	let charlie_rpc = timeout_1min(charlie.rpc()).await?;
+	let dave_rpc = timeout_1min(dave.rpc()).await?;
 
 	// Create the statement "1,2,3" signed by dave.
 	let mut statement = sp_statement_store::Statement::new();
