@@ -1,0 +1,20 @@
+title: '[Draft] Partially backport #8860'
+doc:
+- audience: Node Operator
+  description: |-
+    This PR backports the relay chain client and runtime changes related to #8860.
+
+    This way we could start relaxing the advancement rule on the relay chain, and in a future release we will introduce the new parachain runtime logic.
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: minor
+- name: parachains-runtimes-test-utils
+  bump: minor
+- name: cumulus-primitives-parachain-inherent
+  bump: minor
+- name: xcm-emulator
+  bump: minor
+- name: polkadot-node-subsystem-util
+  bump: minor
+- name: polkadot-runtime-parachains
+  bump: minor
