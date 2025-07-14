@@ -16,13 +16,10 @@ env:
   BUCKET_FOLDER: "parity-ci-bins-regional/${{ github.sha }}"
 
 jobs:
-  #
-  #
-  #
-  isdraft:
-    uses: ./.github/workflows/reusable-isdraft.yml
+  # isdraft:
+  #   uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
-    needs: isdraft
+    # needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
 
   ### Build ########################
