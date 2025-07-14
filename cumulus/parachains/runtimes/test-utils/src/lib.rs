@@ -16,9 +16,6 @@
 use core::marker::PhantomData;
 
 use codec::{Decode, DecodeLimit};
-use cumulus_pallet_parachain_system::parachain_inherent::{
-	deconstruct_parachain_inherent_data, InboundMessagesData,
-};
 use cumulus_primitives_core::{
 	relay_chain::Slot, AbridgedHrmpChannel, ParaId, PersistedValidationData,
 };
@@ -353,16 +350,9 @@ where
 				collator_peer_id: None,
 			};
 
-			let (inherent_data, downward_messages, horizontal_messages) =
-				deconstruct_parachain_inherent_data(inherent_data);
-
 			let _ = cumulus_pallet_parachain_system::Pallet::<Runtime>::set_validation_data(
 				Runtime::RuntimeOrigin::none(),
 				inherent_data,
-				InboundMessagesData::new(
-					downward_messages.into_abridged(&mut usize::MAX.clone()),
-					horizontal_messages.into_abridged(&mut usize::MAX.clone()),
-				),
 			);
 			let _ = pallet_timestamp::Pallet::<Runtime>::set(
 				Runtime::RuntimeOrigin::none(),
