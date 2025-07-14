@@ -261,7 +261,7 @@ fn transact_from_para_to_asset_hub_and_back_to_para() {
 	// Query initial balances
 	let sender_usdt_on_penpal_before =
 		foreign_balance_on!(PenpalA, usdt_penpal_pov.clone(), &sender);
-	let sender_usdt_on_ah_before = assets_balance_on!(AssetHubWestend, USDT_ID.clone(), &sender);
+	let sender_usdt_on_ah_before = assets_balance_on!(AssetHubWestend, USDT_ID, &sender);
 
 	// Encoded `swap_tokens_for_exact_tokens` call to be executed in AH
 	let call = <AssetHubWestend as Chain>::RuntimeCall::AssetConversion(
@@ -383,7 +383,7 @@ fn transact_from_para_to_asset_hub_and_back_to_para() {
 	});
 
 	// Query final balances
-	let sender_usdt_on_ah_after = assets_balance_on!(AssetHubWestend, USDT_ID.clone(), &sender);
+	let sender_usdt_on_ah_after = assets_balance_on!(AssetHubWestend, USDT_ID, &sender);
 	let sender_usdt_on_penpal_after =
 		foreign_balance_on!(PenpalA, usdt_penpal_pov.clone(), &sender);
 

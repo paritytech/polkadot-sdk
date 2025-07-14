@@ -197,7 +197,7 @@ fn exchange_asset_from_penpal_via_asset_hub_back_to_penpal() {
 	// Query initial balances
 	let sender_usdt_on_penpal_before =
 		foreign_balance_on!(PenpalA, usdt_penpal_pov.clone(), &sender);
-	let sender_usdt_on_ah_before = assets_balance_on!(AssetHubWestend, USDT_ID.clone(), &sender);
+	let sender_usdt_on_ah_before = assets_balance_on!(AssetHubWestend, USDT_ID, &sender);
 
 	let asset_hub_location_penpal_pov = PenpalA::sibling_location_of(AssetHubWestend::para_id());
 	let penpal_location_ah_pov = AssetHubWestend::sibling_location_of(PenpalA::para_id());
@@ -297,7 +297,7 @@ fn exchange_asset_from_penpal_via_asset_hub_back_to_penpal() {
 	});
 
 	// Query final balances
-	let sender_usdt_on_ah_after = assets_balance_on!(AssetHubWestend, USDT_ID.clone(), &sender);
+	let sender_usdt_on_ah_after = assets_balance_on!(AssetHubWestend, USDT_ID, &sender);
 	let sender_usdt_on_penpal_after =
 		foreign_balance_on!(PenpalA, usdt_penpal_pov.clone(), &sender);
 
