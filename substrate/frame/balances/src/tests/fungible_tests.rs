@@ -99,6 +99,11 @@ fn unbalanced_trait_set_balance_works() {
 		);
 
 		assert_ok!(<Balances as fungible::MutateHold<_>>::release(&TestId::Foo, &1337, 60, Exact));
+		System::assert_last_event(RuntimeEvent::Balances(crate::Event::Released {
+			reason: TestId::Foo,
+			who: 1337,
+			amount: 60,
+		}));
 		assert_eq!(<Balances as fungible::InspectHold<_>>::balance_on_hold(&TestId::Foo, &1337), 0);
 		assert_eq!(<Balances as fungible::InspectHold<_>>::total_balance_on_hold(&1337), 0);
 	});
@@ -252,7 +257,170 @@ fn frozen_hold_balance_cannot_be_moved_without_force() {
 				e
 			);
 			assert_ok!(Balances::transfer_on_hold(&TestId::Foo, &1, &2, 1, Exact, Free, Force));
+
+			assert_eq!(
+				events(),
+				[
+					RuntimeEvent::Balances(crate::Event::Frozen { who: 1, amount: 10 }),
+					RuntimeEvent::Balances(crate::Event::Held {
+						reason: TestId::Foo,
+						who: 1,
+						amount: 9
+					}),
+					RuntimeEvent::Balances(crate::Event::TransferOnHold {
+						reason: TestId::Foo,
+						source: 1,
+						dest: 2,
+						amount: 1
+					})
+				]
+			);
+
+			assert_eq!(Balances::total_balance(&2), 21);
 		});
+}
+
+#[test]
+fn transfer_and_hold() {
+	ExtBuilder::default()
+		.existential_deposit(1)
+		.monied(true)
+		.build_and_execute_with(|| {
+			// Freeze 7 units in source account (Account 1)
+			assert_ok!(Balances::hold(&TestId::Foo, &1, 7));
+			assert_ok!(Balances::hold(&TestId::Foo, &2, 2));
+
+			// Verify reducible balance
+			assert_eq!(Balances::reducible_total_balance_on_hold(&1, Force), 7);
+
+			// Force transfer_and_hold should succeed
+			assert_ok!(Balances::transfer_and_hold(
+				&TestId::Foo,
+				&1,
+				&2,
+				1,
+				Exact,
+				Preserve,
+				Polite
+			));
+
+			// Verify state changes
+			assert_eq!(Balances::free_balance(1), 2);
+			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &2), 3);
+			assert_eq!(Balances::total_balance(&2), 21);
+
+			assert_eq!(
+				events(),
+				[
+					RuntimeEvent::Balances(crate::Event::Held {
+						reason: TestId::Foo,
+						who: 1,
+						amount: 7
+					}),
+					RuntimeEvent::Balances(crate::Event::Held {
+						reason: TestId::Foo,
+						who: 2,
+						amount: 2
+					}),
+					RuntimeEvent::Balances(crate::Event::TransferAndHold {
+						reason: TestId::Foo,
+						source: 1,
+						dest: 2,
+						transferred: 1
+					})
+				]
+			);
+		});
+}
+
+#[test]
+fn burn_held() {
+	ExtBuilder::default()
+		.existential_deposit(1)
+		.monied(true)
+		.build_and_execute_with(|| {
+			let account = 1;
+
+			assert_ok!(Balances::hold(&TestId::Foo, &account, 5));
+
+			// Burn the held funds
+			assert_ok!(Balances::burn_held(&TestId::Foo, &account, 4, Exact, Polite));
+
+			// Check that the BurnedHeld event is emitted with correct parameters
+			System::assert_last_event(RuntimeEvent::Balances(crate::Event::BurnedHeld {
+				reason: TestId::Foo,
+				who: account,
+				amount: 4,
+			}));
+
+			// Verify the held balance is removed and total balance is updated
+			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &account), 1);
+			assert_eq!(Balances::total_balance(&account), 6);
+			assert_eq!(Balances::total_issuance(), 106);
+		});
+}
+
+#[test]
+fn negative_imbalance_drop_handled_correctly() {
+	ExtBuilder::default().build_and_execute_with(|| {
+		let account = 1;
+		let initial_balance = 100;
+		let withdraw_amount = 50;
+
+		// Set initial balance and total issuance
+		Balances::set_balance(&account, initial_balance);
+		assert_eq!(Balances::total_issuance(), initial_balance);
+
+		// Withdraw using fungible::Balanced to create a NegativeImbalance
+		let negative_imb = <Balances as fungible::Balanced<_>>::withdraw(
+			&account,
+			withdraw_amount,
+			Exact,
+			Expendable,
+			Polite,
+		)
+		.expect("Withdraw failed");
+
+		// Verify balance decreased but total issuance remains unchanged
+		assert_eq!(Balances::free_balance(&account), initial_balance - withdraw_amount);
+		assert_eq!(Balances::total_issuance(), initial_balance);
+
+		// Drop the NegativeImbalance, triggering HandleImbalanceDrop
+		drop(negative_imb);
+
+		// Check total issuance decreased and event emitted
+		assert_eq!(Balances::total_issuance(), initial_balance - withdraw_amount);
+		System::assert_last_event(RuntimeEvent::Balances(crate::Event::BurnedDebt {
+			amount: withdraw_amount,
+		}));
+	});
+}
+
+#[test]
+fn positive_imbalance_drop_handled_correctly() {
+	ExtBuilder::default().build_and_execute_with(|| {
+		let account = 1;
+		let deposit_amount = 50;
+		let initial_issuance = Balances::total_issuance();
+
+		// Deposit using fungible::Balanced to create a PositiveImbalance
+		let positive_imb =
+			<Balances as fungible::Balanced<_>>::deposit(&account, deposit_amount, Exact)
+				.expect("Deposit failed");
+
+		// Verify balance increased but total issuance remains unchanged
+		assert_eq!(Balances::free_balance(&account), deposit_amount);
+		assert_eq!(Balances::total_issuance(), initial_issuance);
+
+		// Drop the PositiveImbalance, triggering HandleImbalanceDrop
+		drop(positive_imb);
+
+		// Check total issuance increased and event emitted
+		assert_eq!(Balances::total_issuance(), initial_issuance + deposit_amount);
+		System::assert_last_event(RuntimeEvent::Balances(crate::Event::MintedCredit {
+			amount: deposit_amount,
+		}));
+	});
 }
 
 #[test]
@@ -653,6 +821,21 @@ fn lone_hold_consideration_works() {
 			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 10);
 
 			assert_ok!(Balances::hold(&TestId::Foo, &who, 5));
+			assert_eq!(
+				events(),
+				[
+					RuntimeEvent::Balances(crate::Event::Held {
+						reason: TestId::Foo,
+						who,
+						amount: 10
+					}),
+					RuntimeEvent::Balances(crate::Event::Held {
+						reason: TestId::Foo,
+						who,
+						amount: 5
+					})
+				]
+			);
 			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &who), 15);
 
 			let ticket = ticket.update(&who, Footprint::from_parts(4, 1)).unwrap();
