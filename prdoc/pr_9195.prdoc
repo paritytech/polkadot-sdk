@@ -1,0 +1,27 @@
+title: XCMv5 asset exchange test scenarios
+doc:
+- audience: Runtime Dev
+  description: |-
+    Relates to: #9093
+    Requires: #9179
+
+    This PR introduces emulated test scenarios:
+
+    #### [Scenario 1]
+    (Penpal -> AH -> Penpal) to showcase usage of remote `Transact` to swap assets remotely on AssetHub.
+
+    1. Prepare sovereign accounts funds, create pools, prepare aliasing rules
+    2. Send WND from Penpal to AssetHub (AH being remote reserve for WND)
+    3. Alias into sender account and exchange WNDs for USDT using `Transact` with `swap_tokens_for_exact_tokens` call inside
+    4. Send USDT and leftover WND back to Penpal
+
+    #### [Scenario 2]
+    (Penpal -> AH -> Penpal) to showcase same as above but this time using `ExchangeAsset` XCM instruction instead of `Transact`:
+
+    1. Prepare sovereign accounts funds, create pools
+    2. Send WND from Penpal to AssetHub (AH being remote reserve for WND)
+    3. Exchange WNDs for USDT using `ExchangeAsset`
+    4. Send USDT and leftover WND back to Penpal
+crates:
+- name: staging-xcm-executor
+  bump: patch
