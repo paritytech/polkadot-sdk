@@ -318,15 +318,14 @@ impl CheckInherentsResult {
 			return Err(Error::FatalErrorReported)
 		}
 
+		self.okay = false;
 		if error.is_fatal_error() {
+			self.fatal_error = true;
 			// remove the other errors.
 			self.errors.data.clear();
 		}
-
 		self.errors.put_data(identifier, error)?;
 
-		self.okay = false;
-		self.fatal_error = error.is_fatal_error();
 		Ok(())
 	}
 
