@@ -1720,7 +1720,7 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 			ParachainInfo::parachain_id()
 		}
 	}
-	
+
 	impl cumulus_primitives_aura::AuraUnincludedSegmentApi<Block> for Runtime {
 		fn can_build_upon(
 			included_hash: <Block as BlockT>::Hash,
