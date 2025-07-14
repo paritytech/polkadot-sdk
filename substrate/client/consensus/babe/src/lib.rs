@@ -1226,29 +1226,45 @@ where
 
 	async fn check_inherents(
 		&self,
-		block: Block,
+		block: &mut BlockImportParams<Block>,
 		at_hash: Block::Hash,
-		inherent_data: InherentData,
+		slot: Slot,
 		create_inherent_data_providers: CIDP::InherentDataProviders,
 	) -> Result<(), ConsensusError> {
-		let inherent_res = self
-			.client
-			.runtime_api()
-			.check_inherents(at_hash, block, inherent_data)
-			.map_err(|e| ConsensusError::Other(Box::new(e)))?;
+		if let Some(inner_body) = block.body.take() {
+			let new_block = Block::new(block.header.clone(), inner_body);
+			if !block.state_action.skip_execution_checks() {
+				// if the body is passed through and the block was executed,
+				// we need to use the runtime to check that the internally-set
+				// timestamp in the inherents actually matches the slot set in the seal.
+				let mut inherent_data = create_inherent_data_providers
+					.create_inherent_data()
+					.await
+					.map_err(|e| ConsensusError::Other(Box::new(e)))?;
+				inherent_data.babe_replace_inherent_data(slot);
 
-		if !inherent_res.ok() {
-			for (i, e) in inherent_res.into_errors() {
-				match create_inherent_data_providers.try_handle_error(&i, &e).await {
-					Some(res) => res.map_err(|e| {
-						ConsensusError::Other(Error::<Block>::InvalidInherents(e).into())
-					})?,
-					None =>
-						return Err(ConsensusError::Other(
-							Error::<Block>::InvalidInherentsUnhandled(i).into(),
-						)),
+				let inherent_res = self
+					.client
+					.runtime_api()
+					.check_inherents(at_hash, new_block.clone(), inherent_data)
+					.map_err(|e| ConsensusError::Other(Box::new(e)))?;
+
+				if !inherent_res.ok() {
+					for (i, e) in inherent_res.into_errors() {
+						match create_inherent_data_providers.try_handle_error(&i, &e).await {
+							Some(res) => res.map_err(|e| {
+								ConsensusError::Other(Error::<Block>::InvalidInherents(e).into())
+							})?,
+							None =>
+								return Err(ConsensusError::Other(
+									Error::<Block>::InvalidInherentsUnhandled(i).into(),
+								)),
+						}
+					}
 				}
 			}
+			let (_, inner_body) = new_block.deconstruct();
+			block.body = Some(inner_body);
 		}
 
 		Ok(())
@@ -1385,28 +1401,8 @@ where
 		let slot = babe_pre_digest.slot();
 
 		// Check inherents.
-		if let Some(inner_body) = block.body {
-			let new_block = Block::new(block.header.clone(), inner_body);
-			if !block.state_action.skip_execution_checks() {
-				// if the body is passed through and the block was executed,
-				// we need to use the runtime to check that the internally-set
-				// timestamp in the inherents actually matches the slot set in the seal.
-				let mut inherent_data = create_inherent_data_providers
-					.create_inherent_data()
-					.await
-					.map_err(|e| ConsensusError::Other(Box::new(e)))?;
-				inherent_data.babe_replace_inherent_data(slot);
-				self.check_inherents(
-					new_block.clone(),
-					parent_hash,
-					inherent_data,
-					create_inherent_data_providers,
-				)
-				.await?;
-			}
-			let (_, inner_body) = new_block.deconstruct();
-			block.body = Some(inner_body);
-		}
+		self.check_inherents(&mut block, parent_hash, slot, create_inherent_data_providers)
+			.await?;
 
 		// Check for equivocation and report it to the runtime if needed.
 		let author = {
