@@ -17,7 +17,7 @@
 
 use crate::{
 	address::AddressMapper,
-	precompiles::{BuiltinAddressMatcher, Error, ExtWithInfo, PrimitivePrecompile},
+	precompiles::{BuiltinAddressMatcher, Error, ExtWithInfo, BuiltinPrecompile, Precompile},
 	Config, H256,
 };
 use alloc::{vec, vec::Vec};
@@ -25,35 +25,45 @@ use core::{marker::PhantomData, num::NonZero};
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_core::U256;
 use sp_runtime::DispatchError;
+use alloy_core::sol;
 
 // upload the code before instantiate like in try_upload_code
 // maybe dont need to change instantiate, could be fine to always use create2 address
 // take endowment/value from the env
 
+sol! {
+    interface ICreate2 {
+        function create2(bytes memory code, bytes32 salt) external payable returns (address);
+    }
+}
+
+pub use ICreate2::*;
+
 pub struct Create2<T>(PhantomData<T>);
 
-impl<T: Config> PrimitivePrecompile for Create2<T> {
+impl<T: Config> BuiltinPrecompile for Create2<T> {
 	type T = T;
-	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(11).unwrap());
+	type Interface = ICreate2::ICreate2Calls;
+	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(0x0B).unwrap());
 	const HAS_CONTRACT_INFO: bool = true;
 
 	fn call_with_info(
 		_address: &[u8; 20],
-		input: Vec<u8>,
+		input: &Self::Interface,
 		env: &mut impl ExtWithInfo<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
+		let (code, salt) = match input {
+			ICreate2::ICreate2Calls::create2(call) => {
+				(call.code.clone(), call.salt.clone())
+			}
+			_ => {
+				Err(DispatchError::from("invalid input"))?
+			}
+		};
 		let gas_limit = env.gas_meter().gas_left();
 
 		let storage_deposit_limit = env.storage_meter().available();
-
-		if input.len() < 64 {
-			Err(DispatchError::from("invalid input length"))?;
-		}
 		let endowment = env.value_transferred();
-		let salt: &[u8; 32] = &input[0..32]
-			.try_into()
-			.map_err(|_| DispatchError::from("invalid salt length"))?;
-		let code = &input[32..];
 
 		let caller = env.caller();
 		let deployer_account_id = caller
@@ -61,7 +71,7 @@ impl<T: Config> PrimitivePrecompile for Create2<T> {
 			.map_err(|_| DispatchError::from("caller account_id is None"))?;
 		let deployer = T::AddressMapper::to_address(deployer_account_id);
 
-		let contract_address = crate::address::create2(&deployer, code, &[], salt);
+		let contract_address = crate::address::create2(&deployer, &code, &[], &salt);
 
 		let code_hash = sp_io::hashing::keccak_256(&code);
 
@@ -72,7 +82,7 @@ impl<T: Config> PrimitivePrecompile for Create2<T> {
 			H256::from(code_hash),
 			endowment,
 			vec![], // input data for constructor, if any?
-			Some(salt),
+			Some(&salt),
 			Some(&deployer),
 		)?;
 		if instantiate_address != contract_address {
