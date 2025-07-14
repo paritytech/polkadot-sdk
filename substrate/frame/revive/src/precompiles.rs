@@ -29,6 +29,8 @@ mod builtin;
 
 mod tests;
 
+pub use builtin::ICreate2;
+
 pub use crate::{
 	exec::{ExecError, PrecompileExt as Ext, PrecompileWithInfoExt as ExtWithInfo},
 	gas::{GasMeter, Token},

@@ -25,6 +25,8 @@ mod point_eval;
 mod ripemd160;
 mod sha256;
 
+pub use create2::ICreate2;
+
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
