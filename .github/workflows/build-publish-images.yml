@@ -13,6 +13,7 @@ concurrency:
   cancel-in-progress: true
 env:
   COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  BUCKET_FOLDER: "parity-ci-bins-regional/${{ github.sha }}"
 
 jobs:
   #
@@ -72,6 +73,15 @@ jobs:
           RELEASE_VERSION=$(./artifacts/polkadot -V | awk '{print $2}'| awk -F "-" '{print $1}')
           echo -n "v${RELEASE_VERSION}" > ./artifacts/BUILD_RELEASE_VERSION
           cp -r docker/* ./artifacts
+
+      - name: Upload binary to GCS
+        uses: "google-github-actions/upload-cloud-storage@v2"
+        with:
+          path: |
+            artifacts/polkadot
+            artifacts/polkadot-prepare-worker
+            artifacts/polkadot-execute-worker
+          destination: ${{ env.BUCKET_FOLDER }}
 
       - name: tar
         run: tar -cvf artifacts.tar artifacts
@@ -345,7 +355,6 @@ jobs:
         with:
           app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
           app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
-
 
   ### Build zombienet test artifacts ########################
 
