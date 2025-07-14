@@ -1168,11 +1168,6 @@ pub mod pallet {
 		/// Something occurred that should never happen under normal operation.
 		/// Logged as an event for fail-safe observability.
 		Unexpected(UnexpectedKind),
-		/// An invalid target was provided for slash cancellation.
-		WrongTarget {
-			account: T::AccountId,
-			era: EraIndex,
-		},
 	}
 
 	/// Represents unexpected or invariant-breaking conditions encountered during execution.
