@@ -119,7 +119,7 @@ use sp_blockchain::{
 use sp_consensus::{BlockOrigin, Environment, Error as ConsensusError, Proposer, SelectChain};
 use sp_consensus_babe::{inherents::BabeInherentData, SlotDuration};
 use sp_consensus_slots::Slot;
-use sp_core::{traits::SpawnEssentialNamed, U256};
+use sp_core::traits::SpawnEssentialNamed;
 use sp_inherents::{CreateInherentDataProviders, InherentData, InherentDataProvider};
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
@@ -1967,15 +1967,12 @@ where
 	Block: BlockT,
 	Client: HeaderBackend<Block> + HeaderMetadata<Block, Error = sp_blockchain::Error>,
 {
-	let block_number: U256 = block_number.into();
 	let epoch_changes = epoch_changes.shared_data();
 	let epoch_descriptor = epoch_changes
 		.epoch_descriptor_for_child_of(
 			descendent_query(&*client),
 			&parent_hash,
-			NumberFor::<Block>::try_from(block_number - 1)
-				.map_err(|_| "parent block exists, hence must be able to decrement it")
-				.unwrap(),
+			block_number - 1u32.into(),
 			slot,
 		)
 		.map_err(|e| Error::<Block>::ForkTree(Box::new(e)))?
