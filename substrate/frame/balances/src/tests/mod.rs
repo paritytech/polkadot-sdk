@@ -158,6 +158,10 @@ impl ExtBuilder {
 		self.dust_trap = Some(account);
 		self
 	}
+	pub fn auto_try_state(self, auto_try_state: bool) -> Self {
+		AutoTryState::set(auto_try_state);
+		self
+	}
 	pub fn set_associated_consts(&self) {
 		DUST_TRAP_TARGET.with(|v| v.replace(self.dust_trap));
 		EXISTENTIAL_DEPOSIT.with(|v| v.replace(self.existential_deposit));
@@ -195,12 +199,16 @@ impl ExtBuilder {
 		UseSystem::set(false);
 		other.build().execute_with(|| {
 			f();
-			Balances::do_try_state(System::block_number()).unwrap();
+			if AutoTryState::get() {
+				Balances::do_try_state(System::block_number()).unwrap();
+			}
 		});
 		UseSystem::set(true);
 		self.build().execute_with(|| {
 			f();
-			Balances::do_try_state(System::block_number()).unwrap();
+			if AutoTryState::get() {
+				Balances::do_try_state(System::block_number()).unwrap();
+			}
 		});
 	}
 }
@@ -225,6 +233,7 @@ impl OnUnbalanced<CreditOf<Test, ()>> for DustTrap {
 
 parameter_types! {
 	pub static UseSystem: bool = false;
+	pub static AutoTryState: bool = true;
 }
 
 type BalancesAccountStore = StorageMapShim<super::Account<Test>, u64, super::AccountData<u64>>;
