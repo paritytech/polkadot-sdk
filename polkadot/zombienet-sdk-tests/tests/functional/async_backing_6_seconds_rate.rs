@@ -5,7 +5,7 @@
 
 use anyhow::anyhow;
 
-use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_finalized_para_throughput};
+use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_sdk::{
@@ -75,7 +75,7 @@ async fn async_backing_6_seconds_rate_test() -> Result<(), anyhow::Error> {
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
-	assert_finalized_para_throughput(
+	assert_para_throughput(
 		&relay_client,
 		15,
 		[(ParaId::from(2000), 11..16), (ParaId::from(2001), 11..16)]
