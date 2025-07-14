@@ -42,8 +42,8 @@ jobs:
 
 
   zombienet-cumulus-tests:
-    name: ${{ matrix.job-name }}
-    runs-on: ${{ matrix.runner-type == 'large' && needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER || needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
+    name: ${{ matrix.test.job-name }}
+    runs-on: ${{ matrix.test.runner-type == 'large' && needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER || needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
     timeout-minutes: 60
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) }}
@@ -52,28 +52,28 @@ jobs:
       options: -v /tmp/zombienet:/tmp/zombienet
     env:
       POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-      CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/${{ matrix.cumulus-image }}:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/${{ matrix.test.cumulus-image }}:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
 
     strategy:
       fail-fast: false
       matrix:
-        tests: ${{ fromJson(needs.preflight.outputs.TEST_MATRIX) }}
+        test: ${{ fromJson(needs.preflight.outputs.TEST_MATRIX) }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - uses: actions/download-artifact@v4.1.8
-        if: ${{ matrix.needs-wasm-binary }}
+        if: ${{ matrix.test.needs-wasm-binary }}
         with:
           name: build-test-parachain-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
 
       - name: provide_wasm_binary
-        if: ${{ matrix.needs-wasm-binary }}
+        if: ${{ matrix.test.needs-wasm-binary }}
         run: |
           tar -xvf artifacts.tar
           ls -ltr artifacts/*

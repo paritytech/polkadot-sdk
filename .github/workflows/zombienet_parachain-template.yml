@@ -37,8 +37,8 @@ jobs:
 
 
   zombienet-cumulus-tests:
-    name: ${{ matrix.job-name }}
-    runs-on: ${{ matrix.runner-type == 'large' && needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER || needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
+    name: ${{ matrix.test.job-name }}
+    runs-on: ${{ matrix.test.runner-type == 'large' && needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER || needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
     timeout-minutes: 30
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) }}
@@ -47,13 +47,14 @@ jobs:
       options: -v /tmp/zombienet:/tmp/zombienet
     env:
       POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-      CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/${{ matrix.cumulus-image }}:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/${{ matrix.test.cumulus-image }}:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
 
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.preflight.outputs.TEST_MATRIX) }}
+      matrix:
+        test: ${{ fromJson(needs.preflight.outputs.TEST_MATRIX) }}
 
     steps:
       - name: Checkout
@@ -62,8 +63,8 @@ jobs:
       - name: zombienet_test
         uses: ./.github/actions/zombienet-sdk
         with:
-          test-filter: ${{ matrix.test-filter }}
-          job-name: ${{ matrix.job-name }}
+          test-filter: ${{ matrix.test.test-filter }}
+          job-name: ${{ matrix.test.job-name }}
           prefix: "parachain-templates"
           gh-token: ${{ secrets.GITHUB_TOKEN }}
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}

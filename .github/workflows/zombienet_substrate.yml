@@ -45,13 +45,13 @@ jobs:
       test_pattern: ${{ inputs.test_pattern }}
 
   zombienet-substrate-tests:
-    name: ${{ matrix.job-name }}
-    runs-on: ${{ matrix.runner-type == 'large' && (matrix.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER || needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER) || (matrix.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER || needs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER) }}
+    name: ${{ matrix.test.job-name }}
+    runs-on: ${{ matrix.test.runner-type == 'large' && (matrix.test.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER || needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER) || (matrix.test.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER || needs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER) }}
     timeout-minutes: 60
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) }}
     container:
-      image: ${{ matrix.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_IMAGE || needs.preflight.outputs.ZOMBIENET_IMAGE }}
+      image: ${{ matrix.test.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_IMAGE || needs.preflight.outputs.ZOMBIENET_IMAGE }}
       options: -v /tmp/zombienet:/tmp/zombienet
     env:
       ZOMBIENET_INTEGRATION_TEST_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
@@ -63,24 +63,24 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        tests: ${{ fromJson(needs.preflight.outputs.TEST_MATRIX) }}
+        test: ${{ fromJson(needs.preflight.outputs.TEST_MATRIX) }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Additional setup
-        if: ${{ matrix.additional-setup }}
+        if: ${{ matrix.test.additional-setup }}
         shell: bash
-        run: ${{ matrix.additional-setup }}
+        run: ${{ matrix.test.additional-setup }}
 
       - name: zombienet_test (traditional)
         uses: ./.github/actions/zombienet
         with:
-          test-definition: ${{ matrix.test-definition }}
-          job-name: ${{ matrix.job-name }}
-          local-dir: ${{ matrix.local-dir }}
-          concurrency: ${{ matrix.concurrency || 1 }}
+          test-definition: ${{ matrix.test.test-definition }}
+          job-name: ${{ matrix.test.job-name }}
+          local-dir: ${{ matrix.test.local-dir }}
+          concurrency: ${{ matrix.test.concurrency || 1 }}
           gh-token: ${{ secrets.GITHUB_TOKEN }}
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
