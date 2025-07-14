@@ -2,6 +2,12 @@ name: Zombienet Substrate
 
 on:
   workflow_dispatch:
+    inputs:
+      test_pattern:
+        type: string
+        description: "Run tests which names match this pattern (also flaky)"
+        default: ""
+        required: false
   push:
    branches:
      - master
@@ -34,6 +40,9 @@ jobs:
   preflight:
     needs: isdraft
     uses: ./.github/workflows/zombienet-reusable-preflight.yml
+    with:
+      tests_yaml: .github/workflows/zombienet_substrate_tests.yml
+      test_pattern: ${{ inputs.test_pattern }}
 
   zombienet-substrate-tests:
     name: ${{ matrix.job-name }}
@@ -41,8 +50,7 @@ jobs:
     timeout-minutes: 60
     needs: [preflight]
     if: |
-      (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&
-      !contains(needs.preflight.outputs.FLAKY_TESTS, matrix.job-name)
+      (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot)
     container:
       image: ${{ matrix.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_IMAGE || needs.preflight.outputs.ZOMBIENET_IMAGE }}
     env:
@@ -54,49 +62,18 @@ jobs:
 
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - job-name: "zombienet-substrate-0000-block-building"
-            test-definition: "block-building.zndsl"
-            local-dir: "./substrate/zombienet/0000-block-building"
-            runner-type: "default"
-            concurrency: 4
-
-          - job-name: "zombienet-substrate-0001-basic-warp-sync"
-            test-definition: "test-warp-sync.zndsl"
-            local-dir: "./substrate/zombienet/0001-basic-warp-sync"
-            runner-type: "default"
-            concurrency: 4
-
-          # TODO: Disabled, fails 1 in 50 runs
-          - job-name: "zombienet-substrate-0002-validators-warp-sync"
-            test-definition: "test-validators-warp-sync.zndsl"
-            local-dir: "./substrate/zombienet/0002-validators-warp-sync"
-            runner-type: "default"
-            concurrency: 4
-            additional-setup: |
-              cp --remove-destination ./substrate/zombienet/0001-basic-warp-sync/chain-spec.json ./substrate/zombienet/0002-validators-warp-sync
-
-          - job-name: "zombienet-substrate-0003-block-building-warp-sync"
-            test-definition: "test-block-building-warp-sync.zndsl"
-            local-dir: "./substrate/zombienet/0003-block-building-warp-sync"
-            runner-type: "default"
-            concurrency: 4
-            additional-setup: |
-              cp --remove-destination ./substrate/zombienet/0001-basic-warp-sync/chain-spec.json ./substrate/zombienet/0003-block-building-warp-sync
+      matrix: ${{ fromJson(needs.preflight.outputs.TEST_MATRIX) }}
 
     steps:
       - name: Checkout
-        if: steps.check_flaky.outputs.skip != 'true'
         uses: actions/checkout@v4
 
       - name: Additional setup
-        if: ${{ matrix.additional-setup && steps.check_flaky.outputs.skip != 'true' }}
+        if: ${{ matrix.additional-setup }}
         shell: bash
         run: ${{ matrix.additional-setup }}
 
       - name: zombienet_test (traditional)
-        if: ${{ !matrix.use-zombienet-sdk && steps.check_flaky.outputs.skip != 'true' }}
         uses: ./.github/actions/zombienet
         with:
           test-definition: ${{ matrix.test-definition }}
