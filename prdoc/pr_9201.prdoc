@@ -1,0 +1,22 @@
+title: '`polkadot-parachain`: impl `GetParachainInfo` for asset-hub-westend-local '
+doc:
+- audience: Todo
+  description: |-
+    # Description
+
+    Addresses a bug report https://github.com/paritytech/zombienet/issues/2050. It is a miss coming from #8651.
+
+    ## Integration
+
+    N/A
+
+    ## Review Notes
+
+    N/A
+crates:
+- name: polkadot-parachain-bin
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: major
