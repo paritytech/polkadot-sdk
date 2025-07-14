@@ -988,15 +988,15 @@ fn remove_deferred() {
 			Error::<T>::EmptyTargets
 		);
 
-		// cancel the slash with 15% (which covers both 10% and 15% slashes)
+		// cancel the slash with 12% (which covers the 10% slash but not the 15% slash)
 		assert_ok!(Staking::cancel_deferred_slash(
 			RuntimeOrigin::root(),
 			3,
-			vec![(11, Perbill::from_percent(15))],
+			vec![(11, Perbill::from_percent(12))],
 		));
 
-		// validator 11 slash is set to be cancelled for era 3 with 15% cancellation.
-		assert_eq!(CancelledSlashes::<T>::get(&3), vec![(11, Perbill::from_percent(15))]);
+		// validator 11 slash is set to be cancelled for era 3 with 12% cancellation.
+		assert_eq!(CancelledSlashes::<T>::get(&3), vec![(11, Perbill::from_percent(12))]);
 
 		assert_eq!(
 			staking_events_since_last_call(),
@@ -1012,17 +1012,27 @@ fn remove_deferred() {
 		let _ = staking_events_since_last_call();
 
 		Session::roll_next();
-		// but since it was cancelled, no slashes are applied.
+		// first slash (10%) is cancelled, no events
 		assert_eq!(staking_events_since_last_call(), vec![]);
 		// one slash processed, one more to go
 		assert_eq!(UnappliedSlashes::<T>::iter_prefix(&3).count(), 1);
 
 		Session::roll_next();
-		// second slash also cancelled
-		assert_eq!(staking_events_since_last_call(), vec![]);
-		// all unapplied slashes should have been removed for the cancelled validator.
+		// second slash (15%) is NOT cancelled, so it gets applied
+		let events = staking_events_since_last_call();
+		assert_eq!(events.len(), 2);
+		// The 15% slash already has computed amounts in the UnappliedSlash
+		// Based on the test setup, it has own: 50, others: [(101, 12)]
+		assert_eq!(events[0], Event::Slashed { staker: 11, amount: 50 });
+		assert_eq!(events[1], Event::Slashed { staker: 101, amount: 12 });
+
+		// check balances after 15% slash
+		assert_eq!(asset::stakeable_balance::<T>(&11), 950);
+		assert_eq!(asset::stakeable_balance::<T>(&101), 488);
+
+		// all unapplied slashes should have been removed
 		assert_eq!(UnappliedSlashes::<T>::iter_prefix(&3).count(), 0);
-		// cancelled slashes should have been cleared after era.
+		// cancelled slashes should have been cleared after all era slashes are applied.
 		assert_eq!(CancelledSlashes::<T>::get(&3), vec![]);
 	})
 }
