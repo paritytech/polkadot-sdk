@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! bounties pallet tests.
+//! Bounties pallet tests.
 
 #![cfg(test)]
 
@@ -358,11 +358,11 @@ pub fn get_payment_id(
 	parent_bounty_id: BountyIndex,
 	child_bounty_id: Option<BountyIndex>,
 ) -> Option<u64> {
-	let status =
-		pallet_bounties::Pallet::<Test>::get_bounty_status(parent_bounty_id, child_bounty_id)
-			.expect("should return bounty status");
+	let bounty =
+		pallet_bounties::Pallet::<Test>::get_bounty_details(parent_bounty_id, child_bounty_id)
+			.expect("no bounty");
 
-	match status {
+	match bounty.3 {
 		BountyStatus::FundingAttempted {
 			payment_status: PaymentState::Attempted { id }, ..
 		} => Some(id),
