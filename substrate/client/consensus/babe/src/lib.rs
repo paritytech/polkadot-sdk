@@ -1410,7 +1410,7 @@ where
 
 		// Check for equivocation and report it to the runtime if needed.
 		let author = {
-			let (_epoch_descriptor, viable_epoch) = query_epoch_changes(
+			let viable_epoch = query_epoch_changes(
 				&self.epoch_changes,
 				self.client.as_ref(),
 				&self.config,
@@ -1418,9 +1418,13 @@ where
 				slot,
 				parent_hash,
 			)
-			.map_err(|e| ConsensusError::Other(babe_err(e).into()))?;
-			let epoch = viable_epoch.as_ref();
-			match epoch.authorities.get(babe_pre_digest.authority_index() as usize) {
+			.map_err(|e| ConsensusError::Other(babe_err(e).into()))?
+			.1;
+			match viable_epoch
+				.as_ref()
+				.authorities
+				.get(babe_pre_digest.authority_index() as usize)
+			{
 				Some(author) => author.0.clone(),
 				None =>
 					return Err(ConsensusError::Other(Error::<Block>::SlotAuthorNotFound.into())),
