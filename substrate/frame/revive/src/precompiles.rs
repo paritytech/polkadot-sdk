@@ -29,7 +29,8 @@ mod builtin;
 
 mod tests;
 
-pub use builtin::ICreate2;
+// exported for use in tests
+pub(crate) use builtin::ICreate2;
 
 pub use crate::{
 	exec::{ExecError, PrecompileExt as Ext, PrecompileWithInfoExt as ExtWithInfo},
