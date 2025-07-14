@@ -336,7 +336,6 @@ jobs:
           echo "github.ref: ${{ github.ref }}"
           echo "github.ref_name: ${{ github.ref_name }}"
           echo "github.sha: ${{ github.sha }}"
-          echo "TEST_MATRIX: ${{ needs.preflight.outputs.TEST_MATRIX }}"
   #
   #
   # Wait until the 'build and push' image workflow success
