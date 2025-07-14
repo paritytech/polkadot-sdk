@@ -2,6 +2,12 @@ name: Zombienet Parachain Templates
 
 on:
   workflow_dispatch:
+    inputs:
+      test_pattern:
+        type: string
+        description: "Run tests which names match this pattern (also flaky)"
+        default: ""
+        required: false
   push:
    branches:
      - master
@@ -25,6 +31,9 @@ jobs:
   preflight:
     needs: isdraft
     uses: ./.github/workflows/zombienet-reusable-preflight.yml
+    with:
+      tests_yaml: .github/workflows/zombienet_parachain-template_tests.yml
+      test_pattern: ${{ inputs.test_pattern }}
 
 
   zombienet-cumulus-tests:
@@ -33,8 +42,7 @@ jobs:
     timeout-minutes: 30
     needs: [preflight]
     if: |
-      (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) &&
-      !contains(needs.preflight.outputs.FLAKY_TESTS, matrix.job-name)
+      (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot)
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
     env:
@@ -45,30 +53,13 @@ jobs:
 
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - job-name: "zombienet-parachain-template-0001-minimal_template_block_production"
-            test-filter: "smoke::minimal_template_block_production_test"
-            runner-type: "default"
-            cumulus-image: "test-parachain"
-
-          - job-name: "zombienet-parachain-template-0002-parachain_template_block_production"
-            test-filter: "smoke::parachain_template_block_production_test"
-            runner-type: "default"
-            cumulus-image: "test-parachain"
-
-          - job-name: "zombienet-parachain-template-0003-solochain_template_block_production"
-            test-filter: "smoke::solochain_template_block_production_test"
-            runner-type: "default"
-            cumulus-image: "test-parachain"
+      matrix: ${{ fromJson(needs.preflight.outputs.TEST_MATRIX) }}
 
     steps:
       - name: Checkout
-        if: steps.check_flaky.outputs.skip != 'true'
         uses: actions/checkout@v4
 
       - name: zombienet_test
-        if: steps.check_flaky.outputs.skip != 'true'
         uses: ./.github/actions/zombienet-sdk
         with:
           test-filter: ${{ matrix.test-filter }}
