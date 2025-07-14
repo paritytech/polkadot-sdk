@@ -37,7 +37,7 @@ jobs:
     needs: isdraft
     uses: ./.github/workflows/zombienet-reusable-preflight.yml
     with:
-      tests_yaml: .github/workflows/zombienet_polkadot_tests.yml
+      tests_yaml: .github/zombienet-tests/zombienet_polkadot_tests.yml
       test_pattern: ${{ inputs.test_pattern }}
 
   zombienet-polkadot-tests:
@@ -45,10 +45,10 @@ jobs:
     runs-on: ${{ matrix.runner-type == 'large' && (matrix.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER || needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER) || (matrix.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER || needs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER) }}
     timeout-minutes: 60
     needs: [preflight]
-    if: |
-      (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot)
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) }}
     container:
       image: ${{ matrix.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_IMAGE || needs.preflight.outputs.ZOMBIENET_IMAGE }}
+      options: -v /tmp/zombienet:/tmp/zombienet
     env:
       ZOMBIENET_INTEGRATION_TEST_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
@@ -61,7 +61,8 @@ jobs:
       ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.preflight.outputs.TEST_MATRIX) }}
+      matrix:
+        tests: ${{ fromJson(needs.preflight.outputs.TEST_MATRIX) }}
 
     steps:
       - name: Checkout

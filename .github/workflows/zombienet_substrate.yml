@@ -41,7 +41,7 @@ jobs:
     needs: isdraft
     uses: ./.github/workflows/zombienet-reusable-preflight.yml
     with:
-      tests_yaml: .github/workflows/zombienet_substrate_tests.yml
+      tests_yaml: .github/zombienet-tests/zombienet_substrate_tests.yml
       test_pattern: ${{ inputs.test_pattern }}
 
   zombienet-substrate-tests:
@@ -49,8 +49,7 @@ jobs:
     runs-on: ${{ matrix.runner-type == 'large' && (matrix.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER || needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER) || (matrix.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER || needs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER) }}
     timeout-minutes: 60
     needs: [preflight]
-    if: |
-      (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot)
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) }}
     container:
       image: ${{ matrix.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_IMAGE || needs.preflight.outputs.ZOMBIENET_IMAGE }}
       options: -v /tmp/zombienet:/tmp/zombienet
@@ -63,7 +62,8 @@ jobs:
 
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.preflight.outputs.TEST_MATRIX) }}
+      matrix:
+        tests: ${{ fromJson(needs.preflight.outputs.TEST_MATRIX) }}
 
     steps:
       - name: Checkout
