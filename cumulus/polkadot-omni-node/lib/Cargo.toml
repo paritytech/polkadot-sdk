@@ -48,6 +48,7 @@ sc-cli = { workspace = true, default-features = false }
 sc-client-api = { workspace = true, default-features = true }
 sc-client-db = { workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
+sc-consensus-aura = { workspace = true, default-features = true }
 sc-consensus-manual-seal = { workspace = true, default-features = true }
 sc-executor = { workspace = true, default-features = true }
 sc-keystore = { workspace = true, default-features = true }
@@ -104,9 +105,12 @@ cumulus-primitives-aura = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
 futures-timer = { workspace = true }
+schnellru = { workspace = true }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
+cumulus-test-client = { workspace = true }
+cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
 cumulus-test-runtime = { workspace = true }
 nix = { features = ["signal"], workspace = true }
 tokio = { version = "1.43.1", features = ["macros", "parking_lot", "time"] }
@@ -118,6 +122,7 @@ rococo-native = ["polkadot-cli/rococo-native"]
 westend-native = ["polkadot-cli/westend-native"]
 runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-test-client/runtime-benchmarks",
 	"frame-benchmarking-cli/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",

@@ -15,11 +15,18 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
+use codec::Codec;
 use futures::{stream::FusedStream, StreamExt};
 use sc_consensus::{BlockImport, StateAction};
+use sc_consensus_aura::{find_pre_digest, CompatibilityMode};
+use sc_consensus_slots::InherentDataProviderExt;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_api::{ApiExt, CallApiAt, CallContext, Core, ProvideRuntimeApi, StorageProof};
-use sp_runtime::traits::{Block as BlockT, Header as _};
+use sp_block_builder::{BlockBuilder as BlockBuilderApi, BlockBuilder};
+use sp_consensus_aura::{inherents::AuraInherentData, AuraApi};
+use sp_core::Pair;
+use sp_inherents::InherentDataProvider;
+use sp_runtime::traits::{Block as BlockT, Header as _, NumberFor};
 use sp_trie::proof_size_extension::ProofSizeExt;
 use std::sync::Arc;
 
@@ -47,40 +54,84 @@ impl<Block> SlotBasedBlockImportHandle<Block> {
 }
 
 /// Special block import for the slot based collator.
-pub struct SlotBasedBlockImport<Block, BI, Client> {
+pub struct SlotBasedBlockImport<Block, BI, Client, CIDP, P, N> {
 	inner: BI,
 	client: Arc<Client>,
 	sender: TracingUnboundedSender<(Block, StorageProof)>,
+	create_inherent_data_providers: CIDP,
+	check_for_equivocation: bool,
+	compatibility_mode: CompatibilityMode<N>,
+	_phantom: std::marker::PhantomData<P>,
 }
 
-impl<Block, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
+impl<Block, BI, Client, CIDP, P, N> SlotBasedBlockImport<Block, BI, Client, CIDP, P, N> {
 	/// Create a new instance.
 	///
 	/// The returned [`SlotBasedBlockImportHandle`] needs to be passed to the
 	/// [`Params`](super::Params), so that this block import instance can communicate with the
 	/// collation task. If the node is not running as a collator, just dropping the handle is fine.
-	pub fn new(inner: BI, client: Arc<Client>) -> (Self, SlotBasedBlockImportHandle<Block>) {
+	pub fn new(
+		inner: BI,
+		client: Arc<Client>,
+		create_inherent_data_providers: CIDP,
+		check_for_equivocation: bool,
+		compatibility_mode: CompatibilityMode<N>,
+	) -> (Self, SlotBasedBlockImportHandle<Block>) {
 		let (sender, receiver) = tracing_unbounded("SlotBasedBlockImportChannel", 1000);
 
-		(Self { sender, client, inner }, SlotBasedBlockImportHandle { receiver })
+		(
+			Self {
+				sender,
+				client,
+				inner,
+				create_inherent_data_providers,
+				check_for_equivocation,
+				compatibility_mode,
+				_phantom: Default::default(),
+			},
+			SlotBasedBlockImportHandle { receiver },
+		)
 	}
 }
 
-impl<Block, BI: Clone, Client> Clone for SlotBasedBlockImport<Block, BI, Client> {
+impl<Block, BI: Clone, Client, CIDP, P, N> Clone
+	for SlotBasedBlockImport<Block, BI, Client, CIDP, P, N>
+where
+	CIDP: Clone,
+	N: Clone,
+{
 	fn clone(&self) -> Self {
-		Self { inner: self.inner.clone(), client: self.client.clone(), sender: self.sender.clone() }
+		Self {
+			inner: self.inner.clone(),
+			client: self.client.clone(),
+			sender: self.sender.clone(),
+			create_inherent_data_providers: self.create_inherent_data_providers.clone(),
+			check_for_equivocation: self.check_for_equivocation,
+			compatibility_mode: self.compatibility_mode.clone(),
+			_phantom: Default::default(),
+		}
 	}
 }
 
 #[async_trait::async_trait]
-impl<Block, BI, Client> BlockImport<Block> for SlotBasedBlockImport<Block, BI, Client>
+impl<Block, BI, Client, CIDP, P> BlockImport<Block>
+	for SlotBasedBlockImport<Block, BI, Client, CIDP, P, NumberFor<Block>>
 where
 	Block: BlockT,
 	BI: BlockImport<Block> + Send + Sync,
 	BI::Error: Into<sp_consensus::Error>,
-	Client: ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync,
+	Client: ProvideRuntimeApi<Block>
+		+ CallApiAt<Block>
+		+ sc_client_api::backend::AuxStore
+		+ Send
+		+ Sync,
 	Client::StateBackend: Send,
-	Client::Api: Core<Block>,
+	Client::Api: Core<Block> + BlockBuilderApi<Block> + AuraApi<Block, <P as Pair>::Public>,
+	P: Pair + Sync,
+	P::Public: Codec + std::fmt::Debug,
+	P::Signature: Codec,
+	CIDP: sp_inherents::CreateInherentDataProviders<Block, ()> + Send,
+	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 {
 	type Error = sp_consensus::Error;
 
@@ -95,6 +146,52 @@ where
 		&self,
 		mut params: sc_consensus::BlockImportParams<Block>,
 	) -> Result<sc_consensus::ImportResult, Self::Error> {
+		let slot = find_pre_digest::<Block, P::Signature>(&params.header)
+			.map_err(|e| sp_consensus::Error::Other(Box::new(e)))?;
+		let parent_hash = *params.header.parent_hash();
+		let create_inherent_data_providers = self
+			.create_inherent_data_providers
+			.create_inherent_data_providers(parent_hash, ())
+			.await
+			.map_err(sp_consensus::Error::Other)?;
+
+		// Check inherents.
+		// if the body is passed through, we need to use the runtime
+		// to check that the internally-set timestamp in the inherents
+		// actually matches the slot set in the seal.
+		if let Some(inner_body) = params.body.take() {
+			let new_block = Block::new(params.header.clone(), inner_body);
+			if self
+				.client
+				.runtime_api()
+				.has_api_with::<dyn BlockBuilder<Block>, _>(parent_hash, |v| v >= 2)
+				.map_err(|e| sp_consensus::Error::Other(Box::new(e)))?
+			{
+				let mut inherent_data = create_inherent_data_providers
+					.create_inherent_data()
+					.await
+					.map_err(|e| sp_consensus::Error::Other(Box::new(e)))?;
+				inherent_data.aura_replace_inherent_data(slot);
+				let inherent_res = self
+					.client
+					.runtime_api()
+					.check_inherents(parent_hash, new_block.clone(), inherent_data)
+					.map_err(|e| sp_consensus::Error::Other(Box::new(e)))?;
+
+				if !inherent_res.ok() {
+					for (i, e) in inherent_res.into_errors() {
+						match create_inherent_data_providers.try_handle_error(&i, &e).await {
+							Some(res) =>
+								res.map_err(|e| sp_consensus::Error::InvalidInherents(e))?,
+							None => return Err(sp_consensus::Error::InvalidInherentsUnhandled(i)),
+						}
+					}
+				}
+			}
+			let (_, inner_body) = new_block.deconstruct();
+			params.body = Some(inner_body);
+		}
+
 		// If the channel exists and it is required to execute the block, we will execute the block
 		// here. This is done to collect the storage proof and to prevent re-execution, we push
 		// downwards the state changes. `StateAction::ApplyChanges` is ignored, because it either

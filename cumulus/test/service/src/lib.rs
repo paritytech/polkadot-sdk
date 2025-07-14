@@ -24,21 +24,19 @@ pub mod bench_utils;
 pub mod chain_spec;
 
 use cumulus_client_collator::service::CollatorService;
-use cumulus_client_consensus_aura::{
-	collators::{
-		lookahead::{self as aura, Params as AuraParams},
-		slot_based::{
-			self as slot_based, Params as SlotBasedParams, SlotBasedBlockImport,
-			SlotBasedBlockImportHandle,
-		},
+use cumulus_client_consensus_aura::collators::{
+	lookahead::{self as aura, Params as AuraParams},
+	slot_based::{
+		self as slot_based, Params as SlotBasedParams, SlotBasedBlockImport,
+		SlotBasedBlockImportHandle,
 	},
-	ImportQueueParams,
 };
 use cumulus_client_consensus_proposer::Proposer;
+use cumulus_test_runtime::{Hash, Header, NodeBlock as Block, RuntimeApi};
 use prometheus::Registry;
 use runtime::AccountId;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
-use sp_consensus_aura::sr25519::AuthorityPair;
+use sp_consensus_aura::{inherents::AuraCreateInherentDataProviders, sr25519::AuthorityPair};
 use std::{
 	collections::HashSet,
 	future::Future,
@@ -66,13 +64,11 @@ use cumulus_relay_chain_minimal_node::{
 	build_minimal_relay_chain_node_light_client, build_minimal_relay_chain_node_with_rpc,
 };
 
-use cumulus_test_runtime::{Hash, Header, NodeBlock as Block, RuntimeApi};
-
 use frame_system_rpc_runtime_api::AccountNonceApi;
 use polkadot_node_subsystem::{errors::RecoveryError, messages::AvailabilityRecoveryMessage};
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{CandidateHash, CollatorPair, Hash as PHash, PersistedValidationData};
-use polkadot_service::ProvideRuntimeApi;
+use polkadot_service::{NumberFor, ProvideRuntimeApi};
 use sc_consensus::ImportQueue;
 use sc_network::{
 	config::{FullNetworkConfiguration, TransportConfig},
@@ -134,8 +130,18 @@ pub type Client = TFullClient<runtime::NodeBlock, runtime::RuntimeApi, WasmExecu
 pub type Backend = TFullBackend<Block>;
 
 /// The block-import type being used by the test service.
-pub type ParachainBlockImport =
-	TParachainBlockImport<Block, SlotBasedBlockImport<Block, Arc<Client>, Client>, Backend>;
+pub type ParachainBlockImport = TParachainBlockImport<
+	Block,
+	SlotBasedBlockImport<
+		Block,
+		Arc<Client>,
+		Client,
+		AuraCreateInherentDataProviders<Block>,
+		AuthorityPair,
+		NumberFor<Block>,
+	>,
+	Backend,
+>;
 
 /// Transaction pool type used by the test service
 pub type TransactionPool = Arc<sc_transaction_pool::TransactionPoolHandle<Block, Client>>;
@@ -221,8 +227,21 @@ pub fn new_partial(
 		)?;
 	let client = Arc::new(client);
 
-	let (block_import, slot_based_handle) =
-		SlotBasedBlockImport::new(client.clone(), client.clone());
+	let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
+	let (block_import, slot_based_handle) = SlotBasedBlockImport::new(
+		client.clone(),
+		client.clone(),
+		Arc::new(move |_, _| async move {
+			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+			let slot = sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+				*timestamp,
+				slot_duration,
+			);
+			Ok((slot, timestamp))
+		}) as AuraCreateInherentDataProviders<Block>,
+		true,
+		Default::default(),
+	);
 	let block_import = ParachainBlockImport::new(block_import, backend.clone());
 
 	let transaction_pool = Arc::from(
@@ -236,27 +255,21 @@ pub fn new_partial(
 		.build(),
 	);
 
-	let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
-	let import_queue = cumulus_client_consensus_aura::import_queue::<AuthorityPair, _, _, _, _, _>(
-		ImportQueueParams {
-			block_import: block_import.clone(),
-			client: client.clone(),
-			create_inherent_data_providers: move |_, ()| async move {
-				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-
-				let slot =
-					sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-						*timestamp,
-						slot_duration,
-					);
-
-				Ok((slot, timestamp))
-			},
-			spawner: &task_manager.spawn_essential_handle(),
-			registry: None,
-			telemetry: None,
-		},
-	)?;
+	let import_queue =
+		cumulus_client_consensus_aura::equivocation_import_queue::fully_verifying_import_queue::<
+			AuthorityPair,
+			_,
+			_,
+			_,
+			_,
+		>(
+			client.clone(),
+			block_import.clone(),
+			move |_, _| async move { Ok(sp_timestamp::InherentDataProvider::from_system_time()) },
+			&task_manager.spawn_essential_handle(),
+			config.prometheus_registry(),
+			None,
+		);
 
 	let params = PartialComponents {
 		backend,
@@ -524,8 +537,23 @@ where
 				slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _, _>(params);
 			} else {
 				tracing::info!(target: LOG_TARGET, "Starting block authoring with lookahead collator.");
+				let client_for_closure = client.clone();
 				let params = AuraParams {
-					create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+					create_inherent_data_providers: Arc::new(move |parent, _| {
+						let slot_duration = sc_consensus_aura::standalone::slot_duration_at(
+							client_for_closure.as_ref(),
+							parent,
+						);
+						let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+						let slot = slot_duration.map(|slot_duration| {
+							sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+								*timestamp,
+								slot_duration,
+							)
+						});
+						async move { Ok((slot?, timestamp)) }
+					})
+						as AuraCreateInherentDataProviders<Block>,
 					block_import,
 					para_client: client.clone(),
 					para_backend: backend.clone(),
@@ -577,6 +605,7 @@ pub struct TestNode {
 }
 
 #[allow(missing_docs)]
+#[derive(Debug)]
 pub enum Consensus {
 	/// Use Aura consensus.
 	Aura,
