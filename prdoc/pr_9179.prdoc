@@ -1,0 +1,17 @@
+title: '[WIP] AssetsInHolding subsume_assets fixes'
+doc:
+- audience: Runtime Dev
+  description: "`subsume_assets` fails to correctly subsume two instances of `AssetsInHolding`\
+    \ under certain conditions which can result in loss of funds (as assets are overriden\
+    \ rather than summed together)\n\nEg. consider following test:\n```\n\t#[test]\n\
+    \tfn subsume_assets_different_length_holdings() {\n\t\tlet mut t1 = AssetsInHolding::new();\n\
+    \t\tt1.subsume(CFP(400));\n\n\t\tlet mut t2 = AssetsInHolding::new();\n\t\tt2.subsume(CF(100));\n\
+    \t\tt2.subsume(CFP(100));\n\n\t\tt1.subsume_assets(t2);\n```\n\ncurrent result\
+    \ (without this PR change):\n```\n\t\tlet mut iter = t1.into_assets_iter();\n\t\
+    \tassert_eq!(Some(CF(100)), iter.next());\n\t\tassert_eq!(Some(CFP(100)), iter.next());\n\
+    ```\n\nexpected result:\n```\n\t\tlet mut iter = t1.into_assets_iter();\n\t\t\
+    assert_eq!(Some(CF(100)), iter.next());\n\t\tassert_eq!(Some(CFP(500)), iter.next());\n\
+    ```"
+crates:
+- name: staging-xcm-executor
+  bump: patch
