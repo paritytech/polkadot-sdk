@@ -449,7 +449,7 @@ fn create2_precompile_works() {
 
 	let input = ICreate2::ICreate2Calls::create2(ICreate2::create2Call {
 		code: code.clone().into(),
-		salt: salt.clone().into(),
+		salt: salt.into(),
 	})
 	.abi_encode();
 
@@ -490,7 +490,7 @@ fn create2_precompile_works_with_existing_code() {
 
 	let input = ICreate2::ICreate2Calls::create2(ICreate2::create2Call {
 		code: code.clone().into(),
-		salt: salt.clone().into(),
+		salt: salt.into(),
 	})
 	.abi_encode();
 
