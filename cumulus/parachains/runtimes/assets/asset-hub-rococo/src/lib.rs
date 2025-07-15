@@ -1713,7 +1713,7 @@ impl_runtime_apis! {
 					ExistentialDeposit::get()
 				).into());
 
-				pub RandomParaId: ParaId = ParaId::new(43211234);
+				pub const RandomParaId: ParaId = ParaId::new(43211234);
 			}
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
