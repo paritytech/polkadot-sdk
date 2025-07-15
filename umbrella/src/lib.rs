@@ -527,6 +527,10 @@ pub use pallet_migrations;
 #[cfg(feature = "pallet-mixnet")]
 pub use pallet_mixnet;
 
+/// FRAME pallet to manage multi-asset bounties.
+#[cfg(feature = "pallet-multi-asset-bounties")]
+pub use pallet_multi_asset_bounties;
+
 /// FRAME Merkle Mountain Range pallet.
 #[cfg(feature = "pallet-mmr")]
 pub use pallet_mmr;
