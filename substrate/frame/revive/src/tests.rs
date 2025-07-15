@@ -440,7 +440,6 @@ fn create2_precompile_works() {
 	use alloy_core::sol_types::SolInterface;
 	use sp_core::H160;
 
-	// let create2_precompile_addr = H160(NoInfo::<Test>::MATCHER.base_address());
 	let create2_precompile_addr = H160::from_low_u64_be(0x0B); // hardcoded 11 in create2.rs
 
 	let (code, _) = compile_module("dummy").unwrap();
@@ -481,7 +480,6 @@ fn create2_precompile_works_with_existing_code() {
 	use alloy_core::sol_types::SolInterface;
 	use sp_core::H160;
 
-	// let create2_precompile_addr = H160(NoInfo::<Test>::MATCHER.base_address());
 	let create2_precompile_addr = H160::from_low_u64_be(0x0B); // hardcoded 11 in create2.rs
 
 	let (code, _) = compile_module("dummy").unwrap();
