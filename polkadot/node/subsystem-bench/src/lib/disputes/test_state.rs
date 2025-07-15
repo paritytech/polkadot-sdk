@@ -199,7 +199,10 @@ impl HandleNetworkMessage for TestState {
 		_node_sender: &mut futures::channel::mpsc::UnboundedSender<NetworkMessage>,
 	) -> Option<NetworkMessage> {
 		match message {
-			NetworkMessage::RequestFromNode(authority_id, Requests::DisputeSendingV1(req)) => {
+			NetworkMessage::RequestFromNode(authority_id, requests) => {
+				let Requests::DisputeSendingV1(req) = *requests else {
+					todo!("Wrong requests type in message: {:?}", requests);
+				};
 				let mut tracker = self.requests_tracker.lock().unwrap();
 				tracker
 					.entry(req.payload.0.candidate_receipt.hash())
@@ -213,7 +216,7 @@ impl HandleNetworkMessage for TestState {
 				None
 			},
 			_ => {
-				todo!("{:?}", message);
+				todo!("Wrong message type: {:?}", message);
 			},
 		}
 	}

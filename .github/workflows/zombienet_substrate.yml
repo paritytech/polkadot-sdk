@@ -47,6 +47,7 @@ jobs:
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
+      options: -v /tmp/zombienet:/tmp/zombienet
     env:
       ZOMBIENET_INTEGRATION_TEST_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/substrate:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       DEBUG: "${{ needs.preflight.outputs.DEBUG }}"
@@ -65,6 +66,7 @@ jobs:
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
+
   zombienet-substrate-0001-basic-warp-sync:
     needs: [preflight]
     # only run if we have changes in ./substrate directory and the build workflow already finish with success status.
@@ -73,6 +75,7 @@ jobs:
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
+      options: -v /tmp/zombienet:/tmp/zombienet
     env:
       ZOMBIENET_INTEGRATION_TEST_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/substrate:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       DEBUG: "${{ needs.preflight.outputs.DEBUG }}"
@@ -92,7 +95,6 @@ jobs:
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
 
-
   # TODO: Disabled, fails 1 in 50 runs
   zombienet-substrate-0002-validators-warp-sync:
     needs: [preflight]
@@ -102,6 +104,7 @@ jobs:
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
+      options: -v /tmp/zombienet:/tmp/zombienet
     env:
       ZOMBIENET_INTEGRATION_TEST_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/substrate:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       DEBUG: "${{ needs.preflight.outputs.DEBUG }}"
@@ -114,8 +117,6 @@ jobs:
         run: |
           cp --remove-destination ${LOCAL_DIR}/0001-basic-warp-sync/chain-spec.json ${LOCAL_DIR}/0002-validators-warp-sync
 
-      #
-
       - name: zombienet_test
         uses: ./.github/actions/zombienet
         with:
@@ -126,7 +127,7 @@ jobs:
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
-  # TODO: Disabled, fails 1 in 50 runs
+
   zombienet-substrate-0003-block-building-warp-sync:
     needs: [preflight]
     # only run if we have changes in ./substrate directory and the build workflow already finish with success status.
@@ -135,6 +136,7 @@ jobs:
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
+      options: -v /tmp/zombienet:/tmp/zombienet
     env:
       ZOMBIENET_INTEGRATION_TEST_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/substrate:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
     steps:
@@ -146,7 +148,6 @@ jobs:
         run: |
           cp --remove-destination ${LOCAL_DIR}/0001-basic-warp-sync/chain-spec.json ${LOCAL_DIR}/0003-block-building-warp-sync
 
-      #
       - name: zombienet_test
         uses: ./.github/actions/zombienet
         with:

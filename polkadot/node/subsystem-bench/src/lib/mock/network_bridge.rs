@@ -130,7 +130,7 @@ impl MockNetworkBridgeTx {
 							}
 
 							let peer_message =
-								NetworkMessage::RequestFromNode(peer_id.clone(), request);
+								NetworkMessage::RequestFromNode(peer_id.clone(), Box::new(request));
 
 							let _ = self.to_network_interface.unbounded_send(peer_message);
 						}
