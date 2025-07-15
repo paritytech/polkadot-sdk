@@ -1814,7 +1814,7 @@ impl_runtime_apis! {
 						&account,
 						<Balances as Inspect<_>>::minimum_balance(),
 					));
-					let asset_id = 1441;
+					let asset_id = 1984;
 					assert_ok!(Assets::force_create(
 						RuntimeOrigin::root(),
 						asset_id.into(),
@@ -1822,7 +1822,7 @@ impl_runtime_apis! {
 						true,
 						1u128,
 					));
-					let amount = 100_000_000u128; //
+					let amount = 1_000_000u128;; //
 					let asset_location = Location::new(0, [PalletInstance(50), GeneralIndex(u32::from(asset_id).into())]);
 
 					Asset {
