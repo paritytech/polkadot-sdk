@@ -1,22 +1,13 @@
 title: '`polkadot-parachain`: impl `GetParachainInfo` for asset-hub-westend-local '
 doc:
-- audience: Todo
+- audience: [ Runtime Dev, Node Dev, Node Operator ] 
   description: |-
-    # Description
-
-    Addresses a bug report https://github.com/paritytech/zombienet/issues/2050. It is a miss coming from #8651.
-
-    ## Integration
-
-    N/A
-
-    ## Review Notes
-
-    N/A
+    Addresses a bug report https://github.com/paritytech/zombienet/issues/2050. It is a miss coming from #8651,
+    where we haven't implemented the `cumulus_primitives_core::GetParachainInfo` runtime API for `asset-hub-westend-local`.
 crates:
 - name: polkadot-parachain-bin
-  bump: major
+  bump: minor 
 - name: asset-hub-westend-runtime
-  bump: major
+  bump: minor 
 - name: polkadot-omni-node-lib
-  bump: major
+  bump: minor 
