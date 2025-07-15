@@ -85,6 +85,7 @@ frame_election_provider_support::generate_solution_type!(
 );
 
 ord_parameter_types! {
+	// https://westend.subscan.io/account/5GBoBNFP9TA7nAk82i6SUZJimerbdhxaRgyC2PVcdYQMdb8e
 	pub const WestendStakingMiner: AccountId = AccountId::from(hex_literal::hex!("b65991822483a6c3bd24b1dcf6afd3e270525da1f9c8c22a4373d1e1079e236a"));
 }
 
