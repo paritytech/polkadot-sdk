@@ -2,12 +2,10 @@ title: '`polkadot-parachain`: impl `GetParachainInfo` for asset-hub-westend-loca
 doc:
 - audience: [ Runtime Dev, Node Dev, Node Operator ] 
   description: |-
-    Addresses a bug report https://github.com/paritytech/zombienet/issues/2050. It is a miss coming from #8651,
-    where we haven't implemented the `cumulus_primitives_core::GetParachainInfo` runtime API for `asset-hub-westend-local`.
+    - Provides some updated to the asset-hub-westend-local chain specification, by adding appropriate gensis patch for parachainInfo.
+    - refactors the logic related to fetching `para_id` with the node, so that when failing to use `GetParachainInfo::parachain_id` we also get a log with the error (before defaulting to `para_id` extracted from chain spec).
 crates:
 - name: polkadot-parachain-bin
-  bump: minor 
-- name: asset-hub-westend-runtime
   bump: minor 
 - name: polkadot-omni-node-lib
   bump: minor 
