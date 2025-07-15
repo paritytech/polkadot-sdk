@@ -38,8 +38,6 @@ pub struct EventProof {
 	pub proof: Proof,
 }
 
-const MAX_TOPICS: usize = 4;
-
 #[derive(Clone, RuntimeDebug)]
 pub enum LogValidationError {
 	TooManyTopics,
@@ -51,15 +49,6 @@ pub struct Log {
 	pub address: H160,
 	pub topics: Vec<H256>,
 	pub data: Vec<u8>,
-}
-
-impl Log {
-	pub fn validate(&self) -> Result<(), LogValidationError> {
-		if self.topics.len() > MAX_TOPICS {
-			return Err(LogValidationError::TooManyTopics)
-		}
-		Ok(())
-	}
 }
 
 /// Inclusion proof for a transaction receipt
