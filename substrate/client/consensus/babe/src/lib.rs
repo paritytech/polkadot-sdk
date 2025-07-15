@@ -1003,20 +1003,23 @@ where
 		inherent_data: InherentData,
 		create_inherent_data_providers: CIDP::InherentDataProviders,
 	) -> Result<(), Error<Block>> {
-		let inherent_res = self
-			.client
-			.runtime_api()
-			.check_inherents(at_hash, block, inherent_data)
-			.map_err(Error::RuntimeApi)?;
+		use sp_block_builder::CheckInherentsError;
 
-		if !inherent_res.ok() {
-			for (i, e) in inherent_res.into_errors() {
-				match create_inherent_data_providers.try_handle_error(&i, &e).await {
-					Some(res) => res.map_err(|e| Error::CheckInherents(e))?,
-					None => return Err(Error::CheckInherentsUnhandled(i)),
-				}
-			}
-		}
+		sp_block_builder::check_inherents_with_data(
+			self.client.clone(),
+			at_hash,
+			block,
+			&create_inherent_data_providers,
+			inherent_data,
+		)
+		.await
+		.map_err(|e| match e {
+			CheckInherentsError::CreateInherentData(e) => Error::CreateInherents(e),
+			CheckInherentsError::Client(e) => Error::RuntimeApi(e),
+			CheckInherentsError::CheckInherents(e) => Error::CheckInherents(e),
+			CheckInherentsError::CheckInherentsUnknownError(id) =>
+				Error::CheckInherentsUnhandled(id),
+		})?;
 
 		Ok(())
 	}
