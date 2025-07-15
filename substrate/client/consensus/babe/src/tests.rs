@@ -35,6 +35,7 @@ use sp_consensus_babe::{
 };
 use sp_consensus_slots::SlotDuration;
 use sp_core::crypto::Pair;
+use sp_inherents::InherentData;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::MemoryKeystore, Keystore};
 use sp_runtime::{

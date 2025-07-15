@@ -120,7 +120,7 @@ use sp_consensus::{BlockOrigin, Environment, Error as ConsensusError, Proposer, 
 use sp_consensus_babe::{inherents::BabeInherentData, SlotDuration};
 use sp_consensus_slots::Slot;
 use sp_core::traits::SpawnEssentialNamed;
-use sp_inherents::{CreateInherentDataProviders, InherentData, InherentDataProvider};
+use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
 	generic::OpaqueDigestItemId,
@@ -1971,7 +1971,7 @@ where
 	let epoch_changes = epoch_changes.shared_data();
 	let epoch_descriptor = epoch_changes
 		.epoch_descriptor_for_child_of(
-			descendent_query(&*client),
+			descendent_query(client),
 			&parent_hash,
 			block_number - 1u32.into(),
 			slot,
