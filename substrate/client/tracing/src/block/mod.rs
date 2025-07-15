@@ -228,7 +228,19 @@ where
 			if let Err(e) = dispatcher::with_default(&dispatch, || {
 				let span = tracing::info_span!(target: TRACE_TARGET, "trace_block");
 				let _enter = span.enter();
-				self.client.runtime_api().execute_block(parent_hash, block)
+
+				let mut runtime_api = self.client.runtime_api();
+
+				// Enable proof recording
+				runtime_api.record_proof();
+				let recorder = runtime_api
+					.proof_recorder()
+					.expect("Proof recording is enabled in the line above; qed.");
+				runtime_api.register_extension(ProofSizeExt::new(recorder));
+
+
+				// Replay block
+				runtime_api.execute_block(parent_hash, block)
 			}) {
 				return Err(Error::Dispatch(format!(
 					"Failed to collect traces and execute block: {}",
