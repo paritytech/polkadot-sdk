@@ -1713,7 +1713,7 @@ impl_runtime_apis! {
 					ExistentialDeposit::get()
 				).into());
 
-				pub RandomParaId: ParaId = ParaId::new(43211234);
+				pub const RandomParaId: ParaId = ParaId::new(43211234);
 			}
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
@@ -1822,7 +1822,7 @@ impl_runtime_apis! {
 						true,
 						1u128,
 					));
-					let amount = 1_000_000u128;; //
+					let amount = 1_000_000u128;
 					let asset_location = Location::new(0, [PalletInstance(50), GeneralIndex(u32::from(asset_id).into())]);
 
 					Asset {
