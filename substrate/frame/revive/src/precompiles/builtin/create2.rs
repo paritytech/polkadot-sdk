@@ -26,10 +26,6 @@ use sp_arithmetic::traits::SaturatedConversion;
 use sp_core::U256;
 use sp_runtime::DispatchError;
 
-// upload the code before instantiate like in try_upload_code
-// maybe dont need to change instantiate, could be fine to always use create2 address
-// take endowment/value from the env
-
 sol! {
 	interface ICreate2 {
 		function create2(bytes memory code, bytes32 salt) external payable returns (address);
