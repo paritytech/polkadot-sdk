@@ -234,7 +234,7 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 
 			let params = sc_consensus_manual_seal::InstantSealParams {
 				block_import: client.clone(),
-				env: proposer.clone(),
+				env: proposer,
 				client,
 				pool: transaction_pool,
 				select_chain,
