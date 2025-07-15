@@ -84,6 +84,20 @@ runs:
             --test="$TEST_NAME"
         fi
 
+    - name: process_logs
+      if: ${{ ! cancelled() }}
+      shell: bash
+      run: |
+        echo "Processing log files"
+        echo "::group::Logs"
+        # do not fail the whole run if this step fails
+        if ! ./.github/scripts/process-logs-zombienet-sdk.sh ; then
+          echo "::endgroup::"
+          echo "::warning ::WARNING: Failed to process logs"
+        else
+          echo "::endgroup::"
+        fi
+
     - name: upload_logs
       uses: actions/upload-artifact@v4
       if: ${{ ! cancelled() }}

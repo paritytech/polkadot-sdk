@@ -654,7 +654,7 @@ where
 			select! {
 				ready = ready_at => Some(ready),
 				_ = timeout => {
-					warn!(
+					debug!(
 						target: LOG_TARGET,
 						?at,
 						"Timeout fired waiting for transaction pool at block. Proceeding with production."
@@ -749,13 +749,6 @@ where
 		xts: Vec<TransactionFor<Self>>,
 	) -> Result<Vec<Result<TxHash<Self>, ChainApi::Error>>, ChainApi::Error> {
 		let view_store = self.view_store.clone();
-		trace!(
-			target: LOG_TARGET,
-			count = xts.len(),
-			active_views_count = self.active_views_count(),
-			"fatp::submit_at"
-		);
-		log_xt_trace!(target: LOG_TARGET, xts.iter().map(|xt| self.tx_hash(xt)), "fatp::submit_at");
 		let xts = xts.into_iter().map(Arc::from).collect::<Vec<_>>();
 		let mempool_results = self.mempool.extend_unwatched(source, &xts).await;
 
@@ -933,9 +926,7 @@ where
 			"fatp::submit_at"
 		);
 		log_xt_trace!(target: LOG_TARGET, xts.iter().map(|xt| self.tx_hash(xt)), "fatp::submit_at");
-
 		let result = self.submit_at_inner(source, xts).await;
-
 		insert_and_log_throttled!(
 			Level::DEBUG,
 			target:LOG_TARGET_STAT,
