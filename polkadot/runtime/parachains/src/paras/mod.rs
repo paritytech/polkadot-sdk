@@ -118,7 +118,6 @@ use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use codec::{Decode, Encode};
 use core::{cmp, mem};
 use frame_support::{
-	dispatch::PostDispatchInfo,
 	pallet_prelude::*,
 	traits::{EnsureOriginWithArg, EstimateNextSessionRotation},
 	DefaultNoBound,
