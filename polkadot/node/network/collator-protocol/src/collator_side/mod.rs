@@ -244,11 +244,15 @@ struct PerRelayParent {
 }
 
 impl PerRelayParent {
-	fn new(
+	#[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
+	async fn new<Context>(
+		ctx: &mut Context,
+		runtime: &mut RuntimeInfo,
 		para_id: ParaId,
 		claim_queue: ClaimQueueSnapshot,
 		block_number: Option<BlockNumber>,
-	) -> Self {
+		block_hash: Hash,
+	) -> Result<Self> {
 		let assignments =
 			claim_queue.iter_all_claims().fold(HashMap::new(), |mut acc, (core, claims)| {
 				let n_claims = claims.iter().filter(|para| para == &&para_id).count();
@@ -258,12 +262,22 @@ impl PerRelayParent {
 				acc
 			});
 
-		Self {
-			validator_group: HashMap::default(),
+		let mut validator_groups = HashMap::default();
+
+		for (core, _) in &assignments {
+			let GroupValidators { validators, session_index: _, group_index: _ } =
+				determine_our_validators(ctx, runtime, *core, block_hash).await?;
+			let mut group = ValidatorGroup::default();
+			group.validators = validators;
+			validator_groups.insert(*core, group);
+		}
+
+		Ok(Self {
+			validator_group: validator_groups,
 			collations: HashMap::new(),
 			assignments,
 			block_number,
-		}
+		})
 	}
 }
 
@@ -387,8 +401,8 @@ async fn distribute_collation<Context>(
 	let candidate_relay_parent = receipt.descriptor.relay_parent();
 	let candidate_hash = receipt.hash();
 
-	// We should already be connected to the validators, but if we aren't, we will connect to them
-	// now.
+	// We should already be connected to the validators, but if we aren't, we will try to connect to
+	// them now.
 	connect_to_validators(ctx, &state.implicit_view, &state.per_relay_parent).await;
 
 	let per_relay_parent = match state.per_relay_parent.get_mut(&candidate_relay_parent) {
@@ -1264,7 +1278,7 @@ async fn handle_network_msg<Context>(
 		},
 		OurViewChange(view) => {
 			gum::trace!(target: LOG_TARGET, ?view, "Own view change");
-			handle_our_view_change(ctx, state, view).await?;
+			handle_our_view_change(ctx, runtime, state, view).await?;
 			connect_to_validators(ctx, &state.implicit_view, &state.per_relay_parent).await;
 		},
 		PeerMessage(remote, msg) => {
@@ -1344,6 +1358,7 @@ async fn process_block_events<Context>(
 #[overseer::contextbounds(CollatorProtocol, prefix = crate::overseer)]
 async fn handle_our_view_change<Context>(
 	ctx: &mut Context,
+	runtime: &mut RuntimeInfo,
 	state: &mut State,
 	view: OurView,
 ) -> Result<()> {
@@ -1363,9 +1378,10 @@ async fn handle_our_view_change<Context>(
 			.map_err(Error::ImplicitViewFetchError)?;
 
 		let block_number = implicit_view.block_number(leaf);
-		state
-			.per_relay_parent
-			.insert(*leaf, PerRelayParent::new(para_id, claim_queue, block_number));
+		state.per_relay_parent.insert(
+			*leaf,
+			PerRelayParent::new(ctx, runtime, para_id, claim_queue, block_number, *leaf).await?,
+		);
 
 		process_block_events(
 			ctx,
@@ -1393,9 +1409,18 @@ async fn handle_our_view_change<Context>(
 
 			if state.per_relay_parent.get(block_hash).is_none() {
 				let claim_queue = fetch_claim_queue(ctx.sender(), *block_hash).await?;
-				state
-					.per_relay_parent
-					.insert(*block_hash, PerRelayParent::new(para_id, claim_queue, block_number));
+				state.per_relay_parent.insert(
+					*block_hash,
+					PerRelayParent::new(
+						ctx,
+						runtime,
+						para_id,
+						claim_queue,
+						block_number,
+						*block_hash,
+					)
+					.await?,
+				);
 			}
 
 			let per_relay_parent =
