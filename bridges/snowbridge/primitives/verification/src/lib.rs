@@ -38,11 +38,6 @@ pub struct EventProof {
 	pub proof: Proof,
 }
 
-#[derive(Clone, RuntimeDebug)]
-pub enum LogValidationError {
-	TooManyTopics,
-}
-
 /// Event log
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct Log {
