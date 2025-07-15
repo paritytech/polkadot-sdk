@@ -24,9 +24,9 @@ pallet-whitelist = { workspace = true }
 sp-runtime = { workspace = true }
 
 # Polkadot
+collectives-westend-runtime = { workspace = true }
 pallet-xcm = { workspace = true }
 polkadot-runtime-common = { workspace = true, default-features = true }
-collectives-westend-runtime = { workspace = true }
 westend-runtime-constants = { workspace = true, default-features = true }
 xcm = { workspace = true }
 xcm-executor = { workspace = true }

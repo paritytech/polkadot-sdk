@@ -19,15 +19,13 @@
 use crate::{xcm_config::FellowshipAdminBodyId, *};
 use frame_support::{
 	parameter_types,
-	traits::{tokens::GetSalary, EitherOf, MapSuccess, PalletInfoAccess, NoOpPoll},
+	traits::{tokens::GetSalary, EitherOf, MapSuccess, NoOpPoll, PalletInfoAccess},
 };
 use frame_system::{pallet_prelude::BlockNumberFor, EnsureRootWithSuccess};
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
-use westend_runtime_constants::time::HOURS;
 use sp_core::{ConstU128, ConstU32};
-use sp_runtime::{
-	traits::{ConstU16, ConvertToValue, Identity, Replace}
-};
+use sp_runtime::traits::{ConstU16, ConvertToValue, Identity, Replace};
+use westend_runtime_constants::time::HOURS;
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::impls::benchmarks::OpenHrmpChannel;
