@@ -361,7 +361,7 @@ pub type WaivedLocations = (
 	FellowshipEntities,
 	AmbassadorEntities,
 	LocalPlurality,
-  SecretaryEntities,
+	SecretaryEntities,
 );
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
