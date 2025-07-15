@@ -213,8 +213,8 @@ pub async fn run_manual_seal<B, BI, CB, E, C, TP, SC, CS, CIDP, P>(
 /// the transaction pool.
 pub async fn run_instant_seal<B, BI, CB, E, C, TP, SC, CIDP, P>(
 	InstantSealParams {
-		block_import,
-		env,
+		mut block_import,
+		mut env,
 		client,
 		pool,
 		select_chain,
@@ -235,12 +235,31 @@ pub async fn run_instant_seal<B, BI, CB, E, C, TP, SC, CIDP, P>(
 {
 	// instant-seal creates blocks as soon as transactions are imported
 	// into the transaction pool.
-	let commands_stream = pool.import_notification_stream().map(|_| EngineCommand::SealNewBlock {
-		create_empty: true,
-		finalize: false,
-		parent_hash: None,
-		sender: None,
+	let create_empty = true;
+	let parent_hash = None;
+	let commands_stream = pool.import_notification_stream().map(move |_| {
+		EngineCommand::SealNewBlock { create_empty, finalize: false, parent_hash, sender: None }
 	});
+
+	// Seal a first block to trigger fork-aware txpool `maintain`, and create a first view.
+	// This is necessary so that sending txs will not keep them in mempool for an undeterminated
+	// amount of time.
+	//
+	// If single state txpool is used there's no issue if we're sealing a first block in advance.
+	seal_block(SealBlockParams {
+		sender: None,
+		parent_hash,
+		finalize: true,
+		create_empty,
+		env: &mut env,
+		select_chain: &select_chain,
+		block_import: &mut block_import,
+		consensus_data_provider: consensus_data_provider.as_deref(),
+		pool: pool.clone(),
+		client: client.clone(),
+		create_inherent_data_providers: &create_inherent_data_providers,
+	})
+	.await;
 
 	run_manual_seal(ManualSealParams {
 		block_import,
