@@ -2,14 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Test checks that misbehaving validators disabled.
-
 use anyhow::anyhow;
-
-use cumulus_zombienet_sdk_helpers::assert_finalized_para_throughput;
-use polkadot_primitives::{BlockNumber, CandidateHash, DisputeState, SessionIndex};
+use cumulus_zombienet_sdk_helpers::assert_para_throughput;
+use polkadot_primitives::{
+	BlockNumber, CandidateHash, DisputeState, SessionIndex, ValidatorId, ValidatorIndex,
+};
 use serde_json::json;
-use tokio::time::Duration;
-use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
 	NetworkConfigBuilder,
@@ -62,6 +60,7 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 				acc.with_node(|node| {
 					node.with_name(&format!("honest-validator-{i}"))
 						.with_args(vec![("-lparachain=debug,runtime::staking=debug".into())])
+						.invulnerable(false)
 				})
 			});
 			r
@@ -87,8 +86,7 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 	log::info!("Waiting for parablocks to be produced");
 	let honest_validator = network.get_node("honest-validator-0")?;
 	let relay_client: OnlineClient<PolkadotConfig> = honest_validator.wait_client().await?;
-
-	assert_finalized_para_throughput(
+	assert_para_throughput(
 		&relay_client,
 		20,
 		[(polkadot_primitives::Id::from(1000), 10..30)].into_iter().collect(),
@@ -98,45 +96,77 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 	log::info!("Wait for a dispute to be initialized.");
 	let mut best_blocks = relay_client.blocks().subscribe_best().await?;
 	let mut dispute_session: u32 = u32::MAX;
+	let mut block_hash = None;
 	// Check next new block from the current best fork
 	while let Some(block) = best_blocks.next().await {
+		let current_hash = block?.hash();
 		let disputes = relay_client
 			.runtime_api()
-			.at(block?.hash())
+			.at(current_hash)
 			.call_raw::<Vec<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>>(
 				"ParachainHost_disputes",
 				None,
 			)
 			.await?;
 		if let Some((session, _, _)) = disputes.first() {
+			block_hash = Some(current_hash);
 			dispute_session = *session;
 			break;
 		}
 	}
+
 	assert_ne!(dispute_session, u32::MAX);
 	log::info!("Dispute initiated.");
-
 	let concluded_dispute_metric =
 		"polkadot_parachain_candidate_dispute_concluded{validity=\"invalid\"}";
 	let parachain_candidate_dispute_metric = "parachain_candidate_disputes_total";
-	// honest-validator-1: reports parachain_candidate_disputes_total is at least 1 within 600
-	// seconds
+	// Check that we have at least one dispute
 	honest_validator
 		.wait_metric_with_timeout(parachain_candidate_dispute_metric, |d| d >= 1.0, 600_u64)
 		.await?;
-	// honest-validator: reports polkadot_parachain_candidate_dispute_concluded{validity="invalid"}
-	// is at least 1 within 200 seconds
+	// Check that we have at least one concluded dispute.
 	honest_validator
 		.wait_metric_with_timeout(concluded_dispute_metric, |d| d >= 1.0, 200_u64)
 		.await?;
-	// honest-validator: log line contains "Disabled validators detected" within 180 seconds
-	let result = honest_validator
-		.wait_log_line_count_with_timeout(
-			"*Disabled validators detected*",
-			true,
-			LogLineCountOptions::new(|n| n == 1, Duration::from_secs(180_u64), false),
-		)
+
+	let disabled_validators = relay_client
+		.runtime_api()
+		.at(block_hash.unwrap())
+		.call_raw::<Vec<ValidatorIndex>>("ParachainHost_disabled_validators", None)
 		.await?;
-	assert!(result.success());
+	// We should have at least one disable validator.
+	assert!(!disabled_validators.is_empty());
+
+	let session_validators = relay_client
+		.runtime_api()
+		.at(block_hash.unwrap())
+		.call_raw::<Vec<ValidatorId>>("ParachainHost_validators", None)
+		.await?;
+	// We have a single malicious node, hence the index of the malus-node is the first
+	// entry in the disabled validators list.
+	let disabled_node_public_address = &session_validators[(disabled_validators[0].0) as usize];
+
+	let hex_string = disabled_node_public_address
+		.clone()
+		.into_inner()
+		.0
+		.iter()
+		.map(|byte| format!("{:02x}", byte))
+		.collect::<String>();
+
+	let json_value: serde_json::Value =
+		serde_json::to_value(&network.get_node("malus-validator")?.spec())?;
+	let malus_public_address = json_value
+		.get("accounts")
+		.unwrap()
+		.get("accounts")
+		.unwrap()
+		.get("sr")
+		.unwrap()
+		.get("public_key")
+		.unwrap()
+		.to_string();
+
+	assert_eq!(hex_string, malus_public_address.trim_matches('"'));
 	Ok(())
 }
