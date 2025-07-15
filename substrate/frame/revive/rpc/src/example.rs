@@ -62,7 +62,7 @@ impl<Client: EthRpcClient + Sync + Send> SubmittedTransaction<Client> {
 					);
 					return Ok(receipt)
 				} else {
-					anyhow::bail!("Transaction failed")
+					anyhow::bail!("Transaction failed receipt: {receipt:?}")
 				}
 			}
 		}
@@ -180,7 +180,7 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 		let hash = client
 			.send_raw_transaction(bytes.into())
 			.await
-			.with_context(|| "transaction failed")?;
+			.with_context(|| "send_raw_transaction failed")?;
 
 		Ok(SubmittedTransaction {
 			tx: GenericTransaction::from_signed(signed_tx, gas_price, Some(from)),

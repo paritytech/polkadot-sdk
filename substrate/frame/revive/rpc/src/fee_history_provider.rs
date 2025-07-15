@@ -160,7 +160,7 @@ impl FeeHistoryProvider {
 async fn test_update_fee_history() {
 	let block = Block {
 		number: U256::from(200u64),
-		base_fee_per_gas: Some(U256::from(1000u64)),
+		base_fee_per_gas: U256::from(1000u64),
 		gas_used: U256::from(600u64),
 		gas_limit: U256::from(1200u64),
 		..Default::default()
