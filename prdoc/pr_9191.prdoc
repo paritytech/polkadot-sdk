@@ -5,4 +5,4 @@ doc:
     Added cumulus_primitives_core::GetParachainInfo impl to the AHW runtime to get the parachain ID.
 crates:
 - name: asset-hub-westend-runtime
-  bump: patch
+  bump: minor
