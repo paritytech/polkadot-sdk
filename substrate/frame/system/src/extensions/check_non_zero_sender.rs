@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::Config;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::marker::PhantomData;
 use frame_support::{pallet_prelude::TransactionSource, traits::OriginTrait, DefaultNoBound};
 use scale_info::TypeInfo;
@@ -27,7 +27,7 @@ use sp_runtime::{
 };
 
 /// Check to ensure that the sender is not the zero address.
-#[derive(Encode, Decode, DefaultNoBound, Clone, Eq, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, DefaultNoBound, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckNonZeroSender<T>(PhantomData<T>);
 
@@ -86,7 +86,7 @@ mod tests {
 	use crate::mock::{new_test_ext, Test, CALL};
 	use frame_support::{assert_ok, dispatch::DispatchInfo};
 	use sp_runtime::{
-		traits::{AsTransactionAuthorizedOrigin, DispatchTransaction},
+		traits::{AsTransactionAuthorizedOrigin, DispatchTransaction, TxBaseImplication},
 		transaction_validity::{TransactionSource::External, TransactionValidityError},
 	};
 
@@ -118,7 +118,7 @@ mod tests {
 			let info = DispatchInfo::default();
 			let len = 0_usize;
 			let (_, _, origin) = CheckNonZeroSender::<Test>::new()
-				.validate(None.into(), CALL, &info, len, (), CALL, External)
+				.validate(None.into(), CALL, &info, len, (), &TxBaseImplication(CALL), External)
 				.unwrap();
 			assert!(!origin.is_transaction_authorized());
 		})

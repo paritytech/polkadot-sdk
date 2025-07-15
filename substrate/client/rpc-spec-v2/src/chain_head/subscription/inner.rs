@@ -784,7 +784,7 @@ mod tests {
 	use super::*;
 	use jsonrpsee::ConnectionId;
 	use sc_block_builder::BlockBuilderBuilder;
-	use sc_service::client::new_in_mem;
+	use sc_service::client::new_with_backend;
 	use sp_consensus::BlockOrigin;
 	use sp_core::{testing::TaskExecutor, H256};
 	use substrate_test_runtime_client::{
@@ -811,13 +811,13 @@ mod tests {
 		)
 		.unwrap();
 		let client = Arc::new(
-			new_in_mem::<_, Block, _, RuntimeApi>(
+			new_with_backend::<_, _, Block, _, RuntimeApi>(
 				backend.clone(),
 				executor,
 				genesis_block_builder,
-				None,
-				None,
 				Box::new(TaskExecutor::new()),
+				None,
+				None,
 				client_config,
 			)
 			.unwrap(),

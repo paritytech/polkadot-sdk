@@ -1,0 +1,63 @@
+[package]
+name = "cumulus-pallet-weight-reclaim"
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+description = "pallet and transaction extensions for accurate proof size reclaim"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+# Substrate dependencies
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-trie = { workspace = true }
+
+cumulus-primitives-storage-weight-reclaim = { workspace = true }
+frame-benchmarking = { optional = true, workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+
+# Other dependencies
+codec = { features = ["derive"], workspace = true }
+derive-where = { workspace = true }
+docify = { workspace = true }
+log = { workspace = true, default-features = true }
+scale-info = { features = ["derive"], workspace = true }
+
+[dev-dependencies]
+cumulus-primitives-proof-size-hostfunction = { workspace = true }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"cumulus-primitives-proof-size-hostfunction/std",
+	"cumulus-primitives-storage-weight-reclaim/std",
+	"frame-benchmarking?/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"scale-info/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-trie/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
+]

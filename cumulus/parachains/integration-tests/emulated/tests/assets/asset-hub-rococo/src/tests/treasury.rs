@@ -64,6 +64,7 @@ fn spend_roc_on_asset_hub() {
 			treasury_balance * 2,
 		));
 
+		Dmp::make_parachain_reachable(1000);
 		let native_asset = Location::here();
 		let asset_hub_location: Location = [Parachain(1000)].into();
 		let treasury_location: Location = (Parent, PalletInstance(18)).into();
@@ -81,7 +82,7 @@ fn spend_roc_on_asset_hub() {
 			})),
 		});
 
-		// Dispatched from Root to `despatch_as` `Signed(treasury_account)`.
+		// Dispatched from Root to `dispatch_as` `Signed(treasury_account)`.
 		assert_ok!(teleport_call.dispatch(root));
 
 		assert_expected_events!(
@@ -198,6 +199,8 @@ fn create_and_claim_treasury_spend_in_usdt() {
 
 		// create a conversion rate from `asset_kind` to the native currency.
 		assert_ok!(AssetRate::create(root.clone(), Box::new(asset_kind.clone()), 2.into()));
+
+		Dmp::make_parachain_reachable(1000);
 
 		// create and approve a treasury spend.
 		assert_ok!(Treasury::spend(

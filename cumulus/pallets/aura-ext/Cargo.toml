@@ -5,6 +5,8 @@ authors.workspace = true
 edition.workspace = true
 description = "AURA consensus extension pallet for parachains"
 license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -26,9 +28,17 @@ sp-runtime = { workspace = true }
 cumulus-pallet-parachain-system = { workspace = true }
 
 [dev-dependencies]
+rstest = { workspace = true }
 
 # Cumulus
 cumulus-pallet-parachain-system = { workspace = true, default-features = true }
+cumulus-primitives-core = { workspace = true, default-features = true }
+cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
+
+# Substrate
+sp-core = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-version = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

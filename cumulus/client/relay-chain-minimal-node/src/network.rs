@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use polkadot_core_primitives::{Block, Hash, Header};
 use sp_runtime::traits::NumberFor;
@@ -43,7 +44,7 @@ pub(crate) fn build_collator_network<Network: NetworkBackend<Block, Hash>>(
 	notification_metrics: NotificationMetrics,
 ) -> Result<(Arc<dyn NetworkService>, Arc<dyn sp_consensus::SyncOracle + Send + Sync>), Error> {
 	let protocol_id = config.protocol_id();
-	let (block_announce_config, _notification_service) = get_block_announce_proto_config::<Network>(
+	let (block_announce_config, notification_service) = get_block_announce_proto_config::<Network>(
 		protocol_id.clone(),
 		&None,
 		Roles::from(&config.role),
@@ -89,7 +90,21 @@ pub(crate) fn build_collator_network<Network: NetworkBackend<Block, Hash>>(
 	// issue, and ideally we would like to fix the network future to take as little time as
 	// possible, but we also take the extra harm-prevention measure to execute the networking
 	// future using `spawn_blocking`.
-	spawn_handle.spawn_blocking("network-worker", Some("networking"), network_worker.run());
+	spawn_handle.spawn_blocking("network-worker", Some("networking"), async move {
+		// The notification service must be kept alive to allow litep2p to handle
+		// requests under the hood. It has been noted that without the notification
+		// service of the `/block-announces/1` protocol, collators are not advertised
+		// and their produced blocks do not propagate:
+		// https://github.com/paritytech/polkadot-sdk/issues/8474
+		//
+		// This is because the full nodes on the relay chain will attempt to establish
+		// a connection to the minimal relay chain. By dropping the notification service,
+		// litep2p would terminate the background task which handles the `/block-announces/1`
+		// notification protocol. The downstream effect of this is that the full node
+		// would ban and disconnect the the minimal relay chain node.
+		let _notification_service = notification_service;
+		network_worker.run().await;
+	});
 
 	Ok((network_service, Arc::new(SyncOracle {})))
 }

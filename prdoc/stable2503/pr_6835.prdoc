@@ -1,0 +1,12 @@
+title: '[pallet-revive] implement the call data load API'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR implements the call data load API akin to [how it works on ethereum](https://www.evm.codes/?fork=cancun#35).
+crates:
+- name: pallet-revive-fixtures
+  bump: minor
+- name: pallet-revive
+  bump: minor
+- name: pallet-revive-uapi
+  bump: minor

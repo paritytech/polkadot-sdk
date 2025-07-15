@@ -1,0 +1,17 @@
+title: '`txpool api`: `remove_invalid` call improved'
+doc:
+- audience: Node Dev
+  description: |-
+    Currently the transaction which is reported as invalid by a block builder (or `removed_invalid` by other components) is silently skipped. This PR improves this behavior. The transaction pool `report_invalid` function now accepts optional error associated with every reported transaction, and also the optional block hash which both provide hints how reported invalid transaction shall be handled.  Depending on error, the transaction pool can decide if transaction shall be removed from the view only or entirely from the pool. Invalid event will be dispatched if required.
+
+crates:
+- name: sc-transaction-pool-api
+  bump: minor
+- name: sc-transaction-pool
+  bump: minor
+- name: sc-rpc-spec-v2
+  bump: minor
+- name: sc-rpc
+  bump: minor
+- name: sc-basic-authorship
+  bump: minor

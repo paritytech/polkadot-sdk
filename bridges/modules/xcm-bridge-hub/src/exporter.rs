@@ -73,25 +73,32 @@ where
 		destination: &mut Option<InteriorLocation>,
 		message: &mut Option<Xcm<()>>,
 	) -> Result<(Self::Ticket, Assets), SendError> {
-		log::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
-			"Validate for network: {network:?}, channel: {channel:?}, universal_source: {universal_source:?}, destination: {destination:?}"
+			?network,
+			?channel,
+			?universal_source,
+			?destination,
+			"Validate for network"
 		);
 
 		// `HaulBlobExporter` may consume the `universal_source` and `destination` arguments, so
 		// let's save them before
 		let bridge_origin_universal_location =
-			universal_source.clone().take().ok_or(SendError::MissingArgument)?;
+			universal_source.clone().ok_or(SendError::MissingArgument)?;
 		// Note: watch out this is `ExportMessage::destination`, which is relative to the `network`,
 		// which means it does not contain `GlobalConsensus`, We need to find `BridgeId` with
 		// `Self::bridge_locations` which requires **universal** location for destination.
 		let bridge_destination_universal_location = {
-			let dest = destination.clone().take().ok_or(SendError::MissingArgument)?;
+			let dest = destination.clone().ok_or(SendError::MissingArgument)?;
 			match dest.global_consensus() {
 				Ok(dest_network) => {
-					log::trace!(
+					tracing::trace!(
 						target: LOG_TARGET,
-						"Destination: {dest:?} is already universal, checking dest_network: {dest_network:?} and network: {network:?} if matches: {:?}",
+						?dest,
+						?dest_network,
+						?network,
+						"Destination is already universal, checking if matches: {:?}",
 						dest_network == network
 					);
 					ensure!(dest_network == network, SendError::NotApplicable);
@@ -102,11 +109,9 @@ where
 					// `dest` is not a universal location, so we need to prepend it with
 					// `GlobalConsensus`.
 					dest.pushed_front_with(GlobalConsensus(network)).map_err(|error_data| {
-						log::error!(
-							target: LOG_TARGET,
-							"Destination: {:?} is not a universal and prepending with {:?} failed!",
-							error_data.0,
-							error_data.1,
+						tracing::error!(
+							target: LOG_TARGET, error=?error_data,
+							"Destination is not a universal and prepending failed!"
 						);
 						SendError::NotApplicable
 					})?
@@ -124,18 +129,18 @@ where
 			bridge_destination_universal_location.into(),
 		)
 		.map_err(|e| {
-			log::error!(
-				target: LOG_TARGET,
-				"Validate `bridge_locations` with error: {e:?}",
+			tracing::error!(
+				target: LOG_TARGET, error=?e,
+				"Validate `bridge_locations` with error"
 			);
 			SendError::NotApplicable
 		})?;
 		let bridge = Self::bridge(locations.bridge_id()).ok_or_else(|| {
-			log::error!(
+			tracing::error!(
 				target: LOG_TARGET,
-				"No opened bridge for requested bridge_origin_relative_location: {:?} and bridge_destination_universal_location: {:?}",
-				locations.bridge_origin_relative_location(),
-				locations.bridge_destination_universal_location(),
+				bridge_origin_relative_location=?locations.bridge_origin_relative_location(),
+				bridge_destination_universal_location=?locations.bridge_destination_universal_location(),
+				"No opened bridge for requested"
 			);
 			SendError::NotApplicable
 		})?;
@@ -155,21 +160,21 @@ where
 			.map_err(|e| {
 				match e {
 					Error::LanesManager(ref ei) =>
-						log::error!(target: LOG_TARGET, "LanesManager: {ei:?}"),
+						tracing::error!(target: LOG_TARGET, error=?ei, "LanesManager"),
 					Error::MessageRejectedByPallet(ref ei) =>
-						log::error!(target: LOG_TARGET, "MessageRejectedByPallet: {ei:?}"),
+						tracing::error!(target: LOG_TARGET, error=?ei, "MessageRejectedByPallet"),
 					Error::ReceptionConfirmation(ref ei) =>
-						log::error!(target: LOG_TARGET, "ReceptionConfirmation: {ei:?}"),
+						tracing::error!(target: LOG_TARGET, error=?ei, "ReceptionConfirmation"),
 					_ => (),
 				};
 
-				log::error!(
+				tracing::error!(
 					target: LOG_TARGET,
-					"XCM message {:?} cannot be exported because of bridge error: {:?} on bridge {:?} and laneId: {:?}",
-					id,
-					e,
-					locations,
-					bridge.lane_id,
+					error=?e,
+					topic_id=?id,
+					bridge_id=?locations,
+					lane_id=?bridge.lane_id,
+					"XCM message cannot be exported"
 				);
 				SendError::Transport("BridgeValidateError")
 			})?;
@@ -182,13 +187,13 @@ where
 	) -> Result<XcmHash, SendError> {
 		let artifacts = MessagesPallet::<T, I>::send_message(bridge_message);
 
-		log::info!(
+		tracing::info!(
 			target: LOG_TARGET,
-			"XCM message {:?} has been enqueued at bridge {:?} and lane_id: {:?} with nonce {}",
-			id,
-			bridge_id,
-			bridge.lane_id,
-			artifacts.nonce,
+			topic_id=?id,
+			bridge_id=?bridge_id,
+			lane_id=?bridge.lane_id,
+			nonce=%artifacts.nonce,
+			"XCM message has been enqueued"
 		);
 
 		// maybe we need switch to congested state
@@ -228,15 +233,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 
 		// else - suspend the bridge
-		let bridge_origin_relative_location = match bridge.bridge_origin_relative_location.try_as()
-		{
+		let result_bridge_origin_relative_location =
+			(*bridge.bridge_origin_relative_location).clone().try_into();
+		let bridge_origin_relative_location = match &result_bridge_origin_relative_location {
 			Ok(bridge_origin_relative_location) => bridge_origin_relative_location,
 			Err(_) => {
-				log::debug!(
+				tracing::debug!(
 					target: LOG_TARGET,
-					"Failed to convert the bridge {:?} origin location {:?}",
-					bridge_id,
-					bridge.bridge_origin_relative_location,
+					?bridge_id,
+					origin_location=?bridge.bridge_origin_relative_location,
+					"Failed to convert"
 				);
 
 				return
@@ -246,20 +252,20 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			T::LocalXcmChannelManager::suspend_bridge(bridge_origin_relative_location, bridge_id);
 		match suspend_result {
 			Ok(_) => {
-				log::debug!(
+				tracing::debug!(
 					target: LOG_TARGET,
-					"Suspended the bridge {:?}, originated by the {:?}",
-					bridge_id,
-					bridge.bridge_origin_relative_location,
+					?bridge_id,
+					originated_by=?bridge.bridge_origin_relative_location,
+					"Suspended"
 				);
 			},
 			Err(e) => {
-				log::debug!(
+				tracing::debug!(
 					target: LOG_TARGET,
-					"Failed to suspended the bridge {:?}, originated by the {:?}: {:?}",
-					bridge_id,
-					bridge.bridge_origin_relative_location,
-					e,
+					error=?e,
+					?bridge_id,
+					originated_by=?bridge.bridge_origin_relative_location,
+					"Failed to suspended"
 				);
 
 				return
@@ -297,12 +303,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let bridge_origin_relative_location = match bridge_origin_relative_location {
 			Ok(bridge_origin_relative_location) => bridge_origin_relative_location,
 			Err(e) => {
-				log::debug!(
+				tracing::debug!(
 					target: LOG_TARGET,
-					"Failed to convert the bridge {:?} location for lane_id: {:?}, error {:?}",
-					bridge_id,
-					lane_id,
-					e,
+					error=?e,
+					?bridge_id,
+					?lane_id,
+					"Failed to convert",
 				);
 
 				return
@@ -313,22 +319,22 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			T::LocalXcmChannelManager::resume_bridge(&bridge_origin_relative_location, bridge_id);
 		match resume_result {
 			Ok(_) => {
-				log::debug!(
+				tracing::debug!(
 					target: LOG_TARGET,
-					"Resumed the bridge {:?} and lane_id: {:?}, originated by the {:?}",
-					bridge_id,
-					lane_id,
-					bridge_origin_relative_location,
+					?bridge_id,
+					?lane_id,
+					originated_by=?bridge_origin_relative_location,
+					"Resumed",
 				);
 			},
 			Err(e) => {
-				log::debug!(
+				tracing::debug!(
 					target: LOG_TARGET,
-					"Failed to resume the bridge {:?} and lane_id: {:?}, originated by the {:?}: {:?}",
-					bridge_id,
-					lane_id,
-					bridge_origin_relative_location,
-					e,
+					error=?e,
+					?bridge_id,
+					?lane_id,
+					originated_by=?bridge_origin_relative_location,
+					"Failed to resume"
 				);
 
 				return
@@ -364,7 +370,7 @@ mod tests {
 
 	use bp_runtime::RangeInclusiveExt;
 	use bp_xcm_bridge_hub::{Bridge, BridgeLocations, BridgeState};
-	use frame_support::assert_ok;
+	use frame_support::{assert_ok, traits::EnsureOrigin};
 	use pallet_bridge_messages::InboundLaneStorage;
 	use xcm_builder::{NetworkExportTable, UnpaidRemoteExporter};
 	use xcm_executor::traits::{export_xcm, ConvertLocation};
@@ -381,9 +387,8 @@ mod tests {
 		BridgedUniversalDestination::get()
 	}
 
-	fn open_lane() -> (BridgeLocations, TestLaneIdType) {
+	fn open_lane(origin: RuntimeOrigin) -> (BridgeLocations, TestLaneIdType) {
 		// open expected outbound lane
-		let origin = OpenBridgeOrigin::sibling_parachain_origin();
 		let with = bridged_asset_hub_universal_location();
 		let locations =
 			XcmOverBridge::bridge_locations_from_origin(origin, Box::new(with.into())).unwrap();
@@ -439,7 +444,7 @@ mod tests {
 	}
 
 	fn open_lane_and_send_regular_message() -> (BridgeId, TestLaneIdType) {
-		let (locations, lane_id) = open_lane();
+		let (locations, lane_id) = open_lane(OpenBridgeOrigin::sibling_parachain_origin());
 
 		// now let's try to enqueue message using our `ExportXcm` implementation
 		export_xcm::<XcmOverBridge>(
@@ -473,7 +478,7 @@ mod tests {
 	fn exporter_does_not_suspend_the_bridge_if_outbound_bridge_queue_is_not_congested() {
 		run_test(|| {
 			let (bridge_id, _) = open_lane_and_send_regular_message();
-			assert!(!TestLocalXcmChannelManager::is_bridge_suspened());
+			assert!(!TestLocalXcmChannelManager::is_bridge_suspended(&bridge_id));
 			assert_eq!(XcmOverBridge::bridge(&bridge_id).unwrap().state, BridgeState::Opened);
 		});
 	}
@@ -490,7 +495,7 @@ mod tests {
 			}
 
 			open_lane_and_send_regular_message();
-			assert!(!TestLocalXcmChannelManager::is_bridge_suspened());
+			assert!(!TestLocalXcmChannelManager::is_bridge_suspended(&bridge_id));
 		});
 	}
 
@@ -502,11 +507,11 @@ mod tests {
 				open_lane_and_send_regular_message();
 			}
 
-			assert!(!TestLocalXcmChannelManager::is_bridge_suspened());
+			assert!(!TestLocalXcmChannelManager::is_bridge_suspended(&bridge_id));
 			assert_eq!(XcmOverBridge::bridge(&bridge_id).unwrap().state, BridgeState::Opened);
 
 			open_lane_and_send_regular_message();
-			assert!(TestLocalXcmChannelManager::is_bridge_suspened());
+			assert!(TestLocalXcmChannelManager::is_bridge_suspended(&bridge_id));
 			assert_eq!(XcmOverBridge::bridge(&bridge_id).unwrap().state, BridgeState::Suspended);
 		});
 	}
@@ -523,7 +528,7 @@ mod tests {
 				OUTBOUND_LANE_UNCONGESTED_THRESHOLD + 1,
 			);
 
-			assert!(!TestLocalXcmChannelManager::is_bridge_resumed());
+			assert!(!TestLocalXcmChannelManager::is_bridge_resumed(&bridge_id));
 			assert_eq!(XcmOverBridge::bridge(&bridge_id).unwrap().state, BridgeState::Suspended);
 		});
 	}
@@ -537,7 +542,7 @@ mod tests {
 				OUTBOUND_LANE_UNCONGESTED_THRESHOLD,
 			);
 
-			assert!(!TestLocalXcmChannelManager::is_bridge_resumed());
+			assert!(!TestLocalXcmChannelManager::is_bridge_resumed(&bridge_id));
 			assert_eq!(XcmOverBridge::bridge(&bridge_id).unwrap().state, BridgeState::Opened);
 		});
 	}
@@ -554,7 +559,7 @@ mod tests {
 				OUTBOUND_LANE_UNCONGESTED_THRESHOLD,
 			);
 
-			assert!(TestLocalXcmChannelManager::is_bridge_resumed());
+			assert!(TestLocalXcmChannelManager::is_bridge_resumed(&bridge_id));
 			assert_eq!(XcmOverBridge::bridge(&bridge_id).unwrap().state, BridgeState::Opened);
 		});
 	}
@@ -648,7 +653,10 @@ mod tests {
 			let dest = Location::new(2, BridgedUniversalDestination::get());
 
 			// open bridge
-			let (_, expected_lane_id) = open_lane();
+			let origin = OpenBridgeOrigin::sibling_parachain_origin();
+			let origin_as_location =
+				OpenBridgeOriginOf::<TestRuntime, ()>::try_origin(origin.clone()).unwrap();
+			let (_, expected_lane_id) = open_lane(origin);
 
 			// check before - no messages
 			assert_eq!(
@@ -662,18 +670,24 @@ mod tests {
 			);
 
 			// send `ExportMessage(message)` by `UnpaidRemoteExporter`.
-			TestExportXcmWithXcmOverBridge::set_origin_for_execute(SiblingLocation::get());
+			ExecuteXcmOverSendXcm::set_origin_for_execute(origin_as_location);
 			assert_ok!(send_xcm::<
 				UnpaidRemoteExporter<
 					NetworkExportTable<BridgeTable>,
-					TestExportXcmWithXcmOverBridge,
+					ExecuteXcmOverSendXcm,
 					UniversalLocation,
 				>,
 			>(dest.clone(), Xcm::<()>::default()));
 
+			// we need to set `UniversalLocation` for `sibling_parachain_origin` for
+			// `XcmOverBridgeWrappedWithExportMessageRouterInstance`.
+			ExportMessageOriginUniversalLocation::set(Some(SiblingUniversalLocation::get()));
 			// send `ExportMessage(message)` by `pallet_xcm_bridge_hub_router`.
-			TestExportXcmWithXcmOverBridge::set_origin_for_execute(SiblingLocation::get());
-			assert_ok!(send_xcm::<XcmOverBridgeRouter>(dest.clone(), Xcm::<()>::default()));
+			ExecuteXcmOverSendXcm::set_origin_for_execute(SiblingLocation::get());
+			assert_ok!(send_xcm::<XcmOverBridgeWrappedWithExportMessageRouter>(
+				dest.clone(),
+				Xcm::<()>::default()
+			));
 
 			// check after - a message ready to be relayed
 			assert_eq!(
@@ -765,7 +779,7 @@ mod tests {
 			);
 
 			// ok
-			let _ = open_lane();
+			let _ = open_lane(OpenBridgeOrigin::sibling_parachain_origin());
 			let mut dest_wrapper = Some(bridged_relative_destination());
 			assert_ok!(XcmOverBridge::validate(
 				BridgedRelayNetwork::get(),
@@ -779,5 +793,78 @@ mod tests {
 			assert_eq!(&Some(universal_source()), &universal_source_wrapper);
 			assert_eq!(None, dest_wrapper);
 		});
+	}
+
+	#[test]
+	fn congestion_with_pallet_xcm_bridge_hub_router_works() {
+		run_test(|| {
+			// valid routable destination
+			let dest = Location::new(2, BridgedUniversalDestination::get());
+
+			fn router_bridge_state() -> pallet_xcm_bridge_hub_router::BridgeState {
+				pallet_xcm_bridge_hub_router::Bridge::<
+					TestRuntime,
+					XcmOverBridgeWrappedWithExportMessageRouterInstance,
+				>::get()
+			}
+
+			// open two bridges
+			let origin = OpenBridgeOrigin::sibling_parachain_origin();
+			let origin_as_location =
+				OpenBridgeOriginOf::<TestRuntime, ()>::try_origin(origin.clone()).unwrap();
+			let (bridge_1, expected_lane_id_1) = open_lane(origin);
+
+			// we need to set `UniversalLocation` for `sibling_parachain_origin` for
+			// `XcmOverBridgeWrappedWithExportMessageRouterInstance`.
+			ExportMessageOriginUniversalLocation::set(Some(SiblingUniversalLocation::get()));
+
+			// check before
+			// bridges are opened
+			assert_eq!(
+				XcmOverBridge::bridge(bridge_1.bridge_id()).unwrap().state,
+				BridgeState::Opened
+			);
+
+			// the router is uncongested
+			assert!(!router_bridge_state().is_congested);
+			assert!(!TestLocalXcmChannelManager::is_bridge_suspended(bridge_1.bridge_id()));
+			assert!(!TestLocalXcmChannelManager::is_bridge_resumed(bridge_1.bridge_id()));
+
+			// make bridges congested with sending too much messages
+			for _ in 1..(OUTBOUND_LANE_CONGESTED_THRESHOLD + 2) {
+				// send `ExportMessage(message)` by `pallet_xcm_bridge_hub_router`.
+				ExecuteXcmOverSendXcm::set_origin_for_execute(origin_as_location.clone());
+				assert_ok!(send_xcm::<XcmOverBridgeWrappedWithExportMessageRouter>(
+					dest.clone(),
+					Xcm::<()>::default()
+				));
+			}
+
+			// checks after
+			// bridges are suspended
+			assert_eq!(
+				XcmOverBridge::bridge(bridge_1.bridge_id()).unwrap().state,
+				BridgeState::Suspended,
+			);
+			// the router is congested
+			assert!(router_bridge_state().is_congested);
+			assert!(TestLocalXcmChannelManager::is_bridge_suspended(bridge_1.bridge_id()));
+			assert!(!TestLocalXcmChannelManager::is_bridge_resumed(bridge_1.bridge_id()));
+
+			// make bridges uncongested to trigger resume signal
+			XcmOverBridge::on_bridge_messages_delivered(
+				expected_lane_id_1,
+				OUTBOUND_LANE_UNCONGESTED_THRESHOLD,
+			);
+
+			// bridge is again opened
+			assert_eq!(
+				XcmOverBridge::bridge(bridge_1.bridge_id()).unwrap().state,
+				BridgeState::Opened
+			);
+			// the router is uncongested
+			assert!(!router_bridge_state().is_congested);
+			assert!(TestLocalXcmChannelManager::is_bridge_resumed(bridge_1.bridge_id()));
+		})
 	}
 }

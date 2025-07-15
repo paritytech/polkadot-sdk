@@ -1,0 +1,13 @@
+title: Documentation update for weight.
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    Document the usage of `#[pallet::call(weight = <T as Config>::WeightInfo)]` within FRAME macros.
+    This update enhances the documentation for `#[pallet::call]` and `#[pallet::weight]`, providing 
+    examples and clarifying weight specifications for dispatchable functions, ensuring consistency 
+    with existing guidelines.
+
+crates:
+  - name: frame-support
+    bump: patch

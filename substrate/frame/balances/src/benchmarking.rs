@@ -65,7 +65,12 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), recipient_lookup, transfer_amount);
 
-		assert_eq!(Balances::<T, I>::free_balance(&caller), Zero::zero());
+		if cfg!(feature = "insecure_zero_ed") {
+			assert_eq!(Balances::<T, I>::free_balance(&caller), balance - transfer_amount);
+		} else {
+			assert_eq!(Balances::<T, I>::free_balance(&caller), Zero::zero());
+		}
+
 		assert_eq!(Balances::<T, I>::free_balance(&recipient), transfer_amount);
 	}
 
@@ -122,10 +127,8 @@ mod benchmarks {
 		let user: T::AccountId = account("user", 0, SEED);
 		let user_lookup = T::Lookup::unlookup(user.clone());
 
-		// Give the user some initial balance.
 		let existential_deposit: T::Balance = minimum_balance::<T, I>();
 		let balance_amount = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
-		let _ = <Balances<T, I> as Currency<_>>::make_free_balance_be(&user, balance_amount);
 
 		#[extrinsic_call]
 		force_set_balance(RawOrigin::Root, user_lookup, balance_amount);
@@ -173,7 +176,12 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Root, source_lookup, recipient_lookup, transfer_amount);
 
-		assert_eq!(Balances::<T, I>::free_balance(&source), Zero::zero());
+		if cfg!(feature = "insecure_zero_ed") {
+			assert_eq!(Balances::<T, I>::free_balance(&source), balance - transfer_amount);
+		} else {
+			assert_eq!(Balances::<T, I>::free_balance(&source), Zero::zero());
+		}
+
 		assert_eq!(Balances::<T, I>::free_balance(&recipient), transfer_amount);
 	}
 
@@ -208,7 +216,12 @@ mod benchmarks {
 		#[extrinsic_call]
 		transfer_allow_death(RawOrigin::Signed(caller.clone()), recipient_lookup, transfer_amount);
 
-		assert_eq!(Balances::<T, I>::free_balance(&caller), Zero::zero());
+		if cfg!(feature = "insecure_zero_ed") {
+			assert_eq!(Balances::<T, I>::free_balance(&caller), balance - transfer_amount);
+		} else {
+			assert_eq!(Balances::<T, I>::free_balance(&caller), Zero::zero());
+		}
+
 		assert_eq!(Balances::<T, I>::free_balance(&recipient), transfer_amount);
 	}
 
@@ -308,7 +321,7 @@ mod benchmarks {
 	/// Benchmark `burn` extrinsic with the worst possible condition - burn kills the account.
 	#[benchmark]
 	fn burn_allow_death() {
-		let existential_deposit = T::ExistentialDeposit::get();
+		let existential_deposit: T::Balance = minimum_balance::<T, I>();
 		let caller = whitelisted_caller();
 
 		// Give some multiple of the existential deposit
@@ -321,13 +334,17 @@ mod benchmarks {
 		#[extrinsic_call]
 		burn(RawOrigin::Signed(caller.clone()), burn_amount, false);
 
-		assert_eq!(Balances::<T, I>::free_balance(&caller), Zero::zero());
+		if cfg!(feature = "insecure_zero_ed") {
+			assert_eq!(Balances::<T, I>::free_balance(&caller), balance - burn_amount);
+		} else {
+			assert_eq!(Balances::<T, I>::free_balance(&caller), Zero::zero());
+		}
 	}
 
 	// Benchmark `burn` extrinsic with the case where account is kept alive.
 	#[benchmark]
 	fn burn_keep_alive() {
-		let existential_deposit = T::ExistentialDeposit::get();
+		let existential_deposit: T::Balance = minimum_balance::<T, I>();
 		let caller = whitelisted_caller();
 
 		// Give some multiple of the existential deposit

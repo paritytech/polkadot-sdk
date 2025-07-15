@@ -17,23 +17,38 @@
 mod imports {
 
 	// Substrate
-	pub use frame_support::assert_ok;
+	pub(crate) use frame_support::assert_ok;
 
 	// Polkadot
-	pub use xcm::{latest::WESTEND_GENESIS_HASH, prelude::*};
+	pub(crate) use xcm::{latest::WESTEND_GENESIS_HASH, prelude::*};
 
 	// Cumulus
-	pub use emulated_integration_tests_common::xcm_emulator::{
-		assert_expected_events, bx, Chain, Parachain, TestExt,
+	pub(crate) use emulated_integration_tests_common::xcm_emulator::{
+		assert_expected_events, Chain, Parachain, TestExt,
 	};
-	pub use westend_system_emulated_network::{
-		coretime_westend_emulated_chain::{
-			coretime_westend_runtime::ExistentialDeposit as CoretimeWestendExistentialDeposit,
-			CoretimeWestendParaPallet as CoretimeWestendPallet,
+	pub(crate) use westend_system_emulated_network::{
+		asset_hub_westend_emulated_chain::{
+			genesis::ED as ASSET_HUB_WESTEND_ED, AssetHubWestendParaPallet as AssetHubWestendPallet,
 		},
+		bridge_hub_westend_emulated_chain::BridgeHubWestendParaPallet as BridgeHubWestendPallet,
+		collectives_westend_emulated_chain::CollectivesWestendParaPallet as CollectivesWestendPallet,
+		coretime_westend_emulated_chain::{
+			self,
+			coretime_westend_runtime::ExistentialDeposit as CoretimeWestendExistentialDeposit,
+			genesis::ED as CORETIME_WESTEND_ED, CoretimeWestendParaPallet as CoretimeWestendPallet,
+		},
+		penpal_emulated_chain::{PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet},
+		people_westend_emulated_chain::PeopleWestendParaPallet as PeopleWestendPallet,
+		westend_emulated_chain::{genesis::ED as WESTEND_ED, WestendRelayPallet as WestendPallet},
+		AssetHubWestendPara as AssetHubWestend,
+		AssetHubWestendParaReceiver as AssetHubWestendReceiver,
+		AssetHubWestendParaSender as AssetHubWestendSender,
+		BridgeHubWestendPara as BridgeHubWestend, CollectivesWestendPara as CollectivesWestend,
 		CoretimeWestendPara as CoretimeWestend,
 		CoretimeWestendParaReceiver as CoretimeWestendReceiver,
-		CoretimeWestendParaSender as CoretimeWestendSender, WestendRelay as Westend,
+		CoretimeWestendParaSender as CoretimeWestendSender, PenpalBPara as PenpalB,
+		PeopleWestendPara as PeopleWestend, WestendRelay as Westend,
+		WestendRelayReceiver as WestendReceiver, WestendRelaySender as WestendSender,
 	};
 }
 

@@ -1,0 +1,16 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Snowbridge - Support bridging native ETH
+
+doc:
+  - audience: Runtime User
+    description: 
+      Support Native ETH as an asset type instead of only supporting WETH. WETH is still supported, but adds
+      support for ETH in the inbound and outbound routers.
+
+crates:
+  - name: snowbridge-router-primitives
+    bump: minor
+  - name: snowbridge-pallet-inbound-queue-fixtures
+    bump: minor

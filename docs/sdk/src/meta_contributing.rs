@@ -120,12 +120,6 @@
 //!
 //! </details>
 //!
-//! ## `docs.substrate.io`
-//!
-//! This crate is meant to gradually replace `docs.substrate.io`. As any content is added here, the
-//! corresponding counter-part should be marked as deprecated, as described
-//! [here](https://github.com/paritytech/polkadot-sdk-docs/issues/26).
-//!
 //! ## `crates.io` and Publishing
 //!
 //! As it stands now, this crate cannot be published to crates.io because of its use of

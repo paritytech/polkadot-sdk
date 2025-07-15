@@ -72,12 +72,6 @@ const COST_NOT_A_VALIDATOR: Rep = Rep::CostMajor("Reporting peer was not a valid
 const COST_INVALID_IMPORT: Rep =
 	Rep::CostMinor("Import was deemed invalid by dispute-coordinator.");
 
-/// Mildly punish peers exceeding their rate limit.
-///
-/// For honest peers this should rarely happen, but if it happens we would not want to disconnect
-/// too quickly. Minor cost should suffice for disconnecting any real flooder.
-const COST_APPARENT_FLOOD: Rep = Rep::CostMinor("Peer exceeded the rate limit.");
-
 /// How many votes must have arrived in the last `BATCH_COLLECTING_INTERVAL`
 ///
 /// in order for a batch to stay alive and not get flushed/imported to the dispute-coordinator.
@@ -311,7 +305,7 @@ where
 			);
 			req.send_outgoing_response(OutgoingResponse {
 				result: Err(()),
-				reputation_changes: vec![COST_APPARENT_FLOOD],
+				reputation_changes: vec![],
 				sent_feedback: None,
 			})
 			.map_err(|_| JfyiError::SendResponses(vec![peer]))?;

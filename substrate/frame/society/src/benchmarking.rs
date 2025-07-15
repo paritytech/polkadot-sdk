@@ -29,6 +29,10 @@ use sp_runtime::traits::Bounded;
 
 use crate::Pallet as Society;
 
+fn set_block_number<T: Config<I>, I: 'static>(n: BlockNumberFor<T, I>) {
+	<T as Config<I>>::BlockNumberProvider::set_block_number(n);
+}
+
 fn mock_balance_deposit<T: Config<I>, I: 'static>() -> BalanceOf<T, I> {
 	T::Currency::minimum_balance().saturating_mul(1_000u32.into())
 }
@@ -352,9 +356,7 @@ mod benchmarks {
 		let _ = Society::<T, I>::insert_member(&skeptic, 0u32.into());
 		Skeptic::<T, I>::put(&skeptic);
 		if let Period::Voting { more, .. } = Society::<T, I>::period() {
-			frame_system::Pallet::<T>::set_block_number(
-				frame_system::Pallet::<T>::block_number() + more,
-			);
+			set_block_number::<T, I>(T::BlockNumberProvider::current_block_number() + more)
 		}
 
 		#[extrinsic_call]
@@ -505,6 +507,54 @@ mod benchmarks {
 		_(RawOrigin::Signed(member.clone()), challenge_round, 1u32);
 
 		assert_eq!(DefenderVotes::<T, I>::get(challenge_round, &defender), None);
+		Ok(())
+	}
+
+	#[benchmark]
+	fn poke_deposit() -> Result<(), BenchmarkError> {
+		// Set up society
+		setup_society::<T, I>()?;
+		let bidder: T::AccountId = whitelisted_caller();
+		T::Currency::make_free_balance_be(&bidder, BalanceOf::<T, I>::max_value());
+
+		// Make initial bid
+		let initial_deposit = mock_balance_deposit::<T, I>();
+		Society::<T, I>::bid(RawOrigin::Signed(bidder.clone()).into(), 0u32.into())?;
+
+		// Verify initial state
+		assert_eq!(T::Currency::reserved_balance(&bidder), initial_deposit);
+		let bids = Bids::<T, I>::get();
+		let existing_bid = bids.iter().find(|b| b.who == bidder).expect("Bid should exist");
+		assert_eq!(existing_bid.kind, BidKind::Deposit(initial_deposit));
+
+		// Artificially increase deposit in storage and reserve extra balance
+		let extra_amount = 2u32.into();
+		let increased_deposit = initial_deposit.saturating_add(extra_amount);
+		Bids::<T, I>::try_mutate(|bids| -> Result<(), BenchmarkError> {
+			if let Some(existing_bid) = bids.iter_mut().find(|b| b.who == bidder) {
+				existing_bid.kind = BidKind::Deposit(increased_deposit);
+				Ok(())
+			} else {
+				Err(BenchmarkError::Stop("Bid not found"))
+			}
+		})?;
+		T::Currency::reserve(&bidder, extra_amount)?;
+
+		// Verify increased state
+		assert_eq!(T::Currency::reserved_balance(&bidder), increased_deposit);
+		let bids = Bids::<T, I>::get();
+		let existing_bid = bids.iter().find(|b| b.who == bidder).expect("Bid should exist");
+		assert_eq!(existing_bid.kind, BidKind::Deposit(increased_deposit));
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(bidder.clone()));
+
+		// Verify final state returned to initial deposit
+		assert_eq!(T::Currency::reserved_balance(&bidder), initial_deposit);
+		let bids = Bids::<T, I>::get();
+		let existing_bid = bids.iter().find(|b| b.who == bidder).expect("Bid should exist");
+		assert_eq!(existing_bid.kind, BidKind::Deposit(initial_deposit));
+
 		Ok(())
 	}
 

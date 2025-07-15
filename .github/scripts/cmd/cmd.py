@@ -45,20 +45,20 @@ BENCH
 """
 
 bench_example = '''**Examples**:
- Runs all benchmarks
+ Runs all benchmarks 
  %(prog)s
 
  Runs benchmarks for pallet_balances and pallet_multisig for all runtimes which have these pallets. **--quiet** makes it to output nothing to PR but reactions
  %(prog)s --pallet pallet_balances pallet_xcm_benchmarks::generic --quiet
-
+ 
  Runs bench for all pallets for westend runtime and fails fast on first failed benchmark
  %(prog)s --runtime westend --fail-fast
-
- Does not output anything and cleans up the previous bot's & author command triggering comments in PR
+ 
+ Does not output anything and cleans up the previous bot's & author command triggering comments in PR 
  %(prog)s --runtime westend rococo --pallet pallet_balances pallet_multisig --quiet --clean
 '''
 
-parser_bench = subparsers.add_parser('bench', help='Runs benchmarks', epilog=bench_example, formatter_class=argparse.RawDescriptionHelpFormatter)
+parser_bench = subparsers.add_parser('bench', aliases=['bench-omni'], help='Runs benchmarks (frame omni bencher)', epilog=bench_example, formatter_class=argparse.RawDescriptionHelpFormatter)
 
 for arg, config in common_args.items():
     parser_bench.add_argument(arg, **config)
@@ -66,6 +66,7 @@ for arg, config in common_args.items():
 parser_bench.add_argument('--runtime', help='Runtime(s) space separated', choices=runtimeNames, nargs='*', default=runtimeNames)
 parser_bench.add_argument('--pallet', help='Pallet(s) space separated', nargs='*', default=[])
 parser_bench.add_argument('--fail-fast', help='Fail fast on first failed benchmark', action='store_true')
+
 
 """
 FMT
@@ -98,12 +99,12 @@ def main():
 
     print(f'args: {args}')
 
-    if args.command == 'bench':
+    if args.command == 'bench' or args.command == 'bench-omni':
         runtime_pallets_map = {}
         failed_benchmarks = {}
         successful_benchmarks = {}
 
-        profile = "release"
+        profile = "production"
 
         print(f'Provided runtimes: {args.runtime}')
         # convert to mapped dict
@@ -111,13 +112,36 @@ def main():
         runtimesMatrix = {x['name']: x for x in runtimesMatrix}
         print(f'Filtered out runtimes: {runtimesMatrix}')
 
+        compile_bencher = os.system(f"cargo install -q --path substrate/utils/frame/omni-bencher --locked --profile {profile}")
+        if compile_bencher != 0:
+            print_and_log('❌ Failed to compile frame-omni-bencher')
+            sys.exit(1)
+
         # loop over remaining runtimes to collect available pallets
         for runtime in runtimesMatrix.values():
-            os.system(f"forklift cargo build -p {runtime['package']} --profile {profile} --features={runtime['bench_features']}")
+            build_command = f"forklift cargo build -q -p {runtime['package']} --profile {profile} --features={runtime['bench_features']}"
+            print(f'-- building "{runtime["name"]}" with `{build_command}`')
+            build_status = os.system(build_command)
+            if build_status != 0:
+                print_and_log(f'❌ Failed to build {runtime["name"]}')
+                if args.fail_fast:
+                    sys.exit(1)
+                else:
+                    continue
+
             print(f'-- listing pallets for benchmark for {runtime["name"]}')
             wasm_file = f"target/{profile}/wbuild/{runtime['package']}/{runtime['package'].replace('-', '_')}.wasm"
-            output = os.popen(
-                f"frame-omni-bencher v1 benchmark pallet --no-csv-header --no-storage-info --no-min-squares --no-median-slopes --all --list --runtime={wasm_file} {runtime['bench_flags']}").read()
+            list_command = f"frame-omni-bencher v1 benchmark pallet " \
+                f"--no-csv-header " \
+                f"--no-storage-info " \
+                f"--no-min-squares " \
+                f"--no-median-slopes " \
+                f"--all " \
+                f"--list " \
+                f"--runtime={wasm_file} " \
+                f"{runtime['bench_flags']}"
+            print(f'-- running: {list_command}')
+            output = os.popen(list_command).read()
             raw_pallets = output.strip().split('\n')
 
             all_pallets = set()
@@ -179,12 +203,15 @@ def main():
                     # TODO: we can remove once all pallets in dev runtime are migrated to polkadot-sdk-frame
                     try:
                         uses_polkadot_sdk_frame = "true" in os.popen(f"cargo metadata --locked --format-version 1 --no-deps | jq -r '.packages[] | select(.name == \"{pallet.replace('_', '-')}\") | .dependencies | any(.name == \"polkadot-sdk-frame\")'").read()
+                        print(f'uses_polkadot_sdk_frame: {uses_polkadot_sdk_frame}')
                     # Empty output from the previous os.popen command
                     except StopIteration:
+                        print(f'Error: {pallet} not found in dev runtime')
                         uses_polkadot_sdk_frame = False
                     template = config['template']
                     if uses_polkadot_sdk_frame and re.match(r"frame-(:?umbrella-)?weight-template\.hbs", os.path.normpath(template).split(os.path.sep)[-1]):
                         template = "substrate/.maintain/frame-umbrella-weight-template.hbs"
+                    print(f'template: {template}')
                 else:
                     default_path = f"./{config['path']}/src/weights"
                     xcm_path = f"./{config['path']}/src/weights/xcm"

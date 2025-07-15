@@ -46,6 +46,7 @@ parameter_types! {
 	pub const MaxStale: u32 = 2;
 	pub const ServiceWeight: Option<Weight> = Some(Weight::from_parts(100, 100));
 }
+
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = MockedWeightInfo;
@@ -118,6 +119,12 @@ impl crate::weights::WeightInfo for MockedWeightInfo {
 	fn bump_service_head() -> Weight {
 		WeightForCall::get()
 			.get("bump_service_head")
+			.copied()
+			.unwrap_or(DefaultWeightForCall::get())
+	}
+	fn set_service_head() -> Weight {
+		WeightForCall::get()
+			.get("set_service_head")
 			.copied()
 			.unwrap_or(DefaultWeightForCall::get())
 	}
@@ -263,6 +270,7 @@ impl ProcessMessage for CountingMessageProcessor {
 					return Err(ProcessMessageError::Corrupt)
 				}
 			}
+
 			NumMessagesProcessed::set(NumMessagesProcessed::get() + 1);
 			Ok(true)
 		} else {
@@ -319,7 +327,8 @@ where
 {
 	new_test_ext::<T>().execute_with(|| {
 		test();
-		MessageQueue::do_try_state().expect("All invariants must hold after a test");
+		pallet_message_queue::Pallet::<T>::do_try_state()
+			.expect("All invariants must hold after a test");
 	});
 }
 

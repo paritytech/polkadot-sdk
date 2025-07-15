@@ -17,9 +17,9 @@
 
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::input;
-use uapi::{HostFn, HostFnImpl as api, StorageFlags};
+use uapi::{input, HostFn, HostFnImpl as api, StorageFlags};
 
 static BUFFER: [u8; 512] = [0u8; 512];
 

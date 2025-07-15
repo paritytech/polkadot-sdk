@@ -18,13 +18,17 @@
 
 use clap::Parser;
 use codec::{Decode, Encode};
-use polkadot_node_primitives::{BlockData, PoV, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT};
+use polkadot_node_primitives::{BlockData, PoV, POV_BOMB_LIMIT};
 use polkadot_parachain_primitives::primitives::ValidationParams;
-use polkadot_primitives::{BlockNumber as RBlockNumber, Hash as RHash, HeadData};
+use polkadot_primitives::PersistedValidationData;
 use sc_executor::WasmExecutor;
 use sp_core::traits::{CallContext, CodeExecutor, RuntimeCode, WrappedRuntimeCode};
 use std::{fs, path::PathBuf, time::Instant};
 use tracing::level_filters::LevelFilter;
+
+// This is now determined by the chain, call `validation_code_bomb_limit` API.
+// max_code_size * 10 = 30MB currently. Update constant if needed.
+const VALIDATION_CODE_BOMB_LIMIT: usize = 30 * 1024 * 1024;
 
 /// Tool for validating a `PoV` locally.
 #[derive(Parser)]
@@ -100,17 +104,10 @@ fn main() -> anyhow::Result<()> {
 		tracing::error!(%error, "Failed to decode `PoV`");
 		anyhow::anyhow!("Failed to decode `PoV`")
 	})?;
-	let head_data = HeadData::decode(pov_file_ptr).map_err(|error| {
-		tracing::error!(%error, "Failed to `HeadData`");
-		anyhow::anyhow!("Failed to decode `HeadData`")
-	})?;
-	let relay_parent_storage_root = RHash::decode(pov_file_ptr).map_err(|error| {
-		tracing::error!(%error, "Failed to relay storage root");
-		anyhow::anyhow!("Failed to decode relay storage root")
-	})?;
-	let relay_parent_number = RBlockNumber::decode(pov_file_ptr).map_err(|error| {
-		tracing::error!(%error, "Failed to relay block number");
-		anyhow::anyhow!("Failed to decode relay block number")
+
+	let pvd = PersistedValidationData::decode(pov_file_ptr).map_err(|error| {
+		tracing::error!(%error, "Failed to `PersistedValidationData`");
+		anyhow::anyhow!("Failed to decode `PersistedValidationData`")
 	})?;
 
 	let pov = sp_maybe_compressed_blob::decompress(&pov.block_data.0, POV_BOMB_LIMIT).map_err(
@@ -121,9 +118,9 @@ fn main() -> anyhow::Result<()> {
 	)?;
 
 	let validation_params = ValidationParams {
-		relay_parent_number,
-		relay_parent_storage_root,
-		parent_head: head_data,
+		relay_parent_number: pvd.relay_parent_number,
+		relay_parent_storage_root: pvd.relay_parent_storage_root,
+		parent_head: pvd.parent_head,
 		block_data: BlockData(pov.into()),
 	};
 

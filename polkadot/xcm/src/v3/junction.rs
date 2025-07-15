@@ -22,7 +22,7 @@ use crate::{
 	VersionedLocation,
 };
 use bounded_collections::{BoundedSlice, BoundedVec, ConstU32};
-use codec::{self, Decode, Encode, MaxEncodedLen};
+use codec::{self, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 
@@ -39,6 +39,7 @@ use serde::{Deserialize, Serialize};
 	PartialOrd,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Debug,
 	TypeInfo,
 	MaxEncodedLen,
@@ -111,6 +112,7 @@ impl From<NewNetworkId> for NetworkId {
 	PartialOrd,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Debug,
 	TypeInfo,
 	MaxEncodedLen,
@@ -157,6 +159,7 @@ pub enum BodyId {
 	PartialOrd,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Debug,
 	TypeInfo,
 	MaxEncodedLen,
@@ -220,6 +223,7 @@ impl BodyPart {
 	PartialOrd,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Debug,
 	TypeInfo,
 	MaxEncodedLen,

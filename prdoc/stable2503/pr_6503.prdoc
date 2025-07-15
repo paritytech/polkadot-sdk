@@ -1,0 +1,10 @@
+title: "xcm: minor fix for compatibility with V4"
+
+doc:
+  - audience: ["Runtime Dev", "Runtime User"]
+    description: |
+      Following the removal of `Rococo`, `Westend` and `Wococo` from `NetworkId`, fixed `xcm::v5::NetworkId` encoding/decoding to be compatible with `xcm::v4::NetworkId`
+
+crates:
+- name: staging-xcm
+  bump: patch

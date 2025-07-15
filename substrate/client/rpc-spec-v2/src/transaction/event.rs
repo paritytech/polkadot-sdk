@@ -95,6 +95,19 @@ pub enum TransactionEvent<Hash> {
 	Dropped(TransactionDropped),
 }
 
+impl<Hash> TransactionEvent<Hash> {
+	/// Returns true if this is the last event emitted by the RPC subscription.
+	pub fn is_final(&self) -> bool {
+		matches!(
+			&self,
+			TransactionEvent::Finalized(_) |
+				TransactionEvent::Error(_) |
+				TransactionEvent::Invalid(_) |
+				TransactionEvent::Dropped(_)
+		)
+	}
+}
+
 /// Intermediate representation (IR) for the transaction events
 /// that handles block events only.
 ///

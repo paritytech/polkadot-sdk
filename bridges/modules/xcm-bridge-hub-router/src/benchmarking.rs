@@ -18,10 +18,11 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use crate::{DeliveryFeeFactor, MINIMAL_DELIVERY_FEE_FACTOR};
+use crate::{Bridge, BridgeState, Call};
 use frame_benchmarking::{benchmarks_instance_pallet, BenchmarkError};
-use frame_support::traits::{Get, Hooks};
-use sp_runtime::traits::Zero;
+use frame_support::traits::{EnsureOrigin, Get, Hooks, UnfilteredDispatchable};
+use polkadot_runtime_parachains::FeeTracker;
+use sp_runtime::{traits::Zero, Saturating};
 use xcm::prelude::*;
 
 /// Pallet we're benchmarking here.
@@ -45,16 +46,35 @@ pub trait Config<I: 'static>: crate::Config<I> {
 
 benchmarks_instance_pallet! {
 	on_initialize_when_non_congested {
-		DeliveryFeeFactor::<T, I>::put(MINIMAL_DELIVERY_FEE_FACTOR + MINIMAL_DELIVERY_FEE_FACTOR);
+		Bridge::<T, I>::put(BridgeState {
+			is_congested: false,
+			delivery_fee_factor: crate::Pallet::<T, I>::MIN_FEE_FACTOR.saturating_mul(2.into()),
+		});
 	}: {
 		crate::Pallet::<T, I>::on_initialize(Zero::zero())
 	}
 
 	on_initialize_when_congested {
-		DeliveryFeeFactor::<T, I>::put(MINIMAL_DELIVERY_FEE_FACTOR + MINIMAL_DELIVERY_FEE_FACTOR);
+		Bridge::<T, I>::put(BridgeState {
+			is_congested: false,
+			delivery_fee_factor: crate::Pallet::<T, I>::MIN_FEE_FACTOR.saturating_mul(2.into()),
+		});
 		let _ = T::ensure_bridged_target_destination()?;
 		T::make_congested();
 	}: {
 		crate::Pallet::<T, I>::on_initialize(Zero::zero())
+	}
+
+	report_bridge_status {
+		Bridge::<T, I>::put(BridgeState::default());
+
+		let origin: T::RuntimeOrigin = T::BridgeHubOrigin::try_successful_origin().expect("expected valid BridgeHubOrigin");
+		let bridge_id = Default::default();
+		let is_congested = true;
+
+		let call = Call::<T, I>::report_bridge_status { bridge_id, is_congested };
+	}: { call.dispatch_bypass_filter(origin)? }
+	verify {
+		assert!(Bridge::<T, I>::get().is_congested);
 	}
 }

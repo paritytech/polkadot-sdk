@@ -22,7 +22,10 @@ use crate::utils;
 use alloc::vec::Vec;
 use ark_ec::CurveConfig;
 use ark_ed_on_bls12_381_bandersnatch_ext::CurveHooks;
-use sp_runtime_interface::runtime_interface;
+use sp_runtime_interface::{
+	pass_by::{AllocateAndReturnByCodec, PassFatPointerAndRead},
+	runtime_interface,
+};
 
 /// Curve hooks jumping into [`host_calls`] host functions.
 #[derive(Copy, Clone)]
@@ -106,9 +109,9 @@ pub trait HostCalls {
 	///   - `scalars`: `ArkScale<Vec<EdwardsConfig::ScalarField>>`.
 	/// - Returns encoded: `ArkScaleProjective<EdwardsProjective>`.
 	fn ed_on_bls12_381_bandersnatch_te_msm(
-		bases: Vec<u8>,
-		scalars: Vec<u8>,
-	) -> Result<Vec<u8>, ()> {
+		bases: PassFatPointerAndRead<Vec<u8>>,
+		scalars: PassFatPointerAndRead<Vec<u8>>,
+	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
 		utils::msm_te::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(bases, scalars)
 	}
 
@@ -119,9 +122,9 @@ pub trait HostCalls {
 	///   - `scalar`: `ArkScale<Vec<u64>>`.
 	/// - Returns encoded: `ArkScaleProjective<EdwardsProjective>`.
 	fn ed_on_bls12_381_bandersnatch_te_mul_projective(
-		base: Vec<u8>,
-		scalar: Vec<u8>,
-	) -> Result<Vec<u8>, ()> {
+		base: PassFatPointerAndRead<Vec<u8>>,
+		scalar: PassFatPointerAndRead<Vec<u8>>,
+	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
 		utils::mul_projective_te::<ark_ed_on_bls12_381_bandersnatch::EdwardsConfig>(base, scalar)
 	}
 
@@ -132,9 +135,9 @@ pub trait HostCalls {
 	///   - `scalars`: `ArkScale<Vec<SWConfig::ScalarField>>`.
 	/// - Returns encoded: `ArkScaleProjective<SWProjective>`.
 	fn ed_on_bls12_381_bandersnatch_sw_msm(
-		bases: Vec<u8>,
-		scalars: Vec<u8>,
-	) -> Result<Vec<u8>, ()> {
+		bases: PassFatPointerAndRead<Vec<u8>>,
+		scalars: PassFatPointerAndRead<Vec<u8>>,
+	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
 		utils::msm_sw::<ark_ed_on_bls12_381_bandersnatch::SWConfig>(bases, scalars)
 	}
 
@@ -145,9 +148,9 @@ pub trait HostCalls {
 	///   - `scalar`: `ArkScale<Vec<u64>>`.
 	/// - Returns encoded: `ArkScaleProjective<SWProjective>`.
 	fn ed_on_bls12_381_bandersnatch_sw_mul_projective(
-		base: Vec<u8>,
-		scalar: Vec<u8>,
-	) -> Result<Vec<u8>, ()> {
+		base: PassFatPointerAndRead<Vec<u8>>,
+		scalar: PassFatPointerAndRead<Vec<u8>>,
+	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
 		utils::mul_projective_sw::<ark_ed_on_bls12_381_bandersnatch::SWConfig>(base, scalar)
 	}
 }

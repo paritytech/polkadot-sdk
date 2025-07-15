@@ -1,0 +1,32 @@
+title: Add aliasers to westend chains
+doc:
+- audience: Runtime Dev
+  description: |-
+    `InitiateTransfer`, the new instruction introduced in XCMv5, allows preserving the origin after a cross-chain transfer via the usage of the `AliasOrigin` instruction. The receiving chain needs to be configured to allow such this instruction to have its intended effect and not just throw an error.
+
+    In this PR, I add the alias rules specified in the [RFC for origin preservation](https://github.com/polkadot-fellows/RFCs/blob/main/text/0122-alias-origin-on-asset-transfers.md) to westend chains so we can test these scenarios in the testnet.
+
+    The new scenarios include:
+    - Sending a cross-chain transfer from one system chain to another and doing a Transact on the same message (1 hop)
+    - Sending a reserve asset transfer from one chain to another going through asset hub and doing Transact on the same message (2 hops)
+
+    The updated chains are:
+    - Relay: added `AliasChildLocation`
+    - Collectives: added `AliasChildLocation` and `AliasOriginRootUsingFilter<AssetHubLocation, Everything>`
+    - People: added `AliasChildLocation` and `AliasOriginRootUsingFilter<AssetHubLocation, Everything>`
+    - Coretime: added `AliasChildLocation` and `AliasOriginRootUsingFilter<AssetHubLocation, Everything>`
+
+    AssetHub already has `AliasChildLocation` and doesn't need the other config item.
+    BridgeHub is not intended to be used by end users so I didn't add any config item.
+    Only added `AliasChildOrigin` to the relay since we intend for it to be used less.
+crates:
+- name: westend-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: pallet-xcm-benchmarks
+  bump: patch

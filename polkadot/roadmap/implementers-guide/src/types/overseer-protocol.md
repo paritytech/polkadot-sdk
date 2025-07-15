@@ -436,9 +436,6 @@ enum CollatorProtocolMessage {
     DistributeCollation(CandidateReceipt, PoV, Option<oneshot::Sender<CollationSecondedSignal>>),
     /// Fetch a collation under the given relay-parent for the given ParaId.
     FetchCollation(Hash, ParaId, ResponseChannel<(CandidateReceipt, PoV)>),
-    /// Report a collator as having provided an invalid collation. This should lead to disconnect
-    /// and blacklist of the collator.
-    ReportCollator(CollatorId),
     /// Note a collator as having provided a good collation.
     NoteGoodCollation(CollatorId, SignedFullStatement),
     /// Notify a collator that its collation was seconded.

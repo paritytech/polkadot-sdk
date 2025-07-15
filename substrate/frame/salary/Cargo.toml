@@ -17,43 +17,25 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
+frame = { workspace = true, features = ["runtime"] }
 log = { workspace = true }
-scale-info = { features = ["derive"], workspace = true }
-frame-benchmarking = { optional = true, workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-sp-arithmetic = { workspace = true }
-sp-core = { workspace = true }
-sp-io = { workspace = true }
-sp-runtime = { workspace = true }
 pallet-ranked-collective = { optional = true, workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
-	"frame-benchmarking?/std",
-	"frame-support/experimental",
-	"frame-support/std",
-	"frame-system/std",
+	"frame/std",
 	"log/std",
 	"pallet-ranked-collective/std",
 	"scale-info/std",
-	"sp-arithmetic/std",
-	"sp-core/std",
-	"sp-io/std",
-	"sp-runtime/std",
 ]
 runtime-benchmarks = [
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
+	"frame/runtime-benchmarks",
 	"pallet-ranked-collective/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
+	"frame/try-runtime",
 	"pallet-ranked-collective?/try-runtime",
-	"sp-runtime/try-runtime",
 ]

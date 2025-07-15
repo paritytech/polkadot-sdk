@@ -1,0 +1,16 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: derive `DecodeWithMemTracking` for `RuntimeCall`
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR derives `DecodeWithMemTracking` for `RuntimeCall`.
+      All the types used in the `RuntimeCall` should implement `DecodeWithMemTracking` as well.
+
+crates:
+  - name: frame-support-procedural
+    bump: major
+  - name: bridge-hub-westend-runtime
+    bump: patch

@@ -1,27 +1,25 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Bridge definitions used on BridgeHub with the Westend flavor.
 
 use crate::{
-	bridge_common_config::{DeliveryRewardInBalance, RelayersForLegacyLaneIdsMessagesInstance},
-	weights,
-	xcm_config::UniversalLocation,
+	bridge_common_config::BridgeRelayersInstance, weights, xcm_config::UniversalLocation,
 	AccountId, Balance, Balances, BridgeRococoMessages, PolkadotXcm, Runtime, RuntimeEvent,
-	RuntimeHoldReason, XcmOverBridgeHubRococo, XcmRouter,
+	RuntimeHoldReason, XcmOverBridgeHubRococo, XcmRouter, XcmpQueue,
 };
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
@@ -29,7 +27,7 @@ use bp_messages::{
 };
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
 use bridge_hub_common::xcm_version::XcmVersionOfDestAndRemoteBridge;
-use pallet_xcm_bridge_hub::XcmAsPlainPayload;
+use pallet_xcm_bridge_hub::{BridgeId, XcmAsPlainPayload};
 
 use frame_support::{
 	parameter_types,
@@ -67,7 +65,7 @@ parameter_types! {
 	// see the `FEE_BOOST_PER_PARACHAIN_HEADER` constant get the meaning of this value
 	pub PriorityBoostPerParachainHeader: u64 = 1_396_340_903_540_903;
 	// see the `FEE_BOOST_PER_MESSAGE` constant to get the meaning of this value
-	pub PriorityBoostPerMessage: u64 = 182_044_444_444_444;
+	pub PriorityBoostPerMessage: u64 = 364_088_888_888_888;
 
 	pub BridgeHubRococoLocation: Location = Location::new(
 		2,
@@ -78,6 +76,7 @@ parameter_types! {
 	);
 
 	pub storage BridgeDeposit: Balance = 10 * WND;
+	pub storage DeliveryRewardInBalance: u64 = 1_000_000;
 }
 
 /// Proof of messages, coming from Rococo.
@@ -99,10 +98,9 @@ pub type OnBridgeHubWestendRefundBridgeHubRococoMessages = BridgeRelayersTransac
 		StrOnBridgeHubWestendRefundBridgeHubRococoMessages,
 		Runtime,
 		WithBridgeHubRococoMessagesInstance,
-		RelayersForLegacyLaneIdsMessagesInstance,
+		BridgeRelayersInstance,
 		PriorityBoostPerMessage,
 	>,
-	LaneIdOf<Runtime, WithBridgeHubRococoMessagesInstance>,
 >;
 bp_runtime::generate_static_str_provider!(OnBridgeHubWestendRefundBridgeHubRococoMessages);
 
@@ -128,6 +126,7 @@ impl pallet_bridge_parachains::Config<BridgeParachainRococoInstance> for Runtime
 		SingleParaStoredHeaderDataBuilder<bp_bridge_hub_rococo::BridgeHubRococo>;
 	type HeadsToKeep = ParachainHeadsToKeep;
 	type MaxParaHeadDataSize = MaxRococoParaHeadDataSize;
+	type OnNewHead = ();
 }
 
 /// Add XCM messages support for BridgeHubWestend to support Westend->Rococo XCM messages
@@ -152,7 +151,7 @@ impl pallet_bridge_messages::Config<WithBridgeHubRococoMessagesInstance> for Run
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		Runtime,
 		WithBridgeHubRococoMessagesInstance,
-		RelayersForLegacyLaneIdsMessagesInstance,
+		BridgeRelayersInstance,
 		DeliveryRewardInBalance,
 	>;
 
@@ -186,9 +185,44 @@ impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubRococoInstance> for Runtime {
 	type AllowWithoutBridgeDeposit =
 		RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>;
 
-	// TODO:(bridges-v2) - add `LocalXcmChannelManager` impl - https://github.com/paritytech/parity-bridges-common/issues/3047
-	type LocalXcmChannelManager = ();
+	type LocalXcmChannelManager = CongestionManager;
 	type BlobDispatcher = FromRococoMessageBlobDispatcher;
+}
+
+/// Implementation of `bp_xcm_bridge_hub::LocalXcmChannelManager` for congestion management.
+pub struct CongestionManager;
+impl pallet_xcm_bridge_hub::LocalXcmChannelManager for CongestionManager {
+	type Error = SendError;
+
+	fn is_congested(with: &Location) -> bool {
+		// This is used to check the inbound bridge queue/messages to determine if they can be
+		// dispatched and sent to the sibling parachain. Therefore, checking outbound `XcmpQueue`
+		// is sufficient here.
+		use bp_xcm_bridge_hub_router::XcmChannelStatusProvider;
+		cumulus_pallet_xcmp_queue::bridging::OutXcmpChannelStatusProvider::<Runtime>::is_congested(
+			with,
+		)
+	}
+
+	fn suspend_bridge(local_origin: &Location, bridge: BridgeId) -> Result<(), Self::Error> {
+		// This bridge is intended for AH<>AH communication with a hard-coded/static lane,
+		// so `local_origin` is expected to represent only the local AH.
+		send_xcm::<XcmpQueue>(
+			local_origin.clone(),
+			bp_asset_hub_westend::build_congestion_message(bridge.inner(), true).into(),
+		)
+		.map(|_| ())
+	}
+
+	fn resume_bridge(local_origin: &Location, bridge: BridgeId) -> Result<(), Self::Error> {
+		// This bridge is intended for AH<>AH communication with a hard-coded/static lane,
+		// so `local_origin` is expected to represent only the local AH.
+		send_xcm::<XcmpQueue>(
+			local_origin.clone(),
+			bp_asset_hub_westend::build_congestion_message(bridge.inner(), false).into(),
+		)
+		.map(|_| ())
+	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -288,6 +322,7 @@ mod tests {
 			with_bridged_chain_messages_instance: WithBridgeHubRococoMessagesInstance,
 			this_chain: bp_bridge_hub_westend::BridgeHubWestend,
 			bridged_chain: bp_bridge_hub_rococo::BridgeHubRococo,
+			expected_payload_type: XcmAsPlainPayload,
 		);
 
 		assert_complete_with_parachain_bridge_constants::<

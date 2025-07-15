@@ -84,7 +84,7 @@ fn submit_candidates_with_self_vote<T: Config>(
 ) -> Result<Vec<T::AccountId>, &'static str> {
 	let candidates = submit_candidates::<T>(c, prefix)?;
 	let stake = default_stake::<T>(c);
-	let _ = candidates
+	candidates
 		.iter()
 		.try_for_each(|c| submit_voter::<T>(c.clone(), vec![c.clone()], stake).map(|_| ()))?;
 	Ok(candidates)
@@ -120,7 +120,7 @@ fn distribute_voters<T: Config>(
 // Fill the seats of members and runners-up up until `m`. Note that this might include either only
 // members, or members and runners-up.
 fn fill_seats_up_to<T: Config>(m: u32) -> Result<Vec<T::AccountId>, &'static str> {
-	let _ = submit_candidates_with_self_vote::<T>(m, "fill_seats_up_to")?;
+	submit_candidates_with_self_vote::<T>(m, "fill_seats_up_to")?;
 	assert_eq!(Candidates::<T>::get().len() as u32, m, "wrong number of candidates.");
 	Pallet::<T>::do_phragmen();
 	assert_eq!(Candidates::<T>::get().len(), 0, "some candidates remaining.");
@@ -262,10 +262,10 @@ mod benchmarks {
 		clean::<T>();
 
 		// Create `m` members and runners combined.
-		let _ = fill_seats_up_to::<T>(m)?;
+		fill_seats_up_to::<T>(m)?;
 
 		// Create previous candidates.
-		let _ = submit_candidates::<T>(c, "candidates")?;
+		submit_candidates::<T>(c, "candidates")?;
 
 		// We assume worse case that: extrinsic is successful and candidate is not duplicate.
 		let candidate_account = endowed_account::<T>("caller", 0);
@@ -296,7 +296,7 @@ mod benchmarks {
 		clean::<T>();
 
 		// Create `m` members and runners combined.
-		let _ = fill_seats_up_to::<T>(m)?;
+		fill_seats_up_to::<T>(m)?;
 		let all_candidates = submit_candidates::<T>(c, "caller")?;
 
 		let bailing = all_candidates[0].clone(); // Should be ("caller", 0)
@@ -388,7 +388,7 @@ mod benchmarks {
 		let m = T::DesiredMembers::get() + T::DesiredRunnersUp::get();
 		clean::<T>();
 
-		let _ = fill_seats_up_to::<T>(m)?;
+		fill_seats_up_to::<T>(m)?;
 		let removing = as_lookup::<T>(Pallet::<T>::members_ids()[0].clone());
 
 		#[extrinsic_call]
@@ -457,8 +457,7 @@ mod benchmarks {
 		let votes_per_voter = (e / v).min(T::MaxVotesPerVoter::get());
 
 		let all_candidates = submit_candidates_with_self_vote::<T>(c, "candidates")?;
-		let _ =
-			distribute_voters::<T>(all_candidates, v.saturating_sub(c), votes_per_voter as usize)?;
+		distribute_voters::<T>(all_candidates, v.saturating_sub(c), votes_per_voter as usize)?;
 
 		#[block]
 		{

@@ -1,0 +1,25 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: 'feat(wasm-builder): add support for new `wasm32v1-none` target'
+doc:
+  - audience: Runtime Dev
+    description: |
+      Resolves [#5777](https://github.com/paritytech/polkadot-sdk/issues/5777)
+
+      Previously `wasm-builder` used hacks such as `-Zbuild-std` (required `rust-src` component) and `RUSTC_BOOTSTRAP=1` to build WASM runtime without WASM features: `sign-ext`, `multivalue` and `reference-types`, but since Rust 1.84 (will be stable on 9 January, 2025) the situation has improved as there is new [`wasm32v1-none`](https://doc.rust-lang.org/beta/rustc/platform-support/wasm32v1-none.html) target that disables all "post-MVP" WASM features except `mutable-globals`.
+
+      Wasm builder requires the following prerequisites for building the WASM binary:
+      - Rust >= 1.68 and Rust < 1.84:
+        - `wasm32-unknown-unknown` target
+        - `rust-src` component
+      - Rust >= 1.84:
+        - `wasm32v1-none` target
+        - no more `-Zbuild-std` and `RUSTC_BOOTSTRAP=1` hacks and `rust-src` component requirements!
+
+crates:
+- name: substrate-wasm-builder
+  bump: minor
+  validate: false
+- name: sp-consensus-beefy
+  bump: patch

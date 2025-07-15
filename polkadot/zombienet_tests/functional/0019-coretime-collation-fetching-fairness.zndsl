@@ -1,0 +1,16 @@
+Description: CT shared core fairness test
+Network: ./0019-coretime-collation-fetching-fairness.toml
+Creds: config
+
+validator: reports node_roles is 4
+
+validator-0: js-script ./force-register-paras.js with "2000,2001" return is 0 within 600 seconds
+# core 0 is shared 3:1 between paras
+validator-0: js-script ./assign-core.js with "0,2000,43200,2001,14400" return is 0 within 600 seconds
+
+collator-2000: reports block height is at least 9 within 200 seconds
+collator-2001: reports block height is at least 3 within 10 seconds
+
+# hardcoded check to verify that included onchain events are indeed 3:1
+validator-0: js-script ./0019-verify-included-events.js return is 1 within 120 seconds
+

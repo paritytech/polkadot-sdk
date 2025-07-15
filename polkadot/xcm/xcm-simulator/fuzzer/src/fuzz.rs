@@ -14,7 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+// We do not declare all features used by `construct_runtime`
+#[allow(unexpected_cfgs)]
 mod parachain;
+
+// We do not declare all features used by `construct_runtime`
+#[allow(unexpected_cfgs)]
 mod relay_chain;
 
 use codec::DecodeLimit;
@@ -98,7 +103,7 @@ impl<'a> Arbitrary<'a> for XcmMessage {
 		let destination: u32 = u.arbitrary()?;
 		let mut encoded_message: &[u8] = u.arbitrary()?;
 		if let Ok(message) =
-			DecodeLimit::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut encoded_message)
+			DecodeLimit::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut encoded_message)
 		{
 			return Ok(XcmMessage { source, destination, message });
 		}
@@ -117,6 +122,7 @@ pub fn para_ext(para_id: u32) -> sp_io::TestExternalities {
 
 	pallet_balances::GenesisConfig::<Runtime> {
 		balances: (0..6).map(|i| ([i; 32].into(), INITIAL_BALANCE)).collect(),
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
@@ -138,7 +144,7 @@ pub fn relay_ext() -> sp_io::TestExternalities {
 	balances.append(&mut (1..=3).map(|i| (para_account_id(i), INITIAL_BALANCE)).collect());
 	balances.append(&mut (0..6).map(|i| ([i; 32].into(), INITIAL_BALANCE)).collect());
 
-	pallet_balances::GenesisConfig::<Runtime> { balances }
+	pallet_balances::GenesisConfig::<Runtime> { balances, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 

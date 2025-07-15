@@ -20,20 +20,20 @@
 //!
 //! For a more full-featured pool, have a look at the `pool` module.
 
-use std::{cmp::Ordering, collections::HashSet, fmt, hash, sync::Arc};
+use std::{cmp::Ordering, collections::HashSet, fmt, hash, sync::Arc, time::Instant};
 
 use crate::LOG_TARGET;
-use log::{trace, warn};
 use sc_transaction_pool_api::{error, InPoolTransaction, PoolStatus};
 use serde::Serialize;
 use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::{
 	traits::Member,
 	transaction_validity::{
-		TransactionLongevity as Longevity, TransactionPriority as Priority,
-		TransactionSource as Source, TransactionTag as Tag,
+		TransactionLongevity as Longevity, TransactionPriority as Priority, TransactionSource,
+		TransactionTag as Tag,
 	},
 };
+use tracing::{trace, warn};
 
 use super::{
 	future::{FutureTransactions, WaitingTransaction},
@@ -83,6 +83,44 @@ pub struct PruneStatus<Hash, Ex> {
 	pub pruned: Vec<Arc<Transaction<Hash, Ex>>>,
 }
 
+/// A transaction source that includes a timestamp indicating when the transaction was submitted.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TimedTransactionSource {
+	/// The original source of the transaction.
+	pub source: TransactionSource,
+
+	/// The time at which the transaction was submitted.
+	pub timestamp: Option<Instant>,
+}
+
+impl From<TimedTransactionSource> for TransactionSource {
+	fn from(value: TimedTransactionSource) -> Self {
+		value.source
+	}
+}
+
+impl TimedTransactionSource {
+	/// Creates a new instance with an internal `TransactionSource::InBlock` source and an optional
+	/// timestamp.
+	pub fn new_in_block(with_timestamp: bool) -> Self {
+		Self { source: TransactionSource::InBlock, timestamp: with_timestamp.then(Instant::now) }
+	}
+	/// Creates a new instance with an internal `TransactionSource::External` source and an optional
+	/// timestamp.
+	pub fn new_external(with_timestamp: bool) -> Self {
+		Self { source: TransactionSource::External, timestamp: with_timestamp.then(Instant::now) }
+	}
+	/// Creates a new instance with an internal `TransactionSource::Local` source and an optional
+	/// timestamp.
+	pub fn new_local(with_timestamp: bool) -> Self {
+		Self { source: TransactionSource::Local, timestamp: with_timestamp.then(Instant::now) }
+	}
+	/// Creates a new instance with an given source and an optional timestamp.
+	pub fn from_transaction_source(source: TransactionSource, with_timestamp: bool) -> Self {
+		Self { source, timestamp: with_timestamp.then(Instant::now) }
+	}
+}
+
 /// Immutable transaction
 #[derive(PartialEq, Eq, Clone)]
 pub struct Transaction<Hash, Extrinsic> {
@@ -102,8 +140,8 @@ pub struct Transaction<Hash, Extrinsic> {
 	pub provides: Vec<Tag>,
 	/// Should that transaction be propagated.
 	pub propagate: bool,
-	/// Source of that transaction.
-	pub source: Source,
+	/// Timed source of that transaction.
+	pub source: TimedTransactionSource,
 }
 
 impl<Hash, Extrinsic> AsRef<Extrinsic> for Transaction<Hash, Extrinsic> {
@@ -157,7 +195,7 @@ impl<Hash: Clone, Extrinsic: Clone> Transaction<Hash, Extrinsic> {
 			bytes: self.bytes,
 			hash: self.hash.clone(),
 			priority: self.priority,
-			source: self.source,
+			source: self.source.clone(),
 			valid_till: self.valid_till,
 			requires: self.requires.clone(),
 			provides: self.provides.clone(),
@@ -280,10 +318,10 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 		let tx = WaitingTransaction::new(tx, self.ready.provided_tags(), &self.recently_pruned);
 		trace!(
 			target: LOG_TARGET,
-			"[{:?}] Importing {:?} to {}",
-			tx.transaction.hash,
-			tx,
-			if tx.is_ready() { "ready" } else { "future" }
+			tx_hash = ?tx.transaction.hash,
+			?tx,
+			set = if tx.is_ready() { "ready" } else { "future" },
+			"Importing transaction"
 		);
 
 		// If all tags are not satisfied import to future.
@@ -307,7 +345,7 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 		&mut self,
 		tx: WaitingTransaction<Hash, Ex>,
 	) -> error::Result<Imported<Hash, Ex>> {
-		let hash = tx.transaction.hash.clone();
+		let tx_hash = tx.transaction.hash.clone();
 		let mut promoted = vec![];
 		let mut failed = vec![];
 		let mut removed = vec![];
@@ -322,23 +360,49 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 
 			// import this transaction
 			let current_hash = tx.transaction.hash.clone();
+			let current_tx = tx.transaction.clone();
 			match self.ready.import(tx) {
 				Ok(mut replaced) => {
 					if !first {
-						promoted.push(current_hash);
+						promoted.push(current_hash.clone());
 					}
+					// If there were conflicting future transactions promoted, removed them from
+					// promoted set.
+					promoted.retain(|hash| replaced.iter().all(|tx| *hash != tx.hash));
 					// The transactions were removed from the ready pool. We might attempt to
 					// re-import them.
 					removed.append(&mut replaced);
 				},
-				// transaction failed to be imported.
-				Err(e) =>
+				Err(error @ error::Error::TooLowPriority { .. }) => {
+					trace!(
+						target: LOG_TARGET,
+						tx_hash = ?current_tx.hash,
+						?first,
+						%error,
+						"Error importing transaction"
+					);
 					if first {
-						trace!(target: LOG_TARGET, "[{:?}] Error importing: {:?}", current_hash, e);
-						return Err(e)
+						return Err(error)
 					} else {
-						failed.push(current_hash);
-					},
+						removed.push(current_tx);
+						promoted.retain(|hash| *hash != current_hash);
+					}
+				},
+				// transaction failed to be imported.
+				Err(error) => {
+					trace!(
+						target: LOG_TARGET,
+						tx_hash = ?current_tx.hash,
+						?error,
+						first,
+						"Error importing transaction"
+					);
+					if first {
+						return Err(error)
+					} else {
+						failed.push(current_tx.hash.clone());
+					}
+				},
 			}
 			first = false;
 		}
@@ -348,16 +412,20 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 		// future transactions pushed out current transaction.
 		// This means that there is a cycle and the transactions should
 		// be moved back to future, since we can't resolve it.
-		if removed.iter().any(|tx| tx.hash == hash) {
+		if removed.iter().any(|tx| tx.hash == tx_hash) {
 			// We still need to remove all transactions that we promoted
 			// since they depend on each other and will never get to the best iterator.
 			self.ready.remove_subtree(&promoted);
 
-			trace!(target: LOG_TARGET, "[{:?}] Cycle detected, bailing.", hash);
+			trace!(
+				target: LOG_TARGET,
+				?tx_hash,
+				"Cycle detected, bailing."
+			);
 			return Err(error::Error::CycleDetected)
 		}
 
-		Ok(Imported::Ready { hash, promoted, failed, removed })
+		Ok(Imported::Ready { hash: tx_hash, promoted, failed, removed })
 	}
 
 	/// Returns an iterator over ready transactions in the pool.
@@ -401,27 +469,29 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 
 		while ready.is_exceeded(self.ready.len(), self.ready.bytes()) {
 			// find the worst transaction
-			let worst = self.ready.fold::<TransactionRef<Hash, Ex>, _>(|worst, current| {
-				let transaction = &current.transaction;
-				worst
-					.map(|worst| {
-						// Here we don't use `TransactionRef`'s ordering implementation because
-						// while it prefers priority like need here, it also prefers older
-						// transactions for inclusion purposes and limit enforcement needs to prefer
-						// newer transactions instead and drop the older ones.
-						match worst.transaction.priority.cmp(&transaction.transaction.priority) {
-							Ordering::Less => worst,
-							Ordering::Equal =>
-								if worst.insertion_id > transaction.insertion_id {
-									transaction.clone()
-								} else {
-									worst
-								},
-							Ordering::Greater => transaction.clone(),
-						}
-					})
-					.or_else(|| Some(transaction.clone()))
-			});
+			let worst =
+				self.ready.fold::<Option<TransactionRef<Hash, Ex>>, _>(None, |worst, current| {
+					let transaction = &current.transaction;
+					worst
+						.map(|worst| {
+							// Here we don't use `TransactionRef`'s ordering implementation because
+							// while it prefers priority like need here, it also prefers older
+							// transactions for inclusion purposes and limit enforcement needs to
+							// prefer newer transactions instead and drop the older ones.
+							match worst.transaction.priority.cmp(&transaction.transaction.priority)
+							{
+								Ordering::Less => worst,
+								Ordering::Equal =>
+									if worst.insertion_id > transaction.insertion_id {
+										transaction.clone()
+									} else {
+										worst
+									},
+								Ordering::Greater => transaction.clone(),
+							}
+						})
+						.or_else(|| Some(transaction.clone()))
+				});
 
 			if let Some(worst) = worst {
 				removed.append(&mut self.remove_subtree(&[worst.transaction.hash.clone()]))
@@ -434,8 +504,24 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 			// find the worst transaction
 			let worst = self.future.fold(|worst, current| match worst {
 				None => Some(current.clone()),
-				Some(ref tx) if tx.imported_at > current.imported_at => Some(current.clone()),
-				other => other,
+				Some(worst) => Some(
+					match (worst.transaction.source.timestamp, current.transaction.source.timestamp)
+					{
+						(Some(worst_timestamp), Some(current_timestamp)) => {
+							if worst_timestamp > current_timestamp {
+								current.clone()
+							} else {
+								worst
+							}
+						},
+						_ =>
+							if worst.imported_at > current.imported_at {
+								current.clone()
+							} else {
+								worst
+							},
+					},
+				),
 			});
 
 			if let Some(worst) = worst {
@@ -499,15 +585,17 @@ impl<Hash: hash::Hash + Member + Serialize, Ex: std::fmt::Debug> BasePool<Hash, 
 		}
 
 		for tx in to_import {
-			let hash = tx.transaction.hash.clone();
+			let tx_hash = tx.transaction.hash.clone();
 			match self.import_to_ready(tx) {
 				Ok(res) => promoted.push(res),
-				Err(e) => {
+				Err(error) => {
 					warn!(
 						target: LOG_TARGET,
-						"[{:?}] Failed to promote during pruning: {:?}", hash, e,
+						?tx_hash,
+						?error,
+						"Failed to promote during pruning."
 					);
-					failed.push(hash)
+					failed.push(tx_hash)
 				},
 			}
 		}
@@ -562,7 +650,7 @@ mod tests {
 			requires: vec![],
 			provides: vec![],
 			propagate: true,
-			source: Source::External,
+			source: TimedTransactionSource::new_external(false),
 		}
 	}
 
@@ -761,6 +849,58 @@ mod tests {
 	}
 
 	#[test]
+	fn should_remove_conflicting_future() {
+		let mut pool = pool();
+		pool.import(Transaction {
+			data: vec![3u8].into(),
+			hash: 3,
+			requires: vec![vec![1]],
+			priority: 50u64,
+			provides: vec![vec![3]],
+			..default_tx().clone()
+		})
+		.unwrap();
+		assert_eq!(pool.ready().count(), 0);
+		assert_eq!(pool.ready.len(), 0);
+
+		let tx2 = Transaction {
+			data: vec![2u8].into(),
+			hash: 2,
+			requires: vec![vec![1]],
+			provides: vec![vec![3]],
+			..default_tx().clone()
+		};
+		pool.import(tx2.clone()).unwrap();
+		assert_eq!(pool.future.len(), 2);
+
+		let res = pool
+			.import(Transaction {
+				data: vec![1u8].into(),
+				hash: 1,
+				provides: vec![vec![1]],
+				..default_tx().clone()
+			})
+			.unwrap();
+
+		assert_eq!(
+			res,
+			Imported::Ready {
+				hash: 1,
+				promoted: vec![3],
+				failed: vec![],
+				removed: vec![tx2.into()]
+			}
+		);
+
+		let mut it = pool.ready().into_iter().map(|tx| tx.data[0]);
+		assert_eq!(it.next(), Some(1));
+		assert_eq!(it.next(), Some(3));
+		assert_eq!(it.next(), None);
+
+		assert_eq!(pool.future.len(), 0);
+	}
+
+	#[test]
 	fn should_handle_a_cycle() {
 		// given
 		let mut pool = pool();
@@ -783,14 +923,14 @@ mod tests {
 		assert_eq!(pool.ready.len(), 0);
 
 		// when
-		pool.import(Transaction {
+		let tx2 = Transaction {
 			data: vec![2u8].into(),
 			hash: 2,
 			requires: vec![vec![2]],
 			provides: vec![vec![0]],
 			..default_tx().clone()
-		})
-		.unwrap();
+		};
+		pool.import(tx2.clone()).unwrap();
 
 		// then
 		{
@@ -817,7 +957,12 @@ mod tests {
 		assert_eq!(it.next(), None);
 		assert_eq!(
 			res,
-			Imported::Ready { hash: 4, promoted: vec![1, 3], failed: vec![2], removed: vec![] }
+			Imported::Ready {
+				hash: 4,
+				promoted: vec![1, 3],
+				failed: vec![],
+				removed: vec![tx2.into()]
+			}
 		);
 		assert_eq!(pool.future.len(), 0);
 	}
@@ -1024,7 +1169,7 @@ mod tests {
 			),
 			"Transaction { \
 hash: 4, priority: 1000, valid_till: 64, bytes: 1, propagate: true, \
-source: TransactionSource::External, requires: [03, 02], provides: [04], data: [4]}"
+source: TimedTransactionSource { source: TransactionSource::External, timestamp: None }, requires: [03, 02], provides: [04], data: [4]}"
 				.to_owned()
 		);
 	}

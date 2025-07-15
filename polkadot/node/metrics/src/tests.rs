@@ -21,7 +21,7 @@ use hyper::Uri;
 use hyper_util::{client::legacy::Client, rt::TokioExecutor};
 use polkadot_primitives::metric_definitions::PARACHAIN_INHERENT_DATA_BITFIELDS_PROCESSED;
 use polkadot_test_service::{node_config, run_validator_node, test_prometheus_config};
-use sp_keyring::AccountKeyring::*;
+use sp_keyring::Sr25519Keyring::*;
 use std::collections::HashMap;
 
 const DEFAULT_PROMETHEUS_PORT: u16 = 9616;
@@ -45,13 +45,13 @@ async fn runtime_can_publish_metrics() {
 	builder.init().expect("Failed to set up the logger");
 
 	// Start validator Alice.
-	let alice = run_validator_node(alice_config, None);
+	let alice = run_validator_node(alice_config, None).await;
 
 	let bob_config =
 		node_config(|| {}, tokio::runtime::Handle::current(), Bob, vec![alice.addr.clone()], true);
 
 	// Start validator Bob.
-	let _bob = run_validator_node(bob_config, None);
+	let _bob = run_validator_node(bob_config, None).await;
 
 	// Wait for Alice to see two finalized blocks.
 	alice.wait_for_finalized_blocks(2).await;

@@ -27,7 +27,7 @@ use frame_benchmarking::{
 };
 
 use frame_support::{assert_err, assert_ok, traits::NoOpPoll};
-use frame_system::RawOrigin as SystemOrigin;
+use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin as SystemOrigin};
 
 const SEED: u32 = 0;
 
@@ -197,7 +197,7 @@ mod benchmarks {
 			T::Polls::create_ongoing(class.clone())
 				.expect("Poll creation should succeed for rank 0")
 		} else {
-			<NoOpPoll as Polling<T>>::Index::MAX.into()
+			<NoOpPoll<BlockNumberFor<T>> as Polling<T>>::Index::MAX.into()
 		};
 
 		// Benchmark the vote logic for a positive vote (true).
@@ -255,7 +255,7 @@ mod benchmarks {
 			T::Polls::create_ongoing(class.clone())
 				.expect("Poll creation should succeed for rank 0")
 		} else {
-			<NoOpPoll as Polling<T>>::Index::MAX.into()
+			<NoOpPoll<BlockNumberFor<T>> as Polling<T>>::Index::MAX.into()
 		};
 
 		// Simulate voting by `n` members.

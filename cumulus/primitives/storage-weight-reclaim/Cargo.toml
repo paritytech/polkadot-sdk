@@ -5,6 +5,8 @@ authors.workspace = true
 edition.workspace = true
 description = "Utilities to reclaim storage weight."
 license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -25,9 +27,9 @@ cumulus-primitives-proof-size-hostfunction = { workspace = true }
 docify = { workspace = true }
 
 [dev-dependencies]
+cumulus-test-runtime = { workspace = true }
 sp-io = { workspace = true }
 sp-trie = { workspace = true }
-cumulus-test-runtime = { workspace = true }
 
 [features]
 default = ["std"]

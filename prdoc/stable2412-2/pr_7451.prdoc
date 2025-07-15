@@ -1,0 +1,8 @@
+title: 'omni-node: Adjust manual seal parameters'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR restores compatibility of older runtimes with the dev mode of omni-node. Before, runtimes built without the changes in https://github.com/paritytech/polkadot-sdk/pull/6825 were failing.
+crates:
+- name: polkadot-omni-node-lib
+  bump: patch

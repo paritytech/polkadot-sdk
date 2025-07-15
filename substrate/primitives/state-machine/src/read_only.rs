@@ -18,17 +18,18 @@
 //! Read-only version of Externalities.
 
 use crate::{Backend, StorageKey, StorageValue};
+use alloc::{boxed::Box, vec::Vec};
 use codec::Encode;
+use core::{
+	any::{Any, TypeId},
+	marker::PhantomData,
+};
 use hash_db::Hasher;
 use sp_core::{
 	storage::{ChildInfo, StateVersion, TrackedStorageKey},
 	traits::Externalities,
 };
 use sp_externalities::MultiRemovalResults;
-use std::{
-	any::{Any, TypeId},
-	marker::PhantomData,
-};
 
 /// Trait for inspecting state in any backend.
 ///

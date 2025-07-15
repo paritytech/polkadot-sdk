@@ -19,10 +19,10 @@
 //!
 //! See [`TestApi`] for more information.
 
+use async_trait::async_trait;
 use codec::Encode;
-use futures::future::ready;
 use parking_lot::RwLock;
-use sc_transaction_pool::ChainApi;
+use sc_transaction_pool::{ChainApi, ValidateTransactionPriority};
 use sp_blockchain::{CachedHeaderMetadata, HashAndNumber, TreeRoute};
 use sp_runtime::{
 	generic::{self, BlockId},
@@ -43,7 +43,7 @@ use substrate_test_runtime_client::{
 		AccountId, Block, BlockNumber, Extrinsic, ExtrinsicBuilder, Hash, Header, Nonce, Transfer,
 		TransferData,
 	},
-	AccountKeyring::{self, *},
+	Sr25519Keyring::{self, *},
 };
 
 /// Error type used by [`TestApi`].
@@ -85,6 +85,7 @@ pub struct ChainState {
 	pub nonces: HashMap<Hash, HashMap<AccountId, u64>>,
 	pub invalid_hashes: HashSet<Hash>,
 	pub priorities: HashMap<Hash, u64>,
+	pub valid_till_blocks: HashMap<Hash, u64>,
 }
 
 /// Test Api for transaction pool.
@@ -269,6 +270,14 @@ impl TestApi {
 			.insert(Self::hash_and_length_inner(xts).0, priority);
 	}
 
+	/// Set a transaction mortality (block at which it will expire).
+	pub fn set_valid_till(&self, xts: &Extrinsic, valid_till: u64) {
+		self.chain
+			.write()
+			.valid_till_blocks
+			.insert(Self::hash_and_length_inner(xts).0, valid_till);
+	}
+
 	/// Query validation requests received.
 	pub fn validation_requests(&self) -> Vec<Extrinsic> {
 		self.validation_requests.read().clone()
@@ -338,23 +347,32 @@ trait TagFrom {
 
 impl TagFrom for AccountId {
 	fn tag_from(&self) -> u8 {
-		let f = AccountKeyring::iter().enumerate().find(|k| AccountId::from(k.1) == *self);
+		let f = Sr25519Keyring::iter().enumerate().find(|k| AccountId::from(k.1) == *self);
 		u8::try_from(f.unwrap().0).unwrap()
 	}
 }
 
+#[async_trait]
 impl ChainApi for TestApi {
 	type Block = Block;
 	type Error = Error;
-	type ValidationFuture = futures::future::Ready<Result<TransactionValidity, Error>>;
-	type BodyFuture = futures::future::Ready<Result<Option<Vec<Extrinsic>>, Error>>;
 
-	fn validate_transaction(
+	async fn validate_transaction(
+		&self,
+		at: <Self::Block as BlockT>::Hash,
+		source: TransactionSource,
+		uxt: Arc<<Self::Block as BlockT>::Extrinsic>,
+		_: ValidateTransactionPriority,
+	) -> Result<TransactionValidity, Error> {
+		self.validate_transaction_blocking(at, source, uxt)
+	}
+
+	fn validate_transaction_blocking(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		_source: TransactionSource,
 		uxt: Arc<<Self::Block as BlockT>::Extrinsic>,
-	) -> Self::ValidationFuture {
+	) -> Result<TransactionValidity, Error> {
 		let uxt = (*uxt).clone();
 		self.validation_requests.write().push(uxt.clone());
 		let block_number;
@@ -374,16 +392,12 @@ impl ChainApi for TestApi {
 				// the transaction. (This is not required for this test function, but in real
 				// environment it would fail because of this).
 				if !found_best {
-					return ready(Ok(Err(TransactionValidityError::Invalid(
-						InvalidTransaction::Custom(1),
-					))))
+					return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(1))))
 				}
 			},
 			Ok(None) =>
-				return ready(Ok(Err(TransactionValidityError::Invalid(
-					InvalidTransaction::Custom(2),
-				)))),
-			Err(e) => return ready(Err(e)),
+				return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(2)))),
+			Err(e) => return Err(e),
 		}
 
 		let (requires, provides) = if let Ok(transfer) = TransferData::try_from(&uxt) {
@@ -423,7 +437,7 @@ impl ChainApi for TestApi {
 
 			if self.enable_stale_check && transfer.nonce < chain_nonce {
 				log::info!("test_api::validate_transaction: invalid_transaction(stale)....");
-				return ready(Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Stale))))
+				return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)))
 			}
 
 			(requires, provides)
@@ -433,30 +447,34 @@ impl ChainApi for TestApi {
 
 		if self.chain.read().invalid_hashes.contains(&self.hash_and_length(&uxt).0) {
 			log::info!("test_api::validate_transaction: invalid_transaction....");
-			return ready(Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(0)))))
+			return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(0))))
 		}
 
 		let priority = self.chain.read().priorities.get(&self.hash_and_length(&uxt).0).cloned();
+		let longevity = self
+			.chain
+			.read()
+			.valid_till_blocks
+			.get(&self.hash_and_length(&uxt).0)
+			.cloned()
+			.map(|valid_till| valid_till.saturating_sub(block_number.unwrap()))
+			.unwrap_or(64);
+
+		if longevity == 0 {
+			return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::BadProof)))
+		}
+
 		let mut validity = ValidTransaction {
 			priority: priority.unwrap_or(1),
 			requires,
 			provides,
-			longevity: 64,
+			longevity,
 			propagate: true,
 		};
 
 		(self.valid_modifier.read())(&mut validity);
 
-		ready(Ok(Ok(validity)))
-	}
-
-	fn validate_transaction_blocking(
-		&self,
-		_at: <Self::Block as BlockT>::Hash,
-		_source: TransactionSource,
-		_uxt: Arc<<Self::Block as BlockT>::Extrinsic>,
-	) -> Result<TransactionValidity, Error> {
-		unimplemented!();
+		Ok(Ok(validity))
 	}
 
 	fn block_id_to_number(
@@ -487,13 +505,11 @@ impl ChainApi for TestApi {
 		Self::hash_and_length_inner(ex)
 	}
 
-	fn block_body(&self, hash: <Self::Block as BlockT>::Hash) -> Self::BodyFuture {
-		futures::future::ready(Ok(self
-			.chain
-			.read()
-			.block_by_hash
-			.get(&hash)
-			.map(|b| b.extrinsics().to_vec())))
+	async fn block_body(
+		&self,
+		hash: <Self::Block as BlockT>::Hash,
+	) -> Result<Option<Vec<Extrinsic>>, Error> {
+		Ok(self.chain.read().block_by_hash.get(&hash).map(|b| b.extrinsics().to_vec()))
 	}
 
 	fn block_header(
@@ -534,7 +550,7 @@ impl sp_blockchain::HeaderMetadata<Block> for TestApi {
 /// Generate transfer extrinsic with a given nonce.
 ///
 /// Part of the test api.
-pub fn uxt(who: AccountKeyring, nonce: Nonce) -> Extrinsic {
+pub fn uxt(who: Sr25519Keyring, nonce: Nonce) -> Extrinsic {
 	let dummy = codec::Decode::decode(&mut TrailingZeroInput::zeroes()).unwrap();
 	let transfer = Transfer { from: who.into(), to: dummy, nonce, amount: 1 };
 	ExtrinsicBuilder::new_transfer(transfer).build()

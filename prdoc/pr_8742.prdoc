@@ -1,0 +1,12 @@
+title: '[pallet-revive] prestate tracer'
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Add prestate tracer
+    - Add coinbase runtime API to get the miner's address
+    tested against geth with https://github.com/paritytech/evm-test-suite/pull/93
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch
+- name: pallet-revive
+  bump: patch

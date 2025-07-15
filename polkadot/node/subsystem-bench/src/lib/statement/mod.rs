@@ -38,7 +38,7 @@ use polkadot_node_network_protocol::{
 	grid_topology::{SessionGridTopology, TopologyPeerInfo},
 	request_response::{IncomingRequest, ReqProtocolNames},
 	v3::{self, BackedCandidateManifest, StatementFilter},
-	view, Versioned, View,
+	view, ValidationProtocols, View,
 };
 use polkadot_node_subsystem::messages::{
 	network_bridge_event::NewGossipTopology, AllMessages, NetworkBridgeEvent,
@@ -51,9 +51,7 @@ use polkadot_primitives::{
 	AuthorityDiscoveryId, Block, GroupIndex, Hash, Id, ValidatorId, ValidatorIndex,
 };
 use polkadot_statement_distribution::StatementDistributionSubsystem;
-use rand::SeedableRng;
 use sc_keystore::LocalKeystore;
-use sc_network::request_responses::ProtocolConfig;
 use sc_network_types::PeerId;
 use sc_service::SpawnTaskHandle;
 use sp_keystore::{Keystore, KeystorePtr};
@@ -83,11 +81,7 @@ fn build_overseer(
 	network_interface: NetworkInterface,
 	network_receiver: NetworkInterfaceReceiver,
 	dependencies: &TestEnvironmentDependencies,
-) -> (
-	Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
-	OverseerHandle,
-	Vec<ProtocolConfig>,
-) {
+) -> (Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>, OverseerHandle) {
 	let overseer_connector = OverseerConnector::with_event_capacity(64000);
 	let overseer_metrics = OverseerMetrics::try_register(&dependencies.registry).unwrap();
 	let spawn_task_handle = dependencies.task_manager.spawn_handle();
@@ -114,10 +108,6 @@ fn build_overseer(
 		state.pvd.clone(),
 		state.own_backing_group.clone(),
 	);
-	let (statement_req_receiver, statement_req_cfg) =
-		IncomingRequest::get_config_receiver::<Block, sc_network::NetworkWorker<Block, Hash>>(
-			&ReqProtocolNames::new(GENESIS_HASH, None),
-		);
 	let (candidate_req_receiver, candidate_req_cfg) =
 		IncomingRequest::get_config_receiver::<Block, sc_network::NetworkWorker<Block, Hash>>(
 			&ReqProtocolNames::new(GENESIS_HASH, None),
@@ -125,18 +115,15 @@ fn build_overseer(
 	let keystore = make_keystore();
 	let subsystem = StatementDistributionSubsystem::new(
 		keystore.clone(),
-		statement_req_receiver,
 		candidate_req_receiver,
 		Metrics::try_register(&dependencies.registry).unwrap(),
-		rand::rngs::StdRng::from_entropy(),
 	);
 	let network_bridge_tx = MockNetworkBridgeTx::new(
 		network,
 		network_interface.subsystem_sender(),
 		state.test_authorities.clone(),
 	);
-	let network_bridge_rx =
-		MockNetworkBridgeRx::new(network_receiver, Some(candidate_req_cfg), false);
+	let network_bridge_rx = MockNetworkBridgeRx::new(network_receiver, Some(candidate_req_cfg));
 
 	let dummy = dummy_builder!(spawn_task_handle, overseer_metrics)
 		.replace_runtime_api(|_| mock_runtime_api)
@@ -149,13 +136,10 @@ fn build_overseer(
 	let (overseer, raw_handle) = dummy.build_with_connector(overseer_connector).unwrap();
 	let overseer_handle = OverseerHandle::new(raw_handle);
 
-	(overseer, overseer_handle, vec![statement_req_cfg])
+	(overseer, overseer_handle)
 }
 
-pub fn prepare_test(
-	state: &TestState,
-	with_prometheus_endpoint: bool,
-) -> (TestEnvironment, Vec<ProtocolConfig>) {
+pub fn prepare_test(state: &TestState, with_prometheus_endpoint: bool) -> TestEnvironment {
 	let dependencies = TestEnvironmentDependencies::default();
 	let (network, network_interface, network_receiver) = new_network(
 		&state.config,
@@ -163,20 +147,17 @@ pub fn prepare_test(
 		&state.test_authorities,
 		vec![Arc::new(state.clone())],
 	);
-	let (overseer, overseer_handle, cfg) =
+	let (overseer, overseer_handle) =
 		build_overseer(state, network.clone(), network_interface, network_receiver, &dependencies);
 
-	(
-		TestEnvironment::new(
-			dependencies,
-			state.config.clone(),
-			network,
-			overseer,
-			overseer_handle,
-			state.test_authorities.clone(),
-			with_prometheus_endpoint,
-		),
-		cfg,
+	TestEnvironment::new(
+		dependencies,
+		state.config.clone(),
+		network,
+		overseer,
+		overseer_handle,
+		state.test_authorities.clone(),
+		with_prometheus_endpoint,
 	)
 }
 
@@ -296,7 +277,7 @@ pub async fn benchmark_statement_distribution(
 		let message = AllMessages::StatementDistribution(
 			StatementDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
 				seconding_peer_id,
-				Versioned::V3(v3::StatementDistributionMessage::Statement(
+				ValidationProtocols::V3(v3::StatementDistributionMessage::Statement(
 					block_info.hash,
 					statement,
 				)),
@@ -412,9 +393,9 @@ pub async fn benchmark_statement_distribution(
 			let message = AllMessages::StatementDistribution(
 				StatementDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
 					seconding_peer_id,
-					Versioned::V3(v3::StatementDistributionMessage::BackedCandidateManifest(
-						manifest,
-					)),
+					ValidationProtocols::V3(
+						v3::StatementDistributionMessage::BackedCandidateManifest(manifest),
+					),
 				)),
 			);
 			env.send_message(message).await;
@@ -439,7 +420,7 @@ pub async fn benchmark_statement_distribution(
 	}
 
 	let duration: u128 = test_start.elapsed().as_millis();
-	gum::info!(target: LOG_TARGET, "All blocks processed in {}", format!("{:?}ms", duration).cyan());
+	gum::info!(target: LOG_TARGET, "All blocks processed in {}", format!("{duration:?}ms").cyan());
 	gum::info!(target: LOG_TARGET,
 		"Avg block time: {}",
 		format!("{} ms", test_start.elapsed().as_millis() / env.config().num_blocks as u128).red()

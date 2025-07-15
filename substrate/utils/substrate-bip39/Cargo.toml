@@ -16,7 +16,7 @@ sha2 = { workspace = true }
 zeroize = { workspace = true }
 
 [dev-dependencies]
-bip39 = { workspace = true }
+bip39 = { workspace = true, default-features = true }
 rustc-hex = { workspace = true, default-features = true }
 
 [features]

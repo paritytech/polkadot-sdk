@@ -54,13 +54,17 @@ impl<C: Config<Hash = subxt::utils::H256>> DynamicRemarkBuilder<C> {
 
 		log::debug!("Found metadata API version {}.", metadata_api_version);
 		let opaque_metadata = if metadata_api_version > 1 {
-			let Ok(mut supported_metadata_versions) = api.metadata_versions(genesis) else {
+			let Ok(supported_metadata_versions) = api.metadata_versions(genesis) else {
 				return Err("Unable to fetch metadata versions".to_string().into());
 			};
 
 			let latest = supported_metadata_versions
-				.pop()
-				.ok_or("No metadata version supported".to_string())?;
+				.into_iter()
+				// TODO: Subxt doesn't support V16 metadata until v0.42.0, so don't try
+				// to fetch it here until we update to that version.
+				.filter(|v| *v != u32::MAX && *v < 16)
+				.max()
+				.ok_or("No stable metadata versions supported".to_string())?;
 
 			api.metadata_at_version(genesis, latest)
 				.map_err(|e| format!("Unable to fetch metadata: {:?}", e))?
@@ -113,8 +117,9 @@ impl ExtrinsicBuilder for DynamicRemarkBuilder<SubstrateConfig> {
 		let transaction = self
 			.offline_client
 			.tx()
-			.create_signed_offline(&dynamic_tx, &signer, params)
-			.unwrap();
+			.create_partial_offline(&dynamic_tx, params)
+			.unwrap()
+			.sign(&signer);
 		let mut encoded = transaction.into_encoded();
 
 		OpaqueExtrinsic::from_bytes(&mut encoded).map_err(|_| "Unable to construct OpaqueExtrinsic")

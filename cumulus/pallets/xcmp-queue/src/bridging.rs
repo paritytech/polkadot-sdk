@@ -45,12 +45,11 @@ impl<Runtime: crate::Config> bp_xcm_bridge_hub_router::XcmChannelStatusProvider
 	}
 }
 
-/// Adapter implementation for `bp_xcm_bridge_hub_router::XcmChannelStatusProvider` which checks
-/// only `OutboundXcmpStatus` for defined `SiblingParaId` if is suspended.
+/// Adapter implementation for `bp_xcm_bridge::ChannelStatusProvider` and/or
+/// `bp_xcm_bridge_hub_router::XcmChannelStatusProvider` which checks only `OutboundXcmpStatus`
+/// for defined `Location` if is suspended.
 pub struct OutXcmpChannelStatusProvider<Runtime>(core::marker::PhantomData<Runtime>);
-impl<Runtime: crate::Config> bp_xcm_bridge_hub_router::XcmChannelStatusProvider
-	for OutXcmpChannelStatusProvider<Runtime>
-{
+impl<Runtime: crate::Config> OutXcmpChannelStatusProvider<Runtime> {
 	fn is_congested(with: &Location) -> bool {
 		// handle congestion only for a sibling parachain locations.
 		let sibling_para_id: ParaId = match with.unpack() {
@@ -85,6 +84,14 @@ impl<Runtime: crate::Config> bp_xcm_bridge_hub_router::XcmChannelStatusProvider
 		}
 
 		false
+	}
+}
+
+impl<Runtime: crate::Config> bp_xcm_bridge_hub_router::XcmChannelStatusProvider
+	for OutXcmpChannelStatusProvider<Runtime>
+{
+	fn is_congested(with: &Location) -> bool {
+		Self::is_congested(with)
 	}
 }
 

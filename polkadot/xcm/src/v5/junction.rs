@@ -23,7 +23,7 @@ use crate::{
 	VersionedLocation,
 };
 use bounded_collections::{BoundedSlice, BoundedVec, ConstU32};
-use codec::{self, Decode, Encode, MaxEncodedLen};
+use codec::{self, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use hex_literal::hex;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
@@ -40,6 +40,7 @@ use serde::{Deserialize, Serialize};
 	PartialOrd,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Debug,
 	TypeInfo,
 	MaxEncodedLen,
@@ -127,6 +128,7 @@ pub const DUMMY_GENESIS_HASH: [u8; 32] = [0; 32];
 	PartialOrd,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Debug,
 	TypeInfo,
 	MaxEncodedLen,
@@ -143,16 +145,20 @@ pub enum NetworkId {
 	/// The Kusama canary-net Relay-chain.
 	Kusama,
 	/// An Ethereum network specified by its chain ID.
+	#[codec(index = 7)]
 	Ethereum {
 		/// The EIP-155 chain ID.
 		#[codec(compact)]
 		chain_id: u64,
 	},
 	/// The Bitcoin network, including hard-forks supported by Bitcoin Core development team.
+	#[codec(index = 8)]
 	BitcoinCore,
 	/// The Bitcoin network, including hard-forks supported by Bitcoin Cash developers.
+	#[codec(index = 9)]
 	BitcoinCash,
 	/// The Polkadot Bulletin chain.
+	#[codec(index = 10)]
 	PolkadotBulletin,
 }
 

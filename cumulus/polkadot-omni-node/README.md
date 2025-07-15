@@ -19,7 +19,7 @@ Compile & install via `cargo`:
 
 ```bash
 # Assuming ~/.cargo/bin is on the PATH
-cargo install polkadot-omni-node
+cargo install polkadot-omni-node --locked
 ```
 
 ## Usage
@@ -34,14 +34,25 @@ The interface mandates the runtime to expose a [`named-preset`](https://docs.rs/
 Install it with `cargo` like bellow :
 
 ```bash
-cargo install staging-chain-spec-builder
+cargo install staging-chain-spec-builder --locked
 ```
 
 ### 2. Generate a chain spec
 
-Omni Node expects for the chain spec to contain parachains related fields like `relay_chain` and `para_id`.
-These fields can be introduced by running [`staging-chain-spec-builder`](https://crates.io/crates/staging-chain-spec-builder)
-with additional flags:
+Omni Node requires the chain spec to include a JSON key named `relay_chain`. It is set to a chain id,
+representing the chain name, e.g. `westend`, `paseo`, `rococo`, `polkadot`, or `kusama`, but
+there are also local variants that can be used for testing, like `rococo-local` or `westend-local`. The
+local variants are available only for a build of `polkadot-omni-node` with
+`westend-native` and `rococo-native` features respectively.
+
+<!-- TODO: https://github.com/paritytech/polkadot-sdk/issues/8747 -->
+<!-- TODO: https://github.com/paritytech/polkadot-sdk/issues/8740 -->
+Additionaly, although deprecated, the `--para-id` flag can still be used to set the JSON key named
+`para_id`. The removal of the flag will happen starting with `stable2512`. The alternative of not using
+it is to implement the `cumulus_primitives_core::GetParachainInfo` runtime API for the runtime, and
+upgrade it on-chain as well, to be compatible with nodes released starting with `stable2512`.
+
+Example command bellow:
 
 ```bash
 chain-spec-builder create --relay-chain <relay_chain_id> --para-id <id> -r <runtime.wasm> named-preset <preset_name>
@@ -49,10 +60,10 @@ chain-spec-builder create --relay-chain <relay_chain_id> --para-id <id> -r <runt
 
 ### 3. Run Omni Node
 
-And now with the generated chain spec we can start Omni Node like so:
+And now with the generated chain spec we can start the node in development mode like so:
 
 ```bash
-polkadot-omni-node --chain <chain_spec.json>
+polkadot-omni-node --dev --chain <chain_spec.json>
 ```
 
 ## Useful links

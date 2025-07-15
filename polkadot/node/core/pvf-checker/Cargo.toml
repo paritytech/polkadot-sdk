@@ -5,29 +5,28 @@ version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
 
 [dependencies]
 futures = { workspace = true }
-thiserror = { workspace = true }
 gum = { workspace = true, default-features = true }
 
-polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem-util = { workspace = true, default-features = true }
-polkadot-overseer = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
 
 sp-keystore = { workspace = true, default-features = true }
 
 [dev-dependencies]
-sp-core = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sc-keystore = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
+futures-timer = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
+sc-keystore = { workspace = true, default-features = true }
 sp-application-crypto = { workspace = true, default-features = true }
-futures-timer = { workspace = true }
+sp-core = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }

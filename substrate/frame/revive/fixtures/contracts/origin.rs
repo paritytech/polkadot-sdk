@@ -21,8 +21,8 @@
 
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-extern crate common;
 use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]
@@ -49,9 +49,9 @@ pub extern "C" fn call() {
 	api::call(
 		uapi::CallFlags::ALLOW_REENTRY,
 		&addr,
-		0u64,
-		0u64,
-		None,
+		u64::MAX,
+		u64::MAX,
+		&[u8::MAX; 32],
 		&[0; 32],
 		&[],
 		Some(&mut &mut buf[..]),

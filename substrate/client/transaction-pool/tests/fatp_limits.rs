@@ -29,8 +29,9 @@ use sc_transaction_pool_api::{
 	error::Error as TxPoolError, MaintainedTransactionPool, TransactionPool, TransactionStatus,
 };
 use std::thread::sleep;
-use substrate_test_runtime_client::AccountKeyring::*;
+use substrate_test_runtime_client::Sr25519Keyring::*;
 use substrate_test_runtime_transaction_pool::uxt;
+use tracing::debug;
 
 #[test]
 fn fatp_limits_no_views_mempool_count() {
@@ -96,20 +97,20 @@ fn fatp_limits_ready_count_works() {
 	assert_ready_iterator!(header01.hash(), pool, [xt1, xt2]);
 	//todo: can we do better? We don't have API to check if event was processed internally.
 	let mut counter = 0;
-	while pool.mempool_len().0 == 3 {
+	while block_on(pool.mempool_len()).0 == 3 {
 		sleep(std::time::Duration::from_millis(1));
 		counter = counter + 1;
 		if counter > 20 {
 			assert!(false, "timeout");
 		}
 	}
-	assert_eq!(pool.mempool_len().0, 2);
+	assert_eq!(block_on(pool.mempool_len()).0, 2);
 
 	//branch with alice transactions:
 	let header02b = api.push_block(2, vec![xt1.clone(), xt2.clone()], true);
 	let event = new_best_block_event(&pool, Some(header01.hash()), header02b.hash());
 	block_on(pool.maintain(event));
-	assert_eq!(pool.mempool_len().0, 2);
+	assert_eq!(block_on(pool.mempool_len()).0, 2);
 	assert_pool_status!(header02b.hash(), &pool, 0, 0);
 	assert_ready_iterator!(header02b.hash(), pool, []);
 
@@ -118,7 +119,7 @@ fn fatp_limits_ready_count_works() {
 	api.set_nonce(header02a.hash(), Alice.into(), 201);
 	let event = new_best_block_event(&pool, Some(header02b.hash()), header02a.hash());
 	block_on(pool.maintain(event));
-	assert_eq!(pool.mempool_len().0, 2);
+	assert_eq!(block_on(pool.mempool_len()).0, 2);
 	// assert_pool_status!(header02a.hash(), &pool, 1, 0);
 	assert_ready_iterator!(header02a.hash(), pool, [xt2]);
 }
@@ -151,7 +152,7 @@ fn fatp_limits_ready_count_works_for_submit_at() {
 	assert!(matches!(results[0].as_ref().unwrap_err().0, TxPoolError::ImmediatelyDropped));
 	assert!(results[1].as_ref().is_ok());
 	assert!(results[2].as_ref().is_ok());
-	assert_eq!(pool.mempool_len().0, 2);
+	assert_eq!(block_on(pool.mempool_len()).0, 2);
 	//charlie was not included into view:
 	assert_pool_status!(header01.hash(), &pool, 2, 0);
 	assert_ready_iterator!(header01.hash(), pool, [xt1, xt2]);
@@ -185,7 +186,7 @@ fn fatp_limits_ready_count_works_for_submit_and_watch() {
 	assert!(matches!(result2.unwrap_err().0, TxPoolError::ImmediatelyDropped));
 	assert!(result0.is_ok());
 	assert!(result1.is_ok());
-	assert_eq!(pool.mempool_len().1, 2);
+	assert_eq!(block_on(pool.mempool_len()).1, 2);
 	//charlie was not included into view:
 	assert_pool_status!(header01.hash(), &pool, 2, 0);
 	assert_ready_iterator!(header01.hash(), pool, [xt0, xt1]);
@@ -219,7 +220,7 @@ fn fatp_limits_future_count_works() {
 	assert_pool_status!(header01.hash(), &pool, 0, 2);
 	//todo: can we do better? We don't have API to check if event was processed internally.
 	let mut counter = 0;
-	while pool.mempool_len().0 != 2 {
+	while block_on(pool.mempool_len()).0 != 2 {
 		sleep(std::time::Duration::from_millis(1));
 		counter = counter + 1;
 		if counter > 20 {
@@ -233,7 +234,7 @@ fn fatp_limits_future_count_works() {
 	block_on(pool.maintain(event));
 
 	assert_pool_status!(header02.hash(), &pool, 2, 0);
-	assert_eq!(pool.mempool_len().0, 2);
+	assert_eq!(block_on(pool.mempool_len()).0, 2);
 }
 
 #[test]
@@ -260,14 +261,14 @@ fn fatp_limits_watcher_mempool_doesnt_prevent_dropping() {
 	assert_pool_status!(header01.hash(), &pool, 2, 0);
 
 	let xt0_status = futures::executor::block_on_stream(xt0_watcher).take(2).collect::<Vec<_>>();
-	log::debug!("xt0_status: {:#?}", xt0_status);
+	debug!(target: LOG_TARGET, ?xt0_status, "xt0_status");
 	assert_eq!(xt0_status, vec![TransactionStatus::Ready, TransactionStatus::Dropped]);
 	let xt1_status = futures::executor::block_on_stream(xt1_watcher).take(1).collect::<Vec<_>>();
 
 	assert_eq!(xt1_status, vec![TransactionStatus::Ready]);
 
 	let xt2_status = futures::executor::block_on_stream(xt2_watcher).take(1).collect::<Vec<_>>();
-	log::debug!("xt2_status: {:#?}", xt2_status);
+	debug!(target: LOG_TARGET, ?xt2_status, "xt2_status");
 
 	assert_eq!(xt2_status, vec![TransactionStatus::Ready]);
 }
@@ -377,11 +378,10 @@ fn fatp_limits_watcher_view_can_drop_transcation() {
 	assert_eq!(xt0_status, vec![TransactionStatus::Ready, TransactionStatus::Dropped,]);
 
 	assert_ready_iterator!(header01.hash(), pool, [xt1, xt2]);
+	let xt3_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt3.clone())).unwrap();
 
 	let header02 = api.push_block_with_parent(header01.hash(), vec![], true);
 	block_on(pool.maintain(finalized_block_event(&pool, api.genesis_hash(), header02.hash())));
-
-	let xt3_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt3.clone())).unwrap();
 
 	let xt1_status = futures::executor::block_on_stream(xt1_watcher).take(2).collect::<Vec<_>>();
 	assert_eq!(xt1_status, vec![TransactionStatus::Ready, TransactionStatus::Dropped]);
@@ -428,7 +428,7 @@ fn fatp_limits_watcher_empty_and_full_view_immediately_drops() {
 	assert_eq!(xt0_status, vec![TransactionStatus::Ready, TransactionStatus::Dropped]);
 
 	assert_pool_status!(header01.hash(), &pool, 2, 0);
-	assert_eq!(pool.mempool_len().1, 2);
+	assert_eq!(block_on(pool.mempool_len()).1, 2);
 
 	let header02e = api.push_block_with_parent(
 		header01.hash(),
@@ -456,7 +456,7 @@ fn fatp_limits_watcher_empty_and_full_view_immediately_drops() {
 
 	assert_pool_status!(header02e.hash(), &pool, 2, 0);
 	assert_ready_iterator!(header02e.hash(), pool, [xt3, xt4]);
-	assert_eq!(pool.mempool_len().1, 4);
+	assert_eq!(block_on(pool.mempool_len()).1, 4);
 
 	let xt1_status = futures::executor::block_on_stream(xt1_watcher).take(2).collect::<Vec<_>>();
 	assert_eq!(
@@ -510,7 +510,7 @@ fn fatp_limits_watcher_empty_and_full_view_drops_with_event() {
 	assert_eq!(xt0_status, vec![TransactionStatus::Ready, TransactionStatus::Dropped]);
 
 	assert_pool_status!(header01.hash(), &pool, 2, 0);
-	assert_eq!(pool.mempool_len().1, 2);
+	assert_eq!(block_on(pool.mempool_len()).1, 2);
 
 	let header02e = api.push_block_with_parent(
 		header01.hash(),
@@ -540,7 +540,7 @@ fn fatp_limits_watcher_empty_and_full_view_drops_with_event() {
 	assert_eq!(xt3_status, vec![TransactionStatus::Ready, TransactionStatus::Dropped]);
 
 	//xt5 got dropped
-	assert_eq!(pool.mempool_len().1, 4);
+	assert_eq!(block_on(pool.mempool_len()).1, 4);
 
 	let xt1_status = futures::executor::block_on_stream(xt1_watcher).take(2).collect::<Vec<_>>();
 	assert_eq!(
@@ -631,7 +631,7 @@ fn fatp_limits_future_size_works() {
 
 	//todo: can we do better? We don't have API to check if event was processed internally.
 	let mut counter = 0;
-	while pool.mempool_len().0 == 4 {
+	while block_on(pool.mempool_len()).0 == 4 {
 		sleep(std::time::Duration::from_millis(1));
 		counter = counter + 1;
 		if counter > 20 {
@@ -639,5 +639,194 @@ fn fatp_limits_future_size_works() {
 		}
 	}
 	assert_pool_status!(header01.hash(), &pool, 0, 3);
-	assert_eq!(pool.mempool_len().0, 3);
+	assert_eq!(block_on(pool.mempool_len()).0, 3);
+}
+
+#[test]
+fn fatp_limits_watcher_ready_transactions_are_not_droped_when_view_is_dropped() {
+	sp_tracing::try_init_simple();
+
+	let builder = TestPoolBuilder::new();
+	let (pool, api, _) = builder.with_mempool_count_limit(6).with_ready_count(2).build();
+	api.set_nonce(api.genesis_hash(), Bob.into(), 300);
+	api.set_nonce(api.genesis_hash(), Charlie.into(), 400);
+	api.set_nonce(api.genesis_hash(), Dave.into(), 500);
+	api.set_nonce(api.genesis_hash(), Eve.into(), 600);
+	api.set_nonce(api.genesis_hash(), Ferdie.into(), 700);
+
+	let header01 = api.push_block(1, vec![], true);
+	let event = new_best_block_event(&pool, None, header01.hash());
+	block_on(pool.maintain(event));
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Bob, 300);
+	let xt2 = uxt(Charlie, 400);
+
+	let xt3 = uxt(Dave, 500);
+	let xt4 = uxt(Eve, 600);
+	let xt5 = uxt(Ferdie, 700);
+
+	let _xt0_watcher =
+		block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
+	let _xt1_watcher =
+		block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone())).unwrap();
+
+	assert_pool_status!(header01.hash(), &pool, 2, 0);
+	assert_eq!(block_on(pool.mempool_len()).1, 2);
+
+	let header02 = api.push_block_with_parent(header01.hash(), vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header01.hash()), header02.hash())));
+
+	let _xt2_watcher =
+		block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone())).unwrap();
+	let _xt3_watcher =
+		block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt3.clone())).unwrap();
+
+	assert_pool_status!(header02.hash(), &pool, 2, 0);
+	assert_eq!(block_on(pool.mempool_len()).1, 4);
+
+	let header03 = api.push_block_with_parent(header02.hash(), vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header02.hash()), header03.hash())));
+
+	let _xt4_watcher =
+		block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt4.clone())).unwrap();
+	let _xt5_watcher =
+		block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt5.clone())).unwrap();
+
+	assert_pool_status!(header03.hash(), &pool, 2, 0);
+	assert_eq!(block_on(pool.mempool_len()).1, 6);
+
+	let header04 =
+		api.push_block_with_parent(header03.hash(), vec![xt4.clone(), xt5.clone()], true);
+	api.set_nonce(header04.hash(), Alice.into(), 201);
+	api.set_nonce(header04.hash(), Bob.into(), 301);
+	api.set_nonce(header04.hash(), Charlie.into(), 401);
+	api.set_nonce(header04.hash(), Dave.into(), 501);
+	api.set_nonce(header04.hash(), Eve.into(), 601);
+	api.set_nonce(header04.hash(), Ferdie.into(), 701);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header03.hash()), header04.hash())));
+
+	assert_ready_iterator!(header01.hash(), pool, [xt0, xt1]);
+	assert_ready_iterator!(header02.hash(), pool, [xt2, xt3]);
+	assert_ready_iterator!(header03.hash(), pool, [xt4, xt5]);
+	assert_ready_iterator!(header04.hash(), pool, []);
+
+	block_on(pool.maintain(finalized_block_event(&pool, api.genesis_hash(), header01.hash())));
+	assert!(!pool.status_all().contains_key(&header01.hash()));
+
+	block_on(pool.maintain(finalized_block_event(&pool, header01.hash(), header02.hash())));
+	assert!(!pool.status_all().contains_key(&header02.hash()));
+
+	//view 01 was dropped
+	assert!(pool.ready_at(header01.hash()).now_or_never().is_none());
+	assert_eq!(block_on(pool.mempool_len()).1, 6);
+
+	block_on(pool.maintain(finalized_block_event(&pool, header02.hash(), header03.hash())));
+
+	//no revalidation has happened yet, all txs are kept
+	assert_eq!(block_on(pool.mempool_len()).1, 6);
+
+	//view 03 is still there
+	assert!(!pool.status_all().contains_key(&header03.hash()));
+
+	//view 02 was dropped
+	assert!(pool.ready_at(header02.hash()).now_or_never().is_none());
+
+	let mut prev_header = header03;
+	for n in 5..=11 {
+		let header = api.push_block(n, vec![], true);
+		let event = finalized_block_event(&pool, prev_header.hash(), header.hash());
+		block_on(pool.maintain(event));
+		prev_header = header;
+	}
+
+	//now revalidation has happened, all txs are dropped
+	assert_eq!(block_on(pool.mempool_len()).1, 0);
+}
+
+#[test]
+fn fatp_limits_watcher_future_transactions_are_droped_when_view_is_dropped() {
+	sp_tracing::try_init_simple();
+
+	let builder = TestPoolBuilder::new();
+	let (pool, api, _) = builder.with_mempool_count_limit(6).with_future_count(2).build();
+	api.set_nonce(api.genesis_hash(), Bob.into(), 300);
+	api.set_nonce(api.genesis_hash(), Charlie.into(), 400);
+	api.set_nonce(api.genesis_hash(), Dave.into(), 500);
+	api.set_nonce(api.genesis_hash(), Eve.into(), 600);
+	api.set_nonce(api.genesis_hash(), Ferdie.into(), 700);
+
+	let header01 = api.push_block(1, vec![], true);
+	let event = new_best_block_event(&pool, None, header01.hash());
+	block_on(pool.maintain(event));
+
+	let xt0 = uxt(Alice, 201);
+	let xt1 = uxt(Bob, 301);
+	let xt2 = uxt(Charlie, 401);
+
+	let xt3 = uxt(Dave, 501);
+	let xt4 = uxt(Eve, 601);
+	let xt5 = uxt(Ferdie, 701);
+
+	let xt0_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
+	let xt1_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone())).unwrap();
+
+	assert_pool_status!(header01.hash(), &pool, 0, 2);
+	assert_eq!(block_on(pool.mempool_len()).1, 2);
+	assert_future_iterator!(header01.hash(), pool, [xt0, xt1]);
+
+	let header02 = api.push_block_with_parent(header01.hash(), vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header01.hash()), header02.hash())));
+
+	let xt2_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone())).unwrap();
+	let xt3_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt3.clone())).unwrap();
+
+	assert_pool_status!(header02.hash(), &pool, 0, 2);
+	assert_eq!(block_on(pool.mempool_len()).1, 4);
+	assert_future_iterator!(header02.hash(), pool, [xt2, xt3]);
+
+	let header03 = api.push_block_with_parent(header02.hash(), vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header02.hash()), header03.hash())));
+
+	let xt4_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt4.clone())).unwrap();
+	let xt5_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt5.clone())).unwrap();
+
+	assert_pool_status!(header03.hash(), &pool, 0, 2);
+	assert_eq!(block_on(pool.mempool_len()).1, 6);
+	assert_future_iterator!(header03.hash(), pool, [xt4, xt5]);
+
+	let header04 = api.push_block_with_parent(header03.hash(), vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header03.hash()), header04.hash())));
+
+	assert_pool_status!(header04.hash(), &pool, 0, 2);
+	assert_eq!(pool.futures().len(), 2);
+	assert_future_iterator!(header04.hash(), pool, [xt4, xt5]);
+
+	block_on(pool.maintain(finalized_block_event(&pool, api.genesis_hash(), header04.hash())));
+	assert_eq!(pool.active_views_count(), 1);
+	assert_eq!(pool.inactive_views_count(), 0);
+	//todo: can we do better? We don't have API to check if event was processed internally.
+	let mut counter = 0;
+	while block_on(pool.mempool_len()).1 != 2 {
+		sleep(std::time::Duration::from_millis(1));
+		counter = counter + 1;
+		if counter > 20 {
+			assert!(false, "timeout {}", block_on(pool.mempool_len()).1);
+		}
+	}
+	assert_eq!(block_on(pool.mempool_len()).1, 2);
+	assert_pool_status!(header04.hash(), &pool, 0, 2);
+	assert_eq!(pool.futures().len(), 2);
+
+	let to_be_checked = vec![xt0_watcher, xt1_watcher, xt2_watcher, xt3_watcher];
+	for x in to_be_checked {
+		let x_status = futures::executor::block_on_stream(x).take(2).collect::<Vec<_>>();
+		assert_eq!(x_status, vec![TransactionStatus::Future, TransactionStatus::Dropped]);
+	}
+
+	let to_be_checked = vec![xt4_watcher, xt5_watcher];
+	for x in to_be_checked {
+		let x_status = futures::executor::block_on_stream(x).take(1).collect::<Vec<_>>();
+		assert_eq!(x_status, vec![TransactionStatus::Future]);
+	}
 }

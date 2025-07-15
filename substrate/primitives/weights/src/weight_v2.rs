@@ -15,13 +15,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
 use sp_arithmetic::traits::{Bounded, CheckedAdd, CheckedSub, Zero};
 
 use super::*;
 
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Eq, PartialEq, Copy, Clone, Debug, Default)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	Eq,
+	PartialEq,
+	Copy,
+	Clone,
+	Debug,
+	Default,
+)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub struct Weight {

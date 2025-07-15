@@ -84,7 +84,7 @@ slashing risk for validator operators.
 
 In future, we shall determine which among the several hardening techniques best benefits the network as a whole.  We
 could provide a multi-process multi-machine architecture for validators, perhaps even reminiscent of GNUNet, or perhaps
-more resembling smart HSM tooling.  We might instead design a system that more resembled full systems, like like Cosmos'
+more resembling smart HSM tooling.  We might instead design a system that more resembled full systems, like Cosmos'
 sentry nodes.  In either case, approval assignments might be handled by a slightly hardened machine, but not necessarily
 nearly as hardened as approval votes, but approval votes machines must similarly run foreign WASM code, which increases
 their risk, so assignments being separate sounds helpful.

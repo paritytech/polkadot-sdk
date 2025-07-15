@@ -17,8 +17,8 @@
 
 //! A crate that hosts a common definitions that are relevant for the pallet-revive.
 
-use crate::H160;
-use alloc::vec::Vec;
+use crate::{H160, U256};
+use alloc::{string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::weights::Weight;
 use pallet_revive_uapi::ReturnFlags;
@@ -27,6 +27,30 @@ use sp_runtime::{
 	traits::{Saturating, Zero},
 	DispatchError, RuntimeDebug,
 };
+
+#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub enum DepositLimit<Balance> {
+	/// Allows bypassing all balance transfer checks.
+	UnsafeOnlyForDryRun,
+
+	/// Specifies a maximum allowable balance for a deposit.
+	Balance(Balance),
+}
+
+impl<T> DepositLimit<T> {
+	pub fn is_unchecked(&self) -> bool {
+		match self {
+			Self::UnsafeOnlyForDryRun => true,
+			_ => false,
+		}
+	}
+}
+
+impl<T> From<T> for DepositLimit<T> {
+	fn from(value: T) -> Self {
+		Self::Balance(value)
+	}
+}
 
 /// Result type of a `bare_call` or `bare_instantiate` call as well as `ContractsApi::call` and
 /// `ContractsApi::instantiate`.
@@ -39,7 +63,7 @@ use sp_runtime::{
 /// `ContractsApi` version. Therefore when SCALE decoding a `ContractResult` its trailing data
 /// should be ignored to avoid any potential compatibility issues.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct ContractResult<R, Balance, EventRecord> {
+pub struct ContractResult<R, Balance> {
 	/// How much weight was consumed during execution.
 	pub gas_consumed: Weight,
 	/// How much weight is required as gas limit in order to execute this call.
@@ -48,7 +72,7 @@ pub struct ContractResult<R, Balance, EventRecord> {
 	///
 	/// # Note
 	///
-	/// This can only different from [`Self::gas_consumed`] when weight pre charging
+	/// This can only be different from [`Self::gas_consumed`] when weight pre charging
 	/// is used. Currently, only `seal_call_runtime` makes use of pre charging.
 	/// Additionally, any `seal_call` or `seal_instantiate` makes use of pre-charging
 	/// when a non-zero `gas_limit` argument is supplied.
@@ -60,39 +84,36 @@ pub struct ContractResult<R, Balance, EventRecord> {
 	/// is `Err`. This is because on error all storage changes are rolled back including the
 	/// payment of the deposit.
 	pub storage_deposit: StorageDeposit<Balance>,
-	/// An optional debug message. This message is only filled when explicitly requested
-	/// by the code that calls into the contract. Otherwise it is empty.
-	///
-	/// The contained bytes are valid UTF-8. This is not declared as `String` because
-	/// this type is not allowed within the runtime.
-	///
-	/// Clients should not make any assumptions about the format of the buffer.
-	/// They should just display it as-is. It is **not** only a collection of log lines
-	/// provided by a contract but a formatted buffer with different sections.
-	///
-	/// # Note
-	///
-	/// The debug message is never generated during on-chain execution. It is reserved for
-	/// RPC calls.
-	pub debug_message: Vec<u8>,
-	/// The execution result of the wasm code.
+	/// The execution result of the vm binary code.
 	pub result: Result<R, DispatchError>,
-	/// The events that were emitted during execution. It is an option as event collection is
-	/// optional.
-	pub events: Option<Vec<EventRecord>>,
 }
 
 /// The result of the execution of a `eth_transact` call.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct EthContractResult<Balance, R = Result<ExecReturnValue, DispatchError>> {
-	/// The fee charged for the execution.
-	pub fee: Balance,
+#[derive(Clone, Eq, PartialEq, Default, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub struct EthTransactInfo<Balance> {
 	/// The amount of gas that was necessary to execute the transaction.
 	pub gas_required: Weight,
 	/// Storage deposit charged.
 	pub storage_deposit: Balance,
-	/// The execution result.
-	pub result: R,
+	/// The weight and deposit equivalent in EVM Gas.
+	pub eth_gas: U256,
+	/// The execution return value.
+	pub data: Vec<u8>,
+}
+
+/// Error type of a `eth_transact` call.
+#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub enum EthTransactError {
+	Data(Vec<u8>),
+	Message(String),
+}
+
+/// Precision used for converting between Native and EVM balances.
+pub enum ConversionPrecision {
+	/// Exact conversion without any rounding.
+	Exact,
+	/// Conversion that rounds up to the nearest whole number.
+	RoundUp,
 }
 
 /// Result type of a `bare_code_upload` call.
@@ -144,12 +165,12 @@ pub struct CodeUploadReturnValue<Balance> {
 	pub deposit: Balance,
 }
 
-/// Reference to an existing code hash or a new wasm module.
+/// Reference to an existing code hash or a new vm module.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub enum Code {
-	/// A wasm module as raw bytes.
+	/// A vm module as raw bytes.
 	Upload(Vec<u8>),
-	/// The code hash of an on-chain wasm blob.
+	/// The code hash of an on-chain vm binary blob.
 	Existing(sp_core::H256),
 }
 
@@ -254,35 +275,20 @@ where
 	}
 }
 
-/// Determines whether events should be collected during execution.
-#[derive(
-	Copy, Clone, PartialEq, Eq, RuntimeDebug, Decode, Encode, MaxEncodedLen, scale_info::TypeInfo,
-)]
-pub enum CollectEvents {
-	/// Collect events.
-	///
-	/// # Note
-	///
-	/// Events should only be collected when called off-chain, as this would otherwise
-	/// collect all the Events emitted in the block so far and put them into the PoV.
-	///
-	/// **Never** use this mode for on-chain execution.
-	UnsafeCollect,
-	/// Skip event collection.
-	Skip,
-}
-
-/// Determines whether debug messages will be collected.
-#[derive(
-	Copy, Clone, PartialEq, Eq, RuntimeDebug, Decode, Encode, MaxEncodedLen, scale_info::TypeInfo,
-)]
-pub enum DebugInfo {
-	/// Collect debug messages.
-	/// # Note
-	///
-	/// This should only ever be set to `UnsafeDebug` when executing as an RPC because
-	/// it adds allocations and could be abused to drive the runtime into an OOM panic.
-	UnsafeDebug,
-	/// Skip collection of debug messages.
-	Skip,
+/// Indicates whether the account nonce should be incremented after instantiating a new contract.
+///
+/// In Substrate, where transactions can be batched, the account's nonce should be incremented after
+/// each instantiation, ensuring that each instantiation uses a unique nonce.
+///
+/// For transactions sent from Ethereum wallets, which cannot be batched, the nonce should only be
+/// incremented once. In these cases, Use `BumpNonce::No` to suppress an extra nonce increment.
+///
+/// Note:
+/// The origin's nonce is already incremented pre-dispatch by the `CheckNonce` transaction
+/// extension.
+pub enum BumpNonce {
+	/// Do not increment the nonce after contract instantiation
+	No,
+	/// Increment the nonce after contract instantiation
+	Yes,
 }

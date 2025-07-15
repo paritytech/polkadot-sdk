@@ -20,6 +20,5 @@ pub mod template;
 
 mod fake_runtime_api;
 pub mod remark_builder;
-pub mod runtime_utilities;
 
 pub use command::{OpaqueBlock, OverheadCmd};

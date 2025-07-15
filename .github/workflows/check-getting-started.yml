@@ -26,16 +26,19 @@ on:
     paths:
       - ".github/workflows/check-getting-started.yml"
       - "scripts/getting-started.sh"
+    types: [opened, synchronize, reopened, ready_for_review]
   schedule:
     - cron: "0 5 * * *"
-  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
   check-getting-started:
+    needs: isdraft
     strategy:
       fail-fast: true
       matrix:
@@ -179,6 +182,7 @@ jobs:
         timeout-minutes: 5
 
   check-getting-started-macos:
+    needs: isdraft
     strategy:
       fail-fast: true
       matrix:

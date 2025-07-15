@@ -1,0 +1,13 @@
+title: fix pre-dispatch PoV underweight for ParasInherent
+doc:
+- audience: Runtime Dev
+  description: |-
+    This should fix the error log related to PoV pre-dispatch weight being lower than post-dispatch for `ParasInherent`:
+    ```
+    ERROR tokio-runtime-worker runtime::frame-support: Post dispatch weight is greater than pre dispatch weight. Pre dispatch weight may underestimating the actual weight. Greater post dispatch weight components are ignored.
+                                            Pre dispatch weight: Weight { ref_time: 47793353978, proof_size: 1019 },
+                                            Post dispatch weight: Weight { ref_time: 5030321719, proof_size: 135395 }
+    ```
+crates:
+- name: polkadot-runtime-parachains
+  bump: patch

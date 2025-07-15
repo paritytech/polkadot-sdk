@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::marker::PhantomData;
+use core::{fmt::Debug, marker::PhantomData};
 use cumulus_primitives_core::ParaId;
 use sp_runtime::traits::Get;
 use xcm::latest::prelude::*;
@@ -22,8 +22,10 @@ use xcm::latest::prelude::*;
 pub struct AssetPairFactory<Target, SelfParaId, PalletId, L = Location>(
 	PhantomData<(Target, SelfParaId, PalletId, L)>,
 );
-impl<Target: Get<L>, SelfParaId: Get<ParaId>, PalletId: Get<u32>, L: TryFrom<Location>>
+impl<Target: Get<L>, SelfParaId: Get<ParaId>, PalletId: Get<u32>, L: TryFrom<Location> + Debug>
 	pallet_asset_conversion::BenchmarkHelper<L> for AssetPairFactory<Target, SelfParaId, PalletId, L>
+where
+	<L as TryFrom<Location>>::Error: Debug,
 {
 	fn create_pair(seed1: u32, seed2: u32) -> (L, L) {
 		let with_id = Location::new(
@@ -35,9 +37,31 @@ impl<Target: Get<L>, SelfParaId: Get<ParaId>, PalletId: Get<u32>, L: TryFrom<Loc
 			],
 		);
 		if seed1 % 2 == 0 {
-			(with_id.try_into().map_err(|_| "Something went wrong").unwrap(), Target::get())
+			(
+				with_id
+					.try_into()
+					.map_err(|error| {
+						tracing::error!(
+							target: "xcm",
+							?error,
+							"Failed to create asset pairs when seed1 is even",
+						);
+						"Something went wrong"
+					})
+					.unwrap(),
+				Target::get(),
+			)
 		} else {
-			(Target::get(), with_id.try_into().map_err(|_| "Something went wrong").unwrap())
+			(
+				Target::get(),
+				with_id
+					.try_into()
+					.map_err(|error| {
+						tracing::error!(target: "xcm", ?error, "Failed to create asset pairs");
+						"Something went wrong"
+					})
+					.unwrap(),
+			)
 		}
 	}
 }

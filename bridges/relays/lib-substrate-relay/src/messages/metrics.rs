@@ -19,14 +19,13 @@
 use crate::TaggedAccount;
 
 use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
-use bp_runtime::StorageDoubleMapKeyProvider;
 use codec::{Decode, EncodeLike};
 use frame_system::AccountInfo;
 use messages_relay::Labeled;
 use pallet_balances::AccountData;
 use relay_substrate_client::{
-	metrics::{FloatStorageValue, FloatStorageValueMetric},
-	AccountIdOf, BalanceOf, Chain, ChainWithBalances, ChainWithMessages, Client,
+	metrics::{FixedU128OrOne, FloatStorageValue, FloatStorageValueMetric},
+	AccountIdOf, BalanceOf, Chain, ChainWithBalances, ChainWithMessages, ChainWithRewards, Client,
 	Error as SubstrateError, NonceOf,
 };
 use relay_utils::metrics::{MetricsParams, StandaloneMetric};
@@ -35,15 +34,13 @@ use sp_runtime::{FixedPointNumber, FixedU128};
 use std::{fmt::Debug, marker::PhantomData};
 
 /// Add relay accounts balance metrics.
-pub async fn add_relay_balances_metrics<C: ChainWithBalances, BC: ChainWithMessages, LaneId>(
+pub async fn add_relay_balances_metrics<C: ChainWithBalances>(
 	client: impl Client<C>,
 	metrics: &MetricsParams,
 	relay_accounts: &Vec<TaggedAccount<AccountIdOf<C>>>,
-	lanes: &[LaneId],
 ) -> anyhow::Result<()>
 where
 	BalanceOf<C>: Into<u128> + std::fmt::Debug,
-	LaneId: Clone + Copy + Decode + EncodeLike + Send + Sync + Labeled,
 {
 	if relay_accounts.is_empty() {
 		return Ok(())
@@ -80,29 +77,42 @@ where
 			format!("Balance of the {} relay account at the {}", account.tag(), C::NAME),
 		)?;
 		relay_account_balance_metric.register_and_spawn(&metrics.registry)?;
+	}
 
-		if let Some(relayers_pallet_name) = BC::WITH_CHAIN_RELAYERS_PALLET_NAME {
+	Ok(())
+}
+
+/// Add relay accounts rewards metrics.
+pub async fn add_relay_rewards_metrics<C: ChainWithRewards, BC: ChainWithMessages, LaneId>(
+	client: impl Client<C>,
+	metrics: &MetricsParams,
+	relay_accounts: &Vec<TaggedAccount<AccountIdOf<C>>>,
+	lanes: &[LaneId],
+) -> anyhow::Result<()>
+where
+	C::RewardBalance: Into<u128> + std::fmt::Debug,
+	C::Reward: From<RewardsAccountParams<LaneId>>,
+	LaneId: Clone + Copy + Decode + EncodeLike + Send + Sync + Labeled,
+{
+	if relay_accounts.is_empty() {
+		return Ok(())
+	}
+
+	for account in relay_accounts {
+		if let Some(_) = C::WITH_CHAIN_RELAYERS_PALLET_NAME {
 			for lane in lanes {
 				FloatStorageValueMetric::new(
-					AccountBalance::<C> { token_decimals, _phantom: Default::default() },
+					FixedU128OrOne,
 					client.clone(),
-					bp_relayers::RelayerRewardsKeyProvider::<AccountIdOf<C>, BalanceOf<C>, LaneId>::final_key(
-						relayers_pallet_name,
-						account.id(),
-						&RewardsAccountParams::new(*lane, BC::ID, RewardsAccountOwner::ThisChain),
-					),
+					C::account_reward_storage_key(account.id(), RewardsAccountParams::new(*lane, BC::ID, RewardsAccountOwner::ThisChain)),
 					format!("at_{}_relay_{}_reward_for_msgs_from_{}_on_lane_{}", C::NAME, account.tag(), BC::NAME, lane.label()),
 					format!("Reward of the {} relay account at {} for delivering messages from {} on lane {:?}", account.tag(), C::NAME, BC::NAME, lane.label()),
 				)?.register_and_spawn(&metrics.registry)?;
 
 				FloatStorageValueMetric::new(
-					AccountBalance::<C> { token_decimals, _phantom: Default::default() },
+					FixedU128OrOne,
 					client.clone(),
-					bp_relayers::RelayerRewardsKeyProvider::<AccountIdOf<C>, BalanceOf<C>, LaneId>::final_key(
-						relayers_pallet_name,
-						account.id(),
-						&RewardsAccountParams::new(*lane, BC::ID, RewardsAccountOwner::BridgedChain),
-					),
+					C::account_reward_storage_key(account.id(), RewardsAccountParams::new(*lane, BC::ID, RewardsAccountOwner::BridgedChain)),
 					format!("at_{}_relay_{}_reward_for_msgs_to_{}_on_lane_{}", C::NAME, account.tag(), BC::NAME, lane.label()),
 					format!("Reward of the {} relay account at {} for delivering messages confirmations from {} on lane {:?}", account.tag(), C::NAME, BC::NAME, lane.label()),
 				)?.register_and_spawn(&metrics.registry)?;
@@ -138,34 +148,6 @@ where
 					.map(|account_data| {
 						convert_to_token_balance(account_data.data.free.into(), self.token_decimals)
 					})
-			})
-			.transpose()
-	}
-}
-
-/// Adapter for `FloatStorageValueMetric` to decode account free balance.
-#[derive(Clone, Debug)]
-struct AccountBalance<C> {
-	token_decimals: u32,
-	_phantom: PhantomData<C>,
-}
-
-impl<C> FloatStorageValue for AccountBalance<C>
-where
-	C: Chain,
-	BalanceOf<C>: Into<u128>,
-{
-	type Value = FixedU128;
-
-	fn decode(
-		&self,
-		maybe_raw_value: Option<StorageData>,
-	) -> Result<Option<Self::Value>, SubstrateError> {
-		maybe_raw_value
-			.map(|raw_value| {
-				BalanceOf::<C>::decode(&mut &raw_value.0[..])
-					.map_err(SubstrateError::ResponseParseFailed)
-					.map(|balance| convert_to_token_balance(balance.into(), self.token_decimals))
 			})
 			.transpose()
 	}

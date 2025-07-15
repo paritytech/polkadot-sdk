@@ -16,7 +16,7 @@
 
 //! Primitives of messages module, that represents lane id.
 
-use codec::{Codec, Decode, Encode, EncodeLike, MaxEncodedLen};
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sp_core::{RuntimeDebug, TypeId, H256};
@@ -50,6 +50,7 @@ pub trait LaneIdType:
 	Clone,
 	Copy,
 	Decode,
+	DecodeWithMemTracking,
 	Default,
 	Encode,
 	Eq,
@@ -121,6 +122,7 @@ impl TypeId for LegacyLaneId {
 	Clone,
 	Copy,
 	Decode,
+	DecodeWithMemTracking,
 	Default,
 	Encode,
 	Eq,

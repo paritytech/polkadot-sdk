@@ -90,4 +90,4 @@ and issue statement or initiate dispute.
 - **Assignment delay tranches**. Approval voting is designed such that validators assigned to check a specific
 candidate are split up into equal delay tranches (0.5 seconds each). All validators checks are ordered by the delay
 tranche index. Early tranches of validators have the opportunity to check the candidate first before later tranches
-that act as as backups in case of no shows.
+that act as backups in case of no shows.

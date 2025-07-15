@@ -19,7 +19,7 @@
 use codec::{Decode, Encode};
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
-	traits::{Everything, Nothing},
+	traits::{Disabled, Everything, Nothing},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 };
 
@@ -120,6 +120,7 @@ pub struct XcmConfig;
 impl Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
+	type XcmEventEmitter = ();
 	type AssetTransactor = LocalAssetTransactor;
 	type OriginConverter = XcmOriginToCallOrigin;
 	type IsReserve = NativeAsset;
@@ -156,23 +157,22 @@ pub mod mock_msg_queue {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type XcmExecutor: ExecuteXcm<Self::RuntimeCall>;
 	}
-
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {}
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {}
+
 	#[pallet::storage]
-	#[pallet::getter(fn parachain_id)]
 	pub(super) type ParachainId<T: Config> = StorageValue<_, ParaId, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn received_dmp)]
 	/// A queue of received DMP messages
 	pub(super) type ReceivedDmp<T: Config> = StorageValue<_, Vec<Xcm<T::RuntimeCall>>, ValueQuery>;
 
@@ -207,6 +207,14 @@ pub mod mock_msg_queue {
 	}
 
 	impl<T: Config> Pallet<T> {
+		pub fn parachain_id() -> ParaId {
+			ParachainId::<T>::get()
+		}
+
+		pub fn received_dmp() -> Vec<Xcm<T::RuntimeCall>> {
+			ReceivedDmp::<T>::get()
+		}
+
 		pub fn set_para_id(para_id: ParaId) {
 			ParachainId::<T>::put(para_id);
 		}
@@ -229,12 +237,14 @@ pub mod mock_msg_queue {
 						max_weight,
 						Weight::zero(),
 					) {
-						Outcome::Error { error } => (Err(error), Event::Fail(Some(hash), error)),
+						Outcome::Error(InstructionError { error, .. }) =>
+							(Err(error), Event::Fail(Some(hash), error)),
 						Outcome::Complete { used } => (Ok(used), Event::Success(Some(hash))),
 						// As far as the caller is concerned, this was dispatched without error, so
 						// we just report the weight used.
-						Outcome::Incomplete { used, error } =>
-							(Ok(used), Event::Fail(Some(hash), error)),
+						Outcome::Incomplete {
+							used, error: InstructionError { error, .. }, ..
+						} => (Ok(used), Event::Fail(Some(hash), error)),
 					}
 				},
 				Err(()) => (Err(XcmError::UnhandledXcmVersion), Event::BadVersion(Some(hash))),
@@ -334,6 +344,7 @@ impl pallet_xcm::Config for Runtime {
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = pallet_xcm::TestWeightInfo;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type AuthorizedAliasConsideration = Disabled;
 }
 
 construct_runtime!(

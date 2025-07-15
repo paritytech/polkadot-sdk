@@ -23,6 +23,7 @@ fn transacting_should_work() {
 	let message = Xcm::<TestCall>(vec![Transact {
 		origin_kind: OriginKind::Native,
 		call: TestCall::Any(Weight::from_parts(50, 50), None).encode().into(),
+		fallback_max_weight: None,
 	}]);
 	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(60, 60);
@@ -43,6 +44,7 @@ fn transacting_should_respect_max_weight_requirement() {
 	let message = Xcm::<TestCall>(vec![Transact {
 		origin_kind: OriginKind::Native,
 		call: TestCall::Any(Weight::from_parts(50, 50), None).encode().into(),
+		fallback_max_weight: None,
 	}]);
 	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(60, 60);
@@ -65,6 +67,7 @@ fn transacting_should_refund_weight() {
 		call: TestCall::Any(Weight::from_parts(50, 50), Some(Weight::from_parts(30, 30)))
 			.encode()
 			.into(),
+		fallback_max_weight: None,
 	}]);
 	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(60, 60);
@@ -96,6 +99,7 @@ fn paid_transacting_should_refund_payment_for_unused_weight() {
 			call: TestCall::Any(Weight::from_parts(50, 50), Some(Weight::from_parts(10, 10)))
 				.encode()
 				.into(),
+			fallback_max_weight: None,
 		},
 		RefundSurplus,
 		DepositAsset { assets: AllCounted(1).into(), beneficiary: one },
@@ -124,6 +128,7 @@ fn report_successful_transact_status_should_work() {
 		Transact {
 			origin_kind: OriginKind::Native,
 			call: TestCall::Any(Weight::from_parts(50, 50), None).encode().into(),
+			fallback_max_weight: None,
 		},
 		ReportTransactStatus(QueryResponseInfo {
 			destination: Parent.into(),
@@ -141,14 +146,16 @@ fn report_successful_transact_status_should_work() {
 		Weight::zero(),
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(70, 70) });
-	let expected_msg = Xcm(vec![QueryResponse {
-		response: Response::DispatchResult(MaybeErrorCode::Success),
-		query_id: 42,
-		max_weight: Weight::from_parts(5000, 5000),
-		querier: Some(Here.into()),
-	}]);
-	let expected_hash = fake_message_hash(&expected_msg);
-	assert_eq!(sent_xcm(), vec![(Parent.into(), expected_msg, expected_hash)]);
+	let expected_msg = Xcm(vec![
+		QueryResponse {
+			response: Response::DispatchResult(MaybeErrorCode::Success),
+			query_id: 42,
+			max_weight: Weight::from_parts(5000, 5000),
+			querier: Some(Here.into()),
+		},
+		SetTopic(hash),
+	]);
+	assert_eq!(sent_xcm(), vec![(Parent.into(), expected_msg, hash)]);
 }
 
 #[test]
@@ -159,6 +166,7 @@ fn report_failed_transact_status_should_work() {
 		Transact {
 			origin_kind: OriginKind::Native,
 			call: TestCall::OnlyRoot(Weight::from_parts(50, 50), None).encode().into(),
+			fallback_max_weight: None,
 		},
 		ReportTransactStatus(QueryResponseInfo {
 			destination: Parent.into(),
@@ -176,14 +184,16 @@ fn report_failed_transact_status_should_work() {
 		Weight::zero(),
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(70, 70) });
-	let expected_msg = Xcm(vec![QueryResponse {
-		response: Response::DispatchResult(vec![2].into()),
-		query_id: 42,
-		max_weight: Weight::from_parts(5000, 5000),
-		querier: Some(Here.into()),
-	}]);
-	let expected_hash = fake_message_hash(&expected_msg);
-	assert_eq!(sent_xcm(), vec![(Parent.into(), expected_msg, expected_hash)]);
+	let expected_msg = Xcm(vec![
+		QueryResponse {
+			response: Response::DispatchResult(vec![2].into()),
+			query_id: 42,
+			max_weight: Weight::from_parts(5000, 5000),
+			querier: Some(Here.into()),
+		},
+		SetTopic(hash),
+	]);
+	assert_eq!(sent_xcm(), vec![(Parent.into(), expected_msg, hash)]);
 }
 
 #[test]
@@ -194,6 +204,7 @@ fn expect_successful_transact_status_should_work() {
 		Transact {
 			origin_kind: OriginKind::Native,
 			call: TestCall::Any(Weight::from_parts(50, 50), None).encode().into(),
+			fallback_max_weight: None,
 		},
 		ExpectTransactStatus(MaybeErrorCode::Success),
 	]);
@@ -212,6 +223,7 @@ fn expect_successful_transact_status_should_work() {
 		Transact {
 			origin_kind: OriginKind::Native,
 			call: TestCall::OnlyRoot(Weight::from_parts(50, 50), None).encode().into(),
+			fallback_max_weight: None,
 		},
 		ExpectTransactStatus(MaybeErrorCode::Success),
 	]);
@@ -226,7 +238,10 @@ fn expect_successful_transact_status_should_work() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(70, 70), error: XcmError::ExpectationFalse }
+		Outcome::Incomplete {
+			used: Weight::from_parts(70, 70),
+			error: InstructionError { index: 1, error: XcmError::ExpectationFalse },
+		}
 	);
 }
 
@@ -238,6 +253,7 @@ fn expect_failed_transact_status_should_work() {
 		Transact {
 			origin_kind: OriginKind::Native,
 			call: TestCall::OnlyRoot(Weight::from_parts(50, 50), None).encode().into(),
+			fallback_max_weight: None,
 		},
 		ExpectTransactStatus(vec![2].into()),
 	]);
@@ -256,6 +272,7 @@ fn expect_failed_transact_status_should_work() {
 		Transact {
 			origin_kind: OriginKind::Native,
 			call: TestCall::Any(Weight::from_parts(50, 50), None).encode().into(),
+			fallback_max_weight: None,
 		},
 		ExpectTransactStatus(vec![2].into()),
 	]);
@@ -270,7 +287,10 @@ fn expect_failed_transact_status_should_work() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(70, 70), error: XcmError::ExpectationFalse }
+		Outcome::Incomplete {
+			used: Weight::from_parts(70, 70),
+			error: InstructionError { index: 1, error: XcmError::ExpectationFalse },
+		}
 	);
 }
 
@@ -282,6 +302,7 @@ fn clear_transact_status_should_work() {
 		Transact {
 			origin_kind: OriginKind::Native,
 			call: TestCall::OnlyRoot(Weight::from_parts(50, 50), None).encode().into(),
+			fallback_max_weight: None,
 		},
 		ClearTransactStatus,
 		ReportTransactStatus(QueryResponseInfo {
@@ -300,12 +321,14 @@ fn clear_transact_status_should_work() {
 		Weight::zero(),
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(80, 80) });
-	let expected_msg = Xcm(vec![QueryResponse {
-		response: Response::DispatchResult(MaybeErrorCode::Success),
-		query_id: 42,
-		max_weight: Weight::from_parts(5000, 5000),
-		querier: Some(Here.into()),
-	}]);
-	let expected_hash = fake_message_hash(&expected_msg);
-	assert_eq!(sent_xcm(), vec![(Parent.into(), expected_msg, expected_hash)]);
+	let expected_msg = Xcm(vec![
+		QueryResponse {
+			response: Response::DispatchResult(MaybeErrorCode::Success),
+			query_id: 42,
+			max_weight: Weight::from_parts(5000, 5000),
+			querier: Some(Here.into()),
+		},
+		SetTopic(hash),
+	]);
+	assert_eq!(sent_xcm(), vec![(Parent.into(), expected_msg, hash)]);
 }

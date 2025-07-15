@@ -735,8 +735,10 @@ fn transfer_native_asset_from_relay_to_para_through_asset_hub() {
 	}
 	fn penpal_assertions(t: RelayToParaThroughAHTest) {
 		type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
-		let expected_id =
-			t.args.assets.into_inner().first().unwrap().id.0.clone().try_into().unwrap();
+		// Assets in t are relative to the relay chain. The asset here should be relative to
+		// Penpal, so parents: 1.
+		let expected_id: Location = Location { parents: 1, interior: Here };
+
 		assert_expected_events!(
 			PenpalA,
 			vec![
@@ -776,6 +778,8 @@ fn transfer_native_asset_from_relay_to_para_through_asset_hub() {
 			dest,
 			xcm: xcm_on_final_dest,
 		}]);
+
+		Dmp::make_parachain_reachable(AssetHubRococo::para_id());
 
 		// First leg is a teleport, from there a local-reserve-transfer to final dest
 		<Rococo as RococoPallet>::XcmPallet::transfer_assets_using_type_and_then(

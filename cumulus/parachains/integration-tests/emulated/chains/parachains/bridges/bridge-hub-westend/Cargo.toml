@@ -11,11 +11,10 @@ publish = false
 workspace = true
 
 [dependencies]
-
 # Substrate
+frame-support = { workspace = true }
 sp-core = { workspace = true }
 sp-keyring = { workspace = true }
-frame-support = { workspace = true }
 
 # Polkadot Dependencies
 xcm = { workspace = true }
@@ -24,8 +23,8 @@ xcm = { workspace = true }
 bp-messages = { workspace = true }
 
 # Cumulus
-parachains-common = { workspace = true, default-features = true }
-emulated-integration-tests-common = { workspace = true }
-bridge-hub-westend-runtime = { workspace = true, default-features = true }
 bridge-hub-common = { workspace = true }
+bridge-hub-westend-runtime = { workspace = true, default-features = true }
+emulated-integration-tests-common = { workspace = true }
+parachains-common = { workspace = true, default-features = true }
 testnet-parachains-constants = { features = ["westend"], workspace = true, default-features = true }

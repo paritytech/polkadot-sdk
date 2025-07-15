@@ -18,7 +18,7 @@ scale-info = { workspace = true }
 serde_json = { workspace = true }
 
 # this is a frame-based runtime, thus importing `frame` with runtime feature enabled.
-frame = { workspace = true, features = ["experimental", "runtime"] }
+frame = { workspace = true, features = ["runtime"] }
 
 # pallets that we want to use
 pallet-balances = { workspace = true }

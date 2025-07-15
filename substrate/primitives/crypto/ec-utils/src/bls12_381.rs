@@ -21,7 +21,10 @@ use crate::utils;
 use alloc::vec::Vec;
 use ark_bls12_381_ext::CurveHooks;
 use ark_ec::{pairing::Pairing, CurveConfig};
-use sp_runtime_interface::runtime_interface;
+use sp_runtime_interface::{
+	pass_by::{AllocateAndReturnByCodec, PassFatPointerAndRead},
+	runtime_interface,
+};
 
 /// First pairing group definitions.
 pub mod g1 {
@@ -141,7 +144,10 @@ pub trait HostCalls {
 	///   - `a`: `ArkScale<Vec<G1Affine>>`.
 	///   - `b`: `ArkScale<Vec<G2Affine>>`.
 	/// - Returns encoded: `ArkScale<Bls12_381::TargetField>`.
-	fn bls12_381_multi_miller_loop(a: Vec<u8>, b: Vec<u8>) -> Result<Vec<u8>, ()> {
+	fn bls12_381_multi_miller_loop(
+		a: PassFatPointerAndRead<Vec<u8>>,
+		b: PassFatPointerAndRead<Vec<u8>>,
+	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
 		utils::multi_miller_loop::<ark_bls12_381::Bls12_381>(a, b)
 	}
 
@@ -149,7 +155,9 @@ pub trait HostCalls {
 	///
 	/// - Receives encoded: `ArkScale<<Bls12_377::TargetField>`.
 	/// - Returns encoded: `ArkScale<<Bls12_377::TargetField>`
-	fn bls12_381_final_exponentiation(f: Vec<u8>) -> Result<Vec<u8>, ()> {
+	fn bls12_381_final_exponentiation(
+		f: PassFatPointerAndRead<Vec<u8>>,
+	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
 		utils::final_exponentiation::<ark_bls12_381::Bls12_381>(f)
 	}
 
@@ -159,7 +167,10 @@ pub trait HostCalls {
 	///   - `bases`: `ArkScale<Vec<G1Affine>>`.
 	///   - `scalars`: `ArkScale<Vec<G1Config::ScalarField>>`.
 	/// - Returns encoded: `ArkScaleProjective<ark_bls12_381::G1Projective>`.
-	fn bls12_381_msm_g1(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
+	fn bls12_381_msm_g1(
+		bases: PassFatPointerAndRead<Vec<u8>>,
+		scalars: PassFatPointerAndRead<Vec<u8>>,
+	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
 		utils::msm_sw::<ark_bls12_381::g1::Config>(bases, scalars)
 	}
 
@@ -169,7 +180,10 @@ pub trait HostCalls {
 	///   - `bases`: `ArkScale<Vec<G2Affine>>`.
 	///   - `scalars`: `ArkScale<Vec<G2Config::ScalarField>>`.
 	/// - Returns encoded: `ArkScaleProjective<G2Projective>`.
-	fn bls12_381_msm_g2(bases: Vec<u8>, scalars: Vec<u8>) -> Result<Vec<u8>, ()> {
+	fn bls12_381_msm_g2(
+		bases: PassFatPointerAndRead<Vec<u8>>,
+		scalars: PassFatPointerAndRead<Vec<u8>>,
+	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
 		utils::msm_sw::<ark_bls12_381::g2::Config>(bases, scalars)
 	}
 
@@ -179,7 +193,10 @@ pub trait HostCalls {
 	///   - `base`: `ArkScaleProjective<G1Projective>`.
 	///   - `scalar`: `ArkScale<Vec<u64>>`.
 	/// - Returns encoded: `ArkScaleProjective<G1Projective>`.
-	fn bls12_381_mul_projective_g1(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
+	fn bls12_381_mul_projective_g1(
+		base: PassFatPointerAndRead<Vec<u8>>,
+		scalar: PassFatPointerAndRead<Vec<u8>>,
+	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
 		utils::mul_projective_sw::<ark_bls12_381::g1::Config>(base, scalar)
 	}
 
@@ -189,7 +206,10 @@ pub trait HostCalls {
 	///   - `base`: `ArkScaleProjective<G2Projective>`.
 	///   - `scalar`: `ArkScale<Vec<u64>>`.
 	/// - Returns encoded: `ArkScaleProjective<G2Projective>`.
-	fn bls12_381_mul_projective_g2(base: Vec<u8>, scalar: Vec<u8>) -> Result<Vec<u8>, ()> {
+	fn bls12_381_mul_projective_g2(
+		base: PassFatPointerAndRead<Vec<u8>>,
+		scalar: PassFatPointerAndRead<Vec<u8>>,
+	) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
 		utils::mul_projective_sw::<ark_bls12_381::g2::Config>(base, scalar)
 	}
 }
