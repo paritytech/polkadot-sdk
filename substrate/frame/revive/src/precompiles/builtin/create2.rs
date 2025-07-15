@@ -72,7 +72,6 @@ impl<T: Config> BuiltinPrecompile for Create2<T> {
 			Err(DispatchError::from("code not found"))?;
 		}
 
-		// uploading the code is handled in the instantiate call
 		let instantiate_address = env.instantiate(
 			gas_limit,
 			U256::from(storage_deposit_limit.saturated_into::<u128>()),
