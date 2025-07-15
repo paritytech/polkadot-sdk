@@ -12,5 +12,7 @@ doc:
 crates:
 - name: collectives-westend-integration-tests
   bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
 - name: collectives-westend-runtime
   bump: major
