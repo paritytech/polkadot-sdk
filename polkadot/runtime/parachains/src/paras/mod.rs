@@ -704,7 +704,7 @@ pub mod pallet {
 		/// cooldown multiplied with this multiplier determines the cost.
 		type CooldownRemovalMultiplier: Get<BalanceOf<Self>>;
 
-		/// The origin that can authorize [`Pallet::force_set_current_code_hash`].
+		/// The origin that can authorize [`Pallet::authorize_force_set_current_code_hash`].
 		///
 		/// In the end this allows [`Pallet::apply_authorized_force_set_current_code`] to force set
 		/// the current code without paying any fee. So, the origin should be chosen with care.
