@@ -1130,8 +1130,7 @@ impl pallet_nfts::Config for Runtime {
 	type WeightInfo = weights::pallet_nfts::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
-	// TODO migrate for async backing.
-	type BlockNumberProvider = System;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 }
 
 /// XCM router instance to BridgeHub with bridging capabilities for `Rococo` global
@@ -1712,6 +1711,12 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
 		fn relay_parent_offset() -> u32 {
 			0
+		}
+	}
+
+	impl cumulus_primitives_core::GetParachainInfo<Block> for Runtime {
+		fn parachain_id() -> ParaId {
+			ParachainInfo::parachain_id()
 		}
 	}
 
