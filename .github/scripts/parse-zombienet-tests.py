@@ -1,5 +1,26 @@
 #!/usr/bin/env python3
 
+"""
+Zombienet Test Matrix Parser
+
+This script parses YAML test definition files and converts them to JSON format
+for use as GitHub Actions matrix jobs. It provides filtering capabilities to:
+
+1. Exclude flaky tests (unless a specific test pattern is provided)
+2. Filter tests by name pattern for targeted execution
+3. Convert YAML test definitions to JSON matrix format
+
+The script is used by GitHub Actions workflows to dynamically generate
+test matrices based on YAML configuration files, enabling flexible
+test execution and maintenance.
+
+Usage:
+    python parse-zombienet-tests.py --matrix tests.yml [--flaky-tests flaky.txt] [--test-pattern pattern]
+
+Output:
+    JSON array of test job objects suitable for GitHub Actions matrix strategy
+"""
+
 import argparse
 import yaml
 import json

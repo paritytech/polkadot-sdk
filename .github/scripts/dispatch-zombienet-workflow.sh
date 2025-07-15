@@ -1,5 +1,23 @@
 #!/bin/bash
 
+# Zombienet Workflow Dispatcher
+#
+# This script triggers GitHub Actions workflows for zombienet tests and monitors their execution.
+# It can run workflows multiple times for reliability testing and optionally filter tests by pattern.
+# Results are automatically saved to a timestamped CSV file for analysis.
+#
+# Features:
+# - Trigger workflows on specific branches
+# - Filter tests by pattern (useful for debugging specific tests)
+# - Run workflows multiple times for flaky test detection
+# - Monitor workflow completion and collect results
+# - Export results to CSV with job details (ID, name, conclusion, timing, URLs)
+#
+# Requirements:
+# - GitHub CLI (gh) must be installed and authenticated
+# - Must be run from polkadot-sdk repository root
+# - Target branch must have corresponding PR with CI enabled
+
 # Exit on error
 # set -e
 
