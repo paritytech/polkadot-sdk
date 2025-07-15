@@ -230,7 +230,6 @@ impl frame_system::Config for Test {
 	type AccountId = AccountId32;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type Hash = sp_runtime::testing::H256;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
@@ -468,6 +467,10 @@ fn create2_precompile_works() {
 		let contract_address = &result_result.data[12..];
 		assert_eq!(contract_address.len(), contract_address_expected.as_bytes().len());
 		assert_eq!(contract_address, contract_address_expected.as_bytes());
+
+		assert!(ContractInfoOf::<Test>::contains_key(&H160::from(
+			<&[u8] as TryInto<&[u8; 20]>>::try_into(contract_address).unwrap()
+		)));
 
 		assert!(!result_result.did_revert());
 		assert_eq!(result_result.flags, ReturnFlags::empty());

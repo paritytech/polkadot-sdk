@@ -67,7 +67,7 @@ impl<T: Config> BuiltinPrecompile for Create2<T> {
 
 		let code_hash = sp_io::hashing::keccak_256(&code);
 
-		env.try_upload_code(code.to_vec(), &deployer, true)?;
+		env.try_upload_code(code.to_vec(), &deployer)?;
 		if !CodeInfoOf::<T>::contains_key(H256::from(code_hash)) {
 			Err(DispatchError::from("code not found"))?;
 		}

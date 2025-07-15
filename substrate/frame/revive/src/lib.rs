@@ -1525,7 +1525,7 @@ where
 	}
 
 	/// Uploads new code and returns the Vm binary contract blob and deposit amount collected.
-	pub(crate) fn try_upload_code(
+	fn try_upload_code(
 		origin: T::AccountId,
 		code: Vec<u8>,
 		storage_deposit_limit: BalanceOf<T>,

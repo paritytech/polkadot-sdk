@@ -270,12 +270,7 @@ pub trait PrecompileWithInfoExt: PrecompileExt {
 	) -> Result<H160, ExecError>;
 
 	/// Uploads new code to the contract storage. If it is already present, does nothing.
-	fn try_upload_code(
-		&mut self,
-		code: Vec<u8>,
-		origin: &H160,
-		skip_transfer: bool,
-	) -> Result<(), DispatchError>;
+	fn try_upload_code(&mut self, code: Vec<u8>, origin: &H160) -> Result<(), DispatchError>;
 }
 
 /// Environment functions which are available to all pre-compiles.
@@ -1693,7 +1688,6 @@ where
 		let executable = E::from_storage(code_hash, self.gas_meter_mut())?;
 		let sender = if let Some(sender) = origin {
 			// If the origin is specified, we use it as the sender.
-			// This is useful for testing and benchmarking.
 			T::AddressMapper::to_account_id(sender)
 		} else {
 			// Otherwise we use the top frame's account id as the sender.
@@ -1717,14 +1711,10 @@ where
 			.map(|_| address)
 	}
 
-	fn try_upload_code(
-		&mut self,
-		code: Vec<u8>,
-		origin: &H160,
-		skip_transfer: bool,
-	) -> Result<(), DispatchError> {
+	fn try_upload_code(&mut self, code: Vec<u8>, origin: &H160) -> Result<(), DispatchError> {
 		let account_id = T::AddressMapper::to_account_id(origin);
 		let mut module = ContractBlob::<T>::from_code(code, account_id)?;
+		let skip_transfer = false;
 		let deposit = module.store_code(skip_transfer)?;
 
 		self.storage_meter.record_charge(&StorageDeposit::Charge(deposit));
