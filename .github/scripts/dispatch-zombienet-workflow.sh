@@ -15,7 +15,7 @@ function write_job_results_to_csv {
   local branch="$2"
   local csv_file="$3"
 
-  dbg "Writing job results for run $run_id to CSV"
+  dbg "Writing job results for run $run_id to $csv_file"
 
   # Get job details for the completed run, filtering only jobs starting with 'zombienet-' and with success or failure conclusions
   gh run view "$run_id" --json jobs --jq \
