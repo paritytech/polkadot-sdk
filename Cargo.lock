@@ -9033,7 +9033,7 @@ dependencies = [
  "pallet-example-mbm",
  "pallet-example-tasks",
  "parity-scale-codec",
- "polkadot-sdk 2504.0.0",
+ "polkadot-sdk 2506.0.0",
  "primitive-types 0.13.1",
  "scale-info",
  "serde_json",
@@ -10275,7 +10275,7 @@ dependencies = [
  "futures-timer",
  "jsonrpsee",
  "minimal-template-runtime",
- "polkadot-sdk 2504.0.0",
+ "polkadot-sdk 2506.0.0",
 ]
 
 [[package]]
@@ -10284,7 +10284,7 @@ version = "0.1.0"
 dependencies = [
  "pallet-minimal-template",
  "parity-scale-codec",
- "polkadot-sdk 2504.0.0",
+ "polkadot-sdk 2506.0.0",
  "scale-info",
  "serde_json",
 ]
@@ -12646,7 +12646,7 @@ name = "pallet-minimal-template"
 version = "0.1.0"
 dependencies = [
  "parity-scale-codec",
- "polkadot-sdk 2504.0.0",
+ "polkadot-sdk 2506.0.0",
  "scale-info",
 ]
 
@@ -14112,7 +14112,7 @@ dependencies = [
  "jsonrpsee",
  "log",
  "parachain-template-runtime",
- "polkadot-sdk 2504.0.0",
+ "polkadot-sdk 2506.0.0",
  "serde",
  "substrate-prometheus-endpoint",
 ]
@@ -14127,7 +14127,7 @@ dependencies = [
  "log",
  "pallet-parachain-template",
  "parity-scale-codec",
- "polkadot-sdk 2504.0.0",
+ "polkadot-sdk 2506.0.0",
  "scale-info",
  "serde_json",
  "smallvec",
@@ -16567,7 +16567,7 @@ dependencies = [
  "pallet-xcm",
  "parity-scale-codec",
  "polkadot-omni-node-lib",
- "polkadot-sdk 2504.0.0",
+ "polkadot-sdk 2506.0.0",
  "polkadot-sdk-docs-first-runtime",
  "polkadot-sdk-frame",
  "rand 0.8.5",
@@ -24576,7 +24576,7 @@ dependencies = [
  "node-rpc",
  "node-testing",
  "parity-scale-codec",
- "polkadot-sdk 2504.0.0",
+ "polkadot-sdk 2506.0.0",
  "pretty_assertions",
  "rand 0.8.5",
  "regex",

@@ -4131,7 +4131,7 @@ reason = "changed"
 # umbrella
 name = "polkadot-sdk"
 from = "2503.1.1"
-to = "2504.0.0"
+to = "2506.0.0"
 bump = "major"
 reason = "changed"
 
