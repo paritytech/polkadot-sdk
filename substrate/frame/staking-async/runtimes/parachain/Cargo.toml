@@ -50,7 +50,6 @@ pallet-nfts = { workspace = true }
 pallet-nfts-runtime-api = { workspace = true }
 pallet-nomination-pools = { workspace = true }
 pallet-nomination-pools-runtime-api = { workspace = true }
-pallet-parameters = { workspace = true }
 pallet-preimage = { workspace = true }
 pallet-proxy = { workspace = true }
 pallet-referenda = { workspace = true }
@@ -130,8 +129,6 @@ bp-bridge-hub-westend = { workspace = true }
 pallet-xcm-bridge-hub-router = { workspace = true }
 
 [dev-dependencies]
-asset-test-utils = { workspace = true, default-features = true }
-parachains-runtimes-test-utils = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 
 [build-dependencies]
