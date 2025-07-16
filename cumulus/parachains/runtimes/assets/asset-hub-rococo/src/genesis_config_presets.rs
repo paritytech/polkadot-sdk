@@ -15,7 +15,7 @@
 
 //! # Asset Hub Rococo Runtime genesis config presets
 
-use crate::{*, xcm_config::UniversalLocation};
+use crate::{*, xcm_config::{UniversalLocation, bridging::to_westend::WestendNetwork}};
 use alloc::{vec, vec::Vec, format};
 use cumulus_primitives_core::ParaId;
 use frame_support::build_struct_json_patch;
@@ -33,28 +33,6 @@ use xcm_executor::traits::ConvertLocation;
 use sp_core::{Pair, Public};
 
 const ASSET_HUB_ROCOCO_ED: Balance = ExistentialDeposit::get();
-
-parameter_types!{
-	pub const WestendNetwork: NetworkId = NetworkId::ByGenesis(WESTEND_GENESIS_HASH);
-	pub AssetHubWestend: Location = Location::new(2, [
-		GlobalConsensus(WestendNetwork::get()),
-		Parachain(bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID)
-	]);
-}
-/// Helper function to generate a crypto pair from seed
-fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
-	TPublic::Pair::from_string(&format!("//{}", seed), None)
-		.expect("static values are valid; qed")
-		.public()
-}
-
-/// Helper function to generate an account ID from seed
-fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
-where
-	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
-{
-	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
-}
 
 fn asset_hub_rococo_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
@@ -154,7 +132,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			1000.into(),
 
 			vec![
-			// bridged DOT
+			// bridged WND
 			(
 				Location::new(2, [GlobalConsensus(WestendNetwork::get())]),
 				GlobalConsensusConvertsFor::<UniversalLocation, AccountId>::convert_location(
@@ -165,10 +143,10 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			),
 			],
 			vec![
-				// bridged DOT to Bob
+				// bridged WND to Bob
 				(
 					Location::new(2, [GlobalConsensus(WestendNetwork::get())]),
-					get_account_id_from_seed::<sp_core::sr25519::Public>("Bob"),
+					Sr25519Keyring::Bob.to_account_id(),
 					10000000 * 4096 * 4096,
 				),
 			],
