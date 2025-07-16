@@ -164,11 +164,11 @@ frame_support::parameter_types! {
 	/// (initially was calculated by test `AssetHubWestend::can_calculate_weight_for_paid_export_message_with_reserve_transfer` + `33%`)
 	pub const AssetHubWestendBaseXcmFeeInWnds: u128 = 23_180_570_000;
 
-	/// Transaction fee that is paid at the Westend AssetHub for delivering single inbound message.
+	/// Transaction fee that is paid at the Westend AssetHub for delivering a single inbound message.
 	/// (initially was calculated by test `AssetHubWestend::can_calculate_fee_for_standalone_message_delivery_transaction` + `33%`)
-	pub const AssetHubWestendBaseDeliveryFeeInWnds: u128 = 89_305_927_116;
+	pub const AssetHubWestendBaseDeliveryFeeInWnds: u128 = 89_668_215_915;
 
 	/// Transaction fee that is paid at the Westend AssetHub for delivering single outbound message confirmation.
 	/// (initially was calculated by test `AssetHubWestend::can_calculate_fee_for_standalone_message_confirmation_transaction` + `33%`)
-	pub const AssetHubWestendBaseConfirmationFeeInWnds: u128 = 17_034_677_116;
+	pub const AssetHubWestendBaseConfirmationFeeInWnds: u128 = 16_960_715_915;
 }

@@ -19,16 +19,16 @@
 
 use asset_hub_westend_runtime::{
 	bridge_common_config::{BridgeRelayersInstance, BridgeReward},
-	bridge_to_rococo_config, xcm_config,
+	bridge_to_rococo_config,
 	xcm_config::{
-		bridging, CheckingAccount, GovernanceLocation, LocationToAccountId, StakingPot,
+		self, bridging, CheckingAccount, GovernanceLocation, LocationToAccountId, StakingPot,
 		TrustBackedAssetsPalletLocation, WestendLocation, XcmConfig,
 	},
 	AllPalletsWithoutSystem, Assets, Balances, Block, BridgeRejectObsoleteHeadersAndMessages,
 	BridgeRelayers, Executive, ExistentialDeposit, ForeignAssets, ForeignAssetsInstance,
 	MetadataDepositBase, MetadataDepositPerByte, ParachainSystem, PolkadotXcm, Runtime,
 	RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys, ToRococoXcmRouterInstance,
-	TrustBackedAssetsInstance, TxExtension, UncheckedExtrinsic, XcmpQueue,
+	TransactionPayment, TrustBackedAssetsInstance, TxExtension, UncheckedExtrinsic, XcmpQueue,
 };
 pub use asset_hub_westend_runtime::{AssetConversion, AssetDeposit, CollatorSelection, System};
 use asset_test_utils::{
@@ -38,7 +38,9 @@ use asset_test_utils::{
 use bridge_hub_test_utils::test_cases::run_test;
 use codec::{Decode, Encode};
 use frame_support::{
-	assert_err, assert_noop, assert_ok, parameter_types,
+	assert_err, assert_noop, assert_ok,
+	dispatch::GetDispatchInfo,
+	parameter_types,
 	traits::{
 		fungible::{Inspect, Mutate},
 		fungibles::{
@@ -52,6 +54,7 @@ use hex_literal::hex;
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, Signature};
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
+use sp_keyring::Sr25519Keyring::Alice;
 use sp_runtime::{generic, traits::MaybeEquivalence, Either};
 use std::convert::Into;
 use testnet_parachains_constants::westend::{consensus::*, currency::UNITS, fee::WeightToFee};
@@ -133,6 +136,12 @@ fn construct_and_apply_extrinsic(
 	let xt = construct_extrinsic(relayer_at_target, call);
 	let r = Executive::apply_extrinsic(xt);
 	r.unwrap()
+}
+
+fn construct_and_estimate_extrinsic_fee(call: RuntimeCall) -> Balance {
+	let info = call.get_dispatch_info();
+	let xt = construct_extrinsic(Alice, call);
+	TransactionPayment::compute_fee(xt.encoded_size() as _, &info, 0)
 }
 
 #[test]
@@ -1538,8 +1547,8 @@ fn governance_authorize_upgrade_works() {
 
 mod bridge_to_rococo_tests {
 	use super::{
-		collator_session_keys, construct_and_apply_extrinsic, slot_durations, AccountId,
-		ExtBuilder, Governance, RuntimeHelper,
+		collator_session_keys, construct_and_apply_extrinsic, construct_and_estimate_extrinsic_fee,
+		slot_durations, AccountId, ExtBuilder, Governance, RuntimeHelper,
 	};
 	use asset_hub_westend_runtime::{
 		bridge_common_config::{BridgeRelayersInstance, DeliveryRewardInBalance},
@@ -1554,7 +1563,7 @@ mod bridge_to_rococo_tests {
 	use bp_runtime::{HeaderOf, RangeInclusiveExt};
 	use bridge_hub_test_utils::{
 		mock_open_hrmp_channel,
-		test_cases::{ToMessageQueueDelivery, ToSiblingDelivery},
+		test_cases::{self, ToMessageQueueDelivery, ToSiblingDelivery},
 	};
 	use codec::Decode;
 	use cumulus_primitives_core::UpwardMessageSender;
@@ -2027,6 +2036,48 @@ mod bridge_to_rococo_tests {
 			Some(-33),
 			&format!(
 				"Estimate fee for `ExportMessage` for runtime: {:?}",
+				<Runtime as frame_system::Config>::Version::get()
+			),
+		)
+	}
+
+	#[test]
+	fn can_calculate_fee_for_standalone_message_delivery_transaction() {
+		bridge_hub_test_utils::check_sane_fees_values(
+			"bp_asset_hub_westend::AssetHubWestendBaseDeliveryFeeInWnds",
+			bp_asset_hub_westend::AssetHubWestendBaseDeliveryFeeInWnds::get(),
+			|| {
+				test_cases::can_calculate_fee_for_standalone_message_delivery_transaction(
+					collator_session_keys(),
+					1000,
+					construct_and_estimate_extrinsic_fee,
+				)
+			},
+			Perbill::from_percent(25),
+			Some(-25),
+			&format!(
+				"Estimate fee for `single message delivery` for runtime: {:?}",
+				<Runtime as frame_system::Config>::Version::get()
+			),
+		)
+	}
+
+	#[test]
+	fn can_calculate_fee_for_standalone_message_confirmation_transaction() {
+		bridge_hub_test_utils::check_sane_fees_values(
+			"bp_asset_hub_westend::AssetHubWestendBaseConfirmationFeeInWnds",
+			bp_asset_hub_westend::AssetHubWestendBaseConfirmationFeeInWnds::get(),
+			|| {
+				test_cases::can_calculate_fee_for_standalone_message_confirmation_transaction(
+					collator_session_keys(),
+					1000,
+					construct_and_estimate_extrinsic_fee,
+				)
+			},
+			Perbill::from_percent(25),
+			Some(-25),
+			&format!(
+				"Estimate fee for `single message confirmation` for runtime: {:?}",
 				<Runtime as frame_system::Config>::Version::get()
 			),
 		)

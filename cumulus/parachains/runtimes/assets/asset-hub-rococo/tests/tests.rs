@@ -18,16 +18,16 @@
 //! Tests for the Rococo Assets Hub chain.
 
 use asset_hub_rococo_runtime::{
-	bridge_to_westend_config, xcm_config,
+	bridge_to_westend_config,
 	xcm_config::{
-		bridging, CheckingAccount, GovernanceLocation, LocationToAccountId, StakingPot,
+		self, bridging, CheckingAccount, GovernanceLocation, LocationToAccountId, StakingPot,
 		TokenLocation, TrustBackedAssetsPalletLocation, XcmConfig,
 	},
 	AllPalletsWithoutSystem, AssetConversion, AssetDeposit, Assets, Balances, Block,
 	BridgeRejectObsoleteHeadersAndMessages, CollatorSelection, Executive, ExistentialDeposit,
 	ForeignAssets, ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte,
 	ParachainSystem, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
-	TrustBackedAssetsInstance, TxExtension, UncheckedExtrinsic, XcmpQueue,
+	TransactionPayment, TrustBackedAssetsInstance, TxExtension, UncheckedExtrinsic, XcmpQueue,
 };
 use asset_test_utils::{
 	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,
@@ -35,7 +35,9 @@ use asset_test_utils::{
 };
 use codec::{Decode, Encode};
 use frame_support::{
-	assert_noop, assert_ok, parameter_types,
+	assert_noop, assert_ok,
+	dispatch::GetDispatchInfo,
+	parameter_types,
 	traits::{
 		fungible::{Inspect, Mutate},
 		fungibles::{
@@ -49,6 +51,7 @@ use hex_literal::hex;
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, Signature};
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
+use sp_keyring::Sr25519Keyring::Alice;
 use sp_runtime::{generic, traits::MaybeEquivalence};
 use std::convert::Into;
 use testnet_parachains_constants::rococo::{consensus::*, currency::UNITS, fee::WeightToFee};
@@ -130,6 +133,12 @@ fn construct_and_apply_extrinsic(
 	let xt = construct_extrinsic(relayer_at_target, call);
 	let r = Executive::apply_extrinsic(xt);
 	r.unwrap()
+}
+
+fn construct_and_estimate_extrinsic_fee(call: RuntimeCall) -> Balance {
+	let info = call.get_dispatch_info();
+	let xt = construct_extrinsic(Alice, call);
+	TransactionPayment::compute_fee(xt.encoded_size() as _, &info, 0)
 }
 
 #[test]
@@ -1421,8 +1430,8 @@ fn xcm_payment_api_works() {
 
 mod bridge_to_westend_tests {
 	use super::{
-		collator_session_keys, construct_and_apply_extrinsic, slot_durations, AccountId,
-		ExtBuilder, Governance, RuntimeHelper,
+		collator_session_keys, construct_and_apply_extrinsic, construct_and_estimate_extrinsic_fee,
+		slot_durations, AccountId, ExtBuilder, Governance, RuntimeHelper,
 	};
 	use asset_hub_rococo_runtime::{
 		bridge_common_config::{BridgeRelayersInstance, DeliveryRewardInBalance},
@@ -1437,7 +1446,7 @@ mod bridge_to_westend_tests {
 	use bp_runtime::{HeaderOf, RangeInclusiveExt};
 	use bridge_hub_test_utils::{
 		mock_open_hrmp_channel,
-		test_cases::{ToMessageQueueDelivery, ToSiblingDelivery},
+		test_cases::{self, ToMessageQueueDelivery, ToSiblingDelivery},
 	};
 	use codec::Decode;
 	use cumulus_primitives_core::UpwardMessageSender;
@@ -1900,7 +1909,7 @@ mod bridge_to_westend_tests {
 			"bp_asset_hub_rococo::AssetHubRococoBaseXcmFeeInRocs",
 			bp_asset_hub_rococo::AssetHubRococoBaseXcmFeeInRocs::get(),
 			|| {
-				bridge_hub_test_utils::test_cases::can_calculate_weight_for_paid_export_message_with_reserve_transfer::<
+				test_cases::can_calculate_weight_for_paid_export_message_with_reserve_transfer::<
 					Runtime,
 					XcmConfig,
 					WeightToFee,
@@ -1910,6 +1919,48 @@ mod bridge_to_westend_tests {
 			Some(-33),
 			&format!(
 				"Estimate fee for `ExportMessage` for runtime: {:?}",
+				<Runtime as frame_system::Config>::Version::get()
+			),
+		)
+	}
+
+	#[test]
+	fn can_calculate_fee_for_standalone_message_delivery_transaction() {
+		bridge_hub_test_utils::check_sane_fees_values(
+			"bp_asset_hub_rococo::AssetHubRococoBaseDeliveryFeeInRocs",
+			bp_asset_hub_rococo::AssetHubRococoBaseDeliveryFeeInRocs::get(),
+			|| {
+				test_cases::can_calculate_fee_for_standalone_message_delivery_transaction(
+					collator_session_keys(),
+					1000,
+					construct_and_estimate_extrinsic_fee,
+				)
+			},
+			Perbill::from_percent(25),
+			Some(-25),
+			&format!(
+				"Estimate fee for `single message delivery` for runtime: {:?}",
+				<Runtime as frame_system::Config>::Version::get()
+			),
+		)
+	}
+
+	#[test]
+	fn can_calculate_fee_for_standalone_message_confirmation_transaction() {
+		bridge_hub_test_utils::check_sane_fees_values(
+			"bp_asset_hub_rococo::AssetHubRococoBaseConfirmationFeeInRocs",
+			bp_asset_hub_rococo::AssetHubRococoBaseConfirmationFeeInRocs::get(),
+			|| {
+				test_cases::can_calculate_fee_for_standalone_message_confirmation_transaction(
+					collator_session_keys(),
+					1000,
+					construct_and_estimate_extrinsic_fee,
+				)
+			},
+			Perbill::from_percent(25),
+			Some(-25),
+			&format!(
+				"Estimate fee for `single message confirmation` for runtime: {:?}",
 				<Runtime as frame_system::Config>::Version::get()
 			),
 		)
