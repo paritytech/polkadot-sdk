@@ -133,7 +133,7 @@ where
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 {
 	/// We only check for size and nothing else when the code is uploaded.
-	pub fn from_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
+	pub fn from_pvm_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
 		// We do validation only when new code is deployed. This allows us to increase
 		// the limits later without affecting already deployed code.
 		let available_syscalls = runtime::list_syscalls(T::UnsafeUnstableInterface::get());
@@ -147,6 +147,20 @@ where
 		let code_info = CodeInfo {
 			owner,
 			deposit,
+			refcount: 0,
+			code_len,
+			behaviour_version: Default::default(),
+		};
+		let code_hash = H256(sp_io::hashing::keccak_256(&code));
+		Ok(ContractBlob { code, code_info, code_hash })
+	}
+
+	pub fn from_evm_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
+		let code: CodeVec = code.try_into().map_err(|_| <Error<T>>::BlobTooLarge)?;
+		let code_len = code.len() as u32;
+		let code_info = CodeInfo {
+			owner,
+			deposit: Default::default(),
 			refcount: 0,
 			code_len,
 			behaviour_version: Default::default(),
@@ -406,8 +420,15 @@ where
 		function: ExportedFunction,
 		input_data: Vec<u8>,
 	) -> ExecResult {
-		let prepared_call = self.prepare_call(Runtime::new(ext, input_data), function, 0)?;
-		prepared_call.call()
+		if self.is_pvm() {
+			let prepared_call = self.prepare_call(Runtime::new(ext, input_data), function, 0)?;
+			prepared_call.call()
+		} else {
+			// use revm::bytecode::Bytecode;
+			// let bytecode = Bytecode::new_raw(self.code.into_inner().into());
+
+			unimplemented!("EVM execution is not implemented yet")
+		}
 	}
 
 	fn code(&self) -> &[u8] {
