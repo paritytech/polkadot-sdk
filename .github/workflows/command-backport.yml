@@ -37,7 +37,7 @@ jobs:
         run: |
           LABELS=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
 
-          if echo "$LABELS" | grep -q '^A4-backport-stable'; then
+          if echo "$LABELS" | grep -qE '^A4-backport-(stable|unstable)'; then
             echo "found=true" >> $GITHUB_OUTPUT
             readarray -t labels_array <<< "$LABELS"
             echo "LABELS=${labels_array[@]}" >> $GITHUB_OUTPUT
@@ -97,7 +97,7 @@ jobs:
               "conflict_resolution": "draft_commit_conflicts"
             }
           copy_assignees: true
-          label_pattern: ^A4-backport-stable
+          label_pattern: ^A4-backport-(stable|unstable)
 
       - name: Label Backports
         if: ${{ steps.backport.outputs.created_pull_numbers != '' }}
