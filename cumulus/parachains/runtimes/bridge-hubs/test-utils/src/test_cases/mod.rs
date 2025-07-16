@@ -684,12 +684,14 @@ where
 			nonces_end: Default::default(),
 		};
 
-		let call = test_data::from_parachain::make_standalone_relayer_delivery_call::<Runtime, MPI>(
-			message_proof,
-			helpers::relayer_id_at_bridged_chain::<Runtime, MPI>(),
-		);
+		let call = pallet_bridge_messages::Call::<Runtime, MPI>::receive_messages_proof {
+			relayer_id_at_bridged_chain: helpers::relayer_id_at_bridged_chain::<Runtime, MPI>(),
+			proof: Box::new(message_proof),
+			messages_count: 1,
+			dispatch_weight: Weight::from_parts(1000000000, 0),
+		};
 
-		compute_extrinsic_fee(call)
+		compute_extrinsic_fee(call.into())
 	})
 }
 
