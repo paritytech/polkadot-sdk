@@ -263,7 +263,7 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Helper function to get error index of specific error variant
-		fn error_index(error: Error<T>) -> u8 {
+		pub fn error_index(error: Error<T>) -> u8 {
 			match error {
 				Error::ProposalAlreadyExists => 0,
 				Error::ProposalNotFound => 1,
@@ -301,8 +301,6 @@ pub mod pallet {
 				Error::<T>::ProposalNotPending
 			);
 
-			println!("[DEBUG] proposal_info.approvals.len: {}", proposal_info.approvals.len());
-			println!("[DEBUG] T::RequiredApprovalsCount::get() as usize: {}", T::RequiredApprovalsCount::get() as usize);
 			// Check for number of approvals required from RequiredApprovalsCount
 			if proposal_info.approvals.len() >= T::RequiredApprovalsCount::get() as usize {
 				// Retrieve the actual call from storage
@@ -761,8 +759,6 @@ pub mod pallet {
 				timepoint: approval_timepoint,
 			});
 
-			println!("[DEBUG] proposal_info.approvals.len: {}", proposal_info.approvals.len());
-
 			// Check if proposal can be executed now and auto-execute if requested
 			if proposal_info.auto_execute {
 				// Pass a clone of proposal info so original not modified if execution attempt fails
@@ -776,6 +772,7 @@ pub mod pallet {
 					// need to silently ignore it when adding early approvals
 					Err(e) => match e.error {
 						DispatchError::Module(module_error) => {
+							// Relates to `error_index_consistency` module tests
 							if module_error.index == <Self as PalletInfoAccess>::index() as u8 {
 								let insufficient_approvals_index =
 									Self::error_index(Error::<T>::InsufficientApprovals);
@@ -801,7 +798,9 @@ pub mod pallet {
 							}
 						},
 						// Non-module errors must always be propagated
-						_ => return Err(e.error.into()),
+						_ => {
+							return Err(e.error.into());
+						},
 					},
 				}
 			} else {
@@ -1206,8 +1205,6 @@ pub mod pallet {
 		TooManyApprovals,
 		/// Caller is not authorized to approve
 		NotAuthorized,
-		/// Proposal is not pending
-		ProposalNotPending,
 		/// Proposal has already been executed
 		ProposalAlreadyExecuted,
 		/// Proposal has expired
@@ -1218,11 +1215,13 @@ pub mod pallet {
 		OriginAlreadyApproved,
 		/// Proposal does not have enough approvals to execute
 		InsufficientApprovals,
-		/// Origin approval could not be found
-		OriginApprovalNotFound,
+		/// Proposal is not pending
+		ProposalNotPending,
 		/// Proposal not in a terminal state(Expired, Executed,
 		/// or Cancelled) and cannot be cleaned
 		ProposalNotInExpiredOrExecutedState,
+		/// Origin approval could not be found
+		OriginApprovalNotFound,
 		/// Proposal retention period has not elapsed yet
 		ProposalRetentionPeriodNotElapsed,
 		/// Proposal is not eligible for cleanup

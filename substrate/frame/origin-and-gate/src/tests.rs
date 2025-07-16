@@ -2337,8 +2337,6 @@ mod unit_test {
 			new_test_ext().execute_with(|| {
 				// Set RequiredApprovalsCount for this test
 				RequiredApprovalsCount::set(required_approvals_count);
-				println!("[TEST DEBUG] RequiredApprovalsCount: {}", RequiredApprovalsCount::get());
-
 				System::set_block_number(1);
 
 				// Create a call for our test
@@ -2365,15 +2363,11 @@ mod unit_test {
 				// Add approvals from other accounts
 				let approvers = [BOB, CHARLIE];
 				let origin_ids = [BOB_ORIGIN_ID, CHARLIE_ORIGIN_ID];
-
-				println!("[TEST DEBUG] required_additional_approvals: {}", required_additional_approvals);
-
-				let remaining_approvals_but_not_last = required_additional_approvals.saturating_sub(1);
-				println!("[TEST DEBUG] remaining_approvals_but_not_last: {}", remaining_approvals_but_not_last);
-				println!("[TEST DEBUG] proposal_info.approvals.len(): {}", proposal_info.approvals.len());
+				let remaining_approvals_but_not_last =
+					required_additional_approvals.saturating_sub(1);
 
 				// Add all but last required approval
-				for i in 0..remaining_approvals_but_not_last{
+				for i in 0..remaining_approvals_but_not_last {
 					assert_ok!(OriginAndGate::add_approval(
 						RuntimeOrigin::signed(approvers[i as usize]),
 						call_hash,
@@ -2385,10 +2379,7 @@ mod unit_test {
 					// Verify proposal still in Pending state
 					let proposal_info = Proposals::<Test>::get(call_hash, ALICE_ORIGIN_ID).unwrap();
 					assert_eq!(proposal_info.status, ProposalStatus::Pending);
-					println!("[TEST DEBUG] proposal_info.approvals.len: {}", proposal_info.approvals.len());
 				}
-
-				println!("[TEST DEBUG] required_additional_approvals: {}", required_additional_approvals);
 
 				// Add final approval if needed
 				if required_additional_approvals > 0 {
@@ -3532,5 +3523,49 @@ mod andgate_requirements {
 			assert_eq!(proposal1.status, ProposalStatus::Executed);
 			assert_eq!(proposal2.status, ProposalStatus::Executed);
 		});
+	}
+}
+
+/// Test module to ensure consistency in error indices
+mod error_index_consistency {
+	use super::*;
+
+	#[test]
+	fn error_indices_match_enum_variants() {
+		// Verifies the error indices returned by `error_index` function
+		// matches the actual positions of variants in the `Error` enum so
+		// if a change occurs to the `Error` enum order or variants are
+		// added or removed without updating `error_index` then this test fails.
+		//
+		// When adding new enum variants to `error_index` and `Error` in lib.rs ensure a new
+		// assertion for it is added below and update the `EXPECTED_VARIANT_COUNT` to include it.
+
+		assert_eq!(OriginAndGate::error_index(Error::<Test>::ProposalAlreadyExists), 0);
+		assert_eq!(OriginAndGate::error_index(Error::<Test>::ProposalNotFound), 1);
+		assert_eq!(
+			OriginAndGate::error_index(Error::<Test>::CannotApproveOwnProposalUsingDifferentOrigin),
+			2
+		);
+		assert_eq!(OriginAndGate::error_index(Error::<Test>::TooManyApprovals), 3);
+		assert_eq!(OriginAndGate::error_index(Error::<Test>::NotAuthorized), 4);
+		assert_eq!(OriginAndGate::error_index(Error::<Test>::ProposalAlreadyExecuted), 5);
+		assert_eq!(OriginAndGate::error_index(Error::<Test>::ProposalExpired), 6);
+		assert_eq!(OriginAndGate::error_index(Error::<Test>::ProposalCancelled), 7);
+		assert_eq!(OriginAndGate::error_index(Error::<Test>::OriginAlreadyApproved), 8);
+		assert_eq!(OriginAndGate::error_index(Error::<Test>::InsufficientApprovals), 9);
+		assert_eq!(OriginAndGate::error_index(Error::<Test>::ProposalNotPending), 10);
+		assert_eq!(
+			OriginAndGate::error_index(Error::<Test>::ProposalNotInExpiredOrExecutedState),
+			11
+		);
+		assert_eq!(OriginAndGate::error_index(Error::<Test>::OriginApprovalNotFound), 12);
+		assert_eq!(
+			OriginAndGate::error_index(Error::<Test>::ProposalRetentionPeriodNotElapsed),
+			13
+		);
+		assert_eq!(OriginAndGate::error_index(Error::<Test>::ProposalNotEligibleForCleanup), 14);
+
+		// Verify the right number of variants of `error_index` are tested otherwise fail
+		const EXPECTED_VARIANT_COUNT: u8 = 15;
 	}
 }
