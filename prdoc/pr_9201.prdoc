@@ -1,4 +1,4 @@
-title: '`polkadot-parachain`: added asset-hub-westend-local paracahinInfo gensis patch'
+title: '`polkadot-parachain`: added asset-hub-westend-local paracahinInfo genesis patch'
 doc:
 - audience: [ Runtime Dev, Node Dev, Node Operator ] 
   description: |-
