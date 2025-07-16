@@ -120,7 +120,10 @@ impl<T: Config> Pallet<T> {
 			1 => {
 				if let Some(Junction::GlobalConsensus(network)) = universal_location.first() {
 					let is_target_network = match network {
-						NetworkId::Polkadot | NetworkId::Kusama | NetworkId::Westend | NetworkId::Rococo => true,
+						NetworkId::Polkadot |
+						NetworkId::Kusama |
+						NetworkId::Westend |
+						NetworkId::Rococo => true,
 						NetworkId::ByGenesis(genesis_hash) => {
 							// Check if this is Paseo by genesis hash
 							*genesis_hash == PASEO_GENESIS_HASH
@@ -140,7 +143,10 @@ impl<T: Config> Pallet<T> {
 					(universal_location.first(), universal_location.last())
 				{
 					let is_target_network = match network {
-						NetworkId::Polkadot | NetworkId::Kusama | NetworkId::Westend | NetworkId::Rococo => true,
+						NetworkId::Polkadot |
+						NetworkId::Kusama |
+						NetworkId::Westend |
+						NetworkId::Rococo => true,
 						NetworkId::ByGenesis(genesis_hash) => {
 							// Check if this is Paseo by genesis hash
 							*genesis_hash == PASEO_GENESIS_HASH
