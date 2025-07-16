@@ -27,8 +27,8 @@ sp-consensus-aura.workspace = true
 sp-runtime.workspace = true
 
 [dev-dependencies]
-sp-core = { path = "../../primitives/core", default-features = false }
-sp-io = { default-features = true, path = "../../primitives/io" }
+sp-core = { workspace = true, default-features = false }
+sp-io = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

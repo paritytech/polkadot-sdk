@@ -55,10 +55,10 @@ aquamarine = { workspace = true }
 
 [dev-dependencies]
 Inflector = { workspace = true }
-frame-system = { default-features = true, path = "../system" }
+frame-system = { default-features = true, workspace = true }
 pretty_assertions = { workspace = true }
-sp-crypto-hashing = { default-features = true, path = "../../primitives/crypto/hashing" }
-sp-timestamp = { default-features = true, path = "../../primitives/timestamp" }
+sp-crypto-hashing = { default-features = true, workspace = true }
+sp-timestamp = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

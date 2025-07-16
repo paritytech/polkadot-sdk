@@ -30,13 +30,13 @@ sp-tracing.workspace = true
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
-pallet-balances = { default-features = true, path = "../balances" }
-pallet-transaction-payment = { default-features = true, path = "../transaction-payment" }
-sp-core = { default-features = true, path = "../../primitives/core" }
-sp-inherents = { default-features = true, path = "../../primitives/inherents" }
-sp-io = { default-features = true, path = "../../primitives/io" }
-sp-version = { default-features = true, path = "../../primitives/version" }
-substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
+pallet-balances = { default-features = true, workspace = true }
+pallet-transaction-payment = { default-features = true, workspace = true }
+sp-core = { default-features = true, workspace = true }
+sp-inherents = { default-features = true, workspace = true }
+sp-io = { default-features = true, workspace = true }
+sp-version = { default-features = true, workspace = true }
+substrate-test-runtime-client = { workspace = true }
 
 [features]
 default = ["std"]

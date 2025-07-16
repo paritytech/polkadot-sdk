@@ -26,10 +26,10 @@ polkadot-primitives.default-features = true
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
-polkadot-primitives = { features = ["test"], path = "../../../primitives", default-features = false }
-polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-primitives = { features = ["test"], workspace = true, default-features = false }
+polkadot-primitives-test-helpers = { workspace = true }
 rand = { workspace = true }
 rstest = { workspace = true }
-sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }
-sp-tracing = { path = "../../../../substrate/primitives/tracing", default-features = false }
+sp-core = { default-features = true, workspace = true }
+sp-tracing = { workspace = true, default-features = false }
