@@ -85,3 +85,7 @@ runtime-benchmarks = [
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
 ]
+
+try-runtime = [
+	"pallet-xcm/try-runtime",
+]
