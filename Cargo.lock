@@ -20749,6 +20749,7 @@ dependencies = [
  "tokio-stream",
  "tracing",
  "tracing-subscriber",
+ "zombienet-sdk",
 ]
 
 [[package]]
