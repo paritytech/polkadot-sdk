@@ -50,6 +50,8 @@ runtime-benchmarks = [
 	"pallet-asset-conversion/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -57,4 +59,6 @@ try-runtime = [
 	"pallet-asset-conversion/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-assets/try-runtime",
+	"pallet-balances/try-runtime"
 ]

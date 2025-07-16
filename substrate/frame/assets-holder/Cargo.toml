@@ -40,6 +40,9 @@ std = [
 	"pallet-assets/std",
 	"scale-info/std",
 	"sp-runtime/std",
+	"pallet-balances/std",
+	"sp-core/std",
+	"sp-io/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -47,10 +50,12 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-assets/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-balances/try-runtime"
 ]
