@@ -1,0 +1,11 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Migrate 0008-dispute-old-finalized.zndsl to zombienet-sdk
+
+doc:
+  - audience: Node Dev
+    description: |
+      Migrate disputes on finalized blocks test to zombienet-sdk
+
+crates: [ ]
