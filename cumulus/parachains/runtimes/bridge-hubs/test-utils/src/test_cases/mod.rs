@@ -34,8 +34,7 @@ use bp_messages::{
 	},
 	LaneState, MessageKey, MessagesOperatingMode, OutboundLaneData, UnrewardedRelayersState,
 };
-use bp_polkadot_core::parachains::ParaHash;
-use bp_runtime::{BasicOperatingMode, Chain, Parachain};
+use bp_runtime::BasicOperatingMode;
 use codec::Encode;
 use frame_support::{
 	assert_ok,
@@ -74,7 +73,7 @@ pub use for_pallet_xcm_bridge_hub::open_and_close_bridge_works;
 
 // Re-export test_case from assets
 pub use asset_test_utils::include_teleports_for_native_asset_works;
-use pallet_bridge_messages::{BridgedChainOf, LaneIdOf};
+use pallet_bridge_messages::{BridgedChainOf, LaneIdOf, ThisChainOf};
 
 pub type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
 	parachains_runtimes_test_utils::RuntimeHelper<Runtime, AllPalletsWithoutSystem>;
@@ -701,34 +700,58 @@ pub fn can_calculate_fee_for_standalone_message_confirmation_transaction<Runtime
 	compute_extrinsic_fee: fn(<Runtime as frame_system::Config>::RuntimeCall) -> u128,
 ) -> u128
 where
-	Runtime: BasicParachainRuntime
-		+ BridgeMessagesConfig<
-			MPI,
-			InboundPayload = test_data::XcmAsPlainPayload,
-			OutboundPayload = test_data::XcmAsPlainPayload,
-		> + pallet_bridge_messages::Config<MPI, InboundPayload = test_data::XcmAsPlainPayload>,
+	Runtime:
+		BasicParachainRuntime + BridgeMessagesConfig<MPI> + pallet_bridge_messages::Config<MPI>,
 	MPI: 'static,
 	RuntimeCallOf<Runtime>: From<BridgeMessagesCall<Runtime, MPI>>,
-	BridgedChainOf<Runtime, MPI>: Chain<Hash = ParaHash> + Parachain,
 {
 	run_test::<Runtime, _>(collator_session_key, runtime_para_id, vec![], || {
-		let unrewarded_relayers = UnrewardedRelayersState {
+		let relayers_state = UnrewardedRelayersState {
 			unrewarded_relayer_entries: 1,
 			total_messages: 1,
 			..Default::default()
 		};
+
+		let lane_id = LaneIdOf::<Runtime, MPI>::default();
+		let relayer_id_at_this_chain: bp_runtime::AccountIdOf<ThisChainOf<Runtime, MPI>> =
+			codec::Decode::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
+				.expect("valid account id");
+
+		// prepare para storage proof containing message delivery proof
+		let (_, para_storage_proof) =
+			pallet_bridge_messages::messages_generation::prepare_message_delivery_storage_proof::<
+				BridgedChainOf<Runtime, MPI>,
+				ThisChainOf<Runtime, MPI>,
+				LaneIdOf<Runtime, MPI>,
+			>(
+				lane_id,
+				bp_messages::InboundLaneData {
+					state: LaneState::Opened,
+					relayers: vec![
+						bp_messages::UnrewardedRelayer {
+							relayer: relayer_id_at_this_chain.into(),
+							messages: bp_messages::DeliveredMessages::new(1)
+						};
+						relayers_state.unrewarded_relayer_entries as usize
+					]
+					.into(),
+					last_confirmed_nonce: 1,
+				},
+				bp_runtime::UnverifiedStorageProofParams::default(),
+			);
+
 		let message_delivery_proof = FromBridgedChainMessagesDeliveryProof {
 			bridged_header_hash: Default::default(),
-			storage_proof: Default::default(),
-			lane: Default::default(),
+			storage_proof: para_storage_proof,
+			lane: lane_id,
 		};
 
-		let call = test_data::from_parachain::make_standalone_relayer_confirmation_call::<
-			Runtime,
-			MPI,
-		>(message_delivery_proof, unrewarded_relayers);
+		let call = pallet_bridge_messages::Call::<Runtime, MPI>::receive_messages_delivery_proof {
+			proof: message_delivery_proof,
+			relayers_state,
+		};
 
-		compute_extrinsic_fee(call)
+		compute_extrinsic_fee(call.into())
 	})
 }
 
