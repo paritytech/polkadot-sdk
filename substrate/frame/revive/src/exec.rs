@@ -25,7 +25,7 @@ use crate::{
 	storage::{self, meter::Diff, WriteOutcome},
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
-	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractBlob, ContractInfo, ContractInfoOf,
+	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf,
 	ConversionPrecision, Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts,
 	RuntimeCosts,
 };
@@ -268,9 +268,6 @@ pub trait PrecompileWithInfoExt: PrecompileExt {
 		salt: Option<&[u8; 32]>,
 		origin: Option<&H160>,
 	) -> Result<H160, ExecError>;
-
-	/// Uploads new code to the contract storage. If it is already present, does nothing.
-	fn try_upload_code(&mut self, code: Vec<u8>, origin: &H160) -> Result<(), DispatchError>;
 }
 
 /// Environment functions which are available to all pre-compiles.
@@ -1709,17 +1706,6 @@ where
 		if_tracing(|t| t.instantiate_code(&crate::Code::Existing(code_hash), salt));
 		self.run(executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE), input_data, BumpNonce::Yes)
 			.map(|_| address)
-	}
-
-	fn try_upload_code(&mut self, code: Vec<u8>, origin: &H160) -> Result<(), DispatchError> {
-		let account_id = T::AddressMapper::to_account_id(origin);
-		let mut module = ContractBlob::<T>::from_code(code, account_id)?;
-		let skip_transfer = false;
-		let deposit = module.store_code(skip_transfer)?;
-
-		self.storage_meter.record_charge(&StorageDeposit::Charge(deposit));
-
-		Ok(())
 	}
 }
 

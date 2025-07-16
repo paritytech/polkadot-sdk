@@ -28,7 +28,7 @@ use sp_runtime::DispatchError;
 
 sol! {
 	interface ICreate2 {
-		function create2(bytes memory code, bytes32 salt) external payable returns (address);
+		function create2(bytes32 code_hash, bytes32 salt) external payable returns (address);
 	}
 }
 
@@ -49,9 +49,16 @@ impl<T: Config> BuiltinPrecompile for Create2<T> {
 		input: &Self::Interface,
 		env: &mut impl ExtWithInfo<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		let (code, salt) = match input {
-			ICreate2::ICreate2Calls::create2(call) => (call.code.clone(), call.salt),
+		let (code_hash, salt) = match input {
+			ICreate2::ICreate2Calls::create2(call) => (call.code_hash.clone(), call.salt),
 		};
+		let code_hash = H256::from(code_hash.as_ref());
+
+		if !CodeInfoOf::<T>::contains_key(&code_hash) {
+			log::error!("code_hash not found: {:?}", code_hash);
+			return Err(crate::Error::<T>::CodeNotFound.into());
+		}
+
 		let gas_limit = env.gas_meter().gas_left();
 
 		let storage_deposit_limit = env.storage_meter().available();
@@ -63,31 +70,19 @@ impl<T: Config> BuiltinPrecompile for Create2<T> {
 			.map_err(|_| DispatchError::from("caller account_id is None"))?;
 		let deployer = T::AddressMapper::to_address(deployer_account_id);
 
-		let contract_address = crate::address::create2(&deployer, &code, &[], &salt);
-
-		let code_hash = sp_io::hashing::keccak_256(&code);
-
-		env.try_upload_code(code.to_vec(), &deployer)?;
-		if !CodeInfoOf::<T>::contains_key(H256::from(code_hash)) {
-			Err(DispatchError::from("code not found"))?;
-		}
-
 		let instantiate_address = env.instantiate(
 			gas_limit,
 			U256::from(storage_deposit_limit.saturated_into::<u128>()),
-			H256::from(code_hash),
+			code_hash,
 			endowment,
 			vec![], // input data for constructor, if any?
 			Some(&salt),
 			Some(&deployer),
 		)?;
-		if instantiate_address != contract_address {
-			Err(DispatchError::from("contract address mismatch"))?;
-		}
 
 		// Pad the contract address to 32 bytes (left padding with zeros)
 		let mut padded = [0u8; 32];
-		let addr = contract_address.as_ref();
+		let addr = instantiate_address.as_ref();
 		padded[32 - addr.len()..].copy_from_slice(addr);
 		Ok(padded.to_vec())
 	}

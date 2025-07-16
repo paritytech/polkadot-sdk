@@ -434,7 +434,7 @@ impl Default for Origin<Test> {
 }
 
 #[test]
-fn create2_precompile_works() {
+fn create2_precompile_throws_if_code_not_uploaded() {
 	use crate::precompiles::ICreate2;
 	use alloy_core::sol_types::SolInterface;
 	use sp_core::H160;
@@ -442,11 +442,12 @@ fn create2_precompile_works() {
 	let create2_precompile_addr = H160::from_low_u64_be(0x0B); // hardcoded 11 in create2.rs
 
 	let (code, _) = compile_module("dummy").unwrap();
+	let code_hash = sp_io::hashing::keccak_256(&code);
 
 	let salt = [42u8; 32];
 
 	let input = ICreate2::ICreate2Calls::create2(ICreate2::create2Call {
-		code: code.clone().into(),
+		code_hash: code_hash.into(),
 		salt: salt.into(),
 	})
 	.abi_encode();
@@ -460,25 +461,12 @@ fn create2_precompile_works() {
 		// Call the precompile directly
 		let result = builder::bare_call(create2_precompile_addr).data(input.clone()).build();
 
-		let result_exec = result.result.clone();
-		assert_ok!(result_exec);
-		let result_result = result.result.clone().unwrap();
-
-		let contract_address = &result_result.data[12..];
-		assert_eq!(contract_address.len(), contract_address_expected.as_bytes().len());
-		assert_eq!(contract_address, contract_address_expected.as_bytes());
-
-		assert!(ContractInfoOf::<Test>::contains_key(&H160::from(
-			<&[u8] as TryInto<&[u8; 20]>>::try_into(contract_address).unwrap()
-		)));
-
-		assert!(!result_result.did_revert());
-		assert_eq!(result_result.flags, ReturnFlags::empty());
+		assert_err!(result.result, Error::<Test>::CodeNotFound);
 	});
 }
 
 #[test]
-fn create2_precompile_works_with_existing_code() {
+fn create2_precompile_works() {
 	use crate::precompiles::ICreate2;
 	use alloy_core::sol_types::SolInterface;
 	use sp_core::H160;
@@ -486,11 +474,12 @@ fn create2_precompile_works_with_existing_code() {
 	let create2_precompile_addr = H160::from_low_u64_be(0x0B); // hardcoded 11 in create2.rs
 
 	let (code, _) = compile_module("dummy").unwrap();
+	let code_hash = sp_io::hashing::keccak_256(&code);
 
 	let salt = [42u8; 32];
 
 	let input = ICreate2::ICreate2Calls::create2(ICreate2::create2Call {
-		code: code.clone().into(),
+		code_hash: code_hash.into(),
 		salt: salt.into(),
 	})
 	.abi_encode();
