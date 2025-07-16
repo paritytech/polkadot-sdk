@@ -40,6 +40,7 @@ polkadot-parachain-primitives = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 
 polkadot-node-core-pvf-execute-worker = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-pvf-prepare-worker = { optional = true, workspace = true, default-features = true }
 sc-tracing = { workspace = true }
 sp-core = { workspace = true, default-features = true }
 sp-maybe-compressed-blob = { optional = true, workspace = true, default-features = true }
@@ -52,7 +53,6 @@ polkadot-node-core-pvf-common = { features = ["test-utils"], workspace = true, d
 polkadot-node-subsystem-test-helpers = { workspace = true }
 # For benches and integration tests, depend on ourselves with the test-utils feature.
 polkadot-node-core-pvf = { features = ["test-utils"], workspace = true, default-features = true }
-polkadot-node-core-pvf-prepare-worker = { optional = true, workspace = true, default-features = true }
 rococo-runtime = { workspace = true }
 
 test-parachain-adder = { workspace = true }
