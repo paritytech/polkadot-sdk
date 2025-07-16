@@ -6,4 +6,4 @@ doc:
     - added test which uses priorities to delay mortal txs inclusion and make them invalid
 crates:
 - name: sc-transaction-pool
-  bump: major
+  bump: patch
