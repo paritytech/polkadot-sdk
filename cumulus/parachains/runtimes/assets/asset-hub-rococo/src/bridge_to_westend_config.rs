@@ -42,6 +42,7 @@ use pallet_xcm_bridge::congestion::{
 	BlobDispatcherWithChannelStatus, HereOrLocalConsensusXcmChannelManager,
 	UpdateBridgeStatusXcmChannelManager,
 };
+use pallet_xcm_bridge_router::impls::GetPriceForBridge;
 use parachains_common::xcm_config::{
 	AllSiblingSystemParachains, ParentRelayOrSiblingParachains, RelayOrOtherSystemParachains,
 };
@@ -79,7 +80,7 @@ parameter_types! {
 	pub storage BridgeDeposit: Balance = 5 * ROC;
 
 	// The fee for exporting/delivery.
-	pub MessageExportPrice: Assets = (
+	pub BaseMessageExportPrice: Assets = (
 		xcm_config::bridging::XcmBridgeHubRouterFeeAssetId::get(),
 		xcm_config::bridging::ToWestendOverAssetHubWestendXcmRouterBaseFee::get(),
 	).into();
@@ -161,7 +162,18 @@ impl pallet_xcm_bridge::Config<XcmOverAssetHubWestendInstance> for Runtime {
 	type BridgedNetwork = WestendGlobalConsensusNetworkLocation;
 	type BridgeMessagesPalletInstance = WithAssetHubWestendMessagesInstance;
 
-	type MessageExportPrice = MessageExportPrice;
+	/// This price covers:
+	/// - `BaseMessageExportPrice` (for message proof delivery/confirmation)
+	/// - Message size fee (if configured)
+	/// - Dynamic fee factor (if congested)
+	///
+	/// This price is calculated either for local routing with `ToWestendOverAssetHubWestendXcmRouter`
+	/// or executing `ExportMessage` from a sibling chain.
+	type MessageExportPrice = GetPriceForBridge<
+		Runtime,
+		ToWestendOverAssetHubWestendXcmRouterInstance,
+		BaseMessageExportPrice,
+	>;
 	type DestinationVersion = XcmVersionOfDestAndRemoteBridge<PolkadotXcm, AssetHubWestendLocation>;
 
 	type ForceOrigin = EnsureRoot<AccountId>;
@@ -228,13 +240,9 @@ impl pallet_xcm_bridge_router::Config<ToWestendOverAssetHubWestendXcmRouterInsta
 
 	type DestinationVersion = PolkadotXcm;
 
-	// We use `LocalExporter` with `ViaLocalBridgeHubExporter` ensures that
-	// `pallet_xcm_bridge_router` can trigger directly `pallet_xcm_bridge` as exporter.
-	type MessageExporter = pallet_xcm_bridge_router::impls::ViaLocalBridgeExporter<
-		Runtime,
-		ToWestendOverAssetHubWestendXcmRouterInstance,
-		LocalExporter<XcmOverAssetHubWestend, UniversalLocation>,
-	>;
+	// We use `LocalExporter` to ensure that `pallet_xcm_bridge_router` can directly trigger
+	// `pallet_xcm_bridge` as an exporter.
+	type MessageExporter = LocalExporter<XcmOverAssetHubWestend, UniversalLocation>;
 
 	// For congestion - resolves `BridgeId` using the same algorithm as `pallet_xcm_bridge` on
 	// the BH.
