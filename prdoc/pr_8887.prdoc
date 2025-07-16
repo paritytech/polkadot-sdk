@@ -2,16 +2,6 @@ title: '`fatxpool`: added mortal transactions integration test '
 doc:
 - audience: Todo
   description: |-
-    # Description
-
-    Based on https://github.com/michalkucharczyk/tx-test-tool/pull/43.
-
-    ## Integration
-
-    N/A
-
-    ## Review Notes
-
     - added tests with future mortal txs that are dropped due to not being included in blocks within their lifetime, but also future mortal txs that have a sufficient lifetime to be included in blocks
     - added test which uses priorities to delay mortal txs inclusion and make them invalid
 crates:
