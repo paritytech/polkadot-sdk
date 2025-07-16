@@ -144,7 +144,7 @@ async fn send_future_and_ready_from_many_accounts_to_relaychain() {
 // so to fill a block each user tx must have around 750kb.
 #[tokio::test(flavor = "multi_thread")]
 async fn send_future_mortal_txs() {
-	let net = NetworkSpawner::from_toml_with_env_logger(RELAYCHAIN_HIGH_POOL_LIMIT_FATP)
+	let net = NetworkSpawner::from_toml_with_env_logger(relay::HIGH_POOL_LIMIT_FATP)
 		.await
 		.unwrap();
 
@@ -217,7 +217,7 @@ async fn send_future_mortal_txs() {
 // sufficient lifetime to be included in blocks, and are finalized successfully.
 #[tokio::test(flavor = "multi_thread")]
 async fn send_lower_priority_mortal_txs() {
-	let net = NetworkSpawner::from_toml_with_env_logger(RELAYCHAIN_HIGH_POOL_LIMIT_FATP)
+	let net = NetworkSpawner::from_toml_with_env_logger(relay::HIGH_POOL_LIMIT_FATP)
 		.await
 		.unwrap();
 
