@@ -1,0 +1,8 @@
+title: '`apply_authorized_force_set_current_code` does not need to consume the whole block'
+doc:
+- audience: Runtime User
+  description: |-
+    There is no need that this dispatchable consumes the full block as this is just writing the given value to storage. On a chain this is done, because the runtime changes and thus, a lot of stuff potentially changes. In the case of upgrading the parachain code on the relay chain, the relay chain runtime itself does not change.
+crates:
+- name: polkadot-runtime-parachains
+  bump: patch
