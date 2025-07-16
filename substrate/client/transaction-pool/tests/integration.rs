@@ -296,7 +296,7 @@ async fn send_lower_priority_mortal_txs() {
 	assert_eq!(mortal_invalid, 10);
 	assert_eq!(mortal_succesfull, 10);
 	assert_eq!(finalized_ready, 50);
-
+}
 
 // Test which sends 5m transactions to parachain. Long execution time expected.
 #[tokio::test(flavor = "multi_thread")]
