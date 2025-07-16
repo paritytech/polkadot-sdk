@@ -71,6 +71,8 @@ xcm-simulator.default-features = true
 xcm-simulator.workspace = true
 xcm.default-features = true
 xcm.workspace = true
+xcm-executor.workspace = true
+xcm-executor.default-features = true
 
 [dependencies.pallet-xcm]
 default-features = true
