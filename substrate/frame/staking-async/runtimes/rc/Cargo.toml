@@ -156,7 +156,6 @@ std = [
 	"pallet-grandpa/std",
 	"pallet-identity/std",
 	"pallet-indices/std",
-	"pallet-membership/std",
 	"pallet-message-queue/std",
 	"pallet-migrations/std",
 	"pallet-mmr/std",
