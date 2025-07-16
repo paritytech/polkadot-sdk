@@ -12,7 +12,6 @@ exclude-from-umbrella = true # for AHM only
 
 [dependencies]
 codec = { workspace = true, features = ["max-encoded-len"] }
-cumulus-primitives-core = { workspace = true }
 frame-benchmarking = { workspace = true, optional = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
