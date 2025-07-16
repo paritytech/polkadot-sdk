@@ -65,14 +65,14 @@ sp-keyring.default-features = true
 sp-keyring.workspace = true
 sp-runtime.default-features = true
 sp-runtime.workspace = true
-xcm-emulator.default-features = true
-xcm-emulator.workspace = true
-xcm-simulator.default-features = true
-xcm-simulator.workspace = true
 xcm.default-features = true
 xcm.workspace = true
-xcm-executor.workspace = true
+xcm-emulator.default-features = true
+xcm-emulator.workspace = true
 xcm-executor.default-features = true
+xcm-executor.workspace = true
+xcm-simulator.default-features = true
+xcm-simulator.workspace = true
 
 [dependencies.pallet-xcm]
 default-features = true

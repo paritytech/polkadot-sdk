@@ -20,7 +20,7 @@ use alloc::{vec, vec::Vec};
 use core::cmp::max;
 use num_bigint::BigUint;
 use num_integer::Integer;
-use num_traits::{One, Zero, ToPrimitive};
+use num_traits::{One, ToPrimitive, Zero};
 use pallet_revive_uapi::ReturnFlags;
 
 /// The Modexp precompile.
