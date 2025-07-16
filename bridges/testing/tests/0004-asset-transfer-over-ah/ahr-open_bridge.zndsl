@@ -1,0 +1,5 @@
+Description: Open a permissionless bridge lane from Rococo Asset Hub to Westend Asset Hub.
+Network: {{ENV_PATH}}/bridge_hub_rococo_local_network.toml
+Creds: config
+
+asset-hub-rococo-collator1: run {{ENV_PATH}}/helper.sh with "auto-log open-bridge-lane-rococo-westend-local" within 120 seconds

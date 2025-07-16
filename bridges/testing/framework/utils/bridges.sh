@@ -189,6 +189,28 @@ function open_hrmp_channels() {
             ${max_message_size}
 }
 
+function open_bridge_lane() {
+    local runtime_para_endpoint=$1
+    local runtime_para_id=$2
+    local relay_url=$3
+    local seed=$4
+    local destination_xcm_location=$5
+    local destination_chain_name=$6
+    echo "  calling open_bridge_lane:"
+    echo "      runtime_para_endpoint: ${runtime_para_endpoint}"
+    echo "      seed: ${seed}"
+    echo "      destination_xcm_location: ${destination_xcm_location}"
+    echo "      params:"
+
+    # 1. generate data for Transact (XcmOverAssetHubWestend::open_bridge)
+    local tmp_output_file=$(mktemp)
+    generate_hex_encoded_call_data "open-permissionless-lane" "${runtime_para_endpoint}" "${tmp_output_file}" "$destination_xcm_location" "$destination_chain_name"
+    local hex_encoded_data=$(cat $tmp_output_file)
+
+    # 2. trigger governance call
+    send_governance_transact "${relay_url}" "${seed}" "${runtime_para_id}" "${hex_encoded_data}" 200000000 12000
+}
+
 function force_xcm_version() {
     local relay_url=$1
     local relay_chain_seed=$2

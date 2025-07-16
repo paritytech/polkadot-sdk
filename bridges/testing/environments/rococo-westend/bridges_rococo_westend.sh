@@ -178,7 +178,7 @@ function run_parachains_relay() {
     local relayer_path=$(ensure_relayer)
 
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
-        $relayer_path relay-parachains rococo-to-bridge-hub-westend \
+        $relayer_path relay-parachains bridge-hub-rococo-to-bridge-hub-westend \
         --only-free-headers \
         --source-uri ws://localhost:9942 \
         --source-version-mode Auto \
@@ -188,7 +188,7 @@ function run_parachains_relay() {
         --target-transactions-mortality 4&
 
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
-        $relayer_path relay-parachains westend-to-bridge-hub-rococo \
+        $relayer_path relay-parachains bridge-hub-westend-to-bridge-hub-rococo \
         --only-free-headers \
         --source-uri ws://localhost:9945 \
         --source-version-mode Auto \
@@ -296,6 +296,28 @@ case "$1" in
           "ws://127.0.0.1:8943" \
           "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }, { "Parachain": 1002 } ] } }')" \
           $XCM_VERSION
+      ;;
+  open-bridge-lane-westend-rococo-local)
+      ensure_polkadot_js_api
+      # open a permissionless lane for bridging
+      open_bridge_lane \
+          "ws://127.0.0.1:9010" \
+          1000 \
+          "ws://127.0.0.1:9945" \
+            "//Alice" \
+          "$(jq --null-input '{ "V5": { "X2": [ { "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }, { "Parachain": 1000 } ] } }')" \
+          "Rococo"
+      ;;
+  open-bridge-lane-rococo-westend-local)
+      ensure_polkadot_js_api
+      # open a permissionless lane for bridging
+      open_bridge_lane \
+          "ws://127.0.0.1:9910" \
+          1000 \
+          "ws://127.0.0.1:9942" \
+            "//Alice" \
+          "$(jq --null-input '{ "V5": { "X2": [ { "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }, { "Parachain": 1000 } ] } }')" \
+          "Westend"
       ;;
   init-asset-hub-westend-local)
       ensure_polkadot_js_api
