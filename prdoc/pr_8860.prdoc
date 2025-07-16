@@ -1,0 +1,10 @@
+title: '[stable2506] Backport #8860 relay chain logic (runtime + client) '
+doc:
+- audience: Node Operator
+  description: |-
+    This PR relaxes the advancement rule for HRMP messages, making it possible to keep the old watermark.
+crates:
+- name: polkadot-node-subsystem-util
+  bump: patch
+- name: polkadot-runtime-parachains
+  bump: patch
