@@ -663,6 +663,8 @@ where
 	estimated_fee.into()
 }
 
+/// Estimates transaction fee for default message delivery transaction (`receive_messages_proof`)
+/// from bridged parachain.
 pub fn can_calculate_fee_for_standalone_message_delivery_transaction<Runtime, MPI>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
@@ -719,6 +721,8 @@ where
 	})
 }
 
+/// Estimates transaction fee for default message confirmation transaction
+/// (`receive_messages_delivery_proof`) from bridged parachain.
 pub fn can_calculate_fee_for_standalone_message_confirmation_transaction<Runtime, MPI>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
