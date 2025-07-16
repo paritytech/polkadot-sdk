@@ -28,8 +28,9 @@ pub use polkadot_runtime_parachains::dmp::Pallet as Dmp;
 pub use xcm::{
 	prelude::{
 		AccountId32, All, Asset, AssetId, BuyExecution, DepositAsset, ExpectTransactStatus,
-		Fungible, Here, Location, MaybeErrorCode, OriginKind, RefundSurplus, Transact, Unlimited,
-		VersionedAssets, VersionedXcm, WeightLimit, WithdrawAsset, Xcm, VersionedAssetId, Parent, VersionedLocation, Junction,
+		Fungible, Here, Junction, Location, MaybeErrorCode, OriginKind, Parent, RefundSurplus,
+		Transact, Unlimited, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm,
+		WeightLimit, WithdrawAsset, Xcm,
 	},
 	v3::Location as V3Location,
 };
