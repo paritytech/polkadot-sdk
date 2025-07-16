@@ -4229,7 +4229,6 @@ version = "0.1.0"
 dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
- "cumulus-client-network",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
  "futures",
