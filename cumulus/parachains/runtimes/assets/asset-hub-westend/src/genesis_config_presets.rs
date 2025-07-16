@@ -16,23 +16,20 @@
 //! # Asset Hub Westend Runtime genesis config presets
 
 use crate::{*, xcm_config::{UniversalLocation, bridging::to_rococo::RococoNetwork}};
-use alloc::{vec, vec::Vec, format};
+use alloc::{vec, vec::Vec};
 use cumulus_primitives_core::ParaId;
 use frame_support::build_struct_json_patch;
 use hex_literal::hex;
 use parachains_common::{AccountId, AuraId};
-use bp_asset_hub_rococo::AccountPublic;
-use sp_runtime::traits::IdentifyAccount;
 use sp_core::crypto::UncheckedInto;
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 use testnet_parachains_constants::westend::{
 	currency::UNITS as WND, xcm_version::SAFE_XCM_VERSION,
 };
-use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH};
+use xcm::latest::prelude::*;
 use xcm_builder::GlobalConsensusConvertsFor;
 use xcm_executor::traits::ConvertLocation;
-use sp_core::{Pair, Public};
 
 const ASSET_HUB_WESTEND_ED: Balance = ExistentialDeposit::get();
 
