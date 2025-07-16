@@ -15,7 +15,10 @@
 
 //! # Asset Hub Westend Runtime genesis config presets
 
-use crate::{*, xcm_config::{UniversalLocation, bridging::to_rococo::RococoNetwork}};
+use crate::{
+	xcm_config::{bridging::to_rococo::RococoNetwork, UniversalLocation},
+	*,
+};
 use alloc::{vec, vec::Vec};
 use cumulus_primitives_core::ParaId;
 use frame_support::build_struct_json_patch;
@@ -135,17 +138,18 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			vec![],
 			vec![],
 		),
-		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => asset_hub_westend_genesis(
-			// initial collators.
-			vec![
-				(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
-				(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
-			],
-			Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
-			WND * 1_000_000,
-			dev_stakers,
-			1000.into(),
-			vec![
+		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET =>
+			asset_hub_westend_genesis(
+				// initial collators.
+				vec![
+					(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
+					(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
+				],
+				Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
+				WND * 1_000_000,
+				dev_stakers,
+				1000.into(),
+				vec![
 			// bridged ROC
 			(
 				Location::new(2, [GlobalConsensus(RococoNetwork::get())]),
@@ -156,15 +160,15 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 				10000000,
 			),
 			],
-			vec![
-				// bridged ROC to Bob
-				(
-					Location::new(2, [GlobalConsensus(RococoNetwork::get())]),
-					Sr25519Keyring::Bob.to_account_id(),
-					10000000 * 4096 * 4096,
-				),
-			],
-		),
+				vec![
+					// bridged ROC to Bob
+					(
+						Location::new(2, [GlobalConsensus(RococoNetwork::get())]),
+						Sr25519Keyring::Bob.to_account_id(),
+						10000000 * 4096 * 4096,
+					),
+				],
+			),
 		sp_genesis_builder::DEV_RUNTIME_PRESET => asset_hub_westend_genesis(
 			// initial collators.
 			vec![(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into())],

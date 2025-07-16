@@ -15,7 +15,10 @@
 
 //! # Asset Hub Rococo Runtime genesis config presets
 
-use crate::{*, xcm_config::{UniversalLocation, bridging::to_westend::WestendNetwork}};
+use crate::{
+	xcm_config::{bridging::to_westend::WestendNetwork, UniversalLocation},
+	*,
+};
 use alloc::{vec, vec::Vec};
 use cumulus_primitives_core::ParaId;
 use frame_support::build_struct_json_patch;
@@ -118,17 +121,17 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			vec![],
 			vec![],
 		),
-		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => asset_hub_rococo_genesis(
-			// initial collators.
-			vec![
-				(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
-				(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
-			],
-			Sr25519Keyring::well_known().map(|x| x.to_account_id()).collect(),
-			testnet_parachains_constants::rococo::currency::UNITS * 1_000_000,
-			1000.into(),
-
-			vec![
+		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET =>
+			asset_hub_rococo_genesis(
+				// initial collators.
+				vec![
+					(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
+					(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
+				],
+				Sr25519Keyring::well_known().map(|x| x.to_account_id()).collect(),
+				testnet_parachains_constants::rococo::currency::UNITS * 1_000_000,
+				1000.into(),
+				vec![
 			// bridged WND
 			(
 				Location::new(2, [GlobalConsensus(WestendNetwork::get())]),
@@ -139,15 +142,15 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 				10000000,
 			),
 			],
-			vec![
-				// bridged WND to Bob
-				(
-					Location::new(2, [GlobalConsensus(WestendNetwork::get())]),
-					Sr25519Keyring::Bob.to_account_id(),
-					10000000 * 4096 * 4096,
-				),
-			],
-		),
+				vec![
+					// bridged WND to Bob
+					(
+						Location::new(2, [GlobalConsensus(WestendNetwork::get())]),
+						Sr25519Keyring::Bob.to_account_id(),
+						10000000 * 4096 * 4096,
+					),
+				],
+			),
 		sp_genesis_builder::DEV_RUNTIME_PRESET => asset_hub_rococo_genesis(
 			// initial collators.
 			vec![(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into())],
