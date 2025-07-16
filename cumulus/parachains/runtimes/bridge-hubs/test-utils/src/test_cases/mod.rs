@@ -669,18 +669,43 @@ pub fn can_calculate_fee_for_standalone_message_delivery_transaction<Runtime, MP
 	compute_extrinsic_fee: fn(<Runtime as frame_system::Config>::RuntimeCall) -> u128,
 ) -> u128
 where
-	Runtime: BasicParachainRuntime
-		+ pallet_bridge_messages::Config<MPI, InboundPayload = test_data::XcmAsPlainPayload>,
+	Runtime: BasicParachainRuntime + pallet_bridge_messages::Config<MPI>,
 	MPI: 'static,
 	RuntimeCallOf<Runtime>: From<BridgeMessagesCall<Runtime, MPI>>,
 {
+	use pallet_bridge_messages::messages_generation::{
+		encode_all_messages, encode_lane_data, prepare_messages_storage_proof,
+	};
 	run_test::<Runtime, _>(collator_session_key, runtime_para_id, vec![], || {
+		// prepare para storage proof containing a message
+		let lane_id = LaneIdOf::<Runtime, MPI>::default();
+		let message_nonce = 1;
+		let message_payload = crate::test_data::prepare_inbound_xcm(
+			vec![Instruction::<()>::ClearOrigin; 1_024].into(),
+			[GlobalConsensus(ByGenesis([0; 32])), Parachain(1234)].into(),
+		);
+		let (_, para_storage_proof) = prepare_messages_storage_proof::<
+			BridgedChainOf<Runtime, MPI>,
+			ThisChainOf<Runtime, MPI>,
+			LaneIdOf<Runtime, MPI>,
+		>(
+			lane_id,
+			message_nonce..=message_nonce,
+			None,
+			bp_runtime::UnverifiedStorageProofParams::from_db_size(message_payload.len() as u32),
+			|_| message_payload.clone(),
+			encode_all_messages,
+			encode_lane_data,
+			false,
+			false,
+		);
+
 		let message_proof = FromBridgedChainMessagesProof {
 			bridged_header_hash: Default::default(),
-			storage_proof: Default::default(),
-			lane: Default::default(),
-			nonces_start: Default::default(),
-			nonces_end: Default::default(),
+			storage_proof: para_storage_proof,
+			lane: lane_id,
+			nonces_start: message_nonce,
+			nonces_end: message_nonce,
 		};
 
 		let call = pallet_bridge_messages::Call::<Runtime, MPI>::receive_messages_proof {
