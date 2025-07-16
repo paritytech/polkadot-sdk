@@ -23556,6 +23556,7 @@ dependencies = [
  "sp-arithmetic 23.0.0",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
+ "sp-keystore 0.34.0",
  "sp-state-machine 0.35.0",
  "sp-std 14.0.0",
  "sp-tracing 16.0.0",

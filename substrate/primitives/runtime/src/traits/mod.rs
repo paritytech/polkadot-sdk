@@ -2216,7 +2216,7 @@ macro_rules! impl_opaque_keys_inner {
 				()
 			> {
 				let res = ($(
-					$crate::RuntimeAppPublic::sign(&self.$field, &owner).ok_or(())?
+					$crate::RuntimeAppPublic::generate_proof_of_possession(&mut self.$field.clone()).ok_or(())?
 				),*);
 
 				Ok(res)
@@ -2269,7 +2269,8 @@ macro_rules! impl_opaque_keys_inner {
 
 				// Verify that all the signatures signed `owner`.
 				$(
-					let valid = $crate::RuntimeAppPublic::verify(&self.$field, &owner, &$field);
+
+					let valid = $crate::RuntimeAppPublic::verify_proof_of_possession(&self.$field, &$field);
 
 					if !valid {
 						// We found an invalid signature.
