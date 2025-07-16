@@ -25,9 +25,8 @@ use crate::{
 	storage::{self, meter::Diff, WriteOutcome},
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
-	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf,
-	ConversionPrecision, Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts,
-	RuntimeCosts,
+	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, ConversionPrecision,
+	Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, RuntimeCosts,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};

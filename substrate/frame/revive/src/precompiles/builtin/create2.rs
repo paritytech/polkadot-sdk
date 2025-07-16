@@ -50,7 +50,7 @@ impl<T: Config> BuiltinPrecompile for Create2<T> {
 		env: &mut impl ExtWithInfo<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
 		let (code_hash, salt) = match input {
-			ICreate2::ICreate2Calls::create2(call) => (call.code_hash.clone(), call.salt),
+			ICreate2::ICreate2Calls::create2(call) => (call.code_hash, call.salt),
 		};
 		let code_hash = H256::from(code_hash.as_ref());
 

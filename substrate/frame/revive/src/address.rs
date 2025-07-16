@@ -17,7 +17,7 @@
 
 //! Functions that deal contract addresses.
 
-use crate::{ensure, Config, Error, HoldReason, OriginalAccount, H256};
+use crate::{ensure, Config, Error, HoldReason, OriginalAccount};
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use frame_support::traits::{fungible::MutateHold, tokens::Precision};
@@ -244,16 +244,11 @@ pub fn create2(deployer: &H160, code: &[u8], input_data: &[u8], salt: &[u8; 32])
 		let init_code: Vec<u8> = code.into_iter().chain(input_data).cloned().collect();
 		keccak_256(init_code.as_ref())
 	};
-	create2_from_code_hash(deployer, &H256::from(init_code_hash), input_data, salt)
-}
-
-/// Determine the address of a contract using the CREATE2 semantics based on code_hash.
-pub fn create2_from_code_hash(deployer: &H160, init_code_hash: &H256, input_data: &[u8], salt: &[u8; 32]) -> H160 {
 	let mut bytes = [0; 85];
 	bytes[0] = 0xff;
 	bytes[1..21].copy_from_slice(deployer.as_bytes());
 	bytes[21..53].copy_from_slice(salt);
-	bytes[53..85].copy_from_slice(init_code_hash.as_bytes());
+	bytes[53..85].copy_from_slice(&init_code_hash);
 	let hash = keccak_256(&bytes);
 	H160::from_slice(&hash[12..])
 }
