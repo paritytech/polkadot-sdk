@@ -674,7 +674,6 @@ where
 		+ pallet_bridge_messages::Config<MPI, InboundPayload = test_data::XcmAsPlainPayload>,
 	MPI: 'static,
 	RuntimeCallOf<Runtime>: From<BridgeMessagesCall<Runtime, MPI>>,
-	BridgedChainOf<Runtime, MPI>: Chain<Hash = ParaHash> + Parachain,
 {
 	run_test::<Runtime, _>(collator_session_key, runtime_para_id, vec![], || {
 		let message_proof = FromBridgedChainMessagesProof {
