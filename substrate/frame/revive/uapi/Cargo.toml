@@ -22,11 +22,7 @@ pallet-revive-proc-macro = { workspace = true }
 scale-info = { features = ["derive"], optional = true, workspace = true }
 
 [target.'cfg(target_arch = "riscv64")'.dependencies]
-<<<<<<< HEAD
-polkavm-derive = { version = "0.21.0" }
-=======
 polkavm-derive = { version = "0.26.0" }
->>>>>>> 771c9988 (Bump CI to Rustc 1.88 to support 2024 edition crates (#8592))
 
 [features]
 default = ["scale"]
