@@ -297,11 +297,14 @@ jobs:
       - name: Generate test matrix
         id: generate_test_matrix
         shell: bash
+        env:
+          TESTS_YAML:  ${{ inputs.tests_yaml }}
+          TEST_PATTERN: ${{ inputs.test_pattern || '' }}
         run: |
           python3 .github/scripts/parse-zombienet-tests.py \
-            --matrix  ${{ inputs.tests_yaml }} \
+            --matrix  ${TESTS_YAML} \
             --flaky-tests "${{ steps.set_vars.outputs.FLAKY_TESTS }}" \
-            --test-pattern "${{ inputs.test_pattern || '' }}" > matrix.json
+            --test-pattern "${TEST_PATTERN}" > matrix.json
           echo "TEST_MATRIX=$(cat matrix.json)" >> $GITHUB_OUTPUT
           echo "TEST_MATRIX:"
           cat matrix.json | jq '.'
