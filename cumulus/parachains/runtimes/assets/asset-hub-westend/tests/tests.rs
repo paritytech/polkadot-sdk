@@ -19,25 +19,29 @@
 
 use asset_hub_westend_runtime::{
 	bridge_common_config::{BridgeRelayersInstance, BridgeReward},
-	xcm_config,
+	bridge_to_rococo_config,
 	xcm_config::{
-		bridging, CheckingAccount, GovernanceLocation, LocationToAccountId, StakingPot,
+		self, bridging, CheckingAccount, GovernanceLocation, LocationToAccountId, StakingPot,
 		TrustBackedAssetsPalletLocation, WestendLocation, XcmConfig,
 	},
-	AllPalletsWithoutSystem, Assets, Balances, Block, BridgeRelayers, ExistentialDeposit,
-	ForeignAssets, ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte,
-	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
-	ToRococoXcmRouterInstance, TrustBackedAssetsInstance, XcmpQueue,
+	AllPalletsWithoutSystem, Assets, Balances, Block, BridgeRejectObsoleteHeadersAndMessages,
+	BridgeRelayers, ExistentialDeposit, ForeignAssets, ForeignAssetsInstance, MetadataDepositBase,
+	MetadataDepositPerByte, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
+	RuntimeOrigin, SessionKeys, ToRococoXcmRouterInstance, TransactionPayment,
+	TrustBackedAssetsInstance, TxExtension, UncheckedExtrinsic, XcmpQueue,
 };
 pub use asset_hub_westend_runtime::{AssetConversion, AssetDeposit, CollatorSelection, System};
 use asset_test_utils::{
 	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,
 	ExtBuilder, GovernanceOrigin, SlotDurations,
 };
+use bp_asset_hub_westend::Signature;
 use bridge_hub_test_utils::test_cases::run_test;
 use codec::{Decode, Encode};
 use frame_support::{
-	assert_err, assert_noop, assert_ok, parameter_types,
+	assert_err, assert_noop, assert_ok,
+	dispatch::GetDispatchInfo,
+	parameter_types,
 	traits::{
 		fungible::{Inspect, Mutate},
 		fungibles::{
@@ -51,7 +55,12 @@ use hex_literal::hex;
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
-use sp_runtime::{traits::MaybeEquivalence, Either};
+use sp_keyring::Sr25519Keyring::Alice;
+use sp_runtime::{
+	generic::{self, Era, SignedPayload},
+	traits::MaybeEquivalence,
+	Either,
+};
 use std::convert::Into;
 use testnet_parachains_constants::westend::{consensus::*, currency::UNITS, fee::WeightToFee};
 use xcm::latest::{
@@ -84,6 +93,47 @@ fn collator_session_key(account: [u8; 32]) -> CollatorSessionKey<Runtime> {
 
 fn collator_session_keys() -> CollatorSessionKeys<Runtime> {
 	CollatorSessionKeys::default().add(collator_session_key(ALICE))
+}
+
+fn construct_extrinsic(
+	sender: sp_keyring::Sr25519Keyring,
+	call: RuntimeCall,
+) -> UncheckedExtrinsic {
+	let account_id = sp_runtime::AccountId32::from(sender.public());
+	let tx_ext: TxExtension = (
+		frame_system::AuthorizeCall::<Runtime>::new(),
+		frame_system::CheckNonZeroSender::<Runtime>::new(),
+		frame_system::CheckSpecVersion::<Runtime>::new(),
+		frame_system::CheckTxVersion::<Runtime>::new(),
+		frame_system::CheckGenesis::<Runtime>::new(),
+		frame_system::CheckEra::<Runtime>::from(Era::immortal()),
+		frame_system::CheckNonce::<Runtime>::from(
+			frame_system::Pallet::<Runtime>::account(&account_id).nonce,
+		),
+		frame_system::CheckWeight::<Runtime>::new(),
+		pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(
+			Balance::MIN,
+			None,
+		),
+		frame_metadata_hash_extension::CheckMetadataHash::new(false),
+		BridgeRejectObsoleteHeadersAndMessages::default(),
+		(bridge_to_rococo_config::OnAssetHubWestendRefundAssetHubRococoMessages::default(),),
+	)
+		.into();
+	let payload = SignedPayload::new(call.clone(), tx_ext.clone()).unwrap();
+	let signature = payload.using_encoded(|e| sender.sign(e));
+	UncheckedExtrinsic::from(generic::UncheckedExtrinsic::new_signed(
+		call,
+		account_id.into(),
+		Signature::Sr25519(signature),
+		tx_ext,
+	))
+}
+
+fn construct_and_estimate_extrinsic_fee(call: RuntimeCall) -> Balance {
+	let info = call.get_dispatch_info();
+	let xt = construct_extrinsic(Alice, call);
+	TransactionPayment::compute_fee(xt.encoded_size() as _, &info, 0)
 }
 
 fn slot_durations() -> SlotDurations {
@@ -897,13 +947,19 @@ fn receive_reserve_asset_deposited_roc_from_asset_hub_rococo_fees_paid_by_pool_s
 
 		let foreign_asset_id_location = xcm::v5::Location::new(
 			2,
-			[xcm::v5::Junction::GlobalConsensus(xcm::v5::NetworkId::ByGenesis(ROCOCO_GENESIS_HASH))],
+			[xcm::v5::Junction::GlobalConsensus(xcm::v5::NetworkId::ByGenesis(
+				ROCOCO_GENESIS_HASH,
+			))],
 		);
 		let foreign_asset_id_minimum_balance = 1_000_000_000;
 		// sovereign account as a foreign asset owner (can be whoever for this scenario)
-		let foreign_asset_owner = LocationToAccountId::convert_location(&Location::parent()).unwrap();
-		let foreign_asset_create_params =
-			(foreign_asset_owner, foreign_asset_id_location.clone(), foreign_asset_id_minimum_balance);
+		let foreign_asset_owner =
+			LocationToAccountId::convert_location(&Location::parent()).unwrap();
+		let foreign_asset_create_params = (
+			foreign_asset_owner,
+			foreign_asset_id_location.clone(),
+			foreign_asset_id_minimum_balance,
+		);
 
 		asset_test_utils::test_cases_over_bridge::receive_reserve_asset_deposited_from_different_consensus_works::<
 			Runtime,
@@ -1490,7 +1546,8 @@ fn governance_authorize_upgrade_works() {
 
 mod bridge_to_rococo_tests {
 	use super::{
-		collator_session_keys, slot_durations, AccountId, ExtBuilder, Governance, RuntimeHelper,
+		collator_session_keys, construct_and_estimate_extrinsic_fee, slot_durations, AccountId,
+		ExtBuilder, Governance, RuntimeHelper,
 	};
 	use asset_hub_westend_runtime::{
 		bridge_common_config::DeliveryRewardInBalance,
@@ -1503,7 +1560,7 @@ mod bridge_to_rococo_tests {
 		RuntimeEvent, RuntimeOrigin,
 	};
 	use bp_runtime::RangeInclusiveExt;
-	use bridge_hub_test_utils::mock_open_hrmp_channel;
+	use bridge_hub_test_utils::{mock_open_hrmp_channel, test_cases};
 	use codec::Decode;
 	use cumulus_primitives_core::UpwardMessageSender;
 	use frame_support::traits::{ConstU8, ProcessMessageError};
@@ -1840,6 +1897,48 @@ mod bridge_to_rococo_tests {
 			Some(-33),
 			&format!(
 				"Estimate fee for `ExportMessage` for runtime: {:?}",
+				<Runtime as frame_system::Config>::Version::get()
+			),
+		)
+	}
+
+	#[test]
+	fn can_calculate_fee_for_standalone_message_delivery_transaction() {
+		bridge_hub_test_utils::check_sane_fees_values(
+			"bp_asset_hub_westend::AssetHubWestendBaseDeliveryFeeInWnds",
+			bp_asset_hub_westend::AssetHubWestendBaseDeliveryFeeInWnds::get(),
+			|| {
+				test_cases::can_calculate_fee_for_standalone_message_delivery_transaction(
+					collator_session_keys(),
+					1000,
+					construct_and_estimate_extrinsic_fee,
+				)
+			},
+			Perbill::from_percent(25),
+			Some(-25),
+			&format!(
+				"Estimate fee for `single message delivery` for runtime: {:?}",
+				<Runtime as frame_system::Config>::Version::get()
+			),
+		)
+	}
+
+	#[test]
+	fn can_calculate_fee_for_standalone_message_confirmation_transaction() {
+		bridge_hub_test_utils::check_sane_fees_values(
+			"bp_asset_hub_westend::AssetHubWestendBaseConfirmationFeeInWnds",
+			bp_asset_hub_westend::AssetHubWestendBaseConfirmationFeeInWnds::get(),
+			|| {
+				test_cases::can_calculate_fee_for_standalone_message_confirmation_transaction(
+					collator_session_keys(),
+					1000,
+					construct_and_estimate_extrinsic_fee,
+				)
+			},
+			Perbill::from_percent(25),
+			Some(-25),
+			&format!(
+				"Estimate fee for `single message confirmation` for runtime: {:?}",
 				<Runtime as frame_system::Config>::Version::get()
 			),
 		)
