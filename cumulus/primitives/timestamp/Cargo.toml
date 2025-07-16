@@ -12,9 +12,9 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+cumulus-primitives-core.workspace = true
 sp-inherents.workspace = true
 sp-timestamp.workspace = true
-cumulus-primitives-core.workspace = true
 
 [features]
 default = ["std"]

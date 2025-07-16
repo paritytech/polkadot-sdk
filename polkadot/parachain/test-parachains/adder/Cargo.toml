@@ -15,12 +15,12 @@ workspace = true
 codec = { features = ["derive"], workspace = true }
 dlmalloc = { features = ["global"], workspace = true }
 polkadot-parachain-primitives = { features = ["wasm-api"], workspace = true }
-tiny-keccak = { features = ["keccak"], workspace = true }
 sp-io = { features = ["disable_allocator"], workspace = true }
+tiny-keccak = { features = ["keccak"], workspace = true }
 
 [build-dependencies]
-substrate-wasm-builder.workspace = true
 substrate-wasm-builder.default-features = true
+substrate-wasm-builder.workspace = true
 
 [features]
 default = ["std"]

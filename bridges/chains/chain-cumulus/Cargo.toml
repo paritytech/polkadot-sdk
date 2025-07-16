@@ -20,9 +20,9 @@ bp-runtime.workspace = true
 frame-support.workspace = true
 frame-system.workspace = true
 parachains-common.workspace = true
+polkadot-primitives.workspace = true
 sp-api.workspace = true
 sp-std.workspace = true
-polkadot-primitives.workspace = true
 
 [features]
 default = ["std"]

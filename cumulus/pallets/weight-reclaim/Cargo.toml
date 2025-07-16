@@ -15,13 +15,13 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sp-io.workspace = true
-sp-runtime.workspace = true
-sp-trie.workspace = true
 cumulus-primitives-storage-weight-reclaim.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
 frame-support.workspace = true
 frame-system.workspace = true
+sp-io.workspace = true
+sp-runtime.workspace = true
+sp-trie.workspace = true
 
 # Other dependencies
 codec = { features = ["derive"], workspace = true }
@@ -37,6 +37,7 @@ cumulus-primitives-proof-size-hostfunction = { workspace = true, default-feature
 default = ["std"]
 std = [
 	"codec/std",
+	"cumulus-primitives-proof-size-hostfunction/std",
 	"cumulus-primitives-storage-weight-reclaim/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
@@ -46,7 +47,6 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-trie/std",
-	"cumulus-primitives-proof-size-hostfunction/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

@@ -13,13 +13,13 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 docify = { workspace = true }
-impl-trait-for-tuples = { workspace = true }
-log = { workspace = true, default-features = true }
-scale-info = { features = ["derive"], workspace = true }
 frame = { workspace = true, features = ["runtime"] }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support.workspace = true
 frame-system.workspace = true
+impl-trait-for-tuples = { workspace = true }
+log = { workspace = true, default-features = true }
+scale-info = { features = ["derive"], workspace = true }
 sp-core.workspace = true
 sp-io.workspace = true
 sp-runtime.workspace = true
@@ -54,9 +54,9 @@ runtime-benchmarks = [
 ]
 
 try-runtime = [
+	"frame-executive/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"frame/try-runtime",
 	"sp-runtime/try-runtime",
-	"frame-executive/try-runtime"
 ]

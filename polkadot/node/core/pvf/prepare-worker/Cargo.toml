@@ -17,22 +17,22 @@ harness = false
 
 [dependencies]
 cfg-if = { workspace = true }
-gum.workspace = true
 gum.default-features = true
+gum.workspace = true
 libc = { workspace = true }
 nix = { features = ["process", "resource", "sched"], workspace = true }
 tikv-jemalloc-ctl = { optional = true, workspace = true }
 tikv-jemallocator = { optional = true, workspace = true }
-tracking-allocator.workspace = true
 tracking-allocator.default-features = true
+tracking-allocator.workspace = true
 
 codec = { features = ["derive"], workspace = true }
-polkadot-node-core-pvf-common.workspace = true
 polkadot-node-core-pvf-common.default-features = true
-polkadot-primitives.workspace = true
+polkadot-node-core-pvf-common.workspace = true
 polkadot-primitives.default-features = true
-sp-maybe-compressed-blob.workspace = true
+polkadot-primitives.workspace = true
 sp-maybe-compressed-blob.default-features = true
+sp-maybe-compressed-blob.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 tikv-jemallocator = { workspace = true }

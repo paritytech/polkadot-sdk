@@ -35,8 +35,8 @@ serde_json = { features = ["alloc"], workspace = true }
 sp-api = { features = ["frame-metadata"], workspace = true }
 sp-arithmetic.workspace = true
 sp-core.workspace = true
-sp-crypto-hashing-proc-macro.workspace = true
 sp-crypto-hashing-proc-macro.default-features = true
+sp-crypto-hashing-proc-macro.workspace = true
 sp-debug-derive.workspace = true
 sp-genesis-builder.workspace = true
 sp-inherents.workspace = true
@@ -90,14 +90,14 @@ std = [
 	"sp-weights/std",
 ]
 runtime-benchmarks = [
+	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
-	"frame-system/runtime-benchmarks"
 ]
 try-runtime = [
+	"frame-system/try-runtime",
 	"sp-debug-derive/force-debug",
 	"sp-runtime/try-runtime",
-	"frame-system/try-runtime"
 ]
 experimental = ["frame-support-procedural/experimental"]
 # By default some types have documentation, `no-metadata-docs` allows to reduce the documentation

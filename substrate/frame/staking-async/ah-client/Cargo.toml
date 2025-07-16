@@ -9,17 +9,17 @@ repository.workspace = true
 
 [dependencies]
 codec = { workspace = true, features = ["derive"] }
+frame-support.workspace = true
+frame-system.workspace = true
 log = { workspace = true }
+pallet-authorship.workspace = true
+pallet-session = { features = ["historical"], workspace = true }
+pallet-staking-async-rc-client.workspace = true
 scale-info = { workspace = true, features = ["derive"] }
 serde = { features = ["alloc", "derive"], workspace = true }
 sp-core.workspace = true
 sp-runtime.workspace = true
 sp-staking.workspace = true
-frame-support.workspace = true
-frame-system.workspace = true
-pallet-authorship.workspace = true
-pallet-session = { features = ["historical"], workspace = true }
-pallet-staking-async-rc-client.workspace = true
 
 [features]
 default = ["std"]
