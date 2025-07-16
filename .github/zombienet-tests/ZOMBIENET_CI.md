@@ -4,7 +4,7 @@ This folder contains zombienet test definitions for CI execution.
 
 ## Structure
 
-- **Test definitions**: YAML files defining test matrices (e.g., `zombienet_parachain-template_tests.yml`)
+- **Test definitions**: YAML files defining test matrices (e.g., `zombienet_substrate_tests.yml`)
 - **Flaky tests**: Listed in `.github/zombienet-flaky-tests` - tests with non-deterministic behavior
 - **Parser**: `.github/scripts/parse-zombienet-tests.py` converts YAML to GitHub Actions matrix
 
@@ -15,6 +15,26 @@ This folder contains zombienet test definitions for CI execution.
 - Pattern-based test execution for debugging
 
 ## Manual Workflow Triggering
+
+### Prerequisites
+
+Before using the dispatch script, you must:
+
+1. **Create a branch** with your changes
+2. **Create a Pull Request** for that branch
+3. **Ensure CI starts building images** - the PR triggers image builds that the `preflight / wait_build_images` step depends on
+4. [OPTIONAL] **Wait for image builds to complete** - zombienet tests require these images.
+But if we don't wait then the job triggered by the script will wait for images if their building is in progress.
+
+**Important**: When you push new changes to the PR, CI will rebuild the images. Any jobs triggered after the rebuild will use the updated images.
+
+**Image Retention**: CI images have a 1-day retention period by default. For long-term testing (e.g., over weekends) without pushing changes, temporarily extend the retention by updating the `retention-days` value in `.github/workflows/build-publish-images.yml` to the required number of days.
+
+### Usage
+
+The dispatch script triggers GitHub Actions workflows remotely and monitors their execution.
+
+The script should be executed on developer's machine.
 
 Use `.github/scripts/dispatch-zombienet-workflow.sh`:
 
@@ -42,7 +62,6 @@ The script automatically creates a CSV file (`workflow_results_YYYYMMDD_HHMMSS.c
 
 ### Requirements
 
-- Branch must have corresponding PR with CI enabled (for required images)
 - Run from `polkadot-sdk` repository root
 - Requires `gh` CLI (will prompt for login on first use)
 
