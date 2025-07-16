@@ -1472,6 +1472,8 @@ zombienet-configuration = { version = "0.3.6" }
 zombienet-orchestrator = { version = "0.3.6" }
 zombienet-sdk = { version = "0.3.6" }
 zstd = { version = "0.12.4", default-features = false }
+revm = { version = "27.0.2", default-features = false }
+
 
 [profile.release]
 # Polkadot runtime requires unwinding.
