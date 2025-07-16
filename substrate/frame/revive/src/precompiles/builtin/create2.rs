@@ -28,7 +28,7 @@ use sp_runtime::DispatchError;
 
 sol! {
 	interface ICreate2 {
-		function create2(bytes32 code_hash, bytes32 salt) external payable returns (address);
+		function create2(bytes32 salt, bytes32 code_hash) external payable returns (address);
 	}
 }
 
