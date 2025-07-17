@@ -33,12 +33,18 @@ const OVERRIDE_OPTIMIZE_ENV_VAR: &str = "PALLET_REVIVE_FIXTURES_OPTIMIZE";
 struct Entry {
 	/// The path to the contract source file.
 	path: PathBuf,
+	/// The contract name.
+	name: String,
+	/// The directory containing the contract files.
+	dir: PathBuf,
 }
 
 impl Entry {
 	/// Create a new contract entry from the given path.
 	fn new(path: PathBuf) -> Self {
-		Self { path }
+		let dir = path.parent().expect("path has parent; qed").to_path_buf();
+		let name = path.file_stem().expect("file exits; qed").to_str().expect("name is valid unicode; qed").to_string();
+		Self { path, name, dir }
 	}
 
 	/// Return the path to the contract source file.
@@ -48,16 +54,27 @@ impl Entry {
 
 	/// Return the name of the contract.
 	fn name(&self) -> &str {
-		self.path
-			.file_stem()
-			.expect("file exits; qed")
-			.to_str()
-			.expect("name is valid unicode; qed")
+		&self.name
 	}
 
 	/// Return the name of the polkavm file.
 	fn out_filename(&self) -> String {
 		format!("{}.polkavm", self.name())
+	}
+
+	/// Return the path to the Solidity file if it exists.
+	fn solidity_path(&self) -> Option<PathBuf> {
+		let sol_path = self.dir.join(format!("{}.sol", self.name));
+		if sol_path.exists() {
+			Some(sol_path)
+		} else {
+			None
+		}
+	}
+
+	/// Return the name of the Solidity polkavm file.
+	fn solidity_out_filename(&self) -> String {
+		format!("{}_sol.polkavm", self.name())
 	}
 }
 
@@ -65,13 +82,20 @@ impl Entry {
 fn collect_entries(contracts_dir: &Path) -> Vec<Entry> {
 	fs::read_dir(contracts_dir)
 		.expect("src dir exists; qed")
-		.filter_map(|file| {
-			let path = file.expect("file exists; qed").path();
-			if path.extension().map_or(true, |ext| ext != "rs") {
+		.filter_map(|entry| {
+			let path = entry.expect("file exists; qed").path();
+			if !path.is_dir() {
 				return None
 			}
 
-			Some(Entry::new(path))
+			let name = path.file_name().expect("valid dir name; qed").to_str().expect("valid unicode; qed");
+			let rust_file = path.join(format!("{}.rs", name));
+			
+			if rust_file.exists() {
+				Some(Entry::new(rust_file))
+			} else {
+				None
+			}
 		})
 		.collect::<Vec<_>>()
 }
@@ -137,6 +161,40 @@ fn create_cargo_toml<'a>(
 	let cargo_toml = toml::to_string_pretty(&cargo_toml)?;
 	fs::write(output_dir.join("Cargo.toml"), cargo_toml.clone())
 		.with_context(|| format!("Failed to write {cargo_toml:?}"))?;
+	Ok(())
+}
+
+fn invoke_solidity_build(entries: &[Entry], out_dir: &Path) -> Result<()> {
+	for entry in entries {
+		if let Some(sol_path) = entry.solidity_path() {
+			println!("Compiling Solidity contract: {} to {}", sol_path.display(), out_dir.display());
+			
+			let output = Command::new("resolc")
+				.arg(&sol_path)
+				.arg("--bin")
+				.arg("--output-dir")
+				.arg(out_dir)
+				.arg("--overwrite")
+				.output()
+				.with_context(|| format!("Failed to execute resolc for {}", sol_path.display()))?;
+			
+			if !output.status.success() {
+				let stderr = String::from_utf8_lossy(&output.stderr);
+				eprintln!("Solidity compilation failed for {}: {}", sol_path.display(), stderr);
+				bail!("Failed to compile Solidity contract: {}", sol_path.display());
+			}
+			
+			// resolc outputs files with different naming, so we need to find and rename them
+			let contract_name = entry.name();
+			let expected_output = out_dir.join(format!("{}.polkavm", contract_name));
+			let desired_output = out_dir.join(entry.solidity_out_filename());
+			
+			if expected_output.exists() {
+				fs::rename(&expected_output, &desired_output)
+					.with_context(|| format!("Failed to rename {} to {}", expected_output.display(), desired_output.display()))?;
+			}
+		}
+	}
 	Ok(())
 }
 
@@ -310,6 +368,7 @@ pub fn main() -> Result<()> {
 
 	create_cargo_toml(&fixtures_dir, entries.iter(), &build_dir)?;
 	invoke_build(&build_dir)?;
+	invoke_solidity_build(&entries, &out_dir)?;
 	write_output(&build_dir, &out_dir, entries)?;
 
 	Ok(())

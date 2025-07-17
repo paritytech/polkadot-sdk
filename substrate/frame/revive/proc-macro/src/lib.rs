@@ -23,7 +23,7 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Literal, Span, TokenStream as TokenStream2};
 use quote::{quote, ToTokens};
-use syn::{parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma, FnArg, Ident};
+use syn::{parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma, FnArg, Ident, ItemFn, LitStr, parse::{Parse, ParseStream}};
 
 #[proc_macro_attribute]
 pub fn unstable_hostfn(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -553,3 +553,69 @@ fn expand_func_list(def: &EnvDef, include_unstable: bool) -> TokenStream2 {
 		}
 	}
 }
+
+/// Struct to parse the fixture test attribute arguments
+struct FixtureTestArgs {
+	fixture_types: Punctuated<LitStr, Comma>,
+}
+
+impl Parse for FixtureTestArgs {
+	fn parse(input: ParseStream) -> syn::Result<Self> {
+		let fixture_types = Punctuated::parse_terminated(input)?;
+		Ok(FixtureTestArgs { fixture_types })
+	}
+}
+
+/// Generates tests for different fixture types (Rust and Solidity).
+/// 
+/// This macro takes a test function and generates multiple test functions,
+/// one for each fixture type specified.
+/// 
+/// # Example
+/// 
+/// ```ignore
+/// use pallet_revive_proc_macro::fixture_test;
+/// 
+/// #[fixture_test("rust", "sol")]
+/// fn test_dummy_contract(fixture_type: &str) {
+///     let (binary, code_hash) = compile_module_with_type("dummy", fixture_type).unwrap();
+///     // ... test code
+/// }
+/// ```
+/// 
+/// This will generate:
+/// - `test_dummy_contract_rust()` 
+/// - `test_dummy_contract_sol()`
+#[proc_macro_attribute]
+pub fn fixture_test(attr: TokenStream, item: TokenStream) -> TokenStream {
+	let input = syn::parse_macro_input!(item as ItemFn);
+	let args = syn::parse_macro_input!(attr as FixtureTestArgs);
+	
+	let original_name = &input.sig.ident;
+	let vis = &input.vis;
+	let block = &input.block;
+	let attrs = &input.attrs;
+	
+	// Generate a test function for each fixture type
+	let test_functions = args.fixture_types.iter().map(|fixture_type| {
+		let fixture_type_str = fixture_type.value();
+		let test_name = Ident::new(
+			&format!("{}_{}", original_name, fixture_type_str),
+			original_name.span(),
+		);
+		
+		quote! {
+			#(#attrs)*
+			#[test]
+			#vis fn #test_name() {
+				let fixture_type = #fixture_type;
+				#block
+			}
+		}
+	});
+	
+	quote! {
+		#(#test_functions)*
+	}.into()
+}
+
