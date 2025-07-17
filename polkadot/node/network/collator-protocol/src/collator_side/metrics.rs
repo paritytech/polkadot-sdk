@@ -389,13 +389,17 @@ impl CollationTracker {
 			.collect::<Vec<_>>()
 	}
 
-	// Returns all the collations that have expired at `block_number`.
-	pub fn drain_expired(&mut self, block_number: BlockNumber) -> Vec<CollationStats> {
+	// Returns all the collations that have expired.
+	pub fn drain_expired(
+		&mut self,
+		current_block: BlockNumber,
+		last_finalized: BlockNumber,
+	) -> Vec<CollationStats> {
 		let expired = self
 			.entries
 			.iter()
 			.filter_map(|(head, entry)| {
-				if entry.tracking_expiry_block() <= block_number {
+				if entry.is_tracking_expired(current_block, last_finalized) {
 					Some(*head)
 				} else {
 					None
@@ -407,7 +411,7 @@ impl CollationTracker {
 			.iter()
 			.filter_map(|head| self.entries.remove(head))
 			.map(|mut entry| {
-				entry.expired_at = Some(block_number);
+				entry.expired_at = Some(current_block);
 				entry
 			})
 			.collect::<Vec<_>>()
@@ -503,8 +507,23 @@ impl CollationStats {
 		}
 	}
 
-	pub fn tracking_expiry_block(&self) -> BlockNumber {
-		self.relay_parent_number + self.tracking_ttl()
+	pub fn is_tracking_expired(
+		&self,
+		current_block: BlockNumber,
+		last_finalized: BlockNumber,
+	) -> bool {
+		let expiry_block = self.relay_parent_number + self.tracking_ttl();
+		if expiry_block <= current_block {
+			return true;
+		}
+
+		// TTl for included collations is very long but we don't need to track them all the time if
+		// last finalized already higher than the included block: collation was included in now
+		// abandoned fork.
+		match self.included_at.iter().map(|(b, _)| *b).max() {
+			Some(included_at) => self.finalized().is_none() && included_at <= last_finalized,
+			None => false,
+		}
 	}
 
 	/// Returns the age at which the collation expired.

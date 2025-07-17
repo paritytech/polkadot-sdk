@@ -1407,12 +1407,14 @@ async fn handle_our_view_change<Context>(
 		// pruned from the block info storage.
 		let maybe_block_number = implicit_view.block_number(&leaf);
 		let pruned = implicit_view.deactivate_leaf(leaf);
+		let last_finalized = view.finalized_number;
 
 		for removed in &pruned {
 			gum::debug!(target: LOG_TARGET, relay_parent = ?removed, "Removing relay parent because our view changed.");
 
 			if let Some(block_number) = maybe_block_number {
-				let expired_collations = state.collation_tracker.drain_expired(block_number);
+				let expired_collations =
+					state.collation_tracker.drain_expired(block_number, last_finalized);
 				process_expired_collations(expired_collations, *removed, para_id, &state.metrics);
 			}
 
