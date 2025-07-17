@@ -130,8 +130,8 @@ jobs:
           fi
           
           # Only enforce SemVer restrictions for backports targeting stable branches
-          if [[ "$BASE_BRANCH" != stable* ]]; then
-              echo "ℹ️ Branch '$BASE_BRANCH' is not a stable branch. Skipping SemVer backport-specific enforcements."
+          if [[ "$BASE_BRANCH" != stable* && "$BASE_BRANCH" != unstable* ]]; then
+              echo "ℹ️ Branch '$BASE_BRANCH' is not a (un)stable branch. Skipping SemVer backport-specific enforcements."
               exit 0
           fi
 
