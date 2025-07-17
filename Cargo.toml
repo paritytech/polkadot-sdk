@@ -930,7 +930,7 @@ pallet-insecure-randomness-collective-flip = { path = "substrate/frame/insecure-
 pallet-lottery = { default-features = false, path = "substrate/frame/lottery" }
 pallet-membership = { path = "substrate/frame/membership", default-features = false, version = "38.0.0" }
 pallet-message-queue = { path = "substrate/frame/message-queue", default-features = false, version = "41.0.2" }
-pallet-migrations = { path = "substrate/frame/migrations", default-features = false, version = "8.0.0" }
+pallet-migrations = { path = "substrate/frame/migrations", default-features = false, version = "8.0.1" }
 pallet-minimal-template = { path = "templates/minimal/pallets/template", default-features = false, version = "0.1.0" }
 pallet-mixnet = { default-features = false, path = "substrate/frame/mixnet" }
 pallet-mmr = { path = "substrate/frame/merkle-mountain-range", default-features = false, version = "38.0.0" }
@@ -989,7 +989,7 @@ pallet-uniques = { path = "substrate/frame/uniques", default-features = false, v
 pallet-utility = { path = "substrate/frame/utility", default-features = false, version = "38.0.0" }
 pallet-vesting = { path = "substrate/frame/vesting", default-features = false, version = "38.0.0" }
 pallet-whitelist = { path = "substrate/frame/whitelist", default-features = false, version = "37.0.0" }
-pallet-xcm = { path = "polkadot/xcm/pallet-xcm", default-features = false, version = "17.0.3" }
+pallet-xcm = { path = "polkadot/xcm/pallet-xcm", default-features = false, version = "17.0.4" }
 pallet-xcm-benchmarks = { path = "polkadot/xcm/pallet-xcm-benchmarks", default-features = false, version = "17.0.1" }
 pallet-xcm-bridge-hub = { path = "bridges/modules/xcm-bridge-hub", default-features = false, version = "0.13.3" }
 pallet-xcm-bridge-hub-router = { path = "bridges/modules/xcm-bridge-hub-router", default-features = false, version = "0.15.3" }
@@ -1024,7 +1024,7 @@ polkadot-core-primitives = { path = "polkadot/core-primitives", default-features
 polkadot-dispute-distribution = { path = "polkadot/node/network/dispute-distribution", default-features = false, version = "18.0.0" }
 polkadot-erasure-coding = { path = "polkadot/erasure-coding", default-features = false, version = "16.0.0" }
 polkadot-gossip-support = { path = "polkadot/node/network/gossip-support", default-features = false, version = "18.0.0" }
-polkadot-network-bridge = { path = "polkadot/node/network/bridge", default-features = false, version = "18.0.0" }
+polkadot-network-bridge = { path = "polkadot/node/network/bridge", default-features = false, version = "18.0.1" }
 polkadot-node-collation-generation = { path = "polkadot/node/collation-generation", default-features = false, version = "18.0.0" }
 polkadot-node-core-approval-voting = { path = "polkadot/node/core/approval-voting", default-features = false, version = "18.3.0" }
 polkadot-node-core-av-store = { path = "polkadot/node/core/av-store", default-features = false, version = "18.0.0" }

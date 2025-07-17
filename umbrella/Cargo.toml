@@ -1166,7 +1166,7 @@ version = "41.0.2"
 path = "../substrate/frame/migrations"
 default-features = false
 optional = true
-version = "8.0.0"
+version = "8.0.1"
 
 [dependencies.pallet-mixnet]
 path = "../substrate/frame/mixnet"
@@ -1490,7 +1490,7 @@ version = "37.0.0"
 path = "../polkadot/xcm/pallet-xcm"
 default-features = false
 optional = true
-version = "17.0.3"
+version = "17.0.4"
 
 [dependencies.pallet-xcm-benchmarks]
 path = "../polkadot/xcm/pallet-xcm-benchmarks"
@@ -2222,7 +2222,7 @@ version = "18.0.0"
 path = "../polkadot/node/network/bridge"
 default-features = false
 optional = true
-version = "18.0.0"
+version = "18.0.1"
 
 [dependencies.polkadot-node-collation-generation]
 path = "../polkadot/node/collation-generation"

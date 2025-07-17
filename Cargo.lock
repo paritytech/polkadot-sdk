@@ -10884,7 +10884,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-migrations"
-version = "8.0.0"
+version = "8.0.1"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -11978,7 +11978,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm"
-version = "17.0.3"
+version = "17.0.4"
 dependencies = [
  "bounded-collections",
  "frame-benchmarking",
@@ -13190,7 +13190,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-network-bridge"
-version = "18.0.0"
+version = "18.0.1"
 dependencies = [
  "always-assert",
  "assert_matches",
