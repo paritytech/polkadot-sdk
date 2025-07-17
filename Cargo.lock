@@ -19406,6 +19406,7 @@ dependencies = [
  "sp-trie 29.0.0",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime",
+ "trie-db 0.30.0",
 ]
 
 [[package]]
@@ -19440,6 +19441,7 @@ dependencies = [
  "substrate-test-runtime-client",
  "sysinfo",
  "tempfile",
+ "trie-db 0.30.0",
 ]
 
 [[package]]
@@ -20148,6 +20150,7 @@ dependencies = [
  "async-trait",
  "fork-tree",
  "futures",
+ "hash-db",
  "log",
  "mockall",
  "parity-scale-codec",
@@ -20169,13 +20172,16 @@ dependencies = [
  "sp-consensus-grandpa",
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
+ "sp-state-machine 0.35.0",
  "sp-test-primitives",
  "sp-tracing 16.0.0",
+ "sp-trie 29.0.0",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
  "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
+ "trie-db 0.30.0",
 ]
 
 [[package]]
@@ -20517,6 +20523,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-futures",
+ "trie-db 0.30.0",
 ]
 
 [[package]]

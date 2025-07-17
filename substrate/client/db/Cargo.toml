@@ -44,6 +44,7 @@ sp-runtime = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
 sysinfo = { workspace = true }
+trie-db = { workspace = true }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }

@@ -133,6 +133,7 @@ pub struct ImportedState<B: BlockT> {
 	pub block: B::Hash,
 	/// State keys and values.
 	pub state: sp_state_machine::KeyValueStates,
+	pub written: bool,
 }
 
 impl<B: BlockT> std::fmt::Debug for ImportedState<B> {

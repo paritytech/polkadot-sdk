@@ -24,15 +24,26 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use log::debug;
-use sc_client_api::{CompactProof, KeyValueStates, ProofProvider};
+use sc_client_api::{CompactProof, KeyValueStates, ProofProviderHashDb};
 use sc_consensus::ImportedState;
 use smallvec::SmallVec;
 use sp_core::storage::well_known_keys;
+use sp_runtime::traits::HashingFor;
 use sp_runtime::{
 	traits::{Block as BlockT, Header, NumberFor},
 	Justifications,
 };
 use std::{collections::HashMap, fmt, sync::Arc};
+use trie_db::node::Node;
+use trie_db::node::NodeHandle;
+use trie_db::node::Value;
+use trie_db::NibbleSlice;
+use trie_db::NibbleVec;
+use trie_db::NodeCodec;
+use trie_db::TrieLayout;
+
+// error[E0658]: associated type defaults are unstable
+type HashDbEmplaceBatch<B> = Vec<(NibbleVec, <B as BlockT>::Hash, Vec<u8>)>;
 
 /// Generic state sync provider. Used for mocking in tests.
 pub trait StateSyncProvider<B: BlockT>: Send + Sync {
@@ -136,6 +147,137 @@ impl<B: BlockT> StateSyncMetadata<B> {
 	}
 }
 
+type Layout<B> = sp_state_machine::LayoutV0<HashingFor<B>>;
+type LayoutCodec<B> = <Layout<B> as TrieLayout>::Codec;
+type ProofDb<B> = sp_state_machine::MemoryDB<HashingFor<B>>;
+
+fn as_hash<B: BlockT>(slice: &[u8]) -> B::Hash {
+	let mut hash = B::Hash::default();
+	assert_eq!(slice.len(), hash.as_ref().len());
+	hash.as_mut().copy_from_slice(slice);
+	hash
+}
+
+struct LevelNode<B: BlockT> {
+	hash: B::Hash,
+	encoded: Vec<u8>,
+	prefix_nibbles: usize,
+	branches: SmallVec<[(u8, B::Hash); 16]>,
+}
+
+enum LevelState<B: BlockT> {
+	Root(B::Hash),
+	ChildHash(NibbleVec, B::Hash),
+	ValueHash(B::Hash),
+	Value,
+	Branch(B::Hash),
+	Pop,
+	End,
+}
+
+struct Level<B: BlockT> {
+	allow_child: bool,
+	state: LevelState<B>,
+	stack: Vec<LevelNode<B>>,
+	prefix: NibbleVec,
+}
+impl<B: BlockT> Level<B> {
+	fn new(allow_child: bool, prefix: NibbleVec, root: B::Hash) -> Self {
+		Self { allow_child, state: LevelState::Root(root), stack: vec![], prefix }
+	}
+	// ChildHash | ValueHash | Value | Branch | Pop -> Branch | End
+	fn next_branch(&mut self) {
+		let is_value = matches!(
+			self.state,
+			LevelState::ChildHash(_, _) | LevelState::ValueHash(_) | LevelState::Value
+		);
+		let is_branch = matches!(self.state, LevelState::Branch(_) | LevelState::Pop);
+		assert!(is_value || is_branch);
+		if is_branch {
+			self.prefix.pop().unwrap();
+		}
+		self.state = if let Some((i, hash)) = self.stack.last_mut().unwrap().branches.pop() {
+			self.prefix.push(i);
+			LevelState::Branch(hash)
+		} else {
+			let node = self.stack.last().unwrap();
+			self.prefix.drop_lasts(node.prefix_nibbles);
+			LevelState::End
+		};
+	}
+	// Root | Branch -> ChildHash | ValueHash | Value
+	fn push(&mut self, encoded: Vec<u8>) {
+		let hash = match &self.state {
+			LevelState::Root(hash) | LevelState::Branch(hash) => *hash,
+			_ => panic!(),
+		};
+		let node = LayoutCodec::<B>::decode(&encoded).unwrap();
+		let (prefix, value, branches) = match &node {
+			Node::Empty => (None, None, None),
+			Node::Leaf(prefix, value) => (Some(prefix), Some(value), None),
+			Node::Extension(_, _) => panic!(),
+			Node::Branch(branches, value) => (None, value.as_ref(), Some(branches)),
+			Node::NibbledBranch(prefix, branches, value) => {
+				(Some(prefix), value.as_ref(), Some(branches))
+			},
+		};
+		let prefix_nibbles = if let Some(prefix) = prefix {
+			self.prefix.append_partial(prefix.right());
+			prefix.len()
+		} else {
+			0
+		};
+		let branches = branches
+			.map(|branches| {
+				branches
+					.iter()
+					.enumerate()
+					.rev()
+					.filter_map(|(i, branch)| {
+						if let Some(NodeHandle::Hash(hash)) = branch {
+							Some((i as u8, as_hash::<B>(hash)))
+						} else {
+							None
+						}
+					})
+					.collect()
+			})
+			.unwrap_or_default();
+		self.state = if let Some(value) = value {
+			let key = self.prefix.as_prefix().0;
+			if self.allow_child && well_known_keys::is_child_storage_key(key) {
+				let value = if let Value::Inline(value) = value {
+					value
+				} else {
+					panic!();
+				};
+				assert!(well_known_keys::is_default_child_storage_key(key));
+				let prefix = NibbleVec::from(NibbleSlice::new(
+					&key[well_known_keys::DEFAULT_CHILD_STORAGE_KEY_PREFIX.len()..],
+				));
+				LevelState::ChildHash(prefix, as_hash::<B>(value))
+			} else {
+				match value {
+					Value::Inline(_) => LevelState::Value,
+					Value::Node(hash) => LevelState::ValueHash(as_hash::<B>(hash)),
+				}
+			}
+		} else {
+			LevelState::Value
+		};
+		self.stack.push(LevelNode { hash, encoded, prefix_nibbles, branches });
+	}
+	// End -> Pop -> Branch | End
+	fn pop(&mut self) {
+		assert!(matches!(self.state, LevelState::End));
+		let node = self.stack.pop().unwrap();
+		if !self.stack.is_empty() {
+			self.state = LevelState::Pop;
+			self.next_branch();
+		}
+	}
+}
+
 /// State sync state machine.
 ///
 /// Accumulates partial state data until it is ready to be imported.
@@ -143,12 +285,14 @@ pub struct StateSync<B: BlockT, Client> {
 	metadata: StateSyncMetadata<B>,
 	state: HashMap<Vec<u8>, (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>)>,
 	client: Arc<Client>,
+	levels: SmallVec<[Level<B>; 2]>,
+	null_hash: B::Hash,
 }
 
 impl<B, Client> StateSync<B, Client>
 where
 	B: BlockT,
-	Client: ProofProvider<B> + Send + Sync + 'static,
+	Client: ProofProviderHashDb<B> + Send + Sync + 'static,
 {
 	///  Create a new instance.
 	pub fn new(
@@ -158,7 +302,7 @@ where
 		target_justifications: Option<Justifications>,
 		skip_proof: bool,
 	) -> Self {
-		Self {
+		let mut sync = Self {
 			client,
 			metadata: StateSyncMetadata {
 				last_key: SmallVec::default(),
@@ -170,7 +314,14 @@ where
 				skip_proof,
 			},
 			state: HashMap::default(),
+			levels: SmallVec::default(),
+			null_hash: LayoutCodec::<B>::hashed_null_node(),
+		};
+		if !skip_proof {
+			sync.levels
+				.push(Level::new(true, NibbleVec::new(), sync.metadata.target_root()));
 		}
+		sync
 	}
 
 	fn process_state_key_values(
@@ -205,7 +356,7 @@ where
 		}
 	}
 
-	fn process_state_verified(&mut self, values: KeyValueStates) {
+	fn _process_state_verified(&mut self, values: KeyValueStates) {
 		for values in values.0 {
 			self.process_state_key_values(values.state_root, values.key_values);
 		}
@@ -246,12 +397,82 @@ where
 		}
 		complete
 	}
+
+	fn on_proof_response(&mut self, proof: &ProofDb<B>) -> bool {
+		use hash_db::HashDBRef;
+		let is_known =
+			|client: &Arc<Client>, null_hash: &B::Hash, prefix: &NibbleVec, hash: &B::Hash| {
+				hash == null_hash || client.hash_db_contains(prefix, hash)
+			};
+		let mut batch: HashDbEmplaceBatch<B> = vec![];
+		'outer: while let Some(level) = self.levels.last_mut() {
+			if let LevelState::Root(hash) = &level.state {
+				if let Some(value) = proof.get(hash, level.prefix.as_prefix()) {
+					level.push(value);
+				} else {
+					break 'outer;
+				}
+			}
+			while let Some(node) = level.stack.last_mut() {
+				match &mut level.state {
+					LevelState::Root(_) => panic!(),
+					LevelState::ChildHash(prefix, hash) => {
+						if !is_known(&self.client, &self.null_hash, prefix, hash) {
+							let child_level = Level::new(false, std::mem::take(prefix), *hash);
+							level.next_branch();
+							self.levels.push(child_level);
+						} else {
+							level.next_branch();
+						}
+						continue 'outer;
+					},
+					LevelState::ValueHash(hash) => {
+						if !is_known(&self.client, &self.null_hash, &level.prefix, hash) {
+							if let Some(value) = proof.get(hash, level.prefix.as_prefix()) {
+								batch.push((level.prefix.clone(), *hash, value));
+							} else {
+								break 'outer;
+							}
+						}
+						level.next_branch();
+					},
+					LevelState::Value => {
+						level.next_branch();
+					},
+					LevelState::Branch(hash) => {
+						if !is_known(&self.client, &self.null_hash, &level.prefix, hash) {
+							if let Some(value) = proof.get(hash, level.prefix.as_prefix()) {
+								level.push(value);
+								continue;
+							} else {
+								break 'outer;
+							}
+						} else {
+							level.next_branch();
+						}
+					},
+					LevelState::Pop => panic!(),
+					LevelState::End => {
+						batch.push((
+							level.prefix.clone(),
+							node.hash,
+							std::mem::take(&mut node.encoded),
+						));
+						level.pop();
+					},
+				}
+			}
+			self.levels.pop();
+		}
+		self.client.hash_db_emplace_batch(batch).unwrap();
+		self.levels.is_empty()
+	}
 }
 
 impl<B, Client> StateSyncProvider<B> for StateSync<B, Client>
 where
 	B: BlockT,
-	Client: ProofProvider<B> + Send + Sync + 'static,
+	Client: ProofProviderHashDb<B> + Send + Sync + 'static,
 {
 	///  Validate and import a state response.
 	fn import(&mut self, response: StateResponse) -> ImportResult<B> {
@@ -273,30 +494,24 @@ where
 					return ImportResult::BadResponse
 				},
 			};
-			let (values, completed) = match self.client.verify_range_proof(
-				self.metadata.target_root(),
-				proof,
-				self.metadata.last_key.as_slice(),
+
+			let mut proof_db = ProofDb::<B>::new(&[]);
+			if let Err(e) = sp_trie::decode_compact::<Layout<B>, _, _>(
+				&mut proof_db,
+				proof.iter_compact_encoded_nodes(),
+				Some(&self.metadata.target_root()),
 			) {
-				Err(e) => {
-					debug!(
-						target: LOG_TARGET,
-						"StateResponse failed proof verification: {}",
-						e,
-					);
-					return ImportResult::BadResponse
-				},
-				Ok(values) => values,
-			};
-			debug!(target: LOG_TARGET, "Imported with {} keys", values.len());
-
-			let complete = completed == 0;
-			if !complete && !values.update_last_key(completed, &mut self.metadata.last_key) {
-				debug!(target: LOG_TARGET, "Error updating key cursor, depth: {}", completed);
-			};
-
-			self.process_state_verified(values);
+				debug!(
+					target: LOG_TARGET,
+					"StateResponse proof decode error: {}",
+					e,
+				);
+				return ImportResult::BadResponse;
+			}
 			self.metadata.imported_bytes += proof_size;
+			let complete = self.on_proof_response(&proof_db);
+			self.metadata.last_key =
+				self.levels.iter().map(|level| level.prefix.inner().to_vec()).collect();
 			complete
 		} else {
 			self.process_state_unverified(response)
@@ -307,7 +522,11 @@ where
 			ImportResult::Import(
 				target_hash,
 				self.metadata.target_header.clone(),
-				ImportedState { block: target_hash, state: std::mem::take(&mut self.state).into() },
+				ImportedState {
+					block: target_hash,
+					state: std::mem::take(&mut self.state).into(),
+					written: !self.metadata.skip_proof,
+				},
 				self.metadata.target_body.clone(),
 				self.metadata.target_justifications.clone(),
 			)
