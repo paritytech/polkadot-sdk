@@ -4930,3 +4930,30 @@ fn code_size_for_precompiles_works() {
 			.build_and_unwrap_result();
 	});
 }
+
+#[test]
+fn basic_evm_flow_works() {
+	use alloy_core::{hex, primitives, sol_types::SolInterface};
+	let code = hex::decode(include_str!("tests/Fibonacci.bin")).unwrap();
+	let init_code_hash = H256::from(sp_io::hashing::keccak_256(&code));
+
+	alloy_core::sol!("src/tests/fibonacci.sol");
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
+			.native_value(1000)
+			.build_and_unwrap_contract();
+
+		let data =
+			Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: primitives::U256::from(10u64) })
+				.abi_encode();
+
+		// check the code exists
+		let contract = test_utils::get_contract_checked(&addr).unwrap();
+		ensure_stored(contract.code_hash);
+
+		let result = builder::bare_call(addr).data(data).build_and_unwrap_result();
+		println!("Fib(10) result: {:?}", result.data);
+	});
+}

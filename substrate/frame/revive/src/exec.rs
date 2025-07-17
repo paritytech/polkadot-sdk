@@ -1231,17 +1231,20 @@ where
 			// The deposit we charge for a contract depends on the size of the immutable data.
 			// Hence we need to delay charging the base deposit after execution.
 			if entry_point == ExportedFunction::Constructor {
+				let contract_info = frame.contract_info();
 				// if we are dealing with EVM bytecode
 				// We upload the new runtime code, and update the code
 				if !is_pvm {
 					let caller = caller.account_id()?.clone();
 					let addr = T::AddressMapper::to_address(account_id).0.to_vec();
 					let data = core::mem::replace(&mut output.data, addr);
+
 					let mut module = crate::ContractBlob::<T>::from_evm_code(data, caller)?;
 					code_deposit = module.store_code(skip_transfer)?;
+					contract_info.code_hash = *module.code_hash();
 				}
 
-				let deposit = frame.contract_info().update_base_deposit(code_deposit);
+				let deposit = contract_info.update_base_deposit(code_deposit);
 				frame
 					.nested_storage
 					.charge_deposit(frame.account_id.clone(), StorageDeposit::Charge(deposit));

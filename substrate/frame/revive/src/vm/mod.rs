@@ -157,7 +157,14 @@ where
 	}
 
 	pub fn from_evm_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
+		use revm::{bytecode::Bytecode, primitives::Bytes};
+
 		let code: CodeVec = code.try_into().map_err(|_| <Error<T>>::BlobTooLarge)?;
+		Bytecode::new_raw_checked(Bytes::from(code.to_vec())).map_err(|err| {
+			log::debug!(target: LOG_TARGET, "failed to create evm bytecode from code: {err:?}" );
+			<Error<T>>::CodeRejected
+		})?;
+
 		let code_len = code.len() as u32;
 		let code_info = CodeInfo {
 			owner,
@@ -427,8 +434,7 @@ where
 		} else {
 			use revm::bytecode::Bytecode;
 			let bytecode = Bytecode::new_raw(self.code.into_inner().into());
-
-			evm::call(bytecode, input_data)
+			evm::call(bytecode, function, input_data)
 		}
 	}
 

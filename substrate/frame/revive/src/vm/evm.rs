@@ -1,4 +1,8 @@
-use crate::vm::ExecResult;
+use crate::{
+	vm::{ExecResult, ExportedFunction},
+	ExecReturnValue,
+};
+use pallet_revive_uapi::ReturnFlags;
 use revm::{
 	bytecode::Bytecode,
 	context_interface::{
@@ -18,9 +22,9 @@ use revm::{
 	primitives::{hardfork::SpecId, Address, Bytes, Log, StorageKey, StorageValue, B256, U256},
 };
 
-pub fn call(bytecode: Bytecode, input_data: Vec<u8>) -> ExecResult {
+/// TODO handle error case
+pub fn call(bytecode: Bytecode, function: ExportedFunction, input_data: Vec<u8>) -> ExecResult {
 	let inputs = InputsImpl {
-		// TODO set these values
 		caller_address: Default::default(),
 		target_address: Default::default(),
 		call_value: Default::default(),
@@ -38,7 +42,15 @@ pub fn call(bytecode: Bytecode, input_data: Vec<u8>) -> ExecResult {
 	);
 
 	let table = instruction_table::<EthInterpreter, MockHost>();
-	let _result = run(&mut interpreter, &table, &mut MockHost::default());
+	let result = run(&mut interpreter, &table, &mut MockHost::default());
+
+	if result.is_ok() {
+		return Ok(ExecReturnValue {
+			flags: if result.is_revert() { ReturnFlags::REVERT } else { ReturnFlags::empty() },
+			data: result.output.to_vec(),
+		})
+	}
+
 	todo!()
 }
 
