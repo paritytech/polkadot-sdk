@@ -97,7 +97,7 @@ jobs:
               "conflict_resolution": "draft_commit_conflicts"
             }
           copy_assignees: true
-          label_pattern: ^A4-backport-(stable|unstable)
+          label_pattern: ''
 
       - name: Label Backports
         if: ${{ steps.backport.outputs.created_pull_numbers != '' }}
