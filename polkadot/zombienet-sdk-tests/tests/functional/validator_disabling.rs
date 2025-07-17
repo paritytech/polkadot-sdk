@@ -146,7 +146,7 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 	// entry in the disabled validators list.
 	let disabled_node_public_address = &session_validators[(disabled_validators[0].0) as usize];
 
-	let hex_string = disabled_node_public_address
+	let disabled_node_public_key_hex = disabled_node_public_address
 		.clone()
 		.into_inner()
 		.0
@@ -156,17 +156,9 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 
 	let json_value: serde_json::Value =
 		serde_json::to_value(&network.get_node("malus-validator")?.spec())?;
-	let malus_public_address = json_value
-		.get("accounts")
-		.unwrap()
-		.get("accounts")
-		.unwrap()
-		.get("sr")
-		.unwrap()
-		.get("public_key")
-		.unwrap()
-		.to_string();
+	let malus_public_address =
+		json_value.pointer("/accounts/accounts/sr/public_key").unwrap().to_string();
 
-	assert_eq!(hex_string, malus_public_address.trim_matches('"'));
+	assert_eq!(disabled_node_public_key_hex, malus_public_address.trim_matches('"'));
 	Ok(())
 }
