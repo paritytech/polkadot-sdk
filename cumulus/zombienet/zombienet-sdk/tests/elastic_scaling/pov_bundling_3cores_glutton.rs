@@ -67,9 +67,6 @@ async fn pov_bundling_3cores_glutton() -> Result<(), anyhow::Error> {
 		.await?;
 	log::info!("3 cores total assigned to the parachain");
 
-	// Glutton is already configured at genesis to use 80% ref time
-	log::info!("Glutton configured at genesis to use 80% ref time");
-
 	// Wait for the parachain to produce 72 blocks with 3 cores and glutton active
 	// With 3 cores, we expect roughly 3x throughput compared to single core
 	// Adjusting expectations based on glutton consuming 80% of ref time
@@ -124,7 +121,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				])
 				.with_genesis_overrides(json!({
 					"glutton": {
-						"compute": "1000000000", // 80% ref time consumption
+						"compute": "2000000000", // 200% ref time consumption
 						"storage": "0", // No storage consumption
 						"trashDataCount": 5000, // Initialize with some trash data
 						"blockLength": "0" // No block length consumption
