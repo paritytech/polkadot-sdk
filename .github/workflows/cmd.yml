@@ -19,7 +19,7 @@ jobs:
     steps:
       - name: Generate token
         id: generate_token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ secrets.CMD_BOT_APP_ID }}
           private-key: ${{ secrets.CMD_BOT_APP_KEY }}
