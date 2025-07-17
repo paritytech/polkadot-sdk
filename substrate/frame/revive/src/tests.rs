@@ -485,7 +485,7 @@ fn create2_precompile_works() {
 	.abi_encode();
 
 	let deployer = <Test as Config>::AddressMapper::to_address(&ALICE);
-	let contract_address_expected = create2(&deployer, code.as_slice(), &[], &salt);
+	let contract_address_expected = create2(&create2_precompile_addr, code.as_slice(), &[], &salt);
 
 	ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);

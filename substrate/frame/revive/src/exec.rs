@@ -265,7 +265,6 @@ pub trait PrecompileWithInfoExt: PrecompileExt {
 		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
-		origin: Option<&H160>,
 	) -> Result<H160, ExecError>;
 }
 
@@ -1675,27 +1674,15 @@ where
 		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
-		origin: Option<&H160>,
 	) -> Result<H160, ExecError> {
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
 		// This is for example the case when creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
 
 		let executable = E::from_storage(code_hash, self.gas_meter_mut())?;
-		let sender = if let Some(sender) = origin {
-			// If the origin is specified, we use it as the sender.
-			T::AddressMapper::to_account_id(sender)
-		} else {
-			// Otherwise we use the top frame's account id as the sender.
-			self.top_frame().account_id.clone()
-		};
+		let sender = self.top_frame().account_id.clone();
 		let executable: Option<ExecutableOrPrecompile<T, E, Stack<'a, T, E>>> = self.push_frame(
-			FrameArgs::Instantiate {
-				sender: sender.clone(),
-				executable,
-				salt,
-				input_data: input_data.as_ref(),
-			},
+			FrameArgs::Instantiate { sender, executable, salt, input_data: input_data.as_ref() },
 			value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 			gas_limit,
 			deposit_limit.saturated_into::<BalanceOf<T>>(),

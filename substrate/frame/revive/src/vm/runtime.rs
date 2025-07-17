@@ -1175,7 +1175,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			value,
 			input_data,
 			salt.as_ref(),
-			None,
 		) {
 			Ok(address) => {
 				if !self.ext.last_frame_output().flags.contains(ReturnFlags::REVERT) {

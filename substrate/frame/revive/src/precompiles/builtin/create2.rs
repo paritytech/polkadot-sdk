@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	address::AddressMapper,
 	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, ExtWithInfo},
 	CodeInfoOf, Config, H256,
 };
@@ -24,7 +23,6 @@ use alloy_core::sol;
 use core::{marker::PhantomData, num::NonZero};
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_core::U256;
-use sp_runtime::DispatchError;
 
 sol! {
 	interface ICreate2 {
@@ -64,12 +62,6 @@ impl<T: Config> BuiltinPrecompile for Create2<T> {
 		let storage_deposit_limit = env.storage_meter().available();
 		let endowment = env.value_transferred();
 
-		let caller = env.caller();
-		let deployer_account_id = caller
-			.account_id()
-			.map_err(|_| DispatchError::from("caller account_id is None"))?;
-		let deployer = T::AddressMapper::to_address(deployer_account_id);
-
 		let instantiate_address = env.instantiate(
 			gas_limit,
 			U256::from(storage_deposit_limit.saturated_into::<u128>()),
@@ -77,7 +69,6 @@ impl<T: Config> BuiltinPrecompile for Create2<T> {
 			endowment,
 			vec![], // input data for constructor, if any?
 			Some(&salt),
-			Some(&deployer),
 		)?;
 
 		// Pad the contract address to 32 bytes (left padding with zeros)
