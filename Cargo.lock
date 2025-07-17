@@ -22410,7 +22410,6 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-asset-conversion",
- "pallet-xcm",
  "parity-scale-codec",
  "scale-info",
  "snowbridge-core",
@@ -22923,7 +22922,6 @@ dependencies = [
  "bounded-collections 0.3.2",
  "bs58",
  "criterion",
- "dyn-clonable",
  "dyn-clone",
  "ed25519-zebra 4.0.3",
  "futures",
@@ -22952,7 +22950,6 @@ dependencies = [
  "sp-crypto-hashing 0.1.0",
  "sp-debug-derive 14.0.0",
  "sp-externalities 0.25.0",
- "sp-runtime-interface 24.0.0",
  "sp-std 14.0.0",
  "sp-storage 19.0.0",
  "ss58-registry",
@@ -23619,7 +23616,6 @@ dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "polkavm-derive 0.26.0",
- "primitive-types 0.13.1",
  "rustversion",
  "sp-externalities 0.25.0",
  "sp-io 30.0.0",
@@ -28665,7 +28661,6 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
- "testnet-parachains-constants",
 ]
 
 [[package]]
