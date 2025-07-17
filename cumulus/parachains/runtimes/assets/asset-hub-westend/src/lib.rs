@@ -2188,7 +2188,7 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 			use xcm_config::{MaxAssetsIntoHolding, WestendLocation};
 
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
-			use testnet_parachains_constants::rococo::locations::{PeopleParaId, PeopleLocation};
+			use testnet_parachains_constants::westend::locations::{PeopleParaId, PeopleLocation};
 			parameter_types! {
 				pub ExistentialDepositAsset: Option<Asset> = Some((
 					WestendLocation::get(),
