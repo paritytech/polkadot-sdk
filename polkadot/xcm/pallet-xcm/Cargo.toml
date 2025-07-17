@@ -33,6 +33,7 @@ xcm-runtime-apis = { workspace = true }
 
 # marked optional, used in benchmarking
 frame-benchmarking = { optional = true, workspace = true }
+hex-literal = { workspace = true, default-features = false }
 pallet-balances = { optional = true, workspace = true }
 
 [dev-dependencies]
