@@ -542,7 +542,12 @@ where
 
 		// If there is still time left for the block in the slot, we sleep the rest of the time.
 		// This ensures that we have some steady block rate.
-		if let Some(sleep) = slot_time_for_block.checked_sub(block_start.elapsed()) {
+		if let Some(sleep) = slot_time_for_block
+			.checked_sub(block_start.elapsed())
+			// Let's not sleep for the last block here, to send out the collation as early as
+			// possible.
+			.filter(|_| block_index + 1 < num_blocks)
+		{
 			tokio::time::sleep(sleep).await;
 		}
 	}
@@ -561,6 +566,11 @@ where
 		tracing::error!(target: crate::LOG_TARGET, ?err, "Unable to send block to collation task.");
 		Err(())
 	} else {
+		// Now let's sleep for the rest of the core.
+		if let Some(sleep) = slot_time_for_core.checked_sub(core_start.elapsed()) {
+			tokio::time::sleep(sleep).await;
+		}
+
 		Ok(Some(parent_header))
 	}
 }
