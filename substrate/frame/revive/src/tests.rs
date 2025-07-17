@@ -4935,7 +4935,6 @@ fn code_size_for_precompiles_works() {
 fn basic_evm_flow_works() {
 	use alloy_core::{hex, primitives, sol_types::SolInterface};
 	let code = hex::decode(include_str!("tests/Fibonacci.bin")).unwrap();
-	let init_code_hash = H256::from(sp_io::hashing::keccak_256(&code));
 
 	alloy_core::sol!("src/tests/fibonacci.sol");
 
@@ -4954,6 +4953,6 @@ fn basic_evm_flow_works() {
 		ensure_stored(contract.code_hash);
 
 		let result = builder::bare_call(addr).data(data).build_and_unwrap_result();
-		println!("Fib(10) result: {:?}", result.data);
+		assert_eq!(U256::from(55u32), U256::from_big_endian(&result.data));
 	});
 }

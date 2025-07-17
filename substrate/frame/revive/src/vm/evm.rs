@@ -1,7 +1,4 @@
-use crate::{
-	vm::{ExecResult, ExportedFunction},
-	ExecReturnValue,
-};
+use crate::{vm::ExecResult, ExecReturnValue};
 use pallet_revive_uapi::ReturnFlags;
 use revm::{
 	bytecode::Bytecode,
@@ -23,7 +20,8 @@ use revm::{
 };
 
 /// TODO handle error case
-pub fn call(bytecode: Bytecode, function: ExportedFunction, input_data: Vec<u8>) -> ExecResult {
+pub fn call(bytecode: Bytecode, input_data: Vec<u8>) -> ExecResult {
+	// TODO replace this with a proper trait impl
 	let inputs = InputsImpl {
 		caller_address: Default::default(),
 		target_address: Default::default(),
@@ -51,7 +49,7 @@ pub fn call(bytecode: Bytecode, function: ExportedFunction, input_data: Vec<u8>)
 		})
 	}
 
-	todo!()
+	todo!("Handle error case properly");
 }
 
 fn run(

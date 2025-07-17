@@ -434,7 +434,7 @@ where
 		} else {
 			use revm::bytecode::Bytecode;
 			let bytecode = Bytecode::new_raw(self.code.into_inner().into());
-			evm::call(bytecode, function, input_data)
+			evm::call(bytecode, input_data)
 		}
 	}
 
