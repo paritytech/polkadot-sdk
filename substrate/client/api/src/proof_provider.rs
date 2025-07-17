@@ -21,9 +21,21 @@ use crate::{CompactProof, StorageProof};
 use sp_runtime::traits::Block as BlockT;
 use sp_state_machine::{KeyValueStates, KeyValueStorageLevel};
 use sp_storage::ChildInfo;
+use trie_db::NibbleVec;
+
+// error[E0658]: associated type defaults are unstable
+type HashDbEmplaceBatch<B> = Vec<(NibbleVec, <B as BlockT>::Hash, Vec<u8>)>;
+
+/// Direct hash db interface for state sync.
+pub trait ProofProviderHashDb<B: BlockT> {
+	/// Check node already exists in db.
+	fn hash_db_contains(&self, prefix: &NibbleVec, hash: &B::Hash) -> bool;
+	/// Save batch of nodes to db.
+	fn hash_db_emplace_batch(&self, batch: HashDbEmplaceBatch<B>) -> sp_blockchain::Result<()>;
+}
 
 /// Interface for providing block proving utilities.
-pub trait ProofProvider<Block: BlockT> {
+pub trait ProofProvider<Block: BlockT>: ProofProviderHashDb<Block> {
 	/// Reads storage value at a given block + key, returning read proof.
 	fn read_proof(
 		&self,

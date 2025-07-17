@@ -35,10 +35,14 @@ use sp_state_machine::{
 };
 use sp_storage::{ChildInfo, StorageData, StorageKey};
 pub use sp_trie::MerkleValue;
+use trie_db::NibbleVec;
 
 use crate::{blockchain::Backend as BlockchainBackend, UsageInfo};
 
 pub use sp_state_machine::{Backend as StateBackend, BackendTransaction, KeyValueStates};
+
+// error[E0658]: associated type defaults are unstable
+type HashDbEmplaceBatch<B> = Vec<(NibbleVec, <B as BlockT>::Hash, Vec<u8>)>;
 
 /// Extracts the state backend type for the given backend.
 pub type StateBackendFor<B, Block> = <B as Backend<Block>>::State;
@@ -195,6 +199,9 @@ pub trait BlockImportOperation<Block: BlockT> {
 		storage: Storage,
 		state_version: StateVersion,
 	) -> sp_blockchain::Result<Block::Hash>;
+
+	/// Fix "State already discarded" after state sync
+	fn set_state_sync_done(&mut self);
 
 	/// Set storage changes.
 	fn update_storage(
@@ -668,6 +675,11 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 
 	/// Tells whether the backend requires full-sync mode.
 	fn requires_full_sync(&self) -> bool;
+
+	/// TODO: ProofProviderHashDb
+	fn hash_db_contains(&self, prefix: &NibbleVec, hash: &Block::Hash) -> bool;
+	/// TODO: ProofProviderHashDb
+	fn hash_db_emplace_batch(&self, batch: HashDbEmplaceBatch<Block>) -> sp_blockchain::Result<()>;
 }
 
 /// Mark for all Backend implementations, that are making use of state data, stored locally.

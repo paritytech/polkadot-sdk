@@ -44,6 +44,10 @@ use crate::{
 	leaves::LeafSet,
 	TrieCacheContext, UsageInfo,
 };
+use trie_db::NibbleVec;
+
+// error[E0658]: associated type defaults are unstable
+type HashDbEmplaceBatch<B> = Vec<(NibbleVec, <B as BlockT>::Hash, Vec<u8>)>;
 
 struct PendingBlock<B: BlockT> {
 	block: StoredBlock<B>,
@@ -547,6 +551,10 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 		self.apply_storage(storage, true, state_version)
 	}
 
+	fn set_state_sync_done(&mut self) {
+		todo!()
+	}
+
 	fn insert_aux<I>(&mut self, ops: I) -> sp_blockchain::Result<()>
 	where
 		I: IntoIterator<Item = (Vec<u8>, Option<Vec<u8>>)>,
@@ -779,6 +787,16 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 	fn unpin_block(&self, hash: <Block as BlockT>::Hash) {
 		let mut blocks = self.pinned_blocks.write();
 		blocks.entry(hash).and_modify(|counter| *counter -= 1).or_insert(-1);
+	}
+
+	fn hash_db_contains(&self, _prefix: &NibbleVec, _hash: &Block::Hash) -> bool {
+		todo!();
+	}
+	fn hash_db_emplace_batch(
+		&self,
+		_batch: HashDbEmplaceBatch<Block>,
+	) -> sp_blockchain::Result<()> {
+		todo!();
 	}
 }
 

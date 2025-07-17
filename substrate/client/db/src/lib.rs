@@ -93,6 +93,8 @@ use sp_state_machine::{
 	StorageValue, UsageInfo as StateUsageInfo,
 };
 use sp_trie::{cache::SharedTrieCache, prefixed_key, MemoryDB, MerkleValue, PrefixedMemoryDB};
+use std::borrow::Cow;
+use trie_db::NibbleVec;
 use utils::BLOCK_GAP_CURRENT_VERSION;
 
 // Re-export the Database trait so that one can pass an implementation of it.
@@ -100,6 +102,9 @@ pub use sc_state_db::PruningMode;
 pub use sp_database::Database;
 
 pub use bench::BenchmarkingState;
+
+// error[E0658]: associated type defaults are unstable
+type HashDbEmplaceBatch<B> = Vec<(NibbleVec, <B as BlockT>::Hash, Vec<u8>)>;
 
 const CACHE_HEADERS: usize = 8;
 
@@ -937,6 +942,10 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 		Ok(root)
 	}
 
+	fn set_state_sync_done(&mut self) {
+		self.commit_state = true;
+	}
+
 	fn set_genesis_state(
 		&mut self,
 		storage: Storage,
@@ -1005,15 +1014,21 @@ struct StorageDb<Block: BlockT> {
 	prefix_keys: bool,
 }
 
+impl<Block: BlockT> StorageDb<Block> {
+	fn state_key<'a>(&self, prefix: Prefix, hash: &'a Block::Hash) -> Cow<'a, [u8]> {
+		if self.prefix_keys {
+			Cow::Owned(prefixed_key::<HashingFor<Block>>(hash, prefix))
+		} else {
+			Cow::Borrowed(hash.as_ref())
+		}
+	}
+}
+
 impl<Block: BlockT> sp_state_machine::Storage<HashingFor<Block>> for StorageDb<Block> {
 	fn get(&self, key: &Block::Hash, prefix: Prefix) -> Result<Option<DBValue>, String> {
-		if self.prefix_keys {
-			let key = prefixed_key::<HashingFor<Block>>(key, prefix);
-			self.state_db.get(&key, self)
-		} else {
-			self.state_db.get(key.as_ref(), self)
-		}
-		.map_err(|e| format!("Database backend error: {e:?}"))
+		self.state_db
+			.get(self.state_key(prefix, key).as_ref(), self)
+			.map_err(|e| format!("Database backend error: {e:?}"))
 	}
 }
 
@@ -2631,6 +2646,28 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		if self.blocks_pruning != BlocksPruning::KeepAll {
 			self.blockchain.unpin(hash);
 		}
+	}
+
+	fn hash_db_contains(&self, prefix: &NibbleVec, hash: &Block::Hash) -> bool {
+		// TODO: don't read value, just check key exists
+		sp_state_machine::Storage::get(self.storage.as_ref(), hash, prefix.as_prefix())
+			.map(|x| x.is_some())
+			.unwrap_or(false)
+	}
+	fn hash_db_emplace_batch(&self, batch: HashDbEmplaceBatch<Block>) -> sp_blockchain::Result<()> {
+		self.storage.db.commit(Transaction(
+			batch
+				.into_iter()
+				.map(|(prefix, hash, value)| {
+					sp_database::Change::Set(
+						columns::STATE,
+						self.storage.state_key(prefix.as_prefix(), &hash).into_owned(),
+						value,
+					)
+				})
+				.collect(),
+		))?;
+		Ok(())
 	}
 }
 

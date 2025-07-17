@@ -711,7 +711,8 @@ mod test {
 		let header = block.header().clone();
 		let hash = header.hash();
 		let body = Some(block.extrinsics().iter().cloned().collect::<Vec<_>>());
-		let state = ImportedState { block: hash, state: KeyValueStates(Vec::new()) };
+		let state =
+			ImportedState { block: hash, state: KeyValueStates(Vec::new()), written: false };
 		let justifications = Some(Justifications::from((*b"FRNK", Vec::new())));
 
 		// Prepare `StateSync`
