@@ -18,6 +18,7 @@
 //! This module provides a means for executing contracts
 //! represented in vm bytecode.
 
+mod evm;
 mod runtime;
 
 #[cfg(doc)]
@@ -424,10 +425,10 @@ where
 			let prepared_call = self.prepare_call(Runtime::new(ext, input_data), function, 0)?;
 			prepared_call.call()
 		} else {
-			// use revm::bytecode::Bytecode;
-			// let bytecode = Bytecode::new_raw(self.code.into_inner().into());
+			use revm::bytecode::Bytecode;
+			let bytecode = Bytecode::new_raw(self.code.into_inner().into());
 
-			unimplemented!("EVM execution is not implemented yet")
+			evm::call(bytecode, input_data)
 		}
 	}
 
