@@ -19,9 +19,8 @@ use crate::{
 	CodeInfoOf, Config, H256,
 };
 use alloc::{vec, vec::Vec};
-use alloy_core::sol;
+use alloy_core::{sol, sol_types::SolValue};
 use core::{marker::PhantomData, num::NonZero};
-use sp_arithmetic::traits::SaturatedConversion;
 use sp_core::U256;
 
 sol! {
@@ -59,22 +58,19 @@ impl<T: Config> BuiltinPrecompile for Create2<T> {
 
 		let gas_limit = env.gas_meter().gas_left();
 
-		let storage_deposit_limit = env.storage_meter().available();
 		let endowment = env.value_transferred();
 
 		let instantiate_address = env.instantiate(
 			gas_limit,
-			U256::from(storage_deposit_limit.saturated_into::<u128>()),
+			U256::MAX,
 			code_hash,
 			endowment,
 			vec![], // input data for constructor, if any?
 			Some(&salt),
 		)?;
 
-		// Pad the contract address to 32 bytes (left padding with zeros)
-		let mut padded = [0u8; 32];
-		let addr = instantiate_address.as_ref();
-		padded[32 - addr.len()..].copy_from_slice(addr);
-		Ok(padded.to_vec())
+		let addr_bytes: [u8; 20] = instantiate_address.0;
+		let address = alloy_core::primitives::Address::new(addr_bytes);
+		Ok(address.abi_encode())
 	}
 }

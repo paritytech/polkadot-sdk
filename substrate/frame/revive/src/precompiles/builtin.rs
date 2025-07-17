@@ -25,11 +25,13 @@ mod point_eval;
 mod ripemd160;
 mod sha256;
 
-// exported for use in tests
-pub(crate) use create2::ICreate2;
-
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+
+#[cfg(test)]
+pub(crate) use create2::Create2;
+#[cfg(test)]
+pub(crate) use create2::ICreate2;
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::{

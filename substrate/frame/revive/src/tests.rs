@@ -435,12 +435,12 @@ impl Default for Origin<Test> {
 
 #[test]
 fn create2_precompile_throws_if_code_not_uploaded() {
-	use crate::precompiles::ICreate2;
+	use crate::precompiles::{BuiltinPrecompile, Create2, ICreate2};
 	use alloy_core::sol_types::SolInterface;
 	use sp_core::H160;
 
-	let create2_precompile_addr = H160::from_low_u64_be(0x0B); // hardcoded 11 in create2.rs
-
+	let create2_precompile_addr =
+		H160::from(<Create2<Test> as BuiltinPrecompile>::MATCHER.base_address());
 	let (code, _) = compile_module("dummy").unwrap();
 	let code_hash = sp_io::hashing::keccak_256(&code);
 
@@ -467,12 +467,12 @@ fn create2_precompile_throws_if_code_not_uploaded() {
 
 #[test]
 fn create2_precompile_works() {
-	use crate::precompiles::ICreate2;
+	use crate::precompiles::{BuiltinPrecompile, Create2, ICreate2};
 	use alloy_core::sol_types::SolInterface;
 	use sp_core::H160;
 
-	let create2_precompile_addr = H160::from_low_u64_be(0x0B); // hardcoded 11 in create2.rs
-
+	let create2_precompile_addr =
+		H160::from(<Create2<Test> as BuiltinPrecompile>::MATCHER.base_address());
 	let (code, _) = compile_module("dummy").unwrap();
 	let code_hash = sp_io::hashing::keccak_256(&code);
 
@@ -484,7 +484,6 @@ fn create2_precompile_works() {
 	})
 	.abi_encode();
 
-	let deployer = <Test as Config>::AddressMapper::to_address(&ALICE);
 	let contract_address_expected = create2(&create2_precompile_addr, code.as_slice(), &[], &salt);
 
 	ExtBuilder::default().existential_deposit(1).build().execute_with(|| {

@@ -387,9 +387,6 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Returns the price for the specified amount of weight.
 	fn get_weight_price(&self, weight: Weight) -> U256;
 
-	/// Get an immutable reference to the nested storage meter.
-	fn storage_meter(&self) -> &storage::meter::NestedMeter<Self::T>;
-
 	/// Get an immutable reference to the nested gas meter.
 	fn gas_meter(&self) -> &GasMeter<Self::T>;
 
@@ -1934,10 +1931,6 @@ where
 
 	fn get_weight_price(&self, weight: Weight) -> U256 {
 		T::WeightPrice::convert(weight).into()
-	}
-
-	fn storage_meter(&self) -> &storage::meter::NestedMeter<Self::T> {
-		&self.top_frame().nested_storage
 	}
 
 	fn gas_meter(&self) -> &GasMeter<Self::T> {
