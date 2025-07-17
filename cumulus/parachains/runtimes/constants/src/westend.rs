@@ -199,7 +199,6 @@ pub mod xcm_version {
 pub mod locations {
 	use frame_support::parameter_types;
 	pub use westend_runtime_constants::system_parachain::{AssetHubParaId, PeopleParaId};
-	use westend_runtime_constants::system_parachain::{ASSET_HUB_ID, PEOPLE_ID};
 	use xcm::latest::prelude::{Location, Parachain};
 
 	parameter_types! {
