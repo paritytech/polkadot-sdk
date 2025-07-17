@@ -173,4 +173,5 @@ try-runtime = [
 	"pallet-transaction-payment/try-runtime",
 	"polkadot-cli/try-runtime",
 	"sp-runtime/try-runtime",
+	"parachains-common/try-runtime",
 ]
