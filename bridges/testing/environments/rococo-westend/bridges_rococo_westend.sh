@@ -40,8 +40,8 @@ source "$FRAMEWORK_PATH/utils/bridges.sh"
 #}
 ASSET_HUB_WESTEND_SOVEREIGN_ACCOUNT_AT_BRIDGE_HUB_WESTEND="5Eg2fntNprdN3FgH4sfEaaZhYtddZQSQUqvYJ1f2mLtinVhV"
 ASSET_HUB_ROCOCO_SOVEREIGN_ACCOUNT_AT_BRIDGE_HUB_ROCOCO="5Eg2fntNprdN3FgH4sfEaaZhYtddZQSQUqvYJ1f2mLtinVhV"
-BOB_SOVEREIGN_ACCOUNT_AT_ROCOCO="5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"
-BOB_SOVEREIGN_ACCOUNT_AT_WESTEND="5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"
+BOB_ACCOUNT_AT_ROCOCO="5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"
+BOB_ACCOUNT_AT_WESTEND="5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"
 
 # Expected sovereign accounts for rewards on BridgeHubs.
 #
@@ -269,7 +269,7 @@ case "$1" in
           "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }] } }')" \
           1000000000000 \
           2500000000000 \
-          "$BOB_SOVEREIGN_ACCOUNT_AT_ROCOCO"
+          "$BOB_ACCOUNT_AT_ROCOCO"
       ;;
   init-bridge-hub-rococo-local)
       ensure_polkadot_js_api
@@ -335,7 +335,7 @@ case "$1" in
           "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }] } }')" \
           1000000000000 \
           4000000000000 \
-          "$BOB_SOVEREIGN_ACCOUNT_AT_WESTEND"
+          "$BOB_ACCOUNT_AT_WESTEND"
       ;;
   init-bridge-hub-westend-local)
       # SA of sibling asset hub pays for the execution
