@@ -1479,6 +1479,11 @@ zstd = { version = "0.12.4", default-features = false }
 opt-level = 3
 panic = "unwind"
 
+[profile.dev]
+# Debug info significantly slows down the build.
+# This setting only keeps source line information for stack traces.
+debug = "line-tables-only"
+
 # make sure dev builds with backtrace do not slow us down
 [profile.dev.package.backtrace]
 inherits = "release"
