@@ -151,11 +151,11 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 		.into_inner()
 		.0
 		.iter()
-		.map(|byte| format!("{:02x}", byte))
+		.map(|byte| format!("{byte:02x}"))
 		.collect::<String>();
 
 	let json_value: serde_json::Value =
-		serde_json::to_value(&network.get_node("malus-validator")?.spec())?;
+		serde_json::to_value(network.get_node("malus-validator")?.spec())?;
 	let malus_public_address =
 		json_value.pointer("/accounts/accounts/sr/public_key").unwrap().to_string();
 
