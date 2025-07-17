@@ -1,10 +1,7 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-use codec::{Decode, Encode};
 use sc_executor::WasmExecutor;
-use sp_core::traits::{CallContext, CodeExecutor, RuntimeCode, WrappedRuntimeCode};
-use sp_io::TestExternalities;
 use std::{
 	env, fs, path,
 	path::{Path, PathBuf},
@@ -98,48 +95,11 @@ fn generate_metadata_file(wasm_path: &Path, output_path: &Path) {
 		.with_allow_missing_host_functions(true)
 		.build();
 
-	let runtime_code = RuntimeCode {
-		code_fetcher: &WrappedRuntimeCode(wasm_bytes.into()),
-		heap_pages: None,
-		hash: vec![1, 2, 3],
-	};
+	let metadata =
+		sc_runtime_utilities::fetch_latest_metadata_from_code_blob(&executor, wasm_bytes.into())
+			.expect("Failed to fetch metadata from runtime");
 
-	// First get the supported metadata versions
-	let versions_result = executor
-		.call(
-			&mut TestExternalities::default().ext(),
-			&runtime_code,
-			"Metadata_metadata_versions",
-			&[],
-			CallContext::Offchain,
-		)
-		.0
-		.expect("`Metadata::metadata_versions` should exist.");
-
-	let versions =
-		Vec::<u32>::decode(&mut &versions_result[..]).expect("Failed to decode metadata versions");
-
-	// Use the latest supported version
-	let latest_version =
-		versions.into_iter().max().expect("There is at least one metadata version; qed");
-
-	let metadata = executor
-		.call(
-			&mut TestExternalities::default().ext(),
-			&runtime_code,
-			"Metadata_metadata_at_version",
-			&latest_version.encode(),
-			CallContext::Offchain,
-		)
-		.0
-		.expect("`Metadata::metadata_at_version` should exist.");
-
-	let metadata = Option::<Vec<u8>>::decode(&mut &metadata[..])
-		.ok()
-		.flatten()
-		.expect("Metadata support is required.");
-
-	fs::write(output_path, metadata).expect("Failed to write metadata file");
+	fs::write(output_path, &*metadata).expect("Failed to write metadata file");
 }
 
 fn fetch_metadata_file(chain: &str, output_path: &Path) {
