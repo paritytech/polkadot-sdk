@@ -19,6 +19,7 @@ use std::{
 	time::{Duration, Instant},
 };
 
+use polkadot_node_primitives::MAX_FINALITY_LAG;
 use polkadot_node_subsystem::prometheus::prometheus::HistogramTimer;
 use polkadot_node_subsystem_util::metrics::{self, prometheus};
 use polkadot_primitives::{vstaging::CandidateReceiptV2 as CandidateReceipt, BlockNumber, Hash};
@@ -41,6 +42,13 @@ impl Metrics {
 	pub fn on_collation_included(&self, latency: f64) {
 		if let Some(metrics) = &self.0 {
 			metrics.collation_inclusion_latency.observe(latency);
+		}
+	}
+
+	/// Record the time a collation took to be finalized.
+	pub fn on_collation_finalized(&self, latency: f64) {
+		if let Some(metrics) = &self.0 {
+			metrics.collation_finalization_latency.observe(latency);
 		}
 	}
 
@@ -109,6 +117,7 @@ struct MetricsInner {
 	collation_backing_latency_time: prometheus::Histogram,
 	collation_backing_latency: prometheus::Histogram,
 	collation_inclusion_latency: prometheus::Histogram,
+	collation_finalization_latency: prometheus::Histogram,
 	collation_expired_total: prometheus::HistogramVec,
 }
 
@@ -209,6 +218,16 @@ impl metrics::Metrics for Metrics {
 				)?,
 				registry,
 			)?,
+			collation_finalization_latency: prometheus::register(
+				prometheus::Histogram::with_opts(
+					prometheus::HistogramOpts::new(
+						"polkadot_parachain_collation_finalization_latency",
+						"How many blocks it takes for a collation to be finalized",
+					)
+					.buckets(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]),
+				)?,
+				registry,
+			)?,
 			collation_expired_total: prometheus::register(
 				prometheus::HistogramVec::new(
 					prometheus::HistogramOpts::new(
@@ -230,8 +249,10 @@ impl metrics::Metrics for Metrics {
 pub(crate) const MAX_BACKING_DELAY: BlockNumber = 3;
 // Paras availability period. In practice, candidates time out in exceptional situations.
 pub(crate) const MAX_AVAILABILITY_DELAY: BlockNumber = 10;
+// Finality delay for included blocks.
+pub(crate) const MAX_FINALITY_DELAY: BlockNumber = MAX_FINALITY_LAG as BlockNumber;
 
-// Collations are kept in the tracker, until they are included or expired
+// Collations are kept in the tracker, until they are finalized or expired
 #[derive(Default)]
 pub(crate) struct CollationTracker {
 	// Keep track of collation expiration block number.
@@ -260,7 +281,7 @@ impl CollationTracker {
 			let para_id = receipt.descriptor.para_id();
 			let relay_parent = receipt.descriptor.relay_parent();
 
-			entry.backed_at = Some(block_number);
+			entry.set_backed_at(block_number);
 
 			// Observe the backing latency since the collation was fetched.
 			let maybe_latency =
@@ -300,7 +321,7 @@ impl CollationTracker {
 		let head = receipt.descriptor.para_head();
 
 		self.entries.remove(&head).map(|mut entry| {
-			entry.included_at = Some(block_number);
+			entry.set_included_at(block_number, leaf);
 
 			if let Some(latency) = entry.included() {
 				metrics.on_collation_included(latency as f64);
@@ -321,6 +342,52 @@ impl CollationTracker {
 
 			entry
 		})
+	}
+
+	// Mark a previously included collation as finalized and return the stats.
+	// After this call, the collation is no longer trackable.
+	//
+	// Returns all the collations that have been finalized at (block_number, leaf).
+	pub fn collations_finalized(
+		&mut self,
+		block_number: BlockNumber,
+		leaf: H256,
+		metrics: &Metrics,
+	) -> Vec<CollationStats> {
+		let heads =
+			self.entries
+				.iter()
+				.filter_map(|(head, entry)| {
+					if entry.is_included_at(block_number, leaf) {
+						Some(head)
+					} else {
+						None
+					}
+				})
+				.collect::<Vec<_>>();
+
+		heads
+			.into_iter()
+			.filter_map(|head| {
+				self.entries.remove(head).map(|mut entry| {
+					entry.set_finalized_at(block_number);
+
+					if let Some(latency) = entry.finalized() {
+						metrics.on_collation_finalized(latency as f64);
+
+						gum::debug!(
+							target: crate::LOG_TARGET_STATS,
+							?latency,
+							relay_parent = ?entry.relay_parent_number,
+							?head,
+							"Collation finalized on relay chain",
+						);
+					}
+
+					entry
+				})
+			})
+			.collect::<Vec<_>>()
 	}
 
 	// Returns all the collations that have expired at `block_number`.
@@ -384,8 +451,10 @@ pub(crate) struct CollationStats {
 	expired_at: Option<BlockNumber>,
 	// The backed block number.
 	backed_at: Option<BlockNumber>,
-	// The included block number if backed.
-	included_at: Option<BlockNumber>,
+	// The included block number and hash if backed.
+	included_at: Vec<(BlockNumber, H256)>,
+	// The finalized block number if included.
+	finalized_at: Option<BlockNumber>,
 	// The collation fetch time.
 	fetched_at: Option<Instant>,
 	// Advertisement time
@@ -408,7 +477,8 @@ impl CollationStats {
 			backed_at: None,
 			expired_at: None,
 			fetched_at: None,
-			included_at: None,
+			included_at: Vec::new(),
+			finalized_at: None,
 			fetch_latency_metric: metrics.time_collation_fetch_latency(),
 			backed_latency_metric: None,
 		}
@@ -428,9 +498,22 @@ impl CollationStats {
 
 	/// Returns the age of the collation at the moment of inclusion.
 	pub fn included(&self) -> Option<BlockNumber> {
-		let included_at = self.included_at?;
+		let included_at = self.included_at.first().map(|(block_number, _)| *block_number)?;
 		let backed_at = self.backed_at?;
 		Some(included_at.saturating_sub(backed_at))
+	}
+
+	/// Returns true if the collation is included at the given block number and hash.
+	pub fn is_included_at(&self, block_number: BlockNumber, hash: H256) -> bool {
+		self.included_at
+			.iter()
+			.any(|(block_number, hash)| *block_number == block_number && *hash == hash)
+	}
+
+	/// Returns the age of the collation at the moment of finalization.
+	pub fn finalized(&self) -> Option<BlockNumber> {
+		let finalized_at = self.finalized_at?;
+		Some(finalized_at.saturating_sub(self.relay_parent_number))
 	}
 
 	/// Returns time the collation waited to be fetched.
@@ -447,6 +530,21 @@ impl CollationStats {
 	/// Set the timestamp at which collation is fetched.
 	pub fn set_fetched_at(&mut self, fetched_at: Instant) {
 		self.fetched_at = Some(fetched_at);
+	}
+
+	/// Set the block number at which collation is backed.
+	pub fn set_backed_at(&mut self, backed_at: BlockNumber) {
+		self.backed_at = Some(backed_at);
+	}
+
+	/// Set the block number at which collation is included.
+	pub fn set_included_at(&mut self, block_number: BlockNumber, hash: H256) {
+		self.included_at.push((block_number, hash));
+	}
+
+	/// Set the block number at which collation is finalized.
+	pub fn set_finalized_at(&mut self, finalized_at: BlockNumber) {
+		self.finalized_at = Some(finalized_at);
 	}
 
 	/// Sets the pre-backing status of the collation.

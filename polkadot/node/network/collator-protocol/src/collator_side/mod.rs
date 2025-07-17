@@ -1569,7 +1569,9 @@ async fn run_inner<Context>(
 						*reconnect_timeout = futures_timer::Delay::new(RECONNECT_AFTER_LEAF_TIMEOUT).fuse();
 					}
 				}
-				FromOrchestra::Signal(BlockFinalized(..)) => {}
+				FromOrchestra::Signal(BlockFinalized(hash, block)) => {
+					state.collation_tracker.collations_finalized(block, hash, &metrics);
+				}
 				FromOrchestra::Signal(Conclude) => return Ok(()),
 			},
 			CollationSendResult { relay_parent, candidate_hash, peer_id, timed_out } =
