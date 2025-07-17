@@ -9,6 +9,6 @@
 //!
 //! - [Polkadot NFT Marketplace Tutorial by Polkadot Fellow Shawn Tabrizi](https://www.shawntabrizi.com/substrate-collectables-workshop/)
 //! - [DOT Code School](https://dotcodeschool.com/)
-//! - [Polkadot Developers](https://github.com/polkadot-developers/)
+//! - [Polkadot Developers Github Organization](https://github.com/polkadot-developers/)
 //! - [Polkadot Blockchain Academy](https://github.com/Polkadot-Blockchain-Academy)
-//! - [Polkadot Wiki: Build](https://wiki.polkadot.network/docs/build-guide)
+//! - [Polkadot Wiki](https://wiki.polkadot.network/)

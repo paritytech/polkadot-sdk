@@ -26,6 +26,8 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_types::OverseerSignal;
 use polkadot_primitives::{Hash, HeadData, PersistedValidationData};
 
+const LOG_TARGET: &str = "subsystem-bench::availability-recovery-mock";
+
 pub struct MockAvailabilityRecovery {}
 
 impl MockAvailabilityRecovery {
@@ -54,7 +56,8 @@ impl MockAvailabilityRecovery {
 						return
 					},
 				orchestra::FromOrchestra::Communication { msg } => match msg {
-					AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, tx) => {
+					AvailabilityRecoveryMessage::RecoverAvailableData(receipt, _, _, _, tx) => {
+						gum::debug!(target: LOG_TARGET, "RecoverAvailableData for candidate {:?}", receipt.hash());
 						let available_data = AvailableData {
 							pov: Arc::new(PoV { block_data: BlockData(Vec::new()) }),
 							validation_data: PersistedValidationData {

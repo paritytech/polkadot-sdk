@@ -243,17 +243,17 @@ fetch_release_artifacts() {
 # - REPO in the form paritytech/polkadot
 fetch_debian_package_from_s3() {
   BINARY=$1
-  echo "Version    : $VERSION"
+  echo "Version    : $NODE_VERSION"
   echo "Repo       : $REPO"
   echo "Binary     : $BINARY"
-  echo "Tag        : $RELEASE_TAG"
+  echo "Tag        : $VERSION"
   OUTPUT_DIR=${OUTPUT_DIR:-"./release-artifacts/${BINARY}"}
   echo "OUTPUT_DIR : $OUTPUT_DIR"
 
   URL_BASE=$(get_s3_url_base $BINARY)
   echo "URL_BASE=$URL_BASE"
 
-  URL=$URL_BASE/$RELEASE_TAG/x86_64-unknown-linux-gnu/${BINARY}_${VERSION}_amd64.deb
+  URL=$URL_BASE/$VERSION/x86_64-unknown-linux-gnu/${BINARY}_${NODE_VERSION}_amd64.deb
 
   mkdir -p "$OUTPUT_DIR"
   pushd "$OUTPUT_DIR" > /dev/null
@@ -297,7 +297,6 @@ fetch_release_artifacts_from_s3() {
   pwd
   ls -al --color
   popd > /dev/null
-  unset OUTPUT_DIR
 }
 
 # Pass the name of the binary as input, it will
@@ -509,6 +508,7 @@ validate_stable_tag() {
 }
 
 # Prepare docker stable tag form the polkadot stable tag
+#
 # input: tag (polkaodot-stableYYMM(-X) or polkadot-stableYYMM(-X)-rcX)
 # output: stableYYMM(-X) or stableYYMM(-X)-rcX
 prepare_docker_stable_tag() {
@@ -519,4 +519,38 @@ prepare_docker_stable_tag() {
       echo "Tag is invalid: $tag"
       exit 1
   fi
+}
+
+# Parse names of the branches from the github labels based on the pattern
+#
+# input: labels (array of lables like ("A3-backport" "RO-silent" "A4-backport-stable2407" "A4-backport-stable2503"))
+# output: BRANCHES (array of the branch names)
+parse_branch_names_from_backport_labels() {
+  labels="$1"
+  BRANCHES=""
+
+  for label in $labels; do
+    if [[ "$label" =~ ^A4-backport-(stable|unstable)[0-9]{4}$ ]]; then
+      branch_name=$(sed 's/A4-backport-//' <<< "$label")
+      BRANCHES+=" ${branch_name}"
+    fi
+  done
+
+  BRANCHES=$(echo "$BRANCHES" | sed 's/^ *//')
+  echo "$BRANCHES"
+}
+
+# Extract the PR number from the PR title
+#
+# input: PR_TITLE
+# output: PR_NUMBER or exit 1 if the PR title does not contain the PR number
+extract_pr_number_from_pr_title() {
+  PR_TITLE=$1
+  if [[ "$PR_TITLE" =~ \#([0-9]+) ]]; then
+    PR_NUMBER="${BASH_REMATCH[1]}"
+  else
+    echo "⚠️ The PR title does not contain original PR number. PR title should be in form: [stableBranchName] Backport #originalPRNumber"
+    exit 1
+  fi
+  echo $PR_NUMBER
 }

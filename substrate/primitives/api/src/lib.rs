@@ -131,9 +131,6 @@ use sp_version::RuntimeVersion;
 #[cfg(feature = "std")]
 use std::cell::RefCell;
 
-/// Maximum nesting level for extrinsics.
-pub const MAX_EXTRINSIC_DEPTH: u32 = 256;
-
 /// Declares given traits as runtime apis.
 ///
 /// The macro will create two declarations, one for using on the client side and one for using
@@ -666,7 +663,7 @@ pub struct CallApiAtParams<'a, Block: BlockT> {
 	pub extensions: &'a RefCell<Extensions>,
 }
 
-/// Something that can call into the an api at a given block.
+/// Something that can call into an api at a given block.
 #[cfg(feature = "std")]
 pub trait CallApiAt<Block: BlockT> {
 	/// The state backend that is used to store the block states.

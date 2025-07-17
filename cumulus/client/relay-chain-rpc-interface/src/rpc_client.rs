@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use futures::channel::{
 	mpsc::{Receiver, Sender},
@@ -35,8 +36,8 @@ use cumulus_primitives_core::{
 		async_backing::AsyncBackingParams,
 		slashing,
 		vstaging::{
-			async_backing::BackingState, CandidateEvent,
-			CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
+			async_backing::{BackingState, Constraints},
+			CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
 			ScrapedOnChainVotes,
 		},
 		ApprovalVotingParams, BlockNumber, CandidateCommitments, CandidateHash, CoreIndex,
@@ -706,6 +707,26 @@ impl RelayChainRpcClient {
 		.await
 	}
 
+	pub async fn parachain_host_scheduling_lookahead(
+		&self,
+		at: RelayHash,
+	) -> Result<u32, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_scheduling_lookahead", at, None::<()>)
+			.await
+	}
+
+	pub async fn parachain_host_validation_code_bomb_limit(
+		&self,
+		at: RelayHash,
+	) -> Result<u32, RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_validation_code_bomb_limit",
+			at,
+			None::<()>,
+		)
+		.await
+	}
+
 	pub async fn validation_code_hash(
 		&self,
 		at: RelayHash,
@@ -718,6 +739,15 @@ impl RelayChainRpcClient {
 			Some((para_id, occupied_core_assumption)),
 		)
 		.await
+	}
+
+	pub async fn parachain_host_backing_constraints(
+		&self,
+		at: RelayHash,
+		para_id: ParaId,
+	) -> Result<Option<Constraints>, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_backing_constraints", at, Some(para_id))
+			.await
 	}
 
 	fn send_register_message_to_worker(
@@ -753,6 +783,14 @@ impl RelayChainRpcClient {
 			tx,
 		))?;
 		Ok(rx)
+	}
+
+	pub async fn parachain_host_para_ids(
+		&self,
+		at: RelayHash,
+	) -> Result<Vec<ParaId>, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_para_ids", at, None::<()>)
+			.await
 	}
 }
 

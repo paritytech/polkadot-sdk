@@ -94,10 +94,13 @@ pub fn paras_inherent_total_weight<T: Config>(
 	bitfields: &UncheckedSignedAvailabilityBitfields,
 	disputes: &MultiDisputeStatementSet,
 ) -> Weight {
-	backed_candidates_weight::<T>(backed_candidates)
+	let weight = backed_candidates_weight::<T>(backed_candidates)
 		.saturating_add(signed_bitfields_weight::<T>(bitfields))
 		.saturating_add(multi_dispute_statement_sets_weight::<T>(disputes))
-		.saturating_add(enact_candidates_max_weight::<T>(bitfields))
+		.saturating_add(enact_candidates_max_weight::<T>(bitfields));
+	// Relay chain blocks pre-dispatch weight can be set to any high enough value
+	// but the proof size is irrelevant for the relay chain either way.
+	weight.set_proof_size(u64::MAX)
 }
 
 pub fn multi_dispute_statement_sets_weight<T: Config>(

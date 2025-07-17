@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //! Ethereum signature utilities
+
 use super::*;
 use sp_core::{H160, U256};
 use sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
@@ -173,7 +174,7 @@ fn sign_and_recover_work() {
 	));
 
 	for tx in txs {
-		let raw_tx = hex::decode(tx).unwrap();
+		let raw_tx = alloy_core::hex::decode(tx).unwrap();
 		let tx = TransactionSigned::decode(&raw_tx).unwrap();
 
 		let address = tx.recover_eth_address();

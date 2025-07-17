@@ -12,7 +12,6 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-
 # Substrate
 sp-api = { workspace = true }
 sp-consensus-aura = { workspace = true }

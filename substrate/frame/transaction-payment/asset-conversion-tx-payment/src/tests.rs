@@ -86,6 +86,7 @@ impl ExtBuilder {
 			} else {
 				vec![]
 			},
+			..Default::default()
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();

@@ -28,7 +28,7 @@ use alloc::sync::Arc;
 use codec::Encode;
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, parameter_types,
-	traits::{ConstU32, Currency, OnFinalize, OnInitialize},
+	traits::{ConstU32, Currency},
 	weights::Weight,
 	PalletId,
 };
@@ -42,7 +42,7 @@ use polkadot_primitives::{
 use polkadot_runtime_parachains::{
 	configuration, dmp, origin, paras, shared, Origin as ParaOrigin, ParaLifecycle,
 };
-use sp_core::H256;
+use sp_core::{ConstUint, H256};
 use sp_io::TestExternalities;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
@@ -106,11 +106,11 @@ where
 	type RuntimeCall = RuntimeCall;
 }
 
-impl<C> frame_system::offchain::CreateInherent<C> for Test
+impl<C> frame_system::offchain::CreateBare<C> for Test
 where
 	RuntimeCall: From<C>,
 {
-	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
 		UncheckedExtrinsic::new_bare(call)
 	}
 }
@@ -214,6 +214,9 @@ impl paras::Config for Test {
 	type NextSessionRotation = crate::mock::TestNextSessionRotation;
 	type OnNewHead = ();
 	type AssignCoretime = ();
+	type Fungible = Balances;
+	type CooldownRemovalMultiplier = ConstUint<1>;
+	type AuthorizeCurrentCodeOrigin = EnsureRoot<Self::AccountId>;
 }
 
 parameter_types! {
@@ -302,6 +305,8 @@ impl pallet_identity::Config for Test {
 	type UsernameGracePeriod = ConstU32<10>;
 	type MaxSuffixLength = ConstU32<7>;
 	type MaxUsernameLength = ConstU32<32>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 	type WeightInfo = ();
 }
 
@@ -377,14 +382,12 @@ fn add_blocks(n: u32) {
 }
 
 fn run_to_block(n: u32) {
-	assert!(System::block_number() < n);
-	while System::block_number() < n {
-		let block_number = System::block_number();
-		AllPalletsWithSystem::on_finalize(block_number);
-		System::set_block_number(block_number + 1);
-		maybe_new_session(block_number + 1);
-		AllPalletsWithSystem::on_initialize(block_number + 1);
-	}
+	System::run_to_block_with::<AllPalletsWithSystem>(
+		n,
+		frame_system::RunToBlockHooks::default().before_initialize(|bn| {
+			maybe_new_session(bn);
+		}),
+	);
 }
 
 fn run_to_session(n: u32) {

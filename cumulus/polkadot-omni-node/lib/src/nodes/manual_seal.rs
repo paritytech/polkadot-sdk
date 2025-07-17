@@ -1,43 +1,56 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 use crate::common::{
 	rpc::BuildRpcExtensions as BuildRpcExtensionsT,
-	spec::{BaseNodeSpec, BuildImportQueue, NodeSpec as NodeSpecT},
+	spec::{BaseNodeSpec, BuildImportQueue, ClientBlockImport, NodeSpec as NodeSpecT},
 	types::{Hash, ParachainBlockImport, ParachainClient},
 };
 use codec::Encode;
 use cumulus_client_parachain_inherent::{MockValidationDataInherentDataProvider, MockXcmConfig};
-use cumulus_primitives_core::ParaId;
+use cumulus_primitives_aura::AuraUnincludedSegmentApi;
+use cumulus_primitives_core::CollectCollationInfo;
+use futures::FutureExt;
+use polkadot_primitives::UpgradeGoAhead;
+use sc_client_api::Backend;
 use sc_consensus::{DefaultImportQueue, LongestChain};
 use sc_consensus_manual_seal::rpc::{ManualSeal, ManualSealApiServer};
 use sc_network::NetworkBackend;
 use sc_service::{Configuration, PartialComponents, TaskManager};
 use sc_telemetry::TelemetryHandle;
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_runtime::traits::Header;
 use std::{marker::PhantomData, sync::Arc};
 
 pub struct ManualSealNode<NodeSpec>(PhantomData<NodeSpec>);
 
-impl<NodeSpec: NodeSpecT> BuildImportQueue<NodeSpec::Block, NodeSpec::RuntimeApi>
-	for ManualSealNode<NodeSpec>
+impl<NodeSpec: NodeSpecT>
+	BuildImportQueue<
+		NodeSpec::Block,
+		NodeSpec::RuntimeApi,
+		Arc<ParachainClient<NodeSpec::Block, NodeSpec::RuntimeApi>>,
+	> for ManualSealNode<NodeSpec>
 {
 	fn build_import_queue(
 		client: Arc<ParachainClient<NodeSpec::Block, NodeSpec::RuntimeApi>>,
-		_block_import: ParachainBlockImport<NodeSpec::Block, NodeSpec::RuntimeApi>,
+		_block_import: ParachainBlockImport<
+			NodeSpec::Block,
+			Arc<ParachainClient<NodeSpec::Block, NodeSpec::RuntimeApi>>,
+		>,
 		config: &Configuration,
 		_telemetry_handle: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
@@ -54,6 +67,7 @@ impl<NodeSpec: NodeSpecT> BaseNodeSpec for ManualSealNode<NodeSpec> {
 	type Block = NodeSpec::Block;
 	type RuntimeApi = NodeSpec::RuntimeApi;
 	type BuildImportQueue = Self;
+	type InitBlockImport = ClientBlockImport;
 }
 
 impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
@@ -64,7 +78,6 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 	pub fn start_node<Net>(
 		&self,
 		mut config: Configuration,
-		para_id: ParaId,
 		block_time: u64,
 	) -> sc_service::error::Result<TaskManager>
 	where
@@ -78,9 +91,12 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 			keystore_container,
 			select_chain: _,
 			transaction_pool,
-			other: (_, mut telemetry, _),
+			other: (_, mut telemetry, _, _),
 		} = Self::new_partial(&config)?;
 		let select_chain = LongestChain::new(backend.clone());
+
+		let para_id =
+			Self::parachain_id(&client, &config).ok_or("Failed to retrieve the parachain id")?;
 
 		// Since this is a dev node, prevent it from connecting to peers.
 		config.network.default_peers_set.in_peers = 0;
@@ -106,6 +122,27 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 				block_relay: None,
 				metrics,
 			})?;
+
+		if config.offchain_worker.enabled {
+			let offchain_workers =
+				sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
+					runtime_api_provider: client.clone(),
+					keystore: Some(keystore_container.keystore()),
+					offchain_db: backend.offchain_storage(),
+					transaction_pool: Some(OffchainTransactionPoolFactory::new(
+						transaction_pool.clone(),
+					)),
+					network_provider: Arc::new(network.clone()),
+					is_validator: config.role.is_authority(),
+					enable_http_requests: true,
+					custom_extensions: move |_| vec![],
+				})?;
+			task_manager.spawn_handle().spawn(
+				"offchain-workers-runner",
+				"offchain-work",
+				offchain_workers.run(client.clone(), task_manager.spawn_handle()).boxed(),
+			);
+		}
 
 		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
@@ -147,6 +184,26 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 					.header(block)
 					.expect("Header lookup should succeed")
 					.expect("Header passed in as parent should be present in backend.");
+
+				let should_send_go_ahead = client_for_cidp
+					.runtime_api()
+					.collect_collation_info(block, &current_para_head)
+					.map(|info| info.new_validation_code.is_some())
+					.unwrap_or_default();
+
+				// The API version is relevant here because the constraints in the runtime changed
+				// in https://github.com/paritytech/polkadot-sdk/pull/6825. In general, the logic
+				// here assumes that we are using the aura-ext consensushook in the parachain
+				// runtime.
+				let requires_relay_progress = client_for_cidp
+					.runtime_api()
+					.has_api_with::<dyn AuraUnincludedSegmentApi<NodeSpec::Block>, _>(
+						block,
+						|version| version > 1,
+					)
+					.ok()
+					.unwrap_or_default();
+
 				let current_para_block_head =
 					Some(polkadot_primitives::HeadData(current_para_head.encode()));
 				let client_for_xcm = client_for_cidp.clone();
@@ -161,14 +218,22 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 						),
 						para_id,
 						current_para_block_head,
-						relay_offset: 1000,
-						relay_blocks_per_para_block: 1,
+						relay_offset: 0,
+						relay_blocks_per_para_block: requires_relay_progress
+							.then(|| 1)
+							.unwrap_or_default(),
 						para_blocks_per_relay_epoch: 10,
 						relay_randomness_config: (),
 						xcm_config: MockXcmConfig::new(&*client_for_xcm, block, Default::default()),
 						raw_downward_messages: vec![],
 						raw_horizontal_messages: vec![],
 						additional_key_values: None,
+						upgrade_go_ahead: should_send_go_ahead.then(|| {
+							log::info!(
+								"Detected pending validation code, sending go-ahead signal."
+							);
+							UpgradeGoAhead::GoAhead
+						}),
 					};
 					Ok((
 						// This is intentional, as the runtime that we expect to run against this
@@ -196,6 +261,7 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 					client.clone(),
 					backend_for_rpc.clone(),
 					transaction_pool.clone(),
+					None,
 				)?;
 				module
 					.merge(ManualSeal::new(manual_seal_sink.clone()).into_rpc())

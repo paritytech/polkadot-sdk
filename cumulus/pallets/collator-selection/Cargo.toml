@@ -16,29 +16,28 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-log = { workspace = true }
 codec = { features = ["derive"], workspace = true }
+log = { workspace = true }
 rand = { features = ["std_rng"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 
-sp-runtime = { workspace = true }
-sp-staking = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-session = { workspace = true }
+sp-runtime = { workspace = true }
+sp-staking = { workspace = true }
 
 frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
-sp-core = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
+pallet-aura = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 sp-consensus-aura = { workspace = true, default-features = true }
-pallet-aura = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

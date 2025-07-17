@@ -17,7 +17,7 @@
 //! XCM sender for relay chain.
 
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use codec::{DecodeLimit, Encode};
 use core::marker::PhantomData;
 use frame_support::traits::Get;
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -27,7 +27,7 @@ use polkadot_runtime_parachains::{
 	dmp, FeeTracker,
 };
 use sp_runtime::FixedPointNumber;
-use xcm::prelude::*;
+use xcm::{prelude::*, MAX_XCM_DECODE_DEPTH};
 use xcm_builder::InspectMessageQueues;
 use SendError::*;
 
@@ -122,7 +122,7 @@ where
 		let para = id.into();
 		let price = P::price_for_delivery(para, &xcm);
 		let versioned_xcm = W::wrap_version(&d, xcm).map_err(|()| DestinationUnsupported)?;
-		versioned_xcm.validate_xcm_nesting().map_err(|()| ExceedsMaxMessageSize)?;
+		versioned_xcm.check_is_decodable().map_err(|()| ExceedsMaxMessageSize)?;
 		let blob = versioned_xcm.encode();
 		dmp::Pallet::<T>::can_queue_downward_message(&config, &para, &blob)
 			.map_err(Into::<SendError>::into)?;
@@ -136,7 +136,13 @@ where
 		let hash = sp_io::hashing::blake2_256(&blob[..]);
 		dmp::Pallet::<T>::queue_downward_message(&config, para, blob)
 			.map(|()| hash)
-			.map_err(|_| SendError::Transport(&"Error placing into DMP queue"))
+			.map_err(|error| {
+				log::debug!(
+					target: "xcm::xcm_sender::deliver",
+					"Failed to place into DMP queue: error: {error:?}, id: {hash:?}",
+				);
+				SendError::Transport(&"Error placing into DMP queue")
+			})
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -159,12 +165,22 @@ impl<T: dmp::Config, W, P> InspectMessageQueues for ChildParachainRouter<T, W, P
 				let decoded_messages: Vec<VersionedXcm<()>> = messages
 					.iter()
 					.map(|downward_message| {
-						let message = VersionedXcm::<()>::decode(&mut &downward_message.msg[..]).unwrap();
-						log::trace!(target: "xcm::DownwardMessageQueues::get_messages", "Message: {:?}, sent at: {:?}", message, downward_message.sent_at);
+						let message = VersionedXcm::<()>::decode_all_with_depth_limit(
+							MAX_XCM_DECODE_DEPTH,
+							&mut &downward_message.msg[..],
+						)
+						.unwrap();
+						log::trace!(
+							target: "xcm::DownwardMessageQueues::get_messages",
+							"Message: {:?}, sent at: {:?}", message, downward_message.sent_at
+						);
 						message
 					})
 					.collect();
-				(VersionedLocation::from(Location::from(Parachain(para_id.into()))), decoded_messages)
+				(
+					VersionedLocation::from(Location::from(Parachain(para_id.into()))),
+					decoded_messages,
+				)
 			})
 			.collect()
 	}
@@ -212,6 +228,8 @@ impl<
 		dest: &Location,
 		fee_reason: xcm_executor::traits::FeeReason,
 	) -> (Option<xcm_executor::FeesMode>, Option<Assets>) {
+		use alloc::vec;
+		use xcm::{latest::MAX_ITEMS_IN_ASSETS, MAX_INSTRUCTIONS_TO_DECODE};
 		use xcm_executor::{
 			traits::{FeeManager, TransactAsset},
 			FeesMode,
@@ -239,7 +257,12 @@ impl<
 			}
 
 			// overestimate delivery fee
-			let overestimated_xcm = alloc::vec![ClearOrigin; 128].into();
+			let mut max_assets: Vec<Asset> = Vec::new();
+			for i in 0..MAX_ITEMS_IN_ASSETS {
+				max_assets.push((GeneralIndex(i as u128), 100u128).into());
+			}
+			let overestimated_xcm =
+				vec![WithdrawAsset(max_assets.into()); MAX_INSTRUCTIONS_TO_DECODE as usize].into();
 			let overestimated_fees =
 				PriceForDelivery::price_for_delivery(Parachain::get(), &overestimated_xcm);
 
@@ -279,12 +302,12 @@ mod tests {
 			FixedU128::from_rational(101, 100)
 		}
 
-		fn increase_fee_factor(_: Self::Id, _: FixedU128) -> FixedU128 {
-			FixedU128::from_rational(101, 100)
-		}
+		fn set_fee_factor(_id: Self::Id, _val: FixedU128) {}
 
-		fn decrease_fee_factor(_: Self::Id) -> FixedU128 {
-			FixedU128::from_rational(101, 100)
+		fn increase_fee_factor(_: Self::Id, _: u128) {}
+
+		fn decrease_fee_factor(_: Self::Id) -> bool {
+			true
 		}
 	}
 

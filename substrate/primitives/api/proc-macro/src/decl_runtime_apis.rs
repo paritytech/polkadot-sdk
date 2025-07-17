@@ -187,6 +187,7 @@ fn generate_runtime_decls(decls: &[ItemTrait]) -> Result<TokenStream> {
 		let decl_span = decl.span();
 		extend_generics_with_block(&mut decl.generics);
 		let mod_name = generate_runtime_mod_name_for_trait(&decl.ident);
+
 		let found_attributes = remove_supported_attributes(&mut decl.attrs);
 		let api_version = get_api_version(&found_attributes).map(generate_runtime_api_version)?;
 		let id = generate_runtime_api_id(&decl.ident.to_string());
@@ -197,58 +198,61 @@ fn generate_runtime_decls(decls: &[ItemTrait]) -> Result<TokenStream> {
 
 		// Process the items in the declaration. The filter_map function below does a lot of stuff
 		// because the method attributes are stripped at this point
-		decl.items.iter_mut().for_each(|i| match i {
-			TraitItem::Fn(ref mut method) => {
-				let method_attrs = remove_supported_attributes(&mut method.attrs);
-				let mut method_version = trait_api_version;
-				// validate the api version for the method (if any) and generate default
-				// implementation for versioned methods
-				if let Some(version_attribute) = method_attrs.get(API_VERSION_ATTRIBUTE) {
-					method_version = match parse_runtime_api_version(version_attribute) {
-						Ok(method_api_ver) if method_api_ver < trait_api_version => {
-							let method_ver = method_api_ver.to_string();
-							let trait_ver = trait_api_version.to_string();
-							let mut err1 = Error::new(
-								version_attribute.span(),
-								format!(
+		decl.items.iter_mut().for_each(|i| {
+			match i {
+				TraitItem::Fn(ref mut method) => {
+					let method_attrs = remove_supported_attributes(&mut method.attrs);
+					let mut method_version = trait_api_version;
+					// validate the api version for the method (if any) and generate default
+					// implementation for versioned methods
+					if let Some(version_attribute) = method_attrs.get(API_VERSION_ATTRIBUTE) {
+						method_version = match parse_runtime_api_version(version_attribute) {
+							Ok(method_api_ver) if method_api_ver < trait_api_version => {
+								let method_ver = method_api_ver.to_string();
+								let trait_ver = trait_api_version.to_string();
+								let mut err1 = Error::new(
+									version_attribute.span(),
+									format!(
 										"Method version `{}` is older than (or equal to) trait version `{}`.\
 										 Methods can't define versions older than the trait version.",
 										method_ver,
 										trait_ver,
 									),
-							);
+								);
 
-							let err2 = match found_attributes.get(&API_VERSION_ATTRIBUTE) {
-								Some(attr) => Error::new(attr.span(), "Trait version is set here."),
-								None => Error::new(
-									decl_span,
-									"Trait version is not set so it is implicitly equal to 1.",
-								),
-							};
-							err1.combine(err2);
-							result.push(err1.to_compile_error());
+								let err2 = match found_attributes.get(&API_VERSION_ATTRIBUTE) {
+									Some(attr) =>
+										Error::new(attr.span(), "Trait version is set here."),
+									None => Error::new(
+										decl_span,
+										"Trait version is not set so it is implicitly equal to 1.",
+									),
+								};
+								err1.combine(err2);
+								result.push(err1.to_compile_error());
 
-							trait_api_version
-						},
-						Ok(method_api_ver) => method_api_ver,
-						Err(e) => {
-							result.push(e.to_compile_error());
-							trait_api_version
-						},
-					};
-				}
+								trait_api_version
+							},
+							Ok(method_api_ver) => method_api_ver,
+							Err(e) => {
+								result.push(e.to_compile_error());
+								trait_api_version
+							},
+						};
+					}
 
-				// Any method with the `changed_in` attribute isn't required for the runtime
-				// anymore.
-				if !method_attrs.contains_key(CHANGED_IN_ATTRIBUTE) {
-					// Make sure we replace all the wild card parameter names.
-					replace_wild_card_parameter_names(&mut method.sig);
+					// Any method with the `changed_in` attribute isn't required for the runtime
+					// anymore.
+					if !method_attrs.contains_key(CHANGED_IN_ATTRIBUTE) {
+						// Make sure we replace all the wild card parameter names.
+						replace_wild_card_parameter_names(&mut method.sig);
 
-					// partition methods by api version
-					methods_by_version.entry(method_version).or_default().push(method.clone());
-				}
-			},
-			_ => (),
+						// partition methods by api version
+						methods_by_version.entry(method_version).or_default().push(method.clone());
+					}
+				},
+				_ => (),
+			}
 		});
 
 		let versioned_methods_iter = methods_by_version
@@ -525,9 +529,15 @@ fn generate_runtime_info_impl(trait_: &ItemTrait, version: u32) -> TokenStream {
 		let ident = &t.ident;
 		quote! { #ident }
 	});
+	let maybe_allow_attrs = trait_.attrs.iter().filter(|attr| attr.path().is_ident("allow"));
+	let maybe_allow_deprecated = trait_.attrs.iter().filter_map(|attr| {
+		attr.path().is_ident("deprecated").then(|| quote! { #[allow(deprecated)] })
+	});
 
 	quote!(
 		#crate_::std_enabled! {
+			#( #maybe_allow_attrs )*
+			#( #maybe_allow_deprecated )*
 			impl < #( #impl_generics, )* > #crate_::RuntimeApiInfo
 				for dyn #trait_name < #( #ty_generics, )* >
 			{
@@ -581,7 +591,10 @@ fn generate_client_side_decls(decls: &[ItemTrait]) -> Result<TokenStream> {
 		let runtime_info = api_version.map(|v| generate_runtime_info_impl(&decl, v))?;
 
 		result.push(quote!(
-			#crate_::std_enabled! { #decl }
+			#crate_::std_enabled! {
+				#[allow(deprecated)]
+				#decl
+			 }
 			#runtime_info
 			#( #errors )*
 		));

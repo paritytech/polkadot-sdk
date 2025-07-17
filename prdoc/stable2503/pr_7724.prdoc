@@ -1,0 +1,13 @@
+title: Terminate libp2p the outbound notification substream on io errors
+
+doc:
+  - audience: [Node Dev, Node Operator]
+    description: |
+      This PR handles a case where we called the poll_next on an outbound substream notification to check if the stream is closed.
+      It is entirely possible that the poll_next would return an io::error, for example end of file.
+      This PR ensures that we make the distinction between unexpected incoming data, and error originated from poll_next.
+      While at it, the bulk of the PR change propagates the PeerID from the network behavior, through the notification handler, to the notification outbound stream for logging purposes.
+
+crates:
+  - name: sc-network
+    bump: patch

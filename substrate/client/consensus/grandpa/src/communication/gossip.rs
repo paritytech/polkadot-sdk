@@ -1188,7 +1188,7 @@ impl<Block: BlockT> Inner<Block> {
 				commit_finalized_height: *local_view.last_commit_height().unwrap_or(&Zero::zero()),
 			};
 
-			let peers = self.peers.inner.iter().map(|(id, _)| id).cloned().collect();
+			let peers = self.peers.inner.keys().cloned().collect();
 
 			(peers, packet)
 		})

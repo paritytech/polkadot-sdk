@@ -114,7 +114,7 @@ jobs:
 
       - name: Set changes
         id: set_changes
-        uses: tj-actions/changed-files@v45
+        uses: tj-actions/changed-files@ed68ef82c095e0d48ec87eccea555d944a631a4c #v46.0.5
         with:
           files_yaml: |
             rust:
@@ -203,6 +203,7 @@ jobs:
           echo $( substrate-contracts-node --version | awk 'NF' )
           estuary --version
           cargo-contract --version
+          taplo --version
 
       - name: Info forklift
         run: forklift version

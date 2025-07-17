@@ -1,0 +1,31 @@
+title: Collation fetching fairness in collator protocol
+
+doc:
+  - audience: "Node Dev"
+    description: |
+      Implements collation fetching fairness in the validator side of the collator protocol. With
+      core time in place if two (or more) parachains share a single core no fairness was guaranteed
+      between them in terms of collation fetching. The current implementation was accepting up to
+      `max_candidate_depth + 1` seconded collations per relay parent and once this limit is reached
+      no new collations are accepted. A misbehaving collator can abuse this fact and prevent other
+      collators/parachains from advertising collations by advertising `max_candidate_depth + 1`
+      collations of its own.
+      To address this issue two changes are made:
+      1. For each parachain id the validator accepts advertisements until the number of entries in
+         the claim queue equals the number of seconded candidates.
+      2. When new collation should be fetched the validator inspects what was seconded so far,
+         what's in the claim queue and picks the first slot which hasn't got a collation seconded
+         and there is no candidate pending seconding for it. If there is an advertisement in the
+         waiting queue for it it is fetched. Otherwise the next free slot is picked.
+      These two changes guarantee that:
+      1. Validator doesn't accept more collations than it can actually back.
+      2. Each parachain has got a fair share of core time based on its allocations in the claim
+         queue.
+
+crates:
+  - name: polkadot-collator-protocol
+    bump: patch
+  - name: polkadot
+    bump: patch
+  - name: polkadot-node-subsystem-util
+    bump: minor

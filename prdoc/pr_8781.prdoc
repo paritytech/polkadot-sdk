@@ -1,0 +1,14 @@
+title: '[pallet-revive] fix call-trace create calls'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fix call-traces for CREATE calls.
+
+    fixes https://github.com/paritytech/contract-issues/issues/96
+crates:
+- name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-eth-rpc
+  bump: patch

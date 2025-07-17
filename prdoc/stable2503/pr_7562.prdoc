@@ -1,0 +1,10 @@
+title: 'pallet-revive: Add env var to allow skipping of validation for testing'
+doc:
+- audience: Runtime Dev
+  description: |-
+    When trying to reproduce bugs we sometimes need to deploy code that wouldn't pass validation. This PR adds a new environment variable `REVIVE_SKIP_VALIDATION` that when set will skip all validation except the contract blob size limit.
+
+    Please note that this only applies to when the pallet is compiled for `std` and hence will never be part of on-chain.
+crates:
+- name: pallet-revive
+  bump: patch

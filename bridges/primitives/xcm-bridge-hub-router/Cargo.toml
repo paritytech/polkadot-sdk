@@ -15,8 +15,8 @@ codec = { features = ["bit-vec", "derive"], workspace = true }
 scale-info = { features = ["bit-vec", "derive"], workspace = true }
 
 # Substrate Dependencies
-sp-runtime = { workspace = true }
 sp-core = { workspace = true }
+sp-runtime = { workspace = true }
 
 # Polkadot Dependencies
 xcm = { workspace = true }

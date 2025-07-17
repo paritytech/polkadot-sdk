@@ -88,26 +88,26 @@ pub use weights::WeightInfo;
 
 pub use pallet::*;
 
-type BalanceOf<T> = pallet_treasury::BalanceOf<T>;
-type BountiesError<T> = pallet_bounties::Error<T>;
-type BountyIndex = pallet_bounties::BountyIndex;
-type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
-type BlockNumberFor<T> =
+pub type BalanceOf<T> = pallet_treasury::BalanceOf<T>;
+pub type BountiesError<T> = pallet_bounties::Error<T>;
+pub type BountyIndex = pallet_bounties::BountyIndex;
+pub type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
+pub type BlockNumberFor<T> =
 	<<T as pallet_treasury::Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 /// A child bounty proposal.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct ChildBounty<AccountId, Balance, BlockNumber> {
 	/// The parent of this child-bounty.
-	parent_bounty: BountyIndex,
+	pub parent_bounty: BountyIndex,
 	/// The (total) amount that should be paid if this child-bounty is rewarded.
-	value: Balance,
+	pub value: Balance,
 	/// The child bounty curator fee.
-	fee: Balance,
+	pub fee: Balance,
 	/// The deposit of child-bounty curator.
-	curator_deposit: Balance,
+	pub curator_deposit: Balance,
 	/// The status of this child-bounty.
-	status: ChildBountyStatus<AccountId, BlockNumber>,
+	pub status: ChildBountyStatus<AccountId, BlockNumber>,
 }
 
 /// The status of a child-bounty.
@@ -162,6 +162,7 @@ pub mod pallet {
 		type ChildBountyValueMinimum: Get<BalanceOf<Self>>;
 
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Weight information for extrinsics in this pallet.
@@ -687,7 +688,7 @@ pub mod pallet {
 			#[pallet::compact] parent_bounty_id: BountyIndex,
 			#[pallet::compact] child_bounty_id: BountyIndex,
 		) -> DispatchResult {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 
 			// Ensure child-bounty is in expected state.
 			ChildBounties::<T>::try_mutate_exists(

@@ -15,8 +15,8 @@ codec = { workspace = true, default-features = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true, default-features = true }
 futures = { workspace = true }
-pallet-transaction-payment = { workspace = true, default-features = true }
 pallet-sudo = { workspace = true, default-features = true }
+pallet-transaction-payment = { workspace = true, default-features = true }
 pallet-xcm = { workspace = true, default-features = true }
 polkadot-runtime-parachains = { workspace = true, default-features = true }
 polkadot-test-client = { workspace = true }
@@ -26,11 +26,17 @@ sp-consensus = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-runtime = { workspace = true }
 sp-state-machine = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 xcm = { workspace = true }
 xcm-executor = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
-std = ["frame-support/std", "frame-system/std", "pallet-sudo/std", "polkadot-runtime-parachains/std", "sp-runtime/std", "xcm/std"]
+std = [
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-sudo/std",
+	"polkadot-runtime-parachains/std",
+	"sp-runtime/std",
+	"xcm/std",
+]

@@ -35,6 +35,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		// Runtime events already propagated to the metadata.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		// Constants are already propagated.
@@ -59,6 +60,7 @@ pub mod pallet2 {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		// Runtime events already propagated to the metadata.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		// Constants are already propagated.
@@ -95,6 +97,7 @@ pub mod pallet3 {
 	#[pallet::config(without_automatic_metadata)]
 	pub trait Config: frame_system::Config {
 		// Runtime events already propagated to the metadata.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		// Constants are already propagated.

@@ -96,7 +96,7 @@
 //! Two ways exist to run the benchmarks of a runtime.
 //!
 //! 1. The old school way: Most Polkadot-SDK based nodes (such as the ones integrated in
-//!    [`templates`]) have an a `benchmark` subcommand integrated into themselves.
+//!    [`templates`]) have a `benchmark` subcommand integrated into themselves.
 //! 2. The more [`crate::reference_docs::omni_node`] compatible way of running the benchmarks would
 //!    be using [`frame-omni-bencher`] CLI, which only relies on a runtime.
 //!

@@ -22,11 +22,9 @@ use crate::{
 	hash::{H256, H512},
 };
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use scale_info::TypeInfo;
-
-use sp_runtime_interface::pass_by::{self, PassBy, PassByInner};
 
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
@@ -47,7 +45,7 @@ pub use signature_bytes::*;
 /// The tag `T` is held in a `PhantomData<fn() ->T>`, a trick allowing
 /// `CryptoBytes` to be `Send` and `Sync` regardless of `T` properties
 /// ([ref](https://doc.rust-lang.org/nomicon/phantom-data.html#table-of-phantomdata-patterns)).
-#[derive(Encode, Decode, MaxEncodedLen)]
+#[derive(Encode, Decode, DecodeWithMemTracking, MaxEncodedLen)]
 #[repr(transparent)]
 pub struct CryptoBytes<const N: usize, T = ()>(pub [u8; N], PhantomData<fn() -> T>);
 
@@ -97,26 +95,6 @@ impl<const N: usize, T> Default for CryptoBytes<N, T> {
 	fn default() -> Self {
 		Self([0_u8; N], PhantomData)
 	}
-}
-
-impl<const N: usize, T> PassByInner for CryptoBytes<N, T> {
-	type Inner = [u8; N];
-
-	fn into_inner(self) -> Self::Inner {
-		self.0
-	}
-
-	fn inner(&self) -> &Self::Inner {
-		&self.0
-	}
-
-	fn from_inner(inner: Self::Inner) -> Self {
-		Self(inner, PhantomData)
-	}
-}
-
-impl<const N: usize, T> PassBy for CryptoBytes<N, T> {
-	type PassBy = pass_by::Inner<Self, [u8; N]>;
 }
 
 impl<const N: usize, T> AsRef<[u8]> for CryptoBytes<N, T> {

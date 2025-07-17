@@ -1,0 +1,8 @@
+title: 'initial docify readme with some content #6333'
+doc:
+- audience: Runtime Dev
+  description: |
+      Docifying the README.MD under templates/parachain by adding a Docify.
+      Also Adding the Cargo.toml under the same folder, essentially making it a crate as Docify acts
+      for Readmes only under the same crate.
+crates: [ ]

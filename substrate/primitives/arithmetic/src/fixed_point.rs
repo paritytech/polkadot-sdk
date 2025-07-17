@@ -52,7 +52,7 @@ use crate::{
 	},
 	PerThing, Perbill, Rounding, SignedRounding,
 };
-use codec::{CompactAs, Decode, Encode};
+use codec::{CompactAs, Decode, DecodeWithMemTracking, Encode};
 use core::{
 	fmt::Debug,
 	ops::{self, Add, Div, Mul, Sub},
@@ -139,6 +139,9 @@ pub trait FixedPointNumber:
 
 	/// Consumes `self` and returns the inner raw value.
 	fn into_inner(self) -> Self::Inner;
+
+	/// Compute the square root. If it overflows or is negative, then `None` is returned.
+	fn checked_sqrt(self) -> Option<Self>;
 
 	/// Creates self from an integer number `int`.
 	///
@@ -404,6 +407,7 @@ macro_rules! implement_fixed {
 		#[derive(
 			Encode,
 			Decode,
+			DecodeWithMemTracking,
 			CompactAs,
 			Default,
 			Copy,
@@ -441,6 +445,10 @@ macro_rules! implement_fixed {
 
 			fn into_inner(self) -> Self::Inner {
 				self.0
+			}
+
+			fn checked_sqrt(self) -> Option<Self> {
+				self.checked_sqrt()
 			}
 		}
 
@@ -550,15 +558,21 @@ macro_rules! implement_fixed {
 			/// WARNING: This is a `const` function designed for convenient use at build time and
 			/// will panic on overflow. Ensure that any inputs are sensible.
 			pub const fn sqrt(self) -> Self {
-				match self.try_sqrt() {
+				match self.checked_sqrt() {
 					Some(v) => v,
 					None => panic!("sqrt overflow or negative input"),
 				}
 			}
 
-			/// Compute the square root, rounding as desired. If it overflows or is negative, then
-			/// `None` is returned.
+			#[deprecated(
+				note = "`try_sqrt` will be removed after October 2025. Use `checked_sqrt` instead."
+			)]
 			pub const fn try_sqrt(self) -> Option<Self> {
+				self.checked_sqrt()
+			}
+
+			/// Compute the square root. If it overflows or is negative, then `None` is returned.
+			pub const fn checked_sqrt(self) -> Option<Self> {
 				if self.0 == 0 {
 					return Some(Self(0))
 				}
@@ -1210,9 +1224,9 @@ macro_rules! implement_fixed {
 			fn op_sqrt_works() {
 				for i in 1..1_000i64 {
 					let x = $name::saturating_from_rational(i, 1_000i64);
-					assert_eq!((x * x).try_sqrt(), Some(x));
+					assert_eq!((x * x).checked_sqrt(), Some(x));
 					let x = $name::saturating_from_rational(i, 1i64);
-					assert_eq!((x * x).try_sqrt(), Some(x));
+					assert_eq!((x * x).checked_sqrt(), Some(x));
 				}
 			}
 

@@ -36,6 +36,9 @@ extern crate self as frame_support;
 #[doc(hidden)]
 extern crate alloc;
 
+/// Maximum nesting level for extrinsics.
+pub const MAX_EXTRINSIC_DEPTH: u32 = 256;
+
 /// Private exports that are being used by macros.
 ///
 /// The exports are not stable and should not be relied on.
@@ -43,7 +46,9 @@ extern crate alloc;
 pub mod __private {
 	pub use alloc::{
 		boxed::Box,
+		fmt::Debug,
 		rc::Rc,
+		string::String,
 		vec,
 		vec::{IntoIter, Vec},
 	};
@@ -86,6 +91,7 @@ pub mod storage;
 #[cfg(test)]
 mod tests;
 pub mod traits;
+pub mod view_functions;
 pub mod weights;
 #[doc(hidden)]
 pub mod unsigned {
@@ -444,6 +450,12 @@ macro_rules! parameter_types_impl_thread_local {
 						Self::set($value);
 						current
 					}
+
+					/// Kill/reset the value to whatever was set at first.
+					#[allow(unused)]
+					pub fn reset() {
+						Self::set($value);
+					}
 				}
 			)*
 		}
@@ -502,9 +514,9 @@ macro_rules! runtime_print {
 	($($arg:tt)+) => {
 		{
 			use core::fmt::Write;
-			let mut w = $crate::__private::sp_std::Writer::default();
-			let _ = core::write!(&mut w, $($arg)+);
-			$crate::__private::sp_io::misc::print_utf8(&w.inner())
+			let mut msg = $crate::__private::String::default();
+			let _ = core::write!(&mut msg, $($arg)+);
+			$crate::__private::sp_io::misc::print_utf8(msg.as_bytes())
 		}
 	}
 }
@@ -828,6 +840,7 @@ macro_rules! assert_error_encoded_size {
 		assert_message = [{ $assert_message:literal }]
 		error = [{ $error:ident }]
 	} => {
+		#[allow(deprecated)]
 		const _: () = assert!(
 			<
 				$($path::)+$error<$runtime> as $crate::traits::PalletError
@@ -846,11 +859,10 @@ macro_rules! assert_error_encoded_size {
 ///
 /// Returns the original result of the closure.
 #[macro_export]
-#[cfg(feature = "experimental")]
 macro_rules! hypothetically {
 	( $e:expr ) => {
-		$crate::storage::transactional::with_transaction(|| -> $crate::__private::TransactionOutcome<Result<_, $crate::__private::DispatchError>> {
-			$crate::__private::TransactionOutcome::Rollback(Ok($e))
+		$crate::storage::transactional::with_transaction(|| -> $crate::__private::TransactionOutcome<::core::result::Result<_, $crate::__private::DispatchError>> {
+			$crate::__private::TransactionOutcome::Rollback(::core::result::Result::Ok($e))
 		},
 		).expect("Always returning Ok; qed")
 	};
@@ -860,7 +872,6 @@ macro_rules! hypothetically {
 ///
 /// Reverts any storage changes made by the closure.
 #[macro_export]
-#[cfg(feature = "experimental")]
 macro_rules! hypothetically_ok {
 	($e:expr $(, $args:expr)* $(,)?) => {
 		$crate::assert_ok!($crate::hypothetically!($e) $(, $args)*);
@@ -904,14 +915,14 @@ pub mod pallet_prelude {
 			StorageList,
 		},
 		traits::{
-			BuildGenesisConfig, ConstU32, ConstUint, EnsureOrigin, Get, GetDefault,
-			GetStorageVersion, Hooks, IsType, PalletInfoAccess, StorageInfoTrait, StorageVersion,
-			Task, TypedGet,
+			Authorize, BuildGenesisConfig, ConstU32, ConstUint, EnsureOrigin, Get, GetDefault,
+			GetStorageVersion, Hooks, IsType, OriginTrait, PalletInfoAccess, StorageInfoTrait,
+			StorageVersion, Task, TypedGet,
 		},
 		Blake2_128, Blake2_128Concat, Blake2_256, CloneNoBound, DebugNoBound, EqNoBound, Identity,
 		PartialEqNoBound, RuntimeDebugNoBound, Twox128, Twox256, Twox64Concat,
 	};
-	pub use codec::{Decode, Encode, MaxEncodedLen};
+	pub use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 	pub use core::marker::PhantomData;
 	pub use frame_support::pallet_macros::*;
 	pub use frame_support_procedural::{inject_runtime_type, register_default_impl};
@@ -920,12 +931,13 @@ pub mod pallet_prelude {
 	pub use sp_runtime::{
 		traits::{
 			CheckedAdd, CheckedConversion, CheckedDiv, CheckedMul, CheckedShl, CheckedShr,
-			CheckedSub, MaybeSerializeDeserialize, Member, One, ValidateUnsigned, Zero,
+			CheckedSub, MaybeSerializeDeserialize, Member, One, ValidateResult, ValidateUnsigned,
+			Zero,
 		},
 		transaction_validity::{
 			InvalidTransaction, TransactionLongevity, TransactionPriority, TransactionSource,
-			TransactionTag, TransactionValidity, TransactionValidityError, UnknownTransaction,
-			ValidTransaction,
+			TransactionTag, TransactionValidity, TransactionValidityError,
+			TransactionValidityWithRefund, UnknownTransaction, ValidTransaction,
 		},
 		DispatchError, RuntimeDebug, MAX_MODULE_ERROR_ENCODED_SIZE,
 	};
@@ -1063,6 +1075,10 @@ pub mod pallet_prelude {
 /// - Usage of `deprecated` attribute will propagate deprecation information to the pallet
 ///   metadata.
 /// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
+/// - Usage of `allow(deprecated)` on the item will propagate this attribute to the generated
+///   code.
+/// - If the item is annotated with `deprecated` attribute then the generated code will be
+///   automatically annotated with `allow(deprecated)`
 pub use frame_support_procedural::pallet;
 
 /// Contains macro stubs for all of the `pallet::` macros
@@ -1096,34 +1112,61 @@ pub mod pallet_macros {
 
 	/// Allows specifying the weight of a call.
 	///
-	/// Each dispatchable needs to define a weight with the `#[pallet::weight($expr)]`
-	/// attribute. The first argument must be `origin: OriginFor<T>`.
+	/// Each dispatchable needs to define a weight.
+	/// This attribute allows to define a weight using the expression:
+	/// `#[pallet::weight($expr)]` Note that argument of the call are available inside the
+	/// expression.
+	///
+	/// If not defined explicitly, the weight can be implicitly inferred from the weight info
+	/// defined in the attribute `pallet::call`: `#[pallet::call(weight = $WeightInfo)]`.
+	/// Or it can be simply ignored when the pallet is in `dev_mode`.
 	///
 	/// ## Example
 	///
 	/// ```
 	/// #[frame_support::pallet]
 	/// mod pallet {
-	/// # 	use frame_support::pallet_prelude::*;
-	/// # 	use frame_system::pallet_prelude::*;
-	/// #
+	///  	use frame_support::pallet_prelude::*;
+	///  	use frame_system::pallet_prelude::*;
+	///
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
 	///
-	/// 	#[pallet::call]
+	///  	#[pallet::config]
+	///  	pub trait Config: frame_system::Config {
+	///         /// Type for specifying dispatchable weights.
+	///         type WeightInfo: WeightInfo;
+	///     }
+	///
+	/// 	#[pallet::call(weight = <T as Config>::WeightInfo)]
 	/// 	impl<T: Config> Pallet<T> {
-	/// 		#[pallet::weight({0})] // <- set actual weight here
+	/// 		// Explicit weight definition
+	/// 		#[pallet::weight(<T as Config>::WeightInfo::do_something())]
 	/// 		#[pallet::call_index(0)]
-	/// 		pub fn something(
-	/// 			_: OriginFor<T>,
+	/// 		pub fn do_something(
+	/// 			origin: OriginFor<T>,
 	/// 			foo: u32,
 	/// 		) -> DispatchResult {
-	/// 			unimplemented!()
+	/// 			Ok(())
 	/// 		}
-	/// 	}
-	/// #
-	/// # 	#[pallet::config]
-	/// # 	pub trait Config: frame_system::Config {}
+	///
+	///             // Implicit weight definition, the macro looks up to the weight info defined in
+	///             // `#[pallet::call(weight = $WeightInfo)]` attribute. Then use
+	///             // `$WeightInfo::do_something_else` as the weight function.
+	///             #[pallet::call_index(1)]
+	///             pub fn do_something_else(
+	///                 origin: OriginFor<T>,
+	///                 bar: u64,
+	///             ) -> DispatchResult {
+	///                 Ok(())
+	///             }
+	///     }
+	///
+	///     /// The `WeightInfo` trait defines weight functions for dispatchable calls.
+	///     pub trait WeightInfo {
+	///         fn do_something() -> Weight;
+	///         fn do_something_else() -> Weight;
+	///     }
 	/// }
 	/// ```
 	pub use frame_support_procedural::weight;
@@ -1342,8 +1385,7 @@ pub mod pallet_macros {
 	/// 	pub struct Pallet<T>(_);
 	/// #
 	/// # 	#[pallet::config]
-	/// # 	pub trait Config: frame_system::Config {
-	/// # 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+	/// # 	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {
 	/// # 	}
 	/// }
 	/// ```
@@ -1480,12 +1522,6 @@ pub mod pallet_macros {
 	/// optionally other supertraits and a where clause. (Specifying other supertraits here is
 	/// known as [tight coupling](https://docs.substrate.io/reference/how-to-guides/pallet-design/use-tight-coupling/))
 	///
-	/// The associated type `RuntimeEvent` is reserved. If defined, it must have the bounds
-	/// `From<Event>` and `IsType<<Self as frame_system::Config>::RuntimeEvent>`.
-	///
-	/// [`#[pallet::event]`](`event`) must be present if `RuntimeEvent`
-	/// exists as a config item in your `#[pallet::config]`.
-	///
 	/// ## Optional: `with_default`
 	///
 	/// An optional `with_default` argument may also be specified. Doing so will automatically
@@ -1508,10 +1544,6 @@ pub mod pallet_macros {
 	///
 	/// 	#[pallet::config(with_default)] // <- with_default is optional
 	/// 	pub trait Config: frame_system::Config {
-	/// 		/// The overarching event type.
-	/// 		#[pallet::no_default_bounds] // Default with bounds is not supported for RuntimeEvent
-	/// 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-	///
 	/// 		/// A more complex type.
 	/// 		#[pallet::no_default] // Example of type where no default should be provided
 	/// 		type MoreComplexType: SomeMoreComplexBound;
@@ -1580,14 +1612,13 @@ pub mod pallet_macros {
 	/// Furthermore, the `without_automatic_metadata` argument can be used in combination with
 	/// the [`#[pallet::include_metadata]`](`include_metadata`) attribute to selectively
 	/// include only certain associated types in the metadata collection.
-	///
 	/// ```
 	/// #[frame_support::pallet]
 	/// mod pallet {
 	/// # 	use frame_support::pallet_prelude::*;
 	/// # 	use frame_system::pallet_prelude::*;
 	/// # 	use core::fmt::Debug;
-	/// # 	use frame_support::traits::Contains;
+	/// # 	use frame_support::traits::{Contains, VariantCount};
 	/// #
 	/// # 	pub trait SomeMoreComplexBound {}
 	/// #
@@ -1596,10 +1627,9 @@ pub mod pallet_macros {
 	///
 	/// 	#[pallet::config(with_default, without_automatic_metadata)] // <- with_default and without_automatic_metadata are optional
 	/// 	pub trait Config: frame_system::Config {
-	/// 		/// The overarching event type.
-	/// 		#[pallet::no_default_bounds] // Default with bounds is not supported for RuntimeEvent
-	/// 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-	///
+	/// 		/// The overarching freeze reason.
+	/// 		#[pallet::no_default_bounds] // Default with bounds is not supported for RuntimeFreezeReason
+	/// 		type RuntimeFreezeReason: Parameter + Member + MaxEncodedLen + Copy + VariantCount;
 	/// 		/// A simple type.
 	/// 		// Type that would have been included in metadata, but is now excluded.
 	/// 		type SimpleType: From<u32> + TypeInfo;
@@ -1706,6 +1736,61 @@ pub mod pallet_macros {
 	/// The macro currently makes no use of this information, but it might use this information
 	/// in the future to give information directly to [`frame_support::construct_runtime`].
 	pub use frame_support_procedural::validate_unsigned;
+
+	/// Allows defining	view functions on a pallet.
+	///
+	/// A pallet view function is a read-only function providing access to the state of the
+	/// pallet from both outside and inside the runtime. It should provide a _stable_ interface
+	/// for querying the state of the pallet, avoiding direct storage access and upgrading
+	/// along with the runtime.
+	///
+	/// ## Syntax
+	/// View functions methods must be read-only and always return some output. A
+	/// `view_functions` impl block only allows methods to be defined inside of
+	/// it.
+	///
+	/// ## Example
+	/// ```
+	/// #[frame_support::pallet]
+	/// pub mod pallet {
+	/// 	use frame_support::pallet_prelude::*;
+	///
+	///  	#[pallet::config]
+	///  	pub trait Config: frame_system::Config {}
+	///
+	///  	#[pallet::pallet]
+	///  	pub struct Pallet<T>(_);
+	///
+	///     #[pallet::storage]
+	/// 	pub type SomeMap<T: Config> = StorageMap<_, Twox64Concat, u32, u32, OptionQuery>;
+	///
+	///     #[pallet::view_functions]
+	///     impl<T: Config> Pallet<T> {
+	/// 		/// Retrieve a map storage value by key.
+	///         pub fn get_value_with_arg(key: u32) -> Option<u32> {
+	/// 			SomeMap::<T>::get(key)
+	/// 		}
+	///     }
+	/// }
+	/// ```
+	///
+	///
+	/// ## Usage and implementation details
+	/// To allow outside access to pallet view functions, you need to add a runtime API that
+	/// accepts view function queries and dispatches them to the right pallet. You can do that
+	/// by implementing the
+	/// [`RuntimeViewFunction`](frame_support::view_functions::runtime_api::RuntimeViewFunction)
+	/// trait for the runtime inside an [`impl_runtime_apis!`](sp_api::impl_runtime_apis)
+	/// block.
+	///
+	/// The `RuntimeViewFunction` trait implements a hashing-based dispatching mechanism to
+	/// dispatch view functions to the right method in the right pallet based on their IDs. A
+	/// view function ID depends both on its pallet and on its method signature, so it remains
+	/// stable as long as those two elements are not modified. In general, pallet view
+	/// functions should expose a _stable_ interface and changes to the method signature are
+	/// strongly discouraged. For more details on the dispatching mechanism, see the
+	/// [`DispatchViewFunction`](frame_support::view_functions::DispatchViewFunction) trait.
+	pub use frame_support_procedural::view_functions;
 
 	/// Allows defining a struct implementing the [`Get`](frame_support::traits::Get) trait to
 	/// ease the use of storage types.
@@ -1965,6 +2050,10 @@ pub mod pallet_macros {
 	/// - It's possible to deprecated either certain variants inside the `Error` or the whole
 	///   `Error` itself. If both the `Error` and its variants are deprecated a compile error
 	///   will be returned.
+	/// - Usage of `allow(deprecated)` on the item will propagate this attribute to the
+	///   generated code.
+	/// - If the item is annotated with `deprecated` attribute then the generated code will be
+	///   automatically annotated with `allow(deprecated)`
 	pub use frame_support_procedural::error;
 
 	/// Allows defining pallet events.
@@ -1982,18 +2071,14 @@ pub mod pallet_macros {
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet<T>(_);
 	///
+	/// 	#[pallet::config]
+	/// 	pub trait Config: frame_system::Config {}
+	///
 	/// 	#[pallet::event]
 	/// 	#[pallet::generate_deposit(fn deposit_event)] // Optional
 	/// 	pub enum Event<T> {
 	/// 		/// SomeEvent doc
 	/// 		SomeEvent(u16, u32), // SomeEvent with two fields
-	/// 	}
-	///
-	/// 	#[pallet::config]
-	/// 	pub trait Config: frame_system::Config {
-	/// 		/// The overarching runtime event type.
-	/// 		type RuntimeEvent: From<Event<Self>>
-	/// 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	/// 	}
 	/// }
 	/// ```
@@ -2001,7 +2086,13 @@ pub mod pallet_macros {
 	/// I.e. an enum (with named or unnamed fields variant), named `Event`, with generic: none
 	/// or `T` or `T: Config`, and optional w here clause.
 	///
-	/// `RuntimeEvent` must be defined in the `Config`, as shown in the example.
+	/// Macro expansion automatically appends `From<Event<Self>>` bound to
+	/// system supertrait's `RuntimeEvent `associated type, i.e:
+	///
+	/// ```rs
+	/// 	#[pallet::config]
+	/// 	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {}
+	/// ```
 	///
 	/// Each field must implement [`Clone`], [`Eq`], [`PartialEq`], [`codec::Encode`],
 	/// [`codec::Decode`], and [`Debug`] (on std only). For ease of use, bound by the trait
@@ -2015,6 +2106,10 @@ pub mod pallet_macros {
 	/// - It's possible to deprecated either certain variants inside the `Event` or the whole
 	///   `Event` itself. If both the `Event` and its variants are deprecated a compile error
 	///   will be returned.
+	/// - Usage of `allow(deprecated)` on the item will propagate this attribute to the
+	///   generated code.
+	/// - If the item is annotated with `deprecated` attribute then the generated code will be
+	///   automatically annotated with `allow(deprecated)`
 	pub use frame_support_procedural::event;
 
 	/// Selectively includes associated types in the metadata.
@@ -2047,6 +2142,11 @@ pub mod pallet_macros {
 	/// generation of a `enum Call`. This enum contains only the encoding of the function
 	/// arguments of the dispatchable, alongside the information needed to route it to the
 	/// correct function.
+	///
+	/// The macro also ensures that the extrinsic when invoked will be wrapped via
+	/// [`frame_support::storage::with_storage_layer`] to make it transactional. Thus if the
+	/// extrinsic returns with an error any state changes that had already occurred will be
+	/// rolled back.
 	///
 	/// ```
 	/// #[frame_support::pallet(dev_mode)]
@@ -2124,9 +2224,69 @@ pub mod pallet_macros {
 	///   [`crate::dispatch::DispatchResultWithPostInfo`]).
 	///
 	/// **WARNING**: modifying dispatchables, changing their order (i.e. using [`call_index`]),
-	/// removing some, etc., must be done with care. This will change the encoding of the , and
-	/// the call can be stored on-chain (e.g. in `pallet-scheduler`). Thus, migration might be
-	/// needed. This is why the use of `call_index` is mandatory by default in FRAME.
+	/// removing some, etc., must be done with care. This will change the encoding of the call,
+	/// and the call can be stored on-chain (e.g. in `pallet-scheduler`). Thus, migration
+	/// might be needed. This is why the use of `call_index` is mandatory by default in FRAME.
+	///
+	/// ## Weight info
+	///
+	/// Each call needs to define a weight.
+	/// * The weight can be defined explicitly using the attribute `#[pallet::weight($expr)]`
+	///   (Note that argument of the call are available inside the expression).
+	/// * Or it can be defined implicitly, the weight info for the calls needs to be specified
+	///   in the call attribute: `#[pallet::call(weight = $WeightInfo)]`, then each call that
+	///   doesn't have explicit weight will use `$WeightInfo::$call_name` as the weight.
+	///
+	/// * Or it can be simply ignored when the pallet is in `dev_mode`.
+	///
+	/// ```
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	///     use frame_support::pallet_prelude::*;
+	///     use frame_system::pallet_prelude::*;
+	///
+	///     #[pallet::pallet]
+	///     pub struct Pallet<T>(_);
+	///
+	///     #[pallet::config]
+	///     pub trait Config: frame_system::Config {
+	///         /// Type for specifying dispatchable weights.
+	///         type WeightInfo: WeightInfo;
+	///     }
+	///
+	///     /// The `WeightInfo` trait defines weight functions for dispatchable calls.
+	///     pub trait WeightInfo {
+	///         fn do_something() -> Weight;
+	///         fn do_something_else() -> Weight;
+	///     }
+	///
+	///     #[pallet::call(weight = <T as Config>::WeightInfo)]
+	///     impl<T: Config> Pallet<T> {
+	///         // Explicit weight definition using `#[pallet::weight(...)]`
+	///         #[pallet::weight(<T as Config>::WeightInfo::do_something())]
+	///         #[pallet::call_index(0)]
+	///         pub fn do_something(
+	///             origin: OriginFor<T>,
+	///             foo: u32,
+	///         ) -> DispatchResult {
+	///             // Function logic here
+	///             Ok(())
+	///         }
+	///
+	///         // Implicit weight definition, the macro looks up to the weight info defined in
+	///         // `#[pallet::call(weight = $WeightInfo)]` attribute. Then use
+	///         // `$WeightInfo::do_something_else` as the weight function.
+	///         #[pallet::call_index(1)]
+	///         pub fn do_something_else(
+	///             origin: OriginFor<T>,
+	///             bar: u64,
+	///         ) -> DispatchResult {
+	///             // Function logic here
+	///             Ok(())
+	///         }
+	///     }
+	/// }
+	/// ```
 	///
 	/// ## Default Behavior
 	///
@@ -2152,6 +2312,10 @@ pub mod pallet_macros {
 	/// - Usage of `deprecated` attribute will propagate deprecation information to the pallet
 	///   metadata where the item was declared.
 	/// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
+	/// - Usage of `allow(deprecated)` on the item will propagate this attribute to the
+	///   generated code.
+	/// - If the item is annotated with `deprecated` attribute then the generated code will be
+	///   automatically annotated with `allow(deprecated)`
 	pub use frame_support_procedural::call;
 
 	/// Enforce the index of a variant in the generated `enum Call`.
@@ -2290,6 +2454,10 @@ pub mod pallet_macros {
 	/// - Usage of `deprecated` attribute will propagate deprecation information to the pallet
 	///   metadata where the item was declared.
 	/// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
+	/// - Usage of `allow(deprecated)` on the item will propagate this attribute to the
+	///   generated code.
+	/// - If the item is annotated with `deprecated` attribute then the generated code will be
+	///   automatically annotated with `allow(deprecated)`
 	pub use frame_support_procedural::constant;
 
 	/// Declares a type alias as a storage item.
@@ -2514,10 +2682,15 @@ pub mod pallet_macros {
 	/// - Usage of `deprecated` attribute will propagate deprecation information to the pallet
 	///   metadata where the storage item was declared.
 	/// - For general usage examples of `deprecated` attribute please refer to <https://doc.rust-lang.org/nightly/reference/attributes/diagnostics.html#the-deprecated-attribute>
+	/// - Usage of `allow(deprecated)` on the item will propagate this attribute to the
+	///   generated code.
+	/// - If the item is annotated with `deprecated` attribute then the generated code will be
+	///   automatically annotated with `allow(deprecated)`
 	pub use frame_support_procedural::storage;
 
 	pub use frame_support_procedural::{
-		task_condition, task_index, task_list, task_weight, tasks_experimental,
+		authorize, task_condition, task_index, task_list, task_weight, tasks_experimental,
+		weight_of_authorize,
 	};
 
 	/// Allows a pallet to declare a type as an origin.

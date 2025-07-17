@@ -1,0 +1,17 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add Serialize & Deserialize to umbrella crate derive module
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR adds serde::Serialize and serde::Deserialize to the frame umbrella crate
+      `derive` and indirectly `prelude` modules. They can now be accessed through those.
+      Note: serde will still need to be added as a dependency in consuming crates. That or
+      you'll need to specify th `#[serde(crate = "PATH_TO_SERDE::serde")]` attribute at the
+      location where Serialize/Deserialize are used.
+
+crates:
+- name: polkadot-sdk-frame
+  bump: minor

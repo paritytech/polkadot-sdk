@@ -170,7 +170,7 @@ pub(crate) mod v0 {
 		Pallet<T, I>,
 		Twox64Concat,
 		<T as frame_system::Config>::AccountId,
-		Vec<(frame_system::pallet_prelude::BlockNumberFor<T>, BalanceOf<T, I>)>,
+		Vec<(BlockNumberFor<T, I>, BalanceOf<T, I>)>,
 		ValueQuery,
 	>;
 	#[storage_alias]

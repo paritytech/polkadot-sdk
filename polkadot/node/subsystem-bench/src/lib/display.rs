@@ -82,7 +82,7 @@ impl Display for MetricCollection {
 		writeln!(f)?;
 		let metrics = self.all();
 		for metric in metrics {
-			writeln!(f, "{}", metric)?;
+			writeln!(f, "{metric}")?;
 		}
 		Ok(())
 	}

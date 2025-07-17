@@ -1,0 +1,13 @@
+title: 'pallet_revive: Bump PolkaVM'
+doc:
+- audience: Runtime Dev
+  description: Update to PolkaVM `0.19`. This version renumbers the opcodes in order
+    to be in-line with the grey paper. Hopefully, for the last time. This means that
+    it breaks existing contracts.
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive-uapi
+  bump: patch

@@ -12,18 +12,17 @@ publish = false
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
-[build-dependencies]
-substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
-docify = { workspace = true }
+[lints]
+workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
+docify = { workspace = true }
 hex-literal = { optional = true, workspace = true, default-features = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-smallvec = { workspace = true, default-features = true }
-docify = { workspace = true }
 serde_json = { workspace = true, default-features = false, features = ["alloc"] }
+smallvec = { workspace = true, default-features = true }
 
 # Local
 pallet-parachain-template = { workspace = true }
@@ -48,11 +47,11 @@ polkadot-sdk = { workspace = true, default-features = false, features = [
 
 	"cumulus-pallet-aura-ext",
 	"cumulus-pallet-session-benchmarking",
+	"cumulus-pallet-weight-reclaim",
 	"cumulus-pallet-xcm",
 	"cumulus-pallet-xcmp-queue",
 	"cumulus-primitives-aura",
 	"cumulus-primitives-core",
-	"cumulus-primitives-storage-weight-reclaim",
 	"cumulus-primitives-utility",
 	"pallet-collator-selection",
 	"parachains-common",
@@ -63,6 +62,10 @@ polkadot-sdk = { workspace = true, default-features = false, features = [
 
 # Cumulus
 cumulus-pallet-parachain-system = { workspace = true }
+
+[build-dependencies]
+docify = { workspace = true }
+substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -76,14 +79,12 @@ std = [
 	"serde_json/std",
 	"substrate-wasm-builder",
 ]
-
 runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"hex-literal",
 	"pallet-parachain-template/runtime-benchmarks",
 	"polkadot-sdk/runtime-benchmarks",
 ]
-
 try-runtime = [
 	"cumulus-pallet-parachain-system/try-runtime",
 	"pallet-parachain-template/try-runtime",

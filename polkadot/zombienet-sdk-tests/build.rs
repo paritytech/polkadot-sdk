@@ -25,33 +25,30 @@ fn make_env_key(k: &str) -> String {
 	replace_dashes(&k.to_ascii_uppercase())
 }
 
+fn wasm_sub_path(chain: &str) -> String {
+	let (package, runtime_name) =
+		(format!("{chain}-runtime"), replace_dashes(&format!("{chain}-runtime")));
+
+	format!("{package}/{runtime_name}.wasm")
+}
+
 fn find_wasm(chain: &str) -> Option<PathBuf> {
 	const PROFILES: [&str; 2] = ["release", "testnet"];
 	let manifest_path = env::var("CARGO_WORKSPACE_ROOT_DIR").unwrap();
 	let manifest_path = manifest_path.strip_suffix('/').unwrap();
 	debug_output!("manifest_path is  : {}", manifest_path);
-	let package = format!("{chain}-runtime");
+
+	let sub_path = wasm_sub_path(chain);
+
 	let profile = PROFILES.into_iter().find(|p| {
-		let full_path = format!(
-			"{}/target/{}/wbuild/{}/{}.wasm",
-			manifest_path,
-			p,
-			&package,
-			replace_dashes(&package)
-		);
+		let full_path = format!("{manifest_path}/target/{p}/wbuild/{sub_path}");
 		debug_output!("checking wasm at : {}", full_path);
 		matches!(path::PathBuf::from(&full_path).try_exists(), Ok(true))
 	});
 
 	debug_output!("profile is : {:?}", profile);
 	profile.map(|profile| {
-		PathBuf::from(&format!(
-			"{}/target/{}/wbuild/{}/{}.wasm",
-			manifest_path,
-			profile,
-			&package,
-			replace_dashes(&package)
-		))
+		PathBuf::from(&format!("{manifest_path}/target/{profile}/wbuild/{sub_path}"))
 	})
 }
 
@@ -62,7 +59,7 @@ fn build_wasm(chain: &str) -> PathBuf {
 	let cargo = env::var("CARGO").unwrap();
 	let target = env::var("TARGET").unwrap();
 	let out_dir = env::var("OUT_DIR").unwrap();
-	let target_dir = format!("{}/runtimes", out_dir);
+	let target_dir = format!("{out_dir}/runtimes");
 	let args = vec![
 		"build",
 		"-p",
@@ -81,11 +78,7 @@ fn build_wasm(chain: &str) -> PathBuf {
 		.status()
 		.unwrap();
 
-	let wasm_path = &format!(
-		"{target_dir}/{target}/release/wbuild/{}/{}.wasm",
-		&package,
-		replace_dashes(&package)
-	);
+	let wasm_path = &format!("{target_dir}/{target}/release/wbuild/{}", wasm_sub_path(chain));
 	PathBuf::from(wasm_path)
 }
 
@@ -147,5 +140,5 @@ fn main() {
 
 	substrate_build_script_utils::generate_cargo_keys();
 	substrate_build_script_utils::rerun_if_git_head_changed();
-	println!("cargo:rerun-if-changed={}", metadata_path);
+	println!("cargo:rerun-if-changed={metadata_path}");
 }

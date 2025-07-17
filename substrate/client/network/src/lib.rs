@@ -291,6 +291,9 @@ pub use service::{
 };
 pub use types::ProtocolName;
 
+/// Log target for `sc-network`.
+const LOG_TARGET: &str = "sub-libp2p";
+
 /// The maximum allowed number of established connections per peer.
 ///
 /// Typically, and by design of the network behaviours in this crate,

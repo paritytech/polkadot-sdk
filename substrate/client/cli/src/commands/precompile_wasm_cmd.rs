@@ -98,7 +98,7 @@ impl PrecompileWasmCmd {
 		let blockchain_info = backend.blockchain().info();
 
 		if backend.have_state_at(blockchain_info.finalized_hash, blockchain_info.finalized_number) {
-			let state = backend.state_at(backend.blockchain().info().finalized_hash)?;
+			let state = backend.state_at(backend.blockchain().info().finalized_hash, sc_client_api::TrieCacheContext::Trusted)?;
 
 			precompile_and_serialize_versioned_wasm_runtime(
 				HeapAllocStrategy::Static { extra_pages: heap_pages },

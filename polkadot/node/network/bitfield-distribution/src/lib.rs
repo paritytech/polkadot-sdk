@@ -22,7 +22,6 @@
 
 #![deny(unused_crate_dependencies)]
 
-use always_assert::never;
 use futures::{channel::oneshot, FutureExt};
 
 use net_protocol::filter_by_peer_version;
@@ -32,8 +31,7 @@ use polkadot_node_network_protocol::{
 		GridNeighbors, RandomRouting, RequiredRouting, SessionBoundGridTopologyStorage,
 	},
 	peer_set::{ProtocolVersion, ValidationVersion},
-	v1 as protocol_v1, v2 as protocol_v2, v3 as protocol_v3, OurView, PeerId,
-	UnifiedReputationChange as Rep, Versioned, View,
+	v3 as protocol_v3, OurView, PeerId, UnifiedReputationChange as Rep, ValidationProtocols, View,
 };
 use polkadot_node_subsystem::{
 	messages::*, overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
@@ -92,32 +90,20 @@ impl BitfieldGossipMessage {
 		recipient_version: ProtocolVersion,
 	) -> net_protocol::BitfieldDistributionMessage {
 		match ValidationVersion::try_from(recipient_version).ok() {
-			Some(ValidationVersion::V1) =>
-				Versioned::V1(protocol_v1::BitfieldDistributionMessage::Bitfield(
-					self.relay_parent,
-					self.signed_availability.into(),
-				)),
-			Some(ValidationVersion::V2) =>
-				Versioned::V2(protocol_v2::BitfieldDistributionMessage::Bitfield(
-					self.relay_parent,
-					self.signed_availability.into(),
-				)),
 			Some(ValidationVersion::V3) =>
-				Versioned::V3(protocol_v3::BitfieldDistributionMessage::Bitfield(
+				ValidationProtocols::V3(protocol_v3::BitfieldDistributionMessage::Bitfield(
 					self.relay_parent,
 					self.signed_availability.into(),
 				)),
 			None => {
-				never!("Peers should only have supported protocol versions.");
-
 				gum::warn!(
 					target: LOG_TARGET,
 					version = ?recipient_version,
 					"Unknown protocol version provided for message recipient"
 				);
 
-				// fall back to v1 to avoid
-				Versioned::V1(protocol_v1::BitfieldDistributionMessage::Bitfield(
+				// fall back to v3 to avoid
+				ValidationProtocols::V3(protocol_v3::BitfieldDistributionMessage::Bitfield(
 					self.relay_parent,
 					self.signed_availability.into(),
 				))
@@ -480,29 +466,8 @@ async fn relay_message<Context>(
 			"no peers are interested in gossip for relay parent",
 		);
 	} else {
-		let v1_interested_peers =
-			filter_by_peer_version(&interested_peers, ValidationVersion::V1.into());
-		let v2_interested_peers =
-			filter_by_peer_version(&interested_peers, ValidationVersion::V2.into());
-
 		let v3_interested_peers =
 			filter_by_peer_version(&interested_peers, ValidationVersion::V3.into());
-
-		if !v1_interested_peers.is_empty() {
-			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-				v1_interested_peers,
-				message.clone().into_validation_protocol(ValidationVersion::V1.into()),
-			))
-			.await;
-		}
-
-		if !v2_interested_peers.is_empty() {
-			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-				v2_interested_peers,
-				message.clone().into_validation_protocol(ValidationVersion::V2.into()),
-			))
-			.await
-		}
 
 		if !v3_interested_peers.is_empty() {
 			ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
@@ -525,15 +490,7 @@ async fn process_incoming_peer_message<Context>(
 	rng: &mut (impl CryptoRng + Rng),
 ) {
 	let (relay_parent, bitfield) = match message {
-		Versioned::V1(protocol_v1::BitfieldDistributionMessage::Bitfield(
-			relay_parent,
-			bitfield,
-		)) => (relay_parent, bitfield),
-		Versioned::V2(protocol_v2::BitfieldDistributionMessage::Bitfield(
-			relay_parent,
-			bitfield,
-		)) |
-		Versioned::V3(protocol_v3::BitfieldDistributionMessage::Bitfield(
+		ValidationProtocols::V3(protocol_v3::BitfieldDistributionMessage::Bitfield(
 			relay_parent,
 			bitfield,
 		)) => (relay_parent, bitfield),
@@ -832,9 +789,11 @@ async fn handle_peer_view_change<Context>(
 	};
 
 	let added = peer_data.view.replace_difference(view).cloned().collect::<Vec<_>>();
+	let current_session_index = state.topologies.get_current_session_index();
 
 	let topology = state.topologies.get_current_topology().local_grid_neighbors();
 	let is_gossip_peer = topology.route_to_peer(RequiredRouting::GridXY, &origin);
+
 	let lucky = is_gossip_peer ||
 		util::gen_ratio_rng(
 			util::MIN_GOSSIP_PEERS.saturating_sub(topology.len()),
@@ -852,7 +811,11 @@ async fn handle_peer_view_change<Context>(
 	let delta_set: Vec<(ValidatorId, BitfieldGossipMessage)> = added
 		.into_iter()
 		.filter_map(|new_relay_parent_interest| {
-			if let Some(job_data) = state.per_relay_parent.get(&new_relay_parent_interest) {
+			if let Some(job_data) = state
+				.per_relay_parent
+				.get(&new_relay_parent_interest)
+				.filter(|job_data| job_data.signing_context.session_index == current_session_index)
+			{
 				// Send all jointly known messages for a validator (given the current relay parent)
 				// to the peer `origin`...
 				let one_per_validator = job_data.one_per_validator.clone();

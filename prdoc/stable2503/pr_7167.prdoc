@@ -1,0 +1,16 @@
+title: '[pallet-revive] Add tracing support (2/2)'
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Add debug endpoint to eth-rpc for capturing a block or a single transaction traces
+    - Use in-memory DB for non-archive node
+
+    See:
+    -  PR #7166
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor
+- name: pallet-revive
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor

@@ -30,7 +30,7 @@ use std::{
 	cell::Cell,
 	io::{self, Write},
 	marker::PhantomData,
-	panic::{self, PanicInfo},
+	panic::{self, PanicHookInfo},
 	sync::LazyLock,
 	thread,
 };
@@ -149,7 +149,7 @@ fn strip_control_codes(input: &str) -> std::borrow::Cow<str> {
 }
 
 /// Function being called when a panic happens.
-fn panic_hook(info: &PanicInfo, report_url: &str, version: &str) {
+fn panic_hook(info: &PanicHookInfo, report_url: &str, version: &str) {
 	let location = info.location();
 	let file = location.as_ref().map(|l| l.file()).unwrap_or("<unknown>");
 	let line = location.as_ref().map(|l| l.line()).unwrap_or(0);

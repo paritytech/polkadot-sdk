@@ -23,7 +23,8 @@ use bp_runtime::{
 	Chain as ChainBase, EncodedOrDecodedCall, HashOf, Parachain as ParachainBase, TransactionEra,
 	TransactionEraOf, UnderlyingChainProvider,
 };
-use codec::{Codec, Decode, Encode};
+use codec::{Codec, Decode, Encode, MaxEncodedLen};
+use frame_support::Parameter;
 use jsonrpsee::core::{DeserializeOwned, Serialize};
 use num_traits::Zero;
 use sc_transaction_pool_api::TransactionStatus;
@@ -31,7 +32,7 @@ use scale_info::TypeInfo;
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{
 	generic::SignedBlock,
-	traits::{Block as BlockT, Member},
+	traits::{AtLeast32BitUnsigned, Block as BlockT, Member},
 	ConsensusEngineId, EncodedJustification,
 };
 use std::{fmt::Debug, time::Duration};
@@ -113,13 +114,6 @@ impl<T> Parachain for T where T: UnderlyingChainProvider + Chain + ParachainBase
 
 /// Substrate-based chain with messaging support from minimal relay-client point of view.
 pub trait ChainWithMessages: Chain + ChainWithMessagesBase {
-	/// Name of the bridge relayers pallet (used in `construct_runtime` macro call) that is deployed
-	/// at some other chain to bridge with this `ChainWithMessages`.
-	///
-	/// We assume that all chains that are bridging with this `ChainWithMessages` are using
-	/// the same name.
-	const WITH_CHAIN_RELAYERS_PALLET_NAME: Option<&'static str>;
-
 	/// Name of the `To<ChainWithMessages>OutboundLaneApi::message_details` runtime API method.
 	/// The method is provided by the runtime that is bridged with this `ChainWithMessages`.
 	const TO_CHAIN_MESSAGE_DETAILS_METHOD: &'static str;
@@ -139,6 +133,22 @@ pub type TransactionStatusOf<C> = TransactionStatus<HashOf<C>, HashOf<C>>;
 pub trait ChainWithBalances: Chain {
 	/// Return runtime storage key for getting `frame_system::AccountInfo` of given account.
 	fn account_info_storage_key(account_id: &Self::AccountId) -> StorageKey;
+}
+
+/// Substrate-based chain with bridge relayers pallet as a reward ledger.
+pub trait ChainWithRewards: Chain {
+	/// Name of the bridge relayers pallet (used in `construct_runtime` macro call).
+	const WITH_CHAIN_RELAYERS_PALLET_NAME: Option<&'static str>;
+	/// Type of relayer reward balance.
+	type RewardBalance: AtLeast32BitUnsigned + Copy + Member + Parameter + MaxEncodedLen;
+	/// Reward discriminator type.
+	type Reward: Parameter + MaxEncodedLen + Send + Sync + Copy + Clone;
+
+	/// Return runtime storage key for getting `reward_kind` of given account.
+	fn account_reward_storage_key(
+		account_id: &Self::AccountId,
+		reward: impl Into<Self::Reward>,
+	) -> StorageKey;
 }
 
 /// SCALE-encoded extrinsic.

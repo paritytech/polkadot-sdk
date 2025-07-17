@@ -1,0 +1,111 @@
+name: Networking Benchmarks
+
+on:
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    uses: ./.github/workflows/reusable-preflight.yml
+
+  build:
+    timeout-minutes: 50
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER_BENCHMARK }}
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    strategy:
+      fail-fast: false
+      matrix:
+        features:
+          [
+            { bench: "notifications_protocol" },
+            { bench: "request_response_protocol" },
+          ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Benchmarks
+        id: run-benchmarks
+        run: |
+          mkdir -p ./charts
+          forklift cargo bench -p sc-network --bench ${{ matrix.features.bench }} -- --output-format bencher | grep "^test" | tee ./charts/${{ matrix.features.bench }}.txt || echo "Benchmarks failed"
+          ls -lsa ./charts
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4.3.6
+        with:
+          name: ${{ matrix.features.bench }}-${{ github.sha }}
+          path: ./charts
+
+  publish-benchmarks:
+    timeout-minutes: 60
+    needs: [build]
+    if: github.ref == 'refs/heads/master'
+    environment: subsystem-benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 0
+
+      - run: git checkout master --
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4.1.8
+        with:
+          name: notifications_protocol-${{ github.sha }}
+          path: ./charts
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4.1.8
+        with:
+          name: request_response_protocol-${{ github.sha }}
+          path: ./charts
+
+      - name: Setup git
+        run: |
+          # Fixes "detected dubious ownership" error in the ci
+          git config --global --add safe.directory '*'
+          ls -lsR ./charts
+
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: ${{ secrets.POLKADOTSDK_GHPAGES_APP_ID }}
+          private-key: ${{ secrets.POLKADOTSDK_GHPAGES_APP_KEY }}
+
+      - name: Generate ${{ env.BENCH }}
+        env:
+          BENCH: notifications_protocol
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: "cargo"
+          name: ${{ env.BENCH }}
+          output-file-path: ./charts/${{ env.BENCH }}.txt
+          benchmark-data-dir-path: ./bench/${{ env.BENCH }}
+          github-token: ${{ steps.app-token.outputs.token }}
+          auto-push: true
+
+      - name: Generate ${{ env.BENCH }}
+        env:
+          BENCH: request_response_protocol
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: "cargo"
+          name: ${{ env.BENCH }}
+          output-file-path: ./charts/${{ env.BENCH }}.txt
+          benchmark-data-dir-path: ./bench/${{ env.BENCH }}
+          github-token: ${{ steps.app-token.outputs.token }}
+          auto-push: true

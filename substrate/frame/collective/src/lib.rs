@@ -44,7 +44,7 @@
 extern crate alloc;
 
 use alloc::{boxed::Box, vec, vec::Vec};
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{marker::PhantomData, result};
 use scale_info::TypeInfo;
 use sp_io::storage;
@@ -57,10 +57,10 @@ use frame_support::{
 	dispatch::{
 		DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, Pays, PostDispatchInfo,
 	},
-	ensure, impl_ensure_origin_with_arg_ignoring_arg,
+	ensure,
 	traits::{
 		Backing, ChangeMembers, Consideration, EnsureOrigin, EnsureOriginWithArg, Get, GetBacking,
-		InitializeMembers, MaybeConsideration, StorageVersion,
+		InitializeMembers, MaybeConsideration, OriginTrait, StorageVersion,
 	},
 	weights::Weight,
 };
@@ -137,7 +137,17 @@ impl DefaultVote for MoreThanMajorityThenPrimeDefaultVote {
 }
 
 /// Origin for the collective module.
-#[derive(PartialEq, Eq, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(
+	PartialEq,
+	Eq,
+	Clone,
+	RuntimeDebug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 #[scale_info(skip_type_params(I))]
 #[codec(mel_bound(AccountId: MaxEncodedLen))]
 pub enum RawOrigin<AccountId, I> {
@@ -338,6 +348,7 @@ pub mod pallet {
 			+ GetDispatchInfo;
 
 		/// The runtime event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -826,7 +837,7 @@ pub mod pallet {
 			proposal_weight_bound: Weight,
 			#[pallet::compact] length_bound: u32,
 		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 
 			Self::do_close(proposal_hash, index, proposal_weight_bound, length_bound)
 		}
@@ -875,13 +886,13 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			proposal_hash: T::Hash,
 		) -> DispatchResult {
-			let _ = ensure_signed_or_root(origin)?;
+			ensure_signed_or_root(origin)?;
 			ensure!(
 				ProposalOf::<T, I>::get(&proposal_hash).is_none(),
 				Error::<T, I>::ProposalActive
 			);
 			if let Some((who, cost)) = <CostOf<T, I>>::take(proposal_hash) {
-				let _ = cost.drop(&who)?;
+				cost.drop(&who)?;
 				Self::deposit_event(Event::ProposalCostReleased { proposal_hash, who });
 			}
 
@@ -1381,18 +1392,19 @@ where
 }
 
 pub struct EnsureMember<AccountId, I: 'static>(PhantomData<(AccountId, I)>);
-impl<
-		O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
-		I,
-		AccountId: Decode,
-	> EnsureOrigin<O> for EnsureMember<AccountId, I>
+impl<O: OriginTrait + From<RawOrigin<AccountId, I>>, I, AccountId: Decode + Clone> EnsureOrigin<O>
+	for EnsureMember<AccountId, I>
+where
+	for<'a> &'a O::PalletsOrigin: TryInto<&'a RawOrigin<AccountId, I>>,
 {
 	type Success = AccountId;
 	fn try_origin(o: O) -> Result<Self::Success, O> {
-		o.into().and_then(|o| match o {
-			RawOrigin::Member(id) => Ok(id),
-			r => Err(O::from(r)),
-		})
+		match o.caller().try_into() {
+			Ok(RawOrigin::Member(id)) => return Ok(id.clone()),
+			_ => (),
+		}
+
+		Err(o)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1404,26 +1416,35 @@ impl<
 	}
 }
 
-impl_ensure_origin_with_arg_ignoring_arg! {
-	impl< { O: .., I: 'static, AccountId: Decode, T } >
-		EnsureOriginWithArg<O, T> for EnsureMember<AccountId, I>
-	{}
+impl<O: OriginTrait + From<RawOrigin<AccountId, I>>, I, AccountId: Decode + Clone, T>
+	EnsureOriginWithArg<O, T> for EnsureMember<AccountId, I>
+where
+	for<'a> &'a O::PalletsOrigin: TryInto<&'a RawOrigin<AccountId, I>>,
+{
+	type Success = <Self as EnsureOrigin<O>>::Success;
+	fn try_origin(o: O, _: &T) -> Result<Self::Success, O> {
+		<Self as EnsureOrigin<O>>::try_origin(o)
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin(_: &T) -> Result<O, ()> {
+		<Self as EnsureOrigin<O>>::try_successful_origin()
+	}
 }
 
 pub struct EnsureMembers<AccountId, I: 'static, const N: u32>(PhantomData<(AccountId, I)>);
-impl<
-		O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
-		AccountId,
-		I,
-		const N: u32,
-	> EnsureOrigin<O> for EnsureMembers<AccountId, I, N>
+impl<O: OriginTrait + From<RawOrigin<AccountId, I>>, AccountId, I, const N: u32> EnsureOrigin<O>
+	for EnsureMembers<AccountId, I, N>
+where
+	for<'a> &'a O::PalletsOrigin: TryInto<&'a RawOrigin<AccountId, I>>,
 {
 	type Success = (MemberCount, MemberCount);
 	fn try_origin(o: O) -> Result<Self::Success, O> {
-		o.into().and_then(|o| match o {
-			RawOrigin::Members(n, m) if n >= N => Ok((n, m)),
-			r => Err(O::from(r)),
-		})
+		match o.caller().try_into() {
+			Ok(RawOrigin::Members(n, m)) if *n >= N => return Ok((*n, *m)),
+			_ => (),
+		}
+
+		Err(o)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1432,29 +1453,37 @@ impl<
 	}
 }
 
-impl_ensure_origin_with_arg_ignoring_arg! {
-	impl< { O: .., I: 'static, const N: u32, AccountId, T } >
-		EnsureOriginWithArg<O, T> for EnsureMembers<AccountId, I, N>
-	{}
+impl<O: OriginTrait + From<RawOrigin<AccountId, I>>, AccountId, I, const N: u32, T>
+	EnsureOriginWithArg<O, T> for EnsureMembers<AccountId, I, N>
+where
+	for<'a> &'a O::PalletsOrigin: TryInto<&'a RawOrigin<AccountId, I>>,
+{
+	type Success = <Self as EnsureOrigin<O>>::Success;
+	fn try_origin(o: O, _: &T) -> Result<Self::Success, O> {
+		<Self as EnsureOrigin<O>>::try_origin(o)
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin(_: &T) -> Result<O, ()> {
+		<Self as EnsureOrigin<O>>::try_successful_origin()
+	}
 }
 
 pub struct EnsureProportionMoreThan<AccountId, I: 'static, const N: u32, const D: u32>(
 	PhantomData<(AccountId, I)>,
 );
-impl<
-		O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
-		AccountId,
-		I,
-		const N: u32,
-		const D: u32,
-	> EnsureOrigin<O> for EnsureProportionMoreThan<AccountId, I, N, D>
+impl<O: OriginTrait + From<RawOrigin<AccountId, I>>, AccountId, I, const N: u32, const D: u32>
+	EnsureOrigin<O> for EnsureProportionMoreThan<AccountId, I, N, D>
+where
+	for<'a> &'a O::PalletsOrigin: TryInto<&'a RawOrigin<AccountId, I>>,
 {
 	type Success = ();
 	fn try_origin(o: O) -> Result<Self::Success, O> {
-		o.into().and_then(|o| match o {
-			RawOrigin::Members(n, m) if n * D > N * m => Ok(()),
-			r => Err(O::from(r)),
-		})
+		match o.caller().try_into() {
+			Ok(RawOrigin::Members(n, m)) if n * D > N * m => return Ok(()),
+			_ => (),
+		}
+
+		Err(o)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1463,29 +1492,43 @@ impl<
 	}
 }
 
-impl_ensure_origin_with_arg_ignoring_arg! {
-	impl< { O: .., I: 'static, const N: u32, const D: u32, AccountId, T } >
-		EnsureOriginWithArg<O, T> for EnsureProportionMoreThan<AccountId, I, N, D>
-	{}
+impl<
+		O: OriginTrait + From<RawOrigin<AccountId, I>>,
+		AccountId,
+		I,
+		const N: u32,
+		const D: u32,
+		T,
+	> EnsureOriginWithArg<O, T> for EnsureProportionMoreThan<AccountId, I, N, D>
+where
+	for<'a> &'a O::PalletsOrigin: TryInto<&'a RawOrigin<AccountId, I>>,
+{
+	type Success = <Self as EnsureOrigin<O>>::Success;
+	fn try_origin(o: O, _: &T) -> Result<Self::Success, O> {
+		<Self as EnsureOrigin<O>>::try_origin(o)
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin(_: &T) -> Result<O, ()> {
+		<Self as EnsureOrigin<O>>::try_successful_origin()
+	}
 }
 
 pub struct EnsureProportionAtLeast<AccountId, I: 'static, const N: u32, const D: u32>(
 	PhantomData<(AccountId, I)>,
 );
-impl<
-		O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>,
-		AccountId,
-		I,
-		const N: u32,
-		const D: u32,
-	> EnsureOrigin<O> for EnsureProportionAtLeast<AccountId, I, N, D>
+impl<O: OriginTrait + From<RawOrigin<AccountId, I>>, AccountId, I, const N: u32, const D: u32>
+	EnsureOrigin<O> for EnsureProportionAtLeast<AccountId, I, N, D>
+where
+	for<'a> &'a O::PalletsOrigin: TryInto<&'a RawOrigin<AccountId, I>>,
 {
 	type Success = ();
 	fn try_origin(o: O) -> Result<Self::Success, O> {
-		o.into().and_then(|o| match o {
-			RawOrigin::Members(n, m) if n * D >= N * m => Ok(()),
-			r => Err(O::from(r)),
-		})
+		match o.caller().try_into() {
+			Ok(RawOrigin::Members(n, m)) if n * D >= N * m => return Ok(()),
+			_ => (),
+		};
+
+		Err(o)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1494,8 +1537,23 @@ impl<
 	}
 }
 
-impl_ensure_origin_with_arg_ignoring_arg! {
-	impl< { O: .., I: 'static, const N: u32, const D: u32, AccountId, T } >
-		EnsureOriginWithArg<O, T> for EnsureProportionAtLeast<AccountId, I, N, D>
-	{}
+impl<
+		O: OriginTrait + From<RawOrigin<AccountId, I>>,
+		AccountId,
+		I,
+		const N: u32,
+		const D: u32,
+		T,
+	> EnsureOriginWithArg<O, T> for EnsureProportionAtLeast<AccountId, I, N, D>
+where
+	for<'a> &'a O::PalletsOrigin: TryInto<&'a RawOrigin<AccountId, I>>,
+{
+	type Success = <Self as EnsureOrigin<O>>::Success;
+	fn try_origin(o: O, _: &T) -> Result<Self::Success, O> {
+		<Self as EnsureOrigin<O>>::try_origin(o)
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin(_: &T) -> Result<O, ()> {
+		<Self as EnsureOrigin<O>>::try_successful_origin()
+	}
 }

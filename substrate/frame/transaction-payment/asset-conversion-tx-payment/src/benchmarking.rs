@@ -34,10 +34,8 @@ use sp_runtime::traits::{
 #[benchmarks(where
 	T::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+	BalanceOf<T>: Send + Sync + From<u64>,
 	T::AssetId: Send + Sync,
-	BalanceOf<T>: Send
-		+ Sync
-		+ From<u64>,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
 )]
 mod benchmarks {

@@ -21,11 +21,17 @@ use xcm_builder::{
 
 pub type AgentId = H256;
 
-/// Creates an AgentId from a Location. An AgentId is a unique mapping to a Agent contract on
+/// Creates an AgentId from a Location. An AgentId is a unique mapping to an Agent contract on
 /// Ethereum which acts as the sovereign account for the Location.
-#[allow(deprecated)]
-pub type AgentIdOf =
-	HashedDescription<AgentId, (DescribeHere, DescribeFamily<DescribeAllTerminal>)>;
+/// Resolves Polkadot locations (as seen by Ethereum) to unique `AgentId` identifiers.
+pub type AgentIdOf = HashedDescription<
+	AgentId,
+	(
+		DescribeHere,
+		DescribeFamily<DescribeAllTerminal>,
+		DescribeGlobalPrefix<(DescribeTerminus, DescribeFamily<DescribeTokenTerminal>)>,
+	),
+>;
 
 pub type TokenId = H256;
 
@@ -40,7 +46,6 @@ pub type TokenIdOf = HashedDescription<
 /// `encode` to the Vector producing a different output to DescribeTerminus. `DescribeHere`
 /// should NOT be used for new code. This is left here for backwards compatibility of channels and
 /// agents.
-#[deprecated(note = "Use DescribeTerminus from xcm-builder instead.")]
 pub struct DescribeHere;
 #[allow(deprecated)]
 impl DescribeLocation for DescribeHere {
@@ -206,7 +211,7 @@ mod tests {
 		for token in token_locations {
 			assert!(
 				TokenIdOf::convert_location(&token).is_some(),
-				"Valid token = {token:?} yeilds no TokenId."
+				"Valid token = {token:?} yields no TokenId."
 			);
 		}
 
@@ -220,7 +225,7 @@ mod tests {
 		for token in non_token_locations {
 			assert!(
 				TokenIdOf::convert_location(&token).is_none(),
-				"Invalid token = {token:?} yeilds a TokenId."
+				"Invalid token = {token:?} yields a TokenId."
 			);
 		}
 	}

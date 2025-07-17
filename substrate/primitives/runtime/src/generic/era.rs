@@ -20,7 +20,7 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::codec::{Decode, Encode, Error, Input, Output};
+use crate::codec::{Decode, DecodeWithMemTracking, Encode, Error, Input, Output};
 
 /// Era period
 pub type Period = u64;
@@ -29,7 +29,7 @@ pub type Period = u64;
 pub type Phase = u64;
 
 /// An era to describe the longevity of a transaction.
-#[derive(PartialEq, Eq, Clone, Copy, sp_core::RuntimeDebug)]
+#[derive(DecodeWithMemTracking, PartialEq, Eq, Clone, Copy, sp_core::RuntimeDebug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Era {
 	/// The transaction is valid forever. The genesis hash must be present in the signed content.

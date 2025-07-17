@@ -16,10 +16,10 @@ workspace = true
 proc-macro = true
 
 [dependencies]
+Inflector = { workspace = true }
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
 syn = { workspace = true }
-Inflector = { workspace = true }
 
 [dev-dependencies]
 trybuild = { features = ["diff"], workspace = true }

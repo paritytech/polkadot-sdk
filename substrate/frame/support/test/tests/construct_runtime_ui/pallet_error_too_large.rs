@@ -33,22 +33,46 @@ mod pallet {
 	}
 }
 
-#[derive(scale_info::TypeInfo, frame_support::PalletError, codec::Encode, codec::Decode)]
+#[derive(
+	scale_info::TypeInfo,
+	frame_support::PalletError,
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+)]
 pub enum Nested1 {
 	Nested2(Nested2),
 }
 
-#[derive(scale_info::TypeInfo, frame_support::PalletError, codec::Encode, codec::Decode)]
+#[derive(
+	scale_info::TypeInfo,
+	frame_support::PalletError,
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+)]
 pub enum Nested2 {
 	Nested3(Nested3),
 }
 
-#[derive(scale_info::TypeInfo, frame_support::PalletError, codec::Encode, codec::Decode)]
+#[derive(
+	scale_info::TypeInfo,
+	frame_support::PalletError,
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+)]
 pub enum Nested3 {
 	Nested4(Nested4),
 }
 
-#[derive(scale_info::TypeInfo, frame_support::PalletError, codec::Encode, codec::Decode)]
+#[derive(
+	scale_info::TypeInfo,
+	frame_support::PalletError,
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+)]
 pub enum Nested4 {
 	Num(u8),
 }
