@@ -226,6 +226,33 @@ case "$1" in
   run-messages-relay)
     run_messages_relay
     ;;
+  init-rococo-local)
+      # HRMP
+      open_hrmp_channels \
+          "ws://127.0.0.1:9942" \
+          "//Alice" \
+          1000 1013 4 524288
+      open_hrmp_channels \
+          "ws://127.0.0.1:9942" \
+          "//Alice" \
+          1013 1000 4 524288
+      # governance set XCM version of remote AssetHubWestend on AHR
+      force_xcm_version \
+          "ws://127.0.0.1:9942" \
+          "//Alice" \
+          1000 \
+          "ws://127.0.0.1:9910" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }, { "Parachain": 1000 } ] } }')" \
+          $XCM_VERSION
+      # governance set XCM version of remote BridgeHubWestend on BHR
+      force_xcm_version \
+          "ws://127.0.0.1:9942" \
+          "//Alice" \
+          1013 \
+          "ws://127.0.0.1:8943" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }, { "Parachain": 1002 } ] } }')" \
+          $XCM_VERSION
+      ;;
   init-asset-hub-rococo-local)
       ensure_polkadot_js_api
       # create foreign asset pool
@@ -243,23 +270,6 @@ case "$1" in
           1000000000000 \
           2500000000000 \
           "$BOB_SOVEREIGN_ACCOUNT_AT_ROCOCO"
-      # HRMP
-      open_hrmp_channels \
-          "ws://127.0.0.1:9942" \
-          "//Alice" \
-          1000 1013 4 524288
-      open_hrmp_channels \
-          "ws://127.0.0.1:9942" \
-          "//Alice" \
-          1013 1000 4 524288
-      # set XCM version of remote AssetHubWestend
-      force_xcm_version \
-          "ws://127.0.0.1:9942" \
-          "//Alice" \
-          1000 \
-          "ws://127.0.0.1:9910" \
-          "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }, { "Parachain": 1000 } ] } }')" \
-          $XCM_VERSION
       ;;
   init-bridge-hub-rococo-local)
       ensure_polkadot_js_api
@@ -281,13 +291,32 @@ case "$1" in
           "//Alice" \
           "$ON_BRIDGE_HUB_ROCOCO_SOVEREIGN_ACCOUNT_FOR_LANE_00000002_bhwd_BridgedChain" \
           100000000000000
-      # set XCM version of remote BridgeHubWestend
-      force_xcm_version \
-          "ws://127.0.0.1:9942" \
+      ;;
+  init-westend-local)
+      # HRMP
+      open_hrmp_channels \
+          "ws://127.0.0.1:9945" \
           "//Alice" \
-          1013 \
-          "ws://127.0.0.1:8943" \
-          "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }, { "Parachain": 1002 } ] } }')" \
+          1000 1002 4 524288
+      open_hrmp_channels \
+          "ws://127.0.0.1:9945" \
+          "//Alice" \
+          1002 1000 4 524288
+      # governance set XCM version of remote AssetHubRococo on AHW
+      force_xcm_version \
+          "ws://127.0.0.1:9945" \
+          "//Alice" \
+          1000 \
+          "ws://127.0.0.1:9010" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }, { "Parachain": 1000 } ] } }')" \
+          $XCM_VERSION
+      # governance set XCM version of remote BridgeHubRococo on BHW
+      force_xcm_version \
+          "ws://127.0.0.1:9945" \
+          "//Alice" \
+          1002 \
+          "ws://127.0.0.1:8945" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }, { "Parachain": 1013 } ] } }')" \
           $XCM_VERSION
       ;;
   init-asset-hub-westend-local)
@@ -307,23 +336,6 @@ case "$1" in
           1000000000000 \
           4000000000000 \
           "$BOB_SOVEREIGN_ACCOUNT_AT_WESTEND"
-      # HRMP
-      open_hrmp_channels \
-          "ws://127.0.0.1:9945" \
-          "//Alice" \
-          1000 1002 4 524288
-      open_hrmp_channels \
-          "ws://127.0.0.1:9945" \
-          "//Alice" \
-          1002 1000 4 524288
-      # set XCM version of remote AssetHubRococo
-      force_xcm_version \
-          "ws://127.0.0.1:9945" \
-          "//Alice" \
-          1000 \
-          "ws://127.0.0.1:9010" \
-          "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }, { "Parachain": 1000 } ] } }')" \
-          $XCM_VERSION
       ;;
   init-bridge-hub-westend-local)
       # SA of sibling asset hub pays for the execution
@@ -344,14 +356,6 @@ case "$1" in
           "//Alice" \
           "$ON_BRIDGE_HUB_WESTEND_SOVEREIGN_ACCOUNT_FOR_LANE_00000002_bhro_BridgedChain" \
           100000000000000
-      # set XCM version of remote BridgeHubRococo
-      force_xcm_version \
-          "ws://127.0.0.1:9945" \
-          "//Alice" \
-          1002 \
-          "ws://127.0.0.1:8945" \
-          "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }, { "Parachain": 1013 } ] } }')" \
-          $XCM_VERSION
       ;;
   reserve-transfer-assets-from-asset-hub-rococo-local)
       amount=$2
@@ -449,8 +453,10 @@ case "$1" in
           - run-finality-relay
           - run-parachains-relay
           - run-messages-relay
+          - init-rococo-local
           - init-asset-hub-rococo-local
           - init-bridge-hub-rococo-local
+          - init-westend-local
           - init-asset-hub-westend-local
           - init-bridge-hub-westend-local
           - reserve-transfer-assets-from-asset-hub-rococo-local
