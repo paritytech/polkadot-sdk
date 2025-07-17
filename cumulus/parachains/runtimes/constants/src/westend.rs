@@ -203,7 +203,7 @@ pub mod locations {
 	use xcm::latest::prelude::{Location, Parachain};
 
 	parameter_types! {
-		pub AssetHubParaId: ParaId = ParaId::from(ASSET_HUB_ID);
+		pub AssetHubParaId: ParaId = ASSET_HUB_ID.into();
 		pub PeopleParaId: ParaId = PEOPLE_ID.into();
 		pub AssetHubLocation: Location = Location::new(1, Parachain(ASSET_HUB_ID));
 		pub PeopleLocation: Location = Location::new(1, Parachain(PEOPLE_ID));
