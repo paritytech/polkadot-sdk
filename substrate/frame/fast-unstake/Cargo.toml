@@ -33,10 +33,13 @@ docify = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
-pallet-staking = { workspace = true, default-features = true }
+pallet-staking-async = { workspace = true, default-features = true }
+pallet-staking-async-rc-client = { workspace = true, default-features = true }
+pallet-staking-async-testing-utils = { workspace = true, default-features = true }
 pallet-staking-reward-curve = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 sp-core = { workspace = true }
+sp-npos-elections = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 
 [features]
@@ -49,11 +52,13 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-balances/std",
-	"pallet-staking/std",
+	"pallet-staking-async-rc-client/std",
+	"pallet-staking-async/std",
 	"pallet-timestamp/std",
 	"scale-info/std",
 	"sp-core/std",
 	"sp-io/std",
+	"sp-npos-elections/std",
 	"sp-runtime/std",
 	"sp-staking/std",
 	"sp-tracing/std",
@@ -64,7 +69,9 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-staking/runtime-benchmarks",
+	"pallet-staking-async-rc-client/runtime-benchmarks",
+	"pallet-staking-async-testing-utils/runtime-benchmarks",
+	"pallet-staking-async/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
@@ -74,7 +81,9 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
-	"pallet-staking/try-runtime",
+	"pallet-staking-async-rc-client/try-runtime",
+	"pallet-staking-async-testing-utils/try-runtime",
+	"pallet-staking-async/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
 ]

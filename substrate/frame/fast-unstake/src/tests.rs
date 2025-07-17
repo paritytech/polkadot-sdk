@@ -28,7 +28,7 @@ use frame_support::{
 		Currency,
 	},
 };
-use pallet_staking::{CurrentEra, RewardDestination};
+use pallet_staking_async::{CurrentEra, RewardDestination};
 
 use sp_runtime::traits::BadOrigin;
 use sp_staking::StakingInterface;
@@ -806,12 +806,7 @@ mod on_idle {
 			assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(VALIDATOR_PREFIX)));
 
 			// but they indeed are exposed!
-			assert!(pallet_staking::EraInfo::<T>::get_paged_exposure(
-				BondingDuration::get() - 1,
-				&VALIDATOR_PREFIX,
-				0
-			)
-			.is_some());
+			assert!(Staking::is_exposed_in_era(&VALIDATOR_PREFIX, &(BondingDuration::get() - 1)));
 
 			// process a block, this validator is exposed and has been slashed.
 			next_block(true);

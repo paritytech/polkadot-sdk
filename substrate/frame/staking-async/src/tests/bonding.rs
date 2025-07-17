@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use super::*;
+use crate::testing_utils;
 use frame_support::{hypothetically_ok, traits::Currency};
 
 #[test]

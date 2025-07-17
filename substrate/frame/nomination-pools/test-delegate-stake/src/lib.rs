@@ -33,9 +33,10 @@ use pallet_nomination_pools::{
 	BondExtra, BondedPools, CommissionChangeRate, ConfigOp, Error as PoolsError,
 	Event as PoolsEvent, LastPoolId, PoolMember, PoolMembers, PoolState,
 };
-use pallet_staking::{
+use pallet_staking_async::{
 	CurrentEra, Error as StakingError, Event as StakingEvent, Payee, RewardDestination,
 };
+use sp_staking::StakingInterface;
 
 use pallet_delegated_staking::Event as DelegatedStakingEvent;
 
@@ -185,7 +186,10 @@ fn pool_lifecycle_e2e() {
 		// pools is fully destroyed now.
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 50 },]
+			vec![
+				StakingEvent::StakerRemoved { stash: POOL1_BONDED },
+				StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 50 },
+			]
 		);
 		assert_eq!(
 			pool_events_since_last_call(),
@@ -195,6 +199,77 @@ fn pool_lifecycle_e2e() {
 				PoolsEvent::Destroyed { pool_id: 1 }
 			]
 		);
+	})
+}
+
+#[test]
+fn pool_depositor_unbond_auto_chill() {
+	new_test_ext().execute_with(|| {
+		// Create a pool with depositor
+		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 50, 10, 10, 10));
+		assert_eq!(LastPoolId::<Runtime>::get(), 1);
+
+		// Have the pool nominate
+		assert_ok!(Pools::nominate(RuntimeOrigin::signed(10), 1, vec![1, 2, 3]));
+
+		// Clear events from setup
+		let _ = staking_events_since_last_call();
+		let _ = pool_events_since_last_call();
+
+		// Set pool to destroying state
+		assert_ok!(Pools::set_state(RuntimeOrigin::signed(10), 1, PoolState::Destroying));
+
+		// Depositor unbonds all their stake - should automatically chill the pool
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(10), 10, 50));
+
+		// Verify that chill and unbond events are emitted
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::Chilled { stash: POOL1_BONDED },
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 50 },
+			]
+		);
+
+		// Verify pool events
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::StateChanged { pool_id: 1, new_state: PoolState::Destroying },
+				PoolsEvent::Unbonded { member: 10, pool_id: 1, points: 50, balance: 50, era: 3 },
+			]
+		);
+	})
+}
+
+#[test]
+fn pool_depositor_unbond_no_auto_chill_with_other_members() {
+	new_test_ext().execute_with(|| {
+		// Create a pool with depositor
+		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 50, 10, 10, 10));
+
+		// Add another member
+		assert_ok!(Pools::join(RuntimeOrigin::signed(20), 10, 1));
+
+		// Have the pool nominate
+		assert_ok!(Pools::nominate(RuntimeOrigin::signed(10), 1, vec![1, 2, 3]));
+
+		// Clear events from setup
+		let _ = staking_events_since_last_call();
+		let _ = pool_events_since_last_call();
+
+		// Set pool to destroying state
+		assert_ok!(Pools::set_state(RuntimeOrigin::signed(10), 1, PoolState::Destroying));
+
+		// Depositor tries to unbond all their stake while other member still exists
+		// This should fail because depositor can't unbond when other members remain
+		assert_noop!(
+			Pools::unbond(RuntimeOrigin::signed(10), 10, 50),
+			PoolsError::<Runtime>::MinimumBondNotMet,
+		);
+
+		// Verify no chill event was emitted since the unbond failed
+		assert_eq!(staking_events_since_last_call(), vec![]);
 	})
 }
 
@@ -249,13 +324,13 @@ fn pool_chill_e2e() {
 		// increased after the pool is created.
 		assert_ok!(Staking::set_staking_configs(
 			RuntimeOrigin::root(),
-			pallet_staking::ConfigOp::Set(55), // minimum nominator bond
-			pallet_staking::ConfigOp::Noop,
-			pallet_staking::ConfigOp::Noop,
-			pallet_staking::ConfigOp::Noop,
-			pallet_staking::ConfigOp::Noop,
-			pallet_staking::ConfigOp::Noop,
-			pallet_staking::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Set(55), // minimum nominator bond
+			pallet_staking_async::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Noop,
+			pallet_staking_async::ConfigOp::Noop,
 		));
 
 		// members can unbond as long as total stake of the pool is above min nominator bond
@@ -421,7 +496,7 @@ fn pool_slash_e2e() {
 
 		// At this point, 20 are safe from slash, 30 are unlocking but vulnerable to slash, and and
 		// another 30 are active and vulnerable to slash. Let's slash half of them.
-		pallet_staking::slashing::do_slash::<Runtime>(
+		pallet_staking_async::slashing::do_slash::<Runtime>(
 			&POOL1_BONDED,
 			30,
 			&mut Default::default(),
@@ -518,7 +593,10 @@ fn pool_slash_e2e() {
 
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 10 }]
+			vec![
+				StakingEvent::StakerRemoved { stash: POOL1_BONDED },
+				StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 10 },
+			]
 		);
 		assert_eq!(
 			pool_events_since_last_call(),
@@ -539,7 +617,7 @@ fn pool_slash_proportional() {
 		ExistentialDeposit::set(2);
 		BondingDuration::set(28);
 		assert_eq!(Balances::minimum_balance(), 2);
-		assert_eq!(Staking::current_era(), None);
+		assert_eq!(Staking::current_era(), 0);
 
 		// create the pool, we know this has id 1.
 		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 40, 10, 10, 10));
@@ -677,7 +755,7 @@ fn pool_slash_proportional() {
 
 		hypothetically!({
 			// a very small amount is slashed
-			pallet_staking::slashing::do_slash::<Runtime>(
+			pallet_staking_async::slashing::do_slash::<Runtime>(
 				&POOL1_BONDED,
 				3,
 				&mut Default::default(),
@@ -698,7 +776,7 @@ fn pool_slash_proportional() {
 			);
 		});
 
-		pallet_staking::slashing::do_slash::<Runtime>(
+		pallet_staking_async::slashing::do_slash::<Runtime>(
 			&POOL1_BONDED,
 			50,
 			&mut Default::default(),
@@ -834,7 +912,7 @@ fn pool_slash_non_proportional_only_bonded_pool() {
 		// slash for 30. This will be deducted only from the bonded pool.
 		CurrentEra::<T>::set(Some(100));
 		assert_eq!(BondedPools::<T>::get(1).unwrap().points, 40);
-		pallet_staking::slashing::do_slash::<Runtime>(
+		pallet_staking_async::slashing::do_slash::<Runtime>(
 			&POOL1_BONDED,
 			30,
 			&mut Default::default(),
@@ -913,7 +991,7 @@ fn pool_slash_non_proportional_bonded_pool_and_chunks() {
 		// slash 50. This will be deducted only from the bonded pool and one of the unbonding pools.
 		CurrentEra::<T>::set(Some(100));
 		assert_eq!(BondedPools::<T>::get(1).unwrap().points, 40);
-		pallet_staking::slashing::do_slash::<Runtime>(
+		pallet_staking_async::slashing::do_slash::<Runtime>(
 			&POOL1_BONDED,
 			50,
 			&mut Default::default(),
@@ -1526,7 +1604,7 @@ fn pool_no_dangling_delegation() {
 		// At this point, bob's 20 that is unlocking is safe from slash, 10 (alice) + 10 (charlie)
 		// are also unlocking but vulnerable to slash, and another 40 are active and vulnerable to
 		// slash. Let's slash half of them.
-		pallet_staking::slashing::do_slash::<Runtime>(
+		pallet_staking_async::slashing::do_slash::<Runtime>(
 			&POOL1_BONDED,
 			30,
 			&mut Default::default(),
@@ -1698,7 +1776,10 @@ fn pool_no_dangling_delegation() {
 
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 15 }]
+			vec![
+				StakingEvent::StakerRemoved { stash: POOL1_BONDED },
+				StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 15 },
+			]
 		);
 		assert_eq!(
 			pool_events_since_last_call(),

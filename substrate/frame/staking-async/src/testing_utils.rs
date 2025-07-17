@@ -15,38 +15,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Testing utils for staking. Provides some common functions to setup staking state, such as
-//! bonding validators, nominators, and generating different types of solutions.
+//! Testing utilities for pallet-staking-async internal tests.
 
-use crate::{Pallet as Staking, *};
+use super::*;
+use codec::Encode;
 use frame_benchmarking::account;
+use frame_election_provider_support::SortedListProvider;
+#[cfg(not(feature = "runtime-benchmarks"))]
+use frame_support::traits::fungible::Mutate;
 use frame_system::RawOrigin;
 use rand_chacha::{
 	rand_core::{RngCore, SeedableRng},
 	ChaChaRng,
 };
 use sp_io::hashing::blake2_256;
-
-use frame_election_provider_support::SortedListProvider;
-use frame_support::pallet_prelude::*;
 use sp_runtime::{traits::StaticLookup, Perbill};
 
 const SEED: u32 = 0;
+const STAKING_ID: frame_support::traits::LockIdentifier = *b"staking ";
 
-/// This function removes all validators and nominators from storage.
-pub fn clear_validators_and_nominators<T: Config>() {
-	#[allow(deprecated)]
-	Validators::<T>::remove_all();
+pub type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
-	// whenever we touch nominators counter we should update `T::VoterList` as well.
-	#[allow(deprecated)]
-	Nominators::<T>::remove_all();
-
-	// NOTE: safe to call outside block production
-	T::VoterList::unsafe_clear();
-}
-
-/// Grab a funded user.
+/// Create a funded user.
 pub fn create_funded_user<T: Config>(
 	string: &'static str,
 	n: u32,
@@ -54,18 +44,10 @@ pub fn create_funded_user<T: Config>(
 ) -> T::AccountId {
 	let user = account(string, n, SEED);
 	let balance = asset::existential_deposit::<T>() * balance_factor.into();
+	#[cfg(feature = "runtime-benchmarks")]
 	let _ = asset::set_stakeable_balance::<T>(&user, balance);
-	user
-}
-
-/// Grab a funded user with max Balance.
-pub fn create_funded_user_with_balance<T: Config>(
-	string: &'static str,
-	n: u32,
-	balance: BalanceOf<T>,
-) -> T::AccountId {
-	let user = account(string, n, SEED);
-	let _ = asset::set_stakeable_balance::<T>(&user, balance);
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	let _ = T::Currency::set_balance(&user, balance);
 	user
 }
 
@@ -78,7 +60,7 @@ pub fn create_stash_controller<T: Config>(
 	let staker = create_funded_user::<T>("stash", n, balance_factor);
 	let amount =
 		asset::existential_deposit::<T>().max(1u64.into()) * (balance_factor / 10).max(1).into();
-	Staking::<T>::bond(RawOrigin::Signed(staker.clone()).into(), amount, destination)?;
+	Pallet::<T>::bond(RawOrigin::Signed(staker.clone()).into(), amount, destination)?;
 	Ok((staker.clone(), staker))
 }
 
@@ -90,14 +72,13 @@ pub fn create_unique_stash_controller<T: Config>(
 	dead_controller: bool,
 ) -> Result<(T::AccountId, T::AccountId), &'static str> {
 	let stash = create_funded_user::<T>("stash", n, balance_factor);
-
 	let controller = if dead_controller {
 		create_funded_user::<T>("controller", n, 0)
 	} else {
 		create_funded_user::<T>("controller", n, balance_factor)
 	};
 	let amount = asset::existential_deposit::<T>() * (balance_factor / 10).max(1).into();
-	Staking::<T>::bond(RawOrigin::Signed(stash.clone()).into(), amount, destination)?;
+	Pallet::<T>::bond(RawOrigin::Signed(stash.clone()).into(), amount, destination)?;
 
 	// update ledger to be a *different* controller to stash
 	if let Some(l) = Ledger::<T>::take(&stash) {
@@ -107,139 +88,6 @@ pub fn create_unique_stash_controller<T: Config>(
 	<Bonded<T>>::insert(&stash, &controller);
 
 	Ok((stash, controller))
-}
-
-/// Create a stash and controller pair with fixed balance.
-pub fn create_stash_controller_with_balance<T: Config>(
-	n: u32,
-	balance: crate::BalanceOf<T>,
-	destination: RewardDestination<T::AccountId>,
-) -> Result<(T::AccountId, T::AccountId), &'static str> {
-	let staker = create_funded_user_with_balance::<T>("stash", n, balance);
-	Staking::<T>::bond(RawOrigin::Signed(staker.clone()).into(), balance, destination)?;
-	Ok((staker.clone(), staker))
-}
-
-/// Create a stash and controller pair, where payouts go to a dead payee account. This is used to
-/// test worst case payout scenarios.
-pub fn create_stash_and_dead_payee<T: Config>(
-	n: u32,
-	balance_factor: u32,
-) -> Result<(T::AccountId, T::AccountId), &'static str> {
-	let staker = create_funded_user::<T>("stash", n, 0);
-	// payee has no funds
-	let payee = create_funded_user::<T>("payee", n, 0);
-	let amount = asset::existential_deposit::<T>() * (balance_factor / 10).max(1).into();
-	Staking::<T>::bond(
-		RawOrigin::Signed(staker.clone()).into(),
-		amount,
-		RewardDestination::Account(payee),
-	)?;
-	Ok((staker.clone(), staker))
-}
-
-/// create `max` validators.
-pub fn create_validators<T: Config>(
-	max: u32,
-	balance_factor: u32,
-) -> Result<Vec<AccountIdLookupOf<T>>, &'static str> {
-	create_validators_with_seed::<T>(max, balance_factor, 0)
-}
-
-/// create `max` validators, with a seed to help unintentional prevent account collisions.
-pub fn create_validators_with_seed<T: Config>(
-	max: u32,
-	balance_factor: u32,
-	seed: u32,
-) -> Result<Vec<AccountIdLookupOf<T>>, &'static str> {
-	let mut validators: Vec<AccountIdLookupOf<T>> = Vec::with_capacity(max as usize);
-	for i in 0..max {
-		let (stash, controller) =
-			create_stash_controller::<T>(i + seed, balance_factor, RewardDestination::Staked)?;
-		let validator_prefs =
-			ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
-		Staking::<T>::validate(RawOrigin::Signed(controller).into(), validator_prefs)?;
-		let stash_lookup = T::Lookup::unlookup(stash);
-		validators.push(stash_lookup);
-	}
-	Ok(validators)
-}
-
-/// This function generates validators and nominators who are randomly nominating
-/// `edge_per_nominator` random validators (until `to_nominate` if provided).
-///
-/// NOTE: This function will remove any existing validators or nominators to ensure
-/// we are working with a clean state.
-///
-/// Parameters:
-/// - `validators`: number of bonded validators
-/// - `nominators`: number of bonded nominators.
-/// - `edge_per_nominator`: number of edge (vote) per nominator.
-/// - `randomize_stake`: whether to randomize the stakes.
-/// - `to_nominate`: if `Some(n)`, only the first `n` bonded validator are voted upon. Else, all of
-///   them are considered and `edge_per_nominator` random validators are voted for.
-///
-/// Return the validators chosen to be nominated.
-pub fn create_validators_with_nominators_for_era<T: Config>(
-	validators: u32,
-	nominators: u32,
-	edge_per_nominator: usize,
-	randomize_stake: bool,
-	to_nominate: Option<u32>,
-) -> Result<Vec<AccountIdLookupOf<T>>, &'static str> {
-	clear_validators_and_nominators::<T>();
-
-	let mut validators_stash: Vec<AccountIdLookupOf<T>> = Vec::with_capacity(validators as usize);
-	let mut rng = ChaChaRng::from_seed(SEED.using_encoded(blake2_256));
-
-	// Create validators
-	for i in 0..validators {
-		let balance_factor = if randomize_stake { rng.next_u32() % 255 + 10 } else { 100u32 };
-		let (v_stash, v_controller) =
-			create_stash_controller::<T>(i, balance_factor, RewardDestination::Staked)?;
-		let validator_prefs =
-			ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
-		Staking::<T>::validate(RawOrigin::Signed(v_controller.clone()).into(), validator_prefs)?;
-		let stash_lookup = T::Lookup::unlookup(v_stash.clone());
-		validators_stash.push(stash_lookup.clone());
-	}
-
-	let to_nominate = to_nominate.unwrap_or(validators_stash.len() as u32) as usize;
-	let validator_chosen = validators_stash[0..to_nominate].to_vec();
-
-	// Create nominators
-	for j in 0..nominators {
-		let balance_factor = if randomize_stake { rng.next_u32() % 255 + 10 } else { 100u32 };
-		let (_n_stash, n_controller) =
-			create_stash_controller::<T>(u32::MAX - j, balance_factor, RewardDestination::Staked)?;
-
-		// Have them randomly validate
-		let mut available_validators = validator_chosen.clone();
-		let mut selected_validators: Vec<AccountIdLookupOf<T>> =
-			Vec::with_capacity(edge_per_nominator);
-
-		for _ in 0..validators.min(edge_per_nominator as u32) {
-			let selected = rng.next_u32() as usize % available_validators.len();
-			let validator = available_validators.remove(selected);
-			selected_validators.push(validator);
-			if available_validators.is_empty() {
-				break
-			}
-		}
-		Staking::<T>::nominate(
-			RawOrigin::Signed(n_controller.clone()).into(),
-			selected_validators,
-		)?;
-	}
-
-	ValidatorCount::<T>::put(validators);
-
-	Ok(validator_chosen)
-}
-
-/// get the current era.
-pub fn current_era<T: Config>() -> EraIndex {
-	CurrentEra::<T>::get().unwrap_or(0)
 }
 
 pub fn migrate_to_old_currency<T: Config>(who: T::AccountId) {
@@ -254,8 +102,117 @@ pub fn migrate_to_old_currency<T: Config>(who: T::AccountId) {
 		frame_support::traits::WithdrawReasons::all(),
 	);
 	// remove holds.
-	asset::kill_stake::<T>(&who).expect("remove hold failed");
+	let _ = asset::kill_stake::<T>(&who);
 
 	// replicate old behaviour of explicit increment of consumer.
-	frame_system::Pallet::<T>::inc_consumers(&who).expect("increment consumer failed");
+	let _ = frame_system::Pallet::<T>::inc_consumers(&who);
+}
+
+/// Clear all validators and nominators.
+pub fn clear_validators_and_nominators<T: Config>() {
+	#[allow(deprecated)]
+	Validators::<T>::remove_all();
+	#[allow(deprecated)]
+	Nominators::<T>::remove_all();
+	T::VoterList::unsafe_clear();
+}
+
+/// Create a stash and controller pair with fixed balance.
+pub fn create_stash_controller_with_balance<T: Config>(
+	n: u32,
+	balance: BalanceOf<T>,
+	destination: RewardDestination<T::AccountId>,
+) -> Result<(T::AccountId, T::AccountId), &'static str> {
+	let staker = create_funded_user_with_balance::<T>("stash", n, balance);
+	Pallet::<T>::bond(RawOrigin::Signed(staker.clone()).into(), balance, destination)?;
+	Ok((staker.clone(), staker))
+}
+
+fn create_funded_user_with_balance<T: Config>(
+	string: &'static str,
+	n: u32,
+	balance: BalanceOf<T>,
+) -> T::AccountId {
+	let user = account(string, n, SEED);
+	#[cfg(feature = "runtime-benchmarks")]
+	let _ = asset::set_stakeable_balance::<T>(&user, balance);
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	let _ = T::Currency::set_balance(&user, balance);
+	user
+}
+
+/// Create validators.
+pub fn create_validators<T: Config>(
+	max: u32,
+	balance_factor: u32,
+) -> Result<Vec<AccountIdLookupOf<T>>, &'static str> {
+	create_validators_with_seed::<T>(max, balance_factor, 0)
+}
+
+/// Create validators with seed.
+pub fn create_validators_with_seed<T: Config>(
+	max: u32,
+	balance_factor: u32,
+	seed: u32,
+) -> Result<Vec<AccountIdLookupOf<T>>, &'static str> {
+	let mut validators: Vec<AccountIdLookupOf<T>> = Vec::with_capacity(max as usize);
+	for i in 0..max {
+		let (stash, controller) =
+			create_stash_controller::<T>(i + seed, balance_factor, RewardDestination::Staked)?;
+		let validator_prefs =
+			ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
+		Pallet::<T>::validate(RawOrigin::Signed(controller).into(), validator_prefs)?;
+		let stash_lookup = T::Lookup::unlookup(stash);
+		validators.push(stash_lookup);
+	}
+	Ok(validators)
+}
+
+/// Create validators with nominators for era.
+pub fn create_validators_with_nominators_for_era<T: Config>(
+	validators: u32,
+	nominators: u32,
+	edge_per_nominator: usize,
+	randomize_stake: bool,
+	to_nominate: Option<u32>,
+) -> Result<Vec<AccountIdLookupOf<T>>, &'static str> {
+	clear_validators_and_nominators::<T>();
+	let mut validators_stash: Vec<AccountIdLookupOf<T>> = Vec::with_capacity(validators as usize);
+	let mut rng = ChaChaRng::from_seed(SEED.using_encoded(blake2_256));
+
+	for i in 0..validators {
+		let balance_factor = if randomize_stake { rng.next_u32() % 255 + 10 } else { 100u32 };
+		let (v_stash, v_controller) =
+			create_stash_controller::<T>(i, balance_factor, RewardDestination::Staked)?;
+		let validator_prefs =
+			ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
+		Pallet::<T>::validate(RawOrigin::Signed(v_controller.clone()).into(), validator_prefs)?;
+		let stash_lookup = T::Lookup::unlookup(v_stash.clone());
+		validators_stash.push(stash_lookup.clone());
+	}
+
+	let to_nominate = to_nominate.unwrap_or(validators_stash.len() as u32) as usize;
+	let validator_chosen = validators_stash[0..to_nominate].to_vec();
+
+	for j in 0..nominators {
+		let balance_factor = if randomize_stake { rng.next_u32() % 255 + 10 } else { 100u32 };
+		let (_n_stash, n_controller) =
+			create_stash_controller::<T>(u32::MAX - j, balance_factor, RewardDestination::Staked)?;
+		let mut available_validators = validator_chosen.clone();
+		let mut selected_validators: Vec<AccountIdLookupOf<T>> =
+			Vec::with_capacity(edge_per_nominator);
+
+		for _ in 0..validators.min(edge_per_nominator as u32) {
+			let selected = rng.next_u32() as usize % available_validators.len();
+			let validator = available_validators.remove(selected);
+			selected_validators.push(validator);
+			if available_validators.is_empty() {
+				break
+			}
+		}
+		Pallet::<T>::nominate(RawOrigin::Signed(n_controller.clone()).into(), selected_validators)?;
+	}
+
+	ValidatorCount::<T>::put(validators);
+	Ok(validator_chosen)
 }

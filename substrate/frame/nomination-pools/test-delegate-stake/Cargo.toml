@@ -32,9 +32,17 @@ pallet-bags-list = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-delegated-staking = { workspace = true, default-features = true }
 pallet-nomination-pools = { workspace = true, default-features = true }
-pallet-staking = { workspace = true, default-features = true }
+pallet-staking-async = { workspace = true, default-features = true }
+pallet-staking-async-rc-client = { workspace = true, default-features = true }
+pallet-staking-async-testing-utils = { workspace = true, default-features = true }
 pallet-staking-reward-curve = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 
 log = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
+
+[features]
+default = ["std"]
+std = [
+	"log/std",
+]
