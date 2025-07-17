@@ -23,6 +23,7 @@ use async_trait::async_trait;
 use codec::Encode;
 use parking_lot::RwLock;
 use sc_transaction_pool::{ChainApi, ValidateTransactionPriority};
+use sc_transaction_pool_api::error::IntoMetricsLabel;
 use sp_blockchain::{CachedHeaderMetadata, HashAndNumber, TreeRoute};
 use sp_runtime::{
 	generic::{self, BlockId},
@@ -54,6 +55,12 @@ pub struct Error(#[from] pub sc_transaction_pool_api::error::Error);
 impl sc_transaction_pool_api::error::IntoPoolError for Error {
 	fn into_pool_error(self) -> Result<sc_transaction_pool_api::error::Error, Self> {
 		Ok(self.0)
+	}
+}
+
+impl IntoMetricsLabel for Error {
+	fn label(&self) -> String {
+		self.0.to_string()
 	}
 }
 
