@@ -1,13 +1,15 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
+use codec::{Decode, Encode};
+use sc_executor::WasmExecutor;
+use sp_core::traits::{CallContext, CodeExecutor, RuntimeCode, WrappedRuntimeCode};
+use sp_io::TestExternalities;
 use std::{
 	env, fs, path,
 	path::{Path, PathBuf},
 	process::Command,
 };
-
-use subwasmlib::{source::Source, OutputFormat, Subwasm};
 
 macro_rules! debug_output {
     ($($tokens: tt)*) => {
@@ -82,11 +84,62 @@ fn build_wasm(chain: &str) -> PathBuf {
 	PathBuf::from(wasm_path)
 }
 
+type HostFunctions = (
+	sp_io::allocator::HostFunctions,
+	sp_io::logging::HostFunctions,
+	sp_io::storage::HostFunctions,
+	sp_io::hashing::HostFunctions,
+);
+
 fn generate_metadata_file(wasm_path: &Path, output_path: &Path) {
-	let source = Source::from_options(Some(wasm_path.to_path_buf()), None, None, None).unwrap();
-	let subwasm = Subwasm::new(&source.try_into().unwrap()).unwrap();
-	let mut output_file = std::fs::File::create(output_path).unwrap();
-	subwasm.write_metadata(OutputFormat::Scale, None, &mut output_file).unwrap();
+	let wasm_bytes = fs::read(wasm_path).expect("Failed to read WASM file");
+
+	let executor = WasmExecutor::<HostFunctions>::builder()
+		.with_allow_missing_host_functions(true)
+		.build();
+
+	let runtime_code = RuntimeCode {
+		code_fetcher: &WrappedRuntimeCode(wasm_bytes.into()),
+		heap_pages: None,
+		hash: vec![1, 2, 3],
+	};
+
+	// First get the supported metadata versions
+	let versions_result = executor
+		.call(
+			&mut TestExternalities::default().ext(),
+			&runtime_code,
+			"Metadata_metadata_versions",
+			&[],
+			CallContext::Offchain,
+		)
+		.0
+		.expect("`Metadata::metadata_versions` should exist.");
+
+	let versions =
+		Vec::<u32>::decode(&mut &versions_result[..]).expect("Failed to decode metadata versions");
+
+	// Use the latest supported version
+	let latest_version =
+		versions.into_iter().max().expect("There is at least one metadata version; qed");
+
+	let metadata = executor
+		.call(
+			&mut TestExternalities::default().ext(),
+			&runtime_code,
+			"Metadata_metadata_at_version",
+			&latest_version.encode(),
+			CallContext::Offchain,
+		)
+		.0
+		.expect("`Metadata::metadata_at_version` should exist.");
+
+	let metadata = Option::<Vec<u8>>::decode(&mut &metadata[..])
+		.ok()
+		.flatten()
+		.expect("Metadata support is required.");
+
+	fs::write(output_path, metadata).expect("Failed to write metadata file");
 }
 
 fn fetch_metadata_file(chain: &str, output_path: &Path) {
