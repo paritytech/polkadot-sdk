@@ -4944,15 +4944,18 @@ fn basic_evm_flow_works() {
 			.native_value(1000)
 			.build_and_unwrap_contract();
 
-		let data =
-			Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: primitives::U256::from(10u64) })
-				.abi_encode();
-
 		// check the code exists
 		let contract = test_utils::get_contract_checked(&addr).unwrap();
 		ensure_stored(contract.code_hash);
 
-		let result = builder::bare_call(addr).data(data).build_and_unwrap_result();
+		let result = builder::bare_call(addr)
+			.data(
+				Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall {
+					n: primitives::U256::from(10u64),
+				})
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
 		assert_eq!(U256::from(55u32), U256::from_big_endian(&result.data));
 	});
 }
