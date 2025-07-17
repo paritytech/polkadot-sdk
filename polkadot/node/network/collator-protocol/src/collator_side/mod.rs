@@ -1292,7 +1292,14 @@ async fn process_block_events<Context>(
 					if receipt.descriptor.para_id() != para_id {
 						continue
 					}
-					collation_tracker.collation_included(block_number, leaf, receipt, metrics);
+					let Some(stats) =
+						collation_tracker.collation_included(block_number, leaf, receipt, metrics)
+					else {
+						continue
+					};
+
+					// Continue measuring finalization latency.
+					collation_tracker.track(stats);
 				},
 				CandidateEvent::CandidateBacked(receipt, _, _, _) => {
 					if receipt.descriptor.para_id() != para_id {
@@ -1480,18 +1487,7 @@ fn process_expired_collations(
 	metrics: &Metrics,
 ) {
 	for expired_collation in expired_collations {
-		let collation_state = if expired_collation.fetch_latency().is_none() {
-			// If collation was not fetched, we rely on the status provided
-			// by the collator protocol.
-			expired_collation.pre_backing_status().label()
-		} else if expired_collation.backed().is_none() {
-			"fetched"
-		} else if expired_collation.included().is_none() {
-			"backed"
-		} else {
-			"none"
-		};
-
+		let collation_state = expired_collation.expiry_state();
 		let age = expired_collation.expired().unwrap_or_default();
 		gum::debug!(
 			target: crate::LOG_TARGET_STATS,

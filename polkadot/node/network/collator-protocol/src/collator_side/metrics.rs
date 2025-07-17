@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::{
-	collections::{HashMap, HashSet},
+	collections::HashMap,
 	time::{Duration, Instant},
 };
 
@@ -255,8 +255,6 @@ pub(crate) const MAX_FINALITY_DELAY: BlockNumber = MAX_FINALITY_LAG as BlockNumb
 // Collations are kept in the tracker, until they are finalized or expired
 #[derive(Default)]
 pub(crate) struct CollationTracker {
-	// Keep track of collation expiration block number.
-	expire: HashMap<BlockNumber, HashSet<Hash>>,
 	// All un-expired collation entries
 	entries: HashMap<Hash, CollationStats>,
 }
@@ -364,12 +362,13 @@ impl CollationTracker {
 						None
 					}
 				})
+				.cloned()
 				.collect::<Vec<_>>();
 
 		heads
 			.into_iter()
 			.filter_map(|head| {
-				self.entries.remove(head).map(|mut entry| {
+				self.entries.remove(&head).map(|mut entry| {
 					entry.set_finalized_at(block_number);
 
 					if let Some(latency) = entry.finalized() {
@@ -392,10 +391,17 @@ impl CollationTracker {
 
 	// Returns all the collations that have expired at `block_number`.
 	pub fn drain_expired(&mut self, block_number: BlockNumber) -> Vec<CollationStats> {
-		let Some(expired) = self.expire.remove(&block_number) else {
-			// No collations built on all seen relay parents at height `block_number`
-			return Vec::new()
-		};
+		let expired = self
+			.entries
+			.iter()
+			.filter_map(|(head, entry)| {
+				if entry.tracking_expiry_block() <= block_number {
+					Some(*head)
+				} else {
+					None
+				}
+			})
+			.collect::<Vec<_>>();
 
 		expired
 			.iter()
@@ -411,30 +417,13 @@ impl CollationTracker {
 	// on the collation state.
 	// Collation is evicted after it expires.
 	pub fn track(&mut self, mut stats: CollationStats) {
-		// Check the state of collation to compute ttl.
-		let ttl = if stats.fetch_latency().is_none() {
-			// Disable the fetch timer, to prevent bogus observe on drop.
+		// Disable the fetch timer, to prevent bogus observe on drop.
+		if stats.fetch_latency().is_none() {
 			if let Some(fetch_latency_metric) = stats.fetch_latency_metric.take() {
 				fetch_latency_metric.stop_and_discard();
 			}
-			// Collation was never fetched, expires ASAP
-			0
-		} else if stats.backed().is_none() {
-			MAX_BACKING_DELAY
-		} else if stats.included().is_none() {
-			// Set expiration date relative to relay parent block.
-			stats.backed().unwrap_or_default() + MAX_AVAILABILITY_DELAY
-		} else {
-			// If block included no reason to track it.
-			return
-		};
+		}
 
-		self.expire
-			.entry(stats.relay_parent_number + ttl)
-			.and_modify(|heads| {
-				heads.insert(stats.head);
-			})
-			.or_insert_with(|| HashSet::from_iter(vec![stats.head].into_iter()));
 		self.entries.insert(stats.head, stats);
 	}
 }
@@ -484,6 +473,40 @@ impl CollationStats {
 		}
 	}
 
+	pub fn tracking_ttl(&self) -> BlockNumber {
+		if self.fetch_latency().is_none() {
+			0 // Collation was never fetched, expires ASAP
+		} else if self.backed().is_none() {
+			MAX_BACKING_DELAY
+		} else if self.included().is_none() {
+			self.backed().expect("backed, checked above") + MAX_AVAILABILITY_DELAY
+		} else if self.finalized().is_none() {
+			self.included().expect("included, checked above") + MAX_FINALITY_DELAY
+		} else {
+			0 // If block finalized no reason to track it.
+		}
+	}
+
+	pub fn expiry_state(&self) -> &'static str {
+		if self.fetch_latency().is_none() {
+			// If collation was not fetched, we rely on the status provided
+			// by the collator protocol.
+			self.pre_backing_status().label()
+		} else if self.backed().is_none() {
+			"fetched"
+		} else if self.included().is_none() {
+			"backed"
+		} else if self.finalized().is_none() {
+			"included"
+		} else {
+			"none"
+		}
+	}
+
+	pub fn tracking_expiry_block(&self) -> BlockNumber {
+		self.relay_parent_number + self.tracking_ttl()
+	}
+
 	/// Returns the age at which the collation expired.
 	pub fn expired(&self) -> Option<BlockNumber> {
 		let expired_at = self.expired_at?;
@@ -505,9 +528,7 @@ impl CollationStats {
 
 	/// Returns true if the collation is included at the given block number and hash.
 	pub fn is_included_at(&self, block_number: BlockNumber, hash: H256) -> bool {
-		self.included_at
-			.iter()
-			.any(|(block_number, hash)| *block_number == block_number && *hash == hash)
+		self.included_at.iter().any(|(b, h)| *b == block_number && *h == hash)
 	}
 
 	/// Returns the age of the collation at the moment of finalization.
