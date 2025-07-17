@@ -157,7 +157,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 					&Location { parents: 2, interior: [GlobalConsensus(RococoNetwork::get())].into() },
 				)
 				.unwrap(),
-				10000000,
+				10_000_000,
 			),
 			],
 				vec![
@@ -165,7 +165,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 					(
 						Location::new(2, [GlobalConsensus(RococoNetwork::get())]),
 						Sr25519Keyring::Bob.to_account_id(),
-						10000000 * 4096 * 4096,
+						10_000_000 * 4096 * 4096,
 					),
 				],
 			),
