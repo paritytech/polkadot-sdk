@@ -211,15 +211,14 @@ const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 /// We allow `Normal` extrinsics to fill up the block up to 75%, the rest can be used
 /// by  Operational  extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
-/// We allow for 1 second of compute with a 6 second average block time.
-const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
-	WEIGHT_REF_TIME_PER_SECOND,
-	cumulus_primitives_core::relay_chain::MAX_POV_SIZE as u64,
-);
+/// Target number of blocks per relay chain slot.
+const NUMBER_OF_BLOCKS_PER_RELAY_SLOT: u32 = 12;
 
 parameter_types! {
 	pub const BlockHashCount: BlockNumber = 4096;
 	pub const Version: RuntimeVersion = VERSION;
+	/// We allow for 1 second of compute with a 6 second average block time.
+	pub MaximumBlockWeight: Weight = cumulus_pallet_parachain_system::MaxParachainBlockWeight::get::<Runtime>(NUMBER_OF_BLOCKS_PER_RELAY_SLOT);
 	pub RuntimeBlockLength: BlockLength =
 		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
@@ -228,14 +227,14 @@ parameter_types! {
 			weights.base_extrinsic = ExtrinsicBaseWeight::get();
 		})
 		.for_class(DispatchClass::Normal, |weights| {
-			weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT);
+			weights.max_total = Some(NORMAL_DISPATCH_RATIO * MaximumBlockWeight::get());
 		})
 		.for_class(DispatchClass::Operational, |weights| {
-			weights.max_total = Some(MAXIMUM_BLOCK_WEIGHT);
+			weights.max_total = Some(MaximumBlockWeight::get());
 			// Operational transactions have some extra reserved space, so that they
-			// are included even if block reached `MAXIMUM_BLOCK_WEIGHT`.
+			// are included even if block reached `MaximumBlockWeight`.
 			weights.reserved = Some(
-				MAXIMUM_BLOCK_WEIGHT - NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT
+				MaximumBlockWeight::get() - NORMAL_DISPATCH_RATIO * MaximumBlockWeight::get()
 			);
 		})
 		.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
@@ -632,11 +631,9 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::SlotSchedule<Block> for Runtime {
 		fn next_slot_schedule(num_cores: u32) -> Vec<Duration> {
-			const TARGET_BLOCK_INTERVAL: u32 = 12;
+			let block_time = Duration::from_secs(2) * num_cores / NUMBER_OF_BLOCKS_PER_RELAY_SLOT;
 
-			let block_time = Duration::from_secs(2) * num_cores / TARGET_BLOCK_INTERVAL;
-
-			vec![block_time.min(Duration::from_millis(500)); TARGET_BLOCK_INTERVAL as usize]
+			vec![block_time.min(Duration::from_millis(500)); NUMBER_OF_BLOCKS_PER_RELAY_SLOT as usize]
 		}
 	}
 }

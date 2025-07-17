@@ -25,6 +25,7 @@
 //! `DispatchClass`. This module contains configuration object for both resources,
 //! which should be passed to `frame_system` configuration when runtime is being set up.
 
+use alloc::{string::String, vec::Vec, format};
 use frame_support::{
 	dispatch::{DispatchClass, OneOrMany, PerDispatchClass},
 	weights::{constants, Weight},
@@ -33,7 +34,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{traits::Bounded, Perbill, RuntimeDebug};
 
 /// Block length limit configuration.
-#[derive(RuntimeDebug, Clone, codec::Encode, codec::Decode, TypeInfo)]
+#[derive(Debug, Clone, codec::Encode, codec::Decode, TypeInfo)]
 pub struct BlockLength {
 	/// Maximal total length in bytes for each extrinsic class.
 	///
@@ -69,10 +70,9 @@ impl BlockLength {
 	}
 }
 
-#[derive(Default, RuntimeDebug)]
+#[derive(Default, Debug)]
 pub struct ValidationErrors {
 	pub has_errors: bool,
-	#[cfg(feature = "std")]
 	pub errors: Vec<String>,
 }
 
@@ -80,7 +80,6 @@ macro_rules! error_assert {
 	($cond : expr, $err : expr, $format : expr $(, $params: expr )*$(,)*) => {
 		if !$cond {
 			$err.has_errors = true;
-			#[cfg(feature = "std")]
 			{ $err.errors.push(format!($format $(, &$params )*)); }
 		}
 	}
@@ -195,7 +194,7 @@ pub struct WeightsPerClass {
 ///
 /// As a consequence of `reserved` space, total consumed block weight might exceed `max_block`
 /// value, so this parameter should rather be thought of as "target block weight" than a hard limit.
-#[derive(RuntimeDebug, Clone, codec::Encode, codec::Decode, TypeInfo)]
+#[derive(Debug, Clone, codec::Encode, codec::Decode, TypeInfo)]
 pub struct BlockWeights {
 	/// Base weight of block execution.
 	pub base_block: Weight,

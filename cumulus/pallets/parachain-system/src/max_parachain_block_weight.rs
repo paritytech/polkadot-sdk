@@ -17,7 +17,7 @@
 //! Utilities for calculating maximum parachain block weight based on core assignments.
 
 use cumulus_primitives_core::CumulusDigestItem;
-use frame_support::weights::Weight;
+use frame_support::weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight};
 use polkadot_primitives::MAX_POV_SIZE;
 
 /// A utility type for calculating the maximum block weight for a parachain based on
@@ -40,36 +40,24 @@ impl MaxParachainBlockWeight {
 	/// Returns the calculated maximum weight, or a conservative default if no core info is found
 	/// or if an error occurs during calculation.
 	pub fn get<T: frame_system::Config>(target_blocks: u32) -> Weight {
-		// Maximum ref time per core (2 seconds in nanoseconds)
-		const MAX_REF_TIME_PER_CORE_NS: u64 = 2_000_000_000;
+		// Maximum ref time per core
+		const MAX_REF_TIME_PER_CORE_NS: u64 = 2 * WEIGHT_REF_TIME_PER_SECOND;
 
-		// Get the current block's digest from frame-system storage
 		let digest = frame_system::Pallet::<T>::digest();
 
-		// Search for CoreInfo in the block digest
-		let core_info = match CumulusDigestItem::find_core_info(&digest) {
-			Some(info) => info,
-			None => {
-				// If no core info is found, return a conservative default
-				return Weight::from_parts(MAX_REF_TIME_PER_CORE_NS, MAX_POV_SIZE as u64);
-			},
+		let Some(core_info) = CumulusDigestItem::find_core_info(&digest) else {
+			return Weight::from_parts(MAX_REF_TIME_PER_CORE_NS, MAX_POV_SIZE as u64);
 		};
 
-		// Extract number of cores from the CoreInfo
-		let number_of_cores = u32::from(core_info.number_of_cores.0);
+		let number_of_cores = core_info.number_of_cores.0 as u32;
 
 		// Ensure we have at least one core and valid target blocks
 		if number_of_cores == 0 || target_blocks == 0 {
 			return Weight::from_parts(MAX_REF_TIME_PER_CORE_NS, MAX_POV_SIZE as u64);
 		}
 
-		// Calculate total available ref time across all cores
-		let total_ref_time = MAX_REF_TIME_PER_CORE_NS.saturating_mul(number_of_cores as u64);
+		let ref_time_per_block = MAX_REF_TIME_PER_CORE_NS.saturating_div(target_blocks as u64);
 
-		// Distribute the total ref time across target blocks
-		let ref_time_per_block = total_ref_time.saturating_div(target_blocks as u64);
-
-		// PoV size is also shared across target blocks
 		let proof_size_per_block = (MAX_POV_SIZE as u64).saturating_div(target_blocks as u64);
 
 		Weight::from_parts(ref_time_per_block, proof_size_per_block)
