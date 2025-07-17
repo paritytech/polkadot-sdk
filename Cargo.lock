@@ -5162,6 +5162,7 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "staging-xcm",
+ "staging-xcm-executor",
  "xcm-emulator",
 ]
 
@@ -11983,6 +11984,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hex-literal",
  "log",
  "pallet-assets",
  "pallet-balances",
