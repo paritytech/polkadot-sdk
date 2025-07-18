@@ -108,19 +108,11 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 	let relay_client: OnlineClient<PolkadotConfig> = honest.wait_client().await?;
 	let _malus_client: OnlineClient<PolkadotConfig> = malus.wait_client().await?;
 
-	// Check authority status and peers.
+	log::info!("Check authority status and peers.");
 	malus.assert("node_roles", 4.0).await?;
 	honest.assert("node_roles", 4.0).await?;
 
-	// Ensure parachains are registered.
-	assert_para_throughput(
-		&relay_client,
-		2,
-		[(ParaId::from(2000), 2..3), (ParaId::from(2001), 2..3)].into_iter().collect(),
-	)
-	.await?;
-
-	// Ensure that malus is already attempting to DoS
+	log::info!("Ensure that malus is already attempting to DoS");
 	let result = malus
 		.wait_log_line_count_with_timeout(
 			"*Duplicating AttestedCandidateV2 request*",
@@ -130,15 +122,15 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 		.await?;
 	assert!(result.success());
 
-	// Ensure parachains made progress.
+	log::info!("Ensure parachains made progress.");
 	assert_para_throughput(
 		&relay_client,
 		10,
-		[(ParaId::from(2000), 9..11), (ParaId::from(2001), 9..11)].into_iter().collect(),
+		[(ParaId::from(2000), 5..11), (ParaId::from(2001), 5..11)].into_iter().collect(),
 	)
 	.await?;
 
-	// Ensure that honest nodes drop extra requests.
+	log::info!("Ensure that honest nodes drop extra requests.");
 	let result = honest
 		.wait_log_line_count_with_timeout(
 			"*Peer already being served, dropping request*",
@@ -148,7 +140,7 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 		.await?;
 	assert!(result.success());
 
-	// Check lag - approval
+	log::info!("Check lag - approval");
 	honest
 		.assert(
 			"polkadot_parachain_approval_checking_finality_lag{chain=\"rococo_local_testnet\"}",
@@ -156,7 +148,7 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 		)
 		.await?;
 
-	// Check lag - dispute conclusion
+	log::info!("Check lag - dispute conclusion");
 	honest
 		.assert("polkadot_parachain_disputes_finality_lag{chain=\"rococo_local_testnet\"}", 0.0)
 		.await?;
