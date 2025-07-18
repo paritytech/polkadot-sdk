@@ -51,7 +51,7 @@ use frame_support::{
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, FixedFee, IdentityFee, Weight, WeightMeter},
 };
 use frame_system::{EventRecord, Phase};
-use pallet_revive_fixtures::{compile_module, compile_module_with_type};
+use pallet_revive_fixtures::compile_module_with_type;
 use pallet_revive_uapi::{ReturnErrorCode as RuntimeReturnCode, ReturnFlags};
 
 mod fixture {
@@ -4693,8 +4693,8 @@ fn unknown_precompiles_revert(fixture_type: FixtureType) {
 	});
 }
 
-#[test]
-fn pure_precompile_works() {
+#[fixture::test("rust", "sol")]
+fn pure_precompile_works(fixture_type: FixtureType) {
 	use hex_literal::hex;
 
 	let cases = vec![
@@ -4755,7 +4755,7 @@ fn pure_precompile_works() {
 	];
 
 	for (precompile_addr, input, output) in cases {
-		let (code, _code_hash) = compile_module("call_and_return").unwrap();
+		let (code, _code_hash) = compile_module_with_type("call_and_return", fixture_type).unwrap();
 		ExtBuilder::default().build().execute_with(|| {
 			let id = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -4784,8 +4784,8 @@ fn pure_precompile_works() {
 	}
 }
 
-#[test]
-fn precompiles_work() {
+#[fixture::test("rust", "sol")]
+fn precompiles_work(fixture_type: FixtureType) {
 	use crate::precompiles::Precompile;
 	use alloy_core::sol_types::{Panic, PanicKind, Revert, SolError, SolInterface, SolValue};
 	use precompiles::{INoInfo, NoInfo};
@@ -4824,7 +4824,7 @@ fn precompiles_work() {
 	];
 
 	for (input, output, error_code) in cases {
-		let (code, _code_hash) = compile_module("call_and_returncode").unwrap();
+		let (code, _code_hash) = compile_module_with_type("call_and_returncode", fixture_type).unwrap();
 		ExtBuilder::default().build().execute_with(|| {
 			let id = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -4854,8 +4854,8 @@ fn precompiles_work() {
 	}
 }
 
-#[test]
-fn precompiles_with_info_creates_contract() {
+#[fixture::test("rust", "sol")]
+fn precompiles_with_info_creates_contract(fixture_type: FixtureType) {
 	use crate::precompiles::Precompile;
 	use alloy_core::sol_types::SolInterface;
 	use precompiles::{IWithInfo, WithInfo};
@@ -4869,7 +4869,7 @@ fn precompiles_with_info_creates_contract() {
 	)];
 
 	for (input, output, error_code) in cases {
-		let (code, _code_hash) = compile_module("call_and_returncode").unwrap();
+		let (code, _code_hash) = compile_module_with_type("call_and_returncode", fixture_type).unwrap();
 		ExtBuilder::default().build().execute_with(|| {
 			let id = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
