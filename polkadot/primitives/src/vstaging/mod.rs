@@ -121,7 +121,7 @@ impl<H> core::fmt::Debug for CandidateDescriptorV2<H>
 where
 	H: core::fmt::Debug,
 {
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+	fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
 		match self.version() {
 			CandidateDescriptorVersion::V1 => f
 				.debug_struct("CandidateDescriptorV1")
