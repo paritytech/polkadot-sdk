@@ -27,7 +27,7 @@ zombie-metadata = []
 zombie-ci = []
 
 [build-dependencies]
-substrate-build-script-utils = { workspace = true, default-features = true }
 sc-executor = { workspace = true, default-features = true }
 sc-runtime-utilities = { workspace = true, default-features = true }
 sp-io = { workspace = true }
+substrate-build-script-utils = { workspace = true, default-features = true }
