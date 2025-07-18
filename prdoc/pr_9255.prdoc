@@ -7,4 +7,6 @@ doc:
   - audience: Node Dev
     description: |
       Implement core::fmt::Debug by hand and differentiate the output based on CandidateDescriptorVersion.
-crates: []
+crates:
+- name: polkadot-primitives
+  bump: patch
