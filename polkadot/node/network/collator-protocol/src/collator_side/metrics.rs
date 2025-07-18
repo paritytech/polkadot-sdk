@@ -348,26 +348,25 @@ impl CollationTracker {
 	// Returns all the collations that have been finalized at (block_number, leaf).
 	pub fn collations_finalized(
 		&mut self,
-		block_number: BlockNumber,
-		leaf: H256,
+		finalized: Vec<(BlockNumber, H256)>,
 		metrics: &Metrics,
 	) -> Vec<CollationStats> {
-		let heads =
-			self.entries
-				.iter()
-				.filter_map(|(head, entry)| {
-					if entry.is_included_at(block_number, leaf) {
-						Some(head)
-					} else {
-						None
+		let heads = self
+			.entries
+			.iter()
+			.filter_map(|(head, entry)| {
+				for (b, h) in finalized.iter() {
+					if entry.is_included_at(*b, *h) {
+						return Some((*head, *b))
 					}
-				})
-				.cloned()
-				.collect::<Vec<_>>();
+				}
+				None
+			})
+			.collect::<Vec<_>>();
 
 		heads
 			.into_iter()
-			.filter_map(|head| {
+			.filter_map(|(head, block_number)| {
 				self.entries.remove(&head).map(|mut entry| {
 					entry.set_finalized_at(block_number);
 
@@ -429,6 +428,21 @@ impl CollationTracker {
 		}
 
 		self.entries.insert(stats.head, stats);
+	}
+
+	pub fn potentially_finalized_blocks(&self, last_finalized: BlockNumber) -> Vec<BlockNumber> {
+		self.entries
+			.iter()
+			.flat_map(|(_, entry)| {
+				entry.included_at.iter().filter_map(|(b, _)| {
+					if *b <= last_finalized {
+						Some(*b)
+					} else {
+						None
+					}
+				})
+			})
+			.collect::<Vec<_>>()
 	}
 }
 
@@ -520,6 +534,9 @@ impl CollationStats {
 		// TTl for included collations is very long but we don't need to track them all the time if
 		// last finalized already higher than the included block: collation was included in now
 		// abandoned fork.
+		//
+		// Should be safe because we set finalized on `Signal` and now drain expired on
+		// `Communication`. Signal always comes first.
 		match self.included_at.iter().map(|(b, _)| *b).max() {
 			Some(included_at) => self.finalized().is_none() && included_at <= last_finalized,
 			None => false,

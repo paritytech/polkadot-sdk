@@ -39,7 +39,9 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::{CollationSecondedSignal, PoV, Statement};
 use polkadot_node_subsystem::{
-	messages::{CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage},
+	messages::{
+		ChainApiMessage, CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage,
+	},
 	overseer, FromOrchestra, OverseerSignal,
 };
 use polkadot_node_subsystem_util::{
@@ -1241,7 +1243,7 @@ async fn handle_network_msg<Context>(
 			state.peer_ids.remove(&peer_id);
 		},
 		OurViewChange(view) => {
-			gum::trace!(target: LOG_TARGET, ?view, "Own view change");
+			gum::info!(target: LOG_TARGET, ?view, "Own view change");
 			handle_our_view_change(ctx, state, view).await?;
 		},
 		PeerMessage(remote, msg) => {
@@ -1568,7 +1570,20 @@ async fn run_inner<Context>(
 					}
 				}
 				FromOrchestra::Signal(BlockFinalized(hash, block)) => {
-					state.collation_tracker.collations_finalized(block, hash, &metrics);
+					let mut finalized = vec![(block, hash)];
+					let potentially_finalized_blocks =
+						state.collation_tracker.potentially_finalized_blocks(block);
+					for b in potentially_finalized_blocks {
+						let (tx, rx) = oneshot::channel();
+						let _ = ctx.send_message(ChainApiMessage::FinalizedBlockHash(b, tx)).await;
+
+						if let Ok(Ok(Some(h))) = rx.await {
+							finalized.push((b, h));
+						} else {
+							gum::warn!(target: LOG_TARGET_STATS, block_number = ?b, "ChainApi request failed to get finalized block hash");
+						}
+					}
+					state.collation_tracker.collations_finalized(finalized, &metrics);
 				}
 				FromOrchestra::Signal(Conclude) => return Ok(()),
 			},
