@@ -4534,6 +4534,7 @@ dependencies = [
  "sc-telemetry",
  "sc-transaction-pool",
  "sc-utils",
+ "schnellru",
  "sp-api 26.0.0",
  "sp-blockchain",
  "sp-consensus",
