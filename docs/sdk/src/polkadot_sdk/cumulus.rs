@@ -97,6 +97,7 @@ mod tests {
 				type WeightInfo = ();
 				type DmpQueue = frame::traits::EnqueueWithOrigin<(), sp_core::ConstU8<0>>;
 				type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
+				type RelayParentOffset = ConstU32<0>;
 			}
 
 			impl parachain_info::Config for Runtime {}

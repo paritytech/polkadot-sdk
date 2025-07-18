@@ -34,9 +34,6 @@ pub mod people;
 pub mod rococo_parachain;
 pub mod yet_another_parachain;
 
-/// The default XCM version to set in genesis config.
-const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
-
 /// Extracts the normalized chain id and parachain id from the input chain id.
 /// (H/T to Phala for the idea)
 /// E.g. "penpal-kusama-2004" yields ("penpal-kusama", Some(2004))
@@ -298,7 +295,6 @@ mod tests {
 	use super::*;
 	use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup, ChainType, Extension};
 	use serde::{Deserialize, Serialize};
-	use sp_keyring::Sr25519Keyring;
 
 	#[derive(
 		Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension, Default,
@@ -333,12 +329,7 @@ mod tests {
 		.with_name("Dummy local testnet")
 		.with_id(id)
 		.with_chain_type(ChainType::Local)
-		.with_genesis_config_patch(crate::chain_spec::rococo_parachain::testnet_genesis(
-			Sr25519Keyring::Alice.to_account_id(),
-			vec![Sr25519Keyring::Alice.public().into(), Sr25519Keyring::Bob.public().into()],
-			vec![Sr25519Keyring::Bob.to_account_id()],
-			1000.into(),
-		))
+		.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
 		.build()
 	}
 
