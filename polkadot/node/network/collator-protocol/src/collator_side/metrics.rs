@@ -224,7 +224,7 @@ impl metrics::Metrics for Metrics {
 						"polkadot_parachain_collation_finalization_latency",
 						"How many blocks it takes for a collation to be finalized",
 					)
-					.buckets(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]),
+					.buckets(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 20.0, 40.0]),
 				)?,
 				registry,
 			)?,
