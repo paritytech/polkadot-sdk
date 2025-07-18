@@ -1,0 +1,14 @@
+title: "Add cli option --wasmtime-precompiled and subcommand precompile-wasm"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds the possibility of starting the node with a precompiled WASM runtime. This eliminates the need to compile the runtime at startup, making it possible to launch the node much more quickly.
+
+crates:
+  - name: sc-cli
+    bump: minor
+  - name: sc-executor
+    bump: minor
+  - name: sc-executor-wasmtime
+    bump: minor
