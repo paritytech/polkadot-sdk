@@ -15,6 +15,7 @@ contract CallDataLoad {
         }
         
         // Get the offset from the last byte of the first 32-byte word
+        // Note: in Solidity, buf[31] is the last byte in big-endian format
         uint32 offset = uint32(uint8(buf[31]));
         
         // Load 32 bytes from the calculated offset

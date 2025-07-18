@@ -796,7 +796,8 @@ fn transient_storage_work(fixture_type: &str) {
 fn transient_storage_limit_in_call() {
 	let (binary_caller, _code_hash_caller) =
 		compile_module_with_type("create_transient_storage_and_call", fixture_type).unwrap();
-	let (binary_callee, _code_hash_callee) = compile_module_with_type("set_transient_storage", fixture_type).unwrap();
+	let (binary_callee, _code_hash_callee) =
+		compile_module_with_type("set_transient_storage", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
@@ -836,7 +837,8 @@ fn transient_storage_limit_in_call() {
 fn deploy_and_call_other_contract() {
 	let (caller_binary, _caller_code_hash) =
 		compile_module_with_type("caller_contract", fixture_type).unwrap();
-	let (callee_binary, callee_code_hash) = compile_module_with_type("return_with_data", fixture_type).unwrap();
+	let (callee_binary, callee_code_hash) =
+		compile_module_with_type("return_with_data", fixture_type).unwrap();
 	let code_load_weight = crate::vm::code_load_weight(callee_binary.len() as u32);
 
 	ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
@@ -1033,7 +1035,8 @@ fn delegate_call_with_weight_limit(fixture_type: &str) {
 fn delegate_call_with_deposit_limit() {
 	let (caller_binary, _caller_code_hash) =
 		compile_module_with_type("delegate_call_deposit_limit", fixture_type).unwrap();
-	let (callee_binary, _callee_code_hash) = compile_module_with_type("delegate_call_lib", fixture_type).unwrap();
+	let (callee_binary, _callee_code_hash) =
+		compile_module_with_type("delegate_call_lib", fixture_type).unwrap();
 
 	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -3888,7 +3891,8 @@ fn code_hash_works(fixture_type: FixtureType) {
 	let builtin_precompile = H160(NoInfo::<Test>::MATCHER.base_address());
 	let primitive_precompile = H160::from_low_u64_be(1);
 
-	let (code_hash_code, self_code_hash) = compile_module_with_type("code_hash", fixture_type).unwrap();
+	let (code_hash_code, self_code_hash) =
+		compile_module_with_type("code_hash", fixture_type).unwrap();
 	let (dummy_code, code_hash) = compile_module_with_type("dummy", fixture_type).unwrap();
 
 	ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
@@ -4001,7 +4005,8 @@ fn origin_must_be_mapped(fixture_type: &str) {
 
 #[fixture::test("rust", "sol")]
 fn mapped_address_works(fixture_type: FixtureType) {
-	let (code, _) = compile_module_with_type("terminate_and_send_to_argument", fixture_type).unwrap();
+	let (code, _) =
+		compile_module_with_type("terminate_and_send_to_argument", fixture_type).unwrap();
 
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -4027,7 +4032,8 @@ fn mapped_address_works(fixture_type: FixtureType) {
 
 #[fixture::test("rust", "sol")]
 fn recovery_works(fixture_type: FixtureType) {
-	let (code, _) = compile_module_with_type("terminate_and_send_to_argument", fixture_type).unwrap();
+	let (code, _) =
+		compile_module_with_type("terminate_and_send_to_argument", fixture_type).unwrap();
 
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -4824,7 +4830,8 @@ fn precompiles_work(fixture_type: FixtureType) {
 	];
 
 	for (input, output, error_code) in cases {
-		let (code, _code_hash) = compile_module_with_type("call_and_returncode", fixture_type).unwrap();
+		let (code, _code_hash) =
+			compile_module_with_type("call_and_returncode", fixture_type).unwrap();
 		ExtBuilder::default().build().execute_with(|| {
 			let id = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -4869,7 +4876,8 @@ fn precompiles_with_info_creates_contract(fixture_type: FixtureType) {
 	)];
 
 	for (input, output, error_code) in cases {
-		let (code, _code_hash) = compile_module_with_type("call_and_returncode", fixture_type).unwrap();
+		let (code, _code_hash) =
+			compile_module_with_type("call_and_returncode", fixture_type).unwrap();
 		ExtBuilder::default().build().execute_with(|| {
 			let id = <Test as Config>::AddressMapper::to_account_id(&precompile_addr);
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
