@@ -355,6 +355,10 @@ pub struct ExecutorConfiguration {
 	pub default_heap_pages: Option<u64>,
 	/// Maximum number of different runtime versions that can be cached.
 	pub runtime_cache_size: u8,
+	/// Directory where local WASM precompiled artifacts live. These wasm modules
+	/// take precedence over runtimes when the spec and wasm config matches. Set to `None` to
+	/// disable (default).
+	pub wasmtime_precompiled: Option<PathBuf>,
 }
 
 impl Default for ExecutorConfiguration {
@@ -364,6 +368,7 @@ impl Default for ExecutorConfiguration {
 			max_runtime_instances: 8,
 			default_heap_pages: None,
 			runtime_cache_size: 2,
+			wasmtime_precompiled: None,
 		}
 	}
 }

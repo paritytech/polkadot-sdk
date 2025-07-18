@@ -19359,6 +19359,7 @@ dependencies = [
  "rpassword",
  "sc-client-api",
  "sc-client-db",
+ "sc-executor 0.32.0",
  "sc-keystore",
  "sc-mixnet",
  "sc-network",
@@ -19375,6 +19376,8 @@ dependencies = [
  "sp-keystore 0.34.0",
  "sp-panic-handler 13.0.0",
  "sp-runtime 31.0.1",
+ "sp-state-machine 0.35.0",
+ "sp-storage 19.0.0",
  "sp-tracing 16.0.0",
  "sp-version 29.0.0",
  "tempfile",
@@ -19867,6 +19870,7 @@ dependencies = [
 name = "sc-executor-common"
 version = "0.29.0"
 dependencies = [
+ "parity-scale-codec",
  "polkavm 0.26.0",
  "sc-allocator 23.0.0",
  "sp-maybe-compressed-blob 11.0.0",
@@ -19917,6 +19921,8 @@ version = "0.29.0"
 dependencies = [
  "anyhow",
  "cargo_metadata",
+ "cfg-if",
+ "libc",
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.3",
@@ -19925,10 +19931,12 @@ dependencies = [
  "sc-allocator 23.0.0",
  "sc-executor-common 0.29.0",
  "sc-runtime-test",
+ "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime-interface 24.0.0",
  "sp-wasm-interface 20.0.0",
  "tempfile",
+ "tracing",
  "wasmtime",
  "wat",
 ]

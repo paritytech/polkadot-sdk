@@ -71,9 +71,12 @@ fn initialize(
 			};
 
 			if precompile {
-				let precompiled_blob =
-					sc_executor_wasmtime::prepare_runtime_artifact(blob, &config.semantics)
-						.unwrap();
+				let precompiled_blob = sc_executor_wasmtime::prepare_runtime_artifact(
+					blob,
+					Default::default(),
+					&config.semantics,
+				)
+				.unwrap();
 
 				// Create a fresh temporary directory to make absolutely sure
 				// we'll use the right module.
@@ -85,7 +88,7 @@ fn initialize(
 				unsafe {
 					sc_executor_wasmtime::create_runtime_from_artifact::<
 						sp_io::SubstrateHostFunctions,
-					>(&path, config)
+					>(&path, sc_executor_wasmtime::ModuleVersionStrategy::default(), config)
 				}
 			} else {
 				sc_executor_wasmtime::create_runtime::<sp_io::SubstrateHostFunctions>(blob, config)

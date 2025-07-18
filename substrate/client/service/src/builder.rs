@@ -258,6 +258,7 @@ where
 			ClientConfig {
 				offchain_worker_enabled: config.offchain_worker.enabled,
 				offchain_indexing_api: config.offchain_worker.indexing_enabled,
+				wasmtime_precompiled: config.executor.wasmtime_precompiled.clone(),
 				wasm_runtime_overrides: config.wasm_runtime_overrides.clone(),
 				no_genesis: config.no_genesis(),
 				wasm_runtime_substitutes,
@@ -370,6 +371,7 @@ pub fn new_wasm_executor<H: HostFunctions>(config: &ExecutorConfiguration) -> Wa
 		.with_offchain_heap_alloc_strategy(strategy)
 		.with_max_runtime_instances(config.max_runtime_instances)
 		.with_runtime_cache_size(config.runtime_cache_size)
+		.with_optional_wasmtime_precompiled_path(config.wasmtime_precompiled.as_ref())
 		.build()
 }
 
