@@ -261,9 +261,8 @@ pub mod pallet {
 		/// `delivery_fee_factor` is applied to the asset’s amount, potentially altering its
 		/// value.
 		pub(crate) fn apply_dynamic_fee_factor(bridge_state: &BridgeState, asset: &mut Asset) {
-			if let Fungible(amount) = asset.fun {
-				let adjusted_amount = bridge_state.delivery_fee_factor.saturating_mul_int(amount);
-				asset.fun = Fungible(adjusted_amount);
+			if let Fungible(amount) = &mut asset.fun {
+				*amount = bridge_state.delivery_fee_factor.saturating_mul_int(*amount);
 			}
 		}
 
