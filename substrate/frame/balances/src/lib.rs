@@ -432,7 +432,7 @@ pub mod pallet {
 	pub enum UnexpectedKind {
 		/// Balance was altered/dusted during an operation that should have NOT done so.
 		BalanceUpdated,
-		/// Mutating the account failed expectedly. This might lead to storage items in `Balances`
+		/// Mutating the account failed unexpectedly. This might lead to storage items in `Balances`
 		/// and the underlying account in `System` to be out of sync.
 		FailedToMutateAccount,
 	}
