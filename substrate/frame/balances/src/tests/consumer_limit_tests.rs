@@ -39,7 +39,8 @@ fn lock_behavior_when_consumer_limit_fully_exhausted() {
 
 			// Fill up all consumer refs.
 			// Note: asset-pallets prevents all the consumers to be filled and leaves one untouched.
-			// But other operations in the runtime, notably `uniques::set_accept_ownership` might overrule it.
+			// But other operations in the runtime, notably `uniques::set_accept_ownership` might
+			// overrule it.
 			let max_consumers: u32 = <Test as frame_system::Config>::MaxConsumers::get();
 			for _ in 0..max_consumers {
 				assert_ok!(System::inc_consumers(&1));

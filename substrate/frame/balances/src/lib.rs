@@ -432,8 +432,8 @@ pub mod pallet {
 	pub enum UnexpectedKind {
 		/// Balance was altered/dusted during an operation that should have NOT done so.
 		BalanceUpdated,
-		/// Mutating the account failed unexpectedly. This might lead to storage items in `Balances`
-		/// and the underlying account in `System` to be out of sync.
+		/// Mutating the account failed unexpectedly. This might lead to storage items in
+		/// `Balances` and the underlying account in `System` to be out of sync.
 		FailedToMutateAccount,
 	}
 
@@ -1174,7 +1174,8 @@ pub mod pallet {
 			let freezes = Freezes::<T, I>::get(who);
 			let mut prev_frozen = Zero::zero();
 			let mut after_frozen = Zero::zero();
-			// We do not alter ED, so the account will not get dusted. Yet, consumer limit might be full, therefore we pass `true` into `mutate_account` to make sure this cannot fail
+			// We do not alter ED, so the account will not get dusted. Yet, consumer limit might be
+			// full, therefore we pass `true` into `mutate_account` to make sure this cannot fail
 			let res = Self::mutate_account(who, true, |b| {
 				prev_frozen = b.frozen;
 				b.frozen = Zero::zero();
