@@ -1380,13 +1380,97 @@ where
 		value: U256,
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 	) -> ExecResult {
+		fn transfer_with_dust<T: Config>(
+			from: &AccountIdOf<T>,
+			to: &AccountIdOf<T>,
+			value: BalanceWithDust<BalanceOf<T>>,
+		) -> Result<(), ExecError> {
+			let BalanceWithDust { value, dust } = value;
+
+			fn transfer_balance<T: Config>(
+				from: &AccountIdOf<T>,
+				to: &AccountIdOf<T>,
+				value: BalanceOf<T>,
+			) -> Result<(), ExecError> {
+				T::Currency::transfer(from, to, value, Preservation::Preserve)
+				.map_err(|err| {
+					log::debug!(target: crate::LOG_TARGET, "Transfer failed: from {from:?} to {to:?} (value: ${value:?}). Err: {err:?}");
+					ExecError::from(Error::<T>::TransferFailed)
+				})?;
+				return Ok(())
+			}
+
+			fn transfer_dust<T: Config>(
+				from: &mut AccountInfo<T>,
+				to: &mut AccountInfo<T>,
+				dust: u32,
+			) -> Result<(), ExecError> {
+				from.dust = from
+					.dust
+					.checked_sub(dust)
+					.ok_or_else(|| ExecError::from(Error::<T>::TransferFailed))?;
+				to.dust = to
+					.dust
+					.checked_add(dust)
+					.ok_or_else(|| ExecError::from(Error::<T>::TransferFailed))?;
+				Ok::<(), ExecError>(())
+			}
+
+			if dust.is_zero() {
+				return transfer_balance::<T>(from, to, value)
+			}
+
+			let from_addr = <T::AddressMapper as AddressMapper<T>>::to_address(from);
+			let mut from_info = AccountInfoOf::<T>::get(&from_addr).unwrap_or_default();
+
+			let to_addr = <T::AddressMapper as AddressMapper<T>>::to_address(to);
+			let mut to_info = AccountInfoOf::<T>::get(&to_addr).unwrap_or_default();
+
+			let plank = T::NativeToEthRatio::get();
+
+			if from_info.dust < dust {
+				T::Currency::burn_from(
+					from,
+					1u32.into(),
+					Preservation::Preserve,
+					Precision::Exact,
+					Fortitude::Polite,
+				)
+				.map_err(|err| {
+					log::debug!(target: crate::LOG_TARGET, "Burning 1 plank from {from:?} failed. Err: {err:?}");
+					ExecError::from(Error::<T>::TransferFailed)
+				})?;
+
+				from_info.dust = from_info
+					.dust
+					.checked_add(plank)
+					.ok_or_else(|| ExecError::from(Error::<T>::TransferFailed))?;
+			}
+
+			transfer_balance::<T>(from, to, value)?;
+			transfer_dust::<T>(&mut from_info, &mut to_info, dust)?;
+
+			if to_info.dust.saturating_add(dust) >= plank {
+				T::Currency::mint_into(to, 1u32.into())?;
+				to_info.dust = to_info
+					.dust
+					.checked_sub(plank)
+					.ok_or_else(|| ExecError::from(Error::<T>::TransferFailed))?;
+			}
+
+			AccountInfoOf::<T>::set(&from_addr, Some(from_info));
+			AccountInfoOf::<T>::set(&to_addr, Some(to_info));
+
+			Ok(())
+		}
+
 		let value = crate::Pallet::<T>::convert_evm_to_native(value)?;
 		if value.is_zero() {
 			return Ok(Default::default());
 		}
 
 		if <System<T>>::account_exists(to) {
-			return Self::transfer_with_dust(from, to, value).map(|_| Default::default())
+			return transfer_with_dust::<T>(from, to, value).map(|_| Default::default())
 		}
 
 		let origin = origin.account_id()?;
@@ -1394,7 +1478,7 @@ where
 		with_transaction(|| -> TransactionOutcome<ExecResult> {
 			match T::Currency::transfer(origin, to, ed, Preservation::Preserve)
 				.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds.into())
-				.and_then(|_| Self::transfer_with_dust(from, to, value))
+				.and_then(|_| transfer_with_dust::<T>(from, to, value))
 			{
 				Ok(_) => {
 					// ed is taken from the transaction signer so it should be
@@ -1405,90 +1489,6 @@ where
 				Err(err) => TransactionOutcome::Rollback(Err(err)),
 			}
 		})
-	}
-
-	fn transfer_with_dust(
-		from: &AccountIdOf<T>,
-		to: &AccountIdOf<T>,
-		value: BalanceWithDust<BalanceOf<T>>,
-	) -> Result<(), ExecError> {
-		let BalanceWithDust { value, dust } = value;
-
-		fn transfer_balance<T: Config>(
-			from: &AccountIdOf<T>,
-			to: &AccountIdOf<T>,
-			value: BalanceOf<T>,
-		) -> Result<(), ExecError> {
-			T::Currency::transfer(from, to, value, Preservation::Preserve)
-				.map_err(|err| {
-					log::debug!(target: crate::LOG_TARGET, "Transfer failed: from {from:?} to {to:?} (value: ${value:?}). Err: {err:?}");
-					ExecError::from(Error::<T>::TransferFailed)
-				})?;
-			return Ok(())
-		}
-
-		fn transfer_dust<T: Config>(
-			from: &mut AccountInfo<T>,
-			to: &mut AccountInfo<T>,
-			dust: u32,
-		) -> Result<(), ExecError> {
-			from.dust = from
-				.dust
-				.checked_sub(dust)
-				.ok_or_else(|| ExecError::from(Error::<T>::TransferFailed))?;
-			to.dust = to
-				.dust
-				.checked_add(dust)
-				.ok_or_else(|| ExecError::from(Error::<T>::TransferFailed))?;
-			Ok::<(), ExecError>(())
-		}
-
-		if dust.is_zero() {
-			return transfer_balance::<T>(from, to, value)
-		}
-
-		let from_addr = <T::AddressMapper as AddressMapper<T>>::to_address(from);
-		let mut from_info = AccountInfoOf::<T>::get(&from_addr).unwrap_or_default();
-
-		let to_addr = <T::AddressMapper as AddressMapper<T>>::to_address(to);
-		let mut to_info = AccountInfoOf::<T>::get(&to_addr).unwrap_or_default();
-
-		let plank = T::NativeToEthRatio::get();
-
-		if from_info.dust < dust {
-			T::Currency::burn_from(
-				from,
-				1u32.into(),
-				Preservation::Preserve,
-				Precision::Exact,
-				Fortitude::Polite,
-			)
-			.map_err(|err| {
-				log::debug!(target: crate::LOG_TARGET, "Burning 1 plank from {from:?} failed. Err: {err:?}");
-				ExecError::from(Error::<T>::TransferFailed)
-			})?;
-
-			from_info.dust = from_info
-				.dust
-				.checked_add(plank)
-				.ok_or_else(|| ExecError::from(Error::<T>::TransferFailed))?;
-		}
-
-		transfer_balance::<T>(from, to, value)?;
-		transfer_dust::<T>(&mut from_info, &mut to_info, dust)?;
-
-		if to_info.dust.saturating_add(dust) >= plank {
-			T::Currency::mint_into(to, 1u32.into())?;
-			to_info.dust = to_info
-				.dust
-				.checked_sub(plank)
-				.ok_or_else(|| ExecError::from(Error::<T>::TransferFailed))?;
-		}
-
-		AccountInfoOf::<T>::set(&from_addr, Some(from_info));
-		AccountInfoOf::<T>::set(&to_addr, Some(to_info));
-
-		Ok(())
 	}
 
 	/// Same as `transfer` but `from` is an `Origin`.
