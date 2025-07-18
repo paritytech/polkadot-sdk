@@ -139,6 +139,9 @@ where
 			parse_default_directive("trust_dns_proto=off").expect("provided directive is valid"),
 		)
 		.add_directive(
+			parse_default_directive("hickory_proto=off").expect("provided directive is valid"),
+		)
+		.add_directive(
 			parse_default_directive("libp2p_mdns::behaviour::iface=off")
 				.expect("provided directive is valid"),
 		)

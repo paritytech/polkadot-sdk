@@ -235,7 +235,7 @@ pub struct OperationCallDone {
 	pub output: String,
 }
 
-/// The response of the `chainHead_call` method.
+/// The response of the `chainHead_storage` method.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OperationStorageItems {
@@ -536,6 +536,7 @@ mod tests {
 				items: vec![StorageResult {
 					key: "0x1".into(),
 					result: StorageResultType::Value("0x123".to_string()),
+					child_trie_key: None,
 				}],
 			});
 

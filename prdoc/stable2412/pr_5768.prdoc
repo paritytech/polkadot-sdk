@@ -1,0 +1,10 @@
+title: "export NodeHealthProxyLayer"
+
+doc:
+  - audience: Node Dev
+    description: |
+      This PR export `NodeHealthProxyLayer` from sc-rpc-server.
+
+crates:
+  - name: sc-rpc-server
+    bump: patch

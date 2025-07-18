@@ -1,0 +1,8 @@
+title: 'HashAndNumber: Ord, Eq, PartialOrd, PartialEq implemented'
+doc:
+- audience: Node Dev
+  description: This PR adds implementation of `Ord, Eq, PartialOrd, PartialEq`  traits
+    for `HashAndNumber` struct.
+crates:
+- name: sp-blockchain
+  bump: minor

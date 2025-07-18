@@ -36,6 +36,10 @@ def exclude(crate):
 		# Note: this is a bit hacky. We should use custom crate metadata instead.
 		return name != "sp-runtime" and name != "bp-runtime" and name != "frame-try-runtime"
 
+	# Exclude snowbridge crates.
+	if name.startswith("snowbridge-"):
+		return True
+
 	return False
 
 def main(path, version):
@@ -64,7 +68,7 @@ def main(path, version):
 				if manifest['lib']['proc-macro']:
 					nostd_crates.append((crate, path))
 					continue
-		
+
 		# Crates without a lib.rs cannot be no_std
 		if not os.path.exists(lib_path):
 			print(f"Skipping {crate.name} as it does not have a 'src/lib.rs'")
@@ -75,27 +79,35 @@ def main(path, version):
 
 		# No search for a no_std attribute:
 		with open(lib_path, "r") as f:
-			content = f.read()
-			if "#![no_std]" in content or '#![cfg_attr(not(feature = "std"), no_std)]' in content:
+			nostd_crate = False
+			for line in f:
+				line = line.strip()
+				if line == "#![no_std]" or line == '#![cfg_attr(not(feature = "std"), no_std)]':
+					nostd_crate = True
+					break
+				elif "no_std" in line:
+					print(line)
+
+			if nostd_crate:
 				nostd_crates.append((crate, path))
-			elif 'no_std' in content:
-				raise Exception(f"Found 'no_std' in {lib_path} without knowing how to handle it")
 			else:
 				std_crates.append((crate, path))
 
 	# Sort by name
 	std_crates.sort(key=lambda x: x[0].name)
 	nostd_crates.sort(key=lambda x: x[0].name)
+
+	runtime_crates = [crate for crate in nostd_crates if 'frame' in crate[0].name or crate[0].name.startswith('sp-')]
 	all_crates = std_crates + nostd_crates
 	all_crates.sort(key=lambda x: x[0].name)
 	dependencies = {}
 
 	for (crate, path) in nostd_crates:
 		dependencies[crate.name] = {"path": f"../{path}", "default-features": False, "optional": True}
-	
+
 	for (crate, path) in std_crates:
 		dependencies[crate.name] = {"path": f"../{path}", "default-features": False, "optional": True}
-	
+
 	# The empty features are filled by Zepter
 	features = {
 		"default": [ "std" ],
@@ -105,7 +117,8 @@ def main(path, version):
 		"serde": [],
 		"experimental": [],
 		"with-tracing": [],
-		"runtime": list([f"{d.name}" for d, _ in nostd_crates]),
+		"runtime-full": list([f"{d.name}" for d, _ in nostd_crates]),
+		"runtime": list([f"{d.name}" for d, _ in runtime_crates]),
 		"node": ["std"] + list([f"{d.name}" for d, _ in std_crates]),
 		"tuples-96": [],
 	}
@@ -117,9 +130,11 @@ def main(path, version):
 			"edition": { "workspace": True },
 			"authors": { "workspace": True },
 			"description": "Polkadot SDK umbrella crate.",
+			"homepage": { "workspace": True },
+			"repository": { "workspace": True },
 			"license": "Apache-2.0",
 			"metadata": { "docs": { "rs": {
-				"features": ["runtime", "node"],
+				"features": ["runtime-full", "node"],
 				"targets": ["x86_64-unknown-linux-gnu"]
 			}}}
 		},
@@ -159,25 +174,26 @@ def main(path, version):
 			f.write(f'\n/// {desc}')
 			f.write(f'\n#[cfg(feature = "{crate.name}")]\n')
 			f.write(f"pub use {use};\n")
-		
+
 		print(f"Wrote {lib_path}")
-	
+
 	add_to_workspace(workspace.path)
 
 """
 Delete the umbrella folder and remove the umbrella crate from the workspace.
 """
 def delete_umbrella(path):
-	umbrella_dir = os.path.join(path, "umbrella")
 	# remove the umbrella crate from the workspace
 	manifest = os.path.join(path, "Cargo.toml")
 	manifest = open(manifest, "r").read()
 	manifest = re.sub(r'\s+"umbrella",\n', "", manifest)
 	with open(os.path.join(path, "Cargo.toml"), "w") as f:
 		f.write(manifest)
+	umbrella_dir = os.path.join(path, "umbrella")
 	if os.path.exists(umbrella_dir):
 		print(f"Deleting {umbrella_dir}")
-		shutil.rmtree(umbrella_dir)
+		os.remove(os.path.join(umbrella_dir, "Cargo.toml"))
+		shutil.rmtree(os.path.join(umbrella_dir, "src"))
 
 """
 Create the umbrella crate and add it to the workspace.
@@ -188,7 +204,7 @@ def add_to_workspace(path):
 	manifest = re.sub(r'^members = \[', 'members = [\n        "umbrella",', manifest, flags=re.M)
 	with open(os.path.join(path, "Cargo.toml"), "w") as f:
 		f.write(manifest)
-	
+
 	os.chdir(path) # hack
 	os.system("cargo metadata --format-version 1 > /dev/null") # update the lockfile
 	os.system(f"zepter") # enable the features

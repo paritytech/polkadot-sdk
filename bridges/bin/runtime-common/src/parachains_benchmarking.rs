@@ -20,12 +20,13 @@
 
 use crate::messages_benchmarking::insert_header_to_grandpa_pallet;
 
-use bp_parachains::parachain_head_storage_key_at_source;
+use bp_parachains::{
+	parachain_head_storage_key_at_source, RelayBlockHash, RelayBlockHasher, RelayBlockNumber,
+};
 use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
 use bp_runtime::{grow_storage_value, record_all_trie_keys, Chain, UnverifiedStorageProofParams};
 use codec::Encode;
 use frame_support::traits::Get;
-use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
 use sp_std::prelude::*;
 use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
 

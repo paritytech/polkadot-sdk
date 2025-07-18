@@ -16,34 +16,67 @@
 use crate::imports::*;
 
 #[test]
-fn teleport_to_other_system_parachains_works() {
+fn teleport_via_limited_teleport_assets_to_other_system_parachains_works() {
 	let amount = BRIDGE_HUB_WESTEND_ED * 100;
 	let native_asset: Assets = (Parent, amount).into();
 
 	test_parachain_is_trusted_teleporter!(
-		BridgeHubWestend,          // Origin
-		BridgeHubWestendXcmConfig, // XCM configuration
-		vec![AssetHubWestend],     // Destinations
-		(native_asset, amount)
+		BridgeHubWestend,      // Origin
+		vec![AssetHubWestend], // Destinations
+		(native_asset, amount),
+		limited_teleport_assets
 	);
 }
 
 #[test]
-fn teleport_from_and_to_relay() {
+fn teleport_via_transfer_assets_to_other_system_parachains_works() {
+	let amount = BRIDGE_HUB_WESTEND_ED * 100;
+	let native_asset: Assets = (Parent, amount).into();
+
+	test_parachain_is_trusted_teleporter!(
+		BridgeHubWestend,      // Origin
+		vec![AssetHubWestend], // Destinations
+		(native_asset, amount),
+		transfer_assets
+	);
+}
+
+#[test]
+fn teleport_via_limited_teleport_assets_from_and_to_relay() {
 	let amount = WESTEND_ED * 100;
 	let native_asset: Assets = (Here, amount).into();
 
 	test_relay_is_trusted_teleporter!(
 		Westend,
-		WestendXcmConfig,
 		vec![BridgeHubWestend],
-		(native_asset, amount)
+		(native_asset, amount),
+		limited_teleport_assets
 	);
 
 	test_parachain_is_trusted_teleporter_for_relay!(
 		BridgeHubWestend,
-		BridgeHubWestendXcmConfig,
 		Westend,
-		amount
+		amount,
+		limited_teleport_assets
+	);
+}
+
+#[test]
+fn teleport_via_transfer_assets_from_and_to_relay() {
+	let amount = WESTEND_ED * 100;
+	let native_asset: Assets = (Here, amount).into();
+
+	test_relay_is_trusted_teleporter!(
+		Westend,
+		vec![BridgeHubWestend],
+		(native_asset, amount),
+		transfer_assets
+	);
+
+	test_parachain_is_trusted_teleporter_for_relay!(
+		BridgeHubWestend,
+		Westend,
+		amount,
+		transfer_assets
 	);
 }

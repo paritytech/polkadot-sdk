@@ -20,14 +20,16 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use frame_benchmarking::v1::benchmarks;
+use frame_benchmarking::v2::*;
 
 type Header = sp_runtime::generic::Header<u64, sp_runtime::traits::BlakeTwo256>;
 
-benchmarks! {
-	check_equivocation_proof {
-		let x in 0 .. 1;
+#[benchmarks]
+mod benchmarks {
+	use super::*;
 
+	#[benchmark]
+	fn check_equivocation_proof(x: Linear<0, 1>) {
 		// NOTE: generated with the test below `test_generate_equivocation_report_blob`.
 		// the output is not deterministic since keys are generated randomly (and therefore
 		// signature content changes). it should not affect the benchmark.
@@ -53,22 +55,21 @@ benchmarks! {
 			124, 11, 167, 227, 103, 88, 78, 23, 228, 33, 96, 41, 207, 183, 227, 189, 114, 70, 254,
 			30, 128, 243, 233, 83, 214, 45, 74, 182, 120, 119, 64, 243, 219, 119, 63, 240, 205,
 			123, 231, 82, 205, 174, 143, 70, 2, 86, 182, 20, 16, 141, 145, 91, 116, 195, 58, 223,
-			175, 145, 255, 7, 121, 133
+			175, 145, 255, 7, 121, 133,
 		];
 
 		let equivocation_proof1: sp_consensus_babe::EquivocationProof<Header> =
 			Decode::decode(&mut &EQUIVOCATION_PROOF_BLOB[..]).unwrap();
 
 		let equivocation_proof2 = equivocation_proof1.clone();
-	}: {
-		sp_consensus_babe::check_equivocation_proof::<Header>(equivocation_proof1);
-	} verify {
+
+		#[block]
+		{
+			sp_consensus_babe::check_equivocation_proof::<Header>(equivocation_proof1);
+		}
+
 		assert!(sp_consensus_babe::check_equivocation_proof::<Header>(equivocation_proof2));
 	}
 
-	impl_benchmark_test_suite!(
-		Pallet,
-		crate::mock::new_test_ext(3),
-		crate::mock::Test,
-	)
+	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(3), crate::mock::Test,);
 }

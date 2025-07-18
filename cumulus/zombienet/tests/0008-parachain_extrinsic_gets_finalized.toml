@@ -1,0 +1,25 @@
+[relaychain]
+default_image = "{{RELAY_IMAGE}}"
+default_command = "polkadot"
+chain = "rococo-local"
+
+  [[relaychain.nodes]]
+  name = "alice"
+  validator = true
+
+  [[relaychain.nodes]]
+  name = "bob"
+  validator = true
+
+[[parachains]]
+id = 2000
+cumulus_based = true
+chain = "asset-hub-rococo-local"
+
+  # run charlie as parachain collator
+  [[parachains.collators]]
+  name = "charlie"
+  validator = true
+  image = "{{POLKADOT_PARACHAIN_IMAGE}}"
+  command = "polkadot-parachain"
+  args = ["--force-authoring", "-ltxpool=trace", "--pool-type=fork-aware"]

@@ -1,0 +1,9 @@
+title: 'pallet-revive: Add net-listening rpc'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Add [net_listening](https://ethereum.org/en/developers/docs/apis/json-rpc/#net_listening) rpc method
+    Does not seem to be required but is used by some wallet like subwallet
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch

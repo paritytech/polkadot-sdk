@@ -19,6 +19,7 @@
 //! 1) relay new messages from source to target node;
 //! 2) relay proof-of-delivery from target to source node.
 
+use crate::metrics::Labeled;
 use num_traits::{SaturatingAdd, Zero};
 use relay_utils::{BlockNumberBase, HeaderId};
 use sp_arithmetic::traits::AtLeast32BitUnsigned;
@@ -30,6 +31,9 @@ pub trait MessageLane: 'static + Clone + Send + Sync {
 	const SOURCE_NAME: &'static str;
 	/// Name of the messages target.
 	const TARGET_NAME: &'static str;
+
+	/// Lane identifier type.
+	type LaneId: Clone + Send + Sync + Labeled;
 
 	/// Messages proof.
 	type MessagesProof: Clone + Debug + Send + Sync;

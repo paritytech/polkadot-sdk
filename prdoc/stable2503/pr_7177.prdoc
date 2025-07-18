@@ -1,0 +1,20 @@
+title: Make frame crate not experimental
+doc:
+- audience: Runtime Dev
+  description: |-
+    Frame crate may still be unstable, but it is no longer feature gated by the feature `experimental`.
+crates:
+- name: polkadot-sdk-frame
+  bump: minor
+- name: pallet-salary
+  bump: patch
+- name: pallet-multisig
+  bump: patch
+- name: pallet-proxy
+  bump: patch
+- name: pallet-atomic-swap
+  bump: patch
+- name: pallet-mixnet
+  bump: patch
+- name: pallet-node-authorization
+  bump: patch

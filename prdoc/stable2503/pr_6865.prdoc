@@ -1,0 +1,9 @@
+title: Rename PanicInfo to PanicHookInfo
+doc:
+- audience: Node Dev
+  description: Starting with Rust 1.82 `PanicInfo` is deprecated and will throw warnings
+    when used. The new type is available since Rust 1.81 and should be available on
+    our CI.
+crates:
+- name: sp-panic-handler
+  bump: patch

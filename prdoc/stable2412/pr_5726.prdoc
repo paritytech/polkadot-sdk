@@ -1,0 +1,14 @@
+title: "revive: Limit the amount of static memory"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+     Limit the amount of static memory a contract can declare.
+
+crates:
+  - name: pallet-revive
+    bump: major
+  - name: pallet-revive-fixtures
+    bump: minor
+  - name: pallet-revive-uapi
+    bump: patch

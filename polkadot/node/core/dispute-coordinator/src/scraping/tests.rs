@@ -36,8 +36,9 @@ use polkadot_node_subsystem_test_helpers::{
 };
 use polkadot_node_subsystem_util::{reexports::SubsystemContext, TimeoutExt};
 use polkadot_primitives::{
-	BlakeTwo256, BlockNumber, CandidateDescriptor, CandidateEvent, CandidateReceipt, CoreIndex,
-	GroupIndex, Hash, HashT, HeadData, Id as ParaId,
+	vstaging::{CandidateEvent, CandidateReceiptV2 as CandidateReceipt},
+	BlakeTwo256, BlockNumber, CandidateDescriptor, CoreIndex, GroupIndex, Hash, HashT, HeadData,
+	Id as ParaId,
 };
 use polkadot_primitives_test_helpers::{dummy_collator, dummy_collator_signature, dummy_hash};
 
@@ -135,7 +136,8 @@ fn make_candidate_receipt(relay_parent: Hash) -> CandidateReceipt {
 		signature: dummy_collator_signature(),
 		para_head: zeros,
 		validation_code_hash: zeros.into(),
-	};
+	}
+	.into();
 	CandidateReceipt { descriptor, commitments_hash: zeros }
 }
 

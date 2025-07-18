@@ -1,0 +1,8 @@
+title: 'sc-informant: Print full hash when debug logging is enabled'
+doc:
+- audience: Node Dev
+  description: |-
+    When debugging stuff, it is useful to see the full hashes and not only the "short form". This makes it easier to read logs and follow blocks.
+crates:
+- name: sc-informant
+  bump: patch

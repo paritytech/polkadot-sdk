@@ -54,6 +54,7 @@
 //! A default or `None` bound means that no bounds are enforced (i.e. unlimited result size). In
 //! general, be careful when using unbounded election bounds in production.
 
+use codec::Encode;
 use core::ops::Add;
 use sp_runtime::traits::Zero;
 
@@ -152,6 +153,15 @@ impl DataProviderBounds {
 	pub fn exhausted(self, given_size: Option<SizeBound>, given_count: Option<CountBound>) -> bool {
 		self.count_exhausted(given_count.unwrap_or(CountBound::zero())) ||
 			self.size_exhausted(given_size.unwrap_or(SizeBound::zero()))
+	}
+
+	/// Ensures the given encode-able slice meets both the length and count bounds.
+	///
+	/// Same as `exhausted` but a better syntax.
+	pub fn slice_exhausted<T: Encode>(self, input: &[T]) -> bool {
+		let size = Some((input.encoded_size() as u32).into());
+		let count = Some((input.len() as u32).into());
+		self.exhausted(size, count)
 	}
 
 	/// Returns an instance of `Self` that is constructed by capping both the `count` and `size`

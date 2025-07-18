@@ -22,7 +22,7 @@ in case of disputes. Any validator can be selected as the next relay-chain block
 advance for security reasons. As a result, all validators must have a up to date view of all possible parachain
 candidates + backing statements that could be placed on-chain in the next block.
 
-[This blog post](https://polkadot.network/blog/polkadot-v1-0-sharding-and-economic-security) puts it another way:
+[This blog post](https://polkadot.com/blog/polkadot-v1-0-sharding-and-economic-security) puts it another way:
 "Validators who aren't assigned to the parachain still listen for the attestations [statements] because whichever
 validator ends up being the author of the relay-chain block needs to bundle up attested parachain blocks for several
 parachains and place them into the relay-chain block."
@@ -131,7 +131,7 @@ on the node side is purely an optimization, as it will be done in the runtime
 as well.
 
 We use the state of the relay parent to check whether a validator is disabled
-to avoid race conditions and ensure that disabling works well in the presense
+to avoid race conditions and ensure that disabling works well in the presence
 of re-enabling.
 
 ## Messages

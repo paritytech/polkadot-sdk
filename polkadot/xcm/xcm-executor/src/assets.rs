@@ -314,14 +314,15 @@ impl AssetsInHolding {
 		let mut taken = AssetsInHolding::new();
 		let maybe_limit = mask.limit().map(|x| x as usize);
 		match mask {
-			// TODO: Counted variants where we define `limit`.
-			AssetFilter::Wild(All) | AssetFilter::Wild(AllCounted(_)) => {
-				if maybe_limit.map_or(true, |l| self.len() <= l) {
-					return Ok(self.swapped(AssetsInHolding::new()))
-				} else {
+			AssetFilter::Wild(All) | AssetFilter::Wild(AllCounted(_)) => match maybe_limit {
+				None => return Ok(self.swapped(AssetsInHolding::new())),
+				Some(limit) if self.len() <= limit =>
+					return Ok(self.swapped(AssetsInHolding::new())),
+				Some(0) => return Ok(AssetsInHolding::new()),
+				Some(limit) => {
 					let fungible = mem::replace(&mut self.fungible, Default::default());
 					fungible.into_iter().for_each(|(c, amount)| {
-						if maybe_limit.map_or(true, |l| taken.len() < l) {
+						if taken.len() < limit {
 							taken.fungible.insert(c, amount);
 						} else {
 							self.fungible.insert(c, amount);
@@ -329,13 +330,13 @@ impl AssetsInHolding {
 					});
 					let non_fungible = mem::replace(&mut self.non_fungible, Default::default());
 					non_fungible.into_iter().for_each(|(c, instance)| {
-						if maybe_limit.map_or(true, |l| taken.len() < l) {
+						if taken.len() < limit {
 							taken.non_fungible.insert((c, instance));
 						} else {
 							self.non_fungible.insert((c, instance));
 						}
 					});
-				}
+				},
 			},
 			AssetFilter::Wild(AllOfCounted { fun: WildFungible, id, .. }) |
 			AssetFilter::Wild(AllOf { fun: WildFungible, id }) =>

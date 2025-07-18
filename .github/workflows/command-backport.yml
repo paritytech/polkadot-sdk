@@ -1,0 +1,135 @@
+name: Backport into stable
+
+on:
+  # This trigger can be problematic, see: https://securitylab.github.com/resources/github-actions-preventing-pwn-requests/
+  # In our case it is fine since we only run it on merged Pull Requests and do not execute any of the repo code itself.
+  pull_request_target:
+    types: [closed, labeled]
+
+permissions:
+  contents: write # so it can comment
+  pull-requests: write # so it can create pull requests
+  issues: write
+  actions: write # It may have to backport changes to the CI as well.
+
+jobs:
+  check-labels:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    outputs:
+      LABELS: ${{ steps.check_labels.outputs.LABELS }}
+      found: ${{ steps.check_labels.outputs.found }}
+
+    # The 'github.event.pull_request.merged' ensures that it got into master:
+    if: >
+      ( !startsWith(github.event.pull_request.base.ref, 'stable') ) &&
+      (
+        github.event_name == 'pull_request_target' &&
+        github.event.pull_request.merged &&
+        github.event.pull_request.base.ref == 'master'
+      )
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for backport labels
+        id: check_labels
+        run: |
+          LABELS=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+
+          if echo "$LABELS" | grep -q '^A4-backport-stable'; then
+            echo "found=true" >> $GITHUB_OUTPUT
+            readarray -t labels_array <<< "$LABELS"
+            echo "LABELS=${labels_array[@]}" >> $GITHUB_OUTPUT
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+          fi
+
+  backport:
+    name: Backport pull request
+    runs-on: ubuntu-latest
+    needs: [check-labels]
+    if: ${{ needs.check-labels.outputs.found == 'true' }}
+    steps:
+
+      - name: Generate token
+        id: generate_token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
+
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.generate_token.outputs.token }}
+
+      - name: Get branches to backport to
+        id: branches
+        run: |
+          . ./.github/scripts/common/lib.sh
+
+          LABELS="${{ needs.check-labels.outputs.LABELS }}"
+          BACKPORT_BRANCHES=$(parse_branch_names_from_backport_labels "$LABELS")
+          echo "BACKPORT_BRANCHES=${BACKPORT_BRANCHES}" >> $GITHUB_OUTPUT
+
+
+      - name: Create backport pull requests
+        uses: korthout/backport-action@v3
+        id: backport
+        with:
+          target_branches: ${{ steps.branches.outputs.BACKPORT_BRANCHES }}
+          merge_commits: skip
+          github_token: ${{ steps.generate_token.outputs.token }}
+          pull_description: |
+            Backport #${pull_number} into `${target_branch}` from ${pull_author}.
+
+            See the [documentation](https://github.com/paritytech/polkadot-sdk/blob/master/docs/BACKPORT.md) on how to use this bot.
+
+            <!--
+              # To be used by other automation, do not modify:
+              original-pr-number: #${pull_number}
+            -->
+          pull_title: |
+            [${target_branch}] Backport #${pull_number}
+          experimental: >
+            {
+              "conflict_resolution": "draft_commit_conflicts"
+            }
+          copy_assignees: true
+          label_pattern: ^A4-backport-stable
+
+      - name: Label Backports
+        if: ${{ steps.backport.outputs.created_pull_numbers != '' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pullNumbers = '${{ steps.backport.outputs.created_pull_numbers }}'.split(' ');
+
+            for (const pullNumber of pullNumbers) {
+              await github.rest.issues.addLabels({
+                issue_number: parseInt(pullNumber),
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                labels: ['A3-backport']
+              });
+              console.log(`Added A3-backport label to PR #${pullNumber}`);
+            }
+
+      - name: Request Review
+        if: ${{ steps.backport.outputs.created_pull_numbers != '' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pullNumbers = '${{ steps.backport.outputs.created_pull_numbers }}'.split(' ');
+            const reviewer = '${{ github.event.pull_request.user.login }}';
+
+            for (const pullNumber of pullNumbers) {
+              await github.rest.pulls.requestReviewers({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: parseInt(pullNumber),
+                reviewers: [reviewer]
+              });
+              console.log(`Requested review from ${reviewer} for PR #${pullNumber}`);
+            }

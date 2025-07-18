@@ -1,0 +1,11 @@
+title: Rename archive call method result to value
+
+doc:
+  - audience: [Node Dev, Node Operator]
+    description: |
+      Previously, the method result was encoded to a json containing a "result" field. However,
+      the spec specifies a "value" field. This aims to rectify that.
+
+crates:
+  - name: sc-rpc-spec-v2
+    bump: major

@@ -23,8 +23,9 @@ use sp_keyring::Sr25519Keyring;
 use polkadot_erasure_coding::{branches, obtain_chunks_v1 as obtain_chunks};
 use polkadot_node_primitives::{AvailableData, BlockData, ErasureChunk, PoV, Proof};
 use polkadot_primitives::{
+	vstaging::{CommittedCandidateReceiptV2, OccupiedCore},
 	CandidateCommitments, CandidateDescriptor, CandidateHash, ChunkIndex,
-	CommittedCandidateReceipt, GroupIndex, Hash, HeadData, Id as ParaId, IndexedVec, OccupiedCore,
+	CommittedCandidateReceipt, GroupIndex, Hash, HeadData, Id as ParaId, IndexedVec,
 	PersistedValidationData, SessionInfo, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{
@@ -101,7 +102,7 @@ impl OccupiedCoreBuilder {
 			availability: Default::default(),
 			group_responsible: self.group_responsible,
 			candidate_hash: candidate_receipt.hash(),
-			candidate_descriptor: candidate_receipt.descriptor().clone(),
+			candidate_descriptor: candidate_receipt.descriptor.clone(),
 		};
 		(core, (candidate_receipt.hash(), chunk))
 	}
@@ -117,7 +118,7 @@ pub struct TestCandidateBuilder {
 }
 
 impl TestCandidateBuilder {
-	pub fn build(self) -> CommittedCandidateReceipt {
+	pub fn build(self) -> CommittedCandidateReceiptV2 {
 		CommittedCandidateReceipt {
 			descriptor: CandidateDescriptor {
 				para_id: self.para_id,
@@ -132,6 +133,7 @@ impl TestCandidateBuilder {
 			},
 			commitments: CandidateCommitments { head_data: self.head_data, ..Default::default() },
 		}
+		.into()
 	}
 }
 

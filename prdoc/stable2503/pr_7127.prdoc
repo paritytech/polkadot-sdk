@@ -1,0 +1,9 @@
+title: 'Forbid v1 descriptors with UMP signals'
+doc:
+- audience: [Runtime Dev, Node Dev]
+  description: Adds a check that parachain candidates do not send out UMP signals with v1 descriptors.
+crates:
+- name: polkadot-node-core-candidate-validation
+  bump: minor
+- name: polkadot-primitives
+  bump: major

@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::*;
+use crate::imports::*;
 use collectives_fellowship::FellowshipSalaryPaymaster;
 use frame_support::{
 	assert_ok,

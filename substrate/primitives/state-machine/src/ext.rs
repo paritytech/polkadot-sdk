@@ -139,6 +139,7 @@ where
 	H::Out: Ord + 'static,
 	B: 'a + Backend<H>,
 {
+	/// Return all storage pairs from the backend and overlay combined.
 	pub fn storage_pairs(&mut self) -> Vec<(StorageKey, StorageValue)> {
 		use std::collections::HashMap;
 
@@ -713,6 +714,7 @@ where
 }
 
 /// Implement `Encode` by forwarding the stored raw vec.
+#[allow(dead_code)]
 struct EncodeOpaqueValue(Vec<u8>);
 
 impl Encode for EncodeOpaqueValue {

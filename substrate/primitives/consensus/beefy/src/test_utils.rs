@@ -26,7 +26,7 @@ use sp_core::{ecdsa, Pair};
 use sp_runtime::traits::{BlockNumber, Hash, Header as HeaderT};
 
 use codec::Encode;
-use std::{collections::HashMap, marker::PhantomData};
+use std::{collections::HashMap, marker::PhantomData, sync::LazyLock};
 use strum::IntoEnumIterator;
 
 /// Set of test accounts using [`crate::ecdsa_crypto`] types.
@@ -111,12 +111,15 @@ where
 	}
 }
 
-lazy_static::lazy_static! {
-	static ref PRIVATE_KEYS: HashMap<Keyring<ecdsa_crypto::AuthorityId>, ecdsa_crypto::Pair> =
-		Keyring::iter().map(|i| (i.clone(), i.pair())).collect();
-	static ref PUBLIC_KEYS: HashMap<Keyring<ecdsa_crypto::AuthorityId>, ecdsa_crypto::Public> =
-		PRIVATE_KEYS.iter().map(|(name, pair)| (name.clone(), sp_application_crypto::Pair::public(pair))).collect();
-}
+static PRIVATE_KEYS: LazyLock<HashMap<Keyring<ecdsa_crypto::AuthorityId>, ecdsa_crypto::Pair>> =
+	LazyLock::new(|| Keyring::iter().map(|i| (i.clone(), i.pair())).collect());
+static PUBLIC_KEYS: LazyLock<HashMap<Keyring<ecdsa_crypto::AuthorityId>, ecdsa_crypto::Public>> =
+	LazyLock::new(|| {
+		PRIVATE_KEYS
+			.iter()
+			.map(|(name, pair)| (name.clone(), sp_application_crypto::Pair::public(pair)))
+			.collect()
+	});
 
 impl From<Keyring<ecdsa_crypto::AuthorityId>> for ecdsa_crypto::Pair {
 	fn from(k: Keyring<ecdsa_crypto::AuthorityId>) -> Self {

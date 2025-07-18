@@ -25,7 +25,7 @@ pub const OUTBOUND_LANES_MAP_NAME: &str = "OutboundLanes";
 /// Name of the `InboundLanes` storage map.
 pub const INBOUND_LANES_MAP_NAME: &str = "InboundLanes";
 
-use crate::{LaneId, MessageKey, MessageNonce};
+use crate::{MessageKey, MessageNonce};
 
 use codec::Encode;
 use frame_support::Blake2_128Concat;
@@ -43,16 +43,20 @@ pub fn operating_mode_key(pallet_prefix: &str) -> StorageKey {
 }
 
 /// Storage key of the outbound message in the runtime storage.
-pub fn message_key(pallet_prefix: &str, lane: &LaneId, nonce: MessageNonce) -> StorageKey {
+pub fn message_key<LaneId: Encode>(
+	pallet_prefix: &str,
+	lane: LaneId,
+	nonce: MessageNonce,
+) -> StorageKey {
 	bp_runtime::storage_map_final_key::<Blake2_128Concat>(
 		pallet_prefix,
 		OUTBOUND_MESSAGES_MAP_NAME,
-		&MessageKey { lane_id: *lane, nonce }.encode(),
+		&MessageKey { lane_id: lane, nonce }.encode(),
 	)
 }
 
 /// Storage key of the outbound message lane state in the runtime storage.
-pub fn outbound_lane_data_key(pallet_prefix: &str, lane: &LaneId) -> StorageKey {
+pub fn outbound_lane_data_key<LaneId: Encode>(pallet_prefix: &str, lane: &LaneId) -> StorageKey {
 	bp_runtime::storage_map_final_key::<Blake2_128Concat>(
 		pallet_prefix,
 		OUTBOUND_LANES_MAP_NAME,
@@ -61,7 +65,7 @@ pub fn outbound_lane_data_key(pallet_prefix: &str, lane: &LaneId) -> StorageKey 
 }
 
 /// Storage key of the inbound message lane state in the runtime storage.
-pub fn inbound_lane_data_key(pallet_prefix: &str, lane: &LaneId) -> StorageKey {
+pub fn inbound_lane_data_key<LaneId: Encode>(pallet_prefix: &str, lane: &LaneId) -> StorageKey {
 	bp_runtime::storage_map_final_key::<Blake2_128Concat>(
 		pallet_prefix,
 		INBOUND_LANES_MAP_NAME,
@@ -72,6 +76,10 @@ pub fn inbound_lane_data_key(pallet_prefix: &str, lane: &LaneId) -> StorageKey {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::{
+		lane::{HashedLaneId, LegacyLaneId},
+		LaneIdType,
+	};
 	use hex_literal::hex;
 
 	#[test]
@@ -91,7 +99,17 @@ mod tests {
 	fn storage_message_key_computed_properly() {
 		// If this test fails, then something has been changed in module storage that is breaking
 		// all previously crafted messages proofs.
-		let storage_key = message_key("BridgeMessages", &LaneId(*b"test"), 42).0;
+		let storage_key =
+			message_key("BridgeMessages", &HashedLaneId::try_new(1, 2).unwrap(), 42).0;
+		assert_eq!(
+			storage_key,
+			hex!("dd16c784ebd3390a9bc0357c7511ed018a395e6242c6813b196ca31ed0547ea70e9bdb8f50c68d12f06eabb57759ee5eb1d3dccd8b3c3a012afe265f3e3c4432129b8aee50c9dcf87f9793be208e5ea02a00000000000000").to_vec(),
+			"Unexpected storage key: {}",
+			hex::encode(&storage_key),
+		);
+
+		// check backwards compatibility
+		let storage_key = message_key("BridgeMessages", &LegacyLaneId(*b"test"), 42).0;
 		assert_eq!(
 			storage_key,
 			hex!("dd16c784ebd3390a9bc0357c7511ed018a395e6242c6813b196ca31ed0547ea79446af0e09063bd4a7874aef8a997cec746573742a00000000000000").to_vec(),
@@ -104,7 +122,17 @@ mod tests {
 	fn outbound_lane_data_key_computed_properly() {
 		// If this test fails, then something has been changed in module storage that is breaking
 		// all previously crafted outbound lane state proofs.
-		let storage_key = outbound_lane_data_key("BridgeMessages", &LaneId(*b"test")).0;
+		let storage_key =
+			outbound_lane_data_key("BridgeMessages", &HashedLaneId::try_new(1, 2).unwrap()).0;
+		assert_eq!(
+			storage_key,
+			hex!("dd16c784ebd3390a9bc0357c7511ed0196c246acb9b55077390e3ca723a0ca1fd3bef8b00df8ca7b01813b5e2741950db1d3dccd8b3c3a012afe265f3e3c4432129b8aee50c9dcf87f9793be208e5ea0").to_vec(),
+			"Unexpected storage key: {}",
+			hex::encode(&storage_key),
+		);
+
+		// check backwards compatibility
+		let storage_key = outbound_lane_data_key("BridgeMessages", &LegacyLaneId(*b"test")).0;
 		assert_eq!(
 			storage_key,
 			hex!("dd16c784ebd3390a9bc0357c7511ed0196c246acb9b55077390e3ca723a0ca1f44a8995dd50b6657a037a7839304535b74657374").to_vec(),
@@ -117,7 +145,17 @@ mod tests {
 	fn inbound_lane_data_key_computed_properly() {
 		// If this test fails, then something has been changed in module storage that is breaking
 		// all previously crafted inbound lane state proofs.
-		let storage_key = inbound_lane_data_key("BridgeMessages", &LaneId(*b"test")).0;
+		let storage_key =
+			inbound_lane_data_key("BridgeMessages", &HashedLaneId::try_new(1, 2).unwrap()).0;
+		assert_eq!(
+			storage_key,
+			hex!("dd16c784ebd3390a9bc0357c7511ed01e5f83cf83f2127eb47afdc35d6e43fabd3bef8b00df8ca7b01813b5e2741950db1d3dccd8b3c3a012afe265f3e3c4432129b8aee50c9dcf87f9793be208e5ea0").to_vec(),
+			"Unexpected storage key: {}",
+			hex::encode(&storage_key),
+		);
+
+		// check backwards compatibility
+		let storage_key = inbound_lane_data_key("BridgeMessages", &LegacyLaneId(*b"test")).0;
 		assert_eq!(
 			storage_key,
 			hex!("dd16c784ebd3390a9bc0357c7511ed01e5f83cf83f2127eb47afdc35d6e43fab44a8995dd50b6657a037a7839304535b74657374").to_vec(),

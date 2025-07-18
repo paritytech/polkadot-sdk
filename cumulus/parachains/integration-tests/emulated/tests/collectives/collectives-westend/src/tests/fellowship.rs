@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::*;
+use crate::imports::*;
 use codec::Encode;
 use collectives_fellowship::pallet_fellowship_origins::Origin::Fellows as FellowsOrigin;
 use frame_support::{assert_ok, sp_runtime::traits::Dispatchable};
@@ -36,12 +36,12 @@ fn fellows_whitelist_call() {
 				UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 				Transact {
 					origin_kind: OriginKind::Xcm,
-					require_weight_at_most: Weight::from_parts(5_000_000_000, 500_000),
 					call: WestendCall::Whitelist(
 						pallet_whitelist::Call::<WestendRuntime>::whitelist_call { call_hash }
 					)
 					.encode()
 					.into(),
+					fallback_max_weight: None
 				}
 			]))),
 		});

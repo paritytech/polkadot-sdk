@@ -50,10 +50,6 @@ pub enum ToServiceCommand<B: BlockT> {
 	EventStream(TracingUnboundedSender<SyncEvent>),
 	Status(oneshot::Sender<SyncStatus<B>>),
 	NumActivePeers(oneshot::Sender<usize>),
-	SyncState(oneshot::Sender<SyncStatus<B>>),
-	BestSeenBlock(oneshot::Sender<Option<NumberFor<B>>>),
-	NumSyncPeers(oneshot::Sender<u32>),
-	NumQueuedBlocks(oneshot::Sender<u32>),
 	NumDownloadedBlocks(oneshot::Sender<usize>),
 	NumSyncRequests(oneshot::Sender<usize>),
 	PeersInfo(oneshot::Sender<Vec<(PeerId, ExtendedPeerInfo<B>)>>),
@@ -83,34 +79,15 @@ impl<B: BlockT> SyncingService<B> {
 		Self { tx, num_connected, is_major_syncing }
 	}
 
+	/// Get the number of peers known to `SyncingEngine` (both full and light).
+	pub fn num_connected_peers(&self) -> usize {
+		self.num_connected.load(Ordering::Relaxed)
+	}
+
 	/// Get the number of active peers.
 	pub async fn num_active_peers(&self) -> Result<usize, oneshot::Canceled> {
 		let (tx, rx) = oneshot::channel();
 		let _ = self.tx.unbounded_send(ToServiceCommand::NumActivePeers(tx));
-
-		rx.await
-	}
-
-	/// Get best seen block.
-	pub async fn best_seen_block(&self) -> Result<Option<NumberFor<B>>, oneshot::Canceled> {
-		let (tx, rx) = oneshot::channel();
-		let _ = self.tx.unbounded_send(ToServiceCommand::BestSeenBlock(tx));
-
-		rx.await
-	}
-
-	/// Get the number of sync peers.
-	pub async fn num_sync_peers(&self) -> Result<u32, oneshot::Canceled> {
-		let (tx, rx) = oneshot::channel();
-		let _ = self.tx.unbounded_send(ToServiceCommand::NumSyncPeers(tx));
-
-		rx.await
-	}
-
-	/// Get the number of queued blocks.
-	pub async fn num_queued_blocks(&self) -> Result<u32, oneshot::Canceled> {
-		let (tx, rx) = oneshot::channel();
-		let _ = self.tx.unbounded_send(ToServiceCommand::NumQueuedBlocks(tx));
 
 		rx.await
 	}
@@ -149,11 +126,11 @@ impl<B: BlockT> SyncingService<B> {
 	/// Get sync status
 	///
 	/// Returns an error if `SyncingEngine` has terminated.
-	pub async fn status(&self) -> Result<SyncStatus<B>, ()> {
+	pub async fn status(&self) -> Result<SyncStatus<B>, oneshot::Canceled> {
 		let (tx, rx) = oneshot::channel();
 		let _ = self.tx.unbounded_send(ToServiceCommand::Status(tx));
 
-		rx.await.map_err(|_| ())
+		rx.await
 	}
 }
 
@@ -200,7 +177,7 @@ impl<B: BlockT> SyncStatusProvider<B> for SyncingService<B> {
 
 impl<B: BlockT> Link<B> for SyncingService<B> {
 	fn blocks_processed(
-		&mut self,
+		&self,
 		imported: usize,
 		count: usize,
 		results: Vec<(Result<BlockImportStatus<NumberFor<B>>, BlockImportError>, B::Hash)>,
@@ -211,7 +188,7 @@ impl<B: BlockT> Link<B> for SyncingService<B> {
 	}
 
 	fn justification_imported(
-		&mut self,
+		&self,
 		who: PeerId,
 		hash: &B::Hash,
 		number: NumberFor<B>,
@@ -222,7 +199,7 @@ impl<B: BlockT> Link<B> for SyncingService<B> {
 			.unbounded_send(ToServiceCommand::JustificationImported(who, *hash, number, success));
 	}
 
-	fn request_justification(&mut self, hash: &B::Hash, number: NumberFor<B>) {
+	fn request_justification(&self, hash: &B::Hash, number: NumberFor<B>) {
 		let _ = self.tx.unbounded_send(ToServiceCommand::RequestJustification(*hash, number));
 	}
 }

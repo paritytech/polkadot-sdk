@@ -16,9 +16,13 @@
 // limitations under the License.
 
 use crate::{
+	deprecation::extract_or_return_allow_attrs,
 	pallet::{
 		expand::warnings::{weight_constant_warning, weight_witness_warning},
-		parse::call::CallWeightDef,
+		parse::{
+			call::{CallVariantDef, CallWeightDef},
+			helper::CallReturnType,
+		},
 		Def,
 	},
 	COUNTER,
@@ -27,6 +31,33 @@ use proc_macro2::TokenStream as TokenStream2;
 use proc_macro_warning::Warning;
 use quote::{quote, ToTokens};
 use syn::spanned::Spanned;
+
+/// Expand the weight to final token stream and accumulate warnings.
+fn expand_weight(
+	prefix: &str,
+	frame_support: &syn::Path,
+	dev_mode: bool,
+	weight_warnings: &mut Vec<Warning>,
+	method: &CallVariantDef,
+	weight: &CallWeightDef,
+) -> TokenStream2 {
+	match weight {
+		CallWeightDef::DevModeDefault => quote::quote!(
+			#frame_support::pallet_prelude::Weight::zero()
+		),
+		CallWeightDef::Immediate(e) => {
+			weight_constant_warning(e, dev_mode, weight_warnings);
+			weight_witness_warning(method, dev_mode, weight_warnings);
+
+			e.into_token_stream()
+		},
+		CallWeightDef::Inherited(t) => {
+			// Expand `<<T as Config>::WeightInfo>::$prefix$call_name()`.
+			let n = &syn::Ident::new(&format!("{}{}", prefix, method.name), method.name.span());
+			quote!({ < #t > :: #n () })
+		},
+	}
+}
 
 ///
 /// * Generate enum call and implement various trait on it.
@@ -86,29 +117,15 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 	let mut fn_weight = Vec::<TokenStream2>::new();
 	let mut weight_warnings = Vec::new();
 	for method in &methods {
-		match &method.weight {
-			CallWeightDef::DevModeDefault => fn_weight.push(syn::parse_quote!(0)),
-			CallWeightDef::Immediate(e) => {
-				weight_constant_warning(e, def.dev_mode, &mut weight_warnings);
-				weight_witness_warning(method, def.dev_mode, &mut weight_warnings);
-
-				fn_weight.push(e.into_token_stream());
-			},
-			CallWeightDef::Inherited => {
-				let pallet_weight = def
-					.call
-					.as_ref()
-					.expect("we have methods; we have calls; qed")
-					.inherited_call_weight
-					.as_ref()
-					.expect("the parser prevents this");
-
-				// Expand `<<T as Config>::WeightInfo>::call_name()`.
-				let t = &pallet_weight.typename;
-				let n = &method.name;
-				fn_weight.push(quote!({ < #t > :: #n ()	}));
-			},
-		}
+		let w = expand_weight(
+			"",
+			frame_support,
+			def.dev_mode,
+			&mut weight_warnings,
+			method,
+			&method.weight,
+		);
+		fn_weight.push(w);
 	}
 	debug_assert_eq!(fn_weight.len(), methods.len());
 
@@ -197,18 +214,36 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 	let capture_docs = if cfg!(feature = "no-metadata-docs") { "never" } else { "always" };
 
 	// Wrap all calls inside of storage layers
-	if let Some(syn::Item::Impl(item_impl)) = def
-		.call
-		.as_ref()
-		.map(|c| &mut def.item.content.as_mut().expect("Checked by def parser").1[c.index])
-	{
-		item_impl.items.iter_mut().for_each(|i| {
-			if let syn::ImplItem::Fn(method) = i {
+	if let Some(call) = def.call.as_ref() {
+		let item_impl =
+			&mut def.item.content.as_mut().expect("Checked by def parser").1[call.index];
+		let syn::Item::Impl(item_impl) = item_impl else {
+			unreachable!("Checked by def parser");
+		};
+
+		item_impl.items.iter_mut().enumerate().for_each(|(i, item)| {
+			if let syn::ImplItem::Fn(method) = item {
+				let return_type =
+					&call.methods.get(i).expect("def should be consistent with item").return_type;
+
+				let (ok_type, err_type) = match return_type {
+					CallReturnType::DispatchResult => (
+						quote::quote!(()),
+						quote::quote!(#frame_support::pallet_prelude::DispatchError),
+					),
+					CallReturnType::DispatchResultWithPostInfo => (
+						quote::quote!(#frame_support::dispatch::PostDispatchInfo),
+						quote::quote!(#frame_support::dispatch::DispatchErrorWithPostInfo),
+					),
+				};
+
 				let block = &method.block;
 				method.block = syn::parse_quote! {{
 					// We execute all dispatchable in a new storage layer, allowing them
 					// to return an error at any point, and undoing any storage changes.
-					#frame_support::storage::with_storage_layer(|| #block)
+					#frame_support::storage::with_storage_layer::<#ok_type, #err_type, _>(
+						|| #block
+					)
 				}};
 			}
 		});
@@ -218,11 +253,10 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 	let maybe_allow_attrs = methods
 		.iter()
 		.map(|method| {
-			method
-				.attrs
-				.iter()
-				.find(|attr| attr.path().is_ident("allow"))
-				.map_or(proc_macro2::TokenStream::new(), |attr| attr.to_token_stream())
+			let attrs = extract_or_return_allow_attrs(&method.attrs);
+			quote::quote! {
+					#(#attrs)*
+			}
 		})
 		.collect::<Vec<_>>();
 
@@ -235,15 +269,96 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		})
 		.collect::<Vec<_>>();
 
-	let feeless_check = methods.iter().map(|method| &method.feeless_check).collect::<Vec<_>>();
-	let feeless_check_result =
-		feeless_check.iter().zip(args_name.iter()).map(|(feeless_check, arg_name)| {
-			if let Some(feeless_check) = feeless_check {
-				quote::quote!(#feeless_check(origin, #( #arg_name, )*))
+	let feeless_checks = methods.iter().map(|method| &method.feeless_check).collect::<Vec<_>>();
+	let feeless_check =
+		feeless_checks.iter().zip(args_name.iter()).map(|(feeless_check, arg_name)| {
+			if let Some(check) = feeless_check {
+				quote::quote_spanned!(span => #check)
 			} else {
-				quote::quote!(false)
+				quote::quote_spanned!(span => |_origin, #( #arg_name, )*| { false })
 			}
 		});
+
+	let deprecation = match crate::deprecation::get_deprecation_enum(
+		&quote::quote! {#frame_support},
+		methods.iter().map(|item| (item.call_index as u8, item.attrs.as_ref())),
+	) {
+		Ok(deprecation) => deprecation,
+		Err(e) => return e.into_compile_error(),
+	};
+
+	// Implementation of the authorize function for each call
+	// `authorize_fn_pallet_impl` writes the user-defined authorize function as a function
+	// implementation for the pallet.
+	// `authorize_impl` is the call to this former function to implement `Authorize` trait.
+	let (authorize_fn_pallet_impl, authorize_impl) = methods
+		.iter()
+		.zip(args_name.iter())
+		.zip(args_type.iter())
+		.zip(cfg_attrs.iter())
+		.map(|(((method, arg_name), arg_type), cfg_attr)| {
+			if let Some(authorize_def) = &method.authorize {
+				let authorize_fn = &authorize_def.expr;
+				let attr_fn_getter = syn::Ident::new(
+					&format!("__macro_inner_authorize_call_for_{}", method.name),
+					authorize_fn.span(),
+				);
+				let source = syn::Ident::new("source", span);
+
+				let authorize_fn_pallet_impl = quote::quote_spanned!(authorize_fn.span() =>
+					// Closure don't have a writable type. So we fix the authorize token stream to
+					// be any implementation of a specific function.
+					// This allows to have good type inference on the closure.
+					//
+					// Then we wrap this into an implementation for `Pallet` in order to get access
+					// to `Self` as `Pallet` instead of `Call`.
+					#cfg_attr
+					impl<#type_impl_gen> Pallet<#type_use_gen> #where_clause {
+						#[doc(hidden)]
+						fn #attr_fn_getter() -> impl Fn(
+							#frame_support::pallet_prelude::TransactionSource,
+							#( &#arg_type ),*
+						) -> #frame_support::pallet_prelude::TransactionValidityWithRefund {
+							#authorize_fn
+						}
+					}
+				);
+
+				// `source` is from outside this block, so we can't use the authorize_fn span.
+				let authorize_impl = quote::quote!(
+					{
+						let authorize_fn = Pallet::<#type_use_gen>::#attr_fn_getter();
+						let res = authorize_fn(#source, #( #arg_name, )*);
+
+						Some(res)
+					}
+				);
+
+				(authorize_fn_pallet_impl, authorize_impl)
+			} else {
+				(Default::default(), quote::quote!(None))
+			}
+		})
+		.unzip::<_, _, Vec<TokenStream2>, Vec<TokenStream2>>();
+
+	// Implementation of the authorize function weight for each call
+	let mut authorize_fn_weight = Vec::<TokenStream2>::new();
+	for method in &methods {
+		let w = match &method.authorize {
+			Some(authorize_def) => expand_weight(
+				"authorize_",
+				frame_support,
+				def.dev_mode,
+				&mut weight_warnings,
+				method,
+				&authorize_def.weight,
+			),
+			// No authorize logic, weight is negligible
+			None => quote::quote!(#frame_support::pallet_prelude::Weight::zero()),
+		};
+		authorize_fn_weight.push(w);
+	}
+	assert_eq!(authorize_fn_weight.len(), methods.len());
 
 	quote::quote_spanned!(span =>
 		#[doc(hidden)]
@@ -279,6 +394,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			#frame_support::PartialEqNoBound,
 			#frame_support::__private::codec::Encode,
 			#frame_support::__private::codec::Decode,
+			#frame_support::__private::codec::DecodeWithMemTracking,
 			#frame_support::__private::scale_info::TypeInfo,
 		)]
 		#[codec(encode_bound())]
@@ -345,7 +461,8 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 							>::pays_fee(&__pallet_base_weight, ( #( #args_name, )* ));
 
 							#frame_support::dispatch::DispatchInfo {
-								weight: __pallet_weight,
+								call_weight: __pallet_weight,
+								extension_weight: Default::default(),
 								class: __pallet_class,
 								pays_fee: __pallet_pays_fee,
 							}
@@ -366,7 +483,8 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 					#(
 						#cfg_attrs
 						Self::#fn_name { #( #args_name_pattern_ref, )* } => {
-							#feeless_check_result
+							let feeless_check = #feeless_check;
+							feeless_check(origin, #( #args_name, )*)
 						},
 					)*
 					Self::__Ignore(_, _) => unreachable!("__Ignore cannot be used"),
@@ -422,6 +540,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 									#frame_support::__private::sp_tracing::trace_span!(stringify!(#fn_name))
 								);
 								#maybe_allow_attrs
+								#[allow(clippy::useless_conversion)]
 								<#pallet_ident<#type_use_gen>>::#fn_name(origin, #( #args_name, )* )
 									.map(Into::into).map_err(Into::into)
 							},
@@ -445,7 +564,50 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			#[allow(dead_code)]
 			#[doc(hidden)]
 			pub fn call_functions() -> #frame_support::__private::metadata_ir::PalletCallMetadataIR {
-				#frame_support::__private::scale_info::meta_type::<#call_ident<#type_use_gen>>().into()
+				#frame_support::__private::metadata_ir::PalletCallMetadataIR  {
+					ty: #frame_support::__private::scale_info::meta_type::<#call_ident<#type_use_gen>>(),
+					deprecation_info: #deprecation,
+				}
+			}
+		}
+
+		#( #authorize_fn_pallet_impl )*
+
+		impl<#type_impl_gen> #frame_support::traits::Authorize for #call_ident<#type_use_gen>
+			#where_clause
+		{
+			fn authorize(&self, source: #frame_support::pallet_prelude::TransactionSource) -> ::core::option::Option<::core::result::Result<
+				(
+					#frame_support::pallet_prelude::ValidTransaction,
+					#frame_support::pallet_prelude::Weight,
+				),
+				#frame_support::pallet_prelude::TransactionValidityError
+			>>
+			{
+				match *self {
+					#(
+						#cfg_attrs
+						Self::#fn_name { #( #args_name_pattern_ref, )* } => {
+							#authorize_impl
+						},
+					)*
+					Self::__Ignore(_, _) => {
+						let _ = source;
+						unreachable!("__Ignore cannot be used")
+					},
+				}
+			}
+
+			fn weight_of_authorize(&self) -> #frame_support::pallet_prelude::Weight {
+				match *self {
+					#(
+						#cfg_attrs
+						Self::#fn_name { #( #args_name_pattern_ref, )* } => {
+							#authorize_fn_weight
+						},
+					)*
+					Self::__Ignore(_, _) => unreachable!("__Ignore cannot be used"),
+				}
 			}
 		}
 	)

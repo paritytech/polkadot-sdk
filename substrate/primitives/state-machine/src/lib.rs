@@ -23,16 +23,16 @@
 extern crate alloc;
 
 pub mod backend;
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 mod basic;
 mod error;
 mod ext;
 #[cfg(feature = "fuzzing")]
 pub mod fuzzing;
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 mod in_memory_backend;
 pub(crate) mod overlayed_changes;
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 mod read_only;
 mod stats;
 #[cfg(feature = "std")]
@@ -142,15 +142,16 @@ pub use crate::{
 	trie_backend_essence::{Storage, TrieBackendStorage},
 };
 
+#[cfg(not(substrate_runtime))]
+pub use crate::{
+	basic::BasicExternalities,
+	in_memory_backend::new_in_mem,
+	read_only::{InspectState, ReadOnlyExternalities},
+};
+
 #[cfg(feature = "std")]
 mod std_reexport {
-	pub use crate::{
-		basic::BasicExternalities,
-		in_memory_backend::new_in_mem,
-		read_only::{InspectState, ReadOnlyExternalities},
-		testing::TestExternalities,
-		trie_backend::create_proof_check_backend,
-	};
+	pub use crate::{testing::TestExternalities, trie_backend::create_proof_check_backend};
 	pub use sp_trie::{
 		trie_types::{TrieDBMutV0, TrieDBMutV1},
 		CompactProof, DBValue, LayoutV0, LayoutV1, MemoryDB, StorageProof, TrieMut,

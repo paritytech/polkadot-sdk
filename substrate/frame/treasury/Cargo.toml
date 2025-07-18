@@ -16,25 +16,22 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { features = [
-	"derive",
-	"max-encoded-len",
-], workspace = true }
+codec = { features = ["derive", "max-encoded-len"], workspace = true }
 docify = { workspace = true }
-impl-trait-for-tuples = { workspace = true }
-scale-info = { features = ["derive"], workspace = true }
-serde = { features = ["derive"], optional = true, workspace = true, default-features = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+impl-trait-for-tuples = { workspace = true }
+log = { workspace = true }
 pallet-balances = { workspace = true }
-sp-runtime = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+serde = { features = ["derive"], optional = true, workspace = true, default-features = true }
 sp-core = { optional = true, workspace = true }
+sp-runtime = { workspace = true }
 
 [dev-dependencies]
-sp-io = { workspace = true, default-features = true }
 pallet-utility = { workspace = true, default-features = true }
-sp-core = { workspace = true }
+sp-io = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -43,6 +40,7 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
+	"log/std",
 	"pallet-balances/std",
 	"pallet-utility/std",
 	"scale-info/std",

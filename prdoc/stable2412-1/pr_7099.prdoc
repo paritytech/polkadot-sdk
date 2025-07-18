@@ -1,0 +1,16 @@
+title: Provide partial results to speedup GetRecord queries
+
+doc:
+  - audience: Node Dev
+    description: |
+      This PR provides the partial results of the GetRecord kademlia query.
+      
+      This significantly improves the authority discovery records, from ~37 minutes to ~2/3 minutes.
+      In contrast, libp2p discovers authority records in around ~10 minutes.
+      
+      The authority discovery was slow because litep2p provided the records only after the Kademlia query was completed. A normal Kademlia query completes in around 40 seconds to a few minutes.
+      In this PR, partial records are provided as soon as they are discovered from the network.
+
+crates:
+  - name: sc-network
+    bump: patch

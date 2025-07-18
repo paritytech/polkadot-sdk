@@ -22,21 +22,20 @@ use polkadot_primitives::{node_features, ChunkIndex, CoreIndex, NodeFeatures, Va
 /// Any modification to the output of the function needs to be coordinated via the runtime.
 /// It's best to use minimal/no external dependencies.
 pub fn availability_chunk_index(
-	maybe_node_features: Option<&NodeFeatures>,
+	node_features: &NodeFeatures,
 	n_validators: usize,
 	core_index: CoreIndex,
 	validator_index: ValidatorIndex,
 ) -> Result<ChunkIndex, polkadot_erasure_coding::Error> {
-	if let Some(features) = maybe_node_features {
-		if let Some(&true) = features
-			.get(usize::from(node_features::FeatureIndex::AvailabilityChunkMapping as u8))
-			.as_deref()
-		{
-			let systematic_threshold = systematic_recovery_threshold(n_validators)? as u32;
-			let core_start_pos = core_index.0 * systematic_threshold;
+	if node_features
+		.get(usize::from(node_features::FeatureIndex::AvailabilityChunkMapping as u8))
+		.map(|bitref| *bitref)
+		.unwrap_or_default()
+	{
+		let systematic_threshold = systematic_recovery_threshold(n_validators)? as u32;
+		let core_start_pos = core_index.0 * systematic_threshold;
 
-			return Ok(ChunkIndex((core_start_pos + validator_index.0) % n_validators as u32))
-		}
+		return Ok(ChunkIndex((core_start_pos + validator_index.0) % n_validators as u32))
 	}
 
 	Ok(validator_index.into())
@@ -48,26 +47,25 @@ pub fn availability_chunk_index(
 /// Any modification to the output of the function needs to be coordinated via the
 /// runtime. It's best to use minimal/no external dependencies.
 pub fn availability_chunk_indices(
-	maybe_node_features: Option<&NodeFeatures>,
+	node_features: &NodeFeatures,
 	n_validators: usize,
 	core_index: CoreIndex,
 ) -> Result<Vec<ChunkIndex>, polkadot_erasure_coding::Error> {
 	let identity = (0..n_validators).map(|index| ChunkIndex(index as u32));
-	if let Some(features) = maybe_node_features {
-		if let Some(&true) = features
-			.get(usize::from(node_features::FeatureIndex::AvailabilityChunkMapping as u8))
-			.as_deref()
-		{
-			let systematic_threshold = systematic_recovery_threshold(n_validators)? as u32;
-			let core_start_pos = core_index.0 * systematic_threshold;
+	if node_features
+		.get(usize::from(node_features::FeatureIndex::AvailabilityChunkMapping as u8))
+		.map(|bitref| *bitref)
+		.unwrap_or_default()
+	{
+		let systematic_threshold = systematic_recovery_threshold(n_validators)? as u32;
+		let core_start_pos = core_index.0 * systematic_threshold;
 
-			return Ok(identity
-				.into_iter()
-				.cycle()
-				.skip(core_start_pos as usize)
-				.take(n_validators)
-				.collect())
-		}
+		return Ok(identity
+			.into_iter()
+			.cycle()
+			.skip(core_start_pos as usize)
+			.take(n_validators)
+			.collect())
 	}
 
 	Ok(identity.collect())
@@ -102,9 +100,7 @@ mod tests {
 
 		// If the mapping feature is not enabled, it should always be the identity vector.
 		{
-			for node_features in
-				[None, Some(NodeFeatures::EMPTY), Some(node_features_with_other_bits_enabled())]
-			{
+			for node_features in [NodeFeatures::EMPTY, node_features_with_other_bits_enabled()] {
 				for core_index in 0..n_cores {
 					let indices = availability_chunk_indices(
 						node_features.as_ref(),
@@ -141,7 +137,7 @@ mod tests {
 
 			for core_index in 0..n_cores {
 				let indices = availability_chunk_indices(
-					Some(&node_features),
+					&node_features,
 					n_validators as usize,
 					CoreIndex(core_index),
 				)
@@ -151,7 +147,7 @@ mod tests {
 					assert_eq!(
 						indices[validator_index as usize],
 						availability_chunk_index(
-							Some(&node_features),
+							&node_features,
 							n_validators as usize,
 							CoreIndex(core_index),
 							ValidatorIndex(validator_index)
@@ -184,7 +180,7 @@ mod tests {
 		let node_features = node_features_with_mapping_enabled();
 
 		assert_eq!(
-			availability_chunk_indices(Some(&node_features), n_validators, CoreIndex(0))
+			availability_chunk_indices(&node_features, n_validators, CoreIndex(0))
 				.unwrap()
 				.into_iter()
 				.map(|i| i.0)
@@ -192,7 +188,7 @@ mod tests {
 			vec![0, 1, 2, 3, 4, 5, 6]
 		);
 		assert_eq!(
-			availability_chunk_indices(Some(&node_features), n_validators, CoreIndex(1))
+			availability_chunk_indices(&node_features, n_validators, CoreIndex(1))
 				.unwrap()
 				.into_iter()
 				.map(|i| i.0)
@@ -200,7 +196,7 @@ mod tests {
 			vec![2, 3, 4, 5, 6, 0, 1]
 		);
 		assert_eq!(
-			availability_chunk_indices(Some(&node_features), n_validators, CoreIndex(2))
+			availability_chunk_indices(&node_features, n_validators, CoreIndex(2))
 				.unwrap()
 				.into_iter()
 				.map(|i| i.0)
@@ -208,7 +204,7 @@ mod tests {
 			vec![4, 5, 6, 0, 1, 2, 3]
 		);
 		assert_eq!(
-			availability_chunk_indices(Some(&node_features), n_validators, CoreIndex(3))
+			availability_chunk_indices(&node_features, n_validators, CoreIndex(3))
 				.unwrap()
 				.into_iter()
 				.map(|i| i.0)
@@ -216,7 +212,7 @@ mod tests {
 			vec![6, 0, 1, 2, 3, 4, 5]
 		);
 		assert_eq!(
-			availability_chunk_indices(Some(&node_features), n_validators, CoreIndex(4))
+			availability_chunk_indices(&node_features, n_validators, CoreIndex(4))
 				.unwrap()
 				.into_iter()
 				.map(|i| i.0)

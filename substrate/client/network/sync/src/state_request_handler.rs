@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Substrate is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Substrate is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+// along with Substrate. If not, see <https://www.gnu.org/licenses/>.
 
 //! Helper for handling (i.e. answering) state requests from a remote peer via the
 //! `crate::request_responses::RequestResponsesBehaviour`.
@@ -33,7 +34,7 @@ use sc_client_api::{BlockBackend, ProofProvider};
 use sc_network::{
 	config::ProtocolId,
 	request_responses::{IncomingRequest, OutgoingResponse},
-	NetworkBackend,
+	NetworkBackend, MAX_RESPONSE_SIZE,
 };
 use sp_runtime::traits::Block as BlockT;
 
@@ -69,7 +70,7 @@ pub fn generate_protocol_config<
 		generate_protocol_name(genesis_hash, fork_id).into(),
 		std::iter::once(generate_legacy_protocol_name(protocol_id).into()).collect(),
 		1024 * 1024,
-		16 * 1024 * 1024,
+		MAX_RESPONSE_SIZE,
 		Duration::from_secs(40),
 		Some(inbound_queue),
 	)

@@ -65,31 +65,6 @@ fn cannot_become_agent() {
 			DelegatedStaking::register_agent(RawOrigin::Signed(100).into(), 100),
 			Error::<T>::InvalidRewardDestination
 		);
-
-		// an existing validator cannot become agent
-		assert_noop!(
-			DelegatedStaking::register_agent(
-				RawOrigin::Signed(mock::GENESIS_VALIDATOR).into(),
-				100
-			),
-			Error::<T>::AlreadyStaking
-		);
-
-		// an existing direct staker to `CoreStaking` cannot become an agent.
-		assert_noop!(
-			DelegatedStaking::register_agent(
-				RawOrigin::Signed(mock::GENESIS_NOMINATOR_ONE).into(),
-				100
-			),
-			Error::<T>::AlreadyStaking
-		);
-		assert_noop!(
-			DelegatedStaking::register_agent(
-				RawOrigin::Signed(mock::GENESIS_NOMINATOR_TWO).into(),
-				100
-			),
-			Error::<T>::AlreadyStaking
-		);
 	});
 }
 
@@ -637,18 +612,6 @@ mod staking_integration {
 				DelegatedStaking::register_agent(RawOrigin::Signed(202).into(), 203),
 				Error::<T>::NotAllowed
 			);
-			// existing staker cannot become a delegate
-			assert_noop!(
-				DelegatedStaking::register_agent(
-					RawOrigin::Signed(GENESIS_NOMINATOR_ONE).into(),
-					201
-				),
-				Error::<T>::AlreadyStaking
-			);
-			assert_noop!(
-				DelegatedStaking::register_agent(RawOrigin::Signed(GENESIS_VALIDATOR).into(), 201),
-				Error::<T>::AlreadyStaking
-			);
 		});
 	}
 
@@ -671,12 +634,14 @@ mod staking_integration {
 			));
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(agent), vec![GENESIS_VALIDATOR],));
 			let init_stake = Staking::stake(&agent).unwrap();
+			// no extra provider added.
+			assert_eq!(System::providers(&agent), 1);
 
 			// scenario: 200 is a pool account, and the stake comes from its 4 delegators (300..304)
 			// in equal parts. lets try to migrate this nominator into delegate based stake.
 
 			// all balance currently is in 200
-			assert_eq!(Balances::free_balance(agent), agent_amount);
+			assert_eq!(pallet_staking::asset::total_balance::<T>(&agent), agent_amount);
 
 			// to migrate, nominator needs to set an account as a proxy delegator where staked funds
 			// will be moved and delegated back to this old nominator account. This should be funded
@@ -685,8 +650,9 @@ mod staking_integration {
 				DelegatedStaking::generate_proxy_delegator(Agent::from(agent)).get();
 
 			assert_ok!(DelegatedStaking::migrate_to_agent(RawOrigin::Signed(agent).into(), 201));
-			// after migration, funds are moved to proxy delegator, still a provider exists.
-			assert_eq!(System::providers(&agent), 1);
+			// after migration, no provider left since free balance is 0 and staking pallet released
+			// all funds.
+			assert_eq!(System::providers(&agent), 0);
 			assert_eq!(Balances::free_balance(agent), 0);
 			// proxy delegator has one provider as well with no free balance.
 			assert_eq!(System::providers(&proxy_delegator), 1);
@@ -798,8 +764,6 @@ mod staking_integration {
 				RawOrigin::Signed(agent).into(),
 				reward_acc
 			));
-			// becoming an agent adds another provider.
-			assert_eq!(System::providers(&agent), 2);
 
 			// delegate to this account
 			fund(&delegator, 1000);
@@ -1361,7 +1325,7 @@ mod pool_integration {
 	}
 
 	#[test]
-	fn existing_pool_member_can_stake() {
+	fn existing_pool_member_cannot_stake() {
 		// A pool member is able to stake directly since staking only uses free funds but once a
 		// staker, they cannot join/add extra bond to the pool. They can still withdraw funds.
 		ExtBuilder::default().build_and_execute(|| {
@@ -1375,28 +1339,42 @@ mod pool_integration {
 			fund(&delegator, 1000);
 			assert_ok!(Pools::join(RawOrigin::Signed(delegator).into(), 200, pool_id));
 
-			// THEN: they can still stake directly.
+			// THEN: they cannot stake anymore
+			assert_noop!(
+				Staking::bond(
+					RuntimeOrigin::signed(delegator),
+					500,
+					RewardDestination::Account(101)
+				),
+				StakingError::<T>::Restricted
+			);
+		});
+	}
+
+	#[test]
+	fn stakers_cannot_join_pool() {
+		ExtBuilder::default().build_and_execute(|| {
+			start_era(1);
+			// GIVEN: a pool.
+			fund(&200, 1000);
+			let pool_id = create_pool(200, 800);
+
+			// WHEN: an account is a staker.
+			let staker = 100;
+			fund(&staker, 1000);
+
 			assert_ok!(Staking::bond(
-				RuntimeOrigin::signed(delegator),
+				RuntimeOrigin::signed(staker),
 				500,
 				RewardDestination::Account(101)
 			));
-			assert_ok!(Staking::nominate(
-				RuntimeOrigin::signed(delegator),
-				vec![GENESIS_VALIDATOR]
-			));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(staker), vec![GENESIS_VALIDATOR]));
 
-			// The delegator cannot add any extra bond to the pool anymore.
+			// THEN: they cannot join pool.
 			assert_noop!(
-				Pools::bond_extra(RawOrigin::Signed(delegator).into(), BondExtra::FreeBalance(100)),
-				Error::<T>::AlreadyStaking
+				Pools::join(RawOrigin::Signed(staker).into(), 200, pool_id),
+				PoolsError::<T>::Restricted
 			);
-
-			// But they can unbond
-			assert_ok!(Pools::unbond(RawOrigin::Signed(delegator).into(), delegator, 50));
-			// and withdraw
-			start_era(4);
-			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(delegator).into(), delegator, 0));
 		});
 	}
 

@@ -20,6 +20,9 @@
 
 use std::{future::Future, sync::Arc};
 
+use jsonrpsee::Extensions;
+use sc_rpc_api::DenyUnsafe;
+
 /// A task executor that can be used for running RPC tests.
 ///
 /// Warning: the tokio runtime must be initialized before calling this.
@@ -69,4 +72,18 @@ pub fn test_executor() -> Arc<TokioTestExecutor> {
 /// Wrap a future in a timeout a little more concisely
 pub fn timeout_secs<I, F: Future<Output = I>>(s: u64, f: F) -> tokio::time::Timeout<F> {
 	tokio::time::timeout(std::time::Duration::from_secs(s), f)
+}
+
+/// Helper to create an extension that denies unsafe calls.
+pub fn deny_unsafe() -> Extensions {
+	let mut ext = Extensions::new();
+	ext.insert(DenyUnsafe::Yes);
+	ext
+}
+
+/// Helper to create an extension that allows unsafe calls.
+pub fn allow_unsafe() -> Extensions {
+	let mut ext = Extensions::new();
+	ext.insert(DenyUnsafe::No);
+	ext
 }

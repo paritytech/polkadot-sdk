@@ -182,7 +182,7 @@ const NIL_MARKER: u32 = u32::MAX;
 enum Link {
 	/// Nil, denotes that there is no next element.
 	Nil,
-	/// Link to the next element represented as a pointer to the a header.
+	/// Link to the next element represented as a pointer to the header.
 	Ptr(u32),
 }
 
@@ -350,7 +350,7 @@ pub struct AllocationStats {
 ///
 /// Returns `None` if the number of pages to not fit into `u32`.
 fn pages_from_size(size: u64) -> Option<u32> {
-	u32::try_from((size + PAGE_SIZE as u64 - 1) / PAGE_SIZE as u64).ok()
+	u32::try_from(size.div_ceil(PAGE_SIZE as u64)).ok()
 }
 
 /// An implementation of freeing bump allocator.
@@ -378,7 +378,7 @@ impl FreeingBumpHeapAllocator {
 	///
 	/// - `heap_base` - the offset from the beginning of the linear memory where the heap starts.
 	pub fn new(heap_base: u32) -> Self {
-		let aligned_heap_base = (heap_base + ALIGNMENT - 1) / ALIGNMENT * ALIGNMENT;
+		let aligned_heap_base = heap_base.div_ceil(ALIGNMENT) * ALIGNMENT;
 
 		FreeingBumpHeapAllocator {
 			original_heap_base: aligned_heap_base,

@@ -36,8 +36,9 @@ use async_std::sync::Arc;
 use async_trait::async_trait;
 use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof, storage_keys::inbound_lane_data_key,
-	ChainWithMessages as _, InboundLaneData, LaneId, MessageNonce, UnrewardedRelayersState,
+	ChainWithMessages as _, LaneState, MessageNonce, UnrewardedRelayer, UnrewardedRelayersState,
 };
+use codec::Decode;
 use messages_relay::{
 	message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf},
 	message_lane_loop::{NoncesSubmitArtifacts, TargetClient, TargetClientState},
@@ -48,17 +49,57 @@ use relay_substrate_client::{
 };
 use relay_utils::relay_loop::Client as RelayClient;
 use sp_core::Pair;
-use std::{convert::TryFrom, ops::RangeInclusive};
+use std::{collections::VecDeque, convert::TryFrom, ops::RangeInclusive};
 
 /// Message receiving proof returned by the target Substrate node.
-pub type SubstrateMessagesDeliveryProof<C> =
-	(UnrewardedRelayersState, FromBridgedChainMessagesDeliveryProof<HashOf<C>>);
+pub type SubstrateMessagesDeliveryProof<C, L> =
+	(UnrewardedRelayersState, FromBridgedChainMessagesDeliveryProof<HashOf<C>, L>);
+
+/// Inbound lane data - for backwards compatibility with `bp_messages::InboundLaneData` which has
+/// additional `lane_state` attribute.
+///
+/// TODO: remove - https://github.com/paritytech/polkadot-sdk/issues/5923
+#[derive(Decode)]
+struct LegacyInboundLaneData<RelayerId> {
+	relayers: VecDeque<UnrewardedRelayer<RelayerId>>,
+	last_confirmed_nonce: MessageNonce,
+}
+impl<RelayerId> Default for LegacyInboundLaneData<RelayerId> {
+	fn default() -> Self {
+		let full = bp_messages::InboundLaneData::default();
+		Self { relayers: full.relayers, last_confirmed_nonce: full.last_confirmed_nonce }
+	}
+}
+
+impl<RelayerId> LegacyInboundLaneData<RelayerId> {
+	pub fn last_delivered_nonce(self) -> MessageNonce {
+		bp_messages::InboundLaneData {
+			relayers: self.relayers,
+			last_confirmed_nonce: self.last_confirmed_nonce,
+			// we don't care about the state here
+			state: LaneState::Opened,
+		}
+		.last_delivered_nonce()
+	}
+}
+
+impl<RelayerId> From<LegacyInboundLaneData<RelayerId>> for UnrewardedRelayersState {
+	fn from(value: LegacyInboundLaneData<RelayerId>) -> Self {
+		(&bp_messages::InboundLaneData {
+			relayers: value.relayers,
+			last_confirmed_nonce: value.last_confirmed_nonce,
+			// we don't care about the state here
+			state: LaneState::Opened,
+		})
+			.into()
+	}
+}
 
 /// Substrate client as Substrate messages target.
 pub struct SubstrateMessagesTarget<P: SubstrateMessageLane, SourceClnt, TargetClnt> {
 	target_client: TargetClnt,
 	source_client: SourceClnt,
-	lane_id: LaneId,
+	lane_id: P::LaneId,
 	relayer_id_at_source: AccountIdOf<P::SourceChain>,
 	transaction_params: Option<TransactionParams<AccountKeyPairOf<P::TargetChain>>>,
 	source_to_target_headers_relay: Option<Arc<dyn OnDemandRelay<P::SourceChain, P::TargetChain>>>,
@@ -73,7 +114,7 @@ where
 	pub fn new(
 		target_client: TargetClnt,
 		source_client: SourceClnt,
-		lane_id: LaneId,
+		lane_id: P::LaneId,
 		relayer_id_at_source: AccountIdOf<P::SourceChain>,
 		transaction_params: Option<TransactionParams<AccountKeyPairOf<P::TargetChain>>>,
 		source_to_target_headers_relay: Option<
@@ -94,7 +135,7 @@ where
 	async fn inbound_lane_data(
 		&self,
 		id: TargetHeaderIdOf<MessageLaneAdapter<P>>,
-	) -> Result<Option<InboundLaneData<AccountIdOf<P::SourceChain>>>, SubstrateError> {
+	) -> Result<Option<LegacyInboundLaneData<AccountIdOf<P::SourceChain>>>, SubstrateError> {
 		self.target_client
 			.storage_value(
 				id.hash(),
@@ -217,8 +258,8 @@ where
 	) -> Result<(TargetHeaderIdOf<MessageLaneAdapter<P>>, UnrewardedRelayersState), SubstrateError>
 	{
 		let inbound_lane_data =
-			self.inbound_lane_data(id).await?.unwrap_or(InboundLaneData::default());
-		Ok((id, (&inbound_lane_data).into()))
+			self.inbound_lane_data(id).await?.unwrap_or(LegacyInboundLaneData::default());
+		Ok((id, inbound_lane_data.into()))
 	}
 
 	async fn prove_messages_receiving(
@@ -308,7 +349,7 @@ where
 fn make_messages_delivery_call<P: SubstrateMessageLane>(
 	relayer_id_at_source: AccountIdOf<P::SourceChain>,
 	nonces: RangeInclusive<MessageNonce>,
-	proof: SubstrateMessagesProof<P::SourceChain>,
+	proof: SubstrateMessagesProof<P::SourceChain, P::LaneId>,
 	trace_call: bool,
 ) -> CallOf<P::TargetChain> {
 	let messages_count = nonces.end() - nonces.start() + 1;
@@ -320,4 +361,50 @@ fn make_messages_delivery_call<P: SubstrateMessageLane>(
 		dispatch_weight,
 		trace_call,
 	)
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use bp_messages::{DeliveredMessages, UnrewardedRelayer};
+	use codec::Encode;
+
+	#[test]
+	fn inbound_lane_data_wrapper_is_compatible() {
+		let bytes_without_state =
+			vec![4, 0, 2, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0];
+		let bytes_with_state = {
+			// add state byte `bp_messages::LaneState::Opened`
+			let mut b = bytes_without_state.clone();
+			b.push(0);
+			b
+		};
+
+		let full = bp_messages::InboundLaneData::<u8> {
+			relayers: vec![UnrewardedRelayer {
+				relayer: Default::default(),
+				messages: DeliveredMessages { begin: 2, end: 5 },
+			}]
+			.into_iter()
+			.collect(),
+			last_confirmed_nonce: 6,
+			state: bp_messages::LaneState::Opened,
+		};
+		assert_eq!(full.encode(), bytes_with_state);
+		assert_ne!(full.encode(), bytes_without_state);
+
+		// decode from `bytes_with_state`
+		let decoded: LegacyInboundLaneData<u8> =
+			Decode::decode(&mut &bytes_with_state[..]).unwrap();
+		assert_eq!(full.relayers, decoded.relayers);
+		assert_eq!(full.last_confirmed_nonce, decoded.last_confirmed_nonce);
+		assert_eq!(full.last_delivered_nonce(), decoded.last_delivered_nonce());
+
+		// decode from `bytes_without_state`
+		let decoded: LegacyInboundLaneData<u8> =
+			Decode::decode(&mut &bytes_without_state[..]).unwrap();
+		assert_eq!(full.relayers, decoded.relayers);
+		assert_eq!(full.last_confirmed_nonce, decoded.last_confirmed_nonce);
+		assert_eq!(full.last_delivered_nonce(), decoded.last_delivered_nonce());
+	}
 }

@@ -16,6 +16,10 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[[bench]]
+name = "bench"
+harness = false
+
 [dependencies]
 parking_lot = { workspace = true, default-features = true }
 schnellru = { workspace = true }
@@ -38,25 +42,20 @@ sp-wasm-interface = { workspace = true, default-features = true }
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
-wat = { workspace = true }
-sc-runtime-test = { workspace = true }
-substrate-test-runtime = { workspace = true }
-sp-crypto-hashing = { workspace = true, default-features = true }
-sp-state-machine = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-maybe-compressed-blob = { workspace = true, default-features = true }
-sc-tracing = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
-tracing-subscriber = { workspace = true }
-paste = { workspace = true, default-features = true }
-regex = { workspace = true }
 criterion = { workspace = true, default-features = true }
 num_cpus = { workspace = true }
+paste = { workspace = true, default-features = true }
+sc-runtime-test = { workspace = true }
+sc-tracing = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
+sp-maybe-compressed-blob = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+substrate-test-runtime = { workspace = true }
 tempfile = { workspace = true }
-
-[[bench]]
-name = "bench"
-harness = false
+tracing-subscriber = { workspace = true }
+wat = { workspace = true }
 
 [features]
 default = ["std"]

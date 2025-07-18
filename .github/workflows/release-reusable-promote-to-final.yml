@@ -1,0 +1,89 @@
+name: Promote rc to final
+
+on:
+  workflow_call:
+    inputs:
+      package:
+        description: Package to be promoted
+        required: true
+        type: string
+
+      release_tag:
+        description: Tag matching the actual release candidate with the format polkadot-stableYYMM(-X)-rcX taht will be changed to final in form of polkadot-stableYYMM(-X)
+        required: true
+        type: string
+
+      target:
+        description: Target triple for which the artifacts are being uploaded (e.g aarch64-apple-darwin)
+        required: true
+        type: string
+
+    secrets:
+      AWS_DEFAULT_REGION:
+        required: true
+      AWS_RELEASE_ACCESS_KEY_ID:
+        required: true
+      AWS_RELEASE_SECRET_ACCESS_KEY:
+        required: true
+
+jobs:
+
+  promote-release-artifacts:
+    environment: release
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      PACKAGE: ${{ inputs.package }}
+      TARGET: ${{ inputs.target }}
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Prepare final tag
+        id: prepare_final_tag
+        shell: bash
+        run: |
+          tag="$(echo $RELEASE_TAG | sed 's/-rc[0-9]*$//')"
+          echo $tag
+          echo "FINAL_TAG=${tag}" >> $GITHUB_OUTPUT
+
+      - name: Fetch binaries from s3 based on version
+        run: |
+          . ./.github/scripts/common/lib.sh
+
+          VERSION="$RELEASE_TAG"
+          if [[ "$PACKAGE" == 'polkadot' ]]; then
+            packages=(polkadot polkadot-prepare-worker polkadot-execute-worker)
+            for package in "${packages[@]}"; do
+              OUTPUT_DIR="./release-artifacts/$TARGET/${package}"
+              fetch_release_artifacts_from_s3 "$package" "$TARGET"
+            done
+            NODE_VERSION="$(get_polkadot_node_version_from_code)"
+            fetch_debian_package_from_s3 polkadot
+          else
+            fetch_release_artifacts_from_s3 "$PACKAGE" "$TARGET"
+          fi
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@b47578312673ae6fa5b5096b330d9fbac3d116df # v4.2.1
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload ${{ inputs.package }} ${{ inputs.target }} artifacts to s3
+        run: |
+          . ./.github/scripts/release/release_lib.sh
+
+          if [[ "$PACKAGE" == 'polkadot' ]]; then
+            packages=(polkadot polkadot-prepare-worker polkadot-execute-worker)
+            for package in "${packages[@]}"; do
+              upload_s3_release $package ${{ steps.prepare_final_tag.outputs.final_tag }} ${{ inputs.target }}
+            done
+          else
+            upload_s3_release "$PACKAGE" ${{ steps.prepare_final_tag.outputs.final_tag }} "$TARGET"
+          fi

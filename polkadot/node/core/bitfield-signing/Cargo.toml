@@ -5,6 +5,8 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Bitfield signing subsystem for the Polkadot node"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -12,12 +14,12 @@ workspace = true
 [dependencies]
 futures = { workspace = true }
 gum = { workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-node-subsystem-util = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
-wasm-timer = { workspace = true }
 thiserror = { workspace = true }
+wasm-timer = { workspace = true }
 
 [dev-dependencies]
 polkadot-node-subsystem-test-helpers = { workspace = true }

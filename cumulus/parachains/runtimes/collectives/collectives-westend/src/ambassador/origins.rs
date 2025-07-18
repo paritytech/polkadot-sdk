@@ -28,7 +28,17 @@ pub mod pallet_origins {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {}
 
-	#[derive(PartialEq, Eq, Clone, MaxEncodedLen, Encode, Decode, TypeInfo, RuntimeDebug)]
+	#[derive(
+		PartialEq,
+		Eq,
+		Clone,
+		MaxEncodedLen,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		TypeInfo,
+		RuntimeDebug,
+	)]
 	#[pallet::origin]
 	pub enum Origin {
 		/// Plurality voice of the [ranks::AMBASSADOR_TIER_1] members or above given via
@@ -80,13 +90,18 @@ pub mod pallet_origins {
 
 	/// Implementation of the [EnsureOrigin] trait for the [Origin::HeadAmbassadors] origin.
 	pub struct EnsureHeadAmbassadorsVoice;
-	impl<O: Into<Result<Origin, O>> + From<Origin>> EnsureOrigin<O> for EnsureHeadAmbassadorsVoice {
+	impl<O: OriginTrait + From<Origin>> EnsureOrigin<O> for EnsureHeadAmbassadorsVoice
+	where
+		for<'a> &'a O::PalletsOrigin: TryInto<&'a Origin>,
+	{
 		type Success = ();
 		fn try_origin(o: O) -> Result<Self::Success, O> {
-			o.into().and_then(|o| match o {
-				Origin::HeadAmbassadors => Ok(()),
-				r => Err(O::from(r)),
-			})
+			match o.caller().try_into() {
+				Ok(Origin::HeadAmbassadors) => return Ok(()),
+				_ => (),
+			}
+
+			Err(o)
 		}
 
 		#[cfg(feature = "runtime-benchmarks")]
@@ -98,15 +113,18 @@ pub mod pallet_origins {
 	/// Implementation of the [EnsureOrigin] trait for the plurality voice [Origin]s
 	/// from a given rank `R` with the success result of the corresponding [Rank].
 	pub struct EnsureAmbassadorsVoiceFrom<R>(PhantomData<R>);
-	impl<R: Get<Rank>, O: Into<Result<Origin, O>> + From<Origin>> EnsureOrigin<O>
-		for EnsureAmbassadorsVoiceFrom<R>
+	impl<R: Get<Rank>, O: OriginTrait + From<Origin>> EnsureOrigin<O> for EnsureAmbassadorsVoiceFrom<R>
+	where
+		for<'a> &'a O::PalletsOrigin: TryInto<&'a Origin>,
 	{
 		type Success = Rank;
 		fn try_origin(o: O) -> Result<Self::Success, O> {
-			o.into().and_then(|o| match Origin::as_voice(&o) {
-				Some(r) if r >= R::get() => Ok(r),
-				_ => Err(O::from(o)),
-			})
+			match o.caller().try_into().map(|o| Origin::as_voice(o)) {
+				Ok(Some(r)) if r >= R::get() => return Ok(r),
+				_ => (),
+			}
+
+			Err(o)
 		}
 
 		#[cfg(feature = "runtime-benchmarks")]
@@ -121,10 +139,18 @@ pub mod pallet_origins {
 	/// Implementation of the [EnsureOrigin] trait for the plurality voice [Origin]s with the
 	/// success result of the corresponding [Rank].
 	pub struct EnsureAmbassadorsVoice;
-	impl<O: Into<Result<Origin, O>> + From<Origin>> EnsureOrigin<O> for EnsureAmbassadorsVoice {
+	impl<O: OriginTrait + From<Origin>> EnsureOrigin<O> for EnsureAmbassadorsVoice
+	where
+		for<'a> &'a O::PalletsOrigin: TryInto<&'a Origin>,
+	{
 		type Success = Rank;
 		fn try_origin(o: O) -> Result<Self::Success, O> {
-			o.into().and_then(|o| Origin::as_voice(&o).ok_or(O::from(o)))
+			match o.caller().try_into().map(|o| Origin::as_voice(o)) {
+				Ok(Some(r)) => return Ok(r),
+				_ => (),
+			}
+
+			Err(o)
 		}
 
 		#[cfg(feature = "runtime-benchmarks")]

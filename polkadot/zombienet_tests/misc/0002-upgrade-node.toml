@@ -30,7 +30,7 @@ addToGenesis = true
   [parachains.collator]
   name = "collator01"
   image = "{{COL_IMAGE}}"
-  command = "undying-collator"
+  command = "adder-collator"
   args = ["-lparachain=debug"]
 
 [[parachains]]
@@ -40,7 +40,7 @@ addToGenesis = true
   [parachains.collator]
   name = "collator02"
   image = "{{COL_IMAGE}}"
-  command = "undying-collator"
+  command = "adder-collator"
   args = ["-lparachain=debug"]
 
 [types.Header]

@@ -1,0 +1,24 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "[core-fellowship] Add permissionless import_member"
+
+doc:
+  - audience: [Runtime Dev, Runtime User]
+    description: |
+      Changes:
+      - Add call `import_member` to the core-fellowship pallet.
+      - Move common logic between `import` and `import_member` into `do_import`.
+
+      This is a minor change as to not impact UI and downstream integration.
+
+      ## `import_member`
+
+      Can be used to induct an arbitrary collective member and is callable by any signed origin. Pays no fees upon success.  
+      This is useful in the case that members did not induct themselves and are idling on their rank.
+
+crates:
+- name: pallet-core-fellowship
+  bump: major
+- name: collectives-westend-runtime
+  bump: patch

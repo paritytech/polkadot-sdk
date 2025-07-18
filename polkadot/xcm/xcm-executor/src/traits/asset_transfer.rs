@@ -17,7 +17,7 @@
 use crate::traits::TransactAsset;
 use frame_support::traits::ContainsPair;
 use scale_info::TypeInfo;
-use sp_runtime::codec::{Decode, Encode};
+use sp_runtime::codec::{Decode, DecodeWithMemTracking, Encode};
 use xcm::prelude::*;
 
 /// Errors related to determining asset transfer support.
@@ -28,7 +28,7 @@ pub enum Error {
 }
 
 /// Specify which type of asset transfer is required for a particular `(asset, dest)` combination.
-#[derive(Clone, Encode, Decode, PartialEq, Debug, TypeInfo)]
+#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Debug, TypeInfo)]
 pub enum TransferType {
 	/// should teleport `asset` to `dest`
 	Teleport,

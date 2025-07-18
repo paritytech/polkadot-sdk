@@ -289,11 +289,12 @@ fn alarm_interval_works() {
 fn decision_time_is_correct() {
 	ExtBuilder::default().build_and_execute(|| {
 		let decision_time = |since: u64| {
+			let track = TestTracksInfo::tracks().next().unwrap();
 			Pallet::<Test>::decision_time(
 				&DecidingStatus { since: since.into(), confirming: None },
 				&Tally { ayes: 100, nays: 5 },
-				TestTracksInfo::tracks()[0].0,
-				&TestTracksInfo::tracks()[0].1,
+				track.id,
+				&track.info,
 			)
 		};
 

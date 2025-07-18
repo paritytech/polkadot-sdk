@@ -1,0 +1,10 @@
+title: Add more logs to trace AcceptanceCheckErr
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      `Debug` was derived on `AcceptanceCheckErr` to print the error. This PR adds more logs to trace the error.
+
+crates:
+  - name: polkadot-runtime-parachains
+    bump: patch

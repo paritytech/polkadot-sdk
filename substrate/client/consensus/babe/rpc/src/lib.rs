@@ -25,12 +25,13 @@ use jsonrpsee::{
 	core::async_trait,
 	proc_macros::rpc,
 	types::{ErrorObject, ErrorObjectOwned},
+	Extensions,
 };
 use serde::{Deserialize, Serialize};
 
 use sc_consensus_babe::{authorship, BabeWorkerHandle};
 use sc_consensus_epochs::Epoch as EpochT;
-use sc_rpc_api::{DenyUnsafe, UnsafeRpcError};
+use sc_rpc_api::{check_if_safe, UnsafeRpcError};
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppCrypto;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
@@ -47,7 +48,7 @@ const BABE_ERROR: i32 = 9000;
 pub trait BabeApi {
 	/// Returns data about which slots (primary or secondary) can be claimed in the current epoch
 	/// with the keys in the keystore.
-	#[method(name = "babe_epochAuthorship")]
+	#[method(name = "babe_epochAuthorship", with_extensions)]
 	async fn epoch_authorship(&self) -> Result<HashMap<AuthorityId, EpochAuthorship>, Error>;
 }
 
@@ -61,8 +62,6 @@ pub struct Babe<B: BlockT, C, SC> {
 	keystore: KeystorePtr,
 	/// The SelectChain strategy
 	select_chain: SC,
-	/// Whether to deny unsafe calls
-	deny_unsafe: DenyUnsafe,
 }
 
 impl<B: BlockT, C, SC> Babe<B, C, SC> {
@@ -72,9 +71,8 @@ impl<B: BlockT, C, SC> Babe<B, C, SC> {
 		babe_worker_handle: BabeWorkerHandle<B>,
 		keystore: KeystorePtr,
 		select_chain: SC,
-		deny_unsafe: DenyUnsafe,
 	) -> Self {
-		Self { client, babe_worker_handle, keystore, select_chain, deny_unsafe }
+		Self { client, babe_worker_handle, keystore, select_chain }
 	}
 }
 
@@ -89,8 +87,11 @@ where
 	C::Api: BabeRuntimeApi<B>,
 	SC: SelectChain<B> + Clone + 'static,
 {
-	async fn epoch_authorship(&self) -> Result<HashMap<AuthorityId, EpochAuthorship>, Error> {
-		self.deny_unsafe.check_if_safe()?;
+	async fn epoch_authorship(
+		&self,
+		ext: &Extensions,
+	) -> Result<HashMap<AuthorityId, EpochAuthorship>, Error> {
+		check_if_safe(ext)?;
 
 		let best_header = self.select_chain.best_chain().map_err(Error::SelectChain).await?;
 
@@ -193,6 +194,7 @@ impl From<Error> for ErrorObjectOwned {
 mod tests {
 	use super::*;
 	use sc_consensus_babe::ImportQueueParams;
+	use sc_rpc_api::DenyUnsafe;
 	use sc_transaction_pool_api::{OffchainTransactionPoolFactory, RejectAllTxPool};
 	use sp_consensus_babe::inherents::InherentDataProvider;
 	use sp_core::{crypto::key_types::BABE, testing::TaskExecutor};
@@ -211,9 +213,8 @@ mod tests {
 		keystore.into()
 	}
 
-	fn test_babe_rpc_module(
-		deny_unsafe: DenyUnsafe,
-	) -> Babe<Block, TestClient, sc_consensus::LongestChain<Backend, Block>> {
+	fn test_babe_rpc_module() -> Babe<Block, TestClient, sc_consensus::LongestChain<Backend, Block>>
+	{
 		let builder = TestClientBuilder::new();
 		let (client, longest_chain) = builder.build_with_longest_chain();
 		let client = Arc::new(client);
@@ -248,29 +249,31 @@ mod tests {
 		})
 		.unwrap();
 
-		Babe::new(client.clone(), babe_worker_handle, keystore, longest_chain, deny_unsafe)
+		Babe::new(client.clone(), babe_worker_handle, keystore, longest_chain)
 	}
 
 	#[tokio::test]
 	async fn epoch_authorship_works() {
-		let babe_rpc = test_babe_rpc_module(DenyUnsafe::No);
-		let api = babe_rpc.into_rpc();
+		let babe_rpc = test_babe_rpc_module();
+		let mut api = babe_rpc.into_rpc();
+		api.extensions_mut().insert(DenyUnsafe::No);
 
-		let request = r#"{"jsonrpc":"2.0","method":"babe_epochAuthorship","params": [],"id":1}"#;
+		let request = r#"{"jsonrpc":"2.0","id":1,"method":"babe_epochAuthorship","params":[]}"#;
 		let (response, _) = api.raw_json_request(request, 1).await.unwrap();
-		let expected = r#"{"jsonrpc":"2.0","result":{"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY":{"primary":[0],"secondary":[],"secondary_vrf":[1,2,4]}},"id":1}"#;
+		let expected = r#"{"jsonrpc":"2.0","id":1,"result":{"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY":{"primary":[0],"secondary":[],"secondary_vrf":[1,2,4]}}}"#;
 
 		assert_eq!(response, expected);
 	}
 
 	#[tokio::test]
 	async fn epoch_authorship_is_unsafe() {
-		let babe_rpc = test_babe_rpc_module(DenyUnsafe::Yes);
-		let api = babe_rpc.into_rpc();
+		let babe_rpc = test_babe_rpc_module();
+		let mut api = babe_rpc.into_rpc();
+		api.extensions_mut().insert(DenyUnsafe::Yes);
 
 		let request = r#"{"jsonrpc":"2.0","method":"babe_epochAuthorship","params":[],"id":1}"#;
 		let (response, _) = api.raw_json_request(request, 1).await.unwrap();
-		let expected = r#"{"jsonrpc":"2.0","error":{"code":-32601,"message":"RPC call is unsafe to be called externally"},"id":1}"#;
+		let expected = r#"{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"RPC call is unsafe to be called externally"}}"#;
 
 		assert_eq!(response, expected);
 	}

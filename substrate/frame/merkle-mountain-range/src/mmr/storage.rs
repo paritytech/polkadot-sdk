@@ -17,18 +17,22 @@
 
 //! An MMR storage implementation.
 
+use crate::{
+	mmr::{Node, NodeOf},
+	primitives::{mmr_lib, mmr_lib::helper, utils::NodesUtils, FullLeaf, NodeIndex},
+	BlockHashProvider, Config, Nodes, NumberOfLeaves, Pallet,
+};
 use alloc::{vec, vec::Vec};
 use codec::Encode;
 use core::iter::Peekable;
-use log::{debug, trace};
-use sp_core::offchain::StorageKind;
-use sp_mmr_primitives::{mmr_lib, mmr_lib::helper, utils::NodesUtils};
-
-use crate::{
-	mmr::{Node, NodeOf},
-	primitives::{self, NodeIndex},
-	BlockHashProvider, Config, Nodes, NumberOfLeaves, Pallet,
+use frame::{
+	deps::{
+		sp_core::offchain::StorageKind,
+		sp_io::{offchain, offchain_index},
+	},
+	prelude::*,
 };
+use log::{debug, trace};
 
 /// A marker type for runtime-specific storage implementation.
 ///
@@ -48,20 +52,20 @@ pub struct OffchainStorage;
 
 impl OffchainStorage {
 	fn get(key: &[u8]) -> Option<Vec<u8>> {
-		sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, &key)
+		offchain::local_storage_get(StorageKind::PERSISTENT, &key)
 	}
 
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	fn set<T: Config<I>, I: 'static>(key: &[u8], value: &[u8]) {
-		sp_io::offchain_index::set(key, value);
+		offchain_index::set(key, value);
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn set<T: Config<I>, I: 'static>(key: &[u8], value: &[u8]) {
 		if crate::pallet::UseLocalStorage::<T, I>::get() {
-			sp_io::offchain::local_storage_set(StorageKind::PERSISTENT, key, value);
+			offchain::local_storage_set(StorageKind::PERSISTENT, key, value);
 		} else {
-			sp_io::offchain_index::set(key, value);
+			offchain_index::set(key, value);
 		}
 	}
 }
@@ -82,7 +86,7 @@ impl<T, I, L> mmr_lib::MMRStoreReadOps<NodeOf<T, I, L>> for Storage<OffchainStor
 where
 	T: Config<I>,
 	I: 'static,
-	L: primitives::FullLeaf + codec::Decode,
+	L: FullLeaf + Decode,
 {
 	fn get_elem(&self, pos: NodeIndex) -> mmr_lib::Result<Option<NodeOf<T, I, L>>> {
 		// Find out which leaf added node `pos` in the MMR.
@@ -120,7 +124,7 @@ impl<T, I, L> mmr_lib::MMRStoreWriteOps<NodeOf<T, I, L>> for Storage<OffchainSto
 where
 	T: Config<I>,
 	I: 'static,
-	L: primitives::FullLeaf + codec::Decode,
+	L: FullLeaf + Decode,
 {
 	fn append(&mut self, _: NodeIndex, _: Vec<NodeOf<T, I, L>>) -> mmr_lib::Result<()> {
 		panic!("MMR must not be altered in the off-chain context.")
@@ -131,7 +135,7 @@ impl<T, I, L> mmr_lib::MMRStoreReadOps<NodeOf<T, I, L>> for Storage<RuntimeStora
 where
 	T: Config<I>,
 	I: 'static,
-	L: primitives::FullLeaf,
+	L: FullLeaf,
 {
 	fn get_elem(&self, pos: NodeIndex) -> mmr_lib::Result<Option<NodeOf<T, I, L>>> {
 		Ok(Nodes::<T, I>::get(pos).map(Node::Hash))
@@ -142,7 +146,7 @@ impl<T, I, L> mmr_lib::MMRStoreWriteOps<NodeOf<T, I, L>> for Storage<RuntimeStor
 where
 	T: Config<I>,
 	I: 'static,
-	L: primitives::FullLeaf,
+	L: FullLeaf,
 {
 	fn append(&mut self, pos: NodeIndex, elems: Vec<NodeOf<T, I, L>>) -> mmr_lib::Result<()> {
 		if elems.is_empty() {
@@ -205,7 +209,7 @@ impl<T, I, L> Storage<RuntimeStorage, T, I, L>
 where
 	T: Config<I>,
 	I: 'static,
-	L: primitives::FullLeaf,
+	L: FullLeaf,
 {
 	fn store_to_offchain(
 		pos: NodeIndex,

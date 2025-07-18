@@ -18,7 +18,7 @@
 //! Stuff for dealing with hashed preimages.
 
 use alloc::borrow::Cow;
-use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::RuntimeDebug;
 use sp_runtime::{
@@ -31,14 +31,24 @@ pub type BoundedInline = crate::BoundedVec<u8, ConstU32<128>>;
 /// The maximum we expect a single legacy hash lookup to be.
 const MAX_LEGACY_LEN: u32 = 1_000_000;
 
-#[derive(Encode, Decode, MaxEncodedLen, Clone, Eq, PartialEq, TypeInfo, RuntimeDebug)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	Clone,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	RuntimeDebug,
+)]
 #[codec(mel_bound())]
 pub enum Bounded<T, H: Hash> {
 	/// A hash with no preimage length. We do not support creation of this except
 	/// for transitioning from legacy state. In the future we will make this a pure
 	/// `Dummy` item storing only the final `dummy` field.
 	Legacy { hash: H::Output, dummy: core::marker::PhantomData<T> },
-	/// A an bounded `Call`. Its encoding must be at most 128 bytes.
+	/// A bounded `Call`. Its encoding must be at most 128 bytes.
 	Inline(BoundedInline),
 	/// A hash of the call together with an upper limit for its size.`
 	Lookup { hash: H::Output, len: u32 },
