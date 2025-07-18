@@ -82,9 +82,6 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-/// Minimal delivery fee factor.
-pub const MINIMAL_DELIVERY_FEE_FACTOR: FixedU128 = FixedU128::from_u32(1);
-
 /// The factor that is used to increase current message fee factor when bridge experiencing
 /// some lags.
 const EXPONENTIAL_FEE_BASE: FixedU128 = FixedU128::from_rational(105, 100); // 1.05
@@ -103,6 +100,7 @@ pub const LOG_TARGET: &str = "xcm::bridge-router";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use bp_xcm_bridge_router::MINIMAL_DELIVERY_FEE_FACTOR;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
@@ -210,7 +208,7 @@ pub mod pallet {
 	/// associated with a destination.
 	#[pallet::storage]
 	pub type Bridges<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Blake2_128Concat, BridgeIdOf<T, I>, BridgeState, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, BridgeIdOf<T, I>, BridgeState, ValueQuery>;
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Called when new message is sent to the `dest` (queued to local outbound XCM queue).
@@ -242,7 +240,7 @@ pub mod pallet {
 						bridge_state.delivery_fee_factor,
 						dest
 					);
-					Self::deposit_event(Event::DeliveryFeeFactorIncreased {
+					Self::deposit_event(Event::DeliveryFeeFactorUpdated {
 						previous_value: previous_factor,
 						new_value: bridge_state.delivery_fee_factor,
 						bridge_id: bridge_id.clone(),
@@ -272,12 +270,10 @@ pub mod pallet {
 		}
 
 		/// Calculates an (optional) fee for message size based on `T::ByteFee` and `T::FeeAsset`.
-		pub(crate) fn calculate_message_size_fee(
-			message_size: impl FnOnce() -> u32,
-		) -> Option<Asset> {
+		pub(crate) fn calculate_message_size_fee(message_size: u32) -> Option<Asset> {
 			// Apply message size `T::ByteFee/T::FeeAsset` feature (if configured).
 			if let Some(asset_id) = T::FeeAsset::get() {
-				let message_fee = (message_size() as u128).saturating_mul(T::ByteFee::get());
+				let message_fee = (message_size as u128).saturating_mul(T::ByteFee::get());
 				if message_fee > 0 {
 					return Some((asset_id, message_fee).into());
 				}
@@ -298,7 +294,7 @@ pub mod pallet {
 						bridge.is_congested = is_congested;
 						*maybe_bridge = Some(bridge);
 					} else {
-						Self::deposit_event(Event::DeliveryFeeFactorDecreased {
+						Self::deposit_event(Event::DeliveryFeeFactorUpdated {
 							previous_value: bridge.delivery_fee_factor,
 							new_value: 0.into(),
 							bridge_id: bridge_id.clone(),
@@ -311,7 +307,7 @@ pub mod pallet {
 							is_congested,
 						});
 
-						Self::deposit_event(Event::DeliveryFeeFactorIncreased {
+						Self::deposit_event(Event::DeliveryFeeFactorUpdated {
 							previous_value: 0.into(),
 							new_value: MINIMAL_DELIVERY_FEE_FACTOR,
 							bridge_id: bridge_id.clone(),
@@ -324,17 +320,8 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
-		/// Delivery fee factor has been decreased.
-		DeliveryFeeFactorDecreased {
-			/// Previous value of the `DeliveryFeeFactor`.
-			previous_value: FixedU128,
-			/// New value of the `DeliveryFeeFactor`.
-			new_value: FixedU128,
-			/// Bridge identifier.
-			bridge_id: BridgeIdOf<T, I>,
-		},
-		/// Delivery fee factor has been increased.
-		DeliveryFeeFactorIncreased {
+		/// Delivery fee factor has been updated.
+		DeliveryFeeFactorUpdated {
 			/// Previous value of the `DeliveryFeeFactor`.
 			previous_value: FixedU128,
 			/// New value of the `DeliveryFeeFactor`.

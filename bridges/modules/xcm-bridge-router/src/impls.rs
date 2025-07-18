@@ -138,7 +138,7 @@ where
 
 		// calculate message size fees (if configured)
 		let maybe_message_size_fees =
-			Pallet::<T, I>::calculate_message_size_fee(|| message.encoded_size() as _);
+			Pallet::<T, I>::calculate_message_size_fee(message.encoded_size() as _);
 
 		// compute actual fees - sum(actual payment, message size fees) if possible
 		let mut fees = match (maybe_payment, maybe_message_size_fees) {
@@ -177,10 +177,9 @@ where
 		// `fees` is populated with base bridge fees, now let's apply congestion/dynamic fees if
 		// required.
 		if let Some(bridge_id) = T::BridgeIdResolver::resolve_for(network, remote_location) {
-			if let Some(bridge_state) = Bridges::<T, I>::get(bridge_id) {
-				if let Some(f) = fees {
-					fees = Some(Pallet::<T, I>::apply_dynamic_fee_factor(&bridge_state, f));
-				}
+			let bridge_state = Bridges::<T, I>::get(bridge_id);
+			if let Some(f) = fees {
+				fees = Some(Pallet::<T, I>::apply_dynamic_fee_factor(&bridge_state, f));
 			}
 		}
 
@@ -208,7 +207,7 @@ impl<T: Config<I>, I: 'static, E: SendXcm> SendXcm for ViaLocalBridgeExporter<T,
 			Ok((ticket, mut fees)) => {
 				// calculate message size fees (if configured)
 				let maybe_message_size_fees =
-					Pallet::<T, I>::calculate_message_size_fee(|| message_size);
+					Pallet::<T, I>::calculate_message_size_fee(message_size);
 				if let Some(message_size_fees) = maybe_message_size_fees {
 					fees.push(message_size_fees);
 				}
@@ -216,14 +215,13 @@ impl<T: Config<I>, I: 'static, E: SendXcm> SendXcm for ViaLocalBridgeExporter<T,
 				// Here, we have the actual result fees covering bridge fees, so now we need to
 				// check/apply the congestion and dynamic_fees features (if possible).
 				if let Some(bridge_id) = T::BridgeIdResolver::resolve_for_dest(&dest_clone) {
-					if let Some(bridge_state) = Bridges::<T, I>::get(bridge_id) {
-						let mut dynamic_fees = sp_std::vec::Vec::with_capacity(fees.len());
-						for fee in fees.into_inner() {
-							dynamic_fees
-								.push(Pallet::<T, I>::apply_dynamic_fee_factor(&bridge_state, fee));
-						}
-						fees = Assets::from(dynamic_fees);
+					let bridge_state = Bridges::<T, I>::get(bridge_id);
+					let mut dynamic_fees = sp_std::vec::Vec::with_capacity(fees.len());
+					for fee in fees.into_inner() {
+						dynamic_fees
+							.push(Pallet::<T, I>::apply_dynamic_fee_factor(&bridge_state, fee));
 					}
+					fees = Assets::from(dynamic_fees);
 				}
 
 				// return original ticket with possibly extended fees

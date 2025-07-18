@@ -201,7 +201,7 @@ fn sent_message_increases_factor_if_bridge_is_congested() {
 			first_system_event,
 			Some(EventRecord {
 				phase: Phase::Initialization,
-				event: RuntimeEvent::XcmBridgeHubRouter(Event::DeliveryFeeFactorIncreased { .. }),
+				event: RuntimeEvent::XcmBridgeHubRouter(Event::DeliveryFeeFactorUpdated { .. }),
 				..
 			})
 		));
