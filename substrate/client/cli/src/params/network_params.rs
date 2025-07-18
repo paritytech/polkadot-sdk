@@ -23,7 +23,8 @@ use crate::{
 use clap::Args;
 use sc_network::{
 	config::{
-		DEFAULT_IDLE_CONNECTION_TIMEOUT, NetworkConfiguration, NodeKeyConfig, NonReservedPeerMode, SetConfig, TransportConfig,
+		NetworkConfiguration, NodeKeyConfig, NonReservedPeerMode, SetConfig, TransportConfig,
+		DEFAULT_IDLE_CONNECTION_TIMEOUT,
 	},
 	multiaddr::Protocol,
 };
@@ -31,7 +32,7 @@ use sc_service::{
 	config::{Multiaddr, MultiaddrWithPeerId},
 	ChainSpec, ChainType,
 };
-use std::{borrow::Cow, num::NonZeroUsize, path::PathBuf, time::Duration};
+use std::{borrow::Cow, num::NonZeroUsize, path::PathBuf};
 
 /// Parameters used to create the network configuration.
 #[derive(Debug, Clone, Args)]
