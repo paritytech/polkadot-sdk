@@ -65,3 +65,4 @@ cumulus-test-relay-sproof-builder = { workspace = true }
 rstest = { workspace = true }
 sp-keyring = { workspace = true }
 sp-tracing = { workspace = true }
+sp-version = { workspace = true }

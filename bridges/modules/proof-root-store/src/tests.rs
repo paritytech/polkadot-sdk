@@ -20,9 +20,12 @@ use mock::*;
 
 use codec::Encode;
 use frame_support::{assert_ok, BoundedVec};
+use substrate_test_utils::assert_eq_uvec;
 
 #[test]
 fn note_new_roots_works() {
+	let ring_buffer = || RootKeys::<TestRuntime, ()>::iter_values().collect::<Vec<_>>();
+
 	run_test(|| {
 		assert_ok!(ProofRootStore::note_new_roots(
 			RuntimeOrigin::root(),
@@ -34,7 +37,8 @@ fn note_new_roots_works() {
 		assert_eq!(ProofRootStore::get_root(&4), None);
 		assert_eq!(ProofRootStore::get_root(&5), None);
 		assert_eq!(ProofRootStore::get_root(&6), None);
-		assert_eq!(RootIndex::<TestRuntime>::get().into_iter().collect::<Vec<_>>(), vec![1, 2],);
+		assert_eq_uvec!(ProofRootStore::get_root_keys(), vec![1, 2],);
+		assert_eq_uvec!(ring_buffer(), vec![1, 2],);
 		assert_ok!(ProofRootStore::do_try_state());
 
 		// `RootsToKeep = 4` rotates
@@ -48,10 +52,8 @@ fn note_new_roots_works() {
 		assert_eq!(ProofRootStore::get_root(&4), Some(4));
 		assert_eq!(ProofRootStore::get_root(&5), Some(5));
 		assert_eq!(ProofRootStore::get_root(&6), Some(6));
-		assert_eq!(
-			RootIndex::<TestRuntime>::get().into_iter().collect::<Vec<_>>(),
-			vec![3, 4, 5, 6],
-		);
+		assert_eq_uvec!(ProofRootStore::get_root_keys(), vec![3, 4, 5, 6]);
+		assert_eq_uvec!(ring_buffer(), vec![3, 4, 5, 6]);
 		assert_ok!(ProofRootStore::do_try_state());
 
 		// Add one more
@@ -64,10 +66,8 @@ fn note_new_roots_works() {
 		assert_eq!(ProofRootStore::get_root(&5), Some(5));
 		assert_eq!(ProofRootStore::get_root(&6), Some(6));
 		assert_eq!(ProofRootStore::get_root(&7), Some(7));
-		assert_eq!(
-			RootIndex::<TestRuntime>::get().into_iter().collect::<Vec<_>>(),
-			vec![4, 5, 6, 7],
-		);
+		assert_eq_uvec!(ProofRootStore::get_root_keys(), vec![4, 5, 6, 7]);
+		assert_eq_uvec!(ring_buffer(), vec![4, 5, 6, 7]);
 		assert_ok!(ProofRootStore::do_try_state());
 	})
 }

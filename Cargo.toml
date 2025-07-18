@@ -85,6 +85,7 @@ members = [
 	"cumulus/client/relay-chain-rpc-interface",
 	"cumulus/client/relay-chain-streams",
 	"cumulus/client/service",
+	"cumulus/pallets/ah-ops",
 	"cumulus/pallets/aura-ext",
 	"cumulus/pallets/collator-selection",
 	"cumulus/pallets/dmp-queue",
@@ -119,6 +120,7 @@ members = [
 	"cumulus/parachains/integration-tests/emulated/tests/collectives/collectives-westend",
 	"cumulus/parachains/integration-tests/emulated/tests/coretime/coretime-rococo",
 	"cumulus/parachains/integration-tests/emulated/tests/coretime/coretime-westend",
+	"cumulus/parachains/integration-tests/emulated/tests/governance/westend",
 	"cumulus/parachains/integration-tests/emulated/tests/people/people-rococo",
 	"cumulus/parachains/integration-tests/emulated/tests/people/people-westend",
 	"cumulus/parachains/pallets/collective-content",
@@ -361,6 +363,7 @@ members = [
 	"substrate/frame/core-fellowship",
 	"substrate/frame/delegated-staking",
 	"substrate/frame/democracy",
+	"substrate/frame/dummy-dim",
 	"substrate/frame/election-provider-multi-block",
 	"substrate/frame/election-provider-multi-phase",
 	"substrate/frame/election-provider-multi-phase/test-staking-e2e",
@@ -411,9 +414,11 @@ members = [
 	"substrate/frame/nomination-pools/test-delegate-stake",
 	"substrate/frame/offences",
 	"substrate/frame/offences/benchmarking",
+	"substrate/frame/origin-restriction",
 	"substrate/frame/paged-list",
 	"substrate/frame/paged-list/fuzzer",
 	"substrate/frame/parameters",
+	"substrate/frame/people",
 	"substrate/frame/preimage",
 	"substrate/frame/proxy",
 	"substrate/frame/ranked-collective",
@@ -421,8 +426,9 @@ members = [
 	"substrate/frame/referenda",
 	"substrate/frame/remark",
 	"substrate/frame/revive",
+	"substrate/frame/revive/dev-node/node",
+	"substrate/frame/revive/dev-node/runtime",
 	"substrate/frame/revive/fixtures",
-	"substrate/frame/revive/mock-network",
 	"substrate/frame/revive/proc-macro",
 	"substrate/frame/revive/rpc",
 	"substrate/frame/revive/uapi",
@@ -667,6 +673,7 @@ backtrace = { version = "0.3.71" }
 binary-merkle-tree = { path = "substrate/utils/binary-merkle-tree", default-features = false }
 bincode = { version = "1.3.3" }
 ethereum-standards = { path = "substrate/primitives/ethereum-standards" }
+pallet-ah-ops = { path = "cumulus/pallets/ah-ops", default-features = false }
 # personal fork here as workaround for: https://github.com/rust-bitcoin/rust-bip39/pull/64
 bip39 = { package = "parity-bip39", version = "2.0.1", default-features = false }
 bitflags = { version = "1.3.2" }
@@ -675,7 +682,7 @@ blake2 = { version = "0.10.4", default-features = false }
 blake2b_simd = { version = "1.0.2", default-features = false }
 blake3 = { version = "1.5" }
 bn = { package = "substrate-bn", version = "0.6", default-features = false }
-bounded-collections = { version = "0.2.3", default-features = false }
+bounded-collections = { version = "0.3.2", default-features = false }
 bounded-vec = { version = "0.7" }
 bp-asset-hub-rococo = { path = "cumulus/parachains/runtimes/assets/asset-hub-rococo/bridge-primitives", default-features = false }
 bp-asset-hub-westend = { path = "cumulus/parachains/runtimes/assets/asset-hub-westend/bridge-primitives", default-features = false }
@@ -703,7 +710,7 @@ bridge-hub-rococo-emulated-chain = { path = "cumulus/parachains/integration-test
 bridge-hub-rococo-runtime = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo", default-features = false }
 bridge-hub-test-utils = { path = "cumulus/parachains/runtimes/bridge-hubs/test-utils", default-features = false }
 bridge-hub-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/bridges/bridge-hub-westend" }
-bridge-hub-westend-runtime = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend", default-features = false }
+bridge-hub-westend-runtime = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend" }
 bridge-runtime-common = { path = "bridges/bin/runtime-common", default-features = false }
 bs58 = { version = "0.5.1", default-features = false }
 build-helper = { version = "0.1.1" }
@@ -808,6 +815,7 @@ first-pallet = { package = "polkadot-sdk-docs-first-pallet", path = "docs/sdk/pa
 first-runtime = { package = "polkadot-sdk-docs-first-runtime", path = "docs/sdk/packages/guides/first-runtime", default-features = false }
 flate2 = { version = "1.0" }
 fnv = { version = "1.0.6" }
+foldhash = { version = "0.1.5", default-features = false }
 fork-tree = { path = "substrate/utils/fork-tree", default-features = false }
 forwarded-header-value = { version = "0.1.1" }
 fraction = { version = "0.13.1" }
@@ -897,12 +905,12 @@ linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
 linregress = { version = "0.5.1" }
 lite-json = { version = "0.2.0", default-features = false }
-litep2p = { version = "0.9.4", features = ["websocket"] }
+litep2p = { version = "0.9.5", features = ["websocket"] }
 log = { version = "0.4.22", default-features = false }
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
 memmap2 = { version = "0.9.3" }
-memory-db = { version = "0.33.0", default-features = false }
+memory-db = { version = "0.34.0", default-features = false }
 merkleized-metadata = { version = "0.5.0" }
 merlin = { version = "3.0", default-features = false }
 messages-relay = { path = "bridges/relays/messages" }
@@ -933,7 +941,7 @@ num-integer = { version = "0.1.46", default-features = false }
 num-rational = { version = "0.4.1" }
 num-traits = { version = "0.2.17", default-features = false }
 num_cpus = { version = "1.13.1" }
-once_cell = { version = "1.19.0" }
+once_cell = { version = "1.21.3" }
 orchestra = { version = "0.4.0", default-features = false }
 pallet-alliance = { path = "substrate/frame/alliance", default-features = false }
 pallet-asset-conversion = { path = "substrate/frame/asset-conversion", default-features = false }
@@ -978,6 +986,7 @@ pallet-default-config-example = { path = "substrate/frame/examples/default-confi
 pallet-delegated-staking = { path = "substrate/frame/delegated-staking", default-features = false }
 pallet-democracy = { path = "substrate/frame/democracy", default-features = false }
 pallet-dev-mode = { path = "substrate/frame/examples/dev-mode", default-features = false }
+pallet-dummy-dim = { path = "substrate/frame/dummy-dim", default-features = false }
 pallet-election-provider-multi-block = { path = "substrate/frame/election-provider-multi-block", default-features = false }
 pallet-election-provider-multi-phase = { path = "substrate/frame/election-provider-multi-phase", default-features = false }
 pallet-election-provider-support-benchmarking = { path = "substrate/frame/election-provider-support/benchmarking", default-features = false }
@@ -1019,9 +1028,11 @@ pallet-nomination-pools-benchmarking = { path = "substrate/frame/nomination-pool
 pallet-nomination-pools-runtime-api = { path = "substrate/frame/nomination-pools/runtime-api", default-features = false }
 pallet-offences = { path = "substrate/frame/offences", default-features = false }
 pallet-offences-benchmarking = { path = "substrate/frame/offences/benchmarking", default-features = false }
+pallet-origin-restriction = { path = "substrate/frame/origin-restriction", default-features = false }
 pallet-paged-list = { path = "substrate/frame/paged-list", default-features = false }
 pallet-parachain-template = { path = "templates/parachain/pallets/template", default-features = false }
 pallet-parameters = { path = "substrate/frame/parameters", default-features = false }
+pallet-people = { path = "substrate/frame/people", default-features = false }
 pallet-preimage = { path = "substrate/frame/preimage", default-features = false }
 pallet-proxy = { path = "substrate/frame/proxy", default-features = false }
 pallet-ranked-collective = { path = "substrate/frame/ranked-collective", default-features = false }
@@ -1031,7 +1042,6 @@ pallet-remark = { default-features = false, path = "substrate/frame/remark" }
 pallet-revive = { path = "substrate/frame/revive", default-features = false }
 pallet-revive-eth-rpc = { path = "substrate/frame/revive/rpc", default-features = false }
 pallet-revive-fixtures = { path = "substrate/frame/revive/fixtures", default-features = false }
-pallet-revive-mock-network = { default-features = false, path = "substrate/frame/revive/mock-network" }
 pallet-revive-proc-macro = { path = "substrate/frame/revive/proc-macro", default-features = false }
 pallet-revive-uapi = { path = "substrate/frame/revive/uapi", default-features = false }
 pallet-root-offences = { default-features = false, path = "substrate/frame/root-offences" }
@@ -1048,6 +1058,8 @@ pallet-staking = { path = "substrate/frame/staking", default-features = false }
 pallet-staking-reward-curve = { path = "substrate/frame/staking/reward-curve", default-features = false }
 pallet-staking-reward-fn = { path = "substrate/frame/staking/reward-fn", default-features = false }
 pallet-staking-runtime-api = { path = "substrate/frame/staking/runtime-api", default-features = false }
+revive-dev-node = { path = "substrate/frame/revive/dev-node/node" }
+revive-dev-runtime = { path = "substrate/frame/revive/dev-node/runtime" }
 # TODO: remove the reward stuff as they are not needed here
 pallet-staking-async = { path = "substrate/frame/staking-async", default-features = false }
 pallet-staking-async-ah-client = { path = "substrate/frame/staking-async/ah-client", default-features = false }
@@ -1156,9 +1168,9 @@ polkadot-subsystem-bench = { path = "polkadot/node/subsystem-bench" }
 polkadot-test-client = { path = "polkadot/node/test/client" }
 polkadot-test-runtime = { path = "polkadot/runtime/test-runtime" }
 polkadot-test-service = { path = "polkadot/node/test/service" }
-polkavm = { version = "0.24.0", default-features = false }
-polkavm-derive = "0.24.0"
-polkavm-linker = "0.24.0"
+polkavm = { version = "0.26.0", default-features = false }
+polkavm-derive = "0.26.0"
+polkavm-linker = "0.26.0"
 portpicker = { version = "0.1.1" }
 pretty_assertions = { version = "1.3.0" }
 primitive-types = { version = "0.13.1", default-features = false, features = ["num-traits"] }
@@ -1278,6 +1290,7 @@ serde = { version = "1.0.214", default-features = false }
 serde-big-array = { version = "0.3.2" }
 serde_derive = { version = "1.0.117" }
 serde_json = { version = "1.0.132", default-features = false }
+serde_with = { version = "3.12.0", default-features = false, features = ["hex", "macros"] }
 serde_yaml = { version = "0.9" }
 sha1 = { version = "0.10.6" }
 sha2 = { version = "0.10.7", default-features = false }
@@ -1417,7 +1430,7 @@ tikv-jemalloc-ctl = { version = "0.5.0" }
 tikv-jemallocator = { version = "0.5.0" }
 time = { version = "0.3" }
 tiny-keccak = { version = "2.0.2" }
-tokio = { version = "1.43.1", default-features = false }
+tokio = { version = "1.45.0", default-features = false }
 tokio-retry = { version = "0.3.0" }
 tokio-stream = { version = "0.1.14" }
 tokio-test = { version = "0.4.4" }
@@ -1433,7 +1446,7 @@ tracing-futures = { version = "0.2.4" }
 tracing-log = { version = "0.2.0" }
 tracing-subscriber = { version = "0.3.18" }
 tracking-allocator = { path = "polkadot/node/tracking-allocator", default-features = false, package = "staging-tracking-allocator" }
-trie-bench = { version = "0.41.0" }
+trie-bench = { version = "0.42.0" }
 trie-db = { version = "0.30.0", default-features = false }
 trie-root = { version = "0.18.0", default-features = false }
 trie-standardmap = { version = "0.16.0" }
@@ -1441,9 +1454,10 @@ trybuild = { version = "1.0.103" }
 tt-call = { version = "1.0.8" }
 tuplex = { version = "0.1", default-features = false }
 twox-hash = { version = "1.6.3", default-features = false }
-txtesttool = { version = "0.5.0", package = "substrate-txtesttool" }
+txtesttool = { version = "0.6.0", package = "substrate-txtesttool" }
 unsigned-varint = { version = "0.7.2" }
 url = { version = "2.5.4" }
+verifiable = { version = "0.1", default-features = false }
 void = { version = "1.0.2" }
 w3f-bls = { version = "0.1.9", default-features = false }
 wait-timeout = { version = "0.2" }
@@ -1455,7 +1469,7 @@ wasmi = { version = "0.32.3", default-features = false }
 wasmtime = { version = "8.0.1", default-features = false }
 wat = { version = "1.0.0" }
 westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/relays/westend", default-features = false }
-westend-runtime = { path = "polkadot/runtime/westend" }
+westend-runtime = { path = "polkadot/runtime/westend", default-features = false }
 westend-runtime-constants = { path = "polkadot/runtime/westend/constants", default-features = false }
 westend-system-emulated-network = { path = "cumulus/parachains/integration-tests/emulated/networks/westend-system" }
 x25519-dalek = { version = "2.0" }
@@ -1469,14 +1483,20 @@ xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = 
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 yet-another-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/yet-another-parachain" }
 zeroize = { version = "1.7.0", default-features = false }
-zombienet-orchestrator = { version = "0.3.0" }
-zombienet-sdk = { version = "0.3.0" }
+zombienet-configuration = { version = "0.3.8" }
+zombienet-orchestrator = { version = "0.3.8" }
+zombienet-sdk = { version = "0.3.8" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]
 # Polkadot runtime requires unwinding.
 opt-level = 3
 panic = "unwind"
+
+[profile.dev]
+# Debug info significantly slows down the build.
+# This setting only keeps source line information for stack traces.
+debug = "line-tables-only"
 
 # make sure dev builds with backtrace do not slow us down
 [profile.dev.package.backtrace]

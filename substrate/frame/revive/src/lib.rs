@@ -27,14 +27,14 @@ mod benchmarking;
 mod call_builder;
 mod exec;
 mod gas;
+mod impl_fungibles;
 mod limits;
 mod primitives;
 mod storage;
-mod transient_storage;
-mod wasm;
-
 #[cfg(test)]
 mod tests;
+mod transient_storage;
+mod vm;
 
 pub mod evm;
 pub mod precompiles;
@@ -44,13 +44,14 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		runtime::GAS_PRICE, CallTracer, GasEncoder, GenericTransaction, Trace, Tracer, TracerType,
-		TYPE_EIP1559,
+		runtime::GAS_PRICE, CallTracer, GasEncoder, GenericTransaction, PrestateTracer, Trace,
+		Tracer, TracerType, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
-	wasm::{CodeInfo, RuntimeCosts, WasmBlob},
+	tracing::if_tracing,
+	vm::{CodeInfo, ContractBlob, RuntimeCosts},
 };
 use alloc::{boxed::Box, format, vec};
 use codec::{Codec, Decode, Encode};
@@ -65,7 +66,7 @@ use frame_support::{
 	traits::{
 		fungible::{Inspect, Mutate, MutateHold},
 		tokens::{Fortitude::Polite, Preservation::Preserve},
-		ConstU32, ConstU64, Contains, EnsureOrigin, Get, IsType, OriginTrait, Time,
+		ConstU32, ConstU64, EnsureOrigin, Get, IsType, OriginTrait, Time,
 	},
 	weights::WeightMeter,
 	BoundedVec, RuntimeDebugNoBound,
@@ -75,6 +76,7 @@ use frame_system::{
 	pallet_prelude::{BlockNumberFor, OriginFor},
 	Pallet as System,
 };
+use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{BadOrigin, Bounded, Convert, Dispatchable, Saturating, Zero},
@@ -82,7 +84,9 @@ use sp_runtime::{
 };
 
 pub use crate::{
-	address::{create1, create2, is_eth_derived, AccountId32Mapper, AddressMapper},
+	address::{
+		create1, create2, is_eth_derived, AccountId32Mapper, AddressMapper, TestAccountMapper,
+	},
 	exec::{MomentOf, Origin},
 	pallet::*,
 };
@@ -96,13 +100,14 @@ pub use sp_runtime;
 pub use weights::WeightInfo;
 
 #[cfg(doc)]
-pub use crate::wasm::SyscallDoc;
+pub use crate::vm::SyscallDoc;
 
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 type TrieId = BoundedVec<u8, ConstU32<128>>;
 type CodeVec = BoundedVec<u8, ConstU32<{ limits::code::BLOB_BYTES }>>;
 type ImmutableData = BoundedVec<u8, ConstU32<{ limits::IMMUTABLE_BYTES }>>;
+pub(crate) type OnChargeTransactionBalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
 
 /// Used as a sentinel value when reading and writing contract memory.
 ///
@@ -159,31 +164,6 @@ pub mod pallet {
 		/// Overarching hold reason.
 		#[pallet::no_default_bounds]
 		type RuntimeHoldReason: From<HoldReason>;
-
-		/// Filter that is applied to calls dispatched by contracts.
-		///
-		/// Use this filter to control which dispatchables are callable by contracts.
-		/// This is applied in **addition** to [`frame_system::Config::BaseCallFilter`].
-		/// It is recommended to treat this as a whitelist.
-		///
-		/// # Stability
-		///
-		/// The runtime **must** make sure that all dispatchables that are callable by
-		/// contracts remain stable. In addition [`Self::RuntimeCall`] itself must remain stable.
-		/// This means that no existing variants are allowed to switch their positions.
-		///
-		/// # Note
-		///
-		/// Note that dispatchables that are called via contracts do not spawn their
-		/// own wasm instance for each call (as opposed to when called via a transaction).
-		/// Therefore please make sure to be restrictive about which dispatchables are allowed
-		/// in order to not introduce a new DoS vector like memory allocation patterns that can
-		/// be exploited to drive the runtime into a panic.
-		///
-		/// This filter does not apply to XCM transact calls. To impose restrictions on XCM transact
-		/// calls, you must configure them separately within the XCM pallet itself.
-		#[pallet::no_default_bounds]
-		type CallFilter: Contains<<Self as frame_system::Config>::RuntimeCall>;
 
 		/// Used to answer contracts' queries regarding the current weight price. This is **not**
 		/// used to calculate the actual fee and is only for informational purposes.
@@ -264,15 +244,6 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type InstantiateOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
 
-		/// A type that exposes XCM APIs, allowing contracts to interact with other parachains, and
-		/// execute XCM programs.
-		#[pallet::no_default_bounds]
-		type Xcm: xcm_builder::Controller<
-			OriginFor<Self>,
-			<Self as frame_system::Config>::RuntimeCall,
-			BlockNumberFor<Self>,
-		>;
-
 		/// The amount of memory in bytes that parachain nodes a lot to the runtime.
 		///
 		/// This is used in [`Pallet::integrity_test`] to make sure that the runtime has enough
@@ -315,7 +286,6 @@ pub mod pallet {
 		use frame_system::EnsureSigned;
 		use sp_core::parameter_types;
 
-		type AccountId = sp_runtime::AccountId32;
 		type Balance = u64;
 		const UNITS: Balance = 10_000_000_000;
 		const CENTS: Balance = UNITS / 100;
@@ -336,7 +306,7 @@ pub mod pallet {
 		impl Time for TestDefaultConfig {
 			type Moment = u64;
 			fn now() -> Self::Moment {
-				unimplemented!("No default `now` implementation in `TestDefaultConfig` provide a custom `T::Time` type.")
+				0u64
 			}
 		}
 
@@ -359,18 +329,16 @@ pub mod pallet {
 
 			#[inject_runtime_type]
 			type RuntimeCall = ();
-			type CallFilter = ();
 			type Precompiles = ();
 			type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 			type DepositPerByte = DepositPerByte;
 			type DepositPerItem = DepositPerItem;
 			type Time = Self;
 			type UnsafeUnstableInterface = ConstBool<true>;
-			type UploadOrigin = EnsureSigned<AccountId>;
-			type InstantiateOrigin = EnsureSigned<AccountId>;
+			type UploadOrigin = EnsureSigned<Self::AccountId>;
+			type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 			type WeightInfo = ();
 			type WeightPrice = Self;
-			type Xcm = ();
 			type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 			type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
 			type ChainId = ConstU64<42>;
@@ -393,6 +361,9 @@ pub mod pallet {
 			/// Number of topics is capped by [`limits::NUM_EVENT_TOPICS`].
 			topics: Vec<H256>,
 		},
+
+		/// Contract deployed by deployer at the specified address.
+		Instantiated { deployer: H160, contract: H160 },
 	}
 
 	#[pallet::error]
@@ -431,8 +402,6 @@ pub mod pallet {
 		InputForwarded = 0x0E,
 		/// The amount of topics passed to `seal_deposit_events` exceeds the limit.
 		TooManyTopics = 0x0F,
-		/// Failed to decode the XCM program.
-		XCMDecodeFailed = 0x11,
 		/// A contract with the same AccountId already exists.
 		DuplicateContract = 0x12,
 		/// A contract self destructed in its constructor.
@@ -516,18 +485,6 @@ pub mod pallet {
 		StorageDepositReserve,
 		/// Deposit for creating an address mapping in [`OriginalAccount`].
 		AddressMapping,
-	}
-
-	#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-	pub enum NonceAlreadyIncremented {
-		/// Indicates that the nonce has not been incremented yet.
-		///
-		/// This happens when the instantiation is triggered by a dry-run or another contract.
-		No,
-		/// Indicates that the nonce has already been incremented.
-		///
-		/// This happens when the instantiation is triggered by a transaction.
-		Yes,
 	}
 
 	/// A mapping from a contract's code hash to its code.
@@ -787,10 +744,10 @@ pub mod pallet {
 			dispatch_result(output.result, output.gas_consumed, T::WeightInfo::call())
 		}
 
-		/// Instantiates a contract from a previously deployed wasm binary.
+		/// Instantiates a contract from a previously deployed vm binary.
 		///
 		/// This function is identical to [`Self::instantiate_with_code`] but without the
-		/// code deployment step. Instead, the `code_hash` of an on-chain deployed wasm binary
+		/// code deployment step. Instead, the `code_hash` of an on-chain deployed vm binary
 		/// must be supplied.
 		#[pallet::call_index(2)]
 		#[pallet::weight(
@@ -814,7 +771,7 @@ pub mod pallet {
 				Code::Existing(code_hash),
 				data,
 				salt,
-				NonceAlreadyIncremented::Yes,
+				BumpNonce::Yes,
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -879,8 +836,53 @@ pub mod pallet {
 				Code::Upload(code),
 				data,
 				salt,
-				NonceAlreadyIncremented::Yes,
+				BumpNonce::Yes,
 			);
+			if let Ok(retval) = &output.result {
+				if retval.result.did_revert() {
+					output.result = Err(<Error<T>>::ContractReverted.into());
+				}
+			}
+			dispatch_result(
+				output.result.map(|result| result.result),
+				output.gas_consumed,
+				T::WeightInfo::instantiate_with_code(code_len, data_len),
+			)
+		}
+
+		/// Same as [`Self::instantiate_with_code`], but intended to be dispatched **only**
+		/// by an EVM transaction through the EVM compatibility layer.
+		///
+		/// Calling this dispatchable ensures that the origin's nonce is bumped only once,
+		/// via the `CheckNonce` transaction extension. In contrast, [`Self::instantiate_with_code`]
+		/// also bumps the nonce after contract instantiation, since it may be invoked multiple
+		/// times within a batch call transaction.
+		#[pallet::call_index(10)]
+		#[pallet::weight(
+			T::WeightInfo::instantiate_with_code(code.len() as u32, data.len() as u32)
+			.saturating_add(*gas_limit)
+		)]
+		pub fn eth_instantiate_with_code(
+			origin: OriginFor<T>,
+			#[pallet::compact] value: BalanceOf<T>,
+			gas_limit: Weight,
+			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
+			code: Vec<u8>,
+			data: Vec<u8>,
+		) -> DispatchResultWithPostInfo {
+			let code_len = code.len() as u32;
+			let data_len = data.len() as u32;
+			let mut output = Self::bare_instantiate(
+				origin,
+				value,
+				gas_limit,
+				DepositLimit::Balance(storage_deposit_limit),
+				Code::Upload(code),
+				data,
+				None,
+				BumpNonce::No,
+			);
+
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
 					output.result = Err(<Error<T>>::ContractReverted.into());
@@ -926,7 +928,7 @@ pub mod pallet {
 			code_hash: sp_core::H256,
 		) -> DispatchResultWithPostInfo {
 			let origin = ensure_signed(origin)?;
-			<WasmBlob<T>>::remove(&origin, code_hash)?;
+			<ContractBlob<T>>::remove(&origin, code_hash)?;
 			// we waive the fee because removing unused code is beneficial
 			Ok(Pays::No.into())
 		}
@@ -1056,7 +1058,7 @@ where
 				DepositLimit::UnsafeOnlyForDryRun =>
 					StorageMeter::new_unchecked(BalanceOf::<T>::max_value()),
 			};
-			let result = ExecStack::<T, WasmBlob<T>>::run_call(
+			let result = ExecStack::<T, ContractBlob<T>>::run_call(
 				origin.clone(),
 				dest,
 				&mut gas_meter,
@@ -1081,6 +1083,17 @@ where
 		}
 	}
 
+	/// Prepare a dry run for the given account.
+	///
+	///
+	/// This function is public because it is called by the runtime API implementation
+	/// (see `impl_runtime_apis_plus_revive`).
+	pub fn prepare_dry_run(account: &T::AccountId) {
+		// Bump the  nonce to simulate what would happen
+		// `pre-dispatch` if the transaction was executed.
+		frame_system::Pallet::<T>::inc_account_nonce(account);
+	}
+
 	/// A generalized version of [`Self::instantiate`] or [`Self::instantiate_with_code`].
 	///
 	/// Identical to [`Self::instantiate`] or [`Self::instantiate_with_code`] but tailored towards
@@ -1094,7 +1107,7 @@ where
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
-		nonce_already_incremented: NonceAlreadyIncremented,
+		bump_nonce: BumpNonce,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
@@ -1106,6 +1119,8 @@ where
 
 		let try_instantiate = || {
 			let instantiate_account = T::InstantiateOrigin::ensure_origin(origin.clone())?;
+
+			if_tracing(|t| t.instantiate_code(&code, salt.as_ref()));
 			let (executable, upload_deposit) = match code {
 				Code::Upload(code) => {
 					let upload_account = T::UploadOrigin::ensure_origin(origin)?;
@@ -1119,7 +1134,7 @@ where
 					(executable, upload_deposit)
 				},
 				Code::Existing(code_hash) =>
-					(WasmBlob::from_storage(code_hash, &mut gas_meter)?, Default::default()),
+					(ContractBlob::from_storage(code_hash, &mut gas_meter)?, Default::default()),
 			};
 			let instantiate_origin = Origin::from_account_id(instantiate_account.clone());
 			let mut storage_meter = if unchecked_deposit_limit {
@@ -1128,7 +1143,7 @@ where
 				StorageMeter::new(storage_deposit_limit)
 			};
 
-			let result = ExecStack::<T, WasmBlob<T>>::run_instantiate(
+			let result = ExecStack::<T, ContractBlob<T>>::run_instantiate(
 				instantiate_account,
 				executable,
 				&mut gas_meter,
@@ -1137,7 +1152,7 @@ where
 				data,
 				salt.as_ref(),
 				unchecked_deposit_limit,
-				nonce_already_incremented,
+				bump_nonce,
 			);
 			storage_deposit = storage_meter
 				.try_into_deposit(&instantiate_origin, unchecked_deposit_limit)?
@@ -1155,30 +1170,34 @@ where
 		}
 	}
 
-	/// A version of [`Self::eth_transact`] used to dry-run Ethereum calls.
+	/// Dry-run Ethereum calls.
 	///
 	/// # Parameters
 	///
 	/// - `tx`: The Ethereum transaction to simulate.
 	/// - `gas_limit`: The gas limit enforced during contract execution.
-	/// - `tx_fee`: A function that returns the fee for the given call and dispatch info.
-	pub fn bare_eth_transact(
+	/// - `tx_fee`: A function that returns the fee for the computed eth_transact and actual
+	/// dispatched call
+	pub fn dry_run_eth_transact(
 		mut tx: GenericTransaction,
 		gas_limit: Weight,
-		tx_fee: impl Fn(Call<T>, DispatchInfo) -> BalanceOf<T>,
+		tx_fee: impl Fn(<T as Config>::RuntimeCall, <T as Config>::RuntimeCall) -> BalanceOf<T>,
 	) -> Result<EthTransactInfo<BalanceOf<T>>, EthTransactError>
 	where
 		<T as frame_system::Config>::RuntimeCall:
 			Dispatchable<Info = frame_support::dispatch::DispatchInfo>,
+		T: pallet_transaction_payment::Config,
+		OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
 		<T as Config>::RuntimeCall: From<crate::Call<T>>,
 		<T as Config>::RuntimeCall: Encode,
 		T::Nonce: Into<U256>,
 		T::Hash: frame_support::traits::IsType<H256>,
 	{
-		log::trace!(target: LOG_TARGET, "bare_eth_transact: tx: {tx:?} gas_limit: {gas_limit:?}");
+		log::trace!(target: LOG_TARGET, "dry_run_eth_transact: {tx:?} gas_limit: {gas_limit:?}");
 
 		let from = tx.from.unwrap_or_default();
 		let origin = T::AddressMapper::to_account_id(&from);
+		Self::prepare_dry_run(&origin);
 
 		let storage_deposit_limit = if tx.gas.is_some() {
 			DepositLimit::Balance(BalanceOf::<T>::max_value())
@@ -1236,52 +1255,76 @@ where
 		};
 
 		// Dry run the call
-		let (mut result, dispatch_info) = match tx.to {
+		let (mut result, dispatch_call) = match tx.to {
 			// A contract call.
 			Some(dest) => {
-				// Dry run the call.
-				let result = crate::Pallet::<T>::bare_call(
-					T::RuntimeOrigin::signed(origin),
-					dest,
-					native_value,
-					gas_limit,
-					storage_deposit_limit,
-					input.clone(),
-				);
+				if dest == RUNTIME_PALLETS_ADDR {
+					let Ok(dispatch_call) = <T as Config>::RuntimeCall::decode(&mut &input[..])
+					else {
+						return Err(EthTransactError::Message(format!(
+							"Failed to decode pallet-call {input:?}"
+						)));
+					};
 
-				let data = match result.result {
-					Ok(return_value) => {
-						if return_value.did_revert() {
-							return Err(EthTransactError::Data(return_value.data));
-						}
-						return_value.data
-					},
-					Err(err) => {
-						log::debug!(target: LOG_TARGET, "Failed to execute call: {err:?}");
-						return extract_error(err)
-					},
-				};
+					if let Err(err) =
+						dispatch_call.clone().dispatch(RawOrigin::Signed(origin).into())
+					{
+						return Err(EthTransactError::Message(format!(
+							"Failed to dispatch call: {err:?}"
+						)));
+					};
 
-				let result = EthTransactInfo {
-					gas_required: result.gas_required,
-					storage_deposit: result.storage_deposit.charge_or_zero(),
-					data,
-					eth_gas: Default::default(),
-				};
+					let result = EthTransactInfo {
+						gas_required: dispatch_call.get_dispatch_info().total_weight(),
+						..Default::default()
+					};
 
-				let (gas_limit, storage_deposit_limit) = T::EthGasEncoder::as_encoded_values(
-					result.gas_required,
-					result.storage_deposit,
-				);
-				let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::call {
-					dest,
-					value: native_value,
-					gas_limit,
-					storage_deposit_limit,
-					data: input.clone(),
+					(result, dispatch_call)
+				} else {
+					// Dry run the call.
+					let result = crate::Pallet::<T>::bare_call(
+						T::RuntimeOrigin::signed(origin),
+						dest,
+						native_value,
+						gas_limit,
+						storage_deposit_limit,
+						input.clone(),
+					);
+
+					let data = match result.result {
+						Ok(return_value) => {
+							if return_value.did_revert() {
+								return Err(EthTransactError::Data(return_value.data));
+							}
+							return_value.data
+						},
+						Err(err) => {
+							log::debug!(target: LOG_TARGET, "Failed to execute call: {err:?}");
+							return extract_error(err);
+						},
+					};
+
+					let result = EthTransactInfo {
+						gas_required: result.gas_required,
+						storage_deposit: result.storage_deposit.charge_or_zero(),
+						data,
+						eth_gas: Default::default(),
+					};
+
+					let (gas_limit, storage_deposit_limit) = T::EthGasEncoder::as_encoded_values(
+						result.gas_required,
+						result.storage_deposit,
+					);
+					let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::call {
+						dest,
+						value: native_value,
+						gas_limit,
+						storage_deposit_limit,
+						data: input.clone(),
+					}
+					.into();
+					(result, dispatch_call)
 				}
-				.into();
-				(result, dispatch_call.get_dispatch_info())
 			},
 			// A contract deployment
 			None => {
@@ -1307,7 +1350,7 @@ where
 					Code::Upload(code.to_vec()),
 					data.to_vec(),
 					None,
-					NonceAlreadyIncremented::No,
+					BumpNonce::No,
 				);
 
 				let returned_data = match result.result {
@@ -1319,7 +1362,7 @@ where
 					},
 					Err(err) => {
 						log::debug!(target: LOG_TARGET, "Failed to instantiate: {err:?}");
-						return extract_error(err)
+						return extract_error(err);
 					},
 				};
 
@@ -1336,16 +1379,15 @@ where
 					result.storage_deposit,
 				);
 				let dispatch_call: <T as Config>::RuntimeCall =
-					crate::Call::<T>::instantiate_with_code {
+					crate::Call::<T>::eth_instantiate_with_code {
 						value: native_value,
 						gas_limit,
 						storage_deposit_limit,
 						code: code.to_vec(),
 						data: data.to_vec(),
-						salt: None,
 					}
 					.into();
-				(result, dispatch_call.get_dispatch_info())
+				(result, dispatch_call)
 			},
 		};
 
@@ -1353,9 +1395,9 @@ where
 			return Err(EthTransactError::Message("Invalid transaction".into()));
 		};
 
-		let eth_dispatch_call =
+		let eth_transact_call =
 			crate::Call::<T>::eth_transact { payload: unsigned_tx.dummy_signed_payload() };
-		let fee = tx_fee(eth_dispatch_call, dispatch_info);
+		let fee = tx_fee(eth_transact_call.into(), dispatch_call);
 		let raw_gas = Self::evm_fee_to_gas(fee);
 		let eth_gas =
 			T::EthGasEncoder::encode(raw_gas, result.gas_required, result.storage_deposit);
@@ -1369,6 +1411,15 @@ where
 	pub fn evm_balance(address: &H160) -> U256 {
 		let account = T::AddressMapper::to_account_id(&address);
 		Self::convert_native_to_evm(T::Currency::reducible_balance(&account, Preserve, Polite))
+	}
+
+	/// Get the nonce for the given `address`.
+	pub fn evm_nonce(address: &H160) -> u32
+	where
+		T::Nonce: Into<u32>,
+	{
+		let account = T::AddressMapper::to_account_id(&address);
+		System::<T>::account_nonce(account).into()
 	}
 
 	/// Convert a substrate fee into a gas value, using the fixed `GAS_PRICE`.
@@ -1397,13 +1448,24 @@ where
 	}
 
 	/// Get the block gas limit.
-	pub fn evm_block_gas_limit() -> U256 {
+	pub fn evm_block_gas_limit() -> U256
+	where
+		<T as frame_system::Config>::RuntimeCall:
+			Dispatchable<Info = frame_support::dispatch::DispatchInfo>,
+		T: pallet_transaction_payment::Config,
+		OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
+	{
 		let max_block_weight = T::BlockWeights::get()
 			.get(DispatchClass::Normal)
 			.max_total
 			.unwrap_or_else(|| T::BlockWeights::get().max_block);
 
+		let length_fee = pallet_transaction_payment::Pallet::<T>::length_to_fee(
+			5 * 1024 * 1024, // 5 MB
+		);
+
 		Self::evm_gas_from_weight(max_block_weight)
+			.saturating_add(Self::evm_fee_to_gas(length_fee.into()))
 	}
 
 	/// Get the gas price.
@@ -1412,13 +1474,18 @@ where
 	}
 
 	/// Build an EVM tracer from the given tracer type.
-	pub fn evm_tracer(tracer_type: TracerType) -> Tracer {
+	pub fn evm_tracer(tracer_type: TracerType) -> Tracer<T>
+	where
+		T::Nonce: Into<u32>,
+	{
 		match tracer_type {
 			TracerType::CallTracer(config) => CallTracer::new(
 				config.unwrap_or_default(),
 				Self::evm_gas_from_weight as fn(Weight) -> U256,
 			)
 			.into(),
+			TracerType::PrestateTracer(config) =>
+				PrestateTracer::new(config.unwrap_or_default()).into(),
 		}
 	}
 
@@ -1457,14 +1524,14 @@ where
 		Ok(maybe_value)
 	}
 
-	/// Uploads new code and returns the Wasm blob and deposit amount collected.
+	/// Uploads new code and returns the Vm binary contract blob and deposit amount collected.
 	fn try_upload_code(
 		origin: T::AccountId,
 		code: Vec<u8>,
 		storage_deposit_limit: BalanceOf<T>,
 		skip_transfer: bool,
-	) -> Result<(WasmBlob<T>, BalanceOf<T>), DispatchError> {
-		let mut module = WasmBlob::from_code(code, origin)?;
+	) -> Result<(ContractBlob<T>, BalanceOf<T>), DispatchError> {
+		let mut module = ContractBlob::from_code(code, origin)?;
 		let deposit = module.store_code(skip_transfer)?;
 		ensure!(storage_deposit_limit >= deposit, <Error<T>>::StorageDepositLimitExhausted);
 		Ok((module, deposit))
@@ -1500,7 +1567,7 @@ where
 		precision: ConversionPrecision,
 	) -> Result<BalanceOf<T>, Error<T>> {
 		if value.is_zero() {
-			return Ok(Zero::zero())
+			return Ok(Zero::zero());
 		}
 
 		let (quotient, remainder) = value.div_mod(T::NativeToEthRatio::get().into());
@@ -1525,7 +1592,39 @@ impl<T: Config> Pallet<T> {
 	fn deposit_event(event: Event<T>) {
 		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(event))
 	}
+
+	/// The address of the validator that produced the current block.
+	pub fn block_author() -> Option<H160> {
+		use frame_support::traits::FindAuthor;
+
+		let digest = <frame_system::Pallet<T>>::digest();
+		let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
+
+		let account_id = T::FindAuthor::find_author(pre_runtime_digests)?;
+		Some(T::AddressMapper::to_address(&account_id))
+	}
+
+	/// Returns the code at `address`.
+	///
+	/// This takes pre-compiles into account.
+	pub fn code(address: &H160) -> Vec<u8> {
+		use precompiles::{All, Precompiles};
+		if let Some(code) = <All<T>>::code(address.as_fixed_bytes()) {
+			return code.into()
+		}
+		<ContractInfoOf<T>>::get(&address)
+			.and_then(|contract| <PristineCode<T>>::get(contract.code_hash))
+			.map(|code| code.into())
+			.unwrap_or_default()
+	}
 }
+
+/// The address used to call the runtime's pallets dispatchables
+///
+/// Note:
+/// computed with PalletId(*b"py/paddr").into_account_truncating();
+pub const RUNTIME_PALLETS_ADDR: H160 =
+	H160(hex_literal::hex!("6d6f646c70792f70616464720000000000000000"));
 
 // Set up a global reference to the boolean flag used for the re-entrancy guard.
 environmental!(executing_contract: bool);
@@ -1579,7 +1678,7 @@ sp_api::decl_runtime_apis! {
 
 		/// Perform an Ethereum call.
 		///
-		/// See [`crate::Pallet::bare_eth_transact`]
+		/// See [`crate::Pallet::dry_run_eth_transact`]
 		fn eth_transact(tx: GenericTransaction) -> Result<EthTransactInfo<Balance>, EthTransactError>;
 
 		/// Upload new code without instantiating a contract from it.
@@ -1639,6 +1738,17 @@ sp_api::decl_runtime_apis! {
 		/// See eth-rpc `debug_traceCall` for usage.
 		fn trace_call(tx: GenericTransaction, config: TracerType) -> Result<Trace, EthTransactError>;
 
+		/// The address of the validator that produced the current block.
+		fn block_author() -> Option<H160>;
+
+		/// Get the H160 address associated to this account id
+		fn address(account_id: AccountId) -> H160;
+
+		/// The address used to call the runtime's pallets dispatchables
+		fn runtime_pallets_address() -> H160;
+
+		/// The code at the specified address taking pre-compiles into account.
+		fn code(address: H160) -> Vec<u8>;
 	}
 }
 
@@ -1661,6 +1771,10 @@ macro_rules! impl_runtime_apis_plus_revive {
 					$crate::Pallet::<Self>::evm_balance(&address)
 				}
 
+				fn block_author() -> Option<$crate::H160> {
+					$crate::Pallet::<Self>::block_author()
+				}
+
 				fn block_gas_limit() -> $crate::U256 {
 					$crate::Pallet::<Self>::evm_block_gas_limit()
 				}
@@ -1675,6 +1789,11 @@ macro_rules! impl_runtime_apis_plus_revive {
 					$crate::frame_system::Pallet::<Self>::account_nonce(account)
 				}
 
+				fn address(account_id: AccountId) -> $crate::H160 {
+					use $crate::AddressMapper;
+					<Self as $crate::Config>::AddressMapper::to_address(&account_id)
+				}
+
 				fn eth_transact(
 					tx: $crate::evm::GenericTransaction,
 				) -> Result<$crate::EthTransactInfo<Balance>, $crate::EthTransactError> {
@@ -1684,15 +1803,19 @@ macro_rules! impl_runtime_apis_plus_revive {
 						sp_runtime::traits::Block as BlockT
 					};
 
-					let tx_fee = |pallet_call, mut dispatch_info: $crate::DispatchInfo| {
-						let call =
-							<Self as $crate::frame_system::Config>::RuntimeCall::from(pallet_call);
-						dispatch_info.extension_weight =
-							<$EthExtra>::get_eth_extension(0, 0u32.into()).weight(&call);
+					let tx_fee = |call: <Self as $crate::frame_system::Config>::RuntimeCall, dispatch_call: <Self as $crate::frame_system::Config>::RuntimeCall| {
+						use $crate::frame_support::dispatch::GetDispatchInfo;
 
+						// Get the dispatch info of the actual call dispatched
+						let mut dispatch_info = dispatch_call.get_dispatch_info();
+						dispatch_info.extension_weight =
+							<$EthExtra>::get_eth_extension(0, 0u32.into()).weight(&dispatch_call);
+
+						// Build the extrinsic
 						let uxt: <Block as BlockT>::Extrinsic =
 							$crate::sp_runtime::generic::UncheckedExtrinsic::new_bare(call).into();
 
+						// Compute the fee of the extrinsic
 						$crate::pallet_transaction_payment::Pallet::<Self>::compute_fee(
 							uxt.encoded_size() as u32,
 							&dispatch_info,
@@ -1702,7 +1825,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 
 					let blockweights: $crate::BlockWeights =
 						<Self as $crate::frame_system::Config>::BlockWeights::get();
-					$crate::Pallet::<Self>::bare_eth_transact(tx, blockweights.max_block, tx_fee)
+					$crate::Pallet::<Self>::dry_run_eth_transact(tx, blockweights.max_block, tx_fee)
 				}
 
 				fn call(
@@ -1717,10 +1840,9 @@ macro_rules! impl_runtime_apis_plus_revive {
 					let blockweights: $crate::BlockWeights =
 						<Self as $crate::frame_system::Config>::BlockWeights::get();
 
-					let origin =
-						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin);
+					$crate::Pallet::<Self>::prepare_dry_run(&origin);
 					$crate::Pallet::<Self>::bare_call(
-						origin,
+						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin),
 						dest,
 						value,
 						gas_limit.unwrap_or(blockweights.max_block),
@@ -1742,17 +1864,16 @@ macro_rules! impl_runtime_apis_plus_revive {
 					let blockweights: $crate::BlockWeights =
 						<Self as $crate::frame_system::Config>::BlockWeights::get();
 
-					let origin =
-						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin);
+					$crate::Pallet::<Self>::prepare_dry_run(&origin);
 					$crate::Pallet::<Self>::bare_instantiate(
-						origin,
+						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin),
 						value,
 						gas_limit.unwrap_or(blockweights.max_block),
 						$crate::DepositLimit::Balance(storage_deposit_limit.unwrap_or(u128::MAX)),
 						code,
 						data,
 						salt,
-						$crate::NonceAlreadyIncremented::No,
+						$crate::BumpNonce::Yes,
 					)
 				}
 
@@ -1792,9 +1913,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 					<$Executive>::initialize_block(&header);
 					for (index, ext) in extrinsics.into_iter().enumerate() {
 						let t = tracer.as_tracing();
-						trace(t, || {
-							let _ = <$Executive>::apply_extrinsic(ext);
-						});
+						let _ = trace(t, || <$Executive>::apply_extrinsic(ext));
 
 						if let Some(tx_trace) = tracer.collect_trace() {
 							traces.push((index as u32, tx_trace));
@@ -1818,9 +1937,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 					for (index, ext) in extrinsics.into_iter().enumerate() {
 						if index as u32 == tx_index {
 							let t = tracer.as_tracing();
-							trace(t, || {
-								let _ = <$Executive>::apply_extrinsic(ext);
-							});
+							let _ = trace(t, || <$Executive>::apply_extrinsic(ext));
 							break;
 						} else {
 							let _ = <$Executive>::apply_extrinsic(ext);
@@ -1838,6 +1955,8 @@ macro_rules! impl_runtime_apis_plus_revive {
 					let mut tracer = $crate::Pallet::<Self>::evm_tracer(tracer_type);
 					let t = tracer.as_tracing();
 
+					t.watch_address(&tx.from.unwrap_or_default());
+					t.watch_address(&$crate::Pallet::<Self>::block_author().unwrap_or_default());
 					let result = trace(t, || Self::eth_transact(tx));
 
 					if let Some(trace) = tracer.collect_trace() {
@@ -1847,6 +1966,14 @@ macro_rules! impl_runtime_apis_plus_revive {
 					} else {
 						Ok(tracer.empty_trace())
 					}
+				}
+
+				fn runtime_pallets_address() -> $crate::H160 {
+					$crate::RUNTIME_PALLETS_ADDR
+				}
+
+				fn code(address: $crate::H160) -> Vec<u8> {
+					$crate::Pallet::<Self>::code(&address)
 				}
 			}
 		}

@@ -169,11 +169,17 @@ pub mod weights;
 pub mod migrations;
 
 pub use extensions::{
-	authorize_call::AuthorizeCall, check_genesis::CheckGenesis, check_mortality::CheckMortality,
-	check_non_zero_sender::CheckNonZeroSender, check_nonce::CheckNonce,
-	check_spec_version::CheckSpecVersion, check_tx_version::CheckTxVersion,
-	check_weight::CheckWeight, weight_reclaim::WeightReclaim,
-	weights::SubstrateWeight as SubstrateExtensionsWeight, WeightInfo as ExtensionsWeightInfo,
+	authorize_call::AuthorizeCall,
+	check_genesis::CheckGenesis,
+	check_mortality::CheckMortality,
+	check_non_zero_sender::CheckNonZeroSender,
+	check_nonce::{CheckNonce, ValidNonceInfo},
+	check_spec_version::CheckSpecVersion,
+	check_tx_version::CheckTxVersion,
+	check_weight::CheckWeight,
+	weight_reclaim::WeightReclaim,
+	weights::SubstrateWeight as SubstrateExtensionsWeight,
+	WeightInfo as ExtensionsWeightInfo,
 };
 // Backward compatible re-export.
 pub use extensions::check_mortality::CheckMortality as CheckEra;
@@ -263,6 +269,16 @@ where
 	code_hash: T::Hash,
 	/// Whether or not to carry out version checks.
 	check_version: bool,
+}
+
+#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+impl<T> CodeUpgradeAuthorization<T>
+where
+	T: Config,
+{
+	pub fn code_hash(&self) -> &T::Hash {
+		&self.code_hash
+	}
 }
 
 /// Information about the dispatch of a call, to be displayed in the

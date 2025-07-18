@@ -18,7 +18,7 @@
 
 use crate::{
 	BabeConfig, BalancesConfig, ConfigurationConfig, RegistrarConfig, RuntimeGenesisConfig,
-	SessionConfig, SessionKeys, StakingAsyncAhClientConfig, SudoConfig, BABE_GENESIS_EPOCH_CONFIG,
+	SessionConfig, SessionKeys, StakingAhClientConfig, SudoConfig, BABE_GENESIS_EPOCH_CONFIG,
 };
 #[cfg(not(feature = "std"))]
 use alloc::format;
@@ -107,6 +107,7 @@ fn default_parachains_host_configuration(
 		max_head_data_size: 32 * 1024,
 		max_upward_queue_count: 8,
 		max_upward_queue_size: 1024 * 1024,
+		// NOTE: these can be tweaked to mimic the XCM message splitting.
 		max_downward_message_size: 1024 * 1024,
 		max_upward_message_size: 50 * 1024,
 		max_upward_message_num_per_candidate: 5,
@@ -130,9 +131,9 @@ fn default_parachains_host_configuration(
 			allowed_ancestry_len: 0,
 		},
 		node_features: bitvec::vec::BitVec::from_element(
-			1u8 << (FeatureIndex::ElasticScalingMVP as usize) |
-				1u8 << (FeatureIndex::EnableAssignmentsV2 as usize) |
-				1u8 << (FeatureIndex::CandidateReceiptV2 as usize),
+			(1u8 << (FeatureIndex::ElasticScalingMVP as usize)) |
+				(1u8 << (FeatureIndex::EnableAssignmentsV2 as usize)) |
+				(1u8 << (FeatureIndex::CandidateReceiptV2 as usize)),
 		),
 		scheduler_params: SchedulerParams {
 			lookahead: 3,
@@ -196,7 +197,7 @@ fn westend_testnet_genesis(
 		sudo: SudoConfig { key: Some(root_key) },
 		configuration: ConfigurationConfig { config: default_parachains_host_configuration() },
 		registrar: RegistrarConfig { next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID },
-		staking_async_ah_client: StakingAsyncAhClientConfig {
+		staking_ah_client: StakingAhClientConfig {
 			operating_mode: pallet_staking_async_ah_client::OperatingMode::Active,
 			..Default::default()
 		}

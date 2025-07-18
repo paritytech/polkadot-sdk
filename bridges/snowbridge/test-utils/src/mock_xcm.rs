@@ -130,7 +130,7 @@ impl PreparedMessage for Weightless {
 pub struct MockXcmExecutor;
 impl<C> ExecuteXcm<C> for MockXcmExecutor {
 	type Prepared = Weightless;
-	fn prepare(_: Xcm<C>) -> Result<Self::Prepared, Xcm<C>> {
+	fn prepare(_: Xcm<C>, _: Weight) -> Result<Self::Prepared, InstructionError> {
 		unreachable!()
 	}
 	fn execute(_: impl Into<Location>, _: Self::Prepared, _: &mut XcmHash, _: Weight) -> Outcome {

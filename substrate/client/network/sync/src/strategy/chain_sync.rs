@@ -674,10 +674,12 @@ where
 			has_error |= result.is_err();
 
 			match result {
-				Ok(BlockImportStatus::ImportedKnown(number, peer_id)) =>
+				Ok(BlockImportStatus::ImportedKnown(number, peer_id)) => {
 					if let Some(peer) = peer_id {
 						self.update_peer_common_number(&peer, number);
-					},
+					}
+					self.complete_gap_if_target(number);
+				},
 				Ok(BlockImportStatus::ImportedUnknown(number, aux, peer_id)) => {
 					if aux.clear_justification_requests {
 						trace!(
@@ -720,15 +722,8 @@ where
 						self.mode = ChainSyncMode::Full;
 						self.restart();
 					}
-					let gap_sync_complete =
-						self.gap_sync.as_ref().map_or(false, |s| s.target == number);
-					if gap_sync_complete {
-						info!(
-							target: LOG_TARGET,
-							"Block history download is complete."
-						);
-						self.gap_sync = None;
-					}
+
+					self.complete_gap_if_target(number);
 				},
 				Err(BlockImportError::IncompleteHeader(peer_id)) =>
 					if let Some(peer) = peer_id {
@@ -990,6 +985,18 @@ where
 		});
 
 		Ok(sync)
+	}
+
+	/// Complete the gap sync if the target number is reached and there is a gap.
+	fn complete_gap_if_target(&mut self, number: NumberFor<B>) {
+		let gap_sync_complete = self.gap_sync.as_ref().map_or(false, |s| s.target == number);
+		if gap_sync_complete {
+			info!(
+				target: LOG_TARGET,
+				"Block history download is complete."
+			);
+			self.gap_sync = None;
+		}
 	}
 
 	#[must_use]
@@ -1676,6 +1683,8 @@ where
 	/// state for.
 	fn reset_sync_start_point(&mut self) -> Result<(), ClientError> {
 		let info = self.client.info();
+		debug!(target: LOG_TARGET, "Restarting sync with client info {info:?}");
+
 		if matches!(self.mode, ChainSyncMode::LightState { .. }) && info.finalized_state.is_some() {
 			warn!(
 				target: LOG_TARGET,
@@ -1705,7 +1714,8 @@ where
 		}
 
 		if let Some(BlockGap { start, end, .. }) = info.block_gap {
-			debug!(target: LOG_TARGET, "Starting gap sync #{start} - #{end}");
+			let old_gap = self.gap_sync.take().map(|g| (g.best_queued_number, g.target));
+			debug!(target: LOG_TARGET, "Starting gap sync #{start} - #{end} (old gap best and target: {old_gap:?})");
 			self.gap_sync = Some(GapSync {
 				best_queued_number: start - One::one(),
 				target: end,
