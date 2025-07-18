@@ -35,6 +35,7 @@ use pallet_xcm_bridge::congestion::{
 	UpdateBridgeStatusXcmChannelManager,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
+use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header as SubstrateHeader,
@@ -217,7 +218,7 @@ impl pallet_xcm_bridge::Config for TestRuntime {
 	type BridgedNetwork = BridgedRelayNetworkLocation;
 	type BridgeMessagesPalletInstance = ();
 
-	type MessageExportPrice = ();
+	type MessageExportPrice = NoPriceForMessageDelivery<BridgeId>;
 	type DestinationVersion = AlwaysLatest;
 
 	type ForceOrigin = EnsureNever<()>;
