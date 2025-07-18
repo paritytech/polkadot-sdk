@@ -17,7 +17,7 @@
 
 //! # Multi-Block Migration v1
 //!
-//! This migrat the old `ContractInfoOf` storage to the new `AccountInfoOf`.
+//! This migrate the old `ContractInfoOf` storage to the new `AccountInfoOf`.
 
 extern crate alloc;
 
