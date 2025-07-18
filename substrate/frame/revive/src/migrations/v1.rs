@@ -36,7 +36,10 @@ use alloc::collections::btree_map::BTreeMap;
 use alloc::vec::Vec;
 
 /// Module containing the old storage items.
-pub mod old {
+#[cfg(feature = "runtime-benchmarks")]
+pub(crate) use old;
+
+mod old {
 	use super::Config;
 	use crate::{pallet::Pallet, ContractInfo, H160};
 	use frame_support::{storage_alias, Identity};
