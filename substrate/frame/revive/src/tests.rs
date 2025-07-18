@@ -225,6 +225,10 @@ mod builder {
 	pub fn call(dest: H160) -> CallBuilder<Test> {
 		CallBuilder::<Test>::call(RuntimeOrigin::signed(ALICE), dest)
 	}
+
+	pub fn eth_call(dest: H160) -> EthCallBuilder<Test> {
+		EthCallBuilder::<Test>::eth_call(RuntimeOrigin::signed(ALICE), dest)
+	}
 }
 
 impl Test {
@@ -560,6 +564,43 @@ fn transfer_with_dust_works() {
 			);
 		});
 	}
+}
+
+#[test]
+fn eth_call_transfer_with_dust_works() {
+	let (binary, _) = compile_module("dummy").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
+
+		let balance =
+			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));
+		assert_ok!(builder::eth_call(addr).value(balance).build());
+
+		assert_eq!(Pallet::<Test>::evm_balance(&addr), balance);
+	});
+}
+
+#[test]
+fn contract_call_transfer_with_dust_works() {
+	let (binary_caller, _code_hash_caller) = compile_module("call_with_value").unwrap();
+	let (binary_callee, _code_hash_callee) = compile_module("dummy").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let Contract { addr: addr_caller, .. } =
+			builder::bare_instantiate(Code::Upload(binary_caller))
+				.native_value(200)
+				.build_and_unwrap_contract();
+		let Contract { addr: addr_callee, .. } =
+			builder::bare_instantiate(Code::Upload(binary_callee)).build_and_unwrap_contract();
+
+		let balance =
+			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));
+		assert_ok!(builder::call(addr_caller).data((balance, addr_callee).encode()).build());
+
+		assert_eq!(Pallet::<Test>::evm_balance(&addr_callee), balance);
+	});
 }
 
 #[test]
