@@ -186,10 +186,21 @@ fn invoke_solidity_build(entries: &[Entry], out_dir: &Path) -> Result<()> {
 			
 			// resolc outputs files with different naming, so we need to find and rename them
 			let contract_name = entry.name();
-			let expected_output = out_dir.join(format!("{}.polkavm", contract_name));
 			let desired_output = out_dir.join(entry.solidity_out_filename());
 			
-			if expected_output.exists() {
+			// resolc creates files with the pattern: {fixture_name}.sol:{ContractName}.pvm
+			// We need to find the actual file and rename it to {fixture_name}_sol.polkavm
+			let sol_files: Vec<_> = fs::read_dir(out_dir)?
+				.filter_map(|entry| entry.ok())
+				.filter(|entry| {
+					let file_name = entry.file_name();
+					let file_name_str = file_name.to_string_lossy();
+					file_name_str.starts_with(&format!("{}.sol:", contract_name)) && file_name_str.ends_with(".pvm")
+				})
+				.collect();
+			
+			if let Some(sol_file) = sol_files.first() {
+				let expected_output = sol_file.path();
 				fs::rename(&expected_output, &desired_output)
 					.with_context(|| format!("Failed to rename {} to {}", expected_output.display(), desired_output.display()))?;
 			}
