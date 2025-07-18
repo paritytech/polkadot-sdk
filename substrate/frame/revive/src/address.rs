@@ -145,6 +145,7 @@ where
 		Ok(())
 	}
 
+	/// Convenience function for benchmarking, to map an account id without taking any deposit.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn bench_map(account_id: &T::AccountId) -> DispatchResult {
 		ensure!(!Self::is_mapped(account_id), <Error<T>>::AccountAlreadyMapped);
