@@ -158,6 +158,7 @@ impl ExtBuilder {
 		self.dust_trap = Some(account);
 		self
 	}
+	#[cfg(feature = "try-runtime")]
 	pub fn auto_try_state(self, auto_try_state: bool) -> Self {
 		AutoTryState::set(auto_try_state);
 		self
