@@ -267,7 +267,7 @@ where
 
 			let included_header_hash = included_header.hash();
 
-			let slot_claim = match crate::collators::can_build_upon::<_, _, P>(
+			let Some(slot_claim) = crate::collators::can_build_upon::<_, _, P>(
 				slot_info.slot,
 				relay_slot,
 				slot_info.timestamp,
@@ -277,22 +277,19 @@ where
 				&keystore,
 			)
 			.await
-			{
-				Some(slot) => slot,
-				None => {
-					tracing::debug!(
-						target: crate::LOG_TARGET,
-						unincluded_segment_len = initial_parent.depth,
-						relay_parent = ?relay_parent,
-						relay_parent_num = %relay_parent_header.number(),
-						included_hash = ?included_header_hash,
-						included_num = %included_header.number(),
-						initial_parent = ?initial_parent.hash,
-						slot = ?slot_info.slot,
-						"Not eligible to claim slot."
-					);
-					continue
-				},
+			else {
+				tracing::debug!(
+					target: crate::LOG_TARGET,
+					unincluded_segment_len = initial_parent.depth,
+					relay_parent = ?relay_parent,
+					relay_parent_num = %relay_parent_header.number(),
+					included_hash = ?included_header_hash,
+					included_num = %included_header.number(),
+					initial_parent = ?initial_parent.hash,
+					slot = ?slot_info.slot,
+					"Not eligible to claim slot."
+				);
+				continue
 			};
 
 			tracing::debug!(
@@ -385,6 +382,8 @@ where
 					cores.core_index(),
 					(&mut slot_schedule).take(blocks_per_core as usize),
 					time_for_core,
+					cores.is_last_core() &&
+						slot_time.is_parachain_slot_ending(para_slot_duration.as_duration()),
 				)
 				.await
 				{
@@ -425,6 +424,7 @@ async fn build_collation_for_core<Block: BlockT, P, RelayClient, BI, CIDP, Propo
 	core_index: CoreIndex,
 	block_schedule: impl ExactSizeIterator<Item = Duration>,
 	slot_time_for_core: Duration,
+	is_last_core_in_parachain_slot: bool,
 ) -> Result<Option<Block::Header>, ()>
 where
 	RelayClient: RelayChainInterface + 'static,
@@ -468,6 +468,18 @@ where
 	let mut parent_header = pov_parent_header.clone();
 
 	for (block_index, block_time) in block_schedule.enumerate() {
+		//TODO: Remove when transaction streaming is implemented
+		// We require that the next node has imported our last block before it can start building
+		// the next block. To ensure that the next node is able to do so, we are skipping the last
+		// block in the parachain slot. In the future this can be removed again.
+		if block_index + 1 == num_blocks && num_blocks > 1 && is_last_core_in_parachain_slot {
+			tracing::debug!(
+				target: LOG_TARGET,
+				"Skipping block production so that the next node is able to import all blocks before its slot."
+			);
+			break;
+		}
+
 		let block_start = Instant::now();
 		let slot_time_for_block = slot_time_for_core.saturating_sub(core_start.elapsed()) /
 			(num_blocks - block_index) as u32;
@@ -705,6 +717,11 @@ impl Cores {
 	/// Returns the number of cores left.
 	fn cores_left(&self) -> u32 {
 		self.total_cores() - self.selector.0 as u32
+	}
+
+	/// Returns if the current core is the last core.
+	fn is_last_core(&self) -> bool {
+		self.cores_left() == 1
 	}
 }
 

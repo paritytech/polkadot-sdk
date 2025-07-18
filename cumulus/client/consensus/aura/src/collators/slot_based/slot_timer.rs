@@ -57,6 +57,22 @@ impl SlotTime {
 
 		slot_end_time.saturating_sub(now)
 	}
+
+	/// Check if the next relay chain slot would be in a different parachain slot.
+	pub fn is_parachain_slot_ending(&self, parachain_slot_duration: Duration) -> bool {
+		let now = duration_now().saturating_sub(self.time_offset);
+		let next_relay_slot_start_time =
+			self.slot_start_timestamp.as_duration() + self.slot_duration;
+
+		// Calculate current parachain slot
+		let current_parachain_slot = now.as_millis() / parachain_slot_duration.as_millis();
+
+		// Calculate parachain slot for next relay slot
+		let next_parachain_slot =
+			next_relay_slot_start_time.as_millis() / parachain_slot_duration.as_millis() as u128;
+
+		current_parachain_slot != next_parachain_slot
+	}
 }
 
 /// Manages block-production slots based on the relay chain slot duration.
