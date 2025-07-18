@@ -23,7 +23,7 @@ use crate::{
 use clap::Args;
 use sc_network::{
 	config::{
-		NetworkConfiguration, NodeKeyConfig, NonReservedPeerMode, SetConfig, TransportConfig,
+		DEFAULT_IDLE_CONNECTION_TIMEOUT, NetworkConfiguration, NodeKeyConfig, NonReservedPeerMode, SetConfig, TransportConfig,
 	},
 	multiaddr::Protocol,
 };
@@ -32,11 +32,6 @@ use sc_service::{
 	ChainSpec, ChainType,
 };
 use std::{borrow::Cow, num::NonZeroUsize, path::PathBuf, time::Duration};
-
-/// Default timeout for idle connections of 10 seconds is good enough for most networks.
-/// It doesn't make sense to expose it as a CLI parameter on individual nodes, but customizations
-/// are possible in custom nodes through [`NetworkConfiguration`].
-const DEFAULT_IDLE_CONNECTION_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Parameters used to create the network configuration.
 #[derive(Debug, Clone, Args)]
