@@ -1177,7 +1177,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			},
 			Err(err) => {
 				self.charge_gas(RuntimeCosts::Instantiate {
-					input_data_len,
+					input_data_len: 0,
 					balance_transfer: false,
 					dust_transfer: false,
 				})?;
