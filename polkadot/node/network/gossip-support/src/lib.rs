@@ -714,7 +714,8 @@ where
 		if connected_ratio <= LOW_CONNECTIVITY_WARN_THRESHOLD && self.is_authority_now {
 			gum::error!(
 				target: LOG_TARGET,
-				"Connectivity seems low, we are only connected to {connected_ratio}% of available validators (see debug logs for details), if this persists more than a session action needs to be taken"
+				session_index = self.last_session_index.as_ref().map(|s| *s).unwrap_or_default(),
+				"Connectivity seems low at, we are only connected to {connected_ratio}% of available validators (see debug logs for details), if this persists more than a session action needs to be taken"
 			);
 		}
 		let pretty = PrettyAuthorities(unconnected_authorities);
