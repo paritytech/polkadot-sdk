@@ -9,10 +9,15 @@ contract ChainId {
     
     function _getChainId() internal view {
         uint256 chainId = block.chainid;
-        // Return as 32-byte array
+        
+        // Convert to little-endian format for 32 bytes
+        bytes memory result = new bytes(32);
+        for (uint i = 0; i < 32; i++) {
+            result[i] = bytes1(uint8(chainId >> (i * 8)));
+        }
+        
         assembly {
-            mstore(0x00, chainId)
-            return(0x00, 0x20)
+            return(add(result, 0x20), 0x20)
         }
     }
     
