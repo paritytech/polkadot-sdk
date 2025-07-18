@@ -9,4 +9,4 @@ doc:
       Implement core::fmt::Debug by hand and differentiate the output based on CandidateDescriptorVersion.
 crates:
 - name: polkadot-primitives
-  bump: patch
+  bump: minor
