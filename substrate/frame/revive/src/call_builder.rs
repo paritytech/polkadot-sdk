@@ -363,7 +363,7 @@ where
 
 	/// Set the balance of the contract to the supplied amount.
 	pub fn set_balance(&self, value: impl Into<BalanceWithDust<BalanceOf<T>>>) {
-		let BalanceWithDust { value, dust } = value.into();
+		let (value, dust) = value.into().deconstruct();
 		T::Currency::set_balance(&self.account_id, value);
 		crate::AccountInfoOf::<T>::mutate(&self.address, |account| {
 			account.as_mut().map(|a| a.dust = dust);

@@ -1385,7 +1385,7 @@ where
 			to: &AccountIdOf<T>,
 			value: BalanceWithDust<BalanceOf<T>>,
 		) -> Result<(), ExecError> {
-			let BalanceWithDust { value, dust } = value;
+			let (value, dust) = value.deconstruct();
 
 			fn transfer_balance<T: Config>(
 				from: &AccountIdOf<T>,
@@ -1464,7 +1464,7 @@ where
 			Ok(())
 		}
 
-		let value = crate::Pallet::<T>::convert_evm_to_native(value)?;
+		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)?;
 		if value.is_zero() {
 			return Ok(Default::default());
 		}

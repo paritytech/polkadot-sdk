@@ -166,7 +166,7 @@ impl<T: Config> AccountInfo<T> {
 
 		let value = T::Currency::reducible_balance(&account.account_id(), Preserve, Polite);
 		let dust = <AccountInfoOf<T>>::get(account.address()).map(|a| a.dust).unwrap_or_default();
-		BalanceWithDust { value, dust }
+		BalanceWithDust::new_unchecked::<T>(value, dust)
 	}
 
 	/// Loads the contract information for a given address.

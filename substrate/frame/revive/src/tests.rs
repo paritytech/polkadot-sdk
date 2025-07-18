@@ -179,7 +179,7 @@ pub mod test_utils {
 	pub fn set_balance_with_dust(address: &H160, value: BalanceWithDust<BalanceOf<Test>>) {
 		use frame_support::traits::Currency;
 		let ed = <Test as Config>::Currency::minimum_balance();
-		let BalanceWithDust { value, dust } = value;
+		let (value, dust) = value.deconstruct();
 		let account_id = <Test as Config>::AddressMapper::to_account_id(&address);
 		<Test as Config>::Currency::set_balance(&account_id, ed + value);
 		if dust > 0 {
@@ -471,47 +471,47 @@ fn transfer_with_dust_works() {
 	let test_cases = vec![
 		TestCase {
 			description: "without dust",
-			from_balance: BalanceWithDust { value: 100, dust: 0 },
-			to_balance: BalanceWithDust { value: 0, dust: 0 },
-			amount: BalanceWithDust { value: 1, dust: 0 },
-			expected_from_balance: BalanceWithDust { value: 99, dust: 0 },
-			expected_to_balance: BalanceWithDust { value: 1, dust: 0 },
+			from_balance: BalanceWithDust::new_unchecked::<Test>(100, 0),
+			to_balance: BalanceWithDust::new_unchecked::<Test>(0, 0),
+			amount: BalanceWithDust::new_unchecked::<Test>(1, 0),
+			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(99, 0),
+			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(1, 0),
 			total_issuance_diff: 0,
 		},
 		TestCase {
 			description: "with dust",
-			from_balance: BalanceWithDust { value: 100, dust: 0 },
-			to_balance: BalanceWithDust { value: 0, dust: 0 },
-			amount: BalanceWithDust { value: 1, dust: 10 },
-			expected_from_balance: BalanceWithDust { value: 98, dust: plank - 10 },
-			expected_to_balance: BalanceWithDust { value: 1, dust: 10 },
+			from_balance: BalanceWithDust::new_unchecked::<Test>(100, 0),
+			to_balance: BalanceWithDust::new_unchecked::<Test>(0, 0),
+			amount: BalanceWithDust::new_unchecked::<Test>(1, 10),
+			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(98, plank - 10),
+			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(1, 10),
 			total_issuance_diff: 1,
 		},
 		TestCase {
 			description: "just dust",
-			from_balance: BalanceWithDust { value: 100, dust: 0 },
-			to_balance: BalanceWithDust { value: 0, dust: 0 },
-			amount: BalanceWithDust { value: 0, dust: 10 },
-			expected_from_balance: BalanceWithDust { value: 99, dust: plank - 10 },
-			expected_to_balance: BalanceWithDust { value: 0, dust: 10 },
+			from_balance: BalanceWithDust::new_unchecked::<Test>(100, 0),
+			to_balance: BalanceWithDust::new_unchecked::<Test>(0, 0),
+			amount: BalanceWithDust::new_unchecked::<Test>(0, 10),
+			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(99, plank - 10),
+			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(0, 10),
 			total_issuance_diff: 1,
 		},
 		TestCase {
 			description: "with existing dust",
-			from_balance: BalanceWithDust { value: 100, dust: 5 },
-			to_balance: BalanceWithDust { value: 0, dust: plank - 5 },
-			amount: BalanceWithDust { value: 1, dust: 10 },
-			expected_from_balance: BalanceWithDust { value: 98, dust: plank - 5 },
-			expected_to_balance: BalanceWithDust { value: 2, dust: 5 },
+			from_balance: BalanceWithDust::new_unchecked::<Test>(100, 5),
+			to_balance: BalanceWithDust::new_unchecked::<Test>(0, plank - 5),
+			amount: BalanceWithDust::new_unchecked::<Test>(1, 10),
+			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(98, plank - 5),
+			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(2, 5),
 			total_issuance_diff: 0,
 		},
 		TestCase {
 			description: "with enough existing dust",
-			from_balance: BalanceWithDust { value: 100, dust: 10 },
-			to_balance: BalanceWithDust { value: 0, dust: plank - 10 },
-			amount: BalanceWithDust { value: 1, dust: 10 },
-			expected_from_balance: BalanceWithDust { value: 99, dust: 0 },
-			expected_to_balance: BalanceWithDust { value: 2, dust: 0 },
+			from_balance: BalanceWithDust::new_unchecked::<Test>(100, 10),
+			to_balance: BalanceWithDust::new_unchecked::<Test>(0, plank - 10),
+			amount: BalanceWithDust::new_unchecked::<Test>(1, 10),
+			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(99, 0),
+			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(2, 0),
 			total_issuance_diff: -1,
 		},
 	];
@@ -533,8 +533,9 @@ fn transfer_with_dust_works() {
 			let total_issuance = <Test as Config>::Currency::total_issuance();
 			let evm_value = Pallet::<Test>::convert_native_to_evm(amount);
 
-			assert_eq!(Pallet::<Test>::has_dust(evm_value), !amount.dust.is_zero());
-			assert_eq!(Pallet::<Test>::has_balance(evm_value), !amount.value.is_zero());
+			let (value, dust) = amount.deconstruct();
+			assert_eq!(Pallet::<Test>::has_dust(evm_value), !dust.is_zero());
+			assert_eq!(Pallet::<Test>::has_balance(evm_value), !value.is_zero());
 
 			let result =
 				builder::bare_call(BOB_ADDR).evm_value(evm_value).build_and_unwrap_result();
