@@ -130,3 +130,29 @@ impl<T: Config> SteppedMigration for Migration<T> {
 		Ok(())
 	}
 }
+
+#[test]
+fn migrate_to_v1() {
+	use crate::{
+		tests::{ExtBuilder, Test},
+		ContractInfo,
+	};
+	ExtBuilder::default().build().execute_with(|| {
+		for i in 0..10u8 {
+			let addr = H160::from([i; 20]);
+			old::ContractInfoOf::<Test>::insert(
+				addr,
+				ContractInfo::new(&addr, 1u32.into(), Default::default()).unwrap(),
+			);
+		}
+
+		let mut cursor = None;
+		let mut weight_meter = WeightMeter::new();
+		while let Some(new_cursor) = Migration::<Test>::step(cursor, &mut weight_meter).unwrap() {
+			cursor = Some(new_cursor);
+		}
+
+		assert_eq!(old::ContractInfoOf::<Test>::iter().count(), 0);
+		assert_eq!(AccountInfoOf::<Test>::iter().count(), 10);
+	})
+}
