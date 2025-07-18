@@ -1,0 +1,16 @@
+title: Allow locking to bump consumer without limits
+doc:
+- audience: Todo
+  description: |-
+    Locking is a system-level operation, and can only increment the consumer limit at most once. Therefore, it should use `inc_consumer_without_limits`. This behavior is optional, and is only used in the call path of `LockableCurrency`. Reserves, Holds and Freezes (and other operations like transfer etc.) have the ability to return `DispatchResult` and don't need this bypass. This is demonstrated in the unit tests added.
+
+    Beyond this, this PR:
+
+    * uses the correct way to get the account data in tests
+    * adds an `Unexpected` event instead of a silent `debug_assert!`.
+    * Adds `try_state` checks for correctness of `account.frozen` invariant.
+crates:
+- name: pallet-balances
+  bump: patch
+- name: frame-support
+  bump: patch
