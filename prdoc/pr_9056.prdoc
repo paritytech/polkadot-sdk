@@ -1,0 +1,21 @@
+title: add benchmark for prune-era
+doc:
+- audience: Runtime Dev
+  description: Add benchmarking and weight calculation for `prune_era` in `staking-async`.
+crates:
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: pallet-election-provider-multi-block
+  bump: minor
+- name: pallet-election-provider-multi-phase
+  bump: minor
+- name: frame-election-provider-support
+  bump: major
+- name: pallet-fast-unstake
+  bump: patch
+- name: pallet-staking-async-parachain-runtime
+  bump: patch
+- name: pallet-staking-async
+  bump: major
+- name: frame-benchmarking-cli
+  bump: patch

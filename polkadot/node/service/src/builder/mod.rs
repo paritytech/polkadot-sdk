@@ -90,8 +90,6 @@ pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	#[allow(dead_code)]
 	pub malus_finality_delay: Option<u32>,
 	pub hwbench: Option<sc_sysinfo::HwBench>,
-	/// Enable approval voting processing in parallel.
-	pub enable_approval_voting_parallel: bool,
 }
 
 /// Completely built polkadot node service.
@@ -144,7 +142,6 @@ where
 				overseer_handle.clone(),
 				metrics,
 				Some(basics.task_manager.spawn_handle()),
-				params.enable_approval_voting_parallel,
 			)
 		} else {
 			SelectRelayChain::new_longest_chain(basics.backend.clone())
@@ -202,7 +199,6 @@ where
 					prepare_workers_soft_max_num,
 					prepare_workers_hard_max_num,
 					keep_finalized_for,
-					enable_approval_voting_parallel,
 				},
 			overseer_connector,
 			partial_components:
@@ -444,7 +440,6 @@ where
 				dispute_coordinator_config,
 				chain_selection_config,
 				fetch_chunks_threshold,
-				enable_approval_voting_parallel,
 			})
 		};
 
@@ -485,6 +480,7 @@ where
 			);
 		}
 
+		let network_config = config.network.clone();
 		let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 			config,
 			backend: backend.clone(),
@@ -573,6 +569,7 @@ where
 					public_addresses: auth_disc_public_addresses,
 					// Require that authority discovery records are signed.
 					strict_record_validation: true,
+					persisted_cache_directory: network_config.net_config_path,
 					..Default::default()
 				},
 				client.clone(),
@@ -580,6 +577,7 @@ where
 				Box::pin(dht_event_stream),
 				authority_discovery_role,
 				prometheus_registry.clone(),
+				task_manager.spawn_handle(),
 			);
 
 			task_manager.spawn_handle().spawn(

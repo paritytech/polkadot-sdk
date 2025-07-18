@@ -622,7 +622,7 @@ asset_test_utils::include_teleports_for_native_asset_works!(
 	Runtime,
 	AllPalletsWithoutSystem,
 	XcmConfig,
-	CheckingAccount,
+	(),
 	WeightToFee,
 	ParachainSystem,
 	collator_session_keys(),
@@ -1108,11 +1108,11 @@ fn change_xcm_bridge_hub_router_base_fee_by_governance_works() {
 		1000,
 		Governance::get(),
 		|| {
-			log::error!(
+			tracing::error!(
 				target: "bridges::estimate",
-				"`bridging::XcmBridgeHubRouterBaseFee` actual value: {} for runtime: {}",
-				bridging::XcmBridgeHubRouterBaseFee::get(),
-				<Runtime as frame_system::Config>::Version::get(),
+				actual_value=%bridging::XcmBridgeHubRouterBaseFee::get(),
+				runtime=%<Runtime as frame_system::Config>::Version::get(),
+				"`bridging::XcmBridgeHubRouterBaseFee`"
 			);
 			(
 				bridging::XcmBridgeHubRouterBaseFee::key().to_vec(),
@@ -1140,11 +1140,11 @@ fn change_xcm_bridge_hub_ethereum_base_fee_by_governance_works() {
 		1000,
 		Governance::get(),
 		|| {
-			log::error!(
+			tracing::error!(
 				target: "bridges::estimate",
-				"`bridging::BridgeHubEthereumBaseFee` actual value: {} for runtime: {}",
-				bridging::to_ethereum::BridgeHubEthereumBaseFee::get(),
-				<Runtime as frame_system::Config>::Version::get(),
+				actual_value=%bridging::to_ethereum::BridgeHubEthereumBaseFee::get(),
+				runtime=%<Runtime as frame_system::Config>::Version::get(),
+				"`bridging::BridgeHubEthereumBaseFee`"
 			);
 			(
 				bridging::to_ethereum::BridgeHubEthereumBaseFee::key().to_vec(),

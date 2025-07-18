@@ -15,3 +15,4 @@
 
 mod claim_assets;
 mod coretime_interface;
+mod teleport;
