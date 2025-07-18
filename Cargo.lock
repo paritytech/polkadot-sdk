@@ -11947,6 +11947,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-io 30.0.0",
+ "substrate-test-utils",
 ]
 
 [[package]]
