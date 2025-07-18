@@ -71,7 +71,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 				break;
 			}
 
-			let mut iter = if let Some(last_key) = cursor {
+			let iter = if let Some(last_key) = cursor {
 				old::ContractInfoOf::<T>::iter_from(old::ContractInfoOf::<T>::hashed_key_for(
 					last_key,
 				))
@@ -79,8 +79,9 @@ impl<T: Config> SteppedMigration for Migration<T> {
 				old::ContractInfoOf::<T>::iter()
 			};
 
+			let mut iter = iter.drain();
+
 			if let Some((last_key, value)) = iter.next() {
-				old::ContractInfoOf::<T>::remove(last_key);
 				AccountInfoOf::<T>::insert(
 					last_key,
 					AccountInfo { account_type: value.into(), ..Default::default() },
