@@ -91,11 +91,9 @@ impl<T: Config<I>, I: 'static, BasePrice: Get<Assets>>
 
 		// Apply dynamic congestion fees based on bridge state (if needed).
 		if let Some(bridge_state) = Bridges::<T, I>::get(bridge_id) {
-			let mut dynamic_fees = sp_std::vec::Vec::with_capacity(price.len());
-			for fee in price.into_inner() {
-				dynamic_fees.push(
-					Pallet::<T, I>::apply_dynamic_fee_factor(&bridge_state, fee)
-				);
+			let mut dynamic_fees = price.into_inner();
+			for fee in dynamic_fees.iter_mut() {
+				Pallet::<T, I>::apply_dynamic_fee_factor(&bridge_state, fee);
 			}
 			price = Assets::from(dynamic_fees);
 		}
