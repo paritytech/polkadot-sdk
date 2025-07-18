@@ -8,9 +8,13 @@ contract CallDataSize {
     /// @notice Deploy function (empty implementation)
     constructor() {}
     
-    /// @notice Main call function that returns the call data size
-    function call() public pure returns (uint32) {
-        // Return the size of the call data
-        return uint32(msg.data.length);
+    /// @notice Main fallback function that returns the call data size
+    fallback() external payable {
+        // Return the size of the call data as little-endian bytes
+        uint32 size = uint32(msg.data.length);
+        assembly {
+            mstore(0x00, size)
+            return(0x00, 0x04)
+        }
     }
 }

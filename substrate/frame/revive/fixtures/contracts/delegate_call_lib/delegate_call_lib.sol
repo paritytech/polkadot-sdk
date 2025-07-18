@@ -6,7 +6,7 @@ contract DelegateCallLib {
         // Empty constructor
     }
     
-    function call() external payable {
+    fallback() external payable {
         // Set a value in storage at key 1
         bytes32 key = bytes32(uint256(1));
         bytes32 value = bytes32(uint256(1));

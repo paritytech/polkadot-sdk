@@ -15,8 +15,12 @@ contract RefTimeLeft {
         require(gas1 > gas2, "Gas should decrease");
     }
     
-    function call() external view returns (uint64) {
-        // Return the remaining gas as a 64-bit value
-        return uint64(gasleft());
+    fallback() external payable {
+        // Return the remaining gas as a 64-bit value in little-endian format
+        uint64 refTimeLeft = uint64(gasleft());
+        assembly {
+            mstore(0x00, refTimeLeft)
+            return(0x00, 0x08)
+        }
     }
 }

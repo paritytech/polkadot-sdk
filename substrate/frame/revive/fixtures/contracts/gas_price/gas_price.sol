@@ -6,7 +6,12 @@ contract GasPrice {
         // Empty constructor
     }
     
-    function call() external view returns (uint256) {
-        return tx.gasprice;
+    fallback() external payable {
+        uint256 gasPrice = tx.gasprice;
+        // Return as little-endian 8-byte array
+        assembly {
+            mstore(0x00, gasPrice)
+            return(0x00, 0x08)
+        }
     }
 }

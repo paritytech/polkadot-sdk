@@ -15,7 +15,7 @@ contract EventAndReturnOnDeploy {
         }
     }
     
-    function call() external pure {
+    fallback() external payable {
         revert("Should not be called");
     }
 }

@@ -6,8 +6,19 @@ contract BlockHash {
         // Empty constructor
     }
     
-    function call(uint256 blockNumber, bytes32 expectedBlockHash) external view {
-        bytes32 actualBlockHash = blockhash(blockNumber);
+    fallback() external payable {
+        // Extract block number and expected block hash from calldata
+        require(msg.data.length >= 64, "Insufficient calldata");
+        
+        bytes32 blockNumber;
+        bytes32 expectedBlockHash;
+        
+        assembly {
+            blockNumber := calldataload(0)
+            expectedBlockHash := calldataload(32)
+        }
+        
+        bytes32 actualBlockHash = blockhash(uint256(blockNumber));
         require(actualBlockHash == expectedBlockHash, "Block hash mismatch");
     }
 }

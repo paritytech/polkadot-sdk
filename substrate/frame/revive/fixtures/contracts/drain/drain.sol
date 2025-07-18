@@ -6,7 +6,7 @@ contract Drain {
         // Empty constructor
     }
     
-    function call() external {
+    fallback() external payable {
         uint256 balance = address(this).balance;
         
         // Add a minimum balance amount to exceed current balance

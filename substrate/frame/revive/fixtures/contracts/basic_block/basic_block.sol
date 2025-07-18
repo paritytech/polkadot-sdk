@@ -6,8 +6,8 @@ contract BasicBlock {
         // Empty constructor
     }
     
-    function call() external pure {
-        // Empty call function
+    fallback() external payable {
+        // Empty fallback function
     }
     
     function callNever() external {

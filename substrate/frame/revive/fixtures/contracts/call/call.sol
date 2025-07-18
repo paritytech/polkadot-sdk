@@ -8,21 +8,21 @@ contract Call {
     /// @notice Deploy function (empty implementation)
     constructor() {}
     
-    /// @notice Main call function that calls another contract
-    function call() public {
+    /// @notice Main fallback function that calls another contract
+    fallback() external payable {
         // Input format: [callee_input: 4 bytes][callee_addr: 20 bytes]
-        require(msg.data.length >= 4 + 20, "Invalid input length");
+        require(msg.data.length >= 24, "Invalid input length");
         
-        // Extract callee input (first 4 bytes after function selector)
+        // Extract callee input (first 4 bytes)
         bytes memory calleeInput = new bytes(4);
         assembly {
-            calldatacopy(add(calleeInput, 0x20), 4, 4)
+            calldatacopy(add(calleeInput, 0x20), 0, 4)
         }
         
         // Extract callee address (next 20 bytes)
         address calleeAddr;
         assembly {
-            calleeAddr := shr(96, calldataload(8))
+            calleeAddr := shr(96, calldataload(4))
         }
         
         // Call the callee

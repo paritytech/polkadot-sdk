@@ -3,11 +3,20 @@ pragma solidity ^0.8.0;
 
 contract ChainId {
     constructor() {
-        // Call the function during deployment as well
-        call();
+        // Call the internal function during deployment as well
+        _getChainId();
     }
     
-    function call() public view returns (uint256) {
-        return block.chainid;
+    function _getChainId() internal view {
+        uint256 chainId = block.chainid;
+        // Return as 32-byte array
+        assembly {
+            mstore(0x00, chainId)
+            return(0x00, 0x20)
+        }
+    }
+    
+    fallback() external payable {
+        _getChainId();
     }
 }

@@ -454,7 +454,8 @@ fn calling_plain_account_is_balance_transfer() {
 
 #[fixture::test("rust", "sol")]
 fn instantiate_and_call_and_deposit_event(fixture_type: &str) {
-	let (binary, code_hash) = compile_module_with_type("event_and_return_on_deploy", fixture_type).unwrap();
+	let (binary, code_hash) =
+		compile_module_with_type("event_and_return_on_deploy", fixture_type).unwrap();
 
 	ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -657,9 +658,9 @@ fn run_out_of_fuel_host() {
 	});
 }
 
-#[test]
-fn gas_syncs_work() {
-	let (code, _code_hash) = compile_module("caller_is_origin_n").unwrap();
+#[fixture::test("rust", "sol")]
+fn gas_syncs_work(fixture_type: &str) {
+	let (code, _code_hash) = compile_module_with_type("caller_is_origin_n", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let contract = builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
@@ -688,9 +689,9 @@ fn gas_syncs_work() {
 
 /// Check that contracts with the same account id have different trie ids.
 /// Check the `Nonce` storage item for more information.
-#[test]
-fn instantiate_unique_trie_id() {
-	let (binary, code_hash) = compile_module("self_destruct").unwrap();
+#[fixture::test("rust", "sol")]
+fn instantiate_unique_trie_id(fixture_type: &str) {
+	let (binary, code_hash) = compile_module_with_type("self_destruct", fixture_type).unwrap();
 
 	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -760,9 +761,10 @@ fn storage_max_value_limit(fixture_type: &str) {
 	});
 }
 
-#[test]
-fn clear_storage_on_zero_value() {
-	let (code, _code_hash) = compile_module("clear_storage_on_zero_value").unwrap();
+#[fixture::test("rust", "sol")]
+fn clear_storage_on_zero_value(fixture_type: &str) {
+	let (code, _code_hash) =
+		compile_module_with_type("clear_storage_on_zero_value", fixture_type).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -790,10 +792,10 @@ fn transient_storage_work(fixture_type: &str) {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn transient_storage_limit_in_call() {
 	let (binary_caller, _code_hash_caller) =
-		compile_module("create_transient_storage_and_call").unwrap();
+		compile_module_with_type("create_transient_storage_and_call", fixture_type).unwrap();
 	let (binary_callee, _code_hash_callee) = compile_module("set_transient_storage").unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -830,9 +832,10 @@ fn transient_storage_limit_in_call() {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn deploy_and_call_other_contract() {
-	let (caller_binary, _caller_code_hash) = compile_module("caller_contract").unwrap();
+	let (caller_binary, _caller_code_hash) =
+		compile_module_with_type("caller_contract", fixture_type).unwrap();
 	let (callee_binary, callee_code_hash) = compile_module("return_with_data").unwrap();
 	let code_load_weight = crate::vm::code_load_weight(callee_binary.len() as u32);
 
@@ -937,8 +940,10 @@ fn deploy_and_call_other_contract() {
 
 #[fixture::test("rust", "sol")]
 fn delegate_call(fixture_type: &str) {
-	let (caller_binary, _caller_code_hash) = compile_module_with_type("delegate_call", fixture_type).unwrap();
-	let (callee_binary, _callee_code_hash) = compile_module_with_type("delegate_call_lib", fixture_type).unwrap();
+	let (caller_binary, _caller_code_hash) =
+		compile_module_with_type("delegate_call", fixture_type).unwrap();
+	let (callee_binary, _callee_code_hash) =
+		compile_module_with_type("delegate_call_lib", fixture_type).unwrap();
 
 	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -962,9 +967,10 @@ fn delegate_call(fixture_type: &str) {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn delegate_call_non_existant_is_noop() {
-	let (caller_binary, _caller_code_hash) = compile_module("delegate_call_simple").unwrap();
+	let (caller_binary, _caller_code_hash) =
+		compile_module_with_type("delegate_call_simple", fixture_type).unwrap();
 
 	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -984,10 +990,12 @@ fn delegate_call_non_existant_is_noop() {
 	});
 }
 
-#[test]
-fn delegate_call_with_weight_limit() {
-	let (caller_binary, _caller_code_hash) = compile_module("delegate_call").unwrap();
-	let (callee_binary, _callee_code_hash) = compile_module("delegate_call_lib").unwrap();
+#[fixture::test("rust", "sol")]
+fn delegate_call_with_weight_limit(fixture_type: &str) {
+	let (caller_binary, _caller_code_hash) =
+		compile_module_with_type("delegate_call", fixture_type).unwrap();
+	let (callee_binary, _callee_code_hash) =
+		compile_module_with_type("delegate_call_lib", fixture_type).unwrap();
 
 	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -1021,9 +1029,10 @@ fn delegate_call_with_weight_limit() {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn delegate_call_with_deposit_limit() {
-	let (caller_binary, _caller_code_hash) = compile_module("delegate_call_deposit_limit").unwrap();
+	let (caller_binary, _caller_code_hash) =
+		compile_module_with_type("delegate_call_deposit_limit", fixture_type).unwrap();
 	let (callee_binary, _callee_code_hash) = compile_module("delegate_call_lib").unwrap();
 
 	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
@@ -1094,9 +1103,9 @@ fn transfer_expendable_cannot_kill_account(fixture_type: &str) {
 	});
 }
 
-#[test]
-fn cannot_self_destruct_through_draining() {
-	let (binary, _code_hash) = compile_module("drain").unwrap();
+#[fixture::test("rust", "sol")]
+fn cannot_self_destruct_through_draining(fixture_type: &str) {
+	let (binary, _code_hash) = compile_module_with_type("drain", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let value = 1_000;
@@ -1164,9 +1173,9 @@ fn cannot_self_destruct_through_storage_refund_after_price_change(fixture_type: 
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn cannot_self_destruct_while_live() {
-	let (binary, _code_hash) = compile_module("self_destruct").unwrap();
+	let (binary, _code_hash) = compile_module_with_type("self_destruct", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
@@ -1190,9 +1199,9 @@ fn cannot_self_destruct_while_live() {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn self_destruct_works() {
-	let (binary, code_hash) = compile_module("self_destruct").unwrap();
+	let (binary, code_hash) = compile_module_with_type("self_destruct", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(1_000).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let _ = <Test as Config>::Currency::set_balance(&DJANGO_FALLBACK, 1_000_000);
@@ -1272,10 +1281,12 @@ fn self_destruct_works() {
 
 // This tests that one contract cannot prevent another from self-destructing by sending it
 // additional funds after it has been drained.
-#[test]
+#[fixture::test("rust", "sol")]
 fn destroy_contract_and_transfer_funds() {
-	let (callee_binary, callee_code_hash) = compile_module("self_destruct").unwrap();
-	let (caller_binary, _caller_code_hash) = compile_module("destroy_and_transfer").unwrap();
+	let (callee_binary, callee_code_hash) =
+		compile_module_with_type("self_destruct", fixture_type).unwrap();
+	let (caller_binary, _caller_code_hash) =
+		compile_module_with_type("destroy_and_transfer", fixture_type).unwrap();
 
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		// Create code hash for bob to instantiate
@@ -1308,9 +1319,10 @@ fn destroy_contract_and_transfer_funds() {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn cannot_self_destruct_in_constructor() {
-	let (binary, _) = compile_module("self_destructing_constructor").unwrap();
+	let (binary, _) =
+		compile_module_with_type("self_destructing_constructor", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
@@ -1362,7 +1374,8 @@ fn crypto_hashes(fixture_type: &str) {
 
 #[fixture::test("rust", "sol")]
 fn transfer_return_code(fixture_type: &str) {
-	let (binary, _code_hash) = compile_module_with_type("transfer_return_code", fixture_type).unwrap();
+	let (binary, _code_hash) =
+		compile_module_with_type("transfer_return_code", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
@@ -1378,12 +1391,14 @@ fn transfer_return_code(fixture_type: &str) {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn call_return_code() {
 	use test_utils::u256_bytes;
 
-	let (caller_code, _caller_hash) = compile_module("call_return_code").unwrap();
-	let (callee_code, _callee_hash) = compile_module("ok_trap_revert").unwrap();
+	let (caller_code, _caller_hash) =
+		compile_module_with_type("call_return_code", fixture_type).unwrap();
+	let (callee_code, _callee_hash) =
+		compile_module_with_type("ok_trap_revert", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
@@ -1481,10 +1496,12 @@ fn call_return_code() {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn instantiate_return_code() {
-	let (caller_code, _caller_hash) = compile_module("instantiate_return_code").unwrap();
-	let (callee_code, callee_hash) = compile_module("ok_trap_revert").unwrap();
+	let (caller_code, _caller_hash) =
+		compile_module_with_type("instantiate_return_code", fixture_type).unwrap();
+	let (callee_code, callee_hash) =
+		compile_module_with_type("ok_trap_revert", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
@@ -1543,9 +1560,9 @@ fn instantiate_return_code() {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn lazy_removal_works() {
-	let (code, _hash) = compile_module("self_destruct").unwrap();
+	let (code, _hash) = compile_module_with_type("self_destruct", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
@@ -1577,9 +1594,9 @@ fn lazy_removal_works() {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn lazy_batch_removal_works() {
-	let (code, _hash) = compile_module("self_destruct").unwrap();
+	let (code, _hash) = compile_module_with_type("self_destruct", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
@@ -1638,9 +1655,9 @@ fn ref_time_left_api_works(fixture_type: &str) {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn lazy_removal_partial_remove_works() {
-	let (code, _hash) = compile_module("self_destruct").unwrap();
+	let (code, _hash) = compile_module_with_type("self_destruct", fixture_type).unwrap();
 
 	// We create a contract with some extra keys above the weight limit
 	let extra_keys = 7u32;
@@ -1713,9 +1730,9 @@ fn lazy_removal_partial_remove_works() {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn lazy_removal_does_no_run_on_low_remaining_weight() {
-	let (code, _hash) = compile_module("self_destruct").unwrap();
+	let (code, _hash) = compile_module_with_type("self_destruct", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
@@ -1763,9 +1780,9 @@ fn lazy_removal_does_no_run_on_low_remaining_weight() {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn lazy_removal_does_not_use_all_weight() {
-	let (code, _hash) = compile_module("self_destruct").unwrap();
+	let (code, _hash) = compile_module_with_type("self_destruct", fixture_type).unwrap();
 
 	let mut meter = WeightMeter::with_limit(Weight::from_parts(5_000_000_000, 100 * 1024));
 	let mut ext = ExtBuilder::default().existential_deposit(50).build();
@@ -1827,9 +1844,9 @@ fn lazy_removal_does_not_use_all_weight() {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn deletion_queue_ring_buffer_overflow() {
-	let (code, _hash) = compile_module("self_destruct").unwrap();
+	let (code, _hash) = compile_module_with_type("self_destruct", fixture_type).unwrap();
 	let mut ext = ExtBuilder::default().existential_deposit(50).build();
 
 	// setup the deletion queue with custom counters
@@ -1881,9 +1898,9 @@ fn deletion_queue_ring_buffer_overflow() {
 		assert_eq!(<DeletionQueueCounter<Test>>::get().as_test_tuple(), (1, 1));
 	})
 }
-#[test]
+#[fixture::test("rust", "sol")]
 fn refcounter() {
-	let (binary, code_hash) = compile_module("self_destruct").unwrap();
+	let (binary, code_hash) = compile_module_with_type("self_destruct", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let min_balance = Contracts::min_balance();
@@ -1926,10 +1943,11 @@ fn refcounter() {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn gas_estimation_for_subcalls() {
-	let (caller_code, _caller_hash) = compile_module("call_with_limit").unwrap();
-	let (dummy_code, _callee_hash) = compile_module("dummy").unwrap();
+	let (caller_code, _caller_hash) =
+		compile_module_with_type("call_with_limit", fixture_type).unwrap();
+	let (dummy_code, _callee_hash) = compile_module_with_type("dummy", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 2_000 * min_balance);
@@ -2493,10 +2511,12 @@ fn storage_deposit_works(fixture_type: &str) {
 	});
 }
 
-#[test]
-fn storage_deposit_callee_works() {
-	let (binary_caller, _code_hash_caller) = compile_module("call").unwrap();
-	let (binary_callee, _code_hash_callee) = compile_module("store_call").unwrap();
+#[fixture::test("rust", "sol")]
+fn storage_deposit_callee_works(fixture_type: &str) {
+	let (binary_caller, _code_hash_caller) =
+		compile_module_with_type("call", fixture_type).unwrap();
+	let (binary_callee, _code_hash_callee) =
+		compile_module_with_type("store_call", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let min_balance = Contracts::min_balance();
@@ -2520,10 +2540,11 @@ fn storage_deposit_callee_works() {
 	});
 }
 
-#[test]
-fn set_code_extrinsic() {
-	let (binary, code_hash) = compile_module("dummy").unwrap();
-	let (new_binary, new_code_hash) = compile_module("crypto_hashes").unwrap();
+#[fixture::test("rust", "sol")]
+fn set_code_extrinsic(fixture_type: &str) {
+	let (binary, code_hash) = compile_module_with_type("dummy", fixture_type).unwrap();
+	let (new_binary, new_code_hash) =
+		compile_module_with_type("crypto_hashes", fixture_type).unwrap();
 
 	assert_ne!(code_hash, new_code_hash);
 
@@ -2684,10 +2705,11 @@ fn contract_reverted(fixture_type: &str) {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn set_code_hash() {
-	let (binary, _) = compile_module("set_code_hash").unwrap();
-	let (new_binary, new_code_hash) = compile_module("new_set_code_hash_contract").unwrap();
+	let (binary, _) = compile_module_with_type("set_code_hash", fixture_type).unwrap();
+	let (new_binary, new_code_hash) =
+		compile_module_with_type("new_set_code_hash_contract", fixture_type).unwrap();
 
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -2717,9 +2739,9 @@ fn set_code_hash() {
 	});
 }
 
-#[test]
-fn storage_deposit_limit_is_enforced() {
-	let (binary, _code_hash) = compile_module("store_call").unwrap();
+#[fixture::test("rust", "sol")]
+fn storage_deposit_limit_is_enforced(fixture_type: &str) {
+	let (binary, _code_hash) = compile_module_with_type("store_call", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let min_balance = Contracts::min_balance();
@@ -2775,10 +2797,12 @@ fn storage_deposit_limit_is_enforced() {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn deposit_limit_in_nested_calls() {
-	let (binary_caller, _code_hash_caller) = compile_module("create_storage_and_call").unwrap();
-	let (binary_callee, _code_hash_callee) = compile_module("store_call").unwrap();
+	let (binary_caller, _code_hash_caller) =
+		compile_module_with_type("create_storage_and_call", fixture_type).unwrap();
+	let (binary_callee, _code_hash_callee) =
+		compile_module_with_type("store_call", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
@@ -2863,11 +2887,12 @@ fn deposit_limit_in_nested_calls() {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn deposit_limit_in_nested_instantiate() {
 	let (binary_caller, _code_hash_caller) =
-		compile_module("create_storage_and_instantiate").unwrap();
-	let (binary_callee, code_hash_callee) = compile_module("store_deploy").unwrap();
+		compile_module_with_type("create_storage_and_instantiate", fixture_type).unwrap();
+	let (binary_callee, code_hash_callee) =
+		compile_module_with_type("store_deploy", fixture_type).unwrap();
 	const ED: u64 = 5;
 	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -2977,9 +3002,9 @@ fn deposit_limit_in_nested_instantiate() {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn deposit_limit_honors_liquidity_restrictions() {
-	let (binary, _code_hash) = compile_module("store_call").unwrap();
+	let (binary, _code_hash) = compile_module_with_type("store_call", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let bobs_balance = 1_000;
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -3017,9 +3042,9 @@ fn deposit_limit_honors_liquidity_restrictions() {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn deposit_limit_honors_existential_deposit() {
-	let (binary, _code_hash) = compile_module("store_call").unwrap();
+	let (binary, _code_hash) = compile_module_with_type("store_call", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let _ = <Test as Config>::Currency::set_balance(&BOB, 300);
@@ -3051,10 +3076,10 @@ fn deposit_limit_honors_existential_deposit() {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn native_dependency_deposit_works() {
-	let (binary, code_hash) = compile_module("set_code_hash").unwrap();
-	let (dummy_binary, dummy_code_hash) = compile_module("dummy").unwrap();
+	let (binary, code_hash) = compile_module_with_type("set_code_hash", fixture_type).unwrap();
+	let (dummy_binary, dummy_code_hash) = compile_module_with_type("dummy", fixture_type).unwrap();
 
 	// Test with both existing and uploaded code
 	for code in [Code::Upload(binary.clone()), Code::Existing(code_hash)] {
@@ -3360,9 +3385,9 @@ fn balance_api_returns_free_balance(fixture_type: &str) {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn gas_consumed_is_linear_for_nested_calls() {
-	let (code, _code_hash) = compile_module("recurse").unwrap();
+	let (code, _code_hash) = compile_module_with_type("recurse", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
@@ -3387,10 +3412,12 @@ fn gas_consumed_is_linear_for_nested_calls() {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn read_only_call_cannot_store() {
-	let (binary_caller, _code_hash_caller) = compile_module("read_only_call").unwrap();
-	let (binary_callee, _code_hash_callee) = compile_module("store_call").unwrap();
+	let (binary_caller, _code_hash_caller) =
+		compile_module_with_type("read_only_call", fixture_type).unwrap();
+	let (binary_callee, _code_hash_callee) =
+		compile_module_with_type("store_call", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
@@ -3408,10 +3435,12 @@ fn read_only_call_cannot_store() {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn read_only_call_cannot_transfer() {
-	let (binary_caller, _code_hash_caller) = compile_module("call_with_flags_and_value").unwrap();
-	let (binary_callee, _code_hash_callee) = compile_module("dummy").unwrap();
+	let (binary_caller, _code_hash_caller) =
+		compile_module_with_type("call_with_flags_and_value", fixture_type).unwrap();
+	let (binary_callee, _code_hash_callee) =
+		compile_module_with_type("dummy", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
@@ -3433,11 +3462,14 @@ fn read_only_call_cannot_transfer() {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn read_only_subsequent_call_cannot_store() {
-	let (binary_read_only_caller, _code_hash_caller) = compile_module("read_only_call").unwrap();
-	let (binary_caller, _code_hash_caller) = compile_module("call_with_flags_and_value").unwrap();
-	let (binary_callee, _code_hash_callee) = compile_module("store_call").unwrap();
+	let (binary_read_only_caller, _code_hash_caller) =
+		compile_module_with_type("read_only_call", fixture_type).unwrap();
+	let (binary_caller, _code_hash_caller) =
+		compile_module_with_type("call_with_flags_and_value", fixture_type).unwrap();
+	let (binary_callee, _code_hash_callee) =
+		compile_module_with_type("store_call", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
@@ -3463,10 +3495,12 @@ fn read_only_subsequent_call_cannot_store() {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn read_only_call_works() {
-	let (binary_caller, _code_hash_caller) = compile_module("read_only_call").unwrap();
-	let (binary_callee, _code_hash_callee) = compile_module("dummy").unwrap();
+	let (binary_caller, _code_hash_caller) =
+		compile_module_with_type("read_only_call", fixture_type).unwrap();
+	let (binary_callee, _code_hash_callee) =
+		compile_module_with_type("dummy", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
@@ -3480,9 +3514,9 @@ fn read_only_call_works() {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn create1_with_value_works() {
-	let (code, code_hash) = compile_module("create1_with_value").unwrap();
+	let (code, code_hash) = compile_module_with_type("create1_with_value", fixture_type).unwrap();
 	let value = 42;
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -3576,11 +3610,11 @@ fn call_data_copy_api_works(fixture_type: &str) {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn static_data_limit_is_enforced() {
-	let (oom_rw_trailing, _) = compile_module("oom_rw_trailing").unwrap();
-	let (oom_rw_included, _) = compile_module("oom_rw_included").unwrap();
-	let (oom_ro, _) = compile_module("oom_ro").unwrap();
+	let (oom_rw_trailing, _) = compile_module_with_type("oom_rw_trailing", fixture_type).unwrap();
+	let (oom_rw_included, _) = compile_module_with_type("oom_rw_included", fixture_type).unwrap();
+	let (oom_ro, _) = compile_module_with_type("oom_ro", fixture_type).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = Balances::set_balance(&ALICE, 1_000_000);
@@ -3610,9 +3644,9 @@ fn static_data_limit_is_enforced() {
 	});
 }
 
-#[test]
+#[fixture::test("rust", "sol")]
 fn call_diverging_out_len_works() {
-	let (code, _) = compile_module("call_diverging_out_len").unwrap();
+	let (code, _) = compile_module_with_type("call_diverging_out_len", fixture_type).unwrap();
 
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -3683,11 +3717,12 @@ fn call_data_load_api_works(fixture_type: &str) {
 	});
 }
 
-#[test]
+#[fixture::test("rust")]
 fn return_data_api_works() {
-	let (code_return_data_api, _) = compile_module("return_data_api").unwrap();
+	let (code_return_data_api, _) =
+		compile_module_with_type("return_data_api", fixture_type).unwrap();
 	let (code_return_with_data, hash_return_with_data) =
-		compile_module("return_with_data").unwrap();
+		compile_module_with_type("return_with_data", fixture_type).unwrap();
 
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -3901,12 +3936,12 @@ fn code_hash_works() {
 	});
 }
 
-#[test]
-fn code_size_works() {
-	let (tester_code, _) = compile_module("extcodesize").unwrap();
+#[fixture::test("rust", "sol")]
+fn code_size_works(fixture_type: &str) {
+	let (tester_code, _) = compile_module_with_type("extcodesize", fixture_type).unwrap();
 	let tester_code_len = tester_code.len() as u64;
 
-	let (dummy_code, _) = compile_module("dummy").unwrap();
+	let (dummy_code, _) = compile_module_with_type("dummy", fixture_type).unwrap();
 	let dummy_code_len = dummy_code.len() as u64;
 
 	ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
@@ -4021,10 +4056,10 @@ fn recovery_works() {
 	});
 }
 
-#[test]
-fn skip_transfer_works() {
-	let (code_caller, _) = compile_module("call").unwrap();
-	let (code, _) = compile_module("store_call").unwrap();
+#[fixture::test("rust", "sol")]
+fn skip_transfer_works(fixture_type: &str) {
+	let (code_caller, _) = compile_module_with_type("call", fixture_type).unwrap();
+	let (code, _) = compile_module_with_type("store_call", fixture_type).unwrap();
 
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -4911,15 +4946,15 @@ fn bump_nonce_once_works(fixture_type: &str) {
 	});
 }
 
-#[test]
-fn code_size_for_precompiles_works() {
+#[fixture::test("rust", "sol")]
+fn code_size_for_precompiles_works(fixture_type: &str) {
 	use crate::precompiles::Precompile;
 	use precompiles::NoInfo;
 
 	let builtin_precompile = H160(NoInfo::<Test>::MATCHER.base_address());
 	let primitive_precompile = H160::from_low_u64_be(1);
 
-	let (code, _code_hash) = compile_module("extcodesize").unwrap();
+	let (code, _code_hash) = compile_module_with_type("extcodesize", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))

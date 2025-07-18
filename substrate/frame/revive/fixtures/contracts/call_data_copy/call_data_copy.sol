@@ -6,15 +6,15 @@ contract CallDataCopy {
         // Empty constructor
     }
     
-    function call() external pure {
+    fallback() external payable {
         // Expect call data of [0xFF; 32]
-        require(msg.data.length >= 36, "Insufficient call data"); // 4 bytes selector + 32 bytes data
+        require(msg.data.length >= 32, "Insufficient call data");
         
         bytes memory buf = new bytes(32);
         
-        // Test 1: Copy full 32 bytes from offset 4 (after selector)
+        // Test 1: Copy full 32 bytes from offset 0
         assembly {
-            calldatacopy(add(buf, 0x20), 4, 32)
+            calldatacopy(add(buf, 0x20), 0, 32)
         }
         
         bytes32 expected = bytes32(hex"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -24,7 +24,7 @@ contract CallDataCopy {
         }
         require(actual == expected, "Test 1 failed");
         
-        // Test 2: Copy 8 bytes from offset 31+4
+        // Test 2: Copy 8 bytes from offset 31
         buf = new bytes(32);
         // Fill with test data first
         bytes32 testData = bytes32(hex"ff000000000000000000ffffffffffffffffffffffffffffffffffffffffff");
@@ -32,15 +32,15 @@ contract CallDataCopy {
             mstore(add(buf, 0x20), testData)
         }
         
-        // Copy 8 bytes from offset 35 (31+4)
+        // Copy 8 bytes from offset 31
         assembly {
-            calldatacopy(add(buf, 0x20), 35, 8)
+            calldatacopy(add(buf, 0x20), 31, 8)
         }
         
-        // Test 3: Copy from offset 32+4 (beyond data) - should be zeros
+        // Test 3: Copy from offset 32 (beyond data) - should be zeros
         buf = new bytes(32);
         assembly {
-            calldatacopy(add(buf, 0x20), 36, 32)
+            calldatacopy(add(buf, 0x20), 32, 32)
         }
         
         assembly {

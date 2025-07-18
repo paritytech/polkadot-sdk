@@ -8,8 +8,8 @@ contract TransferReturnCode {
     /// @notice Deploy function (empty implementation)
     constructor() {}
     
-    /// @notice Main call function that tests transfer with return codes
-    function call() public payable returns (uint32) {
+    /// @notice Main fallback function that tests transfer with return codes
+    fallback() external payable {
         // Try to transfer 100 wei to the zero address
         address payable target = payable(address(0));
         uint256 amount = 100;
@@ -18,8 +18,11 @@ contract TransferReturnCode {
         bool success = target.send(amount);
         uint32 retCode = success ? 0 : 1;
         
-        // Return the transfer return code
-        return retCode;
+        // Return the transfer return code as little-endian bytes
+        assembly {
+            mstore(0x00, retCode)
+            return(0x00, 0x04)
+        }
     }
     
     /// @notice Alternative implementation using low-level call

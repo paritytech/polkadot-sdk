@@ -6,7 +6,7 @@ contract RunOutOfGas {
         // Empty constructor
     }
     
-    function call() external pure {
+    fallback() external payable {
         // Infinite loop to consume all gas
         while (true) {
             // Empty loop body - this will consume gas until it runs out

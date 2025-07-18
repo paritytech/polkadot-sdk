@@ -8,8 +8,8 @@ contract TransientStorage {
     /// @notice Deploy function (empty implementation)
     constructor() {}
     
-    /// @notice Main call function that tests various transient storage operations
-    function call() public {
+    /// @notice Main fallback function that tests various transient storage operations
+    fallback() external payable {
         bytes32 key = bytes32(0x0101010101010101010101010101010101010101010101010101010101010101);
         bytes memory value1 = hex"01010101";
         bytes memory value2 = hex"0202020202";

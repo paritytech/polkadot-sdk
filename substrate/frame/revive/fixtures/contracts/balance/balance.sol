@@ -8,8 +8,8 @@ contract Balance {
     /// @notice Deploy function (empty implementation)
     constructor() {}
     
-    /// @notice Main call function that tests balance checking
-    function call() public view {
+    /// @notice Main fallback function that tests balance checking
+    fallback() external payable {
         uint256 balance = address(this).balance;
         require(balance == 0, "Balance should be 0");
     }

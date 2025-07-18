@@ -6,8 +6,8 @@ contract Sbrk {
         // Empty constructor
     }
     
-    function call() external pure {
-        // Empty call function
+    fallback() external payable {
+        // Empty fallback function
         // In EVM/Solidity, there's no equivalent to sbrk instruction
         // This contract just serves as a placeholder for testing
     }

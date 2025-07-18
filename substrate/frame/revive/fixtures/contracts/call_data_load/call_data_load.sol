@@ -6,10 +6,10 @@ contract CallDataLoad {
         // Empty constructor
     }
     
-    function call() external pure returns (bytes32) {
+    fallback() external payable {
         bytes32 buf;
         
-        // Load first 32 bytes of call data (including selector)
+        // Load first 32 bytes of call data
         assembly {
             buf := calldataload(0)
         }
@@ -22,6 +22,10 @@ contract CallDataLoad {
             buf := calldataload(offset)
         }
         
-        return buf;
+        // Return the result
+        assembly {
+            mstore(0x00, buf)
+            return(0x00, 0x20)
+        }
     }
 }

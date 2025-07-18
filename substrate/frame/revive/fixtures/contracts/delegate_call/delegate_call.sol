@@ -9,15 +9,15 @@ contract DelegateCall {
     /// @notice Deploy function (empty implementation)
     constructor() {}
     
-    /// @notice Main call function that tests delegate call with storage
-    function call() public {
+    /// @notice Main fallback function that tests delegate call with storage
+    fallback() external payable {
         // Input format: [address: 20 bytes][ref_time: 8 bytes][proof_size: 8 bytes]
-        require(msg.data.length >= 4 + 20 + 8 + 8, "Invalid input length");
+        require(msg.data.length >= 20 + 8 + 8, "Invalid input length");
         
         // Extract delegate call target address
         address target;
         assembly {
-            target := shr(96, calldataload(4))
+            target := shr(96, calldataload(0))
         }
         
         // Set up storage key and value

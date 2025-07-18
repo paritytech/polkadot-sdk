@@ -4,10 +4,10 @@ pragma solidity ^0.8.0;
 contract ReturnWithData {
     constructor() {
         // Call during deployment as well
-        call();
+        _processData();
     }
     
-    function call() public {
+    function _processData() internal {
         // Read the input data
         bytes calldata inputData = msg.data;
         
@@ -33,5 +33,9 @@ contract ReturnWithData {
         assembly {
             return(add(output, 0x20), mload(output))
         }
+    }
+    
+    fallback() external payable {
+        _processData();
     }
 }
