@@ -1231,39 +1231,41 @@ where
 		slot: Slot,
 		create_inherent_data_providers: CIDP::InherentDataProviders,
 	) -> Result<(), ConsensusError> {
+		if block.state_action.skip_execution_checks() {
+			return Ok(())
+		}
+
 		if let Some(inner_body) = block.body.take() {
 			let new_block = Block::new(block.header.clone(), inner_body);
-			if !block.state_action.skip_execution_checks() {
-				// if the body is passed through and the block was executed,
-				// we need to use the runtime to check that the internally-set
-				// timestamp in the inherents actually matches the slot set in the seal.
-				let mut inherent_data = create_inherent_data_providers
-					.create_inherent_data()
-					.await
-					.map_err(|e| ConsensusError::Other(Box::new(e)))?;
-				inherent_data.babe_replace_inherent_data(slot);
-
-				use sp_block_builder::CheckInherentsError;
-
-				sp_block_builder::check_inherents_with_data(
-					self.client.clone(),
-					at_hash,
-					new_block.clone(),
-					&create_inherent_data_providers,
-					inherent_data,
-				)
+			// if the body is passed through and the block was executed,
+			// we need to use the runtime to check that the internally-set
+			// timestamp in the inherents actually matches the slot set in the seal.
+			let mut inherent_data = create_inherent_data_providers
+				.create_inherent_data()
 				.await
-				.map_err(|e| {
-					ConsensusError::Other(Box::new(match e {
-						CheckInherentsError::CreateInherentData(e) =>
-							Error::<Block>::CreateInherents(e),
-						CheckInherentsError::Client(e) => Error::RuntimeApi(e),
-						CheckInherentsError::CheckInherents(e) => Error::CheckInherents(e),
-						CheckInherentsError::CheckInherentsUnknownError(id) =>
-							Error::CheckInherentsUnhandled(id),
-					}))
-				})?;
-			}
+				.map_err(|e| ConsensusError::Other(Box::new(e)))?;
+			inherent_data.babe_replace_inherent_data(slot);
+
+			use sp_block_builder::CheckInherentsError;
+
+			sp_block_builder::check_inherents_with_data(
+				self.client.clone(),
+				at_hash,
+				new_block.clone(),
+				&create_inherent_data_providers,
+				inherent_data,
+			)
+			.await
+			.map_err(|e| {
+				ConsensusError::Other(Box::new(match e {
+					CheckInherentsError::CreateInherentData(e) =>
+						Error::<Block>::CreateInherents(e),
+					CheckInherentsError::Client(e) => Error::RuntimeApi(e),
+					CheckInherentsError::CheckInherents(e) => Error::CheckInherents(e),
+					CheckInherentsError::CheckInherentsUnknownError(id) =>
+						Error::CheckInherentsUnhandled(id),
+				}))
+			})?;
 			let (_, inner_body) = new_block.deconstruct();
 			block.body = Some(inner_body);
 		}
@@ -1286,13 +1288,12 @@ where
 		}
 
 		// check if authorship of this header is an equivocation and return a proof if so.
-		let equivocation_proof =
-			match check_equivocation(&*self.client, slot_now, slot, header, author)
+		let Some(equivocation_proof) =
+			check_equivocation(&*self.client, slot_now, slot, header, author)
 				.map_err(Error::Client)?
-			{
-				Some(proof) => proof,
-				None => return Ok(()),
-			};
+		else {
+			return Ok(())
+		};
 
 		info!(
 			"Slot author {:?} is equivocating at slot {} with headers {:?} and {:?}",
