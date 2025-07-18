@@ -70,7 +70,6 @@ pub enum CandidateDescriptorVersion {
 /// A unique descriptor of the candidate receipt.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Hash))]
-#[cfg_attr(not(feature = "std"), derive(RuntimeDebug))]
 pub struct CandidateDescriptorV2<H = Hash> {
 	/// The ID of the para this is a candidate for.
 	para_id: ParaId,
@@ -118,7 +117,6 @@ impl<H> CandidateDescriptorV2<H> {
 	}
 }
 
-#[cfg(feature = "std")]
 impl<H> core::fmt::Debug for CandidateDescriptorV2<H>
 where
 	H: core::fmt::Debug,
@@ -126,7 +124,7 @@ where
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		match self.version() {
 			CandidateDescriptorVersion::V1 => f
-				.debug_struct("CandidateDescriptor")
+				.debug_struct("CandidateDescriptorV1")
 				.field("para_id", &self.para_id)
 				.field("relay_parent", &self.relay_parent)
 				.field("persisted_validation_hash", &self.persisted_validation_data_hash)
@@ -147,7 +145,7 @@ where
 				.field("para_head", &self.para_head)
 				.field("validation_code_hash", &self.validation_code_hash)
 				.finish(),
-			_ => {
+			CandidateDescriptorVersion::Unknown => {
 				write!(f, "Invalid CandidateDescriptorVersion")
 			},
 		}
