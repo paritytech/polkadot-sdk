@@ -1174,8 +1174,7 @@ pub mod pallet {
 			let freezes = Freezes::<T, I>::get(who);
 			let mut prev_frozen = Zero::zero();
 			let mut after_frozen = Zero::zero();
-			// No way this can fail since we do not alter the existential balances.
-			// TODO: Revisit this assumption.
+			// We do not alter ED, so the account will not get dusted. Yet, consumer limit might be full, therefore we pass `true` into `mutate_account` to make sure this cannot fail
 			let res = Self::mutate_account(who, true, |b| {
 				prev_frozen = b.frozen;
 				b.frozen = Zero::zero();

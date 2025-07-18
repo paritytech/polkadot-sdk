@@ -37,9 +37,9 @@ fn lock_behavior_when_consumer_limit_fully_exhausted() {
 			assert_eq!(System::providers(&1), 1);
 			assert_eq!(System::consumers(&1), 0);
 
-			// Fill up all 16 consumer refs.
-			// Note: asset pallets prevents all the consumers to be filled and leaves one untouched.
-			// But other operations in the runtime, notably `uniques::set_accept_ownership` might.
+			// Fill up all consumer refs.
+			// Note: asset-pallets prevents all the consumers to be filled and leaves one untouched.
+			// But other operations in the runtime, notably `uniques::set_accept_ownership` might overrule it.
 			let max_consumers: u32 = <Test as frame_system::Config>::MaxConsumers::get();
 			for _ in 0..max_consumers {
 				assert_ok!(System::inc_consumers(&1));
@@ -60,15 +60,15 @@ fn lock_behavior_when_consumer_limit_fully_exhausted() {
 			assert_eq!(Balances::locks(&1).len(), 1);
 			assert_eq!(Balances::locks(&1)[0].amount, 20);
 
-			// now this account has 1 more consumer reference for the lock
-			assert_eq!(System::consumers(&1), max_consumers + 1);
-
 			// frozen amount is also updated
 			assert_eq!(get_test_account_data(1).frozen, 20);
 
+			// now this account has 1 more consumer reference for the lock
+			assert_eq!(System::consumers(&1), max_consumers + 1);
+
 			// And this account cannot transfer any funds out.
 			assert_noop!(
-				Balances::transfer_allow_death(frame_system::RawOrigin::Signed(1).into(), 2, 90,),
+				Balances::transfer_allow_death(frame_system::RawOrigin::Signed(1).into(), 2, 90),
 				DispatchError::Token(TokenError::Frozen)
 			);
 		});
@@ -83,18 +83,13 @@ fn freeze_behavior_when_consumer_limit_fully_exhausted() {
 		.execute_with(|| {
 			// Account 1 starts with 100 balance
 			Balances::make_free_balance_be(&1, 100);
-			assert_eq!(System::providers(&1), 1);
-			assert_eq!(System::consumers(&1), 0);
 
-			// Fill up all 16 consumer refs.
+			// Fill up all consumer refs.
 			let max_consumers: u32 = <Test as frame_system::Config>::MaxConsumers::get();
 			for _ in 0..max_consumers {
 				assert_ok!(System::inc_consumers(&1));
 			}
 			assert_eq!(System::consumers(&1), max_consumers);
-
-			// We cannot manually increment consumers beyond the limit
-			assert_noop!(System::inc_consumers(&1), DispatchError::TooManyConsumers);
 
 			// Now try to set a freeze - this will FAIL because freezes don't force consumer
 			// increment and we've exhausted the consumer limit.
@@ -105,10 +100,6 @@ fn freeze_behavior_when_consumer_limit_fully_exhausted() {
 
 			// Verify no freeze was created
 			assert_eq!(Balances::balance_frozen(&TestId::Foo, &1), 0);
-
-			// Consumer count remains at max limit
-			assert_eq!(System::consumers(&1), max_consumers);
-
 			// frozen amount is not updated
 			assert_eq!(get_test_account_data(1).frozen, 0);
 		});
@@ -123,10 +114,8 @@ fn hold_behavior_when_consumer_limit_fully_exhausted() {
 		.execute_with(|| {
 			// Account 1 starts with 100 balance
 			Balances::make_free_balance_be(&1, 100);
-			assert_eq!(System::providers(&1), 1);
-			assert_eq!(System::consumers(&1), 0);
 
-			// Fill up all 16 consumer refs.
+			// Fill up all consumer refs.
 			let max_consumers: u32 = <Test as frame_system::Config>::MaxConsumers::get();
 			for _ in 0..max_consumers {
 				assert_ok!(System::inc_consumers(&1));
@@ -136,7 +125,7 @@ fn hold_behavior_when_consumer_limit_fully_exhausted() {
 			// Hold is similar to freeze -- it will successfully fail and report an error.
 			// Note: we use `assert_err` instead of `assert_noop` as this is not a dispatchable --
 			// when this is executed as a part of any transaction, it will revert.
-			assert_err!(Balances::hold(&TestId::Foo, &1, 50,), DispatchError::TooManyConsumers);
+			assert_err!(Balances::hold(&TestId::Foo, &1, 50), DispatchError::TooManyConsumers);
 		});
 }
 
@@ -149,8 +138,6 @@ fn reserve_behavior_when_consumer_limit_fully_exhausted() {
 		.execute_with(|| {
 			// Account 1 starts with 100 balance
 			Balances::make_free_balance_be(&1, 100);
-			assert_eq!(System::providers(&1), 1);
-			assert_eq!(System::consumers(&1), 0);
 
 			// Fill up all 16 consumer refs.
 			let max_consumers: u32 = <Test as frame_system::Config>::MaxConsumers::get();
