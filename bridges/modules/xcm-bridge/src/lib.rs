@@ -153,6 +153,7 @@ use bp_xcm_bridge::{
 use frame_support::{traits::fungible::MutateHold, DefaultNoBound};
 use frame_system::Config as SystemConfig;
 use pallet_bridge_messages::{Config as BridgeMessagesConfig, LanesManagerError};
+use polkadot_runtime_common::xcm_sender::PriceForMessageDelivery;
 use sp_std::{boxed::Box, vec::Vec};
 use xcm::prelude::*;
 use xcm_builder::DispatchBlob;
@@ -211,22 +212,22 @@ pub mod pallet {
 		// TODO: https://github.com/paritytech/parity-bridges-common/issues/1666 remove `ChainId` and
 		// replace it with the `NetworkId` - then we'll be able to use
 		// `T as pallet_bridge_messages::Config<T::BridgeMessagesPalletInstance>::BridgedChain::NetworkId`
-		/// Bridged network as relative location of bridged `GlobalConsensus`.
+		/// Bridged network as a relative location of bridged `GlobalConsensus`.
 		#[pallet::constant]
 		type BridgedNetwork: Get<Location>;
 		/// Associated messages pallet instance that bridges us with the
 		/// `BridgedNetworkId` consensus.
 		type BridgeMessagesPalletInstance: 'static;
 
-		/// Price of single message export to the bridged consensus (`Self::BridgedNetwork`).
-		type MessageExportPrice: Get<Assets>;
+		/// Price of a single message export to the bridged consensus (`Self::BridgedNetwork`).
+		type MessageExportPrice: PriceForMessageDelivery<Id = BridgeId>;
 		/// Checks the XCM version for the destination.
 		type DestinationVersion: GetVersion;
 
 		/// The origin that is allowed to call privileged operations on the pallet, e.g. open/close
 		/// bridge for locations.
 		type ForceOrigin: EnsureOrigin<<Self as SystemConfig>::RuntimeOrigin>;
-		/// A set of XCM locations within local consensus system that are allowed to open
+		/// A set of XCM locations within a local consensus system that are allowed to open
 		/// bridges with remote destinations.
 		type OpenBridgeOrigin: EnsureOrigin<
 			<Self as SystemConfig>::RuntimeOrigin,
