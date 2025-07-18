@@ -1894,7 +1894,7 @@ pub trait OpaqueKeys: Clone {
 
 	/// Proof the ownership of `owner` over the keys using `proof`.
 	#[must_use]
-	fn ownership_proof_is_valid(&self, owner: &[u8], proof: &[u8]) -> bool;
+	fn ownership_proof_is_valid(&self, proof: &[u8]) -> bool;
 }
 
 /// Input that adds infinite number of zero after wrapped input.
@@ -2149,7 +2149,7 @@ macro_rules! impl_opaque_keys_inner {
 					)*
 				};
 
-				let proof = keys.create_ownership_proof(owner)
+				let proof = keys.create_ownership_proof()
 					.expect("Private key that was generated a moment ago, should exist; qed");
 
 				$crate::traits::GeneratedSessionKeys {
@@ -2203,7 +2203,6 @@ macro_rules! impl_opaque_keys_inner {
 			#[allow(dead_code)]
 			pub fn create_ownership_proof(
 				&self,
-				owner: &[u8],
 			) -> $crate::sp_std::result::Result<
 				(
 					$(
@@ -2252,7 +2251,7 @@ macro_rules! impl_opaque_keys_inner {
 				}
 			}
 
-			fn ownership_proof_is_valid(&self, owner: &[u8], proof: &[u8]) -> bool {
+			fn ownership_proof_is_valid(&self, proof: &[u8]) -> bool {
 				// The proof is expected to be a tuple of all the signatures.
 				let Ok(proof) = <($(
 						<

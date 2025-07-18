@@ -645,7 +645,7 @@ pub mod pallet {
 		pub fn set_keys(origin: OriginFor<T>, keys: T::Keys, proof: Vec<u8>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(
-				who.using_encoded(|who| keys.ownership_proof_is_valid(who, &proof)),
+				who.using_encoded(|who| keys.ownership_proof_is_valid(&proof)),
 				Error::<T>::InvalidProof,
 			);
 

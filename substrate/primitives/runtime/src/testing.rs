@@ -152,7 +152,7 @@ impl OpaqueKeys for UintAuthorityId {
 		self.using_encoded(|mut x| T::decode(&mut x)).ok()
 	}
 
-	fn ownership_proof_is_valid(&self, _: &[u8], _: &[u8]) -> bool {
+	fn ownership_proof_is_valid(&self, _: &[u8]) -> bool {
 		true
 	}
 }
