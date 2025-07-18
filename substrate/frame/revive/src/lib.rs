@@ -672,18 +672,6 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> Pallet<T> {
-		/// Returns true if the evm value carries dust.
-		pub fn has_dust(value: U256) -> bool {
-			value % U256::from(<T>::NativeToEthRatio::get()) != U256::zero()
-		}
-
-		/// Returns true if the evm value carries balance.
-		pub fn has_balance(value: U256) -> bool {
-			value >= U256::from(<T>::NativeToEthRatio::get())
-		}
-	}
-
 	#[pallet::call]
 	impl<T: Config> Pallet<T>
 	where
@@ -1627,6 +1615,16 @@ where
 }
 
 impl<T: Config> Pallet<T> {
+	/// Returns true if the evm value carries dust.
+	fn has_dust(value: U256) -> bool {
+		value % U256::from(<T>::NativeToEthRatio::get()) != U256::zero()
+	}
+
+	/// Returns true if the evm value carries balance.
+	fn has_balance(value: U256) -> bool {
+		value >= U256::from(<T>::NativeToEthRatio::get())
+	}
+
 	/// Return the existential deposit of [`Config::Currency`].
 	fn min_balance() -> BalanceOf<T> {
 		<T::Currency as Inspect<AccountIdOf<T>>>::minimum_balance()
