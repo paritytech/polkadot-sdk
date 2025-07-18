@@ -94,12 +94,12 @@ impl pallet_bridge_proof_root_sync::OnSend<ParaId, ParaHead> for ToAssetHubRococ
 					match Decode::decode(&mut &head.0[..]) {
 						Ok(header) => header,
 						Err(error) => {
-							log::warn!(
+							tracing::warn!(
 								target: "runtime::bridge-xcm::on-send",
-								"Failed to decode parachain header - skipping it! head: {:?}, para_id: {:?}, error: {:?}",
-								head,
-								id,
-								error,
+								?head,
+								para_id = ?id,
+								?error,
+								"Failed to decode parachain header - skipping it!",
 							);
 							return None;
 						},
@@ -126,7 +126,7 @@ impl pallet_bridge_proof_root_sync::OnSend<ParaId, ParaHead> for ToAssetHubRococ
 			ExpectTransactStatus(MaybeErrorCode::Success),
 		]);
 		if let Err(error) = PolkadotXcm::send_xcm(Here, AssetHubLocation::get(), xcm) {
-			log::warn!(target: "runtime::bridge-xcm::on-send", "Failed to send XCM: {:?}", error);
+			tracing::warn!(target: "runtime::bridge-xcm::on-send", ?error, "Failed to send XCM");
 		}
 	}
 
