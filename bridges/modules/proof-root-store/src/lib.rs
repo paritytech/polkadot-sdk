@@ -37,8 +37,6 @@
 
 extern crate alloc;
 
-use alloc::collections::VecDeque;
-
 pub use pallet::*;
 pub mod weights;
 pub use weights::WeightInfo;
@@ -64,7 +62,7 @@ pub mod pallet {
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 
-		/// The origin allowed to submit head updates.
+		/// The origin allowed submitting head updates.
 		type SubmitOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The key type used to identify stored values of type `T::Value`.
@@ -82,17 +80,34 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
-	/// Storage for root-related data, bounded by `RootIndex` and `T::RootsToKeep`.
+	/// Current ring buffer position.
+	#[pallet::storage]
+	pub(super) type RootKeysPointer<T: Config<I>, I: 'static = ()> =
+		StorageValue<_, u32, ValueQuery>;
+
+	/// A ring buffer of imported keys. Ordered by the insertion time.
+	#[pallet::storage]
+	pub(super) type RootKeys<T: Config<I>, I: 'static = ()> = StorageMap<
+		Hasher = Identity,
+		Key = u32,
+		Value = T::Key,
+		QueryKind = OptionQuery,
+		OnEmpty = GetDefault,
+		MaxValues = MaybeRootsToKeep<T, I>,
+	>;
+
+	/// Storage for root-related k-v data, bounded by `RootKeysPointer+RootKeys` ring buffer.
 	#[pallet::storage]
 	pub type Roots<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Blake2_128Concat, T::Key, T::Value, OptionQuery>;
 
-	/// Storage tracking the insertion order of roots for `T::RootsToKeep` (implemented as a simple
-	/// ring buffer).
-	#[pallet::storage]
-	#[pallet::unbounded]
-	pub type RootIndex<T: Config<I>, I: 'static = ()> =
-		StorageValue<_, VecDeque<T::Key>, ValueQuery>;
+	/// Adapter for using `Config::RootsToKeep` as `MaxValues` bound in our storage maps.
+	pub struct MaybeRootsToKeep<T, I>(PhantomData<(T, I)>);
+	impl<T: Config<I>, I: 'static> Get<Option<u32>> for MaybeRootsToKeep<T, I> {
+		fn get() -> Option<u32> {
+			Some(T::RootsToKeep::get())
+		}
+	}
 
 	#[pallet::call(weight(<T as Config<I>>::WeightInfo))]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -122,16 +137,15 @@ pub mod pallet {
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Ensure the correctness of the state of this pallet.
 		pub fn do_try_state() -> Result<(), frame_support::sp_runtime::TryRuntimeError> {
-			// Check that `RootIndex` is aligned with `Roots`.
-			let index = RootIndex::<T, I>::get();
+			// Check that the ring buffer is aligned with `Roots`.
 			ensure!(
-				index.len() == Roots::<T, I>::iter_keys().count(),
+				RootKeys::<T, I>::iter_values().count() == Roots::<T, I>::iter_keys().count(),
 				"`RootIndex` contains different keys than `Roots`"
 			);
-			for key in index {
+			for key in RootKeys::<T, I>::iter_values() {
 				ensure!(
 					Roots::<T, I>::get(key).is_some(),
-					"`Roots` does not contain key from `RootIndex`!"
+					"`Roots` does not contain the key from `RootKeys`!"
 				);
 			}
 
@@ -142,23 +156,21 @@ pub mod pallet {
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Stores root values.
 		pub fn do_note_new_roots(roots: BoundedVec<(T::Key, T::Value), T::RootsToKeep>) {
-			// Update `RootIndex` ring buffer.
-			RootIndex::<T, I>::mutate(|index| {
-				// Add all at the end.
-				for (key, value) in roots {
-					if !index.contains(&key) {
-						Roots::<T, I>::insert(key.clone(), value);
-						index.push_back(key);
-					}
-				}
+			// Insert `roots` to the `Roots` bounded by `RootKeysPointer+RootKeys`.
+			for (key, value) in roots {
+				let index = <RootKeysPointer<T, I>>::get();
+				let pruning = <RootKeys<T, I>>::try_get(index);
 
-				// Remove from the front up to the `T::RootsToKeep` limit.
-				while index.len() > T::RootsToKeep::get() as usize {
-					if let Some(key) = index.pop_front() {
-						Roots::<T, I>::remove(key);
-					}
+				<Roots<T, I>>::insert(&key, value);
+				<RootKeys<T, I>>::insert(index, key);
+
+				// Update ring buffer pointer and remove old root.
+				<RootKeysPointer<T, I>>::put((index + 1) % T::RootsToKeep::get());
+				if let Ok(key_to_prune) = pruning {
+					// log::debug!(target: LOG_TARGET, "Pruning old header: {:?}.", key_to_prune);
+					<Roots<T, I>>::remove(key_to_prune);
 				}
-			});
+			}
 		}
 
 		/// Returns the stored value for the given key.
@@ -166,9 +178,10 @@ pub mod pallet {
 			Roots::<T, I>::get(key)
 		}
 
-		/// Returns the stored `RootIndex` data.
-		pub fn get_root_index() -> VecDeque<T::Key> {
-			RootIndex::<T, I>::get()
+		/// Returns the stored root keys.
+		#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+		pub fn get_root_keys() -> Vec<T::Key> {
+			Roots::<T, I>::iter_keys().collect()
 		}
 	}
 }
