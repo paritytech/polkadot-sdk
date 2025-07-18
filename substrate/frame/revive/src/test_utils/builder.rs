@@ -233,3 +233,26 @@ builder!(
 		}
 	}
 );
+
+builder!(
+	eth_call(
+		origin: OriginFor<T>,
+		dest: H160,
+		value: U256,
+		gas_limit: Weight,
+		storage_deposit_limit: BalanceOf<T>,
+		data: Vec<u8>,
+	) -> DispatchResultWithPostInfo;
+
+	/// Create a [`EthCallBuilder`] with default values.
+	pub fn eth_call(origin: OriginFor<T>, dest: H160) -> Self {
+		Self {
+			origin,
+			dest,
+			value: 0u32.into(),
+			gas_limit: GAS_LIMIT,
+			storage_deposit_limit: deposit_limit::<T>(),
+			data: vec![],
+		}
+	}
+);

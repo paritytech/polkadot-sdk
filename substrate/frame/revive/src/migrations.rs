@@ -21,4 +21,4 @@
 pub mod v1;
 
 /// A unique identifier across all pallets.
-pub const PALLET_MIGRATIONS_ID: &[u8; 17] = b"pallet-revive-mbm";
+const PALLET_MIGRATIONS_ID: &[u8; 17] = b"pallet-revive-mbm";

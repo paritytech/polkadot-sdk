@@ -17,7 +17,7 @@
 
 //! # Multi-Block Migration v1
 //!
-//! This migrat the old `ContractInfoOf` storage to the new `AccountInfoOf`.
+//! This migrate the old `ContractInfoOf` storage to the new `AccountInfoOf`.
 
 extern crate alloc;
 
@@ -71,7 +71,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 				break;
 			}
 
-			let mut iter = if let Some(last_key) = cursor {
+			let iter = if let Some(last_key) = cursor {
 				old::ContractInfoOf::<T>::iter_from(old::ContractInfoOf::<T>::hashed_key_for(
 					last_key,
 				))
@@ -79,8 +79,9 @@ impl<T: Config> SteppedMigration for Migration<T> {
 				old::ContractInfoOf::<T>::iter()
 			};
 
+			let mut iter = iter.drain();
+
 			if let Some((last_key, value)) = iter.next() {
-				old::ContractInfoOf::<T>::remove(last_key);
 				AccountInfoOf::<T>::insert(
 					last_key,
 					AccountInfo { account_type: value.into(), ..Default::default() },
@@ -128,4 +129,30 @@ impl<T: Config> SteppedMigration for Migration<T> {
 
 		Ok(())
 	}
+}
+
+#[test]
+fn migrate_to_v1() {
+	use crate::{
+		tests::{ExtBuilder, Test},
+		ContractInfo,
+	};
+	ExtBuilder::default().build().execute_with(|| {
+		for i in 0..10u8 {
+			let addr = H160::from([i; 20]);
+			old::ContractInfoOf::<Test>::insert(
+				addr,
+				ContractInfo::new(&addr, 1u32.into(), Default::default()).unwrap(),
+			);
+		}
+
+		let mut cursor = None;
+		let mut weight_meter = WeightMeter::new();
+		while let Some(new_cursor) = Migration::<Test>::step(cursor, &mut weight_meter).unwrap() {
+			cursor = Some(new_cursor);
+		}
+
+		assert_eq!(old::ContractInfoOf::<Test>::iter().count(), 0);
+		assert_eq!(AccountInfoOf::<Test>::iter().count(), 10);
+	})
 }

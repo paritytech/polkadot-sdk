@@ -236,7 +236,8 @@ mod benchmarks {
 
 		let value = Pallet::<T>::min_balance();
 		let dust = 42u32 * d;
-		let evm_value = Pallet::<T>::convert_native_to_evm(BalanceWithDust { value, dust });
+		let evm_value =
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
 
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
@@ -372,7 +373,8 @@ mod benchmarks {
 
 		let value = Pallet::<T>::min_balance();
 		let dust = 42u32 * d;
-		let evm_value = Pallet::<T>::convert_native_to_evm(BalanceWithDust { value, dust });
+		let evm_value =
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
 
 		let caller_addr = T::AddressMapper::to_address(&instance.caller);
 		let origin = RawOrigin::Signed(instance.caller.clone());
@@ -706,10 +708,10 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_balance() {
 		build_runtime!(runtime, contract, memory: [[0u8;32], ]);
-		contract.set_balance(BalanceWithDust {
-			value: Pallet::<T>::min_balance() * 2u32.into(),
-			dust: 42u32,
-		});
+		contract.set_balance(BalanceWithDust::new_unchecked::<T>(
+			Pallet::<T>::min_balance() * 2u32.into(),
+			42u32,
+		));
 
 		let result;
 		#[block]
@@ -719,10 +721,10 @@ mod benchmarks {
 		assert_ok!(result);
 		assert_eq!(
 			U256::from_little_endian(&memory[..]),
-			Pallet::<T>::convert_native_to_evm(BalanceWithDust {
-				value: Pallet::<T>::min_balance(),
-				dust: 42
-			})
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(
+				Pallet::<T>::min_balance(),
+				42
+			))
 		);
 	}
 
@@ -748,10 +750,10 @@ mod benchmarks {
 		assert_ok!(result);
 		assert_eq!(
 			U256::from_little_endian(&memory[..len]),
-			Pallet::<T>::convert_native_to_evm(BalanceWithDust {
-				value: Pallet::<T>::min_balance(),
-				dust: 42
-			})
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(
+				Pallet::<T>::min_balance(),
+				42
+			))
 		);
 	}
 
@@ -1679,7 +1681,8 @@ mod benchmarks {
 
 		let value: BalanceOf<T> = (1_000_000u32 * t).into();
 		let dust = 100u32 * d;
-		let evm_value = Pallet::<T>::convert_native_to_evm(BalanceWithDust { value, dust });
+		let evm_value =
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
 		let value_bytes = evm_value.encode();
 
 		let deposit: BalanceOf<T> = (u32::MAX - 100).into();
@@ -1834,7 +1837,8 @@ mod benchmarks {
 
 		let value: BalanceOf<T> = (1_000_000u32 * t).into();
 		let dust = 100u32 * d;
-		let evm_value = Pallet::<T>::convert_native_to_evm(BalanceWithDust { value, dust });
+		let evm_value =
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
 		let value_bytes = evm_value.encode();
 		let value_len = value_bytes.len() as u32;
 

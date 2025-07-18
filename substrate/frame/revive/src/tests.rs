@@ -179,7 +179,7 @@ pub mod test_utils {
 	pub fn set_balance_with_dust(address: &H160, value: BalanceWithDust<BalanceOf<Test>>) {
 		use frame_support::traits::Currency;
 		let ed = <Test as Config>::Currency::minimum_balance();
-		let BalanceWithDust { value, dust } = value;
+		let (value, dust) = value.deconstruct();
 		let account_id = <Test as Config>::AddressMapper::to_account_id(&address);
 		<Test as Config>::Currency::set_balance(&account_id, ed + value);
 		if dust > 0 {
@@ -224,6 +224,10 @@ mod builder {
 
 	pub fn call(dest: H160) -> CallBuilder<Test> {
 		CallBuilder::<Test>::call(RuntimeOrigin::signed(ALICE), dest)
+	}
+
+	pub fn eth_call(dest: H160) -> EthCallBuilder<Test> {
+		EthCallBuilder::<Test>::eth_call(RuntimeOrigin::signed(ALICE), dest)
 	}
 }
 
@@ -471,47 +475,47 @@ fn transfer_with_dust_works() {
 	let test_cases = vec![
 		TestCase {
 			description: "without dust",
-			from_balance: BalanceWithDust { value: 100, dust: 0 },
-			to_balance: BalanceWithDust { value: 0, dust: 0 },
-			amount: BalanceWithDust { value: 1, dust: 0 },
-			expected_from_balance: BalanceWithDust { value: 99, dust: 0 },
-			expected_to_balance: BalanceWithDust { value: 1, dust: 0 },
+			from_balance: BalanceWithDust::new_unchecked::<Test>(100, 0),
+			to_balance: BalanceWithDust::new_unchecked::<Test>(0, 0),
+			amount: BalanceWithDust::new_unchecked::<Test>(1, 0),
+			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(99, 0),
+			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(1, 0),
 			total_issuance_diff: 0,
 		},
 		TestCase {
 			description: "with dust",
-			from_balance: BalanceWithDust { value: 100, dust: 0 },
-			to_balance: BalanceWithDust { value: 0, dust: 0 },
-			amount: BalanceWithDust { value: 1, dust: 10 },
-			expected_from_balance: BalanceWithDust { value: 98, dust: plank - 10 },
-			expected_to_balance: BalanceWithDust { value: 1, dust: 10 },
+			from_balance: BalanceWithDust::new_unchecked::<Test>(100, 0),
+			to_balance: BalanceWithDust::new_unchecked::<Test>(0, 0),
+			amount: BalanceWithDust::new_unchecked::<Test>(1, 10),
+			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(98, plank - 10),
+			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(1, 10),
 			total_issuance_diff: 1,
 		},
 		TestCase {
 			description: "just dust",
-			from_balance: BalanceWithDust { value: 100, dust: 0 },
-			to_balance: BalanceWithDust { value: 0, dust: 0 },
-			amount: BalanceWithDust { value: 0, dust: 10 },
-			expected_from_balance: BalanceWithDust { value: 99, dust: plank - 10 },
-			expected_to_balance: BalanceWithDust { value: 0, dust: 10 },
+			from_balance: BalanceWithDust::new_unchecked::<Test>(100, 0),
+			to_balance: BalanceWithDust::new_unchecked::<Test>(0, 0),
+			amount: BalanceWithDust::new_unchecked::<Test>(0, 10),
+			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(99, plank - 10),
+			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(0, 10),
 			total_issuance_diff: 1,
 		},
 		TestCase {
 			description: "with existing dust",
-			from_balance: BalanceWithDust { value: 100, dust: 5 },
-			to_balance: BalanceWithDust { value: 0, dust: plank - 5 },
-			amount: BalanceWithDust { value: 1, dust: 10 },
-			expected_from_balance: BalanceWithDust { value: 98, dust: plank - 5 },
-			expected_to_balance: BalanceWithDust { value: 2, dust: 5 },
+			from_balance: BalanceWithDust::new_unchecked::<Test>(100, 5),
+			to_balance: BalanceWithDust::new_unchecked::<Test>(0, plank - 5),
+			amount: BalanceWithDust::new_unchecked::<Test>(1, 10),
+			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(98, plank - 5),
+			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(2, 5),
 			total_issuance_diff: 0,
 		},
 		TestCase {
 			description: "with enough existing dust",
-			from_balance: BalanceWithDust { value: 100, dust: 10 },
-			to_balance: BalanceWithDust { value: 0, dust: plank - 10 },
-			amount: BalanceWithDust { value: 1, dust: 10 },
-			expected_from_balance: BalanceWithDust { value: 99, dust: 0 },
-			expected_to_balance: BalanceWithDust { value: 2, dust: 0 },
+			from_balance: BalanceWithDust::new_unchecked::<Test>(100, 10),
+			to_balance: BalanceWithDust::new_unchecked::<Test>(0, plank - 10),
+			amount: BalanceWithDust::new_unchecked::<Test>(1, 10),
+			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(99, 0),
+			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(2, 0),
 			total_issuance_diff: -1,
 		},
 	];
@@ -533,8 +537,9 @@ fn transfer_with_dust_works() {
 			let total_issuance = <Test as Config>::Currency::total_issuance();
 			let evm_value = Pallet::<Test>::convert_native_to_evm(amount);
 
-			assert_eq!(Pallet::<Test>::has_dust(evm_value), !amount.dust.is_zero());
-			assert_eq!(Pallet::<Test>::has_balance(evm_value), !amount.value.is_zero());
+			let (value, dust) = amount.deconstruct();
+			assert_eq!(Pallet::<Test>::has_dust(evm_value), !dust.is_zero());
+			assert_eq!(Pallet::<Test>::has_balance(evm_value), !value.is_zero());
 
 			let result =
 				builder::bare_call(BOB_ADDR).evm_value(evm_value).build_and_unwrap_result();
@@ -562,6 +567,43 @@ fn transfer_with_dust_works() {
 }
 
 #[test]
+fn eth_call_transfer_with_dust_works() {
+	let (binary, _) = compile_module("dummy").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
+
+		let balance =
+			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));
+		assert_ok!(builder::eth_call(addr).value(balance).build());
+
+		assert_eq!(Pallet::<Test>::evm_balance(&addr), balance);
+	});
+}
+
+#[test]
+fn contract_call_transfer_with_dust_works() {
+	let (binary_caller, _code_hash_caller) = compile_module("call_with_value").unwrap();
+	let (binary_callee, _code_hash_callee) = compile_module("dummy").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let Contract { addr: addr_caller, .. } =
+			builder::bare_instantiate(Code::Upload(binary_caller))
+				.native_value(200)
+				.build_and_unwrap_contract();
+		let Contract { addr: addr_callee, .. } =
+			builder::bare_instantiate(Code::Upload(binary_callee)).build_and_unwrap_contract();
+
+		let balance =
+			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));
+		assert_ok!(builder::call(addr_caller).data((balance, addr_callee).encode()).build());
+
+		assert_eq!(Pallet::<Test>::evm_balance(&addr_callee), balance);
+	});
+}
+
+#[test]
 fn instantiate_and_call_and_deposit_event() {
 	let (binary, code_hash) = compile_module("event_and_return_on_deploy").unwrap();
 
@@ -586,6 +628,8 @@ fn instantiate_and_call_and_deposit_event() {
 			.native_value(value)
 			.build_and_unwrap_contract();
 		assert!(AccountInfoOf::<Test>::contains_key(&addr));
+
+		let hold_balance = test_utils::contract_base_deposit(&addr);
 
 		assert_eq!(
 			System::events(),
@@ -637,6 +681,18 @@ fn instantiate_and_call_and_deposit_event() {
 					event: RuntimeEvent::Contracts(crate::Event::Instantiated {
 						deployer: ALICE_ADDR,
 						contract: addr
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferAndHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::StorageDepositReserve,
+						),
+						source: ALICE,
+						dest: account_id.clone(),
+						transferred: hold_balance,
 					}),
 					topics: vec![],
 				},
@@ -1013,6 +1069,18 @@ fn deploy_and_call_other_contract() {
 					}),
 					topics: vec![],
 				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferAndHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::StorageDepositReserve,
+						),
+						source: ALICE,
+						dest: callee_account.clone(),
+						transferred: 555,
+					}),
+					topics: vec![],
+				},
 			]
 		);
 	});
@@ -1286,6 +1354,8 @@ fn self_destruct_works() {
 			.native_value(100_000)
 			.build_and_unwrap_contract();
 
+		let hold_balance = test_utils::contract_base_deposit(&contract.addr);
+
 		// Check that the BOB contract has been instantiated.
 		let _ = get_contract(&contract.addr);
 
@@ -1318,6 +1388,18 @@ fn self_destruct_works() {
 		pretty_assertions::assert_eq!(
 			System::events(),
 			vec![
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::StorageDepositReserve,
+						),
+						source: contract.account_id.clone(),
+						dest: ALICE,
+						amount: hold_balance,
+					}),
+					topics: vec![],
+				},
 				EventRecord {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::System(frame_system::Event::KilledAccount {
@@ -2324,6 +2406,17 @@ fn instantiate_with_zero_balance_works() {
 			vec![
 				EventRecord {
 					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::Held {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::CodeUploadDepositReserve,
+						),
+						who: ALICE,
+						amount: 776,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
 					event: RuntimeEvent::System(frame_system::Event::NewAccount {
 						account: account_id.clone(),
 					}),
@@ -2341,7 +2434,7 @@ fn instantiate_with_zero_balance_works() {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
 						from: ALICE,
-						to: account_id,
+						to: account_id.clone(),
 						amount: min_balance,
 					}),
 					topics: vec![],
@@ -2351,6 +2444,18 @@ fn instantiate_with_zero_balance_works() {
 					event: RuntimeEvent::Contracts(crate::Event::Instantiated {
 						deployer: ALICE_ADDR,
 						contract: addr,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferAndHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::StorageDepositReserve,
+						),
+						source: ALICE,
+						dest: account_id,
+						transferred: 336,
 					}),
 					topics: vec![],
 				},
@@ -2389,6 +2494,17 @@ fn instantiate_with_below_existential_deposit_works() {
 			vec![
 				EventRecord {
 					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::Held {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::CodeUploadDepositReserve,
+						),
+						who: ALICE,
+						amount: 776,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
 					event: RuntimeEvent::System(frame_system::Event::NewAccount {
 						account: account_id.clone()
 					}),
@@ -2425,6 +2541,18 @@ fn instantiate_with_below_existential_deposit_works() {
 					event: RuntimeEvent::Contracts(crate::Event::Instantiated {
 						deployer: ALICE_ADDR,
 						contract: addr,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferAndHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::StorageDepositReserve,
+						),
+						source: ALICE,
+						dest: account_id.clone(),
+						transferred: 336,
 					}),
 					topics: vec![],
 				},
@@ -2470,15 +2598,53 @@ fn storage_deposit_works() {
 
 		assert_eq!(
 			System::events(),
-			vec![EventRecord {
-				phase: Phase::Initialization,
-				event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-					from: ALICE,
-					to: account_id.clone(),
-					amount: 42,
-				}),
-				topics: vec![],
-			},]
+			vec![
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
+						from: ALICE,
+						to: account_id.clone(),
+						amount: 42,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferAndHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::StorageDepositReserve,
+						),
+						source: ALICE,
+						dest: account_id.clone(),
+						transferred: charged0,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferAndHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::StorageDepositReserve,
+						),
+						source: ALICE,
+						dest: account_id.clone(),
+						transferred: charged1,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::StorageDepositReserve,
+						),
+						source: account_id.clone(),
+						dest: ALICE,
+						amount: refunded0,
+					}),
+					topics: vec![],
+				},
+			]
 		);
 	});
 }

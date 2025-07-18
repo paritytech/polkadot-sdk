@@ -672,18 +672,6 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> Pallet<T> {
-		/// Returns true if the evm value carries dust.
-		pub fn has_dust(value: U256) -> bool {
-			value % U256::from(<T>::NativeToEthRatio::get()) != U256::zero()
-		}
-
-		/// Returns true if the evm value carries balance.
-		pub fn has_balance(value: U256) -> bool {
-			value >= U256::from(<T>::NativeToEthRatio::get())
-		}
-	}
-
 	#[pallet::call]
 	impl<T: Config> Pallet<T>
 	where
@@ -1494,7 +1482,7 @@ where
 	/// Convert a gas value into a substrate fee
 	fn evm_gas_to_fee(gas: U256, gas_price: U256) -> Result<BalanceOf<T>, Error<T>> {
 		let fee = gas.saturating_mul(gas_price);
-		let value = Self::convert_evm_to_native(fee)?;
+		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(fee)?;
 		Ok(value.into_rounded_balance())
 	}
 
@@ -1616,28 +1604,25 @@ where
 
 	/// Convert a native balance to EVM balance.
 	pub fn convert_native_to_evm(value: impl Into<BalanceWithDust<BalanceOf<T>>>) -> U256 {
-		let BalanceWithDust { value, dust } = value.into();
+		let (value, dust) = value.into().deconstruct();
 		value
 			.into()
 			.saturating_mul(T::NativeToEthRatio::get().into())
 			.saturating_add(dust.into())
 	}
-
-	/// Convert an EVM balance to a native balance.
-	fn convert_evm_to_native(value: U256) -> Result<BalanceWithDust<BalanceOf<T>>, Error<T>> {
-		if value.is_zero() {
-			return Ok(Default::default())
-		}
-
-		let (quotient, remainder) = value.div_mod(T::NativeToEthRatio::get().into());
-		let value = quotient.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?;
-		let dust = remainder.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?;
-
-		Ok(BalanceWithDust::new(value, dust))
-	}
 }
 
 impl<T: Config> Pallet<T> {
+	/// Returns true if the evm value carries dust.
+	fn has_dust(value: U256) -> bool {
+		value % U256::from(<T>::NativeToEthRatio::get()) != U256::zero()
+	}
+
+	/// Returns true if the evm value carries balance.
+	fn has_balance(value: U256) -> bool {
+		value >= U256::from(<T>::NativeToEthRatio::get())
+	}
+
 	/// Return the existential deposit of [`Config::Currency`].
 	fn min_balance() -> BalanceOf<T> {
 		<T::Currency as Inspect<AccountIdOf<T>>>::minimum_balance()
