@@ -117,7 +117,7 @@ where
 }
 
 /// Submits a single `ForInvalid` dispute.
-fn setup_dispute<T>(session_index: SessionIndex, validator_id: ValidatorId) -> DisputeProof
+fn setup_dispute<T>(session_index: SessionIndex, validator_id: ValidatorId) -> DisputeProofV2
 where
 	T: Config,
 {
@@ -141,11 +141,11 @@ fn dispute_proof(
 	session_index: SessionIndex,
 	validator_id: ValidatorId,
 	validator_index: ValidatorIndex,
-) -> DisputeProof {
-	let kind = SlashingOffenceKind::ForInvalid;
+) -> DisputeProofV2 {
+	let kind = DisputeOffenceKind::ForInvalidBacked;
 	let time_slot = DisputesTimeSlot::new(session_index, CANDIDATE_HASH);
 
-	DisputeProof { time_slot, kind, validator_index, validator_id }
+	DisputeProofV2 { time_slot, kind, validator_index, validator_id }
 }
 
 #[benchmarks(where T: Config<KeyOwnerProof = MembershipProof>)]

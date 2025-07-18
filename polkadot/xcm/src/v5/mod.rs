@@ -48,8 +48,8 @@ pub use junction::{
 pub use junctions::Junctions;
 pub use location::{Ancestor, AncestorThen, InteriorLocation, Location, Parent, ParentThen};
 pub use traits::{
-	send_xcm, validate_send, Error, ExecuteXcm, Outcome, PreparedMessage, Reanchorable, Result,
-	SendError, SendResult, SendXcm, Weight, XcmHash,
+	send_xcm, validate_send, Error, ExecuteXcm, InstructionError, InstructionIndex, Outcome,
+	PreparedMessage, Reanchorable, Result, SendError, SendResult, SendXcm, Weight, XcmHash,
 };
 // These parts of XCM v4 are unchanged in XCM v5, and are re-imported here.
 pub use super::v4::{MaxDispatchErrorLen, MaybeErrorCode, OriginKind, WeightLimit};
@@ -183,7 +183,7 @@ pub mod prelude {
 			Hint::{self, *},
 			HintNumVariants,
 			Instruction::*,
-			InteriorLocation,
+			InstructionError, InstructionIndex, InteriorLocation,
 			Junction::{self, *},
 			Junctions::{self, Here},
 			Location, MaxAssetTransferFilters, MaybeErrorCode,

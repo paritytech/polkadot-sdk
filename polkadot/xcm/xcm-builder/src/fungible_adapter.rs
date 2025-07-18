@@ -17,7 +17,7 @@
 //! Adapters to work with [`frame_support::traits::fungible`] through XCM.
 
 use super::MintLocation;
-use core::{marker::PhantomData, result};
+use core::{fmt::Debug, marker::PhantomData, result};
 use frame_support::traits::{
 	tokens::{
 		fungible, Fortitude::Polite, Precision::Exact, Preservation::Expendable, Provenance::Minted,
@@ -40,7 +40,7 @@ impl<
 		Fungible: fungible::Mutate<AccountId>,
 		Matcher: MatchesFungible<Fungible::Balance>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Eq + Clone,
+		AccountId: Eq + Clone + Debug,
 	> TransactAsset for FungibleTransferAdapter<Fungible, Matcher, AccountIdConverter, AccountId>
 {
 	fn internal_transfer_asset(
@@ -60,8 +60,13 @@ impl<
 			.ok_or(MatchError::AccountIdConversionFailed)?;
 		let dest = AccountIdConverter::convert_location(to)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
-		Fungible::transfer(&source, &dest, amount, Expendable)
-			.map_err(|error| XcmError::FailedToTransactAsset(error.into()))?;
+		Fungible::transfer(&source, &dest, amount, Expendable).map_err(|error| {
+			tracing::debug!(
+				target: "xcm::fungible_adapter", ?error, ?source, ?dest, ?amount,
+				"Failed to transfer asset",
+			);
+			XcmError::FailedToTransactAsset(error.into())
+		})?;
 		Ok(what.clone().into())
 	}
 }
@@ -77,20 +82,32 @@ impl<
 		Fungible: fungible::Mutate<AccountId>,
 		Matcher: MatchesFungible<Fungible::Balance>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Eq + Clone,
+		AccountId: Eq + Clone + Debug,
 		CheckingAccount: Get<Option<(AccountId, MintLocation)>>,
 	> FungibleMutateAdapter<Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount>
 {
 	fn can_accrue_checked(checking_account: AccountId, amount: Fungible::Balance) -> XcmResult {
 		Fungible::can_deposit(&checking_account, amount, Minted)
 			.into_result()
-			.map_err(|_| XcmError::NotDepositable)
+			.map_err(|error| {
+				tracing::debug!(
+					target: "xcm::fungible_adapter", ?error, ?checking_account, ?amount,
+					"Failed to deposit funds into account",
+				);
+				XcmError::NotDepositable
+			})
 	}
 
 	fn can_reduce_checked(checking_account: AccountId, amount: Fungible::Balance) -> XcmResult {
 		Fungible::can_withdraw(&checking_account, amount)
 			.into_result(false)
-			.map_err(|_| XcmError::NotWithdrawable)
+			.map_err(|error| {
+				tracing::debug!(
+					target: "xcm::fungible_adapter", ?error, ?checking_account, ?amount,
+					"Failed to withdraw funds from account",
+				);
+				XcmError::NotWithdrawable
+			})
 			.map(|_| ())
 	}
 
@@ -109,7 +126,7 @@ impl<
 		Fungible: fungible::Mutate<AccountId>,
 		Matcher: MatchesFungible<Fungible::Balance>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Eq + Clone,
+		AccountId: Eq + Clone + Debug,
 		CheckingAccount: Get<Option<(AccountId, MintLocation)>>,
 	> TransactAsset
 	for FungibleMutateAdapter<Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount>
@@ -192,8 +209,13 @@ impl<
 		let amount = Matcher::matches_fungible(what).ok_or(MatchError::AssetNotHandled)?;
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
-		Fungible::mint_into(&who, amount)
-			.map_err(|error| XcmError::FailedToTransactAsset(error.into()))?;
+		Fungible::mint_into(&who, amount).map_err(|error| {
+			tracing::debug!(
+				target: "xcm::fungible_adapter", ?error, ?who, ?amount,
+				"Failed to deposit assets",
+			);
+			XcmError::FailedToTransactAsset(error.into())
+		})?;
 		Ok(())
 	}
 
@@ -210,8 +232,13 @@ impl<
 		let amount = Matcher::matches_fungible(what).ok_or(MatchError::AssetNotHandled)?;
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
-		Fungible::burn_from(&who, amount, Expendable, Exact, Polite)
-			.map_err(|error| XcmError::FailedToTransactAsset(error.into()))?;
+		Fungible::burn_from(&who, amount, Expendable, Exact, Polite).map_err(|error| {
+			tracing::debug!(
+				target: "xcm::fungible_adapter", ?error, ?who, ?amount,
+				"Failed to withdraw assets",
+			);
+			XcmError::FailedToTransactAsset(error.into())
+		})?;
 		Ok(what.clone().into())
 	}
 }
@@ -226,7 +253,7 @@ impl<
 		Fungible: fungible::Mutate<AccountId>,
 		Matcher: MatchesFungible<Fungible::Balance>,
 		AccountIdConverter: ConvertLocation<AccountId>,
-		AccountId: Eq + Clone,
+		AccountId: Eq + Clone + Debug,
 		CheckingAccount: Get<Option<(AccountId, MintLocation)>>,
 	> TransactAsset
 	for FungibleAdapter<Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount>

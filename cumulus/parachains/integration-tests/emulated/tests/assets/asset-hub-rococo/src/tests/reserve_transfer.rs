@@ -14,7 +14,6 @@
 // limitations under the License.
 
 use crate::imports::*;
-use rococo_system_emulated_network::rococo_emulated_chain::rococo_runtime::Dmp;
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 
 fn relay_to_para_sender_assertions(t: RelayToParaTest) {
