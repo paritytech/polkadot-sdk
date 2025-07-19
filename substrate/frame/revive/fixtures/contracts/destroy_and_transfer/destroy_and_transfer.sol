@@ -8,7 +8,9 @@ contract DestroyAndTransfer {
     
     function deploy() external {
         // Parse input: code_hash (32 bytes)
-        require(msg.data.length >= 36, "Invalid input length");
+        if (msg.data.length < 36) {
+            assembly { invalid() }
+        }
         
         bytes32 code_hash = bytes32(msg.data[4:36]);
         
@@ -28,11 +30,15 @@ contract DestroyAndTransfer {
         
         // Calling the destination contract with non-empty input data should fail.
         bool success = callContract(callee_addr, VALUE, bytes("0"));
-        require(!success, "Expected call to fail");
+        if (success) {
+            assembly { invalid() }
+        }
         
         // Call the destination contract regularly, forcing it to self-destruct.
         success = callContract(callee_addr, VALUE, bytes(""));
-        require(success, "Expected call to succeed");
+        if (!success) {
+            assembly { invalid() }
+        }
     }
     
     function instantiateContract(bytes32 code_hash, bytes32 salt) internal returns (address deployed_address) {

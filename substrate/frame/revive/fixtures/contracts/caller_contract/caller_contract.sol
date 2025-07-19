@@ -12,7 +12,9 @@ contract CallerContract {
     
     fallback() external payable {
         // Parse input: code_hash (32 bytes), load_code_ref_time (u64), load_code_proof_size (u64)
-        require(msg.data.length >= 48, "Invalid input length");
+        if (msg.data.length < 48) {
+            assembly { invalid() }
+        }
         
         bytes32 code_hash = bytes32(msg.data[0:32]);
         uint64 load_code_ref_time = uint64(bytes8(msg.data[32:40]));
@@ -48,7 +50,9 @@ contract CallerContract {
             reverted_input_deploy,
             salt
         );
-        require(!success, "Expected instantiate to fail");
+        if (success) {
+            assembly { invalid() }
+        }
         
         // Fail to deploy the contract due to insufficient ref_time weight.
         success = instantiate(
@@ -59,7 +63,9 @@ contract CallerContract {
             input_deploy,
             salt
         );
-        require(!success, "Expected instantiate to fail due to insufficient ref_time weight");
+        if (success) {
+            assembly { invalid() }
+        }
         
         // Fail to deploy the contract due to insufficient proof_size weight.
         success = instantiate(
@@ -70,7 +76,9 @@ contract CallerContract {
             input_deploy,
             salt
         );
-        require(!success, "Expected instantiate to fail due to insufficient proof_size weight");
+        if (success) {
+            assembly { invalid() }
+        }
         
         // Deploy the contract successfully.
         address callee = instantiateAndGetAddress(
@@ -91,7 +99,9 @@ contract CallerContract {
             value,
             REVERTED_INPUT
         );
-        require(!success, "Expected call to fail");
+        if (success) {
+            assembly { invalid() }
+        }
         
         // Fail to call the contract due to insufficient ref_time weight.
         success = callContract(
@@ -102,7 +112,9 @@ contract CallerContract {
             value,
             INPUT
         );
-        require(!success, "Expected call to fail due to insufficient ref_time weight");
+        if (success) {
+            assembly { invalid() }
+        }
         
         // Fail to call the contract due to insufficient proof_size weight.
         success = callContract(
@@ -113,7 +125,9 @@ contract CallerContract {
             value,
             INPUT
         );
-        require(!success, "Expected call to fail due to insufficient proof_size weight");
+        if (success) {
+            assembly { invalid() }
+        }
         
         // Call the contract successfully.
         bytes memory output = callContractAndGetOutput(
@@ -126,9 +140,13 @@ contract CallerContract {
         );
         
         // Verify output matches expected (INPUT[4..])
-        require(output.length == 4, "Output length should be 4");
+        if (output.length != 4) {
+            assembly { invalid() }
+        }
         for (uint256 i = 0; i < 4; i++) {
-            require(output[i] == INPUT[i + 4], "Output mismatch");
+            if (output[i] != INPUT[i + 4]) {
+                assembly { invalid() }
+            }
         }
     }
     

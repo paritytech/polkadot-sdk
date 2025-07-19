@@ -16,10 +16,14 @@ contract DelegateCallLib {
         }
         
         // Assert that msg.value is equal to 1337
-        require(msg.value == 1337, "Value transferred should be 1337");
+        if (msg.value != 1337) {
+            assembly { invalid() }
+        }
         
         // Assert that msg.sender is ALICE (0x0101010101010101010101010101010101010101)
         address expectedCaller = address(0x0101010101010101010101010101010101010101);
-        require(msg.sender == expectedCaller, "Caller should be ALICE");
+        if (msg.sender != expectedCaller) {
+            assembly { invalid() }
+        }
     }
 }

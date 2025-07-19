@@ -8,7 +8,9 @@ contract CallAndReturncode {
     
     fallback() external payable {
         // Parse input: callee_addr (20 bytes), value (8 bytes), callee_input (rest)
-        require(msg.data.length >= 28, "Invalid input length");
+        if (msg.data.length < 28) {
+            assembly { invalid() }
+        }
         
         address callee_addr = address(bytes20(msg.data[0:20]));
         uint64 value = uint64(bytes8(msg.data[20:28]));

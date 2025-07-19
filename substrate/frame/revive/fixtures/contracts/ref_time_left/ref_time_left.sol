@@ -6,13 +6,13 @@ contract RefTimeLeft {
         // In Solidity, we use gasleft() to get remaining gas
         // This assertion checks that gas is consumed during execution
         uint256 gas1 = gasleft();
-        // Do some work to consume gas
-        uint256 dummy = 0;
-        for (uint i = 0; i < 10; i++) {
-            dummy += i;
-        }
         uint256 gas2 = gasleft();
-        require(gas1 > gas2, "Gas should decrease");
+        // Check that gas decreases between calls (like the Rust version)
+        assembly {
+            if iszero(gt(gas1, gas2)) {
+                invalid()
+            }
+        }
     }
     
     fallback() external payable {

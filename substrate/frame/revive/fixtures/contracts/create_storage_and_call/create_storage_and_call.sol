@@ -10,7 +10,9 @@ contract CreateStorageAndCall {
     
     fallback() external payable {
         // Parse input: buffer (32 bytes), input (4 bytes), callee (20 bytes), deposit_limit (32 bytes)
-        require(msg.data.length >= 88, "Invalid input length");
+        if (msg.data.length < 88) {
+            assembly { invalid() }
+        }
         
         bytes32 buffer = bytes32(msg.data[0:32]);
         bytes4 input = bytes4(msg.data[32:36]);

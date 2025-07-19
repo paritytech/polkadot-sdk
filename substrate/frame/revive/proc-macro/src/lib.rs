@@ -584,8 +584,8 @@ impl Parse for FixtureTestArgs {
 /// ```
 /// 
 /// This will generate:
-/// - `test_dummy_contract_rust()` 
-/// - `test_dummy_contract_sol()`
+/// - `test_dummy_contract_rust()` that calls `test_dummy_contract("rust")`
+/// - `test_dummy_contract_sol()` that calls `test_dummy_contract("sol")`
 #[proc_macro_attribute]
 pub fn fixture_test(attr: TokenStream, item: TokenStream) -> TokenStream {
 	let input = syn::parse_macro_input!(item as ItemFn);
@@ -593,8 +593,16 @@ pub fn fixture_test(attr: TokenStream, item: TokenStream) -> TokenStream {
 	
 	let original_name = &input.sig.ident;
 	let vis = &input.vis;
-	let block = &input.block;
 	let attrs = &input.attrs;
+	let inputs = &input.sig.inputs;
+	let output = &input.sig.output;
+	let block = &input.block;
+	
+	// Generate the original function (without #[test] attribute)
+	let original_function = quote! {
+		#(#attrs)*
+		#vis fn #original_name(#inputs) #output #block
+	};
 	
 	// Generate a test function for each fixture type
 	let test_functions = args.fixture_types.iter().map(|fixture_type| {
@@ -605,16 +613,15 @@ pub fn fixture_test(attr: TokenStream, item: TokenStream) -> TokenStream {
 		);
 		
 		quote! {
-			#(#attrs)*
 			#[test]
 			#vis fn #test_name() {
-				let fixture_type = #fixture_type;
-				#block
+				#original_name(#fixture_type);
 			}
 		}
 	});
 	
 	quote! {
+		#original_function
 		#(#test_functions)*
 	}.into()
 }

@@ -7,7 +7,9 @@ contract StoreCall {
     }
     
     function call(uint32 len) external {
-        require(len <= 512, "Length too large");
+        if (len > 512) {
+            assembly { invalid() }
+        }
         
         // Create a buffer of zeros with specified length
         bytes memory data = new bytes(len);

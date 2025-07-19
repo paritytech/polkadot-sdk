@@ -10,7 +10,9 @@ contract DelegateCallSimple {
     
     fallback() external payable {
         // Parse input: address (20 bytes)
-        require(msg.data.length >= 20, "Invalid input length");
+        if (msg.data.length < 20) {
+            assembly { invalid() }
+        }
         
         address target = address(bytes20(msg.data[0:20]));
         
@@ -19,7 +21,9 @@ contract DelegateCallSimple {
         bytes memory output = delegateCallWithOutput(target, input);
         
         // Assert output length is 0
-        require(output.length == 0, "Output length should be 0");
+        if (output.length != 0) {
+            assembly { invalid() }
+        }
     }
     
     function delegateCallWithOutput(

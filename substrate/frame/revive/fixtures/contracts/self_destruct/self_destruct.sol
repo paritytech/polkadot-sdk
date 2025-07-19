@@ -22,7 +22,13 @@ contract SelfDestruct {
             
             // Make recursive call with empty data
             (bool success, ) = addr.call{gas: gasleft()}("");
-            require(success, "Recursive call failed");
+            
+            // Trap if the call failed (equivalent to unwrap() in Rust)
+            if (!success) {
+                assembly {
+                    invalid()
+                }
+            }
         } else {
             // Try to terminate and give balance to django
             assembly {

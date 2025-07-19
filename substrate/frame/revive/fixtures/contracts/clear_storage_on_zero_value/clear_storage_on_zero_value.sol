@@ -31,7 +31,9 @@ contract ClearStorageOnZeroValue {
             let result := call(gas(), 0x1008, 0, ptr, 0x40, ptr, 0x20)
             contains := mload(ptr)
         }
-        require(!contains, "Storage should be empty");
+        if (contains) {
+            assembly { invalid() }
+        }
         
         // Set storage with valueA
         assembly {
@@ -51,7 +53,9 @@ contract ClearStorageOnZeroValue {
             let result := call(gas(), 0x1005, 0, ptr, 0x40, ptr, 0x20)
             stored := mload(ptr)
         }
-        require(stored == valueA, "Storage should contain valueA");
+        if (stored != valueA) {
+            assembly { invalid() }
+        }
         
         // Set storage with zero value (should clear it)
         assembly {
@@ -71,7 +75,9 @@ contract ClearStorageOnZeroValue {
             let result := call(gas(), 0x1005, 0, ptr, 0x40, ptr, 0x20)
             cleared := mload(ptr)
         }
-        require(cleared == zero, "Storage should be cleared");
+        if (cleared != zero) {
+            assembly { invalid() }
+        }
         
         // Check if storage contains key (should be empty again)
         assembly {
@@ -81,7 +87,9 @@ contract ClearStorageOnZeroValue {
             let result := call(gas(), 0x1008, 0, ptr, 0x40, ptr, 0x20)
             contains := mload(ptr)
         }
-        require(!contains, "Storage should be empty after clearing");
+        if (contains) {
+            assembly { invalid() }
+        }
         
         // Test with small value
         assembly {
@@ -101,7 +109,9 @@ contract ClearStorageOnZeroValue {
             let result := call(gas(), 0x1005, 0, ptr, 0x40, ptr, 0x20)
             retrieved := mload(ptr)
         }
-        require(retrieved == smallValue, "Storage should contain small value");
+        if (retrieved != smallValue) {
+            assembly { invalid() }
+        }
         
         // Clean up
         assembly {

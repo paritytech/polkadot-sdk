@@ -7,8 +7,12 @@ contract MultiStore {
     }
     
     function call(uint32 size1, uint32 size2) external {
-        require(size1 <= 512, "Size1 too large");
-        require(size2 <= 512, "Size2 too large");
+        if (size1 > 512) {
+            assembly { invalid() }
+        }
+        if (size2 > 512) {
+            assembly { invalid() }
+        }
         
         // Create buffer data (zeros)
         bytes memory buffer1 = new bytes(size1);

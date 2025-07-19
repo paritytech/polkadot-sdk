@@ -18,34 +18,56 @@ contract Storage {
         
         // Set storage and check contains
         setStorage(key, value1);
-        require(containsStorage(key) == value1.length, "Storage should contain value1");
+        if (containsStorage(key) != value1.length) {
+            assembly { invalid() }
+        }
         bytes memory val = getStorage(key);
-        require(keccak256(val) == keccak256(value1), "Retrieved value should equal value1");
+        if (keccak256(val) != keccak256(value1)) {
+            assembly { invalid() }
+        }
         
         // Set storage with existing value
         uint256 existing = setStorage(key, value2);
-        require(existing == value1.length, "Should return previous value length");
+        if (existing != value1.length) {
+            assembly { invalid() }
+        }
         val = getStorage(key);
-        require(keccak256(val) == keccak256(value2), "Retrieved value should equal value2");
+        if (keccak256(val) != keccak256(value2)) {
+            assembly { invalid() }
+        }
         
         // Clear storage
         clearStorage(key);
-        require(containsStorage(key) == 0, "Storage should be empty after clear");
+        if (containsStorage(key) != 0) {
+            assembly { invalid() }
+        }
         
         // Set storage after clear
         existing = setStorage(key, value3);
-        require(existing == 0, "Should return 0 for previously empty storage");
-        require(containsStorage(key) == value1.length, "Storage should contain value3");
+        if (existing != 0) {
+            assembly { invalid() }
+        }
+        if (containsStorage(key) != value1.length) {
+            assembly { invalid() }
+        }
         val = getStorage(key);
-        require(keccak256(val) == keccak256(value3), "Retrieved value should equal value3");
+        if (keccak256(val) != keccak256(value3)) {
+            assembly { invalid() }
+        }
         
         // Clear and set again
         clearStorage(key);
-        require(containsStorage(key) == 0, "Storage should be empty after clear");
+        if (containsStorage(key) != 0) {
+            assembly { invalid() }
+        }
         existing = setStorage(key, value3);
-        require(existing == 0, "Should return 0 for previously empty storage");
+        if (existing != 0) {
+            assembly { invalid() }
+        }
         val = takeStorage(key);
-        require(keccak256(val) == keccak256(value3), "Taken value should equal value3");
+        if (keccak256(val) != keccak256(value3)) {
+            assembly { invalid() }
+        }
     }
     
     /// @notice Set storage value and return previous value length

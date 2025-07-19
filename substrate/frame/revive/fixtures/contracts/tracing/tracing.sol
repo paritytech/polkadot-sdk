@@ -10,7 +10,11 @@ contract Tracing {
     
     fallback() external payable {
         // Parse input: calls_left (4 bytes), callee_addr (20 bytes)
-        require(msg.data.length >= 24, "Invalid input length");
+        if (msg.data.length < 24) {
+            assembly {
+                invalid()
+            }
+        }
         
         uint32 calls_left = uint32(bytes4(msg.data[0:4]));
         address callee_addr = address(bytes20(msg.data[4:24]));
@@ -38,6 +42,10 @@ contract Tracing {
         // Get own address and recurse
         address addr = address(this);
         (success, ) = addr.call{value: 0}(next_input);
-        require(success, "Recursive call failed");
+        if (!success) {
+            assembly {
+                invalid()
+            }
+        }
     }
 }

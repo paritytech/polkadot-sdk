@@ -149,7 +149,7 @@ builder!(
 	/// Build the instantiate call and unwrap the account id.
 	pub fn build_and_unwrap_contract(self) -> Contract<T> {
 		let result = self.build().result.unwrap();
-		assert!(!result.result.did_revert(), "instantiation did revert");
+		assert!(!result.result.did_revert(), "instantiation did revert {result:?}");
 
 		let addr = result.addr;
 		let account_id = T::AddressMapper::to_account_id(&addr);

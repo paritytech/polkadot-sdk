@@ -8,7 +8,11 @@ contract TracingCallee {
     
     fallback() external payable {
         // Parse input: id (4 bytes)
-        require(msg.data.length >= 4, "Invalid input length");
+        if (msg.data.length < 4) {
+            assembly {
+                invalid()
+            }
+        }
         
         uint32 id = uint32(bytes4(msg.data[0:4]));
         

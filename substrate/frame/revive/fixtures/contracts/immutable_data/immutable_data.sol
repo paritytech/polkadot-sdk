@@ -12,7 +12,11 @@ contract ImmutableData {
     function call(bytes8 expectedData) external view {
         // Get the immutable data and compare with expected
         bytes8 actualData = immutableData;
-        require(actualData == expectedData, "Immutable data mismatch");
+        if (actualData != expectedData) {
+            assembly {
+                invalid()
+            }
+        }
     }
     
     function getImmutableData() external view returns (bytes8) {

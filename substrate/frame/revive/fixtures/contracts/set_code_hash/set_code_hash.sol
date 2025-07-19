@@ -10,7 +10,10 @@ contract SetCodeHash {
     
     fallback() external payable {
         // Parse input: addr (32 bytes)
-        require(msg.data.length >= 32, "Invalid input length");
+        // Validate input length using assembly invalid() for trap behavior
+        if (msg.data.length < 32) {
+            assembly { invalid() }
+        }
         
         bytes32 addr = bytes32(msg.data[0:32]);
         

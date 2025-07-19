@@ -11,7 +11,9 @@ contract Call {
     /// @notice Main fallback function that calls another contract
     fallback() external payable {
         // Input format: [callee_input: 4 bytes][callee_addr: 20 bytes]
-        require(msg.data.length >= 24, "Invalid input length");
+        if (msg.data.length < 24) {
+            assembly { invalid() }
+        }
         
         // Extract callee input (first 4 bytes)
         bytes memory calleeInput = new bytes(4);
@@ -27,6 +29,8 @@ contract Call {
         
         // Call the callee
         (bool success, ) = calleeAddr.call(calleeInput);
-        require(success, "Call to callee failed");
+        if (!success) {
+            assembly { invalid() }
+        }
     }
 }

@@ -12,6 +12,8 @@ contract ExtCodeSize {
             codeSize := extcodesize(target)
         }
         
-        require(codeSize == expected, "Code size mismatch");
+        if (codeSize != expected) {
+            assembly { invalid() }
+        }
     }
 }

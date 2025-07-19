@@ -8,7 +8,9 @@ contract StoreDeploy {
     
     function deploy() external {
         // Parse input: len (u32)
-        require(msg.data.length >= 8, "Invalid input length");
+        if (msg.data.length < 8) {
+            assembly { invalid() }
+        }
         
         uint32 len = uint32(bytes4(msg.data[4:8]));
         

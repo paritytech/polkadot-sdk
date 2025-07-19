@@ -12,7 +12,11 @@ contract DelegateCall {
     /// @notice Main fallback function that tests delegate call with storage
     fallback() external payable {
         // Input format: [address: 20 bytes][ref_time: 8 bytes][proof_size: 8 bytes]
-        require(msg.data.length >= 20 + 8 + 8, "Invalid input length");
+        assembly {
+            if lt(calldatasize(), 36) {
+                invalid()
+            }
+        }
         
         // Extract delegate call target address
         address target;
@@ -28,14 +32,32 @@ contract DelegateCall {
         storage_[key] = value;
         
         // Verify initial storage value
-        require(storage_[key] == value, "Initial storage value should be 2");
+        assembly {
+            mstore(0x00, key)
+            mstore(0x20, storage_.slot)
+            let storageSlot := keccak256(0x00, 0x40)
+            if iszero(eq(sload(storageSlot), value)) {
+                invalid()
+            }
+        }
         
         // Perform delegate call
         (bool success, ) = target.delegatecall("");
-        require(success, "Delegate call failed");
+        assembly {
+            if iszero(success) {
+                invalid()
+            }
+        }
         
         // Check that storage was modified by the delegate call
-        require(storage_[key] == bytes32(uint256(1)), "Storage should be modified to 1 by delegate call");
+        assembly {
+            mstore(0x00, key)
+            mstore(0x20, storage_.slot)
+            let storageSlot := keccak256(0x00, 0x40)
+            if iszero(eq(sload(storageSlot), 1)) {
+                invalid()
+            }
+        }
     }
     
     /// @notice Get storage value for testing

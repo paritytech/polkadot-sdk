@@ -8,7 +8,9 @@ contract Create2WithValue {
     
     fallback() external payable {
         // Parse input: code_hash (32 bytes)
-        require(msg.data.length >= 32, "Invalid input length");
+        if (msg.data.length < 32) {
+            assembly { invalid() }
+        }
         
         bytes32 code_hash = bytes32(msg.data[0:32]);
         

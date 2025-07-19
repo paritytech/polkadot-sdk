@@ -12,7 +12,9 @@ contract CreateStorageAndInstantiate {
     
     fallback() external payable {
         // Parse input: code_hash (32 bytes), input (4 bytes), deposit_limit (32 bytes)
-        require(msg.data.length >= 68, "Invalid input length");
+        if (msg.data.length < 68) {
+            assembly { invalid() }
+        }
         
         bytes32 code_hash = bytes32(msg.data[0:32]);
         bytes4 input = bytes4(msg.data[32:36]);

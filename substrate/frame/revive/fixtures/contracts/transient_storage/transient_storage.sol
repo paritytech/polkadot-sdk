@@ -11,90 +11,147 @@ contract TransientStorage {
     /// @notice Main fallback function that tests various transient storage operations
     fallback() external payable {
         bytes32 key = bytes32(0x0101010101010101010101010101010101010101010101010101010101010101);
-        bytes memory value1 = hex"01010101";
+        bytes4 value1 = bytes4(0x01010101);
         bytes memory value2 = hex"0202020202";
         bytes memory value3 = hex"030303030303";
         
         // Set transient storage and check initial state
-        uint256 existing = setTransientStorage(key, value1);
-        require(existing == 0, "Initial set should return 0");
-        require(containsTransientStorage(key) == value1.length, "Storage should contain value1");
+        uint256 existing = setTransientStorage(key, abi.encode(value1));
+        assembly {
+            if existing {
+                invalid()
+            }
+        }
+        
+        uint256 length = containsTransientStorage(key);
+        assembly {
+            if iszero(eq(length, 4)) {
+                invalid()
+            }
+        }
+        
         bytes memory val = getTransientStorage(key);
-        require(keccak256(val) == keccak256(value1), "Retrieved value should equal value1");
+        assembly {
+            if iszero(eq(mload(val), 4)) {
+                invalid()
+            }
+            if iszero(eq(mload(add(val, 0x20)), 0x0101010100000000000000000000000000000000000000000000000000000000)) {
+                invalid()
+            }
+        }
         
         // Set transient storage with existing value
         existing = setTransientStorage(key, value2);
-        require(existing == value1.length, "Should return previous value length");
+        assembly {
+            if iszero(eq(existing, 4)) {
+                invalid()
+            }
+        }
+        
         val = getTransientStorage(key);
-        require(keccak256(val) == keccak256(value2), "Retrieved value should equal value2");
+        assembly {
+            if iszero(eq(mload(val), 5)) {
+                invalid()
+            }
+            if iszero(eq(mload(add(val, 0x20)), 0x0202020202000000000000000000000000000000000000000000000000000000)) {
+                invalid()
+            }
+        }
         
         // Clear transient storage
         uint256 clearedLength = clearTransientStorage(key);
-        require(clearedLength == value2.length, "Should return cleared value length");
-        require(containsTransientStorage(key) == 0, "Storage should be empty after clear");
+        assembly {
+            if iszero(eq(clearedLength, 5)) {
+                invalid()
+            }
+        }
+        
+        length = containsTransientStorage(key);
+        assembly {
+            if length {
+                invalid()
+            }
+        }
         
         // Set transient storage after clear
         existing = setTransientStorage(key, value3);
-        require(existing == 0, "Should return 0 for previously empty storage");
+        assembly {
+            if existing {
+                invalid()
+            }
+        }
+        
         val = takeTransientStorage(key);
-        require(keccak256(val) == keccak256(value3), "Taken value should equal value3");
+        assembly {
+            if iszero(eq(mload(val), 6)) {
+                invalid()
+            }
+            if iszero(eq(mload(add(val, 0x20)), 0x0303030303030000000000000000000000000000000000000000000000000000)) {
+                invalid()
+            }
+        }
     }
     
     /// @notice Set transient storage value and return previous value length
     function setTransientStorage(bytes32 key, bytes memory value) internal returns (uint256) {
         uint256 previousLength = containsTransientStorage(key);
         
-        // Store the length first
-        bytes32 lengthKey = keccak256(abi.encodePacked(key, "length"));
+        // Call set_storage syscall (0x1006) with TRANSIENT flag (1)
         assembly {
-            tstore(lengthKey, mload(add(value, 0x20)))
-        }
-        
-        // Store the value in chunks of 32 bytes
-        uint256 valueLength = value.length;
-        for (uint256 i = 0; i < valueLength; i += 32) {
-            bytes32 chunkKey = keccak256(abi.encodePacked(key, "chunk", i));
-            bytes32 chunk;
-            assembly {
-                chunk := mload(add(add(value, 0x20), i))
+            let ptr := mload(0x40)
+            mstore(ptr, 1) // TRANSIENT flag
+            mstore(add(ptr, 0x20), key) // key (32 bytes)
+            
+            // Copy value data
+            let valueLength := mload(value)
+            let valuePtr := add(value, 0x20)
+            for { let i := 0 } lt(i, valueLength) { i := add(i, 0x20) } {
+                mstore(add(add(ptr, 0x40), i), mload(add(valuePtr, i)))
             }
-            assembly {
-                tstore(chunkKey, chunk)
-            }
+            
+            let result := call(gas(), 0x1006, 0, ptr, add(0x40, valueLength), 0, 0)
         }
         
         return previousLength;
     }
     
     /// @notice Get transient storage value
-    function getTransientStorage(bytes32 key) internal view returns (bytes memory) {
+    function getTransientStorage(bytes32 key) internal returns (bytes memory) {
         uint256 length = containsTransientStorage(key);
         if (length == 0) {
             return new bytes(0);
         }
         
         bytes memory value = new bytes(length);
-        for (uint256 i = 0; i < length; i += 32) {
-            bytes32 chunkKey = keccak256(abi.encodePacked(key, "chunk", i));
-            bytes32 chunk;
-            assembly {
-                chunk := tload(chunkKey)
-            }
-            assembly {
-                mstore(add(add(value, 0x20), i), chunk)
-            }
+        
+        // Call get_storage syscall (0x1005) with TRANSIENT flag (1)
+        assembly {
+            let ptr := mload(0x40)
+            mstore(ptr, 1) // TRANSIENT flag
+            mstore(add(ptr, 0x20), key) // key (32 bytes)
+            
+            let result := call(gas(), 0x1005, 0, ptr, 0x40, add(value, 0x20), length)
         }
         
         return value;
     }
     
     /// @notice Check if transient storage contains a value and return its length
-    function containsTransientStorage(bytes32 key) internal view returns (uint256) {
-        bytes32 lengthKey = keccak256(abi.encodePacked(key, "length"));
+    function containsTransientStorage(bytes32 key) internal returns (uint256) {
         uint256 length;
+        
+        // Call contains_storage syscall (0x1008) with TRANSIENT flag (1)
         assembly {
-            length := tload(lengthKey)
+            let ptr := mload(0x40)
+            mstore(ptr, 1) // TRANSIENT flag
+            mstore(add(ptr, 0x20), key) // key (32 bytes)
+            
+            let result := call(gas(), 0x1008, 0, ptr, 0x40, ptr, 0x20)
+            if result {
+                length := mload(ptr)
+            }
         }
+        
         return length;
     }
     
@@ -103,18 +160,13 @@ contract TransientStorage {
         uint256 length = containsTransientStorage(key);
         
         if (length > 0) {
-            // Clear the length
-            bytes32 lengthKey = keccak256(abi.encodePacked(key, "length"));
+            // Call clear_storage syscall (0x1007) with TRANSIENT flag (1)
             assembly {
-                tstore(lengthKey, 0)
-            }
-            
-            // Clear the value chunks
-            for (uint256 i = 0; i < length; i += 32) {
-                bytes32 chunkKey = keccak256(abi.encodePacked(key, "chunk", i));
-                assembly {
-                    tstore(chunkKey, 0)
-                }
+                let ptr := mload(0x40)
+                mstore(ptr, 1) // TRANSIENT flag
+                mstore(add(ptr, 0x20), key) // key (32 bytes)
+                
+                let result := call(gas(), 0x1007, 0, ptr, 0x40, 0, 0)
             }
         }
         

@@ -8,14 +8,19 @@ contract BalanceOf {
     
     fallback() external {
         // Extract address from call data (first 20 bytes)
-        require(msg.data.length >= 20, "Not enough data");
-        
         address account;
         assembly {
+            if lt(calldatasize(), 20) {
+                revert(0, 0)
+            }
             account := shr(96, calldataload(0))
         }
         
-        uint256 balance = account.balance;
-        require(balance != 0, "Balance should not be zero");
+        assembly {
+            let bal := balance(account)
+            if iszero(bal) {
+                invalid()
+            }
+        }
     }
 }

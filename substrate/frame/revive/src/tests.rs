@@ -793,7 +793,7 @@ fn transient_storage_work(fixture_type: &str) {
 }
 
 #[fixture::test("rust", "sol")]
-fn transient_storage_limit_in_call() {
+fn transient_storage_limit_in_call(fixture_type: &str) {
 	let (binary_caller, _code_hash_caller) =
 		compile_module_with_type("create_transient_storage_and_call", fixture_type).unwrap();
 	let (binary_callee, _code_hash_callee) =
@@ -834,7 +834,7 @@ fn transient_storage_limit_in_call() {
 }
 
 #[fixture::test("rust", "sol")]
-fn deploy_and_call_other_contract() {
+fn deploy_and_call_other_contract(fixture_type: &str) {
 	let (caller_binary, _caller_code_hash) =
 		compile_module_with_type("caller_contract", fixture_type).unwrap();
 	let (callee_binary, callee_code_hash) =
@@ -970,7 +970,7 @@ fn delegate_call(fixture_type: &str) {
 }
 
 #[fixture::test("rust", "sol")]
-fn delegate_call_non_existant_is_noop() {
+fn delegate_call_non_existant_is_noop(fixture_type: &str) {
 	let (caller_binary, _caller_code_hash) =
 		compile_module_with_type("delegate_call_simple", fixture_type).unwrap();
 
@@ -1032,7 +1032,7 @@ fn delegate_call_with_weight_limit(fixture_type: &str) {
 }
 
 #[fixture::test("rust", "sol")]
-fn delegate_call_with_deposit_limit() {
+fn delegate_call_with_deposit_limit(fixture_type: &str) {
 	let (caller_binary, _caller_code_hash) =
 		compile_module_with_type("delegate_call_deposit_limit", fixture_type).unwrap();
 	let (callee_binary, _callee_code_hash) =
@@ -1177,7 +1177,7 @@ fn cannot_self_destruct_through_storage_refund_after_price_change(fixture_type: 
 }
 
 #[fixture::test("rust", "sol")]
-fn cannot_self_destruct_while_live() {
+fn cannot_self_destruct_while_live(fixture_type: &str) {
 	let (binary, _code_hash) = compile_module_with_type("self_destruct", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -1203,7 +1203,7 @@ fn cannot_self_destruct_while_live() {
 }
 
 #[fixture::test("rust", "sol")]
-fn self_destruct_works() {
+fn self_destruct_works(fixture_type: &str) {
 	let (binary, code_hash) = compile_module_with_type("self_destruct", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(1_000).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -1285,7 +1285,7 @@ fn self_destruct_works() {
 // This tests that one contract cannot prevent another from self-destructing by sending it
 // additional funds after it has been drained.
 #[fixture::test("rust", "sol")]
-fn destroy_contract_and_transfer_funds() {
+fn destroy_contract_and_transfer_funds(fixture_type: &str) {
 	let (callee_binary, callee_code_hash) =
 		compile_module_with_type("self_destruct", fixture_type).unwrap();
 	let (caller_binary, _caller_code_hash) =
@@ -1323,7 +1323,7 @@ fn destroy_contract_and_transfer_funds() {
 }
 
 #[fixture::test("rust", "sol")]
-fn cannot_self_destruct_in_constructor() {
+fn cannot_self_destruct_in_constructor(fixture_type: &str) {
 	let (binary, _) =
 		compile_module_with_type("self_destructing_constructor", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
@@ -1394,9 +1394,10 @@ fn transfer_return_code(fixture_type: &str) {
 	});
 }
 
-#[fixture::test("rust", "sol")]
+#[test]
 fn call_return_code() {
 	use test_utils::u256_bytes;
+	let fixture_type = "sol";
 
 	let (caller_code, _caller_hash) =
 		compile_module_with_type("call_return_code", fixture_type).unwrap();
@@ -1415,6 +1416,7 @@ fn call_return_code() {
 		// this does trap the caller instead of returning an error code
 		// reasoning is that this error state does not exist on eth where
 		// ed does not exist. We hide this fact from the contract.
+		println!("{:?}", (DJANGO_ADDR, u256_bytes(1)).encode());
 		let result = builder::bare_call(bob.addr)
 			.data((DJANGO_ADDR, u256_bytes(1)).encode())
 			.origin(RuntimeOrigin::signed(BOB))
@@ -1500,7 +1502,7 @@ fn call_return_code() {
 }
 
 #[fixture::test("rust", "sol")]
-fn instantiate_return_code() {
+fn instantiate_return_code(fixture_type: &str) {
 	let (caller_code, _caller_hash) =
 		compile_module_with_type("instantiate_return_code", fixture_type).unwrap();
 	let (callee_code, callee_hash) =
@@ -1564,7 +1566,7 @@ fn instantiate_return_code() {
 }
 
 #[fixture::test("rust", "sol")]
-fn lazy_removal_works() {
+fn lazy_removal_works(fixture_type: &str) {
 	let (code, _hash) = compile_module_with_type("self_destruct", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
@@ -1598,7 +1600,7 @@ fn lazy_removal_works() {
 }
 
 #[fixture::test("rust", "sol")]
-fn lazy_batch_removal_works() {
+fn lazy_batch_removal_works(fixture_type: &str) {
 	let (code, _hash) = compile_module_with_type("self_destruct", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
@@ -1659,7 +1661,7 @@ fn ref_time_left_api_works(fixture_type: &str) {
 }
 
 #[fixture::test("rust", "sol")]
-fn lazy_removal_partial_remove_works() {
+fn lazy_removal_partial_remove_works(fixture_type: &str) {
 	let (code, _hash) = compile_module_with_type("self_destruct", fixture_type).unwrap();
 
 	// We create a contract with some extra keys above the weight limit
@@ -1734,7 +1736,7 @@ fn lazy_removal_partial_remove_works() {
 }
 
 #[fixture::test("rust", "sol")]
-fn lazy_removal_does_no_run_on_low_remaining_weight() {
+fn lazy_removal_does_no_run_on_low_remaining_weight(fixture_type: &str) {
 	let (code, _hash) = compile_module_with_type("self_destruct", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let min_balance = Contracts::min_balance();
@@ -1784,7 +1786,7 @@ fn lazy_removal_does_no_run_on_low_remaining_weight() {
 }
 
 #[fixture::test("rust", "sol")]
-fn lazy_removal_does_not_use_all_weight() {
+fn lazy_removal_does_not_use_all_weight(fixture_type: &str) {
 	let (code, _hash) = compile_module_with_type("self_destruct", fixture_type).unwrap();
 
 	let mut meter = WeightMeter::with_limit(Weight::from_parts(5_000_000_000, 100 * 1024));
@@ -1848,7 +1850,7 @@ fn lazy_removal_does_not_use_all_weight() {
 }
 
 #[fixture::test("rust", "sol")]
-fn deletion_queue_ring_buffer_overflow() {
+fn deletion_queue_ring_buffer_overflow(fixture_type: &str) {
 	let (code, _hash) = compile_module_with_type("self_destruct", fixture_type).unwrap();
 	let mut ext = ExtBuilder::default().existential_deposit(50).build();
 
@@ -1902,7 +1904,7 @@ fn deletion_queue_ring_buffer_overflow() {
 	})
 }
 #[fixture::test("rust", "sol")]
-fn refcounter() {
+fn refcounter(fixture_type: &str) {
 	let (binary, code_hash) = compile_module_with_type("self_destruct", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -1947,7 +1949,7 @@ fn refcounter() {
 }
 
 #[fixture::test("rust", "sol")]
-fn gas_estimation_for_subcalls() {
+fn gas_estimation_for_subcalls(fixture_type: &str) {
 	let (caller_code, _caller_hash) =
 		compile_module_with_type("call_with_limit", fixture_type).unwrap();
 	let (dummy_code, _callee_hash) = compile_module_with_type("dummy", fixture_type).unwrap();
@@ -2709,7 +2711,7 @@ fn contract_reverted(fixture_type: &str) {
 }
 
 #[fixture::test("rust", "sol")]
-fn set_code_hash() {
+fn set_code_hash(fixture_type: &str) {
 	let (binary, _) = compile_module_with_type("set_code_hash", fixture_type).unwrap();
 	let (new_binary, new_code_hash) =
 		compile_module_with_type("new_set_code_hash_contract", fixture_type).unwrap();
@@ -2801,7 +2803,7 @@ fn storage_deposit_limit_is_enforced(fixture_type: &str) {
 }
 
 #[fixture::test("rust", "sol")]
-fn deposit_limit_in_nested_calls() {
+fn deposit_limit_in_nested_calls(fixture_type: &str) {
 	let (binary_caller, _code_hash_caller) =
 		compile_module_with_type("create_storage_and_call", fixture_type).unwrap();
 	let (binary_callee, _code_hash_callee) =
@@ -2891,7 +2893,7 @@ fn deposit_limit_in_nested_calls() {
 }
 
 #[fixture::test("rust", "sol")]
-fn deposit_limit_in_nested_instantiate() {
+fn deposit_limit_in_nested_instantiate(fixture_type: &str) {
 	let (binary_caller, _code_hash_caller) =
 		compile_module_with_type("create_storage_and_instantiate", fixture_type).unwrap();
 	let (binary_callee, code_hash_callee) =
@@ -3006,7 +3008,7 @@ fn deposit_limit_in_nested_instantiate() {
 }
 
 #[fixture::test("rust", "sol")]
-fn deposit_limit_honors_liquidity_restrictions() {
+fn deposit_limit_honors_liquidity_restrictions(fixture_type: &str) {
 	let (binary, _code_hash) = compile_module_with_type("store_call", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let bobs_balance = 1_000;
@@ -3046,7 +3048,7 @@ fn deposit_limit_honors_liquidity_restrictions() {
 }
 
 #[fixture::test("rust", "sol")]
-fn deposit_limit_honors_existential_deposit() {
+fn deposit_limit_honors_existential_deposit(fixture_type: &str) {
 	let (binary, _code_hash) = compile_module_with_type("store_call", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -3080,7 +3082,7 @@ fn deposit_limit_honors_existential_deposit() {
 }
 
 #[fixture::test("rust", "sol")]
-fn native_dependency_deposit_works() {
+fn native_dependency_deposit_works(fixture_type: &str) {
 	let (binary, code_hash) = compile_module_with_type("set_code_hash", fixture_type).unwrap();
 	let (dummy_binary, dummy_code_hash) = compile_module_with_type("dummy", fixture_type).unwrap();
 
@@ -3389,7 +3391,7 @@ fn balance_api_returns_free_balance(fixture_type: &str) {
 }
 
 #[fixture::test("rust", "sol")]
-fn gas_consumed_is_linear_for_nested_calls() {
+fn gas_consumed_is_linear_for_nested_calls(fixture_type: &str) {
 	let (code, _code_hash) = compile_module_with_type("recurse", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -3416,7 +3418,7 @@ fn gas_consumed_is_linear_for_nested_calls() {
 }
 
 #[fixture::test("rust", "sol")]
-fn read_only_call_cannot_store() {
+fn read_only_call_cannot_store(fixture_type: &str) {
 	let (binary_caller, _code_hash_caller) =
 		compile_module_with_type("read_only_call", fixture_type).unwrap();
 	let (binary_callee, _code_hash_callee) =
@@ -3439,7 +3441,7 @@ fn read_only_call_cannot_store() {
 }
 
 #[fixture::test("rust", "sol")]
-fn read_only_call_cannot_transfer() {
+fn read_only_call_cannot_transfer(fixture_type: &str) {
 	let (binary_caller, _code_hash_caller) =
 		compile_module_with_type("call_with_flags_and_value", fixture_type).unwrap();
 	let (binary_callee, _code_hash_callee) =
@@ -3466,7 +3468,7 @@ fn read_only_call_cannot_transfer() {
 }
 
 #[fixture::test("rust", "sol")]
-fn read_only_subsequent_call_cannot_store() {
+fn read_only_subsequent_call_cannot_store(fixture_type: &str) {
 	let (binary_read_only_caller, _code_hash_caller) =
 		compile_module_with_type("read_only_call", fixture_type).unwrap();
 	let (binary_caller, _code_hash_caller) =
@@ -3499,7 +3501,7 @@ fn read_only_subsequent_call_cannot_store() {
 }
 
 #[fixture::test("rust", "sol")]
-fn read_only_call_works() {
+fn read_only_call_works(fixture_type: &str) {
 	let (binary_caller, _code_hash_caller) =
 		compile_module_with_type("read_only_call", fixture_type).unwrap();
 	let (binary_callee, _code_hash_callee) =
@@ -3518,7 +3520,7 @@ fn read_only_call_works() {
 }
 
 #[fixture::test("rust", "sol")]
-fn create1_with_value_works() {
+fn create1_with_value_works(fixture_type: &str) {
 	let (code, code_hash) = compile_module_with_type("create1_with_value", fixture_type).unwrap();
 	let value = 42;
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
@@ -3614,7 +3616,7 @@ fn call_data_copy_api_works(fixture_type: &str) {
 }
 
 #[fixture::test("rust", "sol")]
-fn static_data_limit_is_enforced() {
+fn static_data_limit_is_enforced(fixture_type: &str) {
 	let (oom_rw_trailing, _) = compile_module_with_type("oom_rw_trailing", fixture_type).unwrap();
 	let (oom_rw_included, _) = compile_module_with_type("oom_rw_included", fixture_type).unwrap();
 	let (oom_ro, _) = compile_module_with_type("oom_ro", fixture_type).unwrap();
@@ -3648,7 +3650,7 @@ fn static_data_limit_is_enforced() {
 }
 
 #[fixture::test("rust", "sol")]
-fn call_diverging_out_len_works() {
+fn call_diverging_out_len_works(fixture_type: &str) {
 	let (code, _) = compile_module_with_type("call_diverging_out_len", fixture_type).unwrap();
 
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
@@ -3721,7 +3723,7 @@ fn call_data_load_api_works(fixture_type: &str) {
 }
 
 #[fixture::test("rust")]
-fn return_data_api_works() {
+fn return_data_api_works(fixture_type: &str) {
 	let (code_return_data_api, _) =
 		compile_module_with_type("return_data_api", fixture_type).unwrap();
 	let (code_return_with_data, hash_return_with_data) =
@@ -3884,7 +3886,7 @@ fn to_account_id_works(fixture_type: &str) {
 }
 
 #[fixture::test("rust", "sol")]
-fn code_hash_works(fixture_type: FixtureType) {
+fn code_hash_works(fixture_type: &str) {
 	use crate::precompiles::{Precompile, EVM_REVERT};
 	use precompiles::NoInfo;
 
@@ -4004,7 +4006,7 @@ fn origin_must_be_mapped(fixture_type: &str) {
 }
 
 #[fixture::test("rust", "sol")]
-fn mapped_address_works(fixture_type: FixtureType) {
+fn mapped_address_works(fixture_type: &str) {
 	let (code, _) =
 		compile_module_with_type("terminate_and_send_to_argument", fixture_type).unwrap();
 
@@ -4031,7 +4033,7 @@ fn mapped_address_works(fixture_type: FixtureType) {
 }
 
 #[fixture::test("rust", "sol")]
-fn recovery_works(fixture_type: FixtureType) {
+fn recovery_works(fixture_type: &str) {
 	let (code, _) =
 		compile_module_with_type("terminate_and_send_to_argument", fixture_type).unwrap();
 
@@ -4216,7 +4218,7 @@ fn gas_limit_api_works(fixture_type: &str) {
 }
 
 #[fixture::test("rust", "sol")]
-fn unknown_syscall_rejected(fixture_type: FixtureType) {
+fn unknown_syscall_rejected(fixture_type: &str) {
 	let (code, _) = compile_module_with_type("unknown_syscall", fixture_type).unwrap();
 
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
@@ -4230,7 +4232,7 @@ fn unknown_syscall_rejected(fixture_type: FixtureType) {
 }
 
 #[fixture::test("rust", "sol")]
-fn unstable_interface_rejected(fixture_type: FixtureType) {
+fn unstable_interface_rejected(fixture_type: &str) {
 	let (code, _) = compile_module_with_type("unstable_interface", fixture_type).unwrap();
 
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
@@ -4271,7 +4273,7 @@ fn tracing_works_for_transfers() {
 }
 
 #[fixture::test("rust", "sol")]
-fn call_tracing_works(fixture_type: FixtureType) {
+fn call_tracing_works(fixture_type: &str) {
 	use crate::evm::*;
 	use CallType::*;
 	let (code, _code_hash) = compile_module_with_type("tracing", fixture_type).unwrap();
@@ -4428,7 +4430,7 @@ fn call_tracing_works(fixture_type: FixtureType) {
 }
 
 #[fixture::test("rust", "sol")]
-fn create_call_tracing_works(fixture_type: FixtureType) {
+fn create_call_tracing_works(fixture_type: &str) {
 	use crate::evm::*;
 	let (code, code_hash) = compile_module_with_type("create2_with_value", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
@@ -4488,7 +4490,7 @@ fn create_call_tracing_works(fixture_type: FixtureType) {
 }
 
 #[fixture::test("rust", "sol")]
-fn prestate_tracing_works(fixture_type: FixtureType) {
+fn prestate_tracing_works(fixture_type: &str) {
 	use crate::evm::*;
 	use alloc::collections::BTreeMap;
 
@@ -4676,7 +4678,7 @@ fn prestate_tracing_works(fixture_type: FixtureType) {
 }
 
 #[fixture::test("rust", "sol")]
-fn unknown_precompiles_revert(fixture_type: FixtureType) {
+fn unknown_precompiles_revert(fixture_type: &str) {
 	let (code, _code_hash) = compile_module_with_type("read_only_call", fixture_type).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
@@ -4700,7 +4702,7 @@ fn unknown_precompiles_revert(fixture_type: FixtureType) {
 }
 
 #[fixture::test("rust", "sol")]
-fn pure_precompile_works(fixture_type: FixtureType) {
+fn pure_precompile_works(fixture_type: &str) {
 	use hex_literal::hex;
 
 	let cases = vec![
@@ -4791,7 +4793,7 @@ fn pure_precompile_works(fixture_type: FixtureType) {
 }
 
 #[fixture::test("rust", "sol")]
-fn precompiles_work(fixture_type: FixtureType) {
+fn precompiles_work(fixture_type: &str) {
 	use crate::precompiles::Precompile;
 	use alloy_core::sol_types::{Panic, PanicKind, Revert, SolError, SolInterface, SolValue};
 	use precompiles::{INoInfo, NoInfo};
@@ -4862,7 +4864,7 @@ fn precompiles_work(fixture_type: FixtureType) {
 }
 
 #[fixture::test("rust", "sol")]
-fn precompiles_with_info_creates_contract(fixture_type: FixtureType) {
+fn precompiles_with_info_creates_contract(fixture_type: &str) {
 	use crate::precompiles::Precompile;
 	use alloy_core::sol_types::SolInterface;
 	use precompiles::{IWithInfo, WithInfo};

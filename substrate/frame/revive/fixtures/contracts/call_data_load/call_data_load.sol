@@ -7,24 +7,18 @@ contract CallDataLoad {
     }
     
     fallback() external payable {
-        bytes32 buf;
-        
-        // Load first 32 bytes of call data
         assembly {
-            buf := calldataload(0)
-        }
-        
-        // Get the offset from the last byte of the first 32-byte word
-        // Note: in Solidity, buf[31] is the last byte in big-endian format
-        uint32 offset = uint32(uint8(buf[31]));
-        
-        // Load 32 bytes from the calculated offset
-        assembly {
+            // Load first 32 bytes of call data
+            let buf := calldataload(0)
+            
+            // Get buf[31] (the 32nd byte) as offset
+            // Extract the least significant byte
+            let offset := and(buf, 0xff)
+            
+            // Load 32 bytes from the calculated offset  
             buf := calldataload(offset)
-        }
-        
-        // Return the result
-        assembly {
+            
+            // Return the result
             mstore(0x00, buf)
             return(0x00, 0x20)
         }
