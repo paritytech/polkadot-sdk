@@ -455,18 +455,18 @@ pub mod pallet {
 			}
 		}
 
-		/// Helper function to publish a conditional approval remark on-chain
+		/// Helper function to publish a remark on-chain
 		/// and emit the appropriate event based on the remark type.
-		fn publish_conditional_approval_remark(
+		fn publish_remark(
 			who: &T::AccountId,
 			proposal_hash: T::Hash,
 			origin_id: T::OriginId,
 			remark: Vec<u8>,
-			remark_type: ConditionalApprovalRemarkType,
+			remark_type: RemarkType,
 			timepoint: Timepoint<BlockNumberFor<T>>,
 			approving_origin_id: Option<T::OriginId>,
 		) -> DispatchResultWithPostInfo {
-			// Create on-chain remark to record conditional approval
+			// Create on-chain remark
 			let remark_call = frame_system::Call::<T>::remark { remark: remark.clone() };
 			let remark_call: <T as Config>::RuntimeCall = remark_call.into();
 			let _ = remark_call
@@ -475,44 +475,51 @@ pub mod pallet {
 
 			// Emit appropriate event based on remark type
 			match remark_type {
-				ConditionalApprovalRemarkType::Initial => {
+				RemarkType::Initial => {
 					// If approving_origin_id is None it ss from `propose` extrinsic
 					if approving_origin_id.is_none() {
-						Self::deposit_event(Event::ProposalCreatedWithConditionalApprovalRemark {
+						Self::deposit_event(Event::ProposalCreatedWithRemark {
 							proposal_hash,
 							origin_id,
 							proposer: who.clone(),
 							timepoint,
-							conditional_approval_remark: remark,
+							remark,
 						});
 					} else {
 						// Otherwise it's from `add_approval` extrinsic
 						if let Some(approving_id) = approving_origin_id {
-							Self::deposit_event(
-								Event::OriginApprovalAmendedWithConditionalApprovalRemark {
-									proposal_hash,
-									origin_id,
-									approving_origin_id: approving_id,
-									approving_account_id: who.clone(),
-									timepoint,
-									conditional_approval_remark: remark,
-								},
-							);
-						}
-					}
-				},
-				ConditionalApprovalRemarkType::Amend => {
-					if let Some(approving_id) = approving_origin_id {
-						Self::deposit_event(
-							Event::OriginApprovalAmendedWithConditionalApprovalRemark {
+							Self::deposit_event(Event::OriginApprovalAmendedWithRemark {
 								proposal_hash,
 								origin_id,
 								approving_origin_id: approving_id,
 								approving_account_id: who.clone(),
 								timepoint,
-								conditional_approval_remark: remark,
-							},
-						);
+								remark,
+							});
+						}
+					}
+				},
+				RemarkType::Amend => {
+					// If approving_origin_id is provided it's an approver amending remark
+					if let Some(approving_id) = approving_origin_id {
+						Self::deposit_event(Event::OriginApprovalAmendedWithRemark {
+							proposal_hash,
+							origin_id,
+							approving_origin_id: approving_id,
+							approving_account_id: who.clone(),
+							timepoint,
+							remark,
+						});
+					} else {
+						// If no approving_origin_id is provided, this is the proposer amending the
+						// proposal remark
+						Self::deposit_event(Event::ProposerAmendedProposalWithRemark {
+							proposal_hash,
+							origin_id: origin_id.clone(),
+							proposer_account_id: who.clone(),
+							timepoint,
+							remark,
+						});
 					}
 				},
 			}
@@ -547,7 +554,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Submit a proposal for approval, recording the first origin's approval.
 		///
-		/// Optionally includes a conditional approval remark that will be published on-chain
+		/// Optionally includes a remark that will be published on-chain
 		/// and associated with this proposal.
 		#[pallet::call_index(0)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::propose())]
@@ -556,8 +563,9 @@ pub mod pallet {
 			call: Box<<T as Config>::RuntimeCall>,
 			origin_id: T::OriginId,
 			expiry_at: Option<BlockNumberFor<T>>,
-			conditional_approval_remark: Option<Vec<u8>>,
-			auto_execute: bool,
+			include_proposer_approval: Option<bool>,
+			remark: Option<Vec<u8>>,
+			auto_execute: Option<bool>,
 		) -> DispatchResultWithPostInfo {
 			// Check extrinsic was signed
 			let who = ensure_signed(origin)?;
@@ -608,13 +616,16 @@ pub mod pallet {
 			// Store actual call data (unbounded) to save storage for later execution
 			<ProposalCalls<T>>::insert(unique_proposal_hash, call);
 
-			// Create an empty bounded vec for approvals and create new proposal with the
-			// first approval from the proposer added
+			// Create an empty bounded vec for approvals
 			let mut approvals =
 				BoundedVec::<(T::AccountId, T::OriginId), T::RequiredApprovalsCount>::default();
-			approvals
-				.try_push((who.clone(), origin_id.clone()))
-				.map_err(|_| Error::<T>::TooManyApprovals)?;
+
+			// Add proposer's approval if requested (default to false if not specified)
+			if include_proposer_approval.unwrap_or(false) {
+				approvals
+					.try_push((who.clone(), origin_id.clone()))
+					.map_err(|_| Error::<T>::TooManyApprovals)?;
+			};
 
 			// Create and store proposal metadata (bounded storage)
 			let proposal_info = ProposalInfo {
@@ -631,26 +642,29 @@ pub mod pallet {
 			// Store proposal metadata (bounded storage)
 			<Proposals<T>>::insert(unique_proposal_hash, origin_id.clone(), proposal_info);
 
-			// Mark first approval in approvals storage efficiently
-			<Approvals<T>>::insert(
-				(unique_proposal_hash, origin_id.clone()),
-				origin_id.clone(),
-				who.clone(),
-			);
+			// Mark first approval in approvals storage efficiently only if proposer approval is
+			// included
+			if include_proposer_approval.unwrap_or(false) {
+				<Approvals<T>>::insert(
+					(unique_proposal_hash, origin_id.clone()),
+					origin_id.clone(),
+					who.clone(),
+				);
+			};
 
 			// Add proposal to expiring proposals for tracking and automatic expiry if expiry is set
 			if let Some(expiry) = expiry_block {
 				Self::add_to_expiring_proposals(unique_proposal_hash, origin_id.clone(), expiry)?;
 			}
 
-			// If a conditional approval remark is provided then publish it on-chain
-			if let Some(remark) = conditional_approval_remark {
-				Self::publish_conditional_approval_remark(
+			// If a remark is provided then publish it on-chain
+			if let Some(remark_content) = remark {
+				Self::publish_remark(
 					&who,
 					unique_proposal_hash,
 					origin_id.clone(),
-					remark,
-					ConditionalApprovalRemarkType::Initial,
+					remark_content,
+					RemarkType::Initial,
 					submission_timepoint,
 					None,
 				);
@@ -668,7 +682,7 @@ pub mod pallet {
 
 		/// Approve a previously submitted proposal.
 		///
-		/// Optionally includes a conditional approval remark that will be published on-chain
+		/// Optionally includes a remark that will be published on-chain
 		/// and associated with this approval.
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::add_approval())]
@@ -677,7 +691,7 @@ pub mod pallet {
 			call_hash: T::Hash,
 			origin_id: T::OriginId,
 			approving_origin_id: T::OriginId,
-			conditional_approval_remark: Option<Vec<u8>>,
+			remark: Option<Vec<u8>>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
@@ -737,14 +751,14 @@ pub mod pallet {
 				who.clone(),
 			);
 
-			// If a conditional approval remark is provided then publish it on-chain
-			if let Some(remark) = conditional_approval_remark {
-				Self::publish_conditional_approval_remark(
+			// If remark is provided then publish it on-chain
+			if let Some(remark_content) = remark {
+				Self::publish_remark(
 					&who,
 					call_hash,
 					origin_id.clone(),
-					remark,
-					ConditionalApprovalRemarkType::Initial,
+					remark_content,
+					RemarkType::Amend,
 					approval_timepoint,
 					Some(approving_origin_id.clone()),
 				);
@@ -760,7 +774,7 @@ pub mod pallet {
 			});
 
 			// Check if proposal can be executed now and auto-execute if requested
-			if proposal_info.auto_execute {
+			if proposal_info.auto_execute.unwrap_or(false) {
 				// Pass a clone of proposal info so original not modified if execution attempt fails
 				match Self::check_and_execute_proposal(call_hash, origin_id, proposal_info.clone())
 				{
@@ -808,22 +822,23 @@ pub mod pallet {
 			}
 		}
 
-		/// Amend an existing approval with an additional conditional approval remark.
+		/// Amend an existing proposal or approval with an additional remark.
 		///
-		/// This allows an approver to add additional remarks to their existing approval,
-		/// which will be published on-chain and associated with the proposal.
+		/// This allows either the proposer or an approver to add additional remarks to their
+		/// existing proposal or approval, which will be published on-chain and associated with the
+		/// proposal.
 		///
 		/// This is primarily intended for proposers and approvers who wish to amend their
-		/// conditional approval requirements before the proposal is executed or expires.
+		/// remarks before the proposal is executed or expires.
 		/// The last approver who triggers execution may not have time to amend their remarks.
 		#[pallet::call_index(2)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::add_approval())]
-		pub fn amend_approval(
+		pub fn amend_remark(
 			origin: OriginFor<T>,
 			call_hash: T::Hash,
 			origin_id: T::OriginId,
-			approving_origin_id: T::OriginId,
-			conditional_approval_remark: Vec<u8>,
+			approving_origin_id: Option<T::OriginId>,
+			remark: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			let update_timepoint = Self::current_timepoint();
@@ -838,31 +853,38 @@ pub mod pallet {
 				Error::<T>::ProposalNotPending
 			);
 
-			// Ensure the caller has previously approved this proposal with the specified origin
-			ensure!(
-				<Approvals<T>>::contains_key(
+			if let Some(approving_origin_id) = approving_origin_id {
+				// Ensure the caller has previously approved this proposal with the specified origin
+				ensure!(
+					<Approvals<T>>::contains_key(
+						(call_hash, origin_id.clone()),
+						approving_origin_id.clone()
+					),
+					Error::<T>::OriginApprovalNotFound
+				);
+
+				// Ensure the caller is the one who previously approved
+				let approving_account_id = <Approvals<T>>::get(
 					(call_hash, origin_id.clone()),
-					approving_origin_id.clone()
-				),
-				Error::<T>::OriginApprovalNotFound
-			);
+					approving_origin_id.clone(),
+				)
+				.ok_or(Error::<T>::OriginApprovalNotFound)?;
 
-			// Ensure the caller is the one who previously approved
-			let approving_account_id =
-				<Approvals<T>>::get((call_hash, origin_id.clone()), approving_origin_id.clone())
-					.ok_or(Error::<T>::OriginApprovalNotFound)?;
+				ensure!(approving_account_id == who, Error::<T>::NotAuthorized);
+			} else {
+				// Ensure the caller is the proposer
+				ensure!(who == proposal_info.proposer, Error::<T>::NotAuthorized);
+			}
 
-			ensure!(approving_account_id == who, Error::<T>::NotAuthorized);
-
-			// Publish the conditional approval remark on-chain
-			Self::publish_conditional_approval_remark(
+			// Publish the remark on-chain
+			Self::publish_remark(
 				&who,
 				call_hash,
 				origin_id.clone(),
-				conditional_approval_remark,
-				ConditionalApprovalRemarkType::Amend,
+				remark,
+				RemarkType::Amend,
 				update_timepoint,
-				Some(approving_origin_id.clone()),
+				approving_origin_id.clone(),
 			);
 
 			Ok(().into())
@@ -1130,22 +1152,30 @@ pub mod pallet {
 			approving_account_id: T::AccountId,
 			timepoint: Timepoint<BlockNumberFor<T>>,
 		},
-		/// A proposal has been created with a conditional approval remark.
-		ProposalCreatedWithConditionalApprovalRemark {
+		/// A proposal has been created with a remark.
+		ProposalCreatedWithRemark {
 			proposal_hash: T::Hash,
 			origin_id: T::OriginId,
 			proposer: T::AccountId,
 			timepoint: Timepoint<BlockNumberFor<T>>,
-			conditional_approval_remark: Vec<u8>,
+			remark: Vec<u8>,
 		},
-		/// An origin has amended their approval with an additional conditional approval remark.
-		OriginApprovalAmendedWithConditionalApprovalRemark {
+		/// A proposer amended their proposal with an additional remark.
+		ProposerAmendedProposalWithRemark {
+			proposal_hash: T::Hash,
+			origin_id: T::OriginId,
+			proposer_account_id: T::AccountId,
+			timepoint: Timepoint<BlockNumberFor<T>>,
+			remark: Vec<u8>,
+		},
+		/// An origin has amended their approval with an additional remark.
+		OriginApprovalAmendedWithRemark {
 			proposal_hash: T::Hash,
 			origin_id: T::OriginId,
 			approving_origin_id: T::OriginId,
 			approving_account_id: T::AccountId,
 			timepoint: Timepoint<BlockNumberFor<T>>,
-			conditional_approval_remark: Vec<u8>,
+			remark: Vec<u8>,
 		},
 		/// A proposal has been executed.
 		ProposalExecuted {
@@ -1241,12 +1271,12 @@ pub mod pallet {
 		Cancelled,
 	}
 
-	/// Enum to specify the type of conditional approval remark
+	/// Enum to specify the type of remark
 	#[derive(Clone, Copy)]
-	enum ConditionalApprovalRemarkType {
-		/// Remark for an initial approval (either from propose or add_approval)
+	enum RemarkType {
+		/// Remark for an initial proposal or approval (either from propose or add_approval)
 		Initial,
-		/// Remark for an amendment to an existing approval of a proposal
+		/// Remark for an amendment to an existing proposal or approval
 		Amend,
 	}
 
@@ -1275,7 +1305,7 @@ pub mod pallet {
 		/// Block number when this proposal was executed (if applicable)
 		pub executed_at: Option<BlockNumber>,
 		/// Whether proposal should auto-execute when it reaches `RequiredApprovalsCount`
-		pub auto_execute: bool,
+		pub auto_execute: Option<bool>,
 	}
 
 	/// Storage for proposals

@@ -94,7 +94,15 @@ mod benchmarks {
 
 		// Phase 2: Execution
 		#[extrinsic_call]
-		propose(RawOrigin::Signed(caller), Box::new(call), origin_id, expiry_at, None, false);
+		propose(
+			RawOrigin::Signed(caller),
+			Box::new(call),
+			origin_id,
+			expiry_at,
+			Some(true),
+			None,
+			Some(false),
+		);
 
 		// Phase 3: Verification
 		assert!(
@@ -127,7 +135,8 @@ mod benchmarks {
 			origin_id,
 			expiry_at,
 			None,
-			false,
+			None,
+			Some(false),
 		)?;
 
 		// Phase 2: Execution
@@ -165,8 +174,9 @@ mod benchmarks {
 			Box::new(call),
 			origin_id,
 			expiry_at,
+			Some(true),
 			None,
-			false, // Do not auto-execute
+			Some(false), // Do not auto-execute
 		)?;
 
 		// Add approvals but do not auto-execute
@@ -211,7 +221,8 @@ mod benchmarks {
 			origin_id,
 			expiry_at,
 			None,
-			false,
+			None,
+			Some(false),
 		)?;
 
 		// Phase 2: Execution
@@ -249,7 +260,8 @@ mod benchmarks {
 			origin_id,
 			expiry_at,
 			None,
-			false,
+			None,
+			Some(false),
 		)?;
 
 		Pallet::<T>::add_approval(
@@ -290,7 +302,7 @@ mod benchmarks {
 		let origin_id = make_origin_id::<T>(ALICE_ORIGIN_ID);
 		let approving_origin_id = make_origin_id::<T>(BOB_ORIGIN_ID);
 		let expiry_at = None;
-		let auto_execute = false;
+		let auto_execute = Some(false);
 
 		// Create a proposal with immediate expiry
 		let start_block = frame_system::Pallet::<T>::block_number();
@@ -302,6 +314,7 @@ mod benchmarks {
 			Box::new(call.clone()),
 			origin_id,
 			expiry_at,
+			None,
 			None,
 			auto_execute,
 		)?;
@@ -356,7 +369,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn amend_approval() -> Result<(), BenchmarkError> {
+	fn amend_remark() -> Result<(), BenchmarkError> {
 		// Phase 1: Setup - Create a proposal and add initial approval
 		let caller: T::AccountId = whitelisted_caller();
 		let proposer: T::AccountId = account("proposer", 0, 0);
@@ -383,8 +396,9 @@ mod benchmarks {
 			Box::new(frame_system::Call::<T>::remark { remark: vec![] }.into()),
 			origin_id.clone(),
 			expiry_at,
+			Some(true),
 			None,
-			false,
+			Some(false),
 		)?;
 
 		// Add initial approval with no remark
@@ -408,11 +422,11 @@ mod benchmarks {
 
 		// Phase 2: Execution - Amend the approval with a new remark
 		#[extrinsic_call]
-		amend_approval(
+		amend_remark(
 			RawOrigin::Signed(caller),
 			call_hash,
 			origin_id,
-			approving_origin_id,
+			Some(approving_origin_id),
 			remark,
 		);
 

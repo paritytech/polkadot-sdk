@@ -22,7 +22,7 @@ pub trait WeightInfo {
 	fn set_dummy() -> Weight;
 	fn propose() -> Weight;
 	fn add_approval() -> Weight;
-	fn amend_approval() -> Weight;
+	fn amend_remark() -> Weight;
 	fn cancel_proposal() -> Weight;
 	fn withdraw_approval() -> Weight;
 	fn clean() -> Weight;
@@ -40,7 +40,7 @@ impl WeightInfo for () {
 	fn add_approval() -> Weight {
 		Weight::zero()
 	}
-	fn amend_approval() -> Weight {
+	fn amend_remark() -> Weight {
 		Weight::zero()
 	}
 	fn cancel_proposal() -> Weight {

@@ -73,6 +73,9 @@ assert_ok!(OriginAndGate::propose(
     call.clone(),
     AMBASSADOR_ORIGIN_ID,
     expiry,
+    Some(true),  // include_proposer_approval (optional, defaults to false)
+    None,        // remark
+    None,        // auto_execute (optional, defaults to false)
 ));
 ```
 
@@ -140,7 +143,7 @@ assert_ok!(OriginAndGate::add_approval(
 
 // Bob later may amend his approval with an updated remark
 let amended_remark = "Approved: Treasury condition verified".as_bytes().to_vec();
-assert_ok!(OriginAndGate::amend_approval(
+assert_ok!(OriginAndGate::amend_remark(
     RuntimeOrigin::signed(BOB),
     call_hash,
     AMBASSADOR_ORIGIN_ID,
