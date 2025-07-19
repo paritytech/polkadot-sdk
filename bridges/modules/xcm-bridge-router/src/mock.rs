@@ -215,7 +215,7 @@ pub(crate) fn set_bridge_state_for<T: pallet_xcm_bridge_router::Config<I>, I: 's
 
 pub(crate) fn get_bridge_state_for<T: pallet_xcm_bridge_router::Config<I>, I: 'static>(
 	dest: &Location,
-) -> Option<BridgeState> {
+) -> BridgeState {
 	let bridge_id = <T::BridgeIdResolver as ResolveBridgeId>::resolve_for_dest(dest).unwrap();
 	pallet_xcm_bridge_router::Bridges::<T, I>::get(bridge_id)
 }
