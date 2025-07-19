@@ -69,6 +69,36 @@ impl<T: Config<I>, I: 'static> bp_xcm_bridge::LocalXcmChannelManager<BridgeIdOf<
 	}
 }
 
+/// Calculates the price for message delivery across bridges with base price, dynamic fees
+/// and size-based pricing.
+pub struct GetPriceForBridge<T, I, BasePrice>(PhantomData<(T, I, BasePrice)>);
+impl<T: Config<I>, I: 'static, BasePrice: Get<Assets>>
+	polkadot_runtime_common::xcm_sender::PriceForMessageDelivery
+	for GetPriceForBridge<T, I, BasePrice>
+{
+	type Id = BridgeIdOf<T, I>;
+
+	fn price_for_delivery(bridge_id: Self::Id, message: &Xcm<()>) -> Assets {
+		// Get a base price.
+		let mut price = BasePrice::get();
+
+		// Apply message-size-based fees (if configured).
+		if let Some(message_size_fees) =
+			Pallet::<T, I>::calculate_message_size_fee(message.encoded_size() as _)
+		{
+			price.push(message_size_fees);
+		}
+
+		// Apply dynamic congestion fees based on bridge state (if needed).
+		let bridge_state = Bridges::<T, I>::get(bridge_id);
+		let mut dynamic_fees = price.into_inner();
+		for fee in dynamic_fees.iter_mut() {
+			Pallet::<T, I>::apply_dynamic_fee_factor(&bridge_state, fee);
+		}
+		Assets::from(dynamic_fees)
+	}
+}
+
 /// Adapter implementation for [`ExporterFor`] that allows exporting message size fee and/or dynamic
 /// fees based on the `BridgeId` resolved by the `T::BridgeIdResolver` resolver, if and only if the
 /// `E` exporter supports bridging. This adapter acts as an [`ExporterFor`], for example, for the
@@ -178,8 +208,8 @@ where
 		// required.
 		if let Some(bridge_id) = T::BridgeIdResolver::resolve_for(network, remote_location) {
 			let bridge_state = Bridges::<T, I>::get(bridge_id);
-			if let Some(f) = fees {
-				fees = Some(Pallet::<T, I>::apply_dynamic_fee_factor(&bridge_state, f));
+			if let Some(f) = fees.as_mut() {
+				Pallet::<T, I>::apply_dynamic_fee_factor(&bridge_state, f);
 			}
 		}
 
@@ -216,10 +246,9 @@ impl<T: Config<I>, I: 'static, E: SendXcm> SendXcm for ViaLocalBridgeExporter<T,
 				// check/apply the congestion and dynamic_fees features (if possible).
 				if let Some(bridge_id) = T::BridgeIdResolver::resolve_for_dest(&dest_clone) {
 					let bridge_state = Bridges::<T, I>::get(bridge_id);
-					let mut dynamic_fees = sp_std::vec::Vec::with_capacity(fees.len());
-					for fee in fees.into_inner() {
-						dynamic_fees
-							.push(Pallet::<T, I>::apply_dynamic_fee_factor(&bridge_state, fee));
+					let mut dynamic_fees = fees.into_inner();
+					for fee in dynamic_fees.iter_mut() {
+						Pallet::<T, I>::apply_dynamic_fee_factor(&bridge_state, fee);
 					}
 					fees = Assets::from(dynamic_fees);
 				}
