@@ -58,7 +58,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 	}
 
 	fn step(
-		mut cursor: Option<Self::Cursor>,
+		cursor: Option<Self::Cursor>,
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
 		let required = <T as Config>::WeightInfo::v1_migration_step();
