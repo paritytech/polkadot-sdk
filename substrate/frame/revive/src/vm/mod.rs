@@ -30,13 +30,13 @@ pub use crate::vm::runtime::{ReturnData, TrapReason};
 pub use crate::vm::runtime::{Runtime, RuntimeCosts};
 
 use crate::{
+	AccountIdOf, BadOrigin, BalanceOf, CodeInfoOf, CodeVec, Config, Error, ExecError, HoldReason,
+	LOG_TARGET, PristineCode, Weight,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	gas::{GasMeter, Token},
 	limits,
 	storage::meter::Diff,
 	weights::WeightInfo,
-	AccountIdOf, BadOrigin, BalanceOf, CodeInfoOf, CodeVec, Config, Error, ExecError, HoldReason,
-	PristineCode, Weight, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -432,9 +432,11 @@ where
 			let prepared_call = self.prepare_call(Runtime::new(ext, input_data), function, 0)?;
 			prepared_call.call()
 		} else {
+			use crate::vm::evm::EVMInputs;
 			use revm::bytecode::Bytecode;
+			let inputs = EVMInputs::new(ext, input_data);
 			let bytecode = Bytecode::new_raw(self.code.into_inner().into());
-			evm::call(bytecode, input_data)
+			evm::call(bytecode, inputs)
 		}
 	}
 
