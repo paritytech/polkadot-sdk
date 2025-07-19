@@ -135,7 +135,7 @@ async fn send_future_and_ready_from_many_accounts_to_relaychain() {
 	assert_eq!(finalized_ready, 10_000);
 }
 
-// Send immportal and mortal txs. Some of the mortal txs are configured to get dropped
+// Send immortal and mortal txs. Some of the mortal txs are configured to get dropped
 // while others to succeed. Mortal txs are future so not being able to become ready in time and
 // included in blocks result in their dropping.
 //
