@@ -29,3 +29,7 @@ crates:
    bump: major
  - name: testnet-parachains-constants
    bump: patch
+ - name: rococo-runtime-constants
+   bump: patch
+ - name: westend-runtime-constants
+   bump: patch
