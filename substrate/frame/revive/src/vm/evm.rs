@@ -1,9 +1,12 @@
+mod instructions;
+
 use crate::{
+	Config, ExecReturnValue,
 	address::AddressMapper,
 	exec::PrecompileExt,
 	vm::{ExecResult, Ext},
-	Config, ExecReturnValue,
 };
+use instructions::instruction_table;
 use pallet_revive_uapi::ReturnFlags;
 use revm::{
 	bytecode::Bytecode,
@@ -12,16 +15,15 @@ use revm::{
 		journaled_state::AccountLoad,
 	},
 	interpreter::{
+		CallInput, Gas, Interpreter, InterpreterResult, InterpreterTypes, SharedMemory, Stack,
 		host::Host,
-		instruction_table,
 		interpreter::{ExtBytecode, ReturnDataImpl, RuntimeFlags},
 		interpreter_action::{
 			CallInputs, CreateInputs, CreateOutcome, FrameInput, InterpreterAction,
 		},
 		interpreter_types::{InputsTr, ReturnData, StackTr},
-		CallInput, Gas, Interpreter, InterpreterResult, InterpreterTypes, SharedMemory, Stack,
 	},
-	primitives::{hardfork::SpecId, Address, Bytes, Log, StorageKey, StorageValue, B256, U256},
+	primitives::{Address, B256, Bytes, Log, StorageKey, StorageValue, U256, hardfork::SpecId},
 };
 use sp_core::H256;
 
