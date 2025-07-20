@@ -2292,7 +2292,8 @@ mod benchmarks {
 		assert_eq!(v1::old::ContractInfoOf::<T>::get(&addr), None);
 		assert_eq!(AccountInfo::<T>::load_contract(&addr).unwrap(), contract_info);
 
-		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v1_migration_step());
+		// uses twice the weight once for migration and then for checking if there is another key.
+		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v1_migration_step() * 2);
 	}
 
 	impl_benchmark_test_suite!(
