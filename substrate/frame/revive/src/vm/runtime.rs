@@ -18,6 +18,7 @@
 //! Environment definition of the vm smart-contract runtime.
 
 use crate::{
+	Config, Error, LOG_TARGET, Pallet, SENTINEL,
 	address::AddressMapper,
 	evm::runtime::GAS_PRICE,
 	exec::{ExecError, ExecResult, Ext, Key},
@@ -26,7 +27,6 @@ use crate::{
 	precompiles::{All as AllPrecompiles, Precompiles},
 	primitives::ExecReturnValue,
 	weights::WeightInfo,
-	Config, Error, Pallet, LOG_TARGET, SENTINEL,
 };
 use alloc::{vec, vec::Vec};
 use codec::Encode;
@@ -195,11 +195,7 @@ impl<T: Config> PolkaVmInstance<T> for polkavm::RawInstance {
 
 impl From<&ExecReturnValue> for ReturnErrorCode {
 	fn from(from: &ExecReturnValue) -> Self {
-		if from.flags.contains(ReturnFlags::REVERT) {
-			Self::CalleeReverted
-		} else {
-			Self::Success
-		}
+		if from.flags.contains(ReturnFlags::REVERT) { Self::CalleeReverted } else { Self::Success }
 	}
 }
 
@@ -545,9 +541,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 /// We need this access as a macro because sometimes hiding the lifetimes behind
 /// a function won't work out.
 macro_rules! charge_gas {
-	($runtime:expr, $costs:expr) => {{
-		$runtime.ext.gas_meter_mut().charge($costs)
-	}};
+	($runtime:expr, $costs:expr) => {{ $runtime.ext.gas_meter_mut().charge($costs) }};
 }
 
 /// The kind of call that should be performed.
@@ -598,7 +592,7 @@ enum StorageReadMode {
 	/// VariableOutput mode: if the key exists, the full stored value is returned
 	/// using the caller‑provided output length.
 	VariableOutput { output_len_ptr: u32 },
-	/// Ethereum commpatible(FixedOutput32) mode: always write a 32-byte value into the output
+	/// Ethereum compatible(FixedOutput32) mode: always write a 32-byte value into the output
 	/// buffer. If the key is missing, write 32 bytes of zeros.
 	FixedOutput32,
 }
