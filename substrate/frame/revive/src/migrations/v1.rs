@@ -66,25 +66,33 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			return Err(SteppedMigrationError::InsufficientWeight { required });
 		}
 
-		let mut iter = if let Some(last_key) = cursor {
-			old::ContractInfoOf::<T>::iter_from(old::ContractInfoOf::<T>::hashed_key_for(last_key))
-		} else {
-			old::ContractInfoOf::<T>::iter()
-		}
-		.drain();
-
-		while let Some((last_key, value)) = iter.next() {
-			AccountInfoOf::<T>::insert(
-				last_key,
-				AccountInfo { account_type: value.into(), ..Default::default() },
-			);
-
+		loop {
 			if meter.try_consume(required).is_err() {
-				return Ok(Some(last_key))
+				break;
+			}
+
+			let iter = if let Some(last_key) = cursor {
+				old::ContractInfoOf::<T>::iter_from(old::ContractInfoOf::<T>::hashed_key_for(
+					last_key,
+				))
+			} else {
+				old::ContractInfoOf::<T>::iter()
+			};
+
+			let mut iter = iter.drain();
+
+			if let Some((last_key, value)) = iter.next() {
+				AccountInfoOf::<T>::insert(
+					last_key,
+					AccountInfo { account_type: value.into(), ..Default::default() },
+				);
+				cursor = Some(last_key)
+			} else {
+				cursor = None;
+				break
 			}
 		}
-
-		Ok(None)
+		Ok(cursor)
 	}
 
 	#[cfg(feature = "try-runtime")]
