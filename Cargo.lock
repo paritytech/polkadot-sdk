@@ -12867,8 +12867,8 @@ dependencies = [
  "pallet-utility",
  "parity-scale-codec",
  "paste",
- "polkavm",
- "polkavm-common 0.26.0",
+ "polkavm 0.26.0 (git+https://github.com/aman4150/polkavm.git?branch=polkavm_memory)",
+ "polkavm-common 0.26.0 (git+https://github.com/aman4150/polkavm.git?branch=polkavm_memory)",
  "pretty_assertions",
  "rand 0.8.5",
  "rand_pcg",
@@ -16878,9 +16878,21 @@ checksum = "fa028f713d0613f0f08b8b3367402cb859218854f6b96fcbe39a501862894d6f"
 dependencies = [
  "libc",
  "log",
- "polkavm-assembler",
- "polkavm-common 0.26.0",
- "polkavm-linux-raw",
+ "polkavm-assembler 0.26.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "polkavm-common 0.26.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "polkavm-linux-raw 0.26.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "polkavm"
+version = "0.26.0"
+source = "git+https://github.com/aman4150/polkavm.git?branch=polkavm_memory#3d007f6878c31eb2c36e416056876fe7a81a623b"
+dependencies = [
+ "libc",
+ "log",
+ "polkavm-assembler 0.26.0 (git+https://github.com/aman4150/polkavm.git?branch=polkavm_memory)",
+ "polkavm-common 0.26.0 (git+https://github.com/aman4150/polkavm.git?branch=polkavm_memory)",
+ "polkavm-linux-raw 0.26.0 (git+https://github.com/aman4150/polkavm.git?branch=polkavm_memory)",
 ]
 
 [[package]]
@@ -16888,6 +16900,14 @@ name = "polkavm-assembler"
 version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4859a29e1f4ad64610c4bc2bfc40bb9a535068a034933a5b56b5e7a0febf105a"
+dependencies = [
+ "log",
+]
+
+[[package]]
+name = "polkavm-assembler"
+version = "0.26.0"
+source = "git+https://github.com/aman4150/polkavm.git?branch=polkavm_memory#3d007f6878c31eb2c36e416056876fe7a81a623b"
 dependencies = [
  "log",
 ]
@@ -16904,9 +16924,18 @@ version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49a5794b695626ba70d29e66e3f4f4835767452a6723f3a0bc20884b07088fe8"
 dependencies = [
+ "log",
+ "polkavm-assembler 0.26.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "polkavm-common"
+version = "0.26.0"
+source = "git+https://github.com/aman4150/polkavm.git?branch=polkavm_memory#3d007f6878c31eb2c36e416056876fe7a81a623b"
+dependencies = [
  "blake3",
  "log",
- "polkavm-assembler",
+ "polkavm-assembler 0.26.0 (git+https://github.com/aman4150/polkavm.git?branch=polkavm_memory)",
 ]
 
 [[package]]
@@ -16945,7 +16974,7 @@ version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6069dc7995cde6e612b868a02ce48b54397c6d2582bd1b97b63aabbe962cd779"
 dependencies = [
- "polkavm-common 0.26.0",
+ "polkavm-common 0.26.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "syn 2.0.98",
@@ -16982,7 +17011,7 @@ dependencies = [
  "hashbrown 0.14.5",
  "log",
  "object 0.36.1",
- "polkavm-common 0.26.0",
+ "polkavm-common 0.26.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "regalloc2 0.9.3",
  "rustc-demangle",
 ]
@@ -16992,6 +17021,11 @@ name = "polkavm-linux-raw"
 version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28919f542476f4158cc71e6c072b1051f38f4b514253594ac3ad80e3c0211fc8"
+
+[[package]]
+name = "polkavm-linux-raw"
+version = "0.26.0"
+source = "git+https://github.com/aman4150/polkavm.git?branch=polkavm_memory#3d007f6878c31eb2c36e416056876fe7a81a623b"
 
 [[package]]
 name = "polling"
@@ -19511,7 +19545,7 @@ dependencies = [
 name = "sc-executor-common"
 version = "0.29.0"
 dependencies = [
- "polkavm",
+ "polkavm 0.26.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sc-allocator",
  "sp-maybe-compressed-blob",
  "sp-wasm-interface 20.0.0",
@@ -19524,7 +19558,7 @@ name = "sc-executor-polkavm"
 version = "0.29.0"
 dependencies = [
  "log",
- "polkavm",
+ "polkavm 0.26.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sc-executor-common",
  "sp-wasm-interface 20.0.0",
 ]
