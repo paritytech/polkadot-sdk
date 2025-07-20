@@ -103,6 +103,7 @@ pub struct CandidateDescriptorV2<H = Hash> {
 }
 impl<H> CandidateDescriptorV2<H> {
 	/// Returns the candidate descriptor version.
+	///
 	/// The candidate is at version 2 if the reserved fields are zeroed out
 	/// and the internal `version` field is 0.
 	pub fn version(&self) -> CandidateDescriptorVersion {
