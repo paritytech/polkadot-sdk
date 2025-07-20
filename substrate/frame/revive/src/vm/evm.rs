@@ -1,7 +1,8 @@
 mod instructions;
 
 use crate::{
-	Config, Error, ExecReturnValue,
+	AccountIdOf, BalanceOf, CodeInfo, CodeVec, Config, ContractBlob, DispatchError, Error,
+	ExecReturnValue, H256, LOG_TARGET, U256,
 	address::AddressMapper,
 	exec::PrecompileExt,
 	vm::{ExecResult, Ext},
@@ -17,8 +18,35 @@ use revm::{
 		interpreter_action::InterpreterAction,
 		interpreter_types::InputsTr,
 	},
-	primitives::{Address, U256, hardfork::SpecId},
+	primitives::{self, Address, hardfork::SpecId},
 };
+
+impl<T: Config> ContractBlob<T>
+where
+	BalanceOf<T>: Into<U256> + TryFrom<U256>,
+{
+	/// Create a new contract from EVM code.
+	pub fn from_evm_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
+		use revm::{bytecode::Bytecode, primitives::Bytes};
+
+		let code: CodeVec = code.try_into().map_err(|_| <Error<T>>::BlobTooLarge)?;
+		Bytecode::new_raw_checked(Bytes::from(code.to_vec())).map_err(|err| {
+			log::debug!(target: LOG_TARGET, "failed to create evm bytecode from code: {err:?}" );
+			<Error<T>>::CodeRejected
+		})?;
+
+		let code_len = code.len() as u32;
+		let code_info = CodeInfo {
+			owner,
+			deposit: Default::default(),
+			refcount: 0,
+			code_len,
+			behaviour_version: Default::default(),
+		};
+		let code_hash = H256(sp_io::hashing::keccak_256(&code));
+		Ok(ContractBlob { code, code_info, code_hash })
+	}
+}
 
 /// TODO handle error case
 pub fn call<'a, E: Ext>(bytecode: Bytecode, inputs: EVMInputs<'a, E>) -> ExecResult {
@@ -108,7 +136,7 @@ impl<'a, E: Ext> InputsTr for EVMInputs<'a, E> {
 		&self.input
 	}
 
-	fn call_value(&self) -> U256 {
-		U256::from_limbs(self.ext.value_transferred().0)
+	fn call_value(&self) -> primitives::U256 {
+		primitives::U256::from_limbs(self.ext.value_transferred().0)
 	}
 }

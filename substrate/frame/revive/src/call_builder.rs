@@ -26,15 +26,15 @@
 #![cfg_attr(test, allow(dead_code))]
 
 use crate::{
+	AccountInfo, BalanceOf, BalanceWithDust, BumpNonce, Code, CodeInfoOf, Config, ContractBlob,
+	ContractInfo, DepositLimit, Error, GasMeter, MomentOf, Origin, Pallet as Contracts,
+	PristineCode, Weight,
 	address::AddressMapper,
 	exec::{ExportedFunction, Key, PrecompileExt, Stack},
 	limits,
 	storage::meter::Meter,
 	transient_storage::MeterEntry,
-	vm::{PreparedCall, Runtime},
-	AccountInfo, BalanceOf, BalanceWithDust, BumpNonce, Code, CodeInfoOf, Config, ContractBlob,
-	ContractInfo, DepositLimit, Error, GasMeter, MomentOf, Origin, Pallet as Contracts,
-	PristineCode, Weight,
+	vm::pvm::{PreparedCall, Runtime},
 };
 use alloc::{vec, vec::Vec};
 use frame_support::{storage::child, traits::fungible::Mutate};
