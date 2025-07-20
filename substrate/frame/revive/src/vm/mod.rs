@@ -25,11 +25,11 @@ mod runtime_costs;
 pub use runtime_costs::RuntimeCosts;
 
 use crate::{
-	AccountIdOf, BadOrigin, BalanceOf, CodeInfoOf, CodeVec, Config, Error, HoldReason, LOG_TARGET,
-	PristineCode, Weight,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	gas::{GasMeter, Token},
 	weights::WeightInfo,
+	AccountIdOf, BadOrigin, BalanceOf, CodeInfoOf, CodeVec, Config, Error, HoldReason,
+	PristineCode, Weight, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -279,9 +279,9 @@ where
 		} else {
 			use crate::vm::evm::EVMInputs;
 			use revm::bytecode::Bytecode;
-			let inputs = EVMInputs::new(ext, input_data);
+			let inputs = EVMInputs::new(input_data);
 			let bytecode = Bytecode::new_raw(self.code.into_inner().into());
-			evm::call(bytecode, inputs)
+			evm::call(bytecode, ext, inputs)
 		}
 	}
 

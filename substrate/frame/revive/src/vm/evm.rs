@@ -1,24 +1,22 @@
 mod instructions;
 
 use crate::{
+	vm::{ExecResult, Ext},
 	AccountIdOf, BalanceOf, CodeInfo, CodeVec, Config, ContractBlob, DispatchError, Error,
 	ExecReturnValue, H256, LOG_TARGET, U256,
-	address::AddressMapper,
-	exec::PrecompileExt,
-	vm::{ExecResult, Ext},
 };
 use instructions::instruction_table;
 use pallet_revive_uapi::ReturnFlags;
 use revm::{
 	bytecode::Bytecode,
 	interpreter::{
-		CallInput, Gas, Interpreter, InterpreterResult, InterpreterTypes, SharedMemory, Stack,
 		host::DummyHost,
 		interpreter::{ExtBytecode, ReturnDataImpl, RuntimeFlags},
 		interpreter_action::InterpreterAction,
 		interpreter_types::InputsTr,
+		CallInput, Gas, Interpreter, InterpreterResult, InterpreterTypes, SharedMemory, Stack,
 	},
-	primitives::{self, Address, hardfork::SpecId},
+	primitives::{self, hardfork::SpecId, Address},
 };
 
 impl<T: Config> ContractBlob<T>
@@ -49,7 +47,7 @@ where
 }
 
 /// TODO handle error case
-pub fn call<'a, E: Ext>(bytecode: Bytecode, inputs: EVMInputs<'a, E>) -> ExecResult {
+pub fn call<'a, E: Ext>(bytecode: Bytecode, ext: &'a mut E, inputs: EVMInputs) -> ExecResult {
 	let mut interpreter: Interpreter<EVMInterpreter<'a, E>> = Interpreter {
 		gas: Gas::new(30_000_000), // TODO clean up
 		bytecode: ExtBytecode::new(bytecode),
@@ -58,10 +56,10 @@ pub fn call<'a, E: Ext>(bytecode: Bytecode, inputs: EVMInputs<'a, E>) -> ExecRes
 		memory: SharedMemory::new(),
 		input: inputs,
 		runtime_flag: RuntimeFlags { is_static: false, spec_id: SpecId::default() },
-		extend: Default::default(),
+		extend: ext,
 	};
 
-	let table = instruction_table::<EVMInterpreter<'a, E>, DummyHost>();
+	let table = instruction_table::<'a, E>();
 	let result = run(&mut interpreter, &table);
 
 	if result.is_error() {
@@ -97,46 +95,39 @@ impl<'a, E: Ext> InterpreterTypes for EVMInterpreter<'a, E> {
 	type Memory = SharedMemory;
 	type Bytecode = ExtBytecode;
 	type ReturnData = ReturnDataImpl;
-	type Input = EVMInputs<'a, E>;
+	type Input = EVMInputs;
 	type RuntimeFlag = RuntimeFlags;
-	type Extend = ();
+	type Extend = &'a mut E;
 	type Output = InterpreterAction;
 }
 
-pub struct EVMInputs<'a, E: Ext> {
-	ext: &'a mut E,
-	input: CallInput,
-}
+pub struct EVMInputs(CallInput);
 
-impl<'a, E: Ext> EVMInputs<'a, E> {
-	pub fn new(ext: &'a mut E, input: Vec<u8>) -> Self {
-		Self { ext, input: CallInput::Bytes(input.into()) }
+impl EVMInputs {
+	pub fn new(input: Vec<u8>) -> Self {
+		Self(CallInput::Bytes(input.into()))
 	}
 }
 
-impl<'a, E: Ext> InputsTr for EVMInputs<'a, E> {
+impl InputsTr for EVMInputs {
 	fn target_address(&self) -> Address {
-		let address = self.ext.address();
-		address.0.into()
+		panic!()
 	}
 
 	fn caller_address(&self) -> Address {
-		let caller = self.ext.caller();
-		let Ok(caller) = caller.account_id() else { return Address::ZERO };
-
-		let addr = <<E as PrecompileExt>::T as Config>::AddressMapper::to_address(caller);
-		addr.0.into()
+		panic!()
 	}
 
 	fn bytecode_address(&self) -> Option<&Address> {
-		todo!()
+		panic!()
 	}
 
 	fn input(&self) -> &CallInput {
-		&self.input
+		&self.0
 	}
 
 	fn call_value(&self) -> primitives::U256 {
-		primitives::U256::from_limbs(self.ext.value_transferred().0)
+		// TODO replae by panic once instruction that use call_value are updated
+		primitives::U256::ZERO
 	}
 }

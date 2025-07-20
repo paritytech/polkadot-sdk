@@ -27,13 +27,17 @@ pub mod tx_info;
 /// Utility functions and helpers for instruction implementation.
 pub mod utility;
 
-use revm::interpreter::{Instruction, InterpreterTypes, host::Host};
+use crate::vm::{
+	evm::{DummyHost, EVMInterpreter},
+	Ext,
+};
+use revm::interpreter::Instruction;
 
 /// Returns the instruction table for the given spec.
-pub const fn instruction_table<WIRE: InterpreterTypes, H: Host + ?Sized>()
--> [Instruction<WIRE, H>; 256] {
+pub const fn instruction_table<'a, E: Ext>() -> [Instruction<EVMInterpreter<'a, E>, DummyHost>; 256]
+{
 	use revm::bytecode::opcode::*;
-	let mut table = [control::unknown as Instruction<WIRE, H>; 256];
+	let mut table = [control::unknown as Instruction<EVMInterpreter<'a, E>, DummyHost>; 256];
 
 	table[STOP as usize] = control::stop;
 	table[ADD as usize] = arithmetic::add;
@@ -202,16 +206,15 @@ pub const fn instruction_table<WIRE: InterpreterTypes, H: Host + ?Sized>()
 #[cfg(test)]
 mod tests {
 	use super::instruction_table;
-	use revm::{
-		bytecode::opcode::*,
-		interpreter::{host::DummyHost, interpreter::EthInterpreter},
-	};
+	use revm::bytecode::opcode::*;
 
 	#[test]
 	fn all_instructions_and_opcodes_used() {
 		// known unknown instruction we compare it with other instructions from table.
 		let unknown_instruction = 0x0C_usize;
-		let instr_table = instruction_table::<EthInterpreter, DummyHost>();
+
+		use crate::{exec::Stack, tests::Test, ContractBlob};
+		let instr_table = instruction_table::<'static, Stack<'static, Test, ContractBlob<Test>>>();
 
 		let unknown_istr = instr_table[unknown_instruction];
 		for (i, instr) in instr_table.iter().enumerate() {
