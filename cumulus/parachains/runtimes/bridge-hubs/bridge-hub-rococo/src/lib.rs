@@ -609,6 +609,7 @@ construct_runtime!(
 		BridgeWestendMessages: pallet_bridge_messages::<Instance3> = 51,
 		// With-Westend bridge hub pallet.
 		XcmOverBridgeHubWestend: pallet_xcm_bridge_hub::<Instance1> = 52,
+		AssetHubWestendStateRootSync: pallet_bridge_proof_root_sync::<Instance1> = 53,
 
 		// With-Rococo Bulletin GRANDPA bridge module.
 		//
@@ -700,6 +701,7 @@ mod benches {
 		[pallet_bridge_parachains, WithinWestend]
 		[pallet_bridge_messages, RococoToWestend]
 		[pallet_bridge_messages, RococoToRococoBulletin]
+		[pallet_bridge_proof_root_sync, AssetHubWestendStateRootSync]
 		[pallet_bridge_relayers, Legacy]
 		[pallet_bridge_relayers, PermissionlessLanes]
 		// Ethereum Bridge

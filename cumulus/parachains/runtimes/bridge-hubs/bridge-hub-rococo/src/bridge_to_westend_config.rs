@@ -18,7 +18,7 @@
 
 use crate::{
 	bridge_common_config::{
-		BridgeParachainWestendInstance, DeliveryRewardInBalance,
+		BridgeParachainWestendInstance, DeliveryRewardInBalance, ParachainHeadsToKeep,
 		RelayersForLegacyLaneIdsMessagesInstance,
 	},
 	weights,
@@ -30,6 +30,7 @@ use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
 	target_chain::FromBridgedChainMessagesProof, LegacyLaneId,
 };
+use bp_parachains::{ParaHead, ParaId};
 use bridge_hub_common::xcm_version::XcmVersionOfDestAndRemoteBridge;
 use pallet_xcm_bridge_hub::{BridgeId, XcmAsPlainPayload};
 
@@ -194,6 +195,30 @@ impl pallet_xcm_bridge_hub::LocalXcmChannelManager for CongestionManager {
 		)
 		.map(|_| ())
 	}
+}
+
+// Utility for syncing AHW headers with state roots to the AHR.
+pub(crate) type AssetHubWestendHeadersSync = bridge_hub_common::header_sync::SyncParaHeadersFor<
+	Runtime,
+	AssetHubWestendStateRootSyncInstance,
+	bp_asset_hub_westend::AssetHubWestend,
+	XcmRouter,
+	bp_asset_hub_rococo::Call,
+>;
+
+/// Simple mechanism that syncs/sends validated Asset Hub Rococo headers to other local chains.
+/// For example,
+///  1. We need AHR headers for direct bridge messaging on AHW (AssetHubWestendHeadersSync).
+pub type AssetHubWestendStateRootSyncInstance = pallet_bridge_proof_root_sync::Instance1;
+impl pallet_bridge_proof_root_sync::Config<AssetHubWestendStateRootSyncInstance> for Runtime {
+	type WeightInfo = weights::pallet_bridge_proof_root_sync::WeightInfo<Runtime>;
+	type Key = ParaId;
+	type Value = ParaHead;
+	type RootsToKeep = ParachainHeadsToKeep;
+	type MaxRootsToSend = ParachainHeadsToKeep;
+	type OnSend = (AssetHubWestendHeadersSync,);
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = AssetHubWestendHeadersSync;
 }
 
 #[cfg(feature = "runtime-benchmarks")]

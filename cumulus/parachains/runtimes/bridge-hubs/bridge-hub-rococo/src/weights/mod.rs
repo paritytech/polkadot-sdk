@@ -34,6 +34,7 @@ pub mod pallet_bridge_grandpa;
 pub mod pallet_bridge_messages_rococo_to_rococo_bulletin;
 pub mod pallet_bridge_messages_rococo_to_westend;
 pub mod pallet_bridge_parachains;
+pub mod pallet_bridge_proof_root_sync;
 pub mod pallet_bridge_relayers_legacy;
 pub mod pallet_bridge_relayers_permissionless_lanes;
 pub mod pallet_collator_selection;

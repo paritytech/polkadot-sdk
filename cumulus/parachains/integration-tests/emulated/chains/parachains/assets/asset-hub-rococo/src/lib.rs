@@ -57,6 +57,7 @@ decl_test_parachains! {
 			AssetConversion: asset_hub_rococo_runtime::AssetConversion,
 			Balances: asset_hub_rococo_runtime::Balances,
 			XcmOverAssetHubWestend: asset_hub_rococo_runtime::XcmOverAssetHubWestend,
+			AssetHubWestendProofRootStore: asset_hub_rococo_runtime::AssetHubWestendProofRootStore,
 		}
 	},
 }

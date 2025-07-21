@@ -17,6 +17,7 @@ members = [
 	"bridges/modules/messages",
 	"bridges/modules/parachains",
 	"bridges/modules/proof-root-store",
+	"bridges/modules/proof-root-sync",
 	"bridges/modules/relayers",
 	"bridges/modules/xcm-bridge",
 	"bridges/modules/xcm-bridge-hub",
@@ -967,6 +968,7 @@ pallet-bridge-grandpa = { path = "bridges/modules/grandpa", default-features = f
 pallet-bridge-messages = { path = "bridges/modules/messages", default-features = false }
 pallet-bridge-parachains = { path = "bridges/modules/parachains", default-features = false }
 pallet-bridge-proof-root-store = { path = "bridges/modules/proof-root-store", default-features = false }
+pallet-bridge-proof-root-sync = { path = "bridges/modules/proof-root-sync", default-features = false }
 pallet-bridge-relayers = { path = "bridges/modules/relayers", default-features = false }
 pallet-broker = { path = "substrate/frame/broker", default-features = false }
 pallet-child-bounties = { path = "substrate/frame/child-bounties", default-features = false }

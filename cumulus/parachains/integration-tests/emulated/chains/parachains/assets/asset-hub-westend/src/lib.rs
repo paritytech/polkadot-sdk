@@ -59,6 +59,7 @@ decl_test_parachains! {
 			SnowbridgeSystemFrontend: asset_hub_westend_runtime::SnowbridgeSystemFrontend,
 			Revive: asset_hub_westend_runtime::Revive,
 			XcmOverAssetHubRococo: asset_hub_westend_runtime::XcmOverAssetHubRococo,
+			AssetHubRococoProofRootStore: asset_hub_westend_runtime::AssetHubRococoProofRootStore,
 		}
 	},
 }
