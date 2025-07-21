@@ -244,8 +244,7 @@
   use-zombienet-sdk: true
 
 - job-name: "zombienet-polkadot-dispute-old-finalized"
-  test-definition: "0008-dispute-old-finalized.zndsl"
-  local-dir: "./polkadot/zombienet_tests/functional"
+  test-filter: "functional::dispute_old_finalized::dispute_old_finalized"
   runner-type: "large"
   use-zombienet-sdk: true
 
