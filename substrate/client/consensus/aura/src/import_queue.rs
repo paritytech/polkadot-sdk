@@ -298,10 +298,10 @@ where
 					authorities_cache
 						.import(hash, number, authorities_change, &is_descendent_of)
 						.map_err(|e| {
-							format!(
+						format!(
 								"Could not import authorities for block {hash:?} at number {number}: {e}"
 							)
-						})?;
+					})?;
 				}
 
 				trace!(target: LOG_TARGET, "Checked {:?}; importing.", pre_header);
