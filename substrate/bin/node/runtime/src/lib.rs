@@ -26,9 +26,9 @@ extern crate alloc;
 #[cfg(feature = "runtime-benchmarks")]
 use pallet_asset_rate::AssetKindFactory;
 #[cfg(feature = "runtime-benchmarks")]
-use pallet_treasury::ArgumentsFactory as PalletTreasuryArgumentsFactory;
-#[cfg(feature = "runtime-benchmarks")]
 use pallet_multi_asset_bounties::ArgumentsFactory as PalletMultiAssetBountiesArgumentsFactory;
+#[cfg(feature = "runtime-benchmarks")]
+use pallet_treasury::ArgumentsFactory as PalletTreasuryArgumentsFactory;
 #[cfg(feature = "runtime-benchmarks")]
 use polkadot_sdk::sp_core::crypto::FromEntropy;
 
@@ -57,7 +57,7 @@ use frame_support::{
 			imbalance::{ResolveAssetTo, ResolveTo},
 			nonfungibles_v2::Inspect,
 			pay::PayAssetFromAccount,
-			GetSalary, PayFromAccount, PayWithFungibles
+			GetSalary, PayFromAccount, PayWithFungibles,
 		},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, ConstU64,
 		ConstantStoragePrice, Contains, Currency, EitherOfDiverse, EnsureOriginWithArg,
@@ -315,7 +315,9 @@ impl PalletTreasuryArgumentsFactory<NativeOrWithId<u32>, AccountId> for PalletTr
 #[cfg(feature = "runtime-benchmarks")]
 pub struct PalletMultiAssetBountiesArguments;
 #[cfg(feature = "runtime-benchmarks")]
-impl PalletMultiAssetBountiesArgumentsFactory<NativeOrWithId<u32>, AccountId> for PalletMultiAssetBountiesArguments {
+impl PalletMultiAssetBountiesArgumentsFactory<NativeOrWithId<u32>, AccountId>
+	for PalletMultiAssetBountiesArguments
+{
 	fn create_asset_kind(seed: u32) -> NativeOrWithId<u32> {
 		if seed % 2 > 0 {
 			NativeOrWithId::Native
@@ -1438,14 +1440,13 @@ impl pallet_multi_asset_bounties::Config for Runtime {
 	type MaximumReasonLength = MaximumReasonLength;
 	type WeightInfo = pallet_multi_asset_bounties::weights::SubstrateWeight<Runtime>;
 	type TreasurySource = pallet_multi_asset_bounties::TreasurySource<Runtime>;
-	type BountySource =  pallet_multi_asset_bounties::BountySource<Runtime>;
-	type ChildBountySource =  pallet_multi_asset_bounties::ChildBountySource<Runtime>;
+	type BountySource = pallet_multi_asset_bounties::BountySource<Runtime>;
+	type ChildBountySource = pallet_multi_asset_bounties::ChildBountySource<Runtime>;
 	type Paymaster = PayWithFungibles<NativeAndAssets, AccountId>;
 	type OnSlash = Treasury;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PalletMultiAssetBountiesArguments;
 }
-
 
 impl pallet_tips::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;

@@ -75,12 +75,12 @@ mod benchmarking;
 mod mock;
 mod tests;
 pub mod weights;
+pub use benchmarking::ArgumentsFactory;
 pub use pallet::*;
 pub use weights::WeightInfo;
-pub use benchmarking::ArgumentsFactory;
 
 extern crate alloc;
-use alloc::{collections::btree_map::BTreeMap, vec::Vec, boxed::Box};
+use alloc::{boxed::Box, collections::btree_map::BTreeMap, vec::Vec};
 use frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo},
 	dispatch_context::with_context,
