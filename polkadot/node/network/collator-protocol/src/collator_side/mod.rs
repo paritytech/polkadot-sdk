@@ -1592,11 +1592,11 @@ async fn run_inner<Context>(
 											None
 										},
 										Ok(Err(err)) => {
-											gum::warn!(target: LOG_TARGET_STATS, ?block_number, ?e, "ChainApi request failed to get finalized block hash");
+											gum::warn!(target: LOG_TARGET_STATS, ?block_number, ?err, "ChainApi request failed to get finalized block hash");
 											None
 										},
-										Err(e) => {
-											gum::warn!(target: LOG_TARGET_STATS, ?block_number, ?e, "ChainApi request channel closed");
+										Err(err) => {
+											gum::warn!(target: LOG_TARGET_STATS, ?block_number, ?err, "ChainApi request channel closed");
 											None
 										},
 									}
