@@ -24,6 +24,9 @@ use sp_core::sp_std::fmt::Debug;
 use sp_runtime::{FixedU128, RuntimeDebug};
 use xcm::latest::prelude::{InteriorLocation, Location, NetworkId};
 
+/// Minimal delivery fee factor.
+pub const MINIMAL_DELIVERY_FEE_FACTOR: FixedU128 = FixedU128::from_u32(1);
+
 /// Current status of the bridge.
 #[derive(Clone, Decode, Encode, Eq, PartialEq, TypeInfo, MaxEncodedLen, RuntimeDebug)]
 pub struct BridgeState {
@@ -31,6 +34,12 @@ pub struct BridgeState {
 	pub delivery_fee_factor: FixedU128,
 	/// Bridge congestion flag.
 	pub is_congested: bool,
+}
+
+impl Default for BridgeState {
+	fn default() -> Self {
+		BridgeState { delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR, is_congested: false }
+	}
 }
 
 /// Trait that resolves a specific `BridgeId` for `dest`.

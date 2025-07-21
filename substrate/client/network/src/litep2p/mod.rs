@@ -99,9 +99,6 @@ mod peerstore;
 mod service;
 mod shim;
 
-/// Timeout for connection waiting new substreams.
-const KEEP_ALIVE_TIMEOUT: Duration = Duration::from_secs(10);
-
 /// Litep2p bandwidth sink.
 struct Litep2pBandwidthSink {
 	sink: litep2p::BandwidthSink,
@@ -519,9 +516,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			.with_connection_limits(ConnectionLimitsConfig::default().max_incoming_connections(
 				Some(crate::MAX_CONNECTIONS_ESTABLISHED_INCOMING as usize),
 			))
-			// This has the same effect as `libp2p::Swarm::with_idle_connection_timeout` which is
-			// set to 10 seconds as well.
-			.with_keep_alive_timeout(KEEP_ALIVE_TIMEOUT)
+			.with_keep_alive_timeout(network_config.idle_connection_timeout)
 			.with_executor(executor);
 
 		if let Some(config) = maybe_mdns_config {
