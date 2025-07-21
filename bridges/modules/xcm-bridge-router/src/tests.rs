@@ -17,6 +17,7 @@
 #![cfg(test)]
 
 use super::*;
+use bp_xcm_bridge_router::MINIMAL_DELIVERY_FEE_FACTOR;
 use frame_support::assert_ok;
 use mock::*;
 
@@ -166,7 +167,7 @@ fn sent_message_doesnt_increase_factor_if_bridge_is_uncongested() {
 		assert!(TestXcmRouter::is_message_sent());
 		assert_eq!(
 			old_delivery_fee_factor,
-			get_bridge_state_for::<TestRuntime, ()>(&dest).unwrap().delivery_fee_factor
+			get_bridge_state_for::<TestRuntime, ()>(&dest).delivery_fee_factor
 		);
 
 		assert_eq!(System::events(), vec![]);
@@ -190,18 +191,22 @@ fn sent_message_increases_factor_if_bridge_is_congested() {
 		);
 
 		assert!(TestXcmRouter::is_message_sent());
-		assert!(
-			old_delivery_fee_factor <
-				get_bridge_state_for::<TestRuntime, ()>(&dest).unwrap().delivery_fee_factor
-		);
+		let _delivery_fee_factor =
+			get_bridge_state_for::<TestRuntime, ()>(&dest).delivery_fee_factor;
+		assert!(old_delivery_fee_factor < _delivery_fee_factor);
 
 		// check emitted event
 		let first_system_event = System::events().first().cloned();
+		let _previous_value_ = old_delivery_fee_factor;
 		assert!(matches!(
 			first_system_event,
 			Some(EventRecord {
 				phase: Phase::Initialization,
-				event: RuntimeEvent::XcmBridgeHubRouter(Event::DeliveryFeeFactorIncreased { .. }),
+				event: RuntimeEvent::XcmBridgeHubRouter(Event::DeliveryFeeFactorUpdated {
+					previous_value: _previous_value,
+					new_value: _delivery_fee_factor,
+					..
+				}),
 				..
 			})
 		));
@@ -232,23 +237,24 @@ fn update_bridge_status_works() {
 			assert_ok!(call.dispatch(RuntimeOrigin::root()));
 		};
 
-		assert!(get_bridge_state_for::<TestRuntime, ()>(&dest).is_none());
-		update_bridge_status(bridge_id, false);
-		assert!(get_bridge_state_for::<TestRuntime, ()>(&dest).is_none());
+		assert_eq!(
+			get_bridge_state_for::<TestRuntime, ()>(&dest),
+			BridgeState { delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR, is_congested: false }
+		);
 
 		// make congested
 		update_bridge_status(bridge_id, true);
 		assert_eq!(
 			get_bridge_state_for::<TestRuntime, ()>(&dest),
-			Some(BridgeState {
-				delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR,
-				is_congested: true,
-			})
+			BridgeState { delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR, is_congested: true }
 		);
 
 		// make uncongested
 		update_bridge_status(bridge_id, false);
-		assert_eq!(get_bridge_state_for::<TestRuntime, ()>(&dest), None);
+		assert_eq!(
+			get_bridge_state_for::<TestRuntime, ()>(&dest),
+			BridgeState { delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR, is_congested: false }
+		);
 	});
 }
 
@@ -257,37 +263,37 @@ fn do_update_bridge_status_works() {
 	run_test(|| {
 		let dest = Location::new(2, [GlobalConsensus(BridgedNetworkId::get())]);
 		let bridge_id = bp_xcm_bridge::BridgeId::new(&UniversalLocation::get(), dest.interior());
-		assert!(get_bridge_state_for::<TestRuntime, ()>(&dest).is_none());
-
-		// update as is_congested=false when `None`
-		Pallet::<TestRuntime, ()>::do_update_bridge_status(bridge_id, false);
-		assert!(get_bridge_state_for::<TestRuntime, ()>(&dest).is_none());
+		// by default is_congested is false
+		assert_eq!(
+			get_bridge_state_for::<TestRuntime, ()>(&dest),
+			BridgeState { delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR, is_congested: false }
+		);
 
 		// update as is_congested=true
 		Pallet::<TestRuntime, ()>::do_update_bridge_status(bridge_id, true);
 		assert_eq!(
 			get_bridge_state_for::<TestRuntime, ()>(&dest),
-			Some(BridgeState {
-				delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR,
-				is_congested: true,
-			})
+			BridgeState { delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR, is_congested: true }
 		);
 
 		// increase fee factor when congested
 		Pallet::<TestRuntime, ()>::on_message_sent_to(5, dest.clone());
 		assert!(
-			get_bridge_state_for::<TestRuntime, ()>(&dest).unwrap().delivery_fee_factor >
+			get_bridge_state_for::<TestRuntime, ()>(&dest).delivery_fee_factor >
 				MINIMAL_DELIVERY_FEE_FACTOR
 		);
 		// update as is_congested=true - should not reset fee factor
 		Pallet::<TestRuntime, ()>::do_update_bridge_status(bridge_id, true);
 		assert!(
-			get_bridge_state_for::<TestRuntime, ()>(&dest).unwrap().delivery_fee_factor >
+			get_bridge_state_for::<TestRuntime, ()>(&dest).delivery_fee_factor >
 				MINIMAL_DELIVERY_FEE_FACTOR
 		);
 
 		// update as is_congested=false when `Some(..)`
 		Pallet::<TestRuntime, ()>::do_update_bridge_status(bridge_id, false);
-		assert_eq!(get_bridge_state_for::<TestRuntime, ()>(&dest), None,);
+		assert_eq!(
+			get_bridge_state_for::<TestRuntime, ()>(&dest),
+			BridgeState { delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR, is_congested: false }
+		);
 	})
 }
