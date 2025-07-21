@@ -8,3 +8,4 @@ mod duplicate_collations;
 mod shared_core_idle_parachain;
 mod spam_statement_distribution_requests;
 mod sync_backing;
+mod validator_disabling;
