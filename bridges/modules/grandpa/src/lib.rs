@@ -687,7 +687,7 @@ pub mod pallet {
 		.map_err(|e| {
 			tracing::error!(
 				target: LOG_TARGET,
-				error=e,
+				error=?e,
 				?hash,
 				"Received invalid justification"
 			);

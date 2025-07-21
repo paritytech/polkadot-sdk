@@ -104,9 +104,7 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 						bridged_chain_id=?T::BridgedChain::ID,
 						header=?call_info.block_number,
 						"Cannot accept free. Too small difference \
-						between submitted headers: {:?} vs {}",
-						improved_by,
-						free_headers_interval,
+						between submitted headers: {improved_by:?} vs {free_headers_interval}"
 					);
 
 					return Err(Error::<T, I>::BelowFreeHeaderInterval);
