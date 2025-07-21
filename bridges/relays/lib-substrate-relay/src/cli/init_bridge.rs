@@ -69,7 +69,7 @@ where
 			target_sign,
 			move |transaction_nonce, initialization_data| {
 				let call = Self::encode_init_bridge(initialization_data);
-				log::info!(
+				tracing::info!(
 					target: "bridge",
 					"Initialize bridge call encoded as hex string: {:?}",
 					format!("0x{}", hex::encode(call.encode()))

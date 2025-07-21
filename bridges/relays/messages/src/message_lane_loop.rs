@@ -379,7 +379,7 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 					new_source_state,
 					&mut source_retry_backoff,
 					|new_source_state| {
-						log::debug!(
+						tracing::debug!(
 							target: "bridge",
 							"Received state from {} node: {:?}",
 							P::SOURCE_NAME,
@@ -410,7 +410,7 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 					new_target_state,
 					&mut target_retry_backoff,
 					|new_target_state| {
-						log::debug!(
+						tracing::debug!(
 							target: "bridge",
 							"Received state from {} node: {:?}",
 							P::TARGET_NAME,
@@ -454,13 +454,13 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 		}
 
 		if source_client_is_online && source_state_required {
-			log::debug!(target: "bridge", "Asking {} node about its state", P::SOURCE_NAME);
+			tracing::debug!(target: "bridge", "Asking {} node about its state", P::SOURCE_NAME);
 			source_state.set(source_client.state().fuse());
 			source_client_is_online = false;
 		}
 
 		if target_client_is_online && target_state_required {
-			log::debug!(target: "bridge", "Asking {} node about its state", P::TARGET_NAME);
+			tracing::debug!(target: "bridge", "Asking {} node about its state", P::TARGET_NAME);
 			target_state.set(target_client.state().fuse());
 			target_client_is_online = false;
 		}

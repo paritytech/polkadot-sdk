@@ -290,7 +290,7 @@ where
 			ProcessFutureResult::Success
 		},
 		Err(error) if error.is_connection_error() => {
-			log::error!(
+			tracing::error!(
 				target: "bridge",
 				"{}: {:?}. Going to restart",
 				error_pattern(),
@@ -303,7 +303,7 @@ where
 		},
 		Err(error) => {
 			let retry_delay = retry_backoff.next_backoff().unwrap_or(CONNECTION_ERROR_DELAY);
-			log::error!(
+			tracing::error!(
 				target: "bridge",
 				"{}: {:?}. Retrying in {}",
 				error_pattern(),

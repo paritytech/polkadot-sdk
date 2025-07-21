@@ -125,7 +125,7 @@ where
 			)
 			.await
 			.unwrap_or_else(|e| {
-				log::info!(
+				tracing::info!(
 					target: "bridge",
 					"Call of {} at {} has failed with an error: {:?}. Treating as `None`",
 					P::SourceChain::FREE_HEADERS_INTERVAL_METHOD,

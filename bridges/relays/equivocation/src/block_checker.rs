@@ -42,7 +42,7 @@ impl<P: EquivocationDetectionPipeline> ReadSyncedHeaders<P> {
 			Ok(synced_headers) =>
 				Ok(ReadContext { target_block_num: self.target_block_num, synced_headers }),
 			Err(e) => {
-				log::error!(
+				tracing::error!(
 					target: "bridge",
 					"Could not get {} headers synced to {} at block {}: {e:?}",
 					P::SOURCE_NAME,
@@ -86,7 +86,7 @@ impl<P: EquivocationDetectionPipeline> ReadContext<P> {
 			})),
 			Ok(None) => Ok(None),
 			Err(e) => {
-				log::error!(
+				tracing::error!(
 					target: "bridge",
 					"Could not read {} `EquivocationReportingContext` from {} at block {}: {e:?}",
 					P::SOURCE_NAME,
@@ -133,7 +133,7 @@ impl<P: EquivocationDetectionPipeline> FindEquivocations<P> {
 						})
 					},
 				Err(e) => {
-					log::error!(
+					tracing::error!(
 						target: "bridge",
 						"Could not search for equivocations in the finality proof \
 						for source header {:?} synced at target block {}: {e:?}",
@@ -174,7 +174,7 @@ impl<P: EquivocationDetectionPipeline> ReportEquivocations<P> {
 			{
 				Ok(_) => {},
 				Err(e) => {
-					log::error!(
+					tracing::error!(
 						target: "bridge",
 						"Could not submit equivocation report to {} for {equivocation:?}: {e:?}",
 						P::SOURCE_NAME,

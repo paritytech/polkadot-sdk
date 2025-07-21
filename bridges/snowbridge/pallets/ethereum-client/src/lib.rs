@@ -494,7 +494,7 @@ pub mod pallet {
 					<CurrentSyncCommittee<T>>::set(<NextSyncCommittee<T>>::get());
 					<NextSyncCommittee<T>>::set(sync_committee_prepared);
 				}
-				log::info!(
+				tracing::info!(
 					target: LOG_TARGET,
 					"💫 SyncCommitteeUpdated at period {}.",
 					update_finalized_period
@@ -548,7 +548,7 @@ pub mod pallet {
 			);
 			<LatestFinalizedBlockRoot<T>>::set(header_root);
 
-			log::info!(
+			tracing::info!(
 				target: LOG_TARGET,
 				"💫 Updated latest finalized block root {} at slot {}.",
 				header_root,

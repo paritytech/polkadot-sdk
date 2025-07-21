@@ -57,7 +57,7 @@ pub async fn finality_proofs<P: SubstrateFinalityPipeline>(
 		move |mut subscription| async move {
 			loop {
 				let log_error = |err| {
-					log::error!(
+					tracing::error!(
 						target: "bridge",
 						"Failed to read justification target from the {} justifications stream: {:?}",
 						P::SourceChain::NAME,

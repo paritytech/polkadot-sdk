@@ -116,7 +116,7 @@ impl MessageRaceLimits {
 						.all_lte(reference.max_messages_weight_in_single_batch) =>
 					new_selected_weight,
 				new_selected_weight if selected_count == 0 => {
-					log::warn!(
+					tracing::warn!(
 						target: "bridge",
 						"Going to submit message delivery transaction with declared dispatch \
 						weight {:?} that overflows maximal configured weight {}",
@@ -134,7 +134,7 @@ impl MessageRaceLimits {
 					if new_selected_size <= reference.max_messages_size_in_single_batch =>
 					new_selected_size,
 				new_selected_size if selected_count == 0 => {
-					log::warn!(
+					tracing::warn!(
 						target: "bridge",
 						"Going to submit message delivery transaction with message \
 						size {:?} that overflows maximal configured size {}",
