@@ -45,10 +45,10 @@ impl<P: EquivocationDetectionPipeline> ReadSyncedHeaders<P> {
 				tracing::error!(
 					target: "bridge",
 					error=?e,
-					"Could not get {} headers synced to {} at block {}",
+					block=%self.target_block_num
+					"Could not get {} headers synced to {} at block",
 					P::SOURCE_NAME,
 					P::TARGET_NAME,
-					self.target_block_num
 				);
 
 				// Reconnect target client in case of a connection error.
@@ -90,10 +90,10 @@ impl<P: EquivocationDetectionPipeline> ReadContext<P> {
 				tracing::error!(
 					target: "bridge",
 					error=?e,
-					"Could not read {} `EquivocationReportingContext` from {} at block {}",
+					block=%self.target_block_num.saturating_sub(1.into()),
+					"Could not read {} `EquivocationReportingContext` from {} at block",
 					P::SOURCE_NAME,
 					P::TARGET_NAME,
-					self.target_block_num.saturating_sub(1.into()),
 				);
 
 				// Reconnect target client in case of a connection error.
@@ -138,10 +138,10 @@ impl<P: EquivocationDetectionPipeline> FindEquivocations<P> {
 					tracing::error!(
 						target: "bridge",
 						error=?e,
+						source_header=?synced_header.finality_proof.target_header_hash(),
+						block=%self.target_block_num,
 						"Could not search for equivocations in the finality proof \
-						for source header {:?} synced at target block {}",
-						synced_header.finality_proof.target_header_hash(),
-						self.target_block_num
+						for source header synced at target block"
 					);
 				},
 			};
@@ -180,7 +180,8 @@ impl<P: EquivocationDetectionPipeline> ReportEquivocations<P> {
 					tracing::error!(
 						target: "bridge",
 						error=?e,
-						"Could not submit equivocation report to {} for {equivocation:?}",
+						?equivocation,
+						"Could not submit equivocation report to {}",
 						P::SOURCE_NAME,
 					);
 

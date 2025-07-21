@@ -164,7 +164,7 @@ pub mod pallet {
 			let is_initialized = <ImportedCommitmentsInfo<T, I>>::exists();
 			ensure!(!is_initialized, <Error<T, I>>::AlreadyInitialized);
 
-			tracing::info!(target: LOG_TARGET, "Initializing bridge BEEFY pallet: {:?}", init_data);
+			tracing::info!(target: LOG_TARGET, ?init_data, "Initializing bridge BEEFY pallet");
 			Ok(initialize::<T, I>(init_data)?)
 		}
 
@@ -259,16 +259,16 @@ pub mod pallet {
 			if let Ok(old_block_number) = to_prune {
 				tracing::debug!(
 					target: LOG_TARGET,
-					"Pruning commitment for old block: {:?}.",
-					old_block_number
+					?old_block_number,
+					"Pruning commitment for old block."
 				);
 				ImportedCommitments::<T, I>::remove(old_block_number);
 			}
 
 			tracing::info!(
 				target: LOG_TARGET,
-				"Successfully imported commitment for block {:?}",
-				commitment.commitment.block_number,
+				block=?commitment.commitment.block_number,
+				"Successfully imported commitment for block",
 			);
 
 			Ok(())

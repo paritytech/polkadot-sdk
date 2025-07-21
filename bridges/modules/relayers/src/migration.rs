@@ -194,7 +194,7 @@ pub mod v1 {
 				tracing::trace!(
 					target: crate::LOG_TARGET,
 					?relayer,
-					serving_payer=?rewards_account_params,
+					?rewards_account_params,
 					?new_reward,
 					"Relayer can now claim reward"
 				);

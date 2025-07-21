@@ -195,7 +195,7 @@ impl<C: Chain> RpcClient<C> {
 	) -> Result<(Arc<tokio::runtime::Runtime>, Arc<WsClient>)> {
 		let tokio = tokio::runtime::Runtime::new()?;
 		let uri = params.uri.clone();
-		tracing::info!(target: "bridge", "Connecting to {} node at {}", C::NAME, uri);
+		tracing::info!(target: "bridge", "Connecting to {} node at {uri}", C::NAME);
 
 		let client = tokio
 			.spawn(async move {
@@ -482,7 +482,7 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 			let tx_hash = SubstrateAuthorClient::<C>::submit_extrinsic(&*client, transaction)
 				.await
 				.map_err(|e| {
-					tracing::error!(target: "bridge", error=?e,, "Failed to send transaction to {} node", C::NAME);
+					tracing::error!(target: "bridge", error=?e, "Failed to send transaction to {} node", C::NAME);
 					e
 				})?;
 			tracing::trace!(target: "bridge", ?tx_hash, "Sent transaction to {} node", C::NAME);
@@ -562,10 +562,10 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 				)
 				.await
 				.map_err(|e| {
-					tracing::error!(target: "bridge", error=?e, "Failed to send transaction to {} node: {:?}", C::NAME);
+					tracing::error!(target: "bridge", error=?e, "Failed to send transaction to {} node", C::NAME);
 					e
 				})?;
-			tracing::trace!(target: "bridge", ?tx_hash, "Sent transaction to {} node: {:?}", C::NAME);
+			tracing::trace!(target: "bridge", ?tx_hash, "Sent transaction to {} node", C::NAME);
 			Ok(TransactionTracker::new(
 				self_clone,
 				stall_timeout,

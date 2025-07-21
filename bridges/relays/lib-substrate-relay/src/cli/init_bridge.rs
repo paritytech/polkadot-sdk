@@ -71,8 +71,8 @@ where
 				let call = Self::encode_init_bridge(initialization_data);
 				tracing::info!(
 					target: "bridge",
-					"Initialize bridge call encoded as hex string: {:?}",
-					format!("0x{}", hex::encode(call.encode()))
+					hex_string=?format!("0x{}", hex::encode(call.encode())),
+					"Initialize bridge call encoded"
 				);
 				Ok(UnsignedTransaction::new(call.into(), transaction_nonce))
 			},

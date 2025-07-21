@@ -413,7 +413,7 @@ pub mod pallet {
 					tracing::trace!(
 						target: crate::LOG_TARGET,
 						?relayer,
-						serving_payer=?reward_kind,
+						?reward_kind,
 						?new_reward,
 						"Relayer can now claim reward for serving payer"
 					);

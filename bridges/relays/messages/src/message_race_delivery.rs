@@ -90,7 +90,8 @@ pub async fn relay_messages_range<P: MessageLane>(
 			tracing::error!(
 				target: "bridge",
 				error=?e,
-				"Failed to get generated message details at {at:?} for messages {range:?}"
+				?at,
+				"Failed to get generated message details at for messages {range:?}"
 			);
 		})?
 		.values()
@@ -107,7 +108,8 @@ pub async fn relay_messages_range<P: MessageLane>(
 			tracing::error!(
 				target: "bridge",
 				error=?e,
-				"Failed to generate messages proof at {at:?} for messages {range:?}: {:?}"
+				?at,
+				"Failed to generate messages proof at for messages {range:?}"
 			);
 		})?;
 	// submit messages proof to the target node
@@ -117,9 +119,8 @@ pub async fn relay_messages_range<P: MessageLane>(
 		.map_err(|e| {
 			tracing::error!(
 				target: "bridge",
-				"Failed to submit messages proof for messages {:?}: {:?}",
-				range,
-				e,
+				error=?e,
+				"Failed to submit messages proof for messages {range:?}"
 			);
 		})?
 		.tx_tracker;
