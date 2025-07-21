@@ -211,7 +211,6 @@ pub(crate) type TestLocalXcmChannelManager = TestingLocalXcmChannelManager<
 >;
 
 impl pallet_xcm_bridge::Config for TestRuntime {
-	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 
 	type UniversalLocation = UniversalLocation;

@@ -117,8 +117,6 @@ pub mod pallet {
 
 		#[frame_support::register_default_impl(TestDefaultConfig)]
 		impl DefaultConfig for TestDefaultConfig {
-			#[inject_runtime_type]
-			type RuntimeEvent = ();
 			type WeightInfo = ();
 			type DestinationVersion = AlwaysLatest;
 
@@ -131,11 +129,6 @@ pub mod pallet {
 
 	#[pallet::config(with_default)]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
-		/// The overarching event type.
-		#[allow(deprecated)]
-		#[pallet::no_default_bounds]
-		type RuntimeEvent: From<Event<Self, I>>
-			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Benchmarks results from runtime we're plugged into.
 		type WeightInfo: WeightInfo;
 
