@@ -43,12 +43,6 @@
   runner-type: "large"
   use-zombienet-sdk: false
 
-- job-name: "zombienet-polkadot-functional-0010-validator-disabling"
-  test-definition: "0010-validator-disabling.zndsl"
-  local-dir: "./polkadot/zombienet_tests/functional"
-  runner-type: "large"
-  use-zombienet-sdk: false
-
 - job-name: "zombienet-polkadot-functional-0013-systematic-chunk-recovery"
   test-definition: "0013-systematic-chunk-recovery.zndsl"
   local-dir: "./polkadot/zombienet_tests/functional"
@@ -249,6 +243,11 @@
   additional-env:
     OLD_POLKADOT_IMAGE: "docker.io/paritypr/polkadot-debug:master-187cddde"
     OLD_POLKADOT_COMMAND: "polkadot-old"
+
+- job-name: "zombienet-polkadot-functional-validator-disabling"
+  test-filter: "functional::validator_disabling::validator_disabling_test"
+  runner-type: "large"
+  use-zombienet-sdk: true
 
 - job-name: "zombienet-polkadot-shared-core-idle-parachain"
   test-filter: "functional::shared_core_idle_parachain::shared_core_idle_parachain_test"
