@@ -653,6 +653,7 @@ mod benches {
 		[pallet_bridge_grandpa, RococoFinality]
 		[pallet_bridge_parachains, WithinRococo]
 		[pallet_bridge_messages, WestendToRococo]
+		[pallet_bridge_proof_root_sync, AssetHubRococoStateRootSync]
 		// Ethereum Bridge V1
 		[snowbridge_pallet_system, EthereumSystem]
 		[snowbridge_pallet_ethereum_client, EthereumBeaconClient]

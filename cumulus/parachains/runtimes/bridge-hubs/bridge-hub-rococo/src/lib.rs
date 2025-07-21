@@ -701,6 +701,7 @@ mod benches {
 		[pallet_bridge_parachains, WithinWestend]
 		[pallet_bridge_messages, RococoToWestend]
 		[pallet_bridge_messages, RococoToRococoBulletin]
+		[pallet_bridge_proof_root_sync, AssetHubWestendStateRootSync]
 		[pallet_bridge_relayers, Legacy]
 		[pallet_bridge_relayers, PermissionlessLanes]
 		// Ethereum Bridge

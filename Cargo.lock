@@ -2516,8 +2516,12 @@ dependencies = [
 name = "bridge-hub-common"
 version = "0.1.0"
 dependencies = [
+ "bp-parachains",
+ "bp-runtime",
+ "bp-test-utils",
  "cumulus-primitives-core",
  "frame-support",
+ "pallet-bridge-proof-root-sync",
  "pallet-message-queue",
  "parity-scale-codec",
  "scale-info",
@@ -2528,6 +2532,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "tracing",
 ]
 
 [[package]]
@@ -11954,9 +11959,6 @@ dependencies = [
 name = "pallet-bridge-proof-root-sync"
 version = "0.1.0"
 dependencies = [
- "bp-parachains",
- "bp-polkadot-core",
- "bp-runtime",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
