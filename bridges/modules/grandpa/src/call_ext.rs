@@ -87,9 +87,9 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 		if !Self::has_free_header_slots() {
 			tracing::trace!(
 				target: crate::LOG_TARGET,
-				bridged_chain_id=?T::BridgedChain::ID,
-				header=?call_info.block_number,
-				"Cannot accept free. No more free slots remaining"
+				"Cannot accept free {:?} header {:?}. No more free slots remaining",
+				T::BridgedChain::ID,
+				call_info.block_number,
 			);
 
 			return Err(Error::<T, I>::FreeHeadersLimitExceded);
@@ -101,10 +101,10 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 				if improved_by < free_headers_interval.into() {
 					tracing::trace!(
 						target: crate::LOG_TARGET,
-						bridged_chain_id=?T::BridgedChain::ID,
-						header=?call_info.block_number,
-						"Cannot accept free. Too small difference \
-						between submitted headers: {improved_by:?} vs {free_headers_interval}"
+						"Cannot accept free {:?} header {:?}. Too small difference \
+						between submitted headers: {improved_by:?} vs {free_headers_interval}",
+						T::BridgedChain::ID,
+						call_info.block_number,
 					);
 
 					return Err(Error::<T, I>::BelowFreeHeaderInterval);

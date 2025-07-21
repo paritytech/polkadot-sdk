@@ -658,8 +658,10 @@ pub mod pallet {
 
 		tracing::info!(
 			target: LOG_TARGET,
+			%old_current_set_id,
+			%new_current_set_id,
 			?next_authorities,
-			"Transitioned from authority set {old_current_set_id} to {new_current_set_id}!"
+			"Transitioned from authority set!"
 		);
 
 		Ok(Some(next_authorities.into()))

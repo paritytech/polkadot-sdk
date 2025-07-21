@@ -343,9 +343,7 @@ pub mod pallet {
 				target: LOG_TARGET,
 				total=%total_messages,
 				valid=%valid_messages,
-				"Received messages. Weight used: {}/{}.",
-				actual_weight,
-				declared_weight,
+				"Received messages. Weight used: {actual_weight}/{declared_weight}."
 			);
 
 			Self::deposit_event(Event::MessagesReceived(messages_received_status));
@@ -424,8 +422,8 @@ pub mod pallet {
 			tracing::trace!(
 				target: LOG_TARGET,
 				?lane_id,
-				"Received messages delivery proof up to (and including) {}",
-				last_delivered_nonce,
+				%last_delivered_nonce,
+				"Received messages delivery proof up to (and including)"
 			);
 
 			// notify others about messages delivery
@@ -717,8 +715,7 @@ where
 			target: LOG_TARGET,
 			lane_id=?args.lane_id,
 			message_size=?message_len,
-			"Accepted message {}",
-			nonce,
+			"Accepted message {nonce}"
 		);
 
 		Pallet::<T, I>::deposit_event(Event::MessageAccepted {

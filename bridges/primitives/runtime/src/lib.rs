@@ -371,7 +371,7 @@ impl OperatingMode for BasicOperatingMode {
 	}
 }
 
-const LOG_TARGET: &'static str = "bridge::OwnedBridgeModule";
+const LOG_TARGET: &'static str = "bridge::owned-bridge-module";
 
 /// Bridge module that has owner and operating mode
 pub trait OwnedBridgeModule<T: frame_system::Config> {
