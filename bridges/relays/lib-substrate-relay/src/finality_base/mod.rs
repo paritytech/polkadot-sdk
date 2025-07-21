@@ -59,9 +59,9 @@ pub async fn finality_proofs<P: SubstrateFinalityPipeline>(
 				let log_error = |err| {
 					tracing::error!(
 						target: "bridge",
-						"Failed to read justification target from the {} justifications stream: {:?}",
+						error=?err,
+						"Failed to read justification target from the {} justifications stream",
 						P::SourceChain::NAME,
-						err,
 					);
 				};
 

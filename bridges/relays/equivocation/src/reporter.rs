@@ -58,7 +58,7 @@ impl<'a, P: EquivocationDetectionPipeline, SC: SourceClient<P>> EquivocationsRep
 							tracing::error!(target: "bridge", "Equivocation report tx was lost");
 						},
 						TrackedTransactionStatus::Finalized(id) => {
-							tracing::error!(target: "bridge", "Equivocation report tx was finalized in source block {id:?}");
+							tracing::error!(target: "bridge", ?id, "Equivocation report tx was finalized in source block");
 						},
 					}
 

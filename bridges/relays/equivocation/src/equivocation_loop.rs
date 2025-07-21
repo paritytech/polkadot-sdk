@@ -53,7 +53,8 @@ impl<P: EquivocationDetectionPipeline, SC: SourceClient<P>, TC: TargetClient<P>>
 			Err(e) => {
 				tracing::error!(
 					target: "bridge",
-					"Could not connect to the {} `FinalityProofsStream`: {e:?}",
+					error=?e,
+					"Could not connect to the {} `FinalityProofsStream`",
 					P::SOURCE_NAME,
 				);
 
@@ -69,7 +70,8 @@ impl<P: EquivocationDetectionPipeline, SC: SourceClient<P>, TC: TargetClient<P>>
 			Err(e) => {
 				tracing::error!(
 					target: "bridge",
-					"Could not read best finalized header number from {}: {e:?}",
+					error=?e,
+					"Could not read best finalized header number from {}",
 					P::TARGET_NAME,
 				);
 

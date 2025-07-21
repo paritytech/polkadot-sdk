@@ -51,7 +51,7 @@ where
 		.token_decimals()
 		.await?
 		.inspect(|token_decimals| {
-			tracing::info!(target: "bridge", "Read `tokenDecimals` for {}: {}", C::NAME, token_decimals);
+			tracing::info!(target: "bridge", %token_decimals, "Read `tokenDecimals` for {}", C::NAME);
 		})
 		.unwrap_or_else(|| {
 			// turns out it is normal not to have this property - e.g. when polkadot binary is
