@@ -1414,11 +1414,12 @@ impl pallet_message_queue::Config for Runtime {
 
 parameter_types! {
 	pub const ChildBountyValueMinimum: Balance = 1 * DOLLARS;
+	pub const MaxActiveChildBountyCount: u32 = 5;
 }
 
 impl pallet_child_bounties::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type MaxActiveChildBountyCount = ConstU32<5>;
+	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
 	type ChildBountyValueMinimum = ChildBountyValueMinimum;
 	type WeightInfo = pallet_child_bounties::weights::SubstrateWeight<Runtime>;
 }
@@ -1434,13 +1435,12 @@ impl pallet_multi_asset_bounties::Config for Runtime {
 	type BountyValueMinimum = BountyValueMinimum;
 	type ChildBountyValueMinimum = ChildBountyValueMinimum;
 	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
-	type DataDepositPerByte = DataDepositPerByte;
 	type MaximumReasonLength = MaximumReasonLength;
 	type WeightInfo = pallet_multi_asset_bounties::weights::SubstrateWeight<Runtime>;
 	type TreasurySource = pallet_multi_asset_bounties::TreasurySource<Runtime>;
 	type BountySource =  pallet_multi_asset_bounties::BountySource<Runtime>;
 	type ChildBountySource =  pallet_multi_asset_bounties::ChildBountySource<Runtime>;
-	type Paymaster = PayWithFungibles<NativeAndAssets, TreasuryAccount>;
+	type Paymaster = PayWithFungibles<NativeAndAssets, AccountId>;
 	type OnSlash = Treasury;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PalletMultiAssetBountiesArguments;

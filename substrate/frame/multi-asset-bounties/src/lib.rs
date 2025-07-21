@@ -77,6 +77,7 @@ mod tests;
 pub mod weights;
 pub use pallet::*;
 pub use weights::WeightInfo;
+pub use benchmarking::ArgumentsFactory;
 
 extern crate alloc;
 use alloc::{collections::btree_map::BTreeMap, vec::Vec, boxed::Box};
