@@ -358,7 +358,7 @@ where
 	}
 
 	fn aux_data(&self, header: &B::Header, _slot: Slot) -> Result<Self::AuxData, ConsensusError> {
-		authorities(
+		fetch_authorities(
 			self.client.as_ref(),
 			header.hash(),
 			*header.number() + 1u32.into(),
@@ -501,7 +501,7 @@ impl<B: BlockT> From<crate::standalone::PreDigestLookupError> for Error<B> {
 	}
 }
 
-fn authorities<A, B, C>(
+fn fetch_authorities<A, B, C>(
 	client: &C,
 	parent_hash: B::Hash,
 	context_block_number: NumberFor<B>,
@@ -628,7 +628,7 @@ mod tests {
 				InherentDataProviders = (InherentDataProvider,),
 			>,
 		>,
-		u64,
+		TestBlock,
 	>;
 	type AuraPeer = Peer<(), PeersClient>;
 

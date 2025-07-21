@@ -19,11 +19,13 @@
 //! Module implementing the logic for verifying and importing AuRa blocks.
 
 use crate::{
-	authorities, standalone::SealVerificationError, AuthorityId, CompatibilityMode, Error,
+	fetch_authorities, standalone::SealVerificationError, AuthorityId, CompatibilityMode, Error,
 	LOG_TARGET,
 };
 use codec::Codec;
+use fork_tree::ForkTree;
 use log::{debug, info, trace};
+use parking_lot::RwLock;
 use prometheus_endpoint::Registry;
 use sc_client_api::{backend::AuxStore, BlockOf, UsageProvider};
 use sc_consensus::{
@@ -34,17 +36,18 @@ use sc_consensus_slots::{check_equivocation, CheckedHeader, InherentDataProvider
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_TRACE};
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
-use sp_blockchain::HeaderBackend;
+use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus::Error as ConsensusError;
-use sp_consensus_aura::{inherents::AuraInherentData, AuraApi};
+use sp_consensus_aura::{inherents::AuraInherentData, AuraApi, ConsensusLog, AURA_ENGINE_ID};
 use sp_consensus_slots::Slot;
 use sp_core::crypto::Pair;
 use sp_inherents::{CreateInherentDataProviders, InherentDataProvider as _};
 use sp_runtime::{
+	generic::OpaqueDigestItemId,
 	traits::{Block as BlockT, Header, NumberFor},
 	DigestItem,
 };
-use std::{fmt::Debug, marker::PhantomData, sync::Arc};
+use std::{fmt::Debug, sync::Arc};
 
 /// check a header has been signed by the right key. If the slot is too far in the future, an error
 /// will be returned. If it's successful, returns the pre-header and the digest item
@@ -99,22 +102,22 @@ where
 }
 
 /// A verifier for Aura blocks.
-pub struct AuraVerifier<C, P, CIDP, N> {
+pub struct AuraVerifier<C, P: Pair, CIDP, B: BlockT> {
 	client: Arc<C>,
 	create_inherent_data_providers: CIDP,
 	check_for_equivocation: CheckForEquivocation,
 	telemetry: Option<TelemetryHandle>,
-	compatibility_mode: CompatibilityMode<N>,
-	_phantom: PhantomData<fn() -> P>,
+	compatibility_mode: CompatibilityMode<NumberFor<B>>,
+	authorities_cache: RwLock<ForkTree<B::Hash, NumberFor<B>, Vec<AuthorityId<P>>>>,
 }
 
-impl<C, P, CIDP, N> AuraVerifier<C, P, CIDP, N> {
+impl<C, P: Pair, CIDP, B: BlockT> AuraVerifier<C, P, CIDP, B> {
 	pub(crate) fn new(
 		client: Arc<C>,
 		create_inherent_data_providers: CIDP,
 		check_for_equivocation: CheckForEquivocation,
 		telemetry: Option<TelemetryHandle>,
-		compatibility_mode: CompatibilityMode<N>,
+		compatibility_mode: CompatibilityMode<NumberFor<B>>,
 	) -> Self {
 		Self {
 			client,
@@ -122,15 +125,21 @@ impl<C, P, CIDP, N> AuraVerifier<C, P, CIDP, N> {
 			check_for_equivocation,
 			telemetry,
 			compatibility_mode,
-			_phantom: PhantomData,
+			authorities_cache: RwLock::new(ForkTree::new()),
 		}
 	}
 }
 
 #[async_trait::async_trait]
-impl<B: BlockT, C, P, CIDP> Verifier<B> for AuraVerifier<C, P, CIDP, NumberFor<B>>
+impl<B, C, P, CIDP> Verifier<B> for AuraVerifier<C, P, CIDP, B>
 where
-	C: ProvideRuntimeApi<B> + Send + Sync + sc_client_api::backend::AuxStore,
+	B: BlockT,
+	C: HeaderBackend<B>
+		+ HeaderMetadata<B, Error = sp_blockchain::Error>
+		+ ProvideRuntimeApi<B>
+		+ Send
+		+ Sync
+		+ sc_client_api::backend::AuxStore,
 	C::Api: BlockBuilderApi<B> + AuraApi<B, AuthorityId<P>> + ApiExt<B>,
 	P: Pair,
 	P::Public: Codec + Debug,
@@ -155,14 +164,63 @@ where
 		}
 
 		let hash = block.header.hash();
+		let number = *block.header.number();
 		let parent_hash = *block.header.parent_hash();
-		let authorities = authorities(
-			self.client.as_ref(),
-			parent_hash,
-			*block.header.number(),
-			&self.compatibility_mode,
-		)
-		.map_err(|e| format!("Could not fetch authorities at {:?}: {}", parent_hash, e))?;
+
+		// Fetch authorities from cache, if available.
+		let authorities = {
+			let is_descendent_of =
+				sc_client_api::utils::is_descendent_of(&*self.client, Some((hash, parent_hash)));
+			let authorities_cache = self.authorities_cache.read();
+			authorities_cache
+				.find_node_where(&hash, &number, &is_descendent_of, &|_| true)
+				.map_err(|e| {
+					format!("Could not find authorities for block {hash:?} at number {number}: {e}")
+				})?
+				.map(|node| node.data.clone())
+		};
+
+		let authorities = match authorities {
+			Some(authorities) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Authorities for block {:?} at number {} found in cache",
+					hash,
+					number,
+				);
+				authorities
+			},
+			None => {
+				// Authorities are missing from the cache. Fetch them from the runtime and cache
+				// them.
+				log::debug!(
+					target: LOG_TARGET,
+					"Authorities for block {:?} at number {} not found in cache, fetching from runtime.",
+					hash,
+					number
+				);
+				let authorities = fetch_authorities(
+					self.client.as_ref(),
+					parent_hash,
+					*block.header.number(),
+					&self.compatibility_mode,
+				)
+				.map_err(|e| format!("Could not fetch authorities at {:?}: {}", parent_hash, e))?;
+				let is_descendent_of = sc_client_api::utils::is_descendent_of(&*self.client, None);
+				let mut authorities_cache = self.authorities_cache.write();
+				authorities_cache
+					.import(
+						parent_hash,
+						number - 1u32.into(),
+						authorities.clone(),
+						&is_descendent_of,
+					)
+					.map_err(|e| {
+						format!("Could not import authorities for block {parent_hash:?} at number {}: {e}", number - 1u32.into())
+					})?;
+				authorities
+			},
+		};
 
 		let create_inherent_data_providers = self
 			.create_inherent_data_providers
@@ -176,6 +234,8 @@ where
 			.map_err(Error::<B>::Inherent)?;
 
 		let slot_now = create_inherent_data_providers.slot();
+
+		let authorities_change = find_authorities_change_digest::<B, P>(&block.header);
 
 		// we add one to allow for some small drift.
 		// FIXME #1019 in the future, alter this queue to allow deferring of
@@ -222,6 +282,28 @@ where
 					block.body = Some(inner_body);
 				}
 
+				// If the block contains an authorities change digest, prune the authorities cache
+				// and import the new authorities set into the cache.
+				if let Some(authorities_change) = authorities_change {
+					log::debug!(
+						target: LOG_TARGET,
+						"Importing authorities change for block {:?} at number {} found in header digest",
+						hash,
+						number,
+					);
+					prune_finalized::<B, P, _>(&*self.client, &self.authorities_cache)?;
+					let is_descendent_of =
+						sc_client_api::utils::is_descendent_of(&*self.client, None);
+					let mut authorities_cache = self.authorities_cache.write();
+					authorities_cache
+						.import(hash, number, authorities_change, &is_descendent_of)
+						.map_err(|e| {
+							format!(
+								"Could not import authorities for block {hash:?} at number {number}: {e}"
+							)
+						})?;
+				}
+
 				trace!(target: LOG_TARGET, "Checked {:?}; importing.", pre_header);
 				telemetry!(
 					self.telemetry;
@@ -251,6 +333,43 @@ where
 			},
 		}
 	}
+}
+
+/// Extract the AURA authorities change digest from the given header, if it exists.
+pub fn find_authorities_change_digest<B, P>(header: &B::Header) -> Option<Vec<AuthorityId<P>>>
+where
+	B: BlockT,
+	P: Pair,
+	P::Public: Codec,
+{
+	let mut authorities_change_digest: Option<_> = None;
+	for log in header.digest().logs() {
+		trace!(target: LOG_TARGET, "Checking log {:?}, looking for authorities change digest.", log);
+		let log = log
+			.try_to::<ConsensusLog<AuthorityId<P>>>(OpaqueDigestItemId::Consensus(&AURA_ENGINE_ID));
+		if let Some(ConsensusLog::AuthoritiesChange(authorities)) = log {
+			authorities_change_digest = Some(authorities);
+		}
+	}
+	authorities_change_digest
+}
+
+fn prune_finalized<B, P, Client>(
+	client: &Client,
+	authorities_cache: &RwLock<ForkTree<B::Hash, NumberFor<B>, Vec<AuthorityId<P>>>>,
+) -> Result<(), String>
+where
+	B: BlockT,
+	P: Pair,
+	Client: HeaderBackend<B> + HeaderMetadata<B, Error = sp_blockchain::Error>,
+{
+	let is_descendent_of = sc_client_api::utils::is_descendent_of(client, None);
+	let info = client.info();
+	let mut authorities_cache = authorities_cache.write();
+	let _pruned = authorities_cache
+		.prune(&info.finalized_hash, &info.finalized_number, &is_descendent_of, &|_| true)
+		.map_err(|e| e.to_string())?;
+	Ok(())
 }
 
 /// Should we check for equivocation of a block author?
@@ -325,7 +444,8 @@ where
 		+ Sync
 		+ AuxStore
 		+ UsageProvider<Block>
-		+ HeaderBackend<Block>,
+		+ HeaderBackend<Block>
+		+ HeaderMetadata<Block, Error = sp_blockchain::Error>,
 	I: BlockImport<Block, Error = ConsensusError> + Send + Sync + 'static,
 	P: Pair + 'static,
 	P::Public: Codec + Debug,
@@ -362,15 +482,15 @@ pub struct BuildVerifierParams<C, CIDP, N> {
 }
 
 /// Build the [`AuraVerifier`]
-pub fn build_verifier<P, C, CIDP, N>(
+pub fn build_verifier<P: Pair, C, CIDP, B: BlockT>(
 	BuildVerifierParams {
 		client,
 		create_inherent_data_providers,
 		check_for_equivocation,
 		telemetry,
 		compatibility_mode,
-	}: BuildVerifierParams<C, CIDP, N>,
-) -> AuraVerifier<C, P, CIDP, N> {
+	}: BuildVerifierParams<C, CIDP, NumberFor<B>>,
+) -> AuraVerifier<C, P, CIDP, B> {
 	AuraVerifier::<_, P, _, _>::new(
 		client,
 		create_inherent_data_providers,
