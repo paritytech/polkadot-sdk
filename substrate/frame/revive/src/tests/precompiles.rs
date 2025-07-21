@@ -20,7 +20,7 @@
 use crate::{
 	exec::{ErrorOrigin, ExecError},
 	precompiles::{AddressMatcher, Error, Ext, ExtWithInfo, Precompile, Token},
-	Config, DispatchError, Origin, Weight,
+	Config, DispatchError, Origin, Weight, U256,
 };
 use alloc::vec::Vec;
 use alloy_core::{
@@ -44,6 +44,8 @@ sol! {
 		function errors() external;
 		function consumeMaxGas() external;
 		function callRuntime(bytes memory call) external;
+		function passData(uint32 inputLen) external;
+		function returnData(uint32 returnLen) external returns (bytes);
 	}
 }
 
@@ -105,6 +107,20 @@ impl<T: Config> Precompile for NoInfo<T> {
 						Err(Error::Error(ExecError { error: e.error, origin: ErrorOrigin::Caller })),
 				}
 			},
+			INoInfoCalls::passData(INoInfo::passDataCall { inputLen }) => {
+				env.call(
+					Weight::MAX,
+					U256::MAX,
+					&env.address(),
+					0.into(),
+					vec![42; *inputLen as usize],
+					true,
+					false,
+				)?;
+				Ok(Vec::new())
+			},
+			INoInfoCalls::returnData(INoInfo::returnDataCall { returnLen }) =>
+				Ok(vec![42; *returnLen as usize]),
 		}
 	}
 }

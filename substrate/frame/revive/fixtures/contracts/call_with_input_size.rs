@@ -15,29 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This creates a large rw section but with its contents
-//! included into the blob. It should be rejected for its
-//! blob size.
-
 #![no_std]
 #![no_main]
 include!("../panic_handler.rs");
 
-use uapi::{HostFn, HostFnImpl as api, ReturnFlags};
+polkavm_derive::min_stack_size!(512 * 1024);
 
-static mut BUFFER: [u8; 1024 * 1024] = [42; 1024 * 1024];
-
-unsafe fn buffer() -> &'static [u8; 1024 * 1024] {
-	let ptr = core::ptr::addr_of!(BUFFER);
-	&*ptr
-}
-
-#[no_mangle]
-#[polkavm_derive::polkavm_export]
-pub unsafe extern "C" fn call_never() {
-	// make sure the buffer is not optimized away
-	api::return_value(ReturnFlags::empty(), buffer());
-}
+use uapi::{input, HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -45,4 +29,23 @@ pub extern "C" fn deploy() {}
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
-pub extern "C" fn call() {}
+pub extern "C" fn call() {
+	input!(
+		input_size: u32,
+	);
+
+	let input_buf = [0u8; 256 * 1024];
+	let address = [1u8; 20];
+
+	// Call the callee
+	api::call(
+		uapi::CallFlags::empty(),
+		&address,
+		u64::MAX,       // How much ref_time to devote for the execution. u64::MAX = use all.
+		u64::MAX,       // How much proof_size to devote for the execution. u64::MAX = use all.
+		&[u8::MAX; 32], // No deposit limit.
+		&[0; 32],          // Value transferred to the contract.
+		&input_buf[..input_size as usize],
+		None,
+	).unwrap();
+}
