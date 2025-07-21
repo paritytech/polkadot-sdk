@@ -118,10 +118,10 @@ impl MessageRaceLimits {
 				new_selected_weight if selected_count == 0 => {
 					tracing::warn!(
 						target: "bridge",
+						dispatch_weight=?new_selected_weight,
+						configured_weight=%reference.max_messages_weight_in_single_batch,
 						"Going to submit message delivery transaction with declared dispatch \
-						weight {:?} that overflows maximal configured weight {}",
-						new_selected_weight,
-						reference.max_messages_weight_in_single_batch,
+						weight that overflows maximal configured weight"
 					);
 					new_selected_weight.unwrap_or(Weight::MAX)
 				},
@@ -136,10 +136,10 @@ impl MessageRaceLimits {
 				new_selected_size if selected_count == 0 => {
 					tracing::warn!(
 						target: "bridge",
+						message_size=new_selected_size,
+						configured_size=%reference.max_messages_size_in_single_batch,
 						"Going to submit message delivery transaction with message \
-						size {:?} that overflows maximal configured size {}",
-						new_selected_size,
-						reference.max_messages_size_in_single_batch,
+						size that overflows maximal configured size"
 					);
 					new_selected_size.unwrap_or(u32::MAX)
 				},

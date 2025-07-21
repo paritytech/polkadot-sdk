@@ -79,9 +79,9 @@ pub async fn relay_messages_delivery_confirmation<P: MessageLane>(
 	let (at, proof) = target_client.prove_messages_receiving(at.clone()).await.map_err(|e| {
 		tracing::error!(
 			target: "bridge",
-			"Failed to generate messages delivery proof at {:?}: {:?}",
-			at,
-			e,
+			error=?e,
+			?at,
+			"Failed to generate messages delivery proof",
 		);
 	})?;
 	// submit messages delivery proof to the source node
@@ -92,8 +92,8 @@ pub async fn relay_messages_delivery_confirmation<P: MessageLane>(
 			.map_err(|e| {
 				tracing::error!(
 					target: "bridge",
-					"Failed to submit messages delivery proof: {:?}",
-					e,
+					error=?e,
+					"Failed to submit messages delivery proof"
 				);
 			})?;
 

@@ -381,9 +381,9 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 					|new_source_state| {
 						tracing::debug!(
 							target: "bridge",
-							"Received state from {} node: {:?}",
+							?new_source_state,
+							"Received state from {} node",
 							P::SOURCE_NAME,
-							new_source_state,
 						);
 						let _ = delivery_source_state_sender.unbounded_send(new_source_state.clone());
 						let _ = receiving_source_state_sender.unbounded_send(new_source_state.clone());
@@ -412,9 +412,9 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 					|new_target_state| {
 						tracing::debug!(
 							target: "bridge",
-							"Received state from {} node: {:?}",
+							?new_target_state,
+							"Received state from {} node",
 							P::TARGET_NAME,
-							new_target_state,
 						);
 						let _ = delivery_target_state_sender.unbounded_send(new_target_state.clone());
 						let _ = receiving_target_state_sender.unbounded_send(new_target_state.clone());

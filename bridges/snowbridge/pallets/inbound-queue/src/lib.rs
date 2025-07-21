@@ -288,9 +288,9 @@ pub mod pallet {
 
 			tracing::info!(
 				target: LOG_TARGET,
-				"💫 xcm decoded as {:?} with fee {:?}",
-				xcm,
-				fee
+				?xcm,
+				?fee,
+				"💫 xcm decoded"
 			);
 
 			// Burning fees for teleport
@@ -356,7 +356,8 @@ pub mod pallet {
 			T::AssetTransactor::can_check_out(&dest, &fees, &dummy_context).map_err(|error| {
 				tracing::error!(
 					target: LOG_TARGET,
-					"XCM asset check out failed with error {:?}", error
+					?error,
+					"XCM asset check out failed with error"
 				);
 				TokenError::FundsUnavailable
 			})?;
@@ -364,7 +365,8 @@ pub mod pallet {
 			T::AssetTransactor::withdraw_asset(&fees, &dest, None).map_err(|error| {
 				tracing::error!(
 					target: LOG_TARGET,
-					"XCM asset withdraw failed with error {:?}", error
+					?error,
+					"XCM asset withdraw failed with error"
 				);
 				TokenError::FundsUnavailable
 			})?;

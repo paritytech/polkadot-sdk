@@ -292,9 +292,9 @@ where
 		Err(error) if error.is_connection_error() => {
 			tracing::error!(
 				target: "bridge",
-				"{}: {:?}. Going to restart",
+				?error,
+				"{}. Going to restart",
 				error_pattern(),
-				error,
 			);
 
 			retry_backoff.reset();
@@ -305,9 +305,9 @@ where
 			let retry_delay = retry_backoff.next_backoff().unwrap_or(CONNECTION_ERROR_DELAY);
 			tracing::error!(
 				target: "bridge",
-				"{}: {:?}. Retrying in {}",
+				?error,
+				"{}. Retrying in {}",
 				error_pattern(),
-				error,
 				retry_delay.as_secs_f64(),
 			);
 
