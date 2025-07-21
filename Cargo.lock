@@ -1091,6 +1091,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-bridge-messages",
+ "pallet-bridge-proof-root-store",
  "pallet-bridge-relayers",
  "pallet-collator-selection",
  "pallet-message-queue",
@@ -1247,6 +1248,7 @@ dependencies = [
  "pallet-bags-list",
  "pallet-balances",
  "pallet-bridge-messages",
+ "pallet-bridge-proof-root-store",
  "pallet-bridge-relayers",
  "pallet-collator-selection",
  "pallet-conviction-voting",
@@ -2123,6 +2125,7 @@ version = "0.4.0"
 dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
+ "bp-proof-root-store",
  "bp-runtime",
  "bp-xcm-bridge",
  "bp-xcm-bridge-router",
@@ -2143,6 +2146,7 @@ version = "0.3.0"
 dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
+ "bp-proof-root-store",
  "bp-runtime",
  "bp-xcm-bridge",
  "bp-xcm-bridge-router",
@@ -2303,6 +2307,15 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-runtime",
  "sp-std 14.0.0",
+]
+
+[[package]]
+name = "bp-proof-root-store"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
 ]
 
 [[package]]
@@ -11651,6 +11664,19 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
+]
+
+[[package]]
+name = "pallet-bridge-proof-root-store"
+version = "0.1.0"
+dependencies = [
+ "bp-proof-root-store",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 30.0.0",
 ]
 
 [[package]]
