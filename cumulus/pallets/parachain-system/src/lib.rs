@@ -66,8 +66,8 @@ mod mock;
 mod tests;
 pub mod weights;
 
-pub use weights::WeightInfo;
 pub use max_parachain_block_weight::MaxParachainBlockWeight;
+pub use weights::WeightInfo;
 
 mod unincluded_segment;
 
@@ -1333,7 +1333,7 @@ impl<T: Config> Pallet<T> {
 		// a new block is allowed.
 		assert!(
 			new_len < capacity.get(),
-			"No space left for the block in the unincluded segment: {new_len} < {}",
+			"No space left for the block in the unincluded segment: new_len({new_len}) < capacity({})",
 			capacity.get()
 		);
 		weight_used

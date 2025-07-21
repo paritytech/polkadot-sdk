@@ -7,8 +7,7 @@
 
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
-	assert_blocks_are_being_finalized, assert_para_throughput,
-	wait_for_first_session_change,
+	assert_blocks_are_being_finalized, assert_para_throughput, wait_for_first_session_change,
 };
 use polkadot_primitives::{BlockNumber, CandidateHash, DisputeState, Id as ParaId, SessionIndex};
 use serde_json::json;

@@ -224,15 +224,7 @@ impl InitBlockBuilder for Client {
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 	) -> BlockBuilderAndSupportData {
-		init_block_builder(
-			self,
-			at,
-			validation_data,
-			relay_sproof_builder,
-			None,
-			None,
-			None,
-		)
+		init_block_builder(self, at, validation_data, relay_sproof_builder, None, None, None)
 	}
 
 	fn init_block_builder_with_ignored_nodes(

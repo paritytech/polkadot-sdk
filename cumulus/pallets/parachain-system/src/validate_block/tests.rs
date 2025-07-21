@@ -32,7 +32,7 @@ use polkadot_parachain_primitives::primitives::ValidationResult;
 #[cfg(feature = "experimental-ump-signals")]
 use relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
-use sp_api::{ProofRecorder, ProvideRuntimeApi, StorageProof, ApiExt, Core};
+use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi, StorageProof};
 use sp_consensus_babe::SlotDuration;
 use sp_core::H256;
 use sp_runtime::{

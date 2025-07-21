@@ -56,9 +56,13 @@ impl MaxParachainBlockWeight {
 			return Weight::from_parts(MAX_REF_TIME_PER_CORE_NS, MAX_POV_SIZE as u64);
 		}
 
-		let ref_time_per_block = MAX_REF_TIME_PER_CORE_NS.saturating_div(target_blocks as u64);
+		let total_ref_time = (number_of_cores as u64).saturating_mul(MAX_REF_TIME_PER_CORE_NS);
+		let ref_time_per_block = total_ref_time
+			.saturating_div(target_blocks as u64)
+			.min(MAX_REF_TIME_PER_CORE_NS);
 
-		let proof_size_per_block = (MAX_POV_SIZE as u64).saturating_div(target_blocks as u64);
+		let total_pov_size = (number_of_cores as u64).saturating_mul(MAX_POV_SIZE as u64);
+		let proof_size_per_block = total_pov_size.saturating_div(target_blocks as u64);
 
 		Weight::from_parts(ref_time_per_block, proof_size_per_block)
 	}
@@ -118,7 +122,7 @@ mod tests {
 			let weight = MaxParachainBlockWeight::get::<Test>(1);
 
 			// With 1 core and 1 target block, should get full 2s ref time and full PoV size
-			assert_eq!(weight.ref_time(), 2_000_000_000);
+			assert_eq!(weight.ref_time(), 2 * WEIGHT_REF_TIME_PER_SECOND);
 			assert_eq!(weight.proof_size(), MAX_POV_SIZE as u64);
 		});
 	}
@@ -129,8 +133,8 @@ mod tests {
 			let weight = MaxParachainBlockWeight::get::<Test>(4);
 
 			// With 1 core and 4 target blocks, should get 0.5s ref time and 1/4 PoV size per block
-			assert_eq!(weight.ref_time(), 500_000_000);
-			assert_eq!(weight.proof_size(), (MAX_POV_SIZE as u64) / 4);
+			assert_eq!(weight.ref_time(), 2 * WEIGHT_REF_TIME_PER_SECOND / 4);
+			assert_eq!(weight.proof_size(), (1 * MAX_POV_SIZE as u64) / 4);
 		});
 	}
 
@@ -139,9 +143,10 @@ mod tests {
 		new_test_ext_with_digest(Some(3)).execute_with(|| {
 			let weight = MaxParachainBlockWeight::get::<Test>(1);
 
-			// With 3 cores and 1 target block, should get 6s ref time total and full PoV size
-			assert_eq!(weight.ref_time(), 6_000_000_000);
-			assert_eq!(weight.proof_size(), MAX_POV_SIZE as u64);
+			// With 3 cores and 1 target block, should get max 2s ref time (capped per core) and 3x
+			// PoV size
+			assert_eq!(weight.ref_time(), 2 * WEIGHT_REF_TIME_PER_SECOND);
+			assert_eq!(weight.proof_size(), 3 * MAX_POV_SIZE as u64);
 		});
 	}
 
@@ -150,9 +155,10 @@ mod tests {
 		new_test_ext_with_digest(Some(2)).execute_with(|| {
 			let weight = MaxParachainBlockWeight::get::<Test>(4);
 
-			// With 2 cores and 4 target blocks, should get 1s ref time and 1/4 PoV size per block
-			assert_eq!(weight.ref_time(), 1_000_000_000);
-			assert_eq!(weight.proof_size(), (MAX_POV_SIZE as u64) / 4);
+			// With 2 cores and 4 target blocks, should get 1s ref time and 2x PoV size / 4 per
+			// block
+			assert_eq!(weight.ref_time(), 2 * 2 * WEIGHT_REF_TIME_PER_SECOND / 4);
+			assert_eq!(weight.proof_size(), (2 * MAX_POV_SIZE as u64) / 4);
 		});
 	}
 
@@ -162,7 +168,7 @@ mod tests {
 			let weight = MaxParachainBlockWeight::get::<Test>(1);
 
 			// Without core info, should return conservative default
-			assert_eq!(weight.ref_time(), 2_000_000_000);
+			assert_eq!(weight.ref_time(), 2 * WEIGHT_REF_TIME_PER_SECOND);
 			assert_eq!(weight.proof_size(), MAX_POV_SIZE as u64);
 		});
 	}
@@ -173,7 +179,7 @@ mod tests {
 			let weight = MaxParachainBlockWeight::get::<Test>(1);
 
 			// With 0 cores, should return conservative default
-			assert_eq!(weight.ref_time(), 2_000_000_000);
+			assert_eq!(weight.ref_time(), 2 * WEIGHT_REF_TIME_PER_SECOND);
 			assert_eq!(weight.proof_size(), MAX_POV_SIZE as u64);
 		});
 	}
@@ -184,7 +190,7 @@ mod tests {
 			let weight = MaxParachainBlockWeight::get::<Test>(0);
 
 			// With 0 target blocks, should return conservative default
-			assert_eq!(weight.ref_time(), 2_000_000_000);
+			assert_eq!(weight.ref_time(), 2 * WEIGHT_REF_TIME_PER_SECOND);
 			assert_eq!(weight.proof_size(), MAX_POV_SIZE as u64);
 		});
 	}

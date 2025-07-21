@@ -25,7 +25,7 @@
 //! `DispatchClass`. This module contains configuration object for both resources,
 //! which should be passed to `frame_system` configuration when runtime is being set up.
 
-use alloc::{string::String, vec::Vec, format};
+use alloc::{format, string::String, vec::Vec};
 use frame_support::{
 	dispatch::{DispatchClass, OneOrMany, PerDispatchClass},
 	weights::{constants, Weight},

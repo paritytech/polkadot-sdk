@@ -311,9 +311,9 @@ impl SubstrateCli for TestCollatorCli {
 			},
 			"pov-bundling" => {
 				tracing::info!("Using pov-bundling chain spec.");
-				Box::new(cumulus_test_service::get_pov_bundling_chain_spec(
-					Some(ParaId::from(2400)),
-				)) as Box<_>
+				Box::new(cumulus_test_service::get_pov_bundling_chain_spec(Some(ParaId::from(
+					2400,
+				)))) as Box<_>
 			},
 			"sync-backing" => {
 				tracing::info!("Using sync backing chain spec.");
