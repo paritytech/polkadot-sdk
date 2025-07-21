@@ -1,0 +1,11 @@
+title: '[pallet-revive] pass big endian value to fixtures'
+doc:
+- audience: Runtime Dev
+  description: Pass big endian value to fixtures
+crates:
+- name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-uapi
+  bump: patch
