@@ -1000,7 +1000,6 @@ impl pallet_nfts::Config for Runtime {
 /// (legacy routing with `ExportMessage` over BridgeHub).
 pub type ToWestendXcmRouterInstance = pallet_xcm_bridge_router::Instance3;
 impl pallet_xcm_bridge_router::Config<ToWestendXcmRouterInstance> for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo =
 		weights::pallet_xcm_bridge_router_to_westend_over_bridge_hub::WeightInfo<Runtime>;
 

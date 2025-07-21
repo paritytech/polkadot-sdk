@@ -180,8 +180,7 @@ impl Convert<Vec<u8>, Xcm<()>> for UpdateBridgeStatusXcmProvider {
 			Transact {
 				origin_kind: OriginKind::Xcm,
 				call: encoded_call.into(),
-				// TODO: FAIL-CI - add some test for this or remove TODO
-				fallback_max_weight: Some(Weight::from_parts(200_000_000, 6144)),
+				fallback_max_weight: None,
 			},
 			ExpectTransactStatus(MaybeErrorCode::Success),
 		])
@@ -192,7 +191,6 @@ impl Convert<Vec<u8>, Xcm<()>> for UpdateBridgeStatusXcmProvider {
 /// `WithAssetHubWestendMessagesInstance`.
 pub type XcmOverAssetHubWestendInstance = pallet_xcm_bridge::Instance1;
 impl pallet_xcm_bridge::Config<XcmOverAssetHubWestendInstance> for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_xcm_bridge::WeightInfo<Runtime>;
 
 	type UniversalLocation = UniversalLocation;
@@ -271,7 +269,6 @@ impl pallet_xcm_bridge::Config<XcmOverAssetHubWestendInstance> for Runtime {
 /// direct bridging capabilities for `Westend` global consensus with dynamic fees and back-pressure.
 pub type ToWestendOverAssetHubWestendXcmRouterInstance = pallet_xcm_bridge_router::Instance4;
 impl pallet_xcm_bridge_router::Config<ToWestendOverAssetHubWestendXcmRouterInstance> for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo =
 		weights::pallet_xcm_bridge_router_to_westend_over_asset_hub_westend::WeightInfo<Runtime>;
 
