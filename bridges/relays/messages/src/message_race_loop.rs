@@ -669,12 +669,12 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 				tracing::debug!(
 					target: "bridge",
 					?nonces_range,
-					node=%race_state.nonces_to_submit_batch.as_ref().map(|tx| format!(
+					"Going to submit proof of messages in range to {} node{}",
+					P::target_name(),
+					race_state.nonces_to_submit_batch.as_ref().map(|tx| format!(
 						". This transaction is batched with sending the proof for header {:?}.",
 						tx.required_header_id())
 					).unwrap_or_default(),
-					"Going to submit proof of messages to {}",
-					P::target_name(),
 				);
 
 				target_submit_proof.set(

@@ -106,7 +106,7 @@ impl StandaloneMetric for GlobalMetrics {
 			_ => {
 				tracing::warn!(
 					target: "bridge-metrics",
-					"Failed to refresh process information. Metrics may show obsolete values",
+					"Failed to refresh process information. Metrics may show obsolete values"
 				);
 			},
 		}
