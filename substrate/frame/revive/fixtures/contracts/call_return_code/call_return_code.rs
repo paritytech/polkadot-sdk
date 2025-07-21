@@ -22,7 +22,7 @@
 #![no_main]
 include!("../../panic_handler.rs");
 
-use uapi::{input, HostFn, HostFnImpl as api};
+use uapi::{HostFn, HostFnImpl as api, input};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -38,6 +38,8 @@ pub extern "C" fn call() {
 		input: [u8],
 	);
 
+	let value = big_to_little_endian(value);
+
 	// Call the callee
 	let err_code = match api::call(
 		uapi::CallFlags::empty(),
@@ -45,7 +47,7 @@ pub extern "C" fn call() {
 		u64::MAX,       // How much ref_time to devote for the execution. u64::MAX = use all.
 		u64::MAX,       // How much proof_size to devote for the execution. u64::MAX = use all.
 		&[u8::MAX; 32], // No deposit limit.
-		value,          // Value transferred to the contract.
+		&value,         // Value transferred to the contract.
 		input,
 		None,
 	) {
@@ -54,4 +56,10 @@ pub extern "C" fn call() {
 	};
 
 	api::return_value(uapi::ReturnFlags::empty(), &err_code.to_le_bytes());
+}
+
+fn big_to_little_endian(input: &[u8; 32]) -> [u8; 32] {
+	let mut output = *input;
+	output.reverse();
+	output
 }

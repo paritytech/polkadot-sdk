@@ -172,12 +172,6 @@ pub mod test_utils {
 		// Assert that contract code is stored, and get its size.
 		PristineCode::<Test>::try_get(&code_hash).unwrap().len()
 	}
-	pub fn u256_bytes(u: u64) -> [u8; 32] {
-		let mut buffer = [0u8; 32];
-		let bytes = u.to_le_bytes();
-		buffer[..8].copy_from_slice(&bytes);
-		buffer
-	}
 }
 
 mod builder {
@@ -1396,8 +1390,11 @@ fn transfer_return_code(fixture_type: &str) {
 
 #[test]
 fn call_return_code() {
-	use test_utils::u256_bytes;
-	let fixture_type = "sol";
+	let fixture_type = "rust";
+
+	fn u256_be_bytes(u: u64) -> [u8; 32] {
+		U256::from(u).to_big_endian().try_into().expect("U256 is 32 bytes long; qed")
+	}
 
 	let (caller_code, _caller_hash) =
 		compile_module_with_type("call_return_code", fixture_type).unwrap();
@@ -1416,9 +1413,8 @@ fn call_return_code() {
 		// this does trap the caller instead of returning an error code
 		// reasoning is that this error state does not exist on eth where
 		// ed does not exist. We hide this fact from the contract.
-		println!("{:?}", (DJANGO_ADDR, u256_bytes(1)).encode());
 		let result = builder::bare_call(bob.addr)
-			.data((DJANGO_ADDR, u256_bytes(1)).encode())
+			.data((DJANGO_ADDR, u256_be_bytes(1)).encode())
 			.origin(RuntimeOrigin::signed(BOB))
 			.build();
 		assert_err!(result.result, <Error<Test>>::StorageDepositNotEnoughFunds);
@@ -1430,7 +1426,7 @@ fn call_return_code() {
 			.data(
 				AsRef::<[u8]>::as_ref(&DJANGO_ADDR)
 					.iter()
-					.chain(&u256_bytes(min_balance * 200))
+					.chain(&u256_be_bytes(min_balance * 200))
 					.cloned()
 					.collect(),
 			)
@@ -1445,7 +1441,7 @@ fn call_return_code() {
 			.data(
 				AsRef::<[u8]>::as_ref(&DJANGO_ADDR)
 					.iter()
-					.chain(&u256_bytes(1))
+					.chain(&u256_be_bytes(1))
 					.cloned()
 					.collect(),
 			)
@@ -1464,7 +1460,7 @@ fn call_return_code() {
 			.data(
 				AsRef::<[u8]>::as_ref(&django.addr)
 					.iter()
-					.chain(&u256_bytes(min_balance * 300))
+					.chain(&u256_be_bytes(min_balance * 300))
 					.chain(&0u32.to_le_bytes())
 					.cloned()
 					.collect(),
@@ -1478,7 +1474,7 @@ fn call_return_code() {
 			.data(
 				AsRef::<[u8]>::as_ref(&django.addr)
 					.iter()
-					.chain(&u256_bytes(5))
+					.chain(&u256_be_bytes(5))
 					.chain(&1u32.to_le_bytes())
 					.cloned()
 					.collect(),
@@ -1491,7 +1487,7 @@ fn call_return_code() {
 			.data(
 				AsRef::<[u8]>::as_ref(&django.addr)
 					.iter()
-					.chain(&u256_bytes(5))
+					.chain(&u256_be_bytes(5))
 					.chain(&2u32.to_le_bytes())
 					.cloned()
 					.collect(),

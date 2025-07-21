@@ -5,45 +5,43 @@ contract CallReturnCode {
     constructor() payable {}
 
     fallback() external payable {
+        // Input format:
+        // [0..20)   → callee (20 bytes)
+        // [20..52)  → value  (32 bytes)
+        // [52..]    → calldata for inner call
+
+        // Extract callee address (20 bytes)
+        address callee = address(bytes20(msg.data[0:20]));
+
+        // Extract value (32 bytes)
+        uint256 value = uint256(bytes32(msg.data[20:52]));
+
+        // Extract inner call data
+        bytes memory callData = msg.data[52:];
+
+        // Make the call and capture return data
+        (bool success, bytes memory returnData) = callee.call{value: value}(callData);
+
+        // Determine return code based on call result
+        bytes4 returnCode;
+
+		if (!success) {
+            if (returnData.length > 0) {
+                returnCode = hex"02000000"; // Callee reverted
+            } else if (address(this).balance < value) {
+                returnCode = hex"04000000"; // Transfer failed
+            } else {
+                returnCode = hex"01000000"; // Callee trapped
+            }
+        } else {
+            returnCode = hex"00000000"; // Success
+        }
+
         assembly {
-            // Function to convert a 32-byte little-endian value to big-endian
-            function leToBe(input) -> output {
-                output := 0
-                for { let i := 0 } lt(i, 32) { i := add(i, 1) } {
-                    let byteVal := and(shr(mul(i, 8), input), 0xff)
-                    output := or(output, shl(mul(sub(31, i), 8), byteVal))
-                }
-            }
-
-            // Input format:
-            // [0..20)   → callee (20 bytes)
-            // [20..52)  → value  (32 bytes, little-endian)
-            // [52..]    → calldata for inner call
-
-            // Copy 20-byte callee address
-            calldatacopy(0x00, 0x00, 20)
-            let callee := shr(96, mload(0x00))
-
-            // Copy and convert 32-byte value
-            calldatacopy(0x00, 20, 32)
-            let value := leToBe(mload(0x00))
-
-            // Set input offset and size
-            let inputOffset := 52
-            let inputSize := sub(calldatasize(), inputOffset)
-
-            // Call target with input and value
-            let success := call(gas(), callee, value, inputOffset, inputSize, 0x00, 0x20)
-
-            switch success
-            case 1 {
-                mstore(0x00, 0)
-                return(0x00, 0x04)
-            }
-            default {
-                returndatacopy(0x00, 0x00, 0x04)
-                return(0x00, 0x04)
-            }
+            return(add(returnCode, 0x20), 4)
         }
     }
+
 }
+
+
