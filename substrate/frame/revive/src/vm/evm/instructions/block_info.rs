@@ -1,11 +1,11 @@
+use crate::RuntimeCosts;
 use revm::{
 	interpreter::{
-		gas as revm_gas,
+		InstructionContext, gas as revm_gas,
 		host::Host,
 		interpreter_types::{InterpreterTypes, RuntimeFlag, StackTr},
-		InstructionContext,
 	},
-	primitives::{hardfork::SpecId::*, U256},
+	primitives::{U256, hardfork::SpecId::*},
 };
 
 /// EIP-1344: ChainID opcode
@@ -45,7 +45,7 @@ pub fn block_number<'a, E: crate::vm::Ext>(
 		crate::vm::evm::EVMInterpreter<'a, E>,
 	>,
 ) {
-	gas!(context.interpreter, revm_gas::BASE);
+	gas_new!(context.interpreter, RuntimeCosts::BlockNumber);
 	let block_number = context.interpreter.extend.block_number();
 	push!(context.interpreter, U256::from_limbs(block_number.0));
 }
