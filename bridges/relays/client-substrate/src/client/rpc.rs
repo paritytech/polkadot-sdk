@@ -121,9 +121,9 @@ impl<C: Chain> RpcClient<C> {
 				Ok(client) => return client,
 				Err(error) => tracing::error!(
 					target: "bridge",
-					"Failed to connect to {} node: {:?}. Going to retry in {}s",
+					?error,
+					"Failed to connect to {} node. Going to retry in {}s",
 					C::NAME,
-					error,
 					RECONNECT_DELAY.as_secs(),
 				),
 			}
@@ -482,10 +482,10 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 			let tx_hash = SubstrateAuthorClient::<C>::submit_extrinsic(&*client, transaction)
 				.await
 				.map_err(|e| {
-					tracing::error!(target: "bridge", "Failed to send transaction to {} node: {:?}", C::NAME, e);
+					tracing::error!(target: "bridge", error=?e,, "Failed to send transaction to {} node", C::NAME);
 					e
 				})?;
-			tracing::trace!(target: "bridge", "Sent transaction to {} node: {:?}", C::NAME, tx_hash);
+			tracing::trace!(target: "bridge", ?tx_hash, "Sent transaction to {} node", C::NAME);
 			Ok(tx_hash)
 		})
 		.await
@@ -562,10 +562,10 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 				)
 				.await
 				.map_err(|e| {
-					tracing::error!(target: "bridge", "Failed to send transaction to {} node: {:?}", C::NAME, e);
+					tracing::error!(target: "bridge", error=?e, "Failed to send transaction to {} node: {:?}", C::NAME);
 					e
 				})?;
-			tracing::trace!(target: "bridge", "Sent transaction to {} node: {:?}", C::NAME, tx_hash);
+			tracing::trace!(target: "bridge", ?tx_hash, "Sent transaction to {} node: {:?}", C::NAME);
 			Ok(TransactionTracker::new(
 				self_clone,
 				stall_timeout,

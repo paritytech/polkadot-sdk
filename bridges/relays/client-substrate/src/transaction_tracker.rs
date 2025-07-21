@@ -113,9 +113,9 @@ impl<C: Chain, E: Environment<C>> TransactionTracker<C, E> {
 			Either::Left((_, _)) => {
 				tracing::trace!(
 					target: "bridge",
-					"{} transaction {:?} is considered lost after timeout (no status response from the node)",
+					transaction=?self.transaction_hash,
+					"{} transaction is considered lost after timeout (no status response from the node)",
 					C::NAME,
-					self.transaction_hash,
 				);
 
 				(TrackedTransactionStatus::Lost, None)
@@ -133,9 +133,9 @@ impl<C: Chain, E: Environment<C>> TransactionTracker<C, E> {
 					// an error here (which is treated as "transaction lost")
 					tracing::trace!(
 						target: "bridge",
-						"{} transaction {:?} is considered lost after timeout",
+						transaction=?self.transaction_hash,
+						"{} transaction is considered lost after timeout",
 						C::NAME,
-						self.transaction_hash,
 					);
 
 					(TrackedTransactionStatus::Lost, Some(invalidation_status))
@@ -190,10 +190,10 @@ async fn watch_transaction_status<
 				// has been finalized
 				tracing::trace!(
 					target: "bridge",
-					"{} transaction {:?} has been finalized at block: {:?}",
+					transaction=?transaction_hash,
+					block=?block_hash,
+					"{} transaction has been finalized",
 					C::NAME,
-					transaction_hash,
-					block_hash,
 				);
 
 				let header_id = match environment.header_id_by_hash(block_hash).await {
@@ -201,11 +201,11 @@ async fn watch_transaction_status<
 					Err(e) => {
 						tracing::error!(
 							target: "bridge",
-							"Failed to read header {:?} when watching for {} transaction {:?}: {:?}",
-							block_hash,
+							error=?e,
+							transaction=?transaction_hash,
+							block=?block_hash,
+							"Failed to read header when watching for {} transaction",
 							C::NAME,
-							transaction_hash,
-							e,
 						);
 						// that's the best option we have here
 						return InvalidationStatus::Lost
@@ -222,9 +222,9 @@ async fn watch_transaction_status<
 				// case.
 				tracing::trace!(
 					target: "bridge",
-					"{} transaction {:?} has been invalidated",
+					transaction=?transaction_hash,
+					"{} transaction has been invalidated",
 					C::NAME,
-					transaction_hash,
 				);
 				return InvalidationStatus::Invalid
 			},
@@ -239,29 +239,29 @@ async fn watch_transaction_status<
 				// https://github.com/paritytech/parity-bridges-common/issues/1464
 				tracing::trace!(
 					target: "bridge",
-					"{} transaction {:?} has been included in block: {:?}",
+					transaction=?transaction_hash,
+					block=?block_hash,
+					"{} transaction has been included",
 					C::NAME,
-					transaction_hash,
-					block_hash,
 				);
 			},
 			Some(TransactionStatusOf::<C>::Retracted(block_hash)) => {
 				tracing::trace!(
 					target: "bridge",
-					"{} transaction {:?} at block {:?} has been retracted",
+					transaction=?transaction_hash,
+					block=?block_hash,
+					"{} transaction has been retracted",
 					C::NAME,
-					transaction_hash,
-					block_hash,
 				);
 			},
 			Some(TransactionStatusOf::<C>::FinalityTimeout(block_hash)) => {
 				// finality is lagging? let's wait a bit more and report a stall
 				tracing::trace!(
 					target: "bridge",
-					"{} transaction {:?} block {:?} has not been finalized for too long",
+					transaction=?transaction_hash,
+					block=?block_hash,
+					"{} transaction has not been finalized for too long",
 					C::NAME,
-					transaction_hash,
-					block_hash,
 				);
 				return InvalidationStatus::Lost
 			},
@@ -271,10 +271,10 @@ async fn watch_transaction_status<
 				// of transaction may have changed
 				tracing::trace!(
 					target: "bridge",
-					"{} transaction {:?} has been usurped by new transaction: {:?}",
+					transaction=?transaction_hash,
+					new_transaction=?new_transaction_hash,
+					"{} transaction has been usurped",
 					C::NAME,
-					transaction_hash,
-					new_transaction_hash,
 				);
 				return InvalidationStatus::Lost
 			},
@@ -283,9 +283,9 @@ async fn watch_transaction_status<
 				// a bit and report a stall
 				tracing::trace!(
 					target: "bridge",
-					"{} transaction {:?} has been dropped from the pool",
+					transaction=?transaction_hash,
+					"{} transaction has been dropped from the pool",
 					C::NAME,
-					transaction_hash,
 				);
 				return InvalidationStatus::Lost
 			},

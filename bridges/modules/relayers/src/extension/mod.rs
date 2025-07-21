@@ -223,11 +223,11 @@ where
 		if let Err(e) = result {
 			tracing::trace!(
 				target: LOG_TARGET,
-				"{}.{:?}: relayer {:?} has submitted invalid messages transaction: {:?}",
+				error=?e,
+				?relayer,
+				"{}.{:?}: relayer has submitted invalid messages transaction",
 				Self::IDENTIFIER,
 				lane_id,
-				relayer,
-				e,
 			);
 			return slash_relayer_if_delivery_result
 		}
@@ -348,13 +348,11 @@ where
 
 		tracing::trace!(
 			target: LOG_TARGET,
+			relayer=?data.relayer,
 			"{}.{:?}: has boosted priority of message delivery transaction \
-			of relayer {:?}: {} messages -> {} priority",
+			of relayer: {bundled_messages} messages -> {priority_boost} priority",
 			Self::IDENTIFIER,
 			data.call_info.messages_call_info().lane_id(),
-			data.relayer,
-			bundled_messages,
-			priority_boost,
 		);
 
 		let validity = valid_transaction.build()?;
@@ -372,10 +370,10 @@ where
 		Ok(val.inspect(|data| {
 			tracing::trace!(
 				target: LOG_TARGET,
-				"{}.{:?}: parsed bridge transaction in prepare: {:?}",
+				call_info=?data.call_info,
+				"{}.{:?}: parsed bridge transaction in prepare",
 				Self::IDENTIFIER,
 				data.call_info.messages_call_info().lane_id(),
-				data.call_info,
 			);
 		}))
 	}
@@ -401,11 +399,11 @@ where
 
 				tracing::trace!(
 					target: LOG_TARGET,
-					"{}.{:?}: has registered reward: {:?} for {:?}",
+					?relayer,
+					?reward,
+					"{}.{:?}: has registered reward",
 					Self::IDENTIFIER,
 					lane_id,
-					reward,
-					relayer,
 				);
 			},
 			RelayerAccountAction::Slash(relayer, slash_account) =>
@@ -439,10 +437,10 @@ where
 	) {
 		tracing::trace!(
 			target: LOG_TARGET,
-			"{}.{:?}: relayer {:?} has submitted invalid messages call",
+			?relayer,
+			"{}.{:?}: relayer has submitted invalid messages call",
 			C::IdProvider::STR,
 			call_info.messages_call_info().lane_id(),
-			relayer,
 		);
 		return false
 	}
