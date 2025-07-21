@@ -1,7 +1,7 @@
 title: 'Add metric for collation finalization time'
 doc:
 - audience: Node Dev
-  description: Adds tracking of candidatedrops before finalization and finalization latency.
+  description: Adds tracking of candidate drops before finalization and finalization latency.
 crates:
 - name: polkadot-collator-protocol
   bump: patch
