@@ -1149,11 +1149,11 @@ impl_runtime_apis! {
 			let account = match statement.verify_signature() {
 				SignatureVerificationResult::Valid(account) => account.into(),
 				SignatureVerificationResult::Invalid => {
-					log::debug!("Bad statement signature.");
+					tracing::debug!(target: "runtime", "Bad statement signature.");
 					return Err(InvalidStatement::BadProof)
 				},
 				SignatureVerificationResult::NoSignature => {
-					log::debug!("Missing statement signature.");
+					tracing::debug!(target: "runtime", "Missing statement signature.");
 					return Err(InvalidStatement::NoProof)
 				},
 			};
