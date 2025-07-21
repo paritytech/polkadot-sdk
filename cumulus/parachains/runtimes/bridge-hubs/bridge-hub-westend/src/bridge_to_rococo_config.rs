@@ -25,7 +25,6 @@ use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
 	target_chain::FromBridgedChainMessagesProof, LegacyLaneId,
 };
-use bp_parachains::SingleParaStoredHeaderDataBuilder;
 use bridge_hub_common::xcm_version::XcmVersionOfDestAndRemoteBridge;
 use pallet_xcm_bridge_hub::{BridgeId, XcmAsPlainPayload};
 
@@ -123,7 +122,7 @@ impl pallet_bridge_parachains::Config<BridgeParachainRococoInstance> for Runtime
 	type BridgesGrandpaPalletInstance = BridgeGrandpaRococoInstance;
 	type ParasPalletName = RococoBridgeParachainPalletName;
 	type ParaStoredHeaderDataBuilder =
-		SingleParaStoredHeaderDataBuilder<bp_bridge_hub_rococo::BridgeHubRococo>;
+		(bp_bridge_hub_rococo::BridgeHubRococo, bp_asset_hub_rococo::AssetHubRococo);
 	type HeadsToKeep = ParachainHeadsToKeep;
 	type MaxParaHeadDataSize = MaxRococoParaHeadDataSize;
 	type OnNewHead = ();

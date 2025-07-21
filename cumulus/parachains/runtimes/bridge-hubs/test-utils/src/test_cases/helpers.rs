@@ -265,6 +265,7 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 		sp_keyring::Sr25519Keyring,
 		RuntimeCallOf<Runtime>,
 	) -> sp_runtime::DispatchOutcome,
+	expect_descend_origin_with_messaging_pallet_instance: bool,
 	prepare_message_proof_import: impl FnOnce(
 		Runtime::AccountId,
 		InboundRelayerId<Runtime, MPI>,
@@ -325,14 +326,16 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 			let xcm = vec![Instruction::<()>::ClearOrigin; 42];
 			let expected_dispatch = xcm::latest::Xcm::<()>({
 				let mut expected_instructions = xcm.clone();
-				// dispatch prepends bridge pallet instance
-				expected_instructions.insert(
-					0,
-					DescendOrigin([PalletInstance(
-						<pallet_bridge_messages::Pallet<Runtime, MPI> as PalletInfoAccess>::index()
-							as u8,
-					)].into()),
-				);
+				if expect_descend_origin_with_messaging_pallet_instance {
+					// dispatch prepends bridge pallet instance
+					expected_instructions.insert(
+						0,
+						DescendOrigin([PalletInstance(
+							<pallet_bridge_messages::Pallet<Runtime, MPI> as PalletInfoAccess>::index()
+								as u8,
+						)].into()),
+					);
+				}
 				expected_instructions
 			});
 

@@ -16,8 +16,9 @@
 use super::{
 	AccountId, AllPalletsWithSystem, Assets, Balance, Balances, BaseDeliveryFee, CollatorSelection,
 	FeeAssetId, ForeignAssets, ParachainInfo, ParachainSystem, PolkadotXcm, PoolAssets, Runtime,
-	RuntimeCall, RuntimeEvent, RuntimeHoldReason, RuntimeOrigin, ToWestendXcmRouter,
-	TransactionByteFee, Uniques, WeightToFee, XcmpQueue,
+	RuntimeCall, RuntimeEvent, RuntimeHoldReason, RuntimeOrigin,
+	ToWestendOverAssetHubWestendXcmRouter, ToWestendXcmRouter, TransactionByteFee, Uniques,
+	WeightToFee, XcmOverAssetHubWestend, XcmpQueue,
 };
 use assets_common::{
 	matching::{FromNetwork, FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},
@@ -399,7 +400,10 @@ impl xcm_executor::Config for XcmConfig {
 		WaivedLocations,
 		SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
 	>;
-	type MessageExporter = ();
+	type MessageExporter = (
+		// AH's permissionless lanes support exporting to Westend.
+		XcmOverAssetHubWestend,
+	);
 	type UniversalAliases =
 		(bridging::to_westend::UniversalAliases, bridging::to_ethereum::UniversalAliases);
 	type CallDispatcher = RuntimeCall;
@@ -421,7 +425,7 @@ pub type PriceForParentDelivery =
 	ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, ParachainSystem>;
 
 /// For routing XCM messages which do not cross local consensus boundary.
-type LocalXcmRouter = (
+pub(crate) type LocalXcmRouter = (
 	// Two routers - use UMP to communicate with the relay chain:
 	cumulus_primitives_utility::ParentAsUmp<ParachainSystem, PolkadotXcm, PriceForParentDelivery>,
 	// ..and XCMP to communicate with the sibling chains.
@@ -432,8 +436,15 @@ type LocalXcmRouter = (
 /// queues.
 pub type XcmRouter = WithUniqueTopic<(
 	LocalXcmRouter,
-	// Router which wraps and sends xcm to BridgeHub to be delivered to the Westend
-	// GlobalConsensus
+	// Router that exports messages to be delivered to the Westend GlobalConsensus,
+	// when a permissionless lane is created between the origin and destination.
+	//
+	// Note: `ToWestendOverAssetHubWestendXcmRouter` must come before `ToWestendXcmRouter`
+	// because it checks if the lane is created dynamically, whereas `ToWestendXcmRouter` has a
+	// static configuration.
+	ToWestendOverAssetHubWestendXcmRouter,
+	// Router which wraps (`ExportMessage`) and sends xcm to BridgeHub to be delivered to the
+	// Westend GlobalConsensus
 	ToWestendXcmRouter,
 	// Router which wraps and sends xcm to BridgeHub to be delivered to the Ethereum
 	// GlobalConsensus
@@ -507,10 +518,12 @@ pub mod bridging {
 
 	// common/shared parameters
 	parameter_types! {
+		/// (for AH -> <ExportMessage> -> BH -> BH -> AH route)
+		///
 		/// Base price of every byte of the Rococo -> Westend message. Can be adjusted via
 		/// governance `set_storage` call.
 		///
-		/// Default value is our estimation of the:
+		/// The default value is our estimation of the:
 		///
 		/// 1) an approximate cost of XCM execution (`ExportMessage` and surroundings) at Rococo bridge hub;
 		///
@@ -522,6 +535,26 @@ pub mod bridging {
 			bp_bridge_hub_rococo::BridgeHubRococoBaseXcmFeeInRocs::get()
 				.saturating_add(bp_bridge_hub_westend::BridgeHubWestendBaseDeliveryFeeInWnds::get())
 				.saturating_add(bp_bridge_hub_rococo::BridgeHubRococoBaseConfirmationFeeInRocs::get());
+
+		/// (for direct AH -> AH route)
+		///
+		/// Base price of every byte of the Rococo -> Westend message. Can be adjusted via
+		/// governance `set_storage` call.
+		///
+		/// The default value is our estimation of the:
+		///
+		/// 1) the approximate cost of Rococo -> Westend message delivery transaction on Westend Asset Hub,
+		///    converted into WNDs using 1:1 conversion rate;
+		///
+		/// 2) the approximate cost of Rococo -> Westend message confirmation transaction on Rococo Asset Hub.
+		///
+		/// Note: We do not account for `ExportMessage`, because we are doing direct `ExportXcm`,
+		/// which should be already accounted for benchmarked extrinsic cost.
+		pub storage ToWestendOverAssetHubWestendXcmRouterBaseFee: Balance = DefaultToWestendOverAssetHubWestendXcmRouterBaseFee::get();
+		pub const DefaultToWestendOverAssetHubWestendXcmRouterBaseFee: Balance =
+			bp_asset_hub_westend::AssetHubWestendBaseDeliveryFeeInWnds::get()
+				.saturating_add(bp_asset_hub_rococo::AssetHubRococoBaseConfirmationFeeInRocs::get());
+
 		/// Price of every byte of the Rococo -> Westend message. Can be adjusted via
 		/// governance `set_storage` call.
 		pub storage XcmBridgeHubRouterByteFee: Balance = TransactionByteFee::get();
@@ -549,6 +582,12 @@ pub mod bridging {
 				[
 					Parachain(SiblingBridgeHubParaId::get()),
 					PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX)
+				]
+			);
+			pub LocalBridge: Location = Location::new(
+				0,
+				[
+					PalletInstance(bp_asset_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX)
 				]
 			);
 
@@ -582,7 +621,10 @@ pub mod bridging {
 			/// Universal aliases
 			pub UniversalAliases: BTreeSet<(Location, Junction)> = BTreeSet::from_iter(
 				alloc::vec![
-					(SiblingBridgeHubWithBridgeHubWestendInstance::get(), GlobalConsensus(WestendNetwork::get()))
+					// The bridge over BridgeHubs (legacy).
+					(SiblingBridgeHubWithBridgeHubWestendInstance::get(), GlobalConsensus(WestendNetwork::get())),
+					// The direct bridge over AssetHubs.
+					(LocalBridge::get(), GlobalConsensus(WestendNetwork::get()))
 				]
 			);
 		}

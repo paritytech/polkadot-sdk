@@ -13,7 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Module with configuration which reflects AssetHubRococo runtime setup.
+//! Module with configuration which reflects AssetHubRococo runtime setup (AccountId, Headers,
+//! Hashes...)
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -49,6 +50,9 @@ pub enum Call {
 	/// `ToWestendXcmRouter` bridge pallet.
 	#[codec(index = 45)]
 	ToWestendXcmRouter(XcmBridgeHubCall<sp_core::H256>),
+	/// Points to the `pallet_xcm_bridge` pallet instance for `AssetHubWestend`.
+	#[codec(index = 61)]
+	XcmOverAssetHubWestend(bp_xcm_bridge::XcmBridgeCall),
 }
 
 frame_support::parameter_types! {
@@ -85,7 +89,6 @@ pub const ASSET_HUB_ROCOCO_PARACHAIN_ID: u32 = 1000;
 
 /// AssetHubRococo parachain.
 #[derive(RuntimeDebug)]
-
 pub struct AssetHubRococo;
 
 impl Chain for AssetHubRococo {
@@ -149,3 +152,18 @@ pub const WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX: u8 = 62;
 
 decl_bridge_finality_runtime_apis!(asset_hub_rococo);
 decl_bridge_messages_runtime_apis!(asset_hub_rococo, HashedLaneId);
+
+frame_support::parameter_types! {
+	/// The XCM fee that is paid for executing a XCM program (with `ExportMessage` instruction) at the Rococo
+	/// BridgeHub.
+	/// (initially was calculated by test `AssetHubRococo::can_calculate_weight_for_paid_export_message_with_reserve_transfer` + `33%`)
+	pub const AssetHubRococoBaseXcmFeeInRocs: u128 = 18_451_090_000;
+
+	/// Transaction fee that is paid at the Rococo BridgeHub for delivering a single inbound message.
+	/// (initially was calculated by test `AssetHubRococo::can_calculate_fee_for_standalone_message_delivery_transaction` + `33%`)
+	pub const AssetHubRococoBaseDeliveryFeeInRocs: u128 = 298_893_456;
+
+	/// Transaction fee that is paid at the Rococo BridgeHub for delivering single outbound message confirmation.
+	/// (initially was calculated by test `AssetHubRococo::can_calculate_fee_for_standalone_message_confirmation_transaction` + `33%`)
+	pub const AssetHubRococoBaseConfirmationFeeInRocs: u128 = 56_535_560;
+}
