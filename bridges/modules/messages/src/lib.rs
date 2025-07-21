@@ -372,7 +372,7 @@ pub mod pallet {
 				.map_err(|err| {
 					tracing::trace!(
 						target: LOG_TARGET,
-						error=?err
+						error=?err,
 						"Rejecting invalid messages delivery proof"
 					);
 
