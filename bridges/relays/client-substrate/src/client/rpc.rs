@@ -195,7 +195,7 @@ impl<C: Chain> RpcClient<C> {
 	) -> Result<(Arc<tokio::runtime::Runtime>, Arc<WsClient>)> {
 		let tokio = tokio::runtime::Runtime::new()?;
 		let uri = params.uri.clone();
-		tracing::info!(target: "bridge", "Connecting to {} node at {uri}", C::NAME);
+		tracing::info!(target: "bridge", %uri, "Connecting to {} node", C::NAME);
 
 		let client = tokio
 			.spawn(async move {
