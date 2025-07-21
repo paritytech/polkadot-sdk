@@ -191,18 +191,22 @@ fn sent_message_increases_factor_if_bridge_is_congested() {
 		);
 
 		assert!(TestXcmRouter::is_message_sent());
-		assert!(
-			old_delivery_fee_factor <
-				get_bridge_state_for::<TestRuntime, ()>(&dest).delivery_fee_factor
-		);
+		let _delivery_fee_factor =
+			get_bridge_state_for::<TestRuntime, ()>(&dest).delivery_fee_factor;
+		assert!(old_delivery_fee_factor < _delivery_fee_factor);
 
 		// check emitted event
 		let first_system_event = System::events().first().cloned();
+		let _previous_value_ = old_delivery_fee_factor;
 		assert!(matches!(
 			first_system_event,
 			Some(EventRecord {
 				phase: Phase::Initialization,
-				event: RuntimeEvent::XcmBridgeHubRouter(Event::DeliveryFeeFactorUpdated { .. }),
+				event: RuntimeEvent::XcmBridgeHubRouter(Event::DeliveryFeeFactorUpdated {
+					previous_value: _previous_value,
+					new_value: _delivery_fee_factor,
+					..
+				}),
 				..
 			})
 		));
