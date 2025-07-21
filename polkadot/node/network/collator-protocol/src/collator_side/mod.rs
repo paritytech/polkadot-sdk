@@ -42,7 +42,7 @@ use polkadot_node_subsystem::{
 	messages::{
 		ChainApiMessage, CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage,
 	},
-	overseer, FromOrchestra, OverseerSignal,
+	overseer, FromOrchestra, OverseerSignal, SubsystemSender,
 };
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
@@ -1571,17 +1571,24 @@ async fn run_inner<Context>(
 				}
 				FromOrchestra::Signal(BlockFinalized(hash, block)) => {
 					let mut finalized = vec![(block, hash)];
-					let potentially_finalized_blocks =
-						state.collation_tracker.potentially_finalized_blocks(block);
-					for b in potentially_finalized_blocks {
-						let (tx, rx) = oneshot::channel();
-						let _ = ctx.send_message(ChainApiMessage::FinalizedBlockHash(b, tx)).await;
-
-						if let Ok(Ok(Some(h))) = rx.await {
-							finalized.push((b, h));
-						} else {
-							gum::warn!(target: LOG_TARGET_STATS, block_number = ?b, "ChainApi request failed to get finalized block hash");
-						}
+					let maybe_finalized = state.collation_tracker.maybe_finalized_blocks(block);
+					if !maybe_finalized.is_empty() {
+						let sender = ctx.sender();
+						let futures = maybe_finalized.into_iter().map(|block_number| {
+							let mut sender = sender.clone();
+							async move {
+								let (tx, rx) = oneshot::channel();
+								sender.send_message(ChainApiMessage::FinalizedBlockHash(block_number, tx)).await;
+								match rx.await {
+									Ok(Ok(Some(hash))) => Some((block_number, hash)),
+									_ => {
+										gum::warn!(target: LOG_TARGET_STATS, ?block_number, "ChainApi request failed to get finalized block hash");
+										None
+									}
+								}
+							}
+						});
+						finalized.extend(futures::future::join_all(futures).await.into_iter().filter_map(|x| x));
 					}
 					state.collation_tracker.collations_finalized(finalized, &metrics);
 				}

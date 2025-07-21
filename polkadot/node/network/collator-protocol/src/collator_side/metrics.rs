@@ -430,7 +430,7 @@ impl CollationTracker {
 		self.entries.insert(stats.head, stats);
 	}
 
-	pub fn potentially_finalized_blocks(&self, last_finalized: BlockNumber) -> Vec<BlockNumber> {
+	pub fn maybe_finalized_blocks(&self, last_finalized: BlockNumber) -> Vec<BlockNumber> {
 		self.entries
 			.iter()
 			.flat_map(|(_, entry)| {
