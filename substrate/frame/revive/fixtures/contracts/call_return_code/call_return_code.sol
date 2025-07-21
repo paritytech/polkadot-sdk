@@ -38,7 +38,8 @@ contract CallReturnCode {
         }
 
         assembly {
-            return(add(returnCode, 0x20), 4)
+			mstore(0x00, returnCode)
+			return(0x00, 4)
         }
     }
 

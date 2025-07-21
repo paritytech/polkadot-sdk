@@ -19,7 +19,7 @@
 #![no_main]
 include!("../../panic_handler.rs");
 
-use uapi::{input, HostFn, HostFnImpl as api};
+use uapi::{HostFn, HostFnImpl as api, input};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -37,7 +37,7 @@ pub extern "C" fn call() {
 fn ok_trap_revert() {
 	input!(buffer, 4,);
 	match buffer.first().unwrap_or(&0) {
-		1 => api::return_value(uapi::ReturnFlags::REVERT, &[0u8; 0]),
+		1 => api::return_value(uapi::ReturnFlags::REVERT, b"revert!"),
 		2 => panic!(),
 		_ => {},
 	};

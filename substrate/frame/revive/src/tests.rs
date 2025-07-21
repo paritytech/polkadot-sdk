@@ -1388,10 +1388,8 @@ fn transfer_return_code(fixture_type: &str) {
 	});
 }
 
-#[test]
-fn call_return_code() {
-	let fixture_type = "rust";
-
+#[fixture::test("rust", "sol")]
+fn call_return_code(fixture_type: &str) {
 	fn u256_be_bytes(u: u64) -> [u8; 32] {
 		U256::from(u).to_big_endian().try_into().expect("U256 is 32 bytes long; qed")
 	}
