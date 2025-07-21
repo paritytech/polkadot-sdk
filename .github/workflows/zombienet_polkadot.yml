@@ -999,7 +999,7 @@ jobs:
   #
   #
   #
-  zombienet-polkadot-functional-dispute-old-finalized:
+  zombienet-polkadot-dispute-old-finalized:
     needs: [preflight]
     if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-polkadot-dispute-old-finalized') }}
     runs-on: ${{ needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER }}
