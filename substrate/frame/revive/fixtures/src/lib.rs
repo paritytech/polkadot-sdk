@@ -25,9 +25,26 @@ include!(concat!(env!("OUT_DIR"), "/fixture_location.rs"));
 /// Load a given polkavm module and returns a polkavm binary contents along with its hash.
 #[cfg(feature = "std")]
 pub fn compile_module(fixture_name: &str) -> anyhow::Result<(Vec<u8>, sp_core::H256)> {
+	compile_module_with_type(fixture_name, "rust")
+}
+
+/// Load a given polkavm module with a specific fixture type and returns a polkavm binary contents along with its hash.
+/// 
+/// # Arguments
+/// 
+/// * `fixture_name` - The name of the fixture (e.g., "dummy", "storage")
+/// * `fixture_type` - The type of fixture to load ("rust" or "sol")
+#[cfg(feature = "std")]
+pub fn compile_module_with_type(fixture_name: &str, fixture_type: &str) -> anyhow::Result<(Vec<u8>, sp_core::H256)> {
 	let out_dir: std::path::PathBuf = FIXTURE_DIR.into();
-	let fixture_path = out_dir.join(format!("{fixture_name}.polkavm"));
-	let binary = std::fs::read(fixture_path)?;
+	let fixture_path = match fixture_type {
+		"rust" => out_dir.join(format!("{fixture_name}.polkavm")),
+		"sol" => out_dir.join(format!("{fixture_name}_sol.polkavm")),
+		_ => return Err(anyhow::anyhow!("Unsupported fixture type: {}. Use 'rust' or 'sol'", fixture_type)),
+	};
+	
+	let binary = std::fs::read(&fixture_path)
+		.map_err(|e| anyhow::anyhow!("Failed to read fixture {}: {}", fixture_path.display(), e))?;
 	let code_hash = sp_io::hashing::keccak_256(&binary);
 	Ok((binary, sp_core::H256(code_hash)))
 }
@@ -50,6 +67,7 @@ pub mod bench {
 		dummy[idx..idx + 4].copy_from_slice(&replace_with.to_le_bytes());
 		dummy
 	}
+
 }
 
 #[cfg(test)]
