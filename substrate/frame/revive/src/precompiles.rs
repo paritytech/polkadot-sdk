@@ -619,3 +619,8 @@ pub mod run {
 		precompile.call(input, ext)
 	}
 }
+
+#[cfg(test)]
+pub(crate) use builtin::Create2;
+#[cfg(test)]
+pub(crate) use builtin::ICreate2;

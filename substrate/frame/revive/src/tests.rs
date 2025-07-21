@@ -434,6 +434,85 @@ impl Default for Origin<Test> {
 }
 
 #[test]
+fn create2_precompile_throws_if_code_not_uploaded() {
+	use crate::precompiles::{BuiltinPrecompile, Create2, ICreate2};
+	use alloy_core::sol_types::SolInterface;
+	use sp_core::H160;
+
+	let create2_precompile_addr =
+		H160::from(<Create2<Test> as BuiltinPrecompile>::MATCHER.base_address());
+	let (code, _) = compile_module("dummy").unwrap();
+	let code_hash = sp_io::hashing::keccak_256(&code);
+
+	let salt = [42u8; 32];
+
+	let input = ICreate2::ICreate2Calls::create2(ICreate2::create2Call {
+		code_hash: code_hash.into(),
+		salt: salt.into(),
+	})
+	.abi_encode();
+
+	let deployer = <Test as Config>::AddressMapper::to_address(&ALICE);
+	let _contract_address_expected = create2(&deployer, code.as_slice(), &[], &salt);
+
+	ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Call the precompile directly
+		let result = builder::bare_call(create2_precompile_addr).data(input.clone()).build();
+
+		assert_err!(result.result, Error::<Test>::CodeNotFound);
+	});
+}
+
+#[test]
+fn create2_precompile_works() {
+	use crate::precompiles::{BuiltinPrecompile, Create2, ICreate2};
+	use alloy_core::sol_types::SolInterface;
+	use sp_core::H160;
+
+	let create2_precompile_addr =
+		H160::from(<Create2<Test> as BuiltinPrecompile>::MATCHER.base_address());
+	let (code, _) = compile_module("dummy").unwrap();
+	let code_hash = sp_io::hashing::keccak_256(&code);
+
+	let salt = [42u8; 32];
+
+	let input = ICreate2::ICreate2Calls::create2(ICreate2::create2Call {
+		code_hash: code_hash.into(),
+		salt: salt.into(),
+	})
+	.abi_encode();
+
+	let contract_address_expected = create2(&create2_precompile_addr, code.as_slice(), &[], &salt);
+
+	ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// upload the code before calling the precompile
+		assert_ok!(Contracts::upload_code(
+			RuntimeOrigin::signed(ALICE),
+			code.clone(),
+			deposit_limit::<Test>(),
+		));
+
+		// Call the precompile directly
+		let result = builder::bare_call(create2_precompile_addr).data(input.clone()).build();
+
+		let result_exec = result.result.clone();
+		assert_ok!(result_exec);
+		let result_result = result.result.clone().unwrap();
+
+		let contract_address = &result_result.data[12..];
+		assert_eq!(contract_address.len(), contract_address_expected.as_bytes().len());
+		assert_eq!(contract_address, contract_address_expected.as_bytes());
+
+		assert!(!result_result.did_revert());
+		assert_eq!(result_result.flags, ReturnFlags::empty());
+	});
+}
+
+#[test]
 fn calling_plain_account_is_balance_transfer() {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);

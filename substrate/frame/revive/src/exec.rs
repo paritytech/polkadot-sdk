@@ -254,7 +254,7 @@ pub trait PrecompileWithInfoExt: PrecompileExt {
 
 	/// Instantiate a contract from the given code.
 	///
-	/// Returns the original code size of the called contract.
+	/// Returns the address of the newly created contract.
 	/// The newly created account will be associated with `code`. `value` specifies the amount of
 	/// value transferred from the caller to the newly created account.
 	fn instantiate(
@@ -1677,14 +1677,9 @@ where
 		*self.last_frame_output_mut() = Default::default();
 
 		let executable = E::from_storage(code_hash, self.gas_meter_mut())?;
-		let sender = &self.top_frame().account_id;
-		let executable = self.push_frame(
-			FrameArgs::Instantiate {
-				sender: sender.clone(),
-				executable,
-				salt,
-				input_data: input_data.as_ref(),
-			},
+		let sender = self.top_frame().account_id.clone();
+		let executable: Option<ExecutableOrPrecompile<T, E, Stack<'a, T, E>>> = self.push_frame(
+			FrameArgs::Instantiate { sender, executable, salt, input_data: input_data.as_ref() },
 			value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
 			gas_limit,
 			deposit_limit.saturated_into::<BalanceOf<T>>(),
