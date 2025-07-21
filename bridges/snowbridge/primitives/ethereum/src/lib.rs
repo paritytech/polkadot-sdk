@@ -10,6 +10,7 @@ pub mod receipt;
 pub use ethereum_types::{Address, H160, H256, H64, U256};
 
 pub use header::{Bloom, Header, HeaderId};
+pub use log::Log;
 pub use receipt::Receipt;
 
 #[derive(Debug)]
