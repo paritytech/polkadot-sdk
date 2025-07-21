@@ -233,7 +233,6 @@ mod rounds {
 			assert!(Round::<Test>::get().is_some(), "Round should exist");
 			assert_eq!(NextRoundIndex::<Test>::get(), 1);
 			assert!(Polls::<Test>::contains_key(0u32, 0u32));
-			assert_eq!(VotesForwardingState::<Test>::get().session, 1);
 		});
 	}
 
@@ -420,7 +419,8 @@ mod forwarding {
 				frame_system::RawOrigin::Root.into(),
 				project(OWNER, FUND_DEST)
 			));
-			run_to_block(1); // round 0, session 1
+			run_to_block(1); // round 0
+			assert_eq!(NextRoundIndex::<Test>::get(), 1);
 
 			// Simulate 10,001 users voting in round 0, project 0.
 			for i in 0..10_001 {
@@ -428,8 +428,9 @@ mod forwarding {
 			}
 			assert_eq!(VotesToForward::<Test>::iter().count(), 10_001);
 
-			// Advance to next round (block 6, session 2)
+			// Advance to next round (block 6, round 1)
 			run_to_block(6);
+			assert_eq!(NextRoundIndex::<Test>::get(), 2);
 			assert!(matches!(
 				VotesForwardingState::<Test>::get().forwarding,
 				crate::pallet::ForwardingProcess::LastProcessed(_, _),
@@ -458,7 +459,7 @@ mod forwarding {
 		ExtBuilder::build().execute_with(|| {
 			let _ = Balances::deposit_creating(&3, 1_000);
 
-			// Register project 0 and start round 0 (session = 1).
+			// Register project 0 and start round 0
 			assert_ok!(OPF::register_project(
 				frame_system::RawOrigin::Root.into(),
 				project(OWNER, FUND_DEST)
@@ -478,9 +479,9 @@ mod forwarding {
 				)
 			);
 
-			// Forward record must exist and session must match current session.
+			// Forward record must exist and round must match current round.
 			let rec = VotesToForward::<Test>::get(0, 3).expect("record missing");
-			assert_eq!(rec.session, VotesForwardingState::<Test>::get().session);
+			assert_eq!(rec.round, NextRoundIndex::<Test>::get() - 1);
 		});
 	}
 

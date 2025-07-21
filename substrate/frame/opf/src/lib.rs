@@ -55,6 +55,8 @@ pub mod pallet {
 		Perbill, Saturating,
 	};
 
+	const LOG_TARGET: &str = "runtime::opf";
+
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
@@ -204,12 +206,11 @@ pub mod pallet {
 		Completed(Moment, bool),
 	}
 
-	/// A vote.
+	/// A vote recored in a round.
 	#[derive(Encode, Decode, MaxEncodedLen, Clone, Debug, TypeInfo, DecodeWithMemTracking)]
 	pub struct VoteInSession<Vote> {
-		/// The session in which the vote was cast. Session are incremented on every new round.
-		// TODO: we can remove session concept and use round directly.
-		pub session: u32,
+		/// The round in which the vote was cast.
+		pub round: u32,
 		/// The vote itself.
 		pub vote: Vote,
 	}
@@ -217,19 +218,17 @@ pub mod pallet {
 	/// The information about the votes forwarding state.
 	#[derive(Encode, Decode, MaxEncodedLen, Clone, Debug, TypeInfo, DecodeWithMemTracking)]
 	pub struct VotesForwardingInfo<AccountId> {
-		/// The current session.
-		pub session: u32,
-		/// The state of the votes forwarding of previous sessions.
+		/// The state of the votes forwarding of previous rounds.
 		pub forwarding: ForwardingProcess<AccountId>,
-		/// The session in which the votes were reset.
+		/// The last round in which the votes were reset.
 		///
-		/// Votes from sessions before this session will not be forwarded.
-		pub reset_session: Option<u32>,
+		/// Votes from rounds and before won't be forwarded.
+		pub reset_round: Option<u32>,
 	}
 
 	impl<AccountId> Default for VotesForwardingInfo<AccountId> {
 		fn default() -> Self {
-			Self { session: 0, forwarding: ForwardingProcess::Start, reset_session: None }
+			Self { forwarding: ForwardingProcess::Start, reset_round: None }
 		}
 	}
 
@@ -337,7 +336,7 @@ pub mod pallet {
 
 			if let Some(round_info) = Round::<T>::get() {
 				if <T as Config>::BlockNumberProvider::current_block_number() >=
-					round_info.starting_block + T::RoundDuration::get()
+					round_info.starting_block.saturating_add(T::RoundDuration::get())
 				{
 					if weight.try_consume(<T as Config>::WeightInfo::on_poll_end_round()).is_err() {
 						return;
@@ -457,12 +456,14 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		pub(crate) fn on_poll_end_round() {
 			let Some(round_info) = Round::<T>::get() else {
-				defensive!();
+				defensive!("This function must be called when a round is ending");
 				return
 			};
 
-			let round_index =
-				NextRoundIndex::<T>::get().checked_sub(1).defensive().unwrap_or_default();
+			let round_index = NextRoundIndex::<T>::get()
+				.checked_sub(1)
+				.defensive() // There is a round so next round index is at least 1.
+				.unwrap_or_default();
 			let pot_account = T::PotId::get().into_account_truncating();
 			let pot_balance = T::Fungible::reducible_balance(
 				&pot_account,
@@ -525,11 +526,10 @@ pub mod pallet {
 
 			let mut vote_record_state = VotesForwardingState::<T>::get();
 
-			let reset = round_index % T::ResetVotesRoundNumber::get() == 0;
+			let reset = round_index != 0 && round_index % T::ResetVotesRoundNumber::get() == 0;
 			if reset {
-				vote_record_state.reset_session = Some(vote_record_state.session);
+				vote_record_state.reset_round = Some(round_index);
 			}
-			vote_record_state.session += 1;
 			vote_record_state.forwarding = ForwardingProcess::Start;
 			VotesForwardingState::<T>::put(vote_record_state);
 		}
@@ -563,19 +563,23 @@ pub mod pallet {
 					let round_index =
 						NextRoundIndex::<T>::get().checked_sub(1).defensive().unwrap_or_default();
 					if Polls::<T>::contains_key(round_index, project_index) {
-						if vote_record_state
-							.reset_session
-							.is_some_and(|reset| vote.session <= reset)
-						{
+						if vote_record_state.reset_round.is_some_and(|reset| vote.round <= reset) {
 							VotesToForward::<T>::remove(project_index, &voter);
-						} else if vote.session < vote_record_state.session {
-							let _ = with_storage_layer(|| {
+						} else if vote.round < round_index {
+							let res = with_storage_layer(|| {
 								pallet_conviction_voting::Pallet::<T, T::ConvictionVotingInstance>::vote(
 									OriginFor::<T>::signed(voter.clone()),
 									PollIndex::new(round_index, project_index),
 									vote.vote,
 								)
 							});
+							if let Err(e) = res {
+								log::error!(
+									target: LOG_TARGET,
+									"Failed to forward vote from voter {voter} for project \
+									{project_index}: {e:?}",
+								);
+							}
 						}
 					} else {
 						VotesToForward::<T>::remove(project_index, &voter);
@@ -713,8 +717,11 @@ pub mod pallet {
 			ref_index: PollIndex,
 			vote: AccountVote<pallet_conviction_voting::BalanceOf<T, T::ConvictionVotingInstance>>,
 		) -> DispatchResult {
-			let session = VotesForwardingState::<T>::get().session;
-			let vote_in_session = VoteInSession { session, vote };
+			let round = NextRoundIndex::<T>::get()
+				.checked_sub(1)
+				.defensive() // Poll only exist in rounds, thus votes too.
+				.unwrap_or_default();
+			let vote_in_session = VoteInSession { round, vote };
 			VotesToForward::<T>::insert(ref_index.project_index(), who, vote_in_session);
 			Ok(())
 		}

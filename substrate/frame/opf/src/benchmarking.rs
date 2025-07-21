@@ -121,7 +121,7 @@ mod benchmarks {
 			index,
 			&info.owner,
 			crate::VoteInSession {
-				session: 1,
+				round: 1,
 				vote: AccountVote::Standard {
 					vote: Vote { aye: true, conviction: Conviction::Locked1x },
 					balance: 1u32.into(),
@@ -256,13 +256,12 @@ mod benchmarks {
 			crate::VotesToForward::<T>::insert(
 				0,
 				&voter,
-				crate::VoteInSession { session: 0, vote: vote.clone() },
+				crate::VoteInSession { round: 0, vote: vote.clone() },
 			);
 		}
 		VotesForwardingState::<T>::put(VotesForwardingInfo {
-			session: 1,
 			forwarding: ForwardingProcess::Start,
-			reset_session: None,
+			reset_round: None,
 		});
 
 		// Forward the votes
