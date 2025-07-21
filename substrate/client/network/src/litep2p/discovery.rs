@@ -496,7 +496,7 @@ impl Discovery {
 		if !self.allow_non_global_addresses && !Discovery::can_add_to_dht(&address) {
 			log::trace!(
 				target: LOG_TARGET,
-				"ignoring external reported non-global address {address} from {peer}."
+				"ignoring externally reported non-global address {address} from {peer}."
 			);
 
 			return (false, None);
