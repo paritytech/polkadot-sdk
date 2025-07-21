@@ -75,6 +75,11 @@ impl Metrics {
 		self.0.as_ref().map(|metrics| metrics.process_msg.start_timer())
 	}
 
+	/// Provide a timer for processing the BlockFinalized signal which observes on drop.
+	pub fn time_process_finalized(&self) -> Option<prometheus::prometheus::HistogramTimer> {
+		self.0.as_ref().map(|metrics| metrics.process_finalized.start_timer())
+	}
+
 	/// Provide a timer for `distribute_collation` which observes on drop.
 	pub fn time_collation_distribution(
 		&self,
@@ -112,6 +117,7 @@ struct MetricsInner {
 	collations_sent: prometheus::Counter<prometheus::U64>,
 	collations_send_requested: prometheus::Counter<prometheus::U64>,
 	process_msg: prometheus::Histogram,
+	process_finalized: prometheus::Histogram,
 	collation_distribution_time: prometheus::HistogramVec,
 	collation_fetch_latency: prometheus::Histogram,
 	collation_backing_latency_time: prometheus::Histogram,
@@ -152,6 +158,19 @@ impl metrics::Metrics for Metrics {
 					prometheus::HistogramOpts::new(
 						"polkadot_parachain_collator_protocol_collator_process_msg",
 						"Time spent within `collator_protocol_collator::process_msg`",
+					)
+					.buckets(vec![
+						0.001, 0.002, 0.005, 0.01, 0.025, 0.05, 0.1, 0.15, 0.25, 0.35, 0.5, 0.75,
+						1.0,
+					]),
+				)?,
+				registry,
+			)?,
+			process_finalized: prometheus::register(
+				prometheus::Histogram::with_opts(
+					prometheus::HistogramOpts::new(
+						"polkadot_parachain_collator_protocol_collator_process_finalized",
+						"Time spent within processing the BlockFinalized signal",
 					)
 					.buckets(vec![
 						0.001, 0.002, 0.005, 0.01, 0.025, 0.05, 0.1, 0.15, 0.25, 0.35, 0.5, 0.75,

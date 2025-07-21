@@ -1570,6 +1570,8 @@ async fn run_inner<Context>(
 					}
 				}
 				FromOrchestra::Signal(BlockFinalized(hash, block)) => {
+					let _ = state.metrics.time_process_finalized();
+
 					let mut finalized = vec![(block, hash)];
 					let maybe_finalized = state.collation_tracker.maybe_finalized_blocks(block);
 					if !maybe_finalized.is_empty() {
