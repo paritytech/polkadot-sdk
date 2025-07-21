@@ -97,10 +97,10 @@ impl<P: FinalitySyncPipeline> JustifiedHeaderSelector<P> {
 
 		tracing::trace!(
 			target: "bridge",
-			header=?maybe_justified_header.as_ref().map(|justified_header| &justified_header.header),
-			"Read {} {} headers. Selected finality proof",
+			"Read {} {} headers. Selected finality proof for header: {:?}",
 			info.num_headers(),
 			P::SOURCE_NAME,
+			maybe_justified_header.as_ref().map(|justified_header| &justified_header.header),
 		);
 
 		Ok(match maybe_justified_header {
@@ -176,9 +176,9 @@ impl<P: FinalitySyncPipeline> JustifiedHeaderSelector<P> {
 
 		tracing::trace!(
 			target: "bridge",
-			finality_proof=?=maybe_justified_header.as_ref().map(|justified_header| justified_header.number())
-			"Could not improve selected {}.",
+			"Could not improve selected {} finality proof {:?}.",
 			P::SOURCE_NAME,
+			maybe_justified_header.as_ref().map(|justified_header| justified_header.number())
 		);
 		maybe_justified_header
 	}

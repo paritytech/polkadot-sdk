@@ -432,7 +432,7 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 					self.sync_params.tick
 				},
 				Err(error) => {
-					tracing::error!(target: "bridge", ?error, "Finality sync loop iteration has failed with error");
+					tracing::error!(target: "bridge", ?error, "Finality sync loop iteration has failed");
 					error.fail_if_connection_error()?;
 					self.retry_backoff
 						.next_backoff()
@@ -448,7 +448,7 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 						tracing::error!(
 							target: "bridge",
 							error=?e,
-							"Finality sync proof submission tx to {} has failed with error.",
+							"Finality sync proof submission tx to {} has failed.",
 							P::TARGET_NAME,
 						);
 						self.best_submitted_number = None;
@@ -510,7 +510,7 @@ async fn free_headers_interval<P: FinalitySyncPipeline>(
 			tracing::error!(
 				target: "bridge",
 				error=?e,
-				"Failed to read free headers interval for {} headers at {}: {:?}",
+				"Failed to read free headers interval for {} headers at {}",
 				P::SOURCE_NAME,
 				P::TARGET_NAME,
 			);
