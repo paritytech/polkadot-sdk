@@ -1138,7 +1138,6 @@ impl pallet_nfts::Config for Runtime {
 /// consensus with dynamic fees and back-pressure.
 pub type ToRococoXcmRouterInstance = pallet_xcm_bridge_router::Instance1;
 impl pallet_xcm_bridge_router::Config<ToRococoXcmRouterInstance> for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_xcm_bridge_router::WeightInfo<Runtime>;
 
 	type DestinationVersion = PolkadotXcm;
