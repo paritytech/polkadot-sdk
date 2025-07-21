@@ -22,12 +22,12 @@
 extern crate alloc;
 
 #[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
+pub mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
-mod weights;
+pub mod weights;
 
 pub use weights::WeightInfo;
 
@@ -35,7 +35,7 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use alloc::collections::BTreeSet;
+	use alloc::{collections::BTreeSet, vec, vec::Vec};
 	use frame_support::{
 		pallet_prelude::*,
 		storage::transactional::with_storage_layer,
