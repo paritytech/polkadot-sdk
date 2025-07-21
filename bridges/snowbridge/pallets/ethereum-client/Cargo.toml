@@ -56,7 +56,6 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"pallet-timestamp/std",
 	"scale-info/std",
 	"serde",
@@ -70,6 +69,7 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 	'frame-benchmarking/std',
+	"tracing/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

@@ -57,7 +57,6 @@ std = [
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"pallet-bridge-grandpa/std",
 	"pallet-bridge-messages/std",
 	"pallet-bridge-parachains/std",
@@ -68,6 +67,7 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"tracing/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

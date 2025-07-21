@@ -2309,7 +2309,6 @@ dependencies = [
  "hash-db",
  "hex-literal",
  "impl-trait-for-tuples",
- "log",
  "num-traits",
  "parity-scale-codec",
  "scale-info",
@@ -2320,6 +2319,7 @@ dependencies = [
  "sp-state-machine",
  "sp-std 14.0.0",
  "sp-trie",
+ "tracing",
  "trie-db",
 ]
 
@@ -2770,7 +2770,6 @@ dependencies = [
  "bp-test-utils",
  "frame-support",
  "frame-system",
- "log",
  "pallet-balances",
  "pallet-bridge-grandpa",
  "pallet-bridge-messages",
@@ -2788,6 +2787,7 @@ dependencies = [
  "sp-weights",
  "staging-xcm",
  "static_assertions",
+ "tracing",
  "tuplex",
 ]
 
@@ -5912,9 +5912,9 @@ dependencies = [
  "bp-header-chain",
  "finality-relay",
  "futures",
- "log",
  "num-traits",
  "relay-utils",
+ "tracing",
 ]
 
 [[package]]
@@ -6261,10 +6261,10 @@ dependencies = [
  "backoff",
  "bp-header-chain",
  "futures",
- "log",
  "num-traits",
  "parking_lot 0.12.3",
  "relay-utils",
+ "tracing",
 ]
 
 [[package]]
@@ -10041,12 +10041,12 @@ dependencies = [
  "finality-relay",
  "futures",
  "hex",
- "log",
  "num-traits",
  "parking_lot 0.12.3",
  "relay-utils",
  "sp-arithmetic",
  "sp-core 28.0.0",
+ "tracing",
 ]
 
 [[package]]
@@ -11491,7 +11491,6 @@ dependencies = [
  "bp-test-utils",
  "frame-support",
  "frame-system",
- "log",
  "pallet-beefy-mmr",
  "pallet-mmr",
  "parity-scale-codec",
@@ -11504,6 +11503,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
+ "tracing",
 ]
 
 [[package]]
@@ -11516,7 +11516,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "log",
  "parity-scale-codec",
  "scale-info",
  "sp-consensus-grandpa",
@@ -11524,6 +11523,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
+ "tracing",
 ]
 
 [[package]]
@@ -11537,7 +11537,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "log",
  "pallet-balances",
  "pallet-bridge-grandpa",
  "parity-scale-codec",
@@ -11547,6 +11546,7 @@ dependencies = [
  "sp-runtime",
  "sp-std 14.0.0",
  "sp-trie",
+ "tracing",
 ]
 
 [[package]]
@@ -11561,7 +11561,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "log",
  "pallet-bridge-grandpa",
  "parity-scale-codec",
  "scale-info",
@@ -11569,6 +11568,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
+ "tracing",
 ]
 
 [[package]]
@@ -11585,7 +11585,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "log",
  "pallet-balances",
  "pallet-bridge-grandpa",
  "pallet-bridge-messages",
@@ -11598,6 +11597,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io",
  "sp-runtime",
+ "tracing",
 ]
 
 [[package]]
@@ -13952,10 +13952,10 @@ dependencies = [
  "async-trait",
  "bp-polkadot-core",
  "futures",
- "log",
  "relay-substrate-client",
  "relay-utils",
  "sp-core 28.0.0",
+ "tracing",
 ]
 
 [[package]]
@@ -17978,7 +17978,6 @@ dependencies = [
  "frame-support",
  "futures",
  "jsonrpsee",
- "log",
  "num-traits",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
@@ -18002,6 +18001,7 @@ dependencies = [
  "staging-xcm",
  "thiserror 1.0.65",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -18016,7 +18016,6 @@ dependencies = [
  "futures",
  "isahc",
  "jsonpath_lib",
- "log",
  "num-traits",
  "parking_lot 0.12.3",
  "serde_json",
@@ -18027,6 +18026,7 @@ dependencies = [
  "thiserror 1.0.65",
  "time",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -21530,7 +21530,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
- "log",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "scale-info",
@@ -21543,6 +21542,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "tracing",
 ]
 
 [[package]]
@@ -21572,7 +21572,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
- "log",
  "parity-scale-codec",
  "scale-info",
  "snowbridge-beacon-primitives",
@@ -21586,6 +21585,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "tracing",
 ]
 
 [[package]]
@@ -21627,7 +21627,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
- "log",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "scale-info",
@@ -21641,6 +21640,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "tracing",
 ]
 
 [[package]]
@@ -21676,7 +21676,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
- "log",
  "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
@@ -21692,6 +21691,7 @@ dependencies = [
  "sp-runtime",
  "sp-std 14.0.0",
  "static_assertions",
+ "tracing",
 ]
 
 [[package]]
@@ -21714,7 +21714,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
- "log",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
@@ -21731,6 +21730,7 @@ dependencies = [
  "sp-std 14.0.0",
  "staging-xcm",
  "staging-xcm-executor",
+ "tracing",
 ]
 
 [[package]]
@@ -21755,7 +21755,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
- "log",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
@@ -21852,7 +21851,6 @@ dependencies = [
  "frame-system",
  "hex",
  "hex-literal",
- "log",
  "pallet-balances",
  "pallet-message-queue",
  "parity-scale-codec",
@@ -21867,6 +21865,7 @@ dependencies = [
  "sp-std 14.0.0",
  "staging-xcm",
  "staging-xcm-executor",
+ "tracing",
 ]
 
 [[package]]
@@ -21876,7 +21875,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "log",
  "pallet-asset-conversion",
  "pallet-balances",
  "parity-scale-codec",
@@ -21901,7 +21899,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
- "log",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
@@ -21925,7 +21922,6 @@ version = "0.2.0"
 dependencies = [
  "frame-support",
  "frame-system",
- "log",
  "pallet-xcm",
  "parity-scale-codec",
  "sp-arithmetic",
@@ -21933,6 +21929,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "tracing",
 ]
 
 [[package]]
@@ -21995,7 +21992,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "log",
  "pallet-asset-conversion",
  "parity-scale-codec",
  "scale-info",
@@ -22005,6 +22001,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "tracing",
 ]
 
 [[package]]
@@ -23899,7 +23896,6 @@ dependencies = [
  "frame-system",
  "futures",
  "hex",
- "log",
  "messages-relay",
  "num-traits",
  "pallet-balances",
@@ -23919,6 +23915,7 @@ dependencies = [
  "sp-trie",
  "strum 0.26.3",
  "thiserror 1.0.65",
+ "tracing",
 ]
 
 [[package]]

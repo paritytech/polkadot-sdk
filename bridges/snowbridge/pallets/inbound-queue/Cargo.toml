@@ -55,7 +55,6 @@ std = [
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"pallet-balances/std",
 	"scale-info/std",
 	"serde",
@@ -67,6 +66,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"tracing/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]

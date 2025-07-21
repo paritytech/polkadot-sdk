@@ -47,11 +47,11 @@ std = [
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"scale-info/std",
 	"sp-consensus-grandpa/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"tracing/std",
 ]
 runtime-benchmarks = [
 	"bp-test-utils",
