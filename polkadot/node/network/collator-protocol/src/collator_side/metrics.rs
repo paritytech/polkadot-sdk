@@ -449,12 +449,15 @@ impl CollationTracker {
 		self.entries.insert(stats.head, stats);
 	}
 
+	/// Block numbers for blocks in the tracker that were included before the last finalized block.
+	///
+	/// This is used to avoid sending too many requests to the Chain API.
 	pub fn maybe_finalized_blocks(&self, last_finalized: BlockNumber) -> Vec<BlockNumber> {
 		self.entries
 			.iter()
 			.flat_map(|(_, entry)| {
 				entry.included_at.iter().filter_map(|(b, _)| {
-					if *b <= last_finalized {
+					if *b < last_finalized {
 						Some(*b)
 					} else {
 						None

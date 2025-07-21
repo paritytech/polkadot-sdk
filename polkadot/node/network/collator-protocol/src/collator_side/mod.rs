@@ -1572,11 +1572,11 @@ async fn run_inner<Context>(
 						*reconnect_timeout = futures_timer::Delay::new(RECONNECT_AFTER_LEAF_TIMEOUT).fuse();
 					}
 				}
-				FromOrchestra::Signal(BlockFinalized(hash, block)) => {
+				FromOrchestra::Signal(BlockFinalized(latest_finalized_hash, latest_finalized_number)) => {
 					let _ = state.metrics.time_process_finalized();
 
-					let mut finalized = vec![(block, hash)];
-					let maybe_finalized = state.collation_tracker.maybe_finalized_blocks(block);
+					let mut finalized = vec![(latest_finalized_number, latest_finalized_hash)];
+					let maybe_finalized = state.collation_tracker.maybe_finalized_blocks(latest_finalized_number);
 					if !maybe_finalized.is_empty() {
 						let sender = ctx.sender();
 						for chunk in maybe_finalized.as_slice().chunks(MAX_PARALLEL_CHAIN_API_REQUESTS) {
@@ -1586,18 +1586,29 @@ async fn run_inner<Context>(
 									let (tx, rx) = oneshot::channel();
 									sender.send_message(ChainApiMessage::FinalizedBlockHash(block_number, tx)).await;
 									match rx.await {
-										Ok(Ok(Some(hash))) => Some((block_number, hash)),
-										_ => {
-											gum::warn!(target: LOG_TARGET_STATS, ?block_number, "ChainApi request failed to get finalized block hash");
+										Ok(Ok(Some(block_hash))) => Some((block_number, block_hash)),
+										Ok(Ok(None)) => {
+											gum::warn!(target: LOG_TARGET_STATS, ?latest_finalized_number, ?block_number, "ChainApi can't get hash for the finalized block");
 											None
-										}
+										},
+										Ok(Err(err)) => {
+											gum::warn!(target: LOG_TARGET_STATS, ?block_number, ?e, "ChainApi request failed to get finalized block hash");
+											None
+										},
+										Err(e) => {
+											gum::warn!(target: LOG_TARGET_STATS, ?block_number, ?e, "ChainApi request channel closed");
+											None
+										},
 									}
 								}
 							});
 							finalized.extend(futures::future::join_all(futures).await.into_iter().filter_map(|x| x));
 						}
 					}
-					state.collation_tracker.collations_finalized(finalized, &metrics);
+					// Stop tracking collations that are finalized.
+					// Collations that were abandoned in a fork will be pruned on OurViewChange message
+					// which should come after the BlockFinalized signal.
+					let _ = state.collation_tracker.collations_finalized(finalized, &metrics);
 				}
 				FromOrchestra::Signal(Conclude) => return Ok(()),
 			},
