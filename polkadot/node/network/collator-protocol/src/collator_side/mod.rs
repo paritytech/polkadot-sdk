@@ -1602,7 +1602,7 @@ async fn run_inner<Context>(
 									}
 								}
 							});
-							finalized.extend(futures::future::join_all(futures).await.into_iter().filter_map(|x| x));
+							finalized.extend(futures::future::join_all(futures).await.into_iter().flatten());
 						}
 					}
 					// Stop tracking collations that are finalized.
