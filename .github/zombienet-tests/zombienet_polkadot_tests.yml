@@ -37,12 +37,6 @@
   runner-type: "large"
   use-zombienet-sdk: false
 
-- job-name: "zombienet-polkadot-functional-0008-dispute-old-finalized"
-  test-definition: "0008-dispute-old-finalized.zndsl"
-  local-dir: "./polkadot/zombienet_tests/functional"
-  runner-type: "large"
-  use-zombienet-sdk: false
-
 - job-name: "zombienet-polkadot-functional-0013-systematic-chunk-recovery"
   test-definition: "0013-systematic-chunk-recovery.zndsl"
   local-dir: "./polkadot/zombienet_tests/functional"
@@ -246,6 +240,12 @@
 
 - job-name: "zombienet-polkadot-functional-validator-disabling"
   test-filter: "functional::validator_disabling::validator_disabling_test"
+  runner-type: "large"
+  use-zombienet-sdk: true
+
+- job-name: "zombienet-polkadot-dispute-old-finalized"
+  test-definition: "0008-dispute-old-finalized.zndsl"
+  local-dir: "./polkadot/zombienet_tests/functional"
   runner-type: "large"
   use-zombienet-sdk: true
 
