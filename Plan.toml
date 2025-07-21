@@ -3690,9 +3690,9 @@ reason = "changed"
 [[crate]]
 # polkadot/node/network/gossip-support
 name = "polkadot-gossip-support"
-from = "23.0.0"
-to = "24.0.0"
-bump = "major"
+from = "24.0.0"
+to = "24.0.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
