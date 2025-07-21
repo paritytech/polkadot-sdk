@@ -451,12 +451,14 @@ impl CollationTracker {
 
 	/// Block numbers for blocks in the tracker that were included before the last finalized block.
 	///
-	/// This is used to avoid sending too many requests to the Chain API.
+	/// This is used to avoid sending too many requests to the Chain API to get their hashes.
 	pub fn maybe_finalized_blocks(&self, last_finalized: BlockNumber) -> Vec<BlockNumber> {
 		self.entries
 			.iter()
 			.flat_map(|(_, entry)| {
 				entry.included_at.iter().filter_map(|(b, _)| {
+					// We already know the hash of the last finalized block
+					// so we collect only the block numbers that are before it
 					if *b < last_finalized {
 						Some(*b)
 					} else {
