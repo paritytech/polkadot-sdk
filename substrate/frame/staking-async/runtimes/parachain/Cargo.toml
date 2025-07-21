@@ -50,7 +50,6 @@ pallet-nfts = { workspace = true }
 pallet-nfts-runtime-api = { workspace = true }
 pallet-nomination-pools = { workspace = true }
 pallet-nomination-pools-runtime-api = { workspace = true }
-pallet-parameters = { workspace = true }
 pallet-preimage = { workspace = true }
 pallet-proxy = { workspace = true }
 pallet-referenda = { workspace = true }
@@ -130,8 +129,6 @@ bp-bridge-hub-westend = { workspace = true }
 pallet-xcm-bridge-hub-router = { workspace = true }
 
 [dev-dependencies]
-asset-test-utils = { workspace = true, default-features = true }
-parachains-runtimes-test-utils = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 
 [build-dependencies]
@@ -172,7 +169,6 @@ runtime-benchmarks = [
 	"pallet-nft-fractionalization/runtime-benchmarks",
 	"pallet-nfts/runtime-benchmarks",
 	"pallet-nomination-pools/runtime-benchmarks",
-	"pallet-parameters/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-referenda/runtime-benchmarks",
@@ -236,7 +232,6 @@ try-runtime = [
 	"pallet-nft-fractionalization/try-runtime",
 	"pallet-nfts/try-runtime",
 	"pallet-nomination-pools/try-runtime",
-	"pallet-parameters/try-runtime",
 	"pallet-preimage/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-referenda/try-runtime",
@@ -310,7 +305,6 @@ std = [
 	"pallet-nfts/std",
 	"pallet-nomination-pools-runtime-api/std",
 	"pallet-nomination-pools/std",
-	"pallet-parameters/std",
 	"pallet-preimage/std",
 	"pallet-proxy/std",
 	"pallet-referenda/std",

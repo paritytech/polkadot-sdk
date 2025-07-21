@@ -1141,7 +1141,6 @@ impl pallet_nfts::Config for Runtime {
 /// (legacy routing with `ExportMessage` over BridgeHub).
 pub type ToRococoXcmRouterInstance = pallet_xcm_bridge_router::Instance1;
 impl pallet_xcm_bridge_router::Config<ToRococoXcmRouterInstance> for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo =
 		weights::pallet_xcm_bridge_router_to_rococo_over_bridge_hub::WeightInfo<Runtime>;
 
@@ -1218,7 +1217,7 @@ parameter_types! {
 impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations = pallet_migrations::migrations::ResetPallet<Runtime, Revive>;
+	type Migrations = pallet_revive::migrations::v1::Migration<Runtime>;
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
 	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;

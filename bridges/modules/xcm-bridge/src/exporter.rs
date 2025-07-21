@@ -419,6 +419,7 @@ mod tests {
 
 	use bp_runtime::RangeInclusiveExt;
 	use bp_xcm_bridge::{Bridge, BridgeLocations, BridgeState, Receiver};
+	use bp_xcm_bridge_router::MINIMAL_DELIVERY_FEE_FACTOR;
 	use frame_support::{
 		assert_err, assert_ok,
 		traits::{Contains, EnsureOrigin},
@@ -1044,7 +1045,7 @@ mod tests {
 
 			fn router_bridge_state<T: pallet_xcm_bridge_router::Config<I>, I: 'static>(
 				dest: &Location,
-			) -> Option<pallet_xcm_bridge_router::BridgeState> {
+			) -> pallet_xcm_bridge_router::BridgeState {
 				let bridge_id =
 					<T::BridgeIdResolver as ResolveBridgeId>::resolve_for_dest(dest).unwrap();
 				pallet_xcm_bridge_router::Bridges::<T, I>::get(&bridge_id)
@@ -1080,17 +1081,17 @@ mod tests {
 				BridgeState::Opened
 			);
 			// both routers are uncongested
-			assert!(!router_bridge_state::<
-				TestRuntime,
-				XcmOverBridgeWrappedWithExportMessageRouterInstance,
-			>(&dest)
-			.map(|bs| bs.is_congested)
-			.unwrap_or(false));
-			assert!(!router_bridge_state::<TestRuntime, XcmOverBridgeByExportXcmRouterInstance>(
-				&dest
-			)
-			.map(|bs| bs.is_congested)
-			.unwrap_or(false));
+			assert!(
+				!router_bridge_state::<
+					TestRuntime,
+					XcmOverBridgeWrappedWithExportMessageRouterInstance,
+				>(&dest)
+				.is_congested
+			);
+			assert!(
+				!router_bridge_state::<TestRuntime, XcmOverBridgeByExportXcmRouterInstance>(&dest)
+					.is_congested
+			);
 			assert!(!TestLocalXcmChannelManager::is_bridge_suspened(bridge_1.bridge_id()));
 			assert!(!TestLocalXcmChannelManager::is_bridge_suspened(bridge_2.bridge_id()));
 			assert!(!TestLocalXcmChannelManager::is_bridge_resumed(bridge_1.bridge_id()));
@@ -1128,12 +1129,10 @@ mod tests {
 					TestRuntime,
 					XcmOverBridgeWrappedWithExportMessageRouterInstance,
 				>(&dest)
-				.unwrap()
 				.is_congested
 			);
 			assert!(
 				router_bridge_state::<TestRuntime, XcmOverBridgeByExportXcmRouterInstance>(&dest)
-					.unwrap()
 					.is_congested
 			);
 			assert!(TestLocalXcmChannelManager::is_bridge_suspened(bridge_1.bridge_id()));
@@ -1161,15 +1160,23 @@ mod tests {
 				BridgeState::Opened
 			);
 			// both routers are uncongested
-			assert!(router_bridge_state::<
-				TestRuntime,
-				XcmOverBridgeWrappedWithExportMessageRouterInstance,
-			>(&dest)
-			.is_none());
-			assert!(router_bridge_state::<TestRuntime, XcmOverBridgeByExportXcmRouterInstance>(
-				&dest
-			)
-			.is_none());
+			assert_eq!(
+				router_bridge_state::<
+					TestRuntime,
+					XcmOverBridgeWrappedWithExportMessageRouterInstance,
+				>(&dest),
+				pallet_xcm_bridge_router::BridgeState {
+					delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR,
+					is_congested: false
+				}
+			);
+			assert_eq!(
+				router_bridge_state::<TestRuntime, XcmOverBridgeByExportXcmRouterInstance>(&dest),
+				pallet_xcm_bridge_router::BridgeState {
+					delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR,
+					is_congested: false
+				}
+			);
 			assert!(TestLocalXcmChannelManager::is_bridge_resumed(bridge_1.bridge_id()));
 			assert!(TestLocalXcmChannelManager::is_bridge_resumed(bridge_2.bridge_id()));
 		})

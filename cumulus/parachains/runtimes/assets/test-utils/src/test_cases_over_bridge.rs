@@ -623,7 +623,7 @@ pub fn update_bridge_status_from_xcm_bridge_router_works<
 					Runtime,
 					XcmBridgeHubRouterInstance,
 				>::get(&bridge_id);
-				let is_congested_before = bridge_state.map(|bs| bs.is_congested).unwrap_or(false);
+				let is_congested_before = bridge_state.is_congested;
 
 				// Call received XCM execution
 				let xcm = congestion_message(bridge_id.clone(), is_congested);
@@ -646,7 +646,7 @@ pub fn update_bridge_status_from_xcm_bridge_router_works<
 					Runtime,
 					XcmBridgeHubRouterInstance,
 				>::get(&bridge_id);
-				let is_congested_after = bridge_state.map(|bs| bs.is_congested).unwrap_or(false);
+				let is_congested_after = bridge_state.is_congested;
 				assert_eq!(is_congested_after, is_congested);
 				assert_ne!(is_congested_after, is_congested_before,);
 			};
