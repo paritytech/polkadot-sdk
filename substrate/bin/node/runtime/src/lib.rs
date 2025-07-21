@@ -26,7 +26,9 @@ extern crate alloc;
 #[cfg(feature = "runtime-benchmarks")]
 use pallet_asset_rate::AssetKindFactory;
 #[cfg(feature = "runtime-benchmarks")]
-use pallet_treasury::ArgumentsFactory;
+use pallet_treasury::ArgumentsFactory as PalletTreasuryArgumentsFactory;
+#[cfg(feature = "runtime-benchmarks")]
+use pallet_multi_asset_bounties::ArgumentsFactory as PalletMultiAssetBountiesArgumentsFactory;
 #[cfg(feature = "runtime-benchmarks")]
 use polkadot_sdk::sp_core::crypto::FromEntropy;
 
@@ -55,7 +57,7 @@ use frame_support::{
 			imbalance::{ResolveAssetTo, ResolveTo},
 			nonfungibles_v2::Inspect,
 			pay::PayAssetFromAccount,
-			GetSalary, PayFromAccount,
+			GetSalary, PayFromAccount, PayWithFungibles
 		},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, ConstU64,
 		ConstantStoragePrice, Contains, Currency, EitherOfDiverse, EnsureOriginWithArg,
@@ -296,7 +298,24 @@ impl AssetKindFactory<NativeOrWithId<u32>> for AssetRateArguments {
 #[cfg(feature = "runtime-benchmarks")]
 pub struct PalletTreasuryArguments;
 #[cfg(feature = "runtime-benchmarks")]
-impl ArgumentsFactory<NativeOrWithId<u32>, AccountId> for PalletTreasuryArguments {
+impl PalletTreasuryArgumentsFactory<NativeOrWithId<u32>, AccountId> for PalletTreasuryArguments {
+	fn create_asset_kind(seed: u32) -> NativeOrWithId<u32> {
+		if seed % 2 > 0 {
+			NativeOrWithId::Native
+		} else {
+			NativeOrWithId::WithId(seed / 2)
+		}
+	}
+
+	fn create_beneficiary(seed: [u8; 32]) -> AccountId {
+		AccountId::from_entropy(&mut seed.as_slice()).unwrap()
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct PalletMultiAssetBountiesArguments;
+#[cfg(feature = "runtime-benchmarks")]
+impl PalletMultiAssetBountiesArgumentsFactory<NativeOrWithId<u32>, AccountId> for PalletMultiAssetBountiesArguments {
 	fn create_asset_kind(seed: u32) -> NativeOrWithId<u32> {
 		if seed % 2 > 0 {
 			NativeOrWithId::Native
@@ -1349,7 +1368,7 @@ parameter_types! {
 	pub const BountyCuratorDeposit: Permill = Permill::from_percent(50);
 	pub const BountyValueMinimum: Balance = 5 * DOLLARS;
 	pub const BountyDepositBase: Balance = 1 * DOLLARS;
-	pub const CuratorDepositMultiplier: Permill = Permill::from_percent(50);
+	pub const CuratorDepositFromFeeMultiplier: Permill = Permill::from_percent(50);
 	pub const CuratorDepositMin: Balance = 1 * DOLLARS;
 	pub const CuratorDepositMax: Balance = 100 * DOLLARS;
 	pub const BountyDepositPayoutDelay: BlockNumber = 1 * DAYS;
@@ -1361,7 +1380,7 @@ impl pallet_bounties::Config for Runtime {
 	type BountyDepositBase = BountyDepositBase;
 	type BountyDepositPayoutDelay = BountyDepositPayoutDelay;
 	type BountyUpdatePeriod = BountyUpdatePeriod;
-	type CuratorDepositMultiplier = CuratorDepositMultiplier;
+	type CuratorDepositMultiplier = CuratorDepositFromFeeMultiplier;
 	type CuratorDepositMin = CuratorDepositMin;
 	type CuratorDepositMax = CuratorDepositMax;
 	type BountyValueMinimum = BountyValueMinimum;
@@ -1403,6 +1422,30 @@ impl pallet_child_bounties::Config for Runtime {
 	type ChildBountyValueMinimum = ChildBountyValueMinimum;
 	type WeightInfo = pallet_child_bounties::weights::SubstrateWeight<Runtime>;
 }
+
+parameter_types! {
+	pub const CuratorDepositFromValueMultiplier: Permill = Permill::from_percent(10);
+}
+
+impl pallet_multi_asset_bounties::Config for Runtime {
+	type CuratorDepositMultiplier = CuratorDepositFromValueMultiplier;
+	type CuratorDepositMin = CuratorDepositMin;
+	type CuratorDepositMax = CuratorDepositMax;
+	type BountyValueMinimum = BountyValueMinimum;
+	type ChildBountyValueMinimum = ChildBountyValueMinimum;
+	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
+	type DataDepositPerByte = DataDepositPerByte;
+	type MaximumReasonLength = MaximumReasonLength;
+	type WeightInfo = pallet_multi_asset_bounties::weights::SubstrateWeight<Runtime>;
+	type TreasurySource = pallet_multi_asset_bounties::TreasurySource<Runtime>;
+	type BountySource =  pallet_multi_asset_bounties::BountySource<Runtime>;
+	type ChildBountySource =  pallet_multi_asset_bounties::ChildBountySource<Runtime>;
+	type Paymaster = PayWithFungibles<NativeAndAssets, TreasuryAccount>;
+	type OnSlash = Treasury;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = PalletMultiAssetBountiesArguments;
+}
+
 
 impl pallet_tips::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -2797,6 +2840,9 @@ mod runtime {
 
 	#[runtime::pallet_index(89)]
 	pub type MetaTx = pallet_meta_tx::Pallet<Runtime>;
+
+	#[runtime::pallet_index(90)]
+	pub type MultiAssetBounties = pallet_multi_asset_bounties::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
@@ -3017,6 +3063,7 @@ mod benches {
 		[pallet_message_queue, MessageQueue]
 		[pallet_migrations, MultiBlockMigrations]
 		[pallet_mmr, Mmr]
+		[pallet_multi_asset_bounties, MultiAssetBounties]
 		[pallet_multisig, Multisig]
 		[pallet_nomination_pools, NominationPoolsBench::<Runtime>]
 		[pallet_offences, OffencesBench::<Runtime>]

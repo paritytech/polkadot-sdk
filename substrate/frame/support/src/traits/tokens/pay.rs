@@ -191,3 +191,42 @@ pub trait PayWithSource {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_concluded(id: Self::Id);
 }
+
+/// Implementation of the `PayWithSource` trait using multiple fungible asset classes (e.g., `pallet_assets`)
+pub struct PayWithFungibles<F, A>(core::marker::PhantomData<(F, A)>);
+impl<A, F> frame_support::traits::tokens::PayWithSource for PayWithFungibles<F, A>
+where
+	A: Eq + Clone,
+	F: fungibles::Mutate<A> + fungibles::Create<A>,
+{
+	type Balance = F::Balance;
+	type Source = A;
+	type Beneficiary = A;
+	type AssetKind = F::AssetId;
+	type Id = ();
+	type Error = DispatchError;
+	fn pay(
+		source: &Self::Source,
+		beneficiary: &Self::Beneficiary,
+		asset: Self::AssetKind,
+		amount: Self::Balance,
+	) -> Result<Self::Id, Self::Error> {
+		<F as fungibles::Mutate<_>>::transfer(asset, source, beneficiary, amount, Expendable)?;
+		Ok(())
+	}
+	fn check_payment(_: ()) -> PaymentStatus {
+		PaymentStatus::Success
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(
+		source: &Self::Source,
+		_: &Self::Beneficiary,
+		asset: Self::AssetKind,
+		amount: Self::Balance,
+	) {
+		<F as fungibles::Create<_>>::create(asset.clone(), source.clone(), true, amount).unwrap();
+		<F as fungibles::Mutate<_>>::mint_into(asset, &source, amount).unwrap();
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_concluded(_: Self::Id) {}
+}
