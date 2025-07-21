@@ -482,11 +482,11 @@ where
 	);
 
 	// Check if the signature is valid in the previous set.
-	let prev_set_id = set_id.checked_sub(1).unwrap_or(0);
-	if prev_set_id == set_id {
+	if set_id == 0 {
 		return SignatureResult::Invalid;
 	}
 
+	let prev_set_id = set_id - 1;
 	localized_payload_with_buffer(round, prev_set_id, message, buf);
 	let valid = id.verify(&buf, signature);
 	log::debug!(
