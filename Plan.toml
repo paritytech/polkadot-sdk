@@ -476,9 +476,9 @@ reason = "changed"
 [[crate]]
 # substrate/primitives/io
 name = "sp-io"
-from = "40.0.1"
-to = "41.0.0"
-bump = "major"
+from = "41.0.0"
+to = "41.0.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
