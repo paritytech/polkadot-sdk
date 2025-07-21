@@ -23,12 +23,12 @@ xcm-executor = { workspace = true }
 [dev-dependencies]
 frame-system = { workspace = true }
 hex-literal = { workspace = true }
-log = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-xcm = { workspace = true }
 sp-io = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
+tracing = { workspace = true }
 xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }
 xcm-simulator = { workspace = true, default-features = true }
@@ -39,7 +39,6 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"pallet-assets/std",
 	"pallet-balances/std",
 	"pallet-xcm/std",
@@ -47,6 +46,7 @@ std = [
 	"sp-api/std",
 	"sp-io/std",
 	"sp-weights/std",
+	"tracing/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",

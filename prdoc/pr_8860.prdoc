@@ -3,8 +3,22 @@ doc:
 - audience: [Runtime Dev, Node Dev, Node Operator]
   description: |
     This PR changes the parachain receiving logic for XCMP and DMP by adding some offchain processing
-    before forwarding the messages to the parachain set_validation_data inherent.
+    before forwarding the messages to the parachain `set_validation_data` inherent.
     This enables us to relax the advancement rule.
+
+    The arguments of the `set_validation_data` inherent have been changed.
+
+    This solution involves:
+      - changes in the relay chain runtimes
+      - changes in the relay chain node client
+      - changes in the parachain runtimes
+    These changes should be deployed in 2 steps:
+    1. Relay chain:
+      - the changes to the relay chain runtime
+      - the changes to the relay chain node client
+      Here, the order shouldn’t matter
+    2. The changes to the parachain runtimes
+
 crates:
 - name: cumulus-pallet-parachain-system
   bump: major
