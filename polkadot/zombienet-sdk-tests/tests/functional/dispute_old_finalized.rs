@@ -14,6 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+// Test if disputes triggered on finalized blocks out of scope never get to be confirmed and
+// concluded.
+
 use anyhow::anyhow;
 
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
