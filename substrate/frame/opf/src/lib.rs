@@ -93,6 +93,9 @@ pub mod pallet {
 		#[pallet::constant]
 		type PotId: Get<PalletId>;
 
+		/// The account ID for the treasury pot to send funds not spent in the current round.
+		type TreasuryAccountId: Get<Self::AccountId>;
+
 		/// The maximum number of projects that can be registered.
 		type MaxProjects: Get<u32>;
 
@@ -497,16 +500,44 @@ pub mod pallet {
 					);
 					let reward = reward_percent.mul_floor(pot_balance);
 					if !reward.is_zero() {
-						let _ = T::Fungible::transfer(
+						let _res = T::Fungible::transfer(
 							&pot_account,
 							&project.fund_dest,
 							reward,
 							Preservation::Expendable,
-						);
+						)
+						.defensive()
+						.inspect_err(|e| {
+							log::error!(
+								target: LOG_TARGET,
+								"Failed to transfer reward for project {project_index}: {e:?}",
+							)
+						});
 					}
 				}
 				Polls::<T>::insert(round_index, project_index, PollInfo::Completed(now, true));
 			}
+
+			// Send remaining funds to the treasury pot.
+			let remaining_balance = T::Fungible::reducible_balance(
+				&pot_account,
+				Preservation::Expendable,
+				Fortitude::Polite,
+			);
+
+			let _res = T::Fungible::transfer(
+				&pot_account,
+				&T::TreasuryAccountId::get(),
+				remaining_balance,
+				Preservation::Expendable,
+			)
+			.defensive()
+			.inspect_err(|e| {
+				log::error!(
+					target: LOG_TARGET,
+					"Failed to transfer remaining funds from pot to treasury: {e:?}",
+				)
+			});
 
 			Round::<T>::kill();
 		}
@@ -560,7 +591,7 @@ pub mod pallet {
 			let mut iterator = match &vote_record_state.forwarding {
 				ForwardingProcess::Start => VotesToForward::<T>::iter(),
 				ForwardingProcess::LastProcessed(k1, k2) => {
-					let key = VotesToForward::<T>::hashed_key_for(k1.clone(), k2.clone());
+					let key = VotesToForward::<T>::hashed_key_for(*k1, k2.clone());
 					VotesToForward::<T>::iter_from(key)
 				},
 				ForwardingProcess::Finished => return,
@@ -579,20 +610,20 @@ pub mod pallet {
 						if vote_record_state.reset_round.is_some_and(|reset| vote.round <= reset) {
 							VotesToForward::<T>::remove(project_index, &voter);
 						} else if vote.round < round_index {
-							let res = with_storage_layer(|| {
+							let _ = with_storage_layer(|| {
 								pallet_conviction_voting::Pallet::<T, T::ConvictionVotingInstance>::vote(
 									OriginFor::<T>::signed(voter.clone()),
 									PollIndex::new(round_index, project_index),
 									vote.vote,
 								)
-							});
-							if let Err(e) = res {
+							})
+							.inspect_err(|e| {
 								log::error!(
 									target: LOG_TARGET,
-									"Failed to forward vote from voter {voter} for project \
+									"Failed to forward vote from voter {voter:?} for project \
 									{project_index}: {e:?}",
-								);
-							}
+								)
+							});
 						}
 					} else {
 						VotesToForward::<T>::remove(project_index, &voter);

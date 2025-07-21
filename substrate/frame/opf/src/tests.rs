@@ -667,7 +667,10 @@ mod full_scenario {
 			assert_eq!(Balances::free_balance(&DEST3), 0); // removed
 
 			// pot left with the remainder
-			assert_eq!(Balances::free_balance(&pot), 354);
+			assert_eq!(Balances::free_balance(&TREASURY_POT), 354);
+
+			// pot left with 0
+			assert_eq!(Balances::free_balance(&pot), 0);
 		});
 	}
 }

@@ -1637,6 +1637,7 @@ impl pallet_offences::Config for Runtime {
 
 parameter_types! {
 	pub const OpfPalletId: PalletId = PalletId(*b"py/opfun");
+	pub TreasuryAccountId: AccountId = Treasury::account_id();
 }
 
 impl pallet_opf::Config for Runtime {
@@ -1648,6 +1649,7 @@ impl pallet_opf::Config for Runtime {
 	type RoundDuration = ConstU32<{ 30u32 * DAYS }>;
 	type BlockNumberProvider = System;
 	type ResetVotesRoundNumber = ConstU32<10>;
+	type TreasuryAccountId = TreasuryAccountId;
 	type ConvictionVotingInstance = Instance1;
 }
 

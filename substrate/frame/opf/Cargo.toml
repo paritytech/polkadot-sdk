@@ -2,7 +2,7 @@
 authors.workspace = true
 description = "Optimist Project Funding - pallet allowing users to nominate projects to be funded, by locking their DOTS."
 edition.workspace = true
-homepage = "https://substrate.io"
+homepage.workspace = true
 license = "Apache-2.0"
 name = "pallet-opf"
 readme = "README.md"
