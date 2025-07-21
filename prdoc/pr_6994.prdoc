@@ -13,9 +13,7 @@ doc:
 crates:
   - name: pallet-opf
     bump: patch
-  - name: frame-support
-    bump: none
   - name: polkadot-sdk
     bump: minor
-  - name: polkadot
-    bump: none
+  - name: pallet-conviction-voting
+    bump: minor
