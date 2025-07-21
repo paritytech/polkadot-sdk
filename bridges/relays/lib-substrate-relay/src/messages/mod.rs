@@ -231,17 +231,13 @@ where
 		target: "bridge",
 		"Starting {} -> {} messages relay.\n\t\
 			{} relayer account id: {:?}\n\t\
-			Max messages in single transaction: {}\n\t\
-			Max messages size in single transaction: {}\n\t\
-			Max messages weight in single transaction: {}\n\t\
-			Tx mortality: {:?} (~{}m)/{:?} (~{}m)",
+			Max messages in single transaction: {relayer_id_at_source}\n\t\
+			Max messages size in single transaction: {max_messages_in_single_batch}\n\t\
+			Max messages weight in single transaction: {max_messages_size_in_single_batch}\n\t\
+			Tx mortality: {max_messages_weight_in_single_batch:?} (~{}m)/{:?} (~{}m)",
 		P::SourceChain::NAME,
 		P::TargetChain::NAME,
 		P::SourceChain::NAME,
-		relayer_id_at_source,
-		max_messages_in_single_batch,
-		max_messages_size_in_single_batch,
-		max_messages_weight_in_single_batch,
 		params.source_transaction_params.mortality,
 		transaction_stall_timeout(
 			params.source_transaction_params.mortality,

@@ -162,7 +162,8 @@ where
 			.map_err(|e| {
 				tracing::trace!(
 					target: "bridge",
-					"Failed to read {} header with number {}: {e:?}",
+					error=?e,
+					"Failed to read {} header with number {}",
 					Self::Source::NAME,
 					data.at_source_block,
 				);
@@ -201,7 +202,8 @@ where
 			.map_err(|e| {
 				tracing::trace!(
 					target: "bridge",
-					"Failed to read {} header with number {}: {e:?}",
+					error=?e,
+					"Failed to read {} header with number {}",
 					Self::Target::NAME,
 					data.at_target_block,
 				);
