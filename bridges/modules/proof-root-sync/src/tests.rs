@@ -23,16 +23,16 @@ use frame_support::traits::OnIdle;
 #[test]
 fn schedule_for_sync_works() {
 	run_test(|| {
-		Pallet::<TestRuntime>::schedule_for_sync(1_u8, 1_u8);
-		Pallet::<TestRuntime>::schedule_for_sync(2_u8, 2_u8);
-		Pallet::<TestRuntime>::schedule_for_sync(3_u8, 3_u8);
-		Pallet::<TestRuntime>::schedule_for_sync(4_u8, 4_u8);
-		Pallet::<TestRuntime>::schedule_for_sync(5_u8, 5_u8);
+		Pallet::<TestRuntime>::schedule_for_sync(1, 1);
+		Pallet::<TestRuntime>::schedule_for_sync(2, 2);
+		Pallet::<TestRuntime>::schedule_for_sync(3, 3);
+		Pallet::<TestRuntime>::schedule_for_sync(4, 4);
+		Pallet::<TestRuntime>::schedule_for_sync(5, 5);
 		assert_eq!(RootsToSend::<TestRuntime>::get(), vec![(1, 1), (2, 2), (3, 3), (4, 4), (5, 5)]);
 
 		// Check ring buffer works and respects `RootsToKeep`.
-		Pallet::<TestRuntime>::schedule_for_sync(6_u8, 6_u8);
-		Pallet::<TestRuntime>::schedule_for_sync(7_u8, 7_u8);
+		Pallet::<TestRuntime>::schedule_for_sync(6, 6);
+		Pallet::<TestRuntime>::schedule_for_sync(7, 7);
 		assert_eq!(RootsToSend::<TestRuntime>::get(), vec![(3, 3), (4, 4), (5, 5), (6, 6), (7, 7)]);
 	});
 }
@@ -41,11 +41,11 @@ fn schedule_for_sync_works() {
 fn on_idle_processes_roots() {
 	run_test(|| {
 		// Schedule multiple roots
-		Pallet::<TestRuntime>::schedule_for_sync(1_u8, 1_u8);
-		Pallet::<TestRuntime>::schedule_for_sync(2_u8, 2_u8);
-		Pallet::<TestRuntime>::schedule_for_sync(3_u8, 3_u8);
-		Pallet::<TestRuntime>::schedule_for_sync(4_u8, 4_u8);
-		Pallet::<TestRuntime>::schedule_for_sync(5_u8, 5_u8);
+		Pallet::<TestRuntime>::schedule_for_sync(1, 1);
+		Pallet::<TestRuntime>::schedule_for_sync(2, 2);
+		Pallet::<TestRuntime>::schedule_for_sync(3, 3);
+		Pallet::<TestRuntime>::schedule_for_sync(4, 4);
+		Pallet::<TestRuntime>::schedule_for_sync(5, 5);
 		assert_eq!(RootsToSend::<TestRuntime>::get(), vec![(1, 1), (2, 2), (3, 3), (4, 4), (5, 5)]);
 		assert!(OnSendConsumer::get_consumed_roots().is_empty());
 

@@ -14,11 +14,13 @@
 // limitations under the License.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub mod barriers;
 pub mod digest_item;
+pub mod header_sync;
 pub mod message_queue;
 pub mod xcm_version;
-
 pub use barriers::DenyExportMessageFrom;
 pub use digest_item::CustomDigestItem;
 pub use message_queue::{

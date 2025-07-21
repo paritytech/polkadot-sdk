@@ -32,12 +32,16 @@ extern crate alloc;
 use alloc::{collections::VecDeque, vec::Vec};
 use frame_support::pallet_prelude::Weight;
 
-pub mod impls;
-
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+#[cfg(feature = "runtime-benchmarks")]
+pub use benchmarking::BenchmarkHelper;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
+pub use weights::WeightInfo;
+pub mod weights;
 
 pub use pallet::*;
 
@@ -52,21 +56,12 @@ pub trait OnSend<Key, Value> {
 	/// * `roots` - A vector of roots where each root is a tuple of (key, value). Roots are ordered
 	///   from the oldest (index 0) to the newest (last index).
 	fn on_send(roots: &Vec<(Key, Value)>);
-
-	/// Returns the weight consumed by `on_send`.
-	fn on_send_weight() -> Weight;
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(8)]
 impl<Key, Value> OnSend<Key, Value> for Tuple {
 	fn on_send(roots: &Vec<(Key, Value)>) {
 		for_tuples!( #( Tuple::on_send(roots);) * );
-	}
-
-	fn on_send_weight() -> Weight {
-		let mut weight: Weight = Default::default();
-		for_tuples!( #( weight.saturating_accrue(Tuple::on_send_weight()); )* );
-		weight
 	}
 }
 
@@ -82,6 +77,9 @@ pub mod pallet {
 	/// The pallet configuration trait.
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
+		/// Benchmarks results from runtime we're plugged into.
+		type WeightInfo: WeightInfo;
+
 		/// The key type used to identify stored values of type `T::Value`.
 		type Key: Parameter;
 
@@ -100,6 +98,10 @@ pub mod pallet {
 
 		/// Means for sending/syncing roots.
 		type OnSend: OnSend<Self::Key, Self::Value>;
+
+		/// Helper type for benchmarks.
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper: BenchmarkHelper<Self::Key, Self::Value>;
 	}
 
 	/// A ring-buffer storage of roots (key-value pairs) that need to be sent/synced to other
@@ -115,11 +117,11 @@ pub mod pallet {
 	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
 		fn on_idle(_n: BlockNumberFor<T>, limit: Weight) -> Weight {
 			let mut meter = WeightMeter::with_limit(limit);
-			if meter.try_consume(Self::on_idle_weight()).is_err() {
+			if meter.try_consume(T::WeightInfo::on_idle()).is_err() {
 				tracing::debug!(
 					target: LOG_TARGET,
 					?limit,
-					on_idle_weight = ?Self::on_idle_weight(),
+					on_idle_weight = ?T::WeightInfo::on_idle(),
 					"Not enough weight for on_idle.",
 				);
 				return meter.consumed();
@@ -137,13 +139,6 @@ pub mod pallet {
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		/// The worst-case weight of [`Self::on_idle`].
-		fn on_idle_weight() -> Weight {
-			T::DbWeight::get()
-				.reads_writes(1, 1)
-				.saturating_add(T::OnSend::on_send_weight())
-		}
-
 		/// Schedule new data to be synced by `T::OnSend` means.
 		///
 		/// The roots are stored in a ring buffer with limited capacity as defined by

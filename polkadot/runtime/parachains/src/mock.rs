@@ -40,7 +40,7 @@ use frame_support::{
 	PalletId,
 };
 use frame_support_test::TestRandomness;
-use frame_system::limits;
+use frame_system::{limits, EnsureRoot};
 use polkadot_primitives::{
 	AuthorityDiscoveryId, Balance, BlockNumber, CandidateHash, Moment, SessionIndex, UpwardMessage,
 	ValidationCode, ValidatorIndex,
@@ -249,6 +249,7 @@ impl crate::paras::Config for Test {
 	type AssignCoretime = ();
 	type Fungible = Balances;
 	type CooldownRemovalMultiplier = ConstUint<1>;
+	type AuthorizeCurrentCodeOrigin = EnsureRoot<AccountId>;
 }
 
 impl crate::dmp::Config for Test {}

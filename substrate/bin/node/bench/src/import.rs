@@ -148,7 +148,8 @@ impl core::Benchmark for ImportBenchmark {
 							// those 2 events per signed are:
 							//    - deposit event for charging transaction fee
 							//    - extrinsic success
-							(self.block.extrinsics.len() - 2) * 2 + 2,
+							// +3 Bags List events from on_idle hook
+							(self.block.extrinsics.len() - 2) * 2 + 2 + 3,
 						);
 					},
 					_ => {},

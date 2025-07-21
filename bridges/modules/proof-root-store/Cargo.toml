@@ -21,6 +21,7 @@ scale-info = { features = ["derive"], workspace = true }
 [dev-dependencies]
 bp-proof-root-store = { workspace = true }
 sp-io = { workspace = true }
+substrate-test-utils = { workspace = true }
 
 [features]
 default = ["std"]

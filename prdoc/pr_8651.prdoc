@@ -1,0 +1,54 @@
+title: 'polkadot-omni-node: add `GetParachainInfo` runtime api'
+doc:
+- audience: [ Node Dev, Node Operator, Runtime Dev ]
+  description: |
+    This PR deprecates the `para_id` field of parachain chain specifications. 
+
+    - Both `polkadot-omni-node` & `polkadot-parachain` are still supporting the `para_id`
+    field passed via chain specifications, while `parachain-template-node` supports only runtime API based provided parachain id.
+    - This PR also changes `minimal-template-runtime` to not run anymore with Omni Node.
+    - `chain-spec-builder` still supports generating chain specifications with `para_id` field.
+    - Starting with `stable2509` `polkadot-parachain`/`parachain-template-node` will generate chain specs that are not compatible
+      with prior node versions because `para_id` field will not be added anymore to the resulting chain specs.
+
+    Starting with `stable2509` the `para_id` field of chain specification is not required anymore, and runtime developers will be able
+    to specify it to nodes by implementing the runtime API `cumulus_primitives_core::GetParachainInfo`.
+
+    Starting with `stable2512` the `para_id` field of chain specification will not be supported anymore by node versions and
+    `chain-spec-builder` will drop its support, so it is mandatory for runtimes to implement the `GetParachainInfo` trait
+    to still be compatible with the nodes.
+crates:
+- name: asset-hub-rococo-runtime
+  bump: minor 
+- name: cumulus-primitives-core
+  bump: minor 
+- name: bridge-hub-rococo-runtime
+  bump: minor 
+- name: bridge-hub-westend-runtime
+  bump: minor 
+- name: collectives-westend-runtime
+  bump: minor 
+- name: coretime-rococo-runtime
+  bump: minor
+- name: coretime-westend-runtime
+  bump: minor 
+- name: glutton-westend-runtime
+  bump: minor 
+- name: people-rococo-runtime
+  bump: minor 
+- name: people-westend-runtime
+  bump: minor 
+- name: penpal-runtime
+  bump: minor 
+- name: rococo-parachain-runtime
+  bump: minor 
+- name: polkadot-omni-node-lib
+  bump: major
+- name: polkadot-omni-node
+  bump: patch
+- name: staging-chain-spec-builder
+  bump: patch 
+- name: pallet-staking-async-parachain-runtime
+  bump: minor
+- name: polkadot-parachain-bin
+  bump: patch  
