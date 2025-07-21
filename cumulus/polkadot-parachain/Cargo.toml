@@ -25,7 +25,7 @@ serde_json = { workspace = true, default-features = true }
 
 # Local
 asset-hub-rococo-runtime = { workspace = true, default-features = true }
-asset-hub-westend-runtime = { workspace = true }
+asset-hub-westend-runtime = { workspace = true, default-features = true }
 bridge-hub-rococo-runtime = { workspace = true, default-features = true }
 bridge-hub-westend-runtime = { workspace = true, default-features = true }
 collectives-westend-runtime = { workspace = true }

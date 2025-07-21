@@ -120,10 +120,13 @@ impl<T: Config> Eras<T> {
 		<ErasValidatorReward<T>>::remove(era);
 		<ErasRewardPoints<T>>::remove(era);
 		<ErasTotalStake<T>>::remove(era);
+
+		// register the weight of the pruning.
+		Pallet::<T>::register_weight(T::WeightInfo::prune_era(ValidatorCount::<T>::get()));
 	}
 
 	pub(crate) fn set_validator_prefs(era: EraIndex, stash: &T::AccountId, prefs: ValidatorPrefs) {
-		debug_assert_eq!(era, Rotator::<T>::planning_era(), "we only set prefs for planning era");
+		debug_assert_eq!(era, Rotator::<T>::planned_era(), "we only set prefs for planning era");
 		<ErasValidatorPrefs<T>>::insert(era, stash, prefs);
 	}
 
@@ -372,7 +375,8 @@ impl<T: Config> Eras<T> {
 	}
 }
 
-#[cfg(any(feature = "try-runtime", test))]
+#[cfg(any(feature = "try-runtime", test, feature = "runtime-benchmarks"))]
+#[allow(unused)]
 impl<T: Config> Eras<T> {
 	/// Ensure the given era is present, i.e. has not been pruned yet.
 	pub(crate) fn era_present(era: EraIndex) -> Result<(), sp_runtime::TryRuntimeError> {
@@ -493,7 +497,7 @@ impl<T: Config> Rotator<T> {
 	#[cfg(any(feature = "try-runtime", test))]
 	pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		// planned era can always be at most one more than active era
-		let planned = Self::planning_era();
+		let planned = Self::planned_era();
 		let active = Self::active_era();
 		ensure!(
 			planned == active || planned == active + 1,
@@ -513,22 +517,38 @@ impl<T: Config> Rotator<T> {
 
 	#[cfg(any(feature = "try-runtime", feature = "std", feature = "runtime-benchmarks", test))]
 	pub fn assert_election_ongoing() {
-		assert!(
-			Self::planning_era() == Self::active_era() + 1,
-			"planning era must be one more than active era during election"
-		);
+		assert!(Self::is_planning().is_some(), "planning era must exist");
 		assert!(
 			T::ElectionProvider::status().is_ok(),
 			"Election provider must be in a good state during election"
 		);
 	}
 
-	pub fn planning_era() -> EraIndex {
+	/// Latest era that was planned.
+	///
+	/// The returned value does not necessarily indicate that planning for the era with this index
+	/// is underway, but rather the last era that was planned. If `Self::active_era()` is equal to
+	/// this value, it means that the era is currently active and no new era is planned.
+	///
+	/// See [`Self::is_planning()`] to only get the next index if planning in progress.
+	pub fn planned_era() -> EraIndex {
 		CurrentEra::<T>::get().unwrap_or(0)
 	}
 
 	pub fn active_era() -> EraIndex {
 		ActiveEra::<T>::get().map(|a| a.index).defensive_unwrap_or(0)
+	}
+
+	/// Next era that is planned to be started.
+	///
+	/// Returns None if no era is planned.
+	pub fn is_planning() -> Option<EraIndex> {
+		let (active, planned) = (Self::active_era(), Self::planned_era());
+		if planned.defensive_saturating_sub(active) > 1 {
+			defensive!("planned era must always be equal or one more than active");
+		}
+
+		(planned > active).then_some(planned)
 	}
 
 	/// End the session and start the next one.
@@ -537,14 +557,14 @@ impl<T: Config> Rotator<T> {
 			defensive!("Active era must always be available.");
 			return;
 		};
-		let current_planned_era = Self::planning_era();
+		let current_planned_era = Self::is_planning();
 		let starting = end_index + 1;
 		// the session after the starting session.
 		let planning = starting + 1;
 
 		log!(
 			info,
-			"Session: end {:?}, start {:?} (ts: {:?}), plan {:?}",
+			"Session: end {:?}, start {:?} (ts: {:?}), planning {:?}",
 			end_index,
 			starting,
 			activation_timestamp,
@@ -553,7 +573,7 @@ impl<T: Config> Rotator<T> {
 		log!(info, "Era: active {:?}, planned {:?}", active_era.index, current_planned_era);
 
 		match activation_timestamp {
-			Some((time, id)) if id == current_planned_era => {
+			Some((time, id)) if Some(id) == current_planned_era => {
 				// We rotate the era if we have the activation timestamp.
 				Self::start_era(active_era, starting, time);
 			},
@@ -561,15 +581,17 @@ impl<T: Config> Rotator<T> {
 				// RC has done something wrong -- we received the wrong ID. Don't start a new era.
 				crate::log!(
 					warn,
-					"received wrong ID with activation timestamp. Got {}, expected {}",
+					"received wrong ID with activation timestamp. Got {}, expected {:?}",
 					id,
 					current_planned_era
 				);
+				Pallet::<T>::deposit_event(Event::Unexpected(
+					UnexpectedKind::UnknownValidatorActivation,
+				));
 			},
 			None => (),
 		}
 
-		let active_era = Self::active_era();
 		// check if we should plan new era.
 		let should_plan_era = match ForceEra::<T>::get() {
 			// see if it's good time to plan a new era.
@@ -585,7 +607,9 @@ impl<T: Config> Rotator<T> {
 			Forcing::ForceNone => false,
 		};
 
-		let has_pending_era = active_era < current_planned_era;
+		// Note: we call `planning_era` again, as a new era might have started since we checked
+		// it last.
+		let has_pending_era = Self::is_planning().is_some();
 		match (should_plan_era, has_pending_era) {
 			(false, _) => {
 				// nothing to consider
@@ -599,7 +623,7 @@ impl<T: Config> Rotator<T> {
 				// now.
 				crate::log!(
 					debug,
-					"time to plan a new era {}, but waiting for the activation of the previous.",
+					"time to plan a new era {:?}, but waiting for the activation of the previous.",
 					current_planned_era
 				);
 			},
@@ -608,7 +632,7 @@ impl<T: Config> Rotator<T> {
 		Pallet::<T>::deposit_event(Event::SessionRotated {
 			starting_session: starting,
 			active_era: Self::active_era(),
-			planned_era: Self::planning_era(),
+			planned_era: Self::planned_era(),
 		});
 	}
 
@@ -682,7 +706,30 @@ impl<T: Config> Rotator<T> {
 
 	fn end_era(ending_era: &ActiveEraInfo, new_era_start: u64) {
 		let previous_era_start = ending_era.start.defensive_unwrap_or(new_era_start);
-		let era_duration = new_era_start.saturating_sub(previous_era_start);
+		let uncapped_era_duration = new_era_start.saturating_sub(previous_era_start);
+
+		// maybe cap the era duration to the maximum allowed by the runtime.
+		let cap = T::MaxEraDuration::get();
+		let era_duration = if cap == 0 {
+			// if the cap is zero (not set), we don't cap the era duration.
+			uncapped_era_duration
+		} else if uncapped_era_duration > cap {
+			Pallet::<T>::deposit_event(Event::Unexpected(UnexpectedKind::EraDurationBoundExceeded));
+
+			// if the cap is set, and era duration exceeds the cap, we cap the era duration to the
+			// maximum allowed.
+			log!(
+				warn,
+				"capping era duration for era {:?} from {:?} to max allowed {:?}",
+				ending_era.index,
+				uncapped_era_duration,
+				cap
+			);
+			cap
+		} else {
+			uncapped_era_duration
+		};
+
 		Self::end_era_compute_payout(ending_era, era_duration);
 	}
 
@@ -722,7 +769,7 @@ impl<T: Config> Rotator<T> {
 	/// The newly planned era is targeted to activate in the next session.
 	fn plan_new_era() {
 		let _ = CurrentEra::<T>::try_mutate(|x| {
-			log!(debug, "Planning new era: {:?}, sending election start signal", x.unwrap_or(0));
+			log!(info, "Planning new era: {:?}, sending election start signal", x.unwrap_or(0));
 			let could_start_election = EraElectionPlanner::<T>::plan_new_election();
 			*x = Some(x.unwrap_or(0) + 1);
 			could_start_election
@@ -834,19 +881,17 @@ impl<T: Config> EraElectionPlanner<T> {
 				use pallet_staking_async_rc_client::RcClientInterface;
 				let id = CurrentEra::<T>::get().defensive_unwrap_or(0);
 				let prune_up_to = Self::get_prune_up_to();
+				let rc_validators = ElectableStashes::<T>::take().into_iter().collect::<Vec<_>>();
 
 				crate::log!(
 					info,
-					"Send new validator set to RC. ID: {:?}, prune_up_to: {:?}",
+					"Sending new validator set of size {:?} to RC. ID: {:?}, prune_up_to: {:?}",
+					rc_validators.len(),
 					id,
 					prune_up_to
 				);
 
-				T::RcClientInterface::validator_set(
-					ElectableStashes::<T>::take().into_iter().collect(),
-					id,
-					prune_up_to,
-				);
+				T::RcClientInterface::validator_set(rc_validators, id, prune_up_to);
 			}
 		}
 	}
@@ -908,7 +953,7 @@ impl<T: Config> EraElectionPlanner<T> {
 	pub(crate) fn do_elect_paged_inner(
 		mut supports: BoundedSupportsOf<T::ElectionProvider>,
 	) -> Result<usize, usize> {
-		let planning_era = Rotator::<T>::planning_era();
+		let planning_era = Rotator::<T>::planned_era();
 
 		match Self::add_electables(supports.iter().map(|(s, _)| s.clone())) {
 			Ok(added) => {
@@ -979,7 +1024,7 @@ impl<T: Config> EraElectionPlanner<T> {
 		}
 
 		log!(
-			info,
+			debug,
 			"stored a page of stakers with {:?} validators and {:?} total backers for era {:?}",
 			elected_stashes.len(),
 			total_backers,

@@ -17,9 +17,9 @@
 
 /// These tests exercise the executive layer.
 ///
-/// In these tests the VM/loader are mocked. Instead of dealing with wasm bytecode they use
+/// In these tests the VM/loader are mocked. Instead of dealing with vm bytecode they use
 /// simple closures. This allows you to tackle executive logic more thoroughly without writing
-/// a wasm VM code.
+/// a VM binary code.
 #[cfg(test)]
 use super::*;
 use crate::{
@@ -593,6 +593,7 @@ fn input_data_to_instantiate() {
 				vec![1, 2, 3, 4],
 				Some(&[0; 32]),
 				false,
+				BumpNonce::Yes,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -779,34 +780,6 @@ fn origin_returns_proper_values() {
 
 	assert_eq!(WitnessedCallerBob::get(), Some(ALICE_ADDR));
 	assert_eq!(WitnessedCallerCharlie::get(), Some(ALICE_ADDR));
-}
-
-#[test]
-fn is_contract_returns_proper_values() {
-	let bob_ch = MockLoader::insert(Call, |ctx, _| {
-		// Verify that BOB is a contract
-		assert!(ctx.ext.is_contract(&BOB_ADDR));
-		// Verify that ALICE is not a contract
-		assert!(!ctx.ext.is_contract(&ALICE_ADDR));
-		exec_success()
-	});
-
-	ExtBuilder::default().build().execute_with(|| {
-		place_contract(&BOB, bob_ch);
-
-		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
-		let result = MockStack::run_call(
-			origin,
-			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
-			&mut storage_meter,
-			U256::zero(),
-			vec![],
-			false,
-		);
-		assert_matches!(result, Ok(_));
-	});
 }
 
 #[test]
@@ -1095,6 +1068,7 @@ fn refuse_instantiate_with_value_below_existential_deposit() {
 				vec![],
 				Some(&[0; 32]),
 				false,
+				BumpNonce::Yes,
 			),
 			Err(_)
 		);
@@ -1128,6 +1102,7 @@ fn instantiation_work_with_success_output() {
 					vec![],
 					Some(&[0 ;32]),
 					false,
+					BumpNonce::Yes,
 				),
 				Ok((address, ref output)) if output.data == vec![80, 65, 83, 83] => address
 			);
@@ -1141,6 +1116,13 @@ fn instantiation_work_with_success_output() {
 			assert_eq!(
 				ContractInfo::<Test>::load_code_hash(&instantiated_contract_id).unwrap(),
 				dummy_ch
+			);
+			assert_eq!(
+				&events(),
+				&[Event::Instantiated {
+					deployer: ALICE_ADDR,
+					contract: instantiated_contract_address
+				}]
 			);
 		});
 }
@@ -1172,6 +1154,7 @@ fn instantiation_fails_with_failing_output() {
 					vec![],
 					Some(&[0; 32]),
 					false,
+					BumpNonce::Yes,
 				),
 				Ok((address, ref output)) if output.data == vec![70, 65, 73, 76] => address
 			);
@@ -1332,6 +1315,7 @@ fn termination_from_instantiate_fails() {
 					vec![],
 					Some(&[0; 32]),
 					false,
+					BumpNonce::Yes,
 				),
 				Err(ExecError {
 					error: Error::<Test>::TerminatedInConstructor.into(),
@@ -1458,6 +1442,7 @@ fn recursive_call_during_constructor_is_balance_transfer() {
 				vec![],
 				Some(&[0; 32]),
 				false,
+				BumpNonce::Yes,
 			);
 			assert_matches!(result, Ok(_));
 		});
@@ -1684,6 +1669,7 @@ fn nonce() {
 				vec![],
 				Some(&[0; 32]),
 				false,
+				BumpNonce::Yes,
 			)
 			.ok();
 			assert_eq!(System::account_nonce(&ALICE), 0);
@@ -1697,6 +1683,7 @@ fn nonce() {
 				vec![],
 				Some(&[0; 32]),
 				false,
+				BumpNonce::Yes,
 			));
 			assert_eq!(System::account_nonce(&ALICE), 1);
 
@@ -1709,6 +1696,7 @@ fn nonce() {
 				vec![],
 				Some(&[0; 32]),
 				false,
+				BumpNonce::Yes,
 			));
 			assert_eq!(System::account_nonce(&ALICE), 2);
 
@@ -1721,6 +1709,7 @@ fn nonce() {
 				vec![],
 				Some(&[0; 32]),
 				false,
+				BumpNonce::Yes,
 			));
 			assert_eq!(System::account_nonce(&ALICE), 3);
 		});
@@ -2700,6 +2689,7 @@ fn immutable_data_set_overrides() {
 				vec![],
 				None,
 				false,
+				BumpNonce::Yes,
 			)
 			.unwrap()
 			.0;
