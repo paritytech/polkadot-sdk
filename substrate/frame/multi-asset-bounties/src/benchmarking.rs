@@ -118,7 +118,7 @@ fn setup_bounty<T: Config<I>, I: 'static>(description: u32) -> BenchmarkBounty<T
 	let child_curator = account("child-curator", 1, SEED);
 	let beneficiary =
 		<T as Config<I>>::BenchmarkHelper::create_beneficiary([(SEED).try_into().unwrap(); 32]);
-	T::BalanceConverter::ensure_successful(s.asset_kind.clone());
+	T::BalanceConverter::ensure_successful(asset_kind.clone());
 	let curator_deposit =
 		Pallet::<T, I>::calculate_curator_deposit(&value, asset_kind.clone()).expect("");
 	let _ = T::Currency::make_free_balance_be(
