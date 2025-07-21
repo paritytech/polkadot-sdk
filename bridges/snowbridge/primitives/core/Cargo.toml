@@ -17,9 +17,9 @@ exclude-from-umbrella = true
 [dependencies]
 codec = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
-log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["alloc", "derive"], workspace = true }
+tracing = { workspace = true }
 
 polkadot-parachain-primitives = { workspace = true }
 xcm = { workspace = true }

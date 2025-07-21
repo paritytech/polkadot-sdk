@@ -13,9 +13,9 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true }
-log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, workspace = true }
+tracing = { workspace = true }
 
 # Bridge Dependencies
 bp-beefy = { workspace = true }
