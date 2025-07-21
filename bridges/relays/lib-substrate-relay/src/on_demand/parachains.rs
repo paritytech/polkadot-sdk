@@ -138,13 +138,13 @@ where
 
 	async fn require_more_headers(&self, required_header: BlockNumberOf<P::SourceParachain>) {
 		if let Err(e) = self.required_header_number_sender.send(required_header).await {
-			log::trace!(
+			tracing::trace!(
 				target: "bridge",
-				"[{}] Failed to request {} header {:?}: {:?}",
+				error=?e,
+				header=?required_header,
+				"[{}] Failed to request {}",
 				self.relay_task_name,
 				P::SourceParachain::NAME,
-				required_header,
-				e,
 			);
 		}
 	}
@@ -163,14 +163,12 @@ where
 		let (need_to_prove_relay_block, selected_relay_block, selected_parachain_block) =
 			select_headers_to_prove(env, required_parachain_header).await?;
 
-		log::debug!(
+		tracing::debug!(
 			target: "bridge",
-			"[{}] Requested to prove {} head {:?}. Selected to prove {} head {:?} and {} head {:?}",
+			"[{}] Requested to prove {} head {required_parachain_header:?}. Selected to prove {} head {selected_parachain_block:?} and {} head {:?}",
 			self.relay_task_name,
 			P::SourceParachain::NAME,
-			required_parachain_header,
 			P::SourceParachain::NAME,
-			selected_parachain_block,
 			P::SourceRelayChain::NAME,
 			if need_to_prove_relay_block {
 				Some(selected_relay_block)
@@ -208,18 +206,14 @@ where
 					)
 				})?;
 
-			log::debug!(
+			tracing::debug!(
 				target: "bridge",
-				"[{}] Selected to prove {} head {:?} and {} head {:?}. Instead proved {} head {:?} and {} head {:?}",
+				"[{}] Selected to prove {} head {selected_parachain_block:?} and {} head {selected_relay_block:?}. Instead proved {} head {proved_parachain_block:?} and {} head {proved_relay_block:?}",
 				self.relay_task_name,
 				P::SourceParachain::NAME,
-				selected_parachain_block,
 				P::SourceRelayChain::NAME,
-				selected_relay_block,
 				P::SourceParachain::NAME,
-				proved_parachain_block,
 				P::SourceRelayChain::NAME,
-				proved_relay_block,
 			);
 		}
 
@@ -279,11 +273,10 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 				let new_required_parachain_header_number = match new_required_parachain_header_number {
 					Ok(new_required_parachain_header_number) => new_required_parachain_header_number,
 					Err(e) => {
-						log::error!(
+						tracing::error!(
 							target: "bridge",
-							"[{}] Background task has exited with error: {:?}",
-							relay_task_name,
-							e,
+							error=?e,
+							"[{relay_task_name}] Background task has exited with error"
 						);
 
 						return;
@@ -294,12 +287,10 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 				// then we'll be submitting all previous headers as well (while required relay headers are
 				// delivered) and we want to avoid that (to reduce cost)
 				if new_required_parachain_header_number > required_parachain_header_number {
-					log::trace!(
+					tracing::trace!(
 						target: "bridge",
-						"[{}] More {} headers required. Going to sync up to the {}",
-						relay_task_name,
+						"[{relay_task_name}] More {} headers required. Going to sync up to the {new_required_parachain_header_number}",
 						P::SourceParachain::NAME,
-						new_required_parachain_header_number,
 					);
 
 					required_parachain_header_number = new_required_parachain_header_number;
@@ -346,13 +337,12 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 			Ok(relay_data) => {
 				let prev_relay_state = relay_state;
 				relay_state = select_headers_to_relay(&relay_data, relay_state);
-				log::trace!(
+				tracing::trace!(
 					target: "bridge",
-					"[{}] Selected new relay state: {:?} using old state {:?} and data {:?}",
-					relay_task_name,
-					relay_state,
-					prev_relay_state,
-					relay_data,
+					?relay_state,
+					old_state=?prev_relay_state,
+					data=?relay_data,
+					"[{relay_task_name}] Selected new relay state"
 				);
 			},
 			Err(failed_client) => {
@@ -390,15 +380,12 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 				relay_utils::STALL_TIMEOUT,
 			);
 
-			log::info!(
+			tracing::info!(
 				target: "bridge",
-				"[{}] Starting on-demand-parachains relay task\n\t\
-					Tx mortality: {:?} (~{}m)\n\t\
-					Stall timeout: {:?}",
-				relay_task_name,
-				target_transactions_mortality,
+				"[{relay_task_name}] Starting on-demand-parachains relay task\n\t\
+					Tx mortality: {target_transactions_mortality:?} (~{}m)\n\t\
+					Stall timeout: {stall_timeout:?}",
 				stall_timeout.as_secs_f64() / 60.0f64,
-				stall_timeout,
 			);
 
 			parachains_relay_task.set(
@@ -475,22 +462,22 @@ where
 		TargetClient<ParachainsPipelineAdapter<P>> + RelayClient<Error = SubstrateError>,
 {
 	let map_target_err = |e| {
-		log::error!(
+		tracing::error!(
 			target: "bridge",
+			error=?e,
 			"[{}] Failed to read relay data from {} client: {:?}",
 			on_demand_parachains_relay_name::<P::SourceParachain, P::TargetChain>(),
 			P::TargetChain::NAME,
-			e,
 		);
 		FailedClient::Target
 	};
 	let map_source_err = |e| {
-		log::error!(
+		tracing::error!(
 			target: "bridge",
+			error=?e,
 			"[{}] Failed to read relay data from {} client: {:?}",
 			on_demand_parachains_relay_name::<P::SourceParachain, P::TargetChain>(),
 			P::SourceRelayChain::NAME,
-			e,
 		);
 		FailedClient::Source
 	};

@@ -227,7 +227,7 @@ where
 	let relayer_id_at_source: AccountIdOf<P::SourceChain> =
 		params.source_transaction_params.signer.public().into();
 
-	log::info!(
+	tracing::info!(
 		target: "bridge",
 		"Starting {} -> {} messages relay.\n\t\
 			{} relayer account id: {:?}\n\t\
@@ -423,7 +423,7 @@ where
 		if trace_call {
 			// this trace isn't super-accurate, because limits are for transactions and we
 			// have a call here, but it provides required information
-			log::trace!(
+			tracing::trace!(
 				target: "bridge",
 				"Prepared {} -> {} messages delivery call. Weight: {}/{}, size: {}/{}",
 				P::SourceChain::NAME,
@@ -516,7 +516,7 @@ where
 		if trace_call {
 			// this trace isn't super-accurate, because limits are for transactions and we
 			// have a call here, but it provides required information
-			log::trace!(
+			tracing::trace!(
 				target: "bridge",
 				"Prepared {} -> {} delivery confirmation transaction. Weight: {}/{}, size: {}/{}",
 				P::TargetChain::NAME,

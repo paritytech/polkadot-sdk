@@ -221,7 +221,7 @@ where
 
 		// We don't refund anything if the transaction has failed.
 		if let Err(e) = result {
-			log::trace!(
+			tracing::trace!(
 				target: LOG_TARGET,
 				"{}.{:?}: relayer {:?} has submitted invalid messages transaction: {:?}",
 				Self::IDENTIFIER,
@@ -346,7 +346,7 @@ where
 			priority::compute_priority_boost::<C::PriorityBoostPerMessage>(bundled_messages);
 		let valid_transaction = ValidTransactionBuilder::default().priority(priority_boost);
 
-		log::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
 			"{}.{:?}: has boosted priority of message delivery transaction \
 			of relayer {:?}: {} messages -> {} priority",
@@ -370,7 +370,7 @@ where
 		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		Ok(val.inspect(|data| {
-			log::trace!(
+			tracing::trace!(
 				target: LOG_TARGET,
 				"{}.{:?}: parsed bridge transaction in prepare: {:?}",
 				Self::IDENTIFIER,
@@ -399,7 +399,7 @@ where
 					reward,
 				);
 
-				log::trace!(
+				tracing::trace!(
 					target: LOG_TARGET,
 					"{}.{:?}: has registered reward: {:?} for {:?}",
 					Self::IDENTIFIER,
@@ -437,7 +437,7 @@ where
 	if !MessagesCallHelper::<C::Runtime, C::BridgeMessagesPalletInstance>::was_successful(
 		messages_call,
 	) {
-		log::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
 			"{}.{:?}: relayer {:?} has submitted invalid messages call",
 			C::IdProvider::STR,

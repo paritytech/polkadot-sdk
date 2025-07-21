@@ -157,7 +157,7 @@ pub mod pallet {
 					} else if let Some(to_reserve) = required_stake.checked_sub(&registration.stake)
 					{
 						T::StakeAndSlash::reserve(&relayer, to_reserve).map_err(|e| {
-							log::trace!(
+							tracing::trace!(
 								target: LOG_TARGET,
 								"Failed to reserve {:?} on relayer {:?} account: {:?}",
 								to_reserve,
@@ -170,7 +170,7 @@ pub mod pallet {
 					}
 					registration.stake = required_stake;
 
-					log::trace!(target: LOG_TARGET, "Successfully registered relayer: {:?}", relayer);
+					tracing::trace!(target: LOG_TARGET, "Successfully registered relayer: {:?}", relayer);
 					Self::deposit_event(Event::<T, I>::RegistrationUpdated {
 						relayer: relayer.clone(),
 						registration,
@@ -211,7 +211,7 @@ pub mod pallet {
 						Self::do_unreserve(&relayer, registration.stake)?;
 					}
 
-					log::trace!(target: LOG_TARGET, "Successfully deregistered relayer: {:?}", relayer);
+					tracing::trace!(target: LOG_TARGET, "Successfully deregistered relayer: {:?}", relayer);
 					Self::deposit_event(Event::<T, I>::Deregistered { relayer: relayer.clone() });
 
 					*maybe_registration = None;
@@ -278,7 +278,7 @@ pub mod pallet {
 						beneficiary.clone(),
 					)
 					.map_err(|e| {
-						log::error!(
+						tracing::error!(
 							target: LOG_TARGET,
 							"Failed to pay ({:?} / {:?}) rewards to {:?}(beneficiary: {:?}), error: {:?}",
 							reward_kind,
@@ -338,7 +338,7 @@ pub mod pallet {
 			let registration = match RegisteredRelayers::<T, I>::take(relayer) {
 				Some(registration) => registration,
 				None => {
-					log::trace!(
+					tracing::trace!(
 						target: crate::LOG_TARGET,
 						"Cannot slash unregistered relayer {:?}",
 						relayer,
@@ -355,7 +355,7 @@ pub mod pallet {
 				registration.stake,
 			) {
 				Ok(failed_to_slash) if failed_to_slash.is_zero() => {
-					log::trace!(
+					tracing::trace!(
 						target: crate::LOG_TARGET,
 						"Relayer account {:?} has been slashed for {:?}. Funds were deposited to {:?}",
 						relayer,
@@ -364,7 +364,7 @@ pub mod pallet {
 					);
 				},
 				Ok(failed_to_slash) => {
-					log::trace!(
+					tracing::trace!(
 						target: crate::LOG_TARGET,
 						"Relayer account {:?} has been partially slashed for {:?}. Funds were deposited to {:?}. \
 						Failed to slash: {:?}",
@@ -379,7 +379,7 @@ pub mod pallet {
 
 					// it may fail if there's no beneficiary account. For us, it means that this
 					// account must exist before we'll deploy the bridge
-					log::debug!(
+					tracing::debug!(
 						target: crate::LOG_TARGET,
 						"Failed to slash relayer account {:?}: {:?}. Maybe beneficiary account doesn't exist? \
 						Beneficiary: {:?}, amount: {:?}, failed to slash: {:?}",
@@ -416,7 +416,7 @@ pub mod pallet {
 						old_reward.unwrap_or_else(Zero::zero).saturating_add(reward_balance);
 					*old_reward = Some(new_reward);
 
-					log::trace!(
+					tracing::trace!(
 						target: crate::LOG_TARGET,
 						"Relayer {:?} can now claim reward for serving payer {:?}: {:?}",
 						relayer,
@@ -455,7 +455,7 @@ pub mod pallet {
 		fn do_unreserve(relayer: &T::AccountId, amount: T::Balance) -> DispatchResult {
 			let failed_to_unreserve = T::StakeAndSlash::unreserve(relayer, amount);
 			if !failed_to_unreserve.is_zero() {
-				log::trace!(
+				tracing::trace!(
 					target: LOG_TARGET,
 					"Failed to unreserve {:?}/{:?} on relayer {:?} account",
 					failed_to_unreserve,

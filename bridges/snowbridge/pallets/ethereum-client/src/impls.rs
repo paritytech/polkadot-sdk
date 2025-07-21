@@ -36,9 +36,9 @@ impl<T: Config> Verifier for Pallet<T> {
 		};
 
 		if !receipt.contains_log(&event_log) {
-			log::error!(
+			tracing::error!(
 				target: "ethereum-client",
-				"💫 Event log not found in receipt for transaction",
+				"💫 Event log not found in receipt for transaction"
 			);
 			return Err(LogNotFound)
 		}
@@ -59,10 +59,10 @@ impl<T: Config> Pallet<T> {
 		match result {
 			Ok(receipt) => Ok(receipt),
 			Err(err) => {
-				log::trace!(
+				tracing::trace!(
 					target: "ethereum-client",
-					"💫 Failed to decode transaction receipt: {}",
-					err
+					error=%err,
+					"💫 Failed to decode transaction receipt"
 				);
 				Err(InvalidProof)
 			},

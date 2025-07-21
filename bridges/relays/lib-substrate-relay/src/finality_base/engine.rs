@@ -271,7 +271,7 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 			(justification.commit.target_hash, justification.commit.target_number);
 
 		let initial_header = Self::source_header(&source_client, initial_header_hash).await?;
-		log::trace!(target: "bridge", "Selected {} initial header: {}/{}",
+		tracing::trace!(target: "bridge", "Selected {} initial header: {}/{}",
 			C::NAME,
 			initial_header_number,
 			initial_header_hash,
@@ -280,7 +280,7 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 		// Read GRANDPA authorities set at initial header.
 		let initial_authorities_set =
 			Self::source_authorities_set(&source_client, initial_header_hash).await?;
-		log::trace!(target: "bridge", "Selected {} initial authorities set: {:?}",
+		tracing::trace!(target: "bridge", "Selected {} initial authorities set: {:?}",
 			C::NAME,
 			initial_authorities_set,
 		);
@@ -302,7 +302,7 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 		if schedules_change {
 			authorities_for_verification =
 				Self::source_authorities_set(&source_client, *initial_header.parent_hash()).await?;
-			log::trace!(
+			tracing::trace!(
 				target: "bridge",
 				"Selected {} header is scheduling GRANDPA authorities set changes. Using previous set: {:?}",
 				C::NAME,
@@ -314,7 +314,7 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 		let mut initial_authorities_set_id = 0;
 		let mut min_possible_block_number = C::BlockNumber::zero();
 		loop {
-			log::trace!(
+			tracing::trace!(
 				target: "bridge", "Trying {} GRANDPA authorities set id: {}",
 				C::NAME,
 				initial_authorities_set_id,

@@ -119,7 +119,7 @@ impl<C: Chain> RpcClient<C> {
 		loop {
 			match Self::try_connect(params.clone()).await {
 				Ok(client) => return client,
-				Err(error) => log::error!(
+				Err(error) => tracing::error!(
 					target: "bridge",
 					"Failed to connect to {} node: {:?}. Going to retry in {}s",
 					C::NAME,
@@ -177,7 +177,7 @@ impl<C: Chain> RpcClient<C> {
 				Err(Error::WaitingForRuntimeUpgrade { chain: C::NAME.into(), expected, actual }),
 			Ordering::Equal => Ok(()),
 			Ordering::Greater => {
-				log::error!(
+				tracing::error!(
 					target: "bridge",
 					"The {} client is configured to use runtime version {expected:?} and actual \
 					version is {actual:?}. Aborting",
@@ -195,7 +195,7 @@ impl<C: Chain> RpcClient<C> {
 	) -> Result<(Arc<tokio::runtime::Runtime>, Arc<WsClient>)> {
 		let tokio = tokio::runtime::Runtime::new()?;
 		let uri = params.uri.clone();
-		log::info!(target: "bridge", "Connecting to {} node at {}", C::NAME, uri);
+		tracing::info!(target: "bridge", "Connecting to {} node at {}", C::NAME, uri);
 
 		let client = tokio
 			.spawn(async move {
@@ -482,10 +482,10 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 			let tx_hash = SubstrateAuthorClient::<C>::submit_extrinsic(&*client, transaction)
 				.await
 				.map_err(|e| {
-					log::error!(target: "bridge", "Failed to send transaction to {} node: {:?}", C::NAME, e);
+					tracing::error!(target: "bridge", "Failed to send transaction to {} node: {:?}", C::NAME, e);
 					e
 				})?;
-			log::trace!(target: "bridge", "Sent transaction to {} node: {:?}", C::NAME, tx_hash);
+			tracing::trace!(target: "bridge", "Sent transaction to {} node: {:?}", C::NAME, tx_hash);
 			Ok(tx_hash)
 		})
 		.await
@@ -562,10 +562,10 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 				)
 				.await
 				.map_err(|e| {
-					log::error!(target: "bridge", "Failed to send transaction to {} node: {:?}", C::NAME, e);
+					tracing::error!(target: "bridge", "Failed to send transaction to {} node: {:?}", C::NAME, e);
 					e
 				})?;
-			log::trace!(target: "bridge", "Sent transaction to {} node: {:?}", C::NAME, tx_hash);
+			tracing::trace!(target: "bridge", "Sent transaction to {} node: {:?}", C::NAME, tx_hash);
 			Ok(TransactionTracker::new(
 				self_clone,
 				stall_timeout,
