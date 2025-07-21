@@ -136,9 +136,9 @@ fn construct_and_apply_extrinsic(
 }
 
 fn construct_and_estimate_extrinsic_fee(call: RuntimeCall) -> Balance {
-    let info = call.get_dispatch_info();
-    let xt = construct_extrinsic(Alice, call);
-    TransactionPayment::compute_fee(xt.encoded_size() as _, &info, 0)
+	let info = call.get_dispatch_info();
+	let xt = construct_extrinsic(Alice, call);
+	TransactionPayment::compute_fee(xt.encoded_size() as _, &info, 0)
 }
 
 #[test]
@@ -1444,7 +1444,10 @@ mod bridge_to_westend_tests {
 		ParachainSystem, PolkadotXcm, Runtime, RuntimeEvent, RuntimeOrigin,
 	};
 	use bp_runtime::{HeaderOf, RangeInclusiveExt};
-	use bridge_hub_test_utils::{mock_open_hrmp_channel, test_cases};
+	use bridge_hub_test_utils::{
+		mock_open_hrmp_channel,
+		test_cases::{self, ToMessageQueueDelivery, ToSiblingDelivery},
+	};
 	use codec::Decode;
 	use cumulus_primitives_core::UpwardMessageSender;
 	use frame_support::{
@@ -1454,7 +1457,7 @@ mod bridge_to_westend_tests {
 	use pallet_bridge_messages::BridgedChainOf;
 	use sp_runtime::Perbill;
 	use testnet_parachains_constants::westend::fee::WeightToFee;
-	use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH};
+	use xcm::latest::prelude::*;
 	use xcm_builder::{CreateMatcher, MatchXcm};
 
 	// Random para id of sibling chain used in tests.
@@ -1575,38 +1578,41 @@ mod bridge_to_westend_tests {
 
 	type RuntimeTestsAdapter = bridge_hub_test_utils::test_cases::WithBridgeMessagesHelperAdapter<
 		Runtime,
-		AllPalletsWithoutSystem,
 		WithAssetHubWestendMessagesInstance,
 		BridgeRelayersInstance,
+		(ToMessageQueueDelivery<Runtime>, ToSiblingDelivery<Runtime>),
 	>;
 
 	#[test]
-	fn relayed_incoming_message_works() {
+	fn for_here_bridge_relayed_incoming_message_works() {
+		// In case AssetHub has directly opened a bridge, for example, an AH-to-AH bridge.
+		let here_location = Location::here();
+
 		bridge_hub_test_utils::test_cases::relayed_incoming_message_proofs_works::<
 			RuntimeTestsAdapter,
 		>(
 			collator_session_keys(),
-			slot_durations(),
 			bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID,
-			SIBLING_PARACHAIN_ID,
-			ByGenesis(ROCOCO_GENESIS_HASH),
+			here_location.clone(),
 			|| {
-				// we need to create lane between sibling parachain and remote destination
+				// we need to create a lane between sibling parachain and remote destination
 				bridge_hub_test_utils::ensure_opened_xcm_bridge::<
 					Runtime,
 					XcmOverAssetHubWestendInstance,
 					LocationToAccountId,
 					TokenLocation,
 				>(
-					SiblingParachainLocation::get(),
+					here_location.clone(),
 					BridgedUniversalLocation::get(),
-					true,
+					false,
 					|locations, fee| {
 						bridge_hub_test_utils::open_xcm_bridge_with_extrinsic::<
 							Runtime,
 							XcmOverAssetHubWestendInstance,
 						>(
-							(SiblingParachainLocation::get(), OriginKind::Xcm),
+							// This should represent `RuntimeOrigin::root()` which represents
+							// `Location::here()` for `OpenBridgeOrigin`
+							(Location::parent(), OriginKind::Superuser),
 							locations.bridge_destination_universal_location().clone(),
 							fee,
 						)
@@ -1616,7 +1622,68 @@ mod bridge_to_westend_tests {
 			},
 			|proof_state_root| {
 				use bridge_hub_test_utils::test_cases::WithBridgeMessagesHelper;
-				// create bridged header
+				// create a bridged header
+				let bridged_header = bridge_hub_test_utils::test_header_with_root::<
+					HeaderOf<
+						BridgedChainOf<
+							<RuntimeTestsAdapter as WithBridgeMessagesHelper>::Runtime,
+							<RuntimeTestsAdapter as WithBridgeMessagesHelper>::MPI,
+						>,
+					>,
+				>(5, proof_state_root);
+				let bridged_header_hash = bridged_header.hash();
+
+				// Store proof_state_root + bridged_header_hash.
+				AssetHubWestendProofRootStore::do_note_new_roots(BoundedVec::truncate_from(vec![
+					(bridged_header_hash, proof_state_root),
+				]));
+
+				bridged_header_hash
+			},
+			construct_and_apply_extrinsic,
+			true,
+			true,
+		)
+	}
+
+	#[test]
+	fn for_sibling_parachain_bridge_relayed_incoming_message_works() {
+		// In case sibling parachain has opened a bridge, for example, an AH-to-Penpal bridge.
+		let sibling_parachain_location = SiblingParachainLocation::get();
+
+		bridge_hub_test_utils::test_cases::relayed_incoming_message_proofs_works::<
+			RuntimeTestsAdapter,
+		>(
+			collator_session_keys(),
+			bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID,
+			sibling_parachain_location.clone(),
+			|| {
+				// we need to create a lane between sibling parachain and remote destination
+				bridge_hub_test_utils::ensure_opened_xcm_bridge::<
+					Runtime,
+					XcmOverAssetHubWestendInstance,
+					LocationToAccountId,
+					TokenLocation,
+				>(
+					sibling_parachain_location.clone(),
+					BridgedUniversalLocation::get(),
+					true,
+					|locations, fee| {
+						bridge_hub_test_utils::open_xcm_bridge_with_extrinsic::<
+							Runtime,
+							XcmOverAssetHubWestendInstance,
+						>(
+							(sibling_parachain_location.clone(), OriginKind::Xcm),
+							locations.bridge_destination_universal_location().clone(),
+							fee,
+						)
+					},
+				)
+				.1
+			},
+			|proof_state_root| {
+				use bridge_hub_test_utils::test_cases::WithBridgeMessagesHelper;
+				// create a bridged header
 				let bridged_header = bridge_hub_test_utils::test_header_with_root::<
 					HeaderOf<
 						BridgedChainOf<

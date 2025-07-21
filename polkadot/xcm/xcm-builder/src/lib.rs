@@ -128,7 +128,8 @@ pub use process_xcm_message::ProcessXcmMessage;
 
 mod routing;
 pub use routing::{
-	EnsureDecodableXcm, EnsureDelivery, InspectMessageQueues, WithTopicSource, WithUniqueTopic,
+	EnsureDecodableXcm, EnsureDelivery, InspectMessageQueues, MessageQueueRouterFor,
+	WithTopicSource, WithUniqueTopic,
 };
 
 mod transactional;
