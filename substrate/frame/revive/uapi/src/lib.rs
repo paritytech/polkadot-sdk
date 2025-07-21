@@ -42,6 +42,15 @@ pub const fn u256_bytes(value: u64) -> [u8; 32] {
 	buffer
 }
 
+/// Convert a 32-byte array from big-endian to little-endian.
+pub fn big_to_little_endian(input: &[u8; 32]) -> [u8; 32] {
+	let mut output = [0u8; 32];
+	for i in 0..32 {
+		output[i] = input[31 - i];
+	}
+	output
+}
+
 macro_rules! define_error_codes {
     (
         $(

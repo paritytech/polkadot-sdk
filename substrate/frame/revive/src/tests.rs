@@ -26,16 +26,14 @@ use crate::{
 	exec::Key,
 	limits,
 	storage::DeletionQueueManager,
-	test_utils::*,
+	test_utils::{builder::Contract, *},
 	tests::test_utils::{get_contract, get_contract_checked},
 	tracing::trace,
 	weights::WeightInfo,
 	AccountId32Mapper, BalanceOf, BumpNonce, Code, CodeInfoOf, Config, ContractInfo,
 	ContractInfoOf, DeletionQueueCounter, DepositLimit, Error, EthTransactError, HoldReason,
-	Origin, Pallet, PristineCode, H160,
+	Origin, Pallet, PristineCode, H160, U256,
 };
-
-use crate::test_utils::builder::Contract;
 use assert_matches::assert_matches;
 use codec::Encode;
 use frame_support::{
@@ -55,7 +53,6 @@ use pallet_revive_fixtures::compile_module;
 use pallet_revive_uapi::{ReturnErrorCode as RuntimeReturnCode, ReturnFlags};
 use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
 use pretty_assertions::{assert_eq, assert_ne};
-use sp_core::U256;
 use sp_io::hashing::blake2_256;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
@@ -101,7 +98,7 @@ pub mod test_utils {
 	};
 	use codec::{Encode, MaxEncodedLen};
 	use frame_support::traits::fungible::{InspectHold, Mutate};
-	use sp_core::H160;
+	use sp_core::{H160, U256};
 
 	pub fn place_contract(address: &AccountIdOf<Test>, code_hash: sp_core::H256) {
 		set_balance(address, Contracts::min_balance() * 10);
@@ -168,11 +165,8 @@ pub mod test_utils {
 		// Assert that contract code is stored, and get its size.
 		PristineCode::<Test>::try_get(&code_hash).unwrap().len()
 	}
-	pub fn u256_bytes(u: u64) -> [u8; 32] {
-		let mut buffer = [0u8; 32];
-		let bytes = u.to_le_bytes();
-		buffer[..8].copy_from_slice(&bytes);
-		buffer
+	pub fn u256_be_bytes(u: u64) -> [u8; 32] {
+		U256::from(u).to_big_endian().try_into().expect("U256 is 32 bytes long; qed")
 	}
 }
 
@@ -1376,7 +1370,7 @@ fn transfer_return_code() {
 
 #[test]
 fn call_return_code() {
-	use test_utils::u256_bytes;
+	use test_utils::u256_be_bytes;
 
 	let (caller_code, _caller_hash) = compile_module("call_return_code").unwrap();
 	let (callee_code, _callee_hash) = compile_module("ok_trap_revert").unwrap();
@@ -1394,7 +1388,7 @@ fn call_return_code() {
 		// reasoning is that this error state does not exist on eth where
 		// ed does not exist. We hide this fact from the contract.
 		let result = builder::bare_call(bob.addr)
-			.data((DJANGO_ADDR, u256_bytes(1)).encode())
+			.data((DJANGO_ADDR, u256_be_bytes(1)).encode())
 			.origin(RuntimeOrigin::signed(BOB))
 			.build();
 		assert_err!(result.result, <Error<Test>>::StorageDepositNotEnoughFunds);
@@ -1406,7 +1400,7 @@ fn call_return_code() {
 			.data(
 				AsRef::<[u8]>::as_ref(&DJANGO_ADDR)
 					.iter()
-					.chain(&u256_bytes(min_balance * 200))
+					.chain(&u256_be_bytes(min_balance * 200))
 					.cloned()
 					.collect(),
 			)
@@ -1421,7 +1415,7 @@ fn call_return_code() {
 			.data(
 				AsRef::<[u8]>::as_ref(&DJANGO_ADDR)
 					.iter()
-					.chain(&u256_bytes(1))
+					.chain(&u256_be_bytes(1))
 					.cloned()
 					.collect(),
 			)
@@ -1440,7 +1434,7 @@ fn call_return_code() {
 			.data(
 				AsRef::<[u8]>::as_ref(&django.addr)
 					.iter()
-					.chain(&u256_bytes(min_balance * 300))
+					.chain(&u256_be_bytes(min_balance * 300))
 					.chain(&0u32.to_le_bytes())
 					.cloned()
 					.collect(),
@@ -1454,7 +1448,7 @@ fn call_return_code() {
 			.data(
 				AsRef::<[u8]>::as_ref(&django.addr)
 					.iter()
-					.chain(&u256_bytes(5))
+					.chain(&u256_be_bytes(5))
 					.chain(&1u32.to_le_bytes())
 					.cloned()
 					.collect(),
@@ -1467,7 +1461,7 @@ fn call_return_code() {
 			.data(
 				AsRef::<[u8]>::as_ref(&django.addr)
 					.iter()
-					.chain(&u256_bytes(5))
+					.chain(&u256_be_bytes(5))
 					.chain(&2u32.to_le_bytes())
 					.cloned()
 					.collect(),
