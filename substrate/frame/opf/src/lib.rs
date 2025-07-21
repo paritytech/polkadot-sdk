@@ -456,7 +456,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		pub(crate) fn on_poll_end_round() {
 			let Some(round_info) = Round::<T>::get() else {
-				defensive!("This function must be called when a round is ending");
+				defensive!("This function must be called when ending an existing round");
 				return
 			};
 
@@ -530,6 +530,8 @@ pub mod pallet {
 			if reset {
 				vote_record_state.reset_round = Some(round_index);
 			}
+			// Note: if the forwarding of previous rounds is not finished, we just restart from
+			// the beginning.
 			vote_record_state.forwarding = ForwardingProcess::Start;
 			VotesForwardingState::<T>::put(vote_record_state);
 		}
@@ -554,6 +556,7 @@ pub mod pallet {
 				ForwardingProcess::Finished => return,
 			};
 
+			// This is an arbitrary limit, the loop is constraint by the weight meter.
 			for _ in 0..10_000 {
 				if weight.try_consume(loop_weight).is_err() {
 					return;
@@ -594,62 +597,18 @@ pub mod pallet {
 
 			VotesForwardingState::<T>::put(vote_record_state);
 		}
-	}
 
-	impl<T: Config> frame_support::traits::Polling<TallyFor<T>> for Pallet<T> {
-		type Index = PollIndex;
-		type Class = Class;
-		type Votes = pallet_conviction_voting::BalanceOf<T, T::ConvictionVotingInstance>;
-		type Moment = pallet_conviction_voting::BlockNumberFor<T, T::ConvictionVotingInstance>;
-
-		fn classes() -> Vec<Self::Class> {
-			vec![Class]
-		}
-
-		fn as_ongoing(index: Self::Index) -> Option<(TallyFor<T>, Self::Class)> {
-			Polls::<T>::get(index.round_index(), index.project_index()).and_then(
-				|poll| match poll {
-					PollInfo::Ongoing(tally, class) => Some((tally, class)),
-					_ => None,
-				},
-			)
-		}
-		fn access_poll<R>(
-			index: Self::Index,
-			f: impl FnOnce(PollStatus<&mut TallyFor<T>, Self::Moment, Self::Class>) -> R,
-		) -> R {
-			match Polls::<T>::get(index.round_index(), index.project_index()) {
-				Some(PollInfo::Ongoing(ref mut tally, class)) => {
-					let positive_tally_before = tally.ayes.saturating_sub(tally.nays);
-					let r = f(PollStatus::Ongoing(tally, class.clone()));
-					let positive_tally_after = tally.ayes.saturating_sub(tally.nays);
-					if positive_tally_after != positive_tally_before {
-						if let Some(mut round_info) = Round::<T>::get().defensive() {
-							round_info.total_vote_amount = round_info
-								.total_vote_amount
-								.saturating_sub(positive_tally_before)
-								.saturating_add(positive_tally_after);
-							Round::<T>::put(round_info);
-						}
-					}
-					Polls::<T>::insert(
-						index.round_index(),
-						index.project_index(),
-						PollInfo::Ongoing(tally.clone(), class),
-					);
-					r
-				},
-				Some(PollInfo::Completed(moment, result)) =>
-					f(PollStatus::Completed(moment, result)),
-				None => f(PollStatus::None),
-			}
-		}
-		fn try_access_poll<R>(
-			index: Self::Index,
+		// Helper to implement both `access_poll` and `try_access_poll` in one function.
+		fn try_access_poll_inner<R, E>(
+			index: <Self as Polling<TallyFor<T>>>::Index,
 			f: impl FnOnce(
-				PollStatus<&mut TallyFor<T>, Self::Moment, Self::Class>,
-			) -> Result<R, DispatchError>,
-		) -> Result<R, DispatchError> {
+				PollStatus<
+					&mut TallyFor<T>,
+					<Self as Polling<TallyFor<T>>>::Moment,
+					<Self as Polling<TallyFor<T>>>::Class,
+				>,
+			) -> Result<R, E>,
+		) -> Result<R, E> {
 			match Polls::<T>::get(index.round_index(), index.project_index()) {
 				Some(PollInfo::Ongoing(ref mut tally, class)) => {
 					let positive_tally_before = tally.ayes.saturating_sub(tally.nays);
@@ -675,6 +634,43 @@ pub mod pallet {
 					f(PollStatus::Completed(moment, result)),
 				None => f(PollStatus::None),
 			}
+		}
+	}
+
+	impl<T: Config> frame_support::traits::Polling<TallyFor<T>> for Pallet<T> {
+		type Index = PollIndex;
+		type Class = Class;
+		type Votes = pallet_conviction_voting::BalanceOf<T, T::ConvictionVotingInstance>;
+		type Moment = pallet_conviction_voting::BlockNumberFor<T, T::ConvictionVotingInstance>;
+
+		fn classes() -> Vec<Self::Class> {
+			vec![Class]
+		}
+
+		fn as_ongoing(index: Self::Index) -> Option<(TallyFor<T>, Self::Class)> {
+			Polls::<T>::get(index.round_index(), index.project_index()).and_then(
+				|poll| match poll {
+					PollInfo::Ongoing(tally, class) => Some((tally, class)),
+					_ => None,
+				},
+			)
+		}
+		fn access_poll<R>(
+			index: Self::Index,
+			f: impl FnOnce(PollStatus<&mut TallyFor<T>, Self::Moment, Self::Class>) -> R,
+		) -> R {
+			pub enum Never {}
+			match Self::try_access_poll_inner::<R, Never>(index, |s| Ok(f(s))) {
+				Ok(r) => r,
+			}
+		}
+		fn try_access_poll<R>(
+			index: Self::Index,
+			f: impl FnOnce(
+				PollStatus<&mut TallyFor<T>, Self::Moment, Self::Class>,
+			) -> Result<R, DispatchError>,
+		) -> Result<R, DispatchError> {
+			Self::try_access_poll_inner::<R, DispatchError>(index, f)
 		}
 
 		#[cfg(feature = "runtime-benchmarks")]
