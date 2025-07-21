@@ -268,7 +268,7 @@ jobs:
         shell: bash
         run: |
           export DOCKER_IMAGES_VERSION=${{ github.event.pull_request.head.sha }}
-          if [[ ${{ github.event_name }} == "merge_group" || ${{ github.event_name }} == "workflow_dispatch" ]]; then
+          if [[ ${{ github.event_name }} == "merge_group" || ${{ github.event_name }} == "workflow_dispatch" || ${{ github.event_name }} == "push" ]]; then
             export DOCKER_IMAGES_VERSION="${GITHUB_SHA}";
           fi
           echo "DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION}" >> $GITHUB_OUTPUT
@@ -334,7 +334,7 @@ jobs:
           gh --version
 
           export SHA=${{ github.event.pull_request.head.sha }}
-          if [[ ${{ github.event_name }} == "merge_group" || ${{ github.event_name }} == "workflow_dispatch" ]]; then
+          if [[ ${{ github.event_name }} == "merge_group" || ${{ github.event_name }} == "workflow_dispatch" || ${{ github.event_name }} == "push" ]]; then
             # Full SHA is needed to query GH run status
             export SHA="${GITHUB_SHA}";
           fi

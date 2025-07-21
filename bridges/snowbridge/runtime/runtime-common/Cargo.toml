@@ -20,8 +20,6 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
 pallet-xcm = { workspace = true }
-snowbridge-core = { workspace = true }
-snowbridge-outbound-queue-primitives = { workspace = true }
 sp-arithmetic = { workspace = true }
 sp-std = { workspace = true }
 xcm = { workspace = true }
@@ -38,8 +36,6 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-xcm/std",
-	"snowbridge-core/std",
-	"snowbridge-outbound-queue-primitives/std",
 	"sp-arithmetic/std",
 	"sp-std/std",
 	"xcm-builder/std",
@@ -50,7 +46,6 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
-	"snowbridge-core/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
