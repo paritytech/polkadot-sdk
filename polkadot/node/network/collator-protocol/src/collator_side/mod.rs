@@ -105,6 +105,9 @@ const MAX_UNSHARED_UPLOAD_TIME: Duration = Duration::from_millis(150);
 /// Validators are obtained from [`ValidatorGroupsBuffer::validators_to_connect`].
 const RECONNECT_AFTER_LEAF_TIMEOUT: Duration = Duration::from_secs(4);
 
+/// Maximum number of parallel requests to send to the Chain API.
+const MAX_PARALLEL_CHAIN_API_REQUESTS: usize = 10;
+
 /// Future that when resolved indicates that we should update reserved peer-set
 /// of validators we want to be connected to.
 ///
@@ -1576,21 +1579,23 @@ async fn run_inner<Context>(
 					let maybe_finalized = state.collation_tracker.maybe_finalized_blocks(block);
 					if !maybe_finalized.is_empty() {
 						let sender = ctx.sender();
-						let futures = maybe_finalized.into_iter().map(|block_number| {
-							let mut sender = sender.clone();
-							async move {
-								let (tx, rx) = oneshot::channel();
-								sender.send_message(ChainApiMessage::FinalizedBlockHash(block_number, tx)).await;
-								match rx.await {
-									Ok(Ok(Some(hash))) => Some((block_number, hash)),
-									_ => {
-										gum::warn!(target: LOG_TARGET_STATS, ?block_number, "ChainApi request failed to get finalized block hash");
-										None
+						for chunk in maybe_finalized.as_slice().chunks(MAX_PARALLEL_CHAIN_API_REQUESTS) {
+							let futures = chunk.iter().map(|&block_number| {
+								let mut sender = sender.clone();
+								async move {
+									let (tx, rx) = oneshot::channel();
+									sender.send_message(ChainApiMessage::FinalizedBlockHash(block_number, tx)).await;
+									match rx.await {
+										Ok(Ok(Some(hash))) => Some((block_number, hash)),
+										_ => {
+											gum::warn!(target: LOG_TARGET_STATS, ?block_number, "ChainApi request failed to get finalized block hash");
+											None
+										}
 									}
 								}
-							}
-						});
-						finalized.extend(futures::future::join_all(futures).await.into_iter().filter_map(|x| x));
+							});
+							finalized.extend(futures::future::join_all(futures).await.into_iter().filter_map(|x| x));
+						}
 					}
 					state.collation_tracker.collations_finalized(finalized, &metrics);
 				}
