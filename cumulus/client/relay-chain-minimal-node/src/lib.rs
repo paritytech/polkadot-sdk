@@ -69,12 +69,14 @@ fn build_authority_discovery_service<Block: BlockT>(
 			_ => None,
 		}
 	});
+	let net_config_path = config.network.net_config_path.clone();
 	let (worker, service) = sc_authority_discovery::new_worker_and_service_with_config(
 		sc_authority_discovery::WorkerConfig {
 			publish_non_global_ips: auth_disc_publish_non_global_ips,
 			public_addresses: auth_disc_public_addresses,
 			// Require that authority discovery records are signed.
 			strict_record_validation: true,
+			persisted_cache_directory: net_config_path,
 			..Default::default()
 		},
 		client,
@@ -82,6 +84,7 @@ fn build_authority_discovery_service<Block: BlockT>(
 		Box::pin(dht_event_stream),
 		authority_discovery_role,
 		prometheus_registry,
+		task_manager.spawn_handle(),
 	);
 
 	task_manager.spawn_handle().spawn(

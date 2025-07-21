@@ -46,6 +46,7 @@ use sp_runtime::{
 };
 use std::collections::BTreeSet;
 
+mod consumer_limit_tests;
 mod currency_tests;
 mod dispatchable_tests;
 mod fungible_conformance_tests;
@@ -78,6 +79,9 @@ pub enum TestId {
 impl VariantCount for TestId {
 	const VARIANT_COUNT: u32 = 3;
 }
+
+pub(crate) type AccountId = <Test as frame_system::Config>::AccountId;
+pub(crate) type Balance = <Test as Config>::Balance;
 
 frame_support::construct_runtime!(
 	pub enum Test {
@@ -154,6 +158,11 @@ impl ExtBuilder {
 		self.dust_trap = Some(account);
 		self
 	}
+	#[cfg(feature = "try-runtime")]
+	pub fn auto_try_state(self, auto_try_state: bool) -> Self {
+		AutoTryState::set(auto_try_state);
+		self
+	}
 	pub fn set_associated_consts(&self) {
 		DUST_TRAP_TARGET.with(|v| v.replace(self.dust_trap));
 		EXISTENTIAL_DEPOSIT.with(|v| v.replace(self.existential_deposit));
@@ -189,9 +198,19 @@ impl ExtBuilder {
 	pub fn build_and_execute_with(self, f: impl Fn()) {
 		let other = self.clone();
 		UseSystem::set(false);
-		other.build().execute_with(|| f());
+		other.build().execute_with(|| {
+			f();
+			if AutoTryState::get() {
+				Balances::do_try_state(System::block_number()).unwrap();
+			}
+		});
 		UseSystem::set(true);
-		self.build().execute_with(|| f());
+		self.build().execute_with(|| {
+			f();
+			if AutoTryState::get() {
+				Balances::do_try_state(System::block_number()).unwrap();
+			}
+		});
 	}
 }
 
@@ -215,6 +234,7 @@ impl OnUnbalanced<CreditOf<Test, ()>> for DustTrap {
 
 parameter_types! {
 	pub static UseSystem: bool = false;
+	pub static AutoTryState: bool = true;
 }
 
 type BalancesAccountStore = StorageMapShim<super::Account<Test>, u64, super::AccountData<u64>>;
@@ -348,4 +368,25 @@ fn check_whitelist() {
 	assert!(whitelist.contains("c2261276cc9d1f8598ea4b6a74b15c2f1ccde6872881f893a21de93dfe970cd5"));
 	// Total Issuance
 	assert!(whitelist.contains("c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80"));
+}
+
+/// This pallet runs tests twice, once with system as `type AccountStore` and once this pallet. This
+/// function will return the right value based on the `UseSystem` flag.
+pub(crate) fn get_test_account_data(who: AccountId) -> AccountData<Balance> {
+	if UseSystem::get() {
+		<SystemAccountStore as StoredMap<_, _>>::get(&who)
+	} else {
+		<BalancesAccountStore as StoredMap<_, _>>::get(&who)
+	}
+}
+
+/// Same as `get_test_account_data`, but returns a `frame_system::AccountInfo` with the data filled
+/// in.
+pub(crate) fn get_test_account(
+	who: AccountId,
+) -> frame_system::AccountInfo<u32, AccountData<Balance>> {
+	let mut system_account = frame_system::Account::<Test>::get(&who);
+	let account_data = get_test_account_data(who);
+	system_account.data = account_data;
+	system_account
 }

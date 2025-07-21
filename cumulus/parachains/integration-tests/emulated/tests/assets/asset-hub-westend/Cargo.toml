@@ -43,4 +43,4 @@ parachains-common = { workspace = true, default-features = true }
 westend-system-emulated-network = { workspace = true }
 
 [dev-dependencies]
-sp-tracing = { features = ["test-utils"], workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
