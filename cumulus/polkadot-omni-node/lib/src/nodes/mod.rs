@@ -18,7 +18,6 @@ pub mod aura;
 mod manual_seal;
 
 use crate::common::spec::{DynNodeSpec, NodeSpec as NodeSpecT};
-use cumulus_primitives_core::ParaId;
 use manual_seal::ManualSealNode;
 use sc_service::{Configuration, TaskManager};
 
@@ -35,7 +34,6 @@ pub trait DynNodeSpecExt: DynNodeSpec {
 	fn start_manual_seal_node(
 		&self,
 		config: Configuration,
-		para_id: ParaId,
 		block_time: u64,
 	) -> sc_service::error::Result<TaskManager>;
 }
@@ -48,15 +46,14 @@ where
 	fn start_manual_seal_node(
 		&self,
 		config: Configuration,
-		para_id: ParaId,
 		block_time: u64,
 	) -> sc_service::error::Result<TaskManager> {
 		let node = ManualSealNode::<T>::new();
 		match config.network.network_backend {
 			sc_network::config::NetworkBackendType::Libp2p =>
-				node.start_node::<sc_network::NetworkWorker<_, _>>(config, para_id, block_time),
+				node.start_node::<sc_network::NetworkWorker<_, _>>(config, block_time),
 			sc_network::config::NetworkBackendType::Litep2p =>
-				node.start_node::<sc_network::Litep2pNetworkBackend>(config, para_id, block_time),
+				node.start_node::<sc_network::Litep2pNetworkBackend>(config, block_time),
 		}
 	}
 }

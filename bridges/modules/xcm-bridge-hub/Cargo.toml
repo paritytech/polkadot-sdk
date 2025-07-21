@@ -12,8 +12,8 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true }
-log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+tracing = { workspace = true }
 
 # Bridge Dependencies
 bp-messages = { workspace = true }
@@ -53,7 +53,6 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"pallet-balances/std",
 	"pallet-bridge-messages/std",
 	"pallet-xcm-bridge-hub-router/std",
@@ -63,6 +62,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"tracing/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",

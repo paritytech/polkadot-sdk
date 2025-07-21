@@ -18,7 +18,7 @@ use super::*;
 use frame_benchmarking::v2::*;
 use frame_support::{assert_ok, weights::Weight};
 use frame_system::RawOrigin;
-use xcm::latest::prelude::*;
+use xcm::{latest::prelude::*, MAX_INSTRUCTIONS_TO_DECODE};
 use xcm_builder::EnsureDelivery;
 use xcm_executor::traits::FeeReason;
 
@@ -470,7 +470,7 @@ mod benchmarks {
 		let bad_location: Location = Plurality { id: BodyId::Unit, part: BodyPart::Voice }.into();
 		let bad_location = VersionedLocation::from(bad_location)
 			.into_version(older_xcm_version)
-			.expect("Version convertion should work");
+			.expect("Version conversion should work");
 		let current_version = T::AdvertisedXcmVersion::get();
 		VersionNotifyTargets::<T>::insert(
 			current_version,
@@ -676,6 +676,20 @@ mod benchmarks {
 
 		#[extrinsic_call]
 		_(origin, Box::new(aliaser_to_remove));
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn weigh_message() -> Result<(), BenchmarkError> {
+		let msg = Xcm(vec![ClearOrigin; MAX_INSTRUCTIONS_TO_DECODE.into()]);
+		let versioned_msg = VersionedXcm::from(msg);
+
+		#[block]
+		{
+			crate::Pallet::<T>::query_xcm_weight(versioned_msg)
+				.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
+		}
 
 		Ok(())
 	}

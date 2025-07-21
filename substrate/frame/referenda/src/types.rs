@@ -100,7 +100,17 @@ impl<T: Ord, S: Get<u32>> InsertSorted<T> for BoundedVec<T, S> {
 	}
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct DecidingStatus<BlockNumber> {
 	/// When this referendum began being "decided". If confirming, then the
 	/// end will actually be delayed until the end of the confirmation period.
@@ -110,7 +120,17 @@ pub struct DecidingStatus<BlockNumber> {
 	pub confirming: Option<BlockNumber>,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct Deposit<AccountId, Balance> {
 	pub who: AccountId,
 	pub amount: Balance,
@@ -261,7 +281,17 @@ where
 }
 
 /// Info regarding an ongoing referendum.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub struct ReferendumStatus<
 	TrackId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 	RuntimeOrigin: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
@@ -298,7 +328,17 @@ pub struct ReferendumStatus<
 }
 
 /// Info regarding a referendum, present or past.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum ReferendumInfo<
 	TrackId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 	RuntimeOrigin: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
@@ -366,7 +406,7 @@ impl<
 	pub fn take_submission_deposit(&mut self) -> Result<Option<Deposit<AccountId, Balance>>, ()> {
 		use ReferendumInfo::*;
 		match self {
-			// Can only refund deposit if it's appoved or cancelled.
+			// Can only refund deposit if it's approved or cancelled.
 			Approved(_, s, _) | Cancelled(_, s, _) => Ok(s.take()),
 			// Cannot refund deposit if Ongoing as this breaks assumptions.
 			Ongoing(..) | Rejected(..) | TimedOut(..) | Killed(..) => Err(()),

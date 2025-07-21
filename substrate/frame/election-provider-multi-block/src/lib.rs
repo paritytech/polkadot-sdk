@@ -61,11 +61,14 @@
 //!
 //! ### Pallet Ordering:
 //!
+//! TODO: @kiaenigma: this needs clarification and a enforcement. Signed pallet should come first.
+//! Fixing this should yield removing `verifier_done` from the phase transition.
+//!
 //! The ordering of these pallets in a runtime should be:
-//! 1. parent
-//! 2. verifier
-//! 3. signed
-//! 4. unsigned
+//! * parent
+//! * verifier
+//! * signed
+//! * unsigned
 //!
 //! This is critical for the phase transition to work.
 //!
@@ -192,7 +195,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use crate::types::*;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{
 	onchain, BoundedSupportsOf, DataProviderBounds, ElectionDataProvider, ElectionProvider,
@@ -259,6 +261,7 @@ impl<T: Config> ElectionProvider for InitiateEmergencyPhase<T> {
 	type Pages = T::Pages;
 	type MaxBackersPerWinner = <T::Verifier as Verifier>::MaxBackersPerWinner;
 	type MaxWinnersPerPage = <T::Verifier as Verifier>::MaxWinnersPerPage;
+	type MaxBackersPerWinnerFinal = <T::Verifier as Verifier>::MaxBackersPerWinnerFinal;
 
 	fn elect(_page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		Pallet::<T>::phase_transition(Phase::Emergency);
@@ -304,9 +307,9 @@ impl<T: Config> ElectionProvider for Continue<T> {
 	type Pages = T::Pages;
 	type MaxBackersPerWinner = <T::Verifier as Verifier>::MaxBackersPerWinner;
 	type MaxWinnersPerPage = <T::Verifier as Verifier>::MaxWinnersPerPage;
+	type MaxBackersPerWinnerFinal = <T::Verifier as Verifier>::MaxBackersPerWinnerFinal;
 
 	fn elect(_page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
-		log!(warn, "'Continue' fallback will do nothing");
 		Err("'Continue' fallback will do nothing")
 	}
 
@@ -754,8 +757,9 @@ pub mod pallet {
 				"Signed phase not set correct -- both should be set or unset"
 			);
 			assert!(
-				signed_validation.is_zero() || signed_validation >= T::Pages::get().into(),
-				"signed validation phase should be at least as long as the number of pages."
+				signed_validation.is_zero() ||
+					signed_validation % T::Pages::get().into() == Zero::zero(),
+				"signed validation phase should be a multiple of the number of pages."
 			);
 
 			assert!(has_signed || has_unsigned, "either signed or unsigned phase must be set");
@@ -1138,10 +1142,10 @@ pub mod pallet {
 
 	/// Desired number of targets to elect for this round.
 	#[pallet::storage]
-	type DesiredTargets<T> = StorageMap<_, Twox64Concat, u32, u32>;
+	pub type DesiredTargets<T> = StorageMap<_, Twox64Concat, u32, u32>;
 	/// Paginated voter snapshot. At most [`T::Pages`] keys will exist.
 	#[pallet::storage]
-	type PagedVoterSnapshot<T: Config> = StorageDoubleMap<
+	pub type PagedVoterSnapshot<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		u32,
@@ -1153,13 +1157,13 @@ pub mod pallet {
 	///
 	/// The hash is generated using [`frame_system::Config::Hashing`].
 	#[pallet::storage]
-	type PagedVoterSnapshotHash<T: Config> =
+	pub type PagedVoterSnapshotHash<T: Config> =
 		StorageDoubleMap<_, Twox64Concat, u32, Twox64Concat, PageIndex, T::Hash>;
 	/// Paginated target snapshot.
 	///
 	/// For the time being, since we assume one pages of targets, at most ONE key will exist.
 	#[pallet::storage]
-	type PagedTargetSnapshot<T: Config> = StorageDoubleMap<
+	pub type PagedTargetSnapshot<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		u32,
@@ -1171,7 +1175,7 @@ pub mod pallet {
 	///
 	/// The hash is generated using [`frame_system::Config::Hashing`].
 	#[pallet::storage]
-	type PagedTargetSnapshotHash<T: Config> =
+	pub type PagedTargetSnapshotHash<T: Config> =
 		StorageDoubleMap<_, Twox64Concat, u32, Twox64Concat, PageIndex, T::Hash>;
 
 	#[pallet::pallet]
@@ -1519,6 +1523,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 	type Pages = T::Pages;
 	type MaxWinnersPerPage = <T::Verifier as Verifier>::MaxWinnersPerPage;
 	type MaxBackersPerWinner = <T::Verifier as Verifier>::MaxBackersPerWinner;
+	type MaxBackersPerWinnerFinal = <T::Verifier as Verifier>::MaxBackersPerWinnerFinal;
 
 	fn elect(remaining: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		match Self::status() {
@@ -1536,7 +1541,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 			.ok_or(ElectionError::SupportPageNotAvailable)
 			.or_else(|err: ElectionError<T>| {
 				log!(
-					warn,
+					debug,
 					"primary election for page {} failed due to: {:?}, trying fallback",
 					remaining,
 					err,
@@ -1548,7 +1553,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 				// anything else anymore. This will prevent any new submissions to signed and
 				// unsigned pallet, and thus the verifier will also be almost stuck, except for the
 				// submission of emergency solutions.
-				log!(warn, "primary and fallback ({:?}) failed for page {:?}", err, remaining);
+				log!(debug, "fallback also ({:?}) failed for page {:?}", err, remaining);
 				err
 			})
 			.map(|supports| {
@@ -1561,7 +1566,6 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 			log!(error, "Emergency phase triggered, halting the election.");
 		} else {
 			if remaining.is_zero() {
-				log!(info, "receiving last call to elect(0), rotating round");
 				Self::rotate_round()
 			} else {
 				Self::phase_transition(Phase::Export(remaining - 1))
@@ -1617,7 +1621,6 @@ mod phase_rotation {
 	use super::{Event, *};
 	use crate::{mock::*, Phase};
 	use frame_election_provider_support::ElectionProvider;
-	use frame_support::traits::Hooks;
 
 	#[test]
 	fn single_page() {
@@ -1670,7 +1673,7 @@ mod phase_rotation {
 				roll_to(20);
 				assert_eq!(
 					MultiBlock::current_phase(),
-					Phase::SignedValidation(SignedValidationPhase::get() - 1)
+					Phase::SignedValidation(SignedValidationPhase::get())
 				);
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 1));
 				assert_eq!(MultiBlock::round(), 0);
@@ -1679,16 +1682,16 @@ mod phase_rotation {
 					multi_block_events_since_last_call(),
 					vec![Event::PhaseTransitioned {
 						from: Phase::Signed(0),
-						to: Phase::SignedValidation(SignedValidationPhase::get() - 1)
+						to: Phase::SignedValidation(SignedValidationPhase::get())
 					}],
 				);
 
-				roll_to(24);
+				roll_to(26);
 				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(0));
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 1));
 				assert_eq!(MultiBlock::round(), 0);
 
-				roll_to(25);
+				roll_to(27);
 				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(UnsignedPhase::get() - 1));
 				assert_eq!(
 					multi_block_events_since_last_call(),
@@ -1698,20 +1701,20 @@ mod phase_rotation {
 					}],
 				);
 
-				roll_to(29);
+				roll_to(31);
 				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(0));
 
 				// We stay in done otherwise
-				roll_to(30);
+				roll_to(32);
 				assert!(MultiBlock::current_phase().is_done());
 
 				// We stay in done otherwise
-				roll_to(31);
+				roll_to(33);
 				assert!(MultiBlock::current_phase().is_done());
 
 				// We close when upstream tells us to elect.
-				roll_to(32);
-				assert_eq!(MultiBlock::current_phase(), Phase::Done);
+				roll_to(34);
+				assert!(MultiBlock::current_phase().is_done());
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 1));
 
 				MultiBlock::elect(0).unwrap();
@@ -1787,23 +1790,23 @@ mod phase_rotation {
 				assert_eq!(MultiBlock::round(), 0);
 				assert_eq!(
 					MultiBlock::current_phase(),
-					Phase::SignedValidation(SignedValidationPhase::get() - 1)
+					Phase::SignedValidation(SignedValidationPhase::get())
 				);
 
 				assert_eq!(
 					multi_block_events_since_last_call(),
 					vec![Event::PhaseTransitioned {
 						from: Phase::Signed(0),
-						to: Phase::SignedValidation(SignedValidationPhase::get() - 1)
+						to: Phase::SignedValidation(SignedValidationPhase::get())
 					}],
 				);
 
-				roll_to(24);
+				roll_to(26);
 				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(0));
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 2));
 				assert_eq!(MultiBlock::round(), 0);
 
-				roll_to(25);
+				roll_to(27);
 				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(UnsignedPhase::get() - 1));
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 2));
 				assert_eq!(MultiBlock::round(), 0);
@@ -1816,16 +1819,16 @@ mod phase_rotation {
 					}],
 				);
 
-				roll_to(29);
+				roll_to(31);
 				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(0));
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 2));
 
-				roll_to(30);
+				roll_to(32);
 				assert_eq!(MultiBlock::current_phase(), Phase::Done);
 				assert_ok!(Snapshot::<Runtime>::ensure_snapshot(true, 2));
 
 				// We close when upstream tells us to elect.
-				roll_to(32);
+				roll_to(33);
 				assert_eq!(MultiBlock::current_phase(), Phase::Done);
 
 				// and even this one's coming from the fallback.
@@ -1896,21 +1899,21 @@ mod phase_rotation {
 				roll_to(20);
 				assert_eq!(
 					MultiBlock::current_phase(),
-					Phase::SignedValidation(SignedValidationPhase::get() - 1)
+					Phase::SignedValidation(SignedValidationPhase::get())
 				);
 				assert_eq!(
 					multi_block_events_since_last_call(),
 					vec![Event::PhaseTransitioned {
 						from: Phase::Signed(0),
-						to: Phase::SignedValidation(SignedValidationPhase::get() - 1)
+						to: Phase::SignedValidation(SignedValidationPhase::get())
 					}]
 				);
 
-				roll_to(24);
+				roll_to(26);
 				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(0));
 				assert_eq!(MultiBlock::round(), 0);
 
-				roll_to(25);
+				roll_to(27);
 				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(UnsignedPhase::get() - 1));
 				assert_eq!(
 					multi_block_events_since_last_call(),
@@ -1920,14 +1923,14 @@ mod phase_rotation {
 					}]
 				);
 
-				roll_to(29);
+				roll_to(31);
 				assert_eq!(MultiBlock::current_phase(), Phase::Unsigned(0));
 
-				roll_to(30);
+				roll_to(32);
 				assert_eq!(MultiBlock::current_phase(), Phase::Done);
 
 				// We close when upstream tells us to elect.
-				roll_to(32);
+				roll_to(33);
 				assert_eq!(MultiBlock::current_phase(), Phase::Done);
 
 				MultiBlock::elect(0).unwrap();
@@ -1981,7 +1984,7 @@ mod phase_rotation {
 				roll_to(25);
 				assert_eq!(
 					MultiBlock::current_phase(),
-					Phase::SignedValidation(SignedValidationPhase::get() - 1)
+					Phase::SignedValidation(SignedValidationPhase::get())
 				);
 
 				assert_eq!(
@@ -1994,20 +1997,20 @@ mod phase_rotation {
 						},
 						Event::PhaseTransitioned {
 							from: Phase::Signed(0),
-							to: Phase::SignedValidation(SignedValidationPhase::get() - 1)
+							to: Phase::SignedValidation(SignedValidationPhase::get())
 						},
 					]
 				);
 
 				// last block of signed validation
-				roll_to(29);
+				roll_to(31);
 				assert_eq!(MultiBlock::current_phase(), Phase::SignedValidation(0));
 
 				// we are done now
-				roll_to(30);
+				roll_to(32);
 				assert_eq!(MultiBlock::current_phase(), Phase::Done);
 
-				roll_to(31);
+				roll_to(33);
 				assert_eq!(MultiBlock::current_phase(), Phase::Done);
 
 				MultiBlock::elect(0).unwrap();
@@ -2088,6 +2091,7 @@ mod phase_rotation {
 	}
 
 	#[test]
+	#[should_panic(expected = "either signed or unsigned phase must be set")]
 	fn no_signed_and_unsigned_phase() {
 		ExtBuilder::full()
 			.pages(3)
@@ -2096,37 +2100,24 @@ mod phase_rotation {
 			.election_start(10)
 			.fallback_mode(FallbackModes::Onchain)
 			.build_and_execute(|| {
-				assert_eq!(System::block_number(), 0);
-				assert_eq!(MultiBlock::current_phase(), Phase::Off);
-				assert_none_snapshot();
-				assert_eq!(MultiBlock::round(), 0);
-
-				roll_to(10);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(3));
-				assert_eq!(MultiBlock::round(), 0);
-
-				roll_to(11);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(2));
-				roll_to(12);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(1));
-				roll_to(13);
-				assert_eq!(MultiBlock::current_phase(), Phase::Snapshot(0));
-
-				// And we are done already
-				roll_to(14);
-				assert_eq!(MultiBlock::current_phase(), Phase::Done);
+				// This should panic during integrity test
 			});
 	}
 
 	#[test]
 	#[should_panic(
-		expected = "signed validation phase should be at least as long as the number of pages"
+		expected = "signed validation phase should be a multiple of the number of pages."
 	)]
-	fn incorrect_signed_validation_phase() {
-		ExtBuilder::full()
-			.pages(3)
-			.signed_validation_phase(2)
-			.build_and_execute(|| <MultiBlock as Hooks<BlockNumber>>::integrity_test())
+	fn incorrect_signed_validation_phase_shorter_than_number_of_pages() {
+		ExtBuilder::full().pages(3).signed_validation_phase(2).build_and_execute(|| {})
+	}
+
+	#[test]
+	#[should_panic(
+		expected = "signed validation phase should be a multiple of the number of pages."
+	)]
+	fn incorret_signed_validation_phase_not_a_multiple_of_the_number_of_pages() {
+		ExtBuilder::full().pages(3).signed_validation_phase(7).build_and_execute(|| {})
 	}
 
 	#[test]
@@ -2146,7 +2137,7 @@ mod phase_rotation {
 						Event::PhaseTransitioned { from: Phase::Snapshot(0), to: Phase::Signed(4) },
 						Event::PhaseTransitioned {
 							from: Phase::Signed(0),
-							to: Phase::SignedValidation(4)
+							to: Phase::SignedValidation(SignedValidationPhase::get())
 						},
 						Event::PhaseTransitioned {
 							from: Phase::SignedValidation(0),
@@ -2285,7 +2276,12 @@ mod phase_rotation {
 #[cfg(test)]
 mod election_provider {
 	use super::*;
-	use crate::{mock::*, unsigned::miner::OffchainWorkerMiner, verifier::Verifier, Phase};
+	use crate::{
+		mock::*,
+		unsigned::miner::OffchainWorkerMiner,
+		verifier::{AsynchronousVerifier, Verifier},
+		Phase,
+	};
 	use frame_election_provider_support::{BoundedSupport, BoundedSupports, ElectionProvider};
 	use frame_support::{
 		assert_storage_noop, testing_prelude::bounded_vec, unsigned::ValidateUnsigned,
@@ -2320,7 +2316,7 @@ mod election_provider {
 					},
 					Event::PhaseTransitioned {
 						from: Phase::Signed(0),
-						to: Phase::SignedValidation(SignedValidationPhase::get() - 1)
+						to: Phase::SignedValidation(SignedValidationPhase::get())
 					}
 				]
 			);
@@ -2328,6 +2324,15 @@ mod election_provider {
 
 			// there is no queued solution prior to the last page of the solution getting verified
 			assert_eq!(<Runtime as crate::Config>::Verifier::queued_score(), None);
+			assert_eq!(<Runtime as crate::Config>::Verifier::status(), verifier::Status::Nothing);
+
+			// next block, signed will start the verifier, although nothing is verified yet.
+			roll_next();
+			assert_eq!(
+				<Runtime as crate::Config>::Verifier::status(),
+				verifier::Status::Ongoing(2)
+			);
+			assert_eq!(verifier_events(), vec![]);
 
 			// proceed until it is fully verified.
 			roll_next();
@@ -2405,10 +2410,12 @@ mod election_provider {
 			// there is no queued solution prior to the last page of the solution getting verified
 			assert_eq!(<Runtime as crate::Config>::Verifier::queued_score(), None);
 
-			// roll to the block it is finalized
+			// roll to the block it is finalized. 1 block to start the verifier, and 3 to verify
 			roll_next();
 			roll_next();
 			roll_next();
+			roll_next();
+
 			assert_eq!(
 				verifier_events(),
 				vec![
@@ -2462,10 +2469,12 @@ mod election_provider {
 			// there is no queued solution prior to the last page of the solution getting verified
 			assert_eq!(<Runtime as crate::Config>::Verifier::queued_score(), None);
 
-			// roll to the block it is finalized
+			// roll to the block it is finalized. 1 block to start the verifier, and 3 to verify.
 			roll_next();
 			roll_next();
 			roll_next();
+			roll_next();
+
 			assert_eq!(
 				verifier_events(),
 				vec![

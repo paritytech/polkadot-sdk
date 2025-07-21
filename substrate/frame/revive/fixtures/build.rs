@@ -294,6 +294,7 @@ pub fn main() -> Result<()> {
 	println!("cargo::rerun-if-env-changed={OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR}");
 	println!("cargo::rerun-if-env-changed={OVERRIDE_STRIP_ENV_VAR}");
 	println!("cargo::rerun-if-env-changed={OVERRIDE_OPTIMIZE_ENV_VAR}");
+	println!("cargo::rerun-if-changed={}", out_dir.display());
 
 	// the fixtures have a dependency on the uapi crate
 	println!("cargo::rerun-if-changed={}", fixtures_dir.display());
