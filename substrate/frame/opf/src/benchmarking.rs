@@ -224,7 +224,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn on_poll_forward_votes(n: Linear<1, 10000>) {
+	fn on_poll_on_idle_forward_votes(n: Linear<1, 10000>) {
 		let admin = T::AdminOrigin::try_successful_origin().unwrap();
 		// Register a single project
 		let info = ProjectInfo {
@@ -267,7 +267,7 @@ mod benchmarks {
 		// Forward the votes
 		#[block]
 		{
-			Pallet::<T>::on_poll_forward_votes(&mut WeightMeter::new());
+			Pallet::<T>::on_poll_on_idle_forward_votes(&mut WeightMeter::new());
 		}
 
 		// Assert the votes are forwarded

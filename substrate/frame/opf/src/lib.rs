@@ -352,7 +352,17 @@ pub mod pallet {
 				Self::on_poll_new_round();
 			}
 
-			Pallet::<T>::on_poll_forward_votes(weight);
+			// We use only 10% of the remaining weight to forward votes.
+			let mut limited_weight = WeightMeter::with_limit(weight.remaining() / 10);
+			Pallet::<T>::on_poll_on_idle_forward_votes(&mut limited_weight);
+			weight.consume(limited_weight.consumed());
+		}
+		fn on_idle(_n: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
+			// We avoid using 100% in case weight are underestimated.
+			let weight_limit = remaining_weight / 2;
+			let mut weight = WeightMeter::with_limit(weight_limit);
+			Pallet::<T>::on_poll_on_idle_forward_votes(&mut weight);
+			weight.remaining()
 		}
 	}
 
@@ -536,10 +546,10 @@ pub mod pallet {
 			VotesForwardingState::<T>::put(vote_record_state);
 		}
 
-		pub(crate) fn on_poll_forward_votes(weight: &mut WeightMeter) {
-			let base_weight = <T as Config>::WeightInfo::on_poll_forward_votes(0);
-			let loop_weight = <T as Config>::WeightInfo::on_poll_forward_votes(1000)
-				.saturating_sub(<T as Config>::WeightInfo::on_poll_forward_votes(500)) /
+		pub(crate) fn on_poll_on_idle_forward_votes(weight: &mut WeightMeter) {
+			let base_weight = <T as Config>::WeightInfo::on_poll_on_idle_forward_votes(0);
+			let loop_weight = <T as Config>::WeightInfo::on_poll_on_idle_forward_votes(1000)
+				.saturating_sub(<T as Config>::WeightInfo::on_poll_on_idle_forward_votes(500)) /
 				500;
 
 			if weight.try_consume(base_weight).is_err() {
