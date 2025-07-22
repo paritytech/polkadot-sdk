@@ -280,7 +280,7 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 			Self::source_authorities_set(&source_client, initial_header_hash).await?;
 		tracing::trace!(
 			target: "bridge",
-			initial_authorities_set,
+			?initial_authorities_set,
 			"Selected {}",
 			C::NAME,
 		);
@@ -303,8 +303,8 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 			authorities_for_verification =
 				Self::source_authorities_set(&source_client, *initial_header.parent_hash()).await?;
 			tracing::trace!(
-				target: "bridge",authorities_for_verification,
-				previous_set=?
+				target: "bridge",
+				previous_set=?authorities_for_verification,
 				"Selected {} header is scheduling GRANDPA authorities set changes.",
 				C::NAME,
 			);

@@ -465,7 +465,7 @@ where
 		tracing::error!(
 			target: "bridge",
 			error=?e,
-			"[{}] Failed to read relay data from {} client: {:?}",
+			"[{}] Failed to read relay data from {} client",
 			on_demand_parachains_relay_name::<P::SourceParachain, P::TargetChain>(),
 			P::TargetChain::NAME,
 		);
@@ -475,7 +475,7 @@ where
 		tracing::error!(
 			target: "bridge",
 			error=?e,
-			"[{}] Failed to read relay data from {} client: {:?}",
+			"[{}] Failed to read relay data from {} client",
 			on_demand_parachains_relay_name::<P::SourceParachain, P::TargetChain>(),
 			P::SourceRelayChain::NAME,
 		);
