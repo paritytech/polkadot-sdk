@@ -4,8 +4,10 @@ use super::*;
 use frame_support::ensure;
 use snowbridge_beacon_primitives::ExecutionProof;
 
-use snowbridge_beacon_primitives::merkle_proof::{generalized_index_length, subtree_index};
-use snowbridge_ethereum::Receipt;
+use snowbridge_beacon_primitives::{
+	merkle_proof::{generalized_index_length, subtree_index},
+	receipt::verify_receipt_proof,
+};
 use snowbridge_verification_primitives::{
 	VerificationError::{self, *},
 	Verifier, *,
@@ -21,27 +23,11 @@ impl<T: Config> Verifier for Pallet<T> {
 		Self::verify_execution_proof(&proof.execution_proof)
 			.map_err(|e| InvalidExecutionProof(e.into()))?;
 
-		let receipt = Self::verify_receipt_inclusion(
+		Self::verify_receipt_inclusion(
 			proof.execution_proof.execution_header.receipts_root(),
 			&proof.receipt_proof.1,
+			event_log,
 		)?;
-
-		event_log.validate().map_err(|_| InvalidLog)?;
-
-		// Convert snowbridge_core::inbound::Log to snowbridge_ethereum::Log.
-		let event_log = snowbridge_ethereum::Log {
-			address: event_log.address,
-			topics: event_log.topics.clone(),
-			data: event_log.data.clone(),
-		};
-
-		if !receipt.contains_log(&event_log) {
-			log::error!(
-				target: "ethereum-client",
-				"💫 Event log not found in receipt for transaction",
-			);
-			return Err(LogNotFound)
-		}
 
 		Ok(())
 	}
@@ -53,20 +39,21 @@ impl<T: Config> Pallet<T> {
 	pub fn verify_receipt_inclusion(
 		receipts_root: H256,
 		receipt_proof: &[Vec<u8>],
-	) -> Result<Receipt, VerificationError> {
-		let result = verify_receipt_proof(receipts_root, receipt_proof).ok_or(InvalidProof)?;
-
-		match result {
-			Ok(receipt) => Ok(receipt),
-			Err(err) => {
-				log::trace!(
-					target: "ethereum-client",
-					"💫 Failed to decode transaction receipt: {}",
-					err
-				);
-				Err(InvalidProof)
-			},
+		log: &Log,
+	) -> Result<(), VerificationError> {
+		let receipt = verify_receipt_proof(receipts_root, receipt_proof).ok_or(InvalidProof)?;
+		if !receipt.logs().iter().any(|l| {
+			l.data.data.0 == log.data &&
+				l.address.0 == log.address.0 &&
+				l.topics().len() == log.topics.len()
+		}) {
+			log::error!(
+				target: "ethereum-client",
+				"💫 Event log not found in receipt for transaction",
+			);
+			return Err(LogNotFound)
 		}
+		Ok(())
 	}
 
 	/// Validates an execution header with ancestry_proof against a finalized checkpoint on

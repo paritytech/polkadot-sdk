@@ -803,7 +803,7 @@ fn verify_message_invalid_log() {
 		assert_ok!(initialize_storage());
 		assert_err!(
 			EthereumBeaconClient::verify(&event_log, &proof),
-			VerificationError::InvalidLog
+			VerificationError::LogNotFound
 		);
 	});
 }
