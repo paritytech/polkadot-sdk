@@ -26,14 +26,17 @@ use crate::{
 	},
 	Code, Config,
 };
-use alloy_core::{primitives, sol_types::SolInterface};
-use frame_support::traits::fungible::Mutate;
-use pretty_assertions::assert_eq;
-use sp_core::U256;
 
+use alloy_core::{
+	primitives::{Bytes, U256},
+	sol_types::{SolConstructor, SolInterface},
+};
+use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures_solidity::contracts::*;
+use pretty_assertions::assert_eq;
 use sp_io::hashing::keccak_256;
 
+/// Tests that the EVM can calculat a fibonacci number.
 #[test]
 fn basic_evm_flow_works() {
 	let code = playground_bin();
@@ -49,18 +52,17 @@ fn basic_evm_flow_works() {
 
 		let result = builder::bare_call(addr)
 			.data(
-				Playground::PlaygroundCalls::fib(Playground::fibCall {
-					n: primitives::U256::from(10u64),
-				})
-				.abi_encode(),
+				Playground::PlaygroundCalls::fib(Playground::fibCall { n: U256::from(10u64) })
+					.abi_encode(),
 			)
 			.build_and_unwrap_result();
-		assert_eq!(U256::from(55u32), U256::from_big_endian(&result.data));
+		assert_eq!(U256::from(55u32), U256::from_be_bytes::<32>(result.data.try_into().unwrap()));
 	});
 }
 
+/// Tests that the blocknumber opcode works as expected.
 #[test]
-fn basic_evm_host_interaction_works() {
+fn block_number_works() {
 	let code = playground_bin();
 
 	ExtBuilder::default().build().execute_with(|| {
@@ -73,10 +75,11 @@ fn basic_evm_host_interaction_works() {
 		let result = builder::bare_call(addr)
 			.data(Playground::PlaygroundCalls::bn(Playground::bnCall {}).abi_encode())
 			.build_and_unwrap_result();
-		assert_eq!(U256::from(42u32), U256::from_big_endian(&result.data));
+		assert_eq!(U256::from(42u32), U256::from_be_bytes::<32>(result.data.try_into().unwrap()));
 	});
 }
 
+/// Tests that the sha3 keccak256 cryptographic opcode works as expected.
 #[test]
 fn keccak_256_works() {
 	let code = crypto_bin();
@@ -84,7 +87,7 @@ fn keccak_256_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 		let pre = "revive".to_string();
 		let expected = keccak_256(pre.as_bytes());
@@ -94,5 +97,24 @@ fn keccak_256_works() {
 			.build_and_unwrap_result();
 
 		assert_eq!(&expected, result.data.as_slice());
+	});
+}
+
+/// Tests that the create2 opcode works as expected.
+#[test]
+fn predictable_addresses() {
+	let code = address_predictor_bin();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { .. } = builder::bare_instantiate(Code::Upload(code))
+			.data(
+				AddressPredictor::constructorCall::new((
+					U256::from(123),
+					Bytes::from(predicted_bin_runtime()),
+				))
+				.abi_encode(),
+			)
+			.build_and_unwrap_contract();
 	});
 }

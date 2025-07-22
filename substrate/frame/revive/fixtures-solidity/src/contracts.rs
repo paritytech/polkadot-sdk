@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The pallet-revive Solidity contract interfaces.
+//! The pallet-revive Solidity fixtures contract implementation.
 
 use alloy_core::hex::decode;
 
@@ -27,4 +27,15 @@ pub fn playground_bin() -> Vec<u8> {
 alloy_core::sol!("contracts/Crypto.sol");
 pub fn crypto_bin() -> Vec<u8> {
 	decode(include_str!("../contracts/build/TestSha3.bin")).unwrap()
+}
+
+alloy_core::sol!("contracts/AddressPredictor.sol");
+pub fn address_predictor_bin() -> Vec<u8> {
+	decode(include_str!("../contracts/build/AddressPredictor.bin")).unwrap()
+}
+pub fn predicted_bin() -> Vec<u8> {
+	decode(include_str!("../contracts/build/Predicted.bin")).unwrap()
+}
+pub fn predicted_bin_runtime() -> Vec<u8> {
+	decode(include_str!("../contracts/build/Predicted.bin-runtime")).unwrap()
 }
