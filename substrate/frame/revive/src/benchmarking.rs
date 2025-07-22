@@ -19,6 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
+	vm::pvm,
 	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, VmBinaryModule},
 	evm::runtime::GAS_PRICE,
 	exec::{Key, MomentOf, PrecompileExt},
@@ -76,7 +77,7 @@ macro_rules! build_runtime(
 		let $contract = setup.contract();
 		let input = setup.data();
 		let (mut ext, _) = setup.ext();
-		let mut $runtime = crate::vm::pvm::Runtime::<_, [u8]>::new(&mut ext, input);
+		let mut $runtime = $crate::vm::pvm::Runtime::<_, [u8]>::new(&mut ext, input);
 	};
 );
 
@@ -650,7 +651,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::default();
 		setup.set_origin(Origin::Root);
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::pvm::Runtime::new(&mut ext, vec![]);
+		let mut runtime = pvm::Runtime::new(&mut ext, vec![]);
 
 		let result;
 		#[block]
@@ -789,7 +790,7 @@ mod benchmarks {
 		let (mut ext, _) = setup.ext();
 		ext.override_export(crate::exec::ExportedFunction::Constructor);
 
-		let mut runtime = crate::vm::pvm::Runtime::<_, [u8]>::new(&mut ext, input);
+		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, input);
 
 		let result;
 		#[block]
@@ -829,7 +830,7 @@ mod benchmarks {
 	fn seal_return_data_size() {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::pvm::Runtime::new(&mut ext, vec![]);
+		let mut runtime = pvm::Runtime::new(&mut ext, vec![]);
 		let mut memory = memory!(vec![],);
 		*runtime.ext().last_frame_output_mut() =
 			ExecReturnValue { data: vec![42; 256], ..Default::default() };
@@ -845,7 +846,7 @@ mod benchmarks {
 	fn seal_call_data_size() {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::pvm::Runtime::new(&mut ext, vec![42u8; 128 as usize]);
+		let mut runtime = pvm::Runtime::new(&mut ext, vec![42u8; 128 as usize]);
 		let mut memory = memory!(vec![0u8; 4],);
 		let result;
 		#[block]
@@ -958,7 +959,7 @@ mod benchmarks {
 		let (mut ext, _) = setup.ext();
 		ext.set_block_number(BlockNumberFor::<T>::from(1u32));
 
-		let mut runtime = crate::vm::pvm::Runtime::<_, [u8]>::new(&mut ext, input);
+		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, input);
 
 		let block_hash = H256::from([1; 32]);
 		frame_system::BlockHash::<T>::insert(
@@ -1009,7 +1010,7 @@ mod benchmarks {
 	fn seal_copy_to_contract(n: Linear<0, { limits::code::BLOB_BYTES - 4 }>) {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::pvm::Runtime::new(&mut ext, vec![]);
+		let mut runtime = pvm::Runtime::new(&mut ext, vec![]);
 		let mut memory = memory!(n.encode(), vec![0u8; n as usize],);
 		let result;
 		#[block]
@@ -1032,7 +1033,7 @@ mod benchmarks {
 	fn seal_call_data_load() {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::pvm::Runtime::new(&mut ext, vec![42u8; 32]);
+		let mut runtime = pvm::Runtime::new(&mut ext, vec![42u8; 32]);
 		let mut memory = memory!(vec![0u8; 32],);
 		let result;
 		#[block]
@@ -1047,7 +1048,7 @@ mod benchmarks {
 	fn seal_call_data_copy(n: Linear<0, { limits::code::BLOB_BYTES }>) {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::pvm::Runtime::new(&mut ext, vec![42u8; n as usize]);
+		let mut runtime = pvm::Runtime::new(&mut ext, vec![42u8; n as usize]);
 		let mut memory = memory!(vec![0u8; n as usize],);
 		let result;
 		#[block]
@@ -1390,7 +1391,7 @@ mod benchmarks {
 		let value = Some(vec![42u8; max_value_len as _]);
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		let result;
 		#[block]
@@ -1413,7 +1414,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::default();
 		setup.set_transient_storage_size(limits::TRANSIENT_STORAGE_BYTES);
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		let result;
 		#[block]
@@ -1435,7 +1436,7 @@ mod benchmarks {
 
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		runtime
 			.ext()
@@ -1461,7 +1462,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::default();
 		setup.set_transient_storage_size(limits::TRANSIENT_STORAGE_BYTES);
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		runtime
 			.ext()
@@ -1488,7 +1489,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::default();
 		setup.set_transient_storage_size(limits::TRANSIENT_STORAGE_BYTES);
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		runtime.ext().transient_storage().start_transaction();
 		runtime
@@ -1701,7 +1702,7 @@ mod benchmarks {
 		setup.set_balance(value + 1u32.into() + Pallet::<T>::min_balance());
 
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		let mut memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
 
 		let result;
@@ -1758,7 +1759,7 @@ mod benchmarks {
 		setup.set_storage_deposit_limit(deposit);
 
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		let mut memory = memory!(callee_bytes, deposit_bytes, value_bytes, input_bytes,);
 
 		let mut do_benchmark = || {
@@ -1804,7 +1805,7 @@ mod benchmarks {
 		setup.set_origin(Origin::from_account_id(setup.contract().account_id.clone()));
 
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		let mut memory = memory!(address_bytes, deposit_bytes,);
 
 		let result;
@@ -1855,7 +1856,7 @@ mod benchmarks {
 
 		let account_id = &setup.contract().account_id.clone();
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 
 		let input = vec![42u8; i as _];
 		let input_len = hash_bytes.len() as u32 + input.len() as u32;
