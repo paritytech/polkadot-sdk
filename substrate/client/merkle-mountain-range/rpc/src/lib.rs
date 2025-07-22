@@ -106,6 +106,24 @@ pub trait MmrApi<BlockHash, BlockNumber, MmrHash> {
 		at: Option<BlockHash>,
 	) -> RpcResult<LeavesProof<BlockHash>>;
 
+	/// Generate an MMR ancestry proof for the given `prev_block_number`.
+	///
+	/// This method calls into a runtime with MMR pallet included and attempts to generate
+	/// an MMR ancestry proof for the MMR root at the prior block with number `prev_block_number`,
+	/// with the reference MMR root at `best_known_block_number`. `best_known_block_number` must be
+	/// larger than the `prev_block_number` for the function to succeed.
+	///
+	/// Optionally via `at`, a block hash at which the runtime should be queried can be specified.
+	/// Optionally via `best_known_block_number`, the proof can be generated using the MMR's state
+	/// at a specific best block. Note that if `best_known_block_number` is provided, then also
+	/// specifying the block hash via `at` isn't super-useful here, unless you're generating proof
+	/// using non-finalized blocks where there are several competing forks. That's because MMR state
+	/// will be fixed to the state with `best_known_block_number`, which already points to
+	/// some historical block.
+	///
+	/// Returns the SCALE-encoded ancestry proof for the prior block's MMR root against the MMR root
+	/// of the best block specified. The order of entries in the `leaves` field of the returned
+	/// struct is the same as the order of the entries in `block_numbers` supplied
 	#[method(name = "mmr_generateAncestryProof")]
 	fn generate_ancestry_proof(
 		&self,
