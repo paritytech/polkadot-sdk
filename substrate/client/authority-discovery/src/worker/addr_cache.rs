@@ -164,9 +164,7 @@ impl AddrCache {
 		if peer_ids.is_empty() {
 			log::debug!(
 				target: super::LOG_TARGET,
-				"Authority({:?}) provides no addresses or addresses without peer ids. Adresses: {:?}",
-				authority_id,
-				addresses,
+				"Authority({authority_id:?}) provides no addresses or addresses without peer ids. Addresses: {addresses:?}",
 			);
 			return
 		} else if peer_ids.len() > 1 {
