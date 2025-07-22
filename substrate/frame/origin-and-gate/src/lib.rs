@@ -21,7 +21,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use codec::{Decode, DecodeWithMemTracking, Encode, Error as CodecError};
+use codec::{Decode, DecodeWithMemTracking, Encode, Error as CodecError, FullCodec, Input};
 use core::marker::PhantomData;
 use frame_support::{
 	dispatch::{
@@ -50,6 +50,51 @@ use sp_runtime::{
 
 /// Type alias for dummy storage value
 pub type DummyValueOf = BoundedVec<u8, ConstU32<1024>>;
+
+/// Composite identifier for origins that includes both the collective ID and role.
+/// Allows for distinguishing between different collectives and roles within those collectives.
+#[derive(
+	Clone,
+	Copy,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Encode,
+	Decode,
+	RuntimeDebug,
+	MaxEncodedLen,
+	TypeInfo,
+)]
+pub struct CompositeOriginId {
+	/// Identifier of collective (e.g. Technical Fellowship, Ambassador Fellowship)
+	pub collective_id: u32,
+	/// Role or rank within that collective
+	pub role: u32,
+}
+
+impl Default for CompositeOriginId {
+	fn default() -> Self {
+		Self { collective_id: 0, role: 0 }
+	}
+}
+
+impl From<u32> for CompositeOriginId {
+	fn from(id: u32) -> Self {
+		Self { collective_id: id, role: 0 }
+	}
+}
+
+impl DecodeWithMemTracking for CompositeOriginId {}
+
+// Conversion from CompositeOriginId to u64 for tests
+impl From<CompositeOriginId> for u64 {
+	fn from(id: CompositeOriginId) -> Self {
+		// Pack collective_id and role into a u64
+		// collective_id takes the upper 32 bits, role takes the lower 32 bits
+		((id.collective_id as u64) << 32) | (id.role as u64)
+	}
+}
 
 pub use pallet::*;
 
@@ -156,7 +201,7 @@ pub mod pallet {
 		type Hashing: sp_runtime::traits::Hash;
 
 		/// Identifier type for different origins that must maintain uniqueness and comparability.
-		type OriginId: Parameter + Member + TypeInfo + Copy + Ord + MaxEncodedLen;
+		type OriginId: Parameter + Member + TypeInfo + Copy + Ord + MaxEncodedLen + FullCodec;
 
 		/// The required number of approvals for a single proposal.
 		/// The original specification by Dr Gavin Wood requires exactly two approvals to satisfy

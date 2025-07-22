@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{self as pallet_origin_and_gate, AndGate};
+use crate::{self as pallet_origin_and_gate, AndGate, CompositeOriginId};
 // Import pallet types directly
 use frame_support::{
 	derive_impl, parameter_types,
@@ -50,11 +50,11 @@ pub const ALICE: AccountId = 1;
 pub const BOB: AccountId = 2;
 pub const CHARLIE: AccountId = 3;
 
-// Origin identifiers
-pub const ROOT_ORIGIN_ID: u8 = 0;
-pub const ALICE_ORIGIN_ID: u8 = 1;
-pub const BOB_ORIGIN_ID: u8 = 2;
-pub const CHARLIE_ORIGIN_ID: u8 = 3;
+// Origin identifiers using CompositeOriginId
+pub const ROOT_ORIGIN_ID: CompositeOriginId = CompositeOriginId { collective_id: 0, role: 0 };
+pub const ALICE_ORIGIN_ID: CompositeOriginId = CompositeOriginId { collective_id: 1, role: 0 };
+pub const BOB_ORIGIN_ID: CompositeOriginId = CompositeOriginId { collective_id: 2, role: 0 };
+pub const CHARLIE_ORIGIN_ID: CompositeOriginId = CompositeOriginId { collective_id: 3, role: 0 };
 
 // Custom origin checks if sender is Alice
 pub struct AliceOrigin;
@@ -176,15 +176,16 @@ impl Clone for RequiredApprovalsCount {
 
 impl Copy for RequiredApprovalsCount {}
 
-// Move to parameter_types instead
-pub type OriginId = u8;
+pub type OriginId = CompositeOriginId;
 
 parameter_types! {
 	pub static RequiredApprovalsCount: u32 = 2;
-	// TODO: Add OriginId
 	pub static ProposalExpiry: BlockNumber = 100;
-	// Default retention period for terminal proposals
-	pub static NonCancelledProposalRetentionPeriod: BlockNumber = 50;
+	// Default retention period for terminal proposals is set to 15 years
+	// plus contingency to try to meet longest global regulatory requirement
+	// Calculation: 15 years × 365.25 days × 24 hours × 60 minutes × 60 seconds ÷ 12 seconds per block = 39,447,000 blocks
+	// Adding 25% safety margin: 39,447,000 × 1.25 = 49,308,750 blocks
+	pub static NonCancelledProposalRetentionPeriod: BlockNumber = 50_000_000;
 	// Maximum number of proposals to expire per block
 	pub static MaxProposalsToExpirePerBlock: u32 = 10;
 }

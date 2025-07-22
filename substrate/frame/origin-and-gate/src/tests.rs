@@ -2825,8 +2825,8 @@ mod integration_test {
 			assert_eq!(proposal.approvals.len(), RequiredApprovalsCount::get() as usize);
 
 			// Verify both origin IDs are in approvals
-			assert!(proposal.approvals.contains(&(alice_origin_id.into(), ALICE_ORIGIN_ID)));
-			assert!(proposal.approvals.contains(&(bob_origin_id.into(), BOB_ORIGIN_ID)));
+			assert!(proposal.approvals.contains(&(ALICE, alice_origin_id)));
+			assert!(proposal.approvals.contains(&(BOB, bob_origin_id)));
 
 			// Verify approval event emitted with correct origin IDs
 			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::OriginApprovalAdded {

@@ -18,7 +18,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use crate::Pallet as OriginAndGate;
+use crate::{CompositeOriginId, Pallet as OriginAndGate};
 use frame_benchmarking::{v2::*, BenchmarkError};
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
@@ -39,11 +39,9 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 mod helpers {
 	use super::*;
 
-	// Helper function to convert u8 to T::OriginId
-	pub fn make_origin_id<T: Config>(id: u8) -> T::OriginId {
-		let mut buf = [0u8; 128]; // Buffer large enough for any reasonable type
-		buf[0] = id;
-		T::OriginId::decode(&mut &buf[..]).unwrap_or_else(|_| panic!("Failed to decode OriginId"))
+	// Helper function to create T::OriginId from CompositeOriginId
+	pub fn make_origin_id<T: Config>(id: CompositeOriginId) -> T::OriginId {
+		id.into()
 	}
 
 	// Helper function to convert hash types
@@ -88,8 +86,8 @@ mod benchmarks {
 		let hash_output = <T as pallet::Config>::Hashing::hash_of(&call);
 		let call_hash = convert_hash::<T>(&hash_output);
 
-		// Convert u8 to T::OriginId using our helper
-		let origin_id = make_origin_id::<T>(ROOT_ORIGIN_ID);
+		// Convert CompositeOriginId to T::OriginId using our helper
+		let origin_id = make_origin_id::<T>(CompositeOriginId::from(0));
 		let expiry_at = None;
 
 		// Phase 2: Execution
@@ -124,9 +122,9 @@ mod benchmarks {
 		let hash_output = <T as pallet::Config>::Hashing::hash_of(&call);
 		let call_hash = convert_hash::<T>(&hash_output);
 
-		// Convert u8 to T::OriginId using helper
-		let origin_id = make_origin_id::<T>(ROOT_ORIGIN_ID);
-		let approving_origin_id = make_origin_id::<T>(ALICE_ORIGIN_ID);
+		// Convert CompositeOriginId to T::OriginId using helper
+		let origin_id = make_origin_id::<T>(CompositeOriginId::from(0));
+		let approving_origin_id = make_origin_id::<T>(CompositeOriginId::from(1));
 		let expiry_at = None;
 
 		Pallet::<T>::propose(
@@ -164,9 +162,9 @@ mod benchmarks {
 		let hash_output = <T as pallet::Config>::Hashing::hash_of(&call);
 		let call_hash = convert_hash::<T>(&hash_output);
 
-		// Convert u8 to T::OriginId using our helper
-		let origin_id = make_origin_id::<T>(ALICE_ORIGIN_ID);
-		let approving_origin_id1 = make_origin_id::<T>(BOB_ORIGIN_ID);
+		// Convert CompositeOriginId to T::OriginId using our helper
+		let origin_id = make_origin_id::<T>(CompositeOriginId::from(1));
+		let approving_origin_id1 = make_origin_id::<T>(CompositeOriginId::from(2));
 		let expiry_at = None;
 
 		Pallet::<T>::propose(
@@ -211,8 +209,8 @@ mod benchmarks {
 		let hash_output = <T as pallet::Config>::Hashing::hash_of(&call);
 		let call_hash = convert_hash::<T>(&hash_output);
 
-		// Convert u8 to T::OriginId using our helper
-		let origin_id = make_origin_id::<T>(ROOT_ORIGIN_ID);
+		// Convert CompositeOriginId to T::OriginId using our helper
+		let origin_id = make_origin_id::<T>(CompositeOriginId::from(0));
 		let expiry_at = None;
 
 		Pallet::<T>::propose(
@@ -249,9 +247,9 @@ mod benchmarks {
 		let hash_output = <T as pallet::Config>::Hashing::hash_of(&call);
 		let call_hash = convert_hash::<T>(&hash_output);
 
-		// Convert u8 to T::OriginId using our helper
-		let origin_id = make_origin_id::<T>(ROOT_ORIGIN_ID);
-		let approving_origin_id = make_origin_id::<T>(ALICE_ORIGIN_ID);
+		// Convert CompositeOriginId to T::OriginId using our helper
+		let origin_id = make_origin_id::<T>(CompositeOriginId::from(0));
+		let approving_origin_id = make_origin_id::<T>(CompositeOriginId::from(1));
 		let expiry_at = None;
 
 		Pallet::<T>::propose(
@@ -298,9 +296,9 @@ mod benchmarks {
 		let hash_output = <T as pallet::Config>::Hashing::hash_of(&call);
 		let call_hash = convert_hash::<T>(&hash_output);
 
-		// Convert u8 to T::OriginId using our helper
-		let origin_id = make_origin_id::<T>(ALICE_ORIGIN_ID);
-		let approving_origin_id = make_origin_id::<T>(BOB_ORIGIN_ID);
+		// Convert CompositeOriginId to T::OriginId using our helper
+		let origin_id = make_origin_id::<T>(CompositeOriginId::from(1));
+		let approving_origin_id = make_origin_id::<T>(CompositeOriginId::from(2));
 		let expiry_at = None;
 		let auto_execute = Some(false);
 
@@ -380,9 +378,9 @@ mod benchmarks {
 		let hash_output = <T as pallet::Config>::Hashing::hash_of(&call);
 		let call_hash = convert_hash::<T>(&hash_output);
 
-		// Convert u8 to T::OriginId using our helper
-		let origin_id = make_origin_id::<T>(ALICE_ORIGIN_ID);
-		let approving_origin_id = make_origin_id::<T>(BOB_ORIGIN_ID);
+		// Convert CompositeOriginId to T::OriginId using our helper
+		let origin_id = make_origin_id::<T>(CompositeOriginId::from(1));
+		let approving_origin_id = make_origin_id::<T>(CompositeOriginId::from(2));
 
 		// Store the call in storage for execution
 		ProposalCalls::<T>::insert(call_hash, Box::new(call));
