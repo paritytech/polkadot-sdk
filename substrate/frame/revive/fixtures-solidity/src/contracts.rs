@@ -39,3 +39,8 @@ pub fn predicted_bin() -> Vec<u8> {
 pub fn predicted_bin_runtime() -> Vec<u8> {
 	decode(include_str!("../contracts/build/Predicted.bin-runtime")).unwrap()
 }
+
+alloy_core::sol!("contracts/Flipper.sol");
+pub fn flipper_bin() -> Vec<u8> {
+	decode(include_str!("../contracts/build/Flipper.bin")).unwrap()
+}

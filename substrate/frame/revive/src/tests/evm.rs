@@ -118,3 +118,35 @@ fn predictable_addresses() {
 			.build_and_unwrap_contract();
 	});
 }
+
+/// Tests that the sstore and sload storage opcodes work as expected.
+#[test]
+fn flipper() {
+	let code = flipper_bin();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let result = builder::bare_call(addr)
+			.data(Flipper::FlipperCalls::coin(Flipper::coinCall {}).abi_encode())
+			.build_and_unwrap_result();
+		assert_eq!(U256::ZERO, U256::from_be_bytes::<32>(result.data.try_into().unwrap()));
+
+		// Should be false
+		let result = builder::bare_call(addr)
+			.data(Flipper::FlipperCalls::coin(Flipper::coinCall {}).abi_encode())
+			.build_and_unwrap_result();
+		assert_eq!(U256::ZERO, U256::from_be_bytes::<32>(result.data.try_into().unwrap()));
+
+		// Flip the coin
+		builder::bare_call(addr).build_and_unwrap_result();
+
+		// Should be true
+		let result = builder::bare_call(addr)
+			.data(Flipper::FlipperCalls::coin(Flipper::coinCall {}).abi_encode())
+			.build_and_unwrap_result();
+		assert_eq!(U256::ONE, U256::from_be_bytes::<32>(result.data.try_into().unwrap()));
+	});
+}
