@@ -276,8 +276,7 @@ impl<M: 'static + Send + Sync> DisputeSender<M> {
 				let sends_happened = dispute
 					.refresh_sends(ctx, runtime, &self.active_sessions, &self.metrics)
 					.await?;
-
-				// Rate limit if we actually sent something out _and_ it was not just because
+				// Only rate limit if we actually sent something out _and_ it was not just because
 				// of errors on previous sends.
 				//
 				// Reasoning: It would not be acceptable to slow down the whole subsystem, just

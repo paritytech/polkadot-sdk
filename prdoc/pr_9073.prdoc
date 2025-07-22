@@ -2,8 +2,7 @@ title: Rate limit `DisputeRequest` sending in `dispute-distribution` to avoid ov
 doc:
 - audience: Node Dev
   description: |-
-    Send `DisputeRequest` messages in batches to avoid overloading slow receivers and add a backoff
-    when a peer rejects a request.
+    Add a backoff when a peer rejects `DisputeRequest request.
 
 crates:
 - name: polkadot-dispute-distribution
