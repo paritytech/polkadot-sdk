@@ -50,7 +50,6 @@ pallet-revive-fixtures = { workspace = true, default-features = true }
 pretty_assertions = { workspace = true }
 static_init = { workspace = true }
 substrate-cli-test-utils = { workspace = true }
-subxt-signer = { workspace = true, features = ["unstable-eth"] }
 
 [build-dependencies]
 git2 = { workspace = true }
