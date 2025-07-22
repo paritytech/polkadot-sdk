@@ -226,6 +226,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type UnsafeUnstableInterface: Get<bool>;
 
+		/// Allow EVM bytecode to be uploaded and instantiated.
+		#[pallet::constant]
+		type AllowEVMBytecode: Get<bool>;
+
 		/// Origin allowed to upload code.
 		///
 		/// By default, it is safe to set this to `EnsureSigned`, allowing anyone to upload contract
@@ -337,6 +341,7 @@ pub mod pallet {
 			type DepositPerItem = DepositPerItem;
 			type Time = Self;
 			type UnsafeUnstableInterface = ConstBool<true>;
+			type AllowEVMBytecode = ConstBool<true>;
 			type UploadOrigin = EnsureSigned<Self::AccountId>;
 			type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 			type WeightInfo = ();
@@ -1173,11 +1178,14 @@ where
 					storage_deposit_limit.saturating_reduce(upload_deposit);
 					(executable, upload_deposit)
 				},
-				Code::Upload(code) => {
-					let origin = T::UploadOrigin::ensure_origin(origin)?;
-					let executable = ContractBlob::from_evm_code(code, origin)?;
-					(executable, Default::default())
-				},
+				Code::Upload(code) =>
+					if T::AllowEVMBytecode::get() {
+						let origin = T::UploadOrigin::ensure_origin(origin)?;
+						let executable = ContractBlob::from_evm_code(code, origin)?;
+						(executable, Default::default())
+					} else {
+						return Err(<Error<T>>::CodeRejected.into())
+					},
 				Code::Existing(code_hash) =>
 					(ContractBlob::from_storage(code_hash, &mut gas_meter)?, Default::default()),
 			};

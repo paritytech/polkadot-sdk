@@ -60,6 +60,9 @@ use sp_runtime::{
 #[cfg(test)]
 mod tests;
 
+#[cfg(test)]
+pub mod mock_ext;
+
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 pub type MomentOf<T> = <<T as Config>::Time as Time>::Moment;
 pub type ExecResult = Result<ExecReturnValue, ExecError>;
@@ -2100,6 +2103,8 @@ mod sealing {
 	use super::*;
 
 	pub trait Sealed {}
-
 	impl<'a, T: Config, E> Sealed for Stack<'a, T, E> {}
+
+	#[cfg(test)]
+	impl<T: Config> sealing::Sealed for mock_ext::MockExt<T> {}
 }
