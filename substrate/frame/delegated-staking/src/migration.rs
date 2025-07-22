@@ -104,4 +104,22 @@ pub mod unversioned {
 			}
 		}
 	}
+
+	/// Update provider count on chains that ran pallet pre-release (#8353)
+	pub struct IncProviderMigration<T>(PhantomData<T>);
+
+	impl<T: Config> OnRuntimeUpgrade for IncProviderMigration<T> {
+		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+			let mut count = 0;
+
+			// Since #4822 expects a provider to be registered with delegated accounts
+			for (user, _) in Delegators::<T>::iter() {
+				frame_system::Pallet::<T>::inc_providers(&user);
+				count += 1;
+			}
+
+			// Each Provider updata has results in one read and write
+			T::DbWeight::get().reads_writes(count as u64, count as u64)
+		}
+	}
 }
