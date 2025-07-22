@@ -15,8 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use self::test_utils::{ensure_stored, expected_deposit};
-use super::{ExtBuilder, InstantiateAccount, Test, UploadAccount};
+//! The pallet-revive PVM integration test suite.
+
 use crate::{
 	address::{create1, create2, AddressMapper},
 	assert_refcount, assert_return_code,
@@ -27,13 +27,20 @@ use crate::{
 	test_utils::{builder::Contract, *},
 	tests::{
 		builder, initialize_block,
-		test_utils::{self, get_contract, get_contract_checked},
+		test_utils::{
+			contract_base_deposit, ensure_stored, expected_deposit, get_balance,
+			get_balance_on_hold, get_code_deposit, get_contract, get_contract_checked,
+			lockup_deposit, set_balance_with_dust, u256_bytes,
+		},
 		Balances, CodeHashLockupDepositPercent, Contracts, DepositPerByte, DepositPerItem,
-		RuntimeCall, RuntimeEvent, RuntimeOrigin, System, DEPOSIT_PER_BYTE,
+		ExtBuilder, InstantiateAccount, RuntimeCall, RuntimeEvent, RuntimeOrigin, System, Test,
+		UploadAccount, DEPOSIT_PER_BYTE,
 	},
 	tracing::trace,
-	weights::WeightInfo, AccountInfo, AccountInfoOf, BalanceWithDust, BumpNonce, Code, Config, ContractInfo, DeletionQueueCounter, DepositLimit, Error, EthTransactError,
-	HoldReason, Pallet, PristineCode, H160,
+	weights::WeightInfo,
+	AccountInfo, AccountInfoOf, BalanceWithDust, BumpNonce, Code, Config, ContractInfo,
+	DeletionQueueCounter, DepositLimit, Error, EthTransactError, HoldReason, Pallet, PristineCode,
+	H160,
 };
 use assert_matches::assert_matches;
 use codec::Encode;
@@ -42,7 +49,8 @@ use frame_support::{
 	storage::child,
 	traits::{
 		fungible::{BalancedHold, Inspect, Mutate, MutateHold},
-		tokens::Preservation, OnIdle, OnInitialize,
+		tokens::Preservation,
+		OnIdle, OnInitialize,
 	},
 	weights::{Weight, WeightMeter},
 };
@@ -52,11 +60,7 @@ use pallet_revive_uapi::{ReturnErrorCode as RuntimeReturnCode, ReturnFlags};
 use pretty_assertions::{assert_eq, assert_ne};
 use sp_core::{Get, U256};
 use sp_io::hashing::blake2_256;
-use sp_runtime::{
-	testing::H256,
-	traits::Zero,
-	AccountId32, DispatchError, TokenError,
-};
+use sp_runtime::{testing::H256, traits::Zero, AccountId32, DispatchError, TokenError};
 
 #[test]
 fn transfer_with_dust_works() {
@@ -131,8 +135,8 @@ fn transfer_with_dust_works() {
 	} in test_cases.into_iter()
 	{
 		ExtBuilder::default().build().execute_with(|| {
-			test_utils::set_balance_with_dust(&ALICE_ADDR, from_balance);
-			test_utils::set_balance_with_dust(&BOB_ADDR, to_balance);
+			set_balance_with_dust(&ALICE_ADDR, from_balance);
+			set_balance_with_dust(&BOB_ADDR, to_balance);
 
 			let total_issuance = <Test as Config>::Currency::total_issuance();
 			let evm_value = Pallet::<Test>::convert_native_to_evm(amount);
@@ -229,7 +233,7 @@ fn instantiate_and_call_and_deposit_event() {
 			.build_and_unwrap_contract();
 		assert!(AccountInfoOf::<Test>::contains_key(&addr));
 
-		let hold_balance = test_utils::contract_base_deposit(&addr);
+		let hold_balance = contract_base_deposit(&addr);
 
 		assert_eq!(
 			System::events(),
@@ -731,7 +735,7 @@ fn delegate_call_non_existant_is_noop() {
 			.data((BOB_ADDR, u64::MAX, u64::MAX).encode())
 			.build());
 
-		assert_eq!(test_utils::get_balance(&BOB_FALLBACK), 0);
+		assert_eq!(get_balance(&BOB_FALLBACK), 0);
 	});
 }
 
@@ -826,8 +830,8 @@ fn transfer_expendable_cannot_kill_account() {
 		let total_balance = <Test as Config>::Currency::total_balance(&account);
 
 		assert_eq!(
-			test_utils::get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account),
-			test_utils::contract_base_deposit(&addr)
+			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account),
+			contract_base_deposit(&addr)
 		);
 
 		// Some or the total balance is held, so it can't be transferred.
@@ -869,7 +873,7 @@ fn cannot_self_destruct_through_draining() {
 		// Make sure the account wasn't remove by sending all free balance away.
 		assert_eq!(
 			<Test as Config>::Currency::total_balance(&account),
-			value + test_utils::contract_base_deposit(&addr) + min_balance,
+			value + contract_base_deposit(&addr) + min_balance,
 		);
 	});
 }
@@ -883,7 +887,7 @@ fn cannot_self_destruct_through_storage_refund_after_price_change() {
 
 		// Instantiate the BOB contract.
 		let contract = builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
-		let info_deposit = test_utils::contract_base_deposit(&contract.addr);
+		let info_deposit = contract_base_deposit(&contract.addr);
 
 		// Check that the contract has been instantiated and has the minimum balance
 		assert_eq!(get_contract(&contract.addr).total_deposit(), info_deposit);
@@ -954,7 +958,7 @@ fn self_destruct_works() {
 			.native_value(100_000)
 			.build_and_unwrap_contract();
 
-		let hold_balance = test_utils::contract_base_deposit(&contract.addr);
+		let hold_balance = contract_base_deposit(&contract.addr);
 
 		// Check that the BOB contract has been instantiated.
 		let _ = get_contract(&contract.addr);
@@ -1131,8 +1135,6 @@ fn transfer_return_code() {
 
 #[test]
 fn call_return_code() {
-	use test_utils::u256_bytes;
-
 	let (caller_code, _caller_hash) = compile_module("call_return_code").unwrap();
 	let (callee_code, _callee_hash) = compile_module("ok_trap_revert").unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
@@ -1171,8 +1173,8 @@ fn call_return_code() {
 
 		// Sending below the minimum balance should result in success.
 		// The ED is charged from the call origin.
-		let alice_before = test_utils::get_balance(&ALICE_FALLBACK);
-		assert_eq!(test_utils::get_balance(&DJANGO_FALLBACK), 0);
+		let alice_before = get_balance(&ALICE_FALLBACK);
+		assert_eq!(get_balance(&DJANGO_FALLBACK), 0);
 
 		let value = Pallet::<Test>::convert_native_to_evm(1u64);
 		let result = builder::bare_call(bob.addr)
@@ -1185,8 +1187,8 @@ fn call_return_code() {
 			)
 			.build_and_unwrap_result();
 		assert_return_code!(result, RuntimeReturnCode::Success);
-		assert_eq!(test_utils::get_balance(&DJANGO_FALLBACK), min_balance + 1);
-		assert_eq!(test_utils::get_balance(&ALICE_FALLBACK), alice_before - min_balance);
+		assert_eq!(get_balance(&DJANGO_FALLBACK), min_balance + 1);
+		assert_eq!(get_balance(&ALICE_FALLBACK), alice_before - min_balance);
 
 		let django = builder::bare_instantiate(Code::Upload(callee_code))
 			.origin(RuntimeOrigin::signed(CHARLIE))
@@ -1998,7 +2000,7 @@ fn instantiate_with_zero_balance_works() {
 		assert_eq!(<Test as Config>::Currency::free_balance(&account_id), min_balance);
 		assert_eq!(
 			<Test as Config>::Currency::total_balance(&account_id),
-			min_balance + test_utils::contract_base_deposit(&addr)
+			min_balance + contract_base_deposit(&addr)
 		);
 
 		assert_eq!(
@@ -2086,7 +2088,7 @@ fn instantiate_with_below_existential_deposit_works() {
 		assert_eq!(<Test as Config>::Currency::free_balance(&account_id), min_balance + value);
 		assert_eq!(
 			<Test as Config>::Currency::total_balance(&account_id),
-			min_balance + value + test_utils::contract_base_deposit(&addr)
+			min_balance + value + contract_base_deposit(&addr)
 		);
 
 		assert_eq!(
@@ -2170,7 +2172,7 @@ fn storage_deposit_works() {
 		let Contract { addr, account_id } =
 			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
 
-		let mut deposit = test_utils::contract_base_deposit(&addr);
+		let mut deposit = contract_base_deposit(&addr);
 
 		// Drop previous events
 		initialize_block(2);
@@ -2268,10 +2270,7 @@ fn storage_deposit_callee_works() {
 		let deposit = DepositPerByte::get() * 100 + DepositPerItem::get() * 1 + 48;
 
 		assert_eq!(Pallet::<Test>::evm_balance(&addr_caller), U256::zero());
-		assert_eq!(
-			callee.total_deposit(),
-			deposit + test_utils::contract_base_deposit(&addr_callee)
-		);
+		assert_eq!(callee.total_deposit(), deposit + contract_base_deposit(&addr_callee));
 	});
 }
 
@@ -2354,10 +2353,10 @@ fn slash_cannot_kill_account() {
 		// Drop previous events
 		initialize_block(2);
 
-		let info_deposit = test_utils::contract_base_deposit(&addr);
+		let info_deposit = contract_base_deposit(&addr);
 
 		assert_eq!(
-			test_utils::get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id),
+			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id),
 			info_deposit
 		);
 
@@ -2493,7 +2492,7 @@ fn storage_deposit_limit_is_enforced() {
 		let Contract { addr, account_id } =
 			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
 
-		let info_deposit = test_utils::contract_base_deposit(&addr);
+		let info_deposit = contract_base_deposit(&addr);
 		// Check that the BOB contract has been instantiated and has the minimum balance
 		assert_eq!(get_contract(&addr).total_deposit(), info_deposit);
 		assert_eq!(
@@ -2647,7 +2646,7 @@ fn deposit_limit_in_nested_instantiate() {
 		let callee_min_deposit = {
 			let callee_info_len =
 				AccountInfo::<Test>::load_contract(&addr).unwrap().encoded_size() as u64;
-			let code_deposit = test_utils::lockup_deposit(&code_hash_callee);
+			let code_deposit = lockup_deposit(&code_hash_callee);
 			callee_info_len + code_deposit + 2 + ED + 2 + 48
 		};
 
@@ -2746,7 +2745,7 @@ fn deposit_limit_honors_liquidity_restrictions() {
 		let Contract { addr, account_id } =
 			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
 
-		let info_deposit = test_utils::contract_base_deposit(&addr);
+		let info_deposit = contract_base_deposit(&addr);
 		// Check that the contract has been instantiated and has the minimum balance
 		assert_eq!(get_contract(&addr).total_deposit(), info_deposit);
 		assert_eq!(
@@ -2785,7 +2784,7 @@ fn deposit_limit_honors_existential_deposit() {
 		let Contract { addr, account_id } =
 			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
 
-		let info_deposit = test_utils::contract_base_deposit(&addr);
+		let info_deposit = contract_base_deposit(&addr);
 
 		// Check that the contract has been instantiated and has the minimum balance
 		assert_eq!(get_contract(&addr).total_deposit(), info_deposit);
@@ -2845,8 +2844,8 @@ fn native_dependency_deposit_works() {
 
 			let addr = res.result.unwrap().addr;
 			let account_id = <Test as Config>::AddressMapper::to_account_id(&addr);
-			let base_deposit = test_utils::contract_base_deposit(&addr);
-			let upload_deposit = test_utils::get_code_deposit(&code_hash);
+			let base_deposit = contract_base_deposit(&addr);
+			let upload_deposit = get_code_deposit(&code_hash);
 			let extra_deposit = add_upload_deposit.then(|| upload_deposit).unwrap_or_default();
 
 			assert_eq!(
@@ -2860,18 +2859,14 @@ fn native_dependency_deposit_works() {
 				.build_and_unwrap_result();
 
 			// Check updated storage_deposit due to code size changes
-			let deposit_diff = lockup_deposit_percent
-				.mul_ceil(test_utils::get_code_deposit(&code_hash))
-				- lockup_deposit_percent.mul_ceil(test_utils::get_code_deposit(&dummy_code_hash));
-			let new_base_deposit = test_utils::contract_base_deposit(&addr);
+			let deposit_diff = lockup_deposit_percent.mul_ceil(get_code_deposit(&code_hash))
+				- lockup_deposit_percent.mul_ceil(get_code_deposit(&dummy_code_hash));
+			let new_base_deposit = contract_base_deposit(&addr);
 			assert_ne!(deposit_diff, 0);
 			assert_eq!(base_deposit - new_base_deposit, deposit_diff);
 
 			assert_eq!(
-				test_utils::get_balance_on_hold(
-					&HoldReason::StorageDepositReserve.into(),
-					&account_id
-				),
+				get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id),
 				new_base_deposit
 			);
 		});
@@ -3481,19 +3476,19 @@ fn immutable_data_works() {
 			.data(data.to_vec())
 			.build_and_unwrap_contract();
 
-		let contract = test_utils::get_contract(&addr);
+		let contract = get_contract(&addr);
 		let account = <Test as Config>::AddressMapper::to_account_id(&addr);
 		let actual_deposit =
-			test_utils::get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account);
+			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account);
 
 		assert_eq!(contract.immutable_data_len(), data.len() as u32);
 
 		// Storing immmutable data charges storage deposit; verify it explicitly.
-		assert_eq!(actual_deposit, test_utils::contract_base_deposit(&addr));
+		assert_eq!(actual_deposit, contract_base_deposit(&addr));
 
 		// make sure it is also recorded in the base deposit
 		assert_eq!(
-			test_utils::get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account),
+			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account),
 			contract.storage_base_deposit(),
 		);
 
@@ -4563,7 +4558,7 @@ fn precompiles_work() {
 				.build_and_unwrap_result();
 
 			// no account or contract info should be created for a NoInfo pre-compile
-			assert!(test_utils::get_contract_checked(&precompile_addr).is_none());
+			assert!(get_contract_checked(&precompile_addr).is_none());
 			assert!(!System::account_exists(&id));
 			assert_eq!(Pallet::<Test>::evm_balance(&precompile_addr), U256::zero());
 
@@ -4608,7 +4603,7 @@ fn precompiles_with_info_creates_contract() {
 				.build_and_unwrap_result();
 
 			// a pre-compile with contract info should create an account on first call
-			assert!(test_utils::get_contract_checked(&precompile_addr).is_some());
+			assert!(get_contract_checked(&precompile_addr).is_some());
 			assert!(System::account_exists(&id));
 			assert_eq!(Pallet::<Test>::evm_balance(&precompile_addr), U256::from(0));
 

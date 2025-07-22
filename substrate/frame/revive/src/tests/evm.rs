@@ -1,24 +1,41 @@
-use self::test_utils::ensure_stored;
-use super::{ExtBuilder, Test};
+// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! The pallet-revive EVM integration test suite.
+
 use crate::{
 	test_utils::{builder::Contract, *},
 	tests::{
 		builder,
-		test_utils::{self},
-		System,
+		test_utils::{ensure_stored, get_contract_checked},
+		ExtBuilder, System, Test,
 	},
 	Code, Config,
 };
+use alloy_core::{primitives, sol_types::SolInterface};
 use frame_support::traits::fungible::Mutate;
 use pretty_assertions::assert_eq;
 use sp_core::U256;
 
-alloy_core::sol!("src/tests/playground.sol");
+use pallet_revive_fixtures_solidity::contracts::*;
 
 #[test]
 fn basic_evm_flow_works() {
-	use alloy_core::{hex, primitives, sol_types::SolInterface};
-	let code = hex::decode(include_str!("Playground.bin")).unwrap();
+	let code = playground_bin();
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -26,7 +43,7 @@ fn basic_evm_flow_works() {
 			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
 
 		// check the code exists
-		let contract = test_utils::get_contract_checked(&addr).unwrap();
+		let contract = get_contract_checked(&addr).unwrap();
 		ensure_stored(contract.code_hash);
 
 		let result = builder::bare_call(addr)
@@ -43,8 +60,7 @@ fn basic_evm_flow_works() {
 
 #[test]
 fn basic_evm_host_interaction_works() {
-	use alloy_core::{hex, sol_types::SolInterface};
-	let code = hex::decode(include_str!("Playground.bin")).unwrap();
+	let code = playground_bin();
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
