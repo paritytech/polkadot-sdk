@@ -397,28 +397,6 @@ pub mod pallet {
 		Thawed { who: T::AccountId, amount: T::Balance },
 		/// The `TotalIssuance` was forcefully changed.
 		TotalIssuanceForced { old: T::Balance, new: T::Balance },
-<<<<<<< HEAD
-=======
-		/// Some balance was placed on hold.
-		Held { reason: T::RuntimeHoldReason, who: T::AccountId, amount: T::Balance },
-		/// Held balance was burned from an account.
-		BurnedHeld { reason: T::RuntimeHoldReason, who: T::AccountId, amount: T::Balance },
-		/// A transfer of `amount` on hold from `source` to `dest` was initiated.
-		TransferOnHold {
-			reason: T::RuntimeHoldReason,
-			source: T::AccountId,
-			dest: T::AccountId,
-			amount: T::Balance,
-		},
-		/// The `transferred` balance is placed on hold at the `dest` account.
-		TransferAndHold {
-			reason: T::RuntimeHoldReason,
-			source: T::AccountId,
-			dest: T::AccountId,
-			transferred: T::Balance,
-		},
-		/// Some balance was released from hold.
-		Released { reason: T::RuntimeHoldReason, who: T::AccountId, amount: T::Balance },
 		/// An unexpected/defensive event was triggered.
 		Unexpected(UnexpectedKind),
 	}
@@ -433,7 +411,6 @@ pub mod pallet {
 		/// Mutating the account failed unexpectedly. This might lead to storage items in
 		/// `Balances` and the underlying account in `System` to be out of sync.
 		FailedToMutateAccount,
->>>>>>> 0d21066 (Allow locking to bump consumer without limits (#9176))
 	}
 
 	#[pallet::error]
