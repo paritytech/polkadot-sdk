@@ -1,0 +1,6 @@
+title: 'network: Upgrade litep2p to v0.10.0'
+doc:
+- audience: Node Dev
+  description: Upgrade litep2p to the latest version with fixed Bitswap protocol implementation
+    and ability to set Kademlia memory store capacity.
+crates: []
