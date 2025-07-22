@@ -2,8 +2,9 @@ use super::i256::i256_cmp;
 use core::cmp::Ordering;
 use revm::{
 	interpreter::{
-		InstructionContext, gas as revm_gas,
+		gas as revm_gas,
 		interpreter_types::{InterpreterTypes, RuntimeFlag, StackTr},
+		InstructionContext,
 	},
 	primitives::U256,
 };
@@ -167,8 +168,8 @@ pub fn sar<WIRE: InterpreterTypes, H: ?Sized>(context: InstructionContext<'_, H,
 mod tests {
 	use super::{byte, clz, sar, shl, shr};
 	use revm::{
-		interpreter::{InstructionContext, Interpreter, host::DummyHost},
-		primitives::{U256, hardfork::SpecId, uint},
+		interpreter::{host::DummyHost, InstructionContext, Interpreter},
+		primitives::{hardfork::SpecId, uint, U256},
 	};
 
 	#[test]

@@ -1,8 +1,9 @@
 use super::utility::cast_slice_to_u256;
 use revm::{
 	interpreter::{
-		InstructionContext, InstructionResult, gas as revm_gas,
+		gas as revm_gas,
 		interpreter_types::{Immediates, InterpreterTypes, Jumps, RuntimeFlag, StackTr},
+		InstructionContext, InstructionResult,
 	},
 	primitives::U256,
 };

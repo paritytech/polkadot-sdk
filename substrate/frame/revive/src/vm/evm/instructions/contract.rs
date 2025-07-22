@@ -6,7 +6,7 @@ use super::utility::IntoAddress;
 use revm::{
 	context_interface::CreateScheme,
 	interpreter::{
-		CallInput, InstructionContext, InstructionResult, gas as revm_gas,
+		gas as revm_gas,
 		host::Host,
 		interpreter_action::{
 			CallInputs, CallScheme, CallValue, CreateInputs, FrameInput, InterpreterAction,
@@ -14,8 +14,9 @@ use revm::{
 		interpreter_types::{
 			InputsTr, InterpreterTypes, LoopControl, MemoryTr, RuntimeFlag, StackTr,
 		},
+		CallInput, InstructionContext, InstructionResult,
 	},
-	primitives::{Address, B256, Bytes, U256, hardfork::SpecId},
+	primitives::{hardfork::SpecId, Address, Bytes, B256, U256},
 };
 use std::boxed::Box;
 

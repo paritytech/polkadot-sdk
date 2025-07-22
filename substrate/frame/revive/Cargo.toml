@@ -35,10 +35,10 @@ polkavm = { version = "0.26.0", default-features = false }
 polkavm-common = { version = "0.26.0", default-features = false }
 rand = { workspace = true, optional = true }
 rand_pcg = { workspace = true, optional = true }
+revm = { workspace = true }
 rlp = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true, default-features = false }
-revm = { workspace = true }
 
 # Polkadot SDK Dependencies
 bn = { workspace = true }
@@ -115,6 +115,7 @@ std = [
 	"sp-keystore/std",
 	"sp-runtime/std",
 	"subxt-signer",
+	"revm/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

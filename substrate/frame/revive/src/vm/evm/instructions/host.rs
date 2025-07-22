@@ -2,12 +2,12 @@ use super::utility::{IntoAddress, IntoU256};
 use core::cmp::min;
 use revm::{
 	interpreter::{
-		InstructionContext, InstructionResult,
-		gas::{self, CALL_STIPEND, warm_cold_cost},
+		gas::{self, warm_cold_cost, CALL_STIPEND},
 		host::Host,
 		interpreter_types::{InputsTr, InterpreterTypes, MemoryTr, RuntimeFlag, StackTr},
+		InstructionContext, InstructionResult,
 	},
-	primitives::{B256, BLOCK_HASH_HISTORY, Bytes, Log, LogData, U256, hardfork::SpecId::*},
+	primitives::{hardfork::SpecId::*, Bytes, Log, LogData, B256, BLOCK_HASH_HISTORY, U256},
 };
 
 /// Implements the BALANCE instruction.

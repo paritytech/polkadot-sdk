@@ -23,13 +23,13 @@ pub mod env;
 pub use env::SyscallDoc;
 
 use crate::{
-	BalanceOf, Config, Error, LOG_TARGET, Pallet, RuntimeCosts, SENTINEL,
 	evm::runtime::GAS_PRICE,
 	exec::{ExecError, ExecResult, Ext, Key},
 	gas::ChargedAmount,
 	limits,
 	precompiles::{All as AllPrecompiles, Precompiles},
 	primitives::ExecReturnValue,
+	BalanceOf, Config, Error, Pallet, RuntimeCosts, LOG_TARGET, SENTINEL,
 };
 use alloc::{vec, vec::Vec};
 use codec::Encode;
@@ -196,7 +196,11 @@ impl<T: Config> PolkaVmInstance<T> for polkavm::RawInstance {
 
 impl From<&ExecReturnValue> for ReturnErrorCode {
 	fn from(from: &ExecReturnValue) -> Self {
-		if from.flags.contains(ReturnFlags::REVERT) { Self::CalleeReverted } else { Self::Success }
+		if from.flags.contains(ReturnFlags::REVERT) {
+			Self::CalleeReverted
+		} else {
+			Self::Success
+		}
 	}
 }
 
@@ -245,7 +249,9 @@ impl fmt::Display for TrapReason {
 /// We need this access as a macro because sometimes hiding the lifetimes behind
 /// a function won't work out.
 macro_rules! charge_gas {
-	($runtime:expr, $costs:expr) => {{ $runtime.ext.gas_meter_mut().charge($costs) }};
+	($runtime:expr, $costs:expr) => {{
+		$runtime.ext.gas_meter_mut().charge($costs)
+	}};
 }
 
 /// The kind of call that should be performed.

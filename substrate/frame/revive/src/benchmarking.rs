@@ -19,14 +19,13 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
-	Pallet as Contracts,
-	call_builder::{CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit},
+	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, VmBinaryModule},
 	evm::runtime::GAS_PRICE,
 	exec::{Key, MomentOf, PrecompileExt},
 	limits,
 	precompiles::{self, run::builtin as run_builtin_precompile},
 	storage::WriteOutcome,
-	*
+	Pallet as Contracts, *,
 };
 use alloc::{vec, vec::Vec};
 use codec::{Encode, MaxEncodedLen};
@@ -39,11 +38,11 @@ use frame_support::{
 	weights::{Weight, WeightMeter},
 };
 use frame_system::RawOrigin;
-use pallet_revive_uapi::{CallFlags, ReturnErrorCode, StorageFlags, pack_hi_lo};
+use pallet_revive_uapi::{pack_hi_lo, CallFlags, ReturnErrorCode, StorageFlags};
 use sp_consensus_aura::AURA_ENGINE_ID;
 use sp_consensus_babe::{
-	BABE_ENGINE_ID,
 	digests::{PreDigest, PrimaryPreDigest},
+	BABE_ENGINE_ID,
 };
 use sp_consensus_slots::Slot;
 use sp_runtime::{
@@ -2096,7 +2095,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn bn128_pairing(n: Linear<0, { 20 }>) {
 		fn generate_random_ecpairs(n: usize) -> Vec<u8> {
-			use bn::{AffineG1, AffineG2, Fr, G1, G2, Group};
+			use bn::{AffineG1, AffineG2, Fr, Group, G1, G2};
 			use rand::SeedableRng;
 			use rand_pcg::Pcg64;
 			let mut rng = Pcg64::seed_from_u64(1);
@@ -2207,7 +2206,7 @@ mod benchmarks {
 	// and then accessing it so that each instruction generates two cache misses.
 	#[benchmark(pov_mode = Ignored)]
 	fn instr(r: Linear<0, 10_000>) {
-		use rand::{SeedableRng, seq::SliceRandom};
+		use rand::{seq::SliceRandom, SeedableRng};
 		use rand_pcg::Pcg64;
 
 		// Ideally, this needs to be bigger than the cache.

@@ -1,11 +1,12 @@
 use crate::RuntimeCosts;
 use revm::{
 	interpreter::{
-		InstructionContext, gas as revm_gas,
+		gas as revm_gas,
 		host::Host,
 		interpreter_types::{InterpreterTypes, RuntimeFlag, StackTr},
+		InstructionContext,
 	},
-	primitives::{U256, hardfork::SpecId::*},
+	primitives::{hardfork::SpecId::*, U256},
 };
 
 /// EIP-1344: ChainID opcode
