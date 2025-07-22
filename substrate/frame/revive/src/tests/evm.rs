@@ -1,53 +1,17 @@
 use self::test_utils::ensure_stored;
 use super::{ExtBuilder, Test};
 use crate::{
-	self as pallet_revive,
-	address::{create1, create2, AddressMapper},
-	assert_refcount, assert_return_code,
-	evm::{runtime::GAS_PRICE, CallTrace, CallTracer, CallType, GenericTransaction},
-	exec::Key,
-	limits,
-	storage::DeletionQueueManager,
 	test_utils::{builder::Contract, *},
 	tests::{
-		builder, initialize_block,
-		test_utils::{self, get_contract, get_contract_checked},
-		Balances, CodeHashLockupDepositPercent, Contracts, DepositPerByte, DepositPerItem,
-		RuntimeCall, RuntimeEvent, RuntimeOrigin, System, DEPOSIT_PER_BYTE,
+		builder,
+		test_utils::{self},
+		System,
 	},
-	tracing::trace,
-	weights::WeightInfo,
-	AccountId32Mapper, AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, BumpNonce, Code,
-	CodeInfoOf, Config, ContractInfo, DeletionQueueCounter, DepositLimit, Error, EthTransactError,
-	HoldReason, Origin, Pallet, PristineCode, H160,
+	Code, Config,
 };
-use assert_matches::assert_matches;
-use codec::Encode;
-use frame_support::{
-	assert_err, assert_err_ignore_postinfo, assert_noop, assert_ok, derive_impl,
-	pallet_prelude::EnsureOrigin,
-	parameter_types,
-	storage::child,
-	traits::{
-		fungible::{BalancedHold, Inspect, Mutate, MutateHold},
-		tokens::Preservation,
-		ConstU32, ConstU64, FindAuthor, OnIdle, OnInitialize, StorageVersion,
-	},
-	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, FixedFee, IdentityFee, Weight, WeightMeter},
-};
-use frame_system::{EventRecord, Phase};
-use pallet_revive_fixtures::compile_module;
-use pallet_revive_uapi::{ReturnErrorCode as RuntimeReturnCode, ReturnFlags};
-use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
-use pretty_assertions::{assert_eq, assert_ne};
-use sp_core::{Get, U256};
-use sp_io::hashing::blake2_256;
-use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
-use sp_runtime::{
-	testing::H256,
-	traits::{BlakeTwo256, Convert, IdentityLookup, One, Zero},
-	AccountId32, BuildStorage, DispatchError, Perbill, TokenError,
-};
+use frame_support::traits::fungible::Mutate;
+use pretty_assertions::assert_eq;
+use sp_core::U256;
 
 alloy_core::sol!("src/tests/playground.sol");
 
