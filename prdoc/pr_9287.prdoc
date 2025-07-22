@@ -5,4 +5,6 @@ doc:
     and ability to set Kademlia memory store capacity.
 crates:
 - name: sc-network
-  bump: patch
+  bump: major
+- name: sc-network-types
+  bump: major
