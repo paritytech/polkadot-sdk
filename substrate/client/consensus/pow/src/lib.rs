@@ -268,29 +268,26 @@ where
 		at_hash: B::Hash,
 		inherent_data_providers: CIDP::InherentDataProviders,
 	) -> Result<(), Error<B>> {
+		use sp_block_builder::CheckInherentsError;
+
 		if *block.header().number() < self.check_inherents_after {
 			return Ok(())
 		}
 
-		let inherent_data = inherent_data_providers
-			.create_inherent_data()
-			.await
-			.map_err(|e| Error::CreateInherents(e))?;
-
-		let inherent_res = self
-			.client
-			.runtime_api()
-			.check_inherents(at_hash, block, inherent_data)
-			.map_err(|e| Error::Client(e.into()))?;
-
-		if !inherent_res.ok() {
-			for (identifier, error) in inherent_res.into_errors() {
-				match inherent_data_providers.try_handle_error(&identifier, &error).await {
-					Some(res) => res.map_err(Error::CheckInherents)?,
-					None => return Err(Error::CheckInherentsUnknownError(identifier)),
-				}
-			}
-		}
+		sp_block_builder::check_inherents(
+			self.client.clone(),
+			at_hash,
+			block,
+			&inherent_data_providers,
+		)
+		.await
+		.map_err(|e| match e {
+			CheckInherentsError::CreateInherentData(e) => Error::CreateInherents(e),
+			CheckInherentsError::Client(e) => Error::Client(e.into()),
+			CheckInherentsError::CheckInherents(e) => Error::CheckInherents(e),
+			CheckInherentsError::CheckInherentsUnknownError(id) =>
+				Error::CheckInherentsUnknownError(id),
+		})?;
 
 		Ok(())
 	}
