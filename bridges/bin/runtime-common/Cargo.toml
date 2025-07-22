@@ -46,10 +46,7 @@ xcm = { workspace = true }
 [dev-dependencies]
 bp-test-utils = { workspace = true }
 pallet-balances = { workspace = true, default-features = true }
-pallet-bridge-messages = { features = [
-	"std",
-	"test-helpers",
-], workspace = true }
+pallet-bridge-messages = { features = ["std", "test-helpers"], workspace = true }
 sp-core = { workspace = true, default-features = true }
 
 [features]
