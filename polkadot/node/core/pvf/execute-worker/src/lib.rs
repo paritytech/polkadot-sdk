@@ -40,9 +40,11 @@ use nix::{
 	unistd::{ForkResult, Pid},
 };
 use polkadot_node_core_pvf_common::{
+	compute_checksum,
 	error::InternalValidationError,
 	execute::{
-		Execution, Handshake, JobError, JobResponse, JobResult, WorkerError, WorkerResponse,
+		ExecuteRequest, Execution, Handshake, JobError, JobResponse, JobResult, WorkerError,
+		WorkerResponse,
 	},
 	executor_interface::params_to_wasmtime_semantics,
 	framed_recv_blocking, framed_send_blocking,
@@ -52,9 +54,9 @@ use polkadot_node_core_pvf_common::{
 		thread::{self, WaitOutcome},
 		PipeFd, WorkerInfo, WorkerKind,
 	},
-	worker_dir,
+	worker_dir, ArtifactChecksum,
 };
-use polkadot_node_primitives::{BlockData, PoV, POV_BOMB_LIMIT, VALIDATION_CODE_BOMB_LIMIT};
+use polkadot_node_primitives::{BlockData, PoV, POV_BOMB_LIMIT};
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use polkadot_primitives::{ExecutorParams, PersistedValidationData};
 use sp_maybe_compressed_blob::{decompress_as, MaybeCompressedBlobType};
@@ -93,38 +95,23 @@ fn recv_execute_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
 
 fn recv_request(
 	stream: &mut UnixStream,
-) -> io::Result<(Execution, PersistedValidationData, PoV, Duration)> {
-	let execution = framed_recv_blocking(stream)?;
-	let execution = Execution::decode(&mut &execution[..]).map_err(|_| {
+) -> io::Result<(Execution, PersistedValidationData, PoV, Duration, ArtifactChecksum, u32)> {
+	let request_bytes = framed_recv_blocking(stream)?;
+	let request = ExecuteRequest::decode(&mut &request_bytes[..]).map_err(|_| {
 		io::Error::new(
 			io::ErrorKind::Other,
-			"execute pvf recv_request: failed to decode execution".to_string(),
-		)
-	})?;
-	let pvd = framed_recv_blocking(stream)?;
-	let pvd = PersistedValidationData::decode(&mut &pvd[..]).map_err(|_| {
-		io::Error::new(
-			io::ErrorKind::Other,
-			"execute pvf recv_request: failed to decode persisted validation data".to_string(),
+			"execute pvf recv_request: failed to decode ExecuteRequest".to_string(),
 		)
 	})?;
 
-	let pov = framed_recv_blocking(stream)?;
-	let pov = PoV::decode(&mut &pov[..]).map_err(|_| {
-		io::Error::new(
-			io::ErrorKind::Other,
-			"execute pvf recv_request: failed to decode PoV".to_string(),
-		)
-	})?;
-
-	let execution_timeout = framed_recv_blocking(stream)?;
-	let execution_timeout = Duration::decode(&mut &execution_timeout[..]).map_err(|_| {
-		io::Error::new(
-			io::ErrorKind::Other,
-			"execute pvf recv_request: failed to decode duration".to_string(),
-		)
-	})?;
-	Ok((execution, pvd, pov, execution_timeout))
+	Ok((
+		request.execution,
+		request.pvd,
+		request.pov,
+		request.execution_timeout,
+		request.artifact_checksum,
+		request.code_bomb_limit,
+	))
 }
 
 /// Sends an error to the host and returns the original error wrapped in `io::Error`.
@@ -178,7 +165,7 @@ pub fn worker_entrypoint(
 			let execute_thread_stack_size = max_stack_size(&executor_params);
 
 			loop {
-				let (execution, pvd, pov, execution_timeout) =
+				let (execution, pvd, pov, execution_timeout, artifact_checksum, code_bomb_limit) =
 					recv_request(&mut stream).map_err(|e| {
 						map_and_send_err!(
 							e,
@@ -223,7 +210,7 @@ pub fn worker_entrypoint(
 					let code = decompress_as(
 						MaybeCompressedBlobType::Pvm,
 						&code,
-						VALIDATION_CODE_BOMB_LIMIT,
+						code_bomb_limit as usize,
 					)
 					.map_err(|e| {
 						map_and_send_err!(
@@ -306,6 +293,19 @@ pub fn worker_entrypoint(
 						worker_info
 					)
 				})?;
+
+				if artifact_checksum != compute_checksum(&compiled_artifact_blob) {
+					send_result::<WorkerResponse, WorkerError>(
+						&mut stream,
+						Ok(WorkerResponse {
+							job_response: JobResponse::CorruptedArtifact,
+							duration: Duration::ZERO,
+							pov_size: 0,
+						}),
+						worker_info,
+					)?;
+					continue;
+				}
 				let code = Arc::new(compiled_artifact_blob);
 
 				let (pipe_read_fd, pipe_write_fd) = pipe2_cloexec().map_err(|e| {

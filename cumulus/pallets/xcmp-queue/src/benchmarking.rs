@@ -15,7 +15,7 @@
 
 //! Benchmarking setup for cumulus-pallet-xcmp-queue
 
-use crate::*;
+use crate::{weights_ext::get_average_page_pos, *};
 
 use alloc::vec;
 use codec::DecodeAll;
@@ -107,6 +107,40 @@ mod benchmarks {
 		}
 	}
 
+	/// Add an XCMP message of 0 bytes to the message queue at the provided position
+	/// on an existing page.
+	#[benchmark]
+	fn enqueue_empty_xcmp_message_at(
+		n: Linear<0, { crate::MaxXcmpMessageLenOf::<T>::get() - 10 }>,
+	) {
+		#[cfg(test)]
+		{
+			mock::EnqueuedMessages::set(vec![]);
+		}
+
+		assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
+			0.into(),
+			&[BoundedVec::try_from(vec![0; n as usize]).unwrap()],
+			&mut WeightMeter::new()
+		));
+
+		#[cfg(not(test))]
+		let fp_before = T::XcmpQueue::footprint(0.into());
+		#[block]
+		{
+			assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
+				0.into(),
+				&[Default::default()],
+				&mut WeightMeter::new()
+			));
+		}
+		#[cfg(not(test))]
+		{
+			let fp_after = T::XcmpQueue::footprint(0.into());
+			assert_eq!(fp_after.ready_pages, fp_before.ready_pages);
+		}
+	}
+
 	/// Add `n` pages to the message queue.
 	///
 	/// We add one page by enqueueing a maximal size message which fills it.
@@ -157,6 +191,17 @@ mod benchmarks {
 			});
 		}
 
+		assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
+			0.into(),
+			&[BoundedVec::try_from(vec![
+				0;
+				get_average_page_pos(MaxXcmpMessageLenOf::<T>::get())
+					as usize
+			])
+			.unwrap()],
+			&mut WeightMeter::new()
+		));
+
 		let mut msgs = vec![];
 		for _i in 0..1000 {
 			msgs.push(BoundedVec::try_from(vec![0; 3]).unwrap());
@@ -175,7 +220,7 @@ mod benchmarks {
 		#[cfg(not(test))]
 		{
 			let fp_after = T::XcmpQueue::footprint(0.into());
-			assert_eq!(fp_after.ready_pages, fp_before.ready_pages + 1);
+			assert_eq!(fp_after.ready_pages, fp_before.ready_pages);
 		}
 	}
 

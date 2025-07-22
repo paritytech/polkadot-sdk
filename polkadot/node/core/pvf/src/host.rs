@@ -31,6 +31,8 @@ use futures::{
 	channel::{mpsc, oneshot},
 	Future, FutureExt, SinkExt, StreamExt,
 };
+#[cfg(feature = "test-utils")]
+use polkadot_node_core_pvf_common::ArtifactChecksum;
 use polkadot_node_core_pvf_common::{
 	error::{PrecheckResult, PrepareError},
 	execute::Execution,
@@ -163,13 +165,41 @@ impl ValidationHost {
 			.await
 			.map_err(|_| "the inner loop hung up".to_string())
 	}
+
+	/// Replace the artifact checksum with a new one.
+	///
+	/// Only for test purposes to imitate a corruption of the artifact on disk.
+	#[cfg(feature = "test-utils")]
+	pub async fn replace_artifact_checksum(
+		&mut self,
+		checksum: ArtifactChecksum,
+		new_checksum: ArtifactChecksum,
+	) -> Result<(), String> {
+		self.to_host_tx
+			.send(ToHost::ReplaceArtifactChecksum { checksum, new_checksum })
+			.await
+			.map_err(|_| "the inner loop hung up".to_string())
+	}
 }
 
 enum ToHost {
-	PrecheckPvf { pvf: PvfPrepData, result_tx: PrecheckResultSender },
+	PrecheckPvf {
+		pvf: PvfPrepData,
+		result_tx: PrecheckResultSender,
+	},
 	ExecutePvf(ExecutePvfInputs),
-	HeadsUp { active_pvfs: Vec<PvfPrepData> },
-	UpdateActiveLeaves { update: ActiveLeavesUpdate, ancestors: Vec<Hash> },
+	HeadsUp {
+		active_pvfs: Vec<PvfPrepData>,
+	},
+	UpdateActiveLeaves {
+		update: ActiveLeavesUpdate,
+		ancestors: Vec<Hash>,
+	},
+	#[cfg(feature = "test-utils")]
+	ReplaceArtifactChecksum {
+		checksum: ArtifactChecksum,
+		new_checksum: ArtifactChecksum,
+	},
 }
 
 struct ExecutePvfInputs {
@@ -511,6 +541,10 @@ async fn handle_to_host(
 			handle_heads_up(artifacts, prepare_queue, active_pvfs).await?,
 		ToHost::UpdateActiveLeaves { update, ancestors } =>
 			handle_update_active_leaves(execute_queue, update, ancestors).await?,
+		#[cfg(feature = "test-utils")]
+		ToHost::ReplaceArtifactChecksum { checksum, new_checksum } => {
+			artifacts.replace_artifact_checksum(checksum, new_checksum);
+		},
 	}
 
 	Ok(())
@@ -608,7 +642,11 @@ impl From<Executable> for Execution {
 impl Default for Executable {
 	fn default() -> Self {
 		Executable::Wasm {
-			artifact: ArtifactPathId::new(crate::testing::artifact_id(0), &PathBuf::new()),
+			artifact: ArtifactPathId::new(
+				crate::testing::artifact_id(0),
+				&PathBuf::new(),
+				crate::testing::artifact_checksum(0),
+			),
 		}
 	}
 }
@@ -636,6 +674,7 @@ async fn handle_execute_pvf(
 
 	let code = pvf.maybe_compressed_code();
 	let executor_params = (*pvf.executor_params()).clone();
+	let code_bomb_limit = pvf.validation_code_bomb_limit();
 
 	if matches!(
 		blob_type(&code).map_err(|_| {
@@ -664,6 +703,7 @@ async fn handle_execute_pvf(
 					pvd,
 					pov,
 					executor_params,
+					code_bomb_limit,
 					exec_kind,
 					result_tx,
 				},
@@ -678,7 +718,7 @@ async fn handle_execute_pvf(
 
 	if let Some(state) = artifacts.artifact_state_mut(&artifact_id) {
 		match state {
-			ArtifactState::Prepared { ref path, last_time_needed, .. } => {
+			ArtifactState::Prepared { ref path, checksum, last_time_needed, .. } => {
 				let file_metadata = std::fs::metadata(path);
 
 				if file_metadata.is_ok() {
@@ -689,13 +729,14 @@ async fn handle_execute_pvf(
 						execute_queue,
 						execute::ToQueue::Enqueue {
 							executable: Executable::Wasm {
-								artifact: ArtifactPathId::new(artifact_id, path),
+								artifact: ArtifactPathId::new(artifact_id, path, *checksum),
 							},
 							pending_execution_request: PendingExecutionRequest {
 								exec_timeout,
 								pvd,
 								pov,
 								executor_params,
+								code_bomb_limit,
 								exec_kind,
 								result_tx,
 							},
@@ -727,6 +768,7 @@ async fn handle_execute_pvf(
 							pvd,
 							pov,
 							executor_params,
+							code_bomb_limit,
 							exec_kind,
 							result_tx,
 						},
@@ -742,6 +784,7 @@ async fn handle_execute_pvf(
 						pvd,
 						pov,
 						executor_params,
+						code_bomb_limit,
 						result_tx,
 						exec_kind,
 					},
@@ -776,6 +819,7 @@ async fn handle_execute_pvf(
 							pvd,
 							pov,
 							executor_params,
+							code_bomb_limit,
 							exec_kind,
 							result_tx,
 						},
@@ -801,6 +845,7 @@ async fn handle_execute_pvf(
 				pvd,
 				pov,
 				executor_params,
+				code_bomb_limit,
 				result_tx,
 				exec_kind,
 			},
@@ -925,8 +970,15 @@ async fn handle_prepare_done(
 	// It's finally time to dispatch all the execution requests that were waiting for this artifact
 	// to be prepared.
 	let pending_requests = awaiting_prepare.take(&artifact_id);
-	for PendingExecutionRequest { exec_timeout, pvd, pov, executor_params, result_tx, exec_kind } in
-		pending_requests
+	for PendingExecutionRequest {
+		exec_timeout,
+		pvd,
+		pov,
+		executor_params,
+		code_bomb_limit,
+		result_tx,
+		exec_kind,
+	} in pending_requests
 	{
 		if result_tx.is_canceled() {
 			// Preparation could've taken quite a bit of time and the requester may be not
@@ -934,8 +986,8 @@ async fn handle_prepare_done(
 			continue
 		}
 
-		let path = match &result {
-			Ok(success) => success.path.clone(),
+		let (path, checksum) = match &result {
+			Ok(success) => (success.path.clone(), success.checksum),
 			Err(error) => {
 				let _ = result_tx.send(Err(ValidationError::from(error.clone())));
 				continue
@@ -946,13 +998,14 @@ async fn handle_prepare_done(
 			execute_queue,
 			execute::ToQueue::Enqueue {
 				executable: Executable::Wasm {
-					artifact: ArtifactPathId::new(artifact_id.clone(), &path),
+					artifact: ArtifactPathId::new(artifact_id.clone(), &path, checksum),
 				},
 				pending_execution_request: PendingExecutionRequest {
 					exec_timeout,
 					pvd,
 					pov,
 					executor_params,
+					code_bomb_limit,
 					exec_kind,
 					result_tx,
 				},
@@ -962,8 +1015,8 @@ async fn handle_prepare_done(
 	}
 
 	*state = match result {
-		Ok(PrepareSuccess { path, size, .. }) =>
-			ArtifactState::Prepared { path, last_time_needed: SystemTime::now(), size },
+		Ok(PrepareSuccess { checksum, path, size, .. }) =>
+			ArtifactState::Prepared { checksum, path, last_time_needed: SystemTime::now(), size },
 		Err(error) => {
 			let last_time_failed = SystemTime::now();
 			let num_failures = *num_failures + 1;
@@ -1348,8 +1401,20 @@ pub(crate) mod tests {
 		builder.cleanup_config = ArtifactsCleanupConfig::new(1024, Duration::from_secs(0));
 		let path1 = generate_artifact_path(cache_path);
 		let path2 = generate_artifact_path(cache_path);
-		builder.artifacts.insert_prepared(artifact_id(1), path1.clone(), mock_now, 1024);
-		builder.artifacts.insert_prepared(artifact_id(2), path2.clone(), mock_now, 1024);
+		builder.artifacts.insert_prepared(
+			artifact_id(1),
+			path1.clone(),
+			Default::default(),
+			mock_now,
+			1024,
+		);
+		builder.artifacts.insert_prepared(
+			artifact_id(2),
+			path2.clone(),
+			Default::default(),
+			mock_now,
+			1024,
+		);
 		let mut test = builder.build();
 		let mut host = test.host_handle();
 

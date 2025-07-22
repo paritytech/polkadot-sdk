@@ -31,7 +31,7 @@ use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
 	execute::{Execution, Handshake, WorkerError, WorkerResponse},
 	worker::WorkerKind,
-	worker_dir, SecurityStatus,
+	worker_dir, ArtifactChecksum, SecurityStatus,
 };
 use polkadot_node_primitives::PoV;
 use polkadot_primitives::{ExecutorParams, PersistedValidationData};
@@ -131,6 +131,7 @@ pub async fn start_work(
 	execution_timeout: Duration,
 	pvd: Arc<PersistedValidationData>,
 	pov: Arc<PoV>,
+	code_bomb_limit: u32,
 ) -> Result<Response, Error> {
 	let IdleWorker { mut stream, pid, worker_dir } = worker;
 	let code_hash = executable.code_hash();
@@ -145,6 +146,7 @@ pub async fn start_work(
 		executable,
 	);
 
+	let mut artifact_checksum = Default::default();
 	if let Executable::Wasm { artifact } = &executable {
 		// Cheaply create a hard link to the artifact. The artifact is always at a known location in
 		// the worker cache, and the child can't access any other artifacts or gain any
@@ -160,22 +162,31 @@ pub async fn start_work(
 			);
 			return Err(InternalValidationError::CouldNotCreateLink(format!("{:?}", err)).into());
 		}
+		artifact_checksum = artifact.checksum; // TODO: Refactor send_request to accept optional checksum
 	}
 
 	let execution = Execution::from(executable);
 
-	send_request(&mut stream, execution, pvd, pov, execution_timeout)
-		.await
-		.map_err(|error| {
-			gum::warn!(
-				target: LOG_TARGET,
-				worker_pid = %pid,
-				validation_code_hash = ?code_hash,
-				"failed to send an execute request: {}",
-				error,
-			);
-			Error::InternalError(InternalValidationError::HostCommunication(error.to_string()))
-		})?;
+	send_request(
+		&mut stream,
+		execution,
+		pvd,
+		pov,
+		execution_timeout,
+		artifact_checksum,
+		code_bomb_limit,
+	)
+	.await
+	.map_err(|error| {
+		gum::warn!(
+			target: LOG_TARGET,
+			worker_pid = %pid,
+			validation_code_hash = ?code_hash,
+			"failed to send an execute request: {}",
+			error,
+		);
+		Error::InternalError(InternalValidationError::HostCommunication(error.to_string()))
+	})?;
 
 	// We use a generous timeout here. This is in addition to the one in the child process, in
 	// case the child stalls. We have a wall clock timeout here in the host, but a CPU timeout
@@ -281,11 +292,18 @@ async fn send_request(
 	pvd: Arc<PersistedValidationData>,
 	pov: Arc<PoV>,
 	execution_timeout: Duration,
+	artifact_checksum: ArtifactChecksum,
+	code_bomb_limit: u32,
 ) -> io::Result<()> {
-	framed_send(stream, &execution.encode()).await?;
-	framed_send(stream, &pvd.encode()).await?;
-	framed_send(stream, &pov.encode()).await?;
-	framed_send(stream, &execution_timeout.encode()).await
+	let request = polkadot_node_core_pvf_common::execute::ExecuteRequest {
+		execution,
+		pvd: (*pvd).clone(),
+		pov: (*pov).clone(),
+		execution_timeout,
+		artifact_checksum,
+		code_bomb_limit,
+	};
+	framed_send(stream, &request.encode()).await
 }
 
 async fn recv_result(stream: &mut UnixStream) -> io::Result<Result<WorkerResponse, WorkerError>> {

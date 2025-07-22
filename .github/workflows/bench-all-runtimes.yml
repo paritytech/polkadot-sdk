@@ -133,7 +133,7 @@ jobs:
           path: patches      
 
       # needs to be able to trigger CI
-      - uses: actions/create-github-app-token@v1
+      - uses: actions/create-github-app-token@v2
         id: generate_token
         with:
           app-id: ${{ secrets.CMD_BOT_APP_ID }}
@@ -210,5 +210,5 @@ jobs:
             --reviewer paritytech/ci \
             --reviewer paritytech/release-engineering \
             $MAYBE_DRAFT \
-            --label "R0-silent" \
+            --label "R0-no-crate-publish-required" \
             --body "$(cat /tmp/pr_body.md)"

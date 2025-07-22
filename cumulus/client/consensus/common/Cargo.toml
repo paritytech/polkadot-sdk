@@ -41,6 +41,7 @@ polkadot-primitives = { workspace = true, default-features = true }
 cumulus-client-pov-recovery = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
+cumulus-relay-chain-streams = { workspace = true, default-features = true }
 schnellru = { workspace = true }
 
 [dev-dependencies]

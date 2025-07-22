@@ -48,7 +48,9 @@ pub fn fetch_latest_metadata_from_code_blob<HF: HostFunctions>(
 			let supported_versions = Vec::<u32>::decode(&mut supported_versions.as_slice())?;
 			let latest_stable = supported_versions
 				.into_iter()
-				.filter(|v| *v != u32::MAX)
+				// TODO: Subxt doesn't support V16 metadata until v0.42.0, so don't try
+				// to fetch it here until we update to that version.
+				.filter(|v| *v != u32::MAX && *v < 16)
 				.max()
 				.ok_or(Error::StableMetadataVersionNotFound)?;
 

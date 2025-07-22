@@ -23,16 +23,17 @@ use bridge_hub_westend_runtime::{
 use emulated_integration_tests_common::{impls::Decode, PenpalBTeleportableAssetLocation};
 use frame_support::{assert_err_ignore_postinfo, pallet_prelude::TypeInfo};
 use rococo_westend_system_emulated_network::penpal_emulated_chain::penpal_runtime::xcm_config::LocalTeleportableToAssetHub;
-use snowbridge_core::{AssetMetadata, BasicOperatingMode};
+use snowbridge_core::{reward::MessageId, AssetMetadata, BasicOperatingMode};
 use snowbridge_outbound_queue_primitives::v2::{ContractCall, DeliveryReceipt};
 use snowbridge_pallet_outbound_queue_v2::Error;
+use snowbridge_pallet_system_v2::LostTips;
 use sp_core::H256;
 use xcm::v5::AssetTransferFilter;
 
 #[derive(Encode, Decode, Debug, PartialEq, Clone, TypeInfo)]
 pub enum EthereumSystemFrontendCall {
 	#[codec(index = 1)]
-	RegisterToken { asset_id: Box<VersionedLocation>, metadata: AssetMetadata },
+	RegisterToken { asset_id: Box<VersionedLocation>, metadata: AssetMetadata, fee_asset: Asset },
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -105,7 +106,7 @@ fn send_weth_from_asset_hub_to_ethereum() {
 		let reward_account = AssetHubWestendReceiver::get();
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
-			nonce: 0,
+			nonce: 1,
 			reward_address: reward_account.into(),
 			topic: H256::zero(),
 			success: true,
@@ -131,6 +132,8 @@ pub fn register_relay_token_from_asset_hub_with_sudo() {
 	AssetHubWestend::execute_with(|| {
 		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
 
+		let fees_asset = Asset { id: AssetId(ethereum()), fun: Fungible(1) };
+
 		assert_ok!(
 			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::register_token(
 				RuntimeOrigin::root(),
@@ -139,29 +142,8 @@ pub fn register_relay_token_from_asset_hub_with_sudo() {
 					name: "wnd".as_bytes().to_vec().try_into().unwrap(),
 					symbol: "wnd".as_bytes().to_vec().try_into().unwrap(),
 					decimals: 12,
-				}
-			)
-		);
-	});
-}
-
-#[test]
-pub fn register_usdt_from_owner_on_asset_hub() {
-	fund_on_bh();
-	register_assets_on_ah();
-	fund_on_ah();
-	AssetHubWestend::execute_with(|| {
-		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
-
-		assert_ok!(
-			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::register_token(
-				RuntimeOrigin::signed(AssetHubWestendAssetOwner::get()),
-				bx!(VersionedLocation::from(usdt_at_ah_westend())),
-				AssetMetadata {
-					name: "usdt".as_bytes().to_vec().try_into().unwrap(),
-					symbol: "usdt".as_bytes().to_vec().try_into().unwrap(),
-					decimals: 6,
-				}
+				},
+				fees_asset
 			)
 		);
 	});
@@ -172,6 +154,170 @@ pub fn register_usdt_from_owner_on_asset_hub() {
 			BridgeHubWestend,
 			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageQueued{ .. }) => {},]
 		);
+	});
+}
+
+#[test]
+pub fn register_usdt_from_owner_on_asset_hub() {
+	fund_on_bh();
+	register_assets_on_ah();
+	fund_on_ah();
+	set_up_eth_and_dot_pool();
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+
+		let fees_asset =
+			Asset { id: AssetId(Location::parent()), fun: Fungible(1_000_000_000u128) };
+
+		assert_ok!(
+			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::register_token(
+				RuntimeOrigin::signed(AssetHubWestendAssetOwner::get()),
+				bx!(VersionedLocation::from(usdt_at_ah_westend())),
+				AssetMetadata {
+					name: "usdt".as_bytes().to_vec().try_into().unwrap(),
+					symbol: "usdt".as_bytes().to_vec().try_into().unwrap(),
+					decimals: 6,
+				},
+				fees_asset
+			)
+		);
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::SwapExecuted { .. }) => {},]
+		);
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![RuntimeEvent::EthereumOutboundQueueV2(snowbridge_pallet_outbound_queue_v2::Event::MessageQueued{ .. }) => {},]
+		);
+	});
+}
+
+#[test]
+pub fn add_tip_from_asset_hub_user_origin() {
+	fund_on_bh();
+	register_assets_on_ah();
+	fund_on_ah();
+	set_up_eth_and_dot_pool();
+	let relayer = AssetHubWestendSender::get();
+
+	// Fund the relayer account to pay xcm delivery fees from AH -> BH.
+	AssetHubWestend::fund_accounts(vec![(relayer.clone(), INITIAL_FUND)]);
+
+	// Send a message from AH to Ethereum to increase the nonce
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		let local_fee_asset =
+			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
+		let remote_fee_asset =
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
+		let reserve_asset = Asset { id: AssetId(weth_location()), fun: Fungible(TOKEN_AMOUNT) };
+		let assets = vec![reserve_asset.clone(), remote_fee_asset.clone(), local_fee_asset.clone()];
+
+		let xcm = VersionedXcm::from(Xcm(vec![
+			WithdrawAsset(assets.clone().into()),
+			PayFees { asset: local_fee_asset.clone() },
+			InitiateTransfer {
+				destination: ethereum(),
+				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
+					remote_fee_asset.clone().into(),
+				))),
+				preserve_origin: true,
+				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveWithdraw(
+					Definite(reserve_asset.clone().into()),
+				)]),
+				remote_xcm: Xcm(vec![DepositAsset {
+					assets: Wild(AllCounted(2)),
+					beneficiary: beneficiary(),
+				}]),
+			},
+		]));
+
+		// Send the Weth back to Ethereum
+		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::execute(
+			RuntimeOrigin::signed(AssetHubWestendReceiver::get()),
+			bx!(xcm),
+			Weight::from(EXECUTION_WEIGHT),
+		)
+		.unwrap();
+	});
+
+	// Add the tip.
+	let tip_message_id = MessageId::Outbound(1);
+
+	let dot = Location::new(1, Here);
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::add_tip(
+			RuntimeOrigin::signed(relayer.clone()),
+			tip_message_id.clone(),
+			xcm::prelude::Asset::from((dot, 1_000_000_000u128)),
+		));
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+
+		let events = BridgeHubWestend::events();
+		assert!(
+			events.iter().any(|event| matches!(
+				event,
+				RuntimeEvent::EthereumSystemV2(snowbridge_pallet_system_v2::Event::TipProcessed { sender, message_id, success, ..})
+					if *sender == relayer && *message_id == tip_message_id.clone() && *success, // expect success
+			)),
+			"tip added event found"
+		);
+	});
+}
+
+#[test]
+pub fn tip_to_invalid_nonce_is_added_to_lost_tips() {
+	fund_on_bh();
+	register_assets_on_ah();
+	fund_on_ah();
+	set_up_eth_and_dot_pool();
+	let relayer = AssetHubWestendSender::get();
+
+	AssetHubWestend::fund_accounts(vec![(relayer.clone(), INITIAL_FUND)]);
+
+	// A nonce that does not exist.
+	let tip_message_id = MessageId::Outbound(22);
+
+	let dot = Location::new(1, Here);
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::add_tip(
+			RuntimeOrigin::signed(relayer.clone()),
+			tip_message_id.clone(),
+			xcm::prelude::Asset::from((dot, 1_000_000_000u128)),
+		));
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+
+		let events = BridgeHubWestend::events();
+		assert!(
+			events.iter().any(|event| matches!(
+				event,
+				RuntimeEvent::EthereumSystemV2(snowbridge_pallet_system_v2::Event::TipProcessed { sender, message_id, success, ..})
+					if *sender == relayer && *message_id == tip_message_id.clone() && !(*success), // expect a failure
+			)),
+			"tip added event found"
+		);
+
+		let relayer_lost_tip = LostTips::<bridge_hub_westend_runtime::Runtime>::get::<
+			sp_runtime::AccountId32,
+		>(relayer.into());
+		// Assert a tip was added to storage.
+		assert!(relayer_lost_tip > 0);
 	});
 }
 
@@ -264,7 +410,7 @@ fn transfer_relay_token_from_ah() {
 		let reward_account = AssetHubWestendReceiver::get();
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
-			nonce: 0,
+			nonce: 1,
 			reward_address: reward_account.into(),
 			topic: H256::zero(),
 			success: true,
@@ -351,7 +497,7 @@ fn send_weth_and_dot_from_asset_hub_to_ethereum() {
 		let reward_account = AssetHubWestendReceiver::get();
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
-			nonce: 0,
+			nonce: 1,
 			reward_address: reward_account.into(),
 			topic: H256::zero(),
 			success: true,
@@ -447,7 +593,7 @@ fn transact_with_agent_from_asset_hub() {
 		let reward_account = AssetHubWestendReceiver::get();
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
-			nonce: 0,
+			nonce: 1,
 			reward_address: reward_account.into(),
 			topic: H256::zero(),
 			success: true,
@@ -531,7 +677,7 @@ fn transact_with_agent_from_asset_hub_without_any_asset_transfer() {
 		let reward_account = AssetHubWestendReceiver::get();
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
-			nonce: 0,
+			nonce: 1,
 			reward_address: reward_account.into(),
 			success: true,
 			topic: Default::default(),
@@ -589,6 +735,7 @@ fn register_token_from_penpal() {
 			EthereumSystemFrontendCall::RegisterToken {
 				asset_id: Box::new(VersionedLocation::from(foreign_asset_at_asset_hub)),
 				metadata: Default::default(),
+				fee_asset: remote_fee_asset_on_ethereum.clone(),
 			},
 		);
 
@@ -648,7 +795,7 @@ fn register_token_from_penpal() {
 		let reward_account = AssetHubWestendReceiver::get();
 		let receipt = DeliveryReceipt {
 			gateway: EthereumGatewayAddress::get(),
-			nonce: 0,
+			nonce: 1,
 			reward_address: reward_account.into(),
 			topic: H256::zero(),
 			success: true,
@@ -883,7 +1030,10 @@ fn export_message_from_asset_hub_to_ethereum_is_banned_when_set_operating_mode()
 				bx!(xcm),
 				Weight::from(EXECUTION_WEIGHT),
 			),
-			pallet_xcm::Error::<Runtime>::LocalExecutionIncomplete
+			pallet_xcm::Error::<Runtime>::LocalExecutionIncompleteWithError {
+				error: XcmError::Unroutable.into(),
+				index: 2
+			}
 		);
 	});
 }

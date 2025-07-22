@@ -409,8 +409,8 @@ pub enum NetworkBridgeTxMessage {
 	/// Report a peer for their actions.
 	ReportPeer(ReportPeerMessage),
 
-	/// Disconnect a peer from the given peer-set without affecting their reputation.
-	DisconnectPeer(PeerId, PeerSet),
+	/// Disconnect peers from the given peer-set without affecting their reputation.
+	DisconnectPeers(Vec<PeerId>, PeerSet),
 
 	/// Send a message to one or more peers on the validation peer-set.
 	SendValidationMessage(Vec<PeerId>, net_protocol::VersionedValidationProtocol),
@@ -781,6 +781,9 @@ pub enum RuntimeApiRequest {
 	/// Get the maximum uncompressed code size.
 	/// `V12`
 	ValidationCodeBombLimit(SessionIndex, RuntimeApiSender<u32>),
+	/// Get the paraids at the relay parent.
+	/// `V14`
+	ParaIds(SessionIndex, RuntimeApiSender<Vec<ParaId>>),
 }
 
 impl RuntimeApiRequest {
@@ -830,6 +833,9 @@ impl RuntimeApiRequest {
 
 	/// `SchedulingLookahead`
 	pub const SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT: u32 = 13;
+
+	/// `ParaIds`
+	pub const PARAIDS_RUNTIME_REQUIREMENT: u32 = 14;
 }
 
 /// A message to the Runtime API subsystem.

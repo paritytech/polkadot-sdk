@@ -14,12 +14,3 @@ docify = { workspace = true }
 
 [features]
 generate-readme = []
-
-[profile.release]
-opt-level = 3
-panic = "unwind"
-
-[profile.production]
-codegen-units = 1
-inherits = "release"
-lto = true

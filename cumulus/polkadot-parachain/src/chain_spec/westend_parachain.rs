@@ -16,7 +16,6 @@
 
 //! ChainSpecs dedicated to Rococo parachain setups (for testing and example purposes)
 
-use crate::chain_spec::SAFE_XCM_VERSION;
 use cumulus_primitives_core::ParaId;
 use parachains_common::AccountId;
 use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
@@ -28,7 +27,7 @@ pub fn westend_parachain_local_config() -> GenericChainSpec {
 	GenericChainSpec::builder(
 		westend_parachain_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain: "westend-local".into(), para_id: 1000 },
+		Extensions { relay_chain: "westend-local".into() },
 	)
 	.with_name("Westend Parachain Local")
 	.with_id("local_testnet")
@@ -60,8 +59,5 @@ pub(crate) fn testnet_genesis(
 			"parachainId": id,
 		},
 		"aura": { "authorities": initial_authorities },
-		"polkadotXcm": {
-			"safeXcmVersion": Some(SAFE_XCM_VERSION),
-		},
 	})
 }

@@ -18,7 +18,7 @@
 //!
 //! Configuration can change only at session boundaries and is buffered until then.
 
-use crate::{inclusion::MAX_UPWARD_MESSAGE_SIZE_BOUND, shared};
+use crate::shared;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::{pallet_prelude::*, DefaultNoBound};
@@ -326,7 +326,9 @@ pub enum InconsistentError<BlockNumber> {
 	},
 	/// `validation_upgrade_delay` is less than or equal 1.
 	ValidationUpgradeDelayIsTooLow { validation_upgrade_delay: BlockNumber },
-	/// Maximum UMP message size ([`MAX_UPWARD_MESSAGE_SIZE_BOUND`]) exceeded.
+	/// Maximum UMP message size
+	/// ([`MAX_UPWARD_MESSAGE_SIZE_BOUND`](crate::inclusion::MAX_UPWARD_MESSAGE_SIZE_BOUND))
+	/// exceeded.
 	MaxUpwardMessageSizeExceeded { max_message_size: u32 },
 	/// Maximum HRMP message num ([`MAX_HORIZONTAL_MESSAGE_NUM`]) exceeded.
 	MaxHorizontalMessageNumExceeded { max_message_num: u32 },
@@ -876,7 +878,6 @@ pub mod pallet {
 		))]
 		pub fn set_max_upward_queue_size(origin: OriginFor<T>, new: u32) -> DispatchResult {
 			ensure_root(origin)?;
-			ensure!(new <= MAX_UPWARD_MESSAGE_SIZE_BOUND, Error::<T>::InvalidNewValue);
 
 			Self::schedule_config_update(|config| {
 				config.max_upward_queue_size = new;
@@ -1347,13 +1348,16 @@ impl<T: Config> Pallet<T> {
 	/// will check if the previous configuration was valid. If it was invalid, we proceed with
 	/// updating the configuration, giving a chance to recover from such a condition.
 	///
-	/// The actual configuration change take place after a couple of sessions have passed. In case
-	/// this function is called more than once in a session, then the pending configuration change
-	/// will be updated and the changes will be applied at once.
-	// NOTE: Explicitly tell rustc not to inline this because otherwise heuristics note the incoming
-	// closure making it's attractive to inline. However, in this case, we will end up with lots of
-	// duplicated code (making this function to show up in the top of heaviest functions) only for
-	// the sake of essentially avoiding an indirect call. Doesn't worth it.
+	/// The actual configuration change takes place after a couple of sessions have passed. In case
+	/// this function is called more than once in the same session, then the pending configuration
+	/// change will be updated.
+	/// In other words, all the configuration changes made in the same session will be folded
+	/// together in the order they were made, and only once the scheduled session is reached will
+	/// the final pending configuration be applied.
+	// NOTE: Explicitly tell rustc not to inline this, because otherwise heuristics note the
+	// incoming closure make it attractive to inline. However, in that case, we will end up with
+	// lots of duplicated code (making this function show up on top of the heaviest functions) only
+	// for the sake of essentially avoiding an indirect call. It is not worth it.
 	#[inline(never)]
 	pub(crate) fn schedule_config_update(
 		updater: impl FnOnce(&mut HostConfiguration<BlockNumberFor<T>>),

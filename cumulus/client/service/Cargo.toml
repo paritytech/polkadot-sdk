@@ -14,6 +14,7 @@ workspace = true
 [dependencies]
 async-channel = { workspace = true }
 futures = { workspace = true }
+prometheus = { workspace = true }
 
 # Substrate
 sc-client-api = { workspace = true, default-features = true }
@@ -49,3 +50,4 @@ cumulus-primitives-proof-size-hostfunction = { workspace = true, default-feature
 cumulus-relay-chain-inprocess-interface = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
 cumulus-relay-chain-minimal-node = { workspace = true, default-features = true }
+cumulus-relay-chain-streams = { workspace = true, default-features = true }

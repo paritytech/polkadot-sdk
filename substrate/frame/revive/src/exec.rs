@@ -20,24 +20,24 @@ use crate::{
 	gas::GasMeter,
 	limits,
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
-	primitives::{ExecReturnValue, StorageDeposit},
+	primitives::{BumpNonce, ExecReturnValue, StorageDeposit},
 	runtime_decl_for_revive_api::{Decode, Encode, RuntimeDebugNoBound, TypeInfo},
 	storage::{self, meter::Diff, WriteOutcome},
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
 	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, ConversionPrecision,
-	Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts,
+	Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, RuntimeCosts,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
 use frame_support::{
 	crypto::ecdsa::ECDSAExt,
-	dispatch::{DispatchResult, DispatchResultWithPostInfo},
+	dispatch::DispatchResult,
 	storage::{with_transaction, TransactionOutcome},
 	traits::{
 		fungible::{Inspect, Mutate},
 		tokens::{Fortitude, Preservation},
-		Contains, FindAuthor, OriginTrait, Time,
+		Time,
 	},
 	weights::Weight,
 	Blake2_128Concat, BoundedVec, StorageHasher,
@@ -53,7 +53,7 @@ use sp_core::{
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
-	traits::{BadOrigin, Bounded, Convert, Dispatchable, Saturating, Zero},
+	traits::{BadOrigin, Bounded, Convert, Saturating, Zero},
 	DispatchError, SaturatedConversion,
 };
 
@@ -83,11 +83,6 @@ pub enum Key {
 
 impl Key {
 	/// Reference to the raw unhashed key.
-	///
-	/// # Note
-	///
-	/// Only used by benchmarking in order to generate storage collisions on purpose.
-	#[cfg(feature = "runtime-benchmarks")]
 	pub fn unhashed(&self) -> &[u8] {
 		match self {
 			Key::Fix(v) => v.as_ref(),
@@ -229,9 +224,6 @@ pub trait Ext: PrecompileWithInfoExt {
 	///
 	/// Note: Requires &mut self to access the contract info.
 	fn set_immutable_data(&mut self, data: ImmutableData) -> Result<(), DispatchError>;
-
-	/// Call some dispatchable and return the result.
-	fn call_runtime(&self, call: <Self::T as Config>::RuntimeCall) -> DispatchResultWithPostInfo;
 }
 
 /// Environment functions which are available to pre-compiles with `HAS_CONTRACT_INFO = true`.
@@ -280,6 +272,16 @@ pub trait PrecompileWithInfoExt: PrecompileExt {
 pub trait PrecompileExt: sealing::Sealed {
 	type T: Config;
 
+	/// Charges the gas meter with the given weight.
+	fn charge(&mut self, weight: Weight) -> Result<crate::gas::ChargedAmount, DispatchError> {
+		self.gas_meter_mut().charge(RuntimeCosts::Precompile(weight))
+	}
+
+	fn adjust_gas(&mut self, charged: crate::gas::ChargedAmount, actual_weight: Weight) {
+		self.gas_meter_mut()
+			.adjust_gas(charged, RuntimeCosts::Precompile(actual_weight));
+	}
+
 	/// Call (possibly transferring some amount of funds) into the specified account.
 	///
 	/// Returns the code size of the called contract.
@@ -321,9 +323,6 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Return the origin of the whole call stack.
 	fn origin(&self) -> &Origin<Self::T>;
 
-	/// Check if a contract lives at the specified `address`.
-	fn is_contract(&self, address: &H160) -> bool;
-
 	/// Returns the account id for the given `address`.
 	fn to_account_id(&self, address: &H160) -> AccountIdOf<Self::T>;
 
@@ -335,9 +334,6 @@ pub trait PrecompileExt: sealing::Sealed {
 	fn code_size(&self, address: &H160) -> u64;
 
 	/// Check if the caller of the current contract is the origin of the whole call stack.
-	///
-	/// This can be checked with `is_contract(self.caller())` as well.
-	/// However, this function does not require any storage lookup and therefore uses less weight.
 	fn caller_is_origin(&self) -> bool;
 
 	/// Check if the caller is origin, and this origin is root.
@@ -383,7 +379,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	fn block_hash(&self, block_number: U256) -> Option<H256>;
 
 	/// Returns the author of the current block.
-	fn block_author(&self) -> Option<AccountIdOf<Self::T>>;
+	fn block_author(&self) -> Option<H160>;
 
 	/// Returns the maximum allowed size of a storage item.
 	fn max_value_size(&self) -> u32;
@@ -447,8 +443,8 @@ pub enum ExportedFunction {
 
 /// A trait that represents something that can be executed.
 ///
-/// In the on-chain environment this would be represented by a wasm module. This trait exists in
-/// order to be able to mock the wasm logic for testing.
+/// In the on-chain environment this would be represented by a vm binary module. This trait exists
+/// in order to be able to mock the vm logic for testing.
 pub trait Executable<T: Config>: Sized {
 	/// Load the executable from storage.
 	///
@@ -486,7 +482,7 @@ pub trait Executable<T: Config>: Sized {
 ///
 /// The call stack is initiated by either a signed origin or one of the contract RPC calls.
 /// This type implements `Ext` and by that exposes the business logic of contract execution to
-/// the runtime module which interfaces with the contract (the wasm blob) itself.
+/// the runtime module which interfaces with the contract (the vm contract blob) itself.
 pub struct Stack<'a, T: Config, E> {
 	/// The origin that initiated the call stack. It could either be a Signed plain account that
 	/// holds an account id or Root.
@@ -755,14 +751,14 @@ where
 	pub fn run_call(
 		origin: Origin<T>,
 		dest: H160,
-		gas_meter: &'a mut GasMeter<T>,
-		storage_meter: &'a mut storage::meter::Meter<T>,
+		gas_meter: &mut GasMeter<T>,
+		storage_meter: &mut storage::meter::Meter<T>,
 		value: U256,
 		input_data: Vec<u8>,
 		skip_transfer: bool,
 	) -> ExecResult {
 		let dest = T::AddressMapper::to_account_id(&dest);
-		if let Some((mut stack, executable)) = Self::new(
+		if let Some((mut stack, executable)) = Stack::<'_, T, E>::new(
 			FrameArgs::Call { dest: dest.clone(), cached_info: None, delegated_call: None },
 			origin.clone(),
 			gas_meter,
@@ -770,9 +766,10 @@ where
 			value,
 			skip_transfer,
 		)? {
-			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
+			stack
+				.run(executable, input_data, BumpNonce::Yes)
+				.map(|_| stack.first_frame.last_frame_output)
 		} else {
-			let result = Self::transfer_from_origin(&origin, &origin, &dest, value);
 			if_tracing(|t| {
 				t.enter_child_span(
 					origin.account_id().map(T::AddressMapper::to_address).unwrap_or_default(),
@@ -783,10 +780,13 @@ where
 					&input_data,
 					Weight::zero(),
 				);
-				match result {
-					Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
-					Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
-				}
+			});
+
+			let result = Self::transfer_from_origin(&origin, &origin, &dest, value, storage_meter);
+
+			if_tracing(|t| match result {
+				Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
+				Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
 			});
 
 			result
@@ -801,14 +801,16 @@ where
 	pub fn run_instantiate(
 		origin: T::AccountId,
 		executable: E,
-		gas_meter: &'a mut GasMeter<T>,
-		storage_meter: &'a mut storage::meter::Meter<T>,
+		gas_meter: &mut GasMeter<T>,
+		storage_meter: &mut storage::meter::Meter<T>,
 		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
 		skip_transfer: bool,
+		bump_nonce: BumpNonce,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
-		let (mut stack, executable) = Self::new(
+		let deployer = T::AddressMapper::to_address(&origin);
+		let (mut stack, executable) = Stack::<'_, T, E>::new(
 			FrameArgs::Instantiate {
 				sender: origin.clone(),
 				executable,
@@ -823,9 +825,15 @@ where
 		)?
 		.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
 		let address = T::AddressMapper::to_address(&stack.top_frame().account_id);
-		stack
-			.run(executable, input_data)
-			.map(|_| (address, stack.first_frame.last_frame_output))
+		let result = stack
+			.run(executable, input_data, bump_nonce)
+			.map(|_| (address, stack.first_frame.last_frame_output));
+		if let Ok((contract, ref output)) = result {
+			if !output.did_revert() {
+				Contracts::<T>::deposit_event(Event::Instantiated { deployer, contract });
+			}
+		}
+		result
 	}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
@@ -923,7 +931,7 @@ where
 						if let Some(info) = <ContractInfoOf<T>>::get(&address) {
 							CachedContract::Cached(info)
 						} else {
-							return Ok(None)
+							return Ok(None);
 						},
 					(None, Some(precompile)) if precompile.has_contract_info() => {
 						if let Some(info) = <ContractInfoOf<T>>::get(&address) {
@@ -1075,6 +1083,7 @@ where
 		&mut self,
 		executable: ExecutableOrPrecompile<T, E, Self>,
 		input_data: Vec<u8>,
+		bump_nonce: BumpNonce,
 	) -> Result<(), ExecError> {
 		let frame = self.top_frame();
 		let entry_point = frame.entry_point;
@@ -1122,7 +1131,8 @@ where
 				if self.skip_transfer {
 					T::Currency::set_balance(account_id, ed);
 				} else {
-					T::Currency::transfer(origin, account_id, ed, Preservation::Preserve)?;
+					T::Currency::transfer(origin, account_id, ed, Preservation::Preserve)
+						.map_err(|_| <Error<T>>::StorageDepositNotEnoughFunds)?;
 				}
 
 				// A consumer is added at account creation and removed it on termination, otherwise
@@ -1131,10 +1141,14 @@ where
 				// account.
 				<System<T>>::inc_consumers(account_id)?;
 
-				// Needs to be incremented before calling into the code so that it is visible
-				// in case of recursion.
-				<System<T>>::inc_account_nonce(caller.account_id()?);
+				// Contracts nonce starts at 1
+				<System<T>>::inc_account_nonce(account_id);
 
+				if matches!(bump_nonce, BumpNonce::Yes) {
+					// Needs to be incremented before calling into the code so that it is visible
+					// in case of recursion.
+					<System<T>>::inc_account_nonce(caller.account_id()?);
+				}
 				// The incremented refcount should be visible to the constructor.
 				<CodeInfo<T>>::increment_refcount(
 					*executable
@@ -1153,6 +1167,7 @@ where
 					&caller,
 					account_id,
 					frame.value_transferred,
+					&mut frame.nested_storage,
 				)?;
 			}
 
@@ -1353,11 +1368,12 @@ where
 	/// not exist, the transfer does fail and nothing will be sent to `to` if either `origin` can
 	/// not provide the ED or transferring `value` from `from` to `to` fails.
 	/// Note: This will also fail if `origin` is root.
-	fn transfer(
+	fn transfer<S: storage::meter::State + Default + Debug>(
 		origin: &Origin<T>,
 		from: &T::AccountId,
 		to: &T::AccountId,
 		value: U256,
+		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 	) -> ExecResult {
 		let value = crate::Pallet::<T>::convert_evm_to_native(value, ConversionPrecision::Exact)?;
 		if value.is_zero() {
@@ -1374,20 +1390,29 @@ where
 		let ed = <T as Config>::Currency::minimum_balance();
 		with_transaction(|| -> TransactionOutcome<ExecResult> {
 			match T::Currency::transfer(origin, to, ed, Preservation::Preserve)
-				.and_then(|_| T::Currency::transfer(from, to, value, Preservation::Preserve))
-			{
-				Ok(_) => TransactionOutcome::Commit(Ok(Default::default())),
-				Err(_) => TransactionOutcome::Rollback(Err(Error::<T>::TransferFailed.into())),
+				.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds.into())
+				.and_then(|_| {
+					T::Currency::transfer(from, to, value, Preservation::Preserve)
+						.map_err(|_| Error::<T>::TransferFailed.into())
+				}) {
+				Ok(_) => {
+					// ed is taken from the transaction signer so it should be
+					// limited by the storage deposit
+					storage_meter.record_charge(&StorageDeposit::Charge(ed));
+					TransactionOutcome::Commit(Ok(Default::default()))
+				},
+				Err(err) => TransactionOutcome::Rollback(Err(err)),
 			}
 		})
 	}
 
 	/// Same as `transfer` but `from` is an `Origin`.
-	fn transfer_from_origin(
+	fn transfer_from_origin<S: storage::meter::State + Default + Debug>(
 		origin: &Origin<T>,
 		from: &Origin<T>,
 		to: &T::AccountId,
 		value: U256,
+		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 	) -> ExecResult {
 		// If the from address is root there is no account to transfer from, and therefore we can't
 		// take any `value` other than 0.
@@ -1396,7 +1421,7 @@ where
 			Origin::Root if value.is_zero() => return Ok(Default::default()),
 			Origin::Root => return Err(DispatchError::RootNotAllowed.into()),
 		};
-		Self::transfer(origin, from, to, value)
+		Self::transfer(origin, from, to, value, storage_meter)
 	}
 
 	/// Reference to the current (top) frame.
@@ -1504,7 +1529,7 @@ where
 			deposit_limit.saturated_into::<BalanceOf<T>>(),
 			self.is_read_only(),
 		)? {
-			self.run(executable, input_data)
+			self.run(executable, input_data, BumpNonce::Yes)
 		} else {
 			// Delegate-calls to non-contract accounts are considered success.
 			Ok(())
@@ -1571,12 +1596,6 @@ where
 		<CodeInfo<T>>::increment_refcount(hash)?;
 		<CodeInfo<T>>::decrement_refcount(prev_hash)?;
 		Ok(())
-	}
-
-	fn call_runtime(&self, call: <Self::T as Config>::RuntimeCall) -> DispatchResultWithPostInfo {
-		let mut origin: T::RuntimeOrigin = RawOrigin::Signed(self.account_id().clone()).into();
-		origin.add_filter(T::CallFilter::contains);
-		call.dispatch(origin)
 	}
 
 	fn immutable_data_len(&mut self) -> u32 {
@@ -1672,7 +1691,8 @@ where
 			self.is_read_only(),
 		)?;
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
-		self.run(executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE), input_data)
+		if_tracing(|t| t.instantiate_code(&crate::Code::Existing(code_hash), salt));
+		self.run(executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE), input_data, BumpNonce::Yes)
 			.map(|_| address)
 	}
 }
@@ -1741,21 +1761,8 @@ where
 				deposit_limit.saturated_into::<BalanceOf<T>>(),
 				is_read_only,
 			)? {
-				self.run(executable, input_data)
+				self.run(executable, input_data, BumpNonce::Yes)
 			} else {
-				let result = if is_read_only && value.is_zero() {
-					Ok(Default::default())
-				} else if is_read_only {
-					Err(Error::<T>::StateChangeDenied.into())
-				} else {
-					Self::transfer_from_origin(
-						&self.origin,
-						&Origin::from_account_id(self.account_id().clone()),
-						&dest,
-						value,
-					)
-				};
-
 				if_tracing(|t| {
 					t.enter_child_span(
 						T::AddressMapper::to_address(self.account_id()),
@@ -1766,11 +1773,29 @@ where
 						&input_data,
 						Weight::zero(),
 					);
-					match result {
-						Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
-						Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
-					}
 				});
+
+				let result = if is_read_only && value.is_zero() {
+					Ok(Default::default())
+				} else if is_read_only {
+					Err(Error::<T>::StateChangeDenied.into())
+				} else {
+					let account_id = self.account_id().clone();
+					let frame = top_frame_mut!(self);
+					Self::transfer_from_origin(
+						&self.origin,
+						&Origin::from_account_id(account_id),
+						&dest,
+						value,
+						&mut frame.nested_storage,
+					)
+				};
+
+				if_tracing(|t| match result {
+					Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
+					Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
+				});
+
 				result.map(|_| ())
 			}
 		};
@@ -1823,15 +1848,14 @@ where
 		&self.origin
 	}
 
-	fn is_contract(&self, address: &H160) -> bool {
-		ContractInfoOf::<T>::contains_key(&address)
-	}
-
 	fn to_account_id(&self, address: &H160) -> T::AccountId {
 		T::AddressMapper::to_account_id(address)
 	}
 
 	fn code_hash(&self, address: &H160) -> H256 {
+		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()) {
+			return sp_io::hashing::keccak_256(code).into()
+		}
 		<ContractInfoOf<T>>::get(&address)
 			.map(|contract| contract.code_hash)
 			.unwrap_or_else(|| {
@@ -1843,6 +1867,9 @@ where
 	}
 
 	fn code_size(&self, address: &H160) -> u64 {
+		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()) {
+			return code.len() as u64
+		}
 		<ContractInfoOf<T>>::get(&address)
 			.and_then(|contract| CodeInfoOf::<T>::get(contract.code_hash))
 			.map(|info| info.code_len())
@@ -1863,7 +1890,12 @@ where
 	}
 
 	fn balance_of(&self, address: &H160) -> U256 {
-		self.account_balance(&<Self::T as Config>::AddressMapper::to_account_id(address))
+		let balance =
+			self.account_balance(&<Self::T as Config>::AddressMapper::to_account_id(address));
+		if_tracing(|tracer| {
+			tracer.balance_read(address, balance);
+		});
+		balance
 	}
 
 	fn value_transferred(&self) -> U256 {
@@ -1894,11 +1926,8 @@ where
 		self.block_hash(block_number)
 	}
 
-	fn block_author(&self) -> Option<AccountIdOf<Self::T>> {
-		let digest = <frame_system::Pallet<T>>::digest();
-		let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
-
-		T::FindAuthor::find_author(pre_runtime_digests)
+	fn block_author(&self) -> Option<H160> {
+		crate::Pallet::<T>::block_author()
 	}
 
 	fn max_value_size(&self) -> u32 {

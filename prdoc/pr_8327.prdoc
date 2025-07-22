@@ -11,3 +11,14 @@ doc:
 crates:
   - name: sp-metadata-ir
     bump: major
+  - name: pallet-example-view-functions
+    bump: major
+  - name: frame-support
+    bump: major
+  - name: frame-support-procedural
+    bump: major
+  - name: frame-support-test
+    bump: major
+  - name: sp-api-proc-macro
+    bump: major
+  

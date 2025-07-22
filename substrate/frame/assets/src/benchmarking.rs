@@ -564,5 +564,36 @@ benchmarks_instance_pallet! {
 		assert_last_event::<T, I>(Event::Transferred { asset_id: asset_id.into(), from: caller, to: target, amount }.into());
 	}
 
+	total_issuance {
+		use frame_support::traits::fungibles::Inspect;
+		let (asset_id, _, _) = create_default_minted_asset::<T, I>(true, 100u32.into());
+		let amount;
+	}: {
+		amount = Pallet::<T, I>::total_issuance(asset_id.into());
+	} verify {
+		assert_eq!(amount, 100u32.into());
+	}
+
+	balance {
+		let (asset_id, caller, _) = create_default_minted_asset::<T, I>(true, 100u32.into());
+		let amount;
+	}: {
+		amount = Pallet::<T, I>::balance(asset_id.into(), caller);
+	} verify {
+		assert_eq!(amount, 100u32.into());
+	}
+
+	allowance {
+		use frame_support::traits::fungibles::approvals::Inspect;
+		let (asset_id, caller, _) = create_default_minted_asset::<T, I>(true, 100u32.into());
+		add_approvals::<T, I>(caller.clone(), 1);
+		let delegate: T::AccountId = account("approval", 0, SEED);
+		let amount;
+	}: {
+		amount = Pallet::<T, I>::allowance(asset_id.into(), &caller, &delegate);
+	} verify {
+		assert_eq!(amount, 100u32.into());
+	}
+
 	impl_benchmark_test_suite!(Assets, crate::mock::new_test_ext(), crate::mock::Test)
 }

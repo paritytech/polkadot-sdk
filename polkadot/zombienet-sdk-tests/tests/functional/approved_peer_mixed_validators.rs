@@ -7,12 +7,16 @@
 // backing throughput. No disputes should be raised and finality is not affected.
 
 use anyhow::anyhow;
+use tokio::time::Duration;
 
-use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_finalized_para_throughput};
+use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
-use subxt::{OnlineClient, PolkadotConfig};
-use zombienet_sdk::NetworkConfigBuilder;
+use zombienet_orchestrator::network::node::LogLineCountOptions;
+use zombienet_sdk::{
+	subxt::{OnlineClient, PolkadotConfig},
+	NetworkConfigBuilder,
+};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn approved_peer_mixed_validators_test() -> Result<(), anyhow::Error> {
@@ -47,11 +51,17 @@ async fn approved_peer_mixed_validators_test() -> Result<(), anyhow::Error> {
 
 			(7..10).fold(r, |acc, i| {
 				acc.with_node(|node| {
-					node.with_name(&format!("old-validator-{i}")).with_image(
-						std::env::var("OLD_POLKADOT_IMAGE")
-							.expect("OLD_POLKADOT_IMAGE needs to be set")
-							.as_str(),
-					)
+					node.with_name(&format!("old-validator-{i}"))
+						.with_image(
+							std::env::var("OLD_POLKADOT_IMAGE")
+								.expect("OLD_POLKADOT_IMAGE needs to be set")
+								.as_str(),
+						)
+						.with_command(
+							std::env::var("OLD_POLKADOT_COMMAND")
+								.unwrap_or(String::from("polkadot"))
+								.as_str(),
+						)
 				})
 			})
 		})
@@ -99,7 +109,7 @@ async fn approved_peer_mixed_validators_test() -> Result<(), anyhow::Error> {
 
 	// The min throughput for para 2000 is going to be lower, but it depends on how the old
 	// validators are distributed into backing groups.
-	assert_finalized_para_throughput(
+	assert_para_throughput(
 		&relay_client,
 		15,
 		[(ParaId::from(2000), 6..15), (ParaId::from(2001), 11..16)]
@@ -111,14 +121,14 @@ async fn approved_peer_mixed_validators_test() -> Result<(), anyhow::Error> {
 	assert_finality_lag(&relay_node.wait_client().await?, 5).await?;
 
 	let old_relay_node = network.get_node("old-validator-9")?;
-	old_relay_node
+	let result = old_relay_node
 		.wait_log_line_count_with_timeout(
 			"Validation yielded an invalid candidate",
 			false,
-			1_usize,
-			1_u64,
+			LogLineCountOptions::new(|n| n == 1, Duration::from_secs(1), false),
 		)
 		.await?;
+	assert!(result.success());
 
 	// Check that no disputes are raised.
 	assert!(relay_node

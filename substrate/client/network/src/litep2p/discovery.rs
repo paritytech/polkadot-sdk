@@ -102,6 +102,8 @@ pub enum DiscoveryEvent {
 	},
 
 	/// One or more addresses discovered.
+	///
+	/// This event is emitted when a new peer is discovered over mDNS.
 	Discovered {
 		/// Discovered addresses.
 		addresses: Vec<Multiaddr>,
@@ -741,5 +743,168 @@ impl Stream for Discovery {
 		}
 
 		Poll::Pending
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	use std::sync::atomic::AtomicU32;
+
+	use crate::{
+		config::ProtocolId,
+		peer_store::{PeerStore, PeerStoreProvider},
+	};
+	use futures::{stream::FuturesUnordered, StreamExt};
+	use sp_core::H256;
+	use sp_tracing::tracing_subscriber;
+
+	use litep2p::{
+		config::ConfigBuilder as Litep2pConfigBuilder, transport::tcp::config::Config as TcpConfig,
+		Litep2p,
+	};
+
+	#[tokio::test]
+	async fn litep2p_discovery_works() {
+		let _ = tracing_subscriber::fmt()
+			.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+			.try_init();
+
+		let mut known_peers = HashMap::new();
+		let genesis_hash = H256::from_low_u64_be(1);
+		let fork_id = Some("test-fork-id");
+		let protocol_id = ProtocolId::from("dot");
+
+		// Build backends such that the first peer is known to all other peers.
+		let backends = (0..10)
+			.map(|i| {
+				let keypair = litep2p::crypto::ed25519::Keypair::generate();
+				let peer_id: PeerId = keypair.public().to_peer_id().into();
+
+				let listen_addresses = Arc::new(RwLock::new(HashSet::new()));
+
+				let peer_store = PeerStore::new(vec![], None);
+				let peer_store_handle: Arc<dyn PeerStoreProvider> = Arc::new(peer_store.handle());
+
+				let (discovery, ping_config, identify_config, kademlia_config, _mdns) =
+					Discovery::new(
+						peer_id,
+						&NetworkConfiguration::new_local(),
+						genesis_hash,
+						fork_id,
+						&protocol_id,
+						known_peers.clone(),
+						listen_addresses.clone(),
+						peer_store_handle,
+					);
+
+				let config = Litep2pConfigBuilder::new()
+					.with_keypair(keypair)
+					.with_tcp(TcpConfig {
+						listen_addresses: vec!["/ip6/::1/tcp/0".parse().unwrap()],
+						..Default::default()
+					})
+					.with_libp2p_ping(ping_config)
+					.with_libp2p_identify(identify_config)
+					.with_libp2p_kademlia(kademlia_config)
+					.build();
+
+				let mut litep2p = Litep2p::new(config).unwrap();
+
+				let addresses = litep2p.listen_addresses().cloned().collect::<Vec<_>>();
+				// Propagate addresses to discovery.
+				addresses.iter().for_each(|address| {
+					listen_addresses.write().insert(address.clone());
+				});
+
+				// Except the first peer, all other peers know the first peer addresses.
+				if i == 0 {
+					log::info!(target: LOG_TARGET, "First peer is {peer_id:?} with addresses {addresses:?}");
+					known_peers.insert(peer_id, addresses.clone());
+				} else {
+					let (peer, addresses) = known_peers.iter().next().unwrap();
+
+					let result = litep2p.add_known_address(*peer, addresses.into_iter().cloned());
+
+					log::info!(target: LOG_TARGET, "{peer_id:?}: Adding known peer {peer:?} with addresses {addresses:?} result={result:?}");
+
+				}
+
+				(peer_id, litep2p, discovery)
+			})
+			.collect::<Vec<_>>();
+
+		let total_peers = backends.len() as u32;
+		let remaining_peers =
+			backends.iter().map(|(peer_id, _, _)| *peer_id).collect::<HashSet<_>>();
+
+		let first_peer = *known_peers.iter().next().unwrap().0;
+
+		// Each backend must discover the whole network.
+		let mut futures = FuturesUnordered::new();
+		let num_finished = Arc::new(AtomicU32::new(0));
+
+		for (peer_id, mut litep2p, mut discovery) in backends {
+			// Remove the local peer id from the set.
+			let mut remaining_peers = remaining_peers.clone();
+			remaining_peers.remove(&peer_id);
+
+			let num_finished = num_finished.clone();
+
+			let future = async move {
+				log::info!(target: LOG_TARGET, "{peer_id:?} starting loop");
+
+				if peer_id != first_peer {
+					log::info!(target: LOG_TARGET, "{peer_id:?} dialing {first_peer:?}");
+					litep2p.dial(&first_peer).await.unwrap();
+				}
+
+				loop {
+					// We need to keep the network alive until all peers are discovered.
+					if num_finished.load(std::sync::atomic::Ordering::Relaxed) == total_peers {
+						log::info!(target: LOG_TARGET, "{peer_id:?} all peers discovered");
+						break
+					}
+
+					tokio::select! {
+						// Drive litep2p backend forward.
+						event = litep2p.next_event() => {
+							log::info!(target: LOG_TARGET, "{peer_id:?} Litep2p event: {event:?}");
+						},
+
+						// Detect discovery events.
+						event = discovery.next() => {
+							match event.unwrap() {
+								// We have discovered the peer via kademlia and established
+								// a connection on the identify protocol.
+								DiscoveryEvent::Identified { peer, .. } => {
+									log::info!(target: LOG_TARGET, "{peer_id:?} Peer {peer} identified");
+
+									remaining_peers.remove(&peer);
+
+									if remaining_peers.is_empty() {
+										log::info!(target: LOG_TARGET, "{peer_id:?} All peers discovered");
+
+										num_finished.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+									}
+								},
+
+								event => {
+									log::info!(target: LOG_TARGET, "{peer_id:?} Discovery event: {event:?}");
+								}
+							}
+						}
+					}
+				}
+			};
+
+			futures.push(future);
+		}
+
+		// Futures will exit when all peers are discovered.
+		tokio::time::timeout(Duration::from_secs(60), futures.next())
+			.await
+			.expect("All peers should finish within 60 seconds");
 	}
 }

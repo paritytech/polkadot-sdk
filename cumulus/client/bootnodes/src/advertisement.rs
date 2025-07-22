@@ -207,9 +207,20 @@ impl BootnodeAdvertisement {
 	async fn handle_import_notification(&mut self, header: RelayHeader) {
 		if let Some(ref old_current_epoch_key) = self.current_epoch_key {
 			// Readvertise on start of new epoch only.
-			let is_start_of_epoch =
-				header.digest().logs.iter().any(|v| v.as_next_epoch_descriptor().is_some());
-			if !is_start_of_epoch {
+			let Some(next_epoch_descriptor) =
+				header.digest().convert_first(|v| v.as_next_epoch_descriptor())
+			else {
+				return;
+			};
+
+			let next_epoch_key = self.epoch_key(next_epoch_descriptor.randomness);
+
+			if Some(&next_epoch_key) == self.next_epoch_key.as_ref() {
+				trace!(
+					target: LOG_TARGET,
+					"Next epoch descriptor contains the same randomness as the previous one, \
+					 not considering this as epoch change (switched fork?)",
+				);
 				return;
 			}
 
@@ -219,77 +230,34 @@ impl BootnodeAdvertisement {
 
 			debug!(target: LOG_TARGET, "New epoch started, readvertising parachain bootnode.");
 
-			let (current_epoch_key, next_epoch_key) =
-				self.current_and_next_epoch_keys(header).await;
+			// Stop advertisement of the obsolete key.
+			debug!(
+				target: LOG_TARGET,
+				"Stopping advertisement of bootnode for old current epoch key {}",
+				hex::encode(old_current_epoch_key.as_ref()),
+			);
+			self.relay_chain_network.stop_providing(old_current_epoch_key.clone());
 
-			// Readvertise for current epoch.
-			if let Some(ref current_epoch_key) = current_epoch_key {
-				if current_epoch_key == old_current_epoch_key {
-					debug!(
-						target: LOG_TARGET,
-						"Re-advertising bootnode for current epoch key {}",
-						hex::encode(current_epoch_key.as_ref()),
-					);
-				} else {
-					self.relay_chain_network.stop_providing(old_current_epoch_key.clone());
-					debug!(
-						target: LOG_TARGET,
-						"Stopped advertising bootnode for past epoch key {}",
-						hex::encode(old_current_epoch_key.as_ref()),
-					);
+			// Advertise current keys.
+			self.current_epoch_key = self.next_epoch_key.clone();
+			self.next_epoch_key = Some(next_epoch_key);
 
-					match self.next_epoch_key {
-						Some(ref old_next_key) if old_next_key == current_epoch_key => debug!(
-							target: LOG_TARGET,
-							"Advertising bootnode for current (old next) epoch key {}",
-							hex::encode(current_epoch_key.as_ref()),
-						),
-						_ => debug!(
-							target: LOG_TARGET,
-							"Advertising bootnode for current epoch key {}",
-							hex::encode(current_epoch_key.as_ref()),
-						),
-					}
-				}
-
+			if let Some(ref current_epoch_key) = self.current_epoch_key {
+				debug!(
+					target: LOG_TARGET,
+					"Advertising bootnode for current (old next) epoch key {}",
+					hex::encode(current_epoch_key.as_ref()),
+				);
 				self.relay_chain_network.start_providing(current_epoch_key.clone());
-				self.current_epoch_key = Some(current_epoch_key.clone());
 			}
 
-			// Readvertise for next epoch.
-			if let Some(next_epoch_key) = next_epoch_key {
-				match (current_epoch_key, &self.next_epoch_key) {
-					(Some(current_epoch_key), Some(old_next_epoch_key)) =>
-						if *old_next_epoch_key != current_epoch_key {
-							self.relay_chain_network.stop_providing(old_next_epoch_key.clone());
-
-							debug!(
-								target: LOG_TARGET,
-								"Stopped advertising bootnode for discarded next epoch key {}",
-								hex::encode(old_next_epoch_key.as_ref()),
-							);
-						},
-					// In all other cases we keep the old next epoch key advertised, as it either
-					// became a current epoch key, or in odd cases will just expire.
-					_ => {},
-				}
-
-				if Some(&next_epoch_key) == self.next_epoch_key.as_ref() {
-					debug!(
-						target: LOG_TARGET,
-						"Re-advertising bootnode for next epoch key {}",
-						hex::encode(next_epoch_key.as_ref()),
-					);
-				} else {
-					debug!(
-						target: LOG_TARGET,
-						"Advertising bootnode for next epoch key {}",
-						hex::encode(next_epoch_key.as_ref()),
-					);
-				}
-
+			if let Some(ref next_epoch_key) = self.next_epoch_key {
+				debug!(
+					target: LOG_TARGET,
+					"Advertising bootnode for next epoch key {}",
+					hex::encode(next_epoch_key.as_ref()),
+				);
 				self.relay_chain_network.start_providing(next_epoch_key.clone());
-				self.next_epoch_key = Some(next_epoch_key.clone());
 			}
 		} else {
 			// First advertisement on startup.

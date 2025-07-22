@@ -77,6 +77,7 @@ pub struct PendingExecutionRequest {
 	pub pvd: Arc<PersistedValidationData>,
 	pub pov: Arc<PoV>,
 	pub executor_params: ExecutorParams,
+	pub code_bomb_limit: u32,
 	pub result_tx: ResultSender,
 	pub exec_kind: PvfExecKind,
 }
@@ -88,6 +89,7 @@ struct ExecuteJob {
 	pvd: Arc<PersistedValidationData>,
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
+	code_bomb_limit: u32,
 	result_tx: ResultSender,
 	waiting_since: Instant,
 }
@@ -392,6 +394,7 @@ fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 				pvd,
 				pov,
 				executor_params,
+				code_bomb_limit,
 				result_tx,
 				exec_kind,
 			} = pending_execution_request;
@@ -409,6 +412,7 @@ fn handle_to_queue(queue: &mut Queue, to_queue: ToQueue) {
 				pvd,
 				pov,
 				executor_params,
+				code_bomb_limit,
 				result_tx,
 				waiting_since: Instant::now(),
 			};
@@ -525,6 +529,41 @@ async fn handle_job_finish(
 					None,
 					Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(
 						"Runtime construction failed for non-Wasm runtime".to_string(),
+					))),
+					None,
+					None,
+					None,
+				)
+			}
+		},
+		Ok(WorkerInterfaceResponse {
+			worker_response: WorkerResponse { job_response: JobResponse::CorruptedArtifact, .. },
+			idle_worker,
+		}) => {
+			if let Executable::Wasm { artifact } = &executable {
+				let (tx, rx) = oneshot::channel();
+				queue
+					.from_queue_tx
+					.unbounded_send(FromQueue::RemoveArtifact {
+						artifact: artifact.id.clone(),
+						reply_to: tx,
+					})
+					.expect("from execute queue receiver is listened by the host; qed");
+				(
+					Some(idle_worker),
+					Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::CorruptedArtifact)),
+					None,
+					Some(rx),
+					None,
+				)
+			} else {
+				// There's no artifact for non-Wasm runtimes so it can't get corrupted
+				// But let's say miracles happen
+				(
+					None,
+					Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(
+						"Corrupt artifact failed for non-Wasm runtime (should never happen)"
+							.to_string(),
 					))),
 					None,
 					None,
@@ -719,6 +758,7 @@ fn assign(queue: &mut Queue, worker: Worker, job: ExecuteJob) {
 				job.exec_timeout,
 				job.pvd,
 				job.pov,
+				job.code_bomb_limit,
 			)
 			.await;
 			QueueEvent::FinishWork(worker, result, job.executable, job.result_tx)
@@ -941,6 +981,7 @@ mod tests {
 			pvd,
 			pov,
 			executor_params: ExecutorParams::default(),
+			code_bomb_limit: 16 * 1024 * 1024,
 			result_tx,
 			waiting_since: Instant::now(),
 		}
@@ -1105,6 +1146,7 @@ mod tests {
 			pvd: Arc::new(PersistedValidationData::default()),
 			pov: Arc::new(PoV { block_data: BlockData(Vec::new()) }),
 			executor_params: ExecutorParams::default(),
+			code_bomb_limit: 16 * 1024 * 1024,
 			result_tx,
 			waiting_since: Instant::now(),
 		};
@@ -1118,6 +1160,7 @@ mod tests {
 				pvd: Arc::new(PersistedValidationData::default()),
 				pov: Arc::new(PoV { block_data: BlockData(Vec::new()) }),
 				executor_params: ExecutorParams::default(),
+				code_bomb_limit: 16 * 1024 * 1024,
 				result_tx,
 				waiting_since: Instant::now(),
 			};

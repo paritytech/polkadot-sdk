@@ -7,15 +7,17 @@
 
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
-	assert_blocks_are_being_finalized, assert_finalized_para_throughput,
-	wait_for_first_session_change,
+	assert_blocks_are_being_finalized, assert_para_throughput, wait_for_first_session_change,
 };
 use polkadot_primitives::{BlockNumber, CandidateHash, DisputeState, Id as ParaId, SessionIndex};
 use serde_json::json;
-use subxt::{OnlineClient, PolkadotConfig};
 use tokio::time::Duration;
 use tokio_util::time::FutureExt;
-use zombienet_sdk::NetworkConfigBuilder;
+use zombienet_orchestrator::network::node::LogLineCountOptions;
+use zombienet_sdk::{
+	subxt::{OnlineClient, PolkadotConfig},
+	NetworkConfigBuilder,
+};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
@@ -89,12 +91,8 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 	let relay_client: OnlineClient<PolkadotConfig> = honest.wait_client().await?;
 
 	// Wait for some para blocks being produced
-	assert_finalized_para_throughput(
-		&relay_client,
-		20,
-		[(ParaId::from(1337), 10..20)].into_iter().collect(),
-	)
-	.await?;
+	assert_para_throughput(&relay_client, 20, [(ParaId::from(1337), 10..20)].into_iter().collect())
+		.await?;
 
 	// Let's initiate a dispute
 	malus.resume().await?;
@@ -118,7 +116,7 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 			.await?;
 		if let Some((session, _, _)) = disputes.first() {
 			dispute_session = *session;
-			break
+			break;
 		}
 	}
 
@@ -148,14 +146,15 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 		.await?;
 	log::info!("A dispute has concluded");
 
-	honest
+	let result = honest
 		.wait_log_line_count_with_timeout(
 			"*Successfully reported pending slash*",
 			true,
-			1,
-			timeout_secs,
+			LogLineCountOptions::new(|n| n == 1, Duration::from_secs(timeout_secs), false),
 		)
 		.await?;
+
+	assert!(result.success());
 
 	assert_blocks_are_being_finalized(&relay_client)
 		.timeout(Duration::from_secs(400)) // enough for the aggression to kick in

@@ -23,7 +23,7 @@ pub use crate::{
 
 use crate::{artifacts::ArtifactId, get_worker_version};
 use is_executable::IsExecutable;
-use polkadot_node_core_pvf_common::pvf::PvfPrepData;
+use polkadot_node_core_pvf_common::{compute_checksum, pvf::PvfPrepData, ArtifactChecksum};
 use polkadot_node_primitives::NODE_VERSION;
 use polkadot_primitives::ExecutorParams;
 use std::{
@@ -136,4 +136,9 @@ pub fn build_workers_and_get_paths() -> (PathBuf, PathBuf) {
 /// Creates a new PVF which artifact id can be uniquely identified by the given number.
 pub fn artifact_id(discriminator: u32) -> ArtifactId {
 	ArtifactId::from_pvf_prep_data(&PvfPrepData::from_discriminator(discriminator))
+}
+
+/// Computes the checksum of the artifact for the given discriminator.
+pub fn artifact_checksum(discriminator: u32) -> ArtifactChecksum {
+	compute_checksum(&PvfPrepData::from_discriminator(discriminator).maybe_compressed_code())
 }

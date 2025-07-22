@@ -40,6 +40,7 @@ mod tests;
 
 pub use parent_search::*;
 
+pub use cumulus_relay_chain_streams::finalized_heads;
 pub use parachain_consensus::run_parachain_consensus;
 
 use level_monitor::LevelMonitor;
