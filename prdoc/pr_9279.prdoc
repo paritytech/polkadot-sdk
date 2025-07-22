@@ -3,15 +3,9 @@ doc:
 - audience: Runtime Dev
   description: |-
     This PR replaces `log` with `tracing` instrumentation in Bridge-related modules by providing structured logging.
-
-    Partially addresses #9211
-    Similar to #8732
-
-    ## Key Features
-    - **Consistent targets**: All components use predictable `bridge::*` log targets
-    - **Structured fields**: Uses `?variable`/`%variable` syntax for automatic `Debug`/`Display` formatting
-    - **Zero runtime impact**: No behavioural changes, only observability improvements
 crates:
+- name: bp-runtime
+  bump: patch
 - name: bridge-runtime-common
   bump: patch
 - name: pallet-bridge-grandpa
@@ -22,29 +16,27 @@ crates:
   bump: patch
 - name: pallet-bridge-relayers
   bump: patch
-- name: bp-runtime
-  bump: patch
-- name: snowbridge-pallet-ethereum-client
-  bump: patch
-- name: snowbridge-pallet-inbound-queue-v2
-  bump: patch
-- name: snowbridge-pallet-inbound-queue
-  bump: patch
-- name: snowbridge-pallet-system-frontend
-  bump: patch
-- name: snowbridge-pallet-system-v2
-  bump: patch
-- name: snowbridge-pallet-system
-  bump: patch
 - name: snowbridge-core
+  bump: patch
+- name: snowbridge-ethereum
   bump: patch
 - name: snowbridge-inbound-queue-primitives
   bump: patch
 - name: snowbridge-outbound-queue-primitives
   bump: patch
+- name: snowbridge-pallet-ethereum-client
+  bump: patch
+- name: snowbridge-pallet-inbound-queue
+  bump: patch
+- name: snowbridge-pallet-inbound-queue-v2
+  bump: patch
+- name: snowbridge-pallet-system
+  bump: patch
+- name: snowbridge-pallet-system-frontend
+  bump: patch
+- name: snowbridge-pallet-system-v2
+  bump: patch
 - name: snowbridge-runtime-common
   bump: patch
 - name: snowbridge-test-utils
-  bump: patch
-- name: snowbridge-ethereum
   bump: patch

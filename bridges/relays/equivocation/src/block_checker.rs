@@ -45,7 +45,7 @@ impl<P: EquivocationDetectionPipeline> ReadSyncedHeaders<P> {
 				tracing::error!(
 					target: "bridge",
 					error=?e,
-					block=%self.target_block_num
+					block=%self.target_block_num,
 					"Could not get {} headers synced to {} at block",
 					P::SOURCE_NAME,
 					P::TARGET_NAME,
