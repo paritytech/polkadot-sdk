@@ -113,8 +113,9 @@ impl<'a, E: Ext> InterpreterTypes for EVMInterpreter<'a, E> {
 ///
 /// Note:
 ///
-/// In our implementation of the instruction table, Everything except the call input data will be accessed through the `InterpreterTypes::Extend`
-/// associated type, our implementation will panic if any of those methods are called.
+/// In our implementation of the instruction table, Everything except the call input data will be
+/// accessed through the `InterpreterTypes::Extend` associated type, our implementation will panic
+/// if any of those methods are called.
 pub struct EVMInputs(CallInput);
 
 impl EVMInputs {

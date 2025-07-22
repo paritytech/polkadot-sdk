@@ -2,7 +2,8 @@ mod call_helpers;
 
 pub use call_helpers::{calc_call_gas, get_memory_input_and_out_ranges};
 
-use super::utility::IntoAddress;
+use super::{utility::IntoAddress, Context};
+use crate::vm::Ext;
 use revm::{
 	context_interface::CreateScheme,
 	interpreter::{
@@ -11,10 +12,8 @@ use revm::{
 		interpreter_action::{
 			CallInputs, CallScheme, CallValue, CreateInputs, FrameInput, InterpreterAction,
 		},
-		interpreter_types::{
-			InputsTr, InterpreterTypes, LoopControl, MemoryTr, RuntimeFlag, StackTr,
-		},
-		CallInput, InstructionContext, InstructionResult,
+		interpreter_types::{InputsTr, LoopControl, RuntimeFlag, StackTr},
+		CallInput, InstructionResult,
 	},
 	primitives::{hardfork::SpecId, Address, Bytes, B256, U256},
 };
@@ -23,9 +22,7 @@ use std::boxed::Box;
 /// Implements the CREATE/CREATE2 instruction.
 ///
 /// Creates a new contract with provided bytecode.
-pub fn create<WIRE: InterpreterTypes, const IS_CREATE2: bool, H: Host + ?Sized>(
-	context: InstructionContext<'_, H, WIRE>,
-) {
+pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(context: Context<'_, 'ext, E>) {
 	require_non_staticcall!(context.interpreter);
 
 	// EIP-1014: Skinny CREATE2
@@ -90,7 +87,7 @@ pub fn create<WIRE: InterpreterTypes, const IS_CREATE2: bool, H: Host + ?Sized>(
 /// Implements the CALL instruction.
 ///
 /// Message call with value transfer to another account.
-pub fn call<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionContext<'_, H, WIRE>) {
+pub fn call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	popn!([local_gas_limit, to, value], context.interpreter);
 	let to = to.into_address();
 	// Max gas limit is not possible in real ethereum situation.
@@ -145,9 +142,7 @@ pub fn call<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionContex
 /// Implements the CALLCODE instruction.
 ///
 /// Message call with alternative account's code.
-pub fn call_code<WIRE: InterpreterTypes, H: Host + ?Sized>(
-	context: InstructionContext<'_, H, WIRE>,
-) {
+pub fn call_code<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	popn!([local_gas_limit, to, value], context.interpreter);
 	let to = Address::from_word(B256::from(to));
 	// Max gas limit is not possible in real ethereum situation.
@@ -199,9 +194,7 @@ pub fn call_code<WIRE: InterpreterTypes, H: Host + ?Sized>(
 /// Implements the DELEGATECALL instruction.
 ///
 /// Message call with alternative account's code but same sender and value.
-pub fn delegate_call<WIRE: InterpreterTypes, H: Host + ?Sized>(
-	context: InstructionContext<'_, H, WIRE>,
-) {
+pub fn delegate_call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	check!(context.interpreter, HOMESTEAD);
 	popn!([local_gas_limit, to], context.interpreter);
 	let to = Address::from_word(B256::from(to));
@@ -246,9 +239,7 @@ pub fn delegate_call<WIRE: InterpreterTypes, H: Host + ?Sized>(
 /// Implements the STATICCALL instruction.
 ///
 /// Static message call (cannot modify state).
-pub fn static_call<WIRE: InterpreterTypes, H: Host + ?Sized>(
-	context: InstructionContext<'_, H, WIRE>,
-) {
+pub fn static_call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	check!(context.interpreter, BYZANTIUM);
 	popn!([local_gas_limit, to], context.interpreter);
 	let to = Address::from_word(B256::from(to));

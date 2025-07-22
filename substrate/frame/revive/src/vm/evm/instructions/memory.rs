@@ -1,9 +1,10 @@
+use super::Context;
+use crate::vm::Ext;
 use core::cmp::max;
 use revm::{
 	interpreter::{
 		gas as revm_gas,
-		interpreter_types::{InterpreterTypes, MemoryTr, RuntimeFlag, StackTr},
-		InstructionContext,
+		interpreter_types::{MemoryTr, RuntimeFlag, StackTr},
 	},
 	primitives::U256,
 };
@@ -11,7 +12,7 @@ use revm::{
 /// Implements the MLOAD instruction.
 ///
 /// Loads a 32-byte word from memory.
-pub fn mload<WIRE: InterpreterTypes, H: ?Sized>(context: InstructionContext<'_, H, WIRE>) {
+pub fn mload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas!(context.interpreter, revm_gas::VERYLOW);
 	popn_top!([], top, context.interpreter);
 	let offset = as_usize_or_fail!(context.interpreter, top);
@@ -23,7 +24,7 @@ pub fn mload<WIRE: InterpreterTypes, H: ?Sized>(context: InstructionContext<'_, 
 /// Implements the MSTORE instruction.
 ///
 /// Stores a 32-byte word to memory.
-pub fn mstore<WIRE: InterpreterTypes, H: ?Sized>(context: InstructionContext<'_, H, WIRE>) {
+pub fn mstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas!(context.interpreter, revm_gas::VERYLOW);
 	popn!([offset, value], context.interpreter);
 	let offset = as_usize_or_fail!(context.interpreter, offset);
@@ -34,7 +35,7 @@ pub fn mstore<WIRE: InterpreterTypes, H: ?Sized>(context: InstructionContext<'_,
 /// Implements the MSTORE8 instruction.
 ///
 /// Stores a single byte to memory.
-pub fn mstore8<WIRE: InterpreterTypes, H: ?Sized>(context: InstructionContext<'_, H, WIRE>) {
+pub fn mstore8<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas!(context.interpreter, revm_gas::VERYLOW);
 	popn!([offset, value], context.interpreter);
 	let offset = as_usize_or_fail!(context.interpreter, offset);
@@ -45,7 +46,7 @@ pub fn mstore8<WIRE: InterpreterTypes, H: ?Sized>(context: InstructionContext<'_
 /// Implements the MSIZE instruction.
 ///
 /// Gets the size of active memory in bytes.
-pub fn msize<WIRE: InterpreterTypes, H: ?Sized>(context: InstructionContext<'_, H, WIRE>) {
+pub fn msize<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas!(context.interpreter, revm_gas::BASE);
 	push!(context.interpreter, U256::from(context.interpreter.memory.size()));
 }
@@ -53,7 +54,7 @@ pub fn msize<WIRE: InterpreterTypes, H: ?Sized>(context: InstructionContext<'_, 
 /// Implements the MCOPY instruction.
 ///
 /// EIP-5656: Memory copying instruction that copies memory from one location to another.
-pub fn mcopy<WIRE: InterpreterTypes, H: ?Sized>(context: InstructionContext<'_, H, WIRE>) {
+pub fn mcopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	check!(context.interpreter, CANCUN);
 	popn!([dst, src, len], context.interpreter);
 

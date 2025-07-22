@@ -19,13 +19,13 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
-	vm::pvm,
 	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, VmBinaryModule},
 	evm::runtime::GAS_PRICE,
 	exec::{Key, MomentOf, PrecompileExt},
 	limits,
 	precompiles::{self, run::builtin as run_builtin_precompile},
 	storage::WriteOutcome,
+	vm::pvm,
 	Pallet as Contracts, *,
 };
 use alloc::{vec, vec::Vec};
