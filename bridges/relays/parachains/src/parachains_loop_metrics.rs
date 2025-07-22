@@ -53,9 +53,9 @@ impl ParachainsLoopMetrics {
 		let block_number = block_number.unique_saturated_into();
 		tracing::trace!(
 			target: "bridge-metrics",
-			?parachain,
-			?block_number,
-			"Updated value of metric 'best_parachain_block_number_at_source"
+			"Updated value of metric 'best_parachain_block_number_at_source[{:?}]': {:?}",
+			parachain,
+			block_number,
 		);
 		self.best_source_block_numbers.set(block_number);
 	}
@@ -69,9 +69,9 @@ impl ParachainsLoopMetrics {
 		let block_number = block_number.unique_saturated_into();
 		tracing::trace!(
 			target: "bridge-metrics",
-			?parachain,
-			?block_number,
-			"Updated value of metric 'best_parachain_block_number_at_target"
+			"Updated value of metric 'best_parachain_block_number_at_target[{:?}]': {:?}",
+			parachain,
+			block_number,
 		);
 		self.best_target_block_numbers.set(block_number);
 	}
