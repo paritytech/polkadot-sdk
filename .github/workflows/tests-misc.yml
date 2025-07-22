@@ -394,6 +394,7 @@ jobs:
       - cargo-check-each-crate
       - test-deterministic-wasm
       - cargo-check-all-crate-macos
+      - check-duplicated-deps
       # - cargo-hfuzz remove from required for now, as it's flaky
     if: always() && !cancelled()
     steps:
@@ -406,3 +407,22 @@ jobs:
           else
             echo '### Good job! All the required jobs passed 🚀' >> $GITHUB_STEP_SUMMARY
           fi
+
+  check-duplicated-deps:
+    needs: [preflight]
+    runs-on: ubuntu-latest
+    if: ${{ needs.preflight.outputs.changes_rust }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: python3 -m pip install toml
+
+      - name: Run duplicated dependency check
+        run: python3 .github/scripts/check-duplicated-deps.py
