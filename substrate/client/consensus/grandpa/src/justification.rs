@@ -205,17 +205,22 @@ impl<Block: BlockT> GrandpaJustification<Block> {
 		let mut buf = Vec::new();
 		let mut visited_hashes = HashSet::new();
 		for signed in self.justification.commit.precommits.iter() {
-			if !sp_consensus_grandpa::check_message_signature_with_buffer(
+			let signature_result = sp_consensus_grandpa::check_message_signature_with_buffer(
 				&finality_grandpa::Message::Precommit(signed.precommit.clone()),
 				&signed.id,
 				&signed.signature,
 				self.justification.round,
 				set_id,
 				&mut buf,
-			) {
-				return Err(ClientError::BadJustification(
-					"invalid signature for precommit in grandpa justification".to_string(),
-				))
+			);
+			match signature_result {
+				sp_consensus_grandpa::SignatureResult::Invalid =>
+					return Err(ClientError::BadJustification(
+						"invalid signature for precommit in grandpa justification".to_string(),
+					)),
+				sp_consensus_grandpa::SignatureResult::OutdatedSet =>
+					return Err(ClientError::OutdatedJustification),
+				sp_consensus_grandpa::SignatureResult::Valid => {},
 			}
 
 			if base_hash == signed.precommit.target_hash {
