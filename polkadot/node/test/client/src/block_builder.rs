@@ -135,7 +135,7 @@ impl InitPolkadotBlockBuilder for Client {
 pub trait BlockBuilderExt {
 	/// Push a Polkadot test runtime specific extrinsic to the block.
 	///
-	/// This will internally use the [`BlockBuilder::push`] method, but this method expects a opaque
+	/// This will internally use the [`BlockBuilder::push`] method, but this method expects an opaque
 	/// extrinsic. So, we provide this wrapper which converts a test runtime specific extrinsic to a
 	/// opaque extrinsic and pushes it to the block.
 	///
