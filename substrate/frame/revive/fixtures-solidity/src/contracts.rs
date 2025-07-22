@@ -23,3 +23,8 @@ alloy_core::sol!("contracts/Playground.sol");
 pub fn playground_bin() -> Vec<u8> {
 	decode(include_str!("../contracts/build/Playground.bin")).unwrap()
 }
+
+alloy_core::sol!("contracts/Crypto.sol");
+pub fn crypto_bin() -> Vec<u8> {
+	decode(include_str!("../contracts/build/TestSha3.bin")).unwrap()
+}

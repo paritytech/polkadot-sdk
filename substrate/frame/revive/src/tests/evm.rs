@@ -32,6 +32,7 @@ use pretty_assertions::assert_eq;
 use sp_core::U256;
 
 use pallet_revive_fixtures_solidity::contracts::*;
+use sp_io::hashing::keccak_256;
 
 #[test]
 fn basic_evm_flow_works() {
@@ -73,5 +74,25 @@ fn basic_evm_host_interaction_works() {
 			.data(Playground::PlaygroundCalls::bn(Playground::bnCall {}).abi_encode())
 			.build_and_unwrap_result();
 		assert_eq!(U256::from(42u32), U256::from_big_endian(&result.data));
+	});
+}
+
+#[test]
+fn keccak_256_works() {
+	let code = crypto_bin();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
+
+		let pre = "revive".to_string();
+		let expected = keccak_256(pre.as_bytes());
+
+		let result = builder::bare_call(addr)
+			.data(TestSha3::TestSha3Calls::test(TestSha3::testCall { _pre: pre }).abi_encode())
+			.build_and_unwrap_result();
+
+		assert_eq!(&expected, result.data.as_slice());
 	});
 }
