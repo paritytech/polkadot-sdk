@@ -81,6 +81,6 @@ jobs:
           job-name: ${{ matrix.test.job-name }}
           local-dir: ${{ matrix.test.local-dir }}
           concurrency: ${{ matrix.test.concurrency || 1 }}
-          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          gh-token: ${{ needs.preflight.outputs.DOWNLOADER_APP_TOKEN }}
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}

@@ -143,7 +143,12 @@ on:
       TEST_MATRIX:
         value: ${{ jobs.preflight.outputs.TEST_MATRIX }}
         description: |
-          JSON formatted test matrix parsed from test yaml
+          JSON formatted test matrix parsed from test yaml.
+
+      DOWNLOADER_APP_TOKEN:
+        value: ${{ jobs.preflight.outputs.DOWNLOADER_APP_TOKEN }}
+        description: |
+          A separate token to download artifacts between zombienet actions.
 jobs:
   #
   #
@@ -185,6 +190,9 @@ jobs:
       ZOMBIENET_SDK_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_SDK_IMAGE }}
       ZOMBIENET_SDK_DEFAULT_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
       ZOMBIENET_SDK_LARGE_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
+
+      # app-token to download artifacts with a better rate-limit
+      DOWNLOADER_APP_TOKEN: ${{ steps.app-token.outputs.token }}
 
     steps:
       - uses: actions/checkout@v4
@@ -293,6 +301,12 @@ jobs:
           echo "CI_IMAGE: ${{ steps.set_vars.outputs.IMAGE }}"
           echo "ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}"
           echo "ZOMBIENET_SDK_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_SDK_IMAGE }}"
+
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: ${{ secrets.ARTIFACTS_DOWNLOADER_APP_ID }}
+          private-key: ${{ secrets.ARTIFACTS_DOWNLOADER_PRIVATE_KEY }}
 
       - name: Generate test matrix
         id: generate_test_matrix
