@@ -12,6 +12,9 @@ publish = false
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[lints]
+workspace = true
+
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 docify = { workspace = true }

@@ -232,8 +232,8 @@ where
 		let submit_futures = {
 			let active_views = self.active_views.read();
 			active_views
-				.iter()
-				.map(|(_, view)| {
+				.values()
+				.map(|view| {
 					let view = view.clone();
 					let xts = xts.clone();
 					async move {
@@ -259,12 +259,7 @@ where
 		&self,
 		xt: ExtrinsicFor<ChainApi>,
 	) -> Result<ViewStoreSubmitOutcome<ChainApi>, ChainApi::Error> {
-		let active_views = self
-			.active_views
-			.read()
-			.iter()
-			.map(|(_, view)| view.clone())
-			.collect::<Vec<_>>();
+		let active_views = self.active_views.read().values().cloned().collect::<Vec<_>>();
 
 		let tx_hash = self.api.hash_and_length(&xt).0;
 
@@ -309,8 +304,8 @@ where
 		let submit_futures = {
 			let active_views = self.active_views.read();
 			active_views
-				.iter()
-				.map(|(_, view)| {
+				.values()
+				.map(|view| {
 					let view = view.clone();
 					let xt = xt.clone();
 					let source = source.clone();
@@ -668,8 +663,8 @@ where
 		let finish_revalidation_futures = {
 			let active_views = self.active_views.read();
 			active_views
-				.iter()
-				.map(|(_, view)| {
+				.values()
+				.map(|view| {
 					let view = view.clone();
 					async move { view.finish_revalidation().await }
 				})

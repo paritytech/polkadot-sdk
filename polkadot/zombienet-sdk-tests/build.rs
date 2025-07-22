@@ -29,7 +29,7 @@ fn wasm_sub_path(chain: &str) -> String {
 	let (package, runtime_name) =
 		(format!("{chain}-runtime"), replace_dashes(&format!("{chain}-runtime")));
 
-	format!("{}/{}.wasm", package, runtime_name)
+	format!("{package}/{runtime_name}.wasm")
 }
 
 fn find_wasm(chain: &str) -> Option<PathBuf> {
@@ -41,14 +41,14 @@ fn find_wasm(chain: &str) -> Option<PathBuf> {
 	let sub_path = wasm_sub_path(chain);
 
 	let profile = PROFILES.into_iter().find(|p| {
-		let full_path = format!("{}/target/{}/wbuild/{}", manifest_path, p, sub_path);
+		let full_path = format!("{manifest_path}/target/{p}/wbuild/{sub_path}");
 		debug_output!("checking wasm at : {}", full_path);
 		matches!(path::PathBuf::from(&full_path).try_exists(), Ok(true))
 	});
 
 	debug_output!("profile is : {:?}", profile);
 	profile.map(|profile| {
-		PathBuf::from(&format!("{}/target/{}/wbuild/{}", manifest_path, profile, sub_path))
+		PathBuf::from(&format!("{manifest_path}/target/{profile}/wbuild/{sub_path}"))
 	})
 }
 
@@ -59,7 +59,7 @@ fn build_wasm(chain: &str) -> PathBuf {
 	let cargo = env::var("CARGO").unwrap();
 	let target = env::var("TARGET").unwrap();
 	let out_dir = env::var("OUT_DIR").unwrap();
-	let target_dir = format!("{}/runtimes", out_dir);
+	let target_dir = format!("{out_dir}/runtimes");
 	let args = vec![
 		"build",
 		"-p",
@@ -140,5 +140,5 @@ fn main() {
 
 	substrate_build_script_utils::generate_cargo_keys();
 	substrate_build_script_utils::rerun_if_git_head_changed();
-	println!("cargo:rerun-if-changed={}", metadata_path);
+	println!("cargo:rerun-if-changed={metadata_path}");
 }
