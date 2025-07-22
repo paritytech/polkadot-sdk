@@ -84,7 +84,7 @@ mod double128 {
 		neg128(a) % a
 	}
 
-	#[derive(Copy, Clone, Eq, PartialEq)]
+	#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 	pub struct Double128 {
 		high: u128,
 		low: u128,
@@ -155,7 +155,7 @@ mod double128 {
 
 		pub const fn div(mut self, rhs: u128) -> (Self, u128) {
 			if rhs == 1 {
-				return (self, 0)
+				return (self, 0);
 			}
 
 			// (self === a; rhs === b)
@@ -190,11 +190,9 @@ pub const fn multiply_by_rational_with_rounding(
 	c: u128,
 	r: Rounding,
 ) -> Option<u128> {
-	use double128::Double128;
-	if c == 0 {
-		return None
-	}
-	let (result, remainder) = Double128::product_of(a, b).div(c);
+	let Some((result, remainder)) = multiply_by_rational(a, b, c) else {
+		return None;
+	};
 	let mut result: u128 = match result.try_into_u128() {
 		Ok(v) => v,
 		Err(_) => return None,
@@ -214,10 +212,24 @@ pub const fn multiply_by_rational_with_rounding(
 	Some(result)
 }
 
+/// Returns `(a * b / c, a * b % c)` and (wrapping to 128 bits) or `None` without rounding.
+#[inline]
+pub(crate) const fn multiply_by_rational(
+	a: u128,
+	b: u128,
+	c: u128,
+) -> Option<(double128::Double128, u128)> {
+	use double128::Double128;
+	if c == 0 {
+		return None;
+	}
+	Some(Double128::product_of(a, b).div(c))
+}
+
 pub const fn sqrt(mut n: u128) -> u128 {
 	// Modified from https://github.com/derekdreery/integer-sqrt-rs (Apache/MIT).
 	if n == 0 {
-		return 0
+		return 0;
 	}
 
 	// Compute bit, the largest power of 4 <= n
@@ -243,39 +255,53 @@ pub const fn sqrt(mut n: u128) -> u128 {
 
 #[cfg(test)]
 mod tests {
+	use crate::helpers_128bit::double128::Double128;
+
 	use super::*;
 	use codec::{Decode, Encode};
-	use multiply_by_rational_with_rounding as mulrat;
+	use multiply_by_rational_with_rounding as mulrat_round;
 	use Rounding::*;
 
 	const MAX: u128 = u128::max_value();
 
 	#[test]
+	fn mulrat_result_and_remainder() {
+		assert_eq!(multiply_by_rational(1, 1, 0), None);
+
+		assert_eq!(multiply_by_rational(1, 1, 1), Some((Double128::from_low(1), 0)));
+		assert_eq!(multiply_by_rational(1, 1, 2), Some((Double128::from_low(0), 1)));
+		assert_eq!(multiply_by_rational(MAX, 1, MAX), Some((Double128::from_low(1), 0)));
+		assert_eq!(multiply_by_rational(MAX - 1, 1, MAX), Some((Double128::from_low(0), MAX - 1)));
+	}
+
+	#[test]
 	fn rational_multiply_basic_rounding_works() {
-		assert_eq!(mulrat(1, 1, 1, Up), Some(1));
-		assert_eq!(mulrat(3, 1, 3, Up), Some(1));
-		assert_eq!(mulrat(1, 1, 3, Up), Some(1));
-		assert_eq!(mulrat(1, 2, 3, Down), Some(0));
-		assert_eq!(mulrat(1, 1, 3, NearestPrefDown), Some(0));
-		assert_eq!(mulrat(1, 1, 2, NearestPrefDown), Some(0));
-		assert_eq!(mulrat(1, 2, 3, NearestPrefDown), Some(1));
-		assert_eq!(mulrat(1, 1, 3, NearestPrefUp), Some(0));
-		assert_eq!(mulrat(1, 1, 2, NearestPrefUp), Some(1));
-		assert_eq!(mulrat(1, 2, 3, NearestPrefUp), Some(1));
+		assert_eq!(mulrat_round(1, 1, 0, Up), None);
+
+		assert_eq!(mulrat_round(1, 1, 1, Up), Some(1));
+		assert_eq!(mulrat_round(3, 1, 3, Up), Some(1));
+		assert_eq!(mulrat_round(1, 1, 3, Up), Some(1));
+		assert_eq!(mulrat_round(1, 2, 3, Down), Some(0));
+		assert_eq!(mulrat_round(1, 1, 3, NearestPrefDown), Some(0));
+		assert_eq!(mulrat_round(1, 1, 2, NearestPrefDown), Some(0));
+		assert_eq!(mulrat_round(1, 2, 3, NearestPrefDown), Some(1));
+		assert_eq!(mulrat_round(1, 1, 3, NearestPrefUp), Some(0));
+		assert_eq!(mulrat_round(1, 1, 2, NearestPrefUp), Some(1));
+		assert_eq!(mulrat_round(1, 2, 3, NearestPrefUp), Some(1));
 	}
 
 	#[test]
 	fn rational_multiply_big_number_works() {
-		assert_eq!(mulrat(MAX, MAX - 1, MAX, Down), Some(MAX - 1));
-		assert_eq!(mulrat(MAX, 1, MAX, Down), Some(1));
-		assert_eq!(mulrat(MAX, MAX - 1, MAX, Up), Some(MAX - 1));
-		assert_eq!(mulrat(MAX, 1, MAX, Up), Some(1));
-		assert_eq!(mulrat(1, MAX - 1, MAX, Down), Some(0));
-		assert_eq!(mulrat(1, 1, MAX, Up), Some(1));
-		assert_eq!(mulrat(1, MAX / 2, MAX, NearestPrefDown), Some(0));
-		assert_eq!(mulrat(1, MAX / 2 + 1, MAX, NearestPrefDown), Some(1));
-		assert_eq!(mulrat(1, MAX / 2, MAX, NearestPrefUp), Some(0));
-		assert_eq!(mulrat(1, MAX / 2 + 1, MAX, NearestPrefUp), Some(1));
+		assert_eq!(mulrat_round(MAX, MAX - 1, MAX, Down), Some(MAX - 1));
+		assert_eq!(mulrat_round(MAX, 1, MAX, Down), Some(1));
+		assert_eq!(mulrat_round(MAX, MAX - 1, MAX, Up), Some(MAX - 1));
+		assert_eq!(mulrat_round(MAX, 1, MAX, Up), Some(1));
+		assert_eq!(mulrat_round(1, MAX - 1, MAX, Down), Some(0));
+		assert_eq!(mulrat_round(1, 1, MAX, Up), Some(1));
+		assert_eq!(mulrat_round(1, MAX / 2, MAX, NearestPrefDown), Some(0));
+		assert_eq!(mulrat_round(1, MAX / 2 + 1, MAX, NearestPrefDown), Some(1));
+		assert_eq!(mulrat_round(1, MAX / 2, MAX, NearestPrefUp), Some(0));
+		assert_eq!(mulrat_round(1, MAX / 2 + 1, MAX, NearestPrefUp), Some(1));
 	}
 
 	#[test]
@@ -296,9 +322,9 @@ mod tests {
 			let a = random_u128(i);
 			let b = random_u128(i + (1 << 30));
 			let c = random_u128(i + (1 << 31));
-			let x = mulrat(a, b, c, NearestPrefDown);
-			let y = multiply_by_rational_with_rounding(a, b, c, Rounding::NearestPrefDown);
-			assert_eq!(x.is_some(), y.is_some());
+			let x = mulrat_round(a, b, c, NearestPrefDown);
+			let y = mulrat_round(a, b, c, NearestPrefDown);
+			assert_eq!(x, y);
 			let x = x.unwrap_or(0);
 			let y = y.unwrap_or(0);
 			let d = x.max(y) - x.min(y);
