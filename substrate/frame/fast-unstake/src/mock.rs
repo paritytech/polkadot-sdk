@@ -329,3 +329,11 @@ pub fn create_exposed_nominator(exposed: AccountId, era: u32) {
 	// register the exposed one.
 	assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(exposed)));
 }
+
+pub fn set_active_era(era: sp_staking::EraIndex) {
+	pallet_staking::CurrentEra::<T>::put(era);
+	pallet_staking::ActiveEra::<T>::put(pallet_staking::ActiveEraInfo {
+		index: era,
+		start: Some(0),
+	});
+}

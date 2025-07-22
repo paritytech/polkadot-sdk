@@ -531,7 +531,7 @@ impl<T: Config> Rotator<T> {
 	/// this value, it means that the era is currently active and no new era is planned.
 	///
 	/// See [`Self::is_planning()`] to only get the next index if planning in progress.
-	pub fn planned_era() -> EraIndex {
+	fn planned_era() -> EraIndex {
 		CurrentEra::<T>::get().unwrap_or(0)
 	}
 
@@ -642,7 +642,7 @@ impl<T: Config> Rotator<T> {
 		new_era_start_timestamp: u64,
 	) {
 		// verify that a new era was planned
-		debug_assert!(CurrentEra::<T>::get().unwrap_or(0) == ending_era.index + 1);
+		debug_assert!(Self::is_planning().is_some(), "new era must be planned");
 
 		let starting_era = ending_era.index + 1;
 
@@ -862,8 +862,7 @@ impl<T: Config> EraElectionPlanner<T> {
 			);
 
 			debug_assert!(
-				CurrentEra::<T>::get().unwrap_or(0) ==
-					ActiveEra::<T>::get().map_or(0, |a| a.index) + 1,
+				Rotator::<T>::is_planning().is_some(),
 				"Next era must be already planned."
 			);
 
@@ -879,7 +878,7 @@ impl<T: Config> EraElectionPlanner<T> {
 			// we can report it now.
 			if maybe_next_page.is_none() {
 				use pallet_staking_async_rc_client::RcClientInterface;
-				let id = CurrentEra::<T>::get().defensive_unwrap_or(0);
+				let id = Rotator::<T>::is_planning().defensive_unwrap_or(0);
 				let prune_up_to = Self::get_prune_up_to();
 				let rc_validators = ElectableStashes::<T>::take().into_iter().collect::<Vec<_>>();
 

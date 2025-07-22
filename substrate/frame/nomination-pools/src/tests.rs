@@ -579,19 +579,19 @@ mod sub_pools {
 				},
 			};
 
-			// When `current_era < TotalUnbondingPools`,
+			// When `active_era < TotalUnbondingPools`,
 			let sub_pool_1 = sub_pool_0.clone().maybe_merge_pools(0);
 
 			// Then it exits early without modifications
 			assert_eq!(sub_pool_1, sub_pool_0);
 
-			// When `current_era == TotalUnbondingPools`,
+			// When `active_era == TotalUnbondingPools`,
 			let sub_pool_1 = sub_pool_1.maybe_merge_pools(1);
 
 			// Then it exits early without modifications
 			assert_eq!(sub_pool_1, sub_pool_0);
 
-			// When  `current_era - TotalUnbondingPools == 0`,
+			// When  `active_era - TotalUnbondingPools == 0`,
 			let mut sub_pool_1 = sub_pool_1.maybe_merge_pools(2);
 
 			// Then era 0 is merged into the `no_era` pool
@@ -608,7 +608,7 @@ mod sub_pools {
 				.try_insert(5, UnbondPool::<Runtime> { points: 50, balance: 50 })
 				.unwrap();
 
-			// When `current_era - TotalUnbondingPools == 1`
+			// When `active_era - TotalUnbondingPools == 1`
 			let sub_pool_2 = sub_pool_1.maybe_merge_pools(3);
 			let era_1_pool = sub_pool_0.with_era.remove(&1).unwrap();
 
@@ -617,7 +617,7 @@ mod sub_pools {
 			sub_pool_0.no_era.balance += era_1_pool.balance;
 			assert_eq!(sub_pool_2, sub_pool_0);
 
-			// When `current_era - TotalUnbondingPools == 5`, so all pools with era <= 4 are removed
+			// When `active_era - TotalUnbondingPools == 5`, so all pools with era <= 4 are removed
 			let sub_pool_3 = sub_pool_2.maybe_merge_pools(7);
 
 			// Then all eras <= 5 are merged into the `no_era` pool
@@ -2343,11 +2343,11 @@ mod claim_payout {
 			assert_ok!(Pools::set_state(RuntimeOrigin::signed(902), 1, PoolState::Destroying));
 			assert_ok!(fully_unbond_permissioned(20));
 
-			CurrentEra::set(3);
+			ActiveEra::set(3);
 			assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(20), 20, 0));
 			assert_ok!(fully_unbond_permissioned(10));
 
-			CurrentEra::set(6);
+			ActiveEra::set(6);
 			assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(10), 10, 0));
 
 			assert_eq!(
@@ -2915,7 +2915,7 @@ mod unbond {
 				);
 
 				// When
-				CurrentEra::set(3);
+				ActiveEra::set(3);
 				assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(10), 40, 0));
 				assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(10), 550, 0));
 				assert_ok!(fully_unbond_permissioned(10));
@@ -2975,8 +2975,8 @@ mod unbond {
 			unsafe_set_state(1, PoolState::Destroying);
 
 			// When
-			let current_era = 1 + TotalUnbondingPools::<Runtime>::get();
-			CurrentEra::set(current_era);
+			let active_era = 1 + TotalUnbondingPools::<Runtime>::get();
+			ActiveEra::set(active_era);
 
 			assert_ok!(fully_unbond_permissioned(10));
 
@@ -2987,7 +2987,7 @@ mod unbond {
 					no_era: UnbondPool { balance: 10 + 20, points: 100 + 20 },
 					with_era: unbonding_pools_with_era! {
 						2 + 3 => UnbondPool { balance: 101, points: 101},
-						current_era + 3 => UnbondPool { balance: 10, points: 10 },
+						active_era + 3 => UnbondPool { balance: 10, points: 10 },
 					},
 				},
 			);
@@ -3156,7 +3156,7 @@ mod unbond {
 			);
 
 			// but when everyone is unbonded it can..
-			CurrentEra::set(3);
+			ActiveEra::set(3);
 			assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(10), 100, 0));
 
 			// still permissionless unbond must be full.
@@ -3251,7 +3251,7 @@ mod unbond {
 			);
 			assert_eq!(BondedPool::<Runtime>::get(1).unwrap().points, 10);
 			assert!(SubPoolsStorage::<Runtime>::get(1).is_none());
-			assert_eq!(CurrentEra::get(), 0);
+			assert_eq!(ActiveEra::get(), 0);
 			assert_eq!(BondingDuration::get(), 3);
 
 			// so the depositor can leave, just keeps the test simpler.
@@ -3313,7 +3313,7 @@ mod unbond {
 			);
 
 			// when: casual further unbond, next era.
-			CurrentEra::set(1);
+			ActiveEra::set(1);
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(10), 10, 1));
 
 			// then
@@ -3383,7 +3383,7 @@ mod unbond {
 
 			// given
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 2));
-			CurrentEra::set(1);
+			ActiveEra::set(1);
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 3));
 			assert_eq!(
 				PoolMembers::<Runtime>::get(20).unwrap().unbonding_eras,
@@ -3391,7 +3391,7 @@ mod unbond {
 			);
 
 			// when
-			CurrentEra::set(2);
+			ActiveEra::set(2);
 			assert_noop!(
 				frame_support::storage::with_storage_layer(|| Pools::unbond(
 					RuntimeOrigin::signed(20),
@@ -3501,7 +3501,7 @@ mod unbond {
 				]
 			);
 
-			CurrentEra::set(1);
+			ActiveEra::set(1);
 			Currency::set_balance(&default_reward_account(), 4 * Currency::minimum_balance());
 
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 3));
@@ -3514,7 +3514,7 @@ mod unbond {
 				]
 			);
 
-			CurrentEra::set(2);
+			ActiveEra::set(2);
 			Currency::set_balance(&default_reward_account(), 4 * Currency::minimum_balance());
 
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 5));
@@ -3549,7 +3549,7 @@ mod pool_withdraw_unbonded {
 			assert_eq!(pool_balance(1), 20);
 
 			// When
-			CurrentEra::set(StakingMock::current_era() + StakingMock::bonding_duration() + 1);
+			ActiveEra::set(StakingMock::active_era() + StakingMock::bonding_duration() + 1);
 			assert_ok!(Pools::pool_withdraw_unbonded(RuntimeOrigin::signed(10), 1, 0));
 
 			// Then their unbonding balance is no longer locked
@@ -3570,7 +3570,7 @@ mod pool_withdraw_unbonded {
 			assert_eq!(TotalValueLocked::<T>::get(), 20);
 
 			// When
-			CurrentEra::set(StakingMock::current_era() + StakingMock::bonding_duration() + 1);
+			ActiveEra::set(StakingMock::active_era() + StakingMock::bonding_duration() + 1);
 			assert_ok!(Pools::pool_withdraw_unbonded(RuntimeOrigin::signed(10), 1, 0));
 			assert_eq!(TotalValueLocked::<T>::get(), 15);
 
@@ -3613,8 +3613,8 @@ mod withdraw_unbonded {
 				assert_ok!(Pools::fully_unbond(RuntimeOrigin::signed(40), 40));
 				assert_eq!(pool_balance(1), 600);
 
-				let mut current_era = 1;
-				CurrentEra::set(current_era);
+				let mut active_era = 1;
+				ActiveEra::set(active_era);
 
 				let mut sub_pools = SubPoolsStorage::<Runtime>::get(1).unwrap();
 				let unbond_pool = sub_pools.with_era.get_mut(&3).unwrap();
@@ -3622,7 +3622,7 @@ mod withdraw_unbonded {
 				assert_eq!(*unbond_pool, UnbondPool { points: 550 + 40, balance: 550 + 40 });
 				assert_eq!(TotalValueLocked::<Runtime>::get(), 600);
 
-				// Simulate a slash to the pool with_era(current_era), decreasing the balance by
+				// Simulate a slash to the pool with_era(active_era), decreasing the balance by
 				// half
 				{
 					unbond_pool.balance /= 2; // 295
@@ -3635,7 +3635,7 @@ mod withdraw_unbonded {
 					let mut x = UnbondingBalanceMap::get();
 					x.get_mut(&default_bonded_account())
 						.unwrap()
-						.get_mut(current_era as usize)
+						.get_mut(active_era as usize)
 						.unwrap()
 						.1 /= 2;
 					UnbondingBalanceMap::set(&x);
@@ -3646,15 +3646,15 @@ mod withdraw_unbonded {
 					assert_eq!(StakingMock::active_stake(&default_bonded_account()).unwrap(), 5);
 				};
 
-				// Advance the current_era to ensure all `with_era` pools will be merged into
+				// Advance the active_era to ensure all `with_era` pools will be merged into
 				// `no_era` pool
-				current_era += TotalUnbondingPools::<Runtime>::get();
-				CurrentEra::set(current_era);
+				active_era += TotalUnbondingPools::<Runtime>::get();
+				ActiveEra::set(active_era);
 
 				// Simulate some other call to unbond that would merge `with_era` pools into
 				// `no_era`
 				let sub_pools =
-					SubPoolsStorage::<Runtime>::get(1).unwrap().maybe_merge_pools(current_era);
+					SubPoolsStorage::<Runtime>::get(1).unwrap().maybe_merge_pools(active_era);
 				SubPoolsStorage::<Runtime>::insert(1, sub_pools);
 
 				assert_eq!(
@@ -3727,8 +3727,8 @@ mod withdraw_unbonded {
 				assert_ok!(fully_unbond_permissioned(10));
 				assert_eq!(member_delegation(10), 10);
 
-				current_era += 3;
-				CurrentEra::set(current_era);
+				active_era += 3;
+				ActiveEra::set(active_era);
 
 				// when
 				assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(10), 10, 0));
@@ -3794,7 +3794,7 @@ mod withdraw_unbonded {
 					]
 				);
 
-				CurrentEra::set(StakingMock::bonding_duration());
+				ActiveEra::set(StakingMock::bonding_duration());
 
 				// When
 				assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(40), 40, 0));
@@ -3836,7 +3836,7 @@ mod withdraw_unbonded {
 					unbonding_pools_with_era! { 6 => UnbondPool { points: 5, balance: 5 }}
 				);
 
-				CurrentEra::set(CurrentEra::get() + 3);
+				ActiveEra::set(ActiveEra::get() + 3);
 
 				// set metadata to check that it's being removed on dissolve
 				assert_ok!(Pools::set_metadata(RuntimeOrigin::signed(900), 1, vec![1, 1]));
@@ -3934,7 +3934,7 @@ mod withdraw_unbonded {
 						}
 					}
 				);
-				CurrentEra::set(StakingMock::bonding_duration());
+				ActiveEra::set(StakingMock::bonding_duration());
 
 				// Cannot kick when pool is open
 				assert_noop!(
@@ -4016,7 +4016,7 @@ mod withdraw_unbonded {
 					}
 				}
 			);
-			CurrentEra::set(StakingMock::bonding_duration());
+			ActiveEra::set(StakingMock::bonding_duration());
 			assert_eq!(member_delegation(100), 100);
 
 			// Cannot permissionlessly withdraw
@@ -4058,7 +4058,7 @@ mod withdraw_unbonded {
 
 			// given
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(10), 10, 6));
-			CurrentEra::set(1);
+			ActiveEra::set(1);
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(10), 10, 1));
 			assert_eq!(
 				PoolMembers::<Runtime>::get(10).unwrap().unbonding_eras,
@@ -4089,14 +4089,14 @@ mod withdraw_unbonded {
 			);
 
 			// when
-			CurrentEra::set(2);
+			ActiveEra::set(2);
 			assert_noop!(
 				Pools::withdraw_unbonded(RuntimeOrigin::signed(10), 10, 0),
 				Error::<Runtime>::CannotWithdrawAny
 			);
 
 			// when
-			CurrentEra::set(3);
+			ActiveEra::set(3);
 			assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(10), 10, 0));
 
 			// then
@@ -4119,7 +4119,7 @@ mod withdraw_unbonded {
 			);
 
 			// when
-			CurrentEra::set(4);
+			ActiveEra::set(4);
 			assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(10), 10, 0));
 
 			// then
@@ -4146,7 +4146,7 @@ mod withdraw_unbonded {
 		ExtBuilder::default().add_members(vec![(11, 10)]).build_and_execute(|| {
 			// given
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(11), 11, 6));
-			CurrentEra::set(1);
+			ActiveEra::set(1);
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(11), 11, 1));
 			assert_eq!(
 				PoolMembers::<Runtime>::get(11).unwrap().unbonding_eras,
@@ -4177,14 +4177,14 @@ mod withdraw_unbonded {
 			);
 
 			// when
-			CurrentEra::set(2);
+			ActiveEra::set(2);
 			assert_noop!(
 				Pools::withdraw_unbonded(RuntimeOrigin::signed(11), 11, 0),
 				Error::<Runtime>::CannotWithdrawAny
 			);
 
 			// when
-			CurrentEra::set(3);
+			ActiveEra::set(3);
 			assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(11), 11, 0));
 
 			// then
@@ -4207,7 +4207,7 @@ mod withdraw_unbonded {
 			);
 
 			// when
-			CurrentEra::set(4);
+			ActiveEra::set(4);
 			assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(11), 11, 0));
 
 			// then
@@ -4244,7 +4244,7 @@ mod withdraw_unbonded {
 			assert_eq!(TotalValueLocked::<T>::get(), 110);
 
 			// progress one era and unbond the leftover.
-			CurrentEra::set(1);
+			ActiveEra::set(1);
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(100), 100, 25));
 			assert_eq!(
 				PoolMembers::<Runtime>::get(100).unwrap().unbonding_eras,
@@ -4259,7 +4259,7 @@ mod withdraw_unbonded {
 			assert_eq!(TotalValueLocked::<T>::get(), 110);
 
 			// now the 75 should be free.
-			CurrentEra::set(3);
+			ActiveEra::set(3);
 			assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(100), 100, 0));
 			assert_eq!(
 				pool_events_since_last_call(),
@@ -4281,7 +4281,7 @@ mod withdraw_unbonded {
 			assert_eq!(TotalValueLocked::<T>::get(), 35);
 
 			// the 25 should be free now, and the member removed.
-			CurrentEra::set(4);
+			ActiveEra::set(4);
 			assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(100), 100, 0));
 			assert_eq!(
 				pool_events_since_last_call(),
@@ -4335,7 +4335,7 @@ mod withdraw_unbonded {
 				);
 
 				// when
-				CurrentEra::set(1);
+				ActiveEra::set(1);
 				assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 5));
 
 				// then still member-local unbonding is pretty much in sync with the global pools.
@@ -4359,7 +4359,7 @@ mod withdraw_unbonded {
 				);
 
 				// when
-				CurrentEra::set(2);
+				ActiveEra::set(2);
 				assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 5));
 
 				// then still member-local unbonding is pretty much in sync with the global pools.
@@ -4384,7 +4384,7 @@ mod withdraw_unbonded {
 				);
 
 				// when
-				CurrentEra::set(5);
+				ActiveEra::set(5);
 				assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 5));
 
 				// then
@@ -4468,7 +4468,7 @@ mod withdraw_unbonded {
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(10), 10, 7));
 
 			// progress one era and unbond the leftover.
-			CurrentEra::set(1);
+			ActiveEra::set(1);
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(10), 10, 3));
 
 			assert_eq!(
@@ -4497,7 +4497,7 @@ mod withdraw_unbonded {
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(10), 10, 10));
 
 			// now the 7 should be free.
-			CurrentEra::set(3);
+			ActiveEra::set(3);
 			assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(10), 10, 0));
 
 			assert_eq!(
@@ -4519,7 +4519,7 @@ mod withdraw_unbonded {
 			);
 
 			// the 13 should be free now, and the member removed.
-			CurrentEra::set(4);
+			ActiveEra::set(4);
 			assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(10), 10, 0));
 
 			assert_eq!(
@@ -4538,7 +4538,7 @@ mod withdraw_unbonded {
 	fn withdraw_unbonded_removes_claim_permissions_on_leave() {
 		ExtBuilder::default().add_members(vec![(20, 20)]).build_and_execute(|| {
 			// Given
-			CurrentEra::set(1);
+			ActiveEra::set(1);
 			assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().points, 20);
 
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 20));
@@ -4558,7 +4558,7 @@ mod withdraw_unbonded {
 				]
 			);
 
-			CurrentEra::set(5);
+			ActiveEra::set(5);
 
 			// When
 			assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(20), 20, 0));
@@ -4585,7 +4585,7 @@ mod withdraw_unbonded {
 			unsafe_set_state(1, PoolState::Destroying);
 
 			// set current era
-			CurrentEra::set(1);
+			ActiveEra::set(1);
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(10), 10, 10));
 
 			assert_eq!(
@@ -4599,7 +4599,7 @@ mod withdraw_unbonded {
 			);
 
 			// move to era when unbonded funds can be withdrawn.
-			CurrentEra::set(4);
+			ActiveEra::set(4);
 			assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(10), 10, 0));
 
 			assert_eq!(
@@ -4628,7 +4628,7 @@ mod withdraw_unbonded {
 			unsafe_set_state(1, PoolState::Destroying);
 
 			// set current era
-			CurrentEra::set(1);
+			ActiveEra::set(1);
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(10), 10, 10));
 
 			assert_eq!(
@@ -4642,7 +4642,7 @@ mod withdraw_unbonded {
 			);
 
 			// move to era when unbonded funds can be withdrawn.
-			CurrentEra::set(4);
+			ActiveEra::set(4);
 			assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(10), 10, 0));
 
 			assert_eq!(
@@ -4846,7 +4846,7 @@ mod create {
 			assert_ok!(Pools::set_state(RuntimeOrigin::signed(902), 1, PoolState::Destroying));
 			assert_ok!(fully_unbond_permissioned(10));
 
-			CurrentEra::set(3);
+			ActiveEra::set(3);
 			assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(10), 10, 10));
 
 			assert_ok!(Pools::create_with_pool_id(RuntimeOrigin::signed(10), 20, 234, 654, 783, 1));
@@ -7626,7 +7626,7 @@ mod filter {
 			// can unbond
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(alice), alice, 5));
 			// and withdraw
-			CurrentEra::set(3);
+			ActiveEra::set(3);
 			assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(alice), alice, 0));
 
 			// WHEN alice is removed from restrict list
