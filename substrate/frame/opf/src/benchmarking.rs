@@ -20,6 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
+use alloc::vec;
 use frame_benchmarking::v2::*;
 use frame_support::{
 	assert_ok,
