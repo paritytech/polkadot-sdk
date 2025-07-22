@@ -5,38 +5,38 @@ doc:
     This PR replaces `log` with `tracing` instrumentation in Bridge-related modules by providing structured logging.
 crates:
 - name: bp-runtime
-  bump: patch
+  bump: minor
 - name: bridge-runtime-common
-  bump: patch
+  bump: minor
 - name: pallet-bridge-grandpa
-  bump: patch
+  bump: minor
 - name: pallet-bridge-messages
-  bump: patch
+  bump: minor
 - name: pallet-bridge-parachains
-  bump: patch
+  bump: minor
 - name: pallet-bridge-relayers
-  bump: patch
+  bump: minor
 - name: snowbridge-core
   bump: patch
 - name: snowbridge-ethereum
-  bump: patch
+  bump: minor
 - name: snowbridge-inbound-queue-primitives
-  bump: patch
+  bump: minor
 - name: snowbridge-outbound-queue-primitives
-  bump: patch
+  bump: minor
 - name: snowbridge-pallet-ethereum-client
-  bump: patch
+  bump: minor
 - name: snowbridge-pallet-inbound-queue
-  bump: patch
+  bump: minor
 - name: snowbridge-pallet-inbound-queue-v2
   bump: patch
 - name: snowbridge-pallet-system
-  bump: patch
+  bump: minor
 - name: snowbridge-pallet-system-frontend
   bump: patch
 - name: snowbridge-pallet-system-v2
   bump: patch
 - name: snowbridge-runtime-common
-  bump: patch
+  bump: minor
 - name: snowbridge-test-utils
-  bump: patch
+  bump: minor
