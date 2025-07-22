@@ -1018,7 +1018,7 @@ where
 
 		let number = block.header.number();
 
-		if skip_verification_for_imported_blocks(&*self.client, &block) {
+		if is_state_sync_or_gap_sync_import(&*self.client, &block) {
 			return Ok(block)
 		}
 
@@ -1087,18 +1087,17 @@ where
 	}
 }
 
-fn skip_verification_for_imported_blocks<B: BlockT>(
+/// Verification for imported blocks is skipped in two cases:
+/// 1. When importing blocks below the last finalized block during network initial synchronization.
+/// 2. When importing whole state we don't calculate epoch descriptor, but rather read it from the
+///    state after import. We also skip all verifications because there's no parent state and we
+///    trust the sync module to verify that the state is correct and finalized.
+fn is_state_sync_or_gap_sync_import<B: BlockT>(
 	client: &impl HeaderBackend<B>,
 	block: &BlockImportParams<B>,
 ) -> bool {
 	let number = *block.header.number();
 	let info = client.info();
-	// Verification for imported blocks is skipped in two cases:
-	// 1. When importing blocks below the last finalized block during network initial
-	//    synchronization.
-	// 2. When importing whole state we don't calculate epoch descriptor, but rather read it from
-	//    the state after import. We also skip all verifications because there's no parent state and
-	//    we trust the sync module to verify that the state is correct and finalized.
 	info.block_gap.map_or(false, |gap| gap.start <= number && number <= gap.end) ||
 		block.with_state()
 }
@@ -1231,8 +1230,12 @@ where
 		Ok(ImportResult::Imported(aux))
 	}
 
-	async fn verify(&self, block: &mut BlockImportParams<Block>) -> Result<(), ConsensusError> {
-		if skip_verification_for_imported_blocks(&*self.client, block) {
+	/// Check the inherents and equivocations.
+	async fn check_inherents_and_equivocations(
+		&self,
+		block: &mut BlockImportParams<Block>,
+	) -> Result<(), ConsensusError> {
+		if is_state_sync_or_gap_sync_import(&*self.client, block) {
 			return Ok(())
 		}
 
@@ -1454,7 +1457,7 @@ where
 		let number = *block.header.number();
 		let info = self.client.info();
 
-		self.verify(&mut block).await?;
+		self.check_inherents_and_equivocations(&mut block).await?;
 
 		let block_status = self
 			.client
