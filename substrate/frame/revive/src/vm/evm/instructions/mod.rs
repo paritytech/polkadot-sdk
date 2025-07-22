@@ -1,5 +1,14 @@
 //! EVM opcode implementations.
 
+use crate::vm::{
+	evm::{DummyHost, EVMInterpreter},
+	Ext,
+};
+use revm::interpreter::{Instruction, InstructionContext};
+
+pub type Context<'ctx, 'ext, E> =
+	InstructionContext<'ctx, crate::vm::evm::DummyHost, crate::vm::evm::EVMInterpreter<'ext, E>>;
+
 #[macro_use]
 pub mod macros;
 /// Arithmetic operations (ADD, SUB, MUL, DIV, etc.).
@@ -26,12 +35,6 @@ pub mod system;
 pub mod tx_info;
 /// Utility functions and helpers for instruction implementation.
 pub mod utility;
-
-use crate::vm::{
-	evm::{DummyHost, EVMInterpreter},
-	Ext,
-};
-use revm::interpreter::Instruction;
 
 /// Returns the instruction table for the given spec.
 pub const fn instruction_table<'a, E: Ext>() -> [Instruction<EVMInterpreter<'a, E>, DummyHost>; 256]
@@ -116,72 +119,72 @@ pub const fn instruction_table<'a, E: Ext>() -> [Instruction<EVMInterpreter<'a, 
 	table[MCOPY as usize] = memory::mcopy;
 
 	table[PUSH0 as usize] = stack::push0;
-	table[PUSH1 as usize] = stack::push::<1, _, _>;
-	table[PUSH2 as usize] = stack::push::<2, _, _>;
-	table[PUSH3 as usize] = stack::push::<3, _, _>;
-	table[PUSH4 as usize] = stack::push::<4, _, _>;
-	table[PUSH5 as usize] = stack::push::<5, _, _>;
-	table[PUSH6 as usize] = stack::push::<6, _, _>;
-	table[PUSH7 as usize] = stack::push::<7, _, _>;
-	table[PUSH8 as usize] = stack::push::<8, _, _>;
-	table[PUSH9 as usize] = stack::push::<9, _, _>;
-	table[PUSH10 as usize] = stack::push::<10, _, _>;
-	table[PUSH11 as usize] = stack::push::<11, _, _>;
-	table[PUSH12 as usize] = stack::push::<12, _, _>;
-	table[PUSH13 as usize] = stack::push::<13, _, _>;
-	table[PUSH14 as usize] = stack::push::<14, _, _>;
-	table[PUSH15 as usize] = stack::push::<15, _, _>;
-	table[PUSH16 as usize] = stack::push::<16, _, _>;
-	table[PUSH17 as usize] = stack::push::<17, _, _>;
-	table[PUSH18 as usize] = stack::push::<18, _, _>;
-	table[PUSH19 as usize] = stack::push::<19, _, _>;
-	table[PUSH20 as usize] = stack::push::<20, _, _>;
-	table[PUSH21 as usize] = stack::push::<21, _, _>;
-	table[PUSH22 as usize] = stack::push::<22, _, _>;
-	table[PUSH23 as usize] = stack::push::<23, _, _>;
-	table[PUSH24 as usize] = stack::push::<24, _, _>;
-	table[PUSH25 as usize] = stack::push::<25, _, _>;
-	table[PUSH26 as usize] = stack::push::<26, _, _>;
-	table[PUSH27 as usize] = stack::push::<27, _, _>;
-	table[PUSH28 as usize] = stack::push::<28, _, _>;
-	table[PUSH29 as usize] = stack::push::<29, _, _>;
-	table[PUSH30 as usize] = stack::push::<30, _, _>;
-	table[PUSH31 as usize] = stack::push::<31, _, _>;
-	table[PUSH32 as usize] = stack::push::<32, _, _>;
+	table[PUSH1 as usize] = stack::push::<1, _>;
+	table[PUSH2 as usize] = stack::push::<2, _>;
+	table[PUSH3 as usize] = stack::push::<3, _>;
+	table[PUSH4 as usize] = stack::push::<4, _>;
+	table[PUSH5 as usize] = stack::push::<5, _>;
+	table[PUSH6 as usize] = stack::push::<6, _>;
+	table[PUSH7 as usize] = stack::push::<7, _>;
+	table[PUSH8 as usize] = stack::push::<8, _>;
+	table[PUSH9 as usize] = stack::push::<9, _>;
+	table[PUSH10 as usize] = stack::push::<10, _>;
+	table[PUSH11 as usize] = stack::push::<11, _>;
+	table[PUSH12 as usize] = stack::push::<12, _>;
+	table[PUSH13 as usize] = stack::push::<13, _>;
+	table[PUSH14 as usize] = stack::push::<14, _>;
+	table[PUSH15 as usize] = stack::push::<15, _>;
+	table[PUSH16 as usize] = stack::push::<16, _>;
+	table[PUSH17 as usize] = stack::push::<17, _>;
+	table[PUSH18 as usize] = stack::push::<18, _>;
+	table[PUSH19 as usize] = stack::push::<19, _>;
+	table[PUSH20 as usize] = stack::push::<20, _>;
+	table[PUSH21 as usize] = stack::push::<21, _>;
+	table[PUSH22 as usize] = stack::push::<22, _>;
+	table[PUSH23 as usize] = stack::push::<23, _>;
+	table[PUSH24 as usize] = stack::push::<24, _>;
+	table[PUSH25 as usize] = stack::push::<25, _>;
+	table[PUSH26 as usize] = stack::push::<26, _>;
+	table[PUSH27 as usize] = stack::push::<27, _>;
+	table[PUSH28 as usize] = stack::push::<28, _>;
+	table[PUSH29 as usize] = stack::push::<29, _>;
+	table[PUSH30 as usize] = stack::push::<30, _>;
+	table[PUSH31 as usize] = stack::push::<31, _>;
+	table[PUSH32 as usize] = stack::push::<32, _>;
 
-	table[DUP1 as usize] = stack::dup::<1, _, _>;
-	table[DUP2 as usize] = stack::dup::<2, _, _>;
-	table[DUP3 as usize] = stack::dup::<3, _, _>;
-	table[DUP4 as usize] = stack::dup::<4, _, _>;
-	table[DUP5 as usize] = stack::dup::<5, _, _>;
-	table[DUP6 as usize] = stack::dup::<6, _, _>;
-	table[DUP7 as usize] = stack::dup::<7, _, _>;
-	table[DUP8 as usize] = stack::dup::<8, _, _>;
-	table[DUP9 as usize] = stack::dup::<9, _, _>;
-	table[DUP10 as usize] = stack::dup::<10, _, _>;
-	table[DUP11 as usize] = stack::dup::<11, _, _>;
-	table[DUP12 as usize] = stack::dup::<12, _, _>;
-	table[DUP13 as usize] = stack::dup::<13, _, _>;
-	table[DUP14 as usize] = stack::dup::<14, _, _>;
-	table[DUP15 as usize] = stack::dup::<15, _, _>;
-	table[DUP16 as usize] = stack::dup::<16, _, _>;
+	table[DUP1 as usize] = stack::dup::<1, _>;
+	table[DUP2 as usize] = stack::dup::<2, _>;
+	table[DUP3 as usize] = stack::dup::<3, _>;
+	table[DUP4 as usize] = stack::dup::<4, _>;
+	table[DUP5 as usize] = stack::dup::<5, _>;
+	table[DUP6 as usize] = stack::dup::<6, _>;
+	table[DUP7 as usize] = stack::dup::<7, _>;
+	table[DUP8 as usize] = stack::dup::<8, _>;
+	table[DUP9 as usize] = stack::dup::<9, _>;
+	table[DUP10 as usize] = stack::dup::<10, _>;
+	table[DUP11 as usize] = stack::dup::<11, _>;
+	table[DUP12 as usize] = stack::dup::<12, _>;
+	table[DUP13 as usize] = stack::dup::<13, _>;
+	table[DUP14 as usize] = stack::dup::<14, _>;
+	table[DUP15 as usize] = stack::dup::<15, _>;
+	table[DUP16 as usize] = stack::dup::<16, _>;
 
-	table[SWAP1 as usize] = stack::swap::<1, _, _>;
-	table[SWAP2 as usize] = stack::swap::<2, _, _>;
-	table[SWAP3 as usize] = stack::swap::<3, _, _>;
-	table[SWAP4 as usize] = stack::swap::<4, _, _>;
-	table[SWAP5 as usize] = stack::swap::<5, _, _>;
-	table[SWAP6 as usize] = stack::swap::<6, _, _>;
-	table[SWAP7 as usize] = stack::swap::<7, _, _>;
-	table[SWAP8 as usize] = stack::swap::<8, _, _>;
-	table[SWAP9 as usize] = stack::swap::<9, _, _>;
-	table[SWAP10 as usize] = stack::swap::<10, _, _>;
-	table[SWAP11 as usize] = stack::swap::<11, _, _>;
-	table[SWAP12 as usize] = stack::swap::<12, _, _>;
-	table[SWAP13 as usize] = stack::swap::<13, _, _>;
-	table[SWAP14 as usize] = stack::swap::<14, _, _>;
-	table[SWAP15 as usize] = stack::swap::<15, _, _>;
-	table[SWAP16 as usize] = stack::swap::<16, _, _>;
+	table[SWAP1 as usize] = stack::swap::<1, _>;
+	table[SWAP2 as usize] = stack::swap::<2, _>;
+	table[SWAP3 as usize] = stack::swap::<3, _>;
+	table[SWAP4 as usize] = stack::swap::<4, _>;
+	table[SWAP5 as usize] = stack::swap::<5, _>;
+	table[SWAP6 as usize] = stack::swap::<6, _>;
+	table[SWAP7 as usize] = stack::swap::<7, _>;
+	table[SWAP8 as usize] = stack::swap::<8, _>;
+	table[SWAP9 as usize] = stack::swap::<9, _>;
+	table[SWAP10 as usize] = stack::swap::<10, _>;
+	table[SWAP11 as usize] = stack::swap::<11, _>;
+	table[SWAP12 as usize] = stack::swap::<12, _>;
+	table[SWAP13 as usize] = stack::swap::<13, _>;
+	table[SWAP14 as usize] = stack::swap::<14, _>;
+	table[SWAP15 as usize] = stack::swap::<15, _>;
+	table[SWAP16 as usize] = stack::swap::<16, _>;
 
 	table[LOG0 as usize] = host::log::<0, _>;
 	table[LOG1 as usize] = host::log::<1, _>;
@@ -189,12 +192,12 @@ pub const fn instruction_table<'a, E: Ext>() -> [Instruction<EVMInterpreter<'a, 
 	table[LOG3 as usize] = host::log::<3, _>;
 	table[LOG4 as usize] = host::log::<4, _>;
 
-	table[CREATE as usize] = contract::create::<_, false, _>;
+	table[CREATE as usize] = contract::create::<false, _>;
 	table[CALL as usize] = contract::call;
 	table[CALLCODE as usize] = contract::call_code;
 	table[RETURN as usize] = control::ret;
 	table[DELEGATECALL as usize] = contract::delegate_call;
-	table[CREATE2 as usize] = contract::create::<_, true, _>;
+	table[CREATE2 as usize] = contract::create::<true, _>;
 
 	table[STATICCALL as usize] = contract::static_call;
 	table[REVERT as usize] = control::revert;

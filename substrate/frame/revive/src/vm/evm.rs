@@ -46,7 +46,7 @@ where
 	}
 }
 
-/// TODO handle error case
+/// Calls the EVM interpreter with the provided bytecode and inputs.
 pub fn call<'a, E: Ext>(bytecode: Bytecode, ext: &'a mut E, inputs: EVMInputs) -> ExecResult {
 	let mut interpreter: Interpreter<EVMInterpreter<'a, E>> = Interpreter {
 		gas: Gas::new(30_000_000), // TODO clean up
@@ -72,6 +72,7 @@ pub fn call<'a, E: Ext>(bytecode: Bytecode, ext: &'a mut E, inputs: EVMInputs) -
 	}
 }
 
+/// Runs the EVM interpreter until it returns an action.
 fn run<WIRE: InterpreterTypes>(
 	interpreter: &mut Interpreter<WIRE>,
 	table: &revm::interpreter::InstructionTable<WIRE, DummyHost>,
@@ -81,11 +82,17 @@ fn run<WIRE: InterpreterTypes>(
 		let action = interpreter.run_plain(table, host);
 		match action {
 			InterpreterAction::Return(result) => return result,
-			_ => panic!("Unexpected action: {:?}", action),
+			InterpreterAction::NewFrame(_) => unimplemented!(),
 		}
 	}
 }
 
+/// EVMInterpreter implements the `InterpreterTypes`.
+///
+/// Note:
+///
+/// Our implementation set the `InterpreterTypes::Extend` associated type, to the `Ext` trait, to
+/// reuse all the host functions that are defined by this trait
 pub struct EVMInterpreter<'a, E: Ext> {
 	_phantom: core::marker::PhantomData<&'a E>,
 }
@@ -101,6 +108,14 @@ impl<'a, E: Ext> InterpreterTypes for EVMInterpreter<'a, E> {
 	type Output = InterpreterAction;
 }
 
+/// EVMInputs implements the `InputsTr` trait for EVM inputs, allowing the EVM interpreter to access
+/// the call input data.
+///
+/// Note:
+///
+/// In our implementation of the instruction table, Everything except the call input data will be
+/// accessed through the `InterpreterTypes::Extend` associated type, our implementation will panic
+/// if any of those methods are called.
 pub struct EVMInputs(CallInput);
 
 impl EVMInputs {

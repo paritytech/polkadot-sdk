@@ -45,13 +45,13 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		CallTracer, GasEncoder, GenericTransaction, PrestateTracer, TYPE_EIP1559, Trace, Tracer,
-		TracerType, runtime::GAS_PRICE,
+		runtime::GAS_PRICE, CallTracer, GasEncoder, GenericTransaction, PrestateTracer, Trace,
+		Tracer, TracerType, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{
-		AccountInfo, AccountType, ContractInfo, DeletionQueueManager, meter::Meter as StorageMeter,
+		meter::Meter as StorageMeter, AccountInfo, AccountType, ContractInfo, DeletionQueueManager,
 	},
 	tracing::if_tracing,
 	vm::{CodeInfo, ContractBlob, RuntimeCosts},
@@ -60,7 +60,6 @@ use alloc::{boxed::Box, format, vec};
 use codec::{Codec, Decode, Encode};
 use environmental::*;
 use frame_support::{
-	BoundedVec, RuntimeDebugNoBound,
 	dispatch::{
 		DispatchErrorWithPostInfo, DispatchResultWithPostInfo, GetDispatchInfo, Pays,
 		PostDispatchInfo, RawOrigin,
@@ -68,25 +67,27 @@ use frame_support::{
 	ensure,
 	pallet_prelude::DispatchClass,
 	traits::{
-		ConstU32, ConstU64, EnsureOrigin, Get, IsType, OriginTrait, Time,
 		fungible::{Inspect, Mutate, MutateHold},
+		ConstU32, ConstU64, EnsureOrigin, Get, IsType, OriginTrait, Time,
 	},
 	weights::WeightMeter,
+	BoundedVec, RuntimeDebugNoBound,
 };
 use frame_system::{
-	Pallet as System, ensure_signed,
+	ensure_signed,
 	pallet_prelude::{BlockNumberFor, OriginFor},
+	Pallet as System,
 };
 use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	AccountId32, DispatchError,
 	traits::{BadOrigin, Bounded, Convert, Dispatchable, Saturating},
+	AccountId32, DispatchError,
 };
 
 pub use crate::{
 	address::{
-		AccountId32Mapper, AddressMapper, TestAccountMapper, create1, create2, is_eth_derived,
+		create1, create2, is_eth_derived, AccountId32Mapper, AddressMapper, TestAccountMapper,
 	},
 	exec::{MomentOf, Origin},
 	pallet::*,
@@ -1471,7 +1472,11 @@ where
 		let fee = Self::convert_native_to_evm(fee);
 		let gas_price = GAS_PRICE.into();
 		let (quotient, remainder) = fee.div_mod(gas_price);
-		if remainder.is_zero() { quotient } else { quotient + U256::one() }
+		if remainder.is_zero() {
+			quotient
+		} else {
+			quotient + U256::one()
+		}
 	}
 
 	/// Convert a gas value into a substrate fee

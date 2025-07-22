@@ -1,19 +1,23 @@
-use super::utility::{IntoAddress, IntoU256};
+use super::{
+	utility::{IntoAddress, IntoU256},
+	Context,
+};
+use crate::vm::Ext;
 use core::cmp::min;
 use revm::{
 	interpreter::{
-		InstructionContext, InstructionResult,
-		gas::{self, CALL_STIPEND, warm_cold_cost},
+		gas::{self, warm_cold_cost, CALL_STIPEND},
 		host::Host,
-		interpreter_types::{InputsTr, InterpreterTypes, MemoryTr, RuntimeFlag, StackTr},
+		interpreter_types::{InputsTr, RuntimeFlag, StackTr},
+		InstructionResult,
 	},
-	primitives::{B256, BLOCK_HASH_HISTORY, Bytes, Log, LogData, U256, hardfork::SpecId::*},
+	primitives::{hardfork::SpecId::*, Bytes, Log, LogData, B256, BLOCK_HASH_HISTORY, U256},
 };
 
 /// Implements the BALANCE instruction.
 ///
 /// Gets the balance of the given account.
-pub fn balance<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionContext<'_, H, WIRE>) {
+pub fn balance<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	popn_top!([], top, context.interpreter);
 	let address = top.into_address();
 	let Some(balance) = context.host.balance(address) else {
@@ -38,9 +42,7 @@ pub fn balance<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionCon
 }
 
 /// EIP-1884: Repricing for trie-size-dependent opcodes
-pub fn selfbalance<WIRE: InterpreterTypes, H: Host + ?Sized>(
-	context: InstructionContext<'_, H, WIRE>,
-) {
+pub fn selfbalance<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	check!(context.interpreter, ISTANBUL);
 	gas!(context.interpreter, gas::LOW);
 
@@ -54,9 +56,7 @@ pub fn selfbalance<WIRE: InterpreterTypes, H: Host + ?Sized>(
 /// Implements the EXTCODESIZE instruction.
 ///
 /// Gets the size of an account's code.
-pub fn extcodesize<WIRE: InterpreterTypes, H: Host + ?Sized>(
-	context: InstructionContext<'_, H, WIRE>,
-) {
+pub fn extcodesize<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	popn_top!([], top, context.interpreter);
 	let address = top.into_address();
 	let Some(code) = context.host.load_account_code(address) else {
@@ -76,9 +76,7 @@ pub fn extcodesize<WIRE: InterpreterTypes, H: Host + ?Sized>(
 }
 
 /// EIP-1052: EXTCODEHASH opcode
-pub fn extcodehash<WIRE: InterpreterTypes, H: Host + ?Sized>(
-	context: InstructionContext<'_, H, WIRE>,
-) {
+pub fn extcodehash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	check!(context.interpreter, CONSTANTINOPLE);
 	popn_top!([], top, context.interpreter);
 	let address = top.into_address();
@@ -100,9 +98,7 @@ pub fn extcodehash<WIRE: InterpreterTypes, H: Host + ?Sized>(
 /// Implements the EXTCODECOPY instruction.
 ///
 /// Copies a portion of an account's code to memory.
-pub fn extcodecopy<WIRE: InterpreterTypes, H: Host + ?Sized>(
-	context: InstructionContext<'_, H, WIRE>,
-) {
+pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	popn!([address, memory_offset, code_offset, len_u256], context.interpreter);
 	let address = address.into_address();
 	let Some(code) = context.host.load_account_code(address) else {
@@ -129,9 +125,7 @@ pub fn extcodecopy<WIRE: InterpreterTypes, H: Host + ?Sized>(
 /// Implements the BLOCKHASH instruction.
 ///
 /// Gets the hash of one of the 256 most recent complete blocks.
-pub fn blockhash<WIRE: InterpreterTypes, H: Host + ?Sized>(
-	context: InstructionContext<'_, H, WIRE>,
-) {
+pub fn blockhash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas!(context.interpreter, gas::BLOCKHASH);
 	popn_top!([], number, context.interpreter);
 
@@ -165,7 +159,7 @@ pub fn blockhash<WIRE: InterpreterTypes, H: Host + ?Sized>(
 /// Implements the SLOAD instruction.
 ///
 /// Loads a word from storage.
-pub fn sload<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionContext<'_, H, WIRE>) {
+pub fn sload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	popn_top!([], index, context.interpreter);
 
 	let Some(value) = context.host.sload(context.interpreter.input.target_address(), *index) else {
@@ -183,7 +177,7 @@ pub fn sload<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionConte
 /// Implements the SSTORE instruction.
 ///
 /// Stores a word to storage.
-pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionContext<'_, H, WIRE>) {
+pub fn sstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	require_non_staticcall!(context.interpreter);
 
 	popn!([index, value], context.interpreter);
@@ -219,7 +213,7 @@ pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionCont
 
 /// EIP-1153: Transient storage opcodes
 /// Store value to transient storage
-pub fn tstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionContext<'_, H, WIRE>) {
+pub fn tstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	check!(context.interpreter, CANCUN);
 	require_non_staticcall!(context.interpreter);
 	gas!(context.interpreter, gas::WARM_STORAGE_READ_COST);
@@ -231,7 +225,7 @@ pub fn tstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionCont
 
 /// EIP-1153: Transient storage opcodes
 /// Load value from transient storage
-pub fn tload<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionContext<'_, H, WIRE>) {
+pub fn tload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	check!(context.interpreter, CANCUN);
 	gas!(context.interpreter, gas::WARM_STORAGE_READ_COST);
 
@@ -243,9 +237,7 @@ pub fn tload<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionConte
 /// Implements the LOG0-LOG4 instructions.
 ///
 /// Appends log record with N topics.
-pub fn log<const N: usize, H: Host + ?Sized>(
-	context: InstructionContext<'_, H, impl InterpreterTypes>,
-) {
+pub fn log<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
 	require_non_staticcall!(context.interpreter);
 
 	popn!([offset, len], context.interpreter);
@@ -262,7 +254,7 @@ pub fn log<const N: usize, H: Host + ?Sized>(
 		context.interpreter.halt(InstructionResult::StackUnderflow);
 		return;
 	}
-	let Some(topics) = context.interpreter.stack.popn::<N>() else {
+	let Some(topics) = <_ as StackTr>::popn::<N>(&mut context.interpreter.stack) else {
 		context.interpreter.halt(InstructionResult::StackUnderflow);
 		return;
 	};
@@ -279,9 +271,7 @@ pub fn log<const N: usize, H: Host + ?Sized>(
 /// Implements the SELFDESTRUCT instruction.
 ///
 /// Halt execution and register account for later deletion.
-pub fn selfdestruct<WIRE: InterpreterTypes, H: Host + ?Sized>(
-	context: InstructionContext<'_, H, WIRE>,
-) {
+pub fn selfdestruct<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	require_non_staticcall!(context.interpreter);
 	popn!([target], context.interpreter);
 	let target = target.into_address();

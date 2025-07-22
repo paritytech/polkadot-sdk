@@ -1,4 +1,4 @@
-use crate::{Config, gas::Token, weights::WeightInfo};
+use crate::{gas::Token, weights::WeightInfo, Config};
 use frame_support::weights::Weight;
 
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]

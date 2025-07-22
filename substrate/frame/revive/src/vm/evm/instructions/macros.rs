@@ -130,7 +130,7 @@ macro_rules! resize_memory {
 #[macro_export]
 macro_rules! popn {
     ([ $($x:ident),* ],$interpreterreter:expr $(,$ret:expr)? ) => {
-        let Some([$( $x ),*]) = $interpreterreter.stack.popn() else {
+        let Some([$( $x ),*]) = <_ as StackTr>::popn(&mut $interpreterreter.stack) else {
             $interpreterreter.halt(revm::interpreter::InstructionResult::StackUnderflow);
             return $($ret)?;
         };
@@ -142,7 +142,7 @@ macro_rules! popn {
 #[macro_export]
 macro_rules! popn_top {
     ([ $($x:ident),* ], $top:ident, $interpreter:expr $(,$ret:expr)? ) => {
-        let Some(([$( $x ),*], $top)) = $interpreter.stack.popn_top() else {
+		let Some(([$($x),*], $top)) = <_ as StackTr>::popn_top(&mut $interpreter.stack) else {
             $interpreter.halt(revm::interpreter::InstructionResult::StackUnderflow);
             return $($ret)?;
         };
