@@ -27,6 +27,7 @@ sysinfo = { workspace = true }
 thiserror = { workspace = true }
 time = { features = ["formatting", "local-offset", "std"], workspace = true }
 tokio = { features = ["rt"], workspace = true, default-features = true }
+tracing = { workspace = true }
 
 # Bridge dependencies
 bp-runtime = { workspace = true, default-features = true }
