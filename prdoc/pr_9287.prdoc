@@ -16,4 +16,8 @@ doc:
     - notification: Unregister dropped protocols ([#391](https://github.com/paritytech/litep2p/pull/391))
     - bitswap: Fix protocol implementation ([#402](https://github.com/paritytech/litep2p/pull/402))
     - transport-manager: stricter supported multiaddress check ([#403](https://github.com/paritytech/litep2p/pull/403))
-crates: []
+crates:
+- name: sc-network
+  bump: major
+- name: sc-network-types
+  bump: major
