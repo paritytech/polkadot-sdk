@@ -63,9 +63,6 @@ use sp_runtime::{
 	DispatchError, SaturatedConversion,
 };
 
-// Move dependencies
-use polkavm_move_native::storage::GlobalStorage;
-
 #[cfg(test)]
 mod tests;
 
@@ -547,9 +544,6 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
-
-	// Move Global Storage
-	fn get_move_global_storage(&mut self) -> &mut GlobalStorage;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -644,8 +638,6 @@ pub struct Stack<'a, T: Config, E> {
 	transient_storage: TransientStorage<T>,
 	/// Global behavior determined by the creater of this stack.
 	exec_config: &'a ExecConfig<T>,
-	/// Move global storage
-	move_global_storage: GlobalStorage,
 	/// No executable is held by the struct but influences its behaviour.
 	_phantom: PhantomData<E>,
 }
@@ -1043,7 +1035,6 @@ where
 			frames: Default::default(),
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
 			exec_config,
-			move_global_storage: GlobalStorage::default(),
 			_phantom: Default::default(),
 		};
 		Ok(Some((stack, executable)))
@@ -2458,10 +2449,6 @@ where
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult {
 		assert!(self.has_contract_info());
 		self.top_frame_mut().frame_meter.record_contract_storage_changes(diff)
-	}
-
-	fn get_move_global_storage(&mut self) -> &mut GlobalStorage {
-		&mut self.move_global_storage
 	}
 }
 
