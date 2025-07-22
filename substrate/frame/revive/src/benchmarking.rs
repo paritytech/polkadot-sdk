@@ -26,7 +26,7 @@ use crate::{
 	limits,
 	precompiles::{self, run::builtin as run_builtin_precompile},
 	storage::WriteOutcome,
-	*,
+	*
 };
 use alloc::{vec, vec::Vec};
 use codec::{Encode, MaxEncodedLen};

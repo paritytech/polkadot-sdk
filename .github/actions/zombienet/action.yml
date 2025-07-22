@@ -1,8 +1,11 @@
 name: "Zombienet test v1"
 description: "Runs zombienet tests"
 inputs:
-  test:
+  test-definition:
     description: "test definition (zndsl file)"
+    required: true
+  job-name:
+    description: "Job name to use for artifact uploading"
     required: true
   local-dir:
     description: "Path to the directory tha contains the test file (.zndsl)"
@@ -27,7 +30,7 @@ runs:
     - name: common_vars
       shell: bash
       env:
-        TEST_NAME: ${{ inputs.test }}
+        TEST_DEFINITION: ${{ inputs.test-definition }}
         LOCAL_PATH: ${{ inputs.local-dir }}
         CONCURRENCY: ${{ inputs.concurrency }}
       run: |
@@ -36,7 +39,8 @@ runs:
         echo "ZOMBIENET_PROVIDER: $ZOMBIENET_PROVIDER"
         echo "COL_IMAGE: $COL_IMAGE"
         echo "Inputs"
-        echo "test: $TEST_NAME"
+        echo "test-definition: $TEST_DEFINITION"
+        echo "job-name: ${{ inputs.job-name }}"
         echo "local-dir: $LOCAL_PATH"
         echo "concurrency: $CONCURRENCY"
 
@@ -59,7 +63,7 @@ runs:
     - name: zombie_test
       shell: bash
       env:
-        TEST_NAME: ${{ inputs.test }}
+        TEST_DEFINITION: ${{ inputs.test-definition }}
         LOCAL_PATH: ${{ inputs.local-dir }}
         CONCURRENCY: ${{ inputs.concurrency }}
       run: |
@@ -71,7 +75,7 @@ runs:
           ./.github/scripts/run-zombienet-test.sh \
             "$(pwd)/$LOCAL_PATH" \
             $CONCURRENCY \
-            "$TEST_NAME"
+            "$TEST_DEFINITION"
         else
           # no need to check other runner variables. for k8s they shall store the same value
           if [[ $ZOMBIENET_DEFAULT_RUNNER == "parity-zombienet" ]]; then
@@ -81,7 +85,7 @@ runs:
           /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh \
             --local-dir="$(pwd)/$LOCAL_PATH" \
             --concurrency=$CONCURRENCY \
-            --test="$TEST_NAME"
+            --test="$TEST_DEFINITION"
         fi
 
     - name: process_logs
@@ -102,7 +106,7 @@ runs:
       uses: actions/upload-artifact@v4
       if: ${{ ! cancelled() }}
       with:
-        name: zombienet-logs-${{ github.job }}-${{ github.sha }}
+        name: zombienet-logs-${{ inputs.job-name }}-${{ github.sha }}
         path: |
           /tmp/zombie*/logs/*
 
