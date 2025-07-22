@@ -1,0 +1,17 @@
+title: 'libp2p/discovery: Enhance discovery by removing artificial limit'
+doc:
+- audience: Node Operator
+  description: |-
+    The discovery process of the libp2p network backend is paused when the number of connected peers exceeds an artificial limit:
+
+    https://github.com/paritytech/polkadot-sdk/blob/52083f9554422563e8a629f0e3a63a77e5be769e/substrate/client/network/src/discovery.rs#L864-L875
+
+    The limit would default to 65 peers, causing the discovery component to pause the random queries, effectively pausing the discovery process. The downstream effect is that authorities are not fully discovered, or discovered with a delay. Because of the delay in the discovery process of the authorities, validators have noted inconsistent era points.
+
+    Part of:
+    - https://github.com/paritytech/polkadot-sdk/issues/8548
+
+    cc @paritytech/networking
+crates:
+- name: sc-network
+  bump: patch

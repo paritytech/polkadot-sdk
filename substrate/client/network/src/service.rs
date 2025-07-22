@@ -479,7 +479,6 @@ where
 						.map(|(peer, address)| (peer.into(), address.clone().into()))
 						.collect::<Vec<_>>(),
 				);
-				config.discovery_limit(u64::from(network_config.default_peers_set.out_peers) + 15);
 				config.with_kademlia(
 					params.genesis_hash,
 					params.fork_id.as_deref(),
