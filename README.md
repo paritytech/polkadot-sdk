@@ -32,7 +32,7 @@ In order to build this project you need to install some dependencies, follow the
 
 * [Polkadot Documentation Portal](https://docs.polkadot.com)
 * [🦀 rust-docs](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/index.html): Where we keep track of
-the API docs of our Rust crates. Includes:
+the API docs our Rust crates. Includes:
   * [Introduction](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/index.html)
 	to each component of the Polkadot SDK: Substrate, FRAME, Cumulus, and XCM
   * [Guides](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/index.html),
