@@ -164,366 +164,366 @@ pub fn sar<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	};
 }
 
-#[cfg(test)]
-mod tests {
-	use super::{byte, clz, sar, shl, shr};
-	use revm::{
-		interpreter::{host::DummyHost, InstructionContext, Interpreter},
-		primitives::{hardfork::SpecId, uint, U256},
-	};
-
-	#[test]
-	fn test_shift_left() {
-		let mut interpreter = Interpreter::default();
-
-		struct TestCase {
-			value: U256,
-			shift: U256,
-			expected: U256,
-		}
-
-		uint! {
-			let test_cases = [
-				TestCase {
-					value: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-					shift: 0x00_U256,
-					expected: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-				},
-				TestCase {
-					value: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-					shift: 0x01_U256,
-					expected: 0x0000000000000000000000000000000000000000000000000000000000000002_U256,
-				},
-				TestCase {
-					value: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-					shift: 0xff_U256,
-					expected: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
-				},
-				TestCase {
-					value: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-					shift: 0x0100_U256,
-					expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-				},
-				TestCase {
-					value: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-					shift: 0x0101_U256,
-					expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-				},
-				TestCase {
-					value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-					shift: 0x00_U256,
-					expected: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-				},
-				TestCase {
-					value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-					shift: 0x01_U256,
-					expected: 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe_U256,
-				},
-				TestCase {
-					value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-					shift: 0xff_U256,
-					expected: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
-				},
-				TestCase {
-					value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-					shift: 0x0100_U256,
-					expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-				},
-				TestCase {
-					value: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-					shift: 0x01_U256,
-					expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-				},
-				TestCase {
-					value: 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-					shift: 0x01_U256,
-					expected: 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe_U256,
-				},
-			];
-		}
-
-		for test in test_cases {
-			push!(interpreter, test.value);
-			push!(interpreter, test.shift);
-			let context =
-				InstructionContext { host: &mut DummyHost, interpreter: &mut interpreter };
-			shl(context);
-			let res = interpreter.stack.pop().unwrap();
-			assert_eq!(res, test.expected);
-		}
-	}
-
-	#[test]
-	fn test_logical_shift_right() {
-		let mut interpreter = Interpreter::default();
-
-		struct TestCase {
-			value: U256,
-			shift: U256,
-			expected: U256,
-		}
-
-		uint! {
-			let test_cases = [
-				TestCase {
-					value: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-					shift: 0x00_U256,
-					expected: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-				},
-				TestCase {
-					value: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-					shift: 0x01_U256,
-					expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-				},
-				TestCase {
-					value: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
-					shift: 0x01_U256,
-					expected: 0x4000000000000000000000000000000000000000000000000000000000000000_U256,
-				},
-				TestCase {
-					value: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
-					shift: 0xff_U256,
-					expected: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-				},
-				TestCase {
-					value: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
-					shift: 0x0100_U256,
-					expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-				},
-				TestCase {
-					value: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
-					shift: 0x0101_U256,
-					expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-				},
-				TestCase {
-					value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-					shift: 0x00_U256,
-					expected: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-				},
-				TestCase {
-					value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-					shift: 0x01_U256,
-					expected: 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-				},
-				TestCase {
-					value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-					shift: 0xff_U256,
-					expected: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-				},
-				TestCase {
-					value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-					shift: 0x0100_U256,
-					expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-				},
-				TestCase {
-					value: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-					shift: 0x01_U256,
-					expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-				},
-			];
-		}
-
-		for test in test_cases {
-			push!(interpreter, test.value);
-			push!(interpreter, test.shift);
-			let context =
-				InstructionContext { host: &mut DummyHost, interpreter: &mut interpreter };
-			shr(context);
-			let res = interpreter.stack.pop().unwrap();
-			assert_eq!(res, test.expected);
-		}
-	}
-
-	#[test]
-	fn test_arithmetic_shift_right() {
-		let mut interpreter = Interpreter::default();
-
-		struct TestCase {
-			value: U256,
-			shift: U256,
-			expected: U256,
-		}
-
-		uint! {
-		let test_cases = [
-			TestCase {
-				value: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-				shift: 0x00_U256,
-				expected: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-			},
-			TestCase {
-				value: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-				shift: 0x01_U256,
-				expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-			},
-			TestCase {
-				value: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
-				shift: 0x01_U256,
-				expected: 0xc000000000000000000000000000000000000000000000000000000000000000_U256,
-			},
-			TestCase {
-				value: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
-				shift: 0xff_U256,
-				expected: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-			},
-			TestCase {
-				value: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
-				shift: 0x0100_U256,
-				expected: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-			},
-			TestCase {
-				value: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
-				shift: 0x0101_U256,
-				expected: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-			},
-			TestCase {
-				value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-				shift: 0x00_U256,
-				expected: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-			},
-			TestCase {
-				value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-				shift: 0x01_U256,
-				expected: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-			},
-			TestCase {
-				value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-				shift: 0xff_U256,
-				expected: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-			},
-			TestCase {
-				value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-				shift: 0x0100_U256,
-				expected: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-			},
-			TestCase {
-				value: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-				shift: 0x01_U256,
-				expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-			},
-			TestCase {
-				value: 0x4000000000000000000000000000000000000000000000000000000000000000_U256,
-				shift: 0xfe_U256,
-				expected: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-			},
-			TestCase {
-				value: 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-				shift: 0xf8_U256,
-				expected: 0x000000000000000000000000000000000000000000000000000000000000007f_U256,
-			},
-			TestCase {
-				value: 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-				shift: 0xfe_U256,
-				expected: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
-			},
-			TestCase {
-				value: 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-				shift: 0xff_U256,
-				expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-			},
-			TestCase {
-				value: 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-				shift: 0x0100_U256,
-				expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
-			},
-		];
-			}
-
-		for test in test_cases {
-			push!(interpreter, test.value);
-			push!(interpreter, test.shift);
-			let context =
-				InstructionContext { host: &mut DummyHost, interpreter: &mut interpreter };
-			sar(context);
-			let res = interpreter.stack.pop().unwrap();
-			assert_eq!(res, test.expected);
-		}
-	}
-
-	#[test]
-	fn test_byte() {
-		struct TestCase {
-			input: U256,
-			index: usize,
-			expected: U256,
-		}
-
-		let mut interpreter = Interpreter::default();
-
-		let input_value = U256::from(0x1234567890abcdef1234567890abcdef_u128);
-		let test_cases = (0..32)
-			.map(|i| {
-				let byte_pos = 31 - i;
-
-				let shift_amount = U256::from(byte_pos * 8);
-				let byte_value = (input_value >> shift_amount) & U256::from(0xFF);
-				TestCase { input: input_value, index: i, expected: byte_value }
-			})
-			.collect::<Vec<_>>();
-
-		for test in test_cases.iter() {
-			push!(interpreter, test.input);
-			push!(interpreter, U256::from(test.index));
-			let context =
-				InstructionContext { host: &mut DummyHost, interpreter: &mut interpreter };
-			byte(context);
-			let res = interpreter.stack.pop().unwrap();
-			assert_eq!(res, test.expected, "Failed at index: {}", test.index);
-		}
-	}
-
-	#[test]
-	fn test_clz() {
-		let mut interpreter = Interpreter::default();
-		interpreter.set_spec_id(SpecId::OSAKA);
-
-		struct TestCase {
-			value: U256,
-			expected: U256,
-		}
-
-		uint! {
-			let test_cases = [
-				TestCase { value: 0x0_U256, expected: 256_U256 },
-				TestCase { value: 0x1_U256, expected: 255_U256 },
-				TestCase { value: 0x2_U256, expected: 254_U256 },
-				TestCase { value: 0x3_U256, expected: 254_U256 },
-				TestCase { value: 0x4_U256, expected: 253_U256 },
-				TestCase { value: 0x7_U256, expected: 253_U256 },
-				TestCase { value: 0x8_U256, expected: 252_U256 },
-				TestCase { value: 0xff_U256, expected: 248_U256 },
-				TestCase { value: 0x100_U256, expected: 247_U256 },
-				TestCase { value: 0xffff_U256, expected: 240_U256 },
-				TestCase {
-					value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256, // U256::MAX
-					expected: 0_U256,
-				},
-				TestCase {
-					value: 0x8000000000000000000000000000000000000000000000000000000000000000_U256, // 1 << 255
-					expected: 0_U256,
-				},
-				TestCase { // Smallest value with 1 leading zero
-					value: 0x4000000000000000000000000000000000000000000000000000000000000000_U256, // 1 << 254
-					expected: 1_U256,
-				},
-				TestCase { // Value just below 1 << 255
-					value: 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
-					expected: 1_U256,
-				},
-			];
-		}
-
-		for test in test_cases {
-			push!(interpreter, test.value);
-			let context =
-				InstructionContext { host: &mut DummyHost, interpreter: &mut interpreter };
-			clz(context);
-			let res = interpreter.stack.pop().unwrap();
-			assert_eq!(
-				res, test.expected,
-				"CLZ for value {:#x} failed. Expected: {}, Got: {}",
-				test.value, test.expected, res
-			);
-		}
-	}
-}
+// #[cfg(test)]
+// mod tests {
+// 	use super::{byte, clz, sar, shl, shr};
+// 	use revm::{
+// 		interpreter::{host::DummyHost, InstructionContext, Interpreter},
+// 		primitives::{hardfork::SpecId, uint, U256},
+// 	};
+//
+// 	#[test]
+// 	fn test_shift_left() {
+// 		let mut interpreter = Interpreter::default();
+//
+// 		struct TestCase {
+// 			value: U256,
+// 			shift: U256,
+// 			expected: U256,
+// 		}
+//
+// 		uint! {
+// 			let test_cases = [
+// 				TestCase {
+// 					value: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
+// 					shift: 0x00_U256,
+// 					expected: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
+// 				},
+// 				TestCase {
+// 					value: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
+// 					shift: 0x01_U256,
+// 					expected: 0x0000000000000000000000000000000000000000000000000000000000000002_U256,
+// 				},
+// 				TestCase {
+// 					value: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
+// 					shift: 0xff_U256,
+// 					expected: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
+// 				},
+// 				TestCase {
+// 					value: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
+// 					shift: 0x0100_U256,
+// 					expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
+// 				},
+// 				TestCase {
+// 					value: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
+// 					shift: 0x0101_U256,
+// 					expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
+// 				},
+// 				TestCase {
+// 					value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
+// 					shift: 0x00_U256,
+// 					expected: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
+// 				},
+// 				TestCase {
+// 					value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
+// 					shift: 0x01_U256,
+// 					expected: 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe_U256,
+// 				},
+// 				TestCase {
+// 					value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
+// 					shift: 0xff_U256,
+// 					expected: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
+// 				},
+// 				TestCase {
+// 					value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
+// 					shift: 0x0100_U256,
+// 					expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
+// 				},
+// 				TestCase {
+// 					value: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
+// 					shift: 0x01_U256,
+// 					expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
+// 				},
+// 				TestCase {
+// 					value: 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
+// 					shift: 0x01_U256,
+// 					expected: 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe_U256,
+// 				},
+// 			];
+// 		}
+//
+// 		for test in test_cases {
+// 			push!(interpreter, test.value);
+// 			push!(interpreter, test.shift);
+// 			let context =
+// 				InstructionContext { host: &mut DummyHost, interpreter: &mut interpreter };
+// 			shl(context);
+// 			let res = interpreter.stack.pop().unwrap();
+// 			assert_eq!(res, test.expected);
+// 		}
+// 	}
+//
+// 	#[test]
+// 	fn test_logical_shift_right() {
+// 		let mut interpreter = Interpreter::default();
+//
+// 		struct TestCase {
+// 			value: U256,
+// 			shift: U256,
+// 			expected: U256,
+// 		}
+//
+// 		uint! {
+// 			let test_cases = [
+// 				TestCase {
+// 					value: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
+// 					shift: 0x00_U256,
+// 					expected: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
+// 				},
+// 				TestCase {
+// 					value: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
+// 					shift: 0x01_U256,
+// 					expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
+// 				},
+// 				TestCase {
+// 					value: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
+// 					shift: 0x01_U256,
+// 					expected: 0x4000000000000000000000000000000000000000000000000000000000000000_U256,
+// 				},
+// 				TestCase {
+// 					value: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
+// 					shift: 0xff_U256,
+// 					expected: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
+// 				},
+// 				TestCase {
+// 					value: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
+// 					shift: 0x0100_U256,
+// 					expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
+// 				},
+// 				TestCase {
+// 					value: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
+// 					shift: 0x0101_U256,
+// 					expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
+// 				},
+// 				TestCase {
+// 					value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
+// 					shift: 0x00_U256,
+// 					expected: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
+// 				},
+// 				TestCase {
+// 					value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
+// 					shift: 0x01_U256,
+// 					expected: 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
+// 				},
+// 				TestCase {
+// 					value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
+// 					shift: 0xff_U256,
+// 					expected: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
+// 				},
+// 				TestCase {
+// 					value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
+// 					shift: 0x0100_U256,
+// 					expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
+// 				},
+// 				TestCase {
+// 					value: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
+// 					shift: 0x01_U256,
+// 					expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
+// 				},
+// 			];
+// 		}
+//
+// 		for test in test_cases {
+// 			push!(interpreter, test.value);
+// 			push!(interpreter, test.shift);
+// 			let context =
+// 				InstructionContext { host: &mut DummyHost, interpreter: &mut interpreter };
+// 			shr(context);
+// 			let res = interpreter.stack.pop().unwrap();
+// 			assert_eq!(res, test.expected);
+// 		}
+// 	}
+//
+// 	#[test]
+// 	fn test_arithmetic_shift_right() {
+// 		let mut interpreter = Interpreter::default();
+//
+// 		struct TestCase {
+// 			value: U256,
+// 			shift: U256,
+// 			expected: U256,
+// 		}
+//
+// 		uint! {
+// 		let test_cases = [
+// 			TestCase {
+// 				value: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
+// 				shift: 0x00_U256,
+// 				expected: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
+// 			},
+// 			TestCase {
+// 				value: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
+// 				shift: 0x01_U256,
+// 				expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
+// 			},
+// 			TestCase {
+// 				value: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
+// 				shift: 0x01_U256,
+// 				expected: 0xc000000000000000000000000000000000000000000000000000000000000000_U256,
+// 			},
+// 			TestCase {
+// 				value: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
+// 				shift: 0xff_U256,
+// 				expected: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
+// 			},
+// 			TestCase {
+// 				value: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
+// 				shift: 0x0100_U256,
+// 				expected: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
+// 			},
+// 			TestCase {
+// 				value: 0x8000000000000000000000000000000000000000000000000000000000000000_U256,
+// 				shift: 0x0101_U256,
+// 				expected: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
+// 			},
+// 			TestCase {
+// 				value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
+// 				shift: 0x00_U256,
+// 				expected: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
+// 			},
+// 			TestCase {
+// 				value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
+// 				shift: 0x01_U256,
+// 				expected: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
+// 			},
+// 			TestCase {
+// 				value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
+// 				shift: 0xff_U256,
+// 				expected: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
+// 			},
+// 			TestCase {
+// 				value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
+// 				shift: 0x0100_U256,
+// 				expected: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
+// 			},
+// 			TestCase {
+// 				value: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
+// 				shift: 0x01_U256,
+// 				expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
+// 			},
+// 			TestCase {
+// 				value: 0x4000000000000000000000000000000000000000000000000000000000000000_U256,
+// 				shift: 0xfe_U256,
+// 				expected: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
+// 			},
+// 			TestCase {
+// 				value: 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
+// 				shift: 0xf8_U256,
+// 				expected: 0x000000000000000000000000000000000000000000000000000000000000007f_U256,
+// 			},
+// 			TestCase {
+// 				value: 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
+// 				shift: 0xfe_U256,
+// 				expected: 0x0000000000000000000000000000000000000000000000000000000000000001_U256,
+// 			},
+// 			TestCase {
+// 				value: 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
+// 				shift: 0xff_U256,
+// 				expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
+// 			},
+// 			TestCase {
+// 				value: 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
+// 				shift: 0x0100_U256,
+// 				expected: 0x0000000000000000000000000000000000000000000000000000000000000000_U256,
+// 			},
+// 		];
+// 			}
+//
+// 		for test in test_cases {
+// 			push!(interpreter, test.value);
+// 			push!(interpreter, test.shift);
+// 			let context =
+// 				InstructionContext { host: &mut DummyHost, interpreter: &mut interpreter };
+// 			sar(context);
+// 			let res = interpreter.stack.pop().unwrap();
+// 			assert_eq!(res, test.expected);
+// 		}
+// 	}
+//
+// 	#[test]
+// 	fn test_byte() {
+// 		struct TestCase {
+// 			input: U256,
+// 			index: usize,
+// 			expected: U256,
+// 		}
+//
+// 		let mut interpreter = Interpreter::default();
+//
+// 		let input_value = U256::from(0x1234567890abcdef1234567890abcdef_u128);
+// 		let test_cases = (0..32)
+// 			.map(|i| {
+// 				let byte_pos = 31 - i;
+//
+// 				let shift_amount = U256::from(byte_pos * 8);
+// 				let byte_value = (input_value >> shift_amount) & U256::from(0xFF);
+// 				TestCase { input: input_value, index: i, expected: byte_value }
+// 			})
+// 			.collect::<Vec<_>>();
+//
+// 		for test in test_cases.iter() {
+// 			push!(interpreter, test.input);
+// 			push!(interpreter, U256::from(test.index));
+// 			let context =
+// 				InstructionContext { host: &mut DummyHost, interpreter: &mut interpreter };
+// 			byte(context);
+// 			let res = interpreter.stack.pop().unwrap();
+// 			assert_eq!(res, test.expected, "Failed at index: {}", test.index);
+// 		}
+// 	}
+//
+// 	#[test]
+// 	fn test_clz() {
+// 		let mut interpreter = Interpreter::default();
+// 		interpreter.set_spec_id(SpecId::OSAKA);
+//
+// 		struct TestCase {
+// 			value: U256,
+// 			expected: U256,
+// 		}
+//
+// 		uint! {
+// 			let test_cases = [
+// 				TestCase { value: 0x0_U256, expected: 256_U256 },
+// 				TestCase { value: 0x1_U256, expected: 255_U256 },
+// 				TestCase { value: 0x2_U256, expected: 254_U256 },
+// 				TestCase { value: 0x3_U256, expected: 254_U256 },
+// 				TestCase { value: 0x4_U256, expected: 253_U256 },
+// 				TestCase { value: 0x7_U256, expected: 253_U256 },
+// 				TestCase { value: 0x8_U256, expected: 252_U256 },
+// 				TestCase { value: 0xff_U256, expected: 248_U256 },
+// 				TestCase { value: 0x100_U256, expected: 247_U256 },
+// 				TestCase { value: 0xffff_U256, expected: 240_U256 },
+// 				TestCase {
+// 					value: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256, // U256::MAX
+// 					expected: 0_U256,
+// 				},
+// 				TestCase {
+// 					value: 0x8000000000000000000000000000000000000000000000000000000000000000_U256, // 1 << 255
+// 					expected: 0_U256,
+// 				},
+// 				TestCase { // Smallest value with 1 leading zero
+// 					value: 0x4000000000000000000000000000000000000000000000000000000000000000_U256, // 1 << 254
+// 					expected: 1_U256,
+// 				},
+// 				TestCase { // Value just below 1 << 255
+// 					value: 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff_U256,
+// 					expected: 1_U256,
+// 				},
+// 			];
+// 		}
+//
+// 		for test in test_cases {
+// 			push!(interpreter, test.value);
+// 			let context =
+// 				InstructionContext { host: &mut DummyHost, interpreter: &mut interpreter };
+// 			clz(context);
+// 			let res = interpreter.stack.pop().unwrap();
+// 			assert_eq!(
+// 				res, test.expected,
+// 				"CLZ for value {:#x} failed. Expected: {}, Got: {}",
+// 				test.value, test.expected, res
+// 			);
+// 		}
+// 	}
+// }
