@@ -97,6 +97,7 @@ pub struct EVMInterpreter<'a, E: Ext> {
 	_phantom: core::marker::PhantomData<&'a E>,
 }
 
+
 impl<'a, E: Ext> InterpreterTypes for EVMInterpreter<'a, E> {
 	type Stack = Stack;
 	type Memory = SharedMemory;
@@ -116,6 +117,7 @@ impl<'a, E: Ext> InterpreterTypes for EVMInterpreter<'a, E> {
 /// In our implementation of the instruction table, Everything except the call input data will be
 /// accessed through the `InterpreterTypes::Extend` associated type, our implementation will panic
 /// if any of those methods are called.
+#[derive(Debug, Clone, Default)]
 pub struct EVMInputs(CallInput);
 
 impl EVMInputs {
