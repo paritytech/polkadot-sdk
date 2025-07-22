@@ -1092,6 +1092,10 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					}
 					self.charge_gas(RuntimeCosts::CallTransferSurcharge)?;
 				}
+				log::info!(
+					target: LOG_TARGET,
+					"Calling contract {callee:?} with value {value:?} and input data: {input_data:?}",
+				);
 				self.ext.call(
 					weight,
 					deposit_limit,
@@ -1857,7 +1861,18 @@ pub mod env {
 		out_len_ptr: u32,
 		offset: u32,
 	) -> Result<(), TrapReason> {
+		log::info!(
+			target: LOG_TARGET,
+			"return_data_copy called with out_ptr: {}, out_len_ptr: {}, offset: {}",
+			out_ptr, out_len_ptr, offset
+		);
 		let output = mem::take(self.ext.last_frame_output_mut());
+
+		log::info!(
+			target: LOG_TARGET,
+			"return_data_copy called with output data length: {}",
+			output.data.len()
+		);
 		let result = if offset as usize > output.data.len() {
 			Err(Error::<E::T>::OutOfBounds.into())
 		} else {

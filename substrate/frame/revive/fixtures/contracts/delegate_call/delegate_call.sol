@@ -1,72 +1,61 @@
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity >=0.8.2 <0.9.0;
+pragma solidity ^0.8.0;
 
-/// @title Delegate Call Contract
-/// @notice Tests delegate call functionality with storage operations.
 contract DelegateCall {
-    mapping(bytes32 => bytes32) private storage_;
+    constructor() payable {
+        // Call during deployment as well, like deploy() calling call() in Rust
+        _processDelegateCall();
+    }
     
-    /// @notice Deploy function (empty implementation)
-    constructor() {}
-    
-    /// @notice Main fallback function that tests delegate call with storage
-    fallback() external payable {
-        // Input format: [address: 20 bytes][ref_time: 8 bytes][proof_size: 8 bytes]
+    function _processDelegateCall() internal {
+        // Input format from Rust version:
+        // [0..20)   → address (20 bytes)
+        // [20..28)  → ref_time (8 bytes) - ignored in Solidity
+        // [28..36)  → proof_size (8 bytes) - ignored in Solidity
+        
+        bytes calldata inputData = msg.data;
+        
+        if (inputData.length < 20) {
+            return; // Need at least 20 bytes for address
+        }
+        
+        // Extract delegate call target address (first 20 bytes)
+        address target = address(bytes20(inputData[0:20]));
+        
+        // Set up storage operations like in Rust version
+        bytes32 key = bytes32(uint256(1));  // key[0] = 1u8
+        bytes32 initialValue = bytes32(uint256(2)); // value[0] = 2u8
+        
+        // Set initial storage: api::set_storage()
         assembly {
-            if lt(calldatasize(), 36) {
-                invalid()
+            sstore(key, initialValue)
+        }
+        
+        // Verify initial storage: api::get_storage() + assert
+        assembly {
+            let storedValue := sload(key)
+            if iszero(eq(storedValue, initialValue)) {
+                revert(0, 0)
             }
         }
         
-        // Extract delegate call target address
-        address target;
-        assembly {
-            target := shr(96, calldataload(0))
-        }
-        
-        // Set up storage key and value
-        bytes32 key = bytes32(uint256(1));
-        bytes32 value = bytes32(uint256(2));
-        
-        // Set initial storage value
-        storage_[key] = value;
-        
-        // Verify initial storage value
-        assembly {
-            mstore(0x00, key)
-            mstore(0x20, storage_.slot)
-            let storageSlot := keccak256(0x00, 0x40)
-            if iszero(eq(sload(storageSlot), value)) {
-                invalid()
-            }
-        }
-        
-        // Perform delegate call
+        // Perform delegate call with empty input: api::delegate_call()
         (bool success, ) = target.delegatecall("");
-        assembly {
-            if iszero(success) {
-                invalid()
-            }
+        
+        if (!success) {
+            revert();
         }
         
-        // Check that storage was modified by the delegate call
+        // Verify storage was modified to 1: api::get_storage() + assert  
         assembly {
-            mstore(0x00, key)
-            mstore(0x20, storage_.slot)
-            let storageSlot := keccak256(0x00, 0x40)
-            if iszero(eq(sload(storageSlot), 1)) {
-                invalid()
+            let finalValue := sload(key)
+            if iszero(eq(finalValue, 1)) {
+                revert(0, 0)
             }
         }
     }
     
-    /// @notice Get storage value for testing
-    function getStorage(bytes32 key) public view returns (bytes32) {
-        return storage_[key];
-    }
-    
-    /// @notice Set storage value for testing
-    function setStorage(bytes32 key, bytes32 value) public {
-        storage_[key] = value;
+    fallback() external payable {
+        _processDelegateCall();
     }
 }

@@ -1272,6 +1272,11 @@ where
 			},
 		};
 
+		log::info!(
+			target: crate::LOG_TARGET,
+			"Called contract result {success:?} {output:?}",
+		);
+
 		if success {
 			self.transient_storage.commit_transaction();
 		} else {
@@ -1790,6 +1795,16 @@ where
 						&mut frame.nested_storage,
 					)
 				};
+
+				log::info!(
+					target: crate::LOG_TARGET,
+					"Call to {} from {} with value {} and input data {:?} returned {:?}",
+					T::AddressMapper::to_address(&dest),
+					T::AddressMapper::to_address(self.account_id()),
+					value,
+					input_data,
+					result
+				);
 
 				if_tracing(|t| match result {
 					Ok(ref output) => t.exit_child_span(&output, Weight::zero()),

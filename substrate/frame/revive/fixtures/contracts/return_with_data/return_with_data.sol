@@ -2,39 +2,40 @@
 pragma solidity ^0.8.0;
 
 contract ReturnWithData {
-    constructor() {
-        // Call during deployment as well
+    constructor() payable {
         _processData();
     }
-    
+
     function _processData() internal {
-        // Read the input data
+        // Input format from Rust version:
+        // [0..4)   → exit_status (4 bytes)
+        // [4..]    → output data
+
         bytes calldata inputData = msg.data;
-        
-        if (inputData.length < 8) {
-            return; // Need at least 4 bytes selector + 4 bytes exit status
+
+        if (inputData.length < 4) {
+            return; // Need at least 4 bytes for exit status
         }
-        
-        // The output is everything after the first 8 bytes (4 selector + 4 exit status)
-        bytes memory output;
-        if (inputData.length > 8) {
-            output = inputData[8:];
-        }
-        
-        // Simulate some storage operation for PoV consumption
-        // In Solidity, we can't directly clear storage of empty key like in Rust
-        // but we can perform a storage operation
+
+        // Simulate storage operation for PoV consumption like in Rust version
+        // This mimics api::clear_storage(StorageFlags::empty(), b"");
         assembly {
             let dummy := sload(0)
             sstore(0, 0)
         }
-        
-        // Return the data (exit status is handled by the return mechanism)
+
+        // Extract output data (everything after first 4 bytes)
+        bytes memory output;
+        if (inputData.length > 4) {
+            output = inputData[4:];
+        }
+
+        // Return the output data
         assembly {
             return(add(output, 0x20), mload(output))
         }
     }
-    
+
     fallback() external payable {
         _processData();
     }

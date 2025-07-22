@@ -28,8 +28,8 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	input!(address: &[u8; 20], expected: u64,);
-
+	input!(address: &[u8; 20], expected: &[u8; 32],);
+	let expected = u64::from_be_bytes(expected[24..32].try_into().unwrap());
 	let received = api::code_size(address);
 
 	assert_eq!(expected, received);

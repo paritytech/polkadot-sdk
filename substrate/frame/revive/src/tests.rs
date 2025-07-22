@@ -172,6 +172,12 @@ pub mod test_utils {
 		// Assert that contract code is stored, and get its size.
 		PristineCode::<Test>::try_get(&code_hash).unwrap().len()
 	}
+	pub fn u256_be_bytes(u: u64) -> [u8; 32] {
+		crate::U256::from(u)
+			.to_big_endian()
+			.try_into()
+			.expect("U256 is 32 bytes long; qed")
+	}
 }
 
 mod builder {
@@ -1390,10 +1396,7 @@ fn transfer_return_code(fixture_type: &str) {
 
 #[fixture::test("rust", "sol")]
 fn call_return_code(fixture_type: &str) {
-	fn u256_be_bytes(u: u64) -> [u8; 32] {
-		U256::from(u).to_big_endian().try_into().expect("U256 is 32 bytes long; qed")
-	}
-
+	use test_utils::u256_be_bytes;
 	let (caller_code, _caller_hash) =
 		compile_module_with_type("call_return_code", fixture_type).unwrap();
 	let (callee_code, _callee_hash) =
@@ -3938,6 +3941,7 @@ fn code_hash_works(fixture_type: &str) {
 
 #[fixture::test("rust", "sol")]
 fn code_size_works(fixture_type: &str) {
+	use test_utils::u256_be_bytes;
 	let (tester_code, _) = compile_module_with_type("extcodesize", fixture_type).unwrap();
 	let tester_code_len = tester_code.len() as u64;
 
@@ -3953,15 +3957,17 @@ fn code_size_works(fixture_type: &str) {
 			builder::bare_instantiate(Code::Upload(dummy_code)).build_and_unwrap_contract();
 
 		// code size of another contract address
-		assert_ok!(builder::call(tester_addr).data((dummy_addr, dummy_code_len).encode()).build());
+		assert_ok!(builder::call(tester_addr)
+			.data((dummy_addr, u256_be_bytes(dummy_code_len)).encode())
+			.build());
 
 		// code size of own contract address
 		assert_ok!(builder::call(tester_addr)
-			.data((tester_addr, tester_code_len).encode())
+			.data((tester_addr, u256_be_bytes(tester_code_len)).encode())
 			.build());
 
 		// code size of non contract accounts
-		assert_ok!(builder::call(tester_addr).data(([8u8; 20], 0u64).encode()).build());
+		assert_ok!(builder::call(tester_addr).data(([8u8; 20], [0u8; 32]).encode()).build());
 	});
 }
 
@@ -4954,6 +4960,7 @@ fn bump_nonce_once_works(fixture_type: &str) {
 fn code_size_for_precompiles_works(fixture_type: &str) {
 	use crate::precompiles::Precompile;
 	use precompiles::NoInfo;
+	use test_utils::u256_be_bytes;
 
 	let builtin_precompile = H160(NoInfo::<Test>::MATCHER.base_address());
 	let primitive_precompile = H160::from_low_u64_be(1);
@@ -4967,12 +4974,12 @@ fn code_size_for_precompiles_works(fixture_type: &str) {
 
 		// the primitive pre-compiles return 0 code size on eth
 		builder::bare_call(addr)
-			.data((&primitive_precompile, 0u64).encode())
+			.data((&primitive_precompile, &u256_be_bytes(0u64)).encode())
 			.build_and_unwrap_result();
 
 		// other precompiles should return the minimal evm revert code
 		builder::bare_call(addr)
-			.data((&builtin_precompile, 5u64).encode())
+			.data((&builtin_precompile, &u256_be_bytes(5u64)).encode())
 			.build_and_unwrap_result();
 	});
 }
