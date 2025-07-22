@@ -18016,6 +18016,7 @@ dependencies = [
  "futures",
  "isahc",
  "jsonpath_lib",
+ "log",
  "num-traits",
  "parking_lot 0.12.3",
  "serde_json",
@@ -18026,7 +18027,6 @@ dependencies = [
  "thiserror 1.0.65",
  "time",
  "tokio",
- "tracing",
 ]
 
 [[package]]

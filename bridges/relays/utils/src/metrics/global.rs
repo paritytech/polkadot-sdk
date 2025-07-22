@@ -89,7 +89,7 @@ impl StandaloneMetric for GlobalMetrics {
 			(true, Some(process_info)) => {
 				let cpu_usage = process_info.cpu_usage() as f64;
 				let memory_usage = process_info.memory() * 1024;
-				tracing::trace!(
+				log::trace!(
 					target: "bridge-metrics",
 					"Refreshed process metrics: CPU={}, memory={}",
 					cpu_usage,
@@ -104,7 +104,7 @@ impl StandaloneMetric for GlobalMetrics {
 				self.process_memory_usage_bytes.set(memory_usage);
 			},
 			_ => {
-				tracing::warn!(
+				log::warn!(
 					target: "bridge-metrics",
 					"Failed to refresh process information. Metrics may show obsolete values",
 				);
