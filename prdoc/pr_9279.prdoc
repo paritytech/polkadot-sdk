@@ -17,9 +17,9 @@ crates:
 - name: pallet-bridge-relayers
   bump: minor
 - name: snowbridge-core
-  bump: patch
-- name: snowbridge-ethereum
   bump: minor
+- name: snowbridge-ethereum
+  bump: none
 - name: snowbridge-inbound-queue-primitives
   bump: minor
 - name: snowbridge-outbound-queue-primitives
