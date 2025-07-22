@@ -25,7 +25,7 @@ pub fn asset_hub_westend_development_config() -> GenericChainSpec {
 	GenericChainSpec::builder(
 		asset_hub_westend_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain: "westend".into() },
+		Extensions::new_with_relay_chain("westend".into()),
 	)
 	.with_name("Westend Asset Hub Development")
 	.with_id("asset-hub-westend-dev")
@@ -48,7 +48,7 @@ pub fn asset_hub_westend_local_config() -> GenericChainSpec {
 	GenericChainSpec::builder(
 		asset_hub_westend_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain: "westend-local".into() },
+		Extensions::new_with_relay_chain("westend-local".into()),
 	)
 	.with_name("Westend Asset Hub Local")
 	.with_id("asset-hub-westend-local")
@@ -71,7 +71,7 @@ pub fn asset_hub_westend_config() -> GenericChainSpec {
 	GenericChainSpec::builder(
 		asset_hub_westend_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain: "westend".into() },
+		Extensions::new_with_relay_chain("westend-local".into()),
 	)
 	.with_name("Westend Asset Hub")
 	.with_id("asset-hub-westend")
@@ -102,7 +102,7 @@ fn asset_hub_rococo_like_development_config(
 ) -> GenericChainSpec {
 	GenericChainSpec::builder(
 		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain: "rococo-dev".into() },
+		Extensions::new_with_relay_chain("rococo-dev".into()),
 	)
 	.with_name(name)
 	.with_id(chain_id)
@@ -138,7 +138,7 @@ fn asset_hub_rococo_like_local_config(
 ) -> GenericChainSpec {
 	GenericChainSpec::builder(
 		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain: "rococo-local".into() },
+		Extensions::new_with_relay_chain("rococo-local".into()),
 	)
 	.with_name(name)
 	.with_id(chain_id)
@@ -159,7 +159,7 @@ pub fn asset_hub_rococo_genesis_config() -> GenericChainSpec {
 	properties.insert("tokenDecimals".into(), 12.into());
 	GenericChainSpec::builder(
 		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		Extensions { relay_chain: "rococo".into() },
+		Extensions::new_with_relay_chain("rococo".into()),
 	)
 	.with_name("Rococo Asset Hub")
 	.with_id("asset-hub-rococo")

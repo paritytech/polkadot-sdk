@@ -46,11 +46,11 @@ local variants are available only for a build of `polkadot-omni-node` with
 `westend-native` and `rococo-native` features respectively.
 
 <!-- TODO: https://github.com/paritytech/polkadot-sdk/issues/8747 -->
-<!-- TODO: https://github.com/paritytech/polkadot-sdk/issues/8740 -->
-Additionaly, although deprecated, the `--para-id` flag can still be used to set the JSON key named
-`para_id`. The removal of the flag will happen starting with `stable2512`. The alternative of not using
-it is to implement the `cumulus_primitives_core::GetParachainInfo` runtime API for the runtime, and
-upgrade it on-chain as well, to be compatible with nodes released starting with `stable2512`.
+Additionaly, the `--para-id` flag can be used to set the JSON key named `para_id`. This flag is used
+by nodes to determine the parachain id, and it is especially useful when the parachain id can not be
+fetched from the runtime, when the state points to a runtime that does not implement the
+`cumulus_primitives_core::GetParachainInfo` runtime API. It is recommended for runtimes to implement
+the runtime API and be upgraded on chain.
 
 Example command bellow:
 
