@@ -392,7 +392,7 @@ pub mod v2 {
 					})
 					.unwrap();
 			}
-			tracing::info!(target: LOG_TARGET, ?reward, "Found total rewards to migrate");
+			tracing::info!(target: LOG_TARGET, ?rewards, "Found total rewards to migrate");
 
 			Ok(rewards.encode())
 		}

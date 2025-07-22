@@ -157,8 +157,8 @@ where
 		TrackedTransactionStatus::Lost => {
 			tracing::error!(
 				target: "bridge",
-				%at_relay_block,
-				"Transaction with {} header at relay header {:?} is considered lost",
+				?at_relay_block,
+				"Transaction with {} header at relay header is considered lost at {}",
 				P::SourceParachain::NAME,
 				P::TargetChain::NAME,
 			);

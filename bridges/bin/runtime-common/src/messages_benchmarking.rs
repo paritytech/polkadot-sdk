@@ -305,7 +305,7 @@ pub fn generate_xcm_builder_bridge_message_sample(
 
 		tracing::trace!(
 			target: "runtime::bridge-benchmarks",
-			%expected_message_size, %location_encoded_size, %xcm_size, %xcm_data_size
+			%expected_message_size, %location_encoded_size, %xcm_size, %xcm_data_size,
 			"generate_xcm_builder_bridge_message_sample"
 		);
 
