@@ -43,7 +43,7 @@ def exclude(crate):
 	return False
 
 def main(path, version):
-	delete_umbrella(path)
+	reset_umbrella(path)
 	workspace = Workspace.from_path(path)
 	print(f'Indexed {workspace}')
 
@@ -123,6 +123,35 @@ def main(path, version):
 		"tuples-96": [],
 	}
 
+	FEATURES_TO_SKIP = [
+		"default",
+		"std",
+		"no_std",
+		"runtime-benchmarks",
+		"try-runtime",
+		"serde",
+		"experimental",
+		"with-tracing",
+		"tuples-96",
+		"tuples-128",
+	]
+	PATTERNS_TO_SKIP = ["bench", "debug", "fuzz", "rococo", "test"]
+
+	should_skip = lambda feature: feature in FEATURES_TO_SKIP or any(
+		pattern in feature for pattern in PATTERNS_TO_SKIP
+	)
+
+	# `<CRATE>_<FEATURE>` in umbrella to enable FEATURE in CRATE
+	for crate, _ in all_crates:
+		crate_path = os.path.dirname(crate.abs_path)
+		manifest_path = os.path.join(crate_path, "Cargo.toml")
+		with open(manifest_path, "r") as f:
+			manifest = toml.load(f)
+			for feature in manifest.get("features", {}):
+				if should_skip(feature):
+					continue
+				features[f"{crate.name}_{feature}"] = [f"{crate.name}?/{feature}"]
+
 	manifest = {
 		"package": {
 			"name": "polkadot-sdk",
@@ -180,20 +209,26 @@ def main(path, version):
 	add_to_workspace(workspace.path)
 
 """
-Delete the umbrella folder and remove the umbrella crate from the workspace.
+Remove the umbrella crate from the workspace and reset it to a blank slate.
 """
-def delete_umbrella(path):
-	# remove the umbrella crate from the workspace
-	manifest = os.path.join(path, "Cargo.toml")
-	manifest = open(manifest, "r").read()
+def reset_umbrella(path):
+	# Remove umbrella from workspace
+	manifest_path = os.path.join(path, "Cargo.toml")
+	manifest = open(manifest_path, "r").read()
 	manifest = re.sub(r'\s+"umbrella",\n', "", manifest)
-	with open(os.path.join(path, "Cargo.toml"), "w") as f:
+	with open(manifest_path, "w") as f:
 		f.write(manifest)
+
+	# Reset umbrella to blank slate
 	umbrella_dir = os.path.join(path, "umbrella")
 	if os.path.exists(umbrella_dir):
-		print(f"Deleting {umbrella_dir}")
-		os.remove(os.path.join(umbrella_dir, "Cargo.toml"))
-		shutil.rmtree(os.path.join(umbrella_dir, "src"))
+		print(f"Cleaning up {umbrella_dir}")
+		umbrella_manifest_path = os.path.join(umbrella_dir, "Cargo.toml")
+		umbrella_src_dir = os.path.join(umbrella_dir, "src")
+		if os.path.exists(umbrella_manifest_path):
+			os.remove(umbrella_manifest_path)
+		if os.path.exists(umbrella_src_dir):
+			shutil.rmtree(umbrella_src_dir)
 
 """
 Create the umbrella crate and add it to the workspace.
