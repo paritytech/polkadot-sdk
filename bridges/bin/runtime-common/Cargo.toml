@@ -14,8 +14,8 @@ workspace = true
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 static_assertions = { optional = true, workspace = true, default-features = true }
-tuplex = { workspace = true }
 tracing = { workspace = true }
+tuplex = { workspace = true }
 
 # Bridge dependencies
 bp-header-chain = { workspace = true }
@@ -47,55 +47,55 @@ xcm = { workspace = true }
 bp-test-utils = { workspace = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-bridge-messages = { features = [
-  "std",
-  "test-helpers",
+	"std",
+	"test-helpers",
 ], workspace = true }
 sp-core = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
 std = [
-  "bp-header-chain/std",
-  "bp-messages/std",
-  "bp-parachains/std",
-  "bp-polkadot-core/std",
-  "bp-relayers/std",
-  "bp-runtime/std",
-  "bp-test-utils/std",
-  "codec/std",
-  "frame-support/std",
-  "frame-system/std",
-  "pallet-bridge-grandpa/std",
-  "pallet-bridge-messages/std",
-  "pallet-bridge-parachains/std",
-  "pallet-bridge-relayers/std",
-  "pallet-transaction-payment/std",
-  "pallet-utility/std",
-  "scale-info/std",
-  "sp-io/std",
-  "sp-runtime/std",
-  "sp-std/std",
-  "sp-trie/std",
-  "sp-weights/std",
-  "tuplex/std",
-  "tracing/std",
-  "xcm/std",
+	"bp-header-chain/std",
+	"bp-messages/std",
+	"bp-parachains/std",
+	"bp-polkadot-core/std",
+	"bp-relayers/std",
+	"bp-runtime/std",
+	"bp-test-utils/std",
+	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-bridge-grandpa/std",
+	"pallet-bridge-messages/std",
+	"pallet-bridge-parachains/std",
+	"pallet-bridge-relayers/std",
+	"pallet-transaction-payment/std",
+	"pallet-utility/std",
+	"scale-info/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"sp-trie/std",
+	"sp-weights/std",
+	"tracing/std",
+	"tuplex/std",
+	"xcm/std",
 ]
 runtime-benchmarks = [
-  "bp-runtime/test-helpers",
-  "frame-support/runtime-benchmarks",
-  "frame-system/runtime-benchmarks",
-  "pallet-balances/runtime-benchmarks",
-  "pallet-bridge-grandpa/runtime-benchmarks",
-  "pallet-bridge-messages/runtime-benchmarks",
-  "pallet-bridge-messages/test-helpers",
-  "pallet-bridge-parachains/runtime-benchmarks",
-  "pallet-bridge-relayers/runtime-benchmarks",
-  "pallet-transaction-payment/runtime-benchmarks",
-  "pallet-utility/runtime-benchmarks",
-  "sp-runtime/runtime-benchmarks",
-  "sp-trie",
-  "xcm/runtime-benchmarks",
+	"bp-runtime/test-helpers",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-bridge-grandpa/runtime-benchmarks",
+	"pallet-bridge-messages/runtime-benchmarks",
+	"pallet-bridge-messages/test-helpers",
+	"pallet-bridge-parachains/runtime-benchmarks",
+	"pallet-bridge-relayers/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"sp-trie",
+	"xcm/runtime-benchmarks",
 ]
 integrity-test = ["static_assertions"]
 test-helpers = ["bp-runtime/test-helpers", "sp-trie"]
