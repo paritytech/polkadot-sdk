@@ -134,10 +134,9 @@ impl AssetsInHolding {
 	///
 	/// NOTE: [`AssetsInHolding`] are always sorted
 	pub fn subsume_assets(&mut self, mut assets: AssetsInHolding) {
-		let assets_iter = assets.fungible.into_iter();
 		// for fungibles, find matching fungibles and sum their amounts so we end-up having just
 		// single such fungible but with increased amount inside
-		for (k, v) in assets_iter {
+		for (k, v) in assets.fungible {
 			self.fungible
 				.entry(k)
 				.and_modify(|entry| entry.saturating_accrue(v))
