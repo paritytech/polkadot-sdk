@@ -227,6 +227,18 @@ pub struct CoreInfo {
 	pub number_of_cores: Compact<u16>,
 }
 
+/// Information about a block that is part of a PoV bundle.
+#[derive(Clone, Debug, Decode, Encode, PartialEq)]
+pub struct BundleInfo {
+	/// The index of the block in the bundle.
+	pub index: u8,
+	/// Is this the last block in the bundle from the point of view of the node?
+	///
+	/// It is possible that at `index` zero the runtime outputs the [`CumulusDigestItem::Special`]
+	/// that informs the node to use an entire for one block only.
+	pub maybe_last: bool,
+}
+
 /// Identifier for a relay chain block used by [`CumulusDigestItem`].
 #[derive(Clone, Debug, PartialEq)]
 pub enum RelayBlockIdentifier {
@@ -246,6 +258,9 @@ pub enum CumulusDigestItem {
 	/// block.
 	#[codec(index = 1)]
 	CoreInfo(CoreInfo),
+	/// A digest item providing information about the position of the block in the bundle.
+	#[codec(index = 2)]
+	BundleInfo(BundleInfo),
 }
 
 impl CumulusDigestItem {
@@ -311,6 +326,22 @@ impl CumulusDigestItem {
 					storage_root,
 					block_number: block_number.into(),
 				})
+			},
+			_ => None,
+		})
+	}
+
+	/// Returns the [`BundleInfo`] from the given `digest`.
+	pub fn find_bundle_info(digest: &Digest) -> Option<BundleInfo> {
+		digest.convert_first(|d| match d {
+			DigestItem::PreRuntime(id, val) if id == &CUMULUS_CONSENSUS_ID => {
+				let Ok(CumulusDigestItem::BundleInfo(bundle_info)) =
+					CumulusDigestItem::decode_all(&mut &val[..])
+				else {
+					return None
+				};
+
+				Some(bundle_info)
 			},
 			_ => None,
 		})
