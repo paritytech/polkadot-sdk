@@ -475,7 +475,7 @@ pub mod pallet {
 
 			let round_index = NextRoundIndex::<T>::get()
 				.checked_sub(1)
-				.defensive() // There is a round so next round index is at least 1.
+				.defensive_proof("There is a round so next round index is at least 1.")
 				.unwrap_or_default();
 			let pot_account = T::PotId::get().into_account_truncating();
 			let pot_balance = T::Fungible::reducible_balance(
@@ -506,7 +506,7 @@ pub mod pallet {
 							reward,
 							Preservation::Expendable,
 						)
-						.defensive()
+						.defensive_proof("Transfer part of the pot balance")
 						.inspect_err(|e| {
 							log::error!(
 								target: LOG_TARGET,
@@ -531,7 +531,7 @@ pub mod pallet {
 				remaining_balance,
 				Preservation::Expendable,
 			)
-			.defensive()
+			.defensive_proof("Transfer remaining funds to treasury pot")
 			.inspect_err(|e| {
 				log::error!(
 					target: LOG_TARGET,
@@ -604,8 +604,10 @@ pub mod pallet {
 				}
 
 				if let Some((project_index, voter, vote)) = iterator.next() {
-					let round_index =
-						NextRoundIndex::<T>::get().checked_sub(1).defensive().unwrap_or_default();
+					let round_index = NextRoundIndex::<T>::get()
+						.checked_sub(1)
+						.defensive_proof("There is vote to forward, round is not 0")
+						.unwrap_or_default();
 					if Polls::<T>::contains_key(round_index, project_index) {
 						if vote_record_state.reset_round.is_some_and(|reset| vote.round <= reset) {
 							VotesToForward::<T>::remove(project_index, &voter);
@@ -656,7 +658,9 @@ pub mod pallet {
 					let r = f(PollStatus::Ongoing(tally, class.clone()))?;
 					let positive_tally_after = tally.ayes.saturating_sub(tally.nays);
 					if positive_tally_after != positive_tally_before {
-						if let Some(mut round_info) = Round::<T>::get().defensive() {
+						if let Some(mut round_info) = Round::<T>::get()
+							.defensive_proof("Poll is ongoing, thus there is a round")
+						{
 							round_info.total_vote_amount = round_info
 								.total_vote_amount
 								.saturating_sub(positive_tally_before)
@@ -739,8 +743,16 @@ pub mod pallet {
 
 		#[cfg(feature = "runtime-benchmarks")]
 		fn create_ongoing(_class: Self::Class) -> Result<Self::Index, ()> {
+			if !Round::<T>::exists() {
+				Round::<T>::put(RoundInfo {
+					starting_block: <T as Config>::BlockNumberProvider::current_block_number(),
+					total_vote_amount: Default::default(),
+				});
+			}
 			let round_index = 0u32;
-			let project_index = 0u32;
+			NextRoundIndex::<T>::put(1);
+			let project_index = NextProjectIndex::<T>::get();
+			NextProjectIndex::<T>::put(project_index + 1);
 			let tally = TallyFor::<T>::from_parts(0u32.into(), 0u32.into(), 0u32.into());
 			let class = Class;
 			Polls::<T>::insert(round_index, project_index, PollInfo::Ongoing(tally, class));
@@ -756,7 +768,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let round = NextRoundIndex::<T>::get()
 				.checked_sub(1)
-				.defensive() // Poll only exist in rounds, thus votes too.
+				.defensive_proof("Poll only exist in rounds, thus votes too.")
 				.unwrap_or_default();
 			let vote_in_session = VoteInSession { round, vote };
 			VotesToForward::<T>::insert(ref_index.project_index(), who, vote_in_session);
