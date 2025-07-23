@@ -16,6 +16,13 @@ name: Zombienet Preflight
 
 on:
   workflow_call:
+    inputs:
+      tests_yaml:
+        required: true
+        type: string
+      test_pattern:
+        required: false
+        type: string
     # Map the workflow outputs to job outputs
     outputs:
       changes_substrate:
@@ -133,6 +140,10 @@ on:
         description: |
           comma separated list of flaky tests to skip.
 
+      TEST_MATRIX:
+        value: ${{ jobs.preflight.outputs.TEST_MATRIX }}
+        description: |
+          JSON formatted test matrix parsed from test yaml
 jobs:
   #
   #
@@ -166,6 +177,7 @@ jobs:
       KUBERNETES_MEMORY_REQUEST: ${{ steps.set_vars.outputs.KUBERNETES_MEMORY_REQUEST }}
       TEMP_IMAGES_BASE: ${{ steps.set_vars.outputs.TEMP_IMAGES_BASE }}
       FLAKY_TESTS: ${{ steps.set_vars.outputs.FLAKY_TESTS }}
+      TEST_MATRIX: ${{ steps.generate_test_matrix.outputs.TEST_MATRIX }}
 
       # zombienet-sdk vars
       RUST_LOG: ${{ steps.set_vars.outputs.RUST_LOG }}
@@ -282,6 +294,20 @@ jobs:
           echo "ZOMBIENET_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_IMAGE }}"
           echo "ZOMBIENET_SDK_IMAGE: ${{ steps.set_vars.outputs.ZOMBIENET_SDK_IMAGE }}"
 
+      - name: Generate test matrix
+        id: generate_test_matrix
+        shell: bash
+        env:
+          TESTS_YAML:  ${{ inputs.tests_yaml }}
+          TEST_PATTERN: ${{ inputs.test_pattern || '' }}
+        run: |
+          python3 .github/scripts/parse-zombienet-tests.py \
+            --matrix  ${TESTS_YAML} \
+            --flaky-tests "${{ steps.set_vars.outputs.FLAKY_TESTS }}" \
+            --test-pattern "${TEST_PATTERN}" > matrix.json
+          echo "TEST_MATRIX=$(cat matrix.json)" >> $GITHUB_OUTPUT
+          echo "TEST_MATRIX:"
+          cat matrix.json | jq '.'
   #
   #
   #
