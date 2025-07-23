@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::{
-	collections::{HashMap, HashSet},
+	collections::HashMap,
 	time::{Duration, Instant},
 };
 
@@ -234,8 +234,6 @@ pub(crate) const MAX_AVAILABILITY_DELAY: BlockNumber = 10;
 // Collations are kept in the tracker, until they are included or expired
 #[derive(Default)]
 pub(crate) struct CollationTracker {
-	// Keep track of collation expiration block number.
-	expire: HashMap<BlockNumber, HashSet<Hash>>,
 	// All un-expired collation entries
 	entries: HashMap<Hash, CollationStats>,
 }
@@ -325,10 +323,11 @@ impl CollationTracker {
 
 	// Returns all the collations that have expired at `block_number`.
 	pub fn drain_expired(&mut self, block_number: BlockNumber) -> Vec<CollationStats> {
-		let Some(expired) = self.expire.remove(&block_number) else {
-			// No collations built on all seen relay parents at height `block_number`
-			return Vec::new()
-		};
+		let expired = self
+			.entries
+			.iter()
+			.filter_map(|(head, entry)| entry.is_tracking_expired(block_number).then_some(*head))
+			.collect::<Vec<_>>();
 
 		expired
 			.iter()
@@ -344,30 +343,11 @@ impl CollationTracker {
 	// on the collation state.
 	// Collation is evicted after it expires.
 	pub fn track(&mut self, mut stats: CollationStats) {
-		// Check the state of collation to compute ttl.
-		let ttl = if stats.fetch_latency().is_none() {
-			// Disable the fetch timer, to prevent bogus observe on drop.
-			if let Some(fetch_latency_metric) = stats.fetch_latency_metric.take() {
-				fetch_latency_metric.stop_and_discard();
-			}
-			// Collation was never fetched, expires ASAP
-			0
-		} else if stats.backed().is_none() {
-			MAX_BACKING_DELAY
-		} else if stats.included().is_none() {
-			// Set expiration date relative to relay parent block.
-			stats.backed().unwrap_or_default() + MAX_AVAILABILITY_DELAY
-		} else {
-			// If block included no reason to track it.
-			return
-		};
+		// Disable the fetch timer, to prevent bogus observe on drop.
+		if let Some(fetch_latency_metric) = stats.fetch_latency_metric.take() {
+			fetch_latency_metric.stop_and_discard();
+		}
 
-		self.expire
-			.entry(stats.relay_parent_number + ttl)
-			.and_modify(|heads| {
-				heads.insert(stats.head);
-			})
-			.or_insert_with(|| HashSet::from_iter(vec![stats.head].into_iter()));
 		self.entries.insert(stats.head, stats);
 	}
 }
@@ -477,6 +457,40 @@ impl CollationStats {
 	/// Set the backing latency metric timer.
 	pub fn set_backed_latency_metric(&mut self, timer: Option<HistogramTimer>) {
 		self.backed_latency_metric = timer;
+	}
+
+	/// Returns the time to live for the collation.
+	pub fn tracking_ttl(&self) -> BlockNumber {
+		if self.fetch_latency().is_none() {
+			0 // Collation was never fetched, expires ASAP
+		} else if self.backed().is_none() {
+			MAX_BACKING_DELAY
+		} else if self.included().is_none() {
+			self.backed().expect("backed, checked above") + MAX_AVAILABILITY_DELAY
+		} else {
+			0 // If block included no reason to track it.
+		}
+	}
+
+	/// Returns the state of the collation at the moment of expiry.
+	pub fn expiry_state(&self) -> &'static str {
+		if self.fetch_latency().is_none() {
+			// If collation was not fetched, we rely on the status provided
+			// by the collator protocol.
+			self.pre_backing_status().label()
+		} else if self.backed().is_none() {
+			"fetched"
+		} else if self.included().is_none() {
+			"backed"
+		} else {
+			"none"
+		}
+	}
+
+	/// Returns true if the collation is expired.
+	pub fn is_tracking_expired(&self, current_block: BlockNumber) -> bool {
+		let expiry_block = self.relay_parent_number + self.tracking_ttl();
+		expiry_block <= current_block
 	}
 }
 
