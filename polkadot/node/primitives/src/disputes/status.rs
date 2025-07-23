@@ -26,7 +26,7 @@ pub type Timestamp = u64;
 ///
 /// NOTE: This status is persisted to the database, any changes have to be versioned and a db
 /// migration will be needed.
-#[derive(Debug, Clone, Copy, Encode, Decode, PartialEq)]
+#[derive(Debug, Clone, Copy, Encode, Decode, PartialOrd, Ord, PartialEq, Eq)]
 pub enum DisputeStatus {
 	/// The dispute is active and unconcluded.
 	#[codec(index = 0)]

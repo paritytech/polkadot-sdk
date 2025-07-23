@@ -18,7 +18,7 @@
 //! Subsystem unit tests
 
 use std::{
-	collections::HashSet,
+	collections::{BTreeSet, HashSet},
 	task::Poll,
 	time::{Duration, Instant},
 };
@@ -491,7 +491,7 @@ fn send_dispute_gets_cleaned_up() {
 			MOCK_SESSION_INDEX,
 			None,
 			// No disputes any more:
-			Vec::new(),
+			BTreeSet::new(),
 		)
 		.await;
 
@@ -542,7 +542,7 @@ fn dispute_retries_and_works_across_session_boundaries() {
 			Some(old_head),
 			MOCK_SESSION_INDEX,
 			None,
-			vec![(MOCK_SESSION_INDEX, candidate.hash(), DisputeStatus::Active)],
+			BTreeSet::from([(MOCK_SESSION_INDEX, candidate.hash(), DisputeStatus::Active)]),
 		)
 		.await;
 
@@ -557,7 +557,7 @@ fn dispute_retries_and_works_across_session_boundaries() {
 			Some(old_head2),
 			MOCK_NEXT_SESSION_INDEX,
 			Some(MOCK_NEXT_SESSION_INFO.clone()),
-			vec![(MOCK_SESSION_INDEX, candidate.hash(), DisputeStatus::Active)],
+			BTreeSet::from([(MOCK_SESSION_INDEX, candidate.hash(), DisputeStatus::Active)]),
 		)
 		.await;
 
@@ -736,7 +736,7 @@ async fn activate_leaf(
 	// New session if we expect the subsystem to request it.
 	new_session: Option<SessionInfo>,
 	// Currently active disputes to send to the subsystem.
-	active_disputes: Vec<(SessionIndex, CandidateHash, DisputeStatus)>,
+	active_disputes: BTreeSet<(SessionIndex, CandidateHash, DisputeStatus)>,
 ) {
 	handle
 		.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate {
