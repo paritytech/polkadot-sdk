@@ -260,7 +260,7 @@ impl CollationTracker {
 			let para_id = receipt.descriptor.para_id();
 			let relay_parent = receipt.descriptor.relay_parent();
 
-			entry.backed_at = Some(block_number);
+			entry.set_backed_at(block_number);
 
 			// Observe the backing latency since the collation was fetched.
 			let maybe_latency =
@@ -300,7 +300,7 @@ impl CollationTracker {
 		let head = receipt.descriptor.para_head();
 
 		self.entries.remove(&head).map(|mut entry| {
-			entry.included_at = Some(block_number);
+			entry.set_included_at(block_number);
 
 			if let Some(latency) = entry.included() {
 				metrics.on_collation_included(latency as f64);
@@ -447,6 +447,16 @@ impl CollationStats {
 	/// Set the timestamp at which collation is fetched.
 	pub fn set_fetched_at(&mut self, fetched_at: Instant) {
 		self.fetched_at = Some(fetched_at);
+	}
+
+	/// Set the timestamp at which collation is backed.
+	pub fn set_backed_at(&mut self, backed_at: BlockNumber) {
+		self.backed_at = Some(backed_at);
+	}
+
+	/// Set the timestamp at which collation is included.
+	pub fn set_included_at(&mut self, included_at: BlockNumber) {
+		self.included_at = Some(included_at);
 	}
 
 	/// Sets the pre-backing status of the collation.
