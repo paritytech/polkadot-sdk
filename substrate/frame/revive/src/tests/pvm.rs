@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The pallet-revive PVM integration test suite.
+//! The pallet-revive PVM specific integration test suite.
 
 use crate::{
 	address::{create1, create2, AddressMapper},

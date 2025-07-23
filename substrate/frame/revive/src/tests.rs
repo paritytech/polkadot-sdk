@@ -15,24 +15,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod common;
 mod evm;
 mod pallet_dummy;
 mod precompiles;
 mod pvm;
 
 use crate::{
-	self as pallet_revive,
-	test_utils::*,
-	AccountId32Mapper, BalanceOf, BalanceWithDust,
+	self as pallet_revive, test_utils::*, AccountId32Mapper, BalanceOf, BalanceWithDust,
 	CodeInfoOf, Config, Origin, Pallet,
 };
 use frame_support::{
 	assert_ok, derive_impl,
 	pallet_prelude::EnsureOrigin,
 	parameter_types,
-	traits::{
-		ConstU32, ConstU64, FindAuthor, StorageVersion,
-	},
+	traits::{ConstU32, ConstU64, FindAuthor, StorageVersion},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, FixedFee, IdentityFee, Weight},
 };
 use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};

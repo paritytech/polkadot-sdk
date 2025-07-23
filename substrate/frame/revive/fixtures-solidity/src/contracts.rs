@@ -23,24 +23,39 @@ alloy_core::sol!("contracts/Playground.sol");
 pub fn playground_bin() -> Vec<u8> {
 	decode(include_str!("../contracts/build/Playground.bin")).unwrap()
 }
+pub fn playground_pvm() -> Vec<u8> {
+	include_bytes!("../contracts/build/Playground.sol:Playground.pvm").into()
+}
 
 alloy_core::sol!("contracts/Crypto.sol");
 pub fn crypto_bin() -> Vec<u8> {
 	decode(include_str!("../contracts/build/TestSha3.bin")).unwrap()
+}
+pub fn crypto_pvm() -> Vec<u8> {
+	include_bytes!("../contracts/build/Crypto.sol:TestSha3.pvm").into()
 }
 
 alloy_core::sol!("contracts/AddressPredictor.sol");
 pub fn address_predictor_bin() -> Vec<u8> {
 	decode(include_str!("../contracts/build/AddressPredictor.bin")).unwrap()
 }
+pub fn address_predictor_pvm() -> Vec<u8> {
+	include_bytes!("../contracts/build/AddressPredictor.sol:AddressPredictor.pvm").into()
+}
 pub fn predicted_bin() -> Vec<u8> {
 	decode(include_str!("../contracts/build/Predicted.bin")).unwrap()
 }
 pub fn predicted_bin_runtime() -> Vec<u8> {
-	decode(include_str!("../contracts/build/Predicted.bin-runtime")).unwrap()
+	decode(include_str!("../contracts/build/AddressPredictor.bin-runtime")).unwrap()
+}
+pub fn predicted_pvm() -> Vec<u8> {
+	include_bytes!("../contracts/build/AddressPredictor.sol:Predicted.pvm").into()
 }
 
 alloy_core::sol!("contracts/Flipper.sol");
 pub fn flipper_bin() -> Vec<u8> {
 	decode(include_str!("../contracts/build/Flipper.bin")).unwrap()
+}
+pub fn flipper_pvm() -> Vec<u8> {
+	include_bytes!("../contracts/build/Flipper.sol:Flipper.pvm").into()
 }
