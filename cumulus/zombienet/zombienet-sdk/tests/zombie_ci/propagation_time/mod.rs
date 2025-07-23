@@ -8,7 +8,7 @@ use std::{
 	time::{Duration, Instant},
 };
 
-use cumulus_zombienet_sdk_helpers::ensure_para_throughput;
+use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 use polkadot_primitives::Id as ParaId;
 use statrs::statistics::OrderStatistics;
 use subxt::PolkadotConfig;
@@ -76,7 +76,7 @@ async fn run_test() -> Result<f64, anyhow::Error> {
 	let relay_alice = network.get_node("alice")?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_alice.wait_client().await?;
 	log::info!("Ensuring parachain making progress");
-	let has_throughput = assert_para_throughput(
+	assert_para_throughput(
 		&relay_client,
 		10,
 		[(ParaId::from(PARA_ID), 5..9)].into_iter().collect(),
@@ -118,7 +118,7 @@ async fn initialize_network() -> Result<NetworkActors, anyhow::Error> {
 	// Load network configuration from TOML file.
 	let toml_path = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))
 		.unwrap()
-		.join("tests/propagation_time/sparsely_connected_network.toml");
+		.join("tests/zombie_ci/propagation_time/sparsely_connected_network.toml");
 	let config = NetworkConfig::load_from_toml(toml_path.to_str().unwrap())?;
 
 	let images = zombienet_sdk::environment::get_images_from_env();
