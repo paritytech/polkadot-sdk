@@ -136,11 +136,13 @@ impl AssetsInHolding {
 	pub fn subsume_assets(&mut self, mut assets: AssetsInHolding) {
 		// for fungibles, find matching fungibles and sum their amounts so we end-up having just
 		// single such fungible but with increased amount inside
-		for (k, v) in assets.fungible {
+		for (asset_id, asset_amount) in assets.fungible {
 			self.fungible
-				.entry(k)
-				.and_modify(|entry| entry.saturating_accrue(v))
-				.or_insert(v);
+				.entry(asset_id)
+				.and_modify(|current_asset_amount| {
+					current_asset_amount.saturating_accrue(asset_amount)
+				})
+				.or_insert(asset_amount);
 		}
 		// for non-fungibles, every entry is unique so there is no notion of amount to sum-up
 		// together if there is the same non-fungible in both holdings (same instance_id) these
