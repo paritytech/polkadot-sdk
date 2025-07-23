@@ -24,7 +24,10 @@ use alloc::vec;
 use frame_benchmarking::v2::*;
 use frame_support::{
 	assert_ok,
-	traits::{fungible::Mutate, EnsureOrigin, Get, OnPoll},
+	traits::{
+		fungible::{Inspect, Mutate},
+		EnsureOrigin, Get, OnPoll,
+	},
 	weights::WeightMeter,
 	BoundedVec,
 };
@@ -180,7 +183,8 @@ mod benchmarks {
 		for i in 0..max {
 			let voter = account("voter", i, 0);
 			// Mint funds to the voter to avoid insufficient funds
-			let _ = T::Fungible::mint_into(&voter, 10_000u32.into());
+			let m = T::Fungible::minimum_balance() * 100u32.into();
+			T::Fungible::mint_into(&voter, m).unwrap();
 			let poll = PollIndex::new(0, i);
 			let vote = AccountVote::Standard {
 				vote: Vote { aye: true, conviction: Conviction::Locked1x },
@@ -249,7 +253,8 @@ mod benchmarks {
 		// Insert n votes to forward for project 0
 		for i in 0..n {
 			let voter = account("voter", i, 0);
-			let _ = T::Fungible::mint_into(&voter, 10_000u32.into());
+			let m = T::Fungible::minimum_balance() * 100u32.into();
+			T::Fungible::mint_into(&voter, m).unwrap();
 			let vote = AccountVote::Standard {
 				vote: Vote { aye: true, conviction: Conviction::Locked1x },
 				balance: 1u32.into(),
