@@ -412,8 +412,7 @@ pub mod pallet {
 			dest: T::AccountId,
 			amount: T::Balance,
 		},
-		/// The `transferred` balance is placed on hold
-		/// at the `dest` account.
+		/// The `transferred` balance is placed on hold at the `dest` account.
 		TransferAndHold {
 			reason: T::RuntimeHoldReason,
 			source: T::AccountId,
@@ -422,6 +421,20 @@ pub mod pallet {
 		},
 		/// Some balance was released from hold.
 		Released { reason: T::RuntimeHoldReason, who: T::AccountId, amount: T::Balance },
+		/// An unexpected/defensive event was triggered.
+		Unexpected(UnexpectedKind),
+	}
+
+	/// Defensive/unexpected errors/events.
+	///
+	/// In case of observation in explorers, report it as an issue in polkadot-sdk.
+	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, RuntimeDebug)]
+	pub enum UnexpectedKind {
+		/// Balance was altered/dusted during an operation that should have NOT done so.
+		BalanceUpdated,
+		/// Mutating the account failed unexpectedly. This might lead to storage items in
+		/// `Balances` and the underlying account in `System` to be out of sync.
+		FailedToMutateAccount,
 	}
 
 	#[pallet::error]
@@ -618,26 +631,8 @@ pub mod pallet {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
-			Holds::<T, I>::iter_keys().try_for_each(|k| {
-				if Holds::<T, I>::decode_len(k).unwrap_or(0) >
-					T::RuntimeHoldReason::VARIANT_COUNT as usize
-				{
-					Err("Found `Hold` with too many elements")
-				} else {
-					Ok(())
-				}
-			})?;
-
-			Freezes::<T, I>::iter_keys().try_for_each(|k| {
-				if Freezes::<T, I>::decode_len(k).unwrap_or(0) > T::MaxFreezes::get() as usize {
-					Err("Found `Freeze` with too many elements")
-				} else {
-					Ok(())
-				}
-			})?;
-
-			Ok(())
+		fn try_state(n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state(n)
 		}
 	}
 
@@ -803,7 +798,7 @@ pub mod pallet {
 			let new_free = if wipeout { Zero::zero() } else { new_free };
 
 			// First we try to modify the account's balance to the forced balance.
-			let old_free = Self::mutate_account_handling_dust(&who, |account| {
+			let old_free = Self::mutate_account_handling_dust(&who, false, |account| {
 				let old_free = account.free;
 				account.free = new_free;
 				old_free
@@ -980,9 +975,10 @@ pub mod pallet {
 		/// the caller will do this.
 		pub(crate) fn mutate_account_handling_dust<R>(
 			who: &T::AccountId,
+			force_consumer_bump: bool,
 			f: impl FnOnce(&mut AccountData<T::Balance>) -> R,
 		) -> Result<R, DispatchError> {
-			let (r, maybe_dust) = Self::mutate_account(who, f)?;
+			let (r, maybe_dust) = Self::mutate_account(who, force_consumer_bump, f)?;
 			if let Some(dust) = maybe_dust {
 				<Self as fungible::Unbalanced<_>>::handle_raw_dust(dust);
 			}
@@ -1002,9 +998,10 @@ pub mod pallet {
 		/// the caller will do this.
 		pub(crate) fn try_mutate_account_handling_dust<R, E: From<DispatchError>>(
 			who: &T::AccountId,
+			force_consumer_bump: bool,
 			f: impl FnOnce(&mut AccountData<T::Balance>, bool) -> Result<R, E>,
 		) -> Result<R, E> {
-			let (r, maybe_dust) = Self::try_mutate_account(who, f)?;
+			let (r, maybe_dust) = Self::try_mutate_account(who, force_consumer_bump, f)?;
 			if let Some(dust) = maybe_dust {
 				<Self as fungible::Unbalanced<_>>::handle_raw_dust(dust);
 			}
@@ -1023,11 +1020,18 @@ pub mod pallet {
 		///
 		/// NOTE: LOW-LEVEL: This will not attempt to maintain total issuance. It is expected that
 		/// the caller will do this.
+		///
+		/// NOTE: LOW-LEVEL: `force_consumer_bump` is mainly there to accomodate for locks, which
+		/// have no ability in their API to return an error, and therefore better force increment
+		/// the consumer, or else the system will be inconsistent. See `consumer_limits_tests`.
 		pub(crate) fn mutate_account<R>(
 			who: &T::AccountId,
+			force_consumer_bump: bool,
 			f: impl FnOnce(&mut AccountData<T::Balance>) -> R,
 		) -> Result<(R, Option<T::Balance>), DispatchError> {
-			Self::try_mutate_account(who, |a, _| -> Result<R, DispatchError> { Ok(f(a)) })
+			Self::try_mutate_account(who, force_consumer_bump, |a, _| -> Result<R, DispatchError> {
+				Ok(f(a))
+			})
 		}
 
 		/// Returns `true` when `who` has some providers or `insecure_zero_ed` feature is disabled.
@@ -1059,6 +1063,7 @@ pub mod pallet {
 		/// the caller will do this.
 		pub(crate) fn try_mutate_account<R, E: From<DispatchError>>(
 			who: &T::AccountId,
+			force_consumer_bump: bool,
 			f: impl FnOnce(&mut AccountData<T::Balance>, bool) -> Result<R, E>,
 		) -> Result<(R, Option<T::Balance>), E> {
 			Self::ensure_upgraded(who);
@@ -1082,7 +1087,12 @@ pub mod pallet {
 					frame_system::Pallet::<T>::dec_consumers(who);
 				}
 				if !did_consume && does_consume {
-					frame_system::Pallet::<T>::inc_consumers(who)?;
+					if force_consumer_bump {
+						// If we are forcing a consumer bump, we do it without limit.
+						frame_system::Pallet::<T>::inc_consumers_without_limit(who)?;
+					} else {
+						frame_system::Pallet::<T>::inc_consumers(who)?;
+					}
 				}
 				if does_consume && frame_system::Pallet::<T>::consumers(who) == 0 {
 					// NOTE: This is a failsafe and should not happen for normal accounts. A normal
@@ -1164,9 +1174,9 @@ pub mod pallet {
 			let freezes = Freezes::<T, I>::get(who);
 			let mut prev_frozen = Zero::zero();
 			let mut after_frozen = Zero::zero();
-			// No way this can fail since we do not alter the existential balances.
-			// TODO: Revisit this assumption.
-			let res = Self::mutate_account(who, |b| {
+			// We do not alter ED, so the account will not get dusted. Yet, consumer limit might be
+			// full, therefore we pass `true` into `mutate_account` to make sure this cannot fail
+			let res = Self::mutate_account(who, true, |b| {
 				prev_frozen = b.frozen;
 				b.frozen = Zero::zero();
 				for l in locks.iter() {
@@ -1177,9 +1187,18 @@ pub mod pallet {
 				}
 				after_frozen = b.frozen;
 			});
-			debug_assert!(res.is_ok());
-			if let Ok((_, maybe_dust)) = res {
-				debug_assert!(maybe_dust.is_none(), "Not altering main balance; qed");
+			match res {
+				Ok((_, None)) => {
+					// expected -- all good.
+				},
+				Ok((_, Some(_dust))) => {
+					Self::deposit_event(Event::Unexpected(UnexpectedKind::BalanceUpdated));
+					defensive!("caused unexpected dusting/balance update.");
+				},
+				_ => {
+					Self::deposit_event(Event::Unexpected(UnexpectedKind::FailedToMutateAccount));
+					defensive!("errored in mutate_account");
+				},
 			}
 
 			match locks.is_empty() {
@@ -1203,7 +1222,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let mut prev_frozen = Zero::zero();
 			let mut after_frozen = Zero::zero();
-			let (_, maybe_dust) = Self::mutate_account(who, |b| {
+			let (_, maybe_dust) = Self::mutate_account(who, false, |b| {
 				prev_frozen = b.frozen;
 				b.frozen = Zero::zero();
 				for l in Locks::<T, I>::get(who).iter() {
@@ -1214,7 +1233,10 @@ pub mod pallet {
 				}
 				after_frozen = b.frozen;
 			})?;
-			debug_assert!(maybe_dust.is_none(), "Not altering main balance; qed");
+			if maybe_dust.is_some() {
+				Self::deposit_event(Event::Unexpected(UnexpectedKind::BalanceUpdated));
+				defensive!("caused unexpected dusting/balance update.");
+			}
 			if freezes.is_empty() {
 				Freezes::<T, I>::remove(who);
 			} else {
@@ -1265,9 +1287,10 @@ pub mod pallet {
 
 			let ((_, maybe_dust_1), maybe_dust_2) = Self::try_mutate_account(
 				beneficiary,
+				false,
 				|to_account, is_new| -> Result<((), Option<T::Balance>), DispatchError> {
 					ensure!(!is_new, Error::<T, I>::DeadAccount);
-					Self::try_mutate_account(slashed, |from_account, _| -> DispatchResult {
+					Self::try_mutate_account(slashed, false, |from_account, _| -> DispatchResult {
 						match status {
 							Status::Free =>
 								to_account.free = to_account
@@ -1330,11 +1353,83 @@ pub mod pallet {
 					.expect(&format!("Failed to decode public key from pair: {:?}", pair.public()));
 
 				// Set the balance for the generated account.
-				Self::mutate_account_handling_dust(&who, |account| {
+				Self::mutate_account_handling_dust(&who, false, |account| {
 					account.free = balance;
 				})
 				.expect(&format!("Failed to add account to keystore: {:?}", who));
 			}
+		}
+	}
+
+	#[cfg(any(test, feature = "try-runtime"))]
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		pub(crate) fn do_try_state(
+			_n: BlockNumberFor<T>,
+		) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::hold_and_freeze_count()?;
+			Self::account_frozen_greater_than_locks()?;
+			Self::account_frozen_greater_than_freezes()?;
+			Ok(())
+		}
+
+		fn hold_and_freeze_count() -> Result<(), sp_runtime::TryRuntimeError> {
+			Holds::<T, I>::iter_keys().try_for_each(|k| {
+				if Holds::<T, I>::decode_len(k).unwrap_or(0) >
+					T::RuntimeHoldReason::VARIANT_COUNT as usize
+				{
+					Err("Found `Hold` with too many elements")
+				} else {
+					Ok(())
+				}
+			})?;
+
+			Freezes::<T, I>::iter_keys().try_for_each(|k| {
+				if Freezes::<T, I>::decode_len(k).unwrap_or(0) > T::MaxFreezes::get() as usize {
+					Err("Found `Freeze` with too many elements")
+				} else {
+					Ok(())
+				}
+			})?;
+
+			Ok(())
+		}
+
+		fn account_frozen_greater_than_locks() -> Result<(), sp_runtime::TryRuntimeError> {
+			Locks::<T, I>::iter().try_for_each(|(who, locks)| {
+				let max_locks = locks.iter().map(|l| l.amount).max().unwrap_or_default();
+				let frozen = T::AccountStore::get(&who).frozen;
+				if max_locks > frozen {
+					log::warn!(
+						target: crate::LOG_TARGET,
+						"Maximum lock of {:?} ({:?}) is greater than the frozen balance {:?}",
+						who,
+						max_locks,
+						frozen
+					);
+					Err("bad locks".into())
+				} else {
+					Ok(())
+				}
+			})
+		}
+
+		fn account_frozen_greater_than_freezes() -> Result<(), sp_runtime::TryRuntimeError> {
+			Freezes::<T, I>::iter().try_for_each(|(who, freezes)| {
+				let max_locks = freezes.iter().map(|l| l.amount).max().unwrap_or_default();
+				let frozen = T::AccountStore::get(&who).frozen;
+				if max_locks > frozen {
+					log::warn!(
+						target: crate::LOG_TARGET,
+						"Maximum freeze of {:?} ({:?}) is greater than the frozen balance {:?}",
+						who,
+						max_locks,
+						frozen
+					);
+					Err("bad freezes".into())
+				} else {
+					Ok(())
+				}
+			})
 		}
 	}
 }

@@ -28,15 +28,16 @@ fi
 NS=$(jq -r '.ns // .namespace' "$ZOMBIE_JSON")
 # test start time in milliseconds
 FROM=$(jq -r '.start_time_ts' "$ZOMBIE_JSON")
-# current time in milliseconds
-TO=$(date +%s%3N)
+# current time in milliseconds + 60 secs to allow loki to ingest logs
+TO=$(($(date +%s%3N) + 60000))
 
 make_url() {
   local name="$1"
+  local to="$2"
   local url="${LOKI_URL_FOR_NODE//\{\{namespace\}\}/$NS}"
   url="${url//\{\{podName\}\}/$name}"
   url="${url//\{\{from\}\}/$FROM}"
-  url="${url//\{\{to\}\}/$TO}"
+  url="${url//\{\{to\}\}/$to}"
   echo "$url"
 }
 
@@ -54,6 +55,7 @@ if [[ $(echo "$NS" | grep -E "zombie-[A-Fa-f0-9]+-") ]]; then
 fi;
 
 jq -r $JQ_QUERY_RELAY "$ZOMBIE_JSON" | while read -r name; do
+  local_to=$TO
   if [[ "$ZOMBIE_PROVIDER" == "k8s" ]]; then
     # Fetching logs from k8s
     if ! kubectl logs "$name" -c "$name" -n "$NS" > "$TARGET_DIR/$name.log" ; then
@@ -68,23 +70,19 @@ jq -r $JQ_QUERY_RELAY "$ZOMBIE_JSON" | while read -r name; do
 
     # send logs to loki
     if [ -d "$LOKI_DIR_FOR_NATIVE_LOGS" ]; then
-      echo "send logs to loki for node: $name";
       awk -v NS="$NS" -v NAME="$name" '{print NS" "NAME" " $0}' $TARGET_DIR/$name.log >> $LOKI_DIR_FOR_NATIVE_LOGS/to-loki.log
+      local_to=$(($(date +%s%3N) + 60000))
     fi
   fi
-  echo -e "\t$name: $(make_url "$name")"
+  echo -e "\t$name: $(make_url "$name" "$local_to")"
 done
 echo ""
-
-# Debug
-echo "\n"
-cat $ZOMBIE_JSON
-echo "\n"
 
 # Handle parachains grouped by paraId
 jq -r '.paras // .parachains | to_entries[] | "\(.key)"' "$ZOMBIE_JSON" | while read -r para_id; do
   echo "ParaId: $para_id"
-  jq -r --arg pid "$para_id" "'$JQ_QUERY_PARA_NODES'" "$ZOMBIE_JSON" | while read -r name; do
+  jq -r --arg pid "$para_id" "$JQ_QUERY_PARA_NODES" "$ZOMBIE_JSON" | while read -r name; do
+    local_to=$TO
     if [[ "$ZOMBIE_PROVIDER" == "k8s" ]]; then
       # Fetching logs from k8s
       if ! kubectl logs "$name" -c "$name" -n "$NS" > "$TARGET_DIR/$name.log" ; then
@@ -99,11 +97,11 @@ jq -r '.paras // .parachains | to_entries[] | "\(.key)"' "$ZOMBIE_JSON" | while 
 
       # send logs to loki
       if [ -d "$LOKI_DIR_FOR_NATIVE_LOGS" ]; then
-        echo "send logs to loki for node: $name";
         awk -v NS="$NS" -v NAME="$name" '{print NS" "NAME" " $0}' $TARGET_DIR/$name.log >> $LOKI_DIR_FOR_NATIVE_LOGS/to-loki.log
+        local_to=$(($(date +%s%3N) + 60000))
       fi
     fi
-    echo -e "\t$name: $(make_url "$name")"
+    echo -e "\t$name: $(make_url "$name" "$local_to")"
   done
   echo ""
 done

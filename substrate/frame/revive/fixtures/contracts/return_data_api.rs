@@ -86,7 +86,7 @@ fn assert_balance_transfer_does_reset() {
 		u64::MAX,
 		u64::MAX,
 		&[u8::MAX; 32],
-		&u256_bytes(128),
+		&u256_bytes(128_000_000),
 		&[],
 		None,
 	)
