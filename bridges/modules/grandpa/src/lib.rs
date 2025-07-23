@@ -335,8 +335,8 @@ pub mod pallet {
 			tracing::info!(
 				target: LOG_TARGET,
 				?hash,
-				"Successfully imported finalized header! Free: {}",
-				if may_refund_call_fee { "Yes" } else { "No" },
+				?pays_fee,
+				"Successfully imported finalized header!"
 			);
 
 			// the proof size component of the call weight assumes that there are
@@ -731,7 +731,8 @@ pub mod pallet {
 			.inspect_err(|_| {
 				tracing::error!(
 					target: LOG_TARGET,
-					"Failed to initialize bridge. Number of authorities in the set {authority_set_length} is larger than the configured value {}",
+					%authority_set_length,
+					"Failed to initialize bridge. Number of authorities in the set is larger than the configured value {}",
 					T::BridgedChain::MAX_AUTHORITIES_COUNT,
 				);
 			})?;
