@@ -35,12 +35,12 @@ snowbridge-outbound-queue-primitives.default-features = true
 snowbridge-outbound-queue-primitives.workspace = true
 sp-core.default-features = true
 sp-core.workspace = true
+xcm.default-features = true
+xcm.workspace = true
 xcm-builder.default-features = true
 xcm-builder.workspace = true
 xcm-executor.default-features = true
 xcm-executor.workspace = true
-xcm.default-features = true
-xcm.workspace = true
 
 [features]
 runtime-benchmarks = [
