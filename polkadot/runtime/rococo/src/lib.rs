@@ -2260,6 +2260,7 @@ sp_api::impl_runtime_apis! {
 				.map(sp_consensus_beefy::OpaqueKeyOwnershipProof::new)
 		}
 
+		// TODO: Remove once sp_consensus_beefy::BeefyAPI::generate_ancestry_proof is removed.
 		fn generate_ancestry_proof(
 			prev_block_number: BlockNumber,
 			best_known_block_number: Option<BlockNumber>,
