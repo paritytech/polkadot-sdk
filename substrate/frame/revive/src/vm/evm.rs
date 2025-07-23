@@ -49,7 +49,7 @@ where
 /// Calls the EVM interpreter with the provided bytecode and inputs.
 pub fn call<'a, E: Ext>(bytecode: Bytecode, ext: &'a mut E, inputs: EVMInputs) -> ExecResult {
 	let mut interpreter: Interpreter<EVMInterpreter<'a, E>> = Interpreter {
-		gas: Gas::new(30_000_000), // TODO clean up
+		gas: Gas::default(),
 		bytecode: ExtBytecode::new(bytecode),
 		stack: Stack::new(),
 		return_data: Default::default(),
