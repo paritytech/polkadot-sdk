@@ -364,7 +364,7 @@ impl<T: Config> Eras<T> {
 								era_rewards.individual.try_insert(validator, points).defensive();
 						},
 					}
-					era_rewards.total += points;
+					era_rewards.total.saturating_accrue(points);
 				}
 			});
 		}
