@@ -42,7 +42,7 @@ pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(context: Context<'_, 'ext, E
 				context.interpreter.halt(InstructionResult::CreateInitCodeSizeLimit);
 				return;
 			}
-			gas!(context.interpreter, revm_gas::initcode_cost(len));
+			gas_legacy!(context.interpreter, revm_gas::initcode_cost(len));
 		}
 
 		let code_offset = as_usize_or_fail!(context.interpreter, code_offset);
@@ -58,7 +58,7 @@ pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(context: Context<'_, 'ext, E
 		gas_or_fail!(context.interpreter, revm_gas::create2_cost(len));
 		CreateScheme::Create2 { salt }
 	} else {
-		gas!(context.interpreter, revm_gas::CREATE);
+		gas_legacy!(context.interpreter, revm_gas::CREATE);
 		CreateScheme::Create
 	};
 
@@ -69,7 +69,7 @@ pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(context: Context<'_, 'ext, E
 		// Take remaining gas and deduce l64 part of it.
 		gas_limit -= gas_limit / 64
 	}
-	gas!(context.interpreter, gas_limit);
+	gas_legacy!(context.interpreter, gas_limit);
 
 	// Call host to interact with target contract
 	context
@@ -115,7 +115,7 @@ pub fn call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		return;
 	};
 
-	gas!(context.interpreter, gas_limit);
+	gas_legacy!(context.interpreter, gas_limit);
 
 	// Add call stipend if there is value to be transferred.
 	if has_transfer {
@@ -167,7 +167,7 @@ pub fn call_code<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		return;
 	};
 
-	gas!(context.interpreter, gas_limit);
+	gas_legacy!(context.interpreter, gas_limit);
 
 	// Add call stipend if there is value to be transferred.
 	if !value.is_zero() {
@@ -217,7 +217,7 @@ pub fn delegate_call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		return;
 	};
 
-	gas!(context.interpreter, gas_limit);
+	gas_legacy!(context.interpreter, gas_limit);
 
 	// Call host to interact with target contract
 	context
@@ -260,7 +260,7 @@ pub fn static_call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	let Some(gas_limit) = calc_call_gas(context.interpreter, load, false, local_gas_limit) else {
 		return;
 	};
-	gas!(context.interpreter, gas_limit);
+	gas_legacy!(context.interpreter, gas_limit);
 
 	// Call host to interact with target contract
 	context

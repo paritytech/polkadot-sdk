@@ -13,7 +13,7 @@ use revm::{
 ///
 /// Loads a 32-byte word from memory.
 pub fn mload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::VERYLOW);
+	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	popn_top!([], top, context.interpreter);
 	let offset = as_usize_or_fail!(context.interpreter, top);
 	resize_memory!(context.interpreter, offset, 32);
@@ -25,7 +25,7 @@ pub fn mload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Stores a 32-byte word to memory.
 pub fn mstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::VERYLOW);
+	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	popn!([offset, value], context.interpreter);
 	let offset = as_usize_or_fail!(context.interpreter, offset);
 	resize_memory!(context.interpreter, offset, 32);
@@ -36,7 +36,7 @@ pub fn mstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Stores a single byte to memory.
 pub fn mstore8<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::VERYLOW);
+	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	popn!([offset, value], context.interpreter);
 	let offset = as_usize_or_fail!(context.interpreter, offset);
 	resize_memory!(context.interpreter, offset, 1);
@@ -47,7 +47,7 @@ pub fn mstore8<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Gets the size of active memory in bytes.
 pub fn msize<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::BASE);
+	gas_legacy!(context.interpreter, revm_gas::BASE);
 	push!(context.interpreter, U256::from(context.interpreter.memory.size()));
 }
 

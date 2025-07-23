@@ -71,6 +71,9 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_revive`.
 pub trait WeightInfo {
+	fn evm_gas(n: u64) -> Weight {
+		Self::instr(n as u32)
+	}
 	fn on_process_deletion_queue_batch() -> Weight;
 	fn on_initialize_per_trie_key(k: u32, ) -> Weight;
 	fn call_with_code_per_byte(c: u32, ) -> Weight;

@@ -13,28 +13,28 @@ use revm::{
 
 /// Implements the ADD instruction - adds two values from stack.
 pub fn add<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::VERYLOW);
+	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	popn_top!([op1], op2, context.interpreter);
 	*op2 = op1.wrapping_add(*op2);
 }
 
 /// Implements the MUL instruction - multiplies two values from stack.
 pub fn mul<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::LOW);
+	gas_legacy!(context.interpreter, revm_gas::LOW);
 	popn_top!([op1], op2, context.interpreter);
 	*op2 = op1.wrapping_mul(*op2);
 }
 
 /// Implements the SUB instruction - subtracts two values from stack.
 pub fn sub<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::VERYLOW);
+	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	popn_top!([op1], op2, context.interpreter);
 	*op2 = op1.wrapping_sub(*op2);
 }
 
 /// Implements the DIV instruction - divides two values from stack.
 pub fn div<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::LOW);
+	gas_legacy!(context.interpreter, revm_gas::LOW);
 	popn_top!([op1], op2, context.interpreter);
 	if !op2.is_zero() {
 		*op2 = op1.wrapping_div(*op2);
@@ -45,7 +45,7 @@ pub fn div<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Performs signed division of two values from stack.
 pub fn sdiv<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::LOW);
+	gas_legacy!(context.interpreter, revm_gas::LOW);
 	popn_top!([op1], op2, context.interpreter);
 	*op2 = i256_div(op1, *op2);
 }
@@ -54,7 +54,7 @@ pub fn sdiv<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Pops two values from stack and pushes the remainder of their division.
 pub fn rem<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::LOW);
+	gas_legacy!(context.interpreter, revm_gas::LOW);
 	popn_top!([op1], op2, context.interpreter);
 	if !op2.is_zero() {
 		*op2 = op1.wrapping_rem(*op2);
@@ -65,7 +65,7 @@ pub fn rem<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Performs signed modulo of two values from stack.
 pub fn smod<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::LOW);
+	gas_legacy!(context.interpreter, revm_gas::LOW);
 	popn_top!([op1], op2, context.interpreter);
 	*op2 = i256_mod(op1, *op2)
 }
@@ -74,7 +74,7 @@ pub fn smod<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Pops three values from stack and pushes (a + b) % n.
 pub fn addmod<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::MID);
+	gas_legacy!(context.interpreter, revm_gas::MID);
 	popn_top!([op1, op2], op3, context.interpreter);
 	*op3 = op1.add_mod(op2, *op3)
 }
@@ -83,7 +83,7 @@ pub fn addmod<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Pops three values from stack and pushes (a * b) % n.
 pub fn mulmod<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::MID);
+	gas_legacy!(context.interpreter, revm_gas::MID);
 	popn_top!([op1, op2], op3, context.interpreter);
 	*op3 = op1.mul_mod(op2, *op3)
 }
@@ -126,7 +126,7 @@ pub fn exp<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// Similarly, if `b == 0` then the yellow paper says the output should start with all zeros,
 /// then end with bits from `b`; this is equal to `y & mask` where `&` is bitwise `AND`.
 pub fn signextend<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::LOW);
+	gas_legacy!(context.interpreter, revm_gas::LOW);
 	popn_top!([ext], x, context.interpreter);
 	// For 31 we also don't need to do anything.
 	if ext < U256::from(31) {

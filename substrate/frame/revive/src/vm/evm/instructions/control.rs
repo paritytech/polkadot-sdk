@@ -14,7 +14,7 @@ use revm::{
 ///
 /// Unconditional jump to a valid destination.
 pub fn jump<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::MID);
+	gas_legacy!(context.interpreter, revm_gas::MID);
 	let Some([target]) = <_ as StackTr>::popn(&mut context.interpreter.stack) else {
 		context.interpreter.halt(InstructionResult::StackUnderflow);
 		return;
@@ -26,7 +26,7 @@ pub fn jump<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Conditional jump to a valid destination if condition is true.
 pub fn jumpi<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::HIGH);
+	gas_legacy!(context.interpreter, revm_gas::HIGH);
 	let Some([target, cond]) = <_ as StackTr>::popn(&mut context.interpreter.stack) else {
 		context.interpreter.halt(InstructionResult::StackUnderflow);
 		return;
@@ -58,14 +58,14 @@ fn jump_inner(
 ///
 /// Marks a valid destination for jump operations.
 pub fn jumpdest<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::JUMPDEST);
+	gas_legacy!(context.interpreter, revm_gas::JUMPDEST);
 }
 
 /// Implements the PC instruction.
 ///
 /// Pushes the current program counter onto the stack.
 pub fn pc<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::BASE);
+	gas_legacy!(context.interpreter, revm_gas::BASE);
 	// - 1 because we have already advanced the instruction pointer in `Interpreter::step`
 	push!(context.interpreter, U256::from(context.interpreter.bytecode.pc() - 1));
 }
@@ -74,12 +74,12 @@ pub fn pc<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// Internal helper function for return operations.
 ///
 /// Handles memory data retrieval and sets the return action.
-fn return_inner(
-	interpreter: &mut Interpreter<impl revm::interpreter::interpreter_types::InterpreterTypes>,
+fn return_inner<'a, E: Ext>(
+	interpreter: &mut Interpreter<crate::vm::evm::EVMInterpreter<'a, E>>,
 	instruction_result: InstructionResult,
 ) {
 	// Zero gas cost
-	// gas!(interpreter, revm_gas::ZERO)
+	// gas_legacy!(interpreter, revm_gas::ZERO)
 	let Some([offset, len]) = <_ as StackTr>::popn(&mut interpreter.stack) else {
 		interpreter.halt(InstructionResult::StackUnderflow);
 		return;

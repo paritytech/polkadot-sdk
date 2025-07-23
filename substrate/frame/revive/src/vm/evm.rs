@@ -97,7 +97,6 @@ pub struct EVMInterpreter<'a, E: Ext> {
 	_phantom: core::marker::PhantomData<&'a E>,
 }
 
-
 impl<'a, E: Ext> InterpreterTypes for EVMInterpreter<'a, E> {
 	type Stack = Stack;
 	type Memory = SharedMemory;

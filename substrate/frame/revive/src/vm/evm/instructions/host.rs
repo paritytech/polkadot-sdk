@@ -25,7 +25,7 @@ pub fn balance<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		return;
 	};
 	let spec_id = context.interpreter.runtime_flag.spec_id();
-	gas!(
+	gas_legacy!(
 		context.interpreter,
 		if spec_id.is_enabled_in(BERLIN) {
 			warm_cold_cost(balance.is_cold)
@@ -44,7 +44,7 @@ pub fn balance<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// EIP-1884: Repricing for trie-size-dependent opcodes
 pub fn selfbalance<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	check!(context.interpreter, ISTANBUL);
-	gas!(context.interpreter, gas::LOW);
+	gas_legacy!(context.interpreter, gas::LOW);
 
 	let Some(balance) = context.host.balance(context.interpreter.input.target_address()) else {
 		context.interpreter.halt(InstructionResult::FatalExternalError);
@@ -65,11 +65,11 @@ pub fn extcodesize<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	};
 	let spec_id = context.interpreter.runtime_flag.spec_id();
 	if spec_id.is_enabled_in(BERLIN) {
-		gas!(context.interpreter, warm_cold_cost(code.is_cold));
+		gas_legacy!(context.interpreter, warm_cold_cost(code.is_cold));
 	} else if spec_id.is_enabled_in(TANGERINE) {
-		gas!(context.interpreter, 700);
+		gas_legacy!(context.interpreter, 700);
 	} else {
-		gas!(context.interpreter, 20);
+		gas_legacy!(context.interpreter, 20);
 	}
 
 	*top = U256::from(code.len());
@@ -86,11 +86,11 @@ pub fn extcodehash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	};
 	let spec_id = context.interpreter.runtime_flag.spec_id();
 	if spec_id.is_enabled_in(BERLIN) {
-		gas!(context.interpreter, warm_cold_cost(code_hash.is_cold));
+		gas_legacy!(context.interpreter, warm_cold_cost(code_hash.is_cold));
 	} else if spec_id.is_enabled_in(ISTANBUL) {
-		gas!(context.interpreter, 700);
+		gas_legacy!(context.interpreter, 700);
 	} else {
-		gas!(context.interpreter, 400);
+		gas_legacy!(context.interpreter, 400);
 	}
 	*top = code_hash.into_u256();
 }
@@ -126,7 +126,7 @@ pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Gets the hash of one of the 256 most recent complete blocks.
 pub fn blockhash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, gas::BLOCKHASH);
+	gas_legacy!(context.interpreter, gas::BLOCKHASH);
 	popn_top!([], number, context.interpreter);
 
 	let requested_number = *number;
@@ -167,7 +167,7 @@ pub fn sload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		return;
 	};
 
-	gas!(
+	gas_legacy!(
 		context.interpreter,
 		gas::sload_cost(context.interpreter.runtime_flag.spec_id(), value.is_cold)
 	);
@@ -196,7 +196,7 @@ pub fn sstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		context.interpreter.halt(InstructionResult::ReentrancySentryOOG);
 		return;
 	}
-	gas!(
+	gas_legacy!(
 		context.interpreter,
 		gas::sstore_cost(
 			context.interpreter.runtime_flag.spec_id(),
@@ -216,7 +216,7 @@ pub fn sstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 pub fn tstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	check!(context.interpreter, CANCUN);
 	require_non_staticcall!(context.interpreter);
-	gas!(context.interpreter, gas::WARM_STORAGE_READ_COST);
+	gas_legacy!(context.interpreter, gas::WARM_STORAGE_READ_COST);
 
 	popn!([index, value], context.interpreter);
 
@@ -227,7 +227,7 @@ pub fn tstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// Load value from transient storage
 pub fn tload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	check!(context.interpreter, CANCUN);
-	gas!(context.interpreter, gas::WARM_STORAGE_READ_COST);
+	gas_legacy!(context.interpreter, gas::WARM_STORAGE_READ_COST);
 
 	popn_top!([], index, context.interpreter);
 
@@ -289,7 +289,7 @@ pub fn selfdestruct<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		context.interpreter.gas.record_refund(gas::SELFDESTRUCT)
 	}
 
-	gas!(
+	gas_legacy!(
 		context.interpreter,
 		gas::selfdestruct_cost(context.interpreter.runtime_flag.spec_id(), res)
 	);

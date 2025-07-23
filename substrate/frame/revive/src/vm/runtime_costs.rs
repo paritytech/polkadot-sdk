@@ -4,6 +4,8 @@ use frame_support::weights::Weight;
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Copy, Clone)]
 pub enum RuntimeCosts {
+	/// cost of an EVM gas unit.
+	EVMGas(u64),
 	/// Base Weight of calling a host function.
 	HostFn,
 	/// Weight charged for copying data from the sandbox.
@@ -195,6 +197,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 	fn weight(&self) -> Weight {
 		use self::RuntimeCosts::*;
 		match *self {
+			EVMGas(n) => T::WeightInfo::evm_gas(n),
 			HostFn => cost_args!(noop_host_fn, 1),
 			CopyToContract(len) => T::WeightInfo::seal_copy_to_contract(len),
 			CopyFromContract(len) => T::WeightInfo::seal_return(len),

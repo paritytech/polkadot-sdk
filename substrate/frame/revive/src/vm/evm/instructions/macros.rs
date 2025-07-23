@@ -62,12 +62,17 @@ macro_rules! check {
 
 /// Records a `gas` cost and fails the instruction if it would exceed the available gas.
 #[macro_export]
-macro_rules! gas {
+macro_rules! gas_legacy {
 	($interpreter:expr, $gas:expr) => {
-		gas!($interpreter, $gas, ())
+		gas_legacy!($interpreter, $gas, ())
 	};
 	($interpreter:expr, $gas:expr, $ret:expr) => {
-		if !$interpreter.gas.record_cost($gas) {
+		if $interpreter
+			.extend
+			.gas_meter_mut()
+			.charge($crate::RuntimeCosts::EVMGas($gas))
+			.is_err()
+		{
 			$interpreter.halt(revm::interpreter::InstructionResult::OutOfGas);
 			return $ret;
 		}
@@ -75,9 +80,9 @@ macro_rules! gas {
 }
 
 #[macro_export]
-macro_rules! gas_new {
+macro_rules! gas {
 	($interpreter:expr, $gas:expr) => {
-		gas_new!($interpreter, $gas, ())
+		gas!($interpreter, $gas, ())
 	};
 	($interpreter:expr, $gas:expr, $ret:expr) => {
 		if $interpreter.extend.gas_meter_mut().charge($gas).is_err() {
@@ -87,7 +92,7 @@ macro_rules! gas_new {
 	};
 }
 
-/// Same as [`gas!`], but with `gas` as an option.
+/// Same as [`gas_legacy!`], but with `gas` as an option.
 #[macro_export]
 macro_rules! gas_or_fail {
 	($interpreter:expr, $gas:expr) => {
@@ -95,13 +100,44 @@ macro_rules! gas_or_fail {
 	};
 	($interpreter:expr, $gas:expr, $ret:expr) => {
 		match $gas {
-			Some(gas_used) => gas!($interpreter, gas_used, $ret),
+			Some(gas_used) => gas_legacy!($interpreter, gas_used, $ret),
 			None => {
 				$interpreter.halt(revm::interpreter::InstructionResult::OutOfGas);
 				return $ret;
 			},
 		}
 	};
+}
+
+use crate::{
+	vm::{
+		evm::{EVMInterpreter, Gas},
+		Ext,
+	},
+	RuntimeCosts,
+};
+use revm::interpreter::{gas::MemoryExtensionResult, Interpreter};
+
+/// Adapted from
+/// https://docs.rs/revm/latest/revm/interpreter/struct.Gas.html#method.record_memory_expansion
+pub fn record_memory_expansion<'a, E: Ext>(
+	interpreter: &mut Interpreter<EVMInterpreter<'a, E>>,
+	new_len: usize,
+) -> MemoryExtensionResult {
+	let Some(additional_cost) = interpreter.gas.memory_mut().record_new_len(new_len) else {
+		return MemoryExtensionResult::Same;
+	};
+
+	if interpreter
+		.extend
+		.gas_meter_mut()
+		.charge(RuntimeCosts::EVMGas(additional_cost))
+		.is_err()
+	{
+		return MemoryExtensionResult::OutOfGas;
+	}
+
+	MemoryExtensionResult::Extended
 }
 
 /// Resizes the interpreterreter memory if necessary. Fails the instruction if the memory or gas
@@ -113,7 +149,8 @@ macro_rules! resize_memory {
 	};
 	($interpreter:expr, $offset:expr, $len:expr, $ret:expr) => {
 		let words_num = revm::interpreter::num_words($offset.saturating_add($len));
-		match $interpreter.gas.record_memory_expansion(words_num) {
+		match crate::vm::evm::instructions::macros::record_memory_expansion($interpreter, words_num)
+		{
 			revm::interpreter::gas::MemoryExtensionResult::Extended => {
 				$interpreter.memory.resize(words_num * 32);
 			},
