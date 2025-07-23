@@ -21,7 +21,7 @@ use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use core::fmt::Debug;
 use scale_info::TypeInfo;
 use sp_core::{RuntimeDebug, TypedGet};
-use sp_runtime::{traits::Zero, DispatchError};
+use sp_runtime::DispatchError;
 
 use super::{fungible, fungibles, Balance, Preservation::Expendable};
 
@@ -225,6 +225,8 @@ where
 		asset: Self::AssetKind,
 		amount: Self::Balance,
 	) {
+		use sp_runtime::traits::Zero;
+
 		if F::total_issuance(asset.clone()).is_zero() {
 			let _ = <F as fungibles::Create<_>>::create(
 				asset.clone(),

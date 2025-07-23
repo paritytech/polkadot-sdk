@@ -555,8 +555,7 @@ pub mod pallet {
 		/// ## Complexity
 		/// - O(1).
 		#[pallet::call_index(0)]
-		// TODO: change weight
-		#[pallet::weight(<T as Config<I>>::WeightInfo::propose_bounty(description.len() as u32))]
+		#[pallet::weight(<T as Config<I>>::WeightInfo::fund_bounty(description.len() as u32))]
 		pub fn fund_bounty(
 			origin: OriginFor<T>,
 			asset_kind: Box<T::AssetKind>,
@@ -636,8 +635,7 @@ pub mod pallet {
 		/// ## Complexity
 		/// - O(1).
 		#[pallet::call_index(1)]
-		// TODO: change weight
-		#[pallet::weight(<T as Config<I>>::WeightInfo::approve_bounty_with_curator())]
+		#[pallet::weight(<T as Config<I>>::WeightInfo::fund_child_bounty(description.len() as u32))]
 		pub fn fund_child_bounty(
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
@@ -757,14 +755,16 @@ pub mod pallet {
 		/// ## Complexity
 		/// - O(1).
 		#[pallet::call_index(2)]
-		// TODO: change weight
-		#[pallet::weight(<T as Config<I>>::WeightInfo::propose_curator())]
+		#[pallet::weight(match child_bounty_id {
+			None => <T as Config<I>>::WeightInfo::propose_curator_parent_bounty(),
+			Some(_) => <T as Config<I>>::WeightInfo::propose_curator_child_bounty(),
+		})]
 		pub fn propose_curator(
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
 			child_bounty_id: Option<BountyIndex>,
 			curator: AccountIdLookupOf<T>,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			let maybe_sender = ensure_signed(origin.clone())
 				.map(Some)
 				.or_else(|_| T::SpendOrigin::ensure_origin(origin.clone()).map(|_| None))?;
@@ -774,7 +774,7 @@ pub mod pallet {
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 			ensure!(status == BountyStatus::CuratorUnassigned, Error::<T, I>::UnexpectedStatus);
 
-			match child_bounty_id {
+			let weight = match child_bounty_id {
 				// Only `SpendOrigin` can propose curator for parent bounty
 				None => {
 					ensure!(maybe_sender.is_none(), BadOrigin);
@@ -785,12 +785,16 @@ pub mod pallet {
 						)
 						.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
 					ensure!(native_amount <= max_amount, Error::<T, I>::InsufficientPermission);
+
+					<T as Config<I>>::WeightInfo::propose_curator_parent_bounty()
 				},
 				// Only `SpendOrigin` can propose curator for parent bounty
 				Some(_) => {
 					let parent_curator = parent_curator.ok_or(Error::<T, I>::UnexpectedStatus)?;
 					let sender = maybe_sender.ok_or(BadOrigin)?;
 					ensure!(sender == parent_curator, BadOrigin);
+
+					<T as Config<I>>::WeightInfo::propose_curator_child_bounty()
 				},
 			};
 
@@ -803,7 +807,7 @@ pub mod pallet {
 				curator,
 			});
 
-			Ok(())
+			Ok(Some(weight).into())
 		}
 
 		/// Accept the curator role for a child-/bounty.
@@ -826,7 +830,6 @@ pub mod pallet {
 		/// ## Complexity
 		/// - O(1).
 		#[pallet::call_index(3)]
-		// TODO: change weight
 		#[pallet::weight(<T as Config<I>>::WeightInfo::accept_curator())]
 		pub fn accept_curator(
 			origin: OriginFor<T>,
@@ -889,7 +892,6 @@ pub mod pallet {
 		/// ## Complexity
 		/// - O(1).
 		#[pallet::call_index(4)]
-		// TODO: change weight
 		#[pallet::weight(<T as Config<I>>::WeightInfo::unassign_curator())]
 		pub fn unassign_curator(
 			origin: OriginFor<T>,
@@ -997,7 +999,6 @@ pub mod pallet {
 		/// ## Complexity
 		/// - O(1).
 		#[pallet::call_index(5)]
-		// TODO: change weight
 		#[pallet::weight(<T as Config<I>>::WeightInfo::award_bounty())]
 		pub fn award_bounty(
 			origin: OriginFor<T>,
@@ -1072,9 +1073,10 @@ pub mod pallet {
 		/// ## Complexity
 		/// - O(1).
 		#[pallet::call_index(6)]
-		// TODO: change weight
-		#[pallet::weight(<T as Config<I>>::WeightInfo::close_bounty_proposed()
-			.max(<T as Config<I>>::WeightInfo::close_bounty_active()))]
+		#[pallet::weight(match child_bounty_id {
+			None => <T as Config<I>>::WeightInfo::close_parent_bounty(),
+			Some(_) => <T as Config<I>>::WeightInfo::close_child_bounty(),
+		})]
 		pub fn close_bounty(
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
@@ -1094,7 +1096,7 @@ pub mod pallet {
 				_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
 			};
 
-			match child_bounty_id {
+			let weight = match child_bounty_id {
 				None => {
 					// Parent bounty can only be closed if it has no active child bounties.
 					ensure!(
@@ -1107,6 +1109,8 @@ pub mod pallet {
 							maybe_curator.as_ref().map_or(false, |curator| curator == sender);
 						ensure!(is_curator, BadOrigin);
 					}
+
+					<T as Config<I>>::WeightInfo::close_parent_bounty()
 				},
 				Some(_) => {
 					// Child-bounty can be closed by `RejectOrigin`, the curator or parent curator.
@@ -1118,8 +1122,10 @@ pub mod pallet {
 							.map_or(false, |parent_curator| parent_curator == sender);
 						ensure!(is_curator || is_parent_curator, BadOrigin);
 					}
+
+					<T as Config<I>>::WeightInfo::close_child_bounty()
 				},
-			}
+			};
 
 			let payment_status = Self::do_process_refund_payment(
 				parent_bounty_id,
@@ -1140,8 +1146,7 @@ pub mod pallet {
 				child_index: child_bounty_id,
 			});
 
-			// TODO: change weight
-			Ok(Some(<T as Config<I>>::WeightInfo::close_bounty_proposed()).into())
+			Ok(Some(weight).into())
 		}
 
 		/// Check and update the payment status of a child-/bounty.
@@ -1169,8 +1174,9 @@ pub mod pallet {
 		/// ## Complexity
 		/// - O(1).
 		#[pallet::call_index(7)]
-		// TODO: change weight
-		#[pallet::weight(<T as Config<I>>::WeightInfo::approve_bounty_with_curator())]
+		#[pallet::weight(<T as Config<I>>::WeightInfo::check_status_funding().max(
+			<T as Config<I>>::WeightInfo::check_status_refund(),
+		).max(<T as Config<I>>::WeightInfo::check_status_payout()))]
 		pub fn check_status(
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
@@ -1189,7 +1195,7 @@ pub mod pallet {
 						child_bounty_id,
 						payment_status.clone(),
 					)?;
-					// TODO: change weight
+
 					let new_status = match new_payment_status {
 						PaymentState::Succeeded => match (child_bounty_id, parent_curator) {
 							(Some(_), Some(parent_curator)) if curator == parent_curator =>
@@ -1202,7 +1208,7 @@ pub mod pallet {
 						},
 					};
 
-					let weight = <T as Config<I>>::WeightInfo::approve_bounty_with_curator();
+					let weight = <T as Config<I>>::WeightInfo::check_status_funding();
 
 					(new_status, weight)
 				},
@@ -1212,8 +1218,8 @@ pub mod pallet {
 						child_bounty_id,
 						payment_status.clone(),
 					)?;
-					// TODO: change weight
-					match new_payment_status {
+
+					let new_status = match new_payment_status {
 						PaymentState::Succeeded => {
 							if let Some(curator) = curator {
 								// Unreserve the curator deposit when payment succeeds
@@ -1233,14 +1239,15 @@ pub mod pallet {
 							Self::remove_bounty(parent_bounty_id, child_bounty_id);
 							return Ok(Pays::No.into())
 						},
-						_ => (
-							BountyStatus::RefundAttempted {
-								payment_status: new_payment_status,
-								curator: curator.clone(),
-							},
-							<T as Config<I>>::WeightInfo::approve_bounty_with_curator(),
-						),
-					}
+						_ => BountyStatus::RefundAttempted {
+							payment_status: new_payment_status,
+							curator: curator.clone(),
+						},
+					};
+
+					let weight = <T as Config<I>>::WeightInfo::check_status_refund();
+
+					(new_status, weight)
 				},
 				PayoutAttempted { ref curator, ref beneficiary, ref payment_status } => {
 					let new_payment_status = Self::do_check_payout_payment_status(
@@ -1251,8 +1258,8 @@ pub mod pallet {
 						beneficiary.clone(),
 						payment_status.clone(),
 					)?;
-					// TODO: change weight
-					match new_payment_status {
+
+					let new_status = match new_payment_status {
 						PaymentState::Succeeded => {
 							// Unreserve the curator deposit when both payments succeed
 							// If the child curator is the parent curator, the
@@ -1263,15 +1270,16 @@ pub mod pallet {
 							Self::remove_bounty(parent_bounty_id, child_bounty_id);
 							return Ok(Pays::No.into())
 						},
-						_ => (
-							BountyStatus::PayoutAttempted {
-								curator: curator.clone(),
-								beneficiary: beneficiary.clone(),
-								payment_status: new_payment_status.clone(),
-							},
-							<T as Config<I>>::WeightInfo::approve_bounty_with_curator(),
-						),
-					}
+						_ => BountyStatus::PayoutAttempted {
+							curator: curator.clone(),
+							beneficiary: beneficiary.clone(),
+							payment_status: new_payment_status.clone(),
+						},
+					};
+
+					let weight = <T as Config<I>>::WeightInfo::check_status_payout();
+
+					(new_status, weight)
 				},
 				_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
 			};
@@ -1304,8 +1312,9 @@ pub mod pallet {
 		/// ## Complexity
 		/// - O(1).
 		#[pallet::call_index(8)]
-		// TODO: change weight
-		#[pallet::weight(<T as Config<I>>::WeightInfo::approve_bounty_with_curator())]
+		#[pallet::weight(<T as Config<I>>::WeightInfo::retry_payment_funding().max(
+			<T as Config<I>>::WeightInfo::retry_payment_refund(),
+		).max(<T as Config<I>>::WeightInfo::retry_payment_payout()))]
 		pub fn retry_payment(
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
@@ -1326,13 +1335,13 @@ pub mod pallet {
 						value,
 						Some(payment_status.clone()),
 					)?;
-					// TODO: change weight
+
 					(
 						FundingAttempted {
 							payment_status: new_payment_status,
 							curator: curator.clone(),
 						},
-						<T as Config<I>>::WeightInfo::approve_bounty_with_curator(),
+						<T as Config<I>>::WeightInfo::retry_payment_funding(),
 					)
 				},
 				RefundAttempted { ref curator, ref payment_status } => {
@@ -1343,13 +1352,12 @@ pub mod pallet {
 						value,
 						Some(payment_status.clone()),
 					)?;
-					// TODO: change weight
 					(
 						RefundAttempted {
 							curator: curator.clone(),
 							payment_status: new_payment_status,
 						},
-						<T as Config<I>>::WeightInfo::approve_bounty_with_curator(),
+						<T as Config<I>>::WeightInfo::retry_payment_refund(),
 					)
 				},
 				PayoutAttempted { ref curator, ref beneficiary, ref payment_status } => {
@@ -1361,14 +1369,13 @@ pub mod pallet {
 						beneficiary.clone(),
 						Some(payment_status.clone()),
 					)?;
-					// TODO: change weight
 					(
 						PayoutAttempted {
 							curator: curator.clone(),
 							beneficiary: beneficiary.clone(),
 							payment_status: new_payment_status,
 						},
-						<T as Config<I>>::WeightInfo::approve_bounty_with_curator(),
+						<T as Config<I>>::WeightInfo::retry_payment_payout(),
 					)
 				},
 				_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
