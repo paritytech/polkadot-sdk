@@ -15,7 +15,52 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # OPF pallet
+//! # Optimistic Project Funding (OPF) pallet
+//!
+//! OPF is a mechanism for voter to distribute funds to projects using conviction voting at regular
+//! intervals. The OPF pot should be funded from a continuous stream of fund, the funds
+//! not spend in a round are sent to another destination account, typically the treasury.
+//! Projects to be voted on must registered by admin origin, and can be unregistered by the same
+//! origin.
+//!
+//! This pallet is tied to an instance of pallet conviction voting.
+//!
+//! ## Calls:
+//!
+//! * [`register_project`](Pallet::register_project) – An Admin origin (e.g. OpenGov referendum) can
+//!   register a project, providing owner, reward destination, name and description. Voter can vote
+//!   on the project starting on next round.
+//! * [`manage_project_info`](Pallet::manage_project_info) – The project owner can update the
+//!   project information, such as fund destination, name and description.
+//! * [`unregister_project`](Pallet::unregister_project) – An Admin origin can unregister a project,
+//!   removing it from the set of registered projects. The project will not receive reward for the
+//!   current round, and will not be part of the next round.
+//! * [`remove_automatic_forwarding`](Pallet::remove_automatic_forwarding) – By default votes are
+//!   automatically forwarded to the next round, this forwarding is stopped every
+//!   [`Config::ResetVotesRoundNumber`]. This call allows to remove the forwarding of the vote. Any
+//!   subsequent vote will automatically re-enable the forwarding.
+//!
+//! The calls to vote on polls are inside pallet conviction voting.
+//!
+//! ## Rounds:
+//!
+//! Every [`Config::RoundDuration`] a new round is created, polls for all registered
+//! projects are created, user can vote on the polls.
+//! At the end of the round, the votes are gathered and projects are rewarded. Then votes are
+//! forwarded to the next round in the background over the course of multiple blocks.
+//!
+//! ### Reward calculation
+//!
+//! At the end of a round the pallet disburses the pot as follows:
+//! ```text
+//! Sᵢ = max(ayesᵢ − naysᵢ, 0)      // net support of project i
+//! Σ  = Σ Sᵢ                       // total positive support across all projects
+//! rewardᵢ = (Sᵢ / Σ) × pot_balance
+//! ```
+//! * `ayesᵢ`, `naysᵢ` come from the conviction-voting tally of project i.
+//! * Projects with `Sᵢ = 0` or that were unregistered mid‑round receive no payout.
+//! * Any unallocated funds are transferred to [`Config::TreasuryAccountId`], leaving the pot empty
+//!   before the next round begins.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
