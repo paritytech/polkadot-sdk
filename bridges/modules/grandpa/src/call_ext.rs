@@ -85,11 +85,11 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 
 		// else - if we can not accept more free headers, "reject" the transaction
 		if !Self::has_free_header_slots() {
-			log::trace!(
+			tracing::trace!(
 				target: crate::LOG_TARGET,
-				"Cannot accept free {:?} header {:?}. No more free slots remaining",
-				T::BridgedChain::ID,
-				call_info.block_number,
+				chain_id=?T::BridgedChain::ID,
+				block_number=?call_info.block_number,
+				"Cannot accept free header. No more free slots remaining"
 			);
 
 			return Err(Error::<T, I>::FreeHeadersLimitExceded);
@@ -99,14 +99,13 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 		if !call_info.is_mandatory {
 			if let Some(free_headers_interval) = T::FreeHeadersInterval::get() {
 				if improved_by < free_headers_interval.into() {
-					log::trace!(
+					tracing::trace!(
 						target: crate::LOG_TARGET,
-						"Cannot accept free {:?} header {:?}. Too small difference \
-						between submitted headers: {:?} vs {}",
-						T::BridgedChain::ID,
-						call_info.block_number,
-						improved_by,
-						free_headers_interval,
+						chain_id=?T::BridgedChain::ID,
+						block_number=?call_info.block_number,
+						?improved_by,
+						%free_headers_interval,
+						"Cannot accept free header. Too small difference between submitted headers"
 					);
 
 					return Err(Error::<T, I>::BelowFreeHeaderInterval);
@@ -137,10 +136,10 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 		current_set_id: Option<SetId>,
 	) -> Result<BlockNumberOf<T::BridgedChain>, Error<T, I>> {
 		let best_finalized = BestFinalized::<T, I>::get().ok_or_else(|| {
-			log::trace!(
+			tracing::trace!(
 				target: crate::LOG_TARGET,
-				"Cannot finalize header {:?} because pallet is not yet initialized",
-				finality_target,
+				header=?finality_target,
+				"Cannot finalize header because pallet is not yet initialized"
 			);
 			<Error<T, I>>::NotInitialized
 		})?;
@@ -148,11 +147,11 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 		let improved_by = match finality_target.checked_sub(&best_finalized.number()) {
 			Some(improved_by) if improved_by > Zero::zero() => improved_by,
 			_ => {
-				log::trace!(
+				tracing::trace!(
 					target: crate::LOG_TARGET,
-					"Cannot finalize obsolete header: bundled {:?}, best {:?}",
-					finality_target,
-					best_finalized,
+					bundled=?finality_target,
+					best=?best_finalized,
+					"Cannot finalize obsolete header"
 				);
 
 				return Err(Error::<T, I>::OldHeader)
@@ -162,11 +161,11 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 		if let Some(current_set_id) = current_set_id {
 			let actual_set_id = <CurrentAuthoritySet<T, I>>::get().set_id;
 			if current_set_id != actual_set_id {
-				log::trace!(
+				tracing::trace!(
 					target: crate::LOG_TARGET,
-					"Cannot finalize header signed by unknown authority set: bundled {:?}, best {:?}",
-					current_set_id,
-					actual_set_id,
+					bundled=?current_set_id,
+					best=?actual_set_id,
+					"Cannot finalize header signed by unknown authority set"
 				);
 
 				return Err(Error::<T, I>::InvalidAuthoritySetId)
