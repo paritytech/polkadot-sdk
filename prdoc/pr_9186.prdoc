@@ -1,0 +1,9 @@
+title: 'pallet-staking-async: Use saturating addition for era reward points'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR replaces regular addition with saturating addition when accumulating era reward points in
+    pallet-staking-async to prevent potential overflow.
+crates:
+- name: pallet-staking-async
+  bump: patch
