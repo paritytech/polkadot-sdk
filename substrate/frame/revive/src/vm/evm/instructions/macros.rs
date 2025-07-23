@@ -109,31 +109,21 @@ macro_rules! gas_or_fail {
 	};
 }
 
-use crate::{
-	vm::{
-		evm::{EVMInterpreter, Gas},
-		Ext,
-	},
-	RuntimeCosts,
-};
-use revm::interpreter::{gas::MemoryExtensionResult, Interpreter};
+use crate::{vm::Ext, RuntimeCosts};
+use revm::interpreter::gas::{MemoryExtensionResult, MemoryGas};
 
 /// Adapted from
 /// https://docs.rs/revm/latest/revm/interpreter/struct.Gas.html#method.record_memory_expansion
 pub fn record_memory_expansion<'a, E: Ext>(
-	interpreter: &mut Interpreter<EVMInterpreter<'a, E>>,
+	memory: &mut MemoryGas,
+	ext: &mut E,
 	new_len: usize,
 ) -> MemoryExtensionResult {
-	let Some(additional_cost) = interpreter.gas.memory_mut().record_new_len(new_len) else {
+	let Some(additional_cost) = memory.record_new_len(new_len) else {
 		return MemoryExtensionResult::Same;
 	};
 
-	if interpreter
-		.extend
-		.gas_meter_mut()
-		.charge(RuntimeCosts::EVMGas(additional_cost))
-		.is_err()
-	{
+	if ext.gas_meter_mut().charge(RuntimeCosts::EVMGas(additional_cost)).is_err() {
 		return MemoryExtensionResult::OutOfGas;
 	}
 
@@ -149,8 +139,11 @@ macro_rules! resize_memory {
 	};
 	($interpreter:expr, $offset:expr, $len:expr, $ret:expr) => {
 		let words_num = revm::interpreter::num_words($offset.saturating_add($len));
-		match crate::vm::evm::instructions::macros::record_memory_expansion($interpreter, words_num)
-		{
+		match crate::vm::evm::instructions::macros::record_memory_expansion(
+			$interpreter.gas.memory_mut(),
+			$interpreter.extend,
+			words_num,
+		) {
 			revm::interpreter::gas::MemoryExtensionResult::Extended => {
 				$interpreter.memory.resize(words_num * 32);
 			},

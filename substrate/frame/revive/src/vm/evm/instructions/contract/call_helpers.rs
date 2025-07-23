@@ -4,7 +4,7 @@ use revm::{
 	context_interface::{context::StateLoad, journaled_state::AccountLoad},
 	interpreter::{
 		gas as revm_gas,
-		interpreter_types::{InterpreterTypes, MemoryTr, RuntimeFlag, StackTr},
+		interpreter_types::{MemoryTr, RuntimeFlag, StackTr},
 		Interpreter,
 	},
 	primitives::{hardfork::SpecId::*, U256},
@@ -20,7 +20,7 @@ pub fn get_memory_input_and_out_ranges<'a, E: Ext>(
 	let mut in_range = resize_memory(interpreter, in_offset, in_len)?;
 
 	if !in_range.is_empty() {
-		let offset = interpreter.memory.local_memory_offset();
+		let offset = <_ as MemoryTr>::local_memory_offset(&interpreter.memory);
 		in_range = in_range.start.saturating_add(offset)..in_range.end.saturating_add(offset);
 	}
 
