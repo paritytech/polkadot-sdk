@@ -2488,9 +2488,8 @@ sp_api::impl_runtime_apis! {
 			prev_block_number: BlockNumber,
 			best_known_block_number: Option<BlockNumber>,
 		) -> Option<sp_runtime::OpaqueValue> {
-			use sp_consensus_beefy::AncestryHelper;
-
-			BeefyMmrLeaf::generate_proof(prev_block_number, best_known_block_number)
+			Mmr::generate_ancestry_proof(prev_block_number, best_known_block_number)
+				.ok()
 				.map(|p| p.encode())
 				.map(sp_runtime::OpaqueValue::new)
 		}
