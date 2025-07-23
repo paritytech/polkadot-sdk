@@ -259,11 +259,7 @@ mod benchmarks {
 				vote: Vote { aye: true, conviction: Conviction::Locked1x },
 				balance: 1u32.into(),
 			};
-			crate::VotesToForward::<T>::insert(
-				0,
-				&voter,
-				crate::VoteInSession { round: 0, vote: vote.clone() },
-			);
+			crate::VotesToForward::<T>::insert(0, &voter, crate::VoteInSession { round: 0, vote });
 		}
 		VotesForwardingState::<T>::put(VotesForwardingInfo {
 			forwarding: ForwardingProcess::Start,
