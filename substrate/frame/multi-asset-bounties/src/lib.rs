@@ -75,6 +75,7 @@ mod benchmarking;
 mod mock;
 mod tests;
 pub mod weights;
+#[cfg(feature = "runtime-benchmarks")]
 pub use benchmarking::ArgumentsFactory;
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -339,7 +340,12 @@ pub mod pallet {
 
 		/// Helper type for benchmarks.
 		#[cfg(feature = "runtime-benchmarks")]
-		type BenchmarkHelper: benchmarking::ArgumentsFactory<Self::AssetKind, Self::Beneficiary>;
+		type BenchmarkHelper: benchmarking::ArgumentsFactory<
+			Self::AssetKind,
+			Self::Beneficiary,
+			BalanceOf<Self, I>,
+			AssetBalanceOf<Self, I>,
+		>;
 	}
 
 	#[pallet::error]

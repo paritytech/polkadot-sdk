@@ -21,7 +21,7 @@ use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use core::fmt::Debug;
 use scale_info::TypeInfo;
 use sp_core::{RuntimeDebug, TypedGet};
-use sp_runtime::DispatchError;
+use sp_runtime::{traits::Zero, DispatchError};
 
 use super::{fungible, fungibles, Balance, Preservation::Expendable};
 
@@ -192,7 +192,8 @@ pub trait PayWithSource {
 	fn ensure_concluded(id: Self::Id);
 }
 
-/// Implementation of the `PayWithSource` trait using multiple fungible asset classes (e.g., `pallet_assets`)
+/// Implementation of the `PayWithSource` trait using multiple fungible asset classes (e.g.,
+/// `pallet_assets`)
 pub struct PayWithFungibles<F, A>(core::marker::PhantomData<(F, A)>);
 impl<A, F> frame_support::traits::tokens::PayWithSource for PayWithFungibles<F, A>
 where
@@ -224,7 +225,14 @@ where
 		asset: Self::AssetKind,
 		amount: Self::Balance,
 	) {
-		<F as fungibles::Create<_>>::create(asset.clone(), source.clone(), true, amount).unwrap();
+		if F::total_issuance(asset.clone()).is_zero() {
+			let _ = <F as fungibles::Create<_>>::create(
+				asset.clone(),
+				source.clone(),
+				true,
+				amount / 100u32.into(),
+			);
+		}
 		<F as fungibles::Mutate<_>>::mint_into(asset, &source, amount).unwrap();
 	}
 	#[cfg(feature = "runtime-benchmarks")]

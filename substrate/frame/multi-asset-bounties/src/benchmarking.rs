@@ -30,18 +30,24 @@ use frame_system::RawOrigin;
 use sp_core::crypto::FromEntropy;
 
 /// Trait describing factory functions for dispatchables' parameters.
-pub trait ArgumentsFactory<AssetKind, Beneficiary> {
+pub trait ArgumentsFactory<AssetKind, Beneficiary, InBalance, AssetBalance> {
 	/// Factory function for an asset kind.
 	fn create_asset_kind(seed: u32) -> AssetKind;
+
 	/// Factory function for a beneficiary.
 	fn create_beneficiary(seed: [u8; 32]) -> Beneficiary;
+
+	/// Conversion function for an asset kind.
+	fn to_asset_balance(balance: InBalance, asset_id: AssetKind) -> AssetBalance;
 }
 
 /// Implementation that expects the parameters implement the [`FromEntropy`] trait.
-impl<AssetKind, Beneficiary> ArgumentsFactory<AssetKind, Beneficiary> for ()
+impl<AssetKind, Beneficiary, InBalance, AssetBalance>
+	ArgumentsFactory<AssetKind, Beneficiary, InBalance, AssetBalance> for ()
 where
 	AssetKind: FromEntropy,
 	Beneficiary: FromEntropy,
+	InBalance: Into<AssetBalance>,
 {
 	fn create_asset_kind(seed: u32) -> AssetKind {
 		AssetKind::from_entropy(&mut seed.encode().as_slice()).unwrap()
@@ -49,6 +55,10 @@ where
 
 	fn create_beneficiary(seed: [u8; 32]) -> Beneficiary {
 		Beneficiary::from_entropy(&mut seed.as_slice()).unwrap()
+	}
+
+	fn to_asset_balance(balance: InBalance, _asset_id: AssetKind) -> AssetBalance {
+		balance.into()
 	}
 }
 
@@ -112,13 +122,15 @@ pub fn get_payment_id<T: Config<I>, I: 'static>(
 // Create the pre-requisite information needed to `fund_bounty`.
 fn setup_bounty<T: Config<I>, I: 'static>(description: u32) -> BenchmarkBounty<T, I> {
 	let asset_kind = <T as Config<I>>::BenchmarkHelper::create_asset_kind(SEED);
-	let value: AssetBalanceOf<T, I> = 100_000u32.into();
-	let child_value: AssetBalanceOf<T, I> = 50_000u32.into();
+	T::BalanceConverter::ensure_successful(asset_kind.clone());
+	let min_native_value = T::BountyValueMinimum::get().saturating_mul(100u32.into());
+	let value: AssetBalanceOf<T, I> =
+		<T as Config<I>>::BenchmarkHelper::to_asset_balance(min_native_value, asset_kind.clone());
+	let child_value: AssetBalanceOf<T, I> = value / 4u32.into();
 	let curator = account("curator", 0, SEED);
 	let child_curator = account("child-curator", 1, SEED);
 	let beneficiary =
 		<T as Config<I>>::BenchmarkHelper::create_beneficiary([(SEED).try_into().unwrap(); 32]);
-	T::BalanceConverter::ensure_successful(asset_kind.clone());
 	let curator_deposit =
 		Pallet::<T, I>::calculate_curator_deposit(&value, asset_kind.clone()).expect("");
 	let _ = T::Currency::make_free_balance_be(
@@ -161,7 +173,6 @@ fn create_parent_bounty<T: Config<I>, I: 'static>(
 		s.asset_kind.clone(),
 		s.value,
 	);
-	T::BalanceConverter::ensure_successful(s.asset_kind.clone());
 
 	Bounties::<T, I>::fund_bounty(
 		origin,
@@ -220,24 +231,7 @@ fn create_child_bounty<T: Config<I>, I: 'static>(
 	origin: T::RuntimeOrigin,
 ) -> Result<BenchmarkBounty<T, I>, BenchmarkError> {
 	let mut s = create_active_parent_bounty::<T, I>(origin.clone())?;
-
-	let parent_bounty_account =
-		Bounties::<T, I>::bounty_account(s.parent_bounty_id, s.asset_kind.clone())
-			.expect("conversion failed");
-	let child_bounty_account = Bounties::<T, I>::child_bounty_account(
-		s.parent_bounty_id,
-		s.child_bounty_id,
-		s.asset_kind.clone(),
-	)
-	.expect("conversion failed");
 	let child_curator_lookup = T::Lookup::unlookup(s.child_curator.clone());
-	<T as pallet_bounties::Config<I>>::Paymaster::ensure_successful(
-		&parent_bounty_account,
-		&child_bounty_account,
-		s.asset_kind.clone(),
-		s.value,
-	);
-	T::BalanceConverter::ensure_successful(s.asset_kind.clone());
 
 	Bounties::<T, I>::fund_child_bounty(
 		RawOrigin::Signed(s.curator.clone()).into(),
@@ -377,7 +371,18 @@ mod benchmarks {
 
 		let approve_origin =
 			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		let curator_lookup = T::Lookup::unlookup(s.curator);
+		let curator_lookup = T::Lookup::unlookup(s.curator.clone());
+		let treasury_account =
+			Bounties::<T, I>::treasury_account(s.asset_kind.clone()).expect("conversion failed");
+		let parent_bounty_account =
+			Bounties::<T, I>::bounty_account(s.parent_bounty_id, s.asset_kind.clone())
+				.expect("conversion failed");
+		<T as pallet_bounties::Config<I>>::Paymaster::ensure_successful(
+			&treasury_account,
+			&parent_bounty_account,
+			s.asset_kind.clone(),
+			s.value,
+		);
 
 		#[extrinsic_call]
 		_(approve_origin, Box::new(s.asset_kind), s.value, curator_lookup, s.description);
@@ -416,7 +421,7 @@ mod benchmarks {
 			let res = Bounties::<T, I>::fund_child_bounty(
 				RawOrigin::Signed(s.curator).into(),
 				s.parent_bounty_id,
-				s.value,
+				s.child_value,
 				Some(child_curator_lookup),
 				s.description,
 			);
@@ -972,14 +977,16 @@ mod benchmarks {
 		let caller = s.curator.clone();
 
 		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
-			create_canceled_child_bounty::<T, I>(origin)?;
-			let payment_id = get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id))
-				.expect("no payment attempt");
-			<T as pallet_bounties::Config<I>>::Paymaster::ensure_concluded(payment_id);
-			let _ = set_status::<T, I>(
+			create_active_child_bounty::<T, I>(origin)?;
+			let new_status = BountyStatus::RefundAttempted {
+				payment_status: PaymentState::Failed,
+				curator: Some(s.child_curator),
+			};
+			let _ = pallet_bounties::Pallet::<T, I>::update_bounty_details(
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
-				PaymentState::Failed,
+				new_status,
+				None,
 			);
 			true
 		} else {
@@ -1033,14 +1040,17 @@ mod benchmarks {
 		let caller = s.curator.clone();
 
 		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
-			create_awarded_child_bounty::<T, I>(origin)?;
-			let payment_id = get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id))
-				.expect("no payment attempt");
-			<T as pallet_bounties::Config<I>>::Paymaster::ensure_concluded(payment_id);
-			let _ = set_status::<T, I>(
+			create_active_child_bounty::<T, I>(origin)?;
+			let new_status = BountyStatus::PayoutAttempted {
+				payment_status: PaymentState::Failed,
+				curator: s.child_curator.clone(),
+				beneficiary: s.beneficiary.clone(),
+			};
+			let _ = pallet_bounties::Pallet::<T, I>::update_bounty_details(
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
-				PaymentState::Failed,
+				new_status,
+				None,
 			);
 			true
 		} else {

@@ -57,7 +57,7 @@ use frame_support::{
 			imbalance::{ResolveAssetTo, ResolveTo},
 			nonfungibles_v2::Inspect,
 			pay::PayAssetFromAccount,
-			GetSalary, PayFromAccount, PayWithFungibles,
+			ConversionToAssetBalance, GetSalary, PayFromAccount, PayWithFungibles,
 		},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, ConstU64,
 		ConstantStoragePrice, Contains, Currency, EitherOfDiverse, EnsureOriginWithArg,
@@ -315,7 +315,7 @@ impl PalletTreasuryArgumentsFactory<NativeOrWithId<u32>, AccountId> for PalletTr
 #[cfg(feature = "runtime-benchmarks")]
 pub struct PalletMultiAssetBountiesArguments;
 #[cfg(feature = "runtime-benchmarks")]
-impl PalletMultiAssetBountiesArgumentsFactory<NativeOrWithId<u32>, AccountId>
+impl PalletMultiAssetBountiesArgumentsFactory<NativeOrWithId<u32>, AccountId, u128, u128>
 	for PalletMultiAssetBountiesArguments
 {
 	fn create_asset_kind(seed: u32) -> NativeOrWithId<u32> {
@@ -328,6 +328,11 @@ impl PalletMultiAssetBountiesArgumentsFactory<NativeOrWithId<u32>, AccountId>
 
 	fn create_beneficiary(seed: [u8; 32]) -> AccountId {
 		AccountId::from_entropy(&mut seed.as_slice()).unwrap()
+	}
+
+	fn to_asset_balance(balance: u128, asset_id: NativeOrWithId<u32>) -> u128 {
+		pallet_asset_rate::Pallet::<Runtime>::to_asset_balance(balance, asset_id.clone())
+			.unwrap_or_else(|_| panic!("Conversion must succeed for benchmarks"))
 	}
 }
 
