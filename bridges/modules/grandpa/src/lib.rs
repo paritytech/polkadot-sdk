@@ -732,8 +732,8 @@ pub mod pallet {
 				tracing::error!(
 					target: LOG_TARGET,
 					%authority_set_length,
-					"Failed to initialize bridge. Number of authorities in the set is larger than the configured value {}",
-					T::BridgedChain::MAX_AUTHORITIES_COUNT,
+					max_count=%T::BridgedChain::MAX_AUTHORITIES_COUNT,
+					"Failed to initialize bridge. Number of authorities in the set is larger than the configured value"
 				);
 			})?;
 		let initial_hash = header.hash();
