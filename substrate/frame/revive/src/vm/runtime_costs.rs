@@ -1,5 +1,16 @@
 use crate::{gas::Token, weights::WeightInfo, Config};
-use frame_support::weights::Weight;
+use frame_support::weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight};
+
+/// Current approximation of the gas/s consumption considering
+/// EVM execution over compiled WASM (on 4.4Ghz CPU).
+/// Given the 2000ms Weight, from which 75% only are used for transactions,
+/// the total EVM execution gas limit is: GAS_PER_SECOND * 2 * 0.75 ~= 60_000_000.
+const GAS_PER_SECOND: u64 = 40_000_000;
+
+/// Approximate ratio of the amount of Weight per Gas.
+/// u64 works for approximations because Weight is a very small unit compared to
+/// gas.
+const WEIGHT_PER_GAS: u64 = WEIGHT_REF_TIME_PER_SECOND / GAS_PER_SECOND;
 
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Copy, Clone)]
@@ -197,7 +208,6 @@ impl<T: Config> Token<T> for RuntimeCosts {
 	fn weight(&self) -> Weight {
 		use self::RuntimeCosts::*;
 		match *self {
-			EVMGas(n) => T::WeightInfo::evm_gas(n),
 			HostFn => cost_args!(noop_host_fn, 1),
 			CopyToContract(len) => T::WeightInfo::seal_copy_to_contract(len),
 			CopyFromContract(len) => T::WeightInfo::seal_return(len),
@@ -283,18 +293,9 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Bn128Pairing(len) => T::WeightInfo::bn128_pairing(len),
 			Identity(len) => T::WeightInfo::identity(len),
 			Blake2F(rounds) => T::WeightInfo::blake2f(rounds),
-			Modexp(gas) => {
-				use frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND;
-				/// Current approximation of the gas/s consumption considering
-				/// EVM execution over compiled WASM (on 4.4Ghz CPU).
-				/// Given the 2000ms Weight, from which 75% only are used for transactions,
-				/// the total EVM execution gas limit is: GAS_PER_SECOND * 2 * 0.75 ~= 60_000_000.
-				const GAS_PER_SECOND: u64 = 40_000_000;
-
-				/// Approximate ratio of the amount of Weight per Gas.
-				/// u64 works for approximations because Weight is a very small unit compared to
-				/// gas.
-				const WEIGHT_PER_GAS: u64 = WEIGHT_REF_TIME_PER_SECOND / GAS_PER_SECOND;
+			Modexp(gas) => Weight::from_parts(gas.saturating_mul(WEIGHT_PER_GAS), 0),
+			EVMGas(gas) => {
+				// TODO replace this by a proper benchmark value
 				Weight::from_parts(gas.saturating_mul(WEIGHT_PER_GAS), 0)
 			},
 		}
