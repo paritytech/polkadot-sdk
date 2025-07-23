@@ -132,41 +132,20 @@ impl AssetsInHolding {
 
 	/// Mutate `self` to contain all given `assets`, saturating if necessary.
 	///
-	/// NOTE: [`AssetsInHolding`] are always sorted, allowing us to optimize this function from
-	/// `O(n^2)` to `O(n)`.
+	/// NOTE: [`AssetsInHolding`] are always sorted
 	pub fn subsume_assets(&mut self, mut assets: AssetsInHolding) {
-		let mut f_iter = assets.fungible.iter_mut();
-		let mut g_iter = self.fungible.iter_mut();
-		if let (Some(mut f), Some(mut g)) = (f_iter.next(), g_iter.next()) {
-			loop {
-				if f.0 == g.0 {
-					// keys are equal. in this case, we add `self`'s balance for the asset onto
-					// `assets`, balance, knowing that the `append` operation which follows will
-					// clobber `self`'s value and only use `assets`'s.
-					(*f.1).saturating_accrue(*g.1);
-
-					f = match f_iter.next() {
-						Some(x) => x,
-						None => break,
-					};
-					g = match g_iter.next() {
-						Some(x) => x,
-						None => break,
-					};
-				} else if f.0 < g.0 {
-					f = match f_iter.next() {
-						Some(x) => x,
-						None => break,
-					};
-				} else {
-					g = match g_iter.next() {
-						Some(x) => x,
-						None => break,
-					};
-				}
-			}
+		let assets_iter = assets.fungible.into_iter();
+		// for fungibles, find matching fungibles and sum their amounts so we end-up having just
+		// single such fungible but with increased amount inside
+		for (k, v) in assets_iter {
+			self.fungible
+				.entry(k)
+				.and_modify(|entry| entry.saturating_accrue(v))
+				.or_insert(v);
 		}
-		self.fungible.append(&mut assets.fungible);
+		// for non-fungibles, every entry is unique so there is no notion of amount to sum-up
+		// together if there is the same non-fungible in both holdings (same instance_id) these
+		// will be collapsed into just single one
 		self.non_fungible.append(&mut assets.non_fungible);
 	}
 
@@ -537,6 +516,11 @@ mod tests {
 		(Here, amount).into()
 	}
 	#[allow(non_snake_case)]
+	/// Concrete fungible constructor with index for GeneralIndex
+	fn CFG(index: u128, amount: u128) -> Asset {
+		(GeneralIndex(index), amount).into()
+	}
+	#[allow(non_snake_case)]
 	/// Concrete fungible constructor (parent=1)
 	fn CFP(amount: u128) -> Asset {
 		(Parent, amount).into()
@@ -560,6 +544,57 @@ mod tests {
 	}
 
 	#[test]
+	fn assets_in_holding_order_works() {
+		// populate assets in non-ordered fashion
+		let mut assets = AssetsInHolding::new();
+		assets.subsume(CFPP(300));
+		assets.subsume(CFP(200));
+		assets.subsume(CNF(2));
+		assets.subsume(CF(100));
+		assets.subsume(CNF(1));
+		assets.subsume(CFG(10, 400));
+		assets.subsume(CFG(15, 500));
+
+		// following is the order we expect from AssetsInHolding
+		// - fungibles before non-fungibles
+		// - for fungibles, sort by parent first, if parents match, then by other components like
+		//   general index
+		// - for non-fungibles, sort by instance_id
+		let mut iter = assets.clone().into_assets_iter();
+		// fungible, order by parent, parent=0
+		assert_eq!(Some(CF(100)), iter.next());
+		// fungible, order by parent then by general index, parent=0, general index=10
+		assert_eq!(Some(CFG(10, 400)), iter.next());
+		// fungible, order by parent then by general index, parent=0, general index=15
+		assert_eq!(Some(CFG(15, 500)), iter.next());
+		// fungible, order by parent, parent=1
+		assert_eq!(Some(CFP(200)), iter.next());
+		// fungible, order by parent, parent=2
+		assert_eq!(Some(CFPP(300)), iter.next());
+		// non-fungible, after fungibles, order by instance id, id=1
+		assert_eq!(Some(CNF(1)), iter.next());
+		// non-fungible, after fungibles, order by instance id, id=2
+		assert_eq!(Some(CNF(2)), iter.next());
+		// nothing else in the assets
+		assert_eq!(None, iter.next());
+
+		// lets add copy of the assets to the assets itself, just to check if order stays the same
+		// we also expect 2x amount for every fungible and collapsed non-fungibles
+		let assets_same = assets.clone();
+		assets.subsume_assets(assets_same);
+
+		let mut iter = assets.into_assets_iter();
+		assert_eq!(Some(CF(200)), iter.next());
+		assert_eq!(Some(CFG(10, 800)), iter.next());
+		assert_eq!(Some(CFG(15, 1000)), iter.next());
+		assert_eq!(Some(CFP(400)), iter.next());
+		assert_eq!(Some(CFPP(600)), iter.next());
+		assert_eq!(Some(CNF(1)), iter.next());
+		assert_eq!(Some(CNF(2)), iter.next());
+		assert_eq!(None, iter.next());
+	}
+
+	#[test]
 	fn subsume_assets_equal_length_holdings() {
 		let mut t1 = test_assets();
 		let mut t2 = AssetsInHolding::new();
@@ -569,6 +604,8 @@ mod tests {
 		let t1_clone = t1.clone();
 		let mut t2_clone = t2.clone();
 
+		// ensure values for same fungibles are summed up together
+		// and order is also ok (see assets_in_holding_order_works())
 		t1.subsume_assets(t2.clone());
 		let mut iter = t1.into_assets_iter();
 		assert_eq!(Some(CF(600)), iter.next());
@@ -576,6 +613,8 @@ mod tests {
 		assert_eq!(Some(CNF(50)), iter.next());
 		assert_eq!(None, iter.next());
 
+		// try the same initial holdings but other way around
+		// expecting same exact result as above
 		t2_clone.subsume_assets(t1_clone.clone());
 		let mut iter = t2_clone.into_assets_iter();
 		assert_eq!(Some(CF(600)), iter.next());
@@ -600,6 +639,8 @@ mod tests {
 		let t1_clone = t1.clone();
 		let mut t2_clone = t2.clone();
 
+		// ensure values for same fungibles are summed up together
+		// and order is also ok (see assets_in_holding_order_works())
 		t1.subsume_assets(t2);
 		let mut iter = t1.into_assets_iter();
 		assert_eq!(Some(CF(100)), iter.next());
@@ -609,6 +650,8 @@ mod tests {
 		assert_eq!(Some(CNF(50)), iter.next());
 		assert_eq!(None, iter.next());
 
+		// try the same initial holdings but other way around
+		// expecting same exact result as above
 		t2_clone.subsume_assets(t1_clone);
 		let mut iter = t2_clone.into_assets_iter();
 		assert_eq!(Some(CF(100)), iter.next());
@@ -634,6 +677,8 @@ mod tests {
 		let t1_clone = t1.clone();
 		let mut t2_clone = t2.clone();
 
+		// ensure values for same fungibles are summed up together
+		// and order is also ok (see assets_in_holding_order_works())
 		t1.subsume_assets(t2.clone());
 		let mut iter = t1.into_assets_iter();
 		assert_eq!(Some(CFP(400)), iter.next());
@@ -641,6 +686,8 @@ mod tests {
 		assert_eq!(Some(CNF(40)), iter.next());
 		assert_eq!(None, iter.next());
 
+		// try the same initial holdings but other way around
+		// expecting same exact result as above
 		t2_clone.subsume_assets(t1_clone.clone());
 		let mut iter = t2_clone.into_assets_iter();
 		assert_eq!(Some(CFP(400)), iter.next());
