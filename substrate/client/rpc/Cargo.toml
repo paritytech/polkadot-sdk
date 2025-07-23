@@ -45,13 +45,11 @@ tokio = { workspace = true, default-features = true }
 [dev-dependencies]
 assert_matches = { workspace = true }
 pretty_assertions = { workspace = true }
-sc-block-builder = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
 sc-transaction-pool = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
-tokio = { workspace = true, default-features = true }
 
 [features]
 test-helpers = []
