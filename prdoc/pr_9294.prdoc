@@ -4,5 +4,5 @@ doc:
   description: This PR replaces `log` with `tracing` instrumentation on `pallet-bridge-grandpa`
     by providing structured logging.
 crates:
-- name: bridge-runtime-common
+- name: pallet-bridge-grandpa
   bump: minor
