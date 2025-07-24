@@ -468,7 +468,7 @@ pub mod helpers {
 	}
 
 	/// A test utility for tracking XCM topic IDs
-	#[derive(Clone)]
+	#[derive(Clone, Debug)]
 	pub struct TopicIdTracker {
 		ids: HashMap<String, H256>,
 	}
@@ -493,6 +493,10 @@ pub mod helpers {
 		/// Inserts a topic ID with the given chain name in the captor.
 		pub fn insert(&mut self, chain: &str, id: H256) {
 			self.ids.insert(chain.to_string(), id);
+		}
+
+		pub fn insert_all(&mut self, chain: &str, ids: &[H256]) {
+			ids.iter().for_each(|&id| self.insert(chain, id));
 		}
 
 		/// Inserts a topic ID for a given chain and then asserts global uniqueness.
