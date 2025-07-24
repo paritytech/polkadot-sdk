@@ -470,7 +470,7 @@ pub mod helpers {
 	/// A test utility for tracking XCM topic IDs
 	#[derive(Clone, Debug)]
 	pub struct TopicIdTracker {
-		ids: HashMap<String, H256>,
+		ids: HashMap<String, HashSet<H256>>,
 	}
 	impl TopicIdTracker {
 		/// Initialises a new, empty topic ID tracker.
@@ -480,7 +480,7 @@ pub mod helpers {
 
 		/// Asserts that exactly one unique topic ID is present across all captured entries.
 		pub fn assert_unique(&self) {
-			let unique_ids: HashSet<_> = self.ids.values().collect();
+			let unique_ids: HashSet<_> = self.ids.values().flatten().collect();
 			assert_eq!(
 				unique_ids.len(),
 				1,
@@ -492,7 +492,7 @@ pub mod helpers {
 
 		/// Inserts a topic ID with the given chain name in the captor.
 		pub fn insert(&mut self, chain: &str, id: H256) {
-			self.ids.insert(chain.to_string(), id);
+			self.ids.entry(chain.to_string()).or_default().insert(id);
 		}
 
 		pub fn insert_all(&mut self, chain: &str, ids: &[H256]) {
@@ -501,9 +501,18 @@ pub mod helpers {
 
 		/// Inserts a topic ID for a given chain and then asserts global uniqueness.
 		pub fn insert_and_assert_unique(&mut self, chain: &str, id: H256) {
-			if let Some(existing_id) = self.ids.get(chain) {
+			if let Some(existing_ids) = self.ids.get(chain) {
 				assert_eq!(
-					id, *existing_id,
+					existing_ids.len(),
+					1,
+					"Expected exactly one topic ID for chain '{}', but found: {:?}",
+					chain,
+					existing_ids
+				);
+				let existing_id =
+					*existing_ids.iter().next().expect(&format!("Topic ID for chain '{}'", chain));
+				assert_eq!(
+					id, existing_id,
 					"Topic ID mismatch for chain '{}': expected {:?}, got {:?}",
 					id, existing_id, chain
 				);

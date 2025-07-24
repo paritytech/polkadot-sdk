@@ -16,9 +16,13 @@
 use crate::tests::{snowbridge_common::snowbridge_sovereign, *};
 use emulated_integration_tests_common::{
 	macros::Dmp,
-	xcm_helpers::{find_mq_processed_id, find_xcm_sent_message_id},
+	xcm_helpers::{
+		find_all_mq_processed_ids, find_all_xcm_sent_message_ids, find_mq_processed_id,
+		find_xcm_sent_message_id,
+	},
 	xcm_simulator::helpers::TopicIdTracker,
 };
+use sp_runtime::testing::H256;
 use xcm::latest::AssetTransferFilter;
 
 fn send_assets_over_bridge<F: FnOnce()>(send_fn: F) {
@@ -1144,9 +1148,12 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 					Weight::MAX,
 				);
 
-				let msg_sent_id =
-					find_xcm_sent_message_id::<PenpalB>().expect("Missing Sent Event");
-				topic_id_tracker.insert("PenpalB", msg_sent_id.into());
+				let msg_sent_ids: Vec<H256> = find_all_xcm_sent_message_ids::<PenpalB>()
+					.iter()
+					.map(|&id| id.into())
+					.collect();
+				assert!(msg_sent_ids.len() >= 1, "Missing Sent Event");
+				topic_id_tracker.insert_all("PenpalB", &msg_sent_ids);
 
 				result
 			}));
@@ -1171,9 +1178,9 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 						) => {},
 					]
 				);
-				let mq_prc_id =
-					find_mq_processed_id::<AssetHubWestend>().expect("Missing Processed Event");
-				topic_id_tracker.insert("AssetHubWestend", mq_prc_id);
+				let mq_prc_ids = find_all_mq_processed_ids::<AssetHubWestend>();
+				assert!(mq_prc_ids.len() >= 1, "Missing Processed Event");
+				topic_id_tracker.insert_all("AssetHubWestend", &mq_prc_ids);
 			});
 		});
 	}
@@ -1200,11 +1207,13 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 				) => {},
 			]
 		);
-		let mq_prc_id = find_mq_processed_id::<AssetHubRococo>().expect("Missing Processed Event");
-		topic_id_tracker.insert("AssetHubRococo", mq_prc_id);
+		let mq_prc_ids = find_all_mq_processed_ids::<AssetHubRococo>();
+		assert!(mq_prc_ids.len() >= 1, "Missing Processed Event");
+		topic_id_tracker.insert_all("AssetHubRococo", &mq_prc_ids);
 	});
 	// TODO: FAIL-CI - https://github.com/paritytech/polkadot-sdk/issues/8676
 	// topic_id_tracker.assert_unique();
+	println!("{topic_id_tracker:?}");
 
 	let sender_rocs_after = PenpalB::execute_with(|| {
 		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
@@ -1483,7 +1492,9 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 	let wnd = Location::new(2, [GlobalConsensus(ByGenesis(WESTEND_GENESIS_HASH))]);
 	AssetHubRococo::execute_with(|| {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
-		let mq_prc_id = find_mq_processed_id::<AssetHubRococo>().expect("Missing Processed Event");
+		let mq_prc_ids = find_all_mq_processed_ids::<AssetHubRococo>();
+		assert!(mq_prc_ids.len() >= 1, "Missing Processed Event");
+		topic_id_tracker.insert_all("AssetHubRococo", &mq_prc_ids);
 		// TODO: FAIL-CI - https://github.com/paritytech/polkadot-sdk/issues/8676
 		// topic_id_tracker.insert_and_assert_unique("AssetHubRococo", mq_prc_id);
 		assert_expected_events!(
