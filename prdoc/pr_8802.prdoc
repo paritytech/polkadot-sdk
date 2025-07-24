@@ -1,0 +1,23 @@
+title: '[AHM] Staking async e2e zn and papi tests'
+doc:
+- audience: Todo
+  description: closes https://github.com/paritytech/polkadot-sdk/issues/8766
+crates:
+- name: pallet-staking-async
+  bump: patch
+- name: pallet-staking-async-rc-runtime
+  bump: patch
+- name: pallet-election-provider-multi-block
+  bump: patch
+- name: pallet-staking-async-parachain-runtime
+  bump: patch
+- name: sp-staking
+  bump: patch
+- name: frame-election-provider-support
+  bump: patch
+- name: sp-npos-elections
+  bump: patch
+- name: cumulus-primitives-core
+  bump: patch
+- name: polkadot-sdk
+  bump: patch
