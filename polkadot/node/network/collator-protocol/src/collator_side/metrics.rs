@@ -386,6 +386,8 @@ pub(crate) struct CollationStats {
 	head: Hash,
 	// The relay parent on top of which collation was built
 	relay_parent_number: BlockNumber,
+	// The relay parent hash.
+	relay_parent: Hash,
 	// The expiration block number if expired.
 	expired_at: Option<BlockNumber>,
 	// The backed block number.
@@ -405,11 +407,17 @@ pub(crate) struct CollationStats {
 
 impl CollationStats {
 	/// Create new empty instance.
-	pub fn new(head: Hash, relay_parent_number: BlockNumber, metrics: &Metrics) -> Self {
+	pub fn new(
+		head: Hash,
+		relay_parent_number: BlockNumber,
+		relay_parent: Hash,
+		metrics: &Metrics,
+	) -> Self {
 		Self {
 			pre_backing_status: CollationStatus::Created,
 			head,
 			relay_parent_number,
+			relay_parent,
 			advertised_at: std::time::Instant::now(),
 			backed_at: None,
 			expired_at: None,

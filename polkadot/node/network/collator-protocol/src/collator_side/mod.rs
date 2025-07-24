@@ -518,7 +518,7 @@ async fn distribute_collation<Context>(
 			core_index,
 			stats: per_relay_parent
 				.block_number
-				.map(|n| CollationStats::new(para_head, n, &state.metrics)),
+				.map(|n| CollationStats::new(para_head, n, candidate_relay_parent, &state.metrics)),
 		},
 	);
 
