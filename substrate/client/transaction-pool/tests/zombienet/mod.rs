@@ -152,7 +152,7 @@ impl NetworkSpawner {
 	}
 
 	/// Waits for blocks production/import to kick-off on given node.
-	pub async fn wait_for_block_production(&self, node_name: &str) -> Result<()> {
+	pub async fn wait_for_block_production(&self, node_name: &str, finalized: bool) -> Result<()> {
 		let node = self
 			.network
 			.get_node(node_name)
@@ -161,11 +161,20 @@ impl NetworkSpawner {
 			.wait_client::<SubstrateConfig>()
 			.await
 			.map_err(|_| Error::FailedToGetOnlineClinet)?;
-		let mut stream = client
-			.blocks()
-			.subscribe_best()
-			.await
-			.map_err(|_| Error::FailedToGetBlocksStream)?;
+		let mut stream = if finalized {
+			client
+				.blocks()
+				.subscribe_finalized()
+				.await
+				.map_err(|_| Error::FailedToGetBlocksStream)?
+		} else {
+			client
+				.blocks()
+				.subscribe_best()
+				.await
+				.map_err(|_| Error::FailedToGetBlocksStream)?
+		};
+
 		// It should take at most two iterations to return with the best block, if any.
 		for _ in 0..=1 {
 			let Some(block) = stream.next().await else {
@@ -173,11 +182,11 @@ impl NetworkSpawner {
 			};
 
 			if let Some(block) = block.ok().filter(|block| block.number() == 1) {
-				tracing::info!("[{node_name}] found first best block: {:#?}", block.hash());
+				tracing::info!(finalized, "[{node_name}] found first block: {:#?}", block.hash());
 				break;
 			}
 
-			tracing::info!("[{node_name}] waiting for first best block");
+			tracing::info!(finalized, "[{node_name}] waiting for first block");
 		}
 		Ok(())
 	}
