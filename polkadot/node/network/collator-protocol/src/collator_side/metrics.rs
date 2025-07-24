@@ -253,6 +253,19 @@ impl CollationTracker {
 		metrics: &Metrics,
 	) -> Option<CollationStats> {
 		let head = receipt.descriptor.para_head();
+		if self
+			.entries
+			.get(&head)
+			.map(|entry| entry.backed().is_some())
+			.unwrap_or_default()
+		{
+			gum::debug!(
+				target: crate::LOG_TARGET_STATS,
+				?head,
+				"Collation already backed in a fork, skipping",
+			);
+			return None
+		}
 
 		self.entries.remove(&head).map(|mut entry| {
 			let para_id = receipt.descriptor.para_id();
@@ -296,6 +309,19 @@ impl CollationTracker {
 		metrics: &Metrics,
 	) -> Option<CollationStats> {
 		let head = receipt.descriptor.para_head();
+		if self
+			.entries
+			.get(&head)
+			.map(|entry| entry.included().is_some())
+			.unwrap_or_default()
+		{
+			gum::debug!(
+				target: crate::LOG_TARGET_STATS,
+				?head,
+				"Collation already included in a fork, skipping",
+			);
+			return None
+		}
 
 		self.entries.remove(&head).map(|mut entry| {
 			entry.set_included_at(block_number);
