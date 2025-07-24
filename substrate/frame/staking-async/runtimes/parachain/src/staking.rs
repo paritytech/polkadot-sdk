@@ -141,7 +141,7 @@ parameter_types! {
 	/// Reasoning: As of now, we don't have a way to sort validators, so we wish to select all of
 	/// them. In case this limit is reached, governance should introduce `minValidatorBond`, and
 	/// validators would have to compete with their self-stake to force-chill one another. More
-	/// info: https://github.com/paritytech-secops/srlabs_findings/issues/417
+	/// info: SRL-417
 	pub storage TargetSnapshotPerBlock: u32 = 4000;
 
 	// NOTE: rest of the parameters are computed identically in both Kusama and Polkadot.
