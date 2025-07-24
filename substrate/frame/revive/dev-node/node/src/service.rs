@@ -19,12 +19,12 @@ use crate::cli::Consensus;
 use futures::FutureExt;
 use polkadot_sdk::{
 	sc_client_api::backend::Backend,
+	sc_consensus_manual_seal::{seal_block, SealBlockParams},
 	sc_executor::WasmExecutor,
 	sc_service::{error::Error as ServiceError, Configuration, TaskManager},
 	sc_telemetry::{Telemetry, TelemetryWorker},
 	sc_transaction_pool_api::OffchainTransactionPoolFactory,
 	sp_runtime::traits::Block as BlockT,
-	sc_consensus_manual_seal::{seal_block, SealBlockParams},
 	*,
 };
 use revive_dev_runtime::{OpaqueBlock as Block, RuntimeApi};
@@ -223,7 +223,7 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 				create_inherent_data_providers: &create_inherent_data_providers,
 			};
 			seal_block(seal_params).await;
-			
+
 			let params = sc_consensus_manual_seal::InstantSealParams {
 				block_import: client.clone(),
 				env: proposer,
