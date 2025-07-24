@@ -1,6 +1,6 @@
 [package]
 name = "penpal-emulated-chain"
-version = "0.0.0"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -11,16 +11,12 @@ publish = false
 workspace = true
 
 [dependencies]
-# Substrate
-frame-support = { workspace = true }
-sp-core = { workspace = true }
-sp-keyring = { workspace = true }
-
-# Polkadot
-xcm = { workspace = true }
-
-# Cumulus
-cumulus-primitives-core = { workspace = true }
-emulated-integration-tests-common = { workspace = true }
-parachains-common = { workspace = true, default-features = true }
-penpal-runtime = { workspace = true }
+cumulus-primitives-core.workspace = true
+emulated-integration-tests-common.workspace = true
+frame-support.workspace = true
+parachains-common.default-features = true
+parachains-common.workspace = true
+penpal-runtime.workspace = true
+sp-core.workspace = true
+sp-keyring.workspace = true
+xcm.workspace = true
