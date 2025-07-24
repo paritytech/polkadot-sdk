@@ -2,13 +2,11 @@ title: Replace `log` with `tracing` on Bridge-related modules
 doc:
 - audience: Runtime Dev
   description: |-
-    This PR replaces `log` with `tracing` instrumentation in Bridge-related modules by providing structured logging.
+    This PR replaces `log` with `tracing` instrumentation on Bridge-related modules by providing structured logging.
 crates:
 - name: bp-runtime
   bump: minor
 - name: bridge-runtime-common
-  bump: minor
-- name: pallet-bridge-grandpa
   bump: minor
 - name: pallet-bridge-messages
   bump: minor
