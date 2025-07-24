@@ -16,10 +16,7 @@
 use crate::tests::{snowbridge_common::snowbridge_sovereign, *};
 use emulated_integration_tests_common::{
 	macros::Dmp,
-	xcm_helpers::{
-		find_all_mq_processed_ids, find_all_xcm_sent_message_ids, find_mq_processed_id,
-		find_xcm_sent_message_id,
-	},
+	xcm_helpers::{find_all_mq_processed_ids, find_mq_processed_id, find_xcm_sent_message_id},
 	xcm_simulator::helpers::TopicIdTracker,
 };
 use sp_runtime::testing::H256;
@@ -1038,7 +1035,6 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 	let sender = PenpalBSender::get();
 	let receiver = RococoReceiver::get();
 	let mut topic_id_tracker = TopicIdTracker::new();
-	let mut expected_id: Option<H256> = None;
 
 	// set up ROCs for transfer
 	let penpal_location = AssetHubWestend::sibling_location_of(PenpalB::para_id());
@@ -1151,9 +1147,7 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 
 				let msg_sent_id =
 					find_xcm_sent_message_id::<PenpalB>().expect("Missing Sent Event on PenpalB");
-				let msg_sent_id: H256 = msg_sent_id.into();
-				expected_id = Some(msg_sent_id);
-				topic_id_tracker.insert("PenpalB", msg_sent_id);
+				topic_id_tracker.insert("PenpalB", msg_sent_id.into());
 
 				result
 			}));
@@ -1211,7 +1205,7 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 		assert!(mq_prc_ids.len() >= 1, "Missing Processed Event on AssetHubRococo");
 		topic_id_tracker.insert_all("AssetHubRococo", &mq_prc_ids);
 	});
-	topic_id_tracker.assert_id_seen_on_all_chains(&expected_id.unwrap());
+	topic_id_tracker.assert_only_id_seen_on_all_chains("PenpalB");
 
 	let sender_rocs_after = PenpalB::execute_with(|| {
 		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;
@@ -1491,10 +1485,8 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 	AssetHubRococo::execute_with(|| {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 		let mq_prc_ids = find_all_mq_processed_ids::<AssetHubRococo>();
-		assert!(mq_prc_ids.len() >= 1, "Missing Processed Event");
+		assert!(mq_prc_ids.len() >= 1, "Missing Processed Event on AssetHubRococo");
 		topic_id_tracker.insert_all("AssetHubRococo", &mq_prc_ids);
-		// TODO: FAIL-CI - https://github.com/paritytech/polkadot-sdk/issues/8676
-		// topic_id_tracker.insert_and_assert_unique("AssetHubRococo", mq_prc_id);
 		assert_expected_events!(
 			AssetHubRococo,
 			vec![
@@ -1511,8 +1503,8 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 		);
 	});
 
-	// assert unique topic across all chains
-	topic_id_tracker.assert_unique();
+	// assert topic id seen across all chains
+	topic_id_tracker.assert_only_id_seen_on_all_chains("PenpalB");
 
 	// account balances after
 	let sender_wnds_after = PenpalB::execute_with(|| {

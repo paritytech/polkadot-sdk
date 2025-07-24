@@ -478,6 +478,35 @@ pub mod helpers {
 			TopicIdTracker { ids: HashMap::new() }
 		}
 
+		/// Asserts that exactly one topic ID is recorded on the given chain, and that the same ID is present on all other chains.
+		pub fn assert_only_id_seen_on_all_chains(&self, chain: &str) {
+			let ids = self
+				.ids
+				.get(chain)
+				.expect(&format!("No topic IDs recorded for chain '{}'", chain));
+
+			assert_eq!(
+				ids.len(),
+				1,
+				"Expected exactly one topic ID for chain '{}', but found {}: {:?}",
+				chain,
+				ids.len(),
+				ids
+			);
+
+			let expected_id = *ids.iter().next().unwrap();
+			self.ids.iter().for_each(|(other_chain, values)| {
+				assert!(
+					values.contains(&expected_id),
+					"Topic ID {:?} from '{}' not found on '{}'. Found topic IDs: {:?}",
+					expected_id,
+					chain,
+					other_chain,
+					values
+				)
+			});
+		}
+
 		/// Asserts that the given topic ID has been recorded on all chains.
 		pub fn assert_id_seen_on_all_chains(&self, id: &H256) {
 			self.ids.iter().for_each(|(chain, values)| {
@@ -501,6 +530,18 @@ pub mod helpers {
 				unique_ids.len(),
 				unique_ids
 			);
+		}
+
+		/// Returns the only topic ID associated with the given chain, asserting that exactly one exists.
+		pub fn get_single_id(&self, chain: &str) -> H256 {
+			self.ids
+				.get(chain)
+				.and_then(|ids| if ids.len() == 1 { ids.iter().cloned().next() } else { None })
+				.expect(&format!(
+					"Expected exactly one topic ID for chain '{}', but found: {:?}",
+					chain,
+					self.ids.get(chain)
+				))
 		}
 
 		/// Inserts a topic ID with the given chain name in the captor.
