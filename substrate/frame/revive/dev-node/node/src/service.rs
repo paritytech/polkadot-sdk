@@ -242,7 +242,7 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 				authorship_future,
 			);
 		},
-		Consensus::ManualSeal(Some(block_time)) => {
+		Consensus::ManualSeal(block_time) => {
 			let (mut sink, commands_stream) = futures::channel::mpsc::channel(1024);
 			task_manager.spawn_handle().spawn("block_authoring", None, async move {
 				loop {
