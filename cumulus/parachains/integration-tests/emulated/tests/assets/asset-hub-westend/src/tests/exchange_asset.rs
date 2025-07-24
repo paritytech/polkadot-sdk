@@ -170,6 +170,8 @@ fn exchange_asset_from_penpal_via_asset_hub_back_to_penpal() {
 	let amount_of_wnd_to_transfer_to_ah = WESTEND_ED * 1_000_000_000;
 	let amount_of_usdt_we_want_from_exchange = 1_000_000_000;
 
+	let mut topic_id_tracker = TopicIdTracker::new();
+
 	// SA-of-Penpal-on-AHW should contain WND amount equal at least the amount that will be
 	// transferred-in to AH Since AH is the reserve for WND
 	AssetHubWestend::fund_accounts(vec![(
@@ -268,6 +270,9 @@ fn exchange_asset_from_penpal_via_asset_hub_back_to_penpal() {
 
 		// verify expected events;
 		PenpalA::assert_xcm_pallet_attempted_complete(None);
+
+		let msg_sent_id = find_xcm_sent_message_id::<PenpalA>().expect("Missing Sent Event");
+		topic_id_tracker.insert("PenpalA_sent", msg_sent_id.into());
 	});
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
@@ -282,6 +287,12 @@ fn exchange_asset_from_penpal_via_asset_hub_back_to_penpal() {
 				) => { amount_out: *amount_out == amount_of_usdt_we_want_from_exchange, },
 			]
 		);
+
+		let mq_prc_id = find_mq_processed_id::<AssetHubWestend>().expect("Missing Processed Event");
+		topic_id_tracker.insert("AssetHubWestend_received", mq_prc_id);
+		let msg_sent_id =
+			find_xcm_sent_message_id::<AssetHubWestend>().expect("Missing Sent Event");
+		topic_id_tracker.insert("AssetHubWestend_sent", msg_sent_id.into());
 	});
 
 	PenpalA::execute_with(|| {
@@ -294,7 +305,12 @@ fn exchange_asset_from_penpal_via_asset_hub_back_to_penpal() {
 				) => {},
 			]
 		);
+
+		let mq_prc_id = find_mq_processed_id::<PenpalA>().expect("Missing Processed Event");
+		topic_id_tracker.insert("PenpalA_received", mq_prc_id);
 	});
+
+	topic_id_tracker.assert_unique();
 
 	// Query final balances
 	let sender_usdt_on_ah_after = assets_balance_on!(AssetHubWestend, USDT_ID, &sender);
