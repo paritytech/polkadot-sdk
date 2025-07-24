@@ -2272,6 +2272,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bp-proof-root-store"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+]
+
+[[package]]
 name = "bp-relayers"
 version = "0.7.0"
 dependencies = [
@@ -11575,6 +11584,20 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
+]
+
+[[package]]
+name = "pallet-bridge-proof-root-store"
+version = "0.1.0"
+dependencies = [
+ "bp-proof-root-store",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io",
+ "substrate-test-utils",
 ]
 
 [[package]]
