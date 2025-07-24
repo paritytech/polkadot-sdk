@@ -155,11 +155,10 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 			// chain storage is corrupted, though) that the actual number of confirmed messages if
 			// larger than declared. This would mean that 'reward loop' will take more time than the
 			// weight formula accounts, so we can't allow that.
-			log::trace!(
+			tracing::trace!(
 				target: LOG_TARGET,
-				"Messages delivery proof contains too many messages to confirm: {} vs declared {}",
+				"Messages delivery proof contains too many messages to confirm: {} vs declared {max_allowed_messages}",
 				confirmed_messages.total_messages(),
-				max_allowed_messages,
 			);
 			return Err(ReceptionConfirmationError::TryingToConfirmMoreMessagesThanExpected)
 		}
