@@ -13,7 +13,7 @@ use revm::{
 ///
 /// Removes the top item from the stack.
 pub fn pop<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::BASE);
+	gas_legacy!(context.interpreter, revm_gas::BASE);
 	// Can ignore return. as relative N jump is safe operation.
 	popn!([_i], context.interpreter);
 }
@@ -23,7 +23,7 @@ pub fn pop<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// Introduce a new instruction which pushes the constant value 0 onto the stack.
 pub fn push0<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	check!(context.interpreter, SHANGHAI);
-	gas!(context.interpreter, revm_gas::BASE);
+	gas_legacy!(context.interpreter, revm_gas::BASE);
 	push!(context.interpreter, U256::ZERO);
 }
 
@@ -31,7 +31,7 @@ pub fn push0<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Pushes N bytes from bytecode onto the stack as a 32-byte value.
 pub fn push<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::VERYLOW);
+	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	push!(context.interpreter, U256::ZERO);
 	popn_top!([], top, context.interpreter);
 
@@ -46,7 +46,7 @@ pub fn push<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Duplicates the Nth stack item to the top of the stack.
 pub fn dup<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::VERYLOW);
+	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	if !context.interpreter.stack.dup(N) {
 		context.interpreter.halt(InstructionResult::StackOverflow);
 	}
@@ -56,7 +56,7 @@ pub fn dup<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Swaps the top stack item with the Nth stack item.
 pub fn swap<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::VERYLOW);
+	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	assert!(N != 0);
 	if !context.interpreter.stack.exchange(0, N) {
 		context.interpreter.halt(InstructionResult::StackOverflow);

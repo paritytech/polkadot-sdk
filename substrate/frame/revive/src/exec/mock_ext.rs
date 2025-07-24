@@ -16,12 +16,13 @@ use sp_runtime::DispatchError;
 
 /// Mock implementation of the Ext trait that panics for all methods
 pub struct MockExt<T: Config> {
+	gas_meter: GasMeter<T>,
 	_phantom: PhantomData<T>,
 }
 
 impl<T: Config> MockExt<T> {
 	pub fn new() -> Self {
-		Self { _phantom: PhantomData }
+		Self { gas_meter: GasMeter::new(Weight::MAX), _phantom: PhantomData }
 	}
 }
 
@@ -135,11 +136,11 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 	}
 
 	fn gas_meter(&self) -> &GasMeter<Self::T> {
-		panic!("MockExt::gas_meter")
+		&self.gas_meter
 	}
 
 	fn gas_meter_mut(&mut self) -> &mut GasMeter<Self::T> {
-		panic!("MockExt::gas_meter_mut")
+		&mut self.gas_meter
 	}
 
 	fn ecdsa_recover(
@@ -199,9 +200,7 @@ impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
 		panic!("MockExt::set_storage")
 	}
 
-	fn charge_storage(&mut self, _diff: &Diff) {
-		panic!("MockExt::charge_storage")
-	}
+	fn charge_storage(&mut self, _diff: &Diff) {}
 
 	fn instantiate(
 		&mut self,

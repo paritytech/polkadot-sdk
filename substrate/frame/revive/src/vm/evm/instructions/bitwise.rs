@@ -11,14 +11,14 @@ use revm::{
 
 /// Implements the LT instruction - less than comparison.
 pub fn lt<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::VERYLOW);
+	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	popn_top!([op1], op2, context.interpreter);
 	*op2 = U256::from(op1 < *op2);
 }
 
 /// Implements the GT instruction - greater than comparison.
 pub fn gt<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::VERYLOW);
+	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	popn_top!([op1], op2, context.interpreter);
 
 	*op2 = U256::from(op1 > *op2);
@@ -27,7 +27,7 @@ pub fn gt<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// Implements the CLZ instruction - count leading zeros.
 pub fn clz<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	check!(context.interpreter, OSAKA);
-	gas!(context.interpreter, revm_gas::VERYLOW);
+	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	popn_top!([], op1, context.interpreter);
 
 	let leading_zeros = op1.leading_zeros();
@@ -38,7 +38,7 @@ pub fn clz<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Signed less than comparison of two values from stack.
 pub fn slt<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::VERYLOW);
+	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	popn_top!([op1], op2, context.interpreter);
 
 	*op2 = U256::from(i256_cmp(&op1, op2) == Ordering::Less);
@@ -48,7 +48,7 @@ pub fn slt<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Signed greater than comparison of two values from stack.
 pub fn sgt<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::VERYLOW);
+	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	popn_top!([op1], op2, context.interpreter);
 
 	*op2 = U256::from(i256_cmp(&op1, op2) == Ordering::Greater);
@@ -58,7 +58,7 @@ pub fn sgt<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Equality comparison of two values from stack.
 pub fn eq<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::VERYLOW);
+	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	popn_top!([op1], op2, context.interpreter);
 
 	*op2 = U256::from(op1 == *op2);
@@ -68,7 +68,7 @@ pub fn eq<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Checks if the top stack value is zero.
 pub fn iszero<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::VERYLOW);
+	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	popn_top!([], op1, context.interpreter);
 	*op1 = U256::from(op1.is_zero());
 }
@@ -77,7 +77,7 @@ pub fn iszero<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Bitwise AND of two values from stack.
 pub fn bitand<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::VERYLOW);
+	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	popn_top!([op1], op2, context.interpreter);
 	*op2 = op1 & *op2;
 }
@@ -86,7 +86,7 @@ pub fn bitand<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Bitwise OR of two values from stack.
 pub fn bitor<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::VERYLOW);
+	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	popn_top!([op1], op2, context.interpreter);
 
 	*op2 = op1 | *op2;
@@ -96,7 +96,7 @@ pub fn bitor<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Bitwise XOR of two values from stack.
 pub fn bitxor<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::VERYLOW);
+	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	popn_top!([op1], op2, context.interpreter);
 
 	*op2 = op1 ^ *op2;
@@ -106,7 +106,7 @@ pub fn bitxor<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Bitwise NOT (negation) of the top stack value.
 pub fn not<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::VERYLOW);
+	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	popn_top!([], op1, context.interpreter);
 
 	*op1 = !*op1;
@@ -116,7 +116,7 @@ pub fn not<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Extracts a single byte from a word at a given index.
 pub fn byte<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::VERYLOW);
+	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	popn_top!([op1], op2, context.interpreter);
 
 	let o1 = as_usize_saturated!(op1);
@@ -131,7 +131,7 @@ pub fn byte<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// EIP-145: Bitwise shifting instructions in EVM
 pub fn shl<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	check!(context.interpreter, CONSTANTINOPLE);
-	gas!(context.interpreter, revm_gas::VERYLOW);
+	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	popn_top!([op1], op2, context.interpreter);
 
 	let shift = as_usize_saturated!(op1);
@@ -141,7 +141,7 @@ pub fn shl<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// EIP-145: Bitwise shifting instructions in EVM
 pub fn shr<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	check!(context.interpreter, CONSTANTINOPLE);
-	gas!(context.interpreter, revm_gas::VERYLOW);
+	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	popn_top!([op1], op2, context.interpreter);
 
 	let shift = as_usize_saturated!(op1);
@@ -151,7 +151,7 @@ pub fn shr<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// EIP-145: Bitwise shifting instructions in EVM
 pub fn sar<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	check!(context.interpreter, CONSTANTINOPLE);
-	gas!(context.interpreter, revm_gas::VERYLOW);
+	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	popn_top!([op1], op2, context.interpreter);
 
 	let shift = as_usize_saturated!(op1);

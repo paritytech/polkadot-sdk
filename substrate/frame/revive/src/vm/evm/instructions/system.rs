@@ -4,9 +4,7 @@ use core::ptr;
 use revm::{
 	interpreter::{
 		gas as revm_gas,
-		interpreter_types::{
-			InputsTr, InterpreterTypes, LegacyBytecode, MemoryTr, ReturnData, RuntimeFlag, StackTr,
-		},
+		interpreter_types::{InputsTr, LegacyBytecode, MemoryTr, ReturnData, RuntimeFlag, StackTr},
 		CallInput, InstructionResult, Interpreter,
 	},
 	primitives::{B256, KECCAK_EMPTY, U256},
@@ -33,7 +31,7 @@ pub fn keccak256<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Pushes the current contract's address onto the stack.
 pub fn address<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::BASE);
+	gas_legacy!(context.interpreter, revm_gas::BASE);
 	push!(context.interpreter, context.interpreter.input.target_address().into_word().into());
 }
 
@@ -41,7 +39,7 @@ pub fn address<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Pushes the caller's address onto the stack.
 pub fn caller<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::BASE);
+	gas_legacy!(context.interpreter, revm_gas::BASE);
 	push!(context.interpreter, context.interpreter.input.caller_address().into_word().into());
 }
 
@@ -49,7 +47,7 @@ pub fn caller<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Pushes the size of running contract's bytecode onto the stack.
 pub fn codesize<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::BASE);
+	gas_legacy!(context.interpreter, revm_gas::BASE);
 	push!(context.interpreter, U256::from(context.interpreter.bytecode.bytecode_len()));
 }
 
@@ -77,7 +75,7 @@ pub fn codecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Loads 32 bytes of input data from the specified offset.
 pub fn calldataload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::VERYLOW);
+	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	//pop_top!(interpreter, offset_ptr);
 	popn_top!([], offset_ptr, context.interpreter);
 	let mut word = B256::ZERO;
@@ -116,7 +114,7 @@ pub fn calldataload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Pushes the size of input data onto the stack.
 pub fn calldatasize<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::BASE);
+	gas_legacy!(context.interpreter, revm_gas::BASE);
 	push!(context.interpreter, U256::from(context.interpreter.input.input().len()));
 }
 
@@ -124,7 +122,7 @@ pub fn calldatasize<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Pushes the value sent with the current call onto the stack.
 pub fn callvalue<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::BASE);
+	gas_legacy!(context.interpreter, revm_gas::BASE);
 	push!(context.interpreter, context.interpreter.input.call_value());
 }
 
@@ -160,7 +158,7 @@ pub fn calldatacopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// EIP-211: New opcodes: RETURNDATASIZE and RETURNDATACOPY
 pub fn returndatasize<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	check!(context.interpreter, BYZANTIUM);
-	gas!(context.interpreter, revm_gas::BASE);
+	gas_legacy!(context.interpreter, revm_gas::BASE);
 	push!(context.interpreter, U256::from(context.interpreter.return_data.buffer().len()));
 }
 
@@ -196,15 +194,15 @@ pub fn returndatacopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Pushes the amount of remaining gas onto the stack.
 pub fn gas<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, revm_gas::BASE);
+	gas_legacy!(context.interpreter, revm_gas::BASE);
 	push!(context.interpreter, U256::from(context.interpreter.gas.remaining()));
 }
 
 /// Common logic for copying data from a source buffer to the EVM's memory.
 ///
 /// Handles memory expansion and gas calculation for data copy operations.
-pub fn memory_resize(
-	interpreter: &mut Interpreter<impl InterpreterTypes>,
+pub fn memory_resize<'a, E: Ext>(
+	interpreter: &mut Interpreter<crate::vm::evm::EVMInterpreter<'a, E>>,
 	memory_offset: U256,
 	len: usize,
 ) -> Option<usize> {

@@ -6,35 +6,35 @@ use crate::vm::{
 };
 use revm::interpreter::{Instruction, InstructionContext};
 
-pub type Context<'ctx, 'ext, E> =
+type Context<'ctx, 'ext, E> =
 	InstructionContext<'ctx, crate::vm::evm::DummyHost, crate::vm::evm::EVMInterpreter<'ext, E>>;
 
 #[macro_use]
-pub mod macros;
+mod macros;
 /// Arithmetic operations (ADD, SUB, MUL, DIV, etc.).
-pub mod arithmetic;
+mod arithmetic;
 /// Bitwise operations (AND, OR, XOR, NOT, etc.).
-pub mod bitwise;
+mod bitwise;
 /// Block information instructions (COINBASE, TIMESTAMP, etc.).
-pub mod block_info;
+mod block_info;
 /// Contract operations (CALL, CREATE, DELEGATECALL, etc.).
-pub mod contract;
+mod contract;
 /// Control flow instructions (JUMP, JUMPI, REVERT, etc.).
-pub mod control;
+mod control;
 /// Host environment interactions (SLOAD, SSTORE, LOG, etc.).
-pub mod host;
+mod host;
 /// Signed 256-bit integer operations.
-pub mod i256;
+mod i256;
 /// Memory operations (MLOAD, MSTORE, MSIZE, etc.).
-pub mod memory;
+mod memory;
 /// Stack operations (PUSH, POP, DUP, SWAP, etc.).
-pub mod stack;
+mod stack;
 /// System information instructions (ADDRESS, CALLER, etc.).
-pub mod system;
+mod system;
 /// Transaction information instructions (ORIGIN, GASPRICE, etc.).
-pub mod tx_info;
+mod tx_info;
 /// Utility functions and helpers for instruction implementation.
-pub mod utility;
+mod utility;
 
 /// Returns the instruction table for the given spec.
 pub const fn instruction_table<'a, E: Ext>() -> [Instruction<EVMInterpreter<'a, E>, DummyHost>; 256]
