@@ -494,7 +494,8 @@ pub mod helpers {
 				ids
 			);
 
-			self.assert_id_seen_on_all_chains(*ids.iter().next().unwrap());
+			let id = *ids.iter().next().unwrap();
+			self.assert_id_seen_on_all_chains(&id);
 		}
 
 		/// Asserts that the given topic ID has been recorded on all chains.
