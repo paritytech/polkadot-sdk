@@ -8,4 +8,14 @@ doc:
     description: |
       Make dispute-coordinator forward BTreeMap/BTreeSet to provisioner directly instead of converting it to Vec before.
 
-crates: [ ]
+crates:
+- name: polkadot-node-primitives
+  bump: minor
+- name: polkadot-node-subsystem-types
+  bump: minor
+- name: polkadot-dispute-distribution
+  bump: minor
+- name: polkadot-node-core-dispute-coordinator
+  bump: minor
+- name: polkadot-node-core-provisioner
+  bump: minor
