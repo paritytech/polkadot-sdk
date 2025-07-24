@@ -494,17 +494,7 @@ pub mod helpers {
 				ids
 			);
 
-			let expected_id = *ids.iter().next().unwrap();
-			self.ids.iter().for_each(|(other_chain, values)| {
-				assert!(
-					values.contains(&expected_id),
-					"Topic ID {:?} from '{}' not found on '{}'. Found topic IDs: {:?}",
-					expected_id,
-					chain,
-					other_chain,
-					values
-				)
-			});
+			self.assert_id_seen_on_all_chains(*ids.iter().next().unwrap());
 		}
 
 		/// Asserts that the given topic ID has been recorded on all chains.
@@ -530,18 +520,6 @@ pub mod helpers {
 				unique_ids.len(),
 				unique_ids
 			);
-		}
-
-		/// Returns the only topic ID associated with the given chain, asserting that exactly one exists.
-		pub fn get_single_id(&self, chain: &str) -> H256 {
-			self.ids
-				.get(chain)
-				.and_then(|ids| if ids.len() == 1 { ids.iter().cloned().next() } else { None })
-				.expect(&format!(
-					"Expected exactly one topic ID for chain '{}', but found: {:?}",
-					chain,
-					self.ids.get(chain)
-				))
 		}
 
 		/// Inserts a topic ID with the given chain name in the captor.
