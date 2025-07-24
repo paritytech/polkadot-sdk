@@ -188,12 +188,12 @@ verbose: [Rely#91][⛓ 2,039ms / 777 kb] Processing event: ...
 verbose: [Para#71][⛓ 38ms / 852 kb][✍️ hd=0.22, xt=4.07, st=6.82, sum=11.11, cmp=9.74, time=2ms] Processing event: ...
 ```
 
-* `Rely` indicates the relay chain, `Para` indicates the parachain.
-* Both chains' logs contain onchain (⛓) weight information, obtained from `frame-system`.
-* `Para` logs contain more information from the collator/author's logs (✍️). They are:
-  * `hd` header size,
-  * `xt` extrinsics siz
-  * `st` storage proof size
-  * `sum` total PoV,
-  * `cmp` compressed PoV
-  * and `time`, authoring time in the collator.
+- `Rely` indicates the relay chain, `Para` indicates the parachain.
+- Both chains' logs contain onchain (⛓) weight information, obtained from `frame-system`.
+- `Para` logs contain more information from the collator/author's logs (✍️). They are:
+  - `hd` header size,
+  - `xt` extrinsics siz
+  - `st` storage proof size
+  - `sum` total PoV,
+  - `cmp` compressed PoV
+  - and `time`, authoring time in the collator.
