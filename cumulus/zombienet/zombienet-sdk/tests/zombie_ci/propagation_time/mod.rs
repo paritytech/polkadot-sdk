@@ -167,7 +167,7 @@ async fn add_sparsely_connected_collator(
 			PARA_ID,
 		)
 		.await?;
-	network.get_node(&name).cloned().map_err(Into::into)
+	network.get_node(&name).cloned()
 }
 
 struct NetworkActors {
