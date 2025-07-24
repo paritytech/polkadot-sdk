@@ -443,8 +443,8 @@ members = [
 	"substrate/frame/staking-async/reward-fn",
 	"substrate/frame/staking-async/runtime-api",
 	"substrate/frame/staking-async/runtimes/parachain",
-	"substrate/frame/staking-async/runtimes/rc",
 	"substrate/frame/staking-async/runtimes/preset-store",
+	"substrate/frame/staking-async/runtimes/rc",
 	"substrate/frame/staking-async/runtimes/rc/constants",
 	"substrate/frame/staking/reward-curve",
 	"substrate/frame/staking/reward-fn",
@@ -806,6 +806,7 @@ first-pallet = { package = "polkadot-sdk-docs-first-pallet", path = "docs/sdk/pa
 first-runtime = { package = "polkadot-sdk-docs-first-runtime", path = "docs/sdk/packages/guides/first-runtime", default-features = false }
 flate2 = { version = "1.0" }
 fnv = { version = "1.0.6" }
+foldhash = { version = "0.1.5", default-features = false }
 fork-tree = { path = "substrate/utils/fork-tree", default-features = false }
 forwarded-header-value = { version = "0.1.1" }
 fraction = { version = "0.13.1" }
@@ -900,7 +901,7 @@ log = { version = "0.4.22", default-features = false }
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
 memmap2 = { version = "0.9.3" }
-memory-db = { version = "0.33.0", default-features = false }
+memory-db = { version = "0.34.0", default-features = false }
 merkleized-metadata = { version = "0.5.0" }
 merlin = { version = "3.0", default-features = false }
 messages-relay = { path = "bridges/relays/messages" }
@@ -1052,13 +1053,13 @@ revive-dev-runtime = { path = "substrate/frame/revive/dev-node/runtime" }
 pallet-staking-async = { path = "substrate/frame/staking-async", default-features = false }
 pallet-staking-async-ah-client = { path = "substrate/frame/staking-async/ah-client", default-features = false }
 pallet-staking-async-parachain-runtime = { path = "substrate/frame/staking-async/runtimes/parachain" }
+pallet-staking-async-preset-store = { path = "substrate/frame/staking-async/runtimes/preset-store", default-features = false }
 pallet-staking-async-rc-client = { path = "substrate/frame/staking-async/rc-client", default-features = false }
 pallet-staking-async-rc-runtime = { path = "substrate/frame/staking-async/runtimes/rc" }
 pallet-staking-async-rc-runtime-constants = { path = "substrate/frame/staking-async/runtimes/rc/constants", default-features = false }
 pallet-staking-async-reward-curve = { path = "substrate/frame/staking-async/reward-curve", default-features = false }
 pallet-staking-async-reward-fn = { path = "substrate/frame/staking-async/reward-fn", default-features = false }
 pallet-staking-async-runtime-api = { path = "substrate/frame/staking-async/runtime-api", default-features = false }
-pallet-staking-async-preset-store = { path = "substrate/frame/staking-async/runtimes/preset-store", default-features = false }
 pallet-state-trie-migration = { path = "substrate/frame/state-trie-migration", default-features = false }
 pallet-statement = { default-features = false, path = "substrate/frame/statement" }
 pallet-sudo = { path = "substrate/frame/sudo", default-features = false }
@@ -1433,7 +1434,7 @@ tracing-futures = { version = "0.2.4" }
 tracing-log = { version = "0.2.0" }
 tracing-subscriber = { version = "0.3.18" }
 tracking-allocator = { path = "polkadot/node/tracking-allocator", default-features = false, package = "staging-tracking-allocator" }
-trie-bench = { version = "0.41.0" }
+trie-bench = { version = "0.42.0" }
 trie-db = { version = "0.30.0", default-features = false }
 trie-root = { version = "0.18.0", default-features = false }
 trie-standardmap = { version = "0.16.0" }
@@ -1470,15 +1471,20 @@ xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = 
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 yet-another-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/yet-another-parachain" }
 zeroize = { version = "1.7.0", default-features = false }
-zombienet-configuration = { version = "0.3.6" }
-zombienet-orchestrator = { version = "0.3.6" }
-zombienet-sdk = { version = "0.3.6" }
+zombienet-configuration = { version = "0.3.8" }
+zombienet-orchestrator = { version = "0.3.8" }
+zombienet-sdk = { version = "0.3.8" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]
 # Polkadot runtime requires unwinding.
 opt-level = 3
 panic = "unwind"
+
+[profile.dev]
+# Debug info significantly slows down the build.
+# This setting only keeps source line information for stack traces.
+debug = "line-tables-only"
 
 # make sure dev builds with backtrace do not slow us down
 [profile.dev.package.backtrace]

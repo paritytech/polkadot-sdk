@@ -44,10 +44,10 @@
 //!
 //! ## Future Plans:
 //!
-//! **Lazy Deletion In Eject**: While most deletion ops of the signed phase are now lazy, if someone is ejected from the list, we still remove their data in sync.
-//! **Metadata update**: imagine you mis-computed your score.
-//! **Permissionless `clear_old_round_data`**: Anyone can clean anyone else's data, and get a part
-//! of their deposit.
+//! **Lazy Deletion In Eject**: While most deletion ops of the signed phase are now lazy, if someone
+//! is ejected from the list, we still remove their data in sync. **Metadata update**: imagine you
+//! mis-computed your score. **Permissionless `clear_old_round_data`**: Anyone can clean anyone
+//! else's data, and get a part of their deposit.
 
 use crate::{
 	types::SolutionOf,
