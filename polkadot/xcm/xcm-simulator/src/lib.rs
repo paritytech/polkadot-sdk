@@ -478,6 +478,29 @@ pub mod helpers {
 			TopicIdTracker { ids: HashMap::new() }
 		}
 
+		/// Asserts that the given topic ID has been recorded for the specified chain.
+		pub fn assert_contains(&self, chain: &str, id: &H256) {
+			let ids = self
+				.ids
+				.get(chain)
+				.expect(&format!("No topic IDs recorded for chain '{}'", chain));
+
+			assert!(
+				ids.contains(id),
+				"Expected topic ID {:?} not found for chain '{}'. Found topic IDs: {:?}",
+				id,
+				chain,
+				ids
+			);
+		}
+
+		/// Asserts that the given topic ID has been recorded on all chains.
+		pub fn assert_id_seen_on_all_chains(&self, id: &H256) {
+			self.ids.keys().for_each(|chain| {
+				self.assert_contains(chain, id);
+			});
+		}
+
 		/// Asserts that exactly one topic ID is recorded on the given chain, and that the same ID
 		/// is present on all other chains.
 		pub fn assert_only_id_seen_on_all_chains(&self, chain: &str) {
@@ -497,19 +520,6 @@ pub mod helpers {
 
 			let id = *ids.iter().next().unwrap();
 			self.assert_id_seen_on_all_chains(&id);
-		}
-
-		/// Asserts that the given topic ID has been recorded on all chains.
-		pub fn assert_id_seen_on_all_chains(&self, id: &H256) {
-			self.ids.iter().for_each(|(chain, values)| {
-				assert!(
-					values.contains(id),
-					"Topic ID {:?} not found on chain '{}'. Found topic IDs: {:?}",
-					id,
-					chain,
-					values
-				)
-			});
 		}
 
 		/// Asserts that exactly one unique topic ID is present across all captured entries.
