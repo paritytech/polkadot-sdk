@@ -1,0 +1,45 @@
+title: 'consensus/grandpa: Fix high number of peer disconnects with invalid justification'
+doc:
+- audience: [Node Dev, Node Operator]
+  description: |-
+    A grandpa race-casse has been identified in the versi-net stack around authority set changes, which leads to the following:
+
+    - T0 / Node A: Completes round (15)
+    - T1 / Node A: Applies new authority set change and increments the SetID (from 0 to 1)
+    - T2 / Node B: Sends Precommit for round (15) with SetID (0) -- previous set ID
+    - T3 / Node B: Applies new authority set change and increments the SetID (1)
+
+    In this scenario, Node B is not aware at the moment of sending justifications that the Set ID has changed.
+    The downstream effect is that Node A will not be able to verify the signature of justifications, since a different SetID is taken into account. This will cascade through the sync engine, where the Node B is wrongfully banned and disconnected.
+
+    This PR aims to fix the edge-case by making the grandpa resilient to verifying prior setIDs for signatures.
+    When the signature of the grandpa justification fails to decode, the prior SetID is also verified. If the prior SetID produces a valid signature, then the outdated justification error is propagated through the code (ie `SignatureResult::OutdatedSet`).
+
+    The sync engine will handle the outdated justifications as invalid, but without banning the peer. This leads to increased stability of the network during authority changes, which caused frequent disconnects to versi-net in the past.
+
+    ### Review Notes
+    - Main changes that verify prior SetId on failures are placed in [check_message_signature_with_buffer](https://github.com/paritytech/polkadot-sdk/pull/9015/files#diff-359d7a46ea285177e5d86979f62f0f04baabf65d595c61bfe44b6fc01af70d89R458-R501)
+    - Sync engine no longer disconnects outdated justifications in [process_service_command](https://github.com/paritytech/polkadot-sdk/pull/9015/files#diff-9ab3391aa82ee2b2868ece610100f84502edcf40638dba9ed6953b6e572dfba5R678-R703)
+
+    ### Testing Done
+    - Deployed the PR to versi-net with 40 validators
+    - Prior we have noticed 10/40 validators disconnecting every 15-20 minutes, leading to instability
+    - Over past 24h the issue has been mitigated: https://grafana.teleport.parity.io/goto/FPNWlmsHR?orgId=1
+    - Note: bootnodes 0 and 1 are currently running outdated versions that do not incorporate this SetID verification improvement
+
+    Part of: https://github.com/paritytech/polkadot-sdk/issues/8872
+crates:
+- name: sp-consensus-grandpa
+  bump: minor
+- name: bp-header-chain
+  bump: patch
+- name: sc-consensus-grandpa
+  bump: patch
+- name: sp-blockchain
+  bump: minor
+- name: sp-consensus
+  bump: minor
+- name: sc-consensus
+  bump: minor
+- name: sc-network-sync
+  bump: patch
