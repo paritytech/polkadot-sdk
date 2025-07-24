@@ -50,6 +50,7 @@ substrate-test-utils = { workspace = true }
 [features]
 default = ["std"]
 std = [
+	"anyhow/std",
 	"codec/std",
 	"frame-benchmarking?/std",
 	"frame-election-provider-support/std",
@@ -71,7 +72,6 @@ std = [
 	"sp-runtime/std",
 	"sp-staking/std",
 	"sp-tracing/std",
-	"anyhow/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
