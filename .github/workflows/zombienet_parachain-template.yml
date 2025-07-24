@@ -2,6 +2,12 @@ name: Zombienet Parachain Templates
 
 on:
   workflow_dispatch:
+    inputs:
+      test_pattern:
+        type: string
+        description: "Run tests which names match this pattern (also flaky)"
+        default: ""
+        required: false
   push:
    branches:
      - master
@@ -11,6 +17,8 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
+
+permissions: read-all
 
 env:
   FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 1
@@ -25,23 +33,31 @@ jobs:
   preflight:
     needs: isdraft
     uses: ./.github/workflows/zombienet-reusable-preflight.yml
+    with:
+      tests_yaml: .github/zombienet-tests/zombienet_parachain-template_tests.yml
+      test_pattern: ${{ inputs.test_pattern }}
 
 
-  zombienet-parachain-template-0001-minimal_template_block_production:
-    needs: [preflight]
-    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-parachain-template-smoke') }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
+  zombienet-parachain-template-tests:
+    name: ${{ matrix.test.job-name }}
+    runs-on: ${{ matrix.test.runner-type == 'large' && needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER || needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
     timeout-minutes: 30
+    needs: [preflight]
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_cumulus || needs.preflight.outputs.changes_polkadot) }}
     container:
       image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
       options: -v /tmp/zombienet:/tmp/zombienet
     env:
-      # sdk tests are looking for POLKADOT_IMAGE
       POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-      CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-      ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
+      CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/${{ matrix.test.cumulus-image }}:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
       RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
-      FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 1
+      ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        test: ${{ fromJson(needs.preflight.outputs.TEST_MATRIX) }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -49,64 +65,9 @@ jobs:
       - name: zombienet_test
         uses: ./.github/actions/zombienet-sdk
         with:
+          test-filter: ${{ matrix.test.test-filter }}
+          job-name: ${{ matrix.test.job-name }}
+          prefix: "parachain-templates"
           gh-token: ${{ secrets.GITHUB_TOKEN }}
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-          test: "smoke::minimal_template_block_production_test"
-          prefix: "parachain-templates"
-
-  zombienet-parachain-template-0002-parachain_template_block_production:
-    needs: [preflight]
-    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-parachain-template-smoke') }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
-    timeout-minutes: 30
-    container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
-      options: -v /tmp/zombienet:/tmp/zombienet
-    env:
-      # sdk tests are looking for POLKADOT_IMAGE
-      POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-      CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-      ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
-      RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
-      FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 1
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: zombienet_test
-        uses: ./.github/actions/zombienet-sdk
-        with:
-          gh-token: ${{ secrets.GITHUB_TOKEN }}
-          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
-          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-          test: "smoke::parachain_template_block_production_test"
-          prefix: "parachain-templates"
-
-  zombienet-parachain-template-0003-solochain_template_block_production:
-    needs: [preflight]
-    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-parachain-template-smoke') }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER }}
-    timeout-minutes: 30
-    container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_SDK_IMAGE }}
-      options: -v /tmp/zombienet:/tmp/zombienet
-    env:
-      # sdk tests are looking for POLKADOT_IMAGE
-      POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-      CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/test-parachain:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-      ZOMBIE_PROVIDER: ${{ needs.preflight.outputs.ZOMBIE_PROVIDER }}
-      RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
-      FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 1
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: zombienet_test
-        uses: ./.github/actions/zombienet-sdk
-        with:
-          gh-token: ${{ secrets.GITHUB_TOKEN }}
-          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
-          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-          test: "smoke::solochain_template_block_production_test"
-          prefix: "parachain-templates"
