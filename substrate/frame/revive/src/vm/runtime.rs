@@ -26,7 +26,7 @@ use crate::{
 	precompiles::{All as AllPrecompiles, Precompiles},
 	primitives::ExecReturnValue,
 	weights::WeightInfo,
-	Config, Error, LOG_TARGET, SENTINEL,
+	Config, Error, Pallet, LOG_TARGET, SENTINEL,
 };
 use alloc::{vec, vec::Vec};
 use codec::Encode;
@@ -341,11 +341,12 @@ pub enum RuntimeCosts {
 	/// Weight of reading and decoding the input to a precompile.
 	PrecompileDecode(u32),
 	/// Weight of the transfer performed during a call.
-	CallTransferSurcharge,
+	/// parameter `dust_transfer` indicates whether the transfer has a `dust` value.
+	CallTransferSurcharge { dust_transfer: bool },
 	/// Weight per byte that is cloned by supplying the `CLONE_INPUT` flag.
 	CallInputCloned(u32),
-	/// Weight of calling `seal_instantiate` for the given input length.
-	Instantiate { input_data_len: u32 },
+	/// Weight of calling `seal_instantiate`.
+	Instantiate { input_data_len: u32, balance_transfer: bool, dust_transfer: bool },
 	/// Weight of calling `Ripemd160` precompile for the given input size.
 	Ripemd160(u32),
 	/// Weight of calling `Sha256` precompile for the given input size.
@@ -490,14 +491,20 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			TakeTransientStorage(len) => {
 				cost_storage!(write_transient, seal_take_transient_storage, len)
 			},
-			CallBase => T::WeightInfo::seal_call(0, 0),
+			CallBase => T::WeightInfo::seal_call(0, 0, 0),
 			DelegateCallBase => T::WeightInfo::seal_delegate_call(),
 			PrecompileBase => T::WeightInfo::seal_call_precompile(0, 0),
 			PrecompileWithInfoBase => T::WeightInfo::seal_call_precompile(1, 0),
 			PrecompileDecode(len) => cost_args!(seal_call_precompile, 0, len),
-			CallTransferSurcharge => cost_args!(seal_call, 1, 0),
-			CallInputCloned(len) => cost_args!(seal_call, 0, len),
-			Instantiate { input_data_len } => T::WeightInfo::seal_instantiate(input_data_len),
+			CallTransferSurcharge { dust_transfer } =>
+				cost_args!(seal_call, 1, dust_transfer.into(), 0),
+			CallInputCloned(len) => cost_args!(seal_call, 0, 0, len),
+			Instantiate { input_data_len, balance_transfer, dust_transfer } =>
+				T::WeightInfo::seal_instantiate(
+					input_data_len,
+					balance_transfer.into(),
+					dust_transfer.into(),
+				),
 			HashSha256(len) => T::WeightInfo::sha2_256(len),
 			Ripemd160(len) => T::WeightInfo::ripemd_160(len),
 			HashKeccak256(len) => T::WeightInfo::seal_hash_keccak_256(len),
@@ -1090,7 +1097,10 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					if read_only || self.ext.is_read_only() {
 						return Err(Error::<E::T>::StateChangeDenied.into());
 					}
-					self.charge_gas(RuntimeCosts::CallTransferSurcharge)?;
+
+					self.charge_gas(RuntimeCosts::CallTransferSurcharge {
+						dust_transfer: Pallet::<E::T>::has_dust(value),
+					})?;
 				}
 				self.ext.call(
 					weight,
@@ -1156,9 +1166,25 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		output_len_ptr: u32,
 		salt_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
-		self.charge_gas(RuntimeCosts::Instantiate { input_data_len })?;
+		let value = match memory.read_u256(value_ptr) {
+			Ok(value) => {
+				self.charge_gas(RuntimeCosts::Instantiate {
+					input_data_len,
+					balance_transfer: Pallet::<E::T>::has_balance(value),
+					dust_transfer: Pallet::<E::T>::has_dust(value),
+				})?;
+				value
+			},
+			Err(err) => {
+				self.charge_gas(RuntimeCosts::Instantiate {
+					input_data_len: 0,
+					balance_transfer: false,
+					dust_transfer: false,
+				})?;
+				return Err(err.into());
+			},
+		};
 		let deposit_limit: U256 = memory.read_u256(deposit_ptr)?;
-		let value = memory.read_u256(value_ptr)?;
 		let code_hash = memory.read_h256(code_hash_ptr)?;
 		let input_data = memory.read(input_data_ptr, input_data_len)?;
 		let salt = if salt_ptr == SENTINEL {
