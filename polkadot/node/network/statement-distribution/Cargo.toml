@@ -35,7 +35,6 @@ thiserror = { workspace = true }
 [dev-dependencies]
 assert_matches = { workspace = true }
 async-channel = { workspace = true }
-futures-timer = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives = { workspace = true, features = ["test"] }
 polkadot-primitives-test-helpers = { workspace = true }

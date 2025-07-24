@@ -1,0 +1,18 @@
+title: 'babe: keep stateless verification in `Verifier`, move everything else to the
+  import queue'
+doc:
+- audience: Node Operator
+  description: Only do stateless verification without runtime calls in the `BabeVerifier`, do all other verification in the import queue.
+crates:
+- name: polkadot-service
+  bump: patch
+- name: sc-consensus-babe-rpc
+  bump: patch
+- name: sc-consensus-babe
+  bump: major
+- name: sp-consensus-babe
+  bump: minor
+- name: sp-consensus
+  bump: major
+- name: sp-inherents
+  bump: minor
