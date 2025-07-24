@@ -1,7 +1,7 @@
 title: '[AHM] Staking async e2e zn and papi tests'
 doc:
-- audience: Todo
-  description: closes https://github.com/paritytech/polkadot-sdk/issues/8766
+- audience: Runtime Dev
+  description: Adds end-to-end tests for staking async using zombienet and papi.
 crates:
 - name: pallet-staking-async
   bump: patch
