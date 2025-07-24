@@ -1038,6 +1038,7 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 	let sender = PenpalBSender::get();
 	let receiver = RococoReceiver::get();
 	let mut topic_id_tracker = TopicIdTracker::new();
+	let mut expected_id: Option<H256> = None;
 
 	// set up ROCs for transfer
 	let penpal_location = AssetHubWestend::sibling_location_of(PenpalB::para_id());
@@ -1148,12 +1149,11 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 					Weight::MAX,
 				);
 
-				let msg_sent_ids: Vec<H256> = find_all_xcm_sent_message_ids::<PenpalB>()
-					.iter()
-					.map(|&id| id.into())
-					.collect();
-				assert!(msg_sent_ids.len() >= 1, "Missing Sent Event");
-				topic_id_tracker.insert_all("PenpalB", &msg_sent_ids);
+				let msg_sent_id =
+					find_xcm_sent_message_id::<PenpalB>().expect("Missing Sent Event on PenpalB");
+				let msg_sent_id: H256 = msg_sent_id.into();
+				expected_id = Some(msg_sent_id);
+				topic_id_tracker.insert("PenpalB", msg_sent_id);
 
 				result
 			}));
@@ -1179,7 +1179,7 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 					]
 				);
 				let mq_prc_ids = find_all_mq_processed_ids::<AssetHubWestend>();
-				assert!(mq_prc_ids.len() >= 1, "Missing Processed Event");
+				assert!(mq_prc_ids.len() >= 1, "Missing Processed Event on AssetHubWestend");
 				topic_id_tracker.insert_all("AssetHubWestend", &mq_prc_ids);
 			});
 		});
@@ -1208,12 +1208,10 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 			]
 		);
 		let mq_prc_ids = find_all_mq_processed_ids::<AssetHubRococo>();
-		assert!(mq_prc_ids.len() >= 1, "Missing Processed Event");
+		assert!(mq_prc_ids.len() >= 1, "Missing Processed Event on AssetHubRococo");
 		topic_id_tracker.insert_all("AssetHubRococo", &mq_prc_ids);
 	});
-	// TODO: FAIL-CI - https://github.com/paritytech/polkadot-sdk/issues/8676
-	// topic_id_tracker.assert_unique();
-	println!("{topic_id_tracker:?}");
+	topic_id_tracker.assert_id_seen_on_all_chains(&expected_id.unwrap());
 
 	let sender_rocs_after = PenpalB::execute_with(|| {
 		type ForeignAssets = <PenpalB as PenpalBPallet>::ForeignAssets;

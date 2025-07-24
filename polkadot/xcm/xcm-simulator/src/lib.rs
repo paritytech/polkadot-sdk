@@ -478,6 +478,18 @@ pub mod helpers {
 			TopicIdTracker { ids: HashMap::new() }
 		}
 
+		pub fn assert_id_seen_on_all_chains(&self, id: &H256) {
+			self.ids.iter().for_each(|(chain, values)| {
+				assert!(
+					values.contains(id),
+					"Topic ID {:?} not found on chain '{}'. Found topic IDs: {:?}",
+					id,
+					chain,
+					values
+				)
+			});
+		}
+
 		/// Asserts that exactly one unique topic ID is present across all captured entries.
 		pub fn assert_unique(&self) {
 			let unique_ids: HashSet<_> = self.ids.values().flatten().collect();
