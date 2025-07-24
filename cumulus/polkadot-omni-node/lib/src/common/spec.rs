@@ -157,19 +157,24 @@ pub(crate) trait BaseNodeSpec {
 		parachain_config: &Configuration,
 	) -> Option<ParaId> {
 		let best_hash = client.chain_info().best_hash;
-		let para_id = if let Ok(para_id) = client.runtime_api().parachain_id(best_hash) {
-			para_id
-		} else {
-			// TODO: remove this once `para_id` extension is removed: https://github.com/paritytech/polkadot-sdk/issues/8740
-			#[allow(deprecated)]
-			let id = ParaId::from(
-				DeprecatedExtensions::try_get(&*parachain_config.chain_spec)
-					.and_then(|ext| ext.para_id)?,
-			);
-			// TODO: https://github.com/paritytech/polkadot-sdk/issues/8747
-			// TODO: https://github.com/paritytech/polkadot-sdk/issues/8740
-			log::info!("Deprecation notice: the parachain id was provided via the chain spec. This way of providing the parachain id to the node is not recommended. The alternative is to implement the `cumulus_primitives_core::GetParachainInfo` runtime API in the runtime, and upgrade it on-chain. Starting with `stable2512` providing the parachain id via the chain spec will not be supported anymore.");
-			id
+		let para_id = match client.runtime_api().parachain_id(best_hash) {
+			Ok(para_id) => para_id,
+			Err(err) => {
+				log::info!(
+					"`cumulus_primitives_core::GetParachainInfo` runtime API call errored with {}",
+					err
+				);
+				// TODO: remove this once `para_id` extension is removed: https://github.com/paritytech/polkadot-sdk/issues/8740
+				#[allow(deprecated)]
+				let id = ParaId::from(
+					DeprecatedExtensions::try_get(&*parachain_config.chain_spec)
+						.and_then(|ext| ext.para_id)?,
+				);
+				// TODO: https://github.com/paritytech/polkadot-sdk/issues/8747
+				// TODO: https://github.com/paritytech/polkadot-sdk/issues/8740
+				log::info!("Deprecation notice: the parachain id was provided via the chain spec. This way of providing the parachain id to the node is not recommended. The alternative is to implement the `cumulus_primitives_core::GetParachainInfo` runtime API in the runtime, and upgrade it on-chain. Starting with `stable2512` providing the parachain id via the chain spec will not be supported anymore.");
+				id
+			},
 		};
 
 		let parachain_account =
