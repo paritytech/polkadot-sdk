@@ -85,33 +85,41 @@ impl VerifyProof for AssetHubAccountProver {
 	) -> Option<VotingPower<ProofBalanceOf<Self>>> {
 		// Init proof checker.
 		let mut proof_checker = StorageProofChecker::<ProofHasherOf<Self>>::new(hash, proof)
-			.inspect_err(|e| log::error!("Invalid hash/proof, error: {:?}", e))
+			.inspect_err(
+				|error| tracing::error!(target: "runtime::dday", ?error, "Invalid hash/proof"),
+			)
 			.ok()?;
 
 		// Read account balance.
 		let account_balance: AssetHubAccountData = proof_checker
 			.read_and_decode_mandatory_value(&Self::account_balance_storage_key(who))
-			.inspect_err(|e| log::error!("Invalid proof value for account balance, error: {:?}", e))
+			.inspect_err(|error| {
+                tracing::error!(target: "runtime::dday", ?error, "Invalid proof value for account balance")
+            })
 			.ok()?;
 
 		// Read total issuance.
 		let total_issuance: ProofBalanceOf<Self> = proof_checker
 			.read_and_decode_mandatory_value(&Self::total_issuance_storage_key())
-			.inspect_err(|e| log::error!("Invalid proof value for total issuance, error: {:?}", e))
+			.inspect_err(|error| {
+                tracing::error!(target: "runtime::dday", ?error, "Invalid proof value for total issuance")
+            })
 			.ok()?;
 
 		// Read inactive issuance.
 		let inactive_issuance: ProofBalanceOf<Self> = proof_checker
 			.read_and_decode_mandatory_value(&Self::inactive_issuance_storage_key())
-			.inspect_err(|e| {
-				log::error!("Invalid proof value for inactive issuance, error: {:?}", e)
+			.inspect_err(|error| {
+				tracing::error!(target: "runtime::dday", ?error, "Invalid proof value for inactive issuance")
 			})
 			.ok()?;
 
 		// check no unsed node in the proof
 		proof_checker
 			.ensure_no_unused_nodes()
-			.inspect_err(|e| log::error!("Invalid proof contains unused keys, error: {:?}", e))
+			.inspect_err(
+				|error| tracing::error!(target: "runtime::dday", ?error, "Invalid proof contains unused keys"),
+			)
 			.ok()?;
 
 		// Calculate active issuance as AssetHub's Balances.
@@ -192,8 +200,9 @@ impl<F: Contains<Location>> ShouldExecute for AllowTransactWithDDayDataUpdatesFr
 							_ => Err(ProcessMessageError::BadFormat),
 						}
 					},
-					ExpectTransactStatus(..) if starts_with_valid_transact =>
-						Ok(ControlFlow::Continue(())),
+					ExpectTransactStatus(..) if starts_with_valid_transact => {
+						Ok(ControlFlow::Continue(()))
+					},
 					_ => Err(ProcessMessageError::BadFormat),
 				},
 			)?

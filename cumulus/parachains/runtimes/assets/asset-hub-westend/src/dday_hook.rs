@@ -116,7 +116,7 @@ impl pallet_bridge_proof_root_sync::OnSend<BlockNumberFor<Runtime>, HeadData>
 				.expect_transact_status(MaybeErrorCode::Success)
 				.build(),
 		) {
-			log::warn!(target: LOG_TARGET, "Failed to send XCM: {:?}", error);
+			tracing::warn!(target: LOG_TARGET, ?error, "Failed to send XCM");
 		}
 	}
 
