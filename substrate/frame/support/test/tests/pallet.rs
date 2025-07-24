@@ -997,7 +997,7 @@ fn inherent_expand() {
 		vec![UncheckedExtrinsic::new_bare(RuntimeCall::Example(pallet::Call::foo_no_post_info {}))];
 	assert_eq!(expected, inherents);
 
-	let block = Block::new(
+	let mut block = Block::new(
 		Header::new(
 			1,
 			BlakeTwo256::hash(b"test"),
@@ -1014,9 +1014,9 @@ fn inherent_expand() {
 		],
 	);
 
-	assert!(InherentData::new().check_extrinsics(&block).ok());
+	assert!(InherentData::new().check_extrinsics(&mut block).unwrap().ok());
 
-	let block = Block::new(
+	let mut block = Block::new(
 		Header::new(
 			1,
 			BlakeTwo256::hash(b"test"),
@@ -1033,9 +1033,9 @@ fn inherent_expand() {
 		],
 	);
 
-	assert!(InherentData::new().check_extrinsics(&block).fatal_error());
+	assert!(InherentData::new().check_extrinsics(&mut block).unwrap().fatal_error());
 
-	let block = Block::new(
+	let mut block = Block::new(
 		Header::new(
 			1,
 			BlakeTwo256::hash(b"test"),
@@ -1050,9 +1050,9 @@ fn inherent_expand() {
 
 	let mut inherent = InherentData::new();
 	inherent.put_data(*b"required", &true).unwrap();
-	assert!(inherent.check_extrinsics(&block).fatal_error());
+	assert!(inherent.check_extrinsics(&mut block).unwrap().fatal_error());
 
-	let block = Block::new(
+	let mut block = Block::new(
 		Header::new(
 			1,
 			BlakeTwo256::hash(b"test"),
@@ -1070,7 +1070,7 @@ fn inherent_expand() {
 
 	let mut inherent = InherentData::new();
 	inherent.put_data(*b"required", &true).unwrap();
-	assert!(inherent.check_extrinsics(&block).fatal_error());
+	assert!(inherent.check_extrinsics(&mut block).unwrap().fatal_error());
 }
 
 #[test]

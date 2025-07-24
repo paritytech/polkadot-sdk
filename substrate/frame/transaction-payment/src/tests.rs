@@ -18,6 +18,8 @@
 use super::*;
 use crate as pallet_transaction_payment;
 
+use sp_runtime::traits::LazyExtrinsic;
+
 use codec::Encode;
 
 use sp_runtime::{
@@ -282,13 +284,13 @@ fn query_info_and_fee_details_works() {
 	let call = RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 2, value: 69 });
 	let origin = 111111;
 	let extra = ();
-	let xt = UncheckedExtrinsic::new_signed(call.clone(), origin, (), extra);
-	let info = xt.get_dispatch_info();
+	let mut xt = UncheckedExtrinsic::new_signed(call.clone(), origin, (), extra);
+	let info = xt.expect_as_ref().get_dispatch_info();
 	let ext = xt.encode();
 	let len = ext.len() as u32;
 
-	let unsigned_xt = UncheckedExtrinsic::<u64, _, (), ()>::new_bare(call);
-	let unsigned_xt_info = unsigned_xt.get_dispatch_info();
+	let mut unsigned_xt = UncheckedExtrinsic::<u64, _, (), ()>::new_bare(call);
+	let unsigned_xt_info = unsigned_xt.expect_as_ref().get_dispatch_info();
 
 	ExtBuilder::default()
 		.base_weight(Weight::from_parts(5, 0))
@@ -299,7 +301,7 @@ fn query_info_and_fee_details_works() {
 			NextFeeMultiplier::<Runtime>::put(Multiplier::saturating_from_rational(3, 2));
 
 			assert_eq!(
-				TransactionPayment::query_info(xt.clone(), len),
+				TransactionPayment::query_info_from_runtime_api(xt.clone(), len),
 				RuntimeDispatchInfo {
 					weight: info.total_weight(),
 					class: info.class,
@@ -310,7 +312,7 @@ fn query_info_and_fee_details_works() {
 			);
 
 			assert_eq!(
-				TransactionPayment::query_info(unsigned_xt.clone(), len),
+				TransactionPayment::query_info_from_runtime_api(unsigned_xt.clone(), len),
 				RuntimeDispatchInfo {
 					weight: unsigned_xt_info.call_weight,
 					class: unsigned_xt_info.class,
@@ -319,7 +321,7 @@ fn query_info_and_fee_details_works() {
 			);
 
 			assert_eq!(
-				TransactionPayment::query_fee_details(xt, len),
+				TransactionPayment::query_fee_details_from_runtime_api(xt, len),
 				FeeDetails {
 					inclusion_fee: Some(InclusionFee {
 						base_fee: 5 * 2,
@@ -334,7 +336,7 @@ fn query_info_and_fee_details_works() {
 			);
 
 			assert_eq!(
-				TransactionPayment::query_fee_details(unsigned_xt, len),
+				TransactionPayment::query_fee_details_from_runtime_api(unsigned_xt, len),
 				FeeDetails { inclusion_fee: None, tip: 0 },
 			);
 		});

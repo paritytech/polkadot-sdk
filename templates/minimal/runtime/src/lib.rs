@@ -261,7 +261,7 @@ impl_runtime_apis! {
 			block: Block,
 			data: InherentData,
 		) -> CheckInherentsResult {
-			data.check_extrinsics(&block)
+			data.check_extrinsics_from_runtime_api(block)
 		}
 	}
 
@@ -304,10 +304,10 @@ impl_runtime_apis! {
 		interface::Balance,
 	> for Runtime {
 		fn query_info(uxt: ExtrinsicFor<Runtime>, len: u32) -> RuntimeDispatchInfo<interface::Balance> {
-			TransactionPayment::query_info(uxt, len)
+			TransactionPayment::query_info_from_runtime_api(uxt, len)
 		}
 		fn query_fee_details(uxt: ExtrinsicFor<Runtime>, len: u32) -> FeeDetails<interface::Balance> {
-			TransactionPayment::query_fee_details(uxt, len)
+			TransactionPayment::query_fee_details_from_runtime_api(uxt, len)
 		}
 		fn query_weight_to_fee(weight: Weight) -> interface::Balance {
 			TransactionPayment::weight_to_fee(weight)
