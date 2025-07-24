@@ -27,6 +27,8 @@ pub trait WeightInfo {
 	fn withdraw_approval() -> Weight;
 	fn clean() -> Weight;
 	fn execute_proposal() -> Weight;
+	fn add_storage_id() -> Weight;
+	fn remove_storage_id() -> Weight;
 }
 
 // For tests
@@ -41,7 +43,7 @@ impl WeightInfo for () {
 		Weight::zero()
 	}
 	fn amend_remark() -> Weight {
-		Weight::zero()
+		Weight::from_parts(20_000, 0)
 	}
 	fn cancel_proposal() -> Weight {
 		Weight::zero()
@@ -54,5 +56,11 @@ impl WeightInfo for () {
 	}
 	fn execute_proposal() -> Weight {
 		Weight::zero()
+	}
+	fn add_storage_id() -> Weight {
+		Weight::from_parts(10_000, 0)
+	}
+	fn remove_storage_id() -> Weight {
+		Weight::from_parts(15_000, 0)
 	}
 }

@@ -185,10 +185,48 @@ parameter_types! {
 	// plus contingency to try to meet longest global regulatory requirement
 	// Calculation: 15 years × 365.25 days × 24 hours × 60 minutes × 60 seconds ÷ 12 seconds per block = 39,447,000 blocks
 	// Adding 25% safety margin: 39,447,000 × 1.25 = 49,308,750 blocks
-	pub static NonCancelledProposalRetentionPeriod: BlockNumber = 50_000_000;
+	pub static ProposalRetentionPeriodWhenNotCancelled: BlockNumber = 50_000_000;
 	// Maximum number of proposals to expire per block
 	pub static MaxProposalsToExpirePerBlock: u32 = 10;
+	pub static MaxRemarkLength: u32 = 1024;
+	pub static MaxStorageIdLength: u32 = 128;
+	pub static MaxStorageIdDescriptionLength: u32 = 256;
+	pub static MaxStorageIdsPerProposal: u32 = 20;
+	pub static MaxRemarksPerProposal: u32 = 50;
 }
+
+// Mock for OpenGov integration
+pub struct MockReferendaOrigin;
+
+impl EnsureOrigin<RuntimeOrigin> for MockReferendaOrigin {
+	type Success = ();
+
+	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
+		// Check if origin is root
+		match frame_system::ensure_root(o.clone()) {
+			Ok(_) => {
+				// Root origin
+				Ok(())
+			},
+			Err(_) => {
+				// Not root origin
+				Err(o)
+			},
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+		// Return a root origin which will pass the origin check
+		Ok(frame_system::RawOrigin::Root.into())
+	}
+}
+
+// Combined origin type for testing both collective and OpenGov origins
+pub type TestCollectiveOrigin = frame_support::traits::EitherOfDiverse<
+	frame_system::EnsureRoot<AccountId>,
+	MockReferendaOrigin,
+>;
 
 impl pallet_origin_and_gate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
@@ -196,8 +234,15 @@ impl pallet_origin_and_gate::Config for Test {
 	type RequiredApprovalsCount = RequiredApprovalsCount;
 	type Hashing = BlakeTwo256;
 	type OriginId = OriginId;
+	type MaxRemarkLength = MaxRemarkLength;
+	type MaxStorageIdLength = MaxStorageIdLength;
+	type MaxStorageIdDescriptionLength = MaxStorageIdDescriptionLength;
+	type MaxStorageIdsPerProposal = MaxStorageIdsPerProposal;
+	type MaxRemarksPerProposal = MaxRemarksPerProposal;
+	// Use the combined origin type that supports both collectives and OpenGov
+	type CollectiveOrigin = TestCollectiveOrigin;
 	type ProposalExpiry = ProposalExpiry;
-	type NonCancelledProposalRetentionPeriod = NonCancelledProposalRetentionPeriod;
+	type ProposalRetentionPeriodWhenNotCancelled = ProposalRetentionPeriodWhenNotCancelled;
 	type MaxProposalsToExpirePerBlock = MaxProposalsToExpirePerBlock;
 	type WeightInfo = ();
 }

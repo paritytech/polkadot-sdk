@@ -41,7 +41,25 @@ mod helpers {
 
 	// Helper function to create T::OriginId from CompositeOriginId
 	pub fn make_origin_id<T: Config>(id: CompositeOriginId) -> T::OriginId {
-		id.into()
+		// For benchmarking use only create simple OriginId using a hard-coded value
+		let mut v = Vec::new();
+		v.extend_from_slice(&id.collective_id.to_le_bytes());
+		v.extend_from_slice(&id.role.to_le_bytes());
+
+		// Codec crate used to create a T::OriginId from bytes
+		// should work with most OriginId types that implement FullCodec
+		match Decode::decode(&mut &v[..]) {
+			Ok(proposal_origin_id) => proposal_origin_id,
+			Err(_) => {
+				// For benchmarking purposes only that are compiled separately use a different
+				// approach if decoding fails of creating a value using unsafe methods
+				let origin_bytes = [0u8; 32]; // Use a zero-filled buffer
+				Decode::decode(&mut &origin_bytes[..]).unwrap_or_else(|_| {
+					// Panic with a clear message otherwise
+					panic!("Unable to create a valid OriginId for benchmarking")
+				})
+			},
+		}
 	}
 
 	// Helper function to convert hash types
@@ -87,24 +105,26 @@ mod benchmarks {
 		let call_hash = convert_hash::<T>(&hash_output);
 
 		// Convert CompositeOriginId to T::OriginId using our helper
-		let origin_id = make_origin_id::<T>(CompositeOriginId::from(0));
-		let expiry_at = None;
+		let proposal_origin_id = make_origin_id::<T>(CompositeOriginId::from(0));
+		let proposal_expiry_at = None;
 
 		// Phase 2: Execution
 		#[extrinsic_call]
 		propose(
 			RawOrigin::Signed(caller),
 			Box::new(call),
-			origin_id,
-			expiry_at,
+			proposal_origin_id,
+			proposal_expiry_at,
 			Some(true),
+			None,
+			None,
 			None,
 			Some(false),
 		);
 
 		// Phase 3: Verification
 		assert!(
-			Pallet::<T>::proposals(call_hash, origin_id).is_some(),
+			Pallet::<T>::proposals(call_hash, proposal_origin_id).is_some(),
 			"Proposal must exist after propose"
 		);
 
@@ -123,15 +143,17 @@ mod benchmarks {
 		let call_hash = convert_hash::<T>(&hash_output);
 
 		// Convert CompositeOriginId to T::OriginId using helper
-		let origin_id = make_origin_id::<T>(CompositeOriginId::from(0));
+		let proposal_origin_id = make_origin_id::<T>(CompositeOriginId::from(0));
 		let approving_origin_id = make_origin_id::<T>(CompositeOriginId::from(1));
-		let expiry_at = None;
+		let proposal_expiry_at = None;
 
 		Pallet::<T>::propose(
 			RawOrigin::Signed(proposer).into(),
 			Box::new(call),
-			origin_id,
-			expiry_at,
+			proposal_origin_id,
+			proposal_expiry_at,
+			None,
+			None,
 			None,
 			None,
 			Some(false),
@@ -139,11 +161,19 @@ mod benchmarks {
 
 		// Phase 2: Execution
 		#[extrinsic_call]
-		add_approval(RawOrigin::Signed(caller), call_hash, origin_id, approving_origin_id, None);
+		add_approval(
+			RawOrigin::Signed(caller),
+			call_hash,
+			proposal_origin_id,
+			approving_origin_id,
+			None,
+			None,
+			None,
+		);
 
 		// Phase 3: Verification
 		assert!(
-			Pallet::<T>::approvals((call_hash, origin_id), approving_origin_id).is_some(),
+			Pallet::<T>::approvals((call_hash, proposal_origin_id), approving_origin_id).is_some(),
 			"Approval must exist after add_approval"
 		);
 
@@ -163,16 +193,18 @@ mod benchmarks {
 		let call_hash = convert_hash::<T>(&hash_output);
 
 		// Convert CompositeOriginId to T::OriginId using our helper
-		let origin_id = make_origin_id::<T>(CompositeOriginId::from(1));
+		let proposal_origin_id = make_origin_id::<T>(CompositeOriginId::from(1));
 		let approving_origin_id1 = make_origin_id::<T>(CompositeOriginId::from(2));
-		let expiry_at = None;
+		let proposal_expiry_at = None;
 
 		Pallet::<T>::propose(
 			RawOrigin::Signed(proposer).into(),
 			Box::new(call),
-			origin_id,
-			expiry_at,
+			proposal_origin_id,
+			proposal_expiry_at,
 			Some(true),
+			None,
+			None,
 			None,
 			Some(false), // Do not auto-execute
 		)?;
@@ -181,18 +213,20 @@ mod benchmarks {
 		Pallet::<T>::add_approval(
 			RawOrigin::Signed(approver1).into(),
 			call_hash,
-			origin_id,
+			proposal_origin_id,
 			approving_origin_id1,
+			None,
+			None,
 			None,
 		)?;
 
 		// Phase 2: Execution
 		#[extrinsic_call]
-		execute_proposal(RawOrigin::Signed(caller), call_hash, origin_id);
+		execute_proposal(RawOrigin::Signed(caller), call_hash, proposal_origin_id);
 
 		// Phase 3: Verification
 		assert!(
-			Pallet::<T>::proposals(call_hash, origin_id).is_some(),
+			Pallet::<T>::proposals(call_hash, proposal_origin_id).is_some(),
 			"Proposal must still exist after execute_proposal"
 		);
 
@@ -210,14 +244,16 @@ mod benchmarks {
 		let call_hash = convert_hash::<T>(&hash_output);
 
 		// Convert CompositeOriginId to T::OriginId using our helper
-		let origin_id = make_origin_id::<T>(CompositeOriginId::from(0));
-		let expiry_at = None;
+		let proposal_origin_id = make_origin_id::<T>(CompositeOriginId::from(0));
+		let proposal_expiry_at = None;
 
 		Pallet::<T>::propose(
 			RawOrigin::Signed(caller.clone()).into(),
 			Box::new(call),
-			origin_id,
-			expiry_at,
+			proposal_origin_id,
+			proposal_expiry_at,
+			None,
+			None,
 			None,
 			None,
 			Some(false),
@@ -225,11 +261,11 @@ mod benchmarks {
 
 		// Phase 2: Execution
 		#[extrinsic_call]
-		cancel_proposal(RawOrigin::Signed(caller), call_hash, origin_id);
+		cancel_proposal(RawOrigin::Signed(caller), call_hash, proposal_origin_id);
 
 		// Phase 3: Verification
 		assert!(
-			Pallet::<T>::proposals(call_hash, origin_id).is_none(),
+			Pallet::<T>::proposals(call_hash, proposal_origin_id).is_none(),
 			"Proposal must not exist after cancel_proposal"
 		);
 
@@ -248,15 +284,17 @@ mod benchmarks {
 		let call_hash = convert_hash::<T>(&hash_output);
 
 		// Convert CompositeOriginId to T::OriginId using our helper
-		let origin_id = make_origin_id::<T>(CompositeOriginId::from(0));
+		let proposal_origin_id = make_origin_id::<T>(CompositeOriginId::from(0));
 		let approving_origin_id = make_origin_id::<T>(CompositeOriginId::from(1));
-		let expiry_at = None;
+		let proposal_expiry_at = None;
 
 		Pallet::<T>::propose(
 			RawOrigin::Signed(proposer).into(),
 			Box::new(call),
-			origin_id,
-			expiry_at,
+			proposal_origin_id,
+			proposal_expiry_at,
+			None,
+			None,
 			None,
 			None,
 			Some(false),
@@ -265,18 +303,25 @@ mod benchmarks {
 		Pallet::<T>::add_approval(
 			RawOrigin::Signed(approver.clone()).into(),
 			call_hash,
-			origin_id,
+			proposal_origin_id,
 			approving_origin_id,
+			None,
+			None,
 			None,
 		)?;
 
 		// Phase 2: Execution
 		#[extrinsic_call]
-		withdraw_approval(RawOrigin::Signed(approver), call_hash, origin_id, approving_origin_id);
+		withdraw_approval(
+			RawOrigin::Signed(approver),
+			call_hash,
+			proposal_origin_id,
+			approving_origin_id,
+		);
 
 		// Phase 3: Verification
 		assert!(
-			Pallet::<T>::approvals((call_hash, origin_id), approving_origin_id).is_none(),
+			Pallet::<T>::approvals((call_hash, proposal_origin_id), approving_origin_id).is_none(),
 			"Approval must not exist after withdraw_approval"
 		);
 
@@ -297,9 +342,9 @@ mod benchmarks {
 		let call_hash = convert_hash::<T>(&hash_output);
 
 		// Convert CompositeOriginId to T::OriginId using our helper
-		let origin_id = make_origin_id::<T>(CompositeOriginId::from(1));
+		let proposal_origin_id = make_origin_id::<T>(CompositeOriginId::from(1));
 		let approving_origin_id = make_origin_id::<T>(CompositeOriginId::from(2));
-		let expiry_at = None;
+		let proposal_expiry_at = None;
 		let auto_execute = Some(false);
 
 		// Create a proposal with immediate expiry
@@ -310,8 +355,10 @@ mod benchmarks {
 		Pallet::<T>::propose(
 			RawOrigin::Signed(proposer.clone()).into(),
 			Box::new(call.clone()),
-			origin_id,
-			expiry_at,
+			proposal_origin_id.clone(),
+			proposal_expiry_at,
+			Some(true),
+			None,
 			None,
 			None,
 			auto_execute,
@@ -319,7 +366,7 @@ mod benchmarks {
 
 		// Verify the proposal still exists before add_approval
 		assert!(
-			Pallet::<T>::proposals(call_hash, origin_id).is_some(),
+			Pallet::<T>::proposals(call_hash, proposal_origin_id).is_some(),
 			"Proposal must exist before add_approval"
 		);
 
@@ -332,34 +379,40 @@ mod benchmarks {
 		Pallet::<T>::add_approval(
 			RawOrigin::Signed(approver.clone()).into(),
 			call_hash,
-			origin_id,
-			approving_origin_id,
+			proposal_origin_id.clone(),
+			approving_origin_id.clone(),
+			None,
+			None,
 			None,
 		)?;
 
 		// Execute proposal
-		Pallet::<T>::execute_proposal(RawOrigin::Signed(proposer).into(), call_hash, origin_id)?;
+		Pallet::<T>::execute_proposal(
+			RawOrigin::Signed(proposer).into(),
+			call_hash,
+			proposal_origin_id,
+		)?;
 
 		// Advance block to make proposal eligible for cleaning
-		let retention_period = T::NonCancelledProposalRetentionPeriod::get();
+		let proposal_retention_period = T::ProposalRetentionPeriodWhenNotCancelled::get();
 		let proposal_expiry_at = T::ProposalExpiry::get();
 		frame_system::Pallet::<T>::set_block_number(
-			start_block + proposal_expiry_at + retention_period + 1u32.into(),
+			start_block + proposal_expiry_at + proposal_retention_period + 1u32.into(),
 		);
 
 		// Verify proposal still exists before cleaning
 		assert!(
-			Pallet::<T>::proposals(call_hash, origin_id).is_some(),
+			Pallet::<T>::proposals(call_hash, proposal_origin_id).is_some(),
 			"Proposal must exist before cleaning"
 		);
 
 		// Phase 2: Execution
 		#[extrinsic_call]
-		clean(RawOrigin::Signed(caller), call_hash, origin_id);
+		clean(RawOrigin::Signed(caller), call_hash, proposal_origin_id);
 
 		// Phase 3: Verification
 		assert!(
-			Pallet::<T>::proposals(call_hash, origin_id).is_none(),
+			Pallet::<T>::proposals(call_hash, proposal_origin_id).is_none(),
 			"Proposal must not exist after cleaning"
 		);
 
@@ -379,22 +432,24 @@ mod benchmarks {
 		let call_hash = convert_hash::<T>(&hash_output);
 
 		// Convert CompositeOriginId to T::OriginId using our helper
-		let origin_id = make_origin_id::<T>(CompositeOriginId::from(1));
+		let proposal_origin_id = make_origin_id::<T>(CompositeOriginId::from(1));
 		let approving_origin_id = make_origin_id::<T>(CompositeOriginId::from(2));
 
 		// Store the call in storage for execution
 		ProposalCalls::<T>::insert(call_hash, Box::new(call));
 
 		// Create expiry block number
-		let expiry_at = Some(frame_system::Pallet::<T>::block_number() + 100u32.into());
+		let proposal_expiry_at = Some(frame_system::Pallet::<T>::block_number() + 100u32.into());
 
 		// Create proposal
 		Pallet::<T>::propose(
 			RawOrigin::Signed(proposer.clone()).into(),
 			Box::new(frame_system::Call::<T>::remark { remark: vec![] }.into()),
-			origin_id.clone(),
-			expiry_at,
+			proposal_origin_id.clone(),
+			proposal_expiry_at,
 			Some(true),
+			None,
+			None,
 			None,
 			Some(false),
 		)?;
@@ -403,15 +458,20 @@ mod benchmarks {
 		Pallet::<T>::add_approval(
 			RawOrigin::Signed(caller.clone()).into(),
 			call_hash,
-			origin_id.clone(),
+			proposal_origin_id.clone(),
 			approving_origin_id.clone(),
+			None,
+			None,
 			None,
 		)?;
 
 		// Verify approval exists
 		assert!(
-			Pallet::<T>::approvals((call_hash, origin_id.clone()), approving_origin_id.clone())
-				.is_some(),
+			Pallet::<T>::approvals(
+				(call_hash, proposal_origin_id.clone()),
+				approving_origin_id.clone()
+			)
+			.is_some(),
 			"Approval must exist before amending"
 		);
 
@@ -423,9 +483,11 @@ mod benchmarks {
 		amend_remark(
 			RawOrigin::Signed(caller),
 			call_hash,
-			origin_id,
+			proposal_origin_id,
 			Some(approving_origin_id),
 			remark,
+			None,
+			None,
 		);
 
 		// Phase 3: Verification

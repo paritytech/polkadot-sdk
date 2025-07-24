@@ -26,7 +26,7 @@ The "AND Gate" Substrate pallet implements a flexible mechanism for `EnsureOrigi
 ### 3. Execution and Cleanup
 
 - **Proposal Exection (Automatic)**: Proposals execute automatically when approval threshold of `RequiredApprovalsCount` is met
-- **Storage Cleanup (Automatic)**: Terminal proposals are removed after configurable retention period `NonCancelledProposalRetentionPeriod` with the exception of cancelled proposals that are cleaned up immediately
+- **Storage Cleanup (Automatic)**: Terminal proposals are removed after configurable retention period `ProposalRetentionPeriodWhenNotCancelled` with the exception of cancelled proposals that are cleaned up immediately
 - **Optimized Cleanup**: Executed proposals use execution time as base for retention period calculation
 - **Cleanup Rules**:
   - **Cancelled** proposals are eligible for immediate cleanup upon cancellation
@@ -37,7 +37,7 @@ The "AND Gate" Substrate pallet implements a flexible mechanism for `EnsureOrigi
 
 - **RequiredApprovalsCount**: Maximum number of origin approvals required for a proposal to execute
 - **ProposalExpiry**: How long (measured in blocks) a proposal remains valid before expiry
-- **NonCancelledProposalRetentionPeriod**: How long to keep executed or expired proposals before cleanup (measured in blocks)
+- **ProposalRetentionPeriodWhenNotCancelled**: How long to keep executed or expired proposals before cleanup (measured in blocks)
 - **MaxProposalsToExpirePerBlock**: Maximum number of proposals that can expire in a single block (measured in blocks)
 
 ## Proposal Lifecycle and Cleanup
