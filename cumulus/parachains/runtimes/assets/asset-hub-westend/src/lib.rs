@@ -1130,8 +1130,7 @@ impl pallet_nfts::Config for Runtime {
 	type WeightInfo = weights::pallet_nfts::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
-	// TODO migrate for async backing.
-	type BlockNumberProvider = System;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 }
 
 /// XCM router instance to BridgeHub with bridging capabilities for `Rococo` global
@@ -1200,7 +1199,7 @@ parameter_types! {
 impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations = pallet_migrations::migrations::ResetPallet<Runtime, Revive>;
+	type Migrations = pallet_revive::migrations::v1::Migration<Runtime>;
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
 	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
@@ -1476,12 +1475,12 @@ impl frame_support::traits::OnRuntimeUpgrade for DeleteUndecodableStorage {
 		// any for this account.
 		match AccountId::from_ss58check("5GCCJthVSwNXRpbeg44gysJUx9vzjdGdfWhioeM7gCg6VyXf") {
 			Ok(a) => {
-				log::info!("Removing holds for account with bad hold");
+				tracing::info!(target: "bridges::on_runtime_upgrade", "Removing holds for account with bad hold");
 				pallet_balances::Holds::<Runtime, ()>::remove(a);
 				writes.saturating_inc();
 			},
 			Err(_) => {
-				log::error!("CleanupUndecodableStorage: Somehow failed to convert valid SS58 address into an AccountId!");
+				tracing::error!(target: "bridges::on_runtime_upgrade", "CleanupUndecodableStorage: Somehow failed to convert valid SS58 address into an AccountId!");
 			},
 		};
 
@@ -1489,10 +1488,10 @@ impl frame_support::traits::OnRuntimeUpgrade for DeleteUndecodableStorage {
 		writes.saturating_inc();
 		match pallet_nfts::Pallet::<Runtime, ()>::do_burn(3, 1, |_| Ok(())) {
 			Ok(_) => {
-				log::info!("Destroyed undecodable NFT item 1");
+				tracing::info!(target: "bridges::on_runtime_upgrade", "Destroyed undecodable NFT item 1");
 			},
 			Err(e) => {
-				log::error!("Failed to destroy undecodable NFT item: {:?}", e);
+				tracing::error!(target: "bridges::on_runtime_upgrade", error=?e, "Failed to destroy undecodable NFT item");
 				return <Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, writes);
 			},
 		}
@@ -1501,10 +1500,10 @@ impl frame_support::traits::OnRuntimeUpgrade for DeleteUndecodableStorage {
 		writes.saturating_inc();
 		match pallet_nfts::Pallet::<Runtime, ()>::do_burn(3, 2, |_| Ok(())) {
 			Ok(_) => {
-				log::info!("Destroyed undecodable NFT item 2");
+				tracing::info!(target: "bridges::on_runtime_upgrade", "Destroyed undecodable NFT item 2");
 			},
 			Err(e) => {
-				log::error!("Failed to destroy undecodable NFT item: {:?}", e);
+				tracing::error!(target: "bridges::on_runtime_upgrade", error=?e, "Failed to destroy undecodable NFT item");
 				return <Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, writes);
 			},
 		}
@@ -1517,10 +1516,10 @@ impl frame_support::traits::OnRuntimeUpgrade for DeleteUndecodableStorage {
 			None,
 		) {
 			Ok(_) => {
-				log::info!("Destroyed undecodable NFT collection");
+				tracing::info!(target: "bridges::on_runtime_upgrade", "Destroyed undecodable NFT collection");
 			},
 			Err(e) => {
-				log::error!("Failed to destroy undecodable NFT collection: {:?}", e);
+				tracing::error!(target: "bridges::on_runtime_upgrade", error=?e, "Failed to destroy undecodable NFT collection");
 			},
 		};
 
@@ -1670,6 +1669,7 @@ mod benches {
 		[pallet_nfts, Nfts]
 		[pallet_proxy, Proxy]
 		[pallet_session, SessionBench::<Runtime>]
+		[pallet_staking_async, Staking]
 		[pallet_uniques, Uniques]
 		[pallet_utility, Utility]
 		[pallet_timestamp, Timestamp]
@@ -1711,6 +1711,12 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
 		fn relay_parent_offset() -> u32 {
 			0
+		}
+	}
+
+	impl cumulus_primitives_core::GetParachainInfo<Block> for Runtime {
+		fn parachain_id() -> ParaId {
+			ParachainInfo::parachain_id()
 		}
 	}
 
@@ -2335,12 +2341,13 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 						alloc::boxed::Box::new(bridged_asset_hub.clone()),
 						XCM_VERSION,
 					).map_err(|e| {
-						log::error!(
-							"Failed to dispatch `force_xcm_version({:?}, {:?}, {:?})`, error: {:?}",
-							RuntimeOrigin::root(),
-							bridged_asset_hub,
-							XCM_VERSION,
-							e
+						tracing::error!(
+							target: "bridges::benchmark",
+							error=?e,
+							origin=?RuntimeOrigin::root(),
+							location=?bridged_asset_hub,
+							version=?XCM_VERSION,
+							"Failed to dispatch `force_xcm_version`"
 						);
 						BenchmarkError::Stop("XcmVersion was not stored!")
 					})?;

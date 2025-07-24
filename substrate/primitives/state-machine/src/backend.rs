@@ -30,7 +30,7 @@ use hash_db::Hasher;
 use sp_core::storage::{ChildInfo, StateVersion, TrackedStorageKey};
 #[cfg(feature = "std")]
 use sp_core::traits::RuntimeCode;
-use sp_trie::{MerkleValue, PrefixedMemoryDB};
+use sp_trie::{MerkleValue, PrefixedMemoryDB, RandomState};
 
 /// A struct containing arguments for iterating over the storage.
 #[derive(Default)]
@@ -301,7 +301,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 	where
 		H::Out: Ord + Encode,
 	{
-		let mut txs = BackendTransaction::default();
+		let mut txs = BackendTransaction::with_hasher(RandomState::default());
 		let mut child_roots: Vec<_> = Default::default();
 		// child first
 		for (child_info, child_delta) in child_deltas {

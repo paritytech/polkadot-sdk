@@ -66,7 +66,13 @@ use std::{
 	pin::Pin,
 	str::{self, FromStr},
 	sync::Arc,
+	time::Duration,
 };
+
+/// Default timeout for idle connections of 10 seconds is good enough for most networks.
+/// It doesn't make sense to expose it as a CLI parameter on individual nodes, but customizations
+/// are possible in custom nodes through [`NetworkConfiguration`].
+pub const DEFAULT_IDLE_CONNECTION_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Protocol name prefix, transmitted on the wire for legacy protocol names.
 /// I.e., `dot` in `/dot/sync/2`. Should be unique for each chain. Always UTF-8.
@@ -620,6 +626,11 @@ pub struct NetworkConfiguration {
 	/// Configuration for the transport layer.
 	pub transport: TransportConfig,
 
+	/// Idle connection timeout.
+	///
+	/// Set by default to [`DEFAULT_IDLE_CONNECTION_TIMEOUT`].
+	pub idle_connection_timeout: Duration,
+
 	/// Maximum number of peers to ask the same blocks in parallel.
 	pub max_parallel_downloads: u32,
 
@@ -677,6 +688,7 @@ impl NetworkConfiguration {
 			client_version: client_version.into(),
 			node_name: node_name.into(),
 			transport: TransportConfig::Normal { enable_mdns: false, allow_private_ip: true },
+			idle_connection_timeout: DEFAULT_IDLE_CONNECTION_TIMEOUT,
 			max_parallel_downloads: 5,
 			max_blocks_per_request: 64,
 			min_peers_to_start_warp_sync: None,
