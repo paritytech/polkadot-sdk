@@ -583,15 +583,16 @@ impl<S: Get<Perbill>> DisablingStrategy<Runtime> for AlwaysDisableForSlashGreate
 			.iter()
 			.position(|v| v == offender_stash)
 			.map(|i| i as u32);
-		let disable = if meets_threshold && offender_index.is_some() {
-			Some(offender_index.unwrap())
-		} else {
-			log::warn!(
-				target: "runtime",
-				"Offender {:?} (index = {:?}) with severity {:?} does not meet the threshold of {:?}, or index not found",
-				offender_stash, offender_index, offender_slash_severity, S::get()
-			);
-			None
+		let disable = match offender_index {
+			Some(index) if meets_threshold => Some(index),
+			_ => {
+				log::warn!(
+					target: "runtime",
+					"Offender {:?} (index = {:?}) with severity {:?} does not meet the threshold of {:?}, or index not found",
+					offender_stash, offender_index, offender_slash_severity, S::get()
+				);
+				None
+			},
 		};
 
 		DisablingDecision { disable, reenable: None }

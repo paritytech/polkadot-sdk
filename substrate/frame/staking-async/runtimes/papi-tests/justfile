@@ -11,10 +11,7 @@ setup:
     set -euo pipefail
 
     echo "🧹 Killing any existing zombienet or chain processes..."
-    pkill -f zombienet || true
-    pkill -f chain-spec-builder || true
-    pkill -f polkadot || true
-    pkill -f polkadot-parachain || true
+    just killall
 
     just install || echo "🚧 Generate and installed missing descriptors..."
     just build-and-generate-chains
@@ -40,12 +37,11 @@ setup:
       done
     done
 
-    echo "✅ ports detected, chains running, generating descriptors..."
     just generate-descriptors
 
     echo "🧹 Cleaning up chain processes..."
     kill $CHAINS_PID || true
-    pkill -f zombienet || true
+    just killall
 
     echo "✅ Setup complete! You can now run tests or development commands."
 
@@ -121,3 +117,10 @@ reset: clean setup
 # Show help
 help:
     just --list
+
+# kill all relevant processes
+killall:
+  pkill -f zombienet || true
+  pkill -f chain-spec-builder || true
+  pkill -f polkadot || true
+  pkill -f polkadot-parachain || true

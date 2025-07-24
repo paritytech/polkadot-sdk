@@ -658,10 +658,10 @@ mod tests {
 	use super::*;
 	use frame_election_provider_support::ElectionProvider;
 	use frame_support::weights::constants::{WEIGHT_PROOF_SIZE_PER_KB, WEIGHT_REF_TIME_PER_MILLIS};
-	use frame_system::BlockWeight;
 	use pallet_election_provider_multi_block::{
 		self as mb, signed::WeightInfo as _, unsigned::WeightInfo as _,
 	};
+	use pallet_staking_async::weights::WeightInfo;
 	use remote_externalities::{
 		Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig, Transport,
 	};
