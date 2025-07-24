@@ -10,12 +10,12 @@ doc:
 
 crates:
 - name: polkadot-node-primitives
-  bump: minor
+  bump: major
 - name: polkadot-node-subsystem-types
-  bump: minor
+  bump: major
 - name: polkadot-dispute-distribution
-  bump: minor
+  bump: major
 - name: polkadot-node-core-dispute-coordinator
-  bump: minor
+  bump: major
 - name: polkadot-node-core-provisioner
-  bump: minor
+  bump: major
