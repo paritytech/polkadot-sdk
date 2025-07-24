@@ -35,13 +35,11 @@ sp-runtime = { workspace = true }
 [dev-dependencies]
 bp-parachains = { workspace = true }
 bp-polkadot-core = { workspace = true }
-bp-runtime = { workspace = true }
 bp-test-utils = { workspace = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-utility = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
-sp-runtime = { workspace = true }
 
 [features]
 default = ["std"]
