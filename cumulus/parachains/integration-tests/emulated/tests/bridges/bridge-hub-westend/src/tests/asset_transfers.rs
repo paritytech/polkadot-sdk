@@ -1502,7 +1502,7 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 		);
 	});
 
-	// assert topic id seen across all chains
+	// assert that the only topic ID on 'PenpalB' exists on all chains
 	topic_id_tracker.assert_only_id_seen_on_all_chains("PenpalB");
 
 	// account balances after
