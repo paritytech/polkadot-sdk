@@ -56,7 +56,7 @@ use libp2p::{
 	core::{transport::PortUse, Endpoint, Multiaddr},
 	kad::{
 		self,
-		store::{MemoryStore, RecordStore},
+		store::{MemoryStore, MemoryStoreConfig, RecordStore},
 		Behaviour as Kademlia, BucketInserts, Config as KademliaConfig, Event as KademliaEvent,
 		Event, GetClosestPeersError, GetClosestPeersOk, GetProvidersError, GetProvidersOk,
 		GetRecordOk, PeerRecord, QueryId, QueryResult, Quorum, Record, RecordKey,
@@ -239,7 +239,19 @@ impl DiscoveryConfig {
 			// auto-insertion and instead add peers manually.
 			config.set_kbucket_inserts(BucketInserts::Manual);
 			config.disjoint_query_paths(kademlia_disjoint_query_paths);
-			let store = MemoryStore::new(local_peer_id);
+
+			// Enough time to keep the parachain bootnode record for two 4-hour epochs.
+			config.set_provider_record_ttl(Some(Duration::from_secs(10 * 3600)));
+			// Refresh next epoch provider record 30 minutes before next 4-hour epoch comes.
+			config.set_provider_publication_interval(Some(Duration::from_secs(12600)));
+
+			let store = MemoryStore::with_config(
+				local_peer_id,
+				// 10000 keys is enough for a testnet with fast runtime (1-minute epoch)
+				// and 13 parachains.
+				MemoryStoreConfig { max_provided_keys: 10000, ..Default::default() },
+			);
+
 			let mut kad = Kademlia::with_config(local_peer_id, store, config);
 			kad.set_mode(Some(kad::Mode::Server));
 

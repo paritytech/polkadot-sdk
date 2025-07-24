@@ -299,6 +299,12 @@ impl Discovery {
 				.with_known_peers(known_peers)
 				.with_protocol_names(protocol_names)
 				.with_incoming_records_validation_mode(IncomingRecordValidationMode::Manual)
+				// Enough time to keep the parachain bootnode record for two 4-hour epochs
+				.with_provider_record_ttl(Duration::from_secs(10 * 3600))
+				// Refresh next epoch provider record 30 minutes before next 4-hour epoch comes.
+				.with_provider_refresh_interval(Duration::from_secs(12600))
+				// Enough keys for 13 parachains on a testnet with fast runtime (1-min epoch).
+				.with_max_provider_keys(10000)
 				.build()
 		};
 
