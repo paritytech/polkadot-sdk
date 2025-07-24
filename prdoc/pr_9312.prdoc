@@ -9,4 +9,4 @@ doc:
     (which we do have zombienet-sdk tests for [here](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/client/transaction-pool/tests/zombienet/yap_test.rs))
 crates:
 - name: yet-another-parachain-runtime
-  bump: patch
+  bump: minor
