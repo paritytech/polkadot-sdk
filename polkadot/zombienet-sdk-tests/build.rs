@@ -1,13 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
+use sc_executor::WasmExecutor;
 use std::{
 	env, fs, path,
 	path::{Path, PathBuf},
 	process::Command,
 };
-
-use subwasmlib::{source::Source, OutputFormat, Subwasm};
 
 macro_rules! debug_output {
     ($($tokens: tt)*) => {
@@ -82,11 +81,25 @@ fn build_wasm(chain: &str) -> PathBuf {
 	PathBuf::from(wasm_path)
 }
 
+type HostFunctions = (
+	sp_io::allocator::HostFunctions,
+	sp_io::logging::HostFunctions,
+	sp_io::storage::HostFunctions,
+	sp_io::hashing::HostFunctions,
+);
+
 fn generate_metadata_file(wasm_path: &Path, output_path: &Path) {
-	let source = Source::from_options(Some(wasm_path.to_path_buf()), None, None, None).unwrap();
-	let subwasm = Subwasm::new(&source.try_into().unwrap()).unwrap();
-	let mut output_file = std::fs::File::create(output_path).unwrap();
-	subwasm.write_metadata(OutputFormat::Scale, None, &mut output_file).unwrap();
+	let wasm_bytes = fs::read(wasm_path).expect("Failed to read WASM file");
+
+	let executor = WasmExecutor::<HostFunctions>::builder()
+		.with_allow_missing_host_functions(true)
+		.build();
+
+	let metadata =
+		sc_runtime_utilities::fetch_latest_metadata_from_code_blob(&executor, wasm_bytes.into())
+			.expect("Failed to fetch metadata from runtime");
+
+	fs::write(output_path, &*metadata).expect("Failed to write metadata file");
 }
 
 fn fetch_metadata_file(chain: &str, output_path: &Path) {
