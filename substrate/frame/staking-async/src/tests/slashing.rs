@@ -650,18 +650,24 @@ fn really_old_offences_are_ignored() {
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
-					Event::OffenceIgnored {
+					Event::OffenceTooOld {
 						offence_era: 72,
 						validator: 11,
 						fraction: Perbill::from_percent(10)
 					},
-					Event::OffenceIgnored {
+					Event::OffenceTooOld {
 						offence_era: 73,
 						validator: 21,
 						fraction: Perbill::from_percent(10)
 					},
 				]
 			);
+
+			// also check that the ignored offences are not stored anywhere
+			assert!(OffenceQueue::<Test>::iter_prefix(72).next().is_none());
+			assert!(OffenceQueue::<Test>::iter_prefix(73).next().is_none());
+			assert!(!OffenceQueueEras::<Test>::get().unwrap_or_default().contains(&72));
+			assert!(!OffenceQueueEras::<Test>::get().unwrap_or_default().contains(&73));
 
 			// WHEN: reporting offence for era 74.
 			add_slash_in_era(11, 74, Perbill::from_percent(10));

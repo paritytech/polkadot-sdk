@@ -93,12 +93,12 @@
 //!
 //! ```text
 //! 1. Load oldest offence from queue
-//! 2. Move to ProcessingOffence storage
+//! 2. Move to `ProcessingOffence` storage
 //! 3. For each exposure page (from last to first):
 //!    - Calculate slash for validator's own stake
 //!    - Calculate slash for each nominator (pro-rata based on exposure)
 //!    - Track total slash and reward amounts
-//! 4. Once all pages processed, create UnappliedSlash
+//! 4. Once all pages processed, create `UnappliedSlash`
 //! ```
 //!
 //! **Key Features**:

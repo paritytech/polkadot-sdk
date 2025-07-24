@@ -697,7 +697,7 @@ fn on_offence_previous_era() {
 		// THEN offence is ignored.
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![staking_async::Event::OffenceIgnored {
+			vec![staking_async::Event::OffenceTooOld {
 				offence_era: 1,
 				validator: 3,
 				fraction: Perbill::from_percent(30)

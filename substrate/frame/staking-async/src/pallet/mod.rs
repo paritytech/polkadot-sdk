@@ -1156,7 +1156,7 @@ pub mod pallet {
 		/// Logged as an event for fail-safe observability.
 		Unexpected(UnexpectedKind),
 		/// An offence was reported that was too old to be processed, and thus was dropped.
-		OffenceIgnored {
+		OffenceTooOld {
 			offence_era: EraIndex,
 			validator: T::AccountId,
 			fraction: Perbill,

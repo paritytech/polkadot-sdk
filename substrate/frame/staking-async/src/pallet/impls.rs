@@ -210,16 +210,10 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub(super) fn do_withdraw_unbonded(controller: &T::AccountId) -> Result<Weight, DispatchError> {
-		let mut ledger = Self::ledger(Controller(controller.clone()))?;
-		let (stash, old_total) = (ledger.stash.clone(), ledger.total);
-		let active_era = Rotator::<T>::active_era();
-
-		// Ensure last era slashes are applied. Else we block the withdrawals.
-		if active_era > 1 {
-			Self::ensure_era_slashes_applied(active_era.saturating_sub(1))?;
-		}
-
+	/// Calculate the earliest era that withdrawals are allowed for, considering:
+	/// - The current active era
+	/// - Any unprocessed offences in the queue
+	fn calculate_earliest_withdrawal_era(active_era: EraIndex) -> EraIndex {
 		// get lowest era for which all offences are processed and withdrawals can be allowed.
 		let earliest_unlock_era_by_offence_queue = OffenceQueueEras::<T>::get()
 			.as_ref()
@@ -227,8 +221,8 @@ impl<T: Config> Pallet<T> {
 			.copied()
 			// if nothing in queue, use the active era.
 			.unwrap_or(active_era)
-			// above returns earliest era for which offences are processed, so we subtract one to
-			// get the last era for which all offences are processed.
+			// above returns earliest era for which offences are NOT processed yet, so we subtract
+			// one from it which gives us the oldest era for which all offences are processed.
 			.saturating_sub(1)
 			// Unlock chunks are keyed by the era they were initiated plus Bonding Duration.
 			// We do the same to processed offence era so they can be compared.
@@ -239,15 +233,26 @@ impl<T: Config> Pallet<T> {
 		// Note: This situation is extremely unlikely, since offences have `SlashDeferDuration` eras
 		// to be processed. If it ever occurs, it likely indicates offence spam and that we're
 		// struggling to keep up with processing.
-		let earliest_era_to_withdraw = active_era.min(earliest_unlock_era_by_offence_queue);
+		active_era.min(earliest_unlock_era_by_offence_queue)
+	}
+
+	pub(super) fn do_withdraw_unbonded(controller: &T::AccountId) -> Result<Weight, DispatchError> {
+		let mut ledger = Self::ledger(Controller(controller.clone()))?;
+		let (stash, old_total) = (ledger.stash.clone(), ledger.total);
+		let active_era = Rotator::<T>::active_era();
+
+		// Ensure last era slashes are applied. Else we block the withdrawals.
+		if active_era > 1 {
+			Self::ensure_era_slashes_applied(active_era.saturating_sub(1))?;
+		}
+
+		let earliest_era_to_withdraw = Self::calculate_earliest_withdrawal_era(active_era);
 
 		log!(
 			debug,
 			"Withdrawing unbonded stake. Active_era is: {:?} | \
-			Earliest era for which all offences are processed: {:?} | \
 			Earliest era we can allow withdrawing: {:?}",
 			active_era,
-			earliest_unlock_era_by_offence_queue,
 			earliest_era_to_withdraw
 		);
 
@@ -1210,7 +1215,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 			// ignore offence if too old to report.
 			if offence_era < oldest_reportable_offence_era {
 				log!(warn, "🦹 on_new_offences: offence era {:?} too old; Can only accept offences from era {:?} or newer", offence_era, oldest_reportable_offence_era);
-				Self::deposit_event(Event::<T>::OffenceIgnored {
+				Self::deposit_event(Event::<T>::OffenceTooOld {
 					validator: validator.clone(),
 					fraction: slash_fraction,
 					offence_era,
@@ -2008,6 +2013,7 @@ impl<T: Config> Pallet<T> {
 			sorted_offence_queue_eras == offence_queue_eras,
 			"Offence queue eras are not sorted"
 		);
+		drop(sorted_offence_queue_eras);
 
 		// (2) Ensure oldest offence queue era is old enough.
 		let active_era = Rotator::<T>::active_era();
@@ -2040,7 +2046,7 @@ impl<T: Config> Pallet<T> {
 		for e in offence_queue_eras {
 			let count = OffenceQueue::<T>::iter_prefix(e).count();
 			ensure!(count > 0, "Offence queue is empty for era listed in offence queue eras");
-			log!(warn, "Offence queue for era {:?} has {:?} offences queued", e, count);
+			log!(info, "Offence queue for era {:?} has {:?} offences queued", e, count);
 		}
 
 		// (4) Ensure all slashes older than (active era - 1) are applied.

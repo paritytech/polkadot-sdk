@@ -18,7 +18,7 @@ doc:
         processed offence era
       - Unbonding chunks are now keyed by active era instead of current era
       - Offences arriving after their intended application era are rejected and emit 
-        `OffenceIgnored` event
+        `OffenceTooOld` event
       
       Both the `UnappliedSlashesInPreviousEra` error and withdrawal restrictions due to 
       delayed offence processing are extremely rare scenarios that should not occur under 
