@@ -157,8 +157,9 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 			// weight formula accounts, so we can't allow that.
 			tracing::trace!(
 				target: LOG_TARGET,
-				"Messages delivery proof contains too many messages to confirm: {} vs declared {max_allowed_messages}",
-				confirmed_messages.total_messages(),
+				confirmed=%confirmed_messages.total_messages(),
+				max_allowed=%max_allowed_messages,
+				"Messages delivery proof contains too many messages to confirm"
 			);
 			return Err(ReceptionConfirmationError::TryingToConfirmMoreMessagesThanExpected)
 		}
