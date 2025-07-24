@@ -1,9 +1,11 @@
+import { readFileSync } from "fs";
 import { logger, safeJsonStringify, type ApiDeclerations } from "./utils";
 import { exit } from "process";
+import chalk from "chalk";
 
 export enum Chain {
-	Relay = "Relay",
-	Parachain = "Parachain",
+	Relay = "Rely",
+	Parachain = "Para",
 }
 
 interface IEvent {
@@ -18,6 +20,31 @@ interface IBlock {
 	hash: string;
 	events: IEvent[];
 	weights: any;
+	authorship: IAuthorshipData | null;
+}
+
+// TODO: how can I export this from PAPI?
+interface IWeight {
+	normal: {
+		ref_time: bigint;
+		proof_size: bigint;
+	};
+	operational: {
+		ref_time: bigint;
+		proof_size: bigint;
+	};
+	mandatory: {
+		ref_time: bigint;
+		proof_size: bigint;
+	};
+}
+
+interface IAuthorshipData {
+	header: number;
+	extrinsics: number;
+	proof: number;
+	compressed: number;
+	time: number;
 }
 
 // Print an event.
@@ -35,7 +62,7 @@ interface IObservableEvent {
 
 export class Observe {
 	e: IObservableEvent;
-	onPass: () => void = () => { };
+	onPass: () => void = () => {};
 
 	constructor(
 		chain: Chain,
@@ -43,18 +70,18 @@ export class Observe {
 		event: string,
 		dataCheck: ((data: any) => boolean) | undefined = undefined,
 		byBlock: number | undefined = undefined,
-		onPass: () => void = () => { }
+		onPass: () => void = () => {}
 	) {
 		this.e = { chain, module, event, dataCheck, byBlock };
 		this.onPass = onPass;
 	}
 
 	toString(): string {
-		return `Observe(${this.e.chain}, ${this.e.module}, ${this.e.event}, ${this.e.dataCheck ? "dataCheck" : "no dataCheck"
-			}, ${this.e.byBlock ? this.e.byBlock : "no byBlock"})`;
+		return `Observe(${this.e.chain}, ${this.e.module}, ${this.e.event}, ${
+			this.e.dataCheck ? "dataCheck" : "no dataCheck"
+		}, ${this.e.byBlock ? this.e.byBlock : "no byBlock"})`;
 	}
 
-	// Static builder entry point
 	static on(chain: Chain, mod: string, event: string): ObserveBuilder {
 		return new ObserveBuilder(chain, mod, event);
 	}
@@ -66,7 +93,7 @@ export class ObserveBuilder {
 	private event: string;
 	private dataCheck?: (data: any) => boolean;
 	private byBlockVal?: number;
-	private onPassCallback: () => void = () => { };
+	private onPassCallback: () => void = () => {};
 
 	constructor(chain: Chain, module: string, event: string) {
 		this.chain = chain;
@@ -114,9 +141,9 @@ export class TestCase {
 	eventSequence: Observe[];
 	onKill: () => void;
 	allowPerChainInterleavedEvents: boolean = false;
-	private resolveTestPromise: (outcome: EventOutcome) => void = () => { };
+	private resolveTestPromise: (outcome: EventOutcome) => void = () => {};
 
-	constructor(e: Observe[], interleave: boolean = false, onKill: () => void = () => { }) {
+	constructor(e: Observe[], interleave: boolean = false, onKill: () => void = () => {}) {
 		this.eventSequence = e;
 		this.onKill = onKill;
 		this.allowPerChainInterleavedEvents = interleave;
@@ -145,6 +172,44 @@ export class TestCase {
 		return ours.byBlock === undefined ? true : block <= ours.byBlock;
 	}
 
+	// with thousand separator!
+	wts(num: bigint): string {
+		return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+	}
+
+	formatWeight(weight: IWeight): string {
+		const weightPerMs = BigInt(Math.pow(10, 9));
+		const WeightPerKb = BigInt(1024);
+		const refTime =
+			weight.normal.ref_time + weight.operational.ref_time + weight.mandatory.ref_time;
+		const proofSize =
+			weight.normal.proof_size + weight.operational.proof_size + weight.mandatory.proof_size;
+
+		return `${this.wts(refTime / weightPerMs)}ms / ${this.wts(proofSize / WeightPerKb)} kb`;
+	}
+
+	formatAuthorship(authorship: IAuthorshipData): string {
+		return `hd=${authorship.header.toFixed(2)}, xt=${authorship.extrinsics.toFixed(
+			2
+		)}, st=${authorship.proof.toFixed(2)}, sum=${(
+			authorship.header +
+			authorship.extrinsics +
+			authorship.proof
+		).toFixed(2)}, cmp=${authorship.compressed.toFixed(2)}, time=${authorship.time}ms`;
+	}
+
+	commonLog(blockData: IBlock): string {
+		const number = `#${blockData.number}`;
+		const chain = blockData.chain === Chain.Relay
+			? chalk.blue(blockData.chain)     // Blue for Relay - works well in both modes
+			: chalk.green(blockData.chain);   // Green for Parachain - works well in both modes
+		const weight = `⛓ ${this.formatWeight(blockData.weights)}`;
+		const authorship = blockData.authorship
+			? `[✍️ ${this.formatAuthorship(blockData.authorship)}]`
+			: "";
+		return `[${chain}${number}][${weight}]${authorship}`;
+	}
+
 	// returns a [`primary`, `maybeSecondary`] event to check. `primary` should always be checked first, and if not secondary is checked.
 	nextEvent(chain: Chain): [Observe, Observe | undefined] {
 		const next = this.eventSequence[0]!;
@@ -167,33 +232,33 @@ export class TestCase {
 		}
 	}
 
-	onBlock(block_data: IBlock) {
+	onBlock(blockData: IBlock) {
 		// sort from small to big
-		logger.debug(`Processing ${block_data.chain} block ${block_data.number}, events: ${block_data.events.length}`);
+		logger.debug(`${this.commonLog(blockData)} events: ${blockData.events.length}`);
 		const firstTimeOut = this.eventSequence
 			.filter((e) => e.e.byBlock)
 			.sort((x, y) => x.e.byBlock! - y.e.byBlock!);
-		if (firstTimeOut.length > 0 && block_data.number > firstTimeOut[0]!.e.byBlock!) {
+		if (firstTimeOut.length > 0 && blockData.number > firstTimeOut[0]!.e.byBlock!) {
 			logger.error(
-				`Block ${block_data.number} is past the first timeout at block ${firstTimeOut[0]}, exiting.`
+				`Block ${blockData.number} is past the first timeout at block ${firstTimeOut[0]}, exiting.`
 			);
 			this.resolveTestPromise(EventOutcome.TimedOut);
 		}
 
-		for (const e of block_data.events) {
-			this.onEvent(e, block_data.chain, block_data.number);
+		for (const e of blockData.events) {
+			this.onEvent(e, blockData);
 		}
 	}
 
-	onEvent(e: IEvent, chain: Chain, block_number: number) {
+	onEvent(e: IEvent, blockData: IBlock) {
 		if (!this.eventSequence.length) {
-			logger.warn(`No events to process for ${chain}, event: ${pe(e)}`);
+			logger.warn(`No events to process for ${blockData.chain}, event: ${pe(e)}`);
 			return;
 		}
-		logger.verbose(`[#${block_number}][${chain}] Processing event: ${pe(e)}`);
-		const [primary, maybeSecondary] = this.nextEvent(chain);
+		logger.verbose(`${this.commonLog(blockData)} Processing event: ${pe(e)}`);
+		const [primary, maybeSecondary] = this.nextEvent(blockData.chain);
 
-		if (this.match(primary.e, e, chain)) {
+		if (this.match(primary.e, e, blockData.chain)) {
 			primary.onPass();
 			this.removeEvent(primary);
 			logger.info(`Primary event passed`);
@@ -202,11 +267,12 @@ export class TestCase {
 				this.resolveTestPromise(EventOutcome.Done);
 			} else {
 				logger.verbose(
-					`Next expected event: ${this.eventSequence[0]!.toString()}, remaining events: ${this.eventSequence.length
+					`Next expected event: ${this.eventSequence[0]!.toString()}, remaining events: ${
+						this.eventSequence.length
 					}`
 				);
 			}
-		} else if (maybeSecondary && this.match(maybeSecondary.e, e, chain)) {
+		} else if (maybeSecondary && this.match(maybeSecondary.e, e, blockData.chain)) {
 			maybeSecondary.onPass();
 			this.removeEvent(maybeSecondary);
 			logger.info(`Secondary event passed`);
@@ -218,7 +284,90 @@ export class TestCase {
 	}
 }
 
-export async function runTest(test: TestCase, apis: ApiDeclerations): Promise<EventOutcome> {
+// Extract information about the authoring of `block` number from the given `logFile`. This will
+// work in 3 steps:
+// 1. After filtering for `[Parachain]`, and looking at the log file from end to start, it will find
+//    the line containing `Prepared block for proposing at ${block}`. From this, we extract the
+//    authoring time in ms
+// 2. Them, we only keep the rest of the log file (optimization). We find the first line thereafter
+//    containing `PoV size header_kb=... extrinsics_kb=... storage_proof_kb=...` and extract the
+//    sizes of the header, extrinsics and storage proof.
+// 3. Finally, we find the first line thereafter containing `Compressed PoV size: ...kb` and extract
+//    the compressed size.
+//
+// Note: `logFile` must always relate to a parachain.
+function extractAuthorshipData(block: number, logFile: string): IAuthorshipData | null {
+	if (block == 0) {
+		return null;
+	}
+
+	const log = readFileSync(logFile)
+		.toString()
+		.split("\n")
+		.filter((l) => l.includes("[Parachain]"))
+		.reverse();
+	const target = `Prepared block for proposing at ${block}`;
+	const findTime = (log: string[]): { time: number; readStack: string[] } => {
+		const readStack: string[] = [];
+		for (let i = 0; i < log.length; i++) {
+			const line = log[i];
+			if (!line) {
+				continue;
+			}
+			readStack.push(line);
+			if (line?.includes(target)) {
+				const match = line.match("([0-9]+) ms");
+				if (match) {
+					return { time: Number(match.at(1)!), readStack };
+				}
+			}
+		}
+		throw `Could not find authorship line ${target}`;
+	};
+
+	const findProofs = (
+		readStack: string[]
+	): { header: number; extrinsics: number; proof: number } => {
+		for (let i = 0; i < readStack.length; i++) {
+			const line = readStack[i];
+			const match = line?.match(
+				"PoV size header_kb=([0-9]+.[0-9]+) extrinsics_kb=([0-9]+.[0-9]+) storage_proof_kb=([0-9]+.[0-9]+)"
+			);
+			if (match) {
+				return {
+					header: Number(match[1]!),
+					extrinsics: Number(match[2]!),
+					proof: Number(match[3])!,
+				};
+			}
+		}
+		throw "Could not find the expected PoV data in log file.";
+	};
+
+	const findCompressed = (readStack: string[]): number => {
+		for (let i = 0; i < readStack.length; i++) {
+			const line = readStack[i];
+			const match = line?.match("Compressed PoV size: ([0-9]+.[0-9]+)kb");
+			if (match) {
+				return Number(match[1]!);
+			}
+		}
+		throw "Could not find the expected compressed data in log file.";
+	};
+
+	const { time, readStack } = findTime(log);
+	// reverse the read stack again, as we want the first proof related prints after we `findTime`.
+	readStack.reverse();
+	const { header, extrinsics, proof } = findProofs(readStack);
+	const compressed = findCompressed(readStack);
+	return { time, header, extrinsics, proof, compressed };
+}
+
+export async function runTest(
+	test: TestCase,
+	apis: ApiDeclerations,
+	paraLog: string | null
+): Promise<EventOutcome> {
 	const { rcClient, paraClient, rcApi, paraApi } = apis;
 
 	let completionPromise: Promise<EventOutcome> = new Promise((resolve, _) => {
@@ -246,6 +395,7 @@ export async function runTest(test: TestCase, apis: ApiDeclerations): Promise<Ev
 				hash: block.hash,
 				events: interested,
 				weights: weights,
+				authorship: null,
 			});
 		});
 
@@ -272,6 +422,7 @@ export async function runTest(test: TestCase, apis: ApiDeclerations): Promise<Ev
 				hash: block.hash,
 				events: interested,
 				weights: weights,
+				authorship: paraLog ? extractAuthorshipData(block.number, paraLog!) : null,
 			});
 		});
 	});

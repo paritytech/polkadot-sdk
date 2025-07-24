@@ -17,6 +17,7 @@ export function znConfigFor(paraPreset: Presets): string {
 	return paraPreset == Presets.RealM ? "../zn-m.toml" : "../zn-s.toml";
 }
 
+/// Returns the parachain log file.
 export async function runPreset(paraPreset: Presets): Promise<void> {
 	prepPreset(paraPreset);
 	const znConfig = znConfigFor(paraPreset);
@@ -24,7 +25,9 @@ export async function runPreset(paraPreset: Presets): Promise<void> {
 	cmd("zombienet", ["--provider", "native", "-l", "text", "spawn", znConfig], "inherit");
 }
 
-export async function runPresetUntilLaunched(paraPreset: Presets): Promise<() => void> {
+export async function runPresetUntilLaunched(
+	paraPreset: Presets
+): Promise<{ killZn: () => void; paraLog: string | null }> {
 	prepPreset(paraPreset);
 	const znConfig = znConfigFor(paraPreset);
 	logger.info(`Launching ZN config for preset: ${paraPreset}, config: ${znConfig}`);
@@ -33,7 +36,7 @@ export async function runPresetUntilLaunched(paraPreset: Presets): Promise<() =>
 		cwd: __dirname,
 	});
 
-	return new Promise<() => void>((resolve, reject) => {
+	return new Promise<{ killZn: () => void; paraLog: string | null }>((resolve, reject) => {
 		const logCmds: string[] = [];
 		child.stdout.on("data", (data) => {
 			const raw: string = stripAnsi(data.toString());
@@ -50,9 +53,17 @@ export async function runPresetUntilLaunched(paraPreset: Presets): Promise<() =>
 					logger.info(`${cmd}`);
 				}
 				logger.info(`Launched ZN: ${paraPreset}`);
-				resolve(() => {
-					child.kill();
-					logger.verbose(`Killed zn process`);
+
+				// Extract log path from the last log command
+				const lastCmd = logCmds[logCmds.length - 1];
+				const paraLog = lastCmd ? lastCmd.match(/tail -f\s+(.+\.log)/)?.[1] || null : null;
+
+				resolve({
+					killZn: () => {
+						child.kill();
+						logger.verbose(`Killed zn process`);
+					},
+					paraLog,
 				});
 			}
 		});
@@ -66,7 +77,7 @@ export async function runPresetUntilLaunched(paraPreset: Presets): Promise<() =>
 export async function spawnMiner(): Promise<() => void> {
 	logger.info(`Spawning miner in background`);
 
-	const logFile = createWriteStream(join(__dirname, "miner.log"), { flags: 'a' });
+	const logFile = createWriteStream(join(__dirname, "miner.log"), { flags: "a" });
 
 	const child = spawn(
 		"polkadot-staking-miner",

@@ -165,6 +165,7 @@ impl<Block: BlockT> ParachainBlockData<Block> {
 	pub fn log_size_info(&self) {
 		tracing::info!(
 			target: "cumulus",
+			// blocks = %self.blocks().iter().map(|b| b.header().number()).collect::<Vec<_>>().join(","),
 			header_kb = %self.blocks().iter().map(|b| b.header().encoded_size()).sum::<usize>() as f64 / 1024f64,
 			extrinsics_kb = %self.blocks().iter().map(|b| b.extrinsics().encoded_size()).sum::<usize>() as f64 / 1024f64,
 			storage_proof_kb = %self.proof().encoded_size() as f64 / 1024f64,

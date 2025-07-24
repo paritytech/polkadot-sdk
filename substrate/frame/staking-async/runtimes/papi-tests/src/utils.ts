@@ -14,6 +14,8 @@ import { DEV_PHRASE, entropyToMiniSecret, mnemonicToEntropy } from "@polkadot-la
 import { getPolkadotSigner } from "polkadot-api/signer";
 
 export const GlobalTimeout = 30 * 60 * 1000;
+export const aliceStash = "5GNJqTPyNqANBkUVMN1LPPrxXnFouWXoe2wNSmmEoLctxiZY";
+
 
 export const logger = createLogger({
 	level: process.env.LOG_LEVEL || "verbose",

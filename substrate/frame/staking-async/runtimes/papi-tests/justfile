@@ -69,11 +69,6 @@ generate-descriptors:
 test:
     bun test
 
-# Start chains for development (keeps running)
-start-chains:
-    just build-and-generate-chains
-    zombienet --provider native -l text spawn zn-s.toml
-
 # Build and generate chain specs (shared logic)
 build-and-generate-chains:
     #!/usr/bin/env bash

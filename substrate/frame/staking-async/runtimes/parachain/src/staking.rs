@@ -176,7 +176,8 @@ parameter_types! {
 
 	/// Size of the exposures. This should be small enough to make the reward payouts cheap and
 	/// lightweight per-page.
-	pub const MaxExposurePageSize: u32 = 64;
+	// TODO: this is currently 512 in all networks, but 64 might yield better PoV, need to check logs.
+	pub const MaxExposurePageSize: u32 = 512;
 
 	/// Each solution is considered "better" if it is an epsilon better than the previous one.
 	pub SolutionImprovementThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
