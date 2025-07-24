@@ -478,6 +478,7 @@ pub mod helpers {
 			TopicIdTracker { ids: HashMap::new() }
 		}
 
+		/// Asserts that the given topic ID has been recorded on all chains.
 		pub fn assert_id_seen_on_all_chains(&self, id: &H256) {
 			self.ids.iter().for_each(|(chain, values)| {
 				assert!(
@@ -507,6 +508,7 @@ pub mod helpers {
 			self.ids.entry(chain.to_string()).or_default().insert(id);
 		}
 
+		/// Inserts all topic IDs associated with the given chain name.
 		pub fn insert_all(&mut self, chain: &str, ids: &[H256]) {
 			ids.iter().for_each(|&id| self.insert(chain, id));
 		}
