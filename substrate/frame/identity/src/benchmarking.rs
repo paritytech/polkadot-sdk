@@ -23,13 +23,14 @@ use super::*;
 
 use crate::{migration::v2::LazyMigrationV1ToV2, Pallet as Identity};
 use alloc::{vec, vec::Vec};
+use codec::Decode;
 use frame_benchmarking::{account, v2::*, whitelisted_caller, BenchmarkError};
 use frame_support::{
 	assert_ok, ensure,
 	traits::{EnsureOrigin, Get, OnFinalize, OnInitialize},
 };
 use frame_system::RawOrigin;
-use sp_runtime::traits::{Bounded, One};
+use sp_runtime::traits::{Bounded, IdentifyAccount, One, Verify};
 
 const SEED: u32 = 0;
 
@@ -127,7 +128,12 @@ fn bounded_username<T: Config>(username: Vec<u8>, suffix: Vec<u8>) -> Username<T
 	Username::<T>::try_from(full_username).expect("test usernames should fit within bounds")
 }
 
-#[benchmarks]
+#[benchmarks(
+	where
+		// Most commonly used runtime AccountId types (`AccountId32` & `AccountId20`) implement `Decode`.
+		// A generic solution to needing this was implemented in PR #8179, but that is available from release `stable-2506` onwards.
+		<T as crate::Config>::SigningPublicKey: Decode,
+)]
 mod benchmarks {
 	use super::*;
 
@@ -617,9 +623,17 @@ mod benchmarks {
 		let username = bench_username();
 		let bounded_username = bounded_username::<T>(username.clone(), suffix.clone());
 
-		let (public, signature) = T::BenchmarkHelper::sign_message(&bounded_username[..]);
-		let who_account = public.into_account();
+		// Use benchmark_helper to generate the signature
+		let (public_bytes, signature_bytes) = T::benchmark_helper(&bounded_username[..]);
+
+		// Decode the public key and signature
+		let public = T::SigningPublicKey::decode(&mut &public_bytes[..])
+			.expect("benchmark_helper should return valid encoded public key");
+		let who_account: T::AccountId = public.into_account().into();
 		let who_lookup = T::Lookup::unlookup(who_account.clone());
+
+		let signature = T::OffchainSignature::decode(&mut &signature_bytes[..])
+			.expect("benchmark_helper should return valid encoded signature");
 
 		// Verify signature here to avoid surprise errors at runtime
 		assert!(signature.verify(&bounded_username[..], &who_account));
@@ -634,7 +648,7 @@ mod benchmarks {
 			RawOrigin::Signed(authority.clone()),
 			who_lookup,
 			bounded_username.clone().into(),
-			Some(signature.into()),
+			Some(signature),
 			use_allocation,
 		);
 

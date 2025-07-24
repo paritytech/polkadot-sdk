@@ -1609,8 +1609,6 @@ impl pallet_identity::Config for Runtime {
 	type UsernameGracePeriod = ConstU32<{ 30 * DAYS }>;
 	type MaxSuffixLength = ConstU32<7>;
 	type MaxUsernameLength = ConstU32<32>;
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
 	type WeightInfo = pallet_identity::weights::SubstrateWeight<Runtime>;
 }
 

@@ -150,26 +150,6 @@ pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 
-	#[cfg(feature = "runtime-benchmarks")]
-	pub trait BenchmarkHelper<Public, Signature> {
-		fn sign_message(message: &[u8]) -> (Public, Signature);
-	}
-	#[cfg(feature = "runtime-benchmarks")]
-	impl BenchmarkHelper<sp_runtime::MultiSigner, sp_runtime::MultiSignature> for () {
-		fn sign_message(message: &[u8]) -> (sp_runtime::MultiSigner, sp_runtime::MultiSignature) {
-			let public = sp_io::crypto::sr25519_generate(0.into(), None);
-			let signature = sp_runtime::MultiSignature::Sr25519(
-				sp_io::crypto::sr25519_sign(
-					0.into(),
-					&public.into_account().try_into().unwrap(),
-					message,
-				)
-				.unwrap(),
-			);
-			(public.into(), signature)
-		}
-	}
-
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
@@ -246,10 +226,22 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxUsernameLength: Get<u32>;
 
-		/// A set of helper functions for benchmarking.
-		/// The default configuration `()` uses the `SR25519` signature schema.
+		/// A helper function for benchmarking.
+		/// The default configuration implementation uses the `SR25519` signature schema.
 		#[cfg(feature = "runtime-benchmarks")]
-		type BenchmarkHelper: BenchmarkHelper<Self::SigningPublicKey, Self::OffchainSignature>;
+		fn benchmark_helper(message: &[u8]) -> (Vec<u8>, Vec<u8>) {
+			let public = sp_io::crypto::sr25519_generate(0.into(), None);
+			let signature = sp_runtime::MultiSignature::Sr25519(
+				sp_io::crypto::sr25519_sign(
+					0.into(),
+					&public.into_account().try_into().unwrap(),
+					message,
+				)
+				.unwrap(),
+			);
+
+			(public.encode(), signature.encode())
+		}
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;

@@ -103,16 +103,6 @@ ord_parameter_types! {
 type EnsureOneOrRoot = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<One, AccountId>>;
 type EnsureTwoOrRoot = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<Two, AccountId>>;
 
-#[cfg(feature = "runtime-benchmarks")]
-pub struct BenchmarkHelper;
-
-#[cfg(feature = "runtime-benchmarks")]
-impl pallet_identity::BenchmarkHelper<AccountU64, AccountU64> for BenchmarkHelper {
-	fn sign_message(_message: &[u8]) -> (AccountU64, AccountU64) {
-		(AccountU64(0), AccountU64(0))
-	}
-}
-
 impl pallet_identity::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -134,7 +124,11 @@ impl pallet_identity::Config for Test {
 	type MaxSuffixLength = ConstU32<7>;
 	type MaxUsernameLength = ConstU32<32>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = BenchmarkHelper;
+	fn benchmark_helper(_message: &[u8]) -> (Vec<u8>, Vec<u8>) {
+		let public = AccountU64(0);
+		let signature = AccountU64(0);
+		(public.encode(), signature.encode())
+	}
 	type WeightInfo = ();
 }
 
