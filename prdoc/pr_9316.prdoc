@@ -1,9 +1,9 @@
 title: Enable `TopicIdTracker` to support multiple flows
 doc:
 - audience: Runtime Dev
-  description: This PR enable `TopicIdTracker` to support multiple flows.
+  description: This PR enables `TopicIdTracker` to support multiple flows.
 crates:
 - name: emulated-integration-tests-common
-  bump: patch
+  bump: minor
 - name: xcm-simulator
-  bump: patch
+  bump: minor
