@@ -154,12 +154,10 @@ node-rpc = { workspace = true }
 [dev-dependencies]
 assert_cmd = { workspace = true }
 criterion = { features = ["async_tokio"], workspace = true, default-features = true }
-futures = { workspace = true }
 nix = { features = ["signal"], workspace = true }
 pretty_assertions.workspace = true
 regex = { workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true, default-features = true }
-serde_json = { workspace = true, default-features = true }
 soketto = { workspace = true }
 sp-keyring = { workspace = true }
 tempfile = { workspace = true }
