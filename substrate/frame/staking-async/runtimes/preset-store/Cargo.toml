@@ -1,7 +1,14 @@
 [package]
 name = "pallet-staking-async-preset-store"
 version = "0.1.0"
-edition = "2021"
+publish = false
+authors.workspace = true
+edition.workspace = true
+description = "Simple pallet to store the preset used to generate a runtime's genesis in state"
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
 
 [dependencies]
 codec = { workspace = true }

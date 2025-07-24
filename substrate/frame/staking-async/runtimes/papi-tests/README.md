@@ -140,7 +140,7 @@ After this, you can use regular `just install` (or `bun install`) commands witho
 ### Development Workflow
 
 ```bash
-# First time setup
+# First time setup. Compiles the binaries, spawns ZN, generates PAPI types against it.
 just setup
 
 # Regular development - install dependencies
@@ -188,7 +188,7 @@ verbose: [Rely#91][⛓ 2,039ms / 777 kb] Processing event: ...
 verbose: [Para#71][⛓ 38ms / 852 kb][✍️ hd=0.22, xt=4.07, st=6.82, sum=11.11, cmp=9.74, time=2ms] Processing event: ...
 ```
 
-- `Rely` indicates the relay chain, `Para` indicates the parachain.
+- `Rely` indicates the relay chain (truncated to be 4 chars), `Para` indicates the parachain.
 - Both chains' logs contain onchain (⛓) weight information, obtained from `frame-system`.
 - `Para` logs contain more information from the collator/author's logs (✍️). They are:
   - `hd` header size,

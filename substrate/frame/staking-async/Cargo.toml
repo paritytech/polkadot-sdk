@@ -71,6 +71,7 @@ std = [
 	"sp-runtime/std",
 	"sp-staking/std",
 	"sp-tracing/std",
+	"anyhow/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
