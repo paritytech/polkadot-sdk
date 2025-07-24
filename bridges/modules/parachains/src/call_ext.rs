@@ -64,8 +64,7 @@ impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {
 			tracing::trace!(
 				target: crate::LOG_TARGET,
 				para_id=?update.para_id,
-				"The free parachain head can't be updated: no more free slots \
-				left in the block."
+				"The free parachain head can't be updated: no more free slots left in the block."
 			);
 
 			return Err(InvalidTransaction::Call.into());
