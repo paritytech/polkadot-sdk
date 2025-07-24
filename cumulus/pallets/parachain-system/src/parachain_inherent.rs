@@ -316,6 +316,21 @@ impl AbridgedInboundHrmpMessages {
 			.collect()
 	}
 
+	pub fn check_messages_order(&self) {
+		let mut msgs = self
+			.full_messages
+			.iter()
+			.map(|(sender, msg)| (msg.sent_at, *sender))
+			.chain(self.hashed_messages.iter().map(|(sender, msg)| (msg.sent_at, *sender)))
+			.peekable();
+
+		while let Some(msg) = msgs.next() {
+			if let Some(next_msg) = msgs.peek() {
+				assert!(next_msg >= &msg, "[AbridgedInboundHrmpMessages] Messages order violation");
+			}
+		}
+	}
+
 	/// Returns an iterator over the deconstructed messages.
 	pub fn flat_msgs_iter(&self) -> impl Iterator<Item = (ParaId, RelayChainBlockNumber, &[u8])> {
 		self.full_messages
@@ -548,5 +563,71 @@ mod tests {
 
 		messages.hashed_messages = vec![];
 		messages.check_enough_messages_included("Test");
+	}
+
+	#[test]
+	fn check_messages_order_works() {
+		// Sorted messages should be accepted
+		let mut messages = AbridgedInboundHrmpMessages {
+			full_messages: vec![
+				(1000.into(), InboundHrmpMessage { sent_at: 0, data: vec![1; 100] }),
+				(2000.into(), InboundHrmpMessage { sent_at: 0, data: vec![1; 100] }),
+				(1000.into(), InboundHrmpMessage { sent_at: 1, data: vec![1; 100] }),
+				(3000.into(), InboundHrmpMessage { sent_at: 1, data: vec![1; 100] }),
+			],
+			hashed_messages: vec![],
+		};
+		messages.check_messages_order();
+
+		messages.hashed_messages =
+			vec![(1000.into(), HashedMessage { sent_at: 2, msg_hash: Default::default() })];
+		messages.check_messages_order();
+
+		messages.hashed_messages = vec![
+			(1000.into(), HashedMessage { sent_at: 2, msg_hash: Default::default() }),
+			(2000.into(), HashedMessage { sent_at: 2, msg_hash: Default::default() }),
+			(1000.into(), HashedMessage { sent_at: 3, msg_hash: Default::default() }),
+		];
+		messages.check_messages_order();
+
+		// Unsorted messages shouldn't be accepted
+		let messages = AbridgedInboundHrmpMessages {
+			full_messages: vec![
+				(1000.into(), InboundHrmpMessage { sent_at: 0, data: vec![1; 100] }),
+				(2000.into(), InboundHrmpMessage { sent_at: 0, data: vec![1; 100] }),
+				(3000.into(), InboundHrmpMessage { sent_at: 1, data: vec![1; 100] }),
+				(1000.into(), InboundHrmpMessage { sent_at: 1, data: vec![1; 100] }),
+			],
+			hashed_messages: vec![],
+		};
+		let result = std::panic::catch_unwind(|| messages.check_messages_order());
+		assert!(result.is_err());
+
+		let messages = AbridgedInboundHrmpMessages {
+			full_messages: vec![(
+				1000.into(),
+				InboundHrmpMessage { sent_at: 1, data: vec![1; 100] },
+			)],
+			hashed_messages: vec![(
+				2000.into(),
+				HashedMessage { sent_at: 0, msg_hash: Default::default() },
+			)],
+		};
+		let result = std::panic::catch_unwind(|| messages.check_messages_order());
+		assert!(result.is_err());
+
+		let messages = AbridgedInboundHrmpMessages {
+			full_messages: vec![(
+				1000.into(),
+				InboundHrmpMessage { sent_at: 0, data: vec![1; 100] },
+			)],
+			hashed_messages: vec![
+				(1000.into(), HashedMessage { sent_at: 1, msg_hash: Default::default() }),
+				(2000.into(), HashedMessage { sent_at: 1, msg_hash: Default::default() }),
+				(3000.into(), HashedMessage { sent_at: 0, msg_hash: Default::default() }),
+			],
+		};
+		let result = std::panic::catch_unwind(|| messages.check_messages_order());
+		assert!(result.is_err());
 	}
 }
