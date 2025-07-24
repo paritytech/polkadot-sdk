@@ -478,7 +478,8 @@ pub mod helpers {
 			TopicIdTracker { ids: HashMap::new() }
 		}
 
-		/// Asserts that exactly one topic ID is recorded on the given chain, and that the same ID is present on all other chains.
+		/// Asserts that exactly one topic ID is recorded on the given chain, and that the same ID
+		/// is present on all other chains.
 		pub fn assert_only_id_seen_on_all_chains(&self, chain: &str) {
 			let ids = self
 				.ids
