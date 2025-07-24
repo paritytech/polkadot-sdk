@@ -468,9 +468,9 @@ pub mod helpers {
 	}
 
 	/// A test utility for tracking XCM topic IDs
-	#[derive(Clone)]
+	#[derive(Clone, Debug)]
 	pub struct TopicIdTracker {
-		ids: HashMap<String, H256>,
+		ids: HashMap<String, HashSet<H256>>,
 	}
 	impl TopicIdTracker {
 		/// Initialises a new, empty topic ID tracker.
@@ -478,9 +478,43 @@ pub mod helpers {
 			TopicIdTracker { ids: HashMap::new() }
 		}
 
+		/// Asserts that exactly one topic ID is recorded on the given chain, and that the same ID
+		/// is present on all other chains.
+		pub fn assert_only_id_seen_on_all_chains(&self, chain: &str) {
+			let ids = self
+				.ids
+				.get(chain)
+				.expect(&format!("No topic IDs recorded for chain '{}'", chain));
+
+			assert_eq!(
+				ids.len(),
+				1,
+				"Expected exactly one topic ID for chain '{}', but found {}: {:?}",
+				chain,
+				ids.len(),
+				ids
+			);
+
+			let id = *ids.iter().next().unwrap();
+			self.assert_id_seen_on_all_chains(&id);
+		}
+
+		/// Asserts that the given topic ID has been recorded on all chains.
+		pub fn assert_id_seen_on_all_chains(&self, id: &H256) {
+			self.ids.iter().for_each(|(chain, values)| {
+				assert!(
+					values.contains(id),
+					"Topic ID {:?} not found on chain '{}'. Found topic IDs: {:?}",
+					id,
+					chain,
+					values
+				)
+			});
+		}
+
 		/// Asserts that exactly one unique topic ID is present across all captured entries.
 		pub fn assert_unique(&self) {
-			let unique_ids: HashSet<_> = self.ids.values().collect();
+			let unique_ids: HashSet<_> = self.ids.values().flatten().collect();
 			assert_eq!(
 				unique_ids.len(),
 				1,
@@ -492,14 +526,28 @@ pub mod helpers {
 
 		/// Inserts a topic ID with the given chain name in the captor.
 		pub fn insert(&mut self, chain: &str, id: H256) {
-			self.ids.insert(chain.to_string(), id);
+			self.ids.entry(chain.to_string()).or_default().insert(id);
+		}
+
+		/// Inserts all topic IDs associated with the given chain name.
+		pub fn insert_all(&mut self, chain: &str, ids: &[H256]) {
+			ids.iter().for_each(|&id| self.insert(chain, id));
 		}
 
 		/// Inserts a topic ID for a given chain and then asserts global uniqueness.
 		pub fn insert_and_assert_unique(&mut self, chain: &str, id: H256) {
-			if let Some(existing_id) = self.ids.get(chain) {
+			if let Some(existing_ids) = self.ids.get(chain) {
 				assert_eq!(
-					id, *existing_id,
+					existing_ids.len(),
+					1,
+					"Expected exactly one topic ID for chain '{}', but found: {:?}",
+					chain,
+					existing_ids
+				);
+				let existing_id =
+					*existing_ids.iter().next().expect(&format!("Topic ID for chain '{}'", chain));
+				assert_eq!(
+					id, existing_id,
 					"Topic ID mismatch for chain '{}': expected {:?}, got {:?}",
 					id, existing_id, chain
 				);
