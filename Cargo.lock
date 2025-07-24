@@ -13224,6 +13224,7 @@ dependencies = [
 name = "pallet-staking-async-parachain-runtime"
 version = "0.15.0"
 dependencies = [
+ "asset-test-utils",
  "assets-common",
  "bp-asset-hub-rococo",
  "bp-bridge-hub-rococo",
@@ -13297,6 +13298,7 @@ dependencies = [
  "pallet-xcm-benchmarks",
  "pallet-xcm-bridge-hub-router",
  "parachains-common",
+ "parachains-runtimes-test-utils",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
@@ -13310,7 +13312,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-genesis-builder",
  "sp-inherents",
- "sp-io 30.0.0",
+ "sp-io",
  "sp-keyring",
  "sp-npos-elections",
  "sp-offchain",
