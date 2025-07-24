@@ -29,10 +29,10 @@ futures = { workspace = true }
 jsonrpsee = { features = ["macros", "ws-client"], workspace = true }
 log = { workspace = true }
 num-traits = { workspace = true, default-features = true }
-pallet-transaction-payment.default-features = true
-pallet-transaction-payment.workspace = true
 pallet-transaction-payment-rpc-runtime-api.default-features = true
 pallet-transaction-payment-rpc-runtime-api.workspace = true
+pallet-transaction-payment.default-features = true
+pallet-transaction-payment.workspace = true
 pallet-utility.default-features = true
 pallet-utility.workspace = true
 quick_cache = { workspace = true }

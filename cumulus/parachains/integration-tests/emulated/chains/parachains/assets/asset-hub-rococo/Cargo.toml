@@ -23,6 +23,6 @@ rococo-emulated-chain.workspace = true
 sp-core.workspace = true
 sp-keyring.workspace = true
 testnet-parachains-constants = { features = ["rococo"], workspace = true, default-features = true }
-xcm.workspace = true
 xcm-builder.default-features = true
 xcm-builder.workspace = true
+xcm.workspace = true

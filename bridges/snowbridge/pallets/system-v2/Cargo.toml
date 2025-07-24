@@ -31,8 +31,8 @@ sp-core.workspace = true
 sp-io.workspace = true
 sp-runtime.workspace = true
 sp-std.workspace = true
-xcm.workspace = true
 xcm-executor.workspace = true
+xcm.workspace = true
 
 tracing = { workspace = true }
 

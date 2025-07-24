@@ -35,10 +35,10 @@ sc-basic-authorship.default-features = true
 sc-basic-authorship.workspace = true
 sc-client-api.default-features = true
 sc-client-api.workspace = true
-sc-transaction-pool.default-features = true
-sc-transaction-pool.workspace = true
 sc-transaction-pool-api.default-features = true
 sc-transaction-pool-api.workspace = true
+sc-transaction-pool.default-features = true
+sc-transaction-pool.workspace = true
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 sp-consensus.default-features = true

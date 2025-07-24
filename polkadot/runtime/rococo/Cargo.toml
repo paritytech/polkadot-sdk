@@ -20,9 +20,9 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-executive.workspace = true
 frame-metadata-hash-extension.workspace = true
 frame-support = { features = ["tuples-96"], workspace = true }
-frame-system.workspace = true
 frame-system-benchmarking = { optional = true, workspace = true }
 frame-system-rpc-runtime-api.workspace = true
+frame-system.workspace = true
 frame-try-runtime = { optional = true, workspace = true }
 hex-literal = { workspace = true, default-features = true }
 log = { workspace = true }
@@ -31,8 +31,8 @@ pallet-authority-discovery.workspace = true
 pallet-authorship.workspace = true
 pallet-babe.workspace = true
 pallet-balances.workspace = true
-pallet-beefy.workspace = true
 pallet-beefy-mmr.workspace = true
+pallet-beefy.workspace = true
 pallet-bounties.workspace = true
 pallet-child-bounties.workspace = true
 pallet-conviction-voting.workspace = true
@@ -62,14 +62,14 @@ pallet-state-trie-migration.workspace = true
 pallet-sudo.workspace = true
 pallet-timestamp.workspace = true
 pallet-tips.workspace = true
-pallet-transaction-payment.workspace = true
 pallet-transaction-payment-rpc-runtime-api.workspace = true
+pallet-transaction-payment.workspace = true
 pallet-treasury.workspace = true
 pallet-utility.workspace = true
 pallet-vesting.workspace = true
 pallet-whitelist.workspace = true
-pallet-xcm.workspace = true
 pallet-xcm-benchmarks = { optional = true, workspace = true }
+pallet-xcm.workspace = true
 polkadot-parachain-primitives.workspace = true
 polkadot-primitives.workspace = true
 polkadot-runtime-common.workspace = true
@@ -99,10 +99,10 @@ sp-staking.workspace = true
 sp-storage.workspace = true
 sp-transaction-pool.workspace = true
 sp-version.workspace = true
-xcm.workspace = true
 xcm-builder.workspace = true
 xcm-executor.workspace = true
 xcm-runtime-apis.workspace = true
+xcm.workspace = true
 
 [dev-dependencies]
 remote-externalities = { default-features = true, workspace = true }

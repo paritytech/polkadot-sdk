@@ -23,5 +23,5 @@ sp-consensus-beefy.default-features = true
 sp-consensus-beefy.workspace = true
 sp-core.workspace = true
 sp-runtime.workspace = true
-westend-runtime.workspace = true
 westend-runtime-constants.workspace = true
+westend-runtime.workspace = true

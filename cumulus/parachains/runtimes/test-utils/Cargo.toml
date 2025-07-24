@@ -34,9 +34,9 @@ sp-io.workspace = true
 sp-runtime.workspace = true
 sp-tracing.default-features = true
 sp-tracing.workspace = true
-xcm.workspace = true
 xcm-executor.workspace = true
 xcm-runtime-apis.workspace = true
+xcm.workspace = true
 
 [features]
 default = ["std"]

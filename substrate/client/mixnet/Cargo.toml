@@ -28,10 +28,10 @@ mixnet = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
 sc-client-api.default-features = true
 sc-client-api.workspace = true
-sc-network.default-features = true
-sc-network.workspace = true
 sc-network-types.default-features = true
 sc-network-types.workspace = true
+sc-network.default-features = true
+sc-network.workspace = true
 sc-transaction-pool-api.default-features = true
 sc-transaction-pool-api.workspace = true
 sp-api.default-features = true
