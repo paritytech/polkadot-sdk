@@ -629,7 +629,7 @@ mod benchmarks {
 		// Decode the public key and signature
 		let public = T::SigningPublicKey::decode(&mut &public_bytes[..])
 			.expect("benchmark_helper should return valid encoded public key");
-		let who_account: T::AccountId = public.into_account().into();
+		let who_account: T::AccountId = public.into_account();
 		let who_lookup = T::Lookup::unlookup(who_account.clone());
 
 		let signature = T::OffchainSignature::decode(&mut &signature_bytes[..])
