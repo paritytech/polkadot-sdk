@@ -12,7 +12,7 @@ repository.workspace = true
 
 [dependencies]
 codec = { workspace = true }
-frame = { workspace = true }
+frame = { workspace = true, features = ["runtime"] }
 scale-info = { workspace = true }
 
 [features]

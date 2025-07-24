@@ -118,7 +118,8 @@ reset: clean setup
 help:
     just --list
 
-# kill all relevant processes
+# kill all relevant processes. This is useful in case you see weird errors, most likely it is
+# because you have other old stale ones running.
 killall:
   pkill -f zombienet || true
   pkill -f chain-spec-builder || true
