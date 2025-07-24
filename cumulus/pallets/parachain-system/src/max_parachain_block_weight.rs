@@ -16,9 +16,20 @@
 
 //! Utilities for calculating maximum parachain block weight based on core assignments.
 
+use crate::Config;
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use cumulus_primitives_core::CumulusDigestItem;
-use frame_support::weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight};
+use frame_support::{
+	dispatch::{DispatchInfo, PostDispatchInfo},
+	pallet_prelude::{TransactionSource, TransactionValidityError, ValidTransaction},
+	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
+};
 use polkadot_primitives::MAX_POV_SIZE;
+use scale_info::TypeInfo;
+use sp_runtime::{
+	traits::{DispatchInfoOf, Dispatchable, Implication, PostDispatchInfoOf, TransactionExtension},
+	DispatchResult,
+};
 
 /// A utility type for calculating the maximum block weight for a parachain based on
 /// the number of relay chain cores assigned and the target number of blocks.
@@ -65,6 +76,130 @@ impl MaxParachainBlockWeight {
 		let proof_size_per_block = total_pov_size.saturating_div(target_blocks as u64);
 
 		Weight::from_parts(ref_time_per_block, proof_size_per_block)
+	}
+}
+
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo)]
+#[derive_where::derive_where(Clone, Eq, PartialEq, Default; S)]
+#[scale_info(skip_type_params(T))]
+pub struct DynamicMaxBlockWeight<T, S>(pub S, core::marker::PhantomData<T>);
+
+impl<T, S> DynamicMaxBlockWeight<T, S> {
+	/// Create a new `StorageWeightReclaim` instance.
+	pub fn new(s: S) -> Self {
+		Self(s, Default::default())
+	}
+}
+
+impl<T, S> From<S> for DynamicMaxBlockWeight<T, S> {
+	fn from(s: S) -> Self {
+		Self::new(s)
+	}
+}
+
+impl<T, S: core::fmt::Debug> core::fmt::Debug for DynamicMaxBlockWeight<T, S> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+		write!(f, "DynamicMaxBlockWeight<{:?}>", self.0)
+	}
+}
+
+impl<T: Config + Send + Sync, S: TransactionExtension<T::RuntimeCall>>
+	TransactionExtension<T::RuntimeCall> for DynamicMaxBlockWeight<T, S>
+where
+	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+{
+	const IDENTIFIER: &'static str = "DynamicMaxBlockWeight<Use `metadata()`!>";
+
+	type Implicit = S::Implicit;
+
+	type Val = S::Val;
+
+	type Pre = S::Pre;
+
+	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+		self.0.implicit()
+	}
+
+	fn metadata() -> Vec<sp_runtime::traits::TransactionExtensionMetadata> {
+		let mut inner = S::metadata();
+		inner.push(sp_runtime::traits::TransactionExtensionMetadata {
+			identifier: "DynamicMaxBlockWeight",
+			ty: scale_info::meta_type::<()>(),
+			implicit: scale_info::meta_type::<()>(),
+		});
+		inner
+	}
+
+	fn weight(&self, _: &T::RuntimeCall) -> Weight {
+		Weight::zero()
+	}
+
+	fn validate(
+		&self,
+		origin: T::RuntimeOrigin,
+		call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		len: usize,
+		self_implicit: Self::Implicit,
+		inherited_implication: &impl Implication,
+		source: TransactionSource,
+	) -> Result<(ValidTransaction, Self::Val, T::RuntimeOrigin), TransactionValidityError> {
+		self.0
+			.validate(origin, call, info, len, self_implicit, inherited_implication, source)
+	}
+
+	fn prepare(
+		self,
+		val: Self::Val,
+		origin: &T::RuntimeOrigin,
+		call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		len: usize,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		// TODO: Check the weight of the call
+		// Store in some storage item the current block number + the mode that we allow
+		// There should be the default mode of not allowing to overshoot, then the mode we allow to
+		// overshoot if the weight of the call is below the weight of one core but above one of the
+		// axis of the actual block weight. So, if we are above the max storage proof size or the
+		// ref time, we allow it to above. Use the digest to check if we are in the first block.
+		self.0.prepare(val, origin, call, info, len)
+	}
+
+	fn post_dispatch(
+		pre: Self::Pre,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		post_info: &mut PostDispatchInfo,
+		len: usize,
+		result: &DispatchResult,
+	) -> Result<(), TransactionValidityError> {
+		S::post_dispatch(pre, info, post_info, len, result)
+	}
+
+	fn bare_validate(
+		call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		len: usize,
+	) -> frame_support::pallet_prelude::TransactionValidity {
+		S::bare_validate(call, info, len)
+	}
+
+	fn bare_validate_and_prepare(
+		call: &T::RuntimeCall,
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		len: usize,
+	) -> Result<(), TransactionValidityError> {
+		S::bare_validate_and_prepare(call, info, len)
+	}
+
+	fn bare_post_dispatch(
+		info: &DispatchInfoOf<T::RuntimeCall>,
+		post_info: &mut PostDispatchInfoOf<T::RuntimeCall>,
+		len: usize,
+		result: &DispatchResult,
+	) -> Result<(), TransactionValidityError> {
+		S::bare_post_dispatch(info, post_info, len, result)?;
+
+		frame_system::Pallet::<T>::reclaim_weight(info, post_info)
 	}
 }
 

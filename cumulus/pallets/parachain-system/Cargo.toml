@@ -14,6 +14,7 @@ workspace = true
 [dependencies]
 bytes = { workspace = true }
 codec = { features = ["derive"], workspace = true }
+derive-where = { workspace = true }
 environmental = { workspace = true }
 hashbrown = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
