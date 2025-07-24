@@ -13179,7 +13179,6 @@ dependencies = [
  "pallet-balances",
  "pallet-proxy",
  "pallet-revive-fixtures",
- "pallet-revive-fixtures-solidity",
  "pallet-revive-proc-macro",
  "pallet-revive-uapi",
  "pallet-timestamp",
@@ -13255,21 +13254,15 @@ dependencies = [
 name = "pallet-revive-fixtures"
 version = "0.1.0"
 dependencies = [
+ "alloy-core",
  "anyhow",
  "cargo_metadata",
+ "hex",
  "pallet-revive-uapi",
  "polkavm-linker",
  "sp-core 28.0.0",
  "sp-io",
  "toml 0.8.23",
-]
-
-[[package]]
-name = "pallet-revive-fixtures-solidity"
-version = "0.1.0"
-dependencies = [
- "alloy-core",
- "anyhow",
 ]
 
 [[package]]

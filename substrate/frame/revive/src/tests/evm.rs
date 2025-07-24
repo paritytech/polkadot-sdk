@@ -15,10 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The pallet-revive EVM specifc integration test suite.
+//! The pallet-revive EVM specific integration test suite.
 
 use crate::{
-	test_utils::{builder::Contract, *},
+	test_utils::{builder::Contract, ALICE},
 	tests::{
 		builder,
 		test_utils::{ensure_stored, get_contract_checked},
@@ -26,16 +26,15 @@ use crate::{
 	},
 	Code, Config,
 };
-
 use alloy_core::{primitives::U256, sol_types::SolInterface};
 use frame_support::traits::fungible::Mutate;
-use pallet_revive_fixtures_solidity::contracts::*;
+use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType, Flipper};
 use pretty_assertions::assert_eq;
 
 /// Tests that the EVM can calculate a fibonacci number.
 #[test]
 fn basic_evm_flow_works() {
-	let code = playground_bin();
+	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -48,10 +47,49 @@ fn basic_evm_flow_works() {
 
 		let result = builder::bare_call(addr)
 			.data(
-				Playground::PlaygroundCalls::fib(Playground::fibCall { n: U256::from(10u64) })
+				Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: U256::from(10u64) })
 					.abi_encode(),
 			)
 			.build_and_unwrap_result();
 		assert_eq!(U256::from(55u32), U256::from_be_bytes::<32>(result.data.try_into().unwrap()));
 	});
+}
+
+/// Tests that the sstore and sload storage opcodes work as expected.
+#[test]
+fn flipper() {
+	// TODO: Remove `take(1)` to activate the EVM test.
+	for (code, _) in [
+		compile_module_with_type("Flipper", FixtureType::Resolc).unwrap(),
+		compile_module_with_type("Flipper", FixtureType::Solc).unwrap(),
+	]
+	.into_iter()
+	.take(1)
+	{
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			let result = builder::bare_call(addr)
+				.data(Flipper::FlipperCalls::coin(Flipper::coinCall {}).abi_encode())
+				.build_and_unwrap_result();
+			assert_eq!(U256::ZERO, U256::from_be_bytes::<32>(result.data.try_into().unwrap()));
+
+			// Should be false
+			let result = builder::bare_call(addr)
+				.data(Flipper::FlipperCalls::coin(Flipper::coinCall {}).abi_encode())
+				.build_and_unwrap_result();
+			assert_eq!(U256::ZERO, U256::from_be_bytes::<32>(result.data.try_into().unwrap()));
+
+			// Flip the coin
+			builder::bare_call(addr).build_and_unwrap_result();
+
+			// Should be true
+			let result = builder::bare_call(addr)
+				.data(Flipper::FlipperCalls::coin(Flipper::coinCall {}).abi_encode())
+				.build_and_unwrap_result();
+			assert_eq!(U256::ONE, U256::from_be_bytes::<32>(result.data.try_into().unwrap()));
+		});
+	}
 }

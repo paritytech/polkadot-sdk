@@ -30,15 +30,24 @@ const OVERRIDE_STRIP_ENV_VAR: &str = "PALLET_REVIVE_FIXTURES_STRIP";
 const OVERRIDE_OPTIMIZE_ENV_VAR: &str = "PALLET_REVIVE_FIXTURES_OPTIMIZE";
 
 /// A contract entry.
+#[derive(Clone)]
 struct Entry {
 	/// The path to the contract source file.
 	path: PathBuf,
+	/// The type of the contract (rust or solidity).
+	contract_type: ContractType,
+}
+
+#[derive(Clone, Copy)]
+enum ContractType {
+	Rust,
+	Solidity,
 }
 
 impl Entry {
 	/// Create a new contract entry from the given path.
-	fn new(path: PathBuf) -> Self {
-		Self { path }
+	fn new(path: PathBuf, contract_type: ContractType) -> Self {
+		Self { path, contract_type }
 	}
 
 	/// Return the path to the contract source file.
@@ -57,7 +66,10 @@ impl Entry {
 
 	/// Return the name of the polkavm file.
 	fn out_filename(&self) -> String {
-		format!("{}.polkavm", self.name())
+		match self.contract_type {
+			ContractType::Rust => format!("{}.polkavm", self.name()),
+			ContractType::Solidity => format!("{}.resolc.polkavm", self.name()),
+		}
 	}
 }
 
@@ -67,16 +79,18 @@ fn collect_entries(contracts_dir: &Path) -> Vec<Entry> {
 		.expect("src dir exists; qed")
 		.filter_map(|file| {
 			let path = file.expect("file exists; qed").path();
-			if path.extension().map_or(true, |ext| ext != "rs") {
-				return None
-			}
+			let extension = path.extension();
 
-			Some(Entry::new(path))
+			match extension.and_then(|ext| ext.to_str()) {
+				Some("rs") => Some(Entry::new(path, ContractType::Rust)),
+				Some("sol") => Some(Entry::new(path, ContractType::Solidity)),
+				_ => None,
+			}
 		})
 		.collect::<Vec<_>>()
 }
 
-/// Create a `Cargo.toml` to compile the given contract entries.
+/// Create a `Cargo.toml` to compile the given Rust contract entries.
 fn create_cargo_toml<'a>(
 	fixtures_dir: &Path,
 	entries: impl Iterator<Item = &'a Entry>,
@@ -192,15 +206,134 @@ fn post_process(input_path: &Path, output_path: &Path) -> Result<()> {
 	Ok(())
 }
 
-/// Write the compiled contracts to the given output directory.
+/// Compile Solidity contracts using both solc and resolc.
+fn compile_solidity_contracts(
+	contracts_dir: &Path,
+	out_dir: &Path,
+	entries: &[Entry],
+) -> Result<()> {
+	let solidity_entries: Vec<_> = entries
+		.iter()
+		.filter(|entry| matches!(entry.contract_type, ContractType::Solidity))
+		.collect();
+
+	if solidity_entries.is_empty() {
+		return Ok(());
+	}
+
+	// Compile with solc for EVM bytecode
+	let mut solc_command = Command::new("solc");
+	solc_command
+		.current_dir(contracts_dir)
+		.args(["--overwrite", "--optimize", "--bin", "--bin-runtime", "-o"])
+		.arg(out_dir);
+
+	for entry in &solidity_entries {
+		solc_command.arg(entry.path());
+	}
+
+	let solc_output = solc_command
+		.output()
+		.with_context(|| "Failed to execute solc. Make sure solc is installed.")?;
+
+	if !solc_output.status.success() {
+		let stderr = String::from_utf8_lossy(&solc_output.stderr);
+		bail!("solc compilation failed: {}", stderr);
+	}
+
+	// Compile with resolc for PVM bytecode
+	let mut resolc_command = Command::new("resolc");
+	resolc_command
+		.current_dir(contracts_dir)
+		.args(["--overwrite", "-Oz", "--bin", "-o"])
+		.arg(out_dir);
+
+	for entry in &solidity_entries {
+		resolc_command.arg(entry.path());
+	}
+
+	let resolc_output = resolc_command
+		.output()
+		.with_context(|| "Failed to execute resolc. Make sure resolc is installed.")?;
+
+	if !resolc_output.status.success() {
+		let stderr = String::from_utf8_lossy(&resolc_output.stderr);
+		bail!("resolc compilation failed: {}", stderr);
+	}
+
+	// Copy and rename the compiled files - handle multiple contracts per .sol file
+	// First, collect only the original .bin and .pvm files (not the ones we create)
+	let mut bin_files = Vec::new();
+	let mut pvm_files = Vec::new();
+
+	for entry in fs::read_dir(&out_dir)? {
+		let path = entry?.path();
+		if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
+			// Only process original solc .bin files (not our generated .sol.bin files)
+			if file_name.ends_with(".bin") &&
+				!file_name.contains(".sol.") &&
+				!file_name.contains(".resolc.")
+			{
+				bin_files.push((path.clone(), file_name.to_string()));
+			}
+			// Only process original .pvm files (not our generated .resolc.polkavm files)
+			else if file_name.ends_with(".pvm") && file_name.contains(":") {
+				pvm_files.push((path.clone(), file_name.to_string()));
+			}
+		}
+	}
+
+	// Copy all .bin files to ContractName.sol.bin format with hex decoding
+	for (bin_path, file_name) in bin_files {
+		let contract_name = file_name.strip_suffix(".bin").unwrap();
+		let evm_out_path = out_dir.join(format!("{}.sol.bin", contract_name));
+
+		// Read hex-encoded content and decode it
+		let hex_content = fs::read_to_string(&bin_path)
+			.with_context(|| format!("Failed to read solc output for {contract_name}"))?;
+		let hex_content = hex_content.trim();
+
+		// Remove 0x prefix if present
+		let hex_content = hex_content.strip_prefix("0x").unwrap_or(hex_content);
+
+		// Decode hex to binary
+		let binary_content = hex::decode(hex_content)
+			.map_err(|e| anyhow::anyhow!("Failed to decode hex for {contract_name}: {e}"))?;
+
+		fs::write(&evm_out_path, binary_content)
+			.with_context(|| format!("Failed to write solc output for {contract_name}"))?;
+	}
+
+	// Copy all .pvm files to ContractName.resolc.polkavm format (already binary, no hex decoding
+	// needed)
+	for (pvm_path, file_name) in pvm_files {
+		// Extract contract name from filename like "AddressPredictor.sol:Predicted.pvm"
+		if let Some(colon_pos) = file_name.find(':') {
+			if let Some(contract_name) = file_name[(colon_pos + 1)..].strip_suffix(".pvm") {
+				let resolc_out_path = out_dir.join(format!("{}.resolc.polkavm", contract_name));
+
+				// .pvm files are already binary, just copy them
+				fs::copy(&pvm_path, &resolc_out_path).with_context(|| {
+					format!("Failed to copy resolc output for {}", contract_name)
+				})?;
+			}
+		}
+	}
+
+	Ok(())
+}
+
+/// Write the compiled Rust contracts to the given output directory.
 fn write_output(build_dir: &Path, out_dir: &Path, entries: Vec<Entry>) -> Result<()> {
 	for entry in entries {
-		post_process(
-			&build_dir
-				.join("target/riscv64emac-unknown-none-polkavm/release")
-				.join(entry.name()),
-			&out_dir.join(entry.out_filename()),
-		)?;
+		if matches!(entry.contract_type, ContractType::Rust) {
+			post_process(
+				&build_dir
+					.join("target/riscv64emac-unknown-none-polkavm/release")
+					.join(entry.name()),
+				&out_dir.join(entry.out_filename()),
+			)?;
+		}
 	}
 
 	Ok(())
@@ -263,17 +396,31 @@ fn create_out_dir() -> Result<PathBuf> {
 			.context(format!("Failed to create output directory: {})", out_dir.display(),))?;
 	}
 
-	// write the location of the out dir so it can be found later
+	Ok(out_dir)
+}
+
+/// Generate the fixture_location.rs file with macros and sol! definitions.
+fn generate_fixture_location(temp_dir: &Path, out_dir: &Path, entries: &[Entry]) -> Result<()> {
 	let mut file = fs::File::create(temp_dir.join("fixture_location.rs"))
 		.context("Failed to create fixture_location.rs")?;
+
 	write!(
 		file,
 		r#"
 			#[allow(dead_code)]
 			const FIXTURE_DIR: &str = "{0}";
+
+			#[macro_export]
 			macro_rules! fixture {{
 				($name: literal) => {{
 					include_bytes!(concat!("{0}", "/", $name, ".polkavm"))
+				}};
+			}}
+
+			#[macro_export]
+			macro_rules! fixture_resolc {{
+				($name: literal) => {{
+					include_bytes!(concat!("{0}", "/", $name, ".resolc.polkavm"))
 				}};
 			}}
 		"#,
@@ -281,7 +428,16 @@ fn create_out_dir() -> Result<PathBuf> {
 	)
 	.context("Failed to write to fixture_location.rs")?;
 
-	Ok(out_dir)
+	// Generate sol! macros for Solidity contracts
+	writeln!(file, "#[cfg(feature = \"std\")]")
+		.context("Failed to write cfg to fixture_location.rs")?;
+	for entry in entries.iter().filter(|e| matches!(e.contract_type, ContractType::Solidity)) {
+		let relative_path = format!("contracts/{}", entry.path().split('/').last().unwrap());
+		writeln!(file, r#"alloy_core::sol!("{}");"#, relative_path)
+			.context("Failed to write sol! macro to fixture_location.rs")?;
+	}
+
+	Ok(())
 }
 
 pub fn main() -> Result<()> {
@@ -308,9 +464,25 @@ pub fn main() -> Result<()> {
 		return Ok(())
 	}
 
-	create_cargo_toml(&fixtures_dir, entries.iter(), &build_dir)?;
-	invoke_build(&build_dir)?;
-	write_output(&build_dir, &out_dir, entries)?;
+	let temp_dir: PathBuf =
+		env::var("OUT_DIR").context("Failed to fetch `OUT_DIR` env variable")?.into();
+
+	// Compile Rust contracts
+	let rust_entries: Vec<_> = entries
+		.iter()
+		.filter(|e| matches!(e.contract_type, ContractType::Rust))
+		.collect();
+	if !rust_entries.is_empty() {
+		create_cargo_toml(&fixtures_dir, rust_entries.into_iter(), &build_dir)?;
+		invoke_build(&build_dir)?;
+		write_output(&build_dir, &out_dir, entries.clone())?;
+	}
+
+	// Compile Solidity contracts
+	compile_solidity_contracts(&contracts_dir, &out_dir, &entries)?;
+
+	// Generate fixture_location.rs with sol! macros
+	generate_fixture_location(&temp_dir, &out_dir, &entries)?;
 
 	Ok(())
 }

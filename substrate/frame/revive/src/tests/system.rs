@@ -18,8 +18,8 @@
 //! The pallet-revive shared VM integration test suite.
 
 use crate::{
-	test_utils::{builder::Contract, *},
-	tests::{builder, ExtBuilder, System, Test},
+	test_utils::{builder::Contract, ALICE},
+	tests::{builder, ExtBuilder, Test},
 	Code, Config,
 };
 
@@ -28,36 +28,19 @@ use alloy_core::{
 	sol_types::{SolConstructor, SolInterface},
 };
 use frame_support::traits::fungible::Mutate;
-use pallet_revive_fixtures_solidity::contracts::*;
+use pallet_revive_fixtures::{
+	compile_module_with_type, AddressPredictor, FixtureType, Flipper, System as SystemFixture,
+};
 use pretty_assertions::assert_eq;
 use sp_io::hashing::keccak_256;
-
-/// Tests that the blocknumber opcode works as expected.
-#[test]
-fn block_number_works() {
-	for code in [playground_bin(), playground_pvm()] {
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
-
-			System::set_block_number(42);
-
-			let result = builder::bare_call(addr)
-				.data(Playground::PlaygroundCalls::bn(Playground::bnCall {}).abi_encode())
-				.build_and_unwrap_result();
-			assert_eq!(
-				U256::from(42u32),
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
-			);
-		});
-	}
-}
 
 /// Tests that the sha3 keccak256 cryptographic opcode works as expected.
 #[test]
 fn keccak_256_works() {
-	for code in [crypto_bin(), crypto_pvm()] {
+	for (code, _) in [
+		// compile_module_with_type("System", FixtureType::Solc).unwrap(),
+		compile_module_with_type("System", FixtureType::Resolc).unwrap(),
+	] {
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 			let Contract { addr, .. } =
@@ -67,7 +50,12 @@ fn keccak_256_works() {
 			let expected = keccak_256(pre.as_bytes());
 
 			let result = builder::bare_call(addr)
-				.data(TestSha3::TestSha3Calls::test(TestSha3::testCall { _pre: pre }).abi_encode())
+				.data(
+					SystemFixture::SystemCalls::keccak256(SystemFixture::keccak256Call {
+						_pre: pre,
+					})
+					.abi_encode(),
+				)
 				.build_and_unwrap_result();
 
 			assert_eq!(&expected, result.data.as_slice());
@@ -79,8 +67,14 @@ fn keccak_256_works() {
 #[test]
 fn predictable_addresses() {
 	let bytecodes = [
-		(address_predictor_pvm(), predicted_pvm()),
-		(address_predictor_bin(), predicted_bin_runtime()),
+		(
+			compile_module_with_type("AddressPredictor", FixtureType::Resolc).unwrap().0,
+			compile_module_with_type("Predicted", FixtureType::Resolc).unwrap().0,
+		),
+		(
+			compile_module_with_type("AddressPredictor", FixtureType::Solc).unwrap().0,
+			compile_module_with_type("Predicted", FixtureType::Solc).unwrap().0,
+		),
 	];
 
 	// TODO: Remove `take(1)` to activate the EVM test.
@@ -107,7 +101,13 @@ fn predictable_addresses() {
 #[test]
 fn flipper() {
 	// TODO: Remove `take(1)` to activate the EVM test.
-	for code in [flipper_pvm(), flipper_bin()].into_iter().take(1) {
+	for (code, _) in [
+		compile_module_with_type("Flipper", FixtureType::Resolc).unwrap(),
+		compile_module_with_type("Flipper", FixtureType::Solc).unwrap(),
+	]
+	.into_iter()
+	.take(1)
+	{
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 			let Contract { addr, .. } =

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-contract Playground {
+contract BlockInfo {
     function fib(uint n) public pure returns (uint) {
         if (n <= 1) {
             return n;
@@ -9,7 +9,7 @@ contract Playground {
         return fib(n - 1) + fib(n - 2);
     }
 
-	function bn() public view returns (uint) {
+	function blockNumber() public view returns (uint) {
 		return block.number;
 	}
 }

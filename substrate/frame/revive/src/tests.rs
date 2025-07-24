@@ -15,11 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod common;
+mod block_info;
 mod evm;
 mod pallet_dummy;
 mod precompiles;
 mod pvm;
+mod system;
 
 use crate::{
 	self as pallet_revive, test_utils::*, AccountId32Mapper, BalanceOf, BalanceWithDust,
@@ -139,8 +140,8 @@ pub mod test_utils {
 		let code_info_len = CodeInfo::<Test>::max_encoded_len() as u64;
 		// Calculate deposit to be reserved.
 		// We add 2 storage items: one for code, other for code_info
-		DepositPerByte::get().saturating_mul(code_len as u64 + code_info_len)
-			+ DepositPerItem::get().saturating_mul(2)
+		DepositPerByte::get().saturating_mul(code_len as u64 + code_info_len) +
+			DepositPerItem::get().saturating_mul(2)
 	}
 	pub fn ensure_stored(code_hash: sp_core::H256) -> usize {
 		// Assert that code_info is stored
