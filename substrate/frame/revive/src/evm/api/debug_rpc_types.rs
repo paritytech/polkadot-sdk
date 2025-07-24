@@ -258,13 +258,13 @@ where
 #[derive(
 	TypeInfo, Default, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq,
 )]
+#[serde(rename_all = "camelCase")]
 pub struct CallTrace<Gas = U256> {
 	/// Address of the sender.
 	pub from: H160,
 	/// Amount of gas provided for the call.
 	pub gas: Gas,
 	/// Amount of gas used.
-	#[serde(rename = "gasUsed")]
 	pub gas_used: Gas,
 	/// Address of the receiver.
 	pub to: H160,
@@ -277,7 +277,7 @@ pub struct CallTrace<Gas = U256> {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub error: Option<String>,
 	/// The revert reason, if the call reverted.
-	#[serde(rename = "revertReason", skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub revert_reason: Option<String>,
 	/// List of sub-calls.
 	#[serde(skip_serializing_if = "Vec::is_empty")]
@@ -313,9 +313,9 @@ pub struct CallLog {
 
 /// A transaction trace
 #[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct TransactionTrace {
 	/// The transaction hash.
-	#[serde(rename = "txHash")]
 	pub tx_hash: H256,
 	/// The trace of the transaction.
 	#[serde(rename = "result")]
