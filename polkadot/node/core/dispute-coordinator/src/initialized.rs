@@ -864,10 +864,7 @@ impl Initialized {
 
 				let _ = tx.send(
 					get_active_with_status(recent_disputes.into_iter(), now)
-						.map(|((session_idx, candidate_hash), dispute_status)| {
-							(session_idx, candidate_hash, dispute_status)
-						})
-						.collect(),
+						.collect::<BTreeMap<_, _>>(),
 				);
 			},
 			DisputeCoordinatorMessage::QueryCandidateVotes(query, tx) => {

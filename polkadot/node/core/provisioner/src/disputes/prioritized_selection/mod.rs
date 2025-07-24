@@ -143,7 +143,16 @@ where
 	metrics.on_fetched_onchain_disputes(onchain.keys().len() as u64);
 
 	gum::trace!(target: LOG_TARGET, ?leaf, "Fetching recent disputes");
-	let mut recent_disputes = request_disputes(sender).await;
+	// Filter out unconfirmed disputes. However if the dispute is already onchain - don't skip it.
+	// In this case we'd better push as much fresh votes as possible to bring it to conclusion
+	// faster.
+	let recent_disputes = request_disputes(sender)
+		.await
+		.into_iter()
+		.filter(|(key, dispute_status)| {
+			dispute_status.is_confirmed_concluded() || onchain.contains_key(key)
+		})
+		.collect::<BTreeMap<_, _>>();
 	gum::trace!(
 		target: LOG_TARGET,
 		?leaf,
@@ -153,13 +162,6 @@ where
 	);
 
 	gum::trace!(target: LOG_TARGET, ?leaf, "Filtering recent disputes");
-
-	// Filter out unconfirmed disputes. However if the dispute is already onchain - don't skip it.
-	// In this case we'd better push as much fresh votes as possible to bring it to conclusion
-	// faster.
-	recent_disputes.retain(|key, dispute_status| {
-		dispute_status.is_confirmed_concluded() || onchain.contains_key(key)
-	});
 
 	gum::trace!(target: LOG_TARGET, ?leaf, "Partitioning recent disputes");
 	let partitioned = partition_recent_disputes(recent_disputes, &onchain);
