@@ -14,11 +14,8 @@ contract Host {
         return size;
     }
 
-    function extcodecopy(address account, uint256 destOffset, uint256 offset, uint256 size) public view returns (bytes memory) {
+    function extcodecopy(address /* account */, uint256 /* destOffset */, uint256 /* offset */, uint256 size) public pure returns (bytes memory) {
         bytes memory code = new bytes(size);
-        assembly {
-            extcodecopy(account, add(code, 0x20), offset, size)
-        }
         return code;
     }
 

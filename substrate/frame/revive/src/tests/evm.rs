@@ -59,13 +59,8 @@ fn basic_evm_flow_works() {
 #[test]
 fn flipper() {
 	// TODO: Remove `take(1)` to activate the EVM test.
-	for (code, _) in [
-		compile_module_with_type("Flipper", FixtureType::Resolc).unwrap(),
-		compile_module_with_type("Flipper", FixtureType::Solc).unwrap(),
-	]
-	.into_iter()
-	.take(1)
-	{
+	for fixture_type in [FixtureType::Resolc, FixtureType::Solc].into_iter().take(1) {
+		let (code, _) = compile_module_with_type("Flipper", fixture_type).unwrap();
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 			let Contract { addr, .. } =

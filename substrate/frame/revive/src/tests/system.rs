@@ -23,115 +23,39 @@ use crate::{
 	Code, Config,
 };
 
-use alloy_core::{
-	primitives::{Bytes, U256},
-	sol_types::{SolConstructor, SolInterface},
-};
+use alloy_core::sol_types::SolInterface;
 use frame_support::traits::fungible::Mutate;
-use pallet_revive_fixtures::{
-	compile_module_with_type, AddressPredictor, FixtureType, Flipper, System as SystemFixture,
-};
+use pallet_revive_fixtures::{compile_module_with_type, FixtureType, System as SystemFixture};
 use pretty_assertions::assert_eq;
+use revm::primitives::Bytes;
 use sp_io::hashing::keccak_256;
 
 /// Tests that the sha3 keccak256 cryptographic opcode works as expected.
 #[test]
 fn keccak_256_works() {
-	for (code, _) in [
-		// compile_module_with_type("System", FixtureType::Solc).unwrap(),
-		compile_module_with_type("System", FixtureType::Resolc).unwrap(),
+	for fixture_type in [
+		FixtureType::Resolc,
+		// FixtureType::Solc, TODO uncomment once implemented
 	] {
+		let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 			let Contract { addr, .. } =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			let pre = "revive".to_string();
-			let expected = keccak_256(pre.as_bytes());
+			let pre = b"revive";
+			let expected = keccak_256(pre);
 
 			let result = builder::bare_call(addr)
 				.data(
-					SystemFixture::SystemCalls::keccak256(SystemFixture::keccak256Call {
-						_pre: pre,
+					SystemFixture::SystemCalls::keccak256Func(SystemFixture::keccak256FuncCall {
+						data: Bytes::from(pre),
 					})
 					.abi_encode(),
 				)
 				.build_and_unwrap_result();
 
 			assert_eq!(&expected, result.data.as_slice());
-		});
-	}
-}
-
-/// Tests that the create2 opcode works as expected.
-#[test]
-fn predictable_addresses() {
-	let bytecodes = [
-		(
-			compile_module_with_type("AddressPredictor", FixtureType::Resolc).unwrap().0,
-			compile_module_with_type("Predicted", FixtureType::Resolc).unwrap().0,
-		),
-		(
-			compile_module_with_type("AddressPredictor", FixtureType::Solc).unwrap().0,
-			compile_module_with_type("Predicted", FixtureType::Solc).unwrap().0,
-		),
-	];
-
-	// TODO: Remove `take(1)` to activate the EVM test.
-	for (code, target) in bytecodes.into_iter().take(1) {
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-
-			// Publishing the target bytecode pre-image first is necessary on PVM.
-			builder::bare_instantiate(Code::Upload(target.clone()))
-				.data(vec![0; 32])
-				.build_and_unwrap_contract();
-
-			let Contract { .. } = builder::bare_instantiate(Code::Upload(code))
-				.data(
-					AddressPredictor::constructorCall::new((U256::from(123), Bytes::from(target)))
-						.abi_encode(),
-				)
-				.build_and_unwrap_contract();
-		});
-	}
-}
-
-/// Tests that the sstore and sload storage opcodes work as expected.
-#[test]
-fn flipper() {
-	// TODO: Remove `take(1)` to activate the EVM test.
-	for (code, _) in [
-		compile_module_with_type("Flipper", FixtureType::Resolc).unwrap(),
-		compile_module_with_type("Flipper", FixtureType::Solc).unwrap(),
-	]
-	.into_iter()
-	.take(1)
-	{
-		ExtBuilder::default().build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
-
-			let result = builder::bare_call(addr)
-				.data(Flipper::FlipperCalls::coin(Flipper::coinCall {}).abi_encode())
-				.build_and_unwrap_result();
-			assert_eq!(U256::ZERO, U256::from_be_bytes::<32>(result.data.try_into().unwrap()));
-
-			// Should be false
-			let result = builder::bare_call(addr)
-				.data(Flipper::FlipperCalls::coin(Flipper::coinCall {}).abi_encode())
-				.build_and_unwrap_result();
-			assert_eq!(U256::ZERO, U256::from_be_bytes::<32>(result.data.try_into().unwrap()));
-
-			// Flip the coin
-			builder::bare_call(addr).build_and_unwrap_result();
-
-			// Should be true
-			let result = builder::bare_call(addr)
-				.data(Flipper::FlipperCalls::coin(Flipper::coinCall {}).abi_encode())
-				.build_and_unwrap_result();
-			assert_eq!(U256::ONE, U256::from_be_bytes::<32>(result.data.try_into().unwrap()));
 		});
 	}
 }

@@ -31,10 +31,8 @@ use pretty_assertions::assert_eq;
 /// Tests that the blocknumber opcode works as expected.
 #[test]
 fn block_number_works() {
-	for (code, _) in [
-		compile_module_with_type("BlockInfo", FixtureType::Solc).unwrap(),
-		compile_module_with_type("BlockInfo", FixtureType::Resolc).unwrap(),
-	] {
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 			let Contract { addr, .. } =

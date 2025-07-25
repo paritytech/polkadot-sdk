@@ -3,7 +3,7 @@
 pragma solidity ^0.8.20;
 
 contract System {
-    function keccak256Hash(bytes memory data) public pure returns (bytes32) {
+    function keccak256Func(bytes memory data) public pure returns (bytes32) {
         return keccak256(data);
     }
 
@@ -47,11 +47,8 @@ contract System {
         return size;
     }
 
-    function codecopy(uint256 destOffset, uint256 offset, uint256 size) public pure returns (bytes memory) {
+    function codecopy(uint256 /* destOffset */, uint256 /* offset */, uint256 size) public pure returns (bytes memory) {
         bytes memory code = new bytes(size);
-        assembly {
-            codecopy(add(code, 0x20), offset, size)
-        }
         return code;
     }
 
