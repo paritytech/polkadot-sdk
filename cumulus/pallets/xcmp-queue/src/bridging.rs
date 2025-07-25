@@ -95,6 +95,14 @@ impl<Runtime: crate::Config> bp_xcm_bridge_hub_router::XcmChannelStatusProvider
 	}
 }
 
+impl<Runtime: crate::Config> bp_xcm_bridge::ChannelStatusProvider
+	for OutXcmpChannelStatusProvider<Runtime>
+{
+	fn is_congested(with: &Location) -> bool {
+		Self::is_congested(with)
+	}
+}
+
 #[cfg(feature = "runtime-benchmarks")]
 pub fn suspend_channel_for_benchmarks<T: crate::Config>(target: ParaId) {
 	pallet::Pallet::<T>::suspend_channel(target)
