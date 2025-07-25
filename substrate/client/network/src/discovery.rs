@@ -46,7 +46,7 @@
 //! active mechanism that asks nodes for the addresses they are listening on. Whenever we learn
 //! of a node's address, you must call `add_self_reported_address`.
 
-use crate::{config::ProtocolId, utils::LruHashSet};
+use crate::{config::{ProtocolId, KADEMLIA_MAX_PROVIDER_KEYS, KADEMLIA_PROVIDER_RECORD_TTL, KADEMLIA_PROVIDER_REPUBLISH_INTERVAL}, utils::LruHashSet};
 
 use array_bytes::bytes2hex;
 use futures::prelude::*;
@@ -240,16 +240,12 @@ impl DiscoveryConfig {
 			config.set_kbucket_inserts(BucketInserts::Manual);
 			config.disjoint_query_paths(kademlia_disjoint_query_paths);
 
-			// Enough time to keep the parachain bootnode record for two 4-hour epochs.
-			config.set_provider_record_ttl(Some(Duration::from_secs(10 * 3600)));
-			// Refresh next epoch provider record 30 minutes before next 4-hour epoch comes.
-			config.set_provider_publication_interval(Some(Duration::from_secs(12600)));
+			config.set_provider_record_ttl(Some(KADEMLIA_PROVIDER_RECORD_TTL));
+			config.set_provider_publication_interval(Some(KADEMLIA_PROVIDER_REPUBLISH_INTERVAL));
 
 			let store = MemoryStore::with_config(
 				local_peer_id,
-				// 10000 keys is enough for a testnet with fast runtime (1-minute epoch)
-				// and 13 parachains.
-				MemoryStoreConfig { max_provided_keys: 10000, ..Default::default() },
+				MemoryStoreConfig { max_provided_keys: KADEMLIA_MAX_PROVIDER_KEYS, ..Default::default() },
 			);
 
 			let mut kad = Kademlia::with_config(local_peer_id, store, config);
