@@ -208,7 +208,7 @@ where
 	ChainApi: graph::ChainApi<Block = Block> + 'static,
 	<Block as BlockT>::Hash: Unpin,
 {
-	// Injects a view fore genesis block to self.
+	// Injects a view for genesis block to self.
 	//
 	// Helper for the pool new methods.
 	fn inject_genesis_view(self) -> Self {
