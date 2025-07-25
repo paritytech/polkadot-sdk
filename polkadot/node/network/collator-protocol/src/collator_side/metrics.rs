@@ -247,7 +247,6 @@ impl CollationTracker {
 		block_number: BlockNumber,
 		leaf: H256,
 		receipt: CandidateReceipt,
-		metrics: &Metrics,
 	) {
 		let head = receipt.descriptor.para_head();
 		let Some(entry) = self.entries.get_mut(&head) else {
@@ -270,8 +269,6 @@ impl CollationTracker {
 
 		entry.set_backed_at(block_number);
 		if let Some(latency) = entry.backed() {
-			// TODO: on finalization
-			metrics.on_collation_backed(latency as f64);
 			// Observe the backing latency since the collation was fetched.
 			let maybe_latency =
 				entry.backed_latency_metric.take().map(|metric| metric.stop_and_record());
@@ -296,7 +293,6 @@ impl CollationTracker {
 		block_number: BlockNumber,
 		leaf: H256,
 		receipt: CandidateReceipt,
-		metrics: &Metrics,
 	) {
 		let head = receipt.descriptor.para_head();
 		let Some(entry) = self.entries.get_mut(&head) else {
@@ -319,8 +315,6 @@ impl CollationTracker {
 
 		entry.set_included_at(block_number);
 		if let Some(latency) = entry.included() {
-			// TODO: on finalization
-			metrics.on_collation_included(latency as f64);
 			gum::debug!(
 				target: crate::LOG_TARGET_STATS,
 				?latency,
