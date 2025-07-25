@@ -1,0 +1,18 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Do not make pallet-identity benchmarks signature-dependent
+
+doc:
+  - audience: Runtime Dev
+    description: |
+        - Includes a `benchmark_helper` configuration function in `pallet-identity` to handle signing operations.
+        - Abstracts away the explicit link with SR25519 schema in the benchmarks, allowing chains with a different one to be able to run them and calculate the weights.
+        - Adds a default implementation that leaves the code equivalent.
+        - The requirement is for the `AccountId` type of the runtime to implement the `Decode` trait
+
+crates:
+  - name: pallet-identity
+    bump: minor
+  - name: pallet-alliance
+    bump: patch

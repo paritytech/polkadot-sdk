@@ -123,6 +123,12 @@ impl pallet_identity::Config for Test {
 	type UsernameGracePeriod = UsernameGracePeriod;
 	type MaxSuffixLength = ConstU32<7>;
 	type MaxUsernameLength = ConstU32<32>;
+	#[cfg(feature = "runtime-benchmarks")]
+	fn benchmark_helper(_message: &[u8]) -> (Vec<u8>, Vec<u8>) {
+		let public = AccountU64(0);
+		let signature = AccountU64(0);
+		(public.encode(), signature.encode())
+	}
 	type WeightInfo = ();
 }
 
