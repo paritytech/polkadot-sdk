@@ -467,7 +467,48 @@ pub mod helpers {
 		}
 	}
 
-	/// A test utility for tracking XCM topic IDs
+	/// A test utility for tracking XCM topic IDs.
+	///
+	/// # Examples
+	///
+	/// ```
+	/// use sp_runtime::testing::H256;
+	/// use xcm_simulator::helpers::TopicIdTracker;
+	///
+	/// // Dummy topic IDs
+	/// let topic_id = H256::repeat_byte(0x42);
+	///
+	/// // Create a new tracker
+	/// let mut tracker = TopicIdTracker::new();
+	///
+	/// // Insert the same topic ID for three chains
+	/// tracker.insert("ChainA", topic_id);
+	/// tracker.insert_all("ChainB", &[topic_id]);
+	/// tracker.insert_and_assert_unique("ChainC", topic_id);
+	///
+	/// // Assert the topic ID exists everywhere
+	/// tracker.assert_contains("ChainA", &topic_id);
+	/// tracker.assert_id_seen_on_all_chains(&topic_id);
+	/// tracker.assert_only_id_seen_on_all_chains("ChainB");
+	/// tracker.assert_unique();
+	///
+	/// // You can also test that inserting inconsistent topic IDs fails:
+	/// let another_id = H256::repeat_byte(0x43);
+	/// let result = std::panic::catch_unwind(|| {
+	///     let mut tracker = TopicIdTracker::new();
+	///     tracker.insert("ChainA", topic_id);
+	///     tracker.insert_and_assert_unique("ChainB", another_id);
+	/// });
+	/// assert!(result.is_err());
+	///
+	/// let result = std::panic::catch_unwind(|| {
+	///     let mut tracker = TopicIdTracker::new();
+	///     tracker.insert("ChainA", topic_id);
+	///     tracker.insert("ChainB", another_id);
+	///     tracker.assert_unique();
+	/// });
+	/// assert!(result.is_err());
+	/// ```
 	#[derive(Clone, Debug)]
 	pub struct TopicIdTracker {
 		ids: HashMap<String, HashSet<H256>>,
@@ -565,6 +606,35 @@ pub mod helpers {
 				self.insert(chain, id);
 			}
 			self.assert_unique();
+		}
+	}
+
+	#[cfg(test)]
+	mod tests {
+		use super::*;
+		use sp_runtime::testing::H256;
+
+		#[test]
+		#[should_panic(expected = "Expected exactly one topic ID")]
+		fn test_assert_unique_fails_with_multiple_ids() {
+			let mut tracker = TopicIdTracker::new();
+			let id1 = H256::repeat_byte(0x42);
+			let id2 = H256::repeat_byte(0x43);
+
+			tracker.insert("ChainA", id1);
+			tracker.insert("ChainB", id2);
+			tracker.assert_unique();
+		}
+
+		#[test]
+		#[should_panic(expected = "Topic ID mismatch")]
+		fn test_insert_and_assert_unique_mismatch() {
+			let mut tracker = TopicIdTracker::new();
+			let id1 = H256::repeat_byte(0x42);
+			let id2 = H256::repeat_byte(0x43);
+
+			tracker.insert_and_assert_unique("ChainA", id1);
+			tracker.insert_and_assert_unique("ChainA", id2);
 		}
 	}
 }
