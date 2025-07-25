@@ -286,6 +286,7 @@ mod benches {
 					.saturating_sub(T::MaxLeasedCores::get())
 					.try_into()
 					.unwrap(),
+				sale_index: 0u32,
 			}
 			.into(),
 		);
@@ -869,6 +870,23 @@ mod benches {
 		let config = new_config_record::<T>();
 		Configuration::<T>::put(config.clone());
 
+		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
+		let end_price = 10_000_000u32.into();
+		let commit_timeslice = Broker::<T>::latest_timeslice_ready_to_commit(&config);
+		let sale = SaleInfoRecordOf::<T> {
+			sale_start: now,
+			leadin_length: Zero::zero(),
+			end_price,
+			sellout_price: None,
+			region_begin: commit_timeslice,
+			region_end: commit_timeslice.saturating_add(config.region_length),
+			first_core: 0,
+			ideal_cores_sold: 0,
+			cores_offered: 0,
+			cores_sold: 0,
+			sale_index: 0u32,
+		};
+
 		// Ensure there is one buyable core then use the rest to max out reservations and leases, if
 		// possible for worst case.
 
@@ -965,6 +983,7 @@ mod benches {
 					.saturating_sub(n_leases)
 					.try_into()
 					.unwrap(),
+				sale_index: 1u32,
 			}
 			.into(),
 		);

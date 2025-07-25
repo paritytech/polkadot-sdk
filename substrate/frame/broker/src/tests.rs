@@ -1706,6 +1706,7 @@ fn purchase_requires_valid_status_and_sale_info() {
 			ideal_cores_sold: 0,
 			cores_offered: 1,
 			cores_sold: 2,
+			sale_index: 0,
 		};
 		SaleInfo::<Test>::put(&dummy_sale);
 		assert_noop!(Broker::do_purchase(1, 100), Error::<Test>::Unavailable);
@@ -1748,6 +1749,7 @@ fn renewal_requires_valid_status_and_sale_info() {
 			ideal_cores_sold: 0,
 			cores_offered: 1,
 			cores_sold: 2,
+			sale_index: 0,
 		};
 		SaleInfo::<Test>::put(&dummy_sale);
 		assert_noop!(Broker::do_renew(1, 1), Error::<Test>::Unavailable);
