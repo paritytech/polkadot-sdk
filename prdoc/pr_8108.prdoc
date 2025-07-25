@@ -1,0 +1,11 @@
+title: "[pallet_balances] Account for reserved balance in `ensure_can_withdraw` function"
+
+doc:
+- audience: [Runtime Dev, Runtime User]
+  description: |-
+    The function `ensure_can_withdraw` now ensures the `new free balance` is higher 
+    or equal to the `usable balance`.
+
+crates: 
+- name: pallet-balances
+  bump: patch
