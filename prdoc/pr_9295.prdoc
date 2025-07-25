@@ -1,0 +1,35 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: 'MMR: add ancestry proof generation runtime method and RPC call'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR adds the `generate_ancestry_proof` to `MmrApi` and bumps the `MmrApi` version
+       from 2 to 3. Deprecates the related `generate_ancestry_proof` method of `BeefyApi`.
+  - audience: Node Dev
+    description: |
+      This PR adds the `mmr_generateAncestryProof` call to the RPC.
+
+crates:
+  - name: rococo-runtime
+    bump: minor
+  - name: westend-runtime
+    bump: minor
+  - name: kitchensink-runtime
+    bump: minor
+  - name: mmr-gadget
+    bump: minor
+  - name: pallet-beefy
+    bump: minor
+  - name: pallet-beefy-mmr
+    bump: patch
+  - name: pallet-staking-async-rc-runtime
+    bump: minor
+  - name: sp-consensus-beefy
+    bump: none
+  - name: sp-mmr-primitives
+    bump: minor
+  - name: polkadot-service
+    bump: patch
