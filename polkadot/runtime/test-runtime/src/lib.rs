@@ -1203,6 +1203,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
+	#[api_version(3)]
 	impl mmr::MmrApi<Block, Hash, BlockNumber> for Runtime {
 		fn mmr_root() -> Result<Hash, mmr::Error> {
 			Err(mmr::Error::PalletNotIncluded)
@@ -1216,6 +1217,13 @@ sp_api::impl_runtime_apis! {
 			_block_numbers: Vec<BlockNumber>,
 			_best_known_block_number: Option<BlockNumber>,
 		) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::LeafProof<Hash>), mmr::Error> {
+			Err(mmr::Error::PalletNotIncluded)
+		}
+
+		fn generate_ancestry_proof(
+			_prev_block_number: BlockNumber,
+			_best_known_block_number: Option<BlockNumber>,
+		) -> Result<mmr::AncestryProof<Hash>, mmr::Error> {
 			Err(mmr::Error::PalletNotIncluded)
 		}
 

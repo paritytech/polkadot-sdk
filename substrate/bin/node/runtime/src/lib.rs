@@ -3546,6 +3546,7 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 		}
 	}
 
+	#[api_version(3)]
 	impl pallet_mmr::primitives::MmrApi<
 		Block,
 		mmr::Hash,
@@ -3584,6 +3585,13 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 				.try_decode()
 				.ok_or(mmr::Error::Verify)).collect::<Result<Vec<mmr::Leaf>, mmr::Error>>()?;
 			Mmr::verify_leaves(leaves, proof)
+		}
+
+		fn generate_ancestry_proof(
+			prev_block_number: BlockNumber,
+			best_known_block_number: Option<BlockNumber>,
+		) -> Result<mmr::AncestryProof<mmr::Hash>, mmr::Error> {
+			Mmr::generate_ancestry_proof(prev_block_number, best_known_block_number)
 		}
 
 		fn verify_proof_stateless(
