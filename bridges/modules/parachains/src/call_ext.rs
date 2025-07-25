@@ -144,10 +144,9 @@ impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {
 			tracing::trace!(
 				target: crate::LOG_TARGET,
 				para_id=?update.para_id,
-				"The parachain head can't be updated. Relay chain header {}/{} used to create \
-				parachain proof is missing from the storage.",
-				update.at_relay_block.0,
-				update.at_relay_block.1,
+				at_relay_block=?update.at_relay_block,
+				"The parachain head can't be updated. Relay chain header used to create \
+				parachain proof is missing from the storage."
 			);
 
 			return Err(InvalidTransaction::Call.into())

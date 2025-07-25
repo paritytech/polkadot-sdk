@@ -669,10 +669,7 @@ pub mod pallet {
 							target: LOG_TARGET,
 							error=?e,
 							?parachain,
-							"The parachain head can't be updated. The parachain head data size \
-							is {}. It exceeds maximal configured size {}.",
-							e.value_size,
-							e.maximal_size,
+							"The parachain head can't be updated. The parachain head data size exceeds maximal configured size."
 						);
 
 						Self::deposit_event(Event::RejectedLargeParachainHead {
