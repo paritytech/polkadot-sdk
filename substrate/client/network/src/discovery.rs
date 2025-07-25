@@ -46,7 +46,13 @@
 //! active mechanism that asks nodes for the addresses they are listening on. Whenever we learn
 //! of a node's address, you must call `add_self_reported_address`.
 
-use crate::{config::{ProtocolId, KADEMLIA_MAX_PROVIDER_KEYS, KADEMLIA_PROVIDER_RECORD_TTL, KADEMLIA_PROVIDER_REPUBLISH_INTERVAL}, utils::LruHashSet};
+use crate::{
+	config::{
+		ProtocolId, KADEMLIA_MAX_PROVIDER_KEYS, KADEMLIA_PROVIDER_RECORD_TTL,
+		KADEMLIA_PROVIDER_REPUBLISH_INTERVAL,
+	},
+	utils::LruHashSet,
+};
 
 use array_bytes::bytes2hex;
 use futures::prelude::*;
@@ -245,7 +251,10 @@ impl DiscoveryConfig {
 
 			let store = MemoryStore::with_config(
 				local_peer_id,
-				MemoryStoreConfig { max_provided_keys: KADEMLIA_MAX_PROVIDER_KEYS, ..Default::default() },
+				MemoryStoreConfig {
+					max_provided_keys: KADEMLIA_MAX_PROVIDER_KEYS,
+					..Default::default()
+				},
 			);
 
 			let mut kad = Kademlia::with_config(local_peer_id, store, config);
