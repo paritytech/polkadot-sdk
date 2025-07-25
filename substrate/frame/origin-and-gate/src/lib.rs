@@ -220,23 +220,20 @@ pub mod pallet {
 		///
 		/// Inclusions:
 		///   - Retention period starts after the proposal's expiry block, or after the current
-		///     block after
-		/// termination through Execution if no expiry is set, and allows on-chain queries before
-		/// final cleanup.
+		///     block after termination through Execution if no expiry is set, and allows on-chain
+		///     queries before final cleanup.
 		///
 		/// Exclusions:
 		///   - Retention does not occur for proposals with Cancelled status that are cleaned up
-		///     immediately as
-		///   they have not completed their normal lifecycle.
+		///     immediately as they have not completed their normal lifecycle.
 		///
 		/// Benefits:
 		///   - On-chain Queryability: Providing the option to retain proposal data in storage to
 		///     provide on-chain queryability allows other pallets, smart contracts, or runtime
-		///     logic to query the
-		///    status and details of recently executed or expired proposals. Whilst events are
-		/// emitted and    can be found in block explorers, or off-chain indexing could be used,
-		/// they are not directly    queryable on-chain. Chains with storage constraints may opt
-		/// to disable retention to save on    storage space.
+		///     logic to query the status and details of recently executed or expired proposals.
+		///     Whilst events are emitted and can be found in block explorers, or off-chain indexing
+		///     could be used, they are not directly queryable on-chain. Chains with storage
+		///     constraints may opt to disable retention to save on storage space.
 		///   - UX: User interfaces can easily show recently executed or expired proposals without
 		///     needing to scan through event logs, providing better UX for governance participants.
 		///   - Dispute Resolution: For dispute about a proposal outcome the data may be readily
@@ -375,6 +372,7 @@ pub mod pallet {
 				Error::RemarkTooLong => 20,
 				Error::RemarkNotFound => 21,
 				Error::TooManyRemarks => 22,
+				Error::WithdrawnApprovalNotFound => 23,
 			}
 		}
 
@@ -499,9 +497,18 @@ pub mod pallet {
 		/// Helper to clean up all storage related to a proposal
 		fn remove_proposal_storage(proposal_hash: T::Hash, proposal_origin_id: T::OriginId) {
 			<ProposalCalls<T>>::remove(proposal_hash);
-			<Approvals<T>>::remove_prefix((proposal_hash, proposal_origin_id.clone()), None);
+			<Approvals<T>>::clear_prefix(
+				(proposal_hash, proposal_origin_id.clone()),
+				u32::MAX,
+				None,
+			);
 			<Proposals<T>>::remove(proposal_hash, proposal_origin_id);
 			<GovernanceHashes<T>>::remove(proposal_hash);
+			for ((hash, origin_id, approving_origin_id), _) in <WithdrawnApprovals<T>>::iter() {
+				if hash == proposal_hash && origin_id == proposal_origin_id {
+					<WithdrawnApprovals<T>>::remove((hash, origin_id, approving_origin_id));
+				}
+			}
 		}
 
 		/// Helper function to check if terminal proposal (Executed, Expired, Cancelled) is eligible
@@ -989,6 +996,29 @@ pub mod pallet {
 		) -> Result<BoundedVec<u8, T::MaxStorageIdLength>, DispatchError> {
 			BoundedVec::<u8, T::MaxStorageIdLength>::try_from(storage_id)
 				.map_err(|_| Error::<T>::StorageIdTooLong.into())
+		}
+
+		/// Get withdrawn approvals with optional collective origin filtering
+		pub fn get_approvals_withdrawn(
+		) -> Vec<(T::Hash, T::OriginId, T::OriginId, T::AccountId, BlockNumberFor<T>)> {
+			let mut withdrawn = Vec::new();
+
+			for ((hash, proposal_origin_id, approving_origin_id), values) in
+				<WithdrawnApprovals<T>>::iter()
+			{
+				// Iterate through each entry in the Vec
+				for (account_id, block_number) in values {
+					withdrawn.push((
+						hash,
+						proposal_origin_id.clone(),
+						approving_origin_id.clone(),
+						account_id,
+						block_number,
+					));
+				}
+			}
+
+			withdrawn
 		}
 	}
 
@@ -1526,13 +1556,13 @@ pub mod pallet {
 			// Verify approval exists and check authorisation such that only original approver can
 			// withdraw their approval using our mapping from OriginId to AccountId where only
 			// the account that originally granted approval can withdraw it
-			let approval_account = <Approvals<T>>::get(
+			let approving_account_id = <Approvals<T>>::get(
 				(proposal_hash, proposal_origin_id.clone()),
 				withdrawing_origin_id.clone(),
 			)
 			.ok_or(Error::<T>::AccountOriginApprovalNotFound)?;
 
-			ensure!(approval_account == who, Error::<T>::NotAuthorized);
+			ensure!(approving_account_id == who, Error::<T>::NotAuthorized);
 
 			// Find position of withdrawing_origin_id in approvals vector
 			let pos = proposal
@@ -1551,13 +1581,21 @@ pub mod pallet {
 			<Approvals<T>>::remove((proposal_hash, proposal_origin_id), withdrawing_origin_id);
 
 			// Emit event
-			let withdrawal_timepoint = Self::current_timepoint();
+			let timepoint = Self::current_timepoint();
+
+			// Record the withdrawn approval
+			let current_block = <frame_system::Pallet<T>>::block_number();
+			<WithdrawnApprovals<T>>::insert(
+				(proposal_hash, proposal_origin_id.clone(), withdrawing_origin_id.clone()),
+				vec![(who.clone(), current_block)],
+			);
 
 			Self::deposit_event(Event::OriginApprovalWithdrawn {
 				proposal_hash,
 				proposal_origin_id,
 				withdrawing_origin_id,
-				timepoint: withdrawal_timepoint,
+				withdrawing_account_id: who,
+				timepoint,
 			});
 
 			Ok(().into())
@@ -1823,6 +1861,7 @@ pub mod pallet {
 			proposal_hash: T::Hash,
 			proposal_origin_id: T::OriginId,
 			withdrawing_origin_id: T::OriginId,
+			withdrawing_account_id: T::AccountId,
 			timepoint: Timepoint<BlockNumberFor<T>>,
 		},
 		SetDummy {
@@ -1934,6 +1973,8 @@ pub mod pallet {
 		RemarkNotFound,
 		/// Too many remarks
 		TooManyRemarks,
+		/// Withdrawn approval not found
+		WithdrawnApprovalNotFound,
 	}
 
 	/// Status of proposal
@@ -2042,6 +2083,19 @@ pub mod pallet {
 		BlockNumberFor<T>,
 		BoundedVec<(T::Hash, T::OriginId), ConstU32<1000>>,
 		ValueQuery,
+	>;
+
+	/// Storage for withdrawn approvals
+	/// Key: (proposal_hash, proposal_origin_id, approving_origin_id)
+	/// Value: (account_id, block_number)
+	#[pallet::storage]
+	#[pallet::getter(fn withdrawn_approvals)]
+	pub type WithdrawnApprovals<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		(T::Hash, T::OriginId, T::OriginId),
+		Vec<(T::AccountId, BlockNumberFor<T>)>,
+		OptionQuery,
 	>;
 
 	/// Storage for governance-related hashes including remarks and storage identifiers.

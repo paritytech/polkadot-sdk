@@ -1180,6 +1180,15 @@ mod unit_test {
 					ALICE_ORIGIN_ID,
 				));
 
+				// Verify approval withdrawn
+				let withdrawn_approvals = WithdrawnApprovals::<Test>::get((
+					proposal_hash,
+					ALICE_ORIGIN_ID,
+					ALICE_ORIGIN_ID,
+				))
+				.ok_or(Error::<Test>::WithdrawnApprovalNotFound);
+				assert!(withdrawn_approvals.unwrap()[0].0 == ALICE);
+
 				// Verify approval removed
 				let updated_proposal =
 					Proposals::<Test>::get(proposal_hash, ALICE_ORIGIN_ID).unwrap();
@@ -1195,6 +1204,7 @@ mod unit_test {
 						proposal_hash,
 						proposal_origin_id: ALICE_ORIGIN_ID,
 						withdrawing_origin_id: ALICE_ORIGIN_ID,
+						withdrawing_account_id: ALICE,
 						timepoint: current_timepoint(),
 					},
 				));
@@ -1244,6 +1254,13 @@ mod unit_test {
 				assert_eq!(proposal.approvals.len(), 0); // No approvals remain
 				assert!(!proposal.approvals.contains(&(ALICE, ALICE_ORIGIN_ID)));
 
+				// Verify withdrawn approval is recorded
+				let withdrawn = OriginAndGate::get_approvals_withdrawn();
+				assert_eq!(withdrawn.len(), 1);
+				assert_eq!(withdrawn[0].0, proposal_hash);
+				assert_eq!(withdrawn[0].1, ALICE_ORIGIN_ID);
+				assert_eq!(withdrawn[0].2, ALICE_ORIGIN_ID);
+
 				// Verify approval no longer in Approvals storage
 				assert!(Approvals::<Test>::get((proposal_hash, ALICE_ORIGIN_ID), ALICE_ORIGIN_ID)
 					.is_none());
@@ -1254,6 +1271,7 @@ mod unit_test {
 						proposal_hash,
 						proposal_origin_id: ALICE_ORIGIN_ID,
 						withdrawing_origin_id: ALICE_ORIGIN_ID,
+						withdrawing_account_id: ALICE,
 						timepoint: current_timepoint(),
 					},
 				));
@@ -1699,6 +1717,112 @@ mod unit_test {
 					proposal_origin_id: ALICE_ORIGIN_ID,
 					timepoint: cleanup_timepoint,
 				}));
+			});
+		}
+
+		#[test]
+		fn clean_works_for_withdrawn_approvals() {
+			new_test_ext().execute_with(|| {
+				// Set retention period to 50 blocks
+				ProposalRetentionPeriodWhenNotCancelled::set(50);
+
+				System::set_block_number(1);
+
+				// Create proposal with expiry at block 10
+				let call = make_remark_call("1000").unwrap();
+				let proposal_hash =
+					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+
+				assert_ok!(OriginAndGate::propose(
+					RuntimeOrigin::signed(ALICE),
+					call.clone(),
+					ALICE_ORIGIN_ID,
+					Some(10), // Expires at block 10
+					Some(true),
+					None,
+					None,
+					None,
+					Some(false), // Do not auto-execute
+				));
+
+				// Add approval from BOB
+				assert_ok!(OriginAndGate::add_approval(
+					RuntimeOrigin::signed(BOB),
+					proposal_hash,
+					ALICE_ORIGIN_ID,
+					BOB_ORIGIN_ID,
+					None,
+					None,
+					None,
+				));
+
+				// Verify approval exists
+				assert!(proposal_has_approvals(proposal_hash, ALICE_ORIGIN_ID));
+
+				// Check if any withdrawn approvals (should be none)
+				assert!(WithdrawnApprovals::<Test>::get((
+					proposal_hash,
+					ALICE_ORIGIN_ID,
+					BOB_ORIGIN_ID
+				))
+				.is_none());
+
+				// Withdraw approval
+				assert_ok!(OriginAndGate::withdraw_approval(
+					RuntimeOrigin::signed(BOB),
+					proposal_hash,
+					ALICE_ORIGIN_ID,
+					BOB_ORIGIN_ID,
+				));
+
+				// Verify withdrawn approval exists
+				assert!(WithdrawnApprovals::<Test>::get((
+					proposal_hash,
+					ALICE_ORIGIN_ID,
+					BOB_ORIGIN_ID
+				))
+				.is_some());
+
+				// Advance to block 10 where proposal expires
+				System::set_block_number(10);
+
+				// Manually run on_initialize hook to process expiring proposals
+				OriginAndGate::on_initialize(10);
+
+				// Advance to block 60 to satisfy retention period
+				// (expiry at block 10 + retention period 50 = block 60)
+				System::set_block_number(60);
+
+				// Clean up expired proposal
+				assert_ok!(OriginAndGate::clean(
+					RuntimeOrigin::signed(ALICE),
+					proposal_hash,
+					ALICE_ORIGIN_ID,
+				));
+
+				// Verify proposal and all related storage cleaned up
+				assert!(!proposal_exists(proposal_hash, ALICE_ORIGIN_ID));
+				assert!(!proposal_call_exists(proposal_hash));
+				assert!(!proposal_has_approvals(proposal_hash, ALICE_ORIGIN_ID));
+
+				// Verify withdrawn approvals cleaned up
+				assert!(WithdrawnApprovals::<Test>::get((
+					proposal_hash,
+					ALICE_ORIGIN_ID,
+					BOB_ORIGIN_ID
+				))
+				.is_none());
+
+				// Verify clean event emitted
+				let timepoint = current_timepoint();
+				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCleaned {
+					proposal_hash,
+					proposal_origin_id: ALICE_ORIGIN_ID,
+					timepoint,
+				}));
+
+				// Reset retention period to default
+				ProposalRetentionPeriodWhenNotCancelled::set(0);
 			});
 		}
 
