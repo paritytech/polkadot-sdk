@@ -1177,7 +1177,7 @@ impl<T: Config> Pallet<T> {
 		expected_dmq_mqc_head: relay_chain::Hash,
 		downward_messages: AbridgedInboundDownwardMessages,
 	) -> Weight {
-		downward_messages.check_enough_messages_included("DMQ");
+		downward_messages.check_enough_messages_included("DMQ", None);
 
 		let mut dmq_head = <LastDmqMqcHead<T>>::get();
 
@@ -1256,21 +1256,36 @@ impl<T: Config> Pallet<T> {
 		horizontal_messages: AbridgedInboundHrmpMessages,
 		relay_parent_number: relay_chain::BlockNumber,
 	) -> Weight {
-		// First, check the HRMP advancement rule.
-		horizontal_messages.check_enough_messages_included("HRMP");
-		// Then, check that all submitted messages are sent from channels that exist. The
-		// channel exists if its MQC head is present in `vfp.hrmp_mqc_heads`.
-		for sender in horizontal_messages.get_senders() {
-			// A violation of the assertion below indicates that one of the messages submitted
-			// by the collator was sent from a sender that doesn't have a channel opened to
-			// this parachain, according to the relay-parent state.
-			assert!(ingress_channels.binary_search_by_key(&sender, |&(s, _)| s).is_ok(),);
+		// First, check that all submitted messages are sent from channels that exist.
+		// The channel exists if its MQC head is present in `vfp.hrmp_mqc_heads`.
+		let mut first_hashed_msg_channel = None;
+		let (full_msgs, hashed_msgs) = horizontal_messages.messages();
+		let full_msgs_senders = full_msgs.iter().map(|(sender, _)| *sender);
+		let hashed_msgs_senders = hashed_msgs.iter().map(|(sender, _)| *sender);
+		for (idx, sender) in full_msgs_senders.chain(hashed_msgs_senders).enumerate() {
+			let channel_idx = ingress_channels
+				.binary_search_by_key(&sender, |&(channel_sender, _)| channel_sender)
+				.expect(
+					"One of the messages submitted by the collator was sent from a sender \
+					that doesn't have a channel opened to this parachain",
+				);
+			let channel = &ingress_channels[channel_idx].1;
+			if idx == full_msgs.len() {
+				first_hashed_msg_channel = Some(channel);
+			}
 		}
 
-		let (messages, hashed_messages) = horizontal_messages.messages();
+		// Than, check the HRMP advancement rule.
+		horizontal_messages.check_enough_messages_included(
+			"HRMP",
+			first_hashed_msg_channel.map(|channel| {
+				(Self::messages_collection_size_limit(), channel.max_message_size as usize)
+			}),
+		);
+
 		let mut mqc_heads = <LastHrmpMqcHeads<T>>::get();
 
-		if messages.is_empty() {
+		if full_msgs.is_empty() {
 			Self::check_hrmp_mcq_heads(ingress_channels, &mut mqc_heads);
 			let last_processed_msg =
 				InboundMessageId { sent_at: relay_parent_number, reverse_idx: 0 };
@@ -1281,7 +1296,7 @@ impl<T: Config> Pallet<T> {
 
 		let mut last_processed_block = HrmpWatermark::<T>::get();
 		let mut last_processed_msg = InboundMessageId { sent_at: 0, reverse_idx: 0 };
-		for (sender, msg) in messages {
+		for (sender, msg) in full_msgs {
 			if msg.sent_at > last_processed_msg.sent_at && last_processed_msg.sent_at > 0 {
 				last_processed_block = last_processed_msg.sent_at;
 			}
@@ -1290,7 +1305,7 @@ impl<T: Config> Pallet<T> {
 			mqc_heads.entry(*sender).or_default().extend_hrmp(msg);
 		}
 		<LastHrmpMqcHeads<T>>::put(&mqc_heads);
-		for (sender, msg) in hashed_messages {
+		for (sender, msg) in hashed_msgs {
 			mqc_heads.entry(*sender).or_default().extend_with_hashed_msg(msg);
 
 			if msg.sent_at == last_processed_msg.sent_at {

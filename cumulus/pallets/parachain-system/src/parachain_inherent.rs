@@ -16,11 +16,7 @@
 
 //! Cumulus parachain inherent related structures.
 
-use alloc::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	vec,
-	vec::Vec,
-};
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use core::fmt::Debug;
 use cumulus_primitives_core::{
 	relay_chain::{
@@ -192,25 +188,47 @@ impl<Message: InboundMessage> AbridgedInboundMessagesCollection<Message> {
 	/// The `AbridgedInboundMessagesCollection` is provided to the runtime by a collator.
 	/// A malicious collator can provide a collection that contains no full messages or fewer
 	/// full messages than possible, leading to censorship.
-	pub fn check_enough_messages_included(&self, collection_name: &str) {
+	pub fn check_enough_messages_included(
+		&self,
+		collection_name: &str,
+		size_constraints: Option<(usize, usize)>,
+	) {
 		if self.hashed_messages.is_empty() {
 			return;
 		}
 
-		// Ideally, we should check that the collection contains as many full messages as possible
-		// without exceeding the max expected size. The worst case scenario is that were the first
-		// message that had to be hashed is a max size message. So in this case, the min expected
-		// size would be `max_expected_size - max_msg_size`. However, there are multiple issues:
-		// 1. The max message size config can change while we still have to process messages with
-		//    the old max message size.
-		// 2. We can't access the max downward message size from the parachain runtime.
-		//
-		// So the safest approach is to check that there is at least 1 full message.
-		assert!(
-			self.full_messages.len() >= 1,
-			"[{}] Advancement rule violation: mandatory messages missing",
-			collection_name,
-		);
+		// We should check that the collection contains as many full messages as possible
+		// without exceeding the max expected size.
+		match size_constraints {
+			Some((max_size, first_hashed_msg_max_size)) => {
+				let mut size = 0usize;
+				for msg in &self.full_messages {
+					size = size.saturating_add(msg.data().len());
+				}
+				// The worst case scenario is that were the first message that had to be hashed
+				// is a max size message. So in this case, the min expected size would be
+				// `max_expected_size - first_hashed_msg_max_size`.
+				let min_size = max_size.saturating_sub(first_hashed_msg_max_size);
+
+				assert!(
+					size >= min_size,
+					"[{}] Advancement rule violation: full messages size smaller than expected: \
+					{} < {}",
+					collection_name,
+					size,
+					min_size
+				);
+			},
+			None => {
+				// If no `size_constraints` are provided, let's just check that there is at least
+				// 1 full message.
+				assert!(
+					self.full_messages.len() >= 1,
+					"[{}] Advancement rule violation: full messages missing",
+					collection_name,
+				);
+			},
+		}
 	}
 }
 
@@ -307,15 +325,6 @@ pub type AbridgedInboundHrmpMessages =
 	AbridgedInboundMessagesCollection<(ParaId, InboundHrmpMessage)>;
 
 impl AbridgedInboundHrmpMessages {
-	/// Returns a list of all the unique senders.
-	pub fn get_senders(&self) -> BTreeSet<ParaId> {
-		self.full_messages
-			.iter()
-			.map(|(sender, _msg)| *sender)
-			.chain(self.hashed_messages.iter().map(|(sender, _msg)| *sender))
-			.collect()
-	}
-
 	/// Returns an iterator over the deconstructed messages.
 	pub fn flat_msgs_iter(&self) -> impl Iterator<Item = (ParaId, RelayChainBlockNumber, &[u8])> {
 		self.full_messages
@@ -540,13 +549,27 @@ mod tests {
 			)],
 		};
 
-		messages.check_enough_messages_included("Test");
+		let result = std::panic::catch_unwind(|| {
+			messages.check_enough_messages_included("Test", Some((110, 9)))
+		});
+		assert!(result.is_err());
+
+		let messages_2 = AbridgedInboundHrmpMessages {
+			full_messages: messages.full_messages.clone(),
+			hashed_messages: vec![],
+		};
+		messages_2.check_enough_messages_included("Test", Some((110, 9)));
+
+		messages.check_enough_messages_included("Test", Some((110, 10)));
+
+		messages.check_enough_messages_included("Test", None);
 
 		messages.full_messages = vec![];
-		let result = std::panic::catch_unwind(|| messages.check_enough_messages_included("Test"));
+		let result =
+			std::panic::catch_unwind(|| messages.check_enough_messages_included("Test", None));
 		assert!(result.is_err());
 
 		messages.hashed_messages = vec![];
-		messages.check_enough_messages_included("Test");
+		messages.check_enough_messages_included("Test", None);
 	}
 }
