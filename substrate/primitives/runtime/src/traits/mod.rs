@@ -2368,7 +2368,7 @@ pub trait BlockIdTo<Block: self::Block> {
 }
 
 /// Get current block number
-pub trait BlockNumberProvider {
+pub trait BlockNumberProvider: Get<&'static str> {
 	/// Type of `BlockNumber` to provide.
 	type BlockNumber: Codec
 		+ DecodeWithMemTracking
