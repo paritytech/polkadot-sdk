@@ -80,8 +80,10 @@ fn verify_signatures<T: Config<I>, I: 'static>(
 			} else {
 				tracing::debug!(
 					target: LOG_TARGET,
+					%idx,
+					?authority,
 					?sig,
-					"Signed commitment contains incorrect signature of validator {idx} ({authority:?})"
+					"Signed commitment contains incorrect signature of validator"
 				);
 			}
 		}
