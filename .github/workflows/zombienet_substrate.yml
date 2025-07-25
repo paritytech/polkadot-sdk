@@ -45,6 +45,7 @@ jobs:
     with:
       tests_yaml: .github/zombienet-tests/zombienet_substrate_tests.yml
       test_pattern: ${{ inputs.test_pattern }}
+    secrets: inherit
 
   zombienet-substrate-tests:
     name: ${{ matrix.test.job-name }}

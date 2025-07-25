@@ -192,7 +192,7 @@ jobs:
       ZOMBIENET_SDK_LARGE_RUNNER: ${{ steps.set_vars.outputs.ZOMBIENET_SDK_LARGE_RUNNER }}
 
       # app-token to download artifacts with a better rate-limit
-      DOWNLOADER_APP_TOKEN: ${{ steps.app-token.outputs.token }}
+      DOWNLOADER_APP_TOKEN: ${{ steps.set_downloader_key.outputs.DOWNLOADER_APP_TOKEN }}
 
     steps:
       - uses: actions/checkout@v4
@@ -308,6 +308,18 @@ jobs:
         with:
           app-id: ${{ secrets.ARTIFACTS_DOWNLOADER_APP_ID }}
           private-key: ${{ secrets.ARTIFACTS_DOWNLOADER_PRIVATE_KEY }}
+
+      - name: Set Downloader token
+        id: set_downloader_key
+        shell: bash
+        env:
+          IS_FORK: ${{ github.event.pull_request.head.repo.fork }}
+        run: |
+          if [ $IS_FORK == 'true' ];then
+            echo "DOWNLOADER_APP_TOKEN=${{ github.token }}" >> $GITHUB_OUTPUT
+          else
+            echo "DOWNLOADER_APP_TOKEN=${{ steps.app-token.outputs.token }}" >> $GITHUB_OUTPUT
+          fi;
 
       - name: Generate test matrix
         id: generate_test_matrix
