@@ -1,0 +1,247 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/snowbridge/pallets/outbound-queue-v2/src/fixture.rs`."><title>fixture.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="snowbridge_pallet_outbound_queue_v2" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../static.files/src-script-63605ae7.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">snowbridge_pallet_outbound_queue_v2/</div>fixture.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-2"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// SPDX-License-Identifier: Apache-2.0
+<a href=#2 id=2 data-nosnippet>2</a>// SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
+<a href=#3 id=3 data-nosnippet>3</a>// Generated, do not edit!
+<a href=#4 id=4 data-nosnippet>4</a>// See ethereum client README.md for instructions to generate
+<a href=#5 id=5 data-nosnippet>5</a>
+<a href=#6 id=6 data-nosnippet>6</a></span><span class="kw">use </span>hex_literal::hex;
+<a href=#7 id=7 data-nosnippet>7</a><span class="kw">use </span>snowbridge_beacon_primitives::{
+<a href=#8 id=8 data-nosnippet>8</a>	types::deneb, AncestryProof, BeaconHeader, ExecutionProof, VersionedExecutionPayloadHeader,
+<a href=#9 id=9 data-nosnippet>9</a>};
+<a href=#10 id=10 data-nosnippet>10</a><span class="kw">use </span>snowbridge_verification_primitives::{EventFixture, EventProof, Log, Proof};
+<a href=#11 id=11 data-nosnippet>11</a><span class="kw">use </span>sp_core::U256;
+<a href=#12 id=12 data-nosnippet>12</a><span class="kw">use </span>sp_std::vec;
+<a href=#13 id=13 data-nosnippet>13</a>
+<a href=#14 id=14 data-nosnippet>14</a><span class="kw">pub fn </span>make_submit_delivery_receipt_message() -&gt; EventFixture {
+<a href=#15 id=15 data-nosnippet>15</a>	EventFixture {
+<a href=#16 id=16 data-nosnippet>16</a>        event: EventProof {
+<a href=#17 id=17 data-nosnippet>17</a>            event_log: 	Log {
+<a href=#18 id=18 data-nosnippet>18</a>                address: <span class="macro">hex!</span>(<span class="string">"b1185ede04202fe62d38f5db72f71e38ff3e8305"</span>).into(),
+<a href=#19 id=19 data-nosnippet>19</a>                topics: <span class="macro">vec!</span>[
+<a href=#20 id=20 data-nosnippet>20</a>                    <span class="macro">hex!</span>(<span class="string">"8856ab63954e6c2938803a4654fb704c8779757e7bfdbe94a578e341ec637a95"</span>).into(),
+<a href=#21 id=21 data-nosnippet>21</a>                    <span class="macro">hex!</span>(<span class="string">"0000000000000000000000000000000000000000000000000000000000000000"</span>).into(),
+<a href=#22 id=22 data-nosnippet>22</a>                ],
+<a href=#23 id=23 data-nosnippet>23</a>                data: <span class="macro">hex!</span>(<span class="string">"907b6ec7bf3f2496ef79238e0fb19e032bfe444c7ffe906bd340c6c4ffe8511f0000000000000000000000000000000000000000000000000000000000000001d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"</span>).into(),
+<a href=#24 id=24 data-nosnippet>24</a>            },
+<a href=#25 id=25 data-nosnippet>25</a>            proof: Proof {
+<a href=#26 id=26 data-nosnippet>26</a>                receipt_proof: (<span class="macro">vec!</span>[
+<a href=#27 id=27 data-nosnippet>27</a>                    <span class="macro">hex!</span>(<span class="string">"8a40611a32af2ad0ad63bf32e8c633ff209e6f701645b8f25e492327cd95d4e0"</span>).to_vec(),
+<a href=#28 id=28 data-nosnippet>28</a>                ], <span class="macro">vec!</span>[
+<a href=#29 id=29 data-nosnippet>29</a>                    <span class="macro">hex!</span>(<span class="string">"f9024e822080b9024802f9024401830d716eb9010000200000000000000000000000000000080000000000000000000000000000000000000000000004000000000000000000000000000000000000000000008000000000000000000801000000000000000000000000000000000000000000000000000000020000000008000000000800000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000800000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000020000000000200000000000000000000000000000000000000000000000000000000f90139f87a94b1185ede04202fe62d38f5db72f71e38ff3e8305f842a057f58171b8777633d03aff1e7408b96a3d910c93a7ce433a8cb7fb837dc306a6a09441dceeeffa7e032eedaccf9b7632e60e86711551a82ffbbb0dda8afd9e4ef7a0000000000000000000000000de45448ca2d57797c0bec0ee15a1e42334744219f8bb94b1185ede04202fe62d38f5db72f71e38ff3e8305f842a08856ab63954e6c2938803a4654fb704c8779757e7bfdbe94a578e341ec637a95a00000000000000000000000000000000000000000000000000000000000000000b860907b6ec7bf3f2496ef79238e0fb19e032bfe444c7ffe906bd340c6c4ffe8511f0000000000000000000000000000000000000000000000000000000000000001d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"</span>).to_vec(),
+<a href=#30 id=30 data-nosnippet>30</a>                ]),
+<a href=#31 id=31 data-nosnippet>31</a>                execution_proof: ExecutionProof {
+<a href=#32 id=32 data-nosnippet>32</a>                    header: BeaconHeader {
+<a href=#33 id=33 data-nosnippet>33</a>                        slot: <span class="number">663</span>,
+<a href=#34 id=34 data-nosnippet>34</a>                        proposer_index: <span class="number">4</span>,
+<a href=#35 id=35 data-nosnippet>35</a>                        parent_root: <span class="macro">hex!</span>(<span class="string">"478651896411faa949cd0882bb6a82595b71d3eba74cbeb87b5eb8162c7e00f1"</span>).into(),
+<a href=#36 id=36 data-nosnippet>36</a>                        state_root: <span class="macro">hex!</span>(<span class="string">"4191b7c2a622b8cfa31684e5e06de3b36834e403a6ded2acd32156a488f829b0"</span>).into(),
+<a href=#37 id=37 data-nosnippet>37</a>                        body_root: <span class="macro">hex!</span>(<span class="string">"72765c81bbad6cd083314506936528719e03d33ee65927167a372febe1fbf734"</span>).into(),
+<a href=#38 id=38 data-nosnippet>38</a>                    },
+<a href=#39 id=39 data-nosnippet>39</a>                        ancestry_proof: <span class="prelude-val">Some</span>(AncestryProof {
+<a href=#40 id=40 data-nosnippet>40</a>                        header_branch: <span class="macro">vec!</span>[
+<a href=#41 id=41 data-nosnippet>41</a>                            <span class="macro">hex!</span>(<span class="string">"478651896411faa949cd0882bb6a82595b71d3eba74cbeb87b5eb8162c7e00f1"</span>).into(),
+<a href=#42 id=42 data-nosnippet>42</a>                            <span class="macro">hex!</span>(<span class="string">"87314a5200d3a22749bd98ba32af7d0546d25d47cf012dfcc85adc19ad7adfe3"</span>).into(),
+<a href=#43 id=43 data-nosnippet>43</a>                            <span class="macro">hex!</span>(<span class="string">"e794355aa5b1743ea691e3f051f44a66956892621c0110a12980e66f70dc3d74"</span>).into(),
+<a href=#44 id=44 data-nosnippet>44</a>                            <span class="macro">hex!</span>(<span class="string">"fe0a3f7035e5d4cc83412939c9d343caa34889bd9655a05e9cc53a09e3aa7e8c"</span>).into(),
+<a href=#45 id=45 data-nosnippet>45</a>                            <span class="macro">hex!</span>(<span class="string">"0f472e1a66d039197fbe378845e848ec11d5bcde60ac650da812fa1f4461c603"</span>).into(),
+<a href=#46 id=46 data-nosnippet>46</a>                            <span class="macro">hex!</span>(<span class="string">"018f388291fbd20c15691e4b118a17b870eec7beb837e91fcc839adcb5fb21fc"</span>).into(),
+<a href=#47 id=47 data-nosnippet>47</a>                            <span class="macro">hex!</span>(<span class="string">"8a016b0d65b61e5026b9357df092bf82b52fa61af3e10d11ba7b24ae30b457ec"</span>).into(),
+<a href=#48 id=48 data-nosnippet>48</a>                            <span class="macro">hex!</span>(<span class="string">"73af6cacce9735d5576d1defc7fc39061776004ac7d3aba3abf6dfad7b1a3a36"</span>).into(),
+<a href=#49 id=49 data-nosnippet>49</a>                            <span class="macro">hex!</span>(<span class="string">"6116f4b671f0f26c224ab10c6c330d56c9b5e48fa6e2204035f333bc142f55d2"</span>).into(),
+<a href=#50 id=50 data-nosnippet>50</a>                            <span class="macro">hex!</span>(<span class="string">"a08d24b9120c5faeb98654664c4a324aaa509031193dbd74930acf26285b26a6"</span>).into(),
+<a href=#51 id=51 data-nosnippet>51</a>                            <span class="macro">hex!</span>(<span class="string">"ffff0ad7e659772f9534c195c815efc4014ef1e1daed4404c06385d11192e92b"</span>).into(),
+<a href=#52 id=52 data-nosnippet>52</a>                            <span class="macro">hex!</span>(<span class="string">"6cf04127db05441cd833107a52be852868890e4317e6a02ab47683aa75964220"</span>).into(),
+<a href=#53 id=53 data-nosnippet>53</a>                            <span class="macro">hex!</span>(<span class="string">"b7d05f875f140027ef5118a2247bbb84ce8f2f0f1123623085daf7960c329f5f"</span>).into(),
+<a href=#54 id=54 data-nosnippet>54</a>                        ],
+<a href=#55 id=55 data-nosnippet>55</a>                        finalized_block_root: <span class="macro">hex!</span>(<span class="string">"d5793913dc57d9f5b9d50fb8c693504201d6926649834ac90337b673e66f98e0"</span>).into(),
+<a href=#56 id=56 data-nosnippet>56</a>                        }),
+<a href=#57 id=57 data-nosnippet>57</a>                    execution_header: VersionedExecutionPayloadHeader::Deneb(deneb::ExecutionPayloadHeader {
+<a href=#58 id=58 data-nosnippet>58</a>                        parent_hash: <span class="macro">hex!</span>(<span class="string">"35f64f37bea4538092ba578f4851d52375f7f3b2a52c1cb16f22fe512aead95d"</span>).into(),
+<a href=#59 id=59 data-nosnippet>59</a>                        fee_recipient: <span class="macro">hex!</span>(<span class="string">"0000000000000000000000000000000000000000"</span>).into(),
+<a href=#60 id=60 data-nosnippet>60</a>                        state_root: <span class="macro">hex!</span>(<span class="string">"dfa305877e67ab0caa827b15d573b58dfe360fe8d484d37228f8ae55ccced61c"</span>).into(),
+<a href=#61 id=61 data-nosnippet>61</a>                        receipts_root: <span class="macro">hex!</span>(<span class="string">"8a40611a32af2ad0ad63bf32e8c633ff209e6f701645b8f25e492327cd95d4e0"</span>).into(),
+<a href=#62 id=62 data-nosnippet>62</a>                        logs_bloom: <span class="macro">hex!</span>(<span class="string">"00200000000000000000000000000000080000000000000000000000000000000000000000000004000000000000000000000000000000000000000000008000000000000000000801000000000000000000000000000000000000000000000000000000020000000008000000000800000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000800000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000020000000000200000000000000000000000000000000000000000000000000000000"</span>).into(),
+<a href=#63 id=63 data-nosnippet>63</a>                        prev_randao: <span class="macro">hex!</span>(<span class="string">"ebdade0d95216bdba380fce14fad97c870d8553fcf0ca37df22331b3ed498db2"</span>).into(),
+<a href=#64 id=64 data-nosnippet>64</a>                        block_number: <span class="number">663</span>,
+<a href=#65 id=65 data-nosnippet>65</a>                        gas_limit: <span class="number">41857321</span>,
+<a href=#66 id=66 data-nosnippet>66</a>                        gas_used: <span class="number">881006</span>,
+<a href=#67 id=67 data-nosnippet>67</a>                        timestamp: <span class="number">1742914413</span>,
+<a href=#68 id=68 data-nosnippet>68</a>                        extra_data: <span class="macro">hex!</span>(<span class="string">"d983010e0c846765746888676f312e32332e348664617277696e"</span>).into(),
+<a href=#69 id=69 data-nosnippet>69</a>                        base_fee_per_gas: U256::from(<span class="number">7u64</span>),
+<a href=#70 id=70 data-nosnippet>70</a>                        block_hash: <span class="macro">hex!</span>(<span class="string">"c70c7e5b0a03fa9509e0b4598d65e6e0b6a2477f25064aa3221b39eee17583d4"</span>).into(),
+<a href=#71 id=71 data-nosnippet>71</a>                        transactions_root: <span class="macro">hex!</span>(<span class="string">"065ecaa208638c4a43d080cd78a1451e406895caaa254b1ad0585c6a9e3c7ac6"</span>).into(),
+<a href=#72 id=72 data-nosnippet>72</a>                        withdrawals_root: <span class="macro">hex!</span>(<span class="string">"792930bbd5baac43bcc798ee49aa8185ef76bb3b44ba62b91d86ae569e4bb535"</span>).into(),
+<a href=#73 id=73 data-nosnippet>73</a>                        blob_gas_used: <span class="number">0</span>,
+<a href=#74 id=74 data-nosnippet>74</a>                        excess_blob_gas: <span class="number">0</span>,
+<a href=#75 id=75 data-nosnippet>75</a>                    }),
+<a href=#76 id=76 data-nosnippet>76</a>                    execution_branch: <span class="macro">vec!</span>[
+<a href=#77 id=77 data-nosnippet>77</a>                            <span class="macro">hex!</span>(<span class="string">"ef46bf5d8bd654162c1a7f44949fe1f9cb2a3f356d593587a3f1f3f8da14b790"</span>).into(),
+<a href=#78 id=78 data-nosnippet>78</a>                            <span class="macro">hex!</span>(<span class="string">"b46f0c01805fe212e15907981b757e6c496b0cb06664224655613dcec82505bb"</span>).into(),
+<a href=#79 id=79 data-nosnippet>79</a>                            <span class="macro">hex!</span>(<span class="string">"db56114e00fdd4c1f85c892bf35ac9a89289aaecb1ebd0a96cde606a748b5d71"</span>).into(),
+<a href=#80 id=80 data-nosnippet>80</a>                            <span class="macro">hex!</span>(<span class="string">"b4e39d31736a4064a84ca49c4d372696e92e7c5c7bcbb7219671c24df1dfcafa"</span>).into(),
+<a href=#81 id=81 data-nosnippet>81</a>                    ],
+<a href=#82 id=82 data-nosnippet>82</a>                }
+<a href=#83 id=83 data-nosnippet>83</a>            },
+<a href=#84 id=84 data-nosnippet>84</a>        },
+<a href=#85 id=85 data-nosnippet>85</a>        finalized_header: BeaconHeader {
+<a href=#86 id=86 data-nosnippet>86</a>            slot: <span class="number">864</span>,
+<a href=#87 id=87 data-nosnippet>87</a>            proposer_index: <span class="number">4</span>,
+<a href=#88 id=88 data-nosnippet>88</a>            parent_root: <span class="macro">hex!</span>(<span class="string">"2839d32d7b5a1dbb9139c5fd11ea549abaac1ead425c79553b8424550fddd389"</span>).into(),
+<a href=#89 id=89 data-nosnippet>89</a>            state_root: <span class="macro">hex!</span>(<span class="string">"452daf2471437939f4d65af921a1cfee860b11111771fd55164b37fe25d610de"</span>).into(),
+<a href=#90 id=90 data-nosnippet>90</a>            body_root: <span class="macro">hex!</span>(<span class="string">"0bbd0377987d0984e7495bf61219342941e31a0b6fe790453fbc87ec92319097"</span>).into(),
+<a href=#91 id=91 data-nosnippet>91</a>        },
+<a href=#92 id=92 data-nosnippet>92</a>        block_roots_root: <span class="macro">hex!</span>(<span class="string">"aca108d3e77ec6b010ca03df025e3b2e84f754d4642e5d8bf0ba9bdf58f42848"</span>).into(),
+<a href=#93 id=93 data-nosnippet>93</a>    }
+<a href=#94 id=94 data-nosnippet>94</a>}</code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

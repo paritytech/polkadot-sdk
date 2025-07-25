@@ -1,0 +1,222 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Decimal Fixed Point implementations for Substrate runtime. Similar to types that implement `PerThing`, these are also fixed-point types, however, they are able to represent larger fractions:"><title>polkadot_sdk_frame::arithmetic::fixed_point - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_frame" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../polkadot_sdk_frame/index.html">polkadot_<wbr>sdk_<wbr>frame</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module fixed_<wbr>point</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#fixed-point-types-in-practice" title="Fixed Point Types in Practice">Fixed Point Types in Practice</a><ul><li><a href="#fixed-point-types-in-practice-1" title="Fixed Point Types in Practice">Fixed Point Types in Practice</a></li></ul></li></ul><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#traits" title="Traits">Traits</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In polkadot_<wbr>sdk_<wbr>frame::<wbr>arithmetic</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">polkadot_sdk_frame</a>::<wbr><a href="../index.html">arithmetic</a></div><h1>Module <span>fixed_point</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Decimal Fixed Point implementations for Substrate runtime.
+Similar to types that implement <a href="../per_things/index.html" title="mod polkadot_sdk_frame::arithmetic::per_things"><code>PerThing</code></a>, these are also
+fixed-point types, however, they are able to represent larger fractions:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">fn </span>fixed_u64() {
+	<span class="comment">// The difference between this and perthings is perthings operates within the relam of [0,
+	// 1] In cases where we need &gt; 1, we can used fixed types such as FixedU64
+
+	</span><span class="kw">let </span>rational_1 = FixedU64::from_rational(<span class="number">10</span>, <span class="number">5</span>); <span class="comment">//" 200%" aka 2.
+	</span><span class="kw">let </span>rational_2 = FixedU64::from_rational_with_rounding(<span class="number">5</span>, <span class="number">10</span>, Rounding::Down); <span class="comment">// "50%" aka 0.50...
+
+	</span><span class="macro">assert_eq!</span>(rational_1, (<span class="number">2u64</span>).into());
+	<span class="macro">assert_eq!</span>(rational_2.into_perbill(), Perbill::from_float(<span class="number">0.5</span>));
+}</code></pre></div>
+<h4 id="fixed-point-types-in-practice"><a class="doc-anchor" href="#fixed-point-types-in-practice">§</a>Fixed Point Types in Practice</h4>
+<p>If one needs to exceed the value of one (1), then
+<a href="../struct.FixedU64.html" title="struct polkadot_sdk_frame::arithmetic::FixedU64"><code>FixedU64</code></a> (and its signed and <code>u128</code> counterparts) can be utilized.
+Take for example this very rudimentary pricing mechanism, where we wish to calculate the demand
+/ supply to get a price for some on-chain compute:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">fn </span>fixed_u64_block_computation_example() {
+	<span class="comment">// Calculate a very rudimentary on-chain price from supply / demand
+	// Supply: Cores available per block
+	// Demand: Cores being ordered per block
+	</span><span class="kw">let </span>price = FixedU64::from_rational(<span class="number">5u128</span>, <span class="number">10u128</span>);
+
+	<span class="comment">// 0.5 DOT per core
+	</span><span class="macro">assert_eq!</span>(price, FixedU64::from_float(<span class="number">0.5</span>));
+
+	<span class="comment">// Now, the story has changed - lots of demand means we buy as many cores as there
+	// available.  This also means that price goes up! For the sake of simplicity, we don't care
+	// about who gets a core - just about our very simple price model
+
+	// Calculate a very rudimentary on-chain price from supply / demand
+	// Supply: Cores available per block
+	// Demand: Cores being ordered per block
+	</span><span class="kw">let </span>price = FixedU64::from_rational(<span class="number">19u128</span>, <span class="number">10u128</span>);
+
+	<span class="comment">// 1.9 DOT per core
+	</span><span class="macro">assert_eq!</span>(price, FixedU64::from_float(<span class="number">1.9</span>));
+}</code></pre></div>
+<p>For a much more comprehensive example, be sure to look at the source for broker (the “coretime”)
+pallet.</p>
+<h5 id="fixed-point-types-in-practice-1"><a class="doc-anchor" href="#fixed-point-types-in-practice-1">§</a>Fixed Point Types in Practice</h5>
+<p>Just as with <a href="../trait.PerThing.html" title="trait polkadot_sdk_frame::arithmetic::PerThing"><code>PerThing</code></a>, you can also perform regular mathematical
+expressions:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
+</span><span class="kw">fn </span>fixed_u64_operation_example() {
+	<span class="kw">let </span>rational_1 = FixedU64::from_rational(<span class="number">10</span>, <span class="number">5</span>); <span class="comment">// "200%" aka 2.
+	</span><span class="kw">let </span>rational_2 = FixedU64::from_rational(<span class="number">8</span>, <span class="number">5</span>); <span class="comment">// "160%" aka 1.6.
+
+	</span><span class="kw">let </span>addition = rational_1 + rational_2;
+	<span class="kw">let </span>multiplication = rational_1 * rational_2;
+	<span class="kw">let </span>division = rational_1 / rational_2;
+	<span class="kw">let </span>subtraction = rational_1 - rational_2;
+
+	<span class="macro">assert_eq!</span>(addition, FixedU64::from_float(<span class="number">3.6</span>));
+	<span class="macro">assert_eq!</span>(multiplication, FixedU64::from_float(<span class="number">3.2</span>));
+	<span class="macro">assert_eq!</span>(division, FixedU64::from_float(<span class="number">1.25</span>));
+	<span class="macro">assert_eq!</span>(subtraction, FixedU64::from_float(<span class="number">0.4</span>));
+}</code></pre></div>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.FixedI64.html" title="struct polkadot_sdk_frame::arithmetic::fixed_point::FixedI64">Fixed<wbr>I64</a></dt><dd>A fixed point number representation in the range.
+<em>Fixed Point 64 bits signed, range = [-9223372036.854775808, 9223372036.854775807]</em></dd><dt><a class="struct" href="struct.FixedI128.html" title="struct polkadot_sdk_frame::arithmetic::fixed_point::FixedI128">Fixed<wbr>I128</a></dt><dd>A fixed point number representation in the range.
+<em>Fixed Point 128 bits signed, range = [-170141183460469231731.687303715884105728, 170141183460469231731.687303715884105727]</em></dd><dt><a class="struct" href="struct.FixedU64.html" title="struct polkadot_sdk_frame::arithmetic::fixed_point::FixedU64">Fixed<wbr>U64</a></dt><dd>A fixed point number representation in the range.
+<em>Fixed Point 64 bits unsigned, range = [0.000000000, 18446744073.709551615]</em></dd><dt><a class="struct" href="struct.FixedU128.html" title="struct polkadot_sdk_frame::arithmetic::fixed_point::FixedU128">Fixed<wbr>U128</a></dt><dd>A fixed point number representation in the range.
+<em>Fixed Point 128 bits unsigned, range = [0.000000000000000000, 340282366920938463463.374607431768211455]</em></dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.FixedPointNumber.html" title="trait polkadot_sdk_frame::arithmetic::fixed_point::FixedPointNumber">Fixed<wbr>Point<wbr>Number</a></dt><dd>Something that implements a decimal fixed point number.</dd><dt><a class="trait" href="trait.FixedPointOperand.html" title="trait polkadot_sdk_frame::arithmetic::fixed_point::FixedPointOperand">Fixed<wbr>Point<wbr>Operand</a></dt><dd>Integer types that can be used to interact with <code>FixedPointNumber</code> implementations.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event","UnexpectedKind"],"mod":["dispatchables","storage_types"],"struct":["GenesisConfig","Pallet"],"trait":["Config"],"type":["BufferedOffences","IncompleteValidatorSetReport","Mode","Module","NextSessionChangesValidators","ValidatorPoints","ValidatorSet","ValidatorSetAppliedAt"]};

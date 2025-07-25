@@ -1,0 +1,244 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `docs/sdk/src/reference_docs/umbrella_crate.rs`."><title>umbrella_crate.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../../../static.files/src-script-63605ae7.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.com/favicon.ico"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">polkadot_sdk_docs/reference_docs/</div>umbrella_crate.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-2"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! # Umbrella Crate
+<a href=#2 id=2 data-nosnippet>2</a>//!
+<a href=#3 id=3 data-nosnippet>3</a>//! The Polkadot-SDK "umbrella" is a crate that re-exports all other published crates. This makes it
+<a href=#4 id=4 data-nosnippet>4</a>//! possible to have a very small `Cargo.toml` file that only has one dependency, the umbrella
+<a href=#5 id=5 data-nosnippet>5</a>//! crate. This helps with selecting the right combination of crate versions, since otherwise 3rd
+<a href=#6 id=6 data-nosnippet>6</a>//! party tools are needed to select a compatible set of versions.
+<a href=#7 id=7 data-nosnippet>7</a>//!
+<a href=#8 id=8 data-nosnippet>8</a>//!
+<a href=#9 id=9 data-nosnippet>9</a>//! ## Features
+<a href=#10 id=10 data-nosnippet>10</a>//!
+<a href=#11 id=11 data-nosnippet>11</a>//! The umbrella crate supports no-std builds and can therefore be used in the runtime and node.
+<a href=#12 id=12 data-nosnippet>12</a>//! There are two main features: `runtime` and `node`. The `runtime` feature enables all `no-std`
+<a href=#13 id=13 data-nosnippet>13</a>//! crates, while the `node` feature enables all `std` crates. It should be used like any other
+<a href=#14 id=14 data-nosnippet>14</a>//! crate in the repo, with `default-features = false`.
+<a href=#15 id=15 data-nosnippet>15</a>//!
+<a href=#16 id=16 data-nosnippet>16</a>//! For more fine-grained control, additionally, each crate can be enabled selectively. The umbrella
+<a href=#17 id=17 data-nosnippet>17</a>//! exposes one feature per dependency. For example, if you only want to use the `frame-support`
+<a href=#18 id=18 data-nosnippet>18</a>//! crate, you can enable the `frame-support` feature.
+<a href=#19 id=19 data-nosnippet>19</a>//!
+<a href=#20 id=20 data-nosnippet>20</a>//! The umbrella exposes a few more general features:
+<a href=#21 id=21 data-nosnippet>21</a>//! - `tuples-96`: Needs to be enabled for runtimes that have more than 64 pallets.
+<a href=#22 id=22 data-nosnippet>22</a>//! - `serde`: Specifically enable `serde` en/decoding support.
+<a href=#23 id=23 data-nosnippet>23</a>//! - `experimental`: Experimental enable experimental features - should not yet used in production.
+<a href=#24 id=24 data-nosnippet>24</a>//! - `with-tracing`: Enable tracing support.
+<a href=#25 id=25 data-nosnippet>25</a>//! - `try-runtime`, `runtime-benchmarks` and `std`: These follow the standard conventions.
+<a href=#26 id=26 data-nosnippet>26</a>//! - `runtime`: As described above, enable all `no-std` crates.
+<a href=#27 id=27 data-nosnippet>27</a>//! - `node`: As described above, enable all `std` crates.
+<a href=#28 id=28 data-nosnippet>28</a>//! - There does *not* exist a dedicated docs feature. To generate docs, enable the `runtime` and
+<a href=#29 id=29 data-nosnippet>29</a>//!   `node` feature. For `docs.rs` the manifest contains specific configuration to make it show up
+<a href=#30 id=30 data-nosnippet>30</a>//!   all re-exports.
+<a href=#31 id=31 data-nosnippet>31</a>//!
+<a href=#32 id=32 data-nosnippet>32</a>//! There is a specific [`zepter`](https://github.com/ggwpez/zepter) check in place to ensure that
+<a href=#33 id=33 data-nosnippet>33</a>//! the features of the umbrella are correctly configured. This check is run in CI and locally when
+<a href=#34 id=34 data-nosnippet>34</a>//! running `zepter`.
+<a href=#35 id=35 data-nosnippet>35</a>//!
+<a href=#36 id=36 data-nosnippet>36</a>//! ## Generation
+<a href=#37 id=37 data-nosnippet>37</a>//!
+<a href=#38 id=38 data-nosnippet>38</a>//! The umbrella crate needs to be updated every time when a new crate is added or removed from the
+<a href=#39 id=39 data-nosnippet>39</a>//! workspace. It is checked in CI by calling its generation script. The generation script is
+<a href=#40 id=40 data-nosnippet>40</a>//! located in `./scripts/generate-umbrella.py` and needs dependency `cargo_workspace`.
+<a href=#41 id=41 data-nosnippet>41</a>//!
+<a href=#42 id=42 data-nosnippet>42</a>//! Example: `python3 scripts/generate-umbrella.py --sdk . --version 1.9.0`
+<a href=#43 id=43 data-nosnippet>43</a>//!
+<a href=#44 id=44 data-nosnippet>44</a>//! ## Usage
+<a href=#45 id=45 data-nosnippet>45</a>//!
+<a href=#46 id=46 data-nosnippet>46</a>//! &gt; Note: You can see a live example in the `staging-node-cli` and `kitchensink-runtime` crates.
+<a href=#47 id=47 data-nosnippet>47</a>//!
+<a href=#48 id=48 data-nosnippet>48</a>//! The umbrella crate can be added to your runtime crate like this:
+<a href=#49 id=49 data-nosnippet>49</a>//!
+<a href=#50 id=50 data-nosnippet>50</a>//! `polkadot-sdk = { path = "../../../../umbrella", features = ["runtime"], default-features =
+<a href=#51 id=51 data-nosnippet>51</a>//! false }`
+<a href=#52 id=52 data-nosnippet>52</a>//!
+<a href=#53 id=53 data-nosnippet>53</a>//! or for a node:
+<a href=#54 id=54 data-nosnippet>54</a>//!
+<a href=#55 id=55 data-nosnippet>55</a>//! `polkadot-sdk = { path = "../../../../umbrella", features = ["node"], default-features = false
+<a href=#56 id=56 data-nosnippet>56</a>//! }`
+<a href=#57 id=57 data-nosnippet>57</a>//!
+<a href=#58 id=58 data-nosnippet>58</a>//! In the code, it is then possible to bring all dependencies into scope via:
+<a href=#59 id=59 data-nosnippet>59</a>//!
+<a href=#60 id=60 data-nosnippet>60</a>//! `use polkadot_sdk::*;`
+<a href=#61 id=61 data-nosnippet>61</a>//!
+<a href=#62 id=62 data-nosnippet>62</a>//! ### Known Issues
+<a href=#63 id=63 data-nosnippet>63</a>//!
+<a href=#64 id=64 data-nosnippet>64</a>//! The only known issue so far is the fact that the `use` statement brings the dependencies only
+<a href=#65 id=65 data-nosnippet>65</a>//! into the outer module scope - not the global crate scope. For example, the following code would
+<a href=#66 id=66 data-nosnippet>66</a>//! need to be adjusted:
+<a href=#67 id=67 data-nosnippet>67</a>//!
+<a href=#68 id=68 data-nosnippet>68</a>//! ```rust
+<a href=#69 id=69 data-nosnippet>69</a>//! use polkadot_sdk::*;
+<a href=#70 id=70 data-nosnippet>70</a>//!
+<a href=#71 id=71 data-nosnippet>71</a>//! mod foo {
+<a href=#72 id=72 data-nosnippet>72</a>//!    // This does sadly not compile:
+<a href=#73 id=73 data-nosnippet>73</a>//!    frame_support::parameter_types! { }
+<a href=#74 id=74 data-nosnippet>74</a>//!
+<a href=#75 id=75 data-nosnippet>75</a>//!    // Instead, we need to do this (or add an equivalent `use` statement):
+<a href=#76 id=76 data-nosnippet>76</a>//!    polkadot_sdk::frame_support::parameter_types! { }
+<a href=#77 id=77 data-nosnippet>77</a>//! }
+<a href=#78 id=78 data-nosnippet>78</a>//! ```
+<a href=#79 id=79 data-nosnippet>79</a>//!
+<a href=#80 id=80 data-nosnippet>80</a>//! Apart from this, no issues are known. There could be some bugs with how macros locate their own
+<a href=#81 id=81 data-nosnippet>81</a>//! re-exports. Please [report issues](https://github.com/paritytech/polkadot-sdk/issues) that arise from using this crate.
+<a href=#82 id=82 data-nosnippet>82</a>//!
+<a href=#83 id=83 data-nosnippet>83</a>//! ## Dependencies
+<a href=#84 id=84 data-nosnippet>84</a>//!
+<a href=#85 id=85 data-nosnippet>85</a>//! The umbrella crate re-exports all published crates, with a few exceptions:
+<a href=#86 id=86 data-nosnippet>86</a>//! - Runtime crates like `rococo-runtime` etc are not exported. This otherwise leads to very weird
+<a href=#87 id=87 data-nosnippet>87</a>//!   compile errors and should not be needed anyway.
+<a href=#88 id=88 data-nosnippet>88</a>//! - Example and fuzzing crates are not exported. This is currently detected by checking the name
+<a href=#89 id=89 data-nosnippet>89</a>//!   of the crate for these magic words. In the future, it will utilize custom metadata, as it is
+<a href=#90 id=90 data-nosnippet>90</a>//!   done in the `rococo-runtime` crate.
+<a href=#91 id=91 data-nosnippet>91</a>//! - The umbrella crate itself. Should be obvious :)</span></code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

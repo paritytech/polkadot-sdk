@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["cumulus_primitives_utility",[["impl&lt;XcmConfig: Config, ExistentialDeposit: Get&lt;<a class=\"enum\" href=\"https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html\" title=\"enum core::option::Option\">Option</a>&lt;Asset&gt;&gt;, PriceForDelivery: PriceForMessageDelivery&lt;Id = <a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.unit.html\">()</a>&gt;&gt; EnsureDelivery for <a class=\"struct\" href=\"cumulus_primitives_utility/struct.ToParentDeliveryHelper.html\" title=\"struct cumulus_primitives_utility::ToParentDeliveryHelper\">ToParentDeliveryHelper</a>&lt;XcmConfig, ExistentialDeposit, PriceForDelivery&gt;"]]],["polkadot_runtime_common",[["impl&lt;XcmConfig: Config, ExistentialDeposit: Get&lt;<a class=\"enum\" href=\"https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html\" title=\"enum core::option::Option\">Option</a>&lt;Asset&gt;&gt;, PriceForDelivery: <a class=\"trait\" href=\"polkadot_runtime_common/xcm_sender/trait.PriceForMessageDelivery.html\" title=\"trait polkadot_runtime_common::xcm_sender::PriceForMessageDelivery\">PriceForMessageDelivery</a>&lt;Id = Id&gt;, Parachain: Get&lt;Id&gt;, ToParachainHelper: EnsureForParachain&gt; EnsureDelivery for <a class=\"struct\" href=\"polkadot_runtime_common/xcm_sender/struct.ToParachainDeliveryHelper.html\" title=\"struct polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper\">ToParachainDeliveryHelper</a>&lt;XcmConfig, ExistentialDeposit, PriceForDelivery, Parachain, ToParachainHelper&gt;"]]],["staging_xcm_builder",[]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[658,863,27]}

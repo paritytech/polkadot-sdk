@@ -1,0 +1,160 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Core"><title>snowbridge_core - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="snowbridge_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../snowbridge_core/index.html">snowbridge_<wbr>core</a><span class="version">0.2.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#core" title="Core">Core</a></li></ul><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>snowbridge_core</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/snowbridge_core/lib.rs.html#3-200">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="core"><a class="doc-anchor" href="#core">§</a>Core</h2>
+<p>Common traits and types</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.AgentId"><code>pub use location::<a class="type" href="location/type.AgentId.html" title="type snowbridge_core::location::AgentId">AgentId</a>;</code></dt><dt id="reexport.AgentIdOf"><code>pub use location::<a class="type" href="location/type.AgentIdOf.html" title="type snowbridge_core::location::AgentIdOf">AgentIdOf</a>;</code></dt><dt id="reexport.TokenId"><code>pub use location::<a class="type" href="location/type.TokenId.html" title="type snowbridge_core::location::TokenId">TokenId</a>;</code></dt><dt id="reexport.TokenIdOf"><code>pub use location::<a class="type" href="location/type.TokenIdOf.html" title="type snowbridge_core::location::TokenIdOf">TokenIdOf</a>;</code></dt><dt id="reexport.RingBufferMap"><code>pub use ringbuffer::<a class="trait" href="ringbuffer/trait.RingBufferMap.html" title="trait snowbridge_core::ringbuffer::RingBufferMap">RingBufferMap</a>;</code></dt><dt id="reexport.RingBufferMapImpl"><code>pub use ringbuffer::<a class="struct" href="ringbuffer/struct.RingBufferMapImpl.html" title="struct snowbridge_core::ringbuffer::RingBufferMapImpl">RingBufferMapImpl</a>;</code></dt><dt id="reexport.BasicOperatingMode"><code>pub use operating_mode::<a class="enum" href="operating_mode/enum.BasicOperatingMode.html" title="enum snowbridge_core::operating_mode::BasicOperatingMode">BasicOperatingMode</a>;</code></dt><dt id="reexport.PricingParameters"><code>pub use pricing::<a class="struct" href="pricing/struct.PricingParameters.html" title="struct snowbridge_core::pricing::PricingParameters">PricingParameters</a>;</code></dt><dt id="reexport.Rewards"><code>pub use pricing::<a class="struct" href="pricing/struct.Rewards.html" title="struct snowbridge_core::pricing::Rewards">Rewards</a>;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="location/index.html" title="mod snowbridge_core::location">location</a></dt><dd>Location</dd><dt><a class="mod" href="operating_mode/index.html" title="mod snowbridge_core::operating_mode">operating_<wbr>mode</a></dt><dt><a class="mod" href="pricing/index.html" title="mod snowbridge_core::pricing">pricing</a></dt><dt><a class="mod" href="reward/index.html" title="mod snowbridge_core::reward">reward</a></dt><dt><a class="mod" href="ringbuffer/index.html" title="mod snowbridge_core::ringbuffer">ringbuffer</a></dt><dt><a class="mod" href="sparse_bitmap/index.html" title="mod snowbridge_core::sparse_bitmap">sparse_<wbr>bitmap</a></dt><dd>Sparse Bitmap</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.AllowSiblingsOnly.html" title="struct snowbridge_core::AllowSiblingsOnly">Allow<wbr>Siblings<wbr>Only</a></dt><dt><a class="struct" href="struct.AssetMetadata.html" title="struct snowbridge_core::AssetMetadata">Asset<wbr>Metadata</a></dt><dd>Metadata to include in the instantiated ERC20 token contract</dd><dt><a class="struct" href="struct.Channel.html" title="struct snowbridge_core::Channel">Channel</a></dt><dt><a class="struct" href="struct.ChannelId.html" title="struct snowbridge_core::ChannelId">Channel<wbr>Id</a></dt><dd>Identifier for a message channel</dd><dt><a class="struct" href="struct.ParaId.html" title="struct snowbridge_core::ParaId">ParaId</a></dt><dd>Unique identifier of a parachain.</dd><dt><a class="struct" href="struct.SiblingParaId.html" title="struct snowbridge_core::SiblingParaId">Sibling<wbr>Para<wbr>Id</a></dt><dt><a class="struct" href="struct.U256.html" title="struct snowbridge_core::U256">U256</a></dt><dd>Little-endian large integer type
+256-bit unsigned integer.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.PRIMARY_GOVERNANCE_CHANNEL.html" title="constant snowbridge_core::PRIMARY_GOVERNANCE_CHANNEL">PRIMARY_<wbr>GOVERNANCE_<wbr>CHANNEL</a></dt><dd>Channel for high-priority governance commands</dd><dt><a class="constant" href="constant.ROC.html" title="constant snowbridge_core::ROC">ROC</a></dt><dt><a class="constant" href="constant.SECONDARY_GOVERNANCE_CHANNEL.html" title="constant snowbridge_core::SECONDARY_GOVERNANCE_CHANNEL">SECONDARY_<wbr>GOVERNANCE_<wbr>CHANNEL</a></dt><dd>Channel for lower-priority governance commands</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.IsSystem.html" title="trait snowbridge_core::IsSystem">IsSystem</a></dt><dd>Determine if a parachain is a system parachain or not.</dd><dt><a class="trait" href="trait.StaticLookup.html" title="trait snowbridge_core::StaticLookup">Static<wbr>Lookup</a></dt></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.burn_for_teleport.html" title="fn snowbridge_core::burn_for_teleport">burn_<wbr>for_<wbr>teleport</a></dt><dd>Helper function that validates <code>fee</code> can be burned, then withdraws it from <code>origin</code> and burns
+it.
+Note: Make sure this is called from a transactional storage context so that side-effects
+are rolled back on errors.</dd><dt><a class="fn" href="fn.eth.html" title="fn snowbridge_core::eth">eth</a></dt><dt><a class="fn" href="fn.gwei.html" title="fn snowbridge_core::gwei">gwei</a></dt><dt><a class="fn" href="fn.meth.html" title="fn snowbridge_core::meth">meth</a></dt><dt><a class="fn" href="fn.sibling_sovereign_account.html" title="fn snowbridge_core::sibling_sovereign_account">sibling_<wbr>sovereign_<wbr>account</a></dt></dl><script type="text/json" id="notable-traits-data">{"&[u8]":"<h3>Notable traits for <code>&amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Read.html\" title=\"trait std::io::Read\">Read</a> for &amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</div>","&mut [u8]":"<h3>Notable traits for <code>&amp;mut [<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for &amp;mut [<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</div>","Vec<u8>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

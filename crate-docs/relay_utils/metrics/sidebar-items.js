@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PrometheusError"],"fn":["metric_name","register","set_gauge_value"],"struct":["Counter","F64","FloatJsonValueMetric","Gauge","GlobalMetrics","I64","MetricsAddress","MetricsParams","Opts","Registry","U64"],"trait":["Atomic","Collector","Metric","StandaloneMetric"],"type":["CounterVec","F64SharedRef","GaugeVec","IntGauge"]};

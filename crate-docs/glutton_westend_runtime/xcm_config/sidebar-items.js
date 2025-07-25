@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["JustTheParent","MaxAssetsIntoHolding","MaxInstructions","UnitWeightCost","UniversalLocation","WestendLocation","WestendNetwork","XcmConfig"],"type":["XcmOriginToTransactDispatchOrigin"]};

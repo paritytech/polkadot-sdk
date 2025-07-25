@@ -1,0 +1,196 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The main prelude of `FRAME` for building runtimes."><title>polkadot_sdk_frame::runtime::prelude - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_frame" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../polkadot_sdk_frame/index.html">polkadot_<wbr>sdk_<wbr>frame</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module prelude</a></h2><h3><a href="#modules">Module Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li><li><a href="#attributes" title="Attribute Macros">Attribute Macros</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In polkadot_<wbr>sdk_<wbr>frame::<wbr>runtime</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">polkadot_sdk_frame</a>::<wbr><a href="../index.html">runtime</a></div><h1>Module <span>prelude</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/polkadot_sdk_frame/lib.rs.html#358">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The main prelude of <code>FRAME</code> for building runtimes.</p>
+<p>A runtime typically starts with:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>polkadot_sdk_frame::runtime::prelude::<span class="kw-2">*</span>;</code></pre></div>
+<p>This automatically brings in <code>polkadot_sdk_frame::prelude::*</code>.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt><code>pub use crate::<a class="mod" href="../../prelude/index.html" title="mod polkadot_sdk_frame::prelude">prelude</a>::*;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="weights/index.html" title="mod polkadot_sdk_frame::runtime::prelude::weights">weights</a></dt><dd>Used for simple fee calculation.
+Re-exports <code>sp-weights</code> public API, and contains benchmarked weight constants specific to FRAME.</dd></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.construct_runtime.html" title="macro polkadot_sdk_frame::runtime::prelude::construct_runtime">construct_<wbr>runtime</a></dt><dd>Macro to amalgamate the runtime into <code>struct Runtime</code>.</dd><dt><a class="macro" href="macro.create_runtime_str.html" title="macro polkadot_sdk_frame::runtime::prelude::create_runtime_str">create_<wbr>runtime_<wbr>str</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>Types to define your runtime version.
+Deprecated <code>Cow::Borrowed()</code> wrapper.</dd><dt><a class="macro" href="macro.impl_runtime_apis.html" title="macro polkadot_sdk_frame::runtime::prelude::impl_runtime_apis">impl_<wbr>runtime_<wbr>apis</a></dt><dd>Macro to implement runtime APIs.</dd><dt><a class="macro" href="macro.ord_parameter_types.html" title="macro polkadot_sdk_frame::runtime::prelude::ord_parameter_types">ord_<wbr>parameter_<wbr>types</a></dt><dd>Macros to easily impl traits such as <code>Get</code> for types.
+Macro for easily creating a new implementation of both the <code>Get</code> and <code>Contains</code> traits. Use
+exactly as with <code>parameter_types</code>, only the type must be <code>Ord</code>.</dd><dt><a class="macro" href="macro.parameter_types.html" title="macro polkadot_sdk_frame::runtime::prelude::parameter_types">parameter_<wbr>types</a></dt><dd>Macros to easily impl traits such as <code>Get</code> for types.
+Create new implementations of the <a href="../../weights_prelude/trait.Get.html" title="trait polkadot_sdk_frame::weights_prelude::Get"><code>Get</code></a> trait.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.CheckInherentsResult.html" title="struct polkadot_sdk_frame::runtime::prelude::CheckInherentsResult">Check<wbr>Inherents<wbr>Result</a></dt><dd>The result of checking inherents.</dd><dt><a class="struct" href="struct.ConstBool.html" title="struct polkadot_sdk_frame::runtime::prelude::ConstBool">Const<wbr>Bool</a></dt><dd>Const types that can easily be used in conjuncture with <code>Get</code>.
+Const getter for a basic type.</dd><dt><a class="struct" href="struct.ConstI8.html" title="struct polkadot_sdk_frame::runtime::prelude::ConstI8">ConstI8</a></dt><dd>Const types that can easily be used in conjuncture with <code>Get</code>.
+Const getter for a basic type.</dd><dt><a class="struct" href="struct.ConstI16.html" title="struct polkadot_sdk_frame::runtime::prelude::ConstI16">Const<wbr>I16</a></dt><dd>Const types that can easily be used in conjuncture with <code>Get</code>.
+Const getter for a basic type.</dd><dt><a class="struct" href="struct.ConstI32.html" title="struct polkadot_sdk_frame::runtime::prelude::ConstI32">Const<wbr>I32</a></dt><dd>Const types that can easily be used in conjuncture with <code>Get</code>.
+Const getter for a basic type.</dd><dt><a class="struct" href="struct.ConstI64.html" title="struct polkadot_sdk_frame::runtime::prelude::ConstI64">Const<wbr>I64</a></dt><dd>Const types that can easily be used in conjuncture with <code>Get</code>.
+Const getter for a basic type.</dd><dt><a class="struct" href="struct.ConstI128.html" title="struct polkadot_sdk_frame::runtime::prelude::ConstI128">Const<wbr>I128</a></dt><dd>Const types that can easily be used in conjuncture with <code>Get</code>.
+Const getter for a basic type.</dd><dt><a class="struct" href="struct.ConstU8.html" title="struct polkadot_sdk_frame::runtime::prelude::ConstU8">ConstU8</a></dt><dd>Const types that can easily be used in conjuncture with <code>Get</code>.
+Const getter for a basic type.</dd><dt><a class="struct" href="struct.ConstU16.html" title="struct polkadot_sdk_frame::runtime::prelude::ConstU16">Const<wbr>U16</a></dt><dd>Const types that can easily be used in conjuncture with <code>Get</code>.
+Const getter for a basic type.</dd><dt><a class="struct" href="struct.ConstU32.html" title="struct polkadot_sdk_frame::runtime::prelude::ConstU32">Const<wbr>U32</a></dt><dd>Const types that can easily be used in conjuncture with <code>Get</code>.
+Const getter for a basic type.</dd><dt><a class="struct" href="struct.ConstU64.html" title="struct polkadot_sdk_frame::runtime::prelude::ConstU64">Const<wbr>U64</a></dt><dd>Const types that can easily be used in conjuncture with <code>Get</code>.
+Const getter for a basic type.</dd><dt><a class="struct" href="struct.ConstU128.html" title="struct polkadot_sdk_frame::runtime::prelude::ConstU128">Const<wbr>U128</a></dt><dd>Const types that can easily be used in conjuncture with <code>Get</code>.
+Const getter for a basic type.</dd><dt><a class="struct" href="struct.EnsureNever.html" title="struct polkadot_sdk_frame::runtime::prelude::EnsureNever">Ensure<wbr>Never</a></dt><dd>Primary types used to parameterize <code>EnsureOrigin</code> and <code>EnsureRootWithArg</code>.
+Always fail.</dd><dt><a class="struct" href="struct.EnsureNone.html" title="struct polkadot_sdk_frame::runtime::prelude::EnsureNone">Ensure<wbr>None</a></dt><dd>Primary types used to parameterize <code>EnsureOrigin</code> and <code>EnsureRootWithArg</code>.
+Ensure the origin is <code>None</code>. i.e. unsigned transaction.</dd><dt><a class="struct" href="struct.EnsureRoot.html" title="struct polkadot_sdk_frame::runtime::prelude::EnsureRoot">Ensure<wbr>Root</a></dt><dd>Primary types used to parameterize <code>EnsureOrigin</code> and <code>EnsureRootWithArg</code>.
+Ensure the origin is Root.</dd><dt><a class="struct" href="struct.EnsureRootWithSuccess.html" title="struct polkadot_sdk_frame::runtime::prelude::EnsureRootWithSuccess">Ensure<wbr>Root<wbr>With<wbr>Success</a></dt><dd>Primary types used to parameterize <code>EnsureOrigin</code> and <code>EnsureRootWithArg</code>.
+Ensure the origin is Root and return the provided <code>Success</code> value.</dd><dt><a class="struct" href="struct.EnsureSigned.html" title="struct polkadot_sdk_frame::runtime::prelude::EnsureSigned">Ensure<wbr>Signed</a></dt><dd>Primary types used to parameterize <code>EnsureOrigin</code> and <code>EnsureRootWithArg</code>.
+Ensure the origin is any <code>Signed</code> origin.</dd><dt><a class="struct" href="struct.EnsureSignedBy.html" title="struct polkadot_sdk_frame::runtime::prelude::EnsureSignedBy">Ensure<wbr>Signed<wbr>By</a></dt><dd>Primary types used to parameterize <code>EnsureOrigin</code> and <code>EnsureRootWithArg</code>.
+Ensure the origin is <code>Signed</code> origin from the given <code>AccountId</code>.</dd><dt><a class="struct" href="struct.Executive.html" title="struct polkadot_sdk_frame::runtime::prelude::Executive">Executive</a></dt><dd>All of the types related to the FRAME runtime executive.
+Main entry point for certain runtime actions as e.g. <code>execute_block</code>.</dd><dt><a class="struct" href="struct.FixedFee.html" title="struct polkadot_sdk_frame::runtime::prelude::FixedFee">Fixed<wbr>Fee</a></dt><dd>Used for simple fee calculation.
+Implementor of <a href="weights/trait.WeightToFee.html" title="trait polkadot_sdk_frame::runtime::prelude::weights::WeightToFee"><code>WeightToFee</code></a> such that it maps any unit of weight to a fixed fee.</dd><dt><a class="struct" href="struct.InherentData.html" title="struct polkadot_sdk_frame::runtime::prelude::InherentData">Inherent<wbr>Data</a></dt><dd>Inherent data to include in a block.</dd><dt><a class="struct" href="struct.NativeVersion.html" title="struct polkadot_sdk_frame::runtime::prelude::NativeVersion">Native<wbr>Version</a></dt><dd>The version of the native runtime.</dd><dt><a class="struct" href="struct.OpaqueMetadata.html" title="struct polkadot_sdk_frame::runtime::prelude::OpaqueMetadata">Opaque<wbr>Metadata</a></dt><dd>Stores the encoded <code>RuntimeMetadata</code> for the native side as opaque type.</dd><dt><a class="struct" href="struct.RuntimeVersion.html" title="struct polkadot_sdk_frame::runtime::prelude::RuntimeVersion">Runtime<wbr>Version</a></dt><dd>Runtime version.
+This should not be thought of as classic Semver (major/minor/tiny).
+This triplet have different semantics and mis-interpretation could cause problems.
+In particular: bug fixes should result in an increment of <code>spec_version</code> and possibly
+<code>authoring_version</code>, absolutely not <code>impl_version</code> since they change the semantics of the
+runtime.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.ExecutiveError.html" title="enum polkadot_sdk_frame::runtime::prelude::ExecutiveError">Executive<wbr>Error</a></dt><dd>All of the types related to the FRAME runtime executive.</dd><dt><a class="enum" href="enum.ExtrinsicInclusionMode.html" title="enum polkadot_sdk_frame::runtime::prelude::ExtrinsicInclusionMode">Extrinsic<wbr>Inclusion<wbr>Mode</a></dt><dd>Confines the kind of extrinsics that can be included in a block.</dd><dt><a class="enum" href="enum.Sr25519Keyring.html" title="enum polkadot_sdk_frame::runtime::prelude::Sr25519Keyring">Sr25519<wbr>Keyring</a></dt><dd>Set of test accounts.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.DEV_RUNTIME_PRESET.html" title="constant polkadot_sdk_frame::runtime::prelude::DEV_RUNTIME_PRESET">DEV_<wbr>RUNTIME_<wbr>PRESET</a></dt><dd>The default <code>development</code> preset used to communicate with the runtime via
+<a href="../apis/trait.GenesisBuilder.html" title="trait polkadot_sdk_frame::runtime::apis::GenesisBuilder"><code>GenesisBuilder</code></a> interface.</dd><dt><a class="constant" href="constant.LOCAL_TESTNET_RUNTIME_PRESET.html" title="constant polkadot_sdk_frame::runtime::prelude::LOCAL_TESTNET_RUNTIME_PRESET">LOCAL_<wbr>TESTNET_<wbr>RUNTIME_<wbr>PRESET</a></dt><dd>The default <code>local_testnet</code> preset used to communicate with the runtime via
+<a href="../apis/trait.GenesisBuilder.html" title="trait polkadot_sdk_frame::runtime::apis::GenesisBuilder"><code>GenesisBuilder</code></a> interface.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.build_state.html" title="fn polkadot_sdk_frame::runtime::prelude::build_state">build_<wbr>state</a></dt><dd>For building genesis config.
+Build <code>GenesisConfig</code> from a JSON blob not using any defaults and store it in the storage. For
+more info refer to <a href="../apis/trait.GenesisBuilder.html#method.build_state" title="method polkadot_sdk_frame::runtime::apis::GenesisBuilder::build_state"><code>sp_genesis_builder::GenesisBuilder::build_state</code></a>.</dd><dt><a class="fn" href="fn.get_preset.html" title="fn polkadot_sdk_frame::runtime::prelude::get_preset">get_<wbr>preset</a></dt><dd>For building genesis config.
+Get the default <code>GenesisConfig</code> as a JSON blob if <code>name</code> is None.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.ApplyExtrinsicResult.html" title="type polkadot_sdk_frame::runtime::prelude::ApplyExtrinsicResult">Apply<wbr>Extrinsic<wbr>Result</a></dt><dd>The result of applying of an extrinsic.</dd><dt><a class="type" href="type.CallOf.html" title="type polkadot_sdk_frame::runtime::prelude::CallOf">CallOf</a></dt><dd>All of the types related to the FRAME runtime executive.</dd><dt><a class="type" href="type.CheckedOf.html" title="type polkadot_sdk_frame::runtime::prelude::CheckedOf">Checked<wbr>Of</a></dt><dd>All of the types related to the FRAME runtime executive.</dd><dt><a class="type" href="type.GenesisBuilderResult.html" title="type polkadot_sdk_frame::runtime::prelude::GenesisBuilderResult">Genesis<wbr>Builder<wbr>Result</a></dt><dd>The result type alias, used in build methods. <code>Err</code> contains formatted error message.</dd><dt><a class="type" href="type.NoFee.html" title="type polkadot_sdk_frame::runtime::prelude::NoFee">NoFee</a></dt><dd>Used for simple fee calculation.
+An implementation of <a href="weights/trait.WeightToFee.html" title="trait polkadot_sdk_frame::runtime::prelude::weights::WeightToFee"><code>WeightToFee</code></a> that collects no fee.</dd><dt><a class="type" href="type.OriginOf.html" title="type polkadot_sdk_frame::runtime::prelude::OriginOf">Origin<wbr>Of</a></dt><dd>All of the types related to the FRAME runtime executive.</dd><dt><a class="type" href="type.PresetId.html" title="type polkadot_sdk_frame::runtime::prelude::PresetId">Preset<wbr>Id</a></dt><dd>The type representing preset ID.</dd></dl><h2 id="attributes" class="section-header">Attribute Macros<a href="#attributes" class="anchor">§</a></h2><dl class="item-table"><dt><a class="attr" href="attr.derive_impl.html" title="attr polkadot_sdk_frame::runtime::prelude::derive_impl">derive_<wbr>impl</a></dt><dd>Macro to easily derive the <code>Config</code> trait of various pallet for <code>Runtime</code>.
+This attribute can be used to derive a full implementation of a trait based on a local partial
+impl and an external impl containing defaults that can be overridden in the local impl.</dd><dt><a class="attr" href="attr.frame_construct_runtime.html" title="attr polkadot_sdk_frame::runtime::prelude::frame_construct_runtime">frame_<wbr>construct_<wbr>runtime</a></dt><dd>Macro to amalgamate the runtime into <code>struct Runtime</code>.</dd><dt><a class="attr" href="attr.runtime_version.html" title="attr polkadot_sdk_frame::runtime::prelude::runtime_version">runtime_<wbr>version</a></dt></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

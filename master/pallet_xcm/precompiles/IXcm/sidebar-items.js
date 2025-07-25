@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["IXcmCalls"],"struct":["Weight","executeCall","executeReturn","sendCall","sendReturn","weighMessageCall","weighMessageReturn"]};

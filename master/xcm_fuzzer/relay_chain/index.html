@@ -1,0 +1,157 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Relay chain runtime mock."><title>xcm_fuzzer::relay_chain - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="xcm_fuzzer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../xcm_fuzzer/index.html">xcm_<wbr>fuzzer</a><span class="version">1.0.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module relay_<wbr>chain</a></h2><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate xcm_<wbr>fuzzer</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">xcm_fuzzer</a></div><h1>Module <span>relay_chain</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/xcm_fuzzer/relay_chain.rs.html#17-243">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Relay chain runtime mock.</p>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.AnyNetwork.html" title="struct xcm_fuzzer::relay_chain::AnyNetwork">AnyNetwork</a></dt><dt><a class="struct" href="struct.BaseXcmWeight.html" title="struct xcm_fuzzer::relay_chain::BaseXcmWeight">Base<wbr>XcmWeight</a></dt><dt><a class="struct" href="struct.BlockHashCount.html" title="struct xcm_fuzzer::relay_chain::BlockHashCount">Block<wbr>Hash<wbr>Count</a></dt><dt><a class="struct" href="struct.ExistentialDeposit.html" title="struct xcm_fuzzer::relay_chain::ExistentialDeposit">Existential<wbr>Deposit</a></dt><dt><a class="struct" href="struct.KsmPerSecondPerByte.html" title="struct xcm_fuzzer::relay_chain::KsmPerSecondPerByte">KsmPer<wbr>Second<wbr>PerByte</a></dt><dt><a class="struct" href="struct.MaxAssetsIntoHolding.html" title="struct xcm_fuzzer::relay_chain::MaxAssetsIntoHolding">MaxAssets<wbr>Into<wbr>Holding</a></dt><dt><a class="struct" href="struct.MaxInstructions.html" title="struct xcm_fuzzer::relay_chain::MaxInstructions">MaxInstructions</a></dt><dt><a class="struct" href="struct.MessageProcessor.html" title="struct xcm_fuzzer::relay_chain::MessageProcessor">Message<wbr>Processor</a></dt><dd>Message processor to handle any messages that were enqueued into the <code>MessageQueue</code> pallet.</dd><dt><a class="struct" href="struct.MessageQueueHeapSize.html" title="struct xcm_fuzzer::relay_chain::MessageQueueHeapSize">Message<wbr>Queue<wbr>Heap<wbr>Size</a></dt><dt><a class="struct" href="struct.MessageQueueMaxStale.html" title="struct xcm_fuzzer::relay_chain::MessageQueueMaxStale">Message<wbr>Queue<wbr>MaxStale</a></dt><dt><a class="struct" href="struct.MessageQueueServiceWeight.html" title="struct xcm_fuzzer::relay_chain::MessageQueueServiceWeight">Message<wbr>Queue<wbr>Service<wbr>Weight</a></dt><dd>Amount of weight that can be spent per block to service messages.</dd><dt><a class="struct" href="struct.PalletInfo.html" title="struct xcm_fuzzer::relay_chain::PalletInfo">Pallet<wbr>Info</a></dt><dd>Provides an implementation of <code>PalletInfo</code> to provide information
+about the pallet setup in the runtime.</dd><dt><a class="struct" href="struct.Runtime.html" title="struct xcm_fuzzer::relay_chain::Runtime">Runtime</a></dt><dt><a class="struct" href="struct.RuntimeGenesisConfig.html" title="struct xcm_fuzzer::relay_chain::RuntimeGenesisConfig">Runtime<wbr>Genesis<wbr>Config</a></dt><dt><a class="struct" href="struct.RuntimeOrigin.html" title="struct xcm_fuzzer::relay_chain::RuntimeOrigin">Runtime<wbr>Origin</a></dt><dd>The runtime origin type representing the origin of a call.</dd><dt><a class="struct" href="struct.ThisNetwork.html" title="struct xcm_fuzzer::relay_chain::ThisNetwork">This<wbr>Network</a></dt><dt><a class="struct" href="struct.TokenLocation.html" title="struct xcm_fuzzer::relay_chain::TokenLocation">Token<wbr>Location</a></dt><dt><a class="struct" href="struct.UniversalLocation.html" title="struct xcm_fuzzer::relay_chain::UniversalLocation">Universal<wbr>Location</a></dt><dt><a class="struct" href="struct.XcmConfig.html" title="struct xcm_fuzzer::relay_chain::XcmConfig">XcmConfig</a></dt></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.OriginCaller.html" title="enum xcm_fuzzer::relay_chain::OriginCaller">Origin<wbr>Caller</a></dt><dt><a class="enum" href="enum.RuntimeCall.html" title="enum xcm_fuzzer::relay_chain::RuntimeCall">Runtime<wbr>Call</a></dt><dd>The aggregated runtime call type.</dd><dt><a class="enum" href="enum.RuntimeError.html" title="enum xcm_fuzzer::relay_chain::RuntimeError">Runtime<wbr>Error</a></dt><dt><a class="enum" href="enum.RuntimeEvent.html" title="enum xcm_fuzzer::relay_chain::RuntimeEvent">Runtime<wbr>Event</a></dt><dt><a class="enum" href="enum.RuntimeFreezeReason.html" title="enum xcm_fuzzer::relay_chain::RuntimeFreezeReason">Runtime<wbr>Freeze<wbr>Reason</a></dt><dd>A reason for placing a freeze on funds.</dd><dt><a class="enum" href="enum.RuntimeHoldReason.html" title="enum xcm_fuzzer::relay_chain::RuntimeHoldReason">Runtime<wbr>Hold<wbr>Reason</a></dt><dd>A reason for placing a hold on funds.</dd><dt><a class="enum" href="enum.RuntimeLockId.html" title="enum xcm_fuzzer::relay_chain::RuntimeLockId">Runtime<wbr>Lock<wbr>Id</a></dt><dd>An identifier for each lock placed on funds.</dd><dt><a class="enum" href="enum.RuntimeSlashReason.html" title="enum xcm_fuzzer::relay_chain::RuntimeSlashReason">Runtime<wbr>Slash<wbr>Reason</a></dt><dd>A reason for slashing funds.</dd><dt><a class="enum" href="enum.RuntimeTask.html" title="enum xcm_fuzzer::relay_chain::RuntimeTask">Runtime<wbr>Task</a></dt><dd>An aggregation of all <code>Task</code> enums across all pallets included in the current runtime.</dd><dt><a class="enum" href="enum.RuntimeViewFunction.html" title="enum xcm_fuzzer::relay_chain::RuntimeViewFunction">Runtime<wbr>View<wbr>Function</a></dt><dd>Runtime query type.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.InherentDataExt.html" title="trait xcm_fuzzer::relay_chain::InherentDataExt">Inherent<wbr>Data<wbr>Ext</a><span title="Restricted Visibility">&nbsp;🔒</span> </dt></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.AccountId.html" title="type xcm_fuzzer::relay_chain::AccountId">Account<wbr>Id</a></dt><dt><a class="type" href="type.Address.html" title="type xcm_fuzzer::relay_chain::Address">Address</a></dt><dt><a class="type" href="type.AllPalletsWithSystem.html" title="type xcm_fuzzer::relay_chain::AllPalletsWithSystem">AllPallets<wbr>With<wbr>System</a></dt><dd>All pallets included in the runtime as a nested tuple of types.</dd><dt><a class="type" href="type.AllPalletsWithoutSystem.html" title="type xcm_fuzzer::relay_chain::AllPalletsWithoutSystem">AllPallets<wbr>Without<wbr>System</a></dt><dd>All pallets included in the runtime as a nested tuple of types.
+Excludes the System pallet.</dd><dt><a class="type" href="type.Balance.html" title="type xcm_fuzzer::relay_chain::Balance">Balance</a></dt><dt><a class="type" href="type.Balances.html" title="type xcm_fuzzer::relay_chain::Balances">Balances</a></dt><dt><a class="type" href="type.BalancesConfig.html" title="type xcm_fuzzer::relay_chain::BalancesConfig">Balances<wbr>Config</a></dt><dt><a class="type" href="type.Barrier.html" title="type xcm_fuzzer::relay_chain::Barrier">Barrier</a></dt><dt><a class="type" href="type.Block.html" title="type xcm_fuzzer::relay_chain::Block">Block</a></dt><dt><a class="type" href="type.BlockNumber.html" title="type xcm_fuzzer::relay_chain::BlockNumber">Block<wbr>Number</a></dt><dt><a class="type" href="type.Header.html" title="type xcm_fuzzer::relay_chain::Header">Header</a></dt><dt><a class="type" href="type.LocalAssetTransactor.html" title="type xcm_fuzzer::relay_chain::LocalAssetTransactor">Local<wbr>Asset<wbr>Transactor</a></dt><dt><a class="type" href="type.LocalOriginConverter.html" title="type xcm_fuzzer::relay_chain::LocalOriginConverter">Local<wbr>Origin<wbr>Converter</a><span title="Restricted Visibility">&nbsp;🔒</span> </dt><dt><a class="type" href="type.LocalOriginToLocation.html" title="type xcm_fuzzer::relay_chain::LocalOriginToLocation">Local<wbr>Origin<wbr>ToLocation</a></dt><dt><a class="type" href="type.MessageQueue.html" title="type xcm_fuzzer::relay_chain::MessageQueue">Message<wbr>Queue</a></dt><dt><a class="type" href="type.ParasOrigin.html" title="type xcm_fuzzer::relay_chain::ParasOrigin">Paras<wbr>Origin</a></dt><dt><a class="type" href="type.Signature.html" title="type xcm_fuzzer::relay_chain::Signature">Signature</a></dt><dt><a class="type" href="type.SovereignAccountOf.html" title="type xcm_fuzzer::relay_chain::SovereignAccountOf">Sovereign<wbr>Account<wbr>Of</a></dt><dt><a class="type" href="type.System.html" title="type xcm_fuzzer::relay_chain::System">System</a></dt><dt><a class="type" href="type.SystemConfig.html" title="type xcm_fuzzer::relay_chain::SystemConfig">System<wbr>Config</a></dt><dt><a class="type" href="type.TxExtension.html" title="type xcm_fuzzer::relay_chain::TxExtension">TxExtension</a></dt><dt><a class="type" href="type.UncheckedExtrinsic.html" title="type xcm_fuzzer::relay_chain::UncheckedExtrinsic">Unchecked<wbr>Extrinsic</a></dt><dt><a class="type" href="type.XcmPallet.html" title="type xcm_fuzzer::relay_chain::XcmPallet">XcmPallet</a></dt><dt><a class="type" href="type.XcmPalletConfig.html" title="type xcm_fuzzer::relay_chain::XcmPalletConfig">XcmPallet<wbr>Config</a></dt><dt><a class="type" href="type.XcmRouter.html" title="type xcm_fuzzer::relay_chain::XcmRouter">XcmRouter</a></dt></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

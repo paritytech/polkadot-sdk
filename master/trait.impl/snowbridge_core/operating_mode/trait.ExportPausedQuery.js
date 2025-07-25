@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["snowbridge_pallet_system_frontend",[["impl&lt;T: <a class=\"trait\" href=\"snowbridge_pallet_system_frontend/pallet/trait.Config.html\" title=\"trait snowbridge_pallet_system_frontend::pallet::Config\">Config</a>&gt; ExportPausedQuery for <a class=\"struct\" href=\"snowbridge_pallet_system_frontend/pallet/struct.Pallet.html\" title=\"struct snowbridge_pallet_system_frontend::pallet::Pallet\">Pallet</a>&lt;T&gt;"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[420]}

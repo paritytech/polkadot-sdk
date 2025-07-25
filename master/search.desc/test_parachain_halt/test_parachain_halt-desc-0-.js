@@ -1,0 +1,1 @@
+searchState.loadedDescShard("test_parachain_halt", 0, "Basic parachain that executes forever.\nWasm binary unwrapped. If built with …")

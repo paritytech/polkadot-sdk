@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_WASMTIME_INSTANTIATION_STRATEGY","DEFAULT_WASM_EXECUTION_METHOD"],"enum":["Cors","CryptoScheme","Database","ExecutionStrategy","NetworkBackendType","NodeKeyType","OffchainWorkerEnabled","OutputType","RpcMethods","SyncMode","TracingReceiver","WasmExecutionMethod","WasmtimeInstantiationStrategy"],"fn":["execution_method_from_cli"]};

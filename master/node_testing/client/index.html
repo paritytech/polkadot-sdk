@@ -1,0 +1,183 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Utilities to build a `TestClient` for `kitchensink-runtime`."><title>node_testing::client - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="node_testing" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../node_testing/index.html">node_<wbr>testing</a><span class="version">3.0.0-dev</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module client</a></h2><h3><a href="#modules">Module Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate node_<wbr>testing</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">node_testing</a></div><h1>Module <span>client</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/node_testing/client.rs.html#19-87">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Utilities to build a <code>TestClient</code> for <code>kitchensink-runtime</code>.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="client/index.html" title="mod node_testing::client::client">client</a></dt><dd>Re-export test-client utilities.
+Substrate Client and associated logic.</dd><dt><a class="mod" href="client_ext/index.html" title="mod node_testing::client::client_ext">client_<wbr>ext</a></dt><dd>Re-export test-client utilities.
+Client extension for tests.</dd><dt><a class="mod" href="sc_client_db/index.html" title="mod node_testing::client::sc_client_db">sc_<wbr>client_<wbr>db</a></dt><dd>Re-export test-client utilities.
+Client backend that is backed by a database.</dd><dt><a class="mod" href="sc_executor/index.html" title="mod node_testing::client::sc_executor">sc_<wbr>executor</a></dt><dd>Re-export test-client utilities.
+A crate that provides means of executing/dispatching calls into the runtime.</dd><dt><a class="mod" href="sp_consensus/index.html" title="mod node_testing::client::sp_consensus">sp_<wbr>consensus</a></dt><dd>Re-export test-client utilities.
+Common utilities for building and using consensus engines in substrate.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.ExecutionExtensions.html" title="struct node_testing::client::ExecutionExtensions">Execution<wbr>Extensions</a></dt><dd>Re-export test-client utilities.
+A producer of execution extensions for offchain calls.</dd><dt><a class="struct" href="struct.GenesisParameters.html" title="struct node_testing::client::GenesisParameters">Genesis<wbr>Parameters</a></dt><dd>Genesis configuration parameters for <code>TestClient</code>.</dd><dt><a class="struct" href="struct.RpcHandlers.html" title="struct node_testing::client::RpcHandlers">RpcHandlers</a></dt><dd>Re-export test-client utilities.
+A running RPC service that can perform in-memory RPC queries.</dd><dt><a class="struct" href="struct.RpcTransactionError.html" title="struct node_testing::client::RpcTransactionError">RpcTransaction<wbr>Error</a></dt><dd>Re-export test-client utilities.
+An error for when the RPC call fails.</dd><dt><a class="struct" href="struct.RpcTransactionOutput.html" title="struct node_testing::client::RpcTransactionOutput">RpcTransaction<wbr>Output</a></dt><dd>Re-export test-client utilities.
+The output of an RPC transaction.</dd><dt><a class="struct" href="struct.Storage.html" title="struct node_testing::client::Storage">Storage</a></dt><dd>Re-export test-client utilities.
+Struct containing data needed for a storage.</dd><dt><a class="struct" href="struct.StorageChild.html" title="struct node_testing::client::StorageChild">Storage<wbr>Child</a></dt><dd>Re-export test-client utilities.
+Child trie storage data.</dd><dt><a class="struct" href="struct.TestClientBuilder.html" title="struct node_testing::client::TestClientBuilder">Test<wbr>Client<wbr>Builder</a></dt><dd>Re-export test-client utilities.
+A builder for creating a test client instance.</dd><dt><a class="struct" href="struct.WasmExecutor.html" title="struct node_testing::client::WasmExecutor">Wasm<wbr>Executor</a></dt><dd>Re-export test-client utilities.
+An abstraction over Wasm code executor. Supports selecting execution backend and
+manages runtime cache.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.BlockOrigin.html" title="enum node_testing::client::BlockOrigin">Block<wbr>Origin</a></dt><dd>Re-export test-client utilities.
+Block data origin.</dd><dt><a class="enum" href="enum.BlocksPruning.html" title="enum node_testing::client::BlocksPruning">Blocks<wbr>Pruning</a></dt><dd>Re-export test-client utilities.
+Block pruning settings.</dd><dt><a class="enum" href="enum.Ed25519Keyring.html" title="enum node_testing::client::Ed25519Keyring">Ed25519<wbr>Keyring</a></dt><dd>Re-export test-client utilities.
+Set of test accounts.</dd><dt><a class="enum" href="enum.Sr25519Keyring.html" title="enum node_testing::client::Sr25519Keyring">Sr25519<wbr>Keyring</a></dt><dd>Re-export test-client utilities.
+Set of test accounts.</dd><dt><a class="enum" href="enum.WasmExecutionMethod.html" title="enum node_testing::client::WasmExecutionMethod">Wasm<wbr>Execution<wbr>Method</a></dt><dd>Re-export test-client utilities.
+Specification of different methods of executing the runtime Wasm code.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.BlockchainEventsExt.html" title="trait node_testing::client::BlockchainEventsExt">Blockchain<wbr>Events<wbr>Ext</a></dt><dd>Re-export test-client utilities.
+An extension trait for <code>BlockchainEvents</code>.</dd><dt><a class="trait" href="trait.ClientBlockImportExt.html" title="trait node_testing::client::ClientBlockImportExt">Client<wbr>Block<wbr>Import<wbr>Ext</a></dt><dd>Re-export test-client utilities.
+Extension trait for a test client around block importing.</dd><dt><a class="trait" href="trait.ClientExt.html" title="trait node_testing::client::ClientExt">Client<wbr>Ext</a></dt><dd>Re-export test-client utilities.
+Extension trait for a test client.</dd><dt><a class="trait" href="trait.GenesisInit.html" title="trait node_testing::client::GenesisInit">Genesis<wbr>Init</a></dt><dd>Re-export test-client utilities.
+A genesis storage initialization trait.</dd><dt><a class="trait" href="trait.Keystore.html" title="trait node_testing::client::Keystore">Keystore</a></dt><dd>Re-export test-client utilities.
+Something that generates, stores and provides access to secret keys.</dd><dt><a class="trait" href="trait.RpcHandlersExt.html" title="trait node_testing::client::RpcHandlersExt">RpcHandlers<wbr>Ext</a></dt><dd>Re-export test-client utilities.
+An extension trait for <code>RpcHandlers</code>.</dd><dt><a class="trait" href="trait.TestClientBuilderExt.html" title="trait node_testing::client::TestClientBuilderExt">Test<wbr>Client<wbr>Builder<wbr>Ext</a></dt><dd>A <code>test-runtime</code> extensions to <code>TestClientBuilder</code>.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.Backend.html" title="type node_testing::client::Backend">Backend</a></dt><dd>Default backend type.</dd><dt><a class="type" href="type.BadBlocks.html" title="type node_testing::client::BadBlocks">BadBlocks</a></dt><dd>Re-export test-client utilities.
+Known bad block hashes.</dd><dt><a class="type" href="type.Client.html" title="type node_testing::client::Client">Client</a></dt><dd>Test client type.</dd><dt><a class="type" href="type.ForkBlocks.html" title="type node_testing::client::ForkBlocks">Fork<wbr>Blocks</a></dt><dd>Re-export test-client utilities.
+Expected hashes of blocks at given heights.</dd><dt><a class="type" href="type.KeystorePtr.html" title="type node_testing::client::KeystorePtr">Keystore<wbr>Ptr</a></dt><dd>Re-export test-client utilities.
+A shared pointer to a keystore implementation.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

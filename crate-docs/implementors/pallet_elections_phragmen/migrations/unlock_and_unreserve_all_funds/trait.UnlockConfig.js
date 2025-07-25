@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"rococo_runtime":[["impl <a class=\"trait\" href=\"pallet_elections_phragmen/migrations/unlock_and_unreserve_all_funds/trait.UnlockConfig.html\" title=\"trait pallet_elections_phragmen::migrations::unlock_and_unreserve_all_funds::UnlockConfig\">UnlockConfig</a> for <a class=\"struct\" href=\"rococo_runtime/migrations/struct.UnlockConfig.html\" title=\"struct rococo_runtime::migrations::UnlockConfig\">UnlockConfig</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

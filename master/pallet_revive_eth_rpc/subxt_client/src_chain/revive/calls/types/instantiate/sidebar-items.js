@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["CodeHash","Data","GasLimit","Salt","StorageDepositLimit","Value"]};

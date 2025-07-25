@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["RING_SIZE"],"fn":["make_ticket_id","slot_claim_input","slot_claim_sign_data","ticket_body_sign_data","ticket_id_input"],"struct":["RingVerifierKey","RingVrfSignature","VrfInput","VrfPreOutput","VrfSignData","VrfSignature"],"type":["RingContext","RingProver","RingVerifier"]};

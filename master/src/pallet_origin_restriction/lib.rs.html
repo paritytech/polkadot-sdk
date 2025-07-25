@@ -1,0 +1,523 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/origin-restriction/src/lib.rs`."><title>lib.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_origin_restriction" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../static.files/src-script-63605ae7.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">pallet_origin_restriction/</div>lib.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// This file is part of Substrate.
+<a href=#2 id=2 data-nosnippet>2</a>
+<a href=#3 id=3 data-nosnippet>3</a>// Copyright (C) Parity Technologies (UK) Ltd.
+<a href=#4 id=4 data-nosnippet>4</a>// SPDX-License-Identifier: Apache-2.0
+<a href=#5 id=5 data-nosnippet>5</a>
+<a href=#6 id=6 data-nosnippet>6</a>// Licensed under the Apache License, Version 2.0 (the "License");
+<a href=#7 id=7 data-nosnippet>7</a>// you may not use this file except in compliance with the License.
+<a href=#8 id=8 data-nosnippet>8</a>// You may obtain a copy of the License at
+<a href=#9 id=9 data-nosnippet>9</a>//
+<a href=#10 id=10 data-nosnippet>10</a>// 	http://www.apache.org/licenses/LICENSE-2.0
+<a href=#11 id=11 data-nosnippet>11</a>//
+<a href=#12 id=12 data-nosnippet>12</a>// Unless required by applicable law or agreed to in writing, software
+<a href=#13 id=13 data-nosnippet>13</a>// distributed under the License is distributed on an "AS IS" BASIS,
+<a href=#14 id=14 data-nosnippet>14</a>// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+<a href=#15 id=15 data-nosnippet>15</a>// See the License for the specific language governing permissions and
+<a href=#16 id=16 data-nosnippet>16</a>// limitations under the License.
+<a href=#17 id=17 data-nosnippet>17</a>
+<a href=#18 id=18 data-nosnippet>18</a></span><span class="doccomment">//! # Origin restriction pallet and transaction extension
+<a href=#19 id=19 data-nosnippet>19</a>//!
+<a href=#20 id=20 data-nosnippet>20</a>//! This pallet tracks certain origin and limits how much total "fee usage" they can accumulate.
+<a href=#21 id=21 data-nosnippet>21</a>//! Usage gradually recovers as blocks pass.
+<a href=#22 id=22 data-nosnippet>22</a>//!
+<a href=#23 id=23 data-nosnippet>23</a>//! First the entity is extracted from the restricted origin, the entity represents the granularity
+<a href=#24 id=24 data-nosnippet>24</a>//! of usage tracking.
+<a href=#25 id=25 data-nosnippet>25</a>//!
+<a href=#26 id=26 data-nosnippet>26</a>//! For example, an origin like `DaoOrigin { name: [u8; 8], tally: Percent }`
+<a href=#27 id=27 data-nosnippet>27</a>//! can have its usage tracked and restricted at the DAO level, so the tracked entity would be
+<a href=#28 id=28 data-nosnippet>28</a>//! `DaoEntity { name: [u8; 8] }`. This ensures that usage restrictions apply to the DAO as a whole,
+<a href=#29 id=29 data-nosnippet>29</a>//! independent of any particular voter percentage.
+<a href=#30 id=30 data-nosnippet>30</a>//!
+<a href=#31 id=31 data-nosnippet>31</a>//! Then when dispatching a transaction, if the entity’s new usage would exceed its max allowance,
+<a href=#32 id=32 data-nosnippet>32</a>//! the transaction is invalid, except if the call is in the set of calls permitted to exceed that
+<a href=#33 id=33 data-nosnippet>33</a>//! limit (see `OperationAllowedOneTimeExcess`). In that case, as long as the entity's usage prior
+<a href=#34 id=34 data-nosnippet>34</a>//! to dispatch was zero, the transaction is valid (with respect to usage). If the entity's
+<a href=#35 id=35 data-nosnippet>35</a>//! usage is already above the limit, the transaction is always invalid. After dispatch, any call
+<a href=#36 id=36 data-nosnippet>36</a>//! flagged as `Pays::No` fully restores the consumed usage.
+<a href=#37 id=37 data-nosnippet>37</a>//!
+<a href=#38 id=38 data-nosnippet>38</a>//! To expand on `OperationAllowedOneTimeExcess`, user have to wait for the usage to completely
+<a href=#39 id=39 data-nosnippet>39</a>//! recover to zero before being able to do an operation that exceed max allowance.
+<a href=#40 id=40 data-nosnippet>40</a>
+<a href=#41 id=41 data-nosnippet>41</a></span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
+<a href=#42 id=42 data-nosnippet>42</a>
+<a href=#43 id=43 data-nosnippet>43</a>#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#44 id=44 data-nosnippet>44</a></span><span class="kw">mod </span>benchmarking;
+<a href=#45 id=45 data-nosnippet>45</a><span class="attr">#[cfg(test)]
+<a href=#46 id=46 data-nosnippet>46</a></span><span class="kw">mod </span>mock;
+<a href=#47 id=47 data-nosnippet>47</a><span class="attr">#[cfg(test)]
+<a href=#48 id=48 data-nosnippet>48</a></span><span class="kw">mod </span>tests;
+<a href=#49 id=49 data-nosnippet>49</a><span class="kw">pub mod </span>weights;
+<a href=#50 id=50 data-nosnippet>50</a>
+<a href=#51 id=51 data-nosnippet>51</a><span class="kw">extern crate </span>alloc;
+<a href=#52 id=52 data-nosnippet>52</a>
+<a href=#53 id=53 data-nosnippet>53</a><span class="kw">pub use </span>weights::WeightInfo;
+<a href=#54 id=54 data-nosnippet>54</a>
+<a href=#55 id=55 data-nosnippet>55</a><span class="kw">use </span>codec::{Decode, DecodeWithMemTracking, Encode};
+<a href=#56 id=56 data-nosnippet>56</a><span class="kw">use </span>frame_support::{
+<a href=#57 id=57 data-nosnippet>57</a>	dispatch::{DispatchInfo, PostDispatchInfo},
+<a href=#58 id=58 data-nosnippet>58</a>	pallet_prelude::{Pays, Zero},
+<a href=#59 id=59 data-nosnippet>59</a>	traits::{ContainsPair, OriginTrait},
+<a href=#60 id=60 data-nosnippet>60</a>	weights::WeightToFee,
+<a href=#61 id=61 data-nosnippet>61</a>	Parameter, RuntimeDebugNoBound,
+<a href=#62 id=62 data-nosnippet>62</a>};
+<a href=#63 id=63 data-nosnippet>63</a><span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
+<a href=#64 id=64 data-nosnippet>64</a><span class="kw">use </span>pallet_transaction_payment::OnChargeTransaction;
+<a href=#65 id=65 data-nosnippet>65</a><span class="kw">use </span>scale_info::TypeInfo;
+<a href=#66 id=66 data-nosnippet>66</a><span class="kw">use </span>sp_runtime::{
+<a href=#67 id=67 data-nosnippet>67</a>	traits::{
+<a href=#68 id=68 data-nosnippet>68</a>		AsTransactionAuthorizedOrigin, DispatchInfoOf, DispatchOriginOf, Dispatchable, Implication,
+<a href=#69 id=69 data-nosnippet>69</a>		PostDispatchInfoOf, TransactionExtension, ValidateResult,
+<a href=#70 id=70 data-nosnippet>70</a>	},
+<a href=#71 id=71 data-nosnippet>71</a>	transaction_validity::{
+<a href=#72 id=72 data-nosnippet>72</a>		InvalidTransaction, TransactionSource, TransactionValidityError, ValidTransaction,
+<a href=#73 id=73 data-nosnippet>73</a>	},
+<a href=#74 id=74 data-nosnippet>74</a>	DispatchError::BadOrigin,
+<a href=#75 id=75 data-nosnippet>75</a>	DispatchResult, RuntimeDebug, SaturatedConversion, Saturating, Weight,
+<a href=#76 id=76 data-nosnippet>76</a>};
+<a href=#77 id=77 data-nosnippet>77</a>
+<a href=#78 id=78 data-nosnippet>78</a><span class="doccomment">/// The allowance for an entity, defining its usage limit and recovery rate.
+<a href=#79 id=79 data-nosnippet>79</a></span><span class="attr">#[derive(Clone, Debug)]
+<a href=#80 id=80 data-nosnippet>80</a></span><span class="kw">pub struct </span>Allowance&lt;Balance&gt; {
+<a href=#81 id=81 data-nosnippet>81</a>	<span class="doccomment">/// The maximum usage allowed before transactions are restricted.
+<a href=#82 id=82 data-nosnippet>82</a>	</span><span class="kw">pub </span>max: Balance,
+<a href=#83 id=83 data-nosnippet>83</a>	<span class="doccomment">/// The amount of usage recovered per block.
+<a href=#84 id=84 data-nosnippet>84</a>	</span><span class="kw">pub </span>recovery_per_block: Balance,
+<a href=#85 id=85 data-nosnippet>85</a>}
+<a href=#86 id=86 data-nosnippet>86</a>
+<a href=#87 id=87 data-nosnippet>87</a><span class="doccomment">/// The restriction of an entity.
+<a href=#88 id=88 data-nosnippet>88</a></span><span class="kw">pub trait </span>RestrictedEntity&lt;OriginCaller, Balance&gt;: Sized {
+<a href=#89 id=89 data-nosnippet>89</a>	<span class="doccomment">/// The allowance given for the entity.
+<a href=#90 id=90 data-nosnippet>90</a>	</span><span class="kw">fn </span>allowance(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Allowance&lt;Balance&gt;;
+<a href=#91 id=91 data-nosnippet>91</a>	<span class="doccomment">/// Whether the origin is restricted, and what entity it belongs to.
+<a href=#92 id=92 data-nosnippet>92</a>	</span><span class="kw">fn </span>restricted_entity(caller: <span class="kw-2">&amp;</span>OriginCaller) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;;
+<a href=#93 id=93 data-nosnippet>93</a>
+<a href=#94 id=94 data-nosnippet>94</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#95 id=95 data-nosnippet>95</a>	</span><span class="kw">fn </span>benchmarked_restricted_origin() -&gt; OriginCaller;
+<a href=#96 id=96 data-nosnippet>96</a>}
+<a href=#97 id=97 data-nosnippet>97</a>
+<a href=#98 id=98 data-nosnippet>98</a><span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
+<a href=#99 id=99 data-nosnippet>99</a><span class="attr">#[frame_support::pallet]
+<a href=#100 id=100 data-nosnippet>100</a></span><span class="kw">pub mod </span>pallet {
+<a href=#101 id=101 data-nosnippet>101</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#102 id=102 data-nosnippet>102</a>	<span class="kw">use </span>frame_support::{pallet_prelude::<span class="kw-2">*</span>, traits::ContainsPair};
+<a href=#103 id=103 data-nosnippet>103</a>	<span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
+<a href=#104 id=104 data-nosnippet>104</a>
+<a href=#105 id=105 data-nosnippet>105</a>	<span class="doccomment">/// The usage of an entity.
+<a href=#106 id=106 data-nosnippet>106</a>	</span><span class="attr">#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+<a href=#107 id=107 data-nosnippet>107</a>	</span><span class="kw">pub struct </span>Usage&lt;Balance, BlockNumber&gt; {
+<a href=#108 id=108 data-nosnippet>108</a>		<span class="doccomment">/// The amount of usage consumed at block `at_block`.
+<a href=#109 id=109 data-nosnippet>109</a>		</span><span class="kw">pub </span>used: Balance,
+<a href=#110 id=110 data-nosnippet>110</a>		<span class="doccomment">/// The block number at which the usage was last updated.
+<a href=#111 id=111 data-nosnippet>111</a>		</span><span class="kw">pub </span>at_block: BlockNumber,
+<a href=#112 id=112 data-nosnippet>112</a>	}
+<a href=#113 id=113 data-nosnippet>113</a>
+<a href=#114 id=114 data-nosnippet>114</a>	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>OriginCallerFor&lt;T&gt; =
+<a href=#115 id=115 data-nosnippet>115</a>		&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeOrigin <span class="kw">as </span>OriginTrait&gt;::PalletsOrigin;
+<a href=#116 id=116 data-nosnippet>116</a>	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>BalanceOf&lt;T&gt; =
+<a href=#117 id=117 data-nosnippet>117</a>		&lt;&lt;T <span class="kw">as </span>pallet_transaction_payment::Config&gt;::OnChargeTransaction <span class="kw">as </span>OnChargeTransaction&lt;
+<a href=#118 id=118 data-nosnippet>118</a>			T,
+<a href=#119 id=119 data-nosnippet>119</a>		&gt;&gt;::Balance;
+<a href=#120 id=120 data-nosnippet>120</a>
+<a href=#121 id=121 data-nosnippet>121</a>	<span class="attr">#[pallet::pallet]
+<a href=#122 id=122 data-nosnippet>122</a>	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
+<a href=#123 id=123 data-nosnippet>123</a>
+<a href=#124 id=124 data-nosnippet>124</a>	<span class="doccomment">/// The current usage for each entity.
+<a href=#125 id=125 data-nosnippet>125</a>	</span><span class="attr">#[pallet::storage]
+<a href=#126 id=126 data-nosnippet>126</a>	</span><span class="kw">pub type </span>Usages&lt;T: Config&gt; = StorageMap&lt;
+<a href=#127 id=127 data-nosnippet>127</a>		<span class="kw">_</span>,
+<a href=#128 id=128 data-nosnippet>128</a>		Blake2_128Concat,
+<a href=#129 id=129 data-nosnippet>129</a>		T::RestrictedEntity,
+<a href=#130 id=130 data-nosnippet>130</a>		Usage&lt;BalanceOf&lt;T&gt;, BlockNumberFor&lt;T&gt;&gt;,
+<a href=#131 id=131 data-nosnippet>131</a>	&gt;;
+<a href=#132 id=132 data-nosnippet>132</a>
+<a href=#133 id=133 data-nosnippet>133</a>	<span class="attr">#[pallet::config]
+<a href=#134 id=134 data-nosnippet>134</a>	</span><span class="kw">pub trait </span>Config:
+<a href=#135 id=135 data-nosnippet>135</a>		frame_system::Config&lt;
+<a href=#136 id=136 data-nosnippet>136</a>			RuntimeCall: Dispatchable&lt;Info = DispatchInfo, PostInfo = PostDispatchInfo&gt;,
+<a href=#137 id=137 data-nosnippet>137</a>			RuntimeOrigin: AsTransactionAuthorizedOrigin,
+<a href=#138 id=138 data-nosnippet>138</a>		&gt; + pallet_transaction_payment::Config
+<a href=#139 id=139 data-nosnippet>139</a>		+ Send
+<a href=#140 id=140 data-nosnippet>140</a>		+ Sync
+<a href=#141 id=141 data-nosnippet>141</a>	{
+<a href=#142 id=142 data-nosnippet>142</a>		<span class="doccomment">/// The weight information for this pallet.
+<a href=#143 id=143 data-nosnippet>143</a>		</span><span class="kw">type </span>WeightInfo: WeightInfo;
+<a href=#144 id=144 data-nosnippet>144</a>
+<a href=#145 id=145 data-nosnippet>145</a>		<span class="doccomment">/// The type that represent the entities tracked, its allowance and the conversion from
+<a href=#146 id=146 data-nosnippet>146</a>		/// origin is bounded in [`RestrictedEntity`].
+<a href=#147 id=147 data-nosnippet>147</a>		///
+<a href=#148 id=148 data-nosnippet>148</a>		/// This is the canonical origin from the point of view of usage tracking.
+<a href=#149 id=149 data-nosnippet>149</a>		/// Each entity is tracked separately.
+<a href=#150 id=150 data-nosnippet>150</a>		///
+<a href=#151 id=151 data-nosnippet>151</a>		/// This is different from origin as a multiple origin can represent a single entity.
+<a href=#152 id=152 data-nosnippet>152</a>		/// For example, imagine a DAO origin with a percentage of voters, we want to track the DAO
+<a href=#153 id=153 data-nosnippet>153</a>		/// entity regardless of the voter percentage.
+<a href=#154 id=154 data-nosnippet>154</a>		</span><span class="kw">type </span>RestrictedEntity: RestrictedEntity&lt;OriginCallerFor&lt;<span class="self">Self</span>&gt;, BalanceOf&lt;<span class="self">Self</span>&gt;&gt;
+<a href=#155 id=155 data-nosnippet>155</a>			+ Parameter
+<a href=#156 id=156 data-nosnippet>156</a>			+ MaxEncodedLen;
+<a href=#157 id=157 data-nosnippet>157</a>
+<a href=#158 id=158 data-nosnippet>158</a>		<span class="doccomment">/// For some entities, the calls that are allowed to go beyond the max allowance.
+<a href=#159 id=159 data-nosnippet>159</a>		///
+<a href=#160 id=160 data-nosnippet>160</a>		/// This must be only for call which have a reasonable maximum weight and length.
+<a href=#161 id=161 data-nosnippet>161</a>		</span><span class="kw">type </span>OperationAllowedOneTimeExcess: ContainsPair&lt;<span class="self">Self</span>::RestrictedEntity, <span class="self">Self</span>::RuntimeCall&gt;;
+<a href=#162 id=162 data-nosnippet>162</a>
+<a href=#163 id=163 data-nosnippet>163</a>		<span class="doccomment">/// The runtime event type.
+<a href=#164 id=164 data-nosnippet>164</a>		</span><span class="attr">#[allow(deprecated)]
+<a href=#165 id=165 data-nosnippet>165</a>		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>&gt;&gt; + IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
+<a href=#166 id=166 data-nosnippet>166</a>	}
+<a href=#167 id=167 data-nosnippet>167</a>
+<a href=#168 id=168 data-nosnippet>168</a>	<span class="attr">#[pallet::error]
+<a href=#169 id=169 data-nosnippet>169</a>	</span><span class="kw">pub enum </span>Error&lt;T&gt; {
+<a href=#170 id=170 data-nosnippet>170</a>		<span class="doccomment">/// The origin has no usage tracked.
+<a href=#171 id=171 data-nosnippet>171</a>		</span>NoUsage,
+<a href=#172 id=172 data-nosnippet>172</a>		<span class="doccomment">/// The usage is not zero.
+<a href=#173 id=173 data-nosnippet>173</a>		</span>NotZero,
+<a href=#174 id=174 data-nosnippet>174</a>	}
+<a href=#175 id=175 data-nosnippet>175</a>
+<a href=#176 id=176 data-nosnippet>176</a>	<span class="attr">#[pallet::event]
+<a href=#177 id=177 data-nosnippet>177</a>	#[pallet::generate_deposit(<span class="kw">fn </span>deposit_event)]
+<a href=#178 id=178 data-nosnippet>178</a>	</span><span class="kw">pub enum </span>Event&lt;T: Config&gt; {
+<a href=#179 id=179 data-nosnippet>179</a>		<span class="doccomment">/// Usage for an entity is cleaned.
+<a href=#180 id=180 data-nosnippet>180</a>		</span>UsageCleaned { entity: T::RestrictedEntity },
+<a href=#181 id=181 data-nosnippet>181</a>	}
+<a href=#182 id=182 data-nosnippet>182</a>
+<a href=#183 id=183 data-nosnippet>183</a>	<span class="attr">#[pallet::call(weight = &lt;T <span class="kw">as </span>Config&gt;::WeightInfo)]
+<a href=#184 id=184 data-nosnippet>184</a>	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+<a href=#185 id=185 data-nosnippet>185</a>		<span class="doccomment">/// Allow to clean usage associated with an entity when it is zero or when there is no
+<a href=#186 id=186 data-nosnippet>186</a>		/// longer any allowance for the origin.
+<a href=#187 id=187 data-nosnippet>187</a>		</span><span class="comment">// This could be an unsigned call
+<a href=#188 id=188 data-nosnippet>188</a>		</span><span class="attr">#[pallet::call_index(<span class="number">1</span>)]
+<a href=#189 id=189 data-nosnippet>189</a>		</span><span class="kw">pub fn </span>clean_usage(
+<a href=#190 id=190 data-nosnippet>190</a>			origin: OriginFor&lt;T&gt;,
+<a href=#191 id=191 data-nosnippet>191</a>			entity: T::RestrictedEntity,
+<a href=#192 id=192 data-nosnippet>192</a>		) -&gt; DispatchResultWithPostInfo {
+<a href=#193 id=193 data-nosnippet>193</a>			<span class="comment">// `None` origin is better to reject in general, due to being used for inherents and
+<a href=#194 id=194 data-nosnippet>194</a>			// validate unsigned.
+<a href=#195 id=195 data-nosnippet>195</a>			</span><span class="kw">if </span>ensure_none(origin.clone()).is_ok() {
+<a href=#196 id=196 data-nosnippet>196</a>				<span class="kw">return </span><span class="prelude-val">Err</span>(BadOrigin.into())
+<a href=#197 id=197 data-nosnippet>197</a>			}
+<a href=#198 id=198 data-nosnippet>198</a>
+<a href=#199 id=199 data-nosnippet>199</a>			<span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>usage) = Usages::&lt;T&gt;::take(<span class="kw-2">&amp;</span>entity) <span class="kw">else </span>{
+<a href=#200 id=200 data-nosnippet>200</a>				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::NoUsage.into())
+<a href=#201 id=201 data-nosnippet>201</a>			};
+<a href=#202 id=202 data-nosnippet>202</a>
+<a href=#203 id=203 data-nosnippet>203</a>			<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
+<a href=#204 id=204 data-nosnippet>204</a>			<span class="kw">let </span>elapsed = now.saturating_sub(usage.at_block).saturated_into::&lt;u32&gt;();
+<a href=#205 id=205 data-nosnippet>205</a>
+<a href=#206 id=206 data-nosnippet>206</a>			<span class="kw">let </span>allowance = entity.allowance();
+<a href=#207 id=207 data-nosnippet>207</a>			<span class="kw">let </span>receive_back = allowance.recovery_per_block.saturating_mul(elapsed.into());
+<a href=#208 id=208 data-nosnippet>208</a>			usage.used = usage.used.saturating_sub(receive_back);
+<a href=#209 id=209 data-nosnippet>209</a>
+<a href=#210 id=210 data-nosnippet>210</a>			<span class="macro">ensure!</span>(usage.used.is_zero(), Error::&lt;T&gt;::NotZero);
+<a href=#211 id=211 data-nosnippet>211</a>
+<a href=#212 id=212 data-nosnippet>212</a>			<span class="self">Self</span>::deposit_event(Event::UsageCleaned { entity });
+<a href=#213 id=213 data-nosnippet>213</a>
+<a href=#214 id=214 data-nosnippet>214</a>			<span class="prelude-val">Ok</span>(Pays::No.into())
+<a href=#215 id=215 data-nosnippet>215</a>		}
+<a href=#216 id=216 data-nosnippet>216</a>	}
+<a href=#217 id=217 data-nosnippet>217</a>}
+<a href=#218 id=218 data-nosnippet>218</a>
+<a href=#219 id=219 data-nosnippet>219</a><span class="kw">fn </span>extrinsic_fee&lt;T: Config&gt;(weight: Weight, length: usize) -&gt; BalanceOf&lt;T&gt; {
+<a href=#220 id=220 data-nosnippet>220</a>	<span class="kw">let </span>weight_fee = T::WeightToFee::weight_to_fee(<span class="kw-2">&amp;</span>weight);
+<a href=#221 id=221 data-nosnippet>221</a>	<span class="kw">let </span>length_fee = T::LengthToFee::weight_to_fee(<span class="kw-2">&amp;</span>Weight::from_parts(length <span class="kw">as </span>u64, <span class="number">0</span>));
+<a href=#222 id=222 data-nosnippet>222</a>	weight_fee.saturating_add(length_fee)
+<a href=#223 id=223 data-nosnippet>223</a>}
+<a href=#224 id=224 data-nosnippet>224</a>
+<a href=#225 id=225 data-nosnippet>225</a><span class="doccomment">/// This transaction extension restricts some origins and prevents them from dispatching calls,
+<a href=#226 id=226 data-nosnippet>226</a>/// based on their usage and allowance.
+<a href=#227 id=227 data-nosnippet>227</a>///
+<a href=#228 id=228 data-nosnippet>228</a>/// The extension can be enabled or disabled with the inner boolean. When enabled, the restriction
+<a href=#229 id=229 data-nosnippet>229</a>/// process executes. When disabled, only the `RestrictedOrigins` check is executed.
+<a href=#230 id=230 data-nosnippet>230</a>/// You can always enable it, the only advantage of disabling it is have better pre-dispatch weight.
+<a href=#231 id=231 data-nosnippet>231</a></span><span class="attr">#[derive(
+<a href=#232 id=232 data-nosnippet>232</a>	Encode, Decode, Clone, Eq, PartialEq, TypeInfo, RuntimeDebugNoBound, DecodeWithMemTracking,
+<a href=#233 id=233 data-nosnippet>233</a>)]
+<a href=#234 id=234 data-nosnippet>234</a>#[scale_info(skip_type_params(T))]
+<a href=#235 id=235 data-nosnippet>235</a></span><span class="kw">pub struct </span>RestrictOrigin&lt;T&gt;(bool, core::marker::PhantomData&lt;T&gt;);
+<a href=#236 id=236 data-nosnippet>236</a>
+<a href=#237 id=237 data-nosnippet>237</a><span class="kw">impl</span>&lt;T&gt; RestrictOrigin&lt;T&gt; {
+<a href=#238 id=238 data-nosnippet>238</a>	<span class="doccomment">/// Instantiates a new `RestrictOrigins` extension.
+<a href=#239 id=239 data-nosnippet>239</a>	</span><span class="kw">pub fn </span>new(enable: bool) -&gt; <span class="self">Self </span>{
+<a href=#240 id=240 data-nosnippet>240</a>		<span class="self">Self</span>(enable, core::marker::PhantomData)
+<a href=#241 id=241 data-nosnippet>241</a>	}
+<a href=#242 id=242 data-nosnippet>242</a>}
+<a href=#243 id=243 data-nosnippet>243</a>
+<a href=#244 id=244 data-nosnippet>244</a><span class="doccomment">/// The info passed between the validate and prepare steps for the `RestrictOrigins` extension.
+<a href=#245 id=245 data-nosnippet>245</a></span><span class="attr">#[derive(RuntimeDebugNoBound)]
+<a href=#246 id=246 data-nosnippet>246</a></span><span class="kw">pub enum </span>Val&lt;T: Config&gt; {
+<a href=#247 id=247 data-nosnippet>247</a>	Charge { fee: BalanceOf&lt;T&gt;, entity: T::RestrictedEntity },
+<a href=#248 id=248 data-nosnippet>248</a>	NoCharge,
+<a href=#249 id=249 data-nosnippet>249</a>}
+<a href=#250 id=250 data-nosnippet>250</a>
+<a href=#251 id=251 data-nosnippet>251</a><span class="doccomment">/// The info passed between the prepare and post-dispatch steps for the `RestrictOrigins`
+<a href=#252 id=252 data-nosnippet>252</a>/// extension.
+<a href=#253 id=253 data-nosnippet>253</a></span><span class="kw">pub enum </span>Pre&lt;T: Config&gt; {
+<a href=#254 id=254 data-nosnippet>254</a>	Charge {
+<a href=#255 id=255 data-nosnippet>255</a>		fee: BalanceOf&lt;T&gt;,
+<a href=#256 id=256 data-nosnippet>256</a>		entity: T::RestrictedEntity,
+<a href=#257 id=257 data-nosnippet>257</a>	},
+<a href=#258 id=258 data-nosnippet>258</a>	NoCharge {
+<a href=#259 id=259 data-nosnippet>259</a>		<span class="comment">// weight initially estimated by the extension, to be refunded
+<a href=#260 id=260 data-nosnippet>260</a>		</span>refund: Weight,
+<a href=#261 id=261 data-nosnippet>261</a>	},
+<a href=#262 id=262 data-nosnippet>262</a>}
+<a href=#263 id=263 data-nosnippet>263</a>
+<a href=#264 id=264 data-nosnippet>264</a><span class="kw">impl</span>&lt;T: Config&gt; TransactionExtension&lt;T::RuntimeCall&gt; <span class="kw">for </span>RestrictOrigin&lt;T&gt; {
+<a href=#265 id=265 data-nosnippet>265</a>	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"RestrictOrigins"</span>;
+<a href=#266 id=266 data-nosnippet>266</a>	<span class="kw">type </span>Implicit = ();
+<a href=#267 id=267 data-nosnippet>267</a>	<span class="kw">type </span>Val = Val&lt;T&gt;;
+<a href=#268 id=268 data-nosnippet>268</a>	<span class="kw">type </span>Pre = Pre&lt;T&gt;;
+<a href=#269 id=269 data-nosnippet>269</a>
+<a href=#270 id=270 data-nosnippet>270</a>	<span class="kw">fn </span>weight(<span class="kw-2">&amp;</span><span class="self">self</span>, _call: <span class="kw-2">&amp;</span>T::RuntimeCall) -&gt; frame_support::weights::Weight {
+<a href=#271 id=271 data-nosnippet>271</a>		<span class="kw">if </span>!<span class="self">self</span>.<span class="number">0 </span>{
+<a href=#272 id=272 data-nosnippet>272</a>			<span class="kw">return </span>Weight::zero()
+<a href=#273 id=273 data-nosnippet>273</a>		}
+<a href=#274 id=274 data-nosnippet>274</a>
+<a href=#275 id=275 data-nosnippet>275</a>		&lt;T <span class="kw">as </span>Config&gt;::WeightInfo::restrict_origin_tx_ext()
+<a href=#276 id=276 data-nosnippet>276</a>	}
+<a href=#277 id=277 data-nosnippet>277</a>
+<a href=#278 id=278 data-nosnippet>278</a>	<span class="kw">fn </span>validate(
+<a href=#279 id=279 data-nosnippet>279</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#280 id=280 data-nosnippet>280</a>		origin: DispatchOriginOf&lt;T::RuntimeCall&gt;,
+<a href=#281 id=281 data-nosnippet>281</a>		call: <span class="kw-2">&amp;</span>T::RuntimeCall,
+<a href=#282 id=282 data-nosnippet>282</a>		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
+<a href=#283 id=283 data-nosnippet>283</a>		len: usize,
+<a href=#284 id=284 data-nosnippet>284</a>		_self_implicit: (),
+<a href=#285 id=285 data-nosnippet>285</a>		_inherited_implication: <span class="kw-2">&amp;</span><span class="kw">impl </span>Implication,
+<a href=#286 id=286 data-nosnippet>286</a>		_source: TransactionSource,
+<a href=#287 id=287 data-nosnippet>287</a>	) -&gt; ValidateResult&lt;<span class="self">Self</span>::Val, T::RuntimeCall&gt; {
+<a href=#288 id=288 data-nosnippet>288</a>		<span class="kw">let </span>origin_caller = origin.caller();
+<a href=#289 id=289 data-nosnippet>289</a>		<span class="kw">let </span><span class="prelude-val">Some</span>(entity) = T::RestrictedEntity::restricted_entity(origin_caller) <span class="kw">else </span>{
+<a href=#290 id=290 data-nosnippet>290</a>			<span class="kw">return </span><span class="prelude-val">Ok</span>((ValidTransaction::default(), Val::NoCharge, origin));
+<a href=#291 id=291 data-nosnippet>291</a>		};
+<a href=#292 id=292 data-nosnippet>292</a>		<span class="kw">let </span>allowance = T::RestrictedEntity::allowance(<span class="kw-2">&amp;</span>entity);
+<a href=#293 id=293 data-nosnippet>293</a>
+<a href=#294 id=294 data-nosnippet>294</a>		<span class="kw">if </span>!<span class="self">self</span>.<span class="number">0 </span>{
+<a href=#295 id=295 data-nosnippet>295</a>			<span class="comment">// Extension is disabled, but the restriction must happen, the extension should have
+<a href=#296 id=296 data-nosnippet>296</a>			// been enabled.
+<a href=#297 id=297 data-nosnippet>297</a>			</span><span class="kw">return </span><span class="prelude-val">Err</span>(InvalidTransaction::Call.into())
+<a href=#298 id=298 data-nosnippet>298</a>		}
+<a href=#299 id=299 data-nosnippet>299</a>
+<a href=#300 id=300 data-nosnippet>300</a>		<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
+<a href=#301 id=301 data-nosnippet>301</a>		<span class="kw">let </span><span class="kw-2">mut </span>usage = <span class="kw">match </span>Usages::&lt;T&gt;::get(<span class="kw-2">&amp;</span>entity) {
+<a href=#302 id=302 data-nosnippet>302</a>			<span class="prelude-val">Some</span>(<span class="kw-2">mut </span>usage) =&gt; {
+<a href=#303 id=303 data-nosnippet>303</a>				<span class="kw">let </span>elapsed = now.saturating_sub(usage.at_block).saturated_into::&lt;u32&gt;();
+<a href=#304 id=304 data-nosnippet>304</a>				<span class="kw">let </span>receive_back = allowance.recovery_per_block.saturating_mul(elapsed.into());
+<a href=#305 id=305 data-nosnippet>305</a>				usage.used = usage.used.saturating_sub(receive_back);
+<a href=#306 id=306 data-nosnippet>306</a>				usage.at_block = now;
+<a href=#307 id=307 data-nosnippet>307</a>				usage
+<a href=#308 id=308 data-nosnippet>308</a>			},
+<a href=#309 id=309 data-nosnippet>309</a>			<span class="prelude-val">None </span>=&gt; Usage { used: <span class="number">0u32</span>.into(), at_block: now },
+<a href=#310 id=310 data-nosnippet>310</a>		};
+<a href=#311 id=311 data-nosnippet>311</a>
+<a href=#312 id=312 data-nosnippet>312</a>		<span class="comment">// The usage before taking into account this extrinsic.
+<a href=#313 id=313 data-nosnippet>313</a>		</span><span class="kw">let </span>usage_without_new_xt = usage.used;
+<a href=#314 id=314 data-nosnippet>314</a>		<span class="kw">let </span>fee = extrinsic_fee::&lt;T&gt;(info.total_weight(), len);
+<a href=#315 id=315 data-nosnippet>315</a>		usage.used = usage.used.saturating_add(fee);
+<a href=#316 id=316 data-nosnippet>316</a>
+<a href=#317 id=317 data-nosnippet>317</a>		Usages::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>entity, <span class="kw-2">&amp;</span>usage);
+<a href=#318 id=318 data-nosnippet>318</a>
+<a href=#319 id=319 data-nosnippet>319</a>		<span class="kw">let </span>allowed_one_time_excess = || {
+<a href=#320 id=320 data-nosnippet>320</a>			usage_without_new_xt == <span class="number">0u32</span>.into() &amp;&amp;
+<a href=#321 id=321 data-nosnippet>321</a>				T::OperationAllowedOneTimeExcess::contains(<span class="kw-2">&amp;</span>entity, call)
+<a href=#322 id=322 data-nosnippet>322</a>		};
+<a href=#323 id=323 data-nosnippet>323</a>		<span class="kw">if </span>usage.used &lt;= allowance.max || allowed_one_time_excess() {
+<a href=#324 id=324 data-nosnippet>324</a>			<span class="prelude-val">Ok</span>((ValidTransaction::default(), Val::Charge { fee, entity }, origin))
+<a href=#325 id=325 data-nosnippet>325</a>		} <span class="kw">else </span>{
+<a href=#326 id=326 data-nosnippet>326</a>			<span class="prelude-val">Err</span>(InvalidTransaction::Payment.into())
+<a href=#327 id=327 data-nosnippet>327</a>		}
+<a href=#328 id=328 data-nosnippet>328</a>	}
+<a href=#329 id=329 data-nosnippet>329</a>
+<a href=#330 id=330 data-nosnippet>330</a>	<span class="kw">fn </span>prepare(
+<a href=#331 id=331 data-nosnippet>331</a>		<span class="self">self</span>,
+<a href=#332 id=332 data-nosnippet>332</a>		val: <span class="self">Self</span>::Val,
+<a href=#333 id=333 data-nosnippet>333</a>		_origin: <span class="kw-2">&amp;</span>DispatchOriginOf&lt;T::RuntimeCall&gt;,
+<a href=#334 id=334 data-nosnippet>334</a>		call: <span class="kw-2">&amp;</span>T::RuntimeCall,
+<a href=#335 id=335 data-nosnippet>335</a>		_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
+<a href=#336 id=336 data-nosnippet>336</a>		_len: usize,
+<a href=#337 id=337 data-nosnippet>337</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Pre, TransactionValidityError&gt; {
+<a href=#338 id=338 data-nosnippet>338</a>		<span class="kw">match </span>val {
+<a href=#339 id=339 data-nosnippet>339</a>			Val::Charge { fee, entity } =&gt; <span class="prelude-val">Ok</span>(Pre::Charge { fee, entity }),
+<a href=#340 id=340 data-nosnippet>340</a>			Val::NoCharge =&gt; <span class="prelude-val">Ok</span>(Pre::NoCharge { refund: <span class="self">self</span>.weight(call) }),
+<a href=#341 id=341 data-nosnippet>341</a>		}
+<a href=#342 id=342 data-nosnippet>342</a>	}
+<a href=#343 id=343 data-nosnippet>343</a>
+<a href=#344 id=344 data-nosnippet>344</a>	<span class="kw">fn </span>post_dispatch_details(
+<a href=#345 id=345 data-nosnippet>345</a>		pre: <span class="self">Self</span>::Pre,
+<a href=#346 id=346 data-nosnippet>346</a>		_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;T::RuntimeCall&gt;,
+<a href=#347 id=347 data-nosnippet>347</a>		post_info: <span class="kw-2">&amp;</span>PostDispatchInfoOf&lt;T::RuntimeCall&gt;,
+<a href=#348 id=348 data-nosnippet>348</a>		_len: usize,
+<a href=#349 id=349 data-nosnippet>349</a>		_result: <span class="kw-2">&amp;</span>DispatchResult,
+<a href=#350 id=350 data-nosnippet>350</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, TransactionValidityError&gt; {
+<a href=#351 id=351 data-nosnippet>351</a>		<span class="kw">match </span>pre {
+<a href=#352 id=352 data-nosnippet>352</a>			Pre::Charge { fee, entity } =&gt;
+<a href=#353 id=353 data-nosnippet>353</a>				<span class="kw">if </span>post_info.pays_fee == Pays::No {
+<a href=#354 id=354 data-nosnippet>354</a>					Usages::&lt;T&gt;::mutate_exists(entity, |maybe_usage| {
+<a href=#355 id=355 data-nosnippet>355</a>						<span class="kw">if let </span><span class="prelude-val">Some</span>(usage) = maybe_usage {
+<a href=#356 id=356 data-nosnippet>356</a>							usage.used = usage.used.saturating_sub(fee);
+<a href=#357 id=357 data-nosnippet>357</a>
+<a href=#358 id=358 data-nosnippet>358</a>							<span class="kw">if </span>usage.used.is_zero() {
+<a href=#359 id=359 data-nosnippet>359</a>								<span class="kw-2">*</span>maybe_usage = <span class="prelude-val">None</span>;
+<a href=#360 id=360 data-nosnippet>360</a>							}
+<a href=#361 id=361 data-nosnippet>361</a>						}
+<a href=#362 id=362 data-nosnippet>362</a>					});
+<a href=#363 id=363 data-nosnippet>363</a>					<span class="prelude-val">Ok</span>(Weight::zero())
+<a href=#364 id=364 data-nosnippet>364</a>				} <span class="kw">else </span>{
+<a href=#365 id=365 data-nosnippet>365</a>					<span class="prelude-val">Ok</span>(Weight::zero())
+<a href=#366 id=366 data-nosnippet>366</a>				},
+<a href=#367 id=367 data-nosnippet>367</a>			Pre::NoCharge { refund } =&gt; <span class="prelude-val">Ok</span>(refund),
+<a href=#368 id=368 data-nosnippet>368</a>		}
+<a href=#369 id=369 data-nosnippet>369</a>	}
+<a href=#370 id=370 data-nosnippet>370</a>}</code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>
