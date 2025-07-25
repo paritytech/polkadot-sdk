@@ -211,14 +211,14 @@ const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 /// We allow `Normal` extrinsics to fill up the block up to 75%, the rest can be used
 /// by  Operational  extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
-/// Target number of blocks per relay chain slot.
-const NUMBER_OF_BLOCKS_PER_RELAY_SLOT: u32 = 12;
 
 parameter_types! {
+	/// Target number of blocks per relay chain slot.
+	pub const NumberOfBlocksPerRelaySlot: u32 = 12;
 	pub const BlockHashCount: BlockNumber = 4096;
 	pub const Version: RuntimeVersion = VERSION;
 	/// We allow for 1 second of compute with a 6 second average block time.
-	pub MaximumBlockWeight: Weight = cumulus_pallet_parachain_system::MaxParachainBlockWeight::get::<Runtime>(NUMBER_OF_BLOCKS_PER_RELAY_SLOT);
+	pub MaximumBlockWeight: Weight = cumulus_pallet_parachain_system::MaxParachainBlockWeight::get::<Runtime>(NumberOfBlocksPerRelaySlot::get());
 	pub RuntimeBlockLength: BlockLength =
 		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
@@ -434,19 +434,24 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 /// The extension to the basic transaction logic.
-pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
+pub type TxExtension = cumulus_pallet_parachain_system::DynamicMaxBlockWeight<
 	Runtime,
-	(
-		frame_system::AuthorizeCall<Runtime>,
-		frame_system::CheckNonZeroSender<Runtime>,
-		frame_system::CheckSpecVersion<Runtime>,
-		frame_system::CheckGenesis<Runtime>,
-		frame_system::CheckEra<Runtime>,
-		frame_system::CheckNonce<Runtime>,
-		frame_system::CheckWeight<Runtime>,
-		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-	),
+	cumulus_pallet_weight_reclaim::StorageWeightReclaim<
+		Runtime,
+		(
+			frame_system::AuthorizeCall<Runtime>,
+			frame_system::CheckNonZeroSender<Runtime>,
+			frame_system::CheckSpecVersion<Runtime>,
+			frame_system::CheckGenesis<Runtime>,
+			frame_system::CheckEra<Runtime>,
+			frame_system::CheckNonce<Runtime>,
+			frame_system::CheckWeight<Runtime>,
+			pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+		)
+	>,
+	NumberOfBlocksPerRelaySlot
 >;
+
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
@@ -639,9 +644,9 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::SlotSchedule<Block> for Runtime {
 		fn next_slot_schedule(num_cores: u32) -> Vec<Duration> {
-			let block_time = Duration::from_secs(2) * num_cores / NUMBER_OF_BLOCKS_PER_RELAY_SLOT;
+			let block_time = Duration::from_secs(2) * num_cores / NumberOfBlocksPerRelaySlot::get();
 
-			vec![block_time.min(Duration::from_millis(500)); NUMBER_OF_BLOCKS_PER_RELAY_SLOT as usize]
+			vec![block_time.min(Duration::from_millis(500)); NumberOfBlocksPerRelaySlot::get() as usize]
 		}
 	}
 }

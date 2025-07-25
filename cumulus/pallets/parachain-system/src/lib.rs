@@ -69,7 +69,7 @@ mod mock;
 mod tests;
 pub mod weights;
 
-pub use max_parachain_block_weight::MaxParachainBlockWeight;
+pub use max_parachain_block_weight::{DynamicMaxBlockWeight, MaxParachainBlockWeight};
 pub use weights::WeightInfo;
 
 mod unincluded_segment;
@@ -191,7 +191,7 @@ pub mod ump_constants {
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame_support::pallet_prelude::{ValueQuery, *};
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
@@ -477,6 +477,8 @@ pub mod pallet {
 				weight += T::DbWeight::get().reads_writes(3, 2);
 			}
 
+			BlockWeightMode::<T>::kill();
+
 			// Remove the validation from the old block.
 			ValidationData::<T>::kill();
 			// NOTE: Killing here is required to at least include the trie nodes down to the keys
@@ -752,6 +754,11 @@ pub mod pallet {
 		/// No validation function upgrade is currently scheduled.
 		NotScheduled,
 	}
+
+	#[pallet::storage]
+	#[pallet::whitelist_storage]
+	pub type BlockWeightMode<T: Config> =
+		StorageValue<_, max_parachain_block_weight::BlockWeightMode, OptionQuery>;
 
 	/// Latest included block descendants the runtime accepted. In other words, these are
 	/// ancestors of the currently executing block which have not been included in the observed
