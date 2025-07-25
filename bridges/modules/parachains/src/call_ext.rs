@@ -63,9 +63,8 @@ impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {
 		{
 			tracing::trace!(
 				target: crate::LOG_TARGET,
-				parachain=?update.para_id,
-				"The free parachain head can't be updated: no more free slots \
-				left in the block."
+				para_id=?update.para_id,
+				"The free parachain head can't be updated: no more free slots left in the block."
 			);
 
 			return Err(InvalidTransaction::Call.into());
@@ -82,9 +81,10 @@ impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {
 		if improved_by < free_headers_interval {
 			tracing::trace!(
 				target: crate::LOG_TARGET,
-				parachain=?update.para_id,
+				para_id=?update.para_id,
+				%improved_by,
 				"The free parachain head can't be updated: it improves previous
-				best head by {improved_by} while at least {free_headers_interval} is expected."
+				best head while at least {free_headers_interval} is expected."
 			);
 
 			return Err(InvalidTransaction::Stale.into());
@@ -110,7 +110,7 @@ impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {
 					_ => {
 						tracing::trace!(
 							target: crate::LOG_TARGET,
-							parachain=?update.para_id,
+							para_id=?update.para_id,
 							"The parachain head can't be updated. The parachain head \
 								was already updated at better relay chain block {} >= {}.",
 							stored_best_head.best_head_hash.at_relay_block_number,
@@ -123,10 +123,10 @@ impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {
 				if stored_best_head.best_head_hash.head_hash == update.para_head_hash {
 					tracing::trace!(
 						target: crate::LOG_TARGET,
-						parachain=?update.para_id,
+						para_id=?update.para_id,
+						para_head_hash=%update.para_head_hash,
 						"The parachain head can't be updated. The parachain head hash \
-						was already updated to {} at block {} < {}.",
-						update.para_head_hash,
+						was already updated at block {} < {}.",
 						stored_best_head.best_head_hash.at_relay_block_number,
 						update.at_relay_block.0
 					);
@@ -143,11 +143,10 @@ impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {
 		if GrandpaPalletOf::<T, I>::finalized_header_state_root(update.at_relay_block.1).is_none() {
 			tracing::trace!(
 				target: crate::LOG_TARGET,
-				parachain=?update.para_id,
-				"The parachain head can't be updated. Relay chain header {}/{} used to create \
-				parachain proof is missing from the storage.",
-				update.at_relay_block.0,
-				update.at_relay_block.1,
+				para_id=?update.para_id,
+				at_relay_block=?update.at_relay_block,
+				"The parachain head can't be updated. Relay chain header used to create \
+				parachain proof is missing from the storage."
 			);
 
 			return Err(InvalidTransaction::Call.into())

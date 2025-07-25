@@ -667,11 +667,9 @@ pub mod pallet {
 					Err(e) => {
 						tracing::trace!(
 							target: LOG_TARGET,
+							error=?e,
 							?parachain,
-							"The parachain head can't be updated. The parachain head data size \
-							is {}. It exceeds maximal configured size {}.",
-							e.value_size,
-							e.maximal_size,
+							"The parachain head can't be updated. The parachain head data size exceeds maximal configured size."
 						);
 
 						Self::deposit_event(Event::RejectedLargeParachainHead {
@@ -707,8 +705,9 @@ pub mod pallet {
 			tracing::trace!(
 				target: LOG_TARGET,
 				?parachain,
-				"Updated head of parachain to {new_head_hash} at relay block {}",
-				new_at_relay_block.0,
+				%new_head_hash,
+				at_relay_block=%new_at_relay_block.0,
+				"Updated head of parachain"
 			);
 
 			// trigger callback
