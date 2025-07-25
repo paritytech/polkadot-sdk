@@ -41,6 +41,7 @@ jobs:
     with:
       tests_yaml: .github/zombienet-tests/zombienet_polkadot_tests.yml
       test_pattern: ${{ inputs.test_pattern }}
+    secrets: inherit
 
   zombienet-polkadot-tests:
     name: ${{ matrix.test.job-name }}
