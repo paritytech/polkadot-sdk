@@ -99,6 +99,14 @@ impl RequestError {
 			_ => false,
 		}
 	}
+
+	/// Whether the error represents a rejected request.
+	pub fn is_rejected(&self) -> bool {
+		match self {
+			Self::NetworkError(network::RequestFailure::Refused) => true,
+			_ => false,
+		}
+	}
 }
 
 /// A request to be sent to the network bridge, including a sender for sending responses/failures.
