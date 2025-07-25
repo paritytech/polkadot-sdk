@@ -1489,6 +1489,24 @@ fn process_expired_collations(
 	}
 }
 
+fn process_possibly_finalized_collations(
+	collations: Vec<CollationStats>,
+	(hash, number): (Hash, BlockNumber),
+	metrics: &Metrics,
+) {
+	if collations.is_empty() {
+		return
+	}
+
+	let block_numbers = collations
+		.iter()
+		.map(|stats| stats.relay_parent().1)
+		.filter(|n| *n != number)
+		.collect::<std::collections::HashSet<_>>();
+
+	gum::debug!(target: LOG_TARGET_STATS, ?block_numbers, "Possibly finalized");
+}
+
 /// The collator protocol collator side main loop.
 #[overseer::contextbounds(CollatorProtocol, prefix = crate::overseer)]
 pub(crate) async fn run<Context>(
@@ -1551,7 +1569,10 @@ async fn run_inner<Context>(
 						*reconnect_timeout = futures_timer::Delay::new(RECONNECT_AFTER_LEAF_TIMEOUT).fuse();
 					}
 				}
-				FromOrchestra::Signal(BlockFinalized(..)) => {}
+				FromOrchestra::Signal(BlockFinalized(hash, number)) => {
+					let possibly_finalized = state.collation_tracker.drain_finalized(number);
+					process_possibly_finalized_collations(possibly_finalized, (hash, number), &metrics);
+				}
 				FromOrchestra::Signal(Conclude) => return Ok(()),
 			},
 			CollationSendResult { relay_parent, candidate_hash, peer_id, timed_out } =

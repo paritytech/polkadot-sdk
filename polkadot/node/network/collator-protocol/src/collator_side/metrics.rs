@@ -270,6 +270,7 @@ impl CollationTracker {
 
 		entry.set_backed_at(block_number);
 		if let Some(latency) = entry.backed() {
+			// TODO: on finalization
 			metrics.on_collation_backed(latency as f64);
 			// Observe the backing latency since the collation was fetched.
 			let maybe_latency =
@@ -318,6 +319,7 @@ impl CollationTracker {
 
 		entry.set_included_at(block_number);
 		if let Some(latency) = entry.included() {
+			// TODO: on finalization
 			metrics.on_collation_included(latency as f64);
 			gum::debug!(
 				target: crate::LOG_TARGET_STATS,
@@ -338,14 +340,26 @@ impl CollationTracker {
 			.iter()
 			.filter_map(|(head, entry)| entry.is_tracking_expired(block_number).then_some(*head))
 			.collect::<Vec<_>>();
-
 		expired
 			.iter()
 			.filter_map(|head| self.entries.remove(head))
 			.map(|mut entry| {
-				entry.expired_at = Some(block_number);
+				entry.set_expired_at(block_number);
 				entry
 			})
+			.collect::<Vec<_>>()
+	}
+
+	// Returns all the collations that possibly finalized at `block_number`
+	pub fn drain_finalized(&mut self, block_number: BlockNumber) -> Vec<CollationStats> {
+		let finalized = self
+			.entries
+			.iter()
+			.filter_map(|(head, entry)| entry.is_possibly_finalized(block_number).then_some(*head))
+			.collect::<Vec<_>>();
+		finalized
+			.iter()
+			.filter_map(|head| self.entries.remove(head))
 			.collect::<Vec<_>>()
 	}
 
@@ -426,6 +440,11 @@ impl CollationStats {
 		}
 	}
 
+	/// Returns the hash and number of the relay parent.
+	pub fn relay_parent(&self) -> (Hash, BlockNumber) {
+		(self.relay_parent, self.relay_parent_number)
+	}
+
 	/// Returns the age at which the collation expired.
 	pub fn expired(&self) -> Option<BlockNumber> {
 		let expired_at = self.expired_at?;
@@ -469,6 +488,10 @@ impl CollationStats {
 	/// Set the timestamp at which collation is included.
 	pub fn set_included_at(&mut self, included_at: BlockNumber) {
 		self.included_at = Some(included_at);
+	}
+
+	pub fn set_expired_at(&mut self, expired_at: BlockNumber) {
+		self.expired_at = Some(expired_at);
 	}
 
 	/// Sets the pre-backing status of the collation.
@@ -521,8 +544,18 @@ impl CollationStats {
 
 	/// Returns true if the collation is expired.
 	pub fn is_tracking_expired(&self, current_block: BlockNumber) -> bool {
+		// Don't expire included collations
+		if self.included().is_some() {
+			return false
+		}
 		let expiry_block = self.relay_parent_number + self.tracking_ttl();
 		expiry_block <= current_block
+	}
+
+	pub fn is_possibly_finalized(&self, last_finalized: BlockNumber) -> bool {
+		self.included_at
+			.map(|included_at| included_at <= last_finalized)
+			.unwrap_or_default()
 	}
 }
 
