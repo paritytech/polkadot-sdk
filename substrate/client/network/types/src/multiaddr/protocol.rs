@@ -66,14 +66,14 @@ pub enum Protocol<'a> {
 	Wss(Cow<'a, str>),
 }
 
-impl<'a> Display for Protocol<'a> {
+impl Display for Protocol<'_> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		let protocol = LiteP2pProtocol::from(self.clone());
 		Display::fmt(&protocol, f)
 	}
 }
 
-impl<'a> From<IpAddr> for Protocol<'a> {
+impl From<IpAddr> for Protocol<'_> {
 	#[inline]
 	fn from(addr: IpAddr) -> Self {
 		match addr {
@@ -83,14 +83,14 @@ impl<'a> From<IpAddr> for Protocol<'a> {
 	}
 }
 
-impl<'a> From<Ipv4Addr> for Protocol<'a> {
+impl From<Ipv4Addr> for Protocol<'_> {
 	#[inline]
 	fn from(addr: Ipv4Addr) -> Self {
 		Protocol::Ip4(addr)
 	}
 }
 
-impl<'a> From<Ipv6Addr> for Protocol<'a> {
+impl From<Ipv6Addr> for Protocol<'_> {
 	#[inline]
 	fn from(addr: Ipv6Addr) -> Self {
 		Protocol::Ip6(addr)

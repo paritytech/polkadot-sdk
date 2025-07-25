@@ -17,33 +17,31 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 array-bytes = { workspace = true, default-features = true }
+bip39 = { workspace = true, default-features = true, features = ["rand"] }
 chrono = { workspace = true }
 clap = { features = ["derive", "string", "wrap_help"], workspace = true }
+codec = { workspace = true, default-features = true }
 fdlimit = { workspace = true }
 futures = { workspace = true }
 itertools = { workspace = true }
 libp2p-identity = { features = ["ed25519", "peerid"], workspace = true }
 log = { workspace = true, default-features = true }
 names = { workspace = true }
-codec = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
 regex = { workspace = true }
 rpassword = { workspace = true }
-serde = { workspace = true, default-features = true }
-serde_json = { workspace = true, default-features = true }
-thiserror = { workspace = true }
-# personal fork here as workaround for: https://github.com/rust-bitcoin/rust-bip39/pull/64
-bip39 = { package = "parity-bip39", version = "2.0.1", features = ["rand"] }
-tokio = { features = ["parking_lot", "rt-multi-thread", "signal"], workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
-sc-client-db = { workspace = true }
+sc-client-db = { workspace = true, default-features = false }
 sc-keystore = { workspace = true, default-features = true }
 sc-mixnet = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
-sc-service = { workspace = true }
+sc-service = { workspace = true, default-features = false }
 sc-telemetry = { workspace = true, default-features = true }
 sc-tracing = { workspace = true, default-features = true }
+sc-transaction-pool = { workspace = true, default-features = true }
 sc-utils = { workspace = true, default-features = true }
+serde = { workspace = true, default-features = true }
+serde_json = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
@@ -51,11 +49,13 @@ sp-keystore = { workspace = true, default-features = true }
 sp-panic-handler = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
+thiserror = { workspace = true }
+tokio = { features = ["parking_lot", "rt-multi-thread", "signal"], workspace = true, default-features = true }
 
 [dev-dependencies]
-tempfile = { workspace = true }
 futures-timer = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
+tempfile = { workspace = true }
 
 [features]
 default = ["rocksdb"]

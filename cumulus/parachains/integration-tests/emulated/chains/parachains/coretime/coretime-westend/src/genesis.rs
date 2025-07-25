@@ -30,6 +30,7 @@ pub fn genesis() -> Storage {
 		system: coretime_westend_runtime::SystemConfig::default(),
 		balances: coretime_westend_runtime::BalancesConfig {
 			balances: accounts::init_balances().iter().cloned().map(|k| (k, ED * 4096)).collect(),
+			..Default::default()
 		},
 		parachain_info: coretime_westend_runtime::ParachainInfoConfig {
 			parachain_id: PARA_ID.into(),

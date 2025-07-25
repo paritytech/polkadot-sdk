@@ -1,0 +1,10 @@
+title: Update expire date on treasury payout
+doc:
+- audience: Runtime Dev
+  description: |-
+    Resets the `payout.expire_at` field with the `PayoutPeriod` every time that there is a valid Payout attempt.
+    Prior to this change, when a spend is approved, it receives an expiry date so that if it’s never claimed, it automatically expires. This makes sense under normal circumstances. However, if someone attempts to claim a valid payout and there isn’t sufficient liquidity to fulfill it, the expiry date currently remains unchanged. This effectively penalizes the claimant in the same way as if they had never requested the payout in the first place.
+    With this change users are not penalized for liquidity shortages and have a fair window to claim once the funds are available.
+crates:
+- name: pallet-treasury
+  bump: patch

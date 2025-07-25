@@ -26,16 +26,12 @@ use polkadot_primitives::{CandidateHash, Hash, Id as ParaId};
 
 use futures::channel::oneshot;
 
-use crate::LOG_TARGET;
-
 /// General result.
 pub type Result<T> = std::result::Result<T, Error>;
 /// Result for non-fatal only failures.
 pub type JfyiErrorResult<T> = std::result::Result<T, JfyiError>;
 /// Result for fatal only failures.
 pub type FatalResult<T> = std::result::Result<T, FatalError>;
-
-use fatality::Nested;
 
 #[allow(missing_docs)]
 #[fatality::fatality(splitable)]
@@ -72,17 +68,20 @@ pub enum Error {
 	#[error("Fetching session info failed {0:?}")]
 	FetchSessionInfo(RuntimeApiError),
 
-	#[error("Fetching availability cores failed {0:?}")]
-	FetchAvailabilityCores(RuntimeApiError),
-
 	#[error("Fetching disabled validators failed {0:?}")]
-	FetchDisabledValidators(runtime::Error),
+	FetchDisabledValidators(RuntimeApiError),
 
 	#[error("Fetching validator groups failed {0:?}")]
 	FetchValidatorGroups(RuntimeApiError),
 
 	#[error("Fetching claim queue failed {0:?}")]
-	FetchClaimQueue(runtime::Error),
+	FetchClaimQueue(RuntimeApiError),
+
+	#[error("Fetching minimum backing votes failed {0:?}")]
+	FetchMinimumBackingVotes(RuntimeApiError),
+
+	#[error("Fetching node features failed {0:?}")]
+	FetchNodeFeatures(RuntimeApiError),
 
 	#[error("Attempted to share statement when not a validator or not assigned")]
 	InvalidShare,
@@ -111,27 +110,4 @@ pub enum Error {
 	// Failed to activate leaf due to a fetch error.
 	#[error("Implicit view failure while activating leaf")]
 	ActivateLeafFailure(ImplicitViewFetchError),
-}
-
-/// Utility for eating top level errors and log them.
-///
-/// We basically always want to try and continue on error. This utility function is meant to
-/// consume top-level errors by simply logging them.
-pub fn log_error(
-	result: Result<()>,
-	ctx: &'static str,
-	warn_freq: &mut gum::Freq,
-) -> std::result::Result<(), FatalError> {
-	match result.into_nested()? {
-		Err(jfyi) => {
-			match jfyi {
-				JfyiError::RequestedUnannouncedCandidate(_, _) =>
-					gum::warn!(target: LOG_TARGET, error = %jfyi, ctx),
-				_ =>
-					gum::warn_if_frequent!(freq: warn_freq, max_rate: gum::Times::PerHour(100), target: LOG_TARGET, error = %jfyi, ctx),
-			}
-			Ok(())
-		},
-		Ok(()) => Ok(()),
-	}
 }

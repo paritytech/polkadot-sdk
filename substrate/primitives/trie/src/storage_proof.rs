@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use alloc::{collections::btree_set::BTreeSet, vec::Vec};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::iter::{DoubleEndedIterator, IntoIterator};
 use hash_db::{HashDB, Hasher};
 use scale_info::TypeInfo;
@@ -39,7 +39,7 @@ pub enum StorageProofError {
 /// The proof consists of the set of serialized nodes in the storage trie accessed when looking up
 /// the keys covered by the proof. Verifying the proof requires constructing the partial trie from
 /// the serialized nodes and performing the key lookups.
-#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo)]
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub struct StorageProof {
 	trie_nodes: BTreeSet<Vec<u8>>,
 }
@@ -163,7 +163,7 @@ impl<H: Hasher> From<StorageProof> for crate::MemoryDB<H> {
 
 impl<H: Hasher> From<&StorageProof> for crate::MemoryDB<H> {
 	fn from(proof: &StorageProof) -> Self {
-		let mut db = crate::MemoryDB::default();
+		let mut db = crate::MemoryDB::with_hasher(crate::RandomState::default());
 		proof.iter_nodes().for_each(|n| {
 			db.insert(crate::EMPTY_PREFIX, &n);
 		});
@@ -232,7 +232,8 @@ pub mod tests {
 	use super::*;
 	use crate::{tests::create_storage_proof, StorageProof};
 
-	type Layout = crate::LayoutV1<sp_core::Blake2Hasher>;
+	type Hasher = sp_core::Blake2Hasher;
+	type Layout = crate::LayoutV1<Hasher>;
 
 	const TEST_DATA: &[(&[u8], &[u8])] =
 		&[(b"key1", &[1; 64]), (b"key2", &[2; 64]), (b"key3", &[3; 64]), (b"key11", &[4; 64])];
@@ -244,5 +245,12 @@ pub mod tests {
 			StorageProof::new_with_duplicate_nodes_check(raw_proof),
 			Err(StorageProofError::DuplicateNodes)
 		));
+	}
+
+	#[test]
+	fn invalid_compact_proof_does_not_panic_when_decoding() {
+		let invalid_proof = CompactProof { encoded_nodes: vec![vec![135]] };
+		let result = invalid_proof.to_memory_db::<Hasher>(None);
+		assert!(result.is_err());
 	}
 }

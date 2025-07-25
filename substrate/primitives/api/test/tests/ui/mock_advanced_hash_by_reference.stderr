@@ -6,7 +6,6 @@ error: `Hash` needs to be taken by value and not by reference!
 31 | |         #[advanced]
 32 | |         fn test(&self, _: &Hash) -> Result<(), ApiError> {
 ...  |
-35 | |     }
 36 | | }
    | |_^
    |

@@ -101,7 +101,7 @@ impl<AssetId, Instance> MatchesNonFungibles<AssetId, Instance> for Tuple {
 		for_tuples!( #(
 			match Tuple::matches_nonfungibles(a) { o @ Ok(_) => return o, _ => () }
 		)* );
-		tracing::trace!(target: "xcm::matches_non_fungibles", asset = ?a, "did not match fungibles asset");
+		tracing::trace!(target: "xcm::matches_non_fungibles", asset = ?a, "did not match non-fungibles asset");
 		Err(Error::AssetNotHandled)
 	}
 }

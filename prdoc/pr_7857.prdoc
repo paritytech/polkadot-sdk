@@ -1,0 +1,34 @@
+title: Add new host APIs set_storage_or_clear and get_storage_or_zero
+doc:
+- audience: Runtime Dev
+  description: "# Description\n\n*This PR introduces two new storage API functions\u2014\
+    set_storage_or_clear and get_storage_or_zero\u2014which provide fixed\u2011size\
+    \ (32\u2011byte) storage operations. These APIs are an attempt to match Ethereum\u2019\
+    s SSTORE semantics. These APIs provide additional functionality for setting and\
+    \ retrieving storage values and clearing storage when a zero value is provided\
+    \ and returning zero bytes when a key does not exist.*\n\nFixes #6944\n## Review\
+    \ Notes\n\n* Changes in `runtime.rs`\nAdded the set_storage_or_clear function\
+    \ to set storage at a fixed 256-bit key with a fixed 256-bit value. If the provided\
+    \ value is all zeros, the key is cleared.\nAdded the get_storage_or_zero function\
+    \ to read storage at a fixed 256-bit key and write back a fixed 256-bit value.\
+    \ If the key does not exist, 32 bytes of zero are written back.\n* Changes in\
+    \ `storage.rs`\nAdded test cases to cover the new set_storage_or_clear and get_storage_or_zero\
+    \ APIs.\n.\n\n```\n// Example usage of the new set_storage_or_clear function\n\
+    let existing = api::set_storage_or_clear(StorageFlags::empty(), &KEY, &VALUE_A);\n\
+    assert_eq!(existing, None);\n\n// Example usage of the new get_storage_or_zero\
+    \ function\nlet mut stored: [u8; 32] = [0u8; 32];\nlet _ = api::get_storage_or_zero(StorageFlags::empty(),\
+    \ &KEY, &mut stored);\nassert_eq!(stored, VALUE_A);\n```\n\n*All existing tests\
+    \ pass*\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined\
+    \ in the \"Description\" and its two subsections above.\n* [ ] My PR follows the\
+    \ [labeling requirements](\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n\
+    ) of this project (at minimum one label for `T` required)\n    * External contributors:\
+    \ ask maintainers to put the right label on your PR.\n* [x] I have made corresponding\
+    \ changes to the documentation (if applicable)\n* [x] I have added tests that\
+    \ prove my fix is effective or that my feature works (if applicable)"
+crates:
+- name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-uapi
+  bump: minor

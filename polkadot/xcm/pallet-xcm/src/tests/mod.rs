@@ -19,28 +19,38 @@
 pub(crate) mod assets_transfer;
 
 use crate::{
-	mock::*, pallet::SupportedVersion, AssetTraps, Config, CurrentMigration, Error,
-	ExecuteControllerWeightInfo, LatestVersionedLocation, Pallet, Queries, QueryStatus,
-	RecordedXcm, ShouldRecordXcm, VersionDiscoveryQueue, VersionMigrationStage, VersionNotifiers,
-	VersionNotifyTargets, WeightInfo,
+	aliasers_footprint,
+	migration::data::NeedsMigration,
+	mock::*,
+	pallet::{LockedFungibles, RemoteLockedFungibles, SupportedVersion},
+	xcm_helpers::find_xcm_sent_message_id,
+	AssetTraps, AuthorizedAliasers, Config, CurrentMigration, Error, ExecuteControllerWeightInfo,
+	LatestVersionedLocation, MaxAuthorizedAliases, Pallet, Queries, QueryStatus, RecordedXcm,
+	RemoteLockedFungibleRecord, ShouldRecordXcm, VersionDiscoveryQueue, VersionMigrationStage,
+	VersionNotifiers, VersionNotifyTargets, WeightInfo,
 };
+use bounded_collections::BoundedVec;
 use frame_support::{
-	assert_err_ignore_postinfo, assert_noop, assert_ok,
-	traits::{Currency, Hooks},
+	assert_err_ignore_postinfo, assert_noop, assert_ok, assert_storage_noop,
+	traits::{ContainsPair, Currency, Hooks},
 	weights::Weight,
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
-use sp_runtime::traits::{AccountIdConversion, BlakeTwo256, Hash};
+use sp_runtime::{
+	traits::{AccountIdConversion, BlakeTwo256, BlockNumberProvider, Hash},
+	SaturatedConversion, TokenError,
+};
 use xcm::{latest::QueryResponseInfo, prelude::*};
 use xcm_builder::AllowKnownQueryResponses;
 use xcm_executor::{
 	traits::{Properties, QueryHandler, QueryResponseStatus, ShouldExecute},
 	XcmExecutor,
 };
+use xcm_simulator::fake_message_hash;
 
 const ALICE: AccountId = AccountId::new([0u8; 32]);
 const BOB: AccountId = AccountId::new([1u8; 32]);
-const INITIAL_BALANCE: u128 = 100;
+const INITIAL_BALANCE: u128 = 1000;
 const SEND_AMOUNT: u128 = 10;
 const FEE_AMOUNT: u128 = 2;
 
@@ -335,25 +345,33 @@ fn send_works() {
 /// Asserts that `send` fails with `Error::SendFailure`
 #[test]
 fn send_fails_when_xcm_router_blocks() {
+	use sp_tracing::{
+		test_log_capture::init_log_capture,
+		tracing::{subscriber, Level},
+	};
+
 	let balances = vec![
 		(ALICE, INITIAL_BALANCE),
 		(ParaId::from(OTHER_PARA_ID).into_account_truncating(), INITIAL_BALANCE),
 	];
 	new_test_ext_with_balances(balances).execute_with(|| {
-		let sender: Location = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+		let sender: Location = AccountId32 { network: None, id: ALICE.into() }.into();
 		let message = Xcm(vec![
 			ReserveAssetDeposited((Parent, SEND_AMOUNT).into()),
 			buy_execution((Parent, SEND_AMOUNT)),
 			DepositAsset { assets: AllCounted(1).into(), beneficiary: sender },
 		]);
-		assert_noop!(
-			XcmPallet::send(
+		let (log_capture, subscriber) = init_log_capture(Level::DEBUG, true);
+		subscriber::with_default(subscriber, || {
+			let result = XcmPallet::send(
 				RuntimeOrigin::signed(ALICE),
 				Box::new(Location::ancestor(8).into()),
 				Box::new(VersionedXcm::from(message.clone())),
-			),
-			crate::Error::<Test>::SendFailure
-		);
+			);
+			assert_noop!(result, Error::<Test>::SendFailure);
+			assert!(log_capture
+				.contains("xcm::pallet_xcm::send: XCM send failed with error error=Transport(\"Destination location full\")"));
+		});
 	});
 }
 
@@ -388,6 +406,184 @@ fn execute_withdraw_to_deposit_works() {
 				outcome: Outcome::Complete { used: weight }
 			})
 		);
+	});
+}
+
+/// Test XCM authorized aliases.
+#[test]
+fn authorized_aliases_work() {
+	let balances = vec![(ALICE, INITIAL_BALANCE)];
+	new_test_ext_with_balances(balances).execute_with(|| {
+		// --- alias is same as origin
+		let alias: Location = AccountId32 { network: None, id: BOB.into() }.into();
+		assert_eq!(
+			XcmPallet::add_authorized_alias(
+				RuntimeOrigin::signed(BOB),
+				Box::new(alias.into()),
+				None
+			),
+			Err(Error::<Test>::BadLocation.into())
+		);
+
+		// --- alias already expired
+		let alias = Location::here();
+		let expires = Some(System::current_block_number().saturated_into::<u64>());
+		assert_eq!(
+			XcmPallet::add_authorized_alias(
+				RuntimeOrigin::signed(BOB),
+				Box::new(alias.clone().into()),
+				expires
+			),
+			Err(Error::<Test>::ExpiresInPast.into())
+		);
+
+		// --- storage deposit not covered (BOB has no funds)
+		assert_eq!(
+			XcmPallet::add_authorized_alias(
+				RuntimeOrigin::signed(BOB),
+				Box::new(alias.clone().into()),
+				None
+			),
+			Err(sp_runtime::DispatchError::Token(TokenError::FundsUnavailable))
+		);
+
+		// --- setting single alias works
+		let who = ALICE;
+		let first_alias: Location = AccountId32 { network: Some(Polkadot), id: BOB.into() }.into();
+		let total_balance_before = <Balances as Currency<_>>::total_balance(&who);
+		let free_balance = <Balances as Currency<_>>::free_balance(&who);
+		assert_eq!(free_balance, total_balance_before);
+		assert_ok!(XcmPallet::add_authorized_alias(
+			RuntimeOrigin::signed(who.clone()),
+			Box::new(first_alias.clone().into()),
+			None
+		));
+		let footprint = aliasers_footprint(1);
+		let deposit = footprint.size + 2 * footprint.count;
+		let free_balance = <Balances as Currency<_>>::free_balance(&who);
+		let total_balance = <Balances as Currency<_>>::total_balance(&who);
+		assert_eq!(total_balance, total_balance_before);
+		assert_eq!(total_balance, free_balance + deposit as u128);
+
+		// --- setting same alias again only updates its expiry
+		assert_ok!(XcmPallet::add_authorized_alias(
+			RuntimeOrigin::signed(who.clone()),
+			Box::new(first_alias.clone().into()),
+			Some(100)
+		));
+		// deposit is unchanged
+		assert_eq!(total_balance - deposit as u128, <Balances as Currency<_>>::free_balance(&who));
+
+		// --- setting max number of aliases works
+		let mut aliases = vec![];
+		for i in 1..MaxAuthorizedAliases::get() {
+			let alias = Location::new(0, [Parachain(OTHER_PARA_ID), GeneralIndex(i as u128)]);
+			assert_ok!(XcmPallet::add_authorized_alias(
+				RuntimeOrigin::signed(who.clone()),
+				Box::new(alias.clone().into()),
+				None
+			));
+			let footprint = aliasers_footprint(i as usize + 1);
+			let deposit = (footprint.size + 2 * footprint.count) as u128;
+			assert_eq!(total_balance - deposit, <Balances as Currency<_>>::free_balance(&who));
+			aliases.push(alias);
+		}
+
+		// deposit held for MaxAliases
+		let footprint = aliasers_footprint(MaxAuthorizedAliases::get() as usize);
+		let deposit = (footprint.size + 2 * footprint.count) as u128;
+		assert_eq!(total_balance - deposit, <Balances as Currency<_>>::free_balance(&who));
+
+		// --- adding more than max aliases is not allowed
+		let alias = Location::new(
+			0,
+			[Parachain(OTHER_PARA_ID), GeneralIndex(MaxAuthorizedAliases::get() as u128 + 100)],
+		);
+		assert_eq!(
+			XcmPallet::add_authorized_alias(
+				RuntimeOrigin::signed(who.clone()),
+				Box::new(alias.clone().into()),
+				None
+			),
+			Err(Error::<Test>::TooManyAuthorizedAliases.into())
+		);
+
+		// --- remove one alias
+		let target: Location = AccountId32 { network: None, id: who.clone().into() }.into();
+		assert_ok!(XcmPallet::remove_authorized_alias(
+			RuntimeOrigin::signed(who.clone()),
+			Box::new(first_alias.clone().into()),
+		));
+		// deposit held for MaxAliases - 1
+		let footprint = aliasers_footprint(MaxAuthorizedAliases::get() as usize - 1);
+		let deposit = (footprint.size + 2 * footprint.count) as u128;
+		assert_eq!(total_balance - deposit, <Balances as Currency<_>>::free_balance(&who));
+		// de-authorization event
+		assert_eq!(
+			last_events(1),
+			vec![RuntimeEvent::XcmPallet(crate::Event::AliasAuthorizationRemoved {
+				aliaser: first_alias.into(),
+				target: target.clone().into(),
+			})]
+		);
+
+		// --- adding one more is now allowed
+		assert_ok!(XcmPallet::add_authorized_alias(
+			RuntimeOrigin::signed(who.clone()),
+			Box::new(alias.clone().into()),
+			None
+		));
+		assert_eq!(
+			last_events(1),
+			vec![RuntimeEvent::XcmPallet(crate::Event::AliasAuthorized {
+				aliaser: alias.clone().into(),
+				target: target.clone().into(),
+				expiry: None,
+			})]
+		);
+
+		// --- un-authorized alias is correctly filtered/denied
+		assert!(!AuthorizedAliasers::<Test>::contains(&Location::here(), &target));
+		// --- authorized aliases are correctly allowed
+		for i in 1..MaxAuthorizedAliases::get() {
+			assert!(AuthorizedAliasers::<Test>::contains(&aliases[i as usize - 1], &target));
+		}
+		// --- remove alias then verify no longer allowed
+		assert_ok!(XcmPallet::remove_authorized_alias(
+			RuntimeOrigin::signed(who.clone()),
+			Box::new(aliases[0].clone().into()),
+		));
+		assert!(!AuthorizedAliasers::<Test>::contains(&aliases[0], &target));
+
+		// --- remove nonexistent alias
+		assert_eq!(
+			XcmPallet::remove_authorized_alias(
+				RuntimeOrigin::signed(ALICE),
+				Box::new(Location::parent().into())
+			),
+			Err(Error::<Test>::AliasNotFound.into())
+		);
+
+		// --- remove nonexistent alias (BOB has no registered aliases)
+		assert_eq!(
+			XcmPallet::remove_authorized_alias(
+				RuntimeOrigin::signed(BOB),
+				Box::new(Location::parent().into()),
+			),
+			Err(Error::<Test>::AliasNotFound.into())
+		);
+
+		// --- remove all aliases then verify all deposit is returned
+		assert_ok!(XcmPallet::remove_all_authorized_aliases(RuntimeOrigin::signed(who.clone())));
+		// de-authorization event
+		assert_eq!(
+			last_events(1),
+			vec![RuntimeEvent::XcmPallet(crate::Event::AliasesAuthorizationsRemoved {
+				target: target.clone().into(),
+			})]
+		);
+		// all deposit is returned
+		assert_eq!(total_balance_before, <Balances as Currency<_>>::free_balance(&who));
 	});
 }
 
@@ -462,7 +658,10 @@ fn trapped_assets_can_be_claimed() {
 				]))),
 				weight
 			),
-			Error::<Test>::LocalExecutionIncomplete
+			Error::<Test>::LocalExecutionIncompleteWithError {
+				index: 0,
+				error: XcmError::UnknownClaim.into()
+			}
 		);
 	});
 }
@@ -478,14 +677,14 @@ fn claim_assets_works() {
 		// Even though assets are trapped, the extrinsic returns success.
 		assert_ok!(XcmPallet::execute(
 			RuntimeOrigin::signed(ALICE),
-			Box::new(VersionedXcm::V4(trapping_program)),
+			Box::new(VersionedXcm::from(trapping_program)),
 			BaseXcmWeight::get() * 2,
 		));
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE - SEND_AMOUNT);
 
 		// Expected `AssetsTrapped` event info.
 		let source: Location = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
-		let versioned_assets = VersionedAssets::V4(Assets::from((Here, SEND_AMOUNT)));
+		let versioned_assets = VersionedAssets::from(Assets::from((Here, SEND_AMOUNT)));
 		let hash = BlakeTwo256::hash_of(&(source.clone(), versioned_assets.clone()));
 
 		// Assets were indeed trapped.
@@ -508,10 +707,11 @@ fn claim_assets_works() {
 		// Now claim them with the extrinsic.
 		assert_ok!(XcmPallet::claim_assets(
 			RuntimeOrigin::signed(ALICE),
-			Box::new(VersionedAssets::V4((Here, SEND_AMOUNT).into())),
-			Box::new(VersionedLocation::V4(
-				AccountId32 { network: None, id: ALICE.clone().into() }.into()
-			)),
+			Box::new(VersionedAssets::from(Assets::from((Here, SEND_AMOUNT)))),
+			Box::new(VersionedLocation::from(Location::from(AccountId32 {
+				network: None,
+				id: ALICE.clone().into()
+			}))),
 		));
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
 		assert_eq!(AssetTraps::<Test>::iter().collect::<Vec<_>>(), vec![]);
@@ -557,7 +757,12 @@ fn incomplete_execute_reverts_side_effects() {
 					),
 					pays_fee: frame_support::dispatch::Pays::Yes,
 				},
-				error: sp_runtime::DispatchError::from(Error::<Test>::LocalExecutionIncomplete)
+				error: sp_runtime::DispatchError::from(
+					Error::<Test>::LocalExecutionIncompleteWithError {
+						index: 3,
+						error: XcmError::FailedToTransactAsset("").into()
+					}
+				)
 			})
 		);
 	});
@@ -841,79 +1046,81 @@ fn subscription_side_upgrades_work_without_notify() {
 
 #[test]
 fn subscriber_side_subscription_works() {
-	new_test_ext_with_balances_and_xcm_version(vec![], Some(XCM_VERSION)).execute_with(|| {
-		let remote: Location = Parachain(1000).into();
-		assert_ok!(XcmPallet::force_subscribe_version_notify(
-			RuntimeOrigin::root(),
-			Box::new(remote.clone().into()),
-		));
-		assert_eq!(XcmPallet::get_version_for(&remote), None);
-		take_sent_xcm();
+	new_test_ext_with_balances_and_xcm_version(vec![], Some(XCM_VERSION), vec![]).execute_with(
+		|| {
+			let remote: Location = Parachain(1000).into();
+			assert_ok!(XcmPallet::force_subscribe_version_notify(
+				RuntimeOrigin::root(),
+				Box::new(remote.clone().into()),
+			));
+			assert_eq!(XcmPallet::get_version_for(&remote), None);
+			take_sent_xcm();
 
-		// Assume subscription target is working ok.
+			// Assume subscription target is working ok.
 
-		let weight = BaseXcmWeight::get();
-		let message = Xcm(vec![
-			// Remote supports XCM v3
-			QueryResponse {
-				query_id: 0,
-				max_weight: Weight::zero(),
-				response: Response::Version(3),
-				querier: None,
-			},
-		]);
-		let mut hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
-			remote.clone(),
-			message,
-			&mut hash,
-			weight,
-			Weight::zero(),
-		);
-		assert_eq!(r, Outcome::Complete { used: weight });
-		assert_eq!(take_sent_xcm(), vec![]);
-		assert_eq!(XcmPallet::get_version_for(&remote), Some(3));
+			let weight = BaseXcmWeight::get();
+			let message = Xcm(vec![
+				// Remote supports XCM v3
+				QueryResponse {
+					query_id: 0,
+					max_weight: Weight::zero(),
+					response: Response::Version(3),
+					querier: None,
+				},
+			]);
+			let mut hash = fake_message_hash(&message);
+			let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
+				remote.clone(),
+				message,
+				&mut hash,
+				weight,
+				Weight::zero(),
+			);
+			assert_eq!(r, Outcome::Complete { used: weight });
+			assert_eq!(take_sent_xcm(), vec![]);
+			assert_eq!(XcmPallet::get_version_for(&remote), Some(3));
 
-		// This message will be sent as v3.
-		let v4_msg = xcm::v4::Xcm::<()>(vec![xcm::v4::Instruction::Trap(0)]);
-		assert_eq!(
-			XcmPallet::wrap_version(&remote, v4_msg.clone()),
-			Ok(VersionedXcm::V3(xcm::v3::Xcm(vec![xcm::v3::Instruction::Trap(0)])))
-		);
+			// This message will be sent as v3.
+			let v4_msg = xcm::v4::Xcm::<()>(vec![xcm::v4::Instruction::Trap(0)]);
+			assert_eq!(
+				XcmPallet::wrap_version(&remote, v4_msg.clone()),
+				Ok(VersionedXcm::V3(xcm::v3::Xcm(vec![xcm::v3::Instruction::Trap(0)])))
+			);
 
-		let message = Xcm(vec![
-			// Remote upgraded to XCM v4
-			QueryResponse {
-				query_id: 0,
-				max_weight: Weight::zero(),
-				response: Response::Version(4),
-				querier: None,
-			},
-		]);
-		let mut hash = fake_message_hash(&message);
-		let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
-			remote.clone(),
-			message,
-			&mut hash,
-			weight,
-			Weight::zero(),
-		);
-		assert_eq!(r, Outcome::Complete { used: weight });
-		assert_eq!(take_sent_xcm(), vec![]);
-		assert_eq!(XcmPallet::get_version_for(&remote), Some(4));
+			let message = Xcm(vec![
+				// Remote upgraded to XCM v4
+				QueryResponse {
+					query_id: 0,
+					max_weight: Weight::zero(),
+					response: Response::Version(4),
+					querier: None,
+				},
+			]);
+			let mut hash = fake_message_hash(&message);
+			let r = XcmExecutor::<XcmConfig>::prepare_and_execute(
+				remote.clone(),
+				message,
+				&mut hash,
+				weight,
+				Weight::zero(),
+			);
+			assert_eq!(r, Outcome::Complete { used: weight });
+			assert_eq!(take_sent_xcm(), vec![]);
+			assert_eq!(XcmPallet::get_version_for(&remote), Some(4));
 
-		// This message is now sent as v4.
-		assert_eq!(
-			XcmPallet::wrap_version(&remote, v4_msg.clone()),
-			Ok(VersionedXcm::from(v4_msg))
-		);
-	});
+			// This message is now sent as v4.
+			assert_eq!(
+				XcmPallet::wrap_version(&remote, v4_msg.clone()),
+				Ok(VersionedXcm::from(v4_msg))
+			);
+		},
+	);
 }
 
 /// We should auto-subscribe when we don't know the remote's version.
 #[test]
 fn auto_subscription_works() {
-	new_test_ext_with_balances_and_xcm_version(vec![], None).execute_with(|| {
+	new_test_ext_with_balances_and_xcm_version(vec![], None, vec![]).execute_with(|| {
 		let remote_v3: Location = Parachain(1000).into();
 		let remote_v4: Location = Parachain(1001).into();
 
@@ -1053,7 +1260,7 @@ fn subscription_side_upgrades_work_with_multistage_notify() {
 		let mut counter = 0;
 		while let Some(migration) = maybe_migration.take() {
 			counter += 1;
-			let (_, m) = XcmPallet::check_xcm_version_change(migration, Weight::zero());
+			let (_, m) = XcmPallet::lazy_migration(migration, Weight::zero());
 			maybe_migration = m;
 		}
 		assert_eq!(counter, 4);
@@ -1105,77 +1312,92 @@ fn subscription_side_upgrades_work_with_multistage_notify() {
 
 #[test]
 fn get_and_wrap_version_works() {
-	new_test_ext_with_balances_and_xcm_version(vec![], None).execute_with(|| {
-		let remote_a: Location = Parachain(1000).into();
-		let remote_b: Location = Parachain(1001).into();
-		let remote_c: Location = Parachain(1002).into();
+	let remote_a: Location = Parachain(1000).into();
+	let remote_b: Location = Parachain(1001).into();
+	let remote_c: Location = Parachain(1002).into();
+	let remote_d: Location = Parachain(1003).into();
 
-		// no `safe_xcm_version` version at `GenesisConfig`
-		assert_eq!(XcmPallet::get_version_for(&remote_a), None);
-		assert_eq!(XcmPallet::get_version_for(&remote_b), None);
-		assert_eq!(XcmPallet::get_version_for(&remote_c), None);
-		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![]);
+	new_test_ext_with_balances_and_xcm_version(vec![], None, vec![(remote_d.clone(), XCM_VERSION)])
+		.execute_with(|| {
+			// Versioned XCM location for `remote_d` was set in the genesis state
+			assert_eq!(XcmPallet::get_version_for(&remote_d), Some(XCM_VERSION));
 
-		// set default XCM version (a.k.a. `safe_xcm_version`)
-		assert_ok!(XcmPallet::force_default_xcm_version(RuntimeOrigin::root(), Some(1)));
-		assert_eq!(XcmPallet::get_version_for(&remote_a), None);
-		assert_eq!(XcmPallet::get_version_for(&remote_b), None);
-		assert_eq!(XcmPallet::get_version_for(&remote_c), None);
-		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![]);
+			// no `safe_xcm_version` version at `GenesisConfig`
+			assert_eq!(XcmPallet::get_version_for(&remote_a), None);
+			assert_eq!(XcmPallet::get_version_for(&remote_b), None);
+			assert_eq!(XcmPallet::get_version_for(&remote_c), None);
+			assert_eq!(XcmPallet::get_version_for(&remote_d), Some(XCM_VERSION));
+			assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![]);
 
-		// set XCM version only for `remote_a`
-		assert_ok!(XcmPallet::force_xcm_version(
-			RuntimeOrigin::root(),
-			Box::new(remote_a.clone()),
-			XCM_VERSION
-		));
-		assert_eq!(XcmPallet::get_version_for(&remote_a), Some(XCM_VERSION));
-		assert_eq!(XcmPallet::get_version_for(&remote_b), None);
-		assert_eq!(XcmPallet::get_version_for(&remote_c), None);
-		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![]);
+			// set default XCM version (a.k.a. `safe_xcm_version`)
+			assert_ok!(XcmPallet::force_default_xcm_version(RuntimeOrigin::root(), Some(1)));
+			assert_eq!(XcmPallet::get_version_for(&remote_a), None);
+			assert_eq!(XcmPallet::get_version_for(&remote_b), None);
+			assert_eq!(XcmPallet::get_version_for(&remote_c), None);
+			assert_eq!(XcmPallet::get_version_for(&remote_d), Some(XCM_VERSION));
+			assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![]);
 
-		let xcm = Xcm::<()>::default();
+			// set XCM version only for `remote_a`
+			assert_ok!(XcmPallet::force_xcm_version(
+				RuntimeOrigin::root(),
+				Box::new(remote_a.clone()),
+				XCM_VERSION
+			));
+			assert_eq!(XcmPallet::get_version_for(&remote_a), Some(XCM_VERSION));
+			assert_eq!(XcmPallet::get_version_for(&remote_b), None);
+			assert_eq!(XcmPallet::get_version_for(&remote_c), None);
+			assert_eq!(XcmPallet::get_version_for(&remote_d), Some(XCM_VERSION));
+			assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![]);
 
-		// wrap version - works because remote_a has `XCM_VERSION`
-		assert_eq!(
-			XcmPallet::wrap_version(&remote_a, xcm.clone()),
-			Ok(VersionedXcm::from(xcm.clone()))
-		);
-		// does not work because remote_b has unknown version and default is set to 1, and
-		// `XCM_VERSION` cannot be wrapped to the `1`
-		assert_eq!(XcmPallet::wrap_version(&remote_b, xcm.clone()), Err(()));
-		assert_eq!(
-			VersionDiscoveryQueue::<Test>::get().into_inner(),
-			vec![(remote_b.clone().into(), 1)]
-		);
+			let xcm = Xcm::<()>::default();
 
-		// set default to the `XCM_VERSION`
-		assert_ok!(XcmPallet::force_default_xcm_version(RuntimeOrigin::root(), Some(XCM_VERSION)));
-		assert_eq!(XcmPallet::get_version_for(&remote_b), None);
-		assert_eq!(XcmPallet::get_version_for(&remote_c), None);
+			// wrap version - works because remote_a has `XCM_VERSION`
+			assert_eq!(
+				XcmPallet::wrap_version(&remote_a, xcm.clone()),
+				Ok(VersionedXcm::from(xcm.clone()))
+			);
+			// does not work because remote_b has unknown version and default is set to 1, and
+			// `XCM_VERSION` cannot be wrapped to the `1`
+			assert_eq!(XcmPallet::wrap_version(&remote_b, xcm.clone()), Err(()));
+			assert_eq!(
+				VersionDiscoveryQueue::<Test>::get().into_inner(),
+				vec![(remote_b.clone().into(), 1)]
+			);
 
-		// now works, because default is `XCM_VERSION`
-		assert_eq!(
-			XcmPallet::wrap_version(&remote_b, xcm.clone()),
-			Ok(VersionedXcm::from(xcm.clone()))
-		);
-		assert_eq!(
-			VersionDiscoveryQueue::<Test>::get().into_inner(),
-			vec![(remote_b.clone().into(), 2)]
-		);
+			// set default to the `XCM_VERSION`
+			assert_ok!(XcmPallet::force_default_xcm_version(
+				RuntimeOrigin::root(),
+				Some(XCM_VERSION)
+			));
+			assert_eq!(XcmPallet::get_version_for(&remote_b), None);
+			assert_eq!(XcmPallet::get_version_for(&remote_c), None);
+			assert_eq!(XcmPallet::get_version_for(&remote_d), Some(XCM_VERSION));
 
-		// change remote_c to `1`
-		assert_ok!(XcmPallet::force_xcm_version(
-			RuntimeOrigin::root(),
-			Box::new(remote_c.clone()),
-			1
-		));
+			// now works, because default is `XCM_VERSION`
+			assert_eq!(
+				XcmPallet::wrap_version(&remote_b, xcm.clone()),
+				Ok(VersionedXcm::from(xcm.clone()))
+			);
+			assert_eq!(
+				VersionDiscoveryQueue::<Test>::get().into_inner(),
+				vec![(remote_b.clone().into(), 2)]
+			);
 
-		// does not work because remote_c has `1` and default is `XCM_VERSION` which cannot be
-		// wrapped to the `1`
-		assert_eq!(XcmPallet::wrap_version(&remote_c, xcm.clone()), Err(()));
-		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![(remote_b.into(), 2)]);
-	})
+			// change remote_c to `1`
+			assert_ok!(XcmPallet::force_xcm_version(
+				RuntimeOrigin::root(),
+				Box::new(remote_c.clone()),
+				1
+			));
+
+			// does not work because remote_c has `1` and default is `XCM_VERSION` which cannot be
+			// wrapped to the `1`
+			assert_eq!(XcmPallet::wrap_version(&remote_c, xcm.clone()), Err(()));
+			assert_eq!(
+				VersionDiscoveryQueue::<Test>::get().into_inner(),
+				vec![(remote_b.into(), 2)]
+			);
+		})
 }
 
 #[test]
@@ -1206,7 +1428,7 @@ fn multistage_migration_works() {
 			let mut weight_used = Weight::zero();
 			while let Some(migration) = maybe_migration.take() {
 				counter += 1;
-				let (w, m) = XcmPallet::check_xcm_version_change(migration, Weight::zero());
+				let (w, m) = XcmPallet::lazy_migration(migration, Weight::zero());
 				maybe_migration = m;
 				weight_used.saturating_accrue(w);
 			}
@@ -1259,6 +1481,168 @@ fn multistage_migration_works() {
 }
 
 #[test]
+fn migrate_data_to_xcm_version_works() {
+	new_test_ext_with_balances(vec![]).execute_with(|| {
+		// check `try-state`
+		assert!(Pallet::<Test>::do_try_state().is_ok());
+
+		let latest_version = XCM_VERSION;
+		let previous_version = XCM_VERSION - 1;
+
+		// `Queries` migration
+		{
+			let origin = VersionedLocation::from(Location::parent());
+			let query_id1 = 0;
+			let query_id2 = 2;
+			let query_as_latest =
+				QueryStatus::VersionNotifier { origin: origin.clone(), is_active: true };
+			let query_as_previous = QueryStatus::VersionNotifier {
+				origin: origin.into_version(previous_version).unwrap(),
+				is_active: true,
+			};
+			assert_ne!(query_as_latest, query_as_previous);
+			assert!(!query_as_latest.needs_migration(latest_version));
+			assert!(!query_as_latest.needs_migration(previous_version));
+			assert!(query_as_previous.needs_migration(latest_version));
+			assert!(!query_as_previous.needs_migration(previous_version));
+
+			// store two queries: migrated and not migrated
+			Queries::<Test>::insert(query_id1, query_as_latest.clone());
+			Queries::<Test>::insert(query_id2, query_as_previous);
+			assert!(Pallet::<Test>::do_try_state().is_ok());
+
+			// trigger migration
+			Pallet::<Test>::migrate_data_to_xcm_version(&mut Weight::zero(), latest_version);
+
+			// no change for query_id1
+			assert_eq!(Queries::<Test>::get(query_id1), Some(query_as_latest.clone()));
+			// change for query_id2
+			assert_eq!(Queries::<Test>::get(query_id2), Some(query_as_latest));
+			assert!(Pallet::<Test>::do_try_state().is_ok());
+		}
+
+		// `LockedFungibles` migration
+		{
+			let account1 = AccountId::new([13u8; 32]);
+			let account2 = AccountId::new([58u8; 32]);
+			let unlocker = VersionedLocation::from(Location::parent());
+			let lockeds_as_latest = BoundedVec::truncate_from(vec![(0, unlocker.clone())]);
+			let lockeds_as_previous = BoundedVec::truncate_from(vec![(
+				0,
+				unlocker.into_version(previous_version).unwrap(),
+			)]);
+			assert_ne!(lockeds_as_latest, lockeds_as_previous);
+			assert!(!lockeds_as_latest.needs_migration(latest_version));
+			assert!(!lockeds_as_latest.needs_migration(previous_version));
+			assert!(lockeds_as_previous.needs_migration(latest_version));
+			assert!(!lockeds_as_previous.needs_migration(previous_version));
+
+			// store two lockeds: migrated and not migrated
+			LockedFungibles::<Test>::insert(&account1, lockeds_as_latest.clone());
+			LockedFungibles::<Test>::insert(&account2, lockeds_as_previous);
+			assert!(Pallet::<Test>::do_try_state().is_ok());
+
+			// trigger migration
+			Pallet::<Test>::migrate_data_to_xcm_version(&mut Weight::zero(), latest_version);
+
+			// no change for account1
+			assert_eq!(LockedFungibles::<Test>::get(&account1), Some(lockeds_as_latest.clone()));
+			// change for account2
+			assert_eq!(LockedFungibles::<Test>::get(&account2), Some(lockeds_as_latest));
+			assert!(Pallet::<Test>::do_try_state().is_ok());
+		}
+
+		// `RemoteLockedFungibles` migration
+		{
+			let account1 = AccountId::new([13u8; 32]);
+			let account2 = AccountId::new([58u8; 32]);
+			let account3 = AccountId::new([97u8; 32]);
+			let asset_id = VersionedAssetId::from(AssetId(Location::parent()));
+			let owner = VersionedLocation::from(Location::parent());
+			let locker = VersionedLocation::from(Location::parent());
+			let key1_as_latest = (latest_version, account1, asset_id.clone());
+			let key2_as_latest = (latest_version, account2, asset_id.clone());
+			let key3_as_previous = (
+				previous_version,
+				account3.clone(),
+				asset_id.clone().into_version(previous_version).unwrap(),
+			);
+			let expected_key3_as_latest = (latest_version, account3, asset_id);
+			let data_as_latest = RemoteLockedFungibleRecord {
+				amount: Default::default(),
+				owner: owner.clone(),
+				locker: locker.clone(),
+				consumers: Default::default(),
+			};
+			let data_as_previous = RemoteLockedFungibleRecord {
+				amount: Default::default(),
+				owner: owner.into_version(previous_version).unwrap(),
+				locker: locker.into_version(previous_version).unwrap(),
+				consumers: Default::default(),
+			};
+			assert_ne!(data_as_latest.owner, data_as_previous.owner);
+			assert_ne!(data_as_latest.locker, data_as_previous.locker);
+			assert!(!key1_as_latest.needs_migration(latest_version));
+			assert!(!key1_as_latest.needs_migration(previous_version));
+			assert!(!key2_as_latest.needs_migration(latest_version));
+			assert!(!key2_as_latest.needs_migration(previous_version));
+			assert!(key3_as_previous.needs_migration(latest_version));
+			assert!(!key3_as_previous.needs_migration(previous_version));
+			assert!(!expected_key3_as_latest.needs_migration(latest_version));
+			assert!(!expected_key3_as_latest.needs_migration(previous_version));
+			assert!(!data_as_latest.needs_migration(latest_version));
+			assert!(!data_as_latest.needs_migration(previous_version));
+			assert!(data_as_previous.needs_migration(latest_version));
+			assert!(!data_as_previous.needs_migration(previous_version));
+
+			// store three lockeds:
+			// fully migrated
+			RemoteLockedFungibles::<Test>::insert(&key1_as_latest, data_as_latest.clone());
+			// only key migrated
+			RemoteLockedFungibles::<Test>::insert(&key2_as_latest, data_as_previous.clone());
+			// neither key nor data migrated
+			RemoteLockedFungibles::<Test>::insert(&key3_as_previous, data_as_previous);
+			assert!(Pallet::<Test>::do_try_state().is_ok());
+
+			// trigger migration
+			Pallet::<Test>::migrate_data_to_xcm_version(&mut Weight::zero(), latest_version);
+
+			let assert_locked_eq =
+				|left: Option<RemoteLockedFungibleRecord<_, _>>,
+				 right: Option<RemoteLockedFungibleRecord<_, _>>| {
+					match (left, right) {
+						(None, Some(_)) | (Some(_), None) =>
+							assert!(false, "Received unexpected message"),
+						(None, None) => (),
+						(Some(l), Some(r)) => {
+							assert_eq!(l.owner, r.owner);
+							assert_eq!(l.locker, r.locker);
+						},
+					}
+				};
+
+			// no change
+			assert_locked_eq(
+				RemoteLockedFungibles::<Test>::get(&key1_as_latest),
+				Some(data_as_latest.clone()),
+			);
+			// change - data migrated
+			assert_locked_eq(
+				RemoteLockedFungibles::<Test>::get(&key2_as_latest),
+				Some(data_as_latest.clone()),
+			);
+			// fully migrated
+			assert_locked_eq(RemoteLockedFungibles::<Test>::get(&key3_as_previous), None);
+			assert_locked_eq(
+				RemoteLockedFungibles::<Test>::get(&expected_key3_as_latest),
+				Some(data_as_latest.clone()),
+			);
+			assert!(Pallet::<Test>::do_try_state().is_ok());
+		}
+	})
+}
+
+#[test]
 fn record_xcm_works() {
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	new_test_ext_with_balances(balances).execute_with(|| {
@@ -1288,4 +1672,116 @@ fn record_xcm_works() {
 		));
 		assert_eq!(RecordedXcm::<Test>::get(), Some(message.into()));
 	});
+}
+
+#[test]
+fn execute_initiate_transfer_and_check_sent_event() {
+	use crate::Event;
+	use sp_tracing::{
+		test_log_capture::init_log_capture,
+		tracing::{subscriber, Level},
+	};
+
+	let (log_capture, subscriber) = init_log_capture(Level::TRACE, true);
+	subscriber::with_default(subscriber, || {
+		let balances = vec![(ALICE, INITIAL_BALANCE)];
+		new_test_ext_with_balances(balances).execute_with(|| {
+			let beneficiary: Location =
+				Location::new(1, [AccountId32 { network: None, id: BOB.into() }]);
+			let fee_asset: Asset = (Parent, SEND_AMOUNT).into();
+
+			let message = Xcm(vec![InitiateReserveWithdraw {
+				assets: Wild(All),
+				reserve: Parent.into(),
+				xcm: Xcm(vec![
+					BuyExecution { fees: fee_asset.clone(), weight_limit: Unlimited },
+					DepositAsset { assets: All.into(), beneficiary: beneficiary.clone() },
+				]),
+			}]);
+
+			let result = XcmPallet::execute(
+				RuntimeOrigin::signed(ALICE),
+				Box::new(VersionedXcm::from(message.clone())),
+				BaseXcmWeight::get() * 3,
+			);
+			assert_ok!(result);
+
+			let sent_msg_id = find_xcm_sent_message_id::<Test>(all_events()).unwrap();
+			let sent_message: Xcm<()> = Xcm(vec![
+				WithdrawAsset(Assets::new()),
+				ClearOrigin,
+				BuyExecution { fees: fee_asset.clone(), weight_limit: Unlimited },
+				DepositAsset { assets: All.into(), beneficiary: beneficiary.clone() },
+				SetTopic(sent_msg_id),
+			]);
+			assert!(log_capture
+				.contains(format!("xcm::send: Sending msg msg={:?}", sent_message).as_str()));
+
+			let origin: Location = AccountId32 { network: None, id: ALICE.into() }.into();
+			assert_eq!(
+				last_events(2),
+				vec![
+					RuntimeEvent::XcmPallet(Event::Sent {
+						origin,
+						destination: Parent.into(),
+						message: Xcm::default(),
+						message_id: sent_msg_id,
+					}),
+					RuntimeEvent::XcmPallet(Event::Attempted {
+						outcome: Outcome::Complete { used: Weight::from_parts(1_000, 1_000) }
+					}),
+				]
+			);
+		})
+	});
+}
+
+#[test]
+fn deliver_failure_with_expect_error() {
+	use sp_tracing::{
+		test_log_capture::init_log_capture,
+		tracing::{subscriber, Level},
+	};
+
+	let (log_capture, subscriber) = init_log_capture(Level::TRACE, true);
+	subscriber::with_default(subscriber, || {
+		let balances = vec![(ALICE, INITIAL_BALANCE)];
+
+		new_test_ext_with_balances(balances).execute_with(|| {
+			let message = Xcm(vec![InitiateReserveWithdraw {
+				assets: Wild(All),
+				reserve: Parent.into(),
+				xcm: Xcm(vec![
+					ExpectError(Some((1, xcm::latest::Error::Unimplemented)))
+				]),
+			}]);
+
+			let result = XcmPallet::execute(
+				RuntimeOrigin::signed(ALICE),
+				Box::new(VersionedXcm::from(message.clone())),
+				BaseXcmWeight::get() * 3,
+			);
+
+			// Expect an error from the send operation
+			assert!(result.is_err());
+
+			// Check logs for send attempt and failure
+			assert!(log_capture.contains("xcm::send: Sending msg msg=Xcm([WithdrawAsset(Assets([])), ClearOrigin, ExpectError(Some((1, Unimplemented))), SetTopic("));
+			assert!(log_capture.contains("xcm::send: XCM failed to deliver with error error=Transport(\"Intentional deliver failure used in tests\")"));
+		})
+	});
+}
+
+#[test]
+fn query_weight_to_asset_fee_noop() {
+	new_test_ext_with_balances(vec![]).execute_with(|| {
+		let weight = Weight::from_parts(4_000_000_000, 3800);
+		let asset_id = AssetId(Location::here());
+
+		assert_storage_noop!(XcmPallet::query_weight_to_asset_fee::<Trader>(
+			weight,
+			asset_id.into()
+		)
+		.unwrap());
+	})
 }

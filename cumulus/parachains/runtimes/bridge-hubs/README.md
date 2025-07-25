@@ -112,7 +112,7 @@ POLKADOT_PARACHAIN_BINARY=~/local_bridge_testing/bin/polkadot-parachain \
 ```
 cd <polkadot-sdk-git-repo-dir>
 
-./bridges/testing/environments/rococo-westend/bridges_rococo_westend.sh run-relay
+./bridges/testing/environments/rococo-westend/bridges_rococo_westend.sh run-finality-relay
 ```
 
 **Check relay-chain headers relaying:**

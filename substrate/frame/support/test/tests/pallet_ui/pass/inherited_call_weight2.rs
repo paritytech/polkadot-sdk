@@ -29,7 +29,7 @@ impl WeightInfo for () {
 }
 
 #[frame_support::pallet]
-mod parentheses {
+pub mod parentheses {
 	use super::*;
 
 	#[pallet::config]
@@ -50,7 +50,7 @@ mod parentheses {
 }
 
 #[frame_support::pallet]
-mod assign {
+pub mod assign {
 	use super::*;
 
 	#[pallet::config]

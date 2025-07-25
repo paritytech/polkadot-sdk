@@ -1,0 +1,17 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Treasury: add migration to clean up unapproved deprecated proposals"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      It is no longer possible to create `Proposals` storage item in `pallet-treasury` due to migration from
+      governance v1 model but there are some `Proposals` whose bonds are still on hold with no way to release them.
+      The purpose of this migration is to clear `Proposals` which are stuck and return bonds to the proposers.
+
+crates:
+    - name: pallet-treasury
+      bump: patch
+    - name: rococo-runtime
+      bump: patch

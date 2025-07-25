@@ -1,0 +1,18 @@
+title: Add RPCs in the statement store to get the statements and not just the statement data.
+doc:
+- audience:
+  - Node Dev
+  - Runtime Dev
+  description: |-
+   In statement-store, statements can contain a proof with the signature of the statement, this proof is useful to assert that the statement comes from the expected account. This proof also signs for all the statements fields, those can also be useful information for the receiver.
+   
+   This PR adds `broadcasts_stmt`, `posted_stmt`, and `posted_clear_stmt` RPCs to get the full statements from the statement store.
+crates:
+- name: sc-rpc-api
+  bump: major
+- name: sc-rpc
+  bump: major
+- name: sc-statement-store
+  bump: major
+- name: sp-statement-store
+  bump: major

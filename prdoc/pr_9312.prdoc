@@ -1,0 +1,12 @@
+title: 'yap-runtime: fixes for `GetParachainInfo`'
+doc:
+- audience: Node Dev
+  description: |-
+    This fixes the YAP parachain runtimes in case you encounter a panic in the collator similar to https://github.com/paritytech/zombienet/issues/2050:
+    ```
+    Failed to retrieve the parachain id
+    ```
+    (which we do have zombienet-sdk tests for [here](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/client/transaction-pool/tests/zombienet/yap_test.rs))
+crates:
+- name: yet-another-parachain-runtime
+  bump: minor

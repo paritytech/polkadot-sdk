@@ -151,7 +151,10 @@ impl CompositeDef {
 			let derive_attr: syn::Attribute = syn::parse_quote! {
 				#[derive(
 					Copy, Clone, Eq, PartialEq,
-					#scrate::__private::codec::Encode, #scrate::__private::codec::Decode, #scrate::__private::codec::MaxEncodedLen,
+					#scrate::__private::codec::Encode,
+					#scrate::__private::codec::Decode,
+					#scrate::__private::codec::DecodeWithMemTracking,
+					#scrate::__private::codec::MaxEncodedLen,
 					#scrate::__private::scale_info::TypeInfo,
 					#scrate::__private::RuntimeDebug,
 				)]

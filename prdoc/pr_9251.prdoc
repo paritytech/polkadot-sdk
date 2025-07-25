@@ -1,0 +1,10 @@
+title: Allow setting idle connection timeout value in custom node implementations
+doc:
+- audience: Node Dev
+  description: Allow setting idle connection timeout value. This can be helpful in
+    custom networks to allow maintaining long-lived connections.
+crates:
+- name: sc-cli
+  bump: major
+- name: sc-network
+  bump: major

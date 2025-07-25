@@ -23,20 +23,21 @@ pub mod error;
 
 use async_trait::async_trait;
 use codec::Codec;
-use futures::{Future, Stream};
+use futures::Stream;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sp_core::offchain::TransactionPoolExt;
-use sp_runtime::traits::{Block as BlockT, Member, NumberFor};
+use sp_runtime::traits::{Block as BlockT, Member};
 use std::{collections::HashMap, hash::Hash, marker::PhantomData, pin::Pin, sync::Arc};
 
 const LOG_TARGET: &str = "txpool::api";
 
 pub use sp_runtime::transaction_validity::{
 	TransactionLongevity, TransactionPriority, TransactionSource, TransactionTag,
+	TransactionValidityError,
 };
 
 /// Transaction pool status.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PoolStatus {
 	/// Number of transactions in the ready queue.
 	pub ready: usize,
@@ -49,7 +50,7 @@ pub struct PoolStatus {
 }
 
 impl PoolStatus {
-	/// Returns true if the are no transactions in the pool.
+	/// Returns true if there are no transactions in the pool.
 	pub fn is_empty(&self) -> bool {
 		self.ready == 0 && self.future == 0
 	}
@@ -57,7 +58,7 @@ impl PoolStatus {
 
 /// Possible transaction status events.
 ///
-/// This events are being emitted by `TransactionPool` watchers,
+/// These events are being emitted by `TransactionPool` watchers,
 /// which are also exposed over RPC.
 ///
 /// The status events can be grouped based on their kinds as:
@@ -144,7 +145,7 @@ pub enum TransactionStatus<Hash, BlockHash> {
 	/// Maximum number of finality watchers has been reached,
 	/// old watchers are being removed.
 	FinalityTimeout(BlockHash),
-	/// Transaction has been finalized by a finality-gadget, e.g GRANDPA.
+	/// Transaction has been finalized by a finality-gadget, e.g. GRANDPA.
 	#[serde(with = "v1_compatible")]
 	Finalized((BlockHash, TxIndex)),
 	/// Transaction has been replaced in the pool, by another transaction
@@ -207,9 +208,9 @@ pub type TransactionStatusStreamFor<P> = TransactionStatusStream<TxHash<P>, Bloc
 pub type LocalTransactionFor<P> = <<P as LocalTransactionPool>::Block as BlockT>::Extrinsic;
 /// Transaction's index within the block in which it was included.
 pub type TxIndex = usize;
-
-/// Typical future type used in transaction pool api.
-pub type PoolFuture<T, E> = std::pin::Pin<Box<dyn Future<Output = Result<T, E>> + Send>>;
+/// Map containing validity errors associated with transaction hashes. Used to report invalid
+/// transactions to the pool.
+pub type TxInvalidityReportMap<H> = indexmap::IndexMap<H, Option<TransactionValidityError>>;
 
 /// In-pool transaction interface.
 ///
@@ -238,6 +239,7 @@ pub trait InPoolTransaction {
 }
 
 /// Transaction pool interface.
+#[async_trait]
 pub trait TransactionPool: Send + Sync {
 	/// Block type.
 	type Block: BlockT;
@@ -245,7 +247,7 @@ pub trait TransactionPool: Send + Sync {
 	type Hash: Hash + Eq + Member + Serialize + DeserializeOwned + Codec;
 	/// In-pool transaction type.
 	type InPoolTransaction: InPoolTransaction<
-		Transaction = TransactionFor<Self>,
+		Transaction = Arc<TransactionFor<Self>>,
 		Hash = TxHash<Self>,
 	>;
 	/// Error type.
@@ -253,53 +255,67 @@ pub trait TransactionPool: Send + Sync {
 
 	// *** RPC
 
-	/// Returns a future that imports a bunch of unverified transactions to the pool.
-	fn submit_at(
+	/// Asynchronously imports a bunch of unverified transactions to the pool.
+	async fn submit_at(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xts: Vec<TransactionFor<Self>>,
-	) -> PoolFuture<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error>;
+	) -> Result<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error>;
 
-	/// Returns a future that imports one unverified transaction to the pool.
-	fn submit_one(
+	/// Asynchronously imports one unverified transaction to the pool.
+	async fn submit_one(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
-	) -> PoolFuture<TxHash<Self>, Self::Error>;
+	) -> Result<TxHash<Self>, Self::Error>;
 
-	/// Returns a future that import a single transaction and starts to watch their progress in the
+	/// Asynchronously imports a single transaction and starts to watch their progress in the
 	/// pool.
-	fn submit_and_watch(
+	async fn submit_and_watch(
 		&self,
 		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
-	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error>;
+	) -> Result<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error>;
 
 	// *** Block production / Networking
 	/// Get an iterator for ready transactions ordered by priority.
 	///
-	/// Guarantees to return only when transaction pool got updated at `at` block.
-	/// Guarantees to return immediately when `None` is passed.
-	fn ready_at(
+	/// Guaranteed to resolve only when transaction pool got updated at `at` block.
+	/// Guaranteed to resolve immediately when `None` is passed.
+	async fn ready_at(
 		&self,
-		at: NumberFor<Self::Block>,
-	) -> Pin<
-		Box<
-			dyn Future<
-					Output = Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>,
-				> + Send,
-		>,
-	>;
+		at: <Self::Block as BlockT>::Hash,
+	) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>;
 
 	/// Get an iterator for ready transactions ordered by priority.
 	fn ready(&self) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>;
 
 	// *** Block production
-	/// Remove transactions identified by given hashes (and dependent transactions) from the pool.
-	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>>;
+	/// Reports invalid transactions to the transaction pool.
+	///
+	/// This function takes a map where the key is a transaction hash and the value is an
+	/// optional error encountered during the transaction execution, possibly within a specific
+	/// block.
+	///
+	/// The transaction pool implementation decides which transactions to remove. Transactions
+	/// removed from the pool will be notified with `TransactionStatus::Invalid` event (if
+	/// `submit_and_watch` was used for submission).
+	///
+	/// If the error associated to transaction is `None`, the transaction will be forcibly removed
+	/// from the pool.
+	///
+	/// The optional `at` parameter provides additional context regarding the block where the error
+	/// occurred.
+	///
+	/// Function returns the transactions actually removed from the pool.
+	async fn report_invalid(
+		&self,
+		at: Option<<Self::Block as BlockT>::Hash>,
+		invalid_tx_errors: TxInvalidityReportMap<TxHash<Self>>,
+	) -> Vec<Arc<Self::InPoolTransaction>>;
 
 	// *** logging
 	/// Get futures transaction list.
@@ -321,6 +337,16 @@ pub trait TransactionPool: Send + Sync {
 
 	/// Return specific ready transaction by hash, if there is one.
 	fn ready_transaction(&self, hash: &TxHash<Self>) -> Option<Arc<Self::InPoolTransaction>>;
+
+	/// Asynchronously returns a set of ready transaction at given block within given timeout.
+	///
+	/// If the timeout is hit during method execution, then the best effort (without executing full
+	/// maintain process) set of ready transactions for given block is returned.
+	async fn ready_at_with_timeout(
+		&self,
+		at: <Self::Block as BlockT>::Hash,
+		timeout: std::time::Duration,
+	) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>;
 }
 
 /// An iterator of ready transactions.
@@ -345,6 +371,7 @@ impl<T> ReadyTransactions for std::iter::Empty<T> {
 }
 
 /// Events that the transaction pool listens for.
+#[derive(Debug)]
 pub enum ChainEvent<B: BlockT> {
 	/// New best block have been added to the chain.
 	NewBestBlock {
@@ -441,7 +468,7 @@ impl<TPool: LocalTransactionPool> OffchainSubmitTransaction<TPool::Block> for TP
 		at: <TPool::Block as BlockT>::Hash,
 		extrinsic: <TPool::Block as BlockT>::Extrinsic,
 	) -> Result<(), ()> {
-		log::debug!(
+		log::trace!(
 			target: LOG_TARGET,
 			"(offchain call) Submitting a transaction to the pool: {:?}",
 			extrinsic

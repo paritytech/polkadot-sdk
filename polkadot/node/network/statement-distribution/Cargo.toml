@@ -5,50 +5,49 @@ version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
-
-[dependencies]
-futures = { workspace = true }
-futures-timer = { workspace = true }
-gum = { workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
-sp-staking = { workspace = true }
-sp-keystore = { workspace = true, default-features = true }
-polkadot-node-subsystem = { workspace = true, default-features = true }
-polkadot-node-primitives = { workspace = true, default-features = true }
-polkadot-node-subsystem-util = { workspace = true, default-features = true }
-polkadot-node-network-protocol = { workspace = true, default-features = true }
-arrayvec = { workspace = true }
-indexmap = { workspace = true }
-codec = { features = ["derive"], workspace = true }
-thiserror = { workspace = true }
-fatality = { workspace = true }
-bitvec = { workspace = true, default-features = true }
-
-[dev-dependencies]
-async-channel = { workspace = true }
-assert_matches = { workspace = true }
-polkadot-node-subsystem-test-helpers = { workspace = true }
-sp-authority-discovery = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-application-crypto = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
-sc-keystore = { workspace = true, default-features = true }
-sc-network = { workspace = true, default-features = true }
-futures-timer = { workspace = true }
-polkadot-primitives-test-helpers = { workspace = true }
-rand_chacha = { workspace = true, default-features = true }
-polkadot-subsystem-bench = { workspace = true }
 
 [[bench]]
 name = "statement-distribution-regression-bench"
 path = "benches/statement-distribution-regression-bench.rs"
 harness = false
 required-features = ["subsystem-benchmarks"]
+
+[dependencies]
+bitvec = { workspace = true, default-features = true }
+codec = { features = ["derive"], workspace = true }
+fatality = { workspace = true }
+futures = { workspace = true }
+futures-timer = { workspace = true }
+gum = { workspace = true, default-features = true }
+polkadot-node-network-protocol = { workspace = true, default-features = true }
+polkadot-node-primitives = { workspace = true, default-features = true }
+polkadot-node-subsystem = { workspace = true, default-features = true }
+polkadot-node-subsystem-util = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+assert_matches = { workspace = true }
+async-channel = { workspace = true }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-primitives = { workspace = true, features = ["test"] }
+polkadot-primitives-test-helpers = { workspace = true }
+polkadot-subsystem-bench = { workspace = true }
+rand_chacha = { workspace = true, default-features = true }
+rstest = { workspace = true }
+sc-keystore = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sp-application-crypto = { workspace = true, default-features = true }
+sp-authority-discovery = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 
 [features]
 subsystem-benchmarks = []

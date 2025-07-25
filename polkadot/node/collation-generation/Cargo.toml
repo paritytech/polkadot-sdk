@@ -5,11 +5,14 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Collator-side subsystem that handles incoming candidate submissions from the parachain."
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
 
 [dependencies]
+codec = { features = ["bit-vec", "derive"], workspace = true }
 futures = { workspace = true }
 gum = { workspace = true, default-features = true }
 polkadot-erasure-coding = { workspace = true, default-features = true }
@@ -17,14 +20,14 @@ polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
+schnellru = { workspace = true }
 sp-core = { workspace = true, default-features = true }
-sp-maybe-compressed-blob = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-codec = { features = ["bit-vec", "derive"], workspace = true }
 
 [dev-dependencies]
-polkadot-node-subsystem-test-helpers = { workspace = true }
-polkadot-primitives-test-helpers = { workspace = true }
 assert_matches = { workspace = true }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-primitives = { workspace = true, features = ["test"] }
+polkadot-primitives-test-helpers = { workspace = true }
 rstest = { workspace = true }
 sp-keyring = { workspace = true, default-features = true }

@@ -43,6 +43,7 @@ fn derive_impl_works_with_no_aggregated_types() {
 		type Block = super::Block;
 		type AccountId = super::AccountId;
 		type PalletInfo = super::PalletInfo;
+		type ExampleConstant = ();
 	}
 
 	assert_type_eq_all!(<DummyRuntime as Config>::RuntimeOrigin, ());

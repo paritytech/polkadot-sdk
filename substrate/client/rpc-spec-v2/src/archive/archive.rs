@@ -19,17 +19,29 @@
 //! API implementation for `archive`.
 
 use crate::{
-	archive::{error::Error as ArchiveError, ArchiveApiServer},
-	common::events::{ArchiveStorageResult, PaginatedStorageQuery},
-	hex_string, MethodResult,
+	archive::{
+		archive_storage::ArchiveStorageDiff,
+		error::{Error as ArchiveError, Infallible},
+		types::MethodResult,
+		ArchiveApiServer,
+	},
+	common::{
+		events::{
+			ArchiveStorageDiffEvent, ArchiveStorageDiffItem, ArchiveStorageEvent, StorageQuery,
+		},
+		storage::{QueryResult, StorageSubscriptionClient},
+	},
+	hex_string, SubscriptionTaskExecutor,
 };
 
 use codec::Encode;
-use jsonrpsee::core::{async_trait, RpcResult};
+use futures::FutureExt;
+use jsonrpsee::{core::async_trait, PendingSubscriptionSink};
 use sc_client_api::{
 	Backend, BlockBackend, BlockchainEvents, CallExecutor, ChildInfo, ExecutorProvider, StorageKey,
 	StorageProvider,
 };
+use sc_rpc::utils::Subscription;
 use sp_api::{CallApiAt, CallContext};
 use sp_blockchain::{
 	Backend as BlockChainBackend, Error as BlockChainError, HeaderBackend, HeaderMetadata,
@@ -41,37 +53,15 @@ use sp_runtime::{
 };
 use std::{collections::HashSet, marker::PhantomData, sync::Arc};
 
-use super::archive_storage::ArchiveStorage;
+use tokio::sync::mpsc;
 
-/// The configuration of [`Archive`].
-pub struct ArchiveConfig {
-	/// The maximum number of items the `archive_storage` can return for a descendant query before
-	/// pagination is required.
-	pub max_descendant_responses: usize,
-	/// The maximum number of queried items allowed for the `archive_storage` at a time.
-	pub max_queried_items: usize,
-}
+pub(crate) const LOG_TARGET: &str = "rpc-spec-v2::archive";
 
-/// The maximum number of items the `archive_storage` can return for a descendant query before
-/// pagination is required.
+/// The buffer capacity for each storage query.
 ///
-/// Note: this is identical to the `chainHead` value.
-const MAX_DESCENDANT_RESPONSES: usize = 5;
-
-/// The maximum number of queried items allowed for the `archive_storage` at a time.
-///
-/// Note: A queried item can also be a descendant query which can return up to
-/// `MAX_DESCENDANT_RESPONSES`.
-const MAX_QUERIED_ITEMS: usize = 8;
-
-impl Default for ArchiveConfig {
-	fn default() -> Self {
-		Self {
-			max_descendant_responses: MAX_DESCENDANT_RESPONSES,
-			max_queried_items: MAX_QUERIED_ITEMS,
-		}
-	}
-}
+/// This is small because the underlying JSON-RPC server has
+/// its down buffer capacity per connection as well.
+const STORAGE_QUERY_BUF: usize = 16;
 
 /// An API for archive RPC calls.
 pub struct Archive<BE: Backend<Block>, Block: BlockT, Client> {
@@ -79,13 +69,10 @@ pub struct Archive<BE: Backend<Block>, Block: BlockT, Client> {
 	client: Arc<Client>,
 	/// Backend of the chain.
 	backend: Arc<BE>,
+	/// Executor to spawn subscriptions.
+	executor: SubscriptionTaskExecutor,
 	/// The hexadecimal encoded hash of the genesis block.
 	genesis_hash: String,
-	/// The maximum number of items the `archive_storage` can return for a descendant query before
-	/// pagination is required.
-	storage_max_descendant_responses: usize,
-	/// The maximum number of queried items allowed for the `archive_storage` at a time.
-	storage_max_queried_items: usize,
 	/// Phantom member to pin the block type.
 	_phantom: PhantomData<Block>,
 }
@@ -96,17 +83,10 @@ impl<BE: Backend<Block>, Block: BlockT, Client> Archive<BE, Block, Client> {
 		client: Arc<Client>,
 		backend: Arc<BE>,
 		genesis_hash: GenesisHash,
-		config: ArchiveConfig,
+		executor: SubscriptionTaskExecutor,
 	) -> Self {
 		let genesis_hash = hex_string(&genesis_hash.as_ref());
-		Self {
-			client,
-			backend,
-			genesis_hash,
-			storage_max_descendant_responses: config.max_descendant_responses,
-			storage_max_queried_items: config.max_queried_items,
-			_phantom: PhantomData,
-		}
+		Self { client, backend, executor, genesis_hash, _phantom: PhantomData }
 	}
 }
 
@@ -137,7 +117,7 @@ where
 		+ StorageProvider<Block, BE>
 		+ 'static,
 {
-	fn archive_unstable_body(&self, hash: Block::Hash) -> RpcResult<Option<Vec<String>>> {
+	fn archive_v1_body(&self, hash: Block::Hash) -> Result<Option<Vec<String>>, Infallible> {
 		let Ok(Some(signed_block)) = self.client.block(hash) else { return Ok(None) };
 
 		let extrinsics = signed_block
@@ -150,21 +130,21 @@ where
 		Ok(Some(extrinsics))
 	}
 
-	fn archive_unstable_genesis_hash(&self) -> RpcResult<String> {
+	fn archive_v1_genesis_hash(&self) -> Result<String, Infallible> {
 		Ok(self.genesis_hash.clone())
 	}
 
-	fn archive_unstable_header(&self, hash: Block::Hash) -> RpcResult<Option<String>> {
+	fn archive_v1_header(&self, hash: Block::Hash) -> Result<Option<String>, Infallible> {
 		let Ok(Some(header)) = self.client.header(hash) else { return Ok(None) };
 
 		Ok(Some(hex_string(&header.encode())))
 	}
 
-	fn archive_unstable_finalized_height(&self) -> RpcResult<u64> {
+	fn archive_v1_finalized_height(&self) -> Result<u64, Infallible> {
 		Ok(self.client.info().finalized_number.saturated_into())
 	}
 
-	fn archive_unstable_hash_by_height(&self, height: u64) -> RpcResult<Vec<String>> {
+	fn archive_v1_hash_by_height(&self, height: u64) -> Result<Vec<String>, ArchiveError> {
 		let height: NumberFor<Block> = U256::from(height)
 			.try_into()
 			.map_err(|_| ArchiveError::InvalidParam(format!("Invalid block height: {}", height)))?;
@@ -215,12 +195,12 @@ where
 		Ok(result)
 	}
 
-	fn archive_unstable_call(
+	fn archive_v1_call(
 		&self,
 		hash: Block::Hash,
 		function: String,
 		call_parameters: String,
-	) -> RpcResult<MethodResult> {
+	) -> Result<MethodResult, ArchiveError> {
 		let call_parameters = Bytes::from(parse_hex_param(call_parameters)?);
 
 		let result =
@@ -234,47 +214,159 @@ where
 		})
 	}
 
-	fn archive_unstable_storage(
+	fn archive_v1_storage(
 		&self,
+		pending: PendingSubscriptionSink,
 		hash: Block::Hash,
-		items: Vec<PaginatedStorageQuery<String>>,
+		items: Vec<StorageQuery<String>>,
 		child_trie: Option<String>,
-	) -> RpcResult<ArchiveStorageResult> {
-		let items = items
-			.into_iter()
-			.map(|query| {
-				let key = StorageKey(parse_hex_param(query.key)?);
-				let pagination_start_key = query
-					.pagination_start_key
-					.map(|key| parse_hex_param(key).map(|key| StorageKey(key)))
-					.transpose()?;
+	) {
+		let mut storage_client =
+			StorageSubscriptionClient::<Client, Block, BE>::new(self.client.clone());
 
-				// Paginated start key is only supported
-				if pagination_start_key.is_some() && !query.query_type.is_descendant_query() {
-					return Err(ArchiveError::InvalidParam(
-						"Pagination start key is only supported for descendants queries"
-							.to_string(),
-					))
+		let fut = async move {
+			let Ok(mut sink) = pending.accept().await.map(Subscription::from) else { return };
+
+			let items = match items
+				.into_iter()
+				.map(|query| {
+					let key = StorageKey(parse_hex_param(query.key)?);
+					Ok(StorageQuery { key, query_type: query.query_type })
+				})
+				.collect::<Result<Vec<_>, ArchiveError>>()
+			{
+				Ok(items) => items,
+				Err(error) => {
+					let _ = sink.send(&ArchiveStorageEvent::err(error.to_string()));
+					return
+				},
+			};
+
+			let child_trie = child_trie.map(|child_trie| parse_hex_param(child_trie)).transpose();
+			let child_trie = match child_trie {
+				Ok(child_trie) => child_trie.map(ChildInfo::new_default_from_vec),
+				Err(error) => {
+					let _ = sink.send(&ArchiveStorageEvent::err(error.to_string()));
+					return
+				},
+			};
+
+			let (tx, mut rx) = tokio::sync::mpsc::channel(STORAGE_QUERY_BUF);
+			let storage_fut = storage_client.generate_events(hash, items, child_trie, tx);
+
+			// We don't care about the return value of this join:
+			// - process_events might encounter an error (if the client disconnected)
+			// - storage_fut might encounter an error while processing a trie queries and
+			// the error is propagated via the sink.
+			let _ = futures::future::join(storage_fut, process_storage_events(&mut rx, &mut sink))
+				.await;
+		};
+
+		self.executor.spawn("substrate-rpc-subscription", Some("rpc"), fut.boxed());
+	}
+
+	fn archive_v1_storage_diff(
+		&self,
+		pending: PendingSubscriptionSink,
+		hash: Block::Hash,
+		items: Vec<ArchiveStorageDiffItem<String>>,
+		previous_hash: Option<Block::Hash>,
+	) {
+		let storage_client = ArchiveStorageDiff::new(self.client.clone());
+		let client = self.client.clone();
+
+		log::trace!(target: LOG_TARGET, "Storage diff subscription started");
+
+		let fut = async move {
+			let Ok(mut sink) = pending.accept().await.map(Subscription::from) else { return };
+
+			let previous_hash = if let Some(previous_hash) = previous_hash {
+				previous_hash
+			} else {
+				let Ok(Some(current_header)) = client.header(hash) else {
+					let message = format!("Block header is not present: {hash}");
+					let _ = sink.send(&ArchiveStorageDiffEvent::err(message)).await;
+					return
+				};
+				*current_header.parent_hash()
+			};
+
+			let (tx, mut rx) = tokio::sync::mpsc::channel(STORAGE_QUERY_BUF);
+			let storage_fut =
+				storage_client.handle_trie_queries(hash, items, previous_hash, tx.clone());
+
+			// We don't care about the return value of this join:
+			// - process_events might encounter an error (if the client disconnected)
+			// - storage_fut might encounter an error while processing a trie queries and
+			// the error is propagated via the sink.
+			let _ =
+				futures::future::join(storage_fut, process_storage_diff_events(&mut rx, &mut sink))
+					.await;
+		};
+
+		self.executor.spawn("substrate-rpc-subscription", Some("rpc"), fut.boxed());
+	}
+}
+
+/// Sends all the events of the storage_diff method to the sink.
+async fn process_storage_diff_events(
+	rx: &mut mpsc::Receiver<ArchiveStorageDiffEvent>,
+	sink: &mut Subscription,
+) {
+	loop {
+		tokio::select! {
+			_ = sink.closed() => {
+				return
+			},
+
+			maybe_event = rx.recv() => {
+				let Some(event) = maybe_event else {
+					break;
+				};
+
+				if event.is_done() {
+					log::debug!(target: LOG_TARGET, "Finished processing partial trie query");
+				} else if event.is_err() {
+					log::debug!(target: LOG_TARGET, "Error encountered while processing partial trie query");
 				}
 
-				Ok(PaginatedStorageQuery {
-					key,
-					query_type: query.query_type,
-					pagination_start_key,
-				})
-			})
-			.collect::<Result<Vec<_>, ArchiveError>>()?;
-
-		let child_trie = child_trie
-			.map(|child_trie| parse_hex_param(child_trie))
-			.transpose()?
-			.map(ChildInfo::new_default_from_vec);
-
-		let storage_client = ArchiveStorage::new(
-			self.client.clone(),
-			self.storage_max_descendant_responses,
-			self.storage_max_queried_items,
-		);
-		Ok(storage_client.handle_query(hash, items, child_trie))
+				if sink.send(&event).await.is_err() {
+					return
+				}
+			}
+		}
 	}
+}
+
+/// Sends all the events of the storage method to the sink.
+async fn process_storage_events(rx: &mut mpsc::Receiver<QueryResult>, sink: &mut Subscription) {
+	loop {
+		tokio::select! {
+			_ = sink.closed() => {
+				break
+			}
+
+			maybe_storage = rx.recv() => {
+				let Some(event) = maybe_storage else {
+					break;
+				};
+
+				match event {
+					Ok(None) => continue,
+
+					Ok(Some(event)) =>
+						if sink.send(&ArchiveStorageEvent::result(event)).await.is_err() {
+							return
+						},
+
+					Err(error) => {
+						let _ = sink.send(&ArchiveStorageEvent::err(error)).await;
+						return
+					}
+				}
+			}
+		}
+	}
+
+	let _ = sink.send(&ArchiveStorageEvent::StorageDone).await;
 }

@@ -1,0 +1,10 @@
+title: "Import vec to bridges/primitives/header-chain"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Add the `vec` dependency to these files to resolve compiler errors.
+
+crates:
+  - name: bp-header-chain
+    bump: patch

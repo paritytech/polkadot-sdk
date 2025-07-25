@@ -98,10 +98,10 @@
 //! and production.
 //!
 //! ```
-//! # use sp_runtime::testing::ExtrinsicWrapper;
+//! # use sp_runtime::testing::{MockCallU64, TestXt};
 //! # use sp_inherents::{InherentIdentifier, InherentData};
 //! # use futures::FutureExt;
-//! # type Block = sp_runtime::testing::Block<ExtrinsicWrapper<()>>;
+//! # type Block = sp_runtime::testing::Block<TestXt<MockCallU64, ()>>;
 //! # const INHERENT_IDENTIFIER: InherentIdentifier = *b"testinh0";
 //! # struct InherentDataProvider;
 //! # #[async_trait::async_trait]
@@ -318,15 +318,14 @@ impl CheckInherentsResult {
 			return Err(Error::FatalErrorReported)
 		}
 
+		self.okay = false;
 		if error.is_fatal_error() {
+			self.fatal_error = true;
 			// remove the other errors.
 			self.errors.data.clear();
 		}
-
 		self.errors.put_data(identifier, error)?;
 
-		self.okay = false;
-		self.fatal_error = error.is_fatal_error();
 		Ok(())
 	}
 

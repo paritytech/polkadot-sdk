@@ -1,0 +1,13 @@
+title: '[pallet-revive] implement the gas price API'
+doc:
+- audience: Runtime Dev
+  description: This PR implements the EVM gas price syscall API method. Currently
+    this is a compile time constant in revive, but in the EVM it is an opcode. Thus
+    we should provide an opcode for this in the pallet.
+crates:
+- name: pallet-revive-fixtures
+  bump: minor
+- name: pallet-revive
+  bump: minor
+- name: pallet-revive-uapi
+  bump: minor

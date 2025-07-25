@@ -26,6 +26,21 @@ fn buy_execution<C>(fees: impl Into<Asset>) -> Instruction<C> {
 	BuyExecution { fees: fees.into(), weight_limit: Unlimited }
 }
 
+/// Helper macro to check if a system event exists in the event list.
+///
+/// Example usage:
+/// ```ignore
+/// assert!(system_contains_event!(parachain, System(frame_system::Event::Remarked { .. })));
+/// assert!(system_contains_event!(relay_chain, XcmPallet(pallet_xcm::Event::Attempted { .. })));
+/// ```
+macro_rules! system_contains_event {
+    ($runtime:ident, $variant:ident($($pattern:tt)*)) => {
+        $runtime::System::events().iter().any(|e| {
+            matches!(e.event, $runtime::RuntimeEvent::$variant($($pattern)*))
+        })
+    };
+}
+
 #[test]
 fn remote_account_ids_work() {
 	child_account_account_id(1, ALICE);
@@ -46,18 +61,14 @@ fn dmp() {
 			Parachain(1),
 			Xcm(vec![Transact {
 				origin_kind: OriginKind::SovereignAccount,
-				require_weight_at_most: Weight::from_parts(INITIAL_BALANCE as u64, 1024 * 1024),
 				call: remark.encode().into(),
+				fallback_max_weight: None,
 			}]),
 		));
 	});
 
 	ParaA::execute_with(|| {
-		use parachain::{RuntimeEvent, System};
-		assert!(System::events().iter().any(|r| matches!(
-			r.event,
-			RuntimeEvent::System(frame_system::Event::Remarked { .. })
-		)));
+		assert!(system_contains_event!(parachain, System(frame_system::Event::Remarked { .. })));
 	});
 }
 
@@ -74,18 +85,14 @@ fn ump() {
 			Parent,
 			Xcm(vec![Transact {
 				origin_kind: OriginKind::SovereignAccount,
-				require_weight_at_most: Weight::from_parts(INITIAL_BALANCE as u64, 1024 * 1024),
 				call: remark.encode().into(),
+				fallback_max_weight: None,
 			}]),
 		));
 	});
 
 	Relay::execute_with(|| {
-		use relay_chain::{RuntimeEvent, System};
-		assert!(System::events().iter().any(|r| matches!(
-			r.event,
-			RuntimeEvent::System(frame_system::Event::Remarked { .. })
-		)));
+		assert!(system_contains_event!(relay_chain, System(frame_system::Event::Remarked { .. })));
 	});
 }
 
@@ -102,18 +109,14 @@ fn xcmp() {
 			(Parent, Parachain(2)),
 			Xcm(vec![Transact {
 				origin_kind: OriginKind::SovereignAccount,
-				require_weight_at_most: Weight::from_parts(INITIAL_BALANCE as u64, 1024 * 1024),
 				call: remark.encode().into(),
+				fallback_max_weight: None,
 			}]),
 		));
 	});
 
 	ParaB::execute_with(|| {
-		use parachain::{RuntimeEvent, System};
-		assert!(System::events().iter().any(|r| matches!(
-			r.event,
-			RuntimeEvent::System(frame_system::Event::Remarked { .. })
-		)));
+		assert!(system_contains_event!(parachain, System(frame_system::Event::Remarked { .. })));
 	});
 }
 
@@ -136,6 +139,13 @@ fn reserve_transfer() {
 			relay_chain::Balances::free_balance(&child_account_id(1)),
 			INITIAL_BALANCE + withdraw_amount
 		);
+		// Ensure expected events were emitted
+		let attempted_emitted =
+			system_contains_event!(relay_chain, XcmPallet(pallet_xcm::Event::Attempted { .. }));
+		let sent_emitted =
+			system_contains_event!(relay_chain, XcmPallet(pallet_xcm::Event::Sent { .. }));
+		assert!(attempted_emitted, "Expected XcmPallet::Attempted event emitted");
+		assert!(sent_emitted, "Expected XcmPallet::Sent event emitted");
 	});
 
 	ParaA::execute_with(|| {
@@ -144,6 +154,57 @@ fn reserve_transfer() {
 			pallet_balances::Pallet::<parachain::Runtime>::free_balance(&ALICE),
 			INITIAL_BALANCE + withdraw_amount
 		);
+	});
+}
+
+#[test]
+fn reserve_transfer_with_error() {
+	use sp_tracing::{
+		test_log_capture::init_log_capture,
+		tracing::{subscriber, Level},
+	};
+
+	// Reset the test network
+	MockNet::reset();
+
+	// Execute XCM Transfer and Capture Logs
+	let (log_capture, subscriber) = init_log_capture(Level::ERROR, false);
+	subscriber::with_default(subscriber, || {
+		let invalid_dest = Box::new(Parachain(9999).into());
+		let withdraw_amount = 123;
+
+		Relay::execute_with(|| {
+			let result = RelayChainPalletXcm::limited_reserve_transfer_assets(
+				relay_chain::RuntimeOrigin::signed(ALICE),
+				invalid_dest,
+				Box::new(AccountId32 { network: None, id: ALICE.into() }.into()),
+				Box::new((Here, withdraw_amount).into()),
+				0,
+				Unlimited,
+			);
+
+			// Ensure an error occurred
+			assert!(result.is_err(), "Expected an error due to invalid destination");
+
+			// Assert captured logs
+			assert!(log_capture.contains("XCM validate_send failed"));
+
+			// Verify that XcmPallet::Attempted was NOT emitted (rollback happened)
+			let xcm_attempted_emitted =
+				system_contains_event!(relay_chain, XcmPallet(pallet_xcm::Event::Attempted { .. }));
+			assert!(
+				!xcm_attempted_emitted,
+				"Expected no XcmPallet::Attempted event due to rollback, but it was emitted"
+			);
+		});
+
+		// Ensure no balance change due to the error
+		ParaA::execute_with(|| {
+			assert_eq!(
+				pallet_balances::Pallet::<parachain::Runtime>::free_balance(&ALICE),
+				INITIAL_BALANCE
+			);
+		});
 	});
 }
 
@@ -344,7 +405,7 @@ fn reserve_asset_transfer_nft() {
 		assert_ok!(ParachainPalletXcm::send_xcm(alice, Parent, message));
 	});
 	ParaA::execute_with(|| {
-		log::debug!(target: "xcm-executor", "Hello");
+		tracing::debug!(target: "xcm-executor", "Hello");
 		assert_eq!(
 			parachain::ForeignUniques::owner((Parent, GeneralIndex(2)).into(), 69u32.into()),
 			Some(ALICE),
@@ -383,7 +444,6 @@ fn reserve_asset_class_create_and_reserve_transfer() {
 
 		let message = Xcm(vec![Transact {
 			origin_kind: OriginKind::Xcm,
-			require_weight_at_most: Weight::from_parts(1_000_000_000, 1024 * 1024),
 			call: parachain::RuntimeCall::from(
 				pallet_uniques::Call::<parachain::Runtime>::create {
 					collection: (Parent, 2u64).into(),
@@ -392,6 +452,7 @@ fn reserve_asset_class_create_and_reserve_transfer() {
 			)
 			.encode()
 			.into(),
+			fallback_max_weight: None,
 		}]);
 		// Send creation.
 		assert_ok!(RelayChainPalletXcm::send_xcm(Here, Parachain(1), message));
@@ -466,7 +527,7 @@ fn query_holding() {
 	let query_id_set = 1234;
 
 	// Send a message which fully succeeds on the relay chain
-	ParaA::execute_with(|| {
+	let expected_hash = ParaA::execute_with(|| {
 		let message = Xcm(vec![
 			WithdrawAsset((Here, send_amount).into()),
 			buy_execution((Here, send_amount)),
@@ -482,6 +543,8 @@ fn query_holding() {
 		]);
 		// Send withdraw and deposit with query holding
 		assert_ok!(ParachainPalletXcm::send_xcm(Here, Parent, message.clone(),));
+
+		VersionedXcm::from(message).using_encoded(sp_core::blake2_256)
 	});
 
 	// Check that transfer was executed
@@ -502,12 +565,15 @@ fn query_holding() {
 	ParaA::execute_with(|| {
 		assert_eq!(
 			ReceivedDmp::<parachain::Runtime>::get(),
-			vec![Xcm(vec![QueryResponse {
-				query_id: query_id_set,
-				response: Response::Assets(Assets::new()),
-				max_weight: Weight::from_parts(1_000_000_000, 1024 * 1024),
-				querier: Some(Here.into()),
-			}])],
+			vec![Xcm(vec![
+				QueryResponse {
+					query_id: query_id_set,
+					response: Response::Assets(Assets::new()),
+					max_weight: Weight::from_parts(1_000_000_000, 1024 * 1024),
+					querier: Some(Here.into()),
+				},
+				SetTopic(expected_hash),
+			])],
 		);
 	});
 }

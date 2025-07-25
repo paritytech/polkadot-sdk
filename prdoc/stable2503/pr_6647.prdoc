@@ -1,0 +1,8 @@
+title: '`fatxpool`: proper handling of priorities when mempool is full'
+doc:
+- audience: Node Dev
+  description: |-
+    Higher-priority transactions can now replace lower-priority transactions even when the internal _tx_mem_pool_ is full.
+crates:
+- name: sc-transaction-pool
+  bump: minor

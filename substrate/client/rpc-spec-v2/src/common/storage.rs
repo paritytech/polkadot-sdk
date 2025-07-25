@@ -22,8 +22,9 @@ use std::{marker::PhantomData, sync::Arc};
 
 use sc_client_api::{Backend, ChildInfo, StorageKey, StorageProvider};
 use sp_runtime::traits::Block as BlockT;
+use tokio::sync::mpsc;
 
-use super::events::{StorageResult, StorageResultType};
+use super::events::{StorageQuery, StorageQueryType, StorageResult, StorageResultType};
 use crate::hex_string;
 
 /// Call into the storage of blocks.
@@ -31,6 +32,12 @@ pub struct Storage<Client, Block, BE> {
 	/// Substrate client.
 	client: Arc<Client>,
 	_phandom: PhantomData<(BE, Block)>,
+}
+
+impl<Client, Block, BE> Clone for Storage<Client, Block, BE> {
+	fn clone(&self) -> Self {
+		Self { client: self.client.clone(), _phandom: PhantomData }
+	}
 }
 
 impl<Client, Block, BE> Storage<Client, Block, BE> {
@@ -41,6 +48,7 @@ impl<Client, Block, BE> Storage<Client, Block, BE> {
 }
 
 /// Query to iterate over storage.
+#[derive(Debug)]
 pub struct QueryIter {
 	/// The key from which the iteration was started.
 	pub query_key: StorageKey,
@@ -51,6 +59,7 @@ pub struct QueryIter {
 }
 
 /// The query type of an iteration.
+#[derive(Debug)]
 pub enum IterQueryType {
 	/// Iterating over (key, value) pairs.
 	Value,
@@ -60,9 +69,6 @@ pub enum IterQueryType {
 
 /// The result of making a query call.
 pub type QueryResult = Result<Option<StorageResult>, String>;
-
-/// The result of iterating over keys.
-pub type QueryIterResult = Result<(Vec<StorageResult>, Option<QueryIter>), String>;
 
 impl<Client, Block, BE> Storage<Client, Block, BE>
 where
@@ -88,6 +94,7 @@ where
 				QueryResult::Ok(opt.map(|storage_data| StorageResult {
 					key: hex_string(&key.0),
 					result: StorageResultType::Value(hex_string(&storage_data.0)),
+					child_trie_key: child_key.map(|c| hex_string(&c.storage_key())),
 				}))
 			})
 			.unwrap_or_else(|error| QueryResult::Err(error.to_string()))
@@ -111,6 +118,7 @@ where
 				QueryResult::Ok(opt.map(|storage_data| StorageResult {
 					key: hex_string(&key.0),
 					result: StorageResultType::Hash(hex_string(&storage_data.as_ref())),
+					child_trie_key: child_key.map(|c| hex_string(&c.storage_key())),
 				}))
 			})
 			.unwrap_or_else(|error| QueryResult::Err(error.to_string()))
@@ -123,7 +131,7 @@ where
 		key: &StorageKey,
 		child_key: Option<&ChildInfo>,
 	) -> QueryResult {
-		let result = if let Some(child_key) = child_key {
+		let result = if let Some(ref child_key) = child_key {
 			self.client.child_closest_merkle_value(hash, child_key, key)
 		} else {
 			self.client.closest_merkle_value(hash, key)
@@ -140,25 +148,27 @@ where
 					StorageResult {
 						key: hex_string(&key.0),
 						result: StorageResultType::ClosestDescendantMerkleValue(result),
+						child_trie_key: child_key.map(|c| hex_string(&c.storage_key())),
 					}
 				}))
 			})
 			.unwrap_or_else(|error| QueryResult::Err(error.to_string()))
 	}
 
-	/// Iterate over at most the provided number of keys.
+	/// Iterate over the storage keys and send the results to the provided sender.
 	///
-	/// Returns the storage result with a potential next key to resume iteration.
-	pub fn query_iter_pagination(
+	/// Because this relies on a bounded channel, it will pause the storage iteration
+	// if the channel is becomes full which in turn provides backpressure.
+	pub fn query_iter_pagination_with_producer(
 		&self,
 		query: QueryIter,
 		hash: Block::Hash,
 		child_key: Option<&ChildInfo>,
-		count: usize,
-	) -> QueryIterResult {
+		tx: &mpsc::Sender<QueryResult>,
+	) {
 		let QueryIter { ty, query_key, pagination_start_key } = query;
 
-		let mut keys_iter = if let Some(child_key) = child_key {
+		let maybe_storage = if let Some(child_key) = child_key {
 			self.client.child_storage_keys(
 				hash,
 				child_key.to_owned(),
@@ -167,32 +177,133 @@ where
 			)
 		} else {
 			self.client.storage_keys(hash, Some(&query_key), pagination_start_key.as_ref())
-		}
-		.map_err(|err| err.to_string())?;
+		};
 
-		let mut ret = Vec::with_capacity(count);
-		let mut next_pagination_key = None;
-		for _ in 0..count {
-			let Some(key) = keys_iter.next() else { break };
+		let keys_iter = match maybe_storage {
+			Ok(keys_iter) => keys_iter,
+			Err(error) => {
+				_ = tx.blocking_send(Err(error.to_string()));
+				return;
+			},
+		};
 
-			next_pagination_key = Some(key.clone());
-
+		for key in keys_iter {
 			let result = match ty {
 				IterQueryType::Value => self.query_value(hash, &key, child_key),
 				IterQueryType::Hash => self.query_hash(hash, &key, child_key),
-			}?;
+			};
 
-			if let Some(value) = result {
-				ret.push(value);
+			if tx.blocking_send(result).is_err() {
+				break;
 			}
 		}
+	}
 
-		// Save the next key if any to continue the iteration.
-		let maybe_next_query = keys_iter.next().map(|_| QueryIter {
-			ty,
-			query_key,
-			pagination_start_key: next_pagination_key,
-		});
-		Ok((ret, maybe_next_query))
+	/// Raw iterator over the keys.
+	pub fn raw_keys_iter(
+		&self,
+		hash: Block::Hash,
+		child_key: Option<ChildInfo>,
+	) -> Result<impl Iterator<Item = StorageKey>, String> {
+		let keys_iter = if let Some(child_key) = child_key {
+			self.client.child_storage_keys(hash, child_key, None, None)
+		} else {
+			self.client.storage_keys(hash, None, None)
+		};
+
+		keys_iter.map_err(|err| err.to_string())
+	}
+}
+
+/// Generates storage events for `chainHead_storage` and `archive_storage` subscriptions.
+pub struct StorageSubscriptionClient<Client, Block, BE> {
+	/// Storage client.
+	client: Storage<Client, Block, BE>,
+	_phandom: PhantomData<(BE, Block)>,
+}
+
+impl<Client, Block, BE> Clone for StorageSubscriptionClient<Client, Block, BE> {
+	fn clone(&self) -> Self {
+		Self { client: self.client.clone(), _phandom: PhantomData }
+	}
+}
+
+impl<Client, Block, BE> StorageSubscriptionClient<Client, Block, BE> {
+	/// Constructs a new [`StorageSubscriptionClient`].
+	pub fn new(client: Arc<Client>) -> Self {
+		Self { client: Storage::new(client), _phandom: PhantomData }
+	}
+}
+
+impl<Client, Block, BE> StorageSubscriptionClient<Client, Block, BE>
+where
+	Block: BlockT + 'static,
+	BE: Backend<Block> + 'static,
+	Client: StorageProvider<Block, BE> + Send + Sync + 'static,
+{
+	/// Generate storage events to the provided sender.
+	pub async fn generate_events(
+		&mut self,
+		hash: Block::Hash,
+		items: Vec<StorageQuery<StorageKey>>,
+		child_key: Option<ChildInfo>,
+		tx: mpsc::Sender<QueryResult>,
+	) -> Result<(), tokio::task::JoinError> {
+		let this = self.clone();
+
+		tokio::task::spawn_blocking(move || {
+			for item in items {
+				match item.query_type {
+					StorageQueryType::Value => {
+						let rp = this.client.query_value(hash, &item.key, child_key.as_ref());
+						if tx.blocking_send(rp).is_err() {
+							break;
+						}
+					},
+					StorageQueryType::Hash => {
+						let rp = this.client.query_hash(hash, &item.key, child_key.as_ref());
+						if tx.blocking_send(rp).is_err() {
+							break;
+						}
+					},
+					StorageQueryType::ClosestDescendantMerkleValue => {
+						let rp =
+							this.client.query_merkle_value(hash, &item.key, child_key.as_ref());
+						if tx.blocking_send(rp).is_err() {
+							break;
+						}
+					},
+					StorageQueryType::DescendantsValues => {
+						let query = QueryIter {
+							query_key: item.key,
+							ty: IterQueryType::Value,
+							pagination_start_key: None,
+						};
+						this.client.query_iter_pagination_with_producer(
+							query,
+							hash,
+							child_key.as_ref(),
+							&tx,
+						)
+					},
+					StorageQueryType::DescendantsHashes => {
+						let query = QueryIter {
+							query_key: item.key,
+							ty: IterQueryType::Hash,
+							pagination_start_key: None,
+						};
+						this.client.query_iter_pagination_with_producer(
+							query,
+							hash,
+							child_key.as_ref(),
+							&tx,
+						)
+					},
+				}
+			}
+		})
+		.await?;
+
+		Ok(())
 	}
 }

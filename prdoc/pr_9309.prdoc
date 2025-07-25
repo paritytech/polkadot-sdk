@@ -1,0 +1,21 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Make RecentDisputes/ActiveDisputes use BTreeMap
+
+doc:
+  - audience: Node Dev
+    description: |
+      Make dispute-coordinator forward BTreeMap/BTreeSet to provisioner directly instead of converting it to Vec as before.
+
+crates:
+- name: polkadot-node-primitives
+  bump: major
+- name: polkadot-node-subsystem-types
+  bump: major
+- name: polkadot-dispute-distribution
+  bump: major
+- name: polkadot-node-core-dispute-coordinator
+  bump: major
+- name: polkadot-node-core-provisioner
+  bump: major

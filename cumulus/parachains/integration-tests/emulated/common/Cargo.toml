@@ -5,42 +5,54 @@ authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 description = "Common resources for integration testing with xcm-emulator"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
 
 [dependencies]
 codec = { workspace = true }
+hex-literal = { workspace = true }
 paste = { workspace = true, default-features = true }
 
 # Substrate
-sp-consensus-beefy = { workspace = true, default-features = true }
-sc-consensus-grandpa = { workspace = true, default-features = true }
-sp-authority-discovery = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
 frame-support = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-consensus-babe = { workspace = true, default-features = true }
+frame-system = { workspace = true, default-features = true }
+pallet-asset-conversion = { workspace = true, default-features = true }
 pallet-assets = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-message-queue = { workspace = true, default-features = true }
+pallet-whitelist = { workspace = true, default-features = true }
+sc-consensus-grandpa = { workspace = true, default-features = true }
+sp-authority-discovery = { workspace = true, default-features = true }
+sp-consensus-babe = { workspace = true, default-features = true }
+sp-consensus-beefy = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
 
 # Polkadot
-polkadot-primitives = { workspace = true, default-features = true }
+pallet-xcm = { features = ["test-utils"], workspace = true, default-features = true }
 polkadot-parachain-primitives = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
 polkadot-runtime-parachains = { workspace = true, default-features = true }
 xcm = { workspace = true, default-features = true }
-pallet-xcm = { workspace = true, default-features = true }
+xcm-builder = { workspace = true, default-features = true }
+xcm-executor = { workspace = true, default-features = true }
+xcm-runtime-apis = { workspace = true, default-features = true }
+xcm-simulator = { workspace = true, default-features = true }
 
 # Cumulus
-parachains-common = { workspace = true, default-features = true }
-cumulus-primitives-core = { workspace = true, default-features = true }
-xcm-emulator = { workspace = true, default-features = true }
-cumulus-pallet-xcmp-queue = { workspace = true, default-features = true }
-cumulus-pallet-parachain-system = { workspace = true, default-features = true }
 asset-test-utils = { workspace = true, default-features = true }
+cumulus-pallet-parachain-system = { workspace = true, default-features = true }
+cumulus-pallet-xcmp-queue = { workspace = true, default-features = true }
+cumulus-primitives-core = { workspace = true, default-features = true }
+parachains-common = { workspace = true, default-features = true }
+xcm-emulator = { workspace = true, default-features = true }
 
 # Bridges
 bp-messages = { workspace = true, default-features = true }
+bp-xcm-bridge-hub = { workspace = true, default-features = true }
 pallet-bridge-messages = { workspace = true, default-features = true }
-bridge-runtime-common = { workspace = true, default-features = true }
+pallet-xcm-bridge-hub = { workspace = true, default-features = true }

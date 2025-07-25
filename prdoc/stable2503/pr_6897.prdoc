@@ -1,0 +1,7 @@
+title: 'Tracing Log for fork-aware transaction pool'
+doc:
+- audience: Node Dev
+  description: Replacement of log crate with tracing crate for better logging.
+crates:
+- name: sc-transaction-pool
+  bump: minor

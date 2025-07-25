@@ -5,62 +5,62 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Approval Voting Subsystem of the Polkadot node"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
-
-[dependencies]
-futures = { workspace = true }
-futures-timer = { workspace = true }
-codec = { features = ["bit-vec", "derive"], workspace = true }
-gum = { workspace = true, default-features = true }
-bitvec = { features = ["alloc"], workspace = true }
-schnellru = { workspace = true }
-merlin = { workspace = true, default-features = true }
-schnorrkel = { workspace = true, default-features = true }
-kvdb = { workspace = true }
-derive_more = { workspace = true, default-features = true }
-thiserror = { workspace = true }
-itertools = { workspace = true }
-
-polkadot-node-subsystem = { workspace = true, default-features = true }
-polkadot-node-subsystem-util = { workspace = true, default-features = true }
-polkadot-overseer = { workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
-polkadot-node-primitives = { workspace = true, default-features = true }
-polkadot-node-jaeger = { workspace = true, default-features = true }
-
-sc-keystore = { workspace = true }
-sp-consensus = { workspace = true }
-sp-consensus-slots = { workspace = true }
-sp-application-crypto = { features = ["full_crypto"], workspace = true }
-sp-runtime = { workspace = true }
-# rand_core should match schnorrkel
-rand_core = { workspace = true }
-rand_chacha = { workspace = true, default-features = true }
-rand = { workspace = true, default-features = true }
-
-[dev-dependencies]
-async-trait = { workspace = true }
-parking_lot = { workspace = true, default-features = true }
-sp-keyring = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-consensus-babe = { workspace = true, default-features = true }
-polkadot-node-subsystem-test-helpers = { workspace = true }
-assert_matches = { workspace = true }
-kvdb-memorydb = { workspace = true }
-polkadot-primitives-test-helpers = { workspace = true }
-log = { workspace = true, default-features = true }
-sp-tracing = { workspace = true }
-
-polkadot-subsystem-bench = { workspace = true }
 
 [[bench]]
 name = "approval-voting-regression-bench"
 path = "benches/approval-voting-regression-bench.rs"
 harness = false
 required-features = ["subsystem-benchmarks"]
+
+[dependencies]
+async-trait = { workspace = true }
+bitvec = { features = ["alloc"], workspace = true }
+codec = { features = ["bit-vec", "derive"], workspace = true }
+derive_more = { workspace = true, default-features = true }
+futures = { workspace = true }
+futures-timer = { workspace = true }
+gum = { workspace = true, default-features = true }
+itertools = { workspace = true }
+merlin = { workspace = true, default-features = true }
+schnellru = { workspace = true }
+schnorrkel = { workspace = true, default-features = true }
+thiserror = { workspace = true }
+
+polkadot-node-primitives = { workspace = true, default-features = true }
+polkadot-node-subsystem = { workspace = true, default-features = true }
+polkadot-node-subsystem-util = { workspace = true, default-features = true }
+polkadot-overseer = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+
+rand = { workspace = true, default-features = true }
+rand_chacha = { workspace = true, default-features = true }
+# rand_core should match schnorrkel
+rand_core = { workspace = true }
+sc-keystore = { workspace = true }
+sp-application-crypto = { features = ["full_crypto"], workspace = true }
+sp-consensus = { workspace = true }
+sp-consensus-slots = { workspace = true }
+sp-runtime = { workspace = true }
+
+[dev-dependencies]
+assert_matches = { workspace = true }
+kvdb-memorydb = { workspace = true }
+parking_lot = { workspace = true, default-features = true }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-primitives = { workspace = true, features = ["test"] }
+polkadot-primitives-test-helpers = { workspace = true }
+sp-consensus-babe = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
+sp-tracing = { workspace = true }
+
+polkadot-subsystem-bench = { workspace = true }
 
 [features]
 subsystem-benchmarks = []

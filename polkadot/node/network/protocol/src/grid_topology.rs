@@ -496,6 +496,11 @@ impl SessionBoundGridTopologyStorage {
 		&self.current_topology.entry
 	}
 
+	/// Returns the current session index.
+	pub fn get_current_session_index(&self) -> SessionIndex {
+		self.current_topology.session_index
+	}
+
 	/// Access the current grid topology mutably. Dangerous and intended
 	/// to be used in tests.
 	pub fn get_current_topology_mut(&mut self) -> &mut SessionGridTopologyEntry {
@@ -575,6 +580,22 @@ impl RequiredRouting {
 			_ => false,
 		}
 	}
+
+	/// Combine two required routing sets into one that would cover both routing modes.
+	pub fn combine(self, other: Self) -> Self {
+		match (self, other) {
+			(RequiredRouting::All, _) | (_, RequiredRouting::All) => RequiredRouting::All,
+			(RequiredRouting::GridXY, _) | (_, RequiredRouting::GridXY) => RequiredRouting::GridXY,
+			(RequiredRouting::GridX, RequiredRouting::GridY) |
+			(RequiredRouting::GridY, RequiredRouting::GridX) => RequiredRouting::GridXY,
+			(RequiredRouting::GridX, RequiredRouting::GridX) => RequiredRouting::GridX,
+			(RequiredRouting::GridY, RequiredRouting::GridY) => RequiredRouting::GridY,
+			(RequiredRouting::None, RequiredRouting::PendingTopology) |
+			(RequiredRouting::PendingTopology, RequiredRouting::None) => RequiredRouting::PendingTopology,
+			(RequiredRouting::None, _) | (RequiredRouting::PendingTopology, _) => other,
+			(_, RequiredRouting::None) | (_, RequiredRouting::PendingTopology) => self,
+		}
+	}
 }
 
 #[cfg(test)]
@@ -585,6 +606,50 @@ mod tests {
 
 	fn dummy_rng() -> ChaCha12Rng {
 		rand_chacha::ChaCha12Rng::seed_from_u64(12345)
+	}
+
+	#[test]
+	fn test_required_routing_combine() {
+		assert_eq!(RequiredRouting::All.combine(RequiredRouting::None), RequiredRouting::All);
+		assert_eq!(RequiredRouting::All.combine(RequiredRouting::GridXY), RequiredRouting::All);
+		assert_eq!(RequiredRouting::GridXY.combine(RequiredRouting::All), RequiredRouting::All);
+		assert_eq!(RequiredRouting::None.combine(RequiredRouting::All), RequiredRouting::All);
+		assert_eq!(RequiredRouting::None.combine(RequiredRouting::None), RequiredRouting::None);
+		assert_eq!(
+			RequiredRouting::PendingTopology.combine(RequiredRouting::GridX),
+			RequiredRouting::GridX
+		);
+
+		assert_eq!(
+			RequiredRouting::GridX.combine(RequiredRouting::PendingTopology),
+			RequiredRouting::GridX
+		);
+		assert_eq!(RequiredRouting::GridX.combine(RequiredRouting::GridY), RequiredRouting::GridXY);
+		assert_eq!(RequiredRouting::GridY.combine(RequiredRouting::GridX), RequiredRouting::GridXY);
+		assert_eq!(
+			RequiredRouting::GridXY.combine(RequiredRouting::GridXY),
+			RequiredRouting::GridXY
+		);
+		assert_eq!(RequiredRouting::GridX.combine(RequiredRouting::GridX), RequiredRouting::GridX);
+		assert_eq!(RequiredRouting::GridY.combine(RequiredRouting::GridY), RequiredRouting::GridY);
+
+		assert_eq!(RequiredRouting::None.combine(RequiredRouting::GridY), RequiredRouting::GridY);
+		assert_eq!(RequiredRouting::None.combine(RequiredRouting::GridX), RequiredRouting::GridX);
+		assert_eq!(RequiredRouting::None.combine(RequiredRouting::GridXY), RequiredRouting::GridXY);
+
+		assert_eq!(RequiredRouting::GridY.combine(RequiredRouting::None), RequiredRouting::GridY);
+		assert_eq!(RequiredRouting::GridX.combine(RequiredRouting::None), RequiredRouting::GridX);
+		assert_eq!(RequiredRouting::GridXY.combine(RequiredRouting::None), RequiredRouting::GridXY);
+
+		assert_eq!(
+			RequiredRouting::PendingTopology.combine(RequiredRouting::None),
+			RequiredRouting::PendingTopology
+		);
+
+		assert_eq!(
+			RequiredRouting::None.combine(RequiredRouting::PendingTopology),
+			RequiredRouting::PendingTopology
+		);
 	}
 
 	#[test]

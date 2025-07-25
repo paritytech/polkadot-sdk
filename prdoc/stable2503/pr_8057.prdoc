@@ -1,0 +1,7 @@
+title: "Moved bridge primitives to `parity-bridge-common` and `polkadot-fellows/runtimes` repos"
+doc:
+  - audience: Runtime Dev
+    description: |
+      Removed packages `bp-polkadot`, `bp-kusama`, `bp-bridge-hub-polkadot` and `bp-bridge-hub-kusama`
+
+crates: []

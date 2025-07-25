@@ -15,17 +15,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::cli::Consensus;
 use futures::FutureExt;
 use minimal_template_runtime::{interface::OpaqueBlock as Block, RuntimeApi};
-use sc_client_api::backend::Backend;
-use sc_executor::WasmExecutor;
-use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
-use sc_telemetry::{Telemetry, TelemetryWorker};
-use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_runtime::traits::Block as BlockT;
+use polkadot_sdk::{
+	sc_client_api::backend::Backend,
+	sc_consensus_manual_seal::{seal_block, SealBlockParams},
+	sc_executor::WasmExecutor,
+	sc_service::{error::Error as ServiceError, Configuration, TaskManager},
+	sc_telemetry::{Telemetry, TelemetryWorker},
+	sc_transaction_pool_api::OffchainTransactionPoolFactory,
+	sp_runtime::traits::Block as BlockT,
+	*,
+};
 use std::sync::Arc;
-
-use crate::cli::Consensus;
 
 type HostFunctions = sp_io::SubstrateHostFunctions;
 
@@ -42,7 +45,7 @@ pub type Service = sc_service::PartialComponents<
 	FullBackend,
 	FullSelectChain,
 	sc_consensus::DefaultImportQueue<Block>,
-	sc_transaction_pool::FullPool<Block, FullClient>,
+	sc_transaction_pool::TransactionPoolHandle<Block, FullClient>,
 	Option<Telemetry>,
 >;
 
@@ -58,7 +61,7 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 		})
 		.transpose()?;
 
-	let executor = sc_service::new_wasm_executor(config);
+	let executor = sc_service::new_wasm_executor(&config.executor);
 
 	let (client, backend, keystore_container, task_manager) =
 		sc_service::new_full_parts::<Block, RuntimeApi, _>(
@@ -75,12 +78,15 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 
 	let select_chain = sc_consensus::LongestChain::new(backend.clone());
 
-	let transaction_pool = sc_transaction_pool::BasicPool::new_full(
-		config.transaction_pool.clone(),
-		config.role.is_authority().into(),
-		config.prometheus_registry(),
-		task_manager.spawn_essential_handle(),
-		client.clone(),
+	let transaction_pool = Arc::from(
+		sc_transaction_pool::Builder::new(
+			task_manager.spawn_essential_handle(),
+			client.clone(),
+			config.role.is_authority().into(),
+		)
+		.with_options(config.transaction_pool.clone())
+		.with_prometheus(config.prometheus_registry())
+		.build(),
 	);
 
 	let import_queue = sc_consensus_manual_seal::import_queue(
@@ -102,7 +108,7 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 }
 
 /// Builds a new service for a full client.
-pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Hash>>(
+pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	config: Configuration,
 	consensus: Consensus,
 ) -> Result<TaskManager, ServiceError> {
@@ -129,24 +135,22 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 		config.prometheus_config.as_ref().map(|cfg| &cfg.registry),
 	);
 
-	let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
+	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
+			net_config,
 			client: client.clone(),
 			transaction_pool: transaction_pool.clone(),
 			spawn_handle: task_manager.spawn_handle(),
 			import_queue,
-			net_config,
 			block_announce_validator_builder: None,
-			warp_sync_params: None,
+			warp_sync_config: None,
 			block_relay: None,
 			metrics,
 		})?;
 
 	if config.offchain_worker.enabled {
-		task_manager.spawn_handle().spawn(
-			"offchain-workers-runner",
-			"offchain-worker",
+		let offchain_workers =
 			sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
 				runtime_api_provider: client.clone(),
 				is_validator: config.role.is_authority(),
@@ -158,9 +162,11 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 				network_provider: Arc::new(network.clone()),
 				enable_http_requests: true,
 				custom_extensions: |_| vec![],
-			})
-			.run(client.clone(), task_manager.spawn_handle())
-			.boxed(),
+			})?;
+		task_manager.spawn_handle().spawn(
+			"offchain-workers-runner",
+			"offchain-worker",
+			offchain_workers.run(client.clone(), task_manager.spawn_handle()).boxed(),
 		);
 	}
 
@@ -168,9 +174,8 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 		let client = client.clone();
 		let pool = transaction_pool.clone();
 
-		Box::new(move |deny_unsafe, _| {
-			let deps =
-				crate::rpc::FullDeps { client: client.clone(), pool: pool.clone(), deny_unsafe };
+		Box::new(move |_| {
+			let deps = crate::rpc::FullDeps { client: client.clone(), pool: pool.clone() };
 			crate::rpc::create_full(deps).map_err(Into::into)
 		})
 	};
@@ -192,7 +197,7 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 		telemetry: telemetry.as_mut(),
 	})?;
 
-	let proposer = sc_basic_authorship::ProposerFactory::new(
+	let mut proposer = sc_basic_authorship::ProposerFactory::new(
 		task_manager.spawn_handle(),
 		client.clone(),
 		transaction_pool.clone(),
@@ -202,6 +207,31 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 
 	match consensus {
 		Consensus::InstantSeal => {
+			// Seal a first block to trigger fork-aware txpool `maintain`, and create a first
+			// view. This is necessary so that sending txs will not keep them in mempool for
+			// an undeterminated amount of time.
+			//
+			// If single state txpool is used there's no issue if we're sealing a first block in
+			// advance.
+			let create_inherent_data_providers =
+				|_, ()| async move { Ok(sp_timestamp::InherentDataProvider::from_system_time()) };
+			let mut client_mut = client.clone();
+			let consensus_data_provider = None;
+			let seal_params = SealBlockParams {
+				sender: None,
+				parent_hash: None,
+				finalize: true,
+				create_empty: true,
+				env: &mut proposer,
+				select_chain: &select_chain,
+				block_import: &mut client_mut,
+				consensus_data_provider,
+				pool: transaction_pool.clone(),
+				client: client.clone(),
+				create_inherent_data_providers: &create_inherent_data_providers,
+			};
+			seal_block(seal_params).await;
+
 			let params = sc_consensus_manual_seal::InstantSealParams {
 				block_import: client.clone(),
 				env: proposer,
@@ -209,9 +239,7 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 				pool: transaction_pool,
 				select_chain,
 				consensus_data_provider: None,
-				create_inherent_data_providers: move |_, ()| async move {
-					Ok(sp_timestamp::InherentDataProvider::from_system_time())
-				},
+				create_inherent_data_providers,
 			};
 
 			let authorship_future = sc_consensus_manual_seal::run_instant_seal(params);
@@ -257,8 +285,8 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 				authorship_future,
 			);
 		},
+		_ => {},
 	}
 
-	network_starter.start_network();
 	Ok(task_manager)
 }

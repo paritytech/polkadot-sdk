@@ -28,6 +28,7 @@ use std::{
 	collections::{HashMap, HashSet},
 	fmt,
 	time::{Duration, Instant},
+	u32,
 };
 
 use futures::{channel::oneshot, select, FutureExt as _};
@@ -41,12 +42,12 @@ use sp_keystore::{Keystore, KeystorePtr};
 
 use polkadot_node_network_protocol::{
 	authority_discovery::AuthorityDiscovery, peer_set::PeerSet, GossipSupportNetworkMessage,
-	PeerId, Versioned,
+	PeerId, ValidationProtocols,
 };
 use polkadot_node_subsystem::{
 	messages::{
-		GossipSupportMessage, NetworkBridgeEvent, NetworkBridgeRxMessage, NetworkBridgeTxMessage,
-		RuntimeApiMessage, RuntimeApiRequest,
+		ChainApiMessage, GossipSupportMessage, NetworkBridgeEvent, NetworkBridgeRxMessage,
+		NetworkBridgeTxMessage, RuntimeApiMessage, RuntimeApiRequest,
 	},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
@@ -89,13 +90,17 @@ const TRY_RERESOLVE_AUTHORITIES: Duration = Duration::from_secs(2);
 const LOW_CONNECTIVITY_WARN_DELAY: Duration = Duration::from_secs(600);
 
 /// If connectivity is lower than this in percent, issue warning in logs.
-const LOW_CONNECTIVITY_WARN_THRESHOLD: usize = 90;
+const LOW_CONNECTIVITY_WARN_THRESHOLD: usize = 85;
 
 /// The Gossip Support subsystem.
 pub struct GossipSupport<AD> {
 	keystore: KeystorePtr,
 
 	last_session_index: Option<SessionIndex>,
+	/// Whether we are currently an authority or not.
+	is_authority_now: bool,
+	/// The minimum known session we build the topology for.
+	min_known_session: SessionIndex,
 	// Some(timestamp) if we failed to resolve
 	// at least a third of authorities the last time.
 	// `None` otherwise.
@@ -130,6 +135,9 @@ pub struct GossipSupport<AD> {
 	/// Authority discovery service.
 	authority_discovery: AD,
 
+	/// The oldest session we need to build a topology for because
+	/// the finalized blocks are from a session we haven't built a topology for.
+	finalized_needed_session: Option<u32>,
 	/// Subsystem metrics.
 	metrics: Metrics,
 }
@@ -154,7 +162,10 @@ where
 			resolved_authorities: HashMap::new(),
 			connected_authorities: HashMap::new(),
 			connected_peers: HashMap::new(),
+			min_known_session: u32::MAX,
 			authority_discovery,
+			finalized_needed_session: None,
+			is_authority_now: false,
 			metrics,
 		}
 	}
@@ -199,7 +210,22 @@ where
 						gum::debug!(target: LOG_TARGET, error = ?e);
 					}
 				},
-				FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, _number)) => {},
+				FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, _number)) =>
+					if let Some(session_index) = self.last_session_index {
+						if let Err(e) = self
+							.build_topology_for_last_finalized_if_needed(
+								ctx.sender(),
+								session_index,
+							)
+							.await
+						{
+							gum::warn!(
+								target: LOG_TARGET,
+								"Failed to build topology for last finalized session: {:?}",
+								e
+							);
+						}
+					},
 				FromOrchestra::Signal(OverseerSignal::Conclude) => return self,
 			}
 		}
@@ -259,6 +285,9 @@ where
 						"New session detected",
 					);
 					self.last_session_index = Some(session_index);
+					self.is_authority_now =
+						ensure_i_am_an_authority(&self.keystore, &session_info.discovery_keys)
+							.is_ok();
 				}
 
 				// Connect to authorities from the past/present/future.
@@ -294,9 +323,19 @@ where
 				}
 
 				if is_new_session {
+					if let Err(err) = self
+						.build_topology_for_last_finalized_if_needed(sender, session_index)
+						.await
+					{
+						gum::warn!(
+							target: LOG_TARGET,
+							"Failed to build topology for last finalized session: {:?}",
+							err
+						);
+					}
+
 					// Gossip topology is only relevant for authorities in the current session.
 					let our_index = self.get_key_index_and_update_metrics(&session_info)?;
-
 					update_gossip_topology(
 						sender,
 						our_index,
@@ -310,6 +349,85 @@ where
 				// if new authorities are present.
 				self.update_authority_ids(sender, session_info.discovery_keys).await;
 			}
+		}
+		Ok(())
+	}
+
+	/// Build the gossip topology for the session of the last finalized block if we haven't built
+	/// one.
+	///
+	/// This is needed to ensure that if finality is lagging accross session boundary and a restart
+	/// happens after the new session started, we built a topology from the session we haven't
+	/// finalized the blocks yet.
+	/// Once finalized blocks start to be from a session we've built a topology for, we can stop.
+	async fn build_topology_for_last_finalized_if_needed(
+		&mut self,
+		sender: &mut impl overseer::GossipSupportSenderTrait,
+		current_session_index: u32,
+	) -> Result<(), util::Error> {
+		self.min_known_session = self.min_known_session.min(current_session_index);
+
+		if self
+			.finalized_needed_session
+			.map(|oldest_needed_session| oldest_needed_session < self.min_known_session)
+			.unwrap_or(true)
+		{
+			let (tx, rx) = oneshot::channel();
+			sender.send_message(ChainApiMessage::FinalizedBlockNumber(tx)).await;
+			let finalized_block_number = match rx.await? {
+				Ok(block_number) => block_number,
+				_ => return Ok(()),
+			};
+
+			let (tx, rx) = oneshot::channel();
+			sender
+				.send_message(ChainApiMessage::FinalizedBlockHash(finalized_block_number, tx))
+				.await;
+
+			let finalized_block_hash = match rx.await? {
+				Ok(Some(block_hash)) => block_hash,
+				_ => return Ok(()),
+			};
+
+			let finalized_session_index =
+				util::request_session_index_for_child(finalized_block_hash, sender)
+					.await
+					.await??;
+
+			if finalized_session_index < self.min_known_session &&
+				Some(finalized_session_index) != self.finalized_needed_session
+			{
+				gum::debug!(
+					target: LOG_TARGET,
+					?finalized_block_hash,
+					?finalized_block_number,
+					?finalized_session_index,
+					"Building topology for finalized block session",
+				);
+
+				let finalized_session_info = match util::request_session_info(
+					finalized_block_hash,
+					finalized_session_index,
+					sender,
+				)
+				.await
+				.await??
+				{
+					Some(session_info) => session_info,
+					_ => return Ok(()),
+				};
+
+				let our_index = self.get_key_index_and_update_metrics(&finalized_session_info)?;
+				update_gossip_topology(
+					sender,
+					our_index,
+					finalized_session_info.discovery_keys.clone(),
+					finalized_block_hash,
+					finalized_session_index,
+				)
+				.await?;
+			}
+			self.finalized_needed_session = Some(finalized_session_index);
 		}
 		Ok(())
 	}
@@ -577,9 +695,7 @@ where
 			NetworkBridgeEvent::PeerMessage(_, message) => {
 				// match void -> LLVM unreachable
 				match message {
-					Versioned::V1(m) => match m {},
-					Versioned::V2(m) => match m {},
-					Versioned::V3(m) => match m {},
+					ValidationProtocols::V3(m) => match m {},
 				}
 			},
 		}
@@ -595,13 +711,11 @@ where
 			.resolved_authorities
 			.iter()
 			.filter(|(a, _)| !self.connected_authorities.contains_key(a));
-		// TODO: Make that warning once connectivity issues are fixed (no point in warning, if
-		// we already know it is broken.
-		// https://github.com/paritytech/polkadot/issues/3921
-		if connected_ratio <= LOW_CONNECTIVITY_WARN_THRESHOLD {
-			gum::debug!(
+		if connected_ratio <= LOW_CONNECTIVITY_WARN_THRESHOLD && self.is_authority_now {
+			gum::error!(
 				target: LOG_TARGET,
-				"Connectivity seems low, we are only connected to {}% of available validators (see debug logs for details)", connected_ratio
+				session_index = self.last_session_index.as_ref().map(|s| *s).unwrap_or_default(),
+				"Connectivity seems low, we are only connected to {connected_ratio}% of available validators (see debug logs for details), if this persists more than a session action needs to be taken"
 			);
 		}
 		let pretty = PrettyAuthorities(unconnected_authorities);

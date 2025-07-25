@@ -64,6 +64,7 @@ fn spend_roc_on_asset_hub() {
 			treasury_balance * 2,
 		));
 
+		Dmp::make_parachain_reachable(1000);
 		let native_asset = Location::here();
 		let asset_hub_location: Location = [Parachain(1000)].into();
 		let treasury_location: Location = (Parent, PalletInstance(18)).into();
@@ -71,16 +72,17 @@ fn spend_roc_on_asset_hub() {
 		let teleport_call = RuntimeCall::Utility(pallet_utility::Call::<Runtime>::dispatch_as {
 			as_origin: bx!(RococoOriginCaller::system(RawOrigin::Signed(treasury_account))),
 			call: bx!(RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::teleport_assets {
-				dest: bx!(VersionedLocation::V4(asset_hub_location.clone())),
-				beneficiary: bx!(VersionedLocation::V4(treasury_location)),
-				assets: bx!(VersionedAssets::V4(
-					Asset { id: native_asset.clone().into(), fun: treasury_balance.into() }.into()
-				)),
+				dest: bx!(VersionedLocation::from(asset_hub_location.clone())),
+				beneficiary: bx!(VersionedLocation::from(treasury_location)),
+				assets: bx!(VersionedAssets::from(Assets::from(Asset {
+					id: native_asset.clone().into(),
+					fun: treasury_balance.into()
+				}))),
 				fee_asset_item: 0,
 			})),
 		});
 
-		// Dispatched from Root to `despatch_as` `Signed(treasury_account)`.
+		// Dispatched from Root to `dispatch_as` `Signed(treasury_account)`.
 		assert_ok!(teleport_call.dispatch(root));
 
 		assert_expected_events!(
@@ -110,12 +112,12 @@ fn spend_roc_on_asset_hub() {
 		let native_asset = Location::parent();
 
 		let treasury_spend_call = RuntimeCall::Treasury(pallet_treasury::Call::<Runtime>::spend {
-			asset_kind: bx!(VersionedLocatableAsset::V4 {
-				location: asset_hub_location.clone(),
-				asset_id: native_asset.into(),
-			}),
+			asset_kind: bx!(VersionedLocatableAsset::from((
+				asset_hub_location.clone(),
+				native_asset.into()
+			))),
 			amount: treasury_spend_balance,
-			beneficiary: bx!(VersionedLocation::V4(alice_location)),
+			beneficiary: bx!(VersionedLocation::from(alice_location)),
 			valid_from: None,
 		});
 
@@ -170,16 +172,12 @@ fn create_and_claim_treasury_spend_in_usdt() {
 	// treasury account on a sibling parachain.
 	let treasury_account =
 		ahr_xcm_config::LocationToAccountId::convert_location(&treasury_location).unwrap();
-	let asset_hub_location =
-		v3::Location::new(0, v3::Junction::Parachain(AssetHubRococo::para_id().into()));
+	let asset_hub_location = Location::new(0, Parachain(AssetHubRococo::para_id().into()));
 	let root = <Rococo as Chain>::RuntimeOrigin::root();
-	// asset kind to be spend from the treasury.
-	let asset_kind = VersionedLocatableAsset::V3 {
-		location: asset_hub_location,
-		asset_id: v3::AssetId::Concrete(
-			(v3::Junction::PalletInstance(50), v3::Junction::GeneralIndex(USDT_ID.into())).into(),
-		),
-	};
+	// asset kind to be spent from the treasury.
+	let asset_kind: VersionedLocatableAsset =
+		(asset_hub_location, AssetId((PalletInstance(50), GeneralIndex(USDT_ID.into())).into()))
+			.into();
 	// treasury spend beneficiary.
 	let alice: AccountId = Rococo::account_id_of(ALICE);
 	let bob: AccountId = Rococo::account_id_of(BOB);
@@ -201,6 +199,8 @@ fn create_and_claim_treasury_spend_in_usdt() {
 
 		// create a conversion rate from `asset_kind` to the native currency.
 		assert_ok!(AssetRate::create(root.clone(), Box::new(asset_kind.clone()), 2.into()));
+
+		Dmp::make_parachain_reachable(1000);
 
 		// create and approve a treasury spend.
 		assert_ok!(Treasury::spend(

@@ -1,0 +1,12 @@
+title: '[pallet-revive] eth-rpc add missing tests'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Add tests for #6608
+
+    fix https://github.com/paritytech/contract-issues/issues/12
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor
+- name: pallet-revive
+  bump: minor

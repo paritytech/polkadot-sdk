@@ -12,17 +12,14 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-parity-util-mem = { optional = true, workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
 
 # Bridge Dependencies
-
 bp-messages = { workspace = true }
 bp-runtime = { workspace = true }
 
 # Substrate Based Dependencies
-
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-core = { workspace = true }
@@ -40,7 +37,6 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
-	"parity-util-mem",
 	"scale-info/std",
 	"serde",
 	"sp-core/std",

@@ -1,5 +1,0 @@
-error: Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must bound: `IsType<<Self as frame_system::Config>::RuntimeEvent>`
-  --> tests/pallet_ui/event_type_invalid_bound.rs:26:3
-   |
-26 |         type RuntimeEvent;
-   |         ^^^^

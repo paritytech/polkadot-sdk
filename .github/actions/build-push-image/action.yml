@@ -1,0 +1,74 @@
+name: "build and push image"
+inputs:
+  dockerfile:
+    description: "dockerfile to build"
+    required: true
+  image-name:
+    description: "image name (without registry)"
+    required: true
+  username:
+    required: false
+    default: ""
+  password:
+    required: false
+    default: ""
+outputs:
+  branch:
+    description: "Branch name for the PR"
+    value: ${{ steps.branch.outputs.branch }}
+
+runs:
+  using: "composite"
+  steps:
+    # gcloud
+    # https://github.com/paritytech/ci_cd/wiki/GitHub:-Push-Docker-image-to-GCP-Registry
+    - name: "Set up Cloud SDK"
+      uses: "google-github-actions/setup-gcloud@v2"
+    - name: "gcloud info"
+      shell: bash
+      run: "gcloud info"
+    - name: "Auth in gcloud registry"
+      shell: bash
+      run: "gcloud auth configure-docker europe-docker.pkg.dev --quiet"
+
+    - name: build
+      shell: bash
+      env:
+        ZOMBIENET_IMAGE: "docker.io/paritytech/zombienet:v1.3.105"
+        IMAGE_TAG: europe-docker.pkg.dev/parity-ci-2024/temp-images/${{ inputs.image-name }}
+      run: |
+        export DOCKER_IMAGES_VERSION=${{ github.event.pull_request.head.sha || 'master' }}
+        if [[ ${{ github.event_name }} == "merge_group" ]]; then export DOCKER_IMAGES_VERSION="${GITHUB_SHA::8}"; fi
+        docker build \
+          --build-arg VCS_REF="${GITHUB_SHA}" \
+          --build-arg BUILD_DATE="$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+          --build-arg IMAGE_NAME="${{ inputs.image-name }}" \
+          --build-arg ZOMBIENET_IMAGE="${ZOMBIENET_IMAGE}" \
+          -t "${{ env.IMAGE_TAG }}:$DOCKER_IMAGES_VERSION" \
+          -f ${{ inputs.dockerfile }} \
+          .
+        docker push "${{ env.IMAGE_TAG }}:$DOCKER_IMAGES_VERSION"
+
+    - name: login to dockerhub
+      id: login
+      # fork check
+      if: ${{ inputs.username != '' && inputs.password != '' && github.event_name != 'merge_group' }}
+      uses: docker/login-action@v3
+      with:
+        username: ${{ inputs.username }}
+        password: ${{ inputs.password }}
+
+    - name: push to dockerhub
+      shell: bash
+      if: ${{ inputs.username != '' && inputs.password != '' && github.event_name != 'merge_group' }}
+      env:
+        GITHUB_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      run: |
+        export DOCKERHUB_TAG=docker.io/paritypr/${{ inputs.image-name }}:${{ github.event.pull_request.number || 'master' }}
+        if [[ ${{ github.event_name }} == "pull_request" ]]; then export DOCKERHUB_TAG=$DOCKERHUB_TAG-${GITHUB_PR_HEAD_SHA::8}; fi
+        if [[ ${{ github.event_name }} == "push" ]]; then export DOCKERHUB_TAG=$DOCKERHUB_TAG-${GITHUB_SHA::8}; fi
+        #
+        docker tag "europe-docker.pkg.dev/parity-ci-2024/temp-images/${{ inputs.image-name }}:${{ github.event.pull_request.head.sha || 'master' }}" $DOCKERHUB_TAG
+        docker push $DOCKERHUB_TAG
+
+

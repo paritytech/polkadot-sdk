@@ -1,0 +1,16 @@
+title: '[pallet-revive] adjust fee dry-run calculation'
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Fix bare_eth_transact so that it estimate more precisely the transaction fee
+    - Add some context to the build.rs to make it easier to troubleshoot errors
+    - Add TransactionBuilder for the RPC tests.
+    - Tweaked some error message, We will need to wait for the next subxt release to properly downcast some errors and
+    adopt MM error code (https://eips.ethereum.org/EIPS/eip-1474#error-codes)
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor
+- name: pallet-revive
+  bump: minor
+- name: pallet-revive-fixtures
+  bump: minor

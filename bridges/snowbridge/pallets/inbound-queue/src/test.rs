@@ -4,12 +4,13 @@ use super::*;
 
 use frame_support::{assert_noop, assert_ok};
 use hex_literal::hex;
-use snowbridge_core::{inbound::Proof, ChannelId};
-use sp_keyring::AccountKeyring as Keyring;
+use snowbridge_core::ChannelId;
+use snowbridge_inbound_queue_primitives::Proof;
+use sp_keyring::Sr25519Keyring as Keyring;
 use sp_runtime::DispatchError;
 use sp_std::convert::From;
 
-use crate::{Error, Event as InboundQueueEvent};
+use crate::Error;
 
 use crate::mock::*;
 
@@ -21,8 +22,8 @@ fn test_submit_happy_path() {
 
 		let origin = RuntimeOrigin::signed(relayer.clone());
 
-		// Submit message
-		let message = Message {
+		// Submit event proof
+		let event = EventProof {
 			event_log: mock_event_log(),
 			proof: Proof {
 				receipt_proof: Default::default(),
@@ -34,20 +35,19 @@ fn test_submit_happy_path() {
 		assert_eq!(Balances::balance(&relayer), 0);
 		assert_eq!(Balances::balance(&channel_sovereign), initial_fund);
 
-		assert_ok!(InboundQueue::submit(origin.clone(), message.clone()));
-		expect_events(vec![InboundQueueEvent::MessageReceived {
-			channel_id: hex!("c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539")
-				.into(),
-			nonce: 1,
-			message_id: [
-				57, 61, 232, 3, 66, 61, 25, 190, 234, 188, 193, 174, 13, 186, 1, 64, 237, 94, 73,
-				83, 14, 18, 209, 213, 78, 121, 43, 108, 251, 245, 107, 67,
-			],
-			fee_burned: 110000000000,
-		}
-		.into()]);
+		assert_ok!(InboundQueue::submit(origin.clone(), event.clone()));
 
-		let delivery_cost = InboundQueue::calculate_delivery_cost(message.encode().len() as u32);
+		let pallet_events = frame_system::Pallet::<Test>::events();
+		assert!(
+			pallet_events.iter().any(|event| matches!(
+				event.event,
+				RuntimeEvent::InboundQueue(Event::MessageReceived { nonce, ..})
+					if nonce == 1
+			)),
+			"no event emit."
+		);
+
+		let delivery_cost = InboundQueue::calculate_delivery_cost(event.encode().len() as u32);
 		assert!(
 			Parameters::get().rewards.local < delivery_cost,
 			"delivery cost exceeds pure reward"
@@ -72,8 +72,8 @@ fn test_submit_xcm_invalid_channel() {
 		println!("account: {}", sovereign_account);
 		let _ = Balances::mint_into(&sovereign_account, 10000);
 
-		// Submit message
-		let message = Message {
+		// Submit event proof
+		let event = EventProof {
 			event_log: mock_event_log_invalid_channel(),
 			proof: Proof {
 				receipt_proof: Default::default(),
@@ -81,7 +81,7 @@ fn test_submit_xcm_invalid_channel() {
 			},
 		};
 		assert_noop!(
-			InboundQueue::submit(origin.clone(), message.clone()),
+			InboundQueue::submit(origin.clone(), event.clone()),
 			Error::<Test>::InvalidChannel,
 		);
 	});
@@ -97,8 +97,8 @@ fn test_submit_with_invalid_gateway() {
 		let sovereign_account = sibling_sovereign_account::<Test>(ASSET_HUB_PARAID.into());
 		let _ = Balances::mint_into(&sovereign_account, 10000);
 
-		// Submit message
-		let message = Message {
+		// Submit event proof
+		let event = EventProof {
 			event_log: mock_event_log_invalid_gateway(),
 			proof: Proof {
 				receipt_proof: Default::default(),
@@ -106,7 +106,7 @@ fn test_submit_with_invalid_gateway() {
 			},
 		};
 		assert_noop!(
-			InboundQueue::submit(origin.clone(), message.clone()),
+			InboundQueue::submit(origin.clone(), event.clone()),
 			Error::<Test>::InvalidGateway
 		);
 	});
@@ -123,14 +123,14 @@ fn test_submit_with_invalid_nonce() {
 		let _ = Balances::mint_into(&sovereign_account, 10000);
 
 		// Submit message
-		let message = Message {
+		let event = EventProof {
 			event_log: mock_event_log(),
 			proof: Proof {
 				receipt_proof: Default::default(),
 				execution_proof: mock_execution_proof(),
 			},
 		};
-		assert_ok!(InboundQueue::submit(origin.clone(), message.clone()));
+		assert_ok!(InboundQueue::submit(origin.clone(), event.clone()));
 
 		let nonce: u64 = <Nonce<Test>>::get(ChannelId::from(hex!(
 			"c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539"
@@ -139,7 +139,7 @@ fn test_submit_with_invalid_nonce() {
 
 		// Submit the same again
 		assert_noop!(
-			InboundQueue::submit(origin.clone(), message.clone()),
+			InboundQueue::submit(origin.clone(), event.clone()),
 			Error::<Test>::InvalidNonce
 		);
 	});
@@ -156,7 +156,7 @@ fn test_submit_no_funds_to_reward_relayers_just_ignore() {
 		Balances::set_balance(&sovereign_account, 0);
 
 		// Submit message
-		let message = Message {
+		let event = EventProof {
 			event_log: mock_event_log(),
 			proof: Proof {
 				receipt_proof: Default::default(),
@@ -164,7 +164,7 @@ fn test_submit_no_funds_to_reward_relayers_just_ignore() {
 			},
 		};
 		// Check submit successfully in case no funds available
-		assert_ok!(InboundQueue::submit(origin.clone(), message.clone()));
+		assert_ok!(InboundQueue::submit(origin.clone(), event.clone()));
 	});
 }
 
@@ -173,7 +173,7 @@ fn test_set_operating_mode() {
 	new_tester().execute_with(|| {
 		let relayer: AccountId = Keyring::Bob.into();
 		let origin = RuntimeOrigin::signed(relayer);
-		let message = Message {
+		let event = EventProof {
 			event_log: mock_event_log(),
 			proof: Proof {
 				receipt_proof: Default::default(),
@@ -186,7 +186,7 @@ fn test_set_operating_mode() {
 			snowbridge_core::BasicOperatingMode::Halted
 		));
 
-		assert_noop!(InboundQueue::submit(origin, message), Error::<Test>::Halted);
+		assert_noop!(InboundQueue::submit(origin, event), Error::<Test>::Halted);
 	});
 }
 
@@ -214,14 +214,14 @@ fn test_submit_no_funds_to_reward_relayers_and_ed_preserved() {
 		Balances::set_balance(&sovereign_account, ExistentialDeposit::get() + 1);
 
 		// Submit message successfully
-		let message = Message {
+		let event = EventProof {
 			event_log: mock_event_log(),
 			proof: Proof {
 				receipt_proof: Default::default(),
 				execution_proof: mock_execution_proof(),
 			},
 		};
-		assert_ok!(InboundQueue::submit(origin.clone(), message.clone()));
+		assert_ok!(InboundQueue::submit(origin.clone(), event.clone()));
 
 		// Check balance of sovereign account to ED
 		let amount = Balances::balance(&sovereign_account);
@@ -230,14 +230,14 @@ fn test_submit_no_funds_to_reward_relayers_and_ed_preserved() {
 		// Submit another message with nonce set as 2
 		let mut event_log = mock_event_log();
 		event_log.data[31] = 2;
-		let message = Message {
+		let event = EventProof {
 			event_log,
 			proof: Proof {
 				receipt_proof: Default::default(),
 				execution_proof: mock_execution_proof(),
 			},
 		};
-		assert_ok!(InboundQueue::submit(origin.clone(), message.clone()));
+		assert_ok!(InboundQueue::submit(origin.clone(), event.clone()));
 		// Check balance of sovereign account as ED does not change
 		let amount = Balances::balance(&sovereign_account);
 		assert_eq!(amount, ExistentialDeposit::get());

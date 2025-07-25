@@ -1,30 +1,31 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Substrate is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Substrate is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Client side code for generating the parachain inherent.
 
 use codec::Decode;
 use cumulus_primitives_core::{
-	relay_chain::{self, Hash as PHash, HrmpChannelId},
+	relay_chain::{self, Block as RelayBlock, Hash as PHash, HrmpChannelId},
 	ParaId, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 mod mock;
 
+use cumulus_primitives_core::relay_chain::Header as RelayHeader;
 pub use cumulus_primitives_parachain_inherent::{ParachainInherentData, INHERENT_IDENTIFIER};
 pub use mock::{MockValidationDataInherentDataProvider, MockXcmConfig};
 
@@ -36,6 +37,9 @@ async fn collect_relay_storage_proof(
 	relay_chain_interface: &impl RelayChainInterface,
 	para_id: ParaId,
 	relay_parent: PHash,
+	include_authorities: bool,
+	include_next_authorities: bool,
+	additional_relay_state_keys: Vec<Vec<u8>>,
 ) -> Option<sp_state_machine::StorageProof> {
 	use relay_chain::well_known_keys as relay_well_known_keys;
 
@@ -122,6 +126,21 @@ async fn collect_relay_storage_proof(
 		relay_well_known_keys::hrmp_channels(HrmpChannelId { sender: para_id, recipient })
 	}));
 
+	if include_authorities {
+		relevant_keys.push(relay_well_known_keys::AUTHORITIES.to_vec());
+	}
+
+	if include_next_authorities {
+		relevant_keys.push(relay_well_known_keys::NEXT_AUTHORITIES.to_vec());
+	}
+
+	// Add additional relay state keys
+	let unique_keys: Vec<Vec<u8>> = additional_relay_state_keys
+		.into_iter()
+		.filter(|key| !relevant_keys.contains(key))
+		.collect();
+	relevant_keys.extend(unique_keys);
+
 	relay_chain_interface
 		.prove_read(relay_parent, &relevant_keys)
 		.await
@@ -147,9 +166,26 @@ impl ParachainInherentDataProvider {
 		relay_chain_interface: &impl RelayChainInterface,
 		validation_data: &PersistedValidationData,
 		para_id: ParaId,
+		relay_parent_descendants: Vec<RelayHeader>,
+		additional_relay_state_keys: Vec<Vec<u8>>,
 	) -> Option<ParachainInherentData> {
-		let relay_chain_state =
-			collect_relay_storage_proof(relay_chain_interface, para_id, relay_parent).await?;
+		// Only include next epoch authorities when the descendants include an epoch digest.
+		// Skip the first entry because this is the relay parent itself.
+		let include_next_authorities = relay_parent_descendants.iter().skip(1).any(|header| {
+			sc_consensus_babe::find_next_epoch_digest::<RelayBlock>(header)
+				.ok()
+				.flatten()
+				.is_some()
+		});
+		let relay_chain_state = collect_relay_storage_proof(
+			relay_chain_interface,
+			para_id,
+			relay_parent,
+			!relay_parent_descendants.is_empty(),
+			include_next_authorities,
+			additional_relay_state_keys,
+		)
+		.await?;
 
 		let downward_messages = relay_chain_interface
 			.retrieve_dmq_contents(para_id, relay_parent)
@@ -181,6 +217,8 @@ impl ParachainInherentDataProvider {
 			horizontal_messages,
 			validation_data: validation_data.clone(),
 			relay_chain_state,
+			relay_parent_descendants,
+			collator_peer_id: None,
 		})
 	}
 }

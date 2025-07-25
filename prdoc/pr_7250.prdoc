@@ -1,0 +1,27 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add Missing Events for Balances Pallet
+
+doc:
+  - audience: Runtime Dev
+    description: |
+        This PR improves accounting by implementing missing events for hold, release, credit drops and debt drop operation:
+
+        Emit events for hold-related operations (`Held`, `Released`, `BurnedHeld`, `TransferOnHold`, `TransferAndHold`, `BurnedDebt`, `MintedCredit`).
+
+        Adjust total issuance automatically when `PositiveImbalance` or `NegativeImbalance` are dropped via the `HandleImbalanceDrop` trait.
+
+crates:
+- name: pallet-balances
+  bump: major
+- name: pallet-collective
+  bump: patch
+- name: pallet-contracts
+  bump: patch
+- name: pallet-offences-benchmarking
+  bump: patch
+- name: pallet-revive
+  bump: patch
+- name: frame-support
+  bump: patch

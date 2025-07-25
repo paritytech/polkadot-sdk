@@ -1,0 +1,23 @@
+title: 'Add ApprovedPeer UMP signal'
+doc:
+- audience: [Runtime Dev, Node Dev]
+  description: |-
+    Add a new ApprovedPeer UMP signal variant for specifying a peerid that should be credited for authoring and supplying the candidate.
+    Will be used by the new collator protocol implementation for promoting the reputation of collators. Candidates should still not emit any UMP signals
+    until the CandidateReceiptV2 node feature is enabled.
+
+crates:
+- name: polkadot-node-collation-generation
+  bump: patch
+- name: polkadot-node-core-candidate-validation
+  bump: patch
+- name: polkadot-statement-distribution
+  bump: patch
+- name: polkadot-node-primitives
+  bump: major
+- name: polkadot-primitives
+  bump: major
+- name: polkadot-runtime-parachains
+  bump: patch
+- name: cumulus-pallet-parachain-system
+  bump: patch

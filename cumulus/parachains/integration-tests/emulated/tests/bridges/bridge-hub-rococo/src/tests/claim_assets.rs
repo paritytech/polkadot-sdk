@@ -18,12 +18,17 @@
 use crate::imports::*;
 
 use emulated_integration_tests_common::test_chain_can_claim_assets;
-use xcm_executor::traits::DropAssets;
 
 #[test]
 fn assets_can_be_claimed() {
 	let amount = BridgeHubRococoExistentialDeposit::get();
 	let assets: Assets = (Parent, amount).into();
 
-	test_chain_can_claim_assets!(AssetHubRococo, RuntimeCall, NetworkId::Rococo, assets, amount);
+	test_chain_can_claim_assets!(
+		AssetHubRococo,
+		RuntimeCall,
+		NetworkId::ByGenesis(ROCOCO_GENESIS_HASH),
+		assets,
+		amount
+	);
 }

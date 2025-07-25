@@ -228,7 +228,7 @@ impl<H: Hasher> Default for StorageChanges<H> {
 			main_storage_changes: Default::default(),
 			child_storage_changes: Default::default(),
 			offchain_storage_changes: Default::default(),
-			transaction: Default::default(),
+			transaction: BackendTransaction::with_hasher(Default::default()),
 			transaction_storage_root: Default::default(),
 			#[cfg(feature = "std")]
 			transaction_index_changes: Default::default(),
@@ -771,7 +771,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 	}
 }
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 impl<H: Hasher> From<sp_core::storage::Storage> for OverlayedChanges<H> {
 	fn from(storage: sp_core::storage::Storage) -> Self {
 		Self {

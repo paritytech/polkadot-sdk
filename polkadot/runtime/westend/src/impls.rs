@@ -90,7 +90,7 @@ where
 	fn on_reap_identity(who: &AccountId, fields: u32, subs: u32) -> DispatchResult {
 		use crate::{
 			impls::IdentityMigratorCalls::PokeDeposit,
-			weights::runtime_common_identity_migrator::WeightInfo as MigratorWeights,
+			weights::polkadot_runtime_common_identity_migrator::WeightInfo as MigratorWeights,
 		};
 
 		let total_to_send = Self::calculate_remote_deposit(fields, subs);
@@ -163,17 +163,22 @@ where
 			// Poke the deposit to reserve the appropriate amount on the parachain.
 			Transact {
 				origin_kind: OriginKind::Superuser,
-				require_weight_at_most: remote_weight_limit,
 				call: poke.encode().into(),
+				fallback_max_weight: Some(remote_weight_limit),
 			},
 		]);
 
 		// send
-		let _ = <pallet_xcm::Pallet<Runtime>>::send(
+		<pallet_xcm::Pallet<Runtime>>::send(
 			RawOrigin::Root.into(),
-			Box::new(VersionedLocation::V4(destination)),
-			Box::new(VersionedXcm::V4(program)),
+			Box::new(VersionedLocation::from(destination)),
+			Box::new(VersionedXcm::from(program)),
 		)?;
 		Ok(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_identity_reaping(_: &AccountId, _: u32, _: u32) {
+		crate::Dmp::make_parachain_reachable(1004);
 	}
 }

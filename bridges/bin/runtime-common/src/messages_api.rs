@@ -16,14 +16,12 @@
 
 //! Helpers for implementing various message-related runtime API methods.
 
-use bp_messages::{
-	InboundMessageDetails, LaneId, MessageNonce, MessagePayload, OutboundMessageDetails,
-};
+use bp_messages::{InboundMessageDetails, MessageNonce, MessagePayload, OutboundMessageDetails};
 use sp_std::vec::Vec;
 
 /// Implementation of the `To*OutboundLaneApi::message_details`.
 pub fn outbound_message_details<Runtime, MessagesPalletInstance>(
-	lane: LaneId,
+	lane: Runtime::LaneId,
 	begin: MessageNonce,
 	end: MessageNonce,
 ) -> Vec<OutboundMessageDetails>
@@ -48,7 +46,7 @@ where
 
 /// Implementation of the `To*InboundLaneApi::message_details`.
 pub fn inbound_message_details<Runtime, MessagesPalletInstance>(
-	lane: LaneId,
+	lane: Runtime::LaneId,
 	messages: Vec<(MessagePayload, OutboundMessageDetails)>,
 ) -> Vec<InboundMessageDetails>
 where

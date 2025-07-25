@@ -1,0 +1,13 @@
+title: Avoid unnecessary state reset of allowed_requests when no block requests are sent
+
+doc:
+  - audience: Node Dev
+    description: |
+      Previously, the state of `allowed_requests` was always reset to the default
+      even if there were no new block requests. This could cause an edge case
+      because `peer_block_request()` will return early next time when there are no ongoing block requests.
+      This patch fixes it by checking whether block requests are empty before updating the state.
+
+crates:
+  - name: sc-network-sync
+    bump: patch

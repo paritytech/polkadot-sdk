@@ -1,0 +1,17 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Don't expose metadata for Runtime APIs that haven't been implemented
+
+doc:
+  - audience: Runtime User
+    description: |
+      Prior to this PR, the metadata for runtime APIs would contain all methods for the 
+      latest version of each API, regardless of which version a runtime implements. This 
+      PR fixes that, so that the runtime API metadata reflects what is actually implemented.
+
+crates:
+  - name: sp-api-proc-macro
+    bump: major
+  - name: sp-consensus-babe
+    bump: patch

@@ -96,7 +96,7 @@ This call can only be made by the `CancellationOrigin`.
 
 This call can only be made by the `ExternalOrigin`.
 
-- `external_propose` - Schedules a proposal to become a referendum once it is is legal
+- `external_propose` - Schedules a proposal to become a referendum once it is legal
   for an externally proposed referendum.
 
 #### External Majority Origin

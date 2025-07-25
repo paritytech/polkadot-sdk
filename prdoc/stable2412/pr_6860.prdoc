@@ -1,0 +1,10 @@
+title: Update litep2p network backend to v0.8.4
+
+doc:
+  - audience: [ Node Dev, Node Operator ]
+    description: |
+      This PR updates the Litep2p network backend to version 0.8.4
+
+crates: 
+  - name: sc-network
+    bump: patch

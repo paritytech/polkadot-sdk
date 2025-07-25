@@ -1,0 +1,16 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Make importing of duplicate assignment idempotent
+
+doc:
+  - audience: Node Dev
+    description: |
+      Normally, approval-voting wouldn't receive duplicate assignments because approval-distribution makes
+      sure of it, however in the situation where we restart we might receive the same assignment again and
+      since approval-voting already persisted it we will end up inserting it twice in ApprovalEntry.tranches.assignments 
+      because that's an array. Fix this by inserting only assignments that are not duplicate.
+
+crates:
+  - name: polkadot-node-core-approval-voting
+    bump: minor

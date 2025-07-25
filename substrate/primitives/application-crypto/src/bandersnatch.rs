@@ -21,6 +21,12 @@ use crate::{KeyTypeId, RuntimePublic};
 use alloc::vec::Vec;
 pub use sp_core::bandersnatch::*;
 
+use sp_core::{
+	crypto::CryptoType,
+	proof_of_possession::{NonAggregatable, ProofOfPossessionVerifier},
+	Pair as TraitPair,
+};
+
 mod app {
 	crate::app_crypto!(super, sp_core::testing::BANDERSNATCH);
 }
@@ -41,14 +47,25 @@ impl RuntimePublic for Public {
 		sp_io::crypto::bandersnatch_generate(key_type, seed)
 	}
 
-	/// Dummy implementation. Returns `None`.
-	fn sign<M: AsRef<[u8]>>(&self, _key_type: KeyTypeId, _msg: &M) -> Option<Self::Signature> {
-		None
+	fn sign<M: AsRef<[u8]>>(&self, key_type: KeyTypeId, msg: &M) -> Option<Self::Signature> {
+		sp_io::crypto::bandersnatch_sign(key_type, self, msg.as_ref())
 	}
 
-	/// Dummy implementation. Returns `false`.
-	fn verify<M: AsRef<[u8]>>(&self, _msg: &M, _signature: &Self::Signature) -> bool {
-		false
+	fn verify<M: AsRef<[u8]>>(&self, msg: &M, signature: &Self::Signature) -> bool {
+		let sig = AppSignature::from(*signature);
+		let pub_key = AppPublic::from(*self);
+		<AppPublic as CryptoType>::Pair::verify(&sig, msg.as_ref(), &pub_key)
+	}
+
+	fn generate_proof_of_possession(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {
+		let proof_of_possession_statement = Pair::proof_of_possession_statement(self);
+		sp_io::crypto::bandersnatch_sign(key_type, self, &proof_of_possession_statement)
+	}
+
+	fn verify_proof_of_possession(&self, proof_of_possession: &Self::Signature) -> bool {
+		let proof_of_possession = AppSignature::from(*proof_of_possession);
+		let pub_key = AppPublic::from(*self);
+		<AppPublic as CryptoType>::Pair::verify_proof_of_possession(&proof_of_possession, &pub_key)
 	}
 
 	fn to_raw_vec(&self) -> Vec<u8> {

@@ -1,0 +1,10 @@
+title: implement web3_clientVersion
+doc:
+- audience: Runtime Dev
+  description: |-
+    Implements the `web3_clientVersion`  method. This is a common requirement for external Ethereum libraries when querying a client.
+
+    Reference issue with more details: https://github.com/paritytech/contract-issues/issues/26.
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor

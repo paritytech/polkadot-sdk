@@ -15,8 +15,10 @@ to link the PR to an issue that must be closed once this is merged.*
 
 ## Integration
 
-*In depth notes about how this PR should be integrated by downstream projects. This part is mandatory, and should be
-reviewed by reviewers, if the PR does NOT have the `R0-Silent` label. In case of a `R0-Silent`, it can be ignored.*
+*In depth notes about how this PR should be integrated by downstream projects. This part is
+mandatory, and should be reviewed by reviewers, if the PR does NOT have the
+`R0-no-crate-publish-required` label. In case of a `R0-no-crate-publish-required`, it can be
+ignored.*
 
 ## Review Notes
 
@@ -33,8 +35,9 @@ possibly integration.*
 # Checklist
 
 * [ ] My PR includes a detailed description as outlined in the "Description" and its two subsections above.
-* [ ] My PR follows the [labeling requirements](CONTRIBUTING.md#Process) of this project (at minimum one label for `T`
-  required)
+* [ ] My PR follows the [labeling requirements](
+https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process
+) of this project (at minimum one label for `T` required)
     * External contributors: ask maintainers to put the right label on your PR.
 * [ ] I have made corresponding changes to the documentation (if applicable)
 * [ ] I have added tests that prove my fix is effective or that my feature works (if applicable)

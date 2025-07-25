@@ -20,80 +20,122 @@
 //! Has to be compiled and run twice to calibrate on new hardware.
 
 #[cfg(feature = "runtime-benchmarks")]
-use super::*;
-
-use frame_benchmarking::benchmarks;
+use frame_benchmarking::v2::*;
 use frame_support::{pallet_prelude::*, weights::constants::*};
-use frame_system::RawOrigin as SystemOrigin;
+use frame_system::RawOrigin;
 use sp_runtime::{traits::One, Perbill};
 
-use crate::Pallet as Glutton;
-use frame_system::Pallet as System;
+use crate::*;
 
-benchmarks! {
-	initialize_pallet_grow {
-		let n in 0 .. 1_000;
-	}: {
-		Glutton::<T>::initialize_pallet(SystemOrigin::Root.into(), n, None).unwrap()
-	} verify {
+#[benchmarks]
+mod benchmarks {
+	use super::*;
+
+	#[benchmark]
+	fn initialize_pallet_grow(n: Linear<0, 1_000>) -> Result<(), BenchmarkError> {
+		#[block]
+		{
+			Pallet::<T>::initialize_pallet(RawOrigin::Root.into(), n, None)?;
+		}
+
 		assert_eq!(TrashDataCount::<T>::get(), n);
+
+		Ok(())
 	}
 
-	initialize_pallet_shrink {
-		let n in 0 .. 1_000;
+	#[benchmark]
+	fn initialize_pallet_shrink(n: Linear<0, 1_000>) -> Result<(), BenchmarkError> {
+		Pallet::<T>::initialize_pallet(RawOrigin::Root.into(), n, None)?;
 
-		Glutton::<T>::initialize_pallet(SystemOrigin::Root.into(), n, None).unwrap();
-	}: {
-		Glutton::<T>::initialize_pallet(SystemOrigin::Root.into(), 0, Some(n)).unwrap()
-	} verify {
+		#[block]
+		{
+			Pallet::<T>::initialize_pallet(RawOrigin::Root.into(), 0, Some(n))?;
+		}
+
 		assert_eq!(TrashDataCount::<T>::get(), 0);
+
+		Ok(())
 	}
 
-	waste_ref_time_iter {
-		let i in 0..100_000;
-	}: {
-		Glutton::<T>::waste_ref_time_iter(vec![0u8; 64], i);
+	#[benchmark]
+	fn waste_ref_time_iter(i: Linear<0, 100_000>) {
+		#[block]
+		{
+			Pallet::<T>::waste_ref_time_iter(vec![0u8; 64], i);
+		}
 	}
 
-	waste_proof_size_some {
-		let i in 0..5_000;
-
+	#[benchmark]
+	fn waste_proof_size_some(i: Linear<0, 5_000>) {
 		(0..5000).for_each(|i| TrashData::<T>::insert(i, [i as u8; 1024]));
-	}: {
-		(0..i).for_each(|i| {
-			TrashData::<T>::get(i);
-		})
+
+		#[block]
+		{
+			(0..i).for_each(|i| {
+				TrashData::<T>::get(i);
+			})
+		}
 	}
 
 	// For manual verification only.
-	on_idle_high_proof_waste {
+	#[benchmark]
+	fn on_idle_high_proof_waste() {
 		(0..5000).for_each(|i| TrashData::<T>::insert(i, [i as u8; 1024]));
-		let _ = Glutton::<T>::set_compute(SystemOrigin::Root.into(), One::one());
-		let _ = Glutton::<T>::set_storage(SystemOrigin::Root.into(), One::one());
-	}: {
-		let weight = Glutton::<T>::on_idle(System::<T>::block_number(), Weight::from_parts(WEIGHT_REF_TIME_PER_MILLIS * 100, WEIGHT_PROOF_SIZE_PER_MB * 5));
+		let _ = Pallet::<T>::set_compute(RawOrigin::Root.into(), One::one());
+		let _ = Pallet::<T>::set_storage(RawOrigin::Root.into(), One::one());
+
+		#[block]
+		{
+			Pallet::<T>::on_idle(
+				frame_system::Pallet::<T>::block_number(),
+				Weight::from_parts(WEIGHT_REF_TIME_PER_MILLIS * 100, WEIGHT_PROOF_SIZE_PER_MB * 5),
+			);
+		}
 	}
 
 	// For manual verification only.
-	on_idle_low_proof_waste {
+	#[benchmark]
+	fn on_idle_low_proof_waste() {
 		(0..5000).for_each(|i| TrashData::<T>::insert(i, [i as u8; 1024]));
-		let _ = Glutton::<T>::set_compute(SystemOrigin::Root.into(), One::one());
-		let _ = Glutton::<T>::set_storage(SystemOrigin::Root.into(), One::one());
-	}: {
-		let weight = Glutton::<T>::on_idle(System::<T>::block_number(), Weight::from_parts(WEIGHT_REF_TIME_PER_MILLIS * 100, WEIGHT_PROOF_SIZE_PER_KB * 20));
+		let _ = Pallet::<T>::set_compute(RawOrigin::Root.into(), One::one());
+		let _ = Pallet::<T>::set_storage(RawOrigin::Root.into(), One::one());
+
+		#[block]
+		{
+			Pallet::<T>::on_idle(
+				frame_system::Pallet::<T>::block_number(),
+				Weight::from_parts(WEIGHT_REF_TIME_PER_MILLIS * 100, WEIGHT_PROOF_SIZE_PER_KB * 20),
+			);
+		}
 	}
 
-	empty_on_idle {
-	}: {
+	#[benchmark]
+	fn empty_on_idle() {
 		// Enough weight to do nothing.
-		Glutton::<T>::on_idle(System::<T>::block_number(), T::WeightInfo::empty_on_idle());
+		#[block]
+		{
+			Pallet::<T>::on_idle(
+				frame_system::Pallet::<T>::block_number(),
+				T::WeightInfo::empty_on_idle(),
+			);
+		}
 	}
 
-	set_compute {
-	}: _(SystemOrigin::Root, FixedU64::from_perbill(Perbill::from_percent(50)))
+	#[benchmark]
+	fn set_compute() {
+		#[extrinsic_call]
+		_(RawOrigin::Root, FixedU64::from_perbill(Perbill::from_percent(50)));
+	}
 
-	set_storage {
-	}: _(SystemOrigin::Root, FixedU64::from_perbill(Perbill::from_percent(50)))
+	#[benchmark]
+	fn set_storage() {
+		#[extrinsic_call]
+		_(RawOrigin::Root, FixedU64::from_perbill(Perbill::from_percent(50)));
+	}
 
-	impl_benchmark_test_suite!(Glutton, crate::mock::new_test_ext(), crate::mock::Test);
+	impl_benchmark_test_suite! {
+		Pallet,
+		mock::new_test_ext(),
+		mock::Test
+	}
 }

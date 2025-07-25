@@ -25,6 +25,8 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_types::OverseerSignal;
 use polkadot_primitives::{CandidateCommitments, Hash, HeadData, PersistedValidationData};
 
+const LOG_TARGET: &str = "subsystem-bench::candidate-validation-mock";
+
 pub struct MockCandidateValidation {}
 
 impl MockCandidateValidation {
@@ -54,18 +56,23 @@ impl MockCandidateValidation {
 					},
 				orchestra::FromOrchestra::Communication { msg } => match msg {
 					CandidateValidationMessage::ValidateFromExhaustive {
-						response_sender, ..
-					} => response_sender
-						.send(Ok(ValidationResult::Valid(
-							CandidateCommitments::default(),
-							PersistedValidationData {
-								parent_head: HeadData(Vec::new()),
-								relay_parent_number: 0,
-								relay_parent_storage_root: Hash::default(),
-								max_pov_size: 2,
-							},
-						)))
-						.unwrap(),
+						response_sender,
+						validation_data,
+						..
+					} => {
+						gum::debug!(target: LOG_TARGET, "ValidateFromExhaustive, PVD hash {:?}", validation_data.hash());
+						response_sender
+							.send(Ok(ValidationResult::Valid(
+								CandidateCommitments::default(),
+								PersistedValidationData {
+									parent_head: HeadData(Vec::new()),
+									relay_parent_number: 0,
+									relay_parent_storage_root: Hash::default(),
+									max_pov_size: 2,
+								},
+							)))
+							.unwrap()
+					},
 					_ => unimplemented!("Unexpected chain-api message"),
 				},
 			}

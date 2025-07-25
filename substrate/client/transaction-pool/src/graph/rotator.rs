@@ -31,7 +31,10 @@ use std::{
 use super::base_pool::Transaction;
 
 /// Expected size of the banned extrinsics cache.
-const EXPECTED_SIZE: usize = 2048;
+const DEFAULT_EXPECTED_SIZE: usize = 2048;
+
+/// The default duration, in seconds, for which an extrinsic is banned.
+const DEFAULT_BAN_TIME_SECS: u64 = 30 * 60;
 
 /// Pool rotator is responsible to only keep fresh extrinsics in the pool.
 ///
@@ -42,18 +45,39 @@ pub struct PoolRotator<Hash> {
 	ban_time: Duration,
 	/// Currently banned extrinsics.
 	banned_until: RwLock<HashMap<Hash, Instant>>,
+	/// Expected size of the banned extrinsics cache.
+	expected_size: usize,
+}
+
+impl<Hash: Clone> Clone for PoolRotator<Hash> {
+	fn clone(&self) -> Self {
+		Self {
+			ban_time: self.ban_time,
+			banned_until: RwLock::new(self.banned_until.read().clone()),
+			expected_size: self.expected_size,
+		}
+	}
 }
 
 impl<Hash: hash::Hash + Eq> Default for PoolRotator<Hash> {
 	fn default() -> Self {
-		Self { ban_time: Duration::from_secs(60 * 30), banned_until: Default::default() }
+		Self {
+			ban_time: Duration::from_secs(DEFAULT_BAN_TIME_SECS),
+			banned_until: Default::default(),
+			expected_size: DEFAULT_EXPECTED_SIZE,
+		}
 	}
 }
 
 impl<Hash: hash::Hash + Eq + Clone> PoolRotator<Hash> {
 	/// New rotator instance with specified ban time.
 	pub fn new(ban_time: Duration) -> Self {
-		Self { ban_time, banned_until: Default::default() }
+		Self { ban_time, ..Self::default() }
+	}
+
+	/// New rotator instance with specified ban time and expected cache size.
+	pub fn new_with_expected_size(ban_time: Duration, expected_size: usize) -> Self {
+		Self { expected_size, ..Self::new(ban_time) }
 	}
 
 	/// Returns `true` if extrinsic hash is currently banned.
@@ -69,8 +93,8 @@ impl<Hash: hash::Hash + Eq + Clone> PoolRotator<Hash> {
 			banned.insert(hash, *now + self.ban_time);
 		}
 
-		if banned.len() > 2 * EXPECTED_SIZE {
-			while banned.len() > EXPECTED_SIZE {
+		if banned.len() > 2 * self.expected_size {
+			while banned.len() > self.expected_size {
 				if let Some(key) = banned.keys().next().cloned() {
 					banned.remove(&key);
 				}
@@ -106,7 +130,6 @@ impl<Hash: hash::Hash + Eq + Clone> PoolRotator<Hash> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_runtime::transaction_validity::TransactionSource;
 
 	type Hash = u64;
 	type Ex = ();
@@ -126,7 +149,7 @@ mod tests {
 			requires: vec![],
 			provides: vec![],
 			propagate: true,
-			source: TransactionSource::External,
+			source: crate::TimedTransactionSource::new_external(false),
 		};
 
 		(hash, tx)
@@ -192,7 +215,7 @@ mod tests {
 				requires: vec![],
 				provides: vec![],
 				propagate: true,
-				source: TransactionSource::External,
+				source: crate::TimedTransactionSource::new_external(false),
 			}
 		}
 
@@ -202,16 +225,16 @@ mod tests {
 		let past_block = 0;
 
 		// when
-		for i in 0..2 * EXPECTED_SIZE {
+		for i in 0..2 * DEFAULT_EXPECTED_SIZE {
 			let tx = tx_with(i as u64, past_block);
 			assert!(rotator.ban_if_stale(&now, past_block, &tx));
 		}
-		assert_eq!(rotator.banned_until.read().len(), 2 * EXPECTED_SIZE);
+		assert_eq!(rotator.banned_until.read().len(), 2 * DEFAULT_EXPECTED_SIZE);
 
 		// then
-		let tx = tx_with(2 * EXPECTED_SIZE as u64, past_block);
+		let tx = tx_with(2 * DEFAULT_EXPECTED_SIZE as u64, past_block);
 		// trigger a garbage collection
 		assert!(rotator.ban_if_stale(&now, past_block, &tx));
-		assert_eq!(rotator.banned_until.read().len(), EXPECTED_SIZE);
+		assert_eq!(rotator.banned_until.read().len(), DEFAULT_EXPECTED_SIZE);
 	}
 }

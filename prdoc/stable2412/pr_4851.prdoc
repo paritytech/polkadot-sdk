@@ -1,0 +1,40 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add support for deprecation metadata in `RuntimeMetadataIr` entries.
+
+doc:
+  - audience: 
+      - Runtime Dev
+      - Runtime User
+    description: |
+      Changes introduced are listed below.
+      Adds `DeprecationStatusIR` enum to sp_metadata_ir.
+        - Is a deprecation info for simple items.
+      Adds `DeprecationInfoIR` enum to sp_metadata_ir.
+        - It is a deprecation info for an enums/errors/calls. Contains `DeprecationStatusIR`.
+          Also denotes full/partial deprecation of the type or its variants/calls.
+      Adds `deprecation_info` field to 
+        - `RuntimeApiMetadataIR`
+        - `RuntimeApiMethodMetadataIR`
+        - `StorageEntryMetadataIR`
+        - `PalletConstantMetadataIR`
+        - `PalletCallMetadataIR`
+        - `PalletMetadataIR`
+        - `PalletEventMetadataIR`
+        - `PalletErrorMetadataIR`
+      Examples of the deprecation info produced can be seen inside
+        - Tests for `frame-support`
+        - hackmd link https://hackmd.io/@Zett98/Bys0YgbcR
+
+crates:
+  - name: frame-support-procedural
+    bump: patch
+  - name: frame-support
+    bump: major
+  - name: sp-api-proc-macro
+    bump: patch
+  - name: sp-api
+    bump: patch
+  - name: sp-metadata-ir
+    bump: major
