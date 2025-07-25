@@ -2,19 +2,7 @@ title: 'fatxpool: manual seal support'
 doc:
 - audience: Node Dev
   description: |-
-    This PR introduces creation of view for genesis block during instantiation of `fatxpool`. This is intended to fix an instant-seal nodes, where block building is [triggered](https://github.com/paritytech/polkadot-sdk/blob/73b44193c8e66acd699f04265027289d030f6c66/substrate/client/consensus/manual-seal/src/lib.rs#L238) via transaction import. Without views, no event is generated on this stream when transaction is submitted.
-
-    ##### Notes for reviewers
-    Views is injected once after an empty fatxpool is instantiated by any of `new_*` functions. Small refactor was done to re-use the code. Tests were adjusted to match new behavior.
-
-    Seems that it is the easiest fix that we can do.
-
-
-    Todo:
-    [ ] run integrations tests,
-    [x] confirm the fix with minimal-node,
-
-    Fixes: #9323
+    This PR introduces creation of view for genesis block during instantiation of `fatxpool`. This is intended to fix an instant-seal nodes, where block building is triggered  via transaction import.
 crates:
 - name: sc-transaction-pool
   bump: patch
