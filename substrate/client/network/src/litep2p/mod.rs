@@ -517,6 +517,9 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				Some(crate::MAX_CONNECTIONS_ESTABLISHED_INCOMING as usize),
 			))
 			.with_keep_alive_timeout(network_config.idle_connection_timeout)
+			// Use system DNS resolver to enable intranet domain resolution and administrator
+			// control over DNS lookup.
+			.with_system_resolver()
 			.with_executor(executor);
 
 		if let Some(config) = maybe_mdns_config {
