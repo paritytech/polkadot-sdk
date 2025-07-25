@@ -1300,14 +1300,7 @@ async fn process_block_events<Context>(
 					}
 
 					let Some(block_number) = maybe_block_number else { continue };
-					let Some(stats) =
-						collation_tracker.collation_backed(block_number, leaf, receipt, metrics)
-					else {
-						continue
-					};
-
-					// Continue measuring inclusion latency.
-					collation_tracker.track(stats);
+					collation_tracker.collation_backed(block_number, leaf, receipt, metrics);
 				},
 				_ => {
 					// do not care about other events

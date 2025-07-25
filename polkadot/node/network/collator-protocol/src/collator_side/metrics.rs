@@ -239,112 +239,96 @@ pub(crate) struct CollationTracker {
 }
 
 impl CollationTracker {
-	// Mark a tracked collation as backed and return the stats.
-	// After this call, the collation is no longer tracked. To measure
-	// inclusion time call `track` again with the returned stats.
+	// Mark a tracked collation as backed.
 	//
 	// Block built on top of N is earliest backed at N + 1.
-	// Returns `None` if the collation is not tracked.
 	pub fn collation_backed(
 		&mut self,
 		block_number: BlockNumber,
 		leaf: H256,
 		receipt: CandidateReceipt,
 		metrics: &Metrics,
-	) -> Option<CollationStats> {
+	) {
 		let head = receipt.descriptor.para_head();
-		if self
-			.entries
-			.get(&head)
-			.map(|entry| entry.backed().is_some())
-			.unwrap_or_default()
-		{
+		let Some(entry) = self.entries.get_mut(&head) else {
+			gum::debug!(
+				target: crate::LOG_TARGET_STATS,
+				?head,
+				"Backed collation not found in tracker",
+			);
+			return;
+		};
+
+		if entry.backed().is_some() {
 			gum::debug!(
 				target: crate::LOG_TARGET_STATS,
 				?head,
 				"Collation already backed in a fork, skipping",
 			);
-			return None
+			return
 		}
 
-		self.entries.remove(&head).map(|mut entry| {
-			let para_id = receipt.descriptor.para_id();
-			let relay_parent = receipt.descriptor.relay_parent();
-
-			entry.set_backed_at(block_number);
-
+		entry.set_backed_at(block_number);
+		if let Some(latency) = entry.backed() {
+			metrics.on_collation_backed(latency as f64);
 			// Observe the backing latency since the collation was fetched.
 			let maybe_latency =
 				entry.backed_latency_metric.take().map(|metric| metric.stop_and_record());
-
 			gum::debug!(
 				target: crate::LOG_TARGET_STATS,
-				latency_blocks = ?entry.backed(),
+				latency_blocks = ?latency,
 				latency_time = ?maybe_latency,
 				relay_block = ?leaf,
-				?relay_parent,
-				?para_id,
+				relay_parent = ?entry.relay_parent,
+				para_id = ?receipt.descriptor.para_id(),
 				?head,
 				"A fetched collation was backed on relay chain",
 			);
-
-			metrics.on_collation_backed(
-				(block_number.saturating_sub(entry.relay_parent_number)) as f64,
-			);
-
-			entry
-		})
+		}
 	}
 
-	// Mark a previously backed collation as included and return the stats.
-	// After this call, the collation is no longer trackable.
+	// Mark a previously backed collation as included.
 	//
-	// Block built on top of N is earliest backed at N + 1.
-	// Returns `None` if there collation is not in tracker.
+	// Block built on top of N is earliest included at N + 2.
 	pub fn collation_included(
 		&mut self,
 		block_number: BlockNumber,
 		leaf: H256,
 		receipt: CandidateReceipt,
 		metrics: &Metrics,
-	) -> Option<CollationStats> {
+	) {
 		let head = receipt.descriptor.para_head();
-		if self
-			.entries
-			.get(&head)
-			.map(|entry| entry.included().is_some())
-			.unwrap_or_default()
-		{
+		let Some(entry) = self.entries.get_mut(&head) else {
+			gum::debug!(
+				target: crate::LOG_TARGET_STATS,
+				?head,
+				"Included collation not found in tracker",
+			);
+			return;
+		};
+
+		if entry.included().is_some() {
 			gum::debug!(
 				target: crate::LOG_TARGET_STATS,
 				?head,
 				"Collation already included in a fork, skipping",
 			);
-			return None
+			return
 		}
 
-		self.entries.remove(&head).map(|mut entry| {
-			entry.set_included_at(block_number);
-
-			if let Some(latency) = entry.included() {
-				metrics.on_collation_included(latency as f64);
-
-				let para_id = receipt.descriptor.para_id();
-				let relay_parent = receipt.descriptor.relay_parent();
-
-				gum::debug!(
-					target: crate::LOG_TARGET_STATS,
-					?latency,
-					relay_block = ?leaf,
-					?relay_parent,
-					?para_id,
-					head = ?receipt.descriptor.para_head(),
-					"Collation included on relay chain",
-				);
-			}
-
-			entry
-		})
+		entry.set_included_at(block_number);
+		if let Some(latency) = entry.included() {
+			metrics.on_collation_included(latency as f64);
+			gum::debug!(
+				target: crate::LOG_TARGET_STATS,
+				?latency,
+				relay_block = ?leaf,
+				relay_parent = ?entry.relay_parent,
+				para_id = ?receipt.descriptor.para_id(),
+				head = ?receipt.descriptor.para_head(),
+				"Collation included on relay chain",
+			);
+		}
 	}
 
 	// Returns all the collations that have expired at `block_number`.
@@ -372,6 +356,20 @@ impl CollationTracker {
 		// Disable the fetch timer, to prevent bogus observe on drop.
 		if let Some(fetch_latency_metric) = stats.fetch_latency_metric.take() {
 			fetch_latency_metric.stop_and_discard();
+		}
+
+		if let Some(entry) = self
+			.entries
+			.values()
+			.find(|entry| entry.relay_parent_number == stats.relay_parent_number)
+		{
+			gum::debug!(
+				target: crate::LOG_TARGET_STATS,
+				?stats.relay_parent_number,
+				?stats.relay_parent,
+				entry_relay_parent = ?entry.relay_parent,
+				"Collation built on a fork",
+			);
 		}
 
 		self.entries.insert(stats.head, stats);
