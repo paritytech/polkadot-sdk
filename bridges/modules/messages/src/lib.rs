@@ -343,7 +343,9 @@ pub mod pallet {
 				target: LOG_TARGET,
 				total=%total_messages,
 				valid=%valid_messages,
-				"Received messages. Weight used: {actual_weight}/{declared_weight}."
+				%actual_weight,
+				%declared_weight,
+				"Received messages."
 			);
 
 			Self::deposit_event(Event::MessagesReceived(messages_received_status));
@@ -714,8 +716,9 @@ where
 		tracing::trace!(
 			target: LOG_TARGET,
 			lane_id=?args.lane_id,
+			%nonce,
 			message_size=?message_len,
-			"Accepted message {nonce}"
+			"Accepted message"
 		);
 
 		Pallet::<T, I>::deposit_event(Event::MessageAccepted {
