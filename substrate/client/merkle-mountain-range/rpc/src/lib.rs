@@ -129,6 +129,8 @@ pub trait MmrApi<BlockHash, BlockNumber, MmrHash> {
 		&self,
 		prev_block_number: BlockNumber,
 		best_known_block_number: Option<BlockNumber>,
+		// TODO: remove because this is irrelevant to the proof
+		at: Option<BlockHash>,
 	) -> RpcResult<MmrAncestryProof<MmrHash>>;
 
 	/// Verify an MMR `proof`.
@@ -215,9 +217,12 @@ where
 		&self,
 		prev_block_number: NumberFor<Block>,
 		best_known_block_number: Option<NumberFor<Block>>,
+		at: Option<<Block as BlockT>::Hash>,
 	) -> RpcResult<MmrAncestryProof<MmrHash>> {
 		let mut api = self.client.runtime_api();
-		let block_hash = self.client.info().best_hash;
+		let block_hash = at.unwrap_or_else(||
+			// If the block hash is not supplied assume the best block.
+			self.client.info().best_hash);
 
 		api.register_extension(OffchainDbExt::new(self.offchain_db.clone()));
 
