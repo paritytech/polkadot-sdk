@@ -316,21 +316,6 @@ impl AbridgedInboundHrmpMessages {
 			.collect()
 	}
 
-	pub fn check_messages_order(&self) {
-		let mut msgs = self
-			.full_messages
-			.iter()
-			.map(|(sender, msg)| (msg.sent_at, *sender))
-			.chain(self.hashed_messages.iter().map(|(sender, msg)| (msg.sent_at, *sender)))
-			.peekable();
-
-		while let Some(msg) = msgs.next() {
-			if let Some(next_msg) = msgs.peek() {
-				assert!(next_msg >= &msg, "[AbridgedInboundHrmpMessages] Messages order violation");
-			}
-		}
-	}
-
 	/// Returns an iterator over the deconstructed messages.
 	pub fn flat_msgs_iter(&self) -> impl Iterator<Item = (ParaId, RelayChainBlockNumber, &[u8])> {
 		self.full_messages
@@ -563,104 +548,5 @@ mod tests {
 
 		messages.hashed_messages = vec![];
 		messages.check_enough_messages_included("Test");
-	}
-
-	#[test]
-	fn check_messages_order_works() {
-	    use std::panic;
-	
-	    struct TestCase {
-	        name: &'static str,
-	        full_messages: Vec<(u32, InboundHrmpMessage)>,
-	        hashed_messages: Vec<(u32, HashedMessage)>,
-	        should_fail: bool,
-	    }
-	
-	    let test_cases = vec![
-	        TestCase {
-	            name: "Unsorted full messages (invalid)",
-	            full_messages: vec![
-	                (1000, InboundHrmpMessage { sent_at: 0, data: vec![1; 100] }),
-	                (2000, InboundHrmpMessage { sent_at: 0, data: vec![1; 100] }),
-	                (3000, InboundHrmpMessage { sent_at: 1, data: vec![1; 100] }),
-	                (1000, InboundHrmpMessage { sent_at: 1, data: vec![1; 100] }),
-	            ],
-	            hashed_messages: vec![],
-	            should_fail: true,
-	        },
-	        TestCase {
-	            name: "First hashed message breaks order (invalid)",
-	            full_messages: vec![
-	                (1000, InboundHrmpMessage { sent_at: 1, data: vec![1; 100] }),
-	            ],
-	            hashed_messages: vec![
-	                (2000, HashedMessage { sent_at: 0, msg_hash: Default::default() }),
-	            ],
-	            should_fail: true,
-	        },
-	        TestCase {
-	            name: "Unsorted hashed messages (invalid)",
-	            full_messages: vec![
-	                (1000, InboundHrmpMessage { sent_at: 0, data: vec![1; 100] }),
-	            ],
-	            hashed_messages: vec![
-	                (1000, HashedMessage { sent_at: 1, msg_hash: Default::default() }),
-	                (2000, HashedMessage { sent_at: 1, msg_hash: Default::default() }),
-	                (3000, HashedMessage { sent_at: 0, msg_hash: Default::default() }),
-	            ],
-	            should_fail: true,
-	        },
-	        TestCase {
-	            name: "Sorted full messages (valid)",
-	            full_messages: vec![
-	                (1000, InboundHrmpMessage { sent_at: 0, data: vec![1; 100] }),
-	                (2000, InboundHrmpMessage { sent_at: 0, data: vec![1; 100] }),
-	                (1000, InboundHrmpMessage { sent_at: 1, data: vec![1; 100] }),
-	                (3000, InboundHrmpMessage { sent_at: 1, data: vec![1; 100] }),
-	            ],
-	            hashed_messages: vec![],
-	            should_fail: false,
-	        },
-	        TestCase {
-	            name: "Sorted full + hashed messages (valid)",
-	            full_messages: vec![
-	                (1000, InboundHrmpMessage { sent_at: 0, data: vec![1; 100] }),
-	                (2000, InboundHrmpMessage { sent_at: 0, data: vec![1; 100] }),
-	                (1000, InboundHrmpMessage { sent_at: 1, data: vec![1; 100] }),
-	                (3000, InboundHrmpMessage { sent_at: 1, data: vec![1; 100] }),
-	            ],
-	            hashed_messages: vec![
-	                (1000, HashedMessage { sent_at: 2, msg_hash: Default::default() }),
-	                (2000, HashedMessage { sent_at: 2, msg_hash: Default::default() }),
-	                (1000, HashedMessage { sent_at: 3, msg_hash: Default::default() }),
-	            ],
-	            should_fail: false,
-	        },
-	    ];
-	
-	    for case in test_cases {
-	        let mut messages = AbridgedInboundHrmpMessages {
-	            full_messages: case
-	                .full_messages
-	                .into_iter()
-	                .map(|(id, msg)| (id.into(), msg))
-	                .collect(),
-	            hashed_messages: case
-	                .hashed_messages
-	                .into_iter()
-	                .map(|(id, msg)| (id.into(), msg))
-	                .collect(),
-	        };
-	
-	        let result = panic::catch_unwind(panic::AssertUnwindSafe(|| {
-	            messages.check_messages_order();
-	        }));
-	
-	        if case.should_fail {
-	            assert!(result.is_err(), "Test '{}' should have failed", case.name);
-	        } else {
-	            assert!(result.is_ok(), "Test '{}' should have succeeded", case.name);
-	        }
-	    }
 	}
 }
