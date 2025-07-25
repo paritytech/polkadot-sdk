@@ -41,6 +41,7 @@ jobs:
     with:
       tests_yaml: .github/zombienet-tests/zombienet_cumulus_tests.yml
       test_pattern: ${{ inputs.test_pattern }}
+    secrets: inherit
 
 
   zombienet-cumulus-tests:

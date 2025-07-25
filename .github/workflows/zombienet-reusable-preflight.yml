@@ -304,6 +304,7 @@ jobs:
 
       - uses: actions/create-github-app-token@v2
         id: app-token
+        if: ${{ !github.event.pull_request.head.repo.fork }}
         with:
           app-id: ${{ secrets.ARTIFACTS_DOWNLOADER_APP_ID }}
           private-key: ${{ secrets.ARTIFACTS_DOWNLOADER_PRIVATE_KEY }}
