@@ -25,6 +25,7 @@ xcm-executor.workspace = true
 xcm-builder.workspace = true
 xcm-runtime-apis.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
+hex-literal = { workspace = true, default-features = false }
 pallet-balances = { optional = true, workspace = true }
 
 [dev-dependencies]

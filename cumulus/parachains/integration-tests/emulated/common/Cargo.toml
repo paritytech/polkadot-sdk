@@ -43,6 +43,7 @@ polkadot-runtime-parachains.default-features = true
 xcm.workspace = true
 xcm.default-features = true
 pallet-xcm = { features = ["test-utils"], workspace = true, default-features = true }
+xcm-executor = { workspace = true, default-features = true }
 parachains-common.workspace = true
 parachains-common.default-features = true
 cumulus-primitives-core.workspace = true
