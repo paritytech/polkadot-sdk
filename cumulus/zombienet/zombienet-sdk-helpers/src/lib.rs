@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use anyhow::anyhow;
-use codec::{Decode, Encode};
-use cumulus_primitives_core::{CoreInfo, CumulusDigestItem, RelayBlockIdentifier};
+use codec::{Compact, Decode, Encode};
+use cumulus_primitives_core::{
+	relay_chain, rpsr_digest::RPSR_CONSENSUS_ID, CoreInfo, CumulusDigestItem, RelayBlockIdentifier,
+};
 use futures::{pin_mut, select, stream::StreamExt, TryStreamExt};
 use polkadot_primitives::{vstaging::CandidateReceiptV2, BlakeTwo256, HashT, Id as ParaId};
 use sp_runtime::traits::Zero;
@@ -13,8 +15,16 @@ use tokio::{
 	time::{sleep, Duration},
 };
 use zombienet_sdk::subxt::{
-	backend::legacy::LegacyRpcMethods, blocks::Block, config::Header, events::Events,
-	ext::scale_value::value, tx::DynamicPayload, utils::H256, OnlineClient, PolkadotConfig,
+	self,
+	backend::legacy::LegacyRpcMethods,
+	blocks::Block,
+	config::{substrate::DigestItem, ExtrinsicParams, Header},
+	dynamic::Value,
+	events::Events,
+	ext::scale_value::value,
+	tx::{signer::Signer, DynamicPayload, TxStatus},
+	utils::H256,
+	Config, OnlineClient, PolkadotConfig,
 };
 
 // Maximum number of blocks to wait for a session change.
@@ -440,7 +450,7 @@ pub async fn wait_for_nth_session_change(
 		if is_session_change(&block).await? {
 			sessions_to_wait -= 1;
 			if sessions_to_wait == 0 {
-				return Ok(())
+				return Ok(());
 			}
 
 			waited_block_num = 0;
@@ -555,4 +565,119 @@ pub async fn assert_relay_parent_offset(
 	}
 
 	Ok(())
+}
+
+/// Extract relay parent information from the digest logs.
+fn extract_relay_parent_storage_root(
+	digest: &DigestItem,
+) -> Option<(relay_chain::Hash, relay_chain::BlockNumber)> {
+	match digest {
+		DigestItem::Consensus(id, val) if id == &RPSR_CONSENSUS_ID => {
+			let (h, n): (relay_chain::Hash, Compact<relay_chain::BlockNumber>) =
+				Decode::decode(&mut &val[..]).ok()?;
+
+			Some((h, n.0))
+		},
+		_ => None,
+	}
+}
+
+pub async fn submit_extrinsic_and_wait_for_finalization_success<C: Config, S: Signer<C>>(
+	client: &OnlineClient<C>,
+	call: &DynamicPayload,
+	signer: &S,
+) -> Result<(), anyhow::Error>
+where
+	<C::ExtrinsicParams as ExtrinsicParams<C>>::Params: Default,
+{
+	let mut tx = client.tx().sign_and_submit_then_watch_default(call, signer).await?;
+
+	// Below we use the low level API to replicate the `wait_for_in_block` behaviour
+	// which was removed in subxt 0.33.0. See https://github.com/paritytech/subxt/pull/1237.
+	while let Some(status) = tx.next().await {
+		let status = status?;
+		match &status {
+			TxStatus::InBestBlock(tx_in_block) | TxStatus::InFinalizedBlock(tx_in_block) => {
+				let _result = tx_in_block.wait_for_success().await?;
+				let block_status =
+					if status.as_finalized().is_some() { "Finalized" } else { "Best" };
+				log::info!("[{}] In block: {:#?}", block_status, tx_in_block.block_hash());
+			},
+			TxStatus::Error { message } |
+			TxStatus::Invalid { message } |
+			TxStatus::Dropped { message } => {
+				return Err(anyhow::format_err!("Error submitting tx: {message}"));
+			},
+			_ => continue,
+		}
+	}
+	Ok(())
+}
+
+pub async fn submit_extrinsic_and_wait_for_finalization_success_with_timeout<
+	C: Config,
+	S: Signer<C>,
+>(
+	client: &OnlineClient<C>,
+	call: &DynamicPayload,
+	signer: &S,
+	timeout_secs: impl Into<u64>,
+) -> Result<(), anyhow::Error>
+where
+	<C::ExtrinsicParams as ExtrinsicParams<C>>::Params: Default,
+{
+	let secs = timeout_secs.into();
+	let res = tokio::time::timeout(
+		Duration::from_secs(secs),
+		submit_extrinsic_and_wait_for_finalization_success(client, call, signer),
+	)
+	.await;
+
+	if let Ok(inner_res) = res {
+		match inner_res {
+			Ok(_) => Ok(()),
+			Err(e) => Err(anyhow!("Error waiting for metric: {}", e)),
+		}
+	} else {
+		// timeout
+		Err(anyhow!("Timeout ({secs}), waiting for extrinsic finalization"))
+	}
+}
+
+pub async fn assert_para_is_registered(
+	relay_client: &OnlineClient<PolkadotConfig>,
+	para_id: ParaId,
+	blocks_to_wait: u32,
+) -> Result<(), anyhow::Error> {
+	let mut blocks_sub = relay_client.blocks().subscribe_all().await?;
+	let para_id: u32 = para_id.into();
+
+	let keys: Vec<Value> = vec![];
+	let query = subxt::dynamic::storage("Paras", "Parachains", keys);
+
+	let mut blocks_cnt = 0;
+	while let Some(block) = blocks_sub.next().await {
+		let block = block?;
+		log::debug!("Relay block #{}, checking if para_id {para_id} is registered", block.number(),);
+		let parachains = block.storage().fetch(&query).await?;
+
+		let parachains: Vec<u32> = match parachains {
+			Some(parachains) => parachains.as_type()?,
+			None => vec![],
+		};
+
+		log::debug!("Registered para_ids: {:?}", parachains);
+
+		if parachains.iter().any(|p| para_id.eq(p)) {
+			log::debug!("para_id {para_id} registered");
+			return Ok(());
+		}
+		if blocks_cnt >= blocks_to_wait {
+			return Err(anyhow!(
+				"Parachain {para_id} not registered within {blocks_to_wait} blocks"
+			));
+		}
+		blocks_cnt += 1;
+	}
+	Err(anyhow!("No more blocks to check"))
 }

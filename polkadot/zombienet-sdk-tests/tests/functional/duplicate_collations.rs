@@ -114,7 +114,7 @@ async fn duplicate_collations_test() -> Result<(), anyhow::Error> {
 	// at least once. This ensures that all validators have had a chance to detect the malicious
 	// behavior.
 	for i in 0..VALIDATOR_COUNT {
-		let validator_name = &format!("validator-{}", i);
+		let validator_name = &format!("validator-{i}");
 		let validator_node = network.get_node(validator_name)?;
 		let result = validator_node
 			.wait_log_line_count_with_timeout(
@@ -124,7 +124,7 @@ async fn duplicate_collations_test() -> Result<(), anyhow::Error> {
 			)
 			.await?;
 
-		assert!(result.success(), "Expected log not found for {}", validator_name,);
+		assert!(result.success(), "Expected log not found for {validator_name}",);
 	}
 
 	log::info!("Test finished successfully");

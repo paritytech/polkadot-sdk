@@ -246,8 +246,8 @@ impl EthRpcServer for EthRpcServerImpl {
 
 	async fn get_code(&self, address: H160, block: BlockNumberOrTagOrHash) -> RpcResult<Bytes> {
 		let hash = self.client.block_hash_for_tag(block).await?;
-		let code = self.client.storage_api(hash).get_contract_code(&address).await?;
-		Ok(code.unwrap_or_default().into())
+		let code = self.client.runtime_api(hash).code(address).await?;
+		Ok(code.into())
 	}
 
 	async fn accounts(&self) -> RpcResult<Vec<H160>> {

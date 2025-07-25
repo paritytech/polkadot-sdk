@@ -253,7 +253,7 @@ where
 
 		for block in &blocks {
 			// Create the parachain block data for the validators.
-			let (collation_info, version) = self
+			let (collation_info, _api_version) = self
 				.fetch_collation_info(block.hash(), block.header())
 				.map_err(|e| {
 					tracing::error!(
@@ -262,6 +262,20 @@ where
 						"Failed to collect collation info.",
 					)
 				})
+				.ok()
+				.flatten()?;
+
+			// Workaround for: https://github.com/paritytech/polkadot-sdk/issues/64
+			//
+			// We are always using the `api_version` of the parent block. The `api_version` can only
+			// change with a runtime upgrade and this is when we want to observe the old
+			// `api_version`. Because this old `api_version` is the one used to validate this
+			// block. Otherwise we already assume the `api_version` is higher than what the relay
+			// chain will use and this will lead to validation errors.
+			api_version = self
+				.runtime_api
+				.runtime_api()
+				.api_version::<dyn CollectCollationInfo<Block>>(parent_header.hash())
 				.ok()
 				.flatten()?;
 
@@ -278,7 +292,6 @@ where
 				collation_info.upward_messages.into_iter().take_while(|m| *m != UMP_SEPARATOR),
 			);
 			horizontal_messages.extend(collation_info.horizontal_messages);
-			api_version = version;
 			new_validation_code = new_validation_code.take().or(collation_info.new_validation_code);
 			processed_downward_messages += collation_info.processed_downward_messages;
 			hrmp_watermark = Some(collation_info.hrmp_watermark);

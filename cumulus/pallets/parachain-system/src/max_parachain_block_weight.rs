@@ -17,6 +17,7 @@
 //! Utilities for calculating maximum parachain block weight based on core assignments.
 
 use crate::Config;
+use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use cumulus_primitives_core::CumulusDigestItem;
 use frame_support::{

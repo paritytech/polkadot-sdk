@@ -178,6 +178,7 @@ macro_rules! impl_node_runtime_apis {
 					unimplemented!()
 				}
 			}
+
 			#[cfg(feature = "try-runtime")]
 			impl frame_try_runtime::TryRuntime<$block> for $runtime {
 				fn on_runtime_upgrade(
@@ -233,6 +234,15 @@ macro_rules! impl_node_runtime_apis {
 				}
 
 				fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
+					unimplemented!()
+				}
+			}
+
+			impl sp_statement_store::runtime_api::ValidateStatement<$block> for $runtime {
+				fn validate_statement(
+					_source: sp_statement_store::runtime_api::StatementSource,
+					_statement: sp_statement_store::Statement,
+				) -> Result<sp_statement_store::runtime_api::ValidStatement, sp_statement_store::runtime_api::InvalidStatement> {
 					unimplemented!()
 				}
 			}

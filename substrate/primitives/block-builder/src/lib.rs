@@ -25,6 +25,11 @@ use codec::{Decode, Encode};
 use core::time::Duration;
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{traits::Block as BlockT, ApplyExtrinsicResult};
+#[cfg(feature = "std")]
+mod client_side;
+
+#[cfg(feature = "std")]
+pub use client_side::*;
 
 #[derive(Encode, Decode, scale_info::TypeInfo, Debug)]
 pub struct BlockRate {

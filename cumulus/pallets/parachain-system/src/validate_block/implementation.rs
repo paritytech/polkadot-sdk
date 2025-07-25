@@ -17,6 +17,7 @@
 //! The actual implementation of the validate block functionality.
 
 use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
+use crate::parachain_inherent::BasicParachainInherentData;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
@@ -26,7 +27,6 @@ use cumulus_primitives_core::{
 	},
 	ParachainBlockData, PersistedValidationData,
 };
-use cumulus_primitives_parachain_inherent::ParachainInherentData;
 use frame_support::{
 	traits::{ExecuteBlock, Get, IsSubType},
 	BoundedVec,
@@ -36,7 +36,7 @@ use polkadot_parachain_primitives::primitives::{
 };
 use sp_core::storage::{ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
-use sp_io::KillStorageResult;
+use sp_io::{hashing::blake2_128, KillStorageResult};
 use sp_runtime::traits::{
 	Block as BlockT, ExtrinsicCall, ExtrinsicLike, Hash as HashT, HashingFor, Header as HeaderT,
 };
@@ -143,6 +143,12 @@ where
 
 	let block_data = codec::decode_from_bytes::<ParachainBlockData<B>>(block_data)
 		.expect("Invalid parachain block data");
+
+	// Initialize hashmaps randomness.
+	sp_trie::add_extra_randomness(build_seed_from_head_data(
+		&block_data,
+		relay_parent_storage_root,
+	));
 
 	let mut parent_header =
 		codec::decode_from_bytes::<B::Header>(parachain_head.clone()).expect("Invalid parent head");
@@ -382,10 +388,10 @@ where
 	}
 }
 
-/// Extract the [`ParachainInherentData`].
+/// Extract the [`BasicParachainInherentData`].
 fn extract_parachain_inherent_data<B: BlockT, PSC: crate::Config>(
 	block: &B,
-) -> &ParachainInherentData
+) -> &BasicParachainInherentData
 where
 	B::Extrinsic: ExtrinsicCall,
 	<B::Extrinsic as ExtrinsicCall>::Call: IsSubType<crate::Call<PSC>>,
@@ -397,7 +403,7 @@ where
 		.take_while(|e| e.is_bare())
 		.filter_map(|e| e.call().is_sub_type())
 		.find_map(|c| match c {
-			crate::Call::set_validation_data { data: validation_data } => Some(validation_data),
+			crate::Call::set_validation_data { data: validation_data, .. } => Some(validation_data),
 			_ => None,
 		})
 		.expect("Could not find `set_validation_data` inherent")
@@ -419,6 +425,27 @@ fn validate_validation_data(
 		relay_parent_storage_root, validation_data.relay_parent_storage_root,
 		"Relay parent storage root doesn't match",
 	);
+}
+
+/// Build a seed from the head data of the parachain block.
+///
+/// Uses both the relay parent storage root and the hash of the blocks
+/// in the block data, to make sure the seed changes every block and that
+/// the user cannot find about it ahead of time.
+fn build_seed_from_head_data<B: BlockT>(
+	block_data: &ParachainBlockData<B>,
+	relay_parent_storage_root: crate::relay_chain::Hash,
+) -> [u8; 16] {
+	let mut bytes_to_hash = Vec::with_capacity(
+		block_data.blocks().len() * size_of::<B::Hash>() + size_of::<crate::relay_chain::Hash>(),
+	);
+
+	bytes_to_hash.extend_from_slice(relay_parent_storage_root.as_ref());
+	block_data.blocks().iter().for_each(|block| {
+		bytes_to_hash.extend_from_slice(block.header().hash().as_ref());
+	});
+
+	blake2_128(&bytes_to_hash)
 }
 
 /// Run the given closure with the externalities and recorder set.

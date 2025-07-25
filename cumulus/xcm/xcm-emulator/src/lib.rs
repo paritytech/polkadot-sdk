@@ -64,6 +64,7 @@ pub use sp_tracing;
 
 // Cumulus
 pub use cumulus_pallet_parachain_system::{
+	parachain_inherent::{deconstruct_parachain_inherent_data, InboundMessagesData},
 	Call as ParachainSystemCall, Pallet as ParachainSystemPallet,
 };
 pub use cumulus_primitives_core::{
@@ -711,8 +712,16 @@ macro_rules! decl_test_parachains {
 						// Process parachain inherents:
 
 						// 1. inherent: cumulus_pallet_parachain_system::Call::set_validation_data
+						let data = N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data);
+						let (data, mut downward_messages, mut horizontal_messages) =
+							$crate::deconstruct_parachain_inherent_data(data);
+						let inbound_messages_data = $crate::InboundMessagesData::new(
+							downward_messages.into_abridged(&mut usize::MAX.clone()),
+							horizontal_messages.into_abridged(&mut usize::MAX.clone()),
+						);
 						let set_validation_data: <Self as Chain>::RuntimeCall = $crate::ParachainSystemCall::set_validation_data {
-							data: N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data),
+							data,
+							inbound_messages_data
 						}.into();
 						$crate::assert_ok!(
 							set_validation_data.dispatch(<Self as Chain>::RuntimeOrigin::none())
