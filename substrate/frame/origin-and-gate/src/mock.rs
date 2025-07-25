@@ -46,6 +46,7 @@ impl Default for CustomOriginType {
 	}
 }
 
+pub const ROOT: AccountId = 0;
 pub const ALICE: AccountId = 1;
 pub const BOB: AccountId = 2;
 pub const CHARLIE: AccountId = 3;

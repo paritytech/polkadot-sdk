@@ -180,6 +180,7 @@ mod unit_test {
 				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCreated {
 					proposal_hash,
 					proposal_origin_id: ALICE_ORIGIN_ID,
+					proposal_account_id: ALICE,
 					timepoint: alice_submission_timepoint,
 				}));
 			});
@@ -413,6 +414,7 @@ mod unit_test {
 
 				let proposal_info = ProposalInfo {
 					proposal_hash: proposal_hash2,
+					proposal_origin_id: ALICE_ORIGIN_ID,
 					expiry_at: None,
 					approvals,
 					status: ProposalStatus::Executed,
@@ -592,6 +594,7 @@ mod unit_test {
 
 				let proposal_info = ProposalInfo {
 					proposal_hash,
+					proposal_origin_id: ALICE_ORIGIN_ID,
 					expiry_at: None,
 					approvals,
 					status: ProposalStatus::Executed,
@@ -827,6 +830,7 @@ mod unit_test {
 
 				let proposal_info = ProposalInfo {
 					proposal_hash,
+					proposal_origin_id: ALICE_ORIGIN_ID,
 					expiry_at,
 					approvals,
 					// Force pending even enough approvals to execute
@@ -1038,6 +1042,7 @@ mod unit_test {
 
 				let proposal_info = ProposalInfo {
 					proposal_hash,
+					proposal_origin_id: ALICE_ORIGIN_ID,
 					expiry_at: None,
 					approvals,
 					// Force pending even enough approvals to execute
@@ -2774,6 +2779,7 @@ mod unit_test {
 				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCreated {
 					proposal_hash,
 					proposal_origin_id: ALICE_ORIGIN_ID,
+					proposal_account_id: ALICE,
 					timepoint: submission_timepoint,
 				}));
 
@@ -2782,7 +2788,7 @@ mod unit_test {
 					Event::ProposalCreatedWithRemark {
 						proposal_hash,
 						proposal_origin_id: ALICE_ORIGIN_ID,
-						proposer: ALICE,
+						proposal_account_id: ALICE,
 						timepoint: submission_timepoint,
 						remark,
 					},
@@ -2880,6 +2886,7 @@ mod unit_test {
 				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCreated {
 					proposal_hash,
 					proposal_origin_id: ALICE_ORIGIN_ID,
+					proposal_account_id: ALICE,
 					timepoint: submission_timepoint,
 				}));
 
@@ -2887,7 +2894,7 @@ mod unit_test {
 					Event::ProposalCreatedWithRemark {
 						proposal_hash,
 						proposal_origin_id: ALICE_ORIGIN_ID,
-						proposer: ALICE,
+						proposal_account_id: ALICE,
 						timepoint: submission_timepoint,
 						remark: initial_remark,
 					},
@@ -2917,7 +2924,7 @@ mod unit_test {
 					Event::ProposerAmendedProposalWithRemark {
 						proposal_hash,
 						proposal_origin_id: ALICE_ORIGIN_ID,
-						proposer_account_id: ALICE,
+						proposal_account_id: ALICE,
 						timepoint: amend_timepoint,
 						remark: amended_remark,
 					},
@@ -3081,6 +3088,57 @@ mod unit_test {
 			});
 		}
 	}
+
+	mod origin_helpers {
+		use super::*;
+
+		#[test]
+		fn ensure_signed_or_collective_works() {
+			new_test_ext().execute_with(|| {
+				// Signed origin (ALICE account)
+				let signed_origin = RuntimeOrigin::signed(ALICE);
+				let result = OriginAndGate::ensure_signed_or_collective(signed_origin);
+				assert_ok!(&result);
+
+				let (account_id, is_collective) = result.unwrap();
+				assert_eq!(account_id, ALICE);
+				assert_eq!(is_collective, false);
+
+				// Signed origin (BOB account)
+				let bob_origin = RuntimeOrigin::signed(BOB);
+				let result = OriginAndGate::ensure_signed_or_collective(bob_origin);
+				assert_ok!(&result);
+
+				let (account_id, is_collective) = result.unwrap();
+				assert_eq!(account_id, BOB);
+				assert_eq!(is_collective, false);
+
+				// Root origin (collective)
+				let root_origin = RuntimeOrigin::root();
+				let result = OriginAndGate::ensure_signed_or_collective(root_origin);
+				assert_ok!(&result);
+
+				let (account_id, is_collective) = result.unwrap();
+				// Collective origins expects a zero account
+				assert_ne!(account_id, ALICE);
+				assert_ne!(account_id, BOB);
+				assert_eq!(is_collective, true);
+
+				// Verify zero account is consistently generated
+				let root_origin2 = RuntimeOrigin::root();
+				let result2 = OriginAndGate::ensure_signed_or_collective(root_origin2);
+				let (zero_account2, is_collective2) = result2.unwrap();
+
+				assert_eq!(account_id, zero_account2);
+				assert_eq!(is_collective, is_collective2);
+
+				// None origin should fail
+				let none_origin = RuntimeOrigin::none();
+				let result = OriginAndGate::ensure_signed_or_collective(none_origin);
+				assert!(result.is_err());
+			});
+		}
+	}
 }
 
 /// Integration tests for this pallet focusing on verifying end-to-end
@@ -3228,6 +3286,7 @@ mod integration_test {
 				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCreated {
 					proposal_hash,
 					proposal_origin_id: ALICE_ORIGIN_ID,
+					proposal_account_id: ALICE,
 					timepoint: proposal_timepoint,
 				}));
 
@@ -3442,6 +3501,7 @@ mod integration_test {
 				System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCreated {
 					proposal_hash,
 					proposal_origin_id: ALICE_ORIGIN_ID,
+					proposal_account_id: ALICE,
 					timepoint: alice_submission_timepoint,
 				}));
 
@@ -3543,6 +3603,7 @@ mod integration_test {
 
 				let proposal_info = ProposalInfo {
 					proposal_hash,
+					proposal_origin_id: ALICE_ORIGIN_ID,
 					expiry_at: None,
 					approvals,
 					status: ProposalStatus::Pending,
@@ -3647,6 +3708,7 @@ mod andgate_requirements {
 			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCreated {
 				proposal_hash,
 				proposal_origin_id: ALICE_ORIGIN_ID,
+				proposal_account_id: ALICE,
 				timepoint: alice_submission_timepoint,
 			}));
 
@@ -3725,6 +3787,7 @@ mod andgate_requirements {
 			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCreated {
 				proposal_hash,
 				proposal_origin_id: ALICE_ORIGIN_ID,
+				proposal_account_id: ALICE,
 				timepoint: alice_submission_timepoint,
 			}));
 
@@ -3842,6 +3905,7 @@ mod andgate_requirements {
 			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCreated {
 				proposal_hash,
 				proposal_origin_id: ALICE_ORIGIN_ID,
+				proposal_account_id: ALICE,
 				timepoint: alice_submission_timepoint,
 			}));
 
@@ -3931,6 +3995,7 @@ mod andgate_requirements {
 			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCreated {
 				proposal_hash: proposal_hash1,
 				proposal_origin_id: ALICE_ORIGIN_ID,
+				proposal_account_id: ALICE,
 				timepoint: alice_submission_timepoint,
 			}));
 
@@ -3958,6 +4023,7 @@ mod andgate_requirements {
 			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::ProposalCreated {
 				proposal_hash: proposal_hash2,
 				proposal_origin_id: BOB_ORIGIN_ID,
+				proposal_account_id: BOB,
 				timepoint: bob_submission_timepoint,
 			}));
 
@@ -4371,8 +4437,10 @@ mod external_storage_integration {
 			// Verify event emitted
 			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::StorageIdRemoved {
 				proposal_hash,
+				proposal_origin_id: ALICE_ORIGIN_ID,
 				account_id: ALICE,
 				storage_id: storage_id.clone(),
+				is_collective: false,
 			}));
 		});
 	}
@@ -4469,12 +4537,13 @@ mod external_storage_integration {
 			assert!(!OriginAndGate::has_storage_id_for_proposal(proposal_hash, &storage_id));
 
 			// Verify event emitted
-			System::assert_has_event(RuntimeEvent::OriginAndGate(
-				Event::StorageIdRemovedByCollective {
-					proposal_hash,
-					storage_id: storage_id.clone(),
-				},
-			));
+			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::StorageIdRemoved {
+				proposal_hash,
+				proposal_origin_id: ROOT_ORIGIN_ID,
+				account_id: ROOT,
+				storage_id: storage_id.clone(),
+				is_collective: true,
+			}));
 		});
 	}
 
@@ -4575,12 +4644,13 @@ mod external_storage_integration {
 			assert!(!OriginAndGate::has_storage_id_for_proposal(proposal_hash, &storage_id));
 
 			// Verify correct event emitted
-			System::assert_has_event(RuntimeEvent::OriginAndGate(
-				Event::StorageIdRemovedByCollective {
-					proposal_hash,
-					storage_id: storage_id.clone(),
-				},
-			));
+			System::assert_has_event(RuntimeEvent::OriginAndGate(Event::StorageIdRemoved {
+				proposal_hash,
+				proposal_origin_id: ROOT_ORIGIN_ID,
+				account_id: ROOT,
+				storage_id: storage_id.clone(),
+				is_collective: true,
+			}));
 		});
 	}
 
@@ -4637,7 +4707,7 @@ mod external_storage_integration {
 				Event::ProposerAmendedProposalWithRemark {
 					proposal_hash,
 					proposal_origin_id: ALICE_ORIGIN_ID,
-					proposer_account_id: ALICE,
+					proposal_account_id: ALICE,
 					timepoint: current_timepoint(),
 					remark: new_remark,
 				},
@@ -4700,7 +4770,7 @@ mod external_storage_integration {
 				Event::ProposerAmendedProposalWithRemark {
 					proposal_hash,
 					proposal_origin_id: ALICE_ORIGIN_ID,
-					proposer_account_id: ALICE,
+					proposal_account_id: ALICE,
 					timepoint: current_timepoint(),
 					remark: new_remark,
 				},
@@ -4834,20 +4904,22 @@ mod external_storage_integration {
 			));
 
 			// Filter for IPFS CIDs only
-			let ipfs_ids =
-				OriginAndGate::filter_storage_ids_for_proposal(proposal_hash, |id, _, _, _| {
-					id.starts_with(b"Qm")
-				});
+			let ipfs_ids = OriginAndGate::filter_storage_ids_for_proposal(
+				proposal_hash,
+				ALICE_ORIGIN_ID,
+				|id, _, _, _| id.starts_with(b"Qm"),
+			);
 
 			// Verify got only IPFS CID
 			assert_eq!(ipfs_ids.len(), 1);
 			assert_eq!(ipfs_ids[0].0, ipfs_cid);
 
 			// Filter for Arweave IDs only
-			let arweave_ids =
-				OriginAndGate::filter_storage_ids_for_proposal(proposal_hash, |id, _, _, _| {
-					id.starts_with(b"AR")
-				});
+			let arweave_ids = OriginAndGate::filter_storage_ids_for_proposal(
+				proposal_hash,
+				ALICE_ORIGIN_ID,
+				|id, _, _, _| id.starts_with(b"AR"),
+			);
 
 			// Verify got only Arweave ID
 			assert_eq!(arweave_ids.len(), 1);
@@ -4907,7 +4979,7 @@ mod external_storage_integration {
 			));
 
 			// Get only IPFS CIDs
-			let ipfs_cids = OriginAndGate::get_proposal_ipfs_cids(proposal_hash);
+			let ipfs_cids = OriginAndGate::get_proposal_ipfs_cids(proposal_hash, ALICE_ORIGIN_ID);
 
 			// Verify got both IPFS CIDs but not Arweave ID
 			assert_eq!(ipfs_cids.len(), 2);
