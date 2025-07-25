@@ -30,7 +30,6 @@ use pretty_assertions::assert_eq;
 use revm::primitives::Bytes;
 use sp_io::hashing::keccak_256;
 
-/// Tests that the sha3 keccak256 cryptographic opcode works as expected.
 #[test]
 fn keccak_256_works() {
 	for fixture_type in [

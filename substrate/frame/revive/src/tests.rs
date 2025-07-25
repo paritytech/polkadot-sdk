@@ -15,12 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod block_info;
-mod evm;
 mod pallet_dummy;
 mod precompiles;
 mod pvm;
-mod system;
+mod sol;
 
 use crate::{
 	self as pallet_revive, test_utils::*, AccountId32Mapper, BalanceOf, BalanceWithDust,
