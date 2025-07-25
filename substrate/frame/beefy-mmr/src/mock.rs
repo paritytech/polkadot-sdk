@@ -115,6 +115,7 @@ impl pallet_beefy::Config for Test {
 	type MaxSetIdSessionEntries = ConstU64<100>;
 	type OnNewValidatorSet = BeefyMmr;
 	type AncestryHelper = BeefyMmr;
+	type SignatureHasher = Keccak256;
 	type WeightInfo = ();
 	type KeyOwnerProof = sp_core::Void;
 	type EquivocationReportSystem = ();
