@@ -219,6 +219,19 @@ impl ClaimQueueState {
 		)
 	}
 
+	/// Claims the first available slot for `para_id` at `relay_parent` as pending. Returns `true`
+	/// if the claim was successful. For a v1 advertisement.
+	pub(crate) fn claim_pending_at_v1(&mut self, relay_parent: &Hash, para_id: &ParaId) -> bool {
+		gum::trace!(
+			target: LOG_TARGET,
+			?para_id,
+			?relay_parent,
+			"claim_at_v1"
+		);
+
+		self.find_a_free_claim_v1(relay_parent, para_id, ClaimState::Pending(None))
+	}
+
 	pub(crate) fn mark_pending_slot_with_candidate(
 		&mut self,
 		relay_parent: &Hash,
@@ -477,7 +490,7 @@ impl ClaimQueueState {
 		window.chain(self.future_blocks.iter()).take(cq_len)
 	}
 
-	// Returns `true` if there is a claim within `relay_parent`'s view of the claim queue for
+	// Returns `true` if there is a free claim within `relay_parent`'s view of the claim queue for
 	// `para_id`. If `claim_it` is set to `true` the slot is claimed. Otherwise the function just
 	// reports the availability of the slot.
 	fn find_a_free_claim(
@@ -516,13 +529,11 @@ impl ClaimQueueState {
 			);
 
 			if w.claimed == ClaimState::Free && w.claim == Some(*para_id) {
-				w.claimed = new_state;
+				if make_a_claim {
+					w.claimed = new_state;
+				}
 
 				claim_found = true;
-				break
-			} else if maybe_candidate_hash.is_none() {
-				// If this is a v1 candidate (pre async backing) which does not contain a candidate
-				// hash, we only allow one claim on the one relay parent.
 				break
 			}
 		}
@@ -538,6 +549,43 @@ impl ClaimQueueState {
 		}
 
 		claim_found
+	}
+
+	// Returns `true` if there is a free claim at the `relay_parent` for
+	// `para_id`. If `claim_it` is set to `true` the slot is claimed. Otherwise the function just
+	// reports the availability of the slot.
+	fn find_a_free_claim_v1(
+		&mut self,
+		relay_parent: &Hash,
+		para_id: &ParaId,
+		new_state: ClaimState,
+	) -> bool {
+		let mut window = self.get_window_mut(relay_parent);
+		let make_a_claim = new_state != ClaimState::Free;
+
+		// Only check the first relay parent, since for v1 advertisement we can't claim a future
+		// slot.
+
+		if let Some(w) = window.next() {
+			gum::trace!(
+				target: LOG_TARGET,
+				?para_id,
+				?relay_parent,
+				claim_info=?w,
+				?new_state,
+				"Checking claim"
+			);
+
+			if w.claimed == ClaimState::Free && w.claim == Some(*para_id) {
+				if make_a_claim {
+					w.claimed = new_state;
+				}
+
+				return true
+			}
+		}
+
+		false
 	}
 
 	/// Returns a `Vec` of `ParaId`s with all pending claims at `relay_parent`.
@@ -728,9 +776,16 @@ impl PerLeafClaimQueueState {
 	) -> bool {
 		let mut result = false;
 		for (leaf, state) in &mut self.leaves {
-			if state.claim_pending_at(relay_parent, para_id, candidate_hash) {
+			let claimed = if candidate_hash.is_none() {
+				state.claim_pending_at_v1(relay_parent, para_id)
+			} else {
+				state.claim_pending_at(relay_parent, para_id, candidate_hash)
+			};
+
+			if claimed {
 				result = true;
 			}
+
 			gum::trace!(
 				target: LOG_TARGET,
 				?leaf,

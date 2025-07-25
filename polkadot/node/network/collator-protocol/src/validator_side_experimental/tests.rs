@@ -949,7 +949,6 @@ impl Default for MockDb {
 }
 
 impl MockDb {
-	#[allow(unused)]
 	fn new(query_fn: Arc<Mutex<dyn Fn(PeerId, ParaId) -> Option<Score> + Send>>) -> Self {
 		Self {
 			finalized: Default::default(),
@@ -3098,12 +3097,18 @@ async fn test_single_collation_per_rp_for_v1_advertisement() {
 	let active_leaf = get_hash(10);
 	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
 
-	let db = MockDb::default();
-	let mut state = make_state(db.clone(), &mut test_state, active_leaf).await;
-	let mut sender = test_state.sender.clone();
-
 	let first_peer = peer_id(1);
 	let second_peer = peer_id(2);
+
+	let db = MockDb::new(Arc::new(Mutex::new(move |peer_id, _para_id| {
+		if peer_id == first_peer {
+			Some(Score::new(100).unwrap())
+		} else {
+			None
+		}
+	})));
+	let mut state = make_state(db.clone(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
 
 	// Make two v1 advertisements on the same RP. They will both try to claim the same slot, which
 	// is not possible. Only one will make it.
@@ -3160,7 +3165,7 @@ async fn test_single_collation_per_rp_for_v1_advertisement() {
 	let (_, third_adv) = dummy_candidate(
 		get_hash(10),
 		100.into(),
-		second_peer,
+		first_peer,
 		leaf_info.assigned_core,
 		leaf_info.session_index,
 		Hash::from_low_u64_be(2),
