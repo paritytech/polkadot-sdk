@@ -895,7 +895,7 @@ linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
 linregress = { version = "0.5.1" }
 lite-json = { version = "0.2.0", default-features = false }
-litep2p = { version = "0.9.5", features = ["websocket"] }
+litep2p = { version = "0.10.0", features = ["websocket"] }
 log = { version = "0.4.22", default-features = false }
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
@@ -1478,6 +1478,11 @@ zstd = { version = "0.12.4", default-features = false }
 # Polkadot runtime requires unwinding.
 opt-level = 3
 panic = "unwind"
+
+[profile.dev]
+# Debug info significantly slows down the build.
+# This setting only keeps source line information for stack traces.
+debug = "line-tables-only"
 
 # make sure dev builds with backtrace do not slow us down
 [profile.dev.package.backtrace]

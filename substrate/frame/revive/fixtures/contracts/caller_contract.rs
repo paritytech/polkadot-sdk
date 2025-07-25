@@ -35,7 +35,7 @@ pub extern "C" fn call() {
 
 	// The value to transfer on instantiation and calls. Chosen to be greater than existential
 	// deposit.
-	let value = u256_bytes(32768u64);
+	let value = u256_bytes(32_768_000_000u64);
 	let salt = [0u8; 32];
 
 	// Callee will use the first 4 bytes of the input to return an exit status.
