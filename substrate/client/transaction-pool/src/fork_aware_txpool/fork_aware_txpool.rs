@@ -208,6 +208,25 @@ where
 	ChainApi: graph::ChainApi<Block = Block> + 'static,
 	<Block as BlockT>::Hash: Unpin,
 {
+	// Injects a view fore genesis block to self.
+	//
+	// Helper for the pool new methods.
+	fn inject_genesis_view(self) -> Self {
+		let genesis_hash = self
+			.api
+			.block_id_to_hash(&BlockId::Number(sp_runtime::traits::Zero::zero()))
+			.ok()
+			.flatten()
+			.expect("genesis block exists; qed");
+		let at_genesis =
+			HashAndNumber { number: sp_runtime::traits::Zero::zero(), hash: genesis_hash };
+		let tree_route =
+			&TreeRoute::new(vec![at_genesis.clone()], 0).expect("tree route is correct. qed");
+		let view = self.build_view_and_connect_listeners(None, &at_genesis, &tree_route);
+		self.view_store.insert_new_view_sync(view.into(), &tree_route);
+		self
+	}
+
 	/// Create new fork aware transaction pool with provided shared instance of `ChainApi` intended
 	/// for tests.
 	pub fn new_test(
@@ -304,7 +323,8 @@ where
 				submit_and_watch_stats: DurationSlidingStats::new(Duration::from_secs(
 					STAT_SLIDING_WINDOW,
 				)),
-			},
+			}
+			.inject_genesis_view(),
 			[combined_tasks, mempool_task],
 		)
 	}
@@ -461,6 +481,7 @@ where
 				STAT_SLIDING_WINDOW,
 			)),
 		}
+		.inject_genesis_view()
 	}
 
 	/// Get access to the underlying api
@@ -1284,31 +1305,14 @@ where
 		);
 	}
 
-	/// Builds a new view.
-	///
-	/// If `origin_view` is provided, the new view will be cloned from it. Otherwise an empty view
-	/// will be created.
-	///
-	/// The new view will be updated with transactions from the tree_route and the mempool, all
-	/// required events will be triggered, it will be inserted to the view store.
-	///
-	/// This method will also update multi-view listeners with newly created view.
-	async fn build_new_view(
+	fn build_view_and_connect_listeners(
 		&self,
 		origin_view: Option<Arc<View<ChainApi>>>,
 		at: &HashAndNumber<Block>,
 		tree_route: &TreeRoute<Block>,
-	) -> Option<Arc<View<ChainApi>>> {
+	) -> View<ChainApi> {
 		let enter = Instant::now();
-		debug!(
-			target: LOG_TARGET,
-			?at,
-			origin_view_at = ?origin_view.as_ref().map(|v| v.at.clone()),
-			?tree_route,
-			"build_new_view"
-		);
-
-		let (mut view, view_dropped_stream, view_aggregated_stream) =
+		let (view, view_dropped_stream, view_aggregated_stream) =
 			if let Some(origin_view) = origin_view {
 				let (mut view, view_dropped_stream, view_aggragated_stream) =
 					View::new_from_other(&origin_view, at);
@@ -1337,7 +1341,6 @@ where
 			"build_new_view::clone_view"
 		);
 
-		let start = Instant::now();
 		// 1. Capture all import notification from the very beginning, so first register all
 		//the listeners.
 		self.import_notification_sink.add_view(
@@ -1352,6 +1355,37 @@ where
 		self.view_store
 			.listener
 			.add_view_aggregated_stream(view.at.hash, view_aggregated_stream.boxed());
+
+		view
+	}
+
+	/// Builds a new view.
+	///
+	/// If `origin_view` is provided, the new view will be cloned from it. Otherwise an empty view
+	/// will be created.
+	///
+	/// The new view will be updated with transactions from the tree_route and the mempool, all
+	/// required events will be triggered, it will be inserted to the view store.
+	///
+	/// This method will also update multi-view listeners with newly created view.
+	async fn build_new_view(
+		&self,
+		origin_view: Option<Arc<View<ChainApi>>>,
+		at: &HashAndNumber<Block>,
+		tree_route: &TreeRoute<Block>,
+	) -> Option<Arc<View<ChainApi>>> {
+		let enter = Instant::now();
+		debug!(
+			target: LOG_TARGET,
+			?at,
+			origin_view_at = ?origin_view.as_ref().map(|v| v.at.clone()),
+			?tree_route,
+			"build_new_view"
+		);
+
+		let start = Instant::now();
+		let mut view = self.build_view_and_connect_listeners(origin_view, at, tree_route);
+
 		// sync the transactions statuses and referencing views in all the listeners with newly
 		// cloned view.
 		view.pool.validated_pool().retrigger_notifications();
