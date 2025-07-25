@@ -7,4 +7,4 @@ doc:
     This PR adds a check in order to ensure that the collator has respected the proper order when sending the HRMP messages to the runtime.
 crates:
 - name: cumulus-pallet-parachain-system
-  bump: patch
+  bump: minor
