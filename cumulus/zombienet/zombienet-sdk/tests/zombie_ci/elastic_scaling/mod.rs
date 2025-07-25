@@ -17,6 +17,7 @@
 
 mod pov_bundling;
 mod pov_bundling_3cores_glutton;
+mod pov_bundling_utility_weight;
 mod pov_recovery;
 mod slot_based_authoring;
 mod slot_based_rp_offset;
