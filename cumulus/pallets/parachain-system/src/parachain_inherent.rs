@@ -567,30 +567,8 @@ mod tests {
 
 	#[test]
 	fn check_messages_order_works() {
-		// Sorted messages should be accepted
-		let mut messages = AbridgedInboundHrmpMessages {
-			full_messages: vec![
-				(1000.into(), InboundHrmpMessage { sent_at: 0, data: vec![1; 100] }),
-				(2000.into(), InboundHrmpMessage { sent_at: 0, data: vec![1; 100] }),
-				(1000.into(), InboundHrmpMessage { sent_at: 1, data: vec![1; 100] }),
-				(3000.into(), InboundHrmpMessage { sent_at: 1, data: vec![1; 100] }),
-			],
-			hashed_messages: vec![],
-		};
-		messages.check_messages_order();
-
-		messages.hashed_messages =
-			vec![(1000.into(), HashedMessage { sent_at: 2, msg_hash: Default::default() })];
-		messages.check_messages_order();
-
-		messages.hashed_messages = vec![
-			(1000.into(), HashedMessage { sent_at: 2, msg_hash: Default::default() }),
-			(2000.into(), HashedMessage { sent_at: 2, msg_hash: Default::default() }),
-			(1000.into(), HashedMessage { sent_at: 3, msg_hash: Default::default() }),
-		];
-		messages.check_messages_order();
-
 		// Unsorted messages shouldn't be accepted
+		// Only full messages
 		let messages = AbridgedInboundHrmpMessages {
 			full_messages: vec![
 				(1000.into(), InboundHrmpMessage { sent_at: 0, data: vec![1; 100] }),
@@ -603,6 +581,8 @@ mod tests {
 		let result = std::panic::catch_unwind(|| messages.check_messages_order());
 		assert!(result.is_err());
 
+		// Full messages + hashed messages. And the message breaking the order is the first
+		// hashed message.
 		let messages = AbridgedInboundHrmpMessages {
 			full_messages: vec![(
 				1000.into(),
@@ -616,6 +596,7 @@ mod tests {
 		let result = std::panic::catch_unwind(|| messages.check_messages_order());
 		assert!(result.is_err());
 
+		// Full messages + hashed messages. The hashed messages are unsorted.
 		let messages = AbridgedInboundHrmpMessages {
 			full_messages: vec![(
 				1000.into(),
@@ -629,5 +610,26 @@ mod tests {
 		};
 		let result = std::panic::catch_unwind(|| messages.check_messages_order());
 		assert!(result.is_err());
+
+		// Sorted messages should be accepted
+		// Only full messages
+		let mut messages = AbridgedInboundHrmpMessages {
+			full_messages: vec![
+				(1000.into(), InboundHrmpMessage { sent_at: 0, data: vec![1; 100] }),
+				(2000.into(), InboundHrmpMessage { sent_at: 0, data: vec![1; 100] }),
+				(1000.into(), InboundHrmpMessage { sent_at: 1, data: vec![1; 100] }),
+				(3000.into(), InboundHrmpMessage { sent_at: 1, data: vec![1; 100] }),
+			],
+			hashed_messages: vec![],
+		};
+		messages.check_messages_order();
+
+		// Full messages + hashed messages
+		messages.hashed_messages = vec![
+			(1000.into(), HashedMessage { sent_at: 2, msg_hash: Default::default() }),
+			(2000.into(), HashedMessage { sent_at: 2, msg_hash: Default::default() }),
+			(1000.into(), HashedMessage { sent_at: 3, msg_hash: Default::default() }),
+		];
+		messages.check_messages_order();
 	}
 }
