@@ -284,6 +284,7 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
+		// TODO: Remove once sp_consensus_beefy::BeefyAPI::generate_ancestry_proof is removed.
 		fn generate_ancestry_proof(
 			_: BlockNumber,
 			_: Option<BlockNumber>,

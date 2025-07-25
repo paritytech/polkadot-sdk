@@ -1194,6 +1194,7 @@ sp_api::impl_runtime_apis! {
 			None
 		}
 
+		// TODO: Remove once sp_consensus_beefy::BeefyAPI::generate_ancestry_proof is removed.
 		fn generate_ancestry_proof(
 			_prev_block_number: BlockNumber,
 			_best_known_block_number: Option<BlockNumber>,
