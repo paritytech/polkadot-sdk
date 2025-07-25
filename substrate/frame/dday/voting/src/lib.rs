@@ -23,7 +23,8 @@
 //! ## Key Features
 //! - Uses [`ProofDescription`] to describe the external chain and its proof.
 //! - Proof validation is handled by `type Prover: VerifyProof`, which verifies the proof against
-//!   the proof root provided by `type ProofRootProvider: ProvideHash`.
+//!   the proof root stored by call `fn submit_proof_root_for_voting()`.
+//! - The voting is not allowed, while no proof root is stored for `poll_index`,
 //! - A valid proof is converted into `VotingPower(account_power: Balance, total: Balance)`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -31,11 +32,14 @@
 extern crate alloc;
 extern crate core;
 
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo},
 	ensure,
-	traits::{Get, Polling},
+	traits::{EnsureOriginWithArg, Get, Polling},
+	CloneNoBound, EqNoBound, Parameter, PartialEqNoBound, RuntimeDebugNoBound,
 };
+use scale_info::TypeInfo;
 use sp_runtime::traits::BlockNumberProvider;
 
 mod conviction;
@@ -47,7 +51,7 @@ pub use self::{
 	conviction::Conviction,
 	pallet::*,
 	proofs::*,
-	types::{Delegations, ProvideHash, Tally, TotalForTallyProvider, Totals, UnvoteScope},
+	types::{Delegations, Tally, TotalForTallyProvider, Totals, UnvoteScope},
 	vote::{AccountVote, Casting, Delegating, Vote, Voting, VotingPower},
 	weights::WeightInfo,
 };
@@ -88,11 +92,31 @@ pub type TallyOf<T, I = ()> =
 pub type PollIndexOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
 pub type ClassOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Class;
 
+/// Holds a `at_block` block number and corespondent `proof_root` hash used for voting by proof.
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	CloneNoBound,
+	EqNoBound,
+	PartialEqNoBound,
+	RuntimeDebugNoBound,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+#[scale_info(skip_type_params(T, I))]
+pub struct ProofRoot<T: Config<I>, I: 'static> {
+	at_block: VotingProofBlockNumberOf<T, I>,
+	proof_root: VotingProofHashOf<T, I>,
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 	use frame_support::{
-		pallet_prelude::{IsType, Pays, StorageDoubleMap, ValueQuery},
+		pallet_prelude::{
+			IsType, OptionQuery, Pays, StorageDoubleMap, StorageMap, ValueQuery, Zero,
+		},
 		Twox64Concat,
 	};
 	use frame_system::pallet_prelude::{ensure_signed, OriginFor};
@@ -102,7 +126,12 @@ pub mod pallet {
 	pub struct Pallet<T, I = ()>(_);
 
 	#[pallet::config]
-	pub trait Config<I: 'static = ()>: frame_system::Config {
+	pub trait Config<I: 'static = ()>: frame_system::Config
+	where
+		VotingProofAccountIdOf<Self, I>: From<Self::AccountId>,
+		VotingProofHashOf<Self, I>: Parameter + MaxEncodedLen + TypeInfo,
+		VotingProofBlockNumberOf<Self, I>: Parameter + MaxEncodedLen + TypeInfo,
+	{
 		/// The overarching event type.
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
@@ -118,13 +147,8 @@ pub mod pallet {
 			Moment = BlockNumberFor<Self, I>,
 		>;
 
-		// TODO: FAIL-CI: add implementation `LockableCurrency` over proofed balance and local
-		// accounting or we do just 1 account 1 vote and remove Balance as Vote
-		// or we could fire some remote locking with HRMP to AssetHub, which could eventually be
-		// executed, when AssetHub is unstalled.
-		// type Currency: ReservableCurrency<Self::AccountId>
-		// + LockableCurrency<Self::AccountId, Moment = BlockNumberFor<Self, I>>
-		// + fungible::Inspect<Self::AccountId>;
+		/// The manager origin who can change the voting proof root (which enables voting).
+		type ManagerOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, PollIndexOf<Self, I>>;
 
 		/// The maximum number of concurrent votes an account may have.
 		///
@@ -136,12 +160,8 @@ pub mod pallet {
 		type BlockNumberProvider: BlockNumberProvider;
 
 		/// Proof verifier.
-		type Prover: VerifyProof;
-		/// Proof root provider.
-		type ProofRootProvider: ProvideHash<
-			Key = VotingProofBlockNumberOf<Self, I>,
-			Hash = VotingProofHashOf<Self, I>,
-		>;
+		type Prover: ProofInterface<RemoteProofRootOutput = ProofRoot<Self, I>>;
+
 		/// Provides `MaxTurnout` for the `TallyOf<T, I>`.
 		type MaxTurnoutProvider: TotalForTallyProvider<
 			TotalKey = VotingProofBlockNumberOf<Self, I>,
@@ -162,11 +182,21 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	/// Stores a `poll_index` to `proof_root` mapping.
+	///
+	/// (Alternatively, we could store this proof root directly into the Tally,
+	/// so we wouldn't need this storage item.)
+	#[pallet::storage]
+	pub type ProofRootForVoting<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Twox64Concat, PollIndexOf<T, I>, ProofRoot<T, I>, OptionQuery>;
+
 	#[pallet::event]
-	#[pallet::generate_deposit(pub fn deposit_event)]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
 		/// An account has voted.
 		Voted { who: VotingProofAccountIdOf<T, I>, vote: AccountVote<VotingProofBalanceOf<T, I>> },
+		/// A proof root was updated.
+		ProofRootUpdated { previous: Option<ProofRoot<T, I>>, new: Option<ProofRoot<T, I>> },
 	}
 
 	#[pallet::error]
@@ -179,17 +209,16 @@ pub mod pallet {
 		AlreadyDelegating,
 		/// Too high a balance was provided that the account cannot afford.
 		InsufficientFunds,
-		/// TBD: FAIL-CI
+		/// The proof is not valid.
 		InvalidProof,
-		/// TBD: FAIL-CI
+		/// The proof root is not valid.
 		InvalidProofRoot,
+		/// The proof root cannot be updated.
+		CannotUpdateProofRoot,
 	}
 
 	#[pallet::call(weight = T::WeightInfo)]
-	impl<T: Config<I>, I: 'static> Pallet<T, I>
-	where
-		VotingProofAccountIdOf<T, I>: From<T::AccountId>,
-	{
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Vote in a poll. If `vote.is_aye()`, the vote is to enact the proposal;
 		/// otherwise it is a vote to keep the status quo.
 		///
@@ -209,7 +238,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			ensure!(T::Polls::as_ongoing(poll_index).is_some(), Error::<T, I>::NotOngoing);
-			let voting_power = Self::voting_power_of(who, proof)?;
+			let voting_power = Self::voting_power_of(who, proof, &poll_index)?;
 			Self::try_vote(poll_index, vote, voting_power)
 		}
 
@@ -226,19 +255,43 @@ pub mod pallet {
 			todo!("TODO: FAIL-CI - implement remove_vote")
 		}
 
-		// TODO: FAIL-CI - do we need other extrinsics here?
-		//
-		// Set Tally's `Total::get()` data.
-		// Allow this for (any) rank1+ to submit proof with total/inactive issuance
-		// only when have stalled head, it will check proof with stalled state root.
-		// fn set_total(rank_origin, at_block, StorageProof(total_issuance_key/value,
-		// inactive_issuance_key/value)) {..}
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::WeightInfo::submit_proof_root_for_voting())]
+		pub fn submit_proof_root_for_voting(
+			origin: OriginFor<T>,
+			#[pallet::compact] poll_index: PollIndexOf<T, I>,
+			proof_root: Option<<<T as Config<I>>::Prover as ProofInterface>::RemoteProofRootInput>,
+		) -> DispatchResult {
+			let _ = T::ManagerOrigin::ensure_origin(origin, &poll_index)?;
+			let (tally, _) = T::Polls::as_ongoing(poll_index).ok_or(Error::<T, I>::NotOngoing)?;
+			ensure!(
+				tally.ayes.is_zero() && tally.nays.is_zero(),
+				Error::<T, I>::CannotUpdateProofRoot
+			);
+
+			// Verify proof root based on the input and update.
+			ProofRootForVoting::<T, I>::try_mutate_exists(poll_index, |maybe_root| {
+				let previous = maybe_root.clone();
+
+				let new = match proof_root {
+					Some(ref raw_root) => {
+						let verified = T::Prover::verify_proof_root(raw_root)
+							.ok_or(Error::<T, I>::InvalidProofRoot)?;
+						*maybe_root = Some(verified.clone());
+						Some(verified)
+					},
+					None => {
+						*maybe_root = None;
+						None
+					},
+				};
+				Self::deposit_event(Event::ProofRootUpdated { previous, new });
+				Ok(())
+			})
+		}
 	}
 
-	impl<T: Config<I>, I: 'static> Pallet<T, I>
-	where
-		VotingProofAccountIdOf<T, I>: From<T::AccountId>,
-	{
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Verifies the submitted proof and converts it into `VotingPower`.
 		///
 		/// The account `who` is a signer account from which we extract the `AccountId`
@@ -246,22 +299,31 @@ pub mod pallet {
 		pub fn voting_power_of(
 			who: T::AccountId,
 			proof: (VotingProofBlockNumberOf<T, I>, VotingProofOf<T, I>),
+			poll_index: &PollIndexOf<T, I>,
 		) -> Result<
 			(VotingProofAccountIdOf<T, I>, VotingProofBlockNumberOf<T, I>, VotingPowerOf<T, I>),
 			Error<T, I>,
 		> {
-			// convert local account to proof account.
+			// convert a local account to a proof account.
 			let proving_who: VotingProofAccountIdOf<T, I> = who.into();
 
 			// get the proof root
-			let (at_block, proof) = proof;
-			let proof_root = T::ProofRootProvider::provide_hash_for(&at_block)
-				.ok_or(Error::<T, I>::InvalidProofRoot)?;
+			let (proof_at_block, proof) = proof;
+			let proof_root =
+				ProofRootForVoting::<T, I>::get(poll_index)
+					.and_then(|ProofRoot { at_block: voting_at_block, proof_root }| {
+						if voting_at_block == proof_at_block {
+							Some(proof_root)
+						} else {
+							None
+						}
+					})
+					.ok_or(Error::<T, I>::NotOngoing)?;
 
 			// verify the proof
 			let voting_power = T::Prover::query_voting_power_for(&proving_who, proof_root, proof)
 				.ok_or(Error::<T, I>::InvalidProof)?;
-			Ok((proving_who, at_block, voting_power))
+			Ok((proving_who, proof_at_block, voting_power))
 		}
 
 		/// Actually enact a vote, if legit.
@@ -307,12 +369,6 @@ pub mod pallet {
 
 					// Record used total voting power from the proof.
 					tally.record_total(at_remote_block, voting_power.total);
-
-					// TODO: FAIL-CI: Do we need some locking here?
-					// TODO: FAIL-CI: We could `send_xcm(do_remote_lock())` to stalled chain?
-					// Extend the lock to `balance` (rather than setting it) since we don't know
-					// what other votes are in place.
-					// Self::extend_lock(who, &class, vote.balance());
 
 					Self::deposit_event(Event::Voted { who: remote_who.clone(), vote });
 					Ok(Pays::No.into())

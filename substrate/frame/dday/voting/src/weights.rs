@@ -52,6 +52,7 @@ pub trait WeightInfo {
     fn vote_new() -> Weight;
     fn vote_existing() -> Weight;
     fn remove_vote() -> Weight;
+    fn submit_proof_root_for_voting() -> Weight;
 }
 
 /// Weights for `pallet_dday_voting` using the Substrate node and recommended hardware.
@@ -66,6 +67,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
     }
 
     fn remove_vote() -> Weight {
+        Weight::zero()
+    }
+    fn submit_proof_root_for_voting() -> Weight {
         Weight::zero()
     }
 }

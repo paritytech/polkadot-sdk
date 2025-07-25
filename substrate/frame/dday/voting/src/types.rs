@@ -29,17 +29,6 @@ use sp_runtime::{
 	BoundedBTreeMap, Perbill, RuntimeDebug,
 };
 
-/// A trait representing a provider of root hashes.
-pub trait ProvideHash {
-	/// A key type.
-	type Key;
-	/// A hash type.
-	type Hash;
-
-	/// Returns the proof root `Hash` for the given `key`.
-	fn provide_hash_for(key: &Self::Key) -> Option<Self::Hash>;
-}
-
 /// A trait that provides a way to compute a total value from a collection of totals.
 pub trait TotalForTallyProvider {
 	/// The key type used to identify totals in the collection.
@@ -96,7 +85,7 @@ pub struct Tally<
 	pub nays: Votes,
 	/// The basic number of aye votes, expressed pre-conviction.
 	pub support: Votes,
-	/// Store the recorded total's from proofs.
+	/// Store the recorded totals from proofs.
 	pub totals: Totals<TotalProvider::TotalKey, Votes>,
 	/// Dummy.
 	dummy: PhantomData<TotalProvider>,

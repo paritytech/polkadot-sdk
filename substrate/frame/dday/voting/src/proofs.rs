@@ -21,6 +21,29 @@ use crate::VotingPower;
 use codec::MaxEncodedLen;
 use frame_support::Parameter;
 
+/// A trait for verifying proofs used in voting.
+pub trait ProofInterface {
+	/// The associated proof (chain) description.
+	type RemoteProof: ProofDescription;
+
+	/// The generic remote `state_root` input parameter.
+	type RemoteProofRootInput: Parameter;
+	/// The generic remote `state_root` representation.
+	type RemoteProofRootOutput: Parameter;
+
+	/// Verifies the proof and extracts `VotingPower`.
+	fn query_voting_power_for(
+		who: &ProofAccountIdOf<Self>,
+		hash: ProofHashOf<Self>,
+		proof: ProofOf<Self>,
+	) -> Option<VotingPower<ProofBalanceOf<Self>>>;
+
+	/// Verifies the input and returns the verified `RemoteProofRootOutput`.
+	/// Note: This verifies and stores the remote `state_root` based on configurable input.
+	fn verify_proof_root(input: &Self::RemoteProofRootInput)
+		-> Option<Self::RemoteProofRootOutput>;
+}
+
 /// A trait representing the description of a proof used for voting.
 pub trait ProofDescription {
 	/// The block number at which the proof is generated.
@@ -36,20 +59,7 @@ pub trait ProofDescription {
 	type Proof: Parameter;
 }
 
-/// A trait for verifying proofs used in voting.
-pub trait VerifyProof {
-	/// The associated proof description.
-	type Proof: ProofDescription;
-
-	/// Verifies the proof and extracts `VotingPower`.
-	fn query_voting_power_for(
-		who: &ProofAccountIdOf<Self>,
-		hash: ProofHashOf<Self>,
-		proof: ProofOf<Self>,
-	) -> Option<VotingPower<ProofBalanceOf<Self>>>;
-}
-
-type ProofDescriptionOf<T> = <T as VerifyProof>::Proof;
+type ProofDescriptionOf<T> = <T as ProofInterface>::RemoteProof;
 /// Type alias for `VerifyProof::Proof::Balance`.
 pub type ProofBalanceOf<T> = <ProofDescriptionOf<T> as ProofDescription>::Balance;
 /// Type alias for `VerifyProof::Proof::AccountId`.
