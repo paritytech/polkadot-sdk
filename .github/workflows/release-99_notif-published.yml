@@ -42,23 +42,23 @@ jobs:
         shell: bash
         run: |
           set -e
-          echo ${{ github.event.release.body}} >> release_body.txt
+          echo "${{ github.event.release.body}}" > release_body.txt
 
           # Use grep and sed to extract the version from the release body
           VERSION=$(grep -o 'polkadot-v[0-9]\+\.[0-9]\+\.[0-9]\+' release_body.txt | head -n1 | sed 's/polkadot-//')
           echo "node_version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Matrix notification to ${{ matrix.channel.name }}
-        if: github.event.release.prerelease == false || matrix.channel.pre-release
-        uses: s3krit/matrix-message-action@70ad3fb812ee0e45ff8999d6af11cafad11a6ecf # v0.0.3
-        with:
-          room_id: ${{ matrix.channel.room }}
-          access_token: ${{ secrets.RELEASENOTES_MATRIX_V2_ACCESS_TOKEN }}
-          server: m.parity.io
-          message: |
-            @room
+      # - name: Matrix notification to ${{ matrix.channel.name }}
+      #   if: github.event.release.prerelease == false || matrix.channel.pre-release
+      #   uses: s3krit/matrix-message-action@70ad3fb812ee0e45ff8999d6af11cafad11a6ecf # v0.0.3
+      #   with:
+      #     room_id: ${{ matrix.channel.room }}
+      #     access_token: ${{ secrets.RELEASENOTES_MATRIX_V2_ACCESS_TOKEN }}
+      #     server: m.parity.io
+      #     message: |
+      #       @room
 
-            A new node release has been ${{github.event.action}} in **${{github.event.repository.full_name}}:**<br/>
-            Release version: [${{github.event.release.tag_name}}](${{github.event.release.html_url}})
-            Node version: ${{ steps.extract_version.outputs.node_version }}
-            -----
+      #       A new node release has been ${{github.event.action}} in **${{github.event.repository.full_name}}:**<br/>
+      #       Release version: [${{github.event.release.tag_name}}](${{github.event.release.html_url}})
+      #       Node version: ${{ steps.extract_version.outputs.node_version }}
+      #       -----
