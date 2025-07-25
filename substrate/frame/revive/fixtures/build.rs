@@ -206,6 +206,106 @@ fn post_process(input_path: &Path, output_path: &Path) -> Result<()> {
 	Ok(())
 }
 
+/// Compile a Solidity contract using standard JSON interface.
+fn compile_with_standard_json(
+	compiler: &str,
+	contracts_dir: &Path,
+	solidity_entries: &[&Entry],
+	output_selection: serde_json::Value,
+) -> Result<serde_json::Value> {
+	// Create standard JSON input
+	let mut input_json = serde_json::json!({
+		"language": "Solidity",
+		"sources": {},
+		"settings": {
+			"optimizer": {
+				"enabled": true,
+				"runs": 200
+			},
+			"outputSelection": output_selection
+		}
+	});
+
+	// Add all Solidity files to the input
+	for entry in solidity_entries {
+		let source_code = fs::read_to_string(entry.path())
+			.with_context(|| format!("Failed to read Solidity source: {}", entry.path()))?;
+		
+		let file_key = entry.path().split('/').last().unwrap_or(entry.name());
+		input_json["sources"][file_key] = serde_json::json!({
+			"content": source_code
+		});
+	}
+
+	// Compile using --standard-json
+	let compiler_output = Command::new(compiler)
+		.current_dir(contracts_dir)
+		.arg("--standard-json")
+		.stdin(std::process::Stdio::piped())
+		.stdout(std::process::Stdio::piped())
+		.stderr(std::process::Stdio::piped())
+		.spawn()
+		.with_context(|| format!("Failed to execute {}. Make sure {} is installed.", compiler, compiler))?;
+
+	let mut stdin = compiler_output.stdin.as_ref().unwrap();
+	stdin.write_all(input_json.to_string().as_bytes())
+		.with_context(|| format!("Failed to write to {} stdin", compiler))?;
+	let _ = stdin;
+
+	let compiler_result = compiler_output.wait_with_output()
+		.with_context(|| format!("Failed to wait for {} output", compiler))?;
+
+	if !compiler_result.status.success() {
+		let stderr = String::from_utf8_lossy(&compiler_result.stderr);
+		bail!("{} compilation failed: {}", compiler, stderr);
+	}
+
+	// Parse JSON output
+	let compiler_json: serde_json::Value = serde_json::from_slice(&compiler_result.stdout)
+		.with_context(|| format!("Failed to parse {} JSON output", compiler))?;
+
+	Ok(compiler_json)
+}
+
+/// Extract bytecode from compiler JSON output and write binary files.
+fn extract_and_write_bytecode(
+	compiler_json: &serde_json::Value,
+	out_dir: &Path,
+	bytecode_path: &[&str],
+	file_suffix: &str,
+	compiler_name: &str,
+) -> Result<()> {
+	if let Some(contracts) = compiler_json["contracts"].as_object() {
+		for (_file_key, file_contracts) in contracts {
+			if let Some(contract_map) = file_contracts.as_object() {
+				for (contract_name, contract_data) in contract_map {
+					// Navigate through the JSON path to find the bytecode
+					let mut current = contract_data;
+					for path_segment in bytecode_path {
+						if let Some(next) = current.get(path_segment) {
+							current = next;
+						} else {
+							// Skip if path doesn't exist (e.g., contract has no bytecode)
+							continue;
+						}
+					}
+
+					if let Some(bytecode_obj) = current.as_str() {
+						let bytecode_hex = bytecode_obj.strip_prefix("0x").unwrap_or(bytecode_obj);
+						let binary_content = hex::decode(bytecode_hex)
+							.map_err(|e| anyhow::anyhow!("Failed to decode hex for {contract_name}: {e}"))?;
+						
+						let out_path = out_dir.join(format!("{}{}", contract_name, file_suffix));
+						fs::write(&out_path, binary_content)
+							.with_context(|| format!("Failed to write {} output for {contract_name}", compiler_name))?;
+					}
+				}
+			}
+		}
+	}
+	Ok(())
+}
+
 /// Compile Solidity contracts using both solc and resolc.
 fn compile_solidity_contracts(
 	contracts_dir: &Path,
@@ -222,103 +322,46 @@ fn compile_solidity_contracts(
 	}
 
 	// Compile with solc for EVM bytecode
-	let mut solc_command = Command::new("solc");
-	solc_command
-		.current_dir(contracts_dir)
-		.args(["--overwrite", "--optimize", "--bin", "--bin-runtime", "-o"])
-		.arg(out_dir);
+	let solc_json = compile_with_standard_json(
+		"solc",
+		contracts_dir,
+		&solidity_entries,
+		serde_json::json!({
+			"*": {
+				"*": ["evm.bytecode.object"]
+			}
+		})
+	)?;
 
-	for entry in &solidity_entries {
-		solc_command.arg(entry.path());
-	}
-
-	let solc_output = solc_command
-		.output()
-		.with_context(|| "Failed to execute solc. Make sure solc is installed.")?;
-
-	if !solc_output.status.success() {
-		let stderr = String::from_utf8_lossy(&solc_output.stderr);
-		bail!("solc compilation failed: {}", stderr);
-	}
+	// Extract and write EVM bytecode from solc JSON output
+	extract_and_write_bytecode(
+		&solc_json,
+		out_dir,
+		&["evm", "bytecode", "object"],
+		".sol.bin",
+		"solc"
+	)?;
 
 	// Compile with resolc for PVM bytecode
-	let mut resolc_command = Command::new("resolc");
-	resolc_command
-		.current_dir(contracts_dir)
-		.args(["--overwrite", "-Oz", "--bin", "-o"])
-		.arg(out_dir);
-
-	for entry in &solidity_entries {
-		resolc_command.arg(entry.path());
-	}
-
-	let resolc_output = resolc_command
-		.output()
-		.with_context(|| "Failed to execute resolc. Make sure resolc is installed.")?;
-
-	if !resolc_output.status.success() {
-		let stderr = String::from_utf8_lossy(&resolc_output.stderr);
-		bail!("resolc compilation failed: {}", stderr);
-	}
-
-	// Copy and rename the compiled files - handle multiple contracts per .sol file
-	// First, collect only the original .bin and .pvm files (not the ones we create)
-	let mut bin_files = Vec::new();
-	let mut pvm_files = Vec::new();
-
-	for entry in fs::read_dir(&out_dir)? {
-		let path = entry?.path();
-		if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
-			// Only process original solc .bin files (not our generated .sol.bin files)
-			if file_name.ends_with(".bin") &&
-				!file_name.contains(".sol.") &&
-				!file_name.contains(".resolc.")
-			{
-				bin_files.push((path.clone(), file_name.to_string()));
+	let resolc_json = compile_with_standard_json(
+		"resolc",
+		contracts_dir,
+		&solidity_entries,
+		serde_json::json!({
+			"*": {
+				"*": ["evm.bytecode"]
 			}
-			// Only process original .pvm files (not our generated .resolc.polkavm files)
-			else if file_name.ends_with(".pvm") && file_name.contains(":") {
-				pvm_files.push((path.clone(), file_name.to_string()));
-			}
-		}
-	}
+		})
+	)?;
 
-	// Copy all .bin files to ContractName.sol.bin format with hex decoding
-	for (bin_path, file_name) in bin_files {
-		let contract_name = file_name.strip_suffix(".bin").unwrap();
-		let evm_out_path = out_dir.join(format!("{}.sol.bin", contract_name));
-
-		// Read hex-encoded content and decode it
-		let hex_content = fs::read_to_string(&bin_path)
-			.with_context(|| format!("Failed to read solc output for {contract_name}"))?;
-		let hex_content = hex_content.trim();
-
-		// Remove 0x prefix if present
-		let hex_content = hex_content.strip_prefix("0x").unwrap_or(hex_content);
-
-		// Decode hex to binary
-		let binary_content = hex::decode(hex_content)
-			.map_err(|e| anyhow::anyhow!("Failed to decode hex for {contract_name}: {e}"))?;
-
-		fs::write(&evm_out_path, binary_content)
-			.with_context(|| format!("Failed to write solc output for {contract_name}"))?;
-	}
-
-	// Copy all .pvm files to ContractName.resolc.polkavm format (already binary, no hex decoding
-	// needed)
-	for (pvm_path, file_name) in pvm_files {
-		// Extract contract name from filename like "AddressPredictor.sol:Predicted.pvm"
-		if let Some(colon_pos) = file_name.find(':') {
-			if let Some(contract_name) = file_name[(colon_pos + 1)..].strip_suffix(".pvm") {
-				let resolc_out_path = out_dir.join(format!("{}.resolc.polkavm", contract_name));
-
-				// .pvm files are already binary, just copy them
-				fs::copy(&pvm_path, &resolc_out_path).with_context(|| {
-					format!("Failed to copy resolc output for {}", contract_name)
-				})?;
-			}
-		}
-	}
+	// Extract and write PVM bytecode from resolc JSON output
+	extract_and_write_bytecode(
+		&resolc_json,
+		out_dir,
+		&["evm", "bytecode", "object"],
+		".resolc.polkavm",
+		"resolc"
+	)?;
 
 	Ok(())
 }
@@ -344,7 +387,7 @@ fn create_out_dir() -> Result<PathBuf> {
 	let temp_dir: PathBuf =
 		env::var("OUT_DIR").context("Failed to fetch `OUT_DIR` env variable")?.into();
 
-	// this is set in case the user has overriden the target directory
+	// this is set in case the user has overridden the target directory
 	let out_dir = if let Ok(path) = env::var("CARGO_TARGET_DIR") {
 		let path = PathBuf::from(path);
 
@@ -464,9 +507,6 @@ pub fn main() -> Result<()> {
 		return Ok(())
 	}
 
-	let temp_dir: PathBuf =
-		env::var("OUT_DIR").context("Failed to fetch `OUT_DIR` env variable")?.into();
-
 	// Compile Rust contracts
 	let rust_entries: Vec<_> = entries
 		.iter()
@@ -480,6 +520,9 @@ pub fn main() -> Result<()> {
 
 	// Compile Solidity contracts
 	compile_solidity_contracts(&contracts_dir, &out_dir, &entries)?;
+
+	let temp_dir: PathBuf =
+		env::var("OUT_DIR").context("Failed to fetch `OUT_DIR` env variable")?.into();
 
 	// Generate fixture_location.rs with sol! macros
 	generate_fixture_location(&temp_dir, &out_dir, &entries)?;
