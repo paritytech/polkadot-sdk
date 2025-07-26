@@ -192,6 +192,7 @@ where
 	type Proof = AncestryProof<MerkleRootOf<T>>;
 	type ValidationContext = MerkleRootOf<T>;
 
+	// TODO: Remove once sp_consensus_beefy::BeefyAPI::generate_ancestry_proof is removed.
 	fn generate_proof(
 		prev_block_number: BlockNumberFor<T>,
 		best_known_block_number: Option<BlockNumberFor<T>>,

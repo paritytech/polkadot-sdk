@@ -2316,13 +2316,13 @@ sp_api::impl_runtime_apis! {
 				.map(sp_consensus_beefy::OpaqueKeyOwnershipProof::new)
 		}
 
+		// TODO: Remove once sp_consensus_beefy::BeefyAPI::generate_ancestry_proof is removed.
 		fn generate_ancestry_proof(
 			prev_block_number: BlockNumber,
 			best_known_block_number: Option<BlockNumber>,
 		) -> Option<sp_runtime::OpaqueValue> {
-			use sp_consensus_beefy::AncestryHelper;
-
-			BeefyMmrLeaf::generate_proof(prev_block_number, best_known_block_number)
+			Mmr::generate_ancestry_proof(prev_block_number, best_known_block_number)
+				.ok()
 				.map(|p| p.encode())
 				.map(sp_runtime::OpaqueValue::new)
 		}
@@ -2352,6 +2352,13 @@ sp_api::impl_runtime_apis! {
 					)
 				},
 			)
+		}
+
+		fn generate_ancestry_proof(
+			prev_block_number: BlockNumber,
+			best_known_block_number: Option<BlockNumber>,
+		) -> Result<mmr::AncestryProof<mmr::Hash>, mmr::Error> {
+			Mmr::generate_ancestry_proof(prev_block_number, best_known_block_number)
 		}
 
 		fn verify_proof(leaves: Vec<mmr::EncodableOpaqueLeaf>, proof: mmr::LeafProof<mmr::Hash>)

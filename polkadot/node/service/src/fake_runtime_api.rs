@@ -284,6 +284,7 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
+		// TODO: Remove once sp_consensus_beefy::BeefyAPI::generate_ancestry_proof is removed.
 		fn generate_ancestry_proof(
 			_: BlockNumber,
 			_: Option<BlockNumber>,
@@ -305,6 +306,13 @@ sp_api::impl_runtime_apis! {
 			_: Vec<BlockNumber>,
 			_: Option<BlockNumber>,
 		) -> Result<(Vec<sp_mmr_primitives::EncodableOpaqueLeaf>, sp_mmr_primitives::LeafProof<Hash>), sp_mmr_primitives::Error> {
+			unimplemented!()
+		}
+
+		fn generate_ancestry_proof(
+			_: BlockNumber,
+			_: Option<BlockNumber>,
+		) -> Result<sp_mmr_primitives::AncestryProof<Hash>, sp_mmr_primitives::Error> {
 			unimplemented!()
 		}
 

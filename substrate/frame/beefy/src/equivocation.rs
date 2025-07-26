@@ -332,7 +332,7 @@ where
 		let set_id = evidence.set_id();
 		let round = *evidence.round_number();
 		let set_id_session_index = crate::SetIdSession::<T>::get(set_id)
-			.ok_or(Error::<T>::InvalidEquivocationProofSession)?;
+			.ok_or(Error::<T>::InvalidEquivocationProofSessionMember)?;
 
 		// Check that the session id for the membership proof is within the bounds
 		// of the set id reported in the equivocation.
