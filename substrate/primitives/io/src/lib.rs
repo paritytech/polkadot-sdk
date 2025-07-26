@@ -945,7 +945,7 @@ pub trait Crypto {
 			use ed25519_dalek::Verifier;
 
 			let Ok(public_key) = ed25519_dalek::VerifyingKey::from_bytes(&pub_key.0) else {
-				return false
+				return false;
 			};
 
 			let sig = ed25519_dalek::Signature::from_bytes(&sig.0);
@@ -1435,6 +1435,56 @@ pub trait Crypto {
 			.bandersnatch_sign(id, pub_key, msg)
 			.ok()
 			.flatten()
+	}
+}
+
+/// Interfaces for working with generic crypto related types from within the runtime.
+#[runtime_interface]
+pub trait GenericCrypto {
+	/// List all supported keys of a given type.
+	///
+	/// Returns a set of public keys the signer supports in raw format.
+	fn keys(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+	) -> AllocateAndReturnByCodec<Vec<Vec<u8>>> {
+		self.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.keys(id)
+			.expect("Key type not found in keystore")
+	}
+
+	/// Insert a new secret key.
+	fn insert(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		suri: PassFatPointerAndRead<&str>,
+		public: PassFatPointerAndRead<&[u8]>,
+	) {
+		self.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.insert(id, suri, public)
+			.expect("Failed to insert key into keystore")
+	}
+
+	/// Convenience method to sign a message using the given key type and a raw public key
+	/// for secret lookup.
+	///
+	/// The message is signed using the cryptographic primitive specified by `crypto_id`.
+	///
+	/// Returns the SCALE encoded signature if key is found and supported, `None` if the key doesn't
+	/// exist or an error when something failed.
+	fn sign_with(
+		&mut self,
+		id: PassPointerAndReadCopy<KeyTypeId, 4>,
+		crypto_id: PassPointerAndReadCopy<[u8; 4], 4>,
+		public: PassFatPointerAndRead<&[u8]>,
+		msg: PassFatPointerAndRead<&[u8]>,
+	) -> AllocateAndReturnByCodec<Option<Vec<u8>>> {
+		self.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.sign_with(id, sp_core::crypto::CryptoTypeId(crypto_id), public, msg)
+			.expect("Failed to produce valid signature")
 	}
 }
 
@@ -2008,6 +2058,7 @@ pub type SubstrateHostFunctions = (
 	wasm_tracing::HostFunctions,
 	offchain::HostFunctions,
 	crypto::HostFunctions,
+	generic_crypto::HostFunctions,
 	hashing::HostFunctions,
 	allocator::HostFunctions,
 	panic_handler::HostFunctions,
