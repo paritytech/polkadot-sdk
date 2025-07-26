@@ -1256,7 +1256,9 @@ impl<T: Config> Pallet<T> {
 		horizontal_messages: AbridgedInboundHrmpMessages,
 		relay_parent_number: relay_chain::BlockNumber,
 	) -> Weight {
-		// First, check the HRMP advancement rule.
+		// First, check that the HRMP messages are correctly sorted.
+		horizontal_messages.check_messages_order();
+		// Then, check the HRMP advancement rule.
 		horizontal_messages.check_enough_messages_included("HRMP");
 		// Then, check that all submitted messages are sent from channels that exist. The
 		// channel exists if its MQC head is present in `vfp.hrmp_mqc_heads`.
