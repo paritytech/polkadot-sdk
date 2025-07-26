@@ -85,6 +85,7 @@ parking_lot = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 thiserror = { workspace = true }
+tempfile = { workspace = true }
 
 # Polkadot
 polkadot-core-primitives = { workspace = true, default-features = true }
@@ -98,6 +99,7 @@ polkadot-overseer = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 polkadot-rpc = { workspace = true, default-features = true }
 polkadot-runtime-parachains = { workspace = true, default-features = true }
+polkadot-node-core-pvf-common = { workspace = true, default-features = true }
 
 # Polkadot Runtime Constants
 rococo-runtime-constants = { optional = true, workspace = true, default-features = true }

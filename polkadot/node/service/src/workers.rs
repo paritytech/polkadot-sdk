@@ -18,6 +18,7 @@
 
 use super::Error;
 use is_executable::IsExecutable;
+use polkadot_node_core_pvf_common::worker::{kill_parent_node_in_emergency,security};
 use std::path::PathBuf;
 
 #[cfg(test)]
@@ -95,6 +96,25 @@ pub fn determine_workers_paths(
 		}
 	} else {
 		log::warn!("Skipping node/worker version checks. This could result in incorrect behavior in PVF workers.");
+	}
+
+	#[cfg(target_os = "linux")]
+	{
+		let tempfile = tempfile::TempDir::new().expect("Failed to create temp dir for change_root check");
+		if let Err(e) = security::landlock::check_can_fully_enable(){
+			log::error!("Failed to apply landlock rules to the worker: {:?}", e);
+			kill_parent_node_in_emergency();
+		}
+
+		if let Err(e) = security::change_root::check_can_fully_enable(&tempfile.path()) {
+			log::error!("Failed to change root directory for the worker: {:?}", e);
+			kill_parent_node_in_emergency();
+		}
+
+		if let Err(e) = security::seccomp::check_can_fully_enable() {
+			log::error!("Failed to clone namespaces for the worker: {:?}", e);
+			kill_parent_node_in_emergency();
+		}
 	}
 
 	Ok((prep_worker_path, exec_worker_path))
