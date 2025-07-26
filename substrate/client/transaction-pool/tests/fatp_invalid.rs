@@ -380,7 +380,7 @@ fn fatp_watcher_invalid_single_revalidation2() {
 	api.add_invalid(&xt0);
 
 	// note: the tx will be revalidated in view::revalidation, not in mempool revalidation (which
-	// would required watingin 10 blocks).
+	// would require waiting 10 blocks).
 	// waiting 10 blocks is excessive, but we may want to keep it.
 	let mut prev_header = header01;
 	for n in 2..=11 {
