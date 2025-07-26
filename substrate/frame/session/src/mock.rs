@@ -31,6 +31,12 @@ use sp_runtime::{
 	BuildStorage,
 };
 use sp_staking::SessionIndex;
+use sp_state_machine::BasicExternalities;
+
+use frame_support::{
+	derive_impl, parameter_types,
+	traits::{ConstU64, Hooks},
+};
 use std::collections::BTreeMap;
 
 impl_opaque_keys! {
@@ -250,6 +256,9 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	pallet_session::GenesisConfig::<Test> { keys, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
+	BasicExternalities::execute_with_storage(&mut t, || {
+		<pallet_session::Pallet<Test> as Hooks<BlockNumberFor<Test>>>::on_genesis();
+	});
 
 	let v = NextValidators::get().iter().map(|&i| (i, i)).collect();
 	ValidatorAccounts::mutate(|m| *m = v);

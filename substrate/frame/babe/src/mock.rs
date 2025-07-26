@@ -25,8 +25,9 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU128, ConstU32, ConstU64, OnInitialize},
+	traits::{ConstU128, ConstU32, ConstU64, OnGenesis, OnInitialize},
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_session::historical as pallet_session_historical;
 use sp_consensus_babe::{AuthorityId, AuthorityPair, Randomness, Slot, VrfSignature};
 use sp_core::{
@@ -42,6 +43,7 @@ use sp_runtime::{
 	BuildStorage, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
+use sp_state_machine::BasicExternalities;
 
 type DummyValidatorId = u64;
 
@@ -357,6 +359,9 @@ pub fn new_test_ext_raw_authorities(authorities: Vec<AuthorityId>) -> sp_io::Tes
 
 	staking_config.assimilate_storage(&mut t).unwrap();
 
+	BasicExternalities::execute_with_storage(&mut t, || {
+		<pallet_session::Pallet<Test> as OnGenesis>::on_genesis();
+	});
 	t.into()
 }
 
