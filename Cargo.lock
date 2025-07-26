@@ -11561,7 +11561,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "log",
  "pallet-bridge-grandpa",
  "parity-scale-codec",
  "scale-info",
@@ -11569,6 +11568,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
+ "tracing",
 ]
 
 [[package]]
