@@ -45,6 +45,7 @@ mod force_unstake_kill_stash;
 mod ledger;
 mod payout_stakers;
 mod slashing;
+mod unbonding_queue;
 
 #[test]
 fn basic_setup_session_queuing_should_work() {
@@ -443,7 +444,11 @@ mod staking_interface {
 						stash: 11,
 						total: 1000,
 						active: 0,
-						unlocking: bounded_vec![UnlockChunk { value: 1000, era: 4 }],
+						unlocking: bounded_vec![UnlockChunk {
+							value: 1000,
+							era: active_era(),
+							previous_unbonded_stake: 0
+						}],
 					},
 				);
 
@@ -522,7 +527,11 @@ mod staking_unchecked {
 					stash: 10,
 					total: 1100,
 					active: 1100 - 200,
-					unlocking: bounded_vec![UnlockChunk { value: 200, era: 1 + 3 }],
+					unlocking: bounded_vec![UnlockChunk {
+						value: 200,
+						era: active_era(),
+						previous_unbonded_stake: 0
+					}],
 				}
 			);
 

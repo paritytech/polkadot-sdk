@@ -1199,7 +1199,10 @@ parameter_types! {
 impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations = pallet_revive::migrations::v1::Migration<Runtime>;
+	type Migrations = (
+		pallet_revive::migrations::v1::Migration<Runtime>,
+		pallet_staking_async::migrations::v18::LazyMigrationV17ToV18<Runtime>,
+	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
 	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;

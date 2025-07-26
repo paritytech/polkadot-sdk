@@ -83,7 +83,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{Defensive, DefensiveMax, DefensiveSaturating, OnUnbalanced, TryCollect},
 };
-use sp_runtime::{Perbill, Percent, Saturating};
+use sp_runtime::{Perbill, Percent, SaturatedConversion, Saturating};
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, SessionIndex,
 };
@@ -373,6 +373,18 @@ impl<T: Config> Eras<T> {
 	pub(crate) fn get_reward_points(era: EraIndex) -> EraRewardPoints<T> {
 		ErasRewardPoints::<T>::get(era)
 	}
+
+	pub(crate) fn set_lowest_stake(era: EraIndex, total_stake: BalanceOf<T>) {
+		ErasLowestRatioTotalStake::<T>::set(era, Some(total_stake));
+	}
+
+	pub(crate) fn get_lowest_stake(era: EraIndex) -> BalanceOf<T> {
+		ErasLowestRatioTotalStake::<T>::get(era).unwrap_or(Zero::zero())
+	}
+
+	pub(crate) fn clean_up_lowest_stake(era: EraIndex) {
+		ErasLowestRatioTotalStake::<T>::remove(era);
+	}
 }
 
 #[cfg(any(feature = "try-runtime", test, feature = "runtime-benchmarks"))]
@@ -491,7 +503,7 @@ impl<T: Config> Rotator<T> {
 			EraElectionPlanner::<T>::do_elect_paged(p);
 		}
 
-		crate::ElectableStashes::<T>::take().into_iter().collect()
+		crate::ElectableStashes::<T>::take().into_iter().map(|(s, _)| s).collect()
 	}
 
 	#[cfg(any(feature = "try-runtime", test))]
@@ -798,6 +810,13 @@ impl<T: Config> Rotator<T> {
 	fn cleanup_old_era(starting_era: EraIndex) {
 		EraElectionPlanner::<T>::cleanup();
 
+		let diff = T::BondingDuration::get();
+		if starting_era >= diff {
+			let target_era = starting_era - diff;
+			TotalUnbondInEra::<T>::remove(target_era);
+			Eras::<T>::clean_up_lowest_stake(target_era);
+		}
+
 		// discard the ancient era info.
 		if let Some(old_era) = starting_era.checked_sub(T::HistoryDepth::get() + 1) {
 			log!(debug, "Removing era information for {:?}", old_era);
@@ -881,8 +900,9 @@ impl<T: Config> EraElectionPlanner<T> {
 				use pallet_staking_async_rc_client::RcClientInterface;
 				let id = CurrentEra::<T>::get().defensive_unwrap_or(0);
 				let prune_up_to = Self::get_prune_up_to();
-				let rc_validators = ElectableStashes::<T>::take().into_iter().collect::<Vec<_>>();
-
+				Pallet::<T>::calculate_lowest_total_stake(id);
+				let rc_validators: Vec<_> =
+					ElectableStashes::<T>::take().into_iter().map(|(s, _)| s).collect();
 				crate::log!(
 					info,
 					"Sending new validator set of size {:?} to RC. ID: {:?}, prune_up_to: {:?}",
@@ -955,7 +975,7 @@ impl<T: Config> EraElectionPlanner<T> {
 	) -> Result<usize, usize> {
 		let planning_era = Rotator::<T>::planned_era();
 
-		match Self::add_electables(supports.iter().map(|(s, _)| s.clone())) {
+		match Self::add_electables(&supports) {
 			Ok(added) => {
 				let exposures = Self::collect_exposures(supports);
 				let _ = Self::store_stakers_info(exposures, planning_era);
@@ -1082,13 +1102,20 @@ impl<T: Config> EraElectionPlanner<T> {
 	/// `Ok(newly_added)` if all stashes were added successfully.
 	/// `Err(first_un_included)` if some stashes cannot be added due to bounds.
 	pub(crate) fn add_electables(
-		new_stashes: impl Iterator<Item = T::AccountId>,
+		supports: &BoundedSupportsOf<T::ElectionProvider>,
 	) -> Result<usize, usize> {
 		ElectableStashes::<T>::mutate(|electable| {
 			let pre_size = electable.len();
 
-			for (idx, stash) in new_stashes.enumerate() {
-				if electable.try_insert(stash).is_err() {
+			for (idx, (stash, support)) in supports.0.iter().enumerate() {
+				let current = *electable.get(stash).unwrap_or(&Zero::zero());
+				if electable
+					.try_insert(
+						stash.clone(),
+						current.saturating_add(support.total.saturated_into()),
+					)
+					.is_err()
+				{
 					return Err(idx);
 				}
 			}

@@ -1794,6 +1794,10 @@ impl_runtime_apis! {
 		fn pending_rewards(era: sp_staking::EraIndex, account: AccountId) -> bool {
 			Staking::api_pending_rewards(era, account)
 		}
+
+		fn unbonding_duration(account: AccountId) -> Vec<(sp_staking::EraIndex, Balance)> {
+			Staking::unbonding_duration(account)
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
