@@ -92,19 +92,31 @@ pub fn get_amount_from_versioned_assets(assets: VersionedAssets) -> u128 {
 	amount
 }
 
+/// Helper method to find all `Event::Processed` IDs from the chain's events.
+pub fn find_all_mq_processed_ids<C: Chain>() -> Vec<H256>
+where
+	<C as Chain>::Runtime: pallet_message_queue::Config,
+	C::RuntimeEvent: TryInto<pallet_message_queue::Event<<C as Chain>::Runtime>>,
+{
+	C::events()
+		.into_iter()
+		.filter_map(|event| {
+			if let Ok(pallet_message_queue::Event::Processed { id, .. }) = event.try_into() {
+				Some(id)
+			} else {
+				None
+			}
+		})
+		.collect()
+}
+
 /// Helper method to find the ID of the first `Event::Processed` event in the chain's events.
 pub fn find_mq_processed_id<C: Chain>() -> Option<H256>
 where
 	<C as Chain>::Runtime: pallet_message_queue::Config,
 	C::RuntimeEvent: TryInto<pallet_message_queue::Event<<C as Chain>::Runtime>>,
 {
-	C::events().into_iter().find_map(|event| {
-		if let Ok(pallet_message_queue::Event::Processed { id, .. }) = event.try_into() {
-			Some(id)
-		} else {
-			None
-		}
-	})
+	find_all_mq_processed_ids::<C>().first().cloned()
 }
 
 /// Helper method to find the message ID of the first `Event::Sent` event in the chain's events.
