@@ -2549,12 +2549,7 @@ fn fatp_ready_light_fallback_gets_triggered() {
 	// the finalized block for the search of the best view, and coincidentaly, that's the only view
 	// of the tree route, being the view created for NBB `header01b`. The returned ready txs are the
 	// ones left in the best view's pool after prunning the txs.
-	let mut ready_iterator = pool.ready_at_light(header03b.hash()).now_or_never().unwrap();
-	let ready01 = ready_iterator.next();
-	assert_eq!(ready01.unwrap().hash, api.hash_and_length(&xt3).0);
-	let ready02 = ready_iterator.next();
-	assert_eq!(ready02.unwrap().hash, api.hash_and_length(&xt4).0);
-	assert!(ready_iterator.next().is_none());
+	assert_ready_at_light_iterator!(header03b.hash(), pool, [xt3, xt4]);
 }
 
 #[test]
