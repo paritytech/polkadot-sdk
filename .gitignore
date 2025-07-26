@@ -10,8 +10,6 @@
 .wasm-binaries
 *.adoc
 *.bin
-!substrate/frame/revive/fixtures-solidity/contracts/build/
-!substrate/frame/revive/fixtures-solidity/contracts/build/*.bin
 *.iml
 *.orig
 *.rej

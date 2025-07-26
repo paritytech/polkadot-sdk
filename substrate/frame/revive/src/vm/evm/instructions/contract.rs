@@ -17,7 +17,7 @@ use revm::{
 	},
 	primitives::{hardfork::SpecId, Address, Bytes, B256, U256},
 };
-use std::boxed::Box;
+use alloc::boxed::Box;
 
 /// Implements the CREATE/CREATE2 instruction.
 ///

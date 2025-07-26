@@ -5,6 +5,7 @@ use crate::{
 	AccountIdOf, BalanceOf, CodeInfo, CodeVec, Config, ContractBlob, DispatchError, Error,
 	ExecReturnValue, H256, LOG_TARGET, U256,
 };
+use alloc::vec::Vec;
 use instructions::instruction_table;
 use pallet_revive_uapi::ReturnFlags;
 use revm::{
