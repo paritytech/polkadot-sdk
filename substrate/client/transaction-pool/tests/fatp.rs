@@ -2372,7 +2372,7 @@ fn fatp_ready_light_most_recent_view_long_fork_retracted_works() {
 	let results = block_on(futures::future::join_all(submissions));
 	assert!(results.iter().all(|r| { r.is_ok() }));
 
-	// dirty hack to remove genesis view, so we can check fallback to most-recent-view at header01b.
+	// dirty hack to remove genesis view, so we can check fallback to most-recent-view at header03b.
 	let header01a = api.push_block_with_parent(genesis, vec![], true);
 	let event = finalized_block_event(&pool, genesis, header01a.hash());
 	block_on(pool.maintain(event));
