@@ -13,9 +13,9 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true }
-log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, workspace = true }
+tracing = { workspace = true }
 
 # Bridge Dependencies
 bp-beefy = { workspace = true }
@@ -45,12 +45,12 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"scale-info/std",
 	"serde/std",
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"tracing/std",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

@@ -17,6 +17,6 @@ async-trait = { workspace = true }
 bp-header-chain = { workspace = true, default-features = true }
 finality-relay = { workspace = true }
 futures = { workspace = true }
-log = { workspace = true }
 num-traits = { workspace = true, default-features = true }
 relay-utils = { workspace = true }
+tracing = { workspace = true }

@@ -227,21 +227,17 @@ where
 	let relayer_id_at_source: AccountIdOf<P::SourceChain> =
 		params.source_transaction_params.signer.public().into();
 
-	log::info!(
+	tracing::info!(
 		target: "bridge",
 		"Starting {} -> {} messages relay.\n\t\
 			{} relayer account id: {:?}\n\t\
-			Max messages in single transaction: {}\n\t\
-			Max messages size in single transaction: {}\n\t\
-			Max messages weight in single transaction: {}\n\t\
-			Tx mortality: {:?} (~{}m)/{:?} (~{}m)",
+			Max messages in single transaction: {relayer_id_at_source}\n\t\
+			Max messages size in single transaction: {max_messages_in_single_batch}\n\t\
+			Max messages weight in single transaction: {max_messages_size_in_single_batch}\n\t\
+			Tx mortality: {max_messages_weight_in_single_batch:?} (~{}m)/{:?} (~{}m)",
 		P::SourceChain::NAME,
 		P::TargetChain::NAME,
 		P::SourceChain::NAME,
-		relayer_id_at_source,
-		max_messages_in_single_batch,
-		max_messages_size_in_single_batch,
-		max_messages_weight_in_single_batch,
 		params.source_transaction_params.mortality,
 		transaction_stall_timeout(
 			params.source_transaction_params.mortality,
@@ -423,7 +419,7 @@ where
 		if trace_call {
 			// this trace isn't super-accurate, because limits are for transactions and we
 			// have a call here, but it provides required information
-			log::trace!(
+			tracing::trace!(
 				target: "bridge",
 				"Prepared {} -> {} messages delivery call. Weight: {}/{}, size: {}/{}",
 				P::SourceChain::NAME,
@@ -516,7 +512,7 @@ where
 		if trace_call {
 			// this trace isn't super-accurate, because limits are for transactions and we
 			// have a call here, but it provides required information
-			log::trace!(
+			tracing::trace!(
 				target: "bridge",
 				"Prepared {} -> {} delivery confirmation transaction. Weight: {}/{}, size: {}/{}",
 				P::TargetChain::NAME,

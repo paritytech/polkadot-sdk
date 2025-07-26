@@ -271,18 +271,18 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 			(justification.commit.target_hash, justification.commit.target_number);
 
 		let initial_header = Self::source_header(&source_client, initial_header_hash).await?;
-		log::trace!(target: "bridge", "Selected {} initial header: {}/{}",
+		tracing::trace!(target: "bridge", "Selected {} initial header: {initial_header_number}/{initial_header_hash}",
 			C::NAME,
-			initial_header_number,
-			initial_header_hash,
 		);
 
 		// Read GRANDPA authorities set at initial header.
 		let initial_authorities_set =
 			Self::source_authorities_set(&source_client, initial_header_hash).await?;
-		log::trace!(target: "bridge", "Selected {} initial authorities set: {:?}",
+		tracing::trace!(
+			target: "bridge",
+			?initial_authorities_set,
+			"Selected {}",
 			C::NAME,
-			initial_authorities_set,
 		);
 
 		// If initial header changes the GRANDPA authorities set, then we need previous authorities
@@ -293,7 +293,7 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 		);
 		assert!(
 			scheduled_change.as_ref().map(|c| c.delay.is_zero()).unwrap_or(true),
-			"GRANDPA authorities change at {} scheduled to happen in {:?} blocks. We expect\
+			"GRANDPA authorities change at {} scheduled to happen in {:?} blocks. We expect \
 			regular change to have zero delay",
 			initial_header_hash,
 			scheduled_change.as_ref().map(|c| c.delay),
@@ -302,11 +302,11 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 		if schedules_change {
 			authorities_for_verification =
 				Self::source_authorities_set(&source_client, *initial_header.parent_hash()).await?;
-			log::trace!(
+			tracing::trace!(
 				target: "bridge",
-				"Selected {} header is scheduling GRANDPA authorities set changes. Using previous set: {:?}",
+				previous_set=?authorities_for_verification,
+				"Selected {} header is scheduling GRANDPA authorities set changes.",
 				C::NAME,
-				authorities_for_verification,
 			);
 		}
 
@@ -314,10 +314,11 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 		let mut initial_authorities_set_id = 0;
 		let mut min_possible_block_number = C::BlockNumber::zero();
 		loop {
-			log::trace!(
-				target: "bridge", "Trying {} GRANDPA authorities set id: {}",
+			tracing::trace!(
+				target: "bridge",
+				authorities_set_id=%initial_authorities_set_id,
+				"Trying {} GRANDPA authorities set id",
 				C::NAME,
-				initial_authorities_set_id,
 			);
 
 			let is_valid_set_id = verify_and_optimize_justification(

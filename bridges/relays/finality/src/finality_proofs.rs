@@ -54,15 +54,15 @@ impl<P: FinalityPipeline, SC: SourceClientBase<P>> FinalityProofsStream<P, SC> {
 
 	pub async fn ensure_stream(&mut self, source_client: &SC) -> Result<(), SC::Error> {
 		if self.stream.is_none() {
-			log::warn!(target: "bridge", "{} finality proofs stream is being started / restarted",
+			tracing::warn!(target: "bridge", "{} finality proofs stream is being started / restarted",
 				P::SOURCE_NAME);
 
 			let stream = source_client.finality_proofs().await.map_err(|error| {
-				log::error!(
+				tracing::error!(
 					target: "bridge",
-					"Failed to subscribe to {} justifications: {:?}",
+					?error,
+					"Failed to subscribe to {} justifications",
 					P::SOURCE_NAME,
-					error,
 				);
 
 				error
@@ -103,13 +103,10 @@ impl<P: FinalityPipeline> FinalityProofsBuf<P> {
 		}
 
 		if proofs_count != 0 {
-			log::trace!(
+			tracing::trace!(
 				target: "bridge",
-				"Read {} finality proofs from {} finality stream for headers in range [{:?}; {:?}]",
-				proofs_count,
+				"Read {proofs_count} finality proofs from {} finality stream for headers in range [{first_header_number:?}; {last_header_number:?}]",
 				P::SOURCE_NAME,
-				first_header_number,
-				last_header_number,
 			);
 		}
 	}
