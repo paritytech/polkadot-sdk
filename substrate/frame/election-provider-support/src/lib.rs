@@ -530,7 +530,7 @@ pub trait ElectionProvider {
 
 	/// Signal the election provider that we are about to call `elect` asap, and it should prepare
 	/// itself.
-	#[cfg(feature = "runtime-benchmarks")]
+	#[cfg(any(feature = "runtime-benchmarks", feature = "std"))]
 	fn asap() {}
 }
 

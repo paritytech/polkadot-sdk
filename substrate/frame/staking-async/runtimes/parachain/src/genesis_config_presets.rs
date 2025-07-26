@@ -18,12 +18,18 @@
 //! # Staking Async Runtime genesis config presets
 
 use crate::*;
-use alloc::{vec, vec::Vec};
+use alloc::{
+	string::{String, ToString},
+	vec,
+	vec::Vec,
+};
 use cumulus_primitives_core::ParaId;
 use frame_support::build_struct_json_patch;
 use parachains_common::{AccountId, AuraId};
+use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
+use sp_staking::StakerStatus;
 use testnet_parachains_constants::westend::{
 	currency::UNITS as WND, xcm_version::SAFE_XCM_VERSION,
 };
@@ -35,24 +41,21 @@ struct GenesisParams {
 	endowed_accounts: Vec<AccountId>,
 	endowment: Balance,
 	dev_stakers: Option<(u32, u32)>,
-	pages: u32,
-	max_electing_voters: u32,
+	validators: Vec<AccountId>,
 	validator_count: u32,
 	root: AccountId,
 	id: ParaId,
 }
 
-fn staking_async_parachain_genesis(params: GenesisParams) -> serde_json::Value {
+fn staking_async_parachain_genesis(params: GenesisParams, preset: String) -> serde_json::Value {
 	let GenesisParams {
 		invulnerables,
 		endowed_accounts,
 		endowment,
 		dev_stakers,
+		validators,
 		validator_count,
 		root,
-		// TODO: find a way to set these here, but for now we will set them directly in the runtime.
-		pages: _pages,
-		max_electing_voters: _max_electing_voters,
 		id,
 	} = params;
 	build_struct_json_patch!(RuntimeGenesisConfig {
@@ -66,6 +69,7 @@ fn staking_async_parachain_genesis(params: GenesisParams) -> serde_json::Value {
 		},
 		session: SessionConfig {
 			keys: invulnerables
+				.clone()
 				.into_iter()
 				.map(|(acc, aura)| {
 					(
@@ -78,40 +82,76 @@ fn staking_async_parachain_genesis(params: GenesisParams) -> serde_json::Value {
 		},
 		polkadot_xcm: PolkadotXcmConfig { safe_xcm_version: Some(SAFE_XCM_VERSION) },
 		sudo: SudoConfig { key: Some(root) },
-		staking: StakingConfig { validator_count, dev_stakers, ..Default::default() }
+		preset_store: crate::PresetStoreConfig { preset, ..Default::default() },
+		staking: StakingConfig {
+			validator_count,
+			dev_stakers,
+			stakers: validators
+				.into_iter()
+				.map(|acc| (acc, endowment / 2, StakerStatus::Validator))
+				.collect(),
+			..Default::default()
+		}
 	})
 }
 
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
-	let mut dev_and_testnet_params = GenesisParams {
+	let mut params = GenesisParams {
 		invulnerables: vec![
-			(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
-			(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
+			// in all cases, our local collators is just charlie. ZN seems to override these
+			// anyways.
+			(
+				get_public_from_string_or_panic::<sr25519::Public>("Charlie").into(),
+				get_public_from_string_or_panic::<AuraId>("Charlie").into(),
+			),
 		],
 		endowed_accounts: Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
 		endowment: WND * 1_000_000,
 		dev_stakers: Some((100, 2000)),
+		validators: Default::default(),
 		validator_count: 10,
 		root: Sr25519Keyring::Alice.to_account_id(),
 		id: 1100.into(),
-		max_electing_voters: 2000,
-		pages: 4,
 	};
 	let patch = match id.as_ref() {
-		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET =>
-			staking_async_parachain_genesis(dev_and_testnet_params),
-		sp_genesis_builder::DEV_RUNTIME_PRESET =>
-			staking_async_parachain_genesis(dev_and_testnet_params),
-		"ksm_size" => {
-			dev_and_testnet_params.validator_count = 1_000;
-			dev_and_testnet_params.dev_stakers = Some((4_000, 20_000));
-			staking_async_parachain_genesis(dev_and_testnet_params)
+		"real-s" => {
+			params.validator_count = 2;
+			// generate no new "fake" validators.
+			params.dev_stakers = Some((0, 500));
+			// set expected relay validators in genesis so they are elected
+			params.validators = vec![
+				Sr25519Keyring::AliceStash.to_account_id(),
+				Sr25519Keyring::BobStash.to_account_id(),
+			];
+			staking_async_parachain_genesis(params, id.to_string())
 		},
-		"dot_size" => {
-			dev_and_testnet_params.validator_count = 500;
-			dev_and_testnet_params.dev_stakers = Some((2_000, 25_000));
-			staking_async_parachain_genesis(dev_and_testnet_params)
+		"real-m" => {
+			params.validator_count = 4;
+			// generate no new "fake" validators.
+			params.dev_stakers = Some((0, 2000));
+			// set expected relay validators in genesis so they are elected
+			params.validators = vec![
+				Sr25519Keyring::AliceStash.to_account_id(),
+				Sr25519Keyring::BobStash.to_account_id(),
+				Sr25519Keyring::EveStash.to_account_id(),
+				Sr25519Keyring::DaveStash.to_account_id(),
+			];
+			staking_async_parachain_genesis(params, id.to_string())
+		},
+		"fake-dev" => {
+			// nada
+			staking_async_parachain_genesis(params, id.to_string())
+		},
+		"fake-dot" => {
+			params.validator_count = 500;
+			params.dev_stakers = Some((2_500, 25_000));
+			staking_async_parachain_genesis(params, id.to_string())
+		},
+		"fake-ksm" => {
+			params.validator_count = 1_000;
+			params.dev_stakers = Some((4_500, 15_000));
+			staking_async_parachain_genesis(params, id.to_string())
 		},
 		_ => panic!("unrecognized genesis preset!"),
 	};
@@ -126,9 +166,10 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 /// List of supported presets.
 pub fn preset_names() -> Vec<PresetId> {
 	vec![
-		PresetId::from(sp_genesis_builder::DEV_RUNTIME_PRESET),
-		PresetId::from(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET),
-		PresetId::from("ksm_size"),
-		PresetId::from("dot_size"),
+		PresetId::from("real-s"),
+		PresetId::from("real-m"),
+		PresetId::from("fake-dev"),
+		PresetId::from("fake-dot"),
+		PresetId::from("fake-ksm"),
 	]
 }

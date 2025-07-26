@@ -719,7 +719,7 @@ impl<T: Config> OffchainWorkerMiner<T> {
 		Ok((voter_pages, all_targets, desired_targets))
 	}
 
-	pub(crate) fn mine_solution(
+	pub fn mine_solution(
 		pages: PageIndex,
 		do_reduce: bool,
 	) -> Result<PagedRawSolution<T::MinerConfig>, OffchainMinerError<T>> {

@@ -1,0 +1,127 @@
+# PAPI Tests Development Workflow
+
+# Install dependencies (descriptors needs to be generated and installed the 1st time only via `setup`)
+install:
+    echo "🔄 Install bun dependencies"
+    bun install
+
+# Generate fresh metadata and descriptors, then install all dependencies
+setup:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "🧹 Killing any existing zombienet or chain processes..."
+    just killall
+
+    just install || echo "🚧 Generate and installed missing descriptors..."
+    just build-and-generate-chains
+
+    # Start zombienet and wait for ws endpoints to be ready
+    zombienet --provider native -l text spawn zn-s.toml 2>&1 &
+    CHAINS_PID=$!
+
+    echo "⏳ Waiting for chains to be ready (ws endpoints on 9944, 9945 and 9946)..."
+    for port in 9944 9945 9946; do
+      for i in {1..24}; do
+        if nc -z localhost $port; then
+          echo "✅ Port $port is open."
+          break
+        fi
+        sleep 10
+        if [ $i -eq 24 ]; then
+          echo "❌ Timeout waiting for port $port"
+          kill $CHAINS_PID || true
+          pkill -f zombienet || true
+          exit 1
+        fi
+      done
+    done
+
+    just generate-descriptors
+
+    echo "🧹 Cleaning up chain processes..."
+    kill $CHAINS_PID || true
+    just killall
+
+    echo "✅ Setup complete! You can now run tests or development commands."
+
+# Clean generated files and dependencies
+clean:
+    rm -rf .papi node_modules bun.lockb
+    echo "🧹 Cleaned .papi, node_modules, and lockfile"
+
+# Generate descriptors from running chains (assumes chains are already running)
+generate-descriptors:
+    echo "📋 Generating PAPI descriptors from ws endpoints..."
+    npx papi add -w ws://localhost:9946 parachain
+    npx papi add -w ws://localhost:9945 rc
+    npx papi
+    bun install --only-missing
+
+    echo "📋 Descriptors generated and dependencies updated"
+
+
+# Run tests
+test:
+    bun test
+
+# Build and generate chain specs (shared logic)
+build-and-generate-chains:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "🔧 Building chain-spec-builder and runtimes..."
+    LOG="runtime::multiblock-election=info,runtime::staking=info"
+    RUST_LOG=${LOG} cargo build --release -p pallet-staking-async-rc-runtime -p pallet-staking-async-parachain-runtime -p staging-chain-spec-builder
+    echo "✅ Removing any old chain-spec file"
+    rm -f ./parachain.json
+    rm -f ./rc.json
+    echo "✅ Creating parachain chain specs"
+    RUST_LOG=${LOG} ../../../../../target/release/chain-spec-builder \
+        create \
+        -t development \
+        --runtime ../../../../../target/release/wbuild/pallet-staking-async-parachain-runtime/pallet_staking_async_parachain_runtime.compact.compressed.wasm \
+        --relay-chain rococo-local \
+        --para-id 1100 \
+        named-preset fake-dot
+    mv ./chain_spec.json ./parachain.json
+    echo "✅ Creating rc chain specs"
+    RUST_LOG=${LOG} ../../../../../target/release/chain-spec-builder \
+        create \
+        -t development \
+        --runtime ../../../../../target/release/wbuild/pallet-staking-async-rc-runtime/fast_runtime_binary.rs.wasm \
+        named-preset fake-s
+    mv ./chain_spec.json ./rc.json
+
+# Run a specific runtime preset, or print presets if none is given
+run preset='':
+    #!/usr/bin/env bash
+    if [ -z "{{preset}}" ]; then
+      echo "⚠️ Please specify a preset."
+      just presets
+    else
+      bun run src/index.ts run --para-preset {{preset}}
+    fi
+
+# Show available presets
+presets:
+    @echo "Available parachain presets:"
+    @echo "  fake-dev  - 4 pages, small number of fake validators and nominators"
+    @echo "  fake-dot  - 32 pages, large number of fake validators and nominators"
+    @echo "  fake-ksm  - 16 pages, large number of fake validators and nominators"
+    @echo "  real-s    - 4 pages, alice and bob as validators, 500 fake nominators"
+    @echo "  real-m    - 4 pages, alice, bob, dave, eve as validators, 2000 fake nominators"
+
+# Full development setup (clean + setup)
+reset: clean setup
+
+# Show help
+help:
+    just --list
+
+# kill all relevant processes. This is useful in case you see weird errors, most likely it is
+# because you have other old stale ones running.
+killall:
+  pkill -f zombienet || true
+  pkill -f chain-spec-builder || true
+  pkill -f polkadot || true
+  pkill -f polkadot-parachain || true

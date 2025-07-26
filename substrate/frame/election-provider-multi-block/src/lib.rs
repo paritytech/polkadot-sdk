@@ -1606,7 +1606,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 		}
 	}
 
-	#[cfg(feature = "runtime-benchmarks")]
+	#[cfg(any(feature = "runtime-benchmarks", feature = "std"))]
 	fn asap() {
 		// prepare our snapshot so we can "hopefully" run a fallback.
 		Self::create_targets_snapshot();

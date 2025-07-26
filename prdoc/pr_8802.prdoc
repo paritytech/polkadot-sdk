@@ -1,0 +1,19 @@
+title: '[AHM] Staking async e2e zn and papi tests'
+doc:
+- audience: Runtime Dev
+  description: Adds end-to-end tests for staking async using zombienet and papi.
+crates:
+- name: pallet-staking-async
+  bump: minor
+- name: pallet-staking-async-rc-runtime
+  bump: patch
+- name: pallet-election-provider-multi-block
+  bump: minor
+- name: pallet-staking-async-parachain-runtime
+  bump: patch
+- name: sp-staking
+  bump: patch
+- name: frame-election-provider-support
+  bump: minor
+- name: sp-npos-elections
+  bump: minor
