@@ -22,7 +22,8 @@ pub use xcm_config::*;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{
-		AsEnsureOriginWithArg, ConstU128, Everything, Nothing, ProcessMessage, ProcessMessageError,
+		AsEnsureOriginWithArg, ConstU128, Disabled, Everything, Nothing, ProcessMessage,
+		ProcessMessageError,
 	},
 	weights::{Weight, WeightMeter},
 };
@@ -119,6 +120,7 @@ impl pallet_xcm::Config for Runtime {
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = pallet_xcm::TestWeightInfo;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type AuthorizedAliasConsideration = Disabled;
 }
 
 impl origin::Config for Runtime {}

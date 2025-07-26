@@ -138,6 +138,10 @@ pub enum Error {
 	TooManyVoters,
 	/// Some bounds were exceeded when converting election types.
 	BoundsExceeded,
+	/// A duplicate voter was detected.
+	DuplicateVoter,
+	/// A duplicate target was detected.
+	DuplicateTarget,
 }
 
 /// A type which is used in the API of this crate as a numeric weight of a vote, most often the
@@ -464,12 +468,6 @@ pub struct Support<AccountId> {
 impl<AccountId> Default for Support<AccountId> {
 	fn default() -> Self {
 		Self { total: Default::default(), voters: vec![] }
-	}
-}
-
-impl<AccountId: Clone> Support<AccountId> {
-	pub fn self_vote_only(who: AccountId, amount: ExtendedBalance) -> (AccountId, Self) {
-		(who.clone(), Self { total: amount, voters: vec![(who, amount)] })
 	}
 }
 

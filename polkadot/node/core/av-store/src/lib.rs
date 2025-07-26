@@ -1329,7 +1329,7 @@ fn store_available_data(
 		})
 		.collect();
 
-	let chunk_indices = availability_chunk_indices(Some(&node_features), n_validators, core_index)?;
+	let chunk_indices = availability_chunk_indices(&node_features, n_validators, core_index)?;
 	for (validator_index, chunk_index) in chunk_indices.into_iter().enumerate() {
 		write_chunk(
 			&mut tx,

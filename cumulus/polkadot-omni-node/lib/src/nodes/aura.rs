@@ -15,6 +15,7 @@
 // limitations under the License.
 
 use crate::{
+	cli::AuthoringPolicy,
 	common::{
 		aura::{AuraIdT, AuraRuntimeApi},
 		rpc::BuildParachainRpcExtensions,
@@ -48,7 +49,7 @@ use cumulus_client_consensus_proposer::{Proposer, ProposerInterface};
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 #[allow(deprecated)]
 use cumulus_client_service::CollatorSybilResistance;
-use cumulus_primitives_core::{relay_chain::ValidationCode, ParaId};
+use cumulus_primitives_core::{relay_chain::ValidationCode, GetParachainInfo, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::prelude::*;
 use polkadot_primitives::CollatorPair;
@@ -130,7 +131,7 @@ where
 		let spawner = task_manager.spawn_essential_handle();
 
 		let relay_chain_verifier =
-			Box::new(RelayChainVerifier::new(client.clone(), |_, _| async { Ok(()) }));
+			Box::new(RelayChainVerifier::new(client.clone(), inherent_data_providers));
 
 		let equivocation_aura_verifier =
 			EquivocationVerifier::<<AuraId as AppCrypto>::Pair, _, _, _>::new(
@@ -227,10 +228,11 @@ where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
-		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
+		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
+		+ GetParachainInfo<Block>,
 	AuraId: AuraIdT + Sync,
 {
-	if extra_args.use_slot_based_consensus {
+	if extra_args.authoring_policy == AuthoringPolicy::SlotBased {
 		Box::new(AuraNode::<
 			Block,
 			RuntimeApi,
@@ -328,7 +330,7 @@ where
 		relay_chain_interface: Arc<dyn RelayChainInterface>,
 		transaction_pool: Arc<TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>>,
 		keystore: KeystorePtr,
-		_relay_chain_slot_duration: Duration,
+		relay_chain_slot_duration: Duration,
 		para_id: ParaId,
 		collator_key: CollatorPair,
 		_overseer_handle: OverseerHandle,
@@ -360,6 +362,7 @@ where
 			para_client: client.clone(),
 			para_backend: backend.clone(),
 			relay_client: relay_chain_interface,
+			relay_chain_slot_duration,
 			code_hash_provider: move |block_hash| {
 				client_for_aura.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
 			},
@@ -370,10 +373,11 @@ where
 			collator_service,
 			authoring_duration: Duration::from_millis(2000),
 			reinitialize: false,
-			slot_drift: Duration::from_secs(1),
+			slot_offset: Duration::from_secs(1),
 			block_import_handle,
 			spawner: task_manager.spawn_handle(),
 			export_pov: node_extra_args.export_pov,
+			max_pov_percentage: node_extra_args.max_pov_percentage,
 		};
 
 		// We have a separate function only to be able to use `docify::export` on this piece of
@@ -498,6 +502,7 @@ where
 				collator_service,
 				authoring_duration: Duration::from_millis(2000),
 				reinitialize: false,
+				max_pov_percentage: node_extra_args.max_pov_percentage,
 			},
 		};
 

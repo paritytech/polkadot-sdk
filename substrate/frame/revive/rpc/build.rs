@@ -33,12 +33,17 @@ fn main() {
 		.join("");
 	let target = std::env::var("TARGET").unwrap_or_else(|_| "unknown".to_string());
 
-	let repo = git2::Repository::open("../../../..").expect("should be a repository");
-	let head = repo.head().expect("should have head");
-	let commit = head.peel_to_commit().expect("should have commit");
-	let branch = head.shorthand().unwrap_or("unknown").to_string();
-	let id = &commit.id().to_string()[..7];
-	println!("cargo:rustc-env=GIT_REVISION={branch}-{id}");
+	let (branch, id) = if let Ok(repo) = git2::Repository::open("../../../..") {
+		let head = repo.head().expect("should have head");
+		let commit = head.peel_to_commit().expect("should have commit");
+		let branch = head.shorthand().unwrap_or("unknown").to_string();
+		let id = &commit.id().to_string()[..7];
+		(branch, id.to_string())
+	} else {
+		("unknown".to_string(), "unknown".to_string())
+	};
+
 	println!("cargo:rustc-env=RUSTC_VERSION={rustc_version}");
 	println!("cargo:rustc-env=TARGET={target}");
+	println!("cargo:rustc-env=GIT_REVISION={branch}-{id}");
 }

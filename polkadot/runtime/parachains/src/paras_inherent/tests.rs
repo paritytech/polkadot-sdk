@@ -44,7 +44,9 @@ fn default_config() -> MockGenesisConfig {
 #[cfg(not(feature = "runtime-benchmarks"))]
 mod enter {
 	use super::{inclusion::tests::TestCandidateBuilder, *};
-	use polkadot_primitives::vstaging::{ClaimQueueOffset, CoreSelector, UMPSignal, UMP_SEPARATOR};
+	use polkadot_primitives::vstaging::{
+		ApprovedPeerId, ClaimQueueOffset, CoreSelector, UMPSignal,
+	};
 	use rstest::rstest;
 
 	use crate::{
@@ -77,6 +79,7 @@ mod enter {
 		elastic_paras: BTreeMap<u32, u8>,
 		unavailable_cores: Vec<u32>,
 		v2_descriptor: bool,
+		approved_peer_signal: Option<ApprovedPeerId>,
 		candidate_modifier: Option<CandidateModifier<<Test as frame_system::Config>::Hash>>,
 	}
 
@@ -91,6 +94,7 @@ mod enter {
 			unavailable_cores,
 			v2_descriptor,
 			candidate_modifier,
+			approved_peer_signal,
 		}: TestConfig,
 	) -> Bench<Test> {
 		let extra_cores = elastic_paras
@@ -100,7 +104,7 @@ mod enter {
 			.saturating_sub(elastic_paras.len() as usize);
 		let total_cores = dispute_sessions.len() + backed_and_concluding.len() + extra_cores;
 
-		let builder = BenchBuilder::<Test>::new()
+		let mut builder = BenchBuilder::<Test>::new()
 			.set_max_validators((total_cores) as u32 * num_validators_per_core)
 			.set_elastic_paras(elastic_paras.clone())
 			.set_max_validators_per_core(num_validators_per_core)
@@ -110,6 +114,10 @@ mod enter {
 			.set_unavailable_cores(unavailable_cores)
 			.set_candidate_descriptor_v2(v2_descriptor)
 			.set_candidate_modifier(candidate_modifier);
+
+		if let Some(approved_peer_signal) = approved_peer_signal {
+			builder = builder.set_approved_peer_signal(approved_peer_signal);
+		}
 
 		// Setup some assignments as needed:
 		(0..(builder.max_cores() as usize - extra_cores)).for_each(|para_id| {
@@ -137,7 +145,6 @@ mod enter {
 	// `create_inherent` and will not cause `enter` to early.
 	fn include_backed_candidates(#[case] v2_descriptor: bool) {
 		let config = MockGenesisConfig::default();
-		assert!(config.configuration.config.scheduler_params.lookahead > 0);
 
 		new_test_ext(config).execute_with(|| {
 			// Enable the v2 receipts.
@@ -163,6 +170,7 @@ mod enter {
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor,
+				approved_peer_signal: v2_descriptor.then_some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: None,
 			});
 
@@ -224,29 +232,17 @@ mod enter {
 	}
 
 	#[rstest]
-	#[case(true, false)]
-	#[case(true, true)]
-	#[case(false, true)]
-	fn include_backed_candidates_elastic_scaling(
-		#[case] v2_descriptor: bool,
-		#[case] injected_core: bool,
-	) {
+	#[case(true)]
+	#[case(false)]
+	fn include_backed_candidates_elastic_scaling(#[case] v2_descriptor: bool) {
 		// ParaId 0 has one pending candidate on core 0.
 		// ParaId 1 has one pending candidate on core 1.
 		// ParaId 2 has three pending candidates on cores 2, 3 and 4.
 		// All of them are being made available in this block. Propose 5 more candidates (one for
 		// each core) and check that they're successfully backed and the old ones enacted.
 		let config = default_config();
-		assert!(config.configuration.config.scheduler_params.lookahead > 0);
-		new_test_ext(config).execute_with(|| {
-			// Set the elastic scaling MVP feature.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::ElasticScalingMVP as u8,
-				injected_core,
-			)
-			.unwrap();
 
+		new_test_ext(config).execute_with(|| {
 			// Enable the v2 receipts.
 			configuration::Pallet::<Test>::set_node_feature(
 				RuntimeOrigin::root(),
@@ -271,6 +267,7 @@ mod enter {
 				elastic_paras: [(2, 3)].into_iter().collect(),
 				unavailable_cores: vec![],
 				v2_descriptor,
+				approved_peer_signal: v2_descriptor.then_some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: None,
 			});
 
@@ -346,13 +343,13 @@ mod enter {
 		// for each core) and check that the right ones are successfully backed and the old ones
 		// enacted.
 		let config = default_config();
-		assert!(config.configuration.config.scheduler_params.lookahead > 0);
+
 		new_test_ext(config).execute_with(|| {
-			// Set the elastic scaling MVP feature.
+			// Enable the v2 receipts.
 			configuration::Pallet::<Test>::set_node_feature(
 				RuntimeOrigin::root(),
-				FeatureIndex::ElasticScalingMVP as u8,
-				true,
+				FeatureIndex::CandidateReceiptV2 as u8,
+				v2_descriptor,
 			)
 			.unwrap();
 
@@ -373,7 +370,8 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: [(2, 4)].into_iter().collect(),
 				unavailable_cores: unavailable_cores.clone(),
-				v2_descriptor: false,
+				v2_descriptor,
+				approved_peer_signal: v2_descriptor.then_some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: None,
 			});
 
@@ -392,8 +390,7 @@ mod enter {
 				.backed_candidates
 				.into_iter()
 				.filter(|candidate| {
-					let (_, Some(core_index)) = candidate.validator_indices_and_core_index(true)
-					else {
+					let (_, Some(core_index)) = candidate.validator_indices_and_core_index() else {
 						panic!("Core index must have been injected");
 					};
 					!unavailable_cores.contains(&core_index.0)
@@ -527,7 +524,6 @@ mod enter {
 	// end of the block. Claim queue will also not be advanced.
 	fn session_change() {
 		let config = MockGenesisConfig::default();
-		assert!(config.configuration.config.scheduler_params.lookahead > 0);
 
 		new_test_ext(config).execute_with(|| {
 			let dispute_statements = BTreeMap::new();
@@ -545,6 +541,7 @@ mod enter {
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
+				approved_peer_signal: None,
 				candidate_modifier: None,
 			});
 
@@ -726,6 +723,7 @@ mod enter {
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
+				approved_peer_signal: None,
 				candidate_modifier: None,
 			});
 
@@ -801,6 +799,7 @@ mod enter {
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
+				approved_peer_signal: None,
 				candidate_modifier: None,
 			});
 
@@ -874,6 +873,7 @@ mod enter {
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
+				approved_peer_signal: None,
 				candidate_modifier: None,
 			});
 
@@ -963,6 +963,7 @@ mod enter {
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
+				approved_peer_signal: None,
 				candidate_modifier: None,
 			});
 
@@ -1051,6 +1052,7 @@ mod enter {
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
+				approved_peer_signal: None,
 				candidate_modifier: None,
 			});
 
@@ -1111,6 +1113,7 @@ mod enter {
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
+				approved_peer_signal: None,
 				candidate_modifier: None,
 			});
 
@@ -1188,7 +1191,6 @@ mod enter {
 	#[test]
 	fn limit_candidates_over_weight_1() {
 		let config = MockGenesisConfig::default();
-		assert!(config.configuration.config.scheduler_params.lookahead > 0);
 
 		new_test_ext(config).execute_with(|| {
 			// Create the inherent data for this block
@@ -1213,6 +1215,7 @@ mod enter {
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
+				approved_peer_signal: None,
 				candidate_modifier: None,
 			});
 
@@ -1320,6 +1323,7 @@ mod enter {
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
+				approved_peer_signal: None,
 				candidate_modifier: None,
 			});
 
@@ -1389,6 +1393,7 @@ mod enter {
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
+				approved_peer_signal: None,
 				candidate_modifier: None,
 			});
 
@@ -1456,6 +1461,7 @@ mod enter {
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
+				approved_peer_signal: None,
 				candidate_modifier: None,
 			});
 
@@ -1504,6 +1510,7 @@ mod enter {
 		len: usize,
 		start_core_index: usize,
 		code_upgrade_index: Option<usize>,
+		v2_receipts: bool,
 	) -> Vec<BackedCandidate> {
 		if let Some(code_upgrade_index) = code_upgrade_index {
 			assert!(code_upgrade_index < len, "Code upgrade index out of bounds");
@@ -1512,32 +1519,20 @@ mod enter {
 		(0..len)
 			.into_iter()
 			.map(|idx| {
+				let core_index = CoreIndex((start_core_index + idx) as u32);
+
 				let mut builder = TestCandidateBuilder::default();
 				builder.para_id = para_id;
-				let mut ccr = builder.build();
-
 				if Some(idx) == code_upgrade_index {
-					ccr.commitments.new_validation_code = Some(vec![1, 2, 3, 4].into());
+					builder.new_validation_code = Some(vec![1, 2, 3, 4].into());
 				}
+				if v2_receipts {
+					builder.core_index = Some(core_index);
+					builder.core_selector = Some(idx as u8);
+				}
+				let ccr = builder.build();
 
-				ccr.commitments.processed_downward_messages = idx as u32;
-				let core_index = start_core_index + idx;
-
-				// `UMPSignal` separator.
-				ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
-
-				// `SelectCore` commitment.
-				// Claim queue offset must be `0`` so this candidate is for the very next block.
-				ccr.commitments.upward_messages.force_push(
-					UMPSignal::SelectCore(CoreSelector(idx as u8), ClaimQueueOffset(0)).encode(),
-				);
-
-				BackedCandidate::new(
-					ccr.into(),
-					Default::default(),
-					Default::default(),
-					Some(CoreIndex(core_index as u32)),
-				)
+				BackedCandidate::new(ccr.into(), Default::default(), Default::default(), core_index)
 			})
 			.collect::<Vec<_>>()
 	}
@@ -1571,13 +1566,14 @@ mod enter {
 
 			let scenario = make_inherent_data(TestConfig {
 				dispute_statements: Default::default(),
-				dispute_sessions: vec![], // 3 cores with disputes
+				dispute_sessions: vec![],
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor,
+				approved_peer_signal: v2_descriptor.then_some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: None,
 			});
 
@@ -1590,8 +1586,11 @@ mod enter {
 			// * 30 backed candidates
 			assert_eq!(para_inherent_data.backed_candidates.len(), 30);
 
+			let other_candidate_weight =
+				backed_candidate_weight::<Test>(&para_inherent_data.backed_candidates[0]);
+
 			let mut input_candidates =
-				build_backed_candidate_chain(ParaId::from(1000), 3, 0, Some(1));
+				build_backed_candidate_chain(ParaId::from(1000), 3, 0, Some(1), v2_descriptor);
 			let chained_candidates_weight = backed_candidates_weight::<Test>(&input_candidates);
 
 			input_candidates.append(&mut para_inherent_data.backed_candidates);
@@ -1599,8 +1598,8 @@ mod enter {
 
 			// Test if weight insufficient even for 1 candidate (which doesn't contain a code
 			// upgrade).
-			let max_weight = backed_candidate_weight::<Test>(&input_candidates[0]) +
-				signed_bitfields_weight::<Test>(&input_bitfields);
+			let max_weight =
+				other_candidate_weight + signed_bitfields_weight::<Test>(&input_bitfields);
 			let mut backed_candidates = input_candidates.clone();
 			let mut bitfields = input_bitfields.clone();
 			apply_weight_limit::<Test>(
@@ -1667,6 +1666,7 @@ mod enter {
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
 				v2_descriptor: false,
+				approved_peer_signal: None,
 				candidate_modifier: None,
 			});
 
@@ -1700,16 +1700,8 @@ mod enter {
 	#[test]
 	fn v2_descriptors_are_filtered() {
 		let config = default_config();
-		assert!(config.configuration.config.scheduler_params.lookahead > 0);
-		new_test_ext(config).execute_with(|| {
-			// Set the elastic scaling MVP feature.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::ElasticScalingMVP as u8,
-				true,
-			)
-			.unwrap();
 
+		new_test_ext(config).execute_with(|| {
 			let mut backed_and_concluding = BTreeMap::new();
 			backed_and_concluding.insert(0, 1);
 			backed_and_concluding.insert(1, 1);
@@ -1726,6 +1718,7 @@ mod enter {
 				elastic_paras: [(2, 8)].into_iter().collect(),
 				unavailable_cores: unavailable_cores.clone(),
 				v2_descriptor: true,
+				approved_peer_signal: Some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: None,
 			});
 
@@ -1769,9 +1762,9 @@ mod enter {
 	#[test]
 	fn too_many_ump_signals() {
 		let config = default_config();
-		assert!(config.configuration.config.scheduler_params.lookahead > 0);
+
 		new_test_ext(config).execute_with(|| {
-			// Set the elastic scaling MVP feature.
+			// Set the v2 receipts feature.
 			configuration::Pallet::<Test>::set_node_feature(
 				RuntimeOrigin::root(),
 				FeatureIndex::CandidateReceiptV2 as u8,
@@ -1795,9 +1788,10 @@ mod enter {
 				elastic_paras: [(2, 8)].into_iter().collect(),
 				unavailable_cores: unavailable_cores.clone(),
 				v2_descriptor: true,
+				approved_peer_signal: None,
 				candidate_modifier: Some(|mut candidate: CommittedCandidateReceiptV2| {
 					if candidate.descriptor.para_id() == 2.into() {
-						// Add an extra message so `verify_backed_candidates` fails.
+						// Duplicate SelectCore message so `verify_backed_candidates` fails.
 						candidate.commitments.upward_messages.force_push(
 							UMPSignal::SelectCore(CoreSelector(123 as u8), ClaimQueueOffset(2))
 								.encode(),
@@ -1834,11 +1828,13 @@ mod enter {
 	}
 
 	#[test]
+	// Test that candidates with invalid UMP signals are filtered.
 	fn invalid_ump_signals() {
 		let config = default_config();
-		assert!(config.configuration.config.scheduler_params.lookahead > 0);
+
+		// Invalid core selector. Cannot decode it.
 		new_test_ext(config).execute_with(|| {
-			// Set the elastic scaling MVP feature.
+			// Set the V2 receipts feature.
 			configuration::Pallet::<Test>::set_node_feature(
 				RuntimeOrigin::root(),
 				FeatureIndex::CandidateReceiptV2 as u8,
@@ -1851,8 +1847,6 @@ mod enter {
 			backed_and_concluding.insert(1, 1);
 			backed_and_concluding.insert(2, 1);
 
-			let unavailable_cores = vec![];
-
 			let scenario = make_inherent_data(TestConfig {
 				dispute_statements: BTreeMap::new(),
 				dispute_sessions: vec![], // No disputes
@@ -1860,8 +1854,9 @@ mod enter {
 				num_validators_per_core: 1,
 				code_upgrade: None,
 				elastic_paras: [(2, 8)].into_iter().collect(),
-				unavailable_cores: unavailable_cores.clone(),
+				unavailable_cores: vec![],
 				v2_descriptor: true,
+				approved_peer_signal: Some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: Some(|mut candidate: CommittedCandidateReceiptV2| {
 					if candidate.descriptor.para_id() == 1.into() {
 						// Make the core selector invalid
@@ -1895,20 +1890,80 @@ mod enter {
 			// v2 descriptors.
 			assert_eq!(dispatch_error, Error::<Test>::InherentDataFilteredDuringExecution.into());
 		});
-	}
-	#[test]
-	fn v2_descriptors_are_accepted() {
+
+		// Invalid ApprovedPeer. Cannot decode it.
 		let config = default_config();
-		assert!(config.configuration.config.scheduler_params.lookahead > 0);
 		new_test_ext(config).execute_with(|| {
-			// Set the elastic scaling MVP feature.
+			// Set the V2 receipts feature.
 			configuration::Pallet::<Test>::set_node_feature(
 				RuntimeOrigin::root(),
-				FeatureIndex::ElasticScalingMVP as u8,
+				FeatureIndex::CandidateReceiptV2 as u8,
 				true,
 			)
 			.unwrap();
 
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+			backed_and_concluding.insert(2, 1);
+
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![], // No disputes
+				backed_and_concluding,
+				num_validators_per_core: 1,
+				code_upgrade: None,
+				elastic_paras: [(2, 8)].into_iter().collect(),
+				unavailable_cores: vec![],
+				v2_descriptor: true,
+				approved_peer_signal: Some(vec![1, 2, 3].try_into().unwrap()),
+				candidate_modifier: Some(|mut candidate: CommittedCandidateReceiptV2| {
+					if candidate.descriptor.para_id() == 1.into() {
+						// Make the approved peer message invalid. It exceeds the 64 byte limit.
+						candidate.commitments.upward_messages[2] = vec![3u8; 70];
+					}
+					candidate
+				}),
+			});
+
+			let unfiltered_para_inherent_data = scenario.data.clone();
+
+			// Check the para inherent data is as expected:
+			// * 1 bitfield per validator (1 validator per core, 10 backed candidates)
+			assert_eq!(unfiltered_para_inherent_data.bitfields.len(), 10);
+			// * 10 v2 candidate descriptors.
+			assert_eq!(unfiltered_para_inherent_data.backed_candidates.len(), 10);
+
+			let mut inherent_data = InherentData::new();
+			inherent_data
+				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &unfiltered_para_inherent_data)
+				.unwrap();
+
+			let dispatch_error = Pallet::<Test>::enter(
+				frame_system::RawOrigin::None.into(),
+				unfiltered_para_inherent_data,
+			)
+			.unwrap_err()
+			.error;
+
+			// We expect `enter` to fail because the inherent data contains backed candidates with
+			// v2 descriptors.
+			assert_eq!(dispatch_error, Error::<Test>::InherentDataFilteredDuringExecution.into());
+		});
+	}
+
+	#[rstest]
+	#[case(true, true)]
+	#[case(true, false)]
+	// Test that v2 descriptors with multiple types of UMP signals are accepted if the node feature
+	// is enabled.
+	fn v2_descriptors_are_accepted(
+		#[case] v2_descriptor: bool,
+		#[case] has_approved_peer_signal: bool,
+	) {
+		let config = default_config();
+
+		new_test_ext(config).execute_with(|| {
 			// Enable the v2 receipts.
 			configuration::Pallet::<Test>::set_node_feature(
 				RuntimeOrigin::root(),
@@ -1932,7 +1987,9 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: [(2, 3)].into_iter().collect(),
 				unavailable_cores: unavailable_cores.clone(),
-				v2_descriptor: true,
+				v2_descriptor,
+				approved_peer_signal: has_approved_peer_signal
+					.then_some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: None,
 			});
 
@@ -1953,16 +2010,8 @@ mod enter {
 	#[test]
 	fn elastic_scaling_mixed_v1_v2_descriptors() {
 		let config = default_config();
-		assert!(config.configuration.config.scheduler_params.lookahead > 0);
-		new_test_ext(config).execute_with(|| {
-			// Set the elastic scaling MVP feature.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::ElasticScalingMVP as u8,
-				true,
-			)
-			.unwrap();
 
+		new_test_ext(config).execute_with(|| {
 			// Enable the v2 receipts.
 			configuration::Pallet::<Test>::set_node_feature(
 				RuntimeOrigin::root(),
@@ -1976,8 +2025,6 @@ mod enter {
 			backed_and_concluding.insert(1, 1);
 			backed_and_concluding.insert(2, 1);
 
-			let unavailable_cores = vec![];
-
 			let scenario = make_inherent_data(TestConfig {
 				dispute_statements: BTreeMap::new(),
 				dispute_sessions: vec![], // No disputes
@@ -1985,8 +2032,9 @@ mod enter {
 				num_validators_per_core: 1,
 				code_upgrade: None,
 				elastic_paras: [(2, 3)].into_iter().collect(),
-				unavailable_cores: unavailable_cores.clone(),
+				unavailable_cores: vec![],
 				v2_descriptor: true,
+				approved_peer_signal: Some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: None,
 			});
 
@@ -2016,20 +2064,12 @@ mod enter {
 		});
 	}
 
-	// Mixed test with v1, v2 with/without `UMPSignal::SelectCore`
+	// Mixed test with v1, v2 with/without UMP signals.
 	#[test]
-	fn mixed_v1_and_v2_optional_commitments() {
+	fn mixed_v1_and_v2_optional_ump_signals() {
 		let config = default_config();
-		assert!(config.configuration.config.scheduler_params.lookahead > 0);
-		new_test_ext(config).execute_with(|| {
-			// Set the elastic scaling MVP feature.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::ElasticScalingMVP as u8,
-				true,
-			)
-			.unwrap();
 
+		new_test_ext(config).execute_with(|| {
 			// Enable the v2 receipts.
 			configuration::Pallet::<Test>::set_node_feature(
 				RuntimeOrigin::root(),
@@ -2045,14 +2085,13 @@ mod enter {
 			backed_and_concluding.insert(3, 1);
 			backed_and_concluding.insert(4, 1);
 
-			let unavailable_cores = vec![];
-
 			let candidate_modifier = |mut candidate: CommittedCandidateReceiptV2| {
 				// first candidate has v2 descriptor with no commitments
 				if candidate.descriptor.para_id() == ParaId::from(0) {
 					candidate.commitments.upward_messages.clear();
 				}
 
+				// 3rd and 4th candidates send ump signals but are v1. They'll be dropped.
 				if candidate.descriptor.para_id() > ParaId::from(2) {
 					let mut v1: CandidateDescriptor = candidate.descriptor.into();
 
@@ -2071,8 +2110,9 @@ mod enter {
 				num_validators_per_core: 1,
 				code_upgrade: None,
 				elastic_paras: Default::default(),
-				unavailable_cores: unavailable_cores.clone(),
+				unavailable_cores: vec![],
 				v2_descriptor: true,
+				approved_peer_signal: Some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: Some(candidate_modifier),
 			});
 
@@ -2084,7 +2124,18 @@ mod enter {
 			// * 5 v2 candidate descriptors.
 			assert_eq!(inherent_data.backed_candidates.len(), 5);
 
-			Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), inherent_data).unwrap();
+			let mut expected_inherent_data = inherent_data.clone();
+			expected_inherent_data.backed_candidates.truncate(3);
+
+			let mut create_inherent_data = InherentData::new();
+			create_inherent_data
+				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &inherent_data)
+				.unwrap();
+
+			assert_eq!(
+				Pallet::<Test>::create_inherent_inner(&create_inherent_data).unwrap(),
+				expected_inherent_data
+			);
 		});
 	}
 
@@ -2093,16 +2144,8 @@ mod enter {
 	#[test]
 	fn invalid_session_index() {
 		let config = default_config();
-		assert!(config.configuration.config.scheduler_params.lookahead > 0);
-		new_test_ext(config).execute_with(|| {
-			// Set the elastic scaling MVP feature.
-			configuration::Pallet::<Test>::set_node_feature(
-				RuntimeOrigin::root(),
-				FeatureIndex::ElasticScalingMVP as u8,
-				true,
-			)
-			.unwrap();
 
+		new_test_ext(config).execute_with(|| {
 			// Enable the v2 receipts.
 			configuration::Pallet::<Test>::set_node_feature(
 				RuntimeOrigin::root(),
@@ -2127,6 +2170,7 @@ mod enter {
 				elastic_paras: [(2, 3)].into_iter().collect(),
 				unavailable_cores,
 				v2_descriptor: true,
+				approved_peer_signal: Some(vec![1, 2, 3].try_into().unwrap()),
 				candidate_modifier: None,
 			});
 
@@ -2158,11 +2202,13 @@ mod enter {
 				commitments: backed_candidate.candidate().commitments.clone(),
 			};
 
+			let (validator_indices, core_index) =
+				backed_candidate.validator_indices_and_core_index();
 			inherent_data.backed_candidates[index] = BackedCandidate::new(
 				candidate,
 				backed_candidate.validity_votes().to_vec(),
-				backed_candidate.validator_indices_and_core_index(false).0.into(),
-				None,
+				validator_indices.into(),
+				core_index.unwrap(),
 			);
 
 			let mut expected_inherent_data = inherent_data.clone();
@@ -2180,6 +2226,89 @@ mod enter {
 			);
 
 			Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), inherent_data).unwrap_err();
+		});
+	}
+
+	#[rstest]
+	#[case(true)]
+	#[case(false)]
+	// Test that candidates that have neither an injected core index nor a v2 descriptor are
+	// filtered.
+	fn candidate_without_core_index(#[case] v2_descriptor: bool) {
+		let config = default_config();
+
+		new_test_ext(config).execute_with(|| {
+			// Enable the v2 receipts.
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::CandidateReceiptV2 as u8,
+				v2_descriptor,
+			)
+			.unwrap();
+
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+			backed_and_concluding.insert(2, 1);
+
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![], // No disputes
+				backed_and_concluding,
+				num_validators_per_core: 1,
+				code_upgrade: None,
+				elastic_paras: [(2, 3)].into_iter().collect(),
+				unavailable_cores: vec![],
+				v2_descriptor,
+				approved_peer_signal: v2_descriptor.then_some(vec![1, 2, 3].try_into().unwrap()),
+				candidate_modifier: Some(|mut candidate| {
+					if candidate.descriptor.para_id() == ParaId::from(0) {
+						candidate.commitments.upward_messages.clear();
+						let mut v1: CandidateDescriptor = candidate.descriptor.into();
+
+						v1.collator = junk_collator();
+						v1.signature = junk_collator_signature();
+
+						candidate.descriptor = v1.into();
+					}
+					candidate
+				}),
+			});
+
+			let mut inherent_data = scenario.data.clone();
+
+			let (validator_indices, _) =
+				inherent_data.backed_candidates[0].validator_indices_and_core_index();
+			let validator_indices = validator_indices.into();
+			inherent_data.backed_candidates[0]
+				.set_validator_indices_and_core_index(validator_indices, None);
+
+			// Check the para inherent data is as expected:
+			// * 1 bitfield per validator (1 validators per core, 5 backed candidates)
+			assert_eq!(inherent_data.bitfields.len(), 5);
+			// * 5 candidates are passed, 1 is invalid
+			assert_eq!(inherent_data.backed_candidates.len(), 5);
+
+			let mut create_inherent_data = InherentData::new();
+			create_inherent_data
+				.put_data(PARACHAINS_INHERENT_IDENTIFIER, &inherent_data)
+				.unwrap();
+
+			// First candidate is filtered out
+			let mut expected_inherent_data = inherent_data.clone();
+			expected_inherent_data.backed_candidates.remove(0);
+
+			assert_eq!(
+				Pallet::<Test>::create_inherent_inner(&create_inherent_data).unwrap(),
+				expected_inherent_data
+			);
+
+			assert_eq!(
+				Pallet::<Test>::enter(frame_system::RawOrigin::None.into(), inherent_data)
+					.unwrap_err()
+					.error,
+				Error::<Test>::InherentDataFilteredDuringExecution.into()
+			);
 		});
 	}
 }
@@ -2473,7 +2602,7 @@ mod sanitizers {
 
 		// Generate test data for the candidates and assert that the environment is set as expected
 		// (check the comments for details)
-		fn get_test_data_one_core_per_para(core_index_enabled: bool) -> TestData {
+		fn get_test_data_one_core_per_para() -> TestData {
 			const RELAY_PARENT_NUM: u32 = 3;
 
 			// Add the relay parent to `shared` pallet. Otherwise some code (e.g. filtering backing
@@ -2620,7 +2749,7 @@ mod sanitizers {
 						&keystore,
 						&signing_context,
 						BackingKind::Threshold,
-						core_index_enabled.then_some(CoreIndex(idx0 as u32)),
+						CoreIndex(idx0 as u32),
 					);
 					backed
 				})
@@ -2670,10 +2799,7 @@ mod sanitizers {
 		// Para 6 is not scheduled. One candidate supplied.
 		// Para 7 is scheduled on core 7 and 8, but the candidate contains the wrong core index.
 		// Para 8 is scheduled on core 9, but the candidate contains the wrong core index.
-		fn get_test_data_multiple_cores_per_para(
-			core_index_enabled: bool,
-			v2_descriptor: bool,
-		) -> TestData {
+		fn get_test_data_multiple_cores_per_para(v2_descriptor: bool) -> TestData {
 			const RELAY_PARENT_NUM: u32 = 3;
 
 			let header = default_header();
@@ -2875,15 +3001,13 @@ mod sanitizers {
 					&keystore,
 					&signing_context,
 					BackingKind::Threshold,
-					core_index_enabled.then_some(CoreIndex(0 as u32)),
+					CoreIndex(0 as u32),
 				);
 				backed_candidates.push(backed.clone());
-				if core_index_enabled || v2_descriptor {
-					expected_backed_candidates_with_core
-						.entry(ParaId::from(1))
-						.or_insert(vec![])
-						.push((backed, CoreIndex(0)));
-				}
+				expected_backed_candidates_with_core
+					.entry(ParaId::from(1))
+					.or_insert(vec![])
+					.push((backed, CoreIndex(0)));
 
 				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(1),
@@ -2912,15 +3036,13 @@ mod sanitizers {
 					&keystore,
 					&signing_context,
 					BackingKind::Threshold,
-					core_index_enabled.then_some(CoreIndex(1 as u32)),
+					CoreIndex(1 as u32),
 				);
 				backed_candidates.push(backed.clone());
-				if core_index_enabled || v2_descriptor {
-					expected_backed_candidates_with_core
-						.entry(ParaId::from(1))
-						.or_insert(vec![])
-						.push((backed, CoreIndex(1)));
-				}
+				expected_backed_candidates_with_core
+					.entry(ParaId::from(1))
+					.or_insert(vec![])
+					.push((backed, CoreIndex(1)));
 			}
 
 			// Para 2
@@ -2950,15 +3072,13 @@ mod sanitizers {
 					&keystore,
 					&signing_context,
 					BackingKind::Threshold,
-					core_index_enabled.then_some(CoreIndex(2 as u32)),
+					CoreIndex(2 as u32),
 				);
 				backed_candidates.push(backed.clone());
-				if core_index_enabled || v2_descriptor {
-					expected_backed_candidates_with_core
-						.entry(ParaId::from(2))
-						.or_insert(vec![])
-						.push((backed, CoreIndex(2)));
-				}
+				expected_backed_candidates_with_core
+					.entry(ParaId::from(2))
+					.or_insert(vec![])
+					.push((backed, CoreIndex(2)));
 			}
 
 			// Para 3
@@ -2988,7 +3108,7 @@ mod sanitizers {
 					&keystore,
 					&signing_context,
 					BackingKind::Threshold,
-					core_index_enabled.then_some(CoreIndex(4 as u32)),
+					CoreIndex(4 as u32),
 				);
 				backed_candidates.push(backed.clone());
 				expected_backed_candidates_with_core
@@ -3025,7 +3145,7 @@ mod sanitizers {
 					&keystore,
 					&signing_context,
 					BackingKind::Threshold,
-					core_index_enabled.then_some(CoreIndex(5 as u32)),
+					CoreIndex(5 as u32),
 				);
 				backed_candidates.push(backed.clone());
 				expected_backed_candidates_with_core
@@ -3059,7 +3179,7 @@ mod sanitizers {
 					&keystore,
 					&signing_context,
 					BackingKind::Threshold,
-					core_index_enabled.then_some(CoreIndex(5 as u32)),
+					CoreIndex(5 as u32),
 				);
 				backed_candidates.push(backed.clone());
 			}
@@ -3093,7 +3213,7 @@ mod sanitizers {
 					&keystore,
 					&signing_context,
 					BackingKind::Threshold,
-					core_index_enabled.then_some(CoreIndex(6 as u32)),
+					CoreIndex(6 as u32),
 				);
 				backed_candidates.push(backed.clone());
 			}
@@ -3125,7 +3245,7 @@ mod sanitizers {
 					&keystore,
 					&signing_context,
 					BackingKind::Threshold,
-					core_index_enabled.then_some(CoreIndex(6 as u32)),
+					CoreIndex(6 as u32),
 				);
 				backed_candidates.push(backed.clone());
 			}
@@ -3157,15 +3277,9 @@ mod sanitizers {
 					&keystore,
 					&signing_context,
 					BackingKind::Threshold,
-					core_index_enabled.then_some(CoreIndex(7 as u32)),
+					CoreIndex(7 as u32),
 				);
 				backed_candidates.push(backed.clone());
-				if !core_index_enabled && !v2_descriptor {
-					expected_backed_candidates_with_core
-						.entry(ParaId::from(8))
-						.or_insert(vec![])
-						.push((backed, CoreIndex(9)));
-				}
 			}
 
 			// State sanity checks
@@ -3216,7 +3330,7 @@ mod sanitizers {
 		// one is not part of the chain.
 		// Para 3 scheduled on core 5 and 6. Two candidates are supplied and they all form a chain.
 		// Para 4 scheduled on core 7 and 8. Duplicated candidates.
-		fn get_test_data_for_order_checks(core_index_enabled: bool) -> TestData {
+		fn get_test_data_for_order_checks() -> TestData {
 			const RELAY_PARENT_NUM: u32 = 3;
 			let header = default_header();
 			let relay_parent = header.hash();
@@ -3402,7 +3516,7 @@ mod sanitizers {
 					&keystore,
 					&signing_context,
 					BackingKind::Threshold,
-					core_index_enabled.then_some(CoreIndex(0 as u32)),
+					CoreIndex(0 as u32),
 				);
 
 				let candidate = TestCandidateBuilder {
@@ -3430,7 +3544,7 @@ mod sanitizers {
 					&keystore,
 					&signing_context,
 					BackingKind::Threshold,
-					core_index_enabled.then_some(CoreIndex(1 as u32)),
+					CoreIndex(1 as u32),
 				);
 				backed_candidates.push(backed.clone());
 				backed_candidates.push(prev_backed.clone());
@@ -3463,16 +3577,14 @@ mod sanitizers {
 					&keystore,
 					&signing_context,
 					BackingKind::Threshold,
-					core_index_enabled.then_some(CoreIndex(2 as u32)),
+					CoreIndex(2 as u32),
 				);
 
 				backed_candidates.push(backed_1.clone());
-				if core_index_enabled {
-					expected_backed_candidates_with_core
-						.entry(ParaId::from(2))
-						.or_insert(vec![])
-						.push((backed_1, CoreIndex(2)));
-				}
+				expected_backed_candidates_with_core
+					.entry(ParaId::from(2))
+					.or_insert(vec![])
+					.push((backed_1, CoreIndex(2)));
 
 				let candidate_2 = TestCandidateBuilder {
 					para_id: ParaId::from(2),
@@ -3499,7 +3611,7 @@ mod sanitizers {
 					&keystore,
 					&signing_context,
 					BackingKind::Threshold,
-					core_index_enabled.then_some(CoreIndex(3 as u32)),
+					CoreIndex(3 as u32),
 				);
 				backed_candidates.push(backed_2.clone());
 
@@ -3528,7 +3640,7 @@ mod sanitizers {
 					&keystore,
 					&signing_context,
 					BackingKind::Threshold,
-					core_index_enabled.then_some(CoreIndex(4 as u32)),
+					CoreIndex(4 as u32),
 				);
 				backed_candidates.push(backed_3.clone());
 			}
@@ -3561,15 +3673,13 @@ mod sanitizers {
 					&keystore,
 					&signing_context,
 					BackingKind::Threshold,
-					core_index_enabled.then_some(CoreIndex(5 as u32)),
+					CoreIndex(5 as u32),
 				);
 				backed_candidates.push(backed.clone());
-				if core_index_enabled {
-					expected_backed_candidates_with_core
-						.entry(ParaId::from(3))
-						.or_insert(vec![])
-						.push((backed, CoreIndex(5)));
-				}
+				expected_backed_candidates_with_core
+					.entry(ParaId::from(3))
+					.or_insert(vec![])
+					.push((backed, CoreIndex(5)));
 
 				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(3),
@@ -3596,15 +3706,13 @@ mod sanitizers {
 					&keystore,
 					&signing_context,
 					BackingKind::Threshold,
-					core_index_enabled.then_some(CoreIndex(6 as u32)),
+					CoreIndex(6 as u32),
 				);
 				backed_candidates.push(backed.clone());
-				if core_index_enabled {
-					expected_backed_candidates_with_core
-						.entry(ParaId::from(3))
-						.or_insert(vec![])
-						.push((backed, CoreIndex(6)));
-				}
+				expected_backed_candidates_with_core
+					.entry(ParaId::from(3))
+					.or_insert(vec![])
+					.push((backed, CoreIndex(6)));
 			}
 
 			// Para 4
@@ -3634,15 +3742,13 @@ mod sanitizers {
 					&keystore,
 					&signing_context,
 					BackingKind::Threshold,
-					core_index_enabled.then_some(CoreIndex(7 as u32)),
+					CoreIndex(7 as u32),
 				);
 				backed_candidates.push(backed.clone());
-				if core_index_enabled {
-					expected_backed_candidates_with_core
-						.entry(ParaId::from(4))
-						.or_insert(vec![])
-						.push((backed, CoreIndex(7)));
-				}
+				expected_backed_candidates_with_core
+					.entry(ParaId::from(4))
+					.or_insert(vec![])
+					.push((backed, CoreIndex(7)));
 
 				let backed: BackedCandidate = back_candidate(
 					candidate,
@@ -3651,7 +3757,7 @@ mod sanitizers {
 					&keystore,
 					&signing_context,
 					BackingKind::Threshold,
-					core_index_enabled.then_some(CoreIndex(8 as u32)),
+					CoreIndex(8 as u32),
 				);
 				backed_candidates.push(backed.clone());
 			}
@@ -3702,7 +3808,7 @@ mod sanitizers {
 		// parents look like this: 3, 2, 3.
 		// Para 2 scheduled on cores 3, 4 and 5. Three candidates are supplied and their relay
 		// parents look like this: 2, 3, 3.
-		fn get_test_data_for_relay_parent_ordering(core_index_enabled: bool) -> TestData {
+		fn get_test_data_for_relay_parent_ordering() -> TestData {
 			const RELAY_PARENT_NUM: u32 = 3;
 			let header = default_header();
 			let relay_parent = header.hash();
@@ -3892,15 +3998,13 @@ mod sanitizers {
 					&keystore,
 					&signing_context,
 					BackingKind::Threshold,
-					core_index_enabled.then_some(CoreIndex(0 as u32)),
+					CoreIndex(0 as u32),
 				);
 				backed_candidates.push(backed.clone());
-				if core_index_enabled {
-					expected_backed_candidates_with_core
-						.entry(ParaId::from(1))
-						.or_insert(vec![])
-						.push((backed, CoreIndex(0)));
-				}
+				expected_backed_candidates_with_core
+					.entry(ParaId::from(1))
+					.or_insert(vec![])
+					.push((backed, CoreIndex(0)));
 
 				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(1),
@@ -3929,7 +4033,7 @@ mod sanitizers {
 					&keystore,
 					&signing_context,
 					BackingKind::Threshold,
-					core_index_enabled.then_some(CoreIndex(1 as u32)),
+					CoreIndex(1 as u32),
 				);
 				backed_candidates.push(backed.clone());
 
@@ -3959,7 +4063,7 @@ mod sanitizers {
 					&keystore,
 					&signing_context,
 					BackingKind::Threshold,
-					core_index_enabled.then_some(CoreIndex(2 as u32)),
+					CoreIndex(2 as u32),
 				);
 				backed_candidates.push(backed.clone());
 			}
@@ -3992,15 +4096,13 @@ mod sanitizers {
 					&keystore,
 					&signing_context,
 					BackingKind::Threshold,
-					core_index_enabled.then_some(CoreIndex(3 as u32)),
+					CoreIndex(3 as u32),
 				);
 				backed_candidates.push(backed.clone());
-				if core_index_enabled {
-					expected_backed_candidates_with_core
-						.entry(ParaId::from(2))
-						.or_insert(vec![])
-						.push((backed, CoreIndex(3)));
-				}
+				expected_backed_candidates_with_core
+					.entry(ParaId::from(2))
+					.or_insert(vec![])
+					.push((backed, CoreIndex(3)));
 
 				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(2),
@@ -4029,15 +4131,13 @@ mod sanitizers {
 					&keystore,
 					&signing_context,
 					BackingKind::Threshold,
-					core_index_enabled.then_some(CoreIndex(4 as u32)),
+					CoreIndex(4 as u32),
 				);
 				backed_candidates.push(backed.clone());
-				if core_index_enabled {
-					expected_backed_candidates_with_core
-						.entry(ParaId::from(2))
-						.or_insert(vec![])
-						.push((backed, CoreIndex(4)));
-				}
+				expected_backed_candidates_with_core
+					.entry(ParaId::from(2))
+					.or_insert(vec![])
+					.push((backed, CoreIndex(4)));
 
 				let candidate = TestCandidateBuilder {
 					para_id: ParaId::from(2),
@@ -4065,16 +4165,14 @@ mod sanitizers {
 					&keystore,
 					&signing_context,
 					BackingKind::Threshold,
-					core_index_enabled.then_some(CoreIndex(5 as u32)),
+					CoreIndex(5 as u32),
 				);
 				backed_candidates.push(backed.clone());
 
-				if core_index_enabled {
-					expected_backed_candidates_with_core
-						.entry(ParaId::from(2))
-						.or_insert(vec![])
-						.push((backed, CoreIndex(5)));
-				}
+				expected_backed_candidates_with_core
+					.entry(ParaId::from(2))
+					.or_insert(vec![])
+					.push((backed, CoreIndex(5)));
 			}
 
 			// State sanity checks
@@ -4113,16 +4211,14 @@ mod sanitizers {
 			}
 		}
 
-		#[rstest]
-		#[case(false)]
-		#[case(true)]
-		fn happy_path_one_core_per_para(#[case] core_index_enabled: bool) {
+		#[test]
+		fn happy_path_one_core_per_para() {
 			new_test_ext(default_config()).execute_with(|| {
 				let TestData {
 					backed_candidates,
 					expected_backed_candidates_with_core,
 					scheduled_paras: scheduled,
-				} = get_test_data_one_core_per_para(core_index_enabled);
+				} = get_test_data_one_core_per_para();
 
 				assert_eq!(
 					sanitize_backed_candidates::<Test>(
@@ -4130,7 +4226,6 @@ mod sanitizers {
 						&shared::AllowedRelayParents::<Test>::get(),
 						BTreeSet::new(),
 						scheduled,
-						core_index_enabled,
 						false,
 					),
 					expected_backed_candidates_with_core,
@@ -4139,20 +4234,15 @@ mod sanitizers {
 		}
 
 		#[rstest]
-		#[case(false, false)]
-		#[case(true, false)]
-		#[case(false, true)]
-		#[case(true, true)]
-		fn test_with_multiple_cores_per_para(
-			#[case] core_index_enabled: bool,
-			#[case] v2_descriptor: bool,
-		) {
+		#[case(false)]
+		#[case(true)]
+		fn test_with_multiple_cores_per_para(#[case] v2_descriptor: bool) {
 			new_test_ext(default_config()).execute_with(|| {
 				let TestData {
 					backed_candidates,
 					expected_backed_candidates_with_core,
 					scheduled_paras: scheduled,
-				} = get_test_data_multiple_cores_per_para(core_index_enabled, v2_descriptor);
+				} = get_test_data_multiple_cores_per_para(v2_descriptor);
 
 				assert_eq!(
 					sanitize_backed_candidates::<Test>(
@@ -4160,7 +4250,6 @@ mod sanitizers {
 						&shared::AllowedRelayParents::<Test>::get(),
 						BTreeSet::new(),
 						scheduled,
-						core_index_enabled,
 						v2_descriptor,
 					),
 					expected_backed_candidates_with_core,
@@ -4168,16 +4257,14 @@ mod sanitizers {
 			});
 		}
 
-		#[rstest]
-		#[case(false)]
-		#[case(true)]
-		fn test_candidate_ordering(#[case] core_index_enabled: bool) {
+		#[test]
+		fn test_candidate_ordering() {
 			new_test_ext(default_config()).execute_with(|| {
 				let TestData {
 					backed_candidates,
 					scheduled_paras: scheduled,
 					expected_backed_candidates_with_core,
-				} = get_test_data_for_order_checks(core_index_enabled);
+				} = get_test_data_for_order_checks();
 
 				assert_eq!(
 					sanitize_backed_candidates::<Test>(
@@ -4185,7 +4272,6 @@ mod sanitizers {
 						&shared::AllowedRelayParents::<Test>::get(),
 						BTreeSet::new(),
 						scheduled,
-						core_index_enabled,
 						false,
 					),
 					expected_backed_candidates_with_core
@@ -4193,10 +4279,8 @@ mod sanitizers {
 			});
 		}
 
-		#[rstest]
-		#[case(false)]
-		#[case(true)]
-		fn test_candidate_relay_parent_ordering(#[case] core_index_enabled: bool) {
+		#[test]
+		fn test_candidate_relay_parent_ordering() {
 			// Para 1 scheduled on cores 0, 1 and 2. Three candidates are supplied but their relay
 			// parents look like this: 3, 2, 3. There are no pending availability candidates and the
 			// latest on-chain relay parent for this para is 0.
@@ -4210,7 +4294,7 @@ mod sanitizers {
 					backed_candidates,
 					scheduled_paras: scheduled,
 					expected_backed_candidates_with_core,
-				} = get_test_data_for_relay_parent_ordering(core_index_enabled);
+				} = get_test_data_for_relay_parent_ordering();
 
 				assert_eq!(
 					sanitize_backed_candidates::<Test>(
@@ -4218,7 +4302,6 @@ mod sanitizers {
 						&shared::AllowedRelayParents::<Test>::get(),
 						BTreeSet::new(),
 						scheduled,
-						core_index_enabled,
 						false,
 					),
 					expected_backed_candidates_with_core
@@ -4238,7 +4321,7 @@ mod sanitizers {
 					backed_candidates,
 					scheduled_paras: scheduled,
 					expected_backed_candidates_with_core,
-				} = get_test_data_for_relay_parent_ordering(core_index_enabled);
+				} = get_test_data_for_relay_parent_ordering();
 
 				paras::Pallet::<Test>::force_set_most_recent_context(
 					RuntimeOrigin::root(),
@@ -4259,19 +4342,14 @@ mod sanitizers {
 					&shared::AllowedRelayParents::<Test>::get(),
 					BTreeSet::new(),
 					scheduled,
-					core_index_enabled,
 					false,
 				);
 
-				if core_index_enabled {
-					assert_eq!(res.len(), 1);
-					assert_eq!(
-						expected_backed_candidates_with_core.get(&ParaId::from(2)),
-						res.get(&ParaId::from(2)),
-					);
-				} else {
-					assert!(res.is_empty());
-				}
+				assert_eq!(res.len(), 1);
+				assert_eq!(
+					expected_backed_candidates_with_core.get(&ParaId::from(2)),
+					res.get(&ParaId::from(2)),
+				);
 			});
 
 			// Para 1 scheduled on cores 0, 1 and 2. Three candidates are supplied but their relay
@@ -4289,7 +4367,7 @@ mod sanitizers {
 					backed_candidates,
 					scheduled_paras: scheduled,
 					expected_backed_candidates_with_core,
-				} = get_test_data_for_relay_parent_ordering(core_index_enabled);
+				} = get_test_data_for_relay_parent_ordering();
 
 				// For para 1, add a dummy pending candidate with relay parent 4.
 				let mut candidates = VecDeque::new();
@@ -4330,42 +4408,29 @@ mod sanitizers {
 					&shared::AllowedRelayParents::<Test>::get(),
 					BTreeSet::new(),
 					scheduled,
-					core_index_enabled,
 					false,
 				);
 
-				if core_index_enabled {
-					assert_eq!(res.len(), 1);
-					assert_eq!(
-						expected_backed_candidates_with_core.get(&ParaId::from(2)),
-						res.get(&ParaId::from(2)),
-					);
-				} else {
-					assert!(res.is_empty());
-				}
+				assert_eq!(res.len(), 1);
+				assert_eq!(
+					expected_backed_candidates_with_core.get(&ParaId::from(2)),
+					res.get(&ParaId::from(2)),
+				);
 			});
 		}
 
 		// nothing is scheduled, so no paraids match, thus all backed candidates are skipped
 		#[rstest]
-		#[case(false, false, true)]
-		#[case(true, true, true)]
-		#[case(false, true, true)]
-		#[case(true, false, true)]
-		#[case(false, false, false)]
-		#[case(true, true, false)]
-		#[case(false, true, false)]
-		#[case(true, false, false)]
-		fn nothing_scheduled(
-			#[case] core_index_enabled: bool,
-			#[case] multiple_cores_per_para: bool,
-			#[case] v2_descriptor: bool,
-		) {
+		#[case(false, true)]
+		#[case(true, true)]
+		#[case(false, false)]
+		#[case(true, false)]
+		fn nothing_scheduled(#[case] multiple_cores_per_para: bool, #[case] v2_descriptor: bool) {
 			new_test_ext(default_config()).execute_with(|| {
 				let TestData { backed_candidates, .. } = if multiple_cores_per_para {
-					get_test_data_multiple_cores_per_para(core_index_enabled, v2_descriptor)
+					get_test_data_multiple_cores_per_para(v2_descriptor)
 				} else {
-					get_test_data_one_core_per_para(core_index_enabled)
+					get_test_data_one_core_per_para()
 				};
 				let scheduled = BTreeMap::new();
 
@@ -4374,8 +4439,7 @@ mod sanitizers {
 					&shared::AllowedRelayParents::<Test>::get(),
 					BTreeSet::new(),
 					scheduled,
-					core_index_enabled,
-					false,
+					v2_descriptor,
 				);
 
 				assert!(sanitized_backed_candidates.is_empty());
@@ -4383,15 +4447,11 @@ mod sanitizers {
 		}
 
 		// candidates that have concluded as invalid are filtered out
-		#[rstest]
-		#[case(false)]
-		#[case(true)]
-		fn concluded_invalid_are_filtered_out_single_core_per_para(
-			#[case] core_index_enabled: bool,
-		) {
+		#[test]
+		fn concluded_invalid_are_filtered_out_single_core_per_para() {
 			new_test_ext(default_config()).execute_with(|| {
 				let TestData { backed_candidates, scheduled_paras: scheduled, .. } =
-					get_test_data_one_core_per_para(core_index_enabled);
+					get_test_data_one_core_per_para();
 
 				// mark every second one as concluded invalid
 				let set = {
@@ -4411,7 +4471,6 @@ mod sanitizers {
 					&shared::AllowedRelayParents::<Test>::get(),
 					set,
 					scheduled,
-					core_index_enabled,
 					false,
 				);
 
@@ -4421,13 +4480,9 @@ mod sanitizers {
 
 		// candidates that have concluded as invalid are filtered out, as well as their descendants.
 		#[rstest]
-		#[case(false, true)]
-		#[case(true, false)]
-		#[case(true, true)]
-		fn concluded_invalid_are_filtered_out_multiple_cores_per_para(
-			#[case] core_index_enabled: bool,
-			#[case] v2_descriptor: bool,
-		) {
+		#[case(true)]
+		#[case(false)]
+		fn concluded_invalid_are_filtered_out_multiple_cores_per_para(#[case] v2_descriptor: bool) {
 			// Mark the first candidate of paraid 1 as invalid. Its descendant should also
 			// be dropped. Also mark the candidate of paraid 3 as invalid.
 			new_test_ext(default_config()).execute_with(|| {
@@ -4436,7 +4491,7 @@ mod sanitizers {
 					scheduled_paras: scheduled,
 					mut expected_backed_candidates_with_core,
 					..
-				} = get_test_data_multiple_cores_per_para(core_index_enabled, v2_descriptor);
+				} = get_test_data_multiple_cores_per_para(v2_descriptor);
 
 				let mut invalid_set = std::collections::BTreeSet::new();
 
@@ -4455,7 +4510,6 @@ mod sanitizers {
 					&shared::AllowedRelayParents::<Test>::get(),
 					invalid_set,
 					scheduled,
-					core_index_enabled,
 					v2_descriptor,
 				);
 
@@ -4475,7 +4529,7 @@ mod sanitizers {
 					scheduled_paras: scheduled,
 					mut expected_backed_candidates_with_core,
 					..
-				} = get_test_data_multiple_cores_per_para(core_index_enabled, v2_descriptor);
+				} = get_test_data_multiple_cores_per_para(v2_descriptor);
 
 				let mut invalid_set = std::collections::BTreeSet::new();
 
@@ -4492,7 +4546,6 @@ mod sanitizers {
 					&shared::AllowedRelayParents::<Test>::get(),
 					invalid_set,
 					scheduled,
-					core_index_enabled,
 					v2_descriptor,
 				);
 
@@ -4507,13 +4560,11 @@ mod sanitizers {
 			});
 		}
 
-		#[rstest]
-		#[case(false)]
-		#[case(true)]
-		fn disabled_non_signing_validator_doesnt_get_filtered(#[case] core_index_enabled: bool) {
+		#[test]
+		fn disabled_non_signing_validator_doesnt_get_filtered() {
 			new_test_ext(default_config()).execute_with(|| {
 				let TestData { mut expected_backed_candidates_with_core, .. } =
-					get_test_data_one_core_per_para(core_index_enabled);
+					get_test_data_one_core_per_para();
 
 				// Disable Eve
 				set_disabled_validators(vec![4]);
@@ -4525,21 +4576,16 @@ mod sanitizers {
 				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut expected_backed_candidates_with_core,
 					&shared::AllowedRelayParents::<Test>::get(),
-					core_index_enabled,
 				);
 				assert_eq!(expected_backed_candidates_with_core, before);
 			});
 		}
 
-		#[rstest]
-		#[case(false)]
-		#[case(true)]
-		fn drop_statements_from_disabled_without_dropping_candidate(
-			#[case] core_index_enabled: bool,
-		) {
+		#[test]
+		fn drop_statements_from_disabled_without_dropping_candidate() {
 			new_test_ext(default_config()).execute_with(|| {
 				let TestData { mut expected_backed_candidates_with_core, .. } =
-					get_test_data_one_core_per_para(core_index_enabled);
+					get_test_data_one_core_per_para();
 
 				// Disable Alice
 				set_disabled_validators(vec![0]);
@@ -4571,12 +4617,9 @@ mod sanitizers {
 					.next()
 					.unwrap()
 					.0
-					.validator_indices_and_core_index(core_index_enabled);
-				if core_index_enabled {
-					assert!(maybe_core_index.is_some());
-				} else {
-					assert!(maybe_core_index.is_none());
-				}
+					.validator_indices_and_core_index();
+
+				assert!(maybe_core_index.is_some());
 
 				assert_eq!(validator_indices.get(0).unwrap(), true);
 				assert_eq!(validator_indices.get(1).unwrap(), true);
@@ -4593,7 +4636,6 @@ mod sanitizers {
 				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut expected_backed_candidates_with_core,
 					&shared::AllowedRelayParents::<Test>::get(),
-					core_index_enabled,
 				);
 				assert_eq!(before.len(), expected_backed_candidates_with_core.len());
 
@@ -4604,12 +4646,9 @@ mod sanitizers {
 					.next()
 					.unwrap()
 					.0
-					.validator_indices_and_core_index(core_index_enabled);
-				if core_index_enabled {
-					assert!(maybe_core_index.is_some());
-				} else {
-					assert!(maybe_core_index.is_none());
-				}
+					.validator_indices_and_core_index();
+
+				assert!(maybe_core_index.is_some());
 
 				// there should still be two backed candidates
 				assert_eq!(expected_backed_candidates_with_core.len(), 2);
@@ -4643,15 +4682,11 @@ mod sanitizers {
 			});
 		}
 
-		#[rstest]
-		#[case(false)]
-		#[case(true)]
-		fn drop_candidate_if_all_statements_are_from_disabled_single_core_per_para(
-			#[case] core_index_enabled: bool,
-		) {
+		#[test]
+		fn drop_candidate_if_all_statements_are_from_disabled_single_core_per_para() {
 			new_test_ext(default_config()).execute_with(|| {
 				let TestData { mut expected_backed_candidates_with_core, .. } =
-					get_test_data_one_core_per_para(core_index_enabled);
+					get_test_data_one_core_per_para();
 
 				// Disable Alice and Bob
 				set_disabled_validators(vec![0, 1]);
@@ -4681,7 +4716,6 @@ mod sanitizers {
 				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut expected_backed_candidates_with_core,
 					&shared::AllowedRelayParents::<Test>::get(),
-					core_index_enabled,
 				);
 
 				assert_eq!(expected_backed_candidates_with_core.len(), 1);
@@ -4704,7 +4738,7 @@ mod sanitizers {
 			// Disable Bob, only the second candidate of paraid 1 should be removed.
 			new_test_ext(default_config()).execute_with(|| {
 				let TestData { mut expected_backed_candidates_with_core, .. } =
-					get_test_data_multiple_cores_per_para(true, false);
+					get_test_data_multiple_cores_per_para(false);
 
 				set_disabled_validators(vec![1]);
 
@@ -4713,7 +4747,6 @@ mod sanitizers {
 				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut expected_backed_candidates_with_core,
 					&shared::AllowedRelayParents::<Test>::get(),
-					true,
 				);
 
 				untouched.get_mut(&ParaId::from(1)).unwrap().remove(1);
@@ -4726,7 +4759,7 @@ mod sanitizers {
 			for disabled in [vec![0], vec![0, 1]] {
 				new_test_ext(default_config()).execute_with(|| {
 					let TestData { mut expected_backed_candidates_with_core, .. } =
-						get_test_data_multiple_cores_per_para(true, false);
+						get_test_data_multiple_cores_per_para(false);
 
 					set_disabled_validators(disabled);
 
@@ -4735,7 +4768,6 @@ mod sanitizers {
 					filter_backed_statements_from_disabled_validators::<Test>(
 						&mut expected_backed_candidates_with_core,
 						&shared::AllowedRelayParents::<Test>::get(),
-						true,
 					);
 
 					untouched.remove(&ParaId::from(1)).unwrap();

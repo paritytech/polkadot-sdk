@@ -11,7 +11,6 @@ repository.workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-cfg-if = { workspace = true }
 codec = { features = ["derive"], workspace = true }
 docify = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
@@ -28,16 +27,12 @@ sp-runtime = { workspace = true }
 
 [dev-dependencies]
 frame-executive = { workspace = true, default-features = true }
-sp-api = { features = ["std"], workspace = true, default-features = true }
-sp-block-builder = { features = ["std"], workspace = true, default-features = true }
 sp-tracing = { features = ["std"], workspace = true, default-features = true }
-sp-version = { features = ["std"], workspace = true, default-features = true }
 
 pretty_assertions = { workspace = true }
 
 [features]
 default = ["std"]
-
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",

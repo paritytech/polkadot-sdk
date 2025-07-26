@@ -17,12 +17,12 @@
 
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::{input, u256_bytes};
-use uapi::{HostFn, HostFnImpl as api, StorageFlags};
+use uapi::{input, u256_bytes, HostFn, HostFnImpl as api, StorageFlags};
 
 const ADDRESS_KEY: [u8; 32] = [0u8; 32];
-const VALUE: [u8; 32] = u256_bytes(65536);
+const VALUE: [u8; 32] = u256_bytes(65_536_000_000);
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -33,8 +33,9 @@ pub extern "C" fn deploy() {
 	let salt = [47u8; 32];
 
 	api::instantiate(
-		u64::MAX,       // How much ref_time weight to devote for the execution. u64::MAX = use all.
-		u64::MAX,       // How much proof_size weight to devote for the execution. u64::MAX = use all.
+		u64::MAX,       /* How much ref_time weight to devote for the execution. u64::MAX = use
+		                 * all. */
+		u64::MAX, // How much proof_size weight to devote for the execution. u64::MAX = use all.
 		&[u8::MAX; 32], // No deposit limit.
 		&VALUE,
 		code_hash,
@@ -60,8 +61,8 @@ pub extern "C" fn call() {
 	let res = api::call(
 		uapi::CallFlags::empty(),
 		&callee_addr,
-		u64::MAX,       // How much ref_time weight to devote for the execution. u64::MAX = use all.
-		u64::MAX,       // How much proof_size weight to devote for the execution. u64::MAX = use all.
+		u64::MAX, // How much ref_time weight to devote for the execution. u64::MAX = use all.
+		u64::MAX, // How much proof_size weight to devote for the execution. u64::MAX = use all.
 		&[u8::MAX; 32], // No deposit limit.
 		&VALUE,
 		&[0u8; 1],
@@ -73,8 +74,8 @@ pub extern "C" fn call() {
 	api::call(
 		uapi::CallFlags::empty(),
 		&callee_addr,
-		u64::MAX,       // How much ref_time weight to devote for the execution. u64::MAX = use all.
-		u64::MAX,       // How much proof_size weight to devote for the execution. u64::MAX = use all.
+		u64::MAX, // How much ref_time weight to devote for the execution. u64::MAX = use all.
+		u64::MAX, // How much proof_size weight to devote for the execution. u64::MAX = use all.
 		&[u8::MAX; 32], // No deposit limit.
 		&VALUE,
 		&[0u8; 0],

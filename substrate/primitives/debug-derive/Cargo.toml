@@ -31,5 +31,3 @@ std = []
 # debugging purposes. If this is required, a user only needs to add this crate as a dependency of
 # their runtime and enable the `force-debug` feature.
 force-debug = []
-
-[dev-dependencies]

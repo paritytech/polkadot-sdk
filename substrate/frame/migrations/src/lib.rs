@@ -332,6 +332,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The overarching event type of the runtime.
 		#[pallet::no_default_bounds]
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// All the multi-block migrations to run.
@@ -837,7 +838,7 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_event(Event::UpgradeFailed);
 
 		if cfg!(feature = "try-runtime") {
-			panic!("Migration with index {:?} failed.", migration);
+			panic!("Migration with index {migration:?} failed.");
 		} else {
 			match T::FailedMigrationHandler::failed(migration) {
 				KeepStuck => Cursor::<T>::set(Some(MigrationCursor::Stuck)),

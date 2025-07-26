@@ -16,8 +16,13 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
-[build-dependencies]
-prost-build = { workspace = true }
+[[bench]]
+name = "notifications_protocol"
+harness = false
+
+[[bench]]
+name = "request_response_protocol"
+harness = false
 
 [dependencies]
 array-bytes = { workspace = true, default-features = true }
@@ -37,7 +42,6 @@ linked_hash_set = { workspace = true }
 litep2p = { workspace = true }
 log = { workspace = true, default-features = true }
 mockall = { workspace = true }
-once_cell = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
 partial_sort = { workspace = true }
 pin-project = { workspace = true }
@@ -66,34 +70,21 @@ zeroize = { workspace = true, default-features = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-mockall = { workspace = true }
 multistream-select = { workspace = true }
-rand = { workspace = true, default-features = true }
 sc-block-builder = { workspace = true, default-features = true }
-sc-network-light = { workspace = true, default-features = true }
-sc-network-sync = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true, default-features = true }
-sp-test-primitives = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
 tempfile = { workspace = true }
 tokio = { features = ["macros", "rt-multi-thread"], workspace = true, default-features = true }
-tokio-test = { workspace = true }
 tokio-util = { features = ["compat"], workspace = true }
 
 criterion = { workspace = true, default-features = true, features = ["async_tokio"] }
-sc-consensus = { workspace = true, default-features = true }
+
+[build-dependencies]
+prost-build = { workspace = true }
 
 [features]
 default = []
-
-
-[[bench]]
-name = "notifications_protocol"
-harness = false
-
-[[bench]]
-name = "request_response_protocol"
-harness = false

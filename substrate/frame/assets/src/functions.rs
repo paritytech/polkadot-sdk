@@ -815,37 +815,36 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> Result<u32, DispatchError> {
 		let mut dead_accounts: Vec<T::AccountId> = vec![];
 		let mut remaining_accounts = 0;
-		let _ =
-			Asset::<T, I>::try_mutate_exists(&id, |maybe_details| -> Result<(), DispatchError> {
-				let mut details = maybe_details.as_mut().ok_or(Error::<T, I>::Unknown)?;
-				// Should only destroy accounts while the asset is in a destroying state
-				ensure!(details.status == AssetStatus::Destroying, Error::<T, I>::IncorrectStatus);
+		Asset::<T, I>::try_mutate_exists(&id, |maybe_details| -> Result<(), DispatchError> {
+			let mut details = maybe_details.as_mut().ok_or(Error::<T, I>::Unknown)?;
+			// Should only destroy accounts while the asset is in a destroying state
+			ensure!(details.status == AssetStatus::Destroying, Error::<T, I>::IncorrectStatus);
 
-				for (i, (who, mut v)) in Account::<T, I>::iter_prefix(&id).enumerate() {
-					if Self::ensure_account_can_die(id.clone(), &who).is_err() {
-						continue
-					}
-					// unreserve the existence deposit if any
-					if let Some((depositor, deposit)) = v.reason.take_deposit_from() {
-						T::Currency::unreserve(&depositor, deposit);
-					} else if let Some(deposit) = v.reason.take_deposit() {
-						T::Currency::unreserve(&who, deposit);
-					}
-					if let Remove = Self::dead_account(&who, &mut details, &v.reason, false) {
-						Account::<T, I>::remove(&id, &who);
-						dead_accounts.push(who);
-					} else {
-						// deposit may have been released, need to update `Account`
-						Account::<T, I>::insert(&id, &who, v);
-						defensive!("destroy did not result in dead account?!");
-					}
-					if i + 1 >= (max_items as usize) {
-						break
-					}
+			for (i, (who, mut v)) in Account::<T, I>::iter_prefix(&id).enumerate() {
+				if Self::ensure_account_can_die(id.clone(), &who).is_err() {
+					continue
 				}
-				remaining_accounts = details.accounts;
-				Ok(())
-			})?;
+				// unreserve the existence deposit if any
+				if let Some((depositor, deposit)) = v.reason.take_deposit_from() {
+					T::Currency::unreserve(&depositor, deposit);
+				} else if let Some(deposit) = v.reason.take_deposit() {
+					T::Currency::unreserve(&who, deposit);
+				}
+				if let Remove = Self::dead_account(&who, &mut details, &v.reason, false) {
+					Account::<T, I>::remove(&id, &who);
+					dead_accounts.push(who);
+				} else {
+					// deposit may have been released, need to update `Account`
+					Account::<T, I>::insert(&id, &who, v);
+					defensive!("destroy did not result in dead account?!");
+				}
+				if i + 1 >= (max_items as usize) {
+					break
+				}
+			}
+			remaining_accounts = details.accounts;
+			Ok(())
+		})?;
 
 		for who in &dead_accounts {
 			T::Freezer::died(id.clone(), &who);
@@ -869,7 +868,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		max_items: u32,
 	) -> Result<u32, DispatchError> {
 		let mut removed_approvals = 0;
-		let _ = Asset::<T, I>::try_mutate_exists(
+		Asset::<T, I>::try_mutate_exists(
 			id.clone(),
 			|maybe_details| -> Result<(), DispatchError> {
 				let details = maybe_details.as_mut().ok_or(Error::<T, I>::Unknown)?;

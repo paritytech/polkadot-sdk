@@ -22,6 +22,7 @@ use std::collections::HashSet;
 
 use parking_lot::RwLock;
 
+use sp_api::CallContext;
 use sp_consensus::BlockOrigin;
 use sp_core::offchain::OffchainStorage;
 use sp_runtime::{
@@ -492,6 +493,34 @@ pub trait StorageProvider<Block: BlockT, B: Backend<Block>> {
 	) -> sp_blockchain::Result<Option<MerkleValue<Block::Hash>>>;
 }
 
+/// Specify the desired trie cache context when calling [`Backend::state_at`].
+///
+/// This is used to determine the size of the local trie cache.
+#[derive(Debug, Clone, Copy)]
+pub enum TrieCacheContext {
+	/// This is used when calling [`Backend::state_at`] in a trusted context.
+	///
+	/// A trusted context is for example the building or importing of a block.
+	/// In this case the local trie cache can grow unlimited and all the cached data
+	/// will be propagated back to the shared trie cache. It is safe to let the local
+	/// cache grow to hold the entire data, because importing and building blocks is
+	/// bounded by the block size limit.
+	Trusted,
+	/// This is used when calling [`Backend::state_at`] in from untrusted context.
+	///
+	/// The local trie cache will be bounded by its preconfigured size.
+	Untrusted,
+}
+
+impl From<CallContext> for TrieCacheContext {
+	fn from(call_context: CallContext) -> Self {
+		match call_context {
+			CallContext::Onchain => TrieCacheContext::Trusted,
+			CallContext::Offchain => TrieCacheContext::Untrusted,
+		}
+	}
+}
+
 /// Client backend.
 ///
 /// Manages the data layer.
@@ -584,11 +613,15 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 
 	/// Returns true if state for given block is available.
 	fn have_state_at(&self, hash: Block::Hash, _number: NumberFor<Block>) -> bool {
-		self.state_at(hash).is_ok()
+		self.state_at(hash, TrieCacheContext::Untrusted).is_ok()
 	}
 
 	/// Returns state backend with post-state of given block.
-	fn state_at(&self, hash: Block::Hash) -> sp_blockchain::Result<Self::State>;
+	fn state_at(
+		&self,
+		hash: Block::Hash,
+		trie_cache_context: TrieCacheContext,
+	) -> sp_blockchain::Result<Self::State>;
 
 	/// Attempts to revert the chain by `n` blocks. If `revert_finalized` is set it will attempt to
 	/// revert past any finalized block, this is unsafe and can potentially leave the node in an

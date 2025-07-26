@@ -17,7 +17,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 # Substrate dependencies
-sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 
@@ -32,10 +31,6 @@ scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, workspace = true, default-features = true }
 
 [dev-dependencies]
-serde_json = { workspace = true, default-features = true }
-
-sp-storage = { workspace = true }
-
 pallet-assets = { workspace = true, default-features = true }
 pallet-authorship = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
@@ -47,16 +42,11 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
-	"pallet-assets/std",
-	"pallet-authorship/std",
-	"pallet-balances/std",
 	"pallet-transaction-payment/std",
 	"scale-info/std",
 	"serde",
-	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-storage/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

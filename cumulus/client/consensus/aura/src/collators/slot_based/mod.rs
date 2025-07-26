@@ -15,28 +15,68 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-//! A collator for Aura that looks ahead of the most recently included parachain block
-//! when determining what to build upon.
+//! # Architecture Overview
 //!
-//! The block building mechanism consists of two parts:
-//! 	1. A block-builder task that builds parachain blocks at each of our slots.
-//! 	2. A collator task that transforms the blocks into a collation and submits them to the relay
-//!     chain.
+//! The block building mechanism operates through two coordinated tasks:
 //!
-//! Blocks are built on every parachain slot if there is a core scheduled on the relay chain. At the
-//! beginning of each block building loop, we determine how many blocks we expect to build per relay
-//! chain block. The collator implementation then expects that we have that many cores scheduled
-//! during the relay chain block. After the block is built, the block builder task sends it to
-//! the collation task which compresses it and submits it to the collation-generation subsystem.
+//! 1. **Block Builder Task**: Orchestrates the timing and execution of parachain block production
+//! 2. **Collator Task**: Processes built blocks into collations for relay chain submission
+//!
+//! # Block Builder Task Details
+//!
+//! The block builder task manages block production timing and execution through an iterative
+//! process:
+//!
+//! 1. Awaits the next production signal from the internal timer
+//! 2. Retrieves the current best relay chain block and identifies a valid parent block (see
+//!    [find_potential_parents][cumulus_client_consensus_common::find_potential_parents] for parent
+//!    selection criteria)
+//! 3. Validates that:
+//!    - The parachain has an assigned core on the relay chain
+//!    - No block has been previously built on the target core
+//! 4. Executes block building and import operations
+//! 5. Transmits the completed block to the collator task
+//!
+//! # Block Production Timing
+//!
+//! When a block is produced is determined by the following parameters:
+//!
+//! - Parachain slot duration
+//! - Number of assigned parachain cores
+//! - Parachain runtime configuration
+//!
+//! ## Timing Examples
+//!
+//! The following table demonstrates various timing configurations and their effects. The "AURA
+//! Slot" column shows which author is responsible for the block.
+//!
+//! | Slot Duration (ms) | Cores | Production Attempts (ms) | AURA Slot  |
+//! |-------------------|--------|-------------------------|------------|
+//! | 2000              | 3      | 0, 2000, 4000, 6000    | 0, 1, 2, 3 |
+//! | 6000              | 1      | 0, 6000, 12000, 18000  | 0, 1, 2, 3 |
+//! | 6000              | 3      | 0, 2000, 4000, 6000    | 0, 0, 0, 1 |
+//! | 12000             | 1      | 0, 6000, 12000, 18000  | 0, 0, 1, 1 |
+//! | 12000             | 3      | 0, 2000, 4000, 6000    | 0, 0, 0, 0 |
+//!
+//! # Collator Task Details
+//!
+//! The collator task receives built blocks from the block builder task and performs two primary
+//! functions:
+//!
+//! 1. Block compression
+//! 2. Submission to the collation-generation subsystem
 
 use self::{block_builder_task::run_block_builder, collation_task::run_collation_task};
+pub use block_import::{SlotBasedBlockImport, SlotBasedBlockImportHandle};
 use codec::Codec;
 use consensus_common::ParachainCandidate;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::{ClaimQueueOffset, CoreSelector, GetCoreSelectorApi};
+use cumulus_primitives_core::{
+	ClaimQueueOffset, CoreSelector, GetCoreSelectorApi, RelayParentOffsetApi,
+};
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::FutureExt;
 use polkadot_primitives::{
@@ -56,12 +96,12 @@ use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Member, NumberFor, One};
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
-pub use block_import::{SlotBasedBlockImport, SlotBasedBlockImportHandle};
-
 mod block_builder_task;
 mod block_import;
 mod collation_task;
 mod relay_chain_data_cache;
+
+mod slot_timer;
 
 /// Parameters for [`run`].
 pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner> {
@@ -93,15 +133,20 @@ pub struct Params<Block, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, 
 	pub authoring_duration: Duration,
 	/// Whether we should reinitialize the collator config (i.e. we are transitioning to aura).
 	pub reinitialize: bool,
-	/// Drift slots by a fixed duration. This can be used to create more preferrable authoring
+	/// Offset slots by a fixed duration. This can be used to create more preferrable authoring
 	/// timings.
-	pub slot_drift: Duration,
+	pub slot_offset: Duration,
 	/// The handle returned by [`SlotBasedBlockImport`].
 	pub block_import_handle: SlotBasedBlockImportHandle<Block>,
 	/// Spawner for spawning futures.
 	pub spawner: Spawner,
+	/// Slot duration of the relay chain
+	pub relay_chain_slot_duration: Duration,
 	/// When set, the collator will export every produced `POV` to this folder.
 	pub export_pov: Option<PathBuf>,
+	/// The maximum percentage of the maximum PoV size that the collator can use.
+	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
+	pub max_pov_percentage: Option<u32>,
 }
 
 /// Run aura-based block building and collation task.
@@ -118,8 +163,10 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api:
-		AuraApi<Block, P::Public> + GetCoreSelectorApi<Block> + AuraUnincludedSegmentApi<Block>,
+	Client::Api: AuraApi<Block, P::Public>
+		+ GetCoreSelectorApi<Block>
+		+ AuraUnincludedSegmentApi<Block>
+		+ RelayParentOffsetApi<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
@@ -147,10 +194,12 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		collator_service,
 		authoring_duration,
 		reinitialize,
-		slot_drift,
+		slot_offset,
 		block_import_handle,
 		spawner,
 		export_pov,
+		relay_chain_slot_duration,
+		max_pov_percentage,
 	} = params;
 
 	let (tx, rx) = tracing_unbounded("mpsc_builder_to_collator", 100);
@@ -180,7 +229,9 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		collator_service,
 		authoring_duration,
 		collator_sender: tx,
-		slot_drift,
+		relay_chain_slot_duration,
+		slot_offset,
+		max_pov_percentage,
 	};
 
 	let block_builder_fut =
@@ -212,6 +263,8 @@ struct CollatorMessage<Block: BlockT> {
 	pub validation_code_hash: ValidationCodeHash,
 	/// Core index that this block should be submitted on
 	pub core_index: CoreIndex,
+	/// Maximum pov size. Currently needed only for exporting PoV.
+	pub max_pov_size: u32,
 }
 
 /// Fetch the `CoreSelector` and `ClaimQueueOffset` for `parent_hash`.

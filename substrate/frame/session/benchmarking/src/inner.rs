@@ -58,7 +58,6 @@ mod benchmarks {
 			false,
 			true,
 			RewardDestination::Staked,
-			pallet_staking::CurrentEra::<T>::get().unwrap_or_default(),
 		)?;
 		let v_controller = pallet_staking::Pallet::<T>::bonded(&v_stash).ok_or("not stash")?;
 
@@ -83,7 +82,6 @@ mod benchmarks {
 			false,
 			true,
 			RewardDestination::Staked,
-			pallet_staking::CurrentEra::<T>::get().unwrap_or_default(),
 		)?;
 		let v_controller = pallet_staking::Pallet::<T>::bonded(&v_stash).ok_or("not stash")?;
 		let keys = T::Keys::decode(&mut TrailingZeroInput::zeroes()).unwrap();
@@ -165,6 +163,8 @@ fn check_membership_proof_setup<T: Config>(
 			keys
 		};
 
+		// TODO: this benchmark is broken, session keys cannot be decoded into 128 bytes anymore,
+		// but not an issue for CI since it is `extra`.
 		let keys: T::Keys = Decode::decode(&mut &keys[..]).unwrap();
 		let proof: Vec<u8> = vec![];
 

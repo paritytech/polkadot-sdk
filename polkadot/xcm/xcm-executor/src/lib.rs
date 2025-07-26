@@ -34,7 +34,7 @@ use xcm::latest::{prelude::*, AssetTransferFilter};
 pub mod traits;
 use traits::{
 	validate_export, AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin,
-	DropAssets, Enact, ExportXcm, FeeManager, FeeReason, HandleHrmpChannelAccepted,
+	DropAssets, Enact, EventEmitter, ExportXcm, FeeManager, FeeReason, HandleHrmpChannelAccepted,
 	HandleHrmpChannelClosing, HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction,
 	Properties, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
 	XcmAssetTransfers,
@@ -230,10 +230,19 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 	type Prepared = WeighedMessage<Config::RuntimeCall>;
 	fn prepare(
 		mut message: Xcm<Config::RuntimeCall>,
-	) -> Result<Self::Prepared, Xcm<Config::RuntimeCall>> {
-		match Config::Weigher::weight(&mut message) {
+		weight_limit: Weight,
+	) -> Result<Self::Prepared, InstructionError> {
+		match Config::Weigher::weight(&mut message, weight_limit) {
 			Ok(weight) => Ok(WeighedMessage(weight, message)),
-			Err(_) => Err(message),
+			Err(error) => {
+				tracing::debug!(
+					target: "xcm::prepare",
+					?error,
+					?message,
+					"Failed to calculate weight for XCM message; execution aborted"
+				);
+				Err(error)
+			},
 		}
 	}
 	fn execute(
@@ -247,6 +256,7 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 			target: "xcm::execute",
 			?origin,
 			?message,
+			?id,
 			?weight_credit,
 			"Executing message",
 		);
@@ -272,7 +282,11 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 				error = ?e,
 				"Barrier blocked execution",
 			);
-			return Outcome::Error { error: XcmError::Barrier }
+
+			return Outcome::Incomplete {
+				used: xcm_weight, // Weight consumed before the error
+				error: InstructionError { index: 0, error: XcmError::Barrier }, // The error that occurred
+			};
 		}
 
 		*id = properties.message_id.unwrap_or(*id);
@@ -403,15 +417,18 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			None => Outcome::Complete { used: weight_used },
 			// TODO: #2841 #REALWEIGHT We should deduct the cost of any instructions following
 			// the error which didn't end up being executed.
-			Some((_i, e)) => {
+			Some((index, error)) => {
 				tracing::trace!(
 					target: "xcm::post_process",
-					instruction = ?_i,
-					error = ?e,
+					instruction = ?index,
+					?error,
 					original_origin = ?self.original_origin,
 					"Execution failed",
 				);
-				Outcome::Incomplete { used: weight_used, error: e }
+				Outcome::Incomplete {
+					used: weight_used,
+					error: InstructionError { index: index.try_into().unwrap_or(u8::MAX), error },
+				}
 			},
 		}
 	}
@@ -431,6 +448,14 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		msg: Xcm<()>,
 		reason: FeeReason,
 	) -> Result<XcmHash, XcmError> {
+		let mut msg = msg;
+		// Only the last `SetTopic` instruction is considered relevant. If the message does not end
+		// with it, a `topic_or_message_id()` from the context is appended to it. This behaviour is
+		// then consistent with `WithUniqueTopic`.
+		if !matches!(msg.last(), Some(SetTopic(_))) {
+			let topic_id = self.context.topic_or_message_id();
+			msg.0.push(SetTopic(topic_id.into()));
+		}
 		tracing::trace!(
 			target: "xcm::send",
 			?msg,
@@ -438,9 +463,30 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			reason = ?reason,
 			"Sending msg",
 		);
-		let (ticket, fee) = validate_send::<Config::XcmSender>(dest, msg)?;
+		let (ticket, fee) = validate_send::<Config::XcmSender>(dest.clone(), msg)?;
 		self.take_fee(fee, reason)?;
-		Config::XcmSender::deliver(ticket).map_err(Into::into)
+		match Config::XcmSender::deliver(ticket) {
+			Ok(message_id) => {
+				Config::XcmEventEmitter::emit_sent_event(
+					self.original_origin.clone(),
+					dest,
+					None, /* Avoid logging the full XCM message to prevent inconsistencies and
+					       * reduce storage usage. */
+					message_id,
+				);
+				Ok(message_id)
+			},
+			Err(error) => {
+				tracing::debug!(target: "xcm::send", ?error, "XCM failed to deliver with error");
+				Config::XcmEventEmitter::emit_send_failure_event(
+					self.original_origin.clone(),
+					dest,
+					error.clone(),
+					self.context.topic_or_message_id(),
+				);
+				Err(error.into())
+			},
+		}
 	}
 
 	/// Remove the registered error handler and return it. Do not refund its weight.
@@ -507,7 +553,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						target: "xcm::refund_surplus",
 						"error: HoldingWouldOverflow",
 					);
-					return Err(XcmError::HoldingWouldOverflow)
+					return Err(XcmError::HoldingWouldOverflow);
 				}
 				self.total_refunded.saturating_accrue(current_surplus);
 				self.holding.subsume_assets(w.into());
@@ -527,7 +573,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 	fn take_fee(&mut self, fees: Assets, reason: FeeReason) -> XcmResult {
 		if Config::FeeManager::is_waived(self.origin_ref(), reason.clone()) {
-			return Ok(())
+			return Ok(());
 		}
 		tracing::trace!(
 			target: "xcm::fees",
@@ -805,7 +851,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let inst_res = recursion_count::using_once(&mut 1, || {
 						recursion_count::with(|count| {
 							if *count > RECURSION_LIMIT {
-								return None
+								return None;
 							}
 							*count = count.saturating_add(1);
 							Some(())
@@ -823,11 +869,19 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 						self.process_instruction(instr)
 					});
-					if let Err(e) = inst_res {
-						tracing::trace!(target: "xcm::execute", "!!! ERROR: {:?}", e);
+					if let Err(error) = inst_res {
+						tracing::debug!(
+							target: "xcm::process",
+							?error, "XCM execution failed at instruction index={i}"
+						);
+						Config::XcmEventEmitter::emit_process_failure_event(
+							self.original_origin.clone(),
+							error,
+							self.context.topic_or_message_id(),
+						);
 						*r = Err(ExecutorError {
 							index: i as u32,
-							xcm_error: e,
+							xcm_error: error,
 							weight: Weight::zero(),
 						});
 					}
@@ -856,20 +910,25 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			WithdrawAsset(assets) => {
 				let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
 				self.ensure_can_subsume_assets(assets.len())?;
+				let mut total_surplus = Weight::zero();
 				Config::TransactionalProcessor::process(|| {
 					// Take `assets` from the origin account (on-chain)...
 					for asset in assets.inner() {
-						Config::AssetTransactor::withdraw_asset(
+						let (_, surplus) = Config::AssetTransactor::withdraw_asset_with_surplus(
 							asset,
 							origin,
 							Some(&self.context),
 						)?;
+						// If we have some surplus, aggregate it.
+						total_surplus.saturating_accrue(surplus);
 					}
 					Ok(())
 				})
 				.and_then(|_| {
 					// ...and place into holding.
 					self.holding.subsume_assets(assets.into());
+					// Credit the total surplus.
+					self.total_surplus.saturating_accrue(total_surplus);
 					Ok(())
 				})
 			},
@@ -891,36 +950,55 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				Config::TransactionalProcessor::process(|| {
 					// Take `assets` from the origin account (on-chain) and place into dest account.
 					let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
+					let mut total_surplus = Weight::zero();
 					for asset in assets.inner() {
-						Config::AssetTransactor::transfer_asset(
+						let (_, surplus) = Config::AssetTransactor::transfer_asset_with_surplus(
 							&asset,
 							origin,
 							&beneficiary,
 							&self.context,
 						)?;
+						// If we have some surplus, aggregate it.
+						total_surplus.saturating_accrue(surplus);
 					}
+					// Credit the total surplus.
+					self.total_surplus.saturating_accrue(total_surplus);
 					Ok(())
 				})
 			},
 			TransferReserveAsset { mut assets, dest, xcm } => {
 				Config::TransactionalProcessor::process(|| {
 					let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
+					let mut total_surplus = Weight::zero();
 					// Take `assets` from the origin account (on-chain) and place into dest account.
 					for asset in assets.inner() {
-						Config::AssetTransactor::transfer_asset(
+						let (_, surplus) = Config::AssetTransactor::transfer_asset_with_surplus(
 							asset,
 							origin,
 							&dest,
 							&self.context,
 						)?;
+						// If we have some surplus, aggregate it.
+						total_surplus.saturating_accrue(surplus);
 					}
 					let reanchor_context = Config::UniversalLocation::get();
 					assets
 						.reanchor(&dest, &reanchor_context)
-						.map_err(|()| XcmError::LocationFull)?;
+						.map_err(|()| {
+							tracing::debug!(
+								target: "xcm::process_instruction::transfer_reserve_asset",
+								?assets,
+								?dest,
+								?reanchor_context,
+								"Failed to reanchor assets to destination in context"
+							);
+							XcmError::LocationFull
+						})?;
 					let mut message = vec![ReserveAssetDeposited(assets), ClearOrigin];
 					message.extend(xcm.0.into_iter());
 					self.send(dest, Xcm(message), FeeReason::TransferReserveAsset)?;
+					// Credit the total surplus.
+					self.total_surplus.saturating_accrue(total_surplus);
 					Ok(())
 				})
 			},
@@ -1055,24 +1133,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			},
 			DescendOrigin(who) => self.do_descend_origin(who),
 			ClearOrigin => self.do_clear_origin(),
-			ExecuteWithOrigin { descendant_origin, xcm } => {
-				let previous_origin = self.context.origin.clone();
-
-				// Set new temporary origin.
-				if let Some(who) = descendant_origin {
-					self.do_descend_origin(who)?;
-				} else {
-					self.do_clear_origin()?;
-				}
-				// Process instructions.
-				let result = self.process(xcm).map_err(|error| {
-					tracing::error!(target: "xcm::execute", ?error, actual_origin = ?self.context.origin, original_origin = ?previous_origin, "ExecuteWithOrigin inner xcm failure");
-					error.xcm_error
-				});
-				// Reset origin to previous one.
-				self.context.origin = previous_origin;
-				result
-			},
+			ExecuteWithOrigin { .. } => Err(XcmError::Unimplemented),
 			ReportError(response_info) => {
 				// Report the given result by sending a QueryResponse XCM to a previously given
 				// outcome destination if one was registered.
@@ -1088,7 +1149,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
 					let deposited = self.holding.saturating_take(assets);
-					Self::deposit_assets_with_retry(&deposited, &beneficiary, Some(&self.context))
+					let surplus = Self::deposit_assets_with_retry(&deposited, &beneficiary, Some(&self.context))?;
+					self.total_surplus.saturating_accrue(surplus);
+					Ok(())
 				});
 				if Config::TransactionalProcessor::IS_TRANSACTIONAL && result.is_err() {
 					self.holding = old_holding;
@@ -1211,7 +1274,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 								let teleport_fees = self
 									.holding
 									.try_take(fees_filter)
-									.map_err(|_| XcmError::NotHoldingFees)?;
+									.map_err(|error| {
+										tracing::debug!(
+											target: "xcm::process_instruction::initiate_transfer", ?error,
+											"Failed to take specified teleport fees from holding"
+										);
+										XcmError::NotHoldingFees
+									})?;
 								Self::do_teleport_assets(
 									teleport_fees,
 									&destination,
@@ -1223,7 +1292,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 								let reserve_deposit_fees = self
 									.holding
 									.try_take(fees_filter)
-									.map_err(|_| XcmError::NotHoldingFees)?;
+									.map_err(|error| {
+										tracing::debug!(
+											target: "xcm::process_instruction::initiate_transfer", ?error,
+											"Failed to take specified reserve deposit fees from holding"
+										);
+										XcmError::NotHoldingFees
+									})?;
 								Self::do_reserve_deposit_assets(
 									reserve_deposit_fees,
 									&destination,
@@ -1235,7 +1310,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 								let reserve_withdraw_fees = self
 									.holding
 									.try_take(fees_filter)
-									.map_err(|_| XcmError::NotHoldingFees)?;
+									.map_err(|error| {
+										tracing::debug!(
+											target: "xcm::process_instruction::initiate_transfer", ?error,
+											"Failed to take specified reserve withdraw fees from holding"
+										);
+										XcmError::NotHoldingFees
+									})?;
 								Self::do_reserve_withdraw_assets(
 									reserve_withdraw_fees,
 									&mut self.holding,
@@ -1383,7 +1464,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				// Pay for execution fees.
 				let result = Config::TransactionalProcessor::process(|| {
 					let max_fee =
-						self.holding.try_take(asset.into()).map_err(|_| XcmError::NotHoldingFees)?;
+						self.holding.try_take(asset.into()).map_err(|error| {
+							tracing::debug!(
+								target: "xcm::process_instruction::pay_fees", ?error,
+								"Failed to take fees from holding"
+							);
+							XcmError::NotHoldingFees
+						})?;
 					let unspent =
 						self.trader.buy_weight(self.message_weight, max_fee, &self.context)?;
 					// Move unspent to the `fees` register, it can later be moved to holding
@@ -1400,16 +1487,32 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			},
 			RefundSurplus => self.refund_surplus(),
 			SetErrorHandler(mut handler) => {
-				let handler_weight = Config::Weigher::weight(&mut handler)
-					.map_err(|()| XcmError::WeightNotComputable)?;
+				let handler_weight = Config::Weigher::weight(&mut handler, Weight::MAX)
+					.map_err(|error| {
+						tracing::debug!(
+							target: "xcm::executor::SetErrorHandler",
+							?error,
+							?handler,
+							"Failed to calculate weight"
+						);
+						XcmError::WeightNotComputable
+					})?;
 				self.total_surplus.saturating_accrue(self.error_handler_weight);
 				self.error_handler = handler;
 				self.error_handler_weight = handler_weight;
 				Ok(())
 			},
 			SetAppendix(mut appendix) => {
-				let appendix_weight = Config::Weigher::weight(&mut appendix)
-					.map_err(|()| XcmError::WeightNotComputable)?;
+				let appendix_weight = Config::Weigher::weight(&mut appendix, Weight::MAX)
+					.map_err(|error| {
+						tracing::debug!(
+							target: "xcm::executor::SetErrorHandler",
+							?error,
+							?appendix,
+							"Failed to calculate weight"
+						);
+						XcmError::WeightNotComputable
+					})?;
 				self.total_surplus.saturating_accrue(self.appendix_weight);
 				self.appendix = appendix;
 				self.appendix_weight = appendix_weight;
@@ -1493,7 +1596,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					.collect::<Result<Vec<_>, XcmError>>()?;
 				let QueryResponseInfo { destination, query_id, max_weight } = response_info;
 				let response =
-					Response::PalletsInfo(pallets.try_into().map_err(|_| XcmError::Overflow)?);
+					Response::PalletsInfo(pallets.try_into().map_err(|error| {
+						tracing::debug!(
+							target: "xcm::process_instruction::query_pallet", ?error,
+							"Failed to convert pallets to response info"
+						);
+						XcmError::Overflow
+					})?);
 				let querier = Self::to_querier(self.cloned_origin(), &destination)?;
 				let instruction = QueryResponse { query_id, response, max_weight, querier };
 				let message = Xcm(vec![instruction]);
@@ -1551,7 +1660,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let origin = self.context.origin.as_ref().ok_or(XcmError::BadOrigin)?.clone();
 				let universal_source = Config::UniversalLocation::get()
 					.within_global(origin)
-					.map_err(|()| XcmError::Unanchored)?;
+					.map_err(|()| {
+						tracing::debug!(
+							target: "xcm::process_instruction::export_message",
+							"Failed to reanchor origin to universal location",
+						);
+						XcmError::Unanchored
+					})?;
 				let hash = (self.origin_ref(), &destination).using_encoded(blake2_128);
 				let channel = u32::decode(&mut hash.as_ref()).unwrap_or(0);
 				// Hash identifies the lane on the exporter which we use. We use the pairwise
@@ -1728,38 +1843,56 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	/// Most common transient error is: `beneficiary` account does not yet exist and the first
 	/// asset(s) in the (sorted) list does not satisfy ED, but a subsequent one in the list does.
 	///
+	/// Deposits also proceed without aborting on “below minimum” (dust) errors. This ensures
+	/// that a batch of assets containing some legitimately depositable amounts will succeed
+	/// even if some “dust” deposits fall below the chain’s configured minimum balance.
+	///
 	/// This function can write into storage and also return an error at the same time, it should
 	/// always be called within a transactional context.
 	fn deposit_assets_with_retry(
 		to_deposit: &AssetsInHolding,
 		beneficiary: &Location,
 		context: Option<&XcmContext>,
-	) -> Result<(), XcmError> {
+	) -> Result<Weight, XcmError> {
+		let mut total_surplus = Weight::zero();
 		let mut failed_deposits = Vec::with_capacity(to_deposit.len());
-
-		let mut deposit_result = Ok(());
 		for asset in to_deposit.assets_iter() {
-			deposit_result = Config::AssetTransactor::deposit_asset(&asset, &beneficiary, context);
-			// if deposit failed for asset, mark it for retry after depositing the others.
-			if deposit_result.is_err() {
-				failed_deposits.push(asset);
+			match Config::AssetTransactor::deposit_asset_with_surplus(&asset, &beneficiary, context)
+			{
+				Ok(surplus) => {
+					total_surplus.saturating_accrue(surplus);
+				},
+				Err(_) => {
+					// if deposit failed for asset, mark it for retry.
+					failed_deposits.push(asset);
+				},
 			}
 		}
-		if failed_deposits.len() == to_deposit.len() {
-			tracing::debug!(
-				target: "xcm::execute",
-				?deposit_result,
-				"Deposit for each asset failed, returning the last error as there is no point in retrying any of them",
-			);
-			return deposit_result;
-		}
-		tracing::trace!(target: "xcm::execute", ?failed_deposits, "Deposits to retry");
-
+		tracing::trace!(
+			target: "xcm::deposit_assets_with_retry",
+			?failed_deposits,
+			"First‐pass failures, about to retry"
+		);
 		// retry previously failed deposits, this time short-circuiting on any error.
 		for asset in failed_deposits {
-			Config::AssetTransactor::deposit_asset(&asset, &beneficiary, context)?;
+			match Config::AssetTransactor::deposit_asset_with_surplus(&asset, &beneficiary, context)
+			{
+				Ok(surplus) => {
+					total_surplus.saturating_accrue(surplus);
+				},
+				Err(error) => {
+					// Ignore dust deposit errors.
+					if !matches!(
+						error,
+						XcmError::FailedToTransactAsset(string)
+							if *string == *<&'static str>::from(sp_runtime::TokenError::BelowMinimum)
+					) {
+						return Err(error);
+					}
+				},
+			};
 		}
-		Ok(())
+		Ok(total_surplus)
 	}
 
 	/// Take from transferred `assets` the delivery fee required to send an onward transfer message

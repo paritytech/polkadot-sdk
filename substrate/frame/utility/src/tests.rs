@@ -66,7 +66,7 @@ pub mod example {
 			_start_weight: Weight,
 			end_weight: Option<Weight>,
 		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			if err {
 				let error: DispatchError = "The cake is a lie.".into();
 				if let Some(weight) = end_weight {
@@ -99,6 +99,7 @@ mod mock_democracy {
 
 		#[pallet::config]
 		pub trait Config: frame_system::Config + Sized {
+			#[allow(deprecated)]
 			type RuntimeEvent: From<Event<Self>>
 				+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 			type ExternalMajorityOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -273,7 +274,7 @@ fn utility_events() -> Vec<Event> {
 #[test]
 fn as_derivative_works() {
 	new_test_ext().execute_with(|| {
-		let sub_1_0 = Utility::derivative_account_id(1, 0);
+		let sub_1_0 = derivative_account_id(1, 0);
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(1), sub_1_0, 5));
 		assert_err_ignore_postinfo!(
 			Utility::as_derivative(RuntimeOrigin::signed(1), 1, Box::new(call_transfer(6, 3)),),

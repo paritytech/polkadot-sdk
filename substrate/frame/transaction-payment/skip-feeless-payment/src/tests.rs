@@ -94,3 +94,18 @@ fn validate_prepare_works() {
 	assert_eq!(ValidateCount::get(), 2);
 	assert_eq!(PrepareCount::get(), 2);
 }
+
+#[test]
+fn metadata_for_wrap_multiple_tx_ext() {
+	let metadata = SkipCheckIfFeeless::<Runtime, (DummyExtension, DummyExtension)>::metadata();
+	let mut expected_metadata = vec![];
+	expected_metadata.extend(DummyExtension::metadata().into_iter());
+	expected_metadata.extend(DummyExtension::metadata().into_iter());
+
+	assert_eq!(metadata.len(), expected_metadata.len());
+	for i in 0..expected_metadata.len() {
+		assert_eq!(metadata[i].identifier, expected_metadata[i].identifier);
+		assert_eq!(metadata[i].ty, expected_metadata[i].ty);
+		assert_eq!(metadata[i].implicit, expected_metadata[i].implicit);
+	}
+}

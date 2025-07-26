@@ -25,9 +25,9 @@
 
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::{input, u256_bytes};
-use uapi::{HostFn, HostFnImpl as api};
+use uapi::{input, u256_bytes, HostFn, HostFnImpl as api};
 
 const INPUT_BUF_SIZE: usize = 128;
 static INPUT_DATA: [u8; INPUT_BUF_SIZE] = [0xFF; INPUT_BUF_SIZE];
@@ -86,7 +86,7 @@ fn assert_balance_transfer_does_reset() {
 		u64::MAX,
 		u64::MAX,
 		&[u8::MAX; 32],
-		&u256_bytes(128),
+		&u256_bytes(128_000_000),
 		&[],
 		None,
 	)

@@ -427,6 +427,8 @@ impl<UniversalLocation, AccountId> GlobalConsensusConvertsFor<UniversalLocation,
 /// location. This may not have any immediate security risks, however since it creates
 /// commonalities between chains with different security characteristics, it could
 /// possibly form part of a more sophisticated attack scenario.
+///
+/// DEPRECATED in favor of [ExternalConsensusLocationsConverterFor]
 pub struct GlobalConsensusParachainConvertsFor<UniversalLocation, AccountId>(
 	PhantomData<(UniversalLocation, AccountId)>,
 );
@@ -455,6 +457,55 @@ impl<UniversalLocation, AccountId>
 {
 	fn from_params(network: &NetworkId, para_id: &u32) -> [u8; 32] {
 		(b"glblcnsnss/prchn_", network, para_id).using_encoded(blake2_256)
+	}
+}
+
+/// Converts locations from external global consensus systems (e.g., Ethereum, other parachains)
+/// into `AccountId`.
+///
+/// Replaces `GlobalConsensusParachainConvertsFor` and `EthereumLocationsConverterFor` in a
+/// backwards-compatible way, and extends them for also handling child locations (e.g.,
+/// `AccountId(Alice)`).
+pub struct ExternalConsensusLocationsConverterFor<UniversalLocation, AccountId>(
+	PhantomData<(UniversalLocation, AccountId)>,
+);
+
+impl<UniversalLocation: Get<InteriorLocation>, AccountId: From<[u8; 32]> + Clone>
+	ConvertLocation<AccountId>
+	for ExternalConsensusLocationsConverterFor<UniversalLocation, AccountId>
+{
+	fn convert_location(location: &Location) -> Option<AccountId> {
+		let universal_source = UniversalLocation::get();
+		tracing::trace!(
+			target: "xcm::location_conversion",
+			"ExternalConsensusLocationsConverterFor universal_source: {:?}, location: {:?}",
+			universal_source, location,
+		);
+		let (remote_network, remote_location) =
+			ensure_is_remote(universal_source, location.clone()).ok()?;
+
+		// replaces and extends `EthereumLocationsConverterFor` and
+		// `GlobalConsensusParachainConvertsFor`
+		let acc_id: AccountId = if let Ethereum { chain_id } = &remote_network {
+			match remote_location.as_slice() {
+				// equivalent to `EthereumLocationsConverterFor`
+				[] => (b"ethereum-chain", chain_id).using_encoded(blake2_256).into(),
+				// equivalent to `EthereumLocationsConverterFor`
+				[AccountKey20 { network: _, key }] =>
+					(b"ethereum-chain", chain_id, *key).using_encoded(blake2_256).into(),
+				// extends `EthereumLocationsConverterFor`
+				tail => (b"ethereum-chain", chain_id, tail).using_encoded(blake2_256).into(),
+			}
+		} else {
+			match remote_location.as_slice() {
+				// equivalent to `GlobalConsensusParachainConvertsFor`
+				[Parachain(para_id)] =>
+					(b"glblcnsnss/prchn_", remote_network, para_id).using_encoded(blake2_256).into(),
+				// converts everything else based on hash of encoded location tail
+				tail => (b"glblcnsnss", remote_network, tail).using_encoded(blake2_256).into(),
+			}
+		};
+		Some(acc_id)
 	}
 }
 
@@ -608,32 +659,32 @@ mod tests {
 			GlobalConsensusConvertsFor::<UniversalLocationInNetwork1, [u8; 32]>::convert_location(
 				&Location::new(2, [GlobalConsensus(network_3)]),
 			)
-			.expect("conversion is ok");
+			.unwrap();
 		let res_2_gc_network_3 =
 			GlobalConsensusConvertsFor::<UniversalLocationInNetwork2, [u8; 32]>::convert_location(
 				&Location::new(2, [GlobalConsensus(network_3)]),
 			)
-			.expect("conversion is ok");
+			.unwrap();
 		let res_1_gc_network_4 =
 			GlobalConsensusConvertsFor::<UniversalLocationInNetwork1, [u8; 32]>::convert_location(
 				&Location::new(2, [GlobalConsensus(network_4)]),
 			)
-			.expect("conversion is ok");
+			.unwrap();
 		let res_2_gc_network_4 =
 			GlobalConsensusConvertsFor::<UniversalLocationInNetwork2, [u8; 32]>::convert_location(
 				&Location::new(2, [GlobalConsensus(network_4)]),
 			)
-			.expect("conversion is ok");
+			.unwrap();
 		let res_1_gc_network_5 =
 			GlobalConsensusConvertsFor::<UniversalLocationInNetwork1, [u8; 32]>::convert_location(
 				&Location::new(2, [GlobalConsensus(network_5)]),
 			)
-			.expect("conversion is ok");
+			.unwrap();
 		let res_2_gc_network_5 =
 			GlobalConsensusConvertsFor::<UniversalLocationInNetwork2, [u8; 32]>::convert_location(
 				&Location::new(2, [GlobalConsensus(network_5)]),
 			)
-			.expect("conversion is ok");
+			.unwrap();
 
 		assert_ne!(res_1_gc_network_3, res_1_gc_network_4);
 		assert_ne!(res_1_gc_network_4, res_1_gc_network_5);
@@ -678,6 +729,10 @@ mod tests {
 				GlobalConsensusParachainConvertsFor::<UniversalLocation, [u8; 32]>::convert_location(
 					&location,
 				);
+			let result2 =
+				ExternalConsensusLocationsConverterFor::<UniversalLocation, [u8; 32]>::convert_location(
+					&location,
+				);
 			match result {
 				Some(account) => {
 					assert_eq!(
@@ -707,29 +762,64 @@ mod tests {
 					);
 				},
 			}
+			if expected_result {
+				assert_eq!(result, result2);
+			}
 		}
 
 		// all success
+		let location = Location::new(2, [GlobalConsensus(ByGenesis([3; 32])), Parachain(1000)]);
 		let res_gc_a_p1000 =
 			GlobalConsensusParachainConvertsFor::<UniversalLocation, [u8; 32]>::convert_location(
-				&Location::new(2, [GlobalConsensus(ByGenesis([3; 32])), Parachain(1000)]),
+				&location,
 			)
-			.expect("conversion is ok");
+			.unwrap();
+		assert_eq!(
+			res_gc_a_p1000,
+			ExternalConsensusLocationsConverterFor::<UniversalLocation, [u8; 32]>::convert_location(
+				&location,
+			).unwrap()
+		);
+
+		let location = Location::new(2, [GlobalConsensus(ByGenesis([3; 32])), Parachain(1001)]);
 		let res_gc_a_p1001 =
 			GlobalConsensusParachainConvertsFor::<UniversalLocation, [u8; 32]>::convert_location(
-				&Location::new(2, [GlobalConsensus(ByGenesis([3; 32])), Parachain(1001)]),
+				&location,
 			)
-			.expect("conversion is ok");
+			.unwrap();
+		assert_eq!(
+			res_gc_a_p1001,
+			ExternalConsensusLocationsConverterFor::<UniversalLocation, [u8; 32]>::convert_location(
+				&location,
+			).unwrap()
+		);
+
+		let location = Location::new(2, [GlobalConsensus(ByGenesis([4; 32])), Parachain(1000)]);
 		let res_gc_b_p1000 =
 			GlobalConsensusParachainConvertsFor::<UniversalLocation, [u8; 32]>::convert_location(
-				&Location::new(2, [GlobalConsensus(ByGenesis([4; 32])), Parachain(1000)]),
+				&location,
 			)
-			.expect("conversion is ok");
+			.unwrap();
+		assert_eq!(
+			res_gc_b_p1000,
+			ExternalConsensusLocationsConverterFor::<UniversalLocation, [u8; 32]>::convert_location(
+				&location,
+			).unwrap()
+		);
+
+		let location = Location::new(2, [GlobalConsensus(ByGenesis([4; 32])), Parachain(1001)]);
 		let res_gc_b_p1001 =
 			GlobalConsensusParachainConvertsFor::<UniversalLocation, [u8; 32]>::convert_location(
-				&Location::new(2, [GlobalConsensus(ByGenesis([4; 32])), Parachain(1001)]),
+				&location,
 			)
-			.expect("conversion is ok");
+			.unwrap();
+		assert_eq!(
+			res_gc_b_p1001,
+			ExternalConsensusLocationsConverterFor::<UniversalLocation, [u8; 32]>::convert_location(
+				&location,
+			).unwrap()
+		);
+
 		assert_ne!(res_gc_a_p1000, res_gc_a_p1001);
 		assert_ne!(res_gc_a_p1000, res_gc_b_p1000);
 		assert_ne!(res_gc_a_p1000, res_gc_b_p1001);

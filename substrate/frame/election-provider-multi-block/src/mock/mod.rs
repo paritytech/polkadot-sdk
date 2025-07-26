@@ -15,9 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! The overarching mock crate for all EPMB pallets.
+
 mod signed;
 mod staking;
-mod weight_info;
 
 use super::*;
 use crate::{
@@ -121,32 +122,44 @@ impl pallet_balances::Config for Runtime {
 }
 
 #[allow(unused)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum FallbackModes {
-	// TODO: test for this mode
 	Continue,
 	Emergency,
 	Onchain,
 }
 
+#[derive(Clone, Debug)]
+pub enum AreWeDoneModes {
+	Proceed,
+	BackToSigned,
+}
+
 parameter_types! {
+	// The block at which we emit the start signal. This is used in `roll_next`, which is used all
+	// across tests. The number comes across as a bit weird, but this is mainly due to backwards
+	// compatibility with olds tests, when we used to have pull based election prediction.
+	pub static ElectionStart: BlockNumber = 11;
+
+
 	pub static Pages: PageIndex = 3;
 	pub static UnsignedPhase: BlockNumber = 5;
 	pub static SignedPhase: BlockNumber = 5;
-	pub static SignedValidationPhase: BlockNumber = 5;
+	pub static SignedValidationPhase: BlockNumber = 6;
 
 	pub static FallbackMode: FallbackModes = FallbackModes::Emergency;
 	pub static MinerTxPriority: u64 = 100;
 	pub static SolutionImprovementThreshold: Perbill = Perbill::zero();
 	pub static OffchainRepeat: BlockNumber = 5;
+	pub static OffchainStorage: bool = true;
 	pub static MinerMaxLength: u32 = 256;
+	pub static MinerPages: u32 = 1;
 	pub static MaxVotesPerVoter: u32 = <TestNposSolution as NposSolution>::LIMIT as u32;
 
 	// by default we stick to 3 pages to host our 12 voters.
 	pub static VoterSnapshotPerBlock: VoterIndex = 4;
 	// and 4 targets, whom we fetch all.
 	pub static TargetSnapshotPerBlock: TargetIndex = 4;
-	pub static Lookahead: BlockNumber = 0;
 
 	// we have 12 voters in the default setting, this should be enough to make sure they are not
 	// trimmed accidentally in any test.
@@ -157,10 +170,19 @@ parameter_types! {
 	// than the min of these two.
 	#[derive(Encode, Decode, PartialEq, Eq, Debug, scale_info::TypeInfo, MaxEncodedLen)]
 	pub static MaxWinnersPerPage: u32 = (staking::Targets::get().len() as u32).min(staking::DesiredTargets::get());
+	pub static AreWeDone: AreWeDoneModes = AreWeDoneModes::Proceed;
+}
+
+impl Get<Phase<Runtime>> for AreWeDone {
+	fn get() -> Phase<Runtime> {
+		match <Self as Get<AreWeDoneModes>>::get() {
+			AreWeDoneModes::BackToSigned => RevertToSignedIfNotQueuedOf::<Runtime>::get(),
+			AreWeDoneModes::Proceed => ProceedRegardlessOf::<Runtime>::get(),
+		}
+	}
 }
 
 impl crate::verifier::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type SolutionImprovementThreshold = SolutionImprovementThreshold;
 	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
@@ -170,7 +192,9 @@ impl crate::verifier::Config for Runtime {
 }
 
 impl crate::unsigned::Config for Runtime {
+	type MinerPages = MinerPages;
 	type OffchainRepeat = OffchainRepeat;
+	type OffchainStorage = OffchainStorage;
 	type MinerTxPriority = MinerTxPriority;
 	type OffchainSolver = SequentialPhragmen<Self::AccountId, Perbill>;
 	type WeightInfo = ();
@@ -192,7 +216,6 @@ impl MinerConfig for Runtime {
 }
 
 impl crate::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type SignedPhase = SignedPhase;
 	type SignedValidationPhase = SignedValidationPhase;
 	type UnsignedPhase = UnsignedPhase;
@@ -200,12 +223,13 @@ impl crate::Config for Runtime {
 	type Fallback = MockFallback;
 	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
 	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
-	type Lookahead = Lookahead;
 	type MinerConfig = Self;
-	type WeightInfo = weight_info::DualMockWeightInfo;
+	type WeightInfo = ();
 	type Verifier = VerifierPallet;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type Pages = Pages;
+	type AreWeDone = AreWeDone;
+	type OnRoundRotation = CleanRound<Self>;
 }
 
 parameter_types! {
@@ -230,15 +254,24 @@ impl ElectionProvider for MockFallback {
 	type Error = String;
 	type DataProvider = staking::MockStaking;
 	type Pages = ConstU32<1>;
-	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
 
 	fn elect(_remaining: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		unreachable!()
 	}
 
-	fn ongoing() -> bool {
-		false
+	fn duration() -> Self::BlockNumber {
+		0
+	}
+
+	fn start() -> Result<(), Self::Error> {
+		Ok(())
+	}
+
+	fn status() -> Result<bool, ()> {
+		Ok(true)
 	}
 }
 
@@ -279,11 +312,11 @@ where
 	type Extrinsic = Extrinsic;
 }
 
-impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
+impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
-	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
 		Extrinsic::new_bare(call)
 	}
 }
@@ -324,6 +357,10 @@ impl ExtBuilder {
 		MaxBackersPerWinnerFinal::set(c);
 		self
 	}
+	pub(crate) fn offchain_storage(self, s: bool) -> Self {
+		OffchainStorage::set(s);
+		self
+	}
 	pub(crate) fn miner_tx_priority(self, p: u64) -> Self {
 		MinerTxPriority::set(p);
 		self
@@ -332,12 +369,12 @@ impl ExtBuilder {
 		SolutionImprovementThreshold::set(p);
 		self
 	}
-	pub(crate) fn pages(self, pages: PageIndex) -> Self {
-		Pages::set(pages);
+	pub(crate) fn election_start(self, at: BlockNumber) -> Self {
+		ElectionStart::set(at);
 		self
 	}
-	pub(crate) fn lookahead(self, lookahead: BlockNumber) -> Self {
-		Lookahead::set(lookahead);
+	pub(crate) fn pages(self, pages: PageIndex) -> Self {
+		Pages::set(pages);
 		self
 	}
 	pub(crate) fn voter_per_page(self, count: u32) -> Self {
@@ -365,6 +402,20 @@ impl ExtBuilder {
 		SignedValidationPhase::set(d);
 		self
 	}
+	pub(crate) fn miner_pages(self, p: u32) -> Self {
+		MinerPages::set(p);
+		self
+	}
+	pub(crate) fn max_signed_submissions(self, s: u32) -> Self {
+		SignedMaxSubmissions::set(s);
+		self
+	}
+
+	pub(crate) fn max_winners_per_page(self, w: u32) -> Self {
+		MaxWinnersPerPage::set(w);
+		self
+	}
+
 	#[allow(unused)]
 	pub(crate) fn add_voter(self, who: AccountId, stake: Balance, targets: Vec<AccountId>) -> Self {
 		staking::VOTERS.with(|v| v.borrow_mut().push((who, stake, targets.try_into().unwrap())));
@@ -372,6 +423,10 @@ impl ExtBuilder {
 	}
 	pub(crate) fn fallback_mode(self, mode: FallbackModes) -> Self {
 		FallbackMode::set(mode);
+		self
+	}
+	pub(crate) fn are_we_done(self, mode: AreWeDoneModes) -> Self {
+		AreWeDone::set(mode);
 		self
 	}
 	pub(crate) fn build_unchecked(self) -> sp_io::TestExternalities {
@@ -389,6 +444,7 @@ impl ExtBuilder {
 				(95, 100),
 				(96, 100),
 				(97, 100),
+				(98, 100),
 				(99, 100),
 				(999, 100),
 				(9999, 100),
@@ -426,9 +482,18 @@ pub trait ExecuteWithSanityChecks {
 
 impl ExecuteWithSanityChecks for sp_io::TestExternalities {
 	fn execute_with_sanity_checks(&mut self, test: impl FnOnce() -> ()) {
+		self.execute_with(all_pallets_integrity_test);
 		self.execute_with(test);
-		self.execute_with(all_pallets_sanity_checks)
+		self.execute_with(all_pallets_sanity_checks);
 	}
+}
+
+fn all_pallets_integrity_test() {
+	// ensure that all pallets are sane.
+	VerifierPallet::integrity_test();
+	UnsignedPallet::integrity_test();
+	MultiBlock::integrity_test();
+	SignedPallet::integrity_test();
 }
 
 fn all_pallets_sanity_checks() {
@@ -553,6 +618,18 @@ pub fn multi_block_events() -> Vec<crate::Event<Runtime>> {
 		.collect::<Vec<_>>()
 }
 
+parameter_types! {
+	static MultiBlockEvents: u32 = 0;
+	static VerifierEvents: u32 = 0;
+}
+
+pub fn multi_block_events_since_last_call() -> Vec<crate::Event<Runtime>> {
+	let events = multi_block_events();
+	let already_seen = MultiBlockEvents::get();
+	MultiBlockEvents::set(events.len() as u32);
+	events.into_iter().skip(already_seen as usize).collect()
+}
+
 /// get the events of the verifier pallet.
 pub fn verifier_events() -> Vec<crate::verifier::Event<Runtime>> {
 	System::events()
@@ -562,6 +639,14 @@ pub fn verifier_events() -> Vec<crate::verifier::Event<Runtime>> {
 			|e| if let RuntimeEvent::VerifierPallet(inner) = e { Some(inner) } else { None },
 		)
 		.collect::<Vec<_>>()
+}
+
+/// get the events of the verifier pallet since last call.
+pub fn verifier_events_since_last_call() -> Vec<crate::verifier::Event<Runtime>> {
+	let events = verifier_events();
+	let already_seen = VerifierEvents::get();
+	VerifierEvents::set(events.len() as u32);
+	events.into_iter().skip(already_seen as usize).collect()
 }
 
 /// proceed block number to `n`.
@@ -578,6 +663,7 @@ pub fn roll_to_snapshot_created() {
 	while !matches!(MultiBlock::current_phase(), Phase::Snapshot(0)) {
 		roll_next()
 	}
+	roll_next();
 	assert_full_snapshot();
 }
 
@@ -588,9 +674,16 @@ pub fn roll_to_unsigned_open() {
 	}
 }
 
+/// proceed block number to whenever the unsigned phase is about to close (`Phase::Unsigned(_)`).
+pub fn roll_to_last_unsigned() {
+	while !matches!(MultiBlock::current_phase(), Phase::Unsigned(0)) {
+		roll_next()
+	}
+}
+
 /// proceed block number to whenever the signed phase is open (`Phase::Signed(_)`).
 pub fn roll_to_signed_open() {
-	while !matches!(MultiBlock::current_phase(), Phase::Signed) {
+	while !matches!(MultiBlock::current_phase(), Phase::Signed(_)) {
 		roll_next();
 	}
 }
@@ -603,14 +696,28 @@ pub fn roll_to_signed_validation_open() {
 	}
 }
 
+/// proceed block number until we reach the done phase (`Phase::Done`).
+pub fn roll_to_done() {
+	while !MultiBlock::current_phase().is_done() {
+		roll_next()
+	}
+}
+
 /// Proceed one block.
 pub fn roll_next() {
-	roll_to(System::block_number() + 1);
+	let now = System::block_number();
+	roll_to(now + 1);
 }
 
 /// Proceed one block, and execute offchain workers as well.
 pub fn roll_next_with_ocw(maybe_pool: Option<Arc<RwLock<PoolState>>>) {
 	roll_to_with_ocw(System::block_number() + 1, maybe_pool)
+}
+
+pub fn roll_to_unsigned_open_with_ocw(maybe_pool: Option<Arc<RwLock<PoolState>>>) {
+	while !matches!(MultiBlock::current_phase(), Phase::Unsigned(_)) {
+		roll_next_with_ocw(maybe_pool.clone());
+	}
 }
 
 /// proceed block number to `n`, while running all offchain workers as well.
@@ -665,7 +772,6 @@ pub fn fake_solution(score: ElectionScore) -> PagedRawSolution<Runtime> {
 ///
 /// This is different from `solution_from_supports` in that it does not require the snapshot to
 /// exist.
-// TODO: probably deprecate this.
 pub fn raw_paged_solution_low_score() -> PagedRawSolution<Runtime> {
 	PagedRawSolution {
 		solution_pages: vec![TestNposSolution {

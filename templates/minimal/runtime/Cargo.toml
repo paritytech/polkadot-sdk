@@ -9,6 +9,9 @@ repository.workspace = true
 edition.workspace = true
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
 codec = { workspace = true }
 polkadot-sdk = { workspace = true, features = [
@@ -26,9 +29,7 @@ serde_json = { workspace = true, default-features = false, features = ["alloc"] 
 pallet-minimal-template = { workspace = true }
 
 [build-dependencies]
-polkadot-sdk = { optional = true, workspace = true, features = [
-	"substrate-wasm-builder",
-] }
+polkadot-sdk = { optional = true, workspace = true, features = ["substrate-wasm-builder"] }
 
 [features]
 default = ["std"]

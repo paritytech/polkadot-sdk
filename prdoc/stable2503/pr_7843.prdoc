@@ -1,0 +1,15 @@
+title: Fix XCM Barrier Rejection Handling to Return Incomplete with Weight
+doc:
+- audience: Runtime Dev
+  description: "This PR addresses an issue with the handling of message execution\
+    \ when blocked by the barrier. Instead of returning an `Outcome::Error`, we modify\
+    \ the behaviour to return `Outcome::Incomplete`, which includes the weight consumed\
+    \ up to the point of rejection and the error that caused the blockage.\n\nThis\
+    \ change ensures more accurate weight tracking during message execution, even\
+    \ when interrupted. It improves resource management and aligns the XCM executor\u2019\
+    s behaviour with better error handling practices."
+crates:
+- name: staging-xcm-executor
+  bump: patch
+- name: staging-xcm-builder
+  bump: patch

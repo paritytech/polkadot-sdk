@@ -715,6 +715,18 @@ impl RelayChainRpcClient {
 			.await
 	}
 
+	pub async fn parachain_host_validation_code_bomb_limit(
+		&self,
+		at: RelayHash,
+	) -> Result<u32, RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_validation_code_bomb_limit",
+			at,
+			None::<()>,
+		)
+		.await
+	}
+
 	pub async fn validation_code_hash(
 		&self,
 		at: RelayHash,
@@ -771,6 +783,14 @@ impl RelayChainRpcClient {
 			tx,
 		))?;
 		Ok(rx)
+	}
+
+	pub async fn parachain_host_para_ids(
+		&self,
+		at: RelayHash,
+	) -> Result<Vec<ParaId>, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_para_ids", at, None::<()>)
+			.await
 	}
 }
 

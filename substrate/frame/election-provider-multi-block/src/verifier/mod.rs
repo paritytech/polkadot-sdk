@@ -17,6 +17,9 @@
 
 //! # The Verifier Pallet
 //!
+//! This pallet has no end-user functionality, and is only used internally by other pallets in the
+//! EPMB machinery to verify solutions.
+//!
 //! ### *Feasibility* Check
 //!
 //! Before explaining the pallet itself, it should be explained what a *verification* even means.
@@ -25,17 +28,19 @@
 //! that are presented in a solution page must have actually voted for the winner that they are
 //! backing, based on the snapshot kept in the parent pallet.
 //!
-//! After checking all of the edges, a handful of other checks are performed:
+//! Such checks are bound to each page of the solution, and happen per-page. After checking all of
+//! the edges in each page, a handful of other checks are performed. These checks cannot happen
+//! per-page, and in order to do them we need to have the entire solution checked and verified.
 //!
 //! 1. Check that the total number of winners is sufficient (`DesiredTargets`).
 //! 2. Check that the claimed score ([`sp_npos_elections::ElectionScore`]) is correct,
-//!   3. and more than the minimum score that can be specified via [`Verifier::set_minimum_score`].
-//! 4. Check that all of the bounds of the solution are respected, namely
+//!   * and more than the minimum score that can be specified via [`Verifier::set_minimum_score`].
+//! 3. Check that all of the bounds of the solution are respected, namely
 //!    [`Verifier::MaxBackersPerWinner`], [`Verifier::MaxWinnersPerPage`] and
 //!    [`Verifier::MaxBackersPerWinnerFinal`].
 //!
-//! Note that the common factor of all of these checks is that they can ONLY be checked after all
-//! pages are already verified. So, In the case of a multi-page verification, these checks are
+//! Note that the common factor of all of the above checks is that they can ONLY be checked after
+//! all pages are already verified. So, in the case of a multi-page verification, these checks are
 //! performed at the last page.
 //!
 //! The errors that can arise while performing the feasibility check are encapsulated in
@@ -45,13 +50,14 @@
 //!
 //! The verifier pallet provide two modes of functionality:
 //!
-//! 1. Single-page, synchronous verification. This is useful in the context of single-page,
+//! 1. Single or multi-page, synchronous verification. This is useful in the context of single-page,
 //!    emergency, or unsigned solutions that need to be verified on the fly. This is similar to how
-//!    the old school `multi-phase` pallet works.
+//!    the old school `multi-phase` pallet works. See [`Verifier::verify_synchronous`] and
+//!    [`Verifier::verify_synchronous_multi`].
 //! 2. Multi-page, asynchronous verification. This is useful in the context of multi-page, signed
-//!    solutions.
+//!    solutions. See [`verifier::AsynchronousVerifier`] and [`verifier::SolutionDataProvider`].
 //!
-//! Both of this, plus some helper functions, is exposed via the [`Verifier`] trait.
+//! Both of this, plus some helper functions, is exposed via the [`verifier::Verifier`] trait.
 //!
 //! ## Queued Solution
 //!
@@ -68,14 +74,14 @@ mod impls;
 mod tests;
 
 // internal imports
+pub use crate::weights::traits::pallet_election_provider_multi_block_verifier::*;
+
 use frame_election_provider_support::PageIndex;
 use impls::SupportsOfVerifier;
 pub use impls::{feasibility_check_page_inner_with_snapshot, pallet::*, Status};
 use sp_core::Get;
 use sp_npos_elections::ElectionScore;
 use sp_std::{fmt::Debug, prelude::*};
-
-pub use crate::weights::measured::pallet_election_provider_multi_block_verifier::*;
 
 /// Errors that can happen in the feasibility check.
 #[derive(
@@ -140,10 +146,12 @@ pub trait Verifier {
 	/// A reasonable value for this should be the maximum number of winners that the election user
 	/// (e.g. the staking pallet) could ever desire.
 	type MaxWinnersPerPage: Get<u32>;
+
 	/// Maximum number of backers, per winner, among all pages of an election.
 	///
 	/// This can only be checked at the very final step of verification.
 	type MaxBackersPerWinnerFinal: Get<u32>;
+
 	/// Maximum number of backers that each winner could have, per page.
 	type MaxBackersPerWinner: Get<u32>;
 
@@ -183,7 +191,18 @@ pub trait Verifier {
 		partial_solution: Self::Solution,
 		claimed_score: ElectionScore,
 		page: PageIndex,
-	) -> Result<SupportsOfVerifier<Self>, FeasibilityError>;
+	) -> Result<(), FeasibilityError> {
+		Self::verify_synchronous_multi(vec![partial_solution], vec![page], claimed_score)
+	}
+
+	/// Perform synchronous feasibility check on the given multi-page solution.
+	///
+	/// Same semantics as [`Self::verify_synchronous`], but for multi-page solutions.
+	fn verify_synchronous_multi(
+		partial_solution: Vec<Self::Solution>,
+		pages: Vec<PageIndex>,
+		claimed_score: ElectionScore,
+	) -> Result<(), FeasibilityError>;
 
 	/// Force set a single page solution as the valid one.
 	///
@@ -204,8 +223,6 @@ pub enum VerificationResult {
 	Queued,
 	/// Solution is rejected, for whichever of the multiple reasons that it could be.
 	Rejected,
-	/// The data needed (solution pages or the score) was unavailable. This should rarely happen.
-	DataUnavailable,
 }
 
 /// Something that can provide candidate solutions to the verifier.
@@ -218,11 +235,14 @@ pub trait SolutionDataProvider {
 
 	/// Return the `page`th page of the current best solution that the data provider has in store.
 	///
-	/// If no candidate solutions are available, then None is returned.
-	fn get_page(page: PageIndex) -> Option<Self::Solution>;
+	/// If no candidate solutions are available, an empty page is returned (i.e., a page that
+	/// contains no solutions and contributes zero to the final score).
+	fn get_page(page: PageIndex) -> Self::Solution;
 
 	/// Get the claimed score of the current best solution.
-	fn get_score() -> Option<ElectionScore>;
+	///
+	/// If no score is available, a default/zero score should be returned defensively.
+	fn get_score() -> ElectionScore;
 
 	/// Hook to report back the results of the verification of the current candidate solution that
 	/// is being exposed via [`Self::get_page`] and [`Self::get_score`].
@@ -268,13 +288,4 @@ pub trait AsynchronousVerifier: Verifier {
 	/// [`SolutionDataProvider`] must adjust its internal state such that it returns a new candidate
 	/// solution after each failure.
 	fn start() -> Result<(), &'static str>;
-
-	/// Stop the verification.
-	///
-	/// This is a force-stop operation, and should only be used in extreme cases where the
-	/// [`SolutionDataProvider`] wants to suddenly bail-out.
-	///
-	/// An implementation should make sure that no loose ends remain state-wise, and everything is
-	/// cleaned.
-	fn stop();
 }

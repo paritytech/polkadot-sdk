@@ -19,8 +19,8 @@
 //! default implementations and implements the trait for `&mut dyn Externalities`.
 
 use crate::utils::{
-	create_function_ident_with_version, generate_crate_access,
-	get_function_argument_types_without_ref, get_runtime_interface,
+	create_function_ident_with_version, generate_crate_access, get_function_argument_types,
+	get_runtime_interface,
 };
 
 use syn::{
@@ -75,6 +75,7 @@ impl ToEssentialTraitDef {
 	fn process(&mut self, method: &TraitItemFn, version: u32) {
 		let mut folded = self.fold_trait_item_fn(method.clone());
 		folded.sig.ident = create_function_ident_with_version(&folded.sig.ident, version);
+		crate::utils::unpack_inner_types_in_signature(&mut folded.sig);
 		self.methods.push(folded);
 	}
 
@@ -95,7 +96,7 @@ impl Fold for ToEssentialTraitDef {
 			self.push_error(&method, "Methods need to have an implementation.");
 		}
 
-		let arg_types = get_function_argument_types_without_ref(&method.sig);
+		let arg_types = get_function_argument_types(&method.sig);
 		arg_types
 			.filter_map(|ty| match *ty {
 				Type::ImplTrait(impl_trait) => Some(impl_trait),
@@ -156,6 +157,7 @@ fn impl_trait_for_externalities(trait_def: &ItemTrait, is_wasm_only: bool) -> Re
 		let mut cloned = (*method).clone();
 		cloned.attrs.retain(|a| !a.path().is_ident("version"));
 		cloned.sig.ident = create_function_ident_with_version(&cloned.sig.ident, version);
+		crate::utils::unpack_inner_types_in_signature(&mut cloned.sig);
 		cloned
 	});
 
@@ -166,7 +168,7 @@ fn impl_trait_for_externalities(trait_def: &ItemTrait, is_wasm_only: bool) -> Re
 	};
 
 	Ok(quote! {
-		#[cfg(feature = "std")]
+		#[cfg(not(substrate_runtime))]
 		impl #trait_ for #impl_type {
 			#( #methods )*
 		}

@@ -41,6 +41,9 @@ pub use block_info_provider::*;
 mod receipt_provider;
 pub use receipt_provider::*;
 
+mod fee_history_provider;
+pub use fee_history_provider::*;
+
 mod receipt_extractor;
 pub use receipt_extractor::*;
 
@@ -113,6 +116,12 @@ impl EthRpcServer for EthRpcServerImpl {
 		Ok(self.client.chain_id().to_string())
 	}
 
+	async fn net_listening(&self) -> RpcResult<bool> {
+		let syncing = self.client.syncing().await?;
+		let listening = matches!(syncing, SyncingStatus::Bool(false));
+		Ok(listening)
+	}
+
 	async fn syncing(&self) -> RpcResult<SyncingStatus> {
 		Ok(self.client.syncing().await?)
 	}
@@ -127,12 +136,6 @@ impl EthRpcServer for EthRpcServerImpl {
 		transaction_hash: H256,
 	) -> RpcResult<Option<ReceiptInfo>> {
 		let receipt = self.client.receipt(&transaction_hash).await;
-		log::debug!(
-			target: LOG_TARGET,
-			"transaction_receipt for {transaction_hash:?}: received: {received} - success: {success:?}",
-			received = receipt.is_some(),
-			success = receipt.as_ref().map(|r| r.status == Some(U256::one()))
-		);
 		Ok(receipt)
 	}
 
@@ -141,7 +144,9 @@ impl EthRpcServer for EthRpcServerImpl {
 		transaction: GenericTransaction,
 		block: Option<BlockNumberOrTag>,
 	) -> RpcResult<U256> {
-		let dry_run = self.client.dry_run(transaction, block.unwrap_or_default().into()).await?;
+		let hash = self.client.block_hash_for_tag(block.unwrap_or_default().into()).await?;
+		let runtime_api = self.client.runtime_api(hash);
+		let dry_run = runtime_api.dry_run(transaction).await?;
 		Ok(dry_run.eth_gas)
 	}
 
@@ -150,10 +155,9 @@ impl EthRpcServer for EthRpcServerImpl {
 		transaction: GenericTransaction,
 		block: Option<BlockNumberOrTagOrHash>,
 	) -> RpcResult<Bytes> {
-		let dry_run = self
-			.client
-			.dry_run(transaction, block.unwrap_or_else(|| BlockTag::Latest.into()))
-			.await?;
+		let hash = self.client.block_hash_for_tag(block.unwrap_or_default()).await?;
+		let runtime_api = self.client.runtime_api(hash);
+		let dry_run = runtime_api.dry_run(transaction).await?;
 		Ok(dry_run.data.into())
 	}
 
@@ -218,8 +222,9 @@ impl EthRpcServer for EthRpcServerImpl {
 	}
 
 	async fn get_balance(&self, address: H160, block: BlockNumberOrTagOrHash) -> RpcResult<U256> {
-		let balance = self.client.balance(address, &block).await?;
-		log::debug!(target: LOG_TARGET, "balance({address}): {balance:?}");
+		let hash = self.client.block_hash_for_tag(block).await?;
+		let runtime_api = self.client.runtime_api(hash);
+		let balance = runtime_api.balance(address).await?;
 		Ok(balance)
 	}
 
@@ -228,7 +233,9 @@ impl EthRpcServer for EthRpcServerImpl {
 	}
 
 	async fn gas_price(&self) -> RpcResult<U256> {
-		Ok(self.client.gas_price(&BlockTag::Latest.into()).await?)
+		let hash = self.client.block_hash_for_tag(BlockTag::Latest.into()).await?;
+		let runtime_api = self.client.runtime_api(hash);
+		Ok(runtime_api.gas_price().await?)
 	}
 
 	async fn max_priority_fee_per_gas(&self) -> RpcResult<U256> {
@@ -238,7 +245,8 @@ impl EthRpcServer for EthRpcServerImpl {
 	}
 
 	async fn get_code(&self, address: H160, block: BlockNumberOrTagOrHash) -> RpcResult<Bytes> {
-		let code = self.client.get_contract_code(&address, block).await?;
+		let hash = self.client.block_hash_for_tag(block).await?;
+		let code = self.client.runtime_api(hash).code(address).await?;
 		Ok(code.into())
 	}
 
@@ -265,7 +273,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		let block_hash = if let Some(block_hash) = block_hash {
 			block_hash
 		} else {
-			self.client.latest_block().await.ok_or(ClientError::BlockNotFound)?.hash()
+			self.client.latest_block().await.hash()
 		};
 		Ok(self.client.receipts_count_per_block(&block_hash).await.map(U256::from))
 	}
@@ -295,8 +303,10 @@ impl EthRpcServer for EthRpcServerImpl {
 		storage_slot: U256,
 		block: BlockNumberOrTagOrHash,
 	) -> RpcResult<Bytes> {
-		let bytes = self.client.get_contract_storage(address, storage_slot, block).await?;
-		Ok(bytes.into())
+		let hash = self.client.block_hash_for_tag(block).await?;
+		let runtime_api = self.client.runtime_api(hash);
+		let bytes = runtime_api.get_storage(address, storage_slot.to_big_endian()).await?;
+		Ok(bytes.unwrap_or_default().into())
 	}
 
 	async fn get_transaction_by_block_hash_and_index(
@@ -306,7 +316,10 @@ impl EthRpcServer for EthRpcServerImpl {
 	) -> RpcResult<Option<TransactionInfo>> {
 		let Some(receipt) = self
 			.client
-			.receipt_by_hash_and_index(&block_hash, transaction_index.as_usize())
+			.receipt_by_hash_and_index(
+				&block_hash,
+				transaction_index.try_into().map_err(|_| EthRpcError::ConversionError)?,
+			)
 			.await
 		else {
 			return Ok(None);
@@ -316,7 +329,7 @@ impl EthRpcServer for EthRpcServerImpl {
 			return Ok(None);
 		};
 
-		Ok(Some(TransactionInfo::new(receipt, signed_tx)))
+		Ok(Some(TransactionInfo::new(&receipt, signed_tx)))
 	}
 
 	async fn get_transaction_by_block_number_and_index(
@@ -338,7 +351,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		let receipt = self.client.receipt(&transaction_hash).await;
 		let signed_tx = self.client.signed_tx_by_hash(&transaction_hash).await;
 		if let (Some(receipt), Some(signed_tx)) = (receipt, signed_tx) {
-			return Ok(Some(TransactionInfo::new(receipt, signed_tx)));
+			return Ok(Some(TransactionInfo::new(&receipt, signed_tx)));
 		}
 
 		Ok(None)
@@ -349,7 +362,9 @@ impl EthRpcServer for EthRpcServerImpl {
 		address: H160,
 		block: BlockNumberOrTagOrHash,
 	) -> RpcResult<U256> {
-		let nonce = self.client.nonce(address, block).await?;
+		let hash = self.client.block_hash_for_tag(block).await?;
+		let runtime_api = self.client.runtime_api(hash);
+		let nonce = runtime_api.nonce(address).await?;
 		Ok(nonce)
 	}
 
@@ -358,5 +373,16 @@ impl EthRpcServer for EthRpcServerImpl {
 		let rustc_version = env!("RUSTC_VERSION");
 		let target = env!("TARGET");
 		Ok(format!("eth-rpc/{git_revision}/{target}/{rustc_version}"))
+	}
+
+	async fn fee_history(
+		&self,
+		block_count: U256,
+		newest_block: BlockNumberOrTag,
+		reward_percentiles: Option<Vec<f64>>,
+	) -> RpcResult<FeeHistoryResult> {
+		let block_count: u32 = block_count.try_into().map_err(|_| EthRpcError::ConversionError)?;
+		let result = self.client.fee_history(block_count, newest_block, reward_percentiles).await?;
+		Ok(result)
 	}
 }

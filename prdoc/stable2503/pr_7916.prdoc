@@ -1,0 +1,11 @@
+title: Removed pallet::getter from XCM pallets
+doc:
+  - audience: Runtime Dev
+    description: |
+        This pr removes all pallet::getter occurrences from XCM pallets, replacing them with explicit implementations.
+
+crates:
+  - name: pallet-xcm
+    bump: patch
+  - name: xcm-simulator-fuzzer
+    bump: patch

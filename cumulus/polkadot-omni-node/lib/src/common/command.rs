@@ -155,7 +155,8 @@ where
 		let partial = T::new_partial(&config).map_err(sc_cli::Error::Service)?;
 		let db = partial.backend.expose_db();
 		let storage = partial.backend.expose_storage();
+		let shared_trie_cache = partial.backend.expose_shared_trie_cache();
 
-		cmd.run(config, partial.client, db, storage)
+		cmd.run(config, partial.client, db, storage, shared_trie_cache)
 	}
 }

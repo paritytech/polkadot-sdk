@@ -21,7 +21,6 @@ log = { optional = true, workspace = true }
 array-bytes = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
 
 [features]
 debug = ["array-bytes", "log"]

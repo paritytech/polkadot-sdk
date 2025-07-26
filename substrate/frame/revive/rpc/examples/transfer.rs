@@ -30,7 +30,7 @@ async fn main() -> anyhow::Result<()> {
 
 	let print_balance = || async {
 		let balance = client.get_balance(alith_address, BlockTag::Latest.into()).await?;
-		println!("Alith     {:?} balance: {balance:?}", alith_address);
+		println!("Alith     {alith_address:?} balance: {balance:?}");
 		let balance = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
 		println!("ethan {:?} balance: {balance:?}", ethan.address());
 		anyhow::Result::<()>::Ok(())

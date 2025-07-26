@@ -20,8 +20,8 @@ use inflector::Inflector;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
 use syn::{
-	Data, DataEnum, DeriveInput, Error, Expr, ExprLit, Fields, GenericArgument, Ident, Lit, Meta,
-	MetaNameValue, PathArguments, Result, Type, TypePath, Variant,
+	Data, DataEnum, DeriveInput, Error, Expr, ExprLit, Field, Fields, GenericArgument, Ident, Lit,
+	Meta, MetaNameValue, PathArguments, Result, Type, TypePath, Variant,
 };
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream2> {
@@ -243,6 +243,13 @@ fn generate_builder_unpaid_impl(name: &Ident, data_enum: &DataEnum) -> Result<To
 	})
 }
 
+// Small helper enum to differentiate between fields that use a `BoundedVec`
+// and the rest.
+enum BoundedOrNormal {
+	Normal(Field),
+	Bounded(Field),
+}
+
 // Have to call with `XcmBuilder<Call, LoadedHolding>` in allowed_after_load_holding_methods.
 fn convert_variant_to_method(
 	name: &Ident,
@@ -305,61 +312,73 @@ fn convert_variant_to_method(
 			}
 		},
 		Fields::Named(fields) => {
-			let normal_fields: Vec<_> = fields
+			let fields: Vec<_> = fields
 				.named
 				.iter()
-				.filter(|field| {
+				.map(|field| {
 					if let Type::Path(TypePath { path, .. }) = &field.ty {
 						for segment in &path.segments {
 							if segment.ident == format_ident!("BoundedVec") {
-								return false;
+								return BoundedOrNormal::Bounded(field.clone());
 							}
 						}
-						true
+						BoundedOrNormal::Normal(field.clone())
 					} else {
-						true
+						BoundedOrNormal::Normal(field.clone())
 					}
 				})
 				.collect();
-			let bounded_fields: Vec<_> = fields
-				.named
+			let arg_names: Vec<_> = fields
 				.iter()
-				.filter(|field| {
-					if let Type::Path(TypePath { path, .. }) = &field.ty {
-						for segment in &path.segments {
-							if segment.ident == format_ident!("BoundedVec") {
-								return true;
-							}
-						}
-						false
-					} else {
-						false
-					}
+				.map(|field| match field {
+					BoundedOrNormal::Bounded(field) => &field.ident,
+					BoundedOrNormal::Normal(field) => &field.ident,
 				})
 				.collect();
-			let arg_names: Vec<_> = normal_fields.iter().map(|field| &field.ident).collect();
-			let arg_types: Vec<_> = normal_fields.iter().map(|field| &field.ty).collect();
-			let bounded_names: Vec<_> = bounded_fields.iter().map(|field| &field.ident).collect();
-			let bounded_types = bounded_fields
+			let arg_types: Vec<_> = fields
 				.iter()
-				.map(|field| extract_generic_argument(&field.ty, 0, "BoundedVec's inner type"))
+				.map(|field| match field {
+					BoundedOrNormal::Bounded(field) => {
+						let inner_type =
+							extract_generic_argument(&field.ty, 0, "BoundedVec's inner type")?;
+						Ok(quote! {
+							Vec<#inner_type>
+						})
+					},
+					BoundedOrNormal::Normal(field) => {
+						let inner_type = &field.ty;
+						Ok(quote! {
+							impl Into<#inner_type>
+						})
+					},
+				})
 				.collect::<Result<Vec<_>>>()?;
-			let bounded_sizes = bounded_fields
+			let bounded_names: Vec<_> = fields
 				.iter()
-				.map(|field| extract_generic_argument(&field.ty, 1, "BoundedVec's size"))
-				.collect::<Result<Vec<_>>>()?;
-			let comma_in_the_middle = if normal_fields.is_empty() {
+				.filter_map(|field| match field {
+					BoundedOrNormal::Bounded(field) => Some(&field.ident),
+					BoundedOrNormal::Normal(_) => None,
+				})
+				.collect();
+			let normal_names: Vec<_> = fields
+				.iter()
+				.filter_map(|field| match field {
+					BoundedOrNormal::Normal(field) => Some(&field.ident),
+					BoundedOrNormal::Bounded(_) => None,
+				})
+				.collect();
+			let comma_in_the_middle = if normal_names.is_empty() {
 				quote! {}
 			} else {
 				quote! {,}
 			};
 			if let Some(return_type) = maybe_return_type {
 				quote! {
-					pub fn #method_name(self, #(#arg_names: impl Into<#arg_types>),* #comma_in_the_middle #(#bounded_names: Vec<#bounded_types>),*) -> #return_type {
+					pub fn #method_name(self, #(#arg_names: #arg_types),*) -> #return_type {
 						let mut new_instructions = self.instructions;
-						#(let #arg_names = #arg_names.into();)*
-						#(let #bounded_names = BoundedVec::<#bounded_types, #bounded_sizes>::truncate_from(#bounded_names);)*
-						new_instructions.push(#name::<Call>::#variant_name { #(#arg_names),* #comma_in_the_middle #(#bounded_names),* });
+						#(let #normal_names = #normal_names.into();)*
+						#(let #bounded_names = BoundedVec::truncate_from(#bounded_names);)*
+						new_instructions.push(#name::<Call>::#variant_name { #(#normal_names),* #comma_in_the_middle #(#bounded_names),* });
 						XcmBuilder {
 							instructions: new_instructions,
 							state: core::marker::PhantomData,
@@ -368,10 +387,10 @@ fn convert_variant_to_method(
 				}
 			} else {
 				quote! {
-					pub fn #method_name(mut self, #(#arg_names: impl Into<#arg_types>),* #comma_in_the_middle #(#bounded_names: Vec<#bounded_types>),*) -> Self {
-						#(let #arg_names = #arg_names.into();)*
-						#(let #bounded_names = BoundedVec::<#bounded_types, #bounded_sizes>::truncate_from(#bounded_names);)*
-						self.instructions.push(#name::<Call>::#variant_name { #(#arg_names),* #comma_in_the_middle #(#bounded_names),* });
+					pub fn #method_name(mut self, #(#arg_names: #arg_types),*) -> Self {
+						#(let #normal_names = #normal_names.into();)*
+						#(let #bounded_names = BoundedVec::truncate_from(#bounded_names);)*
+						self.instructions.push(#name::<Call>::#variant_name { #(#normal_names),* #comma_in_the_middle #(#bounded_names),* });
 						self
 					}
 				}

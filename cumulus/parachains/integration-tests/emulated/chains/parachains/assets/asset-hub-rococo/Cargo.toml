@@ -11,10 +11,8 @@ publish = false
 workspace = true
 
 [dependencies]
-
 # Substrate
 frame-support = { workspace = true }
-pallet-asset-rewards = { workspace = true }
 sp-core = { workspace = true }
 sp-keyring = { workspace = true }
 
@@ -28,6 +26,7 @@ testnet-parachains-constants = { features = ["rococo"], workspace = true, defaul
 
 # Polkadot
 xcm = { workspace = true }
+xcm-builder = { workspace = true, default-features = true }
 
 # Bridges
 bp-bridge-hub-rococo = { workspace = true }

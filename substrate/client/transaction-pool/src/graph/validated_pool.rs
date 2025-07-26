@@ -16,12 +16,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use std::{
-	collections::{HashMap, HashSet},
-	sync::Arc,
+use crate::{
+	common::{
+		sliding_stat::SyncDurationSlidingStats, tracing_log_xt::log_xt_trace, STAT_SLIDING_WINDOW,
+	},
+	insert_and_log_throttled_sync, LOG_TARGET,
 };
-
-use crate::{common::tracing_log_xt::log_xt_trace, LOG_TARGET};
 use futures::channel::mpsc::{channel, Sender};
 use indexmap::IndexMap;
 use parking_lot::{Mutex, RwLock};
@@ -31,7 +31,12 @@ use sp_runtime::{
 	traits::SaturatedConversion,
 	transaction_validity::{TransactionTag as Tag, ValidTransaction},
 };
-use std::time::Instant;
+use std::{
+	collections::{HashMap, HashSet},
+	sync::Arc,
+	time::{Duration, Instant},
+};
+use tracing::{debug, trace, warn, Level};
 
 use super::{
 	base_pool::{self as base, PruneStatus},
@@ -164,6 +169,7 @@ pub struct ValidatedPool<B: ChainApi, L: EventHandler<B>> {
 	pub(crate) pool: RwLock<base::BasePool<ExtrinsicHash<B>, ExtrinsicFor<B>>>,
 	import_notification_sinks: Mutex<Vec<Sender<ExtrinsicHash<B>>>>,
 	rotator: PoolRotator<ExtrinsicHash<B>>,
+	enforce_limits_stats: SyncDurationSlidingStats,
 }
 
 impl<B: ChainApi, L: EventHandler<B>> Clone for ValidatedPool<B, L> {
@@ -176,6 +182,7 @@ impl<B: ChainApi, L: EventHandler<B>> Clone for ValidatedPool<B, L> {
 			pool: RwLock::from(self.pool.read().clone()),
 			import_notification_sinks: Default::default(),
 			rotator: self.rotator.clone(),
+			enforce_limits_stats: self.enforce_limits_stats.clone(),
 		}
 	}
 }
@@ -247,6 +254,9 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 			pool: RwLock::new(base_pool),
 			import_notification_sinks: Default::default(),
 			rotator,
+			enforce_limits_stats: SyncDurationSlidingStats::new(Duration::from_secs(
+				STAT_SLIDING_WINDOW,
+			)),
 		}
 	}
 
@@ -291,7 +301,16 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 
 		// only enforce limits if there is at least one imported transaction
 		let removed = if results.iter().any(|res| res.is_ok()) {
-			self.enforce_limits()
+			let start = Instant::now();
+			let removed = self.enforce_limits();
+			insert_and_log_throttled_sync!(
+				Level::DEBUG,
+				target:"txpool",
+				prefix:"enforce_limits_stats",
+				self.enforce_limits_stats,
+				start.elapsed().into()
+			);
+			removed
 		} else {
 			Default::default()
 		};
@@ -314,7 +333,11 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 		match tx {
 			ValidatedTransaction::Valid(tx) => {
 				let priority = tx.priority;
-				log::trace!(target: LOG_TARGET, "[{:?}] ValidatedPool::submit_one", tx.hash);
+				trace!(
+					target: LOG_TARGET,
+					tx_hash = ?tx.hash,
+					"ValidatedPool::submit_one"
+				);
 				if !tx.propagate && !(self.is_validator.0)() {
 					return Err(error::Error::Unactionable.into())
 				}
@@ -327,10 +350,10 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 						Ok(()) => true,
 						Err(e) =>
 							if e.is_full() {
-								log::warn!(
+								warn!(
 									target: LOG_TARGET,
-									"[{:?}] Trying to notify an import but the channel is full",
-									hash,
+									tx_hash = ?hash,
+									"Trying to notify an import but the channel is full"
 								);
 								true
 							} else {
@@ -343,15 +366,25 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 				fire_events(&mut *event_dispatcher, &imported);
 				Ok(ValidatedPoolSubmitOutcome::new(*imported.hash(), Some(priority)))
 			},
-			ValidatedTransaction::Invalid(hash, err) => {
-				log::trace!(target: LOG_TARGET, "[{:?}] ValidatedPool::submit_one invalid: {:?}", hash, err);
-				self.rotator.ban(&Instant::now(), std::iter::once(hash));
-				Err(err)
+			ValidatedTransaction::Invalid(tx_hash, error) => {
+				trace!(
+					target: LOG_TARGET,
+					?tx_hash,
+					?error,
+					"ValidatedPool::submit_one invalid"
+				);
+				self.rotator.ban(&Instant::now(), std::iter::once(tx_hash));
+				Err(error)
 			},
-			ValidatedTransaction::Unknown(hash, err) => {
-				log::trace!(target: LOG_TARGET, "[{:?}] ValidatedPool::submit_one unknown {:?}", hash, err);
-				self.event_dispatcher.write().invalid(&hash);
-				Err(err)
+			ValidatedTransaction::Unknown(tx_hash, error) => {
+				trace!(
+					target: LOG_TARGET,
+					?tx_hash,
+					?error,
+					"ValidatedPool::submit_one unknown"
+				);
+				self.event_dispatcher.write().invalid(&tx_hash);
+				Err(error)
 			},
 		}
 	}
@@ -364,13 +397,13 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 		if ready_limit.is_exceeded(status.ready, status.ready_bytes) ||
 			future_limit.is_exceeded(status.future, status.future_bytes)
 		{
-			log::debug!(
+			trace!(
 				target: LOG_TARGET,
-				"Enforcing limits ({}/{}kB ready, {}/{}kB future",
-				ready_limit.count,
-				ready_limit.total_bytes / 1024,
-				future_limit.count,
-				future_limit.total_bytes / 1024,
+				ready_count = ready_limit.count,
+				ready_kb = ready_limit.total_bytes / 1024,
+				future_count = future_limit.count,
+				future_kb = future_limit.total_bytes / 1024,
+				"Enforcing limits"
 			);
 
 			// clean up the pool
@@ -386,7 +419,11 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 				removed
 			};
 			if !removed.is_empty() {
-				log::trace!(target: LOG_TARGET, "Enforcing limits: {} dropped", removed.len());
+				trace!(
+					target: LOG_TARGET,
+					dropped_count = removed.len(),
+					"Enforcing limits"
+				);
 			}
 
 			// run notifications
@@ -504,12 +541,12 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 			pool.with_futures_enabled(|pool, reject_future_transactions| {
 				// now resubmit all removed transactions back to the pool
 				let mut final_statuses = HashMap::new();
-				for (hash, tx_to_resubmit) in txs_to_resubmit {
+				for (tx_hash, tx_to_resubmit) in txs_to_resubmit {
 					match tx_to_resubmit {
 						ValidatedTransaction::Valid(tx) => match pool.import(tx) {
 							Ok(imported) => match imported {
 								base::Imported::Ready { promoted, failed, removed, .. } => {
-									final_statuses.insert(hash, Status::Ready);
+									final_statuses.insert(tx_hash, Status::Ready);
 									for hash in promoted {
 										final_statuses.insert(hash, Status::Ready);
 									}
@@ -521,26 +558,26 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 									}
 								},
 								base::Imported::Future { .. } => {
-									final_statuses.insert(hash, Status::Future);
+									final_statuses.insert(tx_hash, Status::Future);
 								},
 							},
-							Err(err) => {
+							Err(error) => {
 								// we do not want to fail if single transaction import has failed
 								// nor we do want to propagate this error, because it could tx
 								// unknown to caller => let's just notify listeners (and issue debug
 								// message)
-								log::warn!(
+								warn!(
 									target: LOG_TARGET,
-									"[{:?}] Removing invalid transaction from update: {}",
-									hash,
-									err,
+									?tx_hash,
+									%error,
+									"Removing invalid transaction from update"
 								);
-								final_statuses.insert(hash, Status::Failed);
+								final_statuses.insert(tx_hash, Status::Failed);
 							},
 						},
 						ValidatedTransaction::Invalid(_, _) |
 						ValidatedTransaction::Unknown(_, _) => {
-							final_statuses.insert(hash, Status::Failed);
+							final_statuses.insert(tx_hash, Status::Failed);
 						},
 					}
 				}
@@ -685,6 +722,12 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 			}
 			hashes
 		};
+		debug!(
+			target:LOG_TARGET,
+			to_remove_len=to_remove.len(),
+			futures_to_remove_len=futures_to_remove.len(),
+			"clear_stale"
+		);
 		// removing old transactions
 		self.remove_invalid(&to_remove);
 		self.remove_invalid(&futures_to_remove);
@@ -734,11 +777,16 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 			return vec![]
 		}
 
-		let invalid = self.remove_subtree(hashes, |listener, removed_tx_hash| {
+		let invalid = self.remove_subtree(hashes, true, |listener, removed_tx_hash| {
 			listener.invalid(&removed_tx_hash);
 		});
 
-		log::trace!(target: LOG_TARGET, "Removed invalid transactions: {:?}/{:?}", hashes.len(), invalid.len());
+		trace!(
+			target: LOG_TARGET,
+			removed_count = hashes.len(),
+			invalid_count = invalid.len(),
+			"Removed invalid transactions"
+		);
 		log_xt_trace!(target: LOG_TARGET, invalid.iter().map(|t| t.hash), "Removed invalid transaction");
 
 		invalid
@@ -761,10 +809,10 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 
 	/// Notify all watchers that transactions in the block with hash have been finalized
 	pub async fn on_block_finalized(&self, block_hash: BlockHash<B>) -> Result<(), B::Error> {
-		log::trace!(
+		trace!(
 			target: LOG_TARGET,
-			"Attempting to notify watchers of finalization for {}",
-			block_hash,
+			?block_hash,
+			"Attempting to notify watchers of finalization"
 		);
 		self.event_dispatcher.write().finalized(block_hash);
 		Ok(())
@@ -795,8 +843,8 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 	/// This function traverses the dependency graph of transactions and removes the specified
 	/// transaction along with all its descendant transactions from the pool.
 	///
-	/// The root transaction will be banned from re-entrering the pool. Descendant transactions may
-	/// be re-submitted to the pool if required.
+	/// The root transactions will be banned from re-entrering the pool if `ban_transactions` is
+	/// true. Descendant transactions may be re-submitted to the pool if required.
 	///
 	/// A `event_disaptcher_action` callback function is invoked for every transaction that is
 	/// removed, providing a reference to the pool's event dispatcher and the hash of the removed
@@ -807,13 +855,16 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 	pub fn remove_subtree<F>(
 		&self,
 		hashes: &[ExtrinsicHash<B>],
+		ban_transactions: bool,
 		event_dispatcher_action: F,
 	) -> Vec<TransactionFor<B>>
 	where
 		F: Fn(&mut EventDispatcher<B, L>, ExtrinsicHash<B>),
 	{
-		// temporarily ban removed transactions
-		self.rotator.ban(&Instant::now(), hashes.iter().cloned());
+		// temporarily ban removed transactions if requested
+		if ban_transactions {
+			self.rotator.ban(&Instant::now(), hashes.iter().cloned());
+		};
 		let removed = self.pool.write().remove_subtree(hashes);
 
 		removed

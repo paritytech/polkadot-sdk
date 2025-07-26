@@ -197,7 +197,6 @@ mod benchmarks {
 
 	#[benchmark]
 	fn on_initialize_nothing() {
-		T::DataProvider::set_next_election(sp_runtime::traits::Bounded::max_value());
 		assert!(CurrentPhase::<T>::get().is_off());
 
 		#[block]
@@ -303,9 +302,8 @@ mod benchmarks {
 		}
 
 		assert!(Snapshot::<T>::get().is_some());
-		// TODO: bring this back
-		// assert_eq!(SnapshotMetadata::<T>::get().ok_or("metadata missing")?.voters, v);
-		// assert_eq!(SnapshotMetadata::<T>::get().ok_or("metadata missing")?.targets, t);
+		assert_eq!(SnapshotMetadata::<T>::get().ok_or("metadata missing")?.voters, v);
+		assert_eq!(SnapshotMetadata::<T>::get().ok_or("metadata missing")?.targets, t);
 
 		Ok(())
 	}
@@ -535,9 +533,8 @@ mod benchmarks {
 		}
 
 		assert!(Snapshot::<T>::get().is_some());
-		// TODO: bring this back
-		// assert_eq!(SnapshotMetadata::<T>::get().ok_or("snapshot missing")?.voters, v);
-		// assert_eq!(SnapshotMetadata::<T>::get().ok_or("snapshot missing")?.targets, t);
+		assert_eq!(SnapshotMetadata::<T>::get().ok_or("snapshot missing")?.voters, v);
+		assert_eq!(SnapshotMetadata::<T>::get().ok_or("snapshot missing")?.targets, t);
 
 		Ok(())
 	}

@@ -1,0 +1,19 @@
+title: Remove pallet::getter from bridges/modules
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR removes all pallet::getter occurrences from pallet-bridge-grandpa, pallet-bridge-messages and pallet-bridge-relayers and replaces them with explicit implementations.
+
+crates:
+  - name: pallet-bridge-grandpa
+    bump: patch
+  - name: pallet-bridge-messages
+    bump: major
+  - name: pallet-bridge-relayers
+    bump: minor
+  - name: bp-runtime
+    bump: minor
+  - name: pallet-bridge-beefy
+    bump: minor
+  - name: pallet-xcm-bridge-hub-router
+    bump: patch

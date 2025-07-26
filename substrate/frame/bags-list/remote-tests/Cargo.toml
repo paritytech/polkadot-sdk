@@ -26,8 +26,6 @@ pallet-staking = { workspace = true, default-features = true }
 # core
 sp-core = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
-sp-storage = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
 
 # utils
 remote-externalities = { workspace = true, default-features = true }

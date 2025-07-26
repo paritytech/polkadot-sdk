@@ -41,8 +41,9 @@ use polkadot_node_network_protocol::{
 	view,
 };
 use polkadot_node_primitives::BlockData;
-use polkadot_node_subsystem::messages::{
-	AllMessages, ReportPeerMessage, RuntimeApiMessage, RuntimeApiRequest,
+use polkadot_node_subsystem::{
+	messages::{AllMessages, ReportPeerMessage, RuntimeApiMessage, RuntimeApiRequest},
+	ActivatedLeaf, ActiveLeavesUpdate,
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{reputation::add_reputation, TimeoutExt};
@@ -475,7 +476,7 @@ async fn expect_advertise_collation_msg(
 			) => {
 				assert!(any_peers.iter().any(|p| to.contains(p)));
 				match wire_message {
-					Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(
+					CollationProtocols::V2(protocol_v2::CollationProtocol::CollatorProtocol(
 						wire_message,
 					)) => {
 						assert_matches!(
@@ -520,7 +521,8 @@ fn decode_collation_response(bytes: &[u8]) -> (CandidateReceipt, PoV) {
 	let response: CollationFetchingResponse =
 		CollationFetchingResponse::decode(&mut &bytes[..]).expect("Decoding should work");
 	match response {
-		CollationFetchingResponse::Collation(receipt, pov) => (receipt, pov),
+		CollationFetchingResponse::Collation(_, _) =>
+			panic!("Expected to always receive CollationWithParentHeadData"),
 		CollationFetchingResponse::CollationWithParentHeadData { receipt, pov, .. } =>
 			(receipt, pov),
 	}
@@ -558,9 +560,9 @@ fn v1_protocol_rejected() {
 
 				assert_matches!(
 					overseer_recv(virtual_overseer).await,
-					AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::DisconnectPeer(bad_peer, peer_set)) => {
+					AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::DisconnectPeers(bad_peers, peer_set)) => {
 						assert_eq!(peer_set, PeerSet::Collation);
-						assert_eq!(bad_peer, peer);
+						assert_eq!(bad_peers, vec![peer]);
 					}
 				);
 			}
@@ -1175,7 +1177,7 @@ fn collators_reject_declare_messages() {
 				virtual_overseer,
 				CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
 					peer,
-					Versioned::V1(protocol_v1::CollatorProtocolMessage::Declare(
+					CollationProtocols::V1(protocol_v1::CollatorProtocolMessage::Declare(
 						collator_pair2.public(),
 						ParaId::from(5),
 						collator_pair2.sign(b"garbage"),
@@ -1186,10 +1188,10 @@ fn collators_reject_declare_messages() {
 
 			assert_matches!(
 				overseer_recv(virtual_overseer).await,
-				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::DisconnectPeer(
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::DisconnectPeers(
 					p,
 					PeerSet::Collation,
-				)) if p == peer
+				)) if p == vec![peer]
 			);
 			test_harness
 		},
@@ -1459,6 +1461,7 @@ fn connect_to_buffered_groups() {
 				1,
 			)
 			.await;
+
 			test_state.group_rotation_info = test_state.group_rotation_info.bump_rotation();
 
 			let head_b = test_state.relay_parent;
@@ -1486,6 +1489,87 @@ fn connect_to_buffered_groups() {
 					for validator in group_a[1..].iter().chain(&group_b) {
 						assert!(validator_ids.contains(validator));
 					}
+				}
+			);
+
+			TestHarness { virtual_overseer, req_v2_cfg: req_cfg }
+		},
+	);
+}
+
+#[test]
+fn connect_with_no_cores_assigned() {
+	let mut test_state = TestState::default();
+	let local_peer_id = test_state.local_peer_id;
+	let collator_pair = test_state.collator_pair.clone();
+
+	test_harness(
+		local_peer_id,
+		collator_pair,
+		ReputationAggregator::new(|_| true),
+		|test_harness| async move {
+			let mut virtual_overseer = test_harness.virtual_overseer;
+			let req_cfg = test_harness.req_v2_cfg;
+
+			overseer_send(
+				&mut virtual_overseer,
+				CollatorProtocolMessage::CollateOn(test_state.para_id),
+			)
+			.await;
+
+			update_view(&test_state, &mut virtual_overseer, vec![(test_state.relay_parent, 10)], 1)
+				.await;
+
+			let group_a = test_state.current_group_validator_authority_ids();
+			assert!(group_a.len() > 1);
+
+			distribute_collation(
+				&mut virtual_overseer,
+				&test_state,
+				test_state.relay_parent,
+				false,
+			)
+			.await;
+
+			assert_matches!(
+				overseer_recv(&mut virtual_overseer).await,
+				AllMessages::NetworkBridgeTx(
+					NetworkBridgeTxMessage::ConnectToValidators { validator_ids, .. }
+				) => {
+					assert_eq!(group_a, validator_ids);
+				}
+			);
+
+			// Create a new relay parent and remove the core assignments.
+			test_state.relay_parent.randomize();
+			test_state.claim_queue.clear();
+
+			update_view(&test_state, &mut virtual_overseer, vec![(test_state.relay_parent, 20)], 1)
+				.await;
+
+			// Send the ActiveLeaves signal to trigger the reconnect timeout.
+			overseer_signal(
+				&mut virtual_overseer,
+				OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
+					hash: test_state.relay_parent,
+					number: 20,
+					unpin_handle: polkadot_node_subsystem_test_helpers::mock::dummy_unpin_handle(
+						test_state.relay_parent,
+					),
+				})),
+			)
+			.await;
+
+			// The collator should attempt to connect to an empty validator list.
+			let timeout = Duration::from_secs(5);
+			assert_matches!(
+				overseer_recv_with_timeout(&mut virtual_overseer, timeout)
+					.await
+					.expect(&format!("{:?} is more than `RECONNECT_AFTER_LEAF_TIMEOUT`, which is enough to receive messages", timeout)),
+				AllMessages::NetworkBridgeTx(
+					NetworkBridgeTxMessage::ConnectToValidators { validator_ids, .. }
+				) => {
+					assert_eq!(Vec::<AuthorityDiscoveryId>::new(), validator_ids);
 				}
 			);
 

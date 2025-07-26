@@ -16,15 +16,19 @@
 // limitations under the License.
 
 use crate::{
-	mock::*,
-	types::*,
-	verifier::{impls::Status, *},
-	*,
+	mock::{
+		fake_solution, mine_solution, roll_to_snapshot_created, solution_from_supports,
+		verifier_events, ExtBuilder, MaxBackersPerWinner, MaxWinnersPerPage, MultiBlock, Runtime,
+		VerifierPallet, *,
+	},
+	verifier::{impls::Status, Event, FeasibilityError, Verifier, *},
+	PagedRawSolution, Snapshot, *,
 };
-
 use frame_election_provider_support::Support;
 use frame_support::{assert_noop, assert_ok};
-use sp_runtime::traits::Bounded;
+use sp_core::bounded_vec;
+use sp_npos_elections::ElectionScore;
+use sp_runtime::{traits::Bounded, PerU16, Perbill};
 
 mod feasibility_check {
 	use super::*;
@@ -186,6 +190,52 @@ mod feasibility_check {
 	}
 
 	#[test]
+	fn prevents_duplicate_voter_index() {
+		ExtBuilder::verifier().pages(1).build_and_execute(|| {
+			roll_to_snapshot_created();
+
+			// let's build a manual, bogus solution with duplicate voters, on top of page 0 of
+			// snapshot (see `mock/staking.rs`).
+			let faulty_page = TestNposSolution {
+				// voter index 0 is giving 100% of stake to target index 0
+				votes1: vec![(0, 0)],
+				// and again 50% to target index 0 and target index 1. Both votes are "valid",
+				// as in they are in the snapshot.
+				votes2: vec![(0, [(0, PerU16::from_percent(50))], 1)],
+				..Default::default()
+			};
+
+			assert_noop!(
+				VerifierPallet::feasibility_check_page_inner(faulty_page, 0),
+				FeasibilityError::NposElection(
+					frame_election_provider_support::Error::DuplicateVoter
+				),
+			);
+		});
+	}
+
+	#[test]
+	fn prevents_duplicate_target_index() {
+		ExtBuilder::verifier().pages(1).build_and_execute(|| {
+			roll_to_snapshot_created();
+
+			// A bad solution with duplicate targets for a single voter in votes2.
+			let faulty_page = TestNposSolution {
+				// 50% to 0, and then the rest to 0 again, not valid.
+				votes2: vec![(0, [(0, PerU16::from_percent(50))], 0)],
+				..Default::default()
+			};
+
+			assert_noop!(
+				VerifierPallet::feasibility_check_page_inner(faulty_page, 0),
+				FeasibilityError::NposElection(
+					frame_election_provider_support::Error::DuplicateTarget
+				),
+			);
+		});
+	}
+
+	#[test]
 	fn heuristic_max_backers_per_winner_per_page() {
 		ExtBuilder::verifier().max_backers_per_winner(2).build_and_execute(|| {
 			roll_to_snapshot_created();
@@ -231,9 +281,8 @@ mod feasibility_check {
 }
 
 mod async_verification {
-	use sp_core::bounded_vec;
-
 	use super::*;
+	use sp_core::bounded_vec;
 	// disambiguate event
 	use crate::verifier::Event;
 
@@ -286,7 +335,7 @@ mod async_verification {
 			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
 			assert_eq!(
 				verifier_events(),
-				vec![Event::<Runtime>::Verified(2, 2), Event::<Runtime>::Verified(1, 2),]
+				vec![Event::<Runtime>::Verified(2, 2), Event::<Runtime>::Verified(1, 2)]
 			);
 			// 2 pages verified, stored as invalid.
 			assert_eq!(QueuedSolution::<Runtime>::invalid_iter().count(), 2);
@@ -379,7 +428,7 @@ mod async_verification {
 	}
 
 	#[test]
-	fn solution_data_provider_failing_initial() {
+	fn solution_data_provider_empty_data_solution() {
 		ExtBuilder::verifier().build_and_execute(|| {
 			// not super important, but anyways..
 			roll_to_snapshot_created();
@@ -395,19 +444,30 @@ mod async_verification {
 
 			roll_next();
 
-			// we instantly stop.
-			assert_eq!(verifier_events(), vec![Event::<Runtime>::VerificationDataUnavailable]);
-			assert_eq!(VerifierPallet::status(), Status::Nothing);
-			assert!(QueuedSolution::<Runtime>::invalid_iter().count().is_zero());
-			assert!(QueuedSolution::<Runtime>::backing_iter().count().is_zero());
+			// After first roll, only page 2 is processed (as empty page), status is still
+			// Ongoing(1).
+			assert_eq!(verifier_events(), vec![Event::<Runtime>::Verified(2, 0)]);
+			assert_eq!(VerifierPallet::status(), Status::Ongoing(1));
 
-			// and we report invalid back.
-			assert_eq!(MockSignedResults::get(), vec![VerificationResult::DataUnavailable]);
+			// Process the next page (page 1).
+			roll_next();
+			assert_eq!(
+				verifier_events(),
+				vec![Event::<Runtime>::Verified(2, 0), Event::<Runtime>::Verified(1, 0)]
+			);
+			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
+
+			// Process the final page (page 0).
+			roll_next();
+			// Missing score data returns default score which fails quality checks and gets
+			// rejected.
+			assert_eq!(VerifierPallet::status(), Status::Nothing);
+			assert_eq!(MockSignedResults::get(), vec![VerificationResult::Rejected]);
 		});
 	}
 
 	#[test]
-	fn solution_data_provider_failing_midway() {
+	fn solution_data_provider_empty_data_midway() {
 		ExtBuilder::verifier().build_and_execute(|| {
 			roll_to_snapshot_created();
 
@@ -427,28 +487,74 @@ mod async_verification {
 			assert_eq!(QueuedSolution::<Runtime>::backing_iter().count(), 1);
 			assert_eq!(QueuedSolution::<Runtime>::valid_iter().count(), 0);
 
-			// suddenly clear this guy.
+			// suddenly clear this guy. Crucially, do not clear the score. That will be tested in
+			// the scope of `solution_data_provider_missing_score_at_end`.
 			MockSignedNextSolution::set(None);
-			MockSignedNextScore::set(None);
+
+			// Roll through the remaining pages, which will be treated as empty.
+			roll_next();
+			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
+			assert_eq!(
+				verifier_events(),
+				vec![Event::<Runtime>::Verified(2, 2), Event::<Runtime>::Verified(1, 0)]
+			);
 
 			roll_next();
-
-			// we instantly stop.
+			assert_eq!(VerifierPallet::status(), Status::Nothing);
 			assert_eq!(
 				verifier_events(),
 				vec![
 					Event::<Runtime>::Verified(2, 2),
-					Event::<Runtime>::VerificationDataUnavailable
+					Event::<Runtime>::Verified(1, 0),
+					Event::<Runtime>::Verified(0, 0),
+					Event::<Runtime>::VerificationFailed(0, FeasibilityError::InvalidScore),
 				]
 			);
-			assert_eq!(VerifierPallet::status(), Status::Nothing);
+
+			// The system should be in a clean state after processing all pages.
 			assert_eq!(QueuedSolution::<Runtime>::invalid_iter().count(), 0);
 			assert_eq!(QueuedSolution::<Runtime>::valid_iter().count(), 0);
 			assert_eq!(QueuedSolution::<Runtime>::backing_iter().count(), 0);
 
-			// and we report invalid back.
-			assert_eq!(MockSignedResults::get(), vec![VerificationResult::DataUnavailable]);
+			// Empty pages are handled gracefully, solution is rejected.
+			assert_eq!(MockSignedResults::get(), vec![VerificationResult::Rejected]);
 		})
+	}
+
+	#[test]
+	fn solution_data_provider_missing_score_at_end() {
+		ExtBuilder::verifier().build_and_execute(|| {
+			roll_to_snapshot_created();
+
+			let solution = mine_full_solution().unwrap();
+			load_mock_signed_and_start(solution.clone());
+
+			assert_eq!(VerifierPallet::status(), Status::Ongoing(2));
+
+			// First page is fine.
+			roll_next();
+			assert_eq!(VerifierPallet::status(), Status::Ongoing(1));
+			assert_eq!(verifier_events(), vec![Event::<Runtime>::Verified(2, 2)]);
+			assert_eq!(MockSignedResults::get(), vec![]);
+
+			// Now clear both the solution and the score to simulate missing score at the end.
+			MockSignedNextSolution::set(None);
+			MockSignedNextScore::set(Default::default());
+
+			// Roll through remaining pages.
+			roll_next();
+			assert_eq!(VerifierPallet::status(), Status::Ongoing(0));
+			assert_eq!(
+				verifier_events(),
+				vec![Event::<Runtime>::Verified(2, 2), Event::<Runtime>::Verified(1, 0)]
+			);
+			roll_next();
+
+			// Missing score data returns default score which fails quality checks and gets
+			// rejected.
+			assert_eq!(VerifierPallet::status(), Status::Nothing);
+			assert_eq!(MockSignedResults::get(), vec![VerificationResult::Rejected]);
+		});
 	}
 
 	#[test]
@@ -476,11 +582,13 @@ mod async_verification {
 	}
 
 	#[test]
-	fn stop_clears_everything() {
+	fn verification_failure_clears_everything() {
 		ExtBuilder::verifier().build_and_execute(|| {
 			roll_to_snapshot_created();
 
-			let solution = mine_full_solution().unwrap();
+			let mut solution = mine_full_solution().unwrap();
+			// Make the solution invalid by corrupting the first page
+			solution.solution_pages[0].votes1[0] = (0, 1000); // Invalid vote weight
 			load_mock_signed_and_start(solution.clone());
 
 			assert_eq!(VerifierPallet::status(), Status::Ongoing(2));
@@ -496,16 +604,16 @@ mod async_verification {
 				vec![Event::<Runtime>::Verified(2, 2), Event::<Runtime>::Verified(1, 2)]
 			);
 
-			// now suddenly, we stop
-			<VerifierPallet as AsynchronousVerifier>::stop();
+			// Verification fails on the last page due to invalid solution
+			roll_next();
 			assert_eq!(VerifierPallet::status(), Status::Nothing);
 
-			// everything is cleared.
+			// everything is cleared when verification fails.
 			assert_eq!(QueuedSolution::<Runtime>::invalid_iter().count(), 0);
 			assert_eq!(QueuedSolution::<Runtime>::valid_iter().count(), 0);
 			assert_eq!(QueuedSolution::<Runtime>::backing_iter().count(), 0);
 
-			// and we report invalid back that something was rejected.
+			// and we report that something was rejected.
 			assert_eq!(MockSignedResults::get(), vec![VerificationResult::Rejected]);
 		})
 	}
@@ -711,7 +819,6 @@ mod async_verification {
 		ExtBuilder::verifier()
 			.desired_targets(1)
 			.max_backers_per_winner(1) // in each page we allow 1 baker to be presented.
-			.max_backers_per_winner_final(12)
 			.build_and_execute(|| {
 				roll_to_snapshot_created();
 
@@ -760,6 +867,7 @@ mod async_verification {
 	fn invalid_solution_bad_bounds_final() {
 		ExtBuilder::verifier()
 			.desired_targets(1)
+			.max_backers_per_winner(2)
 			.max_backers_per_winner_final(2)
 			.build_and_execute(|| {
 				roll_to_snapshot_created();
@@ -865,21 +973,213 @@ mod async_verification {
 	}
 }
 
-mod sync_verification {
-	use frame_election_provider_support::Support;
-	use sp_core::bounded_vec;
-	use sp_npos_elections::ElectionScore;
-	use sp_runtime::Perbill;
+mod multi_page_sync_verification {
+	use super::*;
+	use frame_support::hypothetically;
 
-	use crate::{
-		mock::{
-			fake_solution, mine_solution, roll_to_snapshot_created, solution_from_supports,
-			verifier_events, ExtBuilder, MaxBackersPerWinner, MaxWinnersPerPage, MultiBlock,
-			Runtime, VerifierPallet,
-		},
-		verifier::{Event, FeasibilityError, Verifier},
-		PagedRawSolution, Snapshot,
-	};
+	#[test]
+	fn basic_sync_verification_works() {
+		ExtBuilder::verifier().build_and_execute(|| {
+			roll_to_snapshot_created();
+			let paged = mine_solution(2).unwrap();
+
+			assert_eq!(verifier_events(), vec![]);
+			assert_eq!(<VerifierPallet as Verifier>::queued_score(), None);
+
+			let _ = <VerifierPallet as Verifier>::verify_synchronous_multi(
+				paged.solution_pages.clone(),
+				MultiBlock::msp_range_for(2),
+				paged.score,
+			)
+			.unwrap();
+
+			assert_eq!(
+				verifier_events(),
+				vec![
+					Event::<Runtime>::Verified(1, 2),
+					Event::<Runtime>::Verified(2, 2),
+					Event::<Runtime>::Queued(paged.score, None)
+				]
+			);
+			assert_eq!(<VerifierPallet as Verifier>::queued_score(), Some(paged.score));
+		})
+	}
+
+	#[test]
+	fn basic_sync_verification_works_full() {
+		ExtBuilder::verifier().build_and_execute(|| {
+			roll_to_snapshot_created();
+			let paged = mine_full_solution().unwrap();
+
+			assert_eq!(verifier_events(), vec![]);
+			assert_eq!(<VerifierPallet as Verifier>::queued_score(), None);
+
+			let _ = <VerifierPallet as Verifier>::verify_synchronous_multi(
+				paged.solution_pages.clone(),
+				MultiBlock::msp_range_for(3),
+				paged.score,
+			)
+			.unwrap();
+
+			assert_eq!(
+				verifier_events(),
+				vec![
+					Event::<Runtime>::Verified(0, 2),
+					Event::<Runtime>::Verified(1, 2),
+					Event::<Runtime>::Verified(2, 2),
+					Event::<Runtime>::Queued(paged.score, None)
+				]
+			);
+			assert_eq!(<VerifierPallet as Verifier>::queued_score(), Some(paged.score));
+		})
+	}
+
+	#[test]
+	fn incorrect_score_checked_at_end() {
+		ExtBuilder::verifier().build_and_execute(|| {
+			// A solution that where each individual page is valid, but the final score is bad.
+			roll_to_snapshot_created();
+			let mut paged = mine_solution(2).unwrap();
+			paged.score.minimal_stake += 1;
+
+			assert_eq!(verifier_events(), vec![]);
+			assert_eq!(<VerifierPallet as Verifier>::queued_score(), None);
+
+			assert_eq!(
+				<VerifierPallet as Verifier>::verify_synchronous_multi(
+					paged.solution_pages.clone(),
+					MultiBlock::msp_range_for(2),
+					paged.score,
+				)
+				.unwrap_err(),
+				FeasibilityError::InvalidScore
+			);
+
+			assert_eq!(
+				verifier_events(),
+				vec![
+					Event::<Runtime>::Verified(1, 2),
+					Event::<Runtime>::Verified(2, 2),
+					Event::<Runtime>::VerificationFailed(2, FeasibilityError::InvalidScore),
+				]
+			);
+			assert_eq!(<VerifierPallet as Verifier>::queued_score(), None);
+		})
+	}
+
+	#[test]
+	fn invalid_second_page() {
+		ExtBuilder::verifier().build_and_execute(|| {
+			// A solution that where the second validated page is invalid.
+			use frame_election_provider_support::traits::NposSolution;
+			roll_to_snapshot_created();
+			let mut paged = mine_solution(2).unwrap();
+			paged.solution_pages.last_mut().map(|p| p.corrupt());
+
+			assert_eq!(verifier_events(), vec![]);
+			assert_eq!(<VerifierPallet as Verifier>::queued_score(), None);
+
+			assert_eq!(
+				<VerifierPallet as Verifier>::verify_synchronous_multi(
+					paged.solution_pages.clone(),
+					MultiBlock::msp_range_for(2),
+					paged.score,
+				)
+				.unwrap_err(),
+				FeasibilityError::NposElection(sp_npos_elections::Error::SolutionInvalidIndex)
+			);
+
+			assert_eq!(
+				verifier_events(),
+				vec![
+					Event::<Runtime>::Verified(1, 2),
+					Event::<Runtime>::VerificationFailed(
+						2,
+						FeasibilityError::NposElection(
+							sp_npos_elections::Error::SolutionInvalidIndex
+						)
+					),
+				]
+			);
+			assert_eq!(<VerifierPallet as Verifier>::queued_score(), None);
+		})
+	}
+
+	#[test]
+	fn too_may_max_backers_per_winner_second_page() {
+		ExtBuilder::verifier().build_and_execute(|| {
+			// A solution that where the at the second page with hit the final max backers per
+			// winner final bound.
+			roll_to_snapshot_created();
+			let paged = mine_solution(2).unwrap();
+
+			hypothetically!({
+				assert_ok!(<VerifierPallet as Verifier>::verify_synchronous_multi(
+					paged.solution_pages.clone(),
+					MultiBlock::msp_range_for(2),
+					paged.score,
+				));
+				let p1 = QueuedSolution::<Runtime>::get_queued_solution_page(1).unwrap();
+				let p2 = QueuedSolution::<Runtime>::get_queued_solution_page(2).unwrap();
+
+				// 40 has 2 backers in the first page, and 3 in the second
+				assert_eq!(
+					p1.into_iter()
+						.find_map(|(who, support)| {
+							if who == 40 {
+								Some(support.voters.len())
+							} else {
+								None
+							}
+						})
+						.unwrap(),
+					2
+				);
+
+				assert_eq!(
+					p2.into_iter()
+						.find_map(|(who, support)| {
+							if who == 40 {
+								Some(support.voters.len())
+							} else {
+								None
+							}
+						})
+						.unwrap(),
+					3
+				);
+			});
+
+			// From the above, we know setting this will do the trick
+			MaxBackersPerWinnerFinal::set(4);
+
+			assert_eq!(verifier_events(), vec![]);
+			assert_eq!(<VerifierPallet as Verifier>::queued_score(), None);
+
+			assert_eq!(
+				<VerifierPallet as Verifier>::verify_synchronous_multi(
+					paged.solution_pages.clone(),
+					MultiBlock::msp_range_for(2),
+					paged.score,
+				)
+				.unwrap_err(),
+				FeasibilityError::FailedToBoundSupport
+			);
+
+			assert_eq!(
+				verifier_events(),
+				vec![
+					Event::<Runtime>::Verified(1, 2),
+					Event::<Runtime>::VerificationFailed(2, FeasibilityError::FailedToBoundSupport),
+				]
+			);
+			assert_eq!(<VerifierPallet as Verifier>::queued_score(), None);
+		})
+	}
+}
+
+mod single_page_sync_verification {
+	use super::*;
 
 	#[test]
 	fn basic_sync_verification_works() {
@@ -964,7 +1264,10 @@ mod sync_verification {
 
 			assert_eq!(
 				verifier_events(),
-				vec![Event::<Runtime>::VerificationFailed(2, FeasibilityError::WrongWinnerCount)]
+				vec![
+					Event::Verified(2, 2),
+					Event::<Runtime>::VerificationFailed(2, FeasibilityError::WrongWinnerCount)
+				]
 			);
 			assert_eq!(<VerifierPallet as Verifier>::queued_score(), None);
 		})
@@ -991,7 +1294,10 @@ mod sync_verification {
 
 			assert_eq!(
 				verifier_events(),
-				vec![Event::<Runtime>::VerificationFailed(2, FeasibilityError::InvalidScore),]
+				vec![
+					Event::Verified(2, 2),
+					Event::<Runtime>::VerificationFailed(2, FeasibilityError::InvalidScore),
+				]
 			);
 		})
 	}
@@ -1027,8 +1333,7 @@ mod sync_verification {
 	}
 
 	#[test]
-	fn bad_bounds_rejected() {
-		// MaxBackersPerWinner.
+	fn bad_bounds_rejected_max_backers_per_winner() {
 		ExtBuilder::verifier().build_and_execute(|| {
 			roll_to_snapshot_created();
 
@@ -1054,14 +1359,45 @@ mod sync_verification {
 				)]
 			);
 		});
+	}
 
-		// MaxWinnersPerPage.
+	#[test]
+	fn bad_bounds_rejected_max_winners_per_page() {
 		ExtBuilder::verifier().build_and_execute(|| {
 			roll_to_snapshot_created();
 
 			let single_page = mine_solution(1).unwrap();
 			// note: the miner does feasibility internally, change this parameter afterwards.
 			MaxWinnersPerPage::set(1);
+
+			assert_eq!(
+				<VerifierPallet as Verifier>::verify_synchronous(
+					single_page.solution_pages.first().cloned().unwrap(),
+					single_page.score,
+					MultiBlock::msp(),
+				)
+				.unwrap_err(),
+				FeasibilityError::FailedToBoundSupport
+			);
+
+			assert_eq!(
+				verifier_events(),
+				vec![Event::<Runtime>::VerificationFailed(
+					2,
+					FeasibilityError::FailedToBoundSupport
+				)]
+			);
+		});
+	}
+
+	#[test]
+	fn bad_bounds_rejected_max_backers_per_winner_final() {
+		ExtBuilder::verifier().build_and_execute(|| {
+			roll_to_snapshot_created();
+
+			let single_page = mine_solution(1).unwrap();
+			// note: the miner does feasibility internally, change this parameter afterwards.
+			MaxBackersPerWinnerFinal::set(1);
 
 			assert_eq!(
 				<VerifierPallet as Verifier>::verify_synchronous(

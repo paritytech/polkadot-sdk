@@ -372,4 +372,35 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `XcmPallet::AuthorizedAliases` (r:1 w:1)
+	/// Proof: `XcmPallet::AuthorizedAliases` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn add_authorized_alias() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `361`
+		//  Estimated: `3826`
+		// Minimum execution time: 15_975_000 picoseconds.
+		Weight::from_parts(16_398_000, 3826)
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	/// Storage: `XcmPallet::AuthorizedAliases` (r:1 w:1)
+	/// Proof: `XcmPallet::AuthorizedAliases` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn remove_authorized_alias() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `400`
+		//  Estimated: `3865`
+		// Minimum execution time: 17_326_000 picoseconds.
+		Weight::from_parts(17_622_000, 3865)
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+
+	fn weigh_message() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 7_785_000 picoseconds.
+		Weight::from_parts(8_077_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+	}
 }

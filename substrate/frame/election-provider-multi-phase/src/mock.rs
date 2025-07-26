@@ -324,6 +324,7 @@ impl ElectionProvider for MockFallback {
 	type Error = &'static str;
 	type MaxWinnersPerPage = MaxWinners;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type MaxBackersPerWinnerFinal = MaxBackersPerWinner;
 	type Pages = ConstU32<1>;
 	type DataProvider = StakingMock;
 
@@ -331,8 +332,16 @@ impl ElectionProvider for MockFallback {
 		unimplemented!()
 	}
 
-	fn ongoing() -> bool {
-		false
+	fn duration() -> Self::BlockNumber {
+		0
+	}
+
+	fn start() -> Result<(), Self::Error> {
+		Ok(())
+	}
+
+	fn status() -> Result<bool, ()> {
+		Ok(true)
 	}
 }
 
@@ -402,7 +411,7 @@ impl MinerConfig for Runtime {
 impl crate::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type EstimateCallFee = frame_support::traits::ConstU32<8>;
+	type EstimateCallFee = frame_support::traits::ConstU64<8>;
 	type SignedPhase = SignedPhase;
 	type UnsignedPhase = UnsignedPhase;
 	type BetterSignedThreshold = BetterSignedThreshold;
@@ -451,11 +460,11 @@ where
 	type Extrinsic = Extrinsic;
 }
 
-impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
+impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
-	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
 		Extrinsic::new_bare(call)
 	}
 }

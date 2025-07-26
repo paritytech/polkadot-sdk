@@ -469,6 +469,14 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	async fn scheduling_lookahead(&self, at: Hash) -> Result<u32, sp_api::ApiError> {
 		Ok(self.rpc_client.parachain_host_scheduling_lookahead(at).await?)
 	}
+
+	async fn validation_code_bomb_limit(&self, at: Hash) -> Result<u32, sp_api::ApiError> {
+		Ok(self.rpc_client.parachain_host_validation_code_bomb_limit(at).await?)
+	}
+
+	async fn para_ids(&self, at: Hash) -> Result<Vec<ParaId>, sp_api::ApiError> {
+		Ok(self.rpc_client.parachain_host_para_ids(at).await?)
+	}
 }
 
 #[async_trait::async_trait]

@@ -29,7 +29,7 @@ scale-info = { workspace = true }
 # How we build docs in rust-docs
 docify = { workspace = true }
 serde_json = { workspace = true }
-simple-mermaid = "0.1.1"
+simple-mermaid = { workspace = true }
 
 # Polkadot SDK deps, typically all should only be in scope such that we can link to their doc item.
 chain-spec-builder = { workspace = true, default-features = true }
@@ -43,7 +43,9 @@ log = { workspace = true, default-features = true }
 node-cli = { workspace = true }
 pallet-example-authorization-tx-extension = { workspace = true, default-features = true }
 pallet-example-single-block-migrations = { workspace = true, default-features = true }
-polkadot-sdk = { features = ["runtime-full"], workspace = true, default-features = true }
+polkadot-sdk = { features = [
+	"runtime-full",
+], workspace = true, default-features = true }
 subkey = { workspace = true, default-features = true }
 
 # Substrate Client
@@ -80,24 +82,18 @@ pallet-asset-conversion-tx-payment = { workspace = true, default-features = true
 pallet-asset-tx-payment = { workspace = true, default-features = true }
 pallet-assets = { workspace = true, default-features = true }
 pallet-aura = { workspace = true, default-features = true }
-pallet-authorship = { workspace = true, default-features = true }
 pallet-babe = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
-pallet-broker = { workspace = true, default-features = true }
 pallet-collective = { workspace = true, default-features = true }
 pallet-democracy = { workspace = true, default-features = true }
 pallet-grandpa = { workspace = true, default-features = true }
-pallet-multisig = { workspace = true, default-features = true }
 pallet-nfts = { workspace = true, default-features = true }
 pallet-preimage = { workspace = true, default-features = true }
-pallet-proxy = { workspace = true, default-features = true }
-pallet-referenda = { workspace = true, default-features = true }
 pallet-scheduler = { workspace = true, default-features = true }
 pallet-skip-feeless-payment = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 pallet-transaction-payment = { workspace = true, default-features = true }
 pallet-uniques = { workspace = true, default-features = true }
-pallet-utility = { workspace = true, default-features = true }
 
 # Primitives
 sp-api = { workspace = true, default-features = true }
@@ -115,7 +111,6 @@ sp-tracing = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
 sp-weights = { workspace = true, default-features = true }
 
-
 # XCM
 pallet-xcm = { workspace = true }
 xcm = { workspace = true, default-features = true }
@@ -124,20 +119,18 @@ xcm-docs = { workspace = true }
 xcm-executor = { workspace = true }
 xcm-simulator = { workspace = true }
 
-# runtime guides
-
+# Runtime guides
 chain-spec-guide-runtime = { workspace = true, default-features = true }
 
 # Templates
 minimal-template-runtime = { workspace = true, default-features = true }
-parachain-template-runtime = { workspace = true, default-features = true }
 solochain-template-runtime = { workspace = true, default-features = true }
 
 # local packages
-first-pallet = { workspace = true, default-features = true }
 first-runtime = { workspace = true, default-features = true }
 
 [dev-dependencies]
-assert_cmd = "2.0.14"
+assert_cmd = { workspace = true }
 cmd_lib = { workspace = true }
-rand = "0.8"
+rand = { workspace = true, default-features = true }
+tokio = { workspace = true }

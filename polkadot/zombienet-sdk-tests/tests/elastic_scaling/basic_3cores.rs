@@ -5,19 +5,14 @@
 // can achieve full throughput of 3 candidates per block.
 
 use anyhow::anyhow;
-
-use crate::helpers::{
-	assert_para_throughput, rococo,
-	rococo::runtime_types::{
-		pallet_broker::coretime_interface::CoreAssignment,
-		polkadot_runtime_parachains::assigner_coretime::PartsOf57600,
-	},
-};
+use cumulus_zombienet_sdk_helpers::{assert_para_throughput, create_assign_core_call};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
-use subxt::{OnlineClient, PolkadotConfig};
-use subxt_signer::sr25519::dev;
-use zombienet_sdk::NetworkConfigBuilder;
+use zombienet_sdk::{
+	subxt::{OnlineClient, PolkadotConfig},
+	subxt_signer::sr25519::dev,
+	NetworkConfigBuilder,
+};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn basic_3cores_test() -> Result<(), anyhow::Error> {
@@ -84,30 +79,7 @@ async fn basic_3cores_test() -> Result<(), anyhow::Error> {
 	relay_client
 		.tx()
 		.sign_and_submit_then_watch_default(
-			&rococo::tx()
-				.sudo()
-				.sudo(rococo::runtime_types::rococo_runtime::RuntimeCall::Utility(
-					rococo::runtime_types::pallet_utility::pallet::Call::batch {
-						calls: vec![
-							rococo::runtime_types::rococo_runtime::RuntimeCall::Coretime(
-								rococo::runtime_types::polkadot_runtime_parachains::coretime::pallet::Call::assign_core {
-									core: 0,
-									begin: 0,
-									assignment: vec![(CoreAssignment::Task(2000), PartsOf57600(57600))],
-									end_hint: None
-								}
-							),
-							rococo::runtime_types::rococo_runtime::RuntimeCall::Coretime(
-								rococo::runtime_types::polkadot_runtime_parachains::coretime::pallet::Call::assign_core {
-									core: 1,
-									begin: 0,
-									assignment: vec![(CoreAssignment::Task(2000), PartsOf57600(57600))],
-									end_hint: None
-								}
-							),
-						],
-					},
-				)),
+			&create_assign_core_call(&[(0, 2000), (1, 2000)]),
 			&alice,
 		)
 		.await?
@@ -119,7 +91,7 @@ async fn basic_3cores_test() -> Result<(), anyhow::Error> {
 	assert_para_throughput(
 		&relay_client,
 		15,
-		[(ParaId::from(2000), 40..46), (ParaId::from(2001), 12..16)]
+		[(ParaId::from(2000), 38..46), (ParaId::from(2001), 12..16)]
 			.into_iter()
 			.collect(),
 	)

@@ -18,7 +18,9 @@
 
 use crate::{
 	protocol::notifications::{
-		handler::{self, NotificationsSink, NotifsHandler, NotifsHandlerIn, NotifsHandlerOut},
+		handler::{
+			self, CloseReason, NotificationsSink, NotifsHandler, NotifsHandlerIn, NotifsHandlerOut,
+		},
 		service::{NotificationCommand, ProtocolHandle, ValidationCallResult},
 	},
 	protocol_controller::{self, IncomingIndex, Message, SetId},
@@ -399,6 +401,14 @@ pub enum NotificationsOut {
 		/// Message that has been received.
 		message: BytesMut,
 	},
+
+	/// The remote peer misbehaved by sent a message on an outbound substream.
+	ProtocolMisbehavior {
+		/// Id of the peer the message came from.
+		peer_id: PeerId,
+		/// Peerset set ID the substream is tied to.
+		set_id: SetId,
+	},
 }
 
 impl Notifications {
@@ -634,7 +644,7 @@ impl Notifications {
 				let peer_id = occ_entry.key().0;
 				trace!(
 					target: LOG_TARGET,
-					"PSM => Connect({}, {:?}): Will start to connect at until {:?}",
+					"PSM => Connect({}, {:?}): Will start to connect at {:?}",
 					peer_id,
 					set_id,
 					timer_deadline,
@@ -1027,7 +1037,7 @@ impl Notifications {
 				if peerset_rejected {
 					trace!(
 						target: LOG_TARGET,
-						"Protocol accepted ({:?} {:?} {:?}) but Peerset had request disconnection, rejecting",
+						"Protocol accepted ({:?} {:?} {:?}) but Peerset had requested disconnection, rejecting",
 						index,
 						incoming.peer_id,
 						incoming.set_id
@@ -1678,6 +1688,7 @@ impl NetworkBehaviour for Notifications {
 			FromSwarm::ExternalAddrConfirmed(_) => {},
 			FromSwarm::AddressChange(_) => {},
 			FromSwarm::NewListenAddr(_) => {},
+			FromSwarm::NewExternalAddrOfPeer(_) => {},
 			event => {
 				warn!(target: LOG_TARGET, "New unknown `FromSwarm` libp2p event: {event:?}");
 			},
@@ -1899,7 +1910,7 @@ impl NetworkBehaviour for Notifications {
 				};
 			},
 
-			NotifsHandlerOut::CloseDesired { protocol_index } => {
+			NotifsHandlerOut::CloseDesired { protocol_index, reason } => {
 				let set_id = SetId::from(protocol_index);
 
 				trace!(target: LOG_TARGET,
@@ -1914,6 +1925,12 @@ impl NetworkBehaviour for Notifications {
 					debug_assert!(false);
 					return
 				};
+
+				if reason == CloseReason::ProtocolMisbehavior {
+					self.events.push_back(ToSwarm::GenerateEvent(
+						NotificationsOut::ProtocolMisbehavior { peer_id, set_id },
+					));
+				}
 
 				match mem::replace(entry.get_mut(), PeerState::Poisoned) {
 					// Enabled => Enabled | Disabled

@@ -201,6 +201,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Identifier for the elections-phragmen pallet's lock
@@ -507,7 +508,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			match renouncing {
 				Renouncing::Member => {
-					let _ = Self::remove_and_replace_member(&who, false)
+					Self::remove_and_replace_member(&who, false)
 						.map_err(|_| Error::<T>::InvalidRenouncing)?;
 					Self::deposit_event(Event::Renounced { candidate: who });
 				},
@@ -573,7 +574,7 @@ pub mod pallet {
 			ensure_root(origin)?;
 			let who = T::Lookup::lookup(who)?;
 
-			let _ = Self::remove_and_replace_member(&who, slash_bond)?;
+			Self::remove_and_replace_member(&who, slash_bond)?;
 			Self::deposit_event(Event::MemberKicked { member: who });
 
 			if rerun_election {
@@ -600,7 +601,7 @@ pub mod pallet {
 			num_voters: u32,
 			num_defunct: u32,
 		) -> DispatchResult {
-			let _ = ensure_root(origin)?;
+			ensure_root(origin)?;
 
 			Voting::<T>::iter()
 				.take(num_voters as usize)

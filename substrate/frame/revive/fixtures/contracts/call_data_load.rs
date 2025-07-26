@@ -22,8 +22,8 @@
 
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-extern crate common;
 use uapi::{HostFn, HostFnImpl as api, ReturnFlags};
 
 #[no_mangle]

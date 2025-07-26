@@ -11,28 +11,30 @@ repository.workspace = true
 [lints]
 workspace = true
 
+[[bench]]
+name = "statement-distribution-regression-bench"
+path = "benches/statement-distribution-regression-bench.rs"
+harness = false
+required-features = ["subsystem-benchmarks"]
+
 [dependencies]
-arrayvec = { workspace = true }
 bitvec = { workspace = true, default-features = true }
 codec = { features = ["derive"], workspace = true }
 fatality = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
 gum = { workspace = true, default-features = true }
-indexmap = { workspace = true }
 polkadot-node-network-protocol = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
-sp-staking = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
 async-channel = { workspace = true }
-futures-timer = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives = { workspace = true, features = ["test"] }
 polkadot-primitives-test-helpers = { workspace = true }
@@ -45,14 +47,7 @@ sp-application-crypto = { workspace = true, default-features = true }
 sp-authority-discovery = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
-
-[[bench]]
-name = "statement-distribution-regression-bench"
-path = "benches/statement-distribution-regression-bench.rs"
-harness = false
-required-features = ["subsystem-benchmarks"]
 
 [features]
 subsystem-benchmarks = []

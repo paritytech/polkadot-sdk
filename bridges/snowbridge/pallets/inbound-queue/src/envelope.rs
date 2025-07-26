@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-use snowbridge_core::{inbound::Log, ChannelId};
+use snowbridge_core::ChannelId;
+use snowbridge_inbound_queue_primitives::Log;
 
 use sp_core::{RuntimeDebug, H160, H256};
 use sp_std::prelude::*;
@@ -35,7 +36,7 @@ impl TryFrom<&Log> for Envelope {
 	fn try_from(log: &Log) -> Result<Self, Self::Error> {
 		let topics: Vec<B256> = log.topics.iter().map(|x| B256::from_slice(x.as_ref())).collect();
 
-		let event = OutboundMessageAccepted::decode_raw_log(topics, &log.data, true)
+		let event = OutboundMessageAccepted::decode_raw_log_validate(topics, &log.data)
 			.map_err(|_| EnvelopeDecodeError)?;
 
 		Ok(Self {

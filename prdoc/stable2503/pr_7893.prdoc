@@ -1,0 +1,15 @@
+title: Use non-native token to benchmark on asset hub
+doc:
+- audience: Runtime Dev
+  description: |-
+    Asset Hub was using the native token for benchmarking xcm instructions. This is not the best since it's cheaper than using something in `pallet-assets` for example.
+    Had to remove some restrictive checks from `pallet-xcm-benchmarks`.
+crates:
+- name: pallet-xcm-benchmarks
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-test-utils
+  bump: patch

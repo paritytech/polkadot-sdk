@@ -1,0 +1,18 @@
+title: Implementation of `ah-client` and `rc-client` staking pallets
+doc:
+- audience: Runtime Dev
+  description: |-
+    NOTE: This is reverted in #7939.
+    This PR introduces the initial structure for `pallet-ah-client` and `pallet-rc-client`. These
+    pallets will reside on the relay chain and AssetHub, respectively, and will manage the interaction
+    between `pallet-session` on the relay chain and `pallet-staking` on AssetHub.
+    Both pallets are experimental and not intended for production use.
+crates:
+- name: pallet-staking-ah-client
+  bump: major
+- name: pallet-staking-rc-client
+  bump: major
+- name: pallet-election-provider-multi-block
+  bump: minor
+- name: pallet-staking
+  bump: major

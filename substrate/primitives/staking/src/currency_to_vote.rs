@@ -38,6 +38,15 @@ pub trait CurrencyToVote<B> {
 
 	/// Convert u128 to balance.
 	fn to_currency(value: u128, issuance: B) -> B;
+
+	/// Send a signal whether you are going to downscale the `B` when converting to `u64` given the
+	/// current issuance.
+	///
+	/// This is useful for automated checks in place to signal maintainers that the total issuance
+	/// has reached a point where downscaling will happen.
+	///
+	/// `None` means we don't know. `Some(_)` means we know with certainty.
+	fn will_downscale(issuance: B) -> Option<bool>;
 }
 
 /// An implementation of `CurrencyToVote` tailored for chain's that have a balance type of u128.
@@ -67,6 +76,10 @@ impl CurrencyToVote<u128> for U128CurrencyToVote {
 	fn to_currency(value: u128, issuance: u128) -> u128 {
 		value.saturating_mul(Self::factor(issuance))
 	}
+
+	fn will_downscale(issuance: u128) -> Option<bool> {
+		Some(issuance > u64::MAX as u128)
+	}
 }
 
 /// A naive implementation of `CurrencyConvert` that simply saturates all conversions.
@@ -86,6 +99,10 @@ impl<B: UniqueSaturatedInto<u64> + UniqueSaturatedFrom<u128>> CurrencyToVote<B>
 	fn to_currency(value: u128, _: B) -> B {
 		B::unique_saturated_from(value)
 	}
+
+	fn will_downscale(_issuance: B) -> Option<bool> {
+		None
+	}
 }
 
 #[cfg(feature = "std")]
@@ -97,5 +114,9 @@ impl<B: UniqueSaturatedInto<u64> + UniqueSaturatedFrom<u128>> CurrencyToVote<B> 
 	/// Convert u128 to balance.
 	fn to_currency(value: u128, issuance: B) -> B {
 		SaturatingCurrencyToVote::to_currency(value, issuance)
+	}
+
+	fn will_downscale(_issuance: B) -> Option<bool> {
+		None
 	}
 }

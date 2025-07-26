@@ -60,7 +60,9 @@ impl<C: Config<Hash = subxt::utils::H256>> DynamicRemarkBuilder<C> {
 
 			let latest = supported_metadata_versions
 				.into_iter()
-				.filter(|v| *v != u32::MAX)
+				// TODO: Subxt doesn't support V16 metadata until v0.42.0, so don't try
+				// to fetch it here until we update to that version.
+				.filter(|v| *v != u32::MAX && *v < 16)
 				.max()
 				.ok_or("No stable metadata versions supported".to_string())?;
 
@@ -115,8 +117,9 @@ impl ExtrinsicBuilder for DynamicRemarkBuilder<SubstrateConfig> {
 		let transaction = self
 			.offline_client
 			.tx()
-			.create_signed_offline(&dynamic_tx, &signer, params)
-			.unwrap();
+			.create_partial_offline(&dynamic_tx, params)
+			.unwrap()
+			.sign(&signer);
 		let mut encoded = transaction.into_encoded();
 
 		OpaqueExtrinsic::from_bytes(&mut encoded).map_err(|_| "Unable to construct OpaqueExtrinsic")

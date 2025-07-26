@@ -1,0 +1,22 @@
+title: 'chore: Bump bounded-collections dep'
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    Bump bounded-collections dep from `0.2.3` to `0.3.2` based on the latest [release](https://crates.io/crates/bounded-collections/0.3.2)
+crates:
+- name: sp-core
+  bump: minor
+- name: sp-weights
+  bump: minor
+- name: polkadot-parachain-primitives
+  bump: minor
+- name: polkadot-primitives
+  bump: minor
+- name: staging-xcm
+  bump: minor
+- name: pallet-xcm
+  bump: minor
+- name: cumulus-pallet-xcmp-queue
+  bump: minor

@@ -1,13 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
+use sc_executor::WasmExecutor;
 use std::{
 	env, fs, path,
 	path::{Path, PathBuf},
 	process::Command,
 };
-
-use subwasmlib::{source::Source, OutputFormat, Subwasm};
 
 macro_rules! debug_output {
     ($($tokens: tt)*) => {
@@ -27,16 +26,9 @@ fn make_env_key(k: &str) -> String {
 
 fn wasm_sub_path(chain: &str) -> String {
 	let (package, runtime_name) =
-		if let Some(cumulus_test_runtime) = chain.strip_prefix("cumulus-test-runtime-") {
-			(
-				"cumulus-test-runtime".to_string(),
-				format!("wasm_binary_{}.rs", replace_dashes(cumulus_test_runtime)),
-			)
-		} else {
-			(format!("{chain}-runtime"), replace_dashes(&format!("{chain}-runtime")))
-		};
+		(format!("{chain}-runtime"), replace_dashes(&format!("{chain}-runtime")));
 
-	format!("{}/{}.wasm", package, runtime_name)
+	format!("{package}/{runtime_name}.wasm")
 }
 
 fn find_wasm(chain: &str) -> Option<PathBuf> {
@@ -48,29 +40,25 @@ fn find_wasm(chain: &str) -> Option<PathBuf> {
 	let sub_path = wasm_sub_path(chain);
 
 	let profile = PROFILES.into_iter().find(|p| {
-		let full_path = format!("{}/target/{}/wbuild/{}", manifest_path, p, sub_path);
+		let full_path = format!("{manifest_path}/target/{p}/wbuild/{sub_path}");
 		debug_output!("checking wasm at : {}", full_path);
 		matches!(path::PathBuf::from(&full_path).try_exists(), Ok(true))
 	});
 
 	debug_output!("profile is : {:?}", profile);
 	profile.map(|profile| {
-		PathBuf::from(&format!("{}/target/{}/wbuild/{}", manifest_path, profile, sub_path))
+		PathBuf::from(&format!("{manifest_path}/target/{profile}/wbuild/{sub_path}"))
 	})
 }
 
 // based on https://gist.github.com/s0me0ne-unkn0wn/bbd83fe32ce10327086adbf13e750eec
 fn build_wasm(chain: &str) -> PathBuf {
-	let package = if chain.starts_with("cumulus-test-runtime-") {
-		String::from("cumulus-test-runtime")
-	} else {
-		format!("{chain}-runtime")
-	};
+	let package = format!("{chain}-runtime");
 
 	let cargo = env::var("CARGO").unwrap();
 	let target = env::var("TARGET").unwrap();
 	let out_dir = env::var("OUT_DIR").unwrap();
-	let target_dir = format!("{}/runtimes", out_dir);
+	let target_dir = format!("{out_dir}/runtimes");
 	let args = vec![
 		"build",
 		"-p",
@@ -93,11 +81,25 @@ fn build_wasm(chain: &str) -> PathBuf {
 	PathBuf::from(wasm_path)
 }
 
+type HostFunctions = (
+	sp_io::allocator::HostFunctions,
+	sp_io::logging::HostFunctions,
+	sp_io::storage::HostFunctions,
+	sp_io::hashing::HostFunctions,
+);
+
 fn generate_metadata_file(wasm_path: &Path, output_path: &Path) {
-	let source = Source::from_options(Some(wasm_path.to_path_buf()), None, None, None).unwrap();
-	let subwasm = Subwasm::new(&source.try_into().unwrap()).unwrap();
-	let mut output_file = std::fs::File::create(output_path).unwrap();
-	subwasm.write_metadata(OutputFormat::Scale, None, &mut output_file).unwrap();
+	let wasm_bytes = fs::read(wasm_path).expect("Failed to read WASM file");
+
+	let executor = WasmExecutor::<HostFunctions>::builder()
+		.with_allow_missing_host_functions(true)
+		.build();
+
+	let metadata =
+		sc_runtime_utilities::fetch_latest_metadata_from_code_blob(&executor, wasm_bytes.into())
+			.expect("Failed to fetch metadata from runtime");
+
+	fs::write(output_path, &*metadata).expect("Failed to write metadata file");
 }
 
 fn fetch_metadata_file(chain: &str, output_path: &Path) {
@@ -132,10 +134,6 @@ fn main() {
 	const METADATA_DIR: &str = "metadata-files";
 	const CHAINS: [&str; 2] = ["rococo", "coretime-rococo"];
 
-	// Add some cumulus test runtimes if needed. Formatted like
-	// "cumulus-test-runtime-elastic-scaling".
-	const CUMULUS_TEST_RUNTIMES: [&str; 0] = [];
-
 	let metadata_path = format!("{manifest_path}/{METADATA_DIR}");
 
 	for chain in CHAINS {
@@ -153,22 +151,7 @@ fn main() {
 		};
 	}
 
-	for chain in CUMULUS_TEST_RUNTIMES {
-		let full_path = format!("{metadata_path}/{chain}-local.scale");
-		let output_path = path::PathBuf::from(&full_path);
-
-		match output_path.try_exists() {
-			Ok(true) => {
-				debug_output!("got: {}", full_path);
-			},
-			_ => {
-				debug_output!("needs: {}", full_path);
-				fetch_metadata_file(chain, &output_path);
-			},
-		};
-	}
-
 	substrate_build_script_utils::generate_cargo_keys();
 	substrate_build_script_utils::rerun_if_git_head_changed();
-	println!("cargo:rerun-if-changed={}", metadata_path);
+	println!("cargo:rerun-if-changed={metadata_path}");
 }

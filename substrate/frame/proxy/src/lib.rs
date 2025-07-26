@@ -57,6 +57,7 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 #[derive(
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	Clone,
 	Copy,
 	Eq,
@@ -78,7 +79,18 @@ pub struct ProxyDefinition<AccountId, ProxyType, BlockNumber> {
 }
 
 /// Details surrounding a specific instance of an announcement to make a call.
-#[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Copy,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	MaxEncodedLen,
+	TypeInfo,
+)]
 pub struct Announcement<AccountId, Hash, BlockNumber> {
 	/// The account which made the announcement.
 	real: AccountId,
@@ -86,6 +98,26 @@ pub struct Announcement<AccountId, Hash, BlockNumber> {
 	call_hash: Hash,
 	/// The height at which the announcement was made.
 	height: BlockNumber,
+}
+
+/// The type of deposit
+#[derive(
+	Encode,
+	Decode,
+	Clone,
+	Copy,
+	Eq,
+	PartialEq,
+	RuntimeDebug,
+	MaxEncodedLen,
+	TypeInfo,
+	DecodeWithMemTracking,
+)]
+pub enum DepositKind {
+	/// Proxy registration deposit
+	Proxies,
+	/// Announcement deposit
+	Announcements,
 }
 
 #[frame::pallet]
@@ -99,6 +131,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The overarching call type.
@@ -274,7 +307,7 @@ pub mod pallet {
 		///
 		/// The dispatch origin for this call must be _Signed_.
 		///
-		/// WARNING: This may be called on accounts created by `pure`, however if done, then
+		/// WARNING: This may be called on accounts created by `create_pure`, however if done, then
 		/// the unreserved fees will be inaccessible. **All access to this account will be lost.**
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::remove_proxies(T::MaxProxies::get()))]
@@ -324,11 +357,14 @@ pub mod pallet {
 			T::Currency::reserve(&who, deposit)?;
 
 			Proxies::<T>::insert(&pure, (bounded_proxies, deposit));
+			let extrinsic_index = <frame_system::Pallet<T>>::extrinsic_index().unwrap_or_default();
 			Self::deposit_event(Event::PureCreated {
 				pure,
 				who,
 				proxy_type,
 				disambiguation_index: index,
+				at: T::BlockNumberProvider::current_block_number(),
+				extrinsic_index,
 			});
 
 			Ok(())
@@ -340,16 +376,16 @@ pub mod pallet {
 		/// inaccessible.
 		///
 		/// Requires a `Signed` origin, and the sender account must have been created by a call to
-		/// `pure` with corresponding parameters.
+		/// `create_pure` with corresponding parameters.
 		///
-		/// - `spawner`: The account that originally called `pure` to create this account.
-		/// - `index`: The disambiguation index originally passed to `pure`. Probably `0`.
-		/// - `proxy_type`: The proxy type originally passed to `pure`.
-		/// - `height`: The height of the chain when the call to `pure` was processed.
-		/// - `ext_index`: The extrinsic index in which the call to `pure` was processed.
+		/// - `spawner`: The account that originally called `create_pure` to create this account.
+		/// - `index`: The disambiguation index originally passed to `create_pure`. Probably `0`.
+		/// - `proxy_type`: The proxy type originally passed to `create_pure`.
+		/// - `height`: The height of the chain when the call to `create_pure` was processed.
+		/// - `ext_index`: The extrinsic index in which the call to `create_pure` was processed.
 		///
 		/// Fails with `NoPermission` in case the caller is not a previously created pure
-		/// account whose `pure` call has corresponding parameters.
+		/// account whose `create_pure` call has corresponding parameters.
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::kill_pure(T::MaxProxies::get()))]
 		pub fn kill_pure(
@@ -369,6 +405,13 @@ pub mod pallet {
 
 			let (_, deposit) = Proxies::<T>::take(&who);
 			T::Currency::unreserve(&spawner, deposit);
+
+			Self::deposit_event(Event::PureKilled {
+				pure: who,
+				spawner,
+				proxy_type,
+				disambiguation_index: index,
+			});
 
 			Ok(())
 		}
@@ -529,6 +572,105 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// Poke / Adjust deposits made for proxies and announcements based on current values.
+		/// This can be used by accounts to possibly lower their locked amount.
+		///
+		/// The dispatch origin for this call must be _Signed_.
+		///
+		/// The transaction fee is waived if the deposit amount has changed.
+		///
+		/// Emits `DepositPoked` if successful.
+		#[pallet::call_index(10)]
+		#[pallet::weight(T::WeightInfo::poke_deposit())]
+		pub fn poke_deposit(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			let mut deposit_updated = false;
+
+			// Check and update proxy deposits
+			Proxies::<T>::try_mutate_exists(&who, |maybe_proxies| -> DispatchResult {
+				let (proxies, old_deposit) = maybe_proxies.take().unwrap_or_default();
+				let maybe_new_deposit = Self::rejig_deposit(
+					&who,
+					old_deposit,
+					T::ProxyDepositBase::get(),
+					T::ProxyDepositFactor::get(),
+					proxies.len(),
+				)?;
+
+				match maybe_new_deposit {
+					Some(new_deposit) if new_deposit != old_deposit => {
+						*maybe_proxies = Some((proxies, new_deposit));
+						deposit_updated = true;
+						Self::deposit_event(Event::DepositPoked {
+							who: who.clone(),
+							kind: DepositKind::Proxies,
+							old_deposit,
+							new_deposit,
+						});
+					},
+					Some(_) => {
+						*maybe_proxies = Some((proxies, old_deposit));
+					},
+					None => {
+						*maybe_proxies = None;
+						if !old_deposit.is_zero() {
+							deposit_updated = true;
+							Self::deposit_event(Event::DepositPoked {
+								who: who.clone(),
+								kind: DepositKind::Proxies,
+								old_deposit,
+								new_deposit: BalanceOf::<T>::zero(),
+							});
+						}
+					},
+				}
+				Ok(())
+			})?;
+
+			// Check and update announcement deposits
+			Announcements::<T>::try_mutate_exists(&who, |maybe_announcements| -> DispatchResult {
+				let (announcements, old_deposit) = maybe_announcements.take().unwrap_or_default();
+				let maybe_new_deposit = Self::rejig_deposit(
+					&who,
+					old_deposit,
+					T::AnnouncementDepositBase::get(),
+					T::AnnouncementDepositFactor::get(),
+					announcements.len(),
+				)?;
+
+				match maybe_new_deposit {
+					Some(new_deposit) if new_deposit != old_deposit => {
+						*maybe_announcements = Some((announcements, new_deposit));
+						deposit_updated = true;
+						Self::deposit_event(Event::DepositPoked {
+							who: who.clone(),
+							kind: DepositKind::Announcements,
+							old_deposit,
+							new_deposit,
+						});
+					},
+					Some(_) => {
+						*maybe_announcements = Some((announcements, old_deposit));
+					},
+					None => {
+						*maybe_announcements = None;
+						if !old_deposit.is_zero() {
+							deposit_updated = true;
+							Self::deposit_event(Event::DepositPoked {
+								who: who.clone(),
+								kind: DepositKind::Announcements,
+								old_deposit,
+								new_deposit: BalanceOf::<T>::zero(),
+							});
+						}
+					},
+				}
+				Ok(())
+			})?;
+
+			Ok(if deposit_updated { Pays::No.into() } else { Pays::Yes.into() })
+		}
 	}
 
 	#[pallet::event]
@@ -542,6 +684,19 @@ pub mod pallet {
 			pure: T::AccountId,
 			who: T::AccountId,
 			proxy_type: T::ProxyType,
+			disambiguation_index: u16,
+			at: BlockNumberFor<T>,
+			extrinsic_index: u32,
+		},
+		/// A pure proxy was killed by its spawner.
+		PureKilled {
+			// The pure proxy account that was destroyed.
+			pure: T::AccountId,
+			// The account that created the pure proxy.
+			spawner: T::AccountId,
+			// The proxy type of the pure proxy that was destroyed.
+			proxy_type: T::ProxyType,
+			// The index originally passed to `create_pure` when this pure proxy was created.
 			disambiguation_index: u16,
 		},
 		/// An announcement was placed to make a call in the future.
@@ -559,6 +714,13 @@ pub mod pallet {
 			delegatee: T::AccountId,
 			proxy_type: T::ProxyType,
 			delay: BlockNumberFor<T>,
+		},
+		/// A deposit stored for proxies or announcements was poked / updated.
+		DepositPoked {
+			who: T::AccountId,
+			kind: DepositKind,
+			old_deposit: BalanceOf<T>,
+			new_deposit: BalanceOf<T>,
 		},
 	}
 
@@ -612,7 +774,7 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	#[pallet::view_functions_experimental]
+	#[pallet::view_functions]
 	impl<T: Config> Pallet<T> {
 		/// Check if a `RuntimeCall` is allowed for a given `ProxyType`.
 		pub fn check_permissions(
@@ -673,6 +835,7 @@ impl<T: Config> Pallet<T> {
 				frame_system::Pallet::<T>::extrinsic_index().unwrap_or_default(),
 			)
 		});
+
 		let entropy = (b"modlpy/proxy____", who, height, ext_index, proxy_type, index)
 			.using_encoded(blake2_256);
 		Decode::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
@@ -779,9 +942,16 @@ impl<T: Config> Pallet<T> {
 		let new_deposit =
 			if len == 0 { BalanceOf::<T>::zero() } else { base + factor * (len as u32).into() };
 		if new_deposit > old_deposit {
-			T::Currency::reserve(who, new_deposit - old_deposit)?;
+			T::Currency::reserve(who, new_deposit.saturating_sub(old_deposit))?;
 		} else if new_deposit < old_deposit {
-			T::Currency::unreserve(who, old_deposit - new_deposit);
+			let excess = old_deposit.saturating_sub(new_deposit);
+			let remaining_unreserved = T::Currency::unreserve(who, excess);
+			if !remaining_unreserved.is_zero() {
+				defensive!(
+					"Failed to unreserve full amount. (Requested, Actual)",
+					(excess, excess.saturating_sub(remaining_unreserved))
+				);
+			}
 		}
 		Ok(if len == 0 { None } else { Some(new_deposit) })
 	}

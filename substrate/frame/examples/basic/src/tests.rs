@@ -85,7 +85,6 @@ impl pallet_balances::Config for Test {
 
 impl Config for Test {
 	type MagicNumber = ConstU64<1_000_000_000>;
-	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 }
 
