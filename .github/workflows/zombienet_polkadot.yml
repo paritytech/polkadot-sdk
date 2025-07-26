@@ -41,6 +41,7 @@ jobs:
     with:
       tests_yaml: .github/zombienet-tests/zombienet_polkadot_tests.yml
       test_pattern: ${{ inputs.test_pattern }}
+    secrets: inherit
 
   zombienet-polkadot-tests:
     name: ${{ matrix.test.job-name }}
@@ -100,6 +101,6 @@ jobs:
           test-filter: ${{ matrix.test.test-filter }}
           job-name: ${{ matrix.test.job-name }}
           prefix: "polkadot"
-          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          gh-token: ${{ needs.preflight.outputs.DOWNLOADER_APP_TOKEN }}
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
