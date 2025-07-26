@@ -74,6 +74,21 @@ use std::{
 /// are possible in custom nodes through [`NetworkConfiguration`].
 pub const DEFAULT_IDLE_CONNECTION_TIMEOUT: Duration = Duration::from_secs(10);
 
+/// Maximum number of locally kept Kademlia provider keys.
+///
+/// 10000 keys is enough for a testnet with fast runtime (1-minute epoch) and 13 parachains.
+pub const KADEMLIA_MAX_PROVIDER_KEYS: usize = 10000;
+
+/// Time to keep Kademlia content provider records.
+///
+/// 10 h is enough time to keep the parachain bootnode record for two 4-hour epochs.
+pub const KADEMLIA_PROVIDER_RECORD_TTL: Duration = Duration::from_secs(10 * 3600);
+
+/// Interval of republishing Kademlia provider records.
+///
+/// 3.5 h means we refresh next epoch provider record 30 minutes before next 4-hour epoch comes.
+pub const KADEMLIA_PROVIDER_REPUBLISH_INTERVAL: Duration = Duration::from_secs(12600);
+
 /// Protocol name prefix, transmitted on the wire for legacy protocol names.
 /// I.e., `dot` in `/dot/sync/2`. Should be unique for each chain. Always UTF-8.
 /// Deprecated in favour of genesis hash & fork ID based protocol names.
