@@ -66,7 +66,7 @@ pub async fn fetch_pov<Context>(
 
 	ctx.send_message(NetworkBridgeTxMessage::SendRequests(
 		vec![full_req],
-		IfDisconnected::ImmediateError,
+		IfDisconnected::TryConnect,
 	))
 	.await;
 

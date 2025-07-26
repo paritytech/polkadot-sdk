@@ -128,7 +128,7 @@ impl<B: Block, AuthorityId: AuthorityIdBound> OnDemandJustificationsEngine<B, Au
 			payload,
 			None,
 			tx,
-			IfDisconnected::ImmediateError,
+			IfDisconnected::TryConnect,
 		);
 
 		self.state = State::AwaitingResponse(peer, req_info, rx);

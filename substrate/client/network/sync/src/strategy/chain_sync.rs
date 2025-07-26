@@ -899,7 +899,7 @@ where
 				self.state_request_protocol_name.clone(),
 				request.encode_to_vec(),
 				tx,
-				IfDisconnected::ImmediateError,
+				IfDisconnected::TryConnect,
 			);
 
 			SyncingAction::StartRequest {

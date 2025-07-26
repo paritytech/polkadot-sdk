@@ -86,7 +86,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 			sender
 				.send_message(NetworkBridgeTxMessage::SendRequests(
 					vec![Requests::AvailableDataFetchingV1(req)],
-					IfDisconnected::ImmediateError,
+					IfDisconnected::TryConnect,
 				))
 				.await;
 
