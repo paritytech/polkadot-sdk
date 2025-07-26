@@ -718,10 +718,20 @@ where
 	) -> Result<Pin<Box<TransactionStatusStreamFor<Self>>>, ChainApi::Error> {
 		let xt = Arc::from(xt);
 
-		let insertion = match self.mempool.push_watched(source, xt.clone()).await {
+		let at_number = self
+			.api
+			.block_id_to_number(&BlockId::Hash(at))
+			.ok()
+			.flatten()
+			.unwrap_or_default()
+			.into()
+			.as_u64();
+
+		let insertion = match self.mempool.push_watched(source, at_number, xt.clone()).await {
 			Ok(result) => result,
 			Err(TxPoolApiError::ImmediatelyDropped) =>
-				self.attempt_transaction_replacement(source, true, xt.clone()).await?,
+				self.attempt_transaction_replacement(source, at_number, true, xt.clone())
+					.await?,
 			Err(e) => return Err(e.into()),
 		};
 
@@ -745,12 +755,21 @@ where
 	/// Refer to [`Self::submit_at`]
 	async fn submit_at_inner(
 		&self,
+		at: Block::Hash,
 		source: TransactionSource,
 		xts: Vec<TransactionFor<Self>>,
 	) -> Result<Vec<Result<TxHash<Self>, ChainApi::Error>>, ChainApi::Error> {
+		let at_number = self
+			.api
+			.block_id_to_number(&BlockId::Hash(at))
+			.ok()
+			.flatten()
+			.unwrap_or_default()
+			.into()
+			.as_u64();
 		let view_store = self.view_store.clone();
 		let xts = xts.into_iter().map(Arc::from).collect::<Vec<_>>();
-		let mempool_results = self.mempool.extend_unwatched(source, &xts).await;
+		let mempool_results = self.mempool.extend_unwatched(source, at_number, &xts).await;
 
 		if view_store.is_empty() {
 			return Ok(mempool_results
@@ -766,7 +785,7 @@ where
 			.map(|(result, xt)| async move {
 				match result {
 					Err(TxPoolApiError::ImmediatelyDropped) =>
-						self.attempt_transaction_replacement(source, false, xt).await,
+						self.attempt_transaction_replacement(source, at_number, false, xt).await,
 					_ => result,
 				}
 			})
@@ -914,7 +933,7 @@ where
 	/// are reduced to single result. Refer to `reduce_multiview_result` for more details.
 	async fn submit_at(
 		&self,
-		_: <Self::Block as BlockT>::Hash,
+		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xts: Vec<TransactionFor<Self>>,
 	) -> Result<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
@@ -926,7 +945,7 @@ where
 			"fatp::submit_at"
 		);
 		log_xt_trace!(target: LOG_TARGET, xts.iter().map(|xt| self.tx_hash(xt)), "fatp::submit_at");
-		let result = self.submit_at_inner(source, xts).await;
+		let result = self.submit_at_inner(at, source, xts).await;
 		insert_and_log_throttled!(
 			Level::DEBUG,
 			target:LOG_TARGET_STAT,
@@ -1120,7 +1139,7 @@ where
 
 	fn submit_local(
 		&self,
-		_at: Block::Hash,
+		at: Block::Hash,
 		xt: sc_transaction_pool_api::LocalTransactionFor<Self>,
 	) -> Result<Self::Hash, Self::Error> {
 		trace!(
@@ -1129,12 +1148,20 @@ where
 			"fatp::submit_local"
 		);
 		let xt = Arc::from(xt);
+		let at_number = self
+			.api
+			.block_id_to_number(&BlockId::Hash(at))
+			.ok()
+			.flatten()
+			.unwrap_or_default()
+			.into()
+			.as_u64();
 
 		// note: would be nice to get rid of sync methods one day. See: #8912
 		let result = self
 			.mempool
 			.clone()
-			.extend_unwatched_sync(TransactionSource::Local, vec![xt.clone()])
+			.extend_unwatched_sync(TransactionSource::Local, at_number, vec![xt.clone()])
 			.remove(0);
 
 		let insertion = match result {
@@ -1801,6 +1828,7 @@ where
 	async fn attempt_transaction_replacement(
 		&self,
 		source: TransactionSource,
+		at_number: u64,
 		watched: bool,
 		xt: ExtrinsicFor<ChainApi>,
 	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, TxPoolApiError> {
@@ -1828,8 +1856,10 @@ where
 			return Err(TxPoolApiError::ImmediatelyDropped)
 		};
 
-		let insertion_info =
-			self.mempool.try_insert_with_replacement(xt, priority, source, watched).await?;
+		let insertion_info = self
+			.mempool
+			.try_insert_with_replacement(xt, priority, source, at_number, watched)
+			.await?;
 		self.post_attempt_transaction_replacement(xt_hash, insertion_info)
 	}
 
@@ -1840,18 +1870,17 @@ where
 		watched: bool,
 		xt: ExtrinsicFor<ChainApi>,
 	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, TxPoolApiError> {
-		let at = self
+		let HashAndNumber { number: at_number, hash: at_hash } = self
 			.view_store
 			.most_recent_view
 			.read()
 			.as_ref()
 			.ok_or(TxPoolApiError::ImmediatelyDropped)?
-			.at
-			.hash;
+			.at;
 
 		let ValidTransaction { priority, .. } = self
 			.api
-			.validate_transaction_blocking(at, TransactionSource::Local, Arc::from(xt.clone()))
+			.validate_transaction_blocking(at_hash, TransactionSource::Local, Arc::from(xt.clone()))
 			.map_err(|_| TxPoolApiError::ImmediatelyDropped)?
 			.map_err(|e| match e {
 				TransactionValidityError::Invalid(i) => TxPoolApiError::InvalidTransaction(i),
@@ -1859,10 +1888,13 @@ where
 			})?;
 		let xt_hash = self.hash_of(&xt);
 
-		let insertion_info = self
-			.mempool
-			.clone()
-			.try_insert_with_replacement_sync(xt, priority, source, watched)?;
+		let insertion_info = self.mempool.clone().try_insert_with_replacement_sync(
+			xt,
+			priority,
+			source,
+			at_number.into().as_u64(),
+			watched,
+		)?;
 		self.post_attempt_transaction_replacement(xt_hash, insertion_info)
 	}
 
