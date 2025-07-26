@@ -23,6 +23,7 @@ use crate::{
 	TransactionByteFee,
 };
 use bp_asset_hub_westend::CreateForeignAssetDeposit;
+use bridge_hub_common::AggregateMessageOrigin;
 use frame_support::{parameter_types, traits::Contains, weights::ConstantMultiplier};
 use frame_system::EnsureRootWithSuccess;
 use pallet_xcm::EnsureXcm;
@@ -194,6 +195,7 @@ impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {
 	type RewardKind = BridgeReward;
 	type DefaultRewardKind = SnowbridgeReward;
 	type RewardPayment = BridgeRelayers;
+	type AggregateMessageOrigin = AggregateMessageOrigin;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Runtime;
 }

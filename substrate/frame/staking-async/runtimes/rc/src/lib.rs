@@ -1350,6 +1350,7 @@ impl parachains_inclusion::Config for Runtime {
 		parachains_reward_points::RewardValidatorsWithEraPoints<Runtime, StakingAhClient>;
 	type MessageQueue = MessageQueue;
 	type WeightInfo = weights::polkadot_runtime_parachains_inclusion::WeightInfo<Runtime>;
+	type AggregateMessageOrigin = AggregateMessageOrigin;
 }
 
 parameter_types! {
