@@ -1185,6 +1185,7 @@ fn fatp_no_view_pool_watcher_two_finalized_in_different_block() {
 	assert_eq!(
 		xt1_status,
 		vec![
+			TransactionStatus::Ready,
 			TransactionStatus::InBlock((header03.hash(), 0)),
 			TransactionStatus::Finalized((header03.hash(), 0))
 		]
@@ -1197,6 +1198,7 @@ fn fatp_no_view_pool_watcher_two_finalized_in_different_block() {
 	assert_eq!(
 		xt0_status,
 		vec![
+			TransactionStatus::Ready,
 			TransactionStatus::InBlock((header02.hash(), 2)),
 			TransactionStatus::Finalized((header02.hash(), 2))
 		]
@@ -1208,6 +1210,7 @@ fn fatp_no_view_pool_watcher_two_finalized_in_different_block() {
 	assert_eq!(
 		xt2_status,
 		vec![
+			TransactionStatus::Ready,
 			TransactionStatus::InBlock((header02.hash(), 1)),
 			TransactionStatus::Finalized((header02.hash(), 1))
 		]
@@ -1240,7 +1243,7 @@ fn fatp_watcher_in_block_across_many_blocks() {
 	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone())).unwrap();
 	//note 1: transaction is not submitted to views that are not at the tip of the fork
 	assert_eq!(pool.active_views_count(), 1);
-	assert_eq!(pool.inactive_views_count(), 1);
+	assert_eq!(pool.inactive_views_count(), 2); //gensis + 01
 	assert_pool_status!(header02.hash(), &pool, 3, 0);
 
 	let header03 = api.push_block(3, vec![xt0.clone()], true);
@@ -1284,7 +1287,7 @@ fn fatp_watcher_in_block_across_many_blocks2() {
 	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone())).unwrap();
 	//note 1: transaction is not submitted to views that are not at the tip of the fork
 	assert_eq!(pool.active_views_count(), 1);
-	assert_eq!(pool.inactive_views_count(), 1);
+	assert_eq!(pool.inactive_views_count(), 2); //genesis + 01
 	assert_pool_status!(header02.hash(), &pool, 3, 0);
 
 	let header03 = api.push_block(3, vec![xt0.clone()], true);
@@ -1457,6 +1460,7 @@ fn fatp_watcher_finalizing_forks() {
 	assert_eq!(
 		xt0_status,
 		vec![
+			TransactionStatus::Ready,
 			TransactionStatus::InBlock((header01.hash(), 0)),
 			TransactionStatus::Finalized((header01.hash(), 0)),
 		]
@@ -1551,6 +1555,7 @@ fn fatp_watcher_best_block_after_finalized2() {
 	assert_eq!(
 		xt0_events,
 		vec![
+			TransactionStatus::Ready,
 			TransactionStatus::InBlock((header01.hash(), 0)),
 			TransactionStatus::Finalized((header01.hash(), 0)),
 		]
@@ -1594,6 +1599,7 @@ fn fatp_watcher_switching_fork_multiple_times_works() {
 	assert_eq!(
 		xt0_status,
 		vec![
+			TransactionStatus::Ready,
 			TransactionStatus::InBlock((header01a.hash(), 0)),
 			TransactionStatus::InBlock((header01b.hash(), 0)),
 			TransactionStatus::Finalized((header01b.hash(), 0)),
@@ -1708,6 +1714,7 @@ fn fatp_watcher_delayed_finalization_does_not_retract() {
 	assert_eq!(
 		xt0_status,
 		vec![
+			TransactionStatus::Ready,
 			TransactionStatus::InBlock((header02.hash(), 0)),
 			TransactionStatus::Finalized((header02.hash(), 0)),
 		]
@@ -2340,6 +2347,50 @@ fn fatp_ready_light_long_fork_works() {
 }
 
 #[test]
+fn fatp_ready_light_most_recent_view_long_fork_retracted_works() {
+	sp_tracing::try_init_simple();
+
+	let (pool, api, _) = pool();
+	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
+	api.set_nonce(api.genesis_hash(), Charlie.into(), 200);
+	api.set_nonce(api.genesis_hash(), Dave.into(), 200);
+	api.set_nonce(api.genesis_hash(), Eve.into(), 200);
+
+	let genesis = api.genesis_hash();
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Bob, 200);
+	let xt2 = uxt(Charlie, 200);
+	let xt3 = uxt(Dave, 200);
+	let xt4 = uxt(Eve, 200);
+
+	let submissions = vec![pool.submit_at(
+		genesis,
+		SOURCE,
+		vec![xt0.clone(), xt1.clone(), xt2.clone(), xt3.clone()],
+	)];
+	let results = block_on(futures::future::join_all(submissions));
+	assert!(results.iter().all(|r| { r.is_ok() }));
+
+	// dirty hack to remove genesis view, so we can check fallback to most-recent-view at header03b.
+	let header01a = api.push_block_with_parent(genesis, vec![], true);
+	let event = finalized_block_event(&pool, genesis, header01a.hash());
+	block_on(pool.maintain(event));
+
+	let header02a = api.push_block_with_parent(header01a.hash(), vec![xt4.clone()], true);
+	let event = new_best_block_event(&pool, Some(genesis), header02a.hash());
+	block_on(pool.maintain(event));
+
+	let header01b = api.push_block_with_parent(genesis, vec![xt0.clone()], true);
+	let header02b = api.push_block_with_parent(header01b.hash(), vec![xt1.clone()], true);
+	let header03b = api.push_block_with_parent(header02b.hash(), vec![xt2.clone()], true);
+
+	// Returns the most recent view (`header02a`) ready transactions set.
+	let ready_iterator = pool.ready_at_light(header03b.hash()).now_or_never().unwrap();
+	assert_eq!(ready_iterator.count(), 4);
+}
+
+#[test]
 fn fatp_ready_light_long_fork_retracted_works() {
 	sp_tracing::try_init_simple();
 
@@ -2373,9 +2424,9 @@ fn fatp_ready_light_long_fork_retracted_works() {
 	let header02b = api.push_block_with_parent(header01b.hash(), vec![xt1.clone()], true);
 	let header03b = api.push_block_with_parent(header02b.hash(), vec![xt2.clone()], true);
 
-	// Returns the most recent view (`header01a`) ready transactions set.
+	// Returns the genesis view ready transactions set with fork txs removed.
 	let ready_iterator = pool.ready_at_light(header03b.hash()).now_or_never().unwrap();
-	assert_eq!(ready_iterator.count(), 4);
+	assert_eq!(ready_iterator.count(), 1);
 
 	let event = new_best_block_event(&pool, Some(header01a.hash()), header01b.hash());
 	block_on(pool.maintain(event));
@@ -2386,6 +2437,63 @@ fn fatp_ready_light_long_fork_retracted_works() {
 	let ready02 = ready_iterator.next();
 	assert_eq!(ready02.unwrap().hash, api.hash_and_length(&xt4).0);
 	assert!(ready_iterator.next().is_none());
+}
+
+#[test]
+fn fatp_ready_light_fallback_for_most_recent_view_gets_triggered() {
+	sp_tracing::try_init_simple();
+
+	let (pool, api, _) = pool();
+	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
+	api.set_nonce(api.genesis_hash(), Charlie.into(), 200);
+	api.set_nonce(api.genesis_hash(), Dave.into(), 200);
+	api.set_nonce(api.genesis_hash(), Eve.into(), 200);
+
+	let genesis = api.genesis_hash();
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Bob, 200);
+	let xt2 = uxt(Charlie, 200);
+	let xt3 = uxt(Dave, 200);
+	let xt4 = uxt(Eve, 200);
+
+	let submissions = vec![pool.submit_at(genesis, SOURCE, vec![xt0.clone(), xt1.clone()])];
+	let results = block_on(futures::future::join_all(submissions));
+	assert!(results.iter().all(|r| { r.is_ok() }));
+
+	// dirty hack to remove genesis view, so we can check fallback to most-recent-view at header01b.
+	let header01a = api.push_block_with_parent(genesis, vec![], true);
+	let event = finalized_block_event(&pool, genesis, header01a.hash());
+	block_on(pool.maintain(event));
+
+	let header02a = api.push_block_with_parent(header01a.hash(), vec![xt4.clone()], true);
+	let event = new_best_block_event(&pool, Some(genesis), header02a.hash());
+	block_on(pool.maintain(event));
+
+	let header01b = api.push_block_with_parent(genesis, vec![xt0.clone()], true);
+	// Call `ready_at_light` at genesis direct descendent, even if not notified as best or
+	// finalized. Should still return ready txs based on the most recent view processed by the
+	// txpool.
+	let ready_iterator = pool.ready_at_light(header01b.hash()).now_or_never().unwrap();
+	assert_eq!(ready_iterator.count(), 2);
+
+	let header02b = api.push_block_with_parent(header01b.hash(), vec![xt1.clone()], true);
+	let header03b = api.push_block_with_parent(header02b.hash(), vec![xt2.clone()], true);
+
+	// Submit a few more tx to the pool.
+	let submissions = vec![pool.submit_at(
+		// `at` is ignored.
+		genesis,
+		SOURCE,
+		vec![xt2.clone(), xt3.clone()],
+	)];
+	let results = block_on(futures::future::join_all(submissions));
+	assert!(results.iter().all(|r| { r.is_ok() }));
+
+	// Calling `ready_at_light` now on the last block of a fork, with no block notified as best.
+	// We should still get the ready txs from the most recent view processed by the txpool,
+	// but now with a few more txs which were submitted previously.
+	assert_ready_at_light_iterator!(header03b.hash(), pool, [xt0, xt1, xt2, xt3]);
 }
 
 #[test]
@@ -2416,15 +2524,15 @@ fn fatp_ready_light_fallback_gets_triggered() {
 
 	let header01b = api.push_block_with_parent(genesis, vec![xt0.clone()], true);
 	// Call `ready_at_light` at genesis direct descendent, even if not notified as best or
-	// finalized. Should still return ready txs based on the most recent view processed by the
-	// txpool.
+	// finalized. Should still return ready txs based on the view for genesis, taking into account
+	// transactions from 01b block.
 	let ready_iterator = pool.ready_at_light(header01b.hash()).now_or_never().unwrap();
-	assert_eq!(ready_iterator.count(), 2);
+	assert_eq!(ready_iterator.count(), 1);
 
 	let header02b = api.push_block_with_parent(header01b.hash(), vec![xt1.clone()], true);
 	let header03b = api.push_block_with_parent(header02b.hash(), vec![xt2.clone()], true);
 
-	// Submit a few more txs to the pool.
+	// Submit a few more tx to the pool.
 	let submissions = vec![pool.submit_at(
 		// `at` is ignored.
 		genesis,
@@ -2434,25 +2542,14 @@ fn fatp_ready_light_fallback_gets_triggered() {
 	let results = block_on(futures::future::join_all(submissions));
 	assert!(results.iter().all(|r| { r.is_ok() }));
 
-	// Calling `ready_at_light` now on the last block of a fork, with no block notified as best.
-	// We should still get the ready txs from the most recent view processed by the txpool,
-	// but now with a few more txs which were submitted previously.
-	let ready_iterator = pool.ready_at_light(header03b.hash()).now_or_never().unwrap();
-	assert_eq!(ready_iterator.count(), 4);
-
-	let event = new_best_block_event(&pool, Some(header01a.hash()), header01b.hash());
+	let event = finalized_block_event(&pool, header01a.hash(), header01b.hash());
 	block_on(pool.maintain(event));
 
-	// Calling `ready_at_light` on the new best block (`header03b`) should consider its fork up to
+	// Calling `ready_at_light` on the new block (`header03b`) should consider its fork up to
 	// the finalized block for the search of the best view, and coincidentaly, that's the only view
-	// of the tree route, being the view created for NBB `header03b`. The returned ready txs are the
+	// of the tree route, being the view created for NBB `header01b`. The returned ready txs are the
 	// ones left in the best view's pool after prunning the txs.
-	let mut ready_iterator = pool.ready_at_light(header03b.hash()).now_or_never().unwrap();
-	let ready01 = ready_iterator.next();
-	assert_eq!(ready01.unwrap().hash, api.hash_and_length(&xt3).0);
-	let ready02 = ready_iterator.next();
-	assert_eq!(ready02.unwrap().hash, api.hash_and_length(&xt4).0);
-	assert!(ready_iterator.next().is_none());
+	assert_ready_at_light_iterator!(header03b.hash(), pool, [xt3, xt4]);
 }
 
 #[test]
