@@ -787,7 +787,7 @@ pub fn check_genesis_storage(storage: &Storage) -> sp_blockchain::Result<()> {
 	}
 
 	// TODO(JAVIER): validate this change with Emeric or Basti, I think we don't need to run this
-    // check since the `children_default` keys are not prefixed.
+	// check since the `children_default` keys are not prefixed.
 	// if storage
 	// 	.children_default
 	// 	.keys()
