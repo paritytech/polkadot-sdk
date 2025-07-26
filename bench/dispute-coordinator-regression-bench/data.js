@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1753459092967,
+  "lastUpdate": 1753526946551,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
@@ -3135,6 +3135,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.008539114469999989,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1728078+michalkucharczyk@users.noreply.github.com",
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7ef027551fd1290c42581a85052b643bffc9cbe4",
+          "message": "`fatxpool`: avoid premature revalidation of transactions (#9189)\n\nThis PR improves handling of the following scenario:\n```\nsend tx1: transfer to fund new  X account \n# wait for tx1 in block event (let's assume it happens at block N) \nsend tx2: spend from X account\n```\n\nBefore this PR `tx2` could be invalidated (and most likely was) when\n`block N-k` was finalized, because transactions are checked for being\ninvalid on finalized block. (The `X account` does not yet exists for any\nblock before `block N`).\n\nAfter this commit transactions will be revalidated on finalized blocks\nonly if their height is greater then height of the block at which\ntransactions was originally submitted.\n\nNote: There are no guarantees that `tx2` will be actually included, it\nstill may happen that it will be dropped under some circumstances. This\nonly reduces likelihood of dropping transaction.\n\n\nNote for reviewers:\nThe fix is to simply initialize\n[`validated_at`](https://github.com/paritytech/polkadot-sdk/blob/f8a1fe64c29b1ddcb5824bbb3bf327f528f18d40/substrate/client/transaction-pool/src/fork_aware_txpool/tx_mem_pool.rs#L98-L99)\nfield of `TxInMemPool` which is used to\n[select](https://github.com/paritytech/polkadot-sdk/blob/f8a1fe64c29b1ddcb5824bbb3bf327f528f18d40/substrate/client/transaction-pool/src/fork_aware_txpool/tx_mem_pool.rs#L583-L586)\ntransactions for mempool revalidation on finalized block.\n\nFixes: #9150\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
+          "timestamp": "2025-07-26T09:38:10Z",
+          "tree_id": "9290436971f50c36e2f18f32158c7ff376adf03a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7ef027551fd1290c42581a85052b643bffc9cbe4"
+        },
+        "date": 1753526929103,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.005298488929999992,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026702950300000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.008772860789999977,
             "unit": "seconds"
           }
         ]
