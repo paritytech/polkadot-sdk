@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Tests concerning bond, bond_extra, unbond, rebond, withdraw and chill for stakers.
+
 use super::*;
 use frame_support::{hypothetically_ok, traits::Currency};
 

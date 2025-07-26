@@ -1005,3 +1005,22 @@ pub(crate) fn restrict(who: &AccountId) {
 pub(crate) fn remove_from_restrict_list(who: &AccountId) {
 	RestrictedAccounts::mutate(|l| l.retain(|x| x != who));
 }
+
+pub(crate) fn era_unprocessed_offence_count(era: EraIndex) -> u32 {
+	OffenceQueue::<T>::iter_prefix_values(era).count() as u32
+}
+
+pub(crate) fn era_unapplied_slash_count(era: EraIndex) -> u32 {
+	UnappliedSlashes::<T>::iter_prefix_values(era).count() as u32
+}
+
+/// A pending slash from the previous era blocks withdrawal. Use this to apply them.
+pub(crate) fn apply_pending_slashes_from_previous_era() {
+	apply_pending_slashes_from_era(active_era() - 1);
+}
+
+pub(crate) fn apply_pending_slashes_from_era(era: EraIndex) {
+	for (key, _) in UnappliedSlashes::<T>::iter_prefix(era) {
+		assert_ok!(Staking::apply_slash(RuntimeOrigin::signed(1), era, key));
+	}
+}

@@ -121,7 +121,7 @@ pub(crate) fn roll_until_next_active(mut end_index: SessionIndex) -> Vec<Account
 							leftover: false,
 							// arbitrary, feel free to change if test setup updates
 							new_validator_set: vec![3, 5, 6, 8],
-							prune_up_to: None,
+							prune_up_to: active_era.checked_sub(BondingDuration::get()),
 						})
 					)
 				);

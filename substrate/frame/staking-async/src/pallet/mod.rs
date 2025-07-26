@@ -733,7 +733,7 @@ pub mod pallet {
 	/// This eliminates the need for expensive iteration and sorting when fetching the next offence
 	/// to process.
 	#[pallet::storage]
-	pub type OffenceQueueEras<T: Config> = StorageValue<_, BoundedVec<u32, T::BondingDuration>>;
+	pub type OffenceQueueEras<T: Config> = StorageValue<_, WeakBoundedVec<u32, T::BondingDuration>>;
 
 	/// Tracks the currently processed offence record from the `OffenceQueue`.
 	///
@@ -1155,6 +1155,12 @@ pub mod pallet {
 		/// Something occurred that should never happen under normal operation.
 		/// Logged as an event for fail-safe observability.
 		Unexpected(UnexpectedKind),
+		/// An offence was reported that was too old to be processed, and thus was dropped.
+		OffenceTooOld {
+			offence_era: EraIndex,
+			validator: T::AccountId,
+			fraction: Perbill,
+		},
 	}
 
 	/// Represents unexpected or invariant-breaking conditions encountered during execution.
@@ -1244,6 +1250,9 @@ pub mod pallet {
 		/// Account is restricted from participation in staking. This may happen if the account is
 		/// staking in another way already, such as via pool.
 		Restricted,
+		/// Unapplied slashes in the recently concluded era is blocking this operation.
+		/// See `Call::apply_slash` to apply them.
+		UnappliedSlashesInPreviousEra,
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -1414,8 +1423,8 @@ pub mod pallet {
 			let unlocking =
 				Self::ledger(Controller(controller.clone())).map(|l| l.unlocking.len())?;
 
-			// if there are no unlocking chunks available, try to withdraw chunks older than
-			// `BondingDuration` to proceed with the unbonding.
+			// if there are no unlocking chunks available, try to remove any chunks by withdrawing
+			// funds that have fully unbonded.
 			let maybe_withdraw_weight = {
 				if unlocking == T::MaxUnlockingChunks::get() as usize {
 					Some(Self::do_withdraw_unbonded(&controller)?)
@@ -1457,10 +1466,11 @@ pub mod pallet {
 				// If a user runs into this error, they should chill first.
 				ensure!(ledger.active >= min_active_bond, Error::<T>::InsufficientBond);
 
-				// Note: in case there is no current era it is fine to bond one era more.
-				let era = CurrentEra::<T>::get()
-					.unwrap_or(0)
-					.defensive_saturating_add(T::BondingDuration::get());
+				// Note: we used current era before, but that is meant to be used for only election.
+				// The right value to use here is the active era.
+
+				let era = session_rotation::Rotator::<T>::active_era()
+					.saturating_add(T::BondingDuration::get());
 				if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
 					// To keep the chunk count down, we only keep one chunk per era. Since
 					// `unlocking` is a FiFo queue, if a chunk exists for `era` we know that it will
@@ -1492,10 +1502,14 @@ pub mod pallet {
 			Ok(actual_weight.into())
 		}
 
-		/// Remove any unlocked chunks from the `unlocking` queue from our management.
+		/// Remove any stake that has been fully unbonded and is ready for withdrawal.
 		///
-		/// This essentially frees up that balance to be used by the stash account to do whatever
-		/// it wants.
+		/// Stake is considered fully unbonded once [`Config::BondingDuration`] has elapsed since
+		/// the unbonding was initiated. In rare cases—such as when offences for the unbonded era
+		/// have been reported but not yet processed—withdrawal is restricted to eras for which
+		/// all offences have been processed.
+		///
+		/// The unlocked stake will be returned as free balance in the stash account.
 		///
 		/// The dispatch origin for this call must be _Signed_ by the controller.
 		///
@@ -1505,8 +1519,8 @@ pub mod pallet {
 		///
 		/// ## Parameters
 		///
-		/// - `num_slashing_spans`: **Deprecated**. This parameter is retained for backward
-		/// compatibility. It no longer has any effect.
+		/// - `num_slashing_spans`: **Deprecated**. Retained only for backward compatibility; this
+		///   parameter has no effect.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::withdraw_unbonded_kill())]
 		pub fn withdraw_unbonded(
@@ -2440,11 +2454,21 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 
-		/// Manually applies a deferred slash for a given era.
+		/// Manually and permissionlessly applies a deferred slash for a given era.
 		///
 		/// Normally, slashes are automatically applied shortly after the start of the `slash_era`.
-		/// This function exists as a **fallback mechanism** in case slashes were not applied due to
-		/// unexpected reasons. It allows anyone to manually apply an unapplied slash.
+		/// The automatic application of slashes is handled by the pallet's internal logic, and it
+		/// tries to apply one slash page per block of the era.
+		/// If for some reason, one era is not enough for applying all slash pages, the remaining
+		/// slashes need to be manually (permissionlessly) applied.
+		///
+		/// For a given era x, if at era x+1, slashes are still unapplied, all withdrawals get
+		/// blocked, and these need to be manually applied by calling this function.
+		/// This function exists as a **fallback mechanism** for this extreme situation, but we
+		/// never expect to encounter this in normal scenarios.
+		///
+		/// The parameters for this call can be queried by looking at the `UnappliedSlashes` storage
+		/// for eras older than the active era.
 		///
 		/// ## Parameters
 		/// - `slash_era`: The staking era in which the slash was originally scheduled.
@@ -2455,7 +2479,8 @@ pub mod pallet {
 		///
 		/// ## Behavior
 		/// - The function is **permissionless**—anyone can call it.
-		/// - The `slash_era` **must be the current era or a past era**. If it is in the future, the
+		/// - The `slash_era` **must be the current era or a past era**.
+		/// If it is in the future, the
 		///   call fails with `EraNotStarted`.
 		/// - The fee is waived if the slash is successfully applied.
 		///
