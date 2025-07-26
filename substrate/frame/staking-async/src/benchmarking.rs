@@ -24,7 +24,6 @@ use crate::{
 	ConfigOp, Pallet as Staking,
 };
 use alloc::collections::BTreeMap;
-use codec::Decode;
 pub use frame_benchmarking::{
 	impl_benchmark_test_suite, v2::*, whitelist_account, whitelisted_caller, BenchmarkError,
 };
@@ -38,14 +37,13 @@ use frame_support::{
 use frame_system::RawOrigin;
 use pallet_staking_async_rc_client as rc_client;
 use sp_runtime::{
-	traits::{Bounded, One, StaticLookup, TrailingZeroInput, Zero},
+	traits::{Bounded, One, StaticLookup, Zero},
 	Perbill, Percent, Saturating,
 };
 use sp_staking::currency_to_vote::CurrencyToVote;
 use testing_utils::*;
 
 const SEED: u32 = 0;
-const MAX_SLASHES: u32 = 1000;
 
 // This function clears all existing validators and nominators from the set, and generates one new
 // validator being nominated by n nominators, and returns the validator stash account and the
@@ -667,34 +665,39 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn cancel_deferred_slash(s: Linear<1, MAX_SLASHES>) {
+	fn cancel_deferred_slash(s: Linear<1, { T::MaxValidatorSet::get() }>) {
 		let era = EraIndex::one();
-		let dummy_account = || T::AccountId::decode(&mut TrailingZeroInput::zeroes()).unwrap();
 
-		// Insert `s` unapplied slashes with the new key structure
-		for i in 0..s {
-			let slash_key = (dummy_account(), Perbill::from_percent(i as u32 % 100), i);
-			let unapplied_slash = UnappliedSlash::<T> {
-				validator: slash_key.0.clone(),
-				own: Zero::zero(),
-				others: WeakBoundedVec::default(),
-				reporter: Default::default(),
-				payout: Zero::zero(),
-			};
-			UnappliedSlashes::<T>::insert(era, slash_key.clone(), unapplied_slash);
-		}
+		// Create validators and insert slashes
+		let validators: Vec<_> = (0..s)
+			.map(|i| {
+				let validator: T::AccountId = account("validator", i, SEED);
 
-		let slash_keys: Vec<_> = (0..s)
-			.map(|i| (dummy_account(), Perbill::from_percent(i as u32 % 100), i))
+				// Insert slash for this validator
+				let slash_key = (validator.clone(), Perbill::from_percent(10), 0);
+				let unapplied_slash = UnappliedSlash::<T> {
+					validator: validator.clone(),
+					own: Zero::zero(),
+					others: WeakBoundedVec::default(),
+					reporter: Default::default(),
+					payout: Zero::zero(),
+				};
+				UnappliedSlashes::<T>::insert(era, slash_key, unapplied_slash);
+
+				validator
+			})
 			.collect();
 
-		#[extrinsic_call]
-		_(RawOrigin::Root, era, slash_keys.clone());
+		// Convert validators to tuples with 10% slash fraction (matching the slashes created above)
+		let validator_slashes: Vec<_> =
+			validators.into_iter().map(|v| (v, Perbill::from_percent(10))).collect();
 
-		// Ensure all `s` slashes are removed
-		for key in &slash_keys {
-			assert!(UnappliedSlashes::<T>::get(era, key).is_none());
-		}
+		#[extrinsic_call]
+		_(RawOrigin::Root, era, validator_slashes.clone());
+
+		// Ensure cancelled slashes are stored correctly
+		let cancelled_slashes = CancelledSlashes::<T>::get(era);
+		assert_eq!(cancelled_slashes.len(), s as usize);
 	}
 
 	#[benchmark]
