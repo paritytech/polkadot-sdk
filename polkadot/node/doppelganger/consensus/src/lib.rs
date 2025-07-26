@@ -123,6 +123,9 @@ where
 					hex!("cec5070d609dd3497f72bde07fc96ba04c014e6bf8b8c2c011e7290b85696bb3");
 				const COLLATORSELECTION_CANDIDATELIST: [u8; 32] =
 					hex!("15464cac3378d46f113cd5b7a4d71c84ad588da1c23d1f764a5ff7b71e776f5a");
+
+				const CORE_ASSIGNMENT_PROVIDER_CORE_SCHEDULES_PREFIX: [u8; 32] =
+					hex!("638595eebaa445ce03a13547bece90e74a4aebd4fb28ddd34de9226f0abce904");
 				// let para_session_info_prefix: Vec<u8> =
 				// hex!("4da2c41eaffa8e1a791c5d65beeefd1f028685274e698e781f7f2766cba0cc83").into();
 				let paras_heads_prefix: Vec<u8> =
@@ -218,6 +221,14 @@ where
 									debug!(target: LOG_TARGET, "skipping Session NextKey... old key: {}", hex::encode(key));
 									return None;
 								}
+
+								// skip coretimeAssignmentProvider.coreSchedules
+								// since we want an empty list
+								if key.starts_with(&CORE_ASSIGNMENT_PROVIDER_CORE_SCHEDULES_PREFIX) {
+									debug!(target: LOG_TARGET, "skipping coretimeAssignmentProvider CoreSchedules... old key: {}", hex::encode(key));
+									return None;
+								}
+
 
 								// DO NOT OVERRIDE paraSessionInfo anymore
 								// if key.starts_with(&para_session_info_prefix) {
@@ -530,11 +541,16 @@ async fn get_overrides_para(_id: u32) -> OverrideKeys {
 }
 
 fn calculate_genesis_slot(current: Vec<u8>, epoch_idx: Vec<u8>) -> Slot {
-	const EPOCH_DURARION: u64 = 2400;
-	const DIFF_TARGET: u64 = 2390;
+	const DEFAULT_EPOCH_DURARION: u64 = 2400;
+
+	let epoch_duration: u64 = std::env::var("ZOMBIE_RC_EPOCH_DURATION")
+		.unwrap_or(DEFAULT_EPOCH_DURARION.to_string())
+		.parse()
+		.expect("ZOMBIE_RC_EPOCH_DURATION should be a valid u64");
+	let diff_target = epoch_duration - 10;
 	let current_slot: Slot = Decode::decode(&mut current.as_slice()).unwrap();
 	let epoch_index: u64 = Decode::decode(&mut epoch_idx.as_slice()).unwrap();
-	let genesis_slot = current_slot.saturating_sub((epoch_index * EPOCH_DURARION) + DIFF_TARGET);
+	let genesis_slot = current_slot.saturating_sub((epoch_index * epoch_duration) + diff_target);
 	genesis_slot
 }
 
