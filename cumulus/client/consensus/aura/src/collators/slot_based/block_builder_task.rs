@@ -34,8 +34,8 @@ use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockIm
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
-	extract_relay_parent, rpsr_digest, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
-	PersistedValidationData, RelayParentOffsetApi, SlotSchedule,
+	extract_relay_parent, rpsr_digest, BundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector,
+	CumulusDigestItem, PersistedValidationData, RelayParentOffsetApi, SlotSchedule,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
@@ -472,6 +472,8 @@ where
 		// We require that the next node has imported our last block before it can start building
 		// the next block. To ensure that the next node is able to do so, we are skipping the last
 		// block in the parachain slot. In the future this can be removed again.
+		let is_last = block_index + 1 == num_blocks ||
+			(block_index + 2 == num_blocks && num_blocks > 1 && is_last_core_in_parachain_slot);
 		if block_index + 1 == num_blocks && num_blocks > 1 && is_last_core_in_parachain_slot {
 			tracing::debug!(
 				target: LOG_TARGET,
@@ -529,7 +531,14 @@ where
 			.build_block_and_import(
 				&parent_header,
 				slot_claim,
-				Some(vec![CumulusDigestItem::CoreInfo(core_info.clone()).to_digest_item()]),
+				Some(vec![
+					CumulusDigestItem::CoreInfo(core_info.clone()).to_digest_item(),
+					CumulusDigestItem::BundleInfo(BundleInfo {
+						index: block_index as u8,
+						maybe_last: is_last,
+					})
+					.to_digest_item(),
+				]),
 				(parachain_inherent_data, other_inherent_data),
 				authoring_duration,
 				allowed_pov_size,

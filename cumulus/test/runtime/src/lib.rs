@@ -447,9 +447,9 @@ pub type TxExtension = cumulus_pallet_parachain_system::DynamicMaxBlockWeight<
 			frame_system::CheckNonce<Runtime>,
 			frame_system::CheckWeight<Runtime>,
 			pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-		)
+		),
 	>,
-	NumberOfBlocksPerRelaySlot
+	NumberOfBlocksPerRelaySlot,
 >;
 
 /// Unchecked extrinsic type as expected by this runtime.
