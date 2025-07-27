@@ -3099,7 +3099,6 @@ mod unit_test {
 				let signed_origin = RuntimeOrigin::signed(ALICE);
 				let result = OriginAndGate::ensure_signed_or_collective(signed_origin);
 				assert_ok!(&result);
-
 				let (account_id, is_collective) = result.unwrap();
 				assert_eq!(account_id, ALICE);
 				assert_eq!(is_collective, false);
@@ -3108,7 +3107,6 @@ mod unit_test {
 				let bob_origin = RuntimeOrigin::signed(BOB);
 				let result = OriginAndGate::ensure_signed_or_collective(bob_origin);
 				assert_ok!(&result);
-
 				let (account_id, is_collective) = result.unwrap();
 				assert_eq!(account_id, BOB);
 				assert_eq!(is_collective, false);
@@ -3117,20 +3115,24 @@ mod unit_test {
 				let root_origin = RuntimeOrigin::root();
 				let result = OriginAndGate::ensure_signed_or_collective(root_origin);
 				assert_ok!(&result);
-
 				let (account_id, is_collective) = result.unwrap();
-				// Collective origins expects a zero account
-				assert_ne!(account_id, ALICE);
-				assert_ne!(account_id, BOB);
+				assert_eq!(account_id, ROOT);
 				assert_eq!(is_collective, true);
 
-				// Verify zero account is consistently generated
+				// Verify collective origin consistently generated
 				let root_origin2 = RuntimeOrigin::root();
 				let result2 = OriginAndGate::ensure_signed_or_collective(root_origin2);
-				let (zero_account2, is_collective2) = result2.unwrap();
-
-				assert_eq!(account_id, zero_account2);
+				let (collective_account2, is_collective2) = result2.unwrap();
+				assert_eq!(account_id, collective_account2);
 				assert_eq!(is_collective, is_collective2);
+
+				// TECH_FELLOWSHIP origin (collective) has root privileges
+				let tech_fellowship_origin = RuntimeOrigin::collective(TECH_FELLOWSHIP);
+				let result = OriginAndGate::ensure_signed_or_collective(tech_fellowship_origin);
+				assert_ok!(&result);
+				let (account_id, is_collective) = result.unwrap();
+				assert_eq!(account_id, ROOT);
+				assert_eq!(is_collective, true);
 
 				// None origin should fail
 				let none_origin = RuntimeOrigin::none();
@@ -4589,6 +4591,33 @@ mod external_storage_integration {
 					storage_id.clone(),
 				),
 				Error::<Test>::ProposalNotFound,
+			);
+
+			// Add second proposal with ROOT_ORIGIN_ID
+			// so proposal by the collective may be found
+			let root_call = create_dummy_call(2000);
+			let root_proposal_hash = BlakeTwo256::hash_of(&root_call);
+			assert_ok!(OriginAndGate::propose(
+				RuntimeOrigin::signed(ALICE),
+				root_call,
+				ROOT_ORIGIN_ID,
+				None,
+				None,
+				None,
+				None,
+				None,
+				Some(true),
+			));
+
+			// Test with second proposal
+			assert_noop!(
+				OriginAndGate::remove_storage_id(
+					RuntimeOrigin::signed(BOB),
+					root_proposal_hash,
+					ROOT_ORIGIN_ID, // Using ROOT_ORIGIN_ID to signal collective path
+					storage_id.clone(),
+				),
+				sp_runtime::traits::BadOrigin,
 			);
 
 			// Verify storage ID still exists

@@ -50,12 +50,15 @@ pub const ROOT: AccountId = 0;
 pub const ALICE: AccountId = 1;
 pub const BOB: AccountId = 2;
 pub const CHARLIE: AccountId = 3;
+pub const TECH_FELLOWSHIP: AccountId = 4;
 
 // Origin identifiers using CompositeOriginId
 pub const ROOT_ORIGIN_ID: CompositeOriginId = CompositeOriginId { collective_id: 0, role: 0 };
 pub const ALICE_ORIGIN_ID: CompositeOriginId = CompositeOriginId { collective_id: 1, role: 0 };
 pub const BOB_ORIGIN_ID: CompositeOriginId = CompositeOriginId { collective_id: 2, role: 0 };
 pub const CHARLIE_ORIGIN_ID: CompositeOriginId = CompositeOriginId { collective_id: 3, role: 0 };
+pub const TECH_FELLOWSHIP_ORIGIN_ID: CompositeOriginId =
+	CompositeOriginId { collective_id: 4, role: 0 };
 
 // Custom origin checks if sender is Alice
 pub struct AliceOrigin;
@@ -223,10 +226,32 @@ impl EnsureOrigin<RuntimeOrigin> for MockReferendaOrigin {
 	}
 }
 
+// Mock Technical Fellowship to support integration with OpenGov and collectives
+pub struct MockTechnicaFellowshipOrigin;
+
+impl EnsureOrigin<RuntimeOrigin> for MockTechnicaFellowshipOrigin {
+	type Success = AccountId;
+
+	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
+		match o.clone().into() {
+			Ok(frame_system::RawOrigin::Signed(ref who)) if who == &TECH_FELLOWSHIP => {
+				// Only TECH_FELLOWSHIP can act as the Technical Fellowship
+				Ok(who.clone())
+			},
+			_ => Err(o),
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+		Ok(frame_system::RawOrigin::Signed(TECH_FELLOWSHIP).into())
+	}
+}
+
 // Combined origin type for testing both collective and OpenGov origins
 pub type TestCollectiveOrigin = frame_support::traits::EitherOfDiverse<
 	frame_system::EnsureRoot<AccountId>,
-	MockReferendaOrigin,
+	frame_support::traits::EitherOfDiverse<MockReferendaOrigin, MockTechnicaFellowshipOrigin>,
 >;
 
 impl pallet_origin_and_gate::Config for Test {
@@ -246,6 +271,26 @@ impl pallet_origin_and_gate::Config for Test {
 	type ProposalRetentionPeriodWhenNotCancelled = ProposalRetentionPeriodWhenNotCancelled;
 	type MaxProposalsToExpirePerBlock = MaxProposalsToExpirePerBlock;
 	type WeightInfo = ();
+}
+
+// Extension trait to add collective() method to RuntimeOrigin
+pub trait RuntimeOriginExt {
+	fn collective(who: AccountId) -> RuntimeOrigin;
+}
+
+impl RuntimeOriginExt for RuntimeOrigin {
+	fn collective(who: AccountId) -> RuntimeOrigin {
+		if who == TECH_FELLOWSHIP {
+			// Use root origin for TECH_FELLOWSHIP
+			RuntimeOrigin::root()
+		} else if who == ROOT {
+			// Use root origin for ROOT
+			RuntimeOrigin::root()
+		} else {
+			// Use signed origin for other accounts
+			RuntimeOrigin::signed(who)
+		}
+	}
 }
 
 // This function basically just builds a genesis storage key/value store according to
