@@ -4717,7 +4717,7 @@ fn allow_evm_bytecode_config_works() {
 		// Try to instantiate with EVM bytecode - should succeed when AllowEVMBytecode is true
 		let contract = builder::bare_instantiate(Code::Upload(evm_bytecode.clone()))
 			.build_and_unwrap_contract();
-		
+
 		// Call the contract - should succeed when AllowEVMBytecode is true
 		let call_result = builder::bare_call(contract.addr).build().result;
 		assert!(call_result.is_ok(), "Contract call should succeed when AllowEVMBytecode is true");
@@ -4726,7 +4726,7 @@ fn allow_evm_bytecode_config_works() {
 		Test::set_allow_evm_bytecode(false);
 		let result = builder::bare_instantiate(Code::Upload(evm_bytecode.clone())).build().result;
 		assert_err!(result, crate::Error::<Test>::CodeRejected);
-		
+
 		// Call the existing contract - should fail when AllowEVMBytecode is false
 		let call_result = builder::bare_call(contract.addr).build().result;
 		assert_err!(call_result, crate::Error::<Test>::CodeRejected);

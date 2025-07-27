@@ -21,6 +21,7 @@ pub use call_helpers::{calc_call_gas, get_memory_input_and_out_ranges};
 
 use super::{utility::IntoAddress, Context};
 use crate::vm::Ext;
+use alloc::boxed::Box;
 use revm::{
 	context_interface::CreateScheme,
 	interpreter::{
@@ -34,7 +35,6 @@ use revm::{
 	},
 	primitives::{hardfork::SpecId, Address, Bytes, B256, U256},
 };
-use alloc::boxed::Box;
 
 /// Implements the CREATE/CREATE2 instruction.
 ///
