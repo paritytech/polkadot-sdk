@@ -521,13 +521,7 @@ where
 
 	/// Inserts new view into the view store.
 	///
-	/// All the views associated with the blocks which are on enacted path (including common
-	/// ancestor) will be:
-	/// - moved to the inactive views set (`inactive_views`),
-	/// - removed from the multi view listeners.
-	///
-	/// The `most_recent_view` is updated with the reference to the newly inserted view.
-	///
+	/// Refer to [`Self::insert_new_view_sync`] more details.
 	/// If there are any pending tx replacments, they are applied to the new view.
 	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "view_store::insert_new_view")]
 	pub(super) async fn insert_new_view(
@@ -548,6 +542,14 @@ where
 		);
 	}
 
+	/// Inserts new view into the view store.
+	///
+	/// All the views associated with the blocks which are on enacted path (including common
+	/// ancestor) will be:
+	/// - moved to the inactive views set (`inactive_views`),
+	/// - removed from the multi view listeners.
+	///
+	/// The `most_recent_view` is updated with the reference to the newly inserted view.
 	pub(super) fn insert_new_view_sync(
 		&self,
 		view: Arc<View<ChainApi>>,

@@ -211,19 +211,17 @@ where
 	// Injects a view for genesis block to self.
 	//
 	// Helper for the pool new methods.
-	fn inject_genesis_view(self) -> Self {
-		let genesis_hash = self
-			.api
-			.block_id_to_hash(&BlockId::Number(sp_runtime::traits::Zero::zero()))
-			.ok()
-			.flatten()
-			.expect("genesis block exists; qed");
-		let at_genesis =
-			HashAndNumber { number: sp_runtime::traits::Zero::zero(), hash: genesis_hash };
-		let tree_route =
-			&TreeRoute::new(vec![at_genesis.clone()], 0).expect("tree route is correct. qed");
-		let view = self.build_view_and_connect_listeners(None, &at_genesis, &tree_route);
-		self.view_store.insert_new_view_sync(view.into(), &tree_route);
+	fn inject_initial_view(self, initial_view_hash: Block::Hash) -> Self {
+		if let Some(block_number) =
+			self.api.block_id_to_number(&BlockId::Hash(initial_view_hash)).ok().flatten()
+		{
+			let at_genesis = HashAndNumber { number: block_number, hash: initial_view_hash };
+			let tree_route =
+				&TreeRoute::new(vec![at_genesis.clone()], 0).expect("tree route is correct. qed");
+			let view = self.build_and_plug_view(None, &at_genesis, &tree_route);
+			self.view_store.insert_new_view_sync(view.into(), &tree_route);
+			trace!(target: LOG_TARGET, ?block_number, ?initial_view_hash, "fatp::injected initial view");
+		};
 		self
 	}
 
@@ -324,7 +322,7 @@ where
 					STAT_SLIDING_WINDOW,
 				)),
 			}
-			.inject_genesis_view(),
+			.inject_initial_view(best_block_hash),
 			[combined_tasks, mempool_task],
 		)
 	}
@@ -481,7 +479,7 @@ where
 				STAT_SLIDING_WINDOW,
 			)),
 		}
-		.inject_genesis_view()
+		.inject_initial_view(best_block_hash)
 	}
 
 	/// Get access to the underlying api
@@ -1219,7 +1217,7 @@ where
 		}
 
 		let best_view = self.view_store.find_best_view(tree_route);
-		let new_view = self.build_new_view(best_view, hash_and_number, tree_route).await;
+		let new_view = self.build_and_update_view(best_view, hash_and_number, tree_route).await;
 
 		if let Some(view) = new_view {
 			{
@@ -1305,7 +1303,15 @@ where
 		);
 	}
 
-	fn build_view_and_connect_listeners(
+	/// Builds a new view.
+	///
+	/// If `origin_view` is provided, the new view will be cloned from it. Otherwise an empty view
+	/// will be created.
+	///
+	/// This method will also update multi-view listeners with newly created view.
+	///
+	/// The new view will not be inserted into the view store.
+	fn build_and_plug_view(
 		&self,
 		origin_view: Option<Arc<View<ChainApi>>>,
 		at: &HashAndNumber<Block>,
@@ -1359,22 +1365,20 @@ where
 		view
 	}
 
-	/// Builds a new view.
+	/// Builds and updates a new view.
 	///
-	/// If `origin_view` is provided, the new view will be cloned from it. Otherwise an empty view
-	/// will be created.
+	/// This functio uses [`Self::build_new_view`] to create or clone new view.
 	///
 	/// The new view will be updated with transactions from the tree_route and the mempool, all
-	/// required events will be triggered, it will be inserted to the view store.
-	///
-	/// This method will also update multi-view listeners with newly created view.
-	async fn build_new_view(
+	/// required events will be triggered, it will be inserted to the view store (respecting all
+	/// pre-insertion actions).
+	async fn build_and_update_view(
 		&self,
 		origin_view: Option<Arc<View<ChainApi>>>,
 		at: &HashAndNumber<Block>,
 		tree_route: &TreeRoute<Block>,
 	) -> Option<Arc<View<ChainApi>>> {
-		let enter = Instant::now();
+		let start = Instant::now();
 		debug!(
 			target: LOG_TARGET,
 			?at,
@@ -1383,8 +1387,7 @@ where
 			"build_new_view"
 		);
 
-		let start = Instant::now();
-		let mut view = self.build_view_and_connect_listeners(origin_view, at, tree_route);
+		let mut view = self.build_and_plug_view(origin_view, at, tree_route);
 
 		// sync the transactions statuses and referencing views in all the listeners with newly
 		// cloned view.
@@ -1421,7 +1424,7 @@ where
 
 		debug!(
 			target: LOG_TARGET,
-			duration = ?enter.elapsed(),
+			duration = ?start.elapsed(),
 			?at,
 			"build_new_view"
 		);
