@@ -25,7 +25,7 @@ use tokio::io::AsyncWriteExt;
 
 const LOG_TARGET: &str = "doppelganger";
 
-pub mod overrides;
+// pub mod overrides;
 
 #[derive(Debug, Clone, Default)]
 struct OverrideKeys {

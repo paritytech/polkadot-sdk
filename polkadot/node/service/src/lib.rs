@@ -101,9 +101,6 @@ pub use fake_runtime_api::{GetLastTimestamp, RuntimeApi};
 #[cfg(feature = "full-node")]
 pub type FullBackend = sc_service::TFullBackend<Block>;
 
-#[cfg(feature = "doppelganger")]
-use polkadot_doppelganger_consensus::{DoppelGangerBlockImport, DoppelGangerContext};
-
 #[cfg(all(feature = "full-node", feature = "doppelganger"))]
 pub type FullClient = sc_service::TFullClient<
 	Block,
@@ -111,7 +108,7 @@ pub type FullClient = sc_service::TFullClient<
 	WasmExecutor<(
 		sp_io::SubstrateHostFunctions,
 		frame_benchmarking::benchmarking::HostFunctions,
-		polkadot_doppelganger_consensus::overrides::SignatureVerificationOverride,
+		// polkadot_doppelganger_consensus::overrides::SignatureVerificationOverride,
 	)>,
 >;
 #[cfg(all(feature = "full-node", not(feature = "doppelganger")))]
