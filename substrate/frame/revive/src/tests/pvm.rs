@@ -398,8 +398,10 @@ fn run_out_of_fuel_engine() {
 // Fail out of fuel (ref_time weight) in the host.
 #[test]
 fn run_out_of_fuel_host() {
-	use crate::precompiles::Precompile;
-	use crate::tests::precompiles::{INoInfo, NoInfo};
+	use crate::{
+		precompiles::Precompile,
+		tests::precompiles::{INoInfo, NoInfo},
+	};
 	use alloy_core::sol_types::SolInterface;
 
 	let precompile_addr = H160(NoInfo::<Test>::MATCHER.base_address());
@@ -2859,8 +2861,8 @@ fn native_dependency_deposit_works() {
 				.build_and_unwrap_result();
 
 			// Check updated storage_deposit due to code size changes
-			let deposit_diff = lockup_deposit_percent.mul_ceil(get_code_deposit(&code_hash))
-				- lockup_deposit_percent.mul_ceil(get_code_deposit(&dummy_code_hash));
+			let deposit_diff = lockup_deposit_percent.mul_ceil(get_code_deposit(&code_hash)) -
+				lockup_deposit_percent.mul_ceil(get_code_deposit(&dummy_code_hash));
 			let new_base_deposit = contract_base_deposit(&addr);
 			assert_ne!(deposit_diff, 0);
 			assert_eq!(base_deposit - new_base_deposit, deposit_diff);
@@ -4689,5 +4691,44 @@ fn code_size_for_precompiles_works() {
 		builder::bare_call(addr)
 			.data((&builtin_precompile, 5u64).encode())
 			.build_and_unwrap_result();
+	});
+}
+
+#[test]
+fn allow_evm_bytecode_config_works() {
+	use frame_support::assert_err;
+	use pallet_revive_fixtures::{compile_module_with_type, FixtureType};
+
+	let (evm_bytecode, _) = compile_module_with_type("Dummy", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		/// Upload code should always fail with EVM bytecode
+		assert_err!(
+			Contracts::upload_code(
+				RuntimeOrigin::signed(ALICE),
+				evm_bytecode.clone(),
+				deposit_limit::<Test>(),
+			),
+			crate::Error::<Test>::CodeRejected
+		);
+
+		// Try to instantiate with EVM bytecode - should succeed when AllowEVMBytecode is true
+		let contract = builder::bare_instantiate(Code::Upload(evm_bytecode.clone()))
+			.build_and_unwrap_contract();
+		
+		// Call the contract - should succeed when AllowEVMBytecode is true
+		let call_result = builder::bare_call(contract.addr).build().result;
+		assert!(call_result.is_ok(), "Contract call should succeed when AllowEVMBytecode is true");
+
+		// Try to instantiate with EVM bytecode - should fail when AllowEVMBytecode is false
+		Test::set_allow_evm_bytecode(false);
+		let result = builder::bare_instantiate(Code::Upload(evm_bytecode.clone())).build().result;
+		assert_err!(result, crate::Error::<Test>::CodeRejected);
+		
+		// Call the existing contract - should fail when AllowEVMBytecode is false
+		let call_result = builder::bare_call(contract.addr).build().result;
+		assert_err!(call_result, crate::Error::<Test>::CodeRejected);
 	});
 }
