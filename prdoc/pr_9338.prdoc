@@ -2,7 +2,7 @@ title: 'fatxpool: manual seal support'
 doc:
 - audience: Node Dev
   description: |-
-    This PR introduces creation of view for genesis block during instantiation of `fatxpool`. This is intended to fix an instant-seal nodes, where block building is triggered  via transaction import.
+    This PR introduces creation of view for known best block during instantiation of `fatxpool`. This is intended to fix an instant-seal nodes, where block building is triggered  via transaction import.
 crates:
 - name: sc-transaction-pool
   bump: patch
