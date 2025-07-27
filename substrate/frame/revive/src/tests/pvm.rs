@@ -4704,7 +4704,7 @@ fn allow_evm_bytecode_config_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-		/// Upload code should always fail with EVM bytecode
+		// Upload code should always fail with EVM bytecode
 		assert_err!(
 			Contracts::upload_code(
 				RuntimeOrigin::signed(ALICE),
