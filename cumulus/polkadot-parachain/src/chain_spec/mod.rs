@@ -16,7 +16,7 @@
 
 use cumulus_primitives_core::ParaId;
 use polkadot_omni_node_lib::{
-	chain_spec::{GenericChainSpec, LoadSpec},
+	chain_spec::{GenericChainSpec, DeprecatedGenericChainSpec, LoadSpec},
 	runtime::{
 		AuraConsensusId, BlockNumber, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
 	},
@@ -70,7 +70,7 @@ impl LoadSpec for ChainSpecLoader {
 			)?),
 
 			// -- Asset Hub Polkadot
-			"asset-hub-polkadot" | "statemint" => Box::new(GenericChainSpec::from_json_bytes(
+			"asset-hub-polkadot" | "statemint" => Box::new(DeprecatedGenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/asset-hub-polkadot.json")[..],
 			)?),
 
