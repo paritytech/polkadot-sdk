@@ -661,26 +661,27 @@ pub mod pallet {
 			}
 
 			// verify that the parachain head data size is <= `MaxParaHeadDataSize`
-			let updated_head_data =
-				match StoredParaHeadDataOf::<T, I>::try_from_inner(new_head_data) {
-					Ok(updated_head_data) => updated_head_data,
-					Err(e) => {
-						tracing::trace!(
-							target: LOG_TARGET,
-							error=?e,
-							?parachain,
-							"The parachain head can't be updated. The parachain head data size exceeds maximal configured size."
-						);
+			let updated_head_data = match StoredParaHeadDataOf::<T, I>::try_from_inner(
+				new_head_data,
+			) {
+				Ok(updated_head_data) => updated_head_data,
+				Err(e) => {
+					tracing::trace!(
+						target: LOG_TARGET,
+						error=?e,
+						?parachain,
+						"The parachain head can't be updated. The parachain head data size exceeds maximal configured size."
+					);
 
-						Self::deposit_event(Event::RejectedLargeParachainHead {
-							parachain,
-							parachain_head_hash: new_head_hash,
-							parachain_head_size: e.value_size as _,
-						});
+					Self::deposit_event(Event::RejectedLargeParachainHead {
+						parachain,
+						parachain_head_hash: new_head_hash,
+						parachain_head_size: e.value_size as _,
+					});
 
-						return Err(())
-					},
-				};
+					return Err(())
+				},
+			};
 
 			let next_imported_hash_position = stored_best_head
 				.map_or(0, |stored_best_head| stored_best_head.next_imported_hash_position);
