@@ -90,7 +90,7 @@ jobs:
   #         app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
   download-artifact:
-    needs: [build-linux-stable]
+    needs: [preflight, build-linux-stable]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/create-github-app-token@v2
