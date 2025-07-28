@@ -1,0 +1,24 @@
+title: '[StakingAsync] Remove migrate currency code'
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Summary
+
+    This PR removes the deprecated currency migration code from pallet-staking-async that was used for migrating from balance locks to holds.
+
+    This code remains in the old `pallet-staking` that is on RC. All currency migration will take place before AHM, therefore the migration code is not needed on AH.
+
+    ## Changes (pallet-staking-async)
+
+    - Removed `OldCurrency` config type from pallet config
+    - Removed `migrate_currency` extrinsic
+    - Removed associated migration logic and helper functions
+    - Removed related tests for currency migration
+    - Removed benchmark and weight functions for `migrate_currency`
+crates:
+- name: pallet-staking-async-parachain-runtime
+  bump: major
+- name: pallet-staking-async
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
