@@ -28,6 +28,7 @@ use crate::{
 	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
 	TracerType, TransactionInfo, LOG_TARGET,
 };
+use core::num;
 use jsonrpsee::{
 	core::traits::ToRpcParams,
 	rpc_params,
@@ -41,6 +42,7 @@ use pallet_revive::{
 	},
 	EthTransactError,
 };
+use sc_consensus_manual_seal::rpc::CreatedBlock;
 use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
 use std::{ops::Range, sync::Arc, time::Duration};
@@ -132,9 +134,10 @@ impl From<ClientError> for ErrorObjectOwned {
 		match err {
 			ClientError::SubxtError(subxt::Error::Rpc(subxt::error::RpcError::ClientError(
 				subxt::ext::subxt_rpcs::Error::User(err),
-			))) |
-			ClientError::RpcError(subxt::ext::subxt_rpcs::Error::User(err)) =>
-				ErrorObjectOwned::owned::<Vec<u8>>(err.code, err.message, None),
+			)))
+			| ClientError::RpcError(subxt::ext::subxt_rpcs::Error::User(err)) => {
+				ErrorObjectOwned::owned::<Vec<u8>>(err.code, err.message, None)
+			},
 			ClientError::TransactError(EthTransactError::Data(data)) => {
 				let msg = match decode_revert_reason(&data) {
 					Some(reason) => format!("execution reverted: {reason}"),
@@ -144,10 +147,12 @@ impl From<ClientError> for ErrorObjectOwned {
 				let data = format!("0x{}", hex::encode(data));
 				ErrorObjectOwned::owned::<String>(REVERT_CODE, msg, Some(data))
 			},
-			ClientError::TransactError(EthTransactError::Message(msg)) =>
-				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None),
-			_ =>
-				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None),
+			ClientError::TransactError(EthTransactError::Message(msg)) => {
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None)
+			},
+			_ => {
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None)
+			},
 		}
 	}
 }
@@ -618,7 +623,7 @@ impl Client {
 			.unzip();
 		return self
 			.evm_block_from_receipts(&block, &receipts, signed_txs, hydrated_transactions)
-			.await
+			.await;
 	}
 
 	/// Get the EVM block for the given block and receipts.
@@ -705,5 +710,27 @@ impl Client {
 		self.fee_history_provider
 			.fee_history(block_count, latest_block.number(), reward_percentiles)
 			.await
+	}
+
+	pub async fn mine(
+		&self,
+		number_of_blocks: Option<U256>,
+		interval: Option<U256>,
+	) -> Result<CreatedBlock<H256>, ClientError> {
+		let number_of_blocks = number_of_blocks.unwrap_or("0x1".into()).as_u64();
+		let mut latest_block: Option<CreatedBlock<H256>> = None;
+		for _ in 0..number_of_blocks {
+			if let Some(interval) = interval {
+				futures_timer::Delay::new(std::time::Duration::from_secs(interval.as_u64())).await;
+			}
+			let params = rpc_params![true, true].to_rpc_params().unwrap_or_default();
+			let res =
+				self.rpc_client.request("engine_createBlock".to_string(), params).await.unwrap();
+
+			latest_block = Some(serde_json::from_str(res.get()).unwrap());
+
+		}
+
+		Ok(latest_block.unwrap())
 	}
 }

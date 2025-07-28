@@ -26,6 +26,7 @@ use pallet_revive::evm::*;
 use sp_arithmetic::Permill;
 use sp_core::{keccak_256, H160, H256, U256};
 use thiserror::Error;
+use sc_consensus_manual_seal::rpc::CreatedBlock;
 
 pub mod cli;
 pub mod client;
@@ -61,6 +62,12 @@ pub struct EthRpcServerImpl {
 	accounts: Vec<Account>,
 }
 
+/// A hardhat RPC server implementation.
+pub struct HardhatRpcServerImpl {
+	/// The client used to interact with the substrate node.
+	client: client::Client,
+}
+
 impl EthRpcServerImpl {
 	/// Creates a new [`EthRpcServerImpl`].
 	pub fn new(client: client::Client) -> Self {
@@ -71,6 +78,13 @@ impl EthRpcServerImpl {
 	pub fn with_accounts(mut self, accounts: Vec<Account>) -> Self {
 		self.accounts = accounts;
 		self
+	}
+}
+
+impl HardhatRpcServerImpl {
+	/// Creates a new [`HardhatRpcServerImpl`].
+	pub fn new(client: client::Client) -> Self {
+		Self { client }
 	}
 }
 
@@ -107,6 +121,17 @@ impl From<EthRpcError> for ErrorObjectOwned {
 			EthRpcError::ClientError(err) => Self::from(err),
 			_ => Self::owned::<String>(ErrorCode::InvalidRequest.code(), value.to_string(), None),
 		}
+	}
+}
+
+#[async_trait]
+impl HardhatRpcServer for HardhatRpcServerImpl {
+	async fn mine(
+		&self,
+		number_of_blocks: Option<U256>,
+		interval: Option<U256>,
+	) -> RpcResult<CreatedBlock<H256>> {
+		Ok(self.client.mine(number_of_blocks, interval).await?)
 	}
 }
 

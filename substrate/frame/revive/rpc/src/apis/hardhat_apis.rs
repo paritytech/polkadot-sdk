@@ -14,14 +14,21 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-mod debug_apis;
-pub use debug_apis::*;
 
-mod execution_apis;
-pub use execution_apis::*;
+//! Hardhat required JSON-RPC methods.
+#![allow(missing_docs)]
 
-mod health_api;
-pub use health_api::*;
+use crate::*;
+use jsonrpsee::{core::RpcResult, proc_macros::rpc};
+use sc_consensus_manual_seal::rpc::CreatedBlock;
 
-mod hardhat_apis;
-pub use hardhat_apis::*;
+#[rpc(server, client)]
+pub trait HardhatRpc {
+	/// Returns a list of addresses owned by client.
+	#[method(name = "hardhat_mine")]
+    async fn mine(
+		&self,
+		number_of_blocks: Option<U256>,
+		interval: Option<U256>,
+	)-> RpcResult<CreatedBlock<H256>>;
+}
