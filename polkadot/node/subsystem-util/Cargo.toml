@@ -38,6 +38,7 @@ sp-keystore = { workspace = true, default-features = true }
 
 kvdb = { workspace = true }
 parity-db = { workspace = true }
+bitvec.workspace = true
 
 [dev-dependencies]
 assert_matches = { workspace = true }
