@@ -551,6 +551,15 @@ pub mod pallet {
 			meter.consumed()
 		}
 
+		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
+			Weight::zero()
+		}
+
+		fn on_finalize(_: BlockNumberFor<T>) {
+			// ensure we never go to trie with these values.
+			// <Pending<T>>::kill();
+		}
+
 		fn integrity_test() {
 			use limits::code::STATIC_MEMORY_BYTES;
 
