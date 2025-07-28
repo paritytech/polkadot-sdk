@@ -1206,6 +1206,54 @@ impl<T: Config> Pallet<T> {
 		weight_used
 	}
 
+<<<<<<< HEAD
+=======
+	fn check_hrmp_mcq_heads(
+		ingress_channels: &[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
+		mqc_heads: &mut BTreeMap<ParaId, MessageQueueChain>,
+	) {
+		// Check that the MQC heads for each channel provided by the relay chain match the MQC
+		// heads we have after processing all incoming messages.
+		//
+		// Along the way we also carry over the relevant entries from the `last_mqc_heads` to
+		// `running_mqc_heads`. Otherwise, in a block where no messages were sent in a channel
+		// it won't get into next block's `last_mqc_heads` and thus will be all zeros, which
+		// would corrupt the message queue chain.
+		for (sender, channel) in ingress_channels {
+			let cur_head = mqc_heads.entry(*sender).or_default().head();
+			let target_head = channel.mqc_head.unwrap_or_default();
+			assert_eq!(cur_head, target_head, "HRMP head mismatch");
+		}
+	}
+
+	/// Performs some checks related to the sender and the `sent_at` field of an HRMP message.
+	///
+	/// **Panics** if the message submitted by the collator doesn't respect the expected order or if
+	///            it was sent from a para which has no open channel to this parachain.
+	fn check_hrmp_message_metadata(
+		ingress_channels: &[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
+		maybe_prev_msg_metadata: &mut Option<(u32, ParaId)>,
+		msg_metadata: (u32, ParaId),
+	) {
+		// Check that the message is properly ordered.
+		if let Some(prev_msg) = maybe_prev_msg_metadata {
+			assert!(&msg_metadata >= prev_msg, "[HRMP] Messages order violation");
+		}
+
+		// Check that the message is sent from an existing channel. The channel exists
+		// if its MQC head is present in `vfp.hrmp_mqc_heads`.
+		let sender = msg_metadata.1;
+		let maybe_channel_idx =
+			ingress_channels.binary_search_by_key(&sender, |&(channel_sender, _)| channel_sender);
+		assert!(
+			maybe_channel_idx.is_ok(),
+			"One of the messages submitted by the collator was sent from a sender ({}) \
+					that doesn't have a channel opened to this parachain",
+			<ParaId as Into<u32>>::into(sender)
+		);
+	}
+
+>>>>>>> bd78cc5 ([HRMP] Check messages order before enqueing them (#9326))
 	/// Process all inbound horizontal messages relayed by the collator.
 	///
 	/// This is similar to [`enqueue_inbound_downward_messages`], but works with multiple inbound
@@ -1221,6 +1269,7 @@ impl<T: Config> Pallet<T> {
 		horizontal_messages: BTreeMap<ParaId, Vec<InboundHrmpMessage>>,
 		relay_parent_number: relay_chain::BlockNumber,
 	) -> Weight {
+<<<<<<< HEAD
 		// First, check that all submitted messages are sent from channels that exist. The
 		// channel exists if its MQC head is present in `vfp.hrmp_mqc_heads`.
 		for sender in horizontal_messages.keys() {
@@ -1255,6 +1304,47 @@ impl<T: Config> Pallet<T> {
 		let last_mqc_heads = <LastHrmpMqcHeads<T>>::get();
 		let mut running_mqc_heads = BTreeMap::new();
 		let mut hrmp_watermark = None;
+=======
+		// First, check the HRMP advancement rule.
+		horizontal_messages.check_enough_messages_included("HRMP");
+
+		let (messages, hashed_messages) = horizontal_messages.messages();
+		let mut mqc_heads = <LastHrmpMqcHeads<T>>::get();
+
+		if messages.is_empty() {
+			Self::check_hrmp_mcq_heads(ingress_channels, &mut mqc_heads);
+			let last_processed_msg =
+				InboundMessageId { sent_at: relay_parent_number, reverse_idx: 0 };
+			LastProcessedHrmpMessage::<T>::put(last_processed_msg);
+			HrmpWatermark::<T>::put(relay_parent_number);
+			return T::DbWeight::get().reads_writes(1, 2);
+		}
+
+		let mut prev_msg_metadata = None;
+		let mut last_processed_block = HrmpWatermark::<T>::get();
+		let mut last_processed_msg = InboundMessageId { sent_at: 0, reverse_idx: 0 };
+		for (sender, msg) in messages {
+			Self::check_hrmp_message_metadata(
+				ingress_channels,
+				&mut prev_msg_metadata,
+				(msg.sent_at, *sender),
+			);
+			mqc_heads.entry(*sender).or_default().extend_hrmp(msg);
+
+			if msg.sent_at > last_processed_msg.sent_at && last_processed_msg.sent_at > 0 {
+				last_processed_block = last_processed_msg.sent_at;
+			}
+			last_processed_msg.sent_at = msg.sent_at;
+		}
+		<LastHrmpMqcHeads<T>>::put(&mqc_heads);
+		for (sender, msg) in hashed_messages {
+			Self::check_hrmp_message_metadata(
+				ingress_channels,
+				&mut prev_msg_metadata,
+				(msg.sent_at, *sender),
+			);
+			mqc_heads.entry(*sender).or_default().extend_with_hashed_msg(msg);
+>>>>>>> bd78cc5 ([HRMP] Check messages order before enqueing them (#9326))
 
 		{
 			for (sender, ref horizontal_message) in &horizontal_messages {
