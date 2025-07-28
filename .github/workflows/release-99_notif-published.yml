@@ -42,10 +42,11 @@ jobs:
         shell: bash
         run: |
           set -e
-          echo "${{ github.event.release.body}}" > release_body.txt
+          # printf '%s' "${{ github.event.release.body }}" > release_body.txt
 
-          # Use grep and sed to extract the version from the release body
-          VERSION=$(grep -o 'polkadot-v[0-9]\+\.[0-9]\+\.[0-9]\+' release_body.txt | head -n1 | sed 's/polkadot-//')
+          # Use extract the node version from the release body
+          # VERSION=$(grep -o 'polkadot-v[0-9]\+\.[0-9]\+\.[0-9]\+' release_body.txt | head -n1 | sed 's/polkadot-//')
+          VERSION=$(version=$(printf '%s' "${{ github.event.release.body }}" | grep -oE 'polkadot-(v[0-9]+\.[0-9]+\.[0-9]+)' | head -n1 | sed 's/polkadot-//'))
           echo "node_version=$VERSION" >> $GITHUB_OUTPUT
 
       # - name: Matrix notification to ${{ matrix.channel.name }}
