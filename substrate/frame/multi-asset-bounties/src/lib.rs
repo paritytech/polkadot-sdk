@@ -534,11 +534,13 @@ pub mod pallet {
 		/// treasury to the bounty account/location.
 		///
 		/// ## Dispatch Origin
+		/// 
 		/// Must be [`Config::SpendOrigin`] with the `Success` value being at least
 		/// the converted native amount of the bounty. The bounty value is validated
 		/// against the maximum spendable amount of the [`Config::SpendOrigin`].
 		///
 		/// ## Details
+		/// 
 		/// - The `SpendOrigin` must have sufficient permissions to fund the bounty.
 		/// - In case of a funding failure, the bounty status must be updated with the
 		///   `check_status` call before retrying with `retry_payment` call.
@@ -550,10 +552,8 @@ pub mod pallet {
 		/// - `description`: Description of this bounty.
 		///
 		/// ## Events
+		/// 
 		/// Emits [`Event::BountyFunded`] and [`Event::Paid`] if successful.
-		///
-		/// ## Complexity
-		/// - O(1).
 		#[pallet::call_index(0)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::fund_bounty(description.len() as u32))]
 		pub fn fund_bounty(
@@ -614,9 +614,11 @@ pub mod pallet {
 		/// bounty to the child-bounty account/location.
 		///
 		/// ## Dispatch Origin
+		/// 
 		/// Must be signed by the parent curator.
 		///
 		/// ## Details
+		/// 
 		/// - If `curator` is not provided, the child-bounty will default to using the parent
 		///   curator, allowing the parent curator to immediately call `check_status` and
 		///   `award_bounty` to payout the child-bounty.
@@ -630,10 +632,8 @@ pub mod pallet {
 		/// - `description`: The description of this child-bounty.
 		///
 		/// ## Events
-		/// Emits [`Event::BountyFunded`] and [`Event::Paid`] if successful.
-		///
-		/// ## Complexity
-		/// - O(1).
+		/// 
+		/// Emits [`Event::ChildBountyFunded`] and [`Event::Paid`] if successful.
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::fund_child_bounty(description.len() as u32))]
 		pub fn fund_child_bounty(
@@ -736,10 +736,12 @@ pub mod pallet {
 		/// Propose a new curator for a child-/bounty after the previous was unassigned.
 		///
 		/// ## Dispatch Origin
+		/// 
 		/// Must be signed by `T::SpendOrigin` for a parent bounty, or by the parent bounty curator
 		/// for a child-bounty.
 		///
 		/// ## Details
+		/// 
 		/// - The child-/bounty must be in the `CuratorUnassigned` state.
 		/// - For a parent bounty, the `SpendOrigin` must have sufficient permissions to propose the
 		///   curator.
@@ -750,10 +752,8 @@ pub mod pallet {
 		/// - `curator`: Account to be proposed as the curator.
 		///
 		/// ## Events
+		/// 
 		/// Emits [`Event::CuratorProposed`] if successful.
-		///
-		/// ## Complexity
-		/// - O(1).
 		#[pallet::call_index(2)]
 		#[pallet::weight(match child_bounty_id {
 			None => <T as Config<I>>::WeightInfo::propose_curator_parent_bounty(),
@@ -813,9 +813,11 @@ pub mod pallet {
 		/// Accept the curator role for a child-/bounty.
 		///
 		/// ## Dispatch Origin
+		/// 
 		/// Must be signed by the proposed curator.
 		///
 		/// ## Details
+		/// 
 		/// - The child-/bounty must be in the `Funded` state.
 		/// - The curator must accept the role by calling this function.
 		/// - A deposit will be reserved from the curator and refunded upon successful payout.
@@ -825,10 +827,8 @@ pub mod pallet {
 		/// - `child_bounty_id`: Index of child-bounty.
 		///
 		/// ## Events
+		/// 
 		/// Emits [`Event::BountyBecameActive`] if successful.
-		///
-		/// ## Complexity
-		/// - O(1).
 		#[pallet::call_index(3)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::accept_curator())]
 		pub fn accept_curator(
@@ -869,9 +869,11 @@ pub mod pallet {
 		/// Unassign curator from a child-/bounty.
 		///
 		/// ## Dispatch Origin
+		/// 
 		/// This function can only be called by the `RejectOrigin` or the child-/bounty curator.
 		///
 		/// ## Details
+		/// 
 		/// - If this function is called by the `RejectOrigin`, or by the parent curator in the case
 		///   of a child bounty, we assume that the curator is malicious or inactive. As a result,
 		///   we will slash the curator when possible.
@@ -887,10 +889,8 @@ pub mod pallet {
 		/// - `child_bounty_id`: Index of child-bounty.
 		///
 		/// ## Events
+		/// 
 		/// Emits [`Event::CuratorUnassigned`] if successful.
-		///
-		/// ## Complexity
-		/// - O(1).
 		#[pallet::call_index(4)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::unassign_curator())]
 		pub fn unassign_curator(
@@ -977,9 +977,11 @@ pub mod pallet {
 		/// initiating the payout payments to both the beneficiary and the curator.
 		///
 		/// ## Dispatch Origin
+		/// 
 		/// This function can only be called by the `RejectOrigin` or the child-/bounty curator.
 		///
 		/// ## Details
+		/// 
 		/// - The child-/bounty must be in the `Active` state.
 		/// - if awarding a parent bounty it must not have active or funded child bounties.
 		/// - Initiates payout payment from the child-/bounty to the beneficiary account/location.
@@ -993,11 +995,8 @@ pub mod pallet {
 		/// - `beneficiary`: Account/location to be awarded the child-/bounty.
 		///
 		/// ## Events
-		/// Emits [`Event::BountyAwarded`] and [`Event::Paid`] for each payment initiated if
-		/// successful.
-		///
-		/// ## Complexity
-		/// - O(1).
+		/// 
+		/// Emits [`Event::BountyAwarded`] and [`Event::Paid`] if successful.
 		#[pallet::call_index(5)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::award_bounty())]
 		pub fn award_bounty(
@@ -1053,9 +1052,11 @@ pub mod pallet {
 		/// initialized.
 		///
 		/// ## Dispatch Origin
+		/// 
 		/// This function can only be called by the `RejectOrigin` or the parent bounty curator.
 		///
 		/// ## Details
+		/// 
 		/// - If the child-/bounty is in the `Funded` state, a refund payment is initiated.
 		/// - If the child-/bounty is in the `Active` state, a refund payment is initiated and the
 		///   child-/bounty status is updated with the curator account/location.
@@ -1068,10 +1069,8 @@ pub mod pallet {
 		/// - `child_bounty_id`: Index of child-bounty.
 		///
 		/// ## Events
+		/// 
 		/// Emits [`Event::BountyCanceled`] and [`Event::Paid`] if successful.
-		///
-		/// ## Complexity
-		/// - O(1).
 		#[pallet::call_index(6)]
 		#[pallet::weight(match child_bounty_id {
 			None => <T as Config<I>>::WeightInfo::close_parent_bounty(),
@@ -1152,9 +1151,11 @@ pub mod pallet {
 		/// Check and update the payment status of a child-/bounty.
 		///
 		/// ## Dispatch Origin
+		/// 
 		/// Must be signed.
 		///
 		/// ## Details
+		/// 
 		/// - If the child-/bounty status is `FundingAttempted`, it checks if the funding payment
 		///   has succeeded. If successful, the bounty status becomes `Funded`.
 		/// - If the child-/bounty status is `RefundAttempted`, it checks if the refund payment has
@@ -1167,12 +1168,11 @@ pub mod pallet {
 		/// - `child_bounty_id`: Index of child-bounty.
 		///
 		/// ## Events
-		/// Emits `BountyBecameActive` when the bounty transitions to `Active`.
-		/// Emits `BountyPayoutProcessed` when the payout payments complete successfully.
-		/// Emits `BountyRefundProcessed` when the refund payment completes successfully.
-		///
-		/// ## Complexity
-		/// - O(1).
+		/// 
+		/// Emits [`Event::BountyBecameActive`] if the child/bounty status transitions to `Active`.
+		/// Emits [`Event::BountyRefundProcessed`] if the refund payment has succeed.
+		/// Emits [`Event::BountyPayoutProcessed`] if the payout payment has succeed.
+		/// Emits [`Event::PaymentFailed`] if the funding, refund our payment payment has failed.
 		#[pallet::call_index(7)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::check_status_funding().max(
 			<T as Config<I>>::WeightInfo::check_status_refund(),
@@ -1292,9 +1292,11 @@ pub mod pallet {
 		/// Retry the funding, refund or payout payments.
 		///
 		/// ## Dispatch Origin
+		/// 
 		/// Must be signed.
 		///
 		/// ## Details
+		/// 
 		/// - If the child-/bounty status is `FundingAttempted`, it retries the funding payment from
 		///   funding source the child-/bounty account/location.
 		/// - If the child-/bounty status is `RefundAttempted`, it retries the refund payment from
@@ -1307,10 +1309,8 @@ pub mod pallet {
 		/// - `child_bounty_id`: Index of child-bounty.
 		///
 		/// ## Events
-		/// Emits [`Event::Paid`] if successful.
-		///
-		/// ## Complexity
-		/// - O(1).
+		/// 
+		/// Emits [`Event::Paid`] if the funding, refund or payout payment has initiated.
 		#[pallet::call_index(8)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::retry_payment_funding().max(
 			<T as Config<I>>::WeightInfo::retry_payment_refund(),
