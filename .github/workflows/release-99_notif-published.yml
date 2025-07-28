@@ -13,28 +13,25 @@ jobs:
       matrix:
         channel:
           # Internal
-          # - name: "RelEng: Polkadot Release Coordination"
-          #   room: '!cqAmzdIcbOFwrdrubV:parity.io'
-          #   pre-release: true
-          - name: "Team: RelEng Internal"
-            room: '!GvAyzgCDgaVrvibaAF:parity.io'
+          - name: "RelEng: Polkadot Release Coordination"
+            room: '!cqAmzdIcbOFwrdrubV:parity.io'
             pre-release: true
 
          # External
-          # - name: 'Ledger <> Polkadot Coordination'
-          #   room: '!EoIhaKfGPmFOBrNSHT:web3.foundation'
-          #   pre-release: true
+          - name: 'Ledger <> Polkadot Coordination'
+            room: '!EoIhaKfGPmFOBrNSHT:web3.foundation'
+            pre-release: true
 
-          # # Public
-          # - name: '#polkadotvalidatorlounge:web3.foundation'
-          #   room: '!NZrbtteFeqYKCUGQtr:matrix.parity.io'
-          #   pre-releases: false
-          # - name: '#polkadot-announcements:parity.io'
-          #   room: '!UqHPWiCBGZWxrmYBkF:matrix.parity.io'
-          #   pre-releases: false
-          # - name: '#kusama-announce:parity.io'
-          #   room: '!FMwxpQnYhRCNDRsYGI:matrix.parity.io'
-          #   pre-releases: false
+         # Public
+          - name: '#polkadotvalidatorlounge:web3.foundation'
+            room: '!NZrbtteFeqYKCUGQtr:matrix.parity.io'
+            pre-releases: false
+          - name: '#polkadot-announcements:parity.io'
+            room: '!UqHPWiCBGZWxrmYBkF:matrix.parity.io'
+            pre-releases: false
+          - name: '#kusama-announce:parity.io'
+            room: '!FMwxpQnYhRCNDRsYGI:matrix.parity.io'
+            pre-releases: false
 
     steps:
       - name: Extract version from release body
