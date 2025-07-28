@@ -1,6 +1,6 @@
 [package]
 name = "emulated-integration-tests-common"
-version = "19.1.0"
+version = "19.1.1"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -43,7 +43,8 @@ polkadot-runtime-parachains.default-features = true
 xcm.workspace = true
 xcm.default-features = true
 pallet-xcm = { features = ["test-utils"], workspace = true, default-features = true }
-xcm-executor = { workspace = true, default-features = true }
+xcm-executor.workspace = true
+xcm-executor.default-features = true
 parachains-common.workspace = true
 parachains-common.default-features = true
 cumulus-primitives-core.workspace = true

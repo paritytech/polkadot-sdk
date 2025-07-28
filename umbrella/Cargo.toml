@@ -1246,7 +1246,7 @@ version = "0.45.0"
 path = "../substrate/frame/alliance"
 default-features = false
 optional = true
-version = "38.1.0"
+version = "38.1.1"
 
 [dependencies.pallet-asset-conversion]
 path = "../substrate/frame/asset-conversion"
@@ -1492,13 +1492,13 @@ version = "39.1.0"
 path = "../substrate/frame/identity"
 default-features = false
 optional = true
-version = "39.1.0"
+version = "39.2.0"
 
 [dependencies.pallet-im-online]
 path = "../substrate/frame/im-online"
 default-features = false
 optional = true
-version = "38.1.0"
+version = "38.1.1"
 
 [dependencies.pallet-indices]
 path = "../substrate/frame/indices"
@@ -1534,7 +1534,7 @@ version = "42.0.0"
 path = "../substrate/frame/migrations"
 default-features = false
 optional = true
-version = "9.1.0"
+version = "9.1.1"
 
 [dependencies.pallet-mixnet]
 path = "../substrate/frame/mixnet"
@@ -1690,7 +1690,7 @@ version = "24.0.0"
 path = "../substrate/frame/scheduler"
 default-features = false
 optional = true
-version = "40.2.1"
+version = "40.2.2"
 
 [dependencies.pallet-scored-pool]
 path = "../substrate/frame/scored-pool"
@@ -1840,7 +1840,7 @@ version = "38.1.0"
 path = "../polkadot/xcm/pallet-xcm"
 default-features = false
 optional = true
-version = "18.1.2"
+version = "18.1.3"
 
 [dependencies.pallet-xcm-benchmarks]
 path = "../polkadot/xcm/pallet-xcm-benchmarks"
@@ -2308,7 +2308,7 @@ version = "18.2.1"
 path = "../polkadot/xcm/xcm-executor"
 default-features = false
 optional = true
-version = "18.0.3"
+version = "18.0.4"
 
 [dependencies.substrate-bip39]
 path = "../substrate/utils/substrate-bip39"
@@ -2446,7 +2446,7 @@ version = "0.17.0"
 path = "../cumulus/parachains/integration-tests/emulated/common"
 default-features = false
 optional = true
-version = "19.1.0"
+version = "19.1.1"
 
 [dependencies.fork-tree]
 path = "../substrate/utils/fork-tree"
@@ -2566,7 +2566,7 @@ version = "21.0.0"
 path = "../polkadot/node/network/bridge"
 default-features = false
 optional = true
-version = "21.0.0"
+version = "21.0.1"
 
 [dependencies.polkadot-node-collation-generation]
 path = "../polkadot/node/collation-generation"

@@ -746,7 +746,7 @@ dyn-clone = { version = "1.0.16" }
 ed25519-dalek = { version = "2.1", default-features = false }
 ed25519-zebra = { version = "4.0.3", default-features = false }
 either = { version = "1.8.1", default-features = false }
-emulated-integration-tests-common = { path = "cumulus/parachains/integration-tests/emulated/common", default-features = false, version = "19.1.0" }
+emulated-integration-tests-common = { path = "cumulus/parachains/integration-tests/emulated/common", default-features = false, version = "19.1.1" }
 enumflags2 = { version = "0.7.7" }
 enumn = { version = "0.1.13" }
 env_logger = { version = "0.11.2" }
@@ -884,7 +884,7 @@ num-traits = { version = "0.2.17", default-features = false }
 num_cpus = { version = "1.13.1" }
 once_cell = { version = "1.21.3" }
 orchestra = { version = "0.4.0", default-features = false }
-pallet-alliance = { path = "substrate/frame/alliance", default-features = false, version = "38.1.0" }
+pallet-alliance = { path = "substrate/frame/alliance", default-features = false, version = "38.1.1" }
 pallet-asset-conversion = { path = "substrate/frame/asset-conversion", default-features = false, version = "21.1.0" }
 pallet-asset-conversion-ops = { path = "substrate/frame/asset-conversion/ops", default-features = false, version = "0.7.1" }
 pallet-asset-conversion-tx-payment = { path = "substrate/frame/transaction-payment/asset-conversion-tx-payment", default-features = false, version = "21.1.0" }
@@ -939,14 +939,14 @@ pallet-examples = { path = "substrate/frame/examples", version = "7.0.0" }
 pallet-fast-unstake = { path = "substrate/frame/fast-unstake", default-features = false, version = "38.1.0" }
 pallet-glutton = { path = "substrate/frame/glutton", default-features = false, version = "25.1.0" }
 pallet-grandpa = { path = "substrate/frame/grandpa", default-features = false, version = "39.1.0" }
-pallet-identity = { path = "substrate/frame/identity", default-features = false, version = "39.1.0" }
-pallet-im-online = { path = "substrate/frame/im-online", default-features = false, version = "38.1.0" }
+pallet-identity = { path = "substrate/frame/identity", default-features = false, version = "39.2.0" }
+pallet-im-online = { path = "substrate/frame/im-online", default-features = false, version = "38.1.1" }
 pallet-indices = { path = "substrate/frame/indices", default-features = false, version = "39.1.0" }
 pallet-insecure-randomness-collective-flip = { path = "substrate/frame/insecure-randomness-collective-flip", default-features = false, version = "27.0.0" }
 pallet-lottery = { default-features = false, path = "substrate/frame/lottery" }
 pallet-membership = { path = "substrate/frame/membership", default-features = false, version = "39.0.0" }
 pallet-message-queue = { path = "substrate/frame/message-queue", default-features = false, version = "42.0.0" }
-pallet-migrations = { path = "substrate/frame/migrations", default-features = false, version = "9.1.0" }
+pallet-migrations = { path = "substrate/frame/migrations", default-features = false, version = "9.1.1" }
 pallet-minimal-template = { path = "templates/minimal/pallets/template", default-features = false, version = "0.1.0" }
 pallet-mixnet = { default-features = false, path = "substrate/frame/mixnet" }
 pallet-mmr = { path = "substrate/frame/merkle-mountain-range", default-features = false, version = "39.0.0" }
@@ -980,7 +980,7 @@ pallet-root-offences = { default-features = false, path = "substrate/frame/root-
 pallet-root-testing = { path = "substrate/frame/root-testing", default-features = false, version = "15.0.0" }
 pallet-safe-mode = { default-features = false, path = "substrate/frame/safe-mode" }
 pallet-salary = { path = "substrate/frame/salary", default-features = false, version = "24.0.0" }
-pallet-scheduler = { path = "substrate/frame/scheduler", default-features = false, version = "40.2.1" }
+pallet-scheduler = { path = "substrate/frame/scheduler", default-features = false, version = "40.2.2" }
 pallet-scored-pool = { default-features = false, path = "substrate/frame/scored-pool" }
 pallet-session = { path = "substrate/frame/session", default-features = false, version = "39.0.0" }
 pallet-session-benchmarking = { path = "substrate/frame/session/benchmarking", default-features = false, version = "39.1.0" }
@@ -1007,7 +1007,7 @@ pallet-utility = { path = "substrate/frame/utility", default-features = false, v
 pallet-verify-signature = { path = "substrate/frame/verify-signature", default-features = false }
 pallet-vesting = { path = "substrate/frame/vesting", default-features = false, version = "39.1.0" }
 pallet-whitelist = { path = "substrate/frame/whitelist", default-features = false, version = "38.1.0" }
-pallet-xcm = { path = "polkadot/xcm/pallet-xcm", default-features = false, version = "18.1.2" }
+pallet-xcm = { path = "polkadot/xcm/pallet-xcm", default-features = false, version = "18.1.3" }
 pallet-xcm-benchmarks = { path = "polkadot/xcm/pallet-xcm-benchmarks", default-features = false, version = "18.1.1" }
 pallet-xcm-bridge-hub = { path = "bridges/modules/xcm-bridge-hub", default-features = false, version = "0.14.4" }
 pallet-xcm-bridge-hub-router = { path = "bridges/modules/xcm-bridge-hub-router", default-features = false, version = "0.16.0" }
@@ -1041,7 +1041,7 @@ polkadot-core-primitives = { path = "polkadot/core-primitives", default-features
 polkadot-dispute-distribution = { path = "polkadot/node/network/dispute-distribution", default-features = false, version = "21.1.0" }
 polkadot-erasure-coding = { path = "polkadot/erasure-coding", default-features = false, version = "17.0.0" }
 polkadot-gossip-support = { path = "polkadot/node/network/gossip-support", default-features = false, version = "21.0.0" }
-polkadot-network-bridge = { path = "polkadot/node/network/bridge", default-features = false, version = "21.0.0" }
+polkadot-network-bridge = { path = "polkadot/node/network/bridge", default-features = false, version = "21.0.1" }
 polkadot-node-collation-generation = { path = "polkadot/node/collation-generation", default-features = false, version = "21.0.0" }
 polkadot-node-core-approval-voting = { path = "polkadot/node/core/approval-voting", default-features = false, version = "21.0.0" }
 polkadot-node-core-approval-voting-parallel = { path = "polkadot/node/core/approval-voting-parallel", default-features = false, version = "0.4.0" }
@@ -1380,7 +1380,7 @@ xcm = { path = "polkadot/xcm", default-features = false, package = "staging-xcm"
 xcm-builder = { path = "polkadot/xcm/xcm-builder", default-features = false, package = "staging-xcm-builder", version = "18.2.1" }
 xcm-docs = { path = "polkadot/xcm/docs", version = "0.1.0" }
 xcm-emulator = { path = "cumulus/xcm/xcm-emulator", default-features = false, version = "0.17.2" }
-xcm-executor = { path = "polkadot/xcm/xcm-executor", default-features = false, package = "staging-xcm-executor", version = "18.0.3" }
+xcm-executor = { path = "polkadot/xcm/xcm-executor", default-features = false, package = "staging-xcm-executor", version = "18.0.4" }
 xcm-procedural = { path = "polkadot/xcm/procedural", default-features = false, version = "11.0.1" }
 xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = false, version = "0.5.3" }
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false, version = "18.1.0" }
