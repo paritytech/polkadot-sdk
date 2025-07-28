@@ -8,8 +8,6 @@ crates:
   bump: minor
 - name: bridge-runtime-common
   bump: minor
-- name: pallet-bridge-messages
-  bump: minor
 - name: pallet-bridge-parachains
   bump: minor
 - name: pallet-bridge-relayers
