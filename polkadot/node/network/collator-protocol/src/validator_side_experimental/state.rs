@@ -22,7 +22,7 @@ use crate::{
 			Advertisement, CanSecond, CollationFetchResponse, PeerInfo, PeerState,
 			ProspectiveCandidate, TryAcceptOutcome, INVALID_COLLATION_SLASH,
 		},
-		error::FatalResult,
+		error::{Error, FatalResult},
 		peer_manager::Backend,
 		Metrics, PeerManager,
 	},
@@ -36,6 +36,7 @@ use polkadot_node_subsystem::{
 	messages::{CandidateBackingMessage, IfDisconnected, NetworkBridgeTxMessage},
 	CollatorProtocolSenderTrait,
 };
+use polkadot_node_subsystem_util::{request_session_index_for_child, runtime::recv_runtime};
 use polkadot_primitives::{
 	vstaging::CandidateReceiptV2 as CandidateReceipt, BlockNumber, Hash, Id as ParaId,
 };
@@ -187,10 +188,19 @@ impl<B: Backend> State<B> {
 			err.split()?.log();
 		}
 
-		// TODO: Process potential changes in the registered paras set. We should actually only do
-		// this when there is a new session. If the runtime API does not exist, we should just
-		// prune in an LRU manner if we exceed some limit. Use the API in https://github.com/paritytech/polkadot-sdk/pull/9055.
-		// for it self.peer_manager.registered_paras_update(registered_paras);
+		// Process potential changes in the registered paras set.
+		let session_index = match recv_runtime(request_session_index_for_child(hash, sender).await)
+			.await
+			.map_err(Error::Runtime)
+		{
+			Ok(session_index) => session_index,
+			Err(err) => {
+				err.split()?.log();
+				return Ok(())
+			},
+		};
+
+		self.peer_manager.prune_registered_paras(sender, session_index, hash).await;
 
 		Ok(())
 	}

@@ -131,6 +131,7 @@ struct SessionInfo {
 	group_rotation_info: GroupRotationInfo,
 	v2_receipts: bool,
 	scheduling_lookahead: u32,
+	paras: Vec<ParaId>,
 }
 
 struct TestState {
@@ -234,6 +235,7 @@ impl Default for TestState {
 				group_rotation_info,
 				v2_receipts: true,
 				scheduling_lookahead: 3,
+				paras: vec![100.into(), 200.into(), 600.into()],
 			},
 		);
 
@@ -489,7 +491,7 @@ impl TestState {
 			}
 		);
 
-		let extra_msg = loop {
+		let mut extra_msg = loop {
 			let had_buffered_msg = self.buffered_msg.is_some();
 			let msg = match self.buffered_msg.take() {
 				Some(msg) => msg,
@@ -549,7 +551,40 @@ impl TestState {
 			};
 		};
 
-		self.buffered_msg = extra_msg;
+		let msg = match extra_msg.take() {
+			Some(msg) => msg,
+			None => self.timeout_recv().await,
+		};
+
+		let session_index = match msg {
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				rp,
+				RuntimeApiRequest::SessionIndexForChild(tx),
+			)) => {
+				let index = self.rp_info.get(&rp).map(|info| info.session_index).unwrap_or(1);
+				tx.send(Ok(index)).unwrap();
+				index
+			},
+			other => panic!("Unexpected message: {:?}", other),
+		};
+
+		let msg = if let Some(Some(msg)) = self.recv.next().timeout(TIMEOUT).await {
+			msg
+		} else {
+			return
+		};
+
+		assert_matches!(
+			msg,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_rp,
+				RuntimeApiRequest::ParaIds(index, tx),
+			)) => {
+				assert_eq!(index, session_index);
+				let session_info = self.session_info.get(&index).unwrap();
+				tx.send(Ok(session_info.paras.clone())).unwrap();
+			}
+		);
 	}
 
 	async fn handle_advertisement<B: Backend>(&mut self, state: &mut State<B>, adv: Advertisement) {

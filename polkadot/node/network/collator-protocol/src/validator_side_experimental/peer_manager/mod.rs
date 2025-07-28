@@ -26,7 +26,7 @@ use crate::{
 			PeerInfo, Score, TryAcceptOutcome, CONNECTED_PEERS_LIMIT, CONNECTED_PEERS_PARA_LIMIT,
 			INACTIVITY_DECAY, MAX_STARTUP_ANCESTRY_LOOKBACK, VALID_INCLUDED_CANDIDATE_BUMP,
 		},
-		error::{Error, Result},
+		error::{Error, JfyiError, Result},
 	},
 	LOG_TARGET,
 };
@@ -36,14 +36,15 @@ pub use db::Db;
 use polkadot_node_network_protocol::{peer_set::PeerSet, PeerId};
 use polkadot_node_subsystem::{
 	messages::{ChainApiMessage, NetworkBridgeTxMessage},
-	CollatorProtocolSenderTrait,
+	CollatorProtocolSenderTrait, RuntimeApiError,
 };
 use polkadot_node_subsystem_util::{
-	request_candidate_events, request_candidates_pending_availability, runtime::recv_runtime,
+	request_candidate_events, request_candidates_pending_availability, request_para_ids,
+	runtime::{self, recv_runtime},
 };
 use polkadot_primitives::{
 	vstaging::{CandidateDescriptorVersion, CandidateEvent},
-	BlockNumber, CandidateHash, Hash, Id as ParaId,
+	BlockNumber, CandidateHash, Hash, Id as ParaId, SessionIndex,
 };
 
 #[derive(Debug, PartialEq, Clone)]
@@ -70,6 +71,7 @@ enum DeclarationOutcome {
 pub struct PeerManager<B> {
 	db: B,
 	connected: ConnectedPeers,
+	latest_finalized_session: Option<SessionIndex>,
 }
 
 impl<B: Backend> PeerManager<B> {
@@ -87,6 +89,7 @@ impl<B: Backend> PeerManager<B> {
 				CONNECTED_PEERS_LIMIT,
 				CONNECTED_PEERS_PARA_LIMIT,
 			),
+			latest_finalized_session: None,
 		};
 
 		let (latest_finalized_block_number, latest_finalized_block_hash) =
@@ -148,13 +151,47 @@ impl<B: Backend> PeerManager<B> {
 	}
 
 	/// Process the registered paras and cleanup all data pertaining to any unregistered paras, if
-	/// any. Should be called every N finalized block notifications, since it's expected that para
-	/// deregistrations are rare.
-	#[allow(unused)]
-	pub async fn registered_paras_update(&mut self, registered_paras: BTreeSet<ParaId>) {
-		// Tell the DB to cleanup paras that are no longer registered. No need to clean up the
-		// connected peers state, since it will get automatically cleaned up as the claim queue
-		// gets rid of these stale assignments.
+	/// any. Should be called every finalized block. Only queries the registered paras once per
+	/// session since they can only change at session boundaries.
+	pub async fn prune_registered_paras<Sender: CollatorProtocolSenderTrait>(
+		&mut self,
+		sender: &mut Sender,
+		finalized_session: SessionIndex,
+		finalized_hash: Hash,
+	) {
+		let needs_update = self
+			.latest_finalized_session
+			.map(|last_stored| last_stored < finalized_session)
+			.unwrap_or(true);
+
+		if !needs_update {
+			return
+		}
+
+		self.latest_finalized_session = Some(finalized_session);
+
+		let registered_paras = match recv_runtime(
+			request_para_ids(finalized_hash, finalized_session, sender).await,
+		)
+		.await
+		{
+			Ok(registered_paras) => registered_paras.into_iter().collect(),
+			Err(runtime::Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) => {
+				gum::warn!(
+					target: LOG_TARGET,
+					"Using a runtime which does not support querying the registered paras, this should not be used in production with the `--enable-experimental-collator-protocol` flag."
+				);
+				return
+			},
+			Err(err) => {
+				JfyiError::Runtime(err).log();
+				return
+			},
+		};
+
+		// Tell the DB to cleanup paras that are no longer registered. No need to clean
+		// up the connected peers state, since it will get automatically cleaned up
+		// as the claim queue gets rid of these stale assignments.
 		self.db.prune_paras(registered_paras).await;
 	}
 
