@@ -30,15 +30,16 @@ use futures::{
 };
 
 use polkadot_node_network_protocol::request_response::{v1, v2, IsRequest, ReqProtocolNames};
+use polkadot_node_subsystem::SubsystemSender;
 use polkadot_node_subsystem::{
-	messages::{ChainApiMessage, RuntimeApiMessage},
+	messages::{CandidateBackingMessage, ChainApiMessage, RuntimeApiMessage},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate,
 };
 use polkadot_node_subsystem_util::{
-	availability_chunks::availability_chunk_index,
+	availability_chunks::availability_chunk_index, request_backable_candidates,
 	runtime::{get_occupied_cores, RuntimeInfo},
 };
-use polkadot_primitives::{vstaging::OccupiedCore, CandidateHash, CoreIndex, Hash, SessionIndex};
+use polkadot_primitives::{vstaging::CoreState, CandidateHash, CoreIndex, GroupIndex, Hash, SessionIndex};
 
 use super::{FatalError, Metrics, Result, LOG_TARGET};
 
@@ -52,6 +53,8 @@ use session_cache::SessionCache;
 /// A task fetching a particular chunk.
 mod fetch_task;
 use fetch_task::{FetchTask, FetchTaskConfig, FromFetchTask};
+use polkadot_node_subsystem_util::runtime::get_availability_cores;
+use polkadot_primitives::vstaging::OccupiedCore;
 
 /// Requester takes care of requesting erasure chunks from backing groups and stores them in the
 /// av store.
@@ -80,6 +83,17 @@ pub struct Requester {
 
 	/// Mapping of the req-response protocols to the full protocol names.
 	req_protocol_names: ReqProtocolNames,
+}
+
+struct CoreInfo {
+	/// The candidate hash.
+	candidate_hash: CandidateHash,
+	/// The relay parent of the candidate.
+	relay_parent: Hash,
+	/// The occupied cores for the candidate.
+	erasure_root: Hash,
+	/// The group index of the group responsible for the candidate.
+	group_responsible: GroupIndex,
 }
 
 #[overseer::contextbounds(AvailabilityDistribution, prefix = self::overseer)]
@@ -146,12 +160,29 @@ impl Requester {
 
 		// Also spawn or bump tasks for candidates in ancestry in the same session.
 		for hash in std::iter::once(leaf).chain(ancestors_in_session) {
-			let cores = get_occupied_cores(sender, hash).await?;
+			let occupied_cores: Vec<(CoreIndex, OccupiedCore)> =
+				get_occupied_cores(sender, hash).await?;
 			gum::trace!(
 				target: LOG_TARGET,
-				occupied_cores = ?cores,
+				occupied_cores = ?occupied_cores,
 				"Query occupied core"
 			);
+
+			let cores = occupied_cores
+				.into_iter()
+				.map(|(index, occ)| {
+					(
+						index,
+						CoreInfo {
+							candidate_hash: occ.candidate_hash,
+							relay_parent: occ.candidate_descriptor.relay_parent(),
+							erasure_root: occ.candidate_descriptor.erasure_root(),
+							group_responsible: occ.group_responsible,
+						},
+					)
+				})
+				.collect::<Vec<_>>();
+
 			// Important:
 			// We mark the whole ancestry as live in the **leaf** hash, so we don't need to track
 			// any tasks separately.
@@ -162,6 +193,76 @@ impl Requester {
 			self.add_cores(ctx, runtime, leaf, leaf_session_index, cores).await?;
 		}
 
+		self.early_request_chunks(ctx, runtime, new_head, leaf_session_index).await?;
+		Ok(())
+	}
+
+	async fn early_request_chunks<Context>(
+		&mut self,
+		ctx: &mut Context,
+		runtime: &mut RuntimeInfo,
+		activated_leaf: ActivatedLeaf,
+		leaf_session_index: SessionIndex,
+	) -> Result<()> {
+		let sender = &mut ctx.sender().clone();
+
+		let availability_cores = get_availability_cores(sender, activated_leaf.hash).await?;
+		gum::trace!(
+			target: LOG_TARGET,
+			availability_cores = ?availability_cores,
+			"Query availability cores"
+		);
+
+		// TODO: return error.
+		let backable_candidates =
+			request_backable_candidates(&availability_cores, &[], &activated_leaf, sender) // TODO: figure out the correct bitfields.
+				.await
+				.unwrap();
+		let (tx, rx) = oneshot::channel();
+		sender
+			.send_message(CandidateBackingMessage::GetBackableCandidates(backable_candidates, tx))
+			.await;
+		let backable_candidates = rx.await?;
+
+		let mut cores: Vec<(CoreIndex, CoreInfo)> = Vec::new();
+		for (para, candidates) in backable_candidates {
+			for candidate in candidates {
+				let receipt = candidate.candidate();
+
+				if let Some(core_index) = candidate.candidate().descriptor.core_index() {
+					let core = availability_cores.get(core_index.0 as usize).unwrap(); //TODO: handle None case
+					match core {
+						CoreState::Free => {}
+						CoreState::Scheduled(s) => {
+							if para == s.para_id {
+								let core_info = CoreInfo{
+									candidate_hash: receipt.hash(),
+									relay_parent: receipt.descriptor.relay_parent(),
+									erasure_root: receipt.descriptor.erasure_root(),
+									group_responsible: GroupIndex(0), // TODO: find actual group index
+								};
+
+								cores.push((core_index, core_info));
+							}
+						}
+						CoreState::Occupied(o) => {
+							if para == o.candidate_descriptor.para_id() {
+								let core_info = CoreInfo {
+									candidate_hash: o.candidate_hash,
+									relay_parent: o.candidate_descriptor.relay_parent(),
+									erasure_root: o.candidate_descriptor.erasure_root(),
+									group_responsible: o.group_responsible,
+								};
+
+								cores.push((core_index, core_info));
+							}
+						}
+					};
+				}
+			}
+		}
+
+		self.add_cores(ctx, runtime, activated_leaf.hash, leaf_session_index, cores).await?;
 		Ok(())
 	}
 
@@ -187,7 +288,7 @@ impl Requester {
 		runtime: &mut RuntimeInfo,
 		leaf: Hash,
 		leaf_session_index: SessionIndex,
-		cores: impl IntoIterator<Item = (CoreIndex, OccupiedCore)>,
+		cores: impl IntoIterator<Item = (CoreIndex, CoreInfo)>,
 	) -> Result<()> {
 		for (core_index, core) in cores {
 			if let Some(e) = self.fetches.get_mut(&core.candidate_hash) {
@@ -301,7 +402,7 @@ where
 		Some(parent) => runtime.get_session_index_for_child(sender, *parent).await?,
 		None => {
 			// No first element, i.e. empty.
-			return Ok((0, ancestors))
+			return Ok((0, ancestors));
 		},
 	};
 
@@ -313,7 +414,7 @@ where
 		if session_index == head_session_index {
 			session_ancestry_len += 1;
 		} else {
-			break
+			break;
 		}
 	}
 

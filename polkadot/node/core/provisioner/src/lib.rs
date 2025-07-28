@@ -27,13 +27,13 @@ use futures_timer::Delay;
 
 use polkadot_node_subsystem::{
 	messages::{
-		Ancestors, CandidateBackingMessage, ProspectiveParachainsMessage, ProvisionableData,
+		Ancestors, CandidateBackingMessage, ProvisionableData,
 		ProvisionerInherentData, ProvisionerMessage,
 	},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
 	SubsystemError,
 };
-use polkadot_node_subsystem_util::{request_availability_cores, TimeoutExt};
+use polkadot_node_subsystem_util::{request_availability_cores, TimeoutExt, get_backable_candidates};
 use polkadot_primitives::{
 	vstaging::{BackedCandidate, CoreState},
 	CandidateHash, CoreIndex, Hash, Id as ParaId, SignedAvailabilityBitfield, ValidatorIndex,
@@ -628,29 +628,6 @@ async fn select_candidates(
 	);
 
 	Ok(merged_candidates)
-}
-
-/// Requests backable candidates from Prospective Parachains based on
-/// the given ancestors in the fragment chain. The ancestors may not be ordered.
-async fn get_backable_candidates(
-	relay_parent: Hash,
-	para_id: ParaId,
-	ancestors: Ancestors,
-	count: u32,
-	sender: &mut impl overseer::ProvisionerSenderTrait,
-) -> Result<Vec<(CandidateHash, Hash)>, Error> {
-	let (tx, rx) = oneshot::channel();
-	sender
-		.send_message(ProspectiveParachainsMessage::GetBackableCandidates(
-			relay_parent,
-			para_id,
-			count,
-			ancestors,
-			tx,
-		))
-		.await;
-
-	rx.await.map_err(Error::CanceledBackableCandidates)
 }
 
 /// The availability bitfield for a given core is the transpose

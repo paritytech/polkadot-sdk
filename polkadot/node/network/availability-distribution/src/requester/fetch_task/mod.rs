@@ -35,7 +35,7 @@ use polkadot_node_subsystem::{
 	overseer,
 };
 use polkadot_primitives::{
-	vstaging::OccupiedCore, AuthorityDiscoveryId, BlakeTwo256, CandidateHash, ChunkIndex,
+	AuthorityDiscoveryId, BlakeTwo256, CandidateHash, ChunkIndex,
 	GroupIndex, Hash, HashT, SessionIndex,
 };
 use sc_network::ProtocolName;
@@ -43,7 +43,7 @@ use sc_network::ProtocolName;
 use crate::{
 	error::{FatalError, Result},
 	metrics::{Metrics, FAILED, SUCCEEDED},
-	requester::session_cache::{BadValidators, SessionInfo},
+	requester::{session_cache::{BadValidators, SessionInfo}, CoreInfo},
 	LOG_TARGET,
 };
 
@@ -145,7 +145,7 @@ impl FetchTaskConfig {
 	/// The result of this function can be passed into [`FetchTask::start`].
 	pub fn new(
 		leaf: Hash,
-		core: &OccupiedCore,
+		core: &CoreInfo,
 		sender: mpsc::Sender<FromFetchTask>,
 		metrics: Metrics,
 		session_info: &SessionInfo,
@@ -170,8 +170,8 @@ impl FetchTaskConfig {
 				candidate_hash: core.candidate_hash,
 				index: session_info.our_index,
 			},
-			erasure_root: core.candidate_descriptor.erasure_root(),
-			relay_parent: core.candidate_descriptor.relay_parent(),
+			erasure_root: core.erasure_root,
+			relay_parent: core.relay_parent,
 			metrics,
 			sender,
 			chunk_index,

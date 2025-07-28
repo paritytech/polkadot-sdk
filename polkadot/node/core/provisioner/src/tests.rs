@@ -249,7 +249,7 @@ mod select_candidates {
 	};
 	use futures::channel::mpsc;
 	use polkadot_node_subsystem::messages::{
-		AllMessages, RuntimeApiMessage,
+		AllMessages, RuntimeApiMessage, ProspectiveParachainsMessage,
 		RuntimeApiRequest::{
 			AvailabilityCores, PersistedValidationData as PersistedValidationDataReq,
 		},
