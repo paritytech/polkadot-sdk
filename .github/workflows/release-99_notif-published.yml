@@ -37,16 +37,17 @@ jobs:
           #   pre-releases: false
 
     steps:
-      - name: Extract Polkadot Version
+      - name: Extract version from release body
         id: extract_version
-        shell: bash
         run: |
-          set -e
-          echo "${{ github.event.release.body }}" > release_body.txt
+          # Extract node version from release body
+          VERSION=$(echo "${{ github.event.release.body }}" | grep -o 'polkadot-v[0-9]\+\.[0-9]\+\.[0-9]\+' | head -1 | sed 's/polkadot-//')
 
-          # Use extract the node version from the release body
-          VERSION=$(grep -o 'polkadot-v[0-9]\+\.[0-9]\+\.[0-9]\+' release_body.txt | head -n1 | sed 's/polkadot-//')
-          # VERSION=$(printf '%s' "${{ github.event.release.body }}" | grep -oE 'polkadot-(v[0-9]+\.[0-9]+\.[0-9]+)' | head -n1 | sed 's/polkadot-//')
+          if [ -z "$VERSION" ]; then
+            echo "Error: Could not extract version from release body"
+          fi
+
+          echo "Extracted node version: $VERSION"
           echo "node_version=$VERSION" >> $GITHUB_OUTPUT
 
       # - name: Matrix notification to ${{ matrix.channel.name }}
