@@ -2,9 +2,7 @@ title: Remove whitespaces added by macros due to token re-parsing
 doc:
 - audience: Runtime Dev
   description: |-
-    Relates to: https://github.com/paritytech/polkadot-sdk/issues/9336, https://github.com/paritytech/polkadot-sdk/pull/7321
-
-    This PR aims to normalize result of `stringify` in scenarios when used inside nested macros to stringify token streams for benchmarking related code. Different versions of rust can include, or not, "space" characters around tokens like `<`,`>`,`::` so we are just removing additional spaces.
+    Normalize result of `stringify` in scenarios when used inside nested macros to stringify token streams for benchmarking framework
 crates:
 - name: frame-benchmarking
   bump: patch
