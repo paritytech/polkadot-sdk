@@ -6,8 +6,6 @@ doc:
 crates:
 - name: bp-runtime
   bump: minor
-- name: pallet-bridge-parachains
-  bump: minor
 - name: pallet-bridge-relayers
   bump: minor
 - name: snowbridge-core
