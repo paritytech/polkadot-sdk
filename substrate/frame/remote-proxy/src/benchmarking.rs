@@ -18,7 +18,7 @@
 use super::*;
 use crate::{dispatch_context, Pallet as RemoteProxy};
 use alloc::{boxed::Box, vec};
-use frame::{benchmarking::prelude::*, prelude::*, traits::Currency};
+use frame::{benchmarking::prelude::*, traits::Currency};
 use frame_system::RawOrigin;
 
 const SEED: u32 = 0;
