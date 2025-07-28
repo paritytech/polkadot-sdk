@@ -36,9 +36,11 @@ jobs:
     steps:
       - name: Extract version from release body
         id: extract_version
+        env:
+          RELEASE_BODY: ${{ github.event.release.body }}
         run: |
           # Extract node version from release body
-          VERSION=$(echo "${{ github.event.release.body }}" | grep -o 'polkadot-v[0-9]\+\.[0-9]\+\.[0-9]\+' | head -1 | sed 's/polkadot-//')
+          VERSION=$(echo "${{ env.RELEASE_BODY }}" | grep -o 'polkadot-v[0-9]\+\.[0-9]\+\.[0-9]\+' | head -1 | sed 's/polkadot-//')
 
           if [ -z "$VERSION" ]; then
             echo "Error: Could not extract version from release body"
