@@ -12,4 +12,4 @@ doc:
     Closes https://github.com/paritytech/litep2p/issues/405.
 crates:
 - name: sc-network
-  bump: patch
+  bump: minor
