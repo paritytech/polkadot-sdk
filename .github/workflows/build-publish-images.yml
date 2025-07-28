@@ -99,7 +99,7 @@ jobs:
           app-id: ${{ secrets.ARTIFACTS_DOWNLOADER_APP_ID }}
           private-key: ${{ secrets.ARTIFACTS_DOWNLOADER_PRIVATE_KEY }}
       - name: Download artifacts
-        uses: actions/download-artifact@v4.1.8
+        uses: actions/download-artifact@v4.3.0
         with:
           name: build-linux-stable-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
           github-token: ${{ steps.app-token.outputs.token }}
