@@ -2770,7 +2770,6 @@ dependencies = [
  "bp-test-utils",
  "frame-support",
  "frame-system",
- "log",
  "pallet-balances",
  "pallet-bridge-grandpa",
  "pallet-bridge-messages",
@@ -2788,6 +2787,7 @@ dependencies = [
  "sp-weights",
  "staging-xcm",
  "static_assertions",
+ "tracing",
  "tuplex",
 ]
 
