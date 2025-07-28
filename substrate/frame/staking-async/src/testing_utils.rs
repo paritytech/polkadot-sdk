@@ -216,3 +216,11 @@ pub fn create_validators_with_nominators_for_era<T: Config>(
 	ValidatorCount::<T>::put(validators);
 	Ok(validator_chosen)
 }
+
+/// Set active era to the given era index.
+pub fn set_active_era<T: Config>(era: EraIndex) {
+	// set the current era.
+	CurrentEra::<T>::put(era);
+	// set the active era.
+	ActiveEra::<T>::put(ActiveEraInfo { index: era, start: None });
+}
