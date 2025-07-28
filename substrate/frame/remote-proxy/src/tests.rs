@@ -20,22 +20,13 @@ use super::*;
 use crate as remote_proxy;
 use codec::{Decode, DecodeWithMemTracking};
 use cumulus_pallet_parachain_system::OnSystemEvent;
-use frame_support::{
-	assert_err, assert_ok, construct_runtime, derive_impl,
-	traits::{Contains, Currency},
-};
+use frame::{prelude::*, runtime::prelude::*, testing_prelude::*, traits::*};
 use frame_system::Call as SystemCall;
 use pallet_balances::Call as BalancesCall;
 use pallet_proxy::{Error as ProxyError, Event as ProxyEvent};
 use pallet_utility::Call as UtilityCall;
-use sp_core::{ConstU32, ConstU64, H256};
-use sp_io::TestExternalities;
-use sp_runtime::{
-	traits::{BlakeTwo256, Dispatchable},
-	BoundedVec, BuildStorage,
-};
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = MockBlock<Test>;
 
 construct_runtime!(
 	pub struct Test {
@@ -91,7 +82,7 @@ impl Default for ProxyType {
 		Self::Any
 	}
 }
-impl frame_support::traits::InstanceFilter<RuntimeCall> for ProxyType {
+impl frame::traits::InstanceFilter<RuntimeCall> for ProxyType {
 	fn filter(&self, c: &RuntimeCall) -> bool {
 		match self {
 			ProxyType::Any => true,
@@ -202,7 +193,7 @@ impl Config for Test {
 	type WeightInfo = ();
 }
 
-pub fn new_test_ext() -> TestExternalities {
+pub fn new_test_ext() -> TestState {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(1, 10), (2, 10), (3, 10), (4, 10), (5, 3)],
@@ -210,7 +201,7 @@ pub fn new_test_ext() -> TestExternalities {
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
-	let mut ext = TestExternalities::new(t);
+	let mut ext = TestState::new(t);
 	ext.execute_with(|| System::set_block_number(1));
 	ext
 }

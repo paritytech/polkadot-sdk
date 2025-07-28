@@ -16,17 +16,10 @@
 // Benchmarks for Remote Proxy Pallet
 
 use super::*;
-use crate::Pallet as RemoteProxy;
+use crate::{dispatch_context, Pallet as RemoteProxy};
 use alloc::{boxed::Box, vec};
-use frame_benchmarking::v2::{
-	account, impl_test_function, instance_benchmarks, whitelisted_caller,
-};
-use frame_support::traits::Currency;
+use frame::{benchmarking::prelude::*, prelude::*, traits::Currency};
 use frame_system::RawOrigin;
-use sp_runtime::{
-	traits::{Bounded, StaticLookup},
-	BoundedVec,
-};
 
 const SEED: u32 = 0;
 
@@ -43,7 +36,6 @@ fn assert_last_event<T: pallet_proxy::Config>(
 #[instance_benchmarks]
 mod benchmarks {
 	use super::*;
-	use frame_benchmarking::BenchmarkError;
 
 	#[benchmark]
 	fn remote_proxy() -> Result<(), BenchmarkError> {
@@ -109,8 +101,8 @@ mod benchmarks {
 
 		#[block]
 		{
-			frame_support::dispatch_context::run_in_context(|| {
-				frame_support::dispatch_context::with_context::<
+			dispatch_context::run_in_context(|| {
+				dispatch_context::with_context::<
 					crate::RemoteProxyContext<crate::RemoteBlockNumberOf<T, I>>,
 					_,
 				>(|context| {

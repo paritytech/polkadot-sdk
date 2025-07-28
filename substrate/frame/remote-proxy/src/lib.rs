@@ -59,12 +59,17 @@ mod weight;
 
 use alloc::{boxed::Box, vec::Vec};
 use codec::{Encode, MaxEncodedLen};
-use frame_support::{storage::storage_prefix, Parameter, StorageHasher, Twox64Concat};
+use frame::prelude::*;
 use scale_info::TypeInfo;
-use sp_core::Hasher;
-use sp_runtime::traits::Saturating;
 
 pub use cumulus_primitives_core::PersistedValidationData;
+use frame::{
+	deps::{
+		frame_support::{dispatch_context, StorageHasher},
+		sp_core::Hasher,
+	},
+	prelude::storage::storage_prefix,
+};
 pub use pallet::*;
 pub use pallet_proxy::ProxyDefinition;
 pub use weight::WeightInfo;
@@ -130,14 +135,11 @@ pub trait RemoteProxyInterface<AccountId, ProxyType, BlockNumber> {
 	) -> (RemoteProxyProof<Self::RemoteBlockNumber>, Self::RemoteBlockNumber, Self::RemoteHash);
 }
 
-#[frame_support::pallet]
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
 	use cumulus_pallet_parachain_system::OnSystemEvent;
 	use cumulus_primitives_core::PersistedValidationData;
-	use frame_support::{dispatch_context, pallet_prelude::*};
-	use frame_system::pallet_prelude::*;
-	use sp_runtime::traits::{StaticLookup, Zero};
 
 	type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
