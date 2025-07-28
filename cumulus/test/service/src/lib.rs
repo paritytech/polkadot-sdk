@@ -37,7 +37,7 @@ use cumulus_client_consensus_aura::{
 use prometheus::Registry;
 use runtime::AccountId;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
-use sp_consensus_aura::sr25519::AuthorityPair;
+use sp_consensus_aura::sr25519::{AuthorityId, AuthorityPair};
 use std::{
 	collections::HashSet,
 	future::Future,
@@ -133,8 +133,11 @@ pub type Client = TFullClient<runtime::NodeBlock, runtime::RuntimeApi, WasmExecu
 pub type Backend = TFullBackend<Block>;
 
 /// The block-import type being used by the test service.
-pub type ParachainBlockImport =
-	TParachainBlockImport<Block, SlotBasedBlockImport<Block, Arc<Client>, Client>, Backend>;
+pub type ParachainBlockImport = TParachainBlockImport<
+	Block,
+	SlotBasedBlockImport<Block, Arc<Client>, Client, AuthorityId>,
+	Backend,
+>;
 
 /// Transaction pool type used by the test service
 pub type TransactionPool = Arc<sc_transaction_pool::TransactionPoolHandle<Block, Client>>;

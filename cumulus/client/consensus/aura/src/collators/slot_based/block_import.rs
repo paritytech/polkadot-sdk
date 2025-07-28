@@ -15,13 +15,21 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
+use codec::Codec;
+use cumulus_primitives_core::{CoreInfo, CumulusDigestItem, RelayBlockIdentifier};
 use futures::{stream::FusedStream, StreamExt};
+use parking_lot::Mutex;
 use sc_consensus::{BlockImport, StateAction};
+use sc_consensus_aura::{find_pre_digest, standalone::fetch_authorities};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
-use sp_api::{ApiExt, CallApiAt, CallContext, Core, ProvideRuntimeApi, StorageProof};
-use sp_runtime::traits::{Block as BlockT, Header as _};
-use sp_trie::proof_size_extension::ProofSizeExt;
-use std::sync::Arc;
+use sp_api::{
+	ApiExt, CallApiAt, CallContext, Core, ProofRecorder, ProofRecorderIgnoredNodes,
+	ProvideRuntimeApi, StorageProof,
+};
+use sp_consensus_aura::AuraApi;
+use sp_runtime::traits::{Block as BlockT, HashingFor, Header as _};
+use sp_trie::{proof_size_extension::ProofSizeExt, recorder::IgnoredNodes};
+use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
 /// Handle for receiving the block and the storage proof from the [`SlotBasedBlockImport`].
 ///
@@ -46,14 +54,23 @@ impl<Block> SlotBasedBlockImportHandle<Block> {
 	}
 }
 
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+struct PoVBundle {
+	relay_block_identifier: RelayBlockIdentifier,
+	core_info: CoreInfo,
+	author_index: usize,
+}
+
 /// Special block import for the slot based collator.
-pub struct SlotBasedBlockImport<Block, BI, Client> {
+pub struct SlotBasedBlockImport<Block: BlockT, BI, Client, AuthorityId> {
 	inner: BI,
 	client: Arc<Client>,
 	sender: TracingUnboundedSender<(Block, StorageProof)>,
+	nodes_to_ignore: Arc<Mutex<HashMap<PoVBundle, ProofRecorderIgnoredNodes<Block>>>>,
+	_phantom: PhantomData<AuthorityId>,
 }
 
-impl<Block, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
+impl<Block: BlockT, BI, Client, AuthorityId> SlotBasedBlockImport<Block, BI, Client, AuthorityId> {
 	/// Create a new instance.
 	///
 	/// The returned [`SlotBasedBlockImportHandle`] needs to be passed to the
@@ -62,25 +79,44 @@ impl<Block, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 	pub fn new(inner: BI, client: Arc<Client>) -> (Self, SlotBasedBlockImportHandle<Block>) {
 		let (sender, receiver) = tracing_unbounded("SlotBasedBlockImportChannel", 1000);
 
-		(Self { sender, client, inner }, SlotBasedBlockImportHandle { receiver })
+		(
+			Self {
+				sender,
+				client,
+				inner,
+				nodes_to_ignore: Default::default(),
+				_phantom: PhantomData,
+			},
+			SlotBasedBlockImportHandle { receiver },
+		)
 	}
 }
 
-impl<Block, BI: Clone, Client> Clone for SlotBasedBlockImport<Block, BI, Client> {
+impl<Block: BlockT, BI: Clone, Client, AuthorityId> Clone
+	for SlotBasedBlockImport<Block, BI, Client, AuthorityId>
+{
 	fn clone(&self) -> Self {
-		Self { inner: self.inner.clone(), client: self.client.clone(), sender: self.sender.clone() }
+		Self {
+			inner: self.inner.clone(),
+			client: self.client.clone(),
+			sender: self.sender.clone(),
+			nodes_to_ignore: self.nodes_to_ignore.clone(),
+			_phantom: PhantomData,
+		}
 	}
 }
 
 #[async_trait::async_trait]
-impl<Block, BI, Client> BlockImport<Block> for SlotBasedBlockImport<Block, BI, Client>
+impl<Block, BI, Client, AuthorityId> BlockImport<Block>
+	for SlotBasedBlockImport<Block, BI, Client, AuthorityId>
 where
 	Block: BlockT,
 	BI: BlockImport<Block> + Send + Sync,
 	BI::Error: Into<sp_consensus::Error>,
 	Client: ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync,
 	Client::StateBackend: Send,
-	Client::Api: Core<Block>,
+	Client::Api: Core<Block> + AuraApi<Block, AuthorityId>,
+	AuthorityId: Codec + Send + Sync + std::fmt::Debug,
 {
 	type Error = sp_consensus::Error;
 
@@ -95,20 +131,32 @@ where
 		&self,
 		mut params: sc_consensus::BlockImportParams<Block>,
 	) -> Result<sc_consensus::ImportResult, Self::Error> {
-		// If the channel exists and it is required to execute the block, we will execute the block
-		// here. This is done to collect the storage proof and to prevent re-execution, we push
-		// downwards the state changes. `StateAction::ApplyChanges` is ignored, because it either
-		// means that the node produced the block itself or the block was imported via state sync.
-		if !self.sender.is_closed() && !matches!(params.state_action, StateAction::ApplyChanges(_))
+		let core_info = CumulusDigestItem::find_core_info(params.header.digest());
+		let relay_block_identifier =
+			CumulusDigestItem::find_relay_block_identifier(params.header.digest());
+
+		if let (Some(core_info), Some(relay_block_identifier)) = (core_info, relay_block_identifier)
 		{
+			let slot = find_pre_digest::<Block, ()>(&params.header)
+				.map_err(|error| sp_consensus::Error::Other(Box::new(error)))?;
+			let authorities = fetch_authorities(&*self.client, *params.header.parent_hash())?;
+
+			let pov_bundle = PoVBundle {
+				author_index: *slot as usize % authorities.len(),
+				core_info,
+				relay_block_identifier,
+			};
+
+			let mut nodes_to_ignore = self.nodes_to_ignore.lock();
+			let nodes_to_ignore = nodes_to_ignore.entry(pov_bundle).or_default();
+
+			let recorder = ProofRecorder::<Block>::with_ignored_nodes(nodes_to_ignore.clone());
+
 			let mut runtime_api = self.client.runtime_api();
 
 			runtime_api.set_call_context(CallContext::Onchain);
 
-			runtime_api.record_proof();
-			let recorder = runtime_api
-				.proof_recorder()
-				.expect("Proof recording is enabled in the line above; qed.");
+			runtime_api.set_proof_recorder(recorder.clone());
 			runtime_api.register_extension(ProofSizeExt::new(recorder));
 
 			let parent_hash = *params.header.parent_hash();
@@ -116,7 +164,7 @@ where
 			let block = Block::new(params.header.clone(), params.body.clone().unwrap_or_default());
 
 			runtime_api
-				.execute_block(parent_hash, block.clone())
+				.execute_block(parent_hash, block)
 				.map_err(|e| Box::new(e) as Box<_>)?;
 
 			let storage_proof =
@@ -133,11 +181,14 @@ where
 				)))
 			}
 
+			nodes_to_ignore
+				.extend(IgnoredNodes::from_storage_proof::<HashingFor<Block>>(&storage_proof));
+			nodes_to_ignore
+				.extend(IgnoredNodes::from_memory_db(gen_storage_changes.transaction.clone()));
+
 			params.state_action = StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(
 				gen_storage_changes,
 			));
-
-			let _ = self.sender.unbounded_send((block, storage_proof));
 		}
 
 		self.inner.import_block(params).await.map_err(Into::into)

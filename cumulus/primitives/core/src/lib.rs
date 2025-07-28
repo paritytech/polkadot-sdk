@@ -217,7 +217,7 @@ pub enum ServiceQuality {
 pub const CUMULUS_CONSENSUS_ID: ConsensusEngineId = *b"CMLS";
 
 /// Information about the core on the relay chain this block will be validated on.
-#[derive(Clone, Debug, Decode, Encode, PartialEq)]
+#[derive(Clone, Debug, Decode, Encode, PartialEq, Eq)]
 pub struct CoreInfo {
 	/// The selector that determines the actual core at `claim_queue_offset`.
 	pub selector: CoreSelector,
@@ -225,6 +225,14 @@ pub struct CoreInfo {
 	pub claim_queue_offset: ClaimQueueOffset,
 	/// The number of cores assigned to the parachain at `claim_queue_offset`.
 	pub number_of_cores: Compact<u16>,
+}
+
+impl core::hash::Hash for CoreInfo {
+	fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+		state.write_u8(self.selector.0);
+		state.write_u8(self.claim_queue_offset.0);
+		state.write_u16(self.number_of_cores.0);
+	}
 }
 
 /// Information about a block that is part of a PoV bundle.
@@ -240,7 +248,7 @@ pub struct BundleInfo {
 }
 
 /// Identifier for a relay chain block used by [`CumulusDigestItem`].
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Hash, Eq)]
 pub enum RelayBlockIdentifier {
 	/// The block is identified using its block hash.
 	ByHash(relay_chain::Hash),
