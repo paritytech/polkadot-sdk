@@ -123,10 +123,9 @@ impl MetricsParams {
 
 		tracing::info!(
 			target: "bridge",
-			"Exposed {} metric: version={} commit={}",
-			BUILD_INFO_METRIC,
-			relay_version,
-			relay_commit,
+			version=%relay_version,
+			commit=%relay_commit,
+			"Exposed {BUILD_INFO_METRIC} metric"
 		);
 
 		Ok(MetricsParams { address, registry })
@@ -165,26 +164,26 @@ pub fn set_gauge_value<T: Default + Debug, V: Atomic<T = T>, E: Debug>(
 		Ok(Some(value)) => {
 			tracing::trace!(
 				target: "bridge-metrics",
-				"Updated value of metric '{:?}': {:?}",
-				gauge.desc().first().map(|d| &d.fq_name),
-				value,
+				metric=?gauge.desc().first().map(|d| &d.fq_name),
+				?value,
+				"Updated value"
 			);
 			value
 		},
 		Ok(None) => {
 			tracing::warn!(
 				target: "bridge-metrics",
-				"Failed to update metric '{:?}': value is empty",
-				gauge.desc().first().map(|d| &d.fq_name),
+				metric=?gauge.desc().first().map(|d| &d.fq_name),
+				"Failed to update: value is empty"
 			);
 			Default::default()
 		},
 		Err(error) => {
 			tracing::warn!(
 				target: "bridge-metrics",
-				"Failed to update metric '{:?}': {:?}",
-				gauge.desc().first().map(|d| &d.fq_name),
-				error,
+				?error,
+				metric=?gauge.desc().first().map(|d| &d.fq_name),
+				"Failed to update"
 			);
 			Default::default()
 		},
