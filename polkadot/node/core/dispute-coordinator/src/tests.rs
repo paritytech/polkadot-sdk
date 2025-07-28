@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::{
-	collections::HashMap,
+	collections::{BTreeMap, HashMap},
 	sync::{
 		atomic::{AtomicU64, Ordering as AtomicOrdering},
 		Arc,
@@ -773,10 +773,9 @@ fn too_many_unconfirmed_statements_are_considered_spam() {
 						msg: DisputeCoordinatorMessage::ActiveDisputes(tx),
 					})
 					.await;
-
 				assert_eq!(
 					rx.await.unwrap(),
-					vec![(session, candidate_hash1, DisputeStatus::Active)]
+					BTreeMap::from([((session, candidate_hash1), DisputeStatus::Active)])
 				);
 
 				let (tx, rx) = oneshot::channel();
@@ -910,7 +909,7 @@ fn approval_vote_import_works() {
 
 				assert_eq!(
 					rx.await.unwrap(),
-					vec![(session, candidate_hash1, DisputeStatus::Active)]
+					BTreeMap::from([((session, candidate_hash1), DisputeStatus::Active)])
 				);
 
 				let (tx, rx) = oneshot::channel();
@@ -1023,7 +1022,7 @@ fn dispute_gets_confirmed_via_participation() {
 
 				assert_eq!(
 					rx.await.unwrap(),
-					vec![(session, candidate_hash1, DisputeStatus::Active)]
+					BTreeMap::from([((session, candidate_hash1), DisputeStatus::Active)])
 				);
 
 				let (tx, rx) = oneshot::channel();
@@ -1168,7 +1167,7 @@ fn dispute_gets_confirmed_at_byzantine_threshold() {
 
 				assert_eq!(
 					rx.await.unwrap(),
-					vec![(session, candidate_hash1, DisputeStatus::Confirmed)]
+					BTreeMap::from([((session, candidate_hash1), DisputeStatus::Confirmed)])
 				);
 
 				let (tx, rx) = oneshot::channel();
@@ -1430,7 +1429,7 @@ fn conflicting_votes_lead_to_dispute_participation() {
 
 				assert_eq!(
 					rx.await.unwrap(),
-					vec![(session, candidate_hash, DisputeStatus::Active)]
+					BTreeMap::from([((session, candidate_hash), DisputeStatus::Active)])
 				);
 
 				let (tx, rx) = oneshot::channel();
