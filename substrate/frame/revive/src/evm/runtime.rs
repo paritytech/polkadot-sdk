@@ -142,8 +142,15 @@ where
 
 	fn check(self, lookup: &Lookup) -> Result<Self::Checked, TransactionValidityError> {
 		if !self.0.is_signed() {
-			if let Some(crate::Call::eth_transact { payload }) = self.0.function.is_sub_type() {
-				let checked = E::try_into_checked_extrinsic(payload.to_vec(), self.encoded_size())?;
+			if let Some(crate::Call::eth_transact { payload, raw_bytes }) =
+				self.0.function.is_sub_type()
+			{
+				let checked = E::try_into_checked_extrinsic(
+					payload.to_vec(),
+					raw_bytes.to_vec(),
+					self.encoded_size(),
+				)?;
+
 				return Ok(checked)
 			};
 		}
@@ -270,11 +277,10 @@ pub trait EthExtra {
 	///
 	/// # Parameters
 	/// - `payload`: The RLP-encoded Ethereum transaction.
-	/// - `gas_limit`: The gas limit for the extrinsic
-	/// - `storage_deposit_limit`: The storage deposit limit for the extrinsic,
-	/// - `encoded_len`: The encoded length of the extrinsic.
+	/// - `raw_bytes`: The raw bytes of the Ethereum transaction.
 	fn try_into_checked_extrinsic(
 		payload: Vec<u8>,
+		raw_bytes: Vec<u8>,
 		encoded_len: usize,
 	) -> Result<
 		CheckedExtrinsic<AccountIdOf<Self::Config>, CallOf<Self::Config>, Self::Extension>,

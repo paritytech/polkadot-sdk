@@ -723,9 +723,7 @@ pub mod pallet {
 		/// # Parameters
 		///
 		/// * `payload`: The encoded [`crate::evm::TransactionSigned`].
-		/// * `gas_limit`: The gas limit enforced during contract execution.
-		/// * `storage_deposit_limit`: The maximum balance that can be charged to the caller for
-		///   storage usage.
+		/// * `raw_bytes`: The raw bytes of the transaction, which is used to recover the signer.
 		///
 		/// # Note
 		///
@@ -736,7 +734,11 @@ pub mod pallet {
 		#[allow(unused_variables)]
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::MAX)]
-		pub fn eth_transact(origin: OriginFor<T>, payload: Vec<u8>) -> DispatchResultWithPostInfo {
+		pub fn eth_transact(
+			origin: OriginFor<T>,
+			payload: Vec<u8>,
+			raw_bytes: Vec<u8>,
+		) -> DispatchResultWithPostInfo {
 			Err(frame_system::Error::CallFiltered::<T>.into())
 		}
 
@@ -1468,8 +1470,10 @@ where
 			return Err(EthTransactError::Message("Invalid transaction".into()));
 		};
 
-		let eth_transact_call =
-			crate::Call::<T>::eth_transact { payload: unsigned_tx.dummy_signed_payload() };
+		let eth_transact_call = crate::Call::<T>::eth_transact {
+			payload: unsigned_tx.dummy_signed_payload(),
+			raw_bytes: vec![],
+		};
 		let fee = tx_fee(eth_transact_call.into(), dispatch_call);
 		let raw_gas = Self::evm_fee_to_gas(fee);
 		let eth_gas =
@@ -1747,7 +1751,7 @@ sp_api::decl_runtime_apis! {
 		/// Perform an Ethereum call.
 		///
 		/// See [`crate::Pallet::dry_run_eth_transact`]
-		fn eth_transact(tx: GenericTransaction) -> Result<EthTransactInfo<Balance>, EthTransactError>;
+		fn eth_transact(tx: GenericTransaction, raw_bytes: Vec<u8>) -> Result<EthTransactInfo<Balance>, EthTransactError>;
 
 		/// Upload new code without instantiating a contract from it.
 		///
@@ -1864,6 +1868,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 
 				fn eth_transact(
 					tx: $crate::evm::GenericTransaction,
+					raw_bytes: Vec<u8>,
 				) -> Result<$crate::EthTransactInfo<Balance>, $crate::EthTransactError> {
 					use $crate::{
 						codec::Encode, evm::runtime::EthExtra, frame_support::traits::Get,
