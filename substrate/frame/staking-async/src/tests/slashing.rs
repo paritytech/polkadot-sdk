@@ -628,6 +628,92 @@ fn only_slash_validator_for_max_in_era() {
 }
 
 #[test]
+fn really_old_offences_are_ignored() {
+	ExtBuilder::default()
+		.slash_defer_duration(27)
+		.bonding_duration(28)
+		.build_and_execute(|| {
+			Session::roll_until_active_era(100);
+
+			let expected_oldest_reportable_offence = active_era() - (SlashDeferDuration::get() - 1);
+
+			assert_eq!(expected_oldest_reportable_offence, 74);
+
+			// clear staking events until now
+			staking_events_since_last_call();
+
+			// WHEN: reporting offence for era 72 and 73, which are too old.
+			add_slash_in_era(11, 72, Perbill::from_percent(10));
+			add_slash_in_era(21, 73, Perbill::from_percent(10));
+
+			// THEN: offence is ignored.
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					Event::OffenceTooOld {
+						offence_era: 72,
+						validator: 11,
+						fraction: Perbill::from_percent(10)
+					},
+					Event::OffenceTooOld {
+						offence_era: 73,
+						validator: 21,
+						fraction: Perbill::from_percent(10)
+					},
+				]
+			);
+
+			// also check that the ignored offences are not stored anywhere
+			assert!(OffenceQueue::<Test>::iter_prefix(72).next().is_none());
+			assert!(OffenceQueue::<Test>::iter_prefix(73).next().is_none());
+			assert!(!OffenceQueueEras::<Test>::get().unwrap_or_default().contains(&72));
+			assert!(!OffenceQueueEras::<Test>::get().unwrap_or_default().contains(&73));
+
+			// WHEN: reporting offence for era 74.
+			add_slash_in_era(11, 74, Perbill::from_percent(10));
+
+			// THEN: offence is reported.
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![Event::OffenceReported {
+					offence_era: 74,
+					validator: 11,
+					fraction: Perbill::from_percent(10)
+				}]
+			);
+
+			// AND: computed in the next block.
+			Session::roll_next();
+
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![Event::SlashComputed {
+					offence_era: 74,
+					slash_era: 101,
+					offender: 11,
+					page: 0
+				},]
+			);
+
+			// Slash is applied at the start of the next era.
+			Session::roll_until_active_era(101);
+			// clear staking events until now
+			staking_events_since_last_call();
+
+			// this should apply the slash.
+			Session::roll_next();
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					Event::Slashed { staker: 11, amount: 100 },
+					// Nominator 101 is exposed to 11, so they are slashed too.
+					Event::Slashed { staker: 101, amount: 25 }
+				]
+			);
+		});
+}
+
+#[test]
 fn nominator_is_slashed_by_max_for_validator_in_era() {
 	ExtBuilder::default().build_and_execute(|| {
 		Session::roll_until_active_era(3);
@@ -1318,6 +1404,142 @@ fn proportional_ledger_slash_works() {
 			BTreeMap::from([(4, 0), (5, value_slashed), (6, 0), (7, 32)])
 		);
 	});
+}
+
+#[test]
+fn withdrawals_are_blocked_for_unprocessed_and_unapplied_slashes() {
+	ExtBuilder::default()
+		.slash_defer_duration(2)
+		.bonding_duration(3)
+		.add_staker(61, 1000, StakerStatus::Validator)
+		.add_staker(71, 1000, StakerStatus::Validator)
+		.add_staker(81, 1000, StakerStatus::Validator)
+		.add_staker(91, 1000, StakerStatus::Validator)
+		// we want to replicate a scenario where all offences could not be processed in 1 era, so we
+		// reduce the era length to 1 block.
+		.session_per_era(1)
+		.period(1)
+		.validator_count(6)
+		.build_and_execute(|| {
+			// NOTE for curious reader: Era change still takes 2 blocks... don't ask why ¯\_(ツ)_/¯
+			let _expected_era_length = 2;
+
+			// Set up nominator.
+			let validator = 11;
+			let nominator = 301;
+			bond_nominator(nominator, 500, vec![validator]);
+
+			// create unbonding chunks for the next two eras.
+			Session::roll_until_active_era(2);
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(nominator), 100));
+			Session::roll_until_active_era(3);
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(nominator), 150));
+
+			// Rationale: We want to simulate a backlog of offences from era 3 that remain
+			// unprocessed by the time unbonding becomes possible in era 6.
+			//
+			// Offences for era 3 must be reported no later than era 4, since slashing application
+			// starts in era 5. To achieve this, we flood era 3 with more than 4 offences, all
+			// reported just before the end of era 4. Given there are only 2 blocks per era
+			// (limiting processing throughput), this ensures not all offences will be processed by
+			// era 6 — blocking withdrawal as intended.
+
+			// go to era 4.
+			Session::roll_until_active_era(4);
+
+			// roll one block of 2 of era 4.
+			Session::roll_next();
+
+			// flood offence pipeline with offences for era 3.
+			// Note: our validator 11 is not slashed.
+			add_slash_in_era(21, 3, Perbill::from_percent(10));
+			add_slash_in_era(61, 3, Perbill::from_percent(10));
+			add_slash_in_era(71, 3, Perbill::from_percent(10));
+			add_slash_in_era(81, 3, Perbill::from_percent(10));
+			add_slash_in_era(91, 3, Perbill::from_percent(10));
+
+			// lets roll to era 6 where all unbonding chunks are available to withdraw.
+			Session::roll_until_active_era(6);
+			assert_eq!(active_era(), 6);
+
+			// Ensure unbonding chunks can all be withdrawn by era 6.
+			let expected_chunks: BoundedVec<UnlockChunk<Balance>, MaxUnlockingChunks> = bounded_vec![
+				// era is unbond_era + bonding_duration, starting from era 2 + 3.
+				UnlockChunk { era: 5, value: 100 },
+				UnlockChunk { era: 6, value: 150 },
+			];
+			assert_eq!(Ledger::<T>::get(nominator).unwrap().unlocking, expected_chunks);
+
+			// and we created 5 offences, of which 3 would be processed in last block of era 4, and
+			// 2 blocks of era 5.
+			assert_eq!(era_unprocessed_offence_count(3), 5 - 3);
+			assert_eq!(OffenceQueueEras::<T>::get().unwrap(), vec![3]);
+
+			// all nominator balance other than ED is staked.
+			let nominator_balance_pre_withdraw = Balances::free_balance(&nominator);
+			assert_eq!(nominator_balance_pre_withdraw, 1);
+
+			// Since the eras are too short, the offences that needed to be applied for last era 5
+			// are still unapplied. This will block the withdrawal.
+			assert_eq!(era_unapplied_slash_count(5), 1);
+
+			// WHEN: the nominator tries to withdraw unbonded funds while there are unapplied
+			// offence in the last era.
+			assert_noop!(
+				Staking::withdraw_unbonded(RuntimeOrigin::signed(nominator), 0),
+				Error::<T>::UnappliedSlashesInPreviousEra
+			);
+
+			// let's clear the slashes by manually applying them.
+			apply_pending_slashes_from_previous_era();
+			// ensure unapplied slashes are cleared.
+			assert_eq!(era_unapplied_slash_count(5), 0);
+
+			// WHEN: the nominator tries to withdraw unbonded funds.
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(nominator), 0));
+
+			// THEN: only the first unbonding chunk is withdrawn, as the second one is blocked by
+			// unprocessed offences.
+			let nominator_balance_post_withdraw_1 = Balances::free_balance(&nominator);
+			// free balance increases by unlock chunk 1 value.
+			assert_eq!(nominator_balance_post_withdraw_1, nominator_balance_pre_withdraw + 100);
+
+			// rolling a block creates another unapplied slash for era 3 as well as process a
+			// remaining offence.
+			Session::roll_next();
+			assert_eq!(era_unapplied_slash_count(5), 1);
+			// clear the pending slashes.
+			apply_pending_slashes_from_previous_era();
+
+			// there is still one offence unprocessed for era 3.
+			assert_eq!(era_unprocessed_offence_count(3), 1);
+
+			// withdrawals are still not possible for era (3 + 3 =) 6.
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(nominator), 0));
+			assert_eq!(Balances::free_balance(&nominator), nominator_balance_post_withdraw_1);
+
+			// WHEN: all offences are processed.
+			Session::roll_next();
+			// Note that active_era has bumped to 7.
+			assert_eq!(active_era(), 7);
+			// The previous block created another unapplied slash for era 5, but we only block
+			// withdrawals upto 1 block (to give enough time for offchain actors to apply slashes
+			// manually). So, we dont need to apply pending slashes for era 5.
+			assert_eq!(era_unapplied_slash_count(5), 1);
+			// But era 6 (last era) has no unapplied slashes.
+			assert_eq!(era_unapplied_slash_count(6), 0);
+			// We also ensure all offences in the queue for era 3 are now processed.
+			assert_eq!(era_unprocessed_offence_count(3), 0);
+			assert_eq!(OffenceQueueEras::<T>::get(), None);
+
+			// Withdrawing for era 3 should be possible.
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(nominator), 0));
+			assert_eq!(Balances::free_balance(&nominator), nominator_balance_post_withdraw_1 + 150);
+
+			// Finally, we clear the unapplied slashes for era 5. Otherwise our try state checks
+			// will fail. (Try by commenting the next line :))
+			apply_pending_slashes_from_era(5);
+		});
 }
 
 mod paged_slashing {
