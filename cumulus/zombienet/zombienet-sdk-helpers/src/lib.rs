@@ -567,21 +567,6 @@ pub async fn assert_relay_parent_offset(
 	Ok(())
 }
 
-/// Extract relay parent information from the digest logs.
-fn extract_relay_parent_storage_root(
-	digest: &DigestItem,
-) -> Option<(relay_chain::Hash, relay_chain::BlockNumber)> {
-	match digest {
-		DigestItem::Consensus(id, val) if id == &RPSR_CONSENSUS_ID => {
-			let (h, n): (relay_chain::Hash, Compact<relay_chain::BlockNumber>) =
-				Decode::decode(&mut &val[..]).ok()?;
-
-			Some((h, n.0))
-		},
-		_ => None,
-	}
-}
-
 pub async fn submit_extrinsic_and_wait_for_finalization_success<C: Config, S: Signer<C>>(
 	client: &OnlineClient<C>,
 	call: &DynamicPayload,

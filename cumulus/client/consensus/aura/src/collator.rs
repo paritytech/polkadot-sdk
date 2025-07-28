@@ -45,7 +45,7 @@ use futures::prelude::*;
 use sc_client_api::BackendTransaction;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, StateAction};
 use sc_consensus_aura::standalone as aura_internal;
-use sp_api::{ProvideRuntimeApi, StorageProof};
+use sp_api::{ProofRecorderIgnoredNodes, ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
 use sp_consensus::BlockOrigin;
 use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
@@ -212,6 +212,7 @@ where
 		inherent_data: (ParachainInherentData, InherentData),
 		proposal_duration: Duration,
 		max_pov_size: usize,
+		ignored_nodes_by_proof_recording: Option<ProofRecorderIgnoredNodes<Block>>,
 	) -> Result<Option<BuiltBlock<Block>>, Box<dyn Error + Send + 'static>> {
 		let mut digest = additional_pre_digest.into().unwrap_or_default();
 		digest.push(slot_claim.pre_digest.clone());
@@ -225,6 +226,7 @@ where
 				Digest { logs: digest },
 				proposal_duration,
 				Some(max_pov_size),
+				ignored_nodes_by_proof_recording,
 			)
 			.await
 			.map_err(|e| Box::new(e) as Box<dyn Error + Send>)?;
@@ -291,6 +293,7 @@ where
 				inherent_data,
 				proposal_duration,
 				max_pov_size,
+				None,
 			)
 			.await?;
 

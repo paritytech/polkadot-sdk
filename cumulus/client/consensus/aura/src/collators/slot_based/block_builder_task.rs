@@ -542,6 +542,7 @@ where
 				(parachain_inherent_data, other_inherent_data),
 				authoring_duration,
 				allowed_pov_size,
+				Some(ignored_nodes.clone()),
 			)
 			.await
 		else {

@@ -25,7 +25,7 @@ use cumulus_primitives_parachain_inherent::ParachainInherentData;
 use sc_basic_authorship::{ProposeArgs, ProposerFactory};
 use sc_block_builder::BlockBuilderApi;
 use sc_transaction_pool_api::TransactionPool;
-use sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi};
+use sp_api::{ApiExt, CallApiAt, ProofRecorderIgnoredNodes, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_consensus::{EnableProofRecording, Environment, Proposal};
 use sp_inherents::{InherentData, InherentDataProvider};
@@ -80,6 +80,7 @@ pub trait ProposerInterface<Block: BlockT> {
 		inherent_digests: Digest,
 		max_duration: Duration,
 		block_size_limit: Option<usize>,
+		ignored_nodes_by_proof_recording: Option<ProofRecorderIgnoredNodes<Block>>,
 	) -> Result<Option<Proposal<Block, StorageProof>>, Error>;
 }
 
@@ -99,6 +100,7 @@ where
 		inherent_digests: Digest,
 		max_duration: Duration,
 		block_size_limit: Option<usize>,
+		ignored_nodes_by_proof_recording: Option<ProofRecorderIgnoredNodes<Block>>,
 	) -> Result<Option<Proposal<Block, StorageProof>>, Error> {
 		let proposer = self
 			.init(parent_header)
@@ -117,7 +119,7 @@ where
 				inherent_digests,
 				max_duration,
 				block_size_limit,
-				ignored_nodes_by_proof_recording: None,
+				ignored_nodes_by_proof_recording,
 			})
 			.await
 			.map(Some)
