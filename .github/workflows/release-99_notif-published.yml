@@ -42,7 +42,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          printf '%s' "${{ github.event.release.body }}" > release_body.txt
+          echo "${{ github.event.release.body }}" > release_body.txt
 
           # Use extract the node version from the release body
           VERSION=$(grep -o 'polkadot-v[0-9]\+\.[0-9]\+\.[0-9]\+' release_body.txt | head -n1 | sed 's/polkadot-//')
