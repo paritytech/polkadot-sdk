@@ -61,6 +61,7 @@ jobs:
             @room
 
             A new node release has been ${{github.event.action}} in **${{github.event.repository.full_name}}:**<br/>
-            Release version: [${{github.event.release.tag_name}}](${{github.event.release.html_url}})
+            Release version: [${{github.event.release.tag_name}}](${{github.event.release.html_url}})<br/>
             Node version: ${{ steps.extract_version.outputs.node_version }}
+
             -----
