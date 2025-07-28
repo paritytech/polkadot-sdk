@@ -34,6 +34,7 @@ mod storage;
 #[cfg(test)]
 mod tests;
 mod transient_storage;
+mod types;
 mod vm;
 
 pub mod evm;
@@ -54,11 +55,16 @@ use crate::{
 		meter::Meter as StorageMeter, AccountInfo, AccountType, ContractInfo, DeletionQueueManager,
 	},
 	tracing::if_tracing,
+	types::{BlockV3, ReceiptV4},
 	vm::{CodeInfo, ContractBlob, RuntimeCosts},
 };
 use alloc::{boxed::Box, format, vec};
 use codec::{Codec, Decode, Encode};
 use environmental::*;
+// use ethereum::{
+// 	AccessListItem, BlockV3 as Block, LegacyTransactionMessage, Log, ReceiptV4 as Receipt,
+// 	TransactionAction, TransactionV3 as Transaction,
+// };
 use frame_support::{
 	dispatch::{
 		DispatchErrorWithPostInfo, DispatchResultWithPostInfo, GetDispatchInfo, Pays,
@@ -542,6 +548,30 @@ pub mod pallet {
 			}
 		}
 	}
+
+	// /// Mapping from transaction index to transaction in the current building block.
+	// #[pallet::storage]
+	// pub type Pending<T: Config> =
+	// 	CountedStorageMap<_, Identity, u32, (Transaction, TransactionStatus, Receipt), OptionQuery>;
+
+	/// The current Ethereum block.
+	#[pallet::storage]
+	pub type CurrentBlock<T: Config> = StorageValue<_, BlockV3>;
+
+	// /// The current Ethereum receipts.
+	// #[pallet::storage]
+	// pub type CurrentReceipts<T: Config> = StorageValue<_, BoundedVec<ReceiptV4, ConstU32<1024>>>;
+
+	/// The current transaction statuses.
+	///
+	/// TODO: Bounded Vec length must be a constant on the pallet itself.
+	// #[pallet::storage]
+	// pub type CurrentTransactionStatuses<T: Config> =
+	// 	StorageValue<_, BoundedVec<TransactionStatus, ConstU32<1024>>>;
+
+	// Mapping for block number and hashes.
+	#[pallet::storage]
+	pub type BlockHash<T: Config> = StorageMap<_, Twox64Concat, U256, H256, ValueQuery>;
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
