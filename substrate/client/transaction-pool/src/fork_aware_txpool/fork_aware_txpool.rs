@@ -215,10 +215,10 @@ where
 		if let Some(block_number) =
 			self.api.block_id_to_number(&BlockId::Hash(initial_view_hash)).ok().flatten()
 		{
-			let at_genesis = HashAndNumber { number: block_number, hash: initial_view_hash };
+			let at_best = HashAndNumber { number: block_number, hash: initial_view_hash };
 			let tree_route =
-				&TreeRoute::new(vec![at_genesis.clone()], 0).expect("tree route is correct. qed");
-			let view = self.build_and_plug_view(None, &at_genesis, &tree_route);
+				&TreeRoute::new(vec![at_best.clone()], 0).expect("tree route is correct; qed");
+			let view = self.build_and_plug_view(None, &at_best, &tree_route);
 			self.view_store.insert_new_view_sync(view.into(), &tree_route);
 			trace!(target: LOG_TARGET, ?block_number, ?initial_view_hash, "fatp::injected initial view");
 		};
