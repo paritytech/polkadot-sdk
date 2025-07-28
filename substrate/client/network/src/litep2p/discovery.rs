@@ -493,6 +493,15 @@ impl Discovery {
 	) -> (bool, Option<Multiaddr>) {
 		log::trace!(target: LOG_TARGET, "verify new external address: {address}");
 
+		if !self.allow_non_global_addresses && !Discovery::can_add_to_dht(&address) {
+			log::trace!(
+				target: LOG_TARGET,
+				"ignoring externally reported non-global address {address} from {peer}."
+			);
+
+			return (false, None);
+		}
+
 		// is the address one of our known addresses
 		if self
 			.listen_addresses
