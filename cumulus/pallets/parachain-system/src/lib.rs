@@ -1262,8 +1262,9 @@ impl<T: Config> Pallet<T> {
 			ingress_channels.binary_search_by_key(&sender, |&(channel_sender, _)| channel_sender);
 		assert!(
 			maybe_channel_idx.is_ok(),
-			"One of the messages submitted by the collator was sent from a sender \
+			"One of the messages submitted by the collator was sent from a sender ({}) \
 					that doesn't have a channel opened to this parachain",
+			<ParaId as Into<u32>>::into(sender)
 		);
 	}
 
