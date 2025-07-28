@@ -462,7 +462,7 @@ mod benchmarks {
 			1
 		);
 		// Set the current era
-		pallet_staking_async::CurrentEra::<T>::put(EraIndex::max_value());
+		pallet_staking_async_testing_utils::set_current_era::<T>(EraIndex::max_value());
 
 		whitelist_account!(pool_account);
 
@@ -512,7 +512,7 @@ mod benchmarks {
 		);
 
 		// Set the current era to ensure we can withdraw unbonded funds
-		pallet_staking_async::CurrentEra::<T>::put(EraIndex::max_value());
+		pallet_staking_async_testing_utils::set_current_era::<T>(EraIndex::max_value());
 
 		whitelist_account!(joiner);
 
@@ -567,7 +567,7 @@ mod benchmarks {
 		);
 
 		// Set the current era to ensure we can withdraw unbonded funds
-		pallet_staking_async::CurrentEra::<T>::put(EraIndex::max_value());
+		pallet_staking_async_testing_utils::set_current_era::<T>(EraIndex::max_value());
 
 		// Some last checks that storage items we expect to get cleaned up are present
 		assert!(pallet_staking_async::Ledger::<T>::contains_key(&pool_account));
