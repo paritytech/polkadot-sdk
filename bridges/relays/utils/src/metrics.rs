@@ -121,7 +121,7 @@ impl MetricsParams {
 		)?
 		.set(1);
 
-		log::info!(
+		tracing::info!(
 			target: "bridge",
 			"Exposed {} metric: version={} commit={}",
 			BUILD_INFO_METRIC,
@@ -163,7 +163,7 @@ pub fn set_gauge_value<T: Default + Debug, V: Atomic<T = T>, E: Debug>(
 ) {
 	gauge.set(match value {
 		Ok(Some(value)) => {
-			log::trace!(
+			tracing::trace!(
 				target: "bridge-metrics",
 				"Updated value of metric '{:?}': {:?}",
 				gauge.desc().first().map(|d| &d.fq_name),
@@ -172,7 +172,7 @@ pub fn set_gauge_value<T: Default + Debug, V: Atomic<T = T>, E: Debug>(
 			value
 		},
 		Ok(None) => {
-			log::warn!(
+			tracing::warn!(
 				target: "bridge-metrics",
 				"Failed to update metric '{:?}': value is empty",
 				gauge.desc().first().map(|d| &d.fq_name),
@@ -180,7 +180,7 @@ pub fn set_gauge_value<T: Default + Debug, V: Atomic<T = T>, E: Debug>(
 			Default::default()
 		},
 		Err(error) => {
-			log::warn!(
+			tracing::warn!(
 				target: "bridge-metrics",
 				"Failed to update metric '{:?}': {:?}",
 				gauge.desc().first().map(|d| &d.fq_name),
