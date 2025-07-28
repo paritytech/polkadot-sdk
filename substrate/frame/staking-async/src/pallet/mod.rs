@@ -1917,7 +1917,7 @@ pub mod pallet {
 
 			// Process each validator slash
 			for (validator, slash_fraction) in validator_slashes {
-				// Since this is gated by admin origin, we need not check if they are really
+				// Since this is gated by admin origin, we don't need to check if they are really
 				// validators and trust governance to correctly set the parameters.
 
 				// Remove any existing entry for this validator
