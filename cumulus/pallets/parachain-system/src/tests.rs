@@ -612,8 +612,8 @@ fn check_hrmp_message_metadata_panics_on_unordered_sent_at() {
 fn check_hrmp_message_metadata_panics_on_unordered_para_id() {
 	Pallet::<Test>::check_hrmp_message_metadata(
 		&[(1000.into(), Default::default())],
-		&mut Some((1, 1000.into())),
-		(1, 2000.into()),
+		&mut Some((1, 2000.into())),
+		(1, 1000.into()),
 	);
 }
 
