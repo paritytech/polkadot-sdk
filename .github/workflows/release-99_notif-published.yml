@@ -38,19 +38,29 @@ jobs:
         #     pre-releases: false
 
     steps:
-      - name: Extract version from release body
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Extract node version
         id: extract_version
         run: |
-          body=$(jq -r '.release.body' "$GITHUB_EVENT_PATH")
+          # body=$(jq -r '.release.body' "$GITHUB_EVENT_PATH")
 
-          # Look for node version in the release body
-          if [[ $body =~ polkadot-(v[0-9]+\.[0-9]+\.[0-9]+) ]]; then
-            version="${BASH_REMATCH[1]}"
-            echo "Extracted node version: $version"
-            echo "node_version=$version" >> $GITHUB_OUTPUT
-          else
-            echo "Could not find a version matching polkadot-vX.XX.X in the release body."
-          fi
+          # # Look for node version in the release body
+          # if [[ $body =~ polkadot-(v[0-9]+\.[0-9]+\.[0-9]+) ]]; then
+          #   version="${BASH_REMATCH[1]}"
+          #   echo "Extracted node version: $version"
+          #   echo "node_version=$version" >> $GITHUB_OUTPUT
+          # else
+          #   echo "Could not find a version matching polkadot-vX.XX.X in the release body."
+          # fi
+          . ./.github/scripts/common/lib.sh
+
+          version=v$(get_polkadot_node_version_from_code)
+          echo "Extracted node version: $version"
+          echo "node_version=$version" >> $GITHUB_OUTPUT
 
       - name: Matrix notification to ${{ matrix.channel.name }}
         if: github.event.release.prerelease == false || matrix.channel.pre-release
