@@ -49,7 +49,6 @@ sp-runtime = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-async-trait = { workspace = true }
 kvdb-memorydb = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
