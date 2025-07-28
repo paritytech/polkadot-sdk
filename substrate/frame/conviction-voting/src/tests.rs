@@ -244,12 +244,14 @@ fn basic_voting_works() {
 		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
 			who: 1,
 			vote: aye(2, 5),
+			poll_index: 3,
 		}));
 		assert_eq!(tally(3), Tally::from_parts(10, 0, 2));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, nay(2, 5)));
 		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
 			who: 1,
 			vote: nay(2, 5),
+			poll_index: 3,
 		}));
 		assert_eq!(tally(3), Tally::from_parts(0, 10, 0));
 		assert_eq!(Balances::usable_balance(1), 8);
@@ -258,6 +260,7 @@ fn basic_voting_works() {
 		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
 			who: 1,
 			vote: aye(5, 1),
+			poll_index: 3,
 		}));
 		assert_eq!(tally(3), Tally::from_parts(5, 0, 5));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, nay(5, 1)));
@@ -268,6 +271,7 @@ fn basic_voting_works() {
 		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
 			who: 1,
 			vote: aye(10, 0),
+			poll_index: 3,
 		}));
 		assert_eq!(tally(3), Tally::from_parts(1, 0, 10));
 
@@ -279,6 +283,7 @@ fn basic_voting_works() {
 		System::assert_last_event(tests::RuntimeEvent::Voting(Event::VoteRemoved {
 			who: 1,
 			vote: nay(10, 0),
+			poll_index: 3,
 		}));
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 0));
 
@@ -298,6 +303,7 @@ fn split_voting_works() {
 		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
 			who: 1,
 			vote: split(10, 0),
+			poll_index: 3,
 		}));
 		assert_eq!(tally(3), Tally::from_parts(1, 0, 10));
 
@@ -305,6 +311,7 @@ fn split_voting_works() {
 		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
 			who: 1,
 			vote: split(5, 5),
+			poll_index: 3,
 		}));
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 5));
 		assert_eq!(Balances::usable_balance(1), 0);
@@ -313,6 +320,7 @@ fn split_voting_works() {
 		System::assert_last_event(tests::RuntimeEvent::Voting(Event::VoteRemoved {
 			who: 1,
 			vote: split(5, 5),
+			poll_index: 3,
 		}));
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 0));
 
@@ -332,6 +340,7 @@ fn abstain_voting_works() {
 		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
 			who: 1,
 			vote: split_abstain(0, 0, 10),
+			poll_index: 3,
 		}));
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 10));
 
@@ -339,6 +348,7 @@ fn abstain_voting_works() {
 		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
 			who: 6,
 			vote: split_abstain(10, 0, 20),
+			poll_index: 3,
 		}));
 		assert_eq!(tally(3), Tally::from_parts(1, 0, 40));
 
@@ -346,6 +356,7 @@ fn abstain_voting_works() {
 		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
 			who: 6,
 			vote: split_abstain(0, 0, 40),
+			poll_index: 3,
 		}));
 
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 50));
@@ -356,6 +367,7 @@ fn abstain_voting_works() {
 		System::assert_last_event(tests::RuntimeEvent::Voting(Event::VoteRemoved {
 			who: 1,
 			vote: split_abstain(0, 0, 10),
+			poll_index: 3,
 		}));
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 40));
 
@@ -363,6 +375,7 @@ fn abstain_voting_works() {
 		System::assert_last_event(tests::RuntimeEvent::Voting(Event::VoteRemoved {
 			who: 6,
 			vote: split_abstain(0, 0, 40),
+			poll_index: 3,
 		}));
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 0));
 
