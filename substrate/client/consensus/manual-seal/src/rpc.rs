@@ -27,6 +27,7 @@ use jsonrpsee::{core::async_trait, proc_macros::rpc};
 use sc_consensus::ImportedAux;
 use serde::{Deserialize, Serialize};
 use sp_runtime::EncodedJustification;
+use sp_core::U256;
 
 /// Sender passed to the authorship task to report errors or successes.
 pub type Sender<T> = Option<oneshot::Sender<std::result::Result<T, Error>>>;
@@ -71,6 +72,15 @@ pub trait ManualSealApi<Hash> {
 		create_empty: bool,
 		finalize: bool,
 		parent_hash: Option<Hash>,
+	) -> Result<CreatedBlock<Hash>, Error>;
+
+	/// Meant to be used with hardhat, it instructs the manual-seal authorship task
+	/// to create `number_of_blocks` blocks with an interval of `interval` seconds between them. 
+	#[method(name = "hardhat_mine")]
+	async fn mine(
+		&self,
+		number_of_blocks: Option<U256>,
+		interval: Option<U256>,
 	) -> Result<CreatedBlock<Hash>, Error>;
 
 	/// Instructs the manual-seal authorship task to finalize a block
@@ -142,6 +152,38 @@ impl<Hash: Send + 'static> ManualSealApiServer<Hash> for ManualSeal<Hash> {
 		let command = EngineCommand::FinalizeBlock { hash, sender: Some(sender), justification };
 		sink.send(command).await?;
 		receiver.await.map(|_| true).map_err(Into::into)
+	}
+
+	async fn mine(
+		&self,
+		number_of_blocks: Option<U256>,
+		interval: Option<U256>,
+	) -> Result<CreatedBlock<Hash>, Error> {
+		let number_of_blocks = number_of_blocks.unwrap_or("0x1".into()).as_u64();
+		let mut sink = self.import_block_channel.clone();
+		let mut final_hash: Result<CreatedBlock<Hash>, Error> = Err(Error::Other("Unreachable".into()));
+		for n in 1..=number_of_blocks {
+			if let Some(interval) = interval {
+				futures_timer::Delay::new(std::time::Duration::from_secs(interval.as_u64())).await;
+			} 
+			let (sender, receiver) = oneshot::channel();
+			let command = EngineCommand::SealNewBlock {
+				create_empty: true,
+				finalize: true,
+				parent_hash: None,
+				sender: Some(sender),
+			};
+
+			sink.send(command).await?;
+
+			match receiver.await {
+				Ok(Ok(rx)) => final_hash = Ok(rx),
+				Ok(Err(e)) => final_hash = Err(e.into()),
+				Err(e) => final_hash = Err(e.into()),
+			}
+		}
+			
+		final_hash
 	}
 }
 

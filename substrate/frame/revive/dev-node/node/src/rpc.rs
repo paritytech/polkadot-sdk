@@ -26,6 +26,7 @@ use jsonrpsee::RpcModule;
 use polkadot_sdk::{
 	sc_transaction_pool_api::TransactionPool,
 	sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata},
+	parachains_common::Hash,
 	*,
 };
 use revive_dev_runtime::{AccountId, Nonce, OpaqueBlock};
@@ -37,6 +38,8 @@ pub struct FullDeps<C, P> {
 	pub client: Arc<C>,
 	/// Transaction pool instance.
 	pub pool: Arc<P>,
+    pub manual_seal_sink: Option<futures::channel::mpsc::Sender<sc_consensus_manual_seal::EngineCommand<Hash>>>,
+
 }
 
 #[docify::export]
@@ -51,16 +54,25 @@ where
 		+ sp_api::ProvideRuntimeApi<OpaqueBlock>
 		+ HeaderBackend<OpaqueBlock>
 		+ HeaderMetadata<OpaqueBlock, Error = BlockChainError>
-		+ 'static,
+		+ 'static
+		+ sc_client_api::BlockBackend<OpaqueBlock>,
 	C::Api: sp_block_builder::BlockBuilder<OpaqueBlock>,
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<OpaqueBlock, AccountId, Nonce>,
 	P: TransactionPool + 'static,
 {
 	use polkadot_sdk::substrate_frame_rpc_system::{System, SystemApiServer};
+	use polkadot_sdk::sc_rpc::dev::{Dev, DevApiServer};
+	use sc_consensus_manual_seal::rpc::{ManualSeal, ManualSealApiServer};
+	
 	let mut module = RpcModule::new(());
-	let FullDeps { client, pool } = deps;
+	let FullDeps { client, pool, manual_seal_sink } = deps;
 
 	module.merge(System::new(client.clone(), pool.clone()).into_rpc())?;
+	module.merge(Dev::new(client).into_rpc())?;
+
+	if let Some(sink) = manual_seal_sink {
+		module.merge(ManualSeal::<Hash>::new(sink.clone()).into_rpc())?;
+	}
 
 	Ok(module)
 }
