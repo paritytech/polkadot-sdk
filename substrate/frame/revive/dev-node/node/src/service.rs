@@ -173,40 +173,14 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 		telemetry.as_ref().map(|x| x.handle()),
 	);
 
-	// // Prepare optional sink for RPC
-	let mut maybe_sink = None;
 
-	// if let Consensus::ManualSeal(_) = consensus {
-	// 	let (sink, commands_stream) =
-	// 		futures::channel::mpsc::channel::<sc_consensus_manual_seal::EngineCommand<Hash>>(1024);
-	// 	maybe_sink = Some(sink.clone());
-
-	// 	let params = sc_consensus_manual_seal::ManualSealParams {
-	// 		block_import: client.clone(),
-	// 		env: proposer.clone(),
-	// 		client: client.clone(),
-	// 		pool: transaction_pool.clone(),
-	// 		select_chain: select_chain.clone(),
-	// 		commands_stream: Box::pin(commands_stream),
-	// 		consensus_data_provider: None,
-	// 		create_inherent_data_providers: move |_, ()| async move {
-	// 			Ok(sp_timestamp::InherentDataProvider::from_system_time())
-	// 		},
-	// 	};
-
-	// 	task_manager.spawn_essential_handle().spawn_blocking(
-	// 		"manual-seal",
-	// 		None,
-	// 		sc_consensus_manual_seal::run_manual_seal(params),
-	// 	);
-	// }
+	let (sink, manual_trigger_stream) =
+		futures::channel::mpsc::channel::<sc_consensus_manual_seal::EngineCommand<Hash>>(1024);
+		
+	let maybe_sink = Some(sink);
 
 	match consensus {
 		Consensus::InstantSeal => {
-			let (sink, manual_trigger_stream) = futures::channel::mpsc::channel::<
-				sc_consensus_manual_seal::EngineCommand<Hash>,
-			>(1024);
-			maybe_sink = Some(sink.clone());
 			let create_inherent_data_providers =
 				|_, ()| async move { Ok(sp_timestamp::InherentDataProvider::from_system_time()) };
 
@@ -244,26 +218,19 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 			);
 		},
 		Consensus::ManualSeal(Some(rate)) => {
-			if let Some(mut sink) = maybe_sink.clone() {
-				task_manager.spawn_handle().spawn("block_authoring", None, async move {
-					loop {
-						futures_timer::Delay::new(std::time::Duration::from_millis(rate)).await;
-						let _ =
-							sink.try_send(sc_consensus_manual_seal::EngineCommand::SealNewBlock {
-								create_empty: true,
-								finalize: true,
-								parent_hash: None,
-								sender: None,
-							});
-					}
-				});
-			}
-		},
-		Consensus::ManualSeal(None) => {
-			let (sink, commands_stream) = futures::channel::mpsc::channel::<
-				sc_consensus_manual_seal::EngineCommand<Hash>,
-			>(1024);
-			maybe_sink = Some(sink.clone());
+			let mut new_sink = maybe_sink.clone().unwrap();
+			task_manager.spawn_handle().spawn("block_authoring", None, async move {
+				loop {
+					futures_timer::Delay::new(std::time::Duration::from_millis(rate)).await;
+					let _ =
+						new_sink.try_send(sc_consensus_manual_seal::EngineCommand::SealNewBlock {
+							create_empty: true,
+							finalize: true,
+							parent_hash: None,
+							sender: None,
+						});
+				}
+			});
 
 			let params = sc_consensus_manual_seal::ManualSealParams {
 				block_import: client.clone(),
@@ -271,7 +238,27 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 				client: client.clone(),
 				pool: transaction_pool.clone(),
 				select_chain: select_chain.clone(),
-				commands_stream: Box::pin(commands_stream),
+				commands_stream: Box::pin(manual_trigger_stream),
+				consensus_data_provider: None,
+				create_inherent_data_providers: move |_, ()| async move {
+					Ok(sp_timestamp::InherentDataProvider::from_system_time())
+				},
+			};
+
+			task_manager.spawn_essential_handle().spawn_blocking(
+				"manual-seal",
+				None,
+				sc_consensus_manual_seal::run_manual_seal(params),
+			);
+		},
+		Consensus::ManualSeal(None) => {
+			let params = sc_consensus_manual_seal::ManualSealParams {
+				block_import: client.clone(),
+				env: proposer.clone(),
+				client: client.clone(),
+				pool: transaction_pool.clone(),
+				select_chain: select_chain.clone(),
+				commands_stream: Box::pin(manual_trigger_stream),
 				consensus_data_provider: None,
 				create_inherent_data_providers: move |_, ()| async move {
 					Ok(sp_timestamp::InherentDataProvider::from_system_time())

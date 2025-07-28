@@ -30,7 +30,8 @@ impl std::str::FromStr for Consensus {
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		Ok(if s == "instant-seal" {
 			Consensus::InstantSeal
-		} else if let Some(block_time) = s.strip_prefix("auto-seal-") {
+		} else if let Some(block_time) = s.strip_prefix("manual-seal-") {
+			println!("{:?}", block_time);
 			Consensus::ManualSeal(Some(block_time.parse().map_err(|_| "invalid block time")?))
 		} else if s == "manual-seal" {
 			Consensus::ManualSeal(None)
