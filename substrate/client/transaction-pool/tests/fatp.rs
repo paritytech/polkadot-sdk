@@ -2501,3 +2501,90 @@ fn fatp_ready_at_with_timeout_works_for_misc_scenarios() {
 	assert_eq!(ready_at2.next().unwrap().hash, api.hash_and_length(&xt2).0);
 	assert!(ready_at2.next().is_none());
 }
+
+#[test]
+fn fatp_tx_is_not_prematurely_revalidated() {
+	sp_tracing::try_init_simple();
+
+	let (pool, api, _) = pool();
+	let genesis = api.genesis_hash();
+
+	let mut hashes = vec![];
+	let mut prev_hash = genesis;
+	hashes.push(genesis);
+	for n in 1..=40 {
+		let header = api.push_block_with_parent(prev_hash, vec![], true);
+		if n <= 21 {
+			api.set_nonce(header.hash(), Alice.into(), 199);
+			block_on(pool.maintain(new_best_block_event(&pool, Some(prev_hash), header.hash())));
+		} else {
+			// not realistic, we only want tx to be invalid, stale is currently the only way in
+			// TestApi
+			api.set_nonce(header.hash(), Alice.into(), 199);
+		}
+		hashes.push(header.hash());
+		prev_hash = header.hash();
+	}
+
+	let xt0 = uxt(Alice, 199);
+
+	//note: tx is validated at block 20 (recent best block):
+	let xt0_watcher = block_on(pool.submit_and_watch(hashes[21], SOURCE, xt0.clone())).unwrap();
+
+	let header41 = api.push_block_with_parent(hashes[40], vec![xt0.clone()], true);
+
+	//note: tx is still valid at block 21
+	block_on(pool.maintain(finalized_block_event(&pool, api.genesis_hash(), hashes[5])));
+	block_on(pool.maintain(finalized_block_event(&pool, hashes[5], hashes[10])));
+	block_on(pool.maintain(finalized_block_event(&pool, hashes[10], hashes[19])));
+	block_on(pool.maintain(finalized_block_event(&pool, hashes[19], header41.hash())));
+
+	let xt0_events = block_on(xt0_watcher.collect::<Vec<_>>());
+	assert_eq!(
+		xt0_events,
+		vec![
+			TransactionStatus::Ready,
+			TransactionStatus::InBlock((header41.hash(), 0)),
+			TransactionStatus::Finalized((header41.hash(), 0)),
+		]
+	);
+}
+
+#[test]
+fn fatp_tx_is_revalidated_by_mempool_revalidation() {
+	sp_tracing::try_init_simple();
+
+	let (pool, api, _) = pool();
+	let genesis = api.genesis_hash();
+
+	let mut hashes = vec![];
+	let mut prev_hash = genesis;
+	hashes.push(genesis);
+	for n in 1..=40 {
+		let header = api.push_block_with_parent(prev_hash, vec![], true);
+		if n >= 22 {
+			// not realistic, we only want tx to be invalid, stale is currently the only way in
+			// TestApi
+			api.set_nonce(header.hash(), Alice.into(), 210);
+		} else {
+			api.set_nonce(header.hash(), Alice.into(), 199);
+			let event = new_best_block_event(&pool, Some(prev_hash), header.hash());
+			block_on(pool.maintain(event));
+		}
+		hashes.push(header.hash());
+		prev_hash = header.hash();
+	}
+
+	let xt0 = uxt(Alice, 199);
+
+	//note: tx is validated at block 20 (recent best block):
+	let xt0_watcher = block_on(pool.submit_and_watch(hashes[21], SOURCE, xt0.clone())).unwrap();
+
+	//note: tx is still valid at block 21
+	block_on(pool.maintain(finalized_block_event(&pool, api.genesis_hash(), hashes[21])));
+	//note: TXMEMPOOL_REVALIDATION_PERIOD passed, tx is stale on block 32:
+	block_on(pool.maintain(finalized_block_event(&pool, hashes[21], hashes[32])));
+
+	let xt0_events = block_on(xt0_watcher.collect::<Vec<_>>());
+	assert_eq!(xt0_events, vec![TransactionStatus::Ready, TransactionStatus::Invalid,]);
+}
