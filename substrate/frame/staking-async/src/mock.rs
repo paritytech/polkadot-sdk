@@ -80,6 +80,7 @@ impl Get<SessionIndex> for PlanningEraOffset {
 parameter_types! {
 	pub static ExistentialDeposit: Balance = 1;
 	pub static SlashDeferDuration: EraIndex = 0;
+	pub static OffenceReportableWindow: EraIndex = 0;
 	pub static MaxControllersInDeprecationBatch: u32 = 5900;
 	pub static BondingDuration: EraIndex = 3;
 	pub static HistoryDepth: u32 = 80;
@@ -424,6 +425,7 @@ impl crate::pallet::pallet::Config for Test {
 	type Reward = MockReward;
 	type SessionsPerEra = SessionsPerEra;
 	type SlashDeferDuration = SlashDeferDuration;
+	type OffenceReportableWindow = OffenceReportableWindow;
 	type AdminOrigin = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<One, AccountId>>;
 	type EraPayout = OneTokenPerMillisecond;
 	type MaxExposurePageSize = MaxExposurePageSize;
