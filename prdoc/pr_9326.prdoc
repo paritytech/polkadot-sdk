@@ -9,4 +9,4 @@ crates:
 - name: cumulus-pallet-parachain-system
   bump: major
 - name: polkadot-primitives
-  bump: patch
+  bump: minor
