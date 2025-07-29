@@ -15,7 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Testing utilities for pallet-staking-async internal tests.
+//! Testing utilities for pallet-staking-async internal tests. Provides some common functions to
+//! setup staking state, such as bonding validators, nominators, and generating different types of
+//! solutions.
 
 use super::*;
 use codec::Encode;
@@ -36,7 +38,20 @@ const STAKING_ID: frame_support::traits::LockIdentifier = *b"staking ";
 
 pub type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
-/// Create a funded user.
+/// This function removes all validators and nominators from storage.
+pub fn clear_validators_and_nominators<T: Config>() {
+	#[allow(deprecated)]
+	Validators::<T>::remove_all();
+
+	// whenever we touch nominators counter we should update `T::VoterList` as well.
+	#[allow(deprecated)]
+	Nominators::<T>::remove_all();
+
+	// NOTE: safe to call outside block production
+	T::VoterList::unsafe_clear();
+}
+
+/// Grab a funded user.
 pub fn create_funded_user<T: Config>(
 	string: &'static str,
 	n: u32,
@@ -44,6 +59,20 @@ pub fn create_funded_user<T: Config>(
 ) -> T::AccountId {
 	let user = account(string, n, SEED);
 	let balance = asset::existential_deposit::<T>() * balance_factor.into();
+	#[cfg(feature = "runtime-benchmarks")]
+	let _ = asset::set_stakeable_balance::<T>(&user, balance);
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	let _ = T::Currency::set_balance(&user, balance);
+	user
+}
+
+/// Grab a funded user with max Balance.
+fn create_funded_user_with_balance<T: Config>(
+	string: &'static str,
+	n: u32,
+	balance: BalanceOf<T>,
+) -> T::AccountId {
+	let user = account(string, n, SEED);
 	#[cfg(feature = "runtime-benchmarks")]
 	let _ = asset::set_stakeable_balance::<T>(&user, balance);
 	#[cfg(not(feature = "runtime-benchmarks"))]
@@ -90,33 +119,6 @@ pub fn create_unique_stash_controller<T: Config>(
 	Ok((stash, controller))
 }
 
-pub fn migrate_to_old_currency<T: Config>(who: T::AccountId) {
-	use frame_support::traits::LockableCurrency;
-	let staked = asset::staked::<T>(&who);
-
-	// apply locks (this also adds a consumer).
-	T::OldCurrency::set_lock(
-		STAKING_ID,
-		&who,
-		staked,
-		frame_support::traits::WithdrawReasons::all(),
-	);
-	// remove holds.
-	let _ = asset::kill_stake::<T>(&who);
-
-	// replicate old behaviour of explicit increment of consumer.
-	let _ = frame_system::Pallet::<T>::inc_consumers(&who);
-}
-
-/// Clear all validators and nominators.
-pub fn clear_validators_and_nominators<T: Config>() {
-	#[allow(deprecated)]
-	Validators::<T>::remove_all();
-	#[allow(deprecated)]
-	Nominators::<T>::remove_all();
-	T::VoterList::unsafe_clear();
-}
-
 /// Create a stash and controller pair with fixed balance.
 pub fn create_stash_controller_with_balance<T: Config>(
 	n: u32,
@@ -128,20 +130,7 @@ pub fn create_stash_controller_with_balance<T: Config>(
 	Ok((staker.clone(), staker))
 }
 
-fn create_funded_user_with_balance<T: Config>(
-	string: &'static str,
-	n: u32,
-	balance: BalanceOf<T>,
-) -> T::AccountId {
-	let user = account(string, n, SEED);
-	#[cfg(feature = "runtime-benchmarks")]
-	let _ = asset::set_stakeable_balance::<T>(&user, balance);
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	let _ = T::Currency::set_balance(&user, balance);
-	user
-}
-
-/// Create validators.
+/// Create `max` validators.
 pub fn create_validators<T: Config>(
 	max: u32,
 	balance_factor: u32,
@@ -149,7 +138,7 @@ pub fn create_validators<T: Config>(
 	create_validators_with_seed::<T>(max, balance_factor, 0)
 }
 
-/// Create validators with seed.
+/// create `max` validators, with a seed to help unintentional prevent account collisions.
 pub fn create_validators_with_seed<T: Config>(
 	max: u32,
 	balance_factor: u32,
@@ -168,7 +157,21 @@ pub fn create_validators_with_seed<T: Config>(
 	Ok(validators)
 }
 
-/// Create validators with nominators for era.
+/// This function generates validators and nominators who are randomly nominating
+/// `edge_per_nominator` random validators (until `to_nominate` if provided).
+///
+/// NOTE: This function will remove any existing validators or nominators to ensure
+/// we are working with a clean state.
+///
+/// Parameters:
+/// - `validators`: number of bonded validators
+/// - `nominators`: number of bonded nominators.
+/// - `edge_per_nominator`: number of edge (vote) per nominator.
+/// - `randomize_stake`: whether to randomize the stakes.
+/// - `to_nominate`: if `Some(n)`, only the first `n` bonded validator are voted upon. Else, all of
+///   them are considered and `edge_per_nominator` random validators are voted for.
+///
+/// Return the validators chosen to be nominated.
 pub fn create_validators_with_nominators_for_era<T: Config>(
 	validators: u32,
 	nominators: u32,
@@ -215,6 +218,24 @@ pub fn create_validators_with_nominators_for_era<T: Config>(
 
 	ValidatorCount::<T>::put(validators);
 	Ok(validator_chosen)
+}
+
+pub fn migrate_to_old_currency<T: Config>(who: T::AccountId) {
+	use frame_support::traits::LockableCurrency;
+	let staked = asset::staked::<T>(&who);
+
+	// apply locks (this also adds a consumer).
+	T::OldCurrency::set_lock(
+		STAKING_ID,
+		&who,
+		staked,
+		frame_support::traits::WithdrawReasons::all(),
+	);
+	// remove holds.
+	let _ = asset::kill_stake::<T>(&who);
+
+	// replicate old behaviour of explicit increment of consumer.
+	let _ = frame_system::Pallet::<T>::inc_consumers(&who);
 }
 
 /// Set active era to the given era index.

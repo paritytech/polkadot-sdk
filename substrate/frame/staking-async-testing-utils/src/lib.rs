@@ -45,7 +45,7 @@ pub use pallet_staking_async::testing_utils::{
 	clear_validators_and_nominators, create_funded_user, create_stash_controller,
 	create_stash_controller_with_balance, create_unique_stash_controller, create_validators,
 	create_validators_with_nominators_for_era, create_validators_with_seed,
-	migrate_to_old_currency, AccountIdLookupOf,
+	migrate_to_old_currency, set_active_era, AccountIdLookupOf,
 };
 
 // STAKING_ID constant
@@ -206,12 +206,4 @@ pub fn create_validator<T: Config>(n: u32, balance: BalanceOf<T>) -> T::AccountI
 	);
 
 	validator
-}
-
-/// Set current and active era to the given era index.
-pub fn set_current_and_active_era<T: Config>(era: EraIndex) {
-	// set the current era.
-	CurrentEra::<T>::put(era);
-	// set the active era.
-	ActiveEra::<T>::put(ActiveEraInfo { index: era, start: None });
 }

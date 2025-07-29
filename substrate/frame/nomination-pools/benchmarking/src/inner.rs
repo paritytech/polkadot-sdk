@@ -405,7 +405,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn unbond() {
-		pallet_staking_async_testing_utils::set_current_and_active_era::<T>(0);
+		pallet_staking_async_testing_utils::set_active_era::<T>(0);
 
 		// The weight the nominator will start at. The value used here is expected to be
 		// significantly higher than the first position in a list (e.g. the first bag threshold).
@@ -435,7 +435,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn pool_withdraw_unbonded(s: Linear<0, MAX_SPANS>) {
-		pallet_staking_async_testing_utils::set_current_and_active_era::<T>(0);
+		pallet_staking_async_testing_utils::set_active_era::<T>(0);
 
 		let min_create_bond = Pools::<T>::depositor_min_bond();
 		let (_depositor, pool_account) = create_pool_account::<T>(0, min_create_bond, None);
@@ -466,7 +466,7 @@ mod benchmarks {
 			1
 		);
 		// Set the current era
-		pallet_staking_async_testing_utils::set_current_and_active_era::<T>(EraIndex::max_value());
+		pallet_staking_async_testing_utils::set_active_era::<T>(EraIndex::max_value());
 
 		whitelist_account!(pool_account);
 
@@ -501,7 +501,7 @@ mod benchmarks {
 		assert_eq!(CurrencyOf::<T>::balance(&joiner), min_join_bond);
 
 		// Unbond the new member
-		pallet_staking_async_testing_utils::set_current_and_active_era::<T>(0);
+		pallet_staking_async_testing_utils::set_active_era::<T>(0);
 		Pools::<T>::fully_unbond(RuntimeOrigin::Signed(joiner.clone()).into(), joiner.clone())
 			.unwrap();
 
@@ -516,7 +516,7 @@ mod benchmarks {
 		);
 
 		// Set the current era to ensure we can withdraw unbonded funds
-		pallet_staking_async_testing_utils::set_current_and_active_era::<T>(EraIndex::max_value());
+		pallet_staking_async_testing_utils::set_active_era::<T>(EraIndex::max_value());
 
 		whitelist_account!(joiner);
 
@@ -546,7 +546,7 @@ mod benchmarks {
 		.unwrap();
 
 		// Unbond the creator
-		pallet_staking_async_testing_utils::set_current_and_active_era::<T>(0);
+		pallet_staking_async_testing_utils::set_active_era::<T>(0);
 		// Simulate some rewards so we can check if the rewards storage is cleaned up. We check this
 		// here to ensure the complete flow for destroying a pool works - the reward pool account
 		// should never exist by time the depositor withdraws so we test that it gets cleaned
@@ -571,7 +571,7 @@ mod benchmarks {
 		);
 
 		// Set the current era to ensure we can withdraw unbonded funds
-		pallet_staking_async_testing_utils::set_current_and_active_era::<T>(EraIndex::max_value());
+		pallet_staking_async_testing_utils::set_active_era::<T>(EraIndex::max_value());
 
 		// Some last checks that storage items we expect to get cleaned up are present
 		assert!(pallet_staking_async::Ledger::<T>::contains_key(&pool_account));
@@ -1051,7 +1051,7 @@ mod benchmarks {
 
 		// Fill member's sub pools for the worst case.
 		for i in 1..(T::MaxUnbonding::get() + 1) {
-			pallet_staking_async_testing_utils::set_current_and_active_era::<T>(i);
+			pallet_staking_async_testing_utils::set_active_era::<T>(i);
 			assert!(Pools::<T>::unbond(
 				RuntimeOrigin::Signed(depositor.clone()).into(),
 				depositor_lookup.clone(),
@@ -1060,9 +1060,7 @@ mod benchmarks {
 			.is_ok());
 		}
 
-		pallet_staking_async_testing_utils::set_current_and_active_era::<T>(
-			T::MaxUnbonding::get() + 2,
-		);
+		pallet_staking_async_testing_utils::set_active_era::<T>(T::MaxUnbonding::get() + 2);
 
 		let slash_reporter =
 			create_funded_user_with_balance::<T>("slasher", 0, CurrencyOf::<T>::minimum_balance());
@@ -1106,7 +1104,7 @@ mod benchmarks {
 			EraIndex::zero(),
 		);
 
-		pallet_staking_async_testing_utils::set_current_and_active_era::<T>(1);
+		pallet_staking_async_testing_utils::set_active_era::<T>(1);
 
 		// new member joins the pool who should not be affected by slash.
 		let min_join_bond = MinJoinBond::<T>::get().max(CurrencyOf::<T>::minimum_balance());
@@ -1119,7 +1117,7 @@ mod benchmarks {
 
 		// Fill member's sub pools for the worst case.
 		for i in 0..T::MaxUnbonding::get() {
-			pallet_staking_async_testing_utils::set_current_and_active_era::<T>(i + 2); // +2 because we already set the current era to 1.
+			pallet_staking_async_testing_utils::set_active_era::<T>(i + 2); // +2 because we already set the current era to 1.
 			assert!(Pools::<T>::unbond(
 				RuntimeOrigin::Signed(joiner.clone()).into(),
 				joiner_lookup.clone(),
@@ -1128,9 +1126,7 @@ mod benchmarks {
 			.is_ok());
 		}
 
-		pallet_staking_async_testing_utils::set_current_and_active_era::<T>(
-			T::MaxUnbonding::get() + 3,
-		);
+		pallet_staking_async_testing_utils::set_active_era::<T>(T::MaxUnbonding::get() + 3);
 		whitelist_account!(joiner);
 
 		// Since the StakeAdapter can be different based on the runtime config, the errors could be
