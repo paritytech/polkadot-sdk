@@ -2770,7 +2770,6 @@ dependencies = [
  "bp-test-utils",
  "frame-support",
  "frame-system",
- "log",
  "pallet-balances",
  "pallet-bridge-grandpa",
  "pallet-bridge-messages",
@@ -2788,6 +2787,7 @@ dependencies = [
  "sp-weights",
  "staging-xcm",
  "static_assertions",
+ "tracing",
  "tuplex",
 ]
 
@@ -11550,7 +11550,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "log",
  "pallet-balances",
  "pallet-bridge-grandpa",
  "parity-scale-codec",
@@ -11560,6 +11559,7 @@ dependencies = [
  "sp-runtime",
  "sp-std 14.0.0",
  "sp-trie",
+ "tracing",
 ]
 
 [[package]]
@@ -11574,7 +11574,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "log",
  "pallet-bridge-grandpa",
  "parity-scale-codec",
  "scale-info",
@@ -11582,6 +11581,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
+ "tracing",
 ]
 
 [[package]]

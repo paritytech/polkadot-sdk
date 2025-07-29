@@ -18,7 +18,7 @@ use zombienet_sdk::subxt::{
 	self,
 	backend::legacy::LegacyRpcMethods,
 	blocks::Block,
-	config::{substrate::DigestItem, ExtrinsicParams, Header},
+	config::{signed_extensions::CheckMortalityParams, substrate::DigestItem, ExtrinsicParams, Header},
 	dynamic::Value,
 	events::Events,
 	ext::scale_value::value,
@@ -566,15 +566,26 @@ pub async fn assert_relay_parent_offset(
 	Ok(())
 }
 
-pub async fn submit_extrinsic_and_wait_for_finalization_success<C: Config, S: Signer<C>>(
-	client: &OnlineClient<C>,
+/// Submits the given `call` as transaction and waits for it successful finalization.
+///
+/// The transaction is send as immortal transaction.
+pub async fn submit_extrinsic_and_wait_for_finalization_success<S: Signer<PolkadotConfig>>(
+	client: &OnlineClient<PolkadotConfig>,
 	call: &DynamicPayload,
 	signer: &S,
-) -> Result<(), anyhow::Error>
-where
-	<C::ExtrinsicParams as ExtrinsicParams<C>>::Params: Default,
-{
-	let mut tx = client.tx().sign_and_submit_then_watch_default(call, signer).await?;
+) -> Result<(), anyhow::Error> {
+	let mut extensions: <<PolkadotConfig as Config>::ExtrinsicParams as ExtrinsicParams<
+		PolkadotConfig,
+	>>::Params = Default::default();
+
+	extensions.4 = CheckMortalityParams::<PolkadotConfig>::immortal();
+
+	let mut tx = client
+		.tx()
+		.create_signed(call, signer, extensions)
+		.await?
+		.submit_and_watch()
+		.await?;
 
 	// Below we use the low level API to replicate the `wait_for_in_block` behaviour
 	// which was removed in subxt 0.33.0. See https://github.com/paritytech/subxt/pull/1237.
@@ -598,18 +609,18 @@ where
 	Ok(())
 }
 
+/// Submits the given `call` as transaction and waits `timeout_secs` for it successful finalization.
+///
+/// If the transaction does not reach the finalized state in `timeout_secs` an error is returned.
+/// The transaction is send as immortal transaction.
 pub async fn submit_extrinsic_and_wait_for_finalization_success_with_timeout<
-	C: Config,
-	S: Signer<C>,
+	S: Signer<PolkadotConfig>,
 >(
-	client: &OnlineClient<C>,
+	client: &OnlineClient<PolkadotConfig>,
 	call: &DynamicPayload,
 	signer: &S,
 	timeout_secs: impl Into<u64>,
-) -> Result<(), anyhow::Error>
-where
-	<C::ExtrinsicParams as ExtrinsicParams<C>>::Params: Default,
-{
+) -> Result<(), anyhow::Error> {
 	let secs = timeout_secs.into();
 	let res = tokio::time::timeout(
 		Duration::from_secs(secs),
@@ -617,17 +628,15 @@ where
 	)
 	.await;
 
-	if let Ok(inner_res) = res {
-		match inner_res {
-			Ok(_) => Ok(()),
-			Err(e) => Err(anyhow!("Error waiting for metric: {}", e)),
-		}
-	} else {
+	match res {
+		Ok(Ok(_)) => Ok(()),
+		Ok(Err(e)) => Err(anyhow!("Error waiting for metric: {}", e)),
 		// timeout
-		Err(anyhow!("Timeout ({secs}), waiting for extrinsic finalization"))
+		Err(_) => Err(anyhow!("Timeout ({secs}), waiting for extrinsic finalization")),
 	}
 }
 
+/// Asserts that the given `para_id` is registered at the relay chain.
 pub async fn assert_para_is_registered(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	para_id: ParaId,
@@ -663,5 +672,6 @@ pub async fn assert_para_is_registered(
 		}
 		blocks_cnt += 1;
 	}
+
 	Err(anyhow!("No more blocks to check"))
 }
