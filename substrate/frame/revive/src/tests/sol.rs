@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod arithmetic;
 mod block_info;
 mod misc;
 mod system;

@@ -19,7 +19,7 @@ use super::{
 	i256::{i256_div, i256_mod},
 	Context,
 };
-use crate::vm::Ext;
+use crate::{vm::Ext, RuntimeCosts};
 use revm::{
 	interpreter::{
 		gas as revm_gas,
@@ -30,7 +30,7 @@ use revm::{
 
 /// Implements the ADD instruction - adds two values from stack.
 pub fn add<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
+	gas!(context.interpreter, RuntimeCosts::EVMGas(3));
 	popn_top!([op1], op2, context.interpreter);
 	*op2 = op1.wrapping_add(*op2);
 }
