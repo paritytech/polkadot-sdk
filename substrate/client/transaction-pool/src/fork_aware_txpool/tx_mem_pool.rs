@@ -115,13 +115,23 @@ where
 	}
 
 	/// Creates a new instance of wrapper for unwatched transaction.
-	fn new_unwatched(source: TransactionSource, tx: ExtrinsicFor<ChainApi>, bytes: usize) -> Self {
-		Self::new(false, source, tx, bytes)
+	fn new_unwatched(
+		source: TransactionSource,
+		tx: ExtrinsicFor<ChainApi>,
+		bytes: usize,
+		validated_at: u64,
+	) -> Self {
+		Self::new(false, source, tx, bytes, validated_at)
 	}
 
 	/// Creates a new instance of wrapper for watched transaction.
-	fn new_watched(source: TransactionSource, tx: ExtrinsicFor<ChainApi>, bytes: usize) -> Self {
-		Self::new(true, source, tx, bytes)
+	fn new_watched(
+		source: TransactionSource,
+		tx: ExtrinsicFor<ChainApi>,
+		bytes: usize,
+		validated_at: u64,
+	) -> Self {
+		Self::new(true, source, tx, bytes, validated_at)
 	}
 
 	/// Creates a new instance of wrapper for a transaction with no priority.
@@ -130,8 +140,9 @@ where
 		source: TransactionSource,
 		tx: ExtrinsicFor<ChainApi>,
 		bytes: usize,
+		validated_at: u64,
 	) -> Self {
-		Self::new_with_optional_priority(watched, source, tx, bytes, None)
+		Self::new_with_optional_priority(watched, source, tx, bytes, None, validated_at)
 	}
 
 	/// Creates a new instance of wrapper for a transaction with given priority.
@@ -141,8 +152,9 @@ where
 		tx: ExtrinsicFor<ChainApi>,
 		bytes: usize,
 		priority: TransactionPriority,
+		validated_at: u64,
 	) -> Self {
-		Self::new_with_optional_priority(watched, source, tx, bytes, Some(priority))
+		Self::new_with_optional_priority(watched, source, tx, bytes, Some(priority), validated_at)
 	}
 
 	/// Creates a new instance of wrapper for a transaction with optional priority.
@@ -152,12 +164,13 @@ where
 		tx: ExtrinsicFor<ChainApi>,
 		bytes: usize,
 		priority: Option<TransactionPriority>,
+		validated_at: u64,
 	) -> Self {
 		Self {
 			watched,
 			tx,
 			source: TimedTransactionSource::from_transaction_source(source, true),
-			validated_at: AtomicU64::new(0),
+			validated_at: AtomicU64::new(validated_at),
 			bytes,
 			priority: priority.into(),
 		}
@@ -468,10 +481,12 @@ where
 		new_tx: ExtrinsicFor<ChainApi>,
 		priority: TransactionPriority,
 		source: TransactionSource,
+		validated_at: u64,
 		watched: bool,
 	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error> {
 		let (hash, length) = self.api.hash_and_length(&new_tx);
-		let new_tx = TxInMemPool::new_with_priority(watched, source, new_tx, length, priority);
+		let new_tx =
+			TxInMemPool::new_with_priority(watched, source, new_tx, length, priority, validated_at);
 		if new_tx.bytes > self.max_transactions_total_bytes {
 			return Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped);
 		}
@@ -508,6 +523,7 @@ where
 	pub(super) async fn extend_unwatched(
 		&self,
 		source: TransactionSource,
+		validated_at: u64,
 		xts: &[ExtrinsicFor<ChainApi>],
 	) -> Vec<Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error>>
 	{
@@ -516,7 +532,8 @@ where
 			let xt = xt.clone();
 			async move {
 				let (hash, length) = api.hash_and_length(&xt);
-				self.try_insert(hash, TxInMemPool::new_unwatched(source, xt, length)).await
+				self.try_insert(hash, TxInMemPool::new_unwatched(source, xt, length, validated_at))
+					.await
 			}
 		});
 
@@ -528,10 +545,11 @@ where
 	pub(super) async fn push_watched(
 		&self,
 		source: TransactionSource,
+		validated_at: u64,
 		xt: ExtrinsicFor<ChainApi>,
 	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error> {
 		let (hash, length) = self.api.hash_and_length(&xt);
-		self.try_insert(hash, TxInMemPool::new_watched(source, xt.clone(), length))
+		self.try_insert(hash, TxInMemPool::new_watched(source, xt.clone(), length, validated_at))
 			.await
 	}
 
@@ -574,7 +592,7 @@ where
 		);
 		let start = Instant::now();
 
-		let (count, input) = {
+		let (total_count, to_be_validated) = {
 			(
 				self.transactions.len(),
 				self.with_transactions(|iter| {
@@ -593,7 +611,7 @@ where
 			)
 		};
 
-		let validations_futures = input.into_iter().map(|(xt_hash, xt)| {
+		let validations_futures = to_be_validated.into_iter().map(|(xt_hash, xt)| {
 			self.api
 				.validate_transaction(
 					finalized_block.hash,
@@ -608,7 +626,7 @@ where
 				})
 		});
 		let validation_results = futures::future::join_all(validations_futures).await;
-		let input_len = validation_results.len();
+		let validated_count = validation_results.len();
 
 		let duration = start.elapsed();
 
@@ -634,8 +652,8 @@ where
 		debug!(
 			target: LOG_TARGET,
 			?finalized_block,
-			input_len,
-			count,
+			validated_count,
+			total_count,
 			invalid_hashes = invalid_hashes.len(),
 			?duration,
 			"mempool::revalidate_inner"
@@ -719,8 +737,7 @@ where
 		);
 	}
 
-	/// Updates the priority of transaction stored in mempool using provided view_store submission
-	/// outcome.
+	/// Updates the priority of transaction stored in mempool using provided priority.
 	pub(super) async fn update_transaction_priority(
 		&self,
 		hash: ExtrinsicHash<ChainApi>,
@@ -768,6 +785,7 @@ where
 	ExtendUnwatched(
 		Arc<TxMemPool<ChainApi, Block>>,
 		TransactionSource,
+		u64,
 		Vec<ExtrinsicFor<ChainApi>>,
 		SyncBridgeSender<ExtendUnwatchedResult<ChainApi>>,
 	),
@@ -782,6 +800,7 @@ where
 		ExtrinsicFor<ChainApi>,
 		TransactionPriority,
 		TransactionSource,
+		u64,
 		bool,
 		SyncBridgeSender<TryInsertWithReplacementResult<ChainApi>>,
 	),
@@ -803,10 +822,11 @@ where
 	fn extend_unwatched(
 		mempool: Arc<TxMemPool<ChainApi, Block>>,
 		source: TransactionSource,
+		validated_at: u64,
 		xts: Vec<ExtrinsicFor<ChainApi>>,
 	) -> (SyncBridgeReceiver<ExtendUnwatchedResult<ChainApi>>, Self) {
 		let (tx, rx) = sync_bridge_channel();
-		(rx, Self::ExtendUnwatched(mempool, source, xts, tx))
+		(rx, Self::ExtendUnwatched(mempool, source, validated_at, xts, tx))
 	}
 
 	fn update_transaction_priority(
@@ -823,10 +843,22 @@ where
 		new_tx: ExtrinsicFor<ChainApi>,
 		priority: TransactionPriority,
 		source: TransactionSource,
+		validated_at: u64,
 		watched: bool,
 	) -> (SyncBridgeReceiver<TryInsertWithReplacementResult<ChainApi>>, Self) {
 		let (tx, rx) = sync_bridge_channel();
-		(rx, Self::TryInsertWithReplacement(mempool, new_tx, priority, source, watched, tx))
+		(
+			rx,
+			Self::TryInsertWithReplacement(
+				mempool,
+				new_tx,
+				priority,
+				source,
+				validated_at,
+				watched,
+				tx,
+			),
+		)
 	}
 }
 
@@ -850,8 +882,8 @@ where
 					debug!(target: LOG_TARGET, ?error, "RemoveTransaction: sending response failed");
 				}
 			},
-			TxMemPoolSyncRequest::ExtendUnwatched(mempool, source, txs, tx) => {
-				let result = mempool.extend_unwatched(source, &txs).await;
+			TxMemPoolSyncRequest::ExtendUnwatched(mempool, source, validated_at, txs, tx) => {
+				let result = mempool.extend_unwatched(source, validated_at, &txs).await;
 				if let Err(error) = tx.send(result) {
 					debug!(target: LOG_TARGET, ?error, "ExtendUnwatched: sending response failed");
 				}
@@ -867,11 +899,13 @@ where
 				new_tx,
 				priority,
 				source,
+				validated_at,
 				watched,
 				tx,
 			) => {
-				let result =
-					mempool.try_insert_with_replacement(new_tx, priority, source, watched).await;
+				let result = mempool
+					.try_insert_with_replacement(new_tx, priority, source, validated_at, watched)
+					.await;
 				if let Err(error) = tx.send(result) {
 					debug!(target: LOG_TARGET, ?error, "TryInsertWithReplacementSync: sending response failed");
 				}
@@ -884,6 +918,7 @@ where
 		new_tx: ExtrinsicFor<ChainApi>,
 		priority: TransactionPriority,
 		source: TransactionSource,
+		validated_at: u64,
 		watched: bool,
 	) -> Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error> {
 		let (response, request) = TxMemPoolSyncRequest::try_insert_with_replacement(
@@ -891,6 +926,7 @@ where
 			new_tx,
 			priority,
 			source,
+			validated_at,
 			watched,
 		);
 		let _ = self.sync_channel.send(request);
@@ -900,10 +936,12 @@ where
 	pub(super) fn extend_unwatched_sync(
 		self: Arc<Self>,
 		source: TransactionSource,
+		validated_at: u64,
 		xts: Vec<ExtrinsicFor<ChainApi>>,
 	) -> Vec<Result<InsertionInfo<ExtrinsicHash<ChainApi>>, sc_transaction_pool_api::error::Error>>
 	{
-		let (response, request) = TxMemPoolSyncRequest::extend_unwatched(self.clone(), source, xts);
+		let (response, request) =
+			TxMemPoolSyncRequest::extend_unwatched(self.clone(), source, validated_at, xts);
 		let _ = self.sync_channel.send(request);
 		response.recv().expect(SYNC_BRIDGE_EXPECT)
 	}
@@ -960,7 +998,7 @@ mod tx_mem_pool_tests {
 
 		let xts = (0..max + 1).map(|x| Arc::from(uxt(x as _))).collect::<Vec<_>>();
 
-		let results = mempool.extend_unwatched(TransactionSource::External, &xts).await;
+		let results = mempool.extend_unwatched(TransactionSource::External, 0, &xts).await;
 		assert!(results.iter().take(max).all(Result::is_ok));
 		assert!(matches!(
 			results.into_iter().last().unwrap().unwrap_err(),
@@ -978,7 +1016,7 @@ mod tx_mem_pool_tests {
 		let mut xts = (0..max - 1).map(|x| Arc::from(uxt(x as _))).collect::<Vec<_>>();
 		xts.push(xts.iter().last().unwrap().clone());
 
-		let results = mempool.extend_unwatched(TransactionSource::External, &xts).await;
+		let results = mempool.extend_unwatched(TransactionSource::External, 0, &xts).await;
 		assert!(results.iter().take(max - 1).all(Result::is_ok));
 		assert!(matches!(
 			results.into_iter().last().unwrap().unwrap_err(),
@@ -994,17 +1032,17 @@ mod tx_mem_pool_tests {
 
 		let xts = (0..max).map(|x| Arc::from(uxt(x as _))).collect::<Vec<_>>();
 
-		let results = mempool.extend_unwatched(TransactionSource::External, &xts).await;
+		let results = mempool.extend_unwatched(TransactionSource::External, 0, &xts).await;
 		assert!(results.iter().all(Result::is_ok));
 
 		let xt = Arc::from(uxt(98));
-		let result = mempool.push_watched(TransactionSource::External, xt).await;
+		let result = mempool.push_watched(TransactionSource::External, 0, xt).await;
 		assert!(matches!(
 			result.unwrap_err(),
 			sc_transaction_pool_api::error::Error::ImmediatelyDropped
 		));
 		let xt = Arc::from(uxt(99));
-		let mut result = mempool.extend_unwatched(TransactionSource::External, &[xt]).await;
+		let mut result = mempool.extend_unwatched(TransactionSource::External, 0, &[xt]).await;
 		assert!(matches!(
 			result.pop().unwrap().unwrap_err(),
 			sc_transaction_pool_api::error::Error::ImmediatelyDropped
@@ -1021,15 +1059,15 @@ mod tx_mem_pool_tests {
 		let xt0 = xts.iter().last().unwrap().clone();
 		let xt1 = xts.iter().next().unwrap().clone();
 
-		let results = mempool.extend_unwatched(TransactionSource::External, &xts).await;
+		let results = mempool.extend_unwatched(TransactionSource::External, 0, &xts).await;
 		assert!(results.iter().all(Result::is_ok));
 
-		let result = mempool.push_watched(TransactionSource::External, xt0).await;
+		let result = mempool.push_watched(TransactionSource::External, 0, xt0).await;
 		assert!(matches!(
 			result.unwrap_err(),
 			sc_transaction_pool_api::error::Error::AlreadyImported(_)
 		));
-		let mut result = mempool.extend_unwatched(TransactionSource::External, &[xt1]).await;
+		let mut result = mempool.extend_unwatched(TransactionSource::External, 0, &[xt1]).await;
 		assert!(matches!(
 			result.pop().unwrap().unwrap_err(),
 			sc_transaction_pool_api::error::Error::AlreadyImported(_)
@@ -1049,15 +1087,16 @@ mod tx_mem_pool_tests {
 		let xts0 = (0..10).map(|x| Arc::from(uxt(x as _))).collect::<Vec<_>>();
 		trace!(target:LOG_TARGET,line=line!(),"xxx");
 
-		let results = mempool.extend_unwatched(TransactionSource::External, &xts0).await;
+		let results = mempool.extend_unwatched(TransactionSource::External, 0, &xts0).await;
 		trace!(target:LOG_TARGET,line=line!(),"xxx");
 		assert!(results.iter().all(Result::is_ok));
 		trace!(target:LOG_TARGET,line=line!(),"xxx");
 
 		let xts1 = (0..5).map(|x| Arc::from(uxt(2 * x))).collect::<Vec<_>>();
 		trace!(target:LOG_TARGET,line=line!(),"xxx");
-		let results =
-			xts1.into_iter().map(|t| mempool.push_watched(TransactionSource::External, t));
+		let results = xts1
+			.into_iter()
+			.map(|t| mempool.push_watched(TransactionSource::External, 0, t));
 		trace!(target:LOG_TARGET,line=line!(),"xxx");
 		let results = join_all(results).await;
 		trace!(target:LOG_TARGET,line=line!(),"xxx");
@@ -1083,19 +1122,19 @@ mod tx_mem_pool_tests {
 
 		let total_xts_bytes = xts.iter().fold(0, |r, x| r + api.hash_and_length(&x).1);
 
-		let results = mempool.extend_unwatched(TransactionSource::External, &xts).await;
+		let results = mempool.extend_unwatched(TransactionSource::External, 0, &xts).await;
 		assert!(results.iter().all(Result::is_ok));
 		assert_eq!(mempool.bytes(), total_xts_bytes);
 
 		let xt = Arc::from(large_uxt(98));
-		let result = mempool.push_watched(TransactionSource::External, xt).await;
+		let result = mempool.push_watched(TransactionSource::External, 0, xt).await;
 		assert!(matches!(
 			result.unwrap_err(),
 			sc_transaction_pool_api::error::Error::ImmediatelyDropped
 		));
 
 		let xt = Arc::from(large_uxt(99));
-		let mut result = mempool.extend_unwatched(TransactionSource::External, &[xt]).await;
+		let mut result = mempool.extend_unwatched(TransactionSource::External, 0, &[xt]).await;
 		assert!(matches!(
 			result.pop().unwrap().unwrap_err(),
 			sc_transaction_pool_api::error::Error::ImmediatelyDropped
@@ -1123,7 +1162,7 @@ mod tx_mem_pool_tests {
 			})
 			.unzip();
 
-		let results = mempool.extend_unwatched(TransactionSource::External, &xts).await;
+		let results = mempool.extend_unwatched(TransactionSource::External, 0, &xts).await;
 		assert!(results.iter().all(Result::is_ok));
 		assert_eq!(mempool.bytes(), total_xts_bytes);
 
@@ -1134,7 +1173,7 @@ mod tx_mem_pool_tests {
 		let xt = Arc::from(large_uxt(98));
 		let hash = api.hash_and_length(&xt).0;
 		let result = mempool
-			.try_insert_with_replacement(xt, hi_prio, TransactionSource::External, false)
+			.try_insert_with_replacement(xt, hi_prio, TransactionSource::External, 0, false)
 			.await
 			.unwrap();
 
@@ -1163,7 +1202,7 @@ mod tx_mem_pool_tests {
 			})
 			.unzip();
 
-		let results = mempool.extend_unwatched(TransactionSource::External, &xts).await;
+		let results = mempool.extend_unwatched(TransactionSource::External, 0, &xts).await;
 		assert!(results.iter().all(Result::is_ok));
 		assert_eq!(mempool.bytes(), total_xts_bytes);
 		assert_eq!(total_xts_bytes, max * LARGE_XT_SIZE);
@@ -1177,7 +1216,7 @@ mod tx_mem_pool_tests {
 		let (hash, length) = api.hash_and_length(&xt);
 		assert_eq!(length, 1130);
 		let result = mempool
-			.try_insert_with_replacement(xt, hi_prio, TransactionSource::External, false)
+			.try_insert_with_replacement(xt, hi_prio, TransactionSource::External, 0, false)
 			.await
 			.unwrap();
 
@@ -1206,7 +1245,7 @@ mod tx_mem_pool_tests {
 			})
 			.unzip();
 
-		let results = mempool.extend_unwatched(TransactionSource::External, &xts).await;
+		let results = mempool.extend_unwatched(TransactionSource::External, 0, &xts).await;
 		assert!(results.iter().all(Result::is_ok));
 		assert_eq!(mempool.bytes(), total_xts_bytes);
 
@@ -1220,7 +1259,7 @@ mod tx_mem_pool_tests {
 		// overhead is 105, thus length: 105 + 2154
 		assert_eq!(length, 2 * LARGE_XT_SIZE + 1);
 		let result = mempool
-			.try_insert_with_replacement(xt, hi_prio, TransactionSource::External, false)
+			.try_insert_with_replacement(xt, hi_prio, TransactionSource::External, 0, false)
 			.await
 			.unwrap();
 
@@ -1249,7 +1288,7 @@ mod tx_mem_pool_tests {
 			})
 			.collect::<Vec<_>>();
 
-		let results = mempool.extend_unwatched(TransactionSource::External, &xts).await;
+		let results = mempool.extend_unwatched(TransactionSource::External, 0, &xts).await;
 		assert!(results.iter().all(Result::is_ok));
 		assert_eq!(mempool.bytes(), total_xts_bytes);
 
@@ -1259,7 +1298,7 @@ mod tx_mem_pool_tests {
 
 		let xt = Arc::from(large_uxt(98));
 		let result = mempool
-			.try_insert_with_replacement(xt, low_prio, TransactionSource::External, false)
+			.try_insert_with_replacement(xt, low_prio, TransactionSource::External, 0, false)
 			.await;
 
 		// lower prio tx is rejected immediately
@@ -1282,7 +1321,7 @@ mod tx_mem_pool_tests {
 
 		let total_xts_bytes = xts.iter().fold(0, |r, x| r + api.hash_and_length(&x).1);
 
-		let results = mempool.extend_unwatched(TransactionSource::External, &xts).await;
+		let results = mempool.extend_unwatched(TransactionSource::External, 0, &xts).await;
 		assert!(results.iter().all(Result::is_ok));
 		assert_eq!(mempool.bytes(), total_xts_bytes);
 
@@ -1293,7 +1332,7 @@ mod tx_mem_pool_tests {
 		assert_eq!(length, 2 * LARGE_XT_SIZE + 1);
 
 		let result = mempool
-			.try_insert_with_replacement(xt, hi_prio, TransactionSource::External, false)
+			.try_insert_with_replacement(xt, hi_prio, TransactionSource::External, 0, false)
 			.await;
 
 		// we did not update priorities (update_transaction_priority was not called):
