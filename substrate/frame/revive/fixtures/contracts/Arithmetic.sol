@@ -31,4 +31,14 @@ contract Arithmetic {
 		return a % b;
 	}
 
+    // ADDMOD instruction: (a + b) % n
+    function addmod(uint a, uint b, uint n) public view returns (uint) {
+		return (a + b) % n;
+	}
+
+    // MULMOD instruction: (a * b) % n  
+    function mulmod(uint a, uint b, uint n) public view returns (uint) {
+		return (a * b) % n;
+	}
+
 }

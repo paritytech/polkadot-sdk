@@ -384,3 +384,65 @@ fn smod_works() {
 		});
 	}
 }
+
+#[test]
+fn addmod_works() {
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let (code, _) = compile_module_with_type("Arithmetic", fixture_type).unwrap();
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+            {
+                // Test ADDMOD: (10 + 15) % 7 = 25 % 7 = 4
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::addmod(Arithmetic::addmodCall { 
+                            a: U256::from(10u32), 
+                            b: U256::from(15u32), 
+                            n: U256::from(7u32) 
+                        })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                assert_eq!(
+                    U256::from(4u32),
+                    U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "ADDMOD(10, 15, 7) should equal 4 for {:?}", fixture_type
+                );
+            }
+		});
+	}
+}
+
+#[test]
+fn mulmod_works() {
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let (code, _) = compile_module_with_type("Arithmetic", fixture_type).unwrap();
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+            {
+                // Test MULMOD: (6 * 7) % 10 = 42 % 10 = 2
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::mulmod(Arithmetic::mulmodCall { 
+                            a: U256::from(6u32), 
+                            b: U256::from(7u32), 
+                            n: U256::from(10u32) 
+                        })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                assert_eq!(
+                    U256::from(2u32),
+                    U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "MULMOD(6, 7, 10) should equal 2 for {:?}", fixture_type
+                );
+            }
+		});
+	}
+}
