@@ -81,7 +81,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
-use strum::EnumCount;
+use strum::{EnumCount, FromRepr};
 
 #[cfg(not(substrate_runtime))]
 use tracing;
@@ -164,7 +164,7 @@ pub enum EcdsaVerifyError {
 }
 
 // The FFI representation of EcdsaVerifyError.
-#[derive(EnumCount)]
+#[derive(EnumCount, FromRepr)]
 #[repr(i16)]
 #[allow(missing_docs)]
 pub enum RIEcdsaVerifyError {
@@ -176,6 +176,14 @@ pub enum RIEcdsaVerifyError {
 impl From<RIEcdsaVerifyError> for i64 {
 	fn from(error: RIEcdsaVerifyError) -> Self {
 		error as i64
+	}
+}
+
+impl TryFrom<i64> for RIEcdsaVerifyError {
+	type Error = ();
+	fn try_from(value: i64) -> Result<Self, Self::Error> {
+		let value: i16 = value.try_into().map_err(|_| ())?;
+		RIEcdsaVerifyError::from_repr(value).ok_or(())
 	}
 }
 
@@ -200,7 +208,7 @@ impl From<RIEcdsaVerifyError> for EcdsaVerifyError {
 }
 
 // The FFI representation of HttpError.
-#[derive(EnumCount)]
+#[derive(EnumCount, FromRepr)]
 #[repr(i16)]
 #[allow(missing_docs)]
 pub enum RIHttpError {
@@ -212,6 +220,15 @@ pub enum RIHttpError {
 impl From<RIHttpError> for i64 {
 	fn from(error: RIHttpError) -> Self {
 		error as i64
+	}
+}
+
+impl TryFrom<i64> for RIHttpError {
+	type Error = ();
+
+	fn try_from(value: i64) -> Result<Self, Self::Error> {
+		let value: i16 = value.try_into().map_err(|_| ())?;
+		RIHttpError::from_repr(value).ok_or(())
 	}
 }
 
@@ -273,6 +290,12 @@ impl AsRef<[u8]> for Val512 {
 	}
 }
 
+impl AsMut<[u8]> for Val512 {
+	fn as_mut(&mut self) -> &mut [u8] {
+		&mut self.0
+	}
+}
+
 /// Wrapper type for 512-bit hashes.
 pub type Hash512 = Val512;
 /// Wrapper type for 512-bit pubkeys.
@@ -290,6 +313,12 @@ impl Default for Pubkey264 {
 impl AsRef<[u8]> for Pubkey264 {
 	fn as_ref(&self) -> &[u8] {
 		&self.0
+	}
+}
+
+impl AsMut<[u8]> for Pubkey264 {
+	fn as_mut(&mut self) -> &mut [u8] {
+		&mut self.0
 	}
 }
 
@@ -667,6 +696,7 @@ pub trait Storage {
 	/// Please note that keys which are residing in the overlay for that prefix when
 	/// issuing this call are deleted without counting towards the `limit`.
 	#[version(3)]
+	#[wrapped]
 	fn clear_prefix(
 		&mut self,
 		maybe_prefix: PassFatPointerAndRead<&[u8]>,
@@ -692,6 +722,29 @@ pub trait Storage {
 		*unique = removal_results.unique;
 		*loops = removal_results.loops;
 		cursor_out_len as u32
+	}
+
+	#[wrapper]
+	fn clear_prefix(
+		maybe_prefix: impl AsRef<[u8]>,
+		maybe_limit: Option<u32>,
+		maybe_cursor_in: Option<&[u8]>,
+	) -> MultiRemovalResults {
+		let mut result = MultiRemovalResults::default();
+		let mut maybe_cursor_out = vec![0u8; 4096];
+		let cursor_len = clear_prefix__wrapped(
+			maybe_prefix.as_ref(),
+			maybe_limit,
+			maybe_cursor_in,
+			&mut maybe_cursor_out,
+			&mut result.backend,
+			&mut result.unique,
+			&mut result.loops,
+		) as usize;
+		maybe_cursor_out.truncate(cursor_len);
+		result.maybe_cursor = if cursor_len > 0 { Some(maybe_cursor_out) } else { None };
+
+		result
 	}
 
 	/// Append the encoded `value` to the storage item at `key`.
@@ -731,11 +784,24 @@ pub trait Storage {
 	///
 	/// Fills provided output buffer with the SCALE encoded hash.
 	#[version(3)]
+	#[wrapped]
 	fn root(&mut self, out: PassFatPointerAndReadWrite<&mut [u8]>) -> u32 {
 		let root = self.storage_root(StateVersion::V0);
 		let write_len = root.len().min(out.len());
 		out[..write_len].copy_from_slice(&root[..write_len]);
 		root.len() as u32
+	}
+
+	#[wrapper]
+	fn root() -> Vec<u8> {
+		let mut root_out = vec![0u8; 256];
+		let len = root__wrapped(&mut root_out[..]);
+		if len as usize > root_out.len() {
+			root_out.resize(len as usize, 0);
+			root__wrapped(&mut root_out[..]);
+		}
+		root_out.truncate(len as usize);
+		root_out
 	}
 
 	/// Always returns `None`. This function exists for compatibility reasons.
@@ -756,6 +822,7 @@ pub trait Storage {
 
 	// TODO: Interface changed, reflect in RFC
 	/// Get the next key in storage after the given one in lexicographic order.
+	#[wrapped]
 	#[version(2)]
 	fn next_key(
 		&mut self,
@@ -769,6 +836,22 @@ pub trait Storage {
 			key_out[..write_len].copy_from_slice(&next_key[..write_len]);
 		}
 		next_key_len as u32
+	}
+
+	#[wrapper]
+	fn next_key(key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+		let mut key_out = vec![0u8; 256];
+		let len = next_key__wrapped(key.as_ref(), &mut key_out[..]);
+		if len as usize > key_out.len() {
+			key_out.resize(len as usize, 0);
+			next_key__wrapped(key.as_ref(), &mut key_out[..]);
+		}
+		key_out.truncate(len as usize);
+		if len > 0 {
+			Some(key_out)
+		} else {
+			None
+		}
 	}
 
 	/// Start a new nested transaction.
@@ -945,6 +1028,7 @@ pub trait DefaultChildStorage {
 	///
 	/// See `Storage` module `clear_prefix` documentation for `limit` usage.
 	#[version(4)]
+	#[wrapped]
 	fn storage_kill(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
@@ -970,6 +1054,29 @@ pub trait DefaultChildStorage {
 		*unique = removal_results.unique;
 		*loops = removal_results.loops;
 		cursor_out_len as u32
+	}
+
+	#[wrapper]
+	fn storage_kill(
+		storage_key: impl AsRef<[u8]>,
+		maybe_limit: Option<u32>,
+		maybe_cursor: Option<&[u8]>,
+	) -> MultiRemovalResults {
+		let mut result = MultiRemovalResults::default();
+		let mut maybe_cursor_out = vec![0u8; 4096];
+		let cursor_len = storage_kill__wrapped(
+			storage_key.as_ref(),
+			maybe_limit,
+			maybe_cursor,
+			&mut maybe_cursor_out[..],
+			&mut result.backend,
+			&mut result.unique,
+			&mut result.loops,
+		);
+		maybe_cursor_out.truncate(cursor_len as usize);
+		result.maybe_cursor = if cursor_len > 0 { Some(maybe_cursor_out) } else { None };
+
+		result
 	}
 
 	/// Check a child storage key.
@@ -1080,6 +1187,7 @@ pub trait DefaultChildStorage {
 	///
 	/// Fills provided output buffer with the SCALE encoded hash.
 	#[version(3)]
+	#[wrapped]
 	fn root(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
@@ -1090,6 +1198,18 @@ pub trait DefaultChildStorage {
 		let write_len = root.len().min(out.len());
 		out[..write_len].copy_from_slice(&root[..write_len]);
 		root.len() as u32
+	}
+
+	#[wrapper]
+	fn root(storage_key: impl AsRef<[u8]>) -> Vec<u8> {
+		let mut root_out = vec![0u8; 256];
+		let len = root__wrapped(storage_key.as_ref(), &mut root_out[..]);
+		if len as usize > root_out.len() {
+			root_out.resize(len as usize, 0);
+			root__wrapped(storage_key.as_ref(), &mut root_out[..]);
+		}
+		root_out.truncate(len as usize);
+		root_out
 	}
 
 	/// Child storage key iteration.
@@ -1109,6 +1229,7 @@ pub trait DefaultChildStorage {
 	///
 	/// Get the next key in storage after the given one in lexicographic order in child storage.
 	#[version(2)]
+	#[wrapped]
 	fn next_key(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
@@ -1123,6 +1244,22 @@ pub trait DefaultChildStorage {
 			key_out[..write_len].copy_from_slice(&next_key[..write_len]);
 		}
 		next_key_len as u32
+	}
+
+	#[wrapper]
+	fn next_key(storage_key: impl AsRef<[u8]>, key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+		let mut key_out = vec![0u8; 256];
+		let len = next_key__wrapped(storage_key.as_ref(), key.as_ref(), &mut key_out[..]);
+		if len as usize > key_out.len() {
+			key_out.resize(len as usize, 0);
+			next_key__wrapped(storage_key.as_ref(), key.as_ref(), &mut key_out[..]);
+		}
+		key_out.truncate(len as usize);
+		if len > 0 {
+			Some(key_out)
+		} else {
+			None
+		}
 	}
 }
 
@@ -1428,6 +1565,7 @@ pub trait Misc {
 	///
 	/// Calling into the runtime may be incredible expensive and should be approached with care.
 	#[version(2)]
+	#[wrapped]
 	fn runtime_version(
 		&mut self,
 		wasm: PassFatPointerAndRead<&[u8]>,
@@ -1456,6 +1594,16 @@ pub trait Misc {
 				None
 			},
 		}
+	}
+
+	#[wrapper]
+	fn runtime_version(code: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+		let mut version = vec![0u8; 1024];
+		let maybe_len = runtime_version__wrapped(code.as_ref(), &mut version);
+		maybe_len.map(|len| {
+			version.truncate(len as usize);
+			version
+		})
 	}
 
 	// TODO: `input_read`
@@ -2152,6 +2300,7 @@ pub trait Crypto {
 	/// Returns `Err` if the signature is bad, otherwise the 64-byte pubkey
 	/// (doesn't include the 0x04 prefix).
 	#[version(3)]
+	#[wrapped]
 	fn secp256k1_ecdsa_recover(
 		sig: PassPointerAndRead<&[u8; 65], 65>,
 		msg: PassPointerAndRead<&[u8; 32], 32>,
@@ -2173,6 +2322,16 @@ pub trait Crypto {
 		let pubkey = ctx.recover_ecdsa(&msg, &sig).map_err(|_| EcdsaVerifyError::BadSignature)?;
 		out.0.copy_from_slice(&pubkey.serialize_uncompressed()[1..]);
 		Ok(())
+	}
+
+	#[wrapper]
+	fn secp256k1_ecdsa_recover(
+		signature: &[u8; 65],
+		message: &[u8; 32],
+	) -> Result<[u8; 64], EcdsaVerifyError> {
+		let mut public = Val512([0u8; 64]);
+		secp256k1_ecdsa_recover__wrapped(signature, message, &mut public)?;
+		Ok(public.0)
 	}
 
 	/// Verify and recover a SECP256k1 ECDSA signature.
@@ -2228,6 +2387,7 @@ pub trait Crypto {
 	///
 	/// Returns `Err` if the signature is bad, otherwise the 33-byte compressed pubkey.
 	#[version(3)]
+	#[wrapped]
 	fn secp256k1_ecdsa_recover_compressed(
 		sig: PassPointerAndRead<&[u8; 65], 65>,
 		msg: PassPointerAndRead<&[u8; 32], 32>,
@@ -2249,6 +2409,16 @@ pub trait Crypto {
 		let pubkey = ctx.recover_ecdsa(&msg, &sig).map_err(|_| EcdsaVerifyError::BadSignature)?;
 		out.0.copy_from_slice(&pubkey.serialize());
 		Ok(())
+	}
+
+	#[wrapper]
+	fn secp256k1_ecdsa_recover_compressed(
+		signature: &[u8; 65],
+		message: &[u8; 32],
+	) -> Result<[u8; 33], EcdsaVerifyError> {
+		let mut public = Pubkey264([0u8; 33]);
+		secp256k1_ecdsa_recover_compressed__wrapped(signature, message, &mut public)?;
+		Ok(public.0)
 	}
 
 	/// Generate an `bls12-381` key for the given key type using an optional `seed` and
@@ -3236,131 +3406,6 @@ pub fn oom(_: core::alloc::Layout) -> ! {
 
 use alloc::vec;
 
-/// A convenience wrapper around [`storage::clear_prefix`]
-pub fn storage_clear_prefix(
-	maybe_prefix: impl AsRef<[u8]>,
-	maybe_limit: Option<u32>,
-	maybe_cursor_in: Option<&[u8]>,
-) -> MultiRemovalResults {
-	let mut result = MultiRemovalResults::default();
-	let mut maybe_cursor_out = vec![0u8; 4096];
-	let cursor_len = storage::clear_prefix(
-		maybe_prefix.as_ref(),
-		maybe_limit,
-		maybe_cursor_in,
-		&mut maybe_cursor_out,
-		&mut result.backend,
-		&mut result.unique,
-		&mut result.loops,
-	) as usize;
-	maybe_cursor_out.truncate(cursor_len);
-	result.maybe_cursor = if cursor_len > 0 { Some(maybe_cursor_out) } else { None };
-
-	result
-}
-
-/// A convenience wrapper around [`storage::next_key`]
-pub fn storage_next_key(key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
-	let mut key_out = vec![0u8; 256];
-	let len = storage::next_key(key.as_ref(), &mut key_out[..]);
-	if len as usize > key_out.len() {
-		key_out.resize(len as usize, 0);
-		storage::next_key(key.as_ref(), &mut key_out[..]);
-	}
-	key_out.truncate(len as usize);
-	if len > 0 {
-		Some(key_out)
-	} else {
-		None
-	}
-}
-
-/// A convenience wrapper around [`storage::root`]
-pub fn storage_root() -> Vec<u8> {
-	let mut root_out = vec![0u8; 256];
-	let len = storage::root(&mut root_out[..]);
-	if len as usize > root_out.len() {
-		root_out.resize(len as usize, 0);
-		storage::root(&mut root_out[..]);
-	}
-	root_out.truncate(len as usize);
-	root_out
-}
-
-/// A convenience wrapper around [`default_child_storage::next_key`]
-pub fn child_storage_next_key(
-	storage_key: impl AsRef<[u8]>,
-	key: impl AsRef<[u8]>,
-) -> Option<Vec<u8>> {
-	let mut key_out = vec![0u8; 256];
-	let len = default_child_storage::next_key(storage_key.as_ref(), key.as_ref(), &mut key_out[..]);
-	if len as usize > key_out.len() {
-		key_out.resize(len as usize, 0);
-		default_child_storage::next_key(storage_key.as_ref(), key.as_ref(), &mut key_out[..]);
-	}
-	key_out.truncate(len as usize);
-	if len > 0 {
-		Some(key_out)
-	} else {
-		None
-	}
-}
-
-/// A convenience wrapper around [`default_child_storage::storage_kill`]
-pub fn child_storage_kill(
-	storage_key: impl AsRef<[u8]>,
-	maybe_limit: Option<u32>,
-	maybe_cursor: Option<&[u8]>,
-) -> MultiRemovalResults {
-	let mut result = MultiRemovalResults::default();
-	let mut maybe_cursor_out = vec![0u8; 4096];
-	let cursor_len = default_child_storage::storage_kill(
-		storage_key.as_ref(),
-		maybe_limit,
-		maybe_cursor,
-		&mut maybe_cursor_out[..],
-		&mut result.backend,
-		&mut result.unique,
-		&mut result.loops,
-	);
-	maybe_cursor_out.truncate(cursor_len as usize);
-	result.maybe_cursor = if cursor_len > 0 { Some(maybe_cursor_out) } else { None };
-
-	result
-}
-
-/// A convenience wrapper around [`default_child_storage::root`]
-pub fn child_storage_root(storage_key: impl AsRef<[u8]>) -> Vec<u8> {
-	let mut root_out = vec![0u8; 256];
-	let len = default_child_storage::root(storage_key.as_ref(), &mut root_out[..]);
-	if len as usize > root_out.len() {
-		root_out.resize(len as usize, 0);
-		default_child_storage::root(storage_key.as_ref(), &mut root_out[..]);
-	}
-	root_out.truncate(len as usize);
-	root_out
-}
-
-/// A convenience wrapper around [`misc::runtime_version`]
-pub fn misc_runtime_version(code: impl AsRef<[u8]>) -> Option<Vec<u8>> {
-	let mut version = vec![0u8; 1024];
-	let maybe_len = misc::runtime_version(code.as_ref(), &mut version);
-	maybe_len.map(|len| {
-		version.truncate(len as usize);
-		version
-	})
-}
-
-/// A convenience wrapper around [`crypto::secp256k1_ecdsa_recover`]
-pub fn crypto_secp256k1_ecdsa_recover(
-	signature: &[u8; 65],
-	message: &[u8; 32],
-) -> Result<[u8; 64], EcdsaVerifyError> {
-	let mut public = Val512([0u8; 64]);
-	crypto::secp256k1_ecdsa_recover(signature, message, &mut public)?;
-	Ok(public.0)
-}
-
 /// A convenience wrapper around [`trie::blake2_256_ordered_root`]
 pub fn trie_blake2_256_ordered_root(data: Vec<Vec<u8>>, state_version: StateVersion) -> H256 {
 	let mut root = H256::default();
@@ -3505,7 +3550,7 @@ mod tests {
 		});
 
 		t.execute_with(|| {
-			let res = storage_clear_prefix(b":abc", None, None);
+			let res = storage::clear_prefix(b":abc", None, None);
 			assert_eq!(res.backend, 2);
 			assert_eq!(res.unique, 2);
 			assert_eq!(res.loops, 2);
@@ -3515,7 +3560,7 @@ mod tests {
 			assert!(storage::get(b":abcd").is_none());
 			assert!(storage::get(b":abc").is_none());
 
-			let res = storage_clear_prefix(b":abc", None, None);
+			let res = storage::clear_prefix(b":abc", None, None);
 			assert_eq!(res.backend, 0);
 			assert_eq!(res.unique, 0);
 			assert_eq!(res.loops, 0);

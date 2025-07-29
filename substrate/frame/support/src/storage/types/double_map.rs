@@ -817,7 +817,7 @@ where
 mod test {
 	use super::*;
 	use crate::{hash::*, storage::types::ValueQuery};
-	use sp_io::{hashing_twox_128 as twox_128, TestExternalities};
+	use sp_io::{hashing::twox_128, TestExternalities};
 	use sp_metadata_ir::{StorageEntryModifierIR, StorageEntryTypeIR, StorageHasherIR};
 	use std::collections::BTreeSet;
 

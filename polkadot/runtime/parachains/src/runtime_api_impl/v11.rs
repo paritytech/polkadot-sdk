@@ -130,7 +130,7 @@ fn current_relay_parent<T: frame_system::Config>(
 ) -> (BlockNumberFor<T>, <T as frame_system::Config>::Hash) {
 	use codec::Decode as _;
 	let relay_parent_number = frame_system::Pallet::<T>::block_number();
-	let relay_parent_storage_root = T::Hash::decode(&mut &sp_io::storage_root()[..])
+	let relay_parent_storage_root = T::Hash::decode(&mut &sp_io::storage::root()[..])
 		.expect("storage root must decode to the Hash type; qed");
 	(relay_parent_number, relay_parent_storage_root)
 }

@@ -138,15 +138,11 @@ impl Verify for sp_core::sr25519::Signature {
 impl Verify for sp_core::ecdsa::Signature {
 	type Signer = sp_core::ecdsa::Public;
 	fn verify<L: Lazy<[u8]>>(&self, mut msg: L, signer: &sp_core::ecdsa::Public) -> bool {
-		let mut msg_hash = [0u8; 32];
-		sp_io::hashing::blake2_256(msg.get(), &mut msg_hash);
-		let mut pubkey = sp_io::Pubkey264::default();
 		match sp_io::crypto::secp256k1_ecdsa_recover_compressed(
 			self.as_ref(),
-			&msg_hash,
-			&mut pubkey,
+			&sp_io::hashing::blake2_256(msg.get()),
 		) {
-			Ok(()) => signer.0 == pubkey.0,
+			Ok(pubkey) => signer.0 == pubkey,
 			_ => false,
 		}
 	}
@@ -1054,9 +1050,7 @@ impl Hasher for BlakeTwo256 {
 	const LENGTH: usize = 32;
 
 	fn hash(s: &[u8]) -> Self::Out {
-		let mut hash = [0u8; 32];
-		sp_io::hashing::blake2_256(s, &mut hash);
-		hash.into()
+		sp_io::hashing::blake2_256(s).into()
 	}
 }
 
@@ -1087,9 +1081,7 @@ impl Hasher for Keccak256 {
 	const LENGTH: usize = 32;
 
 	fn hash(s: &[u8]) -> Self::Out {
-		let mut hash = [0u8; 32];
-		sp_io::hashing::keccak_256(s, &mut hash);
-		hash.into()
+		sp_io::hashing::keccak_256(s).into()
 	}
 }
 

@@ -30,7 +30,7 @@ use frame_support::{
 	OrdNoBound, PartialOrdNoBound,
 };
 use sp_io::{
-	hashing_blake2_128 as blake2_128, hashing_twox_128 as twox_128, hashing_twox_64 as twox_64,
+	hashing::{blake2_128, twox_128, twox_64},
 	TestExternalities,
 };
 use sp_runtime::{DispatchError, ModuleError};

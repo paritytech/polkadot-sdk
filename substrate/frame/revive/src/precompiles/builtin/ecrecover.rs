@@ -54,10 +54,9 @@ impl<T: Config> PrimitivePrecompile for EcRecover<T> {
 			return Ok(Vec::new());
 		}
 
-		let mut pubkey = sp_io::Pubkey512::default();
-		let data = match sp_io::crypto::secp256k1_ecdsa_recover(&sig, &msg, &mut pubkey) {
-			Ok(()) => {
-				let mut address = sp_io::hashing::keccak_256(&pubkey.0);
+		let data = match sp_io::crypto::secp256k1_ecdsa_recover(&sig, &msg) {
+			Ok(pubkey) => {
+				let mut address = sp_io::hashing::keccak_256(&pubkey);
 				address[0..12].copy_from_slice(&[0u8; 12]);
 				address.to_vec()
 			},

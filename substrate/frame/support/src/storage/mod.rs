@@ -1089,8 +1089,8 @@ impl<T, OnRemoval: PrefixIteratorOnRemoval> Iterator for PrefixIterator<T, OnRem
 
 	fn next(&mut self) -> Option<Self::Item> {
 		loop {
-			let maybe_next =
-				sp_io::storage_next_key(&self.previous_key).filter(|n| n.starts_with(&self.prefix));
+			let maybe_next = sp_io::storage::next_key(&self.previous_key)
+				.filter(|n| n.starts_with(&self.prefix));
 			break match maybe_next {
 				Some(next) => {
 					self.previous_key = next;
@@ -1185,8 +1185,8 @@ impl<T> Iterator for KeyPrefixIterator<T> {
 
 	fn next(&mut self) -> Option<Self::Item> {
 		loop {
-			let maybe_next =
-				sp_io::storage_next_key(&self.previous_key).filter(|n| n.starts_with(&self.prefix));
+			let maybe_next = sp_io::storage::next_key(&self.previous_key)
+				.filter(|n| n.starts_with(&self.prefix));
 
 			if let Some(next) = maybe_next {
 				self.previous_key = next;
@@ -1298,8 +1298,11 @@ impl<T> Iterator for ChildTriePrefixIterator<T> {
 				self.fetch_previous_key = false;
 				Some(self.previous_key.clone())
 			} else {
-				sp_io::child_storage_next_key(self.child_info.storage_key(), &self.previous_key)
-					.filter(|n| n.starts_with(&self.prefix))
+				sp_io::default_child_storage::next_key(
+					self.child_info.storage_key(),
+					&self.previous_key,
+				)
+				.filter(|n| n.starts_with(&self.prefix))
 			};
 			break match maybe_next {
 				Some(next) => {
@@ -1444,7 +1447,7 @@ pub trait StoragePrefixedMap<Value: FullCodec> {
 		let prefix = Self::final_prefix();
 		let mut previous_key = prefix.clone().to_vec();
 		while let Some(next) =
-			sp_io::storage_next_key(&previous_key).filter(|n| n.starts_with(&prefix))
+			sp_io::storage::next_key(&previous_key).filter(|n| n.starts_with(&prefix))
 		{
 			previous_key = next;
 			let maybe_value = unhashed::get::<OldValue>(&previous_key);

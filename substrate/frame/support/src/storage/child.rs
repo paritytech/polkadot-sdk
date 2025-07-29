@@ -155,8 +155,11 @@ pub fn clear_storage(
 	maybe_cursor: Option<&[u8]>,
 ) -> MultiRemovalResults {
 	match child_info.child_type() {
-		ChildType::ParentKeyId =>
-			sp_io::child_storage_kill(child_info.storage_key(), maybe_limit, maybe_cursor),
+		ChildType::ParentKeyId => sp_io::default_child_storage::storage_kill(
+			child_info.storage_key(),
+			maybe_limit,
+			maybe_cursor,
+		),
 	}
 }
 
@@ -187,7 +190,7 @@ pub fn put_raw(child_info: &ChildInfo, key: &[u8], value: &[u8]) {
 /// Calculate current child root value.
 pub fn root(child_info: &ChildInfo) -> Vec<u8> {
 	match child_info.child_type() {
-		ChildType::ParentKeyId => sp_io::child_storage_root(child_info.storage_key()),
+		ChildType::ParentKeyId => sp_io::default_child_storage::root(child_info.storage_key()),
 	}
 }
 

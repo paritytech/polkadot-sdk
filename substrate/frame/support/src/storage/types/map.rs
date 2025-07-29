@@ -571,7 +571,7 @@ mod test {
 		hash::*,
 		storage::{types::ValueQuery, IterableStorageMap},
 	};
-	use sp_io::{hashing_twox_128 as twox_128, TestExternalities};
+	use sp_io::{hashing::twox_128, TestExternalities};
 	use sp_metadata_ir::{StorageEntryModifierIR, StorageEntryTypeIR, StorageHasherIR};
 
 	struct Prefix;

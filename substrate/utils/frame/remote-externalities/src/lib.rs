@@ -1282,7 +1282,7 @@ mod tests {
 			.expect("Can't read state snapshot file")
 			.execute_with(|| {
 				let key =
-					sp_io::storage_next_key(&[]).expect("some key must exist in the snapshot");
+					sp_io::storage::next_key(&[]).expect("some key must exist in the snapshot");
 				assert!(sp_io::storage::get(&key).is_some());
 				key
 			});

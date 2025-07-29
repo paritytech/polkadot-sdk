@@ -400,11 +400,7 @@ impl traits::IdentifyAccount for MultiSigner {
 		match self {
 			Self::Ed25519(who) => <[u8; 32]>::from(who).into(),
 			Self::Sr25519(who) => <[u8; 32]>::from(who).into(),
-			Self::Ecdsa(who) => {
-				let mut hash = [0u8; 32];
-				sp_io::hashing::blake2_256(who.as_ref(), &mut hash);
-				hash.into()
-			},
+			Self::Ecdsa(who) => sp_io::hashing::blake2_256(who.as_ref()).into(),
 		}
 	}
 }
@@ -479,15 +475,9 @@ impl Verify for MultiSignature {
 			Self::Ed25519(sig) => sig.verify(msg, &who.into()),
 			Self::Sr25519(sig) => sig.verify(msg, &who.into()),
 			Self::Ecdsa(sig) => {
-				let mut m = [0u8; 32];
-				sp_io::hashing::blake2_256(msg.get(), &mut m);
-				let mut pubkey = sp_io::Pubkey264::default();
-				sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig.as_ref(), &m, &mut pubkey)
-					.map_or(false, |_| {
-						let mut hash = [0u8; 32];
-						sp_io::hashing::blake2_256(&pubkey.0, &mut hash);
-						hash == who
-					})
+				let m = sp_io::hashing::blake2_256(msg.get());
+				sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig.as_ref(), &m)
+					.map_or(false, |pubkey| sp_io::hashing::blake2_256(&pubkey) == who)
 			},
 		}
 	}

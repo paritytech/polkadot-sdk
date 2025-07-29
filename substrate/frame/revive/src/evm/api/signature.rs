@@ -18,7 +18,7 @@
 
 use super::*;
 use sp_core::{H160, U256};
-use sp_io::{crypto::secp256k1_ecdsa_recover, hashing_keccak_256 as keccak_256};
+use sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
 
 impl TransactionLegacySigned {
 	/// Get the recovery ID from the signed transaction.
@@ -150,9 +150,8 @@ impl TransactionSigned {
 
 		let hash = keccak_256(&bytes);
 		let mut addr = H160::default();
-		let mut pk = sp_io::Pubkey512::default();
-		secp256k1_ecdsa_recover(&signature, &hash, &mut pk).map_err(|_| ())?;
-		addr.assign_from_slice(&keccak_256(&pk.0[..])[12..]);
+		let pk = secp256k1_ecdsa_recover(&signature, &hash).map_err(|_| ())?;
+		addr.assign_from_slice(&keccak_256(&pk[..])[12..]);
 		Ok(addr)
 	}
 }

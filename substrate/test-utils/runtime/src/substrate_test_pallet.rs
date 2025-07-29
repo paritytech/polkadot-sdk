@@ -195,7 +195,7 @@ pub mod pallet {
 		fn execute_read(read: u32, panic_at_end: bool) -> DispatchResult {
 			let mut next_key = vec![];
 			for _ in 0..(read as usize) {
-				if let Some(next) = sp_io::storage_next_key(&next_key) {
+				if let Some(next) = sp_io::storage::next_key(&next_key) {
 					// Read the value
 					sp_io::storage::get(&next);
 
