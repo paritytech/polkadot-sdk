@@ -1450,7 +1450,7 @@ where
 			transfer_balance::<T>(from, to, value)?;
 			transfer_dust::<T>(&mut from_info, &mut to_info, dust)?;
 
-			if to_info.dust.saturating_add(dust) >= plank {
+			if to_info.dust >= plank {
 				T::Currency::mint_into(to, 1u32.into())?;
 				to_info.dust = to_info
 					.dust
