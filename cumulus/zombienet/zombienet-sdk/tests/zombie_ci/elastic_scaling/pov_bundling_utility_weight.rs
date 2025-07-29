@@ -19,7 +19,7 @@ use anyhow::anyhow;
 
 use cumulus_primitives_core::relay_chain::MAX_POV_SIZE;
 use cumulus_zombienet_sdk_helpers::{
-	assert_finality_lag, assert_para_throughput, create_assign_core_call,
+	assert_finality_lag, assert_para_throughput, create_assign_core_call, find_core_info,
 	submit_extrinsic_and_wait_for_finalization_success,
 };
 use frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND;
@@ -27,10 +27,7 @@ use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_sdk::{
 	subxt::{
-		backend::{legacy::LegacyRpcMethods, rpc::RpcClient},
-		ext::scale_value::value,
-		tx::DynamicPayload,
-		OnlineClient, PolkadotConfig,
+		ext::scale_value::value, tx::DynamicPayload, utils::H256, OnlineClient, PolkadotConfig,
 	},
 	subxt_signer::sr25519::dev,
 	NetworkConfig, NetworkConfigBuilder,
@@ -82,9 +79,12 @@ async fn pov_bundling_utility_weight() -> Result<(), anyhow::Error> {
 	let sudo_first_call = create_sudo_call(first_call);
 
 	log::info!("Sending first transaction with 1s ref_time");
-	submit_extrinsic_and_wait_for_finalization_success(&para_client, &sudo_first_call, &alice)
-		.await?;
+	let block_hash =
+		submit_extrinsic_and_wait_for_finalization_success(&para_client, &sudo_first_call, &alice)
+			.await?;
 	log::info!("First transaction finalized");
+
+	ensure_is_first_block_in_core(&para_client, block_hash).await?;
 
 	// Create a transaction that uses more than the allowed POV size per block.
 	let pov_size = MAX_POV_SIZE / 4 + 512 * 1024;
@@ -92,9 +92,12 @@ async fn pov_bundling_utility_weight() -> Result<(), anyhow::Error> {
 	let sudo_second_call = create_sudo_call(second_call);
 
 	log::info!("Sending second transaction with half max PoV size");
-	submit_extrinsic_and_wait_for_finalization_success(&para_client, &sudo_second_call, &alice)
-		.await?;
+	let block_hash =
+		submit_extrinsic_and_wait_for_finalization_success(&para_client, &sudo_second_call, &alice)
+			.await?;
 	log::info!("Second transaction finalized");
+
+	ensure_is_first_block_in_core(&para_client, block_hash).await?;
 
 	Ok(())
 }
@@ -128,6 +131,30 @@ fn create_utility_with_weight_call(ref_time: u64, proof_size: u64) -> DynamicPay
 /// Creates a `pallet-sudo` `sudo` call wrapping the inner call
 fn create_sudo_call(inner_call: DynamicPayload) -> DynamicPayload {
 	zombienet_sdk::subxt::tx::dynamic("Sudo", "sudo", vec![inner_call.into_value()])
+}
+
+/// Checks if the given `block_hash` is the first block in a core.
+async fn ensure_is_first_block_in_core(
+	para_client: &OnlineClient<PolkadotConfig>,
+	block_hash: H256,
+) -> Result<(), anyhow::Error> {
+	let block = para_client.blocks().at(block_hash).await?;
+	let core_info = find_core_info(&block)?;
+
+	let parent = para_client.blocks().at(block.header().parent_hash).await?;
+
+	// Genesis is for sure on a different core :)
+	if parent.number() == 0 {
+		return Ok(())
+	}
+
+	let parent_core_info = find_core_info(&parent)?;
+
+	if core_info == parent_core_info {
+		Err(anyhow::anyhow!("Not first block in core"))
+	} else {
+		Ok(())
+	}
 }
 
 async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {

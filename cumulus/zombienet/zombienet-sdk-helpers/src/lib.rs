@@ -18,7 +18,9 @@ use zombienet_sdk::subxt::{
 	self,
 	backend::legacy::LegacyRpcMethods,
 	blocks::Block,
-	config::{signed_extensions::CheckMortalityParams, substrate::DigestItem, ExtrinsicParams, Header},
+	config::{
+		signed_extensions::CheckMortalityParams, substrate::DigestItem, ExtrinsicParams, Header,
+	},
 	dynamic::Value,
 	events::Events,
 	ext::scale_value::value,
@@ -226,7 +228,7 @@ async fn is_session_change(
 }
 
 /// Returns [`CoreInfo`] for the given parachain block.
-fn find_core_info(
+pub fn find_core_info(
 	block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
 ) -> Result<CoreInfo, anyhow::Error> {
 	let substrate_digest =
@@ -573,7 +575,7 @@ pub async fn submit_extrinsic_and_wait_for_finalization_success<S: Signer<Polkad
 	client: &OnlineClient<PolkadotConfig>,
 	call: &DynamicPayload,
 	signer: &S,
-) -> Result<(), anyhow::Error> {
+) -> Result<H256, anyhow::Error> {
 	let mut extensions: <<PolkadotConfig as Config>::ExtrinsicParams as ExtrinsicParams<
 		PolkadotConfig,
 	>>::Params = Default::default();
@@ -589,24 +591,28 @@ pub async fn submit_extrinsic_and_wait_for_finalization_success<S: Signer<Polkad
 
 	// Below we use the low level API to replicate the `wait_for_in_block` behaviour
 	// which was removed in subxt 0.33.0. See https://github.com/paritytech/subxt/pull/1237.
-	while let Some(status) = tx.next().await {
-		let status = status?;
-		match &status {
-			TxStatus::InBestBlock(tx_in_block) | TxStatus::InFinalizedBlock(tx_in_block) => {
-				let _result = tx_in_block.wait_for_success().await?;
-				let block_status =
-					if status.as_finalized().is_some() { "Finalized" } else { "Best" };
-				log::info!("[{}] In block: {:#?}", block_status, tx_in_block.block_hash());
+	while let Some(status) = tx.next().await.transpose()? {
+		match status {
+			TxStatus::InBestBlock(tx_in_block) => {
+				tx_in_block.wait_for_success().await?;
+
+				log::info!("[Best] In block: {:#?}", tx_in_block.block_hash());
+			},
+			TxStatus::InFinalizedBlock(ref tx_in_block) => {
+				tx_in_block.wait_for_success().await?;
+				log::info!("[Finalized] In block: {:#?}", tx_in_block.block_hash());
+				return Ok(tx_in_block.block_hash())
 			},
 			TxStatus::Error { message } |
 			TxStatus::Invalid { message } |
 			TxStatus::Dropped { message } => {
-				return Err(anyhow::format_err!("Error submitting tx: {message}"));
+				return Err(anyhow::anyhow!("Error submitting tx: {message}"));
 			},
 			_ => continue,
 		}
 	}
-	Ok(())
+
+	Err(anyhow::anyhow!("Transaction event stream ended without reaching the finalized state"))
 }
 
 /// Submits the given `call` as transaction and waits `timeout_secs` for it successful finalization.
