@@ -232,10 +232,10 @@ pub fn migrate_to_old_currency<T: Config>(who: T::AccountId) {
 		frame_support::traits::WithdrawReasons::all(),
 	);
 	// remove holds.
-	let _ = asset::kill_stake::<T>(&who);
+	asset::kill_stake::<T>(&who).expect("remove hold failed");
 
 	// replicate old behaviour of explicit increment of consumer.
-	let _ = frame_system::Pallet::<T>::inc_consumers(&who);
+	frame_system::Pallet::<T>::inc_consumers(&who).expect("increment consumer failed");
 }
 
 /// Set active era to the given era index.
