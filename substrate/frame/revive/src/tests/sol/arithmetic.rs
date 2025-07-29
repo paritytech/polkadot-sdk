@@ -37,34 +37,37 @@ fn add_works() {
 			let Contract { addr, .. } =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			// Simple test first - just like the original
-			let result = builder::bare_call(addr)
-				.data(
-					Arithmetic::ArithmeticCalls::add(Arithmetic::addCall { a: U256::from(20u32), b: U256::from(22u32) })
-						.abi_encode(),
-				)
-				.build_and_unwrap_result();
-			assert_eq!(
-				U256::from(42u32),
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
-				"ADD(20, 22) should equal 42 for {:?}", fixture_type
-			);
+            {            
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::add(Arithmetic::addCall { a: U256::from(20u32), b: U256::from(22u32) })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                assert_eq!(
+                    U256::from(42u32),
+                    U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "ADD(20, 22) should equal 42 for {:?}", fixture_type
+                );
+            }
 
-			// Test large numbers but not MAX overflow
-			let large_a = U256::from(u64::MAX);
-			let large_b = U256::from(1000u32);
-			let expected = large_a + large_b;
-			let result = builder::bare_call(addr)
-				.data(
-					Arithmetic::ArithmeticCalls::add(Arithmetic::addCall { a: large_a, b: large_b })
-						.abi_encode(),
-				)
-				.build_and_unwrap_result();
-			assert_eq!(
-				expected,
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
-				"ADD({}, {}) should equal {} for {:?}", large_a, large_b, expected, fixture_type
-			);
+            {
+                // Test large numbers but not MAX overflow
+                let large_a = U256::from(u64::MAX);
+                let large_b = U256::from(1000u32);
+                let expected = large_a + large_b;
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::add(Arithmetic::addCall { a: large_a, b: large_b })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                assert_eq!(
+                    expected,
+                    U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "ADD({}, {}) should equal {} for {:?}", large_a, large_b, expected, fixture_type
+                );
+            }
 		});
 	}
 }
@@ -78,34 +81,37 @@ fn mul_works() {
 			let Contract { addr, .. } =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			// Simple test first - just like the original
-			let result = builder::bare_call(addr)
-				.data(
-					Arithmetic::ArithmeticCalls::mul(Arithmetic::mulCall { a: U256::from(20u32), b: U256::from(22u32) })
-						.abi_encode(),
-				)
-				.build_and_unwrap_result();
-			assert_eq!(
-				U256::from(440u32),
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
-				"MUL(20, 22) should equal 440 for {:?}", fixture_type
-			);
+            {
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::mul(Arithmetic::mulCall { a: U256::from(20u32), b: U256::from(22u32) })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                assert_eq!(
+                    U256::from(440u32),
+                    U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "MUL(20, 22) should equal 440 for {:?}", fixture_type
+                );
+            }
 
-			// Test large numbers but not MAX overflow
-			let large_a = U256::from(u64::MAX);
-			let large_b = U256::from(1000u32);
-			let expected = large_a * large_b;
-			let result = builder::bare_call(addr)
-				.data(
-					Arithmetic::ArithmeticCalls::mul(Arithmetic::mulCall { a: large_a, b: large_b })
-						.abi_encode(),
-				)
-				.build_and_unwrap_result();
-			assert_eq!(
-				expected,
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
-				"MUL({}, {}) should equal {} for {:?}", large_a, large_b, expected, fixture_type
-			);
+            {
+                // Test large numbers but not MAX overflow
+                let large_a = U256::from(u64::MAX);
+                let large_b = U256::from(1000u32);
+                let expected = large_a * large_b;
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::mul(Arithmetic::mulCall { a: large_a, b: large_b })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                assert_eq!(
+                    expected,
+                    U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "MUL({}, {}) should equal {} for {:?}", large_a, large_b, expected, fixture_type
+                );
+            }
 		});
 	}
 }
@@ -119,34 +125,37 @@ fn sub_works() {
 			let Contract { addr, .. } =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			// Simple test first - just like the original
-			let result = builder::bare_call(addr)
-				.data(
-					Arithmetic::ArithmeticCalls::sub(Arithmetic::subCall { a: U256::from(20u32), b: U256::from(18u32) })
-						.abi_encode(),
-				)
-				.build_and_unwrap_result();
-			assert_eq!(
-				U256::from(2u32),
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
-				"SUB(20, 18) should equal 2 for {:?}", fixture_type
-			);
+            {
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::sub(Arithmetic::subCall { a: U256::from(20u32), b: U256::from(18u32) })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                assert_eq!(
+                    U256::from(2u32),
+                    U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "SUB(20, 18) should equal 2 for {:?}", fixture_type
+                );
+            }
 
-			// Test large numbers but not MAX overflow
-			let large_a = U256::from(u64::MAX);
-			let large_b = U256::from(1000u32);
-			let expected = large_a - large_b;
-			let result = builder::bare_call(addr)
-				.data(
-					Arithmetic::ArithmeticCalls::sub(Arithmetic::subCall { a: large_a, b: large_b })
-						.abi_encode(),
-				)
-				.build_and_unwrap_result();
-			assert_eq!(
-				expected,
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
-				"SUB({}, {}) should equal {} for {:?}", large_a, large_b, expected, fixture_type
-			);
+            {
+                // Test large numbers but not MAX overflow
+                let large_a = U256::from(u64::MAX);
+                let large_b = U256::from(1000u32);
+                let expected = large_a - large_b;
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::sub(Arithmetic::subCall { a: large_a, b: large_b })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                assert_eq!(
+                    expected,
+                    U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "SUB({}, {}) should equal {} for {:?}", large_a, large_b, expected, fixture_type
+                );
+            }
 		});
 	}
 }
@@ -160,34 +169,37 @@ fn div_works() {
 			let Contract { addr, .. } =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			// Simple test first - just like the original
-			let result = builder::bare_call(addr)
-				.data(
-					Arithmetic::ArithmeticCalls::div(Arithmetic::divCall { a: U256::from(20u32), b: U256::from(5u32) })
-						.abi_encode(),
-				)
-				.build_and_unwrap_result();
-			assert_eq!(
-				U256::from(4u32),
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
-				"DIV(20, 5) should equal 4 for {:?}", fixture_type
-			);
+            {
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::div(Arithmetic::divCall { a: U256::from(20u32), b: U256::from(5u32) })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                assert_eq!(
+                    U256::from(4u32),
+                    U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "DIV(20, 5) should equal 4 for {:?}", fixture_type
+                );
+            }
 
-			// Test large numbers but not MAX overflow
-			let large_a = U256::from(u64::MAX);
-			let large_b = U256::from(1000u32);
-			let expected = large_a / large_b;
-			let result = builder::bare_call(addr)
-				.data(
-					Arithmetic::ArithmeticCalls::div(Arithmetic::divCall { a: large_a, b: large_b })
-						.abi_encode(),
-				)
-				.build_and_unwrap_result();
-			assert_eq!(
-				expected,
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
-				"DIV({}, {}) should equal {} for {:?}", large_a, large_b, expected, fixture_type
-			);
+            {
+                // Test large numbers but not MAX overflow
+                let large_a = U256::from(u64::MAX);
+                let large_b = U256::from(1000u32);
+                let expected = large_a / large_b;
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::div(Arithmetic::divCall { a: large_a, b: large_b })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                assert_eq!(
+                    expected,
+                    U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "DIV({}, {}) should equal {} for {:?}", large_a, large_b, expected, fixture_type
+                );
+            }
 		});
 	}
 }
@@ -201,34 +213,115 @@ fn sdiv_works() {
 			let Contract { addr, .. } =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			// Simple test first - just like the original
-			let result = builder::bare_call(addr)
-				.data(
-					Arithmetic::ArithmeticCalls::sdiv(Arithmetic::sdivCall { a: I256::from_raw(U256::from(20u32)), b: I256::from_raw(U256::from(5u32)) })
-						.abi_encode(),
-				)
-				.build_and_unwrap_result();
-			assert_eq!(
-				I256::from_raw(U256::from(4u32)),
-				I256::from_be_bytes::<32>(result.data.try_into().unwrap()),
-				"SDIV(20, 5) should equal 4 for {:?}", fixture_type
-			);
+            {
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::sdiv(Arithmetic::sdivCall { a: I256::from_raw(U256::from(20u32)), b: I256::from_raw(U256::from(5u32)) })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                assert_eq!(
+                    I256::from_raw(U256::from(4u32)),
+                    I256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "SDIV(20, 5) should equal 4 for {:?}", fixture_type
+                );
+            }
 
-			// Test large numbers but not MAX overflow
-			let large_a = I256::from_raw(U256::from(i64::MAX as u64));
-			let large_b = -I256::from_raw(U256::from(1000u32));
-			let expected = large_a / large_b;
-			let result = builder::bare_call(addr)
-				.data(
-					Arithmetic::ArithmeticCalls::sdiv(Arithmetic::sdivCall { a: large_a, b: large_b })
-						.abi_encode(),
-				)
-				.build_and_unwrap_result();
-			assert_eq!(
-				expected,
-				I256::from_be_bytes::<32>(result.data.try_into().unwrap()),
-				"SDIV({}, {}) should equal {} for {:?}", large_a, large_b, expected, fixture_type
-			);
+            {
+                // Test large numbers but not MAX overflow
+                let large_a = I256::from_raw(U256::from(i64::MAX as u64));
+                let large_b = -I256::from_raw(U256::from(1000u32));
+                let expected = large_a / large_b;
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::sdiv(Arithmetic::sdivCall { a: large_a, b: large_b })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                assert_eq!(
+                    expected,
+                    I256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "SDIV({}, {}) should equal {} for {:?}", large_a, large_b, expected, fixture_type
+                );
+            }
+		});
+	}
+}
+
+#[test]
+fn rem_works() {
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let (code, _) = compile_module_with_type("Arithmetic", fixture_type).unwrap();
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+            {
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::rem(Arithmetic::remCall { a: I256::from_raw(U256::from(20u32)), b: I256::from_raw(U256::from(5u32)) })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                assert_eq!(
+                    I256::from_raw(U256::from(0u32)),
+                    I256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "REM(20, 5) should equal 0 for {:?}", fixture_type
+                );
+            }
+
+            {
+                // Test with remainder: 23 % 5 = 3
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::rem(Arithmetic::remCall { a: I256::from_raw(U256::from(23u32)), b: I256::from_raw(U256::from(5u32)) })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                assert_eq!(
+                    I256::from_raw(U256::from(3u32)),
+                    I256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "REM(23, 5) should equal 3 for {:?}", fixture_type
+                );
+            }
+
+            {
+                // Test large numbers with positive divisor
+                let large_a = I256::from_raw(U256::from(i64::MAX as u64));
+                let large_b = I256::from_raw(U256::from(1000u32));
+                let expected = large_a % large_b;
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::rem(Arithmetic::remCall { a: large_a, b: large_b })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                assert_eq!(
+                    expected,
+                    I256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "REM({}, {}) should equal {} for {:?}", large_a, large_b, expected, fixture_type
+                );
+            }
+
+            {
+                // Test negative numbers: -23 % 5 should equal -3 in most implementations
+                // We need to use two's complement representation for negative numbers
+                let neg_23 = I256::from_raw(U256::MAX - U256::from(22u32)); // -23 in two's complement
+                let pos_5 = I256::from_raw(U256::from(5u32));
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::rem(Arithmetic::remCall { a: neg_23, b: pos_5 })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                let neg_3 = I256::from_raw(U256::MAX - U256::from(2u32)); // -3 in two's complement
+                assert_eq!(
+                    neg_3,
+                    I256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "REM(-23, 5) should equal -3 for {:?}", fixture_type
+                );
+            }
 		});
 	}
 }

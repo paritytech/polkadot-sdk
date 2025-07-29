@@ -23,4 +23,8 @@ contract Arithmetic {
 		return a / b;
 	}
 
+    function rem(int a, int b) public view returns (int) {
+		return a % b;
+	}
+
 }
