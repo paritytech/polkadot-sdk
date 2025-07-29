@@ -60,13 +60,25 @@ pub trait Config:
 
 pub struct Pallet<T: Config>(Pools<T>);
 
+/// Helper function to ensure an account has the specified total balance.
+fn ensure_account_balance<T: pallet_nomination_pools::Config>(
+	account: &T::AccountId,
+	target_balance: BalanceOf<T>,
+) {
+	let current_balance = CurrencyOf::<T>::balance(account);
+	if current_balance < target_balance {
+		let additional_balance = target_balance - current_balance;
+		let _ = CurrencyOf::<T>::mint_into(account, additional_balance);
+	}
+}
+
 fn create_funded_user_with_balance<T: pallet_nomination_pools::Config>(
 	string: &'static str,
 	n: u32,
 	balance: BalanceOf<T>,
 ) -> T::AccountId {
 	let user = account(string, n, USER_SEED);
-	T::Currency::set_balance(&user, balance);
+	ensure_account_balance::<T>(&user, balance);
 	user
 }
 
@@ -247,7 +259,7 @@ impl<T: Config> ListScenario<T> {
 
 		let joiner: T::AccountId = account("joiner", USER_SEED, 0);
 		self.origin1_member = Some(joiner.clone());
-		CurrencyOf::<T>::set_balance(&joiner, amount * 2u32.into());
+		ensure_account_balance::<T>(&joiner, amount * 2u32.into());
 
 		let original_bonded = T::StakeAdapter::active_stake(Pool::from(self.origin1.clone()));
 
@@ -320,9 +332,8 @@ mod benchmarks {
 		let extra = scenario.dest_weight - origin_weight;
 
 		// Ensure the creator has enough free balance to bond the extra amount
-		let current_balance = CurrencyOf::<T>::balance(&scenario.creator1);
-		let required_balance = current_balance + extra + CurrencyOf::<T>::minimum_balance();
-		CurrencyOf::<T>::set_balance(&scenario.creator1, required_balance);
+		let required_balance = extra + CurrencyOf::<T>::minimum_balance();
+		ensure_account_balance::<T>(&scenario.creator1, required_balance);
 
 		// creator of the src pool will bond-extra, bumping itself to dest bag.
 
@@ -379,7 +390,7 @@ mod benchmarks {
 		let reward_account = Pools::<T>::generate_reward_account(1);
 
 		// Send funds to the reward account of the pool
-		CurrencyOf::<T>::set_balance(&reward_account, ed + origin_weight);
+		ensure_account_balance::<T>(&reward_account, ed + origin_weight);
 
 		// set claim preferences to `PermissionlessAll` so any account can claim rewards on member's
 		// behalf.
@@ -612,7 +623,7 @@ mod benchmarks {
 		// Give the depositor some balance to bond
 		// it needs to transfer min balance to reward account as well so give additional min
 		// balance.
-		CurrencyOf::<T>::set_balance(
+		ensure_account_balance::<T>(
 			&depositor,
 			min_create_bond + CurrencyOf::<T>::minimum_balance() * 2u32.into(),
 		);
@@ -968,7 +979,7 @@ mod benchmarks {
 		let (depositor, _pool_account) =
 			create_pool_account::<T>(0, origin_weight, Some(commission));
 		let reward_account = Pools::<T>::generate_reward_account(1);
-		CurrencyOf::<T>::set_balance(&reward_account, ed + origin_weight);
+		ensure_account_balance::<T>(&reward_account, ed + origin_weight);
 
 		// member claims a payout to make some commission available.
 		let _ = Pools::<T>::claim_payout(RuntimeOrigin::Signed(claimer.clone()).into());
