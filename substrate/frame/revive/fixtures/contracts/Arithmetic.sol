@@ -7,4 +7,8 @@ contract Arithmetic {
 		return a + b;
 	}
 
+    function mul(uint a, uint b) public view returns (uint) {
+		return a * b;
+	}
+
 }

@@ -68,3 +68,44 @@ fn add_works() {
 		});
 	}
 }
+
+#[test]
+fn mul_works() {
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let (code, _) = compile_module_with_type("Arithmetic", fixture_type).unwrap();
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			// Simple test first - just like the original
+			let result = builder::bare_call(addr)
+				.data(
+					Arithmetic::ArithmeticCalls::mul(Arithmetic::mulCall { a: U256::from(20u32), b: U256::from(22u32) })
+						.abi_encode(),
+				)
+				.build_and_unwrap_result();
+			assert_eq!(
+				U256::from(440u32),
+				U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+				"MUL(20, 22) should equal 440 for {:?}", fixture_type
+			);
+
+			// Test large numbers but not MAX overflow
+			let large_a = U256::from(u64::MAX);
+			let large_b = U256::from(1000u32);
+			let expected = large_a * large_b;
+			let result = builder::bare_call(addr)
+				.data(
+					Arithmetic::ArithmeticCalls::mul(Arithmetic::mulCall { a: large_a, b: large_b })
+						.abi_encode(),
+				)
+				.build_and_unwrap_result();
+			assert_eq!(
+				expected,
+				U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+				"MUL({}, {}) should equal {} for {:?}", large_a, large_b, expected, fixture_type
+			);
+		});
+	}
+}
