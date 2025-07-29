@@ -14,7 +14,7 @@ crates:
   - name: sc-authority-discovery
     bump: major
   - name: sc-network-types
-    bump: minor
+    bump: major
   - name: cumulus-relay-chain-minimal-node
     bump: patch
   - name: polkadot-service

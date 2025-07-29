@@ -38,7 +38,6 @@ tikv-jemalloc-ctl = { workspace = true }
 [dev-dependencies]
 criterion = { features = ["cargo_bench_support"], workspace = true }
 rococo-runtime = { workspace = true }
-sp-maybe-compressed-blob = { workspace = true, default-features = true }
 
 [features]
 builder = []

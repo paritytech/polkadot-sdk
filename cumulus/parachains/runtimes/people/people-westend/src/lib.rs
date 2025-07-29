@@ -149,7 +149,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("people-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("people-westend"),
 	authoring_version: 1,
-	spec_version: 1_018_001,
+	spec_version: 1_019_002,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
@@ -1149,11 +1149,11 @@ impl_runtime_apis! {
 			let account = match statement.verify_signature() {
 				SignatureVerificationResult::Valid(account) => account.into(),
 				SignatureVerificationResult::Invalid => {
-					log::debug!("Bad statement signature.");
+					tracing::debug!(target: "runtime", "Bad statement signature.");
 					return Err(InvalidStatement::BadProof)
 				},
 				SignatureVerificationResult::NoSignature => {
-					log::debug!("Missing statement signature.");
+					tracing::debug!(target: "runtime", "Missing statement signature.");
 					return Err(InvalidStatement::NoProof)
 				},
 			};
