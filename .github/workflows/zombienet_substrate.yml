@@ -2,6 +2,12 @@ name: Zombienet Substrate
 
 on:
   workflow_dispatch:
+    inputs:
+      test_pattern:
+        type: string
+        description: "Run tests which names match this pattern (also flaky)"
+        default: ""
+        required: false
   push:
    branches:
      - master
@@ -12,9 +18,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+permissions: read-all
+
 env:
   FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 1
-  LOCAL_DIR: "./substrate/zombienet"
   GHA_CLUSTER_SERVER_ADDR: "https://kubernetes.default:443"
   # use spot by default
   X_INFRA_INSTANCE: "spot"
@@ -23,14 +30,11 @@ env:
   KUBECONFIG: "/data/config"
   ZOMBIE_CLEANER_DISABLED: 1
 
-
   # DB generated from commit: https://github.com/paritytech/polkadot-sdk/commit/868788a5bff3ef94869bd36432726703fe3b4e96
   # TODO: As a workaround for https://github.com/paritytech/polkadot-sdk/issues/2568 the DB was generated in archive mode.
   # After the issue is fixed, we should replace it with a pruned version of the DB.
   DB_SNAPSHOT: "https://storage.googleapis.com/zombienet-db-snaps/substrate/0001-basic-warp-sync/chains-9677807d738b951e9f6c82e5fd15518eb0ae0419.tgz"
   DB_BLOCK_HEIGHT: 56687
-  DEFAULT_CONCURRENCY: 4
-  ZOMBIENET_PROVIDER: "native"
 
 jobs:
   isdraft:
@@ -38,123 +42,45 @@ jobs:
   preflight:
     needs: isdraft
     uses: ./.github/workflows/zombienet-reusable-preflight.yml
+    with:
+      tests_yaml: .github/zombienet-tests/zombienet_substrate_tests.yml
+      test_pattern: ${{ inputs.test_pattern }}
 
-  zombienet-substrate-0000-block-building:
-    needs: [preflight]
-    # only run if we have changes in ./substrate directory and the build workflow already finish with success status.
-    if: ${{ needs.preflight.outputs.changes_substrate || github.event_name == 'workflow_dispatch' }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER }}
+  zombienet-substrate-tests:
+    name: ${{ matrix.test.job-name }}
+    runs-on: ${{ matrix.test.runner-type == 'large' && (matrix.test.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_LARGE_RUNNER || needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER) || (matrix.test.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_DEFAULT_RUNNER || needs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER) }}
     timeout-minutes: 60
+    needs: [preflight]
+    if: ${{ (needs.preflight.outputs.changes_substrate || needs.preflight.outputs.changes_polkadot) }}
     container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
+      image: ${{ matrix.test.use-zombienet-sdk && needs.preflight.outputs.ZOMBIENET_SDK_IMAGE || needs.preflight.outputs.ZOMBIENET_IMAGE }}
       options: -v /tmp/zombienet:/tmp/zombienet
     env:
-      ZOMBIENET_INTEGRATION_TEST_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/substrate:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-      DEBUG: "${{ needs.preflight.outputs.DEBUG }}"
+      ZOMBIENET_INTEGRATION_TEST_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      DEBUG: ${{ needs.preflight.outputs.DEBUG }}
+      ZOMBIENET_PROVIDER: ${{ needs.preflight.outputs.ZOMBIENET_PROVIDER }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        test: ${{ fromJson(needs.preflight.outputs.TEST_MATRIX) }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      #
-      - name: zombienet_test
-        uses: ./.github/actions/zombienet
-        with:
-          test: "block-building.zndsl"
-          local-dir: "${{ env.LOCAL_DIR }}/0000-block-building"
-          concurrency: ${{ env.DEFAULT_CONCURRENCY }}
-          gh-token: ${{ secrets.GITHUB_TOKEN }}
-          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
-          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-
-
-  zombienet-substrate-0001-basic-warp-sync:
-    needs: [preflight]
-    # only run if we have changes in ./substrate directory and the build workflow already finish with success status.
-    if: ${{ needs.preflight.outputs.changes_substrate || github.event_name == 'workflow_dispatch' }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER }}
-    timeout-minutes: 60
-    container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
-      options: -v /tmp/zombienet:/tmp/zombienet
-    env:
-      ZOMBIENET_INTEGRATION_TEST_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/substrate:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-      DEBUG: "${{ needs.preflight.outputs.DEBUG }}"
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      #
-      - name: zombienet_test
-        uses: ./.github/actions/zombienet
-        with:
-          test: "test-warp-sync.zndsl"
-          local-dir: "${{ env.LOCAL_DIR }}/0001-basic-warp-sync"
-          concurrency: ${{ env.DEFAULT_CONCURRENCY }}
-          gh-token: ${{ secrets.GITHUB_TOKEN }}
-          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
-          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-
-
-  # TODO: Disabled, fails 1 in 50 runs
-  zombienet-substrate-0002-validators-warp-sync:
-    needs: [preflight]
-    # only run if we have changes in ./substrate directory and the build workflow already finish with success status.
-    if: ${{ (needs.preflight.outputs.changes_substrate || github.event_name == 'workflow_dispatch') &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-substrate-0002-validators-warp-sync') }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_LARGE_RUNNER }}
-    timeout-minutes: 60
-    container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
-      options: -v /tmp/zombienet:/tmp/zombienet
-    env:
-      ZOMBIENET_INTEGRATION_TEST_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/substrate:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-      DEBUG: "${{ needs.preflight.outputs.DEBUG }}"
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: cp_spec
+      - name: Additional setup
+        if: ${{ matrix.test.additional-setup }}
         shell: bash
-        run: |
-          cp --remove-destination ${LOCAL_DIR}/0001-basic-warp-sync/chain-spec.json ${LOCAL_DIR}/0002-validators-warp-sync
+        run: ${{ matrix.test.additional-setup }}
 
-      - name: zombienet_test
+      - name: zombienet_test (v1)
         uses: ./.github/actions/zombienet
         with:
-          test: "test-validators-warp-sync.zndsl"
-          local-dir: "${{ env.LOCAL_DIR }}/0002-validators-warp-sync"
-          concurrency: ${{ env.DEFAULT_CONCURRENCY }}
+          test-definition: ${{ matrix.test.test-definition }}
+          job-name: ${{ matrix.test.job-name }}
+          local-dir: ${{ matrix.test.local-dir }}
+          concurrency: ${{ matrix.test.concurrency || 1 }}
           gh-token: ${{ secrets.GITHUB_TOKEN }}
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-
-
-  zombienet-substrate-0003-block-building-warp-sync:
-    needs: [preflight]
-    # only run if we have changes in ./substrate directory and the build workflow already finish with success status.
-    if: ${{ (needs.preflight.outputs.changes_substrate || github.event_name == 'workflow_dispatch') &&  ! contains(needs.preflight.outputs.FLAKY_TESTS, 'zombienet-substrate-0003-block-building-warp-sync') }}
-    runs-on: ${{ needs.preflight.outputs.ZOMBIENET_DEFAULT_RUNNER }}
-    timeout-minutes: 60
-    container:
-      image: ${{ needs.preflight.outputs.ZOMBIENET_IMAGE }}
-      options: -v /tmp/zombienet:/tmp/zombienet
-    env:
-      ZOMBIENET_INTEGRATION_TEST_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/substrate:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: cp_spec
-        shell: bash
-        run: |
-          cp --remove-destination ${LOCAL_DIR}/0001-basic-warp-sync/chain-spec.json ${LOCAL_DIR}/0003-block-building-warp-sync
-
-      - name: zombienet_test
-        uses: ./.github/actions/zombienet
-        with:
-          test: "test-block-building-warp-sync.zndsl"
-          local-dir: "${{ env.LOCAL_DIR }}/0003-block-building-warp-sync"
-          concurrency: ${{ env.DEFAULT_CONCURRENCY }}
-          gh-token: ${{ secrets.GITHUB_TOKEN }}
-          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
-          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-
