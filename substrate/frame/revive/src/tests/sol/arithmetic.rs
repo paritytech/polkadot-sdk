@@ -260,13 +260,13 @@ fn rem_works() {
             {
                 let result = builder::bare_call(addr)
                     .data(
-                        Arithmetic::ArithmeticCalls::rem(Arithmetic::remCall { a: I256::from_raw(U256::from(20u32)), b: I256::from_raw(U256::from(5u32)) })
+                        Arithmetic::ArithmeticCalls::rem(Arithmetic::remCall { a: U256::from(20u32), b: U256::from(5u32) })
                             .abi_encode(),
                     )
                     .build_and_unwrap_result();
                 assert_eq!(
-                    I256::from_raw(U256::from(0u32)),
-                    I256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    U256::from(0u32),
+                    U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
                     "REM(20, 5) should equal 0 for {:?}", fixture_type
                 );
             }
@@ -275,14 +275,73 @@ fn rem_works() {
                 // Test with remainder: 23 % 5 = 3
                 let result = builder::bare_call(addr)
                     .data(
-                        Arithmetic::ArithmeticCalls::rem(Arithmetic::remCall { a: I256::from_raw(U256::from(23u32)), b: I256::from_raw(U256::from(5u32)) })
+                        Arithmetic::ArithmeticCalls::rem(Arithmetic::remCall { a: U256::from(23u32), b: U256::from(5u32) })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                assert_eq!(
+                    U256::from(3u32),
+                    U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "REM(23, 5) should equal 3 for {:?}", fixture_type
+                );
+            }
+
+            {
+                // Test large numbers with positive divisor
+                let large_a = U256::from(i64::MAX as u64);
+                let large_b = U256::from(1000u32);
+                let expected = large_a % large_b;
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::rem(Arithmetic::remCall { a: large_a, b: large_b })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                assert_eq!(
+                    expected,
+                    U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "REM({}, {}) should equal {} for {:?}", large_a, large_b, expected, fixture_type
+                );
+            }
+		});
+	}
+}
+
+#[test]
+fn smod_works() {
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let (code, _) = compile_module_with_type("Arithmetic", fixture_type).unwrap();
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+            {
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::smod(Arithmetic::smodCall { a: I256::from_raw(U256::from(20u32)), b: I256::from_raw(U256::from(5u32)) })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                assert_eq!(
+                    I256::from_raw(U256::from(0u32)),
+                    I256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "SMOD(20, 5) should equal 0 for {:?}", fixture_type
+                );
+            }
+
+            {
+                // Test with remainder: 23 % 5 = 3
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::smod(Arithmetic::smodCall { a: I256::from_raw(U256::from(23u32)), b: I256::from_raw(U256::from(5u32)) })
                             .abi_encode(),
                     )
                     .build_and_unwrap_result();
                 assert_eq!(
                     I256::from_raw(U256::from(3u32)),
                     I256::from_be_bytes::<32>(result.data.try_into().unwrap()),
-                    "REM(23, 5) should equal 3 for {:?}", fixture_type
+                    "SMOD(23, 5) should equal 3 for {:?}", fixture_type
                 );
             }
 
@@ -293,14 +352,14 @@ fn rem_works() {
                 let expected = large_a % large_b;
                 let result = builder::bare_call(addr)
                     .data(
-                        Arithmetic::ArithmeticCalls::rem(Arithmetic::remCall { a: large_a, b: large_b })
+                        Arithmetic::ArithmeticCalls::smod(Arithmetic::smodCall { a: large_a, b: large_b })
                             .abi_encode(),
                     )
                     .build_and_unwrap_result();
                 assert_eq!(
                     expected,
                     I256::from_be_bytes::<32>(result.data.try_into().unwrap()),
-                    "REM({}, {}) should equal {} for {:?}", large_a, large_b, expected, fixture_type
+                    "SMOD({}, {}) should equal {} for {:?}", large_a, large_b, expected, fixture_type
                 );
             }
 
@@ -311,7 +370,7 @@ fn rem_works() {
                 let pos_5 = I256::from_raw(U256::from(5u32));
                 let result = builder::bare_call(addr)
                     .data(
-                        Arithmetic::ArithmeticCalls::rem(Arithmetic::remCall { a: neg_23, b: pos_5 })
+                        Arithmetic::ArithmeticCalls::smod(Arithmetic::smodCall { a: neg_23, b: pos_5 })
                             .abi_encode(),
                     )
                     .build_and_unwrap_result();

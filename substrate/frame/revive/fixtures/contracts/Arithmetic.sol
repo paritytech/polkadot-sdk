@@ -23,7 +23,11 @@ contract Arithmetic {
 		return a / b;
 	}
 
-    function rem(int a, int b) public view returns (int) {
+    function rem(uint a, uint b) public view returns (uint) {
+		return a % b;
+	}
+
+    function smod(int a, int b) public view returns (int) {
 		return a % b;
 	}
 
