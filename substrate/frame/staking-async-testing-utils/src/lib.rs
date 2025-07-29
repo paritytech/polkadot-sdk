@@ -208,16 +208,10 @@ pub fn create_validator<T: Config>(n: u32, balance: BalanceOf<T>) -> T::AccountI
 	validator
 }
 
-/// Set the current era while maintaining the invariance that current_era >= active_era
-/// and current_era - active_era <= 1.
-pub fn set_current_era<T: Config>(era: EraIndex) {
-	let active_era_info = ActiveEra::<T>::get();
-	let current_active_era = active_era_info.map_or(0, |info| info.index);
-
-	if era > current_active_era + 1 {
-		let new_active_era = era.saturating_sub(1);
-		ActiveEra::<T>::set(Some(ActiveEraInfo { index: new_active_era, start: None }));
-	}
-
-	CurrentEra::<T>::set(Some(era));
+/// Set current and active era to the given era index.
+pub fn set_current_and_active_era<T: Config>(era: EraIndex) {
+	// set the current era.
+	CurrentEra::<T>::put(era);
+	// set the active era.
+	ActiveEra::<T>::put(ActiveEraInfo { index: era, start: None });
 }

@@ -47,7 +47,7 @@ use crate::testing_utils::{
 	clear_validators_and_nominators, create_funded_user, create_stash_controller,
 	create_stash_controller_with_balance, create_unique_stash_controller, create_validators,
 	create_validators_with_nominators_for_era, create_validators_with_seed,
-	migrate_to_old_currency,
+	migrate_to_old_currency, set_active_era,
 };
 
 const SEED: u32 = 0;
