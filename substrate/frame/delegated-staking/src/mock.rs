@@ -15,8 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![cfg(all(feature = "std", any(feature = "runtime-benchmarks", test)))]
-
 use crate as delegated_staking;
 use frame_support::{
 	derive_impl,
@@ -36,25 +34,17 @@ use frame_election_provider_support::{
 use sp_core::{ConstBool, U256};
 use sp_runtime::traits::Convert;
 
-#[cfg(test)]
 use crate::types::AgentLedgerOuter;
-#[cfg(test)]
 use frame_support::{assert_ok, dispatch::RawOrigin, traits::Currency};
-#[cfg(test)]
 use sp_runtime::BuildStorage;
-#[cfg(test)]
 use sp_staking::{Agent, DelegationInterface, Stake, StakingInterface};
 
-#[cfg(test)]
 pub type T = Runtime;
 type Block = frame_system::mocking::MockBlock<Runtime>;
 pub type AccountId = u128;
 
-#[cfg(test)]
 pub const GENESIS_VALIDATOR: AccountId = 1;
-#[cfg(test)]
 pub const GENESIS_NOMINATOR_ONE: AccountId = 101;
-#[cfg(test)]
 pub const GENESIS_NOMINATOR_TWO: AccountId = 102;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -210,7 +200,6 @@ frame_support::construct_runtime!(
 pub struct ExtBuilder {}
 
 impl ExtBuilder {
-	#[cfg(test)]
 	fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
 		let mut storage =
@@ -268,7 +257,6 @@ impl ExtBuilder {
 
 		ext
 	}
-	#[cfg(test)]
 	pub fn build_and_execute(self, test: impl FnOnce()) {
 		sp_tracing::try_init_simple();
 		let mut ext = self.build();
@@ -287,7 +275,6 @@ impl ExtBuilder {
 }
 
 /// fund and return who.
-#[cfg(test)]
 pub(crate) fn fund(who: &AccountId, amount: Balance) {
 	let _ = Balances::deposit_creating(who, amount);
 }
@@ -296,7 +283,6 @@ pub(crate) fn fund(who: &AccountId, amount: Balance) {
 ///
 /// `delegate_amount` is incremented by the amount `increment` starting with `base_delegate_amount`
 /// from lower index to higher index of delegators.
-#[cfg(test)]
 pub(crate) fn setup_delegation_stake(
 	agent: AccountId,
 	reward_acc: AccountId,
@@ -326,7 +312,6 @@ pub(crate) fn setup_delegation_stake(
 	delegated_amount
 }
 
-#[cfg(test)]
 pub(crate) fn start_era(era: sp_staking::EraIndex) {
 	pallet_staking_async_testing_utils::setup_staking_era_state::<T>(
 		era,
@@ -336,13 +321,11 @@ pub(crate) fn start_era(era: sp_staking::EraIndex) {
 	);
 }
 
-#[cfg(test)]
 pub(crate) fn eq_stake(who: AccountId, total: Balance, active: Balance) -> bool {
 	Staking::stake(&who).unwrap() == Stake { total, active } &&
 		get_agent_ledger(&who).ledger.stakeable_balance() == total
 }
 
-#[cfg(test)]
 pub(crate) fn get_agent_ledger(agent: &AccountId) -> AgentLedgerOuter<T> {
 	AgentLedgerOuter::<T>::get(agent).expect("delegate should exist")
 }
@@ -352,7 +335,6 @@ parameter_types! {
 	static ObservedEventsPools: usize = 0;
 }
 
-#[cfg(test)]
 pub(crate) fn pool_events_since_last_call() -> Vec<pallet_nomination_pools::Event<Runtime>> {
 	let events = System::read_events_for_pallet::<pallet_nomination_pools::Event<Runtime>>();
 	let already_seen = ObservedEventsPools::get();
@@ -360,7 +342,6 @@ pub(crate) fn pool_events_since_last_call() -> Vec<pallet_nomination_pools::Even
 	events.into_iter().skip(already_seen).collect()
 }
 
-#[cfg(test)]
 pub(crate) fn events_since_last_call() -> Vec<crate::Event<Runtime>> {
 	let events = System::read_events_for_pallet::<crate::Event<Runtime>>();
 	let already_seen = ObservedEventsDelegatedStaking::get();
