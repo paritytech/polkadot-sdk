@@ -23,7 +23,7 @@ use crate::{
 	Code, Config,
 };
 
-use alloy_core::{primitives::U256, sol_types::SolInterface};
+use alloy_core::{primitives::U256, primitives::I256, sol_types::SolInterface};
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, Arithmetic, FixtureType};
 use pretty_assertions::assert_eq;
@@ -146,6 +146,88 @@ fn sub_works() {
 				expected,
 				U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
 				"SUB({}, {}) should equal {} for {:?}", large_a, large_b, expected, fixture_type
+			);
+		});
+	}
+}
+
+#[test]
+fn div_works() {
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let (code, _) = compile_module_with_type("Arithmetic", fixture_type).unwrap();
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			// Simple test first - just like the original
+			let result = builder::bare_call(addr)
+				.data(
+					Arithmetic::ArithmeticCalls::div(Arithmetic::divCall { a: U256::from(20u32), b: U256::from(5u32) })
+						.abi_encode(),
+				)
+				.build_and_unwrap_result();
+			assert_eq!(
+				U256::from(4u32),
+				U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+				"DIV(20, 5) should equal 4 for {:?}", fixture_type
+			);
+
+			// Test large numbers but not MAX overflow
+			let large_a = U256::from(u64::MAX);
+			let large_b = U256::from(1000u32);
+			let expected = large_a / large_b;
+			let result = builder::bare_call(addr)
+				.data(
+					Arithmetic::ArithmeticCalls::div(Arithmetic::divCall { a: large_a, b: large_b })
+						.abi_encode(),
+				)
+				.build_and_unwrap_result();
+			assert_eq!(
+				expected,
+				U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+				"DIV({}, {}) should equal {} for {:?}", large_a, large_b, expected, fixture_type
+			);
+		});
+	}
+}
+
+#[test]
+fn sdiv_works() {
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let (code, _) = compile_module_with_type("Arithmetic", fixture_type).unwrap();
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			// Simple test first - just like the original
+			let result = builder::bare_call(addr)
+				.data(
+					Arithmetic::ArithmeticCalls::sdiv(Arithmetic::sdivCall { a: I256::from_raw(U256::from(20u32)), b: I256::from_raw(U256::from(5u32)) })
+						.abi_encode(),
+				)
+				.build_and_unwrap_result();
+			assert_eq!(
+				I256::from_raw(U256::from(4u32)),
+				I256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+				"SDIV(20, 5) should equal 4 for {:?}", fixture_type
+			);
+
+			// Test large numbers but not MAX overflow
+			let large_a = I256::from_raw(U256::from(i64::MAX as u64));
+			let large_b = -I256::from_raw(U256::from(1000u32));
+			let expected = large_a / large_b;
+			let result = builder::bare_call(addr)
+				.data(
+					Arithmetic::ArithmeticCalls::sdiv(Arithmetic::sdivCall { a: large_a, b: large_b })
+						.abi_encode(),
+				)
+				.build_and_unwrap_result();
+			assert_eq!(
+				expected,
+				I256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+				"SDIV({}, {}) should equal {} for {:?}", large_a, large_b, expected, fixture_type
 			);
 		});
 	}

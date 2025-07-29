@@ -15,4 +15,12 @@ contract Arithmetic {
 		return a - b;
 	}
 
+    function div(uint a, uint b) public view returns (uint) {
+		return a / b;
+	}
+
+    function sdiv(int a, int b) public view returns (int) {
+		return a / b;
+	}
+
 }
