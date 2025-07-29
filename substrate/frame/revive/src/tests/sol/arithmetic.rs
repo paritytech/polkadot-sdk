@@ -574,3 +574,113 @@ fn exp_works() {
 		});
 	}
 }
+
+#[test]
+fn signextend_works() {
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let (code, _) = compile_module_with_type("Arithmetic", fixture_type).unwrap();
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+            {
+                // Test SIGNEXTEND: extend 8-bit signed value 0xFF (-1) to 256 bits
+                // signextend(0, 0xFF) should extend from 8 bits, result should be all 1s (U256::MAX)
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::signextend(Arithmetic::signextendCall { 
+                            i: U256::from(0u32),  // extend from byte 0 (8 bits)
+                            x: U256::from(0xFFu32) // value 0xFF (all 1s in 8 bits)
+                        })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                assert_eq!(
+                    U256::MAX, // Should be all 1s when sign-extending 0xFF from 8 bits
+                    U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "SIGNEXTEND(0, 0xFF) should equal U256::MAX for {:?}", fixture_type
+                );
+            }
+
+            {
+                // Test SIGNEXTEND: extend 8-bit positive value 0x7F to 256 bits
+                // signextend(0, 0x7F) should keep it positive (sign bit is 0)
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::signextend(Arithmetic::signextendCall { 
+                            i: U256::from(0u32),  // extend from byte 0 (8 bits)
+                            x: U256::from(0x7Fu32) // value 0x7F (positive in 8 bits)
+                        })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                assert_eq!(
+                    U256::from(0x7Fu32), // Should remain 0x7F (positive)
+                    U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "SIGNEXTEND(0, 0x7F) should equal 0x7F for {:?}", fixture_type
+                );
+            }
+
+            {
+                // Test SIGNEXTEND: extend 16-bit signed value 0x8000 (-32768) to 256 bits
+                // signextend(1, 0x8000) should extend from 16 bits with sign bit set
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::signextend(Arithmetic::signextendCall { 
+                            i: U256::from(1u32),     // extend from byte 1 (16 bits)
+                            x: U256::from(0x8000u32) // value 0x8000 (negative in 16 bits)
+                        })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                // 0x8000 in 16 bits is negative, so should become 0xFFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_8000
+                let expected = U256::MAX - U256::from(0x7FFFu32); // Two's complement representation
+                assert_eq!(
+                    expected,
+                    U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "SIGNEXTEND(1, 0x8000) should sign-extend negative 16-bit value for {:?}", fixture_type
+                );
+            }
+
+            {
+                // Test SIGNEXTEND: extend 16-bit positive value 0x7FFF to 256 bits
+                // signextend(1, 0x7FFF) should keep it positive
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::signextend(Arithmetic::signextendCall { 
+                            i: U256::from(1u32),     // extend from byte 1 (16 bits)
+                            x: U256::from(0x7FFFu32) // value 0x7FFF (positive in 16 bits)
+                        })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                assert_eq!(
+                    U256::from(0x7FFFu32), // Should remain 0x7FFF (positive)
+                    U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "SIGNEXTEND(1, 0x7FFF) should equal 0x7FFF for {:?}", fixture_type
+                );
+            }
+
+            {
+                // Test SIGNEXTEND: i >= 32 should return original value unchanged
+                // signextend(32, value) should return value as-is
+                let test_value = U256::from(0x123456789ABCDEFu64);
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::signextend(Arithmetic::signextendCall { 
+                            i: U256::from(32u32), // >= 32, should not modify
+                            x: test_value
+                        })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                assert_eq!(
+                    test_value,
+                    U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "SIGNEXTEND(32, value) should return value unchanged for {:?}", fixture_type
+                );
+            }
+		});
+	}
+}

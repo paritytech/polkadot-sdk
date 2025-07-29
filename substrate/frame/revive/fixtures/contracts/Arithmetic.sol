@@ -51,4 +51,12 @@ contract Arithmetic {
 		return a ** b;
 	}
 
+    // SIGNEXTEND instruction: sign-extend value from (i+1)*8 bits to 256 bits
+    function signextend(uint i, uint x) public pure returns (uint) {
+        assembly {
+            x := signextend(i, x)
+        }
+        return x;
+    }
+
 }
