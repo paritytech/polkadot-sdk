@@ -3305,6 +3305,7 @@ dependencies = [
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
+ "pallet-bridge-proof-root-store",
  "pallet-collator-selection",
  "pallet-collective",
  "pallet-collective-content",

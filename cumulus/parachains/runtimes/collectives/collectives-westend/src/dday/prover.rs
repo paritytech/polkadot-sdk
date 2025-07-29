@@ -16,6 +16,7 @@
 
 //! Utilities for handling proofs from the stalled AssetHub chain.
 
+use crate::{Runtime, dday::DDayVotingInstance};
 use bp_runtime::{RawStorageProof, StorageProofChecker};
 use codec::{Decode, Encode};
 use core::ops::ControlFlow;
@@ -26,11 +27,11 @@ use frame_support::{
 	traits::{Contains, ProcessMessageError},
 	Blake2_128Concat, StorageHasher,
 };
-use pallet_dday_detection::IsStalled;
 use pallet_dday_voting::{
 	ProofAccountIdOf, ProofBalanceOf, ProofBlockNumberOf, ProofDescription, ProofHashOf,
-	ProofHasherOf, ProofOf, ProvideHash, TotalForTallyProvider, Totals, VerifyProof, VotingPower,
+	ProofHasherOf, ProofInterface, ProofOf, TotalForTallyProvider, Totals, VotingPower, ProofRoot,
 };
+use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 use sp_runtime::traits::BlakeTwo256;
 use xcm::{latest::prelude::*, DoubleEncoded};
 use xcm_builder::{CreateMatcher, MatchXcm};
@@ -50,13 +51,12 @@ impl ProofDescription for AssetHubProofDescription {
 /// Account data representation on AssetHub.
 type AssetHubAccountData = frame_system::AccountInfo<
 	parachains_common::Nonce,
-	pallet_balances::AccountData<ProofBalanceOf<AssetHubAccountProver>>,
+	pallet_balances::AccountData<ProofBalanceOf<AssetHubProver>>,
 >;
 
-/// Implementation of `VerifyProof` for AssetHub account proofs.
-pub struct AssetHubAccountProver;
-impl AssetHubAccountProver {
-	/// Generate proof key of account balance data.
+pub struct AssetHubProver;
+impl AssetHubProver {
+	/// Generate a proof key of account balance data.
 	fn account_balance_storage_key(account: &ProofAccountIdOf<Self>) -> alloc::vec::Vec<u8> {
 		let mut key = storage_prefix(b"System", b"Account").to_vec();
 		account.using_encoded(|p| {
@@ -75,8 +75,11 @@ impl AssetHubAccountProver {
 		storage_prefix(b"Balances", b"InactiveIssuance").to_vec()
 	}
 }
-impl VerifyProof for AssetHubAccountProver {
-	type Proof = AssetHubProofDescription;
+
+impl ProofInterface for AssetHubProver {
+	type RemoteProof = AssetHubProofDescription;
+	type RemoteProofRootInput = RelayChainBlockNumber;
+	type RemoteProofRootOutput = ProofRoot<Runtime, DDayVotingInstance>;
 
 	fn query_voting_power_for(
 		who: &ProofAccountIdOf<Self>,
@@ -92,27 +95,27 @@ impl VerifyProof for AssetHubAccountProver {
 
 		// Read account balance.
 		let account_balance: AssetHubAccountData = proof_checker
-			.read_and_decode_mandatory_value(&Self::account_balance_storage_key(who))
-			.inspect_err(|error| {
+            .read_and_decode_mandatory_value(&Self::account_balance_storage_key(who))
+            .inspect_err(|error| {
                 tracing::error!(target: "runtime::dday", ?error, "Invalid proof value for account balance")
             })
-			.ok()?;
+            .ok()?;
 
 		// Read total issuance.
 		let total_issuance: ProofBalanceOf<Self> = proof_checker
-			.read_and_decode_mandatory_value(&Self::total_issuance_storage_key())
-			.inspect_err(|error| {
+            .read_and_decode_mandatory_value(&Self::total_issuance_storage_key())
+            .inspect_err(|error| {
                 tracing::error!(target: "runtime::dday", ?error, "Invalid proof value for total issuance")
             })
-			.ok()?;
+            .ok()?;
 
 		// Read inactive issuance.
 		let inactive_issuance: ProofBalanceOf<Self> = proof_checker
-			.read_and_decode_mandatory_value(&Self::inactive_issuance_storage_key())
-			.inspect_err(|error| {
-				tracing::error!(target: "runtime::dday", ?error, "Invalid proof value for inactive issuance")
-			})
-			.ok()?;
+            .read_and_decode_mandatory_value(&Self::inactive_issuance_storage_key())
+            .inspect_err(|error| {
+                tracing::error!(target: "runtime::dday", ?error, "Invalid proof value for inactive issuance")
+            })
+            .ok()?;
 
 		// check no unsed node in the proof
 		proof_checker
@@ -375,7 +378,7 @@ pub mod tests {
 
 	#[test]
 	fn asset_hub_account_prover_works() {
-		use super::{AssetHubAccountProver, VerifyProof};
+		use super::{AssetHubProver, ProofInterface};
 		use pallet_dday_voting::VotingPower;
 		use parachains_common::AccountId;
 		use sp_core::crypto::Ss58Codec;
@@ -394,23 +397,13 @@ pub mod tests {
 
 			// check key generation for account id
 			let who = AccountId::from_ss58check(ss58_account).expect("valid accountId");
-			assert_eq!(
-				AssetHubAccountProver::account_balance_storage_key(&who),
-				account_balance_key,
-			);
-			assert_eq!(AssetHubAccountProver::total_issuance_storage_key(), total_issuance_key,);
-			assert_eq!(
-				AssetHubAccountProver::inactive_issuance_storage_key(),
-				inactive_issuance_key,
-			);
+			assert_eq!(AssetHubProver::account_balance_storage_key(&who), account_balance_key,);
+			assert_eq!(AssetHubProver::total_issuance_storage_key(), total_issuance_key,);
+			assert_eq!(AssetHubProver::inactive_issuance_storage_key(), inactive_issuance_key,);
 
-			// Ok - check `AssetHubAccountProver` itself
+			// Ok - check `AssetHubProver` itself
 			assert_eq!(
-				AssetHubAccountProver::query_voting_power_for(
-					&who,
-					state_root.clone(),
-					proof.clone(),
-				),
+				AssetHubProver::query_voting_power_for(&who, state_root.clone(), proof.clone(),),
 				Some(VotingPower {
 					account_power: 99_987_783_034_636_u128,
 					total: 88_831_707_570_053_009_u128,
@@ -420,7 +413,7 @@ pub mod tests {
 			// None for invalid account
 			let random_account_1 = AccountId::from([2; 32]);
 			assert_eq!(
-				AssetHubAccountProver::query_voting_power_for(
+				AssetHubProver::query_voting_power_for(
 					&random_account_1,
 					state_root.clone(),
 					proof.clone(),
@@ -431,11 +424,7 @@ pub mod tests {
 			// None for invalid state_root
 			let invalid_state_root = parachains_common::Hash::default();
 			assert_eq!(
-				AssetHubAccountProver::query_voting_power_for(
-					&who,
-					invalid_state_root,
-					proof.clone(),
-				),
+				AssetHubProver::query_voting_power_for(&who, invalid_state_root, proof.clone(),),
 				None,
 			);
 
@@ -446,7 +435,7 @@ pub mod tests {
 				ip
 			};
 			assert_eq!(
-				AssetHubAccountProver::query_voting_power_for(&who, state_root, invalid_proof,),
+				AssetHubProver::query_voting_power_for(&who, state_root, invalid_proof,),
 				None,
 			);
 		})

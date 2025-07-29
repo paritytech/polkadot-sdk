@@ -14,7 +14,7 @@
 // limitations under the License.
 
 use super::{
-	dday::{pallet_dday_origins::EnsureDDayOrigin, prover::AllowTransactWithDDayDataUpdatesFrom},
+	dday::pallet_dday_origins::EnsureDDayOrigin,
 	AccountId, AllPalletsWithSystem, Balance, Balances, BaseDeliveryFee, FeeAssetId, Fellows,
 	ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
 	RuntimeHoldReason, RuntimeOrigin, TransactionByteFee, WeightToFee, WestendTreasuryAccount,
@@ -180,8 +180,6 @@ pub type Barrier = TrailingSetTopicAsId<
 					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
 					// HRMP notifications from the relay chain are OK.
 					AllowHrmpNotificationsFromRelayChain,
-					// Updates from AssetHub with DDay related data (header, total issuance, ...).
-					AllowTransactWithDDayDataUpdatesFrom<Equals<AssetHub>>,
 				),
 				UniversalLocation,
 				ConstU32<8>,

@@ -19,14 +19,12 @@
 use codec::Encode;
 use collectives_westend_runtime::{
 	dday::{
-		prover,
-		prover::{AssetHubAccountProver, StalledAssetHubDataProvider},
-		DDayDetectionInstance, DDayReferendaInstance, DDayVotingInstance,
-		StalledAssetHubBlockThreshold, SubmissionDeposit,
+		prover, prover::AssetHubProver, DDayReferendaInstance, DDayVotingInstance,
+		SubmissionDeposit,
 	},
 	fellowship::pallet_fellowship_origins::Origin,
 	xcm_config::{AssetHub, GovernanceLocation, LocationToAccountId},
-	AllPalletsWithoutSystem, Balances, Block, DDayDetection, DDayReferenda, DDayVoting, Executive,
+	AllPalletsWithoutSystem, Balances, Block, DDayReferenda, DDayVoting, Executive,
 	ExistentialDeposit, FellowshipCollective, Preimage, Runtime, RuntimeCall, RuntimeOrigin,
 	System, TxExtension, UncheckedExtrinsic,
 };
@@ -35,7 +33,7 @@ use frame_support::{
 	traits::{fungible::Mutate, schedule::DispatchTime, StorePreimage, VoteTally},
 };
 use pallet_dday_detection::IsStalled;
-use pallet_dday_voting::{AccountVote, Conviction, ProvideHash, VerifyProof, Vote};
+use pallet_dday_voting::{AccountVote, Conviction, ProofInterface, Vote};
 use pallet_referenda::{ReferendumCount, ReferendumInfoFor};
 use parachains_common::{AccountId, Hash};
 use parachains_runtimes_test_utils::{GovernanceOrigin, RuntimeHelper};
@@ -266,7 +264,7 @@ fn governance_authorize_upgrade_works() {
 fn dday_referenda_and_voting_works() {
 	sp_io::TestExternalities::new(Default::default()).execute_with(|| {
 		// Create rank3+ fellow with some balance.
-		let account_fellow_rank3 = AccountId::from([0; 32]);
+		let account_fellow_rank3 = AccountId::from([3; 32]);
 		assert_ok!(FellowshipCollective::do_add_member_to_rank(
 			account_fellow_rank3.clone(),
 			3,
@@ -276,11 +274,18 @@ fn dday_referenda_and_voting_works() {
 			&account_fellow_rank3,
 			ExistentialDeposit::get() + SubmissionDeposit::get()
 		));
+		// Add rank2
+		let account_fellow_rank2 = AccountId::from([2; 32]);
+		assert_ok!(FellowshipCollective::do_add_member_to_rank(
+			account_fellow_rank2.clone(),
+			2,
+			false
+		));
 
-		// Create DDay referendum - error.
+		// Create DDay referendum - error - not enough rank.
 		assert_err!(
 			DDayReferenda::submit(
-				RuntimeOrigin::signed(account_fellow_rank3.clone()),
+				RuntimeOrigin::signed(account_fellow_rank2.clone()),
 				Box::new(Origin::Fellows.into()),
 				{
 					// Random call executed when referendum passes.
@@ -300,36 +305,16 @@ fn dday_referenda_and_voting_works() {
 		let asset_hub_block_number = asset_hub_header.number;
 		let valid_asset_hub_account =
 			AccountId::from_ss58check(ss58_account).expect("valid accountId");
-		let account_voting_power = AssetHubAccountProver::query_voting_power_for(
+		let account_voting_power = AssetHubProver::query_voting_power_for(
 			&valid_asset_hub_account,
 			asset_hub_header.state_root,
 			proof.clone(),
 		)
 		.expect("valid proof");
 
-		System::set_block_number(13);
-		// Sync AssetHub header - execute XCM as source origin would do with `Transact ->
-		// Origin::Xcm`.
-		assert_ok!(RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::execute_as_origin(
-			(AssetHub::get(), OriginKind::Xcm),
-			RuntimeCall::DDayDetection(pallet_dday_detection::Call::<
-				Runtime,
-				DDayDetectionInstance,
-			>::note_new_head {
-				remote_block_number: asset_hub_block_number,
-				remote_head: HeadData(asset_hub_header.encode())
-			}),
-			None,
-		)
-		.ensure_complete());
-		// Make AssetHub stalled.
-		assert!(!DDayDetection::is_stalled());
-		System::set_block_number(13 + StalledAssetHubBlockThreshold::get() + 1);
-		assert!(DDayDetection::is_stalled());
-
-		// Create DDay referendum.
+		// Create DDay referendum - ok.
 		assert_ok!(DDayReferenda::submit(
-			RuntimeOrigin::signed(account_fellow_rank3),
+			RuntimeOrigin::signed(account_fellow_rank3.clone()),
 			Box::new(Origin::Fellows.into()),
 			{
 				// Random call executed when referendum passes.
@@ -343,7 +328,40 @@ fn dday_referenda_and_voting_works() {
 		let referenda_id = ReferendumCount::<Runtime, DDayReferendaInstance>::get() - 1;
 		assert!(ReferendumInfoFor::<Runtime, DDayReferendaInstance>::get(referenda_id).is_some());
 
-		// Err - vote by proof - a random account cannot vote
+		// Vote by proof - error - not ongoing.
+		assert_err!(
+			DDayVoting::vote(
+				RuntimeOrigin::signed(valid_asset_hub_account.clone()),
+				referenda_id,
+				AccountVote::Standard {
+					vote: Vote { aye: true, conviction: Conviction::Locked1x },
+					balance: account_voting_power.account_power
+				},
+				(asset_hub_block_number, proof.clone())
+			),
+			<pallet_dday_voting::Error<Runtime, DDayVotingInstance>>::NotOngoing
+		);
+
+		// Start voting - error - BadOrigin.
+		assert_err!(
+			DDayVoting::submit_proof_root_for_voting(
+				RuntimeOrigin::signed(account_fellow_rank2),
+				referenda_id,
+				Some(5_u32),
+			),
+			DispatchError::BadOrigin,
+		);
+		// Start voting - ok.
+		assert_err!(
+			DDayVoting::submit_proof_root_for_voting(
+				RuntimeOrigin::signed(account_fellow_rank3),
+				referenda_id,
+				Some(5_u32),
+			),
+			DispatchError::BadOrigin,
+		);
+
+		// Vote by proof - error - a random account cannot vote
 		assert_err!(
 			DDayVoting::vote(
 				RuntimeOrigin::signed(AccountId::from([1; 32])), // invalid account

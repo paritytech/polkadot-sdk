@@ -738,8 +738,7 @@ construct_runtime!(
 		// DDay feature.
 		DDayReferenda: pallet_referenda::<Instance3> = 81,
 		DDayVoting: pallet_dday_voting::<Instance1> = 82,
-		DDayDetection: pallet_dday_detection::<Instance1> = 83,
-		DDayOrigins: pallet_dday_origins = 84,
+		DDayOrigins: pallet_dday_origins = 83,
 
 		StateTrieMigration: pallet_state_trie_migration = 80,
 	}
@@ -763,9 +762,9 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		frame_system::CheckTxVersion<Runtime>,
 		frame_system::CheckGenesis<Runtime>,
 		frame_system::CheckEra<Runtime>,
-		dday::SkipCheckIfValidProofWhenStalledAssetHub<frame_system::CheckNonce<Runtime>>,
+		dday::SkipCheckIfValidDDayVotingProof<frame_system::CheckNonce<Runtime>>,
 		frame_system::CheckWeight<Runtime>,
-		dday::SkipCheckIfValidProofWhenStalledAssetHub<
+		dday::SkipCheckIfValidDDayVotingProof<
 			pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 		>,
 		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
