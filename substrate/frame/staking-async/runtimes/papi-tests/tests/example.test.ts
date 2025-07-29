@@ -32,11 +32,26 @@ test(
 					logger.verbose("shall we check the data? maybe", x);
 					return true
 				}),
+				// add more `Observe`s here
 			].map((s) => s.build()),
 			// Passing this to true will allow events to be _interleaved_. If set to `false`, the
 			// above sequence of events are expected to happen in a strict order. If `true`, the
 			// events of each `Chain` must happen in a strict order, but intra-chain events can come
-			// in any order.
+			// in any order. For example, assume we have the following 4 observes in our test case:
+			// 1. Observe.on(Chain.Relay, "Module", "Event1")
+			// 2. Observe.on(Chain.Relay, "Module", "Event2")
+			// 3. Observe.on(Chain.Para, "Module", "Event3")
+			// 4. Observe.on(Chain.Para, "Module", "Event4")
+			//
+			// Without interleaving, 1 -> 4 has to be observed as-is.
+			//
+			// With interleaving, at any point in time, the first unobserved event of each chain
+			// type is acceptable. For example, the following is valid:
+			//
+			// 3 -> 1 -> 4 -> 2
+			//
+			// In some sense, with `interleave = true`, we break apart the test case into two stacks
+			// that need to be popped in order, while in interleave = false, it is one stack.
 			true,
 			// Something to happen when the test is over. Always kill ZN, and any other processes
 			// you might spawn.

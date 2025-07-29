@@ -23,7 +23,7 @@ interface IBlock {
 	authorship: IAuthorshipData | null;
 }
 
-// TODO: how can I export this from PAPI?
+/// The on-chain weight consumed in a block, exactly as stored by `frame-system`
 interface IWeight {
 	normal: {
 		ref_time: bigint;
@@ -39,15 +39,21 @@ interface IWeight {
 	};
 }
 
+/// Information obtained from the collator about authorship of a block.
 interface IAuthorshipData {
+	/// The header size in PoV in kb.
 	header: number;
+	/// The extrinsics size in PoV in kb.
 	extrinsics: number;
+	/// The storage proof size in PoV in kb.
 	proof: number;
+	/// The compressed PoV size (sum of all the above) in kb.
 	compressed: number;
+	/// The time it took to author the block in ms.
 	time: number;
 }
 
-// Print an event.
+/// Print an event.
 function pe(e: IEvent): string {
 	return `${e.module} ${e.event} ${e.data ? safeJsonStringify(e.data) : "no data"}`;
 }
@@ -143,13 +149,13 @@ export class TestCase {
 	allowPerChainInterleavedEvents: boolean = false;
 	private resolveTestPromise: (outcome: EventOutcome) => void = () => {};
 
+	/// See `example.test.ts` for more info.
 	constructor(e: Observe[], interleave: boolean = false, onKill: () => void = () => {}) {
 		this.eventSequence = e;
 		this.onKill = onKill;
 		this.allowPerChainInterleavedEvents = interleave;
 	}
 
-	// New: Method to set the promise resolvers
 	setTestPromiseResolvers(resolve: (outcome: EventOutcome) => void) {
 		this.resolveTestPromise = resolve;
 	}
