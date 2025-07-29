@@ -386,6 +386,32 @@ fn smod_works() {
 }
 
 #[test]
+fn umod_works() {
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let (code, _) = compile_module_with_type("Arithmetic", fixture_type).unwrap();
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+            {
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::umod(Arithmetic::umodCall { a: U256::from(23u32), b: U256::from(5u32) })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                assert_eq!(
+                    U256::from(3u32),
+                    U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "UMOD(23, 5) should equal 3 for {:?}", fixture_type
+                );
+            }
+		});
+	}
+}
+
+#[test]
 fn addmod_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
 		let (code, _) = compile_module_with_type("Arithmetic", fixture_type).unwrap();
@@ -441,6 +467,108 @@ fn mulmod_works() {
                     U256::from(2u32),
                     U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
                     "MULMOD(6, 7, 10) should equal 2 for {:?}", fixture_type
+                );
+            }
+		});
+	}
+}
+
+#[test]
+fn exp_works() {
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let (code, _) = compile_module_with_type("Arithmetic", fixture_type).unwrap();
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+            {
+                // Test EXP: 2 ** 3 = 8
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::exp(Arithmetic::expCall { 
+                            a: U256::from(2u32), 
+                            b: U256::from(3u32)
+                        })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                assert_eq!(
+                    U256::from(8u32),
+                    U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "EXP(2, 3) should equal 8 for {:?}", fixture_type
+                );
+            }
+
+            {
+                // Test EXP: 5 ** 2 = 25
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::exp(Arithmetic::expCall { 
+                            a: U256::from(5u32), 
+                            b: U256::from(2u32)
+                        })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                assert_eq!(
+                    U256::from(25u32),
+                    U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "EXP(5, 2) should equal 25 for {:?}", fixture_type
+                );
+            }
+
+            {
+                // Test EXP: 10 ** 0 = 1 (anything to power 0 is 1)
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::exp(Arithmetic::expCall { 
+                            a: U256::from(10u32), 
+                            b: U256::from(0u32)
+                        })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                assert_eq!(
+                    U256::from(1u32),
+                    U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "EXP(10, 0) should equal 1 for {:?}", fixture_type
+                );
+            }
+
+            {
+                // Test EXP: 1 ** 100 = 1 (1 to any power is 1)
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::exp(Arithmetic::expCall { 
+                            a: U256::from(1u32), 
+                            b: U256::from(100u32)
+                        })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                assert_eq!(
+                    U256::from(1u32),
+                    U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "EXP(1, 100) should equal 1 for {:?}", fixture_type
+                );
+            }
+
+            {
+                // Test EXP with larger numbers: 3 ** 4 = 81
+                let result = builder::bare_call(addr)
+                    .data(
+                        Arithmetic::ArithmeticCalls::exp(Arithmetic::expCall { 
+                            a: U256::from(3u32), 
+                            b: U256::from(4u32)
+                        })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                assert_eq!(
+                    U256::from(81u32),
+                    U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                    "EXP(3, 4) should equal 81 for {:?}", fixture_type
                 );
             }
 		});

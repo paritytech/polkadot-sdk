@@ -31,6 +31,11 @@ contract Arithmetic {
 		return a % b;
 	}
 
+    // MOD instruction - unsigned modulo (alternative name to avoid Rust keyword conflict)
+    function umod(uint a, uint b) public view returns (uint) {
+		return a % b;
+	}
+
     // ADDMOD instruction: (a + b) % n
     function addmod(uint a, uint b, uint n) public view returns (uint) {
 		return (a + b) % n;
@@ -39,6 +44,11 @@ contract Arithmetic {
     // MULMOD instruction: (a * b) % n  
     function mulmod(uint a, uint b, uint n) public view returns (uint) {
 		return (a * b) % n;
+	}
+
+    // EXP instruction: a ** b (exponentiation)
+    function exp(uint a, uint b) public view returns (uint) {
+		return a ** b;
 	}
 
 }
