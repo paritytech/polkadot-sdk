@@ -11,4 +11,8 @@ contract Arithmetic {
 		return a * b;
 	}
 
+    function sub(uint a, uint b) public view returns (uint) {
+		return a - b;
+	}
+
 }
