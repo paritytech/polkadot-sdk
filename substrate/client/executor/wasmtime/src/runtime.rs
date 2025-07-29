@@ -763,8 +763,8 @@ fn inject_input_data(
 	let data_ptr = allocator.allocate(&mut MemoryWrapper(&memory, &mut ctx), data_len)?;
 
 	let instance_id = instance.id();
-	let runtime_code_hash = instance.runtime_code_hash();
-	log::debug!(target: "host_allocation", "inject_input_data - code_hash={runtime_code_hash:x?}, instance_id={instance_id}, call_id={call_id}, size={data_len}, ptr=0x{data_ptr:x?}");
+	let display_ptr = u64::from(data_ptr);
+	instance.runtime_code_hash().inspect(|code_hash| log::debug!(target: "runtime_host_allocator", "inject_input_data: code_hash={code_hash:x?}, instance_id={instance_id}, call_id={call_id}, size={data_len}, ptr=0x{display_ptr:x?}"));
 
 	util::write_memory_from(instance.store_mut(), data_ptr, data)?;
 	Ok((data_ptr, data_len))

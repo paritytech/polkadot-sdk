@@ -117,16 +117,18 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 		// We can not return on error early, as we need to store back allocator.
 		let res = allocator
 			.allocate(&mut MemoryWrapper(&memory, &mut self.caller), size)
+			.inspect(|ptr| {
+				let instance_id = self.host_state_mut().instance_id;
+				let runtime_code_hash = self.host_state_mut().runtime_code_hash.clone();
+				let call_id = self.host_state_mut().allocator_call_id.fetch_add(1, Ordering::Relaxed);
+				runtime_code_hash.inspect(|code_hash| {
+					let display_ptr = u64::from(*ptr);
+					log::debug!(target: "runtime_host_allocator", "allocation: code_hash={code_hash:x?}, instance_id={instance_id}, call_id={call_id} size={size}, ptr={display_ptr:x?}")
+				});
+			})
 			.map_err(|e| e.to_string());
 
 		self.host_state_mut().allocator = Some(allocator);
-		let _ = res.as_ref().inspect(|ptr| {
-			let instance_id = self.host_state_mut().instance_id;
-			let runtime_code_hash = self.host_state_mut().runtime_code_hash.clone();
-			let call_id = self.host_state_mut().allocator_call_id.fetch_add(1, Ordering::Relaxed);
-			runtime_code_hash.inspect(|code_hash| log::debug!(target: "host_allocation", "code_hash={code_hash:x?}, instance_id={instance_id}, call_id={call_id} size={size}, ptr={ptr:x?}"));
-		});
-
 		res
 	}
 
@@ -141,16 +143,18 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 		// We can not return on error early, as we need to store back allocator.
 		let res = allocator
 			.deallocate(&mut MemoryWrapper(&memory, &mut self.caller), ptr)
+			.inspect(|_| {
+				let instance_id = self.host_state_mut().instance_id;
+				let runtime_code_hash = self.host_state_mut().runtime_code_hash.clone();
+				let call_id = self.host_state_mut().allocator_call_id.fetch_add(1, Ordering::Relaxed);
+				runtime_code_hash.inspect(|code_hash| {
+					let display_ptr = u64::from(ptr);
+					log::debug!(target: "runtime_host_allocator", "deallocation: code_hash={code_hash:x?}, instance_id={instance_id}, call_id={call_id} ptr={display_ptr:x?}");
+				});
+			})
 			.map_err(|e| e.to_string());
 
 		self.host_state_mut().allocator = Some(allocator);
-		let _ = res.as_ref().inspect(|_| {
-			let instance_id = self.host_state_mut().instance_id;
-			let runtime_code_hash = self.host_state_mut().runtime_code_hash.clone();
-			let call_id = self.host_state_mut().allocator_call_id.fetch_add(1, Ordering::Relaxed);
-			runtime_code_hash.inspect(|code_hash| log::debug!(target: "host_deallocation", "code_hash={code_hash:x?}, instance_id={instance_id}, call_id={call_id} ptr={ptr:x?}"));
-		});
-
 		res
 	}
 
