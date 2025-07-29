@@ -123,7 +123,7 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 				let call_id = self.host_state_mut().allocator_call_id.fetch_add(1, Ordering::Relaxed);
 				runtime_code_hash.inspect(|code_hash| {
 					let display_ptr = u64::from(*ptr);
-					log::debug!(target: "runtime_host_allocator", "allocation: code_hash={code_hash:x?}, instance_id={instance_id}, call_id={call_id} size={size}, ptr={display_ptr:x?}")
+					log::debug!(target: "runtime_host_allocator", "allocation: code_hash={code_hash:x?}, instance_id={instance_id}, call_id={call_id} size={size}, ptr=0x{display_ptr:x?}")
 				});
 			})
 			.map_err(|e| e.to_string());
@@ -149,7 +149,7 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 				let call_id = self.host_state_mut().allocator_call_id.fetch_add(1, Ordering::Relaxed);
 				runtime_code_hash.inspect(|code_hash| {
 					let display_ptr = u64::from(ptr);
-					log::debug!(target: "runtime_host_allocator", "deallocation: code_hash={code_hash:x?}, instance_id={instance_id}, call_id={call_id} ptr={display_ptr:x?}");
+					log::debug!(target: "runtime_host_allocator", "deallocation: code_hash={code_hash:x?}, instance_id={instance_id}, call_id={call_id} ptr=0x{display_ptr:x?}");
 				});
 			})
 			.map_err(|e| e.to_string());
