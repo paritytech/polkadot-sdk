@@ -756,7 +756,7 @@ fn inject_input_data(
 	let call_id = ctx
 		.data_mut()
 		.host_state_mut()
-		.map(|host_state| host_state.allocator_call_id().fetch_add(1, Ordering::Relaxed))
+		.map(|host_state| host_state.increment_call_id().fetch_add(1, Ordering::Relaxed))
 		.unwrap_or(0);
 	let memory = ctx.data().memory();
 	let data_len = data.len() as WordSize;
