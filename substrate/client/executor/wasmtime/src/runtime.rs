@@ -37,7 +37,7 @@ use sp_wasm_interface::{HostFunctions, Pointer, WordSize};
 use std::{
 	path::{Path, PathBuf},
 	sync::{
-		atomic::{AtomicBool, Ordering},
+		atomic::{AtomicBool, AtomicU64, Ordering},
 		Arc,
 	},
 };
@@ -86,6 +86,24 @@ impl InstanceCreator {
 /// A handle for releasing an instance acquired by [`InstanceCounter::acquire_instance`].
 pub(crate) struct ReleaseInstanceHandle {
 	counter: Arc<InstanceCounter>,
+	runtime_code_hash: Option<Vec<u8>>,
+	id: u64,
+}
+
+impl ReleaseInstanceHandle {
+	/// Return the runtime code hash of the instance.
+	///
+	/// Note: the hash might correspond to a compressed runtime.
+	pub(crate) fn runtime_code_hash(&self) -> Option<&Vec<u8>> {
+		self.runtime_code_hash.as_ref()
+	}
+
+	/// Return the unique instance id.
+	///
+	/// Note: this id is increment with every same runtime instantiation.
+	pub(crate) fn id(&self) -> u64 {
+		self.id
+	}
 }
 
 impl Drop for ReleaseInstanceHandle {
@@ -109,6 +127,8 @@ impl Drop for ReleaseInstanceHandle {
 pub(crate) struct InstanceCounter {
 	counter: Mutex<u32>,
 	wait_for_instance: parking_lot::Condvar,
+	current_instance_id: AtomicU64,
+	runtime_code_hash: Option<Vec<u8>>,
 }
 
 impl InstanceCounter {
@@ -126,7 +146,21 @@ impl InstanceCounter {
 		}
 		*counter += 1;
 
-		ReleaseInstanceHandle { counter: self.clone() }
+		// Increment the id with every runtime instantiation.
+		self.current_instance_id.fetch_add(1, Ordering::Relaxed);
+
+		ReleaseInstanceHandle {
+			counter: self.clone(),
+			runtime_code_hash: self.runtime_code_hash.clone(),
+			id: self.current_instance_id.load(Ordering::Relaxed),
+		}
+	}
+
+	/// Create an instance counter that holds a specific runtime code hash.
+	pub(crate) fn new_with_runtime_code_hash(runtime_code_hash: Option<Vec<u8>>) -> Self {
+		let mut counter = Self::default();
+		counter.runtime_code_hash = runtime_code_hash;
+		counter
 	}
 }
 
@@ -586,7 +620,7 @@ where
 	let engine = Engine::new(&wasmtime_config)
 		.map_err(|e| WasmError::Other(format!("cannot create the wasmtime engine: {:#}", e)))?;
 
-	let (module, instantiation_strategy) = match code_supply_mode {
+	let (instance_counter, module, instantiation_strategy) = match code_supply_mode {
 		CodeSupplyMode::Fresh(blob) => {
 			let blob = prepare_blob_for_compilation(blob, &config.semantics)?;
 			let serialized_blob = blob.clone().serialize();
@@ -598,8 +632,13 @@ where
 				InstantiationStrategy::Pooling |
 				InstantiationStrategy::PoolingCopyOnWrite |
 				InstantiationStrategy::RecreateInstance |
-				InstantiationStrategy::RecreateInstanceCopyOnWrite =>
-					(module, InternalInstantiationStrategy::Builtin),
+				InstantiationStrategy::RecreateInstanceCopyOnWrite => (
+					InstanceCounter::new_with_runtime_code_hash(
+						blob.runtime_code_hash().map(|hash| hash.clone()),
+					),
+					module,
+					InternalInstantiationStrategy::Builtin,
+				),
 			}
 		},
 		CodeSupplyMode::Precompiled(compiled_artifact_path) => {
@@ -610,7 +649,7 @@ where
 			let module = wasmtime::Module::deserialize_file(&engine, compiled_artifact_path)
 				.map_err(|e| WasmError::Other(format!("cannot deserialize module: {:#}", e)))?;
 
-			(module, InternalInstantiationStrategy::Builtin)
+			(InstanceCounter::default(), module, InternalInstantiationStrategy::Builtin)
 		},
 		CodeSupplyMode::PrecompiledBytes(compiled_artifact_bytes) => {
 			// SAFETY: The unsafety of `deserialize` is covered by this function. The
@@ -620,7 +659,7 @@ where
 			let module = wasmtime::Module::deserialize(&engine, compiled_artifact_bytes)
 				.map_err(|e| WasmError::Other(format!("cannot deserialize module: {:#}", e)))?;
 
-			(module, InternalInstantiationStrategy::Builtin)
+			(InstanceCounter::default(), module, InternalInstantiationStrategy::Builtin)
 		},
 	};
 
@@ -635,7 +674,7 @@ where
 		engine,
 		instance_pre: Arc::new(instance_pre),
 		instantiation_strategy,
-		instance_counter: Default::default(),
+		instance_counter: instance_counter.into(),
 	})
 }
 
@@ -685,7 +724,9 @@ fn perform_call(
 ) -> Result<Vec<u8>> {
 	let (data_ptr, data_len) = inject_input_data(instance_wrapper, &mut allocator, data)?;
 
-	let host_state = HostState::new(allocator);
+	let runtime_code_hash = instance_wrapper.runtime_code_hash().cloned();
+	let instance_id = instance_wrapper.id();
+	let host_state = HostState::new(allocator, instance_id, runtime_code_hash);
 
 	// Set the host state before calling into wasm.
 	instance_wrapper.store_mut().data_mut().host_state = Some(host_state);
@@ -712,9 +753,19 @@ fn inject_input_data(
 	data: &[u8],
 ) -> Result<(Pointer<u8>, WordSize)> {
 	let mut ctx = instance.store_mut();
+	let call_id = ctx
+		.data_mut()
+		.host_state_mut()
+		.map(|host_state| host_state.allocator_call_id().fetch_add(1, Ordering::Relaxed))
+		.unwrap_or(0);
 	let memory = ctx.data().memory();
 	let data_len = data.len() as WordSize;
 	let data_ptr = allocator.allocate(&mut MemoryWrapper(&memory, &mut ctx), data_len)?;
+
+	let instance_id = instance.id();
+	let runtime_code_hash = instance.runtime_code_hash();
+	log::debug!(target: "host_allocation", "code_hash={runtime_code_hash:x?}, instance_id={instance_id}, call_id={call_id}, size={data_len}, ptr=0x{data_ptr:x?}");
+
 	util::write_memory_from(instance.store_mut(), data_ptr, data)?;
 	Ok((data_ptr, data_len))
 }

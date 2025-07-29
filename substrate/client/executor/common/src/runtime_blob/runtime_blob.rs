@@ -25,7 +25,12 @@ use wasm_instrument::parity_wasm::elements::{
 
 /// A program blob containing a Substrate runtime.
 #[derive(Clone)]
-pub struct RuntimeBlob(BlobKind);
+pub struct RuntimeBlob {
+	// Note that the hash can be different than the hash of the blob if the runtime code is
+	// compressed.
+	runtime_code_hash: Option<Vec<u8>>,
+	blob_kind: BlobKind,
+}
 
 #[derive(Clone)]
 enum BlobKind {
@@ -39,9 +44,10 @@ impl RuntimeBlob {
 	/// See [`sp_maybe_compressed_blob`] for details about decompression.
 	pub fn uncompress_if_needed(wasm_code: &[u8]) -> Result<Self, WasmError> {
 		use sp_maybe_compressed_blob::CODE_BLOB_BOMB_LIMIT;
+		let runtime_code_hash = sp_crypto_hashing::blake2_256(wasm_code);
 		let wasm_code = sp_maybe_compressed_blob::decompress(wasm_code, CODE_BLOB_BOMB_LIMIT)
 			.map_err(|e| WasmError::Other(format!("Decompression error: {:?}", e)))?;
-		Self::new(&wasm_code)
+		Self::new_with_runtime_code_hash(&wasm_code, Some(runtime_code_hash.to_vec()))
 	}
 
 	/// Create `RuntimeBlob` from the given WASM or PolkaVM program blob.
@@ -51,11 +57,29 @@ impl RuntimeBlob {
 	/// Will only accept a PolkaVM program if the `SUBSTRATE_ENABLE_POLKAVM` environment
 	/// variable is set to `1`.
 	pub fn new(raw_blob: &[u8]) -> Result<Self, WasmError> {
+		Self::new_with_runtime_code_hash(raw_blob, None)
+	}
+
+	/// Create `RuntimeBlob` from the given WASM or PolkaVM program blob,
+	/// but initialize the runtime code hash too.
+	///
+	/// Returns `Err` if the blob cannot be deserialized.
+	///
+	/// Will only accept a PolkaVM program if the `SUBSTRATE_ENABLE_POLKAVM` environment
+	/// variable is set to `1`.
+	///
+	/// Note: the runtime code hash is not necessarily the hash of the runtime blob. Please note
+	/// that a runtime blob if initialized with `uncompress_if_needed` will contain the runtime code
+	/// hash of the compressed blob.
+	fn new_with_runtime_code_hash(
+		raw_blob: &[u8],
+		runtime_code_hash: Option<Vec<u8>>,
+	) -> Result<Self, WasmError> {
 		if raw_blob.starts_with(b"PVM\0") {
 			if crate::is_polkavm_enabled() {
 				let raw = ArcBytes::from(raw_blob);
 				let blob = polkavm::ProgramBlob::parse(raw.clone())?;
-				return Ok(Self(BlobKind::PolkaVM((blob, raw))));
+				return Ok(Self { blob_kind: BlobKind::PolkaVM((blob, raw)), runtime_code_hash });
 			} else {
 				return Err(WasmError::Other("expected a WASM runtime blob, found a PolkaVM runtime blob; set the 'SUBSTRATE_ENABLE_POLKAVM' environment variable to enable the experimental PolkaVM-based executor".to_string()));
 			}
@@ -63,7 +87,7 @@ impl RuntimeBlob {
 
 		let raw_module: Module = deserialize_buffer(raw_blob)
 			.map_err(|e| WasmError::Other(format!("cannot deserialize module: {:?}", e)))?;
-		Ok(Self(BlobKind::WebAssembly(raw_module)))
+		Ok(Self { blob_kind: BlobKind::WebAssembly(raw_module), runtime_code_hash })
 	}
 
 	/// Run a pass that instrument this module so as to introduce a deterministic stack height
@@ -79,13 +103,14 @@ impl RuntimeBlob {
 	///
 	/// Only valid for WASM programs; will return an error if the blob is a PolkaVM program.
 	pub fn inject_stack_depth_metering(self, stack_depth_limit: u32) -> Result<Self, WasmError> {
+		let runtime_code_hash = self.runtime_code_hash.clone();
 		let injected_module =
 			wasm_instrument::inject_stack_limiter(self.into_webassembly_blob()?, stack_depth_limit)
 				.map_err(|e| {
 					WasmError::Other(format!("cannot inject the stack limiter: {:?}", e))
 				})?;
 
-		Ok(Self(BlobKind::WebAssembly(injected_module)))
+		Ok(Self { blob_kind: BlobKind::WebAssembly(injected_module), runtime_code_hash })
 	}
 
 	/// Converts a WASM memory import into a memory section and exports it.
@@ -190,7 +215,7 @@ impl RuntimeBlob {
 
 	/// Consumes this runtime blob and serializes it.
 	pub fn serialize(self) -> Vec<u8> {
-		match self.0 {
+		match self.blob_kind {
 			BlobKind::WebAssembly(raw_module) =>
 				serialize(raw_module).expect("serializing into a vec should succeed; qed"),
 			BlobKind::PolkaVM(ref blob) => blob.1.to_vec(),
@@ -198,7 +223,7 @@ impl RuntimeBlob {
 	}
 
 	fn as_webassembly_blob(&self) -> Result<&Module, WasmError> {
-		match self.0 {
+		match self.blob_kind {
 			BlobKind::WebAssembly(ref raw_module) => Ok(raw_module),
 			BlobKind::PolkaVM(..) => Err(WasmError::Other(
 				"expected a WebAssembly program; found a PolkaVM program blob".into(),
@@ -207,7 +232,7 @@ impl RuntimeBlob {
 	}
 
 	fn as_webassembly_blob_mut(&mut self) -> Result<&mut Module, WasmError> {
-		match self.0 {
+		match self.blob_kind {
 			BlobKind::WebAssembly(ref mut raw_module) => Ok(raw_module),
 			BlobKind::PolkaVM(..) => Err(WasmError::Other(
 				"expected a WebAssembly program; found a PolkaVM program blob".into(),
@@ -216,7 +241,7 @@ impl RuntimeBlob {
 	}
 
 	fn into_webassembly_blob(self) -> Result<Module, WasmError> {
-		match self.0 {
+		match self.blob_kind {
 			BlobKind::WebAssembly(raw_module) => Ok(raw_module),
 			BlobKind::PolkaVM(..) => Err(WasmError::Other(
 				"expected a WebAssembly program; found a PolkaVM program blob".into(),
@@ -226,9 +251,17 @@ impl RuntimeBlob {
 
 	/// Gets a reference to the inner PolkaVM program blob, if this is a PolkaVM program.
 	pub fn as_polkavm_blob(&self) -> Option<&polkavm::ProgramBlob> {
-		match self.0 {
+		match self.blob_kind {
 			BlobKind::WebAssembly(..) => None,
 			BlobKind::PolkaVM((ref blob, _)) => Some(blob),
 		}
+	}
+
+	/// Return the runtime code hash associated to the blob.
+	///
+	/// Note: the runtime code hash can be different from the blob
+	/// hash if the blob was built via `uncompress_if_needed`.
+	pub fn runtime_code_hash(&self) -> Option<&Vec<u8>> {
+		self.runtime_code_hash.as_ref()
 	}
 }
