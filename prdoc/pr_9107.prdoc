@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+
+title: Add block number and extrinsic index to PureCreated event
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Enhances PureCreated event with current block number and extrinsic index.
+      Uses system BadContext error for extrinsic index retrieval.
+
+crates:
+- name: pallet-proxy
+  bump: major

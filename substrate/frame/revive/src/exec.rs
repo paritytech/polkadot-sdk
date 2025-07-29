@@ -22,11 +22,11 @@ use crate::{
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
 	primitives::{BumpNonce, ExecReturnValue, StorageDeposit},
 	runtime_decl_for_revive_api::{Decode, Encode, RuntimeDebugNoBound, TypeInfo},
-	storage::{self, meter::Diff, WriteOutcome},
+	storage::{self, meter::Diff, AccountIdOrAddress, WriteOutcome},
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
-	BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo, ContractInfoOf, ConversionPrecision,
-	Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, RuntimeCosts,
+	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, CodeInfo, CodeInfoOf, Config,
+	ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, RuntimeCosts,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -36,7 +36,7 @@ use frame_support::{
 	storage::{with_transaction, TransactionOutcome},
 	traits::{
 		fungible::{Inspect, Mutate},
-		tokens::{Fortitude, Preservation},
+		tokens::{Fortitude, Precision, Preservation},
 		Time,
 	},
 	weights::Weight,
@@ -49,7 +49,7 @@ use frame_system::{
 use sp_core::{
 	ecdsa::Public as ECDSAPublic,
 	sr25519::{Public as SR25519Public, Signature as SR25519Signature},
-	ConstU32, H160, H256, U256,
+	ConstU32, Get, H160, H256, U256,
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
@@ -323,9 +323,6 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Return the origin of the whole call stack.
 	fn origin(&self) -> &Origin<Self::T>;
 
-	/// Check if a contract lives at the specified `address`.
-	fn is_contract(&self, address: &H160) -> bool;
-
 	/// Returns the account id for the given `address`.
 	fn to_account_id(&self, address: &H160) -> AccountIdOf<Self::T>;
 
@@ -337,9 +334,6 @@ pub trait PrecompileExt: sealing::Sealed {
 	fn code_size(&self, address: &H160) -> u64;
 
 	/// Check if the caller of the current contract is the origin of the whole call stack.
-	///
-	/// This can be checked with `is_contract(self.caller())` as well.
-	/// However, this function does not require any storage lookup and therefore uses less weight.
 	fn caller_is_origin(&self) -> bool;
 
 	/// Check if the caller is origin, and this origin is root.
@@ -714,8 +708,9 @@ impl<T: Config> CachedContract<T> {
 	/// Load the `contract_info` from storage if necessary.
 	fn load(&mut self, account_id: &T::AccountId) {
 		if let CachedContract::Invalidated = self {
-			let contract = <ContractInfoOf<T>>::get(T::AddressMapper::to_address(account_id));
-			if let Some(contract) = contract {
+			if let Some(contract) =
+				AccountInfo::<T>::load_contract(&T::AddressMapper::to_address(account_id))
+			{
 				*self = CachedContract::Cached(contract);
 			}
 		}
@@ -815,6 +810,7 @@ where
 		skip_transfer: bool,
 		bump_nonce: BumpNonce,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
+		let deployer = T::AddressMapper::to_address(&origin);
 		let (mut stack, executable) = Stack::<'_, T, E>::new(
 			FrameArgs::Instantiate {
 				sender: origin.clone(),
@@ -830,9 +826,15 @@ where
 		)?
 		.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
 		let address = T::AddressMapper::to_address(&stack.top_frame().account_id);
-		stack
+		let result = stack
 			.run(executable, input_data, bump_nonce)
-			.map(|_| (address, stack.first_frame.last_frame_output))
+			.map(|_| (address, stack.first_frame.last_frame_output));
+		if let Ok((contract, ref output)) = result {
+			if !output.did_revert() {
+				Contracts::<T>::deposit_event(Event::Instantiated { deployer, contract });
+			}
+		}
+		result
 	}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
@@ -927,13 +929,13 @@ where
 				let mut contract = match (cached_info, &precompile) {
 					(Some(info), _) => CachedContract::Cached(info),
 					(None, None) =>
-						if let Some(info) = <ContractInfoOf<T>>::get(&address) {
+						if let Some(info) = AccountInfo::<T>::load_contract(&address) {
 							CachedContract::Cached(info)
 						} else {
-							return Ok(None)
+							return Ok(None);
 						},
 					(None, Some(precompile)) if precompile.has_contract_info() => {
-						if let Some(info) = <ContractInfoOf<T>>::get(&address) {
+						if let Some(info) = AccountInfo::<T>::load_contract(&address) {
 							CachedContract::Cached(info)
 						} else {
 							let info = ContractInfo::new(&address, 0u32.into(), H256::zero())?;
@@ -953,7 +955,8 @@ where
 							_phantom: Default::default(),
 						}
 					} else {
-						let Some(info) = ContractInfoOf::<T>::get(&delegated_call.callee) else {
+						let Some(info) = AccountInfo::<T>::load_contract(&delegated_call.callee)
+						else {
 							return Ok(None);
 						};
 						let executable = E::from_storage(info.code_hash, gas_meter)?;
@@ -1049,8 +1052,8 @@ where
 		if let (CachedContract::Cached(contract), ExportedFunction::Call) =
 			(&frame.contract_info, frame.entry_point)
 		{
-			<ContractInfoOf<T>>::insert(
-				T::AddressMapper::to_address(&frame.account_id),
+			AccountInfo::<T>::insert_contract(
+				&T::AddressMapper::to_address(&frame.account_id),
 				contract.clone(),
 			);
 		}
@@ -1330,7 +1333,10 @@ where
 				// because that case is already handled by the optimization above. Only the first
 				// cache needs to be invalidated because that one will invalidate the next cache
 				// when it is popped from the stack.
-				<ContractInfoOf<T>>::insert(T::AddressMapper::to_address(account_id), contract);
+				AccountInfo::<T>::insert_contract(
+					&T::AddressMapper::to_address(account_id),
+					contract,
+				);
 				if let Some(f) = self.frames_mut().skip(1).find(|f| f.account_id == *account_id) {
 					f.contract_info.invalidate();
 				}
@@ -1347,9 +1353,9 @@ where
 				contract.as_deref_mut(),
 			);
 			if let Some(contract) = contract {
-				<ContractInfoOf<T>>::insert(
-					T::AddressMapper::to_address(&self.first_frame.account_id),
-					contract,
+				AccountInfo::<T>::insert_contract(
+					&T::AddressMapper::to_address(&self.first_frame.account_id),
+					contract.clone(),
 				);
 			}
 		}
@@ -1374,15 +1380,97 @@ where
 		value: U256,
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 	) -> ExecResult {
-		let value = crate::Pallet::<T>::convert_evm_to_native(value, ConversionPrecision::Exact)?;
+		fn transfer_with_dust<T: Config>(
+			from: &AccountIdOf<T>,
+			to: &AccountIdOf<T>,
+			value: BalanceWithDust<BalanceOf<T>>,
+		) -> Result<(), ExecError> {
+			let (value, dust) = value.deconstruct();
+
+			fn transfer_balance<T: Config>(
+				from: &AccountIdOf<T>,
+				to: &AccountIdOf<T>,
+				value: BalanceOf<T>,
+			) -> Result<(), ExecError> {
+				T::Currency::transfer(from, to, value, Preservation::Preserve)
+				.map_err(|err| {
+					log::debug!(target: crate::LOG_TARGET, "Transfer failed: from {from:?} to {to:?} (value: ${value:?}). Err: {err:?}");
+					ExecError::from(Error::<T>::TransferFailed)
+				})?;
+				return Ok(())
+			}
+
+			fn transfer_dust<T: Config>(
+				from: &mut AccountInfo<T>,
+				to: &mut AccountInfo<T>,
+				dust: u32,
+			) -> Result<(), ExecError> {
+				from.dust = from
+					.dust
+					.checked_sub(dust)
+					.ok_or_else(|| ExecError::from(Error::<T>::TransferFailed))?;
+				to.dust = to
+					.dust
+					.checked_add(dust)
+					.ok_or_else(|| ExecError::from(Error::<T>::TransferFailed))?;
+				Ok::<(), ExecError>(())
+			}
+
+			if dust.is_zero() {
+				return transfer_balance::<T>(from, to, value)
+			}
+
+			let from_addr = <T::AddressMapper as AddressMapper<T>>::to_address(from);
+			let mut from_info = AccountInfoOf::<T>::get(&from_addr).unwrap_or_default();
+
+			let to_addr = <T::AddressMapper as AddressMapper<T>>::to_address(to);
+			let mut to_info = AccountInfoOf::<T>::get(&to_addr).unwrap_or_default();
+
+			let plank = T::NativeToEthRatio::get();
+
+			if from_info.dust < dust {
+				T::Currency::burn_from(
+					from,
+					1u32.into(),
+					Preservation::Preserve,
+					Precision::Exact,
+					Fortitude::Polite,
+				)
+				.map_err(|err| {
+					log::debug!(target: crate::LOG_TARGET, "Burning 1 plank from {from:?} failed. Err: {err:?}");
+					ExecError::from(Error::<T>::TransferFailed)
+				})?;
+
+				from_info.dust = from_info
+					.dust
+					.checked_add(plank)
+					.ok_or_else(|| ExecError::from(Error::<T>::TransferFailed))?;
+			}
+
+			transfer_balance::<T>(from, to, value)?;
+			transfer_dust::<T>(&mut from_info, &mut to_info, dust)?;
+
+			if to_info.dust.saturating_add(dust) >= plank {
+				T::Currency::mint_into(to, 1u32.into())?;
+				to_info.dust = to_info
+					.dust
+					.checked_sub(plank)
+					.ok_or_else(|| ExecError::from(Error::<T>::TransferFailed))?;
+			}
+
+			AccountInfoOf::<T>::set(&from_addr, Some(from_info));
+			AccountInfoOf::<T>::set(&to_addr, Some(to_info));
+
+			Ok(())
+		}
+
+		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)?;
 		if value.is_zero() {
 			return Ok(Default::default());
 		}
 
 		if <System<T>>::account_exists(to) {
-			return T::Currency::transfer(from, to, value, Preservation::Preserve)
-				.map(|_| Default::default())
-				.map_err(|_| Error::<T>::TransferFailed.into());
+			return transfer_with_dust::<T>(from, to, value).map(|_| Default::default())
 		}
 
 		let origin = origin.account_id()?;
@@ -1390,10 +1478,8 @@ where
 		with_transaction(|| -> TransactionOutcome<ExecResult> {
 			match T::Currency::transfer(origin, to, ed, Preservation::Preserve)
 				.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds.into())
-				.and_then(|_| {
-					T::Currency::transfer(from, to, value, Preservation::Preserve)
-						.map_err(|_| Error::<T>::TransferFailed.into())
-				}) {
+				.and_then(|_| transfer_with_dust::<T>(from, to, value))
+			{
 				Ok(_) => {
 					// ed is taken from the transaction signer so it should be
 					// limited by the storage deposit
@@ -1458,11 +1544,8 @@ where
 
 	/// Returns the *free* balance of the supplied AccountId.
 	fn account_balance(&self, who: &T::AccountId) -> U256 {
-		crate::Pallet::<T>::convert_native_to_evm(T::Currency::reducible_balance(
-			who,
-			Preservation::Preserve,
-			Fortitude::Polite,
-		))
+		let balance = AccountInfo::<T>::balance(AccountIdOrAddress::AccountId(who.clone()));
+		crate::Pallet::<T>::convert_native_to_evm(balance)
 	}
 
 	/// Certain APIs, e.g. `{set,get}_immutable_data` behave differently depending
@@ -1549,7 +1632,7 @@ where
 
 		info.queue_trie_for_deletion();
 		let account_address = T::AddressMapper::to_address(&frame.account_id);
-		ContractInfoOf::<T>::remove(&account_address);
+		AccountInfoOf::<T>::remove(&account_address);
 		ImmutableDataOf::<T>::remove(&account_address);
 		<CodeInfo<T>>::decrement_refcount(info.code_hash)?;
 
@@ -1684,7 +1767,7 @@ where
 				salt,
 				input_data: input_data.as_ref(),
 			},
-			value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?,
+			value,
 			gas_limit,
 			deposit_limit.saturated_into::<BalanceOf<T>>(),
 			self.is_read_only(),
@@ -1739,8 +1822,6 @@ where
 			if !self.allows_reentry(&dest) {
 				return Err(<Error<T>>::ReentranceDenied.into());
 			}
-
-			let value = value.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?;
 
 			// We ignore instantiate frames in our search for a cached contract.
 			// Otherwise it would be possible to recursively call a contract from its own
@@ -1847,16 +1928,16 @@ where
 		&self.origin
 	}
 
-	fn is_contract(&self, address: &H160) -> bool {
-		ContractInfoOf::<T>::contains_key(&address)
-	}
-
 	fn to_account_id(&self, address: &H160) -> T::AccountId {
 		T::AddressMapper::to_account_id(address)
 	}
 
 	fn code_hash(&self, address: &H160) -> H256 {
-		<ContractInfoOf<T>>::get(&address)
+		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()) {
+			return sp_io::hashing::keccak_256(code).into()
+		}
+
+		<AccountInfo<T>>::load_contract(&address)
 			.map(|contract| contract.code_hash)
 			.unwrap_or_else(|| {
 				if System::<T>::account_exists(&T::AddressMapper::to_account_id(address)) {
@@ -1867,7 +1948,11 @@ where
 	}
 
 	fn code_size(&self, address: &H160) -> u64 {
-		<ContractInfoOf<T>>::get(&address)
+		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()) {
+			return code.len() as u64
+		}
+
+		<AccountInfo<T>>::load_contract(&address)
 			.and_then(|contract| CodeInfoOf::<T>::get(contract.code_hash))
 			.map(|info| info.code_len())
 			.unwrap_or_default()

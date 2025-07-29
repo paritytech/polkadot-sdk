@@ -49,7 +49,7 @@ use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 #[allow(deprecated)]
 use cumulus_client_service::CollatorSybilResistance;
-use cumulus_primitives_core::{relay_chain::ValidationCode, ParaId};
+use cumulus_primitives_core::{relay_chain::ValidationCode, GetParachainInfo, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::prelude::*;
 use polkadot_primitives::CollatorPair;
@@ -128,7 +128,7 @@ where
 		let spawner = task_manager.spawn_essential_handle();
 
 		let relay_chain_verifier =
-			Box::new(RelayChainVerifier::new(client.clone(), |_, _| async { Ok(()) }));
+			Box::new(RelayChainVerifier::new(client.clone(), inherent_data_providers));
 
 		let equivocation_aura_verifier =
 			EquivocationVerifier::<<AuraId as AppCrypto>::Pair, _, _, _>::new(
@@ -215,7 +215,8 @@ where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
-		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
+		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
+		+ GetParachainInfo<Block>,
 	AuraId: AuraIdT + Sync,
 {
 	if extra_args.authoring_policy == AuthoringPolicy::SlotBased {

@@ -253,7 +253,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("bridge-hub-rococo"),
 	impl_name: alloc::borrow::Cow::Borrowed("bridge-hub-rococo"),
 	authoring_version: 1,
-	spec_version: 1_018_001,
+	spec_version: 1_019_002,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -1269,12 +1269,13 @@ impl_runtime_apis! {
 						Box::new(bridge_to_westend_config::BridgeHubWestendLocation::get()),
 						XCM_VERSION,
 					).map_err(|e| {
-						log::error!(
-							"Failed to dispatch `force_xcm_version({:?}, {:?}, {:?})`, error: {:?}",
-							RuntimeOrigin::root(),
-							bridge_to_westend_config::BridgeHubWestendLocation::get(),
-							XCM_VERSION,
-							e
+						tracing::error!(
+							target: "bridges::benchmark",
+							error=?e,
+							origin=?RuntimeOrigin::root(),
+							location=?bridge_to_westend_config::BridgeHubWestendLocation::get(),
+							version=?XCM_VERSION,
+							"Failed to dispatch `force_xcm_version`"
 						);
 						BenchmarkError::Stop("XcmVersion was not stored!")
 					})?;
@@ -1304,11 +1305,12 @@ impl_runtime_apis! {
 						bp_messages::LegacyLaneId([1, 2, 3, 4]),
 						true,
 					).map_err(|e| {
-						log::error!(
-							"Failed to `XcmOverBridgeHubWestend::open_bridge`({:?}, {:?})`, error: {:?}",
-							sibling_parachain_location,
-							bridge_destination_universal_location,
-							e
+						tracing::error!(
+							target: "bridges::benchmark",
+							error=?e,
+							locations=?sibling_parachain_location,
+							lane_id=?bridge_destination_universal_location,
+							"Failed to `XcmOverBridgeHubWestend::open_bridge`"
 						);
 						BenchmarkError::Stop("Bridge was not opened!")
 					})?;
@@ -1571,6 +1573,12 @@ impl_runtime_apis! {
 		}
 		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
 			PolkadotXcm::is_trusted_teleporter(asset, location)
+		}
+	}
+
+	impl cumulus_primitives_core::GetParachainInfo<Block> for Runtime {
+		fn parachain_id() -> ParaId {
+			ParachainInfo::parachain_id()
 		}
 	}
 }

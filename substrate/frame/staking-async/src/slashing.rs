@@ -41,10 +41,9 @@
 //! Based on research at <https://research.web3.foundation/Polkadot/security/slashing/npos>
 
 use crate::{
-	asset, log, session_rotation::Eras, BalanceOf, Config, NegativeImbalanceOf,
-	NominatorSlashInEra, OffenceQueue, OffenceQueueEras, PagedExposure, Pallet, Perbill,
-	ProcessingOffence, SlashRewardFraction, UnappliedSlash, UnappliedSlashes, ValidatorSlashInEra,
-	WeightInfo,
+	asset, log, session_rotation::Eras, BalanceOf, Config, NegativeImbalanceOf, OffenceQueue,
+	OffenceQueueEras, PagedExposure, Pallet, Perbill, ProcessingOffence, SlashRewardFraction,
+	UnappliedSlash, UnappliedSlashes, ValidatorSlashInEra, WeightInfo,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -178,7 +177,8 @@ fn next_offence<T: Config>() -> Option<(EraIndex, T::AccountId, OffenceRecord<T:
 
 /// Infallible function to process an offence.
 pub(crate) fn process_offence<T: Config>() -> Weight {
-	// We do manual weight racking for early-returns, and use benchmarks for the final two branches.
+	// We do manual weight tracking for early-returns, and use benchmarks for the final two
+	// branches.
 	let mut incomplete_consumed_weight = Weight::from_parts(0, 0);
 	let mut add_db_reads_writes = |reads, writes| {
 		incomplete_consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
@@ -351,36 +351,31 @@ fn slash_nominators<T: Config>(
 	nominators_slashed.reserve(params.exposure.exposure_page.others.len());
 	for nominator in &params.exposure.exposure_page.others {
 		let stash = &nominator.who;
-		let prior_slashed =
-			NominatorSlashInEra::<T>::get(&params.slash_era, stash).unwrap_or_else(Zero::zero);
+		let prior_slashed = params.prior_slash * nominator.value;
 		let new_slash = params.slash * nominator.value;
-		let slash_due = new_slash.saturating_sub(prior_slashed);
+		// this should always be positive since prior slash is always less than the new slash or
+		// filtered out when offence is reported (`Pallet::on_new_offences`).
+		let slash_diff = new_slash.defensive_saturating_sub(prior_slashed);
 
-		if new_slash == Zero::zero() {
+		if slash_diff == Zero::zero() {
 			// nothing to do
 			continue
 		}
 
 		log!(
 			debug,
-			"🦹 slashing nominator {:?} of stake: {:?} for {:?} in era {:?}",
+			"🦹 slashing nominator {:?} of stake: {:?} for {:?} in era {:?}. Prior Slash: {:?}, New Slash: {:?}",
 			stash,
 			nominator.value,
-			slash_due,
+			slash_diff,
 			params.slash_era,
+			params.prior_slash,
+			params.slash,
 		);
 
-		// the era slash of a nominator always grows, if the validator had a new max slash for the
-		// era.
-		NominatorSlashInEra::<T>::insert(
-			&params.slash_era,
-			stash,
-			prior_slashed.saturating_add(slash_due),
-		);
-
-		nominators_slashed.push((stash.clone(), slash_due));
-		total_slashed.saturating_accrue(slash_due);
-		reward_payout.saturating_accrue(params.reward_proportion * slash_due);
+		nominators_slashed.push((stash.clone(), slash_diff));
+		total_slashed.saturating_accrue(slash_diff);
+		reward_payout.saturating_accrue(params.reward_proportion * slash_diff);
 	}
 
 	(total_slashed, reward_payout)
@@ -390,8 +385,6 @@ fn slash_nominators<T: Config>(
 pub(crate) fn clear_era_metadata<T: Config>(obsolete_era: EraIndex) {
 	#[allow(deprecated)]
 	ValidatorSlashInEra::<T>::remove_prefix(&obsolete_era, None);
-	#[allow(deprecated)]
-	NominatorSlashInEra::<T>::remove_prefix(&obsolete_era, None);
 }
 
 // apply the slash to a stash account, deducting any missing funds from the reward

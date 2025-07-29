@@ -497,7 +497,7 @@ impl pallet_timestamp::Config for Runtime {
 
 impl pallet_authorship::Config for Runtime {
 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
-	type EventHandler = AssetHubStakingClient;
+	type EventHandler = StakingAhClient;
 }
 
 parameter_types! {
@@ -524,7 +524,7 @@ impl sp_runtime::traits::Convert<AccountId, Option<AccountId>> for IdentityValid
 }
 
 /// A testing type that implements SessionManager, it receives a new validator set from
-/// `AssetHubStakingClient`, but it prevents them from being passed over to the session pallet and
+/// `StakingAhClient`, but it prevents them from being passed over to the session pallet and
 /// just uses the previous session keys.
 pub struct AckButPreviousSessionValidatorsPersist<I>(core::marker::PhantomData<I>);
 
@@ -559,7 +559,7 @@ impl pallet_session::Config for Runtime {
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
 	type SessionManager = AckButPreviousSessionValidatorsPersist<
-		session_historical::NoteHistoricalRoot<Self, AssetHubStakingClient>,
+		session_historical::NoteHistoricalRoot<Self, StakingAhClient>,
 	>;
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
@@ -674,6 +674,10 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureAssetHub {
 	}
 }
 
+parameter_types! {
+	pub const MaxOffenceBatchSize: u32 = 50;
+}
+
 impl pallet_staking_async_ah_client::Config for Runtime {
 	type CurrencyBalance = Balance;
 	type AssetHubOrigin =
@@ -684,7 +688,9 @@ impl pallet_staking_async_ah_client::Config for Runtime {
 	type MinimumValidatorSetSize = ConstU32<10>;
 	type UnixTime = Timestamp;
 	type PointsPerBlock = ConstU32<20>;
+	type MaxOffenceBatchSize = MaxOffenceBatchSize;
 	type Fallback = Staking;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -878,6 +884,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type WeightInfo = ();
 	type BagThresholds = BagThresholds;
 	type Score = sp_npos_elections::VoteWeight;
+	type MaxAutoRebagPerBlock = ();
 }
 
 parameter_types! {
@@ -943,7 +950,7 @@ impl pallet_treasury::Config for Runtime {
 impl pallet_offences::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type IdentificationTuple = session_historical::IdentificationTuple<Self>;
-	type OnOffenceHandler = AssetHubStakingClient;
+	type OnOffenceHandler = StakingAhClient;
 }
 
 impl pallet_authority_discovery::Config for Runtime {
@@ -1340,7 +1347,7 @@ impl parachains_inclusion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type DisputesHandler = ParasDisputes;
 	type RewardValidators =
-		parachains_reward_points::RewardValidatorsWithEraPoints<Runtime, AssetHubStakingClient>;
+		parachains_reward_points::RewardValidatorsWithEraPoints<Runtime, StakingAhClient>;
 	type MessageQueue = MessageQueue;
 	type WeightInfo = weights::polkadot_runtime_parachains_inclusion::WeightInfo<Runtime>;
 }
@@ -1517,7 +1524,7 @@ impl assigned_slots::Config for Runtime {
 impl parachains_disputes::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RewardValidators =
-		parachains_reward_points::RewardValidatorsWithEraPoints<Runtime, AssetHubStakingClient>;
+		parachains_reward_points::RewardValidatorsWithEraPoints<Runtime, StakingAhClient>;
 	type SlashingHandler = parachains_slashing::SlashValidatorsForDisputes<ParasSlashing>;
 	type WeightInfo = weights::polkadot_runtime_parachains_disputes::WeightInfo<Runtime>;
 }
@@ -1826,7 +1833,7 @@ mod runtime {
 	pub type Coretime = coretime;
 
 	#[runtime::pallet_index(67)]
-	pub type AssetHubStakingClient = pallet_staking_async_ah_client;
+	pub type StakingAhClient = pallet_staking_async_ah_client;
 
 	// Migrations pallet
 	#[runtime::pallet_index(98)]
@@ -2063,7 +2070,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(13)]
+	#[api_version(14)]
 	impl polkadot_primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			parachains_runtime_api_impl::validators::<Runtime>()
@@ -2240,6 +2247,10 @@ sp_api::impl_runtime_apis! {
 
 		fn scheduling_lookahead() -> u32 {
 			parachains_staging_runtime_api_impl::scheduling_lookahead::<Runtime>()
+		}
+
+		fn para_ids() -> Vec<ParaId> {
+			parachains_staging_runtime_api_impl::para_ids::<Runtime>()
 		}
 	}
 

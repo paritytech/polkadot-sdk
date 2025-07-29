@@ -308,10 +308,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxInvulnerables: Get<u32>;
 
-		/// Maximum number of disabled validators.
-		#[pallet::constant]
-		type MaxDisabledValidators: Get<u32>;
-
 		/// Maximum allowed era duration in milliseconds.
 		///
 		/// This provides a defensive upper bound to cap the effective era duration, preventing
@@ -383,7 +379,6 @@ pub mod pallet {
 			type MaxValidatorSet = ConstU32<100>;
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type MaxInvulnerables = ConstU32<20>;
-			type MaxDisabledValidators = ConstU32<100>;
 			type MaxEraDuration = ();
 			type EventListeners = ();
 			type Filter = Nothing;
@@ -625,7 +620,7 @@ pub mod pallet {
 	impl<T: Config> Get<u32> for ClaimedRewardsBound<T> {
 		fn get() -> u32 {
 			let max_total_nominators_per_validator =
-				<T::ElectionProvider as ElectionProvider>::MaxBackersPerWinner::get();
+				<T::ElectionProvider as ElectionProvider>::MaxBackersPerWinnerFinal::get();
 			let exposure_page_size = T::MaxExposurePageSize::get();
 			max_total_nominators_per_validator
 				.saturating_div(exposure_page_size)
@@ -738,7 +733,7 @@ pub mod pallet {
 	/// This eliminates the need for expensive iteration and sorting when fetching the next offence
 	/// to process.
 	#[pallet::storage]
-	pub type OffenceQueueEras<T: Config> = StorageValue<_, BoundedVec<u32, T::BondingDuration>>;
+	pub type OffenceQueueEras<T: Config> = StorageValue<_, WeakBoundedVec<u32, T::BondingDuration>>;
 
 	/// Tracks the currently processed offence record from the `OffenceQueue`.
 	///
@@ -780,11 +775,6 @@ pub mod pallet {
 		T::AccountId,
 		(Perbill, BalanceOf<T>),
 	>;
-
-	/// All slashing events on nominators, mapped by era to the highest slash value of the era.
-	#[pallet::storage]
-	pub type NominatorSlashInEra<T: Config> =
-		StorageDoubleMap<_, Twox64Concat, EraIndex, Twox64Concat, T::AccountId, BalanceOf<T>>;
 
 	/// The threshold for when users can start calling `chill_other` for other validators /
 	/// nominators. The threshold is compared to the actual number of validators / nominators
@@ -987,24 +977,22 @@ pub mod pallet {
 				let mut rng =
 					ChaChaRng::from_seed(base_derivation.using_encoded(sp_core::blake2_256));
 
-				let validators = (0..validators)
-					.map(|index| {
-						let derivation =
-							base_derivation.replace("{}", &format!("validator{}", index));
-						let who = Self::generate_endowed_bonded_account(&derivation, &mut rng);
-						assert_ok!(<Pallet<T>>::validate(
-							T::RuntimeOrigin::from(Some(who.clone()).into()),
-							Default::default(),
-						));
-						who
-					})
-					.collect::<Vec<_>>();
+				(0..validators).for_each(|index| {
+					let derivation = base_derivation.replace("{}", &format!("validator{}", index));
+					let who = Self::generate_endowed_bonded_account(&derivation, &mut rng);
+					assert_ok!(<Pallet<T>>::validate(
+						T::RuntimeOrigin::from(Some(who.clone()).into()),
+						Default::default(),
+					));
+				});
+
+				let all_validators = Validators::<T>::iter_keys().collect::<Vec<_>>();
 
 				(0..nominators).for_each(|index| {
 					let derivation = base_derivation.replace("{}", &format!("nominator{}", index));
 					let who = Self::generate_endowed_bonded_account(&derivation, &mut rng);
 
-					let random_nominations = validators
+					let random_nominations = all_validators
 						.choose_multiple(&mut rng, MaxNominationsOf::<T>::get() as usize)
 						.map(|v| v.clone())
 						.collect::<Vec<_>>();
@@ -1167,6 +1155,12 @@ pub mod pallet {
 		/// Something occurred that should never happen under normal operation.
 		/// Logged as an event for fail-safe observability.
 		Unexpected(UnexpectedKind),
+		/// An offence was reported that was too old to be processed, and thus was dropped.
+		OffenceTooOld {
+			offence_era: EraIndex,
+			validator: T::AccountId,
+			fraction: Perbill,
+		},
 	}
 
 	/// Represents unexpected or invariant-breaking conditions encountered during execution.
@@ -1256,6 +1250,9 @@ pub mod pallet {
 		/// Account is restricted from participation in staking. This may happen if the account is
 		/// staking in another way already, such as via pool.
 		Restricted,
+		/// Unapplied slashes in the recently concluded era is blocking this operation.
+		/// See `Call::apply_slash` to apply them.
+		UnappliedSlashesInPreviousEra,
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -1305,6 +1302,7 @@ pub mod pallet {
 				MaxNominationsOf::<T>::get(),
 				<Self as ElectionDataProvider>::MaxVotesPerVoter::get()
 			);
+
 			// and that MaxNominations is always greater than 1, since we count on this.
 			assert!(!MaxNominationsOf::<T>::get().is_zero());
 
@@ -1425,8 +1423,8 @@ pub mod pallet {
 			let unlocking =
 				Self::ledger(Controller(controller.clone())).map(|l| l.unlocking.len())?;
 
-			// if there are no unlocking chunks available, try to withdraw chunks older than
-			// `BondingDuration` to proceed with the unbonding.
+			// if there are no unlocking chunks available, try to remove any chunks by withdrawing
+			// funds that have fully unbonded.
 			let maybe_withdraw_weight = {
 				if unlocking == T::MaxUnlockingChunks::get() as usize {
 					Some(Self::do_withdraw_unbonded(&controller)?)
@@ -1468,10 +1466,11 @@ pub mod pallet {
 				// If a user runs into this error, they should chill first.
 				ensure!(ledger.active >= min_active_bond, Error::<T>::InsufficientBond);
 
-				// Note: in case there is no current era it is fine to bond one era more.
-				let era = CurrentEra::<T>::get()
-					.unwrap_or(0)
-					.defensive_saturating_add(T::BondingDuration::get());
+				// Note: we used current era before, but that is meant to be used for only election.
+				// The right value to use here is the active era.
+
+				let era = session_rotation::Rotator::<T>::active_era()
+					.saturating_add(T::BondingDuration::get());
 				if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
 					// To keep the chunk count down, we only keep one chunk per era. Since
 					// `unlocking` is a FiFo queue, if a chunk exists for `era` we know that it will
@@ -1503,10 +1502,14 @@ pub mod pallet {
 			Ok(actual_weight.into())
 		}
 
-		/// Remove any unlocked chunks from the `unlocking` queue from our management.
+		/// Remove any stake that has been fully unbonded and is ready for withdrawal.
 		///
-		/// This essentially frees up that balance to be used by the stash account to do whatever
-		/// it wants.
+		/// Stake is considered fully unbonded once [`Config::BondingDuration`] has elapsed since
+		/// the unbonding was initiated. In rare cases—such as when offences for the unbonded era
+		/// have been reported but not yet processed—withdrawal is restricted to eras for which
+		/// all offences have been processed.
+		///
+		/// The unlocked stake will be returned as free balance in the stash account.
 		///
 		/// The dispatch origin for this call must be _Signed_ by the controller.
 		///
@@ -1516,8 +1519,8 @@ pub mod pallet {
 		///
 		/// ## Parameters
 		///
-		/// - `num_slashing_spans`: **Deprecated**. This parameter is retained for backward
-		/// compatibility. It no longer has any effect.
+		/// - `num_slashing_spans`: **Deprecated**. Retained only for backward compatibility; this
+		///   parameter has no effect.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::withdraw_unbonded_kill())]
 		pub fn withdraw_unbonded(
@@ -2451,11 +2454,21 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 
-		/// Manually applies a deferred slash for a given era.
+		/// Manually and permissionlessly applies a deferred slash for a given era.
 		///
 		/// Normally, slashes are automatically applied shortly after the start of the `slash_era`.
-		/// This function exists as a **fallback mechanism** in case slashes were not applied due to
-		/// unexpected reasons. It allows anyone to manually apply an unapplied slash.
+		/// The automatic application of slashes is handled by the pallet's internal logic, and it
+		/// tries to apply one slash page per block of the era.
+		/// If for some reason, one era is not enough for applying all slash pages, the remaining
+		/// slashes need to be manually (permissionlessly) applied.
+		///
+		/// For a given era x, if at era x+1, slashes are still unapplied, all withdrawals get
+		/// blocked, and these need to be manually applied by calling this function.
+		/// This function exists as a **fallback mechanism** for this extreme situation, but we
+		/// never expect to encounter this in normal scenarios.
+		///
+		/// The parameters for this call can be queried by looking at the `UnappliedSlashes` storage
+		/// for eras older than the active era.
 		///
 		/// ## Parameters
 		/// - `slash_era`: The staking era in which the slash was originally scheduled.
@@ -2466,7 +2479,8 @@ pub mod pallet {
 		///
 		/// ## Behavior
 		/// - The function is **permissionless**—anyone can call it.
-		/// - The `slash_era` **must be the current era or a past era**. If it is in the future, the
+		/// - The `slash_era` **must be the current era or a past era**.
+		/// If it is in the future, the
 		///   call fails with `EraNotStarted`.
 		/// - The fee is waived if the slash is successfully applied.
 		///
@@ -2488,39 +2502,6 @@ pub mod pallet {
 			slashing::apply_slash::<T>(unapplied_slash, slash_era);
 
 			Ok(Pays::No.into())
-		}
-
-		/// Adjusts the staking ledger by withdrawing any excess staked amount.
-		///
-		/// This function corrects cases where a user's recorded stake in the ledger
-		/// exceeds their actual staked funds. This situation can arise due to cases such as
-		/// external slashing by another pallet, leading to an inconsistency between the ledger
-		/// and the actual stake.
-		#[pallet::call_index(32)]
-		#[pallet::weight(T::DbWeight::get().reads_writes(2, 1))]
-		pub fn withdraw_overstake(origin: OriginFor<T>, stash: T::AccountId) -> DispatchResult {
-			use sp_runtime::Saturating;
-			let _ = ensure_signed(origin)?;
-
-			let ledger = Self::ledger(Stash(stash.clone()))?;
-			let actual_stake = asset::staked::<T>(&stash);
-			let force_withdraw_amount = ledger.total.defensive_saturating_sub(actual_stake);
-
-			// ensure there is something to force unstake.
-			ensure!(!force_withdraw_amount.is_zero(), Error::<T>::BoundNotMet);
-
-			// we ignore if active is 0. It implies the locked amount is not actively staked. The
-			// account can still get away from potential slash, but we can't do much better here.
-			StakingLedger {
-				total: actual_stake,
-				active: ledger.active.saturating_sub(force_withdraw_amount),
-				..ledger
-			}
-			.update()?;
-
-			Self::deposit_event(Event::<T>::Withdrawn { stash, amount: force_withdraw_amount });
-
-			Ok(())
 		}
 	}
 }
