@@ -399,7 +399,6 @@ pub async fn assert_para_blocks_throughput(
 			}
 		}
 
-		dbg!(finalized_parachain_blocks.len());
 		if finalized_parachain_blocks.is_empty() {
 			break
 		}

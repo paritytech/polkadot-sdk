@@ -5051,8 +5051,10 @@ name = "cumulus-zombienet-sdk-tests"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cumulus-primitives-core",
  "cumulus-zombienet-sdk-helpers",
  "env_logger 0.11.3",
+ "frame-support",
  "futures",
  "log",
  "polkadot-primitives",

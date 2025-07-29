@@ -17,10 +17,12 @@
 
 use anyhow::anyhow;
 
+use cumulus_primitives_core::relay_chain::MAX_POV_SIZE;
 use cumulus_zombienet_sdk_helpers::{
 	assert_finality_lag, assert_para_throughput, create_assign_core_call,
 	submit_extrinsic_and_wait_for_finalization_success,
 };
+use frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND;
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_sdk::{
@@ -73,7 +75,9 @@ async fn pov_bundling_utility_weight() -> Result<(), anyhow::Error> {
 	log::info!("3 cores total assigned to the parachain");
 
 	// Create and send first transaction: 1s ref_time using utility.with_weight
-	let ref_time_1s = 1_000_000_000_000u64; // 1 second in ref_time units
+	//
+	// While we only should have 500ms available.
+	let ref_time_1s = WEIGHT_REF_TIME_PER_SECOND;
 	let first_call = create_utility_with_weight_call(ref_time_1s, 0);
 	let sudo_first_call = create_sudo_call(first_call);
 
@@ -82,10 +86,9 @@ async fn pov_bundling_utility_weight() -> Result<(), anyhow::Error> {
 		.await?;
 	log::info!("First transaction finalized");
 
-	// Create and send second transaction: half max PoV size using utility.with_weight
-	let max_pov_size = 10 * 1024 * 1024u64; // 10MB max PoV size
-	let half_max_pov = max_pov_size / 2;
-	let second_call = create_utility_with_weight_call(0, half_max_pov);
+	// Create a transaction that uses more than the allowed POV size per block.
+	let pov_size = MAX_POV_SIZE / 4 + 512 * 1024;
+	let second_call = create_utility_with_weight_call(0, pov_size as u64);
 	let sudo_second_call = create_sudo_call(second_call);
 
 	log::info!("Sending second transaction with half max PoV size");
