@@ -62,15 +62,6 @@ impl RuntimeBlob {
 
 	/// Create `RuntimeBlob` from the given WASM or PolkaVM program blob,
 	/// but initialize the runtime code hash too.
-	///
-	/// Returns `Err` if the blob cannot be deserialized.
-	///
-	/// Will only accept a PolkaVM program if the `SUBSTRATE_ENABLE_POLKAVM` environment
-	/// variable is set to `1`.
-	///
-	/// Note: the runtime code hash is not necessarily the hash of the runtime blob. Please note
-	/// that a runtime blob if initialized with `uncompress_if_needed` will contain the runtime code
-	/// hash of the compressed blob.
 	fn new_with_runtime_code_hash(
 		raw_blob: &[u8],
 		runtime_code_hash: Option<Vec<u8>>,
