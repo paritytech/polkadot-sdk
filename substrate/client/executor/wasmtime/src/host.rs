@@ -120,7 +120,7 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 			.map_err(|e| e.to_string());
 
 		self.host_state_mut().allocator = Some(allocator);
-		let res = res.as_ref().inspect(|ptr| {
+		let _ = res.as_ref().inspect(|ptr| {
 			let instance_id = self.host_state_mut().instance_id;
 			let runtime_code_hash = self.host_state_mut().runtime_code_hash.clone();
 			let call_id = self.host_state_mut().allocator_call_id.fetch_add(1, Ordering::Relaxed);
@@ -144,7 +144,7 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 			.map_err(|e| e.to_string());
 
 		self.host_state_mut().allocator = Some(allocator);
-		let res = res.as_ref().inspect(|_| {
+		let _ = res.as_ref().inspect(|_| {
 			let instance_id = self.host_state_mut().instance_id;
 			let runtime_code_hash = self.host_state_mut().runtime_code_hash.clone();
 			let call_id = self.host_state_mut().allocator_call_id.fetch_add(1, Ordering::Relaxed);
