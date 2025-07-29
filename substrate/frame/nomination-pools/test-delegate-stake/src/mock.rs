@@ -339,6 +339,8 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		// for events to be deposited.
 		frame_system::Pallet::<Runtime>::set_block_number(1);
 
+		pallet_staking_async_testing_utils::set_active_era::<Runtime>(0);
+
 		// set some limit for nominations.
 		assert_ok!(Staking::set_staking_configs(
 			RuntimeOrigin::root(),
