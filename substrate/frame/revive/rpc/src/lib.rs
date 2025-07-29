@@ -133,6 +133,12 @@ impl HardhatRpcServer for HardhatRpcServerImpl {
 	) -> RpcResult<CreatedBlock<H256>> {
 		Ok(self.client.mine(number_of_blocks, interval).await?)
 	}
+
+	async fn get_automine(
+		&self
+	) -> RpcResult<bool> {
+		Ok(self.client.get_automine().await?)
+	}
 }
 
 #[async_trait]

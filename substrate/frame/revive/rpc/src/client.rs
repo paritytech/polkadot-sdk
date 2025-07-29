@@ -35,7 +35,9 @@ use jsonrpsee::{
 };
 use pallet_revive::{
 	evm::{
-		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult, Filter, GenericTransaction, Log, ReceiptInfo, SyncingProgress, SyncingStatus, Trace, TransactionSigned, TransactionTrace, H256, U256
+		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult,
+		Filter, GenericTransaction, Log, ReceiptInfo, SyncingProgress, SyncingStatus, Trace,
+		TransactionSigned, TransactionTrace, H256, U256,
 	},
 	EthTransactError,
 };
@@ -50,7 +52,9 @@ use subxt::{
 			reconnecting_rpc_client::{ExponentialBackoff, RpcClient as ReconnectingRpcClient},
 			RpcClient,
 		},
-	}, config::Header, Config, OnlineClient
+	},
+	config::Header,
+	Config, OnlineClient,
 };
 use thiserror::Error;
 
@@ -707,6 +711,7 @@ impl Client {
 			.await
 	}
 
+	/// Mine blocks when seal is set to manual-seal or instant-seal.
 	pub async fn mine(
 		&self,
 		number_of_blocks: Option<U256>,
@@ -726,5 +731,14 @@ impl Client {
 		}
 
 		Ok(latest_block.unwrap())
+	}
+
+	/// Returns `true` if block production is set to `instant`.
+	pub async fn get_automine(&self) -> Result<bool, ClientError> {
+		let res = self.rpc_client.request("hardhat_getAutomine".to_string(), None).await.unwrap();
+
+		let automine = serde_json::from_str(res.get()).unwrap();
+
+		Ok(automine)
 	}
 }

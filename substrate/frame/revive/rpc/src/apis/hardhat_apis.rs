@@ -31,4 +31,9 @@ pub trait HardhatRpc {
 		number_of_blocks: Option<U256>,
 		interval: Option<U256>,
 	)-> RpcResult<CreatedBlock<H256>>;
+
+	#[method(name = "hardhat_getAutomine")]
+	async fn get_automine(
+		&self
+	) -> RpcResult<bool>;
 }

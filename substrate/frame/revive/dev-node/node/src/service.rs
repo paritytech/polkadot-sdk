@@ -173,6 +173,7 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 		telemetry.as_ref().map(|x| x.handle()),
 	);
 
+	let mut consensus_type: Consensus = Consensus::None;
 
 	let (sink, manual_trigger_stream) =
 		futures::channel::mpsc::channel::<sc_consensus_manual_seal::EngineCommand<Hash>>(1024);
@@ -181,6 +182,8 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 
 	match consensus {
 		Consensus::InstantSeal => {
+			consensus_type = Consensus::InstantSeal;
+
 			let create_inherent_data_providers =
 				|_, ()| async move { Ok(sp_timestamp::InherentDataProvider::from_system_time()) };
 
@@ -218,6 +221,8 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 			);
 		},
 		Consensus::ManualSeal(Some(rate)) => {
+			consensus_type = Consensus::ManualSeal(Some(rate));
+
 			let mut new_sink = maybe_sink.clone().unwrap();
 			task_manager.spawn_handle().spawn("block_authoring", None, async move {
 				loop {
@@ -252,6 +257,8 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 			);
 		},
 		Consensus::ManualSeal(None) => {
+			consensus_type = Consensus::ManualSeal(None);
+
 			let params = sc_consensus_manual_seal::ManualSealParams {
 				block_import: client.clone(),
 				env: proposer.clone(),
@@ -285,6 +292,7 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 				client: client.clone(),
 				pool: pool.clone(),
 				manual_seal_sink: sink.clone(),
+				consensus_type: consensus_type.clone()
 			};
 			crate::rpc::create_full(deps).map_err(Into::into)
 		})

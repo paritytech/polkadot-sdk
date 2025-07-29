@@ -22,7 +22,8 @@
 
 #![warn(missing_docs)]
 
-use jsonrpsee::RpcModule;
+use jsonrpsee::{RpcModule, proc_macros::rpc, core::RpcResult};
+
 use polkadot_sdk::{
 	sc_transaction_pool_api::TransactionPool,
 	sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata},
@@ -32,6 +33,32 @@ use polkadot_sdk::{
 use revive_dev_runtime::{AccountId, Nonce, OpaqueBlock};
 use std::sync::Arc;
 
+use crate::cli::Consensus;
+
+#[rpc(server, client)]
+pub trait HardhatRpc {
+	#[method(name = "hardhat_getAutomine")]
+    fn get_automine(&self) -> RpcResult<bool>;
+}
+pub struct HardhatRpcServerImpl {
+    consensus_type: Consensus,
+}
+
+impl HardhatRpcServerImpl {
+	pub fn new(consensus_type: Consensus) -> Self {
+		Self { consensus_type }
+	}
+}
+
+impl HardhatRpcServer for HardhatRpcServerImpl {
+    fn get_automine(&self) -> RpcResult<bool> {
+        Ok(match self.consensus_type {
+            Consensus::InstantSeal => true,
+            _ => false,
+        })
+    }
+}
+
 /// Full client dependencies.
 pub struct FullDeps<C, P> {
 	/// The client instance to use.
@@ -40,7 +67,8 @@ pub struct FullDeps<C, P> {
 	pub pool: Arc<P>,
 	/// Connection to allow RPC triggers for block production.
     pub manual_seal_sink: Option<futures::channel::mpsc::Sender<sc_consensus_manual_seal::EngineCommand<Hash>>>,
-
+	/// Consensus 
+	pub consensus_type: Consensus
 }
 
 #[docify::export]
@@ -66,7 +94,7 @@ where
 	use sc_consensus_manual_seal::rpc::{ManualSeal, ManualSealApiServer};
 	
 	let mut module = RpcModule::new(());
-	let FullDeps { client, pool, manual_seal_sink } = deps;
+	let FullDeps { client, pool, manual_seal_sink , consensus_type} = deps;
 
 	module.merge(System::new(client.clone(), pool.clone()).into_rpc())?;
 	module.merge(Dev::new(client).into_rpc())?;
@@ -74,6 +102,7 @@ where
 	if let Some(sink) = manual_seal_sink {
 		module.merge(ManualSeal::<Hash>::new(sink.clone()).into_rpc())?;
 	}
+	module.merge(HardhatRpcServerImpl::new(consensus_type).into_rpc())?;
 
 	Ok(module)
 }
