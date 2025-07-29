@@ -27,7 +27,6 @@ use jsonrpsee::{core::async_trait, proc_macros::rpc};
 use sc_consensus::ImportedAux;
 use serde::{Deserialize, Serialize};
 use sp_runtime::EncodedJustification;
-use sp_core::U256;
 
 /// Sender passed to the authorship task to report errors or successes.
 pub type Sender<T> = Option<oneshot::Sender<std::result::Result<T, Error>>>;

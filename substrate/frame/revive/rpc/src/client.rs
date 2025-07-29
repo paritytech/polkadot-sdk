@@ -28,7 +28,6 @@ use crate::{
 	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
 	TracerType, TransactionInfo, LOG_TARGET,
 };
-use core::num;
 use jsonrpsee::{
 	core::traits::ToRpcParams,
 	rpc_params,
@@ -36,9 +35,7 @@ use jsonrpsee::{
 };
 use pallet_revive::{
 	evm::{
-		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult,
-		Filter, GenericTransaction, Log, ReceiptInfo, SyncingProgress, SyncingStatus, Trace,
-		TransactionSigned, TransactionTrace, H256, U256,
+		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult, Filter, GenericTransaction, Log, ReceiptInfo, SyncingProgress, SyncingStatus, Trace, TransactionSigned, TransactionTrace, H256, U256
 	},
 	EthTransactError,
 };
@@ -53,9 +50,7 @@ use subxt::{
 			reconnecting_rpc_client::{ExponentialBackoff, RpcClient as ReconnectingRpcClient},
 			RpcClient,
 		},
-	},
-	config::Header,
-	Config, OnlineClient,
+	}, config::Header, Config, OnlineClient
 };
 use thiserror::Error;
 
@@ -728,7 +723,6 @@ impl Client {
 				self.rpc_client.request("engine_createBlock".to_string(), params).await.unwrap();
 
 			latest_block = Some(serde_json::from_str(res.get()).unwrap());
-
 		}
 
 		Ok(latest_block.unwrap())

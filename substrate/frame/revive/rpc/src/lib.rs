@@ -23,10 +23,10 @@ use jsonrpsee::{
 	types::{ErrorCode, ErrorObjectOwned},
 };
 use pallet_revive::evm::*;
+use sc_consensus_manual_seal::rpc::CreatedBlock;
 use sp_arithmetic::Permill;
 use sp_core::{keccak_256, H160, H256, U256};
 use thiserror::Error;
-use sc_consensus_manual_seal::rpc::CreatedBlock;
 
 pub mod cli;
 pub mod client;
