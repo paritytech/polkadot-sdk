@@ -207,7 +207,7 @@ impl LoadSpec for ChainSpecLoader {
 			},
 
 			// -- Loading a specific spec from disk
-			path => Box::new(GenericChainSpec::from_json_file(path.into())?),
+			path => Box::new(DeprecatedGenericChainSpec::from_json_file(path.into())?),
 		})
 	}
 }
