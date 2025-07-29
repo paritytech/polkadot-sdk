@@ -17,6 +17,7 @@
 
 use crate::cli::Consensus;
 use futures::FutureExt;
+use futures::SinkExt;
 use polkadot_sdk::{
 	parachains_common::Hash,
 	sc_client_api::backend::Backend,
@@ -177,8 +178,7 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 
 	let (sink, manual_trigger_stream) =
 		futures::channel::mpsc::channel::<sc_consensus_manual_seal::EngineCommand<Hash>>(1024);
-		
-	let maybe_sink = Some(sink);
+
 
 	match consensus {
 		Consensus::InstantSeal => {
@@ -203,6 +203,19 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 			};
 			seal_block(seal_params).await;
 
+			/// This is needed to finish opening both channels, otherwise block production won't start
+			/// until we send an rpc call to create a block.
+			let command = sc_consensus_manual_seal::EngineCommand::SealNewBlock {
+				sender: None,
+				parent_hash: None,
+				finalize: true,
+				create_empty: true,
+			};
+
+			let mut sink = sink.clone();
+
+			sink.send(command).await;
+
 			let params = sc_consensus_manual_seal::InstantSealParams {
 				block_import: client.clone(),
 				env: proposer,
@@ -223,7 +236,7 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 		Consensus::ManualSeal(Some(rate)) => {
 			consensus_type = Consensus::ManualSeal(Some(rate));
 
-			let mut new_sink = maybe_sink.clone().unwrap();
+			let mut new_sink = sink.clone();
 			task_manager.spawn_handle().spawn("block_authoring", None, async move {
 				loop {
 					futures_timer::Delay::new(std::time::Duration::from_millis(rate)).await;
@@ -285,14 +298,14 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 	let rpc_extensions_builder = {
 		let client = client.clone();
 		let pool = transaction_pool.clone();
-		let sink = maybe_sink.clone(); // captured from above
+		let sink = sink.clone(); // captured from above
 
 		Box::new(move |_| {
 			let deps = crate::rpc::FullDeps {
 				client: client.clone(),
 				pool: pool.clone(),
 				manual_seal_sink: sink.clone(),
-				consensus_type: consensus_type.clone()
+				consensus_type: consensus_type.clone(),
 			};
 			crate::rpc::create_full(deps).map_err(Into::into)
 		})

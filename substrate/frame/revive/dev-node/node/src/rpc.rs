@@ -22,12 +22,12 @@
 
 #![warn(missing_docs)]
 
-use jsonrpsee::{RpcModule, proc_macros::rpc, core::RpcResult};
+use jsonrpsee::{core::RpcResult, proc_macros::rpc, RpcModule};
 
 use polkadot_sdk::{
+	parachains_common::Hash,
 	sc_transaction_pool_api::TransactionPool,
 	sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata},
-	parachains_common::Hash,
 	*,
 };
 use revive_dev_runtime::{AccountId, Nonce, OpaqueBlock};
@@ -38,10 +38,14 @@ use crate::cli::Consensus;
 #[rpc(server, client)]
 pub trait HardhatRpc {
 	#[method(name = "hardhat_getAutomine")]
-    fn get_automine(&self) -> RpcResult<bool>;
+	fn get_automine(&self) -> RpcResult<bool>;
+
+	// 	#[method(name = "hardhat_dropTransaction")]
+	//     fn drop_transaction(&self) -> RpcResult<bool>;
 }
+
 pub struct HardhatRpcServerImpl {
-    consensus_type: Consensus,
+	consensus_type: Consensus,
 }
 
 impl HardhatRpcServerImpl {
@@ -51,12 +55,12 @@ impl HardhatRpcServerImpl {
 }
 
 impl HardhatRpcServer for HardhatRpcServerImpl {
-    fn get_automine(&self) -> RpcResult<bool> {
-        Ok(match self.consensus_type {
-            Consensus::InstantSeal => true,
-            _ => false,
-        })
-    }
+	fn get_automine(&self) -> RpcResult<bool> {
+		Ok(match self.consensus_type {
+			Consensus::InstantSeal => true,
+			_ => false,
+		})
+	}
 }
 
 /// Full client dependencies.
@@ -66,9 +70,10 @@ pub struct FullDeps<C, P> {
 	/// Transaction pool instance.
 	pub pool: Arc<P>,
 	/// Connection to allow RPC triggers for block production.
-    pub manual_seal_sink: Option<futures::channel::mpsc::Sender<sc_consensus_manual_seal::EngineCommand<Hash>>>,
-	/// Consensus 
-	pub consensus_type: Consensus
+	pub manual_seal_sink:
+		futures::channel::mpsc::Sender<sc_consensus_manual_seal::EngineCommand<Hash>>,
+	/// Consensus
+	pub consensus_type: Consensus,
 }
 
 #[docify::export]
@@ -89,19 +94,16 @@ where
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<OpaqueBlock, AccountId, Nonce>,
 	P: TransactionPool + 'static,
 {
-	use polkadot_sdk::substrate_frame_rpc_system::{System, SystemApiServer};
 	use polkadot_sdk::sc_rpc::dev::{Dev, DevApiServer};
+	use polkadot_sdk::substrate_frame_rpc_system::{System, SystemApiServer};
 	use sc_consensus_manual_seal::rpc::{ManualSeal, ManualSealApiServer};
-	
+
 	let mut module = RpcModule::new(());
-	let FullDeps { client, pool, manual_seal_sink , consensus_type} = deps;
+	let FullDeps { client, pool, manual_seal_sink, consensus_type } = deps;
 
 	module.merge(System::new(client.clone(), pool.clone()).into_rpc())?;
 	module.merge(Dev::new(client).into_rpc())?;
-
-	if let Some(sink) = manual_seal_sink {
-		module.merge(ManualSeal::<Hash>::new(sink.clone()).into_rpc())?;
-	}
+	module.merge(ManualSeal::<Hash>::new(manual_seal_sink.clone()).into_rpc())?;
 	module.merge(HardhatRpcServerImpl::new(consensus_type).into_rpc())?;
 
 	Ok(module)
