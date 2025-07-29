@@ -259,6 +259,8 @@ fn common_config(semantics: &Semantics) -> std::result::Result<wasmtime::Config,
 	config.wasm_multi_memory(false);
 	config.wasm_threads(false);
 	config.wasm_memory64(false);
+	config.wasm_tail_call(false);
+	config.wasm_extended_const(false);
 
 	let (use_pooling, use_cow) = match semantics.instantiation_strategy {
 		InstantiationStrategy::PoolingCopyOnWrite => (true, true),
