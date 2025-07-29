@@ -318,10 +318,10 @@ pub enum DisputeCoordinatorMessage {
 	/// Fetch a list of all recent disputes the coordinator is aware of.
 	/// These are disputes which have occurred any time in recent sessions,
 	/// and which may have already concluded.
-	RecentDisputes(oneshot::Sender<Vec<(SessionIndex, CandidateHash, DisputeStatus)>>),
+	RecentDisputes(oneshot::Sender<BTreeMap<(SessionIndex, CandidateHash), DisputeStatus>>),
 	/// Fetch a list of all active disputes that the coordinator is aware of.
 	/// These disputes are either not yet concluded or recently concluded.
-	ActiveDisputes(oneshot::Sender<Vec<(SessionIndex, CandidateHash, DisputeStatus)>>),
+	ActiveDisputes(oneshot::Sender<BTreeMap<(SessionIndex, CandidateHash), DisputeStatus>>),
 	/// Get candidate votes for a candidate.
 	QueryCandidateVotes(
 		Vec<(SessionIndex, CandidateHash)>,
@@ -781,6 +781,9 @@ pub enum RuntimeApiRequest {
 	/// Get the maximum uncompressed code size.
 	/// `V12`
 	ValidationCodeBombLimit(SessionIndex, RuntimeApiSender<u32>),
+	/// Get the paraids at the relay parent.
+	/// `V14`
+	ParaIds(SessionIndex, RuntimeApiSender<Vec<ParaId>>),
 }
 
 impl RuntimeApiRequest {
@@ -830,6 +833,9 @@ impl RuntimeApiRequest {
 
 	/// `SchedulingLookahead`
 	pub const SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT: u32 = 13;
+
+	/// `ParaIds`
+	pub const PARAIDS_RUNTIME_REQUIREMENT: u32 = 14;
 }
 
 /// A message to the Runtime API subsystem.

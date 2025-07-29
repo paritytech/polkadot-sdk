@@ -10,9 +10,9 @@ rpc_port = 9944
 [[relaychain.nodes]]
 name = "bob"
 validator = true
-rpc_port = 9955
+rpc_port = 9945
 args = [
-	"-lruntime::system=debug,runtime::session=trace,runtime::staking::ah-client=trace",
+	"-lruntime::system=debug,runtime::session=trace,runtime::staking::ah-client=trace,runtime::ah-client=debug",
 ]
 
 [[parachains]]
@@ -21,7 +21,7 @@ chain_spec_path = "./parachain.json"
 
 [parachains.collator]
 name = "charlie"
-rpc_port = 9966
+rpc_port = 9946
 args = [
-	"-lruntime::system=debug,runtime::multiblock-election=debug,runtime::staking=debug,runtime::staking::rc-client=trace",
+	"-lruntime::system=debug,runtime::multiblock-election=trace,runtime::staking=debug,runtime::staking::rc-client=trace,runtime::rc-client=debug",
 ]

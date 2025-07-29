@@ -241,6 +241,7 @@ impl<R: Send + Sync + GenerateRandomness<u64>> InherentDataProvider
 			horizontal_messages,
 			relay_chain_state: proof,
 			relay_parent_descendants: Default::default(),
+			collator_peer_id: None,
 		};
 
 		parachain_inherent_data.provide_inherent_data(inherent_data).await
