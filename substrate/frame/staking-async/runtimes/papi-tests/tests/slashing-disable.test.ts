@@ -74,7 +74,7 @@ test(
 					);
 				}),
 
-			// then staking will calculate the slasheh, we only check 1 page
+			// then staking will calculate the slashes, we only check 1 page
 			Observe.on(Chain.Parachain, "Staking", "SlashComputed").withDataCheck(
 				(x: any) => x.page === 0
 			),
