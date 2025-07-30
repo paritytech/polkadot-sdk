@@ -5985,9 +5985,9 @@ dependencies = [
 
 [[package]]
 name = "env_filter"
-version = "0.1.0"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a009aa4810eb158359dda09d0c87378e4bbb89b5a801f016885a4707ba24f7ea"
+checksum = "186e05a59d4c50738528153b83b0b0194d3a29507dfec16eccd4b342903397d0"
 dependencies = [
  "log",
  "regex",
@@ -6582,6 +6582,7 @@ dependencies = [
  "cumulus-client-parachain-inherent",
  "cumulus-primitives-proof-size-hostfunction",
  "cumulus-test-runtime",
+ "env_filter",
  "frame-benchmarking",
  "frame-storage-access-test-runtime",
  "frame-support",
@@ -6617,11 +6618,20 @@ dependencies = [
  "sp-externalities 0.30.0",
  "sp-genesis-builder",
  "sp-inherents",
+<<<<<<< HEAD
  "sp-io 41.0.1",
  "sp-keystore 0.43.0",
  "sp-runtime 42.0.0",
  "sp-state-machine 0.46.0",
  "sp-storage 22.0.0",
+=======
+ "sp-io",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-runtime-interface 24.0.0",
+ "sp-state-machine",
+ "sp-storage 19.0.0",
+>>>>>>> e1d67cfe ([FRAME] Custom log level for the runtime benchmarks (#8857))
  "sp-timestamp",
  "sp-transaction-pool",
  "sp-trie 40.0.0",
