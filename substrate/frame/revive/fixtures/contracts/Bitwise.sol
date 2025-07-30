@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
 contract Bitwise {
 
@@ -43,22 +43,38 @@ contract Bitwise {
         return a == 0 ? 1 : 0;
     }
 
-    function clz(uint a) public pure returns (uint) {
-        return a.clz();
+
+    function clzOp(uint256 a) public returns (uint256 r) {
+        assembly {
+            r := clz(a)
+        }
     }
 
-    function byteOp(uint index, uint value) public pure returns (uint) {
-        return value.byte(index);
-    }
-    function shl(uint256 value, uint256 shift) public pure returns (uint256) {
-        return value.shl(shift);
+
+    function byteOp(uint256 index, uint256 value) public returns (uint256 r) {
+        assembly {
+            r := byte(index, value)
+        }
     }
 
-    function shr(uint256 value, uint256 shift) public pure returns (uint256) {
-        return value.shr(shift);
+
+    function shl(uint256 shift, uint256 value) public returns (uint256 r) {
+        assembly {
+            r := shl(shift, value)
+        }
     }
 
-    function sar(int256 value, uint256 shift) public pure returns (int256) {
-        return value.sar(shift);
+
+    function shr(uint256 shift, uint256 value) public returns (uint256 r) {
+        assembly {
+            r := shr(shift, value)
+        }
+    }
+
+
+    function sar(uint256 shift, int256 value) public returns (int256 r) {
+        assembly {
+           r := sar(shift, value)
+        }
     }
 }

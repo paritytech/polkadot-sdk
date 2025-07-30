@@ -590,10 +590,11 @@ fn clz_works() {
 			// Test: clz(0) should return 256
 			let result = builder::bare_call(addr)
 				.data(
-					Bitwise::BitwiseCalls::clz(Bitwise::clzCall { a: U256::from(0) })
+					Bitwise::BitwiseCalls::clzOp(Bitwise::clzOpCall { a: U256::from(0) })
 						.abi_encode(),
 				)
 				.build_and_unwrap_result();
+            println!("CLZ(0) result: {:?}", result.data);
 			assert_eq!(
 				U256::from(256),
 				U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
@@ -603,7 +604,7 @@ fn clz_works() {
 			// Test: clz(1) should return 255 (255 leading zeros)
 			let result = builder::bare_call(addr)
 				.data(
-					Bitwise::BitwiseCalls::clz(Bitwise::clzCall { a: U256::from(1) })
+					Bitwise::BitwiseCalls::clzOp(Bitwise::clzOpCall { a: U256::from(1) })
 						.abi_encode(),
 				)
 				.build_and_unwrap_result();
@@ -616,7 +617,7 @@ fn clz_works() {
 			// Test: clz(0xFF) should return 248 (256 - 8 = 248 leading zeros)
 			let result = builder::bare_call(addr)
 				.data(
-					Bitwise::BitwiseCalls::clz(Bitwise::clzCall { a: U256::from(0xFF) })
+					Bitwise::BitwiseCalls::clzOp(Bitwise::clzOpCall { a: U256::from(0xFF) })
 						.abi_encode(),
 				)
 				.build_and_unwrap_result();
@@ -629,7 +630,7 @@ fn clz_works() {
 			// Test: clz(U256::MAX) should return 0 (no leading zeros)
 			let result = builder::bare_call(addr)
 				.data(
-					Bitwise::BitwiseCalls::clz(Bitwise::clzCall { a: U256::MAX })
+					Bitwise::BitwiseCalls::clzOp(Bitwise::clzOpCall { a: U256::MAX })
 						.abi_encode(),
 				)
 				.build_and_unwrap_result();
@@ -643,7 +644,7 @@ fn clz_works() {
 			let high_bit = U256::from(1) << 255;
 			let result = builder::bare_call(addr)
 				.data(
-					Bitwise::BitwiseCalls::clz(Bitwise::clzCall { a: high_bit })
+					Bitwise::BitwiseCalls::clzOp(Bitwise::clzOpCall { a: high_bit })
 						.abi_encode(),
 				)
 				.build_and_unwrap_result();
@@ -657,7 +658,7 @@ fn clz_works() {
 			let second_high_bit = U256::from(1) << 254;
 			let result = builder::bare_call(addr)
 				.data(
-					Bitwise::BitwiseCalls::clz(Bitwise::clzCall { a: second_high_bit })
+					Bitwise::BitwiseCalls::clzOp(Bitwise::clzOpCall { a: second_high_bit })
 						.abi_encode(),
 				)
 				.build_and_unwrap_result();
@@ -670,7 +671,7 @@ fn clz_works() {
 			// Test: clz(0x100) should return 247 (256 - 9 = 247 leading zeros)
 			let result = builder::bare_call(addr)
 				.data(
-					Bitwise::BitwiseCalls::clz(Bitwise::clzCall { a: U256::from(0x100) })
+					Bitwise::BitwiseCalls::clzOp(Bitwise::clzOpCall { a: U256::from(0x100) })
 						.abi_encode(),
 				)
 				.build_and_unwrap_result();
