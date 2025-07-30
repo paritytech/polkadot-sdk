@@ -24,7 +24,7 @@ the setup, see [Setup](#setup).
 
 ## Runtime Overview
 
-This parachain runtime is a fake fork of the asset-hub next (created originally by Donál). It is here
+This parachain runtime is a fake fork of the asset-hub next (created originally by Dónal). It is here
 to test the async-staking pallet in a real environment.
 
 This parachain contains:
@@ -70,7 +70,7 @@ two benefits:
 
 #### Optionally Ignoring New Validators
 
-The rely chain runtime contains an important hack. A type called `MaybeUsePreviousValidatorsElse`.
+The relay chain runtime contains an important hack. A type called `MaybeUsePreviousValidatorsElse`.
 This type looks into `parameter_types! { pub storage UsePreviousValidators: bool = true }`, and
 
 - If set to `true`, it will ignore the new validators coming from AH, and use the previous ones.
@@ -85,7 +85,7 @@ This type looks into `parameter_types! { pub storage UsePreviousValidators: bool
 
 The runtime presets are generally divided into few categories:
 
-- `real-s` / `real-m`: imply that the realy chain will not use `MaybeUsePreviousValidatorsElse`.
+- `real-s` / `real-m`: imply that the relay chain will not use `MaybeUsePreviousValidatorsElse`.
   Consequently, AH will NOT generate random validators, and instead use 2 or 4 well know keys
   (alice, bob, dave, eve) as validator candidates. This setup is useful for slashing testing.
   `real-s` uses 2 validators, while `real-m` uses 4 validators. The latter is useful for testing
