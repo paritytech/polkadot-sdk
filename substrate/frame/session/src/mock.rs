@@ -21,7 +21,10 @@ use super::*;
 use crate as pallet_session;
 #[cfg(feature = "historical")]
 use crate::historical as pallet_session_historical;
-use frame_support::{derive_impl, parameter_types, traits::ConstU64};
+use frame_support::{
+	derive_impl, parameter_types,
+	traits::{ConstU64, Hooks},
+};
 use pallet_balances::{self, AccountData};
 use sp_core::crypto::key_types::DUMMY;
 use sp_runtime::{
@@ -33,10 +36,6 @@ use sp_runtime::{
 use sp_staking::SessionIndex;
 use sp_state_machine::BasicExternalities;
 
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU64, Hooks},
-};
 use std::collections::BTreeMap;
 
 impl_opaque_keys! {
