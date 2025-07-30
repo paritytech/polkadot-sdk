@@ -85,8 +85,6 @@ runtime-benchmarks = [
 	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
-	"polkadot-omni-node-lib/try-runtime",
-
 	"asset-hub-rococo-runtime/try-runtime",
 	"asset-hub-westend-runtime/try-runtime",
 	"bridge-hub-rococo-runtime/try-runtime",
@@ -95,9 +93,11 @@ try-runtime = [
 	"coretime-rococo-runtime/try-runtime",
 	"coretime-westend-runtime/try-runtime",
 	"glutton-westend-runtime/try-runtime",
+	"parachains-common/try-runtime",
 	"penpal-runtime/try-runtime",
 	"people-rococo-runtime/try-runtime",
 	"people-westend-runtime/try-runtime",
+	"polkadot-omni-node-lib/try-runtime",
 ]
 fast-runtime = [
 	"bridge-hub-rococo-runtime/fast-runtime",
