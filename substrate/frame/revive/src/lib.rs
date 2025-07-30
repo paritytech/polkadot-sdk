@@ -683,168 +683,125 @@ pub mod pallet {
 			// For each transaction we need to build:
 			// TransactionSigned and ReceiptInfo.
 
-			for (transaction_index, (extrinsic_payload, events)) in extrinsics {
-				// Check if the ExtrinsicSuccess event is present in the events.
+			let (signed_txs, receipts): (Vec<_>, Vec<_>) = extrinsics
+				.into_iter()
+				.filter_map(|(transaction_index, (extrinsic_payload, events))| {
+					// Self::process_extrinsic(
+					// 	transaction_index,
+					// 	extrinsic_payload,
+					// 	events,
+					// 	block_number,
+					// 	block_hash,
+					// )
 
-				let success = events.iter().any(|event| {
-					// TODO: Avoid cloning.
-					if let Ok(frame_system::Event::ExtrinsicSuccess { dispatch_info }) =
-						event.clone().try_into()
-					{
-						log::info!(
-							"Found ExtrinsicSuccess with dispatch_info: {:?}",
-							dispatch_info
-						);
-						true
-					} else {
-						false
-					}
-				});
+					// TODO: Move this to a function as above:
+					// Check if the ExtrinsicSuccess event is present in the events.
 
-				// TODO: Calcuate the transaction fee.
-				// let tx_fee = events.iter().find_map(|event| {
-				// 	if let Ok(pallet_transaction_payment::Event::TransactionFeePaid { .. }) =
-				// 		event.try_into()
-				// 	{
-				// 		Some(event.clone())
-				// 	} else {
-				// 		None
-				// 	}
-				// });
-
-				let transaction_hash = H256(keccak_256(&extrinsic_payload));
-
-				// TODO: Don't panic
-				let signed_tx = TransactionSigned::decode(&mut &extrinsic_payload[..])
-					.expect("Extrinsic is valid; qed");
-				let from = signed_tx.recover_eth_address().expect("Cannot recover address; qed");
-
-				// TODO: Fetch gas price.
-				let base_gas_price = U256::from(0);
-				let tx_info =
-					GenericTransaction::from_signed(signed_tx.clone(), base_gas_price, Some(from));
-				// TODO: Compute gas correctly.
-				let gas_price = U256::from(0);
-				let gas_used = U256::from(0);
-
-				let logs = events
-					.iter()
-					.filter_map(|event| {
-						if let Ok(Event::ContractEmitted { contract, data, topics }) =
+					let success = events.iter().any(|event| {
+						// TODO: Avoid cloning.
+						if let Ok(frame_system::Event::ExtrinsicSuccess { dispatch_info }) =
 							event.clone().try_into()
 						{
-							Some(Log {
-								address: contract,
-								topics,
-								// TODO: No panics.
-								data: Some(data.into()),
-								block_number: block_number.into(),
-								transaction_hash,
-								transaction_index: transaction_index.into(),
-								block_hash: block_hash.into(),
-								// This needs to be extracted from the event.index somehow.
-								log_index: U256::from(0), // TODO: Set correct log index.
-								..Default::default()
-							})
+							log::info!(
+								"Found ExtrinsicSuccess with dispatch_info: {:?}",
+								dispatch_info
+							);
+							true
 						} else {
-							None
+							false
 						}
-					})
-					.collect::<Vec<_>>();
+					});
 
-				let contract_address = if tx_info.to.is_none() {
-					Some(create1(
-						&from,
-						tx_info
-							.nonce
-							.unwrap_or_default()
-							.try_into()
-							// TODO: Do not panic!
-							.expect("Nonce is a valid u32; qed"),
-						// .map_err(|_| ClientError::ConversionFailed)?,
-					))
-				} else {
-					None
-				};
+					// TODO: Calcuate the transaction fee.
+					// let tx_fee = events.iter().find_map(|event| {
+					// 	if let Ok(pallet_transaction_payment::Event::TransactionFeePaid { .. }) =
+					// 		event.try_into()
+					// 	{
+					// 		Some(event.clone())
+					// 	} else {
+					// 		None
+					// 	}
+					// });
 
-				let receipt = ReceiptInfo::new(
-					block_hash.into(),
-					block_number.into(),
-					contract_address,
-					from,
-					logs,
-					tx_info.to,
-					gas_price,
-					gas_used,
-					success,
-					transaction_hash,
-					transaction_index.into(),
-					tx_info.r#type.unwrap_or_default(),
-				);
+					let transaction_hash = H256(keccak_256(&extrinsic_payload));
 
-				// let success = events.iter().any(|event| {
-				// 	if let <T as Config>::RuntimeEvent::System(
-				// 		frame_system::Event::ExtrinsicSuccess { dispatch_info },
-				// 	) = event
-				// 	{
-				// 		log::info!(
-				// 			"Found ExtrinsicSuccess with dispatch_info: {:?}",
-				// 			dispatch_info
-				// 		);
-				// 		true
-				// 	} else {
-				// 		false
-				// 	}
-				// });
+					// TODO: Don't panic
+					let signed_tx = TransactionSigned::decode(&mut &extrinsic_payload[..])
+						.expect("Extrinsic is valid; qed");
+					let from =
+						signed_tx.recover_eth_address().expect("Cannot recover address; qed");
 
-				// let success = events.iter().any(|event| {
-				// 	if let <T as frame_system::Config>::RuntimeEvent::System(
-				// 		frame_system::Event::ExtrinsicSuccess { .. },
-				// 	) = event
-				// 	{
-				// 		true
-				// 	} else {
-				// 		false
-				// 	}
+					// TODO: Fetch gas price.
+					let base_gas_price = U256::from(0);
+					let tx_info = GenericTransaction::from_signed(
+						signed_tx.clone(),
+						base_gas_price,
+						Some(from),
+					);
+					// TODO: Compute gas correctly.
+					let gas_price = U256::from(0);
+					let gas_used = U256::from(0);
 
-				// 	// match event {
-				// 	<T as Config>::RuntimeEvent::System(
-				// 		frame_system::Event::ExtrinsicSuccess { dispatch_info },
-				// 	) => {
-				// 		// Handle ExtrinsicSuccess
-				// 		log::info!(
-				// 			"Found ExtrinsicSuccess with dispatch_info: {:?}",
-				// 			dispatch_info
-				// 		);
-				// 		return true;
-				// 	},
-				// 	_ => return false;
-				// }
+					let logs = events
+						.iter()
+						.filter_map(|event| {
+							if let Ok(Event::ContractEmitted { contract, data, topics }) =
+								event.clone().try_into()
+							{
+								Some(Log {
+									address: contract,
+									topics,
+									// TODO: No panics.
+									data: Some(data.into()),
+									block_number: block_number.into(),
+									transaction_hash,
+									transaction_index: transaction_index.into(),
+									block_hash: block_hash.into(),
+									// This needs to be extracted from the event.index somehow.
+									log_index: U256::from(0), // TODO: Set correct log index.
+									..Default::default()
+								})
+							} else {
+								None
+							}
+						})
+						.collect::<Vec<_>>();
 
-				// if let RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess { .. }) =
-				// 	event
-				// {
-				// 	true
-				// } else {
-				// 	false
-				// }
+					let contract_address = if tx_info.to.is_none() {
+						Some(create1(
+							&from,
+							tx_info
+								.nonce
+								.unwrap_or_default()
+								.try_into()
+								// TODO: Do not panic!
+								.expect("Nonce is a valid u32; qed"),
+							// .map_err(|_| ClientError::ConversionFailed)?,
+						))
+					} else {
+						None
+					};
 
-				// if let Ok(::ExtrinsicSuccess { .. }) = event {
-				// 	// if let Ok(frame_system::Event::ExtrinsicSuccess { .. }) =
-				// 	// event.try_into() {
-				// 	true
-				// } else {
-				// 	false
-				// }
+					let receipt = ReceiptInfo::new(
+						block_hash.into(),
+						block_number.into(),
+						contract_address,
+						from,
+						logs,
+						tx_info.to,
+						gas_price,
+						gas_used,
+						success,
+						transaction_hash,
+						transaction_index.into(),
+						tx_info.r#type.unwrap_or_default(),
+					);
 
-				// matches!(
-				// 	event,
-				// 	<T as frame_system::Config>::RuntimeEvent::System(
-				// 		frame_system::Event::ExtrinsicSuccess { .. }
-				// 	)
-				// )
-				// });
-			}
+					Some((signed_tx, receipt))
+				})
+				.unzip();
+
+			// Build EVM block.
 		}
 
 		fn integrity_test() {
