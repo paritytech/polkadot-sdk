@@ -358,9 +358,9 @@ fn can_fetch_current_and_next_epoch_data() {
 		assert_eq!(Babe::current_epoch().authorities, Babe::next_epoch().authorities);
 		// 1 era = 3 epochs
 		// 1 epoch = 3 slots
-		// Eras start from 0.
-		// Therefore at era 1 we should be starting epoch 3 with slot 10.
-		start_era(1);
+		// Eras start from 1.
+		// Therefore at era 2 we should be starting epoch 3 with slot 10.
+		start_era(2);
 
 		let current_epoch = Babe::current_epoch();
 		assert_eq!(current_epoch.epoch_index, 3);
