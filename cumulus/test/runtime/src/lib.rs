@@ -372,9 +372,8 @@ impl SelectCore for MultipleBlocksPerPoVCoreSelector {
 			return DefaultCoreSelector::<Runtime>::selected_core()
 		}
 
-		let core_selector = (System::block_number().saturating_sub(1) /
-			blocks_per_pov)
-			.using_encoded(|b| b[0]);
+		let core_selector =
+			(System::block_number().saturating_sub(1) / blocks_per_pov).using_encoded(|b| b[0]);
 
 		(CoreSelector(core_selector), ClaimQueueOffset(0))
 	}
