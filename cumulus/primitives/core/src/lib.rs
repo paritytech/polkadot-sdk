@@ -269,12 +269,23 @@ pub enum CumulusDigestItem {
 	/// A digest item providing information about the position of the block in the bundle.
 	#[codec(index = 2)]
 	BundleInfo(BundleInfo),
+	/// A digest item informing the node that this block should be put alone onto a core.
+	///
+	/// In other words, the core should not be shared with other blocks.
+	#[codec(index = 3)]
+	UseFullCore,
 }
 
 impl CumulusDigestItem {
 	/// Encode this as a Substrate [`DigestItem`].
 	pub fn to_digest_item(&self) -> DigestItem {
-		DigestItem::PreRuntime(CUMULUS_CONSENSUS_ID, self.encode())
+		let encoded = self.encode();
+
+		match self {
+			Self::RelayParent(_) | Self::UseFullCore =>
+				DigestItem::Consensus(CUMULUS_CONSENSUS_ID, encoded),
+			_ => DigestItem::PreRuntime(CUMULUS_CONSENSUS_ID, encoded),
+		}
 	}
 
 	/// Find [`CumulusDigestItem::CoreInfo`] in the given `digest`.

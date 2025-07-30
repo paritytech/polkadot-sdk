@@ -260,10 +260,16 @@ where
 			// If the previous one was a fraction and we gave the transaction a `FullCore` we need
 			// to check if it used it.
 			(prev @ BlockWeightMode::FractionOfCore { .. }, BlockWeightMode::FullCore) =>
+			//TODO: Use `BlockWeight` so we actually take reclaim into account
 				if post_info.calc_actual_weight(info).all_lt(
 					MaxParachainBlockWeight::target_block_weight::<T>(TargetBlockRate::get()),
 				) {
 					crate::BlockWeightMode::<T>::put(prev);
+				} else {
+					// Inform the node that this block uses the entire core alone.
+					frame_system::Pallet::<T>::deposit_log(
+						CumulusDigestItem::UseFullCore.to_digest_item(),
+					);
 				},
 			(BlockWeightMode::FractionOfCore { .. }, BlockWeightMode::FractionOfCore { .. }) => (),
 		}
