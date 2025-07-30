@@ -2059,6 +2059,11 @@ impl<T: Config> Pallet<T> {
 			Self::ensure_era_slashes_applied(era)?;
 		}
 
+		// (5) Ensure no canceled slashes exist in the past eras.
+		for (era, _) in CancelledSlashes::<T>::iter() {
+			ensure!(era >= active_era, "Found cancelled slashes for era before active era");
+		}
+
 		Ok(())
 	}
 

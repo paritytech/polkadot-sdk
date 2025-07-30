@@ -764,6 +764,20 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	/// Cancelled slashes by era and validator with maximum slash fraction to be cancelled.
+	///
+	/// When slashes are cancelled by governance, this stores the era and the validators
+	/// whose slashes should be cancelled, along with the maximum slash fraction that should
+	/// be cancelled for each validator.
+	#[pallet::storage]
+	pub type CancelledSlashes<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		EraIndex,
+		BoundedVec<(T::AccountId, Perbill), T::MaxValidatorSet>,
+		ValueQuery,
+	>;
+
 	/// All slashing events on validators, mapped by era to the highest slash proportion
 	/// and slash value of the era.
 	#[pallet::storage]
@@ -1140,8 +1154,7 @@ pub mod pallet {
 		/// An unapplied slash has been cancelled.
 		SlashCancelled {
 			slash_era: EraIndex,
-			slash_key: (T::AccountId, Perbill, u32),
-			payout: BalanceOf<T>,
+			validator: T::AccountId,
 		},
 		/// Session change has been triggered.
 		///
@@ -1266,12 +1279,37 @@ pub mod pallet {
 					slash,
 					active_era,
 				);
-				let offence_era = active_era.saturating_sub(T::SlashDeferDuration::get());
-				slashing::apply_slash::<T>(slash, offence_era);
-				// remove the slash
+
+				// Check if this slash has been cancelled
+				let cancelled_slashes = CancelledSlashes::<T>::get(&active_era);
+				let is_cancelled = cancelled_slashes.iter().any(|(validator, cancel_fraction)| {
+					*validator == key.0 && *cancel_fraction >= key.1
+				});
+
+				if is_cancelled {
+					crate::log!(
+						debug,
+						"🦹 slash for {:?} in era {:?} was cancelled, skipping",
+						key.0,
+						active_era,
+					);
+				} else {
+					let offence_era = active_era.saturating_sub(T::SlashDeferDuration::get());
+					slashing::apply_slash::<T>(slash, offence_era);
+				}
+
+				// Always remove the slash from UnappliedSlashes
 				UnappliedSlashes::<T>::remove(&active_era, &key);
+
+				// Check if there are more slashes for this era
+				if UnappliedSlashes::<T>::iter_prefix(&active_era).next().is_none() {
+					// No more slashes for this era, clear CancelledSlashes
+					CancelledSlashes::<T>::remove(&active_era);
+				}
+
 				T::WeightInfo::apply_slash()
 			} else {
+				// No slashes found for this era
 				T::DbWeight::get().reads(1)
 			}
 		}
@@ -1870,33 +1908,47 @@ pub mod pallet {
 
 		/// Cancels scheduled slashes for a given era before they are applied.
 		///
-		/// This function allows `T::AdminOrigin` to selectively remove pending slashes from
-		/// the `UnappliedSlashes` storage, preventing their enactment.
+		/// This function allows `T::AdminOrigin` to cancel pending slashes for specified validators
+		/// in a given era. The cancelled slashes are stored and will be checked when applying
+		/// slashes.
 		///
 		/// ## Parameters
-		/// - `era`: The staking era for which slashes were deferred.
-		/// - `slash_keys`: A list of slash keys identifying the slashes to remove. This is a tuple
-		/// of `(stash, slash_fraction, page_index)`.
+		/// - `era`: The staking era for which slashes should be cancelled.
+		/// - `validator_slashes`: A list of validator stash accounts and their slash fractions to
+		///   be cancelled.
 		#[pallet::call_index(17)]
-		#[pallet::weight(T::WeightInfo::cancel_deferred_slash(slash_keys.len() as u32))]
+		#[pallet::weight(T::WeightInfo::cancel_deferred_slash(validator_slashes.len() as u32))]
 		pub fn cancel_deferred_slash(
 			origin: OriginFor<T>,
 			era: EraIndex,
-			slash_keys: Vec<(T::AccountId, Perbill, u32)>,
+			validator_slashes: Vec<(T::AccountId, Perbill)>,
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
-			ensure!(!slash_keys.is_empty(), Error::<T>::EmptyTargets);
+			ensure!(!validator_slashes.is_empty(), Error::<T>::EmptyTargets);
 
-			// Remove the unapplied slashes.
-			slash_keys.into_iter().for_each(|i| {
-				UnappliedSlashes::<T>::take(&era, &i).map(|unapplied_slash| {
-					Self::deposit_event(Event::<T>::SlashCancelled {
-						slash_era: era,
-						slash_key: i,
-						payout: unapplied_slash.payout,
-					});
-				});
-			});
+			// Get current cancelled slashes for this era
+			let mut cancelled_slashes = CancelledSlashes::<T>::get(&era);
+
+			// Process each validator slash
+			for (validator, slash_fraction) in validator_slashes {
+				// Since this is gated by admin origin, we don't need to check if they are really
+				// validators and trust governance to correctly set the parameters.
+
+				// Remove any existing entry for this validator
+				cancelled_slashes.retain(|(v, _)| v != &validator);
+
+				// Add the validator with the specified slash fraction
+				cancelled_slashes
+					.try_push((validator.clone(), slash_fraction))
+					.map_err(|_| Error::<T>::BoundNotMet)
+					.defensive_proof("cancelled_slashes should have capacity for all validators")?;
+
+				Self::deposit_event(Event::<T>::SlashCancelled { slash_era: era, validator });
+			}
+
+			// Update storage
+			CancelledSlashes::<T>::insert(&era, cancelled_slashes);
+
 			Ok(())
 		}
 
