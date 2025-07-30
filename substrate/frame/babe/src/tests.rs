@@ -570,7 +570,7 @@ fn report_equivocation_invalid_key_owner_proof() {
 	let (pairs, mut ext) = new_test_ext_with_pairs(3);
 
 	ext.execute_with(|| {
-		start_era(1);
+		start_era(2);
 
 		let authorities = Authorities::<Test>::get();
 

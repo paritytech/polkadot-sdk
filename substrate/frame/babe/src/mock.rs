@@ -247,7 +247,7 @@ pub fn start_session(session_index: SessionIndex) {
 
 /// Progress to the first block at the given era
 pub fn start_era(era_index: EraIndex) {
-	start_session((era_index * 3).into());
+	start_session(((era_index - 1) * 3).into());
 	assert_eq!(pallet_staking::CurrentEra::<Test>::get(), Some(era_index));
 }
 
