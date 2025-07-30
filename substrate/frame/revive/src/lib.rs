@@ -46,8 +46,8 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		runtime::GAS_PRICE, CallTracer, GasEncoder, GenericTransaction, PrestateTracer, Trace,
-		Tracer, TracerType, TYPE_EIP1559,
+		runtime::GAS_PRICE, CallTracer, GasEncoder, GenericTransaction, Log, PrestateTracer,
+		ReceiptInfo, Trace, Tracer, TracerType, TransactionSigned, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
@@ -104,7 +104,7 @@ pub use frame_support::{self, dispatch::DispatchInfo, traits::IsSubType, weights
 pub use frame_system::{self, limits::BlockWeights};
 pub use pallet_transaction_payment;
 pub use primitives::*;
-pub use sp_core::{H160, H256, U256};
+pub use sp_core::{keccak_256, H160, H256, U256};
 pub use sp_runtime;
 use sp_runtime::{
 	generic::UncheckedExtrinsic as RuntimeUncheckedExtrinsic,
@@ -598,6 +598,10 @@ pub mod pallet {
 
 		// TODO: Does it hold water?
 		frame_system::Event<T>: TryFrom<<T as frame_system::Config>::RuntimeEvent>,
+		// frame_system::Event<T>: TryFrom<<T as
+		// pallet_transaction_payment::Config>::RuntimeEvent>,
+
+		// pallet_transaction_payment::Event::TransactionFeePaid
 
 		// type RuntimeEvent: From<Event<Self>> + IsType<<Self as
 		// frame_system::Config>::RuntimeEvent>; <T as frame_system::Config>::RuntimeCall:
@@ -647,7 +651,7 @@ pub mod pallet {
 					if let Some(crate::Call::eth_transact { payload, raw_bytes }) =
 						call.is_sub_type()
 					{
-						Some((index, (extrinsic, Vec::new())))
+						Some((index, (payload.clone(), Vec::new())))
 					} else {
 						None
 					}
@@ -679,7 +683,7 @@ pub mod pallet {
 			// For each transaction we need to build:
 			// TransactionSigned and ReceiptInfo.
 
-			for (index, (extrinsic, events)) in extrinsics {
+			for (transaction_index, (extrinsic_payload, events)) in extrinsics {
 				// Check if the ExtrinsicSuccess event is present in the events.
 
 				let success = events.iter().any(|event| {
@@ -696,6 +700,56 @@ pub mod pallet {
 						false
 					}
 				});
+
+				// TODO: Calcuate the transaction fee.
+				// let tx_fee = events.iter().find_map(|event| {
+				// 	if let Ok(pallet_transaction_payment::Event::TransactionFeePaid { .. }) =
+				// 		event.try_into()
+				// 	{
+				// 		Some(event.clone())
+				// 	} else {
+				// 		None
+				// 	}
+				// });
+
+				let transaction_hash = H256(keccak_256(&extrinsic_payload));
+
+				// TODO: Don't panic
+				let signed_tx = TransactionSigned::decode(&mut &extrinsic_payload[..])
+					.expect("Extrinsic is valid; qed");
+				let from = signed_tx.recover_eth_address().expect("Cannot recover address; qed");
+
+				// TODO: Fetch gas price.
+				let base_gas_price = U256::from(0);
+				let tx_info =
+					GenericTransaction::from_signed(signed_tx.clone(), base_gas_price, Some(from));
+				// TODO: Compute gas correctly.
+				let gas_used = U256::from(0);
+
+				let logs = events
+					.iter()
+					.filter_map(|event| {
+						if let Ok(Event::ContractEmitted { contract, data, topics }) =
+							event.clone().try_into()
+						{
+							Some(Log {
+								address: contract,
+								topics,
+								// TODO: No panics.
+								data: Some(data.into()),
+								block_number: block_number.into(),
+								transaction_hash,
+								transaction_index: transaction_index.into(),
+								block_hash: block_hash.into(),
+								// This needs to be extracted from the event.index somehow.
+								log_index: U256::from(0), // TODO: Set correct log index.
+								..Default::default()
+							})
+						} else {
+							None
+						}
+					})
+					.collect::<Vec<_>>();
 
 				// let success = events.iter().any(|event| {
 				// 	if let <T as Config>::RuntimeEvent::System(
