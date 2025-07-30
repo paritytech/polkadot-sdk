@@ -1080,7 +1080,7 @@ impl Default for Forcing {
 ///
 /// Active exposure is the exposure of the validator set currently validating, i.e. in
 /// `active_era`. It can differ from the latest planned exposure in `current_era`.
-#[deprecated(note = "Use `ExistenceOf` or `ExistenceOrLegacyExposureOf` instead")]
+#[deprecated(note = "Use `DefaultExposureOf` instead")]
 pub struct ExposureOf<T>(core::marker::PhantomData<T>);
 
 #[allow(deprecated)]
