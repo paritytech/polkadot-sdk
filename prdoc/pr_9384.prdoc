@@ -15,9 +15,9 @@ crates:
 - name: pallet-referenda
   bump: minor
 - name: pallet-bounties
-  bump: minor
+  bump: major
 - name: polkadot-runtime-common
-  bump: minor
+  bump: major
 - name: polkadot-parachain-primitives
   bump: major
 - name: pallet-bags-list
@@ -29,4 +29,4 @@ crates:
 - name: pallet-preimage
   bump: minor
 - name: pallet-scheduler
-  bump: minor
+  bump: major
