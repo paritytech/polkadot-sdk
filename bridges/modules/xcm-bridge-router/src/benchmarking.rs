@@ -55,7 +55,7 @@ mod benchmarks {
 
 		assert_eq!(
 			Bridges::<T, I>::get(&bridge_id),
-			Some(BridgeState { delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR, is_congested })
+			BridgeState { delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR, is_congested }
 		);
 		Ok(())
 	}

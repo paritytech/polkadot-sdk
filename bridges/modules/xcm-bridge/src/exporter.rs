@@ -137,12 +137,12 @@ where
 		})?;
 
 		// Get the potential price for a message over the bridge.
-		let price_for_delivery = message.as_ref().map(|msg| {
-			T::MessageExportPrice::price_for_delivery(locations.bridge_id().clone(), msg)
-		});
+		let price_for_delivery = message
+			.as_ref()
+			.map(|msg| T::MessageExportPrice::price_for_delivery(*locations.bridge_id(), msg));
 
-		// check if we are able to route the message. We use the existing ` HaulBlobExporter ` for that.
-		// It will make all required changes and will encode a message properly, so that the
+		// check if we are able to route the message. We use the existing ` HaulBlobExporter ` for
+		// that. It will make all required changes and will encode a message properly, so that the
 		// `DispatchBlob` at the bridged xcm-bridge will be able to decode it.
 		let ((blob, id), mut price) = PalletAsHaulBlobExporter::<T, I>::validate(
 			network,
