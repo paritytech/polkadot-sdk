@@ -191,9 +191,9 @@ where
 	<T as frame_system::Config>::RuntimeEvent: TryInto<pallet_offences::Event>,
 	<T as frame_system::Config>::RuntimeEvent: TryInto<frame_system::Event<T>>,
 {
-	// make sure that all slashes have been applied
+	// make sure that all slashes have been applied and TotalIssuance adjusted(BurnedDebt).
 	// deposit to reporter + reporter account endowed.
-	assert_eq!(System::<T>::read_events_for_pallet::<pallet_balances::Event<T>>().len(), 2);
+	assert_eq!(System::<T>::read_events_for_pallet::<pallet_balances::Event<T>>().len(), 3);
 	// (n nominators + one validator) * slashed + Slash Reported + Slash Computed
 	assert_eq!(
 		System::<T>::read_events_for_pallet::<pallet_staking::Event<T>>().len(),
