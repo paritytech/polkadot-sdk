@@ -1278,7 +1278,7 @@ fn crypto_hashes() {
 			.build_and_unwrap_contract();
 		// Perform the call.
 		let input = b"_DEAD_BEEF";
-		use sp_io::hashing::{blake2_128, blake2_256, keccak_256};
+		use sp_io::hashing::*;
 		// Wraps a hash function into a more dynamic form usable for testing.
 		macro_rules! dyn_hash_fn {
 			($name:ident) => {

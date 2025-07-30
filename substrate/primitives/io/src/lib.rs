@@ -1287,6 +1287,7 @@ pub trait Trie {
 
 	/// A trie root formed from the iterated items.
 	#[version(3)]
+	#[wrapped]
 	fn blake2_256_root(
 		input: PassFatPointerAndDecode<Vec<(Vec<u8>, Vec<u8>)>>,
 		version: PassAs<StateVersion, u8>,
@@ -1299,6 +1300,12 @@ pub trait Trie {
 		out.0.copy_from_slice(&root.0);
 	}
 
+	#[wrapper]
+	fn blake2_256_root(data: Vec<(Vec<u8>, Vec<u8>)>, state_version: StateVersion) -> H256 {
+		let mut root = H256::default();
+		blake2_256_root__wrapped(data, state_version, &mut root);
+		root
+	}
 	/// A trie root formed from the enumerated items.
 	fn blake2_256_ordered_root(
 		input: PassFatPointerAndDecode<Vec<Vec<u8>>>,
@@ -1320,6 +1327,7 @@ pub trait Trie {
 
 	/// A trie root formed from the enumerated items.
 	#[version(3)]
+	#[wrapped]
 	fn blake2_256_ordered_root(
 		input: PassFatPointerAndDecode<Vec<Vec<u8>>>,
 		version: PassAs<StateVersion, u8>,
@@ -1330,6 +1338,13 @@ pub trait Trie {
 			StateVersion::V1 => LayoutV1::<sp_core::Blake2Hasher>::ordered_trie_root(input),
 		};
 		out.0.copy_from_slice(&root.0);
+	}
+
+	#[wrapper]
+	fn blake2_256_ordered_root(data: Vec<Vec<u8>>, state_version: StateVersion) -> H256 {
+		let mut root = H256::default();
+		blake2_256_ordered_root__wrapped(data, state_version, &mut root);
+		root
 	}
 
 	/// A trie root formed from the iterated items.
@@ -1353,6 +1368,7 @@ pub trait Trie {
 
 	/// A trie root formed from the iterated items.
 	#[version(3)]
+	#[wrapped]
 	fn keccak_256_root(
 		input: PassFatPointerAndDecode<Vec<(Vec<u8>, Vec<u8>)>>,
 		version: PassAs<StateVersion, u8>,
@@ -1363,6 +1379,13 @@ pub trait Trie {
 			StateVersion::V1 => LayoutV1::<sp_core::KeccakHasher>::trie_root(input),
 		};
 		out.0.copy_from_slice(&root.0);
+	}
+
+	#[wrapper]
+	fn keccak_256_root(data: Vec<(Vec<u8>, Vec<u8>)>, state_version: StateVersion) -> H256 {
+		let mut root = H256::default();
+		keccak_256_root__wrapped(data, state_version, &mut root);
+		root
 	}
 
 	/// A trie root formed from the enumerated items.
@@ -1386,6 +1409,7 @@ pub trait Trie {
 
 	/// A trie root formed from the enumerated items.
 	#[version(3)]
+	#[wrapped]
 	fn keccak_256_ordered_root(
 		input: PassFatPointerAndDecode<Vec<Vec<u8>>>,
 		version: PassAs<StateVersion, u8>,
@@ -1396,6 +1420,13 @@ pub trait Trie {
 			StateVersion::V1 => LayoutV1::<sp_core::KeccakHasher>::ordered_trie_root(input),
 		};
 		out.0.copy_from_slice(&root.0);
+	}
+
+	#[wrapper]
+	fn keccak_256_ordered_root(data: Vec<Vec<u8>>, state_version: StateVersion) -> H256 {
+		let mut root = H256::default();
+		keccak_256_ordered_root__wrapped(data, state_version, &mut root);
+		root
 	}
 
 	/// Verify trie proof
@@ -1700,6 +1731,7 @@ pub trait Crypto {
 	///
 	/// Stores the public key in the provided output buffer.
 	#[version(2)]
+	#[wrapped]
 	fn ed25519_generate(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -1714,6 +1746,13 @@ pub trait Crypto {
 				.ed25519_generate_new(id, seed)
 				.expect("`ed25519_generate` failed"),
 		);
+	}
+
+	#[wrapper]
+	fn ed25519_generate(id: KeyTypeId, seed: Option<Vec<u8>>) -> ed25519::Public {
+		let mut public = ed25519::Public::default();
+		ed25519_generate__wrapped(id, seed, &mut public);
+		public
 	}
 
 	/// Sign the given `msg` with the `ed25519` key that corresponds to the given public key and
@@ -1738,6 +1777,7 @@ pub trait Crypto {
 	///
 	/// Returns the signature.
 	#[version(2)]
+	#[wrapped]
 	fn ed25519_sign(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -1754,6 +1794,17 @@ pub trait Crypto {
 				out.0.copy_from_slice(&sig);
 			})
 			.ok_or(())
+	}
+
+	#[wrapper]
+	fn ed25519_sign(
+		id: KeyTypeId,
+		pub_key: &ed25519::Public,
+		message: &[u8],
+	) -> Option<ed25519::Signature> {
+		let mut signature = ed25519::Signature::default();
+		ed25519_sign__wrapped(id, pub_key, message, &mut signature).ok()?;
+		Some(signature)
 	}
 
 	/// Verify `ed25519` signature.
@@ -1950,6 +2001,7 @@ pub trait Crypto {
 	///
 	/// Stores the public key in the provided output buffer.
 	#[version(2)]
+	#[wrapped]
 	fn sr25519_generate(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -1964,6 +2016,13 @@ pub trait Crypto {
 				.sr25519_generate_new(id, seed)
 				.expect("`sr25519_generate` failed"),
 		);
+	}
+
+	#[wrapper]
+	fn sr25519_generate(id: KeyTypeId, seed: Option<Vec<u8>>) -> sr25519::Public {
+		let mut public = sr25519::Public::default();
+		sr25519_generate__wrapped(id, seed, &mut public);
+		public
 	}
 
 	/// Sign the given `msg` with the `sr25519` key that corresponds to the given public key and
@@ -1988,6 +2047,7 @@ pub trait Crypto {
 	///
 	/// Returns the signature.
 	#[version(2)]
+	#[wrapped]
 	fn sr25519_sign(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -2004,6 +2064,17 @@ pub trait Crypto {
 				out.0.copy_from_slice(&sig);
 			})
 			.ok_or(())
+	}
+
+	#[wrapper]
+	fn sr25519_sign(
+		id: KeyTypeId,
+		pub_key: &sr25519::Public,
+		message: &[u8],
+	) -> Option<sr25519::Signature> {
+		let mut signature = sr25519::Signature::default();
+		sr25519_sign__wrapped(id, pub_key, message, &mut signature).ok()?;
+		Some(signature)
 	}
 
 	/// Verify an `sr25519` signature.
@@ -2078,6 +2149,7 @@ pub trait Crypto {
 	///
 	/// Stores the public key in the provided output buffer.
 	#[version(2)]
+	#[wrapped]
 	fn ecdsa_generate(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -2092,6 +2164,13 @@ pub trait Crypto {
 				.ecdsa_generate_new(id, seed)
 				.expect("`ecdsa_generate` failed"),
 		);
+	}
+
+	#[wrapper]
+	fn ecdsa_generate(id: KeyTypeId, seed: Option<Vec<u8>>) -> ecdsa::Public {
+		let mut public = ecdsa::Public::default();
+		ecdsa_generate__wrapped(id, seed, &mut public);
+		public
 	}
 
 	/// Sign the given `msg` with the `ecdsa` key that corresponds to the given public key and
@@ -2116,6 +2195,7 @@ pub trait Crypto {
 	///
 	/// Returns the signature.
 	#[version(2)]
+	#[wrapped]
 	fn ecdsa_sign(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -2132,6 +2212,17 @@ pub trait Crypto {
 				out.0.copy_from_slice(&sig);
 			})
 			.ok_or(())
+	}
+
+	#[wrapper]
+	fn ecdsa_sign(
+		id: KeyTypeId,
+		pub_key: &ecdsa::Public,
+		message: &[u8],
+	) -> Option<ecdsa::Signature> {
+		let mut signature = ecdsa::Signature::default();
+		ecdsa_sign__wrapped(id, pub_key, message, &mut signature).ok()?;
+		Some(signature)
 	}
 
 	/// Sign the given a pre-hashed `msg` with the `ecdsa` key that corresponds to the given public
@@ -2816,6 +2907,7 @@ pub trait Offchain {
 	/// This is a truly random, non-deterministic seed generated by host environment.
 	/// Obviously fine in the off-chain worker context.
 	#[version(2)]
+	#[wrapped]
 	fn random_seed(&mut self, out: PassPointerAndWrite<&mut [u8; 32], 32>) {
 		out.copy_from_slice(
 			&self
@@ -2823,6 +2915,13 @@ pub trait Offchain {
 				.expect("random_seed can be called only in the offchain worker context")
 				.random_seed(),
 		);
+	}
+
+	#[wrapper]
+	fn random_seed() -> [u8; 32] {
+		let mut seed = [0u8; 32];
+		random_seed__wrapped(&mut seed);
+		seed
 	}
 
 	/// Sets a value in the local storage.
@@ -3051,6 +3150,7 @@ pub trait Offchain {
 	///
 	/// Passing `None` as deadline blocks forever.
 	#[version(2)]
+	#[wrapped]
 	fn http_response_wait(
 		&mut self,
 		ids: PassFatPointerAndDecodeSlice<&[HttpRequestId]>,
@@ -3065,6 +3165,19 @@ pub trait Offchain {
 		statuses.into_iter().zip(out).for_each(|(status, out)| {
 			*out = status.into();
 		});
+	}
+
+	#[wrapper]
+	fn http_response_wait(
+		ids: &[HttpRequestId],
+		deadline: Option<Timestamp>,
+	) -> Vec<HttpRequestStatus> {
+		let mut statuses = vec![0u32; ids.len()];
+		http_response_wait__wrapped(&ids, deadline.into(), &mut statuses[..]);
+		statuses
+			.into_iter()
+			.map(|s| HttpRequestStatus::try_from(s).unwrap_or(HttpRequestStatus::Invalid))
+			.collect::<Vec<_>>()
 	}
 
 	/// Read all response headers.
@@ -3400,60 +3513,6 @@ pub fn oom(_: core::alloc::Layout) -> ! {
 		);
 		unreachable();
 	}
-}
-
-// Useful wrappers
-
-use alloc::vec;
-
-/// A convenience wrapper around [`trie::blake2_256_ordered_root`]
-pub fn trie_blake2_256_ordered_root(data: Vec<Vec<u8>>, state_version: StateVersion) -> H256 {
-	let mut root = H256::default();
-	trie::blake2_256_ordered_root(data, state_version, &mut root);
-	root
-}
-
-/// A convenience wrapper around [`offchain::random_seed`]
-pub fn offchain_random_seed() -> [u8; 32] {
-	let mut seed = [0u8; 32];
-	offchain::random_seed(&mut seed);
-	seed
-}
-
-/// A convenience wrapper around [`crypto::sr25519_generate`]
-pub fn crypto_sr25519_generate(id: KeyTypeId, seed: Option<Vec<u8>>) -> sr25519::Public {
-	let mut public = sr25519::Public::default();
-	crypto::sr25519_generate(id, seed, &mut public);
-	public
-}
-
-/// A convenience wrapper around [`crypto::sr25519_sign`]
-pub fn crypto_sr25519_sign(
-	id: KeyTypeId,
-	pub_key: &sr25519::Public,
-	message: &[u8],
-) -> Option<sr25519::Signature> {
-	let mut signature = sr25519::Signature::default();
-	crypto::sr25519_sign(id, pub_key, message, &mut signature).ok()?;
-	Some(signature)
-}
-
-/// A convenience wrapper around [`crypto::ed25519_generate`]
-pub fn crypto_ed25519_generate(id: KeyTypeId, seed: Option<Vec<u8>>) -> ed25519::Public {
-	let mut public = ed25519::Public::default();
-	crypto::ed25519_generate(id, seed, &mut public);
-	public
-}
-
-/// A convenience wrapper around [`crypto::ed25519_sign`]
-pub fn crypto_ed25519_sign(
-	id: KeyTypeId,
-	pub_key: &ed25519::Public,
-	message: &[u8],
-) -> Option<ed25519::Signature> {
-	let mut signature = ed25519::Signature::default();
-	crypto::ed25519_sign(id, pub_key, message, &mut signature).ok()?;
-	Some(signature)
 }
 
 /// Type alias for Externalities implementation used in tests.

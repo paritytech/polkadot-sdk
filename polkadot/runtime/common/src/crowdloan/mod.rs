@@ -840,15 +840,16 @@ impl<T: Config> crate::traits::OnSwap for Pallet<T> {
 mod crypto {
 	use alloc::vec::Vec;
 	use sp_core::ed25519;
+	use sp_io::crypto::{ed25519_generate, ed25519_sign};
 	use sp_runtime::{MultiSignature, MultiSigner};
 
 	pub fn create_ed25519_pubkey(seed: Vec<u8>) -> MultiSigner {
-		sp_io::crypto_ed25519_generate(0.into(), Some(seed)).into()
+		ed25519_generate(0.into(), Some(seed)).into()
 	}
 
 	pub fn create_ed25519_signature(payload: &[u8], pubkey: MultiSigner) -> MultiSignature {
 		let edpubkey = ed25519::Public::try_from(pubkey).unwrap();
-		let edsig = sp_io::crypto_ed25519_sign(0.into(), &edpubkey, payload).unwrap();
+		let edsig = ed25519_sign(0.into(), &edpubkey, payload).unwrap();
 		edsig.into()
 	}
 }

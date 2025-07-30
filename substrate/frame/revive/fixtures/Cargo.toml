@@ -19,7 +19,6 @@ workspace = true
 anyhow = { workspace = true, default-features = true, optional = true }
 sp-core = { workspace = true, default-features = true, optional = true }
 sp-io = { workspace = true, default-features = true, optional = true }
-sp-crypto-hashing = { workspace = true, optional = true }
 
 [build-dependencies]
 anyhow = { workspace = true, default-features = true }
@@ -31,4 +30,4 @@ toml = { workspace = true }
 [features]
 default = ["std"]
 # only when std is enabled all fixtures are available
-std = ["anyhow", "sp-core", "sp-io", "sp-crypto-hashing"]
+std = ["anyhow", "sp-core", "sp-io"]

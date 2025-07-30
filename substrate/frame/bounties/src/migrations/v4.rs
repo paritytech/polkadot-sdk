@@ -158,7 +158,7 @@ pub fn pre_migration<T: pallet_bounties::Config, P: GetStorageVersion + 'static,
 		),
 		"unexpected next_key({}) = {:?}",
 		new_pallet_name,
-		HexDisplay::from(&storage::next_key(&new_pallet_prefix).unwrap()),
+		HexDisplay::from(&sp_io::storage::next_key(&new_pallet_prefix).unwrap()),
 	);
 	assert!(<P as GetStorageVersion>::on_chain_storage_version() < 4);
 }

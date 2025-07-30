@@ -1058,15 +1058,11 @@ impl Hash for BlakeTwo256 {
 	type Output = sp_core::H256;
 
 	fn ordered_trie_root(input: Vec<Vec<u8>>, version: StateVersion) -> Self::Output {
-		let mut hash = sp_core::H256::default();
-		sp_io::trie::blake2_256_ordered_root(input, version, &mut hash);
-		hash
+		sp_io::trie::blake2_256_ordered_root(input, version)
 	}
 
 	fn trie_root(input: Vec<(Vec<u8>, Vec<u8>)>, version: StateVersion) -> Self::Output {
-		let mut hash = sp_core::H256::default();
-		sp_io::trie::blake2_256_root(input, version, &mut hash);
-		hash
+		sp_io::trie::blake2_256_root(input, version)
 	}
 }
 
@@ -1089,15 +1085,11 @@ impl Hash for Keccak256 {
 	type Output = sp_core::H256;
 
 	fn ordered_trie_root(input: Vec<Vec<u8>>, version: StateVersion) -> Self::Output {
-		let mut hash = sp_core::H256::default();
-		sp_io::trie::keccak_256_ordered_root(input, version, &mut hash);
-		hash
+		sp_io::trie::keccak_256_ordered_root(input, version)
 	}
 
 	fn trie_root(input: Vec<(Vec<u8>, Vec<u8>)>, version: StateVersion) -> Self::Output {
-		let mut hash = sp_core::H256::default();
-		sp_io::trie::keccak_256_root(input, version, &mut hash);
-		hash
+		sp_io::trie::keccak_256_root(input, version)
 	}
 }
 

@@ -2779,7 +2779,7 @@ mod test {
 		traits::{ConstU32, StorageInstance},
 		BoundedVec,
 	};
-	use sp_io::{hashing_twox_128 as twox_128, TestExternalities};
+	use sp_io::{hashing::twox_128, TestExternalities};
 
 	struct Prefix;
 	impl StorageInstance for Prefix {

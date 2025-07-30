@@ -35,6 +35,7 @@ use frame_support::{ensure, traits::Get, weights::Weight};
 use pallet_revive_proc_macro::define_env;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 use sp_core::{H160, H256, U256};
+use sp_io::hashing::{blake2_128, blake2_256, keccak_256};
 use sp_runtime::{DispatchError, RuntimeDebug};
 
 /// Abstraction over the memory access within syscalls.
@@ -1834,11 +1835,7 @@ pub mod env {
 	) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::HashKeccak256(input_len))?;
 		Ok(self.compute_hash_on_intermediate_buffer(
-			memory,
-			sp_io::hashing::keccak_256,
-			input_ptr,
-			input_len,
-			output_ptr,
+			memory, keccak_256, input_ptr, input_len, output_ptr,
 		)?)
 	}
 
@@ -1962,11 +1959,7 @@ pub mod env {
 	) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::HashBlake128(input_len))?;
 		Ok(self.compute_hash_on_intermediate_buffer(
-			memory,
-			sp_io::hashing::blake2_128,
-			input_ptr,
-			input_len,
-			output_ptr,
+			memory, blake2_128, input_ptr, input_len, output_ptr,
 		)?)
 	}
 
@@ -1981,11 +1974,7 @@ pub mod env {
 	) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::HashBlake256(input_len))?;
 		Ok(self.compute_hash_on_intermediate_buffer(
-			memory,
-			sp_io::hashing::blake2_256,
-			input_ptr,
-			input_len,
-			output_ptr,
+			memory, blake2_256, input_ptr, input_len, output_ptr,
 		)?)
 	}
 

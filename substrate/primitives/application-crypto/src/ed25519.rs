@@ -38,15 +38,11 @@ impl RuntimePublic for Public {
 	}
 
 	fn generate_pair(key_type: KeyTypeId, seed: Option<Vec<u8>>) -> Self {
-		let mut out = sp_core::ed25519::Public::default();
-		sp_io::crypto::ed25519_generate(key_type, seed, &mut out);
-		out.into()
+		sp_io::crypto::ed25519_generate(key_type, seed)
 	}
 
 	fn sign<M: AsRef<[u8]>>(&self, key_type: KeyTypeId, msg: &M) -> Option<Self::Signature> {
-		let mut out = Self::Signature::default();
-		sp_io::crypto::ed25519_sign(key_type, self, msg.as_ref(), &mut out).ok()?;
-		Some(out)
+		sp_io::crypto::ed25519_sign(key_type, self, msg.as_ref())
 	}
 
 	fn verify<M: AsRef<[u8]>>(&self, msg: &M, signature: &Self::Signature) -> bool {
@@ -55,10 +51,7 @@ impl RuntimePublic for Public {
 
 	fn generate_proof_of_possession(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {
 		let proof_of_possession_statement = Pair::proof_of_possession_statement(self);
-		let mut out = Self::Signature::default();
-		sp_io::crypto::ed25519_sign(key_type, self, &proof_of_possession_statement, &mut out)
-			.ok()?;
-		Some(out)
+		sp_io::crypto::ed25519_sign(key_type, self, &proof_of_possession_statement)
 	}
 
 	fn verify_proof_of_possession(&self, proof_of_possession: &Self::Signature) -> bool {

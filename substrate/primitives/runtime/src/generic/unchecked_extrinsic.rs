@@ -563,15 +563,13 @@ where
 {
 	/// Get an encoded version of this `blake2_256`-hashed payload.
 	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		self.0.using_encoded(
-			|payload| {
-				if payload.len() > 256 {
-					f(&blake2_256(payload))
-				} else {
-					f(payload)
-				}
-			},
-		)
+		self.0.using_encoded(|payload| {
+			if payload.len() > 256 {
+				f(&blake2_256(payload)[..])
+			} else {
+				f(payload)
+			}
+		})
 	}
 }
 
@@ -967,8 +965,10 @@ mod tests {
 		let signed = TEST_ACCOUNT;
 		let extension = DummyExtension;
 		let implicit = extension.implicit().unwrap();
-		let sig = blake2_256(&(&call, DummyExtension, &implicit).encode()[..]);
-		let signature = TestSig(TEST_ACCOUNT, sig.to_vec());
+		let signature = TestSig(
+			TEST_ACCOUNT,
+			blake2_256(&(&call, DummyExtension, &implicit).encode()[..]).to_vec(),
+		);
 
 		let old_ux =
 			UncheckedExtrinsicV4::<TestAccountId, TestCall, TestSig, DummyExtension>::new_signed(
