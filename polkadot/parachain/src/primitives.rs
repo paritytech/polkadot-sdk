@@ -190,14 +190,6 @@ impl From<u32> for Id {
 	}
 }
 
-impl From<usize> for Id {
-	fn from(x: usize) -> Self {
-		// can't panic, so need to truncate
-		let x = x.try_into().unwrap_or(u32::MAX);
-		Id(x)
-	}
-}
-
 // When we added a second From impl for Id, type inference could no longer
 // determine which impl should apply for things like `5.into()`. It therefore
 // raised a bunch of errors in our test code, scattered throughout the
