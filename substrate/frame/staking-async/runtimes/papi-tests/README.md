@@ -85,7 +85,7 @@ This type looks into `parameter_types! { pub storage UsePreviousValidators: bool
 
 The runtime presets are generally divided into few categories:
 
-- `real-s` / `real-m`: imply that the realy chain will not use `MaybeUsePreviousValidatorsElse`.
+- `real-s` / `real-m`: imply that the relay chain will not use `MaybeUsePreviousValidatorsElse`.
   Consequently, AH will NOT generate random validators, and instead use 2 or 4 well know keys
   (alice, bob, dave, eve) as validator candidates. This setup is useful for slashing testing.
   `real-s` uses 2 validators, while `real-m` uses 4 validators. The latter is useful for testing
