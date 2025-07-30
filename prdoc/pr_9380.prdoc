@@ -1,0 +1,12 @@
+title: '[Staking/AHM] Properly report weight of rc -> ah xcm back to the calls'
+doc:
+- audience: Todo
+  description: |-
+    Which will consequently make the XCM/MQ code path aware of the weights, which was previously not the case.
+
+    Additionally, adds an event for when an era is pruned.
+crates:
+- name: pallet-staking-async-rc-client
+  bump: patch
+- name: pallet-staking-async
+  bump: patch
