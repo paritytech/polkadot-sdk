@@ -24,7 +24,7 @@ the setup, see [Setup](#setup).
 
 ## Runtime Overview
 
-This parachain runtime is a fake fork of the asset-hub next (created originally by Donál). It is here
+This parachain runtime is a fake fork of the asset-hub next (created originally by Dónal). It is here
 to test the async-staking pallet in a real environment.
 
 This parachain contains:
