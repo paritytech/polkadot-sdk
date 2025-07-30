@@ -618,7 +618,7 @@ pub mod pallet {
 		#[pallet::weight(
 			// `LastSessionReportEndingIndex`: rw
 			// `IncompleteSessionReport`: rw
-			T::DbWeight::get().reads_writes(2, 2) + T::AHStakingInterface::weigh_on_relay_session_report(&report)
+			T::DbWeight::get().reads_writes(2, 2) + T::AHStakingInterface::weigh_on_relay_session_report(report)
 		)]
 		pub fn relay_session_report(
 			origin: OriginFor<T>,
@@ -698,7 +698,7 @@ pub mod pallet {
 		#[pallet::weight(
 			// events are free
 			// origin check is negligible.
-			T::AHStakingInterface::weigh_on_new_offences(*slash_session, &offences)
+			T::AHStakingInterface::weigh_on_new_offences(*slash_session, offences)
 		)]
 		pub fn relay_new_offence(
 			origin: OriginFor<T>,
