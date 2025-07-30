@@ -212,36 +212,33 @@ pub mod pallet {
 			};
 
 			// handle congestion and fee factor (if detected)
-			Bridges::<T, I>::mutate_exists(&bridge_id, |bridge_state| match bridge_state {
-				Some(ref mut bridge_state) if bridge_state.is_congested => {
-					// found congested bridge
-					// ok - we need to increase the fee factor, let's do that
-					let message_size_factor =
-						FixedU128::from_u32(message_size.saturating_div(1024))
-							.saturating_mul(MESSAGE_SIZE_FEE_BASE);
-					let total_factor = EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor);
+			Bridges::<T, I>::mutate(&bridge_id, |bridge_state| {
+				if !bridge_state.is_congested {
+					return;
+				}
 
-					let previous_factor = bridge_state.delivery_fee_factor;
-					bridge_state.delivery_fee_factor =
-						bridge_state.delivery_fee_factor.saturating_mul(total_factor);
+				// ok - we need to increase the fee factor, let's do that
+				let message_size_factor = FixedU128::from_u32(message_size.saturating_div(1024))
+					.saturating_mul(MESSAGE_SIZE_FEE_BASE);
+				let total_factor = EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor);
 
-					log::info!(
-						target: LOG_TARGET,
-						"Bridge channel with id {:?} is congested. Increased fee factor from {} to {} for {:?}",
-						bridge_id,
-						previous_factor,
-						bridge_state.delivery_fee_factor,
-						dest
-					);
-					Self::deposit_event(Event::DeliveryFeeFactorUpdated {
-						previous_value: previous_factor,
-						new_value: bridge_state.delivery_fee_factor,
-						bridge_id: bridge_id.clone(),
-					});
-				},
-				_ => {
-					// not congested, do nothing
-				},
+				let previous_factor = bridge_state.delivery_fee_factor;
+				bridge_state.delivery_fee_factor =
+					bridge_state.delivery_fee_factor.saturating_mul(total_factor);
+
+				log::info!(
+					target: LOG_TARGET,
+					"Bridge channel with id {:?} is congested. Increased fee factor from {} to {} for {:?}",
+					bridge_id,
+					previous_factor,
+					bridge_state.delivery_fee_factor,
+					dest
+				);
+				Self::deposit_event(Event::DeliveryFeeFactorUpdated {
+					previous_value: previous_factor,
+					new_value: bridge_state.delivery_fee_factor,
+					bridge_id: bridge_id.clone(),
+				});
 			});
 		}
 
@@ -270,37 +267,21 @@ pub mod pallet {
 		}
 
 		/// Updates the congestion status of a bridge for a given `bridge_id`.
-		///
-		/// If the bridge does not exist and:
-		/// - `is_congested` is true, a new `BridgeState` is created with a default
-		///   `delivery_fee_factor`.
-		/// - `is_congested` is false, does nothing and no `BridgeState` is created.
 		pub(crate) fn do_update_bridge_status(bridge_id: BridgeIdOf<T, I>, is_congested: bool) {
-			Bridges::<T, I>::mutate_exists(&bridge_id, |maybe_bridge| match maybe_bridge.take() {
-				Some(mut bridge) =>
-					if is_congested {
-						bridge.is_congested = is_congested;
-						*maybe_bridge = Some(bridge);
-					} else {
+			Bridges::<T, I>::mutate(&bridge_id, |bridge| {
+				if bridge.is_congested != is_congested {
+					bridge.is_congested = is_congested;
+
+					if bridge.delivery_fee_factor != MINIMAL_DELIVERY_FEE_FACTOR {
 						Self::deposit_event(Event::DeliveryFeeFactorUpdated {
 							previous_value: bridge.delivery_fee_factor,
-							new_value: 0.into(),
-							bridge_id: bridge_id.clone(),
-						});
-					},
-				None =>
-					if is_congested {
-						*maybe_bridge = Some(BridgeState {
-							delivery_fee_factor: MINIMAL_DELIVERY_FEE_FACTOR,
-							is_congested,
-						});
-
-						Self::deposit_event(Event::DeliveryFeeFactorUpdated {
-							previous_value: 0.into(),
 							new_value: MINIMAL_DELIVERY_FEE_FACTOR,
 							bridge_id: bridge_id.clone(),
 						});
-					},
+
+						bridge.delivery_fee_factor = MINIMAL_DELIVERY_FEE_FACTOR;
+					}
+				}
 			});
 		}
 	}
