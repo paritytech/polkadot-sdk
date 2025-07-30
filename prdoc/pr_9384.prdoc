@@ -3,7 +3,7 @@ doc:
 - audience: Runtime Dev
   description: |
     Preparation for Asset hub migration by making fields public and doing some tweaks.  
-    Also removes one silently truncating constructor from `ParaId``.
+    Also hide one silently truncating constructor from `ParaId``.
 
 crates:
 - name: pallet-delegated-staking
