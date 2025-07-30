@@ -1,5 +1,5 @@
 # This is the build stage for Polkadot. Here we create the binary in a temporary image.
-FROM docker.io/paritytech/ci-unified:bullseye-1.77.0-2024-04-10-v20240408 as builder
+FROM docker.io/paritytech/ci-unified:bullseye-1.88.0-2025-06-27-v202507112050 as builder
 
 WORKDIR /polkadot
 COPY . /polkadot

@@ -51,8 +51,9 @@
 //!   distinct from the Spendable Balance, which represents how much Balance the user can actually
 //!   transfer.
 //!
-//! - **Held Balance**: Held balance still belongs to the account holder, but is suspended. It can
-//!   be slashed, but only after all the free balance has been slashed.
+//! - **Held Balance**: Held balance still belongs to the account holder, but is suspended — it
+//!   cannot be transferred or used for most operations. It may be slashed by the pallet that placed
+//!   the hold.
 //!
 //!   Multiple holds stack rather than overlay. This means that if an account has
 //!   3 holds for 100 units, the account can spend its funds for any reason down to 300 units, at
@@ -160,7 +161,7 @@ mod item_of;
 mod regular;
 mod union_of;
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_support_procedural::{CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
@@ -265,6 +266,7 @@ impl<
 	PartialEqNoBound,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	MaxEncodedLen,
 	RuntimeDebugNoBound,

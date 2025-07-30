@@ -65,7 +65,7 @@ use sp_runtime::{
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
-use cumulus_primitives_core::{AggregateMessageOrigin, ClaimQueueOffset, CoreSelector};
+use cumulus_primitives_core::{AggregateMessageOrigin, ClaimQueueOffset, CoreSelector, ParaId};
 pub use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
@@ -103,7 +103,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("glutton-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("glutton-westend"),
 	authoring_version: 1,
-	spec_version: 1_018_001,
+	spec_version: 1_019_002,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -508,6 +508,12 @@ impl_runtime_apis! {
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
 			genesis_config_presets::preset_names()
+		}
+	}
+
+	impl cumulus_primitives_core::GetParachainInfo<Block> for Runtime {
+		fn parachain_id() -> ParaId {
+			ParachainInfo::parachain_id()
 		}
 	}
 }

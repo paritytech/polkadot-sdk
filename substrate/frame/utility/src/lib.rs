@@ -269,7 +269,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let mut origin = origin;
 			let who = ensure_signed(origin.clone())?;
-			let pseudonym = Self::derivative_account_id(who, index);
+			let pseudonym = derivative_account_id(who, index);
 			origin.set_caller_from(frame_system::RawOrigin::Signed(pseudonym));
 			let info = call.get_dispatch_info();
 			let result = call.dispatch(origin);
@@ -616,10 +616,24 @@ impl TypeId for IndexedUtilityPalletId {
 }
 
 impl<T: Config> Pallet<T> {
-	/// Derive a derivative account ID from the owner account and the sub-account index.
+	#[deprecated(
+		note = "`Pallet::derivative_account_id` will be removed after August 2025. Please instead use the freestanding module function `derivative_account_id`."
+	)]
 	pub fn derivative_account_id(who: T::AccountId, index: u16) -> T::AccountId {
-		let entropy = (b"modlpy/utilisuba", who, index).using_encoded(blake2_256);
-		Decode::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
-			.expect("infinite length input; no invalid inputs for type; qed")
+		derivative_account_id(who, index)
 	}
+}
+
+/// Derive a derivative account ID from the owner account and the sub-account index.
+///
+/// The derived account with `index` of `who` is defined as:
+/// `b2b256("modlpy/utilisuba" ++ who ++ index)` where index is encoded as fixed size SCALE u16, the
+/// prefix string as SCALE u8 vector and `who` by its canonical SCALE encoding. The resulting
+/// account ID is then decoded from the hash with trailing zero bytes in case that the AccountId
+/// type is longer than 32 bytes. Note that this *could* lead to collisions when using AccountId
+/// types that are shorter than 32 bytes, especially in testing environments that are using u64.
+pub fn derivative_account_id<AccountId: Encode + Decode>(who: AccountId, index: u16) -> AccountId {
+	let entropy = (b"modlpy/utilisuba", who, index).using_encoded(blake2_256);
+	Decode::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
+		.expect("infinite length input; no invalid inputs for type; qed")
 }
