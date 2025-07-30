@@ -382,7 +382,7 @@ impl SelectCore for MultipleBlocksPerPoVCoreSelector {
 	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
 		let blocks_per_pov = BlocksPerPoV::get();
 
-		if blocks_per_pov == 0 {
+		if blocks_per_pov == 1 {
 			return (CoreSelector(0), ClaimQueueOffset(0))
 		}
 
