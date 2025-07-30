@@ -56,7 +56,7 @@ impl HostState {
 			panic_message: None,
 			instance_id,
 			runtime_code_hash,
-			allocator_call_id: AtomicU64::new(0),
+			allocator_call_id: AtomicU64::new(1),
 		}
 	}
 
@@ -146,7 +146,7 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 			.inspect(|_| {
 				let instance_id = self.host_state_mut().instance_id;
 				let runtime_code_hash = self.host_state_mut().runtime_code_hash.clone();
-				let call_id = self.host_state_mut().allocator_call_id.fetch_add(1, Ordering::Relaxed);
+				let call_id = self.host_state_mut().increment_call_id();
 				runtime_code_hash.inspect(|code_hash| {
 					let display_ptr = u64::from(ptr);
 					log::debug!(target: "runtime_host_allocator", "deallocation: code_hash={code_hash:x?}, instance_id={instance_id}, call_id={call_id} ptr=0x{display_ptr:x?}");

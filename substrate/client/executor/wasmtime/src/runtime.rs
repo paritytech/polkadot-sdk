@@ -753,18 +753,13 @@ fn inject_input_data(
 	data: &[u8],
 ) -> Result<(Pointer<u8>, WordSize)> {
 	let mut ctx = instance.store_mut();
-	let call_id = ctx
-		.data_mut()
-		.host_state_mut()
-		.map(|host_state| host_state.increment_call_id().fetch_add(1, Ordering::Relaxed))
-		.unwrap_or(0);
 	let memory = ctx.data().memory();
 	let data_len = data.len() as WordSize;
 	let data_ptr = allocator.allocate(&mut MemoryWrapper(&memory, &mut ctx), data_len)?;
 
 	let instance_id = instance.id();
 	let display_ptr = u64::from(data_ptr);
-	instance.runtime_code_hash().inspect(|code_hash| log::debug!(target: "runtime_host_allocator", "inject_input_data: code_hash={code_hash:x?}, instance_id={instance_id}, call_id={call_id}, size={data_len}, ptr=0x{display_ptr:x?}"));
+	instance.runtime_code_hash().inspect(|code_hash| log::debug!(target: "runtime_host_allocator", "inject_input_data: code_hash={code_hash:x?}, instance_id={instance_id}, call_id=0, size={data_len}, ptr=0x{display_ptr:x?}"));
 
 	util::write_memory_from(instance.store_mut(), data_ptr, data)?;
 	Ok((data_ptr, data_len))
