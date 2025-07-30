@@ -8,6 +8,6 @@ doc:
     Additionally, adds an event for when an era is pruned.
 crates:
 - name: pallet-staking-async-rc-client
-  bump: patch
+  bump: major
 - name: pallet-staking-async
-  bump: patch
+  bump: major
