@@ -58,7 +58,12 @@ use crate::{
 	types::{BlockV3, ReceiptV4},
 	vm::{CodeInfo, ContractBlob, RuntimeCosts},
 };
-use alloc::{boxed::Box, format, vec};
+
+use alloc::{
+	boxed::Box,
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	format, vec,
+};
 use codec::{Codec, Decode, Encode};
 use environmental::*;
 // use ethereum::{
@@ -86,10 +91,6 @@ use frame_system::{
 };
 use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
-use sp_runtime::{
-	traits::{BadOrigin, Bounded, Convert, Dispatchable, Saturating},
-	AccountId32, DispatchError,
-};
 
 pub use crate::{
 	address::{
@@ -99,12 +100,19 @@ pub use crate::{
 	pallet::*,
 };
 pub use codec;
-pub use frame_support::{self, dispatch::DispatchInfo, weights::Weight};
+pub use frame_support::{self, dispatch::DispatchInfo, traits::IsSubType, weights::Weight};
 pub use frame_system::{self, limits::BlockWeights};
 pub use pallet_transaction_payment;
 pub use primitives::*;
 pub use sp_core::{H160, H256, U256};
 pub use sp_runtime;
+use sp_runtime::{
+	generic::UncheckedExtrinsic as RuntimeUncheckedExtrinsic,
+	traits::{
+		BadOrigin, Block as BlockT, Bounded, Convert, Dispatchable, ExtrinsicCall, Saturating,
+	},
+	AccountId32, DispatchError,
+};
 pub use weights::WeightInfo;
 
 #[cfg(doc)]
@@ -368,6 +376,8 @@ pub mod pallet {
 			/// A list of topics used to index the event.
 			/// Number of topics is capped by [`limits::NUM_EVENT_TOPICS`].
 			topics: Vec<H256>,
+			// TODO: This needs to be extended with eth tx hash.
+			// tx hash needs to be stored in the pallet.
 		},
 
 		/// Contract deployed by deployer at the specified address.
@@ -574,20 +584,86 @@ pub mod pallet {
 	pub type BlockHash<T: Config> = StorageMap<_, Twox64Concat, U256, H256, ValueQuery>;
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
+	where
+		pallet::Event<T>: From<<T as frame_system::Config>::RuntimeEvent>,
+		<<T as frame_system::Config>::Block as BlockT>::Extrinsic:
+			ExtrinsicCall<Call = <T as Config>::RuntimeCall>,
+		<T as Config>::RuntimeCall: IsSubType<Call<T>>,
+		// <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
+
+		// Must be taken exactly from Pallet::Call to work
+		BalanceOf<T>: Into<U256> + TryFrom<U256>,
+		MomentOf<T>: Into<U256>,
+		T::Hash: frame_support::traits::IsType<H256>,
+	{
 		fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
 			let mut meter = WeightMeter::with_limit(limit);
 			ContractInfo::<T>::process_deletion_queue_batch(&mut meter);
 			meter.consumed()
 		}
 
-		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
+		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+			// TODO: Return proper weight.
 			Weight::zero()
 		}
 
 		fn on_finalize(_: BlockNumberFor<T>) {
-			// ensure we never go to trie with these values.
-			// <Pending<T>>::kill();
+			// Its impossible at this point to associate the event stored
+			// with the ETH transaction submitted, if we use read_events_for_pallet.
+			// let events = <frame_system::Pallet<T>>::read_events_for_pallet::<Event<T>>();
+			let extrinsic_count = frame_system::Pallet::<T>::extrinsic_count();
+			log::info!("Processing {} extrinsics in block", extrinsic_count);
+
+			// A tuple of (index, extrinsic data, events).
+			// Filter extrinsics that are not ether transactions.
+			// Maps the index to the extrinsic data and events.
+			let mut extrinsics = (0..extrinsic_count)
+				.into_iter()
+				.filter_map(|index| {
+					let extrinsic_data = frame_system::Pallet::<T>::extrinsic_data(index);
+
+					// Decode the encoded extrinsic into T::Extrinsic.
+					let extrinsic =
+						match <<T as frame_system::Config>::Block as BlockT>::Extrinsic::decode(
+							&mut &extrinsic_data[..],
+						) {
+							Ok(extrinsic) => extrinsic,
+							Err(_) => return None,
+						};
+					let call = extrinsic.call();
+
+					if let Some(crate::Call::eth_transact { payload, raw_bytes }) =
+						call.is_sub_type()
+					{
+						Some((index, (extrinsic, Vec::new())))
+					} else {
+						None
+					}
+				})
+				.collect::<BTreeMap<_, _>>();
+
+			for event_record in <frame_system::Pallet<T>>::read_events_no_consensus() {
+				// Event is not correlated to our extrinsics.
+				match event_record.phase {
+					frame_system::Phase::ApplyExtrinsic(index) => {
+						if !extrinsics.contains_key(&index) {
+							continue;
+						}
+
+						extrinsics
+							.get_mut(&index)
+							.expect("Index exists; qed")
+							.1
+							.push(event_record.event.clone());
+					},
+					_ => continue,
+				};
+			}
+
+			// For each transaction and call:
+			let block_number = frame_system::Pallet::<T>::block_number();
+			let block_hash = frame_system::Pallet::<T>::block_hash(block_number);
 		}
 
 		fn integrity_test() {
