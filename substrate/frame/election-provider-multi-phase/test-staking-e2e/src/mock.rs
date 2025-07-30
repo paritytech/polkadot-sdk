@@ -145,6 +145,8 @@ impl pallet_session::Config for Runtime {
 		SLASHING_DISABLING_FACTOR,
 	>;
 	type WeightInfo = ();
+	type Currency = Balances;
+	type KeyDeposit = ();
 }
 impl pallet_session::historical::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -252,6 +254,7 @@ impl pallet_bags_list::Config for Runtime {
 	type ScoreProvider = Staking;
 	type BagThresholds = BagThresholds;
 	type Score = VoteWeight;
+	type MaxAutoRebagPerBlock = ();
 }
 
 pub struct BalanceToU256;

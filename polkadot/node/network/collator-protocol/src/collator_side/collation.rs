@@ -25,9 +25,8 @@ use polkadot_node_network_protocol::{
 	PeerId,
 };
 use polkadot_node_primitives::PoV;
-use polkadot_node_subsystem::messages::ParentHeadData;
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, Hash, Id as ParaId,
+	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, Hash, HeadData, Id as ParaId,
 };
 
 /// The status of a collation as seen from the collator.
@@ -72,8 +71,8 @@ pub struct Collation {
 	pub receipt: CandidateReceipt,
 	/// Proof to verify the state transition of the parachain.
 	pub pov: PoV,
-	/// Parent head-data (or just hash).
-	pub parent_head_data: ParentHeadData,
+	/// Parent head-data
+	pub parent_head_data: HeadData,
 	/// Collation status.
 	pub status: CollationStatus,
 }
