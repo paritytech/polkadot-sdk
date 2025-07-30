@@ -70,7 +70,7 @@ two benefits:
 
 #### Optionally Ignoring New Validators
 
-The rely chain runtime contains an important hack. A type called `MaybeUsePreviousValidatorsElse`.
+The relay chain runtime contains an important hack. A type called `MaybeUsePreviousValidatorsElse`.
 This type looks into `parameter_types! { pub storage UsePreviousValidators: bool = true }`, and
 
 - If set to `true`, it will ignore the new validators coming from AH, and use the previous ones.
