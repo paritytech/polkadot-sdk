@@ -1,12 +1,17 @@
 import { Chain, Observe } from "../src/test-case";
-import { logger, nullifySigned, nullifyUnsigned, type ApiDeclerations } from "../src/utils";
+import { logger, nullifySigned, nullifyUnsigned, type ApiDeclarations } from "../src/utils";
 
+// An unsigned solution scenario:
+//
+// When no staking-miner is running (and for simplicity the signed phase is also set to zero). We
+// expect an unsigned solution to successfullly proceed and submit a solution with `minerPages` out
+// of the total `pages`.
 export function commonUnsignedSteps(
 	expectedValidatorSetCount: number,
 	minerPages: number,
 	pages: number,
 	doNullifySigned: boolean,
-	apis: ApiDeclerations
+	apis: ApiDeclarations
 ): Observe[] {
 	return [
 		// first relay session change at block 11
@@ -54,10 +59,14 @@ export function commonUnsignedSteps(
 	].map((s) => s.build());
 }
 
+// A signed solution scenario.
+//
+// This test expect you to call `spawnMiner` in the final test code. A full solution of `pages` is
+// expected to be submitted.
 export function commonSignedSteps(
 	pages: number,
 	expectedValidatorSetCount: number,
-	apis: ApiDeclerations
+	apis: ApiDeclarations
 ): Observe[] {
 	return [
 		// first relay session change at block 11

@@ -1,5 +1,5 @@
 import { readFileSync } from "fs";
-import { logger, safeJsonStringify, type ApiDeclerations } from "./utils";
+import { logger, safeJsonStringify, type ApiDeclarations } from "./utils";
 import { exit } from "process";
 import chalk from "chalk";
 
@@ -371,7 +371,7 @@ function extractAuthorshipData(block: number, logFile: string): IAuthorshipData 
 
 export async function runTest(
 	test: TestCase,
-	apis: ApiDeclerations,
+	apis: ApiDeclarations,
 	paraLog: string | null
 ): Promise<EventOutcome> {
 	const { rcClient, paraClient, rcApi, paraApi } = apis;

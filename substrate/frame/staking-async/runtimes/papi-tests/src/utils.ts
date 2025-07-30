@@ -29,7 +29,7 @@ const derive = sr25519CreateDerive(miniSecret);
 const aliceKeyPair = derive("//Alice");
 export const alice = getPolkadotSigner(aliceKeyPair.publicKey, "Sr25519", aliceKeyPair.sign);
 
-export type ApiDeclerations = {
+export type ApiDeclarations = {
 	rcClient: PolkadotClient;
 	paraClient: PolkadotClient;
 	rcApi: TypedApi<typeof rc>;
@@ -89,7 +89,7 @@ export async function nullifyUnsigned(
 	return res.ok;
 }
 
-export async function getApis(): Promise<ApiDeclerations> {
+export async function getApis(): Promise<ApiDeclarations> {
 	const rcClient = createClient(withPolkadotSdkCompat(getWsProvider("ws://localhost:9945")));
 	const rcApi = rcClient.getTypedApi(rc);
 
