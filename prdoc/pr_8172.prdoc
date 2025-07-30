@@ -7,6 +7,14 @@ doc:
     The idea behind this is when you have multiple blocks per PoV that trie nodes accessed or produced by a block before (in the same `PoV`), are not required to be added to the storage proof again. So, all the blocks in one `PoV` basically share the same storage proof. 
     This also impacts things like storage weight reclaim, because ignored trie node do not contribute a to the storage proof size (similar to when this would happen in the same block).
 
+    In your node you only need to do the following change:
+    ```diff
+    -let proposer = Proposer::new(proposer_factory);
+    +
+    ```
+
+    The `cumulus_client_consensus_proposer::Proposer` type was removed.
+
 crates:
 - name: cumulus-pallet-parachain-system
   bump: minor
