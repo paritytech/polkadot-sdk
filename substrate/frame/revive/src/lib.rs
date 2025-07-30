@@ -724,6 +724,7 @@ pub mod pallet {
 				let tx_info =
 					GenericTransaction::from_signed(signed_tx.clone(), base_gas_price, Some(from));
 				// TODO: Compute gas correctly.
+				let gas_price = U256::from(0);
 				let gas_used = U256::from(0);
 
 				let logs = events
@@ -750,6 +751,36 @@ pub mod pallet {
 						}
 					})
 					.collect::<Vec<_>>();
+
+				let contract_address = if tx_info.to.is_none() {
+					Some(create1(
+						&from,
+						tx_info
+							.nonce
+							.unwrap_or_default()
+							.try_into()
+							// TODO: Do not panic!
+							.expect("Nonce is a valid u32; qed"),
+						// .map_err(|_| ClientError::ConversionFailed)?,
+					))
+				} else {
+					None
+				};
+
+				let receipt = ReceiptInfo::new(
+					block_hash.into(),
+					block_number.into(),
+					contract_address,
+					from,
+					logs,
+					tx_info.to,
+					gas_price,
+					gas_used,
+					success,
+					transaction_hash,
+					transaction_index.into(),
+					tx_info.r#type.unwrap_or_default(),
+				);
 
 				// let success = events.iter().any(|event| {
 				// 	if let <T as Config>::RuntimeEvent::System(
