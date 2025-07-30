@@ -590,7 +590,18 @@ pub mod pallet {
 		<<T as frame_system::Config>::Block as BlockT>::Extrinsic:
 			ExtrinsicCall<Call = <T as Config>::RuntimeCall>,
 		<T as Config>::RuntimeCall: IsSubType<Call<T>>,
-		// <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
+
+		<T as Config>::RuntimeEvent: IsType<<T as frame_system::Config>::RuntimeEvent>,
+
+		<T as Config>::RuntimeEvent:
+			From<Event<T>> + IsType<<T as frame_system::Config>::RuntimeEvent>,
+
+		// TODO: Does it hold water?
+		frame_system::Event<T>: TryFrom<<T as frame_system::Config>::RuntimeEvent>,
+
+		// type RuntimeEvent: From<Event<Self>> + IsType<<Self as
+		// frame_system::Config>::RuntimeEvent>; <T as frame_system::Config>::RuntimeCall:
+		// IsSubType<Call<T>>,
 
 		// Must be taken exactly from Pallet::Call to work
 		BalanceOf<T>: Into<U256> + TryFrom<U256>,
@@ -664,6 +675,91 @@ pub mod pallet {
 			// For each transaction and call:
 			let block_number = frame_system::Pallet::<T>::block_number();
 			let block_hash = frame_system::Pallet::<T>::block_hash(block_number);
+
+			// For each transaction we need to build:
+			// TransactionSigned and ReceiptInfo.
+
+			for (index, (extrinsic, events)) in extrinsics {
+				// Check if the ExtrinsicSuccess event is present in the events.
+
+				let success = events.iter().any(|event| {
+					// TODO: Avoid cloning.
+					if let Ok(frame_system::Event::ExtrinsicSuccess { dispatch_info }) =
+						event.clone().try_into()
+					{
+						log::info!(
+							"Found ExtrinsicSuccess with dispatch_info: {:?}",
+							dispatch_info
+						);
+						true
+					} else {
+						false
+					}
+				});
+
+				// let success = events.iter().any(|event| {
+				// 	if let <T as Config>::RuntimeEvent::System(
+				// 		frame_system::Event::ExtrinsicSuccess { dispatch_info },
+				// 	) = event
+				// 	{
+				// 		log::info!(
+				// 			"Found ExtrinsicSuccess with dispatch_info: {:?}",
+				// 			dispatch_info
+				// 		);
+				// 		true
+				// 	} else {
+				// 		false
+				// 	}
+				// });
+
+				// let success = events.iter().any(|event| {
+				// 	if let <T as frame_system::Config>::RuntimeEvent::System(
+				// 		frame_system::Event::ExtrinsicSuccess { .. },
+				// 	) = event
+				// 	{
+				// 		true
+				// 	} else {
+				// 		false
+				// 	}
+
+				// 	// match event {
+				// 	<T as Config>::RuntimeEvent::System(
+				// 		frame_system::Event::ExtrinsicSuccess { dispatch_info },
+				// 	) => {
+				// 		// Handle ExtrinsicSuccess
+				// 		log::info!(
+				// 			"Found ExtrinsicSuccess with dispatch_info: {:?}",
+				// 			dispatch_info
+				// 		);
+				// 		return true;
+				// 	},
+				// 	_ => return false;
+				// }
+
+				// if let RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess { .. }) =
+				// 	event
+				// {
+				// 	true
+				// } else {
+				// 	false
+				// }
+
+				// if let Ok(::ExtrinsicSuccess { .. }) = event {
+				// 	// if let Ok(frame_system::Event::ExtrinsicSuccess { .. }) =
+				// 	// event.try_into() {
+				// 	true
+				// } else {
+				// 	false
+				// }
+
+				// matches!(
+				// 	event,
+				// 	<T as frame_system::Config>::RuntimeEvent::System(
+				// 		frame_system::Event::ExtrinsicSuccess { .. }
+				// 	)
+				// )
+				// });
+			}
 		}
 
 		fn integrity_test() {
