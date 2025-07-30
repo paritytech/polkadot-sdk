@@ -384,6 +384,12 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Returns the author of the current block.
 	fn block_author(&self) -> Option<H160>;
 
+	/// Returns the block gas limit.
+	fn gas_limit(&self) -> u64;
+
+	/// Returns the chain id.
+	fn chain_id(&self) -> u64;
+
 	/// Returns the maximum allowed size of a storage item.
 	fn max_value_size(&self) -> u32;
 
@@ -2042,6 +2048,14 @@ where
 
 	fn block_author(&self) -> Option<H160> {
 		crate::Pallet::<T>::block_author()
+	}
+
+	fn gas_limit(&self) -> u64 {
+		<T as frame_system::Config>::BlockWeights::get().max_block.ref_time()
+	}
+
+	fn chain_id(&self) -> u64 {
+		<T as Config>::ChainId::get()
 	}
 
 	fn max_value_size(&self) -> u32 {

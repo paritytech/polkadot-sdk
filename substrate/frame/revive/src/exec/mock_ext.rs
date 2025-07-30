@@ -144,6 +144,14 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::block_author")
 	}
 
+	fn gas_limit(&self) -> u64 {
+		panic!("MockExt::gas_limit")
+	}
+
+	fn chain_id(&self) -> u64 {
+		panic!("MockExt::chain_id")
+	}
+
 	fn max_value_size(&self) -> u32 {
 		panic!("MockExt::max_value_size")
 	}

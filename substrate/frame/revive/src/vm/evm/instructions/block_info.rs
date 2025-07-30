@@ -18,18 +18,15 @@
 use super::Context;
 use crate::{vm::Ext, RuntimeCosts};
 use revm::{
-	interpreter::{gas as revm_gas, host::Host, interpreter_types::RuntimeFlag},
-	primitives::{hardfork::SpecId::*, U256, Address, },
+	interpreter::{gas as revm_gas},
+	primitives::{Address, U256},
 };
-use crate::{
-	evm::H160,
-};
+use sp_core::H160;
 
 /// EIP-1344: ChainID opcode
 pub fn chainid<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	check!(context.interpreter, ISTANBUL);
 	gas_legacy!(context.interpreter, revm_gas::BASE);
-	push!(context.interpreter, context.host.chain_id());
+	push!(context.interpreter, U256::from(context.interpreter.extend.chain_id()));
 }
 
 /// Implements the COINBASE instruction.
@@ -45,8 +42,9 @@ pub fn coinbase<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Pushes the current block's timestamp onto the stack.
 pub fn timestamp<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas_legacy!(context.interpreter, revm_gas::BASE);
-	push!(context.interpreter, context.host.timestamp());
+	gas!(context.interpreter, RuntimeCosts::Now);
+	let timestamp = context.interpreter.extend.now();
+	push!(context.interpreter, U256::from_limbs(timestamp.0));
 }
 
 /// Implements the NUMBER instruction.
@@ -63,32 +61,26 @@ pub fn block_number<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// Pushes the block difficulty (pre-merge) or prevrandao (post-merge) onto the stack.
 pub fn difficulty<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas_legacy!(context.interpreter, revm_gas::BASE);
-	if context.interpreter.runtime_flag.spec_id().is_enabled_in(MERGE) {
-		// Unwrap is safe as this fields is checked in validation handler.
-		push!(context.interpreter, context.host.prevrandao().unwrap());
-	} else {
-		push!(context.interpreter, context.host.difficulty());
-	}
+	push!(context.interpreter, U256::from(2500000000000000_u64));
 }
 
 /// Implements the GASLIMIT instruction.
 ///
 /// Pushes the current block's gas limit onto the stack.
 pub fn gaslimit<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas_legacy!(context.interpreter, revm_gas::BASE);
-	push!(context.interpreter, context.host.gas_limit());
+	gas!(context.interpreter, RuntimeCosts::GasLimit);
+	let gas_limit = context.interpreter.extend.gas_limit();
+	push!(context.interpreter, U256::from(gas_limit));
 }
 
 /// EIP-3198: BASEFEE opcode
 pub fn basefee<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	check!(context.interpreter, LONDON);
-	gas_legacy!(context.interpreter, revm_gas::BASE);
-	push!(context.interpreter, context.host.basefee());
+	gas!(context.interpreter, RuntimeCosts::BaseFee);
+	push!(context.interpreter, U256::ZERO);
 }
 
-/// EIP-7516: BLOBBASEFEE opcode
+/// EIP-7516: BLOBBASEFEE opcode is not supported
 pub fn blob_basefee<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	check!(context.interpreter, CANCUN);
 	gas_legacy!(context.interpreter, revm_gas::BASE);
-	push!(context.interpreter, context.host.blob_gasprice());
+	context.interpreter.halt(revm::interpreter::InstructionResult::NotActivated);
 }

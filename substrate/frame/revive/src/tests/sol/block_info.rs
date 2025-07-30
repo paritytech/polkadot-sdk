@@ -18,8 +18,8 @@
 //! The pallet-revive shared VM integration test suite.
 
 use crate::{
-	test_utils::{builder::Contract, ALICE, EVE_ADDR},
-	tests::{builder, ExtBuilder, System, Test},
+	test_utils::{builder::Contract, ALICE},
+	tests::{builder, ExtBuilder, System, Test, Contracts},
 	Code, Config,
 };
 
@@ -27,6 +27,7 @@ use alloy_core::{primitives::U256, sol_types::SolInterface};
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, BlockInfo, FixtureType};
 use pretty_assertions::assert_eq;
+use sp_core::H160;
 
 /// Tests that the blocknumber opcode works as expected.
 #[test]
@@ -54,14 +55,9 @@ fn block_number_works() {
 	}
 }
 
-/// Tests that the coinbase opcode works as expected.
+/// Tests that the blockauthor opcode works as expected.
 #[test]
-fn coinbase_works() {
-	let eve_as_u256 = {
-		let mut bytes = [0u8; 32];
-		bytes[12..32].copy_from_slice(&EVE_ADDR.0);
-		U256::from_be_bytes(bytes)
-	};
+fn block_author_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
 		let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
 		ExtBuilder::default().build().execute_with(|| {
@@ -75,18 +71,131 @@ fn coinbase_works() {
 						.abi_encode(),
 				)
 				.build_and_unwrap_result();
-			
-			// Verify that we got a 32-byte result (address is padded to 32 bytes in EVM)
-			assert_eq!(result.data.len(), 32, "Coinbase should return a 32-byte padded address");
-			
-			// The coinbase opcode should return the current block's beneficiary address
-			let coinbase_result = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
-
 			assert_eq!(
-				coinbase_result, 
-				eve_as_u256,
-				"Coinbase should return expected beneficiary address for {:?}",
-				fixture_type
+				Contracts::block_author().unwrap(),
+				// Padding is used into the 32 bytes
+				H160::from_slice(&result.data[12..])
+			);
+		});
+	}
+}
+
+/// Tests that the chainid opcode works as expected.
+#[test]
+fn chain_id_works() {
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			let result = builder::bare_call(addr)
+				.data(
+					BlockInfo::BlockInfoCalls::chainid(BlockInfo::chainidCall {})
+						.abi_encode(),
+				)
+				.build_and_unwrap_result();
+			assert_eq!(
+				U256::from(<Test as Config>::ChainId::get()),
+				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
+			);
+		});
+	}
+}
+
+/// Tests that the timestamp opcode works as expected.
+#[test]
+fn timestamp_works() {
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			let result = builder::bare_call(addr)
+				.data(
+					BlockInfo::BlockInfoCalls::timestamp(BlockInfo::timestampCall {})
+						.abi_encode(),
+				)
+				.build_and_unwrap_result();
+			assert_eq!(
+				U256::from(1337u64),
+				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
+			);
+		});
+	}
+}
+
+/// Tests that the gaslimit opcode works as expected.
+#[test]
+fn gaslimit_works() {
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			let result = builder::bare_call(addr)
+				.data(
+					BlockInfo::BlockInfoCalls::gaslimit(BlockInfo::gaslimitCall {})
+					.abi_encode(),
+				)
+				.build_and_unwrap_result();
+			assert_eq!(
+				U256::from(<Test as frame_system::Config>::BlockWeights::get().max_block.ref_time()),
+				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
+			);
+		});
+	}
+}
+
+/// Tests that the basefee opcode works as expected.
+#[test]
+fn basefee_works() {
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			let result = builder::bare_call(addr)
+				.data(
+					BlockInfo::BlockInfoCalls::basefee(BlockInfo::basefeeCall {})
+					.abi_encode(),
+				)
+				.build_and_unwrap_result();
+			assert_eq!(
+				U256::ZERO,
+				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
+			);
+		});
+	}
+}
+
+/// Tests that the difficulty opcode works as expected.
+#[test]
+fn difficulty_works() {
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			let result = builder::bare_call(addr)
+				.data(
+					BlockInfo::BlockInfoCalls::difficulty(BlockInfo::difficultyCall {})
+					.abi_encode(),
+				)
+				.build_and_unwrap_result();
+			assert_eq!(
+				// Alligned with the value set for PVM
+				U256::from(2500000000000000u64),
+				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
 			);
 		});
 	}
