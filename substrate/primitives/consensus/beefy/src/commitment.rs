@@ -15,8 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use alloc::borrow::ToOwned;
-use alloc::collections::btree_map::BTreeMap;
 use alloc::{vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, Error, Input};
 use core::cmp;
@@ -149,26 +147,18 @@ impl<TBlockNumber, TSignature> SignedCommitment<TBlockNumber, TSignature> {
 		&'a self,
 		target_number: TBlockNumber,
 		validator_set: &'a ValidatorSet<TAuthorityId>,
-	) -> Result<(Vec<KnownSignature<&'a TAuthorityId, &'a TSignature>>, usize), u32>
+	) -> Result<Vec<KnownSignature<&'a TAuthorityId, &'a TSignature>>, u32>
 	where
 		TBlockNumber: Clone + Encode + PartialEq,
-		TAuthorityId: RuntimeAppPublic<Signature = TSignature> + BeefyAuthorityId<MsgHash> + Ord,
+		TAuthorityId: RuntimeAppPublic<Signature = TSignature> + BeefyAuthorityId<MsgHash>,
 		MsgHash: Hash,
 	{
-		if self.signatures.len() != validator_set.len()
-			|| self.commitment.validator_set_id != validator_set.id()
-			|| self.commitment.block_number != target_number
+		if self.signatures.len() != validator_set.len() ||
+			self.commitment.validator_set_id != validator_set.id() ||
+			self.commitment.block_number != target_number
 		{
-			return Err(0);
+			return Err(0)
 		}
-
-		let voting_weights =
-			validator_set.validators().iter().fold(BTreeMap::new(), |mut acc, item| {
-				*acc.entry(item.to_owned()).or_insert(0) += 1;
-				acc
-			});
-
-		let mut aggregated_weight: usize = 0;
 
 		// Arrangement of signatures in the commitment should be in the same order
 		// as validators for that set.
@@ -180,16 +170,13 @@ impl<TBlockNumber, TSignature> SignedCommitment<TBlockNumber, TSignature> {
 			.filter_map(|(id, maybe_signature)| {
 				let signature = maybe_signature.as_ref()?;
 				match BeefyAuthorityId::verify(id, signature, &encoded_commitment) {
-					true => {
-						aggregated_weight = aggregated_weight.checked_add(voting_weights[id])?;
-						Some(KnownSignature { validator_id: id, signature })
-					},
+					true => Some(KnownSignature { validator_id: id, signature }),
 					false => None,
 				}
 			})
 			.collect();
 
-		Ok((signatories, aggregated_weight))
+		Ok(signatories)
 	}
 }
 

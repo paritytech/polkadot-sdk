@@ -33,9 +33,8 @@ pub(crate) fn proof_block_num_and_set_id<Block: BlockT, AuthorityId: AuthorityId
 	proof: &BeefyVersionedFinalityProof<Block, AuthorityId>,
 ) -> (NumberFor<Block>, ValidatorSetId) {
 	match proof {
-		VersionedFinalityProof::V1(sc) => {
-			(sc.commitment.block_number, sc.commitment.validator_set_id)
-		},
+		VersionedFinalityProof::V1(sc) =>
+			(sc.commitment.block_number, sc.commitment.validator_set_id),
 	}
 }
 
@@ -62,13 +61,13 @@ pub(crate) fn verify_with_validator_set<'a, Block: BlockT, AuthorityId: Authorit
 > {
 	match proof {
 		VersionedFinalityProof::V1(signed_commitment) => {
-			let (signatories, aggregated_weight) = signed_commitment
+			let signatories = signed_commitment
 				.verify_signatures::<_, BeefySignatureHasher>(target_number, validator_set)
 				.map_err(|checked_signatures| {
 					(ConsensusError::InvalidJustification, checked_signatures)
 				})?;
 
-			if aggregated_weight >= crate::round::threshold(validator_set.len()) {
+			if signatories.len() >= crate::round::threshold(validator_set.len()) {
 				Ok(signatories)
 			} else {
 				Err((
