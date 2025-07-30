@@ -38,4 +38,27 @@ contract Bitwise {
     function not(uint a) public view returns (uint) {
         return ~a;
     }
+
+    function iszero(uint a) public view returns (uint) {
+        return a == 0 ? 1 : 0;
+    }
+
+    function clz(uint a) public pure returns (uint) {
+        return a.clz();
+    }
+
+    function byteOp(uint index, uint value) public pure returns (uint) {
+        return value.byte(index);
+    }
+    function shl(uint256 value, uint256 shift) public pure returns (uint256) {
+        return value.shl(shift);
+    }
+
+    function shr(uint256 value, uint256 shift) public pure returns (uint256) {
+        return value.shr(shift);
+    }
+
+    function sar(int256 value, uint256 shift) public pure returns (int256) {
+        return value.sar(shift);
+    }
 }
