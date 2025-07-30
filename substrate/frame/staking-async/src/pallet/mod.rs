@@ -1162,7 +1162,9 @@ pub mod pallet {
 			fraction: Perbill,
 		},
 		/// An old era with the given index was pruned.
-		EraPruned { index: EraIndex },
+		EraPruned {
+			index: EraIndex,
+		},
 	}
 
 	/// Represents unexpected or invariant-breaking conditions encountered during execution.
