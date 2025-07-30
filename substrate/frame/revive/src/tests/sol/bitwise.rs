@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/// Tests for bitwise comparison operations.
+/// Tests for bitwise operations.
 
 use crate::{
 	test_utils::{builder::Contract, ALICE},
