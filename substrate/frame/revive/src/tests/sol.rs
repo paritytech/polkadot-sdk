@@ -16,6 +16,7 @@
 // limitations under the License.
 
 mod arithmetic;
+mod bitwise;
 mod block_info;
 mod misc;
 mod system;
