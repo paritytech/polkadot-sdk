@@ -1,10 +1,8 @@
 title: '[AHM] Make stuff public and derive'
 doc:
 - audience: Runtime Dev
-  description: 'Make some stuff public and derive traits. Also removes one silently
-    truncating constructor from ParaId.
-
-    '
+  description: |
+    Preparation for Asset hub migration by making fields public and doing some tweaks.
 crates:
 - name: pallet-delegated-staking
   bump: minor
