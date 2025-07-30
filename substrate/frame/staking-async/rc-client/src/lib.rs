@@ -477,7 +477,7 @@ pub trait AHStakingInterface {
 
 	/// Return the weight of `on_relay_session_report` call without executing it.
 	///
-	/// This will return the worst case estimate of the wright. The actual execution will return the
+	/// This will return the worst case estimate of the weight. The actual execution will return the
 	/// accurate amount.
 	fn weigh_on_relay_session_report(report: &SessionReport<Self::AccountId>) -> Weight;
 
