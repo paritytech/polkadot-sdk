@@ -107,7 +107,7 @@ pub(crate) struct Rounds<B: Block, AuthorityId: AuthorityIdBound> {
 	session_start: NumberFor<B>,
 	validator_set: ValidatorSet<AuthorityId>,
 	// Subset of authorities with non-default (≠1) voting weights
-	voting_weights: Vec<(AuthorityId, VoteWeight)>,
+	voting_weights: BTreeMap<AuthorityId, VoteWeight>,
 	mandatory_done: bool,
 	best_done: Option<NumberFor<B>>,
 }
@@ -123,22 +123,15 @@ where
 	) -> Self {
 		let voting_weights = validator_set
 			.validators()
-			.into_iter()
-			// We are sorting and deduplicating elements, which is later used by vote_weight function
+			.iter()
 			.fold(BTreeMap::new(), |mut acc, item| {
 				*acc.entry(item.to_owned()).or_insert(0) += 1;
 				acc
 			})
 			.into_iter()
-			.collect::<Vec<_>>();
-
-		let voting_weights = if voting_weights.len() == validator_set.validators().len() {
-			// Since both collections have the same lengths, all authorities are weighted equally.
-			Default::default()
-		} else {
 			// Persist only weights that are different than 1
-			voting_weights.into_iter().filter(|(_, weight)| *weight > 1).collect()
-		};
+			.filter(|(_, weight)| *weight > 1)
+			.collect();
 
 		Rounds {
 			rounds: BTreeMap::new(),
@@ -165,10 +158,7 @@ where
 
 	/// Return voting weight associated with given authority or default 1 in case mapping does not exist
 	pub(crate) fn vote_weight(&self, authority: &AuthorityId) -> VoteWeight {
-		match self.voting_weights.binary_search_by(|(auth, _)| auth.cmp(authority)) {
-			Ok(index) => self.voting_weights[index].1,
-			Err(_) => One::one(),
-		}
+		*self.voting_weights.get(authority).unwrap_or(&One::one())
 	}
 
 	pub(crate) fn session_start(&self) -> NumberFor<B> {
