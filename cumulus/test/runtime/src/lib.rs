@@ -63,7 +63,7 @@ extern crate alloc;
 
 use alloc::{vec, vec::Vec};
 use codec::Encode;
-use cumulus_pallet_parachain_system::SelectCore;
+use cumulus_pallet_parachain_system::{DefaultCoreSelector, SelectCore};
 use frame_support::{derive_impl, traits::OnRuntimeUpgrade, PalletId};
 use sp_api::{decl_runtime_apis, impl_runtime_apis};
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -368,11 +368,11 @@ impl SelectCore for MultipleBlocksPerPoVCoreSelector {
 
 		if blocks_per_pov == 0 {
 			return (CoreSelector(0), ClaimQueueOffset(0))
+		} else if blocks_per_pov == 1 {
+			return DefaultCoreSelector::<Runtime>::selected_core()
 		}
 
-		let correct_block_number = if blocks_per_pov == 1 { 0 } else { 1 };
-
-		let core_selector = (System::block_number().saturating_sub(correct_block_number) /
+		let core_selector = (System::block_number().saturating_sub(1) /
 			blocks_per_pov)
 			.using_encoded(|b| b[0]);
 
@@ -382,8 +382,10 @@ impl SelectCore for MultipleBlocksPerPoVCoreSelector {
 	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
 		let blocks_per_pov = BlocksPerPoV::get();
 
-		if blocks_per_pov == 1 {
+		if blocks_per_pov == 0 {
 			return (CoreSelector(0), ClaimQueueOffset(0))
+		} else if blocks_per_pov == 1 {
+			return DefaultCoreSelector::<Runtime>::select_next_core()
 		}
 
 		let core_selector = (System::block_number() / blocks_per_pov).using_encoded(|b| b[0]);
