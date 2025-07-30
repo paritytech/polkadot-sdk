@@ -124,8 +124,8 @@ where
 		let voting_weights = validator_set
 			.validators()
 			.iter()
-			.fold(BTreeMap::new(), |mut acc, item| {
-				*acc.entry(item.to_owned()).or_insert(0) += 1;
+			.fold(BTreeMap::new(), |mut acc, authority| {
+				*acc.entry(authority.to_owned()).or_insert(0) += 1;
 				acc
 			})
 			.into_iter()
