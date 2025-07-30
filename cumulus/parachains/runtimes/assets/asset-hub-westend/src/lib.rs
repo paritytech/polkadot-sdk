@@ -2397,7 +2397,6 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 					PeopleLocation::get(),
 					Asset { fun: Fungible(UNITS), id: AssetId(WestendLocation::get()) },
 				));
-				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
 				// AssetHubWestend trusts AssetHubRococo as reserve for ROCs
 				pub TrustedReserve: Option<(Location, Asset)> = Some(
 					(
@@ -2410,7 +2409,7 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 			impl pallet_xcm_benchmarks::fungible::Config for Runtime {
 				type TransactAsset = Balances;
 
-				type CheckedAccount = CheckedAccount;
+				type CheckedAccount = xcm_config::TeleportTracking;
 				type TrustedTeleporter = TrustedTeleporter;
 				type TrustedReserve = TrustedReserve;
 
