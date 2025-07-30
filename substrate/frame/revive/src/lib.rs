@@ -1824,6 +1824,15 @@ sp_api::decl_runtime_apis! {
 	}
 }
 
+// fn decode_eth_transaction(raw_bytes: &[u8]) -> Result<ethereum::TransactionV3, EthTransactError>
+// { 	let transaction = ethereum::TransactionV3::decode(&mut &raw_bytes[..])
+// 		.map_err(|_| EthTransactError::Message("Failed to decode transaction".into()))?;
+
+// 	let transaction_hash = transaction.hash();
+
+// 	Ok(transaction)
+// }
+
 /// This macro wraps substrate's `impl_runtime_apis!` and implements `pallet_revive` runtime APIs.
 ///
 /// # Parameters
@@ -1875,6 +1884,14 @@ macro_rules! impl_runtime_apis_plus_revive {
 						sp_runtime::traits::TransactionExtension,
 						sp_runtime::traits::Block as BlockT
 					};
+
+					// // Decode eth raw bytes to a transaction.
+					// let eth_tx = ethereum::TransactionV3::decode(&mut &raw_bytes[..])
+					// 	.map_err(|_| $crate::EthTransactError::Message("Failed to decode transaction".into()))?;
+
+					// let transaction_hash = eth_tx.hash();
+					// // let transaction_index = Pending::<T>::count();
+
 
 					let tx_fee = |call: <Self as $crate::frame_system::Config>::RuntimeCall, dispatch_call: <Self as $crate::frame_system::Config>::RuntimeCall| {
 						use $crate::frame_support::dispatch::GetDispatchInfo;

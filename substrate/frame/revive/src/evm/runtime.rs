@@ -569,7 +569,10 @@ mod test {
 				let payload = account
 					.sign_transaction(tx.clone().try_into_unsigned().unwrap())
 					.signed_payload();
-				let call = RuntimeCall::Contracts(crate::Call::eth_transact { payload });
+				let call = RuntimeCall::Contracts(crate::Call::eth_transact {
+					payload,
+					raw_bytes: vec![],
+				});
 
 				let encoded_len = call.encoded_size();
 				let uxt: Ex = generic::UncheckedExtrinsic::new_bare(call).into();

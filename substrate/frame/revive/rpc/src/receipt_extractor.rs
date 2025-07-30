@@ -104,8 +104,12 @@ impl ReceiptExtractor {
 		let events = ext.events().await?;
 
 		let success = events.has::<ExtrinsicSuccess>().inspect_err(|err| {
-		log::debug!(target: LOG_TARGET, "Failed to lookup for ExtrinsicSuccess event in block {block_number}: {err:?}")
-	})?;
+			log::debug!(
+				target: LOG_TARGET,
+				"Failed to lookup for ExtrinsicSuccess event in block {block_number}: {err:?}"
+			);
+		})?;
+
 		let tx_fees = events
 		.find_first::<TransactionFeePaid>()?
 		.ok_or(ClientError::TxFeeNotFound)
