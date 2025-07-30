@@ -1155,6 +1155,8 @@ pub mod pallet {
 		/// Something occurred that should never happen under normal operation.
 		/// Logged as an event for fail-safe observability.
 		Unexpected(UnexpectedKind),
+		/// An old era with the given index was pruned.
+		EraPruned { index: EraIndex },
 	}
 
 	/// Represents unexpected or invariant-breaking conditions encountered during execution.
