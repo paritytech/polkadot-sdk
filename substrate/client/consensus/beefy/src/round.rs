@@ -495,6 +495,78 @@ mod tests {
 	}
 
 	#[test]
+	fn add_and_conclude_votes_with_duplicated_authorities() {
+		sp_tracing::try_init_simple();
+
+		let validators = ValidatorSet::<ecdsa_crypto::AuthorityId>::new(
+			vec![
+				Keyring::Alice.public(),
+				Keyring::Alice.public(),
+				Keyring::Bob.public(),
+				Keyring::Charlie.public(),
+				Keyring::Eve.public(),
+				Keyring::Charlie.public(),
+			],
+			Default::default(),
+		)
+		.unwrap();
+		let validator_set_id = validators.id();
+
+		let session_start = 1u64.into();
+		let mut rounds = Rounds::<Block, ecdsa_crypto::AuthorityId>::new(session_start, validators);
+
+		let payload = Payload::from_single_entry(MMR_ROOT_ID, vec![]);
+		let block_number = 1;
+		let commitment = Commitment { block_number, payload, validator_set_id };
+		let mut vote = VoteMessage {
+			id: Keyring::Alice.public(),
+			commitment: commitment.clone(),
+			signature: Keyring::<ecdsa_crypto::AuthorityId>::Alice.sign(b"I am committed"),
+		};
+		// add 1st good vote
+		assert_eq!(rounds.add_vote(vote.clone()), VoteImportResult::Ok);
+
+		// double voting (same vote), ok, no effect
+		assert_eq!(rounds.add_vote(vote.clone()), VoteImportResult::Ok);
+
+		vote.id = Keyring::Dave.public();
+		vote.signature = Keyring::<ecdsa_crypto::AuthorityId>::Dave.sign(b"I am committed");
+		// invalid vote (Dave is not a validator)
+		assert_eq!(rounds.add_vote(vote.clone()), VoteImportResult::Invalid);
+
+		vote.id = Keyring::Bob.public();
+		vote.signature = Keyring::<ecdsa_crypto::AuthorityId>::Bob.sign(b"I am committed");
+		// add 2nd good vote
+		assert_eq!(rounds.add_vote(vote.clone()), VoteImportResult::Ok);
+
+		vote.id = Keyring::Charlie.public();
+		vote.signature = Keyring::<ecdsa_crypto::AuthorityId>::Charlie.sign(b"I am committed");
+		// add 3rd good vote -> round concluded -> signatures present
+		assert_eq!(
+			rounds.add_vote(vote.clone()),
+			VoteImportResult::RoundConcluded(SignedCommitment {
+				commitment,
+				signatures: vec![
+					// SignedCommitment threats authorities as independent entities, in order to keep
+					// the same order and length as in the validator set
+					Some(Keyring::<ecdsa_crypto::AuthorityId>::Alice.sign(b"I am committed")),
+					Some(Keyring::<ecdsa_crypto::AuthorityId>::Alice.sign(b"I am committed")),
+					Some(Keyring::<ecdsa_crypto::AuthorityId>::Bob.sign(b"I am committed")),
+					Some(Keyring::<ecdsa_crypto::AuthorityId>::Charlie.sign(b"I am committed")),
+					None,
+					Some(Keyring::<ecdsa_crypto::AuthorityId>::Charlie.sign(b"I am committed")),
+				]
+			})
+		);
+		rounds.conclude(block_number);
+
+		vote.id = Keyring::Eve.public();
+		vote.signature = Keyring::<ecdsa_crypto::AuthorityId>::Eve.sign(b"I am committed");
+		// Eve is a validator, but round was concluded, adding vote disallowed
+		assert_eq!(rounds.add_vote(vote), VoteImportResult::Stale);
+	}
+
+	#[test]
 	fn old_rounds_not_accepted() {
 		sp_tracing::try_init_simple();
 
