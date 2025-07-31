@@ -100,7 +100,6 @@ pub const LOG_TARGET: &str = "xcm::bridge-router";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use bp_xcm_bridge_router::MINIMAL_DELIVERY_FEE_FACTOR;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
