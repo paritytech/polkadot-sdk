@@ -239,9 +239,7 @@ fn transact_using_authorized_alias_from_para_to_asset_hub_and_back_to_para() {
 		AssetHubWestend,
 		usdt_asset_hub_pov.clone(),
 		false,
-		AssetHubWestendSender::get(),
-		1_000_000_000_000,
-		20_000_000_000
+		AssetHubWestendSender::get()
 	);
 
 	// We add auhtorized alias on AH so sender from Penpal can AliasOrigin into itself on AH
@@ -461,9 +459,7 @@ fn transact_using_sov_account_from_para_to_asset_hub_and_back_to_para() {
 		AssetHubWestend,
 		usdt_asset_hub_pov.clone(),
 		false,
-		AssetHubWestendSender::get(),
-		1_000_000_000_000,
-		20_000_000_000
+		AssetHubWestendSender::get()
 	);
 
 	// Query initial balances

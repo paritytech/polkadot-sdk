@@ -173,9 +173,7 @@ fn exchange_asset_from_penpal_via_asset_hub_back_to_penpal() {
 		AssetHubWestend,
 		usdt_asset_hub_pov.clone(),
 		false,
-		AssetHubWestendSender::get(),
-		1_000_000_000_000,
-		20_000_000_000
+		AssetHubWestendSender::get()
 	);
 
 	// Query initial balances
