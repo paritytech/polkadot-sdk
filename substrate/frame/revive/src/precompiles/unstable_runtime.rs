@@ -26,7 +26,8 @@
 //! - The encoding format might change between runtime upgrades
 
 use crate::precompiles::{alloy::sol, AddressMatcher, Error, Ext, Precompile};
-use codec::{Decode};
+use alloc::vec::Vec;
+use codec::Decode;
 use core::{marker::PhantomData, num::NonZero};
 use frame_support::dispatch::GetDispatchInfo;
 use sp_runtime::traits::{Dispatchable, Get};
