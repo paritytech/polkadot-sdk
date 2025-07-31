@@ -9,4 +9,4 @@ doc:
     - Fix issue where old runtimes have a space in the pallet or instance name from breaking change in `quote` macro
 crates:
 - name: frame-benchmarking-cli
-  bump: minor
+  bump: major
