@@ -49,6 +49,7 @@ pallet-revive-fixtures = { workspace = true, optional = true }
 pallet-revive-proc-macro = { workspace = true }
 pallet-revive-uapi = { workspace = true, features = ["scale"] }
 pallet-transaction-payment = { workspace = true }
+pallet-timestamp = { workspace = true, default-features = true }
 ripemd = { workspace = true }
 sp-api = { workspace = true }
 sp-arithmetic = { workspace = true }
@@ -72,7 +73,6 @@ serde_json = { workspace = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-proxy = { workspace = true, default-features = true }
 pallet-revive-fixtures = { workspace = true, default-features = true }
-pallet-timestamp = { workspace = true, default-features = true }
 pallet-utility = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }

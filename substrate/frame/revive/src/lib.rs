@@ -46,8 +46,9 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		runtime::GAS_PRICE, CallTracer, GasEncoder, GenericTransaction, Log, PrestateTracer,
-		ReceiptInfo, Trace, Tracer, TracerType, TransactionSigned, TYPE_EIP1559,
+		runtime::GAS_PRICE, Block as EthBlock, CallTracer, GasEncoder, GenericTransaction, Log,
+		PrestateTracer, ReceiptInfo, Trace, Tracer, TracerType, TransactionInfo, TransactionSigned,
+		TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
@@ -110,6 +111,7 @@ use sp_runtime::{
 	generic::UncheckedExtrinsic as RuntimeUncheckedExtrinsic,
 	traits::{
 		BadOrigin, Block as BlockT, Bounded, Convert, Dispatchable, ExtrinsicCall, Saturating,
+		UniqueSaturatedInto,
 	},
 	AccountId32, DispatchError,
 };
@@ -640,6 +642,7 @@ pub mod pallet {
 			// A tuple of (index, extrinsic data, events).
 			// Filter extrinsics that are not ether transactions.
 			// Maps the index to the extrinsic data and events.
+			let mut timestamp = 0;
 			let mut extrinsics = (0..extrinsic_count)
 				.into_iter()
 				.filter_map(|index| {
@@ -654,6 +657,13 @@ pub mod pallet {
 							Err(_) => return None,
 						};
 					let call = extrinsic.call();
+
+					// // check here for timestamp.
+					// if let Some(call) = call.is_sub_type() {
+					// 	if let pallet_timestamp::Call::set { now } = call {
+					// 		// Handle the timestamp set call
+					// 	}
+					// }
 
 					if let Some(crate::Call::eth_transact { payload, raw_bytes }) =
 						call.is_sub_type()
@@ -690,7 +700,8 @@ pub mod pallet {
 			// For each transaction we need to build:
 			// TransactionSigned and ReceiptInfo.
 
-			let (signed_txs, receipts): (Vec<_>, Vec<_>) = extrinsics
+			let mut total_gas_used = U256::zero();
+			let tx_and_receipts = extrinsics
 				.into_iter()
 				.filter_map(|(transaction_index, (extrinsic_payload, events))| {
 					// Self::process_extrinsic(
@@ -789,6 +800,7 @@ pub mod pallet {
 						None
 					};
 
+					total_gas_used += gas_used;
 					let receipt = ReceiptInfo::new(
 						block_hash.into(),
 						block_number.into(),
@@ -806,10 +818,72 @@ pub mod pallet {
 
 					Some((signed_tx, receipt))
 				})
-				.unzip();
+				.collect::<Vec<_>>();
 
 			// Build EVM block.
 			let gas_limit = Self::evm_block_gas_limit();
+
+			// Get the state root of the current block.
+			// Get the block header using the block hash
+			// TODO: don't panic
+			// TODO: Can we get the header better / does this work?:
+			// let header = sp_io::storage::get(&block_hash.as_ref())
+			// 	.and_then(|raw_header| {
+			// 		<T as frame_system::Config>::Header::decode(&mut &raw_header[..]).ok()
+			// 	})
+			// 	.expect("Block header should be available; qed");
+
+			// // Access the state root from the header
+			// let state_root = header.state_root();
+
+			// Get frame-system's state version:
+			// let version = frame_system::Pallet::<T>::state_version();
+			// let parent_hash = header.parent_hash.0.into();
+			// let state_root = header.state_root.0.into();
+			// let extrinsics_root = header.extrinsics_root.0.into();
+
+			// let storage_root = T::Hash::decode(&mut &sp_io::storage::root(version)[..])
+			// 	.expect("Node is configured to use the same hash; qed");
+
+			// let timestamp = pallet_timestamp::Pallet::<T>::get();
+
+			// TODO: We can bail out sooner.
+			let block_author = Self::block_author().expect("Block author must be found; qed");
+			let base_fee_per_gas = Self::evm_gas_price();
+
+			// This or block_number - 1.
+			let parent_hash = frame_system::Pallet::<T>::parent_hash().into();
+
+			// Lets assume we are always dealing with a hydrated block.
+			let transactions = tx_and_receipts
+				.into_iter()
+				.map(|(signed, receipt)| TransactionInfo::new(&receipt, signed))
+				.collect::<Vec<_>>()
+				.into();
+
+			// TODO: Fetch somehow? state root and extrinsics root.
+			let extrinsics_root = H256::default();
+			let state_root = H256::default();
+
+			let eth_block = EthBlock {
+				hash: block_hash.into(),
+				parent_hash,
+				state_root,
+				miner: block_author,
+				transactions_root: extrinsics_root,
+				number: block_number.into(),
+				// This may be different from the substrate block time, but that's ok.
+				// The alternative is to dig through the block transactions and get
+				// pallet_timestamp::Call::set { now: u64 } value. Which is quite expensive.
+				timestamp: T::Time::now().into(),
+				difficulty: Some(0u32.into()),
+				base_fee_per_gas: Some(base_fee_per_gas),
+				gas_limit,
+				gas_used: total_gas_used.into(),
+				receipts_root: extrinsics_root,
+				transactions,
+				..Default::default()
+			};
 		}
 
 		fn integrity_test() {
