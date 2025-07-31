@@ -23,22 +23,20 @@ use frame_support::traits::tokens::asset_ops::{
 };
 use sp_runtime::{traits::TypedGet, DispatchError, DispatchResult};
 
-/// The `UniqueInstancesWithStashAccount` adds the `Stash` and `Restore` implementations to an NFT
+/// The `StashAccountAssetOps` adds the `Stash` and `Restore` implementations to an NFT
 /// engine capable of transferring a token from one account to another (i.e. implementing
 /// `Update<ChangeOwnerFrom<AccountId>>`).
 ///
 /// On stash, it will transfer the token from the current owner to the `StashAccount`.
 /// On restore, it will transfer the token from the `StashAccount` to the given beneficiary.
-pub struct UniqueInstancesWithStashAccount<StashAccount, UpdateOp>(
-	PhantomData<(StashAccount, UpdateOp)>,
-);
+pub struct StashAccountAssetOps<StashAccount, UpdateOp>(PhantomData<(StashAccount, UpdateOp)>);
 impl<StashAccount, UpdateOp: AssetDefinition> AssetDefinition
-	for UniqueInstancesWithStashAccount<StashAccount, UpdateOp>
+	for StashAccountAssetOps<StashAccount, UpdateOp>
 {
 	type Id = UpdateOp::Id;
 }
 impl<StashAccount: TypedGet, UpdateOp> Update<ChangeOwnerFrom<StashAccount::Type>>
-	for UniqueInstancesWithStashAccount<StashAccount, UpdateOp>
+	for StashAccountAssetOps<StashAccount, UpdateOp>
 where
 	StashAccount::Type: 'static,
 	UpdateOp: Update<ChangeOwnerFrom<StashAccount::Type>>,
@@ -52,7 +50,7 @@ where
 	}
 }
 impl<StashAccount, UpdateOp> Restore<WithConfig<ConfigValue<Owner<StashAccount::Type>>>>
-	for UniqueInstancesWithStashAccount<StashAccount, UpdateOp>
+	for StashAccountAssetOps<StashAccount, UpdateOp>
 where
 	StashAccount: TypedGet,
 	StashAccount::Type: 'static,
@@ -68,7 +66,7 @@ where
 	}
 }
 impl<StashAccount, UpdateOp> Stash<IfOwnedBy<StashAccount::Type>>
-	for UniqueInstancesWithStashAccount<StashAccount, UpdateOp>
+	for StashAccountAssetOps<StashAccount, UpdateOp>
 where
 	StashAccount: TypedGet,
 	StashAccount::Type: 'static,

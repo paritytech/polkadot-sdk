@@ -68,8 +68,8 @@ use sp_runtime::{
 use xcm::prelude::*;
 use xcm_builder::{
 	unique_instances::{
-		ops::UniqueInstancesWithStashAccount, ExtractAssetId, NonFungibleAsset,
-		UniqueInstancesAdapter, UniqueInstancesDepositAdapter,
+		ops::StashAccountAssetOps, ExtractAssetId, NonFungibleAsset, UniqueInstancesAdapter,
+		UniqueInstancesDepositAdapter,
 	},
 	AllowUnpaidExecutionFrom, AsPrefixedGeneralIndex, FixedWeightBounds, MatchInClassInstances,
 	MatchedConvertedConcreteId, StartsWith,
@@ -345,10 +345,10 @@ pub type LocalNftsTransactor = UniqueInstancesAdapter<
 	// The `EnsureNotDerivativeInstance` uses the `DerivativeNfts` stored mapping
 	// to prevent derivative NFTs from being matched.
 	EnsureNotDerivativeInstance<DerivativeNfts, LocalNftsMatcher>,
-	// The `UniqueInstancesWithStashAccount` adds the `Destroy` and `Restore` operations
+	// The `StashAccountAssetOps` adds the `Destroy` and `Restore` operations
 	// to the `PredefinedIdNfts` by utilizing the NFT transfer to and from the `StashAccountId`
 	// correspondingly.
-	UniqueInstancesWithStashAccount<StashAccountId, PredefinedIdNfts>,
+	StashAccountAssetOps<StashAccountId, PredefinedIdNfts>,
 >;
 
 /// This asset transactor deals with already registered derivative NFTs.
@@ -357,10 +357,10 @@ pub type RegisteredDerivativeNftsTransactor = UniqueInstancesAdapter<
 	LocationToAccountId,
 	// Matches derivative NFTs using the `DerivativeNfts` stored mapping.
 	MatchDerivativeInstances<DerivativeNfts>,
-	// The `UniqueInstancesWithStashAccount` adds the `Destroy` and `Restore` operations
+	// The `StashAccountAssetOps` adds the `Destroy` and `Restore` operations
 	// to the `PredefinedIdNfts` utilizing the NFT transfer to and from the `StashAccountId`
 	// correspondingly.
-	UniqueInstancesWithStashAccount<StashAccountId, PredefinedIdNfts>,
+	StashAccountAssetOps<StashAccountId, PredefinedIdNfts>,
 >;
 
 /// Takes `(AssetId, AssetInstance)` to create a new NFT while the underlying `CreateOp` accepts
