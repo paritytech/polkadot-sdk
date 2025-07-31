@@ -1200,7 +1200,7 @@ rpassword = { version = "7.0.0" }
 rstest = { version = "0.18.2" }
 rustc-hash = { version = "1.1.0" }
 rustc-hex = { version = "2.1.0", default-features = false }
-rustix = { version = "0.36.7", default-features = false }
+rustix = { version = "1.0.3", default-features = false }
 rustls = { version = "0.23.18", default-features = false, features = [
 	"logging",
 	"ring",
@@ -1455,7 +1455,7 @@ wasm-instrument = { version = "0.4", default-features = false }
 wasm-opt = { version = "0.116" }
 wasm-timer = { version = "0.2.5" }
 wasmi = { version = "0.32.3", default-features = false }
-wasmtime = { version = "8.0.1", default-features = false }
+wasmtime = { version = "35.0.0", default-features = false }
 wat = { version = "1.0.0" }
 westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/relays/westend", default-features = false }
 westend-runtime = { path = "polkadot/runtime/westend", default-features = false }
@@ -1518,7 +1518,6 @@ blake2 = { opt-level = 3 }
 blake2b_simd = { opt-level = 3 }
 chacha20poly1305 = { opt-level = 3 }
 cranelift-codegen = { opt-level = 3 }
-cranelift-wasm = { opt-level = 3 }
 crc32fast = { opt-level = 3 }
 crossbeam-deque = { opt-level = 3 }
 crypto-mac = { opt-level = 3 }
