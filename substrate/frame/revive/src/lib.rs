@@ -570,6 +570,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type CurrentBlock<T: Config> = StorageValue<_, BlockV3>;
 
+	// TODO: This should be bounded at a constant length.
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub type CurrentEthBlock<T: Config> = StorageValue<_, EthBlock>;
 	// /// The current Ethereum receipts.
 	// #[pallet::storage]
 	// pub type CurrentReceipts<T: Config> = StorageValue<_, BoundedVec<ReceiptV4, ConstU32<1024>>>;
@@ -884,6 +888,8 @@ pub mod pallet {
 				transactions,
 				..Default::default()
 			};
+
+			CurrentEthBlock::<T>::put(eth_block);
 		}
 
 		fn integrity_test() {
