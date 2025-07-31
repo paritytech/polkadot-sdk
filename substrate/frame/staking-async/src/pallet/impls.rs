@@ -1124,9 +1124,8 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	/// 3. Activate Next Era: When we receive an activation timestamp in the session report, it
 	/// implies a new validator set has been applied, and we must increment the active era to keep
 	/// the systems in sync.
-	fn on_relay_session_report(report: rc_client::SessionReport<Self::AccountId>) {
+	fn on_relay_session_report(report: rc_client::SessionReport<Self::AccountId>) -> Weight {
 		log!(debug, "Received session report: {}", report,);
-		let consumed_weight = T::WeightInfo::rc_on_session_report();
 
 		let rc_client::SessionReport {
 			end_index,
@@ -1136,13 +1135,17 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		} = report;
 		debug_assert!(!leftover);
 
+		// note: weight for `reward_active_era` is taken care of inside `end_session`
 		Eras::<T>::reward_active_era(validator_points.into_iter());
-		session_rotation::Rotator::<T>::end_session(end_index, activation_timestamp);
-		// NOTE: we might want to either return these weights so that they are registered in the
-		// rc-client pallet, or directly benchmarked there, such that we can use them in the
-		// "pre-dispatch" fashion. That said, since these are all `Mandatory` weights, it doesn't
-		// make that big of a difference.
-		Self::register_weight(consumed_weight);
+		session_rotation::Rotator::<T>::end_session(end_index, activation_timestamp)
+	}
+
+	fn weigh_on_relay_session_report(
+		_report: &rc_client::SessionReport<Self::AccountId>,
+	) -> Weight {
+		// worst case weight of this is always
+		T::WeightInfo::rc_on_session_report()
+			.saturating_add(T::WeightInfo::prune_era(ValidatorCount::<T>::get()))
 	}
 
 	/// Accepts offences only if they are from era `active_era - (SlashDeferDuration - 1)` or newer.
@@ -1158,14 +1161,14 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	fn on_new_offences(
 		slash_session: SessionIndex,
 		offences: Vec<rc_client::Offence<T::AccountId>>,
-	) {
+	) -> Weight {
 		log!(debug, "🦹 on_new_offences: {:?}", offences);
-		let consumed_weight = T::WeightInfo::rc_on_offence(offences.len() as u32);
+		let weight = T::WeightInfo::rc_on_offence(offences.len() as u32);
 
 		// Find the era to which offence belongs.
 		let Some(active_era) = ActiveEra::<T>::get() else {
 			log!(warn, "🦹 on_new_offences: no active era; ignoring offence");
-			return
+			return T::WeightInfo::rc_on_offence(0);
 		};
 
 		let active_era_start_session = Rotator::<T>::active_era_start_session_index();
@@ -1186,7 +1189,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 					// defensive: this implies offence is for a discarded era, and should already be
 					// filtered out.
 					log!(warn, "🦹 on_offence: no era found for slash_session; ignoring offence");
-					return
+					return T::WeightInfo::rc_on_offence(0);
 				},
 			}
 		};
@@ -1338,7 +1341,14 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 			}
 		}
 
-		Self::register_weight(consumed_weight);
+		weight
+	}
+
+	fn weigh_on_new_offences(
+		_slash_session: SessionIndex,
+		offences: &[pallet_staking_async_rc_client::Offence<Self::AccountId>],
+	) -> Weight {
+		T::WeightInfo::rc_on_offence(offences.len() as u32)
 	}
 }
 
