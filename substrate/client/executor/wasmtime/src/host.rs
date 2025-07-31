@@ -149,7 +149,7 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 				let call_id = self.host_state_mut().increment_call_id();
 				runtime_code_hash.inspect(|code_hash| {
 					let display_ptr = u64::from(ptr);
-					log::debug!(target: "runtime_host_allocator", "deallocation: code_hash={code_hash:x?}, instance_id={instance_id}, call_id={call_id} ptr=0x{display_ptr:x?}");
+					log::debug!(target: "runtime_host_allocator", "deallocation: code_hash={code_hash:x?}, instance_id={instance_id}, call_id={call_id}, ptr=0x{display_ptr:x?}");
 				});
 			})
 			.map_err(|e| e.to_string());
