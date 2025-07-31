@@ -1057,12 +1057,24 @@ pub mod env {
 		is_mut: u32,
 	) -> Result<u32, TrapReason> {
 		// self.charge_gas(RuntimeCosts::Exists)?;
-		let signer: MoveSigner =
+		let signer: MoveAddress =
 			copy_from_guest(memory, ptr_to_signer).expect("failed to copy memory");
+		log::debug!(target: LOG_TARGET, "move_from: address: {:x?}", signer.0);
+
+		if is_mut != 0 {
+			let origin =
+				<E::T as Config>::AddressMapper::to_address(self.ext.origin().account_id()?);
+			let account_id = origin.as_bytes();
+			log::debug!(target: LOG_TARGET, "caller: {account_id:x?}");
+			assert_eq!(
+				signer.0, account_id,
+				"Mutable borrows are only allowed by the owner of the value"
+			);
+		}
 		let tag = memory.read(ptr_to_tag, 32)?;
 		let tag_slice = tag.try_into().expect("expected 32 bytes");
 
-		let value = load::<E::T>(signer.0 .0, tag_slice, remove != 0, is_mut != 0);
+		let value = load::<E::T>(signer.0, tag_slice, remove != 0, is_mut != 0);
 		let address = to_move_byte_vector(memory, &mut self.move_allocator, value.to_vec())
 			.expect("failed to copy byte vector");
 		log::debug!(target: LOG_TARGET,
