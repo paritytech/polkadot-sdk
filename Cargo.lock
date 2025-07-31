@@ -13184,6 +13184,8 @@ dependencies = [
 name = "pallet-staking-async"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "env_logger 0.11.3",
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-support",
@@ -13231,6 +13233,7 @@ dependencies = [
 name = "pallet-staking-async-parachain-runtime"
 version = "0.15.0"
 dependencies = [
+ "asset-test-utils",
  "assets-common",
  "bp-asset-hub-rococo",
  "bp-bridge-hub-rococo",
@@ -13248,6 +13251,7 @@ dependencies = [
  "frame-election-provider-support",
  "frame-executive",
  "frame-metadata-hash-extension",
+ "frame-remote-externalities",
  "frame-support",
  "frame-system",
  "frame-system-benchmarking",
@@ -13265,6 +13269,7 @@ dependencies = [
  "pallet-aura",
  "pallet-authorship",
  "pallet-bags-list",
+ "pallet-bags-list-remote-tests",
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-conviction-voting",
@@ -13285,6 +13290,7 @@ dependencies = [
  "pallet-scheduler",
  "pallet-session",
  "pallet-staking-async",
+ "pallet-staking-async-preset-store",
  "pallet-staking-async-rc-client",
  "pallet-staking-async-runtime-api",
  "pallet-state-trie-migration",
@@ -13301,6 +13307,7 @@ dependencies = [
  "pallet-xcm-benchmarks",
  "pallet-xcm-bridge-hub-router",
  "parachains-common",
+ "parachains-runtimes-test-utils",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",
@@ -13314,6 +13321,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-genesis-builder",
  "sp-inherents",
+ "sp-io",
  "sp-keyring",
  "sp-npos-elections",
  "sp-offchain",
@@ -13331,8 +13339,18 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "tokio",
  "westend-runtime-constants",
  "xcm-runtime-apis",
+]
+
+[[package]]
+name = "pallet-staking-async-preset-store"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "polkadot-sdk-frame",
+ "scale-info",
 ]
 
 [[package]]
@@ -13396,12 +13414,14 @@ dependencies = [
  "pallet-proxy",
  "pallet-recovery",
  "pallet-referenda",
+ "pallet-root-offences",
  "pallet-root-testing",
  "pallet-scheduler",
  "pallet-session",
  "pallet-session-benchmarking",
  "pallet-staking",
  "pallet-staking-async-ah-client",
+ "pallet-staking-async-preset-store",
  "pallet-staking-async-rc-client",
  "pallet-staking-async-rc-runtime-constants",
  "pallet-sudo",
