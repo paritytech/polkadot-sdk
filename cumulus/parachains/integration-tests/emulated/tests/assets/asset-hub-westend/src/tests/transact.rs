@@ -204,7 +204,7 @@ fn transact_from_para_to_para_through_asset_hub() {
 #[test]
 fn transact_using_authorized_alias_from_para_to_asset_hub_and_back_to_para() {
 	let sender = PenpalASender::get();
-	let sov_of_sender_on_asset_hub = AssetHubWestend::sovereign_account_id_of(
+	let sov_of_penpal_on_asset_hub = AssetHubWestend::sovereign_account_id_of(
 		AssetHubWestend::sibling_location_of(PenpalA::para_id()),
 	);
 	let wnd_from_parachain_pov: Location = RelayLocation::get();
@@ -230,7 +230,7 @@ fn transact_using_authorized_alias_from_para_to_asset_hub_and_back_to_para() {
 	// SA-of-Penpal-on-AHW should contain WND amount equal at least the amount that will be
 	// transferred-in to AH Since AH is the reserve for WND
 	AssetHubWestend::fund_accounts(vec![(
-		sov_of_sender_on_asset_hub.clone().into(),
+		sov_of_penpal_on_asset_hub.clone().into(),
 		ASSET_HUB_WESTEND_ED + amount_of_wnd_to_transfer_to_ah,
 	)]);
 	// Give the sender enough WND
