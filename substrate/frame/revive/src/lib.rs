@@ -563,6 +563,7 @@ pub mod pallet {
 	// TODO: This should be bounded at a constant length.
 	#[pallet::storage]
 	#[pallet::unbounded]
+	#[pallet::getter(fn current_eth_block)]
 	pub type CurrentEthBlock<T: Config> = StorageValue<_, EthBlock>;
 	// /// The current Ethereum receipts.
 	// #[pallet::storage]
@@ -622,6 +623,9 @@ pub mod pallet {
 		}
 
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+			// let eth_block = CurrentEthBlock::<T>::get();
+			// let parent_state_root = storage::root(sp_runtime::StateVersion::V1);
+
 			// TODO: Return proper weight.
 			Weight::zero()
 		}
@@ -2011,6 +2015,11 @@ sp_api::decl_runtime_apis! {
 		/// See [`crate::Pallet::dry_run_eth_transact`]
 		fn eth_transact(tx: GenericTransaction, raw_bytes: Vec<u8>) -> Result<EthTransactInfo<Balance>, EthTransactError>;
 
+		/// Fetch the current ETH block from storage.
+		///
+		/// This does not contain the state and transaction roots yet.
+		fn eth_block() -> EthBlock;
+
 		/// Upload new code without instantiating a contract from it.
 		///
 		/// See [`crate::Pallet::bare_upload_code`].
@@ -2174,6 +2183,10 @@ macro_rules! impl_runtime_apis_plus_revive {
 					let blockweights: $crate::BlockWeights =
 						<Self as $crate::frame_system::Config>::BlockWeights::get();
 					$crate::Pallet::<Self>::dry_run_eth_transact(tx, blockweights.max_block, tx_fee)
+				}
+
+				fn eth_block() -> EthBlock {
+					$crate::Pallet::<Self>::current_eth_block()
 				}
 
 				fn call(
